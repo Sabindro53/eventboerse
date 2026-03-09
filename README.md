@@ -35,6 +35,8 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 ├── footer.php        # WordPress-Footer
 ├── style.css         # WordPress-Theme-Metadaten
 ├── .htaccess         # Apache-Konfiguration (HTTPS, Caching, Security)
+├── .github/workflows/
+│   └── ionos-deploy.yml  # IONOS FTP Deployment
 ├── robots.txt        # SEO-Robots
 ├── sitemap.xml       # XML-Sitemap
 └── README.md         # Projektdokumentation
@@ -54,6 +56,51 @@ python3 -m http.server 8000
 # Option 3: Lokaler Server (z.B. mit Node.js)
 npx serve .
 ```
+
+## Deployment auf IONOS
+
+Die Anwendung wird bei jedem Push auf `main` automatisch per FTP auf IONOS deployed.
+
+### Schritt 1 – FTP-Zugangsdaten in IONOS finden
+
+1. Öffne [login.ionos.de](https://login.ionos.de) und melde dich an
+2. Klicke im Menü oben auf **Hosting**
+3. Wähle deinen Vertrag **Hosting für WordPress Grow** (Vertrag 111017108)
+4. Klicke links im Menü auf **SFTP & SSH**
+5. Dort findest du:
+   - **Server (Host):** z.B. `access123456789.webspace-data.io`
+   - **Benutzername:** z.B. `u12345678`
+   - **Passwort:** das Passwort, das du bei IONOS festgelegt hast (kann dort auch zurückgesetzt werden)
+
+> **Tipp:** Falls du dein FTP-Passwort nicht kennst, kannst du es unter **SFTP & SSH** → **Passwort ändern** neu setzen.
+
+### Schritt 2 – GitHub Secrets anlegen
+
+1. Öffne dein Repository auf GitHub
+2. Klicke oben auf **Settings** (Zahnrad-Symbol)
+3. Klicke links im Menü auf **Secrets and variables** → **Actions**
+4. Klicke auf den grünen Button **New repository secret**
+5. Lege nacheinander diese 4 Secrets an:
+
+| Secret | Was eintragen | Beispiel |
+|--------|--------------|----------|
+| `IONOS_FTP_SERVER` | Server/Host aus IONOS SFTP-Seite | `access123456789.webspace-data.io` |
+| `IONOS_FTP_USERNAME` | Benutzername aus IONOS SFTP-Seite | `u12345678` |
+| `IONOS_FTP_PASSWORD` | Dein IONOS FTP-Passwort | *(dein Passwort)* |
+| `IONOS_FTP_REMOTE_DIR` | Zielordner auf dem Server | `/` |
+
+> **Hinweis:** Für `IONOS_FTP_REMOTE_DIR` trage `/` ein, wenn die Dateien direkt ins Hauptverzeichnis sollen. Falls IONOS ein Unterverzeichnis nutzt (z.B. `/htdocs/`), trage dieses ein.
+
+### Schritt 3 – Deployment testen
+
+Nachdem du alle 4 Secrets angelegt hast:
+
+1. Gehe im Repository auf **Actions** → **Deploy to IONOS**
+2. Klicke auf **Run workflow**
+3. Wähle den `main`-Branch und klicke auf den grünen **Run workflow**-Button
+4. Warte bis der Workflow grün wird (✅) – dann ist die Seite auf IONOS live!
+
+Ab jetzt wird bei jedem Push auf `main` automatisch deployed.
 
 ## Lizenz
 
