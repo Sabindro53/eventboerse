@@ -36,7 +36,8 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 ├── style.css         # WordPress-Theme-Metadaten
 ├── .htaccess         # Apache-Konfiguration (HTTPS, Caching, Security)
 ├── .github/workflows/
-│   └── ionos-deploy.yml  # IONOS FTP Deployment
+│   ├── ionos-deploy.yml  # IONOS FTP Deployment
+│   └── site-monitor.yml  # Uptime-Monitor (Keep-Alive Agent)
 ├── robots.txt        # SEO-Robots
 ├── sitemap.xml       # XML-Sitemap
 └── README.md         # Projektdokumentation
@@ -101,6 +102,32 @@ Nachdem du alle 4 Secrets angelegt hast:
 4. Warte bis der Workflow grün wird (✅) – dann ist die Seite auf IONOS live!
 
 Ab jetzt wird bei jedem Push auf `main` automatisch deployed.
+
+## Site Monitor – Keep-Alive Agent
+
+Ein GitHub-Actions-Workflow (`.github/workflows/site-monitor.yml`) überwacht die Seite automatisch alle **30 Minuten**:
+
+- ✅ **Site erreichbar (HTTPS)** – wenn ein offenes „site-down"-Issue existiert, wird es automatisch geschlossen
+- ⚠️ **Nur HTTP erreichbar** – meldet, dass HTTPS Probleme hat (z.B. Zertifikatsfehler)
+- 🚨 **Site nicht erreichbar** – erstellt automatisch ein GitHub-Issue mit Diagnosehinweisen
+
+### Manuell starten
+
+1. Gehe im Repository auf **Actions** → **Site Monitor – Keep Alive**
+2. Klicke auf **Run workflow** → **Run workflow**
+
+### SSL-Zertifikat reparieren
+
+Falls die Seite den Fehler `NET::ERR_CERT_COMMON_NAME_INVALID` zeigt (siehe Screenshot im Issue):
+
+1. Öffne [login.ionos.de](https://login.ionos.de)
+2. Gehe zu **Hosting** → dein Vertrag
+3. Klicke links auf **SSL-Zertifikate**
+4. Stelle sicher, dass ein gültiges SSL-Zertifikat für `eventboerse.de` **und** `www.eventboerse.de` aktiviert ist
+5. Falls kein Zertifikat vorhanden ist: Aktiviere das kostenlose **SSL Starter (Let's Encrypt)** Wildcard-Zertifikat
+6. Warte 10–30 Minuten, bis das Zertifikat aktiv ist
+
+> **Hinweis:** Der Fehler `NET::ERR_CERT_COMMON_NAME_INVALID` bedeutet, dass das SSL-Zertifikat nicht zur Domain passt. Dies muss direkt bei IONOS behoben werden.
 
 ## Lizenz
 

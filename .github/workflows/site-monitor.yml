@@ -1,0 +1,151 @@
+name: Site Monitor – Keep Alive
+
+on:
+  schedule:
+    # Runs every 30 minutes
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    name: Check Site Availability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check HTTP response
+        id: health
+        run: |
+          STATUS=0
+
+          # Try HTTPS first (primary URL)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 30 --retry 3 --retry-delay 10 \
+            -L -k "https://eventboerse.de" 2>/dev/null) || true
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+            echo "✅ HTTPS reachable – HTTP $HTTP_CODE"
+            echo "status=up" >> "$GITHUB_OUTPUT"
+            echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+            echo "protocol=https" >> "$GITHUB_OUTPUT"
+          else
+            # Fallback: try plain HTTP
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 30 --retry 3 --retry-delay 10 \
+              -L "http://eventboerse.de" 2>/dev/null) || true
+
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+              echo "⚠️ Only HTTP reachable – HTTP $HTTP_CODE (HTTPS may have certificate issues)"
+              echo "status=degraded" >> "$GITHUB_OUTPUT"
+              echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+              echo "protocol=http" >> "$GITHUB_OUTPUT"
+            else
+              echo "❌ Site unreachable – HTTP $HTTP_CODE"
+              echo "status=down" >> "$GITHUB_OUTPUT"
+              echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+              echo "protocol=none" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Create issue if site is down
+        if: steps.health.outputs.status == 'down'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Site Down – eventboerse.de unreachable (HTTP ${process.env.HTTP_CODE})`;
+            const body = [
+              `## Site Monitor Alert`,
+              ``,
+              `| Detail | Value |`,
+              `|--------|-------|`,
+              `| **URL** | https://eventboerse.de |`,
+              `| **HTTP Code** | ${process.env.HTTP_CODE} |`,
+              `| **Detected** | ${new Date().toISOString()} |`,
+              `| **Workflow Run** | [View logs](${process.env.RUN_URL}) |`,
+              ``,
+              `### Recommended Actions`,
+              `1. Check IONOS hosting control panel for server status`,
+              `2. Verify FTP deployment completed successfully`,
+              `3. Check DNS settings for eventboerse.de`,
+              `4. Review SSL certificate configuration`,
+            ].join('\n');
+
+            // Avoid duplicate issues
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'site-down',
+              per_page: 5,
+            });
+
+            if (issues.length === 0) {
+              // Ensure label exists
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'site-down',
+                  color: 'e11d48',
+                  description: 'Automated alert: site is unreachable',
+                });
+              } catch (e) {
+                // Label already exists – ignore
+              }
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['site-down'],
+              });
+              console.log('Issue created.');
+            } else {
+              // Add a comment to the existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `⏰ **Still down** – HTTP ${process.env.HTTP_CODE} at ${new Date().toISOString()}\n[Workflow run](${process.env.RUN_URL})`,
+              });
+              console.log('Comment added to existing issue.');
+            }
+        env:
+          HTTP_CODE: ${{ steps.health.outputs.code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Close issue if site is back up
+        if: steps.health.outputs.status == 'up'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'site-down',
+              per_page: 5,
+            });
+
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `✅ **Site is back up!** – HTTP ${process.env.HTTP_CODE} at ${new Date().toISOString()}\n[Workflow run](${process.env.RUN_URL})`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              console.log(`Issue #${issue.number} closed.`);
+            }
+        env:
+          HTTP_CODE: ${{ steps.health.outputs.code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
