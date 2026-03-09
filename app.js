@@ -860,8 +860,8 @@ function loadProvider(providerId) {
   document.getElementById('providerName').textContent = mainListing.providerName;
   document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
   document.getElementById('providerListingCount').textContent = providerListings.length;
-  document.getElementById('providerRating').textContent = mainListing.rating;
-  document.getElementById('providerReviews').textContent = mainListing.reviews;
+  document.getElementById('providerRating').textContent = 0;
+  document.getElementById('providerReviews').textContent = 0;
 
   // Listings tab
   document.getElementById('providerListings').innerHTML = providerListings.map(renderListingCard).join('');
