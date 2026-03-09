@@ -483,7 +483,7 @@ function renderHeroMarquees() {
   const rightListings = LISTINGS.slice(5, 10);
 
   function cardHTML(l) {
-    return `<a class="hero-marquee-card" href="#" onclick="navigateTo('listing',${l.id});return false;">
+    return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
       <img src="${l.image}" alt="${l.title}" loading="lazy" />
       <div class="hero-marquee-card-info">
         <h4>${l.title}</h4>
