@@ -1955,3 +1955,179 @@ img { display: block; max-width: 100%; }
 .listing-card:nth-child(6) { animation-delay: 0.3s; }
 .listing-card:nth-child(7) { animation-delay: 0.35s; }
 .listing-card:nth-child(8) { animation-delay: 0.4s; }
+
+/* ======== REVIEW SYSTEM ======== */
+.reviews-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.reviews-header h3 { margin: 0; }
+
+/* Star Rating Picker */
+.star-rating-picker {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.star-pick {
+  font-size: 2rem;
+  cursor: pointer;
+  color: var(--border);
+  transition: color 0.15s, transform 0.15s;
+  user-select: none;
+}
+.star-pick:hover,
+.star-pick.active {
+  color: #FBBF24;
+  transform: scale(1.15);
+}
+.star-rating-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  margin-top: 2px;
+  min-height: 1.2em;
+}
+
+/* ======== MY LISTINGS PAGE ======== */
+.my-listings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-top: 24px;
+}
+.my-listings-header h1 { margin: 0; }
+
+.my-listing-card {
+  display: flex;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  background: var(--bg);
+  transition: box-shadow var(--transition);
+}
+.my-listing-card:hover {
+  box-shadow: var(--shadow-md);
+}
+.my-listing-img {
+  position: relative;
+  flex-shrink: 0;
+  width: 140px;
+  height: 100px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.my-listing-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.my-listing-img .status-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+.my-listing-info {
+  flex: 1;
+  min-width: 0;
+}
+.my-listing-info h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.my-listing-info p {
+  margin: 0 0 2px;
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+.my-listing-price {
+  font-weight: 600;
+  color: var(--dark);
+}
+.my-listing-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+.my-listing-stats span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.my-listing-stats .material-icons-round {
+  font-size: 16px;
+}
+.my-listing-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: center;
+  flex-shrink: 0;
+}
+.btn-danger-outline {
+  color: #E53E3E !important;
+  border-color: #FED7D7 !important;
+}
+.btn-danger-outline:hover {
+  background: #FFF5F5 !important;
+  border-color: #E53E3E !important;
+}
+
+.my-listings-empty,
+.favorites-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-light);
+}
+.my-listings-empty .material-icons-round,
+.favorites-empty .material-icons-round {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+.my-listings-empty h3,
+.favorites-empty h3 {
+  color: var(--dark);
+  margin-bottom: 8px;
+}
+.my-listings-empty p,
+.favorites-empty p {
+  margin-bottom: 20px;
+  max-width: 360px;
+}
+
+/* ======== FAVORITES PAGE ======== */
+.favorites-title {
+  padding-top: 24px;
+  margin-bottom: 24px;
+}
+
+/* ======== RESPONSIVE: My Listings ======== */
+@media (max-width: 768px) {
+  .my-listing-card {
+    flex-direction: column;
+  }
+  .my-listing-img {
+    width: 100%;
+    height: 160px;
+  }
+  .my-listing-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .my-listings-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+}

@@ -492,7 +492,12 @@
               <!-- Loaded by JS -->
             </div>
             <div class="detail-divider"></div>
-            <h3>Bewertungen</h3>
+            <div class="reviews-header">
+              <h3>Bewertungen</h3>
+              <button class="btn-outline btn-sm" id="writeReviewBtn" onclick="openReviewModal()">
+                <span class="material-icons-round">rate_review</span> Bewertung schreiben
+              </button>
+            </div>
             <div class="detail-reviews" id="detailReviews">
               <!-- Loaded by JS -->
             </div>
@@ -807,6 +812,16 @@
               <label>Region / Stadt</label>
               <input type="text" id="createRegion" placeholder="z.B. Berlin & Umgebung" />
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Verfügbar ab</label>
+                <input type="date" id="createDateFrom" />
+              </div>
+              <div class="form-group">
+                <label>Verfügbar bis (optional)</label>
+                <input type="date" id="createDateTo" />
+              </div>
+            </div>
             <div class="form-group">
               <label>Verfügbar für</label>
               <div class="checkbox-group" id="createTags">
@@ -951,6 +966,47 @@
               <span class="material-icons-round">save</span> Profil speichern
             </button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: MY LISTINGS ============ -->
+    <section id="page-my-listings" class="page">
+      <div class="container">
+        <div class="my-listings-header">
+          <h1>Meine Inserate</h1>
+          <button class="btn-primary" onclick="navigateTo('create-listing')">
+            <span class="material-icons-round">add_circle</span> Neues Inserat
+          </button>
+        </div>
+        <div class="my-listings-grid" id="myListingsGrid">
+          <!-- Loaded by JS -->
+        </div>
+        <div class="my-listings-empty" id="myListingsEmpty" style="display:none;">
+          <span class="material-icons-round">storefront</span>
+          <h3>Noch keine Inserate</h3>
+          <p>Erstelle dein erstes Inserat und erreiche tausende potenzielle Kunden.</p>
+          <button class="btn-primary" onclick="navigateTo('create-listing')">
+            <span class="material-icons-round">add_circle</span> Jetzt Inserat erstellen
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: FAVORITES ============ -->
+    <section id="page-favorites" class="page">
+      <div class="container">
+        <h1 class="favorites-title">Meine Favoriten</h1>
+        <div class="listing-grid" id="favoritesGrid">
+          <!-- Loaded by JS -->
+        </div>
+        <div class="favorites-empty" id="favoritesEmpty" style="display:none;">
+          <span class="material-icons-round">favorite_border</span>
+          <h3>Noch keine Favoriten</h3>
+          <p>Speichere Inserate, die dir gefallen, um sie später leicht wiederzufinden.</p>
+          <button class="btn-primary" onclick="navigateTo('browse')">
+            <span class="material-icons-round">search</span> Services entdecken
+          </button>
         </div>
       </div>
     </section>
@@ -1117,6 +1173,40 @@
         </div>
         <button type="submit" class="btn-primary btn-block">
           <span class="material-icons-round">send</span> Angebot senden
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Review Modal -->
+  <div class="modal-overlay" id="reviewModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('reviewModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">star</span>
+        <h2>Bewertung schreiben</h2>
+        <p id="reviewModalSubtitle">Teile deine Erfahrung mit anderen Nutzern</p>
+      </div>
+      <form class="modal-form" onsubmit="submitReview(event)">
+        <div class="form-group">
+          <label>Deine Bewertung</label>
+          <div class="star-rating-picker" id="starRatingPicker">
+            <span class="star-pick" data-value="1" onclick="setRating(1)" onmouseover="hoverRating(1)" onmouseout="resetRatingHover()">☆</span>
+            <span class="star-pick" data-value="2" onclick="setRating(2)" onmouseover="hoverRating(2)" onmouseout="resetRatingHover()">☆</span>
+            <span class="star-pick" data-value="3" onclick="setRating(3)" onmouseover="hoverRating(3)" onmouseout="resetRatingHover()">☆</span>
+            <span class="star-pick" data-value="4" onclick="setRating(4)" onmouseover="hoverRating(4)" onmouseout="resetRatingHover()">☆</span>
+            <span class="star-pick" data-value="5" onclick="setRating(5)" onmouseover="hoverRating(5)" onmouseout="resetRatingHover()">☆</span>
+          </div>
+          <span class="star-rating-label" id="starRatingLabel">Klicke auf einen Stern</span>
+        </div>
+        <div class="form-group">
+          <label>Dein Feedback</label>
+          <textarea rows="4" id="reviewText" placeholder="Beschreibe deine Erfahrung mit diesem Anbieter..." required></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-block">
+          <span class="material-icons-round">send</span> Bewertung abschicken
         </button>
       </form>
     </div>
