@@ -318,6 +318,58 @@ const DEMO_CHATS = [
   }
 ];
 
+// ========== DEMO EVENTS (for Event-Planer role) ==========
+const DEMO_EVENTS = [
+  {
+    id: 'evt1',
+    title: 'Hochzeit von Anna & Tom',
+    type: 'Hochzeit',
+    date: '15. Juni 2026',
+    location: 'Berlin',
+    guests: 120,
+    budget: '8.500€',
+    status: 'In Planung',
+    description: 'Unsere Traumhochzeit im Schloss am See mit 120 Gästen.',
+    image: 'https://images.pexels.com/photos/169198/pexels-photo-169198.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    bookedServices: [
+      { name: 'DJ SoundMaster Berlin', category: 'DJ & Musik', status: 'Bestätigt' },
+      { name: 'Gourmet Catering Hamburg', category: 'Catering', status: 'In Verhandlung' },
+      { name: 'Blumenträume München', category: 'Floristik', status: 'Bestätigt' }
+    ]
+  },
+  {
+    id: 'evt2',
+    title: 'Firmen-Sommerfest 2026',
+    type: 'Firmen-Event',
+    date: '20. Juli 2026',
+    location: 'München',
+    guests: 200,
+    budget: '15.000€',
+    status: 'In Planung',
+    description: 'Großes Sommerfest für die gesamte Belegschaft mit Live-Musik und Catering.',
+    image: 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    bookedServices: [
+      { name: 'LightFX Eventtechnik', category: 'Licht & Technik', status: 'Bestätigt' },
+      { name: 'Eventplanung Meier & Co.', category: 'Eventplanung', status: 'Bestätigt' }
+    ]
+  },
+  {
+    id: 'evt3',
+    title: 'Lauras 30. Geburtstag',
+    type: 'Geburtstag',
+    date: '10. August 2026',
+    location: 'Köln',
+    guests: 50,
+    budget: '3.000€',
+    status: 'Offen',
+    description: 'Überraschungsparty im Loft mit DJ, Deko und Fotobox.',
+    image: 'https://images.pexels.com/photos/1729797/pexels-photo-1729797.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    bookedServices: [
+      { name: 'DekoTraum Eventdesign', category: 'Dekoration', status: 'Angefragt' }
+    ]
+  }
+];
+
 // ========== STATE ==========
 let currentPage = 'home';
 let currentListing = null;
@@ -372,6 +424,9 @@ function navigateTo(page, data) {
       break;
     case 'dashboard':
       renderDashboard();
+      break;
+    case 'create-listing':
+      updateCreateFormForRole();
       break;
     case 'profile':
       loadProfile();
@@ -1109,71 +1164,185 @@ function declineOffer() {
 
 // ========== DASHBOARD ==========
 function renderDashboard() {
-  // My Listings
-  document.getElementById('dashListings').innerHTML = LISTINGS.slice(0, 3).map(l => `
-    <div class="dash-list-item" onclick="navigateTo('detail', ${l.id})">
-      <img src="${l.image}" alt="${l.title}" />
-      <div class="dash-list-item-info">
-        <strong>${l.title}</strong>
-        <span>${l.categoryLabel} · ${l.location}</span>
-      </div>
-      <span class="status-badge status-active">Aktiv</span>
-    </div>
-  `).join('');
+  var dashTitle = document.querySelector('#page-dashboard .dashboard-header h1');
+  var dashSubtitle = document.querySelector('#page-dashboard .dashboard-header p');
+  var dashListingsCard = document.querySelector('#dashListings').closest('.dash-card');
+  var dashListingsTitle = dashListingsCard ? dashListingsCard.querySelector('h3') : null;
+  var dashListingsBtn = dashListingsCard ? dashListingsCard.querySelector('.btn-text') : null;
 
-  // Negotiations
-  document.getElementById('dashNegotiations').innerHTML = `
-    <div class="dash-list-item">
-      <img src="${LISTINGS[0].image}" alt="" />
-      <div class="dash-list-item-info">
-        <strong>Max Beats – DJ</strong>
-        <span>Gegenangebot: 420€</span>
-      </div>
-      <span class="status-badge status-pending">Offen</span>
-    </div>
-    <div class="dash-list-item">
-      <img src="${LISTINGS[2].image}" alt="" />
-      <div class="dash-list-item-info">
-        <strong>Lisa Blumen – Floristik</strong>
-        <span>Dein Angebot: 750€</span>
-      </div>
-      <span class="status-badge status-pending">Wartet</span>
-    </div>
-  `;
+  if (isEventPlaner()) {
+    // === EVENT-PLANER DASHBOARD ===
+    if (dashTitle) dashTitle.textContent = 'Event-Dashboard';
+    if (dashSubtitle) dashSubtitle.textContent = 'Willkommen zurück! Hier ist deine Event-Übersicht.';
+    if (dashListingsTitle) dashListingsTitle.innerHTML = '<span class="material-icons-round">event_note</span> Meine Events';
+    if (dashListingsBtn) {
+      dashListingsBtn.innerHTML = '<span class="material-icons-round">add</span> Neues Event';
+      dashListingsBtn.setAttribute('onclick', "navigateTo('create-listing')");
+    }
 
-  // Bookings
-  document.getElementById('dashBookings').innerHTML = `
-    <div class="dash-list-item">
-      <img src="${LISTINGS[1].image}" alt="" />
-      <div class="dash-list-item-info">
-        <strong>Gourmet Catering</strong>
-        <span>15. Juni 2026 · 50 Gäste</span>
+    document.getElementById('dashListings').innerHTML = DEMO_EVENTS.map(evt => `
+      <div class="dash-list-item" onclick="navigateTo('my-listings')">
+        <img src="${evt.image}" alt="${evt.title}" />
+        <div class="dash-list-item-info">
+          <strong>${evt.title}</strong>
+          <span>${evt.type} · ${evt.date} · ${evt.guests} Gäste</span>
+        </div>
+        <span class="status-badge ${evt.status === 'In Planung' ? 'status-active' : 'status-pending'}">${evt.status}</span>
       </div>
-      <span class="status-badge status-completed">Bestätigt</span>
-    </div>
-    <div class="dash-list-item">
-      <img src="${LISTINGS[5].image}" alt="" />
-      <div class="dash-list-item-info">
-        <strong>Fotokunst Berlin</strong>
-        <span>15. Juni 2026 · Hochzeit</span>
-      </div>
-      <span class="status-badge status-active">Ausstehend</span>
-    </div>
-  `;
+    `).join('');
 
-  // Reviews
-  document.getElementById('dashReviews').innerHTML = DEMO_REVIEWS.slice(0, 2).map(r => `
-    <div class="dash-list-item">
-      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar}" alt="" />
-      <div class="dash-list-item-info">
-        <strong>${r.name}</strong>
-        <span>${'★'.repeat(r.rating)} · ${r.date}</span>
+    // Negotiations (Event-Planer perspective)
+    document.getElementById('dashNegotiations').innerHTML = `
+      <div class="dash-list-item">
+        <img src="${LISTINGS[0].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>DJ SoundMaster Berlin</strong>
+          <span>Dein Angebot: 380€ → Gegenangebot: 420€</span>
+        </div>
+        <span class="status-badge status-pending">Offen</span>
       </div>
-    </div>
-  `).join('');
+      <div class="dash-list-item">
+        <img src="${LISTINGS[2].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>Blumenträume München</strong>
+          <span>Dein Angebot: 750€</span>
+        </div>
+        <span class="status-badge status-pending">Wartet</span>
+      </div>
+    `;
+
+    // Bookings (services booked for events)
+    document.getElementById('dashBookings').innerHTML = `
+      <div class="dash-list-item">
+        <img src="${LISTINGS[1].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>Gourmet Catering Hamburg</strong>
+          <span>Hochzeit · 15. Juni 2026 · 120 Gäste</span>
+        </div>
+        <span class="status-badge status-completed">Bestätigt</span>
+      </div>
+      <div class="dash-list-item">
+        <img src="${LISTINGS[5].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>Fotokunst Berlin</strong>
+          <span>Hochzeit · 15. Juni 2026</span>
+        </div>
+        <span class="status-badge status-active">Ausstehend</span>
+      </div>
+    `;
+
+    // Reviews (reviews you gave)
+    document.getElementById('dashReviews').innerHTML = `
+      <div class="dash-list-item">
+        <img src="${LISTINGS[0].providerImg}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>DJ SoundMaster Berlin</strong>
+          <span>★★★★★ · Deine Bewertung</span>
+        </div>
+      </div>
+    `;
+  } else {
+    // === DIENSTLEISTER DASHBOARD ===
+    if (dashTitle) dashTitle.textContent = 'Dashboard';
+    if (dashSubtitle) dashSubtitle.textContent = 'Willkommen zurück! Hier ist deine Übersicht.';
+    if (dashListingsTitle) dashListingsTitle.innerHTML = '<span class="material-icons-round">storefront</span> Meine Inserate';
+    if (dashListingsBtn) {
+      dashListingsBtn.innerHTML = '<span class="material-icons-round">add</span> Neues Inserat';
+      dashListingsBtn.setAttribute('onclick', "navigateTo('create-listing')");
+    }
+
+    document.getElementById('dashListings').innerHTML = LISTINGS.slice(0, 3).map(l => `
+      <div class="dash-list-item" onclick="navigateTo('detail', ${l.id})">
+        <img src="${l.image}" alt="${l.title}" />
+        <div class="dash-list-item-info">
+          <strong>${l.title}</strong>
+          <span>${l.categoryLabel} · ${l.location}</span>
+        </div>
+        <span class="status-badge status-active">Aktiv</span>
+      </div>
+    `).join('');
+
+    // Negotiations
+    document.getElementById('dashNegotiations').innerHTML = `
+      <div class="dash-list-item">
+        <img src="${LISTINGS[0].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>Max Beats – DJ</strong>
+          <span>Gegenangebot: 420€</span>
+        </div>
+        <span class="status-badge status-pending">Offen</span>
+      </div>
+      <div class="dash-list-item">
+        <img src="${LISTINGS[2].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>Lisa Blumen – Floristik</strong>
+          <span>Dein Angebot: 750€</span>
+        </div>
+        <span class="status-badge status-pending">Wartet</span>
+      </div>
+    `;
+
+    // Bookings
+    document.getElementById('dashBookings').innerHTML = `
+      <div class="dash-list-item">
+        <img src="${LISTINGS[1].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>Gourmet Catering</strong>
+          <span>15. Juni 2026 · 50 Gäste</span>
+        </div>
+        <span class="status-badge status-completed">Bestätigt</span>
+      </div>
+      <div class="dash-list-item">
+        <img src="${LISTINGS[5].image}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>Fotokunst Berlin</strong>
+          <span>15. Juni 2026 · Hochzeit</span>
+        </div>
+        <span class="status-badge status-active">Ausstehend</span>
+      </div>
+    `;
+
+    // Reviews
+    document.getElementById('dashReviews').innerHTML = DEMO_REVIEWS.slice(0, 2).map(r => `
+      <div class="dash-list-item">
+        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar}" alt="" />
+        <div class="dash-list-item-info">
+          <strong>${r.name}</strong>
+          <span>${'★'.repeat(r.rating)} · ${r.date}</span>
+        </div>
+      </div>
+    `).join('');
+  }
 }
 
 // ========== CREATE LISTING ==========
+function updateCreateFormForRole() {
+  var title = document.querySelector('#page-create-listing .create-title');
+  var subtitle = document.querySelector('#page-create-listing .create-subtitle');
+  var titleLabel = document.querySelector('label[for="createTitle"]');
+  if (!titleLabel) {
+    // Find by proximity to input
+    var titleInput = document.getElementById('createTitle');
+    if (titleInput) titleLabel = titleInput.closest('.form-group').querySelector('label');
+  }
+  var titleInput = document.getElementById('createTitle');
+  var submitBtn = document.querySelector('#step3 .btn-primary');
+
+  if (isEventPlaner()) {
+    if (title) title.textContent = 'Event erstellen';
+    if (subtitle) subtitle.textContent = 'Beschreibe dein Event und finde die passenden Dienstleister.';
+    if (titleLabel) titleLabel.textContent = 'Name deines Events';
+    if (titleInput) titleInput.placeholder = 'z.B. Hochzeit von Anna & Tom, Firmen-Sommerfest...';
+    if (submitBtn) submitBtn.innerHTML = '<span class=\"material-icons-round\">event_available</span> Event ver\u00f6ffentlichen';
+  } else {
+    if (title) title.textContent = 'Inserat erstellen';
+    if (subtitle) subtitle.textContent = 'Pr\u00e4sentiere deinen Service und erreiche tausende potenzielle Kunden.';
+    if (titleLabel) titleLabel.textContent = 'Titel deines Services';
+    if (titleInput) titleInput.placeholder = 'z.B. Professionelle DJ-Services f\u00fcr jedes Event';
+    if (submitBtn) submitBtn.innerHTML = '<span class=\"material-icons-round\">publish</span> Inserat ver\u00f6ffentlichen';
+  }
+}
+
 function nextStep(step) {
   document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
   document.getElementById('step' + step).classList.add('active');
@@ -1518,52 +1687,118 @@ function renderFavorites() {
 function renderMyListings() {
   var grid = document.getElementById('myListingsGrid');
   var emptyState = document.getElementById('myListingsEmpty');
+  var header = document.querySelector('#page-my-listings .my-listings-header h1');
+  var createBtn = document.querySelector('#page-my-listings .my-listings-header .btn-primary');
+  var emptyTitle = document.querySelector('#myListingsEmpty h3');
+  var emptyText = document.querySelector('#myListingsEmpty p');
+  var emptyBtn = document.querySelector('#myListingsEmpty .btn-primary');
 
-  // Show listings created by the current user (match by provider name or show first 3 as demo)
-  var userName = currentUser ? currentUser.name : null;
-  var myListings = userName
-    ? LISTINGS.filter(function(l) { return l.providerName === userName; })
-    : [];
+  if (isEventPlaner()) {
+    // === EVENT-PLANER VIEW ===
+    if (header) header.textContent = 'Meine Events';
+    if (createBtn) createBtn.innerHTML = '<span class="material-icons-round">event</span> Neues Event';
+    if (emptyTitle) emptyTitle.textContent = 'Noch keine Events';
+    if (emptyText) emptyText.textContent = 'Erstelle dein erstes Event und finde die besten Dienstleister.';
+    if (emptyBtn) {
+      emptyBtn.innerHTML = '<span class="material-icons-round">event</span> Jetzt Event erstellen';
+      emptyBtn.setAttribute('onclick', "navigateTo('create-listing')");
+    }
 
-  // If no user-created listings, show demo for logged-in users
-  if (myListings.length === 0 && isLoggedIn) {
-    myListings = LISTINGS.slice(0, 3);
-  }
-
-  if (myListings.length === 0) {
-    grid.style.display = 'none';
-    emptyState.style.display = 'flex';
-  } else {
-    grid.style.display = '';
-    emptyState.style.display = 'none';
-    grid.innerHTML = myListings.map(function(l) {
-      return '<div class="my-listing-card">' +
-        '<div class="my-listing-img">' +
-          '<img src="' + l.image + '" alt="' + l.title + '" />' +
-          '<span class="status-badge status-active">Aktiv</span>' +
-        '</div>' +
-        '<div class="my-listing-info">' +
-          '<h3>' + l.title + '</h3>' +
-          '<p>' + l.categoryLabel + ' · ' + l.location + '</p>' +
-          '<p class="my-listing-price">' + l.priceLabel + '</p>' +
-          '<div class="my-listing-stats">' +
-            '<span><span class="material-icons-round">star</span> ' + l.rating + '</span>' +
-            '<span><span class="material-icons-round">rate_review</span> ' + l.reviews + ' Bewertungen</span>' +
+    var events = DEMO_EVENTS;
+    if (events.length === 0) {
+      grid.style.display = 'none';
+      emptyState.style.display = 'flex';
+    } else {
+      grid.style.display = '';
+      emptyState.style.display = 'none';
+      grid.innerHTML = events.map(function(evt) {
+        var statusClass = evt.status === 'In Planung' ? 'status-active' : (evt.status === 'Offen' ? 'status-pending' : 'status-completed');
+        var servicesHTML = evt.bookedServices.map(function(s) {
+          var sClass = s.status === 'Bestätigt' ? 'status-completed' : (s.status === 'In Verhandlung' ? 'status-pending' : 'status-active');
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.85rem;">' +
+            '<span>' + s.name + ' <small style="color:var(--text-light)">(' + s.category + ')</small></span>' +
+            '<span class="status-badge ' + sClass + '" style="font-size:0.7rem;">' + s.status + '</span>' +
+          '</div>';
+        }).join('');
+        return '<div class="my-listing-card">' +
+          '<div class="my-listing-img">' +
+            '<img src="' + evt.image + '" alt="' + evt.title + '" />' +
+            '<span class="status-badge ' + statusClass + '">' + evt.status + '</span>' +
           '</div>' +
-        '</div>' +
-        '<div class="my-listing-actions">' +
-          '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
-            '<span class="material-icons-round">visibility</span> Ansehen' +
-          '</button>' +
-          '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
-            '<span class="material-icons-round">edit</span> Bearbeiten' +
-          '</button>' +
-          '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
-            '<span class="material-icons-round">delete</span> Löschen' +
-          '</button>' +
-        '</div>' +
-      '</div>';
-    }).join('');
+          '<div class="my-listing-info">' +
+            '<h3>' + evt.title + '</h3>' +
+            '<p>' + evt.type + ' · ' + evt.location + '</p>' +
+            '<p class="my-listing-price"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;">event</span> ' + evt.date + ' · ' + evt.guests + ' Gäste</p>' +
+            '<p style="font-size:0.85rem;color:var(--text-light);margin-top:2px;">Budget: ' + evt.budget + '</p>' +
+            '<div style="margin-top:8px;border-top:1px solid var(--border-light);padding-top:8px;">' +
+              '<strong style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--dark);">Gebuchte Services</strong>' +
+              servicesHTML +
+            '</div>' +
+          '</div>' +
+          '<div class="my-listing-actions">' +
+            '<button class="btn-outline btn-sm" onclick="navigateTo(\'browse\')">' +
+              '<span class="material-icons-round">search</span> Services finden' +
+            '</button>' +
+            '<button class="btn-outline btn-sm" onclick="showToast(\'Event bearbeiten kommt bald!\',\'edit\')">' +
+              '<span class="material-icons-round">edit</span> Bearbeiten' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+  } else {
+    // === DIENSTLEISTER VIEW ===
+    if (header) header.textContent = 'Meine Inserate';
+    if (createBtn) createBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Neues Inserat';
+    if (emptyTitle) emptyTitle.textContent = 'Noch keine Inserate';
+    if (emptyText) emptyText.textContent = 'Erstelle dein erstes Inserat und erreiche tausende potenzielle Kunden.';
+    if (emptyBtn) emptyBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Jetzt Inserat erstellen';
+
+    var userName = currentUser ? currentUser.name : null;
+    var myListings = userName
+      ? LISTINGS.filter(function(l) { return l.providerName === userName; })
+      : [];
+
+    // If no user-created listings, show demo for logged-in users
+    if (myListings.length === 0 && isLoggedIn) {
+      myListings = LISTINGS.slice(0, 3);
+    }
+
+    if (myListings.length === 0) {
+      grid.style.display = 'none';
+      emptyState.style.display = 'flex';
+    } else {
+      grid.style.display = '';
+      emptyState.style.display = 'none';
+      grid.innerHTML = myListings.map(function(l) {
+        return '<div class="my-listing-card">' +
+          '<div class="my-listing-img">' +
+            '<img src="' + l.image + '" alt="' + l.title + '" />' +
+            '<span class="status-badge status-active">Aktiv</span>' +
+          '</div>' +
+          '<div class="my-listing-info">' +
+            '<h3>' + l.title + '</h3>' +
+            '<p>' + l.categoryLabel + ' · ' + l.location + '</p>' +
+            '<p class="my-listing-price">' + l.priceLabel + '</p>' +
+            '<div class="my-listing-stats">' +
+              '<span><span class="material-icons-round">star</span> ' + l.rating + '</span>' +
+              '<span><span class="material-icons-round">rate_review</span> ' + l.reviews + ' Bewertungen</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="my-listing-actions">' +
+            '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
+              '<span class="material-icons-round">visibility</span> Ansehen' +
+            '</button>' +
+            '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
+              '<span class="material-icons-round">edit</span> Bearbeiten' +
+            '</button>' +
+            '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
+              '<span class="material-icons-round">delete</span> Löschen' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
   }
 }
 
@@ -1749,15 +1984,29 @@ function renderDetailReviews(listing) {
 // ========== AUTH ==========
 var currentUser = null;
 
+function isEventPlaner() {
+  return currentUser && currentUser.role === 'Event-Planer';
+}
+
 function applyLogin() {
   isLoggedIn = true;
   document.getElementById('loggedOutMenu').style.display = 'none';
   document.getElementById('loggedInMenu').style.display = 'block';
   // Update nav avatar with user seed
   if (currentUser) {
-    var avatarUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
+    var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
     var navAvatar = document.querySelector('.user-btn img');
     if (navAvatar) navAvatar.src = avatarUrl;
+  }
+  // Update menu labels based on role
+  var menuCreateBtn = document.querySelector('#loggedInMenu button[onclick*="create-listing"]');
+  var menuMyListBtn = document.querySelector('#loggedInMenu button[onclick*="my-listings"]');
+  if (isEventPlaner()) {
+    if (menuCreateBtn) menuCreateBtn.innerHTML = '<span class="material-icons-round">event</span> Event erstellen';
+    if (menuMyListBtn) menuMyListBtn.innerHTML = '<span class="material-icons-round">event_note</span> Meine Events';
+  } else {
+    if (menuCreateBtn) menuCreateBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Inserat erstellen';
+    if (menuMyListBtn) menuMyListBtn.innerHTML = '<span class="material-icons-round">storefront</span> Meine Inserate';
   }
 }
 
