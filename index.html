@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -891,6 +891,20 @@
                 <input type="date" id="createDateTo" />
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Uhrzeit von</label>
+                <input type="time" id="createTimeFrom" value="18:00" />
+              </div>
+              <div class="form-group">
+                <label>Uhrzeit bis</label>
+                <input type="time" id="createTimeTo" value="22:00" />
+              </div>
+              <div class="form-group">
+                <label>Dauer (Stunden)</label>
+                <input type="number" id="createDuration" placeholder="z.B. 4" min="1" max="24" />
+              </div>
+            </div>
             <div class="form-group">
               <label>Verfügbar für</label>
               <div class="checkbox-group" id="createTags">
@@ -1296,6 +1310,6 @@
     </button>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

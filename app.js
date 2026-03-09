@@ -1357,6 +1357,25 @@ function updateCreateFormForRole() {
     if (uploadZoneP) uploadZoneP.textContent = 'Ziehe Bilder hierher oder klicke zum Ausw\u00e4hlen';
     if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">publish</span> Inserat ver\u00f6ffentlichen';
   }
+
+  // Auto-calculate duration from time fields
+  var timeFrom = document.getElementById('createTimeFrom');
+  var timeTo = document.getElementById('createTimeTo');
+  var durationInput = document.getElementById('createDuration');
+  function calcDuration() {
+    if (!timeFrom || !timeTo || !durationInput) return;
+    var from = timeFrom.value, to = timeTo.value;
+    if (!from || !to) return;
+    var fParts = from.split(':'), tParts = to.split(':');
+    var fMin = parseInt(fParts[0]) * 60 + parseInt(fParts[1]);
+    var tMin = parseInt(tParts[0]) * 60 + parseInt(tParts[1]);
+    var diff = tMin - fMin;
+    if (diff <= 0) diff += 24 * 60;
+    durationInput.value = Math.round(diff / 60 * 10) / 10;
+  }
+  if (timeFrom) timeFrom.addEventListener('change', calcDuration);
+  if (timeTo) timeTo.addEventListener('change', calcDuration);
+  calcDuration();
 }
 
 function nextStep(step) {
