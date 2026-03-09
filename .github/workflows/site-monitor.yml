@@ -18,14 +18,12 @@ jobs:
       - name: Check HTTP response
         id: health
         run: |
-          STATUS=0
-
           # Try HTTPS first (primary URL)
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time 30 --retry 3 --retry-delay 10 \
-            -L -k "https://eventboerse.de" 2>/dev/null) || true
+            -L "https://eventboerse.de" 2>/dev/null) || true
 
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
             echo "✅ HTTPS reachable – HTTP $HTTP_CODE"
             echo "status=up" >> "$GITHUB_OUTPUT"
             echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
@@ -36,7 +34,7 @@ jobs:
               --max-time 30 --retry 3 --retry-delay 10 \
               -L "http://eventboerse.de" 2>/dev/null) || true
 
-            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
               echo "⚠️ Only HTTP reachable – HTTP $HTTP_CODE (HTTPS may have certificate issues)"
               echo "status=degraded" >> "$GITHUB_OUTPUT"
               echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
