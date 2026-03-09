@@ -1,0 +1,29 @@
+/*
+Theme Name: Eventbörse
+Theme URI: https://eventboerse.de
+Author: Eventbörse Team
+Author URI: https://eventboerse.de
+Description: Airbnb-inspirierter Event-Marktplatz – mobiles, modernes Design für Eventdienstleister und Veranstalter.
+Version: 1.0.0
+Requires at least: 6.0
+Tested up to: 6.7
+Requires PHP: 7.4
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: eventboerse
+Tags: event, marketplace, mobile-first, custom-theme
+*/
+
+/*
+ * Import the full stylesheet that contains all of the design rules for
+ * Eventbörse. WordPress will automatically load this `style.css` file for
+ * the active theme, but it does not load `styles.css` by default. To
+ * ensure our custom layout (including the search bar positioning in the
+ * navigation) is applied in WordPress, pull in the contents of
+ * `styles.css` using an `@import` statement. This retains the existing
+ * theme header above while loading the complete styling. Without this
+ * import the site falls back to minimal styling, which causes elements
+ * like the search bar to stack incorrectly on WordPress installations.
+ */
+
+@import url("styles.css");

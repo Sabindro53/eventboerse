@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eventbörse – Dein Event-Marktplatz für Dienstleister</title>
+  <meta name="description" content="Eventbörse.de – Finde DJs, Caterer, Fotografen, Floristen und mehr für dein Event. Der Marktplatz für Event-Dienstleister in Deutschland." />
+  <meta name="keywords" content="Event, Marktplatz, DJ, Catering, Fotograf, Florist, Hochzeit, Party, Firmen-Event, Dienstleister" />
+  <meta name="author" content="Eventbörse" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="Eventbörse – Dein Event-Marktplatz" />
+  <meta property="og:description" content="Finde die besten Event-Dienstleister in deiner Nähe. DJs, Caterer, Fotografen und mehr." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://eventbörse.de" />
+  <meta property="og:locale" content="de_DE" />
+  <link rel="canonical" href="https://eventbörse.de" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <!-- ============ NAVIGATION ============ -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="logo" onclick="navigateTo('home')">
+        <span class="logo-icon material-icons-round">celebration</span>
+        <span class="logo-text">Event<span class="accent">börse</span></span>
+      </a>
+      <div class="nav-search" id="navSearchBar">
+        <button class="nav-search-segment" onclick="navigateTo('browse')">
+          <span class="label">Was?</span>
+          <span class="value">Service suchen</span>
+        </button>
+        <span class="nav-search-divider"></span>
+        <button class="nav-search-segment" onclick="navigateTo('browse')">
+          <span class="label">Event</span>
+          <span class="value">Kategorie</span>
+        </button>
+        <span class="nav-search-divider"></span>
+        <button class="nav-search-segment" onclick="toggleMapOverlay()" id="navWoBtn">
+          <span class="label">Wo?</span>
+          <span class="value" id="navWoValue">Region</span>
+        </button>
+        <button class="nav-search-btn" onclick="navigateTo('browse')">
+          <span class="material-icons-round">search</span>
+        </button>
+      </div>
+      <div class="nav-actions">
+        <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
+        <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten">
+          <span class="material-icons-round">chat_bubble_outline</span>
+          <span class="badge" id="msgBadge">3</span>
+        </button>
+        <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()">
+          <span class="material-icons-round">menu</span>
+          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="User" />
+        </button>
+      </div>
+    </div>
+    <!-- User Dropdown -->
+    <div class="user-menu" id="userMenu">
+      <div class="user-menu-section" id="loggedOutMenu">
+        <button onclick="openModal('loginModal')">Anmelden</button>
+        <button onclick="openModal('registerModal')">Registrieren</button>
+      </div>
+      <div class="user-menu-section" id="loggedInMenu" style="display:none">
+        <button onclick="navigateTo('dashboard')"><span class="material-icons-round">dashboard</span> Dashboard</button>
+        <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
+        <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
+        <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
+        <hr />
+        <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
+        <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
+        <hr />
+        <button onclick="logout()"><span class="material-icons-round">logout</span> Abmelden</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============ MAP OVERLAY ============ -->
+  <div class="map-overlay-backdrop" id="mapBackdrop" onclick="closeMapOverlay()"></div>
+  <div class="map-overlay" id="mapOverlay">
+    <div class="map-overlay-inner">
+      <div class="map-overlay-header">
+        <h3><span class="material-icons-round">map</span> Veranstaltungen auf der Karte</h3>
+        <button class="map-close-btn" onclick="closeMapOverlay()">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="map-search-bar">
+        <span class="material-icons-round">search</span>
+        <input type="text" id="mapSearchInput" placeholder="Stadt oder Region suchen..." oninput="filterMapMarkers()" />
+      </div>
+      <div class="map-container" id="mapContainer"></div>
+      <div class="map-locations-list" id="mapLocationsList">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MOBILE BOTTOM NAV ============ -->
+  <nav class="mobile-nav" id="mobileNav">
+    <button onclick="navigateTo('home')" data-page="home">
+      <span class="material-icons-round">explore</span>
+      <span>Entdecken</span>
+    </button>
+    <button onclick="navigateTo('browse')" data-page="browse">
+      <span class="material-icons-round">search</span>
+      <span>Suchen</span>
+    </button>
+    <button onclick="navigateTo('create-listing')" data-page="create-listing">
+      <span class="material-icons-round">add_circle</span>
+      <span>Inserieren</span>
+    </button>
+    <button onclick="navigateTo('messages')" data-page="messages">
+      <span class="material-icons-round">chat_bubble</span>
+      <span>Nachrichten</span>
+    </button>
+    <button onclick="navigateTo('dashboard')" data-page="dashboard">
+      <span class="material-icons-round">person</span>
+      <span>Profil</span>
+    </button>
+  </nav>
+
+  <!-- ============ PAGE: HOME ============ -->
+  <main>
+    <section id="page-home" class="page active">
+      <!-- Hero -->
+      <div class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-content">
+          <h1>Plane dein perfektes Event.</h1>
+          <p>Finde die besten Dienstleister – von DJ bis Florist. Verhandle Preise, buche direkt & feiere unvergesslich.</p>
+          <div class="hero-search">
+            <div class="hero-search-row">
+              <div class="hero-field">
+                <label>Was suchst du?</label>
+                <input type="text" placeholder="z.B. DJ, Caterer, Fotograf..." id="heroSearchInput" />
+              </div>
+              <div class="hero-field">
+                <label>Event-Typ</label>
+                <select id="heroEventType">
+                  <option value="">Alle Events</option>
+                  <option value="hochzeit">Hochzeit</option>
+                  <option value="geburtstag">Geburtstag</option>
+                  <option value="party">Party</option>
+                  <option value="firmen">Firmen-Event</option>
+                  <option value="jubilaeum">Jubiläum</option>
+                  <option value="messe">Messe</option>
+                </select>
+              </div>
+              <div class="hero-field">
+                <label>Region</label>
+                <input type="text" placeholder="z.B. Berlin, München..." id="heroLocation" />
+              </div>
+              <button class="hero-search-btn" onclick="performSearch()">
+                <span class="material-icons-round">search</span>
+                <span>Suchen</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="section">
+        <div class="container">
+          <h2 class="section-title">Services entdecken</h2>
+          <div class="category-scroll">
+            <button class="cat-chip active" onclick="filterCategory(this, 'alle')">
+              <span class="material-icons-round">auto_awesome</span> Alle
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'dj')">
+              <span class="material-icons-round">music_note</span> DJ & Musik
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'catering')">
+              <span class="material-icons-round">restaurant</span> Catering
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'foto')">
+              <span class="material-icons-round">camera_alt</span> Fotografie
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'florist')">
+              <span class="material-icons-round">local_florist</span> Floristik
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'location')">
+              <span class="material-icons-round">location_on</span> Locations
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'licht')">
+              <span class="material-icons-round">light_mode</span> Licht & Technik
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'pyro')">
+              <span class="material-icons-round">whatshot</span> Pyrotechnik
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'deko')">
+              <span class="material-icons-round">palette</span> Dekoration
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'planung')">
+              <span class="material-icons-round">event</span> Eventplanung
+            </button>
+            <button class="cat-chip" onclick="filterCategory(this, 'moderation')">
+              <span class="material-icons-round">mic</span> Moderation
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Featured Listings -->
+      <div class="section">
+        <div class="container">
+          <h2 class="section-title">Top-Angebote in deiner Nähe</h2>
+          <div class="listing-grid" id="featuredGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- How it works -->
+      <div class="section section-alt">
+        <div class="container">
+          <h2 class="section-title center">So funktioniert Eventbörse</h2>
+          <div class="how-it-works">
+            <div class="step-card">
+              <div class="step-icon"><span class="material-icons-round">search</span></div>
+              <h3>1. Entdecken</h3>
+              <p>Durchsuche hunderte Dienstleister – nach Kategorie, Event-Typ oder Region.</p>
+            </div>
+            <div class="step-card">
+              <div class="step-icon"><span class="material-icons-round">gavel</span></div>
+              <h3>2. Verhandeln</h3>
+              <p>Schicke ein Angebot und verhandle den Preis direkt auf unserer Plattform – wie bei eBay.</p>
+            </div>
+            <div class="step-card">
+              <div class="step-icon"><span class="material-icons-round">handshake</span></div>
+              <h3>3. Buchen</h3>
+              <p>Einigt euch auf den Preis und bucht den Service sicher über Eventbörse.</p>
+            </div>
+            <div class="step-card">
+              <div class="step-icon"><span class="material-icons-round">celebration</span></div>
+              <h3>4. Feiern</h3>
+              <p>Lehnt euch zurück und genießt euer perfektes Event!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Testimonials -->
+      <div class="section">
+        <div class="container">
+          <h2 class="section-title center">Was unsere Nutzer sagen</h2>
+          <div class="testimonials">
+            <div class="testimonial-card">
+              <div class="testimonial-stars">★★★★★</div>
+              <p>"Wir haben über Eventbörse unseren Hochzeits-DJ und Caterer gefunden. Die Preisverhandlung war super einfach!"</p>
+              <div class="testimonial-author">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=sarah" alt="Sarah" />
+                <div>
+                  <strong>Sarah & Markus</strong>
+                  <span>Hochzeit in München</span>
+                </div>
+              </div>
+            </div>
+            <div class="testimonial-card">
+              <div class="testimonial-stars">★★★★★</div>
+              <p>"Als Caterer bekomme ich regelmäßig Anfragen. Die Plattform ist genial für mein Business!"</p>
+              <div class="testimonial-author">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=marco" alt="Marco" />
+                <div>
+                  <strong>Marco R.</strong>
+                  <span>Caterer seit 2024</span>
+                </div>
+              </div>
+            </div>
+            <div class="testimonial-card">
+              <div class="testimonial-stars">★★★★★</div>
+              <p>"Unsere Firmenfeier war dank Eventbörse ein voller Erfolg. Alles aus einer Hand!"</p>
+              <div class="testimonial-author">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=julia" alt="Julia" />
+                <div>
+                  <strong>Julia K.</strong>
+                  <span>HR Manager, TechCorp</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="section section-cta">
+        <div class="container center">
+          <h2>Werde Dienstleister auf Eventbörse</h2>
+          <p>Erreiche tausende potenzielle Kunden und baue dein Event-Business aus.</p>
+          <button class="btn-primary btn-lg" onclick="openModal('registerModal')">
+            <span class="material-icons-round">rocket_launch</span> Jetzt kostenlos starten
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="container">
+          <div class="footer-grid">
+            <div class="footer-col">
+              <div class="footer-logo">
+                <span class="material-icons-round">celebration</span>
+                Event<span class="accent">börse</span>
+              </div>
+              <p>Der smarte Marktplatz für unvergessliche Events.</p>
+            </div>
+            <div class="footer-col">
+              <h4>Plattform</h4>
+              <a href="#" onclick="navigateTo('browse')">Services entdecken</a>
+              <a href="#" onclick="navigateTo('create-listing')">Inserat aufgeben</a>
+              <a href="#">Preise</a>
+              <a href="#">FAQ</a>
+            </div>
+            <div class="footer-col">
+              <h4>Unternehmen</h4>
+              <a href="#">Über uns</a>
+              <a href="#">Karriere</a>
+              <a href="#">Blog</a>
+              <a href="#">Presse</a>
+            </div>
+            <div class="footer-col">
+              <h4>Rechtliches</h4>
+              <a href="#">AGB</a>
+              <a href="#">Datenschutz</a>
+              <a href="#">Impressum</a>
+              <a href="#">Cookie-Richtlinie</a>
+            </div>
+          </div>
+          <div class="footer-bottom">
+            <p>© 2026 Eventbörse. Alle Rechte vorbehalten.</p>
+            <div class="footer-social">
+              <a href="#">Instagram</a>
+              <a href="#">TikTok</a>
+              <a href="#">LinkedIn</a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ============ PAGE: BROWSE / SEARCH ============ -->
+    <section id="page-browse" class="page">
+      <div class="browse-header">
+        <div class="container">
+          <div class="browse-filters">
+            <div class="filter-bar">
+              <div class="filter-field">
+                <span class="material-icons-round">search</span>
+                <input type="text" id="browseSearch" placeholder="Service suchen..." oninput="filterListings()" />
+              </div>
+              <div class="filter-field">
+                <span class="material-icons-round">category</span>
+                <select id="browseCategory" onchange="filterListings()">
+                  <option value="">Alle Kategorien</option>
+                  <option value="dj">DJ & Musik</option>
+                  <option value="catering">Catering</option>
+                  <option value="foto">Fotografie</option>
+                  <option value="florist">Floristik</option>
+                  <option value="location">Locations</option>
+                  <option value="licht">Licht & Technik</option>
+                  <option value="pyro">Pyrotechnik</option>
+                  <option value="deko">Dekoration</option>
+                  <option value="planung">Eventplanung</option>
+                  <option value="moderation">Moderation</option>
+                </select>
+              </div>
+              <div class="filter-field">
+                <span class="material-icons-round">celebration</span>
+                <select id="browseEventType" onchange="filterListings()">
+                  <option value="">Event-Typ</option>
+                  <option value="Hochzeit">Hochzeit</option>
+                  <option value="Geburtstag">Geburtstag</option>
+                  <option value="Party">Party</option>
+                  <option value="Firmen-Event">Firmen-Event</option>
+                  <option value="Jubiläum">Jubiläum</option>
+                  <option value="Messe">Messe</option>
+                </select>
+              </div>
+              <div class="filter-field">
+                <span class="material-icons-round">location_on</span>
+                <input type="text" id="browseLocation" placeholder="Region..." oninput="filterListings()" />
+              </div>
+              <div class="filter-field">
+                <span class="material-icons-round">euro</span>
+                <select id="browsePrice" onchange="filterListings()">
+                  <option value="">Preis</option>
+                  <option value="0-500">Bis 500€</option>
+                  <option value="500-1000">500€ – 1.000€</option>
+                  <option value="1000-2500">1.000€ – 2.500€</option>
+                  <option value="2500+">Über 2.500€</option>
+                </select>
+              </div>
+              <div class="filter-field">
+                <span class="material-icons-round">star</span>
+                <select id="browseRating" onchange="filterListings()">
+                  <option value="">Bewertung</option>
+                  <option value="4.5">★ 4.5+</option>
+                  <option value="4">★ 4.0+</option>
+                  <option value="3.5">★ 3.5+</option>
+                </select>
+              </div>
+            </div>
+            <div class="filter-tags" id="activeFilters"></div>
+          </div>
+        </div>
+      </div>
+      <div class="container">
+        <div class="browse-results-header">
+          <h2 id="browseResultCount">24 Services gefunden</h2>
+          <div class="browse-sort">
+            <select id="browseSort" onchange="filterListings()">
+              <option value="relevanz">Relevanz</option>
+              <option value="preis-asc">Preis aufsteigend</option>
+              <option value="preis-desc">Preis absteigend</option>
+              <option value="rating">Beste Bewertung</option>
+              <option value="neu">Neueste zuerst</option>
+            </select>
+            <button class="view-toggle active" id="gridViewBtn" onclick="setView('grid')">
+              <span class="material-icons-round">grid_view</span>
+            </button>
+            <button class="view-toggle" id="listViewBtn" onclick="setView('list')">
+              <span class="material-icons-round">view_list</span>
+            </button>
+          </div>
+        </div>
+        <div class="listing-grid" id="browseGrid">
+          <!-- Populated by JS -->
+        </div>
+        <!-- No results + alternatives -->
+        <div class="no-results-container" id="noResultsContainer" style="display:none;">
+          <div class="no-results-box">
+            <span class="material-icons-round no-results-icon">search_off</span>
+            <h3>Leider keine Treffer</h3>
+            <p id="noResultsText">Für deine Suche konnten wir leider keine passenden Services finden.</p>
+          </div>
+          <div class="alternatives-section" id="alternativesSection">
+            <h3><span class="material-icons-round">lightbulb</span> Alternativen in der Nähe</h3>
+            <div class="listing-grid" id="alternativesGrid"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: LISTING DETAIL ============ -->
+    <section id="page-detail" class="page">
+      <div class="container">
+        <button class="back-btn" onclick="history.back()">
+          <span class="material-icons-round">arrow_back</span> Zurück
+        </button>
+        <div class="detail-gallery" id="detailGallery">
+          <!-- Images loaded by JS -->
+        </div>
+        <div class="detail-layout">
+          <div class="detail-main">
+            <div class="detail-header">
+              <div class="detail-badge" id="detailCategory">DJ & Musik</div>
+              <h1 id="detailTitle">DJ SoundMaster Berlin</h1>
+              <div class="detail-meta">
+                <span class="detail-rating">
+                  <span class="material-icons-round">star</span>
+                  <strong id="detailRating">4.9</strong>
+                  <span id="detailReviewCount">(127 Bewertungen)</span>
+                </span>
+                <span class="detail-location">
+                  <span class="material-icons-round">location_on</span>
+                  <span id="detailLocation">Berlin, Deutschland</span>
+                </span>
+              </div>
+            </div>
+            <div class="detail-divider"></div>
+            <div class="detail-provider-row">
+              <img id="detailProviderImg" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="detail-provider-avatar" />
+              <div>
+                <strong id="detailProviderName">Max Beats</strong>
+                <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
+              </div>
+              <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
+            </div>
+            <div class="detail-divider"></div>
+            <div class="detail-description" id="detailDescription">
+              <!-- Loaded by JS -->
+            </div>
+            <div class="detail-divider"></div>
+            <h3>Leistungen</h3>
+            <div class="detail-features" id="detailFeatures">
+              <!-- Loaded by JS -->
+            </div>
+            <div class="detail-divider"></div>
+            <h3>Bewertungen</h3>
+            <div class="detail-reviews" id="detailReviews">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+          <div class="detail-sidebar">
+            <div class="booking-card" id="bookingCard">
+              <div class="booking-price">
+                <span class="price-amount" id="detailPrice">ab 450€</span>
+                <span class="price-label">/ Event</span>
+              </div>
+              <div class="booking-form">
+                <div class="booking-field">
+                  <label>Event-Datum</label>
+                  <input type="date" id="bookingDate" />
+                </div>
+                <div class="booking-field">
+                  <label>Event-Typ</label>
+                  <select id="bookingEventType">
+                    <option>Hochzeit</option>
+                    <option>Geburtstag</option>
+                    <option>Party</option>
+                    <option>Firmen-Event</option>
+                    <option>Sonstiges</option>
+                  </select>
+                </div>
+                <div class="booking-field">
+                  <label>Gästeanzahl</label>
+                  <input type="number" id="bookingGuests" placeholder="ca. 100" />
+                </div>
+                <div class="booking-field">
+                  <label>Nachricht</label>
+                  <textarea id="bookingMessage" rows="3" placeholder="Beschreibe kurz, was du dir vorstellst..."></textarea>
+                </div>
+              </div>
+              <button class="btn-primary btn-block" onclick="openNegotiation()">
+                <span class="material-icons-round">gavel</span> Preisangebot senden
+              </button>
+              <button class="btn-secondary btn-block" onclick="startChat()">
+                <span class="material-icons-round">chat</span> Nachricht senden
+              </button>
+              <p class="booking-note">
+                <span class="material-icons-round">info</span>
+                Du bezahlst erst nach der Buchungsbestätigung.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: PROVIDER PROFILE ============ -->
+    <section id="page-provider" class="page">
+      <div class="provider-cover" id="providerCover"></div>
+      <div class="container">
+        <div class="provider-header">
+          <img id="providerAvatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="provider-avatar-lg" />
+          <div class="provider-info">
+            <h1 id="providerName">Max Beats</h1>
+            <p id="providerTagline" class="provider-tagline">DJ & Musikproduktion · Berlin</p>
+            <div class="provider-stats">
+              <div class="stat"><strong id="providerListingCount">12</strong><span>Inserate</span></div>
+              <div class="stat"><strong id="providerRating">4.9</strong><span>Bewertung</span></div>
+              <div class="stat"><strong id="providerReviews">127</strong><span>Reviews</span></div>
+              <div class="stat"><strong id="providerEvents">340+</strong><span>Events</span></div>
+            </div>
+          </div>
+          <div class="provider-actions">
+            <button class="btn-primary" onclick="startChatWithProvider()">
+              <span class="material-icons-round">chat</span> Nachricht
+            </button>
+            <button class="btn-outline" onclick="toggleFollow()">
+              <span class="material-icons-round">person_add</span> Folgen
+            </button>
+          </div>
+        </div>
+        <div class="provider-bio" id="providerBio">
+          <p>Professioneller DJ mit über 10 Jahren Erfahrung. Spezialisiert auf Hochzeiten, Club-Events und Firmenveranstaltungen. Ich bringe die perfekte Stimmung für jedes Event!</p>
+        </div>
+        <div class="provider-tabs">
+          <button class="tab active" onclick="switchProviderTab(this, 'inserate')">
+            <span class="material-icons-round">grid_on</span> Inserate
+          </button>
+          <button class="tab" onclick="switchProviderTab(this, 'galerie')">
+            <span class="material-icons-round">photo_library</span> Galerie
+          </button>
+          <button class="tab" onclick="switchProviderTab(this, 'bewertungen')">
+            <span class="material-icons-round">star</span> Bewertungen
+          </button>
+        </div>
+        <div class="provider-content">
+          <div id="provider-tab-inserate" class="provider-tab-content active">
+            <div class="listing-grid" id="providerListings">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+          <div id="provider-tab-galerie" class="provider-tab-content">
+            <div class="gallery-grid" id="providerGallery">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+          <div id="provider-tab-bewertungen" class="provider-tab-content">
+            <div id="providerReviewsList">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: MESSAGES ============ -->
+    <section id="page-messages" class="page">
+      <div class="chat-layout">
+        <div class="chat-sidebar" id="chatSidebar">
+          <div class="chat-sidebar-header">
+            <h2>Nachrichten</h2>
+            <div class="chat-search">
+              <span class="material-icons-round">search</span>
+              <input type="text" placeholder="Gespräch suchen..." />
+            </div>
+          </div>
+          <div class="chat-list" id="chatList">
+            <!-- Loaded by JS -->
+          </div>
+        </div>
+        <div class="chat-main" id="chatMain">
+          <div class="chat-empty" id="chatEmpty">
+            <span class="material-icons-round">forum</span>
+            <h3>Wähle ein Gespräch</h3>
+            <p>Alle Unterhaltungen mit Dienstleistern und Kunden findest du hier.</p>
+          </div>
+          <div class="chat-active" id="chatActive" style="display:none">
+            <div class="chat-header" id="chatHeader">
+              <button class="chat-back-btn" onclick="closeChatView()">
+                <span class="material-icons-round">arrow_back</span>
+              </button>
+              <img src="" alt="" id="chatAvatar" />
+              <div>
+                <strong id="chatName">Max Beats</strong>
+                <span id="chatStatus" class="online">Online</span>
+              </div>
+              <div class="chat-header-actions">
+                <button onclick="openNegotiationInChat()" title="Preisverhandlung">
+                  <span class="material-icons-round">gavel</span>
+                </button>
+              </div>
+            </div>
+            <!-- Negotiation Banner -->
+            <div class="negotiation-banner" id="negotiationBanner" style="display:none">
+              <div class="neg-status" id="negStatus">
+                <span class="material-icons-round">gavel</span>
+                <div class="neg-info">
+                  <strong>Preisverhandlung aktiv</strong>
+                  <p id="negDetails">Dein Angebot: 380€ · Gegenangebot: 420€</p>
+                </div>
+              </div>
+              <div class="neg-actions" id="negActions">
+                <button class="btn-sm btn-accept" onclick="acceptOffer()">
+                  <span class="material-icons-round">check</span> Annehmen
+                </button>
+                <button class="btn-sm btn-counter" onclick="openCounterOffer()">
+                  <span class="material-icons-round">sync_alt</span> Gegengebot
+                </button>
+                <button class="btn-sm btn-decline" onclick="declineOffer()">
+                  <span class="material-icons-round">close</span> Ablehnen
+                </button>
+              </div>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+              <!-- Loaded by JS -->
+            </div>
+            <div class="chat-input-bar">
+              <button class="chat-attach-btn" title="Anhang">
+                <span class="material-icons-round">attach_file</span>
+              </button>
+              <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" />
+              <button class="chat-send-btn" onclick="sendMessage()">
+                <span class="material-icons-round">send</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: DASHBOARD ============ -->
+    <section id="page-dashboard" class="page">
+      <div class="container">
+        <div class="dashboard-header">
+          <h1>Dashboard</h1>
+          <p>Willkommen zurück! Hier ist deine Übersicht.</p>
+        </div>
+        <div class="dashboard-stats">
+          <div class="dash-stat-card">
+            <span class="material-icons-round">visibility</span>
+            <div>
+              <strong>1.240</strong>
+              <span>Profil-Aufrufe</span>
+            </div>
+          </div>
+          <div class="dash-stat-card">
+            <span class="material-icons-round">chat</span>
+            <div>
+              <strong>23</strong>
+              <span>Nachrichten</span>
+            </div>
+          </div>
+          <div class="dash-stat-card">
+            <span class="material-icons-round">gavel</span>
+            <div>
+              <strong>8</strong>
+              <span>Aktive Verhandlungen</span>
+            </div>
+          </div>
+          <div class="dash-stat-card">
+            <span class="material-icons-round">event_available</span>
+            <div>
+              <strong>15</strong>
+              <span>Buchungen</span>
+            </div>
+          </div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="dash-card">
+            <h3><span class="material-icons-round">storefront</span> Meine Inserate</h3>
+            <div id="dashListings" class="dash-list">
+              <!-- Loaded by JS -->
+            </div>
+            <button class="btn-text" onclick="navigateTo('create-listing')">
+              <span class="material-icons-round">add</span> Neues Inserat
+            </button>
+          </div>
+          <div class="dash-card">
+            <h3><span class="material-icons-round">gavel</span> Aktive Verhandlungen</h3>
+            <div id="dashNegotiations" class="dash-list">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+          <div class="dash-card">
+            <h3><span class="material-icons-round">event</span> Kommende Buchungen</h3>
+            <div id="dashBookings" class="dash-list">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+          <div class="dash-card">
+            <h3><span class="material-icons-round">star</span> Neueste Bewertungen</h3>
+            <div id="dashReviews" class="dash-list">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: CREATE LISTING ============ -->
+    <section id="page-create-listing" class="page">
+      <div class="container container-sm">
+        <h1 class="create-title">Inserat erstellen</h1>
+        <p class="create-subtitle">Präsentiere deinen Service und erreiche tausende potenzielle Kunden.</p>
+        <form class="create-form" id="createListingForm" onsubmit="return false;">
+          <!-- Step 1: Basics -->
+          <div class="form-step active" id="step1">
+            <h2>Grundlagen</h2>
+            <div class="form-group">
+              <label>Titel deines Services</label>
+              <input type="text" id="createTitle" placeholder="z.B. Professionelle DJ-Services für jedes Event" />
+            </div>
+            <div class="form-group">
+              <label>Kategorie</label>
+              <select id="createCategory">
+                <option value="">Wähle eine Kategorie</option>
+                <option value="dj">DJ & Musik</option>
+                <option value="catering">Catering</option>
+                <option value="foto">Fotografie</option>
+                <option value="florist">Floristik</option>
+                <option value="location">Location</option>
+                <option value="licht">Licht & Technik</option>
+                <option value="pyro">Pyrotechnik</option>
+                <option value="deko">Dekoration</option>
+                <option value="planung">Eventplanung</option>
+                <option value="moderation">Moderation</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Beschreibung</label>
+              <textarea id="createDescription" rows="5" placeholder="Beschreibe deinen Service detailliert..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Preis ab (€)</label>
+                <input type="number" id="createPrice" placeholder="z.B. 450" />
+              </div>
+              <div class="form-group">
+                <label>Preismodell</label>
+                <select id="createPriceModel">
+                  <option value="Pro Event">Pro Event</option>
+                  <option value="Pro Stunde">Pro Stunde</option>
+                  <option value="Pro Person">Pro Person</option>
+                  <option value="Pauschal">Pauschal</option>
+                  <option value="Auf Anfrage">Auf Anfrage</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn-primary btn-block" onclick="nextStep(2)">
+              Weiter <span class="material-icons-round">arrow_forward</span>
+            </button>
+          </div>
+
+          <!-- Step 2: Details -->
+          <div class="form-step" id="step2">
+            <h2>Details & Leistungen</h2>
+            <div class="form-group">
+              <label>Region / Stadt</label>
+              <input type="text" id="createRegion" placeholder="z.B. Berlin & Umgebung" />
+            </div>
+            <div class="form-group">
+              <label>Verfügbar für</label>
+              <div class="checkbox-group" id="createTags">
+                <label class="check-label"><input type="checkbox" value="Hochzeit" checked /> Hochzeiten</label>
+                <label class="check-label"><input type="checkbox" value="Geburtstag" checked /> Geburtstage</label>
+                <label class="check-label"><input type="checkbox" value="Party" checked /> Partys</label>
+                <label class="check-label"><input type="checkbox" value="Firmen-Event" /> Firmen-Events</label>
+                <label class="check-label"><input type="checkbox" value="Messe" /> Messen</label>
+                <label class="check-label"><input type="checkbox" value="Jubiläum" /> Jubiläen</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Leistungen <span style="font-weight:400; color:var(--text-light);">(anklicken zum Auswählen)</span></label>
+              <div class="feature-tag-grid" id="createFeatureTags">
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎵 Professionelle Ausrüstung</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">💡 Lichtanlage inklusive</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎤 Moderation</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎧 Wunschmusik-Absprache</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">📸 Foto-Dokumentation</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎥 Video-Produktion</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🚗 Anfahrt inklusive</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🔧 Auf- & Abbau</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">📋 Individuelle Planung</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🍽️ Menü-Auswahl</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🥂 Getränke-Service</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">👨‍🍳 Live-Cooking</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🌸 Blumen-Arrangement</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎈 Dekoration</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎂 Torte & Desserts</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🏠 Location-Beratung</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">👗 Styling & Outfit</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">💄 Make-up & Frisur</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎪 Bühne & Technik</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🔊 Sound-System</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">✨ Spezialeffekte</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎁 Gastgeschenke</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🗓️ Termin-Flexibilität</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">⏰ Kurzfristig buchbar</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🌍 Mehrsprachig</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">♿ Barrierefreiheit</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🐾 Haustierfreundlich</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🧒 Kinder-Programm</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">📜 Kostenvoranschlag</button>
+                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🤝 Persönliche Beratung</button>
+              </div>
+              <div class="feature-tag-custom">
+                <input type="text" id="customFeatureInput" placeholder="Eigene Leistung hinzufügen..." />
+                <button type="button" class="btn-outline btn-sm" onclick="addCustomFeature()">+ Hinzufügen</button>
+              </div>
+            </div>
+            <div class="form-nav">
+              <button type="button" class="btn-outline" onclick="nextStep(1)">
+                <span class="material-icons-round">arrow_back</span> Zurück
+              </button>
+              <button type="button" class="btn-primary" onclick="nextStep(3)">
+                Weiter <span class="material-icons-round">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 3: Photos -->
+          <div class="form-step" id="step3">
+            <h2>Fotos & Galerie</h2>
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+              <span class="material-icons-round">cloud_upload</span>
+              <h3>Bilder hochladen</h3>
+              <p>Ziehe Bilder hierher oder klicke zum Auswählen</p>
+              <p class="upload-hint">JPG, PNG · Max. 10 Bilder · Max. 5MB pro Bild</p>
+              <input type="file" id="fileInput" multiple accept="image/*" style="display:none" onchange="handleUpload(this)" />
+            </div>
+            <div class="upload-preview" id="uploadPreview"></div>
+            <div class="form-nav">
+              <button type="button" class="btn-outline" onclick="nextStep(2)">
+                <span class="material-icons-round">arrow_back</span> Zurück
+              </button>
+              <button type="button" class="btn-primary" onclick="submitListing(event)">
+                <span class="material-icons-round">publish</span> Inserat veröffentlichen
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: MY PROFILE EDIT ============ -->
+    <section id="page-profile" class="page">
+      <div class="container container-sm">
+        <h1>Mein Profil bearbeiten</h1>
+        <div class="profile-edit">
+          <div class="profile-photo-edit">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="Profile" id="profileEditPhoto" />
+            <button class="btn-outline btn-sm" onclick="document.getElementById('profilePhotoInput').click()">
+              <span class="material-icons-round">camera_alt</span> Foto ändern
+            </button>
+            <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)" />
+          </div>
+          <div class="form-group">
+            <label>Angezeigter Name</label>
+            <input type="text" id="profileName" placeholder="Dein Name" />
+          </div>
+          <div class="form-group">
+            <label>E-Mail</label>
+            <input type="email" id="profileEmail" placeholder="deine@email.de" readonly style="background: var(--bg-alt); color: var(--text-light);" />
+          </div>
+          <div class="form-group">
+            <label>Rolle</label>
+            <input type="text" id="profileRole" readonly style="background: var(--bg-alt); color: var(--text-light);" />
+          </div>
+          <div class="form-group">
+            <label>Slogan / Tagline</label>
+            <input type="text" id="profileTagline" placeholder="z.B. DJ & Musikproduktion · Berlin" />
+          </div>
+          <div class="form-group">
+            <label>Standort</label>
+            <input type="text" id="profileLocation" placeholder="z.B. Berlin" />
+          </div>
+          <div class="form-group">
+            <label>Über mich</label>
+            <textarea rows="4" id="profileBio" placeholder="Erzähle etwas über dich..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Cover-Bild</label>
+            <div class="upload-zone small" id="coverUploadZone" onclick="document.getElementById('coverInput').click()">
+              <span class="material-icons-round">panorama</span>
+              <p>Cover-Bild hochladen</p>
+              <p class="upload-hint">JPG, PNG · Empfohlen: 1200×400px</p>
+              <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="handleCoverUpload(this)" />
+            </div>
+            <div class="cover-preview" id="coverPreview"></div>
+          </div>
+          <h3>Galerie</h3>
+          <p class="form-hint">Zeige deine besten Arbeiten – diese Bilder erscheinen auf deinem öffentlichen Profil.</p>
+          <div class="upload-zone small" id="galleryUploadZone" onclick="document.getElementById('galleryInput').click()">
+            <span class="material-icons-round">add_photo_alternate</span>
+            <p>Galerie-Bilder hochladen</p>
+            <p class="upload-hint">JPG, PNG · Max. 12 Bilder · Max. 5MB pro Bild</p>
+            <input type="file" id="galleryInput" multiple accept="image/*" style="display:none" onchange="handleGalleryUpload(this)" />
+          </div>
+          <div class="upload-preview" id="galleryPreview"></div>
+          <div class="form-nav">
+            <button class="btn-primary" onclick="saveProfile()">
+              <span class="material-icons-round">save</span> Profil speichern
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ MODALS ============ -->
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="loginModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('loginModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">celebration</span>
+        <h2>Willkommen zurück!</h2>
+        <p>Melde dich bei Eventbörse an</p>
+      </div>
+      <form class="modal-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>E-Mail</label>
+          <input type="email" id="loginEmail" placeholder="deine@email.de" required />
+        </div>
+        <div class="form-group">
+          <label>Passwort</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn-primary btn-block">Anmelden</button>
+        <div class="modal-divider"><span>oder</span></div>
+        <button type="button" class="btn-social" onclick="socialLogin('Google')">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Mit Google anmelden
+        </button>
+        <button type="button" class="btn-social btn-social-apple" onclick="socialLogin('Apple')">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          Mit Apple anmelden
+        </button>
+        <p class="modal-footer-text">
+          Noch kein Konto? <a href="#" onclick="closeModal('loginModal'); openModal('registerModal')">Registrieren</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div class="modal-overlay" id="registerModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('registerModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">rocket_launch</span>
+        <h2>Werde Teil von Eventbörse</h2>
+        <p>Erstelle dein kostenloses Konto</p>
+      </div>
+      <form class="modal-form" onsubmit="handleRegister(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Vorname</label>
+            <input type="text" id="regFirstName" placeholder="Max" required />
+          </div>
+          <div class="form-group">
+            <label>Nachname</label>
+            <input type="text" id="regLastName" placeholder="Mustermann" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>E-Mail</label>
+          <input type="email" id="regEmail" placeholder="deine@email.de" required />
+        </div>
+        <div class="form-group">
+          <label>Passwort</label>
+          <input type="password" id="regPassword" placeholder="Min. 8 Zeichen" required />
+        </div>
+        <div class="form-group">
+          <label>Ich bin...</label>
+          <div class="role-toggle">
+            <button type="button" class="role-btn active" onclick="selectRole(this, 'user')">
+              <span class="material-icons-round">person</span>
+              Event-Planer
+            </button>
+            <button type="button" class="role-btn" onclick="selectRole(this, 'provider')">
+              <span class="material-icons-round">storefront</span>
+              Dienstleister
+            </button>
+          </div>
+        </div>
+        <label class="check-label terms">
+          <input type="checkbox" required />
+          Ich akzeptiere die <a href="#">AGB</a> und <a href="#">Datenschutzrichtlinie</a>
+        </label>
+        <button type="submit" class="btn-primary btn-block">Kostenlos registrieren</button>
+        <div class="modal-divider"><span>oder</span></div>
+        <button type="button" class="btn-social" onclick="socialLogin('Google')">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Mit Google registrieren
+        </button>
+        <button type="button" class="btn-social btn-social-apple" onclick="socialLogin('Apple')">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          Mit Apple registrieren
+        </button>
+        <p class="modal-footer-text">
+          Bereits ein Konto? <a href="#" onclick="closeModal('registerModal'); openModal('loginModal')">Anmelden</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Counter-Offer Modal -->
+  <div class="modal-overlay" id="counterOfferModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="closeModal('counterOfferModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">gavel</span>
+        <h2>Gegenangebot</h2>
+      </div>
+      <form class="modal-form" onsubmit="submitCounterOffer(event)">
+        <div class="form-group">
+          <label>Dein Preisvorschlag (€)</label>
+          <input type="number" id="counterOfferAmount" placeholder="z.B. 400" required />
+        </div>
+        <div class="form-group">
+          <label>Nachricht (optional)</label>
+          <textarea rows="3" id="counterOfferMsg" placeholder="Erkläre deinen Preisvorschlag..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-block">
+          <span class="material-icons-round">send</span> Gegenangebot senden
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Negotiation Modal -->
+  <div class="modal-overlay" id="negotiationModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('negotiationModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">gavel</span>
+        <h2>Preisverhandlung starten</h2>
+        <p>Schlage deinen Wunschpreis vor</p>
+      </div>
+      <form class="modal-form" onsubmit="submitNegotiation(event)">
+        <div class="neg-listing-info" id="negListingInfo">
+          <!-- Loaded by JS -->
+        </div>
+        <div class="form-group">
+          <label>Originalpreis</label>
+          <input type="text" id="negOriginalPrice" readonly />
+        </div>
+        <div class="form-group">
+          <label>Dein Angebot (€)</label>
+          <input type="number" id="negOfferPrice" placeholder="Dein Wunschpreis" required />
+        </div>
+        <div class="form-group">
+          <label>Event-Datum</label>
+          <input type="date" id="negDate" required />
+        </div>
+        <div class="form-group">
+          <label>Nachricht an den Anbieter</label>
+          <textarea rows="3" id="negMessage" placeholder="Beschreibe dein Event und warum dein Preis fair ist..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-block">
+          <span class="material-icons-round">send</span> Angebot senden
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">
+    <span class="material-icons-round toast-icon" id="toastIcon">check_circle</span>
+    <span id="toastMessage">Erfolgreich gespeichert!</span>
+  </div>
+
+  <!-- Communication Warning Toast -->
+  <div class="comm-warning" id="commWarning" style="display:none">
+    <span class="material-icons-round">warning</span>
+    <p>Das Teilen von persönlichen Kontaktdaten (Telefon, E-Mail, Adresse) ist auf Eventbörse nicht erlaubt. Bitte nutze ausschließlich unsere Plattform zur Kommunikation.</p>
+    <button onclick="document.getElementById('commWarning').style.display='none'">
+      <span class="material-icons-round">close</span>
+    </button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
