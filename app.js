@@ -376,6 +376,12 @@ function navigateTo(page, data) {
     case 'profile':
       loadProfile();
       break;
+    case 'my-listings':
+      renderMyListings();
+      break;
+    case 'favorites':
+      renderFavorites();
+      break;
   }
 }
 
@@ -758,29 +764,7 @@ function loadDetail(listingId) {
   ).join('');
 
   // Reviews
-  if (listing.reviews === 0) {
-    document.getElementById('detailReviews').innerHTML = `
-      <div style="text-align:center; padding: 40px 20px; color: var(--text-light);">
-        <span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>
-        <p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>
-        <p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse. Sei der Erste, der eine Bewertung schreibt!</p>
-      </div>
-    `;
-  } else {
-    document.getElementById('detailReviews').innerHTML = DEMO_REVIEWS.map(r => `
-      <div class="review-card">
-        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar}" alt="${r.name}" class="review-avatar" />
-        <div class="review-content">
-          <div class="review-top">
-            <strong>${r.name}</strong>
-            <span>${r.date}</span>
-          </div>
-          <div class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
-          <p class="review-text">${r.text}</p>
-        </div>
-      </div>
-    `).join('');
-  }
+  renderDetailReviews(listing);
 
   // Negotiation price
   document.getElementById('negOriginalPrice').value = listing.priceLabel;
@@ -1479,6 +1463,253 @@ function toggleFavorite(listingId, btn) {
     btn.classList.add('liked');
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
+  }
+}
+
+function renderFavorites() {
+  const grid = document.getElementById('favoritesGrid');
+  const emptyState = document.getElementById('favoritesEmpty');
+  const favListings = LISTINGS.filter(l => favorites.has(l.id));
+
+  if (favListings.length === 0) {
+    grid.style.display = 'none';
+    emptyState.style.display = 'flex';
+  } else {
+    grid.style.display = '';
+    emptyState.style.display = 'none';
+    grid.innerHTML = favListings.map(renderListingCard).join('');
+  }
+}
+
+// ========== MY LISTINGS ==========
+function renderMyListings() {
+  var grid = document.getElementById('myListingsGrid');
+  var emptyState = document.getElementById('myListingsEmpty');
+
+  // Show listings created by the current user (match by provider name or show first 3 as demo)
+  var userName = currentUser ? currentUser.name : null;
+  var myListings = userName
+    ? LISTINGS.filter(function(l) { return l.providerName === userName; })
+    : [];
+
+  // If no user-created listings, show demo for logged-in users
+  if (myListings.length === 0 && isLoggedIn) {
+    myListings = LISTINGS.slice(0, 3);
+  }
+
+  if (myListings.length === 0) {
+    grid.style.display = 'none';
+    emptyState.style.display = 'flex';
+  } else {
+    grid.style.display = '';
+    emptyState.style.display = 'none';
+    grid.innerHTML = myListings.map(function(l) {
+      return '<div class="my-listing-card">' +
+        '<div class="my-listing-img">' +
+          '<img src="' + l.image + '" alt="' + l.title + '" />' +
+          '<span class="status-badge status-active">Aktiv</span>' +
+        '</div>' +
+        '<div class="my-listing-info">' +
+          '<h3>' + l.title + '</h3>' +
+          '<p>' + l.categoryLabel + ' · ' + l.location + '</p>' +
+          '<p class="my-listing-price">' + l.priceLabel + '</p>' +
+          '<div class="my-listing-stats">' +
+            '<span><span class="material-icons-round">star</span> ' + l.rating + '</span>' +
+            '<span><span class="material-icons-round">rate_review</span> ' + l.reviews + ' Bewertungen</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="my-listing-actions">' +
+          '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
+            '<span class="material-icons-round">visibility</span> Ansehen' +
+          '</button>' +
+          '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
+            '<span class="material-icons-round">edit</span> Bearbeiten' +
+          '</button>' +
+          '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
+            '<span class="material-icons-round">delete</span> Löschen' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+}
+
+function editListing(listingId) {
+  var listing = LISTINGS.find(function(l) { return l.id === listingId; });
+  if (!listing) return;
+
+  // Navigate to create-listing form and prefill values
+  navigateTo('create-listing');
+
+  // Prefill form fields
+  document.getElementById('createTitle').value = listing.title;
+  document.getElementById('createCategory').value = listing.category;
+  document.getElementById('createDescription').value = listing.description.replace(/<\/?p>/g, '\n').replace(/<\/?h3>/g, '').trim();
+  document.getElementById('createPrice').value = listing.price;
+  document.getElementById('createRegion').value = listing.region || listing.location;
+
+  // Remove the old listing so the new submission replaces it
+  var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+  if (idx !== -1) LISTINGS.splice(idx, 1);
+
+  showToast('Inserat wird bearbeitet – speichere es erneut.', 'edit');
+}
+
+function deleteListing(listingId) {
+  if (!confirm('Möchtest du dieses Inserat wirklich löschen?')) return;
+
+  var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+  if (idx !== -1) {
+    LISTINGS.splice(idx, 1);
+    renderMyListings();
+    showToast('Inserat gelöscht.', 'delete');
+  }
+}
+
+// ========== REVIEW SYSTEM ==========
+var selectedRating = 0;
+// Store user reviews per listing (listingId → array of reviews)
+var userReviews = {};
+
+var RATING_LABELS = {
+  1: 'Schlecht',
+  2: 'Geht so',
+  3: 'Okay',
+  4: 'Gut',
+  5: 'Ausgezeichnet'
+};
+
+function openReviewModal() {
+  if (!isLoggedIn) {
+    showToast('Bitte melde dich an, um eine Bewertung zu schreiben.', 'warning');
+    openModal('loginModal');
+    return;
+  }
+  if (!currentListing) return;
+
+  selectedRating = 0;
+  document.getElementById('reviewText').value = '';
+  document.getElementById('starRatingLabel').textContent = 'Klicke auf einen Stern';
+  var stars = document.querySelectorAll('#starRatingPicker .star-pick');
+  stars.forEach(function(s) { s.textContent = '☆'; s.classList.remove('active'); });
+  document.getElementById('reviewModalSubtitle').textContent = 'Bewerte „' + currentListing.title + '"';
+
+  openModal('reviewModal');
+}
+
+function setRating(value) {
+  selectedRating = value;
+  var stars = document.querySelectorAll('#starRatingPicker .star-pick');
+  stars.forEach(function(s) {
+    var v = parseInt(s.getAttribute('data-value'));
+    s.textContent = v <= value ? '★' : '☆';
+    s.classList.toggle('active', v <= value);
+  });
+  document.getElementById('starRatingLabel').textContent = RATING_LABELS[value] || '';
+}
+
+function hoverRating(value) {
+  var stars = document.querySelectorAll('#starRatingPicker .star-pick');
+  stars.forEach(function(s) {
+    var v = parseInt(s.getAttribute('data-value'));
+    s.textContent = v <= value ? '★' : '☆';
+  });
+}
+
+function resetRatingHover() {
+  var stars = document.querySelectorAll('#starRatingPicker .star-pick');
+  stars.forEach(function(s) {
+    var v = parseInt(s.getAttribute('data-value'));
+    s.textContent = v <= selectedRating ? '★' : '☆';
+  });
+}
+
+function submitReview(e) {
+  e.preventDefault();
+
+  if (selectedRating === 0) {
+    showToast('Bitte wähle eine Sternbewertung.', 'warning');
+    return;
+  }
+
+  var text = document.getElementById('reviewText').value.trim();
+  if (!text) {
+    showToast('Bitte schreibe einen Bewertungstext.', 'warning');
+    return;
+  }
+
+  if (!currentListing) return;
+
+  var now = new Date();
+  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var dateStr = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+
+  var reviewerName = currentUser ? currentUser.name : 'Anonym';
+  var avatarSeed = currentUser ? encodeURIComponent(currentUser.name) : 'anon';
+
+  var newReview = {
+    name: reviewerName,
+    avatar: avatarSeed,
+    rating: selectedRating,
+    date: dateStr,
+    text: text
+  };
+
+  // Store the review
+  if (!userReviews[currentListing.id]) {
+    userReviews[currentListing.id] = [];
+  }
+  userReviews[currentListing.id].push(newReview);
+
+  // Update listing review count and recalculate average rating
+  currentListing.reviews += 1;
+  var allReviews = getAllReviewsForListing(currentListing.id);
+  var totalRating = allReviews.reduce(function(sum, r) { return sum + r.rating; }, 0);
+  currentListing.rating = Math.round((totalRating / allReviews.length) * 10) / 10;
+
+  // Re-render reviews on the detail page
+  renderDetailReviews(currentListing);
+
+  // Update meta info
+  document.getElementById('detailRating').textContent = currentListing.rating;
+  document.getElementById('detailReviewCount').textContent = '(' + currentListing.reviews + ' Bewertungen)';
+
+  closeModal('reviewModal');
+  showToast('Bewertung veröffentlicht! ⭐', 'star');
+}
+
+function getAllReviewsForListing(listingId) {
+  var reviews = DEMO_REVIEWS.slice();
+  if (userReviews[listingId]) {
+    reviews = userReviews[listingId].concat(reviews);
+  }
+  return reviews;
+}
+
+function renderDetailReviews(listing) {
+  var container = document.getElementById('detailReviews');
+  if (listing.reviews === 0) {
+    container.innerHTML =
+      '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
+        '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
+        '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
+        '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse. Sei der Erste, der eine Bewertung schreibt!</p>' +
+      '</div>';
+  } else {
+    var allReviews = getAllReviewsForListing(listing.id);
+    container.innerHTML = allReviews.map(function(r) {
+      return '<div class="review-card">' +
+        '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + r.avatar + '" alt="' + r.name + '" class="review-avatar" />' +
+        '<div class="review-content">' +
+          '<div class="review-top">' +
+            '<strong>' + r.name + '</strong>' +
+            '<span>' + r.date + '</span>' +
+          '</div>' +
+          '<div class="review-stars">' + '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) + '</div>' +
+          '<p class="review-text">' + r.text + '</p>' +
+        '</div>' +
+      '</div>';
+    }).join('');
   }
 }
 
