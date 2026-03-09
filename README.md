@@ -35,6 +35,9 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 ├── footer.php        # WordPress-Footer
 ├── style.css         # WordPress-Theme-Metadaten
 ├── .htaccess         # Apache-Konfiguration (HTTPS, Caching, Security)
+├── .github/workflows/
+│   ├── pages.yml     # GitHub Pages Deployment
+│   └── ionos-deploy.yml  # IONOS FTP Deployment
 ├── robots.txt        # SEO-Robots
 ├── sitemap.xml       # XML-Sitemap
 └── README.md         # Projektdokumentation
@@ -54,6 +57,31 @@ python3 -m http.server 8000
 # Option 3: Lokaler Server (z.B. mit Node.js)
 npx serve .
 ```
+
+## Deployment auf IONOS
+
+Die Anwendung wird bei jedem Push auf `main` automatisch per FTP auf IONOS deployed.
+
+### Einrichtung
+
+Folgende **GitHub Secrets** müssen im Repository unter *Settings → Secrets and variables → Actions* angelegt werden:
+
+| Secret | Beschreibung | Beispiel |
+|--------|-------------|----------|
+| `IONOS_FTP_SERVER` | FTP-Serveradresse von IONOS | `access123456789.webspace-data.io` |
+| `IONOS_FTP_USERNAME` | FTP-Benutzername | `u12345678` |
+| `IONOS_FTP_PASSWORD` | FTP-Passwort | *(dein Passwort)* |
+| `IONOS_FTP_REMOTE_DIR` | Zielverzeichnis auf dem Server | `/` |
+
+Die FTP-Zugangsdaten findest du im IONOS-Kundencenter unter **Hosting → SFTP & SSH**.
+
+### Manuelles Deployment
+
+Das Deployment kann auch manuell über GitHub Actions ausgelöst werden:
+
+1. Gehe zu **Actions** → **Deploy to IONOS**
+2. Klicke auf **Run workflow**
+3. Wähle den `main`-Branch und bestätige
 
 ## Lizenz
 
