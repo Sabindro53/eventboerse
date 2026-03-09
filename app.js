@@ -418,6 +418,32 @@ function renderListingCard(listing) {
 }
 
 // ========== HOME PAGE ==========
+
+function renderHeroMarquees() {
+  const leftTrack = document.querySelector('#heroMarqueeLeft .hero-marquee-track');
+  const rightTrack = document.querySelector('#heroMarqueeRight .hero-marquee-track');
+  if (!leftTrack || !rightTrack) return;
+
+  const leftListings = LISTINGS.slice(0, 5);
+  const rightListings = LISTINGS.slice(5, 10);
+
+  function cardHTML(l) {
+    return `<a class="hero-marquee-card" href="#" onclick="navigateTo('listing',${l.id});return false;">
+      <img src="${l.image}" alt="${l.title}" loading="lazy" />
+      <div class="hero-marquee-card-info">
+        <h4>${l.title}</h4>
+        <span>${l.priceLabel} · ★ ${l.rating}</span>
+      </div>
+    </a>`;
+  }
+
+  // Duplicate items for seamless infinite scroll
+  const leftHTML = leftListings.map(cardHTML).join('');
+  const rightHTML = rightListings.map(cardHTML).join('');
+  leftTrack.innerHTML = leftHTML + leftHTML;
+  rightTrack.innerHTML = rightHTML + rightHTML;
+}
+
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
   grid.innerHTML = LISTINGS.slice(0, 8).map(renderListingCard).join('');
@@ -1941,6 +1967,7 @@ window.addEventListener('scroll', () => {
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', () => {
   renderFeaturedGrid();
+  renderHeroMarquees();
   
   // Set min date for date inputs to today
   const today = new Date().toISOString().split('T')[0];

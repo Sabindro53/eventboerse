@@ -323,6 +323,80 @@ img { display: block; max-width: 100%; }
   justify-content: center;
   overflow: hidden;
 }
+
+/* Animated Marquee Columns */
+.hero-marquee {
+  position: absolute;
+  top: 0;
+  width: 220px;
+  height: 100%;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: auto;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+}
+.hero-marquee-left { left: 24px; }
+.hero-marquee-right { right: 24px; }
+.hero-marquee-track {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.hero-marquee-left .hero-marquee-track {
+  animation: marqueeUp 28s linear infinite;
+}
+.hero-marquee-right .hero-marquee-track {
+  animation: marqueeDown 32s linear infinite;
+}
+@keyframes marqueeUp {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+@keyframes marqueeDown {
+  0% { transform: translateY(-50%); }
+  100% { transform: translateY(0); }
+}
+.hero-marquee:hover .hero-marquee-track {
+  animation-play-state: paused;
+}
+.hero-marquee-card {
+  display: block;
+  width: 200px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  background: var(--bg);
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  flex-shrink: 0;
+}
+.hero-marquee-card:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-lg);
+}
+.hero-marquee-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  display: block;
+}
+.hero-marquee-card-info {
+  padding: 10px 12px;
+}
+.hero-marquee-card-info h4 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-marquee-card-info span {
+  font-size: 0.7rem;
+  color: var(--text-light);
+}
 .hero-bg {
   position: absolute;
   inset: 0;
@@ -1850,6 +1924,7 @@ img { display: block; max-width: 100%; }
 
 /* ======== RESPONSIVE ======== */
 @media (max-width: 1024px) {
+  .hero-marquee { display: none; }
   .hero-content h1 { font-size: 2.5rem; }
   .how-it-works { grid-template-columns: repeat(2, 1fr); }
   .testimonials { grid-template-columns: 1fr; }
