@@ -36,7 +36,6 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 ├── style.css         # WordPress-Theme-Metadaten
 ├── .htaccess         # Apache-Konfiguration (HTTPS, Caching, Security)
 ├── .github/workflows/
-│   ├── pages.yml     # GitHub Pages Deployment
 │   └── ionos-deploy.yml  # IONOS FTP Deployment
 ├── robots.txt        # SEO-Robots
 ├── sitemap.xml       # XML-Sitemap
