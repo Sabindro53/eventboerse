@@ -1269,6 +1269,13 @@ function submitListing(e) {
     negotiable: true
   };
 
+  // If editing an existing listing, remove the old one before adding the updated version
+  if (window._editingListingId) {
+    var editIdx = LISTINGS.findIndex(function(l) { return l.id === window._editingListingId; });
+    if (editIdx !== -1) LISTINGS.splice(editIdx, 1);
+    window._editingListingId = null;
+  }
+
   // Add to global listings array (at the beginning so it shows first)
   LISTINGS.unshift(newListing);
 
@@ -1538,6 +1545,9 @@ function editListing(listingId) {
   var listing = LISTINGS.find(function(l) { return l.id === listingId; });
   if (!listing) return;
 
+  // Store the ID of the listing being edited so submitListing can replace it
+  window._editingListingId = listingId;
+
   // Navigate to create-listing form and prefill values
   navigateTo('create-listing');
 
@@ -1547,10 +1557,6 @@ function editListing(listingId) {
   document.getElementById('createDescription').value = listing.description.replace(/<\/?p>/g, '\n').replace(/<\/?h3>/g, '').trim();
   document.getElementById('createPrice').value = listing.price;
   document.getElementById('createRegion').value = listing.region || listing.location;
-
-  // Remove the old listing so the new submission replaces it
-  var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
-  if (idx !== -1) LISTINGS.splice(idx, 1);
 
   showToast('Inserat wird bearbeitet – speichere es erneut.', 'edit');
 }
@@ -1570,6 +1576,8 @@ function deleteListing(listingId) {
 var selectedRating = 0;
 // Store user reviews per listing (listingId → array of reviews)
 var userReviews = {};
+
+var MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
 var RATING_LABELS = {
   1: 'Schlecht',
@@ -1641,8 +1649,7 @@ function submitReview(e) {
   if (!currentListing) return;
 
   var now = new Date();
-  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-  var dateStr = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+  var dateStr = MONTH_NAMES[now.getMonth()] + ' ' + now.getFullYear();
 
   var reviewerName = currentUser ? currentUser.name : 'Anonym';
   var avatarSeed = currentUser ? encodeURIComponent(currentUser.name) : 'anon';
