@@ -1319,27 +1319,43 @@ function renderDashboard() {
 function updateCreateFormForRole() {
   var title = document.querySelector('#page-create-listing .create-title');
   var subtitle = document.querySelector('#page-create-listing .create-subtitle');
-  var titleLabel = document.querySelector('label[for="createTitle"]');
-  if (!titleLabel) {
-    // Find by proximity to input
-    var titleInput = document.getElementById('createTitle');
-    if (titleInput) titleLabel = titleInput.closest('.form-group').querySelector('label');
-  }
   var titleInput = document.getElementById('createTitle');
+  var titleLabel = titleInput ? titleInput.closest('.form-group').querySelector('label') : null;
+  var descTextarea = document.getElementById('createDescription');
+  var descLabel = descTextarea ? descTextarea.closest('.form-group').querySelector('label') : null;
+  var priceInput = document.getElementById('createPrice');
+  var priceLabel = priceInput ? priceInput.closest('.form-group').querySelector('label') : null;
   var submitBtn = document.querySelector('#step3 .btn-primary');
+  var step3Title = document.querySelector('#step3 h2');
+  var uploadZoneH3 = document.querySelector('#uploadZone h3');
+  var uploadZoneP = document.querySelector('#uploadZone > p:not(.upload-hint)');
 
   if (isEventPlaner()) {
     if (title) title.textContent = 'Event erstellen';
     if (subtitle) subtitle.textContent = 'Beschreibe dein Event und finde die passenden Dienstleister.';
     if (titleLabel) titleLabel.textContent = 'Name deines Events';
     if (titleInput) titleInput.placeholder = 'z.B. Hochzeit von Anna & Tom, Firmen-Sommerfest...';
-    if (submitBtn) submitBtn.innerHTML = '<span class=\"material-icons-round\">event_available</span> Event ver\u00f6ffentlichen';
+    if (descLabel) descLabel.textContent = 'Event-Beschreibung';
+    if (descTextarea) descTextarea.placeholder = 'Beschreibe dein Event detailliert \u2013 was planst du, wie viele G\u00e4ste, welche Atmosph\u00e4re...';
+    if (priceLabel) priceLabel.textContent = 'Budget (\u20ac)';
+    if (priceInput) priceInput.placeholder = 'z.B. 5000';
+    if (step3Title) step3Title.textContent = 'Fotos & Inspiration';
+    if (uploadZoneH3) uploadZoneH3.textContent = 'Event-Bilder hochladen';
+    if (uploadZoneP) uploadZoneP.textContent = 'Lade Bilder oder Inspirationen f\u00fcr dein Event hoch';
+    if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">event_available</span> Event ver\u00f6ffentlichen';
   } else {
     if (title) title.textContent = 'Inserat erstellen';
     if (subtitle) subtitle.textContent = 'Pr\u00e4sentiere deinen Service und erreiche tausende potenzielle Kunden.';
     if (titleLabel) titleLabel.textContent = 'Titel deines Services';
     if (titleInput) titleInput.placeholder = 'z.B. Professionelle DJ-Services f\u00fcr jedes Event';
-    if (submitBtn) submitBtn.innerHTML = '<span class=\"material-icons-round\">publish</span> Inserat ver\u00f6ffentlichen';
+    if (descLabel) descLabel.textContent = 'Beschreibung';
+    if (descTextarea) descTextarea.placeholder = 'Beschreibe deinen Service detailliert...';
+    if (priceLabel) priceLabel.textContent = 'Preis ab (\u20ac)';
+    if (priceInput) priceInput.placeholder = 'z.B. 450';
+    if (step3Title) step3Title.textContent = 'Fotos & Galerie';
+    if (uploadZoneH3) uploadZoneH3.textContent = 'Bilder hochladen';
+    if (uploadZoneP) uploadZoneP.textContent = 'Ziehe Bilder hierher oder klicke zum Ausw\u00e4hlen';
+    if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">publish</span> Inserat ver\u00f6ffentlichen';
   }
 }
 
@@ -1495,7 +1511,8 @@ function submitListing(e) {
   document.getElementById('step1').classList.add('active');
 
   // Show success toast and navigate to the new listing detail
-  showToast('Inserat erfolgreich veröffentlicht! 🎉', 'check_circle');
+  var successMsg = isEventPlaner() ? 'Event erfolgreich veröffentlicht! 🎉' : 'Inserat erfolgreich veröffentlicht! 🎉';
+  showToast(successMsg, 'check_circle');
   setTimeout(function() { navigateTo('detail', newId); }, 1200);
 }
 
