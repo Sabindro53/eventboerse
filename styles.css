@@ -387,6 +387,8 @@ img { display: block; max-width: 100%; }
   cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   flex-shrink: 0;
+  color: var(--dark);
+  text-decoration: none;
 }
 .hero-marquee-card:hover {
   transform: scale(1.05);
