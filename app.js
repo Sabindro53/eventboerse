@@ -751,7 +751,7 @@ function initAiSearch() {
 
   // Close on outside click
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.hero-field-ai')) {
+    if (!e.target.closest('.hero-search')) {
       box.classList.remove('show');
       field.classList.remove('focused');
     }
