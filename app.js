@@ -1998,6 +1998,9 @@ function applyLogin() {
     var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = avatarUrl;
   }
+  // Update active pages for role
+  var createPage = document.getElementById('page-create-listing');
+  if (createPage && createPage.classList.contains('active')) updateCreateFormForRole();
   // Update menu labels based on role
   var menuCreateBtn = document.querySelector('#loggedInMenu button[onclick*="create-listing"]');
   var menuMyListBtn = document.querySelector('#loggedInMenu button[onclick*="my-listings"]');
@@ -2023,7 +2026,7 @@ function handleLogin(e) {
     currentUser = {
       name: namePart,
       email: email,
-      role: 'user',
+      role: 'Event-Planer',
       tagline: '',
       location: '',
       bio: ''
