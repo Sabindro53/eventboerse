@@ -154,7 +154,69 @@
               </div>
               <div class="hero-field">
                 <label>Region</label>
-                <input type="text" placeholder="z.B. Berlin, München..." id="heroLocation" />
+                <select id="heroLocation">
+                  <option value="">Alle Regionen</option>
+                  <optgroup label="Top-Städte">
+                    <option value="berlin">Berlin</option>
+                    <option value="hamburg">Hamburg</option>
+                    <option value="muenchen">München</option>
+                    <option value="koeln">Köln</option>
+                    <option value="frankfurt">Frankfurt am Main</option>
+                    <option value="duesseldorf">Düsseldorf</option>
+                    <option value="stuttgart">Stuttgart</option>
+                  </optgroup>
+                  <optgroup label="Weitere Großstädte">
+                    <option value="dortmund">Dortmund</option>
+                    <option value="essen">Essen</option>
+                    <option value="leipzig">Leipzig</option>
+                    <option value="bremen">Bremen</option>
+                    <option value="dresden">Dresden</option>
+                    <option value="hannover">Hannover</option>
+                    <option value="nuernberg">Nürnberg</option>
+                    <option value="duisburg">Duisburg</option>
+                    <option value="bochum">Bochum</option>
+                    <option value="wuppertal">Wuppertal</option>
+                    <option value="bielefeld">Bielefeld</option>
+                    <option value="bonn">Bonn</option>
+                    <option value="muenster">Münster</option>
+                  </optgroup>
+                  <optgroup label="Mittelstädte">
+                    <option value="karlsruhe">Karlsruhe</option>
+                    <option value="mannheim">Mannheim</option>
+                    <option value="augsburg">Augsburg</option>
+                    <option value="wiesbaden">Wiesbaden</option>
+                    <option value="aachen">Aachen</option>
+                    <option value="braunschweig">Braunschweig</option>
+                    <option value="kiel">Kiel</option>
+                    <option value="chemnitz">Chemnitz</option>
+                    <option value="halle">Halle (Saale)</option>
+                    <option value="magdeburg">Magdeburg</option>
+                    <option value="freiburg">Freiburg</option>
+                    <option value="luebeck">Lübeck</option>
+                    <option value="erfurt">Erfurt</option>
+                    <option value="rostock">Rostock</option>
+                    <option value="mainz">Mainz</option>
+                    <option value="kassel">Kassel</option>
+                    <option value="saarbruecken">Saarbrücken</option>
+                    <option value="potsdam">Potsdam</option>
+                    <option value="oldenburg">Oldenburg</option>
+                    <option value="osnabrueck">Osnabrück</option>
+                    <option value="heidelberg">Heidelberg</option>
+                    <option value="darmstadt">Darmstadt</option>
+                    <option value="regensburg">Regensburg</option>
+                    <option value="wuerzburg">Würzburg</option>
+                    <option value="wolfsburg">Wolfsburg</option>
+                    <option value="ulm">Ulm</option>
+                    <option value="heilbronn">Heilbronn</option>
+                    <option value="goettingen">Göttingen</option>
+                    <option value="reutlingen">Reutlingen</option>
+                    <option value="koblenz">Koblenz</option>
+                    <option value="trier">Trier</option>
+                    <option value="jena">Jena</option>
+                    <option value="schwerin">Schwerin</option>
+                    <option value="cottbus">Cottbus</option>
+                  </optgroup>
+                </select>
               </div>
               <button class="hero-search-btn" onclick="performSearch()">
                 <span class="material-icons-round">search</span>
