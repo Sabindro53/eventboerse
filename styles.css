@@ -1150,23 +1150,12 @@ img { display: block; max-width: 100%; }
 }
 .map-loc-item:hover { background: var(--bg-alt); border-color: var(--border); }
 .map-loc-item.active { background: var(--primary-light); border-color: var(--primary); }
-.map-loc-icon {
-  width: 44px; height: 44px;
+.map-loc-img {
+  width: 48px; height: 48px;
   border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  font-size: 1.3rem;
+  object-fit: cover;
 }
-.map-loc-icon.dj { background: #EDE7F6; }
-.map-loc-icon.catering { background: #FFF3E0; }
-.map-loc-icon.foto { background: #E3F2FD; }
-.map-loc-icon.florist { background: #E8F5E9; }
-.map-loc-icon.location { background: #FCE4EC; }
-.map-loc-icon.licht { background: #FFFDE7; }
-.map-loc-icon.pyro { background: #FBE9E7; }
-.map-loc-icon.deko { background: #F3E5F5; }
-.map-loc-icon.planung { background: #E0F2F1; }
-.map-loc-icon.moderation { background: #E8EAF6; }
 .map-loc-info { flex: 1; min-width: 0; }
 .map-loc-info strong {
   display: block;

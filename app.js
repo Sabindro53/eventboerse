@@ -2322,9 +2322,9 @@ function initLeafletMap() {
 
   L.control.zoom({ position: 'topright' }).addTo(leafletMap);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://osm.org/copyright">OSM</a>'
+    attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
   }).addTo(leafletMap);
 
   addListingMarkers(LISTINGS);
@@ -2385,10 +2385,9 @@ function addListingMarkers(listings) {
 function renderLocationsList(listings) {
   const list = document.getElementById('mapLocationsList');
   list.innerHTML = listings.map(l => {
-    const emoji = CATEGORY_EMOJI[l.category] || '📌';
     return `
       <div class="map-loc-item" data-id="${l.id}" onclick="focusMapMarker(${l.id})">
-        <div class="map-loc-icon ${l.category}">${emoji}</div>
+        <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" />
         <div class="map-loc-info">
           <strong>${l.title}</strong>
           <span>${l.location} · ${l.categoryLabel}</span>
