@@ -537,6 +537,236 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// ========== KI-SUCHE ==========
+const AI_KEYWORDS = {
+  'dj': { term: 'DJ', category: 'dj', emoji: '🎧', hint: 'DJ & Musik für dein Event' },
+  'musik': { term: 'DJ', category: 'dj', emoji: '🎧', hint: 'Musiker & DJs' },
+  'sound': { term: 'DJ', category: 'dj', emoji: '🎧', hint: 'Sound & DJ-Service' },
+  'party': { term: 'DJ', category: 'dj', emoji: '🎧', hint: 'Party-DJ buchen' },
+  'beats': { term: 'DJ', category: 'dj', emoji: '🎧', hint: 'DJ & Beats' },
+  'auflegen': { term: 'DJ', category: 'dj', emoji: '🎧', hint: 'DJ zum Auflegen' },
+  'catering': { term: 'Catering', category: 'catering', emoji: '🍽️', hint: 'Catering-Service' },
+  'essen': { term: 'Catering', category: 'catering', emoji: '🍽️', hint: 'Essen & Catering' },
+  'buffet': { term: 'Catering', category: 'catering', emoji: '🍽️', hint: 'Buffet-Catering' },
+  'koch': { term: 'Catering', category: 'catering', emoji: '🍽️', hint: 'Koch & Catering' },
+  'gourmet': { term: 'Catering', category: 'catering', emoji: '🍽️', hint: 'Gourmet-Catering' },
+  'foto': { term: 'Fotografie', category: 'foto', emoji: '📷', hint: 'Event-Fotografie' },
+  'fotograf': { term: 'Fotografie', category: 'foto', emoji: '📷', hint: 'Fotograf buchen' },
+  'kamera': { term: 'Fotografie', category: 'foto', emoji: '📷', hint: 'Fotograf & Kamera' },
+  'bilder': { term: 'Fotografie', category: 'foto', emoji: '📷', hint: 'Fotos & Bilder' },
+  'blumen': { term: 'Floristik', category: 'florist', emoji: '🌸', hint: 'Blumen & Floristik' },
+  'florist': { term: 'Floristik', category: 'florist', emoji: '🌸', hint: 'Floristik-Service' },
+  'deko': { term: 'Dekoration', category: 'deko', emoji: '🎈', hint: 'Event-Dekoration' },
+  'dekoration': { term: 'Dekoration', category: 'deko', emoji: '🎈', hint: 'Dekoration & Design' },
+  'schmuck': { term: 'Dekoration', category: 'deko', emoji: '🎈', hint: 'Deko & Schmuck' },
+  'licht': { term: 'Licht & Technik', category: 'licht', emoji: '💡', hint: 'Licht & Technik' },
+  'technik': { term: 'Licht & Technik', category: 'licht', emoji: '💡', hint: 'Eventtechnik' },
+  'beleuchtung': { term: 'Licht & Technik', category: 'licht', emoji: '💡', hint: 'Beleuchtung & Licht' },
+  'feuerwerk': { term: 'Pyrotechnik', category: 'pyro', emoji: '🎆', hint: 'Feuerwerk & Pyro' },
+  'pyro': { term: 'Pyrotechnik', category: 'pyro', emoji: '🎆', hint: 'Pyrotechnik-Show' },
+  'location': { term: 'Location', category: 'location', emoji: '🏰', hint: 'Event-Location finden' },
+  'räume': { term: 'Location', category: 'location', emoji: '🏰', hint: 'Räume & Locations' },
+  'saal': { term: 'Location', category: 'location', emoji: '🏰', hint: 'Festsaal & Location' },
+  'schloss': { term: 'Location', category: 'location', emoji: '🏰', hint: 'Schloss-Location' },
+  'planung': { term: 'Eventplanung', category: 'planung', emoji: '📋', hint: 'Event-Planung' },
+  'planer': { term: 'Eventplanung', category: 'planung', emoji: '📋', hint: 'Eventplaner buchen' },
+  'organisieren': { term: 'Eventplanung', category: 'planung', emoji: '📋', hint: 'Event organisieren' },
+  'moderator': { term: 'Moderation', category: 'moderation', emoji: '🎤', hint: 'Moderator buchen' },
+  'moderation': { term: 'Moderation', category: 'moderation', emoji: '🎤', hint: 'Event-Moderation' },
+  'hochzeit': { term: 'Hochzeit', category: '', emoji: '💍', hint: 'Alles für die Hochzeit' },
+  'heiraten': { term: 'Hochzeit', category: '', emoji: '💍', hint: 'Hochzeits-Services' },
+  'geburtstag': { term: 'Geburtstag', category: '', emoji: '🎂', hint: 'Geburtstags-Services' },
+  'firmen': { term: 'Firmen-Event', category: '', emoji: '🏢', hint: 'Firmen-Events' },
+  'messe': { term: 'Messe', category: '', emoji: '🎪', hint: 'Messe-Services' },
+};
+
+// Typo / fuzzy matching – Levenshtein distance
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const d = Array.from({length: m + 1}, (_, i) => {
+    const row = new Array(n + 1);
+    row[0] = i;
+    return row;
+  });
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] !== b[j-1] ? 1 : 0));
+  return d[m][n];
+}
+
+function aiMatchKeyword(input) {
+  input = input.toLowerCase().trim();
+  if (!input) return [];
+
+  const words = input.split(/\s+/);
+  const matches = new Map();
+
+  words.forEach(word => {
+    if (word.length < 2) return;
+    Object.entries(AI_KEYWORDS).forEach(([key, val]) => {
+      // Exact prefix or contains
+      if (key.startsWith(word) || word.startsWith(key)) {
+        matches.set(val.hint, { ...val, score: 0 });
+        return;
+      }
+      // Fuzzy – allow 1-2 typos depending on word length
+      const maxDist = word.length <= 3 ? 1 : 2;
+      const dist = levenshtein(word, key);
+      if (dist <= maxDist) {
+        const existing = matches.get(val.hint);
+        if (!existing || dist < existing.score) {
+          matches.set(val.hint, { ...val, score: dist });
+        }
+      }
+    });
+  });
+
+  // Also try matching against listing titles directly
+  const listingMatches = LISTINGS.filter(l => {
+    const haystack = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.providerName}`.toLowerCase();
+    return words.some(w => w.length >= 2 && haystack.includes(w));
+  }).slice(0, 2);
+
+  listingMatches.forEach(l => {
+    const emoji = CATEGORY_EMOJI[l.category] || '📌';
+    matches.set('listing_' + l.id, {
+      term: l.title,
+      category: l.category,
+      emoji: emoji,
+      hint: `${l.categoryLabel} · ${l.location}`,
+      listingId: l.id,
+      score: 1
+    });
+  });
+
+  return Array.from(matches.values())
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 5);
+}
+
+function getDefaultSuggestions() {
+  return [
+    { term: 'DJ für Party', emoji: '🎧', hint: 'Musik & DJs entdecken', category: 'dj' },
+    { term: 'Hochzeits-Catering', emoji: '🍽️', hint: 'Catering-Services', category: 'catering' },
+    { term: 'Event-Fotograf', emoji: '📷', hint: 'Fotografen in deiner Nähe', category: 'foto' },
+    { term: 'Blumendeko', emoji: '🌸', hint: 'Floristik & Dekoration', category: 'florist' },
+    { term: 'Eventplanung komplett', emoji: '📋', hint: 'Full-Service Planung', category: 'planung' },
+  ];
+}
+
+let aiDebounce = null;
+
+function renderAiSuggestions(suggestions, isTyping) {
+  const list = document.getElementById('aiSuggestionsList');
+  const box = document.getElementById('aiSuggestions');
+
+  if (isTyping) {
+    list.innerHTML = `
+      <div class="ai-typing">
+        <div class="ai-typing-dots"><span></span><span></span><span></span></div>
+        KI sucht...
+      </div>`;
+    box.classList.add('show');
+    return;
+  }
+
+  if (!suggestions.length) {
+    list.innerHTML = `
+      <div class="ai-suggestion-item" style="opacity:0.6; cursor:default;">
+        <div class="ai-suggestion-icon">🔍</div>
+        <div class="ai-suggestion-text">
+          <strong>Kein Treffer</strong>
+          <span>Versuch es mit anderen Begriffen</span>
+        </div>
+      </div>`;
+    box.classList.add('show');
+    return;
+  }
+
+  list.innerHTML = suggestions.map(s => `
+    <div class="ai-suggestion-item" onclick="applyAiSuggestion('${s.term.replace(/'/g, "\\'")}', '${s.category || ''}', ${s.listingId || 0})">
+      <div class="ai-suggestion-icon">${s.emoji}</div>
+      <div class="ai-suggestion-text">
+        <strong>${s.term}</strong>
+        <span>${s.hint}</span>
+      </div>
+      <span class="material-icons-round ai-suggestion-arrow">arrow_forward</span>
+    </div>
+  `).join('');
+  box.classList.add('show');
+}
+
+function applyAiSuggestion(term, category, listingId) {
+  document.getElementById('aiSuggestions').classList.remove('show');
+  document.querySelector('.hero-field-ai')?.classList.remove('focused');
+
+  if (listingId) {
+    navigateTo('detail', listingId);
+    return;
+  }
+
+  document.getElementById('heroSearchInput').value = term;
+  performSearch();
+}
+
+function initAiSearch() {
+  const input = document.getElementById('heroSearchInput');
+  const box = document.getElementById('aiSuggestions');
+  const field = input.closest('.hero-field-ai');
+
+  input.addEventListener('focus', () => {
+    field.classList.add('focused');
+    const val = input.value.trim();
+    if (!val) {
+      renderAiSuggestions(getDefaultSuggestions(), false);
+    } else {
+      const matches = aiMatchKeyword(val);
+      renderAiSuggestions(matches.length ? matches : getDefaultSuggestions(), false);
+    }
+  });
+
+  input.addEventListener('input', () => {
+    const val = input.value.trim();
+    clearTimeout(aiDebounce);
+
+    if (!val) {
+      renderAiSuggestions(getDefaultSuggestions(), false);
+      return;
+    }
+
+    // Show typing indicator briefly
+    renderAiSuggestions([], true);
+
+    aiDebounce = setTimeout(() => {
+      const matches = aiMatchKeyword(val);
+      if (matches.length) {
+        renderAiSuggestions(matches, false);
+      } else {
+        // No match — show "not found" + default
+        renderAiSuggestions([], false);
+      }
+    }, 350);
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.hero-field-ai')) {
+      box.classList.remove('show');
+      field.classList.remove('focused');
+    }
+  });
+
+  // Enter key → search
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      box.classList.remove('show');
+      field.classList.remove('focused');
+      performSearch();
+    }
+  });
+}
+
 function performSearch() {
   navigateTo('browse');
 
@@ -1687,6 +1917,7 @@ function setupDragDrop() {
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
   setupDragDrop();
+  initAiSearch();
 });
 
 // ========== FAVORITES ==========

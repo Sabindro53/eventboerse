@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -143,9 +143,17 @@
           <p>Finde die besten Dienstleister – von DJ bis Florist. Verhandle Preise, buche direkt & feiere unvergesslich.</p>
           <div class="hero-search">
             <div class="hero-search-row">
-              <div class="hero-field">
-                <label>Was suchst du?</label>
-                <input type="text" placeholder="z.B. DJ, Caterer, Fotograf..." id="heroSearchInput" />
+              <div class="hero-field hero-field-ai">
+                <label><span class="material-icons-round ai-spark">auto_awesome</span> KI-Suche</label>
+                <input type="text" placeholder="Beschreib dein Event – die KI findet den Rest..." id="heroSearchInput" autocomplete="off" />
+                <div class="ai-suggestions" id="aiSuggestions">
+                  <div class="ai-suggestions-inner">
+                    <div class="ai-suggestions-header">
+                      <span class="material-icons-round">auto_awesome</span> KI-Vorschläge
+                    </div>
+                    <div class="ai-suggestions-list" id="aiSuggestionsList"></div>
+                  </div>
+                </div>
               </div>
               <div class="hero-field">
                 <label>Event-Typ</label>
@@ -1309,6 +1317,6 @@
     </button>
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
