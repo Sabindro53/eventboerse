@@ -38,19 +38,11 @@ function eventboerse_enqueue_assets() {
         true
     );
 
-    // Theme Styles
-    wp_enqueue_style(
-        'eventboerse-styles',
-        get_template_directory_uri() . '/styles.css',
-        array( 'google-fonts-inter', 'google-material-icons', 'leaflet' ),
-        wp_get_theme()->get( 'Version' )
-    );
-
-    // Theme Hauptstylesheet (style.css)
+    // Theme Hauptstylesheet (style.css) – enthält alle Design-Regeln
     wp_enqueue_style(
         'eventboerse-style',
         get_stylesheet_uri(),
-        array( 'eventboerse-styles' ),
+        array( 'google-fonts-inter', 'google-material-icons', 'leaflet' ),
         wp_get_theme()->get( 'Version' )
     );
 
