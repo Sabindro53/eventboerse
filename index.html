@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=14" />
+  <link rel="stylesheet" href="styles.css?v=15" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -105,6 +105,10 @@
   <nav class="mobile-nav" id="mobileNav">
     <button onclick="navigateTo('home')" data-page="home">
       <span class="material-icons-round">cottage</span>
+      <span>Startseite</span>
+    </button>
+    <button onclick="navigateTo('explore')" data-page="explore">
+      <span class="material-icons-round">explore</span>
       <span>Entdecken</span>
     </button>
     <button onclick="navigateTo('browse')" data-page="browse">
@@ -420,6 +424,20 @@
           </div>
         </div>
       </footer>
+    </section>
+
+    <!-- ============ PAGE: EXPLORE (Instagram-Style) ============ -->
+    <section id="page-explore" class="page">
+      <div class="container">
+        <div class="explore-header">
+          <h2>Entdecken</h2>
+          <div class="explore-search">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="exploreSearch" placeholder="Angebote durchsuchen..." oninput="filterExploreGrid()" />
+          </div>
+        </div>
+        <div class="explore-grid" id="exploreGrid"></div>
+      </div>
     </section>
 
     <!-- ============ PAGE: BROWSE / SEARCH ============ -->
@@ -1318,6 +1336,6 @@
     </button>
   </div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

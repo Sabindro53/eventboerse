@@ -916,6 +916,103 @@ img { display: block; max-width: 100%; }
 .footer-social { display: flex; gap: 20px; }
 .footer-social a:hover { color: var(--primary); }
 
+/* ======== EXPLORE PAGE (Instagram-Style) ======== */
+.explore-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px 0 20px;
+  flex-wrap: wrap;
+}
+.explore-header h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--dark);
+}
+.explore-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: 10px 18px;
+  flex: 1;
+  max-width: 400px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.explore-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255,56,92,0.1);
+}
+.explore-search .material-icons-round {
+  font-size: 20px;
+  color: var(--text-light);
+}
+.explore-search input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 0.9rem;
+  color: var(--dark);
+  width: 100%;
+  font-family: inherit;
+}
+.explore-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding-bottom: 40px;
+}
+.explore-item {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.explore-item-large {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.explore-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+.explore-item:hover img {
+  transform: scale(1.05);
+}
+.explore-item-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 40%, rgba(0,0,0,0.6) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.explore-item:hover .explore-item-overlay {
+  opacity: 1;
+}
+.explore-item-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.explore-item-price {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.85);
+  margin-top: 2px;
+}
+
 /* ======== BROWSE PAGE ======== */
 .browse-header {
   background: var(--bg);

@@ -413,6 +413,9 @@ function navigateTo(page, data) {
     case 'browse':
       renderBrowseGrid(LISTINGS);
       break;
+    case 'explore':
+      renderExploreGrid();
+      break;
     case 'detail':
       loadDetail(data);
       break;
@@ -497,6 +500,42 @@ function renderHeroMarquees() {
   const rightHTML = rightListings.map(cardHTML).join('');
   leftTrack.innerHTML = leftHTML + leftHTML;
   rightTrack.innerHTML = rightHTML + rightHTML;
+}
+
+// ========== EXPLORE PAGE (Instagram-Style) ==========
+function renderExploreGrid(filter) {
+  const grid = document.getElementById('exploreGrid');
+  if (!grid) return;
+  const query = filter || (document.getElementById('exploreSearch')?.value || '').trim().toLowerCase();
+  // Collect all images from all listings
+  let items = [];
+  LISTINGS.forEach(l => {
+    // Main image
+    items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+    // Additional images
+    if (l.images) {
+      l.images.slice(1).forEach(img => {
+        items.push({ image: img, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+      });
+    }
+  });
+  if (query) {
+    items = items.filter(it => it.title.toLowerCase().includes(query) || it.provider.toLowerCase().includes(query));
+  }
+  grid.innerHTML = items.map((it, i) => {
+    const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
+    return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;">
+      <img src="${it.image}" alt="${it.title}" loading="lazy" />
+      <div class="explore-item-overlay">
+        <span class="explore-item-title">${it.title}</span>
+        <span class="explore-item-price">${it.price}</span>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+function filterExploreGrid() {
+  renderExploreGrid();
 }
 
 function renderFeaturedGrid() {
