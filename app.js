@@ -2481,10 +2481,26 @@ window.addEventListener('scroll', () => {
   }
 });
 
+// ========== FOOTER LOGO SCROLL ANIMATION ==========
+function initFooterLogoAnimation() {
+  const logo = document.querySelector('.footer-logo');
+  if (!logo) return;
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        logo.classList.add('visible');
+        observer.unobserve(logo);
+      }
+    });
+  }, { threshold: 0.3 });
+  observer.observe(logo);
+}
+
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', () => {
   renderFeaturedGrid();
   renderHeroMarquees();
+  initFooterLogoAnimation();
   
   // Set min date for date inputs to today
   const today = new Date().toISOString().split('T')[0];

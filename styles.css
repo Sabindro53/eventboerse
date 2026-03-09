@@ -870,8 +870,16 @@ img { display: block; max-width: 100%; }
   font-size: 1.3rem; font-weight: 800; color: var(--dark);
   display: flex; align-items: center; gap: 8px;
   margin-bottom: 12px;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s cubic-bezier(.22,.61,.36,1), transform 0.7s cubic-bezier(.22,.61,.36,1);
 }
-.footer-logo .material-icons-round { color: var(--primary); font-size: 1.6rem; }
+.footer-logo.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.footer-logo .material-icons-round { color: var(--primary); font-size: 1.6rem; transition: transform 0.5s cubic-bezier(.22,.61,.36,1) 0.3s; }
+.footer-logo.visible .material-icons-round { transform: rotate(-10deg) scale(1.15); }
 .footer-col p { font-size: 0.9rem; color: var(--text-light); }
 .footer-col h4 { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--dark); margin-bottom: 16px; }
 .footer-col a { display: block; font-size: 0.9rem; color: var(--text-light); padding: 4px 0; transition: color var(--transition); }
