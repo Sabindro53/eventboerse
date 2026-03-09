@@ -1817,8 +1817,8 @@ function renderMyListings() {
             '<p>' + l.categoryLabel + ' · ' + l.location + '</p>' +
             '<p class="my-listing-price">' + l.priceLabel + '</p>' +
             '<div class="my-listing-stats">' +
-              '<span><span class="material-icons-round">star</span> ' + l.rating + '</span>' +
-              '<span><span class="material-icons-round">rate_review</span> ' + l.reviews + ' Bewertungen</span>' +
+              '<span><span class="material-icons-round">star</span> 0/5</span>' +
+              '<span><span class="material-icons-round">rate_review</span> 0 Bewertungen</span>' +
             '</div>' +
           '</div>' +
           '<div class="my-listing-actions">' +
