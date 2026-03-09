@@ -1532,7 +1532,7 @@ function handleProfilePhoto(input) {
   reader.onload = function(e) {
     document.getElementById('profileEditPhoto').src = e.target.result;
     // Update nav avatar too
-    var navAvatar = document.querySelector('.user-btn img');
+    var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = e.target.result;
     if (currentUser) currentUser.photoUrl = e.target.result;
     showToast('Profilbild aktualisiert! 📸', 'camera_alt');
@@ -1995,7 +1995,7 @@ function applyLogin() {
   // Update nav avatar with user seed
   if (currentUser) {
     var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
-    var navAvatar = document.querySelector('.user-btn img');
+    var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = avatarUrl;
   }
   // Update menu labels based on role
@@ -2094,13 +2094,11 @@ function loadProfile() {
   document.getElementById('profileTagline').value = currentUser.tagline || '';
   document.getElementById('profileLocation').value = currentUser.location || '';
   document.getElementById('profileBio').value = currentUser.bio || '';
-  // Update avatar
-  if (currentUser.photoUrl) {
-    document.getElementById('profileEditPhoto').src = currentUser.photoUrl;
-  } else {
-    var avatarUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
-    document.getElementById('profileEditPhoto').src = avatarUrl;
-  }
+  // Update avatar – keep profile photo and nav avatar in sync
+  var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
+  document.getElementById('profileEditPhoto').src = avatarUrl;
+  var navAvatar = document.querySelector('#avatarBtn img');
+  if (navAvatar) navAvatar.src = avatarUrl;
   // Restore cover
   var coverPreview = document.getElementById('coverPreview');
   if (currentUser.coverUrl) {
@@ -2141,7 +2139,7 @@ function saveProfile() {
   currentUser.gallery = Array.from(galleryImgs).map(function(img) { return img.src; });
   // Update avatar everywhere
   var avatarSrc = document.getElementById('profileEditPhoto').src;
-  var navAvatar = document.querySelector('.user-btn img');
+  var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = avatarSrc;
   showToast('Profil gespeichert! ✅', 'check_circle');
 }
