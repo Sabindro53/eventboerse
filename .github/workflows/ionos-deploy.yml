@@ -23,6 +23,9 @@ jobs:
           username: ${{ secrets.IONOS_FTP_USERNAME }}
           password: ${{ secrets.IONOS_FTP_PASSWORD }}
           server-dir: ${{ secrets.IONOS_FTP_REMOTE_DIR }}
+          protocol: ftps
+          port: 21
+          timeout: 60000
           exclude: |
             **/.git*
             **/.git*/**
