@@ -2198,6 +2198,129 @@ img { display: block; max-width: 100%; }
 .modal-footer-text a { color: var(--primary); font-weight: 600; }
 .modal-footer-text a:hover { text-decoration: underline; }
 
+/* ---- Passwort-Wrapper + Toggle ---- */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper input {
+  padding-right: 44px;
+}
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-light);
+  transition: color var(--transition), background var(--transition);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+.password-toggle:hover {
+  color: var(--dark);
+  background: var(--bg-alt);
+}
+.password-toggle .material-icons-round { font-size: 20px; }
+
+/* ---- Passwortstärke-Anzeige ---- */
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.pw-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.pw-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease, background 0.3s ease;
+  width: 0;
+}
+.pw-bar-fill.pw-weak   { background: #E53935; }
+.pw-bar-fill.pw-fair    { background: #FB8C00; }
+.pw-bar-fill.pw-good    { background: #43A047; }
+.pw-bar-fill.pw-strong  { background: #00897B; }
+.pw-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 40px;
+  color: var(--text-light);
+}
+
+/* ---- Formular-Validierung ---- */
+.form-group.has-error input,
+.form-group.has-error select,
+.form-group.has-error textarea,
+.has-error .password-wrapper input {
+  border-color: #E53935;
+}
+.form-group.has-error input:focus,
+.has-error .password-wrapper input:focus {
+  border-color: #E53935;
+  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.12);
+}
+.field-error {
+  display: block;
+  font-size: 0.78rem;
+  color: #E53935;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+.check-label.has-error {
+  color: #E53935;
+}
+
+/* ---- Button Loading ---- */
+.btn-loading {
+  opacity: 0.85;
+  pointer-events: none;
+  min-height: 48px;
+}
+.btn-spinner {
+  animation: spin 0.8s linear infinite;
+  font-size: 22px !important;
+}
+
+/* ---- Forgot-Link ---- */
+.forgot-link {
+  display: inline-block;
+  font-size: 0.82rem;
+  color: var(--text-light);
+  margin-bottom: 16px;
+  text-align: right;
+  transition: color var(--transition);
+}
+.forgot-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* ---- Forgot-Erfolg ---- */
+.forgot-success {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #43A047;
+  background: #E8F5E9;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
 /* Negotiation Listing Info */
 .neg-listing-info {
   display: flex; align-items: center; gap: 14px;

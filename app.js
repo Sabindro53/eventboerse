@@ -1957,6 +1957,8 @@ function setupDragDrop() {
 document.addEventListener('DOMContentLoaded', function() {
   setupDragDrop();
   initAiSearch();
+  restoreSession();
+  initPasswordFields();
 });
 
 // ========== FAVORITES ==========
@@ -2289,6 +2291,20 @@ function renderDetailReviews(listing) {
 
 // ========== AUTH ==========
 var currentUser = null;
+var _wpNonce = (typeof eventboerseApi !== 'undefined') ? eventboerseApi.nonce : '';
+
+function _apiUrl(endpoint) {
+  if (typeof eventboerseApi !== 'undefined' && eventboerseApi.restUrl) {
+    return eventboerseApi.restUrl + endpoint;
+  }
+  return '/wp-json/eventboerse/v1/' + endpoint;
+}
+
+function _apiHeaders() {
+  var h = { 'Content-Type': 'application/json' };
+  if (_wpNonce) h['X-WP-Nonce'] = _wpNonce;
+  return h;
+}
 
 function isEventPlaner() {
   return currentUser && currentUser.role === 'Event-Planer';
@@ -2298,16 +2314,13 @@ function applyLogin() {
   isLoggedIn = true;
   document.getElementById('loggedOutMenu').style.display = 'none';
   document.getElementById('loggedInMenu').style.display = 'block';
-  // Update nav avatar with user seed
   if (currentUser) {
     var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
     var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = avatarUrl;
   }
-  // Update active pages for role
   var createPage = document.getElementById('page-create-listing');
   if (createPage && createPage.classList.contains('active')) updateCreateFormForRole();
-  // Update menu labels based on role
   var menuCreateBtn = document.querySelector('#loggedInMenu button[onclick*="create-listing"]');
   var menuMyListBtn = document.querySelector('#loggedInMenu button[onclick*="my-listings"]');
   if (isEventPlaner()) {
@@ -2319,149 +2332,311 @@ function applyLogin() {
   }
 }
 
-async function handleLogin(e) {
-  e.preventDefault();
+function applyLogout() {
+  isLoggedIn = false;
+  currentUser = null;
+  document.getElementById('loggedOutMenu').style.display = 'block';
+  document.getElementById('loggedInMenu').style.display = 'none';
+  document.getElementById('userMenu').classList.remove('show');
+  var navAvatar = document.querySelector('#avatarBtn img');
+  if (navAvatar) navAvatar.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=user1';
+}
 
-  const email = document.getElementById('loginEmail').value.trim();
-  const passwordInput = document.getElementById('loginPassword');
-  const password = passwordInput ? passwordInput.value.trim() : 'password';
-
-  // Try backend login via REST API
-  try {
-    const response = await fetch('/wp-json/eventboerse/v1/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password })
-    });
-    const data = await response.json();
-    if (response.ok) {
-      currentUser = {
-        id: data.user_id,
-        name: data.first_name + ' ' + data.last_name,
-        email: data.email,
-        role: Array.isArray(data.roles) && data.roles.length ? data.roles[0] : 'user',
-        tagline: '',
-        location: '',
-        bio: ''
-      };
-      closeModal('loginModal');
-      applyLogin();
-      showToast('Erfolgreich angemeldet!', 'login');
-      return;
-    } else {
-      showToast('Login fehlgeschlagen: ' + data.message, 'login');
-      return;
-    }
-  } catch (error) {
-    // Backend not available – fall through to client-side fallback
-    console.log('Backend login not available, using fallback:', error.message);
+// -- Hilfsfunktionen für Formular-Feedback --
+function _setFieldError(inputId, msg) {
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  var group = input.closest('.form-group');
+  if (!group) return;
+  group.classList.add('has-error');
+  var existing = group.querySelector('.field-error');
+  if (existing) existing.remove();
+  if (msg) {
+    var el = document.createElement('span');
+    el.className = 'field-error';
+    el.textContent = msg;
+    group.appendChild(el);
   }
+}
 
-  // Fallback to old behaviour:
-  if (currentUser && currentUser.email === email) {
-    // Existing session – just log in
+function _clearFieldErrors(formEl) {
+  if (!formEl) return;
+  formEl.querySelectorAll('.has-error').forEach(function(g) { g.classList.remove('has-error'); });
+  formEl.querySelectorAll('.field-error').forEach(function(e) { e.remove(); });
+}
+
+function _setBtnLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn.dataset.origText = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+    btn.innerHTML = '<span class="material-icons-round btn-spinner">sync</span>';
   } else {
-    let namePart = email.split('@')[0];
-    namePart = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+    btn.innerHTML = btn.dataset.origText || btn.innerHTML;
+  }
+}
+
+// -- PASSWORD STRENGTH --
+function checkPasswordStrength(pw) {
+  var score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score <= 1) return { level: 'weak', label: 'Schwach', pct: 20 };
+  if (score <= 2) return { level: 'fair', label: 'Mittel', pct: 40 };
+  if (score <= 3) return { level: 'good', label: 'Gut', pct: 70 };
+  return { level: 'strong', label: 'Stark', pct: 100 };
+}
+
+function initPasswordFields() {
+  // Passwort-Sichtbarkeit-Toggle
+  document.querySelectorAll('.password-wrapper').forEach(function(wrapper) {
+    var input = wrapper.querySelector('input');
+    var toggle = wrapper.querySelector('.password-toggle');
+    if (toggle && input) {
+      toggle.addEventListener('click', function() {
+        var isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        toggle.querySelector('.material-icons-round').textContent = isPassword ? 'visibility_off' : 'visibility';
+      });
+    }
+  });
+  // Passwortstärke-Anzeige
+  var regPw = document.getElementById('regPassword');
+  if (regPw) {
+    regPw.addEventListener('input', function() {
+      var bar = document.getElementById('passwordStrength');
+      if (!bar) return;
+      if (!regPw.value) { bar.style.display = 'none'; return; }
+      bar.style.display = 'flex';
+      var s = checkPasswordStrength(regPw.value);
+      bar.querySelector('.pw-bar-fill').style.width = s.pct + '%';
+      bar.querySelector('.pw-bar-fill').className = 'pw-bar-fill pw-' + s.level;
+      bar.querySelector('.pw-label').textContent = s.label;
+    });
+  }
+}
+
+// ---- SESSION RESTORE (bei Seitenaufruf) ----
+function restoreSession() {
+  // Sofort aus wp_localize_script lesen
+  if (typeof eventboerseApi !== 'undefined' && eventboerseApi.isLoggedIn && eventboerseApi.user) {
+    var u = eventboerseApi.user;
     currentUser = {
-      name: namePart,
-      email: email,
-      role: 'Event-Planer',
+      id: u.id,
+      name: (u.first_name + ' ' + u.last_name).trim(),
+      email: u.email,
+      role: u.role || 'Event-Planer',
       tagline: '',
       location: '',
       bio: ''
     };
+    applyLogin();
+    return;
   }
-  closeModal('loginModal');
-  applyLogin();
-  showToast('Erfolgreich angemeldet! 👋', 'login');
+  // Fallback: REST /me prüfen (z. B. wenn aus Cache geladen)
+  fetch(_apiUrl('me'), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.loggedIn) {
+        _wpNonce = data.nonce || _wpNonce;
+        currentUser = {
+          id: data.user_id,
+          name: (data.first_name + ' ' + data.last_name).trim(),
+          email: data.email,
+          role: data.role || 'Event-Planer',
+          tagline: '',
+          location: '',
+          bio: ''
+        };
+        applyLogin();
+      }
+    })
+    .catch(function() { /* kein Backend – Seite bleibt abgemeldet */ });
 }
 
-async function handleRegister(e) {
+// ---- LOGIN ----
+async function handleLogin(e) {
   e.preventDefault();
+  var form = e.target;
+  _clearFieldErrors(form);
 
-  const firstName = document.getElementById('regFirstName').value.trim();
-  const lastName = document.getElementById('regLastName').value.trim();
-  const email = document.getElementById('regEmail').value.trim();
-  const activeRole = document.querySelector('.role-btn.active');
-  const role = activeRole ? (activeRole.textContent.trim().includes('Dienstleister') ? 'provider' : 'user') : 'user';
-  const passwordInput = document.getElementById('regPassword');
-  const password = passwordInput ? passwordInput.value.trim() : 'password';
+  var email = document.getElementById('loginEmail').value.trim();
+  var password = document.getElementById('loginPassword').value.trim();
+  var submitBtn = form.querySelector('button[type="submit"]');
 
-  // Try backend registration via REST API
+  // Client-Validierung
+  var hasError = false;
+  if (!email) { _setFieldError('loginEmail', 'E-Mail ist erforderlich'); hasError = true; }
+  if (!password) { _setFieldError('loginPassword', 'Passwort ist erforderlich'); hasError = true; }
+  if (hasError) return;
+
+  _setBtnLoading(submitBtn, true);
+
   try {
-    const response = await fetch('/wp-json/eventboerse/v1/register', {
+    var response = await fetch(_apiUrl('login'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password, role: role, first_name: firstName, last_name: lastName })
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({ email: email, password: password })
     });
-    const data = await response.json();
+    var data = await response.json();
+
     if (response.ok) {
+      _wpNonce = data.nonce || _wpNonce;
       currentUser = {
         id: data.user_id,
-        name: firstName + ' ' + lastName,
-        email: email,
-        role: role === 'provider' ? 'Dienstleister' : 'Event-Planer',
+        name: ((data.first_name || '') + ' ' + (data.last_name || '')).trim(),
+        email: data.email,
+        role: data.role || 'Event-Planer',
         tagline: '',
         location: '',
         bio: ''
       };
-      closeModal('registerModal');
+      _setBtnLoading(submitBtn, false);
+      closeModal('loginModal');
+      form.reset();
       applyLogin();
-      showToast('Willkommen bei Eventbörse, ' + firstName + '!', 'registration');
-      return;
+      showToast('Willkommen zurück, ' + (data.first_name || currentUser.name) + '!', 'waving_hand');
     } else {
-      showToast('Registrierung fehlgeschlagen: ' + data.message, 'registration');
-      return;
+      _setBtnLoading(submitBtn, false);
+      var msg = data.message || 'Login fehlgeschlagen.';
+      // Zeige Fehler im Passwort-Feld-Bereich
+      _setFieldError('loginPassword', msg);
     }
-  } catch (error) {
-    // Backend not available – fall through to client-side fallback
-    console.log('Backend registration not available, using fallback:', error.message);
+  } catch (err) {
+    _setBtnLoading(submitBtn, false);
+    _setFieldError('loginPassword', 'Verbindungsfehler – bitte versuche es erneut.');
   }
-
-  // Fallback to old behaviour:
-  currentUser = {
-    name: firstName + ' ' + lastName,
-    email: email,
-    role: role === 'provider' ? 'Dienstleister' : 'Event-Planer',
-    tagline: '',
-    location: '',
-    bio: ''
-  };
-
-  closeModal('registerModal');
-  applyLogin();
-  showToast('Willkommen bei Eventbörse, ' + firstName + '! 🎉', 'celebration');
 }
 
+// ---- REGISTRIERUNG ----
+async function handleRegister(e) {
+  e.preventDefault();
+  var form = e.target;
+  _clearFieldErrors(form);
+
+  var firstName = document.getElementById('regFirstName').value.trim();
+  var lastName = document.getElementById('regLastName').value.trim();
+  var email = document.getElementById('regEmail').value.trim();
+  var password = document.getElementById('regPassword').value.trim();
+  var activeRole = document.querySelector('.role-btn.active');
+  var role = activeRole ? (activeRole.textContent.trim().indexOf('Dienstleister') >= 0 ? 'provider' : 'user') : 'user';
+  var termsBox = form.querySelector('.terms input[type="checkbox"]');
+  var submitBtn = form.querySelector('button[type="submit"]');
+
+  // Client-Validierung
+  var hasError = false;
+  if (!firstName) { _setFieldError('regFirstName', 'Vorname ist erforderlich'); hasError = true; }
+  if (!lastName) { _setFieldError('regLastName', 'Nachname ist erforderlich'); hasError = true; }
+  if (!email) { _setFieldError('regEmail', 'E-Mail ist erforderlich'); hasError = true; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { _setFieldError('regEmail', 'Ungültige E-Mail-Adresse'); hasError = true; }
+  if (!password || password.length < 8) { _setFieldError('regPassword', 'Min. 8 Zeichen erforderlich'); hasError = true; }
+  if (termsBox && !termsBox.checked) {
+    var termsLabel = form.querySelector('.terms');
+    if (termsLabel) { termsLabel.classList.add('has-error'); }
+    hasError = true;
+  }
+  if (hasError) return;
+
+  _setBtnLoading(submitBtn, true);
+
+  try {
+    var response = await fetch(_apiUrl('register'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        email: email,
+        password: password,
+        role: role,
+        first_name: firstName,
+        last_name: lastName
+      })
+    });
+    var data = await response.json();
+
+    if (response.ok) {
+      _wpNonce = data.nonce || _wpNonce;
+      currentUser = {
+        id: data.user_id,
+        name: (firstName + ' ' + lastName).trim(),
+        email: email,
+        role: data.role || (role === 'provider' ? 'Dienstleister' : 'Event-Planer'),
+        tagline: '',
+        location: '',
+        bio: ''
+      };
+      _setBtnLoading(submitBtn, false);
+      closeModal('registerModal');
+      form.reset();
+      var strengthBar = document.getElementById('passwordStrength');
+      if (strengthBar) strengthBar.style.display = 'none';
+      applyLogin();
+      showToast('Willkommen bei Eventbörse, ' + firstName + '!', 'celebration');
+    } else {
+      _setBtnLoading(submitBtn, false);
+      var msg = data.message || 'Registrierung fehlgeschlagen.';
+      // Versuche Fehler dem richtigen Feld zuzuordnen
+      if (msg.toLowerCase().indexOf('e-mail') >= 0 || msg.toLowerCase().indexOf('email') >= 0) {
+        _setFieldError('regEmail', msg);
+      } else if (msg.toLowerCase().indexOf('passwort') >= 0 || msg.toLowerCase().indexOf('password') >= 0) {
+        _setFieldError('regPassword', msg);
+      } else {
+        _setFieldError('regEmail', msg);
+      }
+    }
+  } catch (err) {
+    _setBtnLoading(submitBtn, false);
+    _setFieldError('regEmail', 'Verbindungsfehler – bitte versuche es erneut.');
+  }
+}
+
+// ---- PASSWORT VERGESSEN ----
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  var form = e.target;
+  _clearFieldErrors(form);
+
+  var email = document.getElementById('forgotEmail').value.trim();
+  var submitBtn = form.querySelector('button[type="submit"]');
+  var successMsg = document.getElementById('forgotSuccess');
+
+  if (!email) { _setFieldError('forgotEmail', 'E-Mail ist erforderlich'); return; }
+
+  _setBtnLoading(submitBtn, true);
+
+  try {
+    var response = await fetch(_apiUrl('forgot-password'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({ email: email })
+    });
+    var data = await response.json();
+    _setBtnLoading(submitBtn, false);
+
+    // Immer Erfolg zeigen (aus Sicherheitsgründen)
+    if (successMsg) {
+      successMsg.style.display = 'block';
+      successMsg.textContent = data.message || 'Falls ein Konto mit dieser E-Mail existiert, erhältst du eine E-Mail zum Zurücksetzen.';
+    }
+    submitBtn.style.display = 'none';
+    form.querySelector('.form-group').style.display = 'none';
+  } catch (err) {
+    _setBtnLoading(submitBtn, false);
+    _setFieldError('forgotEmail', 'Verbindungsfehler – bitte versuche es erneut.');
+  }
+}
+
+// ---- SOCIAL LOGIN (vorerst Hinweis anzeigen) ----
 function socialLogin(provider) {
-  var btn = event.currentTarget;
-  var originalText = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons-round" style="animation: spin 1s linear infinite; font-size: 20px;">sync</span> Verbinde mit ' + provider + '...';
-  
-  setTimeout(function() {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-    
-    // Create user from social provider
-    var socialNames = { Google: 'Google Nutzer', Apple: 'Apple Nutzer' };
-    var socialEmails = { Google: 'nutzer@gmail.com', Apple: 'nutzer@icloud.com' };
-    currentUser = {
-      name: socialNames[provider] || provider + ' Nutzer',
-      email: socialEmails[provider] || 'nutzer@' + provider.toLowerCase() + '.com',
-      role: 'Event-Planer',
-      tagline: '',
-      location: '',
-      bio: '',
-      socialProvider: provider
-    };
-    
-    closeModal('loginModal');
-    closeModal('registerModal');
-    applyLogin();
-    showToast('Mit ' + provider + ' angemeldet! 👋', 'login');
-  }, 1500);
+  showToast(provider + '-Anmeldung kommt bald!', 'info');
 }
 
 function loadProfile() {
@@ -2523,11 +2698,12 @@ function saveProfile() {
 }
 
 function logout() {
-  isLoggedIn = false;
-  currentUser = null;
-  document.getElementById('loggedOutMenu').style.display = 'block';
-  document.getElementById('loggedInMenu').style.display = 'none';
-  document.getElementById('userMenu').classList.remove('show');
+  fetch(_apiUrl('logout'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  }).catch(function() {});
+  applyLogout();
   showToast('Abgemeldet. Bis bald!', 'logout');
   navigateTo('home');
 }
@@ -2539,19 +2715,31 @@ function selectRole(btn, role) {
 
 // ========== MODALS ==========
 function openModal(id) {
-  document.getElementById(id).classList.add('show');
+  var modal = document.getElementById(id);
+  // Reset-Zustand bei Forgot-Modal
+  if (id === 'forgotModal') {
+    var fg = modal.querySelector('.form-group');
+    var sb = modal.querySelector('button[type="submit"]');
+    var sc = document.getElementById('forgotSuccess');
+    if (fg) fg.style.display = '';
+    if (sb) sb.style.display = '';
+    if (sc) sc.style.display = 'none';
+  }
+  modal.classList.add('show');
   document.body.style.overflow = 'hidden';
 }
 
 function closeModal(id) {
-  document.getElementById(id).classList.remove('show');
+  var el = document.getElementById(id);
+  el.classList.remove('show');
   document.body.style.overflow = '';
+  // Fehler-Anzeigen zurücksetzen
+  _clearFieldErrors(el);
 }
 
 function closeModalOnOverlay(e) {
   if (e.target.classList.contains('modal-overlay')) {
-    e.target.classList.remove('show');
-    document.body.style.overflow = '';
+    closeModal(e.target.id);
   }
 }
 

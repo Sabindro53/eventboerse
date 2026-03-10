@@ -1143,8 +1143,14 @@
         </div>
         <div class="form-group">
           <label>Passwort</label>
-          <input type="password" id="loginPassword" placeholder="••••••••" required />
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" placeholder="Dein Passwort" required />
+            <button type="button" class="password-toggle" tabindex="-1">
+              <span class="material-icons-round">visibility</span>
+            </button>
+          </div>
         </div>
+        <a href="#" class="forgot-link" onclick="event.preventDefault(); closeModal('loginModal'); openModal('forgotModal')">Passwort vergessen?</a>
         <button type="submit" class="btn-primary btn-block">Anmelden</button>
         <div class="modal-divider"><span>oder</span></div>
         <button type="button" class="btn-social" onclick="socialLogin('Google')">
@@ -1190,7 +1196,16 @@
         </div>
         <div class="form-group">
           <label>Passwort</label>
-          <input type="password" id="regPassword" placeholder="Min. 8 Zeichen" required />
+          <div class="password-wrapper">
+            <input type="password" id="regPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
+            <button type="button" class="password-toggle" tabindex="-1">
+              <span class="material-icons-round">visibility</span>
+            </button>
+          </div>
+          <div class="password-strength" id="passwordStrength" style="display:none">
+            <div class="pw-bar"><div class="pw-bar-fill"></div></div>
+            <span class="pw-label"></span>
+          </div>
         </div>
         <div class="form-group">
           <label>Ich bin...</label>
@@ -1221,6 +1236,31 @@
         </button>
         <p class="modal-footer-text">
           Bereits ein Konto? <a href="#" onclick="closeModal('registerModal'); openModal('loginModal')">Anmelden</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Passwort vergessen Modal -->
+  <div class="modal-overlay" id="forgotModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="closeModal('forgotModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">lock_reset</span>
+        <h2>Passwort zurücksetzen</h2>
+        <p>Gib deine E-Mail ein und wir senden dir einen Link</p>
+      </div>
+      <form class="modal-form" onsubmit="handleForgotPassword(event)">
+        <div class="form-group">
+          <label>E-Mail</label>
+          <input type="email" id="forgotEmail" placeholder="deine@email.de" required />
+        </div>
+        <p class="forgot-success" id="forgotSuccess" style="display:none"></p>
+        <button type="submit" class="btn-primary btn-block">Link senden</button>
+        <p class="modal-footer-text">
+          <a href="#" onclick="closeModal('forgotModal'); openModal('loginModal')">Zurück zur Anmeldung</a>
         </p>
       </form>
     </div>
