@@ -1223,25 +1223,70 @@ function loadDetail(listingId) {
 }
 
 // ========== PROVIDER PROFILE ==========
+let providerImages = [];
+let lightboxIndex = 0;
+
 function loadProvider(providerId) {
   const providerListings = LISTINGS.filter(l => l.providerId === (providerId || currentListing?.providerId));
   const mainListing = providerListings[0] || LISTINGS[0];
+  providerImages = providerListings.flatMap(l => l.images);
 
+  // Cover Mosaic
+  const setImg = (id, url) => { const el = document.getElementById(id); if (el) el.style.backgroundImage = `url(${url})`; };
+  if (providerImages[0]) setImg('pcmMain', providerImages[0]);
+  if (providerImages[1]) setImg('pcmSide1', providerImages[1]);
+  if (providerImages[2]) setImg('pcmSide2', providerImages[2]);
+  if (providerImages[3]) setImg('pcmSide3', providerImages[3]);
+  if (providerImages[4]) setImg('pcmSide4', providerImages[4]);
+
+  // Profile Card
   document.getElementById('providerAvatar').src = mainListing.providerImg;
   document.getElementById('providerName').textContent = mainListing.providerName;
   document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
   document.getElementById('providerListingCount').textContent = providerListings.length;
-  document.getElementById('providerRating').textContent = 0;
-  document.getElementById('providerReviews').textContent = 0;
+  document.getElementById('providerRating').textContent = mainListing.rating;
+  document.getElementById('providerReviews').textContent = mainListing.reviews;
+
+  // Badges
+  const badgesEl = document.getElementById('providerBadges');
+  let badgesHtml = '';
+  if (mainListing.badge === 'Superhost') {
+    badgesHtml += '<span class="ppc-badge ppc-badge-super"><span class="material-icons-round">workspace_premium</span> Superhost</span>';
+  }
+  badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${mainListing.providerSince}</span>`;
+  badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
+  badgesEl.innerHTML = badgesHtml;
+
+  // Bio
+  document.getElementById('providerBio').innerHTML = mainListing.description;
+
+  // Highlights
+  const icons = ['check_circle', 'music_note', 'lightbulb', 'handshake', 'auto_awesome', 'mic'];
+  document.getElementById('providerHighlights').innerHTML = (mainListing.features || []).map((f, i) =>
+    `<div class="prov-highlight"><span class="material-icons-round">${icons[i % icons.length]}</span> ${f}</div>`
+  ).join('');
+
+  // Portfolio
+  document.getElementById('providerPortfolio').innerHTML = providerImages.map((img, i) =>
+    `<img src="${img}" alt="Portfolio" loading="lazy" onclick="openProviderLightbox(${i})" />`
+  ).join('');
+
+  // Sidebar Facts
+  document.getElementById('providerFacts').innerHTML = `
+    <li><span class="material-icons-round">location_on</span> <span>${mainListing.location}, Deutschland</span></li>
+    <li><span class="material-icons-round">category</span> <span>${mainListing.categoryLabel}</span></li>
+    <li><span class="material-icons-round">euro</span> <span>${mainListing.priceLabel}</span></li>
+    <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
+    <li><span class="material-icons-round">language</span> <span>Deutsch, Englisch</span></li>
+  `;
+
+  // Spec Tags
+  document.getElementById('providerSpecTags').innerHTML = (mainListing.tags || []).map(t =>
+    `<span class="provider-spec-tag">${t}</span>`
+  ).join('');
 
   // Listings tab
   document.getElementById('providerListings').innerHTML = providerListings.map(renderListingCard).join('');
-
-  // Gallery tab
-  const allImages = providerListings.flatMap(l => l.images);
-  document.getElementById('providerGallery').innerHTML = allImages.map(img =>
-    `<img src="${img}" alt="Gallery" loading="lazy" />`
-  ).join('');
 
   // Reviews tab
   if (mainListing.reviews === 0) {
@@ -1264,6 +1309,9 @@ function loadProvider(providerId) {
       </div>
     `).join('');
   }
+
+  // Reset to first tab
+  switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
 }
 
 function switchProviderTab(btn, tab) {
@@ -1273,8 +1321,43 @@ function switchProviderTab(btn, tab) {
   document.getElementById('provider-tab-' + tab).classList.add('active');
 }
 
+function openProviderLightbox(index) {
+  lightboxIndex = index;
+  const lb = document.getElementById('providerLightbox');
+  document.getElementById('plbImage').src = providerImages[lightboxIndex];
+  document.getElementById('plbCounter').textContent = `${lightboxIndex + 1} / ${providerImages.length}`;
+  lb.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProviderLightbox(e) {
+  if (e && e.target !== e.currentTarget && !e.target.closest('.plb-close')) return;
+  document.getElementById('providerLightbox').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function lightboxNav(dir) {
+  lightboxIndex = (lightboxIndex + dir + providerImages.length) % providerImages.length;
+  document.getElementById('plbImage').src = providerImages[lightboxIndex];
+  document.getElementById('plbCounter').textContent = `${lightboxIndex + 1} / ${providerImages.length}`;
+}
+
 function toggleFollow() {
-  showToast('Du folgst jetzt diesem Anbieter!', 'person_add');
+  const icon = document.getElementById('followIcon');
+  const label = document.getElementById('followLabel');
+  const following = icon.textContent.trim() === 'person_add';
+  icon.textContent = following ? 'person_remove' : 'person_add';
+  label.textContent = following ? 'Entfolgen' : 'Folgen';
+  showToast(following ? 'Du folgst jetzt diesem Anbieter!' : 'Du folgst nicht mehr.', following ? 'person_add' : 'person_remove');
+}
+
+function shareProvider() {
+  if (navigator.share) {
+    navigator.share({ title: document.getElementById('providerName').textContent, url: window.location.href });
+  } else {
+    navigator.clipboard.writeText(window.location.href);
+    showToast('Link kopiert!', 'content_copy');
+  }
 }
 
 // ========== CHAT / MESSAGES ==========

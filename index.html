@@ -670,37 +670,128 @@
 
     <!-- ============ PAGE: PROVIDER PROFILE ============ -->
     <section id="page-provider" class="page">
-      <div class="provider-cover" id="providerCover"></div>
+      <!-- Cover Mosaic -->
+      <div class="provider-cover-mosaic" id="providerCoverMosaic">
+        <div class="pcm-main" id="pcmMain"></div>
+        <div class="pcm-side">
+          <div class="pcm-img" id="pcmSide1"></div>
+          <div class="pcm-img" id="pcmSide2"></div>
+        </div>
+        <div class="pcm-side">
+          <div class="pcm-img" id="pcmSide3"></div>
+          <div class="pcm-img" id="pcmSide4"></div>
+        </div>
+        <button class="pcm-show-all" onclick="openProviderLightbox(0)">
+          <span class="material-icons-round">photo_library</span> Alle Fotos
+        </button>
+      </div>
+
       <div class="container">
-        <div class="provider-header">
-          <img id="providerAvatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="provider-avatar-lg" />
-          <div class="provider-info">
-            <h1 id="providerName">Max Beats</h1>
-            <p id="providerTagline" class="provider-tagline">DJ & Musikproduktion · Berlin</p>
-            <div class="provider-stats">
-              <div class="stat"><strong id="providerListingCount">1</strong><span>Inserate</span></div>
-              <div class="stat"><strong id="providerRating">0</strong><span>Bewertung</span></div>
-              <div class="stat"><strong id="providerReviews">0</strong><span>Reviews</span></div>
+        <!-- Profile Card -->
+        <div class="provider-profile-card">
+          <div class="ppc-left">
+            <img id="providerAvatar" src="" alt="Provider" class="provider-avatar-lg" />
+            <div class="ppc-verified" id="providerVerifiedBadge">
+              <span class="material-icons-round">verified</span> Verifiziert
             </div>
           </div>
-          <div class="provider-actions">
-            <button class="btn-primary" onclick="startChatWithProvider()">
-              <span class="material-icons-round">chat</span> Nachricht
-            </button>
-            <button class="btn-outline" onclick="toggleFollow()">
-              <span class="material-icons-round">person_add</span> Folgen
-            </button>
+          <div class="ppc-center">
+            <h1 id="providerName">Max Beats</h1>
+            <p id="providerTagline" class="provider-tagline">DJ & Musikproduktion · Berlin</p>
+            <div class="ppc-badges" id="providerBadges">
+              <span class="ppc-badge ppc-badge-super"><span class="material-icons-round">workspace_premium</span> Superhost</span>
+              <span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit 2021</span>
+              <span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>
+            </div>
+          </div>
+          <div class="ppc-right">
+            <div class="provider-stats-ring">
+              <div class="stat-ring">
+                <strong id="providerListingCount">1</strong>
+                <span>Inserate</span>
+              </div>
+              <div class="stat-ring">
+                <strong id="providerRating">4.9</strong>
+                <span>Bewertung</span>
+              </div>
+              <div class="stat-ring">
+                <strong id="providerReviews">127</strong>
+                <span>Reviews</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="provider-bio" id="providerBio">
-          <p>Professioneller DJ mit über 10 Jahren Erfahrung. Spezialisiert auf Hochzeiten, Club-Events und Firmenveranstaltungen. Ich bringe die perfekte Stimmung für jedes Event!</p>
+
+        <!-- Action Bar -->
+        <div class="provider-action-bar">
+          <button class="btn-primary" onclick="startChatWithProvider()">
+            <span class="material-icons-round">chat</span> Nachricht senden
+          </button>
+          <button class="btn-outline" onclick="toggleFollow()">
+            <span class="material-icons-round" id="followIcon">person_add</span> <span id="followLabel">Folgen</span>
+          </button>
+          <button class="btn-outline" onclick="shareProvider()">
+            <span class="material-icons-round">share</span> Teilen
+          </button>
         </div>
+
+        <!-- Two Column Layout -->
+        <div class="provider-two-col">
+          <!-- Left: About + Highlights -->
+          <div class="provider-main-col">
+            <!-- About -->
+            <div class="provider-section">
+              <h2><span class="material-icons-round">person</span> Über mich</h2>
+              <div class="provider-bio" id="providerBio">
+                <p>Professioneller DJ mit über 10 Jahren Erfahrung.</p>
+              </div>
+            </div>
+
+            <!-- Highlights -->
+            <div class="provider-section">
+              <h2><span class="material-icons-round">auto_awesome</span> Highlights</h2>
+              <div class="provider-highlights" id="providerHighlights">
+                <!-- Filled by JS -->
+              </div>
+            </div>
+
+            <!-- Portfolio Gallery -->
+            <div class="provider-section">
+              <h2><span class="material-icons-round">photo_library</span> Portfolio</h2>
+              <div class="provider-portfolio" id="providerPortfolio">
+                <!-- Filled by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Sidebar -->
+          <div class="provider-sidebar-col">
+            <!-- Quick Facts Card -->
+            <div class="provider-fact-card">
+              <h3>Auf einen Blick</h3>
+              <ul class="provider-facts" id="providerFacts">
+                <li><span class="material-icons-round">location_on</span> <span>Berlin, Deutschland</span></li>
+                <li><span class="material-icons-round">category</span> <span>DJ & Musik</span></li>
+                <li><span class="material-icons-round">euro</span> <span>ab 450€ / Event</span></li>
+                <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
+                <li><span class="material-icons-round">language</span> <span>Deutsch, Englisch</span></li>
+              </ul>
+            </div>
+
+            <!-- Tags -->
+            <div class="provider-fact-card">
+              <h3>Spezialisierungen</h3>
+              <div class="provider-spec-tags" id="providerSpecTags">
+                <!-- Filled by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs: Inserate + Bewertungen -->
         <div class="provider-tabs">
           <button class="tab active" onclick="switchProviderTab(this, 'inserate')">
             <span class="material-icons-round">grid_on</span> Inserate
-          </button>
-          <button class="tab" onclick="switchProviderTab(this, 'galerie')">
-            <span class="material-icons-round">photo_library</span> Galerie
           </button>
           <button class="tab" onclick="switchProviderTab(this, 'bewertungen')">
             <span class="material-icons-round">star</span> Bewertungen
@@ -708,21 +799,21 @@
         </div>
         <div class="provider-content">
           <div id="provider-tab-inserate" class="provider-tab-content active">
-            <div class="listing-grid" id="providerListings">
-              <!-- Loaded by JS -->
-            </div>
-          </div>
-          <div id="provider-tab-galerie" class="provider-tab-content">
-            <div class="gallery-grid" id="providerGallery">
-              <!-- Loaded by JS -->
-            </div>
+            <div class="listing-grid" id="providerListings"></div>
           </div>
           <div id="provider-tab-bewertungen" class="provider-tab-content">
-            <div id="providerReviewsList">
-              <!-- Loaded by JS -->
-            </div>
+            <div id="providerReviewsList"></div>
           </div>
         </div>
+      </div>
+
+      <!-- Lightbox -->
+      <div class="provider-lightbox" id="providerLightbox" onclick="closeProviderLightbox(event)">
+        <button class="plb-close" onclick="closeProviderLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-nav plb-prev" onclick="event.stopPropagation(); lightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
+        <img id="plbImage" src="" alt="Foto" />
+        <button class="plb-nav plb-next" onclick="event.stopPropagation(); lightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
+        <div class="plb-counter" id="plbCounter">1 / 5</div>
       </div>
     </section>
 
