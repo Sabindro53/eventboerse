@@ -2319,50 +2319,48 @@ function applyLogin() {
   }
 }
 
-async function handle(e)Login
+async function handleLogin(e) {
   e.preventDefault();
-  
-    // New backend login via REST API
-    const email = document.getElementById('loginEmail').value.trim();
-    const passwordInput = document.getElementById('loginPassword');
-    const password = passwordInput ? passwordInput.value.trim() : 'password';
-    try {
-        const response = await fetch('/wp-json/eventboerse/v1/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, password: password })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            currentUser = {
-                id: data.user_id,
-                name: data.first_name + ' ' + data.last_name,
-                email: data.email,
-                role: Array.isArray(data.roles) && data.roles.length ? data.roles[0] : 'user',
-                tagline: '',
-                location: '',
-                bio: ''
-            };
-            closeModal('loginModal');
-            applyLogin();
-            showToast('Erfolgreich angemeldet!', 'login');
-            return;
-        } else {
-            showToast('Login fehlgeschlagen: ' + data.message, 'login');
-            return;
-        }
-    } catch (error) {
-        showToast('Login Fehler: ' + error.message, 'login');
-        return;
+
+  var email = document.getElementById('loginEmail').value.trim();
+  var passwordInput = document.getElementById('loginPassword');
+  var password = passwordInput ? passwordInput.value.trim() : 'password';
+
+  // Try backend login via REST API
+  try {
+    var response = await fetch('/wp-json/eventboerse/v1/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password })
+    });
+    var data = await response.json();
+    if (response.ok) {
+      currentUser = {
+        id: data.user_id,
+        name: data.first_name + ' ' + data.last_name,
+        email: data.email,
+        role: Array.isArray(data.roles) && data.roles.length ? data.roles[0] : 'user',
+        tagline: '',
+        location: '',
+        bio: ''
+      };
+      closeModal('loginModal');
+      applyLogin();
+      showToast('Erfolgreich angemeldet!', 'login');
+      return;
+    } else {
+      showToast('Login fehlgeschlagen: ' + data.message, 'login');
+      return;
     }
-    // Fallback to old behaviour:
-email = document.getElementById('loginEmail').value.trim();
-  // If we have a stored user with that email, reload it; otherwise create minimal user
+  } catch (error) {
+    // Backend not available – fall through to client-side fallback
+  }
+
+  // Fallback to old behaviour:
   if (currentUser && currentUser.email === email) {
     // Existing session – just log in
   } else {
     var namePart = email.split('@')[0];
-    // Capitalize first letter
     namePart = namePart.charAt(0).toUpperCase() + namePart.slice(1);
     currentUser = {
       name: namePart,
@@ -2378,52 +2376,48 @@ email = document.getElementById('loginEmail').value.trim();
   showToast('Erfolgreich angemeldet! 👋', 'login');
 }
 
-async function handleRegister{
+async function handleRegister(e) {
   e.preventDefault();
-  var 
-    // New backend registration via REST API
-    const firstName = document.getElementById('regFirstName').value.trim();
-    const lastName = document.getElementById('regLastName').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
-    const role = (typeof activeRole !== 'undefined' && activeRole && activeRole.textContent && activeRole.textContent.trim().includes('Dienstleister')) ? 'provider' : 'user';
-    const passwordInput = document.getElementById('regPassword');
-    const password = passwordInput ? passwordInput.value.trim() : 'password';
-    try {
-        const response = await fetch('/wp-json/eventboerse/v1/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, password: password, role: role, first_name: firstName, last_name: lastName })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            currentUser = {
-                id: data.user_id,
-                name: firstName + ' ' + lastName,
-                email: email,
-                role: role === 'provider' ? 'Dienstleister' : 'Event-Planer',
-                tagline: '',
-                location: '',
-                bio: ''
-            };
-            closeModal('registerModal');
-            applyLogin();
-            showToast('Willkommen bei Eventbörse, ' + firstName + '!', 'registration');
-            return;
-        } else {
-            showToast('Registrierung fehlgeschlagen: ' + data.message, 'registration');
-            return;
-        }
-    } catch (error) {
-        showToast('Registrierung Fehler: ' + error.message, 'registration');
-        return;
-    }
-    // Fallback to old behaviour:
-firstName = document.getElementById('regFirstName').value.trim();
+
+  var firstName = document.getElementById('regFirstName').value.trim();
   var lastName = document.getElementById('regLastName').value.trim();
   var email = document.getElementById('regEmail').value.trim();
   var activeRole = document.querySelector('.role-btn.active');
   var role = activeRole ? (activeRole.textContent.trim().includes('Dienstleister') ? 'provider' : 'user') : 'user';
-  
+  var passwordInput = document.getElementById('regPassword');
+  var password = passwordInput ? passwordInput.value.trim() : 'password';
+
+  // Try backend registration via REST API
+  try {
+    var response = await fetch('/wp-json/eventboerse/v1/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password, role: role, first_name: firstName, last_name: lastName })
+    });
+    var data = await response.json();
+    if (response.ok) {
+      currentUser = {
+        id: data.user_id,
+        name: firstName + ' ' + lastName,
+        email: email,
+        role: role === 'provider' ? 'Dienstleister' : 'Event-Planer',
+        tagline: '',
+        location: '',
+        bio: ''
+      };
+      closeModal('registerModal');
+      applyLogin();
+      showToast('Willkommen bei Eventbörse, ' + firstName + '!', 'registration');
+      return;
+    } else {
+      showToast('Registrierung fehlgeschlagen: ' + data.message, 'registration');
+      return;
+    }
+  } catch (error) {
+    // Backend not available – fall through to client-side fallback
+  }
+
+  // Fallback to old behaviour:
   currentUser = {
     name: firstName + ' ' + lastName,
     email: email,
@@ -2432,7 +2426,7 @@ firstName = document.getElementById('regFirstName').value.trim();
     location: '',
     bio: ''
   };
-  
+
   closeModal('registerModal');
   applyLogin();
   showToast('Willkommen bei Eventbörse, ' + firstName + '! 🎉', 'celebration');
