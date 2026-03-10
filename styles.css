@@ -703,7 +703,7 @@ img { display: block; max-width: 100%; }
 /* ===== KI-Suche ===== */
 .hero-field-ai {
   position: relative;
-  flex: 1.8;
+  flex: 1.2;
 }
 
 .hero-field-ai label {
