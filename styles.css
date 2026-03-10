@@ -700,7 +700,7 @@ img { display: block; max-width: 100%; }
 /* ===== KI-Suche ===== */
 .hero-field-ai {
   position: relative;
-  flex: 1.8;
+  flex: 2.5;
 }
 .hero-field-ai label {
   display: flex;
