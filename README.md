@@ -35,6 +35,9 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 ├── footer.php        # WordPress-Footer
 ├── style.css         # WordPress-Theme-Metadaten
 ├── .htaccess         # Apache-Konfiguration (HTTPS, Caching, Security)
+├── .vscode/
+│   ├── settings.json    # VS Code Workspace-Einstellungen (Git, Editor)
+│   └── extensions.json  # Empfohlene VS Code Erweiterungen
 ├── .github/workflows/
 │   ├── ionos-deploy.yml  # IONOS FTP Deployment
 │   └── site-monitor.yml  # Uptime-Monitor (Keep-Alive Agent)
@@ -42,6 +45,48 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 ├── sitemap.xml       # XML-Sitemap
 └── README.md         # Projektdokumentation
 ```
+
+## Visual Studio Code – Einrichtung & Fehlerbehebung
+
+### Repository in VS Code öffnen
+
+```bash
+# Repository klonen
+git clone https://github.com/Sabindro53/eventboerse.git
+
+# Ordner in VS Code öffnen
+code eventboerse
+```
+
+VS Code zeigt beim Öffnen empfohlene Erweiterungen an – bitte installieren (GitHub Pull Requests, GitHub Actions, Live Server).
+
+### Häufige Verbindungsprobleme beheben
+
+| Problem | Lösung |
+|---------|--------|
+| **Push/Pull schlägt fehl (403/401)** | VS Code → `Ctrl+Shift+P` → „Git: Remove All Credentials" → erneut anmelden |
+| **„remote: Permission denied"** | Stelle sicher, dass du als Collaborator im Repository eingetragen bist |
+| **Token abgelaufen** | GitHub → Settings → Developer settings → Personal access tokens → neuen Token erstellen mit `repo`-Berechtigung |
+| **Keine Änderungen sichtbar** | VS Code → Source Control (Ctrl+Shift+G) → Refresh-Button klicken |
+| **Sync-Button fehlt** | Prüfe ob du auf dem richtigen Branch bist (unten links in VS Code) |
+
+### Git-Anmeldung in VS Code einrichten
+
+```bash
+# Git-Benutzer konfigurieren (einmalig)
+git config --global user.name "Dein Name"
+git config --global user.email "deine@email.de"
+
+# GitHub Credential Helper aktivieren (speichert Login sicher)
+# macOS:
+git config --global credential.helper osxkeychain
+# Windows:
+git config --global credential.helper wincred
+# Linux:
+git config --global credential.helper cache --timeout=86400
+```
+
+> **Tipp:** Nutze die VS Code-Erweiterung **GitHub Pull Requests and Issues** für die beste GitHub-Integration. VS Code fragt dann automatisch nach der GitHub-Anmeldung.
 
 ## Lokale Entwicklung
 
