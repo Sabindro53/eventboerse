@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   deploy:
@@ -25,23 +25,33 @@ jobs:
           SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
         run: |
-          # Write output to summary (visible without auth)
-          exec > >(tee -a "$GITHUB_STEP_SUMMARY") 2>&1
-          echo '```'
-          
-          echo "=== SFTP Connection Test ==="
-          echo "Host: $SFTP_HOST"
-          echo "User: $SFTP_USER"
-          
-          # Use sshpass + sftp in batch mode
           sudo apt-get install -y -qq sshpass
           
-          echo "=== Listing SFTP root ==="
-          sshpass -p "$SFTP_PASS" sftp -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" <<'SFTP_BATCH' || echo "SFTP FAILED with exit code $?"
-          pwd
-          ls -la
-          ls -la wp-content/themes/eventboerse/
-          bye
-          SFTP_BATCH
+          echo "=== SFTP Directory Discovery ===" > sftp-debug.txt
+          echo "Host: $SFTP_HOST" >> sftp-debug.txt
+          echo "User: $SFTP_USER" >> sftp-debug.txt
+          echo "" >> sftp-debug.txt
           
-          echo '```'
+          # Test 1: sftp batch mode
+          echo "=== SFTP Batch Test ===" >> sftp-debug.txt
+          sshpass -p "$SFTP_PASS" sftp -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" <<'EOF' >> sftp-debug.txt 2>&1 || echo "SFTP EXIT: $?" >> sftp-debug.txt
+          pwd
+          ls
+          ls wp-content
+          ls wp-content/themes
+          ls wp-content/themes/eventboerse
+          bye
+          EOF
+          
+          echo "" >> sftp-debug.txt
+          echo "=== Trying SSH ===" >> sftp-debug.txt
+          sshpass -p "$SFTP_PASS" ssh -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" 'pwd && ls -la && ls wp-content/themes/eventboerse/ 2>&1' >> sftp-debug.txt 2>&1 || echo "SSH EXIT: $?" >> sftp-debug.txt
+
+      - name: Commit debug output
+        run: |
+          cat sftp-debug.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sftp-debug.txt
+          git commit -m "debug: SFTP directory discovery output" || true
+          git push || true
