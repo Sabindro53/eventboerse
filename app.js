@@ -1186,6 +1186,14 @@ function loadDetail(listingId) {
 
   // Gallery
   const gallery = document.getElementById('detailGallery');
+  const heroImg = document.getElementById('detailHeroImg');
+
+  // Hero image for mobile (first image, shown prominently)
+  if (listing.images.length > 0) {
+    heroImg.innerHTML = `<img src="${listing.images[0]}" alt="${listing.title}" class="detail-hero-photo" />`;
+  }
+
+  // Full gallery for desktop, remaining images on mobile (CSS hides first-child on mobile)
   gallery.innerHTML = listing.images.map(img =>
     `<img src="${img}" alt="${listing.title}" class="detail-gallery-img" />`
   ).join('');

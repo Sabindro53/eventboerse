@@ -569,39 +569,39 @@
 
     <!-- ============ PAGE: LISTING DETAIL ============ -->
     <section id="page-detail" class="page">
-      <div class="container">
+      <div class="container detail-container">
         <button class="back-btn" onclick="history.back()">
           <span class="material-icons-round">arrow_back</span> Zurück
         </button>
+        <div class="detail-hero-img" id="detailHeroImg"></div>
+        <div class="detail-header">
+          <div class="detail-badge" id="detailCategory">DJ & Musik</div>
+          <h1 id="detailTitle">DJ SoundMaster Berlin</h1>
+          <div class="detail-meta">
+            <span class="detail-rating">
+              <span class="material-icons-round">star</span>
+              <strong id="detailRating">4.9</strong>
+              <span id="detailReviewCount">(127 Bewertungen)</span>
+            </span>
+            <span class="detail-location">
+              <span class="material-icons-round">location_on</span>
+              <span id="detailLocation">Berlin, Deutschland</span>
+            </span>
+          </div>
+        </div>
+        <div class="detail-provider-row">
+          <img id="detailProviderImg" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="detail-provider-avatar" />
+          <div>
+            <strong id="detailProviderName">Max Beats</strong>
+            <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
+          </div>
+          <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
+        </div>
         <div class="detail-gallery" id="detailGallery">
           <!-- Images loaded by JS -->
         </div>
         <div class="detail-layout">
           <div class="detail-main">
-            <div class="detail-header">
-              <div class="detail-badge" id="detailCategory">DJ & Musik</div>
-              <h1 id="detailTitle">DJ SoundMaster Berlin</h1>
-              <div class="detail-meta">
-                <span class="detail-rating">
-                  <span class="material-icons-round">star</span>
-                  <strong id="detailRating">4.9</strong>
-                  <span id="detailReviewCount">(127 Bewertungen)</span>
-                </span>
-                <span class="detail-location">
-                  <span class="material-icons-round">location_on</span>
-                  <span id="detailLocation">Berlin, Deutschland</span>
-                </span>
-              </div>
-            </div>
-            <div class="detail-divider"></div>
-            <div class="detail-provider-row">
-              <img id="detailProviderImg" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="detail-provider-avatar" />
-              <div>
-                <strong id="detailProviderName">Max Beats</strong>
-                <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
-              </div>
-              <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
-            </div>
             <div class="detail-divider"></div>
             <div class="detail-description" id="detailDescription">
               <!-- Loaded by JS -->
