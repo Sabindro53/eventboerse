@@ -1577,11 +1577,12 @@ function renderDashboard() {
   document.getElementById('profileDisplayBio').textContent = bioText;
 
   // --- Stats ---
-  document.getElementById('profileStatViews').textContent = '1.240';
-  var userListings = LISTINGS.filter(function(l) { return l.providerId === 1; });
+  var userId = currentUser ? currentUser.id : -1;
+  var userListings = LISTINGS.filter(function(l) { return l.providerId === userId; });
+  document.getElementById('profileStatViews').textContent = userListings.length > 0 ? '1.240' : '0';
   document.getElementById('profileStatListings').textContent = userListings.length;
-  document.getElementById('profileStatBookings').textContent = '15';
-  document.getElementById('profileStatRating').textContent = '4.8 ★';
+  document.getElementById('profileStatBookings').textContent = userListings.length > 0 ? '15' : '0';
+  document.getElementById('profileStatRating').textContent = userListings.length > 0 ? '4.8 ★' : '–';
 
   // --- Gallery ---
   var galleryDisplay = document.getElementById('profileGalleryDisplay');
@@ -1634,7 +1635,7 @@ function renderDashboard() {
 
   // --- Reviews ---
   var reviewsDisplay = document.getElementById('profileReviewsDisplay');
-  if (DEMO_REVIEWS && DEMO_REVIEWS.length > 0) {
+  if (userListings.length > 0 && DEMO_REVIEWS && DEMO_REVIEWS.length > 0) {
     reviewsDisplay.innerHTML = DEMO_REVIEWS.slice(0, 4).map(function(r) {
       return '<div class="review-card">' +
         '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + r.avatar + '" alt="' + r.name + '" class="review-avatar" />' +
