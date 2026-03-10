@@ -77,8 +77,13 @@ VS Code zeigt beim Öffnen empfohlene Erweiterungen an – bitte installieren (G
 git config --global user.name "Dein Name"
 git config --global user.email "deine@email.de"
 
-# GitHub Credential Helper aktivieren (speichert Login)
-git config --global credential.helper store
+# GitHub Credential Helper aktivieren (speichert Login sicher)
+# macOS:
+git config --global credential.helper osxkeychain
+# Windows:
+git config --global credential.helper wincred
+# Linux:
+git config --global credential.helper cache --timeout=86400
 ```
 
 > **Tipp:** Nutze die VS Code-Erweiterung **GitHub Pull Requests and Issues** für die beste GitHub-Integration. VS Code fragt dann automatisch nach der GitHub-Anmeldung.
