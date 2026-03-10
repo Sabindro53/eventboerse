@@ -684,69 +684,54 @@ function aiMatchKeyword(input) {
     .slice(0, 5);
 }
 
-function getDefaultSuggestions() {
-  return [
-    { term: 'DJ für Party', emoji: '🎧', hint: 'Musik & DJs entdecken', category: 'dj' },
-    { term: 'Hochzeits-Catering', emoji: '🍽️', hint: 'Catering-Services', category: 'catering' },
-    { term: 'Event-Fotograf', emoji: '📷', hint: 'Fotografen in deiner Nähe', category: 'foto' },
-    { term: 'Blumendeko', emoji: '🌸', hint: 'Floristik & Dekoration', category: 'florist' },
-    { term: 'Eventplanung komplett', emoji: '📋', hint: 'Full-Service Planung', category: 'planung' },
-  ];
-}
-
+const AI_CATEGORIES = [
+  { key: 'dj', label: 'DJ & Musik', emoji: '🎧' },
+  { key: 'catering', label: 'Catering', emoji: '🍽️' },
+  { key: 'foto', label: 'Fotografie', emoji: '📷' },
+  { key: 'florist', label: 'Floristik', emoji: '🌸' },
+  { key: 'deko', label: 'Dekoration', emoji: '🎈' },
+  { key: 'licht', label: 'Licht & Technik', emoji: '💡' },
+  { key: 'planung', label: 'Planung', emoji: '📋' },
+  { key: 'moderation', label: 'Moderation', emoji: '🎤' },
+  { key: 'pyro', label: 'Pyrotechnik', emoji: '🎆' },
+  { key: 'location', label: 'Location', emoji: '🏰' },
+];
+let selectedCategories = new Set();
 let aiDebounce = null;
 
-function renderAiSuggestions(suggestions, isTyping) {
+function renderCategoryPicker() {
   const list = document.getElementById('aiSuggestionsList');
-  const box = document.getElementById('aiSuggestions');
-
-  if (isTyping) {
-    list.innerHTML = `
-      <div class="ai-typing">
-        <div class="ai-typing-dots"><span></span><span></span><span></span></div>
-        KI sucht...
-      </div>`;
-    box.classList.add('show');
-    return;
-  }
-
-  if (!suggestions.length) {
-    list.innerHTML = `
-      <div class="ai-suggestion-item" style="opacity:0.6; cursor:default;">
-        <div class="ai-suggestion-icon">🔍</div>
-        <div class="ai-suggestion-text">
-          <strong>Kein Treffer</strong>
-          <span>Versuch es mit anderen Begriffen</span>
-        </div>
-      </div>`;
-    box.classList.add('show');
-    return;
-  }
-
-  list.innerHTML = suggestions.map(s => `
-    <div class="ai-suggestion-item" onclick="applyAiSuggestion('${s.term.replace(/'/g, "\\'")}', '${s.category || ''}', ${s.listingId || 0})">
-      <div class="ai-suggestion-icon">${s.emoji}</div>
-      <div class="ai-suggestion-text">
-        <strong>${s.term}</strong>
-        <span>${s.hint}</span>
-      </div>
-      <span class="material-icons-round ai-suggestion-arrow">arrow_forward</span>
+  list.innerHTML = AI_CATEGORIES.map(c => `
+    <div class="ai-cat-chip${selectedCategories.has(c.key) ? ' selected' : ''}" onclick="toggleCategory('${c.key}')">
+      <span class="ai-cat-emoji">${c.emoji}</span>
+      <span class="ai-cat-label">${c.label}</span>
     </div>
   `).join('');
-  box.classList.add('show');
 }
 
-function applyAiSuggestion(term, category, listingId) {
-  document.getElementById('aiSuggestions').classList.remove('show');
-  document.querySelector('.hero-field-ai')?.classList.remove('focused');
+function toggleCategory(key) {
+  if (selectedCategories.has(key)) {
+    selectedCategories.delete(key);
+  } else {
+    selectedCategories.add(key);
+  }
+  renderCategoryPicker();
+  renderSelectedTags();
+}
 
-  if (listingId) {
-    navigateTo('detail', listingId);
+function renderSelectedTags() {
+  const container = document.getElementById('aiSelectedTags');
+  if (!selectedCategories.size) {
+    container.innerHTML = '';
     return;
   }
-
-  document.getElementById('heroSearchInput').value = term;
-  performSearch();
+  container.innerHTML = Array.from(selectedCategories).map(key => {
+    const cat = AI_CATEGORIES.find(c => c.key === key);
+    return `<span class="ai-tag" onclick="toggleCategory('${key}')">
+      ${cat.emoji} ${cat.label}
+      <span class="material-icons-round">close</span>
+    </span>`;
+  }).join('');
 }
 
 function initAiSearch() {
@@ -756,13 +741,8 @@ function initAiSearch() {
 
   input.addEventListener('focus', () => {
     field.classList.add('focused');
-    const val = input.value.trim();
-    if (!val) {
-      renderAiSuggestions(getDefaultSuggestions(), false);
-    } else {
-      const matches = aiMatchKeyword(val);
-      renderAiSuggestions(matches.length ? matches : getDefaultSuggestions(), false);
-    }
+    renderCategoryPicker();
+    box.classList.add('show');
   });
 
   input.addEventListener('input', () => {
@@ -770,22 +750,20 @@ function initAiSearch() {
     clearTimeout(aiDebounce);
 
     if (!val) {
-      renderAiSuggestions(getDefaultSuggestions(), false);
+      renderCategoryPicker();
+      box.classList.add('show');
       return;
     }
 
-    // Show typing indicator briefly
-    renderAiSuggestions([], true);
-
-    aiDebounce = setTimeout(() => {
-      const matches = aiMatchKeyword(val);
-      if (matches.length) {
-        renderAiSuggestions(matches, false);
-      } else {
-        // No match — show "not found" + default
-        renderAiSuggestions([], false);
-      }
-    }, 350);
+    // Highlight matching categories based on keyword input
+    const matches = aiMatchKeyword(val);
+    if (matches.length) {
+      matches.forEach(m => {
+        if (m.category) selectedCategories.add(m.category);
+      });
+      renderCategoryPicker();
+      renderSelectedTags();
+    }
   });
 
   // Close on outside click
@@ -925,6 +903,12 @@ function performSearch() {
   if (searchVal) document.getElementById('browseSearch').value = searchVal;
   if (locationVal) document.getElementById('browseLocation').value = locationVal;
 
+  // If categories selected, set the first one in browse filter (multi handled in filterListings)
+  if (selectedCategories.size) {
+    const browseCat = document.getElementById('browseCategory');
+    if (browseCat) browseCat.value = '';
+  }
+
   // Map hero event type to browse event type
   const browseET = document.getElementById('browseEventType');
   if (eventType && browseET) {
@@ -956,6 +940,8 @@ function filterListings() {
       if (!haystack.includes(search)) return false;
     }
     if (category && l.category !== category) return false;
+    // Multi-category filter from hero picker
+    if (selectedCategories.size && !selectedCategories.has(l.category)) return false;
     // Event type → check listing tags
     if (eventType && !l.tags.some(t => t.toLowerCase() === eventType.toLowerCase())) return false;
     if (location && !l.location.toLowerCase().includes(location) && !l.region.toLowerCase().includes(location)) return false;
