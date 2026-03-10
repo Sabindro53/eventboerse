@@ -10,25 +10,31 @@ permissions:
 
 jobs:
   deploy:
-    name: FTP Deploy to IONOS
+    name: SFTP Deploy to IONOS
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.IONOS_FTP_SERVER }}
-          username: ${{ secrets.IONOS_FTP_USERNAME }}
-          password: ${{ secrets.IONOS_FTP_PASSWORD }}
-          server-dir: ${{ secrets.IONOS_FTP_REMOTE_DIR }}
-          protocol: ftps
-          port: 21
-          timeout: 60000
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .github/**
-            LICENSE
-            README.md
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Deploy via SFTP
+        env:
+          LFTP_PASSWORD: ${{ secrets.IONOS_FTP_PASSWORD }}
+          SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+          SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
+          SFTP_DIR: ${{ secrets.IONOS_FTP_REMOTE_DIR }}
+        run: |
+          echo "Target: sftp://$SFTP_HOST → $SFTP_DIR"
+          lftp -u "$SFTP_USER" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            set net:timeout 60;
+            set net:max-retries 3;
+            echo '--- Remote directory listing ---';
+            ls /;
+            echo '--- Starting upload ---';
+            mirror --reverse --verbose -x '^\.git' -x '^LICENSE$' -x '^README\.md$' . '$SFTP_DIR';
+            echo '--- Deploy complete ---';
+            bye
+          "
