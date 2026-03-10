@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "github.vscode-pull-request-github",
+    "github.copilot",
+    "github.vscode-github-actions",
+    "ritwickdey.liveserver"
+  ]
+}
