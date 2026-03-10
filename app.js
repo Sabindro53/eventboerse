@@ -432,8 +432,8 @@ function navigateTo(page, data) {
       updateCreateFormForRole();
       break;
     case 'profile':
-      loadProfile();
-      break;
+      navigateTo('dashboard');
+      return;
     case 'my-listings':
       renderMyListings();
       break;
@@ -1431,157 +1431,171 @@ function declineOffer() {
   showToast('Angebot abgelehnt.', 'cancel');
 }
 
-// ========== DASHBOARD ==========
+// ========== PROFILAUFTRITT ==========
 function renderDashboard() {
-  var dashTitle = document.querySelector('#page-dashboard .dashboard-header h1');
-  var dashSubtitle = document.querySelector('#page-dashboard .dashboard-header p');
-  var dashListingsCard = document.querySelector('#dashListings').closest('.dash-card');
-  var dashListingsTitle = dashListingsCard ? dashListingsCard.querySelector('h3') : null;
-  var dashListingsBtn = dashListingsCard ? dashListingsCard.querySelector('.btn-text') : null;
+  if (!currentUser) return;
 
-  if (isEventPlaner()) {
-    // === EVENT-PLANER DASHBOARD ===
-    if (dashTitle) dashTitle.textContent = 'Event-Dashboard';
-    if (dashSubtitle) dashSubtitle.textContent = 'Willkommen zurück! Hier ist deine Event-Übersicht.';
-    if (dashListingsTitle) dashListingsTitle.innerHTML = '<span class="material-icons-round">event_note</span> Meine Events';
-    if (dashListingsBtn) {
-      dashListingsBtn.innerHTML = '<span class="material-icons-round">add</span> Neues Event';
-      dashListingsBtn.setAttribute('onclick', "navigateTo('create-listing')");
-    }
-
-    document.getElementById('dashListings').innerHTML = DEMO_EVENTS.map(evt => `
-      <div class="dash-list-item" onclick="navigateTo('my-listings')">
-        <img src="${evt.image}" alt="${evt.title}" />
-        <div class="dash-list-item-info">
-          <strong>${evt.title}</strong>
-          <span>${evt.type} · ${evt.date} · ${evt.guests} Gäste</span>
-        </div>
-        <span class="status-badge ${evt.status === 'In Planung' ? 'status-active' : 'status-pending'}">${evt.status}</span>
-      </div>
-    `).join('');
-
-    // Negotiations (Event-Planer perspective)
-    document.getElementById('dashNegotiations').innerHTML = `
-      <div class="dash-list-item">
-        <img src="${LISTINGS[0].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>DJ SoundMaster Berlin</strong>
-          <span>Dein Angebot: 380€ → Gegenangebot: 420€</span>
-        </div>
-        <span class="status-badge status-pending">Offen</span>
-      </div>
-      <div class="dash-list-item">
-        <img src="${LISTINGS[2].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>Blumenträume München</strong>
-          <span>Dein Angebot: 750€</span>
-        </div>
-        <span class="status-badge status-pending">Wartet</span>
-      </div>
-    `;
-
-    // Bookings (services booked for events)
-    document.getElementById('dashBookings').innerHTML = `
-      <div class="dash-list-item">
-        <img src="${LISTINGS[1].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>Gourmet Catering Hamburg</strong>
-          <span>Hochzeit · 15. Juni 2026 · 120 Gäste</span>
-        </div>
-        <span class="status-badge status-completed">Bestätigt</span>
-      </div>
-      <div class="dash-list-item">
-        <img src="${LISTINGS[5].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>Fotokunst Berlin</strong>
-          <span>Hochzeit · 15. Juni 2026</span>
-        </div>
-        <span class="status-badge status-active">Ausstehend</span>
-      </div>
-    `;
-
-    // Reviews (reviews you gave)
-    document.getElementById('dashReviews').innerHTML = `
-      <div class="dash-list-item">
-        <img src="${LISTINGS[0].providerImg}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>DJ SoundMaster Berlin</strong>
-          <span>★★★★★ · Deine Bewertung</span>
-        </div>
-      </div>
-    `;
+  // --- Cover ---
+  var coverEl = document.getElementById('profileCover');
+  if (currentUser.coverUrl) {
+    coverEl.style.backgroundImage = 'url(' + currentUser.coverUrl + ')';
   } else {
-    // === DIENSTLEISTER DASHBOARD ===
-    if (dashTitle) dashTitle.textContent = 'Dashboard';
-    if (dashSubtitle) dashSubtitle.textContent = 'Willkommen zurück! Hier ist deine Übersicht.';
-    if (dashListingsTitle) dashListingsTitle.innerHTML = '<span class="material-icons-round">storefront</span> Meine Inserate';
-    if (dashListingsBtn) {
-      dashListingsBtn.innerHTML = '<span class="material-icons-round">add</span> Neues Inserat';
-      dashListingsBtn.setAttribute('onclick', "navigateTo('create-listing')");
-    }
-
-    document.getElementById('dashListings').innerHTML = LISTINGS.slice(0, 3).map(l => `
-      <div class="dash-list-item" onclick="navigateTo('detail', ${l.id})">
-        <img src="${l.image}" alt="${l.title}" />
-        <div class="dash-list-item-info">
-          <strong>${l.title}</strong>
-          <span>${l.categoryLabel} · ${l.location}</span>
-        </div>
-        <span class="status-badge status-active">Aktiv</span>
-      </div>
-    `).join('');
-
-    // Negotiations
-    document.getElementById('dashNegotiations').innerHTML = `
-      <div class="dash-list-item">
-        <img src="${LISTINGS[0].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>Max Beats – DJ</strong>
-          <span>Gegenangebot: 420€</span>
-        </div>
-        <span class="status-badge status-pending">Offen</span>
-      </div>
-      <div class="dash-list-item">
-        <img src="${LISTINGS[2].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>Lisa Blumen – Floristik</strong>
-          <span>Dein Angebot: 750€</span>
-        </div>
-        <span class="status-badge status-pending">Wartet</span>
-      </div>
-    `;
-
-    // Bookings
-    document.getElementById('dashBookings').innerHTML = `
-      <div class="dash-list-item">
-        <img src="${LISTINGS[1].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>Gourmet Catering</strong>
-          <span>15. Juni 2026 · 50 Gäste</span>
-        </div>
-        <span class="status-badge status-completed">Bestätigt</span>
-      </div>
-      <div class="dash-list-item">
-        <img src="${LISTINGS[5].image}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>Fotokunst Berlin</strong>
-          <span>15. Juni 2026 · Hochzeit</span>
-        </div>
-        <span class="status-badge status-active">Ausstehend</span>
-      </div>
-    `;
-
-    // Reviews
-    document.getElementById('dashReviews').innerHTML = DEMO_REVIEWS.slice(0, 2).map(r => `
-      <div class="dash-list-item">
-        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar}" alt="" />
-        <div class="dash-list-item-info">
-          <strong>${r.name}</strong>
-          <span>${'★'.repeat(r.rating)} · ${r.date}</span>
-        </div>
-      </div>
-    `).join('');
+    coverEl.style.backgroundImage = 'none';
   }
+
+  // --- Avatar ---
+  var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name || 'user');
+  document.getElementById('profileAvatar').src = avatarUrl;
+  var navAvatar = document.querySelector('#avatarBtn img');
+  if (navAvatar) navAvatar.src = avatarUrl;
+
+  // --- Name, Tagline, Location ---
+  document.getElementById('profileDisplayName').textContent = currentUser.name || 'Dein Name';
+  var taglineParts = [];
+  if (currentUser.tagline) taglineParts.push(currentUser.tagline);
+  if (currentUser.location) taglineParts.push(currentUser.location);
+  document.getElementById('profileDisplayTagline').textContent = taglineParts.join(' · ') || 'Füge einen Slogan hinzu';
+
+  // Input fields
+  document.getElementById('profileName').value = currentUser.name || '';
+  document.getElementById('profileTagline').value = currentUser.tagline || '';
+  document.getElementById('profileLocation').value = currentUser.location || '';
+  document.getElementById('profileBio').value = currentUser.bio || '';
+  document.getElementById('profileEmail').value = currentUser.email || '';
+  document.getElementById('profileRole').value = currentUser.role || '';
+
+  // --- Role & Location badges ---
+  document.getElementById('profileDisplayRole').innerHTML =
+    '<span class="material-icons-round">badge</span> ' + (currentUser.role || 'Mitglied');
+  document.getElementById('profileDisplayLocation').innerHTML =
+    '<span class="material-icons-round">location_on</span> ' + (currentUser.location || 'Nicht angegeben');
+
+  // --- Bio ---
+  var bioText = currentUser.bio || 'Erzähle potenziellen Kunden etwas über dich, deine Erfahrung und was dich besonders macht...';
+  document.getElementById('profileDisplayBio').textContent = bioText;
+
+  // --- Stats ---
+  document.getElementById('profileStatViews').textContent = '1.240';
+  var userListings = LISTINGS.filter(function(l) { return l.providerId === 1; });
+  document.getElementById('profileStatListings').textContent = userListings.length;
+  document.getElementById('profileStatBookings').textContent = '15';
+  document.getElementById('profileStatRating').textContent = '4.8 ★';
+
+  // --- Gallery ---
+  var galleryDisplay = document.getElementById('profileGalleryDisplay');
+  var galleryEmpty = document.getElementById('profileGalleryEmpty');
+  if (currentUser.gallery && currentUser.gallery.length > 0) {
+    if (galleryEmpty) galleryEmpty.style.display = 'none';
+    var imgs = currentUser.gallery.map(function(src) {
+      return '<img src="' + src + '" alt="Galerie" loading="lazy" />';
+    }).join('');
+    galleryDisplay.innerHTML = imgs;
+  } else {
+    galleryDisplay.innerHTML = '';
+    if (galleryEmpty) {
+      galleryDisplay.appendChild(galleryEmpty);
+      galleryEmpty.style.display = 'block';
+    }
+  }
+
+  // --- Gallery edit preview ---
+  var galleryPreview = document.getElementById('galleryPreview');
+  if (galleryPreview) {
+    galleryPreview.innerHTML = '';
+    if (currentUser.gallery && currentUser.gallery.length > 0) {
+      currentUser.gallery.forEach(function(src) {
+        var div = document.createElement('div');
+        div.className = 'upload-preview-item';
+        div.innerHTML = '<img src="' + src + '" alt="Galerie" />' +
+          '<button onclick="removeGalleryItem(this)"><span class="material-icons-round">close</span></button>';
+        galleryPreview.appendChild(div);
+      });
+    }
+  }
+
+  // --- Services (from user listings) ---
+  var servicesGrid = document.getElementById('profileServicesGrid');
+  var servicesEmpty = document.getElementById('profileServicesEmpty');
+  if (userListings.length > 0) {
+    if (servicesEmpty) servicesEmpty.style.display = 'none';
+    servicesGrid.innerHTML = userListings.map(function(l) {
+      return '<div class="profile-service-card" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
+        '<h4>' + l.title + '</h4>' +
+        '<div class="service-category">' + l.categoryLabel + ' · ' + l.location + '</div>' +
+        '<div class="service-price">ab ' + l.price + '€ <span>/ ' + (l.priceModel || 'Pro Event') + '</span></div>' +
+        '</div>';
+    }).join('');
+  } else {
+    if (servicesEmpty) servicesEmpty.style.display = 'block';
+    servicesGrid.innerHTML = '';
+  }
+
+  // --- Reviews ---
+  var reviewsDisplay = document.getElementById('profileReviewsDisplay');
+  if (DEMO_REVIEWS && DEMO_REVIEWS.length > 0) {
+    reviewsDisplay.innerHTML = DEMO_REVIEWS.slice(0, 4).map(function(r) {
+      return '<div class="review-card">' +
+        '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + r.avatar + '" alt="' + r.name + '" class="review-avatar" />' +
+        '<div class="review-content">' +
+          '<div class="review-top"><strong>' + r.name + '</strong><span>' + r.date + '</span></div>' +
+          '<div class="review-stars">' + '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) + '</div>' +
+          '<p class="review-text">' + r.text + '</p>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  setupDragDrop();
+}
+
+// Inline profile editing
+function toggleProfileEdit(field) {
+  var editEl = document.getElementById('edit' + field.charAt(0).toUpperCase() + field.slice(1));
+  if (!editEl) return;
+  var isVisible = editEl.style.display !== 'none';
+  editEl.style.display = isVisible ? 'none' : 'flex';
+  if (!isVisible && field === 'bio') {
+    editEl.style.display = 'block';
+  }
+}
+
+function cancelFieldInline(field) {
+  var editEl = document.getElementById('edit' + field.charAt(0).toUpperCase() + field.slice(1));
+  if (editEl) editEl.style.display = 'none';
+  // Restore original values
+  if (currentUser) {
+    if (field === 'name') document.getElementById('profileName').value = currentUser.name || '';
+    if (field === 'tagline') {
+      document.getElementById('profileTagline').value = currentUser.tagline || '';
+      document.getElementById('profileLocation').value = currentUser.location || '';
+    }
+    if (field === 'bio') document.getElementById('profileBio').value = currentUser.bio || '';
+  }
+}
+
+function saveFieldInline(field) {
+  if (!currentUser) return;
+  switch (field) {
+    case 'name':
+      currentUser.name = document.getElementById('profileName').value.trim();
+      break;
+    case 'tagline':
+      currentUser.tagline = document.getElementById('profileTagline').value.trim();
+      currentUser.location = document.getElementById('profileLocation').value.trim();
+      break;
+    case 'bio':
+      currentUser.bio = document.getElementById('profileBio').value.trim();
+      break;
+    case 'gallery':
+      var galleryImgs = document.querySelectorAll('#galleryPreview .upload-preview-item img');
+      currentUser.gallery = Array.from(galleryImgs).map(function(img) { return img.src; });
+      break;
+    case 'services':
+      break;
+  }
+  var editEl = document.getElementById('edit' + field.charAt(0).toUpperCase() + field.slice(1));
+  if (editEl) editEl.style.display = 'none';
+  renderDashboard();
+  showToast('Gespeichert! ✅', 'check_circle');
 }
 
 // ========== CREATE LISTING ==========
@@ -1835,7 +1849,7 @@ function handleProfilePhoto(input) {
   }
   var reader = new FileReader();
   reader.onload = function(e) {
-    document.getElementById('profileEditPhoto').src = e.target.result;
+    document.getElementById('profileAvatar').src = e.target.result;
     // Update nav avatar too
     var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = e.target.result;
@@ -1854,24 +1868,17 @@ function handleCoverUpload(input) {
   }
   var reader = new FileReader();
   reader.onload = function(e) {
-    var preview = document.getElementById('coverPreview');
-    preview.innerHTML = '<div class="cover-preview-img">' +
-      '<img src="' + e.target.result + '" alt="Cover" />' +
-      '<button onclick="removeCover()"><span class="material-icons-round" style="font-size:16px">close</span></button>' +
-      '</div>';
+    var cover = document.querySelector('.profile-cover');
+    if (cover) cover.style.backgroundImage = 'url(' + e.target.result + ')';
     if (currentUser) currentUser.coverUrl = e.target.result;
-    // Update upload zone text
-    var zone = document.getElementById('coverUploadZone');
-    zone.querySelector('p').textContent = 'Anderes Cover-Bild wählen';
     showToast('Cover-Bild hochgeladen! 🖼️', 'panorama');
   };
   reader.readAsDataURL(file);
 }
 
 function removeCover() {
-  document.getElementById('coverPreview').innerHTML = '';
-  var zone = document.getElementById('coverUploadZone');
-  zone.querySelector('p').textContent = 'Cover-Bild hochladen';
+  var cover = document.querySelector('.profile-cover');
+  if (cover) cover.style.backgroundImage = '';
   document.getElementById('coverInput').value = '';
   if (currentUser) currentUser.coverUrl = '';
   showToast('Cover-Bild entfernt', 'delete');
@@ -2668,45 +2675,8 @@ function socialLogin(provider) {
 }
 
 function loadProfile() {
-  if (!currentUser) return;
-  document.getElementById('profileName').value = currentUser.name || '';
-  document.getElementById('profileEmail').value = currentUser.email || '';
-  document.getElementById('profileRole').value = currentUser.role || '';
-  document.getElementById('profileTagline').value = currentUser.tagline || '';
-  document.getElementById('profileLocation').value = currentUser.location || '';
-  document.getElementById('profileBio').value = currentUser.bio || '';
-  // Update avatar – keep profile photo and nav avatar in sync
-  var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
-  document.getElementById('profileEditPhoto').src = avatarUrl;
-  var navAvatar = document.querySelector('#avatarBtn img');
-  if (navAvatar) navAvatar.src = avatarUrl;
-  // Restore cover
-  var coverPreview = document.getElementById('coverPreview');
-  if (currentUser.coverUrl) {
-    coverPreview.innerHTML = '<div class="cover-preview-img">' +
-      '<img src="' + currentUser.coverUrl + '" alt="Cover" />' +
-      '<button onclick="removeCover()"><span class="material-icons-round" style="font-size:16px">close</span></button>' +
-      '</div>';
-    var zone = document.getElementById('coverUploadZone');
-    if (zone) zone.querySelector('p').textContent = 'Anderes Cover-Bild wählen';
-  } else {
-    coverPreview.innerHTML = '';
-  }
-  // Restore gallery
-  var galleryPreview = document.getElementById('galleryPreview');
-  galleryPreview.innerHTML = '';
-  if (currentUser.gallery && currentUser.gallery.length > 0) {
-    currentUser.gallery.forEach(function(src) {
-      var div = document.createElement('div');
-      div.className = 'upload-preview-item';
-      div.innerHTML = '<img src="' + src + '" alt="Galerie" />' +
-        '<button onclick="removeGalleryItem(this)"><span class="material-icons-round">close</span></button>';
-      galleryPreview.appendChild(div);
-    });
-    updateGalleryCount();
-  }
-  // Re-setup drag & drop for new elements
-  setupDragDrop();
+  // Now merged into renderDashboard (Profilauftritt)
+  renderDashboard();
 }
 
 function saveProfile() {
@@ -2715,13 +2685,12 @@ function saveProfile() {
   currentUser.tagline = document.getElementById('profileTagline').value.trim();
   currentUser.location = document.getElementById('profileLocation').value.trim();
   currentUser.bio = document.getElementById('profileBio').value.trim();
-  // Save gallery images
   var galleryImgs = document.querySelectorAll('#galleryPreview .upload-preview-item img');
   currentUser.gallery = Array.from(galleryImgs).map(function(img) { return img.src; });
-  // Update avatar everywhere
-  var avatarSrc = document.getElementById('profileEditPhoto').src;
+  var avatarSrc = document.getElementById('profileAvatar').src;
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = avatarSrc;
+  renderDashboard();
   showToast('Profil gespeichert! ✅', 'check_circle');
 }
 

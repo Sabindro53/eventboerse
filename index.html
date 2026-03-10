@@ -67,9 +67,8 @@
         <button onclick="openModal('registerModal')">Registrieren</button>
       </div>
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
-        <button onclick="navigateTo('dashboard')"><span class="material-icons-round">dashboard</span> Dashboard</button>
+        <button onclick="navigateTo('dashboard')"><span class="material-icons-round">account_circle</span> Mein Profil</button>
         <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
-        <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
@@ -782,70 +781,161 @@
 
     <!-- ============ PAGE: DASHBOARD ============ -->
     <section id="page-dashboard" class="page">
+      <!-- Profile Cover -->
+      <div class="profile-cover" id="profileCover">
+        <div class="profile-cover-overlay"></div>
+        <button class="profile-cover-edit" onclick="document.getElementById('coverInput').click()" title="Cover ändern">
+          <span class="material-icons-round">photo_camera</span>
+        </button>
+        <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="handleCoverUpload(this)" />
+      </div>
+
+      <!-- Profile Header -->
       <div class="container">
-        <div class="dashboard-header">
-          <h1>Dashboard</h1>
-          <p>Willkommen zurück! Hier ist deine Übersicht.</p>
+        <div class="profile-hero">
+          <div class="profile-avatar-wrap">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="Profilbild" id="profileAvatar" class="profile-avatar" />
+            <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Foto ändern">
+              <span class="material-icons-round">camera_alt</span>
+            </button>
+            <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)" />
+          </div>
+          <div class="profile-hero-info">
+            <div class="profile-name-row">
+              <h1 class="profile-display-name" id="profileDisplayName">Dein Name</h1>
+              <button class="profile-inline-edit" onclick="toggleProfileEdit('name')" title="Name bearbeiten">
+                <span class="material-icons-round">edit</span>
+              </button>
+            </div>
+            <div class="profile-edit-field" id="editName" style="display:none">
+              <input type="text" id="profileName" placeholder="Dein Name" />
+              <button class="btn-sm btn-primary" onclick="saveFieldInline('name')">Speichern</button>
+              <button class="btn-sm btn-outline" onclick="cancelFieldInline('name')">Abbrechen</button>
+            </div>
+            <div class="profile-tagline-row">
+              <p class="profile-tagline" id="profileDisplayTagline">Dein Slogan · Dein Standort</p>
+              <button class="profile-inline-edit" onclick="toggleProfileEdit('tagline')" title="Slogan bearbeiten">
+                <span class="material-icons-round">edit</span>
+              </button>
+            </div>
+            <div class="profile-edit-field" id="editTagline" style="display:none">
+              <input type="text" id="profileTagline" placeholder="z.B. DJ & Musikproduktion · Berlin" />
+              <input type="text" id="profileLocation" placeholder="Standort, z.B. Berlin" />
+              <button class="btn-sm btn-primary" onclick="saveFieldInline('tagline')">Speichern</button>
+              <button class="btn-sm btn-outline" onclick="cancelFieldInline('tagline')">Abbrechen</button>
+            </div>
+            <div class="profile-meta">
+              <span class="profile-role" id="profileDisplayRole"><span class="material-icons-round">badge</span> Dienstleister</span>
+              <span class="profile-location-badge" id="profileDisplayLocation"><span class="material-icons-round">location_on</span> Berlin</span>
+              <span class="profile-member-since"><span class="material-icons-round">calendar_today</span> Mitglied seit 2026</span>
+            </div>
+          </div>
         </div>
-        <div class="dashboard-stats">
-          <div class="dash-stat-card">
-            <span class="material-icons-round">visibility</span>
-            <div>
-              <strong>1.240</strong>
-              <span>Profil-Aufrufe</span>
-            </div>
+
+        <!-- Quick Stats -->
+        <div class="profile-stats-bar">
+          <div class="profile-stat">
+            <strong id="profileStatViews">0</strong>
+            <span>Aufrufe</span>
           </div>
-          <div class="dash-stat-card">
-            <span class="material-icons-round">chat</span>
-            <div>
-              <strong>23</strong>
-              <span>Nachrichten</span>
-            </div>
+          <div class="profile-stat">
+            <strong id="profileStatListings">0</strong>
+            <span>Inserate</span>
           </div>
-          <div class="dash-stat-card">
-            <span class="material-icons-round">gavel</span>
-            <div>
-              <strong>8</strong>
-              <span>Aktive Verhandlungen</span>
-            </div>
+          <div class="profile-stat">
+            <strong id="profileStatBookings">0</strong>
+            <span>Buchungen</span>
           </div>
-          <div class="dash-stat-card">
-            <span class="material-icons-round">event_available</span>
-            <div>
-              <strong>15</strong>
-              <span>Buchungen</span>
-            </div>
+          <div class="profile-stat">
+            <strong id="profileStatRating">–</strong>
+            <span>Bewertung</span>
           </div>
         </div>
-        <div class="dashboard-grid">
-          <div class="dash-card">
-            <h3><span class="material-icons-round">storefront</span> Meine Inserate</h3>
-            <div id="dashListings" class="dash-list">
-              <!-- Loaded by JS -->
-            </div>
-            <button class="btn-text" onclick="navigateTo('create-listing')">
-              <span class="material-icons-round">add</span> Neues Inserat
+
+        <!-- About Section -->
+        <div class="profile-section">
+          <div class="profile-section-header">
+            <h2><span class="material-icons-round">person</span> Über mich</h2>
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('bio')" title="Bearbeiten">
+              <span class="material-icons-round">edit</span>
             </button>
           </div>
-          <div class="dash-card">
-            <h3><span class="material-icons-round">gavel</span> Aktive Verhandlungen</h3>
-            <div id="dashNegotiations" class="dash-list">
-              <!-- Loaded by JS -->
+          <p class="profile-bio-text" id="profileDisplayBio">Erzähle potenziellen Kunden etwas über dich, deine Erfahrung und was dich besonders macht...</p>
+          <div class="profile-edit-field" id="editBio" style="display:none">
+            <textarea rows="5" id="profileBio" placeholder="Erzähle etwas über dich, deine Erfahrung, deine Leidenschaft..."></textarea>
+            <button class="btn-sm btn-primary" onclick="saveFieldInline('bio')">Speichern</button>
+            <button class="btn-sm btn-outline" onclick="cancelFieldInline('bio')">Abbrechen</button>
+          </div>
+        </div>
+
+        <!-- Gallery Section -->
+        <div class="profile-section">
+          <div class="profile-section-header">
+            <h2><span class="material-icons-round">collections</span> Galerie</h2>
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('gallery')" title="Galerie bearbeiten">
+              <span class="material-icons-round">edit</span>
+            </button>
+          </div>
+          <div class="profile-gallery" id="profileGalleryDisplay">
+            <div class="profile-gallery-empty" id="profileGalleryEmpty">
+              <span class="material-icons-round">add_photo_alternate</span>
+              <p>Zeige deine besten Arbeiten — klicke auf Bearbeiten um Bilder hinzuzufügen.</p>
             </div>
           </div>
-          <div class="dash-card">
-            <h3><span class="material-icons-round">event</span> Kommende Buchungen</h3>
-            <div id="dashBookings" class="dash-list">
-              <!-- Loaded by JS -->
+          <div class="profile-edit-field" id="editGallery" style="display:none">
+            <div class="upload-zone small" id="galleryUploadZone" onclick="document.getElementById('galleryInput').click()">
+              <span class="material-icons-round">add_photo_alternate</span>
+              <p>Galerie-Bilder hochladen</p>
+              <p class="upload-hint">JPG, PNG · Max. 12 Bilder · Max. 5MB pro Bild</p>
+              <input type="file" id="galleryInput" multiple accept="image/*" style="display:none" onchange="handleGalleryUpload(this)" />
             </div>
+            <div class="upload-preview" id="galleryPreview"></div>
+            <button class="btn-sm btn-primary" onclick="saveFieldInline('gallery')">Speichern</button>
+            <button class="btn-sm btn-outline" onclick="cancelFieldInline('gallery')">Abbrechen</button>
           </div>
-          <div class="dash-card">
-            <h3><span class="material-icons-round">star</span> Neueste Bewertungen</h3>
-            <div id="dashReviews" class="dash-list">
-              <!-- Loaded by JS -->
+        </div>
+
+        <!-- Services / Prices Section -->
+        <div class="profile-section">
+          <div class="profile-section-header">
+            <h2><span class="material-icons-round">sell</span> Services & Preise</h2>
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('services')" title="Services bearbeiten">
+              <span class="material-icons-round">add</span>
+            </button>
+          </div>
+          <div class="profile-services" id="profileServicesDisplay">
+            <div class="profile-services-empty" id="profileServicesEmpty">
+              <span class="material-icons-round">storefront</span>
+              <p>Noch keine Services angelegt. Erstelle ein Inserat, um deinen Service zu präsentieren.</p>
+              <button class="btn-outline btn-sm" onclick="navigateTo('create-listing')">
+                <span class="material-icons-round">add_circle</span> Inserat erstellen
+              </button>
+            </div>
+            <div class="profile-services-grid" id="profileServicesGrid"></div>
+          </div>
+          <div class="profile-edit-field" id="editServices" style="display:none">
+            <div id="profileServiceEditor"></div>
+            <button class="btn-sm btn-primary" onclick="saveFieldInline('services')">Speichern</button>
+            <button class="btn-sm btn-outline" onclick="cancelFieldInline('services')">Abbrechen</button>
+          </div>
+        </div>
+
+        <!-- Reviews Section -->
+        <div class="profile-section">
+          <div class="profile-section-header">
+            <h2><span class="material-icons-round">star</span> Bewertungen</h2>
+          </div>
+          <div class="profile-reviews" id="profileReviewsDisplay">
+            <div class="profile-reviews-empty">
+              <span class="material-icons-round">rate_review</span>
+              <p>Noch keine Bewertungen vorhanden.</p>
             </div>
           </div>
         </div>
+
+        <!-- Hidden fields for internal data -->
+        <input type="hidden" id="profileEmail" />
+        <input type="hidden" id="profileRole" />
       </div>
     </section>
 
@@ -1019,68 +1109,7 @@
     </section>
 
     <!-- ============ PAGE: MY PROFILE EDIT ============ -->
-    <section id="page-profile" class="page">
-      <div class="container container-sm">
-        <h1>Mein Profil bearbeiten</h1>
-        <div class="profile-edit">
-          <div class="profile-photo-edit">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="Profile" id="profileEditPhoto" />
-            <button class="btn-outline btn-sm" onclick="document.getElementById('profilePhotoInput').click()">
-              <span class="material-icons-round">camera_alt</span> Foto ändern
-            </button>
-            <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)" />
-          </div>
-          <div class="form-group">
-            <label>Angezeigter Name</label>
-            <input type="text" id="profileName" placeholder="Dein Name" />
-          </div>
-          <div class="form-group">
-            <label>E-Mail</label>
-            <input type="email" id="profileEmail" placeholder="deine@email.de" readonly style="background: var(--bg-alt); color: var(--text-light);" />
-          </div>
-          <div class="form-group">
-            <label>Rolle</label>
-            <input type="text" id="profileRole" readonly style="background: var(--bg-alt); color: var(--text-light);" />
-          </div>
-          <div class="form-group">
-            <label>Slogan / Tagline</label>
-            <input type="text" id="profileTagline" placeholder="z.B. DJ & Musikproduktion · Berlin" />
-          </div>
-          <div class="form-group">
-            <label>Standort</label>
-            <input type="text" id="profileLocation" placeholder="z.B. Berlin" />
-          </div>
-          <div class="form-group">
-            <label>Über mich</label>
-            <textarea rows="4" id="profileBio" placeholder="Erzähle etwas über dich..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Cover-Bild</label>
-            <div class="upload-zone small" id="coverUploadZone" onclick="document.getElementById('coverInput').click()">
-              <span class="material-icons-round">panorama</span>
-              <p>Cover-Bild hochladen</p>
-              <p class="upload-hint">JPG, PNG · Empfohlen: 1200×400px</p>
-              <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="handleCoverUpload(this)" />
-            </div>
-            <div class="cover-preview" id="coverPreview"></div>
-          </div>
-          <h3>Galerie</h3>
-          <p class="form-hint">Zeige deine besten Arbeiten – diese Bilder erscheinen auf deinem öffentlichen Profil.</p>
-          <div class="upload-zone small" id="galleryUploadZone" onclick="document.getElementById('galleryInput').click()">
-            <span class="material-icons-round">add_photo_alternate</span>
-            <p>Galerie-Bilder hochladen</p>
-            <p class="upload-hint">JPG, PNG · Max. 12 Bilder · Max. 5MB pro Bild</p>
-            <input type="file" id="galleryInput" multiple accept="image/*" style="display:none" onchange="handleGalleryUpload(this)" />
-          </div>
-          <div class="upload-preview" id="galleryPreview"></div>
-          <div class="form-nav">
-            <button class="btn-primary" onclick="saveProfile()">
-              <span class="material-icons-round">save</span> Profil speichern
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- page-profile merged into page-dashboard (Profilauftritt) -->
 
     <!-- ============ PAGE: MY LISTINGS ============ -->
     <section id="page-my-listings" class="page">
