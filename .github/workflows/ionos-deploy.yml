@@ -25,26 +25,16 @@ jobs:
           SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
         run: |
-          echo "deploy-test-$(date +%s)" > deploy-probe.txt
-          echo "--- Probing SFTP directory structure ---"
-          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
-            set sftp:auto-confirm yes;
-            set net:timeout 60;
-            echo '=== ROOT (/) ===';
-            cls /;
-            echo '=== Checking common web roots ===';
-            cls /htdocs/ 2>/dev/null || echo 'NO /htdocs/';
-            cls /html/ 2>/dev/null || echo 'NO /html/';
-            cls /public_html/ 2>/dev/null || echo 'NO /public_html/';
-            cls /www/ 2>/dev/null || echo 'NO /www/';
-            echo '=== Checking wp-content paths ===';
-            cls /wp-content/themes/ 2>/dev/null || echo 'NO /wp-content/themes/';
-            cls /htdocs/wp-content/themes/ 2>/dev/null || echo 'NO /htdocs/wp-content/themes/';
-            echo '=== Uploading probe to various paths ===';
-            put deploy-probe.txt -o /deploy-probe.txt 2>/dev/null && echo 'Put to /' || echo 'Failed /';
-            put deploy-probe.txt -o /htdocs/deploy-probe.txt 2>/dev/null && echo 'Put to /htdocs/' || echo 'Failed /htdocs/';
-            put deploy-probe.txt -o /wp-content/themes/eventboerse/deploy-probe.txt 2>/dev/null && echo 'Put to /wp-content/themes/eventboerse/' || echo 'Failed theme dir';
-            put deploy-probe.txt -o /htdocs/wp-content/themes/eventboerse/deploy-probe.txt 2>/dev/null && echo 'Put to /htdocs theme dir' || echo 'Failed htdocs theme dir';
-            echo '=== Done ===';
-            bye
-          "
+          sudo apt-get install -y -qq sshpass
+          
+          echo "=== Step 1: Find correct web root ==="
+          sshpass -p "$SFTP_PASS" ssh -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" '
+            echo "--- pwd ---"
+            pwd
+            echo "--- ls / ---"
+            ls -la / | head -20
+            echo "--- find wp-content ---"
+            find / -name "wp-config.php" -maxdepth 5 2>/dev/null | head -5
+            echo "--- find theme ---"
+            find / -path "*/themes/eventboerse/styles.css" -maxdepth 8 2>/dev/null | head -5
+          '
