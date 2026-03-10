@@ -231,9 +231,26 @@
                 </select>
               </div>
               <span class="hero-field-divider"></span>
-              <div class="hero-field">
+              <div class="hero-field hero-field-date" id="heroDateField" onclick="toggleCalendar(event)">
                 <label>Wann</label>
-                <input type="date" id="heroDate" />
+                <span class="hero-date-display" id="heroDateDisplay">Datum wählen</span>
+                <input type="hidden" id="heroDate" />
+                <!-- Custom Calendar Dropdown -->
+                <div class="cal-dropdown" id="calDropdown">
+                  <div class="cal-header">
+                    <button type="button" class="cal-nav" onclick="calNav(event,-1)"><span class="material-icons-round">chevron_left</span></button>
+                    <span class="cal-title" id="calTitle"></span>
+                    <button type="button" class="cal-nav" onclick="calNav(event,1)"><span class="material-icons-round">chevron_right</span></button>
+                  </div>
+                  <div class="cal-weekdays">
+                    <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+                  </div>
+                  <div class="cal-grid" id="calGrid"></div>
+                  <div class="cal-footer">
+                    <button type="button" class="cal-clear" onclick="calClear(event)">Löschen</button>
+                    <button type="button" class="cal-today" onclick="calToday(event)">Heute</button>
+                  </div>
+                </div>
               </div>
               <button class="hero-search-btn" onclick="performSearch()">
                 <span class="material-icons-round">search</span>

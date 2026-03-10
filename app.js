@@ -806,6 +806,114 @@ function initAiSearch() {
   });
 }
 
+// ========== CUSTOM CALENDAR (WANN) ==========
+var calMonth = new Date().getMonth();
+var calYear = new Date().getFullYear();
+var calSelected = null;
+
+var CAL_MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+function toggleCalendar(e) {
+  e.stopPropagation();
+  var dd = document.getElementById('calDropdown');
+  if (dd.classList.contains('show')) {
+    dd.classList.remove('show');
+  } else {
+    renderCalendar();
+    dd.classList.add('show');
+  }
+}
+
+function renderCalendar() {
+  var title = document.getElementById('calTitle');
+  var grid = document.getElementById('calGrid');
+  title.textContent = CAL_MONTHS_DE[calMonth] + ' ' + calYear;
+
+  var firstDay = new Date(calYear, calMonth, 1).getDay();
+  var startIdx = firstDay === 0 ? 6 : firstDay - 1; // Monday-based
+  var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  var daysInPrev = new Date(calYear, calMonth, 0).getDate();
+  var today = new Date();
+  today.setHours(0,0,0,0);
+
+  var html = '';
+  // Previous month trailing days
+  for (var i = startIdx - 1; i >= 0; i--) {
+    html += '<button type="button" class="cal-day other-month disabled">' + (daysInPrev - i) + '</button>';
+  }
+
+  // Current month days
+  for (var d = 1; d <= daysInMonth; d++) {
+    var date = new Date(calYear, calMonth, d);
+    date.setHours(0,0,0,0);
+    var isPast = date < today;
+    var isToday = date.getTime() === today.getTime();
+    var isSelected = calSelected && date.getTime() === calSelected.getTime();
+    var cls = 'cal-day';
+    if (isPast) cls += ' disabled';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+    html += '<button type="button" class="' + cls + '"' + (isPast ? '' : ' onclick="calSelect(event,' + d + ')"') + '>' + d + '</button>';
+  }
+
+  // Next month leading days
+  var totalCells = startIdx + daysInMonth;
+  var remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (var n = 1; n <= remaining; n++) {
+    html += '<button type="button" class="cal-day other-month disabled">' + n + '</button>';
+  }
+
+  grid.innerHTML = html;
+}
+
+function calNav(e, dir) {
+  e.stopPropagation();
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+function calSelect(e, day) {
+  e.stopPropagation();
+  calSelected = new Date(calYear, calMonth, day);
+  calSelected.setHours(0,0,0,0);
+  var display = document.getElementById('heroDateDisplay');
+  var input = document.getElementById('heroDate');
+  var dd = calSelected.getDate();
+  var mm = calSelected.getMonth() + 1;
+  display.textContent = dd + '. ' + CAL_MONTHS_DE[calSelected.getMonth()] + ' ' + calSelected.getFullYear();
+  display.classList.add('has-value');
+  input.value = calSelected.getFullYear() + '-' + String(mm).padStart(2,'0') + '-' + String(dd).padStart(2,'0');
+  document.getElementById('calDropdown').classList.remove('show');
+  renderCalendar();
+}
+
+function calToday(e) {
+  e.stopPropagation();
+  var now = new Date();
+  calMonth = now.getMonth();
+  calYear = now.getFullYear();
+  calSelect(e, now.getDate());
+}
+
+function calClear(e) {
+  e.stopPropagation();
+  calSelected = null;
+  document.getElementById('heroDateDisplay').textContent = 'Datum wählen';
+  document.getElementById('heroDateDisplay').classList.remove('has-value');
+  document.getElementById('heroDate').value = '';
+  document.getElementById('calDropdown').classList.remove('show');
+}
+
+// Close calendar on outside click
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('calDropdown');
+  if (dd && !e.target.closest('.hero-field-date')) {
+    dd.classList.remove('show');
+  }
+});
+
 function performSearch() {
   navigateTo('browse');
 
