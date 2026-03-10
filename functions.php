@@ -72,12 +72,15 @@ function eventboerse_enqueue_assets() {
     $user_data = null;
     if ( is_user_logged_in() ) {
         $u = wp_get_current_user();
-        $user_data = array(
-            'id'         => $u->ID,
-            'email'      => $u->user_email,
-            'first_name' => $u->first_name,
-            'last_name'  => $u->last_name,
-            'role'       => eventboerse_map_role( $u ),
+        $user_data = array_merge(
+            array(
+                'id'         => $u->ID,
+                'email'      => $u->user_email,
+                'first_name' => $u->first_name,
+                'last_name'  => $u->last_name,
+                'role'       => eventboerse_map_role( $u ),
+            ),
+            eb_user_profile_meta( $u->ID )
         );
     }
     wp_localize_script( 'eventboerse-app', 'eventboerseApi', array(
@@ -121,6 +124,21 @@ function eventboerse_map_role( $user ) {
     return 'Event-Planer';
 }
 
+/**
+ * Profil-Meta für einen User zurückgeben
+ */
+function eb_user_profile_meta( $uid ) {
+    $gallery = get_user_meta( $uid, 'eb_gallery', true );
+    return array(
+        'tagline'  => get_user_meta( $uid, 'eb_tagline',   true ) ?: '',
+        'location' => get_user_meta( $uid, 'eb_location',  true ) ?: '',
+        'bio'      => get_user_meta( $uid, 'eb_bio',       true ) ?: '',
+        'gallery'  => is_array( $gallery ) ? $gallery : array(),
+        'coverUrl' => get_user_meta( $uid, 'eb_cover_url', true ) ?: '',
+        'photoUrl' => get_user_meta( $uid, 'eb_photo_url', true ) ?: '',
+    );
+}
+
 /* =====================================================================
    REST API
    ===================================================================== */
@@ -154,6 +172,20 @@ function eventboerse_register_rest_routes() {
         'methods'             => 'POST',
         'callback'            => 'eventboerse_handle_forgot_password',
         'permission_callback' => '__return_true',
+    ) );
+
+    /* ---------- PROFILE (GET + POST) ---------- */
+    register_rest_route( 'eventboerse/v1', '/profile', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eventboerse_handle_profile_get',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eventboerse_handle_profile_save',
+            'permission_callback' => 'is_user_logged_in',
+        ),
     ) );
 }
 add_action( 'rest_api_init', 'eventboerse_register_rest_routes' );
@@ -206,13 +238,16 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     wp_set_current_user( $user_id );
     wp_set_auth_cookie( $user_id, true );
 
-    return new WP_REST_Response( array(
-        'user_id'    => $user_id,
-        'email'      => $email,
-        'first_name' => $first_name,
-        'last_name'  => $last_name,
-        'role'       => ( $wp_role === 'dienstleister' ) ? 'Dienstleister' : 'Event-Planer',
-        'nonce'      => wp_create_nonce( 'wp_rest' ),
+    return new WP_REST_Response( array_merge(
+        array(
+            'user_id'    => $user_id,
+            'email'      => $email,
+            'first_name' => $first_name,
+            'last_name'  => $last_name,
+            'role'       => ( $wp_role === 'dienstleister' ) ? 'Dienstleister' : 'Event-Planer',
+            'nonce'      => wp_create_nonce( 'wp_rest' ),
+        ),
+        eb_user_profile_meta( $user_id )
     ), 200 );
 }
 
@@ -245,14 +280,17 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
 
     wp_set_current_user( $signed_in->ID );
 
-    return new WP_REST_Response( array(
-        'user_id'    => $signed_in->ID,
-        'email'      => $signed_in->user_email,
-        'first_name' => $signed_in->first_name,
-        'last_name'  => $signed_in->last_name,
-        'roles'      => (array) $signed_in->roles,
-        'role'       => eventboerse_map_role( $signed_in ),
-        'nonce'      => wp_create_nonce( 'wp_rest' ),
+    return new WP_REST_Response( array_merge(
+        array(
+            'user_id'    => $signed_in->ID,
+            'email'      => $signed_in->user_email,
+            'first_name' => $signed_in->first_name,
+            'last_name'  => $signed_in->last_name,
+            'roles'      => (array) $signed_in->roles,
+            'role'       => eventboerse_map_role( $signed_in ),
+            'nonce'      => wp_create_nonce( 'wp_rest' ),
+        ),
+        eb_user_profile_meta( $signed_in->ID )
     ), 200 );
 }
 
@@ -268,14 +306,17 @@ function eventboerse_handle_me() {
         return new WP_REST_Response( array( 'loggedIn' => false ), 200 );
     }
     $u = wp_get_current_user();
-    return new WP_REST_Response( array(
-        'loggedIn'   => true,
-        'user_id'    => $u->ID,
-        'email'      => $u->user_email,
-        'first_name' => $u->first_name,
-        'last_name'  => $u->last_name,
-        'role'       => eventboerse_map_role( $u ),
-        'nonce'      => wp_create_nonce( 'wp_rest' ),
+    return new WP_REST_Response( array_merge(
+        array(
+            'loggedIn'   => true,
+            'user_id'    => $u->ID,
+            'email'      => $u->user_email,
+            'first_name' => $u->first_name,
+            'last_name'  => $u->last_name,
+            'role'       => eventboerse_map_role( $u ),
+            'nonce'      => wp_create_nonce( 'wp_rest' ),
+        ),
+        eb_user_profile_meta( $u->ID )
     ), 200 );
 }
 
@@ -300,6 +341,100 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
     }
 
     return new WP_REST_Response( array( 'message' => 'Falls ein Konto mit dieser E-Mail existiert, erhältst du eine E-Mail zum Zurücksetzen.' ), 200 );
+}
+
+/* ---------- PROFILE GET ---------- */
+function eventboerse_handle_profile_get() {
+    $u   = wp_get_current_user();
+    $uid = $u->ID;
+
+    // Profil-Meta
+    $tagline  = get_user_meta( $uid, 'eb_tagline',  true );
+    $location = get_user_meta( $uid, 'eb_location', true );
+    $bio      = get_user_meta( $uid, 'eb_bio',      true );
+    $gallery  = get_user_meta( $uid, 'eb_gallery',  true );
+    $cover    = get_user_meta( $uid, 'eb_cover_url', true );
+    $photo    = get_user_meta( $uid, 'eb_photo_url', true );
+
+    if ( ! is_array( $gallery ) ) {
+        $gallery = array();
+    }
+
+    // Stats aus User-Meta (werden z. B. bei Buchungen/Views aktualisiert)
+    $views    = (int) get_user_meta( $uid, 'eb_views',    true );
+    $bookings = (int) get_user_meta( $uid, 'eb_bookings', true );
+
+    // Inserate zählen (eb_listing CPT, Fallback: 0)
+    $listings_count = 0;
+    if ( post_type_exists( 'eb_listing' ) ) {
+        $listings_count = (int) count_user_posts( $uid, 'eb_listing', true );
+    }
+
+    // Durchschnittsbewertung (gespeichert als Meta)
+    $avg_rating = get_user_meta( $uid, 'eb_avg_rating', true );
+    $avg_rating = ( $avg_rating !== '' && $avg_rating !== false ) ? (float) $avg_rating : null;
+
+    // Bewertungen aus User-Meta (JSON-Array)
+    $reviews_raw = get_user_meta( $uid, 'eb_reviews', true );
+    $reviews     = is_array( $reviews_raw ) ? $reviews_raw : array();
+
+    return new WP_REST_Response( array(
+        'tagline'   => $tagline  ?: '',
+        'location'  => $location ?: '',
+        'bio'       => $bio      ?: '',
+        'gallery'   => $gallery,
+        'coverUrl'  => $cover    ?: '',
+        'photoUrl'  => $photo    ?: '',
+        'stats'     => array(
+            'views'    => $views,
+            'listings' => $listings_count,
+            'bookings' => $bookings,
+            'rating'   => $avg_rating,
+        ),
+        'reviews'   => $reviews,
+    ), 200 );
+}
+
+/* ---------- PROFILE SAVE ---------- */
+function eventboerse_handle_profile_save( WP_REST_Request $request ) {
+    $u      = wp_get_current_user();
+    $uid    = $u->ID;
+    $params = $request->get_json_params();
+
+    // Erlaubte Felder
+    $text_fields = array(
+        'tagline'  => 'eb_tagline',
+        'location' => 'eb_location',
+        'bio'      => 'eb_bio',
+        'coverUrl' => 'eb_cover_url',
+        'photoUrl' => 'eb_photo_url',
+    );
+
+    foreach ( $text_fields as $key => $meta_key ) {
+        if ( isset( $params[ $key ] ) ) {
+            update_user_meta( $uid, $meta_key, sanitize_text_field( $params[ $key ] ) );
+        }
+    }
+
+    // Name (first_name + last_name)
+    if ( isset( $params['name'] ) ) {
+        $parts      = explode( ' ', sanitize_text_field( $params['name'] ), 2 );
+        $first_name = $parts[0];
+        $last_name  = isset( $parts[1] ) ? $parts[1] : '';
+        wp_update_user( array(
+            'ID'         => $uid,
+            'first_name' => $first_name,
+            'last_name'  => $last_name,
+        ) );
+    }
+
+    // Galerie (Array von URLs)
+    if ( isset( $params['gallery'] ) && is_array( $params['gallery'] ) ) {
+        $clean = array_map( 'esc_url_raw', $params['gallery'] );
+        update_user_meta( $uid, 'eb_gallery', $clean );
+    }
+
+    return new WP_REST_Response( array( 'saved' => true ), 200 );
 }
 
 /* =====================================================================

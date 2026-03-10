@@ -1576,13 +1576,42 @@ function renderDashboard() {
   var bioText = currentUser.bio || 'Erzähle potenziellen Kunden etwas über dich, deine Erfahrung und was dich besonders macht...';
   document.getElementById('profileDisplayBio').textContent = bioText;
 
-  // --- Stats ---
-  var userId = currentUser ? currentUser.id : -1;
-  var userListings = LISTINGS.filter(function(l) { return l.providerId === userId; });
-  document.getElementById('profileStatViews').textContent = userListings.length > 0 ? '1.240' : '0';
-  document.getElementById('profileStatListings').textContent = userListings.length;
-  document.getElementById('profileStatBookings').textContent = userListings.length > 0 ? '15' : '0';
-  document.getElementById('profileStatRating').textContent = userListings.length > 0 ? '4.8 ★' : '–';
+  // --- Stats (echte Daten vom Backend) ---
+  document.getElementById('profileStatViews').textContent = '–';
+  document.getElementById('profileStatListings').textContent = '–';
+  document.getElementById('profileStatBookings').textContent = '–';
+  document.getElementById('profileStatRating').textContent = '–';
+
+  fetch(_apiUrl('profile'), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(profile) {
+      var s = profile.stats || {};
+      document.getElementById('profileStatViews').textContent = (s.views || 0).toLocaleString('de-DE');
+      document.getElementById('profileStatListings').textContent = s.listings || 0;
+      document.getElementById('profileStatBookings').textContent = s.bookings || 0;
+      document.getElementById('profileStatRating').textContent = s.rating ? (s.rating.toFixed(1) + ' ★') : '–';
+
+      // Reviews vom Backend
+      var reviewsDisplay = document.getElementById('profileReviewsDisplay');
+      if (profile.reviews && profile.reviews.length > 0) {
+        reviewsDisplay.innerHTML = profile.reviews.slice(0, 4).map(function(r) {
+          return '<div class="review-card">' +
+            '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + (r.name || '') + '" class="review-avatar" />' +
+            '<div class="review-content">' +
+              '<div class="review-top"><strong>' + (r.name || '') + '</strong><span>' + (r.date || '') + '</span></div>' +
+              '<div class="review-stars">' + '★'.repeat(r.rating || 0) + '☆'.repeat(5 - (r.rating || 0)) + '</div>' +
+              '<p class="review-text">' + (r.text || '') + '</p>' +
+            '</div></div>';
+        }).join('');
+      }
+    })
+    .catch(function() { /* Fallback bleibt "–" */ });
+
+  // --- Services (user listings vom Backend) ---
+  var servicesGrid = document.getElementById('profileServicesGrid');
+  var servicesEmpty = document.getElementById('profileServicesEmpty');
+  servicesGrid.innerHTML = '';
+  if (servicesEmpty) servicesEmpty.style.display = 'block';
 
   // --- Gallery ---
   var galleryDisplay = document.getElementById('profileGalleryDisplay');
@@ -1616,37 +1645,6 @@ function renderDashboard() {
     }
   }
 
-  // --- Services (from user listings) ---
-  var servicesGrid = document.getElementById('profileServicesGrid');
-  var servicesEmpty = document.getElementById('profileServicesEmpty');
-  if (userListings.length > 0) {
-    if (servicesEmpty) servicesEmpty.style.display = 'none';
-    servicesGrid.innerHTML = userListings.map(function(l) {
-      return '<div class="profile-service-card" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
-        '<h4>' + l.title + '</h4>' +
-        '<div class="service-category">' + l.categoryLabel + ' · ' + l.location + '</div>' +
-        '<div class="service-price">ab ' + l.price + '€ <span>/ ' + (l.priceModel || 'Pro Event') + '</span></div>' +
-        '</div>';
-    }).join('');
-  } else {
-    if (servicesEmpty) servicesEmpty.style.display = 'block';
-    servicesGrid.innerHTML = '';
-  }
-
-  // --- Reviews ---
-  var reviewsDisplay = document.getElementById('profileReviewsDisplay');
-  if (userListings.length > 0 && DEMO_REVIEWS && DEMO_REVIEWS.length > 0) {
-    reviewsDisplay.innerHTML = DEMO_REVIEWS.slice(0, 4).map(function(r) {
-      return '<div class="review-card">' +
-        '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + r.avatar + '" alt="' + r.name + '" class="review-avatar" />' +
-        '<div class="review-content">' +
-          '<div class="review-top"><strong>' + r.name + '</strong><span>' + r.date + '</span></div>' +
-          '<div class="review-stars">' + '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) + '</div>' +
-          '<p class="review-text">' + r.text + '</p>' +
-        '</div></div>';
-    }).join('');
-  }
-
   setupDragDrop();
 }
 
@@ -1677,20 +1675,26 @@ function cancelFieldInline(field) {
 
 function saveFieldInline(field) {
   if (!currentUser) return;
+  var payload = {};
   switch (field) {
     case 'name':
       currentUser.name = document.getElementById('profileName').value.trim();
+      payload.name = currentUser.name;
       break;
     case 'tagline':
       currentUser.tagline = document.getElementById('profileTagline').value.trim();
       currentUser.location = document.getElementById('profileLocation').value.trim();
+      payload.tagline = currentUser.tagline;
+      payload.location = currentUser.location;
       break;
     case 'bio':
       currentUser.bio = document.getElementById('profileBio').value.trim();
+      payload.bio = currentUser.bio;
       break;
     case 'gallery':
       var galleryImgs = document.querySelectorAll('#galleryPreview .upload-preview-item img');
       currentUser.gallery = Array.from(galleryImgs).map(function(img) { return img.src; });
+      payload.gallery = currentUser.gallery;
       break;
     case 'services':
       break;
@@ -1698,7 +1702,18 @@ function saveFieldInline(field) {
   var editEl = document.getElementById('edit' + field.charAt(0).toUpperCase() + field.slice(1));
   if (editEl) editEl.style.display = 'none';
   renderDashboard();
-  showToast('Gespeichert! ✅', 'check_circle');
+
+  // An Backend persistieren
+  fetch(_apiUrl('profile'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify(payload)
+  }).then(function() {
+    showToast('Gespeichert! ✅', 'check_circle');
+  }).catch(function() {
+    showToast('Speichern fehlgeschlagen', 'error');
+  });
 }
 
 // ========== CREATE LISTING ==========
@@ -2570,9 +2585,12 @@ function restoreSession() {
       name: (u.first_name + ' ' + u.last_name).trim(),
       email: u.email,
       role: u.role || 'Event-Planer',
-      tagline: '',
-      location: '',
-      bio: ''
+      tagline: u.tagline || '',
+      location: u.location || '',
+      bio: u.bio || '',
+      gallery: u.gallery || [],
+      coverUrl: u.coverUrl || '',
+      photoUrl: u.photoUrl || ''
     };
     applyLogin();
     return;
@@ -2588,9 +2606,12 @@ function restoreSession() {
           name: (data.first_name + ' ' + data.last_name).trim(),
           email: data.email,
           role: data.role || 'Event-Planer',
-          tagline: '',
-          location: '',
-          bio: ''
+          tagline: data.tagline || '',
+          location: data.location || '',
+          bio: data.bio || '',
+          gallery: data.gallery || [],
+          coverUrl: data.coverUrl || '',
+          photoUrl: data.photoUrl || ''
         };
         applyLogin();
       }
@@ -2632,9 +2653,12 @@ async function handleLogin(e) {
         name: ((data.first_name || '') + ' ' + (data.last_name || '')).trim(),
         email: data.email,
         role: data.role || 'Event-Planer',
-        tagline: '',
-        location: '',
-        bio: ''
+        tagline: data.tagline || '',
+        location: data.location || '',
+        bio: data.bio || '',
+        gallery: data.gallery || [],
+        coverUrl: data.coverUrl || '',
+        photoUrl: data.photoUrl || ''
       };
       _setBtnLoading(submitBtn, false);
       closeModal('loginModal');
@@ -2706,9 +2730,12 @@ async function handleRegister(e) {
         name: (firstName + ' ' + lastName).trim(),
         email: email,
         role: data.role || (role === 'provider' ? 'Dienstleister' : 'Event-Planer'),
-        tagline: '',
-        location: '',
-        bio: ''
+        tagline: data.tagline || '',
+        location: data.location || '',
+        bio: data.bio || '',
+        gallery: data.gallery || [],
+        coverUrl: data.coverUrl || '',
+        photoUrl: data.photoUrl || ''
       };
       _setBtnLoading(submitBtn, false);
       closeModal('registerModal');
@@ -2794,7 +2821,23 @@ function saveProfile() {
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = avatarSrc;
   renderDashboard();
-  showToast('Profil gespeichert! ✅', 'check_circle');
+
+  fetch(_apiUrl('profile'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      name: currentUser.name,
+      tagline: currentUser.tagline,
+      location: currentUser.location,
+      bio: currentUser.bio,
+      gallery: currentUser.gallery
+    })
+  }).then(function() {
+    showToast('Profil gespeichert! ✅', 'check_circle');
+  }).catch(function() {
+    showToast('Speichern fehlgeschlagen', 'error');
+  });
 }
 
 function logout() {
