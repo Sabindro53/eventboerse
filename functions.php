@@ -38,11 +38,19 @@ function eventboerse_enqueue_assets() {
         true
     );
 
-    // Theme Hauptstylesheet (style.css) – enthält alle Design-Regeln
+    // Theme Hauptstylesheet (style.css) – WordPress-Pflichtdatei
     wp_enqueue_style(
         'eventboerse-style',
         get_stylesheet_uri(),
         array( 'google-fonts-inter', 'google-material-icons', 'leaflet' ),
+        wp_get_theme()->get( 'Version' )
+    );
+
+    // Vollständiges Design-Stylesheet (styles.css) – enthält alle aktuellen Regeln inkl. KI-Suche
+    wp_enqueue_style(
+        'eventboerse-styles-full',
+        get_template_directory_uri() . '/styles.css',
+        array( 'eventboerse-style' ),
         wp_get_theme()->get( 'Version' )
     );
 
