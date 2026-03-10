@@ -21,20 +21,20 @@ jobs:
 
       - name: Deploy via SFTP
         env:
-          LFTP_PASSWORD: ${{ secrets.IONOS_FTP_PASSWORD }}
+          SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
           SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
           SFTP_DIR: ${{ secrets.IONOS_FTP_REMOTE_DIR }}
         run: |
           echo "Target: sftp://$SFTP_HOST → $SFTP_DIR"
-          lftp -u "$SFTP_USER" "sftp://$SFTP_HOST" -e "
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
             set sftp:auto-confirm yes;
             set net:timeout 60;
             set net:max-retries 3;
             echo '--- Remote directory listing ---';
             ls /;
             echo '--- Starting upload ---';
-            mirror --reverse --verbose -x '^\.git' -x '^LICENSE$' -x '^README\.md$' . '$SFTP_DIR';
+            mirror --reverse --verbose --delete -x '^\.git' -x '^\.github/' -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' . $SFTP_DIR;
             echo '--- Deploy complete ---';
             bye
           "
