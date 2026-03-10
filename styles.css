@@ -702,24 +702,7 @@ img { display: block; max-width: 100%; }
   position: relative;
   flex: 2.5;
 }
-.ai-input-wrap {
-  position: relative;
-}
-.ai-placeholder {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  font-size: 0.85rem;
-  line-height: 1.35;
-  color: var(--text-light);
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  white-space: normal;
-}
-.ai-placeholder.hidden {
-  opacity: 0;
-}
+
 .hero-field-ai label {
   display: flex;
   align-items: center;
@@ -2804,11 +2787,6 @@ img { display: block; max-width: 100%; }
   }
   .hero-field-ai label {
     justify-content: center;
-  }
-  .ai-placeholder {
-    text-align: center;
-    left: 0;
-    right: 0;
   }
   .hero-date-display { text-align: center; }
   .cal-dropdown {

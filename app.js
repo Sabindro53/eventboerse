@@ -754,13 +754,8 @@ function initAiSearch() {
   const box = document.getElementById('aiSuggestions');
   const field = input.closest('.hero-field-ai');
 
-  const aiPH = document.getElementById('aiPlaceholder');
-  const hideAiPH = () => { if (aiPH) aiPH.classList.add('hidden'); };
-  const showAiPH = () => { if (aiPH && !input.value.trim()) aiPH.classList.remove('hidden'); };
-
   input.addEventListener('focus', () => {
     field.classList.add('focused');
-    hideAiPH();
     const val = input.value.trim();
     if (!val) {
       renderAiSuggestions(getDefaultSuggestions(), false);
@@ -770,11 +765,8 @@ function initAiSearch() {
     }
   });
 
-  input.addEventListener('blur', () => { showAiPH(); });
-
   input.addEventListener('input', () => {
     const val = input.value.trim();
-    if (val) hideAiPH(); else showAiPH();
     clearTimeout(aiDebounce);
 
     if (!val) {
