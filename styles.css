@@ -668,11 +668,11 @@ img { display: block; max-width: 100%; }
   font-weight: 600;
 }
 .cal-day.disabled {
-  color: var(--border);
+  color: #B0B0B0;
   cursor: default;
   pointer-events: none;
 }
-.cal-day.other-month { color: var(--border); }
+.cal-day.other-month { color: #B0B0B0; }
 
 .cal-footer {
   display: flex;
