@@ -27,14 +27,21 @@ jobs:
           SFTP_DIR: ${{ secrets.IONOS_FTP_REMOTE_DIR }}
         run: |
           echo "Target: sftp://$SFTP_HOST → $SFTP_DIR"
+          echo "--- Local file check ---"
+          wc -c styles.css
+          grep -c 'hero-marquee' styles.css || true
           lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
             set sftp:auto-confirm yes;
             set net:timeout 60;
             set net:max-retries 3;
-            echo '--- Remote directory listing ---';
-            ls /;
-            echo '--- Starting upload ---';
+            echo '--- Remote dir listing ---';
+            ls $SFTP_DIR;
+            echo '--- Checking remote styles.css ---';
+            cat ${SFTP_DIR}styles.css | wc -l;
+            echo '--- Starting full upload ---';
             mirror --reverse --verbose --delete --ignore-time --transfer-all -x '^\.git' -x '^\.github/' -x '^\.vscode/' -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' . $SFTP_DIR;
+            echo '--- Verifying upload ---';
+            cat ${SFTP_DIR}styles.css | wc -l;
             echo '--- Deploy complete ---';
             bye
           "
