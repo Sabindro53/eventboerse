@@ -34,7 +34,7 @@ jobs:
             echo '--- Remote directory listing ---';
             ls /;
             echo '--- Starting upload ---';
-            mirror --reverse --verbose --delete -x '^\.git' -x '^\.github/' -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' . $SFTP_DIR;
+            mirror --reverse --verbose --delete --ignore-time --transfer-all -x '^\.git' -x '^\.github/' -x '^\.vscode/' -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' . $SFTP_DIR;
             echo '--- Deploy complete ---';
             bye
           "
