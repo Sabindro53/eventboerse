@@ -2792,7 +2792,7 @@ img { display: block; max-width: 100%; }
     padding: 0 !important;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
     border: 1px solid #ddd !important;
-    overflow: hidden;
+    overflow: visible;
     text-align: center;
     max-width: 100%;
   }
@@ -2803,6 +2803,8 @@ img { display: block; max-width: 100%; }
     flex-direction: column;
     gap: 0;
     align-items: stretch;
+    border-radius: 16px;
+    overflow: hidden;
   }
   .hero-field-divider {
     width: 100%;
@@ -2833,10 +2835,18 @@ img { display: block; max-width: 100%; }
   }
   .hero-date-display { text-align: center; }
   .cal-dropdown {
-    width: 290px;
-    padding: 16px;
+    position: fixed;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
+    width: calc(100vw - 32px);
+    max-width: 340px;
+    padding: 16px;
+    z-index: 9999;
+    animation: none;
+  }
+  .cal-dropdown.show {
+    display: block;
   }
   .hero-field input,
   .hero-field select {
@@ -2883,7 +2893,24 @@ img { display: block; max-width: 100%; }
     font-size: 20px;
   }
 
-  /* Category grid mobile */
+  /* Category picker mobile */
+  .ai-suggestions {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    z-index: 9999;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .ai-suggestions.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
   .ai-cat-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
@@ -2896,6 +2923,9 @@ img { display: block; max-width: 100%; }
   }
   .ai-cat-label {
     font-size: 0.65rem;
+  }
+  .ai-selected-tags {
+    padding: 0 16px;
   }
 
   /* Sections */
