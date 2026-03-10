@@ -300,7 +300,8 @@ img { display: block; max-width: 100%; }
   z-index: 999;
   justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  padding: 0 12px;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 .mobile-nav button {
