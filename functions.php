@@ -9,6 +9,11 @@
  * Styles und Scripts einbinden
  */
 function eventboerse_enqueue_assets() {
+    // Cache-Busting: Datei-Änderungsdatum statt Theme-Version
+    $theme_dir = get_template_directory();
+    $styles_ver = file_exists( $theme_dir . '/styles.css' ) ? filemtime( $theme_dir . '/styles.css' ) : '1.1.0';
+    $app_ver    = file_exists( $theme_dir . '/app.js' )     ? filemtime( $theme_dir . '/app.js' )     : '1.1.0';
+
     // Google Fonts
     wp_enqueue_style(
         'google-fonts-inter',
@@ -38,20 +43,20 @@ function eventboerse_enqueue_assets() {
         true
     );
 
-    // Theme Hauptstylesheet (style.css) – WordPress-Pflichtdatei
+    // Theme Hauptstylesheet (style.css) – WordPress-Pflichtdatei (nur Header, keine Regeln)
     wp_enqueue_style(
         'eventboerse-style',
         get_stylesheet_uri(),
         array( 'google-fonts-inter', 'google-material-icons', 'leaflet' ),
-        wp_get_theme()->get( 'Version' )
+        '1.1.0'
     );
 
-    // Vollständiges Design-Stylesheet (styles.css) – enthält alle aktuellen Regeln inkl. KI-Suche
+    // Vollständiges Design-Stylesheet (styles.css) – einzige CSS-Quelle
     wp_enqueue_style(
         'eventboerse-styles-full',
         get_template_directory_uri() . '/styles.css',
         array( 'eventboerse-style' ),
-        wp_get_theme()->get( 'Version' )
+        $styles_ver
     );
 
     // App JS
@@ -59,7 +64,7 @@ function eventboerse_enqueue_assets() {
         'eventboerse-app',
         get_template_directory_uri() . '/app.js',
         array( 'leaflet' ),
-        wp_get_theme()->get( 'Version' ),
+        $app_ver,
         true
     );
 }

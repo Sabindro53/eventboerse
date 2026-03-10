@@ -77,8 +77,10 @@ if ( file_exists( $html_file ) ) {
     $start = strpos( $html, '<!-- ============ MAP OVERLAY' );
     $end   = strpos( $html, '</body>' );
     if ( $start !== false && $end !== false ) {
-        // Trusted theme template – kein wp_kses_post, da Formulare (input/select/onclick) benötigt werden
-        echo substr( $html, $start, $end - $start );
+        $content = substr( $html, $start, $end - $start );
+        // Direkter Output – trusted theme template, Formulare (input/select/onclick) benötigt
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo $content;
     }
 }
 
