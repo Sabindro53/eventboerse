@@ -111,7 +111,7 @@ Die Anwendung wird bei jedem Push auf `main` automatisch per FTP auf IONOS deplo
 
 1. Öffne [login.ionos.de](https://login.ionos.de) und melde dich an
 2. Klicke im Menü oben auf **Hosting**
-3. Wähle deinen Vertrag **Hosting für WordPress Grow** (Vertrag 111017108)
+3. Wähle deinen Vertrag **Hosting für WordPress Grow** (Vertrag 187420)
 4. Klicke links im Menü auf **SFTP & SSH**
 5. Dort findest du:
    - **Server (Host):** z.B. `access123456789.webspace-data.io`
