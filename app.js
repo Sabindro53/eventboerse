@@ -1301,10 +1301,10 @@ function sendMessage() {
     const reply = replies[Math.floor(Math.random() * replies.length)];
     const replyTime = new Date();
     const rTime = replyTime.getHours().toString().padStart(2, '0') + ':' + replyTime.getMinutes().toString().padStart(2, '0');
-    
+
     currentChat.messages.push({ type: 'received', text: reply, time: rTime });
     currentChat.lastMsg = reply;
-    
+
     const mc = document.getElementById('chatMessages');
     mc.innerHTML = currentChat.messages.map(renderMessage).join('');
     mc.scrollTop = mc.scrollHeight;
@@ -1329,7 +1329,7 @@ function startChatWithProvider() {
 // ========== NEGOTIATION ==========
 function openNegotiation() {
   if (!currentListing) return;
-  
+
   document.getElementById('negListingInfo').innerHTML = `
     <img src="${currentListing.image}" alt="${currentListing.title}" />
     <div>
@@ -1338,7 +1338,7 @@ function openNegotiation() {
     </div>
   `;
   document.getElementById('negOriginalPrice').value = currentListing.priceLabel;
-  
+
   openModal('negotiationModal');
 }
 
@@ -1346,7 +1346,7 @@ function submitNegotiation(e) {
   e.preventDefault();
   const price = document.getElementById('negOfferPrice').value;
   const message = document.getElementById('negMessage').value;
-  
+
   closeModal('negotiationModal');
   showToast(`Angebot über ${price}€ wurde gesendet!`, 'gavel');
 
@@ -1376,13 +1376,13 @@ function submitCounterOffer(e) {
   e.preventDefault();
   const amount = document.getElementById('counterOfferAmount').value;
   const msg = document.getElementById('counterOfferMsg').value;
-  
+
   closeModal('counterOfferModal');
-  
+
   if (currentChat) {
     const now = new Date();
     const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-    
+
     currentChat.messages.push(
       { type: 'offer', label: 'Dein Gegenangebot', amount: amount + '€', status: 'pending', statusLabel: 'Wartet auf Antwort' }
     );
@@ -1390,44 +1390,44 @@ function submitCounterOffer(e) {
       currentChat.messages.push({ type: 'sent', text: msg, time });
     }
     currentChat.negotiation.yourOffer = parseInt(amount);
-    
+
     const mc = document.getElementById('chatMessages');
     mc.innerHTML = currentChat.messages.map(renderMessage).join('');
     mc.scrollTop = mc.scrollHeight;
   }
-  
+
   showToast(`Gegenangebot über ${amount}€ gesendet!`, 'gavel');
 }
 
 function acceptOffer() {
   if (!currentChat) return;
-  
+
   currentChat.messages.push(
     { type: 'system', text: '✅ Angebot angenommen! Der Preis wurde vereinbart.' }
   );
   currentChat.negotiation.active = false;
   document.getElementById('negotiationBanner').style.display = 'none';
-  
+
   const mc = document.getElementById('chatMessages');
   mc.innerHTML = currentChat.messages.map(renderMessage).join('');
   mc.scrollTop = mc.scrollHeight;
-  
+
   showToast('Angebot angenommen! 🎉', 'check_circle');
 }
 
 function declineOffer() {
   if (!currentChat) return;
-  
+
   currentChat.messages.push(
     { type: 'system', text: '❌ Angebot abgelehnt.' }
   );
   currentChat.negotiation.active = false;
   document.getElementById('negotiationBanner').style.display = 'none';
-  
+
   const mc = document.getElementById('chatMessages');
   mc.innerHTML = currentChat.messages.map(renderMessage).join('');
   mc.scrollTop = mc.scrollHeight;
-  
+
   showToast('Angebot abgelehnt.', 'cancel');
 }
 
@@ -1715,7 +1715,7 @@ function submitListing(e) {
   if (!price) { showToast('Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
   const region = document.getElementById('createRegion').value.trim() || 'Deutschland';
   const selectedTags = document.querySelectorAll('#createFeatureTags .feature-tag.selected');
-  const features = selectedTags.length > 0 
+  const features = selectedTags.length > 0
     ? Array.from(selectedTags).map(function(btn) { return btn.textContent.trim(); })
     : ['Individuelle Absprache'];
 
@@ -1807,7 +1807,7 @@ function submitListing(e) {
 function handleUpload(input) {
   const preview = document.getElementById('uploadPreview');
   const files = input.files;
-  
+
   for (let file of files) {
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -1881,12 +1881,12 @@ function handleGalleryUpload(input) {
   var preview = document.getElementById('galleryPreview');
   var existingCount = preview.querySelectorAll('.upload-preview-item').length;
   var files = input.files;
-  
+
   if (existingCount + files.length > 12) {
     showToast('Maximal 12 Galerie-Bilder erlaubt!', 'error');
     return;
   }
-  
+
   for (var i = 0; i < files.length; i++) {
     var file = files[i];
     if (file.size > 5 * 1024 * 1024) {
@@ -1953,12 +1953,40 @@ function setupDragDrop() {
   });
 }
 
+// ======== DRAG-SCROLL for horizontal scroll containers ========
+function initDragScroll() {
+  document.querySelectorAll('.category-scroll').forEach(function(el) {
+    var isDown = false, startX, scrollLeft;
+    el.addEventListener('mousedown', function(e) {
+      isDown = true;
+      el.classList.add('dragging');
+      startX = e.pageX - el.offsetLeft;
+      scrollLeft = el.scrollLeft;
+    });
+    el.addEventListener('mouseleave', function() {
+      isDown = false;
+      el.classList.remove('dragging');
+    });
+    el.addEventListener('mouseup', function() {
+      isDown = false;
+      el.classList.remove('dragging');
+    });
+    el.addEventListener('mousemove', function(e) {
+      if (!isDown) return;
+      e.preventDefault();
+      var x = e.pageX - el.offsetLeft;
+      el.scrollLeft = scrollLeft - (x - startX);
+    });
+  });
+}
+
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
   setupDragDrop();
   initAiSearch();
   restoreSession();
   initPasswordFields();
+  initDragScroll();
 });
 
 // ========== FAVORITES ==========
@@ -2797,7 +2825,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderFeaturedGrid();
   renderHeroMarquees();
   initFooterLogoAnimation();
-  
+
   // Set min date for date inputs to today
   const today = new Date().toISOString().split('T')[0];
   document.querySelectorAll('input[type="date"]').forEach(input => {

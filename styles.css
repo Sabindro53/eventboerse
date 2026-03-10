@@ -764,7 +764,11 @@ img { display: block; max-width: 100%; }
   padding-bottom: 12px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  cursor: grab;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
 }
+.category-scroll.dragging { cursor: grabbing; }
 .category-scroll::-webkit-scrollbar { display: none; }
 .cat-chip {
   display: flex; align-items: center; gap: 8px;
@@ -2517,7 +2521,14 @@ img { display: block; max-width: 100%; }
   .section-title { font-size: 1.25rem; margin-bottom: 20px; }
 
   /* Category Chips */
-  .category-scroll { gap: 8px; padding-bottom: 8px; }
+  .category-scroll {
+    gap: 8px;
+    padding-bottom: 8px;
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
   .cat-chip { padding: 10px 14px; font-size: 0.82rem; }
   .cat-chip .material-icons-round { font-size: 16px; }
 
