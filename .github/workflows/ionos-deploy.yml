@@ -25,16 +25,23 @@ jobs:
           SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
         run: |
+          # Write output to summary (visible without auth)
+          exec > >(tee -a "$GITHUB_STEP_SUMMARY") 2>&1
+          echo '```'
+          
+          echo "=== SFTP Connection Test ==="
+          echo "Host: $SFTP_HOST"
+          echo "User: $SFTP_USER"
+          
+          # Use sshpass + sftp in batch mode
           sudo apt-get install -y -qq sshpass
           
-          echo "=== Step 1: Find correct web root ==="
-          sshpass -p "$SFTP_PASS" ssh -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" '
-            echo "--- pwd ---"
-            pwd
-            echo "--- ls / ---"
-            ls -la / | head -20
-            echo "--- find wp-content ---"
-            find / -name "wp-config.php" -maxdepth 5 2>/dev/null | head -5
-            echo "--- find theme ---"
-            find / -path "*/themes/eventboerse/styles.css" -maxdepth 8 2>/dev/null | head -5
-          '
+          echo "=== Listing SFTP root ==="
+          sshpass -p "$SFTP_PASS" sftp -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" <<'SFTP_BATCH' || echo "SFTP FAILED with exit code $?"
+          pwd
+          ls -la
+          ls -la wp-content/themes/eventboerse/
+          bye
+          SFTP_BATCH
+          
+          echo '```'
