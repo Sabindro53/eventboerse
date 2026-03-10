@@ -1231,13 +1231,39 @@ function loadProvider(providerId) {
   const mainListing = providerListings[0] || LISTINGS[0];
   providerImages = providerListings.flatMap(l => l.images);
 
-  // Cover Mosaic
-  const setImg = (id, url) => { const el = document.getElementById(id); if (el) el.style.backgroundImage = `url(${url})`; };
-  if (providerImages[0]) setImg('pcmMain', providerImages[0]);
-  if (providerImages[1]) setImg('pcmSide1', providerImages[1]);
-  if (providerImages[2]) setImg('pcmSide2', providerImages[2]);
-  if (providerImages[3]) setImg('pcmSide3', providerImages[3]);
-  if (providerImages[4]) setImg('pcmSide4', providerImages[4]);
+  // Cover Mosaic — set images & hide empty slots
+  const mosaicSlots = [
+    { id: 'pcmMain', idx: 0 },
+    { id: 'pcmSide1', idx: 1 },
+    { id: 'pcmSide2', idx: 2 },
+    { id: 'pcmSide3', idx: 3 },
+    { id: 'pcmSide4', idx: 4 }
+  ];
+  const sides = document.querySelectorAll('#providerCoverMosaic .pcm-side');
+  sides.forEach(s => s.classList.remove('pcm-side-hidden'));
+  mosaicSlots.forEach(({ id, idx }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('pcm-hidden');
+    if (providerImages[idx]) {
+      el.style.backgroundImage = `url(${providerImages[idx]})`;
+      el.onclick = () => openProviderLightbox(idx);
+    } else {
+      el.classList.add('pcm-hidden');
+    }
+  });
+  // Hide side columns if all children hidden
+  sides.forEach(s => {
+    if ([...s.children].every(c => c.classList.contains('pcm-hidden'))) {
+      s.classList.add('pcm-side-hidden');
+    }
+  });
+  // Adjust grid based on visible columns
+  const visibleCols = 1 + [...sides].filter(s => !s.classList.contains('pcm-side-hidden')).length;
+  const mosaic = document.getElementById('providerCoverMosaic');
+  if (visibleCols === 1) mosaic.style.gridTemplateColumns = '1fr';
+  else if (visibleCols === 2) mosaic.style.gridTemplateColumns = '2fr 1fr';
+  else mosaic.style.gridTemplateColumns = '2fr 1fr 1fr';
 
   // Profile Card
   document.getElementById('providerAvatar').src = mainListing.providerImg;
@@ -1257,8 +1283,27 @@ function loadProvider(providerId) {
   badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
   badgesEl.innerHTML = badgesHtml;
 
-  // Bio
-  document.getElementById('providerBio').innerHTML = mainListing.description;
+  // Bio with read-more
+  const bioEl = document.getElementById('providerBio');
+  bioEl.innerHTML = mainListing.description;
+  bioEl.classList.remove('bio-collapsed');
+  const existingToggle = bioEl.parentElement.querySelector('.bio-toggle');
+  if (existingToggle) existingToggle.remove();
+  requestAnimationFrame(() => {
+    if (bioEl.scrollHeight > 140) {
+      bioEl.classList.add('bio-collapsed');
+      const toggle = document.createElement('button');
+      toggle.className = 'bio-toggle';
+      toggle.innerHTML = '<span class="material-icons-round" style="font-size:16px">expand_more</span> Mehr anzeigen';
+      toggle.onclick = () => {
+        const collapsed = bioEl.classList.toggle('bio-collapsed');
+        toggle.innerHTML = collapsed
+          ? '<span class="material-icons-round" style="font-size:16px">expand_more</span> Mehr anzeigen'
+          : '<span class="material-icons-round" style="font-size:16px">expand_less</span> Weniger anzeigen';
+      };
+      bioEl.parentElement.appendChild(toggle);
+    }
+  });
 
   // Highlights
   const icons = ['check_circle', 'music_note', 'lightbulb', 'handshake', 'auto_awesome', 'mic'];
@@ -1278,6 +1323,7 @@ function loadProvider(providerId) {
     <li><span class="material-icons-round">euro</span> <span>${mainListing.priceLabel}</span></li>
     <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
     <li><span class="material-icons-round">language</span> <span>Deutsch, Englisch</span></li>
+    <li><span class="material-icons-round">speed</span> <span>Antwortet innerhalb von 1 Std.</span></li>
   `;
 
   // Spec Tags
@@ -1309,6 +1355,10 @@ function loadProvider(providerId) {
       </div>
     `).join('');
   }
+
+  // Reset follow button
+  document.getElementById('followIcon').textContent = 'person_add';
+  document.getElementById('followLabel').textContent = 'Folgen';
 
   // Reset to first tab
   switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
@@ -1507,8 +1557,11 @@ function startChat() {
 }
 
 function startChatWithProvider() {
+  // Find chat matching current provider
+  const providerName = document.getElementById('providerName')?.textContent;
+  const chat = DEMO_CHATS.find(c => c.name === providerName) || DEMO_CHATS[0];
   navigateTo('messages');
-  setTimeout(() => openChat(1), 100);
+  setTimeout(() => openChat(chat.id), 100);
 }
 
 // ========== NEGOTIATION ==========
@@ -3028,6 +3081,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
   document.querySelectorAll('input[type="date"]').forEach(input => {
     input.min = today;
+  });
+
+  // Lightbox keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    const lb = document.getElementById('providerLightbox');
+    if (!lb || !lb.classList.contains('show')) return;
+    if (e.key === 'Escape') closeProviderLightbox();
+    if (e.key === 'ArrowLeft') lightboxNav(-1);
+    if (e.key === 'ArrowRight') lightboxNav(1);
   });
 });
 
