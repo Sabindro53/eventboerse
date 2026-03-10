@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   deploy:
@@ -25,33 +25,18 @@ jobs:
           SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
         run: |
-          sudo apt-get install -y -qq sshpass
-          
-          echo "=== SFTP Directory Discovery ===" > sftp-debug.txt
-          echo "Host: $SFTP_HOST" >> sftp-debug.txt
-          echo "User: $SFTP_USER" >> sftp-debug.txt
-          echo "" >> sftp-debug.txt
-          
-          # Test 1: sftp batch mode
-          echo "=== SFTP Batch Test ===" >> sftp-debug.txt
-          sshpass -p "$SFTP_PASS" sftp -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" <<'EOF' >> sftp-debug.txt 2>&1 || echo "SFTP EXIT: $?" >> sftp-debug.txt
-          pwd
-          ls
-          ls wp-content
-          ls wp-content/themes
-          ls wp-content/themes/eventboerse
-          bye
-          EOF
-          
-          echo "" >> sftp-debug.txt
-          echo "=== Trying SSH ===" >> sftp-debug.txt
-          sshpass -p "$SFTP_PASS" ssh -o StrictHostKeyChecking=no "$SFTP_USER@$SFTP_HOST" 'pwd && ls -la && ls wp-content/themes/eventboerse/ 2>&1' >> sftp-debug.txt 2>&1 || echo "SSH EXIT: $?" >> sftp-debug.txt
-
-      - name: Commit debug output
-        run: |
-          cat sftp-debug.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add sftp-debug.txt
-          git commit -m "debug: SFTP directory discovery output" || true
-          git push || true
+          DEPLOY_DIR="/public/wp-content/themes/eventboerse/"
+          echo "Deploying to sftp://$SFTP_HOST → $DEPLOY_DIR"
+          echo "Local styles.css: $(wc -c < styles.css) bytes"
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            set net:timeout 60;
+            set net:max-retries 3;
+            mirror --reverse --verbose --delete --ignore-time --transfer-all \
+              -x '^\.git' -x '^\.github/' -x '^\.vscode/' \
+              -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' \
+              -x '^\.gitignore$' -x '^sftp-debug\.txt$' -x '^deploy-probe\.txt$' \
+              . $DEPLOY_DIR;
+            echo '--- Deploy complete ---';
+            bye
+          "
