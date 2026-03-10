@@ -25,21 +25,26 @@ jobs:
           SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
         run: |
-          SFTP_DIR="/wp-content/themes/eventboerse/"
-          echo "Target: sftp://$SFTP_HOST → $SFTP_DIR"
-          echo "--- Local file check ---"
-          wc -c styles.css
-          grep -c 'hero-marquee' styles.css || true
+          echo "deploy-test-$(date +%s)" > deploy-probe.txt
+          echo "--- Probing SFTP directory structure ---"
           lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
             set sftp:auto-confirm yes;
             set net:timeout 60;
-            set net:max-retries 3;
-            echo '--- Listing SFTP root ---';
-            ls /;
-            echo '--- Theme dir before ---';
-            ls $SFTP_DIR;
-            echo '--- Starting full upload ---';
-            mirror --reverse --verbose --delete --ignore-time --transfer-all -x '^\.git' -x '^\.github/' -x '^\.vscode/' -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' . $SFTP_DIR;
-            echo '--- Deploy complete ---';
+            echo '=== ROOT (/) ===';
+            cls /;
+            echo '=== Checking common web roots ===';
+            cls /htdocs/ 2>/dev/null || echo 'NO /htdocs/';
+            cls /html/ 2>/dev/null || echo 'NO /html/';
+            cls /public_html/ 2>/dev/null || echo 'NO /public_html/';
+            cls /www/ 2>/dev/null || echo 'NO /www/';
+            echo '=== Checking wp-content paths ===';
+            cls /wp-content/themes/ 2>/dev/null || echo 'NO /wp-content/themes/';
+            cls /htdocs/wp-content/themes/ 2>/dev/null || echo 'NO /htdocs/wp-content/themes/';
+            echo '=== Uploading probe to various paths ===';
+            put deploy-probe.txt -o /deploy-probe.txt 2>/dev/null && echo 'Put to /' || echo 'Failed /';
+            put deploy-probe.txt -o /htdocs/deploy-probe.txt 2>/dev/null && echo 'Put to /htdocs/' || echo 'Failed /htdocs/';
+            put deploy-probe.txt -o /wp-content/themes/eventboerse/deploy-probe.txt 2>/dev/null && echo 'Put to /wp-content/themes/eventboerse/' || echo 'Failed theme dir';
+            put deploy-probe.txt -o /htdocs/wp-content/themes/eventboerse/deploy-probe.txt 2>/dev/null && echo 'Put to /htdocs theme dir' || echo 'Failed htdocs theme dir';
+            echo '=== Done ===';
             bye
           "
