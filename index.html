@@ -944,6 +944,15 @@
         <img id="coverLightboxImg" src="" alt="Cover" />
       </div>
 
+      <!-- Gallery Lightbox -->
+      <div class="gallery-lightbox" id="galleryLightbox" onclick="closeGalleryLightbox(event)">
+        <button class="plb-close" onclick="closeGalleryLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-nav plb-prev" onclick="event.stopPropagation(); galleryLightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
+        <img id="galleryLightboxImg" src="" alt="Galerie" />
+        <button class="plb-nav plb-next" onclick="event.stopPropagation(); galleryLightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
+        <div class="plb-counter" id="galleryLightboxCounter"></div>
+      </div>
+
       <!-- Profile Header -->
       <div class="container">
         <div class="profile-hero">

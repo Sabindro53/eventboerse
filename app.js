@@ -1559,6 +1559,34 @@ function switchProviderTab(btn, tab) {
   document.getElementById('provider-tab-' + tab).classList.add('active');
 }
 
+/* ── Gallery Lightbox ── */
+var _galleryLightboxImages = [];
+var _galleryLightboxIndex = 0;
+
+function openGalleryLightbox(index) {
+  var gallery = document.getElementById('profileGalleryDisplay');
+  _galleryLightboxImages = Array.from(gallery.querySelectorAll('img')).map(function(img) { return img.src; });
+  if (_galleryLightboxImages.length === 0) return;
+  _galleryLightboxIndex = index;
+  document.getElementById('galleryLightboxImg').src = _galleryLightboxImages[_galleryLightboxIndex];
+  document.getElementById('galleryLightboxCounter').textContent = (_galleryLightboxIndex + 1) + ' / ' + _galleryLightboxImages.length;
+  document.getElementById('galleryLightbox').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeGalleryLightbox(e) {
+  if (e && e.target && e.target.tagName === 'IMG') return;
+  if (e && e.target && e.target.closest('.plb-nav')) return;
+  document.getElementById('galleryLightbox').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function galleryLightboxNav(dir) {
+  _galleryLightboxIndex = (_galleryLightboxIndex + dir + _galleryLightboxImages.length) % _galleryLightboxImages.length;
+  document.getElementById('galleryLightboxImg').src = _galleryLightboxImages[_galleryLightboxIndex];
+  document.getElementById('galleryLightboxCounter').textContent = (_galleryLightboxIndex + 1) + ' / ' + _galleryLightboxImages.length;
+}
+
 /* ── Cover Fullscreen Lightbox ── */
 function openCoverLightbox() {
   const cover = document.getElementById('profileCover');
@@ -2024,8 +2052,8 @@ function renderDashboard() {
   var galleryEmpty = document.getElementById('profileGalleryEmpty');
   if (currentUser.gallery && currentUser.gallery.length > 0) {
     if (galleryEmpty) galleryEmpty.style.display = 'none';
-    var imgs = currentUser.gallery.map(function(src) {
-      return '<img src="' + src + '" alt="Galerie" loading="lazy" />';
+    var imgs = currentUser.gallery.map(function(src, idx) {
+      return '<img src="' + src + '" alt="Galerie" loading="lazy" onclick="openGalleryLightbox(' + idx + ')" />';
     }).join('');
     galleryDisplay.innerHTML = imgs;
   } else {
