@@ -982,8 +982,11 @@
               </button>
             </div>
             <div class="profile-edit-field" id="editTagline" style="display:none">
-              <input type="text" id="profileTagline" placeholder="z.B. DJ & Musikproduktion · Berlin" />
-              <input type="text" id="profileLocation" placeholder="Standort, z.B. Berlin" />
+              <input type="text" id="profileTagline" placeholder="z.B. DJ & Musikproduktion" />
+              <div class="city-autocomplete-wrap">
+                <input type="text" id="profileLocation" placeholder="Stadt eingeben…" autocomplete="off" />
+                <ul class="city-autocomplete-list" id="profileCityList"></ul>
+              </div>
               <button class="btn-sm btn-primary" onclick="saveFieldInline('tagline')">Speichern</button>
               <button class="btn-sm btn-outline" onclick="cancelFieldInline('tagline')">Abbrechen</button>
             </div>

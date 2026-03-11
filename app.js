@@ -2116,8 +2116,13 @@ function saveFieldInline(field) {
       payload.name = currentUser.name;
       break;
     case 'tagline':
+      var locVal = document.getElementById('profileLocation').value.trim();
+      if (locVal && !GERMAN_CITIES.find(function(c) { return c.name.toLowerCase() === locVal.toLowerCase(); })) {
+        showToast('Bitte wähle eine gültige Stadt aus der Liste', 'warning');
+        return;
+      }
       currentUser.tagline = document.getElementById('profileTagline').value.trim();
-      currentUser.location = document.getElementById('profileLocation').value.trim();
+      currentUser.location = locVal;
       payload.tagline = currentUser.tagline;
       payload.location = currentUser.location;
       break;
@@ -2877,6 +2882,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initDragScroll();
   initDatePickers();
   initCityAutocomplete();
+  initProfileCityAutocomplete();
   initTimePickers();
   initFeatureSearch();
 
@@ -3054,7 +3060,47 @@ function initCityAutocomplete() {
   });
 
   document.addEventListener('click', function(e) {
-    if (!e.target.closest('.city-autocomplete-wrap')) list.classList.remove('open');
+    if (!e.target.closest('.city-autocomplete-wrap')) {
+      list.classList.remove('open');
+      var pList = document.getElementById('profileCityList');
+      if (pList) pList.classList.remove('open');
+    }
+  });
+}
+
+function initProfileCityAutocomplete() {
+  var input = document.getElementById('profileLocation');
+  var list = document.getElementById('profileCityList');
+  if (!input || !list) return;
+  var activeIdx = -1;
+
+  input.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    if (q.length < 1) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    var matches = GERMAN_CITIES.filter(function(c) { return c.name.toLowerCase().startsWith(q); }).slice(0, 8);
+    if (matches.length === 0) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    activeIdx = -1;
+    list.innerHTML = matches.map(function(c) {
+      return '<li data-city="' + c.name + '" data-state="' + c.state + '">' + c.name + '<span class="city-state">' + c.state + '</span></li>';
+    }).join('');
+    list.classList.add('open');
+  });
+
+  list.addEventListener('click', function(e) {
+    var li = e.target.closest('li');
+    if (!li) return;
+    input.value = li.dataset.city;
+    list.classList.remove('open');
+  });
+
+  input.addEventListener('keydown', function(e) {
+    var items = list.querySelectorAll('li');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
+    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); items[activeIdx].click(); return; }
+    else return;
+    items.forEach(function(it, i) { it.classList.toggle('active', i === activeIdx); });
   });
 }
 
