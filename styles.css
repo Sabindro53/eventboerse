@@ -2800,6 +2800,10 @@ img { display: block; max-width: 100%; }
   color: #fff !important;
   font-weight: 600 !important;
 }
+.flatpickr-current-month .flatpickr-monthDropdown-months option {
+  color: var(--dark) !important;
+  background: var(--bg) !important;
+}
 .flatpickr-months .flatpickr-prev-month,
 .flatpickr-months .flatpickr-next-month {
   fill: #fff !important;
