@@ -416,6 +416,9 @@ function navigateTo(page, data) {
     case 'explore':
       renderExploreGrid();
       break;
+    case 'aktuelles':
+      renderFeed('foryou');
+      break;
     case 'detail':
       loadDetail(data);
       break;
@@ -536,6 +539,86 @@ function renderExploreGrid(filter) {
 
 function filterExploreGrid() {
   renderExploreGrid();
+}
+
+// ========== AKTUELLES FEED ==========
+function timeAgo(minutes) {
+  if (minutes < 60) return 'vor ' + minutes + ' Min.';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return 'vor ' + hours + ' Std.';
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Gestern';
+  if (days < 7) return 'vor ' + days + ' Tagen';
+  return 'vor ' + Math.floor(days / 7) + ' Wo.';
+}
+
+function renderFeed(tab) {
+  const list = document.getElementById('feedList');
+  if (!list) return;
+  let items = [...LISTINGS];
+  if (tab === 'newest') {
+    items = items.reverse();
+  } else if (tab === 'popular') {
+    items = items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  } else {
+    // "Für dich" — mix: shuffle with slight preference for higher rated
+    items = items.sort(() => Math.random() - 0.5);
+  }
+
+  list.innerHTML = items.map((l, i) => {
+    const minutesAgo = Math.floor(Math.random() * 2880) + 5; // 5min to 2 days
+    const avatar = l.providerAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName);
+    const categoryLabel = l.category ? l.category.charAt(0).toUpperCase() + l.category.slice(1) : 'Service';
+    const isFav = favorites.has(l.id);
+    const desc = l.description || l.title;
+    const tags = l.features ? l.features.slice(0, 3) : [];
+    return `<div class="feed-card">
+      <div class="feed-card-header">
+        <img class="feed-card-avatar" src="${avatar}" alt="${l.providerName}" onclick="navigateTo('provider',${l.providerId || l.id})" />
+        <div class="feed-card-meta">
+          <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${l.providerName}</span>
+          <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(minutesAgo)}</span>
+        </div>
+        <span class="feed-card-category">${categoryLabel}</span>
+      </div>
+      <img class="feed-card-image" src="${l.image}" alt="${l.title}" onclick="navigateTo('detail',${l.id})" loading="lazy" />
+      <div class="feed-card-body">
+        <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${l.title}</div>
+        <div class="feed-card-desc">${desc}</div>
+      </div>
+      ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + l.location + '</div>' : ''}
+      ${tags.length ? '<div class="feed-card-tags">' + tags.map(t => '<span class="feed-card-tag">' + t + '</span>').join('') + '</div>' : ''}
+      <div class="feed-card-footer">
+        <span class="feed-card-price">${l.priceLabel} <small>/ Event</small></span>
+        <div class="feed-card-actions">
+          <button class="feed-card-action ${isFav ? 'active' : ''}" onclick="toggleFeedFav(this,${l.id})">
+            <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
+          </button>
+          <button class="feed-card-action" onclick="navigateTo('detail',${l.id})">
+            <span class="material-icons-round">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function switchFeedTab(btn) {
+  document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderFeed(btn.dataset.feed);
+}
+
+function toggleFeedFav(btn, id) {
+  if (favorites.has(id)) {
+    favorites.delete(id);
+    btn.classList.remove('active');
+    btn.querySelector('.material-icons-round').textContent = 'favorite_border';
+  } else {
+    favorites.add(id);
+    btn.classList.add('active');
+    btn.querySelector('.material-icons-round').textContent = 'favorite';
+  }
 }
 
 function renderFeaturedGrid() {

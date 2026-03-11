@@ -104,17 +104,13 @@
 
   <!-- ============ MOBILE BOTTOM NAV ============ -->
   <nav class="mobile-nav" id="mobileNav">
-    <button onclick="navigateTo('home')" data-page="home">
-      <span class="material-icons-round">cottage</span>
-      <span>Startseite</span>
+    <button onclick="navigateTo('aktuelles')" data-page="aktuelles">
+      <span class="material-icons-round">dynamic_feed</span>
+      <span>Aktuelles</span>
     </button>
-    <button onclick="navigateTo('browse')" data-page="browse">
+    <button onclick="navigateTo('home')" data-page="home">
       <span class="material-icons-round">search</span>
       <span>Suche</span>
-    </button>
-    <button onclick="navigateTo('explore')" data-page="explore">
-      <span class="material-icons-round">explore</span>
-      <span>Explore</span>
     </button>
     <button onclick="navigateTo('create-listing')" data-page="create-listing">
       <span class="material-icons-round">add_circle</span>
@@ -464,6 +460,27 @@
           </div>
         </div>
         <div class="explore-grid" id="exploreGrid"></div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: AKTUELLES (Feed) ============ -->
+    <section id="page-aktuelles" class="page">
+      <div class="container">
+        <div class="feed-header">
+          <h2 class="feed-title">Aktuelles</h2>
+          <div class="feed-location-badge" id="feedLocationBadge">
+            <span class="material-icons-round">location_on</span>
+            <span id="feedLocationText">In deiner Nähe</span>
+          </div>
+        </div>
+        <div class="feed-tabs">
+          <button class="feed-tab active" data-feed="foryou" onclick="switchFeedTab(this)">Für dich</button>
+          <button class="feed-tab" data-feed="newest" onclick="switchFeedTab(this)">Neueste</button>
+          <button class="feed-tab" data-feed="popular" onclick="switchFeedTab(this)">Beliebt</button>
+        </div>
+        <div class="feed-list" id="feedList">
+          <!-- Populated by JS -->
+        </div>
       </div>
     </section>
 
