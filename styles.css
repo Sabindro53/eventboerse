@@ -1279,36 +1279,70 @@ img { display: block; max-width: 100%; }
 .browse-header {
   background: var(--bg);
   border-bottom: 1px solid var(--border-light);
-  padding: 16px 0;
+  padding: 16px 0 12px;
 }
-.filter-bar {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.filter-field {
+.browse-search-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: var(--bg-alt);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 0 14px;
-  flex: 1;
-  min-width: 140px;
+  padding: 0 16px;
+  margin-bottom: 12px;
   transition: border-color var(--transition);
 }
-.filter-field:focus-within {
+.browse-search-row:focus-within {
   border-color: var(--primary);
 }
-.filter-field .material-icons-round { font-size: 18px; color: var(--text-light); }
-.filter-field input, .filter-field select {
+.browse-search-row .material-icons-round { font-size: 20px; color: var(--text-light); }
+.browse-search-row input {
   border: none;
   background: transparent;
-  padding: 10px 0;
-  font-size: 0.85rem;
+  padding: 12px 0;
+  font-size: 0.95rem;
   width: 100%;
+  font-family: var(--font);
 }
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.filter-chips::-webkit-scrollbar { display: none; }
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-alt);
+  border: 1.5px solid var(--border);
+  border-radius: 50px;
+  padding: 0 12px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  transition: border-color var(--transition);
+}
+.filter-chip:focus-within {
+  border-color: var(--primary);
+}
+.filter-chip .material-icons-round { font-size: 16px; color: var(--text-light); }
+.filter-chip select, .filter-chip input {
+  border: none;
+  background: transparent;
+  padding: 8px 0;
+  font-size: 0.82rem;
+  font-family: var(--font);
+  color: var(--dark);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.filter-chip select { padding-right: 4px; }
+.filter-chip input { width: 70px; }
+.filter-chip input::placeholder { color: var(--text-light); }
 .filter-tags {
   display: flex;
   gap: 8px;
@@ -3623,29 +3657,13 @@ span.flatpickr-weekday {
   .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
 
   /* Browse */
-  .browse-header { padding: 10px 0; }
-  .filter-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 8px;
-    padding-bottom: 4px;
-    scrollbar-width: none;
-  }
-  .filter-bar::-webkit-scrollbar { display: none; }
-  .filter-field {
-    min-width: auto;
-    flex: 0 0 auto;
-    padding: 0 10px;
-  }
-  .filter-field .material-icons-round { font-size: 16px; }
-  .filter-field input, .filter-field select {
-    padding: 8px 0;
-    font-size: 0.8rem;
-    width: auto;
-    max-width: 90px;
-  }
-  .filter-field input[type="text"] { max-width: 100px; }
+  .browse-header { padding: 10px 0 8px; }
+  .browse-search-row { margin-bottom: 8px; padding: 0 12px; }
+  .browse-search-row input { padding: 10px 0; font-size: 0.9rem; }
+  .filter-chips { gap: 6px; }
+  .filter-chip { padding: 0 10px; }
+  .filter-chip select, .filter-chip input { padding: 7px 0; font-size: 0.78rem; }
+  .filter-chip input { width: 60px; }
   .filter-tags { margin-top: 8px; }
   .browse-results-header { flex-direction: column; gap: 8px; align-items: flex-start; padding: 16px 0 12px; }
 

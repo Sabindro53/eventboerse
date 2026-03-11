@@ -472,15 +472,15 @@
       <div class="browse-header">
         <div class="container">
           <div class="browse-filters">
-            <div class="filter-bar">
-              <div class="filter-field">
-                <span class="material-icons-round">search</span>
-                <input type="text" id="browseSearch" placeholder="Service suchen..." oninput="filterListings()" />
-              </div>
-              <div class="filter-field">
+            <div class="browse-search-row">
+              <span class="material-icons-round">search</span>
+              <input type="text" id="browseSearch" placeholder="Service suchen..." oninput="filterListings()" />
+            </div>
+            <div class="filter-chips">
+              <div class="filter-chip">
                 <span class="material-icons-round">category</span>
                 <select id="browseCategory" onchange="filterListings()">
-                  <option value="">Alle Kategorien</option>
+                  <option value="">Kategorie</option>
                   <option value="dj">DJ & Musik</option>
                   <option value="catering">Catering</option>
                   <option value="foto">Fotografie</option>
@@ -493,7 +493,7 @@
                   <option value="moderation">Moderation</option>
                 </select>
               </div>
-              <div class="filter-field">
+              <div class="filter-chip">
                 <span class="material-icons-round">celebration</span>
                 <select id="browseEventType" onchange="filterListings()">
                   <option value="">Event-Typ</option>
@@ -505,21 +505,21 @@
                   <option value="Messe">Messe</option>
                 </select>
               </div>
-              <div class="filter-field">
+              <div class="filter-chip">
                 <span class="material-icons-round">location_on</span>
-                <input type="text" id="browseLocation" placeholder="Region..." oninput="filterListings()" />
+                <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" />
               </div>
-              <div class="filter-field">
+              <div class="filter-chip">
                 <span class="material-icons-round">euro</span>
                 <select id="browsePrice" onchange="filterListings()">
                   <option value="">Preis</option>
                   <option value="0-500">Bis 500€</option>
-                  <option value="500-1000">500€ – 1.000€</option>
-                  <option value="1000-2500">1.000€ – 2.500€</option>
+                  <option value="500-1000">500–1.000€</option>
+                  <option value="1000-2500">1.000–2.500€</option>
                   <option value="2500+">Über 2.500€</option>
                 </select>
               </div>
-              <div class="filter-field">
+              <div class="filter-chip">
                 <span class="material-icons-round">star</span>
                 <select id="browseRating" onchange="filterListings()">
                   <option value="">Bewertung</option>
