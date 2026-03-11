@@ -379,23 +379,41 @@ let favorites = new Set();
 let _dbListingsLoaded = false;
 
 // ========== FILE UPLOAD HELPER ==========
-async function uploadFile(file) {
+async function uploadFile(file, _attempt) {
+  var attempt = _attempt || 1;
+  var maxRetries = 3;
   var formData = new FormData();
   formData.append('file', file);
   var headers = {};
   if (_wpNonce) headers['X-WP-Nonce'] = _wpNonce;
-  var resp = await fetch(_apiUrl('upload'), {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: headers,
-    body: formData
-  });
+  var resp;
+  try {
+    resp = await fetch(_apiUrl('upload'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: headers,
+      body: formData
+    });
+  } catch (networkErr) {
+    if (attempt < maxRetries) {
+      await new Promise(function(r) { setTimeout(r, 1000 * attempt); });
+      return uploadFile(file, attempt + 1);
+    }
+    throw new Error('Netzwerkfehler beim Upload – bitte erneut versuchen.');
+  }
+  if (resp.status === 503 || resp.status === 502 || resp.status === 504) {
+    if (attempt < maxRetries) {
+      await new Promise(function(r) { setTimeout(r, 1500 * attempt); });
+      return uploadFile(file, attempt + 1);
+    }
+    throw new Error('Server vorübergehend nicht erreichbar (503). Bitte versuche es in einer Minute erneut.');
+  }
   if (!resp.ok) {
     var err = {};
     try { err = await resp.json(); } catch(e) {}
     throw new Error(err.message || 'Upload fehlgeschlagen (Status ' + resp.status + ')');
   }
-  return await resp.json(); // { id, url }
+  return await resp.json();
 }
 
 // Load database listings into LISTINGS array (merged with demo data)
@@ -477,10 +495,10 @@ function navigateTo(page, data, skipHistory) {
       loadDbListings().then(function() { renderBrowseGrid(LISTINGS); });
       break;
     case 'explore':
-      renderExploreGrid();
+      loadDbListings().then(function() { renderExploreGrid(); });
       break;
     case 'aktuelles':
-      renderFeed('foryou');
+      loadDbListings().then(function() { renderFeed('foryou'); });
       break;
     case 'detail':
       loadDbListings().then(function() { loadDetail(data); });
@@ -2505,6 +2523,9 @@ function submitListing(e) {
       document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
       document.getElementById('step1').classList.add('active');
 
+      // Force reload from DB on next navigation
+      _dbListingsLoaded = false;
+
       var successMsg = isEventPlaner() ? 'Event erfolgreich veröffentlicht! 🎉' : 'Inserat erfolgreich veröffentlicht! 🎉';
       showToast(successMsg, 'check_circle');
       _setBtnLoading(submitBtn, false);
@@ -3278,16 +3299,16 @@ function renderMyListings() {
               _fromDb: true,
               title: l.title,
               category: l.category,
-              categoryLabel: l.category_label || l.category,
+              categoryLabel: l.categoryLabel || l.category,
               image: (l.images && l.images[0]) || 'assets/img/placeholder.jpg',
               images: l.images || [],
               location: l.location,
               price: l.price,
-              priceLabel: l.price_label || (l.price + ' €'),
+              priceLabel: l.priceLabel || (l.price + ' €'),
               rating: parseFloat(l.rating) || 0,
-              reviewCount: parseInt(l.review_count) || 0,
+              reviewCount: parseInt(l.reviews) || 0,
               description: l.description,
-              providerName: l.provider_name
+              providerName: l.providerName
             };
           });
           renderMyGrid(myListings);
@@ -3579,7 +3600,10 @@ function applyLogin() {
   }
   // Load user data from API
   loadFavorites().catch(function(){});
-  loadDbListings().catch(function(){});
+  loadDbListings().then(function() {
+    renderFeaturedGrid();
+    renderHeroMarquees();
+  }).catch(function(){});
 }
 
 function applyLogout() {

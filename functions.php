@@ -583,9 +583,13 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.6' ) {
+    if ( get_option( 'eb_db_version' ) !== '1.7' ) {
         eb_create_tables();
-        update_option( 'eb_db_version', '1.6' );
+        // Fix any existing listings that have empty status
+        global $wpdb;
+        $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
+        $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
+        update_option( 'eb_db_version', '1.7' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -996,6 +1000,8 @@ function eb_listings_create( WP_REST_Request $request ) {
         'time_to'        => $time_to,
         'duration'       => $duration,
         'negotiable'     => $negotiable,
+        'status'         => 'active',
+        'badge'          => 'Neu',
         'created_at'     => $now,
         'updated_at'     => $now,
     ) );
