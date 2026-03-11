@@ -379,6 +379,21 @@ let favorites = new Set();
 let _dbListingsLoaded = false;
 let _favoritesLoaded = false;
 
+function _saveFavoritesToStorage() {
+  var key = currentUser ? 'eb_favs_' + currentUser.id : 'eb_favs_guest';
+  try { localStorage.setItem(key, JSON.stringify([...favorites])); } catch(e) {}
+}
+
+function _loadFavoritesFromStorage() {
+  var key = currentUser ? 'eb_favs_' + currentUser.id : 'eb_favs_guest';
+  try {
+    var stored = localStorage.getItem(key);
+    if (stored) {
+      JSON.parse(stored).forEach(function(id) { favorites.add(id); });
+    }
+  } catch(e) {}
+}
+
 // ========== FILE UPLOAD HELPER ==========
 async function uploadFile(file, _attempt) {
   var attempt = _attempt || 1;
@@ -452,6 +467,7 @@ async function loadFavorites() {
       favorites.add(l.id + 10000);
     });
     _favoritesLoaded = true;
+    _saveFavoritesToStorage();
   } catch(e) {}
 }
 
@@ -725,6 +741,7 @@ function toggleFeedFav(btn, id) {
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
   }
+  _saveFavoritesToStorage();
   // Sync with API if logged in (only for real DB listings)
   if (isLoggedIn) {
     var listing = LISTINGS.find(function(l) { return l.id === id; });
@@ -3334,6 +3351,7 @@ function toggleFavorite(listingId, btn) {
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
   }
+  _saveFavoritesToStorage();
   // Sync with API if logged in (only for real DB listings)
   if (isLoggedIn) {
     var listing = LISTINGS.find(function(l) { return l.id === listingId; });
@@ -3901,7 +3919,8 @@ function applyLogin() {
     if (menuCreateBtn) menuCreateBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Inserat erstellen';
     if (menuMyListBtn) menuMyListBtn.innerHTML = '<span class="material-icons-round">storefront</span> Meine Inserate';
   }
-  // Load user data from API
+  // Restore favorites from localStorage first (instant), then merge API data
+  _loadFavoritesFromStorage();
   loadFavorites().catch(function(){});
   loadDbListings().then(function() {
     renderFeaturedGrid();
@@ -3923,6 +3942,7 @@ function applyLogout() {
   _dbListingsLoaded = false;
   _favoritesLoaded = false;
   favorites.clear();
+  // Don't clear localStorage — favorites persist for next login
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
