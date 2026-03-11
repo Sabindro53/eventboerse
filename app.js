@@ -446,7 +446,11 @@ async function loadFavorites() {
     var resp = await fetch(_apiUrl('favorites'), { credentials: 'same-origin', headers: _apiHeaders() });
     if (!resp.ok) return;
     var data = await resp.json();
+    // Preserve demo-listing favorites (IDs <= 10000) that can't be stored via API
+    var demoFavs = [];
+    favorites.forEach(function(id) { if (id <= 10000) demoFavs.push(id); });
     favorites.clear();
+    demoFavs.forEach(function(id) { favorites.add(id); });
     data.forEach(function(l) {
       favorites.add(l.id + 10000);
     });
@@ -723,15 +727,15 @@ function toggleFeedFav(btn, id) {
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
   }
-  // Sync with API if logged in
+  // Sync with API if logged in (only for real DB listings)
   if (isLoggedIn) {
-    var dbId = id;
     var listing = LISTINGS.find(function(l) { return l.id === id; });
-    if (listing && listing._dbId) dbId = listing._dbId;
-    else if (listing && listing._fromDb) dbId = id - 10000;
-    fetch(_apiUrl('favorites/' + dbId), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
-    }).catch(function(){});
+    if (listing && listing._fromDb) {
+      var dbId = listing._dbId || (id - 10000);
+      fetch(_apiUrl('favorites/' + dbId), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
+      }).catch(function(){});
+    }
   }
 }
 
@@ -3332,15 +3336,30 @@ function toggleFavorite(listingId, btn) {
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
   }
-  // Sync with API if logged in
+  // Sync with API if logged in (only for real DB listings)
   if (isLoggedIn) {
-    var dbId = listingId;
     var listing = LISTINGS.find(function(l) { return l.id === listingId; });
-    if (listing && listing._dbId) dbId = listing._dbId;
-    else if (listing && listing._fromDb) dbId = listingId - 10000;
-    fetch(_apiUrl('favorites/' + dbId), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
-    }).catch(function(){});
+    if (listing && listing._fromDb) {
+      var dbId = listing._dbId || (listingId - 10000);
+      fetch(_apiUrl('favorites/' + dbId), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
+      }).catch(function(){});
+    }
+  }
+  // If on favorites page, re-render the grid immediately
+  var favPage = document.getElementById('page-favorites');
+  if (favPage && favPage.classList.contains('active')) {
+    var grid = document.getElementById('favoritesGrid');
+    var emptyState = document.getElementById('favoritesEmpty');
+    var favListings = LISTINGS.filter(function(l) { return favorites.has(l.id); });
+    if (favListings.length === 0) {
+      grid.style.display = 'none';
+      emptyState.style.display = 'flex';
+    } else {
+      grid.style.display = '';
+      emptyState.style.display = 'none';
+      grid.innerHTML = favListings.map(renderListingCard).join('');
+    }
   }
 }
 
