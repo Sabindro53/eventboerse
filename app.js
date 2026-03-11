@@ -386,9 +386,14 @@ const BLOCKED_PATTERNS = [
 ];
 
 // ========== NAVIGATION ==========
-function navigateTo(page, data) {
+function navigateTo(page, data, skipHistory) {
   // Hide user menu
   document.getElementById('userMenu').classList.remove('show');
+
+  // Push browser history state (unless triggered by popstate or explicit skip)
+  if (!skipHistory) {
+    window.history.pushState({ page: page, data: data || null }, '', '#' + page + (data ? '/' + data : ''));
+  }
 
   // Deactivate all pages
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2613,6 +2618,16 @@ document.addEventListener('DOMContentLoaded', function() {
   initCityAutocomplete();
   initTimePickers();
   initFeatureSearch();
+
+  // Set initial browser history state
+  window.history.replaceState({ page: 'home', data: null }, '', '#home');
+
+  // Handle browser back/forward
+  window.addEventListener('popstate', function(e) {
+    if (e.state && e.state.page) {
+      navigateTo(e.state.page, e.state.data, true);
+    }
+  });
 });
 
 // ========== DATE PICKERS (Flatpickr) ==========
