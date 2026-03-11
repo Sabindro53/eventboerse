@@ -2480,27 +2480,36 @@ function calcDuration() {
   if (diff <= 0) diff += 1440;
   const hours = diff / 60;
   const durInput = document.getElementById('createDuration');
-  durInput.value = hours % 1 === 0 ? hours : hours.toFixed(1);
+  const formatted = hours % 1 === 0 ? hours : hours.toFixed(1);
+  durInput.value = formatted;
   durInput.max = hours;
+  durInput.min = 0.25;
   const hint = document.getElementById('durationHint');
-  if (hint) hint.textContent = `Max. ${hours % 1 === 0 ? hours : hours.toFixed(1)} Std. im Zeitraum`;
+  if (hint) hint.textContent = 'Max. ' + formatted + ' Std. im gewählten Zeitraum';
+}
+
+function clampDuration() {
+  const durInput = document.getElementById('createDuration');
+  const maxH = parseFloat(durInput.max) || 24;
+  let v = parseFloat(durInput.value);
+  if (isNaN(v) || v < 0.25) v = 0.25;
+  if (v > maxH) v = maxH;
+  durInput.value = v % 1 === 0 ? v : v.toFixed(1);
 }
 
 function initTimePickers() {
   ['createTimeFromH','createTimeFromM','createTimeFromAP',
    'createTimeToH','createTimeToM','createTimeToAP'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('change', calcDuration);
+    if (el) {
+      el.addEventListener('change', calcDuration);
+      el.addEventListener('input', calcDuration);
+    }
   });
   const durInput = document.getElementById('createDuration');
   if (durInput) {
-    durInput.addEventListener('change', function() {
-      const maxH = parseFloat(this.max) || 24;
-      let v = parseFloat(this.value);
-      if (isNaN(v) || v < 0.25) v = 0.25;
-      if (v > maxH) v = maxH;
-      this.value = v % 1 === 0 ? v : v.toFixed(1);
-    });
+    durInput.addEventListener('change', clampDuration);
+    durInput.addEventListener('input', clampDuration);
   }
   calcDuration();
 }
