@@ -2872,12 +2872,12 @@ span.flatpickr-weekday {
 }
 .time-select-min { min-width: 56px; }
 .time-sep { font-size: 1.1rem; font-weight: 700; color: var(--text-light); }
-.form-row-time { grid-template-columns: 1fr 1fr; align-items: end; }
+.form-row-time { grid-template-columns: 1fr 1fr; align-items: end; margin-bottom: 24px; }
 .form-row-time .form-group { margin-bottom: 0; }
 .form-row-time .time-picker-wrap { justify-content: center; }
 .duration-group {
   max-width: 240px;
-  margin: 0 auto 20px;
+  margin: 0 auto 28px;
   text-align: center;
 }
 .duration-group label { display: block; margin-bottom: 6px; }
