@@ -114,6 +114,9 @@ function eventboerse_enqueue_assets() {
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
 
+/* WordPress Admin-Bar für alle User ausblenden */
+add_filter( 'show_admin_bar', '__return_false' );
+
 /**
  * Theme-Setup
  */
