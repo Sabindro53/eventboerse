@@ -2887,6 +2887,20 @@ span.flatpickr-weekday {
   text-align: center;
 }
 .duration-group label { display: block; margin-bottom: 6px; }
+.duration-stepper {
+  display: flex; align-items: center; gap: 0;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--bg-alt);
+}
+.dur-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 48px; flex-shrink: 0;
+  background: var(--bg); border: none; cursor: pointer;
+  color: var(--text-light); transition: all var(--transition);
+}
+.dur-btn:hover { background: var(--primary-light); color: var(--primary); }
+.dur-btn:active { background: var(--primary); color: #fff; }
+.dur-btn .material-icons-round { font-size: 20px; }
 #createDuration {
   text-align: center;
   background: var(--bg-alt);
@@ -2894,6 +2908,8 @@ span.flatpickr-weekday {
   font-weight: 700;
   color: var(--primary);
   transition: color 0.25s ease, transform 0.25s ease;
+  border: none; border-radius: 0;
+  flex: 1; min-width: 0;
 }
 #createDuration.flash {
   animation: durFlash 0.35s ease;

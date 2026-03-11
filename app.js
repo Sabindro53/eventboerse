@@ -2736,6 +2736,21 @@ function initTimePickers() {
       flashDuration();
     });
   }
+  // Stepper buttons
+  var durUp = document.getElementById('durUp');
+  var durDown = document.getElementById('durDown');
+  function stepDuration(dir) {
+    var maxH = parseFloat(durInput.dataset.max) || 24;
+    var cur = parseDuration(durInput.value);
+    if (cur === null) cur = 0.5;
+    cur = snapDuration(cur) + dir * 0.5;
+    if (cur < 0.5) cur = 0.5;
+    if (cur > maxH) cur = maxH;
+    durInput.value = formatDuration(cur);
+    flashDuration();
+  }
+  if (durUp) durUp.addEventListener('click', function() { stepDuration(1); });
+  if (durDown) durDown.addEventListener('click', function() { stepDuration(-1); });
   calcDuration();
 }
 
