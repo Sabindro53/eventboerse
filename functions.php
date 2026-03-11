@@ -898,6 +898,7 @@ function eb_format_listing( $row ) {
         'location'      => $row['location'],
         'region'        => $row['region'],
         'price'         => (int) $row['price'],
+        'priceModel'    => $row['price_model'],
         'priceLabel'    => $row['price_label'],
         'rating'        => round( (float) $row['rating_avg'], 1 ),
         'reviews'       => (int) $row['review_count'],

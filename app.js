@@ -513,6 +513,20 @@ function navigateTo(page, data, skipHistory) {
       renderDashboard();
       break;
     case 'create-listing':
+      if (!window._isEditNavigation) {
+        window._editingListingId = null;
+        document.getElementById('createListingForm').reset();
+        document.getElementById('uploadPreview').innerHTML = '';
+        document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
+        document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
+        document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
+        document.getElementById('step1').classList.add('active');
+        // Clear Flatpickr dates
+        var dfEl = document.getElementById('createDateFrom');
+        var dtEl = document.getElementById('createDateTo');
+        if (dfEl && dfEl._flatpickr) dfEl._flatpickr.clear();
+        if (dtEl && dtEl._flatpickr) dtEl._flatpickr.clear();
+      }
       updateCreateFormForRole();
       break;
     case 'profile':
@@ -3332,20 +3346,111 @@ function editListing(listingId) {
   var listing = LISTINGS.find(function(l) { return l.id === listingId; });
   if (!listing) return;
 
-  // Store the ID of the listing being edited so submitListing can replace it
+  // Store editing state and navigate
   window._editingListingId = listingId;
-
-  // Navigate to create-listing form and prefill values
+  window._isEditNavigation = true;
   navigateTo('create-listing');
+  window._isEditNavigation = false;
 
-  // Prefill form fields
-  document.getElementById('createTitle').value = listing.title;
-  document.getElementById('createCategory').value = listing.category;
-  document.getElementById('createDescription').value = listing.description.replace(/<\/?p>/g, '\n').replace(/<\/?h3>/g, '').trim();
-  document.getElementById('createPrice').value = listing.price;
-  document.getElementById('createRegion').value = listing.region || listing.location;
+  // Update heading & submit button to edit mode
+  var heading = document.querySelector('#page-create-listing .create-title');
+  if (heading) heading.textContent = isEventPlaner() ? 'Event bearbeiten' : 'Inserat bearbeiten';
+  var submitBtn = document.querySelector('#step3 .btn-primary');
+  if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">save</span> Änderungen speichern';
 
-  showToast('Inserat wird bearbeitet – speichere es erneut.', 'edit');
+  // === Step 1: Basics ===
+  document.getElementById('createTitle').value = listing.title || '';
+  document.getElementById('createCategory').value = listing.category || '';
+  document.getElementById('createDescription').value = (listing.description || '').replace(/<\/?p>/g, '\n').replace(/<\/?h3>/g, '').trim();
+  document.getElementById('createPrice').value = listing.price || '';
+  document.getElementById('createPriceModel').value = listing.priceModel || 'Pro Event';
+
+  // === Step 2: Details ===
+  document.getElementById('createRegion').value = listing.region || listing.location || '';
+  document.getElementById('createRegionValue').value = listing.region || listing.location || '';
+
+  // Dates via Flatpickr
+  var fromEl = document.getElementById('createDateFrom');
+  var toEl = document.getElementById('createDateTo');
+  if (fromEl && fromEl._flatpickr) {
+    fromEl._flatpickr.set('minDate', null);
+    if (listing.dateFrom) fromEl._flatpickr.setDate(listing.dateFrom, true);
+    else fromEl._flatpickr.clear();
+  }
+  if (toEl && toEl._flatpickr) {
+    toEl._flatpickr.set('minDate', null);
+    if (listing.dateTo) toEl._flatpickr.setDate(listing.dateTo, true);
+    else toEl._flatpickr.clear();
+  }
+
+  // Time fields
+  if (listing.timeFrom) {
+    var tf = listing.timeFrom.split(':');
+    document.getElementById('createTimeFromH').value = parseInt(tf[0]) || 0;
+    document.getElementById('createTimeFromM').value = tf[1] || '00';
+  }
+  if (listing.timeTo) {
+    var tt = listing.timeTo.split(':');
+    document.getElementById('createTimeToH').value = parseInt(tt[0]) || 0;
+    document.getElementById('createTimeToM').value = tt[1] || '00';
+  }
+
+  // Duration
+  document.getElementById('createDuration').value = listing.duration || 4;
+
+  // Tags checkboxes
+  var tagCheckboxes = document.querySelectorAll('#createTags input[type=checkbox]');
+  tagCheckboxes.forEach(function(cb) {
+    cb.checked = listing.tags && listing.tags.indexOf(cb.value) !== -1;
+  });
+
+  // Feature tags — match built-in and add custom
+  document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
+  var featureBtns = document.querySelectorAll('#createFeatureTags .feature-tag');
+  var matchedFeatures = [];
+  featureBtns.forEach(function(btn) {
+    btn.classList.remove('selected');
+    if (listing.features && listing.features.indexOf(btn.textContent.trim()) !== -1) {
+      btn.classList.add('selected');
+      matchedFeatures.push(btn.textContent.trim());
+    }
+  });
+  // Add custom features that weren't in the built-in list
+  if (listing.features) {
+    var grid = document.getElementById('createFeatureTags');
+    listing.features.forEach(function(f) {
+      if (matchedFeatures.indexOf(f) === -1) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'feature-tag selected feature-tag-custom-item';
+        btn.onclick = function() { toggleFeatureTag(btn); };
+        btn.textContent = f;
+        grid.appendChild(btn);
+      }
+    });
+  }
+
+  // === Step 3: Images ===
+  var preview = document.getElementById('uploadPreview');
+  preview.innerHTML = '';
+  if (listing.images && listing.images.length > 0) {
+    listing.images.forEach(function(url) {
+      if (!url) return;
+      var div = document.createElement('div');
+      div.className = 'upload-preview-item';
+      div.innerHTML = '<img src="' + url.replace(/"/g, '&quot;') + '" alt="Preview" />' +
+        '<button onclick="this.parentElement.remove()">' +
+          '<span class="material-icons-round">close</span>' +
+        '</button>';
+      preview.appendChild(div);
+    });
+  }
+
+  // Show step 1
+  document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('step1').classList.add('active');
+
+  showToast('Inserat wird bearbeitet – passe es an und speichere es.', 'edit');
 }
 
 function deleteListing(listingId) {
