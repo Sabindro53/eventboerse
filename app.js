@@ -1643,10 +1643,35 @@ function shareProvider() {
 }
 
 // ========== CHAT / MESSAGES ==========
+function updateMsgBadge(count) {
+  var badge = document.getElementById('msgBadge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'flex';
+  } else {
+    badge.textContent = '';
+    badge.style.display = 'none';
+  }
+}
+
 function renderChatList() {
   const list = document.getElementById('chatList');
   if (!isLoggedIn) {
-    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Bitte melde dich an, um Nachrichten zu sehen.</div>';
+    // Show demo chats for non-logged-in users
+    list.innerHTML = DEMO_CHATS.map(function(c) {
+      return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
+        '<img src="' + c.avatar + '" alt="' + c.name + '" />' +
+        '<div class="chat-item-info">' +
+          '<strong>' + c.name + '</strong>' +
+          '<p>' + c.lastMsg + '</p>' +
+        '</div>' +
+        '<div class="chat-item-meta">' +
+          '<span>' + c.time + '</span>' +
+          (c.unread > 0 ? '<span class="chat-item-unread">' + c.unread + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
     return;
   }
   fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
@@ -1802,6 +1827,61 @@ function sendMessage() {
 
 function handleChatKeypress(e) {
   if (e.key === 'Enter') sendMessage();
+}
+
+function openDemoChat(chatId) {
+  var chat = DEMO_CHATS.find(function(c) { return c.id === chatId; });
+  if (!chat) return;
+
+  // On mobile: hide sidebar, show chat
+  if (window.innerWidth <= 768) {
+    document.getElementById('chatSidebar').classList.add('hidden');
+    document.getElementById('chatMain').classList.remove('hidden');
+  }
+
+  document.getElementById('chatEmpty').style.display = 'none';
+  document.getElementById('chatActive').style.display = 'flex';
+
+  document.getElementById('chatAvatar').src = chat.avatar;
+  document.getElementById('chatName').textContent = chat.name;
+  document.getElementById('chatStatus').textContent = chat.online ? 'Online' : 'Offline';
+  document.getElementById('chatStatus').className = chat.online ? 'online' : '';
+
+  // Negotiation banner
+  var negBanner = document.getElementById('negotiationBanner');
+  if (chat.negotiation && chat.negotiation.active) {
+    negBanner.style.display = 'flex';
+    var details = 'Dein Angebot: ' + chat.negotiation.yourOffer + '€';
+    if (chat.negotiation.counterOffer) details += ' · Gegenangebot: ' + chat.negotiation.counterOffer + '€';
+    document.getElementById('negDetails').textContent = details;
+  } else {
+    negBanner.style.display = 'none';
+  }
+
+  // Render messages
+  var msgContainer = document.getElementById('chatMessages');
+  msgContainer.innerHTML = chat.messages.map(function(msg) {
+    if (msg.type === 'system') {
+      return '<div class="msg msg-system">' + msg.text + '</div>';
+    } else if (msg.type === 'offer') {
+      return '<div class="msg msg-offer">' +
+        '<div class="offer-label">' + msg.label + '</div>' +
+        '<div class="offer-amount">' + msg.amount + '</div>' +
+        '<div class="offer-status ' + (msg.status || '') + '">' + msg.statusLabel + '</div>' +
+      '</div>';
+    } else {
+      var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
+      return '<div class="msg ' + cls + '">' + msg.text + '<span class="msg-time">' + msg.time + '</span></div>';
+    }
+  }).join('');
+  msgContainer.scrollTop = msgContainer.scrollHeight;
+
+  // Mark active in list
+  document.querySelectorAll('#chatList .chat-item').forEach(function(el) { el.classList.remove('active'); });
+  var items = document.querySelectorAll('#chatList .chat-item');
+  items.forEach(function(el) {
+    if (el.getAttribute('onclick') === 'openDemoChat(' + chatId + ')') el.classList.add('active');
+  });
 }
 
 function startChat() {
@@ -3789,6 +3869,14 @@ function applyLogin() {
     renderFeaturedGrid();
     renderHeroMarquees();
   }).catch(function(){});
+  // Update message badge from API
+  fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(convos) {
+      var total = (convos || []).reduce(function(sum, c) { return sum + (parseInt(c.unread_count) || 0); }, 0);
+      updateMsgBadge(total);
+    })
+    .catch(function() { updateMsgBadge(0); });
 }
 
 function applyLogout() {
@@ -3796,6 +3884,7 @@ function applyLogout() {
   currentUser = null;
   _dbListingsLoaded = false;
   favorites.clear();
+  updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
   document.getElementById('userMenu').classList.remove('show');

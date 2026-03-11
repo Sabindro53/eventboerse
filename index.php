@@ -38,7 +38,7 @@ get_header();
         <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
         <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
-          <span class="badge" id="msgBadge">3</span>
+          <span class="badge" id="msgBadge" style="display:none"></span>
         </button>
         <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()">
           <span class="material-icons-round">menu</span>
