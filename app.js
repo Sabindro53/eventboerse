@@ -2925,6 +2925,12 @@ function initDatePickers() {
     }
   });
   const toPicker = flatpickr('#createDateTo', fpConfig);
+
+  // Booking date on detail page
+  flatpickr('#bookingDate', fpConfig);
+
+  // Negotiation date in modal
+  flatpickr('#negDate', fpConfig);
 }
 
 // ========== GERMAN CITIES ==========
