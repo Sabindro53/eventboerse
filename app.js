@@ -1926,19 +1926,172 @@ function toggleFeatureTag(btn) {
   btn.classList.toggle('selected');
 }
 
-function addCustomFeature() {
-  var input = document.getElementById('customFeatureInput');
-  var text = input.value.trim();
-  if (!text) return;
-  var grid = document.getElementById('createFeatureTags');
-  var btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'feature-tag selected';
-  btn.onclick = function() { toggleFeatureTag(btn); };
-  btn.textContent = '✏️ ' + text;
-  grid.appendChild(btn);
-  input.value = '';
-  showToast('Leistung hinzugefügt!', 'add_circle');
+// ========== LEISTUNGEN SEARCH ==========
+const ALL_FEATURES = [
+  // Musik & DJ
+  '🎵 Professionelle Ausrüstung','🎧 Wunschmusik-Absprache','🔊 Sound-System','🎶 Live-Band',
+  '🎹 Pianist','🎷 Saxophonist','🎸 Gitarrist','🎻 Streichquartett','🥁 Schlagzeuger',
+  '🎤 Sänger / Sängerin','🎙️ DJ-Set','🎚️ Mischpult & Equipment','📀 Playlist-Erstellung',
+  '🪗 Akkordeon-Spieler','🎺 Trompeter','🪕 Banjo-Spieler',
+  // Moderation & Entertainment
+  '🎤 Moderation','🎭 Showeinlage','🤹 Zauberer / Magier','🎪 Bühne & Technik',
+  '🎬 Unterhaltungsprogramm','🎯 Spiele & Aktivitäten','🃏 Karikaturist',
+  '🎰 Casino-Tische','🧩 Quiz & Rätsel','🗣️ Comedian / Stand-Up','💃 Tanzshow',
+  '🪩 Discokugel & Partybeleuchtung','🎊 Konfetti & Effekte','🫧 Seifenblasen-Show',
+  '🤖 Roboter-Show','🧑‍🎤 Tribute-Band','🎠 Karussell / Fahrgeschäfte',
+  // Foto & Video
+  '📸 Foto-Dokumentation','🎥 Video-Produktion','📷 Fotograf','🎞️ Drohnenaufnahmen',
+  '📹 Livestream','🖼️ Sofortbild-Station','📽️ Beamer & Leinwand','🤳 Selfie-Spiegel',
+  '📓 Fotoalbum / Fotobuch','🎞️ After-Movie','🖨️ Sofortdruck vor Ort',
+  // Licht & Technik
+  '💡 Lichtanlage inklusive','✨ Spezialeffekte','🔥 Feuerwerkshow','🎆 Pyrotechnik',
+  '💨 Nebelmaschine','🌈 LED-Beleuchtung','🔦 Spotlights & Moving Heads',
+  '📺 LED-Wand / Bildschirme','🪞 Spiegelkugel','💜 UV-Schwarzlicht',
+  '🕯️ Kerzen & Windlichter','🧊 Trockeneis-Effekte',
+  // Catering & Essen
+  '🍽️ Menü-Auswahl','🥂 Getränke-Service','👨‍🍳 Live-Cooking','🎂 Torte & Desserts',
+  '🍕 Pizza-Station','🍣 Sushi-Bar','🥩 BBQ / Grill-Station','🍦 Eis-Bar',
+  '🧁 Cupcake-Bar','🍿 Popcorn-Maschine','🥤 Cocktail-Bar','🍺 Bier-Zapfanlage',
+  '☕ Kaffee-Bar / Barista','🫕 Fondue-Station','🧀 Käse-Platte',
+  '🍫 Schokoladen-Brunnen','🥗 Veganes / Vegetarisches Menü','🌮 Food-Truck',
+  '🍰 Candy-Bar','🧃 Alkoholfreie Cocktails','🥐 Brunch-Buffet',
+  '🫖 Tee-Zeremonie','🍷 Wein-Verkostung','🥨 Brezel-Bar',
+  // Blumen & Dekoration
+  '🌸 Blumen-Arrangement','🎈 Dekoration','🌺 Brautstrauß','🕊️ Tauben',
+  '🏵️ Tischdekoration','🎀 Stuhlhussen & Schleifen','🪴 Pflanzen-Deko',
+  '🎋 Bambus-Deko','🌿 Greenery / Eukalyptus','🌹 Rosenbogen',
+  '🪷 Lichterketten & Lampions','🎍 Themendekoration','🧵 Wandbehänge / Drapes',
+  // Planung & Organisation
+  '📋 Individuelle Planung','🏠 Location-Beratung','🗓️ Termin-Flexibilität',
+  '⏰ Kurzfristig buchbar','📜 Kostenvoranschlag','🤝 Persönliche Beratung',
+  '📑 Ablaufplanung','🗺️ Sitzplan-Erstellung','📊 Budget-Beratung',
+  '📝 Verträge & Dokumente','🔄 Koordination aller Dienstleister',
+  '🏗️ Komplett-Planung','📆 Save-the-Date Karten',
+  // Transport & Logistik
+  '🚗 Anfahrt inklusive','🔧 Auf- & Abbau','🚐 Shuttle-Service',
+  '🏎️ Limousinen-Service','🐴 Kutsche','🚌 Bus-Transfer',
+  '🚁 Helikopter-Transfer','🛶 Boots-Transfer','🧳 Equipment-Transport',
+  // Beauty & Styling
+  '👗 Styling & Outfit','💄 Make-up & Frisur','💅 Nageldesign',
+  '👰 Braut-Styling','🪮 Barber-Service','🧖 Wellness-Bereich',
+  '💆 Massage-Station','🎨 Bodypainting','✂️ Friseur vor Ort',
+  // Kinder & Familie
+  '🧒 Kinder-Programm','🎠 Hüpfburg','🎨 Kinderschminken',
+  '🧸 Kinderbetreuung','🎪 Puppet-Show','🎈 Ballontiere',
+  '🦸 Superhelden-Auftritt','👸 Prinzessinnen-Besuch','🧙 Zauberer für Kinder',
+  // Sonstiges
+  '🎁 Gastgeschenke','🌍 Mehrsprachig','♿ Barrierefreiheit',
+  '🐾 Haustierfreundlich','🛡️ Security / Sicherheit','🅿️ Parkplatz-Service',
+  '🧹 Reinigung danach','🏕️ Outdoor-Ausstattung','☂️ Regen-Plan B',
+  '📢 Einlass-Management','🎟️ Ticket-System','🪑 Mobiliar-Verleih',
+  '🍾 Champagner-Empfang','🔐 Garderobe','🚻 Mobile Toiletten',
+  '📍 Wegweiser / Beschilderung','🧊 Kühlwagen','🔌 Stromversorgung',
+  '🌡️ Heizstrahler / Klimaanlage','🎗️ Wohltätigkeits-Integration',
+  '📖 Gästebuch','🖊️ Kalligraphie','💐 Trockenblumen-Deko',
+  '🪄 Sand-Zeremonie','🕺 Tanzlehrer / Erster Tanz','🎼 Hochzeitslied',
+  '🧲 Teambuilding-Aktivitäten','🏆 Award-Zeremonien','🎓 Abschlussfeier-Package',
+  '📣 Social-Media Betreuung','🖥️ Technik-Support','🌐 WLAN-Bereitstellung'
+];
+
+function initFeatureSearch() {
+  const input = document.getElementById('featureSearchInput');
+  const list = document.getElementById('featureSearchList');
+  const grid = document.getElementById('createFeatureTags');
+  if (!input || !list || !grid) return;
+
+  function getSelectedTexts() {
+    const set = new Set();
+    grid.querySelectorAll('.feature-tag').forEach(btn => {
+      set.add(btn.textContent.trim());
+    });
+    return set;
+  }
+
+  function addFeatureTag(text) {
+    const existing = grid.querySelectorAll('.feature-tag');
+    for (const btn of existing) {
+      if (btn.textContent.trim() === text) {
+        btn.classList.add('selected');
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'feature-tag selected';
+    btn.textContent = text;
+    btn.onclick = function() { toggleFeatureTag(btn); };
+    grid.appendChild(btn);
+  }
+
+  input.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    list.innerHTML = '';
+    if (!q) { list.style.display = 'none'; return; }
+
+    const inGrid = getSelectedTexts();
+    const matches = ALL_FEATURES.filter(f => {
+      const label = f.replace(/^.+?\s/, '').toLowerCase();
+      return label.includes(q) || f.toLowerCase().includes(q);
+    }).slice(0, 8);
+
+    if (!matches.length) {
+      const li = document.createElement('li');
+      li.className = 'feature-search-item feature-search-custom';
+      li.textContent = '✏️ „' + this.value.trim() + '" als eigene Leistung hinzufügen';
+      li.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        addFeatureTag('✏️ ' + input.value.trim());
+        input.value = '';
+        list.style.display = 'none';
+        showToast('Leistung hinzugefügt!', 'add_circle');
+      });
+      list.appendChild(li);
+      list.style.display = 'block';
+      return;
+    }
+
+    matches.forEach(f => {
+      const li = document.createElement('li');
+      li.className = 'feature-search-item';
+      if (inGrid.has(f)) li.classList.add('already');
+      li.textContent = f;
+      li.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        addFeatureTag(f);
+        input.value = '';
+        list.style.display = 'none';
+      });
+      list.appendChild(li);
+    });
+    list.style.display = 'block';
+  });
+
+  input.addEventListener('blur', function() {
+    setTimeout(() => { list.style.display = 'none'; }, 120);
+  });
+  input.addEventListener('focus', function() {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = list.querySelectorAll('.feature-search-item');
+    if (!items.length) return;
+    let active = list.querySelector('.feature-search-item.active');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!active) { items[0].classList.add('active'); }
+      else { active.classList.remove('active'); const next = active.nextElementSibling; if (next) next.classList.add('active'); else items[0].classList.add('active'); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!active) { items[items.length - 1].classList.add('active'); }
+      else { active.classList.remove('active'); const prev = active.previousElementSibling; if (prev) prev.classList.add('active'); else items[items.length - 1].classList.add('active'); }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active) active.dispatchEvent(new MouseEvent('mousedown'));
+      else if (items[0]) items[0].dispatchEvent(new MouseEvent('mousedown'));
+    }
+  });
 }
 
 // Category → label mapping
@@ -2351,6 +2504,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initDatePickers();
   initCityAutocomplete();
   initTimePickers();
+  initFeatureSearch();
 });
 
 // ========== DATE PICKERS (Flatpickr) ==========

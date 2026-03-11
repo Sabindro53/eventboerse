@@ -1203,43 +1203,13 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Leistungen <span style="font-weight:400; color:var(--text-light);">(anklicken zum Auswählen)</span></label>
-              <div class="feature-tag-grid" id="createFeatureTags">
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎵 Professionelle Ausrüstung</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">💡 Lichtanlage inklusive</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎤 Moderation</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎧 Wunschmusik-Absprache</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">📸 Foto-Dokumentation</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎥 Video-Produktion</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🚗 Anfahrt inklusive</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🔧 Auf- & Abbau</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">📋 Individuelle Planung</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🍽️ Menü-Auswahl</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🥂 Getränke-Service</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">👨‍🍳 Live-Cooking</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🌸 Blumen-Arrangement</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎈 Dekoration</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎂 Torte & Desserts</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🏠 Location-Beratung</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">👗 Styling & Outfit</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">💄 Make-up & Frisur</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎪 Bühne & Technik</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🔊 Sound-System</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">✨ Spezialeffekte</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🎁 Gastgeschenke</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🗓️ Termin-Flexibilität</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">⏰ Kurzfristig buchbar</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🌍 Mehrsprachig</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">♿ Barrierefreiheit</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🐾 Haustierfreundlich</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🧒 Kinder-Programm</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">📜 Kostenvoranschlag</button>
-                <button type="button" class="feature-tag" onclick="toggleFeatureTag(this)">🤝 Persönliche Beratung</button>
+              <label>Leistungen <span style="font-weight:400; color:var(--text-light);">(suchen oder anklicken)</span></label>
+              <div class="feature-search-wrap">
+                <span class="material-icons-round feature-search-icon">search</span>
+                <input type="text" id="featureSearchInput" placeholder="Leistung suchen…" autocomplete="off" />
+                <ul class="feature-search-list" id="featureSearchList"></ul>
               </div>
-              <div class="feature-tag-custom">
-                <input type="text" id="customFeatureInput" placeholder="Eigene Leistung hinzufügen..." />
-                <button type="button" class="btn-outline btn-sm" onclick="addCustomFeature()">+ Hinzufügen</button>
-              </div>
+              <div class="feature-tag-grid" id="createFeatureTags"></div>
             </div>
             <div class="form-nav">
               <button type="button" class="btn-outline" onclick="nextStep(1)">
