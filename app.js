@@ -2000,7 +2000,13 @@ function submitListing(e) {
   if (!category) { showToast('Bitte wähle eine Kategorie', 'warning'); nextStep(1); return; }
   if (!description) { showToast('Bitte gib eine Beschreibung ein', 'warning'); nextStep(1); return; }
   if (!price) { showToast('Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
-  const region = document.getElementById('createRegion').value.trim() || 'Deutschland';
+  const region = document.getElementById('createRegionValue').value.trim()
+    || document.getElementById('createRegion').value.trim() || 'Deutschland';
+  const dateFrom = document.getElementById('createDateFrom').value;
+  const dateTo = document.getElementById('createDateTo').value;
+  const timeFrom = getTimeISO('createTimeFrom');
+  const timeTo = getTimeISO('createTimeTo');
+  const duration = parseFloat(document.getElementById('createDuration').value) || 0;
   const selectedTags = document.querySelectorAll('#createFeatureTags .feature-tag.selected');
   const features = selectedTags.length > 0
     ? Array.from(selectedTags).map(function(btn) { return btn.textContent.trim(); })
@@ -2051,6 +2057,11 @@ function submitListing(e) {
     description: `<p>${description.replace(/\n/g, '</p><p>')}</p>`,
     features: features,
     tags: tags.length > 0 ? tags : ['Party'],
+    dateFrom: dateFrom,
+    dateTo: dateTo,
+    timeFrom: timeFrom,
+    timeTo: timeTo,
+    duration: duration,
     badge: 'Neu',
     negotiable: true
   };
@@ -2356,13 +2367,17 @@ document.addEventListener('DOMContentLoaded', function() {
   initPasswordFields();
   initDragScroll();
   initDatePickers();
+  initCityAutocomplete();
+  initTimePickers();
 });
 
 // ========== DATE PICKERS (Flatpickr) ==========
 function initDatePickers() {
   const fpConfig = {
     locale: 'de',
-    dateFormat: 'd.m.Y',
+    dateFormat: 'Y-m-d',
+    altInput: true,
+    altFormat: 'd.m.Y',
     allowInput: true,
     disableMobile: true,
     minDate: 'today'
@@ -2376,6 +2391,137 @@ function initDatePickers() {
     }
   });
   const toPicker = flatpickr('#createDateTo', fpConfig);
+}
+
+// ========== GERMAN CITIES ==========
+const GERMAN_CITIES = [
+  {name:'Berlin',state:'Berlin'},{name:'Hamburg',state:'Hamburg'},{name:'München',state:'Bayern'},
+  {name:'Köln',state:'NRW'},{name:'Frankfurt am Main',state:'Hessen'},{name:'Stuttgart',state:'Baden-Württemberg'},
+  {name:'Düsseldorf',state:'NRW'},{name:'Leipzig',state:'Sachsen'},{name:'Dortmund',state:'NRW'},
+  {name:'Essen',state:'NRW'},{name:'Bremen',state:'Bremen'},{name:'Dresden',state:'Sachsen'},
+  {name:'Hannover',state:'Niedersachsen'},{name:'Nürnberg',state:'Bayern'},{name:'Duisburg',state:'NRW'},
+  {name:'Bochum',state:'NRW'},{name:'Wuppertal',state:'NRW'},{name:'Bielefeld',state:'NRW'},
+  {name:'Bonn',state:'NRW'},{name:'Münster',state:'NRW'},{name:'Mannheim',state:'Baden-Württemberg'},
+  {name:'Karlsruhe',state:'Baden-Württemberg'},{name:'Augsburg',state:'Bayern'},{name:'Wiesbaden',state:'Hessen'},
+  {name:'Mönchengladbach',state:'NRW'},{name:'Gelsenkirchen',state:'NRW'},{name:'Aachen',state:'NRW'},
+  {name:'Braunschweig',state:'Niedersachsen'},{name:'Kiel',state:'Schleswig-Holstein'},{name:'Chemnitz',state:'Sachsen'},
+  {name:'Halle (Saale)',state:'Sachsen-Anhalt'},{name:'Magdeburg',state:'Sachsen-Anhalt'},{name:'Freiburg',state:'Baden-Württemberg'},
+  {name:'Krefeld',state:'NRW'},{name:'Mainz',state:'Rheinland-Pfalz'},{name:'Lübeck',state:'Schleswig-Holstein'},
+  {name:'Erfurt',state:'Thüringen'},{name:'Oberhausen',state:'NRW'},{name:'Rostock',state:'Mecklenburg-Vorpommern'},
+  {name:'Kassel',state:'Hessen'},{name:'Hagen',state:'NRW'},{name:'Potsdam',state:'Brandenburg'},
+  {name:'Saarbrücken',state:'Saarland'},{name:'Hamm',state:'NRW'},{name:'Ludwigshafen',state:'Rheinland-Pfalz'},
+  {name:'Oldenburg',state:'Niedersachsen'},{name:'Osnabrück',state:'Niedersachsen'},{name:'Leverkusen',state:'NRW'},
+  {name:'Heidelberg',state:'Baden-Württemberg'},{name:'Darmstadt',state:'Hessen'},{name:'Solingen',state:'NRW'},
+  {name:'Regensburg',state:'Bayern'},{name:'Herne',state:'NRW'},{name:'Paderborn',state:'NRW'},
+  {name:'Neuss',state:'NRW'},{name:'Ingolstadt',state:'Bayern'},{name:'Offenbach',state:'Hessen'},
+  {name:'Würzburg',state:'Bayern'},{name:'Ulm',state:'Baden-Württemberg'},{name:'Heilbronn',state:'Baden-Württemberg'},
+  {name:'Pforzheim',state:'Baden-Württemberg'},{name:'Wolfsburg',state:'Niedersachsen'},{name:'Göttingen',state:'Niedersachsen'},
+  {name:'Bottrop',state:'NRW'},{name:'Reutlingen',state:'Baden-Württemberg'},{name:'Koblenz',state:'Rheinland-Pfalz'},
+  {name:'Bremerhaven',state:'Bremen'},{name:'Bergisch Gladbach',state:'NRW'},{name:'Jena',state:'Thüringen'},
+  {name:'Erlangen',state:'Bayern'},{name:'Trier',state:'Rheinland-Pfalz'},{name:'Remscheid',state:'NRW'},
+  {name:'Salzgitter',state:'Niedersachsen'},{name:'Siegen',state:'NRW'},{name:'Cottbus',state:'Brandenburg'},
+  {name:'Hildesheim',state:'Niedersachsen'},{name:'Gera',state:'Thüringen'},{name:'Schwerin',state:'Mecklenburg-Vorpommern'},
+  {name:'Gütersloh',state:'NRW'},{name:'Konstanz',state:'Baden-Württemberg'},{name:'Bamberg',state:'Bayern'},
+  {name:'Bayreuth',state:'Bayern'},{name:'Lüneburg',state:'Niedersachsen'},{name:'Marburg',state:'Hessen'},
+  {name:'Hanau',state:'Hessen'},{name:'Flensburg',state:'Schleswig-Holstein'},{name:'Wilhelmshaven',state:'Niedersachsen'},
+  {name:'Schwäbisch Gmünd',state:'Baden-Württemberg'},{name:'Friedrichshafen',state:'Baden-Württemberg'},
+  {name:'Esslingen',state:'Baden-Württemberg'},{name:'Görlitz',state:'Sachsen'},{name:'Passau',state:'Bayern'},
+  {name:'Stralsund',state:'Mecklenburg-Vorpommern'},{name:'Greifswald',state:'Mecklenburg-Vorpommern'},
+  {name:'Zwickau',state:'Sachsen'},{name:'Plauen',state:'Sachsen'},{name:'Fulda',state:'Hessen'},
+  {name:'Landshut',state:'Bayern'},{name:'Ravensburg',state:'Baden-Württemberg'},{name:'Baden-Baden',state:'Baden-Württemberg'},
+  {name:'Weimar',state:'Thüringen'},{name:'Aschaffenburg',state:'Bayern'},{name:'Minden',state:'NRW'},
+  {name:'Detmold',state:'NRW'},{name:'Worms',state:'Rheinland-Pfalz'},{name:'Speyer',state:'Rheinland-Pfalz'}
+];
+
+function initCityAutocomplete() {
+  const input = document.getElementById('createRegion');
+  const hidden = document.getElementById('createRegionValue');
+  const list = document.getElementById('cityAutocompleteList');
+  if (!input || !list) return;
+  let activeIdx = -1;
+
+  input.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    hidden.value = '';
+    if (q.length < 1) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    const matches = GERMAN_CITIES.filter(c => c.name.toLowerCase().startsWith(q)).slice(0, 8);
+    if (matches.length === 0) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    activeIdx = -1;
+    list.innerHTML = matches.map((c, i) =>
+      `<li data-city="${c.name}" data-state="${c.state}">${c.name}<span class="city-state">${c.state}</span></li>`
+    ).join('');
+    list.classList.add('open');
+  });
+
+  list.addEventListener('click', function(e) {
+    const li = e.target.closest('li');
+    if (!li) return;
+    input.value = li.dataset.city;
+    hidden.value = li.dataset.city;
+    list.classList.remove('open');
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = list.querySelectorAll('li');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
+    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); items[activeIdx].click(); return; }
+    else return;
+    items.forEach((it, i) => it.classList.toggle('active', i === activeIdx));
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.city-autocomplete-wrap')) list.classList.remove('open');
+  });
+}
+
+// ========== TIME PICKER HELPERS ==========
+function getTime24(prefix) {
+  let h = parseInt(document.getElementById(prefix + 'H').value);
+  const m = parseInt(document.getElementById(prefix + 'M').value);
+  const ap = document.getElementById(prefix + 'AP').value;
+  if (ap === 'AM' && h === 12) h = 0;
+  else if (ap === 'PM' && h !== 12) h += 12;
+  return { h, m, total: h * 60 + m };
+}
+
+function getTimeISO(prefix) {
+  const t = getTime24(prefix);
+  return String(t.h).padStart(2, '0') + ':' + String(t.m).padStart(2, '0');
+}
+
+function calcDuration() {
+  const from = getTime24('createTimeFrom');
+  const to = getTime24('createTimeTo');
+  let diff = to.total - from.total;
+  if (diff <= 0) diff += 1440;
+  const hours = diff / 60;
+  const durInput = document.getElementById('createDuration');
+  durInput.value = hours % 1 === 0 ? hours : hours.toFixed(1);
+  durInput.max = hours;
+  durInput.readOnly = false;
+  const hint = document.getElementById('durationHint');
+  if (hint) hint.textContent = `Max. ${hours % 1 === 0 ? hours : hours.toFixed(1)} Std. im Zeitraum`;
+}
+
+function initTimePickers() {
+  ['createTimeFromH','createTimeFromM','createTimeFromAP',
+   'createTimeToH','createTimeToM','createTimeToAP'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', calcDuration);
+  });
+  const durInput = document.getElementById('createDuration');
+  if (durInput) {
+    durInput.addEventListener('change', function() {
+      const maxH = parseFloat(this.max) || 24;
+      let v = parseFloat(this.value);
+      if (isNaN(v) || v < 0.25) v = 0.25;
+      if (v > maxH) v = maxH;
+      this.value = v % 1 === 0 ? v : v.toFixed(1);
+    });
+  }
+  calcDuration();
 }
 
 // ========== FAVORITES ==========

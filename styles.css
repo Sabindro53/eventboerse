@@ -2834,6 +2834,52 @@ span.flatpickr-weekday {
 }
 
 .form-nav { display: flex; justify-content: space-between; margin-top: 24px; }
+
+/* City Autocomplete */
+.city-autocomplete-wrap { position: relative; }
+.city-autocomplete-list {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  max-height: 220px; overflow-y: auto;
+  z-index: 100; list-style: none;
+  box-shadow: var(--shadow-md);
+  display: none;
+}
+.city-autocomplete-list.open { display: block; }
+.city-autocomplete-list li {
+  padding: 10px 16px; cursor: pointer;
+  font-size: 0.95rem; color: var(--dark);
+  transition: background 0.15s;
+}
+.city-autocomplete-list li:hover,
+.city-autocomplete-list li.active {
+  background: var(--primary-light); color: var(--primary-dark);
+}
+.city-autocomplete-list li .city-state {
+  font-size: 0.8rem; color: var(--text-light); margin-left: 6px;
+}
+
+/* Time Picker */
+.time-picker-wrap {
+  display: flex; align-items: center; gap: 4px;
+}
+.time-select {
+  width: auto !important; min-width: 56px;
+  padding: 10px 8px !important; text-align: center;
+  font-size: 0.95rem; cursor: pointer;
+  appearance: auto;
+}
+.time-select-min { min-width: 56px; }
+.time-select-ap { min-width: 60px; font-weight: 600; }
+.time-sep { font-size: 1.1rem; font-weight: 700; color: var(--text-light); }
+.form-row-time { grid-template-columns: 1fr 1fr 0.7fr; }
+#createDuration { text-align: center; background: var(--bg-alt); }
+.duration-hint {
+  display: block; margin-top: 4px;
+  font-size: 0.78rem; color: var(--text-light);
+}
+
 .checkbox-group {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
