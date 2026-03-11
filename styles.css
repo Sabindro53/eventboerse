@@ -2536,7 +2536,14 @@ img { display: block; max-width: 100%; }
 .profile-avatar-edit:hover { background: var(--primary-dark); transform: scale(1.1); }
 .profile-avatar-edit .material-icons-round { font-size: 18px; }
 
-.profile-hero-info { flex: 1; padding-bottom: 4px; }
+.profile-hero-info {
+  flex: 1; padding: 10px 16px 10px 16px;
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
 .profile-name-row, .profile-tagline-row {
   display: flex; align-items: center; gap: 8px;
 }
