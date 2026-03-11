@@ -2891,11 +2891,7 @@ span.flatpickr-weekday {
   35%  { transform: scale(1.06); color: var(--accent); }
   100% { transform: scale(1);   color: var(--primary); }
 }
-.duration-hint {
-  display: block; margin-top: 4px;
-  font-size: 0.78rem; color: var(--text-light);
-  text-align: center;
-}
+
 
 .checkbox-group {
   display: grid;

@@ -2355,6 +2355,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ========== DATE PICKERS (Flatpickr) ==========
 function initDatePickers() {
+  if (typeof flatpickr === 'undefined') return;
   const fpConfig = {
     locale: 'de',
     dateFormat: 'Y-m-d',
@@ -2480,13 +2481,12 @@ function calcDuration() {
   if (diff <= 0) diff += 1440;
   const hours = diff / 60;
   const durInput = document.getElementById('createDuration');
-  const formatted = hours % 1 === 0 ? hours : hours.toFixed(1);
+  if (!durInput) return;
+  const formatted = hours % 1 === 0 ? hours : hours.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
   durInput.value = formatted;
   durInput.max = hours;
   durInput.min = 0.25;
   flashDuration();
-  const hint = document.getElementById('durationHint');
-  if (hint) hint.textContent = 'Max. ' + formatted + ' Std. im gewählten Zeitraum';
 }
 
 function flashDuration() {

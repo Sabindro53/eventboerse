@@ -43,6 +43,28 @@ function eventboerse_enqueue_assets() {
         true
     );
 
+    // Flatpickr
+    wp_enqueue_style(
+        'flatpickr',
+        'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+        array(),
+        '4.6.13'
+    );
+    wp_enqueue_script(
+        'flatpickr',
+        'https://cdn.jsdelivr.net/npm/flatpickr',
+        array(),
+        '4.6.13',
+        true
+    );
+    wp_enqueue_script(
+        'flatpickr-de',
+        'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js',
+        array( 'flatpickr' ),
+        '4.6.13',
+        true
+    );
+
     // Theme Hauptstylesheet (style.css) – WordPress-Pflichtdatei (nur Header, keine Regeln)
     wp_enqueue_style(
         'eventboerse-style',
@@ -63,7 +85,7 @@ function eventboerse_enqueue_assets() {
     wp_enqueue_script(
         'eventboerse-app',
         get_template_directory_uri() . '/app.js',
-        array( 'leaflet' ),
+        array( 'leaflet', 'flatpickr', 'flatpickr-de' ),
         $app_ver,
         true
     );
