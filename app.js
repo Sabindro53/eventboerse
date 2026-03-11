@@ -429,8 +429,8 @@ async function loadDbListings() {
         l.id = l.id + 10000; // offset DB IDs
         l._fromDb = true;
         l._dbId = l.id - 10000;
-        // Don't add duplicates
-        if (!LISTINGS.find(function(ex) { return ex._dbId === l._dbId; })) {
+        // Don't add duplicates (check both offset ID and raw DB ID)
+        if (!LISTINGS.find(function(ex) { return ex.id === l.id || ex._dbId === l._dbId; })) {
           LISTINGS.unshift(l);
         }
       });
@@ -650,7 +650,14 @@ function timeAgo(minutes) {
 function renderFeed(tab) {
   const list = document.getElementById('feedList');
   if (!list) return;
-  let items = [...LISTINGS];
+  // Deduplicate LISTINGS by id (keep first occurrence)
+  const seen = new Set();
+  let items = LISTINGS.filter(function(l) {
+    if (seen.has(l.id)) return false;
+    seen.add(l.id);
+    return true;
+  });
+  items = [...items];
   if (tab === 'newest') {
     items = items.reverse();
   } else if (tab === 'popular') {
@@ -709,10 +716,22 @@ function toggleFeedFav(btn, id) {
     favorites.delete(id);
     btn.classList.remove('active');
     btn.querySelector('.material-icons-round').textContent = 'favorite_border';
+    showToast('Von Favoriten entfernt', 'favorite_border');
   } else {
     favorites.add(id);
     btn.classList.add('active');
     btn.querySelector('.material-icons-round').textContent = 'favorite';
+    showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
+  }
+  // Sync with API if logged in
+  if (isLoggedIn) {
+    var dbId = id;
+    var listing = LISTINGS.find(function(l) { return l.id === id; });
+    if (listing && listing._dbId) dbId = listing._dbId;
+    else if (listing && listing._fromDb) dbId = id - 10000;
+    fetch(_apiUrl('favorites/' + dbId), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
+    }).catch(function(){});
   }
 }
 
