@@ -376,6 +376,60 @@ let currentListing = null;
 let currentChat = null;
 let isLoggedIn = false;
 let favorites = new Set();
+let _dbListingsLoaded = false;
+
+// ========== FILE UPLOAD HELPER ==========
+async function uploadFile(file) {
+  var formData = new FormData();
+  formData.append('file', file);
+  var headers = {};
+  if (_wpNonce) headers['X-WP-Nonce'] = _wpNonce;
+  var resp = await fetch(_apiUrl('upload'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: headers,
+    body: formData
+  });
+  if (!resp.ok) throw new Error('Upload fehlgeschlagen');
+  return await resp.json(); // { id, url }
+}
+
+// Load database listings into LISTINGS array (merged with demo data)
+async function loadDbListings() {
+  if (_dbListingsLoaded) return;
+  try {
+    var resp = await fetch(_apiUrl('listings?per_page=50'), { credentials: 'same-origin', headers: _apiHeaders() });
+    if (!resp.ok) return;
+    var data = await resp.json();
+    if (data.listings && data.listings.length > 0) {
+      // Assign high IDs to avoid collision with demo data
+      data.listings.forEach(function(l) {
+        l.id = l.id + 10000; // offset DB IDs
+        l._fromDb = true;
+        l._dbId = l.id - 10000;
+        // Don't add duplicates
+        if (!LISTINGS.find(function(ex) { return ex._dbId === l._dbId; })) {
+          LISTINGS.unshift(l);
+        }
+      });
+    }
+    _dbListingsLoaded = true;
+  } catch(e) { /* API not available yet */ }
+}
+
+// Load user's favorites from backend
+async function loadFavorites() {
+  if (!isLoggedIn) return;
+  try {
+    var resp = await fetch(_apiUrl('favorites'), { credentials: 'same-origin', headers: _apiHeaders() });
+    if (!resp.ok) return;
+    var data = await resp.json();
+    favorites.clear();
+    data.forEach(function(l) {
+      favorites.add(l.id + 10000);
+    });
+  } catch(e) {}
+}
 
 // ========== BLOCKED DATA PATTERNS ==========
 const BLOCKED_PATTERNS = [
@@ -416,7 +470,7 @@ function navigateTo(page, data, skipHistory) {
   // Page-specific logic
   switch (page) {
     case 'browse':
-      renderBrowseGrid(LISTINGS);
+      loadDbListings().then(function() { renderBrowseGrid(LISTINGS); });
       break;
     case 'explore':
       renderExploreGrid();
@@ -1361,6 +1415,16 @@ function loadProvider(providerId) {
   document.getElementById('providerRating').textContent = mainListing.rating;
   document.getElementById('providerReviews').textContent = mainListing.reviews;
 
+  // Store provider user ID for chat
+  var puidEl = document.getElementById('providerUserId');
+  if (!puidEl) {
+    puidEl = document.createElement('input');
+    puidEl.type = 'hidden';
+    puidEl.id = 'providerUserId';
+    document.getElementById('page-provider').appendChild(puidEl);
+  }
+  puidEl.value = mainListing.providerId || '';
+
   // Badges
   const badgesEl = document.getElementById('providerBadges');
   let badgesHtml = '';
@@ -1517,61 +1581,100 @@ function shareProvider() {
 // ========== CHAT / MESSAGES ==========
 function renderChatList() {
   const list = document.getElementById('chatList');
-  list.innerHTML = DEMO_CHATS.map(chat => `
-    <div class="chat-item ${currentChat?.id === chat.id ? 'active' : ''}" onclick="openChat(${chat.id})">
-      <img src="${chat.avatar}" alt="${chat.name}" />
-      <div class="chat-item-info">
-        <strong>${chat.name}</strong>
-        <p>${chat.lastMsg}</p>
-      </div>
-      <div class="chat-item-meta">
-        <span>${chat.time}</span>
-        ${chat.unread > 0 ? `<span class="chat-item-unread">${chat.unread}</span>` : ''}
-      </div>
-    </div>
-  `).join('');
+  if (!isLoggedIn) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Bitte melde dich an, um Nachrichten zu sehen.</div>';
+    return;
+  }
+  fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(convos) {
+      window._conversations = convos || [];
+      if (convos.length === 0) {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Noch keine Nachrichten.</div>';
+        return;
+      }
+      list.innerHTML = convos.map(function(c) {
+        var avatar = c.other_photo || 'assets/img/placeholder.jpg';
+        var name = c.other_name || 'Unbekannt';
+        var lastMsg = c.last_message || '';
+        if (lastMsg.length > 40) lastMsg = lastMsg.substring(0, 40) + '…';
+        var time = c.updated_at ? new Date(c.updated_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+        var unread = parseInt(c.unread_count) || 0;
+        var activeClass = currentChat && currentChat.id === c.id ? 'active' : '';
+        return '<div class="chat-item ' + activeClass + '" onclick="openChat(' + c.id + ')">' +
+          '<img src="' + avatar + '" alt="' + name + '" />' +
+          '<div class="chat-item-info">' +
+            '<strong>' + name + '</strong>' +
+            '<p>' + lastMsg + '</p>' +
+          '</div>' +
+          '<div class="chat-item-meta">' +
+            '<span>' + time + '</span>' +
+            (unread > 0 ? '<span class="chat-item-unread">' + unread + '</span>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    })
+    .catch(function() {
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Fehler beim Laden.</div>';
+    });
 }
 
 function openChat(chatId) {
-  const chat = DEMO_CHATS.find(c => c.id === chatId);
-  if (!chat) return;
-  currentChat = chat;
+  fetch(_apiUrl('conversations/' + chatId + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(messages) {
+      var convo = (window._conversations || []).find(function(c) { return c.id === chatId; });
+      currentChat = {
+        id: chatId,
+        name: convo ? convo.other_name : 'Chat',
+        avatar: convo ? (convo.other_photo || 'assets/img/placeholder.jpg') : 'assets/img/placeholder.jpg',
+        online: false,
+        messages: messages || []
+      };
 
-  // On mobile: hide sidebar, show chat
-  if (window.innerWidth <= 768) {
-    document.getElementById('chatSidebar').classList.add('hidden');
-    document.getElementById('chatMain').classList.remove('hidden');
-  }
+      // On mobile: hide sidebar, show chat
+      if (window.innerWidth <= 768) {
+        document.getElementById('chatSidebar').classList.add('hidden');
+        document.getElementById('chatMain').classList.remove('hidden');
+      }
 
-  document.getElementById('chatEmpty').style.display = 'none';
-  document.getElementById('chatActive').style.display = 'flex';
+      document.getElementById('chatEmpty').style.display = 'none';
+      document.getElementById('chatActive').style.display = 'flex';
 
-  document.getElementById('chatAvatar').src = chat.avatar;
-  document.getElementById('chatName').textContent = chat.name;
-  document.getElementById('chatStatus').textContent = chat.online ? 'Online' : 'Offline';
-  document.getElementById('chatStatus').className = chat.online ? 'online' : 'offline';
+      document.getElementById('chatAvatar').src = currentChat.avatar;
+      document.getElementById('chatName').textContent = currentChat.name;
+      document.getElementById('chatStatus').textContent = 'Online';
+      document.getElementById('chatStatus').className = 'online';
 
-  // Negotiation banner
-  const banner = document.getElementById('negotiationBanner');
-  if (chat.negotiation?.active) {
-    banner.style.display = 'flex';
-    const neg = chat.negotiation;
-    if (neg.counterOffer) {
-      document.getElementById('negDetails').textContent = `Dein Angebot: ${neg.yourOffer}€ · Gegenangebot: ${neg.counterOffer}€`;
-    } else {
-      document.getElementById('negDetails').textContent = `Dein Angebot: ${neg.yourOffer}€ · Wartet auf Antwort`;
-    }
-  } else {
-    banner.style.display = 'none';
-  }
+      // Hide negotiation banner for now
+      document.getElementById('negotiationBanner').style.display = 'none';
 
-  // Messages
-  const msgContainer = document.getElementById('chatMessages');
-  msgContainer.innerHTML = chat.messages.map(renderMessage).join('');
-  msgContainer.scrollTop = msgContainer.scrollHeight;
+      // Render messages
+      var msgContainer = document.getElementById('chatMessages');
+      msgContainer.innerHTML = (messages || []).map(function(msg) {
+        var myId = currentUser ? currentUser.id : 0;
+        if (msg.type === 'system') {
+          return '<div class="msg msg-system">' + msg.content + '</div>';
+        } else if (msg.type === 'offer') {
+          return '<div class="msg msg-offer">' +
+            '<div class="offer-label">' + (msg.sender_id == myId ? 'Dein Angebot' : 'Angebot') + '</div>' +
+            '<div class="offer-amount">' + msg.content + '</div>' +
+            '<div class="offer-status pending">Gesendet</div>' +
+          '</div>';
+        } else {
+          var cls = msg.sender_id == myId ? 'msg-sent' : 'msg-received';
+          var time = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+          return '<div class="msg ' + cls + '">' + msg.content + '<span class="msg-time">' + time + '</span></div>';
+        }
+      }).join('');
+      msgContainer.scrollTop = msgContainer.scrollHeight;
 
-  // Update chat list
-  renderChatList();
+      // Update chat list
+      renderChatList();
+    })
+    .catch(function() {
+      showToast('Chat konnte nicht geladen werden', 'error');
+    });
 }
 
 function renderMessage(msg) {
@@ -1614,40 +1717,24 @@ function sendMessage() {
     return;
   }
 
-  const now = new Date();
-  const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-
-  currentChat.messages.push({ type: 'sent', text, time });
-  currentChat.lastMsg = text;
-  currentChat.time = time;
-
   input.value = '';
 
-  // Re-render
-  const msgContainer = document.getElementById('chatMessages');
-  msgContainer.innerHTML = currentChat.messages.map(renderMessage).join('');
-  msgContainer.scrollTop = msgContainer.scrollHeight;
-
-  // Simulate reply after 2s
-  setTimeout(() => {
-    const replies = [
-      'Danke für die Nachricht! Ich melde mich in Kürze.',
-      'Klingt super! Lass uns die Details besprechen.',
-      'Perfekt, ich schaue mir das an und sage dir Bescheid!',
-      'Freut mich! Ich habe da ein paar tolle Ideen für euch.',
-      'Sehr gerne! Wann wäre ein guter Zeitpunkt für ein Gespräch auf der Plattform?'
-    ];
-    const reply = replies[Math.floor(Math.random() * replies.length)];
-    const replyTime = new Date();
-    const rTime = replyTime.getHours().toString().padStart(2, '0') + ':' + replyTime.getMinutes().toString().padStart(2, '0');
-
-    currentChat.messages.push({ type: 'received', text: reply, time: rTime });
-    currentChat.lastMsg = reply;
-
-    const mc = document.getElementById('chatMessages');
-    mc.innerHTML = currentChat.messages.map(renderMessage).join('');
-    mc.scrollTop = mc.scrollHeight;
-  }, 2000);
+  // Send to API
+  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ content: text, type: 'message' })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(msg) {
+      // Append the sent message
+      var time = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+      var msgContainer = document.getElementById('chatMessages');
+      msgContainer.innerHTML += '<div class="msg msg-sent">' + msg.content + '<span class="msg-time">' + time + '</span></div>';
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+    })
+    .catch(function() {
+      showToast('Nachricht senden fehlgeschlagen', 'error');
+    });
 }
 
 function handleChatKeypress(e) {
@@ -1655,17 +1742,51 @@ function handleChatKeypress(e) {
 }
 
 function startChat() {
-  if (!currentListing) return;
-  navigateTo('messages');
-  setTimeout(() => openChat(1), 100);
+  if (!isLoggedIn) {
+    showToast('Bitte melde dich an, um eine Nachricht zu senden.', 'warning');
+    openModal('loginModal');
+    return;
+  }
+  if (!currentListing || !currentListing.providerId) return;
+  // Create or find conversation with provider
+  fetch(_apiUrl('conversations'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(convo) {
+      navigateTo('messages');
+      setTimeout(function() { openChat(convo.id); }, 200);
+    })
+    .catch(function() {
+      showToast('Chat konnte nicht gestartet werden', 'error');
+    });
 }
 
 function startChatWithProvider() {
-  // Find chat matching current provider
-  const providerName = document.getElementById('providerName')?.textContent;
-  const chat = DEMO_CHATS.find(c => c.name === providerName) || DEMO_CHATS[0];
-  navigateTo('messages');
-  setTimeout(() => openChat(chat.id), 100);
+  if (!isLoggedIn) {
+    showToast('Bitte melde dich an, um eine Nachricht zu senden.', 'warning');
+    openModal('loginModal');
+    return;
+  }
+  var providerIdEl = document.getElementById('providerUserId');
+  var providerId = providerIdEl ? parseInt(providerIdEl.value) : null;
+  if (!providerId) {
+    showToast('Anbieter nicht gefunden', 'error');
+    return;
+  }
+  fetch(_apiUrl('conversations'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ other_user_id: providerId })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(convo) {
+      navigateTo('messages');
+      setTimeout(function() { openChat(convo.id); }, 200);
+    })
+    .catch(function() {
+      showToast('Chat konnte nicht gestartet werden', 'error');
+    });
 }
 
 // ========== NEGOTIATION ==========
@@ -1692,18 +1813,29 @@ function submitNegotiation(e) {
   closeModal('negotiationModal');
   showToast(`Angebot über ${price}€ wurde gesendet!`, 'gavel');
 
-  // Add to chat
-  if (DEMO_CHATS[0]) {
-    DEMO_CHATS[0].messages.push(
-      { type: 'offer', label: 'Dein Angebot', amount: price + '€', status: 'pending', statusLabel: 'Wartet auf Antwort' }
-    );
-    if (message) {
-      const now = new Date();
-      const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-      DEMO_CHATS[0].messages.push({ type: 'sent', text: message, time });
-    }
-    DEMO_CHATS[0].negotiation = { active: true, yourOffer: parseInt(price), counterOffer: null, status: 'sent' };
-  }
+  if (!isLoggedIn || !currentListing || !currentListing.providerId) return;
+
+  // Create conversation and send offer
+  fetch(_apiUrl('conversations'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(convo) {
+      // Send offer message
+      fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ content: price + '€', type: 'offer' })
+      }).catch(function(){});
+      // Send text message if any
+      if (message) {
+        fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
+          method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+          body: JSON.stringify({ content: message, type: 'message' })
+        }).catch(function(){});
+      }
+    })
+    .catch(function(){});
 }
 
 function openNegotiationInChat() {
@@ -1722,20 +1854,20 @@ function submitCounterOffer(e) {
   closeModal('counterOfferModal');
 
   if (currentChat) {
-    const now = new Date();
-    const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-
-    currentChat.messages.push(
-      { type: 'offer', label: 'Dein Gegenangebot', amount: amount + '€', status: 'pending', statusLabel: 'Wartet auf Antwort' }
-    );
-    if (msg) {
-      currentChat.messages.push({ type: 'sent', text: msg, time });
-    }
-    currentChat.negotiation.yourOffer = parseInt(amount);
-
-    const mc = document.getElementById('chatMessages');
-    mc.innerHTML = currentChat.messages.map(renderMessage).join('');
-    mc.scrollTop = mc.scrollHeight;
+    // Send counter-offer via API
+    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+      body: JSON.stringify({ content: amount + '€', type: 'offer' })
+    }).then(function() {
+      if (msg) {
+        return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+          method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+          body: JSON.stringify({ content: msg, type: 'message' })
+        });
+      }
+    }).then(function() {
+      openChat(currentChat.id);
+    }).catch(function(){});
   }
 
   showToast(`Gegenangebot über ${amount}€ gesendet!`, 'gavel');
@@ -1744,15 +1876,13 @@ function submitCounterOffer(e) {
 function acceptOffer() {
   if (!currentChat) return;
 
-  currentChat.messages.push(
-    { type: 'system', text: '✅ Angebot angenommen! Der Preis wurde vereinbart.' }
-  );
-  currentChat.negotiation.active = false;
-  document.getElementById('negotiationBanner').style.display = 'none';
-
-  const mc = document.getElementById('chatMessages');
-  mc.innerHTML = currentChat.messages.map(renderMessage).join('');
-  mc.scrollTop = mc.scrollHeight;
+  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ content: '✅ Angebot angenommen! Der Preis wurde vereinbart.', type: 'system' })
+  }).then(function() {
+    document.getElementById('negotiationBanner').style.display = 'none';
+    openChat(currentChat.id);
+  }).catch(function(){});
 
   showToast('Angebot angenommen! 🎉', 'check_circle');
 }
@@ -1760,15 +1890,13 @@ function acceptOffer() {
 function declineOffer() {
   if (!currentChat) return;
 
-  currentChat.messages.push(
-    { type: 'system', text: '❌ Angebot abgelehnt.' }
-  );
-  currentChat.negotiation.active = false;
-  document.getElementById('negotiationBanner').style.display = 'none';
-
-  const mc = document.getElementById('chatMessages');
-  mc.innerHTML = currentChat.messages.map(renderMessage).join('');
-  mc.scrollTop = mc.scrollHeight;
+  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ content: '❌ Angebot abgelehnt.', type: 'system' })
+  }).then(function() {
+    document.getElementById('negotiationBanner').style.display = 'none';
+    openChat(currentChat.id);
+  }).catch(function(){});
 
   showToast('Angebot abgelehnt.', 'cancel');
 }
@@ -2264,90 +2392,111 @@ function submitListing(e) {
   const tagEls = document.querySelectorAll('#createTags input[type=checkbox]:checked');
   const tags = Array.from(tagEls).map(el => el.value);
 
-  // Uploaded images (data-URLs from preview) or default per category
-  const uploadedImgs = Array.from(document.querySelectorAll('#uploadPreview .upload-preview-item img')).map(img => img.src);
-  const catImgIds = CATEGORY_DEFAULT_IMAGES[category] || CATEGORY_DEFAULT_IMAGES['dj'];
-  let mainImage, galleryImages;
-  if (uploadedImgs.length > 0) {
-    mainImage = uploadedImgs[0];
-    galleryImages = uploadedImgs.length >= 2 ? uploadedImgs : [uploadedImgs[0], ...catImgIds.slice(1).map(id => pexelsUrl(id, 600, 400))];
-  } else {
-    mainImage = pexelsUrl(catImgIds[0], 600, 400);
-    galleryImages = catImgIds.map(id => pexelsUrl(id, 600, 400));
-  }
-
   // Extract city from region
   const city = region.split(/[,&·–-]/)[0].trim();
 
   // Build price label
   const priceLabel = price > 0 ? `ab ${price}€ / ${priceModel.replace('Pro ','').replace('Pauschal','Pauschal')}` : 'Auf Anfrage';
 
-  // Generate unique ID
-  const newId = Math.max(...LISTINGS.map(l => l.id)) + 1;
+  // Collect image files from upload preview
+  const previewItems = document.querySelectorAll('#uploadPreview .upload-preview-item img');
+  const imgSrcs = Array.from(previewItems).map(function(img) { return img.src; });
 
-  const newListing = {
-    id: newId,
-    providerId: newId,
-    title: title,
-    category: category,
-    categoryLabel: CATEGORY_LABELS[category] || category,
-    location: city,
-    region: region,
-    price: price,
-    priceLabel: priceLabel,
-    rating: 5.0,
-    reviews: 0,
-    image: mainImage,
-    images: galleryImages,
-    providerName: (currentUser && currentUser.name) ? currentUser.name : 'Neuer Anbieter',
-    providerImg: (currentUser && currentUser.photoUrl) ? currentUser.photoUrl : 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + (currentUser ? encodeURIComponent(currentUser.name) : 'user' + newId),
-    providerSince: new Date().getFullYear().toString(),
-    description: `<p>${description.replace(/\n/g, '</p><p>')}</p>`,
-    features: features,
-    tags: tags.length > 0 ? tags : ['Party'],
-    dateFrom: dateFrom,
-    dateTo: dateTo,
-    timeFrom: timeFrom,
-    timeTo: timeTo,
-    duration: duration,
-    badge: 'Neu',
-    negotiable: true
-  };
+  // Show loading
+  showToast('Wird gespeichert...', 'sync');
 
-  // If editing an existing listing, remove the old one before adding the updated version
-  if (window._editingListingId) {
-    var editIdx = LISTINGS.findIndex(function(l) { return l.id === window._editingListingId; });
-    if (editIdx !== -1) LISTINGS.splice(editIdx, 1);
-    window._editingListingId = null;
-  }
-
-  // Add to global listings array (at the beginning so it shows first)
-  LISTINGS.unshift(newListing);
-
-  // Also register in map coords if city is known
-  try {
-    if (typeof CITY_COORDS !== 'undefined' && CITY_COORDS[city]) {
-      // already exists
-    } else if (typeof CITY_PROXIMITY !== 'undefined' && CITY_PROXIMITY[city]) {
-      CITY_COORDS[city] = CITY_PROXIMITY[city];
+  // Upload images that are data-URLs (new uploads), keep existing URLs
+  var uploadPromises = imgSrcs.map(function(src) {
+    if (src.startsWith('data:')) {
+      // Convert data URL to File
+      var arr = src.split(','), mime = arr[0].match(/:(.*?);/)[1];
+      var bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+      while (n--) u8arr[n] = bstr.charCodeAt(n);
+      var file = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
+      return uploadFile(file).then(function(r) { return r.url; });
     }
-  } catch(err) { /* coords not yet available */ }
+    return Promise.resolve(src);
+  });
 
-  // Reset the form
-  document.getElementById('createListingForm').reset();
-  document.getElementById('uploadPreview').innerHTML = '';
-  // Reset feature tags
-  document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
-  // Remove custom-added tags
-  document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
-  // Reset to step 1
-  document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('step1').classList.add('active');
+  Promise.all(uploadPromises).then(function(imageUrls) {
+    // Fallback images if none uploaded
+    if (imageUrls.length === 0) {
+      var catImgIds = CATEGORY_DEFAULT_IMAGES[category] || CATEGORY_DEFAULT_IMAGES['dj'];
+      imageUrls = catImgIds.map(function(id) { return pexelsUrl(id, 600, 400); });
+    }
 
-  // Show success toast and navigate to the new listing detail
-  var successMsg = isEventPlaner() ? 'Event erfolgreich veröffentlicht! 🎉' : 'Inserat erfolgreich veröffentlicht! 🎉';
-  showToast(successMsg, 'check_circle');
-  setTimeout(function() { navigateTo('detail', newId); }, 1200);
+    var payload = {
+      title: title,
+      category: category,
+      categoryLabel: CATEGORY_LABELS[category] || category,
+      description: '<p>' + description.replace(/\n/g, '</p><p>') + '</p>',
+      price: price,
+      priceModel: priceModel,
+      priceLabel: priceLabel,
+      location: city,
+      region: region,
+      features: features,
+      tags: tags.length > 0 ? tags : ['Party'],
+      images: imageUrls,
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+      timeFrom: timeFrom || null,
+      timeTo: timeTo || null,
+      duration: duration,
+      negotiable: true
+    };
+
+    var method = 'POST';
+    var url = _apiUrl('listings');
+    var editingDbId = null;
+
+    // If editing an existing DB listing
+    if (window._editingListingId) {
+      var editListing = LISTINGS.find(function(l) { return l.id === window._editingListingId; });
+      if (editListing && editListing._fromDb) {
+        editingDbId = editListing._dbId;
+        method = 'PUT';
+        url = _apiUrl('listings/' + editingDbId);
+      }
+    }
+
+    return fetch(url, {
+      method: method,
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify(payload)
+    }).then(function(resp) {
+      if (!resp.ok) throw new Error('Speichern fehlgeschlagen');
+      return resp.json();
+    }).then(function(saved) {
+      // Remove old from LISTINGS array if editing
+      if (window._editingListingId) {
+        var editIdx = LISTINGS.findIndex(function(l) { return l.id === window._editingListingId; });
+        if (editIdx !== -1) LISTINGS.splice(editIdx, 1);
+        window._editingListingId = null;
+      }
+
+      // Add to local array
+      saved.id = saved.id + 10000;
+      saved._fromDb = true;
+      saved._dbId = saved.id - 10000;
+      LISTINGS.unshift(saved);
+
+      // Reset the form
+      document.getElementById('createListingForm').reset();
+      document.getElementById('uploadPreview').innerHTML = '';
+      document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
+      document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
+      document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
+      document.getElementById('step1').classList.add('active');
+
+      var successMsg = isEventPlaner() ? 'Event erfolgreich veröffentlicht! 🎉' : 'Inserat erfolgreich veröffentlicht! 🎉';
+      showToast(successMsg, 'check_circle');
+      setTimeout(function() { navigateTo('detail', saved.id); }, 800);
+    });
+  }).catch(function(err) {
+    showToast('Fehler beim Speichern: ' + err.message, 'error');
+  });
 }
 
 function handleUpload(input) {
@@ -2379,16 +2528,29 @@ function handleProfilePhoto(input) {
     showToast('Bild zu groß! Max. 5MB', 'error');
     return;
   }
+  // Show preview immediately
   var reader = new FileReader();
   reader.onload = function(e) {
     document.getElementById('profileAvatar').src = e.target.result;
-    // Update nav avatar too
     var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = e.target.result;
-    if (currentUser) currentUser.photoUrl = e.target.result;
-    showToast('Profilbild aktualisiert! 📸', 'camera_alt');
   };
   reader.readAsDataURL(file);
+  // Upload to server
+  uploadFile(file).then(function(data) {
+    if (currentUser) currentUser.photoUrl = data.url;
+    document.getElementById('profileAvatar').src = data.url;
+    var navAvatar = document.querySelector('#avatarBtn img');
+    if (navAvatar) navAvatar.src = data.url;
+    // Save URL to profile
+    fetch(_apiUrl('profile'), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+      body: JSON.stringify({ photoUrl: data.url })
+    }).catch(function(){});
+    showToast('Profilbild aktualisiert! 📸', 'camera_alt');
+  }).catch(function() {
+    showToast('Upload fehlgeschlagen', 'error');
+  });
 }
 
 function handleCoverUpload(input) {
@@ -2398,6 +2560,7 @@ function handleCoverUpload(input) {
     showToast('Bild zu groß! Max. 5MB', 'error');
     return;
   }
+  // Show preview immediately
   var reader = new FileReader();
   reader.onload = function(e) {
     var cover = document.querySelector('.profile-cover');
@@ -2405,13 +2568,24 @@ function handleCoverUpload(input) {
       cover.style.backgroundImage = 'url(' + e.target.result + ')';
       cover.style.backgroundPosition = 'center 50%';
     }
-    if (currentUser) {
-      currentUser.coverUrl = e.target.result;
-      currentUser.coverPosY = 50;
-    }
-    showToast('Cover-Bild hochgeladen! Sichtbereich anpassen mit ↔', 'panorama');
   };
   reader.readAsDataURL(file);
+  // Upload to server
+  uploadFile(file).then(function(data) {
+    if (currentUser) {
+      currentUser.coverUrl = data.url;
+      currentUser.coverPosY = 50;
+    }
+    var cover = document.querySelector('.profile-cover');
+    if (cover) cover.style.backgroundImage = 'url(' + data.url + ')';
+    fetch(_apiUrl('profile'), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+      body: JSON.stringify({ coverUrl: data.url, coverPosY: 50 })
+    }).catch(function(){});
+    showToast('Cover-Bild hochgeladen! Sichtbereich anpassen mit ↔', 'panorama');
+  }).catch(function() {
+    showToast('Upload fehlgeschlagen', 'error');
+  });
 }
 
 // --- Cover Reposition (Drag to adjust visible area) ---
@@ -2521,6 +2695,7 @@ function handleGalleryUpload(input) {
       continue;
     }
     (function(f) {
+      // Show preview immediately with local data URL
       var reader = new FileReader();
       reader.onload = function(e) {
         var div = document.createElement('div');
@@ -2529,13 +2704,19 @@ function handleGalleryUpload(input) {
           '<button onclick="removeGalleryItem(this)"><span class="material-icons-round">close</span></button>';
         preview.appendChild(div);
         updateGalleryCount();
+        // Upload to server and replace data URL with real URL
+        uploadFile(f).then(function(data) {
+          div.querySelector('img').src = data.url;
+          div.setAttribute('data-url', data.url);
+        }).catch(function() {
+          showToast('Upload fehlgeschlagen: ' + f.name, 'error');
+        });
       };
       reader.readAsDataURL(f);
     })(file);
   }
-  // Reset input so same file can be selected again
   input.value = '';
-  showToast('Bilder hochgeladen! 📸', 'add_photo_alternate');
+  showToast('Bilder werden hochgeladen… 📸', 'add_photo_alternate');
 }
 
 function removeGalleryItem(btn) {
@@ -2911,20 +3092,40 @@ function toggleFavorite(listingId, btn) {
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
   }
+  // Sync with API if logged in
+  if (isLoggedIn) {
+    var dbId = listingId;
+    var listing = LISTINGS.find(function(l) { return l.id === listingId; });
+    if (listing && listing._dbId) dbId = listing._dbId;
+    else if (listing && listing._fromDb) dbId = listingId - 10000;
+    fetch(_apiUrl('favorites/' + dbId), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
+    }).catch(function(){});
+  }
 }
 
 function renderFavorites() {
   const grid = document.getElementById('favoritesGrid');
   const emptyState = document.getElementById('favoritesEmpty');
-  const favListings = LISTINGS.filter(l => favorites.has(l.id));
 
-  if (favListings.length === 0) {
-    grid.style.display = 'none';
-    emptyState.style.display = 'flex';
+  function doRender() {
+    const favListings = LISTINGS.filter(l => favorites.has(l.id));
+    if (favListings.length === 0) {
+      grid.style.display = 'none';
+      emptyState.style.display = 'flex';
+    } else {
+      grid.style.display = '';
+      emptyState.style.display = 'none';
+      grid.innerHTML = favListings.map(renderListingCard).join('');
+    }
+  }
+
+  if (isLoggedIn && !_dbListingsLoaded) {
+    loadDbListings().then(function() { return loadFavorites(); }).then(doRender).catch(doRender);
+  } else if (isLoggedIn) {
+    loadFavorites().then(doRender).catch(doRender);
   } else {
-    grid.style.display = '';
-    emptyState.style.display = 'none';
-    grid.innerHTML = favListings.map(renderListingCard).join('');
+    doRender();
   }
 }
 
@@ -2999,50 +3200,77 @@ function renderMyListings() {
     if (emptyText) emptyText.textContent = 'Erstelle dein erstes Inserat und erreiche tausende potenzielle Kunden.';
     if (emptyBtn) emptyBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Jetzt Inserat erstellen';
 
-    var userName = currentUser ? currentUser.name : null;
-    var myListings = userName
-      ? LISTINGS.filter(function(l) { return l.providerName === userName; })
-      : [];
-
-    // If no user-created listings, show demo for logged-in users
-    if (myListings.length === 0 && isLoggedIn) {
-      myListings = LISTINGS.slice(0, 3);
+    function renderMyGrid(myListings) {
+      if (myListings.length === 0) {
+        grid.style.display = 'none';
+        emptyState.style.display = 'flex';
+      } else {
+        grid.style.display = '';
+        emptyState.style.display = 'none';
+        grid.innerHTML = myListings.map(function(l) {
+          var rating = l.rating || 0;
+          var reviewCount = l.reviewCount || 0;
+          return '<div class="my-listing-card">' +
+            '<div class="my-listing-img">' +
+              '<img src="' + l.image + '" alt="' + l.title + '" />' +
+              '<span class="status-badge status-active">Aktiv</span>' +
+            '</div>' +
+            '<div class="my-listing-info">' +
+              '<h3>' + l.title + '</h3>' +
+              '<p>' + l.categoryLabel + ' · ' + l.location + '</p>' +
+              '<p class="my-listing-price">' + l.priceLabel + '</p>' +
+              '<div class="my-listing-stats">' +
+                '<span><span class="material-icons-round">star</span> ' + rating.toFixed(1) + '/5</span>' +
+                '<span><span class="material-icons-round">rate_review</span> ' + reviewCount + ' Bewertungen</span>' +
+              '</div>' +
+            '</div>' +
+            '<div class="my-listing-actions">' +
+              '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
+                '<span class="material-icons-round">visibility</span> Ansehen' +
+              '</button>' +
+              '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
+                '<span class="material-icons-round">edit</span> Bearbeiten' +
+              '</button>' +
+              '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
+                '<span class="material-icons-round">delete</span> Löschen' +
+              '</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
     }
 
-    if (myListings.length === 0) {
-      grid.style.display = 'none';
-      emptyState.style.display = 'flex';
+    // Load my listings from API
+    if (isLoggedIn) {
+      fetch(_apiUrl('my-listings'), { credentials: 'same-origin', headers: _apiHeaders() })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var myListings = (data || []).map(function(l) {
+            return {
+              id: l.id + 10000,
+              _dbId: l.id,
+              _fromDb: true,
+              title: l.title,
+              category: l.category,
+              categoryLabel: l.category_label || l.category,
+              image: (l.images && l.images[0]) || 'assets/img/placeholder.jpg',
+              images: l.images || [],
+              location: l.location,
+              price: l.price,
+              priceLabel: l.price_label || (l.price + ' €'),
+              rating: parseFloat(l.rating) || 0,
+              reviewCount: parseInt(l.review_count) || 0,
+              description: l.description,
+              providerName: l.provider_name
+            };
+          });
+          renderMyGrid(myListings);
+        })
+        .catch(function() {
+          renderMyGrid([]);
+        });
     } else {
-      grid.style.display = '';
-      emptyState.style.display = 'none';
-      grid.innerHTML = myListings.map(function(l) {
-        return '<div class="my-listing-card">' +
-          '<div class="my-listing-img">' +
-            '<img src="' + l.image + '" alt="' + l.title + '" />' +
-            '<span class="status-badge status-active">Aktiv</span>' +
-          '</div>' +
-          '<div class="my-listing-info">' +
-            '<h3>' + l.title + '</h3>' +
-            '<p>' + l.categoryLabel + ' · ' + l.location + '</p>' +
-            '<p class="my-listing-price">' + l.priceLabel + '</p>' +
-            '<div class="my-listing-stats">' +
-              '<span><span class="material-icons-round">star</span> 0/5</span>' +
-              '<span><span class="material-icons-round">rate_review</span> 0 Bewertungen</span>' +
-            '</div>' +
-          '</div>' +
-          '<div class="my-listing-actions">' +
-            '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
-              '<span class="material-icons-round">visibility</span> Ansehen' +
-            '</button>' +
-            '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
-              '<span class="material-icons-round">edit</span> Bearbeiten' +
-            '</button>' +
-            '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
-              '<span class="material-icons-round">delete</span> Löschen' +
-            '</button>' +
-          '</div>' +
-        '</div>';
-      }).join('');
+      renderMyGrid([]);
     }
   }
 }
@@ -3070,11 +3298,31 @@ function editListing(listingId) {
 function deleteListing(listingId) {
   if (!confirm('Möchtest du dieses Inserat wirklich löschen?')) return;
 
-  var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
-  if (idx !== -1) {
-    LISTINGS.splice(idx, 1);
-    renderMyListings();
-    showToast('Inserat gelöscht.', 'delete');
+  var listing = LISTINGS.find(function(l) { return l.id === listingId; });
+  var dbId = listing && listing._dbId ? listing._dbId : (listing && listing._fromDb ? listingId - 10000 : null);
+
+  if (dbId) {
+    fetch(_apiUrl('listings/' + dbId), {
+      method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+    }).then(function(r) {
+      if (r.ok) {
+        var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+        if (idx !== -1) LISTINGS.splice(idx, 1);
+        renderMyListings();
+        showToast('Inserat gelöscht.', 'delete');
+      } else {
+        showToast('Löschen fehlgeschlagen', 'error');
+      }
+    }).catch(function() {
+      showToast('Löschen fehlgeschlagen', 'error');
+    });
+  } else {
+    var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+    if (idx !== -1) {
+      LISTINGS.splice(idx, 1);
+      renderMyListings();
+      showToast('Inserat gelöscht.', 'delete');
+    }
   }
 }
 
@@ -3154,41 +3402,70 @@ function submitReview(e) {
 
   if (!currentListing) return;
 
-  var now = new Date();
-  var dateStr = MONTH_NAMES[now.getMonth()] + ' ' + now.getFullYear();
+  var dbId = currentListing._dbId || (currentListing._fromDb ? currentListing.id - 10000 : currentListing.id);
 
-  var reviewerName = currentUser ? currentUser.name : 'Anonym';
-  var avatarSeed = currentUser ? encodeURIComponent(currentUser.name) : 'anon';
+  fetch(_apiUrl('listings/' + dbId + '/reviews'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ rating: selectedRating, comment: text })
+  })
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
+      return r.json();
+    })
+    .then(function() {
+      // Reload reviews from API
+      loadDetailReviews(dbId);
+      closeModal('reviewModal');
+      showToast('Bewertung veröffentlicht! ⭐', 'star');
+    })
+    .catch(function(err) {
+      showToast(err.message || 'Bewertung fehlgeschlagen', 'error');
+    });
+}
 
-  var newReview = {
-    name: reviewerName,
-    avatar: avatarSeed,
-    rating: selectedRating,
-    date: dateStr,
-    text: text
-  };
-
-  // Store the review
-  if (!userReviews[currentListing.id]) {
-    userReviews[currentListing.id] = [];
-  }
-  userReviews[currentListing.id].push(newReview);
-
-  // Update listing review count and recalculate average rating
-  currentListing.reviews += 1;
-  var allReviews = getAllReviewsForListing(currentListing.id);
-  var totalRating = allReviews.reduce(function(sum, r) { return sum + r.rating; }, 0);
-  currentListing.rating = Math.round((totalRating / allReviews.length) * 10) / 10;
-
-  // Re-render reviews on the detail page
-  renderDetailReviews(currentListing);
-
-  // Update meta info
-  document.getElementById('detailRating').textContent = currentListing.rating;
-  document.getElementById('detailReviewCount').textContent = '(' + currentListing.reviews + ' Bewertungen)';
-
-  closeModal('reviewModal');
-  showToast('Bewertung veröffentlicht! ⭐', 'star');
+function loadDetailReviews(dbListingId) {
+  fetch(_apiUrl('listings/' + dbListingId + '/reviews'))
+    .then(function(r) { return r.json(); })
+    .then(function(reviews) {
+      var container = document.getElementById('detailReviews');
+      if (!reviews || reviews.length === 0) {
+        container.innerHTML =
+          '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
+            '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
+            '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
+            '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse. Sei der Erste, der eine Bewertung schreibt!</p>' +
+          '</div>';
+        if (currentListing) {
+          currentListing.reviews = 0;
+          document.getElementById('detailReviewCount').textContent = '(0 Bewertungen)';
+        }
+      } else {
+        container.innerHTML = reviews.map(function(r) {
+          var avatar = r.photo_url || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.author_name || 'user'));
+          var date = r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) : '';
+          var rating = parseInt(r.rating) || 0;
+          return '<div class="review-card">' +
+            '<img src="' + avatar + '" alt="' + (r.author_name || 'Anonym') + '" class="review-avatar" />' +
+            '<div class="review-content">' +
+              '<div class="review-top">' +
+                '<strong>' + (r.author_name || 'Anonym') + '</strong>' +
+                '<span>' + date + '</span>' +
+              '</div>' +
+              '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
+              '<p class="review-text">' + (r.comment || '') + '</p>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+        if (currentListing) {
+          currentListing.reviews = reviews.length;
+          var avg = reviews.reduce(function(s, r) { return s + parseInt(r.rating); }, 0) / reviews.length;
+          currentListing.rating = Math.round(avg * 10) / 10;
+          document.getElementById('detailRating').textContent = currentListing.rating;
+          document.getElementById('detailReviewCount').textContent = '(' + reviews.length + ' Bewertungen)';
+        }
+      }
+    })
+    .catch(function() {});
 }
 
 function getAllReviewsForListing(listingId) {
@@ -3200,6 +3477,13 @@ function getAllReviewsForListing(listingId) {
 }
 
 function renderDetailReviews(listing) {
+  // Try to load from API first for DB listings
+  var dbId = listing._dbId || (listing._fromDb ? listing.id - 10000 : null);
+  if (dbId) {
+    loadDetailReviews(dbId);
+    return;
+  }
+  // Fallback for demo listings
   var container = document.getElementById('detailReviews');
   if (listing.reviews === 0) {
     container.innerHTML =
@@ -3267,11 +3551,16 @@ function applyLogin() {
     if (menuCreateBtn) menuCreateBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Inserat erstellen';
     if (menuMyListBtn) menuMyListBtn.innerHTML = '<span class="material-icons-round">storefront</span> Meine Inserate';
   }
+  // Load user data from API
+  loadFavorites().catch(function(){});
+  loadDbListings().catch(function(){});
 }
 
 function applyLogout() {
   isLoggedIn = false;
   currentUser = null;
+  _dbListingsLoaded = false;
+  favorites.clear();
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
   document.getElementById('userMenu').classList.remove('show');

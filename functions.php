@@ -483,3 +483,990 @@ add_filter( 'rest_authentication_errors', function( $result ) {
     }
     return $result;
 } );
+
+/* =====================================================================
+   CUSTOM DATABASE TABLES
+   ===================================================================== */
+function eb_create_tables() {
+    global $wpdb;
+    $charset = $wpdb->get_charset_collate();
+
+    // Listings
+    $sql_listings = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_listings (
+        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id     BIGINT UNSIGNED NOT NULL,
+        title       VARCHAR(255) NOT NULL,
+        category    VARCHAR(100) NOT NULL DEFAULT '',
+        category_label VARCHAR(100) NOT NULL DEFAULT '',
+        description LONGTEXT NOT NULL DEFAULT '',
+        price       INT UNSIGNED NOT NULL DEFAULT 0,
+        price_model VARCHAR(50) NOT NULL DEFAULT '',
+        price_label VARCHAR(100) NOT NULL DEFAULT '',
+        location    VARCHAR(255) NOT NULL DEFAULT '',
+        region      VARCHAR(255) NOT NULL DEFAULT '',
+        features    LONGTEXT NOT NULL DEFAULT '',
+        tags        TEXT NOT NULL DEFAULT '',
+        images      LONGTEXT NOT NULL DEFAULT '',
+        date_from   DATE DEFAULT NULL,
+        date_to     DATE DEFAULT NULL,
+        time_from   VARCHAR(5) DEFAULT NULL,
+        time_to     VARCHAR(5) DEFAULT NULL,
+        duration    FLOAT DEFAULT 0,
+        badge       VARCHAR(50) DEFAULT 'Neu',
+        negotiable  TINYINT(1) DEFAULT 1,
+        status      VARCHAR(20) DEFAULT 'active',
+        rating_avg  FLOAT DEFAULT 0,
+        review_count INT UNSIGNED DEFAULT 0,
+        views       INT UNSIGNED DEFAULT 0,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_user (user_id),
+        KEY idx_category (category),
+        KEY idx_status (status),
+        KEY idx_created (created_at)
+    ) $charset;";
+
+    // Reviews
+    $sql_reviews = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_reviews (
+        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        listing_id  BIGINT UNSIGNED NOT NULL,
+        user_id     BIGINT UNSIGNED NOT NULL,
+        rating      TINYINT UNSIGNED NOT NULL DEFAULT 5,
+        text        TEXT NOT NULL DEFAULT '',
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_listing (listing_id),
+        KEY idx_user (user_id)
+    ) $charset;";
+
+    // Messages / Conversations
+    $sql_conversations = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_conversations (
+        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_a      BIGINT UNSIGNED NOT NULL,
+        user_b      BIGINT UNSIGNED NOT NULL,
+        listing_id  BIGINT UNSIGNED DEFAULT NULL,
+        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_user_a (user_a),
+        KEY idx_user_b (user_b)
+    ) $charset;";
+
+    $sql_messages = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_messages (
+        id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        conversation_id BIGINT UNSIGNED NOT NULL,
+        sender_id       BIGINT UNSIGNED NOT NULL,
+        body            TEXT NOT NULL DEFAULT '',
+        msg_type        VARCHAR(20) DEFAULT 'text',
+        offer_amount    INT DEFAULT NULL,
+        offer_status    VARCHAR(20) DEFAULT NULL,
+        is_read         TINYINT(1) DEFAULT 0,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_conv (conversation_id),
+        KEY idx_sender (sender_id)
+    ) $charset;";
+
+    // Favorites
+    $sql_favorites = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_favorites (
+        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id     BIGINT UNSIGNED NOT NULL,
+        listing_id  BIGINT UNSIGNED NOT NULL,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY idx_user_listing (user_id, listing_id)
+    ) $charset;";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta( $sql_listings );
+    dbDelta( $sql_reviews );
+    dbDelta( $sql_conversations );
+    dbDelta( $sql_messages );
+    dbDelta( $sql_favorites );
+}
+add_action( 'after_switch_theme', 'eb_create_tables' );
+// Also run on init once (version check)
+function eb_maybe_create_tables() {
+    if ( get_option( 'eb_db_version' ) !== '1.3' ) {
+        eb_create_tables();
+        update_option( 'eb_db_version', '1.3' );
+    }
+}
+add_action( 'init', 'eb_maybe_create_tables' );
+
+/* =====================================================================
+   ADDITIONAL REST ROUTES
+   ===================================================================== */
+function eb_register_extra_routes() {
+
+    /* ---------- IMAGE UPLOAD ---------- */
+    register_rest_route( 'eventboerse/v1', '/upload', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_handle_upload',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- LISTINGS ---------- */
+    register_rest_route( 'eventboerse/v1', '/listings', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_listings_list',
+            'permission_callback' => '__return_true',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_listings_create',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/listings/(?P<id>\d+)', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_listings_get',
+            'permission_callback' => '__return_true',
+        ),
+        array(
+            'methods'             => 'PUT',
+            'callback'            => 'eb_listings_update',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+        array(
+            'methods'             => 'DELETE',
+            'callback'            => 'eb_listings_delete',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/my-listings', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_my_listings',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- REVIEWS ---------- */
+    register_rest_route( 'eventboerse/v1', '/listings/(?P<id>\d+)/reviews', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_reviews_list',
+            'permission_callback' => '__return_true',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_reviews_create',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    /* ---------- CONVERSATIONS / MESSAGES ---------- */
+    register_rest_route( 'eventboerse/v1', '/conversations', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_conversations_list',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_conversations_create',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/conversations/(?P<id>\d+)/messages', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_messages_list',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_messages_send',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    /* ---------- FAVORITES ---------- */
+    register_rest_route( 'eventboerse/v1', '/favorites', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_favorites_list',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/favorites/(?P<listing_id>\d+)', array(
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_favorites_toggle',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    /* ---------- PUBLIC PROVIDER PROFILE ---------- */
+    register_rest_route( 'eventboerse/v1', '/provider/(?P<id>\d+)', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_provider_profile',
+        'permission_callback' => '__return_true',
+    ) );
+}
+add_action( 'rest_api_init', 'eb_register_extra_routes' );
+
+/* =====================================================================
+   UPLOAD HANDLER
+   ===================================================================== */
+function eb_handle_upload( WP_REST_Request $request ) {
+    $files = $request->get_file_params();
+    if ( empty( $files['file'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Keine Datei hochgeladen.' ), 400 );
+    }
+
+    $file = $files['file'];
+    $allowed = array( 'image/jpeg', 'image/png', 'image/webp', 'image/gif' );
+    if ( ! in_array( $file['type'], $allowed, true ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP, GIF.' ), 400 );
+    }
+    if ( $file['size'] > 5 * 1024 * 1024 ) {
+        return new WP_REST_Response( array( 'message' => 'Datei zu groß. Max. 5MB.' ), 400 );
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+
+    $upload = wp_handle_upload( $file, array( 'test_form' => false ) );
+    if ( isset( $upload['error'] ) ) {
+        return new WP_REST_Response( array( 'message' => $upload['error'] ), 500 );
+    }
+
+    // Create attachment in media library
+    $attachment = array(
+        'post_mime_type' => $upload['type'],
+        'post_title'     => sanitize_file_name( $file['name'] ),
+        'post_content'   => '',
+        'post_status'    => 'inherit',
+    );
+    $attach_id = wp_insert_attachment( $attachment, $upload['file'] );
+    $meta = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
+    wp_update_attachment_metadata( $attach_id, $meta );
+
+    return new WP_REST_Response( array(
+        'id'  => $attach_id,
+        'url' => $upload['url'],
+    ), 200 );
+}
+
+/* =====================================================================
+   LISTINGS HANDLERS
+   ===================================================================== */
+
+/** List all active listings (public) */
+function eb_listings_list( WP_REST_Request $request ) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'eb_listings';
+
+    $where  = 'WHERE status = %s';
+    $params = array( 'active' );
+
+    // Optional filters
+    $category = sanitize_text_field( $request->get_param( 'category' ) );
+    if ( $category ) {
+        $where   .= ' AND category = %s';
+        $params[] = $category;
+    }
+    $search = sanitize_text_field( $request->get_param( 'search' ) );
+    if ( $search ) {
+        $like     = '%' . $wpdb->esc_like( $search ) . '%';
+        $where   .= ' AND (title LIKE %s OR description LIKE %s OR location LIKE %s)';
+        $params[] = $like;
+        $params[] = $like;
+        $params[] = $like;
+    }
+    $location = sanitize_text_field( $request->get_param( 'location' ) );
+    if ( $location ) {
+        $like     = '%' . $wpdb->esc_like( $location ) . '%';
+        $where   .= ' AND (location LIKE %s OR region LIKE %s)';
+        $params[] = $like;
+        $params[] = $like;
+    }
+    $min_price = absint( $request->get_param( 'min_price' ) );
+    $max_price = absint( $request->get_param( 'max_price' ) );
+    if ( $min_price ) {
+        $where   .= ' AND price >= %d';
+        $params[] = $min_price;
+    }
+    if ( $max_price ) {
+        $where   .= ' AND price <= %d';
+        $params[] = $max_price;
+    }
+    $min_rating = floatval( $request->get_param( 'min_rating' ) );
+    if ( $min_rating > 0 ) {
+        $where   .= ' AND rating_avg >= %f';
+        $params[] = $min_rating;
+    }
+
+    // Sort
+    $sort = sanitize_text_field( $request->get_param( 'sort' ) );
+    switch ( $sort ) {
+        case 'price_asc':
+            $order = 'ORDER BY price ASC';
+            break;
+        case 'price_desc':
+            $order = 'ORDER BY price DESC';
+            break;
+        case 'rating':
+            $order = 'ORDER BY rating_avg DESC';
+            break;
+        case 'newest':
+            $order = 'ORDER BY created_at DESC';
+            break;
+        default:
+            $order = 'ORDER BY created_at DESC';
+    }
+
+    // Pagination
+    $page     = max( 1, absint( $request->get_param( 'page' ) ?: 1 ) );
+    $per_page = min( 50, max( 1, absint( $request->get_param( 'per_page' ) ?: 20 ) ) );
+    $offset   = ( $page - 1 ) * $per_page;
+
+    $sql = $wpdb->prepare(
+        "SELECT * FROM $table $where $order LIMIT %d OFFSET %d",
+        array_merge( $params, array( $per_page, $offset ) )
+    );
+    $rows = $wpdb->get_results( $sql, ARRAY_A );
+
+    $total = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM $table $where",
+        $params
+    ) );
+
+    $listings = array_map( 'eb_format_listing', $rows );
+
+    return new WP_REST_Response( array(
+        'listings' => $listings,
+        'total'    => $total,
+        'page'     => $page,
+        'pages'    => ceil( $total / $per_page ),
+    ), 200 );
+}
+
+/** Format a DB row into a frontend-friendly listing object */
+function eb_format_listing( $row ) {
+    $user   = get_userdata( $row['user_id'] );
+    $images = json_decode( $row['images'], true );
+    if ( ! is_array( $images ) ) $images = array();
+
+    $features = json_decode( $row['features'], true );
+    if ( ! is_array( $features ) ) $features = array();
+
+    $tags = json_decode( $row['tags'], true );
+    if ( ! is_array( $tags ) ) $tags = array();
+
+    $name = $user ? trim( $user->first_name . ' ' . $user->last_name ) : 'Unbekannt';
+    $photo = $user ? ( get_user_meta( $user->ID, 'eb_photo_url', true ) ?: '' ) : '';
+    $avatar = $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) );
+    $since = $user ? date( 'Y', strtotime( $user->user_registered ) ) : '';
+
+    return array(
+        'id'            => (int) $row['id'],
+        'providerId'    => (int) $row['user_id'],
+        'title'         => $row['title'],
+        'category'      => $row['category'],
+        'categoryLabel' => $row['category_label'],
+        'location'      => $row['location'],
+        'region'        => $row['region'],
+        'price'         => (int) $row['price'],
+        'priceLabel'    => $row['price_label'],
+        'rating'        => round( (float) $row['rating_avg'], 1 ),
+        'reviews'       => (int) $row['review_count'],
+        'image'         => ! empty( $images[0] ) ? $images[0] : '',
+        'images'        => $images,
+        'providerName'  => $name,
+        'providerImg'   => $avatar,
+        'providerSince' => $since,
+        'description'   => $row['description'],
+        'features'      => $features,
+        'tags'          => $tags,
+        'dateFrom'      => $row['date_from'],
+        'dateTo'        => $row['date_to'],
+        'timeFrom'      => $row['time_from'],
+        'timeTo'        => $row['time_to'],
+        'duration'      => (float) $row['duration'],
+        'badge'         => $row['badge'],
+        'negotiable'    => (bool) $row['negotiable'],
+        'views'         => (int) $row['views'],
+        'createdAt'     => $row['created_at'],
+    );
+}
+
+/** Get single listing */
+function eb_listings_get( WP_REST_Request $request ) {
+    global $wpdb;
+    $id  = absint( $request['id'] );
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d",
+        $id
+    ), ARRAY_A );
+
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+
+    // Increment views
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE {$wpdb->prefix}eb_listings SET views = views + 1 WHERE id = %d",
+        $id
+    ) );
+
+    return new WP_REST_Response( eb_format_listing( $row ), 200 );
+}
+
+/** Create listing */
+function eb_listings_create( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid    = get_current_user_id();
+    $params = $request->get_json_params();
+
+    $title = sanitize_text_field( $params['title'] ?? '' );
+    if ( empty( $title ) ) {
+        return new WP_REST_Response( array( 'message' => 'Titel ist erforderlich.' ), 400 );
+    }
+
+    $category       = sanitize_text_field( $params['category'] ?? '' );
+    $category_label = sanitize_text_field( $params['categoryLabel'] ?? $category );
+    $description    = wp_kses_post( $params['description'] ?? '' );
+    $price          = absint( $params['price'] ?? 0 );
+    $price_model    = sanitize_text_field( $params['priceModel'] ?? '' );
+    $price_label    = sanitize_text_field( $params['priceLabel'] ?? '' );
+    $location_val   = sanitize_text_field( $params['location'] ?? '' );
+    $region         = sanitize_text_field( $params['region'] ?? '' );
+    $features       = isset( $params['features'] ) && is_array( $params['features'] )
+        ? wp_json_encode( array_map( 'sanitize_text_field', $params['features'] ) )
+        : '[]';
+    $tags           = isset( $params['tags'] ) && is_array( $params['tags'] )
+        ? wp_json_encode( array_map( 'sanitize_text_field', $params['tags'] ) )
+        : '[]';
+    $images         = isset( $params['images'] ) && is_array( $params['images'] )
+        ? wp_json_encode( array_map( 'esc_url_raw', $params['images'] ) )
+        : '[]';
+    $date_from  = ! empty( $params['dateFrom'] ) ? sanitize_text_field( $params['dateFrom'] ) : null;
+    $date_to    = ! empty( $params['dateTo'] )   ? sanitize_text_field( $params['dateTo'] )   : null;
+    $time_from  = ! empty( $params['timeFrom'] ) ? sanitize_text_field( $params['timeFrom'] ) : null;
+    $time_to    = ! empty( $params['timeTo'] )   ? sanitize_text_field( $params['timeTo'] )   : null;
+    $duration   = floatval( $params['duration'] ?? 0 );
+    $negotiable = isset( $params['negotiable'] ) ? (int) (bool) $params['negotiable'] : 1;
+
+    $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
+        'user_id'        => $uid,
+        'title'          => $title,
+        'category'       => $category,
+        'category_label' => $category_label,
+        'description'    => $description,
+        'price'          => $price,
+        'price_model'    => $price_model,
+        'price_label'    => $price_label,
+        'location'       => $location_val,
+        'region'         => $region,
+        'features'       => $features,
+        'tags'           => $tags,
+        'images'         => $images,
+        'date_from'      => $date_from,
+        'date_to'        => $date_to,
+        'time_from'      => $time_from,
+        'time_to'        => $time_to,
+        'duration'        => $duration,
+        'negotiable'     => $negotiable,
+    ) );
+
+    $new_id = $wpdb->insert_id;
+    if ( ! $new_id ) {
+        return new WP_REST_Response( array( 'message' => 'Fehler beim Erstellen.' ), 500 );
+    }
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $new_id
+    ), ARRAY_A );
+
+    return new WP_REST_Response( eb_format_listing( $row ), 201 );
+}
+
+/** Update listing (only owner) */
+function eb_listings_update( WP_REST_Request $request ) {
+    global $wpdb;
+    $id  = absint( $request['id'] );
+    $uid = get_current_user_id();
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ), ARRAY_A );
+
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht gefunden.' ), 404 );
+    }
+    if ( (int) $row['user_id'] !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    $params = $request->get_json_params();
+    $update = array();
+
+    $text_fields = array(
+        'title' => 'title', 'category' => 'category', 'category_label' => 'categoryLabel',
+        'description' => 'description', 'price_label' => 'priceLabel', 'price_model' => 'priceModel',
+        'location' => 'location', 'region' => 'region', 'badge' => 'badge',
+        'time_from' => 'timeFrom', 'time_to' => 'timeTo',
+    );
+    foreach ( $text_fields as $col => $key ) {
+        if ( isset( $params[ $key ] ) ) {
+            $update[ $col ] = $col === 'description'
+                ? wp_kses_post( $params[ $key ] )
+                : sanitize_text_field( $params[ $key ] );
+        }
+    }
+    if ( isset( $params['price'] ) )    $update['price']    = absint( $params['price'] );
+    if ( isset( $params['duration'] ) ) $update['duration'] = floatval( $params['duration'] );
+    if ( isset( $params['dateFrom'] ) ) $update['date_from'] = sanitize_text_field( $params['dateFrom'] );
+    if ( isset( $params['dateTo'] ) )   $update['date_to']   = sanitize_text_field( $params['dateTo'] );
+    if ( isset( $params['negotiable'] ) ) $update['negotiable'] = (int) (bool) $params['negotiable'];
+    if ( isset( $params['features'] ) && is_array( $params['features'] ) ) {
+        $update['features'] = wp_json_encode( array_map( 'sanitize_text_field', $params['features'] ) );
+    }
+    if ( isset( $params['tags'] ) && is_array( $params['tags'] ) ) {
+        $update['tags'] = wp_json_encode( array_map( 'sanitize_text_field', $params['tags'] ) );
+    }
+    if ( isset( $params['images'] ) && is_array( $params['images'] ) ) {
+        $update['images'] = wp_json_encode( array_map( 'esc_url_raw', $params['images'] ) );
+    }
+
+    if ( ! empty( $update ) ) {
+        $wpdb->update( $wpdb->prefix . 'eb_listings', $update, array( 'id' => $id ) );
+    }
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ), ARRAY_A );
+
+    return new WP_REST_Response( eb_format_listing( $row ), 200 );
+}
+
+/** Delete listing (only owner) */
+function eb_listings_delete( WP_REST_Request $request ) {
+    global $wpdb;
+    $id  = absint( $request['id'] );
+    $uid = get_current_user_id();
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ) );
+
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht gefunden.' ), 404 );
+    }
+    if ( (int) $row->user_id !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    $wpdb->delete( $wpdb->prefix . 'eb_listings', array( 'id' => $id ) );
+    $wpdb->delete( $wpdb->prefix . 'eb_reviews', array( 'listing_id' => $id ) );
+    $wpdb->delete( $wpdb->prefix . 'eb_favorites', array( 'listing_id' => $id ) );
+
+    return new WP_REST_Response( array( 'deleted' => true ), 200 );
+}
+
+/** My listings */
+function eb_my_listings() {
+    global $wpdb;
+    $uid  = get_current_user_id();
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE user_id = %d ORDER BY created_at DESC",
+        $uid
+    ), ARRAY_A );
+
+    return new WP_REST_Response( array_map( 'eb_format_listing', $rows ?: array() ), 200 );
+}
+
+/* =====================================================================
+   REVIEWS HANDLERS
+   ===================================================================== */
+function eb_reviews_list( WP_REST_Request $request ) {
+    global $wpdb;
+    $listing_id = absint( $request['id'] );
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
+         LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
+         WHERE r.listing_id = %d ORDER BY r.created_at DESC",
+        $listing_id
+    ) );
+
+    $reviews = array();
+    foreach ( $rows as $r ) {
+        $photo = get_user_meta( $r->uid, 'eb_photo_url', true );
+        $name  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
+        if ( ! $name ) $name = $r->display_name;
+        $reviews[] = array(
+            'id'     => (int) $r->id,
+            'rating' => (int) $r->rating,
+            'text'   => $r->text,
+            'name'   => $name,
+            'avatar' => $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) ),
+            'date'   => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
+        );
+    }
+
+    return new WP_REST_Response( $reviews, 200 );
+}
+
+function eb_reviews_create( WP_REST_Request $request ) {
+    global $wpdb;
+    $listing_id = absint( $request['id'] );
+    $uid        = get_current_user_id();
+    $params     = $request->get_json_params();
+
+    $rating = max( 1, min( 5, absint( $params['rating'] ?? 5 ) ) );
+    $text   = sanitize_textarea_field( $params['text'] ?? '' );
+
+    // Check listing exists
+    $listing = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d", $listing_id
+    ) );
+    if ( ! $listing ) {
+        return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+    // Cannot review own listing
+    if ( (int) $listing->user_id === $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst dein eigenes Inserat nicht bewerten.' ), 400 );
+    }
+    // Check duplicate
+    $exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d AND user_id = %d",
+        $listing_id, $uid
+    ) );
+    if ( $exists ) {
+        return new WP_REST_Response( array( 'message' => 'Du hast dieses Inserat bereits bewertet.' ), 400 );
+    }
+
+    $wpdb->insert( $wpdb->prefix . 'eb_reviews', array(
+        'listing_id' => $listing_id,
+        'user_id'    => $uid,
+        'rating'     => $rating,
+        'text'       => $text,
+    ) );
+
+    // Update listing rating avg and count
+    $stats = $wpdb->get_row( $wpdb->prepare(
+        "SELECT AVG(rating) as avg_r, COUNT(*) as cnt FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d",
+        $listing_id
+    ) );
+    $wpdb->update( $wpdb->prefix . 'eb_listings', array(
+        'rating_avg'   => round( $stats->avg_r, 2 ),
+        'review_count' => (int) $stats->cnt,
+    ), array( 'id' => $listing_id ) );
+
+    return new WP_REST_Response( array( 'saved' => true, 'rating_avg' => round( $stats->avg_r, 1 ), 'review_count' => (int) $stats->cnt ), 201 );
+}
+
+/* =====================================================================
+   CONVERSATIONS / MESSAGES HANDLERS
+   ===================================================================== */
+function eb_conversations_list() {
+    global $wpdb;
+    $uid = get_current_user_id();
+
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT c.*,
+            (SELECT COUNT(*) FROM {$wpdb->prefix}eb_messages m WHERE m.conversation_id = c.id AND m.sender_id != %d AND m.is_read = 0) as unread_count,
+            (SELECT m2.body FROM {$wpdb->prefix}eb_messages m2 WHERE m2.conversation_id = c.id ORDER BY m2.created_at DESC LIMIT 1) as last_msg,
+            (SELECT m3.created_at FROM {$wpdb->prefix}eb_messages m3 WHERE m3.conversation_id = c.id ORDER BY m3.created_at DESC LIMIT 1) as last_msg_time
+         FROM {$wpdb->prefix}eb_conversations c
+         WHERE c.user_a = %d OR c.user_b = %d
+         ORDER BY c.updated_at DESC",
+        $uid, $uid, $uid
+    ) );
+
+    $conversations = array();
+    foreach ( $rows as $c ) {
+        $other_id = ( (int) $c->user_a === $uid ) ? (int) $c->user_b : (int) $c->user_a;
+        $other    = get_userdata( $other_id );
+        $name     = $other ? trim( $other->first_name . ' ' . $other->last_name ) : 'Unbekannt';
+        $photo    = $other ? ( get_user_meta( $other_id, 'eb_photo_url', true ) ?: '' ) : '';
+        $avatar   = $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) );
+
+        $time_str = '';
+        if ( $c->last_msg_time ) {
+            $ts     = strtotime( $c->last_msg_time );
+            $today  = strtotime( 'today' );
+            $time_str = $ts >= $today ? date( 'H:i', $ts ) : date_i18n( 'j. M', $ts );
+        }
+
+        $conversations[] = array(
+            'id'        => (int) $c->id,
+            'otherId'   => $other_id,
+            'name'      => $name,
+            'avatar'    => $avatar,
+            'lastMsg'   => $c->last_msg ?: '',
+            'time'      => $time_str,
+            'unread'    => (int) $c->unread_count,
+            'listingId' => $c->listing_id ? (int) $c->listing_id : null,
+        );
+    }
+
+    return new WP_REST_Response( $conversations, 200 );
+}
+
+function eb_conversations_create( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid    = get_current_user_id();
+    $params = $request->get_json_params();
+
+    $other_id   = absint( $params['userId'] ?? 0 );
+    $listing_id = absint( $params['listingId'] ?? 0 );
+
+    if ( ! $other_id || $other_id === $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Empfänger.' ), 400 );
+    }
+    if ( ! get_userdata( $other_id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
+
+    // Check if conversation already exists
+    $existing = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_conversations
+         WHERE (user_a = %d AND user_b = %d) OR (user_a = %d AND user_b = %d)",
+        $uid, $other_id, $other_id, $uid
+    ) );
+
+    if ( $existing ) {
+        return new WP_REST_Response( array( 'id' => (int) $existing, 'existing' => true ), 200 );
+    }
+
+    $wpdb->insert( $wpdb->prefix . 'eb_conversations', array(
+        'user_a'     => $uid,
+        'user_b'     => $other_id,
+        'listing_id' => $listing_id ?: null,
+    ) );
+
+    $conv_id = $wpdb->insert_id;
+
+    // Add system message
+    if ( $listing_id ) {
+        $listing_title = $wpdb->get_var( $wpdb->prepare(
+            "SELECT title FROM {$wpdb->prefix}eb_listings WHERE id = %d", $listing_id
+        ) );
+        if ( $listing_title ) {
+            $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+                'conversation_id' => $conv_id,
+                'sender_id'       => 0,
+                'body'            => 'Gespräch gestartet über „' . $listing_title . '"',
+                'msg_type'        => 'system',
+            ) );
+        }
+    }
+
+    return new WP_REST_Response( array( 'id' => (int) $conv_id, 'existing' => false ), 201 );
+}
+
+function eb_messages_list( WP_REST_Request $request ) {
+    global $wpdb;
+    $conv_id = absint( $request['id'] );
+    $uid     = get_current_user_id();
+
+    // Verify user is part of conversation
+    $conv = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_conversations WHERE id = %d AND (user_a = %d OR user_b = %d)",
+        $conv_id, $uid, $uid
+    ) );
+    if ( ! $conv ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    // Mark messages as read
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE {$wpdb->prefix}eb_messages SET is_read = 1 WHERE conversation_id = %d AND sender_id != %d AND is_read = 0",
+        $conv_id, $uid
+    ) );
+
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_messages WHERE conversation_id = %d ORDER BY created_at ASC",
+        $conv_id
+    ) );
+
+    $messages = array();
+    foreach ( $rows as $m ) {
+        $msg = array(
+            'id'   => (int) $m->id,
+            'type' => (int) $m->sender_id === $uid ? 'sent' : ( $m->msg_type === 'system' ? 'system' : 'received' ),
+            'text' => $m->body,
+            'time' => date( 'H:i', strtotime( $m->created_at ) ),
+        );
+        if ( $m->msg_type === 'offer' ) {
+            $msg['type']        = 'offer';
+            $msg['amount']      = $m->offer_amount . '€';
+            $msg['status']      = $m->offer_status ?: 'pending';
+            $msg['label']       = (int) $m->sender_id === $uid ? 'Dein Angebot' : 'Gegenangebot';
+            $msg['statusLabel'] = $m->offer_status === 'accepted' ? 'Angenommen'
+                : ( $m->offer_status === 'declined' ? 'Abgelehnt' : 'Wartet auf Antwort' );
+        }
+        $messages[] = $msg;
+    }
+
+    return new WP_REST_Response( $messages, 200 );
+}
+
+function eb_messages_send( WP_REST_Request $request ) {
+    global $wpdb;
+    $conv_id = absint( $request['id'] );
+    $uid     = get_current_user_id();
+    $params  = $request->get_json_params();
+
+    // Verify user is part of conversation
+    $conv = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_conversations WHERE id = %d AND (user_a = %d OR user_b = %d)",
+        $conv_id, $uid, $uid
+    ) );
+    if ( ! $conv ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    $body     = sanitize_textarea_field( $params['text'] ?? '' );
+    $msg_type = sanitize_text_field( $params['type'] ?? 'text' );
+
+    if ( empty( $body ) && $msg_type === 'text' ) {
+        return new WP_REST_Response( array( 'message' => 'Nachricht darf nicht leer sein.' ), 400 );
+    }
+
+    $insert = array(
+        'conversation_id' => $conv_id,
+        'sender_id'       => $uid,
+        'body'            => $body,
+        'msg_type'        => $msg_type,
+    );
+
+    if ( $msg_type === 'offer' ) {
+        $insert['offer_amount'] = absint( $params['amount'] ?? 0 );
+        $insert['offer_status'] = 'pending';
+        $insert['body']         = 'Preisangebot: ' . $insert['offer_amount'] . '€';
+    }
+
+    $wpdb->insert( $wpdb->prefix . 'eb_messages', $insert );
+
+    // Update conversation timestamp
+    $wpdb->update( $wpdb->prefix . 'eb_conversations',
+        array( 'updated_at' => current_time( 'mysql' ) ),
+        array( 'id' => $conv_id )
+    );
+
+    return new WP_REST_Response( array(
+        'id'   => (int) $wpdb->insert_id,
+        'sent' => true,
+    ), 201 );
+}
+
+/* =====================================================================
+   FAVORITES HANDLERS
+   ===================================================================== */
+function eb_favorites_list() {
+    global $wpdb;
+    $uid = get_current_user_id();
+
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT l.* FROM {$wpdb->prefix}eb_favorites f
+         JOIN {$wpdb->prefix}eb_listings l ON f.listing_id = l.id
+         WHERE f.user_id = %d ORDER BY f.created_at DESC",
+        $uid
+    ), ARRAY_A );
+
+    return new WP_REST_Response( array_map( 'eb_format_listing', $rows ?: array() ), 200 );
+}
+
+function eb_favorites_toggle( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid        = get_current_user_id();
+    $listing_id = absint( $request['listing_id'] );
+
+    $exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_favorites WHERE user_id = %d AND listing_id = %d",
+        $uid, $listing_id
+    ) );
+
+    if ( $exists ) {
+        $wpdb->delete( $wpdb->prefix . 'eb_favorites', array( 'user_id' => $uid, 'listing_id' => $listing_id ) );
+        return new WP_REST_Response( array( 'favorited' => false ), 200 );
+    }
+
+    $wpdb->insert( $wpdb->prefix . 'eb_favorites', array(
+        'user_id'    => $uid,
+        'listing_id' => $listing_id,
+    ) );
+
+    return new WP_REST_Response( array( 'favorited' => true ), 201 );
+}
+
+/* =====================================================================
+   PUBLIC PROVIDER PROFILE
+   ===================================================================== */
+function eb_provider_profile( WP_REST_Request $request ) {
+    global $wpdb;
+    $provider_id = absint( $request['id'] );
+    $user        = get_userdata( $provider_id );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Anbieter nicht gefunden.' ), 404 );
+    }
+
+    $name   = trim( $user->first_name . ' ' . $user->last_name );
+    $meta   = eb_user_profile_meta( $provider_id );
+    $role   = eventboerse_map_role( $user );
+    $since  = date( 'Y', strtotime( $user->user_registered ) );
+
+    // Listings by this provider
+    $listings = $wpdb->get_results( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE user_id = %d AND status = 'active' ORDER BY created_at DESC",
+        $provider_id
+    ), ARRAY_A );
+
+    // Reviews on their listings
+    $listing_ids = wp_list_pluck( $listings, 'id' );
+    $reviews     = array();
+    if ( ! empty( $listing_ids ) ) {
+        $ids_in  = implode( ',', array_map( 'absint', $listing_ids ) );
+        $reviews = $wpdb->get_results(
+            "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
+             LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
+             WHERE r.listing_id IN ($ids_in) ORDER BY r.created_at DESC LIMIT 10"
+        );
+    }
+
+    $formatted_reviews = array();
+    foreach ( $reviews as $r ) {
+        $rname  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
+        $rphoto = get_user_meta( $r->uid, 'eb_photo_url', true );
+        $formatted_reviews[] = array(
+            'rating' => (int) $r->rating,
+            'text'   => $r->text,
+            'name'   => $rname ?: $r->display_name,
+            'avatar' => $rphoto ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $rname ?: $r->display_name ) ),
+            'date'   => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
+        );
+    }
+
+    return new WP_REST_Response( array(
+        'id'       => $provider_id,
+        'name'     => $name,
+        'role'     => $role,
+        'since'    => $since,
+        'tagline'  => $meta['tagline'],
+        'location' => $meta['location'],
+        'bio'      => $meta['bio'],
+        'coverUrl' => $meta['coverUrl'],
+        'coverPosY'=> $meta['coverPosY'],
+        'photoUrl' => $meta['photoUrl'],
+        'gallery'  => $meta['gallery'],
+        'listings' => array_map( 'eb_format_listing', $listings ),
+        'reviews'  => $formatted_reviews,
+    ), 200 );
+}
+
+/* =====================================================================
+   ALLOW BIGGER UPLOADS
+   ===================================================================== */
+add_filter( 'upload_size_limit', function() {
+    return 5 * 1024 * 1024; // 5 MB
+} );
