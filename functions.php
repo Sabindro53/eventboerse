@@ -491,89 +491,85 @@ function eb_create_tables() {
     global $wpdb;
     $charset = $wpdb->get_charset_collate();
 
-    // Listings
     $sql_listings = "CREATE TABLE {$wpdb->prefix}eb_listings (
-        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        user_id     BIGINT UNSIGNED NOT NULL,
-        title       VARCHAR(255) NOT NULL,
-        category    VARCHAR(100) NOT NULL DEFAULT '',
-        category_label VARCHAR(100) NOT NULL DEFAULT '',
-        description LONGTEXT,
-        price       INT UNSIGNED NOT NULL DEFAULT 0,
-        price_model VARCHAR(50) NOT NULL DEFAULT '',
-        price_label VARCHAR(100) NOT NULL DEFAULT '',
-        location    VARCHAR(255) NOT NULL DEFAULT '',
-        region      VARCHAR(255) NOT NULL DEFAULT '',
-        features    LONGTEXT,
-        tags        TEXT,
-        images      LONGTEXT,
-        date_from   DATE DEFAULT NULL,
-        date_to     DATE DEFAULT NULL,
-        time_from   VARCHAR(5) DEFAULT NULL,
-        time_to     VARCHAR(5) DEFAULT NULL,
-        duration    FLOAT DEFAULT 0,
-        badge       VARCHAR(50) DEFAULT 'Neu',
-        negotiable  TINYINT(1) DEFAULT 1,
-        status      VARCHAR(20) DEFAULT 'active',
-        rating_avg  FLOAT DEFAULT 0,
-        review_count INT UNSIGNED DEFAULT 0,
-        views       INT UNSIGNED DEFAULT 0,
-        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) unsigned NOT NULL,
+        title varchar(255) NOT NULL,
+        category varchar(100) NOT NULL DEFAULT '',
+        category_label varchar(100) NOT NULL DEFAULT '',
+        description longtext,
+        price int(10) unsigned NOT NULL DEFAULT 0,
+        price_model varchar(50) NOT NULL DEFAULT '',
+        price_label varchar(100) NOT NULL DEFAULT '',
+        location varchar(255) NOT NULL DEFAULT '',
+        region varchar(255) NOT NULL DEFAULT '',
+        features longtext,
+        tags text,
+        images longtext,
+        date_from date DEFAULT NULL,
+        date_to date DEFAULT NULL,
+        time_from varchar(5) DEFAULT NULL,
+        time_to varchar(5) DEFAULT NULL,
+        duration float DEFAULT 0,
+        badge varchar(50) DEFAULT 'Neu',
+        negotiable tinyint(1) DEFAULT 1,
+        status varchar(20) DEFAULT 'active',
+        rating_avg float DEFAULT 0,
+        review_count int(10) unsigned DEFAULT 0,
+        views int(10) unsigned DEFAULT 0,
+        created_at datetime DEFAULT '0000-00-00 00:00:00',
+        updated_at datetime DEFAULT '0000-00-00 00:00:00',
+        PRIMARY KEY  (id),
         KEY idx_user (user_id),
         KEY idx_category (category),
         KEY idx_status (status),
         KEY idx_created (created_at)
     ) $charset;";
 
-    // Reviews
     $sql_reviews = "CREATE TABLE {$wpdb->prefix}eb_reviews (
-        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        listing_id  BIGINT UNSIGNED NOT NULL,
-        user_id     BIGINT UNSIGNED NOT NULL,
-        rating      TINYINT UNSIGNED NOT NULL DEFAULT 5,
-        body        TEXT,
-        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        listing_id bigint(20) unsigned NOT NULL,
+        user_id bigint(20) unsigned NOT NULL,
+        rating tinyint(3) unsigned NOT NULL DEFAULT 5,
+        body text,
+        created_at datetime DEFAULT '0000-00-00 00:00:00',
+        PRIMARY KEY  (id),
         KEY idx_listing (listing_id),
         KEY idx_user (user_id)
     ) $charset;";
 
-    // Messages / Conversations
     $sql_conversations = "CREATE TABLE {$wpdb->prefix}eb_conversations (
-        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        user_a      BIGINT UNSIGNED NOT NULL,
-        user_b      BIGINT UNSIGNED NOT NULL,
-        listing_id  BIGINT UNSIGNED DEFAULT NULL,
-        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        user_a bigint(20) unsigned NOT NULL,
+        user_b bigint(20) unsigned NOT NULL,
+        listing_id bigint(20) unsigned DEFAULT NULL,
+        updated_at datetime DEFAULT '0000-00-00 00:00:00',
+        PRIMARY KEY  (id),
         KEY idx_user_a (user_a),
         KEY idx_user_b (user_b)
     ) $charset;";
 
     $sql_messages = "CREATE TABLE {$wpdb->prefix}eb_messages (
-        id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        conversation_id BIGINT UNSIGNED NOT NULL,
-        sender_id       BIGINT UNSIGNED NOT NULL,
-        body            TEXT,
-        msg_type        VARCHAR(20) DEFAULT 'text',
-        offer_amount    INT DEFAULT NULL,
-        offer_status    VARCHAR(20) DEFAULT NULL,
-        is_read         TINYINT(1) DEFAULT 0,
-        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        conversation_id bigint(20) unsigned NOT NULL,
+        sender_id bigint(20) unsigned NOT NULL,
+        body text,
+        msg_type varchar(20) DEFAULT 'text',
+        offer_amount int(11) DEFAULT NULL,
+        offer_status varchar(20) DEFAULT NULL,
+        is_read tinyint(1) DEFAULT 0,
+        created_at datetime DEFAULT '0000-00-00 00:00:00',
+        PRIMARY KEY  (id),
         KEY idx_conv (conversation_id),
         KEY idx_sender (sender_id)
     ) $charset;";
 
-    // Favorites
     $sql_favorites = "CREATE TABLE {$wpdb->prefix}eb_favorites (
-        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        user_id     BIGINT UNSIGNED NOT NULL,
-        listing_id  BIGINT UNSIGNED NOT NULL,
-        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) unsigned NOT NULL,
+        listing_id bigint(20) unsigned NOT NULL,
+        created_at datetime DEFAULT '0000-00-00 00:00:00',
+        PRIMARY KEY  (id),
         UNIQUE KEY idx_user_listing (user_id, listing_id)
     ) $charset;";
 
@@ -587,9 +583,9 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.5' ) {
+    if ( get_option( 'eb_db_version' ) !== '1.6' ) {
         eb_create_tables();
-        update_option( 'eb_db_version', '1.5' );
+        update_option( 'eb_db_version', '1.6' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -708,8 +704,31 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_provider_profile',
         'permission_callback' => '__return_true',
     ) );
+    /* ---------- DIAGNOSTICS (admin only) ---------- */
+    register_rest_route( 'eventboerse/v1', '/diagnostics', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_diagnostics',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
+
+/** Check DB tables exist and are functional */
+function eb_diagnostics() {
+    global $wpdb;
+    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites' );
+    $result = array( 'db_version' => get_option( 'eb_db_version' ), 'tables' => array() );
+    foreach ( $tables as $t ) {
+        $full = $wpdb->prefix . $t;
+        $exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $full ) ) === $full;
+        $cols = $exists ? $wpdb->get_results( "SHOW COLUMNS FROM `$full`" ) : null;
+        $result['tables'][ $t ] = array(
+            'exists'  => $exists,
+            'columns' => $cols ? wp_list_pluck( $cols, 'Field' ) : null,
+        );
+    }
+    return new WP_REST_Response( $result, 200 );
+}
 
 /* =====================================================================
    UPLOAD HANDLER
@@ -955,6 +974,8 @@ function eb_listings_create( WP_REST_Request $request ) {
     $duration   = floatval( $params['duration'] ?? 0 );
     $negotiable = isset( $params['negotiable'] ) ? (int) (bool) $params['negotiable'] : 1;
 
+    $now = current_time( 'mysql' );
+
     $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
         'user_id'        => $uid,
         'title'          => $title,
@@ -973,13 +994,19 @@ function eb_listings_create( WP_REST_Request $request ) {
         'date_to'        => $date_to,
         'time_from'      => $time_from,
         'time_to'        => $time_to,
-        'duration'        => $duration,
+        'duration'       => $duration,
         'negotiable'     => $negotiable,
+        'created_at'     => $now,
+        'updated_at'     => $now,
     ) );
 
     $new_id = $wpdb->insert_id;
     if ( ! $new_id ) {
-        return new WP_REST_Response( array( 'message' => 'Fehler beim Erstellen.' ), 500 );
+        return new WP_REST_Response( array(
+            'message'  => 'Fehler beim Erstellen.',
+            'db_error' => $wpdb->last_error,
+            'table'    => $wpdb->prefix . 'eb_listings',
+        ), 500 );
     }
 
     $row = $wpdb->get_row( $wpdb->prepare(
@@ -1149,10 +1176,11 @@ function eb_reviews_create( WP_REST_Request $request ) {
     }
 
     $wpdb->insert( $wpdb->prefix . 'eb_reviews', array(
-        'listing_id' => $listing_id,
-        'user_id'    => $uid,
-        'rating'     => $rating,
-        'body'       => $text,
+        'listing_id'  => $listing_id,
+        'user_id'     => $uid,
+        'rating'      => $rating,
+        'body'        => $text,
+        'created_at'  => current_time( 'mysql' ),
     ) );
 
     // Update listing rating avg and count
@@ -1251,6 +1279,7 @@ function eb_conversations_create( WP_REST_Request $request ) {
         'user_a'     => $uid,
         'user_b'     => $other_id,
         'listing_id' => $listing_id ?: null,
+        'updated_at' => current_time( 'mysql' ),
     ) );
 
     $conv_id = $wpdb->insert_id;
@@ -1266,6 +1295,7 @@ function eb_conversations_create( WP_REST_Request $request ) {
                 'sender_id'       => 0,
                 'body'            => 'Gespräch gestartet über „' . $listing_title . '"',
                 'msg_type'        => 'system',
+                'created_at'      => current_time( 'mysql' ),
             ) );
         }
     }
@@ -1357,6 +1387,7 @@ function eb_messages_send( WP_REST_Request $request ) {
         $insert['offer_status'] = 'pending';
         $insert['body']         = 'Preisangebot: ' . $insert['offer_amount'] . '€';
     }
+    $insert['created_at'] = current_time( 'mysql' );
 
     $wpdb->insert( $wpdb->prefix . 'eb_messages', $insert );
 
@@ -1411,6 +1442,7 @@ function eb_favorites_toggle( WP_REST_Request $request ) {
     $wpdb->insert( $wpdb->prefix . 'eb_favorites', array(
         'user_id'    => $uid,
         'listing_id' => $listing_id,
+        'created_at' => current_time( 'mysql' ),
     ) );
 
     return new WP_REST_Response( array( 'favorited' => true ), 201 );

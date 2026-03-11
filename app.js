@@ -390,7 +390,11 @@ async function uploadFile(file) {
     headers: headers,
     body: formData
   });
-  if (!resp.ok) throw new Error('Upload fehlgeschlagen');
+  if (!resp.ok) {
+    var err = {};
+    try { err = await resp.json(); } catch(e) {}
+    throw new Error(err.message || 'Upload fehlgeschlagen (Status ' + resp.status + ')');
+  }
   return await resp.json(); // { id, url }
 }
 
@@ -2473,7 +2477,11 @@ function submitListing(e) {
       headers: _apiHeaders(),
       body: JSON.stringify(payload)
     }).then(function(resp) {
-      if (!resp.ok) throw new Error('Speichern fehlgeschlagen');
+      if (!resp.ok) {
+        return resp.json().catch(function() { return {}; }).then(function(err) {
+          throw new Error(err.message || err.db_error || 'Speichern fehlgeschlagen (Status ' + resp.status + ')');
+        });
+      }
       return resp.json();
     }).then(function(saved) {
       // Remove old from LISTINGS array if editing
