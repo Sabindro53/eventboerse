@@ -2355,7 +2355,28 @@ document.addEventListener('DOMContentLoaded', function() {
   restoreSession();
   initPasswordFields();
   initDragScroll();
+  initDatePickers();
 });
+
+// ========== DATE PICKERS (Flatpickr) ==========
+function initDatePickers() {
+  const fpConfig = {
+    locale: 'de',
+    dateFormat: 'd.m.Y',
+    allowInput: true,
+    disableMobile: true,
+    minDate: 'today'
+  };
+  const fromPicker = flatpickr('#createDateFrom', {
+    ...fpConfig,
+    onChange: function(selectedDates) {
+      if (selectedDates[0] && toPicker) {
+        toPicker.set('minDate', selectedDates[0]);
+      }
+    }
+  });
+  const toPicker = flatpickr('#createDateTo', fpConfig);
+}
 
 // ========== FAVORITES ==========
 function toggleFavorite(listingId, btn) {
