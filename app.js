@@ -509,7 +509,7 @@ function navigateTo(page, data, skipHistory) {
     case 'messages':
       renderChatList();
       break;
-    case 'dashboard':
+    case 'profile':
       renderDashboard();
       break;
     case 'create-listing':
@@ -529,8 +529,8 @@ function navigateTo(page, data, skipHistory) {
       }
       updateCreateFormForRole();
       break;
-    case 'profile':
-      navigateTo('dashboard');
+    case 'dashboard':
+      navigateTo('profile');
       return;
     case 'my-listings':
       renderMyListings();

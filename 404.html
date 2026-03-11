@@ -67,9 +67,8 @@
         <button onclick="openModal('registerModal')">Registrieren</button>
       </div>
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
-        <button onclick="navigateTo('dashboard')"><span class="material-icons-round">dashboard</span> Dashboard</button>
-        <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
+        <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
@@ -119,7 +118,7 @@
       <span class="material-icons-round">chat_bubble</span>
       <span>Nachrichten</span>
     </button>
-    <button onclick="navigateTo('dashboard')" data-page="dashboard">
+    <button onclick="navigateTo('profile')" data-page="profile">
       <span class="material-icons-round">person</span>
       <span>Profil</span>
     </button>
@@ -760,11 +759,11 @@
       </div>
     </section>
 
-    <!-- ============ PAGE: DASHBOARD ============ -->
-    <section id="page-dashboard" class="page">
+    <!-- ============ PAGE: PROFIL ============ -->
+    <section id="page-profile" class="page">
       <div class="container">
         <div class="dashboard-header">
-          <h1>Dashboard</h1>
+          <h1>Mein Profil</h1>
           <p>Willkommen zurück! Hier ist deine Übersicht.</p>
         </div>
         <div class="dashboard-stats">

@@ -53,9 +53,8 @@ get_header();
         <button onclick="openModal('registerModal')">Registrieren</button>
       </div>
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
-        <button onclick="navigateTo('dashboard')"><span class="material-icons-round">dashboard</span> Dashboard</button>
-        <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
+        <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>

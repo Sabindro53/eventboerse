@@ -69,7 +69,7 @@
         <button onclick="openModal('registerModal')">Registrieren</button>
       </div>
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
-        <button onclick="navigateTo('dashboard')"><span class="material-icons-round">account_circle</span> Mein Profil</button>
+        <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
         <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
@@ -120,7 +120,7 @@
       <span class="material-icons-round">chat_bubble</span>
       <span>Chat</span>
     </button>
-    <button onclick="navigateTo('dashboard')" data-page="dashboard">
+    <button onclick="navigateTo('profile')" data-page="profile">
       <span class="material-icons-round">person</span>
       <span>Profil</span>
     </button>
@@ -917,8 +917,8 @@
       </div>
     </section>
 
-    <!-- ============ PAGE: DASHBOARD ============ -->
-    <section id="page-dashboard" class="page">
+    <!-- ============ PAGE: PROFIL ============ -->
+    <section id="page-profile" class="page">
       <!-- Profile Cover -->
       <div class="profile-cover" id="profileCover">
         <div class="profile-cover-overlay" onclick="if(!this.parentElement.classList.contains('repositioning'))openCoverLightbox()"></div>
@@ -1315,7 +1315,7 @@
     </section>
 
     <!-- ============ PAGE: MY PROFILE EDIT ============ -->
-    <!-- page-profile merged into page-dashboard (Profilauftritt) -->
+    <!-- Profil-Seite (ehemals Dashboard) -->
 
     <!-- ============ PAGE: MY LISTINGS ============ -->
     <section id="page-my-listings" class="page">
