@@ -691,7 +691,7 @@ function renderFeed(tab) {
       ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + l.location + '</div>' : ''}
       ${tags.length ? '<div class="feed-card-tags">' + tags.map(t => '<span class="feed-card-tag">' + t + '</span>').join('') + '</div>' : ''}
       <div class="feed-card-footer">
-        <span class="feed-card-price">${l.priceLabel} <small>/ Event</small></span>
+        <span class="feed-card-price">${l.priceLabel}</span>
         <div class="feed-card-actions">
           <button class="feed-card-action ${isFav ? 'active' : ''}" onclick="toggleFeedFav(this,${l.id})">
             <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
