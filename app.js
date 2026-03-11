@@ -2107,6 +2107,16 @@ function initFeatureSearch() {
       else if (items[0]) items[0].dispatchEvent(new MouseEvent('mousedown'));
     }
   });
+
+  // Mobile collapse / expand
+  var toggle = document.getElementById('featureTagsToggle');
+  if (toggle && window.innerWidth <= 768) {
+    grid.classList.add('collapsed');
+    toggle.addEventListener('click', function() {
+      var isCollapsed = grid.classList.toggle('collapsed');
+      toggle.textContent = isCollapsed ? 'Mehr anzeigen ▾' : 'Weniger anzeigen ▴';
+    });
+  }
 }
 
 // Category → label mapping
