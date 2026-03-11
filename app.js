@@ -2461,11 +2461,8 @@ function initCityAutocomplete() {
 
 // ========== TIME PICKER HELPERS ==========
 function getTime24(prefix) {
-  let h = parseInt(document.getElementById(prefix + 'H').value);
+  const h = parseInt(document.getElementById(prefix + 'H').value);
   const m = parseInt(document.getElementById(prefix + 'M').value);
-  const ap = document.getElementById(prefix + 'AP').value;
-  if (ap === 'AM' && h === 12) h = 0;
-  else if (ap === 'PM' && h !== 12) h += 12;
   return { h, m, total: h * 60 + m };
 }
 
@@ -2485,7 +2482,7 @@ function calcDuration() {
   const formatted = hours % 1 === 0 ? hours : hours.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
   durInput.value = formatted;
   durInput.max = hours;
-  durInput.min = 0.25;
+  durInput.min = 0.5;
   flashDuration();
 }
 
@@ -2501,15 +2498,15 @@ function clampDuration() {
   const durInput = document.getElementById('createDuration');
   const maxH = parseFloat(durInput.max) || 24;
   let v = parseFloat(durInput.value);
-  if (isNaN(v) || v < 0.25) v = 0.25;
+  if (isNaN(v) || v < 0.5) v = 0.5;
   if (v > maxH) v = maxH;
   durInput.value = v % 1 === 0 ? v : v.toFixed(1);
   flashDuration();
 }
 
 function initTimePickers() {
-  ['createTimeFromH','createTimeFromM','createTimeFromAP',
-   'createTimeToH','createTimeToM','createTimeToAP'].forEach(id => {
+  ['createTimeFromH','createTimeFromM',
+   'createTimeToH','createTimeToM'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('change', calcDuration);

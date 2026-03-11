@@ -2871,7 +2871,6 @@ span.flatpickr-weekday {
   appearance: auto;
 }
 .time-select-min { min-width: 56px; }
-.time-select-ap { min-width: 60px; font-weight: 600; }
 .time-sep { font-size: 1.1rem; font-weight: 700; color: var(--text-light); }
 .form-row-time { grid-template-columns: 1fr 1fr 0.7fr; align-items: end; }
 #createDuration {
