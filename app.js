@@ -377,6 +377,7 @@ let currentChat = null;
 let isLoggedIn = false;
 let favorites = new Set();
 let _dbListingsLoaded = false;
+let _favoritesLoaded = false;
 
 // ========== FILE UPLOAD HELPER ==========
 async function uploadFile(file, _attempt) {
@@ -446,14 +447,11 @@ async function loadFavorites() {
     var resp = await fetch(_apiUrl('favorites'), { credentials: 'same-origin', headers: _apiHeaders() });
     if (!resp.ok) return;
     var data = await resp.json();
-    // Preserve demo-listing favorites (IDs <= 10000) that can't be stored via API
-    var demoFavs = [];
-    favorites.forEach(function(id) { if (id <= 10000) demoFavs.push(id); });
-    favorites.clear();
-    demoFavs.forEach(function(id) { favorites.add(id); });
+    // Merge API favorites into local Set (don't clear — keeps local/demo favs intact)
     data.forEach(function(l) {
       favorites.add(l.id + 10000);
     });
+    _favoritesLoaded = true;
   } catch(e) {}
 }
 
@@ -3379,9 +3377,11 @@ function renderFavorites() {
     }
   }
 
-  if (isLoggedIn && !_dbListingsLoaded) {
-    loadDbListings().then(function() { return loadFavorites(); }).then(doRender).catch(doRender);
-  } else if (isLoggedIn) {
+  if (!_dbListingsLoaded) {
+    loadDbListings().then(function() {
+      return _favoritesLoaded ? Promise.resolve() : loadFavorites();
+    }).then(doRender).catch(doRender);
+  } else if (isLoggedIn && !_favoritesLoaded) {
     loadFavorites().then(doRender).catch(doRender);
   } else {
     doRender();
@@ -3921,6 +3921,7 @@ function applyLogout() {
   isLoggedIn = false;
   currentUser = null;
   _dbListingsLoaded = false;
+  _favoritesLoaded = false;
   favorites.clear();
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
