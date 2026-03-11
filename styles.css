@@ -381,6 +381,14 @@ img { display: block; max-width: 100%; }
   0% { transform: translateY(-50%); }
   100% { transform: translateY(0); }
 }
+@keyframes marqueeLeft {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes marqueeRight {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
 .hero-marquee:hover .hero-marquee-track {
   animation-play-state: paused;
 }
@@ -3677,8 +3685,53 @@ span.flatpickr-weekday {
   .nav-avatar { padding: 4px 4px 4px 10px; }
 
   /* Hero */
-  .hero { min-height: auto; padding: 24px 0; }
-  .hero-content { padding: 20px 16px; }
+  .hero {
+    min-height: auto;
+    padding: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .hero-marquee {
+    display: block !important;
+    position: relative;
+    width: 100%;
+    height: auto;
+    top: auto;
+    left: auto !important;
+    right: auto !important;
+    mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+    padding: 8px 0;
+  }
+  .hero-marquee-left { order: 1; }
+  .hero-marquee-right { order: 3; }
+  .hero-content { padding: 20px 16px; order: 2; }
+  .hero-marquee-track {
+    flex-direction: row !important;
+    gap: 10px !important;
+    flex-wrap: nowrap;
+  }
+  .hero-marquee-left .hero-marquee-track {
+    animation: marqueeLeft 20s linear infinite !important;
+  }
+  .hero-marquee-right .hero-marquee-track {
+    animation: marqueeRight 24s linear infinite !important;
+  }
+  .hero-marquee-card {
+    width: 130px !important;
+  }
+  .hero-marquee-card img {
+    height: 80px !important;
+  }
+  .hero-marquee-card-info {
+    padding: 6px 8px !important;
+  }
+  .hero-marquee-card-info h4 {
+    font-size: 0.68rem !important;
+  }
+  .hero-marquee-card-info span {
+    font-size: 0.6rem !important;
+  }
   .hero-content h1 { font-size: 2rem; line-height: 1.15; margin-bottom: 12px; }
   .hero-content p { font-size: 0.95rem; margin-bottom: 20px; }
 
