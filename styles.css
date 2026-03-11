@@ -2800,6 +2800,46 @@ img { display: block; max-width: 100%; }
   color: #fff !important;
   font-weight: 600 !important;
 }
+.flatpickr-current-month input.cur-year {
+  cursor: pointer !important;
+}
+.flatpickr-current-month .numInputWrapper span {
+  display: none !important;
+}
+.flatpickr-current-month .numInputWrapper {
+  cursor: pointer;
+}
+.year-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 90px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 100000;
+}
+.year-dropdown-item {
+  padding: 10px 16px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--dark);
+  font-weight: 500;
+  font-size: 14px;
+  transition: background var(--transition);
+}
+.year-dropdown-item:hover {
+  background: var(--bg-alt);
+}
+.year-dropdown-item.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
 .flatpickr-current-month .flatpickr-monthDropdown-months option {
   color: var(--dark) !important;
   background: var(--bg) !important;

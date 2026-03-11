@@ -2533,6 +2533,49 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========== DATE PICKERS (Flatpickr) ==========
+function setupYearDropdown(fp) {
+  const yearInput = fp.calendarContainer.querySelector('input.cur-year');
+  if (!yearInput) return;
+  yearInput.readOnly = true;
+  const wrapper = yearInput.closest('.numInputWrapper');
+  wrapper.addEventListener('click', function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    const existing = wrapper.querySelector('.year-dropdown');
+    if (existing) { existing.remove(); return; }
+    const currentYear = fp.currentYear;
+    const minYear = new Date().getFullYear();
+    const maxYear = minYear + 6;
+    const dropdown = document.createElement('div');
+    dropdown.className = 'year-dropdown';
+    for (let y = minYear; y <= maxYear; y++) {
+      const item = document.createElement('div');
+      item.className = 'year-dropdown-item' + (y === currentYear ? ' active' : '');
+      item.textContent = y;
+      item.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        fp.changeYear(y);
+        dropdown.remove();
+      });
+      dropdown.appendChild(item);
+    }
+    wrapper.appendChild(dropdown);
+    const activeItem = dropdown.querySelector('.active');
+    if (activeItem) {
+      dropdown.scrollTop = activeItem.offsetTop - dropdown.offsetHeight / 2 + activeItem.offsetHeight / 2;
+    }
+    setTimeout(function() {
+      function closeYearDd(ev) {
+        if (!dropdown.contains(ev.target) && !wrapper.contains(ev.target)) {
+          dropdown.remove();
+          document.removeEventListener('click', closeYearDd);
+        }
+      }
+      document.addEventListener('click', closeYearDd);
+    }, 0);
+  });
+}
+
 function initDatePickers() {
   if (typeof flatpickr === 'undefined') return;
   const fpConfig = {
@@ -2542,7 +2585,10 @@ function initDatePickers() {
     altFormat: 'd.m.Y',
     allowInput: true,
     disableMobile: true,
-    minDate: 'today'
+    minDate: 'today',
+    onReady: function(selectedDates, dateStr, instance) {
+      setupYearDropdown(instance);
+    }
   };
   const fromPicker = flatpickr('#createDateFrom', {
     ...fpConfig,
