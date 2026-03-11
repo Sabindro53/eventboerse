@@ -2481,8 +2481,7 @@ function calcDuration() {
   if (!durInput) return;
   const formatted = hours % 1 === 0 ? hours : hours.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
   durInput.value = formatted;
-  durInput.max = hours;
-  durInput.min = 0.5;
+  durInput.dataset.max = hours;
   flashDuration();
 }
 
@@ -2494,29 +2493,69 @@ function flashDuration() {
   el.classList.add('flash');
 }
 
-function clampDuration() {
-  const durInput = document.getElementById('createDuration');
-  const maxH = parseFloat(durInput.max) || 24;
-  let v = parseFloat(durInput.value);
-  if (isNaN(v) || v < 0.5) v = 0.5;
-  if (v > maxH) v = maxH;
-  durInput.value = v % 1 === 0 ? v : v.toFixed(1);
+function parseDuration(raw) {
+  var s = String(raw).trim();
+  // "3:30" or "3,30" → treat as h:mm
+  var hm = s.match(/^(\d+)\s*[:,]\s*(\d+)$/);
+  if (hm) {
+    var h = parseInt(hm[1]);
+    var mins = parseInt(hm[2]);
+    if (mins >= 60) mins = 59;
+    return h + mins / 60;
+  }
+  // Plain number (allow comma as decimal sep)
+  var n = parseFloat(s.replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
+function snapDuration(v) {
+  return Math.round(v * 2) / 2; // snap to nearest 0.5
+}
+
+function formatDuration(v) {
+  return v % 1 === 0 ? String(v) : v.toFixed(1);
+}
+
+function clampAndFormat() {
+  var durInput = document.getElementById('createDuration');
+  if (!durInput) return;
+  var maxH = parseFloat(durInput.dataset.max) || 24;
+  var parsed = parseDuration(durInput.value);
+  if (parsed === null || parsed < 0.5) parsed = 0.5;
+  parsed = snapDuration(parsed);
+  if (parsed > maxH) parsed = maxH;
+  if (parsed < 0.5) parsed = 0.5;
+  durInput.value = formatDuration(parsed);
   flashDuration();
 }
 
 function initTimePickers() {
   ['createTimeFromH','createTimeFromM',
    'createTimeToH','createTimeToM'].forEach(id => {
-    const el = document.getElementById(id);
+    var el = document.getElementById(id);
     if (el) {
       el.addEventListener('change', calcDuration);
       el.addEventListener('input', calcDuration);
     }
   });
-  const durInput = document.getElementById('createDuration');
+  var durInput = document.getElementById('createDuration');
   if (durInput) {
-    durInput.addEventListener('change', clampDuration);
-    durInput.addEventListener('input', clampDuration);
+    durInput.addEventListener('blur', clampAndFormat);
+    durInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); clampAndFormat(); durInput.blur(); return; }
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      var maxH = parseFloat(durInput.dataset.max) || 24;
+      var cur = parseDuration(durInput.value);
+      if (cur === null) cur = 0.5;
+      cur = snapDuration(cur);
+      if (e.key === 'ArrowUp') cur += 0.5;
+      else cur -= 0.5;
+      if (cur < 0.5) cur = 0.5;
+      if (cur > maxH) cur = maxH;
+      durInput.value = formatDuration(cur);
+      flashDuration();
+    });
   }
   calcDuration();
 }
