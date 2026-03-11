@@ -1652,19 +1652,18 @@ function openChat(chatId) {
       // Render messages
       var msgContainer = document.getElementById('chatMessages');
       msgContainer.innerHTML = (messages || []).map(function(msg) {
-        var myId = currentUser ? currentUser.id : 0;
         if (msg.type === 'system') {
-          return '<div class="msg msg-system">' + msg.content + '</div>';
+          return '<div class="msg msg-system">' + (msg.text || msg.content || '') + '</div>';
         } else if (msg.type === 'offer') {
           return '<div class="msg msg-offer">' +
-            '<div class="offer-label">' + (msg.sender_id == myId ? 'Dein Angebot' : 'Angebot') + '</div>' +
-            '<div class="offer-amount">' + msg.content + '</div>' +
-            '<div class="offer-status pending">Gesendet</div>' +
+            '<div class="offer-label">' + (msg.label || 'Angebot') + '</div>' +
+            '<div class="offer-amount">' + (msg.amount || msg.text || '') + '</div>' +
+            '<div class="offer-status ' + (msg.status || 'pending') + '">' + (msg.statusLabel || 'Gesendet') + '</div>' +
           '</div>';
         } else {
-          var cls = msg.sender_id == myId ? 'msg-sent' : 'msg-received';
-          var time = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
-          return '<div class="msg ' + cls + '">' + msg.content + '<span class="msg-time">' + time + '</span></div>';
+          var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
+          var time = msg.time || '';
+          return '<div class="msg ' + cls + '">' + (msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
         }
       }).join('');
       msgContainer.scrollTop = msgContainer.scrollHeight;
@@ -1727,9 +1726,9 @@ function sendMessage() {
     .then(function(r) { return r.json(); })
     .then(function(msg) {
       // Append the sent message
-      var time = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+      var time = msg.time || '';
       var msgContainer = document.getElementById('chatMessages');
-      msgContainer.innerHTML += '<div class="msg msg-sent">' + msg.content + '<span class="msg-time">' + time + '</span></div>';
+      msgContainer.innerHTML += '<div class="msg msg-sent">' + (msg.text || msg.content || text) + '<span class="msg-time">' + time + '</span></div>';
       msgContainer.scrollTop = msgContainer.scrollHeight;
     })
     .catch(function() {

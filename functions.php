@@ -492,7 +492,7 @@ function eb_create_tables() {
     $charset = $wpdb->get_charset_collate();
 
     // Listings
-    $sql_listings = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_listings (
+    $sql_listings = "CREATE TABLE {$wpdb->prefix}eb_listings (
         id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         user_id     BIGINT UNSIGNED NOT NULL,
         title       VARCHAR(255) NOT NULL,
@@ -528,7 +528,7 @@ function eb_create_tables() {
     ) $charset;";
 
     // Reviews
-    $sql_reviews = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_reviews (
+    $sql_reviews = "CREATE TABLE {$wpdb->prefix}eb_reviews (
         id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         listing_id  BIGINT UNSIGNED NOT NULL,
         user_id     BIGINT UNSIGNED NOT NULL,
@@ -541,7 +541,7 @@ function eb_create_tables() {
     ) $charset;";
 
     // Messages / Conversations
-    $sql_conversations = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_conversations (
+    $sql_conversations = "CREATE TABLE {$wpdb->prefix}eb_conversations (
         id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         user_a      BIGINT UNSIGNED NOT NULL,
         user_b      BIGINT UNSIGNED NOT NULL,
@@ -552,7 +552,7 @@ function eb_create_tables() {
         KEY idx_user_b (user_b)
     ) $charset;";
 
-    $sql_messages = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_messages (
+    $sql_messages = "CREATE TABLE {$wpdb->prefix}eb_messages (
         id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         conversation_id BIGINT UNSIGNED NOT NULL,
         sender_id       BIGINT UNSIGNED NOT NULL,
@@ -568,7 +568,7 @@ function eb_create_tables() {
     ) $charset;";
 
     // Favorites
-    $sql_favorites = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_favorites (
+    $sql_favorites = "CREATE TABLE {$wpdb->prefix}eb_favorites (
         id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         user_id     BIGINT UNSIGNED NOT NULL,
         listing_id  BIGINT UNSIGNED NOT NULL,
@@ -587,9 +587,9 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.3' ) {
+    if ( get_option( 'eb_db_version' ) !== '1.4' ) {
         eb_create_tables();
-        update_option( 'eb_db_version', '1.3' );
+        update_option( 'eb_db_version', '1.4' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -1103,12 +1103,16 @@ function eb_reviews_list( WP_REST_Request $request ) {
         $name  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
         if ( ! $name ) $name = $r->display_name;
         $reviews[] = array(
-            'id'     => (int) $r->id,
-            'rating' => (int) $r->rating,
-            'text'   => $r->text,
-            'name'   => $name,
-            'avatar' => $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) ),
-            'date'   => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
+            'id'          => (int) $r->id,
+            'rating'      => (int) $r->rating,
+            'text'        => $r->text,
+            'comment'     => $r->text,
+            'name'        => $name,
+            'author_name' => $name,
+            'avatar'      => $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) ),
+            'photo_url'   => $photo ?: '',
+            'date'        => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
+            'created_at'  => $r->created_at,
         );
     }
 
@@ -1122,7 +1126,7 @@ function eb_reviews_create( WP_REST_Request $request ) {
     $params     = $request->get_json_params();
 
     $rating = max( 1, min( 5, absint( $params['rating'] ?? 5 ) ) );
-    $text   = sanitize_textarea_field( $params['text'] ?? '' );
+    $text   = sanitize_textarea_field( $params['comment'] ?? ( $params['text'] ?? '' ) );
 
     // Check listing exists
     $listing = $wpdb->get_row( $wpdb->prepare(
@@ -1198,14 +1202,19 @@ function eb_conversations_list() {
         }
 
         $conversations[] = array(
-            'id'        => (int) $c->id,
-            'otherId'   => $other_id,
-            'name'      => $name,
-            'avatar'    => $avatar,
-            'lastMsg'   => $c->last_msg ?: '',
-            'time'      => $time_str,
-            'unread'    => (int) $c->unread_count,
-            'listingId' => $c->listing_id ? (int) $c->listing_id : null,
+            'id'           => (int) $c->id,
+            'otherId'      => $other_id,
+            'other_name'   => $name,
+            'other_photo'  => $avatar,
+            'name'         => $name,
+            'avatar'       => $avatar,
+            'lastMsg'      => $c->last_msg ?: '',
+            'last_message' => $c->last_msg ?: '',
+            'time'         => $time_str,
+            'unread'       => (int) $c->unread_count,
+            'unread_count' => (int) $c->unread_count,
+            'updated_at'   => $c->last_msg_time ?: $c->updated_at,
+            'listingId'    => $c->listing_id ? (int) $c->listing_id : null,
         );
     }
 
@@ -1217,8 +1226,8 @@ function eb_conversations_create( WP_REST_Request $request ) {
     $uid    = get_current_user_id();
     $params = $request->get_json_params();
 
-    $other_id   = absint( $params['userId'] ?? 0 );
-    $listing_id = absint( $params['listingId'] ?? 0 );
+    $other_id   = absint( $params['other_user_id'] ?? ( $params['userId'] ?? 0 ) );
+    $listing_id = absint( $params['listing_id'] ?? ( $params['listingId'] ?? 0 ) );
 
     if ( ! $other_id || $other_id === $uid ) {
         return new WP_REST_Response( array( 'message' => 'Ungültiger Empfänger.' ), 400 );
@@ -1292,10 +1301,13 @@ function eb_messages_list( WP_REST_Request $request ) {
     $messages = array();
     foreach ( $rows as $m ) {
         $msg = array(
-            'id'   => (int) $m->id,
-            'type' => (int) $m->sender_id === $uid ? 'sent' : ( $m->msg_type === 'system' ? 'system' : 'received' ),
-            'text' => $m->body,
-            'time' => date( 'H:i', strtotime( $m->created_at ) ),
+            'id'         => (int) $m->id,
+            'type'       => (int) $m->sender_id === $uid ? 'sent' : ( $m->msg_type === 'system' ? 'system' : 'received' ),
+            'text'       => $m->body,
+            'content'    => $m->body,
+            'time'       => date( 'H:i', strtotime( $m->created_at ) ),
+            'created_at' => $m->created_at,
+            'sender_id'  => (int) $m->sender_id,
         );
         if ( $m->msg_type === 'offer' ) {
             $msg['type']        = 'offer';
@@ -1326,7 +1338,7 @@ function eb_messages_send( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
     }
 
-    $body     = sanitize_textarea_field( $params['text'] ?? '' );
+    $body     = sanitize_textarea_field( $params['content'] ?? ( $params['text'] ?? '' ) );
     $msg_type = sanitize_text_field( $params['type'] ?? 'text' );
 
     if ( empty( $body ) && $msg_type === 'text' ) {
@@ -1355,8 +1367,12 @@ function eb_messages_send( WP_REST_Request $request ) {
     );
 
     return new WP_REST_Response( array(
-        'id'   => (int) $wpdb->insert_id,
-        'sent' => true,
+        'id'         => (int) $wpdb->insert_id,
+        'sent'       => true,
+        'content'    => $body,
+        'created_at' => current_time( 'mysql' ),
+        'sender_id'  => $uid,
+        'type'       => $msg_type,
     ), 201 );
 }
 
