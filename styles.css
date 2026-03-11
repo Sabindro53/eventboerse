@@ -2992,6 +2992,10 @@ span.flatpickr-weekday {
   border-color: var(--primary); background: var(--primary); color: #fff;
 }
 .feature-tag.selected:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.feature-tag-custom {
+  display: flex; gap: 8px; margin-top: 12px; align-items: center;
+}
+.feature-tag-custom input { flex: 1; }
 .upload-preview {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

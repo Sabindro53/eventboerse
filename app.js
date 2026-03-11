@@ -1926,6 +1926,21 @@ function toggleFeatureTag(btn) {
   btn.classList.toggle('selected');
 }
 
+function addCustomFeature() {
+  var input = document.getElementById('customFeatureInput');
+  var text = input.value.trim();
+  if (!text) return;
+  var grid = document.getElementById('createFeatureTags');
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'feature-tag selected';
+  btn.onclick = function() { toggleFeatureTag(btn); };
+  btn.textContent = '✏️ ' + text;
+  grid.appendChild(btn);
+  input.value = '';
+  showToast('Leistung hinzugefügt!', 'add_circle');
+}
+
 // ========== LEISTUNGEN SEARCH ==========
 const ALL_FEATURES = [
   // Musik & DJ
