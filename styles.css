@@ -2832,6 +2832,12 @@ span.flatpickr-weekday {
   background: var(--primary-light) !important;
   border-color: var(--primary-light) !important;
 }
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.flatpickr-disabled:hover,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+  color: #b0b0b0 !important;
+}
 
 .form-nav { display: flex; justify-content: space-between; margin-top: 24px; }
 
