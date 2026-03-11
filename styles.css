@@ -2448,7 +2448,28 @@ img { display: block; max-width: 100%; }
   background-size: cover;
   background-position: center;
   overflow: hidden;
+  cursor: pointer;
 }
+
+/* Cover Lightbox */
+.cover-lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.cover-lightbox.show { opacity: 1; visibility: visible; }
+.cover-lightbox img {
+  max-width: 92vw; max-height: 92vh;
+  object-fit: contain; cursor: default;
+  transform: scale(0.92);
+  transition: transform 0.3s ease;
+  border-radius: var(--radius-sm);
+}
+.cover-lightbox.show img { transform: scale(1); }
 .profile-cover-overlay {
   position: absolute; inset: 0;
   background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.4) 100%);

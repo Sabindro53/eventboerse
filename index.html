@@ -901,7 +901,7 @@
     <section id="page-dashboard" class="page">
       <!-- Profile Cover -->
       <div class="profile-cover" id="profileCover">
-        <div class="profile-cover-overlay"></div>
+        <div class="profile-cover-overlay" onclick="if(!this.parentElement.classList.contains('repositioning'))openCoverLightbox()"></div>
         <button class="profile-cover-edit" onclick="document.getElementById('coverInput').click()" title="Cover ändern">
           <span class="material-icons-round">photo_camera</span>
         </button>
@@ -916,6 +916,12 @@
           </div>
         </div>
         <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="handleCoverUpload(this)" />
+      </div>
+
+      <!-- Cover Fullscreen Lightbox -->
+      <div class="cover-lightbox" id="coverLightbox" onclick="closeCoverLightbox(event)">
+        <button class="plb-close" onclick="closeCoverLightbox()"><span class="material-icons-round">close</span></button>
+        <img id="coverLightboxImg" src="" alt="Cover" />
       </div>
 
       <!-- Profile Header -->

@@ -1371,6 +1371,22 @@ function switchProviderTab(btn, tab) {
   document.getElementById('provider-tab-' + tab).classList.add('active');
 }
 
+/* ── Cover Fullscreen Lightbox ── */
+function openCoverLightbox() {
+  const cover = document.getElementById('profileCover');
+  const bg = cover.style.backgroundImage;
+  const url = bg ? bg.replace(/url\(["']?/, '').replace(/["']?\)/, '') : '';
+  if (!url) return;
+  document.getElementById('coverLightboxImg').src = url;
+  document.getElementById('coverLightbox').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeCoverLightbox(e) {
+  if (e && e.target && e.target.tagName === 'IMG') return;
+  document.getElementById('coverLightbox').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
 function openProviderLightbox(index) {
   lightboxIndex = index;
   const lb = document.getElementById('providerLightbox');
@@ -3177,10 +3193,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Lightbox keyboard navigation
   document.addEventListener('keydown', (e) => {
     const lb = document.getElementById('providerLightbox');
-    if (!lb || !lb.classList.contains('show')) return;
-    if (e.key === 'Escape') closeProviderLightbox();
-    if (e.key === 'ArrowLeft') lightboxNav(-1);
-    if (e.key === 'ArrowRight') lightboxNav(1);
+    if (lb && lb.classList.contains('show')) {
+      if (e.key === 'Escape') closeProviderLightbox();
+      if (e.key === 'ArrowLeft') lightboxNav(-1);
+      if (e.key === 'ArrowRight') lightboxNav(1);
+      return;
+    }
+    const clb = document.getElementById('coverLightbox');
+    if (clb && clb.classList.contains('show') && e.key === 'Escape') closeCoverLightbox();
   });
 });
 
