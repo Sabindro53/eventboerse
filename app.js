@@ -1914,24 +1914,6 @@ function updateCreateFormForRole() {
     if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">publish</span> Inserat ver\u00f6ffentlichen';
   }
 
-  // Auto-calculate duration from time fields
-  var timeFrom = document.getElementById('createTimeFrom');
-  var timeTo = document.getElementById('createTimeTo');
-  var durationInput = document.getElementById('createDuration');
-  function calcDuration() {
-    if (!timeFrom || !timeTo || !durationInput) return;
-    var from = timeFrom.value, to = timeTo.value;
-    if (!from || !to) return;
-    var fParts = from.split(':'), tParts = to.split(':');
-    var fMin = parseInt(fParts[0]) * 60 + parseInt(fParts[1]);
-    var tMin = parseInt(tParts[0]) * 60 + parseInt(tParts[1]);
-    var diff = tMin - fMin;
-    if (diff <= 0) diff += 24 * 60;
-    durationInput.value = Math.round(diff / 60 * 10) / 10;
-  }
-  if (timeFrom) timeFrom.addEventListener('change', calcDuration);
-  if (timeTo) timeTo.addEventListener('change', calcDuration);
-  calcDuration();
 }
 
 function nextStep(step) {
@@ -2500,7 +2482,6 @@ function calcDuration() {
   const durInput = document.getElementById('createDuration');
   durInput.value = hours % 1 === 0 ? hours : hours.toFixed(1);
   durInput.max = hours;
-  durInput.readOnly = false;
   const hint = document.getElementById('durationHint');
   if (hint) hint.textContent = `Max. ${hours % 1 === 0 ? hours : hours.toFixed(1)} Std. im Zeitraum`;
 }
