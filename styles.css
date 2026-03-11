@@ -2873,20 +2873,23 @@ span.flatpickr-weekday {
 .time-select-min { min-width: 56px; }
 .time-select-ap { min-width: 60px; font-weight: 600; }
 .time-sep { font-size: 1.1rem; font-weight: 700; color: var(--text-light); }
-.form-row-time { grid-template-columns: 1fr 1fr 0.7fr; }
-#createDuration { text-align: center; background: var(--bg-alt); }
-.duration-display {
-  font-size: 1.5rem; font-weight: 700; color: var(--primary);
-  text-align: center; padding: 10px 0 6px;
-  transition: color 0.3s ease;
+.form-row-time { grid-template-columns: 1fr 1fr 0.7fr; align-items: end; }
+#createDuration {
+  text-align: center;
+  background: var(--bg-alt);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--primary);
+  height: 100%;
+  transition: color 0.25s ease, transform 0.25s ease;
 }
-.duration-display.flash {
-  animation: durationFlash 0.45s ease;
+#createDuration.flash {
+  animation: durFlash 0.35s ease;
 }
-@keyframes durationFlash {
-  0% { color: var(--primary); transform: scale(1); }
-  30% { color: var(--accent); transform: scale(1.08); }
-  100% { color: var(--primary); transform: scale(1); }
+@keyframes durFlash {
+  0%   { transform: scale(1);   color: var(--primary); }
+  35%  { transform: scale(1.06); color: var(--accent); }
+  100% { transform: scale(1);   color: var(--primary); }
 }
 .duration-hint {
   display: block; margin-top: 4px;

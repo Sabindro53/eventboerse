@@ -2484,20 +2484,17 @@ function calcDuration() {
   durInput.value = formatted;
   durInput.max = hours;
   durInput.min = 0.25;
-  updateDurationDisplay(formatted);
+  flashDuration();
   const hint = document.getElementById('durationHint');
   if (hint) hint.textContent = 'Max. ' + formatted + ' Std. im gewählten Zeitraum';
 }
 
-function updateDurationDisplay(val) {
-  var disp = document.getElementById('durationDisplay');
-  if (!disp) return;
-  var v = parseFloat(val);
-  if (v === 1) disp.textContent = '1 Stunde';
-  else disp.textContent = (v % 1 === 0 ? v : v.toFixed(1)) + ' Stunden';
-  disp.classList.remove('flash');
-  void disp.offsetWidth;
-  disp.classList.add('flash');
+function flashDuration() {
+  var el = document.getElementById('createDuration');
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
 }
 
 function clampDuration() {
@@ -2507,7 +2504,7 @@ function clampDuration() {
   if (isNaN(v) || v < 0.25) v = 0.25;
   if (v > maxH) v = maxH;
   durInput.value = v % 1 === 0 ? v : v.toFixed(1);
-  updateDurationDisplay(durInput.value);
+  flashDuration();
 }
 
 function initTimePickers() {
