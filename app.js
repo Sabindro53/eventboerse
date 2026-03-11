@@ -479,10 +479,10 @@ function navigateTo(page, data, skipHistory) {
       renderFeed('foryou');
       break;
     case 'detail':
-      loadDetail(data);
+      loadDbListings().then(function() { loadDetail(data); });
       break;
     case 'provider':
-      loadProvider(data);
+      loadDbListings().then(function() { loadProvider(data); });
       break;
     case 'messages':
       renderChatList();
@@ -2363,6 +2363,12 @@ function pexelsUrl(id, w, h) {
 function submitListing(e) {
   if (e && e.preventDefault) e.preventDefault();
 
+  if (!isLoggedIn) {
+    showToast('Bitte melde dich an, um ein Inserat zu erstellen.', 'warning');
+    openModal('loginModal');
+    return;
+  }
+
   // Read form values with validation
   const title = document.getElementById('createTitle').value.trim();
   const category = document.getElementById('createCategory').value;
@@ -2402,6 +2408,8 @@ function submitListing(e) {
   const imgSrcs = Array.from(previewItems).map(function(img) { return img.src; });
 
   // Show loading
+  var submitBtn = document.querySelector('#step3 .btn-primary');
+  _setBtnLoading(submitBtn, true);
   showToast('Wird gespeichert...', 'sync');
 
   // Upload images that are data-URLs (new uploads), keep existing URLs
@@ -2491,9 +2499,11 @@ function submitListing(e) {
 
       var successMsg = isEventPlaner() ? 'Event erfolgreich veröffentlicht! 🎉' : 'Inserat erfolgreich veröffentlicht! 🎉';
       showToast(successMsg, 'check_circle');
+      _setBtnLoading(submitBtn, false);
       setTimeout(function() { navigateTo('detail', saved.id); }, 800);
     });
   }).catch(function(err) {
+    _setBtnLoading(submitBtn, false);
     showToast('Fehler beim Speichern: ' + err.message, 'error');
   });
 }
@@ -2799,8 +2809,17 @@ document.addEventListener('DOMContentLoaded', function() {
   initTimePickers();
   initFeatureSearch();
 
-  // Set initial browser history state
-  window.history.replaceState({ page: 'home', data: null }, '', '#home');
+  // Handle initial hash route (deep links)
+  var hash = window.location.hash.replace('#', '');
+  if (hash && hash !== 'home') {
+    var parts = hash.split('/');
+    var initPage = parts[0];
+    var initData = parts[1] ? (isNaN(parts[1]) ? parts[1] : parseInt(parts[1])) : null;
+    window.history.replaceState({ page: initPage, data: initData }, '', '#' + hash);
+    navigateTo(initPage, initData, true);
+  } else {
+    window.history.replaceState({ page: 'home', data: null }, '', '#home');
+  }
 
   // Handle browser back/forward
   window.addEventListener('popstate', function(e) {

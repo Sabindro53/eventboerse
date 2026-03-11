@@ -498,15 +498,15 @@ function eb_create_tables() {
         title       VARCHAR(255) NOT NULL,
         category    VARCHAR(100) NOT NULL DEFAULT '',
         category_label VARCHAR(100) NOT NULL DEFAULT '',
-        description LONGTEXT NOT NULL DEFAULT '',
+        description LONGTEXT,
         price       INT UNSIGNED NOT NULL DEFAULT 0,
         price_model VARCHAR(50) NOT NULL DEFAULT '',
         price_label VARCHAR(100) NOT NULL DEFAULT '',
         location    VARCHAR(255) NOT NULL DEFAULT '',
         region      VARCHAR(255) NOT NULL DEFAULT '',
-        features    LONGTEXT NOT NULL DEFAULT '',
-        tags        TEXT NOT NULL DEFAULT '',
-        images      LONGTEXT NOT NULL DEFAULT '',
+        features    LONGTEXT,
+        tags        TEXT,
+        images      LONGTEXT,
         date_from   DATE DEFAULT NULL,
         date_to     DATE DEFAULT NULL,
         time_from   VARCHAR(5) DEFAULT NULL,
@@ -533,7 +533,7 @@ function eb_create_tables() {
         listing_id  BIGINT UNSIGNED NOT NULL,
         user_id     BIGINT UNSIGNED NOT NULL,
         rating      TINYINT UNSIGNED NOT NULL DEFAULT 5,
-        text        TEXT NOT NULL DEFAULT '',
+        body        TEXT,
         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         KEY idx_listing (listing_id),
@@ -556,7 +556,7 @@ function eb_create_tables() {
         id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         conversation_id BIGINT UNSIGNED NOT NULL,
         sender_id       BIGINT UNSIGNED NOT NULL,
-        body            TEXT NOT NULL DEFAULT '',
+        body            TEXT,
         msg_type        VARCHAR(20) DEFAULT 'text',
         offer_amount    INT DEFAULT NULL,
         offer_status    VARCHAR(20) DEFAULT NULL,
@@ -587,9 +587,9 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.4' ) {
+    if ( get_option( 'eb_db_version' ) !== '1.5' ) {
         eb_create_tables();
-        update_option( 'eb_db_version', '1.4' );
+        update_option( 'eb_db_version', '1.5' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -1105,8 +1105,8 @@ function eb_reviews_list( WP_REST_Request $request ) {
         $reviews[] = array(
             'id'          => (int) $r->id,
             'rating'      => (int) $r->rating,
-            'text'        => $r->text,
-            'comment'     => $r->text,
+            'text'        => $r->body,
+            'comment'     => $r->body,
             'name'        => $name,
             'author_name' => $name,
             'avatar'      => $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) ),
@@ -1152,7 +1152,7 @@ function eb_reviews_create( WP_REST_Request $request ) {
         'listing_id' => $listing_id,
         'user_id'    => $uid,
         'rating'     => $rating,
-        'text'       => $text,
+        'body'       => $text,
     ) );
 
     // Update listing rating avg and count
@@ -1456,7 +1456,7 @@ function eb_provider_profile( WP_REST_Request $request ) {
         $rphoto = get_user_meta( $r->uid, 'eb_photo_url', true );
         $formatted_reviews[] = array(
             'rating' => (int) $r->rating,
-            'text'   => $r->text,
+            'text'   => $r->body,
             'name'   => $rname ?: $r->display_name,
             'avatar' => $rphoto ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $rname ?: $r->display_name ) ),
             'date'   => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
