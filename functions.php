@@ -134,8 +134,9 @@ function eb_user_profile_meta( $uid ) {
         'location' => get_user_meta( $uid, 'eb_location',  true ) ?: '',
         'bio'      => get_user_meta( $uid, 'eb_bio',       true ) ?: '',
         'gallery'  => is_array( $gallery ) ? $gallery : array(),
-        'coverUrl' => get_user_meta( $uid, 'eb_cover_url', true ) ?: '',
-        'photoUrl' => get_user_meta( $uid, 'eb_photo_url', true ) ?: '',
+        'coverUrl'  => get_user_meta( $uid, 'eb_cover_url', true ) ?: '',
+        'coverPosY' => (float) ( get_user_meta( $uid, 'eb_cover_pos_y', true ) ?: 50 ),
+        'photoUrl'  => get_user_meta( $uid, 'eb_photo_url', true ) ?: '',
     );
 }
 
@@ -354,6 +355,7 @@ function eventboerse_handle_profile_get() {
     $bio      = get_user_meta( $uid, 'eb_bio',      true );
     $gallery  = get_user_meta( $uid, 'eb_gallery',  true );
     $cover    = get_user_meta( $uid, 'eb_cover_url', true );
+    $coverPosY = (float) ( get_user_meta( $uid, 'eb_cover_pos_y', true ) ?: 50 );
     $photo    = get_user_meta( $uid, 'eb_photo_url', true );
 
     if ( ! is_array( $gallery ) ) {
@@ -384,6 +386,7 @@ function eventboerse_handle_profile_get() {
         'bio'       => $bio      ?: '',
         'gallery'   => $gallery,
         'coverUrl'  => $cover    ?: '',
+        'coverPosY' => $coverPosY,
         'photoUrl'  => $photo    ?: '',
         'stats'     => array(
             'views'    => $views,
@@ -432,6 +435,12 @@ function eventboerse_handle_profile_save( WP_REST_Request $request ) {
     if ( isset( $params['gallery'] ) && is_array( $params['gallery'] ) ) {
         $clean = array_map( 'esc_url_raw', $params['gallery'] );
         update_user_meta( $uid, 'eb_gallery', $clean );
+    }
+
+    // Cover Position Y
+    if ( isset( $params['coverPosY'] ) ) {
+        $posY = max( 0, min( 100, floatval( $params['coverPosY'] ) ) );
+        update_user_meta( $uid, 'eb_cover_pos_y', $posY );
     }
 
     return new WP_REST_Response( array( 'saved' => true ), 200 );

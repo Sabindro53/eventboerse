@@ -905,6 +905,16 @@
         <button class="profile-cover-edit" onclick="document.getElementById('coverInput').click()" title="Cover ändern">
           <span class="material-icons-round">photo_camera</span>
         </button>
+        <button class="profile-cover-edit profile-cover-reposition" id="coverRepositionBtn" onclick="startCoverReposition()" title="Sichtbereich anpassen">
+          <span class="material-icons-round">open_with</span>
+        </button>
+        <div class="cover-reposition-bar" id="coverRepositionBar">
+          <span class="material-icons-round">open_with</span> Bild ziehen um Sichtbereich anzupassen
+          <div class="cover-reposition-actions">
+            <button class="btn-sm btn-primary" onclick="saveCoverPosition()">Speichern</button>
+            <button class="btn-sm btn-outline" onclick="cancelCoverReposition()">Abbrechen</button>
+          </div>
+        </div>
         <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="handleCoverUpload(this)" />
       </div>
 

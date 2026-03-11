@@ -2466,6 +2466,54 @@ img { display: block; max-width: 100%; }
 .profile-cover-edit:hover { background: #fff; transform: scale(1.1); }
 .profile-cover-edit .material-icons-round { font-size: 22px; color: var(--dark); }
 
+/* Reposition button */
+.profile-cover-reposition {
+  right: auto;
+  left: 16px;
+  display: none;
+}
+.profile-cover[style*="background-image"] .profile-cover-reposition { display: flex; }
+
+/* Reposition mode */
+.profile-cover.repositioning {
+  cursor: grab;
+  outline: 3px dashed rgba(255,255,255,0.6);
+  outline-offset: -3px;
+}
+.profile-cover.repositioning:active { cursor: grabbing; }
+.profile-cover.repositioning .profile-cover-overlay { opacity: 0.3; }
+.profile-cover.repositioning .profile-cover-edit { display: none; }
+.profile-cover.repositioning .profile-cover-reposition { display: none; }
+.cover-reposition-bar {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+  backdrop-filter: blur(4px);
+}
+.cover-reposition-bar .material-icons-round { font-size: 18px; }
+.profile-cover.repositioning .cover-reposition-bar { display: flex; }
+.cover-reposition-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+.cover-reposition-actions .btn-outline {
+  color: #fff;
+  border-color: rgba(255,255,255,0.5);
+}
+.cover-reposition-actions .btn-outline:hover {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
 .profile-hero {
   display: flex; align-items: flex-end; gap: 28px;
   margin-top: -64px; position: relative; z-index: 2;

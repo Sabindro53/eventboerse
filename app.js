@@ -1677,8 +1677,11 @@ function renderDashboard() {
   var coverEl = document.getElementById('profileCover');
   if (currentUser.coverUrl) {
     coverEl.style.backgroundImage = 'url(' + currentUser.coverUrl + ')';
+    var posY = currentUser.coverPosY != null ? currentUser.coverPosY : 50;
+    coverEl.style.backgroundPosition = 'center ' + posY + '%';
   } else {
     coverEl.style.backgroundImage = 'none';
+    coverEl.style.backgroundPosition = '';
   }
 
   // --- Avatar ---
@@ -2123,11 +2126,99 @@ function handleCoverUpload(input) {
   var reader = new FileReader();
   reader.onload = function(e) {
     var cover = document.querySelector('.profile-cover');
-    if (cover) cover.style.backgroundImage = 'url(' + e.target.result + ')';
-    if (currentUser) currentUser.coverUrl = e.target.result;
-    showToast('Cover-Bild hochgeladen! 🖼️', 'panorama');
+    if (cover) {
+      cover.style.backgroundImage = 'url(' + e.target.result + ')';
+      cover.style.backgroundPosition = 'center 50%';
+    }
+    if (currentUser) {
+      currentUser.coverUrl = e.target.result;
+      currentUser.coverPosY = 50;
+    }
+    showToast('Cover-Bild hochgeladen! Sichtbereich anpassen mit ↔', 'panorama');
   };
   reader.readAsDataURL(file);
+}
+
+// --- Cover Reposition (Drag to adjust visible area) ---
+var _coverDrag = { active: false, startY: 0, startPosY: 50, currentPosY: 50, savedPosY: 50 };
+
+function startCoverReposition() {
+  var cover = document.querySelector('.profile-cover');
+  if (!cover || !cover.style.backgroundImage || cover.style.backgroundImage === 'none') return;
+  _coverDrag.savedPosY = currentUser?.coverPosY ?? 50;
+  _coverDrag.currentPosY = _coverDrag.savedPosY;
+  cover.classList.add('repositioning');
+
+  cover.addEventListener('mousedown', onCoverDragStart);
+  cover.addEventListener('touchstart', onCoverDragStart, { passive: false });
+  document.addEventListener('mousemove', onCoverDragMove);
+  document.addEventListener('touchmove', onCoverDragMove, { passive: false });
+  document.addEventListener('mouseup', onCoverDragEnd);
+  document.addEventListener('touchend', onCoverDragEnd);
+}
+
+function onCoverDragStart(e) {
+  // Don't drag from buttons
+  if (e.target.closest('button') || e.target.closest('.cover-reposition-actions')) return;
+  e.preventDefault();
+  _coverDrag.active = true;
+  _coverDrag.startY = e.touches ? e.touches[0].clientY : e.clientY;
+  _coverDrag.startPosY = _coverDrag.currentPosY;
+}
+
+function onCoverDragMove(e) {
+  if (!_coverDrag.active) return;
+  e.preventDefault();
+  var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  var cover = document.querySelector('.profile-cover');
+  var coverHeight = cover ? cover.offsetHeight : 280;
+  var deltaY = clientY - _coverDrag.startY;
+  // Convert pixel delta to percentage (invert: drag down = move image down = lower %)
+  var deltaPct = (deltaY / coverHeight) * 100;
+  _coverDrag.currentPosY = Math.max(0, Math.min(100, _coverDrag.startPosY + deltaPct));
+  if (cover) cover.style.backgroundPosition = 'center ' + _coverDrag.currentPosY + '%';
+}
+
+function onCoverDragEnd() {
+  _coverDrag.active = false;
+}
+
+function saveCoverPosition() {
+  var cover = document.querySelector('.profile-cover');
+  if (cover) cover.classList.remove('repositioning');
+  cleanupCoverDrag();
+  if (currentUser) currentUser.coverPosY = _coverDrag.currentPosY;
+  // Persist to backend
+  fetch(_apiUrl('profile'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ coverPosY: _coverDrag.currentPosY })
+  }).catch(function() {});
+  showToast('Sichtbereich gespeichert! ✅', 'check_circle');
+}
+
+function cancelCoverReposition() {
+  var cover = document.querySelector('.profile-cover');
+  if (cover) {
+    cover.classList.remove('repositioning');
+    cover.style.backgroundPosition = 'center ' + _coverDrag.savedPosY + '%';
+  }
+  _coverDrag.currentPosY = _coverDrag.savedPosY;
+  cleanupCoverDrag();
+}
+
+function cleanupCoverDrag() {
+  var cover = document.querySelector('.profile-cover');
+  if (cover) {
+    cover.removeEventListener('mousedown', onCoverDragStart);
+    cover.removeEventListener('touchstart', onCoverDragStart);
+  }
+  document.removeEventListener('mousemove', onCoverDragMove);
+  document.removeEventListener('touchmove', onCoverDragMove);
+  document.removeEventListener('mouseup', onCoverDragEnd);
+  document.removeEventListener('touchend', onCoverDragEnd);
+  _coverDrag.active = false;
 }
 
 function removeCover() {
