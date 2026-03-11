@@ -250,6 +250,32 @@ const LISTINGS = [
     tags: ['Hochzeit', 'Firmen-Event', 'Gala'],
     badge: 'Superhost',
     negotiable: true
+  },
+  {
+    id: 11, providerId: 11,
+    title: 'Pärchen Spa Abend',
+    category: 'wellness', categoryLabel: 'Wellness & Spa',
+    location: 'Düsseldorf', region: 'Nordrhein-Westfalen',
+    price: 189, priceLabel: 'ab 189€ / Paar',
+    rating: 4.9, reviews: 74,
+    image: 'https://images.pexels.com/photos/3757942/pexels-photo-3757942.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    images: [
+      'https://images.pexels.com/photos/3757942/pexels-photo-3757942.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
+      'https://images.pexels.com/photos/3188/love-romantic-bath-candlelight.jpg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/3865676/pexels-photo-3865676.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/3757952/pexels-photo-3757952.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    ],
+    providerName: 'Lisa & Tom Wellness',
+    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lisaspa',
+    providerSince: '2022',
+    description: `<p>Gönnt euch als Paar einen unvergesslichen Spa-Abend! Unser exklusives Wellness-Paket verwöhnt euch mit wohltuenden Massagen, aromatischen Bädern und einer Atmosphäre zum Entspannen und Genießen.</p>
+    <h3>Euer Spa-Erlebnis</h3>
+    <p>Wir kommen direkt zu euch nach Hause oder arrangieren den perfekten Abend in einer unserer Partner-Locations. Jedes Paket wird individuell auf eure Wünsche abgestimmt – ob romantischer Jahrestag, Verlobungsfeier oder einfach Quality Time zu zweit.</p>`,
+    features: ['Paarmassage (60 Min.)', 'Aromabad mit Rosenblüten', 'Sekt & Snack-Platte', 'Kerzen & Deko inklusive', 'Mobile Spa – wir kommen zu euch', 'Individuelle Duftauswahl'],
+    tags: ['Jahrestag', 'Valentinstag', 'Geburtstag'],
+    badge: '★ Top-Pick',
+    negotiable: true
   }
 ];
 
