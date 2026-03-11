@@ -2875,9 +2875,23 @@ span.flatpickr-weekday {
 .time-sep { font-size: 1.1rem; font-weight: 700; color: var(--text-light); }
 .form-row-time { grid-template-columns: 1fr 1fr 0.7fr; }
 #createDuration { text-align: center; background: var(--bg-alt); }
+.duration-display {
+  font-size: 1.5rem; font-weight: 700; color: var(--primary);
+  text-align: center; padding: 10px 0 6px;
+  transition: color 0.3s ease;
+}
+.duration-display.flash {
+  animation: durationFlash 0.45s ease;
+}
+@keyframes durationFlash {
+  0% { color: var(--primary); transform: scale(1); }
+  30% { color: var(--accent); transform: scale(1.08); }
+  100% { color: var(--primary); transform: scale(1); }
+}
 .duration-hint {
   display: block; margin-top: 4px;
   font-size: 0.78rem; color: var(--text-light);
+  text-align: center;
 }
 
 .checkbox-group {
