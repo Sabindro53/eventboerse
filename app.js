@@ -2731,24 +2731,6 @@ const CATEGORY_LABELS = {
   moderation: 'Moderation'
 };
 
-// Default placeholder images per category (Pexels)
-const CATEGORY_DEFAULT_IMAGES = {
-  dj:         ['2111015','2034851','1540406','1105666','2747449'],
-  catering:   ['587741','5638732','1267320','958545','1199957'],
-  florist:    ['931177','1697912','36764','1408221','2307040'],
-  licht:      ['1763075','3052361','1190298','2747446','2263436'],
-  pyro:       ['1387577','2526105','1573225','63332','1071882'],
-  foto:       ['1983037','3408744','212372','1264210','1787235'],
-  location:   ['169198','265920','1114425','260922','1488267'],
-  deko:       ['1729797','2072175','2306281','3171837','1405528'],
-  planung:    ['3184465','2833037','3184292','416405','5676744'],
-  moderation: ['2774556','3321793','2608517','7648480','6953868']
-};
-
-function pexelsUrl(id, w, h) {
-  return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}&h=${h}&dpr=1`;
-}
-
 function submitListing(e) {
   if (e && e.preventDefault) e.preventDefault();
 
@@ -2909,8 +2891,18 @@ function submitListing(e) {
 function handleUpload(input) {
   const preview = document.getElementById('uploadPreview');
   const files = input.files;
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const maxSize = 5 * 1024 * 1024; // 5 MB
 
   for (let file of files) {
+    if (!allowedTypes.includes(file.type)) {
+      showToast('Nur JPG, PNG, WebP oder GIF erlaubt', 'error');
+      continue;
+    }
+    if (file.size > maxSize) {
+      showToast('Bild zu groß! Max. 5 MB', 'error');
+      continue;
+    }
     const reader = new FileReader();
     reader.onload = function(e) {
       const div = document.createElement('div');
