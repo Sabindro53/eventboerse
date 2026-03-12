@@ -4126,9 +4126,9 @@ span.flatpickr-weekday {
   /* Provider */
   .provider-cover-gallery { height: 200px; }
   .pcg-show-all { bottom: 8px; right: 8px; padding: 6px 12px; font-size: 0.75rem; }
-  .plb-nav { width: 40px; height: 40px; font-size: 24px; }
-  .plb-prev { left: 8px; }
-  .plb-next { right: 8px; }
+  .plb-nav { width: 44px; height: 44px; font-size: 26px; }
+  .plb-prev { left: 6px; }
+  .plb-next { right: 6px; }
   .provider-profile-card { margin-top: -24px; padding: 16px; gap: 12px; }
   .ppc-center h1 { font-size: 1.2rem; }
   .ppc-right { width: 100%; }

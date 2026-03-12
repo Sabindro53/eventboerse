@@ -1811,15 +1811,16 @@ function lightboxNav(dir) {
   if (!lb) return;
   var startX = 0, startY = 0, tracking = false;
   lb.addEventListener('touchstart', function(e) {
-    e.preventDefault();
+    // Let button taps through — only track swipe on the backdrop/image
+    if (e.target.closest('button')) return;
     if (e.touches.length === 1) {
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       tracking = true;
     }
-  }, { passive: false });
+  }, { passive: true });
   lb.addEventListener('touchmove', function(e) {
-    e.preventDefault();
+    if (tracking) e.preventDefault();
   }, { passive: false });
   lb.addEventListener('touchend', function(e) {
     if (!tracking) return;
@@ -1830,6 +1831,9 @@ function lightboxNav(dir) {
     var dy = endY - startY;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
       lightboxNav(dx < 0 ? 1 : -1);
+    } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+      // Tap on backdrop closes lightbox
+      closeProviderLightbox();
     }
   });
   // Prevent background scroll when lightbox is open
