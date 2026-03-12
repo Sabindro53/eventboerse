@@ -2013,7 +2013,8 @@ function openChat(chatId) {
           return '<div class="msg ' + cls + '">' + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
         }
       }).join('');
-      msgContainer.scrollTop = msgContainer.scrollHeight;
+      // Scroll to bottom after render
+      setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
 
       // Update chat list
       renderChatList();
@@ -2054,8 +2055,8 @@ function sendMessage() {
       // Append the sent message
       var time = msg.time || '';
       var msgContainer = document.getElementById('chatMessages');
-      msgContainer.innerHTML += '<div class="msg msg-sent">' + (msg.text || msg.content || text) + '<span class="msg-time">' + time + '</span></div>';
-      msgContainer.scrollTop = msgContainer.scrollHeight;
+      msgContainer.innerHTML += '<div class="msg msg-sent">' + _escHtml(msg.text || msg.content || text) + '<span class="msg-time">' + time + '</span></div>';
+      setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
     })
     .catch(function() {
       showToast('Nachricht senden fehlgeschlagen', 'error');
@@ -4741,7 +4742,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '21';
+var _EB_VERSION = '22';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
