@@ -1939,10 +1939,19 @@ function _startChatPoll() {
             return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
           } else if (msg.type === 'offer') {
             var offerClass = msg.label === 'Dein Angebot' ? 'msg-offer offer-mine' : 'msg-offer offer-theirs';
+            var actionBtn = '';
+            if (msg.label === 'Dein Angebot' && msg.status === 'pending') {
+              actionBtn = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="withdrawOwnOffer(' + msg.id + ')">' +
+                '<span class="material-icons-round">undo</span> Zur\u00fcckziehen</button>';
+            } else if (msg.label !== 'Dein Angebot' && msg.status === 'accepted') {
+              actionBtn = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="revokeAcceptedOffer(' + msg.id + ')">' +
+                '<span class="material-icons-round">undo</span> Doch ablehnen</button>';
+            }
             return '<div class="msg ' + offerClass + '">' +
               '<div class="offer-label">' + _escHtml(msg.label || 'Angebot') + '</div>' +
               '<div class="offer-amount">' + _escHtml(msg.amount || msg.text || '') + '</div>' +
               '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
+              actionBtn +
             '</div>';
           } else {
             var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
@@ -2080,16 +2089,19 @@ function openChat(chatId) {
           return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
         } else if (msg.type === 'offer') {
           var offerClass = msg.label === 'Dein Angebot' ? 'msg-offer offer-mine' : 'msg-offer offer-theirs';
-          var revokeBtn = '';
-          if (msg.label !== 'Dein Angebot' && msg.status === 'accepted') {
-            revokeBtn = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="revokeAcceptedOffer(' + msg.id + ')">' +
+          var actionBtn = '';
+          if (msg.label === 'Dein Angebot' && msg.status === 'pending') {
+            actionBtn = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="withdrawOwnOffer(' + msg.id + ')">' +
+              '<span class="material-icons-round">undo</span> Zur\u00fcckziehen</button>';
+          } else if (msg.label !== 'Dein Angebot' && msg.status === 'accepted') {
+            actionBtn = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="revokeAcceptedOffer(' + msg.id + ')">' +
               '<span class="material-icons-round">undo</span> Doch ablehnen</button>';
           }
           return '<div class="msg ' + offerClass + '">' +
             '<div class="offer-label">' + _escHtml(msg.label || 'Angebot') + '</div>' +
             '<div class="offer-amount">' + _escHtml(msg.amount || msg.text || '') + '</div>' +
             '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
-            revokeBtn +
+            actionBtn +
           '</div>';
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
@@ -2369,6 +2381,11 @@ function declineOffer() {
 
 function revokeAcceptedOffer(msgId) {
   if (!confirm('Annahme wirklich widerrufen und Angebot ablehnen?')) return;
+  respondToOffer(msgId, 'declined');
+}
+
+function withdrawOwnOffer(msgId) {
+  if (!confirm('Angebot wirklich zurückziehen?')) return;
   respondToOffer(msgId, 'declined');
 }
 
@@ -4838,7 +4855,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '32';
+var _EB_VERSION = '33';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

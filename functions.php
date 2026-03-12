@@ -1547,7 +1547,9 @@ function eb_messages_list( WP_REST_Request $request ) {
             $msg['status']      = $m->offer_status ?: 'pending';
             $msg['label']       = (int) $m->sender_id === $uid ? 'Dein Angebot' : 'Gegenangebot';
             $msg['statusLabel'] = $m->offer_status === 'accepted' ? 'Angenommen'
-                : ( $m->offer_status === 'declined' ? 'Abgelehnt' : 'Wartet auf Antwort' );
+                : ( $m->offer_status === 'declined'
+                    ? ( (int) $m->sender_id === $uid ? 'Zurückgezogen' : 'Abgelehnt' )
+                    : 'Wartet auf Antwort' );
         }
         $messages[] = $msg;
     }
@@ -1645,8 +1647,9 @@ function eb_offer_status_update( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
     }
 
-    if ( (int) $msg->sender_id === $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Eigenes Angebot kann nicht bearbeitet werden.' ), 400 );
+    // Sender can only withdraw (decline) their own offer, not accept it
+    if ( (int) $msg->sender_id === $uid && $status !== 'declined' ) {
+        return new WP_REST_Response( array( 'message' => 'Eigenes Angebot kann nur zurückgezogen werden.' ), 400 );
     }
 
     $wpdb->update(
@@ -1656,8 +1659,11 @@ function eb_offer_status_update( WP_REST_Request $request ) {
     );
 
     $was_accepted = $msg->offer_status === 'accepted';
+    $is_own       = (int) $msg->sender_id === $uid;
     if ( $status === 'accepted' ) {
         $sys_body = '✅ Angebot über ' . $msg->offer_amount . '€ angenommen!';
+    } elseif ( $is_own ) {
+        $sys_body = '🚫 Angebot über ' . $msg->offer_amount . '€ zurückgezogen.';
     } elseif ( $was_accepted ) {
         $sys_body = '↩️ Annahme widerrufen – Angebot über ' . $msg->offer_amount . '€ doch abgelehnt.';
     } else {
