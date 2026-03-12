@@ -598,7 +598,7 @@
           <div class="detail-badge" id="detailCategory">DJ & Musik</div>
           <h1 id="detailTitle">DJ SoundMaster Berlin</h1>
           <div class="detail-meta">
-            <span class="detail-rating">
+            <span class="detail-rating" style="cursor:pointer" onclick="document.getElementById('reviewsSection').scrollIntoView({behavior:'smooth'})">
               <span class="material-icons-round">star</span>
               <strong id="detailRating">4.9</strong>
               <span id="detailReviewCount">(127 Bewertungen)</span>
@@ -632,7 +632,7 @@
               <!-- Loaded by JS -->
             </div>
             <div class="detail-divider"></div>
-            <div class="reviews-header">
+            <div class="reviews-header" id="reviewsSection">
               <h3>Bewertungen</h3>
               <button class="btn-outline btn-sm" id="writeReviewBtn" onclick="openReviewModal()">
                 <span class="material-icons-round">rate_review</span> Bewertung schreiben
