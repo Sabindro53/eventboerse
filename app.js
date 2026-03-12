@@ -1475,13 +1475,8 @@ function loadProvider(providerId) {
   const mainListing = providerListings[0] || LISTINGS[0];
   providerImages = providerListings.flatMap(l => l.images);
 
-  // Cover Gallery — hero + animated scroll rows
-  const heroEl = document.getElementById('pcgHero');
-  if (heroEl && providerImages.length) {
-    heroEl.style.backgroundImage = `url(${providerImages[0]})`;
-    heroEl.onclick = () => openProviderLightbox(0);
-  }
-  buildGalleryRows(providerImages.slice(1));
+  // Cover Gallery — full-width animated scroll rows
+  buildGalleryRows(providerImages);
 
   // Profile Card
   document.getElementById('providerAvatar').src = mainListing.providerImg;
@@ -1683,8 +1678,7 @@ function buildGalleryRows(images) {
       const thumb = document.createElement('div');
       thumb.className = 'pcg-thumb';
       thumb.style.backgroundImage = `url(${src})`;
-      // Map back to original index in providerImages (offset +1 because hero is index 0)
-      const origIdx = images.indexOf(rowImages[i % rowImages.length]) + 1;
+      const origIdx = images.indexOf(rowImages[i % rowImages.length]);
       thumb.onclick = () => openProviderLightbox(origIdx);
       row.appendChild(thumb);
     });
@@ -1703,8 +1697,8 @@ function buildGalleryRows(images) {
 }
 
 function animateRow(row, itemCount, speed, direction) {
-  // Each item is 110px + 6px gap = 116px
-  const segmentWidth = itemCount * 116;
+  // Each item is 160px + 8px gap = 168px
+  const segmentWidth = itemCount * 168;
   let offset = direction === -1 ? 0 : -segmentWidth;
   let paused = false;
 
