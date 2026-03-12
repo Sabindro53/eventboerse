@@ -1475,39 +1475,13 @@ function loadProvider(providerId) {
   const mainListing = providerListings[0] || LISTINGS[0];
   providerImages = providerListings.flatMap(l => l.images);
 
-  // Cover Mosaic — set images & hide empty slots
-  const mosaicSlots = [
-    { id: 'pcmMain', idx: 0 },
-    { id: 'pcmSide1', idx: 1 },
-    { id: 'pcmSide2', idx: 2 },
-    { id: 'pcmSide3', idx: 3 },
-    { id: 'pcmSide4', idx: 4 }
-  ];
-  const sides = document.querySelectorAll('#providerCoverMosaic .pcm-side');
-  sides.forEach(s => s.classList.remove('pcm-side-hidden'));
-  mosaicSlots.forEach(({ id, idx }) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.classList.remove('pcm-hidden');
-    if (providerImages[idx]) {
-      el.style.backgroundImage = `url(${providerImages[idx]})`;
-      el.onclick = () => openProviderLightbox(idx);
-    } else {
-      el.classList.add('pcm-hidden');
-    }
-  });
-  // Hide side columns if all children hidden
-  sides.forEach(s => {
-    if ([...s.children].every(c => c.classList.contains('pcm-hidden'))) {
-      s.classList.add('pcm-side-hidden');
-    }
-  });
-  // Adjust grid based on visible columns
-  const visibleCols = 1 + [...sides].filter(s => !s.classList.contains('pcm-side-hidden')).length;
-  const mosaic = document.getElementById('providerCoverMosaic');
-  if (visibleCols === 1) mosaic.style.gridTemplateColumns = '1fr';
-  else if (visibleCols === 2) mosaic.style.gridTemplateColumns = '2fr 1fr';
-  else mosaic.style.gridTemplateColumns = '2fr 1fr 1fr';
+  // Cover Gallery — hero + animated scroll rows
+  const heroEl = document.getElementById('pcgHero');
+  if (heroEl && providerImages.length) {
+    heroEl.style.backgroundImage = `url(${providerImages[0]})`;
+    heroEl.onclick = () => openProviderLightbox(0);
+  }
+  buildGalleryRows(providerImages.slice(1));
 
   // Profile Card
   document.getElementById('providerAvatar').src = mainListing.providerImg;
@@ -1667,6 +1641,126 @@ function closeCoverLightbox(e) {
   if (e && e.target && e.target.tagName === 'IMG') return;
   document.getElementById('coverLightbox').classList.remove('show');
   document.body.style.overflow = '';
+}
+
+/* --- Animated Gallery Rows --- */
+let galleryAnimations = [];
+
+function buildGalleryRows(images) {
+  const area = document.getElementById('pcgScrollArea');
+  if (!area) return;
+  area.innerHTML = '';
+
+  // Stop any previous animations
+  galleryAnimations.forEach(id => cancelAnimationFrame(id));
+  galleryAnimations = [];
+
+  if (!images.length) {
+    area.style.display = 'none';
+    return;
+  }
+  area.style.display = '';
+
+  // Determine rows: up to 4 images per row, max 4 rows
+  const perRow = 4;
+  const maxRows = 4;
+  const rowCount = Math.min(maxRows, Math.ceil(images.length / perRow));
+
+  for (let r = 0; r < rowCount; r++) {
+    // Distribute images across rows round-robin
+    const rowImages = images.filter((_, i) => i % rowCount === r);
+    if (!rowImages.length) continue;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'pcg-row-wrap';
+
+    const row = document.createElement('div');
+    row.className = 'pcg-row';
+
+    // Duplicate images for seamless loop
+    const duped = [...rowImages, ...rowImages];
+    duped.forEach((src, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'pcg-thumb';
+      thumb.style.backgroundImage = `url(${src})`;
+      // Map back to original index in providerImages (offset +1 because hero is index 0)
+      const origIdx = images.indexOf(rowImages[i % rowImages.length]) + 1;
+      thumb.onclick = () => openProviderLightbox(origIdx);
+      row.appendChild(thumb);
+    });
+
+    wrap.appendChild(row);
+    area.appendChild(wrap);
+
+    // Animate: alternate direction per row
+    const speed = 0.3 + (r % 2) * 0.15; // slightly different speeds
+    const direction = r % 2 === 0 ? -1 : 1;
+    animateRow(row, rowImages.length, speed, direction);
+
+    // Touch/drag swipe on each row
+    enableRowSwipe(wrap, row);
+  }
+}
+
+function animateRow(row, itemCount, speed, direction) {
+  // Each item is 110px + 6px gap = 116px
+  const segmentWidth = itemCount * 116;
+  let offset = direction === -1 ? 0 : -segmentWidth;
+  let paused = false;
+
+  row._galleryPaused = false;
+  row._gallerySetPaused = (v) => { paused = v; };
+
+  function tick() {
+    if (!paused && !row._galleryPaused) {
+      offset += speed * direction;
+      // Loop seamlessly
+      if (direction === -1 && Math.abs(offset) >= segmentWidth) offset += segmentWidth;
+      if (direction === 1 && offset >= 0) offset -= segmentWidth;
+    }
+    row.style.transform = `translateX(${offset}px)`;
+    const id = requestAnimationFrame(tick);
+    galleryAnimations.push(id);
+  }
+  tick();
+}
+
+function enableRowSwipe(wrap, row) {
+  let startX = 0, currentOffset = 0, dragging = false;
+
+  const getTranslateX = () => {
+    const m = row.style.transform.match(/translateX\(([^)]+)px\)/);
+    return m ? parseFloat(m[1]) : 0;
+  };
+
+  const onStart = (clientX) => {
+    dragging = true;
+    row._galleryPaused = true;
+    startX = clientX;
+    currentOffset = getTranslateX();
+  };
+
+  const onMove = (clientX) => {
+    if (!dragging) return;
+    const dx = clientX - startX;
+    row.style.transform = `translateX(${currentOffset + dx}px)`;
+  };
+
+  const onEnd = () => {
+    dragging = false;
+    // Resume animation after short delay
+    setTimeout(() => { row._galleryPaused = false; }, 800);
+  };
+
+  // Mouse events
+  wrap.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientX); });
+  window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientX); });
+  window.addEventListener('mouseup', () => { if (dragging) onEnd(); });
+
+  // Touch events
+  wrap.addEventListener('touchstart', e => { onStart(e.touches[0].clientX); }, { passive: true });
+  wrap.addEventListener('touchmove', e => { onMove(e.touches[0].clientX); }, { passive: true });
+  wrap.addEventListener('touchend', () => onEnd());
 }
 
 function openProviderLightbox(index) {
