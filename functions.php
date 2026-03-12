@@ -1623,11 +1623,18 @@ function eb_offer_status_update( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Ungültiger Status.' ), 400 );
     }
 
+    // Allow declining an already-accepted offer (Widerruf)
+    $allowed_from = $status === 'declined'
+        ? array( 'pending', 'accepted' )
+        : array( 'pending' );
+    $placeholders = implode( ',', array_fill( 0, count( $allowed_from ), '%s' ) );
+    $query_args   = array_merge( array( $msg_id ), $allowed_from );
+
     $msg = $wpdb->get_row( $wpdb->prepare(
         "SELECT m.*, c.user_a, c.user_b FROM {$wpdb->prefix}eb_messages m
          JOIN {$wpdb->prefix}eb_conversations c ON m.conversation_id = c.id
-         WHERE m.id = %d AND m.msg_type = 'offer' AND m.offer_status = 'pending'",
-        $msg_id
+         WHERE m.id = %d AND m.msg_type = 'offer' AND m.offer_status IN ($placeholders)",
+        $query_args
     ) );
 
     if ( ! $msg ) {
@@ -1648,9 +1655,14 @@ function eb_offer_status_update( WP_REST_Request $request ) {
         array( 'id' => $msg_id )
     );
 
-    $sys_body = $status === 'accepted'
-        ? '✅ Angebot über ' . $msg->offer_amount . '€ angenommen!'
-        : '❌ Angebot über ' . $msg->offer_amount . '€ abgelehnt.';
+    $was_accepted = $msg->offer_status === 'accepted';
+    if ( $status === 'accepted' ) {
+        $sys_body = '✅ Angebot über ' . $msg->offer_amount . '€ angenommen!';
+    } elseif ( $was_accepted ) {
+        $sys_body = '↩️ Annahme widerrufen – Angebot über ' . $msg->offer_amount . '€ doch abgelehnt.';
+    } else {
+        $sys_body = '❌ Angebot über ' . $msg->offer_amount . '€ abgelehnt.';
+    }
 
     $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
         'conversation_id' => $msg->conversation_id,

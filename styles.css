@@ -2767,6 +2767,7 @@ img { display: block; max-width: 100%; }
 .msg-offer .offer-status.pending { color: #FF9800; }
 .msg-offer .offer-status.accepted { color: var(--accent); }
 .msg-offer .offer-status.declined { color: #FF3B30; }
+.offer-revoke-btn { margin-top: 10px; font-size: 0.78rem; padding: 6px 14px; border-radius: var(--radius-sm); }
 
 .offer-mine { align-self: flex-end; }
 .offer-theirs { align-self: flex-start; }

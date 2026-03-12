@@ -2080,10 +2080,16 @@ function openChat(chatId) {
           return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
         } else if (msg.type === 'offer') {
           var offerClass = msg.label === 'Dein Angebot' ? 'msg-offer offer-mine' : 'msg-offer offer-theirs';
+          var revokeBtn = '';
+          if (msg.label !== 'Dein Angebot' && msg.status === 'accepted') {
+            revokeBtn = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="revokeAcceptedOffer(' + msg.id + ')">' +
+              '<span class="material-icons-round">undo</span> Doch ablehnen</button>';
+          }
           return '<div class="msg ' + offerClass + '">' +
             '<div class="offer-label">' + _escHtml(msg.label || 'Angebot') + '</div>' +
             '<div class="offer-amount">' + _escHtml(msg.amount || msg.text || '') + '</div>' +
             '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
+            revokeBtn +
           '</div>';
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
@@ -2359,6 +2365,11 @@ function declineOffer() {
   if (offerId) {
     respondToOffer(parseInt(offerId), 'declined');
   }
+}
+
+function revokeAcceptedOffer(msgId) {
+  if (!confirm('Annahme wirklich widerrufen und Angebot ablehnen?')) return;
+  respondToOffer(msgId, 'declined');
 }
 
 function submitCounterOffer(e) {
@@ -4827,7 +4838,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '31';
+var _EB_VERSION = '32';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
