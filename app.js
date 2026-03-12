@@ -1476,6 +1476,46 @@ function loadProvider(providerId) {
   // Only show real DB listings for the provider, not demo data
   var dbListings = LISTINGS.filter(l => l._fromDb && l.providerId === pid);
   var providerListings = dbListings.length > 0 ? dbListings : LISTINGS.filter(l => l.providerId === pid);
+
+  // If no listings found locally, fetch provider from API
+  if (providerListings.length === 0 && pid) {
+    fetch(_apiUrl('provider/' + pid), { credentials: 'same-origin', headers: _apiHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data || data.message) return;
+        if (data.listings && data.listings.length > 0) {
+          data.listings.forEach(function(l) {
+            l._fromDb = true;
+            if (!LISTINGS.some(function(ex) { return ex.id === l.id; })) {
+              LISTINGS.push(l);
+            }
+          });
+        } else {
+          LISTINGS.push({
+            id: 'profile-' + pid,
+            _fromDb: true,
+            providerId: pid,
+            providerName: data.name || 'Anbieter',
+            providerImg: data.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(data.name || 'user')),
+            providerSince: data.since || '',
+            description: data.bio || '',
+            location: data.location || '',
+            categoryLabel: data.role || 'Anbieter',
+            priceLabel: '',
+            images: data.gallery || [],
+            features: [],
+            tags: [],
+            rating: 0,
+            reviews: 0,
+            badge: ''
+          });
+        }
+        loadProvider(pid);
+      })
+      .catch(function() {});
+    return;
+  }
+
   const mainListing = providerListings[0] || LISTINGS[0];
   providerImages = providerListings.flatMap(l => l.images || []);
 
@@ -4865,7 +4905,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '39';
+var _EB_VERSION = '40';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
