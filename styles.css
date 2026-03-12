@@ -2147,6 +2147,7 @@ img { display: block; max-width: 100%; }
 .pcg-row {
   display: flex;
   gap: 6px;
+  height: 100%;
   width: max-content;
   will-change: transform;
   cursor: grab;
