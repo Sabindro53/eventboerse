@@ -2140,10 +2140,7 @@ function renderDashboard() {
   } else {
     companyEl.style.display = 'none';
   }
-  var taglineParts = [];
-  if (currentUser.tagline) taglineParts.push(currentUser.tagline);
-  if (currentUser.location) taglineParts.push(currentUser.location);
-  document.getElementById('profileDisplayTagline').textContent = taglineParts.join(' · ') || 'Füge einen Slogan hinzu';
+  document.getElementById('profileDisplayTagline').textContent = currentUser.tagline || 'Füge einen Slogan hinzu';
 
   // Input fields
   document.getElementById('profileName').value = currentUser.name || '';

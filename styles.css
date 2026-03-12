@@ -2854,7 +2854,7 @@ img { display: block; max-width: 100%; }
   display: flex; align-items: center; gap: 8px;
 }
 .profile-display-name { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
-.profile-company { font-size: 0.95rem; color: var(--text-light); margin-top: 2px; font-weight: 500; }
+.profile-company { font-size: 0.95rem; color: var(--text-light); margin-top: 2px; font-weight: 500; text-align: center; }
 .profile-tagline { font-size: 1rem; color: var(--text-light); margin-top: 2px; }
 .profile-inline-edit {
   width: 32px; height: 32px;
