@@ -744,7 +744,7 @@ function eb_create_tables() {
         sender_id bigint(20) unsigned NOT NULL,
         body text,
         msg_type varchar(20) DEFAULT 'text',
-        offer_amount int(11) DEFAULT NULL,
+        offer_amount decimal(10,2) DEFAULT NULL,
         offer_status varchar(20) DEFAULT NULL,
         is_read tinyint(1) DEFAULT 0,
         created_at datetime DEFAULT '0000-00-00 00:00:00',
@@ -772,13 +772,13 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.7' ) {
+    if ( get_option( 'eb_db_version' ) !== '1.8' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
-        update_option( 'eb_db_version', '1.7' );
+        update_option( 'eb_db_version', '1.8' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -1543,7 +1543,7 @@ function eb_messages_list( WP_REST_Request $request ) {
         );
         if ( $m->msg_type === 'offer' ) {
             $msg['type']        = 'offer';
-            $msg['amount']      = $m->offer_amount . '€';
+            $msg['amount']      = rtrim(rtrim(number_format((float)$m->offer_amount, 2, ',', ''), '0'), ',') . '€';
             $msg['status']      = $m->offer_status ?: 'pending';
             $msg['label']       = (int) $m->sender_id === $uid ? 'Dein Angebot' : 'Gegenangebot';
             $msg['statusLabel'] = $m->offer_status === 'accepted' ? 'Angenommen'
@@ -1587,9 +1587,9 @@ function eb_messages_send( WP_REST_Request $request ) {
     );
 
     if ( $msg_type === 'offer' ) {
-        $insert['offer_amount'] = absint( $params['amount'] ?? 0 );
+        $insert['offer_amount'] = round( abs( floatval( $params['amount'] ?? 0 ) ), 2 );
         $insert['offer_status'] = 'pending';
-        $insert['body']         = 'Preisangebot: ' . $insert['offer_amount'] . '€';
+        $insert['body']         = 'Preisangebot: ' . rtrim(rtrim(number_format($insert['offer_amount'], 2, ',', ''), '0'), ',') . '€';
     }
     $insert['created_at'] = current_time( 'mysql' );
 
@@ -1661,13 +1661,14 @@ function eb_offer_status_update( WP_REST_Request $request ) {
     $was_accepted = $msg->offer_status === 'accepted';
     $is_own       = (int) $msg->sender_id === $uid;
     if ( $status === 'accepted' ) {
-        $sys_body = '✅ Angebot über ' . $msg->offer_amount . '€ angenommen!';
+        $amt_fmt = rtrim(rtrim(number_format((float)$msg->offer_amount, 2, ',', ''), '0'), ',');
+        $sys_body = '✅ Angebot über ' . $amt_fmt . '€ angenommen!';
     } elseif ( $is_own ) {
-        $sys_body = '🚫 Angebot über ' . $msg->offer_amount . '€ zurückgezogen.';
+        $sys_body = '🚫 Angebot über ' . $amt_fmt . '€ zurückgezogen.';
     } elseif ( $was_accepted ) {
-        $sys_body = '↩️ Annahme widerrufen – Angebot über ' . $msg->offer_amount . '€ doch abgelehnt.';
+        $sys_body = '↩️ Annahme widerrufen – Angebot über ' . $amt_fmt . '€ doch abgelehnt.';
     } else {
-        $sys_body = '❌ Angebot über ' . $msg->offer_amount . '€ abgelehnt.';
+        $sys_body = '❌ Angebot über ' . $amt_fmt . '€ abgelehnt.';
     }
 
     $wpdb->insert( $wpdb->prefix . 'eb_messages', array(

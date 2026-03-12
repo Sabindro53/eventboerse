@@ -2304,7 +2304,7 @@ function submitNegotiation(e) {
       // Send offer message
       fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: price + '€', type: 'offer', amount: parseInt(price) || 0 })
+        body: JSON.stringify({ content: price + '€', type: 'offer', amount: parseFloat(price) || 0 })
       }).catch(function(){});
       // Send text message if any
       if (message) {
@@ -2393,7 +2393,7 @@ function submitCounterOffer(e) {
     declinePromise.then(function() {
       return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseInt(amount) || 0 })
+        body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseFloat(amount) || 0 })
       });
     }).then(function() {
       if (msg) {
@@ -4849,7 +4849,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '34';
+var _EB_VERSION = '35';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
