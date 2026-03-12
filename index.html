@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=44" />
+  <link rel="stylesheet" href="styles.css?v=45" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -75,6 +75,7 @@
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
         <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
+        <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
         <hr />
         <button onclick="logout()"><span class="material-icons-round">logout</span> Abmelden</button>
       </div>
@@ -1076,6 +1077,92 @@
       </div>
     </section>
 
+    <!-- ============ PAGE: SETTINGS ============ -->
+    <section id="page-settings" class="page">
+      <div class="container container-sm">
+        <h1 class="settings-title"><span class="material-icons-round">settings</span> Einstellungen</h1>
+        <p class="settings-subtitle">Verwalte dein Konto, Sicherheit und Einstellungen.</p>
+
+        <!-- Personal Info -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="material-icons-round">person</span>
+            <h2>Persönliche Daten</h2>
+          </div>
+          <div class="settings-field">
+            <label>Vorname</label>
+            <input type="text" id="settingsFirstName" placeholder="Vorname" />
+          </div>
+          <div class="settings-field">
+            <label>Nachname</label>
+            <input type="text" id="settingsLastName" placeholder="Nachname" />
+          </div>
+          <div class="settings-field">
+            <label>E-Mail-Adresse</label>
+            <input type="email" id="settingsEmail" placeholder="deine@email.de" />
+          </div>
+          <div class="settings-field">
+            <label>Telefon (optional)</label>
+            <input type="tel" id="settingsPhone" placeholder="+49 123 456789" />
+          </div>
+          <button class="btn-primary settings-save-btn" onclick="savePersonalSettings()">Änderungen speichern</button>
+        </div>
+
+        <!-- Password -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="material-icons-round">lock</span>
+            <h2>Passwort ändern</h2>
+          </div>
+          <div class="settings-field">
+            <label>Aktuelles Passwort</label>
+            <div class="settings-password-wrap">
+              <input type="password" id="settingsCurrentPw" placeholder="Aktuelles Passwort" autocomplete="current-password" />
+              <button type="button" class="settings-pw-toggle" onclick="toggleSettingsPw('settingsCurrentPw', this)"><span class="material-icons-round">visibility_off</span></button>
+            </div>
+          </div>
+          <div class="settings-field">
+            <label>Neues Passwort</label>
+            <div class="settings-password-wrap">
+              <input type="password" id="settingsNewPw" placeholder="Neues Passwort (min. 8 Zeichen)" autocomplete="new-password" />
+              <button type="button" class="settings-pw-toggle" onclick="toggleSettingsPw('settingsNewPw', this)"><span class="material-icons-round">visibility_off</span></button>
+            </div>
+          </div>
+          <div class="settings-field">
+            <label>Neues Passwort bestätigen</label>
+            <div class="settings-password-wrap">
+              <input type="password" id="settingsConfirmPw" placeholder="Passwort wiederholen" autocomplete="new-password" />
+              <button type="button" class="settings-pw-toggle" onclick="toggleSettingsPw('settingsConfirmPw', this)"><span class="material-icons-round">visibility_off</span></button>
+            </div>
+          </div>
+          <button class="btn-primary settings-save-btn" onclick="savePasswordSettings()">Passwort ändern</button>
+        </div>
+
+        <!-- Account -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="material-icons-round">manage_accounts</span>
+            <h2>Konto</h2>
+          </div>
+          <div class="settings-info-row">
+            <span>Rolle</span>
+            <span id="settingsRoleDisplay" class="settings-info-value">–</span>
+          </div>
+          <div class="settings-info-row">
+            <span>Mitglied seit</span>
+            <span id="settingsSinceDisplay" class="settings-info-value">–</span>
+          </div>
+          <div class="settings-info-row">
+            <span>Konto-Status</span>
+            <span class="settings-info-value settings-status-active"><span class="material-icons-round" style="font-size:16px;vertical-align:middle">check_circle</span> Aktiv</span>
+          </div>
+          <hr class="settings-divider" />
+          <button class="btn-outline settings-danger-btn" onclick="confirmDeleteAccount()"><span class="material-icons-round">delete_forever</span> Konto löschen</button>
+        </div>
+
+      </div>
+    </section>
+
     <!-- ============ PAGE: CREATE LISTING ============ -->
     <section id="page-create-listing" class="page">
       <div class="container container-sm">
@@ -1646,6 +1733,6 @@
     <div class="update-sub">Eventbörse wurde aktualisiert</div>
   </div>
 
-  <script src="app.js?v=44"></script>
+  <script src="app.js?v=45"></script>
 </body>
 </html>

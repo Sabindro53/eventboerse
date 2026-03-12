@@ -583,6 +583,9 @@ function navigateTo(page, data, skipHistory) {
     case 'favorites':
       renderFavorites();
       break;
+    case 'settings':
+      loadSettings();
+      break;
   }
 }
 
@@ -2713,6 +2716,105 @@ function updateCreateFormForRole() {
 
 }
 
+// ========== SETTINGS ==========
+function loadSettings() {
+  if (!currentUser) return;
+  var parts = (currentUser.name || '').split(' ');
+  document.getElementById('settingsFirstName').value = parts[0] || '';
+  document.getElementById('settingsLastName').value = parts.slice(1).join(' ') || '';
+  document.getElementById('settingsEmail').value = currentUser.email || '';
+  document.getElementById('settingsPhone').value = currentUser.phone || '';
+  document.getElementById('settingsRoleDisplay').textContent = currentUser.role || 'Mitglied';
+  document.getElementById('settingsSinceDisplay').textContent = currentUser.since || '–';
+  // Clear password fields
+  document.getElementById('settingsCurrentPw').value = '';
+  document.getElementById('settingsNewPw').value = '';
+  document.getElementById('settingsConfirmPw').value = '';
+}
+
+function toggleSettingsPw(inputId, btn) {
+  var inp = document.getElementById(inputId);
+  var icon = btn.querySelector('.material-icons-round');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    icon.textContent = 'visibility';
+  } else {
+    inp.type = 'password';
+    icon.textContent = 'visibility_off';
+  }
+}
+
+function savePersonalSettings() {
+  if (!currentUser) return;
+  var firstName = document.getElementById('settingsFirstName').value.trim();
+  var lastName = document.getElementById('settingsLastName').value.trim();
+  var email = document.getElementById('settingsEmail').value.trim();
+  var phone = document.getElementById('settingsPhone').value.trim();
+
+  if (!firstName) { showToast('Vorname ist erforderlich', 'warning'); return; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Bitte gib eine gültige E-Mail ein', 'warning'); return; }
+
+  fetch(_apiUrl('settings'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ first_name: firstName, last_name: lastName, email: email, phone: phone })
+  })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) { showToast(res.data.message || 'Fehler beim Speichern', 'error'); return; }
+      currentUser.name = (firstName + ' ' + lastName).trim();
+      currentUser.email = email;
+      currentUser.phone = phone;
+      showToast('Daten gespeichert ✓', 'success');
+    })
+    .catch(function() { showToast('Netzwerkfehler', 'error'); });
+}
+
+function savePasswordSettings() {
+  var current = document.getElementById('settingsCurrentPw').value;
+  var newPw = document.getElementById('settingsNewPw').value;
+  var confirm = document.getElementById('settingsConfirmPw').value;
+
+  if (!current) { showToast('Aktuelles Passwort eingeben', 'warning'); return; }
+  if (newPw.length < 8) { showToast('Neues Passwort muss mind. 8 Zeichen haben', 'warning'); return; }
+  if (newPw !== confirm) { showToast('Passwörter stimmen nicht überein', 'warning'); return; }
+
+  fetch(_apiUrl('settings/password'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ current_password: current, new_password: newPw })
+  })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) { showToast(res.data.message || 'Fehler beim Ändern', 'error'); return; }
+      document.getElementById('settingsCurrentPw').value = '';
+      document.getElementById('settingsNewPw').value = '';
+      document.getElementById('settingsConfirmPw').value = '';
+      showToast('Passwort geändert ✓', 'success');
+    })
+    .catch(function() { showToast('Netzwerkfehler', 'error'); });
+}
+
+function confirmDeleteAccount() {
+  if (!confirm('Bist du sicher, dass du dein Konto löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+  if (!confirm('Wirklich? Alle deine Daten, Inserate und Nachrichten werden unwiderruflich gelöscht.')) return;
+
+  fetch(_apiUrl('settings/delete-account'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) { showToast(res.data.message || 'Fehler', 'error'); return; }
+      showToast('Konto gelöscht', 'success');
+      setTimeout(function() { window.location.reload(); }, 1500);
+    })
+    .catch(function() { showToast('Netzwerkfehler', 'error'); });
+}
+
 function nextStep(step) {
   document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
   document.getElementById('step' + step).classList.add('active');
@@ -4461,7 +4563,9 @@ function restoreSession() {
       company: u.company || '',
       gallery: u.gallery || [],
       coverUrl: u.coverUrl || '',
-      photoUrl: u.photoUrl || ''
+      photoUrl: u.photoUrl || '',
+      phone: u.phone || '',
+      since: u.since || ''
     };
     applyLogin();
     return;
@@ -4483,7 +4587,9 @@ function restoreSession() {
           company: data.company || '',
           gallery: data.gallery || [],
           coverUrl: data.coverUrl || '',
-          photoUrl: data.photoUrl || ''
+          photoUrl: data.photoUrl || '',
+          phone: data.phone || '',
+          since: data.since || ''
         };
         applyLogin();
       }
@@ -4531,7 +4637,9 @@ async function handleLogin(e) {
         company: data.company || '',
         gallery: data.gallery || [],
         coverUrl: data.coverUrl || '',
-        photoUrl: data.photoUrl || ''
+        photoUrl: data.photoUrl || '',
+        phone: data.phone || '',
+        since: data.since || ''
       };
       _setBtnLoading(submitBtn, false);
       closeModal('loginModal');
@@ -4628,7 +4736,9 @@ async function handleRegister(e) {
         company: data.company || '',
         gallery: data.gallery || [],
         coverUrl: data.coverUrl || '',
-        photoUrl: data.photoUrl || ''
+        photoUrl: data.photoUrl || '',
+        phone: data.phone || '',
+        since: data.since || ''
       };
       closeModal('registerModal');
       form.reset();
@@ -4915,7 +5025,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '44';
+var _EB_VERSION = '45';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

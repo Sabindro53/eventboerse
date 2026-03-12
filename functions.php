@@ -101,6 +101,8 @@ function eventboerse_enqueue_assets() {
                 'first_name' => $u->first_name,
                 'last_name'  => $u->last_name,
                 'role'       => eventboerse_map_role( $u ),
+                'phone'      => get_user_meta( $u->ID, 'eb_phone', true ) ?: '',
+                'since'      => date_i18n( 'F Y', strtotime( $u->user_registered ) ),
             ),
             eb_user_profile_meta( $u->ID )
         );
@@ -365,6 +367,8 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
             'roles'      => (array) $signed_in->roles,
             'role'       => eventboerse_map_role( $signed_in ),
             'nonce'      => wp_create_nonce( 'wp_rest' ),
+            'phone'      => get_user_meta( $signed_in->ID, 'eb_phone', true ) ?: '',
+            'since'      => date_i18n( 'F Y', strtotime( $signed_in->user_registered ) ),
         ),
         eb_user_profile_meta( $signed_in->ID )
     ), 200 );
@@ -391,6 +395,8 @@ function eventboerse_handle_me() {
             'last_name'  => $u->last_name,
             'role'       => eventboerse_map_role( $u ),
             'nonce'      => wp_create_nonce( 'wp_rest' ),
+            'phone'      => get_user_meta( $u->ID, 'eb_phone', true ) ?: '',
+            'since'      => date_i18n( 'F Y', strtotime( $u->user_registered ) ),
         ),
         eb_user_profile_meta( $u->ID )
     ), 200 );
@@ -661,6 +667,81 @@ function eventboerse_handle_profile_save( WP_REST_Request $request ) {
 }
 
 /* =====================================================================
+   ACCOUNT SETTINGS HANDLERS
+   ===================================================================== */
+function eb_settings_update( WP_REST_Request $request ) {
+    $uid    = get_current_user_id();
+    $params = $request->get_json_params();
+
+    $first_name = sanitize_text_field( $params['first_name'] ?? '' );
+    $last_name  = sanitize_text_field( $params['last_name'] ?? '' );
+    $email      = sanitize_email( $params['email'] ?? '' );
+    $phone      = sanitize_text_field( $params['phone'] ?? '' );
+
+    if ( empty( $first_name ) ) {
+        return new WP_REST_Response( array( 'message' => 'Vorname ist erforderlich.' ), 400 );
+    }
+
+    if ( ! is_email( $email ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige E-Mail-Adresse.' ), 400 );
+    }
+
+    // Check if email is already in use by another user
+    $existing = email_exists( $email );
+    if ( $existing && $existing !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Diese E-Mail wird bereits verwendet.' ), 400 );
+    }
+
+    wp_update_user( array(
+        'ID'         => $uid,
+        'first_name' => $first_name,
+        'last_name'  => $last_name,
+        'user_email' => $email,
+    ) );
+
+    update_user_meta( $uid, 'eb_phone', $phone );
+
+    return new WP_REST_Response( array( 'saved' => true ), 200 );
+}
+
+function eb_settings_password( WP_REST_Request $request ) {
+    $uid    = get_current_user_id();
+    $user   = get_userdata( $uid );
+    $params = $request->get_json_params();
+
+    $current  = $params['current_password'] ?? '';
+    $new_pass = $params['new_password'] ?? '';
+
+    if ( ! wp_check_password( $current, $user->user_pass, $uid ) ) {
+        return new WP_REST_Response( array( 'message' => 'Aktuelles Passwort ist falsch.' ), 400 );
+    }
+
+    if ( strlen( $new_pass ) < 8 ) {
+        return new WP_REST_Response( array( 'message' => 'Neues Passwort muss mind. 8 Zeichen haben.' ), 400 );
+    }
+
+    wp_set_password( $new_pass, $uid );
+    // Re-authenticate the user so they don't get logged out
+    wp_set_auth_cookie( $uid, true );
+
+    return new WP_REST_Response( array( 'saved' => true ), 200 );
+}
+
+function eb_settings_delete_account( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+
+    // Don't allow admins to delete themselves via this endpoint
+    if ( user_can( $uid, 'manage_options' ) ) {
+        return new WP_REST_Response( array( 'message' => 'Admin-Konten können hier nicht gelöscht werden.' ), 400 );
+    }
+
+    require_once( ABSPATH . 'wp-admin/includes/user.php' );
+    wp_delete_user( $uid );
+
+    return new WP_REST_Response( array( 'deleted' => true ), 200 );
+}
+
+/* =====================================================================
    Allow REST auth cookies on same origin
    ===================================================================== */
 add_filter( 'rest_authentication_errors', function( $result ) {
@@ -907,6 +988,25 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/diagnostics', array(
         'methods'             => 'GET',
         'callback'            => 'eb_diagnostics',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- ACCOUNT SETTINGS ---------- */
+    register_rest_route( 'eventboerse/v1', '/settings', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_settings_update',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/settings/password', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_settings_password',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/settings/delete-account', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_settings_delete_account',
         'permission_callback' => 'is_user_logged_in',
     ) );
 }
