@@ -847,6 +847,12 @@ function eb_register_extra_routes() {
         ),
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/messages/(?P<id>\d+)/offer-status', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_offer_status_update',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
     /* ---------- FAVORITES ---------- */
     register_rest_route( 'eventboerse/v1', '/favorites', array(
         array(
@@ -1574,6 +1580,65 @@ function eb_messages_send( WP_REST_Request $request ) {
         'sender_id'  => $uid,
         'type'       => $msg_type,
     ), 201 );
+}
+
+/* =====================================================================
+   OFFER STATUS UPDATE
+   ===================================================================== */
+function eb_offer_status_update( WP_REST_Request $request ) {
+    global $wpdb;
+    $msg_id = absint( $request['id'] );
+    $uid    = get_current_user_id();
+    $params = $request->get_json_params();
+    $status = sanitize_text_field( $params['status'] ?? '' );
+
+    if ( ! in_array( $status, array( 'accepted', 'declined' ), true ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Status.' ), 400 );
+    }
+
+    $msg = $wpdb->get_row( $wpdb->prepare(
+        "SELECT m.*, c.user_a, c.user_b FROM {$wpdb->prefix}eb_messages m
+         JOIN {$wpdb->prefix}eb_conversations c ON m.conversation_id = c.id
+         WHERE m.id = %d AND m.msg_type = 'offer' AND m.offer_status = 'pending'",
+        $msg_id
+    ) );
+
+    if ( ! $msg ) {
+        return new WP_REST_Response( array( 'message' => 'Angebot nicht gefunden.' ), 404 );
+    }
+
+    if ( (int) $msg->user_a !== $uid && (int) $msg->user_b !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    if ( (int) $msg->sender_id === $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Eigenes Angebot kann nicht bearbeitet werden.' ), 400 );
+    }
+
+    $wpdb->update(
+        $wpdb->prefix . 'eb_messages',
+        array( 'offer_status' => $status ),
+        array( 'id' => $msg_id )
+    );
+
+    $sys_body = $status === 'accepted'
+        ? '✅ Angebot über ' . $msg->offer_amount . '€ angenommen!'
+        : '❌ Angebot über ' . $msg->offer_amount . '€ abgelehnt.';
+
+    $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+        'conversation_id' => $msg->conversation_id,
+        'sender_id'       => $uid,
+        'body'            => $sys_body,
+        'msg_type'        => 'system',
+        'created_at'      => current_time( 'mysql' ),
+    ) );
+
+    $wpdb->update( $wpdb->prefix . 'eb_conversations',
+        array( 'updated_at' => current_time( 'mysql' ) ),
+        array( 'id' => $msg->conversation_id )
+    );
+
+    return new WP_REST_Response( array( 'success' => true, 'status' => $status ), 200 );
 }
 
 /* =====================================================================

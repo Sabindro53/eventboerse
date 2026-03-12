@@ -1965,24 +1965,52 @@ function openChat(chatId) {
       document.getElementById('chatStatus').textContent = 'Online';
       document.getElementById('chatStatus').className = 'online';
 
-      // Hide negotiation banner for now
-      document.getElementById('negotiationBanner').style.display = 'none';
+      // Find last pending offer from the other user
+      var lastPendingOffer = null;
+      (messages || []).forEach(function(msg) {
+        if (msg.type === 'offer' && msg.status === 'pending' && msg.label !== 'Dein Angebot') {
+          lastPendingOffer = msg;
+        }
+      });
+
+      // Show or hide negotiation banner
+      var banner = document.getElementById('negotiationBanner');
+      if (lastPendingOffer) {
+        document.getElementById('negDetails').textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
+        banner.style.display = 'flex';
+        banner.dataset.offerId = lastPendingOffer.id;
+      } else {
+        banner.style.display = 'none';
+      }
 
       // Render messages
       var msgContainer = document.getElementById('chatMessages');
       msgContainer.innerHTML = (messages || []).map(function(msg) {
         if (msg.type === 'system') {
-          return '<div class="msg msg-system">' + (msg.text || msg.content || '') + '</div>';
+          return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
         } else if (msg.type === 'offer') {
-          return '<div class="msg msg-offer">' +
-            '<div class="offer-label">' + (msg.label || 'Angebot') + '</div>' +
-            '<div class="offer-amount">' + (msg.amount || msg.text || '') + '</div>' +
-            '<div class="offer-status ' + (msg.status || 'pending') + '">' + (msg.statusLabel || 'Gesendet') + '</div>' +
+          var actions = '';
+          if (msg.status === 'pending' && msg.label !== 'Dein Angebot') {
+            actions = '<div class="offer-actions">' +
+              '<button class="btn-sm btn-accept" onclick="respondToOffer(' + msg.id + ',\'accepted\')">' +
+                '<span class="material-icons-round">check</span> Annehmen</button>' +
+              '<button class="btn-sm btn-counter" onclick="openCounterOffer()">' +
+                '<span class="material-icons-round">sync_alt</span> Gegengebot</button>' +
+              '<button class="btn-sm btn-decline" onclick="respondToOffer(' + msg.id + ',\'declined\')">' +
+                '<span class="material-icons-round">close</span> Ablehnen</button>' +
+            '</div>';
+          }
+          var offerClass = msg.label === 'Dein Angebot' ? 'msg-offer offer-mine' : 'msg-offer offer-theirs';
+          return '<div class="msg ' + offerClass + '">' +
+            '<div class="offer-label">' + _escHtml(msg.label || 'Angebot') + '</div>' +
+            '<div class="offer-amount">' + _escHtml(msg.amount || msg.text || '') + '</div>' +
+            '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
+            actions +
           '</div>';
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           var time = msg.time || '';
-          return '<div class="msg ' + cls + '">' + (msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
+          return '<div class="msg ' + cls + '">' + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
         }
       }).join('');
       msgContainer.scrollTop = msgContainer.scrollHeight;
@@ -1993,27 +2021,6 @@ function openChat(chatId) {
     .catch(function() {
       showToast('Chat konnte nicht geladen werden', 'error');
     });
-}
-
-function renderMessage(msg) {
-  switch (msg.type) {
-    case 'sent':
-      return `<div class="msg msg-sent">${msg.text}<span class="msg-time">${msg.time}</span></div>`;
-    case 'received':
-      return `<div class="msg msg-received">${msg.text}<span class="msg-time">${msg.time}</span></div>`;
-    case 'system':
-      return `<div class="msg msg-system">${msg.text}</div>`;
-    case 'offer':
-      return `
-        <div class="msg msg-offer">
-          <div class="offer-label">${msg.label}</div>
-          <div class="offer-amount">${msg.amount}</div>
-          <div class="offer-status ${msg.status}">${msg.statusLabel}</div>
-        </div>
-      `;
-    default:
-      return '';
-  }
 }
 
 function closeChatView() {
@@ -2212,11 +2219,65 @@ function submitNegotiation(e) {
 }
 
 function openNegotiationInChat() {
-  openModal('counterOfferModal');
+  // If there's a pending offer from the other user, toggle the banner; otherwise open counter-offer modal
+  var banner = document.getElementById('negotiationBanner');
+  if (banner.style.display === 'flex') {
+    banner.style.display = 'none';
+    return;
+  }
+  var lastPendingOffer = null;
+  if (currentChat && currentChat.messages) {
+    currentChat.messages.forEach(function(msg) {
+      if (msg.type === 'offer' && msg.status === 'pending' && msg.label !== 'Dein Angebot') {
+        lastPendingOffer = msg;
+      }
+    });
+  }
+  if (lastPendingOffer) {
+    document.getElementById('negDetails').textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
+    banner.dataset.offerId = lastPendingOffer.id;
+    banner.style.display = 'flex';
+  } else {
+    openModal('counterOfferModal');
+  }
 }
 
 function openCounterOffer() {
+  document.getElementById('negotiationBanner').style.display = 'none';
   openModal('counterOfferModal');
+}
+
+function respondToOffer(msgId, status) {
+  if (!currentChat) return;
+  fetch(_apiUrl('messages/' + msgId + '/offer-status'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ status: status })
+  }).then(function(r) {
+    if (!r.ok) throw new Error('fail');
+    return r.json();
+  }).then(function() {
+    document.getElementById('negotiationBanner').style.display = 'none';
+    showToast(status === 'accepted' ? 'Angebot angenommen!' : 'Angebot abgelehnt.', status === 'accepted' ? 'check_circle' : 'cancel');
+    openChat(currentChat.id);
+  }).catch(function() {
+    showToast('Fehler beim Aktualisieren des Angebots', 'error');
+  });
+}
+
+function acceptOffer() {
+  var banner = document.getElementById('negotiationBanner');
+  var offerId = banner.dataset.offerId;
+  if (offerId) {
+    respondToOffer(parseInt(offerId), 'accepted');
+  }
+}
+
+function declineOffer() {
+  var banner = document.getElementById('negotiationBanner');
+  var offerId = banner.dataset.offerId;
+  if (offerId) {
+    respondToOffer(parseInt(offerId), 'declined');
+  }
 }
 
 function submitCounterOffer(e) {
@@ -2244,34 +2305,6 @@ function submitCounterOffer(e) {
   }
 
   showToast(`Gegenangebot über ${amount}€ gesendet!`, 'gavel');
-}
-
-function acceptOffer() {
-  if (!currentChat) return;
-
-  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ content: '✅ Angebot angenommen! Der Preis wurde vereinbart.', type: 'system' })
-  }).then(function() {
-    document.getElementById('negotiationBanner').style.display = 'none';
-    openChat(currentChat.id);
-  }).catch(function(){});
-
-  showToast('Angebot angenommen! 🎉', 'check_circle');
-}
-
-function declineOffer() {
-  if (!currentChat) return;
-
-  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ content: '❌ Angebot abgelehnt.', type: 'system' })
-  }).then(function() {
-    document.getElementById('negotiationBanner').style.display = 'none';
-    openChat(currentChat.id);
-  }).catch(function(){});
-
-  showToast('Angebot abgelehnt.', 'cancel');
 }
 
 // ========== PROFILAUFTRITT ==========
@@ -4096,6 +4129,12 @@ function _apiHeaders() {
   return h;
 }
 
+function _escHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 function isEventPlaner() {
   return currentUser && currentUser.role === 'Event-Planer';
 }
@@ -4702,7 +4741,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '20';
+var _EB_VERSION = '21';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
