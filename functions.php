@@ -1590,6 +1590,14 @@ function eb_messages_send( WP_REST_Request $request ) {
         $insert['offer_amount'] = round( abs( floatval( $params['amount'] ?? 0 ) ), 2 );
         $insert['offer_status'] = 'pending';
         $insert['body']         = 'Preisangebot: ' . rtrim(rtrim(number_format($insert['offer_amount'], 2, ',', ''), '0'), ',') . '€';
+
+        // Auto-decline all other pending offers in this conversation
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$wpdb->prefix}eb_messages
+             SET offer_status = 'declined'
+             WHERE conversation_id = %d AND msg_type = 'offer' AND offer_status = 'pending'",
+            $conv_id
+        ) );
     }
     $insert['created_at'] = current_time( 'mysql' );
 
@@ -1657,6 +1665,16 @@ function eb_offer_status_update( WP_REST_Request $request ) {
         array( 'offer_status' => $status ),
         array( 'id' => $msg_id )
     );
+
+    // When accepting: auto-decline all OTHER pending offers in the same conversation
+    if ( $status === 'accepted' ) {
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$wpdb->prefix}eb_messages
+             SET offer_status = 'declined'
+             WHERE conversation_id = %d AND msg_type = 'offer' AND offer_status = 'pending' AND id != %d",
+            $msg->conversation_id, $msg_id
+        ) );
+    }
 
     $was_accepted = $msg->offer_status === 'accepted';
     $is_own       = (int) $msg->sender_id === $uid;

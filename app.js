@@ -2398,24 +2398,12 @@ function submitCounterOffer(e) {
   closeModal('counterOfferModal');
 
   if (currentChat) {
-    // Auto-decline the pending offer from the other user before sending counter-offer
-    var banner = document.getElementById('negotiationBanner');
-    var pendingOfferId = banner.dataset.offerId;
-    var declinePromise = Promise.resolve();
-    if (pendingOfferId) {
-      declinePromise = fetch(_apiUrl('messages/' + pendingOfferId + '/offer-status'), {
-        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ status: 'declined' })
-      });
-      banner.style.display = 'none';
-    }
+    // Backend auto-declines all other pending offers when sending a new offer
+    document.getElementById('negotiationBanner').style.display = 'none';
 
-    // Send counter-offer via API
-    declinePromise.then(function() {
-      return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseFloat(amount) || 0 })
-      });
+    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+      body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseFloat(amount) || 0 })
     }).then(function() {
       if (msg) {
         return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
@@ -4870,7 +4858,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '37';
+var _EB_VERSION = '38';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
