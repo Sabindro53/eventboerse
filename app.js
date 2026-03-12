@@ -2318,27 +2318,7 @@ function submitNegotiation(e) {
 }
 
 function openNegotiationInChat() {
-  // If there's a pending offer from the other user, toggle the banner; otherwise open counter-offer modal
-  var banner = document.getElementById('negotiationBanner');
-  if (banner.style.display === 'flex') {
-    banner.style.display = 'none';
-    return;
-  }
-  var lastPendingOffer = null;
-  if (currentChat && currentChat.messages) {
-    currentChat.messages.forEach(function(msg) {
-      if (msg.type === 'offer' && msg.status === 'pending' && msg.label !== 'Dein Angebot') {
-        lastPendingOffer = msg;
-      }
-    });
-  }
-  if (lastPendingOffer) {
-    document.getElementById('negDetails').textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
-    banner.dataset.offerId = lastPendingOffer.id;
-    banner.style.display = 'flex';
-  } else {
-    openModal('counterOfferModal');
-  }
+  openModal('counterOfferModal');
 }
 
 function openCounterOffer() {
@@ -2397,10 +2377,24 @@ function submitCounterOffer(e) {
   closeModal('counterOfferModal');
 
   if (currentChat) {
+    // Auto-decline the pending offer from the other user before sending counter-offer
+    var banner = document.getElementById('negotiationBanner');
+    var pendingOfferId = banner.dataset.offerId;
+    var declinePromise = Promise.resolve();
+    if (pendingOfferId && banner.style.display === 'flex') {
+      declinePromise = fetch(_apiUrl('messages/' + pendingOfferId + '/offer-status'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ status: 'declined' })
+      });
+      banner.style.display = 'none';
+    }
+
     // Send counter-offer via API
-    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-      body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseInt(amount) || 0 })
+    declinePromise.then(function() {
+      return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseInt(amount) || 0 })
+      });
     }).then(function() {
       if (msg) {
         return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
@@ -4855,7 +4849,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '33';
+var _EB_VERSION = '34';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
