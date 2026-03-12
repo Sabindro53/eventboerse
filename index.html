@@ -598,7 +598,7 @@
           <div class="detail-badge" id="detailCategory">DJ & Musik</div>
           <h1 id="detailTitle">DJ SoundMaster Berlin</h1>
           <div class="detail-meta">
-            <span class="detail-rating" style="cursor:pointer" onclick="document.getElementById('reviewsSection').scrollIntoView({behavior:'smooth'})">
+            <span class="detail-rating" style="cursor:pointer" onclick="setTimeout(function(){var el=document.getElementById('reviewsSection');if(el){var rect=el.getBoundingClientRect();window.scrollBy({top:rect.top-80,behavior:'smooth'})}},50)">
               <span class="material-icons-round">star</span>
               <strong id="detailRating">4.9</strong>
               <span id="detailReviewCount">(127 Bewertungen)</span>
