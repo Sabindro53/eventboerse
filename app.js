@@ -1443,8 +1443,10 @@ function loadDetail(listingId) {
   // Info
   document.getElementById('detailCategory').textContent = listing.categoryLabel;
   document.getElementById('detailTitle').textContent = listing.title;
-  document.getElementById('detailRating').textContent = listing.reviews > 0 ? listing.rating : 'Neu';
-  document.getElementById('detailReviewCount').textContent = listing.reviews > 0 ? `(${listing.reviews} Bewertungen)` : 'Noch keine Bewertungen';
+  // Review count: for demo listings use actual review array length
+  var _actualReviewCount = listing._fromDb ? listing.reviews : getAllReviewsForListing(listing.id).length;
+  document.getElementById('detailRating').textContent = _actualReviewCount > 0 ? listing.rating : 'Neu';
+  document.getElementById('detailReviewCount').textContent = _actualReviewCount > 0 ? `(${_actualReviewCount} Bewertungen)` : 'Noch keine Bewertungen';
   document.getElementById('detailLocation').textContent = listing.region;
   document.getElementById('detailProviderImg').src = listing.providerImg;
   document.getElementById('detailProviderName').textContent = listing.providerName;
@@ -3901,6 +3903,8 @@ function renderDetailReviews(listing) {
         '</div>' +
       '</div>';
     }).join('');
+    // Sync displayed count with actual reviews
+    document.getElementById('detailReviewCount').textContent = '(' + allReviews.length + ' Bewertungen)';
   }
 }
 
