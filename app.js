@@ -2131,8 +2131,15 @@ function renderDashboard() {
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = avatarUrl;
 
-  // --- Name, Tagline, Location ---
+  // --- Name, Company, Tagline, Location ---
   document.getElementById('profileDisplayName').textContent = currentUser.name || 'Dein Name';
+  var companyEl = document.getElementById('profileDisplayCompany');
+  if (currentUser.company) {
+    companyEl.textContent = currentUser.company;
+    companyEl.style.display = '';
+  } else {
+    companyEl.style.display = 'none';
+  }
   var taglineParts = [];
   if (currentUser.tagline) taglineParts.push(currentUser.tagline);
   if (currentUser.location) taglineParts.push(currentUser.location);
@@ -2140,6 +2147,7 @@ function renderDashboard() {
 
   // Input fields
   document.getElementById('profileName').value = currentUser.name || '';
+  document.getElementById('profileCompany').value = currentUser.company || '';
   document.getElementById('profileTagline').value = currentUser.tagline || '';
   document.getElementById('profileLocation').value = currentUser.location || '';
   document.getElementById('profileBio').value = currentUser.bio || '';
@@ -2244,7 +2252,10 @@ function cancelFieldInline(field) {
   if (editEl) editEl.style.display = 'none';
   // Restore original values
   if (currentUser) {
-    if (field === 'name') document.getElementById('profileName').value = currentUser.name || '';
+    if (field === 'name') {
+      document.getElementById('profileName').value = currentUser.name || '';
+      document.getElementById('profileCompany').value = currentUser.company || '';
+    }
     if (field === 'tagline') {
       document.getElementById('profileTagline').value = currentUser.tagline || '';
       document.getElementById('profileLocation').value = currentUser.location || '';
@@ -2259,7 +2270,9 @@ function saveFieldInline(field) {
   switch (field) {
     case 'name':
       currentUser.name = document.getElementById('profileName').value.trim();
+      currentUser.company = document.getElementById('profileCompany').value.trim();
       payload.name = currentUser.name;
+      payload.company = currentUser.company;
       break;
     case 'tagline':
       var locVal = document.getElementById('profileLocation').value.trim();
@@ -4074,6 +4087,7 @@ function restoreSession() {
       tagline: u.tagline || '',
       location: u.location || '',
       bio: u.bio || '',
+      company: u.company || '',
       gallery: u.gallery || [],
       coverUrl: u.coverUrl || '',
       photoUrl: u.photoUrl || ''
@@ -4095,6 +4109,7 @@ function restoreSession() {
           tagline: data.tagline || '',
           location: data.location || '',
           bio: data.bio || '',
+          company: data.company || '',
           gallery: data.gallery || [],
           coverUrl: data.coverUrl || '',
           photoUrl: data.photoUrl || ''
@@ -4142,6 +4157,7 @@ async function handleLogin(e) {
         tagline: data.tagline || '',
         location: data.location || '',
         bio: data.bio || '',
+        company: data.company || '',
         gallery: data.gallery || [],
         coverUrl: data.coverUrl || '',
         photoUrl: data.photoUrl || ''
@@ -4219,6 +4235,7 @@ async function handleRegister(e) {
         tagline: data.tagline || '',
         location: data.location || '',
         bio: data.bio || '',
+        company: data.company || '',
         gallery: data.gallery || [],
         coverUrl: data.coverUrl || '',
         photoUrl: data.photoUrl || ''
@@ -4298,6 +4315,7 @@ function loadProfile() {
 function saveProfile() {
   if (!currentUser) return;
   currentUser.name = document.getElementById('profileName').value.trim();
+  currentUser.company = document.getElementById('profileCompany').value.trim();
   currentUser.tagline = document.getElementById('profileTagline').value.trim();
   currentUser.location = document.getElementById('profileLocation').value.trim();
   currentUser.bio = document.getElementById('profileBio').value.trim();
