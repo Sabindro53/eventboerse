@@ -1929,6 +1929,21 @@ function _startChatPoll() {
         if (!currentChat) return;
         var oldCount = currentChat.messages ? currentChat.messages.length : 0;
         var newCount = (messages || []).length;
+        // Always keep negotiation banner in sync
+        var lastPendingOffer = null;
+        (messages || []).forEach(function(msg) {
+          if (msg.type === 'offer' && msg.status === 'pending' && msg.label !== 'Dein Angebot') {
+            lastPendingOffer = msg;
+          }
+        });
+        var banner = document.getElementById('negotiationBanner');
+        if (lastPendingOffer) {
+          document.getElementById('negDetails').textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
+          banner.style.display = 'flex';
+          banner.dataset.offerId = lastPendingOffer.id;
+        } else {
+          banner.style.display = 'none';
+        }
         if (newCount <= oldCount) return;
         // New messages arrived — update
         currentChat.messages = messages;
@@ -1960,21 +1975,6 @@ function _startChatPoll() {
           }
         }).join('');
         if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
-        // Update negotiation banner
-        var lastPendingOffer = null;
-        (messages || []).forEach(function(msg) {
-          if (msg.type === 'offer' && msg.status === 'pending' && msg.label !== 'Dein Angebot') {
-            lastPendingOffer = msg;
-          }
-        });
-        var banner = document.getElementById('negotiationBanner');
-        if (lastPendingOffer) {
-          document.getElementById('negDetails').textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
-          banner.style.display = 'flex';
-          banner.dataset.offerId = lastPendingOffer.id;
-        } else {
-          banner.style.display = 'none';
-        }
         renderChatList();
       })
       .catch(function() {});
@@ -2342,7 +2342,6 @@ function moneyInputFilter(el) {
 }
 
 function openCounterOffer() {
-  document.getElementById('negotiationBanner').style.display = 'none';
   openModal('counterOfferModal');
 }
 
@@ -2403,7 +2402,7 @@ function submitCounterOffer(e) {
     var banner = document.getElementById('negotiationBanner');
     var pendingOfferId = banner.dataset.offerId;
     var declinePromise = Promise.resolve();
-    if (pendingOfferId && banner.style.display === 'flex') {
+    if (pendingOfferId) {
       declinePromise = fetch(_apiUrl('messages/' + pendingOfferId + '/offer-status'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
         body: JSON.stringify({ status: 'declined' })
@@ -4871,7 +4870,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '36';
+var _EB_VERSION = '37';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
