@@ -1628,11 +1628,13 @@ function loadProvider(providerId) {
           document.getElementById('providerReviewsList').innerHTML = reviews.map(function(r) {
             var avatar = r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.name || 'user'));
             var rating = parseInt(r.rating) || 0;
+            var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + r.listingTitle + '</div>' : '';
             return '<div class="review-card">' +
               '<img src="' + avatar + '" alt="' + (r.name || 'Anonym') + '" class="review-avatar" />' +
               '<div class="review-content">' +
                 '<div class="review-top"><strong>' + (r.name || 'Anonym') + '</strong><span>' + (r.date || '') + '</span></div>' +
                 '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
+                ltHtml +
                 '<p class="review-text">' + (r.text || '') + '</p>' +
               '</div></div>';
           }).join('');
@@ -4905,7 +4907,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '40';
+var _EB_VERSION = '41';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

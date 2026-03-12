@@ -1770,13 +1770,17 @@ function eb_provider_profile( WP_REST_Request $request ) {
 
     // Reviews on their listings
     $listing_ids = wp_list_pluck( $listings, 'id' );
+    $listing_titles = array();
+    foreach ( $listings as $l ) {
+        $listing_titles[ (int) $l['id'] ] = $l['title'];
+    }
     $reviews     = array();
     if ( ! empty( $listing_ids ) ) {
         $ids_in  = implode( ',', array_map( 'absint', $listing_ids ) );
         $reviews = $wpdb->get_results(
             "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
              LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
-             WHERE r.listing_id IN ($ids_in) ORDER BY r.created_at DESC LIMIT 10"
+             WHERE r.listing_id IN ($ids_in) ORDER BY r.created_at DESC"
         );
     }
 
@@ -1785,11 +1789,12 @@ function eb_provider_profile( WP_REST_Request $request ) {
         $rname  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
         $rphoto = get_user_meta( $r->uid, 'eb_photo_url', true );
         $formatted_reviews[] = array(
-            'rating' => (int) $r->rating,
-            'text'   => $r->body,
-            'name'   => $rname ?: $r->display_name,
-            'avatar' => $rphoto ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $rname ?: $r->display_name ) ),
-            'date'   => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
+            'rating'       => (int) $r->rating,
+            'text'         => $r->body,
+            'name'         => $rname ?: $r->display_name,
+            'avatar'       => $rphoto ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $rname ?: $r->display_name ) ),
+            'date'         => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
+            'listingTitle' => isset( $listing_titles[ (int) $r->listing_id ] ) ? $listing_titles[ (int) $r->listing_id ] : '',
         );
     }
 
