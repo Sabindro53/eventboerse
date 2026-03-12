@@ -517,6 +517,7 @@ function navigateTo(page, data, skipHistory) {
 
   // Deactivate all pages
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  _stopChatPoll();
 
   // Activate target page
   const target = document.getElementById('page-' + page);
@@ -1885,6 +1886,64 @@ function updateMsgBadge(count) {
   }
 }
 
+// Live polling for new messages
+var _chatPollTimer = null;
+function _startChatPoll() {
+  _stopChatPoll();
+  _chatPollTimer = setInterval(function() {
+    if (!currentChat || !currentChat.id) { _stopChatPoll(); return; }
+    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(messages) {
+        if (!currentChat) return;
+        var oldCount = currentChat.messages ? currentChat.messages.length : 0;
+        var newCount = (messages || []).length;
+        if (newCount <= oldCount) return;
+        // New messages arrived — update
+        currentChat.messages = messages;
+        var msgContainer = document.getElementById('chatMessages');
+        var wasAtBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight < 80;
+        msgContainer.innerHTML = (messages || []).map(function(msg) {
+          if (msg.type === 'system') {
+            return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
+          } else if (msg.type === 'offer') {
+            var offerClass = msg.label === 'Dein Angebot' ? 'msg-offer offer-mine' : 'msg-offer offer-theirs';
+            return '<div class="msg ' + offerClass + '">' +
+              '<div class="offer-label">' + _escHtml(msg.label || 'Angebot') + '</div>' +
+              '<div class="offer-amount">' + _escHtml(msg.amount || msg.text || '') + '</div>' +
+              '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
+            '</div>';
+          } else {
+            var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
+            var time = msg.time || '';
+            return '<div class="msg ' + cls + '">' + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
+          }
+        }).join('');
+        if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
+        // Update negotiation banner
+        var lastPendingOffer = null;
+        (messages || []).forEach(function(msg) {
+          if (msg.type === 'offer' && msg.status === 'pending' && msg.label !== 'Dein Angebot') {
+            lastPendingOffer = msg;
+          }
+        });
+        var banner = document.getElementById('negotiationBanner');
+        if (lastPendingOffer) {
+          document.getElementById('negDetails').textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
+          banner.style.display = 'flex';
+          banner.dataset.offerId = lastPendingOffer.id;
+        } else {
+          banner.style.display = 'none';
+        }
+        renderChatList();
+      })
+      .catch(function() {});
+  }, 5000);
+}
+function _stopChatPoll() {
+  if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+}
+
 function renderChatList() {
   const list = document.getElementById('chatList');
   if (!isLoggedIn) {
@@ -2004,8 +2063,9 @@ function openChat(chatId) {
       // Scroll to bottom after render
       setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
 
-      // Update chat list
+      // Update chat list and start live polling
       renderChatList();
+      _startChatPoll();
     })
     .catch(function() {
       showToast('Chat konnte nicht geladen werden', 'error');
@@ -2013,6 +2073,7 @@ function openChat(chatId) {
 }
 
 function closeChatView() {
+  _stopChatPoll();
   if (window.innerWidth <= 768) {
     document.getElementById('chatSidebar').classList.remove('hidden');
     document.getElementById('chatMain').classList.add('hidden');
@@ -4730,7 +4791,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '24';
+var _EB_VERSION = '25';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
