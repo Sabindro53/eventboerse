@@ -1639,122 +1639,142 @@ function closeCoverLightbox(e) {
 }
 
 /* --- Animated Gallery Rows --- */
-let galleryAnimations = [];
+let galleryRAFs = [];
 
 function buildGalleryRows(images) {
   const area = document.getElementById('pcgScrollArea');
   if (!area) return;
   area.innerHTML = '';
+  galleryRAFs.forEach(id => cancelAnimationFrame(id));
+  galleryRAFs = [];
 
-  // Stop any previous animations
-  galleryAnimations.forEach(id => cancelAnimationFrame(id));
-  galleryAnimations = [];
-
-  if (!images.length) {
-    area.style.display = 'none';
-    return;
-  }
+  if (!images.length) { area.style.display = 'none'; return; }
   area.style.display = '';
 
-  // Determine rows: up to 4 images per row, max 4 rows
-  const perRow = 4;
-  const maxRows = 4;
-  const rowCount = Math.min(maxRows, Math.ceil(images.length / perRow));
+  // Row count based on image count: 1-7 → 1 row, 8-14 → 2 rows, 15+ → 3 rows
+  const rowCount = images.length >= 15 ? 3 : images.length >= 8 ? 2 : 1;
+
+  // Thumb dimensions based on row count
+  const thumbW = rowCount === 1 ? 200 : rowCount === 2 ? 170 : 140;
+  const gap = 6;
+  const itemW = thumbW + gap;
 
   for (let r = 0; r < rowCount; r++) {
-    // Distribute images across rows round-robin
-    const rowImages = images.filter((_, i) => i % rowCount === r);
+    // Distribute unique images across rows round-robin (no artificial duplication)
+    const rowImages = [];
+    for (let i = r; i < images.length; i += rowCount) {
+      rowImages.push({ src: images[i], globalIdx: i });
+    }
     if (!rowImages.length) continue;
 
     const wrap = document.createElement('div');
     wrap.className = 'pcg-row-wrap';
-
     const row = document.createElement('div');
     row.className = 'pcg-row';
 
-    // Duplicate images for seamless loop
-    const duped = [...rowImages, ...rowImages];
-    duped.forEach((src, i) => {
-      const thumb = document.createElement('div');
-      thumb.className = 'pcg-thumb';
-      thumb.style.backgroundImage = `url(${src})`;
-      const origIdx = images.indexOf(rowImages[i % rowImages.length]);
-      thumb.onclick = () => openProviderLightbox(origIdx);
-      row.appendChild(thumb);
+    // Triple the set for seamless infinite scroll
+    const tripled = [...rowImages, ...rowImages, ...rowImages];
+    tripled.forEach(item => {
+      const t = document.createElement('div');
+      t.className = 'pcg-thumb';
+      t.style.backgroundImage = `url(${item.src})`;
+      t.style.width = thumbW + 'px';
+      t.style.height = '100%';
+      t.addEventListener('click', () => openProviderLightbox(item.globalIdx));
+      row.appendChild(t);
     });
 
     wrap.appendChild(row);
     area.appendChild(wrap);
 
-    // Animate: alternate direction per row
-    const speed = 0.3 + (r % 2) * 0.15; // slightly different speeds
-    const direction = r % 2 === 0 ? -1 : 1;
-    animateRow(row, rowImages.length, speed, direction);
-
-    // Touch/drag swipe on each row
-    enableRowSwipe(wrap, row);
+    const segW = rowImages.length * itemW;
+    const dir = r % 2 === 0 ? -1 : 1;
+    const speed = 0.4 + r * 0.12;
+    startRowAnimation(row, segW, dir, speed, wrap, itemW);
   }
 }
 
-function animateRow(row, itemCount, speed, direction) {
-  // Each item is 160px + 8px gap = 168px
-  const segmentWidth = itemCount * 168;
-  let offset = direction === -1 ? 0 : -segmentWidth;
-  let paused = false;
+function startRowAnimation(row, segW, dir, baseSpeed, wrap, itemW) {
+  let pos = dir === -1 ? 0 : -segW;
+  let velocity = baseSpeed * dir;
+  let dragging = false;
+  let dragStartX = 0;
+  let dragStartPos = 0;
+  let lastDragX = 0;
+  let dragVelocity = 0;
+  let lastTime = 0;
 
-  row._galleryPaused = false;
-  row._gallerySetPaused = (v) => { paused = v; };
+  function normalizePos() {
+    // Keep pos within [-2*segW, 0] for seamless looping
+    while (pos < -2 * segW) pos += segW;
+    while (pos > 0) pos -= segW;
+  }
 
-  function tick() {
-    if (!paused && !row._galleryPaused) {
-      offset += speed * direction;
-      // Loop seamlessly
-      if (direction === -1 && Math.abs(offset) >= segmentWidth) offset += segmentWidth;
-      if (direction === 1 && offset >= 0) offset -= segmentWidth;
+  function tick(ts) {
+    if (!lastTime) lastTime = ts;
+    const dt = Math.min(ts - lastTime, 32); // Cap at ~30fps minimum
+    lastTime = ts;
+
+    if (!dragging) {
+      // If we have residual drag velocity, blend it back to auto
+      if (Math.abs(dragVelocity) > 0.1) {
+        pos += dragVelocity * (dt / 16);
+        // Decay drag velocity toward auto speed
+        dragVelocity *= 0.95;
+        if (Math.abs(dragVelocity) < Math.abs(velocity)) dragVelocity = 0;
+      } else {
+        dragVelocity = 0;
+        pos += velocity * (dt / 16);
+      }
     }
-    row.style.transform = `translateX(${offset}px)`;
+
+    normalizePos();
+    row.style.transform = `translateX(${pos}px)`;
     const id = requestAnimationFrame(tick);
-    galleryAnimations.push(id);
+    galleryRAFs.push(id);
   }
-  tick();
-}
 
-function enableRowSwipe(wrap, row) {
-  let startX = 0, currentOffset = 0, dragging = false;
+  const id = requestAnimationFrame(tick);
+  galleryRAFs.push(id);
 
-  const getTranslateX = () => {
-    const m = row.style.transform.match(/translateX\(([^)]+)px\)/);
-    return m ? parseFloat(m[1]) : 0;
-  };
-
-  const onStart = (clientX) => {
+  // --- Touch/Mouse drag ---
+  const onStart = (x) => {
     dragging = true;
-    row._galleryPaused = true;
-    startX = clientX;
-    currentOffset = getTranslateX();
+    dragStartX = x;
+    dragStartPos = pos;
+    lastDragX = x;
+    dragVelocity = 0;
   };
 
-  const onMove = (clientX) => {
+  const onMove = (x) => {
     if (!dragging) return;
-    const dx = clientX - startX;
-    row.style.transform = `translateX(${currentOffset + dx}px)`;
+    const dx = x - dragStartX;
+    pos = dragStartPos + dx;
+    // Track velocity from last move
+    dragVelocity = (x - lastDragX) * 0.5;
+    lastDragX = x;
   };
 
   const onEnd = () => {
+    if (!dragging) return;
     dragging = false;
-    // Resume animation after short delay
-    setTimeout(() => { row._galleryPaused = false; }, 800);
+    // dragVelocity carries momentum, will decay in tick()
   };
 
-  // Mouse events
   wrap.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientX); });
-  window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientX); });
-  window.addEventListener('mouseup', () => { if (dragging) onEnd(); });
+  wrap.addEventListener('mousemove', e => { if (dragging) { e.preventDefault(); onMove(e.clientX); } });
+  wrap.addEventListener('mouseup', onEnd);
+  wrap.addEventListener('mouseleave', onEnd);
 
-  // Touch events
   wrap.addEventListener('touchstart', e => { onStart(e.touches[0].clientX); }, { passive: true });
-  wrap.addEventListener('touchmove', e => { onMove(e.touches[0].clientX); }, { passive: true });
-  wrap.addEventListener('touchend', () => onEnd());
+  wrap.addEventListener('touchmove', e => {
+    if (dragging) {
+      e.preventDefault();
+      onMove(e.touches[0].clientX);
+    }
+  }, { passive: false });
+  wrap.addEventListener('touchend', onEnd);
+  wrap.addEventListener('touchcancel', onEnd);
 }
 
 function openProviderLightbox(index) {
