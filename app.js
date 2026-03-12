@@ -2046,6 +2046,7 @@ function openChat(chatId) {
         id: chatId,
         name: convo ? convo.other_name : 'Chat',
         avatar: convo ? (convo.other_photo || 'assets/img/placeholder.jpg') : 'assets/img/placeholder.jpg',
+        otherId: convo ? convo.otherId : null,
         online: false,
         messages: messages || []
       };
@@ -2218,6 +2219,12 @@ function openDemoChat(chatId) {
   items.forEach(function(el) {
     if (el.getAttribute('onclick') === 'openDemoChat(' + chatId + ')') el.classList.add('active');
   });
+}
+
+function goToChatProfile() {
+  if (currentChat && currentChat.otherId) {
+    navigateTo('provider', currentChat.otherId);
+  }
 }
 
 function startChat() {
@@ -4858,7 +4865,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '38';
+var _EB_VERSION = '39';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

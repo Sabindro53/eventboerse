@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=38" />
+  <link rel="stylesheet" href="styles.css?v=39" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -837,8 +837,8 @@
               <button class="chat-back-btn" onclick="closeChatView()">
                 <span class="material-icons-round">arrow_back</span>
               </button>
-              <img src="" alt="" id="chatAvatar" />
-              <div>
+              <img src="" alt="" id="chatAvatar" onclick="goToChatProfile()" style="cursor:pointer" />
+              <div onclick="goToChatProfile()" style="cursor:pointer">
                 <strong id="chatName">Max Beats</strong>
                 <span id="chatStatus" class="online">Online</span>
               </div>
@@ -1646,6 +1646,6 @@
     <div class="update-sub">Eventbörse wurde aktualisiert</div>
   </div>
 
-  <script src="app.js?v=38"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>
