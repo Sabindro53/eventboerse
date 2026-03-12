@@ -3212,6 +3212,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.history.replaceState({ page: 'home', data: null }, '', '#home');
   }
 
+  // Show update notification once per version
+  showUpdateNotification();
+
   // Handle browser back/forward
   window.addEventListener('popstate', function(e) {
     if (e.state && e.state.page) {
@@ -4696,6 +4699,19 @@ function showToast(message, icon = 'check_circle') {
   document.getElementById('toastIcon').textContent = icon;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ========== UPDATE NOTIFICATION ==========
+var _EB_VERSION = '20';
+function showUpdateNotification() {
+  var lastVersion = localStorage.getItem('eb_last_version');
+  if (lastVersion === _EB_VERSION) return;
+  localStorage.setItem('eb_last_version', _EB_VERSION);
+  if (!lastVersion) return; // first visit ever, don't show
+  var el = document.getElementById('updateToast');
+  if (!el) return;
+  setTimeout(function() { el.classList.add('show'); }, 600);
+  setTimeout(function() { el.classList.remove('show'); }, 4600);
 }
 
 // ========== NAVBAR SCROLL EFFECT ==========
