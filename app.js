@@ -1810,8 +1810,22 @@ function lightboxNav(dir) {
   var lb = document.getElementById('providerLightbox');
   if (!lb) return;
   var startX = 0, startY = 0, tracking = false;
+
+  // Direct touch handlers for buttons (iOS ignores onclick with touch-action:none)
+  var closeBtn = lb.querySelector('.plb-close');
+  var prevBtn = lb.querySelector('.plb-prev');
+  var nextBtn = lb.querySelector('.plb-next');
+  if (closeBtn) closeBtn.addEventListener('touchend', function(e) {
+    e.stopPropagation(); e.preventDefault(); closeProviderLightbox();
+  });
+  if (prevBtn) prevBtn.addEventListener('touchend', function(e) {
+    e.stopPropagation(); e.preventDefault(); lightboxNav(-1);
+  });
+  if (nextBtn) nextBtn.addEventListener('touchend', function(e) {
+    e.stopPropagation(); e.preventDefault(); lightboxNav(1);
+  });
+
   lb.addEventListener('touchstart', function(e) {
-    // Let button taps through — only track swipe on the backdrop/image
     if (e.target.closest('button')) return;
     if (e.touches.length === 1) {
       startX = e.touches[0].clientX;
@@ -1832,11 +1846,9 @@ function lightboxNav(dir) {
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
       lightboxNav(dx < 0 ? 1 : -1);
     } else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
-      // Tap on backdrop closes lightbox
       closeProviderLightbox();
     }
   });
-  // Prevent background scroll when lightbox is open
   lb.addEventListener('wheel', function(e) { e.preventDefault(); }, { passive: false });
 })();
 
