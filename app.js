@@ -602,7 +602,7 @@ function renderListingCard(listing) {
         <div class="listing-card-top">
           <span class="listing-card-title">${listing.title}</span>
           <span class="listing-card-rating">
-            <span class="material-icons-round">star</span> ${listing.rating}
+            <span class="material-icons-round">star</span> ${listing.rating || 0}
           </span>
         </div>
         <div class="listing-card-category">${listing.categoryLabel}</div>
@@ -1446,8 +1446,8 @@ function loadDetail(listingId) {
   document.getElementById('detailTitle').textContent = listing.title;
   // Review count: for demo listings use actual review array length
   var _actualReviewCount = listing._fromDb ? listing.reviews : getAllReviewsForListing(listing.id).length;
-  document.getElementById('detailRating').textContent = _actualReviewCount > 0 ? listing.rating : 'Neu';
-  document.getElementById('detailReviewCount').textContent = _actualReviewCount > 0 ? `(${_actualReviewCount} Bewertungen)` : 'Noch keine Bewertungen';
+  document.getElementById('detailRating').textContent = _actualReviewCount > 0 ? listing.rating : '0';
+  document.getElementById('detailReviewCount').textContent = '(' + _actualReviewCount + ' Bewertungen)';
   document.getElementById('detailLocation').textContent = listing.region;
   document.getElementById('detailProviderImg').src = listing.providerImg;
   document.getElementById('detailProviderName').textContent = listing.providerName;
@@ -4203,6 +4203,8 @@ function loadDetailReviews(dbListingId) {
           '</div>';
         if (currentListing) {
           currentListing.reviews = 0;
+          currentListing.rating = 0;
+          document.getElementById('detailRating').textContent = '0';
           document.getElementById('detailReviewCount').textContent = '(0 Bewertungen)';
         }
       } else {
@@ -4907,7 +4909,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '41';
+var _EB_VERSION = '42';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
