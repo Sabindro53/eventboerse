@@ -4102,10 +4102,13 @@ span.flatpickr-weekday {
     left: 0;
     right: 0;
     height: auto;
+    min-height: 0;
     padding: 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: var(--bg-alt);
     z-index: 100;
   }
   .chat-layout { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
