@@ -2198,7 +2198,7 @@ function submitNegotiation(e) {
       // Send offer message
       fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: price + '€', type: 'offer' })
+        body: JSON.stringify({ content: price + '€', type: 'offer', amount: parseInt(price) || 0 })
       }).catch(function(){});
       // Send text message if any
       if (message) {
@@ -2230,7 +2230,7 @@ function submitCounterOffer(e) {
     // Send counter-offer via API
     fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
       method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-      body: JSON.stringify({ content: amount + '€', type: 'offer' })
+      body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseInt(amount) || 0 })
     }).then(function() {
       if (msg) {
         return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
