@@ -1444,10 +1444,9 @@ function loadDetail(listingId) {
   // Info
   document.getElementById('detailCategory').textContent = listing.categoryLabel;
   document.getElementById('detailTitle').textContent = listing.title;
-  // Review count: for demo listings use actual review array length
-  var _actualReviewCount = listing._fromDb ? listing.reviews : getAllReviewsForListing(listing.id).length;
-  document.getElementById('detailRating').textContent = _actualReviewCount > 0 ? listing.rating : '0';
-  document.getElementById('detailReviewCount').textContent = '(' + _actualReviewCount + ' Bewertungen)';
+  // Review count: show stored DB values initially, loadDetailReviews will update with live data
+  document.getElementById('detailRating').textContent = listing.rating || '0';
+  document.getElementById('detailReviewCount').textContent = '(' + (listing.reviews || 0) + ' Bewertungen)';
   document.getElementById('detailLocation').textContent = listing.region;
   document.getElementById('detailProviderImg').src = listing.providerImg;
   document.getElementById('detailProviderName').textContent = listing.providerName;
@@ -4190,16 +4189,20 @@ function submitReview(e) {
 }
 
 function loadDetailReviews(dbListingId) {
-  fetch(_apiUrl('listings/' + dbListingId + '/reviews'))
-    .then(function(r) { return r.json(); })
+  fetch(_apiUrl('listings/' + dbListingId + '/reviews'), { credentials: 'same-origin' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('API error ' + r.status);
+      return r.json();
+    })
     .then(function(reviews) {
+      if (!Array.isArray(reviews)) return; // API returned error object, keep existing data
       var container = document.getElementById('detailReviews');
-      if (!reviews || reviews.length === 0) {
+      if (reviews.length === 0) {
         container.innerHTML =
           '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
             '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
             '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
-            '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse. Sei der Erste, der eine Bewertung schreibt!</p>' +
+            '<p style="font-size: 0.9rem;">Sei der Erste, der eine Bewertung schreibt!</p>' +
           '</div>';
         if (currentListing) {
           currentListing.reviews = 0;
@@ -4209,18 +4212,19 @@ function loadDetailReviews(dbListingId) {
         }
       } else {
         container.innerHTML = reviews.map(function(r) {
-          var avatar = r.photo_url || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.author_name || 'user'));
-          var date = r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) : '';
+          var avatar = r.photo_url || r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.author_name || r.name || 'user'));
+          var displayName = r.author_name || r.name || 'Anonym';
+          var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
           return '<div class="review-card">' +
-            '<img src="' + avatar + '" alt="' + (r.author_name || 'Anonym') + '" class="review-avatar" />' +
+            '<img src="' + avatar + '" alt="' + displayName + '" class="review-avatar" />' +
             '<div class="review-content">' +
               '<div class="review-top">' +
-                '<strong>' + (r.author_name || 'Anonym') + '</strong>' +
+                '<strong>' + displayName + '</strong>' +
                 '<span>' + date + '</span>' +
               '</div>' +
               '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
-              '<p class="review-text">' + (r.comment || '') + '</p>' +
+              '<p class="review-text">' + (r.comment || r.text || '') + '</p>' +
             '</div>' +
           '</div>';
         }).join('');
@@ -4233,7 +4237,7 @@ function loadDetailReviews(dbListingId) {
         }
       }
     })
-    .catch(function() {});
+    .catch(function() { /* API failed — keep existing listing data, don't override */ });
 }
 
 function getAllReviewsForListing(listingId) {
@@ -4909,7 +4913,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '42';
+var _EB_VERSION = '43';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
