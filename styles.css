@@ -2651,6 +2651,7 @@ img { display: block; max-width: 100%; }
   padding: 14px 20px;
   background: var(--bg);
   border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
 }
 .chat-back-btn { display: none; color: var(--text); }
 .chat-header img { width: 40px; height: 40px; border-radius: 50%; }
@@ -2681,6 +2682,7 @@ img { display: block; max-width: 100%; }
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .neg-status {
   display: flex; align-items: center; gap: 12px;
@@ -2754,21 +2756,6 @@ img { display: block; max-width: 100%; }
 .msg-offer .offer-status.accepted { color: var(--accent); }
 .msg-offer .offer-status.declined { color: #FF3B30; }
 
-/* Offer inline action buttons */
-.offer-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-.offer-actions .btn-sm {
-  font-size: 0.75rem;
-  padding: 6px 12px;
-}
-.offer-actions .btn-sm .material-icons-round {
-  font-size: 16px;
-}
 .offer-mine { align-self: flex-end; }
 .offer-theirs { align-self: flex-start; }
 
@@ -2777,6 +2764,7 @@ img { display: block; max-width: 100%; }
   padding: 14px 20px;
   background: var(--bg);
   border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
 }
 .chat-attach-btn, .chat-send-btn {
   width: 42px; height: 42px;
@@ -4113,8 +4101,6 @@ span.flatpickr-weekday {
   .chat-messages { padding: 14px; }
   .msg { max-width: 85%; font-size: 0.88rem; padding: 10px 14px; }
   .msg-offer { max-width: 92%; padding: 12px 16px; }
-  .offer-actions { gap: 4px; }
-  .offer-actions .btn-sm { font-size: 0.7rem; padding: 5px 8px; }
   .negotiation-banner { padding: 10px 14px; flex-direction: column; align-items: flex-start; }
   .neg-actions { width: 100%; }
   .neg-actions .btn-sm { flex: 1; justify-content: center; }
