@@ -1487,8 +1487,17 @@ function loadProvider(providerId) {
   document.getElementById('providerName').textContent = mainListing.providerName;
   document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
   document.getElementById('providerListingCount').textContent = providerListings.length;
-  document.getElementById('providerRating').textContent = mainListing.rating;
-  document.getElementById('providerReviews').textContent = mainListing.reviews;
+  // Provider rating/reviews from aggregated DB data — filled after API call below
+  var providerRating = mainListing.rating;
+  var providerReviewCount = mainListing.reviews;
+  if (dbListings.length > 1) {
+    var totalR = 0, countR = 0;
+    dbListings.forEach(function(l) { if (l.rating > 0) { totalR += l.rating * (l.reviews || 1); countR += (l.reviews || 1); } });
+    providerRating = countR > 0 ? Math.round(totalR / countR * 10) / 10 : 0;
+    providerReviewCount = dbListings.reduce(function(s, l) { return s + (l.reviews || 0); }, 0);
+  }
+  document.getElementById('providerRating').textContent = providerRating || '–';
+  document.getElementById('providerReviews').textContent = providerReviewCount || 0;
 
   // Store provider user ID for chat
   var puidEl = document.getElementById('providerUserId');
@@ -1560,26 +1569,48 @@ function loadProvider(providerId) {
   // Listings tab
   document.getElementById('providerListings').innerHTML = providerListings.map(renderListingCard).join('');
 
-  // Reviews tab
-  if (mainListing.reviews === 0) {
-    document.getElementById('providerReviewsList').innerHTML = `
-      <div style="text-align:center; padding: 40px 20px; color: var(--text-light);">
-        <span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>
-        <p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>
-        <p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse.</p>
-      </div>
-    `;
+  // Reviews tab — load from API
+  var providerDbId = pid;
+  if (providerDbId && mainListing._fromDb) {
+    document.getElementById('providerReviewsList').innerHTML = '<div style="text-align:center; padding:20px;"><div class="spinner"></div></div>';
+    fetch(_apiUrl('provider/' + providerDbId), { credentials: 'same-origin', headers: _apiHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var reviews = data.reviews || [];
+        if (reviews.length === 0) {
+          document.getElementById('providerReviewsList').innerHTML =
+            '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
+              '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
+              '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
+              '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse.</p>' +
+            '</div>';
+        } else {
+          document.getElementById('providerReviewsList').innerHTML = reviews.map(function(r) {
+            var avatar = r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.name || 'user'));
+            var rating = parseInt(r.rating) || 0;
+            return '<div class="review-card">' +
+              '<img src="' + avatar + '" alt="' + (r.name || 'Anonym') + '" class="review-avatar" />' +
+              '<div class="review-content">' +
+                '<div class="review-top"><strong>' + (r.name || 'Anonym') + '</strong><span>' + (r.date || '') + '</span></div>' +
+                '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
+                '<p class="review-text">' + (r.text || '') + '</p>' +
+              '</div></div>';
+          }).join('');
+          // Update provider stats with real data
+          var totalRating = reviews.reduce(function(s, r) { return s + (parseInt(r.rating) || 0); }, 0);
+          var avgRating = Math.round(totalRating / reviews.length * 10) / 10;
+          document.getElementById('providerRating').textContent = avgRating;
+          document.getElementById('providerReviews').textContent = reviews.length;
+        }
+      })
+      .catch(function() {});
   } else {
-    document.getElementById('providerReviewsList').innerHTML = DEMO_REVIEWS.map(r => `
-      <div class="review-card">
-        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar}" alt="${r.name}" class="review-avatar" />
-        <div class="review-content">
-          <div class="review-top"><strong>${r.name}</strong><span>${r.date}</span></div>
-          <div class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
-          <p class="review-text">${r.text}</p>
-        </div>
-      </div>
-    `).join('');
+    document.getElementById('providerReviewsList').innerHTML =
+      '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
+        '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
+        '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
+        '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse.</p>' +
+      '</div>';
   }
 
   // Reset follow button
@@ -4062,7 +4093,12 @@ function submitReview(e) {
       if (!r.ok) return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
       return r.json();
     })
-    .then(function() {
+    .then(function(data) {
+      // Update listing data with server-calculated values
+      if (currentListing && data) {
+        if (data.rating_avg !== undefined) currentListing.rating = Math.round(data.rating_avg * 10) / 10;
+        if (data.review_count !== undefined) currentListing.reviews = data.review_count;
+      }
       // Reload reviews from API
       loadDetailReviews(dbId);
       closeModal('reviewModal');
@@ -4791,7 +4827,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '29';
+var _EB_VERSION = '30';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

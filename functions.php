@@ -559,13 +559,40 @@ function eventboerse_handle_profile_get() {
         $listings_count = (int) count_user_posts( $uid, 'eb_listing', true );
     }
 
-    // Durchschnittsbewertung (gespeichert als Meta)
-    $avg_rating = get_user_meta( $uid, 'eb_avg_rating', true );
-    $avg_rating = ( $avg_rating !== '' && $avg_rating !== false ) ? (float) $avg_rating : null;
-
-    // Bewertungen aus User-Meta (JSON-Array)
-    $reviews_raw = get_user_meta( $uid, 'eb_reviews', true );
-    $reviews     = is_array( $reviews_raw ) ? $reviews_raw : array();
+    // Bewertungen aus der DB-Tabelle für alle Inserate dieses Users
+    $user_listing_ids = $wpdb->get_col( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_listings WHERE user_id = %d",
+        $uid
+    ) );
+    $avg_rating = null;
+    $reviews    = array();
+    if ( ! empty( $user_listing_ids ) ) {
+        $ids_in = implode( ',', array_map( 'absint', $user_listing_ids ) );
+        $avg_rating = (float) $wpdb->get_var(
+            "SELECT AVG(rating) FROM {$wpdb->prefix}eb_reviews WHERE listing_id IN ($ids_in)"
+        );
+        if ( $avg_rating ) {
+            $avg_rating = round( $avg_rating, 1 );
+        } else {
+            $avg_rating = null;
+        }
+        $review_rows = $wpdb->get_results(
+            "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
+             LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
+             WHERE r.listing_id IN ($ids_in) ORDER BY r.created_at DESC LIMIT 10"
+        );
+        foreach ( $review_rows as $r ) {
+            $rname  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
+            $rphoto = get_user_meta( $r->uid, 'eb_photo_url', true );
+            $reviews[] = array(
+                'rating' => (int) $r->rating,
+                'text'   => $r->body,
+                'name'   => $rname ?: $r->display_name,
+                'avatar' => $rphoto ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $rname ?: $r->display_name ) ),
+                'date'   => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
+            );
+        }
+    }
 
     return new WP_REST_Response( array(
         'tagline'   => $tagline  ?: '',
