@@ -21,6 +21,15 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
   ExpiresByType image/svg+xml "access plus 1 year"
 </IfModule>
 
+# Disable caching for REST API (dynamic JSON data)
+<IfModule mod_headers.c>
+  <If "%{REQUEST_URI} =~ m#/wp-json/#">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </If>
+</IfModule>
+
 # Security Headers
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"

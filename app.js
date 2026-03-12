@@ -462,7 +462,7 @@ async function uploadFile(file, _attempt) {
 async function loadDbListings() {
   if (_dbListingsLoaded) return;
   try {
-    var resp = await fetch(_apiUrl('listings?per_page=50'), { credentials: 'same-origin', headers: _apiHeaders() });
+    var resp = await fetch(_apiUrl('listings?per_page=50&_t=' + Date.now()), { credentials: 'same-origin', headers: _apiHeaders() });
     if (!resp.ok) return;
     var data = await resp.json();
     if (data.listings && data.listings.length > 0) {
@@ -1478,7 +1478,7 @@ function loadProvider(providerId) {
 
   // If no listings found locally, fetch provider from API
   if (providerListings.length === 0 && pid) {
-    fetch(_apiUrl('provider/' + pid), { credentials: 'same-origin', headers: _apiHeaders() })
+    fetch(_apiUrl('provider/' + pid) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data || data.message) return;
@@ -1612,7 +1612,7 @@ function loadProvider(providerId) {
   var providerDbId = pid;
   if (providerDbId && mainListing._fromDb) {
     document.getElementById('providerReviewsList').innerHTML = '<div style="text-align:center; padding:20px;"><div class="spinner"></div></div>';
-    fetch(_apiUrl('provider/' + providerDbId), { credentials: 'same-origin', headers: _apiHeaders() })
+    fetch(_apiUrl('provider/' + providerDbId) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var reviews = data.reviews || [];
@@ -4189,7 +4189,9 @@ function submitReview(e) {
 }
 
 function loadDetailReviews(dbListingId) {
-  fetch(_apiUrl('listings/' + dbListingId + '/reviews'), { credentials: 'same-origin' })
+  var url = _apiUrl('listings/' + dbListingId + '/reviews');
+  url += (url.indexOf('?') > -1 ? '&' : '?') + '_t=' + Date.now();
+  fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' } })
     .then(function(r) {
       if (!r.ok) throw new Error('API error ' + r.status);
       return r.json();
@@ -4913,7 +4915,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '43';
+var _EB_VERSION = '44';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

@@ -1059,12 +1059,15 @@ function eb_listings_list( WP_REST_Request $request ) {
 
     $listings = array_map( 'eb_format_listing', $rows );
 
-    return new WP_REST_Response( array(
+    $response = new WP_REST_Response( array(
         'listings' => $listings,
         'total'    => $total,
         'page'     => $page,
         'pages'    => ceil( $total / $per_page ),
     ), 200 );
+    $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+    $response->header( 'Pragma', 'no-cache' );
+    return $response;
 }
 
 /** Format a DB row into a frontend-friendly listing object */
@@ -1345,7 +1348,10 @@ function eb_reviews_list( WP_REST_Request $request ) {
         );
     }
 
-    return new WP_REST_Response( $reviews, 200 );
+    $response = new WP_REST_Response( $reviews, 200 );
+    $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+    $response->header( 'Pragma', 'no-cache' );
+    return $response;
 }
 
 function eb_reviews_create( WP_REST_Request $request ) {
@@ -1798,7 +1804,7 @@ function eb_provider_profile( WP_REST_Request $request ) {
         );
     }
 
-    return new WP_REST_Response( array(
+    $response = new WP_REST_Response( array(
         'id'       => $provider_id,
         'name'     => $name,
         'role'     => $role,
@@ -1813,6 +1819,9 @@ function eb_provider_profile( WP_REST_Request $request ) {
         'listings' => array_map( 'eb_format_listing', $listings ),
         'reviews'  => $formatted_reviews,
     ), 200 );
+    $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+    $response->header( 'Pragma', 'no-cache' );
+    return $response;
 }
 
 /* =====================================================================
