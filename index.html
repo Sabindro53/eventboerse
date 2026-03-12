@@ -229,28 +229,6 @@
                   </optgroup>
                 </select>
               </div>
-              <span class="hero-field-divider"></span>
-              <div class="hero-field hero-field-date" id="heroDateField" onclick="toggleCalendar(event)">
-                <label>Wann</label>
-                <span class="hero-date-display" id="heroDateDisplay">Datum wählen</span>
-                <input type="hidden" id="heroDate" />
-                <!-- Custom Calendar Dropdown -->
-                <div class="cal-dropdown" id="calDropdown">
-                  <div class="cal-header">
-                    <button type="button" class="cal-nav" onclick="calNav(event,-1)"><span class="material-icons-round">chevron_left</span></button>
-                    <span class="cal-title" id="calTitle"></span>
-                    <button type="button" class="cal-nav" onclick="calNav(event,1)"><span class="material-icons-round">chevron_right</span></button>
-                  </div>
-                  <div class="cal-weekdays">
-                    <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
-                  </div>
-                  <div class="cal-grid" id="calGrid"></div>
-                  <div class="cal-footer">
-                    <button type="button" class="cal-clear" onclick="calClear(event)">Löschen</button>
-                    <button type="button" class="cal-today" onclick="calToday(event)">Heute</button>
-                  </div>
-                </div>
-              </div>
               <button class="hero-search-btn" onclick="performSearch()">
                 <span class="material-icons-round">search</span>
                 <span>Suchen</span>
@@ -790,7 +768,6 @@
                 <li><span class="material-icons-round">category</span> <span>DJ & Musik</span></li>
                 <li><span class="material-icons-round">euro</span> <span>ab 450€ / Event</span></li>
                 <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
-                <li><span class="material-icons-round">language</span> <span>Deutsch, Englisch</span></li>
                 <li><span class="material-icons-round">speed</span> <span>Antwortet innerhalb von 1 Std.</span></li>
               </ul>
             </div>
@@ -1491,6 +1468,42 @@
         <p class="modal-footer-text">
           <a href="#" onclick="closeModal('forgotModal'); openModal('loginModal')">Zurück zur Anmeldung</a>
         </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Passwort-Reset Modal (nach Klick auf Link in E-Mail) -->
+  <div class="modal-overlay" id="resetPasswordModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="closeModal('resetPasswordModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">lock_open</span>
+        <h2>Neues Passwort setzen</h2>
+        <p>Gib dein neues Passwort ein</p>
+      </div>
+      <form class="modal-form" onsubmit="handleResetPassword(event)">
+        <div class="form-group">
+          <label>Neues Passwort</label>
+          <div class="password-wrapper">
+            <input type="password" id="resetNewPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
+            <button type="button" class="password-toggle" tabindex="-1">
+              <span class="material-icons-round">visibility</span>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Passwort bestätigen</label>
+          <div class="password-wrapper">
+            <input type="password" id="resetConfirmPassword" placeholder="Passwort wiederholen" required minlength="8" />
+            <button type="button" class="password-toggle" tabindex="-1">
+              <span class="material-icons-round">visibility</span>
+            </button>
+          </div>
+        </div>
+        <p class="forgot-success" id="resetSuccess" style="display:none"></p>
+        <button type="submit" class="btn-primary btn-block">Passwort ändern</button>
       </form>
     </div>
   </div>

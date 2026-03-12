@@ -610,7 +610,7 @@ function renderListingCard(listing) {
         </div>
         <div class="listing-card-price">${listing.priceLabel}</div>
         <div class="listing-card-tags">
-          ${listing.tags.map(t => `<span class="listing-tag">${t}</span>`).join('')}
+          ${(listing.tags || []).map(t => `<span class="listing-tag">${t}</span>`).join('')}
         </div>
       </div>
     </div>
@@ -1471,9 +1471,12 @@ let providerImages = [];
 let lightboxIndex = 0;
 
 function loadProvider(providerId) {
-  const providerListings = LISTINGS.filter(l => l.providerId === (providerId || currentListing?.providerId));
+  var pid = providerId || currentListing?.providerId;
+  // Only show real DB listings for the provider, not demo data
+  var dbListings = LISTINGS.filter(l => l._fromDb && l.providerId === pid);
+  var providerListings = dbListings.length > 0 ? dbListings : LISTINGS.filter(l => l.providerId === pid);
   const mainListing = providerListings[0] || LISTINGS[0];
-  providerImages = providerListings.flatMap(l => l.images);
+  providerImages = providerListings.flatMap(l => l.images || []);
 
   // Cover Gallery — full-width animated scroll rows
   buildGalleryRows(providerImages);
@@ -1545,7 +1548,6 @@ function loadProvider(providerId) {
     <li><span class="material-icons-round">category</span> <span>${mainListing.categoryLabel}</span></li>
     <li><span class="material-icons-round">euro</span> <span>${mainListing.priceLabel}</span></li>
     <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
-    <li><span class="material-icons-round">language</span> <span>Deutsch, Englisch</span></li>
     <li><span class="material-icons-round">speed</span> <span>Antwortet innerhalb von 1 Std.</span></li>
   `;
 
@@ -2813,10 +2815,12 @@ function submitListing(e) {
   });
 
   Promise.all(uploadPromises).then(function(imageUrls) {
-    // Fallback images if none uploaded
+    // Require at least one image
     if (imageUrls.length === 0) {
-      var catImgIds = CATEGORY_DEFAULT_IMAGES[category] || CATEGORY_DEFAULT_IMAGES['dj'];
-      imageUrls = catImgIds.map(function(id) { return pexelsUrl(id, 600, 400); });
+      showToast('Bitte lade mindestens ein Bild hoch', 'warning');
+      _setBtnLoading(submitBtn, false);
+      nextStep(2);
+      return;
     }
 
     var payload = {
@@ -4329,8 +4333,15 @@ async function handleLogin(e) {
     } else {
       _setBtnLoading(submitBtn, false);
       var msg = data.message || 'Login fehlgeschlagen.';
-      // Zeige Fehler im Passwort-Feld-Bereich
-      _setFieldError('loginPassword', msg);
+      // E-Mail noch nicht verifiziert
+      if (data.pending_verification) {
+        _setFieldError('loginPassword', msg);
+        var resendHtml = '<a href="#" style="color:var(--primary);font-weight:600" onclick="event.preventDefault();resendVerification(\'' + email.replace(/'/g, "\\'") + '\');">Bestätigungs-E-Mail erneut senden</a>';
+        var errSpan = form.querySelector('#loginPassword').closest('.form-group').querySelector('.field-error');
+        if (errSpan) errSpan.innerHTML = msg + '<br>' + resendHtml;
+      } else {
+        _setFieldError('loginPassword', msg);
+      }
     }
   } catch (err) {
     _setBtnLoading(submitBtn, false);
@@ -4385,6 +4396,18 @@ async function handleRegister(e) {
     var data = await response.json();
 
     if (response.ok) {
+      _setBtnLoading(submitBtn, false);
+
+      // E-Mail-Verifizierung erforderlich
+      if (data.pending_verification) {
+        closeModal('registerModal');
+        form.reset();
+        var strengthBar = document.getElementById('passwordStrength');
+        if (strengthBar) strengthBar.style.display = 'none';
+        showToast('Bitte überprüfe dein E-Mail-Postfach und bestätige deine E-Mail-Adresse.', 'mark_email_read');
+        return;
+      }
+
       _wpNonce = data.nonce || _wpNonce;
       currentUser = {
         id: data.user_id,
@@ -4399,7 +4422,6 @@ async function handleRegister(e) {
         coverUrl: data.coverUrl || '',
         photoUrl: data.photoUrl || ''
       };
-      _setBtnLoading(submitBtn, false);
       closeModal('registerModal');
       form.reset();
       var strengthBar = document.getElementById('passwordStrength');
@@ -4421,6 +4443,117 @@ async function handleRegister(e) {
   } catch (err) {
     _setBtnLoading(submitBtn, false);
     _setFieldError('regEmail', 'Verbindungsfehler – bitte versuche es erneut.');
+  }
+}
+
+// ---- BESTÄTIGUNGS-E-MAIL ERNEUT SENDEN ----
+async function resendVerification(email) {
+  try {
+    var response = await fetch(_apiUrl('resend-verification'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({ email: email })
+    });
+    var data = await response.json();
+    showToast(data.message || 'Bestätigungs-E-Mail wurde erneut gesendet.', 'mark_email_read');
+  } catch (err) {
+    showToast('Fehler beim Senden. Bitte versuche es später erneut.', 'error');
+  }
+}
+
+// ---- E-MAIL-VERIFIZIERUNG: URL-PARAMETER PRÜFEN ----
+// ---- PASSWORT-RESET: URL-PARAMETER PRÜFEN ----
+(function checkUrlParams() {
+  var params = new URLSearchParams(window.location.search);
+
+  // E-Mail verifiziert
+  if (params.get('email_verified') === '1') {
+    var url = new URL(window.location);
+    url.searchParams.delete('email_verified');
+    window.history.replaceState({}, '', url.pathname + url.search);
+    setTimeout(function() {
+      showToast('E-Mail erfolgreich bestätigt! Du kannst dich jetzt anmelden.', 'check_circle');
+      openModal('loginModal');
+    }, 500);
+  }
+
+  // Passwort-Reset-Link aus E-Mail
+  if (params.get('reset_password') === '1') {
+    var token = params.get('token') || '';
+    var uid = params.get('uid') || '';
+    // Parameter aus URL entfernen
+    var url2 = new URL(window.location);
+    url2.searchParams.delete('reset_password');
+    url2.searchParams.delete('token');
+    url2.searchParams.delete('uid');
+    window.history.replaceState({}, '', url2.pathname + url2.search);
+    // Token + UID im Modal speichern
+    window._resetToken = token;
+    window._resetUid = uid;
+    setTimeout(function() {
+      openModal('resetPasswordModal');
+    }, 500);
+  }
+})();
+
+// ---- NEUES PASSWORT SETZEN ----
+async function handleResetPassword(e) {
+  e.preventDefault();
+  var form = e.target;
+  _clearFieldErrors(form);
+
+  var password = document.getElementById('resetNewPassword').value.trim();
+  var confirm = document.getElementById('resetConfirmPassword').value.trim();
+  var submitBtn = form.querySelector('button[type="submit"]');
+  var successMsg = document.getElementById('resetSuccess');
+
+  var hasError = false;
+  if (!password || password.length < 8) { _setFieldError('resetNewPassword', 'Min. 8 Zeichen erforderlich'); hasError = true; }
+  if (password !== confirm) { _setFieldError('resetConfirmPassword', 'Passwörter stimmen nicht überein'); hasError = true; }
+  if (hasError) return;
+
+  if (!window._resetToken || !window._resetUid) {
+    _setFieldError('resetNewPassword', 'Ungültiger Reset-Link. Bitte fordere einen neuen an.');
+    return;
+  }
+
+  _setBtnLoading(submitBtn, true);
+
+  try {
+    var response = await fetch(_apiUrl('reset-password'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        token: window._resetToken,
+        uid: parseInt(window._resetUid),
+        password: password
+      })
+    });
+    var data = await response.json();
+    _setBtnLoading(submitBtn, false);
+
+    if (response.ok) {
+      if (successMsg) {
+        successMsg.style.display = 'block';
+        successMsg.textContent = data.message || 'Passwort erfolgreich geändert!';
+      }
+      submitBtn.style.display = 'none';
+      form.querySelectorAll('.form-group').forEach(function(g) { g.style.display = 'none'; });
+      window._resetToken = null;
+      window._resetUid = null;
+      // Nach 2 Sekunden zum Login weiterleiten
+      setTimeout(function() {
+        closeModal('resetPasswordModal');
+        openModal('loginModal');
+      }, 2000);
+    } else {
+      _setFieldError('resetNewPassword', data.message || 'Fehler beim Zurücksetzen.');
+    }
+  } catch (err) {
+    _setBtnLoading(submitBtn, false);
+    _setFieldError('resetNewPassword', 'Verbindungsfehler – bitte versuche es erneut.');
   }
 }
 

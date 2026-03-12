@@ -1408,7 +1408,8 @@ img { display: block; max-width: 100%; }
 }
 .feed-card-image {
   width: 100%;
-  aspect-ratio: 4/3;
+  aspect-ratio: 16/5;
+  max-height: 280px;
   object-fit: cover;
   display: block;
   cursor: pointer;
@@ -3985,7 +3986,7 @@ span.flatpickr-weekday {
   .feed-header { padding: 14px 0 6px; }
   .feed-title { font-size: 1.25rem; }
   .feed-location-badge { padding: 4px 10px; font-size: 0.72rem; }
-  .feed-card-image { aspect-ratio: 16/10; }
+  .feed-card-image { aspect-ratio: 16/7; max-height: 220px; }
 
   /* Detail mobile restructure */
   .detail-container {

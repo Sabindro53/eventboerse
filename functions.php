@@ -117,6 +117,18 @@ add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
 /* WordPress Admin-Bar für alle User ausblenden */
 add_filter( 'show_admin_bar', '__return_false' );
 
+/* WordPress-Standard-Registrierungs-E-Mails unterdrücken (wir senden eigene) */
+add_filter( 'wp_new_user_notification_email',       '__return_false' );
+add_filter( 'wp_new_user_notification_email_admin', '__return_false' );
+
+/* E-Mail-Absender für alle wp_mail-Aufrufe korrekt setzen */
+add_filter( 'wp_mail_from', function() {
+    return 'noreply@' . wp_parse_url( home_url(), PHP_URL_HOST );
+} );
+add_filter( 'wp_mail_from_name', function() {
+    return 'Eventbörse';
+} );
+
 /**
  * Theme-Setup
  */
@@ -200,6 +212,24 @@ function eventboerse_register_rest_routes() {
         'permission_callback' => '__return_true',
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/verify-email', array(
+        'methods'             => 'GET',
+        'callback'            => 'eventboerse_handle_verify_email',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/resend-verification', array(
+        'methods'             => 'POST',
+        'callback'            => 'eventboerse_handle_resend_verification',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/reset-password', array(
+        'methods'             => 'POST',
+        'callback'            => 'eventboerse_handle_reset_password',
+        'permission_callback' => '__return_true',
+    ) );
+
     /* ---------- PROFILE (GET + POST) ---------- */
     register_rest_route( 'eventboerse/v1', '/profile', array(
         array(
@@ -260,20 +290,30 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
         'role'       => $wp_role,
     ) );
 
-    // Direkt einloggen
-    wp_set_current_user( $user_id );
-    wp_set_auth_cookie( $user_id, true );
+    // E-Mail-Verifizierung: Token generieren und speichern
+    $token = bin2hex( random_bytes( 32 ) );
+    update_user_meta( $user_id, 'eb_email_verify_token', $token );
+    update_user_meta( $user_id, 'eb_email_verified', '0' );
 
-    return new WP_REST_Response( array_merge(
-        array(
-            'user_id'    => $user_id,
-            'email'      => $email,
-            'first_name' => $first_name,
-            'last_name'  => $last_name,
-            'role'       => ( $wp_role === 'dienstleister' ) ? 'Dienstleister' : 'Event-Planer',
-            'nonce'      => wp_create_nonce( 'wp_rest' ),
-        ),
-        eb_user_profile_meta( $user_id )
+    // Verifizierungs-E-Mail senden
+    $verify_url = rest_url( 'eventboerse/v1/verify-email' ) . '?token=' . $token . '&uid=' . $user_id;
+    $subject    = 'Eventbörse – Bitte bestätige deine E-Mail-Adresse';
+    $message    = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+    $message   .= '<h2 style="color:#222;margin-bottom:8px">Willkommen bei Eventbörse, ' . esc_html( $first_name ) . '!</h2>';
+    $message   .= '<p style="color:#484848;line-height:1.6">Klicke auf den Button, um deine E-Mail-Adresse zu bestätigen und dein Konto zu aktivieren:</p>';
+    $message   .= '<p style="text-align:center;margin:28px 0">';
+    $message   .= '<a href="' . esc_url( $verify_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">E-Mail bestätigen</a>';
+    $message   .= '</p>';
+    $message   .= '<p style="color:#717171;font-size:13px">Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.</p>';
+    $message   .= '</div>';
+    $headers    = array( 'Content-Type: text/html; charset=UTF-8' );
+    $mail_sent  = wp_mail( $email, $subject, $message, $headers );
+
+    // NICHT einloggen – erst nach Verifizierung
+    return new WP_REST_Response( array(
+        'pending_verification' => true,
+        'message'              => 'Registrierung erfolgreich! Bitte überprüfe dein E-Mail-Postfach und bestätige deine E-Mail-Adresse.',
+        'mail_sent'            => $mail_sent,
     ), 200 );
 }
 
@@ -291,6 +331,16 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
     $user = get_user_by( 'email', $email );
     if ( ! $user ) {
         return new WP_REST_Response( array( 'message' => 'Kein Konto mit dieser E-Mail gefunden.' ), 401 );
+    }
+
+    // Prüfe ob E-Mail verifiziert ist
+    $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
+    if ( $verified === '0' ) {
+        return new WP_REST_Response( array(
+            'message'              => 'Bitte bestätige zuerst deine E-Mail-Adresse. Prüfe dein Postfach.',
+            'pending_verification' => true,
+            'email'                => $email,
+        ), 403 );
     }
 
     $creds = array(
@@ -346,6 +396,70 @@ function eventboerse_handle_me() {
     ), 200 );
 }
 
+/* ---------- E-MAIL VERIFIZIERUNG ---------- */
+function eventboerse_handle_verify_email( WP_REST_Request $request ) {
+    $token   = sanitize_text_field( $request->get_param( 'token' ) );
+    $user_id = absint( $request->get_param( 'uid' ) );
+
+    if ( empty( $token ) || empty( $user_id ) ) {
+        wp_die( 'Ungültiger Verifizierungslink.', 'Fehler', array( 'response' => 400 ) );
+    }
+
+    $stored_token = get_user_meta( $user_id, 'eb_email_verify_token', true );
+
+    if ( ! $stored_token || ! hash_equals( $stored_token, $token ) ) {
+        wp_die( 'Ungültiger oder abgelaufener Verifizierungslink.', 'Fehler', array( 'response' => 400 ) );
+    }
+
+    // E-Mail als verifiziert markieren und Token löschen
+    update_user_meta( $user_id, 'eb_email_verified', '1' );
+    delete_user_meta( $user_id, 'eb_email_verify_token' );
+
+    // Weiterleitung zur Startseite mit Erfolgs-Parameter
+    wp_safe_redirect( home_url( '/?email_verified=1' ) );
+    exit;
+}
+
+/* ---------- VERIFIZIERUNGS-MAIL ERNEUT SENDEN ---------- */
+function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
+    $params = $request->get_json_params();
+    $email  = isset( $params['email'] ) ? sanitize_email( $params['email'] ) : '';
+
+    if ( empty( $email ) || ! is_email( $email ) ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte gib eine gültige E-Mail-Adresse ein.' ), 400 );
+    }
+
+    $user = get_user_by( 'email', $email );
+    if ( ! $user ) {
+        // Aus Sicherheitsgründen gleiche Antwort
+        return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
+    }
+
+    $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
+    if ( $verified === '1' ) {
+        return new WP_REST_Response( array( 'message' => 'Deine E-Mail ist bereits bestätigt. Du kannst dich anmelden.' ), 200 );
+    }
+
+    // Neuen Token generieren
+    $token = bin2hex( random_bytes( 32 ) );
+    update_user_meta( $user->ID, 'eb_email_verify_token', $token );
+
+    $verify_url = rest_url( 'eventboerse/v1/verify-email' ) . '?token=' . $token . '&uid=' . $user->ID;
+    $subject    = 'Eventbörse – Bitte bestätige deine E-Mail-Adresse';
+    $message    = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+    $message   .= '<h2 style="color:#222;margin-bottom:8px">Hallo ' . esc_html( $user->first_name ?: $user->display_name ) . '!</h2>';
+    $message   .= '<p style="color:#484848;line-height:1.6">Klicke auf den Button, um deine E-Mail-Adresse zu bestätigen:</p>';
+    $message   .= '<p style="text-align:center;margin:28px 0">';
+    $message   .= '<a href="' . esc_url( $verify_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">E-Mail bestätigen</a>';
+    $message   .= '</p>';
+    $message   .= '<p style="color:#717171;font-size:13px">Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.</p>';
+    $message   .= '</div>';
+    $headers    = array( 'Content-Type: text/html; charset=UTF-8' );
+    wp_mail( $email, $subject, $message, $headers );
+
+    return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
+}
+
 /* ---------- PASSWORT VERGESSEN ---------- */
 function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
     $params = $request->get_json_params();
@@ -357,16 +471,64 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
 
     $user = get_user_by( 'email', $email );
     if ( ! $user ) {
-        // Aus Sicherheitsgründen gleiche Antwort, auch wenn Konto nicht existiert
         return new WP_REST_Response( array( 'message' => 'Falls ein Konto mit dieser E-Mail existiert, erhältst du eine E-Mail zum Zurücksetzen.' ), 200 );
     }
 
-    $result = retrieve_password( $user->user_login );
-    if ( is_wp_error( $result ) ) {
-        return new WP_REST_Response( array( 'message' => 'Fehler beim Senden der E-Mail. Bitte versuche es später erneut.' ), 500 );
-    }
+    // Eigenen Reset-Token generieren
+    $token = bin2hex( random_bytes( 32 ) );
+    update_user_meta( $user->ID, 'eb_pw_reset_token', $token );
+    update_user_meta( $user->ID, 'eb_pw_reset_expires', time() + 3600 ); // 1 Stunde gültig
+
+    $reset_url = home_url( '/?reset_password=1&token=' . $token . '&uid=' . $user->ID );
+    $subject   = 'Eventbörse – Passwort zurücksetzen';
+    $message   = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+    $message  .= '<h2 style="color:#222;margin-bottom:8px">Passwort zurücksetzen</h2>';
+    $message  .= '<p style="color:#484848;line-height:1.6">Hallo ' . esc_html( $user->first_name ?: $user->display_name ) . ', klicke auf den Button um ein neues Passwort zu setzen:</p>';
+    $message  .= '<p style="text-align:center;margin:28px 0">';
+    $message  .= '<a href="' . esc_url( $reset_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">Neues Passwort setzen</a>';
+    $message  .= '</p>';
+    $message  .= '<p style="color:#717171;font-size:13px">Dieser Link ist 1 Stunde gültig. Falls du kein Passwort-Reset angefordert hast, ignoriere diese E-Mail.</p>';
+    $message  .= '</div>';
+    $headers   = array( 'Content-Type: text/html; charset=UTF-8' );
+    wp_mail( $email, $subject, $message, $headers );
 
     return new WP_REST_Response( array( 'message' => 'Falls ein Konto mit dieser E-Mail existiert, erhältst du eine E-Mail zum Zurücksetzen.' ), 200 );
+}
+
+/* ---------- PASSWORT RESET AUSFÜHREN ---------- */
+function eventboerse_handle_reset_password( WP_REST_Request $request ) {
+    $params   = $request->get_json_params();
+    $token    = isset( $params['token'] )    ? sanitize_text_field( $params['token'] )    : '';
+    $uid      = isset( $params['uid'] )      ? absint( $params['uid'] )                   : 0;
+    $password = isset( $params['password'] ) ? $params['password']                        : '';
+
+    if ( empty( $token ) || empty( $uid ) || empty( $password ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige Anfrage.' ), 400 );
+    }
+
+    if ( strlen( $password ) < 8 ) {
+        return new WP_REST_Response( array( 'message' => 'Das Passwort muss mindestens 8 Zeichen lang sein.' ), 400 );
+    }
+
+    $stored_token = get_user_meta( $uid, 'eb_pw_reset_token', true );
+    $expires      = (int) get_user_meta( $uid, 'eb_pw_reset_expires', true );
+
+    if ( ! $stored_token || ! hash_equals( $stored_token, $token ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger oder abgelaufener Link.' ), 400 );
+    }
+
+    if ( time() > $expires ) {
+        delete_user_meta( $uid, 'eb_pw_reset_token' );
+        delete_user_meta( $uid, 'eb_pw_reset_expires' );
+        return new WP_REST_Response( array( 'message' => 'Der Link ist abgelaufen. Bitte fordere einen neuen an.' ), 400 );
+    }
+
+    // Passwort setzen und Token löschen
+    wp_set_password( $password, $uid );
+    delete_user_meta( $uid, 'eb_pw_reset_token' );
+    delete_user_meta( $uid, 'eb_pw_reset_expires' );
+
+    return new WP_REST_Response( array( 'message' => 'Passwort erfolgreich geändert! Du kannst dich jetzt anmelden.' ), 200 );
 }
 
 /* ---------- PROFILE GET ---------- */
