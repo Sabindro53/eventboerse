@@ -1660,8 +1660,8 @@ function eb_offer_status_update( WP_REST_Request $request ) {
 
     $was_accepted = $msg->offer_status === 'accepted';
     $is_own       = (int) $msg->sender_id === $uid;
+    $amt_fmt      = rtrim(rtrim(number_format((float)$msg->offer_amount, 2, ',', ''), '0'), ',');
     if ( $status === 'accepted' ) {
-        $amt_fmt = rtrim(rtrim(number_format((float)$msg->offer_amount, 2, ',', ''), '0'), ',');
         $sys_body = '✅ Angebot über ' . $amt_fmt . '€ angenommen!';
     } elseif ( $is_own ) {
         $sys_body = '🚫 Angebot über ' . $amt_fmt . '€ zurückgezogen.';

@@ -2286,7 +2286,9 @@ function openNegotiation() {
 
 function submitNegotiation(e) {
   e.preventDefault();
-  const price = document.getElementById('negOfferPrice').value;
+  var rawPrice = document.getElementById('negOfferPrice').value;
+  var price = _parseMoneyValue(rawPrice);
+  if (price <= 0) { showToast('Bitte gültigen Betrag eingeben', 'error'); return; }
   const message = document.getElementById('negMessage').value;
 
   closeModal('negotiationModal');
@@ -2319,6 +2321,24 @@ function submitNegotiation(e) {
 
 function openNegotiationInChat() {
   openModal('counterOfferModal');
+}
+
+function _parseMoneyValue(str) {
+  var cleaned = (str || '').replace(/[^0-9.,]/g, '').replace(',', '.');
+  var val = parseFloat(cleaned) || 0;
+  return Math.max(0, Math.round(val * 100) / 100);
+}
+
+function moneyChipAdd(inputId, amount) {
+  var el = document.getElementById(inputId);
+  var current = _parseMoneyValue(el.value);
+  var newVal = current + amount;
+  el.value = newVal % 1 === 0 ? newVal.toString() : newVal.toFixed(2).replace('.', ',');
+  el.focus();
+}
+
+function moneyInputFilter(el) {
+  el.value = el.value.replace(/[^0-9.,]/g, '');
 }
 
 function openCounterOffer() {
@@ -2371,7 +2391,9 @@ function withdrawOwnOffer(msgId) {
 
 function submitCounterOffer(e) {
   e.preventDefault();
-  const amount = document.getElementById('counterOfferAmount').value;
+  var rawAmount = document.getElementById('counterOfferAmount').value;
+  var amount = _parseMoneyValue(rawAmount);
+  if (amount <= 0) { showToast('Bitte gültigen Betrag eingeben', 'error'); return; }
   const msg = document.getElementById('counterOfferMsg').value;
 
   closeModal('counterOfferModal');
@@ -4849,7 +4871,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '35';
+var _EB_VERSION = '36';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

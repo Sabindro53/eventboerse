@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=35" />
+  <link rel="stylesheet" href="styles.css?v=36" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -1520,8 +1520,17 @@
       </div>
       <form class="modal-form" onsubmit="submitCounterOffer(event)">
         <div class="form-group">
-          <label>Dein Preisvorschlag (€)</label>
-          <input type="number" id="counterOfferAmount" placeholder="z.B. 400" step="0.01" min="0" required />
+          <label>Dein Preisvorschlag</label>
+          <div class="money-input-wrap">
+            <span class="money-currency">€</span>
+            <input type="text" inputmode="decimal" id="counterOfferAmount" placeholder="0,00" required autocomplete="off" oninput="moneyInputFilter(this)" />
+          </div>
+          <div class="money-chips">
+            <button type="button" class="money-chip" onclick="moneyChipAdd('counterOfferAmount',10)">+10</button>
+            <button type="button" class="money-chip" onclick="moneyChipAdd('counterOfferAmount',50)">+50</button>
+            <button type="button" class="money-chip" onclick="moneyChipAdd('counterOfferAmount',100)">+100</button>
+            <button type="button" class="money-chip" onclick="moneyChipAdd('counterOfferAmount',500)">+500</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Nachricht (optional)</label>
@@ -1554,8 +1563,17 @@
           <input type="text" id="negOriginalPrice" readonly />
         </div>
         <div class="form-group">
-          <label>Dein Angebot (€)</label>
-          <input type="number" id="negOfferPrice" placeholder="Dein Wunschpreis" step="0.01" min="0" required />
+          <label>Dein Angebot</label>
+          <div class="money-input-wrap">
+            <span class="money-currency">€</span>
+            <input type="text" inputmode="decimal" id="negOfferPrice" placeholder="0,00" required autocomplete="off" oninput="moneyInputFilter(this)" />
+          </div>
+          <div class="money-chips">
+            <button type="button" class="money-chip" onclick="moneyChipAdd('negOfferPrice',10)">+10</button>
+            <button type="button" class="money-chip" onclick="moneyChipAdd('negOfferPrice',50)">+50</button>
+            <button type="button" class="money-chip" onclick="moneyChipAdd('negOfferPrice',100)">+100</button>
+            <button type="button" class="money-chip" onclick="moneyChipAdd('negOfferPrice',500)">+500</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Event-Datum</label>
@@ -1628,6 +1646,6 @@
     <div class="update-sub">Eventbörse wurde aktualisiert</div>
   </div>
 
-  <script src="app.js?v=35"></script>
+  <script src="app.js?v=36"></script>
 </body>
 </html>
