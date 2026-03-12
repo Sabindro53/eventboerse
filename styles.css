@@ -2450,10 +2450,12 @@ img { display: block; max-width: 100%; }
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
+  touch-action: none;
+  -webkit-overflow-scrolling: none;
+  overscroll-behavior: none;
 }
 .provider-lightbox.show { opacity: 1; visibility: visible; }
 .provider-lightbox img {
@@ -2464,29 +2466,34 @@ img { display: block; max-width: 100%; }
   cursor: default;
   transform: scale(0.92);
   transition: transform 0.3s ease;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
 }
 .provider-lightbox.show img { transform: scale(1); }
 .plb-close {
   position: absolute; top: 20px; right: 20px;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.2);
   border: none; border-radius: 50%;
   width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: #fff; font-size: 24px;
   transition: background 0.2s;
+  z-index: 3;
 }
 .plb-close:hover { background: rgba(255,255,255,0.3); }
 .plb-close:active { transform: scale(0.9); }
 .plb-nav {
   position: absolute; top: 50%; transform: translateY(-50%);
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.2);
   border: none; border-radius: 50%;
   width: 48px; height: 48px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: #fff; font-size: 28px;
   transition: background 0.2s;
+  z-index: 3;
 }
-.plb-nav:hover { background: rgba(255,255,255,0.3); }
+.plb-nav:hover { background: rgba(255,255,255,0.35); }
 .plb-nav:active { transform: translateY(-50%) scale(0.9); }
 .plb-prev { left: 20px; }
 .plb-next { right: 20px; }
@@ -2495,6 +2502,7 @@ img { display: block; max-width: 100%; }
   transform: translateX(-50%);
   color: rgba(255,255,255,0.7);
   font-size: 0.9rem; font-weight: 500;
+  z-index: 3;
 }
 
 /* ======== CHAT / MESSAGES ======== */
@@ -4106,8 +4114,11 @@ span.flatpickr-weekday {
   .upload-zone .material-icons-round { font-size: 36px; }
 
   /* Provider */
-  .provider-cover-mosaic { grid-template-columns: 1fr; height: 200px; }
+  .provider-cover-mosaic { grid-template-columns: 1fr; height: 240px; }
   .pcm-side { display: none; }
+  .plb-nav { width: 40px; height: 40px; font-size: 24px; }
+  .plb-prev { left: 8px; }
+  .plb-next { right: 8px; }
   .provider-profile-card { margin-top: -24px; padding: 16px; gap: 12px; }
   .ppc-center h1 { font-size: 1.2rem; }
   .ppc-right { width: 100%; }
