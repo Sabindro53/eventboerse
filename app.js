@@ -1642,25 +1642,29 @@ function closeCoverLightbox(e) {
 let galleryRAFs = [];
 
 function buildGalleryRows(images) {
+  const gallery = document.getElementById('providerCoverGallery');
   const area = document.getElementById('pcgScrollArea');
-  if (!area) return;
+  if (!area || !gallery) return;
   area.innerHTML = '';
   galleryRAFs.forEach(id => cancelAnimationFrame(id));
   galleryRAFs = [];
 
-  if (!images.length) { area.style.display = 'none'; return; }
-  area.style.display = '';
+  if (!images.length) { gallery.style.display = 'none'; return; }
+  gallery.style.display = '';
 
-  // Row count based on image count: 1-7 → 1 row, 8-14 → 2 rows, 15+ → 3 rows
-  const rowCount = images.length >= 15 ? 3 : images.length >= 8 ? 2 : 1;
+  // Row count: 1-9 → 1 row, 10-14 → 2 rows, 15+ → 3 rows
+  const rowCount = images.length >= 15 ? 3 : images.length >= 10 ? 2 : 1;
 
-  // Thumb dimensions based on row count
-  const thumbW = rowCount === 1 ? 200 : rowCount === 2 ? 170 : 140;
+  // Compute explicit pixel heights from container
   const gap = 6;
+  const pad = 8; // padding top+bottom on scroll area
+  const availH = gallery.offsetHeight - pad * 2;
+  const totalGaps = (rowCount - 1) * gap;
+  const thumbH = Math.floor((availH - totalGaps) / rowCount);
+  const thumbW = Math.round(thumbH * 1.5); // landscape ratio
   const itemW = thumbW + gap;
 
   for (let r = 0; r < rowCount; r++) {
-    // Distribute unique images across rows round-robin (no artificial duplication)
     const rowImages = [];
     for (let i = r; i < images.length; i += rowCount) {
       rowImages.push({ src: images[i], globalIdx: i });
@@ -1669,8 +1673,10 @@ function buildGalleryRows(images) {
 
     const wrap = document.createElement('div');
     wrap.className = 'pcg-row-wrap';
+    wrap.style.height = thumbH + 'px';
     const row = document.createElement('div');
     row.className = 'pcg-row';
+    row.style.height = thumbH + 'px';
 
     // Triple the set for seamless infinite scroll
     const tripled = [...rowImages, ...rowImages, ...rowImages];
@@ -1679,7 +1685,7 @@ function buildGalleryRows(images) {
       t.className = 'pcg-thumb';
       t.style.backgroundImage = `url(${item.src})`;
       t.style.width = thumbW + 'px';
-      t.style.height = '100%';
+      t.style.height = thumbH + 'px';
       t.addEventListener('click', () => openProviderLightbox(item.globalIdx));
       row.appendChild(t);
     });
@@ -1689,7 +1695,7 @@ function buildGalleryRows(images) {
 
     const segW = rowImages.length * itemW;
     const dir = r % 2 === 0 ? -1 : 1;
-    const speed = 0.4 + r * 0.12;
+    const speed = 0.3 + r * 0.1;
     startRowAnimation(row, segW, dir, speed, wrap, itemW);
   }
 }

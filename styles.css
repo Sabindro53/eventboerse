@@ -2144,10 +2144,13 @@ img { display: block; max-width: 100%; }
   position: relative;
   padding: 8px 0;
 }
+.pcg-row-wrap {
+  overflow: hidden;
+  position: relative;
+}
 .pcg-row {
   display: flex;
   gap: 6px;
-  height: 100%;
   width: max-content;
   will-change: transform;
   cursor: grab;
@@ -2155,12 +2158,6 @@ img { display: block; max-width: 100%; }
   -webkit-user-select: none;
 }
 .pcg-row:active { cursor: grabbing; }
-.pcg-row-wrap {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  position: relative;
-}
 .pcg-thumb {
   flex-shrink: 0;
   border-radius: 10px;
@@ -2168,7 +2165,6 @@ img { display: block; max-width: 100%; }
   background-position: center;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  pointer-events: auto;
 }
 .pcg-show-all {
   position: absolute;
