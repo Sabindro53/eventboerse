@@ -258,6 +258,10 @@ function eb_login_otp_transient_key( $email ) {
     return 'eb_login_otp_' . md5( strtolower( trim( (string) $email ) ) );
 }
 
+function eb_login_otp_cooldown_key( $email ) {
+    return 'eb_login_otp_cd_' . md5( strtolower( trim( (string) $email ) ) );
+}
+
 /* =====================================================================
    REST API
    ===================================================================== */
@@ -1032,9 +1036,14 @@ function eb_otp_send( WP_REST_Request $request ) {
     $params   = $request->get_json_params();
     $email    = sanitize_email( $params['email'] ?? '' );
     $password = $params['password'] ?? '';
+    $cooldown = get_transient( eb_login_otp_cooldown_key( $email ) );
 
     if ( empty( $email ) || empty( $password ) ) {
         return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
+    }
+
+    if ( $cooldown ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte warte kurz, bevor du einen neuen Code anforderst.' ), 429 );
     }
 
     $user = get_user_by( 'email', $email );
@@ -1060,7 +1069,9 @@ function eb_otp_send( WP_REST_Request $request ) {
         'user_id'    => $user->ID,
         'code_hash'  => wp_hash( $code ),
         'created_at' => time(),
+        'attempts'   => 0,
     ), 10 * MINUTE_IN_SECONDS );
+    set_transient( eb_login_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
 
     eb_send_login_otp_email( $user, $code );
 
@@ -1075,7 +1086,8 @@ function eb_otp_verify( WP_REST_Request $request ) {
     $params  = $request->get_json_params();
     $email   = sanitize_email( $params['email'] ?? '' );
     $code    = preg_replace( '/\D+/', '', (string) ( $params['code'] ?? '' ) );
-    $payload = get_transient( eb_login_otp_transient_key( $email ) );
+    $otp_key  = eb_login_otp_transient_key( $email );
+    $payload = get_transient( $otp_key );
 
     if ( empty( $email ) || strlen( $code ) !== 6 ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib E-Mail und 6-stelligen Code ein.' ), 400 );
@@ -1085,7 +1097,15 @@ function eb_otp_verify( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
     }
 
+    $attempts = isset( $payload['attempts'] ) ? (int) $payload['attempts'] : 0;
+    if ( $attempts >= 5 ) {
+        delete_transient( $otp_key );
+        return new WP_REST_Response( array( 'message' => 'Zu viele falsche Versuche. Bitte fordere einen neuen Code an.' ), 429 );
+    }
+
     if ( ! hash_equals( $payload['code_hash'], wp_hash( $code ) ) ) {
+        $payload['attempts'] = $attempts + 1;
+        set_transient( $otp_key, $payload, 10 * MINUTE_IN_SECONDS );
         return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
     }
 
@@ -1094,7 +1114,7 @@ function eb_otp_verify( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
     }
 
-    delete_transient( eb_login_otp_transient_key( $email ) );
+    delete_transient( $otp_key );
 
     wp_set_current_user( $user->ID );
     wp_set_auth_cookie( $user->ID, true, is_ssl() );
