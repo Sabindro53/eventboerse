@@ -4392,6 +4392,254 @@ function renderDetailReviews(listing) {
 var currentUser = null;
 var _wpNonce = (typeof eventboerseApi !== 'undefined') ? eventboerseApi.nonce : '';
 
+function _normalizeUserPayload(data, fallback) {
+  data = data || {};
+  fallback = fallback || {};
+
+  var firstName = data.first_name || fallback.first_name || '';
+  var lastName = data.last_name || fallback.last_name || '';
+  var fullName = ((firstName || '') + ' ' + (lastName || '')).trim();
+
+  if (!fullName) {
+    fullName = data.name || fallback.name || '';
+  }
+
+  return {
+    id: data.user_id || data.id || fallback.user_id || fallback.id || null,
+    name: fullName,
+    email: data.email || fallback.email || '',
+    role: data.role || fallback.role || 'Event-Planer',
+    tagline: data.tagline || fallback.tagline || '',
+    location: data.location || fallback.location || '',
+    bio: data.bio || fallback.bio || '',
+    company: data.company || fallback.company || '',
+    gallery: data.gallery || fallback.gallery || [],
+    coverUrl: data.coverUrl || fallback.coverUrl || '',
+    coverPosY: data.coverPosY || fallback.coverPosY || 50,
+    photoUrl: data.photoUrl || fallback.photoUrl || '',
+    phone: data.phone || fallback.phone || '',
+    since: data.since || fallback.since || '',
+    emailVerified: typeof data.emailVerified === 'boolean' ? data.emailVerified : (typeof fallback.emailVerified === 'boolean' ? fallback.emailVerified : true),
+    hasPasskey: typeof data.hasPasskey === 'boolean' ? data.hasPasskey : (typeof fallback.hasPasskey === 'boolean' ? fallback.hasPasskey : false),
+    passkeyCount: typeof data.passkeyCount === 'number' ? data.passkeyCount : (typeof fallback.passkeyCount === 'number' ? fallback.passkeyCount : 0)
+  };
+}
+
+function _applyAuthenticatedUser(data, fallback) {
+  _wpNonce = data && data.nonce ? data.nonce : _wpNonce;
+  currentUser = _normalizeUserPayload(data, fallback);
+  return currentUser;
+}
+
+function _base64UrlToArrayBuffer(value) {
+  if (!value) return new ArrayBuffer(0);
+  var normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  while (normalized.length % 4) normalized += '=';
+  var binary = atob(normalized);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function _arrayBufferToBase64Url(buffer) {
+  var bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  var binary = '';
+  for (var i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function _publicKeyCredentialToJSON(credential) {
+  if (credential instanceof ArrayBuffer) {
+    return _arrayBufferToBase64Url(credential);
+  }
+  if (credential instanceof Uint8Array) {
+    return _arrayBufferToBase64Url(credential);
+  }
+  if (Array.isArray(credential)) {
+    return credential.map(_publicKeyCredentialToJSON);
+  }
+  if (credential && typeof credential === 'object') {
+    var result = {};
+    Object.keys(credential).forEach(function(key) {
+      result[key] = _publicKeyCredentialToJSON(credential[key]);
+    });
+    return result;
+  }
+  return credential;
+}
+
+function _preparePublicKeyOptions(publicKey) {
+  var prepared = JSON.parse(JSON.stringify(publicKey || {}));
+
+  if (prepared.challenge) {
+    prepared.challenge = _base64UrlToArrayBuffer(prepared.challenge);
+  }
+  if (prepared.user && prepared.user.id) {
+    prepared.user.id = _base64UrlToArrayBuffer(prepared.user.id);
+  }
+  if (Array.isArray(prepared.excludeCredentials)) {
+    prepared.excludeCredentials = prepared.excludeCredentials.map(function(item) {
+      return Object.assign({}, item, { id: _base64UrlToArrayBuffer(item.id) });
+    });
+  }
+  if (Array.isArray(prepared.allowCredentials)) {
+    prepared.allowCredentials = prepared.allowCredentials.map(function(item) {
+      return Object.assign({}, item, { id: _base64UrlToArrayBuffer(item.id) });
+    });
+  }
+
+  return prepared;
+}
+
+function isWebAuthnAvailable() {
+  return !!(window.PublicKeyCredential && navigator.credentials && typeof navigator.credentials.create === 'function' && typeof navigator.credentials.get === 'function');
+}
+
+async function getPasskeyRegisterOptions() {
+  var response = await fetch(_apiUrl('webauthn/register-options'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Passkey-Optionen konnten nicht geladen werden.');
+  return data;
+}
+
+async function registerPasskey(label) {
+  if (!isWebAuthnAvailable()) throw new Error('Dieses Gerät unterstützt keine Passkeys.');
+
+  var optionsData = await getPasskeyRegisterOptions();
+  var credential = await navigator.credentials.create({
+    publicKey: _preparePublicKeyOptions(optionsData.publicKey)
+  });
+
+  var response = await fetch(_apiUrl('webauthn/register'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      label: label || '',
+      credential: _publicKeyCredentialToJSON(credential)
+    })
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Passkey konnte nicht gespeichert werden.');
+
+  if (currentUser) {
+    currentUser.hasPasskey = !!data.hasPasskey;
+    currentUser.passkeyCount = data.passkeyCount || 0;
+  }
+
+  return data;
+}
+
+async function getPasskeyLoginOptions(email) {
+  var response = await fetch(_apiUrl('webauthn/login-options'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ email: (email || '').trim() })
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Passkey-Login konnte nicht vorbereitet werden.');
+  return data;
+}
+
+async function loginWithPasskey(email) {
+  if (!isWebAuthnAvailable()) throw new Error('Dieses Gerät unterstützt keine Passkeys.');
+
+  var optionsData = await getPasskeyLoginOptions(email);
+  var credential = await navigator.credentials.get({
+    publicKey: _preparePublicKeyOptions(optionsData.publicKey)
+  });
+
+  var response = await fetch(_apiUrl('webauthn/login'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      requestId: optionsData.requestId,
+      credential: _publicKeyCredentialToJSON(credential)
+    })
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Passkey-Anmeldung fehlgeschlagen.');
+
+  _applyAuthenticatedUser(data);
+  return data;
+}
+
+async function sendEmailOtp(email, password) {
+  var response = await fetch(_apiUrl('otp/send'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      email: (email || '').trim(),
+      password: password || ''
+    })
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'E-Mail-Code konnte nicht gesendet werden.');
+  return data;
+}
+
+async function verifyEmailOtp(email, code) {
+  var response = await fetch(_apiUrl('otp/verify'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      email: (email || '').trim(),
+      code: (code || '').trim()
+    })
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'E-Mail-Code ist ungültig.');
+
+  _applyAuthenticatedUser(data);
+  return data;
+}
+
+async function loadPasskeyCredentials() {
+  var response = await fetch(_apiUrl('webauthn/credentials'), {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Passkeys konnten nicht geladen werden.');
+
+  if (currentUser) {
+    currentUser.hasPasskey = !!data.hasPasskey;
+    currentUser.passkeyCount = data.passkeyCount || 0;
+  }
+
+  return data;
+}
+
+async function deletePasskeyCredential(credentialId) {
+  var response = await fetch(_apiUrl('webauthn/credentials/' + encodeURIComponent(credentialId)), {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Passkey konnte nicht gelöscht werden.');
+
+  if (currentUser) {
+    currentUser.hasPasskey = !!data.hasPasskey;
+    currentUser.passkeyCount = data.passkeyCount || 0;
+  }
+
+  return data;
+}
+
 function _apiUrl(endpoint) {
   if (typeof eventboerseApi !== 'undefined' && eventboerseApi.restUrl) {
     return eventboerseApi.restUrl + endpoint;
@@ -4551,22 +4799,7 @@ function initPasswordFields() {
 function restoreSession() {
   // Sofort aus wp_localize_script lesen
   if (typeof eventboerseApi !== 'undefined' && eventboerseApi.isLoggedIn && eventboerseApi.user) {
-    var u = eventboerseApi.user;
-    currentUser = {
-      id: u.id,
-      name: (u.first_name + ' ' + u.last_name).trim(),
-      email: u.email,
-      role: u.role || 'Event-Planer',
-      tagline: u.tagline || '',
-      location: u.location || '',
-      bio: u.bio || '',
-      company: u.company || '',
-      gallery: u.gallery || [],
-      coverUrl: u.coverUrl || '',
-      photoUrl: u.photoUrl || '',
-      phone: u.phone || '',
-      since: u.since || ''
-    };
+    currentUser = _normalizeUserPayload(eventboerseApi.user);
     applyLogin();
     return;
   }
@@ -4575,22 +4808,7 @@ function restoreSession() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data && data.loggedIn) {
-        _wpNonce = data.nonce || _wpNonce;
-        currentUser = {
-          id: data.user_id,
-          name: (data.first_name + ' ' + data.last_name).trim(),
-          email: data.email,
-          role: data.role || 'Event-Planer',
-          tagline: data.tagline || '',
-          location: data.location || '',
-          bio: data.bio || '',
-          company: data.company || '',
-          gallery: data.gallery || [],
-          coverUrl: data.coverUrl || '',
-          photoUrl: data.photoUrl || '',
-          phone: data.phone || '',
-          since: data.since || ''
-        };
+        _applyAuthenticatedUser(data);
         applyLogin();
       }
     })
@@ -4625,22 +4843,7 @@ async function handleLogin(e) {
     var data = await response.json();
 
     if (response.ok) {
-      _wpNonce = data.nonce || _wpNonce;
-      currentUser = {
-        id: data.user_id,
-        name: ((data.first_name || '') + ' ' + (data.last_name || '')).trim(),
-        email: data.email,
-        role: data.role || 'Event-Planer',
-        tagline: data.tagline || '',
-        location: data.location || '',
-        bio: data.bio || '',
-        company: data.company || '',
-        gallery: data.gallery || [],
-        coverUrl: data.coverUrl || '',
-        photoUrl: data.photoUrl || '',
-        phone: data.phone || '',
-        since: data.since || ''
-      };
+      _applyAuthenticatedUser(data);
       _setBtnLoading(submitBtn, false);
       closeModal('loginModal');
       form.reset();
@@ -4724,22 +4927,12 @@ async function handleRegister(e) {
         return;
       }
 
-      _wpNonce = data.nonce || _wpNonce;
-      currentUser = {
-        id: data.user_id,
-        name: (firstName + ' ' + lastName).trim(),
+      _applyAuthenticatedUser(data, {
+        first_name: firstName,
+        last_name: lastName,
         email: email,
-        role: data.role || (role === 'provider' ? 'Dienstleister' : 'Event-Planer'),
-        tagline: data.tagline || '',
-        location: data.location || '',
-        bio: data.bio || '',
-        company: data.company || '',
-        gallery: data.gallery || [],
-        coverUrl: data.coverUrl || '',
-        photoUrl: data.photoUrl || '',
-        phone: data.phone || '',
-        since: data.since || ''
-      };
+        role: role === 'provider' ? 'Dienstleister' : 'Event-Planer'
+      });
       closeModal('registerModal');
       form.reset();
       var strengthBar = document.getElementById('passwordStrength');
