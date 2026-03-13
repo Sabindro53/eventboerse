@@ -372,6 +372,11 @@ function eb_webauthn_cose_to_pem( $cose_key_binary ) {
 }
 
 function eb_webauthn_signature_to_der( $signature ) {
+    // Already DER-encoded (SEQUENCE tag 0x30) → return as-is.
+    if ( strlen( $signature ) >= 2 && "\x30" === $signature[0] ) {
+        return $signature;
+    }
+
     if ( strlen( $signature ) < 64 ) {
         return $signature;
     }
