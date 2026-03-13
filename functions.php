@@ -614,9 +614,12 @@ function eventboerse_handle_profile_get() {
     $avg_rating = null;
     $reviews    = array();
     if ( ! empty( $user_listing_ids ) ) {
-        $ids_in = implode( ',', array_map( 'absint', $user_listing_ids ) );
+        $id_placeholders = implode( ',', array_fill( 0, count( $user_listing_ids ), '%d' ) );
         $avg_rating = (float) $wpdb->get_var(
-            "SELECT AVG(rating) FROM {$wpdb->prefix}eb_reviews WHERE listing_id IN ($ids_in)"
+            $wpdb->prepare(
+                "SELECT AVG(rating) FROM {$wpdb->prefix}eb_reviews WHERE listing_id IN ($id_placeholders)",
+                $user_listing_ids
+            )
         );
         if ( $avg_rating ) {
             $avg_rating = round( $avg_rating, 1 );
@@ -624,9 +627,12 @@ function eventboerse_handle_profile_get() {
             $avg_rating = null;
         }
         $review_rows = $wpdb->get_results(
-            "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
-             LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
-             WHERE r.listing_id IN ($ids_in) ORDER BY r.created_at DESC LIMIT 10"
+            $wpdb->prepare(
+                "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
+                 LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
+                 WHERE r.listing_id IN ($id_placeholders) ORDER BY r.created_at DESC LIMIT 10",
+                $user_listing_ids
+            )
         );
         foreach ( $review_rows as $r ) {
             $rname  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
@@ -1485,7 +1491,7 @@ function eb_diagnostics() {
     foreach ( $tables as $t ) {
         $full = $wpdb->prefix . $t;
         $exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $full ) ) === $full;
-        $cols = $exists ? $wpdb->get_results( "SHOW COLUMNS FROM `$full`" ) : null;
+        $cols = $exists ? $wpdb->get_results( "SHOW COLUMNS FROM `" . esc_sql( $full ) . "`" ) : null;
         $result['tables'][ $t ] = array(
             'exists'  => $exists,
             'columns' => $cols ? wp_list_pluck( $cols, 'Field' ) : null,

@@ -595,26 +595,26 @@ function renderListingCard(listing) {
   return `
     <div class="listing-card" onclick="navigateTo('detail', ${listing.id})">
       <div class="listing-card-img">
-        <img src="${listing.image}" alt="${listing.title}" loading="lazy" />
+        <img src="${_escHtml(listing.image)}" alt="${_escHtml(listing.title)}" loading="lazy" />
         <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
           <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
         </button>
-        ${listing.badge ? `<span class="listing-badge">${listing.badge}</span>` : ''}
+        ${listing.badge ? `<span class="listing-badge">${_escHtml(listing.badge)}</span>` : ''}
       </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
-          <span class="listing-card-title">${listing.title}</span>
+          <span class="listing-card-title">${_escHtml(listing.title)}</span>
           <span class="listing-card-rating">
             <span class="material-icons-round">star</span> ${listing.rating || 0}
           </span>
         </div>
-        <div class="listing-card-category">${listing.categoryLabel}</div>
+        <div class="listing-card-category">${_escHtml(listing.categoryLabel)}</div>
         <div class="listing-card-location">
-          <span class="material-icons-round">location_on</span> ${listing.location}
+          <span class="material-icons-round">location_on</span> ${_escHtml(listing.location)}
         </div>
-        <div class="listing-card-price">${listing.priceLabel}</div>
+        <div class="listing-card-price">${_escHtml(listing.priceLabel)}</div>
         <div class="listing-card-tags">
-          ${(listing.tags || []).map(t => `<span class="listing-tag">${t}</span>`).join('')}
+          ${(listing.tags || []).map(t => `<span class="listing-tag">${_escHtml(t)}</span>`).join('')}
         </div>
       </div>
     </div>
@@ -633,10 +633,10 @@ function renderHeroMarquees() {
 
   function cardHTML(l) {
     return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
-      <img src="${l.image}" alt="${l.title}" loading="lazy" />
+      <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" />
       <div class="hero-marquee-card-info">
-        <h4>${l.title}</h4>
-        <span>${l.priceLabel} · ★ ${l.rating}</span>
+        <h4>${_escHtml(l.title)}</h4>
+        <span>${_escHtml(l.priceLabel)} · ★ ${l.rating}</span>
       </div>
     </a>`;
   }
@@ -671,10 +671,10 @@ function renderExploreGrid(filter) {
   grid.innerHTML = items.map((it, i) => {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
     return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;">
-      <img src="${it.image}" alt="${it.title}" loading="lazy" />
+      <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" />
       <div class="explore-item-overlay">
-        <span class="explore-item-title">${it.title}</span>
-        <span class="explore-item-price">${it.price}</span>
+        <span class="explore-item-title">${_escHtml(it.title)}</span>
+        <span class="explore-item-price">${_escHtml(it.price)}</span>
       </div>
     </a>`;
   }).join('');
@@ -724,22 +724,22 @@ function renderFeed(tab) {
     const tags = l.features ? l.features.slice(0, 3) : [];
     return `<div class="feed-card">
       <div class="feed-card-header">
-        <img class="feed-card-avatar" src="${avatar}" alt="${l.providerName}" onclick="navigateTo('provider',${l.providerId || l.id})" />
+        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
         <div class="feed-card-meta">
-          <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${l.providerName}</span>
+          <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${_escHtml(l.providerName)}</span>
           <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(minutesAgo)}</span>
         </div>
-        <span class="feed-card-category">${categoryLabel}</span>
+        <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <img class="feed-card-image" src="${l.image}" alt="${l.title}" onclick="navigateTo('detail',${l.id})" loading="lazy" />
+      <img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" />
       <div class="feed-card-body">
-        <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${l.title}</div>
-        <div class="feed-card-desc">${desc}</div>
+        <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
+        <div class="feed-card-desc">${_escHtml(desc)}</div>
       </div>
-      ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + l.location + '</div>' : ''}
-      ${tags.length ? '<div class="feed-card-tags">' + tags.map(t => '<span class="feed-card-tag">' + t + '</span>').join('') + '</div>' : ''}
+      ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + _escHtml(l.location) + '</div>' : ''}
+      ${tags.length ? '<div class="feed-card-tags">' + tags.map(t => '<span class="feed-card-tag">' + _escHtml(t) + '</span>').join('') + '</div>' : ''}
       <div class="feed-card-footer">
-        <span class="feed-card-price">${l.priceLabel}</span>
+        <span class="feed-card-price">${_escHtml(l.priceLabel)}</span>
         <div class="feed-card-actions">
           <button class="feed-card-action ${isFav ? 'active' : ''}" onclick="toggleFeedFav(this,${l.id})">
             <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
@@ -1339,10 +1339,10 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
     altSection.style.display = '';
     let heading;
     if (searchCity) {
-      heading = `<span class="material-icons-round">lightbulb</span> Alternativen in der Nähe von ${searchCity}`;
+      heading = `<span class="material-icons-round">lightbulb</span> Alternativen in der Nähe von ${_escHtml(searchCity)}`;
     } else if (detectedCategory) {
       const catLabel = CATEGORY_LABELS[detectedCategory] || detectedCategory;
-      heading = `<span class="material-icons-round">lightbulb</span> Ähnliche Angebote in der Kategorie „${catLabel}"`;
+      heading = `<span class="material-icons-round">lightbulb</span> Ähnliche Angebote in der Kategorie „${_escHtml(catLabel)}"`;
     } else {
       heading = `<span class="material-icons-round">lightbulb</span> Das könnte dich auch interessieren`;
     }
@@ -1355,26 +1355,26 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
       return `
         <div class="listing-card" onclick="navigateTo('detail', ${l.id})">
           <div class="listing-card-img">
-            <img src="${l.image}" alt="${l.title}" loading="lazy" />
+            <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" />
             <button class="listing-fav" onclick="event.stopPropagation(); toggleFavorite(${l.id}, this)">
               <span class="material-icons-round">favorite_border</span>
             </button>
-            ${l.badge ? `<span class="listing-badge">${l.badge}</span>` : ''}
+            ${l.badge ? `<span class="listing-badge">${_escHtml(l.badge)}</span>` : ''}
           </div>
           <div class="listing-card-body">
             <div class="listing-card-top">
-              <span class="listing-card-title">${l.title}</span>
+              <span class="listing-card-title">${_escHtml(l.title)}</span>
               <span class="listing-card-rating">
                 <span class="material-icons-round">star</span> ${l.rating}
               </span>
             </div>
-            <div class="listing-card-category">${l.categoryLabel}</div>
+            <div class="listing-card-category">${_escHtml(l.categoryLabel)}</div>
             <div class="listing-card-location">
-              <span class="material-icons-round">location_on</span> ${l.location} ${distBadge}
+              <span class="material-icons-round">location_on</span> ${_escHtml(l.location)} ${distBadge}
             </div>
-            <div class="listing-card-price">${l.priceLabel}</div>
+            <div class="listing-card-price">${_escHtml(l.priceLabel)}</div>
             <div class="listing-card-tags">
-              ${l.tags.map(t => `<span class="listing-tag">${t}</span>`).join('')}
+              ${l.tags.map(t => `<span class="listing-tag">${_escHtml(t)}</span>`).join('')}
             </div>
           </div>
         </div>`;
@@ -1401,7 +1401,7 @@ function renderActiveFilters(search, category, eventType, location, priceRange, 
   if (tags.length === 0) { container.innerHTML = ''; return; }
 
   container.innerHTML = tags.map(t =>
-    `<span class="filter-tag">${t.label}<button onclick="document.getElementById('${t.field}').value=''; filterListings();"><span class="material-icons-round">close</span></button></span>`
+    `<span class="filter-tag">${_escHtml(t.label)}<button onclick="document.getElementById('${t.field}').value=''; filterListings();"><span class="material-icons-round">close</span></button></span>`
   ).join('') + `<button class="filter-tag-clear-all" onclick="clearAllFilters()">Alle Filter löschen</button>`;
 }
 
@@ -1436,12 +1436,12 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (listing.images.length > 0) {
-    heroImg.innerHTML = `<img src="${listing.images[0]}" alt="${listing.title}" class="detail-hero-photo" />`;
+    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" />`;
   }
 
   // Full gallery for desktop, remaining images on mobile (CSS hides first-child on mobile)
   gallery.innerHTML = listing.images.map(img =>
-    `<img src="${img}" alt="${listing.title}" class="detail-gallery-img" />`
+    `<img src="${_escHtml(img)}" alt="${_escHtml(listing.title)}" class="detail-gallery-img" />`
   ).join('');
 
   // Info
@@ -1454,12 +1454,12 @@ function loadDetail(listingId) {
   document.getElementById('detailProviderImg').src = listing.providerImg;
   document.getElementById('detailProviderName').textContent = listing.providerName;
   document.getElementById('detailProviderTag').textContent = `Superhost · Seit ${listing.providerSince} auf Eventbörse`;
-  document.getElementById('detailDescription').innerHTML = listing.description;
+  document.getElementById('detailDescription').innerHTML = _escHtml(listing.description);
   document.getElementById('detailPrice').textContent = listing.priceLabel.split('/')[0];
 
   // Features
   document.getElementById('detailFeatures').innerHTML = listing.features.map(f =>
-    `<div class="feature-item"><span class="material-icons-round">check_circle</span><span>${f}</span></div>`
+    `<div class="feature-item"><span class="material-icons-round">check_circle</span><span>${_escHtml(f)}</span></div>`
   ).join('');
 
   // Reviews
@@ -1557,13 +1557,13 @@ function loadProvider(providerId) {
   if (mainListing.badge === 'Superhost') {
     badgesHtml += '<span class="ppc-badge ppc-badge-super"><span class="material-icons-round">workspace_premium</span> Superhost</span>';
   }
-  badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${mainListing.providerSince}</span>`;
+  badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${_escHtml(mainListing.providerSince)}</span>`;
   badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
   badgesEl.innerHTML = badgesHtml;
 
   // Bio with read-more
   const bioEl = document.getElementById('providerBio');
-  bioEl.innerHTML = mainListing.description;
+  bioEl.innerHTML = _escHtml(mainListing.description);
   bioEl.classList.remove('bio-collapsed');
   const existingToggle = bioEl.parentElement.querySelector('.bio-toggle');
   if (existingToggle) existingToggle.remove();
@@ -1586,26 +1586,26 @@ function loadProvider(providerId) {
   // Highlights
   const icons = ['check_circle', 'music_note', 'lightbulb', 'handshake', 'auto_awesome', 'mic'];
   document.getElementById('providerHighlights').innerHTML = (mainListing.features || []).map((f, i) =>
-    `<div class="prov-highlight"><span class="material-icons-round">${icons[i % icons.length]}</span> ${f}</div>`
+    `<div class="prov-highlight"><span class="material-icons-round">${icons[i % icons.length]}</span> ${_escHtml(f)}</div>`
   ).join('');
 
   // Portfolio
   document.getElementById('providerPortfolio').innerHTML = providerImages.map((img, i) =>
-    `<img src="${img}" alt="Portfolio" loading="lazy" onclick="openProviderLightbox(${i})" />`
+    `<img src="${_escHtml(img)}" alt="Portfolio" loading="lazy" onclick="openProviderLightbox(${i})" />`
   ).join('');
 
   // Sidebar Facts
   document.getElementById('providerFacts').innerHTML = `
-    <li><span class="material-icons-round">location_on</span> <span>${mainListing.location}, Deutschland</span></li>
-    <li><span class="material-icons-round">category</span> <span>${mainListing.categoryLabel}</span></li>
-    <li><span class="material-icons-round">euro</span> <span>${mainListing.priceLabel}</span></li>
+    <li><span class="material-icons-round">location_on</span> <span>${_escHtml(mainListing.location)}, Deutschland</span></li>
+    <li><span class="material-icons-round">category</span> <span>${_escHtml(mainListing.categoryLabel)}</span></li>
+    <li><span class="material-icons-round">euro</span> <span>${_escHtml(mainListing.priceLabel)}</span></li>
     <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
     <li><span class="material-icons-round">speed</span> <span>Antwortet innerhalb von 1 Std.</span></li>
   `;
 
   // Spec Tags
   document.getElementById('providerSpecTags').innerHTML = (mainListing.tags || []).map(t =>
-    `<span class="provider-spec-tag">${t}</span>`
+    `<span class="provider-spec-tag">${_escHtml(t)}</span>`
   ).join('');
 
   // Listings tab
@@ -1630,14 +1630,14 @@ function loadProvider(providerId) {
           document.getElementById('providerReviewsList').innerHTML = reviews.map(function(r) {
             var avatar = r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.name || 'user'));
             var rating = parseInt(r.rating) || 0;
-            var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + r.listingTitle + '</div>' : '';
+            var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + _escHtml(r.listingTitle) + '</div>' : '';
             return '<div class="review-card">' +
-              '<img src="' + avatar + '" alt="' + (r.name || 'Anonym') + '" class="review-avatar" />' +
+              '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar" />' +
               '<div class="review-content">' +
-                '<div class="review-top"><strong>' + (r.name || 'Anonym') + '</strong><span>' + (r.date || '') + '</span></div>' +
+                '<div class="review-top"><strong>' + _escHtml(r.name || 'Anonym') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
                 '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
                 ltHtml +
-                '<p class="review-text">' + (r.text || '') + '</p>' +
+                '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
               '</div></div>';
           }).join('');
           // Update provider stats with real data
@@ -2034,13 +2034,13 @@ function renderChatList() {
     // Show demo chats for non-logged-in users
     list.innerHTML = DEMO_CHATS.map(function(c) {
       return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
-        '<img src="' + c.avatar + '" alt="' + c.name + '" />' +
+        '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" />' +
         '<div class="chat-item-info">' +
-          '<strong>' + c.name + '</strong>' +
-          '<p>' + c.lastMsg + '</p>' +
+          '<strong>' + _escHtml(c.name) + '</strong>' +
+          '<p>' + _escHtml(c.lastMsg) + '</p>' +
         '</div>' +
         '<div class="chat-item-meta">' +
-          '<span>' + c.time + '</span>' +
+          '<span>' + _escHtml(c.time) + '</span>' +
           (c.unread > 0 ? '<span class="chat-item-unread">' + c.unread + '</span>' : '') +
         '</div>' +
       '</div>';
@@ -2064,13 +2064,13 @@ function renderChatList() {
         var unread = parseInt(c.unread_count) || 0;
         var activeClass = currentChat && currentChat.id === c.id ? 'active' : '';
         return '<div class="chat-item ' + activeClass + '" onclick="openChat(' + c.id + ')">' +
-          '<img src="' + avatar + '" alt="' + name + '" />' +
+          '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" />' +
           '<div class="chat-item-info">' +
-            '<strong>' + name + '</strong>' +
-            '<p>' + lastMsg + '</p>' +
+            '<strong>' + _escHtml(name) + '</strong>' +
+            '<p>' + _escHtml(lastMsg) + '</p>' +
           '</div>' +
           '<div class="chat-item-meta">' +
-            '<span>' + time + '</span>' +
+            '<span>' + _escHtml(time) + '</span>' +
             (unread > 0 ? '<span class="chat-item-unread">' + unread + '</span>' : '') +
           '</div>' +
         '</div>';
@@ -2243,16 +2243,16 @@ function openDemoChat(chatId) {
   var msgContainer = document.getElementById('chatMessages');
   msgContainer.innerHTML = chat.messages.map(function(msg) {
     if (msg.type === 'system') {
-      return '<div class="msg msg-system">' + msg.text + '</div>';
+      return '<div class="msg msg-system">' + _escHtml(msg.text) + '</div>';
     } else if (msg.type === 'offer') {
       return '<div class="msg msg-offer">' +
-        '<div class="offer-label">' + msg.label + '</div>' +
-        '<div class="offer-amount">' + msg.amount + '</div>' +
-        '<div class="offer-status ' + (msg.status || '') + '">' + msg.statusLabel + '</div>' +
+        '<div class="offer-label">' + _escHtml(msg.label) + '</div>' +
+        '<div class="offer-amount">' + _escHtml(msg.amount) + '</div>' +
+        '<div class="offer-status ' + _escHtml(msg.status || '') + '">' + _escHtml(msg.statusLabel) + '</div>' +
       '</div>';
     } else {
       var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
-      return '<div class="msg ' + cls + '">' + msg.text + '<span class="msg-time">' + msg.time + '</span></div>';
+      return '<div class="msg ' + cls + '">' + _escHtml(msg.text) + '<span class="msg-time">' + _escHtml(msg.time) + '</span></div>';
     }
   }).join('');
   msgContainer.scrollTop = msgContainer.scrollHeight;
@@ -2323,13 +2323,12 @@ function startChatWithProvider() {
 function openNegotiation() {
   if (!currentListing) return;
 
-  document.getElementById('negListingInfo').innerHTML = `
-    <img src="${currentListing.image}" alt="${currentListing.title}" />
-    <div>
-      <strong>${currentListing.title}</strong>
-      <span>${currentListing.categoryLabel} · ${currentListing.location}</span>
-    </div>
-  `;
+  document.getElementById('negListingInfo').innerHTML =
+    '<img src="' + _escHtml(currentListing.image || '') + '" alt="' + _escHtml(currentListing.title || '') + '" />' +
+    '<div>' +
+      '<strong>' + _escHtml(currentListing.title || '') + '</strong>' +
+      '<span>' + _escHtml(currentListing.categoryLabel || '') + ' · ' + _escHtml(currentListing.location || '') + '</span>' +
+    '</div>';
   document.getElementById('negOriginalPrice').value = currentListing.priceLabel;
 
   openModal('negotiationModal');
@@ -2513,9 +2512,9 @@ function renderDashboard() {
 
   // --- Role & Location badges ---
   document.getElementById('profileDisplayRole').innerHTML =
-    '<span class="material-icons-round">badge</span> ' + (currentUser.role || 'Mitglied');
+    '<span class="material-icons-round">badge</span> ' + _escHtml(currentUser.role || 'Mitglied');
   document.getElementById('profileDisplayLocation').innerHTML =
-    '<span class="material-icons-round">location_on</span> ' + (currentUser.location || 'Nicht angegeben');
+    '<span class="material-icons-round">location_on</span> ' + _escHtml(currentUser.location || 'Nicht angegeben');
 
   // --- Bio ---
   var bioText = currentUser.bio || 'Erzähle potenziellen Kunden etwas über dich, deine Erfahrung und was dich besonders macht...';
@@ -2541,11 +2540,11 @@ function renderDashboard() {
       if (profile.reviews && profile.reviews.length > 0) {
         reviewsDisplay.innerHTML = profile.reviews.slice(0, 4).map(function(r) {
           return '<div class="review-card">' +
-            '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + (r.name || '') + '" class="review-avatar" />' +
+            '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar" />' +
             '<div class="review-content">' +
-              '<div class="review-top"><strong>' + (r.name || '') + '</strong><span>' + (r.date || '') + '</span></div>' +
+              '<div class="review-top"><strong>' + _escHtml(r.name || '') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
               '<div class="review-stars">' + '★'.repeat(r.rating || 0) + '☆'.repeat(5 - (r.rating || 0)) + '</div>' +
-              '<p class="review-text">' + (r.text || '') + '</p>' +
+              '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
             '</div></div>';
         }).join('');
       }
@@ -4433,14 +4432,14 @@ function loadDetailReviews(dbListingId) {
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
           return '<div class="review-card">' +
-            '<img src="' + avatar + '" alt="' + displayName + '" class="review-avatar" />' +
+            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(displayName) + '" class="review-avatar" />' +
             '<div class="review-content">' +
               '<div class="review-top">' +
-                '<strong>' + displayName + '</strong>' +
-                '<span>' + date + '</span>' +
+                '<strong>' + _escHtml(displayName) + '</strong>' +
+                '<span>' + _escHtml(date) + '</span>' +
               '</div>' +
               '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
-              '<p class="review-text">' + (r.comment || r.text || '') + '</p>' +
+              '<p class="review-text">' + _escHtml(r.comment || r.text || '') + '</p>' +
             '</div>' +
           '</div>';
         }).join('');
@@ -4484,14 +4483,14 @@ function renderDetailReviews(listing) {
     var allReviews = getAllReviewsForListing(listing.id);
     container.innerHTML = allReviews.map(function(r) {
       return '<div class="review-card">' +
-        '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + r.avatar + '" alt="' + r.name + '" class="review-avatar" />' +
+        '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar) + '" alt="' + _escHtml(r.name) + '" class="review-avatar" />' +
         '<div class="review-content">' +
           '<div class="review-top">' +
-            '<strong>' + r.name + '</strong>' +
-            '<span>' + r.date + '</span>' +
+            '<strong>' + _escHtml(r.name) + '</strong>' +
+            '<span>' + _escHtml(r.date) + '</span>' +
           '</div>' +
           '<div class="review-stars">' + '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) + '</div>' +
-          '<p class="review-text">' + r.text + '</p>' +
+          '<p class="review-text">' + _escHtml(r.text) + '</p>' +
         '</div>' +
       '</div>';
     }).join('');
