@@ -843,8 +843,9 @@ function eb_webauthn_register_options() {
             'timeout'                => 60000,
             'attestation'            => 'none',
             'authenticatorSelection' => array(
-                'residentKey'      => 'required',
-                'userVerification' => 'required',
+                'authenticatorAttachment' => 'platform',
+                'residentKey'            => 'required',
+                'userVerification'       => 'required',
             ),
             'excludeCredentials'     => $exclude_credentials,
             'extensions'             => array( 'credProps' => true ),
@@ -947,8 +948,9 @@ function eb_webauthn_verify_options( WP_REST_Request $request ) {
             'timeout'                => 60000,
             'attestation'            => 'none',
             'authenticatorSelection' => array(
-                'residentKey'      => 'required',
-                'userVerification' => 'required',
+                'authenticatorAttachment' => 'platform',
+                'residentKey'            => 'required',
+                'userVerification'       => 'required',
             ),
             'excludeCredentials'     => array(),
             'extensions'             => array( 'credProps' => true ),
@@ -1262,43 +1264,28 @@ function eb_otp_verify( WP_REST_Request $request ) {
 
 /* =====================================================================
    Fix REST cookie + nonce authentication
-   WordPress core's rest_cookie_check_errors() rejects requests when the
-   nonce doesn't match the logged-in cookie session (e.g. after login via
-   REST). We handle this by verifying the nonce ourselves against the
-   cookie-authenticated user. If the nonce is invalid, we downgrade to
-   anonymous (matching WordPress default behaviour) so that public
-   endpoints (e.g. passkey-login) are not blocked by a stale cookie.
+   WordPress core's rest_cookie_check_errors() (priority 100) rejects
+   requests when the nonce doesn't match the logged-in cookie session.
+   Our filter at priority 101 runs AFTER core: if core returns a nonce
+   error we downgrade to anonymous instead of hard-blocking, so that
+   public endpoints (e.g. passkey-login) still work with a stale cookie.
    ===================================================================== */
 add_filter( 'rest_authentication_errors', function( $result ) {
-    // If another auth handler already decided, respect it.
-    if ( true === $result || is_wp_error( $result ) ) {
-        return $result;
+    if ( is_wp_error( $result ) && 'rest_cookie_invalid_nonce' === $result->get_error_code() ) {
+        wp_set_current_user( 0 );
+        return null;
     }
-
-    // No cookie present → nothing to fix.
-    if ( ! is_user_logged_in() ) {
-        return $result;
-    }
-
-    // Cookie is valid and user is logged in. Verify the nonce ourselves
-    // so that post-login requests succeed even when WP core's check failed.
-    $nonce = '';
-    if ( ! empty( $_SERVER['HTTP_X_WP_NONCE'] ) ) {
-        $nonce = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_WP_NONCE'] ) );
-    } elseif ( ! empty( $_REQUEST['_wpnonce'] ) ) {
-        $nonce = sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) );
-    }
-
-    if ( ! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' ) ) {
-        return true;
-    }
-
-    // Nonce is missing or invalid → downgrade to anonymous so that
-    // public endpoints still work.  Protected endpoints will be denied
-    // by their own permission_callback (is_user_logged_in → false).
-    wp_set_current_user( 0 );
     return $result;
-}, 100 );
+}, 101 );
+
+/* Send a fresh nonce in every authenticated REST response so that the
+   SPA can keep its nonce up-to-date during long sessions. */
+add_filter( 'rest_post_dispatch', function( $response ) {
+    if ( is_user_logged_in() ) {
+        $response->header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
+    }
+    return $response;
+} );
 
 /* =====================================================================
    CUSTOM DATABASE TABLES

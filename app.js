@@ -3598,6 +3598,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initAiSearch();
   restoreSession();
   updatePasskeyLoginUi();
+  initConditionalPasskeyLogin();
   initPasswordFields();
   initDragScroll();
   initDatePickers();
@@ -4507,6 +4508,13 @@ function renderDetailReviews(listing) {
 var currentUser = null;
 var _wpNonce = (typeof eventboerseApi !== 'undefined') ? eventboerseApi.nonce : '';
 var _pendingOtpLogin = null;
+var _conditionalAbort = null;
+
+function _refreshNonce(response) {
+  var n = response.headers.get('X-WP-Nonce');
+  if (n) _wpNonce = n;
+  return response;
+}
 
 function _normalizeUserPayload(data, fallback) {
   data = data || {};
@@ -4668,6 +4676,53 @@ function updatePasskeyLoginUi() {
   }
 }
 
+// -- Conditional UI: auto-prompt Face ID / biometric via autofill --
+async function initConditionalPasskeyLogin() {
+  if (isLoggedIn) return;
+  if (!isWebAuthnAvailable()) return;
+  if (!window.PublicKeyCredential ||
+      typeof PublicKeyCredential.isConditionalMediationAvailable !== 'function') return;
+
+  var supported = false;
+  try { supported = await PublicKeyCredential.isConditionalMediationAvailable(); } catch (e) {}
+  if (!supported) return;
+
+  try {
+    var optionsData = await getPasskeyLoginOptions('');
+
+    _conditionalAbort = new AbortController();
+    var credential = await navigator.credentials.get({
+      publicKey: _preparePublicKeyOptions(optionsData.publicKey),
+      mediation: 'conditional',
+      signal: _conditionalAbort.signal
+    });
+    _conditionalAbort = null;
+
+    var response = await fetch(_apiUrl('webauthn/login'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        requestId: optionsData.requestId,
+        credential: _publicKeyCredentialToJSON(credential)
+      })
+    });
+    _refreshNonce(response);
+    var data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Passkey-Anmeldung fehlgeschlagen.');
+
+    _applyAuthenticatedUser(data);
+    closeModal('loginModal');
+    applyLogin();
+    showToast('Willkommen zurück!', 'fingerprint');
+  } catch (err) {
+    _conditionalAbort = null;
+    if (err && err.name !== 'AbortError') {
+      // Silently ignore – user may have dismissed or has no passkeys
+    }
+  }
+}
+
 function _passkeyPromptStorageKey() {
   if (!currentUser || !currentUser.id) return '';
   return 'eb_passkey_prompt_dismissed_' + currentUser.id;
@@ -4739,6 +4794,7 @@ async function registerPasskey(label) {
       credential: _publicKeyCredentialToJSON(credential)
     })
   });
+  _refreshNonce(response);
   var data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Passkey konnte nicht gespeichert werden.');
 
@@ -4779,6 +4835,7 @@ async function loginWithPasskey(email) {
       credential: _publicKeyCredentialToJSON(credential)
     })
   });
+  _refreshNonce(response);
   var data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Passkey-Anmeldung fehlgeschlagen.');
 
@@ -4788,6 +4845,12 @@ async function loginWithPasskey(email) {
 
 async function handleLoginWithPasskey(btn) {
   if (btn && btn.disabled) return;
+
+  // Cancel conditional mediation if active
+  if (_conditionalAbort) {
+    _conditionalAbort.abort();
+    _conditionalAbort = null;
+  }
 
   try {
     if (btn) _setBtnLoading(btn, true);
@@ -5132,7 +5195,7 @@ function restoreSession() {
   }
   // Fallback: REST /me prüfen (z. B. wenn aus Cache geladen)
   fetch(_apiUrl('me'), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) { return r.json(); })
+    .then(function(r) { _refreshNonce(r); return r.json(); })
     .then(function(data) {
       if (data && data.loggedIn) {
         _applyAuthenticatedUser(data);
@@ -5321,6 +5384,7 @@ async function verifyWithPasskey() {
         credential: _publicKeyCredentialToJSON(credential)
       })
     });
+    _refreshNonce(regResp);
     var regData = await regResp.json();
     if (!regResp.ok) throw new Error(regData.message || 'Verifizierung fehlgeschlagen.');
 
@@ -5661,7 +5725,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '53';
+var _EB_VERSION = '54';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
