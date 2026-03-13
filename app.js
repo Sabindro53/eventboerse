@@ -4820,6 +4820,7 @@ async function getPasskeyRegisterOptions() {
     credentials: 'same-origin',
     headers: _apiHeaders()
   });
+  _refreshNonce(response);
   var data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Passkey-Optionen konnten nicht geladen werden.');
   return data;
@@ -4861,6 +4862,7 @@ async function getPasskeyLoginOptions(email) {
     headers: _apiHeaders(),
     body: JSON.stringify({ email: (email || '').trim() })
   });
+  _refreshNonce(response);
   var data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Passkey-Login konnte nicht vorbereitet werden.');
   return data;
@@ -5050,6 +5052,7 @@ async function loadPasskeyCredentials() {
     credentials: 'same-origin',
     headers: _apiHeaders()
   });
+  _refreshNonce(response);
   var data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Passkeys konnten nicht geladen werden.');
 
@@ -5067,6 +5070,7 @@ async function deletePasskeyCredential(credentialId) {
     credentials: 'same-origin',
     headers: _apiHeaders()
   });
+  _refreshNonce(response);
   var data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Passkey konnte nicht gelöscht werden.');
 
@@ -5803,7 +5807,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '61';
+var _EB_VERSION = '62';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
