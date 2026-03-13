@@ -5240,12 +5240,21 @@ async function resendVerification(email) {
 
   // E-Mail verifiziert
   if (params.get('email_verified') === '1') {
+    var verifiedEmail = params.get('verified_email') || '';
     var url = new URL(window.location);
     url.searchParams.delete('email_verified');
+    url.searchParams.delete('verified_email');
     window.history.replaceState({}, '', url.pathname + url.search);
     setTimeout(function() {
-      showToast('E-Mail erfolgreich bestätigt! Du kannst dich jetzt anmelden.', 'check_circle');
+      showToast('E-Mail erfolgreich bestätigt. Melde dich jetzt an, danach kannst du direkt deinen Passkey einrichten.', 'check_circle');
       openModal('loginModal');
+      if (verifiedEmail) {
+        var loginEmail = document.getElementById('loginEmail');
+        if (loginEmail) {
+          loginEmail.value = decodeURIComponent(verifiedEmail);
+          loginEmail.focus();
+        }
+      }
     }, 500);
   }
 

@@ -478,7 +478,11 @@ function eventboerse_handle_verify_email( WP_REST_Request $request ) {
     delete_user_meta( $user_id, 'eb_email_verify_token' );
 
     // Weiterleitung zur Startseite mit Erfolgs-Parameter
-    wp_safe_redirect( home_url( '/?email_verified=1' ) );
+    $user = get_userdata( $user_id );
+    wp_safe_redirect( add_query_arg( array(
+        'email_verified' => '1',
+        'verified_email' => $user ? $user->user_email : '',
+    ), home_url( '/' ) ) );
     exit;
 }
 
