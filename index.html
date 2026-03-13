@@ -1600,6 +1600,31 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="passkeySetupModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="dismissPasskeySetupPrompt()">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">fingerprint</span>
+        <h2>Passkey jetzt einrichten?</h2>
+        <p>So meldest du dich künftig mit Face ID, Fingerabdruck oder Geräte-PIN an.</p>
+      </div>
+      <div class="passkey-setup-copy">
+        <div class="passkey-setup-point"><span class="material-icons-round">verified_user</span><span>Schneller Login ohne erneute Passworteingabe</span></div>
+        <div class="passkey-setup-point"><span class="material-icons-round">smartphone</span><span>Unterstützt iPhone, iPad, Android und moderne Browser</span></div>
+        <div class="passkey-setup-point"><span class="material-icons-round">mark_email_read</span><span>Deine verifizierte E-Mail bleibt als Fallback erhalten</span></div>
+      </div>
+      <div class="passkey-setup-actions">
+        <button type="button" class="btn-outline btn-block" onclick="dismissPasskeySetupPrompt()">Später</button>
+        <button type="button" class="btn-primary btn-block" id="setupPasskeyBtn" onclick="handlePromptPasskeySetup(this)">
+          <span class="material-icons-round">fingerprint</span>
+          Jetzt Passkey einrichten
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Counter-Offer Modal -->
   <div class="modal-overlay" id="counterOfferModal" onclick="closeModalOnOverlay(event)">
     <div class="modal modal-sm">

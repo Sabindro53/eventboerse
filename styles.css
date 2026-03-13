@@ -3859,6 +3859,34 @@ span.flatpickr-weekday {
 .passkey-note.is-disabled {
   color: #B45309;
 }
+.passkey-setup-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.passkey-setup-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.passkey-setup-point .material-icons-round {
+  color: var(--accent);
+  font-size: 20px;
+  margin-top: 1px;
+}
+.passkey-setup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
 /* ---- Forgot-Erfolg ---- */
 .forgot-success {

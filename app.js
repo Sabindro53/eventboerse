@@ -4526,6 +4526,49 @@ function updatePasskeyLoginUi() {
   }
 }
 
+function _passkeyPromptStorageKey() {
+  if (!currentUser || !currentUser.id) return '';
+  return 'eb_passkey_prompt_dismissed_' + currentUser.id;
+}
+
+function shouldPromptPasskeySetup() {
+  if (!currentUser) return false;
+  if (!currentUser.emailVerified) return false;
+  if (currentUser.hasPasskey || (currentUser.passkeyCount || 0) > 0) return false;
+  if (!isWebAuthnAvailable()) return false;
+  var storageKey = _passkeyPromptStorageKey();
+  if (storageKey && localStorage.getItem(storageKey) === '1') return false;
+  return true;
+}
+
+function maybePromptPasskeySetup() {
+  if (!shouldPromptPasskeySetup()) return;
+  setTimeout(function() {
+    openModal('passkeySetupModal');
+  }, 350);
+}
+
+function dismissPasskeySetupPrompt() {
+  var storageKey = _passkeyPromptStorageKey();
+  if (storageKey) localStorage.setItem(storageKey, '1');
+  closeModal('passkeySetupModal');
+}
+
+async function handlePromptPasskeySetup(btn) {
+  try {
+    if (btn) _setBtnLoading(btn, true);
+    await registerPasskey('Standardgerät');
+    var storageKey = _passkeyPromptStorageKey();
+    if (storageKey) localStorage.removeItem(storageKey);
+    closeModal('passkeySetupModal');
+    showToast('Passkey erfolgreich eingerichtet', 'fingerprint');
+  } catch (err) {
+    showToast(err && err.message ? err.message : 'Passkey konnte nicht eingerichtet werden.', 'error');
+  } finally {
+    if (btn) _setBtnLoading(btn, false);
+  }
+}
+
 async function getPasskeyRegisterOptions() {
   var response = await fetch(_apiUrl('webauthn/register-options'), {
     method: 'POST',
@@ -4897,6 +4940,7 @@ async function handleLogin(e) {
       form.reset();
       applyLogin();
       showToast('Willkommen zurück, ' + (data.first_name || currentUser.name) + '!', 'waving_hand');
+      maybePromptPasskeySetup();
     } else {
       _setBtnLoading(submitBtn, false);
       var msg = data.message || 'Login fehlgeschlagen.';
