@@ -408,44 +408,10 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
 
 /* ---------- LOGIN ---------- */
 function eventboerse_handle_login( WP_REST_Request $request ) {
-    $params   = $request->get_json_params();
-    $email    = isset( $params['email'] )    ? sanitize_email( $params['email'] )    : '';
-    $password = isset( $params['password'] ) ? $params['password']                   : '';
-
-    if ( empty( $email ) || empty( $password ) ) {
-        return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
-    }
-
-    // E-Mail → Username auflösen
-    $user = get_user_by( 'email', $email );
-    if ( ! $user ) {
-        return new WP_REST_Response( array( 'message' => 'Kein Konto mit dieser E-Mail gefunden.' ), 401 );
-    }
-
-    // Prüfe ob E-Mail verifiziert ist
-    $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
-    if ( $verified === '0' ) {
-        return new WP_REST_Response( array(
-            'message'              => 'Bitte bestätige zuerst deine E-Mail-Adresse. Prüfe dein Postfach.',
-            'pending_verification' => true,
-            'email'                => $email,
-        ), 403 );
-    }
-
-    $creds = array(
-        'user_login'    => $user->user_login,
-        'user_password' => $password,
-        'remember'      => true,
-    );
-
-    $signed_in = wp_signon( $creds, is_ssl() );
-    if ( is_wp_error( $signed_in ) ) {
-        return new WP_REST_Response( array( 'message' => 'E-Mail oder Passwort ist falsch.' ), 401 );
-    }
-
-    wp_set_current_user( $signed_in->ID );
-
-    return new WP_REST_Response( eb_auth_user_payload( $signed_in ), 200 );
+    return new WP_REST_Response( array(
+        'message'      => 'Direkter Passwort-Login ist deaktiviert. Bitte nutze den Zwei-Schritt-Login per E-Mail-Code oder einen Passkey.',
+        'requires_otp' => true,
+    ), 403 );
 }
 
 /* ---------- LOGOUT ---------- */

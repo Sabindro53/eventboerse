@@ -118,7 +118,7 @@ function eb_webauthn_delete_credential( $user_id, $credential_id ) {
 function eb_webauthn_find_user_by_credential_id( $credential_id ) {
     $users = get_users( array(
         'fields'     => array( 'ID' ),
-        'number'     => 500,
+        'number'     => -1,
         'meta_query' => array(
             array(
                 'key'     => 'eb_webauthn_credentials',
