@@ -754,6 +754,9 @@ function eb_settings_update( WP_REST_Request $request ) {
 function eb_settings_password( WP_REST_Request $request ) {
     $uid    = get_current_user_id();
     $user   = get_userdata( $uid );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
     $params = $request->get_json_params();
 
     $current  = $params['current_password'] ?? '';
@@ -777,6 +780,9 @@ function eb_settings_password( WP_REST_Request $request ) {
 function eb_settings_delete_account( WP_REST_Request $request ) {
     $uid    = get_current_user_id();
     $user   = get_userdata( $uid );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
     $params = $request->get_json_params();
     $password = $params['password'] ?? '';
 
@@ -2353,11 +2359,14 @@ function eb_provider_profile( WP_REST_Request $request ) {
     }
     $reviews     = array();
     if ( ! empty( $listing_ids ) ) {
-        $ids_in  = implode( ',', array_map( 'absint', $listing_ids ) );
+        $id_placeholders = implode( ',', array_fill( 0, count( $listing_ids ), '%d' ) );
         $reviews = $wpdb->get_results(
-            "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
-             LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
-             WHERE r.listing_id IN ($ids_in) ORDER BY r.created_at DESC"
+            $wpdb->prepare(
+                "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
+                 LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
+                 WHERE r.listing_id IN ($id_placeholders) ORDER BY r.created_at DESC",
+                $listing_ids
+            )
         );
     }
 

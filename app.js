@@ -4094,13 +4094,13 @@ function renderMyListings() {
           var reviewCount = l.reviewCount || 0;
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img">' +
-              '<img src="' + l.image + '" alt="' + l.title + '" />' +
+              '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
               '<span class="status-badge status-active">Aktiv</span>' +
             '</div>' +
             '<div class="my-listing-info">' +
-              '<h3>' + l.title + '</h3>' +
-              '<p>' + l.categoryLabel + ' · ' + l.location + '</p>' +
-              '<p class="my-listing-price">' + l.priceLabel + '</p>' +
+              '<h3>' + _escHtml(l.title) + '</h3>' +
+              '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
+              '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
               '<div class="my-listing-stats">' +
                 '<span><span class="material-icons-round">star</span> ' + rating.toFixed(1) + '/5</span>' +
                 '<span><span class="material-icons-round">rate_review</span> ' + reviewCount + ' Bewertungen</span>' +
@@ -4253,10 +4253,14 @@ function editListing(listingId) {
       if (!url) return;
       var div = document.createElement('div');
       div.className = 'upload-preview-item';
-      div.innerHTML = '<img src="' + url.replace(/"/g, '&quot;') + '" alt="Preview" />' +
-        '<button onclick="this.parentElement.remove()">' +
-          '<span class="material-icons-round">close</span>' +
-        '</button>';
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = 'Preview';
+      div.appendChild(img);
+      var removeBtn = document.createElement('button');
+      removeBtn.innerHTML = '<span class="material-icons-round">close</span>';
+      removeBtn.onclick = function() { div.remove(); };
+      div.appendChild(removeBtn);
       preview.appendChild(div);
     });
   }
@@ -5140,9 +5144,17 @@ async function handleLogin(e) {
     var msg = err && err.message ? err.message : 'Verbindungsfehler – bitte versuche es erneut.';
     if (msg.toLowerCase().indexOf('bestätige') >= 0 || msg.toLowerCase().indexOf('postfach') >= 0) {
       _setFieldError('loginPassword', msg);
-      var resendHtml = '<a href="#" style="color:var(--primary);font-weight:600" onclick="event.preventDefault();resendVerification(\'' + email.replace(/'/g, "\\'") + '\');">Bestätigungs-E-Mail erneut senden</a>';
       var errSpan = form.querySelector('#loginPassword').closest('.form-group').querySelector('.field-error');
-      if (errSpan) errSpan.innerHTML = msg + '<br>' + resendHtml;
+      if (errSpan) {
+        errSpan.textContent = msg + ' ';
+        var resendLink = document.createElement('a');
+        resendLink.href = '#';
+        resendLink.style.cssText = 'color:var(--primary);font-weight:600';
+        resendLink.textContent = 'Bestätigungs-E-Mail erneut senden';
+        resendLink.onclick = function(ev) { ev.preventDefault(); resendVerification(email); };
+        errSpan.appendChild(document.createElement('br'));
+        errSpan.appendChild(resendLink);
+      }
     } else {
       _setFieldError('loginPassword', msg);
     }
