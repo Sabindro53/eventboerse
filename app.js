@@ -4136,8 +4136,12 @@ function renderMyListings() {
       }
     }
 
+    // Preview banner
+    var previewBanner = document.getElementById('myListingsPreviewBanner');
+
     // Load my listings from API
     if (isLoggedIn) {
+      if (previewBanner) previewBanner.style.display = 'none';
       fetch(_apiUrl('my-listings'), { credentials: 'same-origin', headers: _apiHeaders() })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -4166,7 +4170,23 @@ function renderMyListings() {
           renderMyGrid([]);
         });
     } else {
-      renderMyGrid([]);
+      // Show demo listings as preview for non-logged-in users
+      if (previewBanner) previewBanner.style.display = 'flex';
+      var demoListings = LISTINGS.slice(0, 3).map(function(l) {
+        return {
+          id: l.id,
+          title: l.title,
+          category: l.category,
+          categoryLabel: l.categoryLabel || l.category,
+          image: l.image,
+          location: l.location,
+          price: l.price,
+          priceLabel: l.priceLabel,
+          rating: l.rating || 0,
+          reviewCount: l.reviewCount || 0
+        };
+      });
+      renderMyGrid(demoListings);
     }
   }
 }
@@ -5768,7 +5788,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '57';
+var _EB_VERSION = '58';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

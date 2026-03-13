@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=57" />
+  <link rel="stylesheet" href="styles.css?v=58" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -65,6 +65,8 @@
     <!-- User Dropdown -->
     <div class="user-menu" id="userMenu">
       <div class="user-menu-section" id="loggedOutMenu">
+        <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
+        <hr />
         <button onclick="openModal('loginModal')">Anmelden</button>
         <button onclick="openModal('registerModal')">Registrieren</button>
       </div>
@@ -1410,6 +1412,10 @@
             <span class="material-icons-round">add_circle</span> Neues Inserat
           </button>
         </div>
+        <div class="my-listings-preview-banner" id="myListingsPreviewBanner" style="display:none;">
+          <span class="material-icons-round">visibility</span>
+          <span>So könnte Ihre Seite aussehen – <a href="javascript:void(0)" onclick="openModal('registerModal')">Jetzt registrieren</a> und loslegen!</span>
+        </div>
         <div class="my-listings-grid" id="myListingsGrid">
           <!-- Loaded by JS -->
         </div>
@@ -1893,6 +1899,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=57"></script>
+  <script src="app.js?v=58"></script>
 </body>
 </html>
