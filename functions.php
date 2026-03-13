@@ -213,13 +213,7 @@ function eb_auth_user_payload( $user, $extra = array() ) {
 }
 
 function eb_build_webauthn_credential_descriptor( $credential ) {
-    $credential_id = '';
-
-    if ( ! empty( $credential['credential_id_b64'] ) ) {
-        $credential_id = (string) $credential['credential_id_b64'];
-    } elseif ( ! empty( $credential['credential_id'] ) ) {
-        $credential_id = (string) $credential['credential_id'];
-    }
+    $credential_id = eb_webauthn_credential_identifier( $credential );
 
     if ( '' === $credential_id ) {
         return null;
@@ -853,7 +847,7 @@ function eb_webauthn_register_finish( WP_REST_Request $request ) {
     }
 
     $saved = eb_webauthn_add_credential( $uid, array(
-        'credential_id'      => $verification['credential_id'],
+        'credential_id'      => $verification['credential_id_b64'],
         'credential_id_b64'  => $verification['credential_id_b64'],
         'public_key_pem'     => $verification['public_key_pem'],
         'sign_count'         => $verification['sign_count'],
@@ -920,6 +914,7 @@ function eb_webauthn_login_finish( WP_REST_Request $request ) {
     $challenge     = eb_webauthn_consume_challenge( 'login', $request_id );
     $credential    = $params['credential'] ?? array();
     $credential_id = sanitize_text_field( $credential['id'] ?? '' );
+    $credential_raw_id = sanitize_text_field( $credential['rawId'] ?? '' );
 
     if ( '' === $request_id || false === $challenge ) {
         return new WP_REST_Response( array( 'message' => 'Die Passkey-Anfrage ist abgelaufen. Bitte erneut versuchen.' ), 400 );
@@ -927,6 +922,10 @@ function eb_webauthn_login_finish( WP_REST_Request $request ) {
 
     if ( '' === $credential_id ) {
         return new WP_REST_Response( array( 'message' => 'Credential-ID fehlt.' ), 400 );
+    }
+
+    if ( '' !== $credential_raw_id && ! hash_equals( $credential_id, $credential_raw_id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Credential-ID ist inkonsistent.' ), 400 );
     }
 
     $lookup = eb_webauthn_find_user_by_credential_id( $credential_id );
@@ -958,7 +957,8 @@ function eb_webauthn_login_finish( WP_REST_Request $request ) {
 
     $credentials = eb_webauthn_get_credentials( $user->ID );
     foreach ( $credentials as $index => $stored_credential ) {
-        if ( ! empty( $stored_credential['credential_id'] ) && hash_equals( (string) $stored_credential['credential_id'], $credential_id ) ) {
+        $stored_id = eb_webauthn_credential_identifier( $stored_credential );
+        if ( '' !== $stored_id && hash_equals( $stored_id, $credential_id ) ) {
             $credentials[ $index ]['sign_count']   = $verification['sign_count'];
             $credentials[ $index ]['last_used_at'] = $verification['last_used_at'];
         }

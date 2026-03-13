@@ -81,16 +81,27 @@ function eb_webauthn_save_credentials( $user_id, $credentials ) {
     update_user_meta( $user_id, 'eb_webauthn_credentials', array_values( $credentials ) );
 }
 
+function eb_webauthn_credential_identifier( $credential ) {
+    if ( ! empty( $credential['credential_id_b64'] ) ) {
+        return (string) $credential['credential_id_b64'];
+    }
+    if ( ! empty( $credential['credential_id'] ) ) {
+        return (string) $credential['credential_id'];
+    }
+    return '';
+}
+
 function eb_webauthn_add_credential( $user_id, $credential ) {
     $credentials   = eb_webauthn_get_credentials( $user_id );
-    $credential_id = isset( $credential['credential_id'] ) ? (string) $credential['credential_id'] : '';
+    $credential_id = eb_webauthn_credential_identifier( $credential );
 
     if ( empty( $credential_id ) ) {
         return new WP_Error( 'missing_credential_id', 'Credential-ID fehlt.' );
     }
 
     foreach ( $credentials as $index => $existing ) {
-        if ( ! empty( $existing['credential_id'] ) && hash_equals( (string) $existing['credential_id'], $credential_id ) ) {
+        $existing_id = eb_webauthn_credential_identifier( $existing );
+        if ( '' !== $existing_id && hash_equals( $existing_id, $credential_id ) ) {
             $credentials[ $index ] = array_merge( $existing, $credential );
             eb_webauthn_save_credentials( $user_id, $credentials );
             return true;
@@ -107,7 +118,8 @@ function eb_webauthn_delete_credential( $user_id, $credential_id ) {
     $filtered    = array();
 
     foreach ( $credentials as $credential ) {
-        if ( empty( $credential['credential_id'] ) || ! hash_equals( (string) $credential['credential_id'], (string) $credential_id ) ) {
+        $stored_id = eb_webauthn_credential_identifier( $credential );
+        if ( '' === $stored_id || ! hash_equals( $stored_id, (string) $credential_id ) ) {
             $filtered[] = $credential;
         }
     }
@@ -129,7 +141,8 @@ function eb_webauthn_find_user_by_credential_id( $credential_id ) {
 
     foreach ( $users as $user ) {
         foreach ( eb_webauthn_get_credentials( $user->ID ) as $credential ) {
-            if ( ! empty( $credential['credential_id'] ) && hash_equals( (string) $credential['credential_id'], (string) $credential_id ) ) {
+            $stored_id = eb_webauthn_credential_identifier( $credential );
+            if ( '' !== $stored_id && hash_equals( $stored_id, (string) $credential_id ) ) {
                 return array(
                     'user_id'     => (int) $user->ID,
                     'credential'  => $credential,
@@ -145,7 +158,7 @@ function eb_webauthn_public_credentials( $user_id ) {
     $public = array();
     foreach ( eb_webauthn_get_credentials( $user_id ) as $credential ) {
         $public[] = array(
-            'credential_id' => isset( $credential['credential_id'] ) ? $credential['credential_id'] : '',
+            'credential_id' => eb_webauthn_credential_identifier( $credential ),
             'label'         => ! empty( $credential['label'] ) ? $credential['label'] : 'Passkey',
             'created_at'    => ! empty( $credential['created_at'] ) ? $credential['created_at'] : '',
             'last_used_at'  => ! empty( $credential['last_used_at'] ) ? $credential['last_used_at'] : '',
@@ -407,6 +420,7 @@ function eb_webauthn_verify_client_data( $client_data_json, $expected_type, $exp
 
 function eb_webauthn_verify_registration_response( $payload, $expected_challenge, $expected_origin, $expected_rp_id ) {
     $credential_id     = isset( $payload['id'] ) ? sanitize_text_field( $payload['id'] ) : '';
+    $credential_raw_id = isset( $payload['rawId'] ) ? sanitize_text_field( $payload['rawId'] ) : '';
     $client_data_json  = isset( $payload['response']['clientDataJSON'] ) ? eb_base64url_decode( $payload['response']['clientDataJSON'] ) : false;
     $attestation_bytes = isset( $payload['response']['attestationObject'] ) ? eb_base64url_decode( $payload['response']['attestationObject'] ) : false;
 
@@ -441,13 +455,22 @@ function eb_webauthn_verify_registration_response( $payload, $expected_challenge
         return new WP_Error( 'user_not_verified', 'Biometrische Verifizierung wurde nicht bestätigt.' );
     }
 
+    $expected_credential_id = eb_base64url_encode( $auth_data['credential_id_binary'] );
+    if ( ! hash_equals( $expected_credential_id, $credential_id ) ) {
+        return new WP_Error( 'credential_id_mismatch', 'Credential-ID stimmt nicht mit der Attestation überein.' );
+    }
+
+    if ( '' !== $credential_raw_id && ! hash_equals( $expected_credential_id, $credential_raw_id ) ) {
+        return new WP_Error( 'credential_raw_id_mismatch', 'Raw Credential-ID ist ungültig.' );
+    }
+
     $public_key_pem = eb_webauthn_cose_to_pem( $auth_data['credential_public_key'] );
     if ( is_wp_error( $public_key_pem ) ) {
         return $public_key_pem;
     }
 
     return array(
-        'credential_id'      => $credential_id,
+        'credential_id'      => $expected_credential_id,
         'credential_id_b64'  => eb_base64url_encode( $auth_data['credential_id_binary'] ),
         'public_key_pem'     => $public_key_pem,
         'sign_count'         => (int) $auth_data['sign_count'],
