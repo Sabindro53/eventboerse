@@ -137,6 +137,24 @@ img { display: block; max-width: 100%; }
 }
 .btn-social:hover { background: var(--bg-alt); box-shadow: var(--shadow-sm); }
 .btn-social + .btn-social { margin-top: 10px; }
+.btn-social-passkey {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-color: #0f172a;
+  color: #fff;
+}
+.btn-social-passkey:hover {
+  background: linear-gradient(135deg, #111827 0%, #273449 100%);
+  color: #fff;
+}
+.btn-social-passkey:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.btn-social-passkey .material-icons-round {
+  font-size: 22px;
+}
 .btn-social-apple {
   background: #000; color: #fff; border-color: #000;
 }
@@ -3830,6 +3848,16 @@ span.flatpickr-weekday {
 .forgot-link:hover {
   color: var(--primary);
   text-decoration: underline;
+}
+.passkey-note {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-light);
+  text-align: center;
+  margin: 10px 0 2px;
+}
+.passkey-note.is-disabled {
+  color: #B45309;
 }
 
 /* ---- Forgot-Erfolg ---- */

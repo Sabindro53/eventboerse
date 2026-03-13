@@ -3487,6 +3487,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupDragDrop();
   initAiSearch();
   restoreSession();
+  updatePasskeyLoginUi();
   initPasswordFields();
   initDragScroll();
   initDatePickers();
@@ -4499,6 +4500,32 @@ function isWebAuthnAvailable() {
   return !!(window.PublicKeyCredential && navigator.credentials && typeof navigator.credentials.create === 'function' && typeof navigator.credentials.get === 'function');
 }
 
+function getBiometricLoginLabel() {
+  var ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'Mit Face ID anmelden';
+  if (/Android/i.test(ua)) return 'Mit Biometrie anmelden';
+  return 'Mit Passkey anmelden';
+}
+
+function updatePasskeyLoginUi() {
+  var btn = document.getElementById('loginPasskeyBtn');
+  var text = document.getElementById('loginPasskeyBtnText');
+  var hint = document.getElementById('loginPasskeyHint');
+  if (!btn || !text || !hint) return;
+
+  text.textContent = getBiometricLoginLabel();
+
+  if (isWebAuthnAvailable()) {
+    btn.disabled = false;
+    hint.classList.remove('is-disabled');
+    hint.textContent = 'Nutze Face ID, Fingerabdruck oder die Geräte-PIN, wenn dein Gerät Passkeys unterstützt.';
+  } else {
+    btn.disabled = true;
+    hint.classList.add('is-disabled');
+    hint.textContent = 'Auf diesem Gerät ist kein Passkey-Login verfügbar. Nutze E-Mail, Passwort und den zusätzlichen E-Mail-Code.';
+  }
+}
+
 async function getPasskeyRegisterOptions() {
   var response = await fetch(_apiUrl('webauthn/register-options'), {
     method: 'POST',
@@ -4572,6 +4599,27 @@ async function loginWithPasskey(email) {
 
   _applyAuthenticatedUser(data);
   return data;
+}
+
+async function handleLoginWithPasskey(btn) {
+  if (btn && btn.disabled) return;
+
+  try {
+    if (btn) _setBtnLoading(btn, true);
+    var emailField = document.getElementById('loginEmail');
+    var email = emailField ? emailField.value.trim() : '';
+    await loginWithPasskey(email);
+
+    closeModal('loginModal');
+    var form = document.querySelector('#loginModal .modal-form');
+    if (form) form.reset();
+    applyLogin();
+    showToast('Passkey-Anmeldung erfolgreich', 'fingerprint');
+  } catch (err) {
+    showToast(err && err.message ? err.message : 'Passkey-Anmeldung fehlgeschlagen.', 'error');
+  } finally {
+    if (btn) _setBtnLoading(btn, false);
+  }
 }
 
 async function sendEmailOtp(email, password) {
