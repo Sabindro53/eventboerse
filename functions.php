@@ -463,15 +463,21 @@ function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib eine gültige E-Mail-Adresse ein.' ), 400 );
     }
 
+    $cd_key = 'eb_verify_cd_' . md5( strtolower( trim( $email ) ) );
+    if ( get_transient( $cd_key ) ) {
+        return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
+    }
+    set_transient( $cd_key, 1, 2 * MINUTE_IN_SECONDS );
+
     $user = get_user_by( 'email', $email );
     if ( ! $user ) {
-        // Aus Sicherheitsgründen gleiche Antwort
         return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
     }
 
     $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
     if ( $verified === '1' ) {
-        return new WP_REST_Response( array( 'message' => 'Deine E-Mail ist bereits bestätigt. Du kannst dich anmelden.' ), 200 );
+        // Gleiche generische Antwort – keine Info über Verifizierungsstatus leaken
+        return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
     }
 
     // Neuen Token generieren
@@ -502,6 +508,12 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
     if ( empty( $email ) || ! is_email( $email ) ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib eine gültige E-Mail-Adresse ein.' ), 400 );
     }
+
+    $cd_key = 'eb_pw_reset_cd_' . md5( strtolower( trim( $email ) ) );
+    if ( get_transient( $cd_key ) ) {
+        return new WP_REST_Response( array( 'message' => 'Falls ein Konto mit dieser E-Mail existiert, erhältst du eine E-Mail zum Zurücksetzen.' ), 200 );
+    }
+    set_transient( $cd_key, 1, 2 * MINUTE_IN_SECONDS );
 
     $user = get_user_by( 'email', $email );
     if ( ! $user ) {
@@ -567,6 +579,7 @@ function eventboerse_handle_reset_password( WP_REST_Request $request ) {
 
 /* ---------- PROFILE GET ---------- */
 function eventboerse_handle_profile_get() {
+    global $wpdb;
     $u   = wp_get_current_user();
     $uid = $u->ID;
 
@@ -756,7 +769,14 @@ function eb_settings_password( WP_REST_Request $request ) {
 }
 
 function eb_settings_delete_account( WP_REST_Request $request ) {
-    $uid = get_current_user_id();
+    $uid    = get_current_user_id();
+    $user   = get_userdata( $uid );
+    $params = $request->get_json_params();
+    $password = $params['password'] ?? '';
+
+    if ( empty( $password ) || ! wp_check_password( $password, $user->user_pass, $uid ) ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte gib dein aktuelles Passwort ein, um dein Konto zu löschen.' ), 403 );
+    }
 
     // Don't allow admins to delete themselves via this endpoint
     if ( user_can( $uid, 'manage_options' ) ) {
@@ -1357,7 +1377,7 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/diagnostics', array(
         'methods'             => 'GET',
         'callback'            => 'eb_diagnostics',
-        'permission_callback' => 'is_user_logged_in',
+        'permission_callback' => function() { return current_user_can( 'manage_options' ); },
     ) );
 
     /* ---------- ACCOUNT SETTINGS ---------- */

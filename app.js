@@ -2907,13 +2907,15 @@ function savePasswordSettings() {
 }
 
 function confirmDeleteAccount() {
-  if (!confirm('Bist du sicher, dass du dein Konto löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+  var password = prompt('Bitte gib dein Passwort ein, um dein Konto endgültig zu löschen:');
+  if (!password) return;
   if (!confirm('Wirklich? Alle deine Daten, Inserate und Nachrichten werden unwiderruflich gelöscht.')) return;
 
   fetch(_apiUrl('settings/delete-account'), {
     method: 'POST',
     credentials: 'same-origin',
-    headers: _apiHeaders()
+    headers: _apiHeaders(),
+    body: JSON.stringify({ password: password })
   })
     .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
     .then(function(res) {
@@ -5507,7 +5509,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '49';
+var _EB_VERSION = '50';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
