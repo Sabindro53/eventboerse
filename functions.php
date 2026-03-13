@@ -763,7 +763,7 @@ function eb_settings_password( WP_REST_Request $request ) {
 
     wp_set_password( $new_pass, $uid );
     // Re-authenticate the user so they don't get logged out
-    wp_set_auth_cookie( $uid, true );
+    wp_set_auth_cookie( $uid, true, is_ssl() );
 
     return new WP_REST_Response( array( 'saved' => true ), 200 );
 }
@@ -1131,17 +1131,43 @@ function eb_otp_verify( WP_REST_Request $request ) {
 }
 
 /* =====================================================================
-   Allow REST auth cookies on same origin
+   Fix REST cookie + nonce authentication
+   WordPress core's rest_cookie_check_errors() rejects requests when the
+   nonce doesn't match the logged-in cookie session (e.g. after login via
+   REST). We handle this by verifying the nonce ourselves against the
+   cookie-authenticated user.
    ===================================================================== */
 add_filter( 'rest_authentication_errors', function( $result ) {
+    // If another auth handler already decided, respect it.
     if ( true === $result || is_wp_error( $result ) ) {
         return $result;
     }
+
+    // No cookie present → nothing to fix.
     if ( ! is_user_logged_in() ) {
         return $result;
     }
-    return $result;
-} );
+
+    // Cookie is valid and user is logged in. Verify the nonce ourselves
+    // so that post-login requests succeed even when WP core's check failed.
+    $nonce = '';
+    if ( ! empty( $_SERVER['HTTP_X_WP_NONCE'] ) ) {
+        $nonce = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_WP_NONCE'] ) );
+    } elseif ( ! empty( $_REQUEST['_wpnonce'] ) ) {
+        $nonce = sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) );
+    }
+
+    if ( ! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' ) ) {
+        return true;
+    }
+
+    // Nonce is missing or invalid for this user/cookie.
+    return new WP_Error(
+        'rest_cookie_invalid_nonce',
+        'Cookie-Prüfung fehlgeschlagen.',
+        array( 'status' => 403 )
+    );
+}, 100 );
 
 /* =====================================================================
    CUSTOM DATABASE TABLES
