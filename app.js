@@ -1475,12 +1475,19 @@ let lightboxIndex = 0;
 
 function loadProvider(providerId) {
   var pid = providerId || currentListing?.providerId;
+  // Check if this is a demo provider (small numeric IDs used in LISTINGS constant, not from DB)
+  var isDemoProvider = LISTINGS.some(l => !l._fromDb && l.providerId === pid);
   // Only show real DB listings for the provider, not demo data
   var dbListings = LISTINGS.filter(l => l._fromDb && l.providerId === pid);
-  var providerListings = dbListings.length > 0 ? dbListings : LISTINGS.filter(l => l.providerId === pid);
+  var providerListings;
+  if (isDemoProvider && dbListings.length === 0) {
+    providerListings = LISTINGS.filter(l => !l._fromDb && l.providerId === pid);
+  } else {
+    providerListings = dbListings.length > 0 ? dbListings : LISTINGS.filter(l => l.providerId === pid);
+  }
 
-  // If no listings found locally, fetch provider from API
-  if (providerListings.length === 0 && pid) {
+  // If no listings found locally, fetch provider from API — but NOT for demo providers
+  if (providerListings.length === 0 && pid && !isDemoProvider) {
     fetch(_apiUrl('provider/' + pid) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -5788,7 +5795,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '58';
+var _EB_VERSION = '59';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
