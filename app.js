@@ -4776,17 +4776,36 @@ async function handleLoginWithPasskey(btn) {
 }
 
 async function sendEmailOtp(email, password) {
+  var payload = {
+    email: (email || '').trim()
+  };
+
+  if (password) payload.password = password;
+
+  var response = await fetch(_apiUrl('otp/send'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify(payload)
+  });
+  var data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'E-Mail-Code konnte nicht gesendet werden.');
+  return data;
+}
+
+async function resendEmailOtp(email, resendToken) {
   var response = await fetch(_apiUrl('otp/send'), {
     method: 'POST',
     credentials: 'same-origin',
     headers: _apiHeaders(),
     body: JSON.stringify({
       email: (email || '').trim(),
-      password: password || ''
+      resend: true,
+      resend_token: resendToken || ''
     })
   });
   var data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'E-Mail-Code konnte nicht gesendet werden.');
+  if (!response.ok) throw new Error(data.message || 'Code konnte nicht erneut gesendet werden.');
   return data;
 }
 
@@ -4810,7 +4829,7 @@ async function verifyEmailOtp(email, code) {
 function openLoginOtpModal(email, password) {
   _pendingOtpLogin = {
     email: (email || '').trim(),
-    password: password || ''
+    resendToken: password && typeof password === 'object' ? password.resendToken || '' : ''
   };
 
   var emailText = document.getElementById('loginOtpEmailText');
@@ -4827,7 +4846,7 @@ function cancelLoginOtpFlow() {
 }
 
 async function resendLoginOtp(btn) {
-  if (!_pendingOtpLogin || !_pendingOtpLogin.email || !_pendingOtpLogin.password) {
+  if (!_pendingOtpLogin || !_pendingOtpLogin.email || !_pendingOtpLogin.resendToken) {
     showToast('Bitte starte die Anmeldung erneut.', 'warning');
     cancelLoginOtpFlow();
     openModal('loginModal');
@@ -4836,7 +4855,8 @@ async function resendLoginOtp(btn) {
 
   try {
     if (btn) _setBtnLoading(btn, true);
-    await sendEmailOtp(_pendingOtpLogin.email, _pendingOtpLogin.password);
+    var data = await resendEmailOtp(_pendingOtpLogin.email, _pendingOtpLogin.resendToken);
+    _pendingOtpLogin.resendToken = data.resendToken || _pendingOtpLogin.resendToken;
     showToast('Neuer E-Mail-Code wurde gesendet.', 'mark_email_read');
   } catch (err) {
     showToast(err && err.message ? err.message : 'Code konnte nicht erneut gesendet werden.', 'error');
@@ -5109,10 +5129,10 @@ async function handleLogin(e) {
   _setBtnLoading(submitBtn, true);
 
   try {
-    await sendEmailOtp(email, password);
+    var otpData = await sendEmailOtp(email, password);
     _setBtnLoading(submitBtn, false);
     form.reset();
-    openLoginOtpModal(email, password);
+    openLoginOtpModal(email, otpData);
     showToast('Wir haben dir einen E-Mail-Code gesendet.', 'mark_email_unread');
   } catch (err) {
     _setBtnLoading(submitBtn, false);
@@ -5487,7 +5507,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '48';
+var _EB_VERSION = '49';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

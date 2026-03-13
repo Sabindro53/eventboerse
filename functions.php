@@ -262,6 +262,10 @@ function eb_login_otp_cooldown_key( $email ) {
     return 'eb_login_otp_cd_' . md5( strtolower( trim( (string) $email ) ) );
 }
 
+function eb_login_otp_resend_token() {
+    return wp_generate_password( 32, false, false );
+}
+
 /* =====================================================================
    REST API
    ===================================================================== */
@@ -1036,9 +1040,17 @@ function eb_otp_send( WP_REST_Request $request ) {
     $params   = $request->get_json_params();
     $email    = sanitize_email( $params['email'] ?? '' );
     $password = $params['password'] ?? '';
+    $resend   = ! empty( $params['resend'] );
+    $token    = sanitize_text_field( $params['resend_token'] ?? '' );
     $cooldown = get_transient( eb_login_otp_cooldown_key( $email ) );
+    $otp_key  = eb_login_otp_transient_key( $email );
+    $existing = get_transient( $otp_key );
 
-    if ( empty( $email ) || empty( $password ) ) {
+    if ( empty( $email ) ) {
+        return new WP_REST_Response( array( 'message' => 'E-Mail ist erforderlich.' ), 400 );
+    }
+
+    if ( ! $resend && empty( $password ) ) {
         return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
     }
 
@@ -1060,25 +1072,32 @@ function eb_otp_send( WP_REST_Request $request ) {
         ), 403 );
     }
 
-    if ( ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+    if ( $resend ) {
+        if ( ! is_array( $existing ) || empty( $existing['resend_token'] ) || empty( $token ) || ! hash_equals( (string) $existing['resend_token'], $token ) ) {
+            return new WP_REST_Response( array( 'message' => 'Bitte starte die Anmeldung erneut.' ), 400 );
+        }
+    } elseif ( ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
         return new WP_REST_Response( array( 'message' => 'E-Mail oder Passwort ist falsch.' ), 401 );
     }
 
     $code = (string) random_int( 100000, 999999 );
-    set_transient( eb_login_otp_transient_key( $email ), array(
+    $resend_token = is_array( $existing ) && ! empty( $existing['resend_token'] ) ? (string) $existing['resend_token'] : eb_login_otp_resend_token();
+    set_transient( $otp_key, array(
         'user_id'    => $user->ID,
         'code_hash'  => wp_hash( $code ),
         'created_at' => time(),
         'attempts'   => 0,
+        'resend_token' => $resend_token,
     ), 10 * MINUTE_IN_SECONDS );
     set_transient( eb_login_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
 
     eb_send_login_otp_email( $user, $code );
 
     return new WP_REST_Response( array(
-        'sent'      => true,
-        'expiresIn' => 10 * MINUTE_IN_SECONDS,
-        'email'     => $email,
+        'sent'         => true,
+        'expiresIn'    => 10 * MINUTE_IN_SECONDS,
+        'email'        => $email,
+        'resendToken'  => $resend_token,
     ), 200 );
 }
 
