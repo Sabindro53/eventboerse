@@ -106,6 +106,7 @@ function eventboerse_enqueue_assets() {
                 'phone'      => get_user_meta( $u->ID, 'eb_phone', true ) ?: '',
                 'since'      => date_i18n( 'F Y', strtotime( $u->user_registered ) ),
             ),
+            eb_user_security_meta( $u->ID ),
             eb_user_profile_meta( $u->ID )
         );
     }
@@ -179,6 +180,82 @@ function eb_user_profile_meta( $uid ) {
         'coverPosY' => (float) ( get_user_meta( $uid, 'eb_cover_pos_y', true ) ?: 50 ),
         'photoUrl'  => get_user_meta( $uid, 'eb_photo_url', true ) ?: '',
     );
+}
+
+function eb_user_security_meta( $uid ) {
+    $credentials = eb_webauthn_get_credentials( $uid );
+    $verified    = get_user_meta( $uid, 'eb_email_verified', true );
+
+    return array(
+        'emailVerified' => '0' !== (string) $verified,
+        'hasPasskey'    => ! empty( $credentials ),
+        'passkeyCount'  => count( $credentials ),
+    );
+}
+
+function eb_auth_user_payload( $user, $extra = array() ) {
+    return array_merge(
+        array(
+            'user_id'    => $user->ID,
+            'email'      => $user->user_email,
+            'first_name' => $user->first_name,
+            'last_name'  => $user->last_name,
+            'roles'      => (array) $user->roles,
+            'role'       => eventboerse_map_role( $user ),
+            'nonce'      => wp_create_nonce( 'wp_rest' ),
+            'phone'      => get_user_meta( $user->ID, 'eb_phone', true ) ?: '',
+            'since'      => date_i18n( 'F Y', strtotime( $user->user_registered ) ),
+        ),
+        eb_user_security_meta( $user->ID ),
+        eb_user_profile_meta( $user->ID ),
+        $extra
+    );
+}
+
+function eb_build_webauthn_credential_descriptor( $credential ) {
+    $credential_id = '';
+
+    if ( ! empty( $credential['credential_id_b64'] ) ) {
+        $credential_id = (string) $credential['credential_id_b64'];
+    } elseif ( ! empty( $credential['credential_id'] ) ) {
+        $credential_id = (string) $credential['credential_id'];
+    }
+
+    if ( '' === $credential_id ) {
+        return null;
+    }
+
+    $descriptor = array(
+        'type' => 'public-key',
+        'id'   => $credential_id,
+    );
+
+    if ( ! empty( $credential['transports'] ) && is_array( $credential['transports'] ) ) {
+        $descriptor['transports'] = array_values( $credential['transports'] );
+    }
+
+    return $descriptor;
+}
+
+function eb_send_login_otp_email( $user, $code ) {
+    $subject  = 'Eventbörse – Dein Anmeldecode';
+    $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+    $message .= '<h2 style="color:#222;margin-bottom:8px">Dein Anmeldecode</h2>';
+    $message .= '<p style="color:#484848;line-height:1.6">Hallo ' . esc_html( $user->first_name ?: $user->display_name ) . ', nutze diesen 6-stelligen Code, um deine Anmeldung bei Eventbörse abzuschließen:</p>';
+    $message .= '<p style="font-size:32px;letter-spacing:6px;font-weight:800;color:#FF385C;text-align:center;margin:28px 0">' . esc_html( $code ) . '</p>';
+    $message .= '<p style="color:#717171;font-size:13px">Der Code ist 10 Minuten gültig. Falls du diese Anmeldung nicht gestartet hast, ändere bitte dein Passwort.</p>';
+    $message .= '</div>';
+
+    return wp_mail(
+        $user->user_email,
+        $subject,
+        $message,
+        array( 'Content-Type: text/html; charset=UTF-8' )
+    );
+}
+
+function eb_login_otp_transient_key( $email ) {
+    return 'eb_login_otp_' . md5( strtolower( trim( (string) $email ) ) );
 }
 
 /* =====================================================================
@@ -360,20 +437,7 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
 
     wp_set_current_user( $signed_in->ID );
 
-    return new WP_REST_Response( array_merge(
-        array(
-            'user_id'    => $signed_in->ID,
-            'email'      => $signed_in->user_email,
-            'first_name' => $signed_in->first_name,
-            'last_name'  => $signed_in->last_name,
-            'roles'      => (array) $signed_in->roles,
-            'role'       => eventboerse_map_role( $signed_in ),
-            'nonce'      => wp_create_nonce( 'wp_rest' ),
-            'phone'      => get_user_meta( $signed_in->ID, 'eb_phone', true ) ?: '',
-            'since'      => date_i18n( 'F Y', strtotime( $signed_in->user_registered ) ),
-        ),
-        eb_user_profile_meta( $signed_in->ID )
-    ), 200 );
+    return new WP_REST_Response( eb_auth_user_payload( $signed_in ), 200 );
 }
 
 /* ---------- LOGOUT ---------- */
@@ -389,18 +453,8 @@ function eventboerse_handle_me() {
     }
     $u = wp_get_current_user();
     return new WP_REST_Response( array_merge(
-        array(
-            'loggedIn'   => true,
-            'user_id'    => $u->ID,
-            'email'      => $u->user_email,
-            'first_name' => $u->first_name,
-            'last_name'  => $u->last_name,
-            'role'       => eventboerse_map_role( $u ),
-            'nonce'      => wp_create_nonce( 'wp_rest' ),
-            'phone'      => get_user_meta( $u->ID, 'eb_phone', true ) ?: '',
-            'since'      => date_i18n( 'F Y', strtotime( $u->user_registered ) ),
-        ),
-        eb_user_profile_meta( $u->ID )
+        array( 'loggedIn' => true ),
+        eb_auth_user_payload( $u )
     ), 200 );
 }
 
@@ -743,6 +797,310 @@ function eb_settings_delete_account( WP_REST_Request $request ) {
     return new WP_REST_Response( array( 'deleted' => true ), 200 );
 }
 
+function eb_webauthn_register_options() {
+    $uid      = get_current_user_id();
+    $user     = get_userdata( $uid );
+    $verified = get_user_meta( $uid, 'eb_email_verified', true );
+
+    if ( '0' === (string) $verified ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte bestätige zuerst deine E-Mail-Adresse.' ), 403 );
+    }
+
+    $challenge = eb_webauthn_generate_challenge();
+    eb_webauthn_store_challenge( 'register', $uid, $challenge, 300 );
+
+    $exclude_credentials = array();
+    foreach ( eb_webauthn_get_credentials( $uid ) as $credential ) {
+        $descriptor = eb_build_webauthn_credential_descriptor( $credential );
+        if ( null !== $descriptor ) {
+            $exclude_credentials[] = $descriptor;
+        }
+    }
+
+    return new WP_REST_Response( array(
+        'publicKey' => array(
+            'challenge'              => eb_base64url_encode( $challenge ),
+            'rp'                     => array(
+                'name' => 'Eventbörse',
+                'id'   => eb_webauthn_rp_id(),
+            ),
+            'user'                   => array(
+                'id'          => eb_base64url_encode( (string) $uid ),
+                'name'        => $user->user_email,
+                'displayName' => trim( $user->first_name . ' ' . $user->last_name ) ?: $user->display_name,
+            ),
+            'pubKeyCredParams'       => array(
+                array( 'type' => 'public-key', 'alg' => -7 ),
+            ),
+            'timeout'                => 60000,
+            'attestation'            => 'none',
+            'authenticatorSelection' => array(
+                'residentKey'      => 'required',
+                'userVerification' => 'required',
+            ),
+            'excludeCredentials'     => $exclude_credentials,
+            'extensions'             => array( 'credProps' => true ),
+        ),
+    ), 200 );
+}
+
+function eb_webauthn_register_finish( WP_REST_Request $request ) {
+    $uid       = get_current_user_id();
+    $verified  = get_user_meta( $uid, 'eb_email_verified', true );
+    $params    = $request->get_json_params();
+    $challenge = eb_webauthn_consume_challenge( 'register', $uid );
+
+    if ( '0' === (string) $verified ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte bestätige zuerst deine E-Mail-Adresse.' ), 403 );
+    }
+
+    if ( false === $challenge ) {
+        return new WP_REST_Response( array( 'message' => 'Die Passkey-Anfrage ist abgelaufen. Bitte erneut versuchen.' ), 400 );
+    }
+
+    $verification = eb_webauthn_verify_registration_response(
+        $params['credential'] ?? array(),
+        $challenge,
+        eb_webauthn_origin(),
+        eb_webauthn_rp_id()
+    );
+
+    if ( is_wp_error( $verification ) ) {
+        return new WP_REST_Response( array( 'message' => $verification->get_error_message() ), 400 );
+    }
+
+    $label = sanitize_text_field( $params['label'] ?? '' );
+    if ( '' === $label ) {
+        $label = 'Passkey ' . wp_date( 'd.m.Y H:i' );
+    }
+
+    $saved = eb_webauthn_add_credential( $uid, array(
+        'credential_id'      => $verification['credential_id'],
+        'credential_id_b64'  => $verification['credential_id_b64'],
+        'public_key_pem'     => $verification['public_key_pem'],
+        'sign_count'         => $verification['sign_count'],
+        'label'              => $label,
+        'transports'         => $verification['transports'],
+        'attestation_format' => $verification['aaguid_attestation'],
+        'created_at'         => current_time( 'mysql' ),
+        'last_used_at'       => current_time( 'mysql' ),
+    ) );
+
+    if ( is_wp_error( $saved ) ) {
+        return new WP_REST_Response( array( 'message' => $saved->get_error_message() ), 400 );
+    }
+
+    return new WP_REST_Response( array(
+        'saved'        => true,
+        'credentials'  => eb_webauthn_public_credentials( $uid ),
+        'hasPasskey'   => true,
+        'passkeyCount' => count( eb_webauthn_get_credentials( $uid ) ),
+    ), 200 );
+}
+
+function eb_webauthn_login_options( WP_REST_Request $request ) {
+    $params            = $request->get_json_params();
+    $email             = sanitize_email( $params['email'] ?? '' );
+    $challenge         = eb_webauthn_generate_challenge();
+    $request_id        = wp_generate_uuid4();
+    $allow_credentials = array();
+
+    if ( $email ) {
+        $user = get_user_by( 'email', $email );
+        if ( $user ) {
+            foreach ( eb_webauthn_get_credentials( $user->ID ) as $credential ) {
+                $descriptor = eb_build_webauthn_credential_descriptor( $credential );
+                if ( null !== $descriptor ) {
+                    $allow_credentials[] = $descriptor;
+                }
+            }
+        }
+    }
+
+    eb_webauthn_store_challenge( 'login', $request_id, $challenge, 300 );
+
+    $public_key = array(
+        'challenge'        => eb_base64url_encode( $challenge ),
+        'rpId'             => eb_webauthn_rp_id(),
+        'timeout'          => 60000,
+        'userVerification' => 'required',
+    );
+
+    if ( ! empty( $allow_credentials ) ) {
+        $public_key['allowCredentials'] = $allow_credentials;
+    }
+
+    return new WP_REST_Response( array(
+        'requestId' => $request_id,
+        'publicKey' => $public_key,
+    ), 200 );
+}
+
+function eb_webauthn_login_finish( WP_REST_Request $request ) {
+    $params        = $request->get_json_params();
+    $request_id    = sanitize_text_field( $params['requestId'] ?? '' );
+    $challenge     = eb_webauthn_consume_challenge( 'login', $request_id );
+    $credential    = $params['credential'] ?? array();
+    $credential_id = sanitize_text_field( $credential['id'] ?? '' );
+
+    if ( '' === $request_id || false === $challenge ) {
+        return new WP_REST_Response( array( 'message' => 'Die Passkey-Anfrage ist abgelaufen. Bitte erneut versuchen.' ), 400 );
+    }
+
+    if ( '' === $credential_id ) {
+        return new WP_REST_Response( array( 'message' => 'Credential-ID fehlt.' ), 400 );
+    }
+
+    $lookup = eb_webauthn_find_user_by_credential_id( $credential_id );
+    if ( ! $lookup ) {
+        return new WP_REST_Response( array( 'message' => 'Passkey wurde nicht gefunden.' ), 404 );
+    }
+
+    $user = get_userdata( $lookup['user_id'] );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Nutzer zum Passkey wurde nicht gefunden.' ), 404 );
+    }
+
+    $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
+    if ( '0' === (string) $verified ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte bestätige zuerst deine E-Mail-Adresse.' ), 403 );
+    }
+
+    $verification = eb_webauthn_verify_authentication_response(
+        $credential,
+        $lookup['credential'],
+        $challenge,
+        eb_webauthn_origin(),
+        eb_webauthn_rp_id()
+    );
+
+    if ( is_wp_error( $verification ) ) {
+        return new WP_REST_Response( array( 'message' => $verification->get_error_message() ), 400 );
+    }
+
+    $credentials = eb_webauthn_get_credentials( $user->ID );
+    foreach ( $credentials as $index => $stored_credential ) {
+        if ( ! empty( $stored_credential['credential_id'] ) && hash_equals( (string) $stored_credential['credential_id'], $credential_id ) ) {
+            $credentials[ $index ]['sign_count']   = $verification['sign_count'];
+            $credentials[ $index ]['last_used_at'] = $verification['last_used_at'];
+        }
+    }
+    eb_webauthn_save_credentials( $user->ID, $credentials );
+
+    wp_set_current_user( $user->ID );
+    wp_set_auth_cookie( $user->ID, true, is_ssl() );
+
+    return new WP_REST_Response( array_merge(
+        eb_auth_user_payload( $user ),
+        array( 'passkeyAuthenticated' => true )
+    ), 200 );
+}
+
+function eb_webauthn_credentials_list() {
+    $uid = get_current_user_id();
+
+    return new WP_REST_Response( array(
+        'credentials'  => eb_webauthn_public_credentials( $uid ),
+        'hasPasskey'   => eb_webauthn_user_has_credentials( $uid ),
+        'passkeyCount' => count( eb_webauthn_get_credentials( $uid ) ),
+    ), 200 );
+}
+
+function eb_webauthn_credentials_delete( WP_REST_Request $request ) {
+    $uid           = get_current_user_id();
+    $credential_id = sanitize_text_field( $request->get_param( 'credential_id' ) );
+
+    if ( '' === $credential_id ) {
+        return new WP_REST_Response( array( 'message' => 'Credential-ID fehlt.' ), 400 );
+    }
+
+    eb_webauthn_delete_credential( $uid, $credential_id );
+
+    return new WP_REST_Response( array(
+        'deleted'      => true,
+        'credentials'  => eb_webauthn_public_credentials( $uid ),
+        'hasPasskey'   => eb_webauthn_user_has_credentials( $uid ),
+        'passkeyCount' => count( eb_webauthn_get_credentials( $uid ) ),
+    ), 200 );
+}
+
+function eb_otp_send( WP_REST_Request $request ) {
+    $params   = $request->get_json_params();
+    $email    = sanitize_email( $params['email'] ?? '' );
+    $password = $params['password'] ?? '';
+
+    if ( empty( $email ) || empty( $password ) ) {
+        return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
+    }
+
+    $user = get_user_by( 'email', $email );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Kein Konto mit dieser E-Mail gefunden.' ), 401 );
+    }
+
+    $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
+    if ( '0' === (string) $verified ) {
+        return new WP_REST_Response( array(
+            'message'              => 'Bitte bestätige zuerst deine E-Mail-Adresse. Prüfe dein Postfach.',
+            'pending_verification' => true,
+            'email'                => $email,
+        ), 403 );
+    }
+
+    if ( ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+        return new WP_REST_Response( array( 'message' => 'E-Mail oder Passwort ist falsch.' ), 401 );
+    }
+
+    $code = (string) random_int( 100000, 999999 );
+    set_transient( eb_login_otp_transient_key( $email ), array(
+        'user_id'    => $user->ID,
+        'code_hash'  => wp_hash( $code ),
+        'created_at' => time(),
+    ), 10 * MINUTE_IN_SECONDS );
+
+    eb_send_login_otp_email( $user, $code );
+
+    return new WP_REST_Response( array(
+        'sent'      => true,
+        'expiresIn' => 10 * MINUTE_IN_SECONDS,
+        'email'     => $email,
+    ), 200 );
+}
+
+function eb_otp_verify( WP_REST_Request $request ) {
+    $params  = $request->get_json_params();
+    $email   = sanitize_email( $params['email'] ?? '' );
+    $code    = preg_replace( '/\D+/', '', (string) ( $params['code'] ?? '' ) );
+    $payload = get_transient( eb_login_otp_transient_key( $email ) );
+
+    if ( empty( $email ) || strlen( $code ) !== 6 ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte gib E-Mail und 6-stelligen Code ein.' ), 400 );
+    }
+
+    if ( ! is_array( $payload ) || empty( $payload['user_id'] ) || empty( $payload['code_hash'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
+    }
+
+    if ( ! hash_equals( $payload['code_hash'], wp_hash( $code ) ) ) {
+        return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
+    }
+
+    $user = get_userdata( (int) $payload['user_id'] );
+    if ( ! $user || ! hash_equals( strtolower( $user->user_email ), strtolower( $email ) ) ) {
+        return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
+    }
+
+    delete_transient( eb_login_otp_transient_key( $email ) );
+
+    wp_set_current_user( $user->ID );
+    wp_set_auth_cookie( $user->ID, true, is_ssl() );
+
+    return new WP_REST_Response( array_merge(
+        eb_auth_user_payload( $user ),
+        array( 'otpVerified' => true )
+    ), 200 );
+}
+
 /* =====================================================================
    Allow REST auth cookies on same origin
    ===================================================================== */
@@ -1010,6 +1368,56 @@ function eb_register_extra_routes() {
         'methods'             => 'POST',
         'callback'            => 'eb_settings_delete_account',
         'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- PASSKEY / WEBAUTHN ---------- */
+    register_rest_route( 'eventboerse/v1', '/webauthn/register-options', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_webauthn_register_options',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/webauthn/register', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_webauthn_register_finish',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/webauthn/login-options', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_webauthn_login_options',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/webauthn/login', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_webauthn_login_finish',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/webauthn/credentials', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_webauthn_credentials_list',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/webauthn/credentials/(?P<credential_id>[A-Za-z0-9_-]+)', array(
+        'methods'             => 'DELETE',
+        'callback'            => 'eb_webauthn_credentials_delete',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- EMAIL OTP ---------- */
+    register_rest_route( 'eventboerse/v1', '/otp/send', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_otp_send',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/otp/verify', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_otp_verify',
+        'permission_callback' => '__return_true',
     ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
