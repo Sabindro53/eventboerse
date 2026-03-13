@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=46" />
+  <link rel="stylesheet" href="styles.css?v=47" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -1488,6 +1488,34 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="loginOtpModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="cancelLoginOtpFlow()">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">mark_email_unread</span>
+        <h2>Anmeldung bestätigen</h2>
+        <p>Wir haben einen 6-stelligen Code an <strong id="loginOtpEmailText">deine E-Mail</strong> gesendet.</p>
+      </div>
+      <form class="modal-form" onsubmit="handleLoginOtpVerify(event)">
+        <div class="form-group">
+          <label>E-Mail-Code</label>
+          <input type="text" id="loginOtpCode" class="otp-code-input" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+        </div>
+        <p class="passkey-note otp-login-note">Kein biometrisches Verfahren? Mit verifizierter E-Mail und diesem zusätzlichen Schritt bleibt dein Konto geschützt.</p>
+        <button type="submit" class="btn-primary btn-block">Code bestätigen</button>
+        <button type="button" class="btn-outline btn-block otp-resend-btn" onclick="resendLoginOtp(this)">
+          <span class="material-icons-round">refresh</span>
+          Code erneut senden
+        </button>
+        <p class="modal-footer-text">
+          <a href="#" onclick="event.preventDefault(); cancelLoginOtpFlow(); openModal('loginModal')">Zurück zur Anmeldung</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
   <!-- Register Modal -->
   <div class="modal-overlay" id="registerModal" onclick="closeModalOnOverlay(event)">
     <div class="modal">
@@ -1785,6 +1813,6 @@
     <div class="update-sub">Eventbörse wurde aktualisiert</div>
   </div>
 
-  <script src="app.js?v=46"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>

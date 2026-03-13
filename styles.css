@@ -3962,6 +3962,22 @@ span.flatpickr-weekday {
   padding: 14px 16px;
   margin-bottom: 12px;
   line-height: 1.5;
+.otp-code-input {
+  text-align: center;
+  letter-spacing: 0.45em;
+  font-size: 1.35rem !important;
+  font-weight: 700;
+}
+.otp-login-note {
+  margin: 2px 0 16px;
+}
+.otp-resend-btn {
+  margin-top: 10px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
 }
 
 /* Negotiation Listing Info */

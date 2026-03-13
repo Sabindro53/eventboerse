@@ -4501,6 +4501,7 @@ function renderDetailReviews(listing) {
 // ========== AUTH ==========
 var currentUser = null;
 var _wpNonce = (typeof eventboerseApi !== 'undefined') ? eventboerseApi.nonce : '';
+var _pendingOtpLogin = null;
 
 function _normalizeUserPayload(data, fallback) {
   data = data || {};
@@ -4806,6 +4807,80 @@ async function verifyEmailOtp(email, code) {
   return data;
 }
 
+function openLoginOtpModal(email, password) {
+  _pendingOtpLogin = {
+    email: (email || '').trim(),
+    password: password || ''
+  };
+
+  var emailText = document.getElementById('loginOtpEmailText');
+  var codeInput = document.getElementById('loginOtpCode');
+  if (emailText) emailText.textContent = _pendingOtpLogin.email || 'deine E-Mail';
+  if (codeInput) codeInput.value = '';
+  closeModal('loginModal');
+  openModal('loginOtpModal');
+}
+
+function cancelLoginOtpFlow() {
+  _pendingOtpLogin = null;
+  closeModal('loginOtpModal');
+}
+
+async function resendLoginOtp(btn) {
+  if (!_pendingOtpLogin || !_pendingOtpLogin.email || !_pendingOtpLogin.password) {
+    showToast('Bitte starte die Anmeldung erneut.', 'warning');
+    cancelLoginOtpFlow();
+    openModal('loginModal');
+    return;
+  }
+
+  try {
+    if (btn) _setBtnLoading(btn, true);
+    await sendEmailOtp(_pendingOtpLogin.email, _pendingOtpLogin.password);
+    showToast('Neuer E-Mail-Code wurde gesendet.', 'mark_email_read');
+  } catch (err) {
+    showToast(err && err.message ? err.message : 'Code konnte nicht erneut gesendet werden.', 'error');
+  } finally {
+    if (btn) _setBtnLoading(btn, false);
+  }
+}
+
+async function handleLoginOtpVerify(e) {
+  e.preventDefault();
+  var form = e.target;
+  _clearFieldErrors(form);
+
+  if (!_pendingOtpLogin || !_pendingOtpLogin.email) {
+    showToast('Bitte starte die Anmeldung erneut.', 'warning');
+    cancelLoginOtpFlow();
+    openModal('loginModal');
+    return;
+  }
+
+  var code = document.getElementById('loginOtpCode').value.trim();
+  var submitBtn = form.querySelector('button[type="submit"]');
+
+  if (!/^\d{6}$/.test(code)) {
+    _setFieldError('loginOtpCode', 'Bitte gib den 6-stelligen Code ein.');
+    return;
+  }
+
+  try {
+    _setBtnLoading(submitBtn, true);
+    await verifyEmailOtp(_pendingOtpLogin.email, code);
+    _pendingOtpLogin = null;
+    closeModal('loginOtpModal');
+    form.reset();
+    applyLogin();
+    showToast('Anmeldung erfolgreich bestätigt', 'mark_email_read');
+    maybePromptPasskeySetup();
+  } catch (err) {
+    _setFieldError('loginOtpCode', err && err.message ? err.message : 'Code ist ungültig.');
+  } finally {
+    _setBtnLoading(submitBtn, false);
+  }
+}
+
 async function loadPasskeyCredentials() {
   var response = await fetch(_apiUrl('webauthn/credentials'), {
     method: 'GET',
@@ -5034,38 +5109,22 @@ async function handleLogin(e) {
   _setBtnLoading(submitBtn, true);
 
   try {
-    var response = await fetch(_apiUrl('login'), {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: _apiHeaders(),
-      body: JSON.stringify({ email: email, password: password })
-    });
-    var data = await response.json();
-
-    if (response.ok) {
-      _applyAuthenticatedUser(data);
-      _setBtnLoading(submitBtn, false);
-      closeModal('loginModal');
-      form.reset();
-      applyLogin();
-      showToast('Willkommen zurück, ' + (data.first_name || currentUser.name) + '!', 'waving_hand');
-      maybePromptPasskeySetup();
-    } else {
-      _setBtnLoading(submitBtn, false);
-      var msg = data.message || 'Login fehlgeschlagen.';
-      // E-Mail noch nicht verifiziert
-      if (data.pending_verification) {
-        _setFieldError('loginPassword', msg);
-        var resendHtml = '<a href="#" style="color:var(--primary);font-weight:600" onclick="event.preventDefault();resendVerification(\'' + email.replace(/'/g, "\\'") + '\');">Bestätigungs-E-Mail erneut senden</a>';
-        var errSpan = form.querySelector('#loginPassword').closest('.form-group').querySelector('.field-error');
-        if (errSpan) errSpan.innerHTML = msg + '<br>' + resendHtml;
-      } else {
-        _setFieldError('loginPassword', msg);
-      }
-    }
+    await sendEmailOtp(email, password);
+    _setBtnLoading(submitBtn, false);
+    form.reset();
+    openLoginOtpModal(email, password);
+    showToast('Wir haben dir einen E-Mail-Code gesendet.', 'mark_email_unread');
   } catch (err) {
     _setBtnLoading(submitBtn, false);
-    _setFieldError('loginPassword', 'Verbindungsfehler – bitte versuche es erneut.');
+    var msg = err && err.message ? err.message : 'Verbindungsfehler – bitte versuche es erneut.';
+    if (msg.toLowerCase().indexOf('bestätige') >= 0 || msg.toLowerCase().indexOf('postfach') >= 0) {
+      _setFieldError('loginPassword', msg);
+      var resendHtml = '<a href="#" style="color:var(--primary);font-weight:600" onclick="event.preventDefault();resendVerification(\'' + email.replace(/'/g, "\\'") + '\');">Bestätigungs-E-Mail erneut senden</a>';
+      var errSpan = form.querySelector('#loginPassword').closest('.form-group').querySelector('.field-error');
+      if (errSpan) errSpan.innerHTML = msg + '<br>' + resendHtml;
+    } else {
+      _setFieldError('loginPassword', msg);
+    }
   }
 }
 
@@ -5419,7 +5478,7 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '46';
+var _EB_VERSION = '47';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
