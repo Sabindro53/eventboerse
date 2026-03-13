@@ -1138,6 +1138,28 @@
           <button class="btn-primary settings-save-btn" onclick="savePasswordSettings()">Passwort ändern</button>
         </div>
 
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="material-icons-round">fingerprint</span>
+            <h2>Passkeys & Biometrie</h2>
+          </div>
+          <div class="settings-info-row">
+            <span>Status</span>
+            <span id="settingsPasskeyStatus" class="settings-info-value">Wird geladen …</span>
+          </div>
+          <div class="settings-info-row">
+            <span>Gespeicherte Passkeys</span>
+            <span id="settingsPasskeyCount" class="settings-info-value">0</span>
+          </div>
+          <p class="settings-passkey-copy">iPhone-Nutzer verwenden Face ID, Android-Nutzer ihre biometrische Authentifizierung. Auf Desktop-Geräten wird je nach Browser ein Passkey oder die Geräte-PIN verwendet.</p>
+          <p class="settings-passkey-note" id="settingsPasskeySupportNote">Passkey-Unterstützung wird geprüft …</p>
+          <button class="btn-primary settings-save-btn settings-passkey-add-btn" id="settingsAddPasskeyBtn" onclick="addPasskeyFromSettings(this)">
+            <span class="material-icons-round">add</span>
+            Neuen Passkey hinzufügen
+          </button>
+          <div class="settings-passkey-list" id="settingsPasskeyList"></div>
+        </div>
+
         <!-- Account -->
         <div class="settings-card">
           <div class="settings-card-header">

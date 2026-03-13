@@ -2730,6 +2730,115 @@ function loadSettings() {
   document.getElementById('settingsCurrentPw').value = '';
   document.getElementById('settingsNewPw').value = '';
   document.getElementById('settingsConfirmPw').value = '';
+  renderPasskeySettings(null);
+  refreshPasskeySettings();
+}
+
+function renderPasskeySettings(data) {
+  var statusEl = document.getElementById('settingsPasskeyStatus');
+  var countEl = document.getElementById('settingsPasskeyCount');
+  var listEl = document.getElementById('settingsPasskeyList');
+  var noteEl = document.getElementById('settingsPasskeySupportNote');
+  var addBtn = document.getElementById('settingsAddPasskeyBtn');
+  if (!statusEl || !countEl || !listEl || !noteEl || !addBtn) return;
+
+  if (!isWebAuthnAvailable()) {
+    addBtn.disabled = true;
+    noteEl.classList.add('is-warning');
+    noteEl.textContent = 'Auf diesem Gerät können keine Passkeys eingerichtet werden. Der Login per E-Mail und zusätzlichem Code bleibt möglich.';
+  } else {
+    addBtn.disabled = false;
+    noteEl.classList.remove('is-warning');
+    noteEl.textContent = 'Dieses Gerät unterstützt Passkeys. Du kannst zusätzliche biometrische Anmeldungen direkt hier verwalten.';
+  }
+
+  if (!data) {
+    statusEl.textContent = currentUser && currentUser.hasPasskey ? 'Aktiv' : 'Noch nicht eingerichtet';
+    statusEl.className = 'settings-info-value ' + ((currentUser && currentUser.hasPasskey) ? 'settings-status-passkey-on' : 'settings-status-passkey-off');
+    countEl.textContent = currentUser && currentUser.passkeyCount ? String(currentUser.passkeyCount) : '0';
+    listEl.innerHTML = '<div class="settings-passkey-empty">Passkeys werden geladen …</div>';
+    return;
+  }
+
+  var credentials = Array.isArray(data.credentials) ? data.credentials : [];
+  var hasPasskey = !!data.hasPasskey;
+  var passkeyCount = typeof data.passkeyCount === 'number' ? data.passkeyCount : credentials.length;
+
+  if (currentUser) {
+    currentUser.hasPasskey = hasPasskey;
+    currentUser.passkeyCount = passkeyCount;
+  }
+
+  statusEl.textContent = hasPasskey ? 'Aktiv' : 'Noch nicht eingerichtet';
+  statusEl.className = 'settings-info-value ' + (hasPasskey ? 'settings-status-passkey-on' : 'settings-status-passkey-off');
+  countEl.textContent = String(passkeyCount || 0);
+
+  if (!credentials.length) {
+    listEl.innerHTML = '<div class="settings-passkey-empty">Noch kein Passkey gespeichert. Richte hier Face ID, Fingerabdruck oder Geräte-PIN als Anmeldung ein.</div>';
+    return;
+  }
+
+  listEl.innerHTML = credentials.map(function(credential) {
+    var title = _escHtml(credential.label || 'Passkey');
+    var created = credential.created_at ? _escHtml(credential.created_at) : 'unbekannt';
+    var lastUsed = credential.last_used_at ? _escHtml(credential.last_used_at) : 'noch nicht verwendet';
+    var transports = Array.isArray(credential.transports) && credential.transports.length ? _escHtml(credential.transports.join(', ')) : 'nicht angegeben';
+    return '' +
+      '<div class="settings-passkey-item">' +
+        '<div class="settings-passkey-item-main">' +
+          '<div class="settings-passkey-item-title">' + title + '</div>' +
+          '<div class="settings-passkey-item-meta">Hinzugefügt: ' + created + '<br>Zuletzt verwendet: ' + lastUsed + '<br>Transport: ' + transports + '</div>' +
+        '</div>' +
+        '<button type="button" class="btn-outline btn-sm settings-passkey-remove" onclick="removePasskeyFromSettings(\'' + String(credential.credential_id).replace(/'/g, '\\&#39;') + '\', this)">Entfernen</button>' +
+      '</div>';
+  }).join('');
+}
+
+function refreshPasskeySettings() {
+  if (!currentUser) return Promise.resolve();
+  return loadPasskeyCredentials()
+    .then(function(data) {
+      renderPasskeySettings(data);
+      return data;
+    })
+    .catch(function(err) {
+      var listEl = document.getElementById('settingsPasskeyList');
+      if (listEl) {
+        listEl.innerHTML = '<div class="settings-passkey-empty">Passkeys konnten nicht geladen werden.</div>';
+      }
+      showToast(err && err.message ? err.message : 'Passkeys konnten nicht geladen werden.', 'error');
+    });
+}
+
+async function addPasskeyFromSettings(btn) {
+  try {
+    if (btn) _setBtnLoading(btn, true);
+    await registerPasskey('Zusätzliches Gerät');
+    var storageKey = _passkeyPromptStorageKey();
+    if (storageKey) localStorage.removeItem(storageKey);
+    await refreshPasskeySettings();
+    showToast('Neuer Passkey hinzugefügt', 'fingerprint');
+  } catch (err) {
+    showToast(err && err.message ? err.message : 'Passkey konnte nicht hinzugefügt werden.', 'error');
+  } finally {
+    if (btn) _setBtnLoading(btn, false);
+  }
+}
+
+async function removePasskeyFromSettings(credentialId, btn) {
+  if (!credentialId) return;
+  if (!confirm('Diesen Passkey wirklich entfernen?')) return;
+
+  try {
+    if (btn) _setBtnLoading(btn, true);
+    await deletePasskeyCredential(credentialId);
+    await refreshPasskeySettings();
+    showToast('Passkey entfernt', 'delete');
+  } catch (err) {
+    showToast(err && err.message ? err.message : 'Passkey konnte nicht entfernt werden.', 'error');
+  } finally {
+    if (btn) _setBtnLoading(btn, false);
+  }
 }
 
 function toggleSettingsPw(inputId, btn) {
