@@ -172,6 +172,7 @@ function eventboerse_map_role( $user ) {
 function eb_user_profile_meta( $uid ) {
     $gallery = get_user_meta( $uid, 'eb_gallery', true );
     return array(
+        'company'  => get_user_meta( $uid, 'eb_company',   true ) ?: '',
         'tagline'  => get_user_meta( $uid, 'eb_tagline',   true ) ?: '',
         'location' => get_user_meta( $uid, 'eb_location',  true ) ?: '',
         'bio'      => get_user_meta( $uid, 'eb_bio',       true ) ?: '',
@@ -728,6 +729,7 @@ function eb_settings_update( WP_REST_Request $request ) {
     $last_name  = sanitize_text_field( $params['last_name'] ?? '' );
     $email      = sanitize_email( $params['email'] ?? '' );
     $phone      = sanitize_text_field( $params['phone'] ?? '' );
+    $company    = sanitize_text_field( $params['company'] ?? '' );
 
     if ( empty( $first_name ) ) {
         return new WP_REST_Response( array( 'message' => 'Vorname ist erforderlich.' ), 400 );
@@ -751,6 +753,7 @@ function eb_settings_update( WP_REST_Request $request ) {
     ) );
 
     update_user_meta( $uid, 'eb_phone', $phone );
+    update_user_meta( $uid, 'eb_company', $company );
 
     return new WP_REST_Response( array( 'saved' => true ), 200 );
 }

@@ -2723,6 +2723,16 @@ function loadSettings() {
   document.getElementById('settingsLastName').value = parts.slice(1).join(' ') || '';
   document.getElementById('settingsEmail').value = currentUser.email || '';
   document.getElementById('settingsPhone').value = currentUser.phone || '';
+  var companyField = document.getElementById('settingsCompanyField');
+  var companyInput = document.getElementById('settingsCompany');
+  if (companyField && companyInput) {
+    if (currentUser.role === 'Dienstleister') {
+      companyField.style.display = '';
+      companyInput.value = currentUser.company || '';
+    } else {
+      companyField.style.display = 'none';
+    }
+  }
   document.getElementById('settingsRoleDisplay').textContent = currentUser.role || 'Mitglied';
   document.getElementById('settingsSinceDisplay').textContent = currentUser.since || '–';
   // Clear password fields
@@ -2858,6 +2868,8 @@ function savePersonalSettings() {
   var lastName = document.getElementById('settingsLastName').value.trim();
   var email = document.getElementById('settingsEmail').value.trim();
   var phone = document.getElementById('settingsPhone').value.trim();
+  var companyInput = document.getElementById('settingsCompany');
+  var company = companyInput ? companyInput.value.trim() : '';
 
   if (!firstName) { showToast('Vorname ist erforderlich', 'warning'); return; }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Bitte gib eine gültige E-Mail ein', 'warning'); return; }
@@ -2866,7 +2878,7 @@ function savePersonalSettings() {
     method: 'POST',
     credentials: 'same-origin',
     headers: _apiHeaders(),
-    body: JSON.stringify({ first_name: firstName, last_name: lastName, email: email, phone: phone })
+    body: JSON.stringify({ first_name: firstName, last_name: lastName, email: email, phone: phone, company: company })
   })
     .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
     .then(function(res) {
@@ -2874,6 +2886,7 @@ function savePersonalSettings() {
       currentUser.name = (firstName + ' ' + lastName).trim();
       currentUser.email = email;
       currentUser.phone = phone;
+      currentUser.company = company;
       showToast('Daten gespeichert ✓', 'success');
     })
     .catch(function() { showToast('Netzwerkfehler', 'error'); });
