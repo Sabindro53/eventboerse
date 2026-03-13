@@ -5519,8 +5519,58 @@ function showToast(message, icon = 'check_circle') {
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
+// ========== COOKIE CONSENT ==========
+function _getCookieConsent() {
+  try {
+    var raw = localStorage.getItem('eb_cookie_consent');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function _saveCookieConsent(analytics, marketing) {
+  localStorage.setItem('eb_cookie_consent', JSON.stringify({
+    necessary: true,
+    analytics: !!analytics,
+    marketing: !!marketing,
+    timestamp: new Date().toISOString()
+  }));
+  var banner = document.getElementById('cookieBanner');
+  if (banner) banner.classList.remove('show');
+}
+
+function initCookieConsent() {
+  var consent = _getCookieConsent();
+  if (consent) return; // already answered
+
+  var banner = document.getElementById('cookieBanner');
+  if (!banner) return;
+
+  // Show banner with slight delay for smooth entry
+  setTimeout(function() { banner.classList.add('show'); }, 400);
+
+  var analyticsBox = document.getElementById('cookieAnalytics');
+  var marketingBox = document.getElementById('cookieMarketing');
+
+  document.getElementById('cookieAcceptAll').addEventListener('click', function() {
+    if (analyticsBox) analyticsBox.checked = true;
+    if (marketingBox) marketingBox.checked = true;
+    _saveCookieConsent(true, true);
+  });
+
+  document.getElementById('cookieRejectOptional').addEventListener('click', function() {
+    _saveCookieConsent(false, false);
+  });
+
+  document.getElementById('cookieSaveChoice').addEventListener('click', function() {
+    _saveCookieConsent(
+      analyticsBox ? analyticsBox.checked : false,
+      marketingBox ? marketingBox.checked : false
+    );
+  });
+}
+
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '50';
+var _EB_VERSION = '51';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
@@ -5562,6 +5612,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderFeaturedGrid();
   renderHeroMarquees();
   initFooterLogoAnimation();
+  initCookieConsent();
 
   // Set min date for date inputs to today
   const today = new Date().toISOString().split('T')[0];

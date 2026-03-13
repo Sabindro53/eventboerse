@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=50" />
+  <link rel="stylesheet" href="styles.css?v=51" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -413,7 +413,7 @@
               <a href="#">AGB</a>
               <a href="#">Datenschutz</a>
               <a href="#">Impressum</a>
-              <a href="#">Cookie-Richtlinie</a>
+              <a href="#" onclick="event.preventDefault(); localStorage.removeItem('eb_cookie_consent'); initCookieConsent();">Cookie-Einstellungen</a>
             </div>
           </div>
           <div class="footer-bottom">
@@ -1813,6 +1813,56 @@
     <div class="update-sub">Eventbörse wurde aktualisiert</div>
   </div>
 
-  <script src="app.js?v=50"></script>
+  <!-- ============ COOKIE CONSENT BANNER ============ -->
+  <div class="cookie-banner" id="cookieBanner">
+    <div class="cookie-banner-inner">
+      <div class="cookie-banner-text">
+        <span class="material-icons-round cookie-banner-icon">cookie</span>
+        <div>
+          <h3>Wir verwenden Cookies</h3>
+          <p>Wir nutzen Cookies, um dir die bestmögliche Erfahrung auf Eventbörse zu bieten. Technisch notwendige Cookies sind für die Funktion der Seite erforderlich. Optionale Cookies helfen uns, die Seite zu verbessern.</p>
+        </div>
+      </div>
+      <div class="cookie-categories">
+        <label class="cookie-category">
+          <div class="cookie-cat-info">
+            <strong>Technisch notwendig</strong>
+            <span>Login, Sicherheit, Grundfunktionen</span>
+          </div>
+          <div class="cookie-toggle cookie-toggle-required">
+            <input type="checkbox" checked disabled />
+            <span class="cookie-slider"></span>
+          </div>
+        </label>
+        <label class="cookie-category">
+          <div class="cookie-cat-info">
+            <strong>Statistik &amp; Analyse</strong>
+            <span>Anonyme Nutzungsdaten zur Verbesserung</span>
+          </div>
+          <div class="cookie-toggle">
+            <input type="checkbox" id="cookieAnalytics" />
+            <span class="cookie-slider"></span>
+          </div>
+        </label>
+        <label class="cookie-category">
+          <div class="cookie-cat-info">
+            <strong>Marketing</strong>
+            <span>Personalisierte Inhalte und Werbung</span>
+          </div>
+          <div class="cookie-toggle">
+            <input type="checkbox" id="cookieMarketing" />
+            <span class="cookie-slider"></span>
+          </div>
+        </label>
+      </div>
+      <div class="cookie-actions">
+        <button class="btn-outline btn-sm" id="cookieRejectOptional">Nur notwendige</button>
+        <button class="btn-primary btn-sm" id="cookieAcceptAll">Alle akzeptieren</button>
+        <button class="btn-outline btn-sm" id="cookieSaveChoice">Auswahl speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=51"></script>
 </body>
 </html>
