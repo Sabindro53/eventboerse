@@ -5,6 +5,8 @@
  * @package Eventboerse
  */
 
+require_once get_template_directory() . '/webauthn.php';
+
 /**
  * Styles und Scripts einbinden
  */
