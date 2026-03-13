@@ -734,7 +734,7 @@ function renderFeed(tab) {
       <img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" />
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
-        <div class="feed-card-desc">${_escHtml(desc)}</div>
+        <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
       </div>
       ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + _escHtml(l.location) + '</div>' : ''}
       ${tags.length ? '<div class="feed-card-tags">' + tags.map(t => '<span class="feed-card-tag">' + _escHtml(t) + '</span>').join('') + '</div>' : ''}
@@ -1454,7 +1454,7 @@ function loadDetail(listingId) {
   document.getElementById('detailProviderImg').src = listing.providerImg;
   document.getElementById('detailProviderName').textContent = listing.providerName;
   document.getElementById('detailProviderTag').textContent = `Superhost · Seit ${listing.providerSince} auf Eventbörse`;
-  document.getElementById('detailDescription').innerHTML = _escHtml(listing.description);
+  document.getElementById('detailDescription').innerHTML = _sanitizeHtml(listing.description);
   document.getElementById('detailPrice').textContent = listing.priceLabel.split('/')[0];
 
   // Features
@@ -1563,7 +1563,7 @@ function loadProvider(providerId) {
 
   // Bio with read-more
   const bioEl = document.getElementById('providerBio');
-  bioEl.innerHTML = _escHtml(mainListing.description);
+  bioEl.innerHTML = _sanitizeHtml(mainListing.description);
   bioEl.classList.remove('bio-collapsed');
   const existingToggle = bioEl.parentElement.querySelector('.bio-toggle');
   if (existingToggle) existingToggle.remove();
@@ -5062,6 +5062,36 @@ function _escHtml(str) {
   return d.innerHTML;
 }
 
+function _stripHtml(str) {
+  if (!str) return '';
+  var doc = new DOMParser().parseFromString(str, 'text/html');
+  return doc.body.textContent || '';
+}
+
+function _sanitizeHtml(str) {
+  if (!str) return '';
+  var allowed = ['P','BR','B','STRONG','I','EM','U','UL','OL','LI','H1','H2','H3','H4','H5','H6','A','BLOCKQUOTE','SPAN','DIV','HR'];
+  var doc = new DOMParser().parseFromString(str, 'text/html');
+  function clean(parent) {
+    Array.from(parent.childNodes).forEach(function(n) {
+      if (n.nodeType === 3) return;
+      if (n.nodeType !== 1) { n.remove(); return; }
+      if (allowed.indexOf(n.tagName) === -1) { n.remove(); return; }
+      Array.from(n.attributes).forEach(function(a) {
+        if (n.tagName === 'A' && (a.name === 'href' || a.name === 'target' || a.name === 'rel')) return;
+        n.removeAttribute(a.name);
+      });
+      if (n.tagName === 'A') {
+        n.setAttribute('rel', 'noopener noreferrer');
+        n.setAttribute('target', '_blank');
+      }
+      clean(n);
+    });
+  }
+  clean(doc.body);
+  return doc.body.innerHTML;
+}
+
 function isEventPlaner() {
   return currentUser && currentUser.role === 'Event-Planer';
 }
@@ -5738,7 +5768,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '55';
+var _EB_VERSION = '56';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
