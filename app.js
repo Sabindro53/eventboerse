@@ -4579,6 +4579,33 @@ function _publicKeyCredentialToJSON(credential) {
     return credential.map(_publicKeyCredentialToJSON);
   }
   if (credential && typeof credential === 'object') {
+    // PublicKeyCredential properties are on the prototype – use getters explicitly
+    if (typeof PublicKeyCredential !== 'undefined' && credential instanceof PublicKeyCredential) {
+      var obj = {
+        id: credential.id,
+        rawId: _arrayBufferToBase64Url(credential.rawId),
+        type: credential.type
+      };
+      if (credential.response) {
+        obj.response = {};
+        if (credential.response.clientDataJSON)
+          obj.response.clientDataJSON = _arrayBufferToBase64Url(credential.response.clientDataJSON);
+        if (credential.response.attestationObject)
+          obj.response.attestationObject = _arrayBufferToBase64Url(credential.response.attestationObject);
+        if (credential.response.authenticatorData)
+          obj.response.authenticatorData = _arrayBufferToBase64Url(credential.response.authenticatorData);
+        if (credential.response.signature)
+          obj.response.signature = _arrayBufferToBase64Url(credential.response.signature);
+        if (credential.response.userHandle)
+          obj.response.userHandle = _arrayBufferToBase64Url(credential.response.userHandle);
+        if (typeof credential.response.getTransports === 'function') {
+          obj.response.transports = credential.response.getTransports();
+        }
+      }
+      if (credential.authenticatorAttachment)
+        obj.authenticatorAttachment = credential.authenticatorAttachment;
+      return obj;
+    }
     var result = {};
     Object.keys(credential).forEach(function(key) {
       result[key] = _publicKeyCredentialToJSON(credential[key]);
