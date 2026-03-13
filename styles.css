@@ -4752,6 +4752,49 @@ span.flatpickr-weekday {
   .cookie-actions { flex-direction: column; }
   .cookie-actions button { width: 100%; justify-content: center; }
 }
+
+/* ======== VERIFY MODAL ======== */
+.verify-modal-body {
+  text-align: center;
+  padding-top: 8px;
+}
+.verify-passkey-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 1.05rem;
+  padding: 16px 24px;
+}
+.verify-passkey-btn .material-icons-round {
+  font-size: 24px;
+}
+.verify-hint {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  margin-top: 10px;
+}
+.verify-email-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  padding: 16px;
+  background: var(--bg-alt);
+  border-radius: var(--radius-sm);
+}
+.verify-email-hint .material-icons-round {
+  font-size: 28px;
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.verify-email-hint p {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+}
 .my-listing-img {
   position: relative;
   flex-shrink: 0;

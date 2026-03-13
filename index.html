@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=51" />
+  <link rel="stylesheet" href="styles.css?v=52" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -1589,6 +1589,32 @@
     </div>
   </div>
 
+  <!-- E-Mail-Verifizierung Modal -->
+  <div class="modal-overlay" id="verifyModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="closeModal('verifyModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">verified</span>
+        <h2>Konto verifizieren</h2>
+        <p>Verifiziere dein Konto, um loszulegen</p>
+      </div>
+      <div class="verify-modal-body">
+        <button class="btn-primary btn-block verify-passkey-btn" id="verifyWithPasskeyBtn">
+          <span class="material-icons-round">fingerprint</span>
+          Mit Passkey verifizieren
+        </button>
+        <p class="verify-hint">Schnell &amp; sicher – nutze Face ID, Touch ID oder Windows Hello</p>
+        <div class="modal-divider"><span>oder</span></div>
+        <div class="verify-email-hint">
+          <span class="material-icons-round">mark_email_read</span>
+          <p>Wir haben dir eine E-Mail geschickt – klicke auf den Link, um dein Konto zu bestätigen.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Passwort vergessen Modal -->
   <div class="modal-overlay" id="forgotModal" onclick="closeModalOnOverlay(event)">
     <div class="modal modal-sm">
@@ -1863,6 +1889,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=51"></script>
+  <script src="app.js?v=52"></script>
 </body>
 </html>

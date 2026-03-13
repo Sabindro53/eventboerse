@@ -5216,7 +5216,13 @@ async function handleRegister(e) {
         form.reset();
         var strengthBar = document.getElementById('passwordStrength');
         if (strengthBar) strengthBar.style.display = 'none';
-        showToast('Bitte überprüfe dein E-Mail-Postfach und bestätige deine E-Mail-Adresse.', 'mark_email_read');
+        // Passkey-Verifizierung anbieten
+        _pendingVerifyToken = data.verify_token || null;
+        if (_pendingVerifyToken && isWebAuthnAvailable()) {
+          openModal('verifyModal');
+        } else {
+          showToast('Bitte überprüfe dein E-Mail-Postfach und bestätige deine E-Mail-Adresse.', 'mark_email_read');
+        }
         return;
       }
 
@@ -5247,6 +5253,64 @@ async function handleRegister(e) {
   } catch (err) {
     _setBtnLoading(submitBtn, false);
     _setFieldError('regEmail', 'Verbindungsfehler – bitte versuche es erneut.');
+  }
+}
+
+// ---- PASSKEY-VERIFIZIERUNG NACH REGISTRIERUNG ----
+var _pendingVerifyToken = null;
+
+async function verifyWithPasskey() {
+  if (!_pendingVerifyToken) {
+    showToast('Verifizierungstoken fehlt. Bitte melde dich mit E-Mail-Code an.', 'error');
+    closeModal('verifyModal');
+    return;
+  }
+
+  var btn = document.getElementById('verifyWithPasskeyBtn');
+  try {
+    if (btn) _setBtnLoading(btn, true);
+
+    // 1. Optionen holen
+    var optResp = await fetch(_apiUrl('webauthn/verify-options'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ verify_token: _pendingVerifyToken })
+    });
+    var optData = await optResp.json();
+    if (!optResp.ok) throw new Error(optData.message || 'Passkey-Optionen konnten nicht geladen werden.');
+
+    // 2. Passkey erstellen (Browser-Dialog)
+    var credential = await navigator.credentials.create({
+      publicKey: _preparePublicKeyOptions(optData.publicKey)
+    });
+
+    // 3. Registrierung + Verifizierung abschließen
+    var regResp = await fetch(_apiUrl('webauthn/verify-register'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        verify_token: _pendingVerifyToken,
+        credential: _publicKeyCredentialToJSON(credential)
+      })
+    });
+    var regData = await regResp.json();
+    if (!regResp.ok) throw new Error(regData.message || 'Verifizierung fehlgeschlagen.');
+
+    // Erfolg – einloggen
+    _pendingVerifyToken = null;
+    _applyAuthenticatedUser(regData);
+    closeModal('verifyModal');
+    applyLogin();
+    showToast('Konto verifiziert – willkommen bei Eventbörse!', 'verified');
+  } catch (err) {
+    if (btn) _setBtnLoading(btn, false);
+    var msg = err && err.message ? err.message : 'Passkey-Verifizierung fehlgeschlagen.';
+    if (msg.indexOf('denied') >= 0 || msg.indexOf('cancel') >= 0 || msg.indexOf('abort') >= 0 || msg.indexOf('NotAllowed') >= 0) {
+      showToast('Passkey-Vorgang abgebrochen.', 'info');
+    } else {
+      showToast(msg, 'error');
+    }
   }
 }
 
@@ -5570,7 +5634,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '51';
+var _EB_VERSION = '52';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
@@ -5613,6 +5677,10 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHeroMarquees();
   initFooterLogoAnimation();
   initCookieConsent();
+
+  // Passkey-Verifizierung Button
+  var vpkBtn = document.getElementById('verifyWithPasskeyBtn');
+  if (vpkBtn) vpkBtn.addEventListener('click', verifyWithPasskey);
 
   // Set min date for date inputs to today
   const today = new Date().toISOString().split('T')[0];

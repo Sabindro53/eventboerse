@@ -393,10 +393,14 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     $mail_sent  = wp_mail( $email, $subject, $message, $headers );
 
     // NICHT einloggen – erst nach Verifizierung
+    $verify_passkey_token = bin2hex( random_bytes( 32 ) );
+    set_transient( 'eb_verify_pk_' . hash( 'sha256', $verify_passkey_token ), $user_id, 10 * MINUTE_IN_SECONDS );
+
     return new WP_REST_Response( array(
         'pending_verification' => true,
         'message'              => 'Registrierung erfolgreich! Bitte überprüfe dein E-Mail-Postfach und bestätige deine E-Mail-Adresse.',
         'mail_sent'            => $mail_sent,
+        'verify_token'         => $verify_passkey_token,
     ), 200 );
 }
 
@@ -900,6 +904,119 @@ function eb_webauthn_register_finish( WP_REST_Request $request ) {
         'hasPasskey'   => true,
         'passkeyCount' => count( eb_webauthn_get_credentials( $uid ) ),
     ), 200 );
+}
+
+/* ---------- PASSKEY-VERIFIZIERUNG (für neue Registrierungen) ---------- */
+function eb_webauthn_verify_options( WP_REST_Request $request ) {
+    $params = $request->get_json_params();
+    $token  = sanitize_text_field( $params['verify_token'] ?? '' );
+
+    if ( empty( $token ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Verifizierungstoken.' ), 400 );
+    }
+
+    $tk_key  = 'eb_verify_pk_' . hash( 'sha256', $token );
+    $user_id = get_transient( $tk_key );
+    if ( false === $user_id ) {
+        return new WP_REST_Response( array( 'message' => 'Verifizierungstoken abgelaufen. Bitte melde dich mit E-Mail-Code an.' ), 400 );
+    }
+
+    $user = get_userdata( (int) $user_id );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
+
+    $challenge = eb_webauthn_generate_challenge();
+    eb_webauthn_store_challenge( 'register', $user_id, $challenge, 300 );
+
+    return new WP_REST_Response( array(
+        'publicKey' => array(
+            'challenge'              => eb_base64url_encode( $challenge ),
+            'rp'                     => array(
+                'name' => 'Eventbörse',
+                'id'   => eb_webauthn_rp_id(),
+            ),
+            'user'                   => array(
+                'id'          => eb_base64url_encode( (string) $user_id ),
+                'name'        => $user->user_email,
+                'displayName' => trim( $user->first_name . ' ' . $user->last_name ) ?: $user->display_name,
+            ),
+            'pubKeyCredParams'       => array(
+                array( 'type' => 'public-key', 'alg' => -7 ),
+            ),
+            'timeout'                => 60000,
+            'attestation'            => 'none',
+            'authenticatorSelection' => array(
+                'residentKey'      => 'required',
+                'userVerification' => 'required',
+            ),
+            'excludeCredentials'     => array(),
+            'extensions'             => array( 'credProps' => true ),
+        ),
+    ), 200 );
+}
+
+function eb_webauthn_verify_finish( WP_REST_Request $request ) {
+    $params = $request->get_json_params();
+    $token  = sanitize_text_field( $params['verify_token'] ?? '' );
+
+    if ( empty( $token ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Verifizierungstoken.' ), 400 );
+    }
+
+    $tk_key  = 'eb_verify_pk_' . hash( 'sha256', $token );
+    $user_id = get_transient( $tk_key );
+    if ( false === $user_id ) {
+        return new WP_REST_Response( array( 'message' => 'Verifizierungstoken abgelaufen. Bitte melde dich mit E-Mail-Code an.' ), 400 );
+    }
+
+    $user = get_userdata( (int) $user_id );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
+
+    $challenge = eb_webauthn_consume_challenge( 'register', $user_id );
+    if ( false === $challenge ) {
+        return new WP_REST_Response( array( 'message' => 'Die Passkey-Anfrage ist abgelaufen. Bitte erneut versuchen.' ), 400 );
+    }
+
+    $verification = eb_webauthn_verify_registration_response(
+        $params['credential'] ?? array(),
+        $challenge,
+        eb_webauthn_origin(),
+        eb_webauthn_rp_id()
+    );
+
+    if ( is_wp_error( $verification ) ) {
+        return new WP_REST_Response( array( 'message' => $verification->get_error_message() ), 400 );
+    }
+
+    $label = 'Passkey ' . wp_date( 'd.m.Y H:i' );
+    $saved = eb_webauthn_add_credential( $user_id, array(
+        'credential_id'      => $verification['credential_id_b64'],
+        'credential_id_b64'  => $verification['credential_id_b64'],
+        'public_key_pem'     => $verification['public_key_pem'],
+        'sign_count'         => $verification['sign_count'],
+        'label'              => $label,
+        'transports'         => $verification['transports'],
+        'attestation_format' => $verification['aaguid_attestation'],
+        'created_at'         => current_time( 'mysql' ),
+        'last_used_at'       => current_time( 'mysql' ),
+    ) );
+
+    if ( is_wp_error( $saved ) ) {
+        return new WP_REST_Response( array( 'message' => $saved->get_error_message() ), 400 );
+    }
+
+    // Verifizierung + Token aufräumen
+    update_user_meta( $user_id, 'eb_email_verified', '1' );
+    delete_user_meta( $user_id, 'eb_email_verify_token' );
+    delete_transient( $tk_key );
+
+    // Einloggen
+    wp_set_auth_cookie( $user_id, true, is_ssl() );
+
+    return new WP_REST_Response( eb_auth_user_payload( $user ), 200 );
 }
 
 function eb_webauthn_login_options( WP_REST_Request $request ) {
@@ -1438,6 +1555,18 @@ function eb_register_extra_routes() {
     ) );
 
     /* ---------- PASSKEY / WEBAUTHN ---------- */
+    register_rest_route( 'eventboerse/v1', '/webauthn/verify-options', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_webauthn_verify_options',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/webauthn/verify-register', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_webauthn_verify_finish',
+        'permission_callback' => '__return_true',
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/webauthn/register-options', array(
         'methods'             => 'POST',
         'callback'            => 'eb_webauthn_register_options',
