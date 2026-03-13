@@ -1026,7 +1026,7 @@ function eb_otp_send( WP_REST_Request $request ) {
 
     $user = get_user_by( 'email', $email );
     if ( ! $user ) {
-        return new WP_REST_Response( array( 'message' => 'Kein Konto mit dieser E-Mail gefunden.' ), 401 );
+        return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
     }
 
     $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
@@ -1043,7 +1043,7 @@ function eb_otp_send( WP_REST_Request $request ) {
             return new WP_REST_Response( array( 'message' => 'Bitte starte die Anmeldung erneut.' ), 400 );
         }
     } elseif ( ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
-        return new WP_REST_Response( array( 'message' => 'E-Mail oder Passwort ist falsch.' ), 401 );
+        return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
     }
 
     $code = (string) random_int( 100000, 999999 );
