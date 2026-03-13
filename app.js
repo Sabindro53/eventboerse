@@ -4046,7 +4046,7 @@ function renderMyListings() {
       emptyBtn.setAttribute('onclick', "navigateTo('create-listing')");
     }
 
-    var events = DEMO_EVENTS;
+    var events = isLoggedIn ? [] : DEMO_EVENTS;
     if (events.length === 0) {
       grid.style.display = 'none';
       emptyState.style.display = 'flex';
@@ -5768,7 +5768,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '56';
+var _EB_VERSION = '57';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
