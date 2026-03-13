@@ -1014,6 +1014,7 @@ function eb_webauthn_verify_finish( WP_REST_Request $request ) {
     delete_transient( $tk_key );
 
     // Einloggen
+    wp_set_current_user( $user_id );
     wp_set_auth_cookie( $user_id, true, is_ssl() );
 
     return new WP_REST_Response( eb_auth_user_payload( $user ), 200 );
@@ -1264,7 +1265,9 @@ function eb_otp_verify( WP_REST_Request $request ) {
    WordPress core's rest_cookie_check_errors() rejects requests when the
    nonce doesn't match the logged-in cookie session (e.g. after login via
    REST). We handle this by verifying the nonce ourselves against the
-   cookie-authenticated user.
+   cookie-authenticated user. If the nonce is invalid, we downgrade to
+   anonymous (matching WordPress default behaviour) so that public
+   endpoints (e.g. passkey-login) are not blocked by a stale cookie.
    ===================================================================== */
 add_filter( 'rest_authentication_errors', function( $result ) {
     // If another auth handler already decided, respect it.
@@ -1290,12 +1293,11 @@ add_filter( 'rest_authentication_errors', function( $result ) {
         return true;
     }
 
-    // Nonce is missing or invalid for this user/cookie.
-    return new WP_Error(
-        'rest_cookie_invalid_nonce',
-        'Cookie-Prüfung fehlgeschlagen.',
-        array( 'status' => 403 )
-    );
+    // Nonce is missing or invalid → downgrade to anonymous so that
+    // public endpoints still work.  Protected endpoints will be denied
+    // by their own permission_callback (is_user_logged_in → false).
+    wp_set_current_user( 0 );
+    return $result;
 }, 100 );
 
 /* =====================================================================
