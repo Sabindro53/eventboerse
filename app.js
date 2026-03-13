@@ -507,6 +507,14 @@ const BLOCKED_PATTERNS = [
 
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
+  // Pages that require login — redirect to login modal immediately
+  var loginRequired = ['create-listing', 'messages', 'profile', 'settings'];
+  if (!isLoggedIn && loginRequired.indexOf(page) !== -1) {
+    openModal('loginModal');
+    showToast('Bitte melde dich an, um diese Funktion zu nutzen.', 'info');
+    return;
+  }
+
   // Hide user menu
   document.getElementById('userMenu').classList.remove('show');
 
@@ -5795,7 +5803,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '60';
+var _EB_VERSION = '61';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
