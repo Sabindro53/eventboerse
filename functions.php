@@ -2034,6 +2034,7 @@ function eb_reviews_list( WP_REST_Request $request ) {
         if ( ! $name ) $name = $r->display_name;
         $reviews[] = array(
             'id'          => (int) $r->id,
+            'user_id'     => (int) $r->uid,
             'rating'      => (int) $r->rating,
             'text'        => $r->body,
             'comment'     => $r->body,
@@ -2496,6 +2497,7 @@ function eb_provider_profile( WP_REST_Request $request ) {
         $rname  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
         $rphoto = get_user_meta( $r->uid, 'eb_photo_url', true );
         $formatted_reviews[] = array(
+            'user_id'      => (int) $r->uid,
             'rating'       => (int) $r->rating,
             'text'         => $r->body,
             'name'         => $rname ?: $r->display_name,

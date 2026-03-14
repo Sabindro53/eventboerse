@@ -1657,9 +1657,9 @@ function loadProvider(providerId) {
             var rating = parseInt(r.rating) || 0;
             var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + _escHtml(r.listingTitle) + '</div>' : '';
             return '<div class="review-card">' +
-              '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar" />' +
+              '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
               '<div class="review-content">' +
-                '<div class="review-top"><strong>' + _escHtml(r.name || 'Anonym') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
+                '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || 'Anonym') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
                 '<div class="review-stars">' + _renderStars(rating) + '</div>' +
                 ltHtml +
                 '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
@@ -2569,9 +2569,9 @@ function renderDashboard() {
       if (profile.reviews && profile.reviews.length > 0) {
         reviewsDisplay.innerHTML = profile.reviews.slice(0, 4).map(function(r) {
           return '<div class="review-card">' +
-            '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar" />' +
+            '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
-              '<div class="review-top"><strong>' + _escHtml(r.name || '') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
+              '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || '') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
               '<div class="review-stars">' + _renderStars(r.rating || 0) + '</div>' +
               '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
             '</div></div>';
@@ -4702,10 +4702,10 @@ function loadDetailReviews(dbListingId) {
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
           return '<div class="review-card">' +
-            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(displayName) + '" class="review-avatar" />' +
+            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(displayName) + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
               '<div class="review-top">' +
-                '<strong>' + _escHtml(displayName) + '</strong>' +
+                '<strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(displayName) + '</strong>' +
                 '<span>' + _escHtml(date) + '</span>' +
               '</div>' +
               '<div class="review-stars">' + _renderStars(rating) + '</div>' +
@@ -6066,7 +6066,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '78';
+var _EB_VERSION = '79';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
