@@ -1464,6 +1464,12 @@ function eb_register_extra_routes() {
         ),
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/reviews/(?P<id>\d+)', array(
+        'methods'             => 'DELETE',
+        'callback'            => 'eb_review_delete',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
     /* ---------- CONVERSATIONS / MESSAGES ---------- */
     register_rest_route( 'eventboerse/v1', '/conversations', array(
         array(
@@ -2101,6 +2107,37 @@ function eb_reviews_create( WP_REST_Request $request ) {
     ), array( 'id' => $listing_id ) );
 
     return new WP_REST_Response( array( 'saved' => true, 'rating_avg' => round( $stats->avg_r, 1 ), 'review_count' => (int) $stats->cnt ), 201 );
+}
+
+function eb_review_delete( WP_REST_Request $request ) {
+    global $wpdb;
+    $review_id = absint( $request['id'] );
+    $uid       = get_current_user_id();
+
+    $review = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, listing_id, user_id FROM {$wpdb->prefix}eb_reviews WHERE id = %d", $review_id
+    ) );
+    if ( ! $review ) {
+        return new WP_REST_Response( array( 'message' => 'Bewertung nicht gefunden.' ), 404 );
+    }
+    if ( (int) $review->user_id !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst nur deine eigenen Bewertungen löschen.' ), 403 );
+    }
+
+    $wpdb->delete( $wpdb->prefix . 'eb_reviews', array( 'id' => $review_id ) );
+
+    // Recalculate listing rating
+    $listing_id = (int) $review->listing_id;
+    $stats = $wpdb->get_row( $wpdb->prepare(
+        "SELECT AVG(rating) as avg_r, COUNT(*) as cnt FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d",
+        $listing_id
+    ) );
+    $wpdb->update( $wpdb->prefix . 'eb_listings', array(
+        'rating_avg'   => $stats->cnt > 0 ? round( $stats->avg_r, 2 ) : 0,
+        'review_count' => (int) $stats->cnt,
+    ), array( 'id' => $listing_id ) );
+
+    return new WP_REST_Response( array( 'deleted' => true ), 200 );
 }
 
 /* =====================================================================

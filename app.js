@@ -1656,10 +1656,12 @@ function loadProvider(providerId) {
             var avatar = r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.name || 'user'));
             var rating = parseInt(r.rating) || 0;
             var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + _escHtml(r.listingTitle) + '</div>' : '';
+            var canDelete = currentUser && r.user_id && r.user_id === currentUser.id;
+            var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" style="background:none;border:none;color:var(--text-light);cursor:pointer;padding:4px;margin-left:auto;" title="Löschen"><span class="material-icons-round" style="font-size:18px;">delete</span></button>' : '';
             return '<div class="review-card">' +
               '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
               '<div class="review-content">' +
-                '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || 'Anonym') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
+                '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || 'Anonym') + '</strong><span>' + _escHtml(r.date || '') + '</span>' + deleteBtn + '</div>' +
                 '<div class="review-stars">' + _renderStars(rating) + '</div>' +
                 ltHtml +
                 '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
@@ -2568,10 +2570,12 @@ function renderDashboard() {
       var reviewsDisplay = document.getElementById('profileReviewsDisplay');
       if (profile.reviews && profile.reviews.length > 0) {
         reviewsDisplay.innerHTML = profile.reviews.slice(0, 4).map(function(r) {
+          var canDelete = currentUser && r.user_id && r.user_id === currentUser.id;
+          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" style="background:none;border:none;color:var(--text-light);cursor:pointer;padding:4px;margin-left:auto;" title="Löschen"><span class="material-icons-round" style="font-size:18px;">delete</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
-              '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || '') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
+              '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || '') + '</strong><span>' + _escHtml(r.date || '') + '</span>' + deleteBtn + '</div>' +
               '<div class="review-stars">' + _renderStars(r.rating || 0) + '</div>' +
               '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
             '</div></div>';
@@ -4701,12 +4705,15 @@ function loadDetailReviews(dbListingId) {
           var displayName = r.author_name || r.name || 'Anonym';
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
+          var canDelete = currentUser && r.user_id && r.user_id === currentUser.id;
+          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" style="background:none;border:none;color:var(--text-light);cursor:pointer;padding:4px;margin-left:auto;" title="Löschen"><span class="material-icons-round" style="font-size:18px;">delete</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(displayName) + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
               '<div class="review-top">' +
                 '<strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(displayName) + '</strong>' +
                 '<span>' + _escHtml(date) + '</span>' +
+                deleteBtn +
               '</div>' +
               '<div class="review-stars">' + _renderStars(rating) + '</div>' +
               '<p class="review-text">' + _escHtml(r.comment || r.text || '') + '</p>' +
@@ -4723,6 +4730,26 @@ function loadDetailReviews(dbListingId) {
       }
     })
     .catch(function() { /* API failed — keep existing listing data, don't override */ });
+}
+
+function deleteReview(reviewId) {
+  if (!confirm('Bewertung wirklich löschen?')) return;
+  fetch(_apiUrl('reviews/' + reviewId), {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+  .then(function(res) {
+    if (!res.ok) { showToast(res.data.message || 'Löschen fehlgeschlagen', 'error'); return; }
+    showToast('Bewertung gelöscht', 'success');
+    // Refresh reviews on current page
+    if (currentListing) {
+      var dbId = currentListing._dbId || (currentListing._fromDb ? currentListing.id - 10000 : null);
+      if (dbId) loadDetailReviews(dbId);
+    }
+  })
+  .catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
 }
 
 function getAllReviewsForListing(listingId) {
@@ -6066,7 +6093,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '79';
+var _EB_VERSION = '80';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
