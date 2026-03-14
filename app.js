@@ -563,7 +563,17 @@ function navigateTo(page, data, skipHistory) {
       renderChatList();
       break;
     case 'profile':
-      renderDashboard();
+      if (currentUser) {
+        // Show provider page for own profile (same nice layout)
+        document.getElementById('page-profile').classList.remove('active');
+        var provPage = document.getElementById('page-provider');
+        if (provPage) { provPage.classList.add('active'); currentPage = 'provider'; }
+        loadDbListings().then(function() { loadProvider(currentUser.id); });
+        // Highlight mobile nav profile button
+        document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
+        var profBtn = document.querySelector('.mobile-nav button[data-page="profile"]');
+        if (profBtn) profBtn.classList.add('active');
+      }
       break;
     case 'create-listing':
       if (!window._isEditNavigation) {
@@ -1692,9 +1702,31 @@ function loadProvider(providerId) {
       '</div>';
   }
 
-  // Reset follow button
-  document.getElementById('followIcon').textContent = 'person_add';
-  document.getElementById('followLabel').textContent = 'Folgen';
+  // Action bar: show edit buttons for own profile, else message/follow
+  var isOwnProviderProfile = currentUser && pid === currentUser.id;
+  var actionBar = document.querySelector('.provider-action-bar');
+  if (actionBar) {
+    if (isOwnProviderProfile) {
+      actionBar.innerHTML =
+        '<button class="btn-primary" onclick="navigateTo(\'settings\')">' +
+          '<span class="material-icons-round">edit</span> Profil bearbeiten' +
+        '</button>' +
+        '<button class="btn-outline" onclick="shareProvider()">' +
+          '<span class="material-icons-round">share</span> Teilen' +
+        '</button>';
+    } else {
+      actionBar.innerHTML =
+        '<button class="btn-primary" onclick="startChatWithProvider()">' +
+          '<span class="material-icons-round">chat</span> Nachricht senden' +
+        '</button>' +
+        '<button class="btn-outline" onclick="toggleFollow()">' +
+          '<span class="material-icons-round" id="followIcon">person_add</span> <span id="followLabel">Folgen</span>' +
+        '</button>' +
+        '<button class="btn-outline" onclick="shareProvider()">' +
+          '<span class="material-icons-round">share</span> Teilen' +
+        '</button>';
+    }
+  }
 
   // Reset to first tab
   switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
@@ -6131,7 +6163,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '83';
+var _EB_VERSION = '84';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
