@@ -4203,9 +4203,13 @@ function renderMyListings() {
     if (isLoggedIn) {
       if (previewBannerEP) previewBannerEP.style.display = 'none';
       fetch(_apiUrl('my-listings'), { credentials: 'same-origin', headers: _apiHeaders() })
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+          if (!r.ok) throw new Error('API ' + r.status);
+          return r.json();
+        })
         .then(function(data) {
-          var myEvents = (data || []).map(function(l) {
+          if (!Array.isArray(data)) { renderEventGrid([]); return; }
+          var myEvents = data.map(function(l) {
             return {
               id: l.id + 10000,
               _dbId: l.id,
@@ -4226,7 +4230,9 @@ function renderMyListings() {
           });
           renderEventGrid(myEvents);
         })
-        .catch(function() {
+        .catch(function(err) {
+          console.error('my-events fetch error:', err);
+          showToast('Events konnten nicht geladen werden. Bitte Seite neu laden.', 'error');
           renderEventGrid([]);
         });
     } else {
@@ -4363,9 +4369,13 @@ function renderMyListings() {
     if (isLoggedIn) {
       if (previewBanner) previewBanner.style.display = 'none';
       fetch(_apiUrl('my-listings'), { credentials: 'same-origin', headers: _apiHeaders() })
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+          if (!r.ok) throw new Error('API ' + r.status);
+          return r.json();
+        })
         .then(function(data) {
-          var myListings = (data || []).map(function(l) {
+          if (!Array.isArray(data)) { renderMyGrid([]); return; }
+          var myListings = data.map(function(l) {
             return {
               id: l.id + 10000,
               _dbId: l.id,
@@ -4386,7 +4396,9 @@ function renderMyListings() {
           });
           renderMyGrid(myListings);
         })
-        .catch(function() {
+        .catch(function(err) {
+          console.error('my-listings fetch error:', err);
+          showToast('Inserate konnten nicht geladen werden. Bitte Seite neu laden.', 'error');
           renderMyGrid([]);
         });
     } else {
@@ -6054,7 +6066,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '77';
+var _EB_VERSION = '78';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
