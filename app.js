@@ -1656,8 +1656,10 @@ function loadProvider(providerId) {
             var avatar = r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.name || 'user'));
             var rating = parseInt(r.rating) || 0;
             var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + _escHtml(r.listingTitle) + '</div>' : '';
-            var canDelete = currentUser && r.user_id && r.user_id === currentUser.id;
-            var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" style="background:none;border:none;color:var(--text-light);cursor:pointer;padding:4px;margin-left:auto;" title="Löschen"><span class="material-icons-round" style="font-size:18px;">delete</span></button>' : '';
+            var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
+            var isProviderOwner = currentUser && pid && pid === currentUser.id;
+            var canDelete = isOwnReview || isProviderOwner;
+            var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
             return '<div class="review-card">' +
               '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
               '<div class="review-content">' +
@@ -2570,8 +2572,10 @@ function renderDashboard() {
       var reviewsDisplay = document.getElementById('profileReviewsDisplay');
       if (profile.reviews && profile.reviews.length > 0) {
         reviewsDisplay.innerHTML = profile.reviews.slice(0, 4).map(function(r) {
-          var canDelete = currentUser && r.user_id && r.user_id === currentUser.id;
-          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" style="background:none;border:none;color:var(--text-light);cursor:pointer;padding:4px;margin-left:auto;" title="Löschen"><span class="material-icons-round" style="font-size:18px;">delete</span></button>' : '';
+          var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
+          var isProfileOwner = true; // Profile page = own profile, always owner
+          var canDelete = isOwnReview || isProfileOwner;
+          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
@@ -4705,8 +4709,10 @@ function loadDetailReviews(dbListingId) {
           var displayName = r.author_name || r.name || 'Anonym';
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
-          var canDelete = currentUser && r.user_id && r.user_id === currentUser.id;
-          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" style="background:none;border:none;color:var(--text-light);cursor:pointer;padding:4px;margin-left:auto;" title="Löschen"><span class="material-icons-round" style="font-size:18px;">delete</span></button>' : '';
+          var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
+          var isListingOwner = currentUser && currentListing && currentListing.providerId === currentUser.id;
+          var canDelete = isOwnReview || isListingOwner;
+          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(displayName) + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
@@ -4733,23 +4739,48 @@ function loadDetailReviews(dbListingId) {
 }
 
 function deleteReview(reviewId) {
-  if (!confirm('Bewertung wirklich löschen?')) return;
-  fetch(_apiUrl('reviews/' + reviewId), {
-    method: 'DELETE',
-    credentials: 'same-origin',
-    headers: _apiHeaders()
-  })
-  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-  .then(function(res) {
-    if (!res.ok) { showToast(res.data.message || 'Löschen fehlgeschlagen', 'error'); return; }
-    showToast('Bewertung gelöscht', 'success');
-    // Refresh reviews on current page
-    if (currentListing) {
-      var dbId = currentListing._dbId || (currentListing._fromDb ? currentListing.id - 10000 : null);
-      if (dbId) loadDetailReviews(dbId);
-    }
-  })
-  .catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
+  _showConfirmDialog('Bewertung löschen', 'Möchtest du diese Bewertung wirklich löschen? Das kann nicht rückgängig gemacht werden.', 'Löschen', function() {
+    fetch(_apiUrl('reviews/' + reviewId), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: _apiHeaders()
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) { showToast(res.data.message || 'Löschen fehlgeschlagen', 'error'); return; }
+      showToast('Bewertung gelöscht', 'success');
+      // Refresh reviews on current page
+      if (currentListing) {
+        var dbId = currentListing._dbId || (currentListing._fromDb ? currentListing.id - 10000 : null);
+        if (dbId) loadDetailReviews(dbId);
+      }
+      // Refresh provider page reviews if visible
+      var provPage = document.getElementById('page-provider');
+      if (provPage && provPage.classList.contains('active')) {
+        var puidEl = document.getElementById('providerUserId');
+        if (puidEl && puidEl.value) loadProvider(parseInt(puidEl.value));
+      }
+    })
+    .catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
+  });
+}
+
+function _showConfirmDialog(title, message, confirmText, onConfirm) {
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML =
+    '<div style="background:var(--bg);border-radius:var(--radius-lg);padding:28px;max-width:380px;width:90%;box-shadow:var(--shadow-xl);">' +
+      '<h3 style="font-size:1.1rem;color:var(--dark);margin-bottom:8px;">' + _escHtml(title) + '</h3>' +
+      '<p style="font-size:0.9rem;color:var(--text-light);line-height:1.5;margin-bottom:20px;">' + _escHtml(message) + '</p>' +
+      '<div style="display:flex;gap:12px;justify-content:flex-end;">' +
+        '<button id="_confirmCancel" style="padding:10px 20px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);cursor:pointer;font-size:0.9rem;">Abbrechen</button>' +
+        '<button id="_confirmOk" style="padding:10px 20px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;cursor:pointer;font-size:0.9rem;font-weight:600;">' + _escHtml(confirmText) + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#_confirmCancel').onclick = function() { overlay.remove(); };
+  overlay.querySelector('#_confirmOk').onclick = function() { overlay.remove(); onConfirm(); };
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 }
 
 function getAllReviewsForListing(listingId) {
@@ -6093,7 +6124,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '80';
+var _EB_VERSION = '81';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

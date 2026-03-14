@@ -2120,8 +2120,12 @@ function eb_review_delete( WP_REST_Request $request ) {
     if ( ! $review ) {
         return new WP_REST_Response( array( 'message' => 'Bewertung nicht gefunden.' ), 404 );
     }
-    if ( (int) $review->user_id !== $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Du kannst nur deine eigenen Bewertungen löschen.' ), 403 );
+    // Allow deletion if user is review author OR listing owner
+    $listing_owner = $wpdb->get_var( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d", $review->listing_id
+    ) );
+    if ( (int) $review->user_id !== $uid && (int) $listing_owner !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst diese Bewertung nicht löschen.' ), 403 );
     }
 
     $wpdb->delete( $wpdb->prefix . 'eb_reviews', array( 'id' => $review_id ) );
