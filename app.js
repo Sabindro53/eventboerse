@@ -1663,10 +1663,11 @@ function loadProvider(providerId) {
             return '<div class="review-card">' +
               '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
               '<div class="review-content">' +
-                '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || 'Anonym') + '</strong><span>' + _escHtml(r.date || '') + '</span>' + deleteBtn + '</div>' +
+                '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || 'Anonym') + '</strong>' + deleteBtn + '</div>' +
                 '<div class="review-stars">' + _renderStars(rating) + '</div>' +
                 ltHtml +
                 '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
+                '<span class="review-date">' + _escHtml(r.date || '') + '</span>' +
               '</div></div>';
           }).join('');
           // Update provider stats with real data
@@ -2579,9 +2580,10 @@ function renderDashboard() {
           return '<div class="review-card">' +
             '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
-              '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || '') + '</strong><span>' + _escHtml(r.date || '') + '</span>' + deleteBtn + '</div>' +
+              '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || '') + '</strong>' + deleteBtn + '</div>' +
               '<div class="review-stars">' + _renderStars(r.rating || 0) + '</div>' +
               '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
+              '<span class="review-date">' + _escHtml(r.date || '') + '</span>' +
             '</div></div>';
         }).join('');
       }
@@ -4718,11 +4720,11 @@ function loadDetailReviews(dbListingId) {
             '<div class="review-content">' +
               '<div class="review-top">' +
                 '<strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(displayName) + '</strong>' +
-                '<span>' + _escHtml(date) + '</span>' +
                 deleteBtn +
               '</div>' +
               '<div class="review-stars">' + _renderStars(rating) + '</div>' +
               '<p class="review-text">' + _escHtml(r.comment || r.text || '') + '</p>' +
+              '<span class="review-date">' + _escHtml(date) + '</span>' +
             '</div>' +
           '</div>';
         }).join('');
@@ -4815,10 +4817,10 @@ function renderDetailReviews(listing) {
         '<div class="review-content">' +
           '<div class="review-top">' +
             '<strong>' + _escHtml(r.name) + '</strong>' +
-            '<span>' + _escHtml(r.date) + '</span>' +
           '</div>' +
           '<div class="review-stars">' + _renderStars(r.rating) + '</div>' +
           '<p class="review-text">' + _escHtml(r.text) + '</p>' +
+          '<span class="review-date">' + _escHtml(r.date) + '</span>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -6124,7 +6126,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '81';
+var _EB_VERSION = '82';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
