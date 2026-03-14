@@ -6,7 +6,7 @@
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
-    id: 1, providerId: 1,
+    id: 1, providerId: 90001,
     title: 'DJ SoundMaster Berlin',
     category: 'dj', categoryLabel: 'DJ & Musik',
     location: 'Berlin', region: 'Berlin & Brandenburg',
@@ -32,7 +32,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 2, providerId: 2,
+    id: 2, providerId: 90002,
     title: 'Gourmet Catering Hamburg',
     category: 'catering', categoryLabel: 'Catering',
     location: 'Hamburg', region: 'Hamburg & Norddeutschland',
@@ -58,7 +58,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 3, providerId: 3,
+    id: 3, providerId: 90003,
     title: 'Blumenträume München',
     category: 'florist', categoryLabel: 'Floristik',
     location: 'München', region: 'München & Oberbayern',
@@ -84,7 +84,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 4, providerId: 4,
+    id: 4, providerId: 90004,
     title: 'LightFX Eventtechnik',
     category: 'licht', categoryLabel: 'Licht & Technik',
     location: 'Frankfurt', region: 'Rhein-Main',
@@ -108,7 +108,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 5, providerId: 5,
+    id: 5, providerId: 90005,
     title: 'Pyroshock Feuerwerk',
     category: 'pyro', categoryLabel: 'Pyrotechnik',
     location: 'Düsseldorf', region: 'NRW',
@@ -132,7 +132,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 6, providerId: 6,
+    id: 6, providerId: 90006,
     title: 'Fotokunst Berlin',
     category: 'foto', categoryLabel: 'Fotografie',
     location: 'Berlin', region: 'Berlin & Brandenburg',
@@ -156,7 +156,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 7, providerId: 7,
+    id: 7, providerId: 90007,
     title: 'EventLocation Schloss am See',
     category: 'location', categoryLabel: 'Location',
     location: 'Starnberg', region: 'München & Oberbayern',
@@ -180,7 +180,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 8, providerId: 8,
+    id: 8, providerId: 90008,
     title: 'DekoTraum Eventdesign',
     category: 'deko', categoryLabel: 'Dekoration',
     location: 'Köln', region: 'NRW',
@@ -204,7 +204,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 9, providerId: 9,
+    id: 9, providerId: 90009,
     title: 'Eventplanung Meier & Co.',
     category: 'planung', categoryLabel: 'Eventplanung',
     location: 'Stuttgart', region: 'Baden-Württemberg',
@@ -228,7 +228,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 10, providerId: 10,
+    id: 10, providerId: 90010,
     title: 'MC Stefan – Moderation',
     category: 'moderation', categoryLabel: 'Moderation',
     location: 'München', region: 'Bayern',
@@ -252,7 +252,7 @@ const LISTINGS = [
     negotiable: true
   },
   {
-    id: 11, providerId: 11,
+    id: 11, providerId: 90011,
     title: 'Pärchen Spa Abend',
     category: 'wellness', categoryLabel: 'Wellness & Spa',
     location: 'Düsseldorf', region: 'Nordrhein-Westfalen',
@@ -5830,7 +5830,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '65';
+var _EB_VERSION = '66';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
