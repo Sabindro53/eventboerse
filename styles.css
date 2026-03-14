@@ -274,7 +274,7 @@ img { display: block; max-width: 100%; }
 }
 .nav-avatar:hover { box-shadow: var(--shadow-md); }
 .nav-avatar .material-icons-round { font-size: 18px; color: var(--text-light); }
-.nav-avatar img { width: 32px; height: 32px; border-radius: 50%; }
+.nav-avatar img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
 
 /* User Menu */
 .user-menu {
