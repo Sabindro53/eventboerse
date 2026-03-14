@@ -1650,7 +1650,7 @@ function loadProvider(providerId) {
               '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar" />' +
               '<div class="review-content">' +
                 '<div class="review-top"><strong>' + _escHtml(r.name || 'Anonym') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
-                '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
+                '<div class="review-stars">' + _renderStars(rating) + '</div>' +
                 ltHtml +
                 '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
               '</div></div>';
@@ -2548,7 +2548,11 @@ function renderDashboard() {
       document.getElementById('profileStatViews').textContent = (s.views || 0).toLocaleString('de-DE');
       document.getElementById('profileStatListings').textContent = s.listings || 0;
       document.getElementById('profileStatBookings').textContent = s.bookings || 0;
-      document.getElementById('profileStatRating').textContent = s.rating ? (s.rating.toFixed(1) + ' ★') : '–';
+      if (s.rating) {
+        document.getElementById('profileStatRating').innerHTML = s.rating.toFixed(1) + ' ' + _renderStars(s.rating);
+      } else {
+        document.getElementById('profileStatRating').textContent = '–';
+      }
 
       // Reviews vom Backend
       var reviewsDisplay = document.getElementById('profileReviewsDisplay');
@@ -2558,7 +2562,7 @@ function renderDashboard() {
             '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar" />' +
             '<div class="review-content">' +
               '<div class="review-top"><strong>' + _escHtml(r.name || '') + '</strong><span>' + _escHtml(r.date || '') + '</span></div>' +
-              '<div class="review-stars">' + '★'.repeat(r.rating || 0) + '☆'.repeat(5 - (r.rating || 0)) + '</div>' +
+              '<div class="review-stars">' + _renderStars(r.rating || 0) + '</div>' +
               '<p class="review-text">' + _escHtml(r.text || '') + '</p>' +
             '</div></div>';
         }).join('');
@@ -4491,7 +4495,7 @@ function loadDetailReviews(dbListingId) {
                 '<strong>' + _escHtml(displayName) + '</strong>' +
                 '<span>' + _escHtml(date) + '</span>' +
               '</div>' +
-              '<div class="review-stars">' + '★'.repeat(rating) + '☆'.repeat(5 - rating) + '</div>' +
+              '<div class="review-stars">' + _renderStars(rating) + '</div>' +
               '<p class="review-text">' + _escHtml(r.comment || r.text || '') + '</p>' +
             '</div>' +
           '</div>';
@@ -4542,7 +4546,7 @@ function renderDetailReviews(listing) {
             '<strong>' + _escHtml(r.name) + '</strong>' +
             '<span>' + _escHtml(r.date) + '</span>' +
           '</div>' +
-          '<div class="review-stars">' + '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) + '</div>' +
+          '<div class="review-stars">' + _renderStars(r.rating) + '</div>' +
           '<p class="review-text">' + _escHtml(r.text) + '</p>' +
         '</div>' +
       '</div>';
@@ -5093,6 +5097,19 @@ function _apiHeaders() {
   var h = { 'Content-Type': 'application/json' };
   if (_wpNonce) h['X-WP-Nonce'] = _wpNonce;
   return h;
+}
+
+function _renderStars(rating) {
+  var r = Math.max(0, Math.min(5, parseFloat(rating) || 0));
+  var full = Math.floor(r);
+  var half = (r - full) >= 0.25 && (r - full) < 0.75 ? 1 : 0;
+  if ((r - full) >= 0.75) { full++; half = 0; }
+  var empty = 5 - full - half;
+  var html = '';
+  for (var i = 0; i < full; i++) html += '<span class="material-icons-round" style="font-size:inherit;vertical-align:middle">star</span>';
+  if (half) html += '<span class="material-icons-round" style="font-size:inherit;vertical-align:middle">star_half</span>';
+  for (var j = 0; j < empty; j++) html += '<span class="material-icons-round" style="font-size:inherit;vertical-align:middle">star_border</span>';
+  return html;
 }
 
 function _escHtml(str) {
@@ -5807,7 +5824,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '62';
+var _EB_VERSION = '63';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
