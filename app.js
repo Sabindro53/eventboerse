@@ -718,7 +718,7 @@ function renderFeed(tab) {
   });
   items = [...items];
   if (tab === 'newest') {
-    items = items.reverse();
+    items = items.sort((a, b) => b.id - a.id);
   } else if (tab === 'popular') {
     items = items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
   } else {
@@ -727,7 +727,7 @@ function renderFeed(tab) {
   }
 
   list.innerHTML = items.map((l, i) => {
-    const minutesAgo = Math.floor(Math.random() * 2880) + 5; // 5min to 2 days
+    const minutesAgo = (tab === 'newest') ? (5 + i * 47) : Math.floor(Math.random() * 2880) + 5;
     const avatar = l.providerAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName);
     const categoryLabel = l.category ? l.category.charAt(0).toUpperCase() + l.category.slice(1) : 'Service';
     const isFav = favorites.has(l.id);
@@ -6054,7 +6054,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '76';
+var _EB_VERSION = '77';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
