@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=66" />
+  <link rel="stylesheet" href="styles.css?v=67" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -1827,6 +1827,32 @@
     </div>
   </div>
 
+  <!-- Avatar Crop Modal -->
+  <div class="modal-overlay" id="avatarCropModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="closeModal('avatarCropModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">crop</span>
+        <h2>Profilbild anpassen</h2>
+        <p>Verschiebe und zoome das Bild in den Kreis</p>
+      </div>
+      <div class="crop-container" id="cropContainer">
+        <canvas id="cropCanvas"></canvas>
+        <div class="crop-circle-overlay"></div>
+      </div>
+      <div class="crop-zoom">
+        <span class="material-icons-round" style="font-size:18px">photo_size_select_small</span>
+        <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" oninput="cropDraw()" />
+        <span class="material-icons-round" style="font-size:18px">photo_size_select_large</span>
+      </div>
+      <button class="btn-primary btn-block" onclick="cropConfirm()" style="margin-top:16px">
+        <span class="material-icons-round">check</span> Übernehmen
+      </button>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast" id="toast">
     <span class="material-icons-round toast-icon" id="toastIcon">check_circle</span>
@@ -1899,6 +1925,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=66"></script>
+  <script src="app.js?v=67"></script>
 </body>
 </html>

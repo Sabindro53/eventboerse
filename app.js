@@ -3363,36 +3363,158 @@ function handleUpload(input) {
 }
 
 // ========== PROFILE UPLOADS ==========
+var _cropImg = null;
+var _cropX = 0, _cropY = 0, _cropDragStart = null;
+
 function handleProfilePhoto(input) {
   if (!input.files || !input.files[0]) return;
   var file = input.files[0];
   if (file.size > 5 * 1024 * 1024) {
     showToast('Bild zu groß! Max. 5MB', 'error');
+    input.value = '';
     return;
   }
-  // Show preview immediately
   var reader = new FileReader();
   reader.onload = function(e) {
-    document.getElementById('profileAvatar').src = e.target.result;
-    var navAvatar = document.querySelector('#avatarBtn img');
-    if (navAvatar) navAvatar.src = e.target.result;
+    var img = new Image();
+    img.onload = function() {
+      _cropImg = img;
+      _cropX = 0; _cropY = 0;
+      document.getElementById('cropZoom').value = 1;
+      openModal('avatarCropModal');
+      setTimeout(function() { cropDraw(); cropBindEvents(); }, 50);
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-  // Upload to server
-  uploadFile(file).then(function(data) {
-    if (currentUser) currentUser.photoUrl = data.url;
-    document.getElementById('profileAvatar').src = data.url;
+  input.value = '';
+}
+
+function cropDraw() {
+  var canvas = document.getElementById('cropCanvas');
+  var cont = document.getElementById('cropContainer');
+  if (!canvas || !_cropImg) return;
+  var size = cont.offsetWidth;
+  canvas.width = size; canvas.height = size;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+
+  var zoom = parseFloat(document.getElementById('cropZoom').value) || 1;
+  var imgAspect = _cropImg.width / _cropImg.height;
+  var drawW, drawH;
+  if (imgAspect > 1) {
+    drawH = size * zoom;
+    drawW = drawH * imgAspect;
+  } else {
+    drawW = size * zoom;
+    drawH = drawW / imgAspect;
+  }
+  // Clamp offsets so image covers the circle area
+  var circleR = size * 0.34;
+  var minX = -(drawW - size) / 2 - (drawW / 2 - circleR - size / 2);
+  var maxX = (drawW - size) / 2 + (drawW / 2 - circleR - size / 2);
+  var minY = -(drawH - size) / 2 - (drawH / 2 - circleR - size / 2);
+  var maxY = (drawH - size) / 2 + (drawH / 2 - circleR - size / 2);
+  if (minX > maxX) { minX = 0; maxX = 0; }
+  if (minY > maxY) { minY = 0; maxY = 0; }
+  _cropX = Math.max(minX, Math.min(maxX, _cropX));
+  _cropY = Math.max(minY, Math.min(maxY, _cropY));
+
+  var dx = (size - drawW) / 2 + _cropX;
+  var dy = (size - drawH) / 2 + _cropY;
+  ctx.drawImage(_cropImg, dx, dy, drawW, drawH);
+}
+
+function cropBindEvents() {
+  var cont = document.getElementById('cropContainer');
+  if (cont._cropBound) return;
+  cont._cropBound = true;
+
+  function startDrag(x, y) {
+    _cropDragStart = { x: x, y: y, ox: _cropX, oy: _cropY };
+  }
+  function moveDrag(x, y) {
+    if (!_cropDragStart) return;
+    _cropX = _cropDragStart.ox + (x - _cropDragStart.x);
+    _cropY = _cropDragStart.oy + (y - _cropDragStart.y);
+    cropDraw();
+  }
+  function endDrag() { _cropDragStart = null; }
+
+  cont.addEventListener('mousedown', function(e) { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', function(e) { moveDrag(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', endDrag);
+  cont.addEventListener('touchstart', function(e) { e.preventDefault(); var t = e.touches[0]; startDrag(t.clientX, t.clientY); }, { passive: false });
+  window.addEventListener('touchmove', function(e) { if (_cropDragStart) { var t = e.touches[0]; moveDrag(t.clientX, t.clientY); } });
+  window.addEventListener('touchend', endDrag);
+
+  cont.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var slider = document.getElementById('cropZoom');
+    var v = parseFloat(slider.value) + (e.deltaY < 0 ? 0.05 : -0.05);
+    slider.value = Math.max(1, Math.min(3, v));
+    cropDraw();
+  }, { passive: false });
+}
+
+function cropConfirm() {
+  var canvas = document.getElementById('cropCanvas');
+  if (!canvas || !_cropImg) return;
+  var size = canvas.width;
+  var circleR = size * 0.34;
+  var cx = size / 2, cy = size / 2;
+
+  // Draw cropped circle onto an output canvas
+  var out = document.createElement('canvas');
+  var outSize = 512;
+  out.width = outSize; out.height = outSize;
+  var octx = out.getContext('2d');
+
+  // Clip to circle
+  octx.beginPath();
+  octx.arc(outSize / 2, outSize / 2, outSize / 2, 0, Math.PI * 2);
+  octx.closePath();
+  octx.clip();
+
+  // Re-draw image at output resolution
+  var zoom = parseFloat(document.getElementById('cropZoom').value) || 1;
+  var imgAspect = _cropImg.width / _cropImg.height;
+  var drawW, drawH;
+  if (imgAspect > 1) {
+    drawH = size * zoom;
+    drawW = drawH * imgAspect;
+  } else {
+    drawW = size * zoom;
+    drawH = drawW / imgAspect;
+  }
+  var scale = outSize / (circleR * 2);
+  var srcX = (size - drawW) / 2 + _cropX - (cx - circleR);
+  var srcY = (size - drawH) / 2 + _cropY - (cy - circleR);
+
+  octx.drawImage(_cropImg, srcX * scale, srcY * scale, drawW * scale, drawH * scale);
+
+  out.toBlob(function(blob) {
+    if (!blob) return;
+    closeModal('avatarCropModal');
+    var previewUrl = URL.createObjectURL(blob);
+    document.getElementById('profileAvatar').src = previewUrl;
     var navAvatar = document.querySelector('#avatarBtn img');
-    if (navAvatar) navAvatar.src = data.url;
-    // Save URL to profile
-    fetch(_apiUrl('profile'), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-      body: JSON.stringify({ photoUrl: data.url })
-    }).catch(function(){});
-    showToast('Profilbild aktualisiert! 📸', 'camera_alt');
-  }).catch(function() {
-    showToast('Upload fehlgeschlagen', 'error');
-  });
+    if (navAvatar) navAvatar.src = previewUrl;
+
+    var croppedFile = new File([blob], 'avatar.png', { type: 'image/png' });
+    uploadFile(croppedFile).then(function(data) {
+      if (currentUser) currentUser.photoUrl = data.url;
+      document.getElementById('profileAvatar').src = data.url;
+      if (navAvatar) navAvatar.src = data.url;
+      fetch(_apiUrl('profile'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ photoUrl: data.url })
+      }).catch(function(){});
+      showToast('Profilbild aktualisiert!', 'camera_alt');
+    }).catch(function() {
+      showToast('Upload fehlgeschlagen', 'error');
+    });
+  }, 'image/png');
 }
 
 function handleCoverUpload(input) {
@@ -5830,7 +5952,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '66';
+var _EB_VERSION = '67';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

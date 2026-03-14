@@ -2957,6 +2957,60 @@ img { display: block; max-width: 100%; }
 .profile-avatar-edit:hover { background: var(--primary-dark); transform: scale(1.1); }
 .profile-avatar-edit .material-icons-round { font-size: 18px; }
 
+/* Avatar Crop Modal */
+.crop-container {
+  position: relative;
+  width: 280px; height: 280px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: #111;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.crop-container:active { cursor: grabbing; }
+.crop-container canvas {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+}
+.crop-circle-overlay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center,
+    transparent 48%,
+    rgba(0,0,0,0.6) 48.5%
+  );
+}
+.crop-circle-overlay::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 68%; height: 68%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.7);
+  pointer-events: none;
+}
+.crop-zoom {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 16px; padding: 0 8px;
+  color: var(--text-light);
+}
+.crop-zoom input[type="range"] {
+  flex: 1; height: 4px;
+  -webkit-appearance: none; appearance: none;
+  background: var(--border);
+  border-radius: 2px; outline: none;
+}
+.crop-zoom input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+}
+
 .profile-hero-info {
   flex: none; width: fit-content; padding: 10px 16px;
   background: rgba(255,255,255,0.82);
