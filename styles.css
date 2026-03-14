@@ -3567,7 +3567,8 @@ span.flatpickr-weekday {
   cursor: pointer;
 }
 .check-label input[type="checkbox"] { width: auto; accent-color: var(--primary); }
-.check-label.terms { font-size: 0.82rem; margin-bottom: 16px; }
+.check-label.terms { margin-bottom: 12px; }
+.check-label.gewerbe { margin-bottom: 16px; }
 .check-label.terms a { color: var(--primary); text-decoration: underline; }
 
 /* Upload Zone */
