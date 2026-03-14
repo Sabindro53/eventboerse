@@ -5595,6 +5595,12 @@ async function handleRegister(e) {
     if (termsLabel) { termsLabel.classList.add('has-error'); }
     hasError = true;
   }
+  var gewerbeBox = document.getElementById('regGewerbe');
+  if (role === 'provider' && gewerbeBox && !gewerbeBox.checked) {
+    var gewerbeLabel = document.getElementById('regGewerbeLabel');
+    if (gewerbeLabel) { gewerbeLabel.classList.add('has-error'); }
+    hasError = true;
+  }
   if (hasError) return;
 
   _setBtnLoading(submitBtn, true);
@@ -5935,6 +5941,8 @@ function logout() {
 function selectRole(btn, role) {
   document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  var gl = document.getElementById('regGewerbeLabel');
+  if (gl) { gl.style.display = role === 'provider' ? '' : 'none'; gl.classList.remove('has-error'); }
 }
 
 // ========== MODALS ==========
@@ -6042,7 +6050,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '70';
+var _EB_VERSION = '71';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=70" />
+  <link rel="stylesheet" href="styles.css?v=71" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -1582,6 +1582,10 @@
           <input type="checkbox" required />
           Ich akzeptiere die <a href="#">AGB</a> und <a href="#">Datenschutzrichtlinie</a>
         </label>
+        <label class="check-label gewerbe" id="regGewerbeLabel" style="display:none">
+          <input type="checkbox" id="regGewerbe" />
+          Gewerbeanmeldung vorhanden
+        </label>
         <button type="submit" class="btn-primary btn-block">Kostenlos registrieren</button>
         <div class="modal-divider"><span>oder</span></div>
         <button type="button" class="btn-social" onclick="socialLogin('Google')">
@@ -1925,6 +1929,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=70"></script>
+  <script src="app.js?v=71"></script>
 </body>
 </html>
