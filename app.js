@@ -1466,6 +1466,11 @@ function loadDetail(listingId) {
   document.getElementById('detailProviderImg').src = listing.providerImg;
   document.getElementById('detailProviderName').textContent = listing.providerName;
   document.getElementById('detailProviderTag').textContent = `Superhost · Seit ${listing.providerSince} auf Eventbörse`;
+
+  // Show edit button only for own listings
+  var editBtn = document.getElementById('detailEditBtn');
+  if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
+
   document.getElementById('detailDescription').innerHTML = _sanitizeHtml(listing.description);
   document.getElementById('detailPrice').textContent = listing.priceLabel.split('/')[0];
 
@@ -6126,7 +6131,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '82';
+var _EB_VERSION = '83';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
