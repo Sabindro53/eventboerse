@@ -4193,47 +4193,116 @@ function renderMyListings() {
       emptyBtn.setAttribute('onclick', "navigateTo('create-listing')");
     }
 
-    var events = isLoggedIn ? [] : DEMO_EVENTS;
-    if (events.length === 0) {
-      grid.style.display = 'none';
-      emptyState.style.display = 'flex';
+    // Preview banner
+    var previewBannerEP = document.getElementById('myListingsPreviewBanner');
+
+    if (isLoggedIn) {
+      if (previewBannerEP) previewBannerEP.style.display = 'none';
+      fetch(_apiUrl('my-listings'), { credentials: 'same-origin', headers: _apiHeaders() })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var myEvents = (data || []).map(function(l) {
+            return {
+              id: l.id + 10000,
+              _dbId: l.id,
+              _fromDb: true,
+              title: l.title,
+              category: l.category,
+              categoryLabel: l.categoryLabel || l.category,
+              image: (l.images && l.images[0]) || 'assets/img/placeholder.jpg',
+              images: l.images || [],
+              location: l.location,
+              price: l.price,
+              priceLabel: l.priceLabel || (l.price + ' €'),
+              rating: parseFloat(l.rating) || 0,
+              reviewCount: parseInt(l.reviews) || 0,
+              description: l.description,
+              providerName: l.providerName
+            };
+          });
+          renderEventGrid(myEvents);
+        })
+        .catch(function() {
+          renderEventGrid([]);
+        });
     } else {
-      grid.style.display = '';
-      emptyState.style.display = 'none';
-      grid.innerHTML = events.map(function(evt) {
-        var statusClass = evt.status === 'In Planung' ? 'status-active' : (evt.status === 'Offen' ? 'status-pending' : 'status-completed');
-        var servicesHTML = evt.bookedServices.map(function(s) {
-          var sClass = s.status === 'Bestätigt' ? 'status-completed' : (s.status === 'In Verhandlung' ? 'status-pending' : 'status-active');
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.85rem;">' +
-            '<span>' + s.name + ' <small style="color:var(--text-light)">(' + s.category + ')</small></span>' +
-            '<span class="status-badge ' + sClass + '" style="font-size:0.7rem;">' + s.status + '</span>' +
+      if (previewBannerEP) previewBannerEP.style.display = 'flex';
+      var events = DEMO_EVENTS;
+      renderEventGrid(events);
+    }
+
+    function renderEventGrid(events) {
+      if (events.length === 0) {
+        grid.style.display = 'none';
+        emptyState.style.display = 'flex';
+      } else {
+        grid.style.display = '';
+        emptyState.style.display = 'none';
+        grid.innerHTML = events.map(function(evt) {
+          // DB events from API
+          if (evt._fromDb) {
+            return '<div class="my-listing-card">' +
+              '<div class="my-listing-img">' +
+                '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
+                '<span class="status-badge status-active">Aktiv</span>' +
+              '</div>' +
+              '<div class="my-listing-info">' +
+                '<h3>' + _escHtml(evt.title) + '</h3>' +
+                '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
+                '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
+                '<div class="my-listing-stats">' +
+                  '<span><span class="material-icons-round">star</span> ' + (evt.rating || 0).toFixed(1) + '/5</span>' +
+                  '<span><span class="material-icons-round">rate_review</span> ' + (evt.reviewCount || 0) + ' Bewertungen</span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="my-listing-actions">' +
+                '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + evt.id + ')">' +
+                  '<span class="material-icons-round">visibility</span> Ansehen' +
+                '</button>' +
+                '<button class="btn-outline btn-sm" onclick="editListing(' + evt.id + ')">' +
+                  '<span class="material-icons-round">edit</span> Bearbeiten' +
+                '</button>' +
+                '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + evt.id + ')">' +
+                  '<span class="material-icons-round">delete</span> Löschen' +
+                '</button>' +
+              '</div>' +
+            '</div>';
+          }
+          // Demo events (logged out preview)
+          var statusClass = evt.status === 'In Planung' ? 'status-active' : (evt.status === 'Offen' ? 'status-pending' : 'status-completed');
+          var servicesHTML = (evt.bookedServices || []).map(function(s) {
+            var sClass = s.status === 'Bestätigt' ? 'status-completed' : (s.status === 'In Verhandlung' ? 'status-pending' : 'status-active');
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.85rem;">' +
+              '<span>' + s.name + ' <small style="color:var(--text-light)">(' + s.category + ')</small></span>' +
+              '<span class="status-badge ' + sClass + '" style="font-size:0.7rem;">' + s.status + '</span>' +
+            '</div>';
+          }).join('');
+          return '<div class="my-listing-card">' +
+            '<div class="my-listing-img">' +
+              '<img src="' + evt.image + '" alt="' + evt.title + '" />' +
+              '<span class="status-badge ' + statusClass + '">' + evt.status + '</span>' +
+            '</div>' +
+            '<div class="my-listing-info">' +
+              '<h3>' + evt.title + '</h3>' +
+              '<p>' + evt.type + ' · ' + evt.location + '</p>' +
+              '<p class="my-listing-price"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;">event</span> ' + evt.date + ' · ' + evt.guests + ' Gäste</p>' +
+              '<p style="font-size:0.85rem;color:var(--text-light);margin-top:2px;">Budget: ' + evt.budget + '</p>' +
+              (servicesHTML ? '<div style="margin-top:8px;border-top:1px solid var(--border-light);padding-top:8px;">' +
+                '<strong style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--dark);">Gebuchte Services</strong>' +
+                servicesHTML +
+              '</div>' : '') +
+            '</div>' +
+            '<div class="my-listing-actions">' +
+              '<button class="btn-outline btn-sm" onclick="navigateTo(\'browse\')">' +
+                '<span class="material-icons-round">search</span> Services finden' +
+              '</button>' +
+              '<button class="btn-outline btn-sm" onclick="showToast(\'Event bearbeiten kommt bald!\',\'edit\')">' +
+                '<span class="material-icons-round">edit</span> Bearbeiten' +
+              '</button>' +
+            '</div>' +
           '</div>';
         }).join('');
-        return '<div class="my-listing-card">' +
-          '<div class="my-listing-img">' +
-            '<img src="' + evt.image + '" alt="' + evt.title + '" />' +
-            '<span class="status-badge ' + statusClass + '">' + evt.status + '</span>' +
-          '</div>' +
-          '<div class="my-listing-info">' +
-            '<h3>' + evt.title + '</h3>' +
-            '<p>' + evt.type + ' · ' + evt.location + '</p>' +
-            '<p class="my-listing-price"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;">event</span> ' + evt.date + ' · ' + evt.guests + ' Gäste</p>' +
-            '<p style="font-size:0.85rem;color:var(--text-light);margin-top:2px;">Budget: ' + evt.budget + '</p>' +
-            '<div style="margin-top:8px;border-top:1px solid var(--border-light);padding-top:8px;">' +
-              '<strong style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--dark);">Gebuchte Services</strong>' +
-              servicesHTML +
-            '</div>' +
-          '</div>' +
-          '<div class="my-listing-actions">' +
-            '<button class="btn-outline btn-sm" onclick="navigateTo(\'browse\')">' +
-              '<span class="material-icons-round">search</span> Services finden' +
-            '</button>' +
-            '<button class="btn-outline btn-sm" onclick="showToast(\'Event bearbeiten kommt bald!\',\'edit\')">' +
-              '<span class="material-icons-round">edit</span> Bearbeiten' +
-            '</button>' +
-          '</div>' +
-        '</div>';
-      }).join('');
+      }
     }
   } else {
     // === DIENSTLEISTER VIEW ===
@@ -5300,6 +5369,19 @@ function applyLogin() {
     if (menuCreateBtn) menuCreateBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Inserat erstellen';
     if (menuMyListBtn) menuMyListBtn.innerHTML = '<span class="material-icons-round">storefront</span> Meine Inserate';
   }
+  // Update mobile nav labels for role
+  var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
+  if (mobileCreateBtn) {
+    var mobileLabel = mobileCreateBtn.querySelector('span:last-child');
+    var mobileIcon = mobileCreateBtn.querySelector('.material-icons-round');
+    if (isEventPlaner()) {
+      if (mobileIcon) mobileIcon.textContent = 'event';
+      if (mobileLabel) mobileLabel.textContent = 'Event';
+    } else {
+      if (mobileIcon) mobileIcon.textContent = 'add_circle';
+      if (mobileLabel) mobileLabel.textContent = 'Inserieren';
+    }
+  }
   // Restore favorites from localStorage first (instant), then merge API data
   _loadFavoritesFromStorage();
   loadFavorites().catch(function(){});
@@ -5330,6 +5412,14 @@ function applyLogout() {
   document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=user1';
+  // Reset mobile nav labels
+  var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
+  if (mobileCreateBtn) {
+    var mobileIcon = mobileCreateBtn.querySelector('.material-icons-round');
+    var mobileLabel = mobileCreateBtn.querySelector('span:last-child');
+    if (mobileIcon) mobileIcon.textContent = 'add_circle';
+    if (mobileLabel) mobileLabel.textContent = 'Inserieren';
+  }
 }
 
 // -- Hilfsfunktionen für Formular-Feedback --
@@ -5952,7 +6042,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '67';
+var _EB_VERSION = '68';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
