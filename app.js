@@ -6053,7 +6053,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '73';
+var _EB_VERSION = '74';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
