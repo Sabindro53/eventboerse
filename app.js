@@ -594,6 +594,9 @@ function navigateTo(page, data, skipHistory) {
     case 'settings':
       loadSettings();
       break;
+    case 'agb':
+    case 'datenschutz':
+      break;
   }
 }
 
@@ -6050,7 +6053,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '71';
+var _EB_VERSION = '72';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;

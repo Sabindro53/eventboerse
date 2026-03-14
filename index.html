@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=71" />
+  <link rel="stylesheet" href="styles.css?v=72" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -412,8 +412,8 @@
             </div>
             <div class="footer-col">
               <h4>Rechtliches</h4>
-              <a href="#">AGB</a>
-              <a href="#">Datenschutz</a>
+              <a href="#" onclick="event.preventDefault(); navigateTo('agb')">AGB</a>
+              <a href="#" onclick="event.preventDefault(); navigateTo('datenschutz')">Datenschutz</a>
               <a href="#">Impressum</a>
               <a href="#" onclick="event.preventDefault(); localStorage.removeItem('eb_cookie_consent'); initCookieConsent();">Cookie-Einstellungen</a>
             </div>
@@ -1447,6 +1447,103 @@
         </div>
       </div>
     </section>
+
+    <!-- AGB -->
+    <section id="page-agb" class="page">
+      <div class="container legal-page">
+        <h1>Allgemeine Geschäftsbedingungen (AGB)</h1>
+        <p class="legal-date">Stand: 14. März 2026</p>
+
+        <h2>1. Geltungsbereich</h2>
+        <p>Diese Allgemeinen Geschäftsbedingungen gelten für die Nutzung der Plattform Eventbörse (nachfolgend „Plattform"), betrieben unter der Domain eventbörse.de. Die Plattform dient ausschließlich als Vermittlungsplattform zwischen Event-Planern und Dienstleistern. Eventbörse ist kein Vertragspartner der zwischen Nutzern geschlossenen Vereinbarungen.</p>
+
+        <h2>2. Leistungsbeschreibung</h2>
+        <p>Eventbörse stellt lediglich eine technische Infrastruktur zur Verfügung, über die Dienstleister ihre Services präsentieren und Event-Planer diese finden und kontaktieren können. <strong>Eventbörse ist kein Veranstalter, kein Dienstleister und kein Vermittler im rechtlichen Sinne.</strong> Sämtliche Verträge kommen ausschließlich zwischen den jeweiligen Nutzern zustande.</p>
+
+        <h2>3. Registrierung und Nutzerkonto</h2>
+        <p>Für die Nutzung bestimmter Funktionen ist eine Registrierung erforderlich. Der Nutzer ist verpflichtet, wahrheitsgemäße Angaben zu machen und sein Konto vor unbefugtem Zugriff zu schützen. Dienstleister bestätigen bei der Registrierung, dass eine gültige Gewerbeanmeldung vorliegt.</p>
+
+        <h2>4. Haftungsausschluss</h2>
+        <p><strong>Eventbörse übernimmt keinerlei Haftung für:</strong></p>
+        <ul>
+          <li>Die Qualität, Zuverlässigkeit oder Rechtmäßigkeit der angebotenen Dienstleistungen</li>
+          <li>Die Richtigkeit, Vollständigkeit oder Aktualität der von Nutzern eingestellten Inhalte</li>
+          <li>Schäden, die aus Verträgen zwischen Nutzern entstehen</li>
+          <li>Entgangenen Gewinn oder indirekte Schäden jeglicher Art</li>
+          <li>Die Verfügbarkeit oder Funktionsfähigkeit der Plattform</li>
+          <li>Verluste oder Schäden durch höhere Gewalt oder technische Störungen</li>
+        </ul>
+        <p>Die Haftung von Eventbörse ist auf Vorsatz und grobe Fahrlässigkeit beschränkt. Eine Haftung für leichte Fahrlässigkeit ist ausgeschlossen, soweit gesetzlich zulässig.</p>
+
+        <h2>5. Pflichten der Nutzer</h2>
+        <p>Nutzer verpflichten sich, die Plattform nur für legale Zwecke zu nutzen, keine irreführenden Angaben zu machen und die Rechte Dritter nicht zu verletzen. Bei Verstößen behält sich Eventbörse das Recht vor, Nutzerkonten ohne Vorankündigung zu sperren oder zu löschen.</p>
+
+        <h2>6. Inhalte der Nutzer</h2>
+        <p>Nutzer sind für sämtliche von ihnen eingestellten Inhalte (Texte, Bilder, Bewertungen) selbst verantwortlich. Eventbörse übernimmt keine Prüfpflicht, behält sich jedoch vor, rechtswidrige oder unangemessene Inhalte ohne Ankündigung zu entfernen.</p>
+
+        <h2>7. Gebühren</h2>
+        <p>Die Registrierung und Grundnutzung der Plattform ist derzeit kostenlos. Eventbörse behält sich vor, kostenpflichtige Zusatzfunktionen einzuführen, über die Nutzer rechtzeitig informiert werden.</p>
+
+        <h2>8. Kündigung</h2>
+        <p>Nutzer können ihr Konto jederzeit löschen. Eventbörse kann das Nutzungsverhältnis jederzeit ohne Angabe von Gründen beenden und Konten sperren oder löschen.</p>
+
+        <h2>9. Freistellung</h2>
+        <p>Der Nutzer stellt Eventbörse von sämtlichen Ansprüchen Dritter frei, die aus einer rechtswidrigen Nutzung der Plattform oder aus der Verletzung dieser AGB resultieren.</p>
+
+        <h2>10. Änderungen der AGB</h2>
+        <p>Eventbörse behält sich vor, diese AGB jederzeit zu ändern. Die fortgesetzte Nutzung der Plattform nach Änderungen gilt als Zustimmung zu den aktualisierten AGB.</p>
+
+        <h2>11. Schlussbestimmungen</h2>
+        <p>Es gilt das Recht der Bundesrepublik Deutschland. Sollten einzelne Bestimmungen dieser AGB unwirksam sein, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt.</p>
+      </div>
+    </section>
+
+    <!-- Datenschutz -->
+    <section id="page-datenschutz" class="page">
+      <div class="container legal-page">
+        <h1>Datenschutzerklärung</h1>
+        <p class="legal-date">Stand: 14. März 2026</p>
+
+        <h2>1. Verantwortlicher</h2>
+        <p>Verantwortlich für die Datenverarbeitung auf dieser Plattform ist der Betreiber von Eventbörse (eventbörse.de). Kontakt über die auf der Plattform angegebenen Kontaktdaten.</p>
+
+        <h2>2. Erhebung und Verarbeitung personenbezogener Daten</h2>
+        <p>Wir erheben personenbezogene Daten nur, soweit dies für die Bereitstellung der Plattform und ihrer Funktionen erforderlich ist:</p>
+        <ul>
+          <li><strong>Registrierungsdaten:</strong> Vorname, Nachname, E-Mail-Adresse, Passwort (verschlüsselt), Rolle (Event-Planer/Dienstleister)</li>
+          <li><strong>Profildaten:</strong> Profilbild, Firmenname, Beschreibung, Standort (freiwillig)</li>
+          <li><strong>Nutzungsdaten:</strong> Inserate, Nachrichten, Bewertungen, Favoriten</li>
+          <li><strong>Technische Daten:</strong> IP-Adresse, Browser-Typ, Zugriffszeiten (Serverprotokolle)</li>
+        </ul>
+
+        <h2>3. Zweck der Datenverarbeitung</h2>
+        <p>Die Verarbeitung erfolgt zur Bereitstellung der Plattformfunktionen, zur Kommunikation zwischen Nutzern, zur Sicherstellung der Plattformsicherheit und zur Betrugsprävention. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) bzw. Art. 6 Abs. 1 lit. f DSGVO (berechtigte Interessen).</p>
+
+        <h2>4. Weitergabe an Dritte</h2>
+        <p>Personenbezogene Daten werden nicht an Dritte verkauft. Eine Weitergabe erfolgt nur, soweit dies zur Erbringung unserer Dienste erforderlich ist (z.&nbsp;B. Hosting-Provider) oder eine gesetzliche Verpflichtung besteht.</p>
+
+        <h2>5. Cookies</h2>
+        <p>Die Plattform verwendet technisch notwendige Cookies für die Sitzungsverwaltung und Authentifizierung. Darüber hinausgehende Cookies werden nur mit Einwilligung des Nutzers gesetzt. Die Cookie-Einstellungen können jederzeit über den entsprechenden Link im Footer angepasst werden.</p>
+
+        <h2>6. Passkeys und WebAuthn</h2>
+        <p>Bei Nutzung der Passkey-Authentifizierung werden kryptografische Schlüssel auf dem Endgerät des Nutzers gespeichert. Auf dem Server werden nur öffentliche Schlüssel gespeichert, keine biometrischen Daten.</p>
+
+        <h2>7. Datensicherheit</h2>
+        <p>Wir setzen technische und organisatorische Maßnahmen ein, um Ihre Daten vor Verlust, Missbrauch und unberechtigtem Zugriff zu schützen (SSL-Verschlüsselung, Passwort-Hashing, Zugriffskontrollen).</p>
+
+        <h2>8. Speicherdauer</h2>
+        <p>Personenbezogene Daten werden nur so lange gespeichert, wie es zur Erfüllung des Verarbeitungszwecks erforderlich ist oder gesetzliche Aufbewahrungspflichten bestehen. Bei Löschung des Nutzerkontos werden die Daten unverzüglich gelöscht, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</p>
+
+        <h2>9. Ihre Rechte</h2>
+        <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Zur Ausübung dieser Rechte wenden Sie sich bitte an uns über die auf der Plattform angegebenen Kontaktdaten.</p>
+
+        <h2>10. Haftungsausschluss für Drittinhalte</h2>
+        <p><strong>Eventbörse ist lediglich Vermittler und übernimmt keine Verantwortung für die von Nutzern eingestellten Daten und Inhalte.</strong> Jeder Nutzer ist für die Rechtmäßigkeit seiner eigenen Datenverarbeitung (z.&nbsp;B. bei Kontaktaufnahme mit anderen Nutzern) selbst verantwortlich.</p>
+
+        <h2>11. Änderungen</h2>
+        <p>Wir behalten uns vor, diese Datenschutzerklärung jederzeit anzupassen. Die aktuelle Version ist stets auf der Plattform einsehbar.</p>
+      </div>
+    </section>
   </main>
 
   <!-- ============ MODALS ============ -->
@@ -1580,7 +1677,7 @@
         </div>
         <label class="check-label terms">
           <input type="checkbox" required />
-          Ich akzeptiere die <a href="#">AGB</a> und <a href="#">Datenschutzrichtlinie</a>
+          Ich akzeptiere die <a href="#" onclick="event.preventDefault(); closeModal('registerModal'); navigateTo('agb')">AGB</a> und <a href="#" onclick="event.preventDefault(); closeModal('registerModal'); navigateTo('datenschutz')">Datenschutzrichtlinie</a>
         </label>
         <label class="check-label gewerbe" id="regGewerbeLabel" style="display:none">
           <input type="checkbox" id="regGewerbe" />
@@ -1929,6 +2026,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=71"></script>
+  <script src="app.js?v=72"></script>
 </body>
 </html>
