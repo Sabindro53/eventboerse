@@ -1220,6 +1220,7 @@ function filterListings() {
     case 'preis-asc': filtered.sort((a, b) => a.price - b.price); break;
     case 'preis-desc': filtered.sort((a, b) => b.price - a.price); break;
     case 'rating': filtered.sort((a, b) => b.rating - a.rating); break;
+    case 'neu': filtered.sort((a, b) => b.id - a.id); break;
   }
 
   // Render active filter tags
@@ -6053,7 +6054,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '75';
+var _EB_VERSION = '76';
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
