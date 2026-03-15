@@ -1022,15 +1022,9 @@ function initAiSearch() {
       return;
     }
 
-    // Highlight matching categories based on keyword input
-    const matches = aiMatchKeyword(val);
-    if (matches.length) {
-      matches.forEach(m => {
-        if (m.category) selectedCategories.add(m.category);
-      });
-      renderCategoryPicker();
-      renderSelectedTags();
-    }
+    // Keep category picker open so user can select manually
+    renderCategoryPicker();
+    box.classList.add('show');
   });
 
   // Close on outside click
@@ -6522,7 +6516,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '99';
+var _EB_VERSION = '100';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
