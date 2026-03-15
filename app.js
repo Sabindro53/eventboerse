@@ -1874,13 +1874,18 @@ function buildGalleryRows(images) {
       t.style.backgroundImage = `url(${item.src})`;
       t.style.width = thumbW + 'px';
       t.style.height = thumbH + 'px';
-      // Detect portrait images and adjust width
+      // Detect portrait or extreme-wide images and adjust
       const img = new Image();
       img.onload = () => {
-        if (img.naturalHeight > img.naturalWidth) {
-          const portraitW = Math.round(thumbH * (img.naturalWidth / img.naturalHeight));
+        const ratio = img.naturalWidth / img.naturalHeight;
+        if (ratio < 1) {
+          // Portrait: adjust width to image proportions
+          const portraitW = Math.round(thumbH * ratio);
           t.style.width = portraitW + 'px';
-          t.classList.add('pcg-portrait');
+          t.classList.add('pcg-contain');
+        } else if (ratio > 2.2) {
+          // Very wide banner: contain so full text/logo is visible
+          t.classList.add('pcg-contain');
         }
       };
       img.src = item.src;

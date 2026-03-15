@@ -2377,7 +2377,7 @@ img { display: block; max-width: 100%; }
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
-.pcg-thumb.pcg-portrait {
+.pcg-thumb.pcg-contain {
   background-size: contain;
   background-color: var(--bg-dark);
 }
