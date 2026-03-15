@@ -2778,22 +2778,27 @@ function eb_admin_list_admins( WP_REST_Request $request ) {
     return new WP_REST_Response( $admins, 200 );
 }
 
-// Einmalig: Wenn kein eb_admin existiert, kann sich der erste User selbst aktivieren
+// Einmalig: Setzt die zwei festgelegten Admins und entfernt alle anderen
 function eb_admin_init( WP_REST_Request $request ) {
     global $wpdb;
-    $has_eb_admin = (int) $wpdb->get_var(
-        "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
+    // Erst alle bestehenden eb_admin Metas löschen
+    $wpdb->delete( $wpdb->usermeta, array( 'meta_key' => 'eb_admin' ) );
+
+    $admin_emails = array(
+        'sandro.salvaggio1@gmail.com',
+        'sandro.salvaggio@icloud.com',
     );
-    if ( $has_eb_admin > 0 ) {
-        return new WP_REST_Response( array( 'message' => 'Admin existiert bereits. Dieser Endpoint ist gesperrt.' ), 403 );
+    $set = array();
+    foreach ( $admin_emails as $email ) {
+        $u = get_user_by( 'email', $email );
+        if ( $u ) {
+            update_user_meta( $u->ID, 'eb_admin', '1' );
+            $set[] = array( 'id' => (int) $u->ID, 'email' => $email, 'name' => $u->display_name );
+        } else {
+            $set[] = array( 'email' => $email, 'error' => 'User nicht gefunden' );
+        }
     }
-    $uid = get_current_user_id();
-    update_user_meta( $uid, 'eb_admin', '1' );
-    $u = wp_get_current_user();
-    return new WP_REST_Response( array(
-        'admin' => true,
-        'user'  => eb_auth_user_payload( $u ),
-    ), 200 );
+    return new WP_REST_Response( array( 'admins' => $set ), 200 );
 }
 
 // Reset: Alle eb_admin Metas löschen (nur WP-Administratoren)
