@@ -680,6 +680,24 @@ function renderHeroMarquees() {
   const rightHTML = rightListings.map(cardHTML).join('');
   leftTrack.innerHTML = leftHTML + leftHTML;
   rightTrack.innerHTML = rightHTML + rightHTML;
+
+  // Detect very wide images and switch to contain
+  [leftTrack, rightTrack].forEach(track => {
+    track.querySelectorAll('.hero-marquee-card img').forEach(img => {
+      img.onload = () => {
+        if (img.naturalWidth / img.naturalHeight > 2.2) {
+          img.style.objectFit = 'contain';
+          img.style.background = '#fff';
+        }
+      };
+      if (img.complete && img.naturalWidth) {
+        if (img.naturalWidth / img.naturalHeight > 2.2) {
+          img.style.objectFit = 'contain';
+          img.style.background = '#fff';
+        }
+      }
+    });
+  });
 }
 
 // ========== EXPLORE PAGE (Instagram-Style) ==========
