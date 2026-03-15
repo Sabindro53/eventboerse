@@ -1503,6 +1503,19 @@ function eb_register_extra_routes() {
         'permission_callback' => 'is_user_logged_in',
     ) );
 
+    /* ---------- HEARTBEAT / USER STATUS ---------- */
+    register_rest_route( 'eventboerse/v1', '/heartbeat', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_heartbeat',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/user-status/(?P<id>\d+)', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_user_status',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
     /* ---------- FAVORITES ---------- */
     register_rest_route( 'eventboerse/v1', '/favorites', array(
         array(
@@ -2147,9 +2160,30 @@ function eb_review_delete( WP_REST_Request $request ) {
 /* =====================================================================
    CONVERSATIONS / MESSAGES HANDLERS
    ===================================================================== */
+/* ── Heartbeat: update last_activity ── */
+function eb_heartbeat() {
+    $uid = get_current_user_id();
+    update_user_meta( $uid, 'eb_last_activity', current_time( 'mysql' ) );
+    return new WP_REST_Response( array( 'ok' => true ), 200 );
+}
+
+/* ── User online status ── */
+function eb_user_status( WP_REST_Request $request ) {
+    $user_id       = absint( $request['id'] );
+    $last_activity = get_user_meta( $user_id, 'eb_last_activity', true );
+    $online        = false;
+    if ( $last_activity ) {
+        $diff = time() - strtotime( $last_activity );
+        $online = $diff < 120; // online if active within 2 minutes
+    }
+    return new WP_REST_Response( array( 'online' => $online ), 200 );
+}
+
 function eb_conversations_list() {
     global $wpdb;
     $uid = get_current_user_id();
+    // Update own last_activity on conversation list fetch
+    update_user_meta( $uid, 'eb_last_activity', current_time( 'mysql' ) );
 
     $rows = $wpdb->get_results( $wpdb->prepare(
         "SELECT c.*,
@@ -2177,6 +2211,9 @@ function eb_conversations_list() {
             $time_str = $ts >= $today ? date( 'H:i', $ts ) : date_i18n( 'j. M', $ts );
         }
 
+        $other_last = get_user_meta( $other_id, 'eb_last_activity', true );
+        $other_online = $other_last ? ( ( time() - strtotime( $other_last ) ) < 120 ) : false;
+
         $conversations[] = array(
             'id'           => (int) $c->id,
             'otherId'      => $other_id,
@@ -2191,6 +2228,7 @@ function eb_conversations_list() {
             'unread_count' => (int) $c->unread_count,
             'updated_at'   => $c->last_msg_time ?: $c->updated_at,
             'listingId'    => $c->listing_id ? (int) $c->listing_id : null,
+            'online'       => $other_online,
         );
     }
 

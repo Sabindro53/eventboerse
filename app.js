@@ -2042,12 +2042,44 @@ function updateMsgBadge(count) {
   }
 }
 
+// ──── Heartbeat: send alive signal every 60s ────
+var _heartbeatTimer = null;
+function _startHeartbeat() {
+  _stopHeartbeat();
+  _sendHeartbeat();
+  _heartbeatTimer = setInterval(_sendHeartbeat, 60000);
+}
+function _stopHeartbeat() {
+  if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
+}
+function _sendHeartbeat() {
+  if (!isLoggedIn) return;
+  fetch(_apiUrl('heartbeat'), { method: 'POST', credentials: 'same-origin', headers: _apiHeaders() }).catch(function(){});
+}
+
+// ──── Update chat header online/offline status ────
+function _updateChatStatus(userId) {
+  if (!userId) return;
+  fetch(_apiUrl('user-status/' + userId), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('chatStatus');
+      if (!el) return;
+      var on = data && data.online;
+      el.textContent = on ? 'Online' : 'Offline';
+      el.className = on ? 'chat-status online' : 'chat-status offline';
+    })
+    .catch(function(){});
+}
+
 // Live polling for new messages
 var _chatPollTimer = null;
 function _startChatPoll() {
   _stopChatPoll();
   _chatPollTimer = setInterval(function() {
     if (!currentChat || !currentChat.id) { _stopChatPoll(); return; }
+    // Also refresh online status of chat partner
+    if (currentChat.otherId) _updateChatStatus(currentChat.otherId);
     fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(messages) {
@@ -2145,7 +2177,10 @@ function renderChatList() {
         var unread = parseInt(c.unread_count) || 0;
         var activeClass = currentChat && currentChat.id === c.id ? 'active' : '';
         return '<div class="chat-item ' + activeClass + '" onclick="openChat(' + c.id + ')">' +
-          '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" />' +
+          '<div class="chat-item-avatar-wrap">' +
+            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" />' +
+            '<span class="chat-item-dot ' + (c.online ? 'online' : 'offline') + '"></span>' +
+          '</div>' +
           '<div class="chat-item-info">' +
             '<strong>' + _escHtml(name) + '</strong>' +
             '<p>' + _escHtml(lastMsg) + '</p>' +
@@ -2187,8 +2222,8 @@ function openChat(chatId) {
 
       document.getElementById('chatAvatar').src = currentChat.avatar;
       document.getElementById('chatName').textContent = currentChat.name;
-      document.getElementById('chatStatus').textContent = 'Online';
-      document.getElementById('chatStatus').className = 'online';
+      // Fetch real online status
+      _updateChatStatus(currentChat.otherId);
 
       // Find last pending offer from the other user
       var lastPendingOffer = null;
@@ -2307,7 +2342,7 @@ function openDemoChat(chatId) {
   document.getElementById('chatAvatar').src = chat.avatar;
   document.getElementById('chatName').textContent = chat.name;
   document.getElementById('chatStatus').textContent = chat.online ? 'Online' : 'Offline';
-  document.getElementById('chatStatus').className = chat.online ? 'online' : '';
+  document.getElementById('chatStatus').className = chat.online ? 'chat-status online' : 'chat-status offline';
 
   // Negotiation banner
   var negBanner = document.getElementById('negotiationBanner');
@@ -5819,11 +5854,14 @@ function applyLogin() {
       updateMsgBadge(total);
     })
     .catch(function() { updateMsgBadge(0); });
+  // Start presence heartbeat
+  _startHeartbeat();
 }
 
 function applyLogout() {
   isLoggedIn = false;
   currentUser = null;
+  _stopHeartbeat();
   _dbListingsLoaded = false;
   _favoritesLoaded = false;
   favorites.clear();
@@ -6472,7 +6510,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '93';
+var _EB_VERSION = '94';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
