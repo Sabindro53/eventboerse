@@ -43,6 +43,7 @@ get_header();
         <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()">
           <span class="material-icons-round">menu</span>
           <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="User" />
+          <span class="nav-admin-label" id="navAdminLabel">Admin</span>
         </button>
       </div>
     </div>

@@ -6010,6 +6010,8 @@ function applyLogin() {
     var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
     var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = avatarUrl;
+    var adminLabel = document.getElementById('navAdminLabel');
+    if (adminLabel) adminLabel.style.display = currentUser.isAdmin ? 'block' : 'none';
   }
   var createPage = document.getElementById('page-create-listing');
   if (createPage && createPage.classList.contains('active')) updateCreateFormForRole();
@@ -6068,6 +6070,8 @@ function applyLogout() {
   document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=user1';
+  var adminLabel = document.getElementById('navAdminLabel');
+  if (adminLabel) adminLabel.style.display = 'none';
   // Reset mobile nav labels
   var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
   if (mobileCreateBtn) {
@@ -6706,7 +6710,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '105';
+var _EB_VERSION = '106';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
