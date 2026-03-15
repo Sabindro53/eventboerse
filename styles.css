@@ -1770,9 +1770,17 @@ img { display: block; max-width: 100%; }
   object-fit: contain;
   background: var(--bg-alt);
   cursor: pointer;
-  transition: opacity var(--transition);
+  transition: transform 0.4s ease, filter 0.3s ease;
+  animation: galleryReveal 0.6s ease backwards;
 }
-.detail-gallery-img:hover { opacity: 0.92; }
+.detail-gallery-img:nth-child(1) { animation-delay: 0s; }
+.detail-gallery-img:nth-child(2) { animation-delay: 0.1s; }
+.detail-gallery-img:nth-child(3) { animation-delay: 0.15s; }
+.detail-gallery-img:nth-child(4) { animation-delay: 0.2s; }
+.detail-gallery-img:nth-child(5) { animation-delay: 0.25s; }
+.detail-gallery-img:nth-child(6) { animation-delay: 0.3s; }
+.detail-gallery-img:nth-child(7) { animation-delay: 0.35s; }
+.detail-gallery-img:hover { transform: scale(1.04); filter: brightness(0.9); z-index: 1; }
 .detail-gallery-img:first-child { grid-row: 1 / -1; }
 .detail-layout {
   display: grid;
@@ -4617,6 +4625,10 @@ span.flatpickr-weekday {
 ::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
 
 /* ======== ANIMATIONS ======== */
+@keyframes galleryReveal {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
