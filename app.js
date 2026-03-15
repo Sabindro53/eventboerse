@@ -508,7 +508,7 @@ const BLOCKED_PATTERNS = [
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
   // Pages that require login — redirect to login modal immediately
-  var loginRequired = ['create-listing', 'messages', 'profile', 'settings'];
+  var loginRequired = ['create-listing', 'messages', 'profile', 'edit-profile', 'settings'];
   if (!isLoggedIn && loginRequired.indexOf(page) !== -1) {
     openModal('loginModal');
     showToast('Bitte melde dich an, um diese Funktion zu nutzen.', 'info');
@@ -528,7 +528,9 @@ function navigateTo(page, data, skipHistory) {
   _stopChatPoll();
 
   // Activate target page
-  const target = document.getElementById('page-' + page);
+  var targetId = page;
+  if (page === 'edit-profile') targetId = 'profile';
+  const target = document.getElementById('page-' + targetId);
   if (target) {
     target.classList.add('active');
     currentPage = page;
@@ -600,6 +602,9 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'favorites':
       renderFavorites();
+      break;
+    case 'edit-profile':
+      renderDashboard();
       break;
     case 'settings':
       loadSettings();
@@ -1732,7 +1737,7 @@ function loadProvider(providerId) {
   if (actionBar) {
     if (isOwnProviderProfile) {
       actionBar.innerHTML =
-        '<button class="btn-primary" onclick="navigateTo(\'settings\')">' +
+        '<button class="btn-primary" onclick="navigateTo(\'edit-profile\')">' +
           '<span class="material-icons-round">edit</span> Profil bearbeiten' +
         '</button>' +
         '<button class="btn-outline" onclick="shareProvider()">' +
@@ -6610,7 +6615,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '103';
+var _EB_VERSION = '104';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
