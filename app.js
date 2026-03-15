@@ -836,16 +836,32 @@ function toggleFeedFav(btn, id) {
   }
 }
 
+function detectWideBannerCards(container) {
+  container.querySelectorAll('.listing-card-img img').forEach(img => {
+    const check = () => {
+      if (img.naturalWidth / img.naturalHeight > 2.2) {
+        img.style.objectFit = 'contain';
+        img.style.background = '#fff';
+      }
+    };
+    if (img.complete && img.naturalWidth) check();
+    else img.onload = check;
+  });
+}
+
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
   grid.innerHTML = LISTINGS.slice(0, 8).map(renderListingCard).join('');
+  detectWideBannerCards(grid);
 }
 
 function filterCategory(btn, category) {
   document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
   const filtered = category === 'alle' ? LISTINGS : LISTINGS.filter(l => l.category === category);
-  document.getElementById('featuredGrid').innerHTML = filtered.map(renderListingCard).join('');
+  const grid = document.getElementById('featuredGrid');
+  grid.innerHTML = filtered.map(renderListingCard).join('');
+  detectWideBannerCards(grid);
 }
 
 // Event-type to tag mapping (hero select values → listing tag names)
@@ -1214,6 +1230,7 @@ function performSearch() {
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
   grid.innerHTML = listings.map(renderListingCard).join('');
+  detectWideBannerCards(grid);
   document.getElementById('browseResultCount').textContent = `${listings.length} Services gefunden`;
 }
 
@@ -1705,6 +1722,7 @@ function loadProvider(providerId) {
 
   // Listings tab
   document.getElementById('providerListings').innerHTML = providerListings.map(renderListingCard).join('');
+  detectWideBannerCards(document.getElementById('providerListings'));
 
   // Reviews tab — load from API
   var providerDbId = pid;
@@ -4720,6 +4738,7 @@ function toggleFavorite(listingId, btn) {
       grid.style.display = '';
       emptyState.style.display = 'none';
       grid.innerHTML = favListings.map(renderListingCard).join('');
+      detectWideBannerCards(grid);
     }
   }
 }
@@ -4737,6 +4756,7 @@ function renderFavorites() {
       grid.style.display = '';
       emptyState.style.display = 'none';
       grid.innerHTML = favListings.map(renderListingCard).join('');
+      detectWideBannerCards(grid);
     }
   }
 
