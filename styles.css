@@ -1085,8 +1085,7 @@ img { display: block; max-width: 100%; }
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  background: var(--bg-alt);
+  object-fit: cover;
   transition: transform 0.4s ease;
 }
 .listing-card:hover .listing-card-img img { transform: scale(1.05); }
@@ -1888,7 +1887,7 @@ img { display: block; max-width: 100%; }
 .detail-gallery-slide img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
   pointer-events: none;
 }
@@ -2590,8 +2589,7 @@ img { display: block; max-width: 100%; }
 .provider-portfolio img {
   width: 100%;
   aspect-ratio: 4 / 3;
-  object-fit: contain;
-  background: var(--bg-alt);
+  object-fit: cover;
   cursor: pointer;
   transition: transform 0.3s, filter 0.3s;
 }
