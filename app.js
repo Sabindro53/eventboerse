@@ -1874,6 +1874,16 @@ function buildGalleryRows(images) {
       t.style.backgroundImage = `url(${item.src})`;
       t.style.width = thumbW + 'px';
       t.style.height = thumbH + 'px';
+      // Detect portrait images and adjust width
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalHeight > img.naturalWidth) {
+          const portraitW = Math.round(thumbH * (img.naturalWidth / img.naturalHeight));
+          t.style.width = portraitW + 'px';
+          t.classList.add('pcg-portrait');
+        }
+      };
+      img.src = item.src;
       t.addEventListener('click', () => openProviderLightbox(item.globalIdx));
       row.appendChild(t);
     });

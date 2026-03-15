@@ -2371,23 +2371,15 @@ img { display: block; max-width: 100%; }
 .pcg-thumb {
   flex-shrink: 0;
   border-radius: 10px;
-  background-size: contain;
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-color: #111;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  position: relative;
-  overflow: hidden;
 }
-.pcg-thumb::before {
-  content: '';
-  position: absolute;
-  inset: -20px;
-  background: inherit;
-  background-size: cover;
-  filter: blur(16px) brightness(0.6);
-  z-index: 0;
+.pcg-thumb.pcg-portrait {
+  background-size: contain;
+  background-color: var(--bg-dark);
 }
 .pcg-show-all {
   position: absolute;
