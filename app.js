@@ -2112,6 +2112,8 @@ function _startChatPoll() {
         } else {
           banner.style.display = 'none';
         }
+        // Always refresh sidebar (online status dots)
+        renderChatList();
         if (newCount <= oldCount) return;
         // New messages arrived — update
         currentChat.messages = messages;
@@ -2143,7 +2145,6 @@ function _startChatPoll() {
           }
         }).join('');
         if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
-        renderChatList();
       })
       .catch(function() {});
   }, 5000);
@@ -6521,7 +6522,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '95';
+var _EB_VERSION = '96';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
