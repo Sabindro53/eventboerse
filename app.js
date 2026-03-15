@@ -6522,7 +6522,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '97';
+var _EB_VERSION = '98';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
