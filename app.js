@@ -1461,10 +1461,20 @@ function loadDetail(listingId) {
     heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" />`;
   }
 
-  // Full gallery for desktop, remaining images on mobile (CSS hides first-child on mobile)
-  gallery.innerHTML = listing.images.map(img =>
-    `<img src="${_escHtml(img)}" alt="${_escHtml(listing.title)}" class="detail-gallery-img" />`
-  ).join('');
+  // Swipeable gallery carousel
+  var imgs = listing.images;
+  gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
+    imgs.map(function(img, i) {
+      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" /></div>';
+    }).join('') +
+    '</div>' +
+    (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
+    '<button class="detail-gallery-arrow next" onclick="detailGalleryNav(1)"><span class="material-icons-round">chevron_right</span></button>' +
+    '<div class="detail-gallery-dots" id="detailGalleryDots">' +
+    imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')"></button>'; }).join('') +
+    '</div>' +
+    '<div class="detail-gallery-counter" id="detailGalleryCounter">1 / ' + imgs.length + '</div>' : '');
+  _initDetailGallerySwipe();
 
   // Info
   document.getElementById('detailCategory').textContent = listing.categoryLabel;
@@ -6163,7 +6173,77 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '87';
+var _EB_VERSION = '88';
+
+// ========== DETAIL GALLERY CAROUSEL ==========
+var _detailGalleryIdx = 0;
+function _initDetailGallerySwipe() {
+  var track = document.getElementById('detailGalleryTrack');
+  if (!track) return;
+  _detailGalleryIdx = 0;
+  var startX = 0, startY = 0, dragging = false, moved = false;
+
+  track.addEventListener('scroll', function() {
+    var slideW = track.offsetWidth;
+    if (slideW <= 0) return;
+    var idx = Math.round(track.scrollLeft / slideW);
+    if (idx !== _detailGalleryIdx) {
+      _detailGalleryIdx = idx;
+      _updateDetailGalleryUI();
+    }
+  });
+
+  // Mouse drag
+  track.addEventListener('mousedown', function(e) {
+    dragging = true; moved = false;
+    startX = e.clientX;
+    track.style.scrollBehavior = 'auto';
+    track.style.cursor = 'grabbing';
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var dx = e.clientX - startX;
+    if (Math.abs(dx) > 5) moved = true;
+    track.scrollLeft -= (e.clientX - startX);
+    startX = e.clientX;
+  });
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    track.style.scrollBehavior = 'smooth';
+    track.style.cursor = '';
+    // Snap to nearest
+    var slideW = track.offsetWidth;
+    var target = Math.round(track.scrollLeft / slideW) * slideW;
+    track.scrollLeft = target;
+  });
+}
+
+function _updateDetailGalleryUI() {
+  var dots = document.querySelectorAll('#detailGalleryDots .detail-gallery-dot');
+  dots.forEach(function(d, i) {
+    d.classList.toggle('active', i === _detailGalleryIdx);
+  });
+  var counter = document.getElementById('detailGalleryCounter');
+  if (counter) counter.textContent = (_detailGalleryIdx + 1) + ' / ' + dots.length;
+}
+
+function detailGalleryNav(dir) {
+  var track = document.getElementById('detailGalleryTrack');
+  if (!track) return;
+  var total = track.children.length;
+  _detailGalleryIdx = Math.max(0, Math.min(total - 1, _detailGalleryIdx + dir));
+  track.children[_detailGalleryIdx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  _updateDetailGalleryUI();
+}
+
+function detailGalleryGoTo(idx) {
+  var track = document.getElementById('detailGalleryTrack');
+  if (!track) return;
+  _detailGalleryIdx = idx;
+  track.children[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  _updateDetailGalleryUI();
+}
 function showUpdateNotification() {
   var lastVersion = localStorage.getItem('eb_last_version');
   if (lastVersion === _EB_VERSION) return;
