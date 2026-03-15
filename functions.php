@@ -2702,17 +2702,23 @@ function eb_admin_delete_user( WP_REST_Request $request ) {
 function eb_admin_make_admin( WP_REST_Request $request ) {
     $uid = get_current_user_id();
     $u   = wp_get_current_user();
-    // Nur erlaubt wenn: WP-Administrator, ODER noch kein Admin in der DB existiert
+    // Bereits Admin? Dann einfach bestätigen
+    if ( eb_is_admin_user() ) {
+        return new WP_REST_Response( array(
+            'admin' => true,
+            'role'  => 'Admin',
+            'user'  => eb_auth_user_payload( $u ),
+        ), 200 );
+    }
+    // Nur erlaubt wenn: WP-Administrator, ODER noch kein eb_admin in der DB existiert
     $is_wp_admin = in_array( 'administrator', (array) $u->roles, true );
-    if ( ! $is_wp_admin && ! eb_is_admin_user() ) {
-        // Prüfe ob es überhaupt einen Admin gibt
+    if ( ! $is_wp_admin ) {
         global $wpdb;
-        $has_admin = $wpdb->get_var(
+        $has_eb_admin = $wpdb->get_var(
             "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
         );
-        $wp_admins = get_users( array( 'role' => 'administrator', 'number' => 1 ) );
-        if ( $has_admin > 0 || ! empty( $wp_admins ) ) {
-            return new WP_REST_Response( array( 'message' => 'Keine Berechtigung.' ), 403 );
+        if ( $has_eb_admin > 0 ) {
+            return new WP_REST_Response( array( 'message' => 'Keine Berechtigung. Es gibt bereits einen Admin.' ), 403 );
         }
     }
     update_user_meta( $uid, 'eb_admin', '1' );
