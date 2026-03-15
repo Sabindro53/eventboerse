@@ -1652,7 +1652,30 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/admin/make-admin', array(
         'methods'             => 'POST',
         'callback'            => 'eb_admin_make_admin',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/list-admins', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_admin_list_admins',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    // Einmalig: Erster Admin kann sich selbst setzen wenn kein eb_admin existiert
+    register_rest_route( 'eventboerse/v1', '/admin/init', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_init',
         'permission_callback' => function() { return is_user_logged_in(); },
+    ) );
+
+    // Admin-Reset: löscht alle eb_admin Metas (nur wenn kein eb_admin existiert oder per WP-Admin)
+    register_rest_route( 'eventboerse/v1', '/admin/reset', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_reset',
+        'permission_callback' => function() {
+            $u = wp_get_current_user();
+            return in_array( 'administrator', (array) $u->roles, true );
+        },
     ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
@@ -2700,31 +2723,96 @@ function eb_admin_delete_user( WP_REST_Request $request ) {
 }
 
 function eb_admin_make_admin( WP_REST_Request $request ) {
-    $uid = get_current_user_id();
-    $u   = wp_get_current_user();
-    // Bereits Admin? Dann einfach bestätigen
-    if ( eb_is_admin_user() ) {
-        return new WP_REST_Response( array(
-            'admin' => true,
-            'role'  => 'Admin',
-            'user'  => eb_auth_user_payload( $u ),
-        ), 200 );
+    // Nur bestehende Admins können andere zu Admins machen
+    // permission_callback prüft bereits eb_is_admin_user()
+    $target_id = isset( $request['user_id'] ) ? absint( $request['user_id'] ) : 0;
+    if ( ! $target_id ) {
+        return new WP_REST_Response( array( 'message' => 'Keine user_id angegeben.' ), 400 );
     }
-    // Nur erlaubt wenn: WP-Administrator, ODER noch kein eb_admin in der DB existiert
-    $is_wp_admin = in_array( 'administrator', (array) $u->roles, true );
-    if ( ! $is_wp_admin ) {
-        global $wpdb;
-        $has_eb_admin = $wpdb->get_var(
-            "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
+    $target = get_user_by( 'id', $target_id );
+    if ( ! $target ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
+    update_user_meta( $target_id, 'eb_admin', '1' );
+    return new WP_REST_Response( array(
+        'admin'   => true,
+        'user_id' => $target_id,
+        'name'    => $target->display_name,
+    ), 200 );
+}
+
+function eb_admin_list_admins( WP_REST_Request $request ) {
+    global $wpdb;
+    $rows = $wpdb->get_results(
+        "SELECT u.ID, u.user_login, u.user_email, u.display_name
+         FROM {$wpdb->users} u
+         INNER JOIN {$wpdb->usermeta} um ON u.ID = um.user_id
+         WHERE um.meta_key = 'eb_admin' AND um.meta_value = '1'"
+    );
+    $admins = array();
+    foreach ( $rows as $row ) {
+        $admins[] = array(
+            'id'    => (int) $row->ID,
+            'login' => $row->user_login,
+            'email' => $row->user_email,
+            'name'  => $row->display_name,
         );
-        if ( $has_eb_admin > 0 ) {
-            return new WP_REST_Response( array( 'message' => 'Keine Berechtigung. Es gibt bereits einen Admin.' ), 403 );
+    }
+    // Auch WP-Administratoren auflisten
+    $wp_admins = get_users( array( 'role' => 'administrator' ) );
+    foreach ( $wp_admins as $wa ) {
+        $already = false;
+        foreach ( $admins as $a ) {
+            if ( $a['id'] === (int) $wa->ID ) { $already = true; break; }
+        }
+        if ( ! $already ) {
+            $admins[] = array(
+                'id'    => (int) $wa->ID,
+                'login' => $wa->user_login,
+                'email' => $wa->user_email,
+                'name'  => $wa->display_name,
+                'wp_admin' => true,
+            );
         }
     }
+    return new WP_REST_Response( $admins, 200 );
+}
+
+// Einmalig: Wenn kein eb_admin existiert, kann sich der erste User selbst aktivieren
+function eb_admin_init( WP_REST_Request $request ) {
+    global $wpdb;
+    $has_eb_admin = (int) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
+    );
+    if ( $has_eb_admin > 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Admin existiert bereits. Dieser Endpoint ist gesperrt.' ), 403 );
+    }
+    $uid = get_current_user_id();
     update_user_meta( $uid, 'eb_admin', '1' );
+    $u = wp_get_current_user();
     return new WP_REST_Response( array(
         'admin' => true,
-        'role'  => 'Admin',
         'user'  => eb_auth_user_payload( $u ),
+    ), 200 );
+}
+
+// Reset: Alle eb_admin Metas löschen (nur WP-Administratoren)
+function eb_admin_reset( WP_REST_Request $request ) {
+    global $wpdb;
+    // Liste der bisherigen Admins
+    $old_admins = $wpdb->get_results(
+        "SELECT u.ID, u.user_login, u.display_name
+         FROM {$wpdb->users} u
+         INNER JOIN {$wpdb->usermeta} um ON u.ID = um.user_id
+         WHERE um.meta_key = 'eb_admin' AND um.meta_value = '1'"
+    );
+    $removed = array();
+    foreach ( $old_admins as $oa ) {
+        $removed[] = array( 'id' => (int) $oa->ID, 'login' => $oa->user_login, 'name' => $oa->display_name );
+    }
+    $wpdb->delete( $wpdb->usermeta, array( 'meta_key' => 'eb_admin' ) );
+    return new WP_REST_Response( array(
+        'reset'   => true,
+        'removed' => $removed,
     ), 200 );
 }

@@ -2931,21 +2931,9 @@ function loadSettings() {
   document.getElementById('settingsRoleDisplay').textContent = currentUser.role || 'Mitglied';
   document.getElementById('settingsSinceDisplay').textContent = currentUser.since || '–';
 
-  // Admin-Button anzeigen wenn nicht Admin
+  // Admin-Button entfernt – Admins werden nur noch manuell vergeben
   var existingAdminBtn = document.getElementById('settingsMakeAdminBtn');
   if (existingAdminBtn) existingAdminBtn.remove();
-  if (!currentUser.isAdmin) {
-    var roleRow = document.getElementById('settingsRoleDisplay');
-    if (roleRow && roleRow.parentElement) {
-      var btn = document.createElement('button');
-      btn.id = 'settingsMakeAdminBtn';
-      btn.className = 'btn-outline btn-sm';
-      btn.style.marginLeft = '12px';
-      btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;vertical-align:middle">shield</span> Admin werden';
-      btn.onclick = makeAdmin;
-      roleRow.parentElement.appendChild(btn);
-    }
-  }
 
   // Clear password fields
   document.getElementById('settingsCurrentPw').value = '';
@@ -5138,24 +5126,7 @@ function adminDeleteUser(userId) {
   }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
 }
 
-function makeAdmin() {
-  if (!confirm('Möchtest du dein Konto zum Admin machen?')) return;
-  fetch(_apiUrl('admin/make-admin'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
-  }).then(function(r) { _refreshNonce(r); return r.json(); })
-    .then(function(data) {
-      if (data && data.admin) {
-        currentUser.role = 'Admin';
-        currentUser.isAdmin = true;
-        var adminLabel = document.getElementById('navAdminLabel');
-        if (adminLabel) adminLabel.style.display = 'block';
-        showToast('Du bist jetzt Admin!', 'success');
-        loadSettings();
-      } else {
-        showToast(data.message || 'Fehler', 'error');
-      }
-    }).catch(function() { showToast('Fehler beim Admin-Setzen', 'error'); });
-}
+// makeAdmin() entfernt – Admin-Vergabe nur noch serverseitig durch bestehende Admins
 
 // ========== REVIEW SYSTEM ==========
 var selectedRating = 0;
