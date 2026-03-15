@@ -837,16 +837,19 @@ function toggleFeedFav(btn, id) {
 }
 
 function detectWideBannerCards(container) {
-  container.querySelectorAll('.listing-card-img img').forEach(img => {
-    const check = () => {
-      if (img.naturalWidth / img.naturalHeight > 2.2) {
-        img.style.objectFit = 'contain';
-        img.style.background = '#fff';
-      }
-    };
-    if (img.complete && img.naturalWidth) check();
-    else img.onload = check;
-  });
+  container.querySelectorAll('.listing-card-img img').forEach(detectWideBannerImg);
+}
+
+function detectWideBannerImg(img) {
+  if (!img) return;
+  const check = () => {
+    if (img.naturalWidth / img.naturalHeight > 2.2) {
+      img.style.objectFit = 'contain';
+      img.style.background = '#fff';
+    }
+  };
+  if (img.complete && img.naturalWidth) check();
+  else img.onload = check;
 }
 
 function renderFeaturedGrid() {
@@ -1517,6 +1520,9 @@ function loadDetail(listingId) {
     '</div>' +
     '<div class="detail-gallery-counter" id="detailGalleryCounter">1 / ' + imgs.length + '</div>' : '');
   _initDetailGallerySwipe();
+  // Detect wide banners for hero + gallery
+  detectWideBannerImg(heroImg.querySelector('img'));
+  gallery.querySelectorAll('.detail-gallery-slide img').forEach(detectWideBannerImg);
   // Cinematic preview on load
   if (imgs.length > 1) {
     _startCinemaPreview(gallery, imgs, listing.title);
