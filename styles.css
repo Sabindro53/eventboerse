@@ -217,6 +217,7 @@ img { display: block; max-width: 100%; }
   white-space: nowrap;
 }
 .nav-search-segment .label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--dark); letter-spacing: 0.5px; }
+.nav-search-segment .label .ai-spark { font-size: 11px !important; vertical-align: middle; margin-right: 2px; }
 .nav-search-segment .value { display: block; font-size: 0.82rem; color: var(--text-light); margin-top: 1px; }
 .nav-search-segment:hover { background: var(--bg-alt); }
 .nav-search-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
