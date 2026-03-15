@@ -6912,7 +6912,7 @@ function _startCinemaPreview(gallery, imgs, title) {
   _cinemaTimer = setInterval(function() {
     current++;
     if (current >= total) {
-      endCinema(total - 1);
+      endCinema(0);
       return;
     }
     showImage(current);
