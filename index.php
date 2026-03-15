@@ -16,9 +16,9 @@ get_header();
         <span class="logo-text">Event<span class="accent">börse</span></span>
       </a>
       <div class="nav-search" id="navSearchBar">
-        <button class="nav-search-segment" onclick="navigateTo('browse')">
-          <span class="label">Was?</span>
-          <span class="value">Service suchen</span>
+        <button class="nav-search-segment nav-search-ai" onclick="navigateTo('browse')">
+          <span class="label"><span class="material-icons-round ai-spark">auto_awesome</span> KI-Suche</span>
+          <span class="value">Beschreib dein Event…</span>
         </button>
         <span class="nav-search-divider"></span>
         <button class="nav-search-segment" onclick="navigateTo('browse')">
