@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=92" />
+  <link rel="stylesheet" href="styles.css?v=93" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -1389,6 +1389,23 @@
               <input type="file" id="fileInput" multiple accept="image/*" style="display:none" onchange="handleUpload(this)" />
             </div>
             <div class="upload-preview" id="uploadPreview"></div>
+            <!-- Live Gallery Preview -->
+            <div class="listing-live-preview" id="listingLivePreview" style="display:none">
+              <div class="listing-live-preview-label">
+                <span class="material-icons-round">visibility</span> Vorschau – So sieht deine Galerie aus
+              </div>
+              <div class="listing-live-preview-gallery">
+                <div class="listing-live-preview-track" id="livePreviewTrack"></div>
+                <button type="button" class="listing-live-preview-arrow prev" onclick="livePreviewNav(-1)">
+                  <span class="material-icons-round">chevron_left</span>
+                </button>
+                <button type="button" class="listing-live-preview-arrow next" onclick="livePreviewNav(1)">
+                  <span class="material-icons-round">chevron_right</span>
+                </button>
+                <div class="listing-live-preview-dots" id="livePreviewDots"></div>
+                <div class="listing-live-preview-counter" id="livePreviewCounter"></div>
+              </div>
+            </div>
             <div class="form-nav">
               <button type="button" class="btn-outline" onclick="nextStep(2)">
                 <span class="material-icons-round">arrow_back</span> Zurück
@@ -2054,6 +2071,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=92"></script>
+  <script src="app.js?v=93"></script>
 </body>
 </html>
