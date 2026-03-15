@@ -1708,9 +1708,11 @@ function loadProvider(providerId) {
   ).join('');
 
   // Portfolio
-  document.getElementById('providerPortfolio').innerHTML = providerImages.map((img, i) =>
+  const portfolioEl = document.getElementById('providerPortfolio');
+  portfolioEl.innerHTML = providerImages.map((img, i) =>
     `<img src="${_escHtml(img)}" alt="Portfolio" loading="lazy" onclick="openProviderLightbox(${i})" />`
   ).join('');
+  portfolioEl.querySelectorAll('img').forEach(detectWideBannerImg);
 
   // Sidebar Facts
   document.getElementById('providerFacts').innerHTML = `
