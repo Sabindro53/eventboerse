@@ -6173,7 +6173,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '88';
+var _EB_VERSION = '89';
 
 // ========== DETAIL GALLERY CAROUSEL ==========
 var _detailGalleryIdx = 0;
