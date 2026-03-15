@@ -2409,6 +2409,12 @@ img { display: block; max-width: 100%; }
   color: #92400e;
 }
 .ppc-badge-super .material-icons-round { color: #f59e0b; }
+.admin-badge {
+  background: linear-gradient(135deg, #ede9fe, #ddd6fe) !important;
+  border-color: #7c3aed !important;
+  color: #5b21b6 !important;
+}
+.admin-badge .material-icons-round { color: #7c3aed !important; }
 .ppc-right { flex-shrink: 0; }
 .provider-stats-ring {
   display: flex; gap: 20px;

@@ -1489,6 +1489,19 @@ function loadDetail(listingId) {
   var editBtn = document.getElementById('detailEditBtn');
   if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
 
+  // Admin delete button for listing
+  var existingAdminDel = document.getElementById('detailAdminDeleteBtn');
+  if (existingAdminDel) existingAdminDel.remove();
+  if (currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id) {
+    var adminDelBtn = document.createElement('button');
+    adminDelBtn.id = 'detailAdminDeleteBtn';
+    adminDelBtn.className = 'btn-outline btn-sm btn-danger-outline';
+    adminDelBtn.innerHTML = '<span class="material-icons-round">delete</span> Inserat löschen';
+    adminDelBtn.onclick = function() { adminDeleteListing(listing.id); };
+    var provRow = document.querySelector('.detail-provider-row');
+    if (provRow) provRow.appendChild(adminDelBtn);
+  }
+
   document.getElementById('detailDescription').innerHTML = _sanitizeHtml(listing.description);
   document.getElementById('detailPrice').textContent = listing.priceLabel.split('/')[0];
 
@@ -1602,6 +1615,9 @@ function loadProvider(providerId) {
   // Badges
   const badgesEl = document.getElementById('providerBadges');
   let badgesHtml = '';
+  if (mainListing.categoryLabel === 'Admin') {
+    badgesHtml += '<span class="ppc-badge admin-badge"><span class="material-icons-round">shield</span> Admin</span>';
+  }
   if (mainListing.badge === 'Superhost') {
     badgesHtml += '<span class="ppc-badge ppc-badge-super"><span class="material-icons-round">workspace_premium</span> Superhost</span>';
   }
@@ -1681,7 +1697,7 @@ function loadProvider(providerId) {
             var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + _escHtml(r.listingTitle) + '</div>' : '';
             var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
             var isProviderOwner = currentUser && pid && pid === currentUser.id;
-            var canDelete = isOwnReview || isProviderOwner;
+            var canDelete = isOwnReview || isProviderOwner || (currentUser && currentUser.isAdmin);
             var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
             return '<div class="review-card">' +
               '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
@@ -1723,6 +1739,12 @@ function loadProvider(providerId) {
           '<span class="material-icons-round">share</span> Teilen' +
         '</button>';
     } else {
+      var adminBtns = '';
+      if (currentUser && currentUser.isAdmin) {
+        adminBtns = '<button class="btn-outline btn-sm btn-danger-outline" onclick="adminDeleteUser(' + pid + ')">' +
+          '<span class="material-icons-round">person_remove</span> Nutzer löschen' +
+        '</button>';
+      }
       actionBar.innerHTML =
         '<button class="btn-primary" onclick="startChatWithProvider()">' +
           '<span class="material-icons-round">chat</span> Nachricht senden' +
@@ -1732,7 +1754,7 @@ function loadProvider(providerId) {
         '</button>' +
         '<button class="btn-outline" onclick="shareProvider()">' +
           '<span class="material-icons-round">share</span> Teilen' +
-        '</button>';
+        '</button>' + adminBtns;
     }
   }
 
@@ -2633,8 +2655,12 @@ function renderDashboard() {
   document.getElementById('profileRole').value = currentUser.role || '';
 
   // --- Role & Location badges ---
+  var roleIcon = currentUser.isAdmin ? 'shield' : 'badge';
+  var roleClass = currentUser.isAdmin ? ' admin-badge' : '';
   document.getElementById('profileDisplayRole').innerHTML =
-    '<span class="material-icons-round">badge</span> ' + _escHtml(currentUser.role || 'Mitglied');
+    '<span class="material-icons-round">' + roleIcon + '</span> ' + _escHtml(currentUser.role || 'Mitglied');
+  if (currentUser.isAdmin) document.getElementById('profileDisplayRole').classList.add('admin-badge');
+  else document.getElementById('profileDisplayRole').classList.remove('admin-badge');
   document.getElementById('profileDisplayLocation').innerHTML =
     '<span class="material-icons-round">location_on</span> ' + _escHtml(currentUser.location || 'Nicht angegeben');
 
@@ -2667,7 +2693,7 @@ function renderDashboard() {
         reviewsDisplay.innerHTML = profile.reviews.slice(0, 4).map(function(r) {
           var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
           var isProfileOwner = true; // Profile page = own profile, always owner
-          var canDelete = isOwnReview || isProfileOwner;
+          var canDelete = isOwnReview || isProfileOwner || (currentUser && currentUser.isAdmin);
           var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
@@ -4966,6 +4992,39 @@ function deleteListing(listingId) {
   }
 }
 
+function adminDeleteListing(listingId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  if (!confirm('Als Admin: Dieses Inserat wirklich löschen?')) return;
+  var listing = LISTINGS.find(function(l) { return l.id === listingId; });
+  var dbId = listing && listing._dbId ? listing._dbId : (listing && listing._fromDb ? listingId - 10000 : null);
+  if (!dbId) return showToast('Nur DB-Inserate löschbar', 'error');
+  fetch(_apiUrl('listings/' + dbId), {
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+  }).then(function(r) {
+    if (r.ok) {
+      var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+      if (idx !== -1) LISTINGS.splice(idx, 1);
+      showToast('Inserat als Admin gelöscht.', 'delete');
+      navigateTo('browse');
+    } else { showToast('Löschen fehlgeschlagen', 'error'); }
+  }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
+}
+
+function adminDeleteUser(userId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  if (!confirm('Als Admin: Diesen Nutzer und alle seine Inhalte wirklich löschen?')) return;
+  fetch(_apiUrl('admin/delete-user/' + userId), {
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+  }).then(function(r) {
+    if (r.ok) {
+      showToast('Nutzer und alle Inhalte gelöscht.', 'delete');
+      loadDbListings().then(function() { navigateTo('browse'); });
+    } else {
+      r.json().then(function(d) { showToast(d.message || 'Fehler', 'error'); });
+    }
+  }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
+}
+
 // ========== REVIEW SYSTEM ==========
 var selectedRating = 0;
 // Store user reviews per listing (listingId → array of reviews)
@@ -5100,7 +5159,7 @@ function loadDetailReviews(dbListingId) {
           var rating = parseInt(r.rating) || 0;
           var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
           var isListingOwner = currentUser && currentListing && currentListing.providerId === currentUser.id;
-          var canDelete = isOwnReview || isListingOwner;
+          var canDelete = isOwnReview || isListingOwner || (currentUser && currentUser.isAdmin);
           var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(displayName) + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
@@ -5245,6 +5304,7 @@ function _normalizeUserPayload(data, fallback) {
     name: fullName,
     email: data.email || fallback.email || '',
     role: data.role || fallback.role || 'Event-Planer',
+    isAdmin: (data.role === 'Admin') || (fallback.role === 'Admin') || false,
     tagline: data.tagline || fallback.tagline || '',
     location: data.location || fallback.location || '',
     bio: data.bio || fallback.bio || '',
@@ -6516,7 +6576,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '100';
+var _EB_VERSION = '102';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;

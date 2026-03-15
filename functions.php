@@ -160,10 +160,19 @@ add_action( 'init', 'eventboerse_register_roles' );
  * WP-Rolle → Frontend-Label
  */
 function eventboerse_map_role( $user ) {
+    if ( in_array( 'administrator', (array) $user->roles, true ) ) {
+        return 'Admin';
+    }
     if ( in_array( 'dienstleister', (array) $user->roles, true ) ) {
         return 'Dienstleister';
     }
     return 'Event-Planer';
+}
+
+function eb_is_admin_user( $user_id = 0 ) {
+    if ( ! $user_id ) $user_id = get_current_user_id();
+    $u = get_userdata( $user_id );
+    return $u && in_array( 'administrator', (array) $u->roles, true );
 }
 
 /**
@@ -1632,6 +1641,12 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_otp_verify',
         'permission_callback' => '__return_true',
     ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/delete-user/(?P<id>\d+)', array(
+        'methods'             => 'DELETE',
+        'callback'            => 'eb_admin_delete_user',
+        'permission_callback' => function() { return is_user_logged_in(); },
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
 
@@ -2016,7 +2031,7 @@ function eb_listings_delete( WP_REST_Request $request ) {
     if ( ! $row ) {
         return new WP_REST_Response( array( 'message' => 'Nicht gefunden.' ), 404 );
     }
-    if ( (int) $row->user_id !== $uid ) {
+    if ( (int) $row->user_id !== $uid && ! eb_is_admin_user( $uid ) ) {
         return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
     }
 
@@ -2143,7 +2158,7 @@ function eb_review_delete( WP_REST_Request $request ) {
     $listing_owner = $wpdb->get_var( $wpdb->prepare(
         "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d", $review->listing_id
     ) );
-    if ( (int) $review->user_id !== $uid && (int) $listing_owner !== $uid ) {
+    if ( (int) $review->user_id !== $uid && (int) $listing_owner !== $uid && ! eb_is_admin_user( $uid ) ) {
         return new WP_REST_Response( array( 'message' => 'Du kannst diese Bewertung nicht löschen.' ), 403 );
     }
 
@@ -2625,3 +2640,54 @@ function eb_provider_profile( WP_REST_Request $request ) {
 add_filter( 'upload_size_limit', function() {
     return 5 * 1024 * 1024; // 5 MB
 } );
+
+/* =====================================================================
+   ADMIN: DELETE USER + ALL CONTENT
+   ===================================================================== */
+function eb_admin_delete_user( WP_REST_Request $request ) {
+    global $wpdb;
+    if ( ! eb_is_admin_user() ) {
+        return new WP_REST_Response( array( 'message' => 'Nur Admins dürfen Nutzer löschen.' ), 403 );
+    }
+    $target_id = absint( $request['id'] );
+    $target    = get_userdata( $target_id );
+    if ( ! $target ) {
+        return new WP_REST_Response( array( 'message' => 'Nutzer nicht gefunden.' ), 404 );
+    }
+    if ( in_array( 'administrator', (array) $target->roles, true ) ) {
+        return new WP_REST_Response( array( 'message' => 'Admins können nicht gelöscht werden.' ), 403 );
+    }
+
+    // Delete listings + reviews + favorites
+    $listing_ids = $wpdb->get_col( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_listings WHERE user_id = %d", $target_id
+    ) );
+    if ( ! empty( $listing_ids ) ) {
+        $ids_placeholder = implode( ',', array_map( 'intval', $listing_ids ) );
+        $wpdb->query( "DELETE FROM {$wpdb->prefix}eb_reviews WHERE listing_id IN ($ids_placeholder)" );
+        $wpdb->query( "DELETE FROM {$wpdb->prefix}eb_favorites WHERE listing_id IN ($ids_placeholder)" );
+    }
+    $wpdb->delete( $wpdb->prefix . 'eb_listings', array( 'user_id' => $target_id ) );
+    $wpdb->delete( $wpdb->prefix . 'eb_reviews', array( 'user_id' => $target_id ) );
+    $wpdb->delete( $wpdb->prefix . 'eb_favorites', array( 'user_id' => $target_id ) );
+
+    // Delete messages / conversations
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wpdb->prefix}eb_conversations'" ) ) {
+        $conv_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}eb_conversations WHERE user_a = %d OR user_b = %d", $target_id, $target_id
+        ) );
+        if ( ! empty( $conv_ids ) ) {
+            $cids = implode( ',', array_map( 'intval', $conv_ids ) );
+            $wpdb->query( "DELETE FROM {$wpdb->prefix}eb_messages WHERE conversation_id IN ($cids)" );
+        }
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$wpdb->prefix}eb_conversations WHERE user_a = %d OR user_b = %d", $target_id, $target_id
+        ) );
+    }
+
+    // Delete WP user (requires user.php for wp_delete_user)
+    require_once ABSPATH . 'wp-admin/includes/user.php';
+    wp_delete_user( $target_id );
+
+    return new WP_REST_Response( array( 'deleted' => true ), 200 );
+}
