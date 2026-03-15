@@ -2379,7 +2379,7 @@ img { display: block; max-width: 100%; }
 }
 .pcg-thumb.pcg-contain {
   background-size: contain;
-  background-color: var(--bg-dark);
+  background-color: #fff;
 }
 .pcg-show-all {
   position: absolute;
