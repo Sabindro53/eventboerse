@@ -2042,19 +2042,30 @@ function updateMsgBadge(count) {
   }
 }
 
-// ──── Heartbeat: send alive signal every 60s ────
+// ──── Heartbeat: send alive signal every 30s ────
 var _heartbeatTimer = null;
 function _startHeartbeat() {
   _stopHeartbeat();
   _sendHeartbeat();
-  _heartbeatTimer = setInterval(_sendHeartbeat, 60000);
+  _heartbeatTimer = setInterval(_sendHeartbeat, 30000);
+  // Send offline beacon when leaving the page
+  window.addEventListener('beforeunload', _sendOfflineBeacon);
 }
 function _stopHeartbeat() {
   if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
+  window.removeEventListener('beforeunload', _sendOfflineBeacon);
 }
 function _sendHeartbeat() {
   if (!isLoggedIn) return;
   fetch(_apiUrl('heartbeat'), { method: 'POST', credentials: 'same-origin', headers: _apiHeaders() }).catch(function(){});
+}
+function _sendOfflineBeacon() {
+  var url = _apiUrl('offline');
+  if (_wpNonce) url += (url.indexOf('?') === -1 ? '?' : '&') + '_wpnonce=' + encodeURIComponent(_wpNonce);
+  if (navigator.sendBeacon) {
+    var blob = new Blob([JSON.stringify({})], { type: 'application/json' });
+    navigator.sendBeacon(url, blob);
+  }
 }
 
 // ──── Update chat header online/offline status ────
@@ -6510,7 +6521,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '94';
+var _EB_VERSION = '95';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;

@@ -1510,6 +1510,12 @@ function eb_register_extra_routes() {
         'permission_callback' => 'is_user_logged_in',
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/offline', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_offline',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/user-status/(?P<id>\d+)', array(
         'methods'             => 'GET',
         'callback'            => 'eb_user_status',
@@ -2167,6 +2173,13 @@ function eb_heartbeat() {
     return new WP_REST_Response( array( 'ok' => true ), 200 );
 }
 
+/* ── Offline: clear last_activity on page leave ── */
+function eb_offline() {
+    $uid = get_current_user_id();
+    update_user_meta( $uid, 'eb_last_activity', '2000-01-01 00:00:00' );
+    return new WP_REST_Response( array( 'ok' => true ), 200 );
+}
+
 /* ── User online status ── */
 function eb_user_status( WP_REST_Request $request ) {
     $user_id       = absint( $request['id'] );
@@ -2174,7 +2187,7 @@ function eb_user_status( WP_REST_Request $request ) {
     $online        = false;
     if ( $last_activity ) {
         $diff = time() - strtotime( $last_activity );
-        $online = $diff < 120; // online if active within 2 minutes
+        $online = $diff < 75; // online if active within 75 seconds
     }
     return new WP_REST_Response( array( 'online' => $online ), 200 );
 }
@@ -2212,7 +2225,7 @@ function eb_conversations_list() {
         }
 
         $other_last = get_user_meta( $other_id, 'eb_last_activity', true );
-        $other_online = $other_last ? ( ( time() - strtotime( $other_last ) ) < 120 ) : false;
+        $other_online = $other_last ? ( ( time() - strtotime( $other_last ) ) < 75 ) : false;
 
         $conversations[] = array(
             'id'           => (int) $c->id,
