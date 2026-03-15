@@ -3283,25 +3283,31 @@ function submitListing(e) {
   const priceLabel = price > 0 ? `ab ${price}€ / ${priceModel.replace('Pro ','').replace('Pauschal','Pauschal')}` : 'Auf Anfrage';
 
   // Collect image files from upload preview
-  const previewItems = document.querySelectorAll('#uploadPreview .upload-preview-item img');
-  const imgSrcs = Array.from(previewItems).map(function(img) { return img.src; });
+  const previewDivs = document.querySelectorAll('#uploadPreview .upload-preview-item');
+  const imgEntries = Array.from(previewDivs).map(function(div) {
+    var img = div.querySelector('img');
+    return { src: img ? img.src : '', blob: div._croppedBlob || null };
+  });
 
   // Show loading
   var submitBtn = document.querySelector('#step3 .btn-primary');
   _setBtnLoading(submitBtn, true);
   showToast('Wird gespeichert...', 'sync');
 
-  // Upload images that are data-URLs (new uploads), keep existing URLs
-  var uploadPromises = imgSrcs.map(function(src) {
-    if (src.startsWith('data:')) {
-      // Convert data URL to File
-      var arr = src.split(','), mime = arr[0].match(/:(.*?);/)[1];
+  // Upload images: cropped blobs first, then data URLs, keep existing URLs
+  var uploadPromises = imgEntries.map(function(entry) {
+    if (entry.blob) {
+      var file = new File([entry.blob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.jpg', { type: 'image/jpeg' });
+      return uploadFile(file).then(function(r) { return r.url; });
+    }
+    if (entry.src.startsWith('data:')) {
+      var arr = entry.src.split(','), mime = arr[0].match(/:(.*?);/)[1];
       var bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
       while (n--) u8arr[n] = bstr.charCodeAt(n);
       var file = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
       return uploadFile(file).then(function(r) { return r.url; });
     }
-    return Promise.resolve(src);
+    return Promise.resolve(entry.src);
   });
 
   Promise.all(uploadPromises).then(function(imageUrls) {
@@ -3401,30 +3407,245 @@ function handleUpload(input) {
   const files = input.files;
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
   const maxSize = 5 * 1024 * 1024; // 5 MB
+  const maxImages = 10;
+  const existing = preview.querySelectorAll('.upload-preview-item').length;
 
+  let queue = [];
   for (let file of files) {
-    if (!allowedTypes.includes(file.type)) {
-      showToast('Nur JPG, PNG, WebP oder GIF erlaubt', 'error');
-      continue;
-    }
-    if (file.size > maxSize) {
-      showToast('Bild zu groß! Max. 5 MB', 'error');
-      continue;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const div = document.createElement('div');
-      div.className = 'upload-preview-item';
-      div.innerHTML = `
-        <img src="${e.target.result}" alt="Preview" />
-        <button onclick="this.parentElement.remove()">
-          <span class="material-icons-round">close</span>
-        </button>
-      `;
-      preview.appendChild(div);
-    };
-    reader.readAsDataURL(file);
+    if (!allowedTypes.includes(file.type)) { showToast('Nur JPG, PNG, WebP oder GIF erlaubt', 'error'); continue; }
+    if (file.size > maxSize) { showToast('Bild zu groß! Max. 5 MB', 'error'); continue; }
+    if (existing + queue.length >= maxImages) { showToast('Max. ' + maxImages + ' Bilder erlaubt', 'warning'); break; }
+    queue.push(file);
   }
+  input.value = '';
+
+  // Open crop modal for each image sequentially
+  _lcropQueue = queue;
+  _lcropQueueIdx = 0;
+  if (queue.length > 0) _lcropProcessNext();
+}
+
+// ---- Listing Crop State ----
+var _lcropImg = null;
+var _lcropX = 0, _lcropY = 0, _lcropDragStart = null;
+var _lcropQueue = [];
+var _lcropQueueIdx = 0;
+var _lcropEditTarget = null; // when re-cropping an existing preview item
+
+function _lcropProcessNext() {
+  if (_lcropQueueIdx >= _lcropQueue.length) { _lcropQueue = []; return; }
+  var file = _lcropQueue[_lcropQueueIdx];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      _lcropImg = img;
+      _lcropX = 0; _lcropY = 0;
+      _lcropEditTarget = null;
+      document.getElementById('lcropZoom').value = 1;
+      openModal('listingCropModal');
+      setTimeout(function() { lcropDraw(); lcropBindEvents(); }, 50);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function lcropDraw() {
+  var canvas = document.getElementById('lcropCanvas');
+  var cont = document.getElementById('lcropContainer');
+  if (!canvas || !_lcropImg) return;
+  var w = cont.offsetWidth;
+  var h = Math.round(w * 3 / 4); // 4:3 aspect
+  canvas.width = w; canvas.height = h;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  var zoom = parseFloat(document.getElementById('lcropZoom').value) || 1;
+  var imgAspect = _lcropImg.width / _lcropImg.height;
+  var drawW, drawH;
+  // Cover: fill the 4:3 frame
+  var frameAspect = w / h;
+  if (imgAspect > frameAspect) {
+    drawH = h * zoom;
+    drawW = drawH * imgAspect;
+  } else {
+    drawW = w * zoom;
+    drawH = drawW / imgAspect;
+  }
+
+  // Clamp offsets so image covers the frame
+  var maxOffX = Math.max(0, (drawW - w) / 2);
+  var maxOffY = Math.max(0, (drawH - h) / 2);
+  _lcropX = Math.max(-maxOffX, Math.min(maxOffX, _lcropX));
+  _lcropY = Math.max(-maxOffY, Math.min(maxOffY, _lcropY));
+
+  var dx = (w - drawW) / 2 + _lcropX;
+  var dy = (h - drawH) / 2 + _lcropY;
+  ctx.drawImage(_lcropImg, dx, dy, drawW, drawH);
+}
+
+function lcropBindEvents() {
+  var cont = document.getElementById('lcropContainer');
+  if (cont._lcropBound) return;
+  cont._lcropBound = true;
+
+  function startDrag(x, y) { _lcropDragStart = { x: x, y: y, ox: _lcropX, oy: _lcropY }; }
+  function moveDrag(x, y) {
+    if (!_lcropDragStart) return;
+    _lcropX = _lcropDragStart.ox + (x - _lcropDragStart.x);
+    _lcropY = _lcropDragStart.oy + (y - _lcropDragStart.y);
+    lcropDraw();
+  }
+  function endDrag() { _lcropDragStart = null; }
+
+  cont.addEventListener('mousedown', function(e) { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', function(e) { if (_lcropDragStart) moveDrag(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', function() { if (_lcropDragStart) endDrag(); });
+  cont.addEventListener('touchstart', function(e) { e.preventDefault(); var t = e.touches[0]; startDrag(t.clientX, t.clientY); }, { passive: false });
+  window.addEventListener('touchmove', function(e) { if (_lcropDragStart) { var t = e.touches[0]; moveDrag(t.clientX, t.clientY); } });
+  window.addEventListener('touchend', function() { if (_lcropDragStart) endDrag(); });
+  cont.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var slider = document.getElementById('lcropZoom');
+    var v = parseFloat(slider.value) + (e.deltaY < 0 ? 0.05 : -0.05);
+    slider.value = Math.max(1, Math.min(3, v));
+    lcropDraw();
+  }, { passive: false });
+}
+
+function lcropConfirm() {
+  var canvas = document.getElementById('lcropCanvas');
+  if (!canvas || !_lcropImg) return;
+  var w = canvas.width, h = canvas.height;
+
+  // Render cropped image at high resolution
+  var out = document.createElement('canvas');
+  var outW = 1200, outH = 900; // 4:3
+  out.width = outW; out.height = outH;
+  var octx = out.getContext('2d');
+
+  var zoom = parseFloat(document.getElementById('lcropZoom').value) || 1;
+  var imgAspect = _lcropImg.width / _lcropImg.height;
+  var frameAspect = w / h;
+  var drawW, drawH;
+  if (imgAspect > frameAspect) {
+    drawH = h * zoom;
+    drawW = drawH * imgAspect;
+  } else {
+    drawW = w * zoom;
+    drawH = drawW / imgAspect;
+  }
+
+  var scaleX = outW / w, scaleY = outH / h;
+  var dx = ((w - drawW) / 2 + _lcropX) * scaleX;
+  var dy = ((h - drawH) / 2 + _lcropY) * scaleY;
+  octx.drawImage(_lcropImg, dx, dy, drawW * scaleX, drawH * scaleY);
+
+  out.toBlob(function(blob) {
+    if (!blob) return;
+    closeModal('listingCropModal');
+    var previewUrl = URL.createObjectURL(blob);
+
+    if (_lcropEditTarget) {
+      // Re-crop: update existing preview item
+      var img = _lcropEditTarget.querySelector('img');
+      if (img) img.src = previewUrl;
+      _lcropEditTarget._croppedBlob = blob;
+      _lcropEditTarget = null;
+    } else {
+      // New image: add preview item
+      _addListingPreviewItem(previewUrl, blob);
+    }
+
+    // Process next image in queue
+    _lcropQueueIdx++;
+    _lcropProcessNext();
+  }, 'image/jpeg', 0.92);
+}
+
+function _addListingPreviewItem(src, blob) {
+  var preview = document.getElementById('uploadPreview');
+  var div = document.createElement('div');
+  div.className = 'upload-preview-item';
+  div.draggable = true;
+  if (blob) div._croppedBlob = blob;
+  var isFirst = preview.querySelectorAll('.upload-preview-item').length === 0;
+
+  div.innerHTML =
+    '<img src="' + _escHtml(src) + '" alt="Preview" />' +
+    '<div class="upload-preview-actions">' +
+      '<button type="button" class="upload-act-crop" title="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
+      '<button type="button" class="upload-act-remove" title="Entfernen"><span class="material-icons-round">close</span></button>' +
+    '</div>' +
+    (isFirst ? '<span class="upload-preview-badge">Titelbild</span>' : '');
+
+  // Crop button
+  div.querySelector('.upload-act-crop').onclick = function(e) {
+    e.stopPropagation();
+    var imgSrc = div.querySelector('img').src;
+    var img = new Image();
+    img.onload = function() {
+      _lcropImg = img;
+      _lcropX = 0; _lcropY = 0;
+      _lcropEditTarget = div;
+      _lcropQueue = []; _lcropQueueIdx = 0;
+      document.getElementById('lcropZoom').value = 1;
+      openModal('listingCropModal');
+      setTimeout(function() { lcropDraw(); lcropBindEvents(); }, 50);
+    };
+    img.src = imgSrc;
+  };
+
+  // Remove button
+  div.querySelector('.upload-act-remove').onclick = function(e) {
+    e.stopPropagation();
+    div.remove();
+    _updateListingPreviewBadges();
+  };
+
+  // Drag&Drop reorder
+  div.addEventListener('dragstart', function(e) {
+    div.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  div.addEventListener('dragend', function() {
+    div.classList.remove('dragging');
+    _updateListingPreviewBadges();
+  });
+  div.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    var dragging = preview.querySelector('.dragging');
+    if (dragging && dragging !== div) {
+      var rect = div.getBoundingClientRect();
+      var mid = rect.left + rect.width / 2;
+      if (e.clientX < mid) {
+        preview.insertBefore(dragging, div);
+      } else {
+        preview.insertBefore(dragging, div.nextSibling);
+      }
+    }
+  });
+
+  preview.appendChild(div);
+}
+
+function _updateListingPreviewBadges() {
+  var items = document.querySelectorAll('#uploadPreview .upload-preview-item');
+  items.forEach(function(item, idx) {
+    var badge = item.querySelector('.upload-preview-badge');
+    if (idx === 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'upload-preview-badge';
+        badge.textContent = 'Titelbild';
+        item.appendChild(badge);
+      }
+    } else {
+      if (badge) badge.remove();
+    }
+  });
 }
 
 // ========== PROFILE UPLOADS ==========
@@ -4578,17 +4799,7 @@ function editListing(listingId) {
   if (listing.images && listing.images.length > 0) {
     listing.images.forEach(function(url) {
       if (!url) return;
-      var div = document.createElement('div');
-      div.className = 'upload-preview-item';
-      var img = document.createElement('img');
-      img.src = url;
-      img.alt = 'Preview';
-      div.appendChild(img);
-      var removeBtn = document.createElement('button');
-      removeBtn.innerHTML = '<span class="material-icons-round">close</span>';
-      removeBtn.onclick = function() { div.remove(); };
-      div.appendChild(removeBtn);
-      preview.appendChild(div);
+      _addListingPreviewItem(url, null);
     });
   }
 
@@ -6177,7 +6388,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '91';
+var _EB_VERSION = '92';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;

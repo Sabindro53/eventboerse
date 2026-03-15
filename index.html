@@ -14,7 +14,7 @@
   <meta property="og:url" content="https://eventbörse.de" />
   <meta property="og:locale" content="de_DE" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=91" />
+  <link rel="stylesheet" href="styles.css?v=92" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -1931,6 +1931,32 @@
   </div>
 
   <!-- Avatar Crop Modal -->
+  <!-- Listing Image Crop Modal -->
+  <div class="modal-overlay" id="listingCropModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="closeModal('listingCropModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">crop</span>
+        <h2>Bild zuschneiden</h2>
+        <p>Verschiebe und zoome das Bild in den Rahmen</p>
+      </div>
+      <div class="lcrop-container" id="lcropContainer">
+        <canvas id="lcropCanvas"></canvas>
+        <div class="lcrop-rect-overlay"></div>
+      </div>
+      <div class="crop-zoom">
+        <span class="material-icons-round" style="font-size:18px">photo_size_select_small</span>
+        <input type="range" id="lcropZoom" min="1" max="3" step="0.01" value="1" oninput="lcropDraw()" />
+        <span class="material-icons-round" style="font-size:18px">photo_size_select_large</span>
+      </div>
+      <button class="btn-primary btn-block" onclick="lcropConfirm()" style="margin-top:16px">
+        <span class="material-icons-round">check</span> Übernehmen
+      </button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="avatarCropModal" onclick="closeModalOnOverlay(event)">
     <div class="modal modal-sm">
       <button class="modal-close" onclick="closeModal('avatarCropModal')">
@@ -2028,6 +2054,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=91"></script>
+  <script src="app.js?v=92"></script>
 </body>
 </html>
