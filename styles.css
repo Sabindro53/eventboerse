@@ -481,9 +481,9 @@ img { display: block; max-width: 100%; }
 .hero-marquee-card img {
   width: 100%;
   height: 130px;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
-  background: var(--bg-alt);
+  background: #fff;
 }
 .hero-marquee-card-info {
   padding: 10px 12px;
