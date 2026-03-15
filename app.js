@@ -2622,6 +2622,9 @@ function submitCounterOffer(e) {
 function renderDashboard() {
   if (!currentUser) return;
 
+  // Close any open edit fields
+  document.querySelectorAll('#page-profile .profile-edit-field').forEach(function(el) { el.style.display = 'none'; });
+
   // --- Cover ---
   var coverEl = document.getElementById('profileCover');
   if (currentUser.coverUrl) {
@@ -2744,8 +2747,36 @@ function renderDashboard() {
       currentUser.gallery.forEach(function(src) {
         var div = document.createElement('div');
         div.className = 'upload-preview-item';
+        div.setAttribute('data-url', src);
         div.innerHTML = '<img src="' + src + '" alt="Galerie" />' +
-          '<button onclick="removeGalleryItem(this)"><span class="material-icons-round">close</span></button>';
+          '<div class="upload-preview-actions">' +
+            '<button type="button" class="upload-act-crop" title="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
+            '<button type="button" class="upload-act-remove" title="Entfernen"><span class="material-icons-round">close</span></button>' +
+          '</div>';
+        // Crop button
+        div.querySelector('.upload-act-crop').onclick = function(e) {
+          e.stopPropagation();
+          var imgSrc = div.querySelector('img').src;
+          var img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = function() {
+            _lcropImg = img;
+            _lcropX = 0; _lcropY = 0;
+            _lcropEditTarget = div;
+            _lcropMode = 'gallery';
+            _lcropQueue = []; _lcropQueueIdx = 0;
+            document.getElementById('lcropZoom').value = 1;
+            openModal('listingCropModal');
+            setTimeout(function() { lcropDraw(); lcropBindEvents(); }, 50);
+          };
+          img.src = imgSrc;
+        };
+        // Remove button
+        div.querySelector('.upload-act-remove').onclick = function(e) {
+          e.stopPropagation();
+          div.remove();
+          updateGalleryCount();
+        };
         galleryPreview.appendChild(div);
       });
     }
@@ -2808,8 +2839,10 @@ function saveFieldInline(field) {
       payload.bio = currentUser.bio;
       break;
     case 'gallery':
-      var galleryImgs = document.querySelectorAll('#galleryPreview .upload-preview-item img');
-      currentUser.gallery = Array.from(galleryImgs).map(function(img) { return img.src; });
+      var galleryItems = document.querySelectorAll('#galleryPreview .upload-preview-item');
+      currentUser.gallery = Array.from(galleryItems).map(function(item) {
+        return item.getAttribute('data-url') || item.querySelector('img').src;
+      });
       payload.gallery = currentUser.gallery;
       break;
     case 'services':
@@ -3509,6 +3542,7 @@ function handleUpload(input) {
   input.value = '';
 
   // Open crop modal for each image sequentially
+  _lcropMode = 'listing';
   _lcropQueue = queue;
   _lcropQueueIdx = 0;
   if (queue.length > 0) _lcropProcessNext();
@@ -3520,6 +3554,7 @@ var _lcropX = 0, _lcropY = 0, _lcropDragStart = null;
 var _lcropQueue = [];
 var _lcropQueueIdx = 0;
 var _lcropEditTarget = null; // when re-cropping an existing preview item
+var _lcropMode = 'listing'; // 'listing' or 'gallery'
 
 function _lcropProcessNext() {
   if (_lcropQueueIdx >= _lcropQueue.length) { _lcropQueue = []; return; }
@@ -3642,9 +3677,27 @@ function lcropConfirm() {
       if (img) img.src = previewUrl;
       _lcropEditTarget._croppedBlob = blob;
       _lcropEditTarget = null;
-      _updateListingLivePreview();
+      if (_lcropMode === 'listing') _updateListingLivePreview();
+      if (_lcropMode === 'gallery') {
+        // Upload cropped gallery image to server
+        uploadFile(blob).then(function(data) {
+          var tgt = _lcropEditTarget;
+          // Find the item we just updated (by previewUrl)
+          var items = document.querySelectorAll('#galleryPreview .upload-preview-item');
+          items.forEach(function(item) {
+            var im = item.querySelector('img');
+            if (im && im.src === previewUrl) {
+              im.src = data.url;
+              item.setAttribute('data-url', data.url);
+            }
+          });
+        }).catch(function() { showToast('Upload fehlgeschlagen', 'error'); });
+      }
+    } else if (_lcropMode === 'gallery') {
+      // New gallery image: add preview item and upload
+      _addGalleryPreviewItem(previewUrl, blob);
     } else {
-      // New image: add preview item
+      // New listing image: add preview item
       _addListingPreviewItem(previewUrl, blob);
     }
 
@@ -3679,6 +3732,7 @@ function _addListingPreviewItem(src, blob) {
       _lcropImg = img;
       _lcropX = 0; _lcropY = 0;
       _lcropEditTarget = div;
+      _lcropMode = 'listing';
       _lcropQueue = []; _lcropQueueIdx = 0;
       document.getElementById('lcropZoom').value = 1;
       openModal('listingCropModal');
@@ -4111,35 +4165,72 @@ function handleGalleryUpload(input) {
     return;
   }
 
+  var queue = [];
   for (var i = 0; i < files.length; i++) {
     var file = files[i];
     if (file.size > 5 * 1024 * 1024) {
       showToast(file.name + ' ist zu groß (max. 5MB)', 'error');
       continue;
     }
-    (function(f) {
-      // Show preview immediately with local data URL
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var div = document.createElement('div');
-        div.className = 'upload-preview-item';
-        div.innerHTML = '<img src="' + e.target.result + '" alt="Galerie" />' +
-          '<button onclick="removeGalleryItem(this)"><span class="material-icons-round">close</span></button>';
-        preview.appendChild(div);
-        updateGalleryCount();
-        // Upload to server and replace data URL with real URL
-        uploadFile(f).then(function(data) {
-          div.querySelector('img').src = data.url;
-          div.setAttribute('data-url', data.url);
-        }).catch(function() {
-          showToast('Upload fehlgeschlagen: ' + f.name, 'error');
-        });
-      };
-      reader.readAsDataURL(f);
-    })(file);
+    queue.push(file);
   }
   input.value = '';
-  showToast('Bilder werden hochgeladen… 📸', 'add_photo_alternate');
+
+  // Open crop modal for each image sequentially
+  _lcropMode = 'gallery';
+  _lcropQueue = queue;
+  _lcropQueueIdx = 0;
+  if (queue.length > 0) _lcropProcessNext();
+}
+
+function _addGalleryPreviewItem(src, blob) {
+  var preview = document.getElementById('galleryPreview');
+  var div = document.createElement('div');
+  div.className = 'upload-preview-item';
+  div.innerHTML = '<img src="' + _escHtml(src) + '" alt="Galerie" />' +
+    '<div class="upload-preview-actions">' +
+      '<button type="button" class="upload-act-crop" title="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
+      '<button type="button" class="upload-act-remove" title="Entfernen"><span class="material-icons-round">close</span></button>' +
+    '</div>';
+
+  // Crop button
+  div.querySelector('.upload-act-crop').onclick = function(e) {
+    e.stopPropagation();
+    var imgSrc = div.querySelector('img').src;
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      _lcropImg = img;
+      _lcropX = 0; _lcropY = 0;
+      _lcropEditTarget = div;
+      _lcropMode = 'gallery';
+      _lcropQueue = []; _lcropQueueIdx = 0;
+      document.getElementById('lcropZoom').value = 1;
+      openModal('listingCropModal');
+      setTimeout(function() { lcropDraw(); lcropBindEvents(); }, 50);
+    };
+    img.src = imgSrc;
+  };
+
+  // Remove button
+  div.querySelector('.upload-act-remove').onclick = function(e) {
+    e.stopPropagation();
+    div.remove();
+    updateGalleryCount();
+  };
+
+  preview.appendChild(div);
+  updateGalleryCount();
+
+  // Upload cropped blob to server
+  if (blob) {
+    uploadFile(blob).then(function(data) {
+      div.querySelector('img').src = data.url;
+      div.setAttribute('data-url', data.url);
+    }).catch(function() {
+      showToast('Upload fehlgeschlagen', 'error');
+    });
+  }
 }
 
 function removeGalleryItem(btn) {
@@ -6615,7 +6706,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '104';
+var _EB_VERSION = '105';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;

@@ -360,6 +360,37 @@ img { display: block; max-width: 100%; }
 .page { display: none; padding-top: var(--nav-height); padding-bottom: var(--mobile-nav-height); min-height: 100vh; }
 .page.active { display: block; }
 
+/* Profile editor entrance animations */
+@keyframes profileFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes profileCoverReveal {
+  from { opacity: 0; transform: scale(1.02); }
+  to { opacity: 1; transform: scale(1); }
+}
+#page-profile.page.active .profile-cover {
+  animation: profileCoverReveal 0.5s ease both;
+}
+#page-profile.page.active .profile-hero {
+  animation: profileFadeIn 0.45s ease 0.15s both;
+}
+#page-profile.page.active .profile-stats-bar {
+  animation: profileFadeIn 0.45s ease 0.25s both;
+}
+#page-profile.page.active .profile-section:nth-child(1) {
+  animation: profileFadeIn 0.4s ease 0.3s both;
+}
+#page-profile.page.active .profile-section:nth-child(2) {
+  animation: profileFadeIn 0.4s ease 0.38s both;
+}
+#page-profile.page.active .profile-section:nth-child(3) {
+  animation: profileFadeIn 0.4s ease 0.46s both;
+}
+#page-profile.page.active .profile-section:nth-child(4) {
+  animation: profileFadeIn 0.4s ease 0.54s both;
+}
+
 /* ======== HERO ======== */
 .hero {
   position: relative;
@@ -434,7 +465,7 @@ img { display: block; max-width: 100%; }
 .hero-marquee-card img {
   width: 100%;
   height: 130px;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
   background: var(--bg-alt);
 }
@@ -1038,7 +1069,7 @@ img { display: block; max-width: 100%; }
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   transition: transform 0.4s ease;
 }
 .listing-card:hover .listing-card-img img { transform: scale(1.05); }
@@ -1840,7 +1871,7 @@ img { display: block; max-width: 100%; }
 .detail-gallery-slide img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
   pointer-events: none;
 }
@@ -2539,7 +2570,7 @@ img { display: block; max-width: 100%; }
 .provider-portfolio img {
   width: 100%;
   aspect-ratio: 4 / 3;
-  object-fit: contain;
+  object-fit: cover;
   background: var(--bg-alt);
   cursor: pointer;
   transition: transform 0.3s, filter 0.3s;
@@ -3853,6 +3884,7 @@ span.flatpickr-weekday {
 .upload-preview-actions button {
   width: 28px; height: 28px;
   background: rgba(0,0,0,0.6); color: #fff;
+  border: none; cursor: pointer;
   border-radius: 50%; display: flex;
   align-items: center; justify-content: center;
   backdrop-filter: blur(4px);
@@ -3946,7 +3978,7 @@ span.flatpickr-weekday {
 }
 .listing-live-preview-slide img {
   width: 100%; height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
 }
 .listing-live-preview-arrow {
