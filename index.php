@@ -78,6 +78,8 @@ if ( file_exists( $html_file ) ) {
     $end   = strpos( $html, '</body>' );
     if ( $start !== false && $end !== false ) {
         $content = substr( $html, $start, $end - $start );
+        // Script-Tags entfernen – werden über wp_enqueue_script geladen
+        $content = preg_replace( '#<script\b[^>]*src=["\'][^"\']*app\.js[^"\']*["\'][^>]*></script>#i', '', $content );
         // Direkter Output – trusted theme template, Formulare (input/select/onclick) benötigt
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         echo $content;

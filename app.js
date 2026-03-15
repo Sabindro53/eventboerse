@@ -2892,6 +2892,23 @@ function loadSettings() {
   }
   document.getElementById('settingsRoleDisplay').textContent = currentUser.role || 'Mitglied';
   document.getElementById('settingsSinceDisplay').textContent = currentUser.since || '–';
+
+  // Admin-Button anzeigen wenn nicht Admin
+  var existingAdminBtn = document.getElementById('settingsMakeAdminBtn');
+  if (existingAdminBtn) existingAdminBtn.remove();
+  if (!currentUser.isAdmin) {
+    var roleRow = document.getElementById('settingsRoleDisplay');
+    if (roleRow && roleRow.parentElement) {
+      var btn = document.createElement('button');
+      btn.id = 'settingsMakeAdminBtn';
+      btn.className = 'btn-outline btn-sm';
+      btn.style.marginLeft = '12px';
+      btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;vertical-align:middle">shield</span> Admin werden';
+      btn.onclick = makeAdmin;
+      roleRow.parentElement.appendChild(btn);
+    }
+  }
+
   // Clear password fields
   document.getElementById('settingsCurrentPw').value = '';
   document.getElementById('settingsNewPw').value = '';
@@ -5025,6 +5042,23 @@ function adminDeleteUser(userId) {
   }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
 }
 
+function makeAdmin() {
+  if (!confirm('Möchtest du dein Konto zum Admin machen?')) return;
+  fetch(_apiUrl('admin/make-admin'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
+  }).then(function(r) { _refreshNonce(r); return r.json(); })
+    .then(function(data) {
+      if (data && data.admin) {
+        currentUser.role = 'Admin';
+        currentUser.isAdmin = true;
+        showToast('Du bist jetzt Admin!', 'success');
+        loadSettings();
+      } else {
+        showToast(data.message || 'Fehler', 'error');
+      }
+    }).catch(function() { showToast('Fehler beim Admin-Setzen', 'error'); });
+}
+
 // ========== REVIEW SYSTEM ==========
 var selectedRating = 0;
 // Store user reviews per listing (listingId → array of reviews)
@@ -6576,7 +6610,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '102';
+var _EB_VERSION = '103';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;

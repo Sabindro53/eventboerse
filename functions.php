@@ -160,7 +160,7 @@ add_action( 'init', 'eventboerse_register_roles' );
  * WP-Rolle → Frontend-Label
  */
 function eventboerse_map_role( $user ) {
-    if ( in_array( 'administrator', (array) $user->roles, true ) ) {
+    if ( in_array( 'administrator', (array) $user->roles, true ) || get_user_meta( $user->ID, 'eb_admin', true ) === '1' ) {
         return 'Admin';
     }
     if ( in_array( 'dienstleister', (array) $user->roles, true ) ) {
@@ -172,7 +172,8 @@ function eventboerse_map_role( $user ) {
 function eb_is_admin_user( $user_id = 0 ) {
     if ( ! $user_id ) $user_id = get_current_user_id();
     $u = get_userdata( $user_id );
-    return $u && in_array( 'administrator', (array) $u->roles, true );
+    if ( ! $u ) return false;
+    return in_array( 'administrator', (array) $u->roles, true ) || get_user_meta( $user_id, 'eb_admin', true ) === '1';
 }
 
 /**
@@ -1647,6 +1648,12 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_admin_delete_user',
         'permission_callback' => function() { return is_user_logged_in(); },
     ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/make-admin', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_make_admin',
+        'permission_callback' => function() { return is_user_logged_in(); },
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
 
@@ -2654,7 +2661,7 @@ function eb_admin_delete_user( WP_REST_Request $request ) {
     if ( ! $target ) {
         return new WP_REST_Response( array( 'message' => 'Nutzer nicht gefunden.' ), 404 );
     }
-    if ( in_array( 'administrator', (array) $target->roles, true ) ) {
+    if ( eb_is_admin_user( $target_id ) ) {
         return new WP_REST_Response( array( 'message' => 'Admins können nicht gelöscht werden.' ), 403 );
     }
 
@@ -2690,4 +2697,28 @@ function eb_admin_delete_user( WP_REST_Request $request ) {
     wp_delete_user( $target_id );
 
     return new WP_REST_Response( array( 'deleted' => true ), 200 );
+}
+
+function eb_admin_make_admin( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $u   = wp_get_current_user();
+    // Nur erlaubt wenn: WP-Administrator, ODER noch kein Admin in der DB existiert
+    $is_wp_admin = in_array( 'administrator', (array) $u->roles, true );
+    if ( ! $is_wp_admin && ! eb_is_admin_user() ) {
+        // Prüfe ob es überhaupt einen Admin gibt
+        global $wpdb;
+        $has_admin = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
+        );
+        $wp_admins = get_users( array( 'role' => 'administrator', 'number' => 1 ) );
+        if ( $has_admin > 0 || ! empty( $wp_admins ) ) {
+            return new WP_REST_Response( array( 'message' => 'Keine Berechtigung.' ), 403 );
+        }
+    }
+    update_user_meta( $uid, 'eb_admin', '1' );
+    return new WP_REST_Response( array(
+        'admin' => true,
+        'role'  => 'Admin',
+        'user'  => eb_auth_user_payload( $u ),
+    ), 200 );
 }
