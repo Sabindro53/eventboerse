@@ -738,7 +738,7 @@ function renderFeed(tab) {
 
   list.innerHTML = items.map((l, i) => {
     const minutesAgo = (tab === 'newest') ? (5 + i * 47) : Math.floor(Math.random() * 2880) + 5;
-    const avatar = l.providerAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName);
+    const avatar = l.providerImg || l.providerAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName);
     const categoryLabel = l.category ? l.category.charAt(0).toUpperCase() + l.category.slice(1) : 'Service';
     const isFav = favorites.has(l.id);
     const desc = l.description || l.title;
@@ -6177,7 +6177,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '90';
+var _EB_VERSION = '91';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
