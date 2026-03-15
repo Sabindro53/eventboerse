@@ -508,7 +508,7 @@ const BLOCKED_PATTERNS = [
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
   // Pages that require login — redirect to login modal immediately
-  var loginRequired = ['create-listing', 'messages', 'profile', 'edit-profile', 'settings'];
+  var loginRequired = ['create-listing', 'messages', 'profile', 'edit-profile', 'settings', 'admin'];
   if (!isLoggedIn && loginRequired.indexOf(page) !== -1) {
     openModal('loginModal');
     showToast('Bitte melde dich an, um diese Funktion zu nutzen.', 'info');
@@ -611,6 +611,14 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'agb':
     case 'datenschutz':
+      break;
+    case 'admin':
+      if (!currentUser || !currentUser.isAdmin) {
+        showToast('Kein Zugriff – nur für Admins.', 'error');
+        navigateTo('home');
+        return;
+      }
+      loadAdminUsers();
       break;
   }
 }
@@ -5117,16 +5125,105 @@ function adminDeleteUser(userId) {
   fetch(_apiUrl('admin/delete-user/' + userId), {
     method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
   }).then(function(r) {
+    _refreshNonce(r);
     if (r.ok) {
       showToast('Nutzer und alle Inhalte gelöscht.', 'delete');
-      loadDbListings().then(function() { navigateTo('browse'); });
+      // Reload admin user list if on admin page
+      if (currentPage === 'admin') {
+        loadAdminUsers();
+      } else {
+        loadDbListings().then(function() { navigateTo('browse'); });
+      }
     } else {
       r.json().then(function(d) { showToast(d.message || 'Fehler', 'error'); });
     }
   }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
 }
 
-// makeAdmin() entfernt – Admin-Vergabe nur noch serverseitig durch bestehende Admins
+// ========== ADMIN PANEL ==========
+var _adminUsers = [];
+
+function loadAdminUsers(searchTerm) {
+  var url = 'admin/users';
+  if (searchTerm) url += '?search=' + encodeURIComponent(searchTerm);
+  var list = document.getElementById('adminUserList');
+  if (list) list.innerHTML = '<div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>';
+
+  fetch(_apiUrl(url), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) { _refreshNonce(r); return r.json(); })
+    .then(function(users) {
+      _adminUsers = users || [];
+      renderAdminStats(_adminUsers);
+      renderAdminUserList(_adminUsers);
+    })
+    .catch(function() {
+      if (list) list.innerHTML = '<p class="admin-error">Fehler beim Laden der Benutzer.</p>';
+    });
+}
+
+function renderAdminStats(users) {
+  var el = document.getElementById('adminStats');
+  if (!el) return;
+  var total = users.length;
+  var admins = users.filter(function(u) { return u.isAdmin; }).length;
+  var listings = users.reduce(function(s, u) { return s + (u.listings || 0); }, 0);
+  var reviews = users.reduce(function(s, u) { return s + (u.reviews || 0); }, 0);
+  el.innerHTML =
+    '<div class="admin-stat"><span class="material-icons-round">people</span><strong>' + total + '</strong><span>Benutzer</span></div>' +
+    '<div class="admin-stat"><span class="material-icons-round">shield</span><strong>' + admins + '</strong><span>Admins</span></div>' +
+    '<div class="admin-stat"><span class="material-icons-round">storefront</span><strong>' + listings + '</strong><span>Inserate</span></div>' +
+    '<div class="admin-stat"><span class="material-icons-round">rate_review</span><strong>' + reviews + '</strong><span>Bewertungen</span></div>';
+}
+
+function renderAdminUserList(users) {
+  var list = document.getElementById('adminUserList');
+  if (!list) return;
+  if (!users || !users.length) {
+    list.innerHTML = '<p class="admin-empty">Keine Benutzer gefunden.</p>';
+    return;
+  }
+  var html = '';
+  users.forEach(function(u) {
+    var avatarSrc = u.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(u.name || u.login);
+    var regDate = u.registered ? new Date(u.registered).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '–';
+    var roleBadge = u.isAdmin
+      ? '<span class="admin-role-badge admin-role-admin">Admin</span>'
+      : '<span class="admin-role-badge">' + _escHtml(u.role || 'Mitglied') + '</span>';
+    html += '<div class="admin-user-card' + (u.isAdmin ? ' is-admin' : '') + '">' +
+      '<div class="admin-user-avatar" onclick="navigateTo(\'provider\',' + u.id + ')">' +
+        '<img src="' + _escHtml(avatarSrc) + '" alt="">' +
+      '</div>' +
+      '<div class="admin-user-info">' +
+        '<div class="admin-user-name">' + _escHtml(u.name || u.login) + ' ' + roleBadge + '</div>' +
+        '<div class="admin-user-meta">' +
+          '<span>' + _escHtml(u.email) + '</span>' +
+          (u.company ? ' · <span>' + _escHtml(u.company) + '</span>' : '') +
+        '</div>' +
+        '<div class="admin-user-counts">' +
+          '<span><span class="material-icons-round">storefront</span> ' + (u.listings || 0) + '</span>' +
+          '<span><span class="material-icons-round">rate_review</span> ' + (u.reviews || 0) + '</span>' +
+          '<span><span class="material-icons-round">calendar_today</span> ' + regDate + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-user-actions">' +
+        (u.isAdmin ? '' :
+          '<button class="btn-outline btn-sm admin-delete-btn" onclick="adminDeleteUser(' + u.id + ')">' +
+            '<span class="material-icons-round">delete_forever</span> Löschen' +
+          '</button>'
+        ) +
+      '</div>' +
+    '</div>';
+  });
+  list.innerHTML = html;
+}
+
+var _adminSearchTimeout = null;
+function adminSearchUsers(val) {
+  clearTimeout(_adminSearchTimeout);
+  _adminSearchTimeout = setTimeout(function() {
+    loadAdminUsers(val.trim());
+  }, 350);
+}
 
 // ========== REVIEW SYSTEM ==========
 var selectedRating = 0;
@@ -5985,6 +6082,8 @@ function applyLogin() {
     if (navAvatar) navAvatar.src = avatarUrl;
     var adminLabel = document.getElementById('navAdminLabel');
     if (adminLabel) adminLabel.style.display = currentUser.isAdmin ? 'block' : 'none';
+    var adminMenuBtn = document.getElementById('adminMenuBtn');
+    if (adminMenuBtn) adminMenuBtn.style.display = currentUser.isAdmin ? 'flex' : 'none';
   }
   var createPage = document.getElementById('page-create-listing');
   if (createPage && createPage.classList.contains('active')) updateCreateFormForRole();
@@ -6045,6 +6144,8 @@ function applyLogout() {
   if (navAvatar) navAvatar.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=user1';
   var adminLabel = document.getElementById('navAdminLabel');
   if (adminLabel) adminLabel.style.display = 'none';
+  var adminMenuBtn = document.getElementById('adminMenuBtn');
+  if (adminMenuBtn) adminMenuBtn.style.display = 'none';
   // Reset mobile nav labels
   var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
   if (mobileCreateBtn) {
@@ -6683,7 +6784,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '106';
+var _EB_VERSION = '107';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;

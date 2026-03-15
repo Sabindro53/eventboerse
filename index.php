@@ -61,6 +61,7 @@ get_header();
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
         <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
         <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
+        <button id="adminMenuBtn" style="display:none" onclick="navigateTo('admin')" class="admin-menu-btn"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</button>
         <hr />
         <button onclick="logout()"><span class="material-icons-round">logout</span> Abmelden</button>
       </div>

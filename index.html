@@ -79,6 +79,7 @@
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
         <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
         <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
+        <button id="adminMenuBtn" style="display:none" onclick="navigateTo('admin')" class="admin-menu-btn"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</button>
         <hr />
         <button onclick="logout()"><span class="material-icons-round">logout</span> Abmelden</button>
       </div>
@@ -1468,6 +1469,25 @@
       </div>
     </section>
 
+    <!-- Admin Panel -->
+    <section id="page-admin" class="page">
+      <div class="container container-sm">
+        <h1 class="admin-title"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</h1>
+        <p class="admin-subtitle">Benutzer verwalten, Inhalte moderieren.</p>
+
+        <div class="admin-search-bar">
+          <span class="material-icons-round">search</span>
+          <input type="text" id="adminUserSearch" placeholder="Benutzer suchen (Name, E-Mail)…" oninput="adminSearchUsers(this.value)">
+        </div>
+
+        <div class="admin-stats" id="adminStats"></div>
+
+        <div class="admin-user-list" id="adminUserList">
+          <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>
+        </div>
+      </div>
+    </section>
+
     <!-- AGB -->
     <section id="page-agb" class="page">
       <div class="container legal-page">
@@ -2072,6 +2092,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=106"></script>
+  <script src="app.js?v=107"></script>
 </body>
 </html>

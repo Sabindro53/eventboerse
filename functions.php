@@ -1643,10 +1643,16 @@ function eb_register_extra_routes() {
         'permission_callback' => '__return_true',
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/admin/users', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_admin_list_users',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/admin/delete-user/(?P<id>\d+)', array(
         'methods'             => 'DELETE',
         'callback'            => 'eb_admin_delete_user',
-        'permission_callback' => function() { return is_user_logged_in(); },
+        'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
     register_rest_route( 'eventboerse/v1', '/admin/make-admin', array(
@@ -2674,18 +2680,64 @@ add_filter( 'upload_size_limit', function() {
 /* =====================================================================
    ADMIN: DELETE USER + ALL CONTENT
    ===================================================================== */
+function eb_admin_list_users( WP_REST_Request $request ) {
+    global $wpdb;
+    $search = isset( $request['search'] ) ? sanitize_text_field( $request['search'] ) : '';
+    $args = array(
+        'number'  => 100,
+        'orderby' => 'registered',
+        'order'   => 'DESC',
+    );
+    if ( $search ) {
+        $args['search']         = '*' . $search . '*';
+        $args['search_columns'] = array( 'user_login', 'user_email', 'display_name' );
+    }
+    $users  = get_users( $args );
+    $result = array();
+    foreach ( $users as $u ) {
+        $listing_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}eb_listings WHERE user_id = %d", $u->ID
+        ) );
+        $review_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}eb_reviews WHERE user_id = %d", $u->ID
+        ) );
+        $result[] = array(
+            'id'         => (int) $u->ID,
+            'login'      => $u->user_login,
+            'email'      => $u->user_email,
+            'name'       => $u->display_name,
+            'role'       => eventboerse_map_role( $u ),
+            'registered' => $u->user_registered,
+            'avatar'     => get_user_meta( $u->ID, 'eb_avatar', true ),
+            'company'    => get_user_meta( $u->ID, 'eb_company', true ),
+            'isAdmin'    => eb_is_admin_user( $u->ID ),
+            'listings'   => $listing_count,
+            'reviews'    => $review_count,
+        );
+    }
+    return new WP_REST_Response( $result, 200 );
+}
+
 function eb_admin_delete_user( WP_REST_Request $request ) {
     global $wpdb;
-    if ( ! eb_is_admin_user() ) {
-        return new WP_REST_Response( array( 'message' => 'Nur Admins dürfen Nutzer löschen.' ), 403 );
-    }
     $target_id = absint( $request['id'] );
     $target    = get_userdata( $target_id );
     if ( ! $target ) {
         return new WP_REST_Response( array( 'message' => 'Nutzer nicht gefunden.' ), 404 );
     }
     if ( eb_is_admin_user( $target_id ) ) {
-        return new WP_REST_Response( array( 'message' => 'Admins können nicht gelöscht werden.' ), 403 );
+        return new WP_REST_Response( array( 'message' => 'Admins k\u00f6nnen nicht gel\u00f6scht werden.' ), 403 );
+    }
+
+    // Delete all media attachments uploaded by user
+    $attachments = get_posts( array(
+        'post_type'      => 'attachment',
+        'author'         => $target_id,
+        'posts_per_page' => -1,
+        'post_status'    => 'any',
+    ) );
+    foreach ( $attachments as $att ) {
+        wp_delete_attachment( $att->ID, true );
     }
 
     // Delete listings + reviews + favorites
@@ -2715,11 +2767,14 @@ function eb_admin_delete_user( WP_REST_Request $request ) {
         ) );
     }
 
-    // Delete WP user (requires user.php for wp_delete_user)
+    // Delete user meta
+    $wpdb->delete( $wpdb->usermeta, array( 'user_id' => $target_id ) );
+
+    // Delete WP user
     require_once ABSPATH . 'wp-admin/includes/user.php';
     wp_delete_user( $target_id );
 
-    return new WP_REST_Response( array( 'deleted' => true ), 200 );
+    return new WP_REST_Response( array( 'deleted' => true, 'user_id' => $target_id ), 200 );
 }
 
 function eb_admin_make_admin( WP_REST_Request $request ) {
