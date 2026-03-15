@@ -4710,10 +4710,10 @@ span.flatpickr-weekday {
     flex-direction: column;
   }
   .detail-container > .back-btn { order: 1; }
-  .detail-container > .detail-header { order: 2; margin-bottom: 16px; }
-  .detail-container > .detail-hero-img { order: 3; display: block; margin-bottom: 16px; }
-  .detail-container > .detail-provider-row { order: 4; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
-  .detail-container > .detail-gallery { order: 5; margin-bottom: 16px; }
+  .detail-container > .detail-gallery { order: 2; margin-bottom: 16px; }
+  .detail-container > .detail-header { order: 3; margin-bottom: 16px; }
+  .detail-container > .detail-hero-img { order: 4; display: block; margin-bottom: 16px; }
+  .detail-container > .detail-provider-row { order: 5; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
   .detail-container > .detail-layout { order: 6; }
 
   .detail-gallery { height: 260px; border-radius: var(--radius-md); }
