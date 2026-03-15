@@ -5147,6 +5147,8 @@ function makeAdmin() {
       if (data && data.admin) {
         currentUser.role = 'Admin';
         currentUser.isAdmin = true;
+        var adminLabel = document.getElementById('navAdminLabel');
+        if (adminLabel) adminLabel.style.display = 'block';
         showToast('Du bist jetzt Admin!', 'success');
         loadSettings();
       } else {
