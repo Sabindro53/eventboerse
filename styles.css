@@ -2586,7 +2586,7 @@ img { display: block; max-width: 100%; }
 .provider-portfolio img {
   width: 100%;
   aspect-ratio: 4 / 3;
-  object-fit: cover;
+  object-fit: contain;
   background: var(--bg-alt);
   cursor: pointer;
   transition: transform 0.3s, filter 0.3s;
