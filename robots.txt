@@ -1,3 +1,8 @@
 User-agent: *
 Allow: /
-Sitemap: https://eventbörse.de/sitemap.xml
+Disallow: /wp-admin/
+Disallow: /wp-json/
+Disallow: /wp-login.php
+Disallow: /wp-includes/
+Disallow: /readme.html
+Sitemap: https://xn--eventbrse-57a.de/sitemap.xml

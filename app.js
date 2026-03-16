@@ -505,6 +505,13 @@ const BLOCKED_PATTERNS = [
   /(whatsapp|telegram|signal|viber|facebook|instagram\s*@|snapchat)/i,              // social
 ];
 
+// ========== VISIBLE LISTINGS ==========
+function _visibleListings() {
+  if (!isLoggedIn) return LISTINGS;
+  var dbItems = LISTINGS.filter(function(l) { return l._fromDb; });
+  return dbItems.length > 0 ? dbItems : LISTINGS;
+}
+
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
   // Pages that require login — redirect to login modal immediately
@@ -668,8 +675,9 @@ function renderHeroMarquees() {
   const rightTrack = document.querySelector('#heroMarqueeRight .hero-marquee-track');
   if (!leftTrack || !rightTrack) return;
 
-  const leftListings = LISTINGS.slice(0, 5);
-  const rightListings = LISTINGS.slice(5, 10);
+  var visible = _visibleListings();
+  const leftListings = visible.slice(0, 5);
+  const rightListings = visible.slice(5, 10);
 
   function cardHTML(l) {
     return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
@@ -765,7 +773,7 @@ function renderFeed(tab) {
   if (!list) return;
   // Deduplicate LISTINGS by id (keep first occurrence)
   const seen = new Set();
-  let items = LISTINGS.filter(function(l) {
+  let items = _visibleListings().filter(function(l) {
     if (seen.has(l.id)) return false;
     seen.add(l.id);
     return true;
@@ -866,14 +874,16 @@ function detectWideBannerImg(img) {
 
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
-  grid.innerHTML = LISTINGS.slice(0, 8).map(renderListingCard).join('');
+  var visible = _visibleListings();
+  grid.innerHTML = visible.slice(0, 8).map(renderListingCard).join('');
   detectWideBannerCards(grid);
 }
 
 function filterCategory(btn, category) {
   document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
-  const filtered = category === 'alle' ? LISTINGS : LISTINGS.filter(l => l.category === category);
+  var visible = _visibleListings();
+  const filtered = category === 'alle' ? visible : visible.filter(l => l.category === category);
   const grid = document.getElementById('featuredGrid');
   grid.innerHTML = filtered.map(renderListingCard).join('');
   detectWideBannerCards(grid);
@@ -991,7 +1001,7 @@ function aiMatchKeyword(input) {
   });
 
   // Also try matching against listing titles directly
-  const listingMatches = LISTINGS.filter(l => {
+  const listingMatches = _visibleListings().filter(l => {
     const haystack = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.providerName}`.toLowerCase();
     return words.some(w => w.length >= 2 && haystack.includes(w));
   }).slice(0, 2);
@@ -1257,7 +1267,7 @@ function filterListings() {
   const priceRange = document.getElementById('browsePrice')?.value || '';
   const minRating = document.getElementById('browseRating')?.value || '';
 
-  let filtered = LISTINGS.filter(l => {
+  let filtered = _visibleListings().filter(l => {
     // Text search: title, category label, tags, provider
     if (search) {
       const haystack = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.providerName}`.toLowerCase();
@@ -1359,20 +1369,21 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
 
   // Find alternatives by relaxing filters progressively
   let alternatives = [];
+  var _vis = _visibleListings();
 
   // 1. Same category (detected from search or filter), any location
   if (detectedCategory) {
-    alternatives = LISTINGS.filter(l => l.category === detectedCategory);
+    alternatives = _vis.filter(l => l.category === detectedCategory);
   }
 
   // 2. Same event type, any location
   if (alternatives.length === 0 && eventType) {
-    alternatives = LISTINGS.filter(l => l.tags.some(t => t.toLowerCase() === eventType.toLowerCase()));
+    alternatives = _vis.filter(l => l.tags.some(t => t.toLowerCase() === eventType.toLowerCase()));
   }
 
   // 3. Same location/region, any category
   if (alternatives.length === 0 && location) {
-    alternatives = LISTINGS.filter(l =>
+    alternatives = _vis.filter(l =>
       l.location.toLowerCase().includes(location) || l.region.toLowerCase().includes(location)
     );
   }
@@ -1380,7 +1391,7 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
   // 4. Fuzzy text match: search term in title, tags, description
   if (alternatives.length === 0 && search) {
     const words = search.split(/\s+/).filter(w => w.length >= 2);
-    alternatives = LISTINGS.filter(l => {
+    alternatives = _vis.filter(l => {
       const hay = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.description} ${l.providerName}`.toLowerCase();
       return words.some(w => hay.includes(w));
     });
@@ -2663,7 +2674,7 @@ function renderChatList() {
         return;
       }
       list.innerHTML = convos.map(function(c) {
-        var avatar = c.other_photo || 'assets/img/placeholder.jpg';
+        var avatar = c.other_photo || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
         var name = c.other_name || 'Unbekannt';
         var lastMsg = c.last_message || '';
         if (lastMsg.length > 40) lastMsg = lastMsg.substring(0, 40) + '…';
@@ -2699,7 +2710,7 @@ function openChat(chatId) {
       currentChat = {
         id: chatId,
         name: convo ? convo.other_name : 'Chat',
-        avatar: convo ? (convo.other_photo || 'assets/img/placeholder.jpg') : 'assets/img/placeholder.jpg',
+        avatar: convo ? (convo.other_photo || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default') : 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
         otherId: convo ? convo.otherId : null,
         online: false,
         messages: messages || []
@@ -5239,7 +5250,7 @@ function renderMyListings() {
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
-              image: (l.images && l.images[0]) || 'assets/img/placeholder.jpg',
+              image: (l.images && l.images[0]) || '',
               images: l.images || [],
               location: l.location,
               price: l.price,
@@ -5253,7 +5264,6 @@ function renderMyListings() {
           renderEventGrid(myEvents);
         })
         .catch(function(err) {
-          console.error('my-events fetch error:', err);
           showToast('Events konnten nicht geladen werden. Bitte Seite neu laden.', 'error');
           renderEventGrid([]);
         });
@@ -5405,7 +5415,7 @@ function renderMyListings() {
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
-              image: (l.images && l.images[0]) || 'assets/img/placeholder.jpg',
+              image: (l.images && l.images[0]) || '',
               images: l.images || [],
               location: l.location,
               price: l.price,
@@ -5419,7 +5429,6 @@ function renderMyListings() {
           renderMyGrid(myListings);
         })
         .catch(function(err) {
-          console.error('my-listings fetch error:', err);
           showToast('Inserate konnten nicht geladen werden. Bitte Seite neu laden.', 'error');
           renderMyGrid([]);
         });
