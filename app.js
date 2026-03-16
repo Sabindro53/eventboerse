@@ -737,14 +737,21 @@ function filterExploreGrid() {
 }
 
 // ========== AKTUELLES FEED ==========
-function timeAgo(minutes) {
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  var now = Date.now();
+  var then = new Date(dateStr.replace(' ', 'T') + (dateStr.includes('T') || dateStr.includes('+') ? '' : 'Z'));
+  var minutes = Math.max(0, Math.floor((now - then.getTime()) / 60000));
+  if (minutes < 1) return 'gerade eben';
   if (minutes < 60) return 'vor ' + minutes + ' Min.';
-  const hours = Math.floor(minutes / 60);
+  var hours = Math.floor(minutes / 60);
   if (hours < 24) return 'vor ' + hours + ' Std.';
-  const days = Math.floor(hours / 24);
+  var days = Math.floor(hours / 24);
   if (days === 1) return 'Gestern';
   if (days < 7) return 'vor ' + days + ' Tagen';
-  return 'vor ' + Math.floor(days / 7) + ' Wo.';
+  if (days < 30) return 'vor ' + Math.floor(days / 7) + ' Wo.';
+  if (days < 365) return 'vor ' + Math.floor(days / 30) + ' Mon.';
+  return 'vor ' + Math.floor(days / 365) + (Math.floor(days / 365) === 1 ? ' Jahr' : ' Jahren');
 }
 
 function renderFeed(tab) {
@@ -768,7 +775,6 @@ function renderFeed(tab) {
   }
 
   list.innerHTML = items.map((l, i) => {
-    const minutesAgo = (tab === 'newest') ? (5 + i * 47) : Math.floor(Math.random() * 2880) + 5;
     const avatar = l.providerImg || l.providerAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName);
     const categoryLabel = l.category ? l.category.charAt(0).toUpperCase() + l.category.slice(1) : 'Service';
     const isFav = favorites.has(l.id);
@@ -779,7 +785,7 @@ function renderFeed(tab) {
         <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
         <div class="feed-card-meta">
           <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${_escHtml(l.providerName)}</span>
-          <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(minutesAgo)}</span>
+          <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(l.createdAt)}</span>
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
