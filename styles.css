@@ -2500,6 +2500,8 @@ img { display: block; max-width: 100%; }
 .provider-action-bar .btn-outline {
   padding: 12px 24px;
   font-size: 0.9rem;
+  min-width: 200px;
+  justify-content: center;
 }
 
 /* --- Two Column Layout --- */
@@ -4967,7 +4969,7 @@ span.flatpickr-weekday {
   .provider-portfolio { grid-template-columns: repeat(2, 1fr); }
   .provider-action-bar { justify-content: center; flex-wrap: wrap; padding: 0 8px; }
   .provider-action-bar .btn-primary,
-  .provider-action-bar .btn-outline { flex: 1; justify-content: center; padding: 8px 12px; font-size: 0.8rem; min-width: 0; }
+  .provider-action-bar .btn-outline { flex: 1; justify-content: center; padding: 12px 24px; font-size: 0.9rem; min-width: 160px; }
   .provider-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .tab { padding: 12px 16px; font-size: 0.88rem; white-space: nowrap; }
 
