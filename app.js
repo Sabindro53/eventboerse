@@ -526,6 +526,12 @@ function navigateTo(page, data, skipHistory) {
   // Deactivate all pages
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   _stopChatPoll();
+  // Reset provider edit mode if leaving
+  if (_providerEditMode) {
+    _providerEditMode = false;
+    var provPage = document.getElementById('page-provider');
+    if (provPage) provPage.classList.remove('provider-edit-mode');
+  }
 
   // Activate target page
   var targetId = page;
@@ -1795,7 +1801,7 @@ function loadProvider(providerId) {
   if (actionBar) {
     if (isOwnProviderProfile) {
       actionBar.innerHTML =
-        '<button class="btn-primary" onclick="navigateTo(\'edit-profile\')">' +
+        '<button class="btn-primary" onclick="toggleProviderEditMode()">' +
           '<span class="material-icons-round">edit</span> Profil bearbeiten' +
         '</button>' +
         '<button class="btn-outline" onclick="shareProvider()">' +
@@ -1830,6 +1836,388 @@ function switchProviderTab(btn, tab) {
   btn.classList.add('active');
   document.querySelectorAll('.provider-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('provider-tab-' + tab).classList.add('active');
+}
+
+/* ====== INLINE PROVIDER EDIT MODE ====== */
+var _providerEditMode = false;
+
+function toggleProviderEditMode() {
+  _providerEditMode = !_providerEditMode;
+  var page = document.getElementById('page-provider');
+  if (!page) return;
+
+  if (_providerEditMode) {
+    page.classList.add('provider-edit-mode');
+    _enterProviderEdit();
+  } else {
+    page.classList.remove('provider-edit-mode');
+    _exitProviderEdit();
+  }
+}
+
+function _enterProviderEdit() {
+  var actionBar = document.querySelector('.provider-action-bar');
+  if (actionBar) {
+    actionBar.innerHTML =
+      '<button class="btn-primary" onclick="toggleProviderEditMode()">' +
+        '<span class="material-icons-round">check</span> Fertig' +
+      '</button>' +
+      '<button class="btn-outline" onclick="shareProvider()">' +
+        '<span class="material-icons-round">share</span> Teilen' +
+      '</button>';
+  }
+
+  // --- Avatar edit overlay ---
+  var avatarImg = document.getElementById('providerAvatar');
+  if (avatarImg && !avatarImg.parentElement.querySelector('.prov-edit-avatar-overlay')) {
+    var overlay = document.createElement('div');
+    overlay.className = 'prov-edit-avatar-overlay';
+    overlay.innerHTML = '<span class="material-icons-round">photo_camera</span>';
+    overlay.onclick = function() { document.getElementById('provEditAvatarInput').click(); };
+    avatarImg.parentElement.style.position = 'relative';
+    avatarImg.parentElement.appendChild(overlay);
+    // Hidden file input
+    if (!document.getElementById('provEditAvatarInput')) {
+      var inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'provEditAvatarInput';
+      inp.style.display = 'none';
+      inp.onchange = function() { _provEditAvatar(this); };
+      document.getElementById('page-provider').appendChild(inp);
+    }
+  }
+
+  // --- Cover gallery edit overlay ---
+  var coverGallery = document.getElementById('providerCoverGallery');
+  if (coverGallery && !coverGallery.querySelector('.prov-edit-cover-overlay')) {
+    var covOverlay = document.createElement('div');
+    covOverlay.className = 'prov-edit-cover-overlay';
+    covOverlay.innerHTML =
+      '<button class="prov-edit-cover-btn" onclick="document.getElementById(\'provEditGalleryInput\').click()">' +
+        '<span class="material-icons-round">add_photo_alternate</span> Bilder hinzufügen' +
+      '</button>';
+    coverGallery.appendChild(covOverlay);
+    if (!document.getElementById('provEditGalleryInput')) {
+      var ginp = document.createElement('input');
+      ginp.type = 'file'; ginp.accept = 'image/*'; ginp.multiple = true;
+      ginp.id = 'provEditGalleryInput'; ginp.style.display = 'none';
+      ginp.onchange = function() { _provEditAddGalleryImages(this); };
+      document.getElementById('page-provider').appendChild(ginp);
+    }
+  }
+
+  // --- Name inline edit ---
+  var nameEl = document.getElementById('providerName');
+  if (nameEl && !nameEl.querySelector('.prov-edit-icon')) {
+    nameEl.setAttribute('contenteditable', 'true');
+    nameEl.classList.add('prov-editable');
+    var editIcon = document.createElement('span');
+    editIcon.className = 'material-icons-round prov-edit-icon';
+    editIcon.textContent = 'edit';
+    nameEl.appendChild(editIcon);
+    nameEl.addEventListener('blur', _provSaveName);
+    nameEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
+  }
+
+  // --- Tagline inline edit ---
+  var tagEl = document.getElementById('providerTagline');
+  if (tagEl && !tagEl.querySelector('.prov-edit-icon')) {
+    tagEl.setAttribute('contenteditable', 'true');
+    tagEl.classList.add('prov-editable');
+    var tIcon = document.createElement('span');
+    tIcon.className = 'material-icons-round prov-edit-icon';
+    tIcon.textContent = 'edit';
+    tagEl.appendChild(tIcon);
+    tagEl.addEventListener('blur', _provSaveTagline);
+    tagEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); tagEl.blur(); } });
+  }
+
+  // --- Bio inline edit ---
+  var bioEl = document.getElementById('providerBio');
+  if (bioEl) {
+    bioEl.classList.remove('bio-collapsed');
+    var bioToggle = bioEl.parentElement.querySelector('.bio-toggle');
+    if (bioToggle) bioToggle.style.display = 'none';
+    if (!bioEl.querySelector('.prov-edit-bio-area')) {
+      var bioText = bioEl.innerText.trim();
+      var editWrap = document.createElement('div');
+      editWrap.className = 'prov-edit-bio-area';
+      editWrap.innerHTML =
+        '<textarea class="prov-edit-textarea" id="provEditBioText" rows="5" placeholder="Erzähle etwas über dich...">' +
+          _escHtml(bioText) +
+        '</textarea>' +
+        '<button class="prov-edit-save-btn" onclick="_provSaveBio()">' +
+          '<span class="material-icons-round">check</span> Speichern' +
+        '</button>';
+      bioEl.innerHTML = '';
+      bioEl.appendChild(editWrap);
+    }
+  }
+
+  // --- Portfolio edit mode: add remove/crop buttons on each image ---
+  var portfolioEl = document.getElementById('providerPortfolio');
+  if (portfolioEl) {
+    var imgs = portfolioEl.querySelectorAll('img');
+    imgs.forEach(function(img, i) {
+      if (img.parentElement.classList.contains('prov-portfolio-edit-wrap')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'prov-portfolio-edit-wrap';
+      wrap.setAttribute('data-url', img.src);
+      img.parentNode.insertBefore(wrap, img);
+      wrap.appendChild(img);
+      // Remove button
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'prov-portfolio-remove';
+      removeBtn.innerHTML = '<span class="material-icons-round">close</span>';
+      removeBtn.onclick = function(e) { e.stopPropagation(); _provRemovePortfolioImage(wrap); };
+      wrap.appendChild(removeBtn);
+      // Crop button
+      var cropBtn = document.createElement('button');
+      cropBtn.className = 'prov-portfolio-crop';
+      cropBtn.innerHTML = '<span class="material-icons-round">crop</span>';
+      cropBtn.onclick = function(e) { e.stopPropagation(); _provCropPortfolioImage(wrap); };
+      wrap.appendChild(cropBtn);
+      // Remove old onclick
+      img.removeAttribute('onclick');
+      img.style.cursor = 'default';
+    });
+    // Add button for more images
+    if (!portfolioEl.querySelector('.prov-portfolio-add')) {
+      var addBtn = document.createElement('div');
+      addBtn.className = 'prov-portfolio-add';
+      addBtn.innerHTML = '<span class="material-icons-round">add_photo_alternate</span><span>Bild hinzufügen</span>';
+      addBtn.onclick = function() { document.getElementById('provEditGalleryInput').click(); };
+      portfolioEl.appendChild(addBtn);
+    }
+  }
+}
+
+function _exitProviderEdit() {
+  var actionBar = document.querySelector('.provider-action-bar');
+  if (actionBar) {
+    actionBar.innerHTML =
+      '<button class="btn-primary" onclick="toggleProviderEditMode()">' +
+        '<span class="material-icons-round">edit</span> Profil bearbeiten' +
+      '</button>' +
+      '<button class="btn-outline" onclick="shareProvider()">' +
+        '<span class="material-icons-round">share</span> Teilen' +
+      '</button>';
+  }
+  // Remove avatar overlay
+  var avatarOverlay = document.querySelector('.prov-edit-avatar-overlay');
+  if (avatarOverlay) avatarOverlay.remove();
+
+  // Remove cover overlay
+  var covOverlay = document.querySelector('.prov-edit-cover-overlay');
+  if (covOverlay) covOverlay.remove();
+
+  // Restore name
+  var nameEl = document.getElementById('providerName');
+  if (nameEl) {
+    nameEl.removeAttribute('contenteditable');
+    nameEl.classList.remove('prov-editable');
+    var icon = nameEl.querySelector('.prov-edit-icon');
+    if (icon) icon.remove();
+    nameEl.removeEventListener('blur', _provSaveName);
+    // Clean text
+    nameEl.textContent = nameEl.textContent.trim();
+  }
+
+  // Restore tagline
+  var tagEl = document.getElementById('providerTagline');
+  if (tagEl) {
+    tagEl.removeAttribute('contenteditable');
+    tagEl.classList.remove('prov-editable');
+    var icon2 = tagEl.querySelector('.prov-edit-icon');
+    if (icon2) icon2.remove();
+    tagEl.removeEventListener('blur', _provSaveTagline);
+    tagEl.textContent = tagEl.textContent.trim();
+  }
+
+  // Restore bio
+  var bioEl = document.getElementById('providerBio');
+  if (bioEl) {
+    var bioArea = bioEl.querySelector('.prov-edit-bio-area');
+    if (bioArea) {
+      var bioText = currentUser ? (currentUser.bio || '') : '';
+      bioEl.innerHTML = _sanitizeHtml(bioText);
+    }
+    var bioToggle = bioEl.parentElement.querySelector('.bio-toggle');
+    if (bioToggle) bioToggle.style.display = '';
+  }
+
+  // Restore portfolio
+  var portfolioEl = document.getElementById('providerPortfolio');
+  if (portfolioEl) {
+    // Remove add button
+    var addBtn = portfolioEl.querySelector('.prov-portfolio-add');
+    if (addBtn) addBtn.remove();
+    // Unwrap images
+    portfolioEl.querySelectorAll('.prov-portfolio-edit-wrap').forEach(function(wrap) {
+      var img = wrap.querySelector('img');
+      if (img) {
+        img.style.cursor = 'pointer';
+        var idx = Array.from(portfolioEl.querySelectorAll('.prov-portfolio-edit-wrap')).indexOf(wrap);
+        img.setAttribute('onclick', 'openProviderLightbox(' + idx + ')');
+        wrap.parentNode.insertBefore(img, wrap);
+      }
+      wrap.remove();
+    });
+  }
+
+  // Reload to show fresh data
+  if (currentUser) loadProvider(currentUser.id);
+}
+
+function _provEditAvatar(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) { showToast('Bild zu groß! Max. 5MB', 'error'); input.value = ''; return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      _cropImg = img;
+      _cropX = 0; _cropY = 0;
+      document.getElementById('cropZoom').value = 1;
+      openModal('avatarCropModal');
+      setTimeout(function() { cropDraw(); cropBindEvents(); }, 50);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function _provSaveName() {
+  var nameEl = document.getElementById('providerName');
+  if (!nameEl || !currentUser) return;
+  var newName = nameEl.textContent.replace(/edit$/i, '').trim();
+  if (!newName || newName === currentUser.name) return;
+  currentUser.name = newName;
+  // Update nav avatar name
+  var navName = document.querySelector('.dropdown-name');
+  if (navName) navName.textContent = newName;
+  fetch(_apiUrl('profile'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ name: newName })
+  }).then(function() { showToast('Name gespeichert!', 'check_circle'); })
+    .catch(function() { showToast('Fehler beim Speichern', 'error'); });
+}
+
+function _provSaveTagline() {
+  var tagEl = document.getElementById('providerTagline');
+  if (!tagEl || !currentUser) return;
+  var parts = tagEl.textContent.replace(/edit$/i, '').trim();
+  // Tagline format: "Category · Location" — save as tagline
+  currentUser.tagline = parts;
+  fetch(_apiUrl('profile'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ tagline: parts })
+  }).then(function() { showToast('Tagline gespeichert!', 'check_circle'); })
+    .catch(function() { showToast('Fehler beim Speichern', 'error'); });
+}
+
+function _provSaveBio() {
+  var textarea = document.getElementById('provEditBioText');
+  if (!textarea || !currentUser) return;
+  var bioText = textarea.value.trim();
+  currentUser.bio = bioText;
+  fetch(_apiUrl('profile'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ bio: bioText })
+  }).then(function() { showToast('Bio gespeichert!', 'check_circle'); })
+    .catch(function() { showToast('Fehler beim Speichern', 'error'); });
+}
+
+function _provRemovePortfolioImage(wrap) {
+  var url = wrap.getAttribute('data-url');
+  wrap.remove();
+  // Update gallery in currentUser
+  if (currentUser && currentUser.gallery) {
+    currentUser.gallery = currentUser.gallery.filter(function(g) { return g !== url; });
+    _provSaveGallery();
+  }
+  // Also update providerImages
+  var idx = providerImages.indexOf(url);
+  if (idx > -1) providerImages.splice(idx, 1);
+  showToast('Bild entfernt', 'delete');
+}
+
+function _provCropPortfolioImage(wrap) {
+  var img = wrap.querySelector('img');
+  if (!img) return;
+  var imgObj = new Image();
+  imgObj.crossOrigin = 'anonymous';
+  imgObj.onload = function() {
+    _lcropImg = imgObj;
+    _lcropX = 0; _lcropY = 0;
+    _lcropEditTarget = wrap;
+    _lcropMode = 'provider-portfolio';
+    _lcropQueue = []; _lcropQueueIdx = 0;
+    document.getElementById('lcropZoom').value = 1;
+    openModal('listingCropModal');
+    setTimeout(function() { lcropDraw(); lcropBindEvents(); }, 50);
+  };
+  imgObj.src = img.src;
+}
+
+function _provEditAddGalleryImages(input) {
+  if (!input.files || input.files.length === 0) return;
+  var maxTotal = 12;
+  var currentCount = (currentUser && currentUser.gallery) ? currentUser.gallery.length : 0;
+  var files = Array.from(input.files);
+  if (currentCount + files.length > maxTotal) {
+    showToast('Maximal ' + maxTotal + ' Galerie-Bilder erlaubt!', 'error');
+    files = files.slice(0, maxTotal - currentCount);
+  }
+  input.value = '';
+  // Open crop modal for each image
+  _lcropMode = 'provider-portfolio';
+  _lcropEditTarget = null;
+  _lcropQueue = files;
+  _lcropQueueIdx = 0;
+  if (files.length > 0) _lcropProcessNext();
+}
+
+function _provSaveGallery() {
+  if (!currentUser) return;
+  var gallery = currentUser.gallery || [];
+  fetch(_apiUrl('profile'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ gallery: gallery })
+  }).catch(function() { showToast('Fehler beim Speichern', 'error'); });
+}
+
+function _provAddPortfolioItem(url) {
+  if (!currentUser) return;
+  if (!currentUser.gallery) currentUser.gallery = [];
+  currentUser.gallery.push(url);
+  providerImages.push(url);
+  _provSaveGallery();
+  // Add to portfolio grid if in edit mode
+  var portfolioEl = document.getElementById('providerPortfolio');
+  if (portfolioEl && _providerEditMode) {
+    var addBtn = portfolioEl.querySelector('.prov-portfolio-add');
+    var wrap = document.createElement('div');
+    wrap.className = 'prov-portfolio-edit-wrap';
+    wrap.setAttribute('data-url', url);
+    var img = document.createElement('img');
+    img.src = url; img.alt = 'Portfolio'; img.loading = 'lazy';
+    img.style.cursor = 'default';
+    wrap.appendChild(img);
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'prov-portfolio-remove';
+    removeBtn.innerHTML = '<span class="material-icons-round">close</span>';
+    removeBtn.onclick = function(e) { e.stopPropagation(); _provRemovePortfolioImage(wrap); };
+    wrap.appendChild(removeBtn);
+    var cropBtn = document.createElement('button');
+    cropBtn.className = 'prov-portfolio-crop';
+    cropBtn.innerHTML = '<span class="material-icons-round">crop</span>';
+    cropBtn.onclick = function(e) { e.stopPropagation(); _provCropPortfolioImage(wrap); };
+    wrap.appendChild(cropBtn);
+    portfolioEl.insertBefore(wrap, addBtn);
+    detectWideBannerImg(img);
+  }
 }
 
 /* ── Gallery Lightbox ── */
@@ -3737,12 +4125,12 @@ function lcropConfirm() {
       var img = _lcropEditTarget.querySelector('img');
       if (img) img.src = previewUrl;
       _lcropEditTarget._croppedBlob = blob;
+      var editTarget = _lcropEditTarget;
       _lcropEditTarget = null;
       if (_lcropMode === 'listing') _updateListingLivePreview();
       if (_lcropMode === 'gallery') {
         // Upload cropped gallery image to server
         uploadFile(blob).then(function(data) {
-          var tgt = _lcropEditTarget;
           // Find the item we just updated (by previewUrl)
           var items = document.querySelectorAll('#galleryPreview .upload-preview-item');
           items.forEach(function(item) {
@@ -3754,6 +4142,27 @@ function lcropConfirm() {
           });
         }).catch(function() { showToast('Upload fehlgeschlagen', 'error'); });
       }
+      if (_lcropMode === 'provider-portfolio') {
+        // Re-crop portfolio image - upload and update
+        var oldUrl = editTarget.getAttribute('data-url');
+        uploadFile(blob).then(function(data) {
+          editTarget.querySelector('img').src = data.url;
+          editTarget.setAttribute('data-url', data.url);
+          // Update gallery array
+          if (currentUser && currentUser.gallery) {
+            var gIdx = currentUser.gallery.indexOf(oldUrl);
+            if (gIdx > -1) currentUser.gallery[gIdx] = data.url;
+            _provSaveGallery();
+          }
+          showToast('Bild zugeschnitten!', 'crop');
+        }).catch(function() { showToast('Upload fehlgeschlagen', 'error'); });
+      }
+    } else if (_lcropMode === 'provider-portfolio') {
+      // New portfolio image from crop
+      uploadFile(blob).then(function(data) {
+        _provAddPortfolioItem(data.url);
+        showToast('Bild hinzugefügt!', 'add_photo_alternate');
+      }).catch(function() { showToast('Upload fehlgeschlagen', 'error'); });
     } else if (_lcropMode === 'gallery') {
       // New gallery image: add preview item and upload
       _addGalleryPreviewItem(previewUrl, blob);
@@ -4071,14 +4480,18 @@ function cropConfirm() {
     if (!blob) return;
     closeModal('avatarCropModal');
     var previewUrl = URL.createObjectURL(blob);
-    document.getElementById('profileAvatar').src = previewUrl;
+    var profileAv = document.getElementById('profileAvatar');
+    if (profileAv) profileAv.src = previewUrl;
+    var providerAv = document.getElementById('providerAvatar');
+    if (providerAv) providerAv.src = previewUrl;
     var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = previewUrl;
 
     var croppedFile = new File([blob], 'avatar.png', { type: 'image/png' });
     uploadFile(croppedFile).then(function(data) {
       if (currentUser) currentUser.photoUrl = data.url;
-      document.getElementById('profileAvatar').src = data.url;
+      if (profileAv) profileAv.src = data.url;
+      if (providerAv) providerAv.src = data.url;
       if (navAvatar) navAvatar.src = data.url;
       fetch(_apiUrl('profile'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),

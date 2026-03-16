@@ -2598,6 +2598,179 @@ img { display: block; max-width: 100%; }
   filter: brightness(0.85);
 }
 
+/* --- Provider Inline Edit Mode --- */
+.provider-edit-mode .prov-editable {
+  outline: 2px dashed var(--primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+  cursor: text;
+  position: relative;
+  padding-right: 28px;
+}
+.provider-edit-mode .prov-editable:focus {
+  outline: 2px solid var(--primary);
+  background: var(--primary-light);
+}
+.prov-edit-icon {
+  font-size: 16px !important;
+  color: var(--primary);
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+.prov-edit-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  z-index: 5;
+}
+.prov-edit-avatar-overlay .material-icons-round {
+  color: #fff;
+  font-size: 32px;
+}
+.prov-edit-avatar-overlay:hover {
+  background: rgba(0,0,0,0.6);
+}
+.prov-edit-cover-overlay {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 10;
+}
+.prov-edit-cover-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.95);
+  color: var(--dark);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  transition: all var(--transition);
+}
+.prov-edit-cover-btn:hover {
+  background: var(--dark);
+  color: #fff;
+}
+.prov-edit-cover-btn .material-icons-round { font-size: 20px; }
+.prov-edit-bio-area {
+  width: 100%;
+}
+.prov-edit-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text);
+  resize: vertical;
+  transition: border-color var(--transition);
+}
+.prov-edit-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.prov-edit-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 20px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.prov-edit-save-btn:hover { background: var(--primary-dark); }
+.prov-edit-save-btn .material-icons-round { font-size: 18px; }
+
+/* Portfolio edit wrap */
+.prov-portfolio-edit-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+.prov-portfolio-edit-wrap img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+.prov-portfolio-remove,
+.prov-portfolio-crop {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.prov-portfolio-remove {
+  top: 6px;
+  right: 6px;
+  background: rgba(220,38,38,0.9);
+  color: #fff;
+}
+.prov-portfolio-remove:hover { background: #dc2626; transform: scale(1.1); }
+.prov-portfolio-remove .material-icons-round { font-size: 18px; }
+.prov-portfolio-crop {
+  top: 6px;
+  right: 44px;
+  background: rgba(255,255,255,0.9);
+  color: var(--dark);
+}
+.prov-portfolio-crop:hover { background: #fff; transform: scale(1.1); }
+.prov-portfolio-crop .material-icons-round { font-size: 18px; }
+
+.prov-portfolio-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  aspect-ratio: 4 / 3;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-light);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all var(--transition);
+  background: var(--bg-alt);
+}
+.prov-portfolio-add:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+.prov-portfolio-add .material-icons-round { font-size: 36px; }
+
 /* --- Sidebar Cards --- */
 .provider-fact-card {
   background: var(--bg);
