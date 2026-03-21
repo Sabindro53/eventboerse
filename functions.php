@@ -1696,6 +1696,24 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return is_user_logged_in(); },
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/admin/change-role', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_change_role',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/revoke-admin', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_revoke_admin',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/toggle-active', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_toggle_active',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     // Admin-Reset: löscht alle eb_admin Metas (nur wenn kein eb_admin existiert oder per WP-Admin)
     register_rest_route( 'eventboerse/v1', '/admin/reset', array(
         'methods'             => 'POST',
@@ -2733,6 +2751,7 @@ function eb_admin_list_users( WP_REST_Request $request ) {
             'avatar'     => get_user_meta( $u->ID, 'eb_avatar', true ),
             'company'    => get_user_meta( $u->ID, 'eb_company', true ),
             'isAdmin'    => eb_is_admin_user( $u->ID ),
+            'isActive'   => get_user_meta( $u->ID, 'eb_deactivated', true ) !== '1',
             'listings'   => $listing_count,
             'reviews'    => $review_count,
         );
@@ -2814,6 +2833,73 @@ function eb_admin_make_admin( WP_REST_Request $request ) {
     return new WP_REST_Response( array(
         'admin'   => true,
         'user_id' => $target_id,
+        'name'    => $target->display_name,
+    ), 200 );
+}
+
+function eb_admin_revoke_admin( WP_REST_Request $request ) {
+    $target_id = isset( $request['user_id'] ) ? absint( $request['user_id'] ) : 0;
+    if ( ! $target_id ) {
+        return new WP_REST_Response( array( 'message' => 'Keine user_id angegeben.' ), 400 );
+    }
+    $current_user = wp_get_current_user();
+    if ( (int) $current_user->ID === $target_id ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst dir selbst nicht den Admin-Status entziehen.' ), 403 );
+    }
+    $target = get_user_by( 'id', $target_id );
+    if ( ! $target ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
+    if ( in_array( 'administrator', (array) $target->roles, true ) ) {
+        return new WP_REST_Response( array( 'message' => 'WordPress-Administratoren können nicht herabgestuft werden.' ), 403 );
+    }
+    delete_user_meta( $target_id, 'eb_admin' );
+    return new WP_REST_Response( array(
+        'admin'   => false,
+        'user_id' => $target_id,
+        'name'    => $target->display_name,
+    ), 200 );
+}
+
+function eb_admin_toggle_active( WP_REST_Request $request ) {
+    $target_id = isset( $request['user_id'] ) ? absint( $request['user_id'] ) : 0;
+    if ( ! $target_id ) {
+        return new WP_REST_Response( array( 'message' => 'Keine user_id angegeben.' ), 400 );
+    }
+    $target = get_user_by( 'id', $target_id );
+    if ( ! $target ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
+    if ( eb_is_admin_user( $target_id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Admins können nicht deaktiviert werden.' ), 403 );
+    }
+    $currently_deactivated = get_user_meta( $target_id, 'eb_deactivated', true ) === '1';
+    if ( $currently_deactivated ) {
+        delete_user_meta( $target_id, 'eb_deactivated' );
+    } else {
+        update_user_meta( $target_id, 'eb_deactivated', '1' );
+    }
+    return new WP_REST_Response( array(
+        'user_id'  => $target_id,
+        'isActive' => $currently_deactivated,
+        'name'     => $target->display_name,
+    ), 200 );
+}
+
+function eb_admin_change_role( WP_REST_Request $request ) {
+    $target_id = isset( $request['user_id'] ) ? absint( $request['user_id'] ) : 0;
+    $new_role  = isset( $request['role'] ) ? sanitize_text_field( $request['role'] ) : '';
+    if ( ! $target_id || ! in_array( $new_role, array( 'dienstleister', 'event_planer' ), true ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige Parameter.' ), 400 );
+    }
+    $target = get_user_by( 'id', $target_id );
+    if ( ! $target ) {
+        return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
+    }
+    $target->set_role( $new_role );
+    return new WP_REST_Response( array(
+        'user_id' => $target_id,
+        'role'    => eventboerse_map_role( $target ),
         'name'    => $target->display_name,
     ), 200 );
 }

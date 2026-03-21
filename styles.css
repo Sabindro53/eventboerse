@@ -5741,6 +5741,9 @@ span.flatpickr-weekday {
 }
 .admin-user-actions {
   flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .admin-delete-btn {
   color: #e53935 !important;
@@ -5752,6 +5755,89 @@ span.flatpickr-weekday {
 .admin-delete-btn .material-icons-round {
   font-size: 16px;
   vertical-align: middle;
+}
+.admin-deactivate-btn {
+  color: #f57c00 !important;
+  border-color: #f57c00 !important;
+}
+.admin-deactivate-btn:hover {
+  background: #fff3e0 !important;
+}
+.admin-activate-btn {
+  color: #2e7d32 !important;
+  border-color: #2e7d32 !important;
+}
+.admin-activate-btn:hover {
+  background: #e8f5e9 !important;
+}
+.admin-promote-btn {
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+.admin-promote-btn:hover {
+  background: var(--primary-light) !important;
+}
+.admin-revoke-btn {
+  color: #f57c00 !important;
+  border-color: #f57c00 !important;
+}
+.admin-revoke-btn:hover {
+  background: #fff3e0 !important;
+}
+.admin-promote-btn .material-icons-round,
+.admin-revoke-btn .material-icons-round,
+.admin-deactivate-btn .material-icons-round,
+.admin-activate-btn .material-icons-round {
+  font-size: 16px;
+  vertical-align: middle;
+}
+.admin-role-badge.admin-role-deactivated {
+  background: #fbe9e7;
+  color: #e53935;
+}
+.admin-user-card.is-deactivated {
+  opacity: 0.6;
+  border-left: 3px solid #e53935;
+}
+.admin-user-login {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+.admin-role-switcher {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.admin-role-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text-light);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.admin-role-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+.admin-role-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: default;
+}
+.admin-role-btn .material-icons-round {
+  font-size: 14px;
 }
 .admin-loading {
   text-align: center;
@@ -5785,5 +5871,7 @@ span.flatpickr-weekday {
   .admin-stat strong { font-size: 1.2rem; }
   .admin-user-card { flex-wrap: wrap; padding: 12px; }
   .admin-user-actions { width: 100%; margin-top: 8px; }
-  .admin-user-actions button { width: 100%; justify-content: center; }
+  .admin-user-actions button { width: 100%; justify-content: center; font-size: 0.78rem; }
+  .admin-role-switcher { flex-wrap: wrap; }
+  .admin-role-btn { font-size: 0.7rem; padding: 2px 8px; }
 }

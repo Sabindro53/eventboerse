@@ -5678,12 +5678,71 @@ function renderAdminUserList(users) {
     var roleBadge = u.isAdmin
       ? '<span class="admin-role-badge admin-role-admin">Admin</span>'
       : '<span class="admin-role-badge">' + _escHtml(u.role || 'Mitglied') + '</span>';
-    html += '<div class="admin-user-card' + (u.isAdmin ? ' is-admin' : '') + '">' +
+    var isActive = u.isActive !== false;
+    var isSelf = currentUser && currentUser.id === u.id;
+    var activeBadge = !isActive ? ' <span class="admin-role-badge admin-role-deactivated">Deaktiviert</span>' : '';
+    var cardClass = 'admin-user-card' + (u.isAdmin ? ' is-admin' : '') + (!isActive ? ' is-deactivated' : '');
+
+    // Display name + username
+    var displayName = _escHtml(u.name || u.login);
+    var loginName = u.login && u.name && u.login !== u.name
+      ? ' <span class="admin-user-login">@' + _escHtml(u.login) + '</span>'
+      : '';
+
+    // Role switch buttons (Dienstleister / Event-Planer)
+    var roleSwitcher = '';
+    if (!u.isAdmin) {
+      var isDL = u.role === 'Dienstleister';
+      var isEP = u.role === 'Event-Planer';
+      roleSwitcher = '<div class="admin-role-switcher">' +
+        '<button class="admin-role-btn' + (isEP ? ' active' : '') + '" onclick="adminChangeRole(' + u.id + ',\'event_planer\')" title="Als Event-Planer setzen">' +
+          '<span class="material-icons-round">celebration</span> Event-Planer' +
+        '</button>' +
+        '<button class="admin-role-btn' + (isDL ? ' active' : '') + '" onclick="adminChangeRole(' + u.id + ',\'dienstleister\')" title="Als Dienstleister setzen">' +
+          '<span class="material-icons-round">storefront</span> Dienstleister' +
+        '</button>' +
+      '</div>';
+    }
+
+    // Build action buttons
+    var actionBtns = '';
+    if (!isSelf) {
+      // Activate / Deactivate toggle
+      if (!u.isAdmin) {
+        if (isActive) {
+          actionBtns += '<button class="btn-outline btn-sm admin-deactivate-btn" onclick="adminToggleActive(' + u.id + ')" title="Benutzer deaktivieren">' +
+            '<span class="material-icons-round">block</span> Deaktivieren' +
+          '</button>';
+        } else {
+          actionBtns += '<button class="btn-outline btn-sm admin-activate-btn" onclick="adminToggleActive(' + u.id + ')" title="Benutzer aktivieren">' +
+            '<span class="material-icons-round">check_circle</span> Aktivieren' +
+          '</button>';
+        }
+      }
+      // Admin promote / demote
+      if (u.isAdmin) {
+        actionBtns += '<button class="btn-outline btn-sm admin-revoke-btn" onclick="adminRevokeAdmin(' + u.id + ')" title="Admin-Rechte entziehen">' +
+          '<span class="material-icons-round">remove_moderator</span> Admin entziehen' +
+        '</button>';
+      } else {
+        actionBtns += '<button class="btn-outline btn-sm admin-promote-btn" onclick="adminMakeAdmin(' + u.id + ')" title="Zum Admin ernennen">' +
+          '<span class="material-icons-round">admin_panel_settings</span> Zum Admin' +
+        '</button>';
+      }
+      // Delete (only non-admins)
+      if (!u.isAdmin) {
+        actionBtns += '<button class="btn-outline btn-sm admin-delete-btn" onclick="adminDeleteUser(' + u.id + ')">' +
+          '<span class="material-icons-round">delete_forever</span> Löschen' +
+        '</button>';
+      }
+    }
+
+    html += '<div class="' + cardClass + '">' +
       '<div class="admin-user-avatar" onclick="navigateTo(\'provider\',' + u.id + ')">' +
         '<img src="' + _escHtml(avatarSrc) + '" alt="">' +
       '</div>' +
       '<div class="admin-user-info">' +
-        '<div class="admin-user-name">' + _escHtml(u.name || u.login) + ' ' + roleBadge + '</div>' +
+        '<div class="admin-user-name">' + displayName + loginName + ' ' + roleBadge + activeBadge + '</div>' +
         '<div class="admin-user-meta">' +
           '<span>' + _escHtml(u.email) + '</span>' +
           (u.company ? ' · <span>' + _escHtml(u.company) + '</span>' : '') +
@@ -5693,14 +5752,9 @@ function renderAdminUserList(users) {
           '<span><span class="material-icons-round">rate_review</span> ' + (u.reviews || 0) + '</span>' +
           '<span><span class="material-icons-round">calendar_today</span> ' + regDate + '</span>' +
         '</div>' +
+        roleSwitcher +
       '</div>' +
-      '<div class="admin-user-actions">' +
-        (u.isAdmin ? '' :
-          '<button class="btn-outline btn-sm admin-delete-btn" onclick="adminDeleteUser(' + u.id + ')">' +
-            '<span class="material-icons-round">delete_forever</span> Löschen' +
-          '</button>'
-        ) +
-      '</div>' +
+      '<div class="admin-user-actions">' + actionBtns + '</div>' +
     '</div>';
   });
   list.innerHTML = html;
@@ -5712,6 +5766,77 @@ function adminSearchUsers(val) {
   _adminSearchTimeout = setTimeout(function() {
     loadAdminUsers(val.trim());
   }, 350);
+}
+
+function adminToggleActive(userId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  var user = _adminUsers.find(function(u) { return u.id === userId; });
+  var isActive = user ? user.isActive !== false : true;
+  var action = isActive ? 'deaktivieren' : 'aktivieren';
+  if (!confirm('Diesen Benutzer wirklich ' + action + '?')) return;
+  fetch(_apiUrl('admin/toggle-active'), {
+    method: 'POST', credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ user_id: userId })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (r.ok) return r.json();
+    return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
+  }).then(function(d) {
+    showToast('Benutzer ' + (d.isActive ? 'aktiviert' : 'deaktiviert') + '.', d.isActive ? 'success' : 'warning');
+    loadAdminUsers();
+  }).catch(function(e) { showToast(e.message || 'Fehler beim Umschalten', 'error'); });
+}
+
+function adminMakeAdmin(userId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  if (!confirm('Diesen Benutzer wirklich zum Admin ernennen?')) return;
+  fetch(_apiUrl('admin/make-admin'), {
+    method: 'POST', credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ user_id: userId })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (r.ok) return r.json();
+    return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
+  }).then(function(d) {
+    showToast(d.name + ' ist jetzt Admin.', 'success');
+    loadAdminUsers();
+  }).catch(function(e) { showToast(e.message || 'Fehler', 'error'); });
+}
+
+function adminRevokeAdmin(userId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  if (!confirm('Diesem Benutzer wirklich die Admin-Rechte entziehen?')) return;
+  fetch(_apiUrl('admin/revoke-admin'), {
+    method: 'POST', credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ user_id: userId })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (r.ok) return r.json();
+    return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
+  }).then(function(d) {
+    showToast(d.name + ' ist kein Admin mehr.', 'warning');
+    loadAdminUsers();
+  }).catch(function(e) { showToast(e.message || 'Fehler', 'error'); });
+}
+
+function adminChangeRole(userId, role) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  var label = role === 'dienstleister' ? 'Dienstleister' : 'Event-Planer';
+  fetch(_apiUrl('admin/change-role'), {
+    method: 'POST', credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ user_id: userId, role: role })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (r.ok) return r.json();
+    return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
+  }).then(function(d) {
+    showToast(d.name + ' ist jetzt ' + label + '.', 'success');
+    loadAdminUsers();
+  }).catch(function(e) { showToast(e.message || 'Rollenwechsel fehlgeschlagen', 'error'); });
 }
 
 // ========== REVIEW SYSTEM ==========
