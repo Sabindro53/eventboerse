@@ -2691,6 +2691,7 @@ function eb_messages_send( WP_REST_Request $request ) {
     }
     $insert['created_at'] = current_time( 'mysql' );
 
+
     $wpdb->insert( $wpdb->prefix . 'eb_messages', $insert );
 
     // Update conversation timestamp
@@ -2698,6 +2699,26 @@ function eb_messages_send( WP_REST_Request $request ) {
         array( 'updated_at' => current_time( 'mysql' ) ),
         array( 'id' => $conv_id )
     );
+
+    // E-Mail-Benachrichtigung an Empfänger
+    $recipient_id = ((int)$conv->user_a === $uid) ? (int)$conv->user_b : (int)$conv->user_a;
+    $recipient = get_userdata( $recipient_id );
+    $sender = get_userdata( $uid );
+    if ( $recipient && $recipient->user_email && $recipient_id !== $uid ) {
+        $chat_url = home_url( '/#chat/' . $conv_id );
+        $is_offer = ( $msg_type === 'offer' );
+        $subject = 'Neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' auf Eventbörse';
+        $preview = $is_offer ? $insert['body'] : $body;
+        $sender_name = $sender->first_name ?: $sender->display_name;
+        $message = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+        $message .= '<h2 style="color:#222;margin-bottom:8px">Du hast eine neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' erhalten</h2>';
+        $message .= '<p style="color:#484848;line-height:1.6">Von <strong>' . esc_html( $sender_name ) . '</strong>:</p>';
+        $message .= '<div style="background:#f7f7f7;border-radius:8px;padding:16px 18px;margin:18px 0;font-size:1.08em;color:#222">' . esc_html( $preview ) . '</div>';
+        $message .= '<p style="margin:18px 0 0 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Im Chat antworten</a></p>';
+        $message .= '<p style="color:#717171;font-size:13px;margin-top:24px">Du kannst jederzeit im Bereich "Nachrichten" auf Eventbörse antworten.</p>';
+        $message .= '</div>';
+        wp_mail( $recipient->user_email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
+    }
 
     return new WP_REST_Response( array(
         'id'         => (int) $wpdb->insert_id,
