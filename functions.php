@@ -2717,7 +2717,8 @@ function eb_messages_send( WP_REST_Request $request ) {
         $message .= '<p style="margin:18px 0 0 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Im Chat antworten</a></p>';
         $message .= '<p style="color:#717171;font-size:13px;margin-top:24px">Du kannst jederzeit im Bereich "Nachrichten" auf Eventbörse antworten.</p>';
         $message .= '</div>';
-        wp_mail( $recipient->user_email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
+        $mail_result = wp_mail( $recipient->user_email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
+        error_log('[Eventboerse-Mail] To: ' . $recipient->user_email . ' | Subject: ' . $subject . ' | Result: ' . ( $mail_result ? 'OK' : 'FAIL' ) );
     }
 
     return new WP_REST_Response( array(
