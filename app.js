@@ -5673,7 +5673,7 @@ function renderAdminUserList(users) {
   }
   var html = '';
   users.forEach(function(u) {
-    var avatarSrc = u.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(u.name || u.login);
+    var avatarSrc = u.avatar || u.gravatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(u.login);
     var regDate = u.registered ? new Date(u.registered).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '–';
     var baseRole = u.baseRole || u.role || 'Event-Planer';
     var roleBadge = u.isAdmin
@@ -5685,10 +5685,13 @@ function renderAdminUserList(users) {
     var cardClass = 'admin-user-card' + (u.isAdmin ? ' is-admin' : '') + (!isActive ? ' is-deactivated' : '');
 
     // Display name + username
-    var displayName = _escHtml(u.name || u.login);
-    var loginName = u.login && u.name && u.login !== u.name
-      ? ' <span class="admin-user-login">@' + _escHtml(u.login) + '</span>'
-      : '';
+    var realName = '';
+    if (u.firstName && u.lastName) realName = u.firstName + ' ' + u.lastName;
+    else if (u.firstName) realName = u.firstName;
+    else if (u.lastName) realName = u.lastName;
+    else realName = u.name || u.login;
+    var displayName = _escHtml(realName);
+    var loginName = ' <span class="admin-user-login">@' + _escHtml(u.login) + '</span>';
 
     // Role switch buttons (Dienstleister / Event-Planer)
     var roleSwitcher = '';

@@ -2748,15 +2748,20 @@ function eb_admin_list_users( WP_REST_Request $request ) {
         $review_count = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->prefix}eb_reviews WHERE user_id = %d", $u->ID
         ) );
+        $first = get_user_meta( $u->ID, 'first_name', true );
+        $last  = get_user_meta( $u->ID, 'last_name', true );
         $result[] = array(
             'id'         => (int) $u->ID,
             'login'      => $u->user_login,
             'email'      => $u->user_email,
             'name'       => $u->display_name,
+            'firstName'  => $first,
+            'lastName'   => $last,
             'role'       => eventboerse_map_role( $u ),
             'baseRole'   => eventboerse_base_role( $u ),
             'registered' => $u->user_registered,
             'avatar'     => get_user_meta( $u->ID, 'eb_avatar', true ),
+            'gravatar'   => get_avatar_url( $u->ID, array( 'size' => 150, 'default' => '' ) ),
             'company'    => get_user_meta( $u->ID, 'eb_company', true ),
             'isAdmin'    => eb_is_admin_user( $u->ID ),
             'isActive'   => get_user_meta( $u->ID, 'eb_deactivated', true ) !== '1',
