@@ -2673,29 +2673,42 @@ function _sendOfflineBeacon() {
 }
 
 // ──── Inactivity auto-logout (15 min) ────
+// Uses timestamp comparison instead of raw setTimeout so that
+// Safari (which freezes timers when tabs are backgrounded) doesn't
+// fire the callback immediately after the tab is foregrounded.
 var _inactivityTimer = null;
+var _lastActivity = 0;
 var _INACTIVITY_MS = 15 * 60 * 1000;
 
-function _resetInactivityTimer() {
-  if (_inactivityTimer) clearTimeout(_inactivityTimer);
+function _touchActivity() {
+  _lastActivity = Date.now();
+}
+
+function _checkInactivity() {
   if (!isLoggedIn) return;
-  _inactivityTimer = setTimeout(function() {
-    if (!isLoggedIn) return;
+  var elapsed = Date.now() - _lastActivity;
+  if (elapsed >= _INACTIVITY_MS) {
     logout();
     showToast('Du wurdest wegen Inaktivität abgemeldet.', 'timer_off');
-  }, _INACTIVITY_MS);
+  }
 }
 
 function _startInactivityWatch() {
+  _touchActivity();
   var events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
   events.forEach(function(evt) {
-    document.addEventListener(evt, _resetInactivityTimer, { passive: true });
+    document.addEventListener(evt, _touchActivity, { passive: true });
   });
-  _resetInactivityTimer();
+  // Check every 30 s (aligns with heartbeat)
+  _inactivityTimer = setInterval(_checkInactivity, 30000);
+  // Also check when Safari un-freezes the tab
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) _checkInactivity();
+  });
 }
 
 function _stopInactivityWatch() {
-  if (_inactivityTimer) { clearTimeout(_inactivityTimer); _inactivityTimer = null; }
+  if (_inactivityTimer) { clearInterval(_inactivityTimer); _inactivityTimer = null; }
 }
 
 // ──── Update chat header online/offline status ────
@@ -7036,14 +7049,15 @@ function initPasswordFields() {
 
 // ---- SESSION RESTORE (bei Seitenaufruf) ----
 function restoreSession() {
-  // Sofort aus wp_localize_script lesen
+  // Sofort aus wp_localize_script lesen (frisch gerenderte Seite)
   if (typeof eventboerseApi !== 'undefined' && eventboerseApi.isLoggedIn && eventboerseApi.user) {
     currentUser = _normalizeUserPayload(eventboerseApi.user);
     applyLogin();
     return;
   }
-  // Fallback: REST /me prüfen (z. B. wenn aus Cache geladen)
-  fetch(_apiUrl('me'), { credentials: 'same-origin', headers: _apiHeaders() })
+  // Fallback: REST /me prüfen (z. B. Safari-Cache oder Service Worker)
+  // Kein X-WP-Nonce-Header senden → reine Cookie-Auth ohne Nonce-Fehler
+  fetch(_apiUrl('me'), { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } })
     .then(function(r) {
       _refreshNonce(r);
       if (!r.ok) throw new Error(r.status);

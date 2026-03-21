@@ -119,6 +119,14 @@ function eventboerse_enqueue_assets() {
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
 
+/* Prevent Safari (and others) from caching page with stale auth state */
+add_action( 'send_headers', function() {
+    if ( ! is_admin() ) {
+        header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+        header( 'Pragma: no-cache' );
+    }
+} );
+
 /* Favicon & OG-Meta-Tags */
 add_action( 'wp_head', function() {
     $theme_url = get_template_directory_uri();
