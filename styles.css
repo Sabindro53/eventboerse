@@ -425,6 +425,7 @@ img { display: block; max-width: 100%; }
   z-index: 1;
   overflow: hidden;
   pointer-events: auto;
+  touch-action: pan-x;
   mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
 }
@@ -4691,6 +4692,7 @@ span.flatpickr-weekday {
     top: auto;
     left: auto !important;
     right: auto !important;
+    touch-action: pan-y;
     mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
     padding: 8px 0;

@@ -737,6 +737,86 @@ function renderHeroMarquees() {
       }
     });
   });
+
+  // Touch-swipe support for both marquees
+  _initMarqueeSwipe(leftTrack);
+  _initMarqueeSwipe(rightTrack);
+}
+
+function _initMarqueeSwipe(track) {
+  if (!track || track._swipeInit) return;
+  track._swipeInit = true;
+
+  var startX = 0, startY = 0, startOffset = 0, dragging = false, isHorizontal = null;
+
+  function isMobile() {
+    return window.innerWidth <= 768;
+  }
+
+  function getCurrentOffset(t) {
+    var m = getComputedStyle(t).transform;
+    if (!m || m === 'none') return 0;
+    var vals = m.match(/matrix\((.+)\)/);
+    if (!vals) return 0;
+    var parts = vals[1].split(',').map(Number);
+    // parts[4] = translateX, parts[5] = translateY
+    return isMobile() ? parts[4] : parts[5];
+  }
+
+  function getTrackSize(t) {
+    return isMobile() ? t.scrollWidth / 2 : t.scrollHeight / 2;
+  }
+
+  track.addEventListener('touchstart', function(e) {
+    dragging = true;
+    isHorizontal = null;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startOffset = getCurrentOffset(track);
+    track.style.animationPlayState = 'paused';
+    track.style.transform = (isMobile() ? 'translateX(' : 'translateY(') + startOffset + 'px)';
+  }, { passive: true });
+
+  track.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    var dx = e.touches[0].clientX - startX;
+    var dy = e.touches[0].clientY - startY;
+
+    // Determine direction on first move
+    if (isHorizontal === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      isHorizontal = Math.abs(dx) > Math.abs(dy);
+    }
+
+    var mobile = isMobile();
+    // Only respond to the relevant axis
+    if (mobile && isHorizontal === false) return;
+    if (!mobile && isHorizontal === true) return;
+
+    var delta = mobile ? dx : dy;
+    var half = getTrackSize(track);
+    var newOffset = startOffset + delta;
+
+    // Wrap around for seamless feel
+    if (half > 0) {
+      while (newOffset > 0) newOffset -= half;
+      while (newOffset < -half) newOffset += half;
+    }
+
+    var axis = mobile ? 'translateX(' : 'translateY(';
+    track.style.transform = axis + newOffset + 'px)';
+  }, { passive: true });
+
+  function endSwipe() {
+    if (!dragging) return;
+    dragging = false;
+    isHorizontal = null;
+    // Resume CSS animation from current position
+    track.style.transform = '';
+    track.style.animationPlayState = '';
+  }
+
+  track.addEventListener('touchend', endSwipe, { passive: true });
+  track.addEventListener('touchcancel', endSwipe, { passive: true });
 }
 
 // ========== EXPLORE PAGE (Instagram-Style) ==========
