@@ -2288,8 +2288,14 @@ function buildGalleryRows(images) {
   galleryRAFs.forEach(id => cancelAnimationFrame(id));
   galleryRAFs = [];
 
-  if (!images.length) { gallery.style.display = 'none'; return; }
+  var provPage = document.getElementById('page-provider');
+  if (!images.length) {
+    gallery.style.display = 'none';
+    if (provPage) provPage.style.paddingTop = 'var(--nav-height)';
+    return;
+  }
   gallery.style.display = '';
+  if (provPage) provPage.style.paddingTop = '0';
 
   // Row count: 1-9 → 1 row, 10-14 → 2 rows, 15+ → 3 rows
   const rowCount = images.length >= 15 ? 3 : images.length >= 10 ? 2 : 1;
