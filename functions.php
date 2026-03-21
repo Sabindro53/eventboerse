@@ -1861,6 +1861,18 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/admin/user-tags', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_set_user_tags',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/all-tags', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_admin_get_all_tags',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/admin/delete-user/(?P<id>\d+)', array(
         'methods'             => 'DELETE',
         'callback'            => 'eb_admin_delete_user',
@@ -2949,9 +2961,45 @@ function eb_admin_list_users( WP_REST_Request $request ) {
             'isActive'   => get_user_meta( $u->ID, 'eb_deactivated', true ) !== '1',
             'listings'   => $listing_count,
             'reviews'    => $review_count,
+            'tags'       => array_values( array_filter( (array) get_user_meta( $u->ID, 'eb_tags', true ) ) ),
         );
     }
     return new WP_REST_Response( $result, 200 );
+}
+
+function eb_admin_set_user_tags( WP_REST_Request $request ) {
+    $params  = $request->get_json_params();
+    $user_id = absint( $params['user_id'] ?? 0 );
+    $tags    = isset( $params['tags'] ) && is_array( $params['tags'] ) ? $params['tags'] : array();
+
+    if ( ! get_userdata( $user_id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Nutzer nicht gefunden.' ), 404 );
+    }
+
+    $clean = array();
+    foreach ( $tags as $t ) {
+        $t = sanitize_text_field( trim( (string) $t ) );
+        if ( $t !== '' && strlen( $t ) <= 30 ) {
+            $clean[] = $t;
+        }
+    }
+    $clean = array_values( array_unique( $clean ) );
+
+    update_user_meta( $user_id, 'eb_tags', $clean );
+
+    // Globale Tag-Liste aktualisieren
+    $all = get_option( 'eb_all_tags', array() );
+    if ( ! is_array( $all ) ) $all = array();
+    $all = array_values( array_unique( array_merge( $all, $clean ) ) );
+    update_option( 'eb_all_tags', $all );
+
+    return new WP_REST_Response( array( 'tags' => $clean ), 200 );
+}
+
+function eb_admin_get_all_tags( WP_REST_Request $request ) {
+    $all = get_option( 'eb_all_tags', array() );
+    if ( ! is_array( $all ) ) $all = array();
+    return new WP_REST_Response( array( 'tags' => array_values( $all ) ), 200 );
 }
 
 function eb_admin_delete_user( WP_REST_Request $request ) {

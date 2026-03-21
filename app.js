@@ -5899,6 +5899,21 @@ function renderAdminUserList(users) {
     var roleBadge = u.isAdmin
       ? '<span class="admin-role-badge admin-role-admin">Admin</span>'
       : '';
+    var tagBadges = '';
+    if (u.tags && u.tags.length) {
+      u.tags.forEach(function(tag) {
+        tagBadges += ' <span class="admin-tag-badge">' + _escHtml(tag) +
+          '<span class="material-icons-round admin-tag-remove" onclick="adminRemoveTag(' + u.id + ',\'' + _escHtml(tag).replace(/'/g, "\\'") + '\')" title="Tag entfernen">close</span>' +
+        '</span>';
+      });
+    }
+    tagBadges += '<span class="admin-tag-wrapper">' +
+      '<button class="admin-tag-add-btn" onclick="adminToggleTagDropdown(event,' + u.id + ')" title="Tag hinzufügen"><span class="material-icons-round" style="font-size:16px">add</span></button>' +
+      '<div class="admin-tag-dropdown" id="tagDrop' + u.id + '">' +
+        '<input type="text" placeholder="Neuer Tag..." onkeydown="adminTagInputKey(event,' + u.id + ')" oninput="adminFilterTagSuggestions(event,' + u.id + ')" />' +
+        '<div class="admin-tag-suggestions" id="tagSug' + u.id + '"></div>' +
+      '</div>' +
+    '</span>';
     var isActive = u.isActive !== false;
     var isSelf = currentUser && currentUser.id === u.id;
     var activeBadge = !isActive ? ' <span class="admin-role-badge admin-role-deactivated">Deaktiviert</span>' : '';
@@ -5960,12 +5975,12 @@ function renderAdminUserList(users) {
       }
     }
 
-    html += '<div class="' + cardClass + '">' +
+    html += '<div class="' + cardClass + '" data-uid="' + u.id + '">' +
       '<div class="admin-user-avatar" onclick="navigateTo(\'provider\',' + u.id + ')">' +
         '<img src="' + _escHtml(avatarSrc) + '" alt="">' +
       '</div>' +
       '<div class="admin-user-info">' +
-        '<div class="admin-user-name">' + displayName + ' ' + roleBadge + activeBadge + '</div>' +
+        '<div class="admin-user-name">' + displayName + ' ' + roleBadge + tagBadges + activeBadge + '</div>' +
         '<div class="admin-user-meta">' +
           '<span>' + _escHtml(u.email) + '</span>' +
           (u.company ? ' · <span>' + _escHtml(u.company) + '</span>' : '') +
@@ -5982,6 +5997,112 @@ function renderAdminUserList(users) {
   });
   list.innerHTML = html;
 }
+
+var _allAdminTags = [];
+
+function adminLoadAllTags(cb) {
+  fetch('/wp-json/eventboerse/v1/admin/all-tags', { credentials: 'same-origin', headers: { 'X-WP-Nonce': wpNonce } })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { _allAdminTags = d.tags || []; if (cb) cb(); });
+}
+
+function adminToggleTagDropdown(ev, userId) {
+  ev.stopPropagation();
+  var drop = document.getElementById('tagDrop' + userId);
+  if (!drop) return;
+  var wasOpen = drop.classList.contains('show');
+  // Close all dropdowns
+  document.querySelectorAll('.admin-tag-dropdown.show').forEach(function(d) { d.classList.remove('show'); });
+  if (wasOpen) return;
+  adminLoadAllTags(function() {
+    adminRenderTagSuggestions(userId, '');
+    drop.classList.add('show');
+    var inp = drop.querySelector('input');
+    if (inp) { inp.value = ''; inp.focus(); }
+  });
+}
+
+function adminRenderTagSuggestions(userId, filter) {
+  var sug = document.getElementById('tagSug' + userId);
+  if (!sug) return;
+  // Find current tags for this user
+  var card = sug.closest('.admin-user-card');
+  var currentTags = [];
+  if (card) card.querySelectorAll('.admin-tag-badge').forEach(function(b) {
+    var t = b.childNodes[0];
+    if (t) currentTags.push(t.textContent.trim());
+  });
+  var html = '';
+  _allAdminTags.forEach(function(tag) {
+    if (currentTags.indexOf(tag) !== -1) return;
+    if (filter && tag.toLowerCase().indexOf(filter.toLowerCase()) === -1) return;
+    html += '<div class="admin-tag-suggestion" onclick="adminAddTag(' + userId + ',\'' + _escHtml(tag).replace(/'/g, "\\'") + '\')">' + _escHtml(tag) + '</div>';
+  });
+  sug.innerHTML = html;
+}
+
+function adminFilterTagSuggestions(ev, userId) {
+  adminRenderTagSuggestions(userId, ev.target.value.trim());
+}
+
+function adminTagInputKey(ev, userId) {
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    var val = ev.target.value.trim();
+    if (val) adminAddTag(userId, val);
+  }
+}
+
+function adminAddTag(userId, tag) {
+  // Collect current tags
+  var card = document.querySelector('.admin-user-card[data-uid="' + userId + '"]');
+  if (!card) return;
+  var currentTags = [];
+  card.querySelectorAll('.admin-tag-badge').forEach(function(b) {
+    var t = b.childNodes[0];
+    if (t) currentTags.push(t.textContent.trim());
+  });
+  if (currentTags.indexOf(tag) !== -1) return;
+  currentTags.push(tag);
+  adminSaveTags(userId, currentTags);
+}
+
+function adminRemoveTag(userId, tag) {
+  var card = document.querySelector('.admin-user-card[data-uid="' + userId + '"]');
+  if (!card) return;
+  var currentTags = [];
+  card.querySelectorAll('.admin-tag-badge').forEach(function(b) {
+    var t = b.childNodes[0];
+    if (t) currentTags.push(t.textContent.trim());
+  });
+  currentTags = currentTags.filter(function(t) { return t !== tag; });
+  adminSaveTags(userId, currentTags);
+}
+
+function adminSaveTags(userId, tags) {
+  fetch('/wp-json/eventboerse/v1/admin/user-tags', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': wpNonce },
+    body: JSON.stringify({ user_id: userId, tags: tags })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.tags) {
+        if (_adminUsers) {
+          _adminUsers.forEach(function(u) {
+            if (u.id === userId) u.tags = d.tags;
+          });
+          renderAdminUserList(_adminUsers);
+        }
+      }
+    });
+}
+
+// Close tag dropdowns on outside click
+document.addEventListener('click', function() {
+  document.querySelectorAll('.admin-tag-dropdown.show').forEach(function(d) { d.classList.remove('show'); });
+});
 
 var _adminSearchTimeout = null;
 function adminSearchUsers(val) {

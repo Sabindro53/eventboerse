@@ -5791,6 +5791,114 @@ span.flatpickr-weekday {
   background: var(--primary-light);
   color: var(--primary-dark);
 }
+.admin-tag-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--accent-light);
+  color: #00796B;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: default;
+}
+.admin-tag-badge .admin-tag-remove {
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.admin-tag-badge .admin-tag-remove:hover {
+  opacity: 1;
+}
+.admin-tag-add-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--border);
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+  font-size: 16px;
+  transition: all 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.admin-tag-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+.admin-tag-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  z-index: 100;
+  min-width: 180px;
+  display: none;
+}
+.admin-tag-dropdown.show { display: block; }
+.admin-tag-dropdown input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  outline: none;
+  margin-bottom: 4px;
+  font-family: inherit;
+}
+.admin-tag-dropdown input:focus { border-color: var(--accent); }
+.admin-tag-suggestions {
+  max-height: 120px;
+  overflow-y: auto;
+}
+.admin-tag-suggestion {
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text);
+}
+.admin-tag-suggestion:hover {
+  background: var(--accent-light);
+  color: #00796B;
+}
+.admin-tag-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+body.dark-mode .admin-tag-badge {
+  background: #1a3a38;
+  color: #4dd0c6;
+}
+body.dark-mode .admin-tag-dropdown {
+  background: #1E1E1E;
+  border-color: var(--border);
+}
+body.dark-mode .admin-tag-dropdown input {
+  background: #2a2a2a;
+  color: #ccc;
+  border-color: var(--border);
+}
+body.dark-mode .admin-tag-suggestion:hover {
+  background: #1a3a38;
+  color: #4dd0c6;
+}
 .admin-user-meta {
   font-size: 0.82rem;
   color: var(--text-light);
