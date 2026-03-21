@@ -187,6 +187,13 @@ function eventboerse_map_role( $user ) {
     return 'Event-Planer';
 }
 
+function eventboerse_base_role( $user ) {
+    if ( in_array( 'dienstleister', (array) $user->roles, true ) ) {
+        return 'Dienstleister';
+    }
+    return 'Event-Planer';
+}
+
 function eb_is_admin_user( $user_id = 0 ) {
     if ( ! $user_id ) $user_id = get_current_user_id();
     $u = get_userdata( $user_id );
@@ -2747,6 +2754,7 @@ function eb_admin_list_users( WP_REST_Request $request ) {
             'email'      => $u->user_email,
             'name'       => $u->display_name,
             'role'       => eventboerse_map_role( $u ),
+            'baseRole'   => eventboerse_base_role( $u ),
             'registered' => $u->user_registered,
             'avatar'     => get_user_meta( $u->ID, 'eb_avatar', true ),
             'company'    => get_user_meta( $u->ID, 'eb_company', true ),

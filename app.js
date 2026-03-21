@@ -5675,8 +5675,9 @@ function renderAdminUserList(users) {
   users.forEach(function(u) {
     var avatarSrc = u.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(u.name || u.login);
     var regDate = u.registered ? new Date(u.registered).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '–';
+    var baseRole = u.baseRole || u.role || 'Event-Planer';
     var roleBadge = u.isAdmin
-      ? '<span class="admin-role-badge admin-role-admin">Admin</span>'
+      ? '<span class="admin-role-badge admin-role-admin">Admin</span> <span class="admin-role-badge">' + _escHtml(baseRole) + '</span>'
       : '<span class="admin-role-badge">' + _escHtml(u.role || 'Mitglied') + '</span>';
     var isActive = u.isActive !== false;
     var isSelf = currentUser && currentUser.id === u.id;
@@ -5691,9 +5692,9 @@ function renderAdminUserList(users) {
 
     // Role switch buttons (Dienstleister / Event-Planer)
     var roleSwitcher = '';
-    if (!u.isAdmin) {
-      var isDL = u.role === 'Dienstleister';
-      var isEP = u.role === 'Event-Planer';
+    {
+      var isDL = baseRole === 'Dienstleister';
+      var isEP = baseRole === 'Event-Planer';
       roleSwitcher = '<div class="admin-role-switcher">' +
         '<button class="admin-role-btn' + (isEP ? ' active' : '') + '" onclick="adminChangeRole(' + u.id + ',\'event_planer\')" title="Als Event-Planer setzen">' +
           '<span class="material-icons-round">celebration</span> Event-Planer' +
