@@ -226,6 +226,7 @@ function eb_user_security_meta( $uid ) {
         'emailVerified' => '0' !== (string) $verified,
         'hasPasskey'    => ! empty( $credentials ),
         'passkeyCount'  => count( $credentials ),
+        'twoFA'         => get_user_meta( $uid, 'eb_2fa_enabled', true ) === '1',
     );
 }
 
@@ -442,10 +443,38 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
 
 /* ---------- LOGIN ---------- */
 function eventboerse_handle_login( WP_REST_Request $request ) {
-    return new WP_REST_Response( array(
-        'message'      => 'Direkter Passwort-Login ist deaktiviert. Bitte nutze den Zwei-Schritt-Login per E-Mail-Code oder einen Passkey.',
-        'requires_otp' => true,
-    ), 403 );
+    $params   = $request->get_json_params();
+    $email    = sanitize_email( $params['email'] ?? '' );
+    $password = $params['password'] ?? '';
+
+    if ( empty( $email ) || empty( $password ) ) {
+        return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
+    }
+
+    $user = get_user_by( 'email', $email );
+    if ( ! $user || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+        return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
+    }
+
+    $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
+    if ( '0' === (string) $verified ) {
+        return new WP_REST_Response( array(
+            'message'              => 'Bitte bestätige zuerst deine E-Mail-Adresse. Prüfe dein Postfach.',
+            'pending_verification' => true,
+            'email'                => $email,
+        ), 403 );
+    }
+
+    /* If 2FA is enabled, do NOT log in – tell the client to proceed with OTP */
+    if ( get_user_meta( $user->ID, 'eb_2fa_enabled', true ) === '1' ) {
+        return new WP_REST_Response( array( 'requires2fa' => true ), 200 );
+    }
+
+    /* No 2FA – log in directly */
+    wp_set_current_user( $user->ID );
+    wp_set_auth_cookie( $user->ID, true, is_ssl() );
+
+    return new WP_REST_Response( eb_auth_user_payload( $user ), 200 );
 }
 
 /* ---------- LOGOUT ---------- */
@@ -821,6 +850,16 @@ function eb_settings_password( WP_REST_Request $request ) {
     wp_set_auth_cookie( $uid, true, is_ssl() );
 
     return new WP_REST_Response( array( 'saved' => true ), 200 );
+}
+
+function eb_settings_toggle_2fa( WP_REST_Request $request ) {
+    $uid     = get_current_user_id();
+    $params  = $request->get_json_params();
+    $enabled = ! empty( $params['enabled'] );
+
+    update_user_meta( $uid, 'eb_2fa_enabled', $enabled ? '1' : '0' );
+
+    return new WP_REST_Response( array( 'twoFA' => $enabled ), 200 );
 }
 
 function eb_settings_delete_account( WP_REST_Request $request ) {
@@ -1614,6 +1653,12 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/settings/delete-account', array(
         'methods'             => 'POST',
         'callback'            => 'eb_settings_delete_account',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/settings/2fa', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_settings_toggle_2fa',
         'permission_callback' => 'is_user_logged_in',
     ) );
 

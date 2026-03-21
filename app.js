@@ -2672,6 +2672,32 @@ function _sendOfflineBeacon() {
   }
 }
 
+// ──── Inactivity auto-logout (15 min) ────
+var _inactivityTimer = null;
+var _INACTIVITY_MS = 15 * 60 * 1000;
+
+function _resetInactivityTimer() {
+  if (_inactivityTimer) clearTimeout(_inactivityTimer);
+  if (!isLoggedIn) return;
+  _inactivityTimer = setTimeout(function() {
+    if (!isLoggedIn) return;
+    logout();
+    showToast('Du wurdest wegen Inaktivität abgemeldet.', 'timer_off');
+  }, _INACTIVITY_MS);
+}
+
+function _startInactivityWatch() {
+  var events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+  events.forEach(function(evt) {
+    document.addEventListener(evt, _resetInactivityTimer, { passive: true });
+  });
+  _resetInactivityTimer();
+}
+
+function _stopInactivityWatch() {
+  if (_inactivityTimer) { clearTimeout(_inactivityTimer); _inactivityTimer = null; }
+}
+
 // ──── Update chat header online/offline status ────
 function _updateChatStatus(userId) {
   if (!userId) return;
@@ -3524,6 +3550,12 @@ function loadSettings() {
   document.getElementById('settingsConfirmPw').value = '';
   renderPasskeySettings(null);
   refreshPasskeySettings();
+
+  // 2FA toggle
+  var twoFaToggle = document.getElementById('settings2faToggle');
+  var twoFaStatus = document.getElementById('settings2faStatus');
+  if (twoFaToggle) twoFaToggle.checked = !!(currentUser && currentUser.twoFA);
+  if (twoFaStatus) twoFaStatus.textContent = (currentUser && currentUser.twoFA) ? 'Aktiviert – Bei jedem Login wird ein E-Mail-Code angefordert.' : 'Deaktiviert – Login nur mit Passwort.';
 }
 
 function renderPasskeySettings(data) {
@@ -3643,6 +3675,33 @@ function toggleSettingsPw(inputId, btn) {
     inp.type = 'password';
     icon.textContent = 'visibility_off';
   }
+}
+
+function toggle2faSetting(checkbox) {
+  var enabled = checkbox.checked;
+  var statusEl = document.getElementById('settings2faStatus');
+
+  fetch(_apiUrl('settings/2fa'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ enabled: enabled })
+  })
+    .then(function(r) { _refreshNonce(r); return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) {
+        checkbox.checked = !enabled;
+        showToast(res.data.message || 'Fehler beim Speichern', 'error');
+        return;
+      }
+      if (currentUser) currentUser.twoFA = !!res.data.twoFA;
+      if (statusEl) statusEl.textContent = res.data.twoFA ? 'Aktiviert – Bei jedem Login wird ein E-Mail-Code angefordert.' : 'Deaktiviert – Login nur mit Passwort.';
+      showToast(res.data.twoFA ? 'E-Mail-2FA aktiviert' : 'E-Mail-2FA deaktiviert', res.data.twoFA ? 'verified_user' : 'shield');
+    })
+    .catch(function() {
+      checkbox.checked = !enabled;
+      showToast('Netzwerkfehler', 'error');
+    });
 }
 
 function savePersonalSettings() {
@@ -6252,7 +6311,8 @@ function _normalizeUserPayload(data, fallback) {
     since: data.since || fallback.since || '',
     emailVerified: typeof data.emailVerified === 'boolean' ? data.emailVerified : (typeof fallback.emailVerified === 'boolean' ? fallback.emailVerified : true),
     hasPasskey: typeof data.hasPasskey === 'boolean' ? data.hasPasskey : (typeof fallback.hasPasskey === 'boolean' ? fallback.hasPasskey : false),
-    passkeyCount: typeof data.passkeyCount === 'number' ? data.passkeyCount : (typeof fallback.passkeyCount === 'number' ? fallback.passkeyCount : 0)
+    passkeyCount: typeof data.passkeyCount === 'number' ? data.passkeyCount : (typeof fallback.passkeyCount === 'number' ? fallback.passkeyCount : 0),
+    twoFA: typeof data.twoFA === 'boolean' ? data.twoFA : (typeof fallback.twoFA === 'boolean' ? fallback.twoFA : false)
   };
 }
 
@@ -6861,12 +6921,15 @@ function applyLogin() {
     .catch(function() { updateMsgBadge(0); });
   // Start presence heartbeat
   _startHeartbeat();
+  // Start inactivity auto-logout watch
+  _startInactivityWatch();
 }
 
 function applyLogout() {
   isLoggedIn = false;
   currentUser = null;
   _stopHeartbeat();
+  _stopInactivityWatch();
   _dbListingsLoaded = false;
   _favoritesLoaded = false;
   favorites.clear();
@@ -7014,30 +7077,63 @@ async function handleLogin(e) {
   _setBtnLoading(submitBtn, true);
 
   try {
-    var otpData = await sendEmailOtp(email, password);
+    /* Step 1: Try direct login (validates password, checks 2FA) */
+    var loginResp = await fetch(_apiUrl('login'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({ email: email, password: password })
+    });
+    var loginData = await loginResp.json();
+
+    if (!loginResp.ok) {
+      _setBtnLoading(submitBtn, false);
+      var msg = loginData.message || 'Verbindungsfehler – bitte versuche es erneut.';
+      if (msg.toLowerCase().indexOf('bestätige') >= 0 || msg.toLowerCase().indexOf('postfach') >= 0) {
+        _setFieldError('loginPassword', msg);
+        var errSpan = form.querySelector('#loginPassword').closest('.form-group').querySelector('.field-error');
+        if (errSpan) {
+          errSpan.textContent = msg + ' ';
+          var resendLink = document.createElement('a');
+          resendLink.href = '#';
+          resendLink.style.cssText = 'color:var(--primary);font-weight:600';
+          resendLink.textContent = 'Bestätigungs-E-Mail erneut senden';
+          resendLink.onclick = function(ev) { ev.preventDefault(); resendVerification(email); };
+          errSpan.appendChild(document.createElement('br'));
+          errSpan.appendChild(resendLink);
+        }
+      } else {
+        _setFieldError('loginPassword', msg);
+      }
+      return;
+    }
+
+    /* Step 2a: 2FA required → open OTP flow */
+    if (loginData.requires2fa) {
+      try {
+        var otpData = await sendEmailOtp(email, password);
+        _setBtnLoading(submitBtn, false);
+        form.reset();
+        openLoginOtpModal(email, otpData);
+        showToast('Wir haben dir einen E-Mail-Code gesendet.', 'mark_email_unread');
+      } catch (otpErr) {
+        _setBtnLoading(submitBtn, false);
+        _setFieldError('loginPassword', otpErr && otpErr.message ? otpErr.message : 'E-Mail-Code konnte nicht gesendet werden.');
+      }
+      return;
+    }
+
+    /* Step 2b: No 2FA → logged in directly */
+    _applyAuthenticatedUser(loginData);
     _setBtnLoading(submitBtn, false);
+    closeModal('loginModal');
     form.reset();
-    openLoginOtpModal(email, otpData);
-    showToast('Wir haben dir einen E-Mail-Code gesendet.', 'mark_email_unread');
+    applyLogin();
+    showToast('Willkommen zurück!', 'login');
+    maybePromptPasskeySetup();
   } catch (err) {
     _setBtnLoading(submitBtn, false);
-    var msg = err && err.message ? err.message : 'Verbindungsfehler – bitte versuche es erneut.';
-    if (msg.toLowerCase().indexOf('bestätige') >= 0 || msg.toLowerCase().indexOf('postfach') >= 0) {
-      _setFieldError('loginPassword', msg);
-      var errSpan = form.querySelector('#loginPassword').closest('.form-group').querySelector('.field-error');
-      if (errSpan) {
-        errSpan.textContent = msg + ' ';
-        var resendLink = document.createElement('a');
-        resendLink.href = '#';
-        resendLink.style.cssText = 'color:var(--primary);font-weight:600';
-        resendLink.textContent = 'Bestätigungs-E-Mail erneut senden';
-        resendLink.onclick = function(ev) { ev.preventDefault(); resendVerification(email); };
-        errSpan.appendChild(document.createElement('br'));
-        errSpan.appendChild(resendLink);
-      }
-    } else {
-      _setFieldError('loginPassword', msg);
-    }
+    _setFieldError('loginPassword', 'Verbindungsfehler – bitte versuche es erneut.');
   }
 }
 

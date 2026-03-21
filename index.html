@@ -1178,6 +1178,26 @@
           <div class="settings-passkey-list" id="settingsPasskeyList"></div>
         </div>
 
+        <!-- Security: 2FA -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="material-icons-round">verified_user</span>
+            <h2>Zwei-Faktor-Authentifizierung</h2>
+          </div>
+          <p class="settings-2fa-desc">Wenn aktiviert, wird bei jeder Anmeldung ein zusätzlicher 6-stelliger Code per E-Mail angefordert. Das erhöht die Sicherheit deines Kontos.</p>
+          <div class="settings-2fa-row">
+            <div class="settings-2fa-label">
+              <span class="material-icons-round">mail_lock</span>
+              <span>E-Mail-2FA</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="settings2faToggle" onchange="toggle2faSetting(this)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="settings-2fa-status" id="settings2faStatus">Deaktiviert</p>
+        </div>
+
         <!-- Account -->
         <div class="settings-card">
           <div class="settings-card-header">
