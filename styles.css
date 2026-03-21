@@ -6008,16 +6008,23 @@ body.dark-mode .admin-tag-suggestion:hover {
   transition: all 0.2s ease;
 }
 .admin-role-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-light);
+  border-color: var(--border);
 }
 .admin-role-btn.active {
+  font-weight: 600;
+  cursor: default;
+}
+.admin-role-btn.dl:hover,
+.admin-role-btn.dl.active {
   border-color: var(--accent);
   background: var(--accent-light);
   color: var(--accent);
-  font-weight: 600;
-  cursor: default;
+}
+.admin-role-btn.ep:hover,
+.admin-role-btn.ep.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
 }
 .admin-role-btn .material-icons-round {
   font-size: 14px;

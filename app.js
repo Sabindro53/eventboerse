@@ -5933,10 +5933,10 @@ function renderAdminUserList(users) {
       var isDL = baseRole === 'Dienstleister';
       var isEP = baseRole === 'Event-Planer';
       roleSwitcher = '<div class="admin-role-switcher">' +
-        '<button class="admin-role-btn' + (isEP ? ' active' : '') + '" onclick="adminChangeRole(' + u.id + ',\'event_planer\')" title="Als Event-Planer setzen">' +
+        '<button class="admin-role-btn ep' + (isEP ? ' active' : '') + '" onclick="adminChangeRole(' + u.id + ',\'event_planer\')" title="Als Event-Planer setzen">' +
           '<span class="material-icons-round">celebration</span> Event-Planer' +
         '</button>' +
-        '<button class="admin-role-btn' + (isDL ? ' active' : '') + '" onclick="adminChangeRole(' + u.id + ',\'dienstleister\')" title="Als Dienstleister setzen">' +
+        '<button class="admin-role-btn dl' + (isDL ? ' active' : '') + '" onclick="adminChangeRole(' + u.id + ',\'dienstleister\')" title="Als Dienstleister setzen">' +
           '<span class="material-icons-round">storefront</span> Dienstleister' +
         '</button>' +
       '</div>';
