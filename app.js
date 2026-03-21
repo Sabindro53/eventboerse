@@ -677,7 +677,9 @@ function renderHeroMarquees() {
 
   var visible = _visibleListings();
   const leftListings = visible.slice(0, 5);
-  const rightListings = visible.slice(5, 10);
+  const rightListings = visible.length > 5
+    ? visible.slice(5, 10)
+    : visible.slice(0, 5).slice().reverse();
 
   function cardHTML(l) {
     return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
