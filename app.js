@@ -5911,7 +5911,6 @@ function renderAdminUserList(users) {
     else if (u.lastName) realName = u.lastName;
     else realName = u.name || u.login;
     var displayName = _escHtml(realName);
-    var loginName = ' <span class="admin-user-login">@' + _escHtml(u.login) + '</span>';
 
     // Role switch buttons (Dienstleister / Event-Planer)
     var roleSwitcher = '';
@@ -5966,7 +5965,7 @@ function renderAdminUserList(users) {
         '<img src="' + _escHtml(avatarSrc) + '" alt="">' +
       '</div>' +
       '<div class="admin-user-info">' +
-        '<div class="admin-user-name">' + displayName + loginName + ' ' + roleBadge + activeBadge + '</div>' +
+        '<div class="admin-user-name">' + displayName + ' ' + roleBadge + activeBadge + '</div>' +
         '<div class="admin-user-meta">' +
           '<span>' + _escHtml(u.email) + '</span>' +
           (u.company ? ' · <span>' + _escHtml(u.company) + '</span>' : '') +
