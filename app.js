@@ -676,10 +676,22 @@ function renderHeroMarquees() {
   if (!leftTrack || !rightTrack) return;
 
   var visible = _visibleListings();
-  const leftListings = visible.slice(0, 5);
-  const rightListings = visible.length > 5
-    ? visible.slice(5, 10)
-    : visible.slice(0, 5).slice().reverse();
+
+  // Need at least 2 unique listings for a meaningful marquee
+  if (visible.length < 2) {
+    document.getElementById('heroMarqueeLeft').style.display = 'none';
+    document.getElementById('heroMarqueeRight').style.display = 'none';
+    return;
+  }
+  document.getElementById('heroMarqueeLeft').style.display = '';
+  document.getElementById('heroMarqueeRight').style.display = '';
+
+  // Split into two distinct sets (no overlap when possible)
+  var half = Math.ceil(visible.length / 2);
+  var leftListings = visible.slice(0, half);
+  var rightListings = visible.length > half
+    ? visible.slice(half)
+    : visible.slice().reverse();
 
   function cardHTML(l) {
     return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
@@ -691,9 +703,20 @@ function renderHeroMarquees() {
     </a>`;
   }
 
-  // Duplicate items for seamless infinite scroll
-  const leftHTML = leftListings.map(cardHTML).join('');
-  const rightHTML = rightListings.map(cardHTML).join('');
+  // Pad each set to at least 5 cards, then duplicate once for seamless loop
+  function padList(arr, min) {
+    if (arr.length >= min) return arr.slice(0, min);
+    var out = [];
+    while (out.length < min) {
+      for (var i = 0; i < arr.length && out.length < min; i++) out.push(arr[i]);
+    }
+    return out;
+  }
+
+  var leftPadded = padList(leftListings, 5);
+  var rightPadded = padList(rightListings, 5);
+  var leftHTML = leftPadded.map(cardHTML).join('');
+  var rightHTML = rightPadded.map(cardHTML).join('');
   leftTrack.innerHTML = leftHTML + leftHTML;
   rightTrack.innerHTML = rightHTML + rightHTML;
 
