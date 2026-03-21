@@ -4,6 +4,11 @@
    ======================================== */
 
 /* ---- CSS Variables ---- */
+/* Prevent white flash before JS loads in dark mode */
+html.dark-early body {
+  background: #121212;
+  color: #CCCCCC;
+}
 :root {
   --primary: #FF385C;
   --primary-dark: #E31C5F;
@@ -5944,4 +5949,328 @@ span.flatpickr-weekday {
   .admin-user-actions button { width: 100%; justify-content: center; font-size: 0.78rem; }
   .admin-role-switcher { flex-wrap: wrap; }
   .admin-role-btn { font-size: 0.7rem; padding: 2px 8px; }
+}
+
+/* ======== USER MENU DARK MODE TOGGLE ======== */
+.user-menu-darkmode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.user-menu-darkmode .material-icons-round {
+  font-size: 20px;
+  color: var(--text-light);
+}
+.user-menu-darkmode .toggle-switch {
+  margin-left: auto;
+}
+.user-menu-hr {
+  border: none;
+  border-top: 1px solid var(--border-light);
+  margin: 4px 0;
+}
+.toggle-switch.toggle-sm {
+  width: 40px;
+  height: 22px;
+}
+.toggle-switch.toggle-sm .toggle-slider::before {
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+}
+.toggle-switch.toggle-sm input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+}
+
+/* ======== DARK MODE ======== */
+body.dark-mode {
+  --bg: #121212;
+  --bg-alt: #1E1E1E;
+  --bg-dark: #0A0A14;
+  --dark: #E8E8E8;
+  --text: #CCCCCC;
+  --text-light: #999999;
+  --border: #333333;
+  --border-light: #2A2A2A;
+  --primary-light: #3D1520;
+  --accent-light: #0F2D2A;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.4);
+  --shadow-xl: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* Navbar */
+body.dark-mode #navbar {
+  background: #1A1A1A;
+  border-bottom-color: var(--border-light);
+}
+body.dark-mode #navbar.scrolled {
+  background: rgba(26,26,26,0.95);
+}
+
+/* Mobile nav */
+body.dark-mode .mobile-nav {
+  background: rgba(18,18,18,0.92);
+}
+
+/* Hero background */
+body.dark-mode .hero-bg {
+  background:
+    linear-gradient(135deg, #667eea15 0%, #764ba215 100%),
+    linear-gradient(180deg, rgba(255,56,92,0.05) 0%, rgba(0,166,153,0.04) 100%);
+}
+body.dark-mode .hero-bg::before {
+  background:
+    radial-gradient(circle at 20% 50%, rgba(255,56,92,0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(0,166,153,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(102,126,234,0.05) 0%, transparent 50%);
+}
+
+/* Hero search */
+body.dark-mode .hero-search {
+  background: #1E1E1E;
+  border-color: var(--border);
+}
+body.dark-mode .hero-search-glow {
+  background: rgba(255,56,92,0.08);
+}
+body.dark-mode .hero-field {
+  background: transparent;
+}
+
+/* Calendar dropdown */
+body.dark-mode .cal-dropdown {
+  background: #1E1E1E;
+  border-color: var(--border);
+}
+body.dark-mode .cal-day:hover:not(.disabled):not(.selected) {
+  background: #2A2A2A;
+}
+
+/* Listing cards */
+body.dark-mode .listing-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+body.dark-mode .listing-fav {
+  background: rgba(30,30,30,0.9);
+}
+body.dark-mode .listing-badge {
+  background: #1E1E1E;
+}
+
+/* Featured section */
+body.dark-mode .featured-heading,
+body.dark-mode .how-heading,
+body.dark-mode h1, body.dark-mode h2, body.dark-mode h3 {
+  color: var(--dark);
+}
+
+/* Footer */
+body.dark-mode .footer {
+  background: #1A1A1A;
+  border-top-color: var(--border-light);
+}
+
+/* Modals */
+body.dark-mode .modal {
+  background: #1E1E1E;
+}
+body.dark-mode .modal-overlay {
+  background: rgba(0,0,0,0.7);
+}
+body.dark-mode .modal-close {
+  color: var(--text-light);
+}
+
+/* Chat / Messages */
+body.dark-mode .chat-sidebar {
+  background: #1A1A1A;
+  border-right-color: var(--border-light);
+}
+body.dark-mode .chat-main {
+  background: #151515;
+}
+body.dark-mode .msg-received {
+  background: #1E1E1E;
+  color: var(--text);
+}
+body.dark-mode .chat-input-bar {
+  background: #1A1A1A;
+  border-top-color: var(--border-light);
+}
+body.dark-mode .chat-input-bar input {
+  background: #252525;
+}
+body.dark-mode .chat-search {
+  background: #252525;
+}
+body.dark-mode .offer-msg,
+body.dark-mode .offer-msg-sent,
+body.dark-mode .offer-msg-received {
+  background: #2A1F10;
+  border-color: #5C4A20;
+}
+
+/* Settings */
+body.dark-mode .settings-card {
+  background: #1E1E1E;
+  border-color: var(--border-light);
+}
+body.dark-mode .settings-password-wrap {
+  background: transparent;
+}
+body.dark-mode .settings-pw-toggle {
+  color: var(--text-light);
+}
+
+/* Admin */
+body.dark-mode .admin-stat {
+  background: #1E1E1E;
+  border-color: var(--border-light);
+}
+body.dark-mode .admin-user-card {
+  background: #1E1E1E;
+  border-color: var(--border-light);
+}
+body.dark-mode .admin-search-bar {
+  background: #252525;
+  border-color: var(--border);
+}
+
+/* Profile cover fallback */
+body.dark-mode .profile-cover {
+  background: linear-gradient(135deg, #0A0A14 0%, #1A1A2E 100%);
+}
+
+/* Create listing */
+body.dark-mode .create-form {
+  background: transparent;
+}
+body.dark-mode .step-card,
+body.dark-mode .form-step {
+  background: transparent;
+}
+body.dark-mode .feature-tag {
+  background: #252525;
+  border-color: var(--border);
+  color: var(--text);
+}
+body.dark-mode .feature-tag.selected {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Upload zones */
+body.dark-mode .upload-zone {
+  background: #1A1A1A;
+  border-color: var(--border);
+}
+
+/* Toast – dark mode toast gets lighter to contrast dark bg */
+body.dark-mode .toast {
+  background: #E8E8E8;
+  color: #1A1A1A;
+}
+body.dark-mode .toast-icon {
+  color: #1A1A1A;
+}
+
+/* Communication warning */
+body.dark-mode .comm-warning {
+  background: #2A1F10;
+  border-color: #5C4A20;
+  color: #FFB74D;
+}
+
+/* How it works */
+body.dark-mode .how-step {
+  background: #1E1E1E;
+}
+
+/* CTA */
+body.dark-mode .section-cta {
+  background: linear-gradient(135deg, #0A0A14 0%, #16213e 100%);
+}
+
+/* Category pills/tabs */
+body.dark-mode .cat-btn {
+  background: #1E1E1E;
+  color: var(--text);
+}
+body.dark-mode .cat-btn.active,
+body.dark-mode .cat-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Listing detail page */
+body.dark-mode .detail-info {
+  background: transparent;
+}
+body.dark-mode .detail-card {
+  background: #1E1E1E;
+  border-color: var(--border-light);
+}
+
+/* Map overlay */
+body.dark-mode .map-overlay {
+  background: #1E1E1E;
+}
+body.dark-mode .map-overlay-header {
+  border-bottom-color: var(--border-light);
+}
+
+/* Scrollbar */
+body.dark-mode ::-webkit-scrollbar-track {
+  background: #1A1A1A;
+}
+body.dark-mode ::-webkit-scrollbar-thumb {
+  background: #444;
+}
+
+/* Hero marquee cards */
+body.dark-mode .hero-marquee-card {
+  background: #1E1E1E;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Password strength bar */
+body.dark-mode .pw-bar-track {
+  background: #333;
+}
+
+/* Passkey/biometric dark login buttons stay dark already, invert for dark mode */
+body.dark-mode .btn-outline {
+  border-color: var(--border);
+  color: var(--text);
+}
+body.dark-mode .btn-outline:hover {
+  background: #252525;
+}
+
+/* Dark mode toggle icon */
+body.dark-mode .user-menu-darkmode .material-icons-round {
+  color: #FFC107;
+}
+
+/* Notification badges keep visible */
+body.dark-mode .msg-badge {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Placeholders */
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+  color: #666;
+}
+body.dark-mode select option {
+  background: #1E1E1E;
+  color: var(--text);
 }

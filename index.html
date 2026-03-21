@@ -73,6 +73,16 @@
     </div>
     <!-- User Dropdown -->
     <div class="user-menu" id="userMenu">
+      <!-- Dark Mode Toggle (always visible) -->
+      <div class="user-menu-darkmode">
+        <span class="material-icons-round" id="darkModeIcon">dark_mode</span>
+        <span id="darkModeLabel">Dunkelmodus</span>
+        <label class="toggle-switch toggle-sm">
+          <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <hr class="user-menu-hr" />
       <div class="user-menu-section" id="loggedOutMenu">
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
         <hr />

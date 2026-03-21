@@ -4970,8 +4970,39 @@ function initDragScroll() {
   });
 }
 
+// ========== DARK MODE ==========
+function initDarkMode() {
+  var isDark = localStorage.getItem('eb_dark_mode') === '1';
+  _applyDarkMode(isDark);
+  var toggle = document.getElementById('darkModeToggle');
+  if (toggle) toggle.checked = isDark;
+}
+
+function toggleDarkMode(on) {
+  localStorage.setItem('eb_dark_mode', on ? '1' : '0');
+  _applyDarkMode(on);
+  var icon = document.getElementById('darkModeIcon');
+  var label = document.getElementById('darkModeLabel');
+  if (icon) icon.textContent = on ? 'light_mode' : 'dark_mode';
+  if (label) label.textContent = on ? 'Hellmodus' : 'Dunkelmodus';
+}
+
+function _applyDarkMode(on) {
+  document.body.classList.toggle('dark-mode', on);
+  document.documentElement.classList.remove('dark-early');
+  var icon = document.getElementById('darkModeIcon');
+  var label = document.getElementById('darkModeLabel');
+  if (icon) icon.textContent = on ? 'light_mode' : 'dark_mode';
+  if (label) label.textContent = on ? 'Hellmodus' : 'Dunkelmodus';
+  // Update theme-color meta for mobile browser chrome
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+  meta.content = on ? '#1A1A1A' : '#FFFFFF';
+}
+
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
+  initDarkMode();
   setupDragDrop();
   initAiSearch();
   restoreSession();
