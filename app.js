@@ -5675,7 +5675,7 @@ function renderAdminUserList(users) {
   }
   var html = '';
   users.forEach(function(u) {
-    var avatarSrc = u.avatar || u.gravatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(u.login);
+    var avatarSrc = u.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(u.login);
     var regDate = u.registered ? new Date(u.registered).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '–';
     var baseRole = u.baseRole || u.role || 'Event-Planer';
     var roleBadge = u.isAdmin
