@@ -6317,6 +6317,7 @@ function renderDetailReviews(listing) {
 var currentUser = null;
 var _wpNonce = (typeof eventboerseApi !== 'undefined') ? eventboerseApi.nonce : '';
 var _pendingOtpLogin = null;
+var _pendingRegOtp = null;
 var _conditionalAbort = null;
 
 function _refreshNonce(response) {
@@ -7237,28 +7238,17 @@ async function handleRegister(e) {
     if (response.ok) {
       _setBtnLoading(submitBtn, false);
 
-      // E-Mail-Verifizierung erforderlich
-      if (data.pending_verification) {
+      if (data.requiresOtp) {
         closeModal('registerModal');
         form.reset();
         var strengthBar = document.getElementById('passwordStrength');
         if (strengthBar) strengthBar.style.display = 'none';
-        // Passkey-Verifizierung anbieten
-        _pendingVerifyToken = data.verify_token || null;
-        if (_pendingVerifyToken && isWebAuthnAvailable()) {
-          openModal('verifyModal');
-        } else {
-          showToast('Bitte überprüfe dein E-Mail-Postfach und bestätige deine E-Mail-Adresse.', 'mark_email_read');
-        }
+        openRegisterOtpModal(email, data);
+        showToast('Wir haben dir einen Bestätigungscode per E-Mail gesendet.', 'mark_email_unread');
         return;
       }
 
-      _applyAuthenticatedUser(data, {
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        role: role === 'provider' ? 'Dienstleister' : 'Event-Planer'
-      });
+      _applyAuthenticatedUser(data);
       closeModal('registerModal');
       form.reset();
       var strengthBar = document.getElementById('passwordStrength');
@@ -7268,7 +7258,6 @@ async function handleRegister(e) {
     } else {
       _setBtnLoading(submitBtn, false);
       var msg = data.message || 'Registrierung fehlgeschlagen.';
-      // Versuche Fehler dem richtigen Feld zuzuordnen
       if (msg.toLowerCase().indexOf('e-mail') >= 0 || msg.toLowerCase().indexOf('email') >= 0) {
         _setFieldError('regEmail', msg);
       } else if (msg.toLowerCase().indexOf('passwort') >= 0 || msg.toLowerCase().indexOf('password') >= 0) {
@@ -7280,6 +7269,101 @@ async function handleRegister(e) {
   } catch (err) {
     _setBtnLoading(submitBtn, false);
     _setFieldError('regEmail', 'Verbindungsfehler – bitte versuche es erneut.');
+  }
+}
+
+// ---- REGISTRIERUNG OTP-VERIFIZIERUNG ----
+function openRegisterOtpModal(email, data) {
+  _pendingRegOtp = {
+    email: (email || '').trim(),
+    resendToken: data && data.resendToken ? data.resendToken : ''
+  };
+  var emailText = document.getElementById('regOtpEmailText');
+  var codeInput = document.getElementById('regOtpCode');
+  if (emailText) emailText.textContent = _pendingRegOtp.email || 'deine E-Mail';
+  if (codeInput) codeInput.value = '';
+  openModal('registerOtpModal');
+}
+
+function cancelRegisterOtpFlow() {
+  _pendingRegOtp = null;
+  closeModal('registerOtpModal');
+}
+
+async function resendRegisterOtp(btn) {
+  if (!_pendingRegOtp || !_pendingRegOtp.email || !_pendingRegOtp.resendToken) {
+    showToast('Bitte starte die Registrierung erneut.', 'warning');
+    cancelRegisterOtpFlow();
+    openModal('registerModal');
+    return;
+  }
+  try {
+    if (btn) _setBtnLoading(btn, true);
+    var response = await fetch(_apiUrl('register/resend'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        email: _pendingRegOtp.email,
+        resend_token: _pendingRegOtp.resendToken
+      })
+    });
+    var data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Code konnte nicht erneut gesendet werden.');
+    _pendingRegOtp.resendToken = data.resendToken || _pendingRegOtp.resendToken;
+    showToast('Neuer Bestätigungscode wurde gesendet.', 'mark_email_read');
+  } catch (err) {
+    showToast(err && err.message ? err.message : 'Code konnte nicht erneut gesendet werden.', 'error');
+  } finally {
+    if (btn) _setBtnLoading(btn, false);
+  }
+}
+
+async function handleRegisterOtpVerify(e) {
+  e.preventDefault();
+  var form = e.target;
+  _clearFieldErrors(form);
+
+  if (!_pendingRegOtp || !_pendingRegOtp.email) {
+    showToast('Bitte starte die Registrierung erneut.', 'warning');
+    cancelRegisterOtpFlow();
+    openModal('registerModal');
+    return;
+  }
+
+  var code = document.getElementById('regOtpCode').value.trim();
+  var submitBtn = form.querySelector('button[type="submit"]');
+
+  if (!/^\d{6}$/.test(code)) {
+    _setFieldError('regOtpCode', 'Bitte gib den 6-stelligen Code ein.');
+    return;
+  }
+
+  try {
+    _setBtnLoading(submitBtn, true);
+    var response = await fetch(_apiUrl('register/verify'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        email: _pendingRegOtp.email,
+        code: code
+      })
+    });
+    _refreshNonce(response);
+    var data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Code ist ungültig.');
+
+    _pendingRegOtp = null;
+    _applyAuthenticatedUser(data);
+    closeModal('registerOtpModal');
+    form.reset();
+    applyLogin();
+    showToast('Willkommen bei Eventbörse! Dein Konto ist verifiziert.', 'celebration');
+  } catch (err) {
+    _setFieldError('regOtpCode', err && err.message ? err.message : 'Code ist ungültig.');
+  } finally {
+    _setBtnLoading(submitBtn, false);
   }
 }
 

@@ -305,6 +305,32 @@ function eb_login_otp_resend_token() {
     return wp_generate_password( 32, false, false );
 }
 
+/* ---------- Registration-OTP Helpers ---------- */
+function eb_reg_otp_transient_key( $email ) {
+    return 'eb_reg_otp_' . md5( strtolower( trim( (string) $email ) ) );
+}
+
+function eb_reg_otp_cooldown_key( $email ) {
+    return 'eb_reg_otp_cd_' . md5( strtolower( trim( (string) $email ) ) );
+}
+
+function eb_send_reg_otp_email( $first_name, $email, $code ) {
+    $subject  = 'Eventbörse – Dein Registrierungscode';
+    $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+    $message .= '<h2 style="color:#222;margin-bottom:8px">Willkommen bei Eventbörse!</h2>';
+    $message .= '<p style="color:#484848;line-height:1.6">Hallo ' . esc_html( $first_name ) . ', nutze diesen 6-stelligen Code, um deine Registrierung abzuschließen:</p>';
+    $message .= '<p style="font-size:32px;letter-spacing:6px;font-weight:800;color:#FF385C;text-align:center;margin:28px 0">' . esc_html( $code ) . '</p>';
+    $message .= '<p style="color:#717171;font-size:13px">Der Code ist 10 Minuten gültig. Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.</p>';
+    $message .= '</div>';
+
+    return wp_mail(
+        $email,
+        $subject,
+        $message,
+        array( 'Content-Type: text/html; charset=UTF-8' )
+    );
+}
+
 /* =====================================================================
    REST API
    ===================================================================== */
@@ -313,6 +339,18 @@ function eventboerse_register_rest_routes() {
     register_rest_route( 'eventboerse/v1', '/register', array(
         'methods'             => 'POST',
         'callback'            => 'eventboerse_handle_register',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/register/verify', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_register_verify',
+        'permission_callback' => '__return_true',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/register/resend', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_register_resend',
         'permission_callback' => '__return_true',
     ) );
 
@@ -374,7 +412,7 @@ function eventboerse_register_rest_routes() {
 }
 add_action( 'rest_api_init', 'eventboerse_register_rest_routes' );
 
-/* ---------- REGISTER ---------- */
+/* ---------- REGISTER (Step 1: send OTP) ---------- */
 function eventboerse_handle_register( WP_REST_Request $request ) {
     $params     = $request->get_json_params();
     $email      = isset( $params['email'] )      ? sanitize_email( $params['email'] )           : '';
@@ -397,55 +435,140 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Diese E-Mail-Adresse ist bereits registriert.' ), 400 );
     }
 
-    // Username = E-Mail-Prefix + zufällige Ziffern (falls Kollision)
+    // Cooldown prüfen
+    if ( get_transient( eb_reg_otp_cooldown_key( $email ) ) ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte warte kurz, bevor du einen neuen Code anforderst.' ), 429 );
+    }
+
+    // OTP generieren und Registrierungsdaten in Transient speichern
+    $code          = (string) random_int( 100000, 999999 );
+    $resend_token  = wp_generate_password( 32, false, false );
+    $otp_key       = eb_reg_otp_transient_key( $email );
+
+    set_transient( $otp_key, array(
+        'code_hash'     => wp_hash( $code ),
+        'created_at'    => time(),
+        'attempts'      => 0,
+        'resend_token'  => $resend_token,
+        'email'         => $email,
+        'password'      => $password,
+        'first_name'    => $first_name,
+        'last_name'     => $last_name,
+        'role'          => $role_input,
+    ), 10 * MINUTE_IN_SECONDS );
+    set_transient( eb_reg_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
+
+    eb_send_reg_otp_email( $first_name, $email, $code );
+
+    return new WP_REST_Response( array(
+        'requiresOtp'  => true,
+        'email'        => $email,
+        'expiresIn'    => 10 * MINUTE_IN_SECONDS,
+        'resendToken'  => $resend_token,
+    ), 200 );
+}
+
+/* ---------- REGISTER (Step 2: verify OTP & create account) ---------- */
+function eb_register_verify( WP_REST_Request $request ) {
+    $params  = $request->get_json_params();
+    $email   = sanitize_email( $params['email'] ?? '' );
+    $code    = preg_replace( '/\D+/', '', (string) ( $params['code'] ?? '' ) );
+    $otp_key = eb_reg_otp_transient_key( $email );
+    $payload = get_transient( $otp_key );
+
+    if ( empty( $email ) || strlen( $code ) !== 6 ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte gib E-Mail und 6-stelligen Code ein.' ), 400 );
+    }
+
+    if ( ! is_array( $payload ) || empty( $payload['code_hash'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
+    }
+
+    $attempts = isset( $payload['attempts'] ) ? (int) $payload['attempts'] : 0;
+    if ( $attempts >= 5 ) {
+        delete_transient( $otp_key );
+        return new WP_REST_Response( array( 'message' => 'Zu viele falsche Versuche. Bitte registriere dich erneut.' ), 429 );
+    }
+
+    if ( ! hash_equals( $payload['code_hash'], wp_hash( $code ) ) ) {
+        $payload['attempts'] = $attempts + 1;
+        set_transient( $otp_key, $payload, 10 * MINUTE_IN_SECONDS );
+        return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
+    }
+
+    // E-Mail nochmal auf Duplikat prüfen (Race-Condition)
+    if ( email_exists( $email ) ) {
+        delete_transient( $otp_key );
+        return new WP_REST_Response( array( 'message' => 'Diese E-Mail-Adresse ist bereits registriert.' ), 400 );
+    }
+
+    // Benutzer erstellen
     $username = sanitize_user( strtolower( explode( '@', $email )[0] ), true );
     if ( username_exists( $username ) ) {
         $username .= wp_rand( 100, 9999 );
     }
 
-    $wp_role = ( $role_input === 'provider' ) ? 'dienstleister' : 'event_planer';
+    $wp_role = ( $payload['role'] === 'provider' ) ? 'dienstleister' : 'event_planer';
 
-    $user_id = wp_create_user( $username, $password, $email );
+    $user_id = wp_create_user( $username, $payload['password'], $email );
     if ( is_wp_error( $user_id ) ) {
         return new WP_REST_Response( array( 'message' => $user_id->get_error_message() ), 400 );
     }
 
-    // Meta + Rolle setzen
     wp_update_user( array(
         'ID'         => $user_id,
-        'first_name' => $first_name,
-        'last_name'  => $last_name,
+        'first_name' => $payload['first_name'],
+        'last_name'  => $payload['last_name'],
         'role'       => $wp_role,
     ) );
 
-    // E-Mail-Verifizierung: Token generieren und speichern
-    $token = bin2hex( random_bytes( 32 ) );
-    update_user_meta( $user_id, 'eb_email_verify_token', $token );
-    update_user_meta( $user_id, 'eb_email_verified', '0' );
+    // E-Mail direkt als verifiziert markieren (OTP bestätigt)
+    update_user_meta( $user_id, 'eb_email_verified', '1' );
 
-    // Verifizierungs-E-Mail senden
-    $verify_url = rest_url( 'eventboerse/v1/verify-email' ) . '?token=' . $token . '&uid=' . $user_id;
-    $subject    = 'Eventbörse – Bitte bestätige deine E-Mail-Adresse';
-    $message    = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
-    $message   .= '<h2 style="color:#222;margin-bottom:8px">Willkommen bei Eventbörse, ' . esc_html( $first_name ) . '!</h2>';
-    $message   .= '<p style="color:#484848;line-height:1.6">Klicke auf den Button, um deine E-Mail-Adresse zu bestätigen und dein Konto zu aktivieren:</p>';
-    $message   .= '<p style="text-align:center;margin:28px 0">';
-    $message   .= '<a href="' . esc_url( $verify_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">E-Mail bestätigen</a>';
-    $message   .= '</p>';
-    $message   .= '<p style="color:#717171;font-size:13px">Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.</p>';
-    $message   .= '</div>';
-    $headers    = array( 'Content-Type: text/html; charset=UTF-8' );
-    $mail_sent  = wp_mail( $email, $subject, $message, $headers );
+    delete_transient( $otp_key );
 
-    // NICHT einloggen – erst nach Verifizierung
-    $verify_passkey_token = bin2hex( random_bytes( 32 ) );
-    set_transient( 'eb_verify_pk_' . hash( 'sha256', $verify_passkey_token ), $user_id, 10 * MINUTE_IN_SECONDS );
+    // Einloggen
+    wp_set_current_user( $user_id );
+    wp_set_auth_cookie( $user_id, true, is_ssl() );
+
+    $user = get_userdata( $user_id );
+    return new WP_REST_Response( eb_auth_user_payload( $user ), 200 );
+}
+
+/* ---------- REGISTER (Resend OTP) ---------- */
+function eb_register_resend( WP_REST_Request $request ) {
+    $params       = $request->get_json_params();
+    $email        = sanitize_email( $params['email'] ?? '' );
+    $resend_token = sanitize_text_field( $params['resend_token'] ?? '' );
+    $otp_key      = eb_reg_otp_transient_key( $email );
+    $payload      = get_transient( $otp_key );
+
+    if ( empty( $email ) || empty( $resend_token ) ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte starte die Registrierung erneut.' ), 400 );
+    }
+
+    if ( get_transient( eb_reg_otp_cooldown_key( $email ) ) ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte warte kurz, bevor du einen neuen Code anforderst.' ), 429 );
+    }
+
+    if ( ! is_array( $payload ) || empty( $payload['resend_token'] ) || ! hash_equals( (string) $payload['resend_token'], $resend_token ) ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte starte die Registrierung erneut.' ), 400 );
+    }
+
+    $code = (string) random_int( 100000, 999999 );
+    $payload['code_hash']  = wp_hash( $code );
+    $payload['created_at'] = time();
+    $payload['attempts']   = 0;
+    set_transient( $otp_key, $payload, 10 * MINUTE_IN_SECONDS );
+    set_transient( eb_reg_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
+
+    eb_send_reg_otp_email( $payload['first_name'], $email, $code );
 
     return new WP_REST_Response( array(
-        'pending_verification' => true,
-        'message'              => 'Registrierung erfolgreich! Bitte überprüfe dein E-Mail-Postfach und bestätige deine E-Mail-Adresse.',
-        'mail_sent'            => $mail_sent,
-        'verify_token'         => $verify_passkey_token,
+        'sent'        => true,
+        'expiresIn'   => 10 * MINUTE_IN_SECONDS,
+        'email'       => $email,
+        'resendToken' => $payload['resend_token'],
     ), 200 );
 }
 

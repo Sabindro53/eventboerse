@@ -1778,6 +1778,35 @@
     </div>
   </div>
 
+  <!-- Registrierung OTP Modal -->
+  <div class="modal-overlay" id="registerOtpModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="cancelRegisterOtpFlow()">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">mark_email_unread</span>
+        <h2>E-Mail bestätigen</h2>
+        <p>Wir haben einen 6-stelligen Code an <strong id="regOtpEmailText">deine E-Mail</strong> gesendet.</p>
+      </div>
+      <form class="modal-form" onsubmit="handleRegisterOtpVerify(event)">
+        <div class="form-group">
+          <label>Bestätigungscode</label>
+          <input type="text" id="regOtpCode" class="otp-code-input" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+        </div>
+        <p class="passkey-note otp-login-note">Gib den Code ein, den wir dir per E-Mail geschickt haben, um deine Registrierung abzuschließen.</p>
+        <button type="submit" class="btn-primary btn-block">Code bestätigen</button>
+        <button type="button" class="btn-outline btn-block otp-resend-btn" onclick="resendRegisterOtp(this)">
+          <span class="material-icons-round">refresh</span>
+          Code erneut senden
+        </button>
+        <p class="modal-footer-text">
+          <a href="#" onclick="event.preventDefault(); cancelRegisterOtpFlow(); openModal('registerModal')">Zurück zur Registrierung</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
   <!-- E-Mail-Verifizierung Modal -->
   <div class="modal-overlay" id="verifyModal" onclick="closeModalOnOverlay(event)">
     <div class="modal modal-sm">
