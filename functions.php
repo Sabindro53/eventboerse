@@ -1314,7 +1314,14 @@ function eb_otp_verify( WP_REST_Request $request ) {
    ===================================================================== */
 add_filter( 'rest_authentication_errors', function( $result ) {
     if ( is_wp_error( $result ) && 'rest_cookie_invalid_nonce' === $result->get_error_code() ) {
-        wp_set_current_user( 0 );
+        /* Nonce is stale, but the cookie might still be valid.
+           Try cookie-only auth so the user stays logged in. */
+        $user_id = wp_validate_auth_cookie( '', 'logged_in' );
+        if ( $user_id ) {
+            wp_set_current_user( $user_id );
+        } else {
+            wp_set_current_user( 0 );
+        }
         return null;
     }
     return $result;

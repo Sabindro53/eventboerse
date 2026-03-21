@@ -5607,6 +5607,7 @@ function adminDeleteListing(listingId) {
   fetch(_apiUrl('listings/' + dbId), {
     method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
   }).then(function(r) {
+    _refreshNonce(r);
     if (r.ok) {
       var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
       if (idx !== -1) LISTINGS.splice(idx, 1);
@@ -5647,9 +5648,14 @@ function loadAdminUsers(searchTerm) {
   if (list) list.innerHTML = '<div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>';
 
   fetch(_apiUrl(url), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) { _refreshNonce(r); return r.json(); })
+    .then(function(r) {
+      _refreshNonce(r);
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    })
     .then(function(users) {
-      _adminUsers = users || [];
+      if (!Array.isArray(users)) throw new Error('bad payload');
+      _adminUsers = users;
       renderAdminStats(_adminUsers);
       renderAdminUserList(_adminUsers);
     })
@@ -6744,7 +6750,7 @@ function applyLogin() {
   }).catch(function(){});
   // Update message badge from API
   fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) { return r.json(); })
+    .then(function(r) { _refreshNonce(r); return r.json(); })
     .then(function(convos) {
       var total = (convos || []).reduce(function(sum, c) { return sum + (parseInt(c.unread_count) || 0); }, 0);
       updateMsgBadge(total);
@@ -6872,7 +6878,11 @@ function restoreSession() {
   }
   // Fallback: REST /me prüfen (z. B. wenn aus Cache geladen)
   fetch(_apiUrl('me'), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) { _refreshNonce(r); return r.json(); })
+    .then(function(r) {
+      _refreshNonce(r);
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    })
     .then(function(data) {
       if (data && data.loggedIn) {
         _applyAuthenticatedUser(data);
