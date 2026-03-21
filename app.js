@@ -5691,8 +5691,8 @@ function renderAdminUserList(users) {
     var regDate = u.registered ? new Date(u.registered).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '–';
     var baseRole = u.baseRole || u.role || 'Event-Planer';
     var roleBadge = u.isAdmin
-      ? '<span class="admin-role-badge admin-role-admin">Admin</span> <span class="admin-role-badge">' + _escHtml(baseRole) + '</span>'
-      : '<span class="admin-role-badge">' + _escHtml(u.role || 'Mitglied') + '</span>';
+      ? '<span class="admin-role-badge admin-role-admin">Admin</span>'
+      : '';
     var isActive = u.isActive !== false;
     var isSelf = currentUser && currentUser.id === u.id;
     var activeBadge = !isActive ? ' <span class="admin-role-badge admin-role-deactivated">Deaktiviert</span>' : '';
