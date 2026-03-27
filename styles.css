@@ -72,7 +72,7 @@ input:focus, select:focus, textarea:focus {
 img { display: block; max-width: 100%; }
 
 /* ---- Utilities ---- */
-.container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+.container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
 .container-sm { max-width: 720px; }
 .center { text-align: center; }
 .accent { color: var(--primary); }
