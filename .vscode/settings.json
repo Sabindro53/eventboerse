@@ -3,6 +3,8 @@
   "git.enableSmartCommit": true,
   "git.confirmSync": false,
   "git.postCommitCommand": "sync",
+  "simpleBrowser.focusLockIndicator.enabled": true,
+
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
