@@ -768,12 +768,11 @@ function renderHeroMarquees() {
     return out;
   }
 
-  var leftPadded = padList(leftListings, 5);
-  var rightPadded = padList(rightListings, 5);
-  var leftHTML = leftPadded.map(cardHTML).join('');
-  var rightHTML = rightPadded.map(cardHTML).join('');
-  leftTrack.innerHTML = leftHTML + leftHTML;
-  rightTrack.innerHTML = rightHTML + rightHTML;
+  // Zeige alle Bilder nur einmal hintereinander, keine Dopplung
+  var leftHTML = leftListings.map(cardHTML).join('');
+  var rightHTML = rightListings.map(cardHTML).join('');
+  leftTrack.innerHTML = leftHTML;
+  rightTrack.innerHTML = rightHTML;
 
   // Detect very wide images and switch to contain
   [leftTrack, rightTrack].forEach(track => {
