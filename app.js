@@ -1038,7 +1038,37 @@ function detectWideBannerImg(img) {
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
   var visible = _visibleListings();
-  grid.innerHTML = visible.slice(0, 12).map(renderListingCard).join('');
+  // Alle Bilder aus allen Listings sammeln
+  var allImages = [];
+  visible.forEach(function(l) {
+    // Hauptbild zuerst
+    allImages.push({
+      image: l.image,
+      title: l.title,
+      priceLabel: l.priceLabel,
+      rating: l.rating,
+      id: l.id
+    });
+    // Dann alle weiteren Bilder aus images[]
+    if (Array.isArray(l.images)) {
+      l.images.forEach(function(imgUrl) {
+        // Hauptbild nicht doppelt
+        if (imgUrl !== l.image) {
+          allImages.push({
+            image: imgUrl,
+            title: l.title,
+            priceLabel: l.priceLabel,
+            rating: l.rating,
+            id: l.id
+          });
+        }
+      });
+    }
+  });
+  // Zeige alle Bilder als Karten
+  grid.innerHTML = allImages.map(function(it) {
+    return `<div class="listing-card"><div class="listing-card-img"><img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" /></div><div class="listing-card-body"><div class="listing-card-top"><span class="listing-card-title">${_escHtml(it.title)}</span><span class="listing-card-rating"><span class="material-icons-round">star</span> ${it.rating || 0}</span></div><div class="listing-card-price">${_escHtml(it.priceLabel)}</div></div></div>`;
+  }).join('');
   detectWideBannerCards(grid);
 }
 
