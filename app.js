@@ -1071,7 +1071,16 @@ function renderFeaturedGrid() {
   });
   // Zeige alle Bilder als Karten
   grid.innerHTML = allImages.map(function(it) {
-    return `<div class="listing-card"><div class="listing-card-img"><img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" /></div><div class="listing-card-body"><div class="listing-card-top"><span class="listing-card-title">${_escHtml(it.title)}</span><span class="listing-card-rating"><span class="material-icons-round">star</span> ${it.rating || 0}</span></div><div class="listing-card-price">${_escHtml(it.priceLabel)}</div></div></div>`;
+    return `<a href="#" class="listing-card" onclick="navigateTo('detail',${it.id});return false;">
+      <div class="listing-card-img"><img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" /></div>
+      <div class="listing-card-body">
+        <div class="listing-card-top">
+          <span class="listing-card-title">${_escHtml(it.title)}</span>
+          <span class="listing-card-rating"><span class="material-icons-round">star</span> ${it.rating || 0}</span>
+        </div>
+        <div class="listing-card-price">${_escHtml(it.priceLabel)}</div>
+      </div>
+    </a>`;
   }).join('');
   detectWideBannerCards(grid);
 }
