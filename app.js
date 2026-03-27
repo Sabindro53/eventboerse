@@ -1,3 +1,6 @@
+// ========== FEATURE UPDATE NOTIFICATION ==========
+const FEATURE_VERSION = '2026-03-27-1'; // Bei jedem neuen Feature/Update erhöhen!
+
 /* ============================================
    Eventbörse – Event Marketplace Application
    SPA Router, Chat, Negotiation, Listings, Auth
@@ -7238,6 +7241,16 @@ function initPasswordFields() {
 
 // ---- SESSION RESTORE (bei Seitenaufruf) ----
 function restoreSession() {
+  // Admin Feature-Update-Benachrichtigung
+  setTimeout(function() {
+    if (currentUser && currentUser.isAdmin) {
+      var seen = localStorage.getItem('eb_feature_version_seen');
+      if (seen !== FEATURE_VERSION) {
+        showToast('Es wurden neue Features aktualisiert', 'info');
+        localStorage.setItem('eb_feature_version_seen', FEATURE_VERSION);
+      }
+    }
+  }, 1200); // Leicht verzögert, damit User-Objekt geladen ist
   // Sofort aus wp_localize_script lesen (frisch gerenderte Seite)
   if (typeof eventboerseApi !== 'undefined' && eventboerseApi.isLoggedIn && eventboerseApi.user) {
     currentUser = _normalizeUserPayload(eventboerseApi.user);
