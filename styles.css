@@ -505,12 +505,21 @@ img { display: block; max-width: 100%; }
   top: 0;
   width: 220px;
   height: 100%;
-  z-index: 1;
-  overflow: hidden;
+  z-index: 100 !important;
+  overflow: visible !important;
   pointer-events: auto;
   touch-action: pan-x;
   mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.hero-marquee-left, .hero-marquee-right {
+  display: block !important;
+}
+.hero-marquee-track {
+  animation-play-state: running !important;
+  will-change: transform;
 }
 .hero-marquee-left { left: 24px; }
 .hero-marquee-right { right: 24px; }

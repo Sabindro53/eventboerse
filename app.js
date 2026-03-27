@@ -736,7 +736,10 @@ function renderListingCard(listing) {
 function renderHeroMarquees() {
   const leftTrack = document.querySelector('#heroMarqueeLeft .hero-marquee-track');
   const rightTrack = document.querySelector('#heroMarqueeRight .hero-marquee-track');
-  if (!leftTrack || !rightTrack) return;
+  if (!leftTrack || !rightTrack) {
+    console.warn('[HeroMarquee] fehlender Track: leftTrack=', leftTrack, 'rightTrack=', rightTrack);
+    return;
+  }
 
   var visible;
   try {
@@ -748,6 +751,16 @@ function renderHeroMarquees() {
     console.error('Fehler bei _visibleListings, verwende Demo-Daten', err);
     visible = Array.isArray(LISTINGS) ? LISTINGS : [];
   }
+
+  console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings');
+  document.getElementById('heroMarqueeLeft').style.display = '';
+  document.getElementById('heroMarqueeRight').style.display = '';
+  document.getElementById('heroMarqueeLeft').style.zIndex = '100';
+  document.getElementById('heroMarqueeRight').style.zIndex = '100';
+  document.getElementById('heroMarqueeLeft').style.opacity = '1';
+  document.getElementById('heroMarqueeRight').style.opacity = '1';
+  document.getElementById('heroMarqueeLeft').style.pointerEvents = 'auto';
+  document.getElementById('heroMarqueeRight').style.pointerEvents = 'auto';
 
   // Need at least 2 unique listings for a meaningful marquee
   if (visible.length < 2) {
