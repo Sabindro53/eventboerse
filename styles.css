@@ -5010,7 +5010,7 @@ span.flatpickr-weekday {
   .feed-header { padding: 14px 0 6px; }
   .feed-title { font-size: 1.25rem; }
   .feed-location-badge { padding: 4px 10px; font-size: 0.72rem; }
-  .feed-card-image { aspect-ratio: 4/3; max-height: 320px; border-radius: 12px; }
+  /* .feed-card-image { aspect-ratio: 4/3; max-height: 320px; border-radius: 12px; }  -- entfernt, damit die Hauptregel greift */
 
   /* Detail mobile restructure */
   .detail-container {
