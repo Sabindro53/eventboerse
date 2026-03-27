@@ -967,7 +967,11 @@ function eb_settings_update( WP_REST_Request $request ) {
     update_user_meta( $uid, 'eb_phone', $phone );
     update_user_meta( $uid, 'eb_company', $company );
 
-    return new WP_REST_Response( array( 'saved' => true ), 200 );
+    $user = get_userdata( $uid );
+    return new WP_REST_Response( array(
+        'saved' => true,
+        'role'  => eventboerse_map_role( $user ),
+    ), 200 );
 }
 
 function eb_settings_password( WP_REST_Request $request ) {

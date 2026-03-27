@@ -57,6 +57,33 @@ const LISTINGS = [
     badge: 'Top-Bewertet',
     negotiable: true
   },
+  // --- Düsseldorf Dummy Inserat ---
+  {
+    id: 12, providerId: 90012,
+    title: 'RheinGourmet Catering Düsseldorf',
+    category: 'catering', categoryLabel: 'Catering',
+    location: 'Düsseldorf', region: 'NRW',
+    price: 42, priceLabel: 'ab 42€ / Person',
+    rating: 4.9, reviews: 61,
+    image: 'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    images: [
+      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
+      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    ],
+    providerName: 'Sabine Rhein',
+    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sabine',
+    providerSince: '2023',
+    description: `<p>Modernes Catering aus Düsseldorf für Events jeder Größe. Ob Business-Lunch, Hochzeit oder private Feier – wir liefern kreative Menüs und besten Service direkt an den Rhein.</p>
+    <h3>Unser Angebot</h3>
+    <p>Fingerfood, Buffets, Live-Cooking und individuelle Menüwünsche. Nachhaltig, regional und immer frisch zubereitet.</p>`,
+    features: ['Live-Cooking-Station', 'Vegane & vegetarische Optionen', 'Servicepersonal', 'Buffet & Fingerfood', 'Getränkepauschale möglich', 'Lieferung in ganz NRW'],
+    tags: ['Business', 'Hochzeit', 'Party'],
+    badge: 'Empfohlen',
+    negotiable: true
+  },
   {
     id: 3, providerId: 90003,
     title: 'Blumenträume München',
@@ -3743,6 +3770,11 @@ function savePersonalSettings() {
       currentUser.phone = phone;
       currentUser.company = company;
       showToast('Daten gespeichert ✓', 'success');
+      // Falls Rolle geändert wurde, UI aktualisieren
+      if (res.data && res.data.role && res.data.role !== currentUser.role) {
+        currentUser.role = res.data.role;
+        updateCreateFormForRole();
+      }
     })
     .catch(function() { showToast('Netzwerkfehler', 'error'); });
 }
@@ -6179,6 +6211,11 @@ function adminChangeRole(userId, role) {
     return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
   }).then(function(d) {
     showToast(d.name + ' ist jetzt ' + label + '.', 'success');
+    // Wenn der aktuelle User selbst betroffen ist, Rolle im Frontend aktualisieren
+    if (currentUser && currentUser.id === userId) {
+      currentUser.role = d.role;
+      updateCreateFormForRole();
+    }
     loadAdminUsers();
   }).catch(function(e) { showToast(e.message || 'Rollenwechsel fehlgeschlagen', 'error'); });
 }
