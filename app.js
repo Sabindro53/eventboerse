@@ -1040,20 +1040,23 @@ function renderFeaturedGrid() {
   var visible = _visibleListings();
   // Alle Bilder aus allen Listings sammeln
   var allImages = [];
+  var seenImages = new Set();
   visible.forEach(function(l) {
     // Hauptbild zuerst
-    allImages.push({
-      image: l.image,
-      title: l.title,
-      priceLabel: l.priceLabel,
-      rating: l.rating,
-      id: l.id
-    });
+    if (!seenImages.has(l.image)) {
+      allImages.push({
+        image: l.image,
+        title: l.title,
+        priceLabel: l.priceLabel,
+        rating: l.rating,
+        id: l.id
+      });
+      seenImages.add(l.image);
+    }
     // Dann alle weiteren Bilder aus images[]
     if (Array.isArray(l.images)) {
       l.images.forEach(function(imgUrl) {
-        // Hauptbild nicht doppelt
-        if (imgUrl !== l.image) {
+        if (!seenImages.has(imgUrl)) {
           allImages.push({
             image: imgUrl,
             title: l.title,
@@ -1061,6 +1064,7 @@ function renderFeaturedGrid() {
             rating: l.rating,
             id: l.id
           });
+          seenImages.add(imgUrl);
         }
       });
     }
