@@ -1483,11 +1483,12 @@ img { display: block; max-width: 100%; }
 .feed-card-image {
   width: 100%;
   aspect-ratio: 4/3;
-  max-height: 320px;
+  height: auto;
   object-fit: cover;
   display: block;
   cursor: pointer;
   border-radius: 12px;
+  background: #f7f7f7;
 }
 .feed-card-body {
   padding: 12px 14px;
