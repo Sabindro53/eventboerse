@@ -24,8 +24,7 @@ function showAdminUpdateBanner() {
     };
   }
 }
-// ========== FEATURE UPDATE NOTIFICATION ==========
-const FEATURE_VERSION = '2026-03-27-1'; // Bei jedem neuen Feature/Update erhöhen!
+
 
 /* ============================================
    Eventbörse – Event Marketplace Application
