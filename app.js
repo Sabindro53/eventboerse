@@ -1,3 +1,29 @@
+// ========== FEATURE UPDATE NOTIFICATION (Admin Banner) ==========
+const FEATURE_VERSION = '2026-03-27-2'; // Bei jedem neuen Feature/Update erhöhen!
+
+function showAdminUpdateBanner() {
+  if (!window.currentUser || !window.currentUser.isAdmin) return;
+  const seenVersion = localStorage.getItem('eb_admin_feature_version');
+  if (seenVersion === FEATURE_VERSION) return;
+  let banner = document.getElementById('adminUpdateBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'adminUpdateBanner';
+    banner.innerHTML = `
+      <div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#E31C5F;color:#fff;padding:18px 0 18px 0;text-align:center;font-size:1.15rem;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.12);letter-spacing:0.5px;">
+        <span style='margin-right:18px;'>🔔 Es wurden neue Features/Änderungen für Admins veröffentlicht!</span>
+        <button id="closeAdminUpdateBanner" style="background:#fff;color:#E31C5F;font-weight:700;border:none;border-radius:6px;padding:6px 18px;cursor:pointer;font-size:1rem;">OK</button>
+      </div>
+    `;
+    document.body.appendChild(banner);
+    document.body.style.paddingTop = '60px';
+    document.getElementById('closeAdminUpdateBanner').onclick = function() {
+      localStorage.setItem('eb_admin_feature_version', FEATURE_VERSION);
+      banner.remove();
+      document.body.style.paddingTop = '';
+    };
+  }
+}
 // ========== FEATURE UPDATE NOTIFICATION ==========
 const FEATURE_VERSION = '2026-03-27-1'; // Bei jedem neuen Feature/Update erhöhen!
 
@@ -5066,6 +5092,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Show update notification once per version
   showUpdateNotification();
 
+  // Auffällige Feature-Update-Benachrichtigung für Admins
+  showAdminUpdateBanner();
+
   // Handle browser back/forward
   window.addEventListener('popstate', function(e) {
     if (e.state && e.state.page) {
@@ -8107,6 +8136,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHeroMarquees();
   initFooterLogoAnimation();
   initCookieConsent();
+
+  // Auffällige Feature-Update-Benachrichtigung für Admins (Fallback)
+  showAdminUpdateBanner();
 
   // Passkey-Verifizierung Button
   var vpkBtn = document.getElementById('verifyWithPasskeyBtn');
