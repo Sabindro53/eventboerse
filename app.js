@@ -1039,50 +1039,108 @@ function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
   var visible = _visibleListings();
   // Alle Bilder aus allen Listings sammeln
-  var allImages = [];
-  var seenImages = new Set();
-  visible.forEach(function(l) {
-    // Hauptbild zuerst
-    if (!seenImages.has(l.image)) {
-      allImages.push({
-        image: l.image,
-        title: l.title,
-        priceLabel: l.priceLabel,
-        rating: l.rating,
-        id: l.id
-      });
-      seenImages.add(l.image);
-    }
-    // Dann alle weiteren Bilder aus images[]
-    if (Array.isArray(l.images)) {
-      l.images.forEach(function(imgUrl) {
-        if (!seenImages.has(imgUrl)) {
-          allImages.push({
-            image: imgUrl,
-            title: l.title,
-            priceLabel: l.priceLabel,
-            rating: l.rating,
-            id: l.id
-          });
-          seenImages.add(imgUrl);
-        }
-      });
-    }
-  });
-  // Zeige alle Bilder als Karten
-  grid.innerHTML = allImages.map(function(it) {
-    return `<a href="#" class="listing-card" onclick="navigateTo('detail',${it.id});return false;">
-      <div class="listing-card-img"><img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" /></div>
+  // Pro Listing eine Karte mit Galerie
+  grid.innerHTML = visible.map(function(l) {
+    var imgs = Array.isArray(l.images) && l.images.length ? l.images : [l.image];
+    var galleryId = 'gridGallery_' + l.id;
+    return `<div class="listing-card" data-listing-id="${l.id}">
+      <div class="listing-card-img">
+        <div class="grid-gallery-track" id="${galleryId}">
+          ${imgs.map(img => `<div class='grid-gallery-slide'><img src='${_escHtml(img)}' alt='${_escHtml(l.title)}' /></div>`).join('')}
+        </div>
+        ${imgs.length > 1 ? `
+          <button class="grid-gallery-arrow prev" onclick="event.stopPropagation();gridGalleryNav(${l.id},-1)"><span class="material-icons-round">chevron_left</span></button>
+          <button class="grid-gallery-arrow next" onclick="event.stopPropagation();gridGalleryNav(${l.id},1)"><span class="material-icons-round">chevron_right</span></button>
+          <div class="grid-gallery-dots" id="gridGalleryDots_${l.id}">
+            ${imgs.map((_, i) => `<button class="grid-gallery-dot${i===0?' active':''}" onclick="event.stopPropagation();gridGalleryGoTo(${l.id},${i})"></button>`).join('')}
+          </div>
+        ` : ''}
+      </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
-          <span class="listing-card-title">${_escHtml(it.title)}</span>
-          <span class="listing-card-rating"><span class="material-icons-round">star</span> ${it.rating || 0}</span>
+          <span class="listing-card-title">${_escHtml(l.title)}</span>
+          <span class="listing-card-rating"><span class="material-icons-round">star</span> ${l.rating || 0}</span>
         </div>
-        <div class="listing-card-price">${_escHtml(it.priceLabel)}</div>
+        <div class="listing-card-price">${_escHtml(l.priceLabel)}</div>
       </div>
-    </a>`;
+    </div>`;
   }).join('');
+  // Klick auf Karte öffnet Detailansicht
+  grid.querySelectorAll('.listing-card').forEach(function(card) {
+    card.onclick = function(e) {
+      // Buttons in Galerie nicht abfangen
+      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot')) return;
+      var id = card.getAttribute('data-listing-id');
+      if (id) navigateTo('detail', id);
+    };
+  });
+  // Init Swipe für alle Galerien
+  visible.forEach(function(l) { _initGridGallerySwipe(l.id); });
   detectWideBannerCards(grid);
+// ========== GRID GALLERY CAROUSEL ==========
+var _gridGalleryIdx = {};
+function _initGridGallerySwipe(listingId) {
+  var track = document.getElementById('gridGallery_' + listingId);
+  if (!track) return;
+  _gridGalleryIdx[listingId] = 0;
+  var startX = 0, dragging = false;
+  track.addEventListener('mousedown', function(e) {
+    dragging = true; startX = e.clientX; track.style.scrollBehavior = 'auto';
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    track.scrollLeft -= (e.clientX - startX);
+    startX = e.clientX;
+  });
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false; track.style.scrollBehavior = 'smooth';
+    var slideW = track.offsetWidth;
+    var idx = Math.round(track.scrollLeft / slideW);
+    _gridGalleryIdx[listingId] = idx;
+    track.scrollLeft = idx * slideW;
+    _updateGridGalleryUI(listingId);
+  });
+  // Touch events für mobile
+  track.addEventListener('touchstart', function(e) {
+    dragging = true; startX = e.touches[0].clientX; track.style.scrollBehavior = 'auto';
+  });
+  track.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    track.scrollLeft -= (e.touches[0].clientX - startX);
+    startX = e.touches[0].clientX;
+  });
+  track.addEventListener('touchend', function() {
+    if (!dragging) return;
+    dragging = false; track.style.scrollBehavior = 'smooth';
+    var slideW = track.offsetWidth;
+    var idx = Math.round(track.scrollLeft / slideW);
+    _gridGalleryIdx[listingId] = idx;
+    track.scrollLeft = idx * slideW;
+    _updateGridGalleryUI(listingId);
+  });
+}
+function _updateGridGalleryUI(listingId) {
+  var dots = document.querySelectorAll(`#gridGalleryDots_${listingId} .grid-gallery-dot`);
+  dots.forEach(function(d, i) {
+    d.classList.toggle('active', i === _gridGalleryIdx[listingId]);
+  });
+}
+function gridGalleryNav(listingId, dir) {
+  var track = document.getElementById('gridGallery_' + listingId);
+  if (!track) return;
+  var total = track.children.length;
+  _gridGalleryIdx[listingId] = Math.max(0, Math.min(total - 1, (_gridGalleryIdx[listingId] || 0) + dir));
+  track.children[_gridGalleryIdx[listingId]].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  _updateGridGalleryUI(listingId);
+}
+function gridGalleryGoTo(listingId, idx) {
+  var track = document.getElementById('gridGallery_' + listingId);
+  if (!track) return;
+  _gridGalleryIdx[listingId] = idx;
+  track.children[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  _updateGridGalleryUI(listingId);
+}
 }
 
 function filterCategory(btn, category) {
