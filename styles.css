@@ -518,6 +518,21 @@ img { display: block; max-width: 100%; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 100%;
+  justify-content: flex-start;
+}
+.hero-marquee-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-light);
+  padding: 12px;
+  min-height: 120px;
+  background: rgba(255,255,255,0.8);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
 }
 .hero-marquee-left .hero-marquee-track {
   animation: marqueeUp 24s linear infinite;
@@ -4803,7 +4818,7 @@ span.flatpickr-weekday {
 
 /* ======== RESPONSIVE ======== */
 @media (max-width: 1024px) {
-  .hero-marquee { display: none; }
+  /* .hero-marquee { display: none; } entfernt, damit Marquee-Animationen immer sichtbar sind */
   .hero-content h1 { font-size: 2.5rem; }
   .how-it-works { grid-template-columns: repeat(2, 1fr); }
   .testimonials { grid-template-columns: 1fr; }

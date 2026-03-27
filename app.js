@@ -540,6 +540,7 @@ async function loadDbListings() {
       });
     }
     _dbListingsLoaded = true;
+    try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
   } catch(e) { /* API not available yet */ }
 }
 
@@ -737,12 +738,23 @@ function renderHeroMarquees() {
   const rightTrack = document.querySelector('#heroMarqueeRight .hero-marquee-track');
   if (!leftTrack || !rightTrack) return;
 
-  var visible = _visibleListings();
+  var visible;
+  try {
+    visible = _visibleListings();
+    if (!Array.isArray(visible) || visible.length === 0) {
+      visible = Array.isArray(LISTINGS) ? LISTINGS : [];
+    }
+  } catch (err) {
+    console.error('Fehler bei _visibleListings, verwende Demo-Daten', err);
+    visible = Array.isArray(LISTINGS) ? LISTINGS : [];
+  }
 
   // Need at least 2 unique listings for a meaningful marquee
   if (visible.length < 2) {
-    document.getElementById('heroMarqueeLeft').style.display = 'none';
-    document.getElementById('heroMarqueeRight').style.display = 'none';
+    leftTrack.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
+    rightTrack.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
+    document.getElementById('heroMarqueeLeft').style.display = '';
+    document.getElementById('heroMarqueeRight').style.display = '';
     return;
   }
   document.getElementById('heroMarqueeLeft').style.display = '';
@@ -8236,7 +8248,18 @@ function initFooterLogoAnimation() {
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', () => {
   renderFeaturedGrid();
-  renderHeroMarquees();
+  try {
+    renderHeroMarquees();
+  } catch (err) {
+    console.error('Fehler beim Rendern der Hero-Marquee', err);
+  }
+  window.addEventListener('load', function() {
+    try {
+      renderHeroMarquees();
+    } catch (err) {
+      console.error('Fehler beim Rendern der Hero-Marquee (load)', err);
+    }
+  });
   initFooterLogoAnimation();
   initCookieConsent();
 
