@@ -4837,52 +4837,7 @@ span.flatpickr-weekday {
     flex-direction: column;
     overflow: hidden;
   }
-  .hero-marquee {
-    display: block !important;
-    position: relative;
-    width: 100%;
-    height: auto;
-    top: auto;
-    left: auto !important;
-    right: auto !important;
-    touch-action: pan-y;
-    mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-    padding: 8px 0;
-  }
-  /* .hero-marquee-left { display: none !important; } */
-  .hero-marquee-right { order: 3; }
-  .hero-content { padding: 20px 16px; order: 2; }
-  .hero-marquee-track {
-    flex-direction: row !important;
-    gap: 10px !important;
-    flex-wrap: nowrap;
-  }
-  /*
-    Die Animationen für die Marquee-Tracks werden im Basis-CSS gesetzt:
-    .hero-marquee-left .hero-marquee-track {
-      animation: marqueeUp 24s linear infinite;
-    }
-    .hero-marquee-right .hero-marquee-track {
-      animation: marqueeUp 24s linear infinite reverse;
-    }
-    Daher werden die überschreibenden Animationen im Media Query entfernt.
-  */
-  .hero-marquee-card {
-    width: 130px !important;
-  }
-  .hero-marquee-card img {
-    height: 80px !important;
-  }
-  .hero-marquee-card-info {
-    padding: 6px 8px !important;
-  }
-  .hero-marquee-card-info h4 {
-    font-size: 0.68rem !important;
-  }
-  .hero-marquee-card-info span {
-    font-size: 0.6rem !important;
-  }
+  /* MEDIA QUERY OVERRIDES ENTFERNT: Marquee-Spalten laufen wieder vertikal, links und rechts absolut positioniert, column-Layout, Animation nach oben/unten. */
   .hero-content h1 { font-size: 2rem; line-height: 1.15; margin-bottom: 12px; }
   .hero-content p { font-size: 0.95rem; margin-bottom: 20px; }
 
