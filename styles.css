@@ -4850,7 +4850,7 @@ span.flatpickr-weekday {
     -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
     padding: 8px 0;
   }
-  .hero-marquee-left { display: none !important; }
+  /* .hero-marquee-left { display: none !important; } */
   .hero-marquee-right { order: 3; }
   .hero-content { padding: 20px 16px; order: 2; }
   .hero-marquee-track {
@@ -4858,12 +4858,16 @@ span.flatpickr-weekday {
     gap: 10px !important;
     flex-wrap: nowrap;
   }
-  .hero-marquee-left .hero-marquee-track {
-    animation: marqueeLeft 20s linear infinite !important;
-  }
-  .hero-marquee-right .hero-marquee-track {
-    animation: marqueeRight 24s linear infinite !important;
-  }
+  /*
+    Die Animationen für die Marquee-Tracks werden im Basis-CSS gesetzt:
+    .hero-marquee-left .hero-marquee-track {
+      animation: marqueeUp 24s linear infinite;
+    }
+    .hero-marquee-right .hero-marquee-track {
+      animation: marqueeUp 24s linear infinite reverse;
+    }
+    Daher werden die überschreibenden Animationen im Media Query entfernt.
+  */
   .hero-marquee-card {
     width: 130px !important;
   }
