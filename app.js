@@ -1010,7 +1010,7 @@ function detectWideBannerImg(img) {
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
   var visible = _visibleListings();
-  grid.innerHTML = visible.slice(0, 8).map(renderListingCard).join('');
+  grid.innerHTML = visible.slice(0, 12).map(renderListingCard).join('');
   detectWideBannerCards(grid);
 }
 
