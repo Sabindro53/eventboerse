@@ -1,24 +1,24 @@
-// ========== FEATURE UPDATE NOTIFICATION (Admin Banner) ==========
-const FEATURE_VERSION = '2026-03-27-2'; // Bei jedem neuen Feature/Update erhöhen!
 
-function showAdminUpdateBanner() {
-  if (!window.currentUser || !window.currentUser.isAdmin) return;
-  const seenVersion = localStorage.getItem('eb_admin_feature_version');
+// ========== FEATURE UPDATE NOTIFICATION (All Users) ==========
+const FEATURE_VERSION = '2026-03-27-3'; // Bei jedem neuen Feature/Update erhöhen!
+
+function showUpdateBanner() {
+  const seenVersion = localStorage.getItem('eb_feature_version');
   if (seenVersion === FEATURE_VERSION) return;
-  let banner = document.getElementById('adminUpdateBanner');
+  let banner = document.getElementById('updateBanner');
   if (!banner) {
     banner = document.createElement('div');
-    banner.id = 'adminUpdateBanner';
+    banner.id = 'updateBanner';
     banner.innerHTML = `
       <div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#E31C5F;color:#fff;padding:18px 0 18px 0;text-align:center;font-size:1.15rem;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.12);letter-spacing:0.5px;">
-        <span style='margin-right:18px;'>🔔 Es wurden neue Features/Änderungen für Admins veröffentlicht!</span>
-        <button id="closeAdminUpdateBanner" style="background:#fff;color:#E31C5F;font-weight:700;border:none;border-radius:6px;padding:6px 18px;cursor:pointer;font-size:1rem;">OK</button>
+        <span style='margin-right:18px;'>🔔 Änderungen wurden erfolgreich aktualisiert!</span>
+        <button id="closeUpdateBanner" style="background:#fff;color:#E31C5F;font-weight:700;border:none;border-radius:6px;padding:6px 18px;cursor:pointer;font-size:1rem;">OK</button>
       </div>
     `;
     document.body.appendChild(banner);
     document.body.style.paddingTop = '60px';
-    document.getElementById('closeAdminUpdateBanner').onclick = function() {
-      localStorage.setItem('eb_admin_feature_version', FEATURE_VERSION);
+    document.getElementById('closeUpdateBanner').onclick = function() {
+      localStorage.setItem('eb_feature_version', FEATURE_VERSION);
       banner.remove();
       document.body.style.paddingTop = '';
     };
@@ -32,6 +32,13 @@ function showAdminUpdateBanner() {
    ============================================ */
 
 // ========== DEMO DATA ==========
+
+// Zeige Update-Banner für alle Nutzer beim Laden der Seite
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', showUpdateBanner);
+} else {
+  showUpdateBanner();
+}
 const LISTINGS = [
   {
     id: 1, providerId: 90001,
