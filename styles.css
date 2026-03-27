@@ -442,11 +442,10 @@ img { display: block; max-width: 100%; }
   gap: 16px;
 }
 .hero-marquee-left .hero-marquee-track {
-  animation: marqueeUp 28s linear infinite;
+  animation: marqueeUp 24s linear infinite;
 }
 .hero-marquee-right .hero-marquee-track {
-  animation: marqueeUp 28s linear infinite;
-  animation-direction: reverse;
+  animation: marqueeUp 24s linear infinite reverse;
 }
 @keyframes marqueeUp {
   0% { transform: translateY(0); }

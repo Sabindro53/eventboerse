@@ -741,12 +741,9 @@ function renderHeroMarquees() {
   document.getElementById('heroMarqueeLeft').style.display = '';
   document.getElementById('heroMarqueeRight').style.display = '';
 
-  // Split into two distinct sets (no overlap when possible)
-  var half = Math.ceil(visible.length / 2);
-  var leftListings = visible.slice(0, half);
-  var rightListings = visible.length > half
-    ? visible.slice(half)
-    : visible.slice().reverse();
+  // Beide Spalten zeigen alle Listings
+  var leftListings = visible;
+  var rightListings = visible;
 
   function cardHTML(l) {
     return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
