@@ -1482,11 +1482,12 @@ img { display: block; max-width: 100%; }
 }
 .feed-card-image {
   width: 100%;
-  aspect-ratio: 16/5;
-  max-height: 280px;
+  aspect-ratio: 4/3;
+  max-height: 320px;
   object-fit: cover;
   display: block;
   cursor: pointer;
+  border-radius: 12px;
 }
 .feed-card-body {
   padding: 12px 14px;
@@ -5008,7 +5009,7 @@ span.flatpickr-weekday {
   .feed-header { padding: 14px 0 6px; }
   .feed-title { font-size: 1.25rem; }
   .feed-location-badge { padding: 4px 10px; font-size: 0.72rem; }
-  .feed-card-image { aspect-ratio: 16/7; max-height: 220px; }
+  .feed-card-image { aspect-ratio: 4/3; max-height: 320px; border-radius: 12px; }
 
   /* Detail mobile restructure */
   .detail-container {
