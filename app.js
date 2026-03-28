@@ -5303,8 +5303,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   forceBrowsePage();
   window.addEventListener('hashchange', forceBrowsePage);
-  var browseObserver = new MutationObserver(forceBrowsePage);
-  browseObserver.observe(document.documentElement, { attributes: true, childList: true, subtree: true });
 
   // Show update notification once per version
   showUpdateNotification();
