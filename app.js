@@ -465,9 +465,9 @@ let currentChat = null;
 let isLoggedIn = false;
 let favorites = new Set();
 
-// Startseite immer auf Suche umleiten:
+// Startseite immer auf Suche umleiten (ohne Reload):
 if (window.location.hash === '#home' || window.location.hash === '' || window.location.hash === '#') {
-  window.location.replace(window.location.pathname + window.location.search + '#browse');
+  window.history.replaceState(null, '', window.location.pathname + window.location.search + '#browse');
   currentPage = 'browse';
 }
 let _dbListingsLoaded = false;
@@ -484,8 +484,15 @@ function forceBrowsePage() {
   }
 
   if (home) home.classList.remove('active');
+  if (!browse) return;
   browse.classList.add('active');
   currentPage = 'browse';
+
+  console.log('[forceBrowsePage]', window.location.hash, 'state', {
+    home: home ? home.className : null,
+    browse: browse.className,
+    currentPage
+  });
 
   try {
     renderHeroMarquees();
@@ -5286,8 +5293,13 @@ document.addEventListener('DOMContentLoaded', function() {
     navigateTo(initPage, initData, true);
   } else {
     window.history.replaceState({ page: 'browse', data: null }, '', '#browse');
-    navigateTo('browse', null, true);
   }
+
+  // Force state in case Home immer noch Vorrang haben sollte
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  var ph = document.getElementById('page-home'); if (ph) ph.classList.remove('active');
+  var pb = document.getElementById('page-browse'); if (pb) pb.classList.add('active');
+  currentPage = 'browse';
 
   forceBrowsePage();
   window.addEventListener('hashchange', forceBrowsePage);
