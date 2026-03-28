@@ -492,12 +492,35 @@ img { display: block; max-width: 100%; }
 /* ======== HERO ======== */
 .hero {
   position: relative;
-  min-height: 580px;
+  min-height: 420px;
+  padding: 12px 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: visible;
 }
+.hero-content {
+  position: relative;
+  z-index: 10;
+  width: min(100%, 900px);
+  padding: 24px 16px;
+  text-align: center;
+  margin-top: 24px;
+  margin-bottom: 8px;
+  background: rgba(255,255,255,0.48);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+}
+.hero-content h1 {
+  font-size: clamp(1.5rem, 2.8vw, 3rem);
+  margin-bottom: 8px;
+}
+.hero-content p {
+  font-size: clamp(0.95rem, 1.6vw, 1.1rem);
+  margin-bottom: 14px;
+}
+
 
 /* Animated Marquee Columns */
 .hero-marquee {
@@ -514,14 +537,14 @@ img { display: block; max-width: 100%; }
   opacity: 1 !important;
   visibility: visible !important;
 }
-.hero-marquee-left { left: 24px; }
-.hero-marquee-right { right: 24px; }
+.hero-marquee-left { left: 18px; width: 180px; }
+.hero-marquee-right { right: 18px; width: 180px; }
 .hero-marquee-below {
   position: relative;
   width: 100%;
-  max-width: calc(100% - 40px);
-  margin: 24px auto 0;
-  padding: 10px;
+  max-width: calc(100% - 34px);
+  margin: 16px auto 0;
+  padding: 8px;
   z-index: 20;
   background: rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-md);
@@ -545,7 +568,7 @@ img { display: block; max-width: 100%; }
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-  animation: marqueeLeft 20s linear infinite;
+  animation: marqueeLeft 14s linear infinite;
 }
 .hero-marquee-below .hero-marquee-card {
   scroll-snap-align: start;
@@ -624,17 +647,24 @@ img { display: block; max-width: 100%; }
 }
 .hero-marquee-card {
   display: block;
-  width: 200px;
+  width: 180px;
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-md);
   background: var(--bg);
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.24s ease, box-shadow 0.24s ease;
   flex-shrink: 0;
   color: var(--dark);
   text-decoration: none;
 }
+.hero-marquee-card:not(:last-child) {
+  margin-right: 8px;
+}
+.hero-marquee-card img {
+  height: 120px;
+}
+
 .hero-marquee-card:hover {
   transform: scale(1.05);
   box-shadow: var(--shadow-lg);
