@@ -696,6 +696,9 @@ function navigateTo(page, data, skipHistory) {
       }
       loadAdminUsers();
       break;
+    case 'home':
+      try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(home)', err); }
+      break;
   }
 }
 

@@ -4828,9 +4828,39 @@ span.flatpickr-weekday {
 /* ======== RESPONSIVE ======== */
 @media (max-width: 1024px) {
   /* .hero-marquee { display: none; } entfernt, damit Marquee-Animationen immer sichtbar sind */
-  .hero-content h1 { font-size: 2.5rem; }
-  .how-it-works { grid-template-columns: repeat(2, 1fr); }
-  .testimonials { grid-template-columns: 1fr; }
+  .hero-marquee {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: auto !important;
+    min-height: 180px !important;
+    margin: 10px auto !important;
+    right: auto !important;
+    left: auto !important;
+    top: auto !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 100 !important;
+    overflow: visible !important;
+    pointer-events: auto;
+  }
+  .hero-marquee-track {
+    animation: none !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 12px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .hero-marquee-card {
+    width: 180px !important;
+  }
+  .hero-content h1 { font-size: 2rem; }
+  .hero-content p { font-size: 1rem; }
+  .how-it-works { grid-template-columns: 1fr !important; }
+  .testimonials { grid-template-columns: 1fr !important; }
   .detail-layout { grid-template-columns: 1fr; }
   .detail-sidebar { order: -1; }
   .booking-card { position: static; }
