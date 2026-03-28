@@ -987,7 +987,7 @@ function renderFeed(tab) {
   if (!list) return;
   // Deduplicate LISTINGS by id (keep first occurrence)
   const seen = new Set();
-  let items = _visibleListings().filter(function(l) {
+  let items = getHeroListings().filter(function(l) {
     if (seen.has(l.id)) return false;
     seen.add(l.id);
     return true;
@@ -1088,7 +1088,7 @@ function detectWideBannerImg(img) {
 
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
-  var visible = _visibleListings();
+  var visible = getHeroListings();
   // Alle Bilder aus allen Listings sammeln
   // Pro Listing eine Karte mit Galerie
   grid.innerHTML = visible.map(function(l) {
@@ -1197,7 +1197,7 @@ function gridGalleryGoTo(listingId, idx) {
 function filterCategory(btn, category) {
   document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
-  var visible = _visibleListings();
+  var visible = getHeroListings();
   const filtered = category === 'alle' ? visible : visible.filter(l => l.category === category);
   const grid = document.getElementById('featuredGrid');
   grid.innerHTML = filtered.map(renderListingCard).join('');
@@ -1316,7 +1316,7 @@ function aiMatchKeyword(input) {
   });
 
   // Also try matching against listing titles directly
-  const listingMatches = _visibleListings().filter(l => {
+  const listingMatches = getHeroListings().filter(l => {
     const haystack = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.providerName}`.toLowerCase();
     return words.some(w => w.length >= 2 && haystack.includes(w));
   }).slice(0, 2);
@@ -1582,7 +1582,7 @@ function filterListings() {
   const priceRange = document.getElementById('browsePrice')?.value || '';
   const minRating = document.getElementById('browseRating')?.value || '';
 
-  let filtered = _visibleListings().filter(l => {
+  let filtered = getHeroListings().filter(l => {
     // Text search: title, category label, tags, provider
     if (search) {
       const haystack = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.providerName}`.toLowerCase();
@@ -1684,7 +1684,7 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
 
   // Find alternatives by relaxing filters progressively
   let alternatives = [];
-  var _vis = _visibleListings();
+  var _vis = getHeroListings();
 
   // 1. Same category (detected from search or filter), any location
   if (detectedCategory) {
