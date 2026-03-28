@@ -5221,7 +5221,49 @@ document.addEventListener('DOMContentLoaded', function() {
       navigateTo(e.state.page, e.state.data, true);
     }
   });
+
+  initVisualMotion();
 });
+
+// ========== PAGE MOTION (subtle Apple-like interactivity) ==========
+function initVisualMotion() {
+  const hero = document.querySelector('.hero');
+  const heroBg = document.querySelector('.hero-bg');
+  const sections = document.querySelectorAll('main .section, .hero-content, .hero-marquee');
+
+  if (hero) hero.classList.add('hero-float');
+
+  let lastScroll = 0;
+  function update() {
+    const scrollY = window.scrollY;
+    if (heroBg) {
+      const strength = Math.min(50, scrollY / 10);
+      heroBg.style.transform = `translate3d(0, ${strength}px, 0) scale(1.04)`;
+    }
+
+    if (hero) {
+      const tilt = Math.min(18, Math.max(-18, (scrollY - lastScroll) * 0.15));
+      hero.style.transform = `perspective(1000px) translateZ(0) rotateX(${tilt}deg)`;
+      lastScroll = scrollY;
+    }
+
+    requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.25 });
+
+  sections.forEach(el => {
+    el.classList.add('animated-entry');
+    observer.observe(el);
+  });
+}
 
 // ========== DATE PICKERS (Flatpickr) ==========
 function setupYearDropdown(fp) {
