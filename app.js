@@ -737,17 +737,18 @@ function renderListingCard(listing) {
 // ========== HOME PAGE ==========
 
 function renderHeroMarquees() {
+  const leftContainer = document.getElementById('heroMarqueeLeft');
+  const rightContainer = document.getElementById('heroMarqueeRight');
   const bottomContainer = document.getElementById('heroMarqueeBelow') || document.getElementById('heroMarquee');
+  const leftTrack = leftContainer ? leftContainer.querySelector('.hero-marquee-track') : null;
+  const rightTrack = rightContainer ? rightContainer.querySelector('.hero-marquee-track') : null;
   const bottomTrack = bottomContainer ? bottomContainer.querySelector('.hero-marquee-track') : null;
 
-  // Hide legacy left/right marquees if still present
-  document.querySelectorAll('.hero-marquee-left, .hero-marquee-right').forEach(e => {
-    if (e) e.style.display = 'none';
-  });
-
-  if (!bottomContainer || !bottomTrack) {
-    console.warn('[HeroMarquee] Kein aktiver Bottom-Marquee gefunden (id heroMarqueeBelow/heroMarquee)');
-    return;
+  if (!bottomContainer || !bottomTrack || !leftTrack || !rightTrack) {
+    console.warn('[HeroMarquee] Fehlende Marquee-Container oder Tracks:', {
+      leftContainer, rightContainer, bottomContainer,
+      leftTrack, rightTrack, bottomTrack,
+    });
   }
 
   let visible;
@@ -787,10 +788,29 @@ function renderHeroMarquees() {
   const maxCards = Math.max(5, Math.min(12, visible.length));
   const cards = visible.slice(0, maxCards);
   const cardsHtml = cards.map(cardHTML).join('');
+  const duplicatedHtml = cardsHtml + cardsHtml;
+
+  if (leftTrack) {
+    leftTrack.innerHTML = duplicatedHtml;
+    leftTrack.style.animation = 'marqueeUp 22s linear infinite';
+    leftTrack.style.animationPlayState = 'running';
+    leftTrack.style.transform = 'translateY(0)';
+    leftTrack.style.willChange = 'transform';
+    _initMarqueeSwipe(leftTrack, 'vertical');
+  }
+
+  if (rightTrack) {
+    rightTrack.innerHTML = duplicatedHtml;
+    rightTrack.style.animation = 'marqueeUp 22s linear infinite reverse';
+    rightTrack.style.animationPlayState = 'running';
+    rightTrack.style.transform = 'translateY(0)';
+    rightTrack.style.willChange = 'transform';
+    _initMarqueeSwipe(rightTrack, 'vertical');
+  }
 
   if (bottomTrack) {
-    bottomTrack.innerHTML = cardsHtml + cardsHtml;
-    bottomTrack.style.animation = 'marqueeLeft 12s linear infinite';
+    bottomTrack.innerHTML = duplicatedHtml;
+    bottomTrack.style.animation = 'marqueeLeft 14s linear infinite';
     bottomTrack.style.animationPlayState = 'running';
     bottomTrack.style.transform = 'translateX(0)';
     bottomTrack.style.willChange = 'transform';
@@ -798,9 +818,6 @@ function renderHeroMarquees() {
     bottomTrack.style.overflowY = 'hidden';
     bottomTrack.style.scrollSnapType = 'x mandatory';
     bottomTrack.style.scrollSnapStop = 'normal';
-  }
-
-  if (bottomTrack && typeof _initMarqueeSwipe === 'function') {
     _initMarqueeSwipe(bottomTrack, 'horizontal');
   }
 
