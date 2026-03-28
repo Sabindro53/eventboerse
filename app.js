@@ -759,17 +759,15 @@ function renderListingCard(listing) {
 // ========== HOME PAGE ==========
 
 function renderHeroMarquees() {
-  const leftContainer = document.getElementById('heroMarqueeLeft');
-  const rightContainer = document.getElementById('heroMarqueeRight');
-  const bottomContainer = document.getElementById('heroMarqueeBelow') || document.getElementById('heroMarquee');
-  const leftTrack = leftContainer ? leftContainer.querySelector('.hero-marquee-track') : null;
-  const rightTrack = rightContainer ? rightContainer.querySelector('.hero-marquee-track') : null;
+  const topContainer = document.getElementById('heroMarqueeAbove');
+  const bottomContainer = document.getElementById('heroMarqueeBelow');
+  const topTrack = topContainer ? topContainer.querySelector('.hero-marquee-track') : null;
   const bottomTrack = bottomContainer ? bottomContainer.querySelector('.hero-marquee-track') : null;
 
-  if (!bottomContainer || !bottomTrack || !leftTrack || !rightTrack) {
+  if (!topContainer || !topTrack || !bottomContainer || !bottomTrack) {
     console.warn('[HeroMarquee] Fehlende Marquee-Container oder Tracks:', {
-      leftContainer, rightContainer, bottomContainer,
-      leftTrack, rightTrack, bottomTrack,
+      topContainer, bottomContainer,
+      topTrack, bottomTrack,
     });
   }
 
@@ -786,10 +784,13 @@ function renderHeroMarquees() {
 
   console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings');
 
-  bottomContainer.style.display = 'block';
-  bottomContainer.style.opacity = '1';
-  bottomContainer.style.pointerEvents = 'auto';
-  bottomContainer.style.zIndex = '30';
+  [topContainer, bottomContainer].forEach(container => {
+    if (!container) return;
+    container.style.display = 'block';
+    container.style.opacity = '1';
+    container.style.pointerEvents = 'auto';
+    container.style.zIndex = '30';
+  });
 
   if (!Array.isArray(visible) || visible.length === 0) {
     const emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
@@ -812,22 +813,17 @@ function renderHeroMarquees() {
   const cardsHtml = cards.map(cardHTML).join('');
   const duplicatedHtml = cardsHtml + cardsHtml;
 
-  if (leftTrack) {
-    leftTrack.innerHTML = duplicatedHtml;
-    leftTrack.style.animation = 'marqueeUp 22s linear infinite';
-    leftTrack.style.animationPlayState = 'running';
-    leftTrack.style.transform = 'translateY(0)';
-    leftTrack.style.willChange = 'transform';
-    _initMarqueeSwipe(leftTrack, 'vertical');
-  }
-
-  if (rightTrack) {
-    rightTrack.innerHTML = duplicatedHtml;
-    rightTrack.style.animation = 'marqueeUp 22s linear infinite reverse';
-    rightTrack.style.animationPlayState = 'running';
-    rightTrack.style.transform = 'translateY(0)';
-    rightTrack.style.willChange = 'transform';
-    _initMarqueeSwipe(rightTrack, 'vertical');
+  if (topTrack) {
+    topTrack.innerHTML = duplicatedHtml;
+    topTrack.style.animation = 'marqueeRight 18s linear infinite';
+    topTrack.style.animationPlayState = 'running';
+    topTrack.style.transform = 'translateX(0)';
+    topTrack.style.willChange = 'transform';
+    topTrack.style.overflowX = 'auto';
+    topTrack.style.overflowY = 'hidden';
+    topTrack.style.scrollSnapType = 'x mandatory';
+    topTrack.style.scrollSnapStop = 'normal';
+    _initMarqueeSwipe(topTrack, 'horizontal');
   }
 
   if (bottomTrack) {
@@ -844,7 +840,7 @@ function renderHeroMarquees() {
   }
 
   // Detect very wide images and switch to contain
-  [leftTrack, rightTrack, bottomTrack].forEach(track => {
+  [topTrack, bottomTrack].forEach(track => {
     if (!track) return;
     track.querySelectorAll('.hero-marquee-card img').forEach(img => {
       img.onload = () => {
