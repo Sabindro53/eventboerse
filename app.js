@@ -645,7 +645,10 @@ function navigateTo(page, data, skipHistory) {
   // Page-specific logic
   switch (page) {
     case 'browse':
-      loadDbListings().then(function() { renderBrowseGrid(LISTINGS); });
+      loadDbListings().then(function() {
+        renderBrowseGrid(LISTINGS);
+        try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
+      });
       break;
     case 'explore':
       loadDbListings().then(function() { renderExploreGrid(); });
@@ -759,16 +762,14 @@ function renderListingCard(listing) {
 // ========== HOME PAGE ==========
 
 function renderHeroMarquees() {
-  const topContainer = document.getElementById('heroMarqueeAbove');
-  const bottomContainer = document.getElementById('heroMarqueeBelow');
-  const topTrack = topContainer ? topContainer.querySelector('.hero-marquee-track') : null;
-  const bottomTrack = bottomContainer ? bottomContainer.querySelector('.hero-marquee-track') : null;
+  const topContainers = Array.from(document.querySelectorAll('.hero-marquee-above'));
+  const bottomContainers = Array.from(document.querySelectorAll('.hero-marquee-below'));
+  const topTracks = topContainers.map(c => c.querySelector('.hero-marquee-track')).filter(t => !!t);
+  const bottomTracks = bottomContainers.map(c => c.querySelector('.hero-marquee-track')).filter(t => !!t);
 
-  if (!topContainer || !topTrack || !bottomContainer || !bottomTrack) {
-    console.warn('[HeroMarquee] Fehlende Marquee-Container oder Tracks:', {
-      topContainer, bottomContainer,
-      topTrack, bottomTrack,
-    });
+  if (!topTracks.length && !bottomTracks.length) {
+    console.warn('[HeroMarquee] keine Marquee-Container/Tracks gefunden.');
+    return;
   }
 
   let visible;
@@ -784,8 +785,7 @@ function renderHeroMarquees() {
 
   console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings', visible.map(l=>l.id).join(', '), 'isLoggedIn=', !!isLoggedIn);
 
-  [topContainer, bottomContainer].forEach(container => {
-    if (!container) return;
+  [topContainers, bottomContainers].flat().forEach(container => {
     container.style.display = 'block';
     container.style.visibility = 'visible';
     container.style.opacity = '1';
@@ -793,17 +793,10 @@ function renderHeroMarquees() {
     container.style.zIndex = '30';
   });
 
-  if (!topTrack || !bottomTrack) {
-    console.error('[HeroMarquee] missing tracks', { topTrack, bottomTrack });
-    return;
-  }
-
-  topTrack.innerHTML = '<div style="min-width:120px;min-height:100px;padding:14px;border:2px dashed red;">Hero-Marquee DEBUG: rendering...</div>';
-  bottomTrack.innerHTML = '<div style="min-width:120px;min-height:100px;padding:14px;border:2px dashed red;">Hero-Marquee DEBUG: rendering...</div>';
-
   if (!Array.isArray(visible) || visible.length === 0) {
     const emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
-    bottomTrack.innerHTML = emptyHtml;
+    topTracks.forEach(track => { track.innerHTML = emptyHtml; });
+    bottomTracks.forEach(track => { track.innerHTML = emptyHtml; });
     return;
   }
 
@@ -820,42 +813,45 @@ function renderHeroMarquees() {
   const cards = Array.isArray(visible) ? visible : [];
   if (cards.length === 0) {
     const emptyHtml = '<div class="hero-marquee-empty">Momentan keine Angebote, bitte später erneut versuchen.</div>';
-    if (topTrack) topTrack.innerHTML = emptyHtml;
-    if (bottomTrack) bottomTrack.innerHTML = emptyHtml;
+    topTracks.forEach(track => { track.innerHTML = emptyHtml; });
+    bottomTracks.forEach(track => { track.innerHTML = emptyHtml; });
     return;
   }
 
   const cardsHtml = cards.map(cardHTML).join('');
   const duplicatedHtml = cardsHtml + cardsHtml;
 
-  if (topTrack) {
-    topTrack.innerHTML = duplicatedHtml;
-    topTrack.style.animation = 'marqueeRight 18s linear infinite';
-    topTrack.style.animationPlayState = 'running';
-    topTrack.style.transform = 'translateX(0)';
-    topTrack.style.willChange = 'transform';
-    topTrack.style.overflowX = 'hidden';
-    topTrack.style.overflowY = 'hidden';
-    topTrack.style.scrollSnapType = 'none';
-    topTrack.style.scrollSnapStop = 'normal';
-    _initMarqueeSwipe(topTrack, 'horizontal');
-  }
+  topTracks.forEach(track => {
+    track.innerHTML = duplicatedHtml;
+    track.style.animation = 'marqueeRight 18s linear infinite';
+    track.style.animationPlayState = 'running';
+    track.style.transform = 'translateX(0)';
+    track.style.willChange = 'transform';
+    track.style.overflowX = 'hidden';
+    track.style.overflowY = 'hidden';
+    track.style.scrollSnapType = 'none';
+    track.style.scrollSnapStop = 'normal';
+    _initMarqueeSwipe(track, 'horizontal');
+  });
 
-  if (bottomTrack) {
-    bottomTrack.innerHTML = duplicatedHtml;
-    bottomTrack.style.animation = 'marqueeLeft 14s linear infinite';
-    bottomTrack.style.animationPlayState = 'running';
-    bottomTrack.style.transform = 'translateX(0)';
-    bottomTrack.style.willChange = 'transform';
-    bottomTrack.style.overflowX = 'hidden';
-    bottomTrack.style.overflowY = 'hidden';
-    bottomTrack.style.scrollSnapType = 'none';
-    bottomTrack.style.scrollSnapStop = 'normal';
-    _initMarqueeSwipe(bottomTrack, 'horizontal');
-  }
+  bottomTracks.forEach(track => {
+    track.innerHTML = duplicatedHtml;
+    track.style.animation = 'marqueeLeft 14s linear infinite';
+    track.style.animationPlayState = 'running';
+    track.style.transform = 'translateX(0)';
+    track.style.willChange = 'transform';
+    track.style.overflowX = 'hidden';
+    track.style.overflowY = 'hidden';
+    track.style.scrollSnapType = 'none';
+    track.style.scrollSnapStop = 'normal';
+    _initMarqueeSwipe(track, 'horizontal');
+  });
 
   // Detect very wide images and switch to contain
-  [topTrack, bottomTrack].forEach(track => {
+  [
+    ...topTracks,
+    ...bottomTracks
+  ].forEach(track => {
     if (!track) return;
     track.querySelectorAll('.hero-marquee-card img').forEach(img => {
       img.onload = () => {
@@ -873,12 +869,12 @@ function renderHeroMarquees() {
     });
   });
 
-  // Touch-swipe support for bottom marquee (horizontal)
-  if (bottomTrack) {
-    bottomTrack.style.touchAction = 'pan-x';
-    bottomTrack.style.cursor = 'grab';
-    _initMarqueeSwipe(bottomTrack, 'horizontal');
-  }
+  // Touch-swipe support for bottom marquees (horizontal)
+  bottomTracks.forEach(track => {
+    track.style.touchAction = 'pan-x';
+    track.style.cursor = 'grab';
+    _initMarqueeSwipe(track, 'horizontal');
+  });
 }
 
 function _initMarqueeSwipe(track, orientation) {
