@@ -737,12 +737,18 @@ function renderListingCard(listing) {
 // ========== HOME PAGE ==========
 
 function renderHeroMarquees() {
-  const bottomTrack = document.querySelector('#heroMarqueeBelow .hero-marquee-track');
-  const bottomContainer = document.getElementById('heroMarqueeBelow');
-  // Hide legacy left/right marquees so only horizontal below is visible
+  const bottomContainer = document.getElementById('heroMarqueeBelow') || document.getElementById('heroMarquee');
+  const bottomTrack = bottomContainer ? bottomContainer.querySelector('.hero-marquee-track') : null;
+
+  // Hide legacy left/right marquees if still present
   document.querySelectorAll('.hero-marquee-left, .hero-marquee-right').forEach(e => {
     if (e) e.style.display = 'none';
   });
+
+  if (!bottomContainer || !bottomTrack) {
+    console.warn('[HeroMarquee] Kein aktiver Bottom-Marquee gefunden (id heroMarqueeBelow/heroMarquee)');
+    return;
+  }
 
   let visible;
   try {
@@ -757,17 +763,14 @@ function renderHeroMarquees() {
 
   console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings');
 
-  if (bottomContainer) {
-    bottomContainer.style.display = 'block';
-    bottomContainer.style.opacity = '1';
-    bottomContainer.style.pointerEvents = 'auto';
-  }
+  bottomContainer.style.display = 'block';
+  bottomContainer.style.opacity = '1';
+  bottomContainer.style.pointerEvents = 'auto';
+  bottomContainer.style.zIndex = '30';
 
   if (!Array.isArray(visible) || visible.length === 0) {
     const emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
-    [leftTrack, rightTrack, bottomTrack].forEach(track => {
-      if (track) track.innerHTML = emptyHtml;
-    });
+    bottomTrack.innerHTML = emptyHtml;
     return;
   }
 
@@ -787,8 +790,18 @@ function renderHeroMarquees() {
 
   if (bottomTrack) {
     bottomTrack.innerHTML = cardsHtml + cardsHtml;
-    bottomTrack.style.animation = 'marqueeLeft 14s linear infinite';
+    bottomTrack.style.animation = 'marqueeLeft 12s linear infinite';
     bottomTrack.style.animationPlayState = 'running';
+    bottomTrack.style.transform = 'translateX(0)';
+    bottomTrack.style.willChange = 'transform';
+    bottomTrack.style.overflowX = 'auto';
+    bottomTrack.style.overflowY = 'hidden';
+    bottomTrack.style.scrollSnapType = 'x mandatory';
+    bottomTrack.style.scrollSnapStop = 'normal';
+  }
+
+  if (bottomTrack && typeof _initMarqueeSwipe === 'function') {
+    _initMarqueeSwipe(bottomTrack, 'horizontal');
   }
 
   // Detect very wide images and switch to contain
