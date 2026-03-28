@@ -615,10 +615,12 @@ img { display: block; max-width: 100%; }
   cursor: grab;
 }
 .hero-marquee-above .hero-marquee-track {
-  animation: marqueeRight 18s linear infinite;
+  animation: marqueeRight 28s linear infinite;
+  animation-timing-function: cubic-bezier(0.25, 0.01, 0.25, 1);
 }
 .hero-marquee-below .hero-marquee-track {
-  animation: marqueeLeft 14s linear infinite;
+  animation: marqueeLeft 24s linear infinite;
+  animation-timing-function: cubic-bezier(0.25, 0.01, 0.25, 1);
 }
 .hero-marquee-above .hero-marquee-track:active,
 .hero-marquee-below .hero-marquee-track:active {
