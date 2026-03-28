@@ -782,7 +782,7 @@ function renderHeroMarquees() {
     visible = Array.isArray(LISTINGS) ? LISTINGS : [];
   }
 
-  console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings', visible.map(l=>l.id).join(', '));
+  console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings', visible.map(l=>l.id).join(', '), 'isLoggedIn=', !!isLoggedIn);
 
   [topContainer, bottomContainer].forEach(container => {
     if (!container) return;
@@ -792,6 +792,14 @@ function renderHeroMarquees() {
     container.style.pointerEvents = 'auto';
     container.style.zIndex = '30';
   });
+
+  if (!topTrack || !bottomTrack) {
+    console.error('[HeroMarquee] missing tracks', { topTrack, bottomTrack });
+    return;
+  }
+
+  topTrack.innerHTML = '<div style="min-width:120px;min-height:100px;padding:14px;border:2px dashed red;">Hero-Marquee DEBUG: rendering...</div>';
+  bottomTrack.innerHTML = '<div style="min-width:120px;min-height:100px;padding:14px;border:2px dashed red;">Hero-Marquee DEBUG: rendering...</div>';
 
   if (!Array.isArray(visible) || visible.length === 0) {
     const emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
