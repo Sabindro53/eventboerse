@@ -808,8 +808,7 @@ function renderHeroMarquees() {
     </a>`;
   }
 
-  const maxCards = Math.max(5, Math.min(12, visible.length));
-  const cards = visible.slice(0, maxCards);
+  const cards = Array.isArray(visible) ? visible : [];
   const cardsHtml = cards.map(cardHTML).join('');
   const duplicatedHtml = cardsHtml + cardsHtml;
 
@@ -819,9 +818,9 @@ function renderHeroMarquees() {
     topTrack.style.animationPlayState = 'running';
     topTrack.style.transform = 'translateX(0)';
     topTrack.style.willChange = 'transform';
-    topTrack.style.overflowX = 'auto';
+    topTrack.style.overflowX = 'hidden';
     topTrack.style.overflowY = 'hidden';
-    topTrack.style.scrollSnapType = 'x mandatory';
+    topTrack.style.scrollSnapType = 'none';
     topTrack.style.scrollSnapStop = 'normal';
     _initMarqueeSwipe(topTrack, 'horizontal');
   }
@@ -832,9 +831,9 @@ function renderHeroMarquees() {
     bottomTrack.style.animationPlayState = 'running';
     bottomTrack.style.transform = 'translateX(0)';
     bottomTrack.style.willChange = 'transform';
-    bottomTrack.style.overflowX = 'auto';
+    bottomTrack.style.overflowX = 'hidden';
     bottomTrack.style.overflowY = 'hidden';
-    bottomTrack.style.scrollSnapType = 'x mandatory';
+    bottomTrack.style.scrollSnapType = 'none';
     bottomTrack.style.scrollSnapStop = 'normal';
     _initMarqueeSwipe(bottomTrack, 'horizontal');
   }

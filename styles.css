@@ -535,14 +535,14 @@ img { display: block; max-width: 100%; }
   width: 100% !important;
   max-width: 100vw !important;
   height: auto !important;
-  min-height: 180px !important;
+  min-height: 200px !important;
   margin: 10px auto !important;
   z-index: 100 !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   pointer-events: auto;
-  touch-action: pan-x;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+  touch-action: none;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
@@ -579,23 +579,30 @@ img { display: block; max-width: 100%; }
 }
 .hero-marquee-track {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-height: 100%;
+  flex-direction: row;
+  flex-wrap: nowrap;
   justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  min-height: 100%;
+  width: max-content;
   animation: none;
-  will-change: auto;
+  will-change: transform;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: none;
+  pointer-events: none; /* track not clickable: cards handle click */
 }
 .hero-marquee-above .hero-marquee-track,
 .hero-marquee-below .hero-marquee-track {
   flex-direction: row;
-  align-items: stretch;
+  align-items: center;
   min-height: auto;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
+  scroll-snap-type: none;
+  -webkit-overflow-scrolling: auto;
+  touch-action: none;
   cursor: grab;
 }
 .hero-marquee-above .hero-marquee-track {
@@ -608,11 +615,25 @@ img { display: block; max-width: 100%; }
 .hero-marquee-below .hero-marquee-track:active {
   cursor: grabbing;
 }
+.hero-marquee-above .hero-marquee-card,
 .hero-marquee-below .hero-marquee-card {
-  scroll-snap-align: start;
-  flex: 0 0 220px;
+  scroll-snap-align: none;
+  flex: 0 0 auto;
+  min-width: 220px;
+  width: 220px;
+  max-height: 220px;
+  box-sizing: border-box;
   transition: transform 0.22s ease, box-shadow 0.22s ease;
   pointer-events: auto;
+}
+.hero-marquee-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+}
+.hero-marquee-card-info {
+  font-size: 0.82rem;
+  padding: 6px 8px;
 }
 .hero-marquee-left .hero-marquee-track,
 .hero-marquee-right .hero-marquee-track {
@@ -656,6 +677,7 @@ img { display: block; max-width: 100%; }
   .hero-marquee-right {
     display: none !important;
   }
+  .hero-marquee-above,
   .hero-marquee-below {
     display: block !important;
   }
