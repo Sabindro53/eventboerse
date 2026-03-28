@@ -575,6 +575,28 @@ function _visibleListings() {
   return dbItems.length > 0 ? dbItems : LISTINGS;
 }
 
+function getHeroListings() {
+  var all = Array.isArray(LISTINGS) ? LISTINGS.slice() : [];
+  if (!isLoggedIn) return all;
+
+  try {
+    var dbItems = _visibleListings() || [];
+    if (!Array.isArray(dbItems)) dbItems = [];
+    var ids = new Set(all.map(function(l){ return l && l.id != null ? l.id : null; }));
+    dbItems.forEach(function(l){
+      if (!l || l.id == null) return;
+      if (!ids.has(l.id)) {
+        ids.add(l.id);
+        all.push(l);
+      }
+    });
+  } catch (e) {
+    console.warn('getHeroListings: Fehler beim Zusammenführen der Listings', e);
+  }
+
+  return all;
+}
+
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
   // Pages that require login — redirect to login modal immediately
@@ -753,12 +775,12 @@ function renderHeroMarquees() {
 
   let visible;
   try {
-    visible = _visibleListings();
+    visible = getHeroListings();
     if (!Array.isArray(visible) || visible.length === 0) {
       visible = Array.isArray(LISTINGS) ? LISTINGS : [];
     }
   } catch (err) {
-    console.error('Fehler bei _visibleListings, verwende Demo-Daten', err);
+    console.error('Fehler bei getHeroListings, verwende Demo-Daten', err);
     visible = Array.isArray(LISTINGS) ? LISTINGS : [];
   }
 
