@@ -455,6 +455,15 @@ img { display: block; max-width: 100%; }
 }
 
 /* ======== PAGES ======== */
+#page-home.page,
+#page-home.page.active {
+  display: none !important;
+}
+#page-browse.page,
+#page-browse.page.active {
+  display: block !important;
+}
+
 .page { display: none; padding-top: var(--nav-height); padding-bottom: var(--mobile-nav-height); min-height: 100vh; }
 .page.active { display: block; }
 

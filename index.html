@@ -36,7 +36,7 @@
   <!-- ============ NAVIGATION ============ -->
   <nav id="navbar">
     <div class="nav-inner">
-      <a href="#" class="logo" onclick="navigateTo('home')">
+      <a href="#" class="logo" onclick="navigateTo('browse')">
         <span class="logo-icon material-icons-round">celebration</span>
         <span class="logo-text">Event<span class="accent">börse</span></span>
       </a>
@@ -131,7 +131,7 @@
       <span class="material-icons-round">dynamic_feed</span>
       <span>Aktuelles</span>
     </button>
-    <button onclick="navigateTo('home')" data-page="home">
+    <button onclick="navigateTo('browse')" data-page="browse">
       <span class="material-icons-round">search</span>
       <span>Suche</span>
     </button>
@@ -151,7 +151,7 @@
 
   <!-- ============ PAGE: HOME ============ -->
   <main>
-    <section id="page-home" class="page active">
+    <section id="page-home" class="page">
       <!-- Hero -->
       <div class="hero">
         <div class="hero-bg"></div>
@@ -410,7 +410,7 @@
         <div class="container">
           <div class="footer-grid">
             <div class="footer-col">
-              <a href="#" onclick="navigateTo('home');return false" class="footer-logo">
+              <a href="#" onclick="navigateTo('browse');return false" class="footer-logo">
                 <span class="material-icons-round">celebration</span>
                 Event<span class="accent">börse</span>
               </a>
@@ -486,7 +486,7 @@
     </section>
 
     <!-- ============ PAGE: BROWSE / SEARCH ============ -->
-    <section id="page-browse" class="page">
+    <section id="page-browse" class="page active">
       <div class="hero-marquee hero-marquee-above">
         <div class="hero-marquee-track"></div>
       </div>

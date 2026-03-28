@@ -459,13 +459,40 @@ const DEMO_EVENTS = [
 ];
 
 // ========== STATE ==========
-let currentPage = 'home';
+let currentPage = 'browse';
 let currentListing = null;
 let currentChat = null;
 let isLoggedIn = false;
 let favorites = new Set();
+
+// Startseite immer auf Suche umleiten:
+if (window.location.hash === '#home' || window.location.hash === '' || window.location.hash === '#') {
+  window.location.replace(window.location.pathname + window.location.search + '#browse');
+  currentPage = 'browse';
+}
 let _dbListingsLoaded = false;
 let _favoritesLoaded = false;
+
+function forceBrowsePage() {
+  // In manchen Umgebungen bleibt page-home trotzdem aktiv (z.B. WP-Theme-Initialzustand)
+  var home = document.getElementById('page-home');
+  var browse = document.getElementById('page-browse');
+  if (!browse) return;
+
+  if (window.location.hash === '#home' || window.location.hash === '' || window.location.hash === '#') {
+    history.replaceState(null, '', window.location.pathname + window.location.search + '#browse');
+  }
+
+  if (home) home.classList.remove('active');
+  browse.classList.add('active');
+  currentPage = 'browse';
+
+  try {
+    renderHeroMarquees();
+  } catch (e) {
+    console.warn('forceBrowsePage: renderHeroMarquees failed', e);
+  }
+}
 
 function _saveFavoritesToStorage() {
   var key = currentUser ? 'eb_favs_' + currentUser.id : 'eb_favs_guest';
@@ -599,6 +626,11 @@ function getHeroListings() {
 
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
+  // Make home an alias for browse, so es nur eine Suchseite zu pflegen gibt.
+  if (page === 'home') {
+    page = 'browse';
+  }
+
   // Pages that require login — redirect to login modal immediately
   var loginRequired = ['create-listing', 'messages', 'profile', 'edit-profile', 'settings', 'admin'];
   if (!isLoggedIn && loginRequired.indexOf(page) !== -1) {
@@ -1571,6 +1603,12 @@ function performSearch() {
   }
 
   filterListings();
+
+  try {
+    renderHeroMarquees();
+  } catch (err) {
+    console.error('Fehler renderHeroMarquees in performSearch', err);
+  }
 }
 
 // ========== BROWSE PAGE ==========
@@ -5247,8 +5285,14 @@ document.addEventListener('DOMContentLoaded', function() {
     window.history.replaceState({ page: initPage, data: initData }, '', '#' + hash);
     navigateTo(initPage, initData, true);
   } else {
-    window.history.replaceState({ page: 'home', data: null }, '', '#home');
+    window.history.replaceState({ page: 'browse', data: null }, '', '#browse');
+    navigateTo('browse', null, true);
   }
+
+  forceBrowsePage();
+  window.addEventListener('hashchange', forceBrowsePage);
+  var browseObserver = new MutationObserver(forceBrowsePage);
+  browseObserver.observe(document.documentElement, { attributes: true, childList: true, subtree: true });
 
   // Show update notification once per version
   showUpdateNotification();
