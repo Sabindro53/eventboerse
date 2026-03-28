@@ -575,10 +575,20 @@ img { display: block; max-width: 100%; }
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   animation: marqueeLeft 14s linear infinite;
+  touch-action: pan-x;
+  cursor: grab;
+}
+.hero-marquee-below .hero-marquee-track:active {
+  cursor: grabbing;
 }
 .hero-marquee-below .hero-marquee-card {
   scroll-snap-align: start;
-  flex: 0 0 240px;
+  flex: 0 0 220px;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.hero-marquee-below .hero-marquee-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: var(--shadow-lg);
 }
 .hero-marquee-left .hero-marquee-track { animation: marqueeUp 24s linear infinite; }
 .hero-marquee-right .hero-marquee-track { animation: marqueeUp 24s linear infinite reverse; }
