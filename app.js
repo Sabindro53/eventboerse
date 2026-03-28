@@ -862,7 +862,7 @@ function renderHeroMarquees() {
 
   topTracks.forEach(track => {
     track.innerHTML = duplicatedHtml;
-    track.style.animation = 'marqueeRight 18s linear infinite';
+    track.style.animation = 'marqueeRight 60s linear infinite';
     track.style.animationPlayState = 'running';
     track.style.transform = 'translateX(0)';
     track.style.willChange = 'transform';
@@ -875,7 +875,7 @@ function renderHeroMarquees() {
 
   bottomTracks.forEach(track => {
     track.innerHTML = duplicatedHtml;
-    track.style.animation = 'marqueeLeft 14s linear infinite';
+    track.style.animation = 'marqueeLeft 56s linear infinite';
     track.style.animationPlayState = 'running';
     track.style.transform = 'translateX(0)';
     track.style.willChange = 'transform';
