@@ -584,7 +584,7 @@ img { display: block; max-width: 100%; }
   justify-content: flex-start;
   align-items: center;
   gap: 12px;
-  min-height: 100%;
+  min-height: 150px;
   width: max-content;
   animation: none;
   will-change: transform;
@@ -735,15 +735,26 @@ img { display: block; max-width: 100%; }
 .hero-marquee-card {
   display: block;
   width: 180px;
+  border: 1px solid rgba(0,0,0,0.08);
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-md);
-  background: var(--bg);
+  background: #fff;
   cursor: pointer;
   transition: transform 0.24s ease, box-shadow 0.24s ease;
   flex-shrink: 0;
   color: var(--dark);
   text-decoration: none;
+}
+.hero-marquee-card h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0;
+  color: #222;
+}
+.hero-marquee-card span {
+  font-size: 0.78rem;
+  color: #555;
 }
 .hero-marquee-card:not(:last-child) {
   margin-right: 8px;

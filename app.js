@@ -782,11 +782,12 @@ function renderHeroMarquees() {
     visible = Array.isArray(LISTINGS) ? LISTINGS : [];
   }
 
-  console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings');
+  console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings', visible.map(l=>l.id).join(', '));
 
   [topContainer, bottomContainer].forEach(container => {
     if (!container) return;
     container.style.display = 'block';
+    container.style.visibility = 'visible';
     container.style.opacity = '1';
     container.style.pointerEvents = 'auto';
     container.style.zIndex = '30';
@@ -809,6 +810,13 @@ function renderHeroMarquees() {
   }
 
   const cards = Array.isArray(visible) ? visible : [];
+  if (cards.length === 0) {
+    const emptyHtml = '<div class="hero-marquee-empty">Momentan keine Angebote, bitte später erneut versuchen.</div>';
+    if (topTrack) topTrack.innerHTML = emptyHtml;
+    if (bottomTrack) bottomTrack.innerHTML = emptyHtml;
+    return;
+  }
+
   const cardsHtml = cards.map(cardHTML).join('');
   const duplicatedHtml = cardsHtml + cardsHtml;
 
