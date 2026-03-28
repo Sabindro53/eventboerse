@@ -737,12 +737,12 @@ function renderListingCard(listing) {
 // ========== HOME PAGE ==========
 
 function renderHeroMarquees() {
-  const leftTrack = document.querySelector('#heroMarqueeLeft .hero-marquee-track');
-  const rightTrack = document.querySelector('#heroMarqueeRight .hero-marquee-track');
   const bottomTrack = document.querySelector('#heroMarqueeBelow .hero-marquee-track');
-  const leftContainer = document.getElementById('heroMarqueeLeft');
-  const rightContainer = document.getElementById('heroMarqueeRight');
   const bottomContainer = document.getElementById('heroMarqueeBelow');
+  // Hide legacy left/right marquees so only horizontal below is visible
+  document.querySelectorAll('.hero-marquee-left, .hero-marquee-right').forEach(e => {
+    if (e) e.style.display = 'none';
+  });
 
   let visible;
   try {
@@ -757,12 +757,11 @@ function renderHeroMarquees() {
 
   console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings');
 
-  [leftContainer, rightContainer, bottomContainer].forEach(container => {
-    if (!container) return;
-    container.style.display = '';
-    container.style.opacity = '1';
-    container.style.pointerEvents = 'auto';
-  });
+  if (bottomContainer) {
+    bottomContainer.style.display = 'block';
+    bottomContainer.style.opacity = '1';
+    bottomContainer.style.pointerEvents = 'auto';
+  }
 
   if (!Array.isArray(visible) || visible.length === 0) {
     const emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
@@ -786,12 +785,9 @@ function renderHeroMarquees() {
   const cards = visible.slice(0, maxCards);
   const cardsHtml = cards.map(cardHTML).join('');
 
-  if (leftTrack) leftTrack.innerHTML = cardsHtml + cardsHtml;
-  if (rightTrack) rightTrack.innerHTML = cardsHtml + cardsHtml;
-  if (bottomTrack) bottomTrack.innerHTML = cardsHtml;
-
   if (bottomTrack) {
-    bottomTrack.style.animation = 'marqueeLeft 18s linear infinite';
+    bottomTrack.innerHTML = cardsHtml + cardsHtml;
+    bottomTrack.style.animation = 'marqueeLeft 14s linear infinite';
     bottomTrack.style.animationPlayState = 'running';
   }
 
@@ -820,8 +816,6 @@ function renderHeroMarquees() {
     bottomTrack.style.cursor = 'grab';
     _initMarqueeSwipe(bottomTrack, 'horizontal');
   }
-  if (leftTrack) _initMarqueeSwipe(leftTrack, 'vertical');
-  if (rightTrack) _initMarqueeSwipe(rightTrack, 'vertical');
 }
 
 function _initMarqueeSwipe(track, orientation) {

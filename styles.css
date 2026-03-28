@@ -543,8 +543,9 @@ img { display: block; max-width: 100%; }
   opacity: 1 !important;
   visibility: visible !important;
 }
-.hero-marquee-left { left: 18px; width: 180px; }
-.hero-marquee-right { right: 18px; width: 180px; }
+.hero-marquee-left, .hero-marquee-right {
+  display: none !important;
+}
 .hero-marquee-below {
   position: relative;
   width: 100%;
