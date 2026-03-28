@@ -501,34 +501,41 @@ img { display: block; max-width: 100%; }
 
 /* Animated Marquee Columns */
 .hero-marquee {
-  position: absolute;
-  top: 0;
-  width: 220px;
-  height: 100%;
-  z-index: 100 !important;
-  overflow: visible !important;
+  position: relative;
+  top: auto;
+  width: 100%;
+  max-width: calc(100% - 40px);
+  margin: 24px auto 0;
+  padding: 10px;
+  z-index: 20;
+  overflow: visible;
   pointer-events: auto;
-  touch-action: pan-x;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
   opacity: 1 !important;
   visibility: visible !important;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(221, 221, 221, 0.5);
 }
-.hero-marquee-left, .hero-marquee-right {
-  display: block !important;
+.hero-marquee-below {
+  position: relative;
+  display: block;
+  margin-top: 30px;
 }
-.hero-marquee-track {
-  animation-play-state: running !important;
-  will-change: transform;
+.hero-marquee-left,
+.hero-marquee-right {
+  display: none !important;
 }
-.hero-marquee-left { left: 24px; }
-.hero-marquee-right { right: 24px; }
 .hero-marquee-track {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 16px;
-  min-height: 100%;
-  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  animation: none !important;
+  will-change: auto;
 }
 .hero-marquee-empty {
   display: flex;
@@ -543,11 +550,9 @@ img { display: block; max-width: 100%; }
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
 }
-.hero-marquee-left .hero-marquee-track {
-  animation: marqueeUp 24s linear infinite;
-}
+.hero-marquee-left .hero-marquee-track,
 .hero-marquee-right .hero-marquee-track {
-  animation: marqueeUp 24s linear infinite reverse;
+  animation: none !important;
 }
 @keyframes marqueeUp {
   0% { transform: translateY(0); }

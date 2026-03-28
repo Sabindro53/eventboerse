@@ -737,14 +737,14 @@ function renderListingCard(listing) {
 // ========== HOME PAGE ==========
 
 function renderHeroMarquees() {
-  const leftTrack = document.querySelector('#heroMarqueeLeft .hero-marquee-track');
-  const rightTrack = document.querySelector('#heroMarqueeRight .hero-marquee-track');
-  if (!leftTrack || !rightTrack) {
-    console.warn('[HeroMarquee] fehlender Track: leftTrack=', leftTrack, 'rightTrack=', rightTrack);
+  const track = document.querySelector('#heroMarquee .hero-marquee-track');
+  const container = document.getElementById('heroMarquee');
+  if (!track || !container) {
+    console.warn('[HeroMarquee] fehlender Track oder Container', track, container);
     return;
   }
 
-  var visible;
+  let visible;
   try {
     visible = _visibleListings();
     if (!Array.isArray(visible) || visible.length === 0) {
@@ -756,55 +756,33 @@ function renderHeroMarquees() {
   }
 
   console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings');
-  document.getElementById('heroMarqueeLeft').style.display = '';
-  document.getElementById('heroMarqueeRight').style.display = '';
-  document.getElementById('heroMarqueeLeft').style.zIndex = '100';
-  document.getElementById('heroMarqueeRight').style.zIndex = '100';
-  document.getElementById('heroMarqueeLeft').style.opacity = '1';
-  document.getElementById('heroMarqueeRight').style.opacity = '1';
-  document.getElementById('heroMarqueeLeft').style.pointerEvents = 'auto';
-  document.getElementById('heroMarqueeRight').style.pointerEvents = 'auto';
+  container.style.display = '';
+  container.style.zIndex = '20';
+  container.style.opacity = '1';
+  container.style.pointerEvents = 'auto';
 
-  // Need at least 2 unique listings for a meaningful marquee
-  if (visible.length < 2) {
-    leftTrack.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
-    rightTrack.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
-    document.getElementById('heroMarqueeLeft').style.display = '';
-    document.getElementById('heroMarqueeRight').style.display = '';
+  if (!visible || visible.length === 0) {
+    track.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
     return;
   }
-  document.getElementById('heroMarqueeLeft').style.display = '';
-  document.getElementById('heroMarqueeRight').style.display = '';
-
-  // Beide Spalten zeigen alle Listings
-  var leftListings = visible;
-  var rightListings = visible;
 
   function cardHTML(l) {
     return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
       <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" />
       <div class="hero-marquee-card-info">
         <h4>${_escHtml(l.title)}</h4>
-        <span>${_escHtml(l.priceLabel)} · ★ ${l.rating}</span>
+        <span>${_escHtml(l.priceLabel)} · ★ ${l.rating || 0}</span>
       </div>
     </a>`;
   }
 
-  // Pad each set to at least 5 cards, then duplicate once for seamless loop
-  function padList(arr, min) {
-    if (arr.length >= min) return arr.slice(0, min);
-    var out = [];
-    while (out.length < min) {
-      for (var i = 0; i < arr.length && out.length < min; i++) out.push(arr[i]);
-    }
-    return out;
-  }
+  const maxCards = 8;
+  const cards = visible.slice(0, maxCards);
+  track.innerHTML = cards.map(cardHTML).join('');
 
-  // Zeige alle Bilder nur einmal hintereinander, keine Dopplung
-  var leftHTML = leftListings.map(cardHTML).join('');
-  var rightHTML = rightListings.map(cardHTML).join('');
-  leftTrack.innerHTML = leftHTML;
-  rightTrack.innerHTML = rightHTML;
+  if (cards.length === 0) {
+    track.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
+  }
 
   // Detect very wide images and switch to contain
   [leftTrack, rightTrack].forEach(track => {
