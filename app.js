@@ -737,12 +737,12 @@ function renderListingCard(listing) {
 // ========== HOME PAGE ==========
 
 function renderHeroMarquees() {
-  const track = document.querySelector('#heroMarquee .hero-marquee-track');
-  const container = document.getElementById('heroMarquee');
-  if (!track || !container) {
-    console.warn('[HeroMarquee] fehlender Track oder Container', track, container);
-    return;
-  }
+  const leftTrack = document.querySelector('#heroMarqueeLeft .hero-marquee-track');
+  const rightTrack = document.querySelector('#heroMarqueeRight .hero-marquee-track');
+  const bottomTrack = document.querySelector('#heroMarqueeBelow .hero-marquee-track');
+  const leftContainer = document.getElementById('heroMarqueeLeft');
+  const rightContainer = document.getElementById('heroMarqueeRight');
+  const bottomContainer = document.getElementById('heroMarqueeBelow');
 
   let visible;
   try {
@@ -756,13 +756,19 @@ function renderHeroMarquees() {
   }
 
   console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings');
-  container.style.display = '';
-  container.style.zIndex = '20';
-  container.style.opacity = '1';
-  container.style.pointerEvents = 'auto';
 
-  if (!visible || visible.length === 0) {
-    track.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
+  [leftContainer, rightContainer, bottomContainer].forEach(container => {
+    if (!container) return;
+    container.style.display = '';
+    container.style.opacity = '1';
+    container.style.pointerEvents = 'auto';
+  });
+
+  if (!Array.isArray(visible) || visible.length === 0) {
+    const emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
+    [leftTrack, rightTrack, bottomTrack].forEach(track => {
+      if (track) track.innerHTML = emptyHtml;
+    });
     return;
   }
 
@@ -776,16 +782,22 @@ function renderHeroMarquees() {
     </a>`;
   }
 
-  const maxCards = 8;
+  const maxCards = Math.max(5, Math.min(12, visible.length));
   const cards = visible.slice(0, maxCards);
-  track.innerHTML = cards.map(cardHTML).join('');
+  const cardsHtml = cards.map(cardHTML).join('');
 
-  if (cards.length === 0) {
-    track.innerHTML = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
+  if (leftTrack) leftTrack.innerHTML = cardsHtml + cardsHtml;
+  if (rightTrack) rightTrack.innerHTML = cardsHtml + cardsHtml;
+  if (bottomTrack) bottomTrack.innerHTML = cardsHtml;
+
+  if (bottomTrack) {
+    bottomTrack.style.animation = 'marqueeLeft 18s linear infinite';
+    bottomTrack.style.animationPlayState = 'running';
   }
 
   // Detect very wide images and switch to contain
-  [leftTrack, rightTrack].forEach(track => {
+  [leftTrack, rightTrack, bottomTrack].forEach(track => {
+    if (!track) return;
     track.querySelectorAll('.hero-marquee-card img').forEach(img => {
       img.onload = () => {
         if (img.naturalWidth / img.naturalHeight > 2.2) {
@@ -803,8 +815,7 @@ function renderHeroMarquees() {
   });
 
   // Touch-swipe support for both marquees
-  _initMarqueeSwipe(leftTrack);
-  _initMarqueeSwipe(rightTrack);
+  _initMarqueeSwipe(bottomTrack);
 }
 
 function _initMarqueeSwipe(track) {
