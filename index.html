@@ -22,7 +22,7 @@
   <meta name="twitter:image" content="https://xn--eventbrse-57a.de/wp-content/themes/eventboerse/assets/img/og-image.png" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FF385C'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='sans-serif' font-weight='bold' fill='white'%3EE%3C/text%3E%3C/svg%3E" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=106" />
+  <link rel="stylesheet" href="styles.css?v=110" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
@@ -92,11 +92,13 @@
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
         <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
         <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
+        <button onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Event-Planer Board</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
         <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
         <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
+        <button onclick="navigateTo('contact')"><span class="material-icons-round">help_outline</span> Kontakt & Support</button>
         <button id="adminMenuBtn" style="display:none" onclick="navigateTo('admin')" class="admin-menu-btn"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</button>
         <hr />
         <button onclick="logout()"><span class="material-icons-round">logout</span> Abmelden</button>
@@ -127,17 +129,17 @@
 
   <!-- ============ MOBILE BOTTOM NAV ============ -->
   <nav class="mobile-nav" id="mobileNav">
-    <button onclick="navigateTo('aktuelles')" data-page="aktuelles">
-      <span class="material-icons-round">dynamic_feed</span>
-      <span>Aktuelles</span>
-    </button>
     <button onclick="navigateTo('browse')" data-page="browse">
       <span class="material-icons-round">search</span>
       <span>Suche</span>
     </button>
-    <button onclick="navigateTo('create-listing')" data-page="create-listing">
-      <span class="material-icons-round">add_circle</span>
-      <span>Inserieren</span>
+    <button onclick="navigateTo('aktuelles')" data-page="aktuelles">
+      <span class="material-icons-round">dynamic_feed</span>
+      <span>Feed</span>
+    </button>
+    <button onclick="navigateTo('board')" data-page="board" class="mobile-nav-board">
+      <span class="material-icons-round">view_kanban</span>
+      <span>Board</span>
     </button>
     <button onclick="navigateTo('messages')" data-page="messages">
       <span class="material-icons-round">chat_bubble</span>
@@ -405,49 +407,6 @@
         </div>
       </div>
 
-      <!-- Footer -->
-      <footer class="footer">
-        <div class="container">
-          <div class="footer-grid">
-            <div class="footer-col">
-              <a href="#" onclick="navigateTo('browse');return false" class="footer-logo">
-                <span class="material-icons-round">celebration</span>
-                Event<span class="accent">börse</span>
-              </a>
-              <p>Der smarte Marktplatz für unvergessliche Events.</p>
-            </div>
-            <div class="footer-col">
-              <h4>Plattform</h4>
-              <a href="#" onclick="navigateTo('browse')">Services entdecken</a>
-              <a href="#" onclick="navigateTo('create-listing')">Inserat aufgeben</a>
-              <a href="#">Preise</a>
-              <a href="#">FAQ</a>
-            </div>
-            <div class="footer-col">
-              <h4>Unternehmen</h4>
-              <a href="#">Über uns</a>
-              <a href="#">Karriere</a>
-              <a href="#">Blog</a>
-              <a href="#">Presse</a>
-            </div>
-            <div class="footer-col">
-              <h4>Rechtliches</h4>
-              <a href="#" onclick="event.preventDefault(); navigateTo('agb')">AGB</a>
-              <a href="#" onclick="event.preventDefault(); navigateTo('datenschutz')">Datenschutz</a>
-              <a href="#">Impressum</a>
-              <a href="#" onclick="event.preventDefault(); localStorage.removeItem('eb_cookie_consent'); initCookieConsent();">Cookie-Einstellungen</a>
-            </div>
-          </div>
-          <div class="footer-bottom">
-            <p>© 2026 Eventbörse. Alle Rechte vorbehalten.</p>
-            <div class="footer-social">
-              <a href="#">Instagram</a>
-              <a href="#">TikTok</a>
-              <a href="#">LinkedIn</a>
-            </div>
-          </div>
-        </div>
-      </footer>
     </section>
 
     <!-- ============ PAGE: EXPLORE (Instagram-Style) ============ -->
@@ -464,117 +423,245 @@
       </div>
     </section>
 
-    <!-- ============ PAGE: AKTUELLES (Feed) ============ -->
+    <!-- ============ PAGE: AKTUELLES (Social Feed) ============ -->
     <section id="page-aktuelles" class="page">
-      <div class="container">
-        <div class="feed-header">
-          <h2 class="feed-title">Aktuelles</h2>
-          <div class="feed-location-badge" id="feedLocationBadge">
-            <span class="material-icons-round">location_on</span>
-            <span id="feedLocationText">In deiner Nähe</span>
+      <div class="feed-layout">
+        <!-- Stories Row -->
+        <div class="stories-bar" id="storiesBar">
+          <div class="stories-scroll">
+            <div class="story-add-btn" onclick="openAddStoryModal()">
+              <div class="story-add-circle">
+                <span class="material-icons-round">add</span>
+              </div>
+              <span>Deine Story</span>
+            </div>
+            <!-- Stories generated by JS -->
           </div>
         </div>
-        <div class="feed-tabs">
-          <button class="feed-tab active" data-feed="foryou" onclick="switchFeedTab(this)">Für dich</button>
-          <button class="feed-tab" data-feed="newest" onclick="switchFeedTab(this)">Neueste</button>
-          <button class="feed-tab" data-feed="popular" onclick="switchFeedTab(this)">Beliebt</button>
-        </div>
-        <div class="feed-list" id="feedList">
-          <!-- Populated by JS -->
+
+        <!-- Feed & Sidebar Layout -->
+        <div class="feed-content-layout">
+          <div class="feed-main">
+            <div class="feed-header">
+              <h2 class="feed-title">Aktuelles</h2>
+              <div class="feed-header-actions">
+                <div class="feed-location-badge" id="feedLocationBadge">
+                  <span class="material-icons-round">location_on</span>
+                  <span id="feedLocationText">In deiner Nähe</span>
+                </div>
+                <button class="feed-post-btn" onclick="openCreatePostModal()">
+                  <span class="material-icons-round">add_circle</span>
+                  Post erstellen
+                </button>
+              </div>
+            </div>
+            <div class="feed-tabs">
+              <button class="feed-tab active" data-feed="foryou" onclick="switchFeedTab(this)">Für dich</button>
+              <button class="feed-tab" data-feed="events" onclick="switchFeedTab(this)">Events</button>
+              <button class="feed-tab" data-feed="newest" onclick="switchFeedTab(this)">Neueste</button>
+              <button class="feed-tab" data-feed="popular" onclick="switchFeedTab(this)">Beliebt</button>
+            </div>
+            <div class="feed-list" id="feedList">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Sidebar -->
+          <aside class="feed-sidebar">
+            <div class="feed-sidebar-card">
+              <h4>Trending Kategorien</h4>
+              <div class="sidebar-trending" id="sidebarTrending">
+                <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='hochzeit';filterListings();},100)">#Hochzeit</a>
+                <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='dj';filterListings();},100)">#DJMusic</a>
+                <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='catering';filterListings();},100)">#Catering</a>
+                <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='foto';filterListings();},100)">#Fotografie</a>
+                <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='location';filterListings();},100)">#Locations</a>
+              </div>
+            </div>
+            <div class="feed-sidebar-card">
+              <h4>Demnächst</h4>
+              <div class="sidebar-upcoming" id="sidebarUpcoming">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+            <div class="feed-sidebar-card sidebar-contact-card">
+              <span class="material-icons-round">email</span>
+              <h4>Kontakt & Support</h4>
+              <p>Fragen oder Probleme? Wir helfen dir gerne!</p>
+              <a href="#" onclick="navigateTo('contact')" class="btn-outline btn-sm">Schreib uns</a>
+            </div>
+          </aside>
         </div>
       </div>
     </section>
 
     <!-- ============ PAGE: BROWSE / SEARCH ============ -->
     <section id="page-browse" class="page active">
-      <div class="hero-marquee hero-marquee-above">
-        <div class="hero-marquee-track"></div>
-      </div>
-      <div class="hero-marquee hero-marquee-below">
-        <div class="hero-marquee-track"></div>
-      </div>
-      <div class="browse-header">
-        <div class="container">
-          <div class="browse-filters">
-            <div class="browse-search-row">
-              <span class="material-icons-round">search</span>
-              <input type="text" id="browseSearch" placeholder="Service suchen..." oninput="filterListings()" />
-            </div>
-            <div class="filter-chips">
-              <div class="filter-chip">
-                <span class="material-icons-round">category</span>
-                <select id="browseCategory" onchange="filterListings()">
-                  <option value="">Kategorie</option>
-                  <option value="dj">DJ & Musik</option>
-                  <option value="catering">Catering</option>
-                  <option value="foto">Fotografie</option>
-                  <option value="florist">Floristik</option>
-                  <option value="location">Locations</option>
-                  <option value="licht">Licht & Technik</option>
-                  <option value="pyro">Pyrotechnik</option>
-                  <option value="deko">Dekoration</option>
-                  <option value="planung">Eventplanung</option>
-                  <option value="moderation">Moderation</option>
-                </select>
-              </div>
-              <div class="filter-chip">
-                <span class="material-icons-round">celebration</span>
-                <select id="browseEventType" onchange="filterListings()">
-                  <option value="">Event-Typ</option>
-                  <option value="Hochzeit">Hochzeit</option>
-                  <option value="Geburtstag">Geburtstag</option>
-                  <option value="Party">Party</option>
-                  <option value="Firmen-Event">Firmen-Event</option>
-                  <option value="Jubiläum">Jubiläum</option>
-                  <option value="Messe">Messe</option>
-                </select>
-              </div>
-              <div class="filter-chip">
-                <span class="material-icons-round">location_on</span>
-                <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" />
-              </div>
-              <div class="filter-chip">
-                <span class="material-icons-round">euro</span>
-                <select id="browsePrice" onchange="filterListings()">
-                  <option value="">Preis</option>
-                  <option value="0-500">Bis 500€</option>
-                  <option value="500-1000">500–1.000€</option>
-                  <option value="1000-2500">1.000–2.500€</option>
-                  <option value="2500+">Über 2.500€</option>
-                </select>
-              </div>
-              <div class="filter-chip">
-                <span class="material-icons-round">star</span>
-                <select id="browseRating" onchange="filterListings()">
-                  <option value="">Bewertung</option>
-                  <option value="4.5">★ 4.5+</option>
-                  <option value="4">★ 4.0+</option>
-                  <option value="3.5">★ 3.5+</option>
-                </select>
-              </div>
-            </div>
-            <div class="filter-tags" id="activeFilters"></div>
+
+      <!-- ── Hero Welcome with Video Background ── -->
+      <div class="browse-hero">
+        <video class="browse-hero-video" autoplay muted loop playsinline>
+          <source src="https://cdn.coverr.co/videos/coverr-confetti-falling-on-the-crowd-at-an-event/1080p.mp4" type="video/mp4" />
+        </video>
+        <div class="browse-hero-overlay"></div>
+        <div class="browse-hero-content">
+          <span class="browse-hero-kicker"><span class="material-icons-round">auto_awesome</span> Dein Event-Marktplatz</span>
+          <h1 class="browse-hero-title">PLANE Dein<br><span class="accent-gradient">Perfektes Event.</span></h1>
+          <p class="browse-hero-sub">Finde die besten Dienstleister, entdecke Inspirationen und verbinde dich mit Profis — alles an einem Ort.</p>
+          <div class="browse-hero-actions">
+            <button class="btn-hero-primary" onclick="document.querySelector('.browse-toolbar').scrollIntoView({behavior:'smooth'})">
+              <span class="material-icons-round">search</span> Services entdecken
+            </button>
+            <button class="btn-hero-secondary" onclick="navigateTo('create-listing')">
+              <span class="material-icons-round">add_circle_outline</span> Inserat erstellen
+            </button>
+          </div>
+          <div class="browse-hero-stats">
+            <div class="hero-stat"><strong data-count="150" data-suffix="+">0</strong><span>Dienstleister</span></div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat"><strong data-count="12">0</strong><span>Kategorien</span></div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat"><strong data-count="4.8" data-suffix="★" data-decimal="1">0</strong><span>Ø Bewertung</span></div>
           </div>
         </div>
       </div>
-      <div class="container">
-        <div class="browse-results-header">
-          <h2 id="browseResultCount">24 Services gefunden</h2>
-          <div class="browse-sort">
-            <select id="browseSort" onchange="filterListings()">
-              <option value="relevanz">Relevanz</option>
-              <option value="preis-asc">Preis aufsteigend</option>
-              <option value="preis-desc">Preis absteigend</option>
-              <option value="rating">Beste Bewertung</option>
-              <option value="neu">Neueste zuerst</option>
-            </select>
-            <button class="view-toggle active" id="gridViewBtn" onclick="setView('grid')">
-              <span class="material-icons-round">grid_view</span>
-            </button>
-            <button class="view-toggle" id="listViewBtn" onclick="setView('list')">
-              <span class="material-icons-round">view_list</span>
-            </button>
+
+      <!-- ── Category Quick-Access ── -->
+      <div class="browse-categories-bar">
+        <div class="browse-categories-inner">
+          <button class="cat-icon-btn active" onclick="filterByCategory(this, '')">
+            <span class="material-icons-round">apps</span>
+            <span>Alle</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'dj')">
+            <span class="cat-emoji">🎧</span>
+            <span>DJ & Musik</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'catering')">
+            <span class="cat-emoji">🍽️</span>
+            <span>Catering</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'foto')">
+            <span class="cat-emoji">📸</span>
+            <span>Fotografie</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'florist')">
+            <span class="cat-emoji">💐</span>
+            <span>Floristik</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'location')">
+            <span class="cat-emoji">🏰</span>
+            <span>Locations</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'licht')">
+            <span class="cat-emoji">💡</span>
+            <span>Licht & Technik</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'pyro')">
+            <span class="cat-emoji">🎆</span>
+            <span>Pyrotechnik</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'deko')">
+            <span class="cat-emoji">🎨</span>
+            <span>Dekoration</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'planung')">
+            <span class="cat-emoji">📋</span>
+            <span>Planung</span>
+          </button>
+          <button class="cat-icon-btn" onclick="filterByCategory(this, 'moderation')">
+            <span class="cat-emoji">🎤</span>
+            <span>Moderation</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sticky filter bar -->
+      <div class="browse-toolbar">
+        <div class="browse-toolbar-inner">
+          <div class="browse-search-row">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="browseSearch" placeholder="DJ, Catering, Fotografie…" oninput="filterListings()" />
           </div>
+          <div class="browse-filter-pills">
+            <div class="filter-chip">
+              <span class="material-icons-round">category</span>
+              <select id="browseCategory" onchange="filterListings()">
+                <option value="">Kategorie</option>
+                <option value="dj">DJ & Musik</option>
+                <option value="catering">Catering</option>
+                <option value="foto">Fotografie</option>
+                <option value="florist">Floristik</option>
+                <option value="location">Locations</option>
+                <option value="licht">Licht & Technik</option>
+                <option value="pyro">Pyrotechnik</option>
+                <option value="deko">Dekoration</option>
+                <option value="planung">Eventplanung</option>
+                <option value="moderation">Moderation</option>
+              </select>
+            </div>
+            <div class="filter-chip">
+              <span class="material-icons-round">celebration</span>
+              <select id="browseEventType" onchange="filterListings()">
+                <option value="">Event-Typ</option>
+                <option value="Hochzeit">Hochzeit</option>
+                <option value="Geburtstag">Geburtstag</option>
+                <option value="Party">Party</option>
+                <option value="Firmen-Event">Firmen-Event</option>
+                <option value="Jubiläum">Jubiläum</option>
+                <option value="Messe">Messe</option>
+              </select>
+            </div>
+            <div class="filter-chip">
+              <span class="material-icons-round">location_on</span>
+              <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" />
+            </div>
+            <div class="filter-chip">
+              <span class="material-icons-round">euro</span>
+              <select id="browsePrice" onchange="filterListings()">
+                <option value="">Preis</option>
+                <option value="0-500">Bis 500€</option>
+                <option value="500-1000">500–1.000€</option>
+                <option value="1000-2500">1.000–2.500€</option>
+                <option value="2500+">Über 2.500€</option>
+              </select>
+            </div>
+            <div class="filter-chip">
+              <span class="material-icons-round">star</span>
+              <select id="browseRating" onchange="filterListings()">
+                <option value="">Bewertung</option>
+                <option value="4.5">★ 4.5+</option>
+                <option value="4">★ 4.0+</option>
+                <option value="3.5">★ 3.5+</option>
+              </select>
+            </div>
+            <select id="browseSort" class="browse-sort-inline" onchange="filterListings()">
+              <option value="relevanz">Relevanz</option>
+              <option value="preis-asc">Preis ↑</option>
+              <option value="preis-desc">Preis ↓</option>
+              <option value="rating">Bewertung</option>
+              <option value="neu">Neueste</option>
+            </select>
+            <div class="browse-view-toggles">
+              <button class="view-toggle active" id="gridViewBtn" onclick="setView('grid')">
+                <span class="material-icons-round">grid_view</span>
+              </button>
+              <button class="view-toggle" id="listViewBtn" onclick="setView('list')">
+                <span class="material-icons-round">view_list</span>
+              </button>
+            </div>
+          </div>
+          <div class="filter-tags" id="activeFilters"></div>
+        </div>
+      </div>
+      <!-- Marquee accent -->
+      <div class="hero-marquee hero-marquee-above">
+        <div class="hero-marquee-track"></div>
+      </div>
+      <!-- Results grid (full-width) -->
+      <div class="browse-results">
+        <div class="browse-results-bar">
+          <h2 id="browseResultCount">24 Services gefunden</h2>
         </div>
         <div class="listing-grid" id="browseGrid">
           <!-- Populated by JS -->
@@ -591,6 +678,52 @@
             <div class="listing-grid" id="alternativesGrid"></div>
           </div>
         </div>
+      </div>
+
+      <!-- ── Wie es funktioniert ── -->
+      <div class="browse-how-section animated-entry">
+        <div class="browse-how-inner">
+          <h2 class="browse-section-title">So funktioniert Eventbörse</h2>
+          <p class="browse-section-sub">In drei einfachen Schritten zum perfekten Event</p>
+          <div class="browse-how-grid">
+            <div class="how-step-card animated-entry" style="transition-delay:.1s">
+              <div class="how-step-num">1</div>
+              <span class="material-icons-round how-step-icon">search</span>
+              <h3>Entdecken</h3>
+              <p>Durchstöbere hunderte verifizierte Dienstleister nach Kategorie, Region und Budget.</p>
+            </div>
+            <div class="how-step-card animated-entry" style="transition-delay:.25s">
+              <div class="how-step-num">2</div>
+              <span class="material-icons-round how-step-icon">chat</span>
+              <h3>Verbinden</h3>
+              <p>Kontaktiere Anbieter direkt, vergleiche Angebote und verhandle Preise — alles über die Plattform.</p>
+            </div>
+            <div class="how-step-card animated-entry" style="transition-delay:.4s">
+              <div class="how-step-num">3</div>
+              <span class="material-icons-round how-step-icon">celebration</span>
+              <h3>Feiern</h3>
+              <p>Plane dein Event mit dem Board, behalte den Überblick und genieße den perfekten Anlass.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CTA Banner ── -->
+      <div class="browse-cta-section animated-entry">
+        <div class="browse-cta-inner">
+          <div class="browse-cta-text">
+            <h2>Bist du Event-Dienstleister?</h2>
+            <p>Erreiche tausende potenzielle Kunden und präsentiere dein Angebot auf Deutschlands smartestem Event-Marktplatz.</p>
+          </div>
+          <button class="btn-hero-primary" onclick="navigateTo('create-listing')">
+            <span class="material-icons-round">rocket_launch</span> Jetzt kostenlos starten
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom marquee -->
+      <div class="hero-marquee hero-marquee-below">
+        <div class="hero-marquee-track"></div>
       </div>
     </section>
 
@@ -617,9 +750,9 @@
           </div>
         </div>
         <div class="detail-provider-row">
-          <img id="detailProviderImg" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="detail-provider-avatar" />
+          <img id="detailProviderImg" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="detail-provider-avatar" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)" />
           <div>
-            <strong id="detailProviderName">Max Beats</strong>
+            <strong id="detailProviderName" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)">Max Beats</strong>
             <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
           </div>
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
@@ -1097,6 +1230,42 @@
             <div class="profile-reviews-empty">
               <span class="material-icons-round">rate_review</span>
               <p>Noch keine Bewertungen vorhanden.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Social Links Section -->
+        <div class="profile-section">
+          <div class="profile-section-header">
+            <h2><span class="material-icons-round">link</span> Soziale Links</h2>
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('socialLinks')" title="Links bearbeiten">
+              <span class="material-icons-round">edit</span>
+            </button>
+          </div>
+          <div class="profile-social-links" id="profileSocialLinksDisplay">
+            <p class="profile-social-empty" id="profileSocialEmpty" style="color:var(--text-light);font-size:14px">Noch keine sozialen Links angegeben.</p>
+          </div>
+          <div class="profile-edit-field" id="editSocialLinks" style="display:none">
+            <div class="form-group"><label><span class="material-icons-round" style="font-size:16px;vertical-align:middle;color:#E1306C">photo_camera</span> Instagram</label><input type="url" id="profileInstagram" placeholder="https://instagram.com/deinname" /></div>
+            <div class="form-group"><label><span class="material-icons-round" style="font-size:16px;vertical-align:middle;color:#0077B5">business</span> LinkedIn</label><input type="url" id="profileLinkedin" placeholder="https://linkedin.com/in/deinname" /></div>
+            <div class="form-group"><label><span class="material-icons-round" style="font-size:16px;vertical-align:middle">language</span> Website</label><input type="url" id="profileWebsite" placeholder="https://deine-website.de" /></div>
+            <button class="btn-sm btn-primary" onclick="saveFieldInline('socialLinks')">Speichern</button>
+            <button class="btn-sm btn-outline" onclick="cancelFieldInline('socialLinks')">Abbrechen</button>
+          </div>
+        </div>
+
+        <!-- Events Erlebt / Connections -->
+        <div class="profile-section">
+          <div class="profile-section-header">
+            <h2><span class="material-icons-round">celebration</span> Events erlebt</h2>
+            <button class="btn-sm btn-outline" onclick="openAddEventConnectionModal()">
+              <span class="material-icons-round">add</span> Event hinzufügen
+            </button>
+          </div>
+          <div class="profile-events-list" id="profileEventsList">
+            <div class="profile-events-empty" style="text-align:center;padding:24px;color:var(--text-light)">
+              <span class="material-icons-round" style="font-size:36px;opacity:0.3;display:block;margin-bottom:8px">celebration</span>
+              <p>Noch keine Events eingetragen. Teile welche Events du erlebt hast und wen du dabei kennengelernt hast!</p>
             </div>
           </div>
         </div>
@@ -1583,6 +1752,215 @@
     </section>
 
     <!-- Datenschutz -->
+    <!-- ============ PAGE: EVENT-PLANER BOARD ============ -->
+    <section id="page-board" class="page">
+      <div class="board-container">
+        <!-- Board Header -->
+        <div class="board-page-header">
+          <div class="board-page-header-left">
+            <span class="board-page-kicker">EVENT-PLANER</span>
+            <h1>Dein Planungs-Board</h1>
+            <p>Organisiere alle Dienstleister für dein Event in strukturierten Prozessen</p>
+          </div>
+          <div class="board-page-header-actions">
+            <button class="btn-outline" onclick="showBoardProjects()" id="btnAllBoards" style="display:none">
+              <span class="material-icons-round">arrow_back</span> Alle Projekte
+            </button>
+            <button class="btn-primary board-new-btn" onclick="openCreateBoardModal()">
+              <span class="material-icons-round">add</span> Neues Event-Projekt
+            </button>
+          </div>
+        </div>
+
+        <!-- Projects Overview -->
+        <div class="board-projects" id="boardProjects">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Active Board Kanban View -->
+        <div class="board-view" id="boardView" style="display:none">
+          <!-- Board Meta Bar -->
+          <div class="board-meta-bar">
+            <div class="board-meta-event" id="boardMetaEvent">
+              <span class="material-icons-round">celebration</span>
+              <div>
+                <h3 id="boardEventName">Mein Event</h3>
+                <span id="boardEventDate" class="board-event-date"></span>
+              </div>
+            </div>
+            <div class="board-meta-stats" id="boardMetaStats">
+              <div class="board-meta-stat">
+                <span class="material-icons-round">group</span>
+                <div>
+                  <strong id="statConfirmed">0</strong>
+                  <small>Bestätigt</small>
+                </div>
+              </div>
+              <div class="board-meta-stat">
+                <span class="material-icons-round">euro</span>
+                <div>
+                  <strong id="statBudget">0</strong>
+                  <small>Budget €</small>
+                </div>
+              </div>
+              <div class="board-meta-stat">
+                <span class="material-icons-round">pending</span>
+                <div>
+                  <strong id="statPending">0</strong>
+                  <small>Ausstehend</small>
+                </div>
+              </div>
+            </div>
+            <div class="board-view-toggle">
+              <button class="board-vtoggle active" id="btnKanbanView" onclick="switchBoardView('kanban')">
+                <span class="material-icons-round">view_kanban</span> Kanban
+              </button>
+              <button class="board-vtoggle" id="btnTimelineView" onclick="switchBoardView('timeline')">
+                <span class="material-icons-round">timeline</span> Ablauf
+              </button>
+            </div>
+          </div>
+
+          <!-- Kanban Board -->
+          <div class="board-kanban" id="boardKanban">
+            <div class="kanban-column" data-stage="geplant">
+              <div class="kanban-col-header">
+                <span class="kanban-col-dot dot-geplant"></span>
+                <h4>Geplant</h4>
+                <span class="kanban-col-count" id="cntGeplant">0</span>
+              </div>
+              <div class="kanban-cards" id="cardsGeplant" ondragover="allowDrop(event)" ondrop="dropCard(event,'geplant')"></div>
+              <button class="kanban-add-btn" onclick="openAddProviderModal('geplant')">
+                <span class="material-icons-round">add</span> Dienstleister hinzufügen
+              </button>
+            </div>
+            <div class="kanban-column" data-stage="kontaktiert">
+              <div class="kanban-col-header">
+                <span class="kanban-col-dot dot-kontaktiert"></span>
+                <h4>Kontaktiert</h4>
+                <span class="kanban-col-count" id="cntKontaktiert">0</span>
+              </div>
+              <div class="kanban-cards" id="cardsKontaktiert" ondragover="allowDrop(event)" ondrop="dropCard(event,'kontaktiert')"></div>
+              <button class="kanban-add-btn" onclick="openAddProviderModal('kontaktiert')">
+                <span class="material-icons-round">add</span> Dienstleister hinzufügen
+              </button>
+            </div>
+            <div class="kanban-column" data-stage="angebot">
+              <div class="kanban-col-header">
+                <span class="kanban-col-dot dot-angebot"></span>
+                <h4>Angebot erhalten</h4>
+                <span class="kanban-col-count" id="cntAngebot">0</span>
+              </div>
+              <div class="kanban-cards" id="cardsAngebot" ondragover="allowDrop(event)" ondrop="dropCard(event,'angebot')"></div>
+              <button class="kanban-add-btn" onclick="openAddProviderModal('angebot')">
+                <span class="material-icons-round">add</span> Dienstleister hinzufügen
+              </button>
+            </div>
+            <div class="kanban-column" data-stage="bestaetigt">
+              <div class="kanban-col-header">
+                <span class="kanban-col-dot dot-bestaetigt"></span>
+                <h4>Bestätigt</h4>
+                <span class="kanban-col-count" id="cntBestaetigt">0</span>
+              </div>
+              <div class="kanban-cards" id="cardsBestaetigt" ondragover="allowDrop(event)" ondrop="dropCard(event,'bestaetigt')"></div>
+              <button class="kanban-add-btn" onclick="openAddProviderModal('bestaetigt')">
+                <span class="material-icons-round">add</span> Dienstleister hinzufügen
+              </button>
+            </div>
+            <div class="kanban-column" data-stage="abgeschlossen">
+              <div class="kanban-col-header">
+                <span class="kanban-col-dot dot-abgeschlossen"></span>
+                <h4>Abgeschlossen</h4>
+                <span class="kanban-col-count" id="cntAbgeschlossen">0</span>
+              </div>
+              <div class="kanban-cards" id="cardsAbgeschlossen" ondragover="allowDrop(event)" ondrop="dropCard(event,'abgeschlossen')"></div>
+              <button class="kanban-add-btn" onclick="openAddProviderModal('abgeschlossen')">
+                <span class="material-icons-round">add</span> Dienstleister hinzufügen
+              </button>
+            </div>
+          </div>
+
+          <!-- Timeline / Event-Day Ablauf -->
+          <div class="board-timeline-view" id="boardTimelineView" style="display:none">
+            <div class="timeline-header">
+              <h3><span class="material-icons-round">schedule</span> Tagesablauf am Event-Tag</h3>
+              <p>Ziehe die Karten, um die Reihenfolge der Dienstleister am Eventtag festzulegen</p>
+            </div>
+            <div class="timeline-chain" id="timelineChain">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: KONTAKT ============ -->
+    <section id="page-contact" class="page">
+      <div class="container contact-page">
+        <div class="contact-hero">
+          <span class="contact-kicker">KONTAKT</span>
+          <h1>Wir sind für euch da</h1>
+          <p>Hast du Fragen, Feedback oder Probleme? Schreib uns einfach an – wir melden uns schnellstmöglich!</p>
+        </div>
+        <div class="contact-grid">
+          <div class="contact-form-card">
+            <h2>Nachricht senden</h2>
+            <form class="contact-form" onsubmit="sendContactMessage(event)">
+              <div class="form-group">
+                <label>Dein Name</label>
+                <input type="text" id="contactName" placeholder="Max Mustermann" required />
+              </div>
+              <div class="form-group">
+                <label>E-Mail</label>
+                <input type="email" id="contactEmail" placeholder="deine@email.de" required />
+              </div>
+              <div class="form-group">
+                <label>Betreff</label>
+                <select id="contactSubject">
+                  <option value="allgemein">Allgemeine Anfrage</option>
+                  <option value="technisch">Technisches Problem</option>
+                  <option value="inserat">Frage zum Inserat</option>
+                  <option value="konto">Kontoverwaltung</option>
+                  <option value="missbrauch">Missbrauch melden</option>
+                  <option value="kooperation">Kooperation</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Deine Nachricht</label>
+                <textarea rows="5" id="contactMessage" placeholder="Beschreibe dein Anliegen..." required></textarea>
+              </div>
+              <div id="contactSuccess" class="contact-success" style="display:none">
+                <span class="material-icons-round">check_circle</span>
+                <span>Vielen Dank! Wir haben deine Nachricht erhalten und melden uns innerhalb von 24 Stunden.</span>
+              </div>
+              <button type="submit" class="btn-primary btn-block">
+                <span class="material-icons-round">send</span> Nachricht senden
+              </button>
+            </form>
+          </div>
+          <div class="contact-info-col">
+            <div class="contact-info-card">
+              <div class="contact-info-icon"><span class="material-icons-round">email</span></div>
+              <h3>E-Mail</h3>
+              <a href="mailto:Kontakt@Eventboerse.de">Kontakt@Eventboerse.de</a>
+              <p>Für allgemeine Anfragen und Support</p>
+            </div>
+            <div class="contact-info-card">
+              <div class="contact-info-icon"><span class="material-icons-round">schedule</span></div>
+              <h3>Reaktionszeit</h3>
+              <strong>Innerhalb von 24 Stunden</strong>
+              <p>Wochentags Mo–Fr</p>
+            </div>
+            <div class="contact-info-card">
+              <div class="contact-info-icon"><span class="material-icons-round">help_outline</span></div>
+              <h3>Häufige Fragen</h3>
+              <p>Viele Antworten findest du in unseren <a href="#" onclick="navigateTo('agb')">AGB</a> und unserer <a href="#" onclick="navigateTo('datenschutz')">Datenschutzrichtlinie</a>.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="page-datenschutz" class="page">
       <div class="container legal-page">
         <h1>Datenschutzerklärung</h1>
@@ -1628,9 +2006,106 @@
         <p>Wir behalten uns vor, diese Datenschutzerklärung jederzeit anzupassen. Die aktuelle Version ist stets auf der Plattform einsehbar.</p>
       </div>
     </section>
+
+    <!-- ============ PAGE: IMPRESSUM ============ -->
+    <section id="page-impressum" class="page">
+      <div class="container legal-page">
+        <h1>Impressum</h1>
+
+        <h2>Angaben gemäß § 5 TMG</h2>
+        <p>
+          Eventbörse<br>
+          Musterstraße 1<br>
+          10115 Berlin<br>
+          Deutschland
+        </p>
+
+        <h2>Vertreten durch</h2>
+        <p>Geschäftsführer: [Name einfügen]</p>
+
+        <h2>Kontakt</h2>
+        <p>
+          Telefon: [Telefonnummer einfügen]<br>
+          E-Mail: <a href="mailto:Kontakt@Eventboerse.de">Kontakt@Eventboerse.de</a>
+        </p>
+
+        <h2>Umsatzsteuer-ID</h2>
+        <p>Umsatzsteuer-Identifikationsnummer gemäß § 27a Umsatzsteuergesetz: [USt-IdNr. einfügen]</p>
+
+        <h2>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
+        <p>
+          [Name einfügen]<br>
+          Musterstraße 1<br>
+          10115 Berlin
+        </p>
+
+        <h2>EU-Streitschlichtung</h2>
+        <p>Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer">https://ec.europa.eu/consumers/odr/</a>. Unsere E-Mail-Adresse finden Sie oben im Impressum.</p>
+
+        <h2>Verbraucherstreitbeilegung / Universalschlichtungsstelle</h2>
+        <p>Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.</p>
+
+        <h2>Haftung für Inhalte</h2>
+        <p>Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.</p>
+
+        <h2>Haftung für Links</h2>
+        <p>Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.</p>
+
+        <h2>Urheberrecht</h2>
+        <p>Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.</p>
+      </div>
+    </section>
+
   </main>
 
-  <!-- ============ MODALS ============ -->
+  <!-- ============ GLOBAL FOOTER ============ -->
+  <footer class="footer" id="globalFooter">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <a href="#" onclick="navigateTo('browse');return false" class="footer-logo">
+            <span class="material-icons-round">celebration</span>
+            Event<span class="accent">börse</span>
+          </a>
+          <p>Der smarte Marktplatz für unvergessliche Events.</p>
+          <a href="mailto:Kontakt@Eventboerse.de" class="footer-contact-link">
+            <span class="material-icons-round" style="font-size:14px;vertical-align:middle">email</span>
+            Kontakt@Eventboerse.de
+          </a>
+        </div>
+        <div class="footer-col">
+          <h4>Plattform</h4>
+          <a href="#" onclick="navigateTo('browse')">Services entdecken</a>
+          <a href="#" onclick="navigateTo('aktuelles')">Social Feed</a>
+          <a href="#" onclick="navigateTo('board')">Event-Planer Board</a>
+          <a href="#" onclick="navigateTo('create-listing')">Inserat aufgeben</a>
+        </div>
+        <div class="footer-col">
+          <h4>Rechtliches</h4>
+          <a href="#" onclick="navigateTo('impressum')">Impressum</a>
+          <a href="#" onclick="navigateTo('datenschutz')">Datenschutz</a>
+          <a href="#" onclick="navigateTo('agb')">AGB</a>
+          <a href="#" onclick="navigateTo('contact')">Kontakt</a>
+          <a href="#" onclick="event.preventDefault(); localStorage.removeItem('eb_cookie_consent'); initCookieConsent();">Cookie-Einstellungen</a>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <a href="#" onclick="navigateTo('aktuelles')">Aktuelles</a>
+          <a href="#" onclick="navigateTo('explore')">Entdecken</a>
+          <a href="https://instagram.com/eventboerse" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="https://tiktok.com/@eventboerse" target="_blank" rel="noopener noreferrer">TikTok</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2026 Eventbörse. Alle Rechte vorbehalten. · <a href="mailto:Kontakt@Eventboerse.de" class="footer-contact-link">Kontakt@Eventboerse.de</a></p>
+        <div class="footer-social">
+          <a href="https://instagram.com/eventboerse" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="https://tiktok.com/@eventboerse" target="_blank" rel="noopener noreferrer">TikTok</a>
+          <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </footer>
   <!-- Login Modal -->
   <div class="modal-overlay" id="loginModal" onclick="closeModalOnOverlay(event)">
     <div class="modal">

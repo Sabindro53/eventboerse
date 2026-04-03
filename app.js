@@ -1,44 +1,10 @@
 
-// ========== FEATURE UPDATE NOTIFICATION (All Users) ==========
-const FEATURE_VERSION = '2026-03-27-3'; // Bei jedem neuen Feature/Update erhöhen!
-
-function showUpdateBanner() {
-  const seenVersion = localStorage.getItem('eb_feature_version');
-  if (seenVersion === FEATURE_VERSION) return;
-  let banner = document.getElementById('updateBanner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'updateBanner';
-    banner.innerHTML = `
-      <div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#E31C5F;color:#fff;padding:18px 0 18px 0;text-align:center;font-size:1.15rem;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.12);letter-spacing:0.5px;">
-        <span style='margin-right:18px;'>🔔 Änderungen wurden erfolgreich aktualisiert!</span>
-        <button id="closeUpdateBanner" style="background:#fff;color:#E31C5F;font-weight:700;border:none;border-radius:6px;padding:6px 18px;cursor:pointer;font-size:1rem;">OK</button>
-      </div>
-    `;
-    document.body.appendChild(banner);
-    document.body.style.paddingTop = '60px';
-    document.getElementById('closeUpdateBanner').onclick = function() {
-      localStorage.setItem('eb_feature_version', FEATURE_VERSION);
-      banner.remove();
-      document.body.style.paddingTop = '';
-    };
-  }
-}
-
-
 /* ============================================
    Eventbörse – Event Marketplace Application
    SPA Router, Chat, Negotiation, Listings, Auth
    ============================================ */
 
 // ========== DEMO DATA ==========
-
-// Zeige Update-Banner für alle Nutzer beim Laden der Seite
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', showUpdateBanner);
-} else {
-  showUpdateBanner();
-}
 const LISTINGS = [
   {
     id: 1, providerId: 90001,
@@ -103,10 +69,10 @@ const LISTINGS = [
     image: 'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     images: [
       'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
-      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/3184188/pexels-photo-3184188.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/5779784/pexels-photo-5779784.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/5908226/pexels-photo-5908226.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/2788792/pexels-photo-2788792.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Sabine Rhein',
     providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sabine',
@@ -657,6 +623,22 @@ function navigateTo(page, data, skipHistory) {
   // Deactivate all pages
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   _stopChatPoll();
+
+  // ── Always restore scrolling (modal/lightbox might have locked it) ──
+  document.body.style.overflow = '';
+  document.body.style.touchAction = '';
+  // Close any open lightboxes/modals silently
+  document.querySelectorAll('.modal-overlay.show, .provider-lightbox.show, .gallery-lightbox.show, .cover-lightbox.show').forEach(function(el) { el.classList.remove('show'); });
+  // Clear cinema preview if running
+  if (_cinemaTimer) { clearInterval(_cinemaTimer); _cinemaTimer = null; }
+  // Stop gallery row animations when leaving provider page
+  if (typeof galleryRAFs !== 'undefined' && galleryRAFs.length) {
+    galleryRAFs.forEach(function(r) { if (r && r.cancel) r.cancel(); else cancelAnimationFrame(r); });
+    galleryRAFs = [];
+  }
+  // Clean up detail gallery swipe listeners
+  if (_detailSwipeCleanup) { _detailSwipeCleanup(); _detailSwipeCleanup = null; }
+
   // Reset provider edit mode if leaving
   if (_providerEditMode) {
     _providerEditMode = false;
@@ -681,6 +663,9 @@ function navigateTo(page, data, skipHistory) {
   // Scroll to top
   window.scrollTo(0, 0);
 
+  // Init scroll-triggered animations for the newly visible page
+  setTimeout(_initAnimatedEntries, 80);
+
   // Page-specific logic
   switch (page) {
     case 'browse':
@@ -688,6 +673,9 @@ function navigateTo(page, data, skipHistory) {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
       });
+      // Reset counted flags so count-up replays on revisit
+      document.querySelectorAll('.browse-hero-stats [data-count]').forEach(function(el) { el._counted = false; });
+      setTimeout(_animateCountUp, 400);
       break;
     case 'explore':
       loadDbListings().then(function() { renderExploreGrid(); });
@@ -751,6 +739,7 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'agb':
     case 'datenschutz':
+    case 'impressum':
       break;
     case 'admin':
       if (!currentUser || !currentUser.isAdmin) {
@@ -759,6 +748,11 @@ function navigateTo(page, data, skipHistory) {
         return;
       }
       loadAdminUsers();
+      break;
+    case 'board':
+      renderBoardPage();
+      break;
+    case 'contact':
       break;
     case 'home':
       try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(home)', err); }
@@ -769,14 +763,19 @@ function navigateTo(page, data, skipHistory) {
 // ========== LISTING CARD RENDERER ==========
 function renderListingCard(listing) {
   const isFav = favorites.has(listing.id);
+  var imgs = Array.isArray(listing.images) && listing.images.length ? listing.images : [listing.image];
+  var galleryId = 'gridGallery_' + listing.id;
   return `
-    <div class="listing-card" onclick="navigateTo('detail', ${listing.id})">
+    <div class="listing-card" data-listing-id="${listing.id}">
       <div class="listing-card-img">
-        <img src="${_escHtml(listing.image)}" alt="${_escHtml(listing.title)}" loading="lazy" />
+        <div class="grid-gallery-track" id="${galleryId}">
+          ${imgs.map(function(img) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" loading="lazy" /></div>'; }).join('')}
+        </div>
+        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" onclick="event.stopPropagation();gridGalleryNav(' + listing.id + ',-1)"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" onclick="event.stopPropagation();gridGalleryNav(' + listing.id + ',1)"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="event.stopPropagation();gridGalleryGoTo(' + listing.id + ',' + i + ')"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
           <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
         </button>
-        ${listing.badge ? `<span class="listing-badge">${_escHtml(listing.badge)}</span>` : ''}
+        ${listing.badge ? '<span class="listing-badge">' + _escHtml(listing.badge) + '</span>' : ''}
       </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
@@ -790,9 +789,6 @@ function renderListingCard(listing) {
           <span class="material-icons-round">location_on</span> ${_escHtml(listing.location)}
         </div>
         <div class="listing-card-price">${_escHtml(listing.priceLabel)}</div>
-        <div class="listing-card-tags">
-          ${(listing.tags || []).map(t => `<span class="listing-tag">${_escHtml(t)}</span>`).join('')}
-        </div>
       </div>
     </div>
   `;
@@ -910,7 +906,7 @@ function renderHeroMarquees() {
 
   // Touch-swipe support for bottom marquees (horizontal)
   bottomTracks.forEach(track => {
-    track.style.touchAction = 'pan-x';
+    track.style.touchAction = 'pan-y';
     track.style.cursor = 'grab';
     _initMarqueeSwipe(track, 'horizontal');
   });
@@ -922,6 +918,7 @@ function _initMarqueeSwipe(track, orientation) {
 
   var startX = 0, startY = 0, startOffset = 0, dragging = false;
   var horizontal = orientation === 'horizontal';
+  track.style.touchAction = horizontal ? 'pan-y' : 'pan-x';
 
   function getCurrentOffset(t) {
     var m = getComputedStyle(t).transform;
@@ -967,7 +964,7 @@ function _initMarqueeSwipe(track, orientation) {
     if (!dragging) return;
     dragging = false;
     track.style.cursor = 'grab';
-    track.style.animationPlayState = '';
+    track.style.animationPlayState = 'running';
   }
 
   track.addEventListener('touchend', endSwipe, { passive: true });
@@ -1174,34 +1171,45 @@ function renderFeaturedGrid() {
   // Init Swipe für alle Galerien
   visible.forEach(function(l) { _initGridGallerySwipe(l.id); });
   detectWideBannerCards(grid);
+}
 // ========== GRID GALLERY CAROUSEL ==========
 var _gridGalleryIdx = {};
+var _gridDragState = { dragging: false, startX: 0, track: null, listingId: null };
+
+// Single document-level listeners for all grid galleries (prevents listener leaks)
+document.addEventListener('mousemove', function(e) {
+  if (!_gridDragState.dragging || !_gridDragState.track) return;
+  _gridDragState.track.scrollLeft -= (e.clientX - _gridDragState.startX);
+  _gridDragState.startX = e.clientX;
+});
+document.addEventListener('mouseup', function() {
+  if (!_gridDragState.dragging || !_gridDragState.track) return;
+  _gridDragState.dragging = false;
+  _gridDragState.track.style.scrollBehavior = 'smooth';
+  var slideW = _gridDragState.track.offsetWidth;
+  var idx = Math.round(_gridDragState.track.scrollLeft / slideW);
+  _gridGalleryIdx[_gridDragState.listingId] = idx;
+  _gridDragState.track.scrollLeft = idx * slideW;
+  _updateGridGalleryUI(_gridDragState.listingId);
+  _gridDragState.track = null;
+});
+
 function _initGridGallerySwipe(listingId) {
   var track = document.getElementById('gridGallery_' + listingId);
   if (!track) return;
   _gridGalleryIdx[listingId] = 0;
-  var startX = 0, dragging = false;
   track.addEventListener('mousedown', function(e) {
-    dragging = true; startX = e.clientX; track.style.scrollBehavior = 'auto';
-  });
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    track.scrollLeft -= (e.clientX - startX);
-    startX = e.clientX;
-  });
-  document.addEventListener('mouseup', function() {
-    if (!dragging) return;
-    dragging = false; track.style.scrollBehavior = 'smooth';
-    var slideW = track.offsetWidth;
-    var idx = Math.round(track.scrollLeft / slideW);
-    _gridGalleryIdx[listingId] = idx;
-    track.scrollLeft = idx * slideW;
-    _updateGridGalleryUI(listingId);
+    _gridDragState.dragging = true;
+    _gridDragState.startX = e.clientX;
+    _gridDragState.track = track;
+    _gridDragState.listingId = listingId;
+    track.style.scrollBehavior = 'auto';
   });
   // Touch events für mobile
+  var startX = 0, dragging = false;
   track.addEventListener('touchstart', function(e) {
     dragging = true; startX = e.touches[0].clientX; track.style.scrollBehavior = 'auto';
-  });
+  }, { passive: true });
   track.addEventListener('touchmove', function(e) {
     if (!dragging) return;
     track.scrollLeft -= (e.touches[0].clientX - startX);
@@ -1237,7 +1245,6 @@ function gridGalleryGoTo(listingId, idx) {
   _gridGalleryIdx[listingId] = idx;
   track.children[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
   _updateGridGalleryUI(listingId);
-}
 }
 
 function filterCategory(btn, category) {
@@ -1622,8 +1629,31 @@ function performSearch() {
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
   grid.innerHTML = listings.map(renderListingCard).join('');
+  // Click handler on cards
+  grid.querySelectorAll('.listing-card').forEach(function(card) {
+    card.onclick = function(e) {
+      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav')) return;
+      var id = card.getAttribute('data-listing-id');
+      if (id) navigateTo('detail', Number(id));
+    };
+  });
+  // Init gallery swipe for each listing
+  listings.forEach(function(l) { _initGridGallerySwipe(l.id); });
   detectWideBannerCards(grid);
   document.getElementById('browseResultCount').textContent = `${listings.length} Services gefunden`;
+}
+
+function filterByCategory(btn, cat) {
+  // Toggle active state on category buttons
+  document.querySelectorAll('.cat-icon-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  // Set the category dropdown to match (empty string = all)
+  var sel = document.getElementById('browseCategory');
+  if (sel) sel.value = cat || '';
+  filterListings();
+  // Scroll results into view
+  var grid = document.getElementById('browseGrid');
+  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function filterListings() {
@@ -1913,6 +1943,10 @@ function loadDetail(listingId) {
   // Detect wide banners for hero + gallery
   detectWideBannerImg(heroImg.querySelector('img'));
   gallery.querySelectorAll('.detail-gallery-slide img').forEach(detectWideBannerImg);
+  // Clean up previous cinema before starting new one
+  if (_cinemaTimer) { clearInterval(_cinemaTimer); _cinemaTimer = null; }
+  var oldCinema = gallery.querySelector('.dg-cinema');
+  if (oldCinema && oldCinema.parentNode) oldCinema.parentNode.removeChild(oldCinema);
   // Cinematic preview on load
   if (imgs.length > 1) {
     _startCinemaPreview(gallery, imgs, listing.title);
@@ -1986,41 +2020,63 @@ function loadProvider(providerId) {
 
   // If no listings found locally, fetch provider from API — but NOT for demo providers
   if (providerListings.length === 0 && pid && !isDemoProvider) {
-    fetch(_apiUrl('provider/' + pid) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (!data || data.message) return;
-        if (data.listings && data.listings.length > 0) {
-          data.listings.forEach(function(l) {
-            l._fromDb = true;
-            if (!LISTINGS.some(function(ex) { return ex.id === l.id; })) {
-              LISTINGS.push(l);
-            }
-          });
-        } else {
-          LISTINGS.push({
-            id: 'profile-' + pid,
-            _fromDb: true,
-            providerId: pid,
-            providerName: data.name || 'Anbieter',
-            providerImg: data.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(data.name || 'user')),
-            providerSince: data.since || '',
-            description: data.bio || '',
-            location: data.location || '',
-            categoryLabel: data.role || 'Anbieter',
-            priceLabel: '',
-            images: data.gallery || [],
-            features: [],
-            tags: [],
-            rating: 0,
-            reviews: 0,
-            badge: ''
-          });
-        }
-        loadProvider(pid);
-      })
-      .catch(function() {});
-    return;
+    // For own profile without listings, build from currentUser data
+    if (currentUser && pid === currentUser.id) {
+      providerListings = [{
+        id: 'profile-' + pid,
+        _ownProfile: true,
+        providerId: pid,
+        providerName: currentUser.name || 'Mein Profil',
+        providerImg: currentUser.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name || 'user')),
+        providerSince: currentUser.since || new Date().getFullYear().toString(),
+        description: currentUser.bio || '',
+        location: currentUser.location || '',
+        categoryLabel: currentUser.role || 'Mitglied',
+        priceLabel: '',
+        images: currentUser.gallery || [],
+        features: [],
+        tags: [],
+        rating: 0,
+        reviews: 0,
+        badge: ''
+      }];
+    } else {
+      fetch(_apiUrl('provider/' + pid) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data || data.message) return;
+          if (data.listings && data.listings.length > 0) {
+            data.listings.forEach(function(l) {
+              l._fromDb = true;
+              if (!LISTINGS.some(function(ex) { return ex.id === l.id; })) {
+                LISTINGS.push(l);
+              }
+            });
+          } else {
+            LISTINGS.push({
+              id: 'profile-' + pid,
+              _fromDb: true,
+              providerId: pid,
+              providerName: data.name || 'Anbieter',
+              providerImg: data.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(data.name || 'user')),
+              providerSince: data.since || '',
+              description: data.bio || '',
+              location: data.location || '',
+              categoryLabel: data.role || 'Anbieter',
+              priceLabel: '',
+              images: data.gallery || [],
+              features: [],
+              tags: [],
+              rating: 0,
+              reviews: 0,
+              badge: ''
+            });
+          }
+          loadProvider(pid);
+        })
+        .catch(function() {});
+      return;
+    }
   }
 
   const mainListing = providerListings[0] || LISTINGS[0];
@@ -2033,7 +2089,7 @@ function loadProvider(providerId) {
   document.getElementById('providerAvatar').src = mainListing.providerImg;
   document.getElementById('providerName').textContent = mainListing.providerName;
   document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
-  document.getElementById('providerListingCount').textContent = providerListings.length;
+  document.getElementById('providerListingCount').textContent = (providerListings.length === 1 && providerListings[0]._ownProfile) ? 0 : providerListings.length;
   // Provider rating/reviews from aggregated DB data — filled after API call below
   var providerRating = mainListing.rating;
   var providerReviewCount = mainListing.reviews;
@@ -2119,7 +2175,21 @@ function loadProvider(providerId) {
   ).join('');
 
   // Listings tab
-  document.getElementById('providerListings').innerHTML = providerListings.map(renderListingCard).join('');
+  var hasOnlySynthetic = providerListings.length === 1 && providerListings[0]._ownProfile;
+  if (hasOnlySynthetic) {
+    document.getElementById('providerListings').innerHTML =
+      '<div class="provider-add-listing" onclick="navigateTo(\'create-listing\')" style="' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'border:2px dashed var(--border);border-radius:var(--radius-lg);' +
+        'padding:48px 24px;cursor:pointer;transition:all .2s ease;' +
+        'min-height:200px;color:var(--text-light);text-align:center;">' +
+        '<span class="material-icons-round" style="font-size:56px;margin-bottom:12px;color:var(--primary);">add_circle_outline</span>' +
+        '<span style="font-size:1.05rem;font-weight:600;color:var(--dark);">Erstes Inserat erstellen</span>' +
+        '<span style="font-size:0.85rem;margin-top:4px;">Zeig der Community was du anbietest</span>' +
+      '</div>';
+  } else {
+    document.getElementById('providerListings').innerHTML = providerListings.map(renderListingCard).join('');
+  }
   detectWideBannerCards(document.getElementById('providerListings'));
 
   // Reviews tab — load from API
@@ -2650,17 +2720,17 @@ function buildGalleryRows(images) {
   const area = document.getElementById('pcgScrollArea');
   if (!area || !gallery) return;
   area.innerHTML = '';
-  galleryRAFs.forEach(id => cancelAnimationFrame(id));
+  galleryRAFs.forEach(function(r) { if (r && r.cancel) r.cancel(); else cancelAnimationFrame(r); });
   galleryRAFs = [];
 
   var provPage = document.getElementById('page-provider');
   if (!images.length) {
     gallery.style.display = 'none';
-    if (provPage) provPage.style.paddingTop = 'var(--nav-height)';
+    if (provPage) provPage.style.setProperty('padding-top', 'calc(var(--nav-height) + 48px)', 'important');
     return;
   }
   gallery.style.display = '';
-  if (provPage) provPage.style.paddingTop = '0';
+  if (provPage) provPage.style.setProperty('padding-top', '0', 'important');
 
   // Row count: 1-9 → 1 row, 10-14 → 2 rows, 15+ → 3 rows
   const rowCount = images.length >= 15 ? 3 : images.length >= 10 ? 2 : 1;
@@ -2741,6 +2811,7 @@ function startRowAnimation(row, segW, dir, baseSpeed, wrap, itemW) {
     while (pos > 0) pos -= segW;
   }
 
+  let _rafId = 0;
   function tick(ts) {
     if (!lastTime) lastTime = ts;
     const dt = Math.min(ts - lastTime, 32); // Cap at ~30fps minimum
@@ -2761,12 +2832,11 @@ function startRowAnimation(row, segW, dir, baseSpeed, wrap, itemW) {
 
     normalizePos();
     row.style.transform = `translateX(${pos}px)`;
-    const id = requestAnimationFrame(tick);
-    galleryRAFs.push(id);
+    _rafId = requestAnimationFrame(tick);
   }
 
-  const id = requestAnimationFrame(tick);
-  galleryRAFs.push(id);
+  _rafId = requestAnimationFrame(tick);
+  galleryRAFs.push({ cancel: function() { cancelAnimationFrame(_rafId); } });
 
   // --- Touch/Mouse drag ---
   const onStart = (x) => {
@@ -3667,6 +3737,65 @@ function renderDashboard() {
   }
 
   setupDragDrop();
+
+  // --- Social Links ---
+  _renderProfileSocialLinks();
+
+  // --- Event Connections ---
+  _renderProfileEventConnections();
+}
+
+function _renderProfileSocialLinks() {
+  if (!currentUser) return;
+  var displayEl = document.getElementById('profileSocialLinksDisplay');
+  var emptyEl = document.getElementById('profileSocialEmpty');
+  var links = currentUser.socialLinks || {};
+  var html = '';
+  if (links.instagram) {
+    html += '<a href="' + _escHtml(links.instagram) + '" target="_blank" rel="noopener noreferrer" class="profile-social-link"><span class="material-icons-round" style="color:#E1306C">photo_camera</span> Instagram</a>';
+  }
+  if (links.linkedin) {
+    html += '<a href="' + _escHtml(links.linkedin) + '" target="_blank" rel="noopener noreferrer" class="profile-social-link"><span class="material-icons-round" style="color:#0077B5">business</span> LinkedIn</a>';
+  }
+  if (links.website) {
+    html += '<a href="' + _escHtml(links.website) + '" target="_blank" rel="noopener noreferrer" class="profile-social-link"><span class="material-icons-round">language</span> Website</a>';
+  }
+  if (displayEl) {
+    if (html) {
+      displayEl.innerHTML = '<div class="profile-social-links-row">' + html + '</div>';
+      if (emptyEl) emptyEl.style.display = 'none';
+    } else {
+      displayEl.innerHTML = '<p class="profile-social-empty" style="color:var(--text-light);font-size:14px">Noch keine sozialen Links angegeben.</p>';
+    }
+  }
+  // Pre-fill edit fields
+  var igEl = document.getElementById('profileInstagram');
+  var liEl = document.getElementById('profileLinkedin');
+  var wsEl = document.getElementById('profileWebsite');
+  if (igEl) igEl.value = links.instagram || '';
+  if (liEl) liEl.value = links.linkedin || '';
+  if (wsEl) wsEl.value = links.website || '';
+}
+
+function _renderProfileEventConnections() {
+  var listEl = document.getElementById('profileEventsList');
+  if (!listEl || !currentUser) return;
+  var events = currentUser.eventConnections || [];
+  if (events.length === 0) {
+    listEl.innerHTML = '<div class="profile-events-empty" style="text-align:center;padding:24px;color:var(--text-light)"><span class="material-icons-round" style="font-size:36px;opacity:0.3;display:block;margin-bottom:8px">celebration</span><p>Noch keine Events eingetragen. Teile welche Events du erlebt hast!</p></div>';
+    return;
+  }
+  listEl.innerHTML = events.map(function(ev) {
+    return '<div class="profile-event-connection-card">' +
+      '<div class="pec-icon"><span class="material-icons-round">celebration</span></div>' +
+      '<div class="pec-info">' +
+        '<strong>' + _escHtml(ev.eventName) + '</strong>' +
+        '<span>' + _escHtml(ev.date || '') + (ev.location ? ' · ' + _escHtml(ev.location) : '') + '</span>' +
+        (ev.metPerson ? '<div class="pec-met"><span class="material-icons-round">people</span> Kennengelernt: <em>' + _escHtml(ev.metPerson) + '</em></div>' : '') +
+      '</div>' +
+      '<button class="pec-delete" onclick="_deleteEventConnection(\'' + ev.id + '\')"><span class="material-icons-round">close</span></button>' +
+    '</div>';
+  }).join('');
 }
 
 // Inline profile editing
@@ -3730,6 +3859,16 @@ function saveFieldInline(field) {
       payload.gallery = currentUser.gallery;
       break;
     case 'services':
+      break;
+    case 'socialLinks':
+      currentUser.socialLinks = currentUser.socialLinks || {};
+      var igEl = document.getElementById('profileInstagram');
+      var liEl = document.getElementById('profileLinkedin');
+      var wsEl = document.getElementById('profileWebsite');
+      if (igEl) currentUser.socialLinks.instagram = igEl.value.trim();
+      if (liEl) currentUser.socialLinks.linkedin = liEl.value.trim();
+      if (wsEl) currentUser.socialLinks.website = wsEl.value.trim();
+      payload.socialLinks = currentUser.socialLinks;
       break;
   }
   var editEl = document.getElementById('edit' + field.charAt(0).toUpperCase() + field.slice(1));
@@ -5312,6 +5451,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Handle browser back/forward
   window.addEventListener('popstate', function(e) {
+    // Always restore scrolling when navigating back/forward
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
     if (e.state && e.state.page) {
       navigateTo(e.state.page, e.state.data, true);
     }
@@ -5321,6 +5463,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========== PAGE MOTION (subtle Apple-like interactivity) ==========
+var _visualMotionRAF = 0;
 function initVisualMotion() {
   const hero = document.querySelector('.hero');
   const heroBg = document.querySelector('.hero-bg');
@@ -5328,23 +5471,26 @@ function initVisualMotion() {
 
   if (hero) hero.classList.add('hero-float');
 
-  let lastScroll = 0;
-  function update() {
-    const scrollY = window.scrollY;
-    if (heroBg) {
-      const strength = Math.min(50, scrollY / 10);
-      heroBg.style.transform = `translate3d(0, ${strength}px, 0) scale(1.04)`;
-    }
-
-    if (hero) {
-      const tilt = Math.min(18, Math.max(-18, (scrollY - lastScroll) * 0.15));
-      hero.style.transform = `perspective(1000px) translateZ(0) rotateX(${tilt}deg)`;
-      lastScroll = scrollY;
-    }
-
-    requestAnimationFrame(update);
-  }
-  requestAnimationFrame(update);
+  // Use scroll event instead of perpetual RAF loop
+  var _vmTicking = false;
+  var lastScroll = 0;
+  window.addEventListener('scroll', function() {
+    if (_vmTicking) return;
+    _vmTicking = true;
+    requestAnimationFrame(function() {
+      var scrollY = window.scrollY;
+      if (heroBg) {
+        var strength = Math.min(50, scrollY / 10);
+        heroBg.style.transform = 'translate3d(0,' + strength + 'px,0) scale(1.04)';
+      }
+      if (hero) {
+        var tilt = Math.min(18, Math.max(-18, (scrollY - lastScroll) * 0.15));
+        hero.style.transform = 'perspective(1000px) translateZ(0) rotateX(' + tilt + 'deg)';
+        lastScroll = scrollY;
+      }
+      _vmTicking = false;
+    });
+  }, { passive: true });
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -6765,6 +6911,174 @@ var _wpNonce = (typeof eventboerseApi !== 'undefined') ? eventboerseApi.nonce : 
 var _pendingOtpLogin = null;
 var _pendingRegOtp = null;
 var _conditionalAbort = null;
+var _backendAvailable = null; // null = not checked, true/false after check
+
+// ── Offline / Demo Auth (localStorage-based) ──────────────
+function _demoUsers() {
+  try { return JSON.parse(localStorage.getItem('eb_demo_users') || '[]'); } catch(e) { return []; }
+}
+function _saveDemoUsers(users) {
+  localStorage.setItem('eb_demo_users', JSON.stringify(users));
+}
+function _demoSession() {
+  try { return JSON.parse(localStorage.getItem('eb_demo_session') || 'null'); } catch(e) { return null; }
+}
+function _saveDemoSession(user) {
+  localStorage.setItem('eb_demo_session', user ? JSON.stringify(user) : 'null');
+}
+
+// Check backend availability (cached for 60s)
+var _backendCheckedAt = 0;
+async function _checkBackend() {
+  if (_backendAvailable !== null && (Date.now() - _backendCheckedAt < 60000)) return _backendAvailable;
+  try {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 3000);
+    var r = await fetch(_apiUrl('me'), {
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    _backendAvailable = true;
+    _backendCheckedAt = Date.now();
+    return true;
+  } catch(e) {
+    _backendAvailable = false;
+    _backendCheckedAt = Date.now();
+    return false;
+  }
+}
+
+// Demo-mode: local login
+function _demoLogin(email, password) {
+  var users = _demoUsers();
+  var user = users.find(function(u) { return u.email.toLowerCase() === email.toLowerCase(); });
+  if (!user) return { ok: false, message: 'Kein Konto mit dieser E-Mail gefunden.' };
+  if (user.password !== password) return { ok: false, message: 'Falsches Passwort.' };
+  _saveDemoSession(user);
+  return { ok: true, user: user };
+}
+
+// Demo-mode: local register
+function _demoRegister(email, password, firstName, lastName, role) {
+  var users = _demoUsers();
+  if (users.find(function(u) { return u.email.toLowerCase() === email.toLowerCase(); })) {
+    return { ok: false, message: 'Diese E-Mail-Adresse wird bereits verwendet.' };
+  }
+  var user = {
+    user_id: Date.now(),
+    id: Date.now(),
+    email: email,
+    password: password,
+    first_name: firstName,
+    last_name: lastName,
+    name: (firstName + ' ' + lastName).trim(),
+    role: role === 'provider' ? 'Dienstleister' : 'Event-Planer',
+    isAdmin: false,
+    emailVerified: true,
+    hasPasskey: false,
+    passkeyCount: 0,
+    twoFA: false,
+    since: new Date().toISOString().split('T')[0],
+    tagline: '', location: '', bio: '', company: '', gallery: [],
+    coverUrl: '', coverPosY: 50, photoUrl: '', phone: ''
+  };
+  users.push(user);
+  _saveDemoUsers(users);
+  _saveDemoSession(user);
+  return { ok: true, user: user };
+}
+
+// Demo-mode: passkey (WebAuthn)
+function _demoPasskeyCredentials() {
+  try { return JSON.parse(localStorage.getItem('eb_demo_passkeys') || '[]'); } catch(e) { return []; }
+}
+function _saveDemoPasskeys(creds) {
+  localStorage.setItem('eb_demo_passkeys', JSON.stringify(creds));
+}
+
+async function _demoPasskeyRegister(label) {
+  if (!isWebAuthnAvailable()) throw new Error('Dieses Gerät unterstützt keine Passkeys.');
+  if (!currentUser) throw new Error('Bitte zuerst anmelden.');
+
+  var userId = new Uint8Array(16);
+  crypto.getRandomValues(userId);
+  var challenge = new Uint8Array(32);
+  crypto.getRandomValues(challenge);
+
+  var publicKey = {
+    challenge: challenge.buffer,
+    rp: { name: 'Eventbörse', id: window.location.hostname },
+    user: {
+      id: userId.buffer,
+      name: currentUser.email,
+      displayName: currentUser.name
+    },
+    pubKeyCredParams: [
+      { alg: -7, type: 'public-key' },
+      { alg: -257, type: 'public-key' }
+    ],
+    authenticatorSelection: {
+      authenticatorAttachment: 'platform',
+      residentKey: 'required',
+      userVerification: 'required'
+    },
+    timeout: 60000,
+    attestation: 'none'
+  };
+
+  var credential = await navigator.credentials.create({ publicKey: publicKey });
+  var creds = _demoPasskeyCredentials();
+  creds.push({
+    credId: _arrayBufferToBase64Url(credential.rawId),
+    userId: currentUser.id || currentUser.user_id,
+    email: currentUser.email,
+    label: label || 'Passkey',
+    created: new Date().toISOString()
+  });
+  _saveDemoPasskeys(creds);
+  currentUser.hasPasskey = true;
+  currentUser.passkeyCount = creds.filter(function(c) { return c.userId === (currentUser.id || currentUser.user_id); }).length;
+  return { success: true, hasPasskey: true, passkeyCount: currentUser.passkeyCount };
+}
+
+async function _demoPasskeyLogin(email) {
+  if (!isWebAuthnAvailable()) throw new Error('Dieses Gerät unterstützt keine Passkeys.');
+
+  var creds = _demoPasskeyCredentials();
+  var allowCredentials = creds;
+  if (email) {
+    allowCredentials = creds.filter(function(c) { return c.email.toLowerCase() === email.toLowerCase(); });
+  }
+  if (allowCredentials.length === 0) throw new Error('Keine Passkeys gefunden. Bitte richte zuerst einen Passkey ein.');
+
+  var challenge = new Uint8Array(32);
+  crypto.getRandomValues(challenge);
+
+  var publicKey = {
+    challenge: challenge.buffer,
+    rpId: window.location.hostname,
+    allowCredentials: allowCredentials.map(function(c) {
+      return { id: _base64UrlToArrayBuffer(c.credId), type: 'public-key' };
+    }),
+    userVerification: 'required',
+    timeout: 60000
+  };
+
+  var assertion = await navigator.credentials.get({ publicKey: publicKey });
+  var usedCredId = _arrayBufferToBase64Url(assertion.rawId);
+  var matched = creds.find(function(c) { return c.credId === usedCredId; });
+  if (!matched) throw new Error('Passkey nicht erkannt.');
+
+  // Find the user
+  var users = _demoUsers();
+  var user = users.find(function(u) { return (u.id || u.user_id) === matched.userId || u.email.toLowerCase() === matched.email.toLowerCase(); });
+  if (!user) throw new Error('Benutzer nicht gefunden.');
+
+  _saveDemoSession(user);
+  return { ok: true, user: user };
+}
 
 function _refreshNonce(response) {
   var n = response.headers.get('X-WP-Nonce');
@@ -7039,6 +7353,11 @@ async function getPasskeyRegisterOptions() {
 async function registerPasskey(label) {
   if (!isWebAuthnAvailable()) throw new Error('Dieses Gerät unterstützt keine Passkeys.');
 
+  // Demo/offline mode
+  if (_backendAvailable === false) {
+    return await _demoPasskeyRegister(label);
+  }
+
   var optionsData = await getPasskeyRegisterOptions();
   var credential = await navigator.credentials.create({
     publicKey: _preparePublicKeyOptions(optionsData.publicKey)
@@ -7116,13 +7435,27 @@ async function handleLoginWithPasskey(btn) {
     if (btn) _setBtnLoading(btn, true);
     var emailField = document.getElementById('loginEmail');
     var email = emailField ? emailField.value.trim() : '';
-    await loginWithPasskey(email);
 
-    closeModal('loginModal');
-    var form = document.querySelector('#loginModal .modal-form');
-    if (form) form.reset();
-    applyLogin();
-    showToast('Passkey-Anmeldung erfolgreich', 'fingerprint');
+    var online = await _checkBackend();
+
+    if (!online) {
+      // Demo/offline passkey login
+      var demoResult = await _demoPasskeyLogin(email);
+      _applyAuthenticatedUser(demoResult.user);
+      closeModal('loginModal');
+      var form = document.querySelector('#loginModal .modal-form');
+      if (form) form.reset();
+      applyLogin();
+      showToast('Passkey-Anmeldung erfolgreich (Offline-Modus)', 'fingerprint');
+    } else {
+      await loginWithPasskey(email);
+      closeModal('loginModal');
+      var form = document.querySelector('#loginModal .modal-form');
+      if (form) form.reset();
+      applyLogin();
+      showToast('Passkey-Anmeldung erfolgreich', 'fingerprint');
+    }
+    maybePromptPasskeySetup();
   } catch (err) {
     showToast(err && err.message ? err.message : 'Passkey-Anmeldung fehlgeschlagen.', 'error');
   } finally {
@@ -7257,6 +7590,20 @@ async function handleLoginOtpVerify(e) {
 }
 
 async function loadPasskeyCredentials() {
+  // Demo/offline mode
+  if (_backendAvailable === false) {
+    var creds = _demoPasskeyCredentials();
+    var uid = currentUser ? (currentUser.id || currentUser.user_id) : null;
+    var userCreds = creds.filter(function(c) { return c.userId === uid; });
+    return {
+      hasPasskey: userCreds.length > 0,
+      passkeyCount: userCreds.length,
+      credentials: userCreds.map(function(c) {
+        return { credential_id: c.credId, label: c.label, created_at: c.created ? c.created.split('T')[0] : 'unbekannt', last_used_at: 'n/a', transports: ['internal'] };
+      })
+    };
+  }
+
   var response = await fetch(_apiUrl('webauthn/credentials'), {
     method: 'GET',
     credentials: 'same-origin',
@@ -7275,6 +7622,20 @@ async function loadPasskeyCredentials() {
 }
 
 async function deletePasskeyCredential(credentialId) {
+  // Demo/offline mode
+  if (_backendAvailable === false) {
+    var creds = _demoPasskeyCredentials();
+    creds = creds.filter(function(c) { return c.credId !== credentialId; });
+    _saveDemoPasskeys(creds);
+    var uid = currentUser ? (currentUser.id || currentUser.user_id) : null;
+    var remaining = creds.filter(function(c) { return c.userId === uid; });
+    if (currentUser) {
+      currentUser.hasPasskey = remaining.length > 0;
+      currentUser.passkeyCount = remaining.length;
+    }
+    return { hasPasskey: remaining.length > 0, passkeyCount: remaining.length };
+  }
+
   var response = await fetch(_apiUrl('webauthn/credentials/' + encodeURIComponent(credentialId)), {
     method: 'DELETE',
     credentials: 'same-origin',
@@ -7530,13 +7891,9 @@ function restoreSession() {
   // Admin Feature-Update-Benachrichtigung
   setTimeout(function() {
     if (currentUser && currentUser.isAdmin) {
-      var seen = localStorage.getItem('eb_feature_version_seen');
-      if (seen !== FEATURE_VERSION) {
-        showToast('Es wurden neue Features aktualisiert', 'info');
-        localStorage.setItem('eb_feature_version_seen', FEATURE_VERSION);
-      }
+      showToast('Es wurden neue Features aktualisiert', 'info');
     }
-  }, 1200); // Leicht verzögert, damit User-Objekt geladen ist
+  }, 1200);
   // Sofort aus wp_localize_script lesen (frisch gerenderte Seite)
   if (typeof eventboerseApi !== 'undefined' && eventboerseApi.isLoggedIn && eventboerseApi.user) {
     currentUser = _normalizeUserPayload(eventboerseApi.user);
@@ -7544,7 +7901,6 @@ function restoreSession() {
     return;
   }
   // Fallback: REST /me prüfen (z. B. Safari-Cache oder Service Worker)
-  // Kein X-WP-Nonce-Header senden → reine Cookie-Auth ohne Nonce-Fehler
   fetch(_apiUrl('me'), { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } })
     .then(function(r) {
       _refreshNonce(r);
@@ -7557,7 +7913,15 @@ function restoreSession() {
         applyLogin();
       }
     })
-    .catch(function() { /* kein Backend – Seite bleibt abgemeldet */ });
+    .catch(function() {
+      // Backend nicht erreichbar — Demo-Session wiederherstellen
+      _backendAvailable = false;
+      var demoUser = _demoSession();
+      if (demoUser) {
+        _applyAuthenticatedUser(demoUser);
+        applyLogin();
+      }
+    });
 }
 
 // ---- LOGIN ----
@@ -7577,6 +7941,24 @@ async function handleLogin(e) {
   if (hasError) return;
 
   _setBtnLoading(submitBtn, true);
+
+  var online = await _checkBackend();
+
+  // ── Offline / Demo fallback ──
+  if (!online) {
+    var demoResult = _demoLogin(email, password);
+    _setBtnLoading(submitBtn, false);
+    if (!demoResult.ok) {
+      _setFieldError('loginPassword', demoResult.message);
+      return;
+    }
+    _applyAuthenticatedUser(demoResult.user);
+    closeModal('loginModal');
+    form.reset();
+    applyLogin();
+    showToast('Willkommen zurück! (Offline-Modus)', 'login');
+    return;
+  }
 
   try {
     /* Step 1: Try direct login (validates password, checks 2FA) */
@@ -7675,6 +8057,26 @@ async function handleRegister(e) {
   if (hasError) return;
 
   _setBtnLoading(submitBtn, true);
+
+  var online = await _checkBackend();
+
+  // ── Offline / Demo fallback ──
+  if (!online) {
+    var demoResult = _demoRegister(email, password, firstName, lastName, role);
+    _setBtnLoading(submitBtn, false);
+    if (!demoResult.ok) {
+      _setFieldError('regEmail', demoResult.message);
+      return;
+    }
+    _applyAuthenticatedUser(demoResult.user);
+    closeModal('registerModal');
+    form.reset();
+    var strengthBar = document.getElementById('passwordStrength');
+    if (strengthBar) strengthBar.style.display = 'none';
+    applyLogin();
+    showToast('Willkommen bei Eventbörse, ' + firstName + '! (Offline-Modus)', 'celebration');
+    return;
+  }
 
   try {
     var response = await fetch(_apiUrl('register'), {
@@ -8087,6 +8489,7 @@ function logout() {
     credentials: 'same-origin',
     headers: _apiHeaders()
   }).catch(function() {});
+  _saveDemoSession(null);
   applyLogout();
   showToast('Abgemeldet. Bis bald!', 'logout');
   navigateTo('home');
@@ -8284,7 +8687,10 @@ function _startCinemaPreview(gallery, imgs, title) {
 
 // ========== DETAIL GALLERY CAROUSEL ==========
 var _detailGalleryIdx = 0;
+var _detailSwipeCleanup = null;
 function _initDetailGallerySwipe() {
+  // Clean up previous listeners to avoid leaks
+  if (_detailSwipeCleanup) { _detailSwipeCleanup(); _detailSwipeCleanup = null; }
   var track = document.getElementById('detailGalleryTrack');
   if (!track) return;
   _detailGalleryIdx = 0;
@@ -8307,14 +8713,14 @@ function _initDetailGallerySwipe() {
     track.style.scrollBehavior = 'auto';
     track.style.cursor = 'grabbing';
   });
-  document.addEventListener('mousemove', function(e) {
+  function _docMouseMove(e) {
     if (!dragging) return;
     var dx = e.clientX - startX;
     if (Math.abs(dx) > 5) moved = true;
     track.scrollLeft -= (e.clientX - startX);
     startX = e.clientX;
-  });
-  document.addEventListener('mouseup', function() {
+  }
+  function _docMouseUp() {
     if (!dragging) return;
     dragging = false;
     track.style.scrollBehavior = 'smooth';
@@ -8323,7 +8729,13 @@ function _initDetailGallerySwipe() {
     var slideW = track.offsetWidth;
     var target = Math.round(track.scrollLeft / slideW) * slideW;
     track.scrollLeft = target;
-  });
+  }
+  document.addEventListener('mousemove', _docMouseMove);
+  document.addEventListener('mouseup', _docMouseUp);
+  _detailSwipeCleanup = function() {
+    document.removeEventListener('mousemove', _docMouseMove);
+    document.removeEventListener('mouseup', _docMouseUp);
+  };
 }
 
 function _updateDetailGalleryUI() {
@@ -8363,14 +8775,22 @@ function showUpdateNotification() {
 }
 
 // ========== NAVBAR SCROLL EFFECT ==========
-window.addEventListener('scroll', () => {
-  const nav = document.getElementById('navbar');
-  if (window.scrollY > 10) {
-    nav.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
-  } else {
-    nav.style.boxShadow = 'none';
-  }
-});
+(function() {
+  var _navShadowOn = false;
+  var _scrollTicking = false;
+  window.addEventListener('scroll', function() {
+    if (_scrollTicking) return;
+    _scrollTicking = true;
+    requestAnimationFrame(function() {
+      var shouldShadow = window.scrollY > 10;
+      if (shouldShadow !== _navShadowOn) {
+        _navShadowOn = shouldShadow;
+        document.getElementById('navbar').style.boxShadow = shouldShadow ? '0 2px 12px rgba(0,0,0,0.08)' : 'none';
+      }
+      _scrollTicking = false;
+    });
+  }, { passive: true });
+})();
 
 // ========== FOOTER LOGO SCROLL ANIMATION ==========
 function initFooterLogoAnimation() {
@@ -8622,4 +9042,999 @@ function filterMapMarkers() {
   if (navValue) {
     navValue.textContent = query ? (filtered.length > 0 ? filtered[0].location : 'Keine Ergebnisse') : 'Wo?';
   }
+}
+
+// =========================================================
+// ===================== EVENT-PLANER BOARD ================
+// =========================================================
+
+var _boardProjects = JSON.parse(localStorage.getItem('eb_board_projects') || '[]');
+var _activeBoardId = null;
+
+function _saveBoardProjects() {
+  localStorage.setItem('eb_board_projects', JSON.stringify(_boardProjects));
+}
+
+function renderBoardPage() {
+  _activeBoardId = null;
+  var projectsEl = document.getElementById('boardProjects');
+  var boardViewEl = document.getElementById('boardView');
+  var btnAllBoards = document.getElementById('btnAllBoards');
+  if (!projectsEl) return;
+  boardViewEl && (boardViewEl.style.display = 'none');
+  projectsEl.style.display = '';
+  btnAllBoards && (btnAllBoards.style.display = 'none');
+
+  if (_boardProjects.length === 0) {
+    projectsEl.innerHTML = `
+      <div class="board-empty-state">
+        <span class="material-icons-round">view_kanban</span>
+        <h3>Noch kein Event-Projekt</h3>
+        <p>Erstelle dein erstes Planungs-Board und organisiere alle Dienstleister für dein Event.</p>
+        <button class="btn-primary board-new-btn" onclick="openCreateBoardModal()" style="margin-top:20px">
+          <span class="material-icons-round">add</span> Erstes Projekt erstellen
+        </button>
+      </div>`;
+    return;
+  }
+
+  projectsEl.innerHTML = _boardProjects.map(function(p) {
+    var total = (p.cards || []).length;
+    var confirmed = (p.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; }).length;
+    var budgetSum = (p.cards || []).reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+    return `
+      <div class="board-project-card animated-entry" onclick="openBoardProject('${p.id}')">
+        <h3>${_escHtml(p.name)}</h3>
+        <div class="bpc-date"><span class="material-icons-round">event</span>${_escHtml(p.date || 'Datum noch offen')}</div>
+        <div class="board-project-progress">
+          ${['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'].map(function(stage) {
+            var cnt = (p.cards || []).filter(function(c) { return c.stage === stage; }).length;
+            return '<div class="bpp-stage' + (cnt > 0 ? ' filled stage-' + stage : '') + '" title="' + stage + ': ' + cnt + '"></div>';
+          }).join('')}
+        </div>
+        <div class="board-project-footer">
+          <span class="bpf-count"><span class="material-icons-round">group</span>${total} Dienstleister</span>
+          <span class="bpf-count"><span class="material-icons-round">euro</span>${budgetSum.toFixed(0)} €</span>
+          <span class="bpf-count" style="color:var(--accent)"><span class="material-icons-round">check_circle</span>${confirmed} Best.</span>
+        </div>
+      </div>`;
+  }).join('');
+  _initAnimatedEntries();
+}
+
+function showBoardProjects() {
+  _activeBoardId = null;
+  var boardViewEl = document.getElementById('boardView');
+  var projectsEl = document.getElementById('boardProjects');
+  var btnAllBoards = document.getElementById('btnAllBoards');
+  boardViewEl && (boardViewEl.style.display = 'none');
+  projectsEl && (projectsEl.style.display = '');
+  btnAllBoards && (btnAllBoards.style.display = 'none');
+  renderBoardPage();
+}
+
+function openBoardProject(projectId) {
+  var project = _boardProjects.find(function(p) { return p.id === projectId; });
+  if (!project) return;
+  _activeBoardId = projectId;
+  var projectsEl = document.getElementById('boardProjects');
+  var boardViewEl = document.getElementById('boardView');
+  var btnAllBoards = document.getElementById('btnAllBoards');
+  projectsEl && (projectsEl.style.display = 'none');
+  boardViewEl && (boardViewEl.style.display = '');
+  btnAllBoards && (btnAllBoards.style.display = '');
+
+  document.getElementById('boardEventName').textContent = project.name;
+  document.getElementById('boardEventDate').textContent = project.date || 'Datum noch offen';
+
+  renderKanban(project);
+  _updateBoardStats(project);
+}
+
+function renderKanban(project) {
+  var stages = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+  stages.forEach(function(stage) {
+    var colEl = document.getElementById('cards' + stage.charAt(0).toUpperCase() + stage.slice(1));
+    if (!colEl) return;
+    var cards = (project.cards || []).filter(function(c) { return c.stage === stage; });
+    colEl.innerHTML = cards.map(function(card) { return renderKanbanCard(card); }).join('');
+    _initCardDrag(colEl);
+    var cntEl = document.getElementById('cnt' + stage.charAt(0).toUpperCase() + stage.slice(1));
+    if (cntEl) cntEl.textContent = cards.length;
+  });
+}
+
+function renderKanbanCard(card) {
+  var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+  return `<div class="kanban-card" draggable="true" data-card-id="${card.id}" ondragstart="dragCard(event,'${card.id}')" onclick="event.stopPropagation()">
+    <div class="kc-header">
+      <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=fallback'" />
+      <div>
+        <div class="kc-name">${_escHtml(card.name)}</div>
+        <div class="kc-category">${_escHtml(card.category || '')}</div>
+      </div>
+    </div>
+    ${card.price ? '<div class="kc-price">€ ' + _escHtml(String(card.price)) + '</div>' : ''}
+    ${card.note ? '<div class="kc-note">' + _escHtml(card.note) + '</div>' : ''}
+    <div class="kc-actions">
+      ${card.listingId ? '<button onclick="navigateTo(\'detail\',' + card.listingId + ')"><span class="material-icons-round">open_in_new</span></button>' : ''}
+      <button onclick="editBoardCard('${card.id}')"><span class="material-icons-round">edit</span></button>
+      <button class="kc-del" onclick="deleteBoardCard('${card.id}')"><span class="material-icons-round">delete</span></button>
+    </div>
+  </div>`;
+}
+
+function _updateBoardStats(project) {
+  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt'; }).length;
+  var budget = (project.cards || []).reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+  var pending = (project.cards || []).filter(function(c) { return c.stage === 'kontaktiert' || c.stage === 'angebot'; }).length;
+  var statC = document.getElementById('statConfirmed');
+  var statB = document.getElementById('statBudget');
+  var statP = document.getElementById('statPending');
+  if (statC) statC.textContent = confirmed;
+  if (statB) statB.textContent = budget.toFixed(0) + ' €';
+  if (statP) statP.textContent = pending;
+}
+
+// Drag & Drop
+var _dragCardId = null;
+function dragCard(event, cardId) {
+  _dragCardId = cardId;
+  event.currentTarget.classList.add('dragging');
+}
+function allowDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.add('drag-over');
+}
+function dropCard(event, toStage) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag-over');
+  if (!_dragCardId || !_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === _dragCardId; });
+  if (card) {
+    card.stage = toStage;
+    _saveBoardProjects();
+    renderKanban(project);
+    _updateBoardStats(project);
+  }
+  _dragCardId = null;
+  document.querySelectorAll('.kanban-card.dragging').forEach(function(el) { el.classList.remove('dragging'); });
+}
+function _initCardDrag(colEl) {
+  colEl.addEventListener('dragleave', function() { colEl.classList.remove('drag-over'); });
+}
+
+// View Toggle
+function switchBoardView(view) {
+  var kanban = document.getElementById('boardKanban');
+  var timeline = document.getElementById('boardTimelineView');
+  var btnK = document.getElementById('btnKanbanView');
+  var btnT = document.getElementById('btnTimelineView');
+  if (view === 'kanban') {
+    kanban && (kanban.style.display = '');
+    timeline && (timeline.style.display = 'none');
+    btnK && btnK.classList.add('active');
+    btnT && btnT.classList.remove('active');
+  } else {
+    kanban && (kanban.style.display = 'none');
+    timeline && (timeline.style.display = '');
+    btnK && btnK.classList.remove('active');
+    btnT && btnT.classList.add('active');
+    renderBoardTimeline();
+  }
+}
+
+function renderBoardTimeline() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var chain = document.getElementById('timelineChain');
+  if (!chain) return;
+  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; });
+  if (confirmed.length === 0) {
+    chain.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light)"><span class="material-icons-round" style="font-size:40px;opacity:0.3;display:block;margin-bottom:12px">timeline</span>Noch keine bestätigten Dienstleister im Ablauf</div>';
+    return;
+  }
+  chain.innerHTML = confirmed.map(function(card, i) {
+    var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+    var timeStr = card.startTime || ('0' + (8 + i * 2) + ':00').slice(-5);
+    var connector = i < confirmed.length - 1 ? '<div class="tl-connector"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 10h10M12 7l3 3-3 3"/></svg></div>' : '';
+    return '<div class="tl-card animated-entry">' +
+      '<div class="tl-time">' + _escHtml(timeStr) + '</div>' +
+      '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(card.name) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" />' +
+      '<h4>' + _escHtml(card.name) + '</h4>' +
+      '<small>' + _escHtml(card.category || '') + '</small>' +
+      '</div>' + connector;
+  }).join('');
+  _initAnimatedEntries();
+}
+
+// Modals for Board
+function openCreateBoardModal() {
+  var html = `<div class="modal-overlay show" id="createBoardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
+    <div class="modal modal-sm" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="document.getElementById('createBoardModal').remove()"><span class="material-icons-round">close</span></button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">view_kanban</span>
+        <h2>Neues Event-Projekt</h2>
+        <p>Gib deinem Event einen Namen und plane es Schritt für Schritt</p>
+      </div>
+      <form class="modal-form" onsubmit="_createBoardProject(event)">
+        <div class="form-group">
+          <label>Event-Name</label>
+          <input type="text" id="newBoardName" placeholder="z.B. Hochzeit Julia & Mark" required autofocus />
+        </div>
+        <div class="form-group">
+          <label>Event-Datum</label>
+          <input type="text" id="newBoardDate" placeholder="z.B. 15. August 2026" />
+        </div>
+        <div class="form-group">
+          <label>Budget (€, optional)</label>
+          <input type="number" id="newBoardBudget" placeholder="z.B. 5000" min="0" step="100" />
+        </div>
+        <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">add</span> Projekt erstellen</button>
+      </form>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _createBoardProject(event) {
+  event.preventDefault();
+  var name = document.getElementById('newBoardName').value.trim();
+  var date = document.getElementById('newBoardDate').value.trim();
+  var budget = document.getElementById('newBoardBudget').value.trim();
+  if (!name) return;
+  var project = {
+    id: 'bp_' + Date.now(),
+    name: name,
+    date: date || '',
+    budget: parseFloat(budget) || 0,
+    cards: [],
+    createdAt: new Date().toISOString()
+  };
+  _boardProjects.unshift(project);
+  _saveBoardProjects();
+  document.getElementById('createBoardModal') && document.getElementById('createBoardModal').remove();
+  openBoardProject(project.id);
+  showToast('Event-Projekt "' + name + '" wurde erstellt!', 'check_circle');
+}
+
+function openAddProviderModal(defaultStage) {
+  defaultStage = defaultStage || 'geplant';
+  var listingOptions = (LISTINGS || []).slice(0, 30).map(function(l) {
+    return '<option value="' + l.id + '" data-name="' + _escHtml(l.providerName) + '" data-category="' + _escHtml(l.category || '') + '" data-price="' + (l.price || '') + '">' + _escHtml(l.providerName) + ' – ' + _escHtml(l.title) + '</option>';
+  }).join('');
+
+  var html = `<div class="modal-overlay show" id="addProviderModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="document.getElementById('addProviderModal').remove()"><span class="material-icons-round">close</span></button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">person_add</span>
+        <h2>Dienstleister hinzufügen</h2>
+        <p>Aus bestehenden Inseraten wählen oder manuell eingeben</p>
+      </div>
+      <form class="modal-form" onsubmit="_addProviderCard(event,'${defaultStage}')">
+        <div class="form-group">
+          <label>Aus Inseraten wählen (optional)</label>
+          <select id="cardListingSelect" onchange="_autoFillProviderFromListing(this)">
+            <option value="">– Manuell eingeben –</option>
+            ${listingOptions}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Name / Firma</label>
+          <input type="text" id="cardName" placeholder="DJ Max, Catering König, ..." required />
+        </div>
+        <div class="form-group">
+          <label>Kategorie</label>
+          <input type="text" id="cardCategory" placeholder="DJ, Catering, Fotografie, ..." />
+        </div>
+        <div class="form-group">
+          <label>Preis (€)</label>
+          <input type="number" id="cardPrice" placeholder="0" min="0" step="50" />
+        </div>
+        <div class="form-group">
+          <label>Startuhrzeit am Eventtag</label>
+          <input type="time" id="cardStartTime" value="10:00" />
+        </div>
+        <div class="form-group">
+          <label>Notiz</label>
+          <textarea id="cardNote" rows="2" placeholder="Bespreche noch einen Rabatt, Technik muss vorher aufgebaut sein, ..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-block">
+          <span class="material-icons-round">add</span> Zum Board hinzufügen
+        </button>
+      </form>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _autoFillProviderFromListing(select) {
+  var opt = select.options[select.selectedIndex];
+  if (!opt.value) return;
+  var nameEl = document.getElementById('cardName');
+  var catEl = document.getElementById('cardCategory');
+  var priceEl = document.getElementById('cardPrice');
+  if (nameEl) nameEl.value = opt.dataset.name || '';
+  if (catEl) catEl.value = opt.dataset.category || '';
+  if (priceEl && opt.dataset.price) {
+    priceEl.value = parseFloat(String(opt.dataset.price).replace(/[^\d.,]/g,'').replace(',','.')) || '';
+  }
+}
+
+function _addProviderCard(event, stage) {
+  event.preventDefault();
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+
+  var listingId = document.getElementById('cardListingSelect') ? parseInt(document.getElementById('cardListingSelect').value) || null : null;
+  var name = document.getElementById('cardName').value.trim();
+  var category = document.getElementById('cardCategory').value.trim();
+  var price = parseFloat(document.getElementById('cardPrice').value) || 0;
+  var note = document.getElementById('cardNote').value.trim();
+  var startTime = document.getElementById('cardStartTime').value || '';
+
+  var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
+  var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : null;
+
+  var card = {
+    id: 'card_' + Date.now(),
+    name: name,
+    category: category,
+    price: price,
+    note: note,
+    startTime: startTime,
+    stage: stage,
+    listingId: listingId,
+    avatar: avatar,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!project.cards) project.cards = [];
+  project.cards.push(card);
+  _saveBoardProjects();
+  document.getElementById('addProviderModal') && document.getElementById('addProviderModal').remove();
+  renderKanban(project);
+  _updateBoardStats(project);
+  showToast(name + ' wurde zum Board hinzugefügt!', 'check_circle');
+}
+
+function deleteBoardCard(cardId) {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  project.cards = (project.cards || []).filter(function(c) { return c.id !== cardId; });
+  _saveBoardProjects();
+  renderKanban(project);
+  _updateBoardStats(project);
+}
+
+function editBoardCard(cardId) {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+
+  var html = `<div class="modal-overlay show" id="editCardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
+    <div class="modal modal-sm" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="document.getElementById('editCardModal').remove()"><span class="material-icons-round">close</span></button>
+      <div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>Karte bearbeiten</h2></div>
+      <form class="modal-form" onsubmit="_saveCardEdit(event,'${cardId}')">
+        <div class="form-group"><label>Name</label><input type="text" id="editCardName" value="${_escHtml(card.name)}" required /></div>
+        <div class="form-group"><label>Kategorie</label><input type="text" id="editCardCategory" value="${_escHtml(card.category || '')}" /></div>
+        <div class="form-group"><label>Preis (€)</label><input type="number" id="editCardPrice" value="${card.price || ''}" min="0" step="50" /></div>
+        <div class="form-group"><label>Uhrzeit</label><input type="time" id="editCardTime" value="${_escHtml(card.startTime || '10:00')}" /></div>
+        <div class="form-group"><label>Notiz</label><textarea id="editCardNote" rows="2">${_escHtml(card.note || '')}</textarea></div>
+        <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>
+      </form>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _saveCardEdit(event, cardId) {
+  event.preventDefault();
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  card.name = document.getElementById('editCardName').value.trim();
+  card.category = document.getElementById('editCardCategory').value.trim();
+  card.price = parseFloat(document.getElementById('editCardPrice').value) || 0;
+  card.startTime = document.getElementById('editCardTime').value || '';
+  card.note = document.getElementById('editCardNote').value.trim();
+  _saveBoardProjects();
+  document.getElementById('editCardModal') && document.getElementById('editCardModal').remove();
+  renderKanban(project);
+  _updateBoardStats(project);
+  showToast('Gespeichert!', 'check_circle');
+}
+
+
+// =========================================================
+// =================== SOCIAL FEED ENHANCED ================
+// =========================================================
+
+var _socialPosts = JSON.parse(localStorage.getItem('eb_social_posts') || 'null') || _generateDemoSocialPosts();
+var _likedPosts = new Set(JSON.parse(localStorage.getItem('eb_liked_posts') || '[]'));
+
+function _saveSocialData() {
+  localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts));
+  localStorage.setItem('eb_liked_posts', JSON.stringify([..._likedPosts]));
+}
+
+function _generateDemoSocialPosts() {
+  return [
+    {
+      id: 'sp1',
+      type: 'event',
+      author: 'Julia & Mark',
+      authorId: 1001,
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=julia',
+      content: 'Unser großer Tag naht! Wir freuen uns riesig auf unsere Hochzeit. Alle Dienstleister sind bestätigt #Hochzeit #Love',
+      image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=600&q=80',
+      eventName: 'Hochzeit Julia & Mark',
+      eventDate: '15. August 2026',
+      eventLocation: 'Schloss Rheinsberg',
+      time: new Date(Date.now() - 3600000).toISOString(),
+      likes: 47,
+      comments: 12,
+      metAt: null
+    },
+    {
+      id: 'sp2',
+      type: 'service',
+      author: 'DJ Max Beat',
+      authorId: 1002,
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=djmax',
+      content: 'Was für ein unfassbares Wochenende! 3 Events in 2 Tagen – die Energie auf der Tanzfläche war legendär 🎵 #DJLife #EventDJ #Hamburg',
+      image: 'https://images.unsplash.com/photo-1571266028665-2ad406bb7b03?w=600&q=80',
+      time: new Date(Date.now() - 7200000).toISOString(),
+      likes: 83,
+      comments: 7,
+      metAt: null
+    },
+    {
+      id: 'sp3',
+      type: 'met',
+      author: 'Sophia K.',
+      authorId: 1003,
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophia',
+      content: 'Durch die Firmenfeier mit Top Catering wirklich tolle Menschen kennengelernt. Das Essen war phantastisch! #Catering #Firmenevent',
+      image: 'https://images.unsplash.com/photo-1555244162-803834f70033?w=600&q=80',
+      time: new Date(Date.now() - 86400000).toISOString(),
+      likes: 31,
+      comments: 4,
+      metAt: { eventName: 'Sommerfest Tech GmbH', date: '2026-06-20' }
+    },
+    {
+      id: 'sp4',
+      type: 'event',
+      author: 'Foto Pro Studio',
+      authorId: 1004,
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=fotopro',
+      content: 'Neue Event-Galerie online! Hier sind Highlights aus der Sommerhochzeit letzten Samstag. Wir freuen uns auf eure nächsten Events! #Fotografie #Hochzeit #Memories',
+      image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=600&q=80',
+      eventName: 'Hochzeit Galerie Sommer 2026',
+      eventDate: '5. Juli 2026',
+      time: new Date(Date.now() - 172800000).toISOString(),
+      likes: 124,
+      comments: 19,
+      metAt: null
+    },
+    {
+      id: 'sp5',
+      type: 'service',
+      author: 'BlumenZauber GmbH',
+      authorId: 1005,
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=blumen',
+      content: 'Neue Kollektion Frühjahr/Sommer! Exklusive Tischdekoration und Brautsträuße für euren unvergesslichen Tag. Jetzt anfragen! #Floristik #Hochzeit #Dekoration',
+      image: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=600&q=80',
+      time: new Date(Date.now() - 259200000).toISOString(),
+      likes: 56,
+      comments: 8,
+      metAt: null
+    }
+  ];
+}
+
+function renderFeed(tab) {
+  var list = document.getElementById('feedList');
+  if (!list) return;
+
+  // Render stories first
+  renderFeedStories();
+  renderSidebarUpcoming();
+
+  if (tab === 'events') {
+    // Only event-type social posts
+    var eventPosts = _socialPosts.filter(function(p) { return p.type === 'event'; });
+    list.innerHTML = eventPosts.map(function(p) { return renderSocialPostCard(p); }).join('');
+    return;
+  }
+
+  // For foryou/newest/popular: mix social posts + listing cards
+  var seen = new Set();
+  var listings = getHeroListings().filter(function(l) {
+    if (seen.has(l.id)) return false;
+    seen.add(l.id);
+    return true;
+  });
+
+  if (tab === 'newest') {
+    listings = listings.sort(function(a, b) { return b.id - a.id; });
+    var allItems = _socialPosts.slice(0, 2).map(function(p) { return { _social: true, post: p }; })
+      .concat(listings.slice(0, 8).map(function(l) { return { _listing: true, listing: l }; }));
+    list.innerHTML = allItems.map(function(item) {
+      return item._social ? renderSocialPostCard(item.post) : renderListingFeedCard(item.listing);
+    }).join('');
+  } else if (tab === 'popular') {
+    listings = listings.sort(function(a, b) { return (b.rating || 0) - (a.rating || 0); });
+    var popPosts = _socialPosts.sort(function(a, b) { return (b.likes || 0) - (a.likes || 0); });
+    var allItems2 = [];
+    var li = 0, pi = 0;
+    while (li < Math.min(listings.length, 8) || pi < popPosts.length) {
+      if (pi < popPosts.length && (li % 3 === 0)) { allItems2.push({ _social: true, post: popPosts[pi++] }); }
+      else if (li < listings.length) { allItems2.push({ _listing: true, listing: listings[li++] }); }
+      else if (pi < popPosts.length) { allItems2.push({ _social: true, post: popPosts[pi++] }); }
+      else break;
+    }
+    list.innerHTML = allItems2.map(function(item) {
+      return item._social ? renderSocialPostCard(item.post) : renderListingFeedCard(item.listing);
+    }).join('');
+  } else {
+    // foryou — interleaved
+    var shuffled = listings.slice().sort(function() { return Math.random() - 0.5; });
+    var mixed = [];
+    var sIdx = 0;
+    shuffled.slice(0, 8).forEach(function(l, i) {
+      if (i > 0 && i % 2 === 0 && sIdx < _socialPosts.length) {
+        mixed.push(renderSocialPostCard(_socialPosts[sIdx++]));
+      }
+      mixed.push(renderListingFeedCard(l));
+    });
+    while (sIdx < _socialPosts.length) {
+      mixed.push(renderSocialPostCard(_socialPosts[sIdx++]));
+    }
+    list.innerHTML = mixed.join('');
+  }
+}
+
+function renderSocialPostCard(post) {
+  var isLiked = _likedPosts.has(post.id);
+  var typeBadge = '';
+  if (post.type === 'event') {
+    typeBadge = '<span class="event-badge"><span class="material-icons-round">celebration</span>Event</span>';
+  } else if (post.type === 'met') {
+    typeBadge = '<span class="met-badge"><span class="material-icons-round">people</span>Verbindung</span>';
+  } else {
+    typeBadge = '<span class="service-badge"><span class="material-icons-round">storefront</span>Service</span>';
+  }
+
+  var content = _escHtml(post.content || '');
+  content = content.replace(/(#\w+)/g, '<span class="feed-hashtag">$1</span>');
+
+  var eventInfo = '';
+  if (post.type === 'event' && post.eventName) {
+    eventInfo = '<div class="feed-event-info">' +
+      '<span class="material-icons-round">celebration</span>' +
+      '<span><strong>' + _escHtml(post.eventName) + '</strong>' + (post.eventDate ? ' · ' + _escHtml(post.eventDate) : '') + (post.eventLocation ? ' · ' + _escHtml(post.eventLocation) : '') + '</span>' +
+      '</div>';
+  }
+
+  var metBanner = '';
+  if (post.metAt) {
+    metBanner = '<div class="met-at-banner"><span class="material-icons-round">people</span>' +
+      'Kennengelernt bei <strong>' + _escHtml(post.metAt.eventName) + '</strong>' +
+      (post.metAt.date ? ' am ' + _escHtml(post.metAt.date) : '') +
+      '</div>';
+  }
+
+  var imgBlock = post.image ? '<img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" />' : '';
+
+  return '<div class="feed-post-card">' +
+    '<div class="feed-post-header">' +
+      '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=user') + '" alt="' + _escHtml(post.author) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" />' +
+      '<div class="feed-post-author">' +
+        '<strong>' + _escHtml(post.author) + '</strong>' +
+        '<div class="feed-post-meta">' + typeBadge + ' <span>' + timeAgo(post.time) + '</span></div>' +
+      '</div>' +
+      '<button class="feed-more-btn"><span class="material-icons-round">more_horiz</span></button>' +
+    '</div>' +
+    imgBlock +
+    eventInfo +
+    '<div class="feed-post-content">' + content + '</div>' +
+    metBanner +
+    '<div class="feed-action-bar">' +
+      '<div class="feed-actions">' +
+        '<button class="feed-action-btn' + (isLiked ? ' liked' : '') + '" onclick="togglePostLike(this,\'' + post.id + '\')">' +
+          '<span class="material-icons-round">' + (isLiked ? 'favorite' : 'favorite_border') + '</span> ' +
+          '<span class="like-count">' + (post.likes || 0) + '</span>' +
+        '</button>' +
+        '<button class="feed-action-btn" onclick="openPostComments(\'' + post.id + '\')">' +
+          '<span class="material-icons-round">chat_bubble_outline</span> ' + (post.comments || 0) +
+        '</button>' +
+      '</div>' +
+      '<button class="feed-share-btn" onclick="sharePost(\'' + post.id + '\')">' +
+        '<span class="material-icons-round">share</span> Teilen' +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderListingFeedCard(l) {
+  var avatar = l.providerImg || l.providerAvatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName));
+  var isFav = favorites.has(l.id);
+  return '<div class="feed-post-card">' +
+    '<div class="feed-post-header">' +
+      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
+      '<div class="feed-post-author">' +
+        '<strong onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')">' + _escHtml(l.providerName) + '</strong>' +
+        '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span>' + timeAgo(l.createdAt) + '</span></div>' +
+      '</div>' +
+      '<button class="feed-more-btn"><span class="material-icons-round">more_horiz</span></button>' +
+    '</div>' +
+    '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" />' +
+    '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
+    '<div class="feed-action-bar">' +
+      '<div class="feed-actions">' +
+        '<button class="feed-action-btn' + (isFav ? ' liked' : '') + '" onclick="toggleFeedFav(this,' + l.id + ')">' +
+          '<span class="material-icons-round">' + (isFav ? 'favorite' : 'favorite_border') + '</span>' +
+        '</button>' +
+        '<button class="feed-action-btn" onclick="navigateTo(\'detail\',' + l.id + ')">' +
+          '<span class="material-icons-round">open_in_new</span> Ansehen' +
+        '</button>' +
+      '</div>' +
+      '<span style="font-size:14px;font-weight:700;color:var(--primary)">' + _escHtml(l.priceLabel || '') + '</span>' +
+    '</div>' +
+  '</div>';
+}
+
+function togglePostLike(btn, postId) {
+  var post = _socialPosts.find(function(p) { return p.id === postId; });
+  if (!post) return;
+  if (_likedPosts.has(postId)) {
+    _likedPosts.delete(postId);
+    post.likes = Math.max(0, (post.likes || 1) - 1);
+    btn.classList.remove('liked');
+    btn.querySelector('.material-icons-round').textContent = 'favorite_border';
+  } else {
+    _likedPosts.add(postId);
+    post.likes = (post.likes || 0) + 1;
+    btn.classList.add('liked');
+    btn.querySelector('.material-icons-round').textContent = 'favorite';
+  }
+  var countEl = btn.querySelector('.like-count');
+  if (countEl) countEl.textContent = post.likes;
+  _saveSocialData();
+}
+
+function openPostComments(postId) {
+  showToast('Kommentare kommen bald!', 'chat_bubble_outline');
+}
+
+function sharePost(postId) {
+  if (navigator.share) {
+    navigator.share({ title: 'Eventbörse Post', url: window.location.href })
+      .catch(function() {});
+  } else {
+    try { navigator.clipboard.writeText(window.location.href); } catch(e) {}
+    showToast('Link kopiert!', 'link');
+  }
+}
+
+function switchFeedTab(btn) {
+  document.querySelectorAll('.feed-tab').forEach(function(t) { t.classList.remove('active'); });
+  btn.classList.add('active');
+  renderFeed(btn.dataset.feed);
+}
+
+function renderFeedStories() {
+  var storyScroll = document.querySelector('.stories-scroll');
+  if (!storyScroll) return;
+
+  var demoStories = [
+    { name: 'DJ Max', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=djmax', hasStory: true },
+    { name: 'Foto Pro', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=fotopro', hasStory: true },
+    { name: 'BlumenZ.', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=blumen', hasStory: true },
+    { name: 'Julia', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=julia', hasStory: true },
+    { name: 'CateringK', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=catering', hasStory: false },
+  ];
+
+  var existing = storyScroll.querySelector('.story-add-btn');
+  var existingStories = storyScroll.querySelectorAll('.story-item');
+  existingStories.forEach(function(s) { s.remove(); });
+
+  var storiesHtml = demoStories.map(function(s) {
+    return '<div class="story-item" onclick="showToast(\'Stories kommen bald!\',\'auto_stories\')">' +
+      '<div class="story-circle' + (s.hasStory ? ' has-story' : '') + '">' +
+      '<img src="' + s.avatar + '" alt="' + _escHtml(s.name) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" />' +
+      '</div><span>' + _escHtml(s.name) + '</span></div>';
+  }).join('');
+
+  if (existing) {
+    existing.insertAdjacentHTML('afterend', storiesHtml);
+  } else {
+    storyScroll.innerHTML += storiesHtml;
+  }
+}
+
+function renderSidebarUpcoming() {
+  var el = document.getElementById('sidebarUpcoming');
+  if (!el) return;
+  var upcoming = [
+    { emoji: '🎸', name: 'Rock Festival Berlin', date: '12. Sep 2026' },
+    { emoji: '💒', name: 'Hochzeitsmesse Köln', date: '20. Sep 2026' },
+    { emoji: '🎉', name: 'Oktoberfest Opening', date: '19. Okt 2026' },
+  ];
+  el.innerHTML = upcoming.map(function(u) {
+    return '<div class="sidebar-event-item">' +
+      '<div class="sidebar-event-dot">' + u.emoji + '</div>' +
+      '<div><strong>' + _escHtml(u.name) + '</strong><span>' + _escHtml(u.date) + '</span></div>' +
+    '</div>';
+  }).join('');
+}
+
+function openAddStoryModal() {
+  if (!isLoggedIn) { openModal('loginModal'); return; }
+  showToast('Stories kommen bald!', 'auto_stories');
+}
+
+function openCreatePostModal() {
+  if (!isLoggedIn) { openModal('loginModal'); return; }
+  var html = `<div class="modal-overlay show" id="createPostModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="document.getElementById('createPostModal').remove()"><span class="material-icons-round">close</span></button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">edit</span>
+        <h2>Post erstellen</h2>
+        <p>Teile dein Event oder Erlebnis mit der Community</p>
+      </div>
+      <form class="modal-form" onsubmit="_createSocialPost(event)">
+        <div class="form-group">
+          <label>Art des Posts</label>
+          <select id="postType" onchange="_togglePostTypeFields(this.value)">
+            <option value="service">Service / Ankündigung</option>
+            <option value="event">Event ausschreiben</option>
+            <option value="met">Kennengelernt bei Event</option>
+          </select>
+        </div>
+        <div id="postEventFields" style="display:none">
+          <div class="form-group"><label>Event-Name</label><input type="text" id="postEventName" placeholder="z.B. Meine Sommerhochzeit" /></div>
+          <div class="form-group"><label>Datum</label><input type="text" id="postEventDate" placeholder="z.B. 15. August 2026" /></div>
+          <div class="form-group"><label>Ort</label><input type="text" id="postEventLocation" placeholder="z.B. Hamburg" /></div>
+        </div>
+        <div id="postMetFields" style="display:none">
+          <div class="form-group"><label>Event, bei dem ihr euch kennengelernt habt</label><input type="text" id="postMetEvent" placeholder="z.B. Sommerfest 2026" /></div>
+        </div>
+        <div class="form-group">
+          <label>Was möchtest du teilen?</label>
+          <textarea id="postContent" rows="4" placeholder="Schreibe etwas... #Hashtags sind willkommen!" required></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">send</span> Veröffentlichen</button>
+      </form>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _togglePostTypeFields(type) {
+  var eventFields = document.getElementById('postEventFields');
+  var metFields = document.getElementById('postMetFields');
+  if (eventFields) eventFields.style.display = (type === 'event') ? '' : 'none';
+  if (metFields) metFields.style.display = (type === 'met') ? '' : 'none';
+}
+
+function _createSocialPost(event) {
+  event.preventDefault();
+  var type = document.getElementById('postType').value;
+  var content = document.getElementById('postContent').value.trim();
+  if (!content) return;
+
+  var post = {
+    id: 'sp_' + Date.now(),
+    type: type,
+    author: currentUser ? (currentUser.firstName + ' ' + currentUser.lastName).trim() : 'Du',
+    authorId: currentUser ? currentUser.id : 0,
+    avatar: currentUser ? (currentUser.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.email || 'user'))) : 'https://api.dicebear.com/7.x/avataaars/svg?seed=newuser',
+    content: content,
+    time: new Date().toISOString(),
+    likes: 0,
+    comments: 0,
+    metAt: null
+  };
+
+  if (type === 'event') {
+    var en = document.getElementById('postEventName');
+    var ed = document.getElementById('postEventDate');
+    var el = document.getElementById('postEventLocation');
+    post.eventName = en ? en.value.trim() : '';
+    post.eventDate = ed ? ed.value.trim() : '';
+    post.eventLocation = el ? el.value.trim() : '';
+  } else if (type === 'met') {
+    var me = document.getElementById('postMetEvent');
+    post.metAt = me && me.value.trim() ? { eventName: me.value.trim(), date: '' } : null;
+  }
+
+  _socialPosts.unshift(post);
+  _saveSocialData();
+  document.getElementById('createPostModal') && document.getElementById('createPostModal').remove();
+  renderFeed(document.querySelector('.feed-tab.active') ? document.querySelector('.feed-tab.active').dataset.feed : 'foryou');
+  showToast('Post veröffentlicht!', 'check_circle');
+}
+
+
+// =========================================================
+// =================== CONTACT FORM ========================
+// =========================================================
+
+function sendContactMessage(event) {
+  event.preventDefault();
+  var name = document.getElementById('contactName').value.trim();
+  var email = document.getElementById('contactEmail').value.trim();
+  var subject = document.getElementById('contactSubject').value;
+  var message = document.getElementById('contactMessage').value.trim();
+
+  if (!name || !email || !message) return;
+
+  // Simple email validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showToast('Bitte eine gültige E-Mail-Adresse eingeben.', 'error');
+    return;
+  }
+
+  // Build mailto link (since we have no backend, we use mailto as fallback)
+  var mailtoSubject = encodeURIComponent('[Eventbörse Support] ' + subject + ' – ' + name);
+  var mailtoBody = encodeURIComponent('Von: ' + name + ' (' + email + ')\nBetreff: ' + subject + '\n\n' + message);
+  var mailtoLink = 'mailto:Kontakt@Eventboerse.de?subject=' + mailtoSubject + '&body=' + mailtoBody;
+
+  // Show success and open mail client
+  var successEl = document.getElementById('contactSuccess');
+  if (successEl) {
+    successEl.style.display = '';
+    setTimeout(function() { successEl.style.display = 'none'; }, 6000);
+  }
+
+  // Try to open mail client
+  window.location.href = mailtoLink;
+
+  // Reset form
+  event.target.reset();
+  showToast('Danke! Deine Nachricht wurde vorbereitet.', 'email');
+}
+
+
+// =========================================================
+// =================== COUNT-UP ANIMATION ==================
+// =========================================================
+function _animateCountUp() {
+  var els = document.querySelectorAll('.browse-hero-stats [data-count]');
+  els.forEach(function(el) {
+    if (el._counted) return;
+    el._counted = true;
+    var target = parseFloat(el.dataset.count);
+    var suffix = el.dataset.suffix || '';
+    var dec = parseInt(el.dataset.decimal) || 0;
+    var duration = 1200;
+    var start = performance.now();
+    function tick(now) {
+      var p = Math.min((now - start) / duration, 1);
+      // ease-out cubic
+      var ease = 1 - Math.pow(1 - p, 3);
+      var val = (target * ease);
+      el.textContent = (dec ? val.toFixed(dec) : Math.round(val)) + suffix;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// =========================================================
+// =================== ANIMATIONS (IntersectionObserver) ===
+// =========================================================
+
+function _initAnimatedEntries() {
+  if (!window.IntersectionObserver) return;
+  var entries = document.querySelectorAll('.animated-entry:not(.visible)');
+  var observer = new IntersectionObserver(function(records) {
+    records.forEach(function(r) {
+      if (r.isIntersecting) {
+        r.target.classList.add('visible');
+        observer.unobserve(r.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  entries.forEach(function(el) { observer.observe(el); });
+}
+
+// Init on each page navigate
+(function() {
+  var _origNav = window.navigateTo;
+  // We hook into navigateTo to init animations after every navigation
+  // (Already added _initAnimatedEntries calls in board/feed)
+})();
+
+// =========================================================
+// ========= EVENT CONNECTIONS (Profile) ===================
+// =========================================================
+
+function openAddEventConnectionModal() {
+  if (!isLoggedIn) { openModal('loginModal'); return; }
+  var html = `<div class="modal-overlay show" id="addEventConnModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
+    <div class="modal modal-sm" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="document.getElementById('addEventConnModal').remove()"><span class="material-icons-round">close</span></button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">celebration</span>
+        <h2>Event hinzufügen</h2>
+        <p>Trage ein Event ein, das du erlebt hast – und wen du dabei kennengelernt hast</p>
+      </div>
+      <form class="modal-form" onsubmit="_saveEventConnection(event)">
+        <div class="form-group">
+          <label>Event-Name</label>
+          <input type="text" id="connEventName" placeholder="z.B. Sommerhochzeit 2026" required autofocus />
+        </div>
+        <div class="form-group">
+          <label>Datum (optional)</label>
+          <input type="text" id="connEventDate" placeholder="z.B. 15. August 2026" />
+        </div>
+        <div class="form-group">
+          <label>Ort (optional)</label>
+          <input type="text" id="connEventLocation" placeholder="z.B. Hamburg" />
+        </div>
+        <div class="form-group">
+          <label>Kennengelernt (optional)</label>
+          <input type="text" id="connMetPerson" placeholder="z.B. DJ Max, Fotograf Peter, ..." />
+        </div>
+        <button type="submit" class="btn-primary btn-block">
+          <span class="material-icons-round">add</span> Hinzufügen
+        </button>
+      </form>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _saveEventConnection(event) {
+  event.preventDefault();
+  if (!currentUser) return;
+  var name = document.getElementById('connEventName').value.trim();
+  var date = document.getElementById('connEventDate').value.trim();
+  var location = document.getElementById('connEventLocation').value.trim();
+  var metPerson = document.getElementById('connMetPerson').value.trim();
+  if (!name) return;
+
+  if (!currentUser.eventConnections) currentUser.eventConnections = [];
+  currentUser.eventConnections.unshift({
+    id: 'ec_' + Date.now(),
+    eventName: name,
+    date: date,
+    location: location,
+    metPerson: metPerson,
+    addedAt: new Date().toISOString()
+  });
+
+  // Persist
+  var stored = JSON.parse(localStorage.getItem('eb_user') || 'null') || {};
+  stored.eventConnections = currentUser.eventConnections;
+  localStorage.setItem('eb_user', JSON.stringify(stored));
+
+  document.getElementById('addEventConnModal') && document.getElementById('addEventConnModal').remove();
+  _renderProfileEventConnections();
+  showToast('Event "' + name + '" wurde hinzugefügt!', 'check_circle');
+}
+
+function _deleteEventConnection(ecId) {
+  if (!currentUser || !currentUser.eventConnections) return;
+  currentUser.eventConnections = currentUser.eventConnections.filter(function(ev) { return ev.id !== ecId; });
+  var stored = JSON.parse(localStorage.getItem('eb_user') || 'null') || {};
+  stored.eventConnections = currentUser.eventConnections;
+  localStorage.setItem('eb_user', JSON.stringify(stored));
+  _renderProfileEventConnections();
 }
