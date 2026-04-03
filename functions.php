@@ -749,9 +749,16 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
     $message  .= '<p style="color:#717171;font-size:13px">Dieser Link ist 1 Stunde gültig. Falls du kein Passwort-Reset angefordert hast, ignoriere diese E-Mail.</p>';
     $message  .= '</div>';
     $headers   = array( 'Content-Type: text/html; charset=UTF-8' );
-    wp_mail( $email, $subject, $message, $headers );
+    $sent = wp_mail( $email, $subject, $message, $headers );
 
-    return new WP_REST_Response( array( 'message' => 'Falls ein Konto mit dieser E-Mail existiert, erhältst du eine E-Mail zum Zurücksetzen.' ), 200 );
+    if ( ! $sent ) {
+        // wp_mail fehlgeschlagen – Cooldown zurücksetzen damit man erneut versuchen kann
+        delete_transient( $cd_key );
+        error_log( 'Eventbörse: wp_mail FEHLGESCHLAGEN für ' . $email );
+        return new WP_REST_Response( array( 'message' => 'E-Mail konnte nicht versendet werden. Bitte kontaktiere den Support.' ), 500 );
+    }
+
+    return new WP_REST_Response( array( 'message' => 'Eine E-Mail zum Zurücksetzen wurde an ' . $email . ' gesendet. Prüfe auch deinen Spam-Ordner.' ), 200 );
 }
 
 /* ---------- PASSWORT RESET AUSFÜHREN ---------- */
