@@ -154,17 +154,18 @@ add_filter( 'wp_new_user_notification_email_admin', '__return_false' );
 
 /* E-Mail-Absender für alle wp_mail-Aufrufe korrekt setzen */
 // ==== SMTP Support für zuverlässigen Mailversand ====
+// Zugangsdaten werden aus wp-config.php geladen (NICHT im Repo speichern!)
 add_action('phpmailer_init', function($phpmailer) {
-    // HIER SMTP-DATEN EINTRAGEN:
     $phpmailer->isSMTP();
-    $phpmailer->Host = 'smtp.strato.de'; // z.B. smtp.strato.de, smtp.gmail.com
-    $phpmailer->SMTPAuth = true;
-    $phpmailer->Port = 587; // 465 für SSL, 587 für TLS
-    $phpmailer->Username = 'DEIN_SMTP_USER'; // z.B. info@deinedomain.de
-    $phpmailer->Password = 'DEIN_SMTP_PASSWORT';
-    $phpmailer->SMTPSecure = 'tls'; // 'ssl' oder 'tls'
-    $phpmailer->From = 'info@deinedomain.de'; // Absender-Adresse
-    $phpmailer->FromName = 'Eventbörse';
+    $phpmailer->Host       = 'smtp.ionos.de';
+    $phpmailer->SMTPAuth   = true;
+    $phpmailer->Port       = 587;
+    $phpmailer->Username   = defined('EB_SMTP_USER') ? EB_SMTP_USER : '';
+    $phpmailer->Password   = defined('EB_SMTP_PASS') ? EB_SMTP_PASS : '';
+    $phpmailer->SMTPSecure = 'tls';
+    $phpmailer->From       = defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de';
+    $phpmailer->FromName   = 'Eventbörse';
+    $phpmailer->CharSet    = 'UTF-8';
 });
 add_filter( 'wp_mail_from', function() {
     return 'noreply@' . wp_parse_url( home_url(), PHP_URL_HOST );
