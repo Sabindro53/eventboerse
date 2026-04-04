@@ -4686,11 +4686,16 @@ function lcropDraw() {
   var ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, w, h);
 
-  var zoom = parseFloat(document.getElementById('lcropZoom').value) || 1;
+  var slider = document.getElementById('lcropZoom');
   var imgAspect = _lcropImg.width / _lcropImg.height;
+  var frameAspect = w / h;
+  // Minimum zoom = fit whole image within frame
+  var minZoom = imgAspect > frameAspect ? frameAspect / imgAspect : imgAspect / frameAspect;
+  minZoom = Math.round(minZoom * 100) / 100;
+  slider.min = minZoom;
+  var zoom = Math.max(minZoom, parseFloat(slider.value) || 1);
   var drawW, drawH;
   // Cover: fill the 4:3 frame
-  var frameAspect = w / h;
   if (imgAspect > frameAspect) {
     drawH = h * zoom;
     drawW = drawH * imgAspect;
@@ -4734,7 +4739,7 @@ function lcropBindEvents() {
     e.preventDefault();
     var slider = document.getElementById('lcropZoom');
     var v = parseFloat(slider.value) + (e.deltaY < 0 ? 0.05 : -0.05);
-    slider.value = Math.max(1, Math.min(3, v));
+    slider.value = Math.max(parseFloat(slider.min), Math.min(3, v));
     lcropDraw();
   }, { passive: false });
 }
