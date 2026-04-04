@@ -2696,7 +2696,7 @@ function _provCropPortfolioImage(wrap) {
 
 function _provEditAddGalleryImages(input) {
   if (!input.files || input.files.length === 0) return;
-  var maxTotal = 12;
+  var maxTotal = 50;
   var currentCount = (currentUser && currentUser.gallery) ? currentUser.gallery.length : 0;
   var files = Array.from(input.files);
   if (currentCount + files.length > maxTotal) {
