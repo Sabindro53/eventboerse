@@ -1703,6 +1703,12 @@ function filterByCategory(btn, cat) {
   if (grid) window.scrollTo({ top: grid.getBoundingClientRect().top + window.pageYOffset - 100, behavior: 'smooth' });
 }
 
+function updateChipLabel(sel) {
+  const lbl = sel.parentElement.querySelector('.chip-label');
+  if (!lbl) return;
+  lbl.textContent = sel.value ? sel.options[sel.selectedIndex].text : (lbl.dataset.default || '');
+}
+
 function filterListings() {
   const search = document.getElementById('browseSearch').value.toLowerCase().trim();
   const category = document.getElementById('browseCategory').value;
