@@ -9166,13 +9166,13 @@ function renderKanbanCard(card) {
 
 function _updateBoardStats(project) {
   var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt'; }).length;
-  var budget = (project.cards || []).reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+  var budget = parseFloat(project.budget) || 0;
   var pending = (project.cards || []).filter(function(c) { return c.stage === 'kontaktiert' || c.stage === 'angebot'; }).length;
   var statC = document.getElementById('statConfirmed');
   var statB = document.getElementById('statBudget');
   var statP = document.getElementById('statPending');
   if (statC) statC.textContent = confirmed;
-  if (statB) statB.textContent = budget.toFixed(0) + ' €';
+  if (statB) statB.textContent = budget.toLocaleString('de-DE') + ' €';
   if (statP) statP.textContent = pending;
 }
 
