@@ -1628,7 +1628,11 @@ function performSearch() {
 // ========== BROWSE PAGE ==========
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
-  grid.innerHTML = listings.map(renderListingCard).join('');
+  const visible = listings.filter(function(l) {
+    var imgs = Array.isArray(l.images) && l.images.length ? l.images : (l.image ? [l.image] : []);
+    return imgs.length >= 2;
+  });
+  grid.innerHTML = visible.map(renderListingCard).join('');
   // Click handler on cards
   grid.querySelectorAll('.listing-card').forEach(function(card) {
     card.onclick = function(e) {
@@ -1638,9 +1642,9 @@ function renderBrowseGrid(listings) {
     };
   });
   // Init gallery swipe for each listing
-  listings.forEach(function(l) { _initGridGallerySwipe(l.id); });
+  visible.forEach(function(l) { _initGridGallerySwipe(l.id); });
   detectWideBannerCards(grid);
-  document.getElementById('browseResultCount').textContent = `${listings.length} Services gefunden`;
+  document.getElementById('browseResultCount').textContent = `${visible.length} Services gefunden`;
 }
 
 function filterByCategory(btn, cat) {
