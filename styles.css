@@ -3814,8 +3814,8 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 }
 .provider-lightbox.show { opacity: 1; visibility: visible; }
 .provider-lightbox img {
-  max-width: 85vw;
-  max-height: 85vh;
+  max-width: 90vw;
+  max-height: calc(100vh - var(--nav-height) - var(--mobile-nav-height));
   border-radius: var(--radius-md);
   object-fit: contain;
   cursor: default;
