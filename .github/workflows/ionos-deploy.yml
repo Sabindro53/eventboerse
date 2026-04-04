@@ -19,12 +19,6 @@ jobs:
       - name: Install lftp
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
-      - name: Inject build version into app.js
-        run: |
-          BUILD_VERSION="$(git rev-parse --short HEAD)-$(date -u +%Y%m%d%H%M%S)"
-          sed -i "s/__EB_BUILD_VERSION__/$BUILD_VERSION/g" app.js
-          echo "Injected version: $BUILD_VERSION"
-
       - name: Deploy via SFTP
         env:
           SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}

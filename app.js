@@ -8604,7 +8604,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '__EB_BUILD_VERSION__';
+var _EB_VERSION = '2026-04-04-1'; // Nur erhöhen bei echten neuen Features für Nutzer
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
