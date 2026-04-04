@@ -8765,6 +8765,8 @@ function showUpdateNotification() {
   if (lastVersion === _EB_VERSION) return;
   localStorage.setItem('eb_last_version', _EB_VERSION);
   if (!lastVersion) return; // first visit ever, don't show
+  if (sessionStorage.getItem('eb_update_shown')) return; // already shown this session
+  sessionStorage.setItem('eb_update_shown', '1');
   var el = document.getElementById('updateToast');
   if (!el) return;
   setTimeout(function() { el.classList.add('show'); }, 600);
