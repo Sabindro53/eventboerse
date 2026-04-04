@@ -9294,51 +9294,91 @@ function renderBoardFlow() {
 
   var cards = project.cards || [];
   var esc = _escHtml;
+  var budget = parseFloat(project.budget) || 0;
+  var spent  = cards.reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+  var pct    = budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0;
+  var budgetColor = pct >= 100 ? '#FF385C' : pct >= 80 ? '#FF9800' : '#00A699';
 
-  var html = '<div class="flow-canvas" id="flowCanvas"><svg class="flow-svg" id="flowSvg" xmlns="http://www.w3.org/2000/svg"></svg>';
+  var html = '';
+
+  // ── Budget Overview Bar ──────────────────────────────────
+  html += '<div class="flow-budget-bar">';
+  html += '<div class="flow-budget-left">';
+  html += '<span class="material-icons-round" style="color:' + budgetColor + '">account_balance_wallet</span>';
+  html += '<div>';
+  html += '<div class="flow-budget-title">Budget</div>';
+  html += '<div class="flow-budget-num"><span style="color:' + budgetColor + '">' + spent.toLocaleString('de-DE') + ' €</span>';
+  if (budget > 0) html += ' <span class="flow-budget-of">von ' + budget.toLocaleString('de-DE') + ' €</span>';
+  html += '</div></div></div>';
+  if (budget > 0) {
+    html += '<div class="flow-budget-track"><div class="flow-budget-fill" style="width:' + pct + '%;background:' + budgetColor + '"></div></div>';
+    html += '<div class="flow-budget-pct" style="color:' + budgetColor + '">' + pct + '%</div>';
+  }
+  html += '<button class="flow-budget-edit-btn" onclick="openFlowBudgetModal()" title="Budget bearbeiten">';
+  html += '<span class="material-icons-round">edit</span></button>';
+  html += '</div>';
+
+  // ── Canvas ───────────────────────────────────────────────
+  html += '<div class="flow-canvas" id="flowCanvas">';
+  html += '<svg class="flow-svg" id="flowSvg" xmlns="http://www.w3.org/2000/svg"></svg>';
 
   // Trigger node
   html += '<div class="flow-col">';
-  html += '<div class="flow-node flow-node-trigger" data-nid="start">';
+  html += '<div class="flow-node flow-node-trigger" data-nid="start" onclick="openFlowProjectModal()">';
   html += '<div class="flow-port flow-port-out"></div>';
-  html += '<span class="material-icons-round" style="color:#FF385C;font-size:28px">celebration</span>';
+  html += '<span class="material-icons-round" style="color:#FF385C;font-size:32px">celebration</span>';
   html += '<strong>' + esc(project.name || 'Event') + '</strong>';
   if (project.date) html += '<small>' + esc(project.date) + '</small>';
+  html += '<span class="flow-node-edit-hint">Bearbeiten</span>';
   html += '</div>';
   html += '</div>';
 
   // Stage columns
   stagesMeta.forEach(function(stage) {
     var stageCards = cards.filter(function(c) { return c.stage === stage.id; });
+    var stageBudget = stageCards.reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
     html += '<div class="flow-col">';
 
     // Stage header node
     html += '<div class="flow-node flow-node-stage" data-nid="stage-' + stage.id + '">';
     html += '<div class="flow-port flow-port-in"></div>';
     html += '<div class="flow-port flow-port-out"></div>';
-    html += '<div class="flow-node-hdr" style="background:' + stage.color + '">';
+    html += '<div class="flow-node-hdr" style="background:' + stage.color + ';border-radius:11px 11px 0 0">';
     html += '<span class="material-icons-round">' + stage.icon + '</span>';
     html += '<span>' + stage.label + '</span>';
     if (stageCards.length) html += '<span class="flow-node-badge">' + stageCards.length + '</span>';
     html += '</div>';
     html += '<div class="flow-node-body">';
-    html += stageCards.length
-      ? '<span class="flow-node-cnt">' + stageCards.length + ' Dienstleister</span>'
-      : '<span class="flow-node-empty">Noch leer</span>';
+    if (stageCards.length) {
+      html += '<div class="flow-node-cnt">' + stageCards.length + ' Dienstleister</div>';
+      if (stageBudget > 0) html += '<div class="flow-node-budget-hint">Gesamt: ' + stageBudget.toLocaleString('de-DE') + ' €</div>';
+    } else {
+      html += '<span class="flow-node-empty">Noch leer</span>';
+    }
+    html += '<button class="flow-node-add-btn" onclick="openAddProviderModalFlow(\'' + stage.id + '\')">';
+    html += '<span class="material-icons-round">add</span> Hinzufügen</button>';
     html += '</div>';
     html += '</div>';
 
-    // Provider nodes connected below
+    // Provider nodes
     stageCards.forEach(function(card) {
       var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
       html += '<div class="flow-col-connector"></div>';
-      html += '<div class="flow-node flow-node-provider" data-nid="card-' + esc(card.id) + '">';
+      html += '<div class="flow-node flow-node-provider" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
       html += '<div class="flow-port flow-port-in" style="border-color:' + stage.color + '"></div>';
       html += '<div class="flow-provider-inner">';
       html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=x\'" alt="" />';
-      html += '<div class="flow-prov-info"><strong>' + esc(card.name) + '</strong><small>' + esc(card.category || '') + '</small>';
-      if (card.price) html += '<span class="flow-prov-price">' + esc(String(card.price)) + ' €</span>';
-      html += '</div></div></div>';
+      html += '<div class="flow-prov-info">';
+      html += '<strong>' + esc(card.name) + '</strong>';
+      html += '<small>' + esc(card.category || '') + '</small>';
+      if (card.price) html += '<span class="flow-prov-price">' + parseFloat(card.price).toLocaleString('de-DE') + ' €</span>';
+      if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + '</span>';
+      html += '</div>';
+      html += '<div class="flow-prov-actions">';
+      html += '<button class="flow-prov-btn" onclick="event.stopPropagation();moveBoardCardStage(\'' + card.id + '\',\'' + stage.id + '\')" title="Stage wechseln"><span class="material-icons-round">swap_horiz</span></button>';
+      html += '<button class="flow-prov-btn flow-prov-del" onclick="event.stopPropagation();deleteBoardCard(\'' + card.id + '\');renderBoardFlow()" title="Löschen"><span class="material-icons-round">close</span></button>';
+      html += '</div>';
+      html += '</div></div>';
     });
 
     html += '</div>'; // end flow-col
@@ -9348,8 +9388,9 @@ function renderBoardFlow() {
   html += '<div class="flow-col">';
   html += '<div class="flow-node flow-node-end" data-nid="end">';
   html += '<div class="flow-port flow-port-in"></div>';
-  html += '<span class="material-icons-round" style="color:#4CAF50;font-size:28px">check_circle</span>';
+  html += '<span class="material-icons-round" style="color:#4CAF50;font-size:32px">check_circle</span>';
   html += '<strong>Event fertig!</strong>';
+  html += '<small>' + cards.filter(function(c){ return c.stage==='abgeschlossen'; }).length + ' abgeschlossen</small>';
   html += '</div>';
   html += '</div>';
 
@@ -9357,6 +9398,233 @@ function renderBoardFlow() {
   container.innerHTML = html;
 
   requestAnimationFrame(function() { _drawFlowConnections(); });
+}
+
+/* ─── Flow view extra modals ─────────────────────────────── */
+function openFlowProjectModal() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var html = '<div class="modal-overlay show" id="flowProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
+    '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
+    '<button class="modal-close" onclick="document.getElementById(\'flowProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<div class="modal-header"><span class="material-icons-round modal-icon" style="color:var(--primary)">celebration</span>' +
+    '<h2>Event bearbeiten</h2></div>' +
+    '<form class="modal-form" onsubmit="_saveFlowProject(event)">' +
+    '<div class="form-group"><label>Event-Name</label><input type="text" id="fpName" value="' + _escHtml(project.name) + '" required /></div>' +
+    '<div class="form-group"><label>Datum</label><input type="text" id="fpDate" value="' + _escHtml(project.date || '') + '" placeholder="z.B. 15. August 2026" /></div>' +
+    '<div class="form-group"><label>Budget (€)</label><input type="number" id="fpBudget" value="' + (project.budget || '') + '" min="0" step="100" /></div>' +
+    '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
+    '<button type="button" class="btn-outline btn-block" style="margin-top:8px;border-color:#f44336;color:#f44336" onclick="_deleteFlowProject()">' +
+    '<span class="material-icons-round">delete</span> Projekt löschen</button>' +
+    '</form></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function _saveFlowProject(event) {
+  event.preventDefault();
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  project.name   = document.getElementById('fpName').value.trim() || project.name;
+  project.date   = document.getElementById('fpDate').value.trim();
+  project.budget = parseFloat(document.getElementById('fpBudget').value) || 0;
+  _saveBoardProjects();
+  document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
+  renderBoardFlow();
+  document.getElementById('boardEventName') && (document.getElementById('boardEventName').textContent = project.name);
+  document.getElementById('boardEventDate') && (document.getElementById('boardEventDate').textContent = project.date || 'Datum noch offen');
+  document.getElementById('statBudget') && (document.getElementById('statBudget').textContent = (project.budget || 0).toLocaleString('de-DE') + ' €');
+}
+function _deleteFlowProject() {
+  if (!_activeBoardId) return;
+  if (!confirm('Projekt wirklich löschen?')) return;
+  _boardProjects = _boardProjects.filter(function(p) { return p.id !== _activeBoardId; });
+  _saveBoardProjects();
+  document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
+  showBoardProjects();
+}
+
+function openFlowBudgetModal() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var cards = project.cards || [];
+  var budget = parseFloat(project.budget) || 0;
+  var spent  = cards.reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+  var remaining = budget - spent;
+
+  // Per-stage breakdown
+  var stagesMeta = [
+    { id: 'geplant', label: 'Geplant', color: '#9E9E9E' },
+    { id: 'kontaktiert', label: 'Kontaktiert', color: '#FF9800' },
+    { id: 'angebot', label: 'Angebot', color: '#2196F3' },
+    { id: 'bestaetigt', label: 'Bestätigt', color: '#00A699' },
+    { id: 'abgeschlossen', label: 'Abgeschlossen', color: '#FF385C' }
+  ];
+
+  var breakdown = stagesMeta.map(function(s) {
+    var sc = cards.filter(function(c) { return c.stage === s.id; });
+    var sum = sc.reduce(function(a, c) { return a + (parseFloat(c.price) || 0); }, 0);
+    if (!sc.length) return '';
+    var bPct = budget > 0 ? Math.min(100, Math.round(sum / budget * 100)) : 0;
+    return '<div class="flow-bm-row">' +
+      '<span class="flow-bm-dot" style="background:' + s.color + '"></span>' +
+      '<span class="flow-bm-label">' + s.label + '</span>' +
+      '<div class="flow-bm-track"><div class="flow-bm-fill" style="width:' + bPct + '%;background:' + s.color + '"></div></div>' +
+      '<span class="flow-bm-val">' + sum.toLocaleString('de-DE') + ' €</span>' +
+      '</div>';
+  }).join('');
+
+  var cardRows = cards.map(function(c) {
+    return '<div class="flow-bm-card-row">' +
+      '<span class="flow-bm-card-name">' + _escHtml(c.name) + '</span>' +
+      '<span class="flow-bm-card-cat">' + _escHtml(c.category || '') + '</span>' +
+      '<input class="flow-bm-card-price" type="number" value="' + (c.price || 0) + '" min="0" step="50" data-cid="' + c.id + '" oninput="_liveUpdateBudget()" />' +
+      '<span class="flow-bm-eur">€</span>' +
+      '</div>';
+  }).join('') || '<div style="color:var(--text-light);font-style:italic;text-align:center;padding:12px">Noch keine Dienstleister in diesem Projekt</div>';
+
+  var pct = budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0;
+  var col = pct >= 100 ? '#FF385C' : pct >= 80 ? '#FF9800' : '#00A699';
+
+  var html = '<div class="modal-overlay show" id="flowBudgetModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:520px">' +
+    '<button class="modal-close" onclick="document.getElementById(\'flowBudgetModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<div class="modal-header"><span class="material-icons-round modal-icon" style="color:' + col + '">account_balance_wallet</span>' +
+    '<h2>Budget-Übersicht</h2></div>' +
+    '<div class="flow-bm-summary">' +
+    '<div class="flow-bm-big"><span class="flow-bm-spent" style="color:' + col + '">' + spent.toLocaleString('de-DE') + ' €</span>' +
+    '<span class="flow-bm-divider">/</span>' +
+    '<input class="flow-bm-total-input" type="number" id="bmTotalBudget" value="' + (budget || '') + '" min="0" step="100" placeholder="Budget festlegen" oninput="_liveUpdateBudget()" />' +
+    '<span class="flow-bm-eur2">€ gesamt</span></div>' +
+    '<div class="flow-bm-bar"><div class="flow-bm-bar-fill" id="bmBarFill" style="width:' + pct + '%;background:' + col + '"></div></div>' +
+    '<div class="flow-bm-labels"><span style="color:' + col + '">' + pct + '% genutzt</span>' +
+    (budget > 0 ? '<span>' + (remaining >= 0 ? remaining.toLocaleString('de-DE') + ' € verbleibend' : Math.abs(remaining).toLocaleString('de-DE') + ' € überzogen') + '</span>' : '') +
+    '</div></div>' +
+    (breakdown ? '<div class="flow-bm-breakdown">' + breakdown + '</div>' : '') +
+    '<div class="flow-bm-cards">' +
+    '<div class="flow-bm-cards-title"><span class="material-icons-round">format_list_bulleted</span> Einzelne Posten bearbeiten</div>' +
+    cardRows +
+    '</div>' +
+    '<div style="display:flex;gap:10px;margin-top:16px">' +
+    '<button class="btn-primary btn-block" onclick="_saveBudgetModal()"><span class="material-icons-round">save</span> Speichern</button>' +
+    '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _liveUpdateBudget() {
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  // update individual card prices inline
+  document.querySelectorAll('.flow-bm-card-price').forEach(function(inp) {
+    var cid = inp.dataset.cid;
+    var card = (project.cards || []).find(function(c) { return c.id === cid; });
+    if (card) card.price = parseFloat(inp.value) || 0;
+  });
+  var budget = parseFloat(document.getElementById('bmTotalBudget') ? document.getElementById('bmTotalBudget').value : 0) || 0;
+  var spent  = (project.cards || []).reduce(function(s,c) { return s + (parseFloat(c.price)||0); }, 0);
+  var pct = budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0;
+  var col = pct >= 100 ? '#FF385C' : pct >= 80 ? '#FF9800' : '#00A699';
+  var fill = document.getElementById('bmBarFill');
+  if (fill) { fill.style.width = pct + '%'; fill.style.background = col; }
+}
+
+function _saveBudgetModal() {
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  // save card prices
+  document.querySelectorAll('.flow-bm-card-price').forEach(function(inp) {
+    var cid = inp.dataset.cid;
+    var card = (project.cards || []).find(function(c) { return c.id === cid; });
+    if (card) card.price = parseFloat(inp.value) || 0;
+  });
+  var budgetInput = document.getElementById('bmTotalBudget');
+  if (budgetInput) project.budget = parseFloat(budgetInput.value) || 0;
+  _saveBoardProjects();
+  document.getElementById('flowBudgetModal') && document.getElementById('flowBudgetModal').remove();
+  renderBoardFlow();
+  _updateBoardStats(project);
+  showToast('Budget gespeichert!', 'check_circle');
+}
+
+function openFlowCardModal(cardId) {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+
+  var stageOptions = [
+    { id: 'geplant', label: 'Geplant' }, { id: 'kontaktiert', label: 'Kontaktiert' },
+    { id: 'angebot', label: 'Angebot' }, { id: 'bestaetigt', label: 'Bestätigt' },
+    { id: 'abgeschlossen', label: 'Abgeschlossen' }
+  ].map(function(s) {
+    return '<option value="' + s.id + '"' + (s.id === card.stage ? ' selected' : '') + '>' + s.label + '</option>';
+  }).join('');
+
+  var html = '<div class="modal-overlay show" id="flowCardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
+    '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
+    '<button class="modal-close" onclick="document.getElementById(\'flowCardModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>' + _escHtml(card.name) + '</h2></div>' +
+    '<form class="modal-form" onsubmit="_saveFlowCard(event,\'' + cardId + '\')">' +
+    '<div class="form-group"><label>Name</label><input type="text" id="fcName" value="' + _escHtml(card.name) + '" required /></div>' +
+    '<div class="form-group"><label>Kategorie</label><input type="text" id="fcCat" value="' + _escHtml(card.category || '') + '" /></div>' +
+    '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="50" /></div>' +
+    '<div class="form-group"><label>Startuhrzeit</label><input type="time" id="fcTime" value="' + _escHtml(card.startTime || '10:00') + '" /></div>' +
+    '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>' +
+    '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
+    '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
+    '<button type="button" class="btn-outline btn-block" style="margin-top:8px;color:#f44336;border-color:#f44336" onclick="deleteBoardCard(\'' + cardId + '\');renderBoardFlow();document.getElementById(\'flowCardModal\').remove()">' +
+    '<span class="material-icons-round">delete</span> Dienstleister entfernen</button>' +
+    '</form></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _saveFlowCard(event, cardId) {
+  event.preventDefault();
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  card.name      = document.getElementById('fcName').value.trim();
+  card.category  = document.getElementById('fcCat').value.trim();
+  card.price     = parseFloat(document.getElementById('fcPrice').value) || 0;
+  card.startTime = document.getElementById('fcTime').value;
+  card.stage     = document.getElementById('fcStage').value;
+  card.note      = document.getElementById('fcNote').value.trim();
+  _saveBoardProjects();
+  document.getElementById('flowCardModal') && document.getElementById('flowCardModal').remove();
+  renderBoardFlow();
+  renderKanban(project);
+  _updateBoardStats(project);
+}
+
+function openAddProviderModalFlow(stage) {
+  openAddProviderModal(stage);
+  // patch the submit handler to also refresh the flow view
+  var originalForm = document.querySelector('#addProviderModal form');
+  if (originalForm) {
+    var origSubmit = originalForm.onsubmit;
+    originalForm.onsubmit = function(e) {
+      var result = origSubmit ? origSubmit.call(this, e) : null;
+      setTimeout(function() { if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') renderBoardFlow(); }, 50);
+      return result;
+    };
+  }
+}
+
+function moveBoardCardStage(cardId, currentStage) {
+  var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+  var idx = stagesOrder.indexOf(currentStage);
+  var nextStage = stagesOrder[(idx + 1) % stagesOrder.length];
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  card.stage = nextStage;
+  _saveBoardProjects();
+  renderBoardFlow();
+  renderKanban(project);
+  _updateBoardStats(project);
 }
 
 function _drawFlowConnections() {
@@ -9552,6 +9820,9 @@ function _addProviderCard(event, stage) {
   document.getElementById('addProviderModal') && document.getElementById('addProviderModal').remove();
   renderKanban(project);
   _updateBoardStats(project);
+  if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') {
+    renderBoardFlow();
+  }
   showToast(name + ' wurde zum Board hinzugefügt!', 'check_circle');
 }
 
@@ -9605,6 +9876,9 @@ function _saveCardEdit(event, cardId) {
   document.getElementById('editCardModal') && document.getElementById('editCardModal').remove();
   renderKanban(project);
   _updateBoardStats(project);
+  if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') {
+    renderBoardFlow();
+  }
   showToast('Gespeichert!', 'check_circle');
 }
 
