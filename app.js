@@ -2648,7 +2648,7 @@ function _provCropPortfolioImage(wrap) {
   var img = wrap.querySelector('img');
   if (!img) return;
   var imgObj = new Image();
-  imgObj.crossOrigin = 'anonymous';
+  // Same-origin images: crossOrigin not needed, canvas won't be tainted
   imgObj.onload = function() {
     _lcropImg = imgObj;
     _lcropX = 0; _lcropY = 0;
@@ -2660,9 +2660,7 @@ function _provCropPortfolioImage(wrap) {
     setTimeout(function() { lcropDraw(); lcropBindEvents(); }, 50);
   };
   imgObj.onerror = function() { showToast('Bild konnte nicht geladen werden', 'error'); };
-  // Cache-buster forces re-fetch with proper CORS headers
-  var src = img.src.split('?')[0];
-  imgObj.src = src + '?_cb=' + Date.now();
+  imgObj.src = img.src;
 }
 
 function _provEditAddGalleryImages(input) {
@@ -2686,9 +2684,12 @@ function _provEditAddGalleryImages(input) {
 function _provSaveGallery() {
   if (!currentUser) return;
   var gallery = currentUser.gallery || [];
-  fetch(_apiUrl('profile'), {
+  return fetch(_apiUrl('profile'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
     body: JSON.stringify({ gallery: gallery })
+  }).then(function(resp) {
+    if (!resp.ok) showToast('Fehler beim Speichern der Galerie (Status ' + resp.status + ')', 'error');
+    return resp;
   }).catch(function() { showToast('Fehler beim Speichern', 'error'); });
 }
 
