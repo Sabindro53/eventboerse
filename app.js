@@ -9222,21 +9222,32 @@ function _initCardDrag(colEl) {
 
 // View Toggle
 function switchBoardView(view) {
-  var kanban = document.getElementById('boardKanban');
+  var kanban   = document.getElementById('boardKanban');
   var timeline = document.getElementById('boardTimelineView');
+  var flow     = document.getElementById('boardFlowView');
   var btnK = document.getElementById('btnKanbanView');
   var btnT = document.getElementById('btnTimelineView');
+  var btnF = document.getElementById('btnFlowView');
+
+  // reset all
+  kanban   && (kanban.style.display   = 'none');
+  timeline && (timeline.style.display = 'none');
+  flow     && (flow.style.display     = 'none');
+  btnK && btnK.classList.remove('active');
+  btnT && btnT.classList.remove('active');
+  btnF && btnF.classList.remove('active');
+
   if (view === 'kanban') {
     kanban && (kanban.style.display = '');
-    timeline && (timeline.style.display = 'none');
     btnK && btnK.classList.add('active');
-    btnT && btnT.classList.remove('active');
-  } else {
-    kanban && (kanban.style.display = 'none');
+  } else if (view === 'timeline') {
     timeline && (timeline.style.display = '');
-    btnK && btnK.classList.remove('active');
     btnT && btnT.classList.add('active');
     renderBoardTimeline();
+  } else if (view === 'flow') {
+    flow && (flow.style.display = '');
+    btnF && btnF.classList.add('active');
+    renderBoardFlow();
   }
 }
 
@@ -9263,6 +9274,132 @@ function renderBoardTimeline() {
       '</div>' + connector;
   }).join('');
   _initAnimatedEntries();
+}
+
+/* ─── n8n-style Process Flow ─────────────────────────────── */
+function renderBoardFlow() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var container = document.getElementById('boardFlowView');
+  if (!container) return;
+
+  var stagesMeta = [
+    { id: 'geplant',       label: 'Geplant',        color: '#9E9E9E', icon: 'schedule'     },
+    { id: 'kontaktiert',   label: 'Kontaktiert',     color: '#FF9800', icon: 'mail'         },
+    { id: 'angebot',       label: 'Angebot',         color: '#2196F3', icon: 'description'  },
+    { id: 'bestaetigt',    label: 'Bestätigt',       color: '#00A699', icon: 'check_circle' },
+    { id: 'abgeschlossen', label: 'Abgeschlossen',   color: '#FF385C', icon: 'celebration'  }
+  ];
+
+  var cards = project.cards || [];
+  var esc = _escHtml;
+
+  var html = '<div class="flow-canvas" id="flowCanvas"><svg class="flow-svg" id="flowSvg" xmlns="http://www.w3.org/2000/svg"></svg>';
+
+  // Trigger node
+  html += '<div class="flow-col">';
+  html += '<div class="flow-node flow-node-trigger" data-nid="start">';
+  html += '<div class="flow-port flow-port-out"></div>';
+  html += '<span class="material-icons-round" style="color:#FF385C;font-size:28px">celebration</span>';
+  html += '<strong>' + esc(project.name || 'Event') + '</strong>';
+  if (project.date) html += '<small>' + esc(project.date) + '</small>';
+  html += '</div>';
+  html += '</div>';
+
+  // Stage columns
+  stagesMeta.forEach(function(stage) {
+    var stageCards = cards.filter(function(c) { return c.stage === stage.id; });
+    html += '<div class="flow-col">';
+
+    // Stage header node
+    html += '<div class="flow-node flow-node-stage" data-nid="stage-' + stage.id + '">';
+    html += '<div class="flow-port flow-port-in"></div>';
+    html += '<div class="flow-port flow-port-out"></div>';
+    html += '<div class="flow-node-hdr" style="background:' + stage.color + '">';
+    html += '<span class="material-icons-round">' + stage.icon + '</span>';
+    html += '<span>' + stage.label + '</span>';
+    if (stageCards.length) html += '<span class="flow-node-badge">' + stageCards.length + '</span>';
+    html += '</div>';
+    html += '<div class="flow-node-body">';
+    html += stageCards.length
+      ? '<span class="flow-node-cnt">' + stageCards.length + ' Dienstleister</span>'
+      : '<span class="flow-node-empty">Noch leer</span>';
+    html += '</div>';
+    html += '</div>';
+
+    // Provider nodes connected below
+    stageCards.forEach(function(card) {
+      var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+      html += '<div class="flow-col-connector"></div>';
+      html += '<div class="flow-node flow-node-provider" data-nid="card-' + esc(card.id) + '">';
+      html += '<div class="flow-port flow-port-in" style="border-color:' + stage.color + '"></div>';
+      html += '<div class="flow-provider-inner">';
+      html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=x\'" alt="" />';
+      html += '<div class="flow-prov-info"><strong>' + esc(card.name) + '</strong><small>' + esc(card.category || '') + '</small>';
+      if (card.price) html += '<span class="flow-prov-price">' + esc(String(card.price)) + ' €</span>';
+      html += '</div></div></div>';
+    });
+
+    html += '</div>'; // end flow-col
+  });
+
+  // End node
+  html += '<div class="flow-col">';
+  html += '<div class="flow-node flow-node-end" data-nid="end">';
+  html += '<div class="flow-port flow-port-in"></div>';
+  html += '<span class="material-icons-round" style="color:#4CAF50;font-size:28px">check_circle</span>';
+  html += '<strong>Event fertig!</strong>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '</div>'; // end flow-canvas
+  container.innerHTML = html;
+
+  requestAnimationFrame(function() { _drawFlowConnections(); });
+}
+
+function _drawFlowConnections() {
+  var canvas = document.getElementById('flowCanvas');
+  var svg    = document.getElementById('flowSvg');
+  if (!canvas || !svg) return;
+
+  var cRect = canvas.getBoundingClientRect();
+  var W = canvas.scrollWidth;
+  var H = canvas.scrollHeight;
+  svg.setAttribute('width',  W);
+  svg.setAttribute('height', H);
+  svg.style.width  = W + 'px';
+  svg.style.height = H + 'px';
+
+  function bounds(nid) {
+    var el = canvas.querySelector('[data-nid="' + nid + '"]');
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    return {
+      left:  r.left   - cRect.left,
+      right: r.right  - cRect.left,
+      midY: (r.top + r.bottom) / 2 - cRect.top
+    };
+  }
+
+  function bezier(x1, y1, x2, y2) {
+    var cx = (x1 + x2) / 2;
+    return 'M' + x1 + ',' + y1 + ' C' + cx + ',' + y1 + ' ' + cx + ',' + y2 + ' ' + x2 + ',' + y2;
+  }
+
+  var nodeIds = ['start', 'stage-geplant', 'stage-kontaktiert', 'stage-angebot', 'stage-bestaetigt', 'stage-abgeschlossen', 'end'];
+  var defs = '<defs><marker id="flarrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,0.35)"/></marker></defs>';
+  var paths = '';
+
+  for (var i = 0; i < nodeIds.length - 1; i++) {
+    var from = bounds(nodeIds[i]);
+    var to   = bounds(nodeIds[i + 1]);
+    if (!from || !to) continue;
+    paths += '<path d="' + bezier(from.right, from.midY, to.left, to.midY) + '" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2" stroke-linecap="round" marker-end="url(#flarrow)"/>';
+  }
+
+  svg.innerHTML = defs + paths;
 }
 
 // Modals for Board
