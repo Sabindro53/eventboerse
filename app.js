@@ -669,13 +669,11 @@ function navigateTo(page, data, skipHistory) {
   // Page-specific logic
   switch (page) {
     case 'browse':
+      _initAiPlaceholder();
       loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
       });
-      // Reset counted flags so count-up replays on revisit
-      document.querySelectorAll('.browse-hero-stats [data-count]').forEach(function(el) { el._counted = false; });
-      setTimeout(_animateCountUp, 400);
       break;
     case 'explore':
       loadDbListings().then(function() { renderExploreGrid(); });
@@ -1645,6 +1643,51 @@ function renderBrowseGrid(listings) {
   visible.forEach(function(l) { _initGridGallerySwipe(l.id); });
   detectWideBannerCards(grid);
   document.getElementById('browseResultCount').textContent = `${visible.length} Services gefunden`;
+}
+
+// ===== AI Search Hero helpers =====
+function setQuickSearch(term) {
+  var input = document.getElementById('browseSearch');
+  if (!input) return;
+  input.value = term;
+  _aiPlaceholderHideOnInput(input);
+  filterListings();
+  var grid = document.getElementById('browseGrid');
+  if (grid) setTimeout(function() { grid.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
+}
+function _aiPlaceholderHideOnInput(input) {
+  var el = document.getElementById('aiPlaceholder');
+  if (!el) return;
+  el.style.opacity = input.value ? '0' : '1';
+}
+var _aiPlaceholderTimer = null;
+function _initAiPlaceholder() {
+  var el = document.getElementById('aiPlaceholder');
+  var input = document.getElementById('browseSearch');
+  if (!el || !input) return;
+  var examples = [
+    'DJ für Hochzeit in Berlin…',
+    'Catering für 80 Personen…',
+    'Fotograf für Geburtstagsfeier…',
+    'Location für Firmen-Event…',
+    'Pyrotechnik für Open-Air…',
+    'Florist für Hochzeit in München…',
+    'Moderation für Gala-Dinner…',
+    'Licht & Technik für Party…',
+  ];
+  var idx = 0;
+  if (_aiPlaceholderTimer) clearInterval(_aiPlaceholderTimer);
+  el.textContent = examples[0];
+  el.style.opacity = input.value ? '0' : '1';
+  _aiPlaceholderTimer = setInterval(function() {
+    if (input.value) return;
+    el.style.opacity = '0';
+    setTimeout(function() {
+      idx = (idx + 1) % examples.length;
+      el.textContent = examples[idx];
+      if (!input.value) el.style.opacity = '1';
+    }, 350);
+  }, 3200);
 }
 
 function filterByCategory(btn, cat) {
@@ -5428,15 +5471,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Handle initial hash route (deep links)
   var hash = window.location.hash.replace('#', '');
-  if (hash && hash !== 'home' && hash !== '') {
+  if (hash && hash !== 'home') {
     var parts = hash.split('/');
     var initPage = parts[0];
     var initData = parts[1] ? (isNaN(parts[1]) ? parts[1] : parseInt(parts[1])) : null;
     window.history.replaceState({ page: initPage, data: initData }, '', '#' + hash);
     navigateTo(initPage, initData, true);
   } else {
-    window.history.replaceState({ page: 'home', data: null }, '', '#home');
-    navigateTo('home', null, true);
+    window.history.replaceState({ page: 'browse', data: null }, '', '#browse');
+    navigateTo('browse', null, true);
   }
 
 // Handle browser back/forward

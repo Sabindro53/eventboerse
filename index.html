@@ -129,13 +129,9 @@
 
   <!-- ============ MOBILE BOTTOM NAV ============ -->
   <nav class="mobile-nav" id="mobileNav">
-    <button onclick="navigateTo('home')" data-page="home">
+    <button onclick="navigateTo('browse')" data-page="browse">
       <span class="material-icons-round">home</span>
       <span>Start</span>
-    </button>
-    <button onclick="navigateTo('browse')" data-page="browse">
-      <span class="material-icons-round">search</span>
-      <span>Suche</span>
     </button>
     <button onclick="navigateTo('aktuelles')" data-page="aktuelles">
       <span class="material-icons-round">dynamic_feed</span>
@@ -502,30 +498,52 @@
     <!-- ============ PAGE: BROWSE / SEARCH ============ -->
     <section id="page-browse" class="page active">
 
-      <!-- ── Hero Welcome with Video Background ── -->
-      <div class="browse-hero">
-        <video class="browse-hero-video" autoplay muted loop playsinline>
-          <source src="https://cdn.coverr.co/videos/coverr-confetti-falling-on-the-crowd-at-an-event/1080p.mp4" type="video/mp4" />
-        </video>
-        <div class="browse-hero-overlay"></div>
-        <div class="browse-hero-content">
-          <span class="browse-hero-kicker"><span class="material-icons-round">auto_awesome</span> Dein Event-Marktplatz</span>
-          <h1 class="browse-hero-title">PLANE Dein<br><span class="accent-gradient">Perfektes Event.</span></h1>
-          <p class="browse-hero-sub">Finde die besten Dienstleister, entdecke Inspirationen und verbinde dich mit Profis — alles an einem Ort.</p>
-          <div class="browse-hero-actions">
-            <button class="btn-hero-primary" onclick="document.querySelector('.browse-toolbar').scrollIntoView({behavior:'smooth'})">
-              <span class="material-icons-round">search</span> Services entdecken
-            </button>
-            <button class="btn-hero-secondary" onclick="navigateTo('create-listing')">
-              <span class="material-icons-round">add_circle_outline</span> Inserat erstellen
-            </button>
+      <!-- ── AI Search Hero ── -->
+      <div class="ai-hero">
+        <div class="ai-hero-bg">
+          <div class="ai-bg-orb orb-1"></div>
+          <div class="ai-bg-orb orb-2"></div>
+          <div class="ai-bg-orb orb-3"></div>
+        </div>
+        <div class="ai-hero-content">
+          <div class="ai-badge">
+            <span class="ai-badge-dot"></span>
+            Smarte Suche · Verifizierte Anbieter
           </div>
-          <div class="browse-hero-stats">
-            <div class="hero-stat"><strong data-count="150" data-suffix="+">0</strong><span>Dienstleister</span></div>
-            <div class="hero-stat-divider"></div>
-            <div class="hero-stat"><strong data-count="12">0</strong><span>Kategorien</span></div>
-            <div class="hero-stat-divider"></div>
-            <div class="hero-stat"><strong data-count="4.8" data-suffix="★" data-decimal="1">0</strong><span>Ø Bewertung</span></div>
+          <h1 class="ai-hero-h1">Finde deinen<br><span class="ai-hero-gradient">perfekten Event-Partner</span></h1>
+          <p class="ai-hero-sub">150+ Dienstleister · Sofort kontaktierbar · Top bewertet</p>
+          <div class="ai-searchbar-outer">
+            <div class="ai-searchbar">
+              <span class="material-icons-round ai-search-ico">search</span>
+              <div class="ai-searchbar-field">
+                <input type="text" id="browseSearch" oninput="filterListings();_aiPlaceholderHideOnInput(this)" autocomplete="off" />
+                <div class="ai-searchbar-ghost" id="aiPlaceholder"></div>
+              </div>
+              <div class="ai-searchbar-divider"></div>
+              <div class="ai-searchbar-loc">
+                <span class="material-icons-round">location_on</span>
+                <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" autocomplete="off" />
+              </div>
+              <button class="ai-searchbar-btn" onclick="filterListings();setTimeout(function(){document.getElementById('browseGrid').scrollIntoView({behavior:'smooth',block:'start'})},80)">
+                <span class="material-icons-round">search</span>
+                <span class="ai-btn-text">Suchen</span>
+              </button>
+            </div>
+            <div class="ai-suggestions">
+              <span class="ai-sug-label">Beliebt:</span>
+              <button class="ai-sug-chip" onclick="setQuickSearch('DJ Hochzeit')">🎧 DJ Hochzeit</button>
+              <button class="ai-sug-chip" onclick="setQuickSearch('Fotograf')">📸 Fotograf</button>
+              <button class="ai-sug-chip" onclick="setQuickSearch('Catering')">🍽️ Catering</button>
+              <button class="ai-sug-chip" onclick="setQuickSearch('Location')">🏰 Location</button>
+              <button class="ai-sug-chip" onclick="setQuickSearch('Party')">🎉 Party</button>
+            </div>
+          </div>
+          <div class="ai-hero-stats">
+            <span><strong>150+</strong> Dienstleister</span>
+            <span class="ai-stat-dot">·</span>
+            <span><strong>4.8★</strong> Ø Bewertung</span>
+            <span class="ai-stat-dot">·</span>
+            <span><strong>12</strong> Kategorien</span>
           </div>
         </div>
       </div>
@@ -583,10 +601,6 @@
       <!-- Sticky filter bar -->
       <div class="browse-toolbar">
         <div class="browse-toolbar-inner">
-          <div class="browse-search-row">
-            <span class="material-icons-round">search</span>
-            <input type="text" id="browseSearch" placeholder="DJ, Catering, Fotografie…" oninput="filterListings()" />
-          </div>
           <div class="browse-filter-pills">
             <div class="filter-chip">
               <span class="material-icons-round">category</span>
@@ -615,10 +629,6 @@
                 <option value="Jubiläum">Jubiläum</option>
                 <option value="Messe">Messe</option>
               </select>
-            </div>
-            <div class="filter-chip">
-              <span class="material-icons-round">location_on</span>
-              <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" />
             </div>
             <div class="filter-chip">
               <span class="material-icons-round">euro</span>
