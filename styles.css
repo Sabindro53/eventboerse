@@ -2491,20 +2491,23 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   -webkit-overflow-scrolling: touch;
 }
 .browse-filter-pills::-webkit-scrollbar { display: none; }
-.browse-sort-inline {
-  border: 1px solid var(--border);
-  border-radius: 50px;
-  padding: 7px 14px;
-  font-size: 0.82rem;
-  font-family: var(--font);
-  color: var(--dark);
-  background: var(--bg);
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
+.browse-sort-chip {
   flex-shrink: 0;
-  white-space: nowrap;
-  min-width: max-content;
+  gap: 4px;
+}
+.browse-sort-chip select {
+  min-width: 0;
+  flex-shrink: 0;
+}
+.browse-sort-chevron {
+  font-size: 16px;
+  color: var(--text-light);
+  pointer-events: none;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.browse-sort-chip:focus-within .browse-sort-chevron {
+  transform: rotate(180deg);
 }
 .browse-view-toggles {
   display: flex;
@@ -5941,7 +5944,7 @@ span.flatpickr-weekday {
     font-size: 0.8rem;
   }
   .filter-chip input { width: 70px; }
-  .browse-sort-inline { font-size: 0.8rem; padding: 6px 10px; min-width: max-content; }
+  .browse-sort-chip select { font-size: 0.8rem; }
   .browse-view-toggles { display: none; }
   .hero-marquee-above,
   .hero-marquee-below {
