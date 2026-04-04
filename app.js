@@ -2563,8 +2563,10 @@ function _exitProviderEdit() {
     });
   }
 
-  // Reload to show fresh data
-  if (currentUser) loadProvider(currentUser.id);
+  // Sync providerImages from the live DOM (avoids LISTINGS cache reverting cropped URLs)
+  if (portfolioEl) {
+    providerImages = Array.from(portfolioEl.querySelectorAll('img')).map(function(img) { return img.src; });
+  }
 }
 
 function _provEditAvatar(input) {
@@ -4839,12 +4841,27 @@ function lcropConfirm() {
         uploadFile(blob).then(function(data) {
           editTarget.querySelector('img').src = data.url;
           editTarget.setAttribute('data-url', data.url);
-          // Update gallery array
-          if (currentUser && currentUser.gallery) {
+          // Update gallery in memory
+          if (currentUser) {
+            if (!currentUser.gallery) currentUser.gallery = [];
             var gIdx = currentUser.gallery.indexOf(oldUrl);
-            if (gIdx > -1) currentUser.gallery[gIdx] = data.url;
-            _provSaveGallery();
+            if (gIdx > -1) {
+              currentUser.gallery[gIdx] = data.url;
+            } else {
+              // listing image not yet in gallery — add new URL, remove old if present
+              currentUser.gallery.push(data.url);
+            }
           }
+          // Update providerImages in memory (keeps lightbox in sync)
+          var pIdx = providerImages.indexOf(oldUrl);
+          if (pIdx > -1) providerImages[pIdx] = data.url;
+          // Update LISTINGS cache so loadProvider won't revert
+          LISTINGS.forEach(function(l) {
+            if (l.images) {
+              var lIdx = l.images.indexOf(oldUrl);
+              if (lIdx > -1) l.images[lIdx] = data.url;
+            }
+          });
           showToast('Bild zugeschnitten!', 'crop');
         }).catch(function() { showToast('Upload fehlgeschlagen', 'error'); });
       }
