@@ -2446,7 +2446,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 /* ── Sticky toolbar ── */
 .browse-toolbar {
   position: sticky;
-  top: calc(var(--nav-height) + 66px);
+  top: var(--nav-height);
   z-index: 89;
   background: var(--bg);
   border-bottom: 1px solid var(--border-light);
@@ -5708,7 +5708,7 @@ span.flatpickr-weekday {
   /* Browse mobile overrides */
   .browse-toolbar {
     position: sticky;
-    top: calc(var(--nav-height) + 56px);
+    top: var(--nav-height);
     padding: 10px 0;
   }
   .browse-toolbar-inner { padding: 0 14px; }
