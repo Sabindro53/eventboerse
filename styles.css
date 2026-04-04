@@ -3600,7 +3600,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   align-items: center;
   gap: 8px;
   background: rgba(255,255,255,0.95);
-  color: var(--dark);
+  color: #222222;
   border: none;
   border-radius: var(--radius-sm);
   padding: 10px 18px;
@@ -3692,7 +3692,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   top: 6px;
   right: 44px;
   background: rgba(255,255,255,0.9);
-  color: var(--dark);
+  color: #222222;
 }
 .prov-portfolio-crop:hover { background: #fff; transform: scale(1.1); }
 .prov-portfolio-crop .material-icons-round { font-size: 18px; }

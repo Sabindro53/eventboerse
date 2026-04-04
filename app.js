@@ -487,7 +487,8 @@ async function uploadFile(file, _attempt) {
   var attempt = _attempt || 1;
   var maxRetries = 3;
   var formData = new FormData();
-  formData.append('file', file);
+  var filename = (file instanceof File && file.name) ? file.name : 'upload-' + Date.now() + '.jpg';
+  formData.append('file', file, filename);
   var headers = {};
   if (_wpNonce) headers['X-WP-Nonce'] = _wpNonce;
   var resp;
