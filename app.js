@@ -8607,7 +8607,7 @@ function initCookieConsent() {
 }
 
 // ========== UPDATE NOTIFICATION ==========
-var _EB_VERSION = '107';
+var _EB_VERSION = '__EB_BUILD_VERSION__';
 
 // ========== CINEMATIC PREVIEW ==========
 var _cinemaTimer = null;
