@@ -2751,8 +2751,10 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
+  max-height: 500px;
   margin-bottom: 32px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.13);
 }
 /* === CINEMATIC PREVIEW === */
 .dg-cinema {
@@ -2827,7 +2829,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   height: 100%;
   scroll-snap-align: start;
   position: relative;
-  background: var(--bg-alt);
+  background: #111;
 }
 .detail-gallery-slide img {
   width: 100%;
@@ -6069,7 +6071,7 @@ span.flatpickr-weekday {
   .detail-container > .detail-provider-row { order: 5; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
   .detail-container > .detail-layout { order: 6; }
 
-  .detail-gallery { aspect-ratio: 4 / 3; border-radius: var(--radius-md); }
+  .detail-gallery { aspect-ratio: 16 / 9; max-height: none; border-radius: var(--radius-md); box-shadow: none; }
   .detail-gallery-arrow { display: none !important; }
   .listing-live-preview-gallery { aspect-ratio: 4 / 3; }
   .listing-live-preview-arrow { display: none !important; }
