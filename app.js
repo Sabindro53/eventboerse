@@ -2134,6 +2134,11 @@ function loadProvider(providerId) {
 
   const mainListing = providerListings[0] || LISTINGS[0];
   providerImages = providerListings.flatMap(l => l.images || []);
+  // For own profile: if currentUser.gallery is non-empty, it is the saved portfolio
+  // (may differ from listing images after edits — always prefer saved gallery)
+  if (currentUser && pid === currentUser.id && currentUser.gallery && currentUser.gallery.length > 0) {
+    providerImages = currentUser.gallery.slice();
+  }
 
   // Cover Gallery — full-width animated scroll rows
   buildGalleryRows(providerImages);
@@ -2369,6 +2374,12 @@ function _enterProviderEdit() {
   }
 
   // --- Avatar edit overlay ---
+
+  // Sync currentUser.gallery with all images currently shown in portfolio
+  // (providerImages may come from listing data, not currentUser.gallery)
+  if (currentUser && providerImages.length > 0) {
+    currentUser.gallery = providerImages.slice();
+  }
   var avatarImg = document.getElementById('providerAvatar');
   if (avatarImg && !avatarImg.parentElement.querySelector('.prov-edit-avatar-overlay')) {
     var overlay = document.createElement('div');
@@ -2628,8 +2639,24 @@ function _provSaveAll() {
     currentUser.bio = bioText;
     payload.bio = bioText;
   }
-  // Gallery
-  payload.gallery = currentUser.gallery || [];
+  // Gallery — read from DOM wraps (source of truth; includes adds/removes/crops)
+  var gallery = [];
+  var portfolioEl = document.getElementById('providerPortfolio');
+  if (portfolioEl) {
+    portfolioEl.querySelectorAll('.prov-portfolio-edit-wrap').forEach(function(wrap) {
+      var url = wrap.getAttribute('data-url');
+      // skip blob: URLs (upload in progress, not yet persisted)
+      if (url && !url.startsWith('blob:')) gallery.push(url);
+    });
+  }
+  if (gallery.length === 0) gallery = currentUser.gallery || [];
+  currentUser.gallery = gallery;
+  payload.gallery = gallery;
+  // Also update LISTINGS cache so loadProvider won't revert on re-render
+  LISTINGS.forEach(function(l) {
+    if (l.providerId === currentUser.id) l.images = gallery.slice();
+  });
+  providerImages = gallery.slice();
   return fetch(_apiUrl('profile'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
     body: JSON.stringify(payload)
