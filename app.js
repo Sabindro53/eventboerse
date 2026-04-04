@@ -5446,9 +5446,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Show update notification once per version
   showUpdateNotification();
 
-  // Auffällige Feature-Update-Benachrichtigung für Admins
-  showAdminUpdateBanner();
-
   // Handle browser back/forward
   window.addEventListener('popstate', function(e) {
     // Always restore scrolling when navigating back/forward
@@ -8825,8 +8822,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initFooterLogoAnimation();
   initCookieConsent();
 
-  // Auffällige Feature-Update-Benachrichtigung für Admins (Fallback)
-  showAdminUpdateBanner();
 
   // Passkey-Verifizierung Button
   var vpkBtn = document.getElementById('verifyWithPasskeyBtn');
