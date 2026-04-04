@@ -2485,12 +2485,21 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .browse-filter-pills {
   display: flex;
   align-items: center;
+  gap: 0;
+}
+.browse-filter-pills::-webkit-scrollbar { display: none; }
+.chip-group {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  flex-wrap: nowrap;
 }
-.browse-filter-pills::-webkit-scrollbar { display: none; }
+.chip-group::-webkit-scrollbar { display: none; }
 .chip-chevron {
   font-size: 16px;
   color: var(--text-light);
@@ -2506,7 +2515,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   display: flex;
   gap: 4px;
   flex-shrink: 0;
-  margin-left: auto;
+  margin-left: 12px;
 }
 
 /* ── Results area (full-width) ── */
@@ -5922,14 +5931,18 @@ span.flatpickr-weekday {
 
   /* Browse */
   .browse-filter-pills {
-    flex-wrap: nowrap;
+    gap: 0;
+  }
+  .chip-group {
+    flex: 1;
     gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 4px;
+    justify-content: flex-start;
   }
-  .browse-filter-pills::-webkit-scrollbar { display: none; }
+  .chip-group::-webkit-scrollbar { display: none; }
   .filter-chip {
     padding: 0 8px 0 10px;
     height: 36px;
