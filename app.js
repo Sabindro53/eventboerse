@@ -2578,6 +2578,8 @@ function _exitProviderEdit() {
   if (portfolioEl) {
     providerImages = Array.from(portfolioEl.querySelectorAll('img')).map(function(img) { return img.src; });
   }
+  // Rebuild cover gallery with final providerImages
+  buildGalleryRows(providerImages);
 }
 
 function _provEditAvatar(input) {
@@ -2700,6 +2702,8 @@ function _provRemovePortfolioImage(wrap) {
   var idx = providerImages.indexOf(url);
   if (idx > -1) providerImages.splice(idx, 1);
   showToast('Bild entfernt', 'delete');
+  // Rebuild cover gallery to reflect removal immediately
+  buildGalleryRows(providerImages);
 }
 
 function _provCropPortfolioImage(wrap) {
@@ -2757,6 +2761,8 @@ function _provAddPortfolioItem(url) {
   currentUser.gallery.push(url);
   providerImages.push(url);
   _provSaveGallery();
+  // Rebuild cover gallery to reflect the new image immediately
+  buildGalleryRows(providerImages);
   // Add to portfolio grid if in edit mode
   var portfolioEl = document.getElementById('providerPortfolio');
   if (portfolioEl && _providerEditMode) {
@@ -2840,8 +2846,15 @@ function buildGalleryRows(images) {
 
   var provPage = document.getElementById('page-provider');
   if (!images.length) {
-    gallery.style.display = 'none';
-    if (provPage) provPage.style.setProperty('padding-top', 'calc(var(--nav-height) + 48px)', 'important');
+    // In edit mode: keep gallery visible so the upload button overlay is accessible
+    var isEditMode = !!(document.getElementById('page-provider') || {}).classList && document.getElementById('page-provider').classList.contains('provider-edit-mode');
+    if (!isEditMode) {
+      gallery.style.display = 'none';
+      if (provPage) provPage.style.setProperty('padding-top', 'calc(var(--nav-height) + 48px)', 'important');
+    } else {
+      gallery.style.display = '';
+      if (provPage) provPage.style.setProperty('padding-top', '0', 'important');
+    }
     return;
   }
   gallery.style.display = '';
