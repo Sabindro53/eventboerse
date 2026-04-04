@@ -9113,7 +9113,7 @@ function renderBoardPage() {
         </div>
         <div class="board-project-footer">
           <span class="bpf-count"><span class="material-icons-round">group</span>${total} Dienstleister</span>
-          <span class="bpf-count"><span class="material-icons-round">euro</span>${budgetSum.toFixed(0)} €</span>
+          ${p.budget ? `<span class="bpf-count"><span class="material-icons-round">savings</span>${parseFloat(p.budget).toLocaleString('de-DE')} € Budget</span>` : `<span class="bpf-count"><span class="material-icons-round">euro</span>${budgetSum.toFixed(0)} €</span>`}
           <span class="bpf-count" style="color:var(--accent)"><span class="material-icons-round">check_circle</span>${confirmed} Best.</span>
         </div>
       </div>`;
