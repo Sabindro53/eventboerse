@@ -815,9 +815,9 @@ img { display: block; max-width: 100%; }
 body.dark-mode .ai-hero {
   background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f1a2e 100%);
 }
-body.dark-mode .ai-searchbar { background: #121212; box-shadow: 0 4px 48px rgba(0,0,0,0.3), 0 0 0 1.5px rgba(255,255,255,0.08); }
-body.dark-mode .ai-search-ico { background: #121212; }
-body.dark-mode .ai-searchbar-loc { background: #121212; }
+body.dark-mode .ai-searchbar { background: #1E1E1E; box-shadow: 0 4px 48px rgba(0,0,0,0.3), 0 0 0 1.5px rgba(255,255,255,0.08); }
+body.dark-mode .ai-searchbar-field input,
+body.dark-mode .ai-searchbar-loc input { background: transparent !important; }
 body.dark-mode .ai-sug-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.75); }
 body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 /* Mobile */
