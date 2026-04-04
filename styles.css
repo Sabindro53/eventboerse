@@ -2490,6 +2490,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .browse-filter-pills::-webkit-scrollbar { display: none; }
 .chip-group {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2569,6 +2570,11 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 }
 .filter-chip input { width: 70px; }
 .filter-chip input::placeholder { color: var(--text-light); }
+#browseCategory { width: 82px; }
+#browseEventType { width: 72px; }
+#browsePrice { width: 44px; }
+#browseRating { width: 76px; }
+#browseSort { width: 70px; }
 
 /* ── Filter tags ── */
 .filter-tags {
@@ -5935,6 +5941,7 @@ span.flatpickr-weekday {
   }
   .chip-group {
     flex: 1;
+    min-width: 0;
     gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
