@@ -2723,7 +2723,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   border: 1px solid var(--border);
   transition: all var(--transition);
 }
-.view-toggle.active { background: var(--dark); color: #fff; border-color: var(--dark); }
+.view-toggle.active { background: transparent; color: var(--primary); border-color: var(--primary); }
 
 /* ======== DETAIL PAGE ======== */
 .back-btn {
