@@ -720,7 +720,7 @@ img { display: block; max-width: 100%; }
   font-size: 1rem;
   font-family: var(--font);
   color: var(--dark);
-  background: transparent;
+  background: transparent !important;
   padding: 10px 12px;
   position: relative;
   z-index: 2;
@@ -748,7 +748,7 @@ img { display: block; max-width: 100%; }
   font-size: 0.88rem;
   font-family: var(--font);
   color: var(--dark);
-  background: transparent;
+  background: transparent !important;
   width: 110px;
   padding: 4px 0;
 }
@@ -816,6 +816,17 @@ body.dark-mode .ai-hero {
   background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f1a2e 100%);
 }
 body.dark-mode .ai-searchbar { background: #242436; box-shadow: 0 4px 48px rgba(0,0,0,0.3), 0 0 0 1.5px rgba(255,255,255,0.08); }
+body.dark-mode .ai-searchbar-field input,
+body.dark-mode .ai-searchbar-loc input {
+  background: transparent !important;
+  color: var(--dark) !important;
+}
+body.dark-mode .ai-searchbar-field input::placeholder,
+body.dark-mode .ai-searchbar-loc input::placeholder { color: var(--text-light); }
+body.dark-mode .ai-searchbar-ghost { color: var(--text-light); }
+body.dark-mode .ai-search-ico { color: var(--text-light); }
+body.dark-mode .ai-searchbar-loc .material-icons-round { color: var(--text-light); }
+body.dark-mode .ai-searchbar-divider { background: var(--border); }
 body.dark-mode .ai-sug-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.75); }
 body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 /* Mobile */
