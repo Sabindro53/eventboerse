@@ -2847,6 +2847,19 @@ function buildGalleryRows(images) {
   gallery.style.display = '';
   if (provPage) provPage.style.setProperty('padding-top', '0', 'important');
 
+  // === Single image: static full-cover display, no animation ===
+  if (images.length === 1) {
+    area.style.padding = '0';
+    const t = document.createElement('div');
+    t.className = 'pcg-thumb';
+    t.style.cssText = 'width:100%;height:100%;flex:1;background-size:cover;background-position:center;';
+    t.style.backgroundImage = `url(${images[0]})`;
+    t.addEventListener('click', () => openProviderLightbox(0));
+    area.appendChild(t);
+    return;
+  }
+  area.style.padding = '';
+
   // Row count: 1-9 → 1 row, 10-14 → 2 rows, 15+ → 3 rows
   const rowCount = images.length >= 15 ? 3 : images.length >= 10 ? 2 : 1;
 
@@ -2858,6 +2871,7 @@ function buildGalleryRows(images) {
   const thumbH = Math.floor((availH - totalGaps) / rowCount);
   const thumbW = Math.round(thumbH * 1.5); // landscape ratio
   const itemW = thumbW + gap;
+  const viewW = gallery.offsetWidth || window.innerWidth;
 
   for (let r = 0; r < rowCount; r++) {
     const rowImages = [];
@@ -2873,9 +2887,14 @@ function buildGalleryRows(images) {
     row.className = 'pcg-row';
     row.style.height = thumbH + 'px';
 
-    // Triple the set for seamless infinite scroll
-    const tripled = [...rowImages, ...rowImages, ...rowImages];
-    tripled.forEach(item => {
+    // Calculate enough copies to fill the viewport for seamless looping:
+    // strip must be >= 2*segW + viewW so pos range [-2*segW, 0] never shows blank space
+    const segW = rowImages.length * itemW;
+    const copies = Math.max(3, Math.ceil(viewW / segW) + 2);
+    const repeated = [];
+    for (let c = 0; c < copies; c++) { rowImages.forEach(item => repeated.push(item)); }
+
+    repeated.forEach(item => {
       const t = document.createElement('div');
       t.className = 'pcg-thumb';
       t.style.backgroundImage = `url(${item.src})`;
@@ -2903,7 +2922,6 @@ function buildGalleryRows(images) {
     wrap.appendChild(row);
     area.appendChild(wrap);
 
-    const segW = rowImages.length * itemW;
     const dir = r % 2 === 0 ? -1 : 1;
     const speed = 0.3 + r * 0.1;
     startRowAnimation(row, segW, dir, speed, wrap, itemW);
