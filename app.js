@@ -2490,6 +2490,19 @@ function _enterProviderEdit() {
       portfolioEl.appendChild(addBtn);
     }
   }
+
+  // --- Bottom save bar ---
+  if (!document.getElementById('provSaveAllBar')) {
+    var saveBar = document.createElement('div');
+    saveBar.id = 'provSaveAllBar';
+    saveBar.className = 'prov-save-all-bar';
+    saveBar.innerHTML =
+      '<span class="save-hint">Änderungen werden erst gespeichert wenn du auf Speichern klickst</span>' +
+      '<button class="btn-primary" onclick="_provSaveAll()">' +
+        '<span class="material-icons-round">save</span> Speichern' +
+      '</button>';
+    document.getElementById('page-provider').appendChild(saveBar);
+  }
 }
 
 function _exitProviderEdit() {
@@ -2565,6 +2578,10 @@ function _exitProviderEdit() {
     });
   }
 
+  // Remove save-all bar
+  var saveBar = document.getElementById('provSaveAllBar');
+  if (saveBar) saveBar.remove();
+
   // Reload to show fresh data
   if (currentUser) loadProvider(currentUser.id);
 }
@@ -2616,6 +2633,30 @@ function _provSaveTagline() {
     body: JSON.stringify({ tagline: parts })
   }).then(function() { showToast('Tagline gespeichert!', 'check_circle'); })
     .catch(function() { showToast('Fehler beim Speichern', 'error'); });
+}
+
+function _provSaveAll() {
+  if (!currentUser) return;
+  var payload = {};
+  // Bio
+  var bioTextarea = document.getElementById('provEditBioText');
+  if (bioTextarea) {
+    var bioText = bioTextarea.value.trim();
+    currentUser.bio = bioText;
+    payload.bio = bioText;
+  }
+  // Gallery
+  payload.gallery = currentUser.gallery || [];
+  fetch(_apiUrl('profile'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify(payload)
+  }).then(function(resp) {
+    if (resp.ok) {
+      showToast('Profil gespeichert!', 'check_circle');
+    } else {
+      showToast('Fehler beim Speichern (Status ' + resp.status + ')', 'error');
+    }
+  }).catch(function() { showToast('Fehler beim Speichern', 'error'); });
 }
 
 function _provSaveBio() {
