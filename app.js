@@ -5443,10 +5443,7 @@ document.addEventListener('DOMContentLoaded', function() {
   forceBrowsePage();
   window.addEventListener('hashchange', forceBrowsePage);
 
-  // Show update notification once per version
-  showUpdateNotification();
-
-  // Handle browser back/forward
+// Handle browser back/forward
   window.addEventListener('popstate', function(e) {
     // Always restore scrolling when navigating back/forward
     document.body.style.overflow = '';
@@ -8760,19 +8757,6 @@ function detailGalleryGoTo(idx) {
   track.children[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
   _updateDetailGalleryUI();
 }
-function showUpdateNotification() {
-  var lastVersion = localStorage.getItem('eb_last_version');
-  if (lastVersion === _EB_VERSION) return;
-  localStorage.setItem('eb_last_version', _EB_VERSION);
-  if (!lastVersion) return; // first visit ever, don't show
-  if (sessionStorage.getItem('eb_update_shown')) return; // already shown this session
-  sessionStorage.setItem('eb_update_shown', '1');
-  var el = document.getElementById('updateToast');
-  if (!el) return;
-  setTimeout(function() { el.classList.add('show'); }, 600);
-  setTimeout(function() { el.classList.remove('show'); }, 4600);
-}
-
 // ========== NAVBAR SCROLL EFFECT ==========
 (function() {
   var _navShadowOn = false;
