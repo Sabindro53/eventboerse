@@ -7997,12 +7997,9 @@ body.dark-mode .legal-page li { color: var(--text); }
 .flow-budget-edit-btn .material-icons-round { font-size: 16px; }
 
 .flow-canvas {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 72px;
-  padding: 60px 80px 100px;
-  min-width: max-content;
   position: relative;
+  min-width: 2400px;
+  min-height: 700px;
   flex: 1;
 }
 
@@ -8015,10 +8012,29 @@ body.dark-mode .legal-page li { color: var(--text); }
 
 /* Column inside canvas */
 .flow-col {
+  position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
+  user-select: none;
+}
+.flow-col.is-dragging {
+  opacity: 0.85;
+  z-index: 50;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.6));
+}
+
+/* Drag handles */
+.flow-drag-handle { cursor: grab; }
+.flow-drag-handle:active { cursor: grabbing; }
+
+/* Drag indicator icon inside stage header */
+.flow-drag-icon {
+  font-size: 16px !important;
+  opacity: 0.55;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* Vertical connector between stage node and provider node */
@@ -8074,7 +8090,9 @@ body.dark-mode .legal-page li { color: var(--text); }
   font-weight: 700;
   color: #fff;
   letter-spacing: 0.02em;
+  cursor: grab;
 }
+.flow-node-hdr:active { cursor: grabbing; }
 .flow-node-hdr .material-icons-round { font-size: 15px; }
 .flow-node-badge {
   margin-left: auto;
@@ -8129,9 +8147,11 @@ body.dark-mode .legal-page li { color: var(--text); }
   text-align: center;
   border-radius: 20px;
 }
-.flow-node-trigger { border-color: rgba(255,56,92,0.35); background: rgba(255,56,92,0.08); }
+.flow-node-trigger { border-color: rgba(255,56,92,0.35); background: rgba(255,56,92,0.08); cursor: grab; }
+.flow-node-trigger:active { cursor: grabbing; }
 .flow-node-trigger:hover { border-color: rgba(255,56,92,0.6); }
-.flow-node-end     { border-color: rgba(76,175,80,0.35); background: rgba(76,175,80,0.07); }
+.flow-node-end     { border-color: rgba(76,175,80,0.35); background: rgba(76,175,80,0.07); cursor: grab; }
+.flow-node-end:active { cursor: grabbing; }
 .flow-node-trigger strong, .flow-node-end strong { color: #fff; font-size: 13px; font-weight: 700; display: block; }
 .flow-node-trigger small,  .flow-node-end small  { color: rgba(255,255,255,0.4); font-size: 11px; }
 .flow-node-edit-hint {
@@ -8199,7 +8219,7 @@ body.dark-mode .legal-page li { color: var(--text); }
 
 /* Responsive */
 @media (max-width: 600px) {
-  .flow-canvas { padding: 40px 24px 80px; gap: 50px; }
+  .flow-canvas { min-width: 1600px; min-height: 600px; }
   .flow-node  { width: 180px; }
   .flow-node-trigger, .flow-node-end { width: 136px; }
 }

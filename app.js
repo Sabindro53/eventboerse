@@ -9299,6 +9299,23 @@ function renderBoardFlow() {
   var pct    = budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0;
   var budgetColor = pct >= 100 ? '#FF385C' : pct >= 80 ? '#FF9800' : '#00A699';
 
+  // Default layout: trigger(168px) + 5×stage(236px) + end(168px), each 64px apart
+  var storedLayout = project.flowLayout || {};
+  var _GAP = 64, _TW = 168, _NW = 236;
+  var _defLayout = {
+    'start':         { x: 60,                                y: 60 },
+    'geplant':       { x: 60 + _TW + _GAP,                   y: 60 },
+    'kontaktiert':   { x: 60 + _TW + _GAP + 1*(_NW+_GAP),   y: 60 },
+    'angebot':       { x: 60 + _TW + _GAP + 2*(_NW+_GAP),   y: 60 },
+    'bestaetigt':    { x: 60 + _TW + _GAP + 3*(_NW+_GAP),   y: 60 },
+    'abgeschlossen': { x: 60 + _TW + _GAP + 4*(_NW+_GAP),   y: 60 },
+    'end':           { x: 60 + _TW + _GAP + 5*(_NW+_GAP),   y: 60 }
+  };
+  function colStyle(id) {
+    var p = storedLayout[id] || _defLayout[id] || { x: 60, y: 60 };
+    return 'left:' + p.x + 'px;top:' + p.y + 'px';
+  }
+
   var html = '';
 
   // ── Budget Overview Bar ──────────────────────────────────
@@ -9323,13 +9340,12 @@ function renderBoardFlow() {
   html += '<svg class="flow-svg" id="flowSvg" xmlns="http://www.w3.org/2000/svg"></svg>';
 
   // Trigger node
-  html += '<div class="flow-col">';
-  html += '<div class="flow-node flow-node-trigger" data-nid="start" onclick="openFlowProjectModal()">';
-  html += '<div class="flow-port flow-port-out"></div>';
+  html += '<div class="flow-col flow-drag-handle" data-col-id="start" style="' + colStyle('start') + '">';
+  html += '<div class="flow-node flow-node-trigger" data-nid="start" onclick="if(!_flowDragJustEnded)openFlowProjectModal();_flowDragJustEnded=false">';
   html += '<span class="material-icons-round" style="color:#FF385C;font-size:32px">celebration</span>';
   html += '<strong>' + esc(project.name || 'Event') + '</strong>';
   if (project.date) html += '<small>' + esc(project.date) + '</small>';
-  html += '<span class="flow-node-edit-hint">Bearbeiten</span>';
+  html += '<span class="flow-node-edit-hint"><span class="material-icons-round" style="font-size:10px;vertical-align:middle">drag_indicator</span> Ziehen &nbsp;<span class="material-icons-round" style="font-size:10px;vertical-align:middle">edit</span> Klicken</span>';
   html += '</div>';
   html += '</div>';
 
@@ -9337,16 +9353,15 @@ function renderBoardFlow() {
   stagesMeta.forEach(function(stage) {
     var stageCards = cards.filter(function(c) { return c.stage === stage.id; });
     var stageBudget = stageCards.reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
-    html += '<div class="flow-col">';
+    html += '<div class="flow-col" data-col-id="' + stage.id + '" style="' + colStyle(stage.id) + '">';
 
     // Stage header node
     html += '<div class="flow-node flow-node-stage" data-nid="stage-' + stage.id + '">';
-    html += '<div class="flow-port flow-port-in"></div>';
-    html += '<div class="flow-port flow-port-out"></div>';
-    html += '<div class="flow-node-hdr" style="background:' + stage.color + ';border-radius:11px 11px 0 0">';
+    html += '<div class="flow-node-hdr flow-drag-handle" style="background:' + stage.color + ';border-radius:12px 12px 0 0">';
     html += '<span class="material-icons-round">' + stage.icon + '</span>';
     html += '<span>' + stage.label + '</span>';
     if (stageCards.length) html += '<span class="flow-node-badge">' + stageCards.length + '</span>';
+    html += '<span class="material-icons-round flow-drag-icon">drag_indicator</span>';
     html += '</div>';
     html += '<div class="flow-node-body">';
     if (stageCards.length) {
@@ -9365,7 +9380,6 @@ function renderBoardFlow() {
       var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
       html += '<div class="flow-col-connector"></div>';
       html += '<div class="flow-node flow-node-provider" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
-      html += '<div class="flow-port flow-port-in" style="border-color:' + stage.color + '"></div>';
       html += '<div class="flow-provider-inner">';
       html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=x\'" alt="" />';
       html += '<div class="flow-prov-info">';
@@ -9385,9 +9399,8 @@ function renderBoardFlow() {
   });
 
   // End node
-  html += '<div class="flow-col">';
+  html += '<div class="flow-col flow-drag-handle" data-col-id="end" style="' + colStyle('end') + '">';
   html += '<div class="flow-node flow-node-end" data-nid="end">';
-  html += '<div class="flow-port flow-port-in"></div>';
   html += '<span class="material-icons-round" style="color:#4CAF50;font-size:32px">check_circle</span>';
   html += '<strong>Event fertig!</strong>';
   html += '<small>' + cards.filter(function(c){ return c.stage==='abgeschlossen'; }).length + ' abgeschlossen</small>';
@@ -9397,11 +9410,12 @@ function renderBoardFlow() {
   html += '</div>'; // end flow-canvas
   container.innerHTML = html;
 
-  requestAnimationFrame(function() { _drawFlowConnections(); });
+  requestAnimationFrame(function() { _drawFlowConnections(); _initFlowDrag(); });
 }
 
 /* ─── Flow view extra modals ─────────────────────────────── */
 function openFlowProjectModal() {
+  if (_flowDragJustEnded) { _flowDragJustEnded = false; return; }
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
   if (!project) return;
@@ -9632,42 +9646,175 @@ function _drawFlowConnections() {
   var svg    = document.getElementById('flowSvg');
   if (!canvas || !svg) return;
 
-  var cRect = canvas.getBoundingClientRect();
-  var W = canvas.scrollWidth;
-  var H = canvas.scrollHeight;
+  var W = 2400;
+  var H = Math.max(canvas.offsetHeight || 700, 700);
   svg.setAttribute('width',  W);
   svg.setAttribute('height', H);
   svg.style.width  = W + 'px';
   svg.style.height = H + 'px';
 
-  function bounds(nid) {
+  // Use col.style.left/top (canvas-relative) + el.offsetLeft/Top (col-relative)
+  // This approach is immune to container scroll since it uses document-layout values.
+  function nodeBounds(nid) {
     var el = canvas.querySelector('[data-nid="' + nid + '"]');
     if (!el) return null;
-    var r = el.getBoundingClientRect();
+    var col = el.closest('[data-col-id]');
+    if (!col) return null;
+    var colX = parseFloat(col.style.left) || 0;
+    var colY = parseFloat(col.style.top)  || 0;
+    // el.offsetLeft/Top are relative to col (col is position:absolute = offsetParent)
     return {
-      left:  r.left   - cRect.left,
-      right: r.right  - cRect.left,
-      midY: (r.top + r.bottom) / 2 - cRect.top
+      left:  colX + el.offsetLeft,
+      right: colX + el.offsetLeft + el.offsetWidth,
+      midY:  colY + el.offsetTop  + el.offsetHeight / 2
     };
   }
 
-  function bezier(x1, y1, x2, y2) {
-    var cx = (x1 + x2) / 2;
-    return 'M' + x1 + ',' + y1 + ' C' + cx + ',' + y1 + ' ' + cx + ',' + y2 + ' ' + x2 + ',' + y2;
-  }
-
   var nodeIds = ['start', 'stage-geplant', 'stage-kontaktiert', 'stage-angebot', 'stage-bestaetigt', 'stage-abgeschlossen', 'end'];
-  var defs = '<defs><marker id="flarrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,0.35)"/></marker></defs>';
+  var defs = '<defs><marker id="flarrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,0.4)"/></marker></defs>';
   var paths = '';
 
   for (var i = 0; i < nodeIds.length - 1; i++) {
-    var from = bounds(nodeIds[i]);
-    var to   = bounds(nodeIds[i + 1]);
+    var from = nodeBounds(nodeIds[i]);
+    var to   = nodeBounds(nodeIds[i + 1]);
     if (!from || !to) continue;
-    paths += '<path d="' + bezier(from.right, from.midY, to.left, to.midY) + '" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2" stroke-linecap="round" marker-end="url(#flarrow)"/>';
+    var cx = (from.right + to.left) / 2;
+    paths += '<path d="M' + from.right + ',' + from.midY +
+             ' C' + cx + ',' + from.midY +
+             ' ' + cx + ',' + to.midY +
+             ' ' + to.left + ',' + to.midY +
+             '" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" marker-end="url(#flarrow)"/>';
   }
 
   svg.innerHTML = defs + paths;
+}
+
+/* ─── Flow drag-to-reposition ───────────────────────────── */
+var _flowDrag = null;
+var _flowDragJustEnded = false;
+var _flowDragWinHandlers = null;
+
+function _initFlowDrag() {
+  // Remove stale window listeners from previous render
+  if (_flowDragWinHandlers) {
+    window.removeEventListener('mousemove', _flowDragWinHandlers.move);
+    window.removeEventListener('mouseup',   _flowDragWinHandlers.up);
+    _flowDragWinHandlers = null;
+  }
+  var canvas = document.getElementById('flowCanvas');
+  if (!canvas) return;
+
+  canvas.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    if (e.target.closest('button,input,select,textarea')) return;
+    var handle = e.target.closest('.flow-drag-handle');
+    if (!handle) return;
+    var col = handle.closest('[data-col-id]');
+    if (!col) return;
+    e.preventDefault();
+    _flowDrag = {
+      col:          col,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startLeft:    parseFloat(col.style.left) || 0,
+      startTop:     parseFloat(col.style.top)  || 0,
+      moved:        false
+    };
+    col.style.zIndex     = '50';
+    col.style.transition = 'none';
+  });
+
+  function onMove(e) {
+    if (!_flowDrag) return;
+    var dx = e.clientX - _flowDrag.startClientX;
+    var dy = e.clientY - _flowDrag.startClientY;
+    if (!_flowDrag.moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+      _flowDrag.moved = true;
+      _flowDrag.col.classList.add('is-dragging');
+    }
+    if (!_flowDrag.moved) return;
+    _flowDrag.col.style.left = Math.max(0, _flowDrag.startLeft + dx) + 'px';
+    _flowDrag.col.style.top  = Math.max(0, _flowDrag.startTop  + dy) + 'px';
+    _drawFlowConnections();
+  }
+
+  function onUp() {
+    if (!_flowDrag) return;
+    _flowDrag.col.classList.remove('is-dragging');
+    _flowDrag.col.style.zIndex     = '';
+    _flowDrag.col.style.transition = '';
+    if (_flowDrag.moved) {
+      _flowDragJustEnded = true;
+      setTimeout(function() { _flowDragJustEnded = false; }, 200);
+      _saveFlowColPosition(_flowDrag.col);
+    }
+    _flowDrag = null;
+  }
+
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup',   onUp);
+  _flowDragWinHandlers = { move: onMove, up: onUp };
+
+  // Touch support
+  canvas.addEventListener('touchstart', function(e) {
+    if (e.target.closest('button')) return;
+    var handle = e.target.closest('.flow-drag-handle');
+    if (!handle) return;
+    var col = handle.closest('[data-col-id]');
+    if (!col) return;
+    var t = e.touches[0];
+    _flowDrag = {
+      col:          col,
+      startClientX: t.clientX,
+      startClientY: t.clientY,
+      startLeft:    parseFloat(col.style.left) || 0,
+      startTop:     parseFloat(col.style.top)  || 0,
+      moved:        false
+    };
+    col.style.zIndex = '50';
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', function(e) {
+    if (!_flowDrag) return;
+    var t = e.touches[0];
+    var dx = t.clientX - _flowDrag.startClientX;
+    var dy = t.clientY - _flowDrag.startClientY;
+    if (!_flowDrag.moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+      _flowDrag.moved = true;
+      _flowDrag.col.classList.add('is-dragging');
+    }
+    if (!_flowDrag.moved) return;
+    e.preventDefault();
+    _flowDrag.col.style.left = Math.max(0, _flowDrag.startLeft + dx) + 'px';
+    _flowDrag.col.style.top  = Math.max(0, _flowDrag.startTop  + dy) + 'px';
+    _drawFlowConnections();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', function() {
+    if (!_flowDrag) return;
+    _flowDrag.col.classList.remove('is-dragging');
+    _flowDrag.col.style.zIndex = '';
+    if (_flowDrag.moved) {
+      _flowDragJustEnded = true;
+      setTimeout(function() { _flowDragJustEnded = false; }, 200);
+      _saveFlowColPosition(_flowDrag.col);
+    }
+    _flowDrag = null;
+  });
+}
+
+function _saveFlowColPosition(col) {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var colId = col.dataset.colId;
+  if (!colId) return;
+  if (!project.flowLayout) project.flowLayout = {};
+  project.flowLayout[colId] = {
+    x: Math.round(parseFloat(col.style.left) || 0),
+    y: Math.round(parseFloat(col.style.top)  || 0)
+  };
+  _saveBoardProjects();
 }
 
 // Modals for Board
