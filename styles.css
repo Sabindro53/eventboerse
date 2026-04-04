@@ -3288,7 +3288,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   height: 340px;
   margin-top: var(--nav-height);
   overflow: hidden;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: transparent;
 }
 .pcg-scroll-area {
   display: flex;
