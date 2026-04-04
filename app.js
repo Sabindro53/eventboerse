@@ -749,6 +749,7 @@ function navigateTo(page, data, skipHistory) {
       loadAdminUsers();
       break;
     case 'board':
+      if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }
       renderBoardPage();
       break;
     case 'contact':
@@ -7927,6 +7928,12 @@ function applyLogin() {
   _startHeartbeat();
   // Start inactivity auto-logout watch
   _startInactivityWatch();
+  // Re-render board if currently visible (session restored after initial render)
+  if (document.getElementById('page-board') && document.getElementById('page-board').classList.contains('active')) {
+    _migrateBoardProjects();
+    _loadBoardProjects();
+    renderBoardPage();
+  }
 }
 
 function applyLogout() {
@@ -7938,6 +7945,12 @@ function applyLogout() {
   _favoritesLoaded = false;
   favorites.clear();
   // Don't clear localStorage — favorites persist for next login
+  _boardProjects = [];
+  _activeBoardId = null;
+  // Re-render board if currently visible so projects disappear
+  if (document.getElementById('page-board') && document.getElementById('page-board').classList.contains('active')) {
+    renderBoardPage();
+  }
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
@@ -9181,11 +9194,35 @@ function filterMapMarkers() {
 // ===================== EVENT-PLANER BOARD ================
 // =========================================================
 
-var _boardProjects = JSON.parse(localStorage.getItem('eb_board_projects') || '[]');
+var _boardProjects = [];
 var _activeBoardId = null;
 
+function _boardStorageKey() {
+  return currentUser ? 'eb_board_projects_' + currentUser.id : null;
+}
+
+function _migrateBoardProjects() {
+  if (!currentUser) return;
+  var newKey = 'eb_board_projects_' + currentUser.id;
+  // If user has no data under new key but old global key exists, migrate it
+  if (!localStorage.getItem(newKey)) {
+    var old = localStorage.getItem('eb_board_projects');
+    if (old && old !== '[]') {
+      localStorage.setItem(newKey, old);
+    }
+  }
+  // Clean up old global key
+  localStorage.removeItem('eb_board_projects');
+}
+
+function _loadBoardProjects() {
+  var key = _boardStorageKey();
+  _boardProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+}
+
 function _saveBoardProjects() {
-  localStorage.setItem('eb_board_projects', JSON.stringify(_boardProjects));
+  var key = _boardStorageKey();
+  if (key) localStorage.setItem(key, JSON.stringify(_boardProjects));
 }
 
 function renderBoardPage() {
@@ -9193,20 +9230,27 @@ function renderBoardPage() {
   var projectsEl = document.getElementById('boardProjects');
   var boardViewEl = document.getElementById('boardView');
   var btnAllBoards = document.getElementById('btnAllBoards');
+  var headerNewBtn = document.querySelector('.board-page-header-actions .board-new-btn');
   if (!projectsEl) return;
   boardViewEl && (boardViewEl.style.display = 'none');
   projectsEl.style.display = '';
   btnAllBoards && (btnAllBoards.style.display = 'none');
 
+  // Hide/show header "new project" button based on login
+  if (headerNewBtn) headerNewBtn.style.display = currentUser ? '' : 'none';
+
+  if (!currentUser) { _boardProjects = []; }
   if (_boardProjects.length === 0) {
     projectsEl.innerHTML = `
       <div class="board-empty-state">
         <span class="material-icons-round">view_kanban</span>
         <h3>Noch kein Event-Projekt</h3>
-        <p>Erstelle dein erstes Planungs-Board und organisiere alle Dienstleister für dein Event.</p>
-        <button class="btn-primary board-new-btn" onclick="openCreateBoardModal()" style="margin-top:20px">
+        <p>${!currentUser ? 'Melde dich an, um dein Planungs-Board zu nutzen und Dienstleister für dein Event zu organisieren.' : 'Erstelle dein erstes Planungs-Board und organisiere alle Dienstleister für dein Event.'}</p>
+        ${currentUser ? `<button class="btn-primary board-new-btn" onclick="openCreateBoardModal()" style="margin-top:20px">
           <span class="material-icons-round">add</span> Erstes Projekt erstellen
-        </button>
+        </button>` : `<button class="btn-primary board-new-btn" onclick="openModal('loginModal')" style="margin-top:20px">
+          <span class="material-icons-round">login</span> Jetzt anmelden
+        </button>`}
       </div>`;
     return;
   }
