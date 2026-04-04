@@ -1989,7 +1989,6 @@ function loadDetail(listingId) {
   _initDetailGallerySwipe();
   // Detect wide banners for hero + gallery
   detectWideBannerImg(heroImg.querySelector('img'));
-  gallery.querySelectorAll('.detail-gallery-slide img').forEach(detectWideBannerImg);
   // Clean up previous cinema before starting new one
   if (_cinemaTimer) { clearInterval(_cinemaTimer); _cinemaTimer = null; }
   var oldCinema = gallery.querySelector('.dg-cinema');

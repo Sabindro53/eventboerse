@@ -2845,11 +2845,13 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   opacity: 0;
   transition: opacity 0.2s;
-  color: var(--dark);
+  color: #222;
   font-size: 20px;
 }
 .detail-gallery:hover .detail-gallery-arrow { opacity: 1; }
 .detail-gallery-arrow:hover { background: #fff; }
+body.dark-mode .detail-gallery-arrow { background: rgba(40,40,40,0.92); color: #eee; }
+body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 .detail-gallery-arrow.prev { left: 12px; }
 .detail-gallery-arrow.next { right: 12px; }
 .detail-gallery-counter {
@@ -7463,7 +7465,7 @@ body.dark-mode .provider-card { background: #1E1E1E; }
 
 /* Detail page */
 body.dark-mode .detail-page { background: var(--bg); }
-body.dark-mode .detail-Gallery { background: #1A1A1A; }
+body.dark-mode .detail-gallery { background: #1A1A1A; }
 
 /* Create listing page */
 body.dark-mode .create-listing-form { background: var(--bg-alt); }
