@@ -8263,7 +8263,7 @@ body.dark-mode .legal-page li { color: var(--text); }
 .btn-primary:active, .btn-outline:active { transform: scale(0.97); }
 
 /* Mobile Nav highlight */
-.mobile-nav-board .material-icons-round { color: var(--primary); }
+.mobile-nav-board.active .material-icons-round { color: var(--primary); }
 
 
 /* ======== RESPONSIVE: BOARD ======== */
