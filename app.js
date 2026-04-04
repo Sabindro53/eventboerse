@@ -2659,7 +2659,10 @@ function _provCropPortfolioImage(wrap) {
     openModal('listingCropModal');
     setTimeout(function() { lcropDraw(); lcropBindEvents(); }, 50);
   };
-  imgObj.src = img.src;
+  imgObj.onerror = function() { showToast('Bild konnte nicht geladen werden', 'error'); };
+  // Cache-buster forces re-fetch with proper CORS headers
+  var src = img.src.split('?')[0];
+  imgObj.src = src + '?_cb=' + Date.now();
 }
 
 function _provEditAddGalleryImages(input) {
@@ -4774,7 +4777,7 @@ function lcropConfirm() {
   octx.drawImage(_lcropImg, dx, dy, drawW * scaleX, drawH * scaleY);
 
   out.toBlob(function(blob) {
-    if (!blob) return;
+    if (!blob) { showToast('Zuschneiden fehlgeschlagen – bitte erneut versuchen', 'error'); return; }
     closeModal('listingCropModal');
     var previewUrl = URL.createObjectURL(blob);
 
