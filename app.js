@@ -10584,7 +10584,7 @@ function sendContactMessage(event) {
   // Build mailto link (since we have no backend, we use mailto as fallback)
   var mailtoSubject = encodeURIComponent('[Eventbörse Support] ' + subject + ' – ' + name);
   var mailtoBody = encodeURIComponent('Von: ' + name + ' (' + email + ')\nBetreff: ' + subject + '\n\n' + message);
-  var mailtoLink = 'mailto:Kontakt@Eventboerse.de?subject=' + mailtoSubject + '&body=' + mailtoBody;
+  var mailtoLink = 'mailto:Kontakt@Eventb%C3%B6rse.de?subject=' + mailtoSubject + '&body=' + mailtoBody;
 
   // Show success and open mail client
   var successEl = document.getElementById('contactSuccess');
