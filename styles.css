@@ -8473,12 +8473,20 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 /* Feed Content Layout */
 .feed-content-layout {
   display: flex;
-  gap: 0;
+  flex-direction: column;
   max-width: 1100px;
   margin: 0 auto;
   padding: 24px 20px;
   width: 100%;
+}
+.feed-top {
+  max-width: 620px;
+}
+.feed-body {
+  display: flex;
+  gap: 0;
   align-items: flex-start;
+  width: 100%;
 }
 .feed-main {
   flex: 1;
@@ -8953,7 +8961,8 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 /* ======== RESPONSIVE: SOCIAL FEED ======== */
 @media (max-width: 900px) {
   .feed-sidebar { display: none; }
-  .feed-content-layout { flex-direction: column; max-width: 100%; }
+  .feed-body { flex-direction: column; }
+  .feed-top { max-width: 100%; }
   .feed-main { max-width: 100%; }
 }
 @media (max-width: 768px) {
