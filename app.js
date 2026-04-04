@@ -1653,7 +1653,7 @@ function setQuickSearch(term) {
   _aiPlaceholderHideOnInput(input);
   filterListings();
   var grid = document.getElementById('browseGrid');
-  if (grid) setTimeout(function() { grid.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
+  if (grid) setTimeout(function() { window.scrollTo({ top: grid.getBoundingClientRect().top + window.pageYOffset - 100, behavior: 'smooth' }); }, 120);
 }
 function _aiPlaceholderHideOnInput(input) {
   var el = document.getElementById('aiPlaceholder');
@@ -1700,7 +1700,7 @@ function filterByCategory(btn, cat) {
   filterListings();
   // Scroll results into view
   var grid = document.getElementById('browseGrid');
-  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (grid) window.scrollTo({ top: grid.getBoundingClientRect().top + window.pageYOffset - 100, behavior: 'smooth' });
 }
 
 function filterListings() {
