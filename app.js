@@ -7882,12 +7882,6 @@ function initPasswordFields() {
 
 // ---- SESSION RESTORE (bei Seitenaufruf) ----
 function restoreSession() {
-  // Admin Feature-Update-Benachrichtigung
-  setTimeout(function() {
-    if (currentUser && currentUser.isAdmin) {
-      showToast('Es wurden neue Features aktualisiert', 'info');
-    }
-  }, 1200);
   // Sofort aus wp_localize_script lesen (frisch gerenderte Seite)
   if (typeof eventboerseApi !== 'undefined' && eventboerseApi.isLoggedIn && eventboerseApi.user) {
     currentUser = _normalizeUserPayload(eventboerseApi.user);
