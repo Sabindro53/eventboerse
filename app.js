@@ -9146,7 +9146,7 @@ function openBoardProject(projectId) {
   document.getElementById('boardEventName').textContent = project.name;
   document.getElementById('boardEventDate').textContent = project.date || 'Datum noch offen';
 
-  renderKanban(project);
+  switchBoardView('flow');
   _updateBoardStats(project);
 }
 
