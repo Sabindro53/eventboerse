@@ -8900,7 +8900,7 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 /* ======== PAGE TRANSITION ANIMATIONS ======== */
 @keyframes fadeInPage {
   from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(30px); }
