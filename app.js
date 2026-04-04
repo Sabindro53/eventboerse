@@ -5428,24 +5428,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Handle initial hash route (deep links)
   var hash = window.location.hash.replace('#', '');
-  if (hash && hash !== 'home') {
+  if (hash && hash !== 'home' && hash !== '') {
     var parts = hash.split('/');
     var initPage = parts[0];
     var initData = parts[1] ? (isNaN(parts[1]) ? parts[1] : parseInt(parts[1])) : null;
     window.history.replaceState({ page: initPage, data: initData }, '', '#' + hash);
     navigateTo(initPage, initData, true);
   } else {
-    window.history.replaceState({ page: 'browse', data: null }, '', '#browse');
+    window.history.replaceState({ page: 'home', data: null }, '', '#home');
+    navigateTo('home', null, true);
   }
-
-  // Force state in case Home immer noch Vorrang haben sollte
-  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
-  var ph = document.getElementById('page-home'); if (ph) ph.classList.remove('active');
-  var pb = document.getElementById('page-browse'); if (pb) pb.classList.add('active');
-  currentPage = 'browse';
-
-  forceBrowsePage();
-  window.addEventListener('hashchange', forceBrowsePage);
 
 // Handle browser back/forward
   window.addEventListener('popstate', function(e) {
