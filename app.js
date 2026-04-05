@@ -3394,54 +3394,59 @@ function _stopChatPoll() {
 
 function _isBookingContent(text) {
   if (!text) return false;
-  // New JSON format
   try { var d = JSON.parse(text); if (d && d.listing) return true; } catch(e) {}
-  // Old plain-text format
   if (/^Anfrage\n/.test(text)) return true;
   return false;
+}
+
+function _parseOldBookingText(raw) {
+  var lines = raw.split('\n');
+  var data = {};
+  lines.forEach(function(line) {
+    var m;
+    if ((m = line.match(/^Listing:\s*(.+)/))) data.listing = m[1];
+    else if ((m = line.match(/^Datum:\s*(.+)/))) data.date = m[1];
+    else if ((m = line.match(/^Event-Typ:\s*(.+)/))) data.eventType = m[1];
+    else if ((m = line.match(/^Gäste:\s*(.+)/))) data.guests = m[1];
+    else if ((m = line.match(/^Preis:\s*(.+)/))) data.price = m[1];
+    else if ((m = line.match(/^Nachricht:\s*(.+)/))) data.message = m[1];
+  });
+  return data.listing ? data : null;
 }
 
 function _renderBookingCard(msg) {
   var raw = msg.text || msg.content || '';
   var data;
   try { data = JSON.parse(raw); } catch (e) { data = null; }
+  if (!data) data = _parseOldBookingText(raw);
   if (!data) {
-    // Fallback for old plain-text booking messages
-    return '<div class="msg msg-booking">' +
-      '<div class="booking-card-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
-      '<div class="booking-card-body"><p>' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div>' +
-    '</div>';
+    return '<div class="chat-booking-card"><div class="cbc-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
+      '<div class="cbc-body"><p style="margin:0;color:var(--text)">' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div></div>';
   }
-  var fmtDate = data.date;
+  var fmtDate = data.date || '';
   try {
-    var d = new Date(data.date + 'T00:00:00');
-    fmtDate = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+      var d = new Date(data.date + 'T00:00:00');
+      fmtDate = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
   } catch (e) {}
-  var html = '<div class="msg msg-booking">' +
-    '<div class="booking-card-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
-    '<div class="booking-card-body">';
+  var html = '<div class="chat-booking-card">' +
+    '<div class="cbc-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
+    '<div class="cbc-body">';
   if (data.image) {
-    html += '<div class="booking-card-image"><img src="' + _escHtml(data.image) + '" alt=""></div>';
+    html += '<div class="cbc-img"><img src="' + _escHtml(data.image) + '" alt=""></div>';
   }
   if (data.listing) {
-    html += '<div class="booking-card-title">' + _escHtml(data.listing) + '</div>';
+    html += '<div class="cbc-title">' + _escHtml(data.listing) + '</div>';
   }
-  html += '<div class="booking-card-fields">';
-  if (data.date) {
-    html += '<div class="booking-card-field"><span class="material-icons-round">calendar_today</span> ' + _escHtml(fmtDate) + '</div>';
-  }
-  if (data.eventType) {
-    html += '<div class="booking-card-field"><span class="material-icons-round">celebration</span> ' + _escHtml(data.eventType) + '</div>';
-  }
-  if (data.guests) {
-    html += '<div class="booking-card-field"><span class="material-icons-round">group</span> ' + _escHtml(data.guests) + ' Gäste</div>';
-  }
-  if (data.price) {
-    html += '<div class="booking-card-field"><span class="material-icons-round">sell</span> ' + _escHtml(data.price) + '</div>';
-  }
+  html += '<div class="cbc-fields">';
+  if (fmtDate) html += '<div class="cbc-field"><span class="material-icons-round">calendar_today</span>' + _escHtml(fmtDate) + '</div>';
+  if (data.eventType) html += '<div class="cbc-field"><span class="material-icons-round">celebration</span>' + _escHtml(data.eventType) + '</div>';
+  if (data.guests) html += '<div class="cbc-field"><span class="material-icons-round">group</span>' + _escHtml(data.guests) + ' Gäste</div>';
+  if (data.price) html += '<div class="cbc-field"><span class="material-icons-round">sell</span>' + _escHtml(data.price) + '</div>';
   html += '</div>';
   if (data.message) {
-    html += '<div class="booking-card-message">"' + _escHtml(data.message) + '"</div>';
+    html += '<div class="cbc-message">' + _escHtml(data.message) + '</div>';
   }
   html += '</div></div>';
   return html;
