@@ -1175,12 +1175,44 @@ function renderFeaturedGrid() {
 // ========== GRID GALLERY CAROUSEL ==========
 var _gridGalleryIdx = {};
 var _gridGalleryDragged = false; // global flag: was the last interaction a drag?
-var _gridDragState = { dragging: false, startX: 0, startScrollLeft: 0, track: null, listingId: null };
+var _gridDragState = { dragging: false, startX: 0, startScrollLeft: 0, track: null, listingId: null, lastX: 0, lastTime: 0, velocity: 0 };
+
+// Smooth animated scroll (Apple-like easeOutCubic)
+function _gridGalleryAnimateTo(track, targetScroll, duration, listingId) {
+  if (track._animFrame) cancelAnimationFrame(track._animFrame);
+  var startScroll = track.scrollLeft;
+  var dist = targetScroll - startScroll;
+  if (Math.abs(dist) < 1) { track.scrollLeft = targetScroll; return; }
+  var startTime = performance.now();
+  duration = duration || 420;
+  function step(now) {
+    var t = Math.min((now - startTime) / duration, 1);
+    // easeOutCubic
+    var ease = 1 - Math.pow(1 - t, 3);
+    track.scrollLeft = startScroll + dist * ease;
+    if (t < 1) {
+      track._animFrame = requestAnimationFrame(step);
+    } else {
+      track.scrollLeft = targetScroll;
+      track._animFrame = null;
+      if (listingId != null) _updateGridGalleryUI(listingId);
+    }
+  }
+  track._animFrame = requestAnimationFrame(step);
+}
 
 // Single document-level listeners for all grid galleries (prevents listener leaks)
 document.addEventListener('mousemove', function(e) {
   if (!_gridDragState.dragging || !_gridDragState.track) return;
+  var now = performance.now();
   var dx = e.clientX - _gridDragState.startX;
+  // Track velocity (px/ms)
+  var dt = now - _gridDragState.lastTime;
+  if (dt > 0) {
+    _gridDragState.velocity = (e.clientX - _gridDragState.lastX) / dt;
+  }
+  _gridDragState.lastX = e.clientX;
+  _gridDragState.lastTime = now;
   if (Math.abs(dx) > 2) _gridGalleryDragged = true;
   _gridDragState.track.scrollLeft = _gridDragState.startScrollLeft - dx;
 });
@@ -1189,14 +1221,40 @@ document.addEventListener('mouseup', function() {
   _gridDragState.dragging = false;
   var track = _gridDragState.track;
   var listingId = _gridDragState.listingId;
+  var velocity = _gridDragState.velocity; // px/ms, negative = swiped left
   var slideW = track.offsetWidth;
   if (slideW > 0) {
-    var idx = Math.round(track.scrollLeft / slideW);
+    var currentScroll = track.scrollLeft;
+    var currentIdx = currentScroll / slideW;
+    var baseIdx = Math.floor(currentIdx);
+    var frac = currentIdx - baseIdx;
+    var idx;
+    // Velocity-based decision (Apple-like flick)
+    if (Math.abs(velocity) > 0.3) {
+      // Fast flick: commit to direction regardless of position
+      idx = velocity < 0 ? Math.ceil(currentIdx) : Math.floor(currentIdx);
+    } else if (Math.abs(velocity) > 0.1) {
+      // Medium flick: lower threshold (20%)
+      if (velocity < 0) {
+        idx = frac > 0.2 ? baseIdx + 1 : baseIdx;
+      } else {
+        idx = frac < 0.8 ? baseIdx : baseIdx + 1;
+      }
+    } else {
+      // Slow drag: snap to nearest at 50%
+      idx = Math.round(currentIdx);
+    }
     idx = Math.max(0, Math.min(track.children.length - 1, idx));
     _gridGalleryIdx[listingId] = idx;
-    track.style.scrollBehavior = 'smooth';
-    track.scrollLeft = idx * slideW;
-    _updateGridGalleryUI(listingId);
+    // Animate smoothly — duration based on distance
+    var targetScroll = idx * slideW;
+    var dist = Math.abs(targetScroll - currentScroll);
+    var duration = Math.max(200, Math.min(500, dist * 1.2));
+    track.style.scrollSnapType = 'none';
+    track.style.scrollBehavior = 'auto';
+    _gridGalleryAnimateTo(track, targetScroll, duration, listingId);
+    // Re-enable snap after animation
+    setTimeout(function() { track.style.scrollSnapType = 'x mandatory'; }, duration + 20);
   }
   _gridDragState.track = null;
   // Reset dragged flag after a short delay so click handlers can check it
@@ -1243,13 +1301,18 @@ function _initGridGallerySwipe(listingId) {
     // Only start drag if clicking directly on track/slides, not on arrows/dots
     if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot')) return;
     e.preventDefault();
+    if (track._animFrame) { cancelAnimationFrame(track._animFrame); track._animFrame = null; }
     _gridDragState.dragging = true;
     _gridDragState.startX = e.clientX;
     _gridDragState.startScrollLeft = track.scrollLeft;
     _gridDragState.track = track;
     _gridDragState.listingId = listingId;
+    _gridDragState.lastX = e.clientX;
+    _gridDragState.lastTime = performance.now();
+    _gridDragState.velocity = 0;
     _gridGalleryDragged = false;
     track.style.scrollBehavior = 'auto';
+    track.style.scrollSnapType = 'none';
   });
 
   // Native CSS scroll-snap handles touch swiping - just sync the index/dots
@@ -1280,12 +1343,12 @@ function gridGalleryNav(listingId, dir) {
   var total = track.children.length;
   var slideW = track.offsetWidth;
   if (slideW <= 0) return;
-  // Sync current index from actual scroll position first
   var currentIdx = Math.round(track.scrollLeft / slideW);
   _gridGalleryIdx[listingId] = Math.max(0, Math.min(total - 1, currentIdx + dir));
-  track.style.scrollBehavior = 'smooth';
-  track.scrollLeft = _gridGalleryIdx[listingId] * slideW;
-  _updateGridGalleryUI(listingId);
+  track.style.scrollSnapType = 'none';
+  track.style.scrollBehavior = 'auto';
+  _gridGalleryAnimateTo(track, _gridGalleryIdx[listingId] * slideW, 380, listingId);
+  setTimeout(function() { track.style.scrollSnapType = 'x mandatory'; }, 400);
 }
 function gridGalleryGoTo(listingId, idx) {
   var track = document.getElementById('gridGallery_' + listingId);
@@ -1293,9 +1356,10 @@ function gridGalleryGoTo(listingId, idx) {
   var slideW = track.offsetWidth;
   if (slideW <= 0) return;
   _gridGalleryIdx[listingId] = idx;
-  track.style.scrollBehavior = 'smooth';
-  track.scrollLeft = idx * slideW;
-  _updateGridGalleryUI(listingId);
+  track.style.scrollSnapType = 'none';
+  track.style.scrollBehavior = 'auto';
+  _gridGalleryAnimateTo(track, idx * slideW, 380, listingId);
+  setTimeout(function() { track.style.scrollSnapType = 'x mandatory'; }, 400);
 }
 
 // Event delegation for gallery arrows and dots (avoids inline onclick blocked by CSP)
