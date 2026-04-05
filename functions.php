@@ -155,6 +155,9 @@ add_filter( 'wp_new_user_notification_email_admin', '__return_false' );
 /* E-Mail-Absender für alle wp_mail-Aufrufe korrekt setzen */
 // ==== SMTP Support für zuverlässigen Mailversand ====
 // Zugangsdaten werden aus wp-config.php geladen (NICHT im Repo speichern!)
+// In wp-config.php eintragen:
+//   define('EB_SMTP_USER', 'kontakt@eventboerse.de');
+//   define('EB_SMTP_PASS', 'dein-smtp-passwort');
 add_action('phpmailer_init', function($phpmailer) {
     $phpmailer->isSMTP();
     $phpmailer->Host       = 'smtp.ionos.de';
@@ -163,12 +166,16 @@ add_action('phpmailer_init', function($phpmailer) {
     $phpmailer->Username   = defined('EB_SMTP_USER') ? EB_SMTP_USER : '';
     $phpmailer->Password   = defined('EB_SMTP_PASS') ? EB_SMTP_PASS : '';
     $phpmailer->SMTPSecure = 'tls';
-    $phpmailer->From       = defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de';
-    $phpmailer->FromName   = 'Eventbörse';
     $phpmailer->CharSet    = 'UTF-8';
+    // From MUSS mit dem SMTP-Login übereinstimmen, sonst lehnt IONOS die Mail ab
+    $from = defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de';
+    $phpmailer->From       = $from;
+    $phpmailer->FromName   = 'Eventbörse';
+    $phpmailer->Sender     = $from; // Return-Path / Envelope-Sender
 });
+// From-Adresse muss mit dem SMTP-Login identisch sein (IONOS-Anforderung)
 add_filter( 'wp_mail_from', function() {
-    return 'noreply@' . wp_parse_url( home_url(), PHP_URL_HOST );
+    return defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de';
 } );
 add_filter( 'wp_mail_from_name', function() {
     return 'Eventbörse';
@@ -1792,6 +1799,11 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_diagnostics',
         'permission_callback' => function() { return current_user_can( 'manage_options' ); },
     ) );
+    register_rest_route( 'eventboerse/v1', '/diagnostics/test-mail', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_test_mail',
+        'permission_callback' => function() { return current_user_can( 'manage_options' ); },
+    ) );
 
     /* ---------- ACCOUNT SETTINGS ---------- */
     register_rest_route( 'eventboerse/v1', '/settings', array(
@@ -1968,6 +1980,31 @@ function eb_diagnostics() {
         );
     }
     return new WP_REST_Response( $result, 200 );
+}
+
+function eb_test_mail( WP_REST_Request $request ) {
+    $user  = wp_get_current_user();
+    $email = $user->user_email;
+
+    $subject = 'Eventbörse – Test-Mail';
+    $message = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+    $message .= '<h2 style="color:#222;margin-bottom:8px">Mail-Test erfolgreich!</h2>';
+    $message .= '<p style="color:#484848;line-height:1.6">Hallo ' . esc_html( $user->first_name ?: $user->display_name ) . ', diese Test-Mail bestätigt, dass der E-Mail-Versand über SMTP korrekt funktioniert.</p>';
+    $message .= '<p style="color:#717171;font-size:13px;margin-top:20px">SMTP-Host: smtp.ionos.de<br>Von: ' . esc_html( defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de' ) . '</p>';
+    $message .= '</div>';
+
+    $sent = wp_mail( $email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
+
+    if ( $sent ) {
+        return new WP_REST_Response( array( 'message' => 'Test-Mail wurde an ' . $email . ' gesendet.', 'smtp_user' => defined('EB_SMTP_USER') ? EB_SMTP_USER : '(nicht konfiguriert)' ), 200 );
+    }
+
+    global $phpmailer;
+    $error_info = '';
+    if ( isset( $phpmailer ) && is_object( $phpmailer ) ) {
+        $error_info = $phpmailer->ErrorInfo;
+    }
+    return new WP_REST_Response( array( 'message' => 'Mail-Versand fehlgeschlagen.', 'smtp_user' => defined('EB_SMTP_USER') ? EB_SMTP_USER : '(nicht konfiguriert)', 'error' => $error_info ), 500 );
 }
 
 /* =====================================================================
