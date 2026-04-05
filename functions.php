@@ -480,7 +480,14 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     ), 10 * MINUTE_IN_SECONDS );
     set_transient( eb_reg_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
 
-    eb_send_reg_otp_email( $first_name, $email, $code );
+    $sent = eb_send_reg_otp_email( $first_name, $email, $code );
+
+    if ( ! $sent ) {
+        delete_transient( $otp_key );
+        delete_transient( eb_reg_otp_cooldown_key( $email ) );
+        error_log( 'Eventbörse: Registrierungs-OTP Mail FEHLGESCHLAGEN für ' . $email );
+        return new WP_REST_Response( array( 'message' => 'E-Mail konnte nicht gesendet werden. Bitte versuche es später erneut oder kontaktiere den Support.' ), 500 );
+    }
 
     return new WP_REST_Response( array(
         'requiresOtp'  => true,
@@ -584,7 +591,13 @@ function eb_register_resend( WP_REST_Request $request ) {
     set_transient( $otp_key, $payload, 10 * MINUTE_IN_SECONDS );
     set_transient( eb_reg_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
 
-    eb_send_reg_otp_email( $payload['first_name'], $email, $code );
+    $sent = eb_send_reg_otp_email( $payload['first_name'], $email, $code );
+
+    if ( ! $sent ) {
+        delete_transient( eb_reg_otp_cooldown_key( $email ) );
+        error_log( 'Eventbörse: Registrierungs-OTP Resend FEHLGESCHLAGEN für ' . $email );
+        return new WP_REST_Response( array( 'message' => 'E-Mail konnte nicht gesendet werden. Bitte versuche es später erneut.' ), 500 );
+    }
 
     return new WP_REST_Response( array(
         'sent'        => true,
@@ -1454,7 +1467,13 @@ function eb_otp_send( WP_REST_Request $request ) {
     ), 10 * MINUTE_IN_SECONDS );
     set_transient( eb_login_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
 
-    eb_send_login_otp_email( $user, $code );
+    $sent = eb_send_login_otp_email( $user, $code );
+
+    if ( ! $sent ) {
+        delete_transient( eb_login_otp_cooldown_key( $email ) );
+        error_log( 'Eventbörse: Login-OTP Mail FEHLGESCHLAGEN für ' . $email );
+        return new WP_REST_Response( array( 'message' => 'E-Mail konnte nicht gesendet werden. Bitte versuche es später erneut oder kontaktiere den Support.' ), 500 );
+    }
 
     return new WP_REST_Response( array(
         'sent'         => true,
