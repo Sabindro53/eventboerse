@@ -2012,12 +2012,6 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   margin-top: 6px;
   font-size: 1rem;
 }
-.listing-card-price::before {
-  content: 'ab ';
-  font-weight: 400;
-  color: var(--text-light);
-  font-size: 0.85rem;
-}
 .listing-card-price span { font-weight: 400; color: var(--text-light); font-size: 0.85rem; }
 .listing-card-tags {
   display: flex;
