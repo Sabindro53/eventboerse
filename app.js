@@ -3375,6 +3375,8 @@ function _startChatPoll() {
               '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
               actionBtn +
             '</div>';
+          } else if (msg.type === 'booking') {
+            return _renderBookingCard(msg);
           } else {
             var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
             var time = msg.time || '';
@@ -3388,6 +3390,52 @@ function _startChatPoll() {
 }
 function _stopChatPoll() {
   if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+}
+
+function _renderBookingCard(msg) {
+  var raw = msg.text || msg.content || '';
+  var data;
+  try { data = JSON.parse(raw); } catch (e) { data = null; }
+  if (!data) {
+    // Fallback for old plain-text booking messages
+    return '<div class="msg msg-booking">' +
+      '<div class="booking-card-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
+      '<div class="booking-card-body"><p>' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div>' +
+    '</div>';
+  }
+  var fmtDate = data.date;
+  try {
+    var d = new Date(data.date + 'T00:00:00');
+    fmtDate = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch (e) {}
+  var html = '<div class="msg msg-booking">' +
+    '<div class="booking-card-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
+    '<div class="booking-card-body">';
+  if (data.image) {
+    html += '<div class="booking-card-image"><img src="' + _escHtml(data.image) + '" alt=""></div>';
+  }
+  if (data.listing) {
+    html += '<div class="booking-card-title">' + _escHtml(data.listing) + '</div>';
+  }
+  html += '<div class="booking-card-fields">';
+  if (data.date) {
+    html += '<div class="booking-card-field"><span class="material-icons-round">calendar_today</span> ' + _escHtml(fmtDate) + '</div>';
+  }
+  if (data.eventType) {
+    html += '<div class="booking-card-field"><span class="material-icons-round">celebration</span> ' + _escHtml(data.eventType) + '</div>';
+  }
+  if (data.guests) {
+    html += '<div class="booking-card-field"><span class="material-icons-round">group</span> ' + _escHtml(data.guests) + ' Gäste</div>';
+  }
+  if (data.price) {
+    html += '<div class="booking-card-field"><span class="material-icons-round">sell</span> ' + _escHtml(data.price) + '</div>';
+  }
+  html += '</div>';
+  if (data.message) {
+    html += '<div class="booking-card-message">"' + _escHtml(data.message) + '"</div>';
+  }
+  html += '</div></div>';
+  return html;
 }
 
 function renderChatList() {
@@ -3513,6 +3561,8 @@ function openChat(chatId) {
             '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
             actionBtn +
           '</div>';
+        } else if (msg.type === 'booking') {
+          return _renderBookingCard(msg);
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           var time = msg.time || '';
@@ -3615,6 +3665,8 @@ function openDemoChat(chatId) {
         '<div class="offer-amount">' + _escHtml(msg.amount) + '</div>' +
         '<div class="offer-status ' + _escHtml(msg.status || '') + '">' + _escHtml(msg.statusLabel) + '</div>' +
       '</div>';
+    } else if (msg.type === 'booking') {
+      return _renderBookingCard(msg);
     } else {
       var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
       return '<div class="msg ' + cls + '">' + _escHtml(msg.text) + '<span class="msg-time">' + _escHtml(msg.time) + '</span></div>';
@@ -3713,13 +3765,15 @@ function bookListing() {
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
-      var bookingText = 'Anfrage\n'
-        + 'Listing: ' + (currentListing.title || '') + '\n'
-        + 'Datum: ' + date + '\n'
-        + 'Event-Typ: ' + eventType + '\n'
-        + (guests ? 'Gäste: ' + guests + '\n' : '')
-        + 'Preis: ' + (currentListing.priceLabel || '') + '\n'
-        + (message ? 'Nachricht: ' + message : '');
+      var bookingText = JSON.stringify({
+        listing: currentListing.title || '',
+        date: date,
+        eventType: eventType,
+        guests: guests || '',
+        price: currentListing.priceLabel || '',
+        message: message || '',
+        image: currentListing.image || ''
+      });
       fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
         body: JSON.stringify({ content: bookingText, type: 'booking' })
