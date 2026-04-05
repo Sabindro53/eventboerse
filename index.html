@@ -848,8 +848,11 @@
                   <textarea id="bookingMessage" rows="3" placeholder="Beschreibe kurz, was du dir vorstellst..."></textarea>
                 </div>
               </div>
-              <button class="btn-primary btn-block" onclick="openNegotiation()">
-                <span class="material-icons-round">gavel</span> Preisangebot senden
+              <button class="btn-primary btn-block" onclick="bookListing()">
+                <span class="material-icons-round">event_available</span> Buchen
+              </button>
+              <button class="btn-secondary btn-block" onclick="openNegotiation()">
+                <span class="material-icons-round">gavel</span> Gegenangebot senden
               </button>
               <button class="btn-secondary btn-block" onclick="startChat()">
                 <span class="material-icons-round">chat</span> Nachricht senden
@@ -2485,7 +2488,7 @@
       </button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">gavel</span>
-        <h2>Preisverhandlung starten</h2>
+        <h2>Gegenangebot senden</h2>
         <p>Schlage deinen Wunschpreis vor</p>
       </div>
       <form class="modal-form" onsubmit="submitNegotiation(event)">

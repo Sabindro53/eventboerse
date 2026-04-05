@@ -3684,6 +3684,47 @@ function startChatWithProvider() {
     });
 }
 
+// ========== BOOKING ==========
+function bookListing() {
+  if (!isLoggedIn) {
+    showToast('Bitte melde dich an, um zu buchen.', 'warning');
+    openModal('loginModal');
+    return;
+  }
+  if (!currentListing || !currentListing.providerId) return;
+  var date = document.getElementById('bookingDate').value;
+  if (!date) { showToast('Bitte wähle ein Event-Datum.', 'warning'); return; }
+  var eventType = document.getElementById('bookingEventType').value;
+  var guests = document.getElementById('bookingGuests').value;
+  var message = document.getElementById('bookingMessage').value;
+
+  // Create conversation and send booking request
+  fetch(_apiUrl('conversations'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(convo) {
+      var bookingText = 'Buchungsanfrage\n'
+        + 'Listing: ' + (currentListing.title || '') + '\n'
+        + 'Datum: ' + date + '\n'
+        + 'Event-Typ: ' + eventType + '\n'
+        + (guests ? 'Gäste: ' + guests + '\n' : '')
+        + 'Preis: ' + (currentListing.priceLabel || '') + '\n'
+        + (message ? 'Nachricht: ' + message : '');
+      fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ content: bookingText, type: 'booking' })
+      }).catch(function(){});
+      showToast('Buchungsanfrage gesendet!', 'event_available');
+      navigateTo('messages');
+      setTimeout(function() { openChat(convo.id); }, 200);
+    })
+    .catch(function() {
+      showToast('Buchungsanfrage konnte nicht gesendet werden', 'error');
+    });
+}
+
 // ========== NEGOTIATION ==========
 function openNegotiation() {
   if (!currentListing) return;
