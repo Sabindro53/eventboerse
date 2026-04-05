@@ -3691,13 +3691,13 @@ function startChatWithProvider() {
 // ========== BOOKING ==========
 function bookListing() {
   if (!isLoggedIn) {
-    showToast('Bitte melde dich an, um zu buchen.', 'warning');
+    showToast('Bitte melde dich an, um eine Anfrage zu senden.', 'warning');
     openModal('loginModal');
     return;
   }
   if (!currentListing || !currentListing.providerId) return;
   if (currentUser && currentListing.providerId === currentUser.id) {
-    showToast('Du kannst dein eigenes Inserat nicht buchen.', 'info');
+    showToast('Du kannst dein eigenes Inserat nicht anfragen.', 'info');
     return;
   }
   var date = document.getElementById('bookingDate').value;
@@ -3713,7 +3713,7 @@ function bookListing() {
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
-      var bookingText = 'Buchungsanfrage\n'
+      var bookingText = 'Anfrage\n'
         + 'Listing: ' + (currentListing.title || '') + '\n'
         + 'Datum: ' + date + '\n'
         + 'Event-Typ: ' + eventType + '\n'
@@ -3724,12 +3724,12 @@ function bookListing() {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
         body: JSON.stringify({ content: bookingText, type: 'booking' })
       }).catch(function(){});
-      showToast('Buchungsanfrage gesendet!', 'event_available');
+      showToast('Anfrage gesendet!', 'event_available');
       navigateTo('messages');
       setTimeout(function() { openChat(convo.id); }, 200);
     })
     .catch(function() {
-      showToast('Buchungsanfrage konnte nicht gesendet werden', 'error');
+      showToast('Anfrage konnte nicht gesendet werden', 'error');
     });
 }
 
