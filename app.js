@@ -3375,7 +3375,7 @@ function _startChatPoll() {
               '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
               actionBtn +
             '</div>';
-          } else if (msg.type === 'booking') {
+          } else if (msg.type === 'booking' || _isBookingContent(msg.text || msg.content)) {
             return _renderBookingCard(msg);
           } else {
             var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
@@ -3390,6 +3390,15 @@ function _startChatPoll() {
 }
 function _stopChatPoll() {
   if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+}
+
+function _isBookingContent(text) {
+  if (!text) return false;
+  // New JSON format
+  try { var d = JSON.parse(text); if (d && d.listing) return true; } catch(e) {}
+  // Old plain-text format
+  if (/^Anfrage\n/.test(text)) return true;
+  return false;
 }
 
 function _renderBookingCard(msg) {
@@ -3561,7 +3570,7 @@ function openChat(chatId) {
             '<div class="offer-status ' + (msg.status || 'pending') + '">' + _escHtml(msg.statusLabel || 'Gesendet') + '</div>' +
             actionBtn +
           '</div>';
-        } else if (msg.type === 'booking') {
+        } else if (msg.type === 'booking' || _isBookingContent(msg.text || msg.content)) {
           return _renderBookingCard(msg);
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
@@ -3665,7 +3674,7 @@ function openDemoChat(chatId) {
         '<div class="offer-amount">' + _escHtml(msg.amount) + '</div>' +
         '<div class="offer-status ' + _escHtml(msg.status || '') + '">' + _escHtml(msg.statusLabel) + '</div>' +
       '</div>';
-    } else if (msg.type === 'booking') {
+    } else if (msg.type === 'booking' || _isBookingContent(msg.text || msg.content)) {
       return _renderBookingCard(msg);
     } else {
       var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
