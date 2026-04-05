@@ -1130,8 +1130,25 @@ function detectWideBannerImg(img) {
 }
 
 // ========== SHARED GRID INIT (click + swipe for all listing grids) ==========
-function _initGridCards(grid, listings) {
+var _galleryUid = 0;
+function _initGridCards(grid) {
   grid.querySelectorAll('.listing-card').forEach(function(card) {
+    // Assign unique gallery IDs to avoid collisions between grids
+    var uid = 'g' + (++_galleryUid);
+    var track = card.querySelector('.grid-gallery-track');
+    if (track) {
+      track.id = 'gridGallery_' + uid;
+      var dots = card.querySelector('.grid-gallery-dots');
+      if (dots) dots.id = 'gridGalleryDots_' + uid;
+      card.querySelectorAll('.grid-gallery-arrow').forEach(function(a) {
+        a.setAttribute('data-gallery-id', uid);
+      });
+      card.querySelectorAll('.grid-gallery-dot').forEach(function(d) {
+        d.setAttribute('data-gallery-id', uid);
+      });
+      _initGridGallerySwipe(uid);
+    }
+    // Click on card body → open detail
     card.addEventListener('click', function(e) {
       if (_gridGalleryDragged) return;
       if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav')) return;
@@ -1139,7 +1156,6 @@ function _initGridCards(grid, listings) {
       if (id) navigateTo('detail', Number(id));
     });
   });
-  listings.forEach(function(l) { _initGridGallerySwipe(l.id); });
   detectWideBannerCards(grid);
 }
 
@@ -1147,7 +1163,7 @@ function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
   var visible = getHeroListings();
   grid.innerHTML = visible.map(renderListingCard).join('');
-  _initGridCards(grid, visible);
+  _initGridCards(grid);
 }
 // ========== GRID GALLERY CAROUSEL ==========
 var _gridGalleryIdx = {};
@@ -1344,7 +1360,7 @@ document.addEventListener('click', function(e) {
   var arrow = e.target.closest('.grid-gallery-arrow');
   if (arrow) {
     e.stopPropagation();
-    var gid = Number(arrow.getAttribute('data-gallery-id'));
+    var gid = arrow.getAttribute('data-gallery-id');
     var dir = Number(arrow.getAttribute('data-dir'));
     if (gid && dir) gridGalleryNav(gid, dir);
     return;
@@ -1352,9 +1368,9 @@ document.addEventListener('click', function(e) {
   var dot = e.target.closest('.grid-gallery-dot');
   if (dot) {
     e.stopPropagation();
-    var gid2 = Number(dot.getAttribute('data-gallery-id'));
+    var gid2 = dot.getAttribute('data-gallery-id');
     var idx2 = Number(dot.getAttribute('data-idx'));
-    if (gid2 != null && idx2 != null) gridGalleryGoTo(gid2, idx2);
+    if (gid2 && !isNaN(idx2)) gridGalleryGoTo(gid2, idx2);
     return;
   }
 });
@@ -1366,7 +1382,7 @@ function filterCategory(btn, category) {
   const filtered = category === 'alle' ? visible : visible.filter(l => l.category === category);
   const grid = document.getElementById('featuredGrid');
   grid.innerHTML = filtered.map(renderListingCard).join('');
-  _initGridCards(grid, filtered);
+  _initGridCards(grid);
 }
 
 // Event-type to tag mapping (hero select values → listing tag names)
@@ -1741,7 +1757,7 @@ function performSearch() {
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
   grid.innerHTML = listings.map(renderListingCard).join('');
-  _initGridCards(grid, listings);
+  _initGridCards(grid);
   document.getElementById('browseResultCount').textContent = `${listings.length} Services gefunden`;
 }
 
@@ -2347,7 +2363,7 @@ function loadProvider(providerId) {
   } else {
     var plGrid = document.getElementById('providerListings');
     plGrid.innerHTML = providerListings.map(renderListingCard).join('');
-    _initGridCards(plGrid, providerListings);
+    _initGridCards(plGrid);
   }
 
   // Reviews tab — load from API
@@ -6109,7 +6125,7 @@ function toggleFavorite(listingId, btn) {
       grid.style.display = '';
       emptyState.style.display = 'none';
       grid.innerHTML = favListings.map(renderListingCard).join('');
-      _initGridCards(grid, favListings);
+      _initGridCards(grid);
     }
   }
 }
@@ -6127,7 +6143,7 @@ function renderFavorites() {
       grid.style.display = '';
       emptyState.style.display = 'none';
       grid.innerHTML = favListings.map(renderListingCard).join('');
-      _initGridCards(grid, favListings);
+      _initGridCards(grid);
     }
   }
 
