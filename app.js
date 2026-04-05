@@ -3643,6 +3643,10 @@ function startChat() {
     return;
   }
   if (!currentListing || !currentListing.providerId) return;
+  if (currentUser && currentListing.providerId === currentUser.id) {
+    showToast('Du kannst dir nicht selbst schreiben.', 'info');
+    return;
+  }
   // Create or find conversation with provider
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
@@ -3692,6 +3696,10 @@ function bookListing() {
     return;
   }
   if (!currentListing || !currentListing.providerId) return;
+  if (currentUser && currentListing.providerId === currentUser.id) {
+    showToast('Du kannst dein eigenes Inserat nicht buchen.', 'info');
+    return;
+  }
   var date = document.getElementById('bookingDate').value;
   if (!date) { showToast('Bitte wähle ein Event-Datum.', 'warning'); return; }
   var eventType = document.getElementById('bookingEventType').value;
@@ -3728,6 +3736,15 @@ function bookListing() {
 // ========== NEGOTIATION ==========
 function openNegotiation() {
   if (!currentListing) return;
+  if (!isLoggedIn) {
+    showToast('Bitte melde dich an.', 'warning');
+    openModal('loginModal');
+    return;
+  }
+  if (currentUser && currentListing.providerId === currentUser.id) {
+    showToast('Du kannst bei deinem eigenen Inserat kein Gegenangebot machen.', 'info');
+    return;
+  }
 
   document.getElementById('negListingInfo').innerHTML =
     '<img src="' + _escHtml(currentListing.image || '') + '" alt="' + _escHtml(currentListing.title || '') + '" />' +
