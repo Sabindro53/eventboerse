@@ -3696,6 +3696,16 @@ function openNegotiation() {
     '</div>';
   document.getElementById('negOriginalPrice').value = currentListing.priceLabel;
 
+  // Pre-fill from booking form so user doesn't have to enter twice
+  var bDate = document.getElementById('bookingDate');
+  var bMsg = document.getElementById('bookingMessage');
+  var nDate = document.getElementById('negDate');
+  var nMsg = document.getElementById('negMessage');
+  if (bDate && nDate && bDate.value) nDate.value = bDate.value;
+  if (bMsg && nMsg && bMsg.value) nMsg.value = bMsg.value;
+  // Sync flatpickr if active
+  if (nDate && nDate._flatpickr && bDate && bDate.value) nDate._flatpickr.setDate(bDate.value, true);
+
   openModal('negotiationModal');
 }
 
