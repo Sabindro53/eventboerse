@@ -1129,48 +1129,25 @@ function detectWideBannerImg(img) {
   else img.onload = check;
 }
 
+// ========== SHARED GRID INIT (click + swipe for all listing grids) ==========
+function _initGridCards(grid, listings) {
+  grid.querySelectorAll('.listing-card').forEach(function(card) {
+    card.addEventListener('click', function(e) {
+      if (_gridGalleryDragged) return;
+      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav')) return;
+      var id = card.getAttribute('data-listing-id');
+      if (id) navigateTo('detail', Number(id));
+    });
+  });
+  listings.forEach(function(l) { _initGridGallerySwipe(l.id); });
+  detectWideBannerCards(grid);
+}
+
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
   var visible = getHeroListings();
-  // Alle Bilder aus allen Listings sammeln
-  // Pro Listing eine Karte mit Galerie
-  grid.innerHTML = visible.map(function(l) {
-    var imgs = Array.isArray(l.images) && l.images.length ? l.images : [l.image];
-    var galleryId = 'gridGallery_' + l.id;
-    return `<div class="listing-card" data-listing-id="${l.id}">
-      <div class="listing-card-img">
-        <div class="grid-gallery-track" id="${galleryId}">
-          ${imgs.map(img => `<div class='grid-gallery-slide'><img src='${_escHtml(img)}' alt='${_escHtml(l.title)}' /></div>`).join('')}
-        </div>
-        ${imgs.length > 1 ? `
-          <button class="grid-gallery-arrow prev" data-gallery-id="${l.id}" data-dir="-1"><span class="material-icons-round">chevron_left</span></button>
-          <button class="grid-gallery-arrow next" data-gallery-id="${l.id}" data-dir="1"><span class="material-icons-round">chevron_right</span></button>
-          <div class="grid-gallery-dots" id="gridGalleryDots_${l.id}">
-            ${imgs.map((_, i) => `<button class="grid-gallery-dot${i===0?' active':''}" data-gallery-id="${l.id}" data-idx="${i}"></button>`).join('')}
-          </div>
-        ` : ''}
-      </div>
-      <div class="listing-card-body">
-        <div class="listing-card-top">
-          <span class="listing-card-title">${_escHtml(l.title)}</span>
-          <span class="listing-card-rating"><span class="material-icons-round">star</span> ${l.rating || 0}</span>
-        </div>
-        <div class="listing-card-price">${_escHtml(l.priceLabel)}</div>
-      </div>
-    </div>`;
-  }).join('');
-  // Klick auf Karte öffnet Detailansicht
-  grid.querySelectorAll('.listing-card').forEach(function(card) {
-    card.onclick = function(e) {
-      if (_gridGalleryDragged) return;
-      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.grid-gallery-track')) return;
-      var id = card.getAttribute('data-listing-id');
-      if (id) navigateTo('detail', id);
-    };
-  });
-  // Init Swipe für alle Galerien
-  visible.forEach(function(l) { _initGridGallerySwipe(l.id); });
-  detectWideBannerCards(grid);
+  grid.innerHTML = visible.map(renderListingCard).join('');
+  _initGridCards(grid, visible);
 }
 // ========== GRID GALLERY CAROUSEL ==========
 var _gridGalleryIdx = {};
@@ -1389,16 +1366,7 @@ function filterCategory(btn, category) {
   const filtered = category === 'alle' ? visible : visible.filter(l => l.category === category);
   const grid = document.getElementById('featuredGrid');
   grid.innerHTML = filtered.map(renderListingCard).join('');
-  grid.querySelectorAll('.listing-card').forEach(function(card) {
-    card.onclick = function(e) {
-      if (_gridGalleryDragged) return;
-      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav') || e.target.closest('.grid-gallery-track')) return;
-      var id = card.getAttribute('data-listing-id');
-      if (id) navigateTo('detail', Number(id));
-    };
-  });
-  filtered.forEach(function(l) { _initGridGallerySwipe(l.id); });
-  detectWideBannerCards(grid);
+  _initGridCards(grid, filtered);
 }
 
 // Event-type to tag mapping (hero select values → listing tag names)
@@ -1772,24 +1740,9 @@ function performSearch() {
 // ========== BROWSE PAGE ==========
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
-  const visible = listings.filter(function(l) {
-    var imgs = Array.isArray(l.images) && l.images.length ? l.images : (l.image ? [l.image] : []);
-    return imgs.length >= 2;
-  });
-  grid.innerHTML = visible.map(renderListingCard).join('');
-  // Click handler on cards
-  grid.querySelectorAll('.listing-card').forEach(function(card) {
-    card.onclick = function(e) {
-      if (_gridGalleryDragged) return;
-      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav') || e.target.closest('.grid-gallery-track')) return;
-      var id = card.getAttribute('data-listing-id');
-      if (id) navigateTo('detail', Number(id));
-    };
-  });
-  // Init gallery swipe for each listing
-  visible.forEach(function(l) { _initGridGallerySwipe(l.id); });
-  detectWideBannerCards(grid);
-  document.getElementById('browseResultCount').textContent = `${visible.length} Services gefunden`;
+  grid.innerHTML = listings.map(renderListingCard).join('');
+  _initGridCards(grid, listings);
+  document.getElementById('browseResultCount').textContent = `${listings.length} Services gefunden`;
 }
 
 // ===== AI Search Hero helpers =====
@@ -2392,9 +2345,10 @@ function loadProvider(providerId) {
         '<span style="font-size:0.85rem;margin-top:4px;">Zeig der Community was du anbietest</span>' +
       '</div>';
   } else {
-    document.getElementById('providerListings').innerHTML = providerListings.map(renderListingCard).join('');
+    var plGrid = document.getElementById('providerListings');
+    plGrid.innerHTML = providerListings.map(renderListingCard).join('');
+    _initGridCards(plGrid, providerListings);
   }
-  detectWideBannerCards(document.getElementById('providerListings'));
 
   // Reviews tab — load from API
   var providerDbId = pid;
@@ -6155,7 +6109,7 @@ function toggleFavorite(listingId, btn) {
       grid.style.display = '';
       emptyState.style.display = 'none';
       grid.innerHTML = favListings.map(renderListingCard).join('');
-      detectWideBannerCards(grid);
+      _initGridCards(grid, favListings);
     }
   }
 }
@@ -6173,7 +6127,7 @@ function renderFavorites() {
       grid.style.display = '';
       emptyState.style.display = 'none';
       grid.innerHTML = favListings.map(renderListingCard).join('');
-      detectWideBannerCards(grid);
+      _initGridCards(grid, favListings);
     }
   }
 
