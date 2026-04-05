@@ -1162,8 +1162,8 @@ function renderFeaturedGrid() {
   // Klick auf Karte öffnet Detailansicht
   grid.querySelectorAll('.listing-card').forEach(function(card) {
     card.onclick = function(e) {
-      // Buttons in Galerie nicht abfangen
-      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot')) return;
+      if (_gridGalleryDragged) return;
+      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.grid-gallery-track')) return;
       var id = card.getAttribute('data-listing-id');
       if (id) navigateTo('detail', id);
     };
@@ -1174,65 +1174,55 @@ function renderFeaturedGrid() {
 }
 // ========== GRID GALLERY CAROUSEL ==========
 var _gridGalleryIdx = {};
-var _gridDragState = { dragging: false, startX: 0, track: null, listingId: null };
+var _gridGalleryDragged = false; // global flag: was the last interaction a drag?
+var _gridDragState = { dragging: false, startX: 0, startScrollLeft: 0, track: null, listingId: null };
 
 // Single document-level listeners for all grid galleries (prevents listener leaks)
 document.addEventListener('mousemove', function(e) {
   if (!_gridDragState.dragging || !_gridDragState.track) return;
-  _gridDragState.track.scrollLeft -= (e.clientX - _gridDragState.startX);
-  _gridDragState.startX = e.clientX;
+  var dx = e.clientX - _gridDragState.startX;
+  if (Math.abs(dx) > 3) _gridGalleryDragged = true;
+  _gridDragState.track.scrollLeft = _gridDragState.startScrollLeft - dx;
 });
 document.addEventListener('mouseup', function() {
   if (!_gridDragState.dragging || !_gridDragState.track) return;
   _gridDragState.dragging = false;
-  _gridDragState.track.style.scrollBehavior = 'smooth';
-  var slideW = _gridDragState.track.offsetWidth;
-  var idx = Math.round(_gridDragState.track.scrollLeft / slideW);
-  _gridGalleryIdx[_gridDragState.listingId] = idx;
-  _gridDragState.track.scrollLeft = idx * slideW;
-  _updateGridGalleryUI(_gridDragState.listingId);
-  _gridDragState.track = null;
-});
-
-function _initGridGallerySwipe(listingId) {
-  var track = document.getElementById('gridGallery_' + listingId);
-  if (!track) return;
-  if (track._galleryInit) return; // prevent double init
-  track._galleryInit = true;
-  _gridGalleryIdx[listingId] = 0;
-
-  // Mouse drag (desktop)
-  track.addEventListener('mousedown', function(e) {
-    _gridDragState.dragging = true;
-    _gridDragState.startX = e.clientX;
-    _gridDragState.track = track;
-    _gridDragState.listingId = listingId;
-    track.style.scrollBehavior = 'auto';
-  });
-
-  // Touch events (mobile swipe)
-  var startX = 0, dragging = false;
-  track.addEventListener('touchstart', function(e) {
-    dragging = true; startX = e.touches[0].clientX; track.style.scrollBehavior = 'auto';
-  }, { passive: true });
-  track.addEventListener('touchmove', function(e) {
-    if (!dragging) return;
-    track.scrollLeft -= (e.touches[0].clientX - startX);
-    startX = e.touches[0].clientX;
-  }, { passive: true });
-  track.addEventListener('touchend', function() {
-    if (!dragging) return;
-    dragging = false; track.style.scrollBehavior = 'smooth';
-    var slideW = track.offsetWidth;
-    if (slideW <= 0) return;
+  var track = _gridDragState.track;
+  var listingId = _gridDragState.listingId;
+  track.style.scrollBehavior = 'smooth';
+  var slideW = track.offsetWidth;
+  if (slideW > 0) {
     var idx = Math.round(track.scrollLeft / slideW);
     idx = Math.max(0, Math.min(track.children.length - 1, idx));
     _gridGalleryIdx[listingId] = idx;
     track.scrollLeft = idx * slideW;
     _updateGridGalleryUI(listingId);
+  }
+  _gridDragState.track = null;
+  // Reset dragged flag after a short delay so click handlers can check it
+  setTimeout(function() { _gridGalleryDragged = false; }, 50);
+});
+
+function _initGridGallerySwipe(listingId) {
+  var track = document.getElementById('gridGallery_' + listingId);
+  if (!track) return;
+  if (track._galleryInit) return;
+  track._galleryInit = true;
+  _gridGalleryIdx[listingId] = 0;
+
+  // Mouse drag (desktop)
+  track.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    _gridDragState.dragging = true;
+    _gridDragState.startX = e.clientX;
+    _gridDragState.startScrollLeft = track.scrollLeft;
+    _gridDragState.track = track;
+    _gridDragState.listingId = listingId;
+    _gridGalleryDragged = false;
+    track.style.scrollBehavior = 'auto';
   });
 
-  // Sync index when user scrolls natively (scroll snap)
+  // Native CSS scroll-snap handles touch swiping - just sync the index/dots
   var scrollTimer;
   track.addEventListener('scroll', function() {
     clearTimeout(scrollTimer);
@@ -1245,7 +1235,7 @@ function _initGridGallerySwipe(listingId) {
         _gridGalleryIdx[listingId] = idx;
         _updateGridGalleryUI(listingId);
       }
-    }, 80);
+    }, 60);
   }, { passive: true });
 }
 function _updateGridGalleryUI(listingId) {
@@ -1667,7 +1657,8 @@ function renderBrowseGrid(listings) {
   // Click handler on cards
   grid.querySelectorAll('.listing-card').forEach(function(card) {
     card.onclick = function(e) {
-      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav')) return;
+      if (_gridGalleryDragged) return;
+      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav') || e.target.closest('.grid-gallery-track')) return;
       var id = card.getAttribute('data-listing-id');
       if (id) navigateTo('detail', Number(id));
     };

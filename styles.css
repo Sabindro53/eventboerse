@@ -13,6 +13,7 @@
   -webkit-user-select: none;
   position: absolute;
   inset: 0;
+  touch-action: pan-x;
 }
 .grid-gallery-track::-webkit-scrollbar { display: none; }
 .grid-gallery-track:active { cursor: grabbing; }
@@ -1931,11 +1932,11 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   background: var(--bg-alt);
 }
 .listing-card .grid-gallery-arrow {
-  opacity: 0;
+  opacity: 0.5;
   transition: opacity 0.2s ease;
 }
 .listing-card:hover .grid-gallery-arrow {
-  opacity: 0.85;
+  opacity: 0.9;
 }
 .listing-card-img img {
   position: absolute;
