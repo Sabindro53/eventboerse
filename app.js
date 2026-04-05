@@ -771,7 +771,7 @@ function renderListingCard(listing) {
         <div class="grid-gallery-track" id="${galleryId}">
           ${imgs.map(function(img) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" loading="lazy" /></div>'; }).join('')}
         </div>
-        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" onclick="event.stopPropagation();gridGalleryNav(' + listing.id + ',-1)"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" onclick="event.stopPropagation();gridGalleryNav(' + listing.id + ',1)"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="event.stopPropagation();gridGalleryGoTo(' + listing.id + ',' + i + ')"></button>'; }).join('') + '</div>' : ''}
+        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
           <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
         </button>
@@ -1143,10 +1143,10 @@ function renderFeaturedGrid() {
           ${imgs.map(img => `<div class='grid-gallery-slide'><img src='${_escHtml(img)}' alt='${_escHtml(l.title)}' /></div>`).join('')}
         </div>
         ${imgs.length > 1 ? `
-          <button class="grid-gallery-arrow prev" onclick="event.stopPropagation();gridGalleryNav(${l.id},-1)"><span class="material-icons-round">chevron_left</span></button>
-          <button class="grid-gallery-arrow next" onclick="event.stopPropagation();gridGalleryNav(${l.id},1)"><span class="material-icons-round">chevron_right</span></button>
+          <button class="grid-gallery-arrow prev" data-gallery-id="${l.id}" data-dir="-1"><span class="material-icons-round">chevron_left</span></button>
+          <button class="grid-gallery-arrow next" data-gallery-id="${l.id}" data-dir="1"><span class="material-icons-round">chevron_right</span></button>
           <div class="grid-gallery-dots" id="gridGalleryDots_${l.id}">
-            ${imgs.map((_, i) => `<button class="grid-gallery-dot${i===0?' active':''}" onclick="event.stopPropagation();gridGalleryGoTo(${l.id},${i})"></button>`).join('')}
+            ${imgs.map((_, i) => `<button class="grid-gallery-dot${i===0?' active':''}" data-gallery-id="${l.id}" data-idx="${i}"></button>`).join('')}
           </div>
         ` : ''}
       </div>
@@ -1268,6 +1268,26 @@ function gridGalleryGoTo(listingId, idx) {
   _updateGridGalleryUI(listingId);
 }
 
+// Event delegation for gallery arrows and dots (avoids inline onclick blocked by CSP)
+document.addEventListener('click', function(e) {
+  var arrow = e.target.closest('.grid-gallery-arrow');
+  if (arrow) {
+    e.stopPropagation();
+    var gid = Number(arrow.getAttribute('data-gallery-id'));
+    var dir = Number(arrow.getAttribute('data-dir'));
+    if (gid && dir) gridGalleryNav(gid, dir);
+    return;
+  }
+  var dot = e.target.closest('.grid-gallery-dot');
+  if (dot) {
+    e.stopPropagation();
+    var gid2 = Number(dot.getAttribute('data-gallery-id'));
+    var idx2 = Number(dot.getAttribute('data-idx'));
+    if (gid2 != null && idx2 != null) gridGalleryGoTo(gid2, idx2);
+    return;
+  }
+});
+
 function filterCategory(btn, category) {
   document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
@@ -1275,6 +1295,15 @@ function filterCategory(btn, category) {
   const filtered = category === 'alle' ? visible : visible.filter(l => l.category === category);
   const grid = document.getElementById('featuredGrid');
   grid.innerHTML = filtered.map(renderListingCard).join('');
+  grid.querySelectorAll('.listing-card').forEach(function(card) {
+    card.onclick = function(e) {
+      if (_gridGalleryDragged) return;
+      if (e.target.closest('.grid-gallery-arrow') || e.target.closest('.grid-gallery-dot') || e.target.closest('.listing-fav') || e.target.closest('.grid-gallery-track')) return;
+      var id = card.getAttribute('data-listing-id');
+      if (id) navigateTo('detail', Number(id));
+    };
+  });
+  filtered.forEach(function(l) { _initGridGallerySwipe(l.id); });
   detectWideBannerCards(grid);
 }
 
