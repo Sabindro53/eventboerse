@@ -7228,6 +7228,18 @@ body.dark-mode .listing-badge {
   background: #1E1E1E;
 }
 
+/* Gallery arrows in dark mode */
+body.dark-mode .grid-gallery-arrow,
+body.dark-mode .listing-card .grid-gallery-arrow {
+  background: rgba(40,40,40,0.92);
+  color: #eee;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+body.dark-mode .grid-gallery-arrow:hover {
+  background: rgba(55,55,55,0.98);
+  color: #fff;
+}
+
 /* Featured section */
 body.dark-mode .featured-heading,
 body.dark-mode .how-heading,
@@ -7426,13 +7438,92 @@ body.dark-mode .pw-bar-track {
   background: #333;
 }
 
-/* Passkey/biometric dark login buttons stay dark already, invert for dark mode */
+/* ---- Dark mode: Buttons ---- */
+body.dark-mode .btn-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255,56,92,0.25);
+}
+body.dark-mode .btn-primary:hover {
+  background: var(--primary-dark);
+  box-shadow: 0 4px 16px rgba(255,56,92,0.35);
+}
+
+body.dark-mode .btn-secondary {
+  background: #252525;
+  color: var(--dark);
+  border-color: var(--border);
+}
+body.dark-mode .btn-secondary:hover {
+  background: #2E2E2E;
+  border-color: #444;
+}
+
 body.dark-mode .btn-outline {
   border-color: var(--border);
   color: var(--text);
 }
 body.dark-mode .btn-outline:hover {
   background: #252525;
+  color: #fff;
+  border-color: #555;
+}
+
+body.dark-mode .btn-text {
+  color: var(--primary);
+}
+
+body.dark-mode .btn-social {
+  background: #1E1E1E;
+  border-color: var(--border);
+  color: var(--dark);
+}
+body.dark-mode .btn-social:hover {
+  background: #252525;
+  border-color: #444;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+body.dark-mode .btn-social-apple {
+  background: #E8E8E8;
+  color: #000;
+  border-color: #E8E8E8;
+}
+body.dark-mode .btn-social-apple:hover {
+  background: #fff;
+  color: #000;
+}
+
+body.dark-mode .btn-social-passkey {
+  background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+  border-color: #475569;
+  color: #fff;
+}
+body.dark-mode .btn-social-passkey:hover {
+  background: linear-gradient(135deg, #273449 0%, #3E5068 100%);
+  color: #fff;
+}
+
+body.dark-mode .btn-accept {
+  background: #00A699;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,166,153,0.25);
+}
+body.dark-mode .btn-accept:hover {
+  background: #008F82;
+}
+
+body.dark-mode .btn-counter {
+  background: #FF9500;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255,149,0,0.25);
+}
+body.dark-mode .btn-counter:hover {
+  background: #E68600;
+}
+
+body.dark-mode .btn-sm {
+  color: var(--text);
 }
 
 /* Dark mode toggle icon */
