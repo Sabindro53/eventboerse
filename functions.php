@@ -156,7 +156,7 @@ add_filter( 'wp_new_user_notification_email_admin', '__return_false' );
 // ==== SMTP Support für zuverlässigen Mailversand ====
 // Zugangsdaten werden aus wp-config.php geladen (NICHT im Repo speichern!)
 // In wp-config.php eintragen:
-//   define('EB_SMTP_USER', 'kontakt@eventboerse.de');
+//   define('EB_SMTP_USER', 'kontakt@xn--eventbrse-57a.de');
 //   define('EB_SMTP_PASS', 'dein-smtp-passwort');
 add_action('phpmailer_init', function($phpmailer) {
     $phpmailer->isSMTP();
@@ -168,14 +168,15 @@ add_action('phpmailer_init', function($phpmailer) {
     $phpmailer->SMTPSecure = 'tls';
     $phpmailer->CharSet    = 'UTF-8';
     // From MUSS mit dem SMTP-Login übereinstimmen, sonst lehnt IONOS die Mail ab
-    $from = defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de';
+    // eventbörse.de = xn--eventbrse-57a.de (Punycode für SMTP)
+    $from = defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@xn--eventbrse-57a.de';
     $phpmailer->From       = $from;
     $phpmailer->FromName   = 'Eventbörse';
     $phpmailer->Sender     = $from; // Return-Path / Envelope-Sender
 });
 // From-Adresse muss mit dem SMTP-Login identisch sein (IONOS-Anforderung)
 add_filter( 'wp_mail_from', function() {
-    return defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de';
+    return defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@xn--eventbrse-57a.de';
 } );
 add_filter( 'wp_mail_from_name', function() {
     return 'Eventbörse';
@@ -1990,7 +1991,7 @@ function eb_test_mail( WP_REST_Request $request ) {
     $message = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
     $message .= '<h2 style="color:#222;margin-bottom:8px">Mail-Test erfolgreich!</h2>';
     $message .= '<p style="color:#484848;line-height:1.6">Hallo ' . esc_html( $user->first_name ?: $user->display_name ) . ', diese Test-Mail bestätigt, dass der E-Mail-Versand über SMTP korrekt funktioniert.</p>';
-    $message .= '<p style="color:#717171;font-size:13px;margin-top:20px">SMTP-Host: smtp.ionos.de<br>Von: ' . esc_html( defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@eventboerse.de' ) . '</p>';
+    $message .= '<p style="color:#717171;font-size:13px;margin-top:20px">SMTP-Host: smtp.ionos.de<br>Von: ' . esc_html( defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@xn--eventbrse-57a.de' ) . '</p>';
     $message .= '</div>';
 
     $sent = wp_mail( $email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
