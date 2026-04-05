@@ -1197,7 +1197,11 @@ document.addEventListener('mouseup', function() {
 function _initGridGallerySwipe(listingId) {
   var track = document.getElementById('gridGallery_' + listingId);
   if (!track) return;
+  if (track._galleryInit) return; // prevent double init
+  track._galleryInit = true;
   _gridGalleryIdx[listingId] = 0;
+
+  // Mouse drag (desktop)
   track.addEventListener('mousedown', function(e) {
     _gridDragState.dragging = true;
     _gridDragState.startX = e.clientX;
@@ -1205,7 +1209,8 @@ function _initGridGallerySwipe(listingId) {
     _gridDragState.listingId = listingId;
     track.style.scrollBehavior = 'auto';
   });
-  // Touch events für mobile
+
+  // Touch events (mobile swipe)
   var startX = 0, dragging = false;
   track.addEventListener('touchstart', function(e) {
     dragging = true; startX = e.touches[0].clientX; track.style.scrollBehavior = 'auto';
@@ -1214,16 +1219,34 @@ function _initGridGallerySwipe(listingId) {
     if (!dragging) return;
     track.scrollLeft -= (e.touches[0].clientX - startX);
     startX = e.touches[0].clientX;
-  });
+  }, { passive: true });
   track.addEventListener('touchend', function() {
     if (!dragging) return;
     dragging = false; track.style.scrollBehavior = 'smooth';
     var slideW = track.offsetWidth;
+    if (slideW <= 0) return;
     var idx = Math.round(track.scrollLeft / slideW);
+    idx = Math.max(0, Math.min(track.children.length - 1, idx));
     _gridGalleryIdx[listingId] = idx;
     track.scrollLeft = idx * slideW;
     _updateGridGalleryUI(listingId);
   });
+
+  // Sync index when user scrolls natively (scroll snap)
+  var scrollTimer;
+  track.addEventListener('scroll', function() {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(function() {
+      var slideW = track.offsetWidth;
+      if (slideW <= 0) return;
+      var idx = Math.round(track.scrollLeft / slideW);
+      idx = Math.max(0, Math.min(track.children.length - 1, idx));
+      if (_gridGalleryIdx[listingId] !== idx) {
+        _gridGalleryIdx[listingId] = idx;
+        _updateGridGalleryUI(listingId);
+      }
+    }, 80);
+  }, { passive: true });
 }
 function _updateGridGalleryUI(listingId) {
   var dots = document.querySelectorAll(`#gridGalleryDots_${listingId} .grid-gallery-dot`);
@@ -1235,15 +1258,23 @@ function gridGalleryNav(listingId, dir) {
   var track = document.getElementById('gridGallery_' + listingId);
   if (!track) return;
   var total = track.children.length;
-  _gridGalleryIdx[listingId] = Math.max(0, Math.min(total - 1, (_gridGalleryIdx[listingId] || 0) + dir));
-  track.children[_gridGalleryIdx[listingId]].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  var slideW = track.offsetWidth;
+  if (slideW <= 0) return;
+  // Sync current index from actual scroll position first
+  var currentIdx = Math.round(track.scrollLeft / slideW);
+  _gridGalleryIdx[listingId] = Math.max(0, Math.min(total - 1, currentIdx + dir));
+  track.style.scrollBehavior = 'smooth';
+  track.scrollLeft = _gridGalleryIdx[listingId] * slideW;
   _updateGridGalleryUI(listingId);
 }
 function gridGalleryGoTo(listingId, idx) {
   var track = document.getElementById('gridGallery_' + listingId);
   if (!track) return;
+  var slideW = track.offsetWidth;
+  if (slideW <= 0) return;
   _gridGalleryIdx[listingId] = idx;
-  track.children[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  track.style.scrollBehavior = 'smooth';
+  track.scrollLeft = idx * slideW;
   _updateGridGalleryUI(listingId);
 }
 
