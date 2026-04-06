@@ -7432,12 +7432,18 @@ body.dark-mode .chat-input-bar input {
 body.dark-mode .chat-search {
   background: #252525;
 }
+body.dark-mode .msg-offer,
 body.dark-mode .offer-msg,
 body.dark-mode .offer-msg-sent,
 body.dark-mode .offer-msg-received {
   background: #2A1F10;
   border-color: #5C4A20;
 }
+body.dark-mode .msg-offer .offer-amount { color: #F5E6CC; }
+body.dark-mode .msg-offer .offer-label { color: #BBA57A; }
+body.dark-mode .msg-offer .offer-status.pending { color: #FFB74D; }
+body.dark-mode .msg-offer .offer-status.accepted { color: #4DB6AC; }
+body.dark-mode .msg-offer .offer-status.declined { color: #EF5350; }
 body.dark-mode .cbc {
   background: #1E1E1E;
   border-color: #333;
