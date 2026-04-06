@@ -11293,9 +11293,9 @@ function _createSocialPost(event) {
   var post = {
     id: 'sp_' + Date.now(),
     type: type,
-    author: currentUser ? (currentUser.firstName + ' ' + currentUser.lastName).trim() : 'Du',
+    author: currentUser ? (currentUser.name || 'Du') : 'Du',
     authorId: currentUser ? currentUser.id : 0,
-    avatar: currentUser ? (currentUser.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.email || 'user'))) : 'https://api.dicebear.com/7.x/avataaars/svg?seed=newuser',
+    avatar: currentUser ? (currentUser.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name || 'user'))) : 'https://api.dicebear.com/7.x/avataaars/svg?seed=newuser',
     content: content,
     image: _postImageData || null,
     time: new Date().toISOString(),
@@ -11341,7 +11341,18 @@ function _createSocialPost(event) {
   _socialPosts.unshift(post);
   _saveSocialData();
   document.getElementById('createPostModal') && document.getElementById('createPostModal').remove();
-  renderFeed(document.querySelector('.feed-tab.active') ? document.querySelector('.feed-tab.active').dataset.feed : 'foryou');
+
+  // Switch to the matching tab so the new post is visible at the top
+  var targetTab = (type === 'suche-dienstleister' || type === 'suche-events') ? 'gesuche' : 'foryou';
+  document.querySelectorAll('.feed-tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.feed === targetTab);
+  });
+  renderFeed(targetTab);
+
+  // Scroll feed list to top so the new post is immediately visible
+  var feedList = document.getElementById('feedList');
+  if (feedList) feedList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
   showToast('Inserat veröffentlicht!', 'check_circle');
 }
 
