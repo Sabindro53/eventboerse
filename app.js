@@ -304,6 +304,84 @@ const LISTINGS = [
     tags: ['Jahrestag', 'Valentinstag', 'Geburtstag'],
     badge: '★ Top-Pick',
     negotiable: true
+  },
+  {
+    id: 13, providerId: 90013,
+    title: 'SoundVibes Live Band',
+    category: 'dj', categoryLabel: 'DJ & Musik',
+    location: 'Köln', region: 'NRW',
+    price: 1800, priceLabel: 'ab 1.800€ / Event',
+    rating: 4.9, reviews: 45,
+    image: 'https://images.pexels.com/photos/7803632/pexels-photo-7803632.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    images: [
+      'https://images.pexels.com/photos/7803632/pexels-photo-7803632.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
+      'https://images.pexels.com/photos/9008834/pexels-photo-9008834.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/3984822/pexels-photo-3984822.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/7803636/pexels-photo-7803636.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/9009587/pexels-photo-9009587.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    ],
+    providerName: 'Niko & Band',
+    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=niko',
+    providerSince: '2019',
+    description: `<p>Live-Musik, die unter die Haut geht! Unsere 5-köpfige Band spielt von Pop über Soul bis Rock – perfekt für Hochzeiten, Firmenfeiern und Galas.</p>
+    <h3>Unser Sound</h3>
+    <p>Von akustischen Sets für die Trauung bis zur fetten Party-Show am Abend – wir passen unser Repertoire individuell an euer Event an. Professionelles Equipment bringen wir selbst mit.</p>`,
+    features: ['5-köpfige Live-Band', 'Akustik-Set für Trauung', 'Party-Set mit Hits', 'Eigene PA-Anlage', 'LED-Bühnenbeleuchtung', 'Bis zu 4 Stunden live'],
+    tags: ['Hochzeit', 'Firmen-Event', 'Gala'],
+    badge: 'Premium',
+    negotiable: true
+  },
+  {
+    id: 14, providerId: 90014,
+    title: 'FilmMomente Videoproduktion',
+    category: 'foto', categoryLabel: 'Fotografie',
+    location: 'Frankfurt', region: 'Rhein-Main',
+    price: 1200, priceLabel: 'ab 1.200€ / Event',
+    rating: 4.8, reviews: 38,
+    image: 'https://images.pexels.com/photos/2883160/pexels-photo-2883160.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    images: [
+      'https://images.pexels.com/photos/2883160/pexels-photo-2883160.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
+      'https://images.pexels.com/photos/5599289/pexels-photo-5599289.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/1408984/pexels-photo-1408984.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/5460711/pexels-photo-5460711.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/4882162/pexels-photo-4882162.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    ],
+    providerName: 'Julian Film',
+    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=julian',
+    providerSince: '2020',
+    description: `<p>Wir halten eure schönsten Momente in cineastischen Videos fest. Von emotionalen Hochzeitsfilmen bis zu dynamischen Event-Trailern – wir erzählen eure Geschichte.</p>
+    <h3>Unser Angebot</h3>
+    <p>Professionelle Videoproduktion mit modernster Kamera- und Drohnentechnik. Jedes Video wird individuell geschnitten, farbkorrigiert und mit passender Musik unterlegt.</p>`,
+    features: ['Cinematic Highlight-Film', 'Drohnenaufnahmen', '4K-Qualität', 'Farbkorrektur & Grading', 'Lizenzfreie Musik', 'Express-Lieferung möglich'],
+    tags: ['Hochzeit', 'Firmen-Event', 'Geburtstag'],
+    badge: 'Neu',
+    negotiable: true
+  },
+  {
+    id: 15, providerId: 90015,
+    title: 'Gartenfest Location Leipzig',
+    category: 'location', categoryLabel: 'Location',
+    location: 'Leipzig', region: 'Sachsen',
+    price: 2200, priceLabel: 'ab 2.200€ / Event',
+    rating: 4.7, reviews: 29,
+    image: 'https://images.pexels.com/photos/14608923/pexels-photo-14608923.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    images: [
+      'https://images.pexels.com/photos/14608923/pexels-photo-14608923.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
+      'https://images.pexels.com/photos/10994596/pexels-photo-10994596.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/14646741/pexels-photo-14646741.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/169198/pexels-photo-169198.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/1488267/pexels-photo-1488267.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    ],
+    providerName: 'Gartenpark Team',
+    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=garten',
+    providerSince: '2021',
+    description: `<p>Feiern unter freiem Himmel in unserem wunderschönen Gartenpark! Die perfekte Location für Sommerfeste, Gartenpartys und romantische Trauungen im Grünen.</p>
+    <h3>Die Location</h3>
+    <p>Weitläufiger Garten mit altem Baumbestand, elegante Pavillon-Terrasse und ein stimmungsvoller Innenbereich als Regen-Alternative. Platz für bis zu 150 Gäste.</p>`,
+    features: ['Bis 150 Gäste', 'Außenbereich mit Pavillon', 'Regen-Alternative innen', 'Eigene Bar & Küche', 'Freie Trauung möglich', 'Parkplätze vorhanden'],
+    tags: ['Hochzeit', 'Sommerfest', 'Firmen-Event'],
+    badge: 'Empfohlen',
+    negotiable: true
   }
 ];
 
