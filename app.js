@@ -758,6 +758,10 @@ function navigateTo(page, data, skipHistory) {
       try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(home)', err); }
       break;
   }
+
+  // Hide footer on messages page, show on all others
+  var gf = document.getElementById('globalFooter');
+  if (gf) gf.style.display = (page === 'messages') ? 'none' : '';
 }
 
 // ========== LISTING CARD RENDERER ==========
@@ -3416,12 +3420,15 @@ function _parseOldBookingText(raw) {
 
 function _renderBookingCard(msg) {
   var raw = msg.text || msg.content || '';
+  var side = msg.type === 'sent' ? 'sent' : 'received';
+  var time = msg.time || '';
   var data;
   try { data = JSON.parse(raw); } catch (e) { data = null; }
   if (!data) data = _parseOldBookingText(raw);
   if (!data) {
-    return '<div class="chat-booking-card"><div class="cbc-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
-      '<div class="cbc-body"><p style="margin:0;color:var(--text)">' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div></div>';
+    return '<div class="chat-booking-card cbc-' + side + '"><div class="cbc-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
+      '<div class="cbc-body"><p style="margin:0;color:var(--text)">' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div>' +
+      (time ? '<div class="cbc-footer"><span class="cbc-time">' + _escHtml(time) + '</span></div>' : '') + '</div>';
   }
   var fmtDate = data.date || '';
   try {
@@ -3430,7 +3437,7 @@ function _renderBookingCard(msg) {
       fmtDate = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
     }
   } catch (e) {}
-  var html = '<div class="chat-booking-card">' +
+  var html = '<div class="chat-booking-card cbc-' + side + '">' +
     '<div class="cbc-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
     '<div class="cbc-body">';
   if (data.image) {
@@ -3448,7 +3455,9 @@ function _renderBookingCard(msg) {
   if (data.message) {
     html += '<div class="cbc-message">' + _escHtml(data.message) + '</div>';
   }
-  html += '</div></div>';
+  html += '</div>';
+  if (time) html += '<div class="cbc-footer"><span class="cbc-time">' + _escHtml(time) + '</span></div>';
+  html += '</div>';
   return html;
 }
 
@@ -3483,6 +3492,10 @@ function renderChatList() {
         var avatar = c.other_photo || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
         var name = c.other_name || 'Unbekannt';
         var lastMsg = c.last_message || '';
+        // Pretty-print booking messages in sidebar preview
+        if (_isBookingContent(lastMsg)) {
+          try { var bd = JSON.parse(lastMsg); lastMsg = '📋 Anfrage: ' + (bd.listing || 'Buchung'); } catch(e) { lastMsg = '📋 Anfrage'; }
+        }
         if (lastMsg.length > 40) lastMsg = lastMsg.substring(0, 40) + '…';
         var time = c.updated_at ? new Date(c.updated_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
         var unread = parseInt(c.unread_count) || 0;
