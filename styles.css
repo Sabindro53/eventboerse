@@ -4163,92 +4163,148 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 .offer-mine { align-self: flex-end; }
 .offer-theirs { align-self: flex-start; }
 
-/* Booking inquiry card in chat */
-/* ===== Chat Booking Card ===== */
-.chat-booking-card {
-  width: 340px;
-  max-width: 80%;
-  background: var(--bg);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-.chat-booking-card.cbc-sent { align-self: flex-end; }
-.chat-booking-card.cbc-received { align-self: flex-start; }
-.cbc-header {
+/* ===== Booking Inquiry Card in Chat ===== */
+.cbc {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: var(--accent-light);
-  font-weight: 700;
-  font-size: 0.82rem;
-  color: var(--accent);
-  border-bottom: 1px solid var(--border-light);
+  flex-direction: column;
+  width: 360px;
+  max-width: 82%;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+  border: 1px solid #e0e0e0;
 }
-.cbc-header .material-icons-round { font-size: 1.1rem; }
-.cbc-body {
-  padding: 14px 16px;
-}
-.cbc-img {
+.cbc.cbc-sent { align-self: flex-end; }
+.cbc.cbc-received { align-self: flex-start; }
+
+.cbc-banner {
   width: 100%;
-  height: 120px;
-  border-radius: var(--radius-sm);
+  height: 140px;
+  border-radius: 18px 18px 0 0;
   overflow: hidden;
-  margin-bottom: 12px;
 }
-.cbc-img img {
+.cbc-banner img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-.cbc-title {
-  font-weight: 700;
-  font-size: 0.93rem;
-  color: var(--dark);
-  margin-bottom: 10px;
-  line-height: 1.35;
+
+.cbc-content {
+  padding: 16px;
 }
-.cbc-fields {
+
+.cbc-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.cbc-label .material-icons-round { font-size: 1rem; }
+
+.cbc-intro {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.cbc-listing {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--dark);
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
+
+.cbc-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-bottom: 10px;
 }
-.cbc-field {
+.cbc-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--text);
-  background: var(--bg-alt);
-  padding: 4px 10px;
+  background: #f5f5f5;
+  padding: 5px 10px;
   border-radius: 20px;
-  border: 1px solid var(--border-light);
-  white-space: nowrap;
+  border: 1px solid #e8e8e8;
 }
-.cbc-field .material-icons-round {
+.cbc-chip .material-icons-round {
   font-size: 0.85rem;
   color: var(--accent);
 }
-.cbc-message {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-light);
-  font-size: 0.84rem;
-  color: var(--text-light);
+
+.cbc-msg {
+  font-size: 0.85rem;
+  color: var(--text);
   font-style: italic;
-  line-height: 1.4;
+  line-height: 1.45;
+  padding: 10px 12px;
+  background: #f9f9f9;
+  border-radius: 10px;
+  border-left: 3px solid var(--accent);
+  margin-bottom: 10px;
 }
-.cbc-footer {
-  padding: 6px 16px 10px;
+
+.cbc-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.cbc-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+.cbc-btn .material-icons-round { font-size: 1rem; }
+.cbc-btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.cbc-btn-primary:hover { filter: brightness(1.1); }
+.cbc-btn-accept {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+.cbc-btn-accept:hover { background: #C8E6C9; }
+
+.cbc-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: 4px;
+}
+.cbc-status .material-icons-round { font-size: 0.9rem; }
+
+.cbc-ts {
+  display: block;
   text-align: right;
-}
-.cbc-time {
   font-size: 0.68rem;
   color: var(--text-light);
   opacity: 0.7;
+  padding: 4px 16px 10px;
 }
 
 .chat-input-bar {
@@ -6319,8 +6375,8 @@ span.flatpickr-weekday {
   .chat-input-bar input { padding: 10px 14px; font-size: 0.88rem; }
   .msg-offer { padding: 12px 16px; max-width: 90%; }
   .msg-offer .offer-amount { font-size: 1.3rem; }
-  .chat-booking-card { width: auto; max-width: 92%; }
-  .cbc-img { height: 90px; }
+  .cbc { width: auto; max-width: 92%; }
+  .cbc-banner { height: 100px; }
 
   /* CTA */
   .section-cta { padding: 36px 0; }
@@ -7382,30 +7438,28 @@ body.dark-mode .offer-msg-received {
   background: #2A1F10;
   border-color: #5C4A20;
 }
-body.dark-mode .chat-booking-card {
+body.dark-mode .cbc {
   background: #1E1E1E;
   border-color: #333;
   box-shadow: 0 2px 12px rgba(0,0,0,0.3);
 }
-body.dark-mode .cbc-header {
-  background: #1A2E2D;
-  color: #4DB6AC;
-  border-bottom-color: #333;
-}
-body.dark-mode .cbc-title { color: #E8E8E8; }
-body.dark-mode .cbc-field {
+body.dark-mode .cbc-label { color: #4DB6AC; }
+body.dark-mode .cbc-intro { color: #aaa; }
+body.dark-mode .cbc-listing { color: #E8E8E8; }
+body.dark-mode .cbc-chip {
   background: #2A2A2A;
   border-color: #444;
   color: #CCC;
 }
-body.dark-mode .cbc-field .material-icons-round { color: #4DB6AC; }
-body.dark-mode .cbc-message {
-  color: #AAA;
-  border-top-color: #333;
-}
-body.dark-mode .cbc-body p {
+body.dark-mode .cbc-chip .material-icons-round { color: #4DB6AC; }
+body.dark-mode .cbc-msg {
+  background: #252525;
+  border-left-color: #4DB6AC;
   color: #CCC;
 }
+body.dark-mode .cbc-btn-primary { background: #00897B; }
+body.dark-mode .cbc-btn-accept { background: #1B3A1B; color: #81C784; }
+body.dark-mode .cbc-status { color: #4DB6AC; }
 
 /* Settings */
 body.dark-mode .settings-card {

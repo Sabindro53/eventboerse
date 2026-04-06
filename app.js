@@ -3426,9 +3426,9 @@ function _renderBookingCard(msg) {
   try { data = JSON.parse(raw); } catch (e) { data = null; }
   if (!data) data = _parseOldBookingText(raw);
   if (!data) {
-    return '<div class="chat-booking-card cbc-' + side + '"><div class="cbc-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
-      '<div class="cbc-body"><p style="margin:0;color:var(--text)">' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div>' +
-      (time ? '<div class="cbc-footer"><span class="cbc-time">' + _escHtml(time) + '</span></div>' : '') + '</div>';
+    return '<div class="cbc cbc-' + side + '">' +
+      '<div class="cbc-bubble"><p>' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div>' +
+      (time ? '<span class="cbc-ts">' + _escHtml(time) + '</span>' : '') + '</div>';
   }
   var fmtDate = data.date || '';
   try {
@@ -3437,28 +3437,61 @@ function _renderBookingCard(msg) {
       fmtDate = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
     }
   } catch (e) {}
-  var html = '<div class="chat-booking-card cbc-' + side + '">' +
-    '<div class="cbc-header"><span class="material-icons-round">event_available</span> Anfrage</div>' +
-    '<div class="cbc-body">';
+
+  var intro = side === 'sent'
+    ? 'Du hast eine Anfrage gesendet'
+    : 'Hat dein Inserat gesehen und möchte buchen';
+
+  var html = '<div class="cbc cbc-' + side + '">';
+
+  // --- image banner ---
   if (data.image) {
-    html += '<div class="cbc-img"><img src="' + _escHtml(data.image) + '" alt=""></div>';
+    html += '<div class="cbc-banner"><img src="' + _escHtml(data.image) + '" alt="" /></div>';
   }
+
+  // --- content ---
+  html += '<div class="cbc-content">';
+  html += '<div class="cbc-label"><span class="material-icons-round">event_available</span> Anfrage</div>';
+  html += '<p class="cbc-intro">' + _escHtml(intro) + '</p>';
+
   if (data.listing) {
-    html += '<div class="cbc-title">' + _escHtml(data.listing) + '</div>';
+    html += '<div class="cbc-listing">' + _escHtml(data.listing) + '</div>';
   }
-  html += '<div class="cbc-fields">';
-  if (fmtDate) html += '<div class="cbc-field"><span class="material-icons-round">calendar_today</span>' + _escHtml(fmtDate) + '</div>';
-  if (data.eventType) html += '<div class="cbc-field"><span class="material-icons-round">celebration</span>' + _escHtml(data.eventType) + '</div>';
-  if (data.guests) html += '<div class="cbc-field"><span class="material-icons-round">group</span>' + _escHtml(data.guests) + ' Gäste</div>';
-  if (data.price) html += '<div class="cbc-field"><span class="material-icons-round">sell</span>' + _escHtml(data.price) + '</div>';
-  html += '</div>';
+
+  // detail chips
+  var chips = '';
+  if (fmtDate) chips += '<span class="cbc-chip"><span class="material-icons-round">calendar_today</span>' + _escHtml(fmtDate) + '</span>';
+  if (data.eventType) chips += '<span class="cbc-chip"><span class="material-icons-round">celebration</span>' + _escHtml(data.eventType) + '</span>';
+  if (data.guests) chips += '<span class="cbc-chip"><span class="material-icons-round">group</span>' + _escHtml(data.guests) + ' Gäste</span>';
+  if (data.price) chips += '<span class="cbc-chip"><span class="material-icons-round">sell</span>' + _escHtml(data.price) + '</span>';
+  if (chips) html += '<div class="cbc-chips">' + chips + '</div>';
+
+  // personal message
   if (data.message) {
-    html += '<div class="cbc-message">' + _escHtml(data.message) + '</div>';
+    html += '<div class="cbc-msg">„' + _escHtml(data.message) + '"</div>';
   }
-  html += '</div>';
-  if (time) html += '<div class="cbc-footer"><span class="cbc-time">' + _escHtml(time) + '</span></div>';
-  html += '</div>';
+
+  // action buttons (only for received booking inquiries)
+  if (side === 'received') {
+    html += '<div class="cbc-actions">' +
+      '<button class="cbc-btn cbc-btn-primary" onclick="openNegotiationInChat()"><span class="material-icons-round">gavel</span> Gegenangebot</button>' +
+      '<button class="cbc-btn cbc-btn-accept" onclick="acceptBookingFromChat()"><span class="material-icons-round">check_circle</span> Annehmen</button>' +
+      '</div>';
+  } else {
+    html += '<div class="cbc-status"><span class="material-icons-round">check</span> Gesendet</div>';
+  }
+
+  html += '</div>'; // cbc-content
+
+  // timestamp
+  if (time) html += '<span class="cbc-ts">' + _escHtml(time) + '</span>';
+
+  html += '</div>'; // cbc
   return html;
+}
+
+function acceptBookingFromChat() {
+  showToast('Anfrage angenommen! Der Kunde wird benachrichtigt.', 'check_circle');
 }
 
 function renderChatList() {
