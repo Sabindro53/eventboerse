@@ -10510,7 +10510,15 @@ function _saveCardEdit(event, cardId) {
 // =================== SOCIAL FEED ENHANCED ================
 // =========================================================
 
-var _socialPosts = JSON.parse(localStorage.getItem('eb_social_posts') || 'null') || _generateDemoSocialPosts();
+var _socialPosts = (function() {
+  var stored = JSON.parse(localStorage.getItem('eb_social_posts') || 'null');
+  // Regenerate if old format (no suche- types)
+  if (stored && stored.length && !stored.some(function(p) { return (p.type || '').indexOf('suche') === 0; })) {
+    stored = null;
+    localStorage.removeItem('eb_social_posts');
+  }
+  return stored || _generateDemoSocialPosts();
+})();
 var _likedPosts = new Set(JSON.parse(localStorage.getItem('eb_liked_posts') || '[]'));
 
 function _saveSocialData() {
@@ -10522,27 +10530,34 @@ function _generateDemoSocialPosts() {
   return [
     {
       id: 'sp1',
-      type: 'event',
+      type: 'suche-dienstleister',
       author: 'Julia & Mark',
       authorId: 1001,
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=julia',
-      content: 'Unser großer Tag naht! Wir freuen uns riesig auf unsere Hochzeit. Alle Dienstleister sind bestätigt #Hochzeit #Love',
-      image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=600&q=80',
-      eventName: 'Hochzeit Julia & Mark',
-      eventDate: '15. August 2026',
-      eventLocation: 'Schloss Rheinsberg',
-      time: new Date(Date.now() - 3600000).toISOString(),
-      likes: 47,
-      comments: 12,
+      title: 'DJ für Hochzeit gesucht',
+      category: 'DJ',
+      location: 'Schloss Rheinsberg',
+      date: '15. August 2026',
+      budget: 'bis 800€',
+      content: 'Wir suchen einen erfahrenen DJ für unsere Hochzeit! Circa 120 Gäste, Mix aus Charts, 80er und ein bisschen Techno zum Schluss. Eigene Anlage sollte vorhanden sein. #Hochzeit #DJ #Berlin',
+      image: null,
+      time: new Date(Date.now() - 1800000).toISOString(),
+      likes: 12,
+      comments: 5,
       metAt: null
     },
     {
       id: 'sp2',
-      type: 'service',
+      type: 'suche-events',
       author: 'DJ Max Beat',
       authorId: 1002,
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=djmax',
-      content: 'Was für ein unfassbares Wochenende! 3 Events in 2 Tagen – die Energie auf der Tanzfläche war legendär 🎵 #DJLife #EventDJ #Hamburg',
+      title: 'Erfahrener DJ sucht Aufträge in Hamburg',
+      category: 'DJ',
+      location: 'Hamburg & Umgebung',
+      date: 'Flexibel',
+      budget: 'ab 400€',
+      content: 'Professioneller Event-DJ mit 8 Jahren Erfahrung sucht neue Aufträge! Hochzeiten, Firmenevents, Geburtstage. Eigene PA-Anlage & Lichtshow. #DJLife #EventDJ #Hamburg',
       image: 'https://images.unsplash.com/photo-1571266028665-2ad406bb7b03?w=600&q=80',
       time: new Date(Date.now() - 7200000).toISOString(),
       likes: 83,
@@ -10564,22 +10579,25 @@ function _generateDemoSocialPosts() {
     },
     {
       id: 'sp4',
-      type: 'event',
-      author: 'Foto Pro Studio',
+      type: 'suche-dienstleister',
+      author: 'Anna Berger',
       authorId: 1004,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=fotopro',
-      content: 'Neue Event-Galerie online! Hier sind Highlights aus der Sommerhochzeit letzten Samstag. Wir freuen uns auf eure nächsten Events! #Fotografie #Hochzeit #Memories',
-      image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=600&q=80',
-      eventName: 'Hochzeit Galerie Sommer 2026',
-      eventDate: '5. Juli 2026',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anna',
+      title: 'Fotograf für Firmen-Sommerfest',
+      category: 'Fotograf',
+      location: 'München',
+      date: '20. Juli 2026',
+      budget: 'Verhandlungsbasis',
+      content: 'Wir suchen einen Fotografen für unser Firmen-Sommerfest (ca. 200 Mitarbeiter). Mindestens 4 Stunden, am besten mit Erfahrung bei Firmenevents. Gerne Portfolio mitschicken! #Fotografie #Firmenevent #München',
+      image: null,
       time: new Date(Date.now() - 172800000).toISOString(),
-      likes: 124,
-      comments: 19,
+      likes: 24,
+      comments: 9,
       metAt: null
     },
     {
       id: 'sp5',
-      type: 'service',
+      type: 'ankuendigung',
       author: 'BlumenZauber GmbH',
       authorId: 1005,
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=blumen',
@@ -10588,6 +10606,24 @@ function _generateDemoSocialPosts() {
       time: new Date(Date.now() - 259200000).toISOString(),
       likes: 56,
       comments: 8,
+      metAt: null
+    },
+    {
+      id: 'sp6',
+      type: 'suche-events',
+      author: 'Catering Deluxe',
+      authorId: 1006,
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=catering',
+      title: 'Catering-Service sucht Sommer-Events',
+      category: 'Catering',
+      location: 'NRW & Umgebung',
+      date: 'Juni–September 2026',
+      budget: 'ab 25€ p.P.',
+      content: 'Wir haben noch freie Kapazitäten für Sommer-Events! Buffets, Flying Dinner, BBQ – alles möglich. Bio & regional. Gerne auch größere Events ab 50 Personen. #Catering #Sommer #Events',
+      image: null,
+      time: new Date(Date.now() - 345600000).toISOString(),
+      likes: 38,
+      comments: 11,
       metAt: null
     }
   ];
@@ -10602,9 +10638,16 @@ function renderFeed(tab) {
   renderSidebarUpcoming();
 
   if (tab === 'events') {
-    // Only event-type social posts
-    var eventPosts = _socialPosts.filter(function(p) { return p.type === 'event'; });
-    list.innerHTML = eventPosts.map(function(p) { return renderSocialPostCard(p); }).join('');
+    var eventPosts = _socialPosts.filter(function(p) { return p.type === 'event' || p.type === 'ankuendigung'; });
+    list.innerHTML = eventPosts.length ? eventPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
+      '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Events oder Ankündigungen</div>';
+    return;
+  }
+
+  if (tab === 'gesuche') {
+    var searchPosts = _socialPosts.filter(function(p) { return p.type === 'suche-dienstleister' || p.type === 'suche-events'; });
+    list.innerHTML = searchPosts.length ? searchPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
+      '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Gesuche – erstelle das erste!</div>';
     return;
   }
 
@@ -10658,10 +10701,18 @@ function renderFeed(tab) {
 function renderSocialPostCard(post) {
   var isLiked = _likedPosts.has(post.id);
   var typeBadge = '';
-  if (post.type === 'event') {
+  var isSearch = (post.type === 'suche-dienstleister' || post.type === 'suche-events');
+
+  if (post.type === 'suche-dienstleister') {
+    typeBadge = '<span class="search-badge"><span class="material-icons-round">person_search</span>Sucht Dienstleister</span>';
+  } else if (post.type === 'suche-events') {
+    typeBadge = '<span class="search-badge search-badge-offer"><span class="material-icons-round">event_available</span>Sucht Events</span>';
+  } else if (post.type === 'event') {
     typeBadge = '<span class="event-badge"><span class="material-icons-round">celebration</span>Event</span>';
   } else if (post.type === 'met') {
     typeBadge = '<span class="met-badge"><span class="material-icons-round">people</span>Verbindung</span>';
+  } else if (post.type === 'ankuendigung') {
+    typeBadge = '<span class="service-badge"><span class="material-icons-round">campaign</span>Ankündigung</span>';
   } else {
     typeBadge = '<span class="service-badge"><span class="material-icons-round">storefront</span>Service</span>';
   }
@@ -10669,6 +10720,25 @@ function renderSocialPostCard(post) {
   var content = _escHtml(post.content || '');
   content = content.replace(/(#\w+)/g, '<span class="feed-hashtag">$1</span>');
 
+  // Build search inserat details chips
+  var searchInfo = '';
+  if (isSearch && (post.title || post.category || post.location || post.date || post.budget)) {
+    searchInfo = '<div class="feed-search-info">';
+    if (post.title) {
+      searchInfo += '<div class="feed-search-title"><span class="material-icons-round">' +
+        (post.type === 'suche-dienstleister' ? 'person_search' : 'event_available') +
+        '</span> ' + _escHtml(post.title) + '</div>';
+    }
+    var chips = '';
+    if (post.category) chips += '<span class="feed-chip"><span class="material-icons-round">category</span>' + _escHtml(post.category) + '</span>';
+    if (post.location) chips += '<span class="feed-chip"><span class="material-icons-round">location_on</span>' + _escHtml(post.location) + '</span>';
+    if (post.date) chips += '<span class="feed-chip"><span class="material-icons-round">event</span>' + _escHtml(post.date) + '</span>';
+    if (post.budget) chips += '<span class="feed-chip"><span class="material-icons-round">payments</span>' + _escHtml(post.budget) + '</span>';
+    if (chips) searchInfo += '<div class="feed-chips">' + chips + '</div>';
+    searchInfo += '</div>';
+  }
+
+  // Legacy event info
   var eventInfo = '';
   if (post.type === 'event' && post.eventName) {
     eventInfo = '<div class="feed-event-info">' +
@@ -10687,7 +10757,10 @@ function renderSocialPostCard(post) {
 
   var imgBlock = post.image ? '<img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" />' : '';
 
-  return '<div class="feed-post-card">' +
+  // Contact button for search posts
+  var contactBtn = isSearch ? '<button class="feed-contact-btn" onclick="showToast(\'Kontakt-Anfrage gesendet!\',\'check_circle\')"><span class="material-icons-round">mail_outline</span> Anfragen</button>' : '';
+
+  return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '">' +
     '<div class="feed-post-header">' +
       '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=user') + '" alt="' + _escHtml(post.author) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" />' +
       '<div class="feed-post-author">' +
@@ -10697,6 +10770,7 @@ function renderSocialPostCard(post) {
       '<button class="feed-more-btn"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
     imgBlock +
+    searchInfo +
     eventInfo +
     '<div class="feed-post-content">' + content + '</div>' +
     metBanner +
@@ -10710,6 +10784,7 @@ function renderSocialPostCard(post) {
           '<span class="material-icons-round">chat_bubble_outline</span> ' + (post.comments || 0) +
         '</button>' +
       '</div>' +
+      contactBtn +
       '<button class="feed-share-btn" onclick="sharePost(\'' + post.id + '\')">' +
         '<span class="material-icons-round">share</span> Teilen' +
       '</button>' +
@@ -10838,46 +10913,189 @@ function openAddStoryModal() {
 function openCreatePostModal() {
   if (!isLoggedIn) { openModal('loginModal'); return; }
   var html = `<div class="modal-overlay show" id="createPostModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
-    <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal modal-lg" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="document.getElementById('createPostModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
-        <span class="material-icons-round modal-icon">edit</span>
-        <h2>Post erstellen</h2>
-        <p>Teile dein Event oder Erlebnis mit der Community</p>
+        <span class="material-icons-round modal-icon">campaign</span>
+        <h2>Inserat erstellen</h2>
+        <p>Finde Dienstleister, Events oder teile dein Erlebnis</p>
       </div>
       <form class="modal-form" onsubmit="_createSocialPost(event)">
-        <div class="form-group">
-          <label>Art des Posts</label>
-          <select id="postType" onchange="_togglePostTypeFields(this.value)">
-            <option value="service">Service / Ankündigung</option>
-            <option value="event">Event ausschreiben</option>
-            <option value="met">Kennengelernt bei Event</option>
-          </select>
+
+        <!-- Typ-Auswahl als Kacheln -->
+        <div class="post-type-grid" id="postTypeGrid">
+          <button type="button" class="post-type-tile active" data-type="suche-dienstleister" onclick="_selectPostType(this)">
+            <span class="material-icons-round">person_search</span>
+            <strong>Dienstleister gesucht</strong>
+            <small>Du planst ein Event</small>
+          </button>
+          <button type="button" class="post-type-tile" data-type="suche-events" onclick="_selectPostType(this)">
+            <span class="material-icons-round">event_available</span>
+            <strong>Events gesucht</strong>
+            <small>Du bietest einen Service</small>
+          </button>
+          <button type="button" class="post-type-tile" data-type="ankuendigung" onclick="_selectPostType(this)">
+            <span class="material-icons-round">campaign</span>
+            <strong>Ankündigung</strong>
+            <small>News, Angebote, Updates</small>
+          </button>
+          <button type="button" class="post-type-tile" data-type="met" onclick="_selectPostType(this)">
+            <span class="material-icons-round">people</span>
+            <strong>Verbindung</strong>
+            <small>Kennengelernt bei Event</small>
+          </button>
         </div>
-        <div id="postEventFields" style="display:none">
-          <div class="form-group"><label>Event-Name</label><input type="text" id="postEventName" placeholder="z.B. Meine Sommerhochzeit" /></div>
-          <div class="form-group"><label>Datum</label><input type="text" id="postEventDate" placeholder="z.B. 15. August 2026" /></div>
-          <div class="form-group"><label>Ort</label><input type="text" id="postEventLocation" placeholder="z.B. Hamburg" /></div>
+        <input type="hidden" id="postType" value="suche-dienstleister" />
+
+        <!-- Suchinserat-Felder (Dienstleister / Events gesucht) -->
+        <div id="postSearchFields">
+          <div class="form-row">
+            <div class="form-group form-half">
+              <label>Titel</label>
+              <input type="text" id="postTitle" placeholder="z.B. DJ für Hochzeit gesucht" />
+            </div>
+            <div class="form-group form-half">
+              <label>Kategorie</label>
+              <select id="postCategory">
+                <option value="">Auswählen…</option>
+                <option value="DJ">DJ</option>
+                <option value="Fotograf">Fotograf</option>
+                <option value="Videograf">Videograf</option>
+                <option value="Catering">Catering</option>
+                <option value="Floristik">Floristik</option>
+                <option value="Location">Location</option>
+                <option value="Band / Musik">Band / Musik</option>
+                <option value="Moderation">Moderation</option>
+                <option value="Dekoration">Dekoration</option>
+                <option value="Planung">Planung / Koordination</option>
+                <option value="Sonstiges">Sonstiges</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group form-half">
+              <label>Ort</label>
+              <input type="text" id="postLocation" placeholder="z.B. Hamburg" />
+            </div>
+            <div class="form-group form-half">
+              <label>Datum</label>
+              <input type="text" id="postDate" placeholder="z.B. 15. August 2026" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Budget <small style="color:var(--text-light)">(optional)</small></label>
+            <input type="text" id="postBudget" placeholder="z.B. 500€ oder Verhandlungsbasis" />
+          </div>
         </div>
+
+        <!-- Met-Felder -->
         <div id="postMetFields" style="display:none">
-          <div class="form-group"><label>Event, bei dem ihr euch kennengelernt habt</label><input type="text" id="postMetEvent" placeholder="z.B. Sommerfest 2026" /></div>
+          <div class="form-group">
+            <label>Event, bei dem ihr euch kennengelernt habt</label>
+            <input type="text" id="postMetEvent" placeholder="z.B. Sommerfest 2026" />
+          </div>
         </div>
+
+        <!-- Beschreibung -->
         <div class="form-group">
-          <label>Was möchtest du teilen?</label>
-          <textarea id="postContent" rows="4" placeholder="Schreibe etwas... #Hashtags sind willkommen!" required></textarea>
+          <label>Beschreibung</label>
+          <textarea id="postContent" rows="3" placeholder="Beschreibe genau, was du suchst oder teilen möchtest… #Hashtags willkommen!" required></textarea>
         </div>
+
+        <!-- Bild Upload -->
+        <div class="form-group">
+          <label>Bilder <small style="color:var(--text-light)">(optional)</small></label>
+          <div class="post-img-upload" id="postImgUpload" onclick="document.getElementById('postImgInput').click()">
+            <span class="material-icons-round">add_photo_alternate</span>
+            <span>Bild hinzufügen oder hierher ziehen</span>
+          </div>
+          <input type="file" id="postImgInput" accept="image/*" style="display:none" onchange="_handlePostImage(this)" />
+          <div class="post-img-preview" id="postImgPreview" style="display:none">
+            <img id="postImgThumb" />
+            <button type="button" class="post-img-remove" onclick="_removePostImage()"><span class="material-icons-round">close</span></button>
+          </div>
+        </div>
+
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">send</span> Veröffentlichen</button>
       </form>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+
+  // Drag & drop for image
+  var dropZone = document.getElementById('postImgUpload');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        document.getElementById('postImgInput').files = e.dataTransfer.files;
+        _handlePostImage(document.getElementById('postImgInput'));
+      }
+    });
+  }
 }
 
-function _togglePostTypeFields(type) {
-  var eventFields = document.getElementById('postEventFields');
+function _selectPostType(btn) {
+  document.querySelectorAll('.post-type-tile').forEach(function(t) { t.classList.remove('active'); });
+  btn.classList.add('active');
+  var type = btn.dataset.type;
+  document.getElementById('postType').value = type;
+
+  var searchFields = document.getElementById('postSearchFields');
   var metFields = document.getElementById('postMetFields');
-  if (eventFields) eventFields.style.display = (type === 'event') ? '' : 'none';
-  if (metFields) metFields.style.display = (type === 'met') ? '' : 'none';
+  var titleInput = document.getElementById('postTitle');
+  var contentArea = document.getElementById('postContent');
+
+  // Show/hide fields based on type
+  if (type === 'suche-dienstleister') {
+    searchFields.style.display = '';
+    metFields.style.display = 'none';
+    if (titleInput) titleInput.placeholder = 'z.B. DJ für Hochzeit gesucht';
+    if (contentArea) contentArea.placeholder = 'Beschreibe, was du genau suchst… #Hashtags willkommen!';
+  } else if (type === 'suche-events') {
+    searchFields.style.display = '';
+    metFields.style.display = 'none';
+    if (titleInput) titleInput.placeholder = 'z.B. Erfahrener Fotograf sucht Aufträge';
+    if (contentArea) contentArea.placeholder = 'Beschreibe dein Angebot und was für Events du suchst…';
+  } else if (type === 'ankuendigung') {
+    searchFields.style.display = 'none';
+    metFields.style.display = 'none';
+    if (contentArea) contentArea.placeholder = 'Teile deine Neuigkeiten mit der Community… #Hashtags willkommen!';
+  } else if (type === 'met') {
+    searchFields.style.display = 'none';
+    metFields.style.display = '';
+    if (contentArea) contentArea.placeholder = 'Erzähle von deiner Erfahrung…';
+  }
+}
+
+var _postImageData = null;
+
+function _handlePostImage(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) { showToast('Bild max. 5 MB', 'error'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    _postImageData = e.target.result;
+    var preview = document.getElementById('postImgPreview');
+    var upload = document.getElementById('postImgUpload');
+    document.getElementById('postImgThumb').src = _postImageData;
+    if (preview) preview.style.display = '';
+    if (upload) upload.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function _removePostImage() {
+  _postImageData = null;
+  var preview = document.getElementById('postImgPreview');
+  var upload = document.getElementById('postImgUpload');
+  if (preview) preview.style.display = 'none';
+  if (upload) upload.style.display = '';
+  var input = document.getElementById('postImgInput');
+  if (input) input.value = '';
 }
 
 function _createSocialPost(event) {
@@ -10893,29 +11111,40 @@ function _createSocialPost(event) {
     authorId: currentUser ? currentUser.id : 0,
     avatar: currentUser ? (currentUser.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.email || 'user'))) : 'https://api.dicebear.com/7.x/avataaars/svg?seed=newuser',
     content: content,
+    image: _postImageData || null,
     time: new Date().toISOString(),
     likes: 0,
     comments: 0,
-    metAt: null
+    metAt: null,
+    title: null,
+    category: null,
+    location: null,
+    date: null,
+    budget: null
   };
 
-  if (type === 'event') {
-    var en = document.getElementById('postEventName');
-    var ed = document.getElementById('postEventDate');
-    var el = document.getElementById('postEventLocation');
-    post.eventName = en ? en.value.trim() : '';
-    post.eventDate = ed ? ed.value.trim() : '';
-    post.eventLocation = el ? el.value.trim() : '';
+  if (type === 'suche-dienstleister' || type === 'suche-events') {
+    var ti = document.getElementById('postTitle');
+    var ca = document.getElementById('postCategory');
+    var lo = document.getElementById('postLocation');
+    var da = document.getElementById('postDate');
+    var bu = document.getElementById('postBudget');
+    post.title = ti ? ti.value.trim() : '';
+    post.category = ca ? ca.value : '';
+    post.location = lo ? lo.value.trim() : '';
+    post.date = da ? da.value.trim() : '';
+    post.budget = bu ? bu.value.trim() : '';
   } else if (type === 'met') {
     var me = document.getElementById('postMetEvent');
     post.metAt = me && me.value.trim() ? { eventName: me.value.trim(), date: '' } : null;
   }
 
+  _postImageData = null;
   _socialPosts.unshift(post);
   _saveSocialData();
   document.getElementById('createPostModal') && document.getElementById('createPostModal').remove();
   renderFeed(document.querySelector('.feed-tab.active') ? document.querySelector('.feed-tab.active').dataset.feed : 'foryou');
-  showToast('Post veröffentlicht!', 'check_circle');
+  showToast('Inserat veröffentlicht!', 'check_circle');
 }
 
 
