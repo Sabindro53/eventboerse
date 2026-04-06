@@ -282,6 +282,7 @@ img { display: block; max-width: 100%; }
   color: var(--dark);
   text-decoration: none;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .logo-icon { font-size: 1.8rem; color: var(--primary); }
 .nav-search {
