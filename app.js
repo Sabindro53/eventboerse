@@ -3381,6 +3381,8 @@ function _startChatPoll() {
             '</div>';
           } else if (msg.type === 'booking' || _isBookingContent(msg.text || msg.content)) {
             return _renderBookingCard(msg);
+          } else if (_isStatusMessage(msg.text || msg.content)) {
+            return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
           } else {
             var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
             var time = msg.time || '';
@@ -3401,6 +3403,11 @@ function _isBookingContent(text) {
   try { var d = JSON.parse(text); if (d && d.listing) return true; } catch(e) {}
   if (/^Anfrage\n/.test(text)) return true;
   return false;
+}
+
+function _isStatusMessage(text) {
+  if (!text) return false;
+  return /Angebot\s+.{1,30}\s+(zur\u00fcckgezogen|angenommen|abgelehnt)/i.test(text);
 }
 
 function _parseOldBookingText(raw) {
@@ -3623,6 +3630,8 @@ function openChat(chatId) {
           '</div>';
         } else if (msg.type === 'booking' || _isBookingContent(msg.text || msg.content)) {
           return _renderBookingCard(msg);
+        } else if (_isStatusMessage(msg.text || msg.content)) {
+          return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           var time = msg.time || '';
@@ -3673,7 +3682,12 @@ function sendMessage() {
       // Append the sent message
       var time = msg.time || '';
       var msgContainer = document.getElementById('chatMessages');
-      msgContainer.innerHTML += '<div class="msg msg-sent">' + _escHtml(msg.text || msg.content || text) + '<span class="msg-time">' + time + '</span></div>';
+      var content = msg.text || msg.content || text;
+      if (_isStatusMessage(content)) {
+        msgContainer.innerHTML += '<div class="msg msg-system">' + _escHtml(content) + '</div>';
+      } else {
+        msgContainer.innerHTML += '<div class="msg msg-sent">' + _escHtml(content) + '<span class="msg-time">' + time + '</span></div>';
+      }
       setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
     })
     .catch(function() {
@@ -3727,6 +3741,8 @@ function openDemoChat(chatId) {
       '</div>';
     } else if (msg.type === 'booking' || _isBookingContent(msg.text || msg.content)) {
       return _renderBookingCard(msg);
+    } else if (_isStatusMessage(msg.text)) {
+      return '<div class="msg msg-system">' + _escHtml(msg.text) + '</div>';
     } else {
       var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
       return '<div class="msg ' + cls + '">' + _escHtml(msg.text) + '<span class="msg-time">' + _escHtml(msg.time) + '</span></div>';
