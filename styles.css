@@ -9113,6 +9113,71 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 /* Modal large variant */
 .modal-lg { max-width: 580px; }
 
+/* ---- Post Calendar (in modal) ---- */
+.post-cal-wrap { position: relative; }
+.post-cal-display {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 0.95rem; color: var(--text-light);
+  background: var(--bg); transition: border-color 0.15s;
+}
+.post-cal-display:hover { border-color: var(--primary); }
+.post-cal-display.has-value { color: var(--dark); font-weight: 500; }
+.post-cal-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 16px;
+  box-shadow: var(--shadow-lg); z-index: 200;
+  min-width: 280px;
+}
+.post-cal-dropdown.show { display: block; }
+
+/* ---- Post Budget ---- */
+.post-budget-wrap { display: flex; flex-direction: column; gap: 8px; }
+.post-budget-input-wrap {
+  display: flex; align-items: center; gap: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--bg);
+  transition: border-color 0.15s;
+}
+.post-budget-input-wrap:focus-within { border-color: var(--primary); }
+.post-budget-input-wrap input[type="number"] {
+  flex: 1; border: none; outline: none; padding: 12px 16px;
+  font-size: 0.95rem; font-family: var(--font);
+  background: transparent; color: var(--dark);
+  -moz-appearance: textfield;
+}
+.post-budget-input-wrap input[type="number"]::-webkit-outer-spin-button,
+.post-budget-input-wrap input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.post-budget-input-wrap input[type="number"]:disabled {
+  opacity: 0.4; cursor: not-allowed;
+}
+.post-budget-currency {
+  padding: 12px 16px; font-weight: 600; color: var(--text-light);
+  background: var(--bg-alt); border-left: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.post-vb-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.88rem; color: var(--text-light);
+  cursor: pointer; user-select: none;
+}
+.post-vb-label input[type="checkbox"] {
+  width: 18px; height: 18px; accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Dark mode additions for post calendar & budget */
+body.dark-mode .post-cal-display { background: var(--bg-alt); border-color: var(--border); color: var(--text-light); }
+body.dark-mode .post-cal-display.has-value { color: var(--dark); }
+body.dark-mode .post-cal-dropdown { background: var(--bg-alt); border-color: var(--border); }
+body.dark-mode .post-budget-input-wrap { background: var(--bg-alt); border-color: var(--border); }
+body.dark-mode .post-budget-input-wrap input { color: var(--dark); }
+body.dark-mode .post-budget-currency { background: #2a2a2a; border-color: var(--border); }
+
 /* Dark mode for new components */
 body.dark-mode .post-type-tile { border-color: #333; background: #1a1a1a; }
 body.dark-mode .post-type-tile:hover { border-color: var(--primary); }

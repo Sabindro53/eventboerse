@@ -10732,7 +10732,7 @@ function renderSocialPostCard(post) {
     var chips = '';
     if (post.category) chips += '<span class="feed-chip"><span class="material-icons-round">category</span>' + _escHtml(post.category) + '</span>';
     if (post.location) chips += '<span class="feed-chip"><span class="material-icons-round">location_on</span>' + _escHtml(post.location) + '</span>';
-    if (post.date) chips += '<span class="feed-chip"><span class="material-icons-round">event</span>' + _escHtml(post.date) + '</span>';
+    if (post.date) chips += '<span class="feed-chip"><span class="material-icons-round">event</span>' + _escHtml(post.dateDisplay || post.date) + '</span>';
     if (post.budget) chips += '<span class="feed-chip"><span class="material-icons-round">payments</span>' + _escHtml(post.budget) + '</span>';
     if (chips) searchInfo += '<div class="feed-chips">' + chips + '</div>';
     searchInfo += '</div>';
@@ -10974,17 +10974,48 @@ function openCreatePostModal() {
           </div>
           <div class="form-row">
             <div class="form-group form-half">
-              <label>Ort</label>
-              <input type="text" id="postLocation" placeholder="z.B. Hamburg" />
+              <label><span class="material-icons-round" style="font-size:16px;vertical-align:-3px;margin-right:4px">location_on</span>Ort</label>
+              <div class="city-autocomplete-wrap">
+                <input type="text" id="postLocation" placeholder="Stadt eingeben…" autocomplete="off" />
+                <ul class="city-autocomplete-list" id="postCityList"></ul>
+              </div>
             </div>
             <div class="form-group form-half">
-              <label>Datum</label>
-              <input type="text" id="postDate" placeholder="z.B. 15. August 2026" />
+              <label><span class="material-icons-round" style="font-size:16px;vertical-align:-3px;margin-right:4px">event</span>Datum</label>
+              <div class="post-cal-wrap" id="postCalWrap">
+                <div class="post-cal-display" id="postDateDisplay" onclick="_togglePostCalendar(event)">
+                  <span class="material-icons-round" style="font-size:18px">calendar_today</span>
+                  <span id="postDateText">Datum wählen</span>
+                </div>
+                <input type="hidden" id="postDate" value="" />
+                <div class="post-cal-dropdown" id="postCalDropdown">
+                  <div class="cal-header">
+                    <button type="button" class="cal-nav" onclick="_postCalNav(event,-1)"><span class="material-icons-round">chevron_left</span></button>
+                    <span class="cal-title" id="postCalTitle"></span>
+                    <button type="button" class="cal-nav" onclick="_postCalNav(event,1)"><span class="material-icons-round">chevron_right</span></button>
+                  </div>
+                  <div class="cal-weekdays"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
+                  <div class="cal-grid" id="postCalGrid"></div>
+                  <div class="cal-footer">
+                    <button type="button" class="cal-footer-btn" onclick="_postCalToday(event)">Heute</button>
+                    <button type="button" class="cal-footer-btn" onclick="_postCalClear(event)">Löschen</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="form-group">
             <label>Budget <small style="color:var(--text-light)">(optional)</small></label>
-            <input type="text" id="postBudget" placeholder="z.B. 500€ oder Verhandlungsbasis" />
+            <div class="post-budget-wrap">
+              <div class="post-budget-input-wrap">
+                <input type="number" id="postBudget" placeholder="0" min="0" step="1" />
+                <span class="post-budget-currency">€</span>
+              </div>
+              <label class="post-vb-label">
+                <input type="checkbox" id="postBudgetVB" onchange="document.getElementById('postBudget').disabled=this.checked" />
+                <span>VB (Verhandlungsbasis)</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -11035,7 +11066,162 @@ function openCreatePostModal() {
       }
     });
   }
+
+  // Init city autocomplete for location field
+  _initPostCityAutocomplete();
+
+  // Init calendar state
+  _postCalMonth = new Date().getMonth();
+  _postCalYear = new Date().getFullYear();
+  _postCalSelected = null;
 }
+
+/* ---- Post Location City Autocomplete ---- */
+function _initPostCityAutocomplete() {
+  var input = document.getElementById('postLocation');
+  var list = document.getElementById('postCityList');
+  if (!input || !list) return;
+  var activeIdx = -1;
+
+  input.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    if (q.length < 1) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    var matches = GERMAN_CITIES.filter(function(c) { return c.name.toLowerCase().startsWith(q); }).slice(0, 8);
+    if (matches.length === 0) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    activeIdx = -1;
+    list.innerHTML = matches.map(function(c) {
+      return '<li data-city="' + c.name + '" data-state="' + c.state + '">' + c.name + '<span class="city-state">' + c.state + '</span></li>';
+    }).join('');
+    list.classList.add('open');
+  });
+
+  list.addEventListener('click', function(e) {
+    var li = e.target.closest('li');
+    if (!li) return;
+    input.value = li.dataset.city;
+    list.classList.remove('open');
+  });
+
+  input.addEventListener('keydown', function(e) {
+    var items = list.querySelectorAll('li');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); }
+    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); items[activeIdx].click(); return; }
+    else return;
+    items.forEach(function(it, i) { it.classList.toggle('active', i === activeIdx); });
+  });
+}
+
+/* ---- Post Calendar (independent from hero calendar) ---- */
+var _postCalMonth = new Date().getMonth();
+var _postCalYear = new Date().getFullYear();
+var _postCalSelected = null;
+
+function _togglePostCalendar(e) {
+  e.stopPropagation();
+  var dd = document.getElementById('postCalDropdown');
+  if (!dd) return;
+  if (dd.classList.contains('show')) {
+    dd.classList.remove('show');
+  } else {
+    _renderPostCalendar();
+    dd.classList.add('show');
+  }
+}
+
+function _renderPostCalendar() {
+  var title = document.getElementById('postCalTitle');
+  var grid = document.getElementById('postCalGrid');
+  if (!title || !grid) return;
+  title.textContent = CAL_MONTHS_DE[_postCalMonth] + ' ' + _postCalYear;
+
+  var firstDay = new Date(_postCalYear, _postCalMonth, 1).getDay();
+  var startIdx = firstDay === 0 ? 6 : firstDay - 1;
+  var daysInMonth = new Date(_postCalYear, _postCalMonth + 1, 0).getDate();
+  var daysInPrev = new Date(_postCalYear, _postCalMonth, 0).getDate();
+  var today = new Date(); today.setHours(0,0,0,0);
+
+  var html = '';
+  for (var i = startIdx - 1; i >= 0; i--) {
+    html += '<button type="button" class="cal-day other-month disabled">' + (daysInPrev - i) + '</button>';
+  }
+  for (var d = 1; d <= daysInMonth; d++) {
+    var date = new Date(_postCalYear, _postCalMonth, d); date.setHours(0,0,0,0);
+    var isPast = date < today;
+    var isToday = date.getTime() === today.getTime();
+    var isSelected = _postCalSelected && date.getTime() === _postCalSelected.getTime();
+    var cls = 'cal-day';
+    if (isPast) cls += ' disabled';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+    html += '<button type="button" class="' + cls + '"' + (isPast ? '' : ' onclick="_postCalSelect(event,' + d + ')"') + '>' + d + '</button>';
+  }
+  var totalCells = startIdx + daysInMonth;
+  var remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (var n = 1; n <= remaining; n++) {
+    html += '<button type="button" class="cal-day other-month disabled">' + n + '</button>';
+  }
+  grid.innerHTML = html;
+}
+
+function _postCalNav(e, dir) {
+  e.stopPropagation();
+  _postCalMonth += dir;
+  if (_postCalMonth > 11) { _postCalMonth = 0; _postCalYear++; }
+  if (_postCalMonth < 0) { _postCalMonth = 11; _postCalYear--; }
+  _renderPostCalendar();
+}
+
+function _postCalSelect(e, day) {
+  e.stopPropagation();
+  _postCalSelected = new Date(_postCalYear, _postCalMonth, day); _postCalSelected.setHours(0,0,0,0);
+  var dd = _postCalSelected.getDate();
+  var mm = _postCalSelected.getMonth() + 1;
+  var displayText = dd + '. ' + CAL_MONTHS_DE[_postCalSelected.getMonth()] + ' ' + _postCalSelected.getFullYear();
+  var dateText = document.getElementById('postDateText');
+  var dateInput = document.getElementById('postDate');
+  var displayEl = document.getElementById('postDateDisplay');
+  if (dateText) dateText.textContent = displayText;
+  if (dateInput) dateInput.value = _postCalSelected.getFullYear() + '-' + String(mm).padStart(2,'0') + '-' + String(dd).padStart(2,'0');
+  if (displayEl) displayEl.classList.add('has-value');
+  var dropdown = document.getElementById('postCalDropdown');
+  if (dropdown) dropdown.classList.remove('show');
+  _renderPostCalendar();
+}
+
+function _postCalToday(e) {
+  e.stopPropagation();
+  var now = new Date();
+  _postCalMonth = now.getMonth();
+  _postCalYear = now.getFullYear();
+  _postCalSelect(e, now.getDate());
+}
+
+function _postCalClear(e) {
+  e.stopPropagation();
+  _postCalSelected = null;
+  var dateText = document.getElementById('postDateText');
+  var dateInput = document.getElementById('postDate');
+  var displayEl = document.getElementById('postDateDisplay');
+  if (dateText) dateText.textContent = 'Datum wählen';
+  if (dateInput) dateInput.value = '';
+  if (displayEl) displayEl.classList.remove('has-value');
+  var dropdown = document.getElementById('postCalDropdown');
+  if (dropdown) dropdown.classList.remove('show');
+}
+
+// Close post calendar on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.post-cal-wrap')) {
+    var dd = document.getElementById('postCalDropdown');
+    if (dd) dd.classList.remove('show');
+  }
+  if (!e.target.closest('.city-autocomplete-wrap')) {
+    var pl = document.getElementById('postCityList');
+    if (pl) pl.classList.remove('open');
+  }
+});
 
 function _selectPostType(btn) {
   document.querySelectorAll('.post-type-tile').forEach(function(t) { t.classList.remove('active'); });
@@ -11102,7 +11288,7 @@ function _createSocialPost(event) {
   event.preventDefault();
   var type = document.getElementById('postType').value;
   var content = document.getElementById('postContent').value.trim();
-  if (!content) return;
+  if (!content) { showToast('Bitte Beschreibung eingeben', 'warning'); return; }
 
   var post = {
     id: 'sp_' + Date.now(),
@@ -11129,11 +11315,23 @@ function _createSocialPost(event) {
     var lo = document.getElementById('postLocation');
     var da = document.getElementById('postDate');
     var bu = document.getElementById('postBudget');
+    var vb = document.getElementById('postBudgetVB');
     post.title = ti ? ti.value.trim() : '';
     post.category = ca ? ca.value : '';
     post.location = lo ? lo.value.trim() : '';
-    post.date = da ? da.value.trim() : '';
-    post.budget = bu ? bu.value.trim() : '';
+    // Date: stored as YYYY-MM-DD from hidden input, display as readable text
+    post.date = da && da.value ? da.value : '';
+    if (post.date && _postCalSelected) {
+      post.dateDisplay = _postCalSelected.getDate() + '. ' + CAL_MONTHS_DE[_postCalSelected.getMonth()] + ' ' + _postCalSelected.getFullYear();
+    }
+    // Budget: number + VB flag
+    if (vb && vb.checked) {
+      post.budget = 'VB';
+    } else if (bu && bu.value) {
+      post.budget = bu.value + '€';
+    } else {
+      post.budget = '';
+    }
   } else if (type === 'met') {
     var me = document.getElementById('postMetEvent');
     post.metAt = me && me.value.trim() ? { eventName: me.value.trim(), date: '' } : null;
