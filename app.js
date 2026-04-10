@@ -851,7 +851,7 @@ function renderListingCard(listing) {
     <div class="listing-card" data-listing-id="${listing.id}">
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}">
-          ${imgs.map(function(img) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" loading="lazy" /></div>'; }).join('')}
+          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + (i > 0 ? ' loading="lazy"' : '') + ' /></div>'; }).join('')}
         </div>
         ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
@@ -919,7 +919,7 @@ function renderHeroMarquees() {
 
   function cardHTML(l) {
     return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
-      <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" />
+      <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" />
       <div class="hero-marquee-card-info">
         <h4>${_escHtml(l.title)}</h4>
         <span>${_escHtml(l.priceLabel)} · ★ ${l.rating || 0}</span>
@@ -938,30 +938,41 @@ function renderHeroMarquees() {
   const cardsHtml = cards.map(cardHTML).join('');
   const duplicatedHtml = cardsHtml + cardsHtml;
 
+  // Insert HTML immediately, but delay animation start until browser has laid out the page
   topTracks.forEach(track => {
     track.innerHTML = duplicatedHtml;
-    track.style.animation = 'marqueeRight 60s linear infinite';
-    track.style.animationPlayState = 'running';
-    track.style.transform = 'translateX(0)';
+    track.style.animation = 'none';
     track.style.willChange = 'transform';
     track.style.overflowX = 'hidden';
     track.style.overflowY = 'hidden';
     track.style.scrollSnapType = 'none';
     track.style.scrollSnapStop = 'normal';
-    _initMarqueeSwipe(track, 'horizontal');
   });
 
   bottomTracks.forEach(track => {
     track.innerHTML = duplicatedHtml;
-    track.style.animation = 'marqueeLeft 56s linear infinite';
-    track.style.animationPlayState = 'running';
-    track.style.transform = 'translateX(0)';
+    track.style.animation = 'none';
     track.style.willChange = 'transform';
     track.style.overflowX = 'hidden';
     track.style.overflowY = 'hidden';
     track.style.scrollSnapType = 'none';
     track.style.scrollSnapStop = 'normal';
-    _initMarqueeSwipe(track, 'horizontal');
+  });
+
+  // Start animations after layout is complete (double rAF ensures paint)
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      topTracks.forEach(track => {
+        track.style.animation = 'marqueeRight 60s linear infinite';
+        track.style.animationPlayState = 'running';
+        _initMarqueeSwipe(track, 'horizontal');
+      });
+      bottomTracks.forEach(track => {
+        track.style.animation = 'marqueeLeft 56s linear infinite';
+        track.style.animationPlayState = 'running';
+        _initMarqueeSwipe(track, 'horizontal');
+      });
+    });
   });
 
   // Detect very wide images and switch to contain
@@ -998,9 +1009,20 @@ function _initMarqueeSwipe(track, orientation) {
   if (!track || track._swipeInit) return;
   track._swipeInit = true;
 
-  var startX = 0, startY = 0, startOffset = 0, dragging = false;
   var horizontal = orientation === 'horizontal';
+
+  // On mobile/touch devices: don't add swipe handlers at all — let page scroll freely
+  var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
+  if (isTouchDevice) {
+    track.style.touchAction = 'pan-y';
+    track.style.cursor = 'default';
+    return;
+  }
+
+  // Desktop only: drag to swipe marquee
   track.style.touchAction = horizontal ? 'pan-y' : 'pan-x';
+
+  var startX = 0, startY = 0, startOffset = 0, dragging = false;
 
   function getCurrentOffset(t) {
     var m = getComputedStyle(t).transform;
@@ -1015,21 +1037,20 @@ function _initMarqueeSwipe(track, orientation) {
     return horizontal ? t.scrollWidth / 2 : t.scrollHeight / 2;
   }
 
-  track.addEventListener('touchstart', function(e) {
-    if (!e.touches || !e.touches[0]) return;
+  track.addEventListener('mousedown', function(e) {
     dragging = true;
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
+    startX = e.clientX;
+    startY = e.clientY;
     startOffset = getCurrentOffset(track);
     track.style.animationPlayState = 'paused';
     track.style.transform = (horizontal ? 'translateX(' : 'translateY(') + startOffset + 'px)';
     track.style.cursor = 'grabbing';
-  }, { passive: true });
+  });
 
-  track.addEventListener('touchmove', function(e) {
-    if (!dragging || !e.touches || !e.touches[0]) return;
-    var dx = e.touches[0].clientX - startX;
-    var dy = e.touches[0].clientY - startY;
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var dx = e.clientX - startX;
+    var dy = e.clientY - startY;
     var delta = horizontal ? dx : dy;
 
     var half = getTrackSize(track);
@@ -1040,17 +1061,14 @@ function _initMarqueeSwipe(track, orientation) {
     }
 
     track.style.transform = (horizontal ? 'translateX(' : 'translateY(') + newOffset + 'px)';
-  }, { passive: true });
+  });
 
-  function endSwipe() {
+  document.addEventListener('mouseup', function() {
     if (!dragging) return;
     dragging = false;
     track.style.cursor = 'grab';
     track.style.animationPlayState = 'running';
-  }
-
-  track.addEventListener('touchend', endSwipe, { passive: true });
-  track.addEventListener('touchcancel', endSwipe, { passive: true });
+  });
 }
 
 // ========== EXPLORE PAGE (Instagram-Style) ==========

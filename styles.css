@@ -14,7 +14,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  touch-action: pan-x;
+  touch-action: pan-y;
 }
 .grid-gallery-track::-webkit-scrollbar { display: none; }
 .grid-gallery-track:active { cursor: grabbing; }
@@ -1108,7 +1108,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   z-index: 100 !important;
   overflow: hidden !important;
   pointer-events: auto;
-  touch-action: none;
+  touch-action: pan-y;
   mask-image: none !important;
   -webkit-mask-image: none !important;
   opacity: 1 !important;
@@ -1170,7 +1170,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   overflow-y: hidden;
   scroll-snap-type: none;
   -webkit-overflow-scrolling: auto;
-  touch-action: none;
+  touch-action: pan-y;
   cursor: grab;
 }
 .hero-marquee-above .hero-marquee-track {
@@ -1931,7 +1931,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .listing-card-img {
   position: relative;
   width: 100%;
-  padding-top: 66.67%;
+  aspect-ratio: 3 / 2;
   overflow: hidden;
   border-radius: 16px;
   background: var(--bg-alt);
@@ -6193,6 +6193,19 @@ span.flatpickr-weekday {
   .listing-card-img,
   .listing-card-img img {
     border-radius: 20px 20px 0 0;
+  }
+  /* Disable horizontal touch-scroll on gallery so vertical page scroll is never blocked */
+  .listing-card .grid-gallery-track {
+    overflow: hidden;
+    touch-action: pan-y;
+    cursor: default;
+  }
+  .listing-card .grid-gallery-track:active {
+    cursor: default;
+  }
+  /* Always show arrows on mobile since swipe is disabled */
+  .listing-card .grid-gallery-arrow {
+    opacity: 0.85;
   }
   .listing-card-body {
     padding: 12px 4px 4px;
