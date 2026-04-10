@@ -5,6 +5,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
+  -webkit-scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -12,7 +13,7 @@
   user-select: none;
   -webkit-user-select: none;
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 1;
   touch-action: pan-y;
 }
@@ -20,15 +21,19 @@
 .grid-gallery-track:active { cursor: grabbing; }
 .grid-gallery-slide {
   flex: 0 0 100%;
+  min-height: 0;
   height: 100%;
   scroll-snap-align: start;
+  -webkit-scroll-snap-align: start;
   position: relative;
   background: var(--bg-alt);
 }
 .grid-gallery-slide img {
   width: 100%;
   height: 100%;
+  min-height: 0;
   object-fit: cover;
+  -webkit-object-fit: cover;
   display: block;
   pointer-events: none;
 }
@@ -151,7 +156,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   border-color: var(--dark);
 }
-img { display: block; max-width: 100%; }
+img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; }
 
 /* ---- Utilities ---- */
 .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
@@ -493,16 +498,17 @@ img { display: block; max-width: 100%; }
 }
 .browse-hero-video {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  -webkit-object-fit: cover;
   z-index: 0;
   border-radius: 24px;
 }
 .browse-hero-overlay {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: linear-gradient(160deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.4) 50%, rgba(255,56,92,0.18) 100%);
   z-index: 1;
   border-radius: 24px;
@@ -1338,6 +1344,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   width: 100%;
   height: 130px;
   object-fit: cover;
+  -webkit-object-fit: cover;
   display: block;
   background: var(--bg-alt);
 }
@@ -1936,6 +1943,13 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   border-radius: 16px;
   background: var(--bg-alt);
 }
+/* Safari aspect-ratio fallback */
+@supports not (aspect-ratio: 3 / 2) {
+  .listing-card-img {
+    height: 0;
+    padding-top: 66.67%;
+  }
+}
 .listing-card .grid-gallery-arrow {
   opacity: 0.5;
   transition: opacity 0.2s ease;
@@ -1945,10 +1959,11 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 }
 .listing-card-img img {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  -webkit-object-fit: cover;
   transition: transform 0.4s ease;
 }
 .listing-card:hover .listing-card-img img { transform: scale(1.05); }
@@ -2178,6 +2193,12 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   cursor: pointer;
   text-decoration: none;
 }
+@supports not (aspect-ratio: 1) {
+  .explore-item {
+    height: 0;
+    padding-top: 100%;
+  }
+}
 .explore-item-large {
   grid-column: span 2;
   grid-row: span 2;
@@ -2186,6 +2207,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   width: 100%;
   height: 100%;
   object-fit: cover;
+  -webkit-object-fit: cover;
   display: block;
   transition: transform 0.3s ease;
 }
@@ -2343,10 +2365,17 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   aspect-ratio: 4/3;
   height: auto;
   object-fit: cover;
+  -webkit-object-fit: cover;
   display: block;
   cursor: pointer;
   border-radius: 12px;
   background: #f7f7f7;
+}
+@supports not (aspect-ratio: 4/3) {
+  .feed-card-image {
+    height: 0;
+    padding-top: 75%;
+  }
 }
 .feed-card-body {
   padding: 12px 14px;
@@ -2744,6 +2773,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   height: auto;
   border-radius: var(--radius-lg);
   object-fit: cover;
+  -webkit-object-fit: cover;
   max-height: 360px;
 }
 
@@ -2756,19 +2786,26 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   margin-bottom: 32px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.13);
 }
+@supports not (aspect-ratio: 16 / 9) {
+  .detail-gallery {
+    height: 0;
+    padding-top: 56.25%;
+  }
+}
 /* === CINEMATIC PREVIEW === */
 .dg-cinema {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 10;
   background: #000;
 }
 .dg-cinema-img {
   position: absolute;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  -webkit-object-fit: cover;
   opacity: 0;
   transition: opacity 0.45s ease;
   will-change: opacity, transform;
@@ -2826,15 +2863,19 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .detail-gallery-track:active { cursor: grabbing; }
 .detail-gallery-slide {
   flex: 0 0 100%;
+  min-height: 0;
   height: 100%;
   scroll-snap-align: start;
+  -webkit-scroll-snap-align: start;
   position: relative;
   background: #111;
 }
 .detail-gallery-slide img {
   width: 100%;
   height: 100%;
+  min-height: 0;
   object-fit: cover;
+  -webkit-object-fit: cover;
   display: block;
   pointer-events: none;
 }
@@ -3541,6 +3582,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
+  -webkit-object-fit: cover;
   cursor: pointer;
   transition: transform 0.3s, filter 0.3s;
 }
@@ -9561,3 +9603,45 @@ body.dark-mode .profile-social-link { background: #252525; border-color: var(--b
 body.dark-mode .profile-social-link:hover { background: var(--primary); color: #fff; }
 body.dark-mode .profile-event-connection-card { background: #1E1E1E; border-color: var(--border-light); }
 body.dark-mode .pec-icon { background: rgba(255,56,92,0.15); }
+
+/* ======== SAFARI MOBILE FIX ======== */
+/* Fix: Safari flex children with height:100% need min-height:0 */
+.grid-gallery-track > *,
+.detail-gallery-track > * {
+  min-height: 0;
+  -webkit-flex-shrink: 0;
+}
+/* Fix: Safari sometimes ignores object-fit without explicit dimensions */
+.grid-gallery-slide img,
+.detail-gallery-slide img,
+.listing-card-img img,
+.explore-item img,
+.provider-portfolio img,
+.hero-marquee-card img,
+.feed-card-image {
+  -webkit-object-fit: cover;
+  object-fit: cover;
+}
+/* Fix: Safari scroll-snap needs -webkit prefix */
+.grid-gallery-track,
+.detail-gallery-track {
+  -webkit-scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+/* Fix: Safari flex image sizing - prevent image from collapsing */
+.grid-gallery-slide,
+.detail-gallery-slide {
+  -webkit-flex: 0 0 100%;
+  flex: 0 0 100%;
+}
+/* Fix: Safari transform on images causing rendering issues */
+@supports (-webkit-touch-callout: none) {
+  .listing-card-img img,
+  .explore-item img,
+  .provider-portfolio img {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+}
