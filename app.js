@@ -749,6 +749,11 @@ function navigateTo(page, data, skipHistory) {
   switch (page) {
     case 'browse':
       _initAiPlaceholder();
+      // Pre-fill location from user profile
+      if (currentUser && currentUser.location) {
+        var locInput = document.getElementById('browseLocation');
+        if (locInput && !locInput.value) locInput.value = currentUser.location;
+      }
       loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
