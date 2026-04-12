@@ -865,6 +865,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   position: sticky;
   top: var(--nav-height);
   z-index: 91;
+  position: relative;
 }
 .browse-categories-bar::after {
   content: '';
@@ -872,23 +873,55 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   right: 0;
   top: 0;
   bottom: 0;
-  width: 40px;
-  background: linear-gradient(to right, transparent, var(--bg));
+  width: 60px;
+  background: linear-gradient(to right, transparent, var(--bg) 80%);
   pointer-events: none;
   z-index: 2;
-  opacity: 0;
-  transition: opacity 0.2s;
+  opacity: 1;
+  transition: opacity 0.3s;
 }
-@media (max-width: 1100px) {
-  .browse-categories-bar::after { opacity: 1; }
+.browse-categories-bar .scroll-hint-arrow {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  animation: scrollHintBounce 1.8s ease-in-out infinite;
+  transition: opacity 0.3s;
+}
+.browse-categories-bar .scroll-hint-arrow .material-icons-round {
+  font-size: 18px;
+  color: var(--text-light);
+}
+.browse-categories-bar .scroll-hint-arrow:hover {
+  background: var(--bg);
+  box-shadow: var(--shadow-md);
+}
+.browse-categories-bar .scroll-hint-arrow.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes scrollHintBounce {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50% { transform: translateY(-50%) translateX(4px); }
 }
 .browse-categories-inner {
   max-width: 1440px;
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -897,22 +930,18 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   user-select: none;
   -webkit-user-select: none;
   cursor: grab;
+  padding-right: 60px;
 }
+.browse-categories-inner:active { cursor: grabbing; }
 .browse-categories-inner::-webkit-scrollbar { display: none; }
 .browse-categories-inner.dragging { cursor: grabbing; }
 .cat-icon-btn { scroll-snap-align: start; }
-@media (max-width: 1100px) {
-  .browse-categories-inner {
-    justify-content: flex-start;
-    padding-right: 40px;
-  }
-}
 .cat-icon-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 12px 16px;
+  padding: 12px 18px;
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-light);
@@ -924,6 +953,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   transition: color 0.2s, border-color 0.2s, transform 0.2s ease;
   font-family: var(--font);
   flex-shrink: 0;
+  min-width: 56px;
 }
 .cat-icon-btn:hover { color: var(--dark); transform: translateY(-2px); }
 .cat-icon-btn.active {
@@ -7621,6 +7651,16 @@ body.dark-mode .browse-categories-bar {
   background: var(--bg);
   border-bottom-color: var(--border-light);
 }
+body.dark-mode .browse-categories-bar::after {
+  background: linear-gradient(to right, transparent, var(--bg) 80%);
+}
+body.dark-mode .browse-categories-bar .scroll-hint-arrow {
+  background: var(--bg-alt);
+  border-color: var(--border);
+}
+body.dark-mode .browse-categories-bar .scroll-hint-arrow .material-icons-round {
+  color: #ccc;
+}
 body.dark-mode .cat-icon-btn { color: var(--text-light); }
 body.dark-mode .cat-icon-btn:hover,
 body.dark-mode .cat-icon-btn.active { color: #fff; border-bottom-color: #fff; }
@@ -9370,7 +9410,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
   .browse-hero-stats { gap: 16px; }
   .hero-stat strong { font-size: 1.1rem; }
   .browse-categories-bar { top: var(--nav-height); }
-  .cat-icon-btn { padding: 10px 12px; font-size: 0.68rem; }
+  .cat-icon-btn { padding: 10px 14px; font-size: 0.68rem; min-width: 50px; }
   .cat-emoji, .cat-icon-btn .material-icons-round { font-size: 20px; }
   .browse-how-grid { grid-template-columns: 1fr; gap: 24px; }
   .browse-how-section { padding: 48px 0; }

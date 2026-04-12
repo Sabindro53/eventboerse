@@ -752,6 +752,7 @@ function navigateTo(page, data, skipHistory) {
       loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
+        _initCategoryScrollHint();
       });
       break;
     case 'explore':
@@ -1885,6 +1886,46 @@ function _initAiPlaceholder() {
       if (!input.value) el.style.opacity = '1';
     }, 350);
   }, 3200);
+}
+
+// ── Category bar scroll hint arrow ──
+function _initCategoryScrollHint() {
+  var bar = document.querySelector('.browse-categories-bar');
+  var inner = document.querySelector('.browse-categories-inner');
+  if (!bar || !inner) return;
+
+  // Remove old arrow if re-init
+  var old = bar.querySelector('.scroll-hint-arrow');
+  if (old) old.remove();
+
+  // Create arrow button
+  var arrow = document.createElement('button');
+  arrow.className = 'scroll-hint-arrow';
+  arrow.setAttribute('aria-label', 'Mehr Kategorien');
+  arrow.innerHTML = '<span class="material-icons-round">chevron_right</span>';
+  bar.style.position = 'sticky';
+  bar.appendChild(arrow);
+
+  function checkScroll() {
+    var maxScroll = inner.scrollWidth - inner.clientWidth;
+    if (maxScroll <= 10) {
+      // Everything fits, hide arrow + fade
+      arrow.classList.add('hidden');
+      bar.style.setProperty('--after-opacity', '0');
+    } else if (inner.scrollLeft >= maxScroll - 10) {
+      // Scrolled to end
+      arrow.classList.add('hidden');
+    } else {
+      arrow.classList.remove('hidden');
+    }
+  }
+
+  arrow.addEventListener('click', function() {
+    inner.scrollBy({ left: 200, behavior: 'smooth' });
+  });
+
+  inner.addEventListener('scroll', checkScroll, { passive: true });
+  checkScroll();
 }
 
 function filterByCategory(btn, cat) {
