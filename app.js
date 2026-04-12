@@ -9703,6 +9703,15 @@ function openBoardProject(projectId) {
   var project = _boardProjects.find(function(p) { return p.id === projectId; });
   if (!project) return;
   _activeBoardId = projectId;
+
+  // Ensure board page is the active page
+  var boardPage = document.getElementById('page-board');
+  if (boardPage && !boardPage.classList.contains('active')) {
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    boardPage.classList.add('active');
+    currentPage = 'board';
+  }
+
   var projectsEl = document.getElementById('boardProjects');
   var boardViewEl = document.getElementById('boardView');
   var btnAllBoards = document.getElementById('btnAllBoards');
@@ -9710,8 +9719,10 @@ function openBoardProject(projectId) {
   boardViewEl && (boardViewEl.style.display = '');
   btnAllBoards && (btnAllBoards.style.display = '');
 
-  document.getElementById('boardEventName').textContent = project.name;
-  document.getElementById('boardEventDate').textContent = project.date || 'Datum noch offen';
+  var nameEl = document.getElementById('boardEventName');
+  var dateEl = document.getElementById('boardEventDate');
+  if (nameEl) nameEl.textContent = project.name;
+  if (dateEl) dateEl.textContent = project.date || 'Datum noch offen';
 
   switchBoardView('flow');
   _updateBoardStats(project);
