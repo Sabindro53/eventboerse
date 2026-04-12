@@ -1160,32 +1160,30 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   gap: 12px;
   min-height: 150px;
   width: max-content;
-  animation: none;
+  animation: none !important;
   will-change: transform;
-  overflow: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  overflow: visible;
   white-space: nowrap;
   transition: none;
-  pointer-events: none; /* track not clickable: cards handle click */
+  pointer-events: auto;
+  touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
 }
 .hero-marquee-above .hero-marquee-track,
 .hero-marquee-below .hero-marquee-track {
   flex-direction: row;
   align-items: center;
   min-height: auto;
-  overflow-x: hidden;
-  overflow-y: hidden;
+  overflow: visible;
   scroll-snap-type: none;
   -webkit-overflow-scrolling: auto;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
   cursor: grab;
-}
-.hero-marquee-above .hero-marquee-track {
-  animation: marqueeRight 60s linear infinite;
-  animation-timing-function: cubic-bezier(0.25, 0.01, 0.25, 1);
-}
-.hero-marquee-below .hero-marquee-track {
-  animation: marqueeLeft 56s linear infinite;
-  animation-timing-function: cubic-bezier(0.25, 0.01, 0.25, 1);
+  animation: none !important;
 }
 .hero-marquee-above .hero-marquee-track:active,
 .hero-marquee-below .hero-marquee-track:active {
@@ -1235,8 +1233,8 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   transform: translateY(-3px) scale(1.01);
   box-shadow: var(--shadow-lg);
 }
-.hero-marquee-left .hero-marquee-track { animation: marqueeUp 24s linear infinite; }
-.hero-marquee-right .hero-marquee-track { animation: marqueeUp 24s linear infinite reverse; }
+.hero-marquee-left .hero-marquee-track { animation: none !important; }
+.hero-marquee-right .hero-marquee-track { animation: none !important; }
 .hero-marquee:hover .hero-marquee-track { animation-play-state: paused; }
 .hero-marquee-below:hover .hero-marquee-track { animation-play-state: paused; }
 
@@ -1301,9 +1299,6 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 @keyframes marqueeRight {
   0% { transform: translateX(-50%); }
   100% { transform: translateX(0); }
-}
-.hero-marquee:hover .hero-marquee-track {
-  animation-play-state: paused;
 }
 .hero-marquee-card {
   display: block;

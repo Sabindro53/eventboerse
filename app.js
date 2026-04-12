@@ -878,197 +878,178 @@ function renderListingCard(listing) {
 
 // ========== HOME PAGE ==========
 
+// ── Marquee animation state ──────────────────────────────
+var _marqueeRAFs = [];
+
+function _stopAllMarquees() {
+  _marqueeRAFs.forEach(function(id) { cancelAnimationFrame(id); });
+  _marqueeRAFs = [];
+}
+
 function renderHeroMarquees() {
-  const topContainers = Array.from(document.querySelectorAll('.hero-marquee-above'));
-  const bottomContainers = Array.from(document.querySelectorAll('.hero-marquee-below'));
-  const topTracks = topContainers.map(c => c.querySelector('.hero-marquee-track')).filter(t => !!t);
-  const bottomTracks = bottomContainers.map(c => c.querySelector('.hero-marquee-track')).filter(t => !!t);
+  _stopAllMarquees();
 
-  if (!topTracks.length && !bottomTracks.length) {
-    console.warn('[HeroMarquee] keine Marquee-Container/Tracks gefunden.');
-    return;
-  }
+  var topContainers = Array.from(document.querySelectorAll('.hero-marquee-above'));
+  var bottomContainers = Array.from(document.querySelectorAll('.hero-marquee-below'));
+  var topTracks = topContainers.map(function(c) { return c.querySelector('.hero-marquee-track'); }).filter(Boolean);
+  var bottomTracks = bottomContainers.map(function(c) { return c.querySelector('.hero-marquee-track'); }).filter(Boolean);
 
-  let visible;
+  if (!topTracks.length && !bottomTracks.length) return;
+
+  var visible;
   try {
     visible = getHeroListings();
-    if (!Array.isArray(visible) || visible.length === 0) {
-      visible = Array.isArray(LISTINGS) ? LISTINGS : [];
-    }
+    if (!Array.isArray(visible) || visible.length === 0) visible = Array.isArray(LISTINGS) ? LISTINGS : [];
   } catch (err) {
-    console.error('Fehler bei getHeroListings, verwende Demo-Daten', err);
     visible = Array.isArray(LISTINGS) ? LISTINGS : [];
   }
 
-  console.info('[HeroMarquee] renderHeroMarquees', visible.length, 'listings', visible.map(l=>l.id).join(', '), 'isLoggedIn=', !!isLoggedIn);
-
-  [topContainers, bottomContainers].flat().forEach(container => {
-    container.style.display = 'block';
-    container.style.visibility = 'visible';
-    container.style.opacity = '1';
-    container.style.pointerEvents = 'auto';
-    container.style.zIndex = '30';
+  [topContainers, bottomContainers].reduce(function(a,b){ return a.concat(b); }, []).forEach(function(c) {
+    c.style.display = 'block';
+    c.style.visibility = 'visible';
+    c.style.opacity = '1';
+    c.style.pointerEvents = 'auto';
+    c.style.zIndex = '30';
   });
 
   if (!Array.isArray(visible) || visible.length === 0) {
-    const emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.<br>Bitte überprüfe deine Filtereinstellungen oder aktualisiere die Seite.</div>';
-    topTracks.forEach(track => { track.innerHTML = emptyHtml; });
-    bottomTracks.forEach(track => { track.innerHTML = emptyHtml; });
+    var emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.</div>';
+    topTracks.concat(bottomTracks).forEach(function(t) { t.innerHTML = emptyHtml; });
     return;
   }
 
   function cardHTML(l) {
-    return `<a class="hero-marquee-card" href="#" onclick="navigateTo('detail',${l.id});return false;">
-      <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" />
-      <div class="hero-marquee-card-info">
-        <h4>${_escHtml(l.title)}</h4>
-        <span>${_escHtml(l.priceLabel)} · ★ ${l.rating || 0}</span>
-      </div>
-    </a>`;
+    return '<a class="hero-marquee-card" href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
+      '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager" />' +
+      '<div class="hero-marquee-card-info">' +
+        '<h4>' + _escHtml(l.title) + '</h4>' +
+        '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
+      '</div></a>';
   }
 
-  const cards = Array.isArray(visible) ? visible : [];
-  if (cards.length === 0) {
-    const emptyHtml = '<div class="hero-marquee-empty">Momentan keine Angebote, bitte später erneut versuchen.</div>';
-    topTracks.forEach(track => { track.innerHTML = emptyHtml; });
-    bottomTracks.forEach(track => { track.innerHTML = emptyHtml; });
-    return;
-  }
+  var cardsHtml = visible.map(cardHTML).join('');
+  // Duplicate 3× to guarantee seamless wrap on wide screens
+  var tripleHtml = cardsHtml + cardsHtml + cardsHtml;
 
-  const cardsHtml = cards.map(cardHTML).join('');
-  const duplicatedHtml = cardsHtml + cardsHtml;
-
-  // Insert HTML immediately, but delay animation start until browser has laid out the page
-  topTracks.forEach(track => {
-    track.innerHTML = duplicatedHtml;
+  topTracks.concat(bottomTracks).forEach(function(track) {
+    track.innerHTML = tripleHtml;
     track.style.animation = 'none';
+    track.style.transform = 'translateX(0)';
     track.style.willChange = 'transform';
-    track.style.overflowX = 'hidden';
-    track.style.overflowY = 'hidden';
-    track.style.scrollSnapType = 'none';
-    track.style.scrollSnapStop = 'normal';
   });
 
-  bottomTracks.forEach(track => {
-    track.innerHTML = duplicatedHtml;
-    track.style.animation = 'none';
-    track.style.willChange = 'transform';
-    track.style.overflowX = 'hidden';
-    track.style.overflowY = 'hidden';
-    track.style.scrollSnapType = 'none';
-    track.style.scrollSnapStop = 'normal';
-  });
+  // Start rAF-based animation once images in the first set are loaded (or after 1s fallback)
+  function startMarquee(track, speed) {
+    var offset = 0;
+    var paused = false;
+    var half = 0;
 
-  // Start animations after layout is complete (double rAF ensures paint)
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
-      topTracks.forEach(track => {
-        track.style.animation = 'marqueeRight 60s linear infinite';
-        track.style.animationPlayState = 'running';
-        _initMarqueeSwipe(track, 'horizontal');
-      });
-      bottomTracks.forEach(track => {
-        track.style.animation = 'marqueeLeft 56s linear infinite';
-        track.style.animationPlayState = 'running';
-        _initMarqueeSwipe(track, 'horizontal');
-      });
-    });
-  });
-
-  // Detect very wide images and switch to contain
-  [
-    ...topTracks,
-    ...bottomTracks
-  ].forEach(track => {
-    if (!track) return;
-    track.querySelectorAll('.hero-marquee-card img').forEach(img => {
-      img.onload = () => {
-        if (img.naturalWidth / img.naturalHeight > 2.2) {
-          img.style.objectFit = 'contain';
-          img.style.background = '#fff';
-        }
-      };
-      if (img.complete && img.naturalWidth) {
-        if (img.naturalWidth / img.naturalHeight > 2.2) {
-          img.style.objectFit = 'contain';
-          img.style.background = '#fff';
-        }
-      }
-    });
-  });
-
-  // Touch-swipe support for bottom marquees (horizontal)
-  bottomTracks.forEach(track => {
-    track.style.touchAction = 'pan-y';
-    track.style.cursor = 'grab';
-    _initMarqueeSwipe(track, 'horizontal');
-  });
-}
-
-function _initMarqueeSwipe(track, orientation) {
-  if (!track || track._swipeInit) return;
-  track._swipeInit = true;
-
-  var horizontal = orientation === 'horizontal';
-
-  // On mobile/touch devices: don't add swipe handlers at all — let page scroll freely
-  var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
-  if (isTouchDevice) {
-    track.style.touchAction = 'pan-y';
-    track.style.cursor = 'default';
-    return;
-  }
-
-  // Desktop only: drag to swipe marquee
-  track.style.touchAction = horizontal ? 'pan-y' : 'pan-x';
-
-  var startX = 0, startY = 0, startOffset = 0, dragging = false;
-
-  function getCurrentOffset(t) {
-    var m = getComputedStyle(t).transform;
-    if (!m || m === 'none') return 0;
-    var vals = m.match(/matrix\((.+)\)/);
-    if (!vals) return 0;
-    var parts = vals[1].split(',').map(Number);
-    return horizontal ? parts[4] : parts[5];
-  }
-
-  function getTrackSize(t) {
-    return horizontal ? t.scrollWidth / 2 : t.scrollHeight / 2;
-  }
-
-  track.addEventListener('mousedown', function(e) {
-    dragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startOffset = getCurrentOffset(track);
-    track.style.animationPlayState = 'paused';
-    track.style.transform = (horizontal ? 'translateX(' : 'translateY(') + startOffset + 'px)';
-    track.style.cursor = 'grabbing';
-  });
-
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    var dx = e.clientX - startX;
-    var dy = e.clientY - startY;
-    var delta = horizontal ? dx : dy;
-
-    var half = getTrackSize(track);
-    var newOffset = startOffset + delta;
-    if (half > 0) {
-      while (newOffset > 0) newOffset -= half;
-      while (newOffset < -half) newOffset += half;
+    function measureHalf() {
+      // half = width of one set of cards (total / 3)
+      half = track.scrollWidth / 3;
+      if (half < 10) half = track.scrollWidth / 2; // fallback
     }
 
-    track.style.transform = (horizontal ? 'translateX(' : 'translateY(') + newOffset + 'px)';
-  });
+    measureHalf();
 
-  document.addEventListener('mouseup', function() {
-    if (!dragging) return;
-    dragging = false;
+    // Re-measure after images load
+    var imgs = track.querySelectorAll('img');
+    var loaded = 0;
+    var total = imgs.length;
+    function onImgReady() {
+      loaded++;
+      if (loaded >= total / 3) measureHalf(); // measure after first set loaded
+    }
+    imgs.forEach(function(img) {
+      if (img.complete) { onImgReady(); }
+      else { img.addEventListener('load', onImgReady); img.addEventListener('error', onImgReady); }
+    });
+    // Fallback re-measure
+    setTimeout(measureHalf, 1200);
+
+    var lastTime = 0;
+    function tick(now) {
+      if (!document.body.contains(track)) return; // track removed from DOM
+      var id = requestAnimationFrame(tick);
+      _marqueeRAFs.push(id);
+      if (paused || half < 10) { lastTime = now; return; }
+      if (!lastTime) { lastTime = now; return; }
+      var dt = Math.min(now - lastTime, 50); // cap to avoid big jumps
+      lastTime = now;
+      offset -= speed * dt / 1000;
+      if (offset <= -half) offset += half;
+      if (offset > 0) offset -= half;
+      track.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
+    }
+
+    var rafId = requestAnimationFrame(tick);
+    _marqueeRAFs.push(rafId);
+
+    // ── Pause on hover (desktop) ──
+    track.parentElement.addEventListener('mouseenter', function() { paused = true; });
+    track.parentElement.addEventListener('mouseleave', function() { paused = false; });
+
+    // ── Touch: pause while touching, allow drag ──
+    var touchStartX = 0, touchStartOffset = 0, touching = false;
+    track.addEventListener('touchstart', function(e) {
+      paused = true;
+      touching = true;
+      touchStartX = e.touches[0].clientX;
+      touchStartOffset = offset;
+    }, { passive: true });
+
+    track.addEventListener('touchmove', function(e) {
+      if (!touching) return;
+      var dx = e.touches[0].clientX - touchStartX;
+      offset = touchStartOffset + dx;
+      if (half > 10) {
+        while (offset > 0) offset -= half;
+        while (offset <= -half) offset += half;
+      }
+      track.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
+    }, { passive: true });
+
+    track.addEventListener('touchend', function() {
+      touching = false;
+      paused = false;
+      lastTime = 0;
+    }, { passive: true });
+
+    // ── Desktop mouse drag ──
+    var dragging = false, dragStartX = 0, dragStartOffset = 0;
     track.style.cursor = 'grab';
-    track.style.animationPlayState = 'running';
-  });
+
+    track.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      dragging = true;
+      paused = true;
+      dragStartX = e.clientX;
+      dragStartOffset = offset;
+      track.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var dx = e.clientX - dragStartX;
+      offset = dragStartOffset + dx;
+      if (half > 10) {
+        while (offset > 0) offset -= half;
+        while (offset <= -half) offset += half;
+      }
+      track.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
+    });
+    document.addEventListener('mouseup', function() {
+      if (!dragging) return;
+      dragging = false;
+      paused = false;
+      lastTime = 0;
+      track.style.cursor = 'grab';
+    });
+  }
+
+  // Start with different speeds + direction
+  topTracks.forEach(function(track) { startMarquee(track, 40); });   // 40px/s → right-to-left
+  bottomTracks.forEach(function(track) { startMarquee(track, 35); }); // 35px/s → right-to-left
 }
 
 // ========== EXPLORE PAGE (Instagram-Style) ==========
