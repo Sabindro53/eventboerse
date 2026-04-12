@@ -9882,17 +9882,23 @@ function renderBoardFlow() {
   var pct    = budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0;
   var budgetColor = pct >= 100 ? '#FF385C' : pct >= 80 ? '#FF9800' : '#00A699';
 
-  // Default layout: trigger(168px) + 5×stage(236px) + end(168px), each 64px apart
+  // Default layout: responsive sizes based on viewport
   var storedLayout = project.flowLayout || {};
-  var _GAP = 64, _TW = 168, _NW = 236;
+  var _vw = window.innerWidth || 1200;
+  var _isMobile = _vw <= 600;
+  var _isTablet = _vw <= 900;
+  var _GAP = _isMobile ? 24 : _isTablet ? 36 : 64;
+  var _TW  = _isMobile ? 110 : _isTablet ? 136 : 168;
+  var _NW  = _isMobile ? 160 : _isTablet ? 190 : 236;
+  var _PAD = _isMobile ? 16 : _isTablet ? 30 : 60;
   var _defLayout = {
-    'start':         { x: 60,                                y: 60 },
-    'geplant':       { x: 60 + _TW + _GAP,                   y: 60 },
-    'kontaktiert':   { x: 60 + _TW + _GAP + 1*(_NW+_GAP),   y: 60 },
-    'angebot':       { x: 60 + _TW + _GAP + 2*(_NW+_GAP),   y: 60 },
-    'bestaetigt':    { x: 60 + _TW + _GAP + 3*(_NW+_GAP),   y: 60 },
-    'abgeschlossen': { x: 60 + _TW + _GAP + 4*(_NW+_GAP),   y: 60 },
-    'end':           { x: 60 + _TW + _GAP + 5*(_NW+_GAP),   y: 60 }
+    'start':         { x: _PAD,                                   y: _PAD },
+    'geplant':       { x: _PAD + _TW + _GAP,                     y: _PAD },
+    'kontaktiert':   { x: _PAD + _TW + _GAP + 1*(_NW+_GAP),     y: _PAD },
+    'angebot':       { x: _PAD + _TW + _GAP + 2*(_NW+_GAP),     y: _PAD },
+    'bestaetigt':    { x: _PAD + _TW + _GAP + 3*(_NW+_GAP),     y: _PAD },
+    'abgeschlossen': { x: _PAD + _TW + _GAP + 4*(_NW+_GAP),     y: _PAD },
+    'end':           { x: _PAD + _TW + _GAP + 5*(_NW+_GAP),     y: _PAD }
   };
   function colStyle(id) {
     var p = storedLayout[id] || _defLayout[id] || { x: 60, y: 60 };
@@ -9992,6 +9998,13 @@ function renderBoardFlow() {
 
   html += '</div>'; // end flow-canvas
   container.innerHTML = html;
+
+  // Set canvas min-width dynamically to fit all columns
+  var canvasEl = document.getElementById('flowCanvas');
+  if (canvasEl) {
+    var totalW = _defLayout['end'].x + _TW + _PAD;
+    canvasEl.style.minWidth = totalW + 'px';
+  }
 
   requestAnimationFrame(function() { _drawFlowConnections(); _initFlowDrag(); });
 }
@@ -10229,8 +10242,8 @@ function _drawFlowConnections() {
   var svg    = document.getElementById('flowSvg');
   if (!canvas || !svg) return;
 
-  var W = 2400;
-  var H = Math.max(canvas.offsetHeight || 700, 700);
+  var W = Math.max(canvas.scrollWidth || 2400, canvas.offsetWidth || 2400);
+  var H = Math.max(canvas.scrollHeight || 700, canvas.offsetHeight || 700, 700);
   svg.setAttribute('width',  W);
   svg.setAttribute('height', H);
   svg.style.width  = W + 'px';
