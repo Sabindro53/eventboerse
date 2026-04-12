@@ -28,6 +28,10 @@ build/
 .env.local
 .env.*.local
 
+# Setup scripts (contain credentials)
+setup-smtp.php
+wp-config.php
+
 # Temporary files
 tmp/
 temp/

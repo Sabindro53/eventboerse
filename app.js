@@ -5906,30 +5906,100 @@ function setupDragDrop() {
   });
 }
 
-// ======== DRAG-SCROLL for horizontal scroll containers ========
+// ======== UNIVERSAL DRAG/SWIPE-SCROLL for horizontal containers ========
+function _makeDraggable(el) {
+  if (!el || el._dragInit) return;
+  el._dragInit = true;
+
+  var isDown = false, startX = 0, scrollLeft = 0, lastX = 0, lastTime = 0, velocity = 0, moved = false;
+  var rafId = null;
+
+  // ── Mouse drag (desktop) ──
+  el.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    isDown = true; moved = false;
+    el.classList.add('dragging');
+    startX = e.pageX;
+    scrollLeft = el.scrollLeft;
+    lastX = e.pageX; lastTime = performance.now(); velocity = 0;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!isDown) return;
+    var dx = e.pageX - startX;
+    if (Math.abs(dx) > 3) moved = true;
+    var now = performance.now();
+    var dt = now - lastTime;
+    if (dt > 0) velocity = (e.pageX - lastX) / dt;
+    lastX = e.pageX; lastTime = now;
+    el.scrollLeft = scrollLeft - dx;
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!isDown) return;
+    isDown = false;
+    el.classList.remove('dragging');
+    // Momentum coast
+    if (Math.abs(velocity) > 0.5) {
+      _momentumScroll(el, velocity);
+    }
+  });
+
+  // Prevent click when dragged
+  el.addEventListener('click', function(e) {
+    if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
+  }, true);
+
+  // ── Touch (mobile) – native scrolling is fine, but add momentum feel ──
+  var touchStartX = 0, touchScrollLeft = 0;
+  el.addEventListener('touchstart', function(e) {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    touchStartX = e.touches[0].pageX;
+    touchScrollLeft = el.scrollLeft;
+    velocity = 0; lastX = touchStartX; lastTime = performance.now();
+    el.classList.add('dragging');
+  }, { passive: true });
+
+  el.addEventListener('touchmove', function(e) {
+    var now = performance.now();
+    var dt = now - lastTime;
+    if (dt > 0) velocity = (e.touches[0].pageX - lastX) / dt;
+    lastX = e.touches[0].pageX; lastTime = now;
+  }, { passive: true });
+
+  el.addEventListener('touchend', function() {
+    el.classList.remove('dragging');
+    if (Math.abs(velocity) > 0.4) {
+      _momentumScroll(el, velocity);
+    }
+  }, { passive: true });
+
+  function _momentumScroll(container, vel) {
+    var speed = vel * 12;
+    var decel = 0.95;
+    function step() {
+      if (Math.abs(speed) < 0.5) return;
+      container.scrollLeft -= speed;
+      speed *= decel;
+      rafId = requestAnimationFrame(step);
+    }
+    rafId = requestAnimationFrame(step);
+  }
+}
+
 function initDragScroll() {
-  document.querySelectorAll('.category-scroll').forEach(function(el) {
-    var isDown = false, startX, scrollLeft;
-    el.addEventListener('mousedown', function(e) {
-      isDown = true;
-      el.classList.add('dragging');
-      startX = e.pageX - el.offsetLeft;
-      scrollLeft = el.scrollLeft;
-    });
-    el.addEventListener('mouseleave', function() {
-      isDown = false;
-      el.classList.remove('dragging');
-    });
-    el.addEventListener('mouseup', function() {
-      isDown = false;
-      el.classList.remove('dragging');
-    });
-    el.addEventListener('mousemove', function(e) {
-      if (!isDown) return;
-      e.preventDefault();
-      var x = e.pageX - el.offsetLeft;
-      el.scrollLeft = scrollLeft - (x - startX);
-    });
+  // Apply to ALL horizontal-scroll containers
+  var selectors = [
+    '.category-scroll',
+    '.browse-categories-inner',
+    '.chip-group',
+    '.stories-scroll',
+    '.testimonials-scroll',
+    '.browse-filter-pills',
+  ];
+  selectors.forEach(function(sel) {
+    document.querySelectorAll(sel).forEach(_makeDraggable);
   });
 }
 

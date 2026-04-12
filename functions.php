@@ -154,29 +154,64 @@ add_filter( 'wp_new_user_notification_email_admin', '__return_false' );
 
 /* E-Mail-Absender für alle wp_mail-Aufrufe korrekt setzen */
 // ==== SMTP Support für zuverlässigen Mailversand ====
-// Zugangsdaten werden aus wp-config.php geladen (NICHT im Repo speichern!)
-// In wp-config.php eintragen:
+// Priorität: 1. wp-config.php Konstanten, 2. wp_options (via Admin-Endpoint setzbar), 3. PHP-Mail Fallback
+// In wp-config.php eintragen (optional, höchste Priorität):
 //   define('EB_SMTP_USER', 'kontakt@xn--eventbrse-57a.de');
 //   define('EB_SMTP_PASS', 'dein-smtp-passwort');
+
+/**
+ * Gibt den SMTP-Benutzernamen zurück.
+ * Priorität: Konstante → wp_option → leer
+ */
+function eb_get_smtp_user() {
+    if ( defined('EB_SMTP_USER') && EB_SMTP_USER ) return EB_SMTP_USER;
+    $opt = get_option('eb_smtp_user', '');
+    return $opt ?: '';
+}
+
+/**
+ * Gibt das SMTP-Passwort zurück.
+ * Priorität: Konstante → wp_option → leer
+ */
+function eb_get_smtp_pass() {
+    if ( defined('EB_SMTP_PASS') && EB_SMTP_PASS ) return EB_SMTP_PASS;
+    $opt = get_option('eb_smtp_pass', '');
+    return $opt ?: '';
+}
+
+/**
+ * Gibt zurück ob SMTP vollständig konfiguriert ist.
+ */
+function eb_smtp_is_configured() {
+    return ( eb_get_smtp_user() !== '' && eb_get_smtp_pass() !== '' );
+}
+
 add_action('phpmailer_init', function($phpmailer) {
+    // Nur SMTP verwenden wenn Credentials vorhanden — sonst PHP-Mail als Fallback
+    if ( ! eb_smtp_is_configured() ) {
+        error_log('Eventbörse: SMTP nicht konfiguriert — verwende PHP-Mail Fallback. Bitte EB_SMTP_USER/EB_SMTP_PASS setzen.');
+        return; // PHPMailer bleibt auf isMail() (Standard)
+    }
+    $user = eb_get_smtp_user();
     $phpmailer->isSMTP();
     $phpmailer->Host       = 'smtp.ionos.de';
     $phpmailer->SMTPAuth   = true;
     $phpmailer->Port       = 587;
-    $phpmailer->Username   = defined('EB_SMTP_USER') ? EB_SMTP_USER : '';
-    $phpmailer->Password   = defined('EB_SMTP_PASS') ? EB_SMTP_PASS : '';
+    $phpmailer->Username   = $user;
+    $phpmailer->Password   = eb_get_smtp_pass();
     $phpmailer->SMTPSecure = 'tls';
     $phpmailer->CharSet    = 'UTF-8';
     // From MUSS mit dem SMTP-Login übereinstimmen, sonst lehnt IONOS die Mail ab
     // eventbörse.de = xn--eventbrse-57a.de (Punycode für SMTP)
-    $from = defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@xn--eventbrse-57a.de';
-    $phpmailer->From       = $from;
+    $phpmailer->From       = $user;
     $phpmailer->FromName   = 'Eventbörse';
-    $phpmailer->Sender     = $from; // Return-Path / Envelope-Sender
+    $phpmailer->Sender     = $user; // Return-Path / Envelope-Sender
 });
+
 // From-Adresse muss mit dem SMTP-Login identisch sein (IONOS-Anforderung)
 add_filter( 'wp_mail_from', function() {
-    return defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@xn--eventbrse-57a.de';
+    $user = eb_get_smtp_user();
+    return $user ?: 'kontakt@xn--eventbrse-57a.de';
 } );
 add_filter( 'wp_mail_from_name', function() {
     return 'Eventbörse';
@@ -1647,23 +1682,45 @@ function eb_create_tables() {
         UNIQUE KEY idx_user_listing (user_id, listing_id)
     ) $charset;";
 
+    $sql_registrations = "CREATE TABLE {$wpdb->prefix}eb_registrations (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        listing_id bigint(20) unsigned NOT NULL,
+        user_id bigint(20) unsigned NOT NULL,
+        name varchar(200) NOT NULL DEFAULT '',
+        email varchar(200) NOT NULL DEFAULT '',
+        ticket_type varchar(100) NOT NULL DEFAULT 'standard',
+        quantity int(11) NOT NULL DEFAULT 1,
+        amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        currency varchar(10) NOT NULL DEFAULT 'EUR',
+        payment_ref varchar(200) DEFAULT NULL,
+        status varchar(50) NOT NULL DEFAULT 'pending',
+        notes text,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_listing (listing_id),
+        KEY idx_user (user_id),
+        KEY idx_status (status)
+    ) $charset;";
+
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta( $sql_listings );
     dbDelta( $sql_reviews );
     dbDelta( $sql_conversations );
     dbDelta( $sql_messages );
     dbDelta( $sql_favorites );
+    dbDelta( $sql_registrations );
 }
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.8' ) {
+    if ( get_option( 'eb_db_version' ) !== '1.9' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
-        update_option( 'eb_db_version', '1.8' );
+        update_option( 'eb_db_version', '1.9' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -1973,6 +2030,40 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
+    /* ---------- REGISTRATIONS (Event-Anmeldungen / Ticketing) ---------- */
+    register_rest_route( 'eventboerse/v1', '/registrations', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_registrations_list',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_registrations_create',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/registrations/(?P<id>\d+)', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_registrations_get',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- SMTP KONFIGURATION (Admin) ---------- */
+    register_rest_route( 'eventboerse/v1', '/admin/smtp', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_admin_smtp_get',
+            'permission_callback' => function() { return current_user_can( 'manage_options' ); },
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_admin_smtp_set',
+            'permission_callback' => function() { return current_user_can( 'manage_options' ); },
+        ),
+    ) );
+
     // Admin-Reset: löscht alle eb_admin Metas (nur wenn kein eb_admin existiert oder per WP-Admin)
     register_rest_route( 'eventboerse/v1', '/admin/reset', array(
         'methods'             => 'POST',
@@ -1986,10 +2077,85 @@ function eb_register_extra_routes() {
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
 
 /** Check DB tables exist and are functional */
+/* =====================================================================
+   SMTP ADMIN ENDPOINTS
+   ===================================================================== */
+
+/**
+ * GET /admin/smtp — Gibt SMTP-Status zurück (ohne Passwort im Klartext)
+ */
+function eb_admin_smtp_get() {
+    $user       = eb_get_smtp_user();
+    $configured = eb_smtp_is_configured();
+    $source     = '';
+    if ( defined('EB_SMTP_USER') && EB_SMTP_USER ) {
+        $source = 'wp-config.php (Konstante)';
+    } elseif ( get_option('eb_smtp_user', '') ) {
+        $source = 'wp_options (via Admin-Endpoint gesetzt)';
+    } else {
+        $source = 'nicht konfiguriert – PHP-Mail Fallback aktiv';
+    }
+    return new WP_REST_Response( array(
+        'configured'  => $configured,
+        'smtp_user'   => $user ?: '(nicht gesetzt)',
+        'smtp_host'   => 'smtp.ionos.de',
+        'smtp_port'   => 587,
+        'smtp_secure' => 'tls',
+        'source'      => $source,
+    ), 200 );
+}
+
+/**
+ * POST /admin/smtp — Setzt SMTP-Credentials in wp_options
+ * Body: { "smtp_user": "...", "smtp_pass": "..." }
+ * Hinweis: Konstanten in wp-config.php haben höhere Priorität.
+ */
+function eb_admin_smtp_set( WP_REST_Request $request ) {
+    $params    = $request->get_json_params();
+    $smtp_user = sanitize_email( $params['smtp_user'] ?? '' );
+    $smtp_pass = $params['smtp_pass'] ?? '';
+
+    if ( empty( $smtp_user ) || ! is_email( $smtp_user ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige E-Mail-Adresse für SMTP.' ), 400 );
+    }
+    if ( empty( $smtp_pass ) ) {
+        return new WP_REST_Response( array( 'message' => 'SMTP-Passwort darf nicht leer sein.' ), 400 );
+    }
+
+    update_option( 'eb_smtp_user', $smtp_user );
+    update_option( 'eb_smtp_pass', $smtp_pass );
+
+    // Sofort testen
+    $test_sent = wp_mail(
+        get_option('admin_email'),
+        'Eventbörse – SMTP-Test',
+        '<p>SMTP wurde erfolgreich konfiguriert für <strong>' . esc_html($smtp_user) . '</strong>.</p>',
+        array( 'Content-Type: text/html; charset=UTF-8' )
+    );
+
+    return new WP_REST_Response( array(
+        'message'    => $test_sent
+            ? 'SMTP gespeichert. Test-Mail erfolgreich an ' . get_option('admin_email') . ' gesendet.'
+            : 'SMTP gespeichert, aber Test-Mail fehlgeschlagen. Prüfe Passwort und IONOS-Konto.',
+        'smtp_user'  => $smtp_user,
+        'test_sent'  => $test_sent,
+    ), $test_sent ? 200 : 207 );
+}
+
+/* =====================================================================
+   DIAGNOSTICS
+   ===================================================================== */
+
 function eb_diagnostics() {
     global $wpdb;
-    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites' );
-    $result = array( 'db_version' => get_option( 'eb_db_version' ), 'tables' => array() );
+    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations' );
+    $result = array(
+        'db_version'       => get_option( 'eb_db_version' ),
+        'smtp_configured'  => eb_smtp_is_configured(),
+        'smtp_user'        => eb_get_smtp_user() ?: '(nicht konfiguriert)',
+        'smtp_source'      => defined('EB_SMTP_USER') && EB_SMTP_USER ? 'wp-config.php' : ( get_option('eb_smtp_user','') ? 'wp_options' : 'fallback' ),
+        'tables'           => array(),
+    );
     foreach ( $tables as $t ) {
         $full = $wpdb->prefix . $t;
         $exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $full ) ) === $full;
@@ -2010,13 +2176,18 @@ function eb_test_mail( WP_REST_Request $request ) {
     $message = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
     $message .= '<h2 style="color:#222;margin-bottom:8px">Mail-Test erfolgreich!</h2>';
     $message .= '<p style="color:#484848;line-height:1.6">Hallo ' . esc_html( $user->first_name ?: $user->display_name ) . ', diese Test-Mail bestätigt, dass der E-Mail-Versand über SMTP korrekt funktioniert.</p>';
-    $message .= '<p style="color:#717171;font-size:13px;margin-top:20px">SMTP-Host: smtp.ionos.de<br>Von: ' . esc_html( defined('EB_SMTP_USER') ? EB_SMTP_USER : 'kontakt@xn--eventbrse-57a.de' ) . '</p>';
+    $smtp_user_display = eb_get_smtp_user() ?: 'nicht konfiguriert';
+    $message .= '<p style="color:#717171;font-size:13px;margin-top:20px">SMTP-Host: smtp.ionos.de<br>Von: ' . esc_html( $smtp_user_display ) . '</p>';
     $message .= '</div>';
 
     $sent = wp_mail( $email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
 
     if ( $sent ) {
-        return new WP_REST_Response( array( 'message' => 'Test-Mail wurde an ' . $email . ' gesendet.', 'smtp_user' => defined('EB_SMTP_USER') ? EB_SMTP_USER : '(nicht konfiguriert)' ), 200 );
+        return new WP_REST_Response( array(
+            'message'   => 'Test-Mail wurde an ' . $email . ' gesendet.',
+            'smtp_user' => $smtp_user_display,
+            'smtp_configured' => eb_smtp_is_configured(),
+        ), 200 );
     }
 
     global $phpmailer;
@@ -2024,7 +2195,15 @@ function eb_test_mail( WP_REST_Request $request ) {
     if ( isset( $phpmailer ) && is_object( $phpmailer ) ) {
         $error_info = $phpmailer->ErrorInfo;
     }
-    return new WP_REST_Response( array( 'message' => 'Mail-Versand fehlgeschlagen.', 'smtp_user' => defined('EB_SMTP_USER') ? EB_SMTP_USER : '(nicht konfiguriert)', 'error' => $error_info ), 500 );
+    return new WP_REST_Response( array(
+        'message'          => 'Mail-Versand fehlgeschlagen.',
+        'smtp_user'        => eb_get_smtp_user() ?: '(nicht konfiguriert)',
+        'smtp_configured'  => eb_smtp_is_configured(),
+        'error'            => $error_info,
+        'hint'             => eb_smtp_is_configured()
+            ? 'SMTP konfiguriert, aber Verbindung fehlgeschlagen. Prüfe das Passwort und den IONOS-Account.'
+            : 'SMTP nicht konfiguriert. POST /wp-json/eventboerse/v1/admin/smtp mit {smtp_user, smtp_pass} aufrufen.',
+    ), 500 );
 }
 
 /* =====================================================================
@@ -3330,4 +3509,154 @@ function eb_admin_reset( WP_REST_Request $request ) {
         'reset'   => true,
         'removed' => $removed,
     ), 200 );
+}
+
+/* =====================================================================
+   REGISTRATIONS (Event-Anmeldungen / Ticketing)
+   ===================================================================== */
+
+/** List registrations for current user (or all if admin) */
+function eb_registrations_list( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid = get_current_user_id();
+    $is_admin = eb_is_admin_user();
+
+    $listing_id = absint( $request->get_param( 'listing_id' ) );
+
+    if ( $listing_id && $is_admin ) {
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}eb_registrations WHERE listing_id = %d ORDER BY created_at DESC",
+            $listing_id
+        ), ARRAY_A );
+    } elseif ( $listing_id ) {
+        // Non-admin: nur eigene Registrierungen für dieses Listing
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}eb_registrations WHERE listing_id = %d AND user_id = %d ORDER BY created_at DESC",
+            $listing_id, $uid
+        ), ARRAY_A );
+    } else {
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}eb_registrations WHERE user_id = %d ORDER BY created_at DESC",
+            $uid
+        ), ARRAY_A );
+    }
+
+    $formatted = array_map( 'eb_format_registration', $rows ?: array() );
+    return new WP_REST_Response( $formatted, 200 );
+}
+
+/** Get single registration */
+function eb_registrations_get( WP_REST_Request $request ) {
+    global $wpdb;
+    $id  = absint( $request['id'] );
+    $uid = get_current_user_id();
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_registrations WHERE id = %d",
+        $id
+    ), ARRAY_A );
+
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Anmeldung nicht gefunden.' ), 404 );
+    }
+
+    // Only owner or admin may view
+    if ( (int) $row['user_id'] !== $uid && ! eb_is_admin_user() ) {
+        return new WP_REST_Response( array( 'message' => 'Keine Berechtigung.' ), 403 );
+    }
+
+    return new WP_REST_Response( eb_format_registration( $row ), 200 );
+}
+
+/** Create a new registration */
+function eb_registrations_create( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid    = get_current_user_id();
+    $params = $request->get_json_params();
+
+    $listing_id = absint( $params['listing_id'] ?? $params['event_id'] ?? 0 );
+    if ( ! $listing_id ) {
+        return new WP_REST_Response( array( 'message' => 'listing_id ist erforderlich.' ), 400 );
+    }
+
+    // Check listing exists
+    $listing = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d",
+        $listing_id
+    ), ARRAY_A );
+    if ( ! $listing ) {
+        return new WP_REST_Response( array( 'message' => 'Listing nicht gefunden.' ), 404 );
+    }
+
+    // Check for duplicate registration
+    $existing = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_registrations WHERE listing_id = %d AND user_id = %d AND status != 'cancelled'",
+        $listing_id, $uid
+    ) );
+    if ( $existing ) {
+        return new WP_REST_Response( array( 'message' => 'Bereits angemeldet.', 'registration_id' => (int) $existing ), 409 );
+    }
+
+    $user = get_userdata( $uid );
+    $name        = sanitize_text_field( $params['name'] ?? $user->display_name );
+    $email       = sanitize_email( $params['email'] ?? $user->user_email );
+    $ticket_type = sanitize_text_field( $params['ticket_type'] ?? 'standard' );
+    $quantity    = max( 1, absint( $params['quantity'] ?? 1 ) );
+    $amount      = floatval( $params['amount'] ?? 0 );
+    $currency    = sanitize_text_field( $params['currency'] ?? 'EUR' );
+    $payment_ref = sanitize_text_field( $params['payment_ref'] ?? '' );
+    $notes       = sanitize_textarea_field( $params['notes'] ?? '' );
+
+    $now = current_time( 'mysql' );
+
+    $wpdb->insert( $wpdb->prefix . 'eb_registrations', array(
+        'listing_id'  => $listing_id,
+        'user_id'     => $uid,
+        'name'        => $name,
+        'email'       => $email,
+        'ticket_type' => $ticket_type,
+        'quantity'    => $quantity,
+        'amount'      => $amount,
+        'currency'    => $currency,
+        'payment_ref' => $payment_ref ?: null,
+        'status'      => 'confirmed',
+        'notes'       => $notes,
+        'created_at'  => $now,
+        'updated_at'  => $now,
+    ) );
+
+    $new_id = $wpdb->insert_id;
+    if ( ! $new_id ) {
+        return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen.' ), 500 );
+    }
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_registrations WHERE id = %d",
+        $new_id
+    ), ARRAY_A );
+
+    return new WP_REST_Response( array(
+        'message'      => 'Anmeldung erfolgreich.',
+        'registration' => eb_format_registration( $row ),
+    ), 201 );
+}
+
+/** Format registration row for API response */
+function eb_format_registration( $row ) {
+    return array(
+        'id'          => (int) $row['id'],
+        'listingId'   => (int) $row['listing_id'],
+        'userId'      => (int) $row['user_id'],
+        'name'        => $row['name'],
+        'email'       => $row['email'],
+        'ticketType'  => $row['ticket_type'],
+        'quantity'    => (int) $row['quantity'],
+        'amount'      => (float) $row['amount'],
+        'currency'    => $row['currency'],
+        'paymentRef'  => $row['payment_ref'],
+        'status'      => $row['status'],
+        'notes'       => $row['notes'],
+        'createdAt'   => $row['created_at'],
+        'updatedAt'   => $row['updated_at'],
+    );
 }
