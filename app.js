@@ -1201,23 +1201,11 @@ function toggleFeedFav(btn, id) {
 }
 
 function detectWideBannerCards(container) {
-  if (!container) return;
-  container.querySelectorAll('.listing-card-img img').forEach(detectWideBannerImg);
+  // no-op: always use object-fit: cover to fill widgets
 }
 
 function detectWideBannerImg(img) {
-  if (!img) return;
-  function check() {
-    if (img.naturalWidth && img.naturalHeight) {
-      var r = img.naturalWidth / img.naturalHeight;
-      if (r > 2.2) {
-        img.style.objectFit = 'contain';
-        img.style.background = 'var(--bg-alt)';
-      }
-    }
-  }
-  if (img.complete) check();
-  else img.addEventListener('load', check);
+  // no-op: always use object-fit: cover to fill widgets
 }
 
 // ========== SHARED GRID INIT (click + swipe for all listing grids) ==========
