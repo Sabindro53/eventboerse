@@ -920,7 +920,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -930,7 +930,6 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   user-select: none;
   -webkit-user-select: none;
   cursor: grab;
-  padding-right: 60px;
 }
 .browse-categories-inner:active { cursor: grabbing; }
 .browse-categories-inner::-webkit-scrollbar { display: none; }
