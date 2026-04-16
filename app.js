@@ -1934,9 +1934,18 @@ function _initCategoryScrollHint() {
 }
 
 function filterByCategory(btn, cat) {
+  // On mobile: if "Alle" is tapped, open category picker sheet
+  if (cat === '' && window.innerWidth <= 768) {
+    openMobileCatPicker();
+    return;
+  }
   // Toggle active state on category buttons
   document.querySelectorAll('.cat-icon-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
+  // Sync mobile picker active state
+  document.querySelectorAll('.mobile-cat-option').forEach(function(o) {
+    o.classList.toggle('active', o.getAttribute('data-cat') === (cat || ''));
+  });
   // Set the category dropdown to match (empty string = all)
   var sel = document.getElementById('browseCategory');
   if (sel) sel.value = cat || '';
@@ -1944,6 +1953,50 @@ function filterByCategory(btn, cat) {
   // Scroll results into view
   var grid = document.getElementById('browseGrid');
   if (grid) window.scrollTo({ top: grid.getBoundingClientRect().top + window.pageYOffset - 100, behavior: 'smooth' });
+}
+
+// ========== MOBILE CATEGORY PICKER ==========
+function openMobileCatPicker() {
+  var overlay = document.getElementById('mobileCatOverlay');
+  var sheet = document.getElementById('mobileCatSheet');
+  if (!overlay || !sheet) return;
+  overlay.classList.add('open');
+  sheet.classList.add('open');
+  // Force reflow for animation
+  sheet.offsetHeight;
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileCatPicker() {
+  var overlay = document.getElementById('mobileCatOverlay');
+  var sheet = document.getElementById('mobileCatSheet');
+  if (!overlay || !sheet) return;
+  overlay.classList.remove('open');
+  sheet.classList.remove('open');
+  document.body.style.overflow = '';
+}
+function selectMobileCategory(btn, cat) {
+  // Update mobile picker active state
+  document.querySelectorAll('.mobile-cat-option').forEach(function(o) { o.classList.remove('active'); });
+  btn.classList.add('active');
+  // Sync category bar buttons
+  document.querySelectorAll('.cat-icon-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.cat-icon-btn').forEach(function(b) {
+    var btnCat = b.getAttribute('onclick');
+    if (cat === '' && btnCat && btnCat.indexOf("''") !== -1) b.classList.add('active');
+    else if (cat && btnCat && btnCat.indexOf("'" + cat + "'") !== -1) b.classList.add('active');
+  });
+  // Set the category dropdown
+  var sel = document.getElementById('browseCategory');
+  if (sel) sel.value = cat || '';
+  closeMobileCatPicker();
+  filterListings();
+  // Scroll results into view
+  var grid = document.getElementById('browseGrid');
+  if (grid) {
+    setTimeout(function() {
+      window.scrollTo({ top: grid.getBoundingClientRect().top + window.pageYOffset - 100, behavior: 'smooth' });
+    }, 100);
+  }
 }
 
 function updateChipLabel(sel) {

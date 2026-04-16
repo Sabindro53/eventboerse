@@ -606,6 +606,59 @@
         </div>
       </div>
 
+      <!-- Mobile Category Picker Sheet -->
+      <div class="mobile-cat-overlay" id="mobileCatOverlay" onclick="closeMobileCatPicker()"></div>
+      <div class="mobile-cat-sheet" id="mobileCatSheet">
+        <div class="mobile-cat-sheet-handle"></div>
+        <h3 class="mobile-cat-sheet-title">Kategorie wählen</h3>
+        <div class="mobile-cat-grid">
+          <button class="mobile-cat-option active" data-cat="" onclick="selectMobileCategory(this, '')">
+            <span class="material-icons-round">apps</span>
+            <span>Alle</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="dj" onclick="selectMobileCategory(this, 'dj')">
+            <span class="cat-emoji">🎧</span>
+            <span>DJ & Musik</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="catering" onclick="selectMobileCategory(this, 'catering')">
+            <span class="cat-emoji">🍽️</span>
+            <span>Catering</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="foto" onclick="selectMobileCategory(this, 'foto')">
+            <span class="cat-emoji">📸</span>
+            <span>Fotografie</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="florist" onclick="selectMobileCategory(this, 'florist')">
+            <span class="cat-emoji">💐</span>
+            <span>Floristik</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="location" onclick="selectMobileCategory(this, 'location')">
+            <span class="cat-emoji">🏰</span>
+            <span>Locations</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="licht" onclick="selectMobileCategory(this, 'licht')">
+            <span class="cat-emoji">💡</span>
+            <span>Licht & Technik</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="pyro" onclick="selectMobileCategory(this, 'pyro')">
+            <span class="cat-emoji">🎆</span>
+            <span>Pyrotechnik</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="deko" onclick="selectMobileCategory(this, 'deko')">
+            <span class="cat-emoji">🎨</span>
+            <span>Dekoration</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="planung" onclick="selectMobileCategory(this, 'planung')">
+            <span class="cat-emoji">📋</span>
+            <span>Planung</span>
+          </button>
+          <button class="mobile-cat-option" data-cat="moderation" onclick="selectMobileCategory(this, 'moderation')">
+            <span class="cat-emoji">🎤</span>
+            <span>Moderation</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Marquee accent -->
       <div class="hero-marquee hero-marquee-above">
         <div class="hero-marquee-track"></div>
