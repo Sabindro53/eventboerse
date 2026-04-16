@@ -2903,9 +2903,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   aspect-ratio: 16 / 9;
   max-height: 560px;
   margin-bottom: 32px;
-  margin-left: -24px;
-  margin-right: -24px;
-  width: calc(100% + 48px);
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  width: 100vw;
   box-shadow: none;
 }
 @supports not (aspect-ratio: 16 / 9) {
