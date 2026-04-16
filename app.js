@@ -1213,7 +1213,7 @@ function detectWideBannerImg(img) {
       var r = img.naturalWidth / img.naturalHeight;
       if (r > 2.2) {
         img.style.setProperty('object-fit', 'contain', 'important');
-        img.style.background = '#000';
+        img.style.background = '#fff';
       }
     }
   }
