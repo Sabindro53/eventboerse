@@ -1201,11 +1201,23 @@ function toggleFeedFav(btn, id) {
 }
 
 function detectWideBannerCards(container) {
-  // no-op: always use object-fit: cover for listing images
+  if (!container) return;
+  container.querySelectorAll('.listing-card-img img').forEach(detectWideBannerImg);
 }
 
 function detectWideBannerImg(img) {
-  // no-op: always use object-fit: cover for listing images
+  if (!img) return;
+  function check() {
+    if (img.naturalWidth && img.naturalHeight) {
+      var r = img.naturalWidth / img.naturalHeight;
+      if (r > 2.2) {
+        img.style.objectFit = 'contain';
+        img.style.background = 'var(--bg-alt)';
+      }
+    }
+  }
+  if (img.complete) check();
+  else img.addEventListener('load', check);
 }
 
 // ========== SHARED GRID INIT (click + swipe for all listing grids) ==========
