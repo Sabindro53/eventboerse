@@ -6268,16 +6268,18 @@ span.flatpickr-weekday {
   .listing-card-img img {
     border-radius: 20px 20px 0 0;
   }
-  /* Disable horizontal touch-scroll on gallery so vertical page scroll is never blocked */
+  /* Allow horizontal touch-swipe on gallery cards */
   .listing-card .grid-gallery-track {
-    overflow: hidden;
-    touch-action: pan-y;
+    overflow-x: auto;
+    overflow-y: hidden;
+    touch-action: pan-x pan-y;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
     cursor: default;
   }
   .listing-card .grid-gallery-track:active {
     cursor: default;
   }
-  /* Always show arrows on mobile since swipe is disabled */
   .listing-card .grid-gallery-arrow {
     opacity: 0.85;
   }
