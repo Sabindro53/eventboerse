@@ -942,6 +942,7 @@ function renderHeroMarquees() {
     track.style.animation = 'none';
     track.style.transform = 'translateX(0)';
     track.style.willChange = 'transform';
+    track.querySelectorAll('.hero-marquee-card img').forEach(detectWideBannerImg);
   });
 
   // Start rAF-based animation once images in the first set are loaded (or after 1s fallback)
@@ -1211,7 +1212,7 @@ function detectWideBannerImg(img) {
     if (img.naturalWidth && img.naturalHeight) {
       var r = img.naturalWidth / img.naturalHeight;
       if (r > 2.2) {
-        img.style.objectFit = 'contain';
+        img.style.setProperty('object-fit', 'contain', 'important');
         img.style.background = '#000';
       }
     }
