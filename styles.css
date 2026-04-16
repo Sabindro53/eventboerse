@@ -160,7 +160,7 @@ img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; 
 
 /* ---- Utilities ---- */
 .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
-#page-detail .container { max-width: 1060px; }
+#page-detail .container { max-width: 1060px; overflow: visible; }
 .container-sm { max-width: 720px; }
 .center { text-align: center; }
 .accent { color: var(--primary); }
@@ -2903,9 +2903,12 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   aspect-ratio: 16 / 9;
   max-height: 560px;
   margin-bottom: 32px;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
   width: 100vw;
+  max-width: none;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-left: 0;
+  margin-right: 0;
   box-shadow: none;
 }
 @supports not (aspect-ratio: 16 / 9) {
@@ -6379,7 +6382,7 @@ span.flatpickr-weekday {
   .detail-container > .detail-provider-row { order: 5; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
   .detail-container > .detail-layout { order: 6; }
 
-  .detail-gallery { aspect-ratio: 16 / 9; max-height: none; border-radius: var(--radius-md); box-shadow: none; }
+  .detail-gallery { aspect-ratio: 16 / 9; max-height: none; border-radius: 0; box-shadow: none; width: 100vw; max-width: none; left: 50%; transform: translateX(-50%); }
   .detail-gallery-arrow { display: none !important; }
   .listing-live-preview-gallery { aspect-ratio: 4 / 3; }
   .listing-live-preview-arrow { display: none !important; }
