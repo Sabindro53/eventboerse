@@ -9411,6 +9411,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
   .browse-hero-stats { gap: 16px; }
   .hero-stat strong { font-size: 1.1rem; }
   .browse-categories-bar { top: var(--nav-height); }
+  .browse-categories-inner { justify-content: flex-start; }
   .cat-icon-btn { padding: 10px 14px; font-size: 0.68rem; min-width: 50px; }
   .cat-emoji, .cat-icon-btn .material-icons-round { font-size: 20px; }
   .browse-how-grid { grid-template-columns: 1fr; gap: 24px; }
