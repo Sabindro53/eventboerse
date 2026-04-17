@@ -2737,12 +2737,19 @@ function _enterProviderEdit() {
   }
   var avatarImg = document.getElementById('providerAvatar');
   if (avatarImg && !avatarImg.parentElement.querySelector('.prov-edit-avatar-overlay')) {
+    // Wrap avatar in a relative container if not already wrapped
+    var avatarWrapper = avatarImg.parentElement;
+    if (!avatarWrapper.classList.contains('prov-avatar-wrapper')) {
+      avatarWrapper = document.createElement('div');
+      avatarWrapper.className = 'prov-avatar-wrapper';
+      avatarImg.parentNode.insertBefore(avatarWrapper, avatarImg);
+      avatarWrapper.appendChild(avatarImg);
+    }
     var overlay = document.createElement('div');
     overlay.className = 'prov-edit-avatar-overlay';
     overlay.innerHTML = '<span class="material-icons-round">photo_camera</span>';
     overlay.onclick = function() { document.getElementById('provEditAvatarInput').click(); };
-    avatarImg.parentElement.style.position = 'relative';
-    avatarImg.parentElement.appendChild(overlay);
+    avatarWrapper.appendChild(overlay);
     // Hidden file input
     if (!document.getElementById('provEditAvatarInput')) {
       var inp = document.createElement('input');

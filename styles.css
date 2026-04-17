@@ -3741,6 +3741,12 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   pointer-events: none;
   opacity: 0.6;
 }
+.prov-avatar-wrapper {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  flex-shrink: 0;
+}
 .prov-edit-avatar-overlay {
   position: absolute;
   inset: 0;
