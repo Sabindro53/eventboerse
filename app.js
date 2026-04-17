@@ -6214,6 +6214,11 @@ document.addEventListener('DOMContentLoaded', function() {
   initTimePickers();
   initFeatureSearch();
 
+  // Clear all browse filters on fresh page load (prevent browser form restoration)
+  ['browseSearch','browseCategory','browseEventType','browseLocation','browsePrice','browseRating'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value = '';
+  });
+
   // Handle initial route (deep links, clean URLs, legacy hash)
   var initRoute = _readSpaRoute();
   var initPage = initRoute.page;
