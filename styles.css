@@ -2900,15 +2900,15 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 
 .detail-gallery {
   position: relative;
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   aspect-ratio: 16 / 9;
   max-height: 560px;
   margin-bottom: 32px;
-  width: 100vw;
-  max-width: none;
-  left: 50%;
-  transform: translateX(-50%);
+  width: 100%;
+  max-width: 100%;
+  left: auto;
+  transform: none;
   margin-left: 0;
   margin-right: 0;
   box-shadow: none;
