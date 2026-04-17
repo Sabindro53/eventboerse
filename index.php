@@ -11,7 +11,7 @@ get_header();
   <!-- ============ NAVIGATION ============ -->
   <nav id="navbar">
     <div class="nav-inner">
-      <a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="logo">
+      <a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="logo" onclick="navigateTo('browse');return false;">
         <span class="logo-icon material-icons-round">celebration</span>
         <span class="logo-text">Event<span class="accent">börse</span></span>
       </a>

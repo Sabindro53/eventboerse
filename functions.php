@@ -115,9 +115,50 @@ function eventboerse_enqueue_assets() {
         'nonce'      => wp_create_nonce( 'wp_rest' ),
         'isLoggedIn' => is_user_logged_in(),
         'user'       => $user_data,
+        'siteUrl'    => trailingslashit( home_url() ),
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
+
+/**
+ * SPA-Routing: Alle Front-End-Pfade auf index.php weiterleiten,
+ * damit die Single-Page-App die Navigation übernimmt.
+ */
+add_action( 'init', function() {
+    // Definierte SPA-Seiten
+    $spa_pages = array(
+        'browse', 'detail', 'provider', 'messages', 'profile',
+        'create-listing', 'edit-profile', 'settings', 'admin',
+        'event-erstellen', 'service-erstellen', 'aktuelles',
+        'explore', 'board', 'contact', 'impressum', 'datenschutz',
+        'agb', 'favorites',
+    );
+    foreach ( $spa_pages as $slug ) {
+        add_rewrite_rule( '^' . $slug . '/?$', 'index.php?eb_spa=1', 'top' );
+        add_rewrite_rule( '^' . $slug . '/([^/]+)/?$', 'index.php?eb_spa=1', 'top' );
+    }
+} );
+
+/* eb_spa Query-Var registrieren */
+add_filter( 'query_vars', function( $vars ) {
+    $vars[] = 'eb_spa';
+    return $vars;
+} );
+
+/* 404 verhindern für SPA-Routen */
+add_filter( 'pre_handle_404', function( $preempt, $wp_query ) {
+    if ( get_query_var( 'eb_spa' ) ) {
+        $wp_query->is_404 = false;
+        status_header( 200 );
+        return true;
+    }
+    return $preempt;
+}, 10, 2 );
+
+/* Rewrite-Rules beim Theme-Aktivieren flushen */
+add_action( 'after_switch_theme', function() {
+    flush_rewrite_rules();
+} );
 
 /* Prevent Safari (and others) from caching page with stale auth state */
 add_action( 'send_headers', function() {

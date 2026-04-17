@@ -502,6 +502,40 @@ const DEMO_EVENTS = [
   }
 ];
 
+// ========== SPA PATH HELPERS ==========
+var _spaBase = (typeof eventboerseApi !== 'undefined' && eventboerseApi.siteUrl)
+  ? new URL(eventboerseApi.siteUrl).pathname.replace(/\/+$/, '')
+  : '';
+
+function _spaPath(page, data) {
+  if (!page || page === 'browse') return _spaBase + '/';
+  return _spaBase + '/' + page + (data ? '/' + data : '');
+}
+
+function _readSpaRoute() {
+  // First check for legacy hash routes and convert them
+  var hash = window.location.hash.replace(/^#/, '');
+  if (hash) {
+    var parts = hash.split('/');
+    return { page: parts[0] || 'browse', data: parts[1] ? (isNaN(parts[1]) ? parts[1] : parseInt(parts[1])) : null };
+  }
+  // Read from pathname
+  var path = window.location.pathname;
+  if (_spaBase) path = path.replace(new RegExp('^' + _spaBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '');
+  path = path.replace(/^\/+|\/+$/g, '');
+  if (!path) return { page: 'browse', data: null };
+  var parts = path.split('/');
+  var pg = parts[0] || 'browse';
+  var dt = parts[1] ? (isNaN(parts[1]) ? parts[1] : parseInt(parts[1])) : null;
+  return { page: pg, data: dt };
+}
+
+// Prevent href="#" from appending "#" to clean URLs
+document.addEventListener('click', function(e) {
+  var link = e.target.closest('a[href="#"]');
+  if (link) e.preventDefault();
+});
+
 // ========== STATE ==========
 let currentPage = 'browse';
 let currentListing = null;
@@ -510,10 +544,13 @@ let isLoggedIn = false;
 let favorites = new Set();
 
 // Startseite immer auf Suche umleiten (ohne Reload):
-if (window.location.hash === '#home' || window.location.hash === '' || window.location.hash === '#') {
-  window.history.replaceState(null, '', window.location.pathname + window.location.search + '#browse');
-  currentPage = 'browse';
-}
+(function() {
+  var route = _readSpaRoute();
+  if (route.page === 'home' || route.page === 'browse') {
+    window.history.replaceState({ page: 'browse', data: null }, '', _spaPath('browse'));
+    currentPage = 'browse';
+  }
+})();
 let _dbListingsLoaded = false;
 let _favoritesLoaded = false;
 
@@ -523,8 +560,9 @@ function forceBrowsePage() {
   var browse = document.getElementById('page-browse');
   if (!browse) return;
 
-  if (window.location.hash === '#home' || window.location.hash === '' || window.location.hash === '#') {
-    history.replaceState(null, '', window.location.pathname + window.location.search + '#browse');
+  var route = _readSpaRoute();
+  if (route.page === 'home' || route.page === 'browse' || !route.page) {
+    history.replaceState({ page: 'browse', data: null }, '', _spaPath('browse'));
   }
 
   if (home) home.classList.remove('active');
@@ -532,7 +570,7 @@ function forceBrowsePage() {
   browse.classList.add('active');
   currentPage = 'browse';
 
-  console.log('[forceBrowsePage]', window.location.hash, 'state', {
+  console.log('[forceBrowsePage]', window.location.pathname, 'state', {
     home: home ? home.className : null,
     browse: browse.className,
     currentPage
@@ -696,7 +734,7 @@ function navigateTo(page, data, skipHistory) {
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
-    window.history.pushState({ page: page, data: data || null }, '', '#' + page + (data ? '/' + data : ''));
+    window.history.pushState({ page: page, data: data || null }, '', _spaPath(page, data));
   }
 
   // Deactivate all pages
@@ -6169,16 +6207,20 @@ document.addEventListener('DOMContentLoaded', function() {
   initTimePickers();
   initFeatureSearch();
 
-  // Handle initial hash route (deep links)
-  var hash = window.location.hash.replace('#', '');
-  if (hash && hash !== 'home') {
-    var parts = hash.split('/');
-    var initPage = parts[0];
-    var initData = parts[1] ? (isNaN(parts[1]) ? parts[1] : parseInt(parts[1])) : null;
-    window.history.replaceState({ page: initPage, data: initData }, '', '#' + hash);
+  // Handle initial route (deep links, clean URLs, legacy hash)
+  var initRoute = _readSpaRoute();
+  var initPage = initRoute.page;
+  var initData = initRoute.data;
+  if (initPage === 'home') initPage = 'browse';
+  // Clean up legacy hash if present
+  if (window.location.hash) {
+    window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
+  } else {
+    window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
+  }
+  if (initPage && initPage !== 'browse') {
     navigateTo(initPage, initData, true);
   } else {
-    window.history.replaceState({ page: 'browse', data: null }, '', '#browse');
     navigateTo('browse', null, true);
   }
 
