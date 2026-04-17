@@ -40,3 +40,41 @@ jobs:
             echo '--- Deploy complete ---';
             bye
           "
+
+      - name: Inject SMTP credentials into wp-config.php
+        env:
+          SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
+          SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+          SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
+          SMTP_USER: ${{ secrets.EB_SMTP_USER }}
+          SMTP_PASS: ${{ secrets.EB_SMTP_PASS }}
+        run: |
+          if [ -z "$SMTP_USER" ] || [ -z "$SMTP_PASS" ]; then
+            echo "⚠️ SMTP secrets not set, skipping wp-config injection"
+            exit 0
+          fi
+          # Download wp-config.php
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            get /public/wp-config.php -o /tmp/wp-config.php;
+            bye
+          "
+          # Only add if not already present
+          if grep -q 'EB_SMTP_USER' /tmp/wp-config.php; then
+            echo "✅ SMTP constants already present in wp-config.php"
+          else
+            echo "Adding SMTP constants to wp-config.php..."
+            sed -i "/^<\?php/a\\
+            \\
+            /* Eventbörse SMTP Config (injected by deploy) */\\
+            define('EB_SMTP_USER', '${SMTP_USER}');\\
+            define('EB_SMTP_PASS', '${SMTP_PASS}');" /tmp/wp-config.php
+            # Upload modified wp-config.php
+            lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+              set sftp:auto-confirm yes;
+              put /tmp/wp-config.php -o /public/wp-config.php;
+              bye
+            "
+            echo "✅ SMTP constants added to wp-config.php"
+          fi
+          rm -f /tmp/wp-config.php
