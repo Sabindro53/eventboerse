@@ -261,7 +261,8 @@ add_action('phpmailer_init', function($phpmailer) {
 // From-Adresse muss mit dem SMTP-Login identisch sein (IONOS-Anforderung)
 add_filter( 'wp_mail_from', function() {
     $user = eb_get_smtp_user();
-    return $user ?: 'kontakt@xn--eventbrse-57a.de';
+    if ( $user ) return $user; // SMTP: kontakt@eventbörse.de
+    return 'noreply@xn--eventbrse-57a.de'; // Fallback ohne SMTP
 } );
 add_filter( 'wp_mail_from_name', function() {
     return 'Eventbörse';
