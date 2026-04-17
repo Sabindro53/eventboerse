@@ -59,9 +59,12 @@ jobs:
             get /public/wp-config.php -o /tmp/wp-config.php;
             bye
           "
-          # Only add if not already present
+          # Only add if not already present, or update if values changed
           if grep -q 'EB_SMTP_USER' /tmp/wp-config.php; then
-            echo "✅ SMTP constants already present in wp-config.php"
+            echo "Updating SMTP constants in wp-config.php..."
+            sed -i "s|define('EB_SMTP_USER', '.*')|define('EB_SMTP_USER', '${SMTP_USER}')|" /tmp/wp-config.php
+            sed -i "s|define('EB_SMTP_PASS', '.*')|define('EB_SMTP_PASS', '${SMTP_PASS}')|" /tmp/wp-config.php
+            CHANGED=true
           else
             echo "Adding SMTP constants to wp-config.php..."
             sed -i "/^<\?php/a\\
@@ -69,12 +72,15 @@ jobs:
             /* Eventbörse SMTP Config (injected by deploy) */\\
             define('EB_SMTP_USER', '${SMTP_USER}');\\
             define('EB_SMTP_PASS', '${SMTP_PASS}');" /tmp/wp-config.php
+            CHANGED=true
+          fi
+          if [ "$CHANGED" = "true" ]; then
             # Upload modified wp-config.php
             lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
               set sftp:auto-confirm yes;
               put /tmp/wp-config.php -o /public/wp-config.php;
               bye
             "
-            echo "✅ SMTP constants added to wp-config.php"
+            echo "✅ SMTP constants updated in wp-config.php"
           fi
           rm -f /tmp/wp-config.php
