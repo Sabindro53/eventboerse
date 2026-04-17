@@ -1039,7 +1039,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 /* ======== BROWSE HOW-IT-WORKS ======== */
 .browse-how-section {
   background: var(--bg-alt);
-  padding: 64px 0;
+  padding: 40px 0;
 }
 .browse-how-inner {
   max-width: 1100px;
@@ -1111,7 +1111,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 
 /* ======== BROWSE CTA ======== */
 .browse-cta-section {
-  padding: 48px 24px;
+  padding: 24px 24px;
 }
 .browse-cta-inner {
   max-width: 1100px;
@@ -9509,7 +9509,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
   }
   .cat-emoji, .cat-icon-btn .material-icons-round { font-size: 20px; }
   .browse-how-grid { grid-template-columns: 1fr; gap: 24px; }
-  .browse-how-section { padding: 48px 0; }
+  .browse-how-section { padding: 32px 0; }
   .browse-cta-inner {
     flex-direction: column;
     text-align: center;
