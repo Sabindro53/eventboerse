@@ -1227,7 +1227,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   position: relative;
   width: 100%;
   max-width: 100%;
-  margin: 12px 0;
+  margin: 0;
   padding: 14px 0;
   overflow: hidden;
   border-radius: 0;
@@ -1263,10 +1263,10 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   background: linear-gradient(to left, rgba(255,255,255,0.95), transparent);
 }
 .hero-marquee-above {
-  margin-top: 20px;
+  margin-top: 0;
 }
 .hero-marquee-below {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 /* ---- Marquee Track ---- */
@@ -6297,7 +6297,7 @@ span.flatpickr-weekday {
   .hero-marquee-above,
   .hero-marquee-below {
     width: 100%;
-    margin: 8px 0;
+    margin: 0;
     padding: 10px 0;
     border-radius: 0;
     background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78));
@@ -6308,8 +6308,8 @@ span.flatpickr-weekday {
     border-bottom: 1px solid rgba(227, 28, 95, 0.06);
     box-shadow: 0 12px 36px rgba(34, 34, 34, 0.07);
   }
-  .hero-marquee-above { margin-top: 8px; }
-  .hero-marquee-below { margin-top: 4px; }
+  .hero-marquee-above { margin-top: 0; }
+  .hero-marquee-below { margin-top: 0; }
   /* Softer edge fades on mobile */
   .hero-marquee-above::before,
   .hero-marquee-above::after,
