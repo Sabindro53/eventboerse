@@ -3103,7 +3103,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   align-items: center;
   gap: 16px;
 }
-.detail-provider-avatar { width: 56px; height: 56px; border-radius: 50%; }
+.detail-provider-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
 .detail-provider-row strong { display: block; font-size: 1rem; color: var(--dark); }
 .detail-provider-row p { font-size: 0.85rem; color: var(--text-light); }
 #detailEditBtn { margin-left: auto; }
