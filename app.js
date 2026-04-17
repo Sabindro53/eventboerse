@@ -744,8 +744,11 @@ function navigateTo(page, data, skipHistory) {
   // ── Always restore scrolling (modal/lightbox might have locked it) ──
   document.body.style.overflow = '';
   document.body.style.touchAction = '';
-  // Close any open lightboxes/modals silently
-  document.querySelectorAll('.modal-overlay.show, .provider-lightbox.show, .gallery-lightbox.show, .cover-lightbox.show').forEach(function(el) { el.classList.remove('show'); });
+  // Close any open lightboxes/modals silently (except auth modals)
+  var _authModals = ['loginModal','registerModal','forgotModal','resetPasswordModal','loginOtpModal','registerOtpModal','verifyModal','passkeySetupModal'];
+  document.querySelectorAll('.modal-overlay.show, .provider-lightbox.show, .gallery-lightbox.show, .cover-lightbox.show').forEach(function(el) {
+    if (_authModals.indexOf(el.id) === -1) el.classList.remove('show');
+  });
   // Clear cinema preview if running
   if (_cinemaTimer) { clearInterval(_cinemaTimer); _cinemaTimer = null; }
   // Stop gallery row animations when leaving provider page
