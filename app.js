@@ -996,18 +996,31 @@ function renderHeroMarquees() {
     track.parentElement.addEventListener('mouseenter', function() { paused = true; });
     track.parentElement.addEventListener('mouseleave', function() { paused = false; });
 
+    // ── Prevent click after drag/swipe (threshold 8px) ──
+    var wasDragged = false;
+    track.addEventListener('click', function(e) {
+      if (wasDragged) {
+        e.preventDefault();
+        e.stopPropagation();
+        wasDragged = false;
+      }
+    }, true);
+
     // ── Touch: pause while touching, allow drag ──
-    var touchStartX = 0, touchStartOffset = 0, touching = false;
+    var touchStartX = 0, touchStartY = 0, touchStartOffset = 0, touching = false;
     track.addEventListener('touchstart', function(e) {
       paused = true;
       touching = true;
+      wasDragged = false;
       touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
       touchStartOffset = offset;
     }, { passive: true });
 
     track.addEventListener('touchmove', function(e) {
       if (!touching) return;
       var dx = e.touches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 8) wasDragged = true;
       offset = touchStartOffset + dx;
       if (half > 10) {
         while (offset > 0) offset -= half;
@@ -1029,6 +1042,7 @@ function renderHeroMarquees() {
     track.addEventListener('mousedown', function(e) {
       if (e.button !== 0) return;
       dragging = true;
+      wasDragged = false;
       paused = true;
       dragStartX = e.clientX;
       dragStartOffset = offset;
@@ -1038,6 +1052,7 @@ function renderHeroMarquees() {
     document.addEventListener('mousemove', function(e) {
       if (!dragging) return;
       var dx = e.clientX - dragStartX;
+      if (Math.abs(dx) > 8) wasDragged = true;
       offset = dragStartOffset + dx;
       if (half > 10) {
         while (offset > 0) offset -= half;

@@ -1225,16 +1225,18 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .hero-marquee-above,
 .hero-marquee-below {
   position: relative;
-  width: calc(100% - 32px);
-  max-width: 1200px;
-  margin: 12px auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 12px 0;
   padding: 14px 0;
   overflow: hidden;
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.35);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(221, 221, 221, 0.25);
+  border: none;
+  border-top: 1px solid rgba(221, 221, 221, 0.25);
+  border-bottom: 1px solid rgba(221, 221, 221, 0.25);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 /* Smooth fade-out masks at left/right edges */
@@ -1423,7 +1425,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 @media (max-width: 1023px) {
   .hero-marquee-above,
   .hero-marquee-below {
-    width: calc(100% - 24px);
+    width: 100%;
   }
   .hero-marquee-card {
     width: 200px;
@@ -6294,14 +6296,16 @@ span.flatpickr-weekday {
   .browse-view-toggles { display: none; }
   .hero-marquee-above,
   .hero-marquee-below {
-    width: calc(100% - 20px);
-    margin: 8px auto;
+    width: 100%;
+    margin: 8px 0;
     padding: 10px 0;
-    border-radius: 18px;
+    border-radius: 0;
     background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(227, 28, 95, 0.06);
+    border: none;
+    border-top: 1px solid rgba(227, 28, 95, 0.06);
+    border-bottom: 1px solid rgba(227, 28, 95, 0.06);
     box-shadow: 0 12px 36px rgba(34, 34, 34, 0.07);
   }
   .hero-marquee-above { margin-top: 8px; }
