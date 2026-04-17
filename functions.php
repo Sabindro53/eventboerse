@@ -1000,10 +1000,15 @@ function eventboerse_handle_profile_save( WP_REST_Request $request ) {
 
     foreach ( $text_fields as $key => $meta_key ) {
         if ( isset( $params[ $key ] ) ) {
+            $val = sanitize_text_field( $params[ $key ] );
+            // Prevent email addresses from being saved as location
+            if ( $key === 'location' && is_email( $val ) ) {
+                $val = '';
+            }
             if ( $key === 'bio' ) {
                 update_user_meta( $uid, $meta_key, wp_kses_post( $params[ $key ] ) );
             } else {
-                update_user_meta( $uid, $meta_key, sanitize_text_field( $params[ $key ] ) );
+                update_user_meta( $uid, $meta_key, $val );
             }
         }
     }

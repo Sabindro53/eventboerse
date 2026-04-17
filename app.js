@@ -787,8 +787,8 @@ function navigateTo(page, data, skipHistory) {
   switch (page) {
     case 'browse':
       _initAiPlaceholder();
-      // Pre-fill location from user profile
-      if (currentUser && currentUser.location) {
+      // Pre-fill location from user profile (only if it looks like a real city, not an email)
+      if (currentUser && currentUser.location && !/[@.]com|[@.]de|[@.]net/i.test(currentUser.location) && !currentUser.location.includes('@')) {
         var locInput = document.getElementById('browseLocation');
         if (locInput && !locInput.value) locInput.value = currentUser.location;
       }
