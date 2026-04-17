@@ -524,13 +524,13 @@
             <div class="ai-searchbar">
               <span class="material-icons-round ai-search-ico">search</span>
               <div class="ai-searchbar-field">
-                <input type="search" id="browseSearch" oninput="filterListings();_aiPlaceholderHideOnInput(this)" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" />
+                <input type="search" id="browseSearch" oninput="filterListings();_aiPlaceholderHideOnInput(this)" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" />
                 <div class="ai-searchbar-ghost" id="aiPlaceholder"></div>
               </div>
               <div class="ai-searchbar-divider"></div>
               <div class="ai-searchbar-loc">
                 <span class="material-icons-round">location_on</span>
-                <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" />
+                <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" />
               </div>
               <button class="ai-searchbar-btn" onclick="filterListings();setTimeout(function(){var g=document.getElementById('browseGrid');if(g){window.scrollTo({top:g.getBoundingClientRect().top+window.pageYOffset-100,behavior:'smooth'});}},80)">
                 <span class="material-icons-round">search</span>

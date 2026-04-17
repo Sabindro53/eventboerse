@@ -6215,9 +6215,14 @@ document.addEventListener('DOMContentLoaded', function() {
   initFeatureSearch();
 
   // Clear all browse filters on fresh page load (prevent browser form restoration)
-  ['browseSearch','browseCategory','browseEventType','browseLocation','browsePrice','browseRating'].forEach(function(id){
-    var el = document.getElementById(id); if(el) el.value = '';
-  });
+  var _clearBrowseFilters = function(){
+    ['browseSearch','browseCategory','browseEventType','browseLocation','browsePrice','browseRating'].forEach(function(id){
+      var el = document.getElementById(id); if(el) el.value = '';
+    });
+  };
+  _clearBrowseFilters();
+  // Some browsers restore form values AFTER DOMContentLoaded – clear again after a tick
+  setTimeout(_clearBrowseFilters, 0);
 
   // Handle initial route (deep links, clean URLs, legacy hash)
   var initRoute = _readSpaRoute();
