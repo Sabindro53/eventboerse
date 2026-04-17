@@ -631,7 +631,14 @@ img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; 
 
 /* ======== AI SEARCH HERO ======== */
 .ai-hero {
-  display: none;
+  position: relative;
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: calc(var(--nav-height) + 40px) 24px 60px;
+  background: linear-gradient(160deg, #fff 0%, #fef2f5 45%, #f0fafe 100%);
 }
 .ai-hero-bg { position: absolute; inset: 0; pointer-events: none; }
 .ai-bg-orb {
