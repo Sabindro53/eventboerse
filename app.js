@@ -8855,7 +8855,8 @@ async function handleRegister(e) {
     var activeSub = document.querySelector('.role-toggle-sub .role-btn-sub.active');
     subRole = activeSub ? (activeSub.dataset.subrole || 'privat') : 'privat';
   }
-  if (role === 'provider') {
+  var needsCompanyFields = (role === 'provider') || (role === 'user' && subRole === 'unternehmen');
+  if (needsCompanyFields) {
     company = (document.getElementById('regCompany') || {}).value || '';
     company = company.trim();
     vatId = (document.getElementById('regVatId') || {}).value || '';
@@ -8877,12 +8878,12 @@ async function handleRegister(e) {
     hasError = true;
   }
   var gewerbeBox = document.getElementById('regGewerbe');
-  if (role === 'provider' && gewerbeBox && !gewerbeBox.checked) {
+  if (needsCompanyFields && gewerbeBox && !gewerbeBox.checked) {
     var gewerbeLabel = document.getElementById('regGewerbeLabel');
     if (gewerbeLabel) { gewerbeLabel.classList.add('has-error'); }
     hasError = true;
   }
-  if (role === 'provider' && !company) { _setFieldError('regCompany', 'Firmenname ist erforderlich'); hasError = true; }
+  if (needsCompanyFields && !company) { _setFieldError('regCompany', 'Firmenname ist erforderlich'); hasError = true; }
   if (hasError) return;
 
   _setBtnLoading(submitBtn, true);
@@ -9333,12 +9334,21 @@ function selectRole(btn, role) {
   var subGroup = document.getElementById('regSubRoleGroup');
   if (subGroup) { subGroup.classList.toggle('reg-collapsed', role !== 'user'); }
   var providerFields = document.getElementById('regProviderFields');
-  if (providerFields) { providerFields.classList.toggle('reg-collapsed', role !== 'provider'); }
+  if (role === 'provider') {
+    if (providerFields) { providerFields.classList.remove('reg-collapsed'); }
+  } else {
+    // Bei Eventplaner: nur zeigen wenn Unternehmen ausgewählt
+    var activeSubBtn = document.querySelector('.role-btn-sub.active');
+    var isUnternehmen = activeSubBtn && activeSubBtn.getAttribute('data-subrole') === 'unternehmen';
+    if (providerFields) { providerFields.classList.toggle('reg-collapsed', !isUnternehmen); }
+  }
 }
 
 function selectSubRole(btn, subRole) {
   document.querySelectorAll('.role-toggle-sub .role-btn-sub').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  var providerFields = document.getElementById('regProviderFields');
+  if (providerFields) { providerFields.classList.toggle('reg-collapsed', subRole !== 'unternehmen'); }
 }
 
 // ========== MODALS ==========
