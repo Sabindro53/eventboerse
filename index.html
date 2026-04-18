@@ -2300,16 +2300,37 @@
           </div>
         </div>
         <!-- Sub-Rolle für Eventplaner -->
-        <div class="form-group" id="regSubRoleGroup">
-          <div class="role-toggle role-toggle-sub">
-            <button type="button" class="role-btn role-btn-sub active" onclick="selectSubRole(this, 'privat')" data-subrole="privat">
-              <span class="material-icons-round">person</span>
-              Privatperson
-            </button>
-            <button type="button" class="role-btn role-btn-sub" onclick="selectSubRole(this, 'unternehmen')" data-subrole="unternehmen">
-              <span class="material-icons-round">business</span>
-              Unternehmen
-            </button>
+        <div class="reg-collapsible" id="regSubRoleGroup">
+          <div class="reg-collapsible-inner">
+            <div class="role-toggle role-toggle-sub">
+              <button type="button" class="role-btn role-btn-sub active" onclick="selectSubRole(this, 'privat')" data-subrole="privat">
+                <span class="material-icons-round">person</span>
+                Privatperson
+              </button>
+              <button type="button" class="role-btn role-btn-sub" onclick="selectSubRole(this, 'unternehmen')" data-subrole="unternehmen">
+                <span class="material-icons-round">business</span>
+                Unternehmen
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Dienstleister-Felder -->
+        <div id="regProviderFields" class="reg-collapsible reg-collapsed">
+          <div class="reg-collapsible-inner reg-section">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Firmenname</label>
+                <input type="text" id="regCompany" placeholder="Meine Firma GmbH" />
+              </div>
+              <div class="form-group">
+                <label>USt-IdNr. <small>(optional)</small></label>
+                <input type="text" id="regVatId" placeholder="DE123456789" />
+              </div>
+            </div>
+            <label class="check-label gewerbe" id="regGewerbeLabel">
+              <input type="checkbox" id="regGewerbe" />
+              Gewerbeanmeldung vorhanden
+            </label>
           </div>
         </div>
         <!-- Persönliche Daten -->
@@ -2341,23 +2362,6 @@
               <span class="pw-label"></span>
             </div>
           </div>
-        </div>
-        <!-- Dienstleister-Felder -->
-        <div id="regProviderFields" class="reg-section" style="display:none">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Firmenname</label>
-              <input type="text" id="regCompany" placeholder="Meine Firma GmbH" />
-            </div>
-            <div class="form-group">
-              <label>USt-IdNr. <small>(optional)</small></label>
-              <input type="text" id="regVatId" placeholder="DE123456789" />
-            </div>
-          </div>
-          <label class="check-label gewerbe" id="regGewerbeLabel">
-            <input type="checkbox" id="regGewerbe" />
-            Gewerbeanmeldung vorhanden
-          </label>
         </div>
         <label class="check-label terms">
           <input type="checkbox" required />

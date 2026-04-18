@@ -5630,12 +5630,15 @@ span.flatpickr-weekday {
 .role-toggle-sub { grid-template-columns: 1fr 1fr; gap: 8px; }
 .role-btn-sub { padding: 14px; font-size: 0.82rem; }
 .role-btn-sub .material-icons-round { font-size: 22px; }
-#regProviderFields { display: flex; flex-direction: column; gap: 12px; }
+#regProviderFields .reg-section { display: flex; flex-direction: column; gap: 12px; }
 #regProviderFields .form-group { margin-bottom: 0; }
 #regProviderFields label small { color: var(--text-light); font-weight: 400; }
 .reg-section { border-top: 1px solid var(--border-light); padding-top: 14px; margin-top: 4px; }
 #regSubRoleGroup { margin-bottom: 6px; }
 #regSubRoleGroup .role-toggle-sub { margin-top: 0; }
+.reg-collapsible { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.35s ease, opacity 0.3s ease; opacity: 1; }
+.reg-collapsible.reg-collapsed { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
+.reg-collapsible-inner { overflow: hidden; min-height: 0; }
 
 /* ======== MODALS ======== */
 .modal-overlay {

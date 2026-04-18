@@ -9331,9 +9331,9 @@ function selectRole(btn, role) {
   document.querySelectorAll('.role-toggle:not(.role-toggle-sub) > .role-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   var subGroup = document.getElementById('regSubRoleGroup');
-  if (subGroup) { subGroup.style.display = role === 'user' ? '' : 'none'; }
+  if (subGroup) { subGroup.classList.toggle('reg-collapsed', role !== 'user'); }
   var providerFields = document.getElementById('regProviderFields');
-  if (providerFields) { providerFields.style.display = role === 'provider' ? '' : 'none'; }
+  if (providerFields) { providerFields.classList.toggle('reg-collapsed', role !== 'provider'); }
 }
 
 function selectSubRole(btn, subRole) {
