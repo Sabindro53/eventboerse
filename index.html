@@ -2283,50 +2283,24 @@
         <p>Erstelle dein kostenloses Konto</p>
       </div>
       <form class="modal-form" onsubmit="handleRegister(event)">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Vorname</label>
-            <input type="text" id="regFirstName" placeholder="Max" required />
-          </div>
-          <div class="form-group">
-            <label>Nachname</label>
-            <input type="text" id="regLastName" placeholder="Mustermann" required />
-          </div>
-        </div>
-        <div class="form-group">
-          <label>E-Mail</label>
-          <input type="email" id="regEmail" placeholder="deine@email.de" required />
-        </div>
-        <div class="form-group">
-          <label>Passwort</label>
-          <div class="password-wrapper">
-            <input type="password" id="regPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
-            <button type="button" class="password-toggle" tabindex="-1">
-              <span class="material-icons-round">visibility</span>
-            </button>
-          </div>
-          <div class="password-strength" id="passwordStrength" style="display:none">
-            <div class="pw-bar"><div class="pw-bar-fill"></div></div>
-            <span class="pw-label"></span>
-          </div>
-        </div>
+        <!-- Schritt 1: Rolle wählen -->
         <div class="form-group">
           <label>Ich bin...</label>
           <div class="role-toggle">
             <button type="button" class="role-btn active" onclick="selectRole(this, 'user')" data-role="user">
               <span class="material-icons-round">search</span>
               Eventplaner
-              <small>Suchende</small>
+              <small>Ich suche Dienstleister</small>
             </button>
             <button type="button" class="role-btn" onclick="selectRole(this, 'provider')" data-role="provider">
               <span class="material-icons-round">storefront</span>
               Dienstleister
-              <small>Anbietende</small>
+              <small>Ich biete Services an</small>
             </button>
           </div>
         </div>
+        <!-- Sub-Rolle für Eventplaner -->
         <div class="form-group" id="regSubRoleGroup">
-          <label>Art des Eventplaners</label>
           <div class="role-toggle role-toggle-sub">
             <button type="button" class="role-btn role-btn-sub active" onclick="selectSubRole(this, 'privat')" data-subrole="privat">
               <span class="material-icons-round">person</span>
@@ -2338,14 +2312,47 @@
             </button>
           </div>
         </div>
-        <div id="regProviderFields" style="display:none">
-          <div class="form-group">
-            <label>Firmenname</label>
-            <input type="text" id="regCompany" placeholder="Meine Firma GmbH" />
+        <!-- Persönliche Daten -->
+        <div class="reg-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Vorname</label>
+              <input type="text" id="regFirstName" placeholder="Max" required />
+            </div>
+            <div class="form-group">
+              <label>Nachname</label>
+              <input type="text" id="regLastName" placeholder="Mustermann" required />
+            </div>
           </div>
           <div class="form-group">
-            <label>USt-IdNr. <small>(optional)</small></label>
-            <input type="text" id="regVatId" placeholder="DE123456789" />
+            <label>E-Mail</label>
+            <input type="email" id="regEmail" placeholder="deine@email.de" required />
+          </div>
+          <div class="form-group">
+            <label>Passwort</label>
+            <div class="password-wrapper">
+              <input type="password" id="regPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
+              <button type="button" class="password-toggle" tabindex="-1">
+                <span class="material-icons-round">visibility</span>
+              </button>
+            </div>
+            <div class="password-strength" id="passwordStrength" style="display:none">
+              <div class="pw-bar"><div class="pw-bar-fill"></div></div>
+              <span class="pw-label"></span>
+            </div>
+          </div>
+        </div>
+        <!-- Dienstleister-Felder -->
+        <div id="regProviderFields" class="reg-section" style="display:none">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Firmenname</label>
+              <input type="text" id="regCompany" placeholder="Meine Firma GmbH" />
+            </div>
+            <div class="form-group">
+              <label>USt-IdNr. <small>(optional)</small></label>
+              <input type="text" id="regVatId" placeholder="DE123456789" />
+            </div>
           </div>
           <label class="check-label gewerbe" id="regGewerbeLabel">
             <input type="checkbox" id="regGewerbe" />
