@@ -5624,9 +5624,11 @@ span.flatpickr-weekday {
 }
 .role-btn:hover { border-color: var(--dark); }
 .role-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+.role-btn[data-role="provider"].active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
 .role-btn .material-icons-round { font-size: 28px; }
 .role-btn small { font-weight: 400; font-size: 0.75rem; color: var(--text-light); }
 .role-btn.active small { color: var(--primary); opacity: 0.8; }
+.role-btn[data-role="provider"].active small { color: var(--accent); }
 .role-toggle-sub { grid-template-columns: 1fr 1fr; gap: 8px; }
 .role-btn-sub { padding: 14px; font-size: 0.82rem; }
 .role-btn-sub .material-icons-round { font-size: 22px; }
