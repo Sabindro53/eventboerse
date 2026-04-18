@@ -4324,8 +4324,12 @@ function renderDashboard() {
   // --- Role & Location badges ---
   var roleIcon = currentUser.isAdmin ? 'shield' : 'badge';
   var roleClass = currentUser.isAdmin ? ' admin-badge' : '';
+  var roleText = currentUser.role || 'Mitglied';
+  if (currentUser.subRole && currentUser.role === 'Event-Planer') {
+    roleText += ' (' + (currentUser.subRole === 'unternehmen' ? 'Unternehmen' : 'Privatperson') + ')';
+  }
   document.getElementById('profileDisplayRole').innerHTML =
-    '<span class="material-icons-round">' + roleIcon + '</span> ' + _escHtml(currentUser.role || 'Mitglied');
+    '<span class="material-icons-round">' + roleIcon + '</span> ' + _escHtml(roleText);
   if (currentUser.isAdmin) document.getElementById('profileDisplayRole').classList.add('admin-badge');
   else document.getElementById('profileDisplayRole').classList.remove('admin-badge');
   document.getElementById('profileDisplayLocation').innerHTML =
@@ -4656,7 +4660,11 @@ function loadSettings() {
       companyField.style.display = 'none';
     }
   }
-  document.getElementById('settingsRoleDisplay').textContent = currentUser.role || 'Mitglied';
+  var settingsRole = currentUser.role || 'Mitglied';
+  if (currentUser.subRole && currentUser.role === 'Event-Planer') {
+    settingsRole += ' (' + (currentUser.subRole === 'unternehmen' ? 'Unternehmen' : 'Privatperson') + ')';
+  }
+  document.getElementById('settingsRoleDisplay').textContent = settingsRole;
   document.getElementById('settingsSinceDisplay').textContent = currentUser.since || '–';
 
   // Admin-Button entfernt – Admins werden nur noch manuell vergeben
@@ -6162,7 +6170,7 @@ function initDragScroll() {
     '.category-scroll',
     '.browse-categories-inner',
     '.chip-group',
-    '.stories-scroll',
+
     '.testimonials-scroll',
     '.browse-filter-pills',
   ];
@@ -7756,11 +7764,12 @@ function _demoLogin(email, password) {
 }
 
 // Demo-mode: local register
-function _demoRegister(email, password, firstName, lastName, role) {
+function _demoRegister(email, password, firstName, lastName, role, subRole, company, vatId) {
   var users = _demoUsers();
   if (users.find(function(u) { return u.email.toLowerCase() === email.toLowerCase(); })) {
     return { ok: false, message: 'Diese E-Mail-Adresse wird bereits verwendet.' };
   }
+  var displayRole = role === 'provider' ? 'Dienstleister' : 'Event-Planer';
   var user = {
     user_id: Date.now(),
     id: Date.now(),
@@ -7769,14 +7778,17 @@ function _demoRegister(email, password, firstName, lastName, role) {
     first_name: firstName,
     last_name: lastName,
     name: (firstName + ' ' + lastName).trim(),
-    role: role === 'provider' ? 'Dienstleister' : 'Event-Planer',
+    role: displayRole,
+    subRole: role === 'user' ? (subRole || 'privat') : '',
     isAdmin: false,
     emailVerified: true,
     hasPasskey: false,
     passkeyCount: 0,
     twoFA: false,
     since: new Date().toISOString().split('T')[0],
-    tagline: '', location: '', bio: '', company: '', gallery: [],
+    tagline: '', location: '', bio: '',
+    company: company || '', vatId: vatId || '',
+    gallery: [],
     coverUrl: '', coverPosY: 50, photoUrl: '', phone: ''
   };
   users.push(user);
@@ -7898,11 +7910,13 @@ function _normalizeUserPayload(data, fallback) {
     name: fullName,
     email: data.email || fallback.email || '',
     role: data.role || fallback.role || 'Event-Planer',
+    subRole: data.subRole || data.sub_role || fallback.subRole || fallback.sub_role || '',
     isAdmin: (data.role === 'Admin') || (fallback.role === 'Admin') || false,
     tagline: data.tagline || fallback.tagline || '',
     location: data.location || fallback.location || '',
     bio: data.bio || fallback.bio || '',
     company: data.company || fallback.company || '',
+    vatId: data.vatId || data.vat_id || fallback.vatId || fallback.vat_id || '',
     gallery: data.gallery || fallback.gallery || [],
     coverUrl: data.coverUrl || fallback.coverUrl || '',
     coverPosY: data.coverPosY || fallback.coverPosY || 50,
@@ -8832,8 +8846,21 @@ async function handleRegister(e) {
   var lastName = document.getElementById('regLastName').value.trim();
   var email = document.getElementById('regEmail').value.trim();
   var password = document.getElementById('regPassword').value.trim();
-  var activeRole = document.querySelector('.role-btn.active');
-  var role = activeRole ? (activeRole.textContent.trim().indexOf('Dienstleister') >= 0 ? 'provider' : 'user') : 'user';
+  var activeRole = document.querySelector('.role-toggle:not(.role-toggle-sub) > .role-btn.active');
+  var role = activeRole ? (activeRole.dataset.role === 'provider' ? 'provider' : 'user') : 'user';
+  var subRole = '';
+  var company = '';
+  var vatId = '';
+  if (role === 'user') {
+    var activeSub = document.querySelector('.role-toggle-sub .role-btn-sub.active');
+    subRole = activeSub ? (activeSub.dataset.subrole || 'privat') : 'privat';
+  }
+  if (role === 'provider') {
+    company = (document.getElementById('regCompany') || {}).value || '';
+    company = company.trim();
+    vatId = (document.getElementById('regVatId') || {}).value || '';
+    vatId = vatId.trim();
+  }
   var termsBox = form.querySelector('.terms input[type="checkbox"]');
   var submitBtn = form.querySelector('button[type="submit"]');
 
@@ -8855,6 +8882,7 @@ async function handleRegister(e) {
     if (gewerbeLabel) { gewerbeLabel.classList.add('has-error'); }
     hasError = true;
   }
+  if (role === 'provider' && !company) { _setFieldError('regCompany', 'Firmenname ist erforderlich'); hasError = true; }
   if (hasError) return;
 
   _setBtnLoading(submitBtn, true);
@@ -8863,7 +8891,7 @@ async function handleRegister(e) {
 
   // ── Offline / Demo fallback ──
   if (!online) {
-    var demoResult = _demoRegister(email, password, firstName, lastName, role);
+    var demoResult = _demoRegister(email, password, firstName, lastName, role, subRole, company, vatId);
     _setBtnLoading(submitBtn, false);
     if (!demoResult.ok) {
       _setFieldError('regEmail', demoResult.message);
@@ -8888,8 +8916,11 @@ async function handleRegister(e) {
         email: email,
         password: password,
         role: role,
+        sub_role: subRole || '',
         first_name: firstName,
-        last_name: lastName
+        last_name: lastName,
+        company: company || '',
+        vat_id: vatId || ''
       })
     });
     var data = await response.json();
@@ -9297,10 +9328,17 @@ function logout() {
 }
 
 function selectRole(btn, role) {
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.role-toggle:not(.role-toggle-sub) > .role-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  var gl = document.getElementById('regGewerbeLabel');
-  if (gl) { gl.style.display = role === 'provider' ? '' : 'none'; gl.classList.remove('has-error'); }
+  var subGroup = document.getElementById('regSubRoleGroup');
+  if (subGroup) { subGroup.style.display = role === 'user' ? '' : 'none'; }
+  var providerFields = document.getElementById('regProviderFields');
+  if (providerFields) { providerFields.style.display = role === 'provider' ? '' : 'none'; }
+}
+
+function selectSubRole(btn, subRole) {
+  document.querySelectorAll('.role-toggle-sub .role-btn-sub').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
 // ========== MODALS ==========
@@ -10986,8 +11024,6 @@ function renderFeed(tab) {
   var list = document.getElementById('feedList');
   if (!list) return;
 
-  // Render stories first
-  renderFeedStories();
   renderSidebarUpcoming();
 
   if (tab === 'events') {
@@ -11110,8 +11146,9 @@ function renderSocialPostCard(post) {
 
   var imgBlock = post.image ? '<img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" />' : '';
 
-  // Contact button for search posts
-  var contactBtn = isSearch ? '<button class="feed-contact-btn" onclick="showToast(\'Kontakt-Anfrage gesendet!\',\'check_circle\')"><span class="material-icons-round">mail_outline</span> Anfragen</button>' : '';
+  // Contact button for search posts — only visible to Dienstleister
+  var isProvider = currentUser && currentUser.role === 'Dienstleister';
+  var contactBtn = (isSearch && isProvider) ? '<button class="feed-contact-btn" onclick="showToast(\'Kontakt-Anfrage gesendet!\',\'check_circle\')"><span class="material-icons-round">mail_outline</span> Angebot stellen</button>' : '';
 
   return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '">' +
     '<div class="feed-post-header">' +
@@ -11212,36 +11249,6 @@ function switchFeedTab(btn) {
   renderFeed(btn.dataset.feed);
 }
 
-function renderFeedStories() {
-  var storyScroll = document.querySelector('.stories-scroll');
-  if (!storyScroll) return;
-
-  var demoStories = [
-    { name: 'DJ Max', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=djmax', hasStory: true },
-    { name: 'Foto Pro', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=fotopro', hasStory: true },
-    { name: 'BlumenZ.', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=blumen', hasStory: true },
-    { name: 'Julia', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=julia', hasStory: true },
-    { name: 'CateringK', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=catering', hasStory: false },
-  ];
-
-  var existing = storyScroll.querySelector('.story-add-btn');
-  var existingStories = storyScroll.querySelectorAll('.story-item');
-  existingStories.forEach(function(s) { s.remove(); });
-
-  var storiesHtml = demoStories.map(function(s) {
-    return '<div class="story-item" onclick="showToast(\'Stories kommen bald!\',\'auto_stories\')">' +
-      '<div class="story-circle' + (s.hasStory ? ' has-story' : '') + '">' +
-      '<img src="' + s.avatar + '" alt="' + _escHtml(s.name) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" />' +
-      '</div><span>' + _escHtml(s.name) + '</span></div>';
-  }).join('');
-
-  if (existing) {
-    existing.insertAdjacentHTML('afterend', storiesHtml);
-  } else {
-    storyScroll.innerHTML += storiesHtml;
-  }
-}
-
 function renderSidebarUpcoming() {
   var el = document.getElementById('sidebarUpcoming');
   if (!el) return;
@@ -11256,11 +11263,6 @@ function renderSidebarUpcoming() {
       '<div><strong>' + _escHtml(u.name) + '</strong><span>' + _escHtml(u.date) + '</span></div>' +
     '</div>';
   }).join('');
-}
-
-function openAddStoryModal() {
-  if (!isLoggedIn) { openModal('loginModal'); return; }
-  showToast('Stories kommen bald!', 'auto_stories');
 }
 
 function openCreatePostModal() {
