@@ -10692,13 +10692,34 @@ function openStageAdvanceModal(cardId, currentStage) {
   var icon   = icons[currentStage] || 'arrow_forward';
 
   var fieldsHtml = '';
+  // Look up provider contact info from listing
+  var _listing = card.listingId ? (LISTINGS || []).find(function(l){ return l.id === card.listingId; }) : null;
+  var _provPhone = (_listing && _listing.phone) || '';
+  var _provWhatsapp = (_listing && _listing.whatsapp) || '';
+  // Also check if provider user has phone
+  if (!_provPhone && _listing && _listing.providerId && typeof _allUsers !== 'undefined') {
+    var _pu = _allUsers.find(function(u){ return u.id === _listing.providerId; });
+    if (_pu && _pu.phone) _provPhone = _pu.phone;
+  }
+  var _hasPhone = !!_provPhone;
+  var _hasWhatsapp = !!_provWhatsapp || _hasPhone; // WhatsApp uses phone number
+
   if (currentStage === 'geplant') {
     fieldsHtml = '' +
       '<label class="sa-label">Kontaktweg</label>' +
       '<div class="sa-chips">' +
-        '<label class="sa-chip"><input type="radio" name="saContact" value="Telefon" checked><span>📞 Telefon</span></label>' +
-        '<label class="sa-chip"><input type="radio" name="saContact" value="E-Mail"><span>✉️ E-Mail</span></label>' +
-        '<label class="sa-chip"><input type="radio" name="saContact" value="WhatsApp"><span>💬 WhatsApp</span></label>' +
+        '<label class="sa-chip' + (_hasPhone ? '' : ' sa-chip-disabled') + '">' +
+          '<input type="radio" name="saContact" value="Telefon"' + (_hasPhone ? '' : ' disabled') + '>' +
+          '<span>📞 Telefon' + (_hasPhone ? '<small class="sa-avail">✓ verfügbar</small>' : '<small class="sa-unavail">nicht angegeben</small>') + '</span>' +
+        '</label>' +
+        '<label class="sa-chip">' +
+          '<input type="radio" name="saContact" value="E-Mail" checked>' +
+          '<span>✉️ E-Mail<small class="sa-avail">✓ immer verfügbar</small></span>' +
+        '</label>' +
+        '<label class="sa-chip' + (_hasWhatsapp ? '' : ' sa-chip-disabled') + '">' +
+          '<input type="radio" name="saContact" value="WhatsApp"' + (_hasWhatsapp ? '' : ' disabled') + '>' +
+          '<span>💬 WhatsApp' + (_hasWhatsapp ? '<small class="sa-avail">✓ verfügbar</small>' : '<small class="sa-unavail">nicht angegeben</small>') + '</span>' +
+        '</label>' +
       '</div>' +
       '<label class="sa-label">Nachricht <small>(optional)</small></label>' +
       '<textarea id="saMessage" class="sa-input" rows="3" placeholder="Hallo, ich interessiere mich für…"></textarea>' +

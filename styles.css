@@ -9471,6 +9471,12 @@ textarea.sa-input { resize: vertical; }
   border-color: var(--primary);
   box-shadow: 0 2px 8px rgba(99,102,241,0.3);
 }
+.sa-chip-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.sa-chip span { flex-direction: column; align-items: flex-start; }
+.sa-avail { display: block; font-size: 10px; font-weight: 600; color: #66bb6a; margin-top: 1px; }
+.sa-unavail { display: block; font-size: 10px; font-weight: 600; color: #f44336; margin-top: 1px; }
+.sa-chip input:checked + span .sa-avail { color: rgba(255,255,255,0.8); }
+.sa-chip input:checked + span .sa-unavail { color: rgba(255,255,255,0.6); }
 .sa-confirm-check { margin-top: 4px; }
 .sa-confirm-check input { display: inline-block; width: auto; margin-right: 6px; accent-color: var(--primary); }
 .sa-confirm-check span { background: none; border: none; padding: 0; font-size: 13px; color: rgba(255,255,255,0.7); }
