@@ -11325,9 +11325,10 @@ function openAddProviderModal(defaultStage) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
     return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
-      '" data-name="' + _escHtml(l.providerName || '') + '"' +
+      '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
       ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
       ' data-price="' + (l.price || '') + '"' +
+      ' data-avatar="' + _escHtml(img) + '"' +
       ' onclick="_selectListingCard(this)">' +
       '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
       '<span class="eb-lpick-body">' +
@@ -11405,9 +11406,11 @@ window._selectListingCard = function(btn) {
   var nameEl = document.getElementById('cardName');
   var catEl = document.getElementById('cardCategory');
   var priceEl = document.getElementById('cardPrice');
-  if (nameEl) nameEl.value = btn.dataset.name || '';
-  if (catEl) catEl.value = btn.dataset.category || '';
-  if (priceEl && btn.dataset.price) priceEl.value = btn.dataset.price;
+  if (nameEl) { nameEl.value = btn.dataset.name || ''; nameEl.dispatchEvent(new Event('input')); }
+  if (catEl) { catEl.value = btn.dataset.category || ''; catEl.dispatchEvent(new Event('input')); }
+  if (priceEl && btn.dataset.price) { priceEl.value = btn.dataset.price; priceEl.dispatchEvent(new Event('input')); }
+  // Scroll to filled fields
+  if (nameEl) nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
 window._clearListingPick = function() {
