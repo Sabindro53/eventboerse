@@ -10427,7 +10427,7 @@ function openFlowBudgetModal() {
     return '<div class="flow-bm-card-row">' +
       '<span class="flow-bm-card-name">' + _escHtml(c.name) + '</span>' +
       '<span class="flow-bm-card-cat">' + _escHtml(c.category || '') + '</span>' +
-      '<input class="flow-bm-card-price" type="number" value="' + (c.price || 0) + '" min="0" step="50" data-cid="' + c.id + '" oninput="_liveUpdateBudget()" />' +
+      '<input class="flow-bm-card-price" type="number" value="' + (c.price || 0) + '" min="0" step="1" data-cid="' + c.id + '" oninput="_liveUpdateBudget()" />' +
       '<span class="flow-bm-eur">€</span>' +
       '</div>';
   }).join('') || '<div style="color:var(--text-light);font-style:italic;text-align:center;padding:12px">Noch keine Dienstleister in diesem Projekt</div>';
@@ -10609,7 +10609,7 @@ function openFlowCardModal(cardId) {
     '<form class="modal-form" onsubmit="_saveFlowCard(event,\'' + cardId + '\')">' +
     '<div class="form-group"><label>Name</label><input type="text" id="fcName" value="' + _escHtml(card.name) + '" required /></div>' +
     '<div class="form-group"><label>Kategorie</label><input type="text" id="fcCat" value="' + _escHtml(card.category || '') + '" /></div>' +
-    '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="50" /></div>' +
+    '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="1" /></div>' +
     '<div class="form-group"><label>Uhrzeit am Eventtag</label>' + window._buildTimePicker('fcTime','fcTimeEnd', card.startTime || '10:00', card.endTime || '') + '</div>' +
     '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>' +
     '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
@@ -11251,7 +11251,7 @@ function openAddProviderModal(defaultStage) {
         </div>
         <div class="form-group">
           <label>Preis (€)</label>
-          <input type="number" id="cardPrice" placeholder="0" min="0" step="50" />
+          <input type="number" id="cardPrice" placeholder="0" min="0" step="1" />
         </div>
         <div class="form-group">
           <label>Uhrzeit am Eventtag</label>
@@ -11388,7 +11388,7 @@ function editBoardCard(cardId) {
       <form class="modal-form" onsubmit="_saveCardEdit(event,'${cardId}')">
         <div class="form-group"><label>Name</label><input type="text" id="editCardName" value="${_escHtml(card.name)}" required /></div>
         <div class="form-group"><label>Kategorie</label><input type="text" id="editCardCategory" value="${_escHtml(card.category || '')}" /></div>
-        <div class="form-group"><label>Preis (€)</label><input type="number" id="editCardPrice" value="${card.price || ''}" min="0" step="50" /></div>
+        <div class="form-group"><label>Preis (€)</label><input type="number" id="editCardPrice" value="${card.price || ''}" min="0" step="1" /></div>
         <div class="form-group"><label>Uhrzeit</label><div id="editCardTimeHost"></div></div>
         <div class="form-group"><label>Notiz</label><textarea id="editCardNote" rows="2">${_escHtml(card.note || '')}</textarea></div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>
