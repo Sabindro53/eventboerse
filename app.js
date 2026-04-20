@@ -11141,8 +11141,6 @@ function openCreateBoardModal() {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
-  var host = document.getElementById('cardTimePickerHost');
-  if (host) host.innerHTML = window._buildTimePicker('cardStartTime','cardEndTime','10:00','');
 }
 
 function _selectBoardTmpl(el) {
@@ -11201,8 +11199,25 @@ function _createBoardProject(event) {
 
 function openAddProviderModal(defaultStage) {
   defaultStage = defaultStage || 'geplant';
-  var listingOptions = (LISTINGS || []).slice(0, 30).map(function(l) {
-    return '<option value="' + l.id + '" data-name="' + _escHtml(l.providerName) + '" data-category="' + _escHtml(l.category || '') + '" data-price="' + (l.price || '') + '">' + _escHtml(l.providerName) + ' – ' + _escHtml(l.title) + '</option>';
+  var _listings = (LISTINGS || []).slice(0, 30);
+  var listingCardsHtml = _listings.map(function(l) {
+    var img = l.image || l.providerImg || '';
+    var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
+    return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
+      '" data-name="' + _escHtml(l.providerName || '') + '"' +
+      ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
+      ' data-price="' + (l.price || '') + '"' +
+      ' onclick="_selectListingCard(this)">' +
+      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
+      '<span class="eb-lpick-body">' +
+        '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
+        '<span class="eb-lpick-meta">' +
+          '<span class="eb-lpick-cat">' + _escHtml(l.categoryLabel || l.category || '') + '</span>' +
+          (price ? '<span class="eb-lpick-price">' + _escHtml(price) + '</span>' : '') +
+        '</span>' +
+      '</span>' +
+      '<span class="eb-lpick-check material-icons-round">check_circle</span>' +
+    '</button>';
   }).join('');
 
   var html = `<div class="modal-overlay show" id="addProviderModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
@@ -11215,11 +11230,16 @@ function openAddProviderModal(defaultStage) {
       </div>
       <form class="modal-form" onsubmit="_addProviderCard(event,'${defaultStage}')">
         <div class="form-group">
-          <label>Aus Inseraten wählen (optional)</label>
-          <select id="cardListingSelect" onchange="_autoFillProviderFromListing(this)">
-            <option value="">– Manuell eingeben –</option>
-            ${listingOptions}
-          </select>
+          <label>Aus Inseraten wählen <span style="font-weight:400;color:var(--text-light);font-size:12px">(optional)</span></label>
+          <div class="eb-lpick-search">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="lpickSearch" placeholder="Nach Name, Kategorie oder Ort suchen…" oninput="_filterListingPicker(this.value)" />
+            <button type="button" class="eb-lpick-clear" onclick="_clearListingPick()" title="Auswahl löschen"><span class="material-icons-round">close</span></button>
+          </div>
+          <div class="eb-lpick-grid" id="lpickGrid">
+            ${listingCardsHtml}
+          </div>
+          <input type="hidden" id="cardListingId" value="" />
         </div>
         <div class="form-group">
           <label>Name / Firma</label>
@@ -11248,7 +11268,45 @@ function openAddProviderModal(defaultStage) {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  var host = document.getElementById('cardTimePickerHost');
+  if (host) host.innerHTML = window._buildTimePicker('cardStartTime','cardEndTime','10:00','');
 }
+
+window._selectListingCard = function(btn) {
+  var grid = btn.parentElement;
+  var wasActive = btn.classList.contains('is-active');
+  if (grid) grid.querySelectorAll('.eb-lpick-card').forEach(function(b){ b.classList.remove('is-active'); });
+  if (wasActive) {
+    _clearListingPick();
+    return;
+  }
+  btn.classList.add('is-active');
+  var hid = document.getElementById('cardListingId');
+  if (hid) hid.value = btn.dataset.id || '';
+  var nameEl = document.getElementById('cardName');
+  var catEl = document.getElementById('cardCategory');
+  var priceEl = document.getElementById('cardPrice');
+  if (nameEl) nameEl.value = btn.dataset.name || '';
+  if (catEl) catEl.value = btn.dataset.category || '';
+  if (priceEl && btn.dataset.price) priceEl.value = btn.dataset.price;
+};
+
+window._clearListingPick = function() {
+  var grid = document.getElementById('lpickGrid');
+  if (grid) grid.querySelectorAll('.eb-lpick-card.is-active').forEach(function(b){ b.classList.remove('is-active'); });
+  var hid = document.getElementById('cardListingId'); if (hid) hid.value = '';
+  var search = document.getElementById('lpickSearch'); if (search) { search.value = ''; _filterListingPicker(''); }
+};
+
+window._filterListingPicker = function(q) {
+  q = (q || '').toLowerCase().trim();
+  var grid = document.getElementById('lpickGrid');
+  if (!grid) return;
+  grid.querySelectorAll('.eb-lpick-card').forEach(function(b){
+    var text = (b.textContent || '').toLowerCase();
+    b.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
+  });
+};
 
 function _autoFillProviderFromListing(select) {
   var opt = select.options[select.selectedIndex];
@@ -11269,7 +11327,7 @@ function _addProviderCard(event, stage) {
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
   if (!project) return;
 
-  var listingId = document.getElementById('cardListingSelect') ? parseInt(document.getElementById('cardListingSelect').value) || null : null;
+  var listingId = document.getElementById('cardListingId') ? parseInt(document.getElementById('cardListingId').value) || null : null;
   var name = document.getElementById('cardName').value.trim();
   var category = document.getElementById('cardCategory').value.trim();
   var price = parseFloat(document.getElementById('cardPrice').value) || 0;
