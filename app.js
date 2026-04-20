@@ -10298,7 +10298,14 @@ function renderBoardFlow() {
       if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
       html += '<div class="flow-prov-actions">';
-      html += '<button class="flow-prov-btn" onclick="event.stopPropagation();moveBoardCardStage(\'' + card.id + '\',\'' + stage.id + '\')" title="Stage wechseln"><span class="material-icons-round">swap_horiz</span></button>';
+      var _saLabels = {geplant:'Kontaktieren',kontaktiert:'Angebot einholen',angebot:'Bestätigen',bestaetigt:'Abschließen'};
+      var _saIcons  = {geplant:'call',kontaktiert:'request_quote',angebot:'handshake',bestaetigt:'task_alt'};
+      var _saColors = {geplant:'#42a5f5',kontaktiert:'#ffa726',angebot:'#ab47bc',bestaetigt:'#66bb6a'};
+      if (_saLabels[stage.id]) {
+        html += '<button class="flow-prov-action-btn" style="--sa-clr:' + _saColors[stage.id] + '" onclick="event.stopPropagation();openStageAdvanceModal(\'' + card.id + '\',\'' + stage.id + '\')">';
+        html += '<span class="material-icons-round">' + _saIcons[stage.id] + '</span> ' + _saLabels[stage.id];
+        html += '</button>';
+      }
       html += '<button class="flow-prov-btn flow-prov-del" onclick="event.stopPropagation();deleteBoardCard(\'' + card.id + '\');renderBoardFlow()" title="Löschen"><span class="material-icons-round">close</span></button>';
       html += '</div>';
       html += '</div></div>';
@@ -10670,6 +10677,120 @@ function moveBoardCardStage(cardId, currentStage) {
   renderBoardFlow();
   renderKanban(project);
   _updateBoardStats(project);
+}
+
+/* ── Stage Advance Modal ── */
+function openStageAdvanceModal(cardId, currentStage) {
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+
+  var titles = {geplant:'Kontaktieren',kontaktiert:'Angebot einholen',angebot:'Bestätigen',bestaetigt:'Abschließen'};
+  var icons  = {geplant:'call',kontaktiert:'request_quote',angebot:'handshake',bestaetigt:'task_alt'};
+  var title  = titles[currentStage] || 'Weiter';
+  var icon   = icons[currentStage] || 'arrow_forward';
+
+  var fieldsHtml = '';
+  if (currentStage === 'geplant') {
+    fieldsHtml = '' +
+      '<label class="sa-label">Kontaktweg</label>' +
+      '<div class="sa-chips">' +
+        '<label class="sa-chip"><input type="radio" name="saContact" value="Telefon" checked><span>📞 Telefon</span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saContact" value="E-Mail"><span>✉️ E-Mail</span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saContact" value="WhatsApp"><span>💬 WhatsApp</span></label>' +
+      '</div>' +
+      '<label class="sa-label">Nachricht <small>(optional)</small></label>' +
+      '<textarea id="saMessage" class="sa-input" rows="3" placeholder="Hallo, ich interessiere mich für…"></textarea>' +
+      '<label class="sa-label">Kontaktdatum</label>' +
+      '<input id="saDate" type="date" class="sa-input" value="' + new Date().toISOString().slice(0,10) + '">';
+  } else if (currentStage === 'kontaktiert') {
+    fieldsHtml = '' +
+      '<label class="sa-label">Angefragter Preis (€)</label>' +
+      '<input id="saPrice" type="number" class="sa-input" step="1" min="0" placeholder="z.B. 500" value="' + (card.price || '') + '">' +
+      '<label class="sa-label">Deadline für Angebot</label>' +
+      '<input id="saDeadline" type="date" class="sa-input">' +
+      '<label class="sa-label">Notizen</label>' +
+      '<textarea id="saNotes" class="sa-input" rows="3" placeholder="Besondere Anforderungen…"></textarea>';
+  } else if (currentStage === 'angebot') {
+    fieldsHtml = '' +
+      '<label class="sa-label">Finaler Preis (€)</label>' +
+      '<input id="saFinalPrice" type="number" class="sa-input" step="1" min="0" placeholder="z.B. 450" value="' + (card.price || '') + '">' +
+      '<label class="sa-label">Bedingungen</label>' +
+      '<textarea id="saTerms" class="sa-input" rows="2" placeholder="Zahlungsbedingungen, Storno…"></textarea>' +
+      '<label class="sa-chip sa-confirm-check"><input type="checkbox" id="saConfirmed"><span>Anbieter hat bestätigt</span></label>';
+  } else if (currentStage === 'bestaetigt') {
+    fieldsHtml = '' +
+      '<label class="sa-label">Bezahlung</label>' +
+      '<div class="sa-chips">' +
+        '<label class="sa-chip"><input type="radio" name="saPayment" value="Offen" checked><span>⏳ Offen</span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saPayment" value="Bezahlt"><span>✅ Bezahlt</span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saPayment" value="Teilzahlung"><span>💳 Teilzahlung</span></label>' +
+      '</div>' +
+      '<label class="sa-label">Bewertung <small>(optional)</small></label>' +
+      '<div class="sa-stars" id="saStars">' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<1?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=1" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<2?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=2" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<3?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=3" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<4?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=4" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<5?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=5" class="material-icons-round">star_border</span>' +
+      '</div>' +
+      '<input type="hidden" id="saRating" value="0">' +
+      '<label class="sa-label">Kommentar</label>' +
+      '<textarea id="saComment" class="sa-input" rows="2" placeholder="Wie war die Zusammenarbeit?"></textarea>';
+  }
+
+  var overlay = document.createElement('div');
+  overlay.className = 'sa-overlay';
+  overlay.innerHTML = '' +
+    '<div class="sa-modal">' +
+      '<div class="sa-header"><span class="material-icons-round">' + icon + '</span> ' + title + ' – ' + (card.name || 'Karte') + '</div>' +
+      '<div class="sa-body">' + fieldsHtml + '</div>' +
+      '<div class="sa-footer">' +
+        '<button class="sa-cancel" onclick="this.closest(\'.sa-overlay\').remove()">Abbrechen</button>' +
+        '<button class="sa-submit" id="saSubmitBtn"><span class="material-icons-round">' + icon + '</span> ' + title + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function(){ overlay.classList.add('sa-visible'); });
+
+  // Close on backdrop click
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+
+  // Submit
+  document.getElementById('saSubmitBtn').addEventListener('click', function() {
+    if (currentStage === 'geplant') {
+      var method = (document.querySelector('input[name=saContact]:checked') || {}).value || '';
+      card.contactMethod = method;
+      card.contactMessage = (document.getElementById('saMessage') || {}).value || '';
+      card.contactDate = (document.getElementById('saDate') || {}).value || '';
+    } else if (currentStage === 'kontaktiert') {
+      var p = (document.getElementById('saPrice') || {}).value;
+      if (p) card.requestedPrice = parseFloat(p);
+      card.offerDeadline = (document.getElementById('saDeadline') || {}).value || '';
+      card.offerNotes = (document.getElementById('saNotes') || {}).value || '';
+    } else if (currentStage === 'angebot') {
+      var fp = (document.getElementById('saFinalPrice') || {}).value;
+      if (fp) card.price = parseFloat(fp);
+      card.terms = (document.getElementById('saTerms') || {}).value || '';
+      card.confirmedByProvider = !!(document.getElementById('saConfirmed') || {}).checked;
+    } else if (currentStage === 'bestaetigt') {
+      card.paymentStatus = (document.querySelector('input[name=saPayment]:checked') || {}).value || '';
+      card.rating = parseInt((document.getElementById('saRating') || {}).value) || 0;
+      card.reviewComment = (document.getElementById('saComment') || {}).value || '';
+    }
+
+    // Advance stage
+    var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+    var idx = stagesOrder.indexOf(currentStage);
+    if (idx >= 0 && idx < stagesOrder.length - 1) card.stage = stagesOrder[idx + 1];
+
+    _saveBoardProjects();
+    overlay.remove();
+    renderBoardFlow();
+    renderKanban(project);
+    _updateBoardStats(project);
+  });
 }
 
 function _drawFlowConnections() {
