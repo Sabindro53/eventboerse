@@ -11891,113 +11891,16 @@ function _deleteEventConnection(ecId) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  NAV AI SEARCH OVERLAY & CATEGORY DROPDOWN
+//  NAV AI SEARCH OVERLAY & CATEGORY DROPDOWN (v2)
 // ══════════════════════════════════════════════════════════════
 
 var _navAiTypingTimer = null;
 var _navSelectedCategory = '';
+var _navAiCatSelection = new Set();
 
-// ── AI Search Overlay ──
-function openNavAiSearch() {
-  var overlay = document.getElementById('navAiOverlay');
-  if (!overlay) return;
-  overlay.classList.add('show');
-  setTimeout(function() {
-    var inp = document.getElementById('navAiInput');
-    if (inp) inp.focus();
-  }, 350);
-}
-function closeNavAiSearch() {
-  var overlay = document.getElementById('navAiOverlay');
-  if (overlay) overlay.classList.remove('show');
-}
-function navAiFill(el) {
-  var inp = document.getElementById('navAiInput');
-  if (inp) { inp.value = el.textContent.trim(); inp.focus(); }
-}
-function submitNavAiSearch() {
-  var inp = document.getElementById('navAiInput');
-  var query = inp ? inp.value.trim() : '';
-  closeNavAiSearch();
-  navigateTo('browse');
-  setTimeout(function() {
-    var heroInput = document.getElementById('heroSearchInput');
-    if (heroInput && query) {
-      heroInput.value = query;
-      heroInput.dispatchEvent(new Event('input'));
-    }
-    if (query && typeof performSearch === 'function') performSearch();
-  }, 200);
-}
-
-// ── Typing animation for nav AI button ──
-function _initNavAiTyping() {
-  var el = document.getElementById('navAiTyping');
-  if (!el) return;
-  var phrases = [
-    'Beschreib dein Event…',
-    'DJ für Hochzeit in Berlin…',
-    'Catering für 80 Gäste…',
-    'Fotograf für Firmenfeier…',
-    'Location für Geburtstag…',
-  ];
-  var phraseIdx = 0;
-  var charIdx = 0;
-  var deleting = false;
-  if (_navAiTypingTimer) clearInterval(_navAiTypingTimer);
-  el.textContent = phrases[0];
-  _navAiTypingTimer = setInterval(function() {
-    var phrase = phrases[phraseIdx];
-    if (!deleting) {
-      charIdx++;
-      el.textContent = phrase.substring(0, charIdx);
-      if (charIdx >= phrase.length) {
-        deleting = true;
-        // pause before deleting
-        clearInterval(_navAiTypingTimer);
-        _navAiTypingTimer = setTimeout(function() {
-          _navAiTypingTimer = setInterval(arguments.callee._inner || (_innerNav), 40);
-        }, 2200);
-        return;
-      }
-    }
-    function _innerNav() {
-      var phrase2 = phrases[phraseIdx];
-      charIdx--;
-      el.textContent = phrase2.substring(0, charIdx) || '\u00A0';
-      if (charIdx <= 0) {
-        deleting = false;
-        phraseIdx = (phraseIdx + 1) % phrases.length;
-        charIdx = 0;
-        clearInterval(_navAiTypingTimer);
-        _navAiTypingTimer = setInterval(function() {
-          var p = phrases[phraseIdx];
-          charIdx++;
-          el.textContent = p.substring(0, charIdx);
-          if (charIdx >= p.length) {
-            clearInterval(_navAiTypingTimer);
-            setTimeout(function() {
-              deleting = true;
-              _navAiTypingTimer = setInterval(_innerNav, 40);
-            }, 2200);
-          }
-        }, 65);
-      }
-    }
-  }, 65);
-}
-
-// ── Category Dropdown ──
-function toggleNavCategoryDropdown(e) {
-  if (e) e.stopPropagation();
-  var dd = document.getElementById('navCatDropdown');
-  if (!dd) return;
-  if (dd.classList.contains('show')) {
-    dd.classList.remove('show');
-    return;
-  }
-  // Render categories
-  var cats = (typeof AI_CATEGORIES !== 'undefined') ? AI_CATEGORIES : [
+// ── Helpers ──
+function _getNavAiCategories() {
+  return (typeof AI_CATEGORIES !== 'undefined') ? AI_CATEGORIES : [
     { key: 'dj', label: 'DJ & Musik', emoji: '🎧' },
     { key: 'catering', label: 'Catering', emoji: '🍽️' },
     { key: 'foto', label: 'Fotografie', emoji: '📷' },
@@ -12010,6 +11913,237 @@ function toggleNavCategoryDropdown(e) {
     { key: 'location', label: 'Location', emoji: '🏰' },
     { key: 'wellness', label: 'Wellness & Spa', emoji: '💆' },
   ];
+}
+
+var _NAV_AI_POPULAR = [
+  { text: 'DJ für Hochzeit in Berlin', cat: 'DJ & Musik' },
+  { text: 'Catering für 80 Personen', cat: 'Catering' },
+  { text: 'Fotograf für Firmenfeier', cat: 'Fotografie' },
+  { text: 'Location für Geburtstag', cat: 'Location' },
+  { text: 'Florist für Hochzeit', cat: 'Floristik' },
+  { text: 'Licht & Technik für Party', cat: 'Technik' },
+];
+
+// ── Open / Close ──
+function openNavAiSearch() {
+  var overlay = document.getElementById('navAiOverlay');
+  if (!overlay) return;
+  overlay.classList.add('show');
+  var inp = document.getElementById('navAiInput');
+  if (inp) { inp.value = ''; }
+  _navAiCatSelection.clear();
+  _renderNavAiBody('');
+  setTimeout(function() { if (inp) inp.focus(); }, 350);
+}
+
+function closeNavAiSearch() {
+  var overlay = document.getElementById('navAiOverlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
+// ── Render body based on input ──
+function _renderNavAiBody(query) {
+  var body = document.getElementById('navAiBody');
+  if (!body) return;
+  var q = query.toLowerCase().trim();
+  var html = '';
+
+  if (!q) {
+    // Show categories + popular searches
+    var cats = _getNavAiCategories();
+    html += '<div class="nav-ai-section-title"><span class="material-icons-round">category</span> Kategorien</div>';
+    html += '<div class="nav-ai-cat-grid">';
+    cats.forEach(function(c) {
+      var sel = _navAiCatSelection.has(c.key) ? ' selected' : '';
+      html += '<button class="nav-ai-cat-card' + sel + '" onclick="toggleNavAiCat(\'' + c.key + '\')">' +
+        '<span class="nav-ai-cat-emoji">' + c.emoji + '</span>' + c.label + '</button>';
+    });
+    html += '</div>';
+
+    html += '<div class="nav-ai-section-title"><span class="material-icons-round">trending_up</span> Beliebte Suchen</div>';
+    html += '<div class="nav-ai-popular-list">';
+    _NAV_AI_POPULAR.forEach(function(p) {
+      html += '<button class="nav-ai-popular-item" onclick="navAiFillAndSearch(\'' + p.text.replace(/'/g, "\\'") + '\')">' +
+        '<span class="material-icons-round">search</span>' +
+        '<span class="nav-ai-pop-text">' + p.text + '</span>' +
+        '<span class="nav-ai-pop-cat">' + p.cat + '</span>' +
+        '</button>';
+    });
+    html += '</div>';
+  } else {
+    // Live search results from LISTINGS
+    var listings = (typeof getHeroListings === 'function') ? getHeroListings() : (typeof LISTINGS !== 'undefined' ? LISTINGS : []);
+    var results = listings.filter(function(l) {
+      var haystack = (l.title + ' ' + l.categoryLabel + ' ' + l.tags.join(' ') + ' ' + l.providerName + ' ' + l.location).toLowerCase();
+      return haystack.includes(q);
+    }).slice(0, 6);
+
+    // Also show matching categories
+    var cats = _getNavAiCategories();
+    var matchedCats = cats.filter(function(c) { return c.label.toLowerCase().includes(q) || c.key.includes(q); });
+    if (matchedCats.length > 0) {
+      html += '<div class="nav-ai-section-title"><span class="material-icons-round">category</span> Kategorien</div>';
+      html += '<div class="nav-ai-cat-grid">';
+      matchedCats.forEach(function(c) {
+        var sel = _navAiCatSelection.has(c.key) ? ' selected' : '';
+        html += '<button class="nav-ai-cat-card' + sel + '" onclick="toggleNavAiCat(\'' + c.key + '\')">' +
+          '<span class="nav-ai-cat-emoji">' + c.emoji + '</span>' + c.label + '</button>';
+      });
+      html += '</div>';
+    }
+
+    if (results.length > 0) {
+      html += '<div class="nav-ai-section-title"><span class="material-icons-round">auto_awesome</span> Ergebnisse</div>';
+      html += '<div class="nav-ai-results">';
+      results.forEach(function(l) {
+        var img = (l.images && l.images[0]) ? l.images[0] : '';
+        var stars = '★'.repeat(Math.round(l.rating)) + '☆'.repeat(5 - Math.round(l.rating));
+        html += '<button class="nav-ai-result-card" onclick="closeNavAiSearch();navigateTo(\'provider\',{id:' + l.id + '})">' +
+          '<img class="nav-ai-result-img" src="' + img + '" alt="" onerror="this.style.display=\'none\'" />' +
+          '<div class="nav-ai-result-info">' +
+            '<div class="nav-ai-result-name">' + l.title + '</div>' +
+            '<div class="nav-ai-result-meta">' +
+              '<span class="nav-ai-result-rating">' + stars.substring(0,5) + ' ' + l.rating + '</span>' +
+              '<span>·</span><span>' + l.location + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<span class="nav-ai-result-price">ab ' + l.price + '€</span>' +
+          '</button>';
+      });
+      html += '</div>';
+    }
+
+    // Matching popular searches
+    var matchedPop = _NAV_AI_POPULAR.filter(function(p) { return p.text.toLowerCase().includes(q); });
+    if (matchedPop.length > 0) {
+      html += '<div class="nav-ai-section-title"><span class="material-icons-round">trending_up</span> Vorschläge</div>';
+      html += '<div class="nav-ai-popular-list">';
+      matchedPop.forEach(function(p) {
+        html += '<button class="nav-ai-popular-item" onclick="navAiFillAndSearch(\'' + p.text.replace(/'/g, "\\'") + '\')">' +
+          '<span class="material-icons-round">search</span>' +
+          '<span class="nav-ai-pop-text">' + p.text + '</span>' +
+          '<span class="nav-ai-pop-cat">' + p.cat + '</span>' +
+          '</button>';
+      });
+      html += '</div>';
+    }
+
+    if (results.length === 0 && matchedCats.length === 0 && matchedPop.length === 0) {
+      html += '<div class="nav-ai-empty"><span class="material-icons-round">search_off</span>Keine Ergebnisse für „' + q + '"<br><small>Suche anpassen oder Kategorie wählen</small></div>';
+    }
+  }
+
+  body.innerHTML = html;
+}
+
+function onNavAiInput() {
+  var inp = document.getElementById('navAiInput');
+  _renderNavAiBody(inp ? inp.value : '');
+}
+
+function toggleNavAiCat(key) {
+  if (_navAiCatSelection.has(key)) {
+    _navAiCatSelection.delete(key);
+  } else {
+    _navAiCatSelection.add(key);
+  }
+  var inp = document.getElementById('navAiInput');
+  _renderNavAiBody(inp ? inp.value : '');
+}
+
+function navAiFillAndSearch(text) {
+  var inp = document.getElementById('navAiInput');
+  if (inp) inp.value = text;
+  submitNavAiSearch();
+}
+
+function submitNavAiSearch() {
+  var inp = document.getElementById('navAiInput');
+  var query = inp ? inp.value.trim() : '';
+  closeNavAiSearch();
+
+  // Transfer category selections
+  if (typeof selectedCategories !== 'undefined') {
+    selectedCategories.clear();
+    _navAiCatSelection.forEach(function(k) { selectedCategories.add(k); });
+  }
+
+  navigateTo('browse');
+  setTimeout(function() {
+    var heroInput = document.getElementById('heroSearchInput');
+    if (heroInput && query) {
+      heroInput.value = query;
+      heroInput.dispatchEvent(new Event('input'));
+    }
+    var browseInput = document.getElementById('browseSearch');
+    if (browseInput && query) {
+      browseInput.value = query;
+      _aiPlaceholderHideOnInput(browseInput);
+    }
+    if (typeof filterListings === 'function') filterListings();
+    // Scroll to results
+    setTimeout(function() {
+      var grid = document.getElementById('browseGrid');
+      if (grid) window.scrollTo({ top: grid.getBoundingClientRect().top + window.pageYOffset - 110, behavior: 'smooth' });
+    }, 150);
+  }, 250);
+}
+
+// ── Typing animation for nav AI button ──
+function _initNavAiTyping() {
+  var el = document.getElementById('navAiTyping');
+  if (!el) return;
+  var phrases = [
+    'Beschreib dein Event…',
+    'DJ für Hochzeit…',
+    'Catering für 80 Gäste…',
+    'Fotograf gesucht…',
+    'Location finden…',
+  ];
+  var phraseIdx = 0, charIdx = 0, isDeleting = false;
+  if (_navAiTypingTimer) clearInterval(_navAiTypingTimer);
+
+  function tick() {
+    var phrase = phrases[phraseIdx];
+    if (!isDeleting) {
+      charIdx++;
+      el.textContent = phrase.substring(0, charIdx);
+      if (charIdx >= phrase.length) {
+        isDeleting = true;
+        clearInterval(_navAiTypingTimer);
+        _navAiTypingTimer = setTimeout(function() {
+          _navAiTypingTimer = setInterval(tick, 35);
+        }, 2400);
+        return;
+      }
+    } else {
+      charIdx--;
+      el.textContent = phrase.substring(0, charIdx) || '\u00A0';
+      if (charIdx <= 0) {
+        isDeleting = false;
+        phraseIdx = (phraseIdx + 1) % phrases.length;
+        clearInterval(_navAiTypingTimer);
+        _navAiTypingTimer = setTimeout(function() {
+          _navAiTypingTimer = setInterval(tick, 60);
+        }, 400);
+        return;
+      }
+    }
+  }
+  el.textContent = '\u00A0';
+  _navAiTypingTimer = setInterval(tick, 60);
+}
+
+// ── Category Dropdown ──
+function toggleNavCategoryDropdown(e) {
+  if (e) e.stopPropagation();
+  var dd = document.getElementById('navCatDropdown');
+  if (!dd) return;
+  if (dd.classList.contains('show')) {
+    dd.classList.remove('show');
+    return;
+  }
+  var cats = _getNavAiCategories();
   dd.innerHTML = cats.map(function(c) {
     var sel = _navSelectedCategory === c.key ? ' selected' : '';
     return '<button class="nav-cat-item' + sel + '" onclick="selectNavCategory(\'' + c.key + '\',\'' + c.label + '\',\'' + c.emoji + '\')">' +
@@ -12029,7 +12163,6 @@ function selectNavCategory(key, label, emoji) {
     if (valEl) valEl.textContent = emoji + ' ' + label;
   }
   if (dd) dd.classList.remove('show');
-  // Also update selectedCategories set used by browse page
   if (typeof selectedCategories !== 'undefined') {
     selectedCategories.clear();
     if (_navSelectedCategory) selectedCategories.add(_navSelectedCategory);
@@ -12041,7 +12174,7 @@ function performNavSearch() {
   if (dd) dd.classList.remove('show');
   navigateTo('browse');
   setTimeout(function() {
-    if (typeof performSearch === 'function') performSearch();
+    if (typeof filterListings === 'function') filterListings();
   }, 200);
 }
 
@@ -12054,6 +12187,11 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.nav-ai-overlay-inner') && !e.target.closest('.nav-search-ai')) {
     closeNavAiSearch();
   }
+});
+
+// Escape key closes overlay
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeNavAiSearch();
 });
 
 // Init typing on load

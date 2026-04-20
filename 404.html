@@ -61,19 +61,17 @@
             <button class="nav-ai-close" onclick="closeNavAiSearch()"><span class="material-icons-round">close</span></button>
           </div>
           <div class="nav-ai-input-wrap">
-            <input type="text" id="navAiInput" class="nav-ai-input" placeholder="Beschreibe dein Event – z.B. &quot;DJ für Hochzeit in Berlin&quot;" autocomplete="off" />
+            <span class="material-icons-round nav-ai-input-icon">search</span>
+            <input type="text" id="navAiInput" class="nav-ai-input" placeholder="Was suchst du? z.B. DJ, Fotograf, Catering…" autocomplete="off" oninput="onNavAiInput()" />
             <div class="nav-ai-input-glow"></div>
           </div>
-          <div class="nav-ai-suggestions" id="navAiSuggestions">
-            <div class="nav-ai-hint">✨ Probiere es aus:</div>
-            <div class="nav-ai-example" onclick="navAiFill(this)">DJ für Hochzeit in Berlin</div>
-            <div class="nav-ai-example" onclick="navAiFill(this)">Catering für 80 Personen</div>
-            <div class="nav-ai-example" onclick="navAiFill(this)">Fotograf für Firmenfeier in München</div>
-            <div class="nav-ai-example" onclick="navAiFill(this)">Location für Geburtstag</div>
+          <div class="nav-ai-body" id="navAiBody">
           </div>
-          <button class="nav-ai-submit" onclick="submitNavAiSearch()">
-            <span class="material-icons-round">search</span> Suchen
-          </button>
+          <div class="nav-ai-footer">
+            <button class="nav-ai-submit" onclick="submitNavAiSearch()">
+              <span class="material-icons-round">search</span> Suchen
+            </button>
+          </div>
         </div>
       </div>
       <div class="nav-actions">
