@@ -6698,8 +6698,9 @@ span.flatpickr-weekday {
 /* ======== SCROLLBAR ======== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-dark); }
+html { scrollbar-color: var(--primary) transparent; }
 
 /* ======== ANIMATIONS ======== */
 @keyframes galleryReveal {
