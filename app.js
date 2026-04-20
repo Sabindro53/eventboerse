@@ -10295,7 +10295,7 @@ function renderBoardFlow() {
       html += '<strong>' + esc(card.name) + '</strong>';
       html += '<small>' + esc(card.category || '') + '</small>';
       if (card.price) html += '<span class="flow-prov-price">' + parseFloat(card.price).toLocaleString('de-DE') + ' €</span>';
-      if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + '</span>';
+      if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
       html += '<div class="flow-prov-actions">';
       html += '<button class="flow-prov-btn" onclick="event.stopPropagation();moveBoardCardStage(\'' + card.id + '\',\'' + stage.id + '\')" title="Stage wechseln"><span class="material-icons-round">swap_horiz</span></button>';
@@ -10495,6 +10495,98 @@ function _saveBudgetModal() {
   showToast('Budget gespeichert!', 'check_circle');
 }
 
+// ============= Zeit-Picker (Zeitraum + Presets + Stepper) =============
+window._buildTimePicker = function(startId, endId, startVal, endVal) {
+  var sv = startVal || '10:00';
+  var ev = endVal || '';
+  var presets = [
+    { key:'morning',   icon:'wb_twilight',   label:'Vormittag',   hint:'09–12',  s:'09:00', e:'12:00' },
+    { key:'afternoon', icon:'light_mode',    label:'Nachmittag',  hint:'13–17',  s:'13:00', e:'17:00' },
+    { key:'evening',   icon:'nights_stay',   label:'Abend',       hint:'18–22',  s:'18:00', e:'22:00' },
+    { key:'night',     icon:'dark_mode',     label:'Nacht',       hint:'22–02',  s:'22:00', e:'02:00' },
+    { key:'allday',    icon:'event_available',label:'Ganztags',   hint:'10–22',  s:'10:00', e:'22:00' }
+  ];
+  var presetsHtml = presets.map(function(p){
+    return '<button type="button" class="eb-tp-preset" data-s="'+p.s+'" data-e="'+p.e+'" onclick="_tpApplyPreset(\''+startId+'\',\''+endId+'\',\''+p.s+'\',\''+p.e+'\',this)">' +
+      '<span class="material-icons-round">'+p.icon+'</span>' +
+      '<span class="eb-tp-preset-lbl">'+p.label+'</span>' +
+      '<span class="eb-tp-preset-hint">'+p.hint+'</span>' +
+    '</button>';
+  }).join('');
+  return '<div class="eb-tp">' +
+    '<div class="eb-tp-presets">' + presetsHtml + '</div>' +
+    '<div class="eb-tp-range">' +
+      '<div class="eb-tp-field">' +
+        '<span class="eb-tp-lbl"><span class="material-icons-round">play_arrow</span>Start</span>' +
+        '<div class="eb-tp-iw">' +
+          '<button type="button" class="eb-tp-step" aria-label="-30 Min" onclick="_tpStep(\''+startId+'\',-30,\''+startId+'\',\''+endId+'\')">−</button>' +
+          '<input type="time" id="'+startId+'" class="eb-tp-time" value="'+sv+'" oninput="_tpUpdateDur(\''+startId+'\',\''+endId+'\')" />' +
+          '<button type="button" class="eb-tp-step" aria-label="+30 Min" onclick="_tpStep(\''+startId+'\',30,\''+startId+'\',\''+endId+'\')">+</button>' +
+        '</div>' +
+      '</div>' +
+      '<span class="eb-tp-arrow material-icons-round">arrow_right_alt</span>' +
+      '<div class="eb-tp-field">' +
+        '<span class="eb-tp-lbl"><span class="material-icons-round">stop</span>Ende <em>(optional)</em></span>' +
+        '<div class="eb-tp-iw">' +
+          '<button type="button" class="eb-tp-step" aria-label="-30 Min" onclick="_tpStep(\''+endId+'\',-30,\''+startId+'\',\''+endId+'\')">−</button>' +
+          '<input type="time" id="'+endId+'" class="eb-tp-time" value="'+ev+'" placeholder="--:--" oninput="_tpUpdateDur(\''+startId+'\',\''+endId+'\')" />' +
+          '<button type="button" class="eb-tp-step" aria-label="+30 Min" onclick="_tpStep(\''+endId+'\',30,\''+startId+'\',\''+endId+'\')">+</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="eb-tp-dur" id="'+startId+'_dur"><span class="material-icons-round">hourglass_empty</span><span>Kein Endzeitpunkt</span></div>' +
+  '</div>';
+};
+
+window._tpApplyPreset = function(sId, eId, s, e, btn) {
+  var si = document.getElementById(sId), ei = document.getElementById(eId);
+  if (si) si.value = s;
+  if (ei) ei.value = e;
+  // visual active state
+  if (btn) {
+    var grp = btn.parentElement;
+    if (grp) grp.querySelectorAll('.eb-tp-preset').forEach(function(b){ b.classList.remove('is-active'); });
+    btn.classList.add('is-active');
+  }
+  _tpUpdateDur(sId, eId);
+};
+
+window._tpStep = function(id, minutes, sId, eId) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var v = el.value || '10:00';
+  var parts = v.split(':');
+  var total = (parseInt(parts[0],10)||0)*60 + (parseInt(parts[1],10)||0) + minutes;
+  total = ((total % (24*60)) + (24*60)) % (24*60);
+  var hh = Math.floor(total/60), mm = total%60;
+  el.value = (hh<10?'0':'')+hh + ':' + (mm<10?'0':'')+mm;
+  _tpUpdateDur(sId || id, eId || '');
+  // clear preset highlight
+  var tp = el.closest('.eb-tp');
+  if (tp) tp.querySelectorAll('.eb-tp-preset.is-active').forEach(function(b){ b.classList.remove('is-active'); });
+};
+
+window._tpUpdateDur = function(sId, eId) {
+  var dur = document.getElementById(sId+'_dur');
+  if (!dur) return;
+  var si = document.getElementById(sId), ei = document.getElementById(eId);
+  var sv = si ? si.value : '', ev = ei ? ei.value : '';
+  if (!sv || !ev) {
+    dur.innerHTML = '<span class="material-icons-round">hourglass_empty</span><span>Kein Endzeitpunkt</span>';
+    dur.classList.remove('is-set');
+    return;
+  }
+  var sp = sv.split(':'), ep = ev.split(':');
+  var sm = (+sp[0])*60 + (+sp[1]);
+  var em = (+ep[0])*60 + (+ep[1]);
+  var diff = em - sm;
+  if (diff <= 0) diff += 24*60; // wrap past midnight
+  var h = Math.floor(diff/60), m = diff%60;
+  var txt = (h?h+' Std ':'') + (m?m+' Min':(h?'':'0 Min'));
+  dur.innerHTML = '<span class="material-icons-round">schedule</span><span>Dauer: <strong>'+txt+'</strong></span>';
+  dur.classList.add('is-set');
+};
+
 function openFlowCardModal(cardId) {
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -10518,7 +10610,7 @@ function openFlowCardModal(cardId) {
     '<div class="form-group"><label>Name</label><input type="text" id="fcName" value="' + _escHtml(card.name) + '" required /></div>' +
     '<div class="form-group"><label>Kategorie</label><input type="text" id="fcCat" value="' + _escHtml(card.category || '') + '" /></div>' +
     '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="50" /></div>' +
-    '<div class="form-group"><label>Startuhrzeit</label><input type="time" id="fcTime" value="' + _escHtml(card.startTime || '10:00') + '" /></div>' +
+    '<div class="form-group"><label>Uhrzeit am Eventtag</label>' + window._buildTimePicker('fcTime','fcTimeEnd', card.startTime || '10:00', card.endTime || '') + '</div>' +
     '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>' +
     '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
@@ -10541,6 +10633,7 @@ function _saveFlowCard(event, cardId) {
   card.category  = document.getElementById('fcCat').value.trim();
   card.price     = parseFloat(document.getElementById('fcPrice').value) || 0;
   card.startTime = document.getElementById('fcTime').value;
+  card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
   card.stage     = document.getElementById('fcStage').value;
   card.note      = document.getElementById('fcNote').value.trim();
   _saveBoardProjects();
@@ -11048,6 +11141,8 @@ function openCreateBoardModal() {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  var host = document.getElementById('cardTimePickerHost');
+  if (host) host.innerHTML = window._buildTimePicker('cardStartTime','cardEndTime','10:00','');
 }
 
 function _selectBoardTmpl(el) {
@@ -11139,8 +11234,8 @@ function openAddProviderModal(defaultStage) {
           <input type="number" id="cardPrice" placeholder="0" min="0" step="50" />
         </div>
         <div class="form-group">
-          <label>Startuhrzeit am Eventtag</label>
-          <input type="time" id="cardStartTime" value="10:00" />
+          <label>Uhrzeit am Eventtag</label>
+          <div id="cardTimePickerHost"></div>
         </div>
         <div class="form-group">
           <label>Notiz</label>
@@ -11180,6 +11275,7 @@ function _addProviderCard(event, stage) {
   var price = parseFloat(document.getElementById('cardPrice').value) || 0;
   var note = document.getElementById('cardNote').value.trim();
   var startTime = document.getElementById('cardStartTime').value || '';
+  var endTime = (document.getElementById('cardEndTime') || {}).value || '';
 
   var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
   var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : null;
@@ -11191,6 +11287,7 @@ function _addProviderCard(event, stage) {
     price: price,
     note: note,
     startTime: startTime,
+    endTime: endTime,
     stage: stage,
     listingId: listingId,
     avatar: avatar,
@@ -11234,13 +11331,15 @@ function editBoardCard(cardId) {
         <div class="form-group"><label>Name</label><input type="text" id="editCardName" value="${_escHtml(card.name)}" required /></div>
         <div class="form-group"><label>Kategorie</label><input type="text" id="editCardCategory" value="${_escHtml(card.category || '')}" /></div>
         <div class="form-group"><label>Preis (€)</label><input type="number" id="editCardPrice" value="${card.price || ''}" min="0" step="50" /></div>
-        <div class="form-group"><label>Uhrzeit</label><input type="time" id="editCardTime" value="${_escHtml(card.startTime || '10:00')}" /></div>
+        <div class="form-group"><label>Uhrzeit</label><div id="editCardTimeHost"></div></div>
         <div class="form-group"><label>Notiz</label><textarea id="editCardNote" rows="2">${_escHtml(card.note || '')}</textarea></div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>
       </form>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  var ecHost = document.getElementById('editCardTimeHost');
+  if (ecHost) ecHost.innerHTML = window._buildTimePicker('editCardTime','editCardTimeEnd', card.startTime || '10:00', card.endTime || '');
 }
 
 function _saveCardEdit(event, cardId) {
@@ -11254,6 +11353,7 @@ function _saveCardEdit(event, cardId) {
   card.category = document.getElementById('editCardCategory').value.trim();
   card.price = parseFloat(document.getElementById('editCardPrice').value) || 0;
   card.startTime = document.getElementById('editCardTime').value || '';
+  card.endTime = (document.getElementById('editCardTimeEnd') || {}).value || '';
   card.note = document.getElementById('editCardNote').value.trim();
   _saveBoardProjects();
   document.getElementById('editCardModal') && document.getElementById('editCardModal').remove();
