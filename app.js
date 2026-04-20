@@ -9936,9 +9936,9 @@ function renderBoardPage() {
         <span class="material-icons-round">view_kanban</span>
         <h3>Noch kein Event-Projekt</h3>
         <p>${!currentUser ? 'Melde dich an, um dein Planungs-Board zu nutzen und Dienstleister für dein Event zu organisieren.' : 'Erstelle dein erstes Planungs-Board und organisiere alle Dienstleister für dein Event.'}</p>
-        ${currentUser ? `<button class="btn-primary board-new-btn" onclick="openCreateBoardModal()" style="margin-top:20px">
+        ${currentUser ? `<button class="btn-primary board-new-btn" onclick="openCreateBoardModal()">
           <span class="material-icons-round">add</span> Erstes Projekt erstellen
-        </button>` : `<button class="btn-primary board-new-btn" onclick="openModal('loginModal')" style="margin-top:20px">
+        </button>` : `<button class="btn-primary board-new-btn" onclick="openModal('loginModal')">
           <span class="material-icons-round">login</span> Jetzt anmelden
         </button>`}
       </div>`;
