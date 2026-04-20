@@ -11889,3 +11889,174 @@ function _deleteEventConnection(ecId) {
   localStorage.setItem('eb_user', JSON.stringify(stored));
   _renderProfileEventConnections();
 }
+
+// ══════════════════════════════════════════════════════════════
+//  NAV AI SEARCH OVERLAY & CATEGORY DROPDOWN
+// ══════════════════════════════════════════════════════════════
+
+var _navAiTypingTimer = null;
+var _navSelectedCategory = '';
+
+// ── AI Search Overlay ──
+function openNavAiSearch() {
+  var overlay = document.getElementById('navAiOverlay');
+  if (!overlay) return;
+  overlay.classList.add('show');
+  setTimeout(function() {
+    var inp = document.getElementById('navAiInput');
+    if (inp) inp.focus();
+  }, 350);
+}
+function closeNavAiSearch() {
+  var overlay = document.getElementById('navAiOverlay');
+  if (overlay) overlay.classList.remove('show');
+}
+function navAiFill(el) {
+  var inp = document.getElementById('navAiInput');
+  if (inp) { inp.value = el.textContent.trim(); inp.focus(); }
+}
+function submitNavAiSearch() {
+  var inp = document.getElementById('navAiInput');
+  var query = inp ? inp.value.trim() : '';
+  closeNavAiSearch();
+  navigateTo('browse');
+  setTimeout(function() {
+    var heroInput = document.getElementById('heroSearchInput');
+    if (heroInput && query) {
+      heroInput.value = query;
+      heroInput.dispatchEvent(new Event('input'));
+    }
+    if (query && typeof performSearch === 'function') performSearch();
+  }, 200);
+}
+
+// ── Typing animation for nav AI button ──
+function _initNavAiTyping() {
+  var el = document.getElementById('navAiTyping');
+  if (!el) return;
+  var phrases = [
+    'Beschreib dein Event…',
+    'DJ für Hochzeit in Berlin…',
+    'Catering für 80 Gäste…',
+    'Fotograf für Firmenfeier…',
+    'Location für Geburtstag…',
+  ];
+  var phraseIdx = 0;
+  var charIdx = 0;
+  var deleting = false;
+  if (_navAiTypingTimer) clearInterval(_navAiTypingTimer);
+  el.textContent = phrases[0];
+  _navAiTypingTimer = setInterval(function() {
+    var phrase = phrases[phraseIdx];
+    if (!deleting) {
+      charIdx++;
+      el.textContent = phrase.substring(0, charIdx);
+      if (charIdx >= phrase.length) {
+        deleting = true;
+        // pause before deleting
+        clearInterval(_navAiTypingTimer);
+        _navAiTypingTimer = setTimeout(function() {
+          _navAiTypingTimer = setInterval(arguments.callee._inner || (_innerNav), 40);
+        }, 2200);
+        return;
+      }
+    }
+    function _innerNav() {
+      var phrase2 = phrases[phraseIdx];
+      charIdx--;
+      el.textContent = phrase2.substring(0, charIdx) || '\u00A0';
+      if (charIdx <= 0) {
+        deleting = false;
+        phraseIdx = (phraseIdx + 1) % phrases.length;
+        charIdx = 0;
+        clearInterval(_navAiTypingTimer);
+        _navAiTypingTimer = setInterval(function() {
+          var p = phrases[phraseIdx];
+          charIdx++;
+          el.textContent = p.substring(0, charIdx);
+          if (charIdx >= p.length) {
+            clearInterval(_navAiTypingTimer);
+            setTimeout(function() {
+              deleting = true;
+              _navAiTypingTimer = setInterval(_innerNav, 40);
+            }, 2200);
+          }
+        }, 65);
+      }
+    }
+  }, 65);
+}
+
+// ── Category Dropdown ──
+function toggleNavCategoryDropdown(e) {
+  if (e) e.stopPropagation();
+  var dd = document.getElementById('navCatDropdown');
+  if (!dd) return;
+  if (dd.classList.contains('show')) {
+    dd.classList.remove('show');
+    return;
+  }
+  // Render categories
+  var cats = (typeof AI_CATEGORIES !== 'undefined') ? AI_CATEGORIES : [
+    { key: 'dj', label: 'DJ & Musik', emoji: '🎧' },
+    { key: 'catering', label: 'Catering', emoji: '🍽️' },
+    { key: 'foto', label: 'Fotografie', emoji: '📷' },
+    { key: 'florist', label: 'Floristik', emoji: '🌸' },
+    { key: 'deko', label: 'Dekoration', emoji: '🎈' },
+    { key: 'licht', label: 'Licht & Technik', emoji: '💡' },
+    { key: 'planung', label: 'Planung', emoji: '📋' },
+    { key: 'moderation', label: 'Moderation', emoji: '🎤' },
+    { key: 'pyro', label: 'Pyrotechnik', emoji: '🎆' },
+    { key: 'location', label: 'Location', emoji: '🏰' },
+    { key: 'wellness', label: 'Wellness & Spa', emoji: '💆' },
+  ];
+  dd.innerHTML = cats.map(function(c) {
+    var sel = _navSelectedCategory === c.key ? ' selected' : '';
+    return '<button class="nav-cat-item' + sel + '" onclick="selectNavCategory(\'' + c.key + '\',\'' + c.label + '\',\'' + c.emoji + '\')">' +
+      '<span class="nav-cat-emoji">' + c.emoji + '</span>' + c.label + '</button>';
+  }).join('');
+  dd.classList.add('show');
+}
+
+function selectNavCategory(key, label, emoji) {
+  var dd = document.getElementById('navCatDropdown');
+  var valEl = document.getElementById('navCatValue');
+  if (_navSelectedCategory === key) {
+    _navSelectedCategory = '';
+    if (valEl) valEl.textContent = 'Kategorie';
+  } else {
+    _navSelectedCategory = key;
+    if (valEl) valEl.textContent = emoji + ' ' + label;
+  }
+  if (dd) dd.classList.remove('show');
+  // Also update selectedCategories set used by browse page
+  if (typeof selectedCategories !== 'undefined') {
+    selectedCategories.clear();
+    if (_navSelectedCategory) selectedCategories.add(_navSelectedCategory);
+  }
+}
+
+function performNavSearch() {
+  var dd = document.getElementById('navCatDropdown');
+  if (dd) dd.classList.remove('show');
+  navigateTo('browse');
+  setTimeout(function() {
+    if (typeof performSearch === 'function') performSearch();
+  }, 200);
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.nav-search-segment-wrap')) {
+    var dd = document.getElementById('navCatDropdown');
+    if (dd) dd.classList.remove('show');
+  }
+  if (!e.target.closest('.nav-ai-overlay-inner') && !e.target.closest('.nav-search-ai')) {
+    closeNavAiSearch();
+  }
+});
+
+// Init typing on load
+document.addEventListener('DOMContentLoaded', function() {
+  _initNavAiTyping();
+});

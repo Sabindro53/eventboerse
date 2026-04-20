@@ -30,23 +30,51 @@
         <span class="logo-text">Event<span class="accent">börse</span></span>
       </a>
       <div class="nav-search" id="navSearchBar">
-        <button class="nav-search-segment" onclick="navigateTo('browse')">
-          <span class="label">Was?</span>
-          <span class="value">Service suchen</span>
+        <button class="nav-search-segment nav-search-ai" onclick="openNavAiSearch()">
+          <span class="ai-glow-dot"></span>
+          <span class="label"><span class="material-icons-round ai-spark">auto_awesome</span> KI-Suche</span>
+          <span class="value" id="navAiTyping">Beschreib dein Event…</span>
         </button>
         <span class="nav-search-divider"></span>
-        <button class="nav-search-segment" onclick="navigateTo('browse')">
-          <span class="label">Event</span>
-          <span class="value">Kategorie</span>
-        </button>
+        <div class="nav-search-segment-wrap">
+          <button class="nav-search-segment" onclick="toggleNavCategoryDropdown(event)">
+            <span class="label">Event</span>
+            <span class="value" id="navCatValue">Kategorie</span>
+          </button>
+          <div class="nav-cat-dropdown" id="navCatDropdown"></div>
+        </div>
         <span class="nav-search-divider"></span>
         <button class="nav-search-segment" onclick="toggleMapOverlay()" id="navWoBtn">
           <span class="label">Wo?</span>
           <span class="value" id="navWoValue">Region</span>
         </button>
-        <button class="nav-search-btn" onclick="navigateTo('browse')">
+        <button class="nav-search-btn" onclick="performNavSearch()">
           <span class="material-icons-round">search</span>
         </button>
+      </div>
+      <!-- AI Search Overlay -->
+      <div class="nav-ai-overlay" id="navAiOverlay">
+        <div class="nav-ai-overlay-inner">
+          <div class="nav-ai-header">
+            <span class="material-icons-round ai-spark-lg">auto_awesome</span>
+            <span>KI-Eventsuche</span>
+            <button class="nav-ai-close" onclick="closeNavAiSearch()"><span class="material-icons-round">close</span></button>
+          </div>
+          <div class="nav-ai-input-wrap">
+            <input type="text" id="navAiInput" class="nav-ai-input" placeholder="Beschreibe dein Event – z.B. &quot;DJ für Hochzeit in Berlin&quot;" autocomplete="off" />
+            <div class="nav-ai-input-glow"></div>
+          </div>
+          <div class="nav-ai-suggestions" id="navAiSuggestions">
+            <div class="nav-ai-hint">✨ Probiere es aus:</div>
+            <div class="nav-ai-example" onclick="navAiFill(this)">DJ für Hochzeit in Berlin</div>
+            <div class="nav-ai-example" onclick="navAiFill(this)">Catering für 80 Personen</div>
+            <div class="nav-ai-example" onclick="navAiFill(this)">Fotograf für Firmenfeier in München</div>
+            <div class="nav-ai-example" onclick="navAiFill(this)">Location für Geburtstag</div>
+          </div>
+          <button class="nav-ai-submit" onclick="submitNavAiSearch()">
+            <span class="material-icons-round">search</span> Suchen
+          </button>
+        </div>
       </div>
       <div class="nav-actions">
         <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
