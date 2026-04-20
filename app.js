@@ -11255,7 +11255,7 @@ function openAddProviderModal(defaultStage) {
         </div>
         <div class="form-group">
           <label>Uhrzeit am Eventtag</label>
-          <div id="cardTimePickerHost"></div>
+          <div id="cardTimePickerHost">${window._buildTimePicker('cardStartTime','cardEndTime','10:00','')}</div>
         </div>
         <div class="form-group">
           <label>Notiz</label>
@@ -11268,8 +11268,6 @@ function openAddProviderModal(defaultStage) {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
-  var host = document.getElementById('cardTimePickerHost');
-  if (host) host.innerHTML = window._buildTimePicker('cardStartTime','cardEndTime','10:00','');
 }
 
 window._selectListingCard = function(btn) {
