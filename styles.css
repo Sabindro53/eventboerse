@@ -9518,6 +9518,45 @@ textarea.sa-input { resize: vertical; }
 .sa-submit:hover { filter: brightness(1.15); }
 .sa-submit .material-icons-round { font-size: 16px; }
 
+/* Stage Action Buttons (Contact) */
+.sa-action-buttons { display: flex; flex-direction: column; gap: 8px; }
+.sa-action-btn {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  color: #fff;
+  font-family: inherit;
+}
+.sa-action-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); transform: translateX(4px); }
+.sa-action-icon {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.sa-action-icon .material-icons-round { font-size: 22px; color: #fff; }
+.sa-action-phone .sa-action-icon { background: #42a5f5; }
+.sa-action-email .sa-action-icon { background: var(--primary); }
+.sa-action-whatsapp .sa-action-icon { background: #25d366; }
+.sa-action-text { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.sa-action-text strong { font-size: 14px; font-weight: 700; }
+.sa-action-text small { font-size: 11px; color: rgba(255,255,255,0.4); }
+.sa-action-arrow { font-size: 18px; color: rgba(255,255,255,0.2); transition: color 0.15s, transform 0.15s; }
+.sa-action-btn:hover .sa-action-arrow { color: rgba(255,255,255,0.6); transform: translateX(2px); }
+.sa-action-disabled {
+  opacity: 0.35; pointer-events: none; cursor: not-allowed;
+}
+.sa-action-done {
+  border-color: rgba(102,187,106,0.3) !important;
+  background: rgba(102,187,106,0.08) !important;
+}
+.sa-action-done .sa-action-arrow { display: none; }
+
 /* Responsive – Tablet */
 @media (max-width: 900px) {
   .flow-canvas { min-height: 500px; }

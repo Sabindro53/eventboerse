@@ -10692,39 +10692,78 @@ function openStageAdvanceModal(cardId, currentStage) {
   var icon   = icons[currentStage] || 'arrow_forward';
 
   var fieldsHtml = '';
-  // Look up provider contact info from listing
+  // Look up provider contact info from listing + user
   var _listing = card.listingId ? (LISTINGS || []).find(function(l){ return l.id === card.listingId; }) : null;
   var _provPhone = (_listing && _listing.phone) || '';
+  var _provEmail = (_listing && _listing.email) || '';
+  var _provName  = card.name || (_listing && _listing.providerName) || 'Anbieter';
   var _provWhatsapp = (_listing && _listing.whatsapp) || '';
-  // Also check if provider user has phone
-  if (!_provPhone && _listing && _listing.providerId && typeof _allUsers !== 'undefined') {
-    var _pu = _allUsers.find(function(u){ return u.id === _listing.providerId; });
-    if (_pu && _pu.phone) _provPhone = _pu.phone;
+  // Also check provider user record
+  if (_listing && _listing.providerId) {
+    var _dUsers = _demoUsers();
+    var _pu = _dUsers.find(function(u){ return u.id === _listing.providerId; });
+    if (_pu) {
+      if (!_provPhone && _pu.phone) _provPhone = _pu.phone;
+      if (!_provEmail && _pu.email) _provEmail = _pu.email;
+    }
   }
   var _hasPhone = !!_provPhone;
-  var _hasWhatsapp = !!_provWhatsapp || _hasPhone; // WhatsApp uses phone number
+  var _hasWhatsapp = !!(_provWhatsapp || _provPhone);
+  var _hasEmail = !!_provEmail;
+  // Clean phone for tel/wa links
+  var _cleanPhone = (_provWhatsapp || _provPhone || '').replace(/[\s\-\(\)]/g, '');
+  if (_cleanPhone && !_cleanPhone.startsWith('+')) _cleanPhone = '+49' + _cleanPhone.replace(/^0/, '');
+  // Project info for pre-filled messages
+  var _projectName = project.name || 'mein Event';
+  var _projectDate = project.date ? new Date(project.date).toLocaleDateString('de-DE', {day:'numeric',month:'long',year:'numeric'}) : '';
+  var _senderName = (typeof currentUser !== 'undefined' && currentUser) ? ((currentUser.first_name || '') + ' ' + (currentUser.last_name || '')).trim() || currentUser.email || '' : '';
 
   if (currentStage === 'geplant') {
+    // Build pre-filled message
+    var _defaultMsg = 'Hallo ' + _provName + ',\\n\\nich plane ' + _projectName +
+      (_projectDate ? ' am ' + _projectDate : '') +
+      ' und bin an Ihrem Angebot „' + (_listing ? _listing.title || '' : card.name || '') + '" interessiert.' +
+      '\\n\\nKönnten wir die Details besprechen?' +
+      (_senderName ? '\\n\\nMit freundlichen Grüßen\\n' + _senderName : '\\n\\nMit freundlichen Grüßen');
+    var _defaultMsgClean = _defaultMsg.replace(/\\n/g, '\n');
+
     fieldsHtml = '' +
-      '<label class="sa-label">Kontaktweg</label>' +
-      '<div class="sa-chips">' +
-        '<label class="sa-chip' + (_hasPhone ? '' : ' sa-chip-disabled') + '">' +
-          '<input type="radio" name="saContact" value="Telefon"' + (_hasPhone ? '' : ' disabled') + '>' +
-          '<span>📞 Telefon' + (_hasPhone ? '<small class="sa-avail">✓ verfügbar</small>' : '<small class="sa-unavail">nicht angegeben</small>') + '</span>' +
-        '</label>' +
-        '<label class="sa-chip">' +
-          '<input type="radio" name="saContact" value="E-Mail" checked>' +
-          '<span>✉️ E-Mail<small class="sa-avail">✓ immer verfügbar</small></span>' +
-        '</label>' +
-        '<label class="sa-chip' + (_hasWhatsapp ? '' : ' sa-chip-disabled') + '">' +
-          '<input type="radio" name="saContact" value="WhatsApp"' + (_hasWhatsapp ? '' : ' disabled') + '>' +
-          '<span>💬 WhatsApp' + (_hasWhatsapp ? '<small class="sa-avail">✓ verfügbar</small>' : '<small class="sa-unavail">nicht angegeben</small>') + '</span>' +
-        '</label>' +
+      '<label class="sa-label">Nachricht anpassen</label>' +
+      '<textarea id="saMessage" class="sa-input" rows="6">' + _defaultMsgClean + '</textarea>' +
+      '<label class="sa-label" style="margin-top:8px">Kontaktweg wählen & direkt kontaktieren</label>' +
+      '<div class="sa-action-buttons">' +
+        // TELEFON
+        '<button type="button" class="sa-action-btn sa-action-phone' + (_hasPhone ? '' : ' sa-action-disabled') + '" id="saDoPhone">' +
+          '<span class="sa-action-icon"><span class="material-icons-round">call</span></span>' +
+          '<span class="sa-action-text">' +
+            '<strong>Anrufen</strong>' +
+            '<small>' + (_hasPhone ? _provPhone : 'Nicht verfügbar') + '</small>' +
+          '</span>' +
+          '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
+        '</button>' +
+        // E-MAIL
+        '<button type="button" class="sa-action-btn sa-action-email" id="saDoEmail">' +
+          '<span class="sa-action-icon"><span class="material-icons-round">email</span></span>' +
+          '<span class="sa-action-text">' +
+            '<strong>E-Mail senden</strong>' +
+            '<small>' + (_hasEmail ? _provEmail : 'Adresse wird abgefragt') + '</small>' +
+          '</span>' +
+          '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
+        '</button>' +
+        // WHATSAPP
+        '<button type="button" class="sa-action-btn sa-action-whatsapp' + (_hasWhatsapp ? '' : ' sa-action-disabled') + '" id="saDoWhatsapp">' +
+          '<span class="sa-action-icon"><span class="material-icons-round">chat</span></span>' +
+          '<span class="sa-action-text">' +
+            '<strong>WhatsApp</strong>' +
+            '<small>' + (_hasWhatsapp ? (_provWhatsapp || _provPhone) : 'Nicht verfügbar') + '</small>' +
+          '</span>' +
+          '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
+        '</button>' +
       '</div>' +
-      '<label class="sa-label">Nachricht <small>(optional)</small></label>' +
-      '<textarea id="saMessage" class="sa-input" rows="3" placeholder="Hallo, ich interessiere mich für…"></textarea>' +
-      '<label class="sa-label">Kontaktdatum</label>' +
-      '<input id="saDate" type="date" class="sa-input" value="' + new Date().toISOString().slice(0,10) + '">';
+      '<input type="hidden" id="saContactMethod" value="">' +
+      '<input type="hidden" id="saProvPhone" value="' + _escHtml(_cleanPhone) + '">' +
+      '<input type="hidden" id="saProvEmail" value="' + _escHtml(_provEmail) + '">' +
+      '<input type="hidden" id="saProjectName" value="' + _escHtml(_projectName) + '">';
   } else if (currentStage === 'kontaktiert') {
     fieldsHtml = '' +
       '<label class="sa-label">Angefragter Preis (€)</label>' +
@@ -10778,13 +10817,63 @@ function openStageAdvanceModal(cardId, currentStage) {
   // Close on backdrop click
   overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
 
+  // ── Contact action buttons (geplant stage) ──
+  if (currentStage === 'geplant') {
+    var _saMsg = function(){ return (document.getElementById('saMessage') || {}).value || ''; };
+    var _saSetMethod = function(m){ var el = document.getElementById('saContactMethod'); if(el) el.value = m; };
+
+    // Phone
+    var phoneBtn = document.getElementById('saDoPhone');
+    if (phoneBtn) phoneBtn.addEventListener('click', function() {
+      var phone = (document.getElementById('saProvPhone') || {}).value;
+      if (!phone) { showToast('Keine Telefonnummer verfügbar', 'error'); return; }
+      _saSetMethod('Telefon');
+      window.open('tel:' + phone, '_self');
+      // Mark as contacted after a short delay
+      phoneBtn.innerHTML = '<span class="sa-action-icon" style="background:#66bb6a"><span class="material-icons-round">check</span></span><span class="sa-action-text"><strong>Anruf gestartet</strong><small>Wurde als kontaktiert markiert</small></span>';
+      phoneBtn.classList.add('sa-action-done');
+    });
+
+    // Email
+    var emailBtn = document.getElementById('saDoEmail');
+    if (emailBtn) emailBtn.addEventListener('click', function() {
+      var email = (document.getElementById('saProvEmail') || {}).value;
+      var msg = _saMsg();
+      var projName = (document.getElementById('saProjectName') || {}).value || 'Event';
+      var subject = encodeURIComponent('Anfrage für ' + projName + ' – Eventbörse');
+      var body = encodeURIComponent(msg);
+      if (email) {
+        window.open('mailto:' + email + '?subject=' + subject + '&body=' + body, '_self');
+      } else {
+        // No email known – open mailto with empty to, user can fill in
+        window.open('mailto:?subject=' + subject + '&body=' + body, '_self');
+      }
+      _saSetMethod('E-Mail');
+      emailBtn.innerHTML = '<span class="sa-action-icon" style="background:#66bb6a"><span class="material-icons-round">check</span></span><span class="sa-action-text"><strong>E-Mail geöffnet</strong><small>Wurde als kontaktiert markiert</small></span>';
+      emailBtn.classList.add('sa-action-done');
+    });
+
+    // WhatsApp
+    var waBtn = document.getElementById('saDoWhatsapp');
+    if (waBtn) waBtn.addEventListener('click', function() {
+      var phone = (document.getElementById('saProvPhone') || {}).value;
+      if (!phone) { showToast('Keine Nummer für WhatsApp verfügbar', 'error'); return; }
+      var msg = _saMsg();
+      var waUrl = 'https://wa.me/' + phone.replace('+', '') + '?text=' + encodeURIComponent(msg);
+      window.open(waUrl, '_blank');
+      _saSetMethod('WhatsApp');
+      waBtn.innerHTML = '<span class="sa-action-icon" style="background:#66bb6a"><span class="material-icons-round">check</span></span><span class="sa-action-text"><strong>WhatsApp geöffnet</strong><small>Wurde als kontaktiert markiert</small></span>';
+      waBtn.classList.add('sa-action-done');
+    });
+  }
+
   // Submit
   document.getElementById('saSubmitBtn').addEventListener('click', function() {
     if (currentStage === 'geplant') {
-      var method = (document.querySelector('input[name=saContact]:checked') || {}).value || '';
+      var method = (document.getElementById('saContactMethod') || {}).value || 'E-Mail';
       card.contactMethod = method;
       card.contactMessage = (document.getElementById('saMessage') || {}).value || '';
-      card.contactDate = (document.getElementById('saDate') || {}).value || '';
+      card.contactDate = new Date().toISOString().slice(0,10);
     } else if (currentStage === 'kontaktiert') {
       var p = (document.getElementById('saPrice') || {}).value;
       if (p) card.requestedPrice = parseFloat(p);
