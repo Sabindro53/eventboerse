@@ -10163,6 +10163,10 @@ function renderBoardFlow() {
   var pct    = budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0;
   var budgetColor = pct >= 100 ? '#FF385C' : pct >= 80 ? '#FF9800' : '#00A699';
 
+  // Overall progress: % of cards confirmed or completed
+  var confirmedCount = cards.filter(function(c){ return c.stage==='bestaetigt' || c.stage==='abgeschlossen'; }).length;
+  var progressPct = cards.length > 0 ? Math.round(confirmedCount / cards.length * 100) : 0;
+
   // Default layout: responsive sizes based on viewport
   var storedLayout = project.flowLayout || {};
   var _vw = window.innerWidth || 1200;
@@ -10186,7 +10190,35 @@ function renderBoardFlow() {
     return 'left:' + p.x + 'px;top:' + p.y + 'px';
   }
 
+  var isPublic = !!project.isPublic;
   var html = '';
+
+  // ── Toolbar ──────────────────────────────────────────────
+  html += '<div class="flow-toolbar">';
+  html += '<button class="flow-tbtn" onclick="flowZoom(-0.15)" title="Verkleinern (Ctrl + -)"><span class="material-icons-round">remove</span></button>';
+  html += '<span class="flow-zoom-pct" id="flowZoomPct">100%</span>';
+  html += '<button class="flow-tbtn" onclick="flowZoom(0.15)" title="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
+  html += '<div class="flow-tb-divider"></div>';
+  html += '<button class="flow-tbtn" onclick="flowFitToScreen()" title="An Bildschirm anpassen"><span class="material-icons-round">fit_screen</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowResetView()" title="Ansicht zurücksetzen"><span class="material-icons-round">center_focus_strong</span></button>';
+  html += '<div class="flow-tb-divider"></div>';
+  // Progress ring
+  var circ = 2 * Math.PI * 15;
+  var off  = circ * (1 - progressPct / 100);
+  html += '<div class="flow-progress-ring" title="' + confirmedCount + '/' + cards.length + ' bestätigt (' + progressPct + '%)">';
+  html += '<svg viewBox="0 0 40 40"><circle class="fpr-bg" cx="20" cy="20" r="15" fill="none" stroke-width="4"/>';
+  html += '<circle class="fpr-fill" cx="20" cy="20" r="15" fill="none" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + circ.toFixed(2) + '" stroke-dashoffset="' + off.toFixed(2) + '"/></svg>';
+  html += '<span class="fpr-label">' + progressPct + '%</span>';
+  html += '</div>';
+  html += '<div class="flow-tb-divider"></div>';
+  html += '<button class="flow-visibility-pill' + (isPublic ? ' is-public' : '') + '" onclick="toggleFlowVisibility()" title="Sichtbarkeit umschalten">';
+  html += '<span class="material-icons-round">' + (isPublic ? 'public' : 'lock') + '</span>' + (isPublic ? 'Öffentlich' : 'Privat');
+  html += '</button>';
+  if (isPublic) {
+    html += '<button class="flow-tbtn" onclick="openFlowShareModal()" title="Teilen"><span class="material-icons-round">ios_share</span></button>';
+  }
+  html += '<button class="flow-tbtn" onclick="openAddProviderModalFlow(\'geplant\')" title="Dienstleister hinzufügen" style="background:rgba(255,56,92,0.18);border-color:rgba(255,56,92,0.4);color:#fff"><span class="material-icons-round">add</span></button>';
+  html += '</div>';
 
   // ── Budget Overview Bar ──────────────────────────────────
   html += '<div class="flow-budget-bar">';
@@ -10205,8 +10237,9 @@ function renderBoardFlow() {
   html += '<span class="material-icons-round">edit</span></button>';
   html += '</div>';
 
-  // ── Canvas ───────────────────────────────────────────────
+  // ── Canvas (scroll container) + World (zoom target) ─────
   html += '<div class="flow-canvas" id="flowCanvas">';
+  html += '<div class="flow-world" id="flowWorld">';
   html += '<svg class="flow-svg" id="flowSvg" xmlns="http://www.w3.org/2000/svg"></svg>';
 
   // Trigger node
@@ -10248,8 +10281,14 @@ function renderBoardFlow() {
     // Provider nodes
     stageCards.forEach(function(card) {
       var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+      var isConfirmed = !!card.confirmedByProvider;
       html += '<div class="flow-col-connector"></div>';
-      html += '<div class="flow-node flow-node-provider" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
+      html += '<div class="flow-node flow-node-provider' + (isConfirmed ? ' is-confirmed' : '') + '" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
+      if (isConfirmed) {
+        html += '<span class="flow-confirm-badge confirmed"><span class="material-icons-round">verified</span>Bestätigt</span>';
+      } else if (card.stage === 'kontaktiert' || card.stage === 'angebot') {
+        html += '<span class="flow-confirm-badge pending"><span class="material-icons-round">hourglass_top</span>Offen</span>';
+      }
       html += '<div class="flow-provider-inner">';
       html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=x\'" alt="" />';
       html += '<div class="flow-prov-info">';
@@ -10277,17 +10316,36 @@ function renderBoardFlow() {
   html += '</div>';
   html += '</div>';
 
+  html += '</div>'; // end flow-world
   html += '</div>'; // end flow-canvas
   container.innerHTML = html;
 
-  // Set canvas min-width dynamically to fit all columns
-  var canvasEl = document.getElementById('flowCanvas');
-  if (canvasEl) {
-    var totalW = _defLayout['end'].x + _TW + _PAD;
-    canvasEl.style.minWidth = totalW + 'px';
-  }
+  // Calc world size (max extents of all cols)
+  var worldW = _defLayout['end'].x + _TW + _PAD;
+  var worldH = _PAD * 2 + 200;
+  Object.keys(storedLayout).forEach(function(k) {
+    var p = storedLayout[k];
+    if (p && typeof p.x === 'number') worldW = Math.max(worldW, p.x + _NW + _PAD);
+    if (p && typeof p.y === 'number') worldH = Math.max(worldH, p.y + 200);
+  });
+  // Also account for stacked provider cards per column
+  stagesMeta.forEach(function(stage) {
+    var cnt = cards.filter(function(c){ return c.stage===stage.id; }).length;
+    var baseY = (storedLayout[stage.id] || _defLayout[stage.id]).y;
+    worldH = Math.max(worldH, baseY + 100 + cnt * 90 + _PAD);
+  });
 
-  requestAnimationFrame(function() { _drawFlowConnections(); _initFlowDrag(); });
+  var worldEl = document.getElementById('flowWorld');
+  if (worldEl) {
+    worldEl.style.width  = worldW + 'px';
+    worldEl.style.height = worldH + 'px';
+    worldEl.dataset.worldW = worldW;
+    worldEl.dataset.worldH = worldH;
+  }
+  // Apply current zoom (preserves user's zoom across re-renders)
+  _flowApplyZoom(_flowZoom, true);
+
+  requestAnimationFrame(function() { _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan(); });
 }
 
 /* ─── Flow view extra modals ─────────────────────────────── */
@@ -10464,6 +10522,9 @@ function openFlowCardModal(cardId) {
     '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>' +
     '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
+    '<button type="button" class="flow-confirm-action' + (card.confirmedByProvider ? ' is-unconfirm' : '') + '" onclick="toggleFlowCardConfirm(\'' + cardId + '\')">' +
+    '<span class="material-icons-round">' + (card.confirmedByProvider ? 'undo' : 'verified') + '</span>' +
+    (card.confirmedByProvider ? 'Bestätigung zurückziehen' : 'Anbieter hat zugestimmt') + '</button>' +
     '<button type="button" class="btn-outline btn-block" style="margin-top:8px;color:#f44336;border-color:#f44336" onclick="deleteBoardCard(\'' + cardId + '\');renderBoardFlow();document.getElementById(\'flowCardModal\').remove()">' +
     '<span class="material-icons-round">delete</span> Dienstleister entfernen</button>' +
     '</form></div></div>';
@@ -10520,11 +10581,13 @@ function moveBoardCardStage(cardId, currentStage) {
 
 function _drawFlowConnections() {
   var canvas = document.getElementById('flowCanvas');
+  var world  = document.getElementById('flowWorld');
   var svg    = document.getElementById('flowSvg');
   if (!canvas || !svg) return;
 
-  var W = Math.max(canvas.scrollWidth || 2400, canvas.offsetWidth || 2400);
-  var H = Math.max(canvas.scrollHeight || 700, canvas.offsetHeight || 700, 700);
+  var host = world || canvas;
+  var W = Math.max(host.scrollWidth || 2400, host.offsetWidth || 2400);
+  var H = Math.max(host.scrollHeight || 700, host.offsetHeight || 700, 700);
   svg.setAttribute('width',  W);
   svg.setAttribute('height', H);
   svg.style.width  = W + 'px';
@@ -10603,8 +10666,9 @@ function _initFlowDrag() {
 
   function onMove(e) {
     if (!_flowDrag) return;
-    var dx = e.clientX - _flowDrag.startClientX;
-    var dy = e.clientY - _flowDrag.startClientY;
+    var z = _flowZoom || 1;
+    var dx = (e.clientX - _flowDrag.startClientX) / z;
+    var dy = (e.clientY - _flowDrag.startClientY) / z;
     if (!_flowDrag.moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
       _flowDrag.moved = true;
       _flowDrag.col.classList.add('is-dragging');
@@ -10654,8 +10718,9 @@ function _initFlowDrag() {
   canvas.addEventListener('touchmove', function(e) {
     if (!_flowDrag) return;
     var t = e.touches[0];
-    var dx = t.clientX - _flowDrag.startClientX;
-    var dy = t.clientY - _flowDrag.startClientY;
+    var z = _flowZoom || 1;
+    var dx = (t.clientX - _flowDrag.startClientX) / z;
+    var dy = (t.clientY - _flowDrag.startClientY) / z;
     if (!_flowDrag.moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
       _flowDrag.moved = true;
       _flowDrag.col.classList.add('is-dragging');
@@ -10694,17 +10759,273 @@ function _saveFlowColPosition(col) {
   _saveBoardProjects();
 }
 
+/* ─── Flow Zoom / Pan ─────────────────────────────────── */
+var _flowZoom = 1;
+var _flowMinZoom = 0.25;
+var _flowMaxZoom = 2;
+var _flowPanInit = false;
+var _flowPanWinHandlers = null;
+
+function _flowApplyZoom(z, immediate) {
+  z = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, z));
+  _flowZoom = z;
+  var world = document.getElementById('flowWorld');
+  var canvas = document.getElementById('flowCanvas');
+  if (!world || !canvas) return;
+  if (immediate) world.classList.add('no-transition');
+  world.style.transform = 'scale(' + z + ')';
+  // Size the scroll container to match scaled world
+  var wW = parseFloat(world.dataset.worldW) || world.offsetWidth;
+  var wH = parseFloat(world.dataset.worldH) || world.offsetHeight;
+  canvas.style.minWidth  = (wW * z) + 'px';
+  canvas.style.minHeight = (wH * z) + 'px';
+  if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });
+  var lbl = document.getElementById('flowZoomPct');
+  if (lbl) lbl.textContent = Math.round(z * 100) + '%';
+}
+
+function flowZoom(delta) {
+  var canvas = document.getElementById('flowCanvas');
+  if (!canvas) return;
+  var oldZ = _flowZoom;
+  var newZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, oldZ + delta));
+  if (newZ === oldZ) return;
+  // Zoom toward center of current viewport
+  var cx = canvas.scrollLeft + canvas.clientWidth / 2;
+  var cy = canvas.scrollTop + canvas.clientHeight / 2;
+  var ratio = newZ / oldZ;
+  _flowApplyZoom(newZ);
+  canvas.scrollLeft = cx * ratio - canvas.clientWidth / 2;
+  canvas.scrollTop  = cy * ratio - canvas.clientHeight / 2;
+}
+
+function flowFitToScreen() {
+  var canvas = document.getElementById('flowCanvas');
+  var world  = document.getElementById('flowWorld');
+  if (!canvas || !world) return;
+  var wW = parseFloat(world.dataset.worldW) || world.offsetWidth;
+  var wH = parseFloat(world.dataset.worldH) || world.offsetHeight;
+  var availW = canvas.clientWidth - 16;
+  var availH = canvas.clientHeight - 16;
+  var fitZ = Math.min(availW / wW, availH / wH, 1);
+  fitZ = Math.max(_flowMinZoom, fitZ);
+  _flowApplyZoom(fitZ);
+  setTimeout(function() {
+    canvas.scrollLeft = 0;
+    canvas.scrollTop  = 0;
+  }, 50);
+}
+
+function flowResetView() {
+  _flowApplyZoom(1);
+  var canvas = document.getElementById('flowCanvas');
+  if (canvas) { canvas.scrollLeft = 0; canvas.scrollTop = 0; }
+}
+
+function _initFlowZoomPan() {
+  var canvas = document.getElementById('flowCanvas');
+  if (!canvas) return;
+  // Prevent double-bind
+  if (canvas._zoomInit) return;
+  canvas._zoomInit = true;
+
+  // Cleanup previous window listeners from a prior render
+  if (_flowPanWinHandlers) {
+    window.removeEventListener('mousemove', _flowPanWinHandlers.move);
+    window.removeEventListener('mouseup',   _flowPanWinHandlers.up);
+    _flowPanWinHandlers = null;
+  }
+
+  // Ctrl+wheel = zoom, plain wheel = scroll
+  canvas.addEventListener('wheel', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      var delta = -Math.sign(e.deltaY) * 0.12;
+      var rect = canvas.getBoundingClientRect();
+      var cx = e.clientX - rect.left + canvas.scrollLeft;
+      var cy = e.clientY - rect.top + canvas.scrollTop;
+      var oldZ = _flowZoom;
+      var newZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, oldZ + delta));
+      if (newZ === oldZ) return;
+      var ratio = newZ / oldZ;
+      _flowApplyZoom(newZ);
+      canvas.scrollLeft = cx * ratio - (e.clientX - rect.left);
+      canvas.scrollTop  = cy * ratio - (e.clientY - rect.top);
+    }
+  }, { passive: false });
+
+  // Background pan (drag on empty area)
+  var panState = null;
+  canvas.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    if (e.target.closest('.flow-col, button, a, input, select, textarea')) return;
+    panState = {
+      sx: e.clientX, sy: e.clientY,
+      scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop
+    };
+    canvas.classList.add('is-panning');
+  });
+  function panMove(e) {
+    if (!panState) return;
+    canvas.scrollLeft = panState.scrollLeft - (e.clientX - panState.sx);
+    canvas.scrollTop  = panState.scrollTop  - (e.clientY - panState.sy);
+  }
+  function panUp() {
+    if (!panState) return;
+    panState = null;
+    canvas.classList.remove('is-panning');
+  }
+  window.addEventListener('mousemove', panMove);
+  window.addEventListener('mouseup', panUp);
+  _flowPanWinHandlers = { move: panMove, up: panUp };
+
+  // Touch: 1 finger on bg = pan; 2 fingers = pinch zoom
+  var touchState = null;
+  canvas.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 2) {
+      var t1 = e.touches[0], t2 = e.touches[1];
+      var dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      touchState = { mode: 'pinch', startDist: dist, startZoom: _flowZoom,
+                     cx: (t1.clientX + t2.clientX) / 2, cy: (t1.clientY + t2.clientY) / 2 };
+    } else if (e.touches.length === 1 && !e.target.closest('.flow-col, button, a, input, select, textarea')) {
+      var t = e.touches[0];
+      touchState = { mode: 'pan', sx: t.clientX, sy: t.clientY,
+                     scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop };
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', function(e) {
+    if (!touchState) return;
+    if (touchState.mode === 'pinch' && e.touches.length === 2) {
+      e.preventDefault();
+      var t1 = e.touches[0], t2 = e.touches[1];
+      var dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      var scale = dist / touchState.startDist;
+      var newZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, touchState.startZoom * scale));
+      var oldZ = _flowZoom;
+      var ratio = newZ / oldZ;
+      _flowApplyZoom(newZ);
+      var rect = canvas.getBoundingClientRect();
+      var cx = touchState.cx - rect.left + canvas.scrollLeft;
+      var cy = touchState.cy - rect.top + canvas.scrollTop;
+      canvas.scrollLeft = cx * ratio - (touchState.cx - rect.left);
+      canvas.scrollTop  = cy * ratio - (touchState.cy - rect.top);
+    } else if (touchState.mode === 'pan' && e.touches.length === 1) {
+      var t = e.touches[0];
+      canvas.scrollLeft = touchState.scrollLeft - (t.clientX - touchState.sx);
+      canvas.scrollTop  = touchState.scrollTop  - (t.clientY - touchState.sy);
+    }
+  }, { passive: false });
+  canvas.addEventListener('touchend', function(e) {
+    if (e.touches.length === 0) touchState = null;
+  });
+
+  // Keyboard shortcuts
+  if (!_flowPanInit) {
+    _flowPanInit = true;
+    document.addEventListener('keydown', function(e) {
+      var view = document.getElementById('boardFlowView');
+      if (!view || view.style.display === 'none') return;
+      if (e.target && ['INPUT','TEXTAREA','SELECT'].indexOf(e.target.tagName) > -1) return;
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) { e.preventDefault(); flowZoom(0.15); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === '-') { e.preventDefault(); flowZoom(-0.15); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === '0') { e.preventDefault(); flowResetView(); }
+      else if (e.key === 'f' || e.key === 'F') { flowFitToScreen(); }
+    });
+  }
+}
+
+/* ─── Public / Private Toggle ─────────────────────────── */
+function toggleFlowVisibility() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  project.isPublic = !project.isPublic;
+  _saveBoardProjects();
+  renderBoardFlow();
+  showToast(project.isPublic ? 'Projekt ist jetzt öffentlich teilbar' : 'Projekt ist jetzt privat', project.isPublic ? 'public' : 'lock');
+}
+
+function openFlowShareModal() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project || !project.isPublic) return;
+  var url = window.location.origin + window.location.pathname + '?board=' + encodeURIComponent(project.id);
+  var html = '<div class="modal-overlay show" id="flowShareModal" onclick="closeModalOnOverlay(event)" style="z-index:2200">' +
+    '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
+    '<button class="modal-close" onclick="document.getElementById(\'flowShareModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<div class="modal-header"><span class="material-icons-round modal-icon">ios_share</span><h2>Projekt teilen</h2><p>Teile diesen Link mit Freunden, Familie oder Dienstleistern</p></div>' +
+    '<div class="modal-form">' +
+    '<div class="flow-share-row"><input type="text" readonly id="flowShareUrl" value="' + _escHtml(url) + '" onclick="this.select()" />' +
+    '<button type="button" class="btn-primary" onclick="_copyFlowShareUrl()"><span class="material-icons-round">content_copy</span></button></div>' +
+    '<p style="font-size:12px;color:var(--text-light);margin-top:10px">Dienstleister können über diesen Link ihre Zustimmung bestätigen.</p>' +
+    '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function _copyFlowShareUrl() {
+  var inp = document.getElementById('flowShareUrl');
+  if (!inp) return;
+  inp.select();
+  try {
+    if (navigator.clipboard) navigator.clipboard.writeText(inp.value);
+    else document.execCommand('copy');
+    showToast('Link kopiert!', 'content_copy');
+  } catch(e) { document.execCommand('copy'); }
+}
+
+/* ─── Provider confirmation simulation ────────────────── */
+function toggleFlowCardConfirm(cardId) {
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  card.confirmedByProvider = !card.confirmedByProvider;
+  if (card.confirmedByProvider) {
+    // Auto-advance stage when confirmed
+    if (card.stage === 'geplant' || card.stage === 'kontaktiert' || card.stage === 'angebot') {
+      card.stage = 'bestaetigt';
+    }
+  }
+  _saveBoardProjects();
+  var modal = document.getElementById('flowCardModal');
+  if (modal) modal.remove();
+  renderBoardFlow();
+  _updateBoardStats(project);
+  showToast(card.confirmedByProvider ? card.name + ' hat zugestimmt!' : 'Bestätigung entfernt', card.confirmedByProvider ? 'verified' : 'undo');
+}
+
 // Modals for Board
 function openCreateBoardModal() {
+  var templates = [
+    { id: 'wedding',   emoji: '💍', label: 'Hochzeit',    suggested: ['DJ','Fotograf','Catering','Location','Floristik','Torte'] },
+    { id: 'birthday',  emoji: '🎂', label: 'Geburtstag',  suggested: ['DJ','Catering','Dekoration','Fotograf'] },
+    { id: 'corporate', emoji: '🏢', label: 'Firmenfeier', suggested: ['Catering','Technik','Location','Fotograf','Moderation'] },
+    { id: 'festival',  emoji: '🎪', label: 'Festival',    suggested: ['Bühnentechnik','DJ','Sicherheit','Catering','Toiletten'] },
+    { id: 'conference',emoji: '🎤', label: 'Konferenz',   suggested: ['Location','Technik','Catering','Fotograf'] },
+    { id: 'baptism',   emoji: '⛪', label: 'Taufe/Feier', suggested: ['Catering','Location','Fotograf','Floristik'] },
+    { id: 'kids',      emoji: '🎈', label: 'Kinderfest',  suggested: ['Animation','Catering','Dekoration'] },
+    { id: 'private',   emoji: '🏡', label: 'Privatfeier', suggested: ['Catering','DJ','Dekoration'] },
+    { id: 'custom',    emoji: '✨', label: 'Eigenes',     suggested: [] }
+  ];
+  var tmplHtml = templates.map(function(t, i) {
+    return '<div class="tmpl-card' + (i===0?' is-selected':'') + '" data-tmpl="' + t.id + '" onclick="_selectBoardTmpl(this)">' +
+      '<span class="tmpl-emoji">' + t.emoji + '</span><span class="tmpl-label">' + t.label + '</span></div>';
+  }).join('');
+  window._boardTemplates = templates;
+
   var html = `<div class="modal-overlay show" id="createBoardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal modal-sm" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="document.getElementById('createBoardModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">view_kanban</span>
         <h2>Neues Event-Projekt</h2>
-        <p>Gib deinem Event einen Namen und plane es Schritt für Schritt</p>
+        <p>Wähle einen Event-Typ und starte direkt mit passenden Kategorien</p>
       </div>
       <form class="modal-form" onsubmit="_createBoardProject(event)">
+        <div class="form-group">
+          <label>Event-Typ</label>
+          <div class="tmpl-grid">${tmplHtml}</div>
+          <input type="hidden" id="newBoardTmpl" value="wedding" />
+        </div>
         <div class="form-group">
           <label>Event-Name</label>
           <input type="text" id="newBoardName" placeholder="z.B. Hochzeit Julia & Mark" required autofocus />
@@ -10717,6 +11038,11 @@ function openCreateBoardModal() {
           <label>Budget (€, optional)</label>
           <input type="number" id="newBoardBudget" placeholder="z.B. 5000" min="0" step="100" />
         </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);padding:10px 12px;border-radius:10px">
+          <span class="material-icons-round" style="color:var(--text-light)">public</span>
+          <label for="newBoardPublic" style="margin:0;flex:1;font-size:13px;cursor:pointer">Öffentlich teilbar (Dienstleister können bestätigen)</label>
+          <input type="checkbox" id="newBoardPublic" style="width:18px;height:18px;cursor:pointer" />
+        </div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">add</span> Projekt erstellen</button>
       </form>
     </div>
@@ -10724,18 +11050,51 @@ function openCreateBoardModal() {
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
+function _selectBoardTmpl(el) {
+  document.querySelectorAll('#createBoardModal .tmpl-card').forEach(function(c){ c.classList.remove('is-selected'); });
+  el.classList.add('is-selected');
+  var id = el.dataset.tmpl;
+  document.getElementById('newBoardTmpl').value = id;
+  // Auto-fill name placeholder
+  var nameInp = document.getElementById('newBoardName');
+  var tmpl = (window._boardTemplates || []).find(function(t){ return t.id === id; });
+  if (nameInp && tmpl && id !== 'custom') {
+    nameInp.placeholder = 'z.B. ' + tmpl.label + ' 2026';
+  }
+}
+
 function _createBoardProject(event) {
   event.preventDefault();
   var name = document.getElementById('newBoardName').value.trim();
   var date = document.getElementById('newBoardDate').value.trim();
   var budget = document.getElementById('newBoardBudget').value.trim();
+  var tmplId = (document.getElementById('newBoardTmpl') || {}).value || 'custom';
+  var isPublic = !!(document.getElementById('newBoardPublic') && document.getElementById('newBoardPublic').checked);
   if (!name) return;
+  var tmpl = (window._boardTemplates || []).find(function(t){ return t.id === tmplId; });
+  var cards = [];
+  if (tmpl && tmpl.suggested && tmpl.suggested.length) {
+    cards = tmpl.suggested.map(function(cat, i) {
+      return {
+        id: 'bc_' + Date.now() + '_' + i,
+        name: cat + ' (Vorschlag)',
+        category: cat,
+        price: 0,
+        stage: 'geplant',
+        note: 'Automatischer Vorschlag – bearbeite oder ersetze diesen Dienstleister.',
+        startTime: '10:00',
+        isSuggestion: true
+      };
+    });
+  }
   var project = {
     id: 'bp_' + Date.now(),
     name: name,
     date: date || '',
     budget: parseFloat(budget) || 0,
-    cards: [],
+    template: tmplId,
+    isPublic: isPublic,
+    cards: cards,
     createdAt: new Date().toISOString()
   };
   _boardProjects.unshift(project);

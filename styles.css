@@ -8649,13 +8649,237 @@ body.dark-mode .legal-page li { color: var(--text); }
   min-width: 900px;
   min-height: 500px;
   flex: 1;
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
 }
+.flow-canvas.is-panning { cursor: grabbing; }
+.flow-world {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+  transition: transform 0.18s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+}
+.flow-world.no-transition { transition: none !important; }
 
 .flow-svg {
   position: absolute;
   top: 0; left: 0;
   pointer-events: none;
   overflow: visible;
+}
+
+/* ── Floating Toolbar ─────────────────────────────────── */
+.flow-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 14px 0;
+  padding: 6px 8px;
+  background: rgba(22, 24, 34, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+  width: fit-content;
+  max-width: calc(100% - 28px);
+  flex-wrap: wrap;
+}
+.flow-tbtn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.75);
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.flow-tbtn:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.18); }
+.flow-tbtn:active { transform: scale(0.94); }
+.flow-tbtn.is-active { background: rgba(255,56,92,0.22); border-color: rgba(255,56,92,0.55); color: #fff; }
+.flow-tbtn .material-icons-round { font-size: 18px; }
+.flow-tbtn-wide { width: auto; padding: 0 12px; gap: 6px; font-size: 12px; font-weight: 600; }
+.flow-zoom-pct {
+  min-width: 44px;
+  text-align: center;
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.flow-tb-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255,255,255,0.12);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+/* Progress ring */
+.flow-progress-ring {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.flow-progress-ring svg { transform: rotate(-90deg); width: 40px; height: 40px; }
+.flow-progress-ring .fpr-bg   { stroke: rgba(255,255,255,0.08); }
+.flow-progress-ring .fpr-fill { stroke: var(--accent); transition: stroke-dashoffset 0.6s ease; }
+.flow-progress-ring .fpr-label {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Public / private pill */
+.flow-visibility-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.65);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.flow-visibility-pill .material-icons-round { font-size: 13px; }
+.flow-visibility-pill:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
+.flow-visibility-pill.is-public {
+  background: rgba(0,166,153,0.15);
+  border-color: rgba(0,166,153,0.4);
+  color: #7fe6de;
+}
+
+/* Confirmation badge on provider cards */
+.flow-confirm-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  z-index: 2;
+}
+.flow-confirm-badge.confirmed {
+  background: linear-gradient(135deg, #00A699, #00c7a2);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,166,153,0.4);
+  animation: fcbPop 0.45s cubic-bezier(.4,0,.2,1);
+}
+.flow-confirm-badge.pending {
+  background: rgba(255,152,0,0.18);
+  color: #ffb04a;
+  border: 1px solid rgba(255,152,0,0.3);
+}
+.flow-confirm-badge .material-icons-round { font-size: 11px; }
+@keyframes fcbPop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.flow-node-provider.is-confirmed { border-color: rgba(0,166,153,0.6); box-shadow: 0 4px 20px rgba(0,166,153,0.22); }
+
+/* Confirm action button in card modal */
+.flow-confirm-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #00A699, #00c7a2);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.flow-confirm-action:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,166,153,0.4); }
+.flow-confirm-action.is-unconfirm {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* Template picker in create modal */
+.tmpl-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.tmpl-card {
+  cursor: pointer;
+  padding: 12px 8px 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-light);
+  background: var(--bg);
+  text-align: center;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.tmpl-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.tmpl-card.is-selected { border-color: var(--primary); background: var(--primary-light); }
+.tmpl-emoji { font-size: 22px; line-height: 1; }
+.tmpl-label { font-size: 11px; font-weight: 600; color: var(--text); }
+
+/* Share input */
+.flow-share-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.flow-share-row input {
+  flex: 1;
+  font-size: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-alt);
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+@media (max-width: 600px) {
+  .flow-toolbar { margin: 8px 8px 0; padding: 5px 6px; gap: 4px; }
+  .flow-tbtn { width: 32px; height: 32px; border-radius: 8px; }
+  .flow-tbtn-wide { padding: 0 8px; font-size: 11px; }
+  .flow-tb-divider { display: none; }
+  .flow-zoom-pct { min-width: 36px; font-size: 11px; }
+  .flow-progress-ring, .flow-progress-ring svg { width: 34px; height: 34px; }
+  .tmpl-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* Column inside canvas */
