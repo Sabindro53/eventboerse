@@ -9380,6 +9380,7 @@ body.dark-mode .eb-tp-time::-webkit-calendar-picker-indicator { filter: invert(1
   transition: background 0.15s, color 0.15s;
 }
 .flow-prov-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.flow-prov-btn.flow-prov-del { font-size: 10px; gap: 2px; }
 .flow-prov-btn.flow-prov-del:hover { background: rgba(244,67,54,0.2); color: #f44336; }
 .flow-prov-btn .material-icons-round { font-size: 14px; }
 
