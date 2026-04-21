@@ -11502,6 +11502,10 @@ function toggleFlowFullscreen() {
     view.classList.remove('is-pseudo-fullscreen');
     document.body.classList.remove('has-pseudo-fullscreen');
     _updateFlowFullscreenBtn(false);
+    // Modals zurück zum Body
+    view.querySelectorAll(':scope > .modal-overlay, :scope > .toast, :scope > .toast-container').forEach(function(el) {
+      try { document.body.appendChild(el); } catch(_) {}
+    });
     return;
   }
   if (isFs) {
@@ -11517,6 +11521,10 @@ function toggleFlowFullscreen() {
       view.classList.add('is-pseudo-fullscreen');
       document.body.classList.add('has-pseudo-fullscreen');
       _updateFlowFullscreenBtn(true);
+      // Existierende Modals/Toasts in den Pseudo-Fullscreen umhängen
+      document.querySelectorAll('body > .modal-overlay, body > .toast, body > .toast-container').forEach(function(el) {
+        try { view.appendChild(el); } catch(_) {}
+      });
       setTimeout(flowFitToScreen, 80);
       return;
     }
@@ -11531,10 +11539,61 @@ function _updateFlowFullscreenBtn(isFs) {
 // Fullscreen-API Events → Button-Icon aktualisieren + Fit-to-Screen beim Entern
 if (!window._flowFullscreenBound) {
   window._flowFullscreenBound = true;
+  // Helper: aktives Fullscreen-Target (Board-Flow-View) ermitteln
+  function _flowFsTarget() {
+    var view = document.getElementById('boardFlowView');
+    var real = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+    if (real === view) return view;
+    if (view && view.classList.contains('is-pseudo-fullscreen')) return view;
+    return null;
+  }
+  // MutationObserver: Modals/Toasts/Dropdowns, die an <body> angehängt werden,
+  // während das Board im Vollbild ist, in den Fullscreen-Container umhängen,
+  // sonst sind sie nicht sichtbar/bedienbar.
+  var _flowFsObserver = new MutationObserver(function(muts) {
+    var target = _flowFsTarget();
+    if (!target) return;
+    muts.forEach(function(m) {
+      m.addedNodes && m.addedNodes.forEach(function(node) {
+        if (node.nodeType !== 1) return;
+        if (node.parentNode !== document.body) return;
+        if (node === target) return;
+        // Alles Overlay-artige umhängen
+        if (node.classList && (
+          node.classList.contains('modal-overlay') ||
+          node.classList.contains('toast') ||
+          node.classList.contains('toast-container') ||
+          node.classList.contains('dropdown-portal') ||
+          node.classList.contains('popup-portal')
+        )) {
+          try { target.appendChild(node); } catch(_) {}
+        }
+      });
+    });
+  });
+  _flowFsObserver.observe(document.body, { childList: true });
+
   var _fsHandler = function() {
     var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
     _updateFlowFullscreenBtn(isFs);
-    if (isFs) { setTimeout(flowFitToScreen, 120); }
+    if (isFs) {
+      // Bereits existierende Modals/Toasts ins Fullscreen-Target umhängen
+      var target = _flowFsTarget();
+      if (target) {
+        document.querySelectorAll('body > .modal-overlay, body > .toast, body > .toast-container').forEach(function(el) {
+          try { target.appendChild(el); } catch(_) {}
+        });
+      }
+      setTimeout(flowFitToScreen, 120);
+    } else {
+      // Beim Verlassen: Modals zurück an den Body, damit normale z-index-Regeln greifen
+      var view = document.getElementById('boardFlowView');
+      if (view) {
+        view.querySelectorAll(':scope > .modal-overlay, :scope > .toast, :scope > .toast-container').forEach(function(el) {
+          try { document.body.appendChild(el); } catch(_) {}
+        });
+      }
+    }
   };
   document.addEventListener('fullscreenchange', _fsHandler);
   document.addEventListener('webkitfullscreenchange', _fsHandler);
@@ -11546,6 +11605,10 @@ if (!window._flowFullscreenBound) {
       view.classList.remove('is-pseudo-fullscreen');
       document.body.classList.remove('has-pseudo-fullscreen');
       _updateFlowFullscreenBtn(false);
+      // Modals zurück ins body
+      view.querySelectorAll(':scope > .modal-overlay, :scope > .toast, :scope > .toast-container').forEach(function(el) {
+        try { document.body.appendChild(el); } catch(_) {}
+      });
     }
   });
 }

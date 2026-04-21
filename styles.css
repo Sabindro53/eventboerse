@@ -8622,6 +8622,23 @@ body.dark-mode .legal-page li { color: var(--text); }
   padding: 0;
   margin: 0;
 }
+/* Modals & Toasts, die im Vollbild ins Board umgehängt werden, sollen korrekt fixed/zentriert bleiben */
+.board-flow-view:fullscreen > .modal-overlay,
+.board-flow-view:-webkit-full-screen > .modal-overlay,
+.board-flow-view.is-pseudo-fullscreen > .modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+.board-flow-view:fullscreen > .toast,
+.board-flow-view:fullscreen > .toast-container,
+.board-flow-view:-webkit-full-screen > .toast,
+.board-flow-view:-webkit-full-screen > .toast-container,
+.board-flow-view.is-pseudo-fullscreen > .toast,
+.board-flow-view.is-pseudo-fullscreen > .toast-container {
+  position: fixed;
+  z-index: 10001;
+}
 /* Vollbild – Pseudo-Fullscreen für iOS Safari (kein Fullscreen-API) */
 .board-flow-view.is-pseudo-fullscreen {
   position: fixed;
