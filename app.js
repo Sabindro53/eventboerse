@@ -11488,9 +11488,14 @@ function _flowApplyZoom(z, immediate) {
   if (!world || !canvas) return;
   if (immediate) world.classList.add('no-transition');
   world.style.transform = 'scale(' + z + ')';
-  // Size the scroll container to match scaled world
+  // Welt-Breite/-Höhe auf skalierte Groesse setzen, damit canvas.scrollWidth/Height
+  // exakt dem sichtbaren Inhalt entspricht und Drag-Pan bis zur rechten/unteren
+  // Kante möglich ist (ohne "totes" Scroll-Gebiet hinter dem Content).
   var wW = parseFloat(world.dataset.worldW) || world.offsetWidth;
   var wH = parseFloat(world.dataset.worldH) || world.offsetHeight;
+  world.style.width  = (wW * z) + 'px';
+  world.style.height = (wH * z) + 'px';
+  // Canvas darf mindestens so groß sein wie der skalierte Inhalt
   canvas.style.minWidth  = (wW * z) + 'px';
   canvas.style.minHeight = (wH * z) + 'px';
   if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });
