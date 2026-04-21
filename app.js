@@ -10492,15 +10492,31 @@ function renderBoardFlow() {
   var _TW  = _isMobile ? 110 : _isTablet ? 136 : 168;
   var _NW  = _isMobile ? 160 : _isTablet ? 190 : 236;
   var _PAD = _isMobile ? 16 : _isTablet ? 30 : 60;
-  var _defLayout = {
-    'start':         { x: _PAD,                                   y: _PAD },
-    'geplant':       { x: _PAD + _TW + _GAP,                     y: _PAD },
-    'kontaktiert':   { x: _PAD + _TW + _GAP + 1*(_NW+_GAP),     y: _PAD },
-    'angebot':       { x: _PAD + _TW + _GAP + 2*(_NW+_GAP),     y: _PAD },
-    'bestaetigt':    { x: _PAD + _TW + _GAP + 3*(_NW+_GAP),     y: _PAD },
-    'abgeschlossen': { x: _PAD + _TW + _GAP + 4*(_NW+_GAP),     y: _PAD },
-    'end':           { x: _PAD + _TW + _GAP + 5*(_NW+_GAP),     y: _PAD }
-  };
+  var _defLayout;
+  if (_isMobile) {
+    // Handy-Layout: Stages UNTEREINANDER (vertikal gestackt),
+    // Dienstleister rechts vom Stage-Header (horizontal)
+    var _ROWH = 230; // Höhe pro Stage-Zeile
+    _defLayout = {
+      'start':         { x: _PAD, y: _PAD + 0*_ROWH },
+      'geplant':       { x: _PAD, y: _PAD + 1*_ROWH },
+      'kontaktiert':   { x: _PAD, y: _PAD + 2*_ROWH },
+      'angebot':       { x: _PAD, y: _PAD + 3*_ROWH },
+      'bestaetigt':    { x: _PAD, y: _PAD + 4*_ROWH },
+      'abgeschlossen': { x: _PAD, y: _PAD + 5*_ROWH },
+      'end':           { x: _PAD, y: _PAD + 6*_ROWH }
+    };
+  } else {
+    _defLayout = {
+      'start':         { x: _PAD,                                   y: _PAD },
+      'geplant':       { x: _PAD + _TW + _GAP,                     y: _PAD },
+      'kontaktiert':   { x: _PAD + _TW + _GAP + 1*(_NW+_GAP),     y: _PAD },
+      'angebot':       { x: _PAD + _TW + _GAP + 2*(_NW+_GAP),     y: _PAD },
+      'bestaetigt':    { x: _PAD + _TW + _GAP + 3*(_NW+_GAP),     y: _PAD },
+      'abgeschlossen': { x: _PAD + _TW + _GAP + 4*(_NW+_GAP),     y: _PAD },
+      'end':           { x: _PAD + _TW + _GAP + 5*(_NW+_GAP),     y: _PAD }
+    };
+  }
   function colStyle(id) {
     var p = storedLayout[id] || _defLayout[id] || { x: 60, y: 60 };
     return 'left:' + p.x + 'px;top:' + p.y + 'px';
@@ -10657,12 +10673,22 @@ function renderBoardFlow() {
     if (p && typeof p.x === 'number') worldW = Math.max(worldW, p.x + _NW + _PAD);
     if (p && typeof p.y === 'number') worldH = Math.max(worldH, p.y + 200);
   });
-  // Also account for stacked provider cards per column
+  // Also account for stacked/horizontal provider cards per column
   stagesMeta.forEach(function(stage) {
     var cnt = cards.filter(function(c){ return c.stage===stage.id; }).length;
-    var baseY = (storedLayout[stage.id] || _defLayout[stage.id]).y;
-    worldH = Math.max(worldH, baseY + 100 + cnt * 90 + _PAD);
+    var base = (storedLayout[stage.id] || _defLayout[stage.id]);
+    if (_isMobile) {
+      // Provider nodes fließen horizontal rechts vom Stage-Header
+      worldW = Math.max(worldW, base.x + _TW + 16 + cnt * (_NW + 14) + _PAD);
+      worldH = Math.max(worldH, base.y + 210);
+    } else {
+      worldH = Math.max(worldH, base.y + 100 + cnt * 90 + _PAD);
+    }
   });
+  // End-Node unten auf Mobile berücksichtigen
+  if (_isMobile) {
+    worldH = Math.max(worldH, _defLayout['end'].y + 180);
+  }
 
   var worldEl = document.getElementById('flowWorld');
   if (worldEl) {
@@ -11522,18 +11548,26 @@ function _initFlowZoomPan() {
   window.addEventListener('mouseup', panUp);
   _flowPanWinHandlers = { move: panMove, up: panUp };
 
-  // Touch: 1 finger on bg = pan; 2 fingers = pinch zoom
+  // Touch: 1 finger = pan (überall, auch auf Nodes – mit Bewegungs-Schwelle);
+  //        2 Finger = Pinch-Zoom
   var touchState = null;
+  var TAP_THRESHOLD = 8; // px – darunter = Tap/Klick, darüber = Pan
   canvas.addEventListener('touchstart', function(e) {
     if (e.touches.length === 2) {
       var t1 = e.touches[0], t2 = e.touches[1];
       var dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       touchState = { mode: 'pinch', startDist: dist, startZoom: _flowZoom,
                      cx: (t1.clientX + t2.clientX) / 2, cy: (t1.clientY + t2.clientY) / 2 };
-    } else if (e.touches.length === 1 && !e.target.closest('.flow-col, button, a, input, select, textarea')) {
+    } else if (e.touches.length === 1) {
       var t = e.touches[0];
-      touchState = { mode: 'pan', sx: t.clientX, sy: t.clientY,
-                     scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop };
+      // Interaktive Elemente niemals übersteuern (Buttons, Links, Inputs, Drag-Handles)
+      var isInteractive = !!e.target.closest('button, a, input, select, textarea, .flow-drag-handle');
+      touchState = {
+        mode: isInteractive ? null : 'maybe-pan',
+        sx: t.clientX, sy: t.clientY,
+        scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop,
+        moved: false
+      };
     }
   }, { passive: true });
   canvas.addEventListener('touchmove', function(e) {
@@ -11552,13 +11586,32 @@ function _initFlowZoomPan() {
       var cy = touchState.cy - rect.top + canvas.scrollTop;
       canvas.scrollLeft = cx * ratio - (touchState.cx - rect.left);
       canvas.scrollTop  = cy * ratio - (touchState.cy - rect.top);
-    } else if (touchState.mode === 'pan' && e.touches.length === 1) {
-      var t = e.touches[0];
-      canvas.scrollLeft = touchState.scrollLeft - (t.clientX - touchState.sx);
-      canvas.scrollTop  = touchState.scrollTop  - (t.clientY - touchState.sy);
+    } else if (e.touches.length === 1 && (touchState.mode === 'pan' || touchState.mode === 'maybe-pan')) {
+      var tt = e.touches[0];
+      var dx = tt.clientX - touchState.sx;
+      var dy = tt.clientY - touchState.sy;
+      if (touchState.mode === 'maybe-pan') {
+        if (Math.abs(dx) > TAP_THRESHOLD || Math.abs(dy) > TAP_THRESHOLD) {
+          touchState.mode = 'pan';
+          canvas.classList.add('is-panning');
+        }
+      }
+      if (touchState.mode === 'pan') {
+        e.preventDefault();
+        touchState.moved = true;
+        canvas.scrollLeft = touchState.scrollLeft - dx;
+        canvas.scrollTop  = touchState.scrollTop  - dy;
+      }
     }
   }, { passive: false });
   canvas.addEventListener('touchend', function(e) {
+    if (touchState && touchState.moved) {
+      // Verhindere, dass nach einem Swipe ein Klick/Tap auf eine Karte auslöst
+      var blocker = function(ev) { ev.stopPropagation(); ev.preventDefault(); };
+      canvas.addEventListener('click', blocker, { capture: true, once: true });
+      setTimeout(function(){ try { canvas.removeEventListener('click', blocker, { capture: true }); } catch(_){} }, 350);
+    }
+    canvas.classList.remove('is-panning');
     if (e.touches.length === 0) touchState = null;
   });
 

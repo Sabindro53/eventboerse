@@ -9605,7 +9605,7 @@ textarea.sa-input { resize: vertical; }
 }
 /* Responsive – Mobile */
 @media (max-width: 600px) {
-  .flow-canvas { min-height: 420px; }
+  .flow-canvas { min-height: calc(100vh + 200px); min-width: 0; }
   .flow-node  { width: 160px; font-size: 11px; }
   .flow-node-trigger, .flow-node-end { width: 110px; padding: 14px 8px 12px; }
   .flow-node-trigger strong, .flow-node-end strong { font-size: 11px; }
@@ -9621,8 +9621,22 @@ textarea.sa-input { resize: vertical; }
   .flow-budget-bar { padding: 8px 12px; gap: 8px; }
   .flow-budget-num { font-size: 13px; }
   .flow-budget-left .material-icons-round { font-size: 18px; }
-  .flow-col-connector { height: 14px; }
   .flow-drag-icon { font-size: 13px !important; }
+
+  /* Handy: Stages UNTEREINANDER, Dienstleister RECHTS vom Stage-Header */
+  .flow-col {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .flow-col-connector {
+    width: 14px;
+    height: 2px;
+    align-self: center;
+  }
+  /* Trigger- und End-Node bleiben einzelne Blöcke – nichts dahinter */
+  .flow-col[data-col-id="start"],
+  .flow-col[data-col-id="end"] { flex-direction: column; }
 }
 
 /* ── Budget Modal styles ──────────────────────────────────── */
