@@ -8215,7 +8215,7 @@ body.dark-mode .legal-page li { color: var(--text); }
   font-size: 14px;
   font-weight: 600;
   border-radius: 24px;
-  margin: 20px auto 0;
+  margin: 0;
 }
 
 /* Board Project Cards */
