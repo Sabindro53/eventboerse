@@ -11144,26 +11144,30 @@ function openStageAdvanceModal(cardId, currentStage) {
       (_senderName ? '\\n\\nMit freundlichen Grüßen\\n' + _senderName : '\\n\\nMit freundlichen Grüßen');
     var _defaultMsgClean = _defaultMsg.replace(/\\n/g, '\n');
 
+    var _provUserId = (_listing && _listing.providerId) ? _listing.providerId : '';
+    var _listingDbId = (_listing && (_listing._dbId || _listing.id)) ? (_listing._dbId || _listing.id) : '';
+    var _canChat = !!_provUserId;
+
     fieldsHtml = '' +
       '<label class="sa-label">Nachricht anpassen</label>' +
       '<textarea id="saMessage" class="sa-input" rows="6">' + _defaultMsgClean + '</textarea>' +
       '<label class="sa-label" style="margin-top:8px">Kontaktweg wählen & direkt kontaktieren</label>' +
       '<div class="sa-action-buttons">' +
+        // CHAT + E-MAIL (Primary, wie Kleinanzeigen)
+        '<button type="button" class="sa-action-btn sa-action-email sa-action-primary' + (_canChat ? '' : ' sa-action-disabled') + '" id="saDoChat">' +
+          '<span class="sa-action-icon"><span class="material-icons-round">forum</span></span>' +
+          '<span class="sa-action-text">' +
+            '<strong>Nachricht senden</strong>' +
+            '<small>' + (_canChat ? 'Im Chat · automatisch per E-Mail benachrichtigt' : 'Anbieter nicht verfügbar') + '</small>' +
+          '</span>' +
+          '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
+        '</button>' +
         // TELEFON
         '<button type="button" class="sa-action-btn sa-action-phone' + (_hasPhone ? '' : ' sa-action-disabled') + '" id="saDoPhone">' +
           '<span class="sa-action-icon"><span class="material-icons-round">call</span></span>' +
           '<span class="sa-action-text">' +
             '<strong>Anrufen</strong>' +
             '<small>' + (_hasPhone ? _provPhone : 'Nicht verfügbar') + '</small>' +
-          '</span>' +
-          '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
-        '</button>' +
-        // E-MAIL
-        '<button type="button" class="sa-action-btn sa-action-email" id="saDoEmail">' +
-          '<span class="sa-action-icon"><span class="material-icons-round">email</span></span>' +
-          '<span class="sa-action-text">' +
-            '<strong>E-Mail senden</strong>' +
-            '<small>' + (_hasEmail ? _provEmail : 'Adresse wird abgefragt') + '</small>' +
           '</span>' +
           '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
         '</button>' +
@@ -11178,6 +11182,9 @@ function openStageAdvanceModal(cardId, currentStage) {
         '</button>' +
       '</div>' +
       '<input type="hidden" id="saContactMethod" value="">' +
+      '<input type="hidden" id="saConversationId" value="">' +
+      '<input type="hidden" id="saProvUserId" value="' + _escHtml(String(_provUserId)) + '">' +
+      '<input type="hidden" id="saListingDbId" value="' + _escHtml(String(_listingDbId)) + '">' +
       '<input type="hidden" id="saProvPhone" value="' + _escHtml(_cleanPhone) + '">' +
       '<input type="hidden" id="saProvEmail" value="' + _escHtml(_provEmail) + '">' +
       '<input type="hidden" id="saProjectName" value="' + _escHtml(_projectName) + '">';
@@ -11251,23 +11258,64 @@ function openStageAdvanceModal(cardId, currentStage) {
       phoneBtn.classList.add('sa-action-done');
     });
 
-    // Email
-    var emailBtn = document.getElementById('saDoEmail');
-    if (emailBtn) emailBtn.addEventListener('click', function() {
-      var email = (document.getElementById('saProvEmail') || {}).value;
-      var msg = _saMsg();
-      var projName = (document.getElementById('saProjectName') || {}).value || 'Event';
-      var subject = encodeURIComponent('Anfrage für ' + projName + ' – Eventbörse');
-      var body = encodeURIComponent(msg);
-      if (email) {
-        window.open('mailto:' + email + '?subject=' + subject + '&body=' + body, '_self');
-      } else {
-        // No email known – open mailto with empty to, user can fill in
-        window.open('mailto:?subject=' + subject + '&body=' + body, '_self');
+    // Chat + E-Mail (Kleinanzeigen-artig): Chat anlegen, Nachricht senden –
+    // Server (eb_messages_send) verschickt automatisch eine E-Mail-
+    // Benachrichtigung an den Empfaenger. Somit erreicht eine einzige Aktion
+    // sowohl den Chat- als auch den Mail-Kanal.
+    var chatBtn = document.getElementById('saDoChat');
+    if (chatBtn) chatBtn.addEventListener('click', function() {
+      if (chatBtn.classList.contains('sa-action-disabled') || chatBtn.dataset.busy === '1') return;
+      if (typeof isLoggedIn !== 'undefined' && !isLoggedIn) {
+        showToast('Bitte melde dich an, um eine Nachricht zu senden.', 'warning');
+        try { openModal('loginModal'); } catch(_) {}
+        return;
       }
-      _saSetMethod('E-Mail');
-      emailBtn.innerHTML = '<span class="sa-action-icon" style="background:#66bb6a"><span class="material-icons-round">check</span></span><span class="sa-action-text"><strong>E-Mail geöffnet</strong><small>Wurde als kontaktiert markiert</small></span>';
-      emailBtn.classList.add('sa-action-done');
+      var provUserId = parseInt((document.getElementById('saProvUserId') || {}).value) || 0;
+      var listingDbId = parseInt((document.getElementById('saListingDbId') || {}).value) || 0;
+      var msg = _saMsg();
+      if (!provUserId) { showToast('Anbieter nicht gefunden', 'error'); return; }
+      if (!msg || !msg.trim()) { showToast('Bitte schreibe eine Nachricht.', 'warning'); return; }
+
+      chatBtn.dataset.busy = '1';
+      var _origInner = chatBtn.innerHTML;
+      chatBtn.innerHTML = '<span class="sa-action-icon"><span class="material-icons-round">hourglass_top</span></span><span class="sa-action-text"><strong>Wird gesendet…</strong><small>Chat wird erstellt</small></span>';
+
+      // 1. Conversation anlegen/finden
+      var convoPayload = { other_user_id: provUserId };
+      if (listingDbId) convoPayload.listing_id = listingDbId;
+
+      fetch(_apiUrl('conversations'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify(convoPayload)
+      })
+        .then(function(r){ if(!r.ok) throw new Error('conv'); return r.json(); })
+        .then(function(convo){
+          var convId = convo && convo.id;
+          if (!convId) throw new Error('conv-id');
+          var convoEl = document.getElementById('saConversationId');
+          if (convoEl) convoEl.value = convId;
+
+          // 2. Nachricht senden (serverseitige Mail-Benachrichtigung inklusive)
+          return fetch(_apiUrl('conversations/' + convId + '/messages'), {
+            method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+            body: JSON.stringify({ content: msg, type: 'message' })
+          }).then(function(r){ if(!r.ok) throw new Error('msg'); return r.json(); })
+            .then(function(){ return convId; });
+        })
+        .then(function(){
+          _saSetMethod('Chat + E-Mail');
+          chatBtn.classList.add('sa-action-done');
+          chatBtn.dataset.busy = '';
+          chatBtn.innerHTML = '<span class="sa-action-icon" style="background:#66bb6a"><span class="material-icons-round">check</span></span>' +
+            '<span class="sa-action-text"><strong>Nachricht gesendet</strong><small>Anbieter wurde auch per E-Mail benachrichtigt</small></span>' +
+            '<span class="material-icons-round sa-action-arrow">check</span>';
+          showToast('Anfrage gesendet – der Anbieter wurde per E-Mail benachrichtigt.', 'success');
+        })
+        .catch(function(){
+          chatBtn.dataset.busy = '';
+          chatBtn.innerHTML = _origInner;
+          showToast('Nachricht konnte nicht gesendet werden.', 'error');
+        });
     });
 
     // WhatsApp

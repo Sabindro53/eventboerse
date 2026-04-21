@@ -9626,6 +9626,16 @@ textarea.sa-input { resize: vertical; }
 .sa-action-phone .sa-action-icon { background: #42a5f5; }
 .sa-action-email .sa-action-icon { background: var(--primary); }
 .sa-action-whatsapp .sa-action-icon { background: #25d366; }
+/* Primary (Chat + E-Mail) – hebt sich als Hauptaktion hervor */
+.sa-action-primary {
+  background: linear-gradient(135deg, rgba(255,56,92,0.12), rgba(255,56,92,0.05));
+  border-color: rgba(255,56,92,0.35);
+}
+.sa-action-primary:hover {
+  background: linear-gradient(135deg, rgba(255,56,92,0.18), rgba(255,56,92,0.08));
+  border-color: rgba(255,56,92,0.55);
+}
+.sa-action-primary .sa-action-icon { background: var(--primary); }
 .sa-action-text { flex: 1; display: flex; flex-direction: column; gap: 1px; }
 .sa-action-text strong { font-size: 14px; font-weight: 700; }
 .sa-action-text small { font-size: 11px; color: rgba(255,255,255,0.4); }
