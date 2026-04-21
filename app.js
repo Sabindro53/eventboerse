@@ -11471,11 +11471,14 @@ function _saveFlowColPosition(col) {
 
 /* ─── Flow Zoom / Pan ─────────────────────────────────── */
 var _flowZoom = 1;
-var _flowMinZoom = 0.2;
+var _flowMinZoom = 0.1;
 var _flowMaxZoom = 2;
 var _flowPanInit = false;
 var _flowPanWinHandlers = null;
 var _flowFittedFor = null;
+// Anzeige-Basis: Zoom-Wert, der dem Nutzer als "100 %" angezeigt wird.
+// Wird beim Auto-Fit auf den Fit-Zoom gesetzt, damit Standard-Ansicht immer 100 % zeigt.
+var _flowDisplayBase = 1;
 
 function _flowApplyZoom(z, immediate) {
   z = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, z));
@@ -11492,7 +11495,10 @@ function _flowApplyZoom(z, immediate) {
   canvas.style.minHeight = (wH * z) + 'px';
   if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });
   var lbl = document.getElementById('flowZoomPct');
-  if (lbl) lbl.textContent = Math.round(z * 100) + '%';
+  if (lbl) {
+    var base = _flowDisplayBase || 1;
+    lbl.textContent = Math.round((z / base) * 100) + '%';
+  }
 }
 
 function flowZoom(delta) {
@@ -11522,6 +11528,8 @@ function flowFitToScreen() {
   if (availW <= 0 || availH <= 0 || wW <= 0 || wH <= 0) return;
   var fitZ = Math.min(availW / wW, availH / wH);
   fitZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, fitZ));
+  // Fit = 100 % in der Anzeige (Nutzer sieht immer 100 % im Standard-Fit).
+  _flowDisplayBase = fitZ;
   _flowApplyZoom(fitZ);
   setTimeout(function() {
     canvas.scrollLeft = 0;
@@ -11530,7 +11538,7 @@ function flowFitToScreen() {
 }
 
 function flowResetView() {
-  _flowApplyZoom(1);
+  _flowApplyZoom(_flowDisplayBase || 1);
   var canvas = document.getElementById('flowCanvas');
   if (canvas) { canvas.scrollLeft = 0; canvas.scrollTop = 0; }
 }
