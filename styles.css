@@ -8639,6 +8639,12 @@ body.dark-mode .legal-page li { color: var(--text); }
   position: fixed;
   z-index: 10001;
 }
+/* Alle weiteren umgehängten Overlay-Elemente im Vollbild sichtbar halten */
+.board-flow-view:fullscreen > *:not(.flow-toolbar):not(.flow-budget-bar):not(.flow-canvas),
+.board-flow-view:-webkit-full-screen > *:not(.flow-toolbar):not(.flow-budget-bar):not(.flow-canvas),
+.board-flow-view.is-pseudo-fullscreen > *:not(.flow-toolbar):not(.flow-budget-bar):not(.flow-canvas) {
+  z-index: 10000;
+}
 /* Vollbild – Pseudo-Fullscreen für iOS Safari (kein Fullscreen-API) */
 .board-flow-view.is-pseudo-fullscreen {
   position: fixed;

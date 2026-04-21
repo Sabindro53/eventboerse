@@ -11502,8 +11502,11 @@ function toggleFlowFullscreen() {
     view.classList.remove('is-pseudo-fullscreen');
     document.body.classList.remove('has-pseudo-fullscreen');
     _updateFlowFullscreenBtn(false);
-    // Modals zurück zum Body
-    view.querySelectorAll(':scope > .modal-overlay, :scope > .toast, :scope > .toast-container').forEach(function(el) {
+    // Alles Overlay-artige zurück an den Body
+    Array.from(view.children).forEach(function(el) {
+      if (el.classList && (el.classList.contains('flow-toolbar') ||
+                           el.classList.contains('flow-budget-bar') ||
+                           el.classList.contains('flow-canvas'))) return;
       try { document.body.appendChild(el); } catch(_) {}
     });
     return;
@@ -11521,9 +11524,18 @@ function toggleFlowFullscreen() {
       view.classList.add('is-pseudo-fullscreen');
       document.body.classList.add('has-pseudo-fullscreen');
       _updateFlowFullscreenBtn(true);
-      // Existierende Modals/Toasts in den Pseudo-Fullscreen umhängen
-      document.querySelectorAll('body > .modal-overlay, body > .toast, body > .toast-container').forEach(function(el) {
-        try { view.appendChild(el); } catch(_) {}
+      // Bereits existierende Overlays/Modals in den Pseudo-Fullscreen umhängen
+      Array.from(document.body.children).forEach(function(el) {
+        if (el === view) return;
+        var tag = el.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META') return;
+        if (el.id === 'wpadminbar') return;
+        if (el.matches && el.matches('main, nav, header, footer, section.page, .site-header, .site-footer')) return;
+        var cs = window.getComputedStyle(el);
+        if (cs.position === 'fixed' || cs.position === 'absolute' ||
+            (el.className && /modal|overlay|toast|popup|dropdown|menu|tooltip|dialog|snackbar|portal/i.test(el.className))) {
+          try { view.appendChild(el); } catch(_) {}
+        }
       });
       setTimeout(flowFitToScreen, 80);
       return;
@@ -11547,9 +11559,10 @@ if (!window._flowFullscreenBound) {
     if (view && view.classList.contains('is-pseudo-fullscreen')) return view;
     return null;
   }
-  // MutationObserver: Modals/Toasts/Dropdowns, die an <body> angehängt werden,
-  // während das Board im Vollbild ist, in den Fullscreen-Container umhängen,
-  // sonst sind sie nicht sichtbar/bedienbar.
+  // MutationObserver: Alle neu an <body> angehängten Elemente, die während des
+  // Vollbild-Modus hinzukommen, automatisch in den Fullscreen-Container umhängen
+  // (Modals, Popups, Toasts, Tooltips, Overlays, Dropdowns, Menüs, …).
+  // Sonst wären sie außerhalb des :fullscreen-Elements und nicht sichtbar.
   var _flowFsObserver = new MutationObserver(function(muts) {
     var target = _flowFsTarget();
     if (!target) return;
@@ -11558,16 +11571,14 @@ if (!window._flowFullscreenBound) {
         if (node.nodeType !== 1) return;
         if (node.parentNode !== document.body) return;
         if (node === target) return;
-        // Alles Overlay-artige umhängen
-        if (node.classList && (
-          node.classList.contains('modal-overlay') ||
-          node.classList.contains('toast') ||
-          node.classList.contains('toast-container') ||
-          node.classList.contains('dropdown-portal') ||
-          node.classList.contains('popup-portal')
-        )) {
-          try { target.appendChild(node); } catch(_) {}
-        }
+        // Immutable/structural Elemente NICHT umhängen
+        var tag = node.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META') return;
+        if (node.id === 'wpadminbar') return;
+        // Bestehende Seitenstruktur (Sections, Main, Nav etc.) nie verschieben
+        if (node.matches && node.matches('main, nav, header, footer, section.page, .site-header, .site-footer')) return;
+        // Alles andere (neue Overlays/Modals/Popups) ins Fullscreen-Target umhängen
+        try { target.appendChild(node); } catch(_) {}
       });
     });
   });
@@ -11577,19 +11588,33 @@ if (!window._flowFullscreenBound) {
     var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
     _updateFlowFullscreenBtn(isFs);
     if (isFs) {
-      // Bereits existierende Modals/Toasts ins Fullscreen-Target umhängen
+      // Bereits existierende Overlay-artige Elemente ins Fullscreen-Target umhängen
       var target = _flowFsTarget();
       if (target) {
-        document.querySelectorAll('body > .modal-overlay, body > .toast, body > .toast-container').forEach(function(el) {
-          try { target.appendChild(el); } catch(_) {}
+        Array.from(document.body.children).forEach(function(el) {
+          if (el === target) return;
+          var tag = el.tagName;
+          if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META') return;
+          if (el.id === 'wpadminbar') return;
+          if (el.matches && el.matches('main, nav, header, footer, section.page, .site-header, .site-footer')) return;
+          // Nur Elemente übernehmen, die als Overlay/Modal/Popup/Toast wirken
+          var cs = window.getComputedStyle(el);
+          if (cs.position === 'fixed' || cs.position === 'absolute' ||
+              (el.className && /modal|overlay|toast|popup|dropdown|menu|tooltip|dialog|snackbar|portal/i.test(el.className))) {
+            try { target.appendChild(el); } catch(_) {}
+          }
         });
       }
       setTimeout(flowFitToScreen, 120);
     } else {
-      // Beim Verlassen: Modals zurück an den Body, damit normale z-index-Regeln greifen
+      // Beim Verlassen: Alles Overlay-artige zurück an den Body
       var view = document.getElementById('boardFlowView');
       if (view) {
-        view.querySelectorAll(':scope > .modal-overlay, :scope > .toast, :scope > .toast-container').forEach(function(el) {
+        Array.from(view.children).forEach(function(el) {
+          if (el.classList && (el.classList.contains('flow-toolbar') ||
+                               el.classList.contains('flow-budget-bar') ||
+                               el.classList.contains('flow-canvas'))) return;
+          if (el.id === 'flowCanvas') return;
           try { document.body.appendChild(el); } catch(_) {}
         });
       }
@@ -11605,8 +11630,11 @@ if (!window._flowFullscreenBound) {
       view.classList.remove('is-pseudo-fullscreen');
       document.body.classList.remove('has-pseudo-fullscreen');
       _updateFlowFullscreenBtn(false);
-      // Modals zurück ins body
-      view.querySelectorAll(':scope > .modal-overlay, :scope > .toast, :scope > .toast-container').forEach(function(el) {
+      // Alles Overlay-artige zurück an den Body
+      Array.from(view.children).forEach(function(el) {
+        if (el.classList && (el.classList.contains('flow-toolbar') ||
+                             el.classList.contains('flow-budget-bar') ||
+                             el.classList.contains('flow-canvas'))) return;
         try { document.body.appendChild(el); } catch(_) {}
       });
     }
