@@ -8709,7 +8709,7 @@ body.has-pseudo-fullscreen { overflow: hidden; }
 
 .flow-canvas {
   position: relative;
-  min-width: 900px;
+  min-width: 0;
   flex: 1 1 0;
   min-height: 0;
   overflow: auto;

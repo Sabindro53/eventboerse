@@ -10735,7 +10735,11 @@ function renderBoardFlow() {
     // damit alle Spalten ohne horizontales Scrollen sichtbar sind.
     if (_flowFittedFor !== _activeBoardId) {
       _flowFittedFor = _activeBoardId;
-      try { flowFitToScreen(); } catch(_) {}
+      // Zwei Frames + Timeout, damit Flex-Layout fertig ist und
+      // canvas.clientWidth/Height zuverlaessig den richtigen Wert liefert.
+      requestAnimationFrame(function(){
+        setTimeout(function(){ try { flowFitToScreen(); } catch(_) {} }, 60);
+      });
     }
   });
 }
@@ -11512,10 +11516,12 @@ function flowFitToScreen() {
   if (!canvas || !world) return;
   var wW = parseFloat(world.dataset.worldW) || world.offsetWidth;
   var wH = parseFloat(world.dataset.worldH) || world.offsetHeight;
-  var availW = canvas.clientWidth - 16;
-  var availH = canvas.clientHeight - 16;
-  var fitZ = Math.min(availW / wW, availH / wH, 1);
-  fitZ = Math.max(_flowMinZoom, fitZ);
+  // Kleine Sicherheits-Reserve, damit nichts am Rand abgeschnitten wird.
+  var availW = canvas.clientWidth  - 24;
+  var availH = canvas.clientHeight - 24;
+  if (availW <= 0 || availH <= 0 || wW <= 0 || wH <= 0) return;
+  var fitZ = Math.min(availW / wW, availH / wH);
+  fitZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, fitZ));
   _flowApplyZoom(fitZ);
   setTimeout(function() {
     canvas.scrollLeft = 0;
@@ -11711,10 +11717,14 @@ function _initFlowZoomPan() {
   }, { passive: false });
 
   // Background pan (drag on empty area)
+  // Erlaubt auf Canvas-Hintergrund UND auf Spalten-Hintergrund (leerer Platz
+  // in einer Stage zwischen/ober/unterhalb der Karten). Ausgeschlossen nur:
+  // tatsächliche Karten, Buttons, Links, Form-Elemente und Drag-Handles
+  // (Stage-Header sowie Start/End-Spalten, die per Drag verschoben werden).
   var panState = null;
   canvas.addEventListener('mousedown', function(e) {
     if (e.button !== 0) return;
-    if (e.target.closest('.flow-col, button, a, input, select, textarea')) return;
+    if (e.target.closest('.flow-node, .flow-drag-handle, button, a, input, select, textarea')) return;
     panState = {
       sx: e.clientX, sy: e.clientY,
       scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop
