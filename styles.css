@@ -8807,6 +8807,26 @@ body.dark-mode .legal-page li { color: var(--text); }
 }
 .flow-node-provider.is-confirmed { border-color: rgba(0,166,153,0.6); box-shadow: 0 4px 20px rgba(0,166,153,0.22); }
 
+/* Listing banner image + title on flow provider node */
+.flow-prov-banner {
+  width: 100%;
+  height: 80px;
+  background-size: cover;
+  background-position: center;
+  background-color: #2a2d3e;
+}
+.flow-prov-listing-title {
+  padding: 5px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0,0,0,0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
+}
+
 /* Confirm action button in card modal */
 .flow-confirm-action {
   display: flex;

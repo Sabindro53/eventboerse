@@ -9907,13 +9907,326 @@ function _migrateBoardProjects() {
 
 function _loadBoardProjects() {
   var key = _boardStorageKey();
+  // 1) Schneller Cache: lokal geladene Projekte sofort anzeigen
   _boardProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+  // 2) Vom Server nachladen (account-gebunden, geräteübergreifend)
+  if (currentUser) {
+    _syncBoardFromServer({ initial: true });
+    _ensureBoardSyncListeners();
+  }
 }
 
-function _saveBoardProjects() {
-  var key = _boardStorageKey();
-  if (key) localStorage.setItem(key, JSON.stringify(_boardProjects));
+// Merge-Strategie: pro Projekt-ID gewinnt die Version mit dem neuesten updatedAt.
+// Auf dem Server vorhandene Projekte, die lokal fehlen, werden übernommen.
+// Lokale Projekte, die auf dem Server fehlen, werden hochgeladen (Migration / Offline-Sync).
+function _mergeBoardProjects(serverArr, localArr) {
+  var byId = {};
+  function ts(p) {
+    if (!p) return 0;
+    var v = p.updatedAt || p.createdAt || 0;
+    var t = typeof v === 'number' ? v : Date.parse(v);
+    return isNaN(t) ? 0 : t;
+  }
+  (serverArr || []).forEach(function(p) {
+    if (p && p.id) byId[p.id] = { project: p, source: 'server' };
+  });
+  var uploadNeeded = false;
+  (localArr || []).forEach(function(p) {
+    if (!p || !p.id) return;
+    var existing = byId[p.id];
+    if (!existing) {
+      byId[p.id] = { project: p, source: 'local-only' };
+      uploadNeeded = true;
+    } else if (ts(p) > ts(existing.project)) {
+      // Lokale Version ist neuer → verwenden und später pushen
+      byId[p.id] = { project: p, source: 'local-newer' };
+      uploadNeeded = true;
+    }
+  });
+  var merged = Object.keys(byId).map(function(k){ return byId[k].project; });
+  // Sortieren: neueste zuerst
+  merged.sort(function(a, b){ return ts(b) - ts(a); });
+  return { merged: merged, uploadNeeded: uploadNeeded };
 }
+
+var _boardSyncInFlight = false;
+var _boardCloudAvailable = null; // null = noch nicht geprüft, true/false = Ergebnis
+function _syncBoardFromServer(opts) {
+  opts = opts || {};
+  if (!currentUser) return Promise.resolve();
+  if (_boardSyncInFlight) return Promise.resolve();
+  _boardSyncInFlight = true;
+  var key = _boardStorageKey();
+  return fetch(_apiUrl('board-projects'), { credentials: 'same-origin', headers: _apiHeaders(), cache: 'no-store' })
+    .then(function(r) {
+      _refreshNonce(r);
+      if (!r.ok) {
+        _boardCloudAvailable = false;
+        _boardLastSyncError = 'HTTP ' + r.status + (r.status === 404 ? ' – API-Route fehlt (Server-Update nötig)' : '');
+        console.warn('[Board] Laden vom Server fehlgeschlagen: HTTP ' + r.status);
+        if (opts.initial && r.status === 404) {
+          showToast('Cloud-Sync nicht verfügbar (API 404). Bitte Theme-Update auf Server prüfen.', 'error');
+        } else if (opts.initial && (r.status === 401 || r.status === 403)) {
+          showToast('Cloud-Sync: Session abgelaufen. Bitte neu anmelden.', 'error');
+        } else if (opts.showError) {
+          showToast('Cloud-Sync fehlgeschlagen (HTTP ' + r.status + ')', 'error');
+        }
+        _updateBoardSyncIndicator();
+        return null;
+      }
+      _boardCloudAvailable = true;
+      _boardLastSyncError = null;
+      return r.json();
+    })
+    .then(function(data) {
+      if (!data || !Array.isArray(data.projects)) return;
+      var serverProjects = data.projects;
+      var localProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+      var res = _mergeBoardProjects(serverProjects, localProjects);
+      _boardProjects = res.merged;
+      if (key) {
+        try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
+      }
+      if (res.uploadNeeded) {
+        console.info('[Board] Lokale Änderungen werden zum Server synchronisiert.');
+        _saveBoardProjects({ immediate: true });
+      }
+      _boardLastSyncAt = Date.now();
+      _updateBoardSyncIndicator();
+      if (opts.initial) {
+        console.info('[Board] Cloud-Sync OK – ' + serverProjects.length + ' Projekt(e) vom Server geladen.');
+      }
+      // Ansicht neu rendern, falls Board-Seite aktiv ist
+      var boardPage = document.getElementById('page-board');
+      if (boardPage && boardPage.classList.contains('active')) {
+        if (_activeBoardId) {
+          var p = _boardProjects.find(function(x){ return x.id === _activeBoardId; });
+          if (p) {
+            _updateBoardStats(p);
+            var currentView = document.querySelector('.board-view-btn.active');
+            if (currentView && currentView.dataset.view) switchBoardView(currentView.dataset.view);
+          } else {
+            showBoardProjects();
+          }
+        } else {
+          renderBoardPage();
+        }
+      }
+    })
+    .catch(function(err){
+      _boardCloudAvailable = false;
+      _boardLastSyncError = 'Server nicht erreichbar';
+      console.warn('[Board] Server nicht erreichbar, verwende lokalen Cache.', err);
+      if (opts.initial) showToast('Cloud-Sync: Server nicht erreichbar – arbeite offline.', 'error');
+      else if (opts.showError) showToast('Cloud-Sync: Server nicht erreichbar.', 'error');
+      _updateBoardSyncIndicator();
+    })
+    .then(function(){ _boardSyncInFlight = false; _updateBoardSyncIndicator(); });
+}
+
+// Automatischer Resync: beim Tab-Wechsel zurück zum Tab + periodisch alle 30 s
+var _boardSyncListenersAttached = false;
+var _boardSyncPollTimer = null;
+var _boardLastSyncAt = 0; // Zeitstempel des letzten erfolgreichen Sync
+var _boardLastSyncError = null; // Kurztext, falls letzter Sync fehlschlug
+
+function _formatAgo(ts) {
+  if (!ts) return 'noch nie';
+  var diff = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (diff < 5)   return 'gerade eben';
+  if (diff < 60)  return 'vor ' + diff + ' Sek.';
+  if (diff < 3600) return 'vor ' + Math.round(diff / 60) + ' Min.';
+  if (diff < 86400) return 'vor ' + Math.round(diff / 3600) + ' Std.';
+  return 'vor ' + Math.round(diff / 86400) + ' Tagen';
+}
+
+function _updateBoardSyncIndicator() {
+  var btn   = document.getElementById('btnBoardSync');
+  var icon  = document.getElementById('btnBoardSyncIcon');
+  var label = document.getElementById('btnBoardSyncLabel');
+  if (!btn || !icon || !label) return;
+  btn.style.display = currentUser ? '' : 'none';
+  if (!currentUser) return;
+  var status, tooltip, iconName, color;
+  if (_boardSaveInflight || _boardSyncInFlight) {
+    status = 'Synchronisiert…'; iconName = 'sync'; color = ''; tooltip = 'Synchronisiert gerade…';
+  } else if (_boardCloudAvailable === false) {
+    status = 'Offline'; iconName = 'cloud_off'; color = '#e0603a';
+    tooltip = _boardLastSyncError || 'Cloud nicht erreichbar – Änderungen bleiben lokal, bis die Verbindung wieder da ist.';
+  } else if (_boardDirty) {
+    status = 'Ungespeichert'; iconName = 'cloud_upload'; color = '#e0a43a';
+    tooltip = 'Lokale Änderungen warten auf Upload.';
+  } else if (_boardLastSyncAt) {
+    status = _formatAgo(_boardLastSyncAt); iconName = 'cloud_done'; color = 'var(--accent)';
+    tooltip = 'Zuletzt synchronisiert ' + _formatAgo(_boardLastSyncAt) + '. Klick für manuellen Sync.';
+  } else {
+    status = 'Sync'; iconName = 'cloud_sync'; color = '';
+    tooltip = 'Jetzt mit Cloud synchronisieren.';
+  }
+  icon.textContent = iconName;
+  label.textContent = status;
+  btn.title = tooltip;
+  btn.style.borderColor = color || '';
+  btn.style.color = color || '';
+}
+
+// Periodisch die „vor X Sek." Anzeige auffrischen
+setInterval(_updateBoardSyncIndicator, 15000);
+
+function _ensureBoardSyncListeners() {
+  if (_boardSyncListenersAttached) return;
+  _boardSyncListenersAttached = true;
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && currentUser) {
+      _syncBoardFromServer();
+    }
+  });
+  window.addEventListener('focus', function() {
+    if (currentUser) _syncBoardFromServer();
+  });
+  window.addEventListener('online', function() {
+    if (currentUser) {
+      _syncBoardFromServer();
+      if (_boardDirty) _pushBoardToServer();
+    }
+  });
+  if (_boardSyncPollTimer) clearInterval(_boardSyncPollTimer);
+  _boardSyncPollTimer = setInterval(function() {
+    if (currentUser && document.visibilityState === 'visible' && !_boardSaveInflight && !_boardDirty) {
+      _syncBoardFromServer();
+    }
+  }, 30000);
+}
+
+// Button-Handler: Manueller Cloud-Sync (optimistisch: erst push, dann pull)
+function forceBoardSync() {
+  if (!currentUser) { showToast('Bitte anmelden, um mit der Cloud zu synchronisieren.', 'error'); return; }
+  var btn = document.getElementById('btnBoardSync');
+  if (btn) { btn.disabled = true; btn.classList.add('is-loading'); }
+  _updateBoardSyncIndicator();
+  var pushPromise = _boardDirty ? _pushBoardToServer() : Promise.resolve();
+  pushPromise
+    .then(function(){ return _syncBoardFromServer({ showError: true, manual: true }); })
+    .then(function(){
+      if (_boardCloudAvailable !== false) showToast('Mit Cloud synchronisiert.', 'cloud_done');
+    })
+    .catch(function(){ /* Fehler wird bereits per Toast gemeldet */ })
+    .then(function(){
+      if (btn) { btn.disabled = false; btn.classList.remove('is-loading'); }
+      _updateBoardSyncIndicator();
+    });
+}
+window.forceBoardSync = forceBoardSync;
+
+var _boardSaveTimer = null;
+var _boardSaveInflight = false;
+var _boardDirty = false; // ungespeicherte Änderungen vorhanden?
+
+function _pushBoardToServer() {
+  if (!currentUser) return Promise.resolve();
+  _boardSaveInflight = true;
+  _boardDirty = true;
+  var payload = JSON.stringify({ projects: _boardProjects });
+  return fetch(_apiUrl('board-projects'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: payload,
+    keepalive: true
+  })
+    .then(function(r) {
+      _refreshNonce(r);
+      if (!r.ok) {
+        console.warn('[Board] Server-Speicherung fehlgeschlagen: HTTP ' + r.status);
+        if (r.status === 404) {
+          showToast('Cloud-Speicherung fehlgeschlagen: API nicht verfügbar (404). Server-Update nötig.', 'error');
+          _boardCloudAvailable = false;
+        } else if (r.status === 401 || r.status === 403) {
+          showToast('Cloud-Sync: Session abgelaufen, bitte neu anmelden.', 'error');
+        } else if (r.status === 413) {
+          showToast('Projekt zu groß für Cloud-Speicherung (>2 MB).', 'error');
+        } else {
+          showToast('Cloud-Speicherung fehlgeschlagen (HTTP ' + r.status + ')', 'error');
+        }
+        return null;
+      }
+      _boardDirty = false;
+      _boardCloudAvailable = true;
+      _boardLastSyncAt = Date.now();
+      _boardLastSyncError = null;
+      _updateBoardSyncIndicator();
+      return r.json();
+    })
+    .catch(function(err){
+      _boardCloudAvailable = false;
+      _boardLastSyncError = 'Server nicht erreichbar';
+      _updateBoardSyncIndicator();
+      console.warn('[Board] Server-Speicherung Netzwerkfehler – wird erneut versucht.', err);
+    })
+    .then(function(res){
+      _boardSaveInflight = false;
+      // Falls während des Uploads weiter geändert wurde, direkt erneut pushen
+      if (_boardDirty) {
+        if (_boardSaveTimer) clearTimeout(_boardSaveTimer);
+        _boardSaveTimer = setTimeout(function(){ _boardSaveTimer = null; _pushBoardToServer(); }, 400);
+      }
+      return res;
+    });
+}
+
+function _saveBoardProjects(opts) {
+  opts = opts || {};
+  // Jede Speicherung bekommt einen Timestamp, damit Merge-by-Newest funktioniert
+  var now = Date.now();
+  if (Array.isArray(_boardProjects)) {
+    // Wir markieren das aktive Projekt (oder alle, wenn keins aktiv ist) als aktualisiert
+    if (_activeBoardId) {
+      _boardProjects.forEach(function(p){ if (p && p.id === _activeBoardId) p.updatedAt = now; });
+    } else {
+      _boardProjects.forEach(function(p){ if (p && !p.updatedAt) p.updatedAt = now; });
+    }
+  }
+  var key = _boardStorageKey();
+  if (key) {
+    try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
+  }
+  if (!currentUser) return;
+  _boardDirty = true;
+  _updateBoardSyncIndicator();
+
+  if (opts.immediate) {
+    if (_boardSaveTimer) { clearTimeout(_boardSaveTimer); _boardSaveTimer = null; }
+    if (!_boardSaveInflight) _pushBoardToServer();
+    return;
+  }
+
+  // Debounced Push an den Server
+  if (_boardSaveTimer) clearTimeout(_boardSaveTimer);
+  _boardSaveTimer = setTimeout(function() {
+    _boardSaveTimer = null;
+    if (_boardSaveInflight) {
+      _boardSaveTimer = setTimeout(_saveBoardProjects, 400);
+      return;
+    }
+    _pushBoardToServer();
+  }, 600);
+}
+
+// Beim Verlassen der Seite ungespeicherte Änderungen garantiert mitsenden
+window.addEventListener('pagehide', function() {
+  if (!_boardDirty || !currentUser) return;
+  try {
+    var url = _apiUrl('board-projects');
+    var payload = JSON.stringify({ projects: _boardProjects });
+    if (_wpNonce) url += (url.indexOf('?') === -1 ? '?' : '&') + '_wpnonce=' + encodeURIComponent(_wpNonce);
+    if (navigator.sendBeacon) {
+      var blob = new Blob([payload], { type: 'application/json' });
+      navigator.sendBeacon(url, blob);
+    } else {
+      fetch(url, { method: 'POST', credentials: 'same-origin', headers: _apiHeaders(), body: payload, keepalive: true });
+    }
+  } catch(e) {}
+});
 
 function renderBoardPage() {
   _activeBoardId = null;
@@ -9928,6 +10241,9 @@ function renderBoardPage() {
 
   // Hide/show header "new project" button based on login
   if (headerNewBtn) headerNewBtn.style.display = currentUser ? '' : 'none';
+  var btnSync = document.getElementById('btnBoardSync');
+  if (btnSync) btnSync.style.display = currentUser ? '' : 'none';
+  _updateBoardSyncIndicator();
 
   if (!currentUser) { _boardProjects = []; }
   if (_boardProjects.length === 0) {
@@ -10289,6 +10605,12 @@ function renderBoardFlow() {
       } else if (card.stage === 'kontaktiert' || card.stage === 'angebot') {
         html += '<span class="flow-confirm-badge pending"><span class="material-icons-round">hourglass_top</span>Offen</span>';
       }
+      if (card.listingImage) {
+        html += '<div class="flow-prov-banner" style="background-image:url(\''+esc(card.listingImage)+'\')"></div>';
+        if (card.listingTitle) {
+          html += '<div class="flow-prov-listing-title">' + esc(card.listingTitle) + '</div>';
+        }
+      }
       html += '<div class="flow-provider-inner">';
       html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=x\'" alt="" />';
       html += '<div class="flow-prov-info">';
@@ -10394,7 +10716,7 @@ function _deleteFlowProject() {
   if (!_activeBoardId) return;
   if (!confirm('Projekt wirklich löschen?')) return;
   _boardProjects = _boardProjects.filter(function(p) { return p.id !== _activeBoardId; });
-  _saveBoardProjects();
+  _saveBoardProjects({ immediate: true });
   document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
   showBoardProjects();
 }
@@ -10621,9 +10943,6 @@ function openFlowCardModal(cardId) {
     '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>' +
     '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
-    '<button type="button" class="flow-confirm-action' + (card.confirmedByProvider ? ' is-unconfirm' : '') + '" onclick="toggleFlowCardConfirm(\'' + cardId + '\')">' +
-    '<span class="material-icons-round">' + (card.confirmedByProvider ? 'undo' : 'verified') + '</span>' +
-    (card.confirmedByProvider ? 'Bestätigung zurückziehen' : 'Anbieter hat zugestimmt') + '</button>' +
     '<button type="button" class="btn-outline btn-block" style="margin-top:8px;color:#f44336;border-color:#f44336" onclick="deleteBoardCard(\'' + cardId + '\');renderBoardFlow();document.getElementById(\'flowCardModal\').remove()">' +
     '<span class="material-icons-round">delete</span> Dienstleister entfernen</button>' +
     '</form></div></div>';
@@ -11397,20 +11716,6 @@ function _createBoardProject(event) {
   if (!name) return;
   var tmpl = (window._boardTemplates || []).find(function(t){ return t.id === tmplId; });
   var cards = [];
-  if (tmpl && tmpl.suggested && tmpl.suggested.length) {
-    cards = tmpl.suggested.map(function(cat, i) {
-      return {
-        id: 'bc_' + Date.now() + '_' + i,
-        name: cat + ' (Vorschlag)',
-        category: cat,
-        price: 0,
-        stage: 'geplant',
-        note: 'Automatischer Vorschlag – bearbeite oder ersetze diesen Dienstleister.',
-        startTime: '10:00',
-        isSuggestion: true
-      };
-    });
-  }
   var project = {
     id: 'bp_' + Date.now(),
     name: name,
@@ -11419,10 +11724,11 @@ function _createBoardProject(event) {
     template: tmplId,
     isPublic: isPublic,
     cards: cards,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: Date.now()
   };
   _boardProjects.unshift(project);
-  _saveBoardProjects();
+  _saveBoardProjects({ immediate: true });
   document.getElementById('createBoardModal') && document.getElementById('createBoardModal').remove();
   openBoardProject(project.id);
   showToast('Event-Projekt "' + name + '" wurde erstellt!', 'check_circle');
@@ -11439,6 +11745,8 @@ function openAddProviderModal(defaultStage) {
       ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
       ' data-price="' + (l.price || '') + '"' +
       ' data-avatar="' + _escHtml(img) + '"' +
+      ' data-image="' + _escHtml(l.image || img) + '"' +
+      ' data-title="' + _escHtml(l.title || '') + '"' +
       ' onclick="_selectListingCard(this)">' +
       '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
       '<span class="eb-lpick-body">' +
@@ -11472,6 +11780,8 @@ function openAddProviderModal(defaultStage) {
             ${listingCardsHtml}
           </div>
           <input type="hidden" id="cardListingId" value="" />
+          <input type="hidden" id="cardListingImage" value="" />
+          <input type="hidden" id="cardListingTitle" value="" />
         </div>
         <div class="form-group">
           <label>Name / Firma</label>
@@ -11519,6 +11829,8 @@ window._selectListingCard = function(btn) {
   if (nameEl) { nameEl.value = btn.dataset.name || ''; nameEl.dispatchEvent(new Event('input')); }
   if (catEl) { catEl.value = btn.dataset.category || ''; catEl.dispatchEvent(new Event('input')); }
   if (priceEl && btn.dataset.price) { priceEl.value = btn.dataset.price; priceEl.dispatchEvent(new Event('input')); }
+  var imgHid = document.getElementById('cardListingImage'); if (imgHid) imgHid.value = btn.dataset.image || '';
+  var titleHid = document.getElementById('cardListingTitle'); if (titleHid) titleHid.value = btn.dataset.title || '';
   // Scroll to filled fields
   if (nameEl) nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
@@ -11527,6 +11839,8 @@ window._clearListingPick = function() {
   var grid = document.getElementById('lpickGrid');
   if (grid) grid.querySelectorAll('.eb-lpick-card.is-active').forEach(function(b){ b.classList.remove('is-active'); });
   var hid = document.getElementById('cardListingId'); if (hid) hid.value = '';
+  var imgHid2 = document.getElementById('cardListingImage'); if (imgHid2) imgHid2.value = '';
+  var titleHid2 = document.getElementById('cardListingTitle'); if (titleHid2) titleHid2.value = '';
   var search = document.getElementById('lpickSearch'); if (search) { search.value = ''; _filterListingPicker(''); }
 };
 
@@ -11569,6 +11883,8 @@ function _addProviderCard(event, stage) {
 
   var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
   var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : null;
+  var listingImage = (document.getElementById('cardListingImage') || {}).value || (listing ? (listing.image || '') : '');
+  var listingTitle = (document.getElementById('cardListingTitle') || {}).value || (listing ? (listing.title || '') : '');
 
   var card = {
     id: 'card_' + Date.now(),
@@ -11581,6 +11897,8 @@ function _addProviderCard(event, stage) {
     stage: stage,
     listingId: listingId,
     avatar: avatar,
+    listingImage: listingImage || '',
+    listingTitle: listingTitle || '',
     createdAt: new Date().toISOString()
   };
 

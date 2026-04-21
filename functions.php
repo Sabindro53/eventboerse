@@ -517,8 +517,58 @@ function eventboerse_register_rest_routes() {
             'permission_callback' => 'is_user_logged_in',
         ),
     ) );
+
+    /* ---------- EVENT-PLANER BOARD (GET + POST) ---------- */
+    register_rest_route( 'eventboerse/v1', '/board-projects', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eventboerse_handle_board_get',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eventboerse_handle_board_save',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
 }
 add_action( 'rest_api_init', 'eventboerse_register_rest_routes' );
+
+/* ---------- EVENT-PLANER BOARD Handlers ---------- */
+function eventboerse_handle_board_get( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    if ( ! $uid ) {
+        return new WP_REST_Response( array( 'error' => 'not_logged_in' ), 401 );
+    }
+    $raw = get_user_meta( $uid, 'eb_board_projects', true );
+    if ( empty( $raw ) ) {
+        return new WP_REST_Response( array( 'projects' => array() ), 200 );
+    }
+    $decoded = json_decode( $raw, true );
+    if ( ! is_array( $decoded ) ) {
+        $decoded = array();
+    }
+    return new WP_REST_Response( array( 'projects' => $decoded ), 200 );
+}
+
+function eventboerse_handle_board_save( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    if ( ! $uid ) {
+        return new WP_REST_Response( array( 'error' => 'not_logged_in' ), 401 );
+    }
+    $params   = $request->get_json_params();
+    $projects = isset( $params['projects'] ) ? $params['projects'] : null;
+    if ( ! is_array( $projects ) ) {
+        return new WP_REST_Response( array( 'error' => 'invalid_payload' ), 400 );
+    }
+    // Defensive size limit (~2 MB JSON)
+    $encoded = wp_json_encode( $projects );
+    if ( $encoded === false || strlen( $encoded ) > 2 * 1024 * 1024 ) {
+        return new WP_REST_Response( array( 'error' => 'payload_too_large' ), 413 );
+    }
+    update_user_meta( $uid, 'eb_board_projects', wp_slash( $encoded ) );
+    return new WP_REST_Response( array( 'success' => true, 'count' => count( $projects ) ), 200 );
+}
 
 /* ---------- REGISTER (Step 1: send OTP) ---------- */
 function eventboerse_handle_register( WP_REST_Request $request ) {
