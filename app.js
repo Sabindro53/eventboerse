@@ -10729,7 +10729,15 @@ function renderBoardFlow() {
   // Apply current zoom (preserves user's zoom across re-renders)
   _flowApplyZoom(_flowZoom, true);
 
-  requestAnimationFrame(function() { _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan(); });
+  requestAnimationFrame(function() {
+    _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan();
+    // Beim ersten Render eines Projekts automatisch auf Bildschirm anpassen,
+    // damit alle Spalten ohne horizontales Scrollen sichtbar sind.
+    if (_flowFittedFor !== _activeBoardId) {
+      _flowFittedFor = _activeBoardId;
+      try { flowFitToScreen(); } catch(_) {}
+    }
+  });
 }
 
 /* ─── Flow view extra modals ─────────────────────────────── */
@@ -11459,10 +11467,11 @@ function _saveFlowColPosition(col) {
 
 /* ─── Flow Zoom / Pan ─────────────────────────────────── */
 var _flowZoom = 1;
-var _flowMinZoom = 0.25;
+var _flowMinZoom = 0.2;
 var _flowMaxZoom = 2;
 var _flowPanInit = false;
 var _flowPanWinHandlers = null;
+var _flowFittedFor = null;
 
 function _flowApplyZoom(z, immediate) {
   z = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, z));

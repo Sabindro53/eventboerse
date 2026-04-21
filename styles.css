@@ -8149,7 +8149,7 @@ body.dark-mode .legal-page li { color: var(--text); }
 /* ======== EVENT-PLANER BOARD STYLES ======== */
 .board-container {
   min-height: 100vh;
-  padding-bottom: 160px;
+  padding-bottom: 0;
 }
 .board-page-header {
   display: flex;
@@ -8601,12 +8601,13 @@ body.dark-mode .legal-page li { color: var(--text); }
 
 /* ── n8n-style Process Flow View ─────────────────────────── */
 .board-flow-view {
-  overflow: auto;
+  overflow: hidden;
   cursor: default;
   background-color: #0f1117;
   background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
   background-size: 26px 26px;
-  min-height: calc(100vh + 400px);
+  height: calc(100vh - var(--nav-height));
+  min-height: 560px;
   animation: fadeInPage 0.3s ease;
   position: relative;
   display: flex;
@@ -8709,8 +8710,9 @@ body.has-pseudo-fullscreen { overflow: hidden; }
 .flow-canvas {
   position: relative;
   min-width: 900px;
-  min-height: calc(100vh + 200px);
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
   cursor: grab;
   touch-action: none;
   overscroll-behavior: contain;
@@ -9640,7 +9642,7 @@ textarea.sa-input { resize: vertical; }
 
 /* Responsive – Tablet */
 @media (max-width: 900px) {
-  .flow-canvas { min-height: 500px; }
+  .flow-canvas { min-height: 0; }
   .flow-node  { width: 190px; }
   .flow-node-trigger, .flow-node-end { width: 136px; }
   .flow-node-hdr { padding: 7px 10px; font-size: 11px; }
@@ -9649,7 +9651,7 @@ textarea.sa-input { resize: vertical; }
 }
 /* Responsive – Mobile */
 @media (max-width: 600px) {
-  .flow-canvas { min-height: calc(100vh + 200px); min-width: 0; }
+  .flow-canvas { min-height: 0; min-width: 0; }
   .flow-node  { width: 160px; font-size: 11px; }
   .flow-node-trigger, .flow-node-end { width: 110px; padding: 14px 8px 12px; }
   .flow-node-trigger strong, .flow-node-end strong { font-size: 11px; }
