@@ -8613,6 +8613,27 @@ body.dark-mode .legal-page li { color: var(--text); }
   flex-direction: column;
 }
 
+/* Vollbild – echtes Fullscreen-API */
+.board-flow-view:fullscreen,
+.board-flow-view:-webkit-full-screen {
+  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
+  padding: 0;
+  margin: 0;
+}
+/* Vollbild – Pseudo-Fullscreen für iOS Safari (kein Fullscreen-API) */
+.board-flow-view.is-pseudo-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
+  margin: 0;
+}
+body.has-pseudo-fullscreen { overflow: hidden; }
+
 /* Budget Bar */
 .flow-budget-bar {
   display: flex;

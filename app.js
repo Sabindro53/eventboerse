@@ -10533,6 +10533,7 @@ function renderBoardFlow() {
   html += '<div class="flow-tb-divider"></div>';
   html += '<button class="flow-tbtn" onclick="flowFitToScreen()" title="An Bildschirm anpassen"><span class="material-icons-round">fit_screen</span></button>';
   html += '<button class="flow-tbtn" onclick="flowResetView()" title="Ansicht zurücksetzen"><span class="material-icons-round">center_focus_strong</span></button>';
+  html += '<button class="flow-tbtn" id="flowFullscreenBtn" onclick="toggleFlowFullscreen()" title="Vollbild"><span class="material-icons-round" id="flowFullscreenIcon">fullscreen</span></button>';
   html += '<div class="flow-tb-divider"></div>';
   // Progress ring
   var circ = 2 * Math.PI * 15;
@@ -11489,6 +11490,64 @@ function flowResetView() {
   _flowApplyZoom(1);
   var canvas = document.getElementById('flowCanvas');
   if (canvas) { canvas.scrollLeft = 0; canvas.scrollTop = 0; }
+}
+
+function toggleFlowFullscreen() {
+  var view = document.getElementById('boardFlowView');
+  if (!view) return;
+  var doc = document;
+  var isFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
+  // Pseudo-Fullscreen-Toggle (iOS)
+  if (view.classList.contains('is-pseudo-fullscreen')) {
+    view.classList.remove('is-pseudo-fullscreen');
+    document.body.classList.remove('has-pseudo-fullscreen');
+    _updateFlowFullscreenBtn(false);
+    return;
+  }
+  if (isFs) {
+    if (doc.exitFullscreen) doc.exitFullscreen();
+    else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+    else if (doc.msExitFullscreen) doc.msExitFullscreen();
+  } else {
+    var req = view.requestFullscreen || view.webkitRequestFullscreen || view.msRequestFullscreen;
+    if (req) {
+      try { req.call(view); } catch(_) {}
+    } else {
+      // Fallback: CSS-Vollbild für iOS Safari (kein echtes Fullscreen-API)
+      view.classList.add('is-pseudo-fullscreen');
+      document.body.classList.add('has-pseudo-fullscreen');
+      _updateFlowFullscreenBtn(true);
+      setTimeout(flowFitToScreen, 80);
+      return;
+    }
+  }
+}
+function _updateFlowFullscreenBtn(isFs) {
+  var icon = document.getElementById('flowFullscreenIcon');
+  var btn  = document.getElementById('flowFullscreenBtn');
+  if (icon) icon.textContent = isFs ? 'fullscreen_exit' : 'fullscreen';
+  if (btn)  btn.title = isFs ? 'Vollbild verlassen' : 'Vollbild';
+}
+// Fullscreen-API Events → Button-Icon aktualisieren + Fit-to-Screen beim Entern
+if (!window._flowFullscreenBound) {
+  window._flowFullscreenBound = true;
+  var _fsHandler = function() {
+    var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+    _updateFlowFullscreenBtn(isFs);
+    if (isFs) { setTimeout(flowFitToScreen, 120); }
+  };
+  document.addEventListener('fullscreenchange', _fsHandler);
+  document.addEventListener('webkitfullscreenchange', _fsHandler);
+  // ESC aus Pseudo-Fullscreen (iOS)
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    var view = document.getElementById('boardFlowView');
+    if (view && view.classList.contains('is-pseudo-fullscreen')) {
+      view.classList.remove('is-pseudo-fullscreen');
+      document.body.classList.remove('has-pseudo-fullscreen');
+      _updateFlowFullscreenBtn(false);
+    }
+  });
 }
 
 function _initFlowZoomPan() {
