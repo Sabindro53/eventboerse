@@ -8149,7 +8149,7 @@ body.dark-mode .legal-page li { color: var(--text); }
 /* ======== EVENT-PLANER BOARD STYLES ======== */
 .board-container {
   min-height: 100vh;
-  padding-bottom: 80px;
+  padding-bottom: 160px;
 }
 .board-page-header {
   display: flex;
@@ -8606,7 +8606,7 @@ body.dark-mode .legal-page li { color: var(--text); }
   background-color: #0f1117;
   background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
   background-size: 26px 26px;
-  min-height: calc(100vh - 200px);
+  min-height: calc(100vh - 120px);
   animation: fadeInPage 0.3s ease;
   position: relative;
   display: flex;
