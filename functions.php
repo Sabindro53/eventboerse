@@ -896,7 +896,7 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
     update_user_meta( $user->ID, 'eb_pw_reset_token', $token );
     update_user_meta( $user->ID, 'eb_pw_reset_expires', time() + 3600 ); // 1 Stunde gültig
 
-    $reset_url = home_url( '/?reset_password=1&token=' . $token . '&uid=' . $user->ID );
+    $reset_url = home_url( '/?reset_password=1&token=' . $token . '&uid=' . $user->ID . '#reset=' . $token . ':' . $user->ID );
     $subject   = 'Eventbörse – Passwort zurücksetzen';
     $message   = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
     $message  .= '<h2 style="color:#222;margin-bottom:8px">Passwort zurücksetzen</h2>';

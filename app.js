@@ -9159,21 +9159,49 @@ async function resendVerification(email) {
   }
 
   // Passwort-Reset-Link aus E-Mail
-  if (params.get('reset_password') === '1') {
-    var token = params.get('token') || '';
-    var uid = params.get('uid') || '';
-    // Parameter aus URL entfernen
+  // Unterstützt sowohl Query-Params (?reset_password=1&token=X&uid=Y)
+  // als auch Hash-Fragment (#reset=TOKEN:UID) – Hash überlebt Redirects/Caches zuverlässig.
+  var _rpToken = params.get('token') || '';
+  var _rpUid   = params.get('uid') || '';
+  var _rpTrigger = params.get('reset_password') === '1';
+  // Hash-Fallback (#reset=token:uid)
+  var _hash = (window.location.hash || '').replace(/^#/, '');
+  if (_hash.indexOf('reset=') === 0) {
+    var _raw = decodeURIComponent(_hash.substring(6));
+    var _parts = _raw.split(':');
+    if (_parts.length >= 2 && _parts[0] && _parts[1]) {
+      _rpToken = _rpToken || _parts[0];
+      _rpUid   = _rpUid   || _parts[1];
+      _rpTrigger = true;
+    }
+  }
+  if (_rpTrigger && _rpToken && _rpUid) {
+    // Parameter/Hash aus URL entfernen
     var url2 = new URL(window.location);
     url2.searchParams.delete('reset_password');
     url2.searchParams.delete('token');
     url2.searchParams.delete('uid');
-    window.history.replaceState({}, '', url2.pathname + url2.search);
-    // Token + UID im Modal speichern
-    window._resetToken = token;
-    window._resetUid = uid;
-    setTimeout(function() {
-      openModal('resetPasswordModal');
-    }, 500);
+    url2.hash = '';
+    try { window.history.replaceState({}, '', url2.pathname + url2.search); } catch(_) {}
+    // Token + UID für den Submit-Handler merken
+    window._resetToken = _rpToken;
+    window._resetUid = _rpUid;
+    // Modal öffnen – mit Retry falls DOM noch nicht bereit ist
+    var _tryOpenReset = function(attempts) {
+      var m = document.getElementById('resetPasswordModal');
+      if (m && typeof openModal === 'function') {
+        openModal('resetPasswordModal');
+        return;
+      }
+      if (attempts > 0) {
+        setTimeout(function(){ _tryOpenReset(attempts - 1); }, 250);
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function(){ _tryOpenReset(20); });
+    } else {
+      setTimeout(function(){ _tryOpenReset(20); }, 100);
+    }
   }
 })();
 
