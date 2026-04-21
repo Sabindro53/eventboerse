@@ -10730,16 +10730,47 @@ function renderBoardFlow() {
   _flowApplyZoom(_flowZoom, true);
 
   requestAnimationFrame(function() {
+    // ── Welt-Groesse anhand der echten DOM-Ausdehnung korrigieren ──
+    // Die Schaetzung oben kennt die tatsaechliche Breite einer .flow-col
+    // (inkl. Stage-Header + ggf. horizontaler Provider-Karten im Mobile-Modus
+    // oder abweichender Inhalte) nicht. Wir messen hier die reale Box und
+    // setzen worldW/H exakt darauf, damit Fit- und Pan-Grenzen stimmen.
+    var worldElM = document.getElementById('flowWorld');
+    var canvasEl = document.getElementById('flowCanvas');
+    if (worldElM) {
+      var cols = worldElM.querySelectorAll('[data-col-id]');
+      var maxR = 0, maxB = 0;
+      cols.forEach(function(col){
+        var l = parseFloat(col.style.left) || col.offsetLeft || 0;
+        var t = parseFloat(col.style.top)  || col.offsetTop  || 0;
+        var r = l + col.offsetWidth;
+        var b = t + col.offsetHeight;
+        if (r > maxR) maxR = r;
+        if (b > maxB) maxB = b;
+      });
+      // Kleiner Rand rechts/unten, damit nichts an der Kante klebt
+      var PAD_R = 40, PAD_B = 40;
+      var measuredW = Math.max(maxR + PAD_R, parseFloat(worldElM.dataset.worldW) || 0);
+      var measuredH = Math.max(maxB + PAD_B, parseFloat(worldElM.dataset.worldH) || 0);
+      worldElM.dataset.worldW = measuredW;
+      worldElM.dataset.worldH = measuredH;
+      // Basisgroesse (vor transform) setzen – _flowApplyZoom skaliert das dann.
+      worldElM.style.width  = measuredW + 'px';
+      worldElM.style.height = measuredH + 'px';
+    }
     _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan();
     // Beim ersten Render eines Projekts automatisch auf Bildschirm anpassen,
     // damit alle Spalten ohne horizontales Scrollen sichtbar sind.
     if (_flowFittedFor !== _activeBoardId) {
       _flowFittedFor = _activeBoardId;
-      // Zwei Frames + Timeout, damit Flex-Layout fertig ist und
-      // canvas.clientWidth/Height zuverlaessig den richtigen Wert liefert.
+      // Zwei Frames + kleiner Timeout, damit Flex-Layout und Messung fertig sind.
       requestAnimationFrame(function(){
         setTimeout(function(){ try { flowFitToScreen(); } catch(_) {} }, 60);
       });
+    } else {
+      // Bei Re-Render im gleichen Projekt: Zoom neu anwenden, damit die Welt
+      // nach der Messung korrekt skaliert wird und Scroll-Grenzen stimmen.
+      _flowApplyZoom(_flowZoom, true);
     }
   });
 }
@@ -11488,14 +11519,13 @@ function _flowApplyZoom(z, immediate) {
   if (!world || !canvas) return;
   if (immediate) world.classList.add('no-transition');
   world.style.transform = 'scale(' + z + ')';
-  // Welt-Breite/-Höhe auf skalierte Groesse setzen, damit canvas.scrollWidth/Height
-  // exakt dem sichtbaren Inhalt entspricht und Drag-Pan bis zur rechten/unteren
-  // Kante möglich ist (ohne "totes" Scroll-Gebiet hinter dem Content).
+  // Basis-Layoutgröße der Welt (unskaliert) – bleibt konstant.
   var wW = parseFloat(world.dataset.worldW) || world.offsetWidth;
   var wH = parseFloat(world.dataset.worldH) || world.offsetHeight;
-  world.style.width  = (wW * z) + 'px';
-  world.style.height = (wH * z) + 'px';
-  // Canvas darf mindestens so groß sein wie der skalierte Inhalt
+  world.style.width  = wW + 'px';
+  world.style.height = wH + 'px';
+  // Canvas-Scrollgröße = visuelle Größe nach Skalierung, damit Pan/Scroll
+  // exakt bis zur rechten/unteren Kante des sichtbaren Contents geht.
   canvas.style.minWidth  = (wW * z) + 'px';
   canvas.style.minHeight = (wH * z) + 'px';
   if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });
