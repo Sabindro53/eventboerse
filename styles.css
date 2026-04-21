@@ -8606,7 +8606,7 @@ body.dark-mode .legal-page li { color: var(--text); }
   background-color: #0f1117;
   background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
   background-size: 26px 26px;
-  min-height: calc(100vh - 120px);
+  min-height: calc(100vh + 400px);
   animation: fadeInPage 0.3s ease;
   position: relative;
   display: flex;
@@ -8665,7 +8665,7 @@ body.dark-mode .legal-page li { color: var(--text); }
 .flow-canvas {
   position: relative;
   min-width: 900px;
-  min-height: 500px;
+  min-height: calc(100vh + 200px);
   flex: 1;
   cursor: grab;
   touch-action: none;
