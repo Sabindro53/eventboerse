@@ -10496,7 +10496,7 @@ function renderBoardFlow() {
   if (_isMobile) {
     // Handy-Layout: Stages UNTEREINANDER (vertikal gestackt),
     // Dienstleister rechts vom Stage-Header (horizontal)
-    var _ROWH = 230; // Höhe pro Stage-Zeile
+    var _ROWH = 340; // Höhe pro Stage-Zeile (deckt Provider-Karte mit Banner+Buttons ab)
     _defLayout = {
       'start':         { x: _PAD, y: _PAD + 0*_ROWH },
       'geplant':       { x: _PAD, y: _PAD + 1*_ROWH },
@@ -10680,7 +10680,7 @@ function renderBoardFlow() {
     if (_isMobile) {
       // Provider nodes fließen horizontal rechts vom Stage-Header
       worldW = Math.max(worldW, base.x + _TW + 16 + cnt * (_NW + 14) + _PAD);
-      worldH = Math.max(worldH, base.y + 210);
+      worldH = Math.max(worldH, base.y + 330);
     } else {
       worldH = Math.max(worldH, base.y + 100 + cnt * 90 + _PAD);
     }
