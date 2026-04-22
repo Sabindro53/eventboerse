@@ -10809,6 +10809,31 @@ function renderBoardFlow() {
     // setzen worldW/H exakt darauf, damit Fit- und Pan-Grenzen stimmen.
     var worldElM = document.getElementById('flowWorld');
     var canvasEl = document.getElementById('flowCanvas');
+
+    // ── Mobile: Y-Positionen ANHAND DER ECHTEN KARTENHÖHEN neu setzen ──
+    // So überlappen Provider-Karten nie die nächste Stage, und die geraden
+    // Verbindungslinien laufen sauber zwischen den Spalten.
+    if (_isMobile && worldElM) {
+      var mobileOrder = ['start','geplant','kontaktiert','angebot','bestaetigt','abgeschlossen','end'];
+      var mobileGap   = 40; // Abstand für Verbindungslinie + Pfeil zwischen zwei Spalten
+      var yCursor = _PAD;
+      // Einheitliche Spaltenbreite: zentriert im sichtbaren Bereich
+      var canvasW = (canvasEl && canvasEl.clientWidth) || worldElM.offsetWidth || (_NW + 2*_PAD);
+      var centerX = Math.max(_PAD, Math.round((canvasW - _NW) / 2));
+      mobileOrder.forEach(function(cid){
+        var col = worldElM.querySelector('[data-col-id="' + cid + '"]');
+        if (!col) return;
+        // Spalten links zentriert platzieren (start/end schmaler als stages)
+        var colW = col.offsetWidth || _NW;
+        var x = Math.max(_PAD, Math.round((canvasW - colW) / 2));
+        col.style.left = x + 'px';
+        col.style.top  = yCursor + 'px';
+        // Nach dem Positionieren die tatsächliche Höhe messen
+        var h = col.offsetHeight || 120;
+        yCursor += h + mobileGap;
+      });
+    }
+
     if (worldElM) {
       var cols = worldElM.querySelectorAll('[data-col-id]');
       var maxR = 0, maxB = 0;
@@ -11470,41 +11495,61 @@ function _drawFlowConnections() {
              midX: (L + R) / 2, midY: (T + B) / 2 };
   }
 
+  // Bounding-Box der kompletten Spalte (für Mobile: Start am Header-Top,
+  // Ende am letzten sichtbaren Element – so schneidet die gerade
+  // Verbindungslinie NIE durch Provider-Karten).
+  function colBounds(cid) {
+    var col = canvas.querySelector('[data-col-id="' + cid + '"]');
+    if (!col) return null;
+    var x = parseFloat(col.style.left) || 0;
+    var y = parseFloat(col.style.top)  || 0;
+    return {
+      left:   x,
+      right:  x + col.offsetWidth,
+      top:    y,
+      bottom: y + col.offsetHeight,
+      midX:   x + col.offsetWidth / 2,
+      midY:   y + col.offsetHeight / 2
+    };
+  }
+
   var isMobile = (window.innerWidth || 1200) <= 600;
-  var nodeIds = ['start', 'stage-geplant', 'stage-kontaktiert', 'stage-angebot', 'stage-bestaetigt', 'stage-abgeschlossen', 'end'];
+  var seq = isMobile
+    ? [{col:'start',n:'start'},{col:'geplant',n:'stage-geplant'},{col:'kontaktiert',n:'stage-kontaktiert'},
+       {col:'angebot',n:'stage-angebot'},{col:'bestaetigt',n:'stage-bestaetigt'},
+       {col:'abgeschlossen',n:'stage-abgeschlossen'},{col:'end',n:'end'}]
+    : [{col:'start',n:'start'},{col:'geplant',n:'stage-geplant'},{col:'kontaktiert',n:'stage-kontaktiert'},
+       {col:'angebot',n:'stage-angebot'},{col:'bestaetigt',n:'stage-bestaetigt'},
+       {col:'abgeschlossen',n:'stage-abgeschlossen'},{col:'end',n:'end'}];
 
   // Pfeilspitze (PowerPoint-Stil: klare dreieckige Spitze)
   var markerId = isMobile ? 'flarrow-v' : 'flarrow-h';
   var defs = '<defs>'
            + '<marker id="flarrow-h" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
-           +   '<polygon points="0,0 10,4 0,8" fill="rgba(255,255,255,0.55)"/>'
+           +   '<polygon points="0,0 10,4 0,8" fill="rgba(255,255,255,0.6)"/>'
            + '</marker>'
            + '<marker id="flarrow-v" markerWidth="10" markerHeight="8" refX="4" refY="9" orient="auto" markerUnits="userSpaceOnUse">'
-           +   '<polygon points="0,0 4,10 8,0" fill="rgba(255,255,255,0.55)"/>'
+           +   '<polygon points="0,0 4,10 8,0" fill="rgba(255,255,255,0.6)"/>'
            + '</marker>'
            + '</defs>';
 
   var paths = '';
-  var STROKE = 'rgba(255,255,255,0.42)';
+  var STROKE = 'rgba(255,255,255,0.45)';
   var SW = 2.25;
 
-  for (var i = 0; i < nodeIds.length - 1; i++) {
-    var from = nodeBounds(nodeIds[i]);
-    var to   = nodeBounds(nodeIds[i + 1]);
-    if (!from || !to) continue;
-
-    var d;
+  for (var i = 0; i < seq.length - 1; i++) {
+    var d, fromC, toC;
     if (isMobile) {
-      // Vertikale Prozesskette: gerade Linie von Unterkante zu Oberkante
-      var x1 = from.midX;
-      var x2 = to.midX;
-      var y1 = from.bottom;
-      var y2 = to.top - 2;
+      // Auf Mobile: gerade vertikale Linie von Unterkante Spalte A zu Oberkante Spalte B
+      fromC = colBounds(seq[i].col);
+      toC   = colBounds(seq[i + 1].col);
+      if (!fromC || !toC) continue;
+      var x1 = fromC.midX, x2 = toC.midX;
+      var y1 = fromC.bottom + 2;
+      var y2 = toC.top - 2;
       if (Math.abs(x1 - x2) < 1) {
-        // Perfekt vertikal – eine einzige gerade Linie
         d = 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
       } else {
-        // Orthogonal (PowerPoint-Stil): runter, rüber, runter
         var my = (y1 + y2) / 2;
         d = 'M' + x1 + ',' + y1
           + ' L' + x1 + ',' + my
@@ -11512,20 +11557,19 @@ function _drawFlowConnections() {
           + ' L' + x2 + ',' + y2;
       }
     } else {
-      // Horizontale Prozesskette: gerade Linie von rechter zu linker Kante
-      var hx1 = from.right;
-      var hx2 = to.left - 2;
-      var hy1 = from.midY;
-      var hy2 = to.midY;
+      // Desktop: gerade horizontale Linie von Node-Header zu Node-Header
+      var from = nodeBounds(seq[i].n);
+      var to   = nodeBounds(seq[i + 1].n);
+      if (!from || !to) continue;
+      var hx1 = from.right, hx2 = to.left - 2;
+      var hy1 = from.midY,  hy2 = to.midY;
       if (Math.abs(hy1 - hy2) < 1) {
-        // Perfekt horizontal
         d = 'M' + hx1 + ',' + hy1 + ' L' + hx2 + ',' + hy2;
       } else {
-        // Orthogonal: rüber, hoch/runter, rüber
         var mx = (hx1 + hx2) / 2;
         d = 'M' + hx1 + ',' + hy1
-          + ' L' + mx + ',' + hy1
-          + ' L' + mx + ',' + hy2
+          + ' L' + mx  + ',' + hy1
+          + ' L' + mx  + ',' + hy2
           + ' L' + hx2 + ',' + hy2;
       }
     }
