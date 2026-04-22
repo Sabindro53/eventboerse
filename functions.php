@@ -1940,6 +1940,13 @@ function eb_register_extra_routes() {
         'permission_callback' => 'is_user_logged_in',
     ) );
 
+    /* ---------- BOOKING / INVOICE ---------- */
+    register_rest_route( 'eventboerse/v1', '/send-invoice', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_send_invoice',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
     /* ---------- HEARTBEAT / USER STATUS ---------- */
     register_rest_route( 'eventboerse/v1', '/heartbeat', array(
         'methods'             => 'POST',
@@ -3852,4 +3859,116 @@ function eb_format_registration( $row ) {
         'createdAt'   => $row['created_at'],
         'updatedAt'   => $row['updated_at'],
     );
+}
+
+
+/* =====================================================================
+   BOOKING / INVOICE NOTIFICATION
+   Sendet eine Buchungs-/Rechnungs-Benachrichtigung an User, Anbieter
+   und kontakt@eventboerse.de -- fuer volle Transparenz.
+   Stripe-Integration folgt; diese Mail fungiert als verbindliche
+   Buchungsbestaetigung / Rechnungsanforderung.
+   ===================================================================== */
+function eb_send_invoice( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    if ( ! $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht angemeldet.' ), 401 );
+    }
+
+    $params = $request->get_json_params();
+    if ( ! is_array( $params ) ) $params = array();
+
+    $project_name  = isset( $params['project_name'] )  ? sanitize_text_field( $params['project_name'] )  : '';
+    $event_date    = isset( $params['event_date'] )    ? sanitize_text_field( $params['event_date'] )    : '';
+    $listing_title = isset( $params['listing_title'] ) ? sanitize_text_field( $params['listing_title'] ) : 'Leistung';
+    $listing_id    = isset( $params['listing_id'] )    ? absint( $params['listing_id'] )                 : 0;
+    $provider_uid  = isset( $params['provider_user_id'] ) ? absint( $params['provider_user_id'] )        : 0;
+    $price         = isset( $params['price'] )         ? (float) $params['price']                         : 0.0;
+    $note          = isset( $params['note'] )          ? sanitize_textarea_field( $params['note'] )      : '';
+
+    $user = get_userdata( $uid );
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'User ungueltig.' ), 400 );
+    }
+
+    $user_email = $user->user_email;
+    $user_name  = trim( get_user_meta( $uid, 'first_name', true ) . ' ' . get_user_meta( $uid, 'last_name', true ) );
+    if ( ! $user_name ) $user_name = $user->display_name ?: $user->user_login;
+
+    $provider_email = '';
+    $provider_name  = 'Anbieter';
+    if ( $provider_uid ) {
+        $pu = get_userdata( $provider_uid );
+        if ( $pu ) {
+            $provider_email = $pu->user_email;
+            $pn = trim( get_user_meta( $provider_uid, 'first_name', true ) . ' ' . get_user_meta( $provider_uid, 'last_name', true ) );
+            $provider_name  = $pn ?: ( $pu->display_name ?: $pu->user_login );
+        }
+    }
+
+    // Pseudo-Rechnungsnummer (bis Stripe integriert ist)
+    $invoice_no = 'EB-' . date( 'Ymd' ) . '-' . str_pad( (string) $uid, 4, '0', STR_PAD_LEFT ) . '-' . substr( md5( $listing_id . '|' . time() ), 0, 6 );
+    $invoice_no = strtoupper( $invoice_no );
+
+    $event_date_de = $event_date ? date_i18n( 'd.m.Y', strtotime( $event_date ) ) : '—';
+    $price_str     = number_format( $price, 2, ',', '.' ) . ' €';
+    $site_url      = home_url( '/' );
+    $brand_primary = '#FF385C';
+
+    $subject = 'Buchungsbestaetigung #' . $invoice_no . ' – ' . $listing_title;
+
+    $note_html = $note ? ( '<div style="margin-top:14px;padding:12px 14px;background:#f7f7f7;border-left:3px solid ' . $brand_primary . ';border-radius:6px;font-style:italic">' . nl2br( esc_html( $note ) ) . '</div>' ) : '';
+
+    $rows = ''
+        . '<tr><td style="padding:6px 0;color:#717171">Projekt</td><td style="padding:6px 0;text-align:right;font-weight:600">' . esc_html( $project_name ?: '—' ) . '</td></tr>'
+        . '<tr><td style="padding:6px 0;color:#717171">Event-Datum</td><td style="padding:6px 0;text-align:right;font-weight:600">' . esc_html( $event_date_de ) . '</td></tr>'
+        . '<tr><td style="padding:6px 0;color:#717171">Leistung</td><td style="padding:6px 0;text-align:right;font-weight:600">' . esc_html( $listing_title ) . '</td></tr>'
+        . '<tr><td style="padding:6px 0;color:#717171">Anbieter</td><td style="padding:6px 0;text-align:right;font-weight:600">' . esc_html( $provider_name ) . '</td></tr>'
+        . '<tr><td style="padding:6px 0;color:#717171">Kunde</td><td style="padding:6px 0;text-align:right;font-weight:600">' . esc_html( $user_name ) . '</td></tr>'
+        . '<tr><td colspan="2" style="padding:8px 0"><hr style="border:none;border-top:1px solid #e0e0e0"></td></tr>'
+        . '<tr><td style="padding:10px 0;font-size:16px">Gesamtbetrag</td><td style="padding:10px 0;text-align:right;font-size:18px;font-weight:700;color:' . $brand_primary . '">' . $price_str . '</td></tr>';
+
+    $body = ''
+        . '<!doctype html><html><body style="margin:0;padding:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#222">'
+        . '<div style="max-width:600px;margin:0 auto;padding:24px">'
+          . '<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06)">'
+            . '<div style="background:linear-gradient(135deg,#FF385C,#E31C5F);padding:28px 24px;color:#fff">'
+              . '<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:0.85;margin-bottom:6px">Buchungsbestaetigung</div>'
+              . '<div style="font-size:22px;font-weight:700;margin-bottom:4px">Rechnung #' . esc_html( $invoice_no ) . '</div>'
+              . '<div style="font-size:13px;opacity:0.9">Eventboerse &middot; ' . esc_html( date_i18n( 'd.m.Y' ) ) . '</div>'
+            . '</div>'
+            . '<div style="padding:24px">'
+              . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht zur vollen Transparenz an <strong>Kunde</strong>, <strong>Anbieter</strong> und <strong>kontakt@eventboerse.de</strong>.</p>'
+              . '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:14px">' . $rows . '</table>'
+              . $note_html
+              . '<div style="margin-top:20px;padding:14px;background:#fff5e5;border:1px solid #ffd89e;border-radius:8px;font-size:13px;color:#6b4500;line-height:1.5">'
+                . '<strong>Naechste Schritte:</strong> Der Anbieter stellt die Rechnung offiziell aus. Die Zahlung kann per Ueberweisung, Bar, PayPal oder (bald) direkt via Stripe abgewickelt werden. Nach Zahlungseingang wird das Projekt auf <em>Bezahlt</em> gesetzt.'
+              . '</div>'
+              . '<div style="text-align:center;margin:24px 0 6px">'
+                . '<a href="' . esc_url( $site_url . 'board' ) . '" style="display:inline-block;background:' . $brand_primary . ';color:#fff;text-decoration:none;padding:12px 26px;border-radius:10px;font-weight:600;font-size:14px">Zum Projekt &rarr;</a>'
+              . '</div>'
+            . '</div>'
+            . '<div style="padding:16px 24px;background:#fafafa;color:#717171;font-size:11px;text-align:center;border-top:1px solid #eee">Automatische Nachricht der Eventboerse &middot; Bei Fragen: kontakt@eventboerse.de</div>'
+          . '</div>'
+        . '</div></body></html>';
+
+    $headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+    $recipients = array();
+    if ( $user_email )     $recipients[] = $user_email;
+    if ( $provider_email ) $recipients[] = $provider_email;
+    $recipients[] = 'kontakt@eventboerse.de';
+    $recipients = array_values( array_unique( array_filter( $recipients ) ) );
+
+    $sent = 0;
+    foreach ( $recipients as $to ) {
+        if ( wp_mail( $to, $subject, $body, $headers ) ) $sent++;
+    }
+
+    return new WP_REST_Response( array(
+        'ok'          => true,
+        'invoice_no'  => $invoice_no,
+        'recipients'  => $recipients,
+        'sent_count'  => $sent,
+    ), 200 );
 }

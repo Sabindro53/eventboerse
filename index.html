@@ -123,6 +123,7 @@
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
+        <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')" style="display:none"><span class="material-icons-round">assignment</span> Aufträge</button>
         <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
         <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
         <button onclick="navigateTo('contact')"><span class="material-icons-round">help_outline</span> Kontakt & Support</button>
@@ -1772,6 +1773,20 @@
       </div>
     </section>
 
+    <!-- ============ PAGE: AUFTRAEGE (Dienstleister) ============ -->
+    <section id="page-auftraege" class="page">
+      <div class="container">
+        <div class="auftraege-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+          <div>
+            <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Meine Aufträge</h1>
+            <p style="margin:0;color:var(--text-light);font-size:14px">Offene Buchungen, Zahlungen &amp; Event-Tag-Bestätigungen.</p>
+          </div>
+          <span style="background:rgba(255,56,92,0.12);color:var(--primary);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">BETA</span>
+        </div>
+        <div id="auftraegeContent"></div>
+      </div>
+    </section>
+
     <!-- ============ PAGE: FAVORITES ============ -->
     <section id="page-favorites" class="page">
       <div class="container">
@@ -1963,7 +1978,7 @@
             <div class="kanban-column" data-stage="angebot">
               <div class="kanban-col-header">
                 <span class="kanban-col-dot dot-angebot"></span>
-                <h4>Angebot erhalten</h4>
+                <h4>Gebucht</h4>
                 <span class="kanban-col-count" id="cntAngebot">0</span>
               </div>
               <div class="kanban-cards" id="cardsAngebot" ondragover="allowDrop(event)" ondrop="dropCard(event,'angebot')"></div>
@@ -1974,7 +1989,7 @@
             <div class="kanban-column" data-stage="bestaetigt">
               <div class="kanban-col-header">
                 <span class="kanban-col-dot dot-bestaetigt"></span>
-                <h4>Bestätigt</h4>
+                <h4>Bezahlt</h4>
                 <span class="kanban-col-count" id="cntBestaetigt">0</span>
               </div>
               <div class="kanban-cards" id="cardsBestaetigt" ondragover="allowDrop(event)" ondrop="dropCard(event,'bestaetigt')"></div>
@@ -1985,7 +2000,7 @@
             <div class="kanban-column" data-stage="abgeschlossen">
               <div class="kanban-col-header">
                 <span class="kanban-col-dot dot-abgeschlossen"></span>
-                <h4>Abgeschlossen</h4>
+                <h4>Erfüllt</h4>
                 <span class="kanban-col-count" id="cntAbgeschlossen">0</span>
               </div>
               <div class="kanban-cards" id="cardsAbgeschlossen" ondragover="allowDrop(event)" ondrop="dropCard(event,'abgeschlossen')"></div>

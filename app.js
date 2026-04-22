@@ -877,6 +877,10 @@ function navigateTo(page, data, skipHistory) {
       if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }
       renderBoardPage();
       break;
+    case 'auftraege':
+      if (!currentUser) { navigateTo('home'); return; }
+      renderAuftraegePage();
+      break;
     case 'contact':
       break;
     case 'home':
@@ -8742,6 +8746,8 @@ function applyLogin() {
     if (adminLabel) adminLabel.style.display = currentUser.isAdmin ? 'block' : 'none';
     var adminMenuBtn = document.getElementById('adminMenuBtn');
     if (adminMenuBtn) adminMenuBtn.style.display = currentUser.isAdmin ? 'flex' : 'none';
+    var auftraegeMenuBtn = document.getElementById('auftraegeMenuBtn');
+    if (auftraegeMenuBtn) auftraegeMenuBtn.style.display = (currentUser.role === 'Dienstleister') ? 'flex' : 'none';
   }
   var createPage = document.getElementById('page-create-listing');
   if (createPage && createPage.classList.contains('active')) updateCreateFormForRole();
@@ -8819,6 +8825,8 @@ function applyLogout() {
   if (adminLabel) adminLabel.style.display = 'none';
   var adminMenuBtn = document.getElementById('adminMenuBtn');
   if (adminMenuBtn) adminMenuBtn.style.display = 'none';
+  var auftraegeMenuBtn = document.getElementById('auftraegeMenuBtn');
+  if (auftraegeMenuBtn) auftraegeMenuBtn.style.display = 'none';
   // Reset mobile nav labels
   var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
   if (mobileCreateBtn) {
@@ -10458,6 +10466,117 @@ window.addEventListener('pagehide', function() {
   } catch(e) {}
 });
 
+/* ─── Aufträge (Dienstleister-Ansicht) ─────────────────── */
+function renderAuftraegePage() {
+  var container = document.getElementById('auftraegeContent');
+  if (!container) return;
+  var isProvider = currentUser && currentUser.role === 'Dienstleister';
+
+  // Aggregation: eigene Board-Karten, bei denen der aktuelle User als
+  // providerId des Listings eingetragen ist (lokaler Scope).
+  // Echte cross-user Aggregation folgt mit Backend-Endpoint.
+  var myId = currentUser && currentUser.id;
+  var jobs = [];
+  (_boardProjects || []).forEach(function(proj){
+    (proj.cards || []).forEach(function(card){
+      var l = card.listingId ? (LISTINGS || []).find(function(x){ return x.id === card.listingId; }) : null;
+      var providerId = (l && l.providerId) || card.providerId;
+      if (providerId && myId && providerId === myId) {
+        jobs.push({ card: card, project: proj, listing: l });
+      }
+    });
+  });
+
+  var html = '';
+  html += '<div style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px">' +
+    '<div style="display:flex;align-items:flex-start;gap:12px">' +
+      '<span class="material-icons-round" style="color:var(--primary);font-size:28px">info</span>' +
+      '<div style="flex:1;font-size:14px;line-height:1.6">' +
+        '<strong>So funktioniert\'s:</strong><br>' +
+        '1. Ein Kunde bucht dich verbindlich &rarr; du erh&auml;ltst eine <em>Buchungsbest&auml;tigung</em> per E-Mail (CC an kontakt@eventb&ouml;rse.de f&uuml;r Transparenz).<br>' +
+        '2. Du stellst die Rechnung aus. Der Kunde zahlt (per &Uuml;berweisung, Bar, PayPal &mdash; bald direkt via <strong>Stripe</strong>).<br>' +
+        '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  if (!isProvider) {
+    html += '<div style="text-align:center;padding:40px 20px;color:var(--text-light)">' +
+      '<span class="material-icons-round" style="font-size:48px;opacity:0.4">assignment</span>' +
+      '<p style="margin-top:12px">Diese Seite ist f&uuml;r <strong>Dienstleister</strong> gedacht. Stelle deine Rolle im Profil um, um Auftr&auml;ge zu erhalten.</p>' +
+    '</div>';
+    container.innerHTML = html;
+    return;
+  }
+
+  if (!jobs.length) {
+    html += '<div style="text-align:center;padding:50px 20px;background:var(--bg-alt);border-radius:14px;border:1px dashed var(--border)">' +
+      '<span class="material-icons-round" style="font-size:56px;opacity:0.3;color:var(--text-light)">inbox</span>' +
+      '<h3 style="margin:12px 0 6px">Noch keine Auftr&auml;ge</h3>' +
+      '<p style="color:var(--text-light);margin:0 0 6px">Sobald ein Kunde dich verbindlich bucht, erscheinen die Details hier.</p>' +
+      '<p style="color:var(--text-light);font-size:13px;margin:0"><em>Cross-User-Synchronisation &amp; Stripe-Anbindung in Entwicklung.</em></p>' +
+    '</div>';
+    container.innerHTML = html;
+    return;
+  }
+
+  var esc = _escHtml;
+  var stageLabels = { angebot:'Gebucht', bestaetigt:'Bezahlt', abgeschlossen:'Erf\u00fcllt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
+  var stageColors = { angebot:'#AB47BC', bestaetigt:'#00A699', abgeschlossen:'#FF385C', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
+
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">';
+  jobs.forEach(function(j){
+    var c = j.card, p = j.project, l = j.listing;
+    var stage = c.stage || 'geplant';
+    var color = stageColors[stage] || '#9E9E9E';
+    var priceStr = c.price ? (parseFloat(c.price).toFixed(2).replace(/\.00$/, '') + ' €') : '—';
+    var dateStr = p.date ? _formatDateDe(p.date) : '—';
+    var canConfirm = stage === 'bestaetigt' && !c.providerConfirmedAt;
+    var alreadyConfirmed = !!c.providerConfirmedAt;
+
+    html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
+      '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
+        '<strong style="font-size:13px;letter-spacing:0.5px;text-transform:uppercase">' + esc(stageLabels[stage] || stage) + '</strong>' +
+        '<span style="font-size:12px;opacity:0.9">' + esc(dateStr) + '</span>' +
+      '</div>' +
+      '<div style="padding:16px">' +
+        '<div style="font-weight:700;font-size:16px;margin-bottom:4px">' + esc((l && l.title) || c.name || 'Auftrag') + '</div>' +
+        '<div style="color:var(--text-light);font-size:13px;margin-bottom:12px">Projekt: ' + esc(p.name || '—') + '</div>' +
+        '<div style="display:flex;gap:12px;font-size:13px;margin-bottom:12px">' +
+          '<div><span style="color:var(--text-light)">Preis:</span> <strong>' + esc(priceStr) + '</strong></div>' +
+          (c.paymentMethod ? '<div><span style="color:var(--text-light)">Zahlung:</span> <strong>' + esc(c.paymentMethod) + '</strong></div>' : '') +
+        '</div>' +
+        (canConfirm
+          ? '<button class="btn-primary" style="width:100%" onclick="confirmAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')"><span class="material-icons-round">verified</span> Erbringung best&auml;tigen</button>'
+          : alreadyConfirmed
+            ? '<div style="padding:10px;background:rgba(102,187,106,0.1);border-radius:8px;color:#388e3c;font-size:13px;text-align:center"><span class="material-icons-round" style="vertical-align:middle;font-size:16px">check_circle</span> Deinerseits best&auml;tigt</div>'
+            : '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + (stage === 'abgeschlossen' ? 'Auftrag erf&uuml;llt' : 'Warten auf n&auml;chsten Schritt') + '</div>'
+        ) +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+function confirmAuftragProvider(projectId, cardId) {
+  var proj = (_boardProjects || []).find(function(p){ return p.id === projectId; });
+  if (!proj) return;
+  var card = (proj.cards || []).find(function(c){ return c.id === cardId; });
+  if (!card) return;
+  card.providerConfirmedAt = new Date().toISOString();
+  if (card.userConfirmedAt && card.stage === 'bestaetigt') {
+    card.stage = 'abgeschlossen';
+    card.fulfilledAt = new Date().toISOString();
+    showToast('Auftrag beidseitig best\u00e4tigt – erf\u00fcllt!', 'verified');
+  } else {
+    showToast('Best\u00e4tigung gespeichert. Wartet auf Kunden-Best\u00e4tigung.', 'hourglass_top');
+  }
+  _saveBoardProjects();
+  renderAuftraegePage();
+}
+
 function renderBoardPage() {
   _activeBoardId = null;
   var projectsEl = document.getElementById('boardProjects');
@@ -10759,9 +10878,9 @@ function renderBoardFlow() {
   var stagesMeta = [
     { id: 'geplant',       label: 'Geplant',        color: '#9E9E9E', icon: 'schedule'     },
     { id: 'kontaktiert',   label: 'Kontaktiert',     color: '#FF9800', icon: 'mail'         },
-    { id: 'angebot',       label: 'Angebot',         color: '#2196F3', icon: 'description'  },
-    { id: 'bestaetigt',    label: 'Bestätigt',       color: '#00A699', icon: 'check_circle' },
-    { id: 'abgeschlossen', label: 'Abgeschlossen',   color: '#FF385C', icon: 'celebration'  }
+    { id: 'angebot',       label: 'Gebucht',         color: '#AB47BC', icon: 'receipt_long' },
+    { id: 'bestaetigt',    label: 'Bezahlt',         color: '#00A699', icon: 'paid'         },
+    { id: 'abgeschlossen', label: 'Erfüllt',         color: '#FF385C', icon: 'verified'     }
   ];
 
   var cards = project.cards || [];
@@ -10942,9 +11061,9 @@ function renderBoardFlow() {
       if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
       html += '<div class="flow-prov-actions">';
-      var _saLabels = {geplant:'Kontaktieren',kontaktiert:'Angebot einholen',angebot:'Bestätigen',bestaetigt:'Abschließen'};
-      var _saIcons  = {geplant:'call',kontaktiert:'request_quote',angebot:'handshake',bestaetigt:'task_alt'};
-      var _saColors = {geplant:'#42a5f5',kontaktiert:'#ffa726',angebot:'#ab47bc',bestaetigt:'#66bb6a'};
+      var _saLabels = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Zahlung bestätigen',bestaetigt:'Erbringung bestätigen'};
+      var _saIcons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'paid',bestaetigt:'verified'};
+      var _saColors = {geplant:'#42a5f5',kontaktiert:'#ab47bc',angebot:'#66bb6a',bestaetigt:'#FF385C'};
       if (_saLabels[stage.id]) {
         html += '<button class="flow-prov-action-btn" style="--sa-clr:' + _saColors[stage.id] + '" onclick="event.stopPropagation();openStageAdvanceModal(\'' + card.id + '\',\'' + stage.id + '\')">';
         html += '<span class="material-icons-round">' + _saIcons[stage.id] + '</span> ' + _saLabels[stage.id];
@@ -11172,9 +11291,9 @@ function openFlowBudgetModal() {
   var stagesMeta = [
     { id: 'geplant', label: 'Geplant', color: '#9E9E9E' },
     { id: 'kontaktiert', label: 'Kontaktiert', color: '#FF9800' },
-    { id: 'angebot', label: 'Angebot', color: '#2196F3' },
-    { id: 'bestaetigt', label: 'Bestätigt', color: '#00A699' },
-    { id: 'abgeschlossen', label: 'Abgeschlossen', color: '#FF385C' }
+    { id: 'angebot', label: 'Gebucht', color: '#AB47BC' },
+    { id: 'bestaetigt', label: 'Bezahlt', color: '#00A699' },
+    { id: 'abgeschlossen', label: 'Erfüllt', color: '#FF385C' }
   ];
 
   var breakdown = stagesMeta.map(function(s) {
@@ -11363,8 +11482,8 @@ function openFlowCardModal(cardId) {
 
   var stageOptions = [
     { id: 'geplant', label: 'Geplant' }, { id: 'kontaktiert', label: 'Kontaktiert' },
-    { id: 'angebot', label: 'Angebot' }, { id: 'bestaetigt', label: 'Bestätigt' },
-    { id: 'abgeschlossen', label: 'Abgeschlossen' }
+    { id: 'angebot', label: 'Gebucht' }, { id: 'bestaetigt', label: 'Bezahlt' },
+    { id: 'abgeschlossen', label: 'Erfüllt' }
   ].map(function(s) {
     return '<option value="' + s.id + '"' + (s.id === card.stage ? ' selected' : '') + '>' + s.label + '</option>';
   }).join('');
@@ -11436,6 +11555,37 @@ function moveBoardCardStage(cardId, currentStage) {
   _updateBoardStats(project);
 }
 
+/* ── Rechnungs-/Buchungs-Benachrichtigung senden ──
+ * Schickt eine HTML-Mail mit allen Details an User, Anbieter und
+ * kontakt@eventbörse.de – für volle Transparenz der Transaktion.
+ * Stripe-Integration folgt; diese Mail fungiert bis dahin als
+ * "Buchungs-Bestätigung / Rechnungs-Anforderung".
+ */
+function _sendInvoiceNotification(card, project, listing) {
+  try {
+    var providerId = (listing && listing.providerId) || card.providerId || 0;
+    var payload = {
+      card_id: card.id || '',
+      project_id: project && project.id || '',
+      project_name: (project && project.name) || '',
+      event_date: (project && project.date) || '',
+      listing_id: (listing && (listing._dbId || listing.id)) || card.listingId || 0,
+      listing_title: (listing && listing.title) || card.name || '',
+      provider_user_id: providerId,
+      price: parseFloat(card.price) || 0,
+      note: card.bookingNote || ''
+    };
+    return fetch(_apiUrl('send-invoice'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify(payload)
+    }).then(function(r){ if (!r.ok) throw new Error('invoice'); return r.json(); });
+  } catch (e) {
+    return Promise.reject(e);
+  }
+}
+
 /* ── Stage Advance Modal ── */
 function openStageAdvanceModal(cardId, currentStage) {
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -11443,8 +11593,8 @@ function openStageAdvanceModal(cardId, currentStage) {
   var card = (project.cards || []).find(function(c) { return c.id === cardId; });
   if (!card) return;
 
-  var titles = {geplant:'Kontaktieren',kontaktiert:'Angebot einholen',angebot:'Bestätigen',bestaetigt:'Abschließen'};
-  var icons  = {geplant:'call',kontaktiert:'request_quote',angebot:'handshake',bestaetigt:'task_alt'};
+  var titles = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Zahlung bestätigen',bestaetigt:'Erbringung bestätigen'};
+  var icons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'paid',bestaetigt:'verified'};
   var title  = titles[currentStage] || 'Weiter';
   var icon   = icons[currentStage] || 'arrow_forward';
 
@@ -11534,29 +11684,90 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<input type="hidden" id="saProvEmail" value="' + _escHtml(_provEmail) + '">' +
       '<input type="hidden" id="saProjectName" value="' + _escHtml(_projectName) + '">';
   } else if (currentStage === 'kontaktiert') {
+    // Stage "Kontaktiert" → "Gebucht": User entscheidet sich fest zu buchen.
+    // Rechnung wird angestoßen (E-Mail an User, Anbieter, kontakt@eventbörse.de).
+    var _bookPrice = (_listing && _listing.price) || card.price || '';
+    var _bookEventDate = (project && project.date) ? _formatDateDe(project.date) : '—';
     fieldsHtml = '' +
-      '<label class="sa-label">Angefragter Preis (€)</label>' +
-      '<input id="saPrice" type="number" class="sa-input" step="1" min="0" placeholder="z.B. 500" value="' + (card.price || '') + '">' +
-      '<label class="sa-label">Deadline für Angebot</label>' +
-      '<input id="saDeadline" type="date" class="sa-input">' +
-      '<label class="sa-label">Notizen</label>' +
-      '<textarea id="saNotes" class="sa-input" rows="3" placeholder="Besondere Anforderungen…"></textarea>';
-  } else if (currentStage === 'angebot') {
-    fieldsHtml = '' +
-      '<label class="sa-label">Finaler Preis (€)</label>' +
-      '<input id="saFinalPrice" type="number" class="sa-input" step="1" min="0" placeholder="z.B. 450" value="' + (card.price || '') + '">' +
-      '<label class="sa-label">Bedingungen</label>' +
-      '<textarea id="saTerms" class="sa-input" rows="2" placeholder="Zahlungsbedingungen, Storno…"></textarea>' +
-      '<label class="sa-chip sa-confirm-check"><input type="checkbox" id="saConfirmed"><span>Anbieter hat bestätigt</span></label>';
-  } else if (currentStage === 'bestaetigt') {
-    fieldsHtml = '' +
-      '<label class="sa-label">Bezahlung</label>' +
-      '<div class="sa-chips">' +
-        '<label class="sa-chip"><input type="radio" name="saPayment" value="Offen" checked><span>⏳ Offen</span></label>' +
-        '<label class="sa-chip"><input type="radio" name="saPayment" value="Bezahlt"><span>✅ Bezahlt</span></label>' +
-        '<label class="sa-chip"><input type="radio" name="saPayment" value="Teilzahlung"><span>💳 Teilzahlung</span></label>' +
+      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(171,71,188,0.12),rgba(171,71,188,0.04));border:1px solid rgba(171,71,188,0.3);border-radius:12px;padding:14px;margin-bottom:12px">' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">' +
+          '<span class="material-icons-round" style="color:#AB47BC">receipt_long</span>' +
+          '<strong>Verbindlich buchen</strong>' +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
+          'Mit dem Buchen wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
+          'und <strong>kontakt@eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
+        '</div>' +
       '</div>' +
-      '<label class="sa-label">Bewertung <small>(optional)</small></label>' +
+      '<label class="sa-label">Leistung</label>' +
+      '<input class="sa-input" readonly value="' + _escHtml((_listing && _listing.title) || card.name || '') + '">' +
+      '<label class="sa-label">Event-Datum</label>' +
+      '<input class="sa-input" readonly value="' + _escHtml(_bookEventDate) + '">' +
+      '<label class="sa-label">Preis (€)</label>' +
+      '<input id="saBookPrice" type="number" class="sa-input" step="1" min="0" value="' + _escHtml(String(_bookPrice)) + '">' +
+      '<label class="sa-label">Anmerkung f&uuml;r Rechnung <small>(optional)</small></label>' +
+      '<textarea id="saBookNote" class="sa-input" rows="2" placeholder="Uhrzeit, Adresse, Besonderheiten…"></textarea>';
+  } else if (currentStage === 'angebot') {
+    // Stage "Gebucht" → "Bezahlt": Zahlung bestätigen (Stripe folgt, derzeit manuell)
+    var _paidAmount = card.price || (_listing && _listing.price) || '';
+    fieldsHtml = '' +
+      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(102,187,106,0.12),rgba(102,187,106,0.04));border:1px solid rgba(102,187,106,0.3);border-radius:12px;padding:14px;margin-bottom:12px">' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">' +
+          '<span class="material-icons-round" style="color:#66bb6a">paid</span>' +
+          '<strong>Zahlung best&auml;tigen</strong>' +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
+          'Sobald die Zahlung eingegangen ist, wird dieses Projekt als <strong>Bezahlt</strong> markiert — ' +
+          'so hast du Planungssicherheit.' +
+        '</div>' +
+      '</div>' +
+      '<label class="sa-label">Bezahlter Betrag (€)</label>' +
+      '<input id="saPaidAmount" type="number" class="sa-input" step="0.01" min="0" value="' + _escHtml(String(_paidAmount)) + '">' +
+      '<label class="sa-label">Zahlungsart</label>' +
+      '<div class="sa-chips">' +
+        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Stripe" disabled><span>💳 Stripe <small>(bald)</small></span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Überweisung" checked><span>🏦 &Uuml;berweisung</span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Bar"><span>💶 Bar</span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="PayPal"><span>🅿️ PayPal</span></label>' +
+      '</div>' +
+      '<label class="sa-label">Referenz / Verwendungszweck <small>(optional)</small></label>' +
+      '<input id="saPayRef" type="text" class="sa-input" placeholder="z.B. Rechnungsnummer">';
+  } else if (currentStage === 'bestaetigt') {
+    // Stage "Bezahlt" → "Erfüllt": Dual-Confirmation am Event-Tag.
+    var _hasProvConfirm = !!card.providerConfirmedAt;
+    var _hasUserConfirm = !!card.userConfirmedAt;
+    fieldsHtml = '' +
+      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(255,56,92,0.12),rgba(255,56,92,0.04));border:1px solid rgba(255,56,92,0.3);border-radius:12px;padding:14px;margin-bottom:12px">' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">' +
+          '<span class="material-icons-round" style="color:#FF385C">verified</span>' +
+          '<strong>Erbringung der Leistung best&auml;tigen</strong>' +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
+          'Am Event-Tag best&auml;tigen <strong>beide Seiten</strong> vor Ort. Der Dienstleister best&auml;tigt &uuml;ber ' +
+          '<em>„Auftr&auml;ge&rdquo;</em> im Men&uuml;. Erst wenn beide best&auml;tigt haben, ist das Projekt abgeschlossen.' +
+        '</div>' +
+      '</div>' +
+      '<div class="sa-dual-confirm" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
+        '<div style="padding:12px;border-radius:10px;border:1.5px solid ' + (_hasUserConfirm ? '#66bb6a' : 'var(--border)') + ';background:' + (_hasUserConfirm ? 'rgba(102,187,106,0.08)' : 'transparent') + '">' +
+          '<div style="font-size:11px;text-transform:uppercase;color:var(--text-light);margin-bottom:4px">Deine Seite</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;font-weight:600">' +
+            '<span class="material-icons-round" style="color:' + (_hasUserConfirm ? '#66bb6a' : 'var(--text-light)') + ';font-size:18px">' + (_hasUserConfirm ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
+            (_hasUserConfirm ? 'Best&auml;tigt' : 'Offen') +
+          '</div>' +
+        '</div>' +
+        '<div style="padding:12px;border-radius:10px;border:1.5px solid ' + (_hasProvConfirm ? '#66bb6a' : 'var(--border)') + ';background:' + (_hasProvConfirm ? 'rgba(102,187,106,0.08)' : 'transparent') + '">' +
+          '<div style="font-size:11px;text-transform:uppercase;color:var(--text-light);margin-bottom:4px">Dienstleister</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;font-weight:600">' +
+            '<span class="material-icons-round" style="color:' + (_hasProvConfirm ? '#66bb6a' : 'var(--text-light)') + ';font-size:18px">' + (_hasProvConfirm ? 'check_circle' : 'hourglass_top') + '</span>' +
+            (_hasProvConfirm ? 'Best&auml;tigt' : 'Wartet') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<label class="sa-chip sa-confirm-check" style="display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer">' +
+        '<input type="checkbox" id="saUserConfirm"' + (_hasUserConfirm ? ' checked' : '') + '>' +
+        '<span><strong>Ich best&auml;tige:</strong> Die Leistung wurde wie vereinbart erbracht.</span>' +
+      '</label>' +
+      '<label class="sa-label" style="margin-top:12px">Bewertung <small>(optional)</small></label>' +
       '<div class="sa-stars" id="saStars">' +
         '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<1?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=1" class="material-icons-round">star_border</span>' +
         '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<2?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=2" class="material-icons-round">star_border</span>' +
@@ -11716,31 +11927,60 @@ function openStageAdvanceModal(cardId, currentStage) {
 
   // Submit
   document.getElementById('saSubmitBtn').addEventListener('click', function() {
+    var _nowIso = new Date().toISOString();
+    var _advance = true; // wird ggf. unterdrueckt (Dual-Confirm)
+
     if (currentStage === 'geplant') {
       var method = (document.getElementById('saContactMethod') || {}).value || 'E-Mail';
       card.contactMethod = method;
       card.contactMessage = (document.getElementById('saMessage') || {}).value || '';
       card.contactDate = new Date().toISOString().slice(0,10);
     } else if (currentStage === 'kontaktiert') {
-      var p = (document.getElementById('saPrice') || {}).value;
-      if (p) card.requestedPrice = parseFloat(p);
-      card.offerDeadline = (document.getElementById('saDeadline') || {}).value || '';
-      card.offerNotes = (document.getElementById('saNotes') || {}).value || '';
+      // Stage "Kontaktiert" → "Gebucht": Rechnung anstossen
+      var _bp = parseFloat((document.getElementById('saBookPrice') || {}).value);
+      if (!isNaN(_bp) && _bp > 0) card.price = _bp;
+      card.bookingNote = (document.getElementById('saBookNote') || {}).value || '';
+      card.bookedAt = _nowIso;
+      card.invoiceSentAt = _nowIso;
+      _sendInvoiceNotification(card, project, _listing).catch(function(){});
+      showToast('Buchung ausgel\u00f6st – Rechnung wurde per E-Mail versendet.', 'receipt_long');
     } else if (currentStage === 'angebot') {
-      var fp = (document.getElementById('saFinalPrice') || {}).value;
-      if (fp) card.price = parseFloat(fp);
-      card.terms = (document.getElementById('saTerms') || {}).value || '';
-      card.confirmedByProvider = !!(document.getElementById('saConfirmed') || {}).checked;
+      // Stage "Gebucht" → "Bezahlt": Zahlung bestaetigen
+      var _pa = parseFloat((document.getElementById('saPaidAmount') || {}).value);
+      if (!isNaN(_pa) && _pa > 0) card.paidAmount = _pa;
+      card.paymentMethod = (document.querySelector('input[name=saPayMethod]:checked') || {}).value || '';
+      card.paymentReference = (document.getElementById('saPayRef') || {}).value || '';
+      card.paidAt = _nowIso;
+      card.paymentStatus = 'Bezahlt';
+      showToast('Zahlung bestaetigt – Stage wird auf „Bezahlt“ gesetzt.', 'paid');
     } else if (currentStage === 'bestaetigt') {
-      card.paymentStatus = (document.querySelector('input[name=saPayment]:checked') || {}).value || '';
+      // Stage "Bezahlt" → "Erfuellt": Dual-Confirm (User + Dienstleister)
+      var _userOk = !!(document.getElementById('saUserConfirm') || {}).checked;
+      if (_userOk && !card.userConfirmedAt) card.userConfirmedAt = _nowIso;
+      if (!_userOk) card.userConfirmedAt = '';
       card.rating = parseInt((document.getElementById('saRating') || {}).value) || 0;
       card.reviewComment = (document.getElementById('saComment') || {}).value || '';
+
+      // Nur weiter, wenn BEIDE bestaetigt haben
+      if (!(card.userConfirmedAt && card.providerConfirmedAt)) {
+        _advance = false;
+        if (card.userConfirmedAt && !card.providerConfirmedAt) {
+          showToast('Warten auf Best\u00e4tigung des Dienstleisters.', 'hourglass_top');
+        } else if (!card.userConfirmedAt) {
+          showToast('Bitte bestaetige die Erbringung der Leistung.', 'warning');
+        }
+      } else {
+        card.fulfilledAt = _nowIso;
+        showToast('Leistung beidseitig best\u00e4tigt – Projekt abgeschlossen!', 'verified');
+      }
     }
 
-    // Advance stage
-    var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
-    var idx = stagesOrder.indexOf(currentStage);
-    if (idx >= 0 && idx < stagesOrder.length - 1) card.stage = stagesOrder[idx + 1];
+    // Advance stage (falls nicht unterdrueckt)
+    if (_advance) {
+      var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+      var idx = stagesOrder.indexOf(currentStage);
+      if (idx >= 0 && idx < stagesOrder.length - 1) card.stage = stagesOrder[idx + 1];
+    }
 
     _saveBoardProjects();
     overlay.remove();
