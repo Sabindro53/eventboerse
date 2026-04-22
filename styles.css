@@ -4447,43 +4447,38 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 /* ===== Chat message delete (hover trash + tombstone) ===== */
 .msg-sent .msg-delete-btn {
   position: absolute;
-  top: 50%;
-  left: -34px;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: none;
-  background: var(--bg);
-  color: var(--text-light);
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  transition: opacity 0.15s, background 0.15s;
   padding: 0;
+  z-index: 2;
 }
-.msg-sent .msg-delete-btn .material-icons-round { font-size: 16px; }
+.msg-sent .msg-delete-btn .material-icons-round { font-size: 14px; }
 .msg-sent:hover .msg-delete-btn,
 .msg-sent .msg-delete-btn:focus-visible {
   opacity: 1;
   pointer-events: auto;
 }
 .msg-sent .msg-delete-btn:hover {
-  background: #FF3B30;
-  color: #fff;
-}
-body.dark-mode .msg-sent .msg-delete-btn {
-  background: var(--bg-alt);
-  color: var(--text-light);
+  background: rgba(0, 0, 0, 0.35);
 }
 @media (max-width: 768px) {
-  .msg-sent .msg-delete-btn { opacity: 1; pointer-events: auto; width: 24px; height: 24px; left: -28px; }
-  .msg-sent .msg-delete-btn .material-icons-round { font-size: 14px; }
+  .msg-sent .msg-delete-btn { opacity: 1; pointer-events: auto; }
 }
+/* Reserve space so text doesn't run under the button on hover */
+.msg-sent { padding-right: 36px; }
 
 .msg.msg-deleted {
   background: transparent !important;
