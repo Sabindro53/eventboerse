@@ -2154,7 +2154,6 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   height: 100%;
   object-fit: cover;
   -webkit-object-fit: cover;
-  object-position: center 25%;
   transition: transform 0.4s ease;
 }
 .listing-card:hover .listing-card-img img { transform: scale(1.05); }
@@ -10189,6 +10188,7 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   width: 100%;
   aspect-ratio: 4/3;
   object-fit: cover;
+  object-position: center 20%;
   display: block;
   cursor: pointer;
   transition: opacity 0.2s;
