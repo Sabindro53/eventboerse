@@ -10847,8 +10847,16 @@ function renderBoardFlow() {
       });
       // Kleiner Rand rechts/unten, damit nichts an der Kante klebt
       var PAD_R = 40, PAD_B = 40;
-      var measuredW = Math.max(maxR + PAD_R, parseFloat(worldElM.dataset.worldW) || 0);
-      var measuredH = Math.max(maxB + PAD_B, parseFloat(worldElM.dataset.worldH) || 0);
+      var measuredW, measuredH;
+      if (_isMobile && canvasEl) {
+        // Mobile: Weltbreite = Canvasbreite (kein horizontaler Scroll,
+        // Welt richtet sich nach Inhalt/Viewport, nicht endlos in die Breite)
+        measuredW = canvasEl.clientWidth;
+        measuredH = Math.max(maxB + PAD_B, parseFloat(worldElM.dataset.worldH) || 0);
+      } else {
+        measuredW = Math.max(maxR + PAD_R, parseFloat(worldElM.dataset.worldW) || 0);
+        measuredH = Math.max(maxB + PAD_B, parseFloat(worldElM.dataset.worldH) || 0);
+      }
       worldElM.dataset.worldW = measuredW;
       worldElM.dataset.worldH = measuredH;
       // Basisgroesse (vor transform) setzen – _flowApplyZoom skaliert das dann.
@@ -10862,7 +10870,20 @@ function renderBoardFlow() {
       _flowFittedFor = _activeBoardId;
       // Zwei Frames + kleiner Timeout, damit Flex-Layout und Messung fertig sind.
       requestAnimationFrame(function(){
-        setTimeout(function(){ try { flowFitToScreen(); } catch(_) {} }, 60);
+        setTimeout(function(){
+          try { flowFitToScreen(); } catch(_) {}
+          // Nach Fit direkt zum Start-Node scrollen + kurzer visueller Puls,
+          // damit der Nutzer sofort sieht, wo er sich befindet.
+          try {
+            var cvs = document.getElementById('flowCanvas');
+            if (cvs) { cvs.scrollLeft = 0; cvs.scrollTop = 0; }
+            var startEl = document.querySelector('[data-nid="start"]');
+            if (startEl) {
+              startEl.classList.add('flow-focus-pulse');
+              setTimeout(function(){ startEl.classList.remove('flow-focus-pulse'); }, 1600);
+            }
+          } catch(_) {}
+        }, 60);
       });
     } else {
       // Bei Re-Render im gleichen Projekt: Zoom neu anwenden, damit die Welt
@@ -11770,12 +11791,25 @@ function flowFitToScreen() {
   // Kleine Sicherheits-Reserve, damit nichts am Rand abgeschnitten wird.
   var availW = canvas.clientWidth  - 24;
   var availH = canvas.clientHeight - 24;
-  if (availW <= 0 || availH <= 0 || wW <= 0 || wH <= 0) return;
-  var fitZ = Math.min(availW / wW, availH / wH);
+  if (availW <= 0 || wW <= 0) return;
+  var isMobile = (window.innerWidth || 1200) <= 600;
+  var fitZ;
+  if (isMobile) {
+    // Handy: Nur an BREITE anpassen (vertikale Prozesskette wird gescrollt).
+    // So ist der Start-Node oben direkt sichtbar, nichts wird winzig.
+    fitZ = availW / wW;
+    // Auf Mobile max 1.0 (nicht größer) – bleibt lesbar
+    fitZ = Math.min(1, fitZ);
+  } else {
+    // Desktop: an beide Achsen anpassen
+    if (availH <= 0 || wH <= 0) return;
+    fitZ = Math.min(availW / wW, availH / wH);
+  }
   fitZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, fitZ));
   // Fit = 100 % in der Anzeige (Nutzer sieht immer 100 % im Standard-Fit).
   _flowDisplayBase = fitZ;
   _flowApplyZoom(fitZ);
+  // Direkt zum Start-Node oben scrollen, damit der Nutzer den Fokus hat.
   setTimeout(function() {
     canvas.scrollLeft = 0;
     canvas.scrollTop  = 0;
