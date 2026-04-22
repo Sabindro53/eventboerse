@@ -11328,12 +11328,27 @@ function openStageAdvanceModal(cardId, currentStage) {
   if (_cleanPhone && !_cleanPhone.startsWith('+')) _cleanPhone = '+49' + _cleanPhone.replace(/^0/, '');
   // Project info for pre-filled messages
   var _projectName = project.name || 'mein Event';
-  var _projectDate = project.date ? new Date(project.date).toLocaleDateString('de-DE', {day:'numeric',month:'long',year:'numeric'}) : '';
-  var _senderName = (typeof currentUser !== 'undefined' && currentUser) ? ((currentUser.first_name || '') + ' ' + (currentUser.last_name || '')).trim() || currentUser.email || '' : '';
+  var _projectDate = '';
+  if (project.date) {
+    var _rawDate = String(project.date).trim();
+    var _parsed = new Date(_rawDate);
+    if (!isNaN(_parsed.getTime())) {
+      _projectDate = _parsed.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } else {
+      // Fallback: already in DD.MM.YYYY or similar — use as-is
+      _projectDate = _rawDate;
+    }
+  }
+  var _senderName = '';
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    _senderName = (currentUser.first_name || '').trim()
+      || (currentUser.username || '').trim()
+      || ((currentUser.first_name || '') + ' ' + (currentUser.last_name || '')).trim();
+  }
 
   if (currentStage === 'geplant') {
     // Build pre-filled message
-    var _defaultMsg = 'Hallo ' + _provName + ',\\n\\nich plane ' + _projectName +
+    var _defaultMsg = 'Hallo ' + _provName + ',\\n\\nich plane "' + _projectName + '"' +
       (_projectDate ? ' am ' + _projectDate : '') +
       ' und bin an Ihrem Angebot „' + (_listing ? _listing.title || '' : card.name || '') + '" interessiert.' +
       '\\n\\nKönnten wir die Details besprechen?' +
