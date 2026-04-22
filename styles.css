@@ -10187,8 +10187,8 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 .feed-post-image {
   width: 100%;
   aspect-ratio: 4/3;
-  object-fit: cover;
-  object-position: center 20%;
+  object-fit: contain;
+  background: var(--bg-alt);
   display: block;
   cursor: pointer;
   transition: opacity 0.2s;
