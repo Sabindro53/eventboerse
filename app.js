@@ -8552,6 +8552,47 @@ function _escHtml(str) {
   return d.innerHTML;
 }
 
+// Parse a date string in various formats (ISO, DD.MM.YYYY, "15. August 2026", etc.)
+// Returns ISO date (YYYY-MM-DD) for <input type="date">, or '' if unparseable.
+function _toIsoDate(str) {
+  if (!str) return '';
+  str = String(str).trim();
+  if (!str) return '';
+  // Already ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // DD.MM.YYYY or D.M.YYYY
+  var m = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (m) {
+    return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  }
+  // DD/MM/YYYY
+  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  }
+  // "15. August 2026" German month name
+  var months = { januar:1, februar:2, märz:3, maerz:3, april:4, mai:5, juni:6, juli:7, august:8, september:9, oktober:10, november:11, dezember:12 };
+  m = str.match(/^(\d{1,2})\.?\s+([A-Za-zäÄöÖüÜß]+)\s+(\d{4})$/);
+  if (m) {
+    var mon = months[m[2].toLowerCase()];
+    if (mon) return m[3] + '-' + ('0' + mon).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  }
+  // Fallback: Date.parse
+  var d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+  return '';
+}
+
+// Format any date string as DD.MM.YYYY (German). Falls back to the raw string if unparseable.
+function _formatDateDe(str) {
+  var iso = _toIsoDate(str);
+  if (!iso) return str || '';
+  var parts = iso.split('-');
+  return parts[2] + '.' + parts[1] + '.' + parts[0];
+}
+
 function _stripHtml(str) {
   if (!str) return '';
   var doc = new DOMParser().parseFromString(str, 'text/html');
@@ -10984,7 +11025,7 @@ function openFlowProjectModal() {
     '<h2>Event bearbeiten</h2></div>' +
     '<form class="modal-form" onsubmit="_saveFlowProject(event)">' +
     '<div class="form-group"><label>Event-Name</label><input type="text" id="fpName" value="' + _escHtml(project.name) + '" required /></div>' +
-    '<div class="form-group"><label>Datum</label><input type="text" id="fpDate" value="' + _escHtml(project.date || '') + '" placeholder="z.B. 15. August 2026" /></div>' +
+    '<div class="form-group"><label>Datum</label><input type="date" id="fpDate" value="' + _escHtml(_toIsoDate(project.date) || '') + '" /></div>' +
     '<div class="form-group"><label>Budget (€)</label><input type="number" id="fpBudget" value="' + (project.budget || '') + '" min="0" step="100" /></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
     '<button type="button" class="btn-outline btn-block" style="margin-top:8px;border-color:#f44336;color:#f44336" onclick="_deleteFlowProject()">' +
@@ -11328,17 +11369,7 @@ function openStageAdvanceModal(cardId, currentStage) {
   if (_cleanPhone && !_cleanPhone.startsWith('+')) _cleanPhone = '+49' + _cleanPhone.replace(/^0/, '');
   // Project info for pre-filled messages
   var _projectName = project.name || 'mein Event';
-  var _projectDate = '';
-  if (project.date) {
-    var _rawDate = String(project.date).trim();
-    var _parsed = new Date(_rawDate);
-    if (!isNaN(_parsed.getTime())) {
-      _projectDate = _parsed.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } else {
-      // Fallback: already in DD.MM.YYYY or similar — use as-is
-      _projectDate = _rawDate;
-    }
-  }
+  var _projectDate = project.date ? _formatDateDe(project.date) : '';
   var _senderName = '';
   if (typeof currentUser !== 'undefined' && currentUser) {
     _senderName = (currentUser.first_name || '').trim()
@@ -12374,7 +12405,7 @@ function openCreateBoardModal() {
         </div>
         <div class="form-group">
           <label>Event-Datum</label>
-          <input type="text" id="newBoardDate" placeholder="z.B. 15. August 2026" />
+          <input type="date" id="newBoardDate" />
         </div>
         <div class="form-group">
           <label>Budget (€, optional)</label>
