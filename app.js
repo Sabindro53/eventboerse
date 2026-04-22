@@ -10580,18 +10580,31 @@ function renderBoardFlow() {
   var _PAD = _isMobile ? 16 : _isTablet ? 30 : 60;
   var _defLayout;
   if (_isMobile) {
-    // Handy-Layout: Stages UNTEREINANDER (vertikal gestackt),
-    // Dienstleister rechts vom Stage-Header (horizontal)
-    var _ROWH = 340; // Höhe pro Stage-Zeile (deckt Provider-Karte mit Banner+Buttons ab)
-    _defLayout = {
-      'start':         { x: _PAD, y: _PAD + 0*_ROWH },
-      'geplant':       { x: _PAD, y: _PAD + 1*_ROWH },
-      'kontaktiert':   { x: _PAD, y: _PAD + 2*_ROWH },
-      'angebot':       { x: _PAD, y: _PAD + 3*_ROWH },
-      'bestaetigt':    { x: _PAD, y: _PAD + 4*_ROWH },
-      'abgeschlossen': { x: _PAD, y: _PAD + 5*_ROWH },
-      'end':           { x: _PAD, y: _PAD + 6*_ROWH }
-    };
+    // Handy-Layout: Alles UNTEREINANDER als vertikale Prozesskette.
+    // Stages sind gestackt, Dienstleister-Karten liegen DIREKT UNTER ihrem Stage-Header.
+    // y-Positionen werden dynamisch berechnet, abhängig davon wie viele
+    // Dienstleister-Karten die vorherige Stage enthält (jede Karte ~240px hoch).
+    var _STAGE_HDR_H = 108;   // Höhe Stage-Header-Node inkl. body
+    var _CARD_H      = 240;   // durchschnittliche Höhe einer Provider-Karte (Banner+Meta+Actions)
+    var _CARD_GAP    = 14;    // Abstand zwischen zwei Karten in einer Stage
+    var _ROW_GAP     = 48;    // Abstand zwischen zwei Stage-Blöcken (inkl. Verbindungslinien-Platz)
+    var _START_END_H = 170;   // Höhe der runden Start/End-Nodes
+
+    function _mobileStageHeight(stageId) {
+      var cnt = cards.filter(function(c){ return c.stage === stageId; }).length;
+      var cardsBlock = cnt > 0 ? (_CARD_GAP + cnt * _CARD_H + (cnt - 1) * _CARD_GAP) : 0;
+      return _STAGE_HDR_H + cardsBlock;
+    }
+
+    _defLayout = {};
+    var _y = _PAD;
+    _defLayout['start'] = { x: _PAD, y: _y };
+    _y += _START_END_H + _ROW_GAP;
+    ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'].forEach(function(sid){
+      _defLayout[sid] = { x: _PAD, y: _y };
+      _y += _mobileStageHeight(sid) + _ROW_GAP;
+    });
+    _defLayout['end'] = { x: _PAD, y: _y };
   } else {
     _defLayout = {
       'start':         { x: _PAD,                                   y: _PAD },
@@ -10765,16 +10778,17 @@ function renderBoardFlow() {
     var cnt = cards.filter(function(c){ return c.stage===stage.id; }).length;
     var base = (storedLayout[stage.id] || _defLayout[stage.id]);
     if (_isMobile) {
-      // Provider nodes fließen horizontal rechts vom Stage-Header
-      worldW = Math.max(worldW, base.x + _TW + 16 + cnt * (_NW + 14) + _PAD);
-      worldH = Math.max(worldH, base.y + 330);
+      // Provider nodes stapeln sich UNTER dem Stage-Header (vertikale Prozesskette)
+      worldW = Math.max(worldW, base.x + _NW + _PAD);
+      worldH = Math.max(worldH, base.y + 108 + cnt * (240 + 14) + _PAD);
     } else {
       worldH = Math.max(worldH, base.y + 100 + cnt * 90 + _PAD);
     }
   });
   // End-Node unten auf Mobile berücksichtigen
   if (_isMobile) {
-    worldH = Math.max(worldH, _defLayout['end'].y + 180);
+    worldH = Math.max(worldH, _defLayout['end'].y + 190);
+    worldW = Math.max(worldW, _PAD + _NW + _PAD);
   }
 
   var worldEl = document.getElementById('flowWorld');
@@ -11440,8 +11454,7 @@ function _drawFlowConnections() {
   svg.style.width  = W + 'px';
   svg.style.height = H + 'px';
 
-  // Use col.style.left/top (canvas-relative) + el.offsetLeft/Top (col-relative)
-  // This approach is immune to container scroll since it uses document-layout values.
+  // Vollständige Bounding-Box eines Nodes (Welt-Koordinaten, scroll-unabhängig).
   function nodeBounds(nid) {
     var el = canvas.querySelector('[data-nid="' + nid + '"]');
     if (!el) return null;
@@ -11449,28 +11462,75 @@ function _drawFlowConnections() {
     if (!col) return null;
     var colX = parseFloat(col.style.left) || 0;
     var colY = parseFloat(col.style.top)  || 0;
-    // el.offsetLeft/Top are relative to col (col is position:absolute = offsetParent)
-    return {
-      left:  colX + el.offsetLeft,
-      right: colX + el.offsetLeft + el.offsetWidth,
-      midY:  colY + el.offsetTop  + el.offsetHeight / 2
-    };
+    var L = colX + el.offsetLeft;
+    var T = colY + el.offsetTop;
+    var R = L + el.offsetWidth;
+    var B = T + el.offsetHeight;
+    return { left: L, right: R, top: T, bottom: B,
+             midX: (L + R) / 2, midY: (T + B) / 2 };
   }
 
+  var isMobile = (window.innerWidth || 1200) <= 600;
   var nodeIds = ['start', 'stage-geplant', 'stage-kontaktiert', 'stage-angebot', 'stage-bestaetigt', 'stage-abgeschlossen', 'end'];
-  var defs = '<defs><marker id="flarrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,0.4)"/></marker></defs>';
+
+  // Pfeilspitze (PowerPoint-Stil: klare dreieckige Spitze)
+  var markerId = isMobile ? 'flarrow-v' : 'flarrow-h';
+  var defs = '<defs>'
+           + '<marker id="flarrow-h" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
+           +   '<polygon points="0,0 10,4 0,8" fill="rgba(255,255,255,0.55)"/>'
+           + '</marker>'
+           + '<marker id="flarrow-v" markerWidth="10" markerHeight="8" refX="4" refY="9" orient="auto" markerUnits="userSpaceOnUse">'
+           +   '<polygon points="0,0 4,10 8,0" fill="rgba(255,255,255,0.55)"/>'
+           + '</marker>'
+           + '</defs>';
+
   var paths = '';
+  var STROKE = 'rgba(255,255,255,0.42)';
+  var SW = 2.25;
 
   for (var i = 0; i < nodeIds.length - 1; i++) {
     var from = nodeBounds(nodeIds[i]);
     var to   = nodeBounds(nodeIds[i + 1]);
     if (!from || !to) continue;
-    var cx = (from.right + to.left) / 2;
-    paths += '<path d="M' + from.right + ',' + from.midY +
-             ' C' + cx + ',' + from.midY +
-             ' ' + cx + ',' + to.midY +
-             ' ' + to.left + ',' + to.midY +
-             '" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" marker-end="url(#flarrow)"/>';
+
+    var d;
+    if (isMobile) {
+      // Vertikale Prozesskette: gerade Linie von Unterkante zu Oberkante
+      var x1 = from.midX;
+      var x2 = to.midX;
+      var y1 = from.bottom;
+      var y2 = to.top - 2;
+      if (Math.abs(x1 - x2) < 1) {
+        // Perfekt vertikal – eine einzige gerade Linie
+        d = 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
+      } else {
+        // Orthogonal (PowerPoint-Stil): runter, rüber, runter
+        var my = (y1 + y2) / 2;
+        d = 'M' + x1 + ',' + y1
+          + ' L' + x1 + ',' + my
+          + ' L' + x2 + ',' + my
+          + ' L' + x2 + ',' + y2;
+      }
+    } else {
+      // Horizontale Prozesskette: gerade Linie von rechter zu linker Kante
+      var hx1 = from.right;
+      var hx2 = to.left - 2;
+      var hy1 = from.midY;
+      var hy2 = to.midY;
+      if (Math.abs(hy1 - hy2) < 1) {
+        // Perfekt horizontal
+        d = 'M' + hx1 + ',' + hy1 + ' L' + hx2 + ',' + hy2;
+      } else {
+        // Orthogonal: rüber, hoch/runter, rüber
+        var mx = (hx1 + hx2) / 2;
+        d = 'M' + hx1 + ',' + hy1
+          + ' L' + mx + ',' + hy1
+          + ' L' + mx + ',' + hy2
+          + ' L' + hx2 + ',' + hy2;
+      }
+    }
+
+    paths += '<path d="' + d + '" fill="none" stroke="' + STROKE + '" stroke-width="' + SW + '" stroke-linecap="square" stroke-linejoin="miter" marker-end="url(#' + markerId + ')"/>';
   }
 
   svg.innerHTML = defs + paths;

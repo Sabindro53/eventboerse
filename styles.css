@@ -9795,8 +9795,15 @@ textarea.sa-input { resize: vertical; }
   .flow-node-hdr .material-icons-round { font-size: 14px; }
   .flow-node-body { padding: 8px 10px 10px; font-size: 11px; gap: 5px; }
   .flow-node-add-btn { font-size: 11px; padding: 7px 8px; min-height: 32px; }
-  .flow-prov-avatar { width: 32px; height: 32px; }
-  .flow-provider-inner { gap: 8px; padding: 9px 10px; }
+  .flow-prov-avatar { width: 36px; height: 36px; }
+  .flow-provider-inner {
+    gap: 8px;
+    padding: 10px 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .flow-prov-info { flex: 1 1 auto; min-width: 0; }
   .flow-prov-info strong { font-size: 11.5px; }
   .flow-prov-price { font-size: 11.5px; }
   .flow-budget-bar { padding: 9px 14px; gap: 10px; }
@@ -9804,42 +9811,48 @@ textarea.sa-input { resize: vertical; }
   .flow-budget-left .material-icons-round { font-size: 19px; }
   .flow-drag-icon { font-size: 13px !important; }
 
-  /* Provider-Aktionen: größere Tap-Targets + kompakt nebeneinander */
+  /* Provider-Aktionen: volle Breite UNTER Avatar+Info (Karte ist schmal) */
   .flow-prov-actions {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 5px;
-    margin-top: 2px;
+    margin-top: 4px;
+    width: 100%;
+    flex: 1 0 100%;
   }
   .flow-prov-action-btn {
     font-size: 10.5px;
     padding: 7px 10px;
     min-height: 32px;
     border-radius: 8px;
+    justify-content: center;
+    flex: 1 1 auto;
   }
   .flow-prov-btn {
     padding: 6px 8px;
     min-height: 30px;
     border-radius: 8px;
+    justify-content: center;
+    flex: 1 1 auto;
   }
   .flow-prov-btn.flow-prov-del { font-size: 10.5px; }
 
-  /* Handy: Stages UNTEREINANDER, Dienstleister RECHTS vom Stage-Header */
+  /* Handy: Stages UNTEREINANDER als vertikale Prozesskette,
+     Dienstleister-Karten direkt UNTER dem jeweiligen Stage-Header */
   .flow-col {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 10px;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
   }
   .flow-col-connector {
-    width: 16px;
-    height: 2px;
+    width: 2px;
+    height: 14px;
     align-self: center;
-    background: linear-gradient(90deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06));
+    background: linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.08));
   }
-  /* Trigger- und End-Node bleiben einzelne Blöcke – nichts dahinter */
   .flow-col[data-col-id="start"],
   .flow-col[data-col-id="end"] { flex-direction: column; }
-  /* Toolbar auf Mobile unten-links kompakter */
+  /* Toolbar auf Mobile kompakter */
   .flow-toolbar { top: 8px; margin: 8px 10px 0; }
 }
 
