@@ -10353,6 +10353,7 @@ function renderBoardPage() {
     var budgetSum = (p.cards || []).reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
     return `
       <div class="board-project-card animated-entry" onclick="openBoardProject('${p.id}')">
+        <button class="bpc-delete-btn" onclick="event.stopPropagation();deleteBoardProjectById('${p.id}')" title="Projekt löschen" aria-label="Projekt löschen"><span class="material-icons-round">close</span></button>
         <h3>${_escHtml(p.name)}</h3>
         <div class="bpc-date"><span class="material-icons-round">event</span>${_escHtml(p.date || 'Datum noch offen')}</div>
         <div class="board-project-progress">
@@ -10369,6 +10370,67 @@ function renderBoardPage() {
       </div>`;
   }).join('');
   _initAnimatedEntries();
+}
+
+function deleteBoardProjectById(projectId) {
+  var project = _boardProjects.find(function(p) { return p.id === projectId; });
+  if (!project) return;
+  var cards = project.cards || [];
+  var activeStages = ['kontaktiert', 'angebot', 'bestaetigt'];
+  var contactedCards = cards.filter(function(c) {
+    return activeStages.indexOf(c.stage) !== -1 && c.listingId;
+  });
+
+  var msg = 'Projekt "' + project.name + '" wirklich löschen?';
+  if (contactedCards.length > 0) {
+    msg += '\n\n' + contactedCards.length + ' Dienstleister ' +
+      (contactedCards.length === 1 ? 'wurde' : 'wurden') +
+      ' bereits kontaktiert und ' +
+      (contactedCards.length === 1 ? 'erhält' : 'erhalten') +
+      ' automatisch eine Nachricht, dass das Event-Projekt beendet wurde.';
+  }
+  if (!confirm(msg)) return;
+
+  // Send cancellation notifications to contacted providers
+  if (contactedCards.length > 0 && isLoggedIn) {
+    var cancelText = 'Hallo,\n\nleider muss ich das Event-Projekt "' + project.name +
+      (project.date ? '" (geplant für ' + project.date + ')' : '"') +
+      ' beenden. Die weitere Zusammenarbeit ist somit nicht mehr nötig.\n\n' +
+      'Vielen Dank für Ihre Zeit und Ihr Verständnis!\n\nBeste Grüße';
+
+    contactedCards.forEach(function(card) {
+      var listing = (typeof LISTINGS !== 'undefined' && LISTINGS)
+        ? LISTINGS.find(function(l) { return l.id === card.listingId; })
+        : null;
+      var providerId = listing ? listing.providerId : null;
+      if (!providerId) return;
+      if (currentUser && providerId === currentUser.id) return;
+
+      fetch(_apiUrl('conversations'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ other_user_id: providerId, listing_id: card.listingId })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(convo) {
+          if (!convo || !convo.id) return;
+          return fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
+            method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+            body: JSON.stringify({ content: cancelText, type: 'text' })
+          });
+        })
+        .catch(function() {});
+    });
+  }
+
+  _boardProjects = _boardProjects.filter(function(p) { return p.id !== projectId; });
+  _saveBoardProjects({ immediate: true });
+  renderBoardPage();
+
+  if (contactedCards.length > 0) {
+    showToast('Projekt gelöscht · ' + contactedCards.length + ' Dienstleister benachrichtigt', 'info');
+  } else {
+    showToast('Projekt gelöscht', 'delete');
+  }
 }
 
 function showBoardProjects() {

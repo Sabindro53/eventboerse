@@ -8305,6 +8305,55 @@ body.dark-mode .legal-page li { color: var(--text); }
   margin-bottom: 14px;
 }
 .board-project-card .bpc-date .material-icons-round { font-size: 14px; }
+.bpc-delete-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-light);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  z-index: 2;
+}
+.bpc-delete-btn .material-icons-round { font-size: 18px; line-height: 1; }
+.board-project-card:hover .bpc-delete-btn,
+.bpc-delete-btn:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.bpc-delete-btn:hover {
+  background: #ff4d4f;
+  color: #fff;
+  border-color: #ff4d4f;
+}
+body.dark-mode .bpc-delete-btn {
+  background: rgba(40, 40, 40, 0.9);
+  border-color: #3a3a3a;
+  color: #cfcfcf;
+}
+body.dark-mode .bpc-delete-btn:hover {
+  background: #e53935;
+  border-color: #e53935;
+  color: #fff;
+}
+@media (max-width: 768px) {
+  .bpc-delete-btn {
+    opacity: 1;
+    transform: scale(1);
+    width: 34px;
+    height: 34px;
+  }
+}
 .board-project-progress {
   display: flex;
   gap: 6px;
