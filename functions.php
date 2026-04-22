@@ -3083,16 +3083,57 @@ function eb_messages_send( WP_REST_Request $request ) {
     if ( $recipient && $recipient->user_email && $recipient_id !== $uid ) {
         $chat_url = home_url( '/#chat/' . $conv_id );
         $is_offer = ( $msg_type === 'offer' );
-        $subject = 'Neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' auf Eventbörse';
-        $preview = $is_offer ? $insert['body'] : $body;
         $sender_name = $sender->first_name ?: $sender->display_name;
-        $message = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
-        $message .= '<h2 style="color:#222;margin-bottom:8px">Du hast eine neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' erhalten</h2>';
-        $message .= '<p style="color:#484848;line-height:1.6">Von <strong>' . esc_html( $sender_name ) . '</strong>:</p>';
-        $message .= '<div style="background:#f7f7f7;border-radius:8px;padding:16px 18px;margin:18px 0;font-size:1.08em;color:#222">' . esc_html( $preview ) . '</div>';
-        $message .= '<p style="margin:18px 0 0 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Im Chat antworten</a></p>';
-        $message .= '<p style="color:#717171;font-size:13px;margin-top:24px">Du kannst jederzeit im Bereich "Nachrichten" auf Eventbörse antworten.</p>';
-        $message .= '</div>';
+
+        // Strukturierte Anfrage (JSON-Widget vom Board „Kontaktieren")?
+        $inquiry = null;
+        if ( ! $is_offer && $body && $body[0] === '{' ) {
+            $tmp = json_decode( $body, true );
+            if ( is_array( $tmp ) && ! empty( $tmp['kind'] ) && $tmp['kind'] === 'inquiry' ) {
+                $inquiry = $tmp;
+            }
+        }
+
+        if ( $inquiry ) {
+            $subject = 'Neue Projekt-Anfrage auf Eventbörse: ' . ( $inquiry['listing'] ?? 'Angebot' );
+            $date_fmt = '';
+            if ( ! empty( $inquiry['date'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $inquiry['date'] ) ) {
+                $date_fmt = date_i18n( 'd.m.Y', strtotime( $inquiry['date'] ) );
+            } elseif ( ! empty( $inquiry['date'] ) ) {
+                $date_fmt = $inquiry['date'];
+            }
+            $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:0;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e6e6e6">';
+            $message .= '<div style="background:linear-gradient(135deg,#FF385C,#E31C5F);color:#fff;padding:10px 20px;font-size:12px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase">✦ Systemgenerierte Projekt-Anfrage</div>';
+            if ( ! empty( $inquiry['image'] ) ) {
+                $message .= '<div style="width:100%;height:160px;background:#f0f0f0"><img src="' . esc_url( $inquiry['image'] ) . '" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>';
+            }
+            $message .= '<div style="padding:22px 26px">';
+            $message .= '<h2 style="margin:0 0 6px 0;color:#222;font-size:20px">Neue Anfrage zu „' . esc_html( $inquiry['listing'] ?? 'deinem Angebot' ) . '"</h2>';
+            $message .= '<p style="color:#484848;margin:0 0 14px 0">Von <strong>' . esc_html( $sender_name ) . '</strong></p>';
+            $message .= '<div style="display:block;margin:14px 0">';
+            if ( ! empty( $inquiry['projectName'] ) ) $message .= '<div style="padding:6px 0;color:#484848"><strong>Projekt:</strong> ' . esc_html( $inquiry['projectName'] ) . '</div>';
+            if ( $date_fmt ) $message .= '<div style="padding:6px 0;color:#484848"><strong>Datum:</strong> ' . esc_html( $date_fmt ) . '</div>';
+            if ( ! empty( $inquiry['eventType'] ) ) $message .= '<div style="padding:6px 0;color:#484848"><strong>Kategorie:</strong> ' . esc_html( $inquiry['eventType'] ) . '</div>';
+            if ( ! empty( $inquiry['price'] ) ) $message .= '<div style="padding:6px 0;color:#484848"><strong>Preis:</strong> ' . esc_html( $inquiry['price'] ) . '</div>';
+            $message .= '</div>';
+            if ( ! empty( $inquiry['message'] ) ) {
+                $message .= '<div style="background:#f7f7f7;border-left:3px solid #FF385C;border-radius:6px;padding:14px 16px;margin:12px 0;color:#222;white-space:pre-wrap">' . esc_html( $inquiry['message'] ) . '</div>';
+            }
+            $message .= '<p style="margin:22px 0 4px 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Im Chat antworten</a></p>';
+            $message .= '<p style="color:#717171;font-size:13px;margin-top:22px">Im Chat kannst du direkt <strong>Annehmen</strong> oder einen <strong>Alternativtermin</strong> vorschlagen.</p>';
+            $message .= '</div></div>';
+        } else {
+            $subject = 'Neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' auf Eventbörse';
+            $preview = $is_offer ? $insert['body'] : $body;
+            $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
+            $message .= '<h2 style="color:#222;margin-bottom:8px">Du hast eine neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' erhalten</h2>';
+            $message .= '<p style="color:#484848;line-height:1.6">Von <strong>' . esc_html( $sender_name ) . '</strong>:</p>';
+            $message .= '<div style="background:#f7f7f7;border-radius:8px;padding:16px 18px;margin:18px 0;font-size:1.08em;color:#222;white-space:pre-wrap">' . esc_html( $preview ) . '</div>';
+            $message .= '<p style="margin:18px 0 0 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Im Chat antworten</a></p>';
+            $message .= '<p style="color:#717171;font-size:13px;margin-top:24px">Du kannst jederzeit im Bereich "Nachrichten" auf Eventbörse antworten.</p>';
+            $message .= '</div>';
+        }
+
         $mail_result = wp_mail( $recipient->user_email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
         error_log('[Eventboerse-Mail] To: ' . $recipient->user_email . ' | Subject: ' . $subject . ' | Result: ' . ( $mail_result ? 'OK' : 'FAIL' ) );
     }
