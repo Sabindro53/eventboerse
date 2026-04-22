@@ -3606,6 +3606,10 @@ function _startChatPoll() {
         var msgContainer = document.getElementById('chatMessages');
         var wasAtBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight < 80;
         msgContainer.innerHTML = (messages || []).map(function(msg) {
+          if (msg.msg_type === 'deleted' || msg.deleted) {
+            var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
+            return '<div class="msg ' + delCls + ' msg-deleted"><span class="material-icons-round">block</span> Nachricht wurde gelöscht</div>';
+          }
           if (msg.type === 'system') {
             return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
           } else if (msg.type === 'offer') {
@@ -3631,7 +3635,10 @@ function _startChatPoll() {
           } else {
             var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
             var time = msg.time || '';
-            return '<div class="msg ' + cls + '">' + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
+            var delBtn = (msg.type === 'sent' && msg.id)
+              ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>'
+              : '';
+            return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
           }
         }).join('');
         if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
@@ -3855,6 +3862,10 @@ function openChat(chatId) {
       // Render messages
       var msgContainer = document.getElementById('chatMessages');
       msgContainer.innerHTML = (messages || []).map(function(msg) {
+        if (msg.msg_type === 'deleted' || msg.deleted) {
+          var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
+          return '<div class="msg ' + delCls + ' msg-deleted"><span class="material-icons-round">block</span> Nachricht wurde gelöscht</div>';
+        }
         if (msg.type === 'system') {
           return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
         } else if (msg.type === 'offer') {
@@ -3880,7 +3891,10 @@ function openChat(chatId) {
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           var time = msg.time || '';
-          return '<div class="msg ' + cls + '">' + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
+          var delBtn = (msg.type === 'sent' && msg.id)
+            ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>'
+            : '';
+          return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
         }
       }).join('');
       // Scroll to bottom after render
@@ -3988,7 +4002,10 @@ function sendMessage() {
       if (_isStatusMessage(content)) {
         msgContainer.innerHTML += '<div class="msg msg-system">' + _escHtml(content) + '</div>';
       } else {
-        msgContainer.innerHTML += '<div class="msg msg-sent">' + _escHtml(content) + '<span class="msg-time">' + time + '</span></div>';
+        var delBtn = msg && msg.id
+          ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>'
+          : '';
+        msgContainer.innerHTML += '<div class="msg msg-sent">' + delBtn + _escHtml(content) + '<span class="msg-time">' + time + '</span></div>';
       }
       setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
     })
@@ -3999,6 +4016,36 @@ function sendMessage() {
 
 function handleChatKeypress(e) {
   if (e.key === 'Enter') sendMessage();
+}
+
+function deleteChatMessage(messageId) {
+  if (!messageId || !currentChat) return;
+  if (!confirm('Nachricht wirklich löschen?')) return;
+  fetch(_apiUrl('messages/' + messageId), {
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r) {
+      if (!r.ok) throw new Error('delete-failed');
+      return r.json();
+    })
+    .then(function() {
+      if (currentChat && Array.isArray(currentChat.messages)) {
+        currentChat.messages.forEach(function(m) {
+          if (m && m.id === messageId) { m.deleted = 1; m.msg_type = 'deleted'; m.text = ''; m.content = ''; }
+        });
+      }
+      var container = document.getElementById('chatMessages');
+      if (!container) return;
+      var btn = container.querySelector('button.msg-delete-btn[onclick*="deleteChatMessage(' + messageId + ')"]');
+      var bubble = btn ? btn.closest('.msg') : null;
+      if (bubble) {
+        bubble.className = 'msg msg-sent msg-deleted';
+        bubble.innerHTML = '<span class="material-icons-round">block</span> Nachricht wurde gelöscht';
+      }
+    })
+    .catch(function() {
+      showToast('Löschen fehlgeschlagen', 'error');
+    });
 }
 
 function openDemoChat(chatId) {

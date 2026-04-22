@@ -1934,6 +1934,12 @@ function eb_register_extra_routes() {
         'permission_callback' => 'is_user_logged_in',
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/messages/(?P<id>\d+)', array(
+        'methods'             => 'DELETE',
+        'callback'            => 'eb_message_delete',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
     /* ---------- HEARTBEAT / USER STATUS ---------- */
     register_rest_route( 'eventboerse/v1', '/heartbeat', array(
         'methods'             => 'POST',
@@ -2989,14 +2995,17 @@ function eb_messages_list( WP_REST_Request $request ) {
 
     $messages = array();
     foreach ( $rows as $m ) {
+        $is_deleted = ( $m->msg_type === 'deleted' );
         $msg = array(
             'id'         => (int) $m->id,
             'type'       => (int) $m->sender_id === $uid ? 'sent' : ( $m->msg_type === 'system' ? 'system' : 'received' ),
-            'text'       => $m->body,
-            'content'    => $m->body,
+            'text'       => $is_deleted ? '' : $m->body,
+            'content'    => $is_deleted ? '' : $m->body,
             'time'       => date( 'H:i', strtotime( $m->created_at ) ),
             'created_at' => $m->created_at,
             'sender_id'  => (int) $m->sender_id,
+            'msg_type'   => $m->msg_type,
+            'deleted'    => $is_deleted ? 1 : 0,
         );
         if ( $m->msg_type === 'offer' ) {
             $msg['type']        = 'offer';
@@ -3182,6 +3191,43 @@ function eb_offer_status_update( WP_REST_Request $request ) {
     );
 
     return new WP_REST_Response( array( 'success' => true, 'status' => $status ), 200 );
+}
+
+function eb_message_delete( WP_REST_Request $request ) {
+    global $wpdb;
+    $msg_id = absint( $request['id'] );
+    $uid    = get_current_user_id();
+
+    $msg = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_messages WHERE id = %d",
+        $msg_id
+    ) );
+    if ( ! $msg ) {
+        return new WP_REST_Response( array( 'message' => 'Nachricht nicht gefunden.' ), 404 );
+    }
+    if ( (int) $msg->sender_id !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+    if ( $msg->msg_type === 'system' || $msg->msg_type === 'deleted' ) {
+        return new WP_REST_Response( array( 'message' => 'Nachricht kann nicht gelöscht werden.' ), 400 );
+    }
+
+    $wpdb->update(
+        $wpdb->prefix . 'eb_messages',
+        array(
+            'body'         => '',
+            'msg_type'     => 'deleted',
+            'offer_status' => null,
+        ),
+        array( 'id' => $msg_id )
+    );
+
+    $wpdb->update( $wpdb->prefix . 'eb_conversations',
+        array( 'updated_at' => current_time( 'mysql' ) ),
+        array( 'id' => $msg->conversation_id )
+    );
+
+    return new WP_REST_Response( array( 'success' => true, 'id' => $msg_id ), 200 );
 }
 
 /* =====================================================================
