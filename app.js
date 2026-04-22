@@ -10864,16 +10864,34 @@ function renderBoardFlow() {
       worldElM.style.height = measuredH + 'px';
     }
     _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan();
-    // Beim ersten Render eines Projekts automatisch auf Bildschirm anpassen,
-    // damit alle Spalten ohne horizontales Scrollen sichtbar sind.
-    if (_flowFittedFor !== _activeBoardId) {
-      _flowFittedFor = _activeBoardId;
-      // Zwei Frames + kleiner Timeout, damit Flex-Layout und Messung fertig sind.
+    // Auf Mobile IMMER neu fitten + zum Start scrollen, damit der Nutzer
+    // den Start-Node sofort im Fokus hat (und nicht im leeren Raum landet).
+    if (_isMobile) {
       requestAnimationFrame(function(){
         setTimeout(function(){
           try { flowFitToScreen(); } catch(_) {}
-          // Nach Fit direkt zum Start-Node scrollen + kurzer visueller Puls,
-          // damit der Nutzer sofort sieht, wo er sich befindet.
+          try {
+            var cvs = document.getElementById('flowCanvas');
+            if (cvs) { cvs.scrollLeft = 0; cvs.scrollTop = 0; }
+            if (_flowFittedFor !== _activeBoardId) {
+              _flowFittedFor = _activeBoardId;
+              var startEl = document.querySelector('[data-nid="start"]');
+              if (startEl) {
+                startEl.classList.add('flow-focus-pulse');
+                setTimeout(function(){ startEl.classList.remove('flow-focus-pulse'); }, 1600);
+              }
+            }
+          } catch(_) {}
+        }, 60);
+      });
+      return;
+    }
+    // Desktop: nur beim ersten Öffnen eines Projekts automatisch fitten.
+    if (_flowFittedFor !== _activeBoardId) {
+      _flowFittedFor = _activeBoardId;
+      requestAnimationFrame(function(){
+        setTimeout(function(){
+          try { flowFitToScreen(); } catch(_) {}
           try {
             var cvs = document.getElementById('flowCanvas');
             if (cvs) { cvs.scrollLeft = 0; cvs.scrollTop = 0; }
@@ -10886,8 +10904,6 @@ function renderBoardFlow() {
         }, 60);
       });
     } else {
-      // Bei Re-Render im gleichen Projekt: Zoom neu anwenden, damit die Welt
-      // nach der Messung korrekt skaliert wird und Scroll-Grenzen stimmen.
       _flowApplyZoom(_flowZoom, true);
     }
   });
@@ -11788,28 +11804,24 @@ function flowFitToScreen() {
   if (!canvas || !world) return;
   var wW = parseFloat(world.dataset.worldW) || world.offsetWidth;
   var wH = parseFloat(world.dataset.worldH) || world.offsetHeight;
-  // Kleine Sicherheits-Reserve, damit nichts am Rand abgeschnitten wird.
   var availW = canvas.clientWidth  - 24;
   var availH = canvas.clientHeight - 24;
   if (availW <= 0 || wW <= 0) return;
   var isMobile = (window.innerWidth || 1200) <= 600;
   var fitZ;
   if (isMobile) {
-    // Handy: Nur an BREITE anpassen (vertikale Prozesskette wird gescrollt).
-    // So ist der Start-Node oben direkt sichtbar, nichts wird winzig.
-    fitZ = availW / wW;
-    // Auf Mobile max 1.0 (nicht größer) – bleibt lesbar
-    fitZ = Math.min(1, fitZ);
+    // Handy: KEIN Zoom-Fit. Welt ist genauso breit wie der Canvas,
+    // Karten werden 1:1 dargestellt, nur vertikal gescrollt.
+    fitZ = 1;
   } else {
     // Desktop: an beide Achsen anpassen
     if (availH <= 0 || wH <= 0) return;
     fitZ = Math.min(availW / wW, availH / wH);
   }
   fitZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, fitZ));
-  // Fit = 100 % in der Anzeige (Nutzer sieht immer 100 % im Standard-Fit).
   _flowDisplayBase = fitZ;
   _flowApplyZoom(fitZ);
-  // Direkt zum Start-Node oben scrollen, damit der Nutzer den Fokus hat.
+  // Direkt zum Start-Node (oben-links) scrollen
   setTimeout(function() {
     canvas.scrollLeft = 0;
     canvas.scrollTop  = 0;
