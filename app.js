@@ -3903,9 +3903,66 @@ function closeChatView() {
   }
 }
 
+function _getCurrentUserFirstName() {
+  if (!currentUser) return '';
+  var first = (currentUser.first_name || '').trim();
+  if (first) return first;
+  var full = (currentUser.name || '').trim();
+  if (!full) return '';
+  return full.split(/\s+/)[0] || '';
+}
+
+function _formatDateForMessage(rawDate) {
+  var str = (rawDate || '').trim();
+  if (!str) return '';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    var iso = new Date(str + 'T00:00:00');
+    if (!isNaN(iso.getTime())) {
+      return iso.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  }
+
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(str)) {
+    var p = str.split('.');
+    var de = new Date(p[2] + '-' + p[1] + '-' + p[0] + 'T00:00:00');
+    if (!isNaN(de.getTime())) {
+      return de.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  }
+
+  var generic = new Date(str);
+  if (!isNaN(generic.getTime())) {
+    return generic.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  return '';
+}
+
+function _sanitizeOutgoingMessage(text, dateHint, options) {
+  var msg = (text || '').trim();
+  if (!msg) return '';
+  var opts = options || {};
+
+  var safeDate = _formatDateForMessage(dateHint) || 'gewünschten Termin';
+  msg = msg.replace(/Invalid Date/gi, safeDate);
+
+  var firstName = _getCurrentUserFirstName();
+  if (firstName) {
+    msg = msg.replace(/(^|\n)\s*[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\s*$/i, '$1' + firstName);
+
+    if (opts.enforceFormalSignature) {
+      msg = msg.replace(/\n*Mit freundlichen Gr[üu]ßen[\s\S]*$/i, '').trim();
+      msg += '\n\nMit freundlichen Grüßen\n' + firstName;
+    }
+  }
+
+  return msg;
+}
+
 function sendMessage() {
   const input = document.getElementById('chatInput');
-  const text = input.value.trim();
+  const text = _sanitizeOutgoingMessage(input.value, '', { enforceFormalSignature: false });
   if (!text || !currentChat) return;
 
   // Check for blocked patterns (contact data)
@@ -4077,7 +4134,7 @@ function bookListing() {
   if (!date) { showToast('Bitte wähle ein Event-Datum.', 'warning'); return; }
   var eventType = document.getElementById('bookingEventType').value;
   var guests = document.getElementById('bookingGuests').value;
-  var message = document.getElementById('bookingMessage').value;
+  var message = _sanitizeOutgoingMessage(document.getElementById('bookingMessage').value, date, { enforceFormalSignature: true });
 
   // Create conversation and send booking request
   fetch(_apiUrl('conversations'), {
@@ -4147,7 +4204,8 @@ function submitNegotiation(e) {
   var rawPrice = document.getElementById('negOfferPrice').value;
   var price = _parseMoneyValue(rawPrice);
   if (price <= 0) { showToast('Bitte gültigen Betrag eingeben', 'error'); return; }
-  const message = document.getElementById('negMessage').value;
+  var negDateValue = document.getElementById('negDate').value;
+  const message = _sanitizeOutgoingMessage(document.getElementById('negMessage').value, negDateValue, { enforceFormalSignature: true });
 
   closeModal('negotiationModal');
   showToast(`Angebot über ${price}€ wurde gesendet!`, 'gavel');
@@ -4251,7 +4309,7 @@ function submitCounterOffer(e) {
   var rawAmount = document.getElementById('counterOfferAmount').value;
   var amount = _parseMoneyValue(rawAmount);
   if (amount <= 0) { showToast('Bitte gültigen Betrag eingeben', 'error'); return; }
-  const msg = document.getElementById('counterOfferMsg').value;
+  const msg = _sanitizeOutgoingMessage(document.getElementById('counterOfferMsg').value, document.getElementById('negDate') ? document.getElementById('negDate').value : '', { enforceFormalSignature: true });
 
   closeModal('counterOfferModal');
 
@@ -11807,31 +11865,73 @@ function _initFlowZoomPan() {
     }
   }, { passive: false });
 
-  // Background pan (drag on empty area)
+  // Background pan (drag on empty area) with momentum/inertia
   // Erlaubt auf Canvas-Hintergrund UND auf Spalten-Hintergrund (leerer Platz
   // in einer Stage zwischen/ober/unterhalb der Karten). Ausgeschlossen nur:
   // tatsächliche Karten, Buttons, Links, Form-Elemente und Drag-Handles
   // (Stage-Header sowie Start/End-Spalten, die per Drag verschoben werden).
   var panState = null;
+  var _panMomentumRAF = null;
+
+  function _cancelPanMomentum() {
+    if (_panMomentumRAF) { cancelAnimationFrame(_panMomentumRAF); _panMomentumRAF = null; }
+  }
+
   canvas.addEventListener('mousedown', function(e) {
     if (e.button !== 0) return;
     if (e.target.closest('.flow-node, .flow-drag-handle, button, a, input, select, textarea')) return;
+    _cancelPanMomentum();
     panState = {
       sx: e.clientX, sy: e.clientY,
-      scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop
+      scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop,
+      lastX: e.clientX, lastY: e.clientY,
+      velSamples: []
     };
     canvas.classList.add('is-panning');
   });
+
   function panMove(e) {
     if (!panState) return;
+    var dvx = e.clientX - panState.lastX;
+    var dvy = e.clientY - panState.lastY;
+    panState.lastX = e.clientX;
+    panState.lastY = e.clientY;
+    // Rolling window of last 4 velocity samples for stable release velocity
+    panState.velSamples.push({ vx: dvx, vy: dvy });
+    if (panState.velSamples.length > 4) panState.velSamples.shift();
     canvas.scrollLeft = panState.scrollLeft - (e.clientX - panState.sx);
     canvas.scrollTop  = panState.scrollTop  - (e.clientY - panState.sy);
   }
+
   function panUp() {
     if (!panState) return;
+    // Compute average velocity from last samples
+    var samples = panState.velSamples;
+    var vx = 0, vy = 0;
+    if (samples.length > 0) {
+      samples.forEach(function(s) { vx += s.vx; vy += s.vy; });
+      vx /= samples.length;
+      vy /= samples.length;
+    }
     panState = null;
     canvas.classList.remove('is-panning');
+    // Launch momentum glide if there is meaningful velocity
+    if (Math.abs(vx) > 0.8 || Math.abs(vy) > 0.8) {
+      var decay = 0.88;
+      (function momentum() {
+        vx *= decay;
+        vy *= decay;
+        canvas.scrollLeft -= vx;
+        canvas.scrollTop  -= vy;
+        if (Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3) {
+          _panMomentumRAF = requestAnimationFrame(momentum);
+        } else {
+          _panMomentumRAF = null;
+        }
+      })();
+    }
   }
+
   window.addEventListener('mousemove', panMove);
   window.addEventListener('mouseup', panUp);
   _flowPanWinHandlers = { move: panMove, up: panUp };
@@ -11850,10 +11950,13 @@ function _initFlowZoomPan() {
       var t = e.touches[0];
       // Interaktive Elemente niemals übersteuern (Buttons, Links, Inputs, Drag-Handles)
       var isInteractive = !!e.target.closest('button, a, input, select, textarea, .flow-drag-handle');
+      _cancelPanMomentum();
       touchState = {
         mode: isInteractive ? null : 'maybe-pan',
         sx: t.clientX, sy: t.clientY,
         scrollLeft: canvas.scrollLeft, scrollTop: canvas.scrollTop,
+        lastX: t.clientX, lastY: t.clientY,
+        velSamples: [],
         moved: false
       };
     }
@@ -11887,6 +11990,12 @@ function _initFlowZoomPan() {
       if (touchState.mode === 'pan') {
         e.preventDefault();
         touchState.moved = true;
+        var tdvx = tt.clientX - touchState.lastX;
+        var tdvy = tt.clientY - touchState.lastY;
+        touchState.lastX = tt.clientX;
+        touchState.lastY = tt.clientY;
+        touchState.velSamples.push({ vx: tdvx, vy: tdvy });
+        if (touchState.velSamples.length > 4) touchState.velSamples.shift();
         canvas.scrollLeft = touchState.scrollLeft - dx;
         canvas.scrollTop  = touchState.scrollTop  - dy;
       }
@@ -11894,6 +12003,28 @@ function _initFlowZoomPan() {
   }, { passive: false });
   canvas.addEventListener('touchend', function(e) {
     if (touchState && touchState.moved) {
+      // Momentum glide for touch
+      var tSamples = touchState.velSamples || [];
+      var tvx = 0, tvy = 0;
+      if (tSamples.length > 0) {
+        tSamples.forEach(function(s) { tvx += s.vx; tvy += s.vy; });
+        tvx /= tSamples.length;
+        tvy /= tSamples.length;
+      }
+      if (Math.abs(tvx) > 0.8 || Math.abs(tvy) > 0.8) {
+        var tdecay = 0.88;
+        (function tMomentum() {
+          tvx *= tdecay;
+          tvy *= tdecay;
+          canvas.scrollLeft -= tvx;
+          canvas.scrollTop  -= tvy;
+          if (Math.abs(tvx) > 0.3 || Math.abs(tvy) > 0.3) {
+            _panMomentumRAF = requestAnimationFrame(tMomentum);
+          } else {
+            _panMomentumRAF = null;
+          }
+        })();
+      }
       // Verhindere, dass nach einem Swipe ein Klick/Tap auf eine Karte auslöst
       var blocker = function(ev) { ev.stopPropagation(); ev.preventDefault(); };
       canvas.addEventListener('click', blocker, { capture: true, once: true });
