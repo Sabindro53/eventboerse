@@ -3701,7 +3701,19 @@ function _renderBookingCard(msg) {
     ? 'Du hast eine Anfrage gesendet'
     : 'Hat dein Inserat gesehen und möchte buchen';
 
-  var html = '<div class="cbc cbc-' + side + '">';
+  var isInquiry = data.kind === 'inquiry';
+  if (isInquiry) {
+    intro = side === 'sent'
+      ? 'Deine Anfrage wurde an den Anbieter gesendet'
+      : 'Neue Projekt-Anfrage zu deinem Angebot';
+  }
+
+  var html = '<div class="cbc cbc-' + side + (isInquiry ? ' cbc-inquiry' : '') + '">';
+
+  // System-generated banner
+  if (isInquiry) {
+    html += '<div class="cbc-sysbar"><span class="material-icons-round">verified</span> Systemgenerierte Projekt-Anfrage</div>';
+  }
 
   // --- image banner ---
   if (data.image) {
@@ -3710,7 +3722,7 @@ function _renderBookingCard(msg) {
 
   // --- content ---
   html += '<div class="cbc-content">';
-  html += '<div class="cbc-label"><span class="material-icons-round">event_available</span> Anfrage</div>';
+  html += '<div class="cbc-label"><span class="material-icons-round">' + (isInquiry ? 'event_note' : 'event_available') + '</span> ' + (isInquiry ? 'Projekt-Anfrage' : 'Anfrage') + '</div>';
   html += '<p class="cbc-intro">' + _escHtml(intro) + '</p>';
 
   if (data.listing) {
@@ -3719,6 +3731,7 @@ function _renderBookingCard(msg) {
 
   // detail chips
   var chips = '';
+  if (data.projectName) chips += '<span class="cbc-chip"><span class="material-icons-round">folder</span>' + _escHtml(data.projectName) + '</span>';
   if (fmtDate) chips += '<span class="cbc-chip"><span class="material-icons-round">calendar_today</span>' + _escHtml(fmtDate) + '</span>';
   if (data.eventType) chips += '<span class="cbc-chip"><span class="material-icons-round">celebration</span>' + _escHtml(data.eventType) + '</span>';
   if (data.guests) chips += '<span class="cbc-chip"><span class="material-icons-round">group</span>' + _escHtml(data.guests) + ' Gäste</span>';
@@ -3730,8 +3743,18 @@ function _renderBookingCard(msg) {
     html += '<div class="cbc-msg">„' + _escHtml(data.message) + '"</div>';
   }
 
-  // action buttons (only for received booking inquiries)
-  if (side === 'received') {
+  // action buttons
+  if (isInquiry) {
+    if (side === 'received') {
+      var isoDate = (data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) ? data.date : '';
+      html += '<div class="cbc-actions">' +
+        '<button class="cbc-btn cbc-btn-primary" onclick="proposeAlternativeDate(\'' + isoDate + '\')"><span class="material-icons-round">event_repeat</span> Anderen Termin vorschlagen</button>' +
+        '<button class="cbc-btn cbc-btn-accept" onclick="acceptInquiryFromChat()"><span class="material-icons-round">check_circle</span> Annehmen</button>' +
+        '</div>';
+    } else {
+      html += '<div class="cbc-status"><span class="material-icons-round">schedule</span> Warten auf Antwort des Anbieters</div>';
+    }
+  } else if (side === 'received') {
     html += '<div class="cbc-actions">' +
       '<button class="cbc-btn cbc-btn-primary" onclick="openNegotiationInChat()"><span class="material-icons-round">gavel</span> Gegenangebot</button>' +
       '<button class="cbc-btn cbc-btn-accept" onclick="acceptBookingFromChat()"><span class="material-icons-round">check_circle</span> Annehmen</button>' +
@@ -3751,6 +3774,39 @@ function _renderBookingCard(msg) {
 
 function acceptBookingFromChat() {
   showToast('Anfrage angenommen! Der Kunde wird benachrichtigt.', 'check_circle');
+}
+
+function acceptInquiryFromChat() {
+  if (!currentChat) return;
+  var text = '✅ Anfrage angenommen. Ich melde mich in Kürze mit weiteren Details.';
+  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ content: text, type: 'message' })
+  })
+    .then(function(r){ if(!r.ok) throw new Error('send'); return r.json(); })
+    .then(function(){
+      showToast('Zusage gesendet.', 'success');
+      if (typeof openChat === 'function' && currentChat && currentChat.id) openChat(currentChat.id);
+    })
+    .catch(function(){ showToast('Senden fehlgeschlagen.', 'error'); });
+}
+
+function proposeAlternativeDate(currentIsoDate) {
+  if (!currentChat) return;
+  var newDate = prompt('Welchen Termin möchtest du vorschlagen? (TT.MM.JJJJ)', currentIsoDate ? _formatDateDe(currentIsoDate) : '');
+  if (!newDate || !newDate.trim()) return;
+  var note = prompt('Kurze Nachricht an den Anfrager (optional):', 'Am vorgeschlagenen Datum bin ich leider verhindert. Passt dir der Termin unten?') || '';
+  var text = '📅 Alternativvorschlag: ' + newDate.trim() + (note.trim() ? '\n\n' + note.trim() : '');
+  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ content: text, type: 'message' })
+  })
+    .then(function(r){ if(!r.ok) throw new Error('send'); return r.json(); })
+    .then(function(){
+      showToast('Alternativtermin gesendet.', 'success');
+      if (typeof openChat === 'function' && currentChat && currentChat.id) openChat(currentChat.id);
+    })
+    .catch(function(){ showToast('Senden fehlgeschlagen.', 'error'); });
 }
 
 function renderChatList() {
@@ -3786,7 +3842,7 @@ function renderChatList() {
         var lastMsg = c.last_message || '';
         // Pretty-print booking messages in sidebar preview
         if (_isBookingContent(lastMsg)) {
-          try { var bd = JSON.parse(lastMsg); lastMsg = '📋 Anfrage: ' + (bd.listing || 'Buchung'); } catch(e) { lastMsg = '📋 Anfrage'; }
+          try { var bd = JSON.parse(lastMsg); lastMsg = (bd.kind === 'inquiry' ? '📨 Anfrage: ' : '📋 Anfrage: ') + (bd.listing || 'Buchung'); } catch(e) { lastMsg = '📋 Anfrage'; }
         }
         if (lastMsg.length > 40) lastMsg = lastMsg.substring(0, 40) + '…';
         var time = c.updated_at ? new Date(c.updated_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -11565,6 +11621,20 @@ function openStageAdvanceModal(cardId, currentStage) {
       if (!provUserId) { showToast('Anbieter nicht gefunden', 'error'); return; }
       if (!msg || !msg.trim()) { showToast('Bitte schreibe eine Nachricht.', 'warning'); return; }
 
+      // Build structured inquiry payload so it renders as a system widget
+      // on both sides (using existing _renderBookingCard infrastructure).
+      var inquiryPayload = {
+        kind: 'inquiry',
+        listing: (_listing && _listing.title) || card.name || '',
+        image: (_listing && (_listing.image || (_listing.images && _listing.images[0]))) || '',
+        price: (_listing && _listing.price) ? (_listing.price + (typeof _listing.price === 'number' ? '€' : '')) : '',
+        eventType: (_listing && (_listing.category || _listing.categoryLabel)) || '',
+        projectName: _projectName || '',
+        date: (project && project.date) || '',
+        message: msg.trim()
+      };
+      var inquiryJson = JSON.stringify(inquiryPayload);
+
       chatBtn.dataset.busy = '1';
       var _origInner = chatBtn.innerHTML;
       chatBtn.innerHTML = '<span class="sa-action-icon"><span class="material-icons-round">hourglass_top</span></span><span class="sa-action-text"><strong>Wird gesendet…</strong><small>Chat wird erstellt</small></span>';
@@ -11584,10 +11654,10 @@ function openStageAdvanceModal(cardId, currentStage) {
           var convoEl = document.getElementById('saConversationId');
           if (convoEl) convoEl.value = convId;
 
-          // 2. Nachricht senden (serverseitige Mail-Benachrichtigung inklusive)
+          // 2. Strukturierte Anfrage als JSON senden (Server-Mail inklusive)
           return fetch(_apiUrl('conversations/' + convId + '/messages'), {
             method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-            body: JSON.stringify({ content: msg, type: 'message' })
+            body: JSON.stringify({ content: inquiryJson, type: 'message' })
           }).then(function(r){ if(!r.ok) throw new Error('msg'); return r.json(); })
             .then(function(){ return convId; });
         })

@@ -4511,6 +4511,25 @@ body.dark-mode .msg.msg-deleted { border-color: rgba(255,255,255,0.18); }
 .cbc.cbc-sent { align-self: flex-end; }
 .cbc.cbc-received { align-self: flex-start; }
 
+/* Inquiry variant — system-branded widget (board "Kontaktieren" action) */
+.cbc.cbc-inquiry { border: 1px solid var(--primary); box-shadow: 0 4px 20px rgba(255, 56, 92, 0.18); }
+.cbc-sysbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  border-radius: 18px 18px 0 0;
+}
+.cbc-sysbar .material-icons-round { font-size: 16px; }
+.cbc-inquiry .cbc-banner { border-radius: 0; }
+body.dark-mode .cbc.cbc-inquiry { background: var(--bg-alt); border-color: var(--primary); }
+
 .cbc-banner {
   width: 100%;
   height: 140px;
