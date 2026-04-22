@@ -11668,7 +11668,30 @@ function openStageAdvanceModal(cardId, currentStage) {
           chatBtn.innerHTML = '<span class="sa-action-icon" style="background:#66bb6a"><span class="material-icons-round">check</span></span>' +
             '<span class="sa-action-text"><strong>Nachricht gesendet</strong><small>Anbieter wurde auch per E-Mail benachrichtigt</small></span>' +
             '<span class="material-icons-round sa-action-arrow">check</span>';
-          showToast('Anfrage gesendet – der Anbieter wurde per E-Mail benachrichtigt.', 'success');
+          showToast('Anfrage gesendet – Stage wird auf „Kontaktiert“ gesetzt.', 'success');
+
+          // Auto-Advance: Stage von "geplant" -> "kontaktiert" direkt nach
+          // erfolgreichem Senden. Der Nutzer muss NICHT extra auf
+          // "Speichern/Weiter" klicken.
+          try {
+            if (currentStage === 'geplant') {
+              card.contactMethod = 'Chat + E-Mail';
+              card.contactMessage = msg.trim();
+              card.contactDate = new Date().toISOString().slice(0,10);
+              var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+              var idx = stagesOrder.indexOf(currentStage);
+              if (idx >= 0 && idx < stagesOrder.length - 1) {
+                card.stage = stagesOrder[idx + 1];
+              }
+              _saveBoardProjects();
+              setTimeout(function(){
+                try { overlay.remove(); } catch(_) {}
+                try { renderBoardFlow(); } catch(_) {}
+                try { renderKanban(project); } catch(_) {}
+                try { _updateBoardStats(project); } catch(_) {}
+              }, 900);
+            }
+          } catch(_) {}
         })
         .catch(function(){
           chatBtn.dataset.busy = '';
