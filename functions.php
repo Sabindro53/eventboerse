@@ -1947,6 +1947,18 @@ function eb_register_extra_routes() {
         'permission_callback' => 'is_user_logged_in',
     ) );
 
+    /* ---------- STRIPE CHECKOUT ---------- */
+    register_rest_route( 'eventboerse/v1', '/stripe/create-checkout', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_stripe_create_checkout',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/stripe/public-key', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_stripe_public_key',
+        'permission_callback' => '__return_true',
+    ) );
+
     /* ---------- HEARTBEAT / USER STATUS ---------- */
     register_rest_route( 'eventboerse/v1', '/heartbeat', array(
         'methods'             => 'POST',
@@ -3970,5 +3982,117 @@ function eb_send_invoice( WP_REST_Request $request ) {
         'invoice_no'  => $invoice_no,
         'recipients'  => $recipients,
         'sent_count'  => $sent,
+    ), 200 );
+}
+
+
+/* ============================================================
+ *  STRIPE CHECKOUT (MVP)
+ *  - Liest Keys aus .env (pk_live / sk_live)
+ *  - Erstellt Checkout-Session via Stripe REST API
+ *  - success_url markiert Karte client-seitig als bezahlt
+ *  - Webhook-Verifikation folgt (Backend-Auftrag)
+ * ============================================================ */
+
+function eb_load_env_value( $key ) {
+    static $cache = null;
+    if ( $cache === null ) {
+        $cache = array();
+        $path = get_stylesheet_directory() . '/.env';
+        if ( ! file_exists( $path ) ) $path = ABSPATH . '.env';
+        if ( file_exists( $path ) && is_readable( $path ) ) {
+            $lines = file( $path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+            foreach ( $lines as $line ) {
+                if ( strpos( trim( $line ), '#' ) === 0 ) continue;
+                $pos = strpos( $line, '=' );
+                if ( $pos === false ) continue;
+                $k = trim( substr( $line, 0, $pos ) );
+                $v = trim( substr( $line, $pos + 1 ) );
+                $v = trim( $v, "\"' " );
+                $cache[ $k ] = $v;
+            }
+        }
+    }
+    return isset( $cache[ $key ] ) ? $cache[ $key ] : '';
+}
+
+function eb_stripe_public_key( WP_REST_Request $request ) {
+    $pk = eb_load_env_value( 'public_stripe_api_key' );
+    return new WP_REST_Response( array( 'publishable_key' => $pk ), 200 );
+}
+
+function eb_stripe_create_checkout( WP_REST_Request $request ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    }
+    $p = $request->get_json_params();
+    $amount      = isset( $p['amount'] ) ? floatval( $p['amount'] ) : 0;
+    $currency    = isset( $p['currency'] ) ? strtolower( sanitize_text_field( $p['currency'] ) ) : 'eur';
+    $title       = isset( $p['title'] ) ? sanitize_text_field( $p['title'] ) : 'Buchung';
+    $card_id     = isset( $p['card_id'] ) ? sanitize_text_field( $p['card_id'] ) : '';
+    $project_id  = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] ) : '';
+    $listing_id  = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
+
+    if ( $amount <= 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Ung\u00fcltiger Betrag.' ), 400 );
+    }
+    if ( strlen( $title ) > 250 ) $title = substr( $title, 0, 250 );
+
+    $amount_cents = (int) round( $amount * 100 );
+    $site        = home_url( '/' );
+    $success_url = add_query_arg( array(
+        'stripe'     => 'success',
+        'session_id' => '{CHECKOUT_SESSION_ID}',
+        'card_id'    => rawurlencode( $card_id ),
+        'project_id' => rawurlencode( $project_id ),
+    ), $site );
+    $cancel_url  = add_query_arg( array( 'stripe' => 'cancel' ), $site );
+
+    $user = wp_get_current_user();
+
+    $fields = array(
+        'mode'                                    => 'payment',
+        'payment_method_types[]'                  => 'card',
+        'line_items[0][price_data][currency]'     => $currency,
+        'line_items[0][price_data][unit_amount]'  => $amount_cents,
+        'line_items[0][price_data][product_data][name]' => $title,
+        'line_items[0][quantity]'                 => 1,
+        'success_url'                             => $success_url,
+        'cancel_url'                              => $cancel_url,
+        'customer_email'                          => $user ? $user->user_email : '',
+        'metadata[card_id]'                       => $card_id,
+        'metadata[project_id]'                    => $project_id,
+        'metadata[listing_id]'                    => (string) $listing_id,
+        'metadata[user_id]'                       => (string) ( $user ? $user->ID : 0 ),
+    );
+
+    $ch = curl_init( 'https://api.stripe.com/v1/checkout/sessions' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( $fields ),
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+    ) );
+    $response = curl_exec( $ch );
+    $http     = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err      = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        return new WP_REST_Response( array( 'message' => 'Netzwerkfehler: ' . $err ), 502 );
+    }
+    $data = json_decode( $response, true );
+    if ( $http >= 400 || ! is_array( $data ) || empty( $data['url'] ) ) {
+        $msg = is_array( $data ) && isset( $data['error']['message'] ) ? $data['error']['message'] : 'Stripe-Fehler.';
+        return new WP_REST_Response( array( 'message' => $msg ), $http ?: 500 );
+    }
+
+    return new WP_REST_Response( array(
+        'ok'         => true,
+        'url'        => $data['url'],
+        'session_id' => $data['id'] ?? '',
     ), 200 );
 }

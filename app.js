@@ -9901,6 +9901,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initFooterLogoAnimation();
   initCookieConsent();
 
+  // Stripe Checkout Return-Handler (success/cancel)
+  try { _handleStripeReturn(); } catch(e) { console.error('Stripe return handler', e); }
+
 
   // Passkey-Verifizierung Button
   var vpkBtn = document.getElementById('verifyWithPasskeyBtn');
@@ -11586,6 +11589,52 @@ function _sendInvoiceNotification(card, project, listing) {
   }
 }
 
+/**
+ * Stripe-Checkout Return Handler: wird beim Laden ausgefuehrt.
+ * Liest ?stripe=success|cancel&card_id=&project_id=&session_id=, setzt die
+ * entsprechende Karte auf "Bezahlt" (oder rollt zurueck bei Cancel) und
+ * raeumt die URL auf.
+ */
+function _handleStripeReturn() {
+  var params = new URLSearchParams(window.location.search || '');
+  var status = params.get('stripe');
+  if (!status) return;
+  var cardId    = params.get('card_id') || '';
+  var projectId = params.get('project_id') || '';
+  var sessionId = params.get('session_id') || '';
+
+  // Board laden (nur fuer eingeloggte Nutzer sinnvoll)
+  try { _migrateBoardProjects && _migrateBoardProjects(); _loadBoardProjects && _loadBoardProjects(); } catch(e) {}
+
+  var proj = (_boardProjects || []).find(function(p){ return p.id === projectId; });
+  var card = proj && (proj.cards || []).find(function(c){ return c.id === cardId; });
+
+  if (status === 'success' && card) {
+    card.paidAt = new Date().toISOString();
+    card.paymentStatus = 'Bezahlt';
+    card.paymentMethod = 'Stripe';
+    card.paymentReference = sessionId || card.paymentReference || '';
+    card.stripePending = false;
+    if (card.stage === 'angebot') card.stage = 'bestaetigt';
+    try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
+    showToast('Zahlung via Stripe erfolgreich – Status: Bezahlt.', 'paid');
+  } else if (status === 'cancel' && card) {
+    card.stripePending = false;
+    try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
+    showToast('Stripe-Zahlung abgebrochen – keine Aenderung.', 'info');
+  } else if (status === 'success') {
+    showToast('Zahlung empfangen.', 'paid');
+  } else if (status === 'cancel') {
+    showToast('Zahlung abgebrochen.', 'info');
+  }
+
+  // URL aufraeumen, damit Reload kein Duplikat triggert
+  try {
+    var clean = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, clean);
+  } catch(e) {}
+}
+
 /* ── Stage Advance Modal ── */
 function openStageAdvanceModal(cardId, currentStage) {
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -11725,7 +11774,7 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<input id="saPaidAmount" type="number" class="sa-input" step="0.01" min="0" value="' + _escHtml(String(_paidAmount)) + '">' +
       '<label class="sa-label">Zahlungsart</label>' +
       '<div class="sa-chips">' +
-        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Stripe" disabled><span>💳 Stripe <small>(bald)</small></span></label>' +
+        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Stripe"><span>💳 Stripe <small>(online)</small></span></label>' +
         '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Überweisung" checked><span>🏦 &Uuml;berweisung</span></label>' +
         '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Bar"><span>💶 Bar</span></label>' +
         '<label class="sa-chip"><input type="radio" name="saPayMethod" value="PayPal"><span>🅿️ PayPal</span></label>' +
@@ -11950,6 +11999,50 @@ function openStageAdvanceModal(cardId, currentStage) {
       if (!isNaN(_pa) && _pa > 0) card.paidAmount = _pa;
       card.paymentMethod = (document.querySelector('input[name=saPayMethod]:checked') || {}).value || '';
       card.paymentReference = (document.getElementById('saPayRef') || {}).value || '';
+
+      // Sonderfall Stripe: Redirect zur Checkout-Session, Stage erst nach Rueckkehr setzen.
+      if (card.paymentMethod === 'Stripe') {
+        var _amount = card.paidAmount || card.price || 0;
+        if (!_amount || _amount <= 0) {
+          showToast('Bitte einen Betrag > 0 € eintragen.', 'warning');
+          return;
+        }
+        var _btn = document.getElementById('saSubmitBtn');
+        if (_btn) { _btn.disabled = true; _btn.textContent = 'Leite zu Stripe weiter…'; }
+        // Pending Intent merken, damit Success-Handler die Karte findet.
+        card.stripePending = true;
+        _saveBoardProjects();
+        fetch(_apiUrl('stripe/create-checkout'), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: _apiHeaders(),
+          body: JSON.stringify({
+            amount:     _amount,
+            currency:   'eur',
+            title:      ((_listing && _listing.title) || card.name || 'Buchung'),
+            card_id:    card.id,
+            project_id: project.id,
+            listing_id: card.listingId || 0
+          })
+        }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+          .then(function(res){
+            if (!res.ok || !res.data || !res.data.url) {
+              card.stripePending = false;
+              _saveBoardProjects();
+              if (_btn) { _btn.disabled = false; _btn.textContent = 'Speichern'; }
+              showToast((res.data && res.data.message) || 'Stripe-Fehler beim Erstellen der Session.', 'error');
+              return;
+            }
+            window.location.href = res.data.url;
+          }).catch(function(e){
+            card.stripePending = false;
+            _saveBoardProjects();
+            if (_btn) { _btn.disabled = false; _btn.textContent = 'Speichern'; }
+            showToast('Netzwerkfehler bei Stripe: ' + (e && e.message || e), 'error');
+          });
+        return; // Kein Advance bis Rueckkehr
+      }
+
       card.paidAt = _nowIso;
       card.paymentStatus = 'Bezahlt';
       showToast('Zahlung bestaetigt – Stage wird auf „Bezahlt“ gesetzt.', 'paid');
