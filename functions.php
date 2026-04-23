@@ -92,11 +92,20 @@ function eventboerse_enqueue_assets() {
         $styles_ver
     );
 
+    // Stripe.js (embedded Payment Element)
+    wp_enqueue_script(
+        'stripe-js',
+        'https://js.stripe.com/v3/',
+        array(),
+        null,
+        true
+    );
+
     // App JS
     wp_enqueue_script(
         'eventboerse-app',
         get_template_directory_uri() . '/app.js',
-        array( 'leaflet', 'flatpickr', 'flatpickr-de' ),
+        array( 'leaflet', 'flatpickr', 'flatpickr-de', 'stripe-js' ),
         $app_ver,
         true
     );
@@ -1957,6 +1966,16 @@ function eb_register_extra_routes() {
         'methods'             => 'GET',
         'callback'            => 'eb_stripe_public_key',
         'permission_callback' => '__return_true',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/stripe/create-payment-intent', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_stripe_create_payment_intent',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/stripe/verify-payment', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_stripe_verify_payment',
+        'permission_callback' => 'is_user_logged_in',
     ) );
 
     /* ---------- HEARTBEAT / USER STATUS ---------- */
@@ -4094,5 +4113,128 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
         'ok'         => true,
         'url'        => $data['url'],
         'session_id' => $data['id'] ?? '',
+    ), 200 );
+}
+
+
+/* ============================================================
+ *  STRIPE PAYMENT INTENTS (embedded via Stripe Elements)
+ *  - create-payment-intent: liefert client_secret fuer das Payment Element
+ *  - verify-payment: serverseitige Pruefung nach Abschluss (Single Source of Truth)
+ * ============================================================ */
+
+function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    }
+    $p = $request->get_json_params();
+    $amount     = isset( $p['amount'] ) ? floatval( $p['amount'] ) : 0;
+    $currency   = isset( $p['currency'] ) ? strtolower( sanitize_text_field( $p['currency'] ) ) : 'eur';
+    $title      = isset( $p['title'] ) ? sanitize_text_field( $p['title'] ) : 'Buchung';
+    $card_id    = isset( $p['card_id'] ) ? sanitize_text_field( $p['card_id'] ) : '';
+    $project_id = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] ) : '';
+    $listing_id = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
+
+    if ( $amount <= 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Betrag.' ), 400 );
+    }
+    if ( strlen( $title ) > 250 ) $title = substr( $title, 0, 250 );
+
+    $amount_cents = (int) round( $amount * 100 );
+    $user = wp_get_current_user();
+
+    $fields = array(
+        'amount'                               => $amount_cents,
+        'currency'                             => $currency,
+        'automatic_payment_methods[enabled]'   => 'true',
+        'description'                          => $title,
+        'receipt_email'                        => $user ? $user->user_email : '',
+        'metadata[card_id]'                    => $card_id,
+        'metadata[project_id]'                 => $project_id,
+        'metadata[listing_id]'                 => (string) $listing_id,
+        'metadata[user_id]'                    => (string) ( $user ? $user->ID : 0 ),
+        'metadata[title]'                      => $title,
+    );
+
+    $ch = curl_init( 'https://api.stripe.com/v1/payment_intents' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( $fields ),
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+    ) );
+    $response = curl_exec( $ch );
+    $http     = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err      = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        return new WP_REST_Response( array( 'message' => 'Netzwerkfehler: ' . $err ), 502 );
+    }
+    $data = json_decode( $response, true );
+    if ( $http >= 400 || ! is_array( $data ) || empty( $data['client_secret'] ) ) {
+        $msg = is_array( $data ) && isset( $data['error']['message'] ) ? $data['error']['message'] : 'Stripe-Fehler.';
+        return new WP_REST_Response( array( 'message' => $msg ), $http ?: 500 );
+    }
+
+    $pk = eb_load_env_value( 'public_stripe_api_key' );
+    return new WP_REST_Response( array(
+        'ok'              => true,
+        'client_secret'   => $data['client_secret'],
+        'payment_intent'  => $data['id'] ?? '',
+        'publishable_key' => $pk,
+        'amount'          => $amount_cents,
+        'currency'        => $currency,
+    ), 200 );
+}
+
+function eb_stripe_verify_payment( WP_REST_Request $request ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    }
+    $p  = $request->get_json_params();
+    $pi = isset( $p['payment_intent'] ) ? sanitize_text_field( $p['payment_intent'] ) : '';
+    if ( ! $pi || ! preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige Payment-Intent-ID.' ), 400 );
+    }
+
+    $ch = curl_init( 'https://api.stripe.com/v1/payment_intents/' . rawurlencode( $pi ) );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+    ) );
+    $response = curl_exec( $ch );
+    $http     = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err      = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err || $http >= 400 ) {
+        return new WP_REST_Response( array( 'message' => 'Payment-Intent nicht abrufbar.' ), 502 );
+    }
+    $data = json_decode( $response, true );
+    $status  = is_array( $data ) ? ( $data['status'] ?? '' ) : '';
+    $paid    = ( $status === 'succeeded' );
+    $amount  = is_array( $data ) ? intval( $data['amount_received'] ?? $data['amount'] ?? 0 ) : 0;
+    $meta    = is_array( $data ) && isset( $data['metadata'] ) ? $data['metadata'] : array();
+
+    // Sicherstellen, dass der aufrufende User auch der ist, der den Intent erzeugt hat.
+    $uid   = wp_get_current_user() ? wp_get_current_user()->ID : 0;
+    $owner = isset( $meta['user_id'] ) ? intval( $meta['user_id'] ) : 0;
+    if ( $owner && $uid && $owner !== $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Payment-Intent gehört nicht zu diesem Nutzer.' ), 403 );
+    }
+
+    return new WP_REST_Response( array(
+        'ok'        => true,
+        'paid'      => $paid,
+        'status'    => $status,
+        'amount'    => $amount,
+        'currency'  => is_array( $data ) ? ( $data['currency'] ?? '' ) : '',
+        'metadata'  => $meta,
     ), 200 );
 }

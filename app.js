@@ -11635,6 +11635,181 @@ function _handleStripeReturn() {
   } catch(e) {}
 }
 
+/**
+ * Stripe Elements Modal (embedded, kein Redirect).
+ * opts: { amount, title, cardId, projectId, listingId, onSuccess(result), onCancel? }
+ * Flow:
+ *   1) /stripe/create-payment-intent → client_secret + publishable_key
+ *   2) Stripe.js Elements mit Payment Element mounten
+ *   3) confirmPayment({ elements, redirect: 'if_required' })
+ *   4) /stripe/verify-payment → server-seitig bestaetigen (authoritativ)
+ *   5) onSuccess(result) aufrufen
+ */
+function _openStripePaymentModal(opts) {
+  opts = opts || {};
+  if (typeof Stripe === 'undefined') {
+    showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.', 'error');
+    return;
+  }
+
+  // Overlay + Modal-Markup
+  var ov = document.createElement('div');
+  ov.className = 'stripe-modal-overlay';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.innerHTML =
+    '<div class="stripe-modal">' +
+      '<div class="stripe-modal-header">' +
+        '<div>' +
+          '<div class="stripe-modal-title"><span class="material-icons-round">lock</span> Sichere Zahlung</div>' +
+          '<div class="stripe-modal-sub">' + _escHtml(opts.title || 'Buchung') + ' &middot; <strong>' + _escHtml(_formatEuro(opts.amount)) + '</strong></div>' +
+        '</div>' +
+        '<button class="stripe-modal-close" type="button" aria-label="Schließen">&times;</button>' +
+      '</div>' +
+      '<div class="stripe-modal-body">' +
+        '<div id="stripePaymentElement"></div>' +
+        '<div id="stripePaymentError" class="stripe-error" role="alert" style="display:none"></div>' +
+        '<div class="stripe-trust">' +
+          '<span class="material-icons-round">verified_user</span> Verschlüsselte Zahlung via <strong>Stripe</strong> · Kartendaten berühren unsere Server nie.' +
+        '</div>' +
+      '</div>' +
+      '<div class="stripe-modal-footer">' +
+        '<button type="button" class="btn-outline" id="stripeCancelBtn">Abbrechen</button>' +
+        '<button type="button" class="btn-primary" id="stripePayBtn" disabled>' +
+          '<span class="stripe-btn-label"><span class="material-icons-round">lock</span> ' + _escHtml(_formatEuro(opts.amount)) + ' bezahlen</span>' +
+          '<span class="stripe-btn-spinner" style="display:none"><span class="material-icons-round spin">sync</span> Verarbeite…</span>' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+
+  function cleanup() {
+    try { document.body.removeChild(ov); } catch(e) {}
+    document.body.style.overflow = '';
+  }
+  function onClose(wasPaid) {
+    cleanup();
+    if (!wasPaid && typeof opts.onCancel === 'function') opts.onCancel();
+  }
+  ov.querySelector('.stripe-modal-close').addEventListener('click', function(){ onClose(false); });
+  ov.querySelector('#stripeCancelBtn').addEventListener('click', function(){ onClose(false); });
+  ov.addEventListener('click', function(e){ if (e.target === ov) onClose(false); });
+
+  var errEl  = ov.querySelector('#stripePaymentError');
+  var payBtn = ov.querySelector('#stripePayBtn');
+  var spinnerOn = function(on) {
+    payBtn.disabled = on;
+    payBtn.querySelector('.stripe-btn-label').style.display   = on ? 'none' : '';
+    payBtn.querySelector('.stripe-btn-spinner').style.display = on ? '' : 'none';
+  };
+  var showErr = function(msg) {
+    errEl.textContent = msg || 'Zahlung fehlgeschlagen.';
+    errEl.style.display = '';
+  };
+
+  // 1) PaymentIntent erstellen
+  fetch(_apiUrl('stripe/create-payment-intent'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      amount:     opts.amount,
+      currency:   'eur',
+      title:      opts.title || 'Buchung',
+      card_id:    opts.cardId || '',
+      project_id: opts.projectId || '',
+      listing_id: opts.listingId || 0
+    })
+  }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+    .then(function(res) {
+      if (!res.ok || !res.data || !res.data.client_secret || !res.data.publishable_key) {
+        showErr((res.data && res.data.message) || 'Stripe konnte nicht initialisiert werden.');
+        return;
+      }
+      var stripe = Stripe(res.data.publishable_key);
+      var elements = stripe.elements({
+        clientSecret: res.data.client_secret,
+        appearance: {
+          theme: 'stripe',
+          variables: {
+            colorPrimary: '#FF385C',
+            colorBackground: '#ffffff',
+            colorText: '#222222',
+            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+            borderRadius: '10px'
+          }
+        }
+      });
+      var paymentElement = elements.create('payment', {
+        layout: { type: 'tabs', defaultCollapsed: false }
+      });
+      paymentElement.mount('#stripePaymentElement');
+      paymentElement.on('ready', function(){ payBtn.disabled = false; });
+      paymentElement.on('change', function(e){
+        if (e && e.error) showErr(e.error.message);
+        else errEl.style.display = 'none';
+      });
+
+      payBtn.addEventListener('click', function() {
+        errEl.style.display = 'none';
+        spinnerOn(true);
+        stripe.confirmPayment({
+          elements: elements,
+          redirect: 'if_required',
+          confirmParams: { return_url: window.location.href }
+        }).then(function(r) {
+          if (r.error) {
+            spinnerOn(false);
+            showErr(r.error.message || 'Zahlung fehlgeschlagen.');
+            return;
+          }
+          var pi = r.paymentIntent;
+          if (!pi || pi.status !== 'succeeded') {
+            spinnerOn(false);
+            showErr('Status: ' + (pi && pi.status || 'unbekannt') + ' – bitte erneut versuchen.');
+            return;
+          }
+          // 2) Server-seitig verifizieren
+          fetch(_apiUrl('stripe/verify-payment'), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: _apiHeaders(),
+            body: JSON.stringify({ payment_intent: pi.id })
+          }).then(function(r2){ return r2.json().then(function(j){ return { ok: r2.ok, data: j }; }); })
+            .then(function(vr){
+              if (!vr.ok || !vr.data || !vr.data.paid) {
+                spinnerOn(false);
+                showErr((vr.data && vr.data.message) || 'Zahlung wurde von Stripe nicht als abgeschlossen bestätigt.');
+                return;
+              }
+              onClose(true);
+              if (typeof opts.onSuccess === 'function') {
+                opts.onSuccess({ payment_intent: pi.id, amount: vr.data.amount, status: vr.data.status });
+              }
+            }).catch(function(e){
+              spinnerOn(false);
+              showErr('Verifizierung fehlgeschlagen: ' + (e && e.message || e));
+            });
+        }).catch(function(e){
+          spinnerOn(false);
+          showErr('Netzwerkfehler: ' + (e && e.message || e));
+        });
+      });
+    }).catch(function(e) {
+      showErr('Fehler beim Laden: ' + (e && e.message || e));
+    });
+}
+
+function _formatEuro(n) {
+  var v = parseFloat(n) || 0;
+  try {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v);
+  } catch (e) {
+    return v.toFixed(2).replace('.', ',') + ' €';
+  }
+}
+
 /* ── Stage Advance Modal ── */
 function openStageAdvanceModal(cardId, currentStage) {
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -12000,47 +12175,36 @@ function openStageAdvanceModal(cardId, currentStage) {
       card.paymentMethod = (document.querySelector('input[name=saPayMethod]:checked') || {}).value || '';
       card.paymentReference = (document.getElementById('saPayRef') || {}).value || '';
 
-      // Sonderfall Stripe: Redirect zur Checkout-Session, Stage erst nach Rueckkehr setzen.
+      // Sonderfall Stripe: Eingebettetes Payment Element (kein Redirect)
       if (card.paymentMethod === 'Stripe') {
         var _amount = card.paidAmount || card.price || 0;
         if (!_amount || _amount <= 0) {
           showToast('Bitte einen Betrag > 0 € eintragen.', 'warning');
           return;
         }
-        var _btn = document.getElementById('saSubmitBtn');
-        if (_btn) { _btn.disabled = true; _btn.textContent = 'Leite zu Stripe weiter…'; }
-        // Pending Intent merken, damit Success-Handler die Karte findet.
-        card.stripePending = true;
-        _saveBoardProjects();
-        fetch(_apiUrl('stripe/create-checkout'), {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: _apiHeaders(),
-          body: JSON.stringify({
-            amount:     _amount,
-            currency:   'eur',
-            title:      ((_listing && _listing.title) || card.name || 'Buchung'),
-            card_id:    card.id,
-            project_id: project.id,
-            listing_id: card.listingId || 0
-          })
-        }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
-          .then(function(res){
-            if (!res.ok || !res.data || !res.data.url) {
-              card.stripePending = false;
-              _saveBoardProjects();
-              if (_btn) { _btn.disabled = false; _btn.textContent = 'Speichern'; }
-              showToast((res.data && res.data.message) || 'Stripe-Fehler beim Erstellen der Session.', 'error');
-              return;
-            }
-            window.location.href = res.data.url;
-          }).catch(function(e){
+        _openStripePaymentModal({
+          amount: _amount,
+          title: ((_listing && _listing.title) || card.name || 'Buchung'),
+          cardId: card.id,
+          projectId: project.id,
+          listingId: card.listingId || 0,
+          onSuccess: function(result) {
+            card.paidAmount = _amount;
+            card.paidAt = new Date().toISOString();
+            card.paymentStatus = 'Bezahlt';
+            card.paymentMethod = 'Stripe';
+            card.paymentReference = (result && result.payment_intent) || '';
             card.stripePending = false;
+            if (card.stage === 'angebot') card.stage = 'bestaetigt';
             _saveBoardProjects();
-            if (_btn) { _btn.disabled = false; _btn.textContent = 'Speichern'; }
-            showToast('Netzwerkfehler bei Stripe: ' + (e && e.message || e), 'error');
-          });
-        return; // Kein Advance bis Rueckkehr
+            overlay.remove();
+            renderBoardFlow();
+            renderKanban(project);
+            _updateBoardStats(project);
+            showToast('Zahlung erfolgreich – Status: Bezahlt.', 'paid');
+          }
+        });
+        return; // Kein Advance bis Modal-Success
       }
 
       card.paidAt = _nowIso;
