@@ -1977,6 +1977,18 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_stripe_verify_payment',
         'permission_callback' => 'is_user_logged_in',
     ) );
+    // Webhook: MUSS public sein (Stripe authentifiziert sich via Signatur).
+    register_rest_route( 'eventboerse/v1', '/stripe/webhook', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_stripe_webhook',
+        'permission_callback' => '__return_true',
+    ) );
+    // Client-Reconcile: liefert unbestaetigt-aber-bezahlte PaymentIntents fuer den User.
+    register_rest_route( 'eventboerse/v1', '/stripe/reconcile', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_stripe_reconcile',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
 
     /* ---------- HEARTBEAT / USER STATUS ---------- */
     register_rest_route( 'eventboerse/v1', '/heartbeat', array(
@@ -4237,4 +4249,181 @@ function eb_stripe_verify_payment( WP_REST_Request $request ) {
         'currency'  => is_array( $data ) ? ( $data['currency'] ?? '' ) : '',
         'metadata'  => $meta,
     ), 200 );
+}
+
+
+/* ============================================================
+ *  STRIPE WEBHOOK (authoritative payment confirmation)
+ *  - Endpoint: /wp-json/eventboerse/v1/stripe/webhook
+ *  - Signature-Verifikation via Stripe-Signature Header + whsec_* Secret
+ *  - Behandelt payment_intent.succeeded + checkout.session.completed
+ *  - Persistiert bestaetigte Zahlungen in wp_options (pro User) fuer Client-Reconcile
+ * ============================================================ */
+
+function eb_stripe_webhook_secret() {
+    $s = eb_load_env_value( 'stripe_webhook_secret' );
+    if ( ! $s ) { $s = eb_load_env_value( 'STRIPE_WEBHOOK_SECRET' ); }
+    return $s;
+}
+
+/**
+ * Verifiziert Stripe-Signature gegen Payload.
+ * Referenz: https://stripe.com/docs/webhooks/signatures
+ */
+function eb_stripe_verify_signature( $payload, $sig_header, $secret, $tolerance = 300 ) {
+    if ( ! $payload || ! $sig_header || ! $secret ) return false;
+    $parts = explode( ',', $sig_header );
+    $timestamp = null; $signatures = array();
+    foreach ( $parts as $part ) {
+        $kv = explode( '=', trim( $part ), 2 );
+        if ( count( $kv ) !== 2 ) continue;
+        if ( $kv[0] === 't' )   $timestamp = intval( $kv[1] );
+        if ( $kv[0] === 'v1' )  $signatures[] = $kv[1];
+    }
+    if ( ! $timestamp || empty( $signatures ) ) return false;
+    if ( $tolerance > 0 && ( time() - $timestamp ) > $tolerance ) return false;
+
+    $signed_payload = $timestamp . '.' . $payload;
+    $expected = hash_hmac( 'sha256', $signed_payload, $secret );
+    foreach ( $signatures as $sig ) {
+        if ( hash_equals( $expected, $sig ) ) return true;
+    }
+    return false;
+}
+
+function eb_stripe_record_payment( $pi ) {
+    if ( ! is_array( $pi ) || empty( $pi['id'] ) ) return;
+    $meta = isset( $pi['metadata'] ) && is_array( $pi['metadata'] ) ? $pi['metadata'] : array();
+    $uid  = isset( $meta['user_id'] ) ? intval( $meta['user_id'] ) : 0;
+    if ( ! $uid ) return;
+
+    $record = array(
+        'pi'         => $pi['id'],
+        'status'     => $pi['status'] ?? '',
+        'amount'     => intval( $pi['amount_received'] ?? $pi['amount'] ?? 0 ),
+        'currency'   => $pi['currency'] ?? 'eur',
+        'card_id'    => $meta['card_id'] ?? '',
+        'project_id' => $meta['project_id'] ?? '',
+        'listing_id' => isset( $meta['listing_id'] ) ? intval( $meta['listing_id'] ) : 0,
+        'title'      => $meta['title'] ?? '',
+        'paid_at'    => time(),
+    );
+
+    $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
+    if ( ! is_array( $existing ) ) $existing = array();
+    // Deduplizieren by PI-ID
+    $existing[ $pi['id'] ] = $record;
+    // Alte Eintraege >90 Tage bereinigen
+    $cutoff = time() - 90 * 86400;
+    foreach ( $existing as $k => $v ) {
+        if ( is_array( $v ) && isset( $v['paid_at'] ) && $v['paid_at'] < $cutoff ) unset( $existing[ $k ] );
+    }
+    update_user_meta( $uid, 'eb_stripe_paid', $existing );
+}
+
+function eb_stripe_webhook( WP_REST_Request $request ) {
+    $secret = eb_stripe_webhook_secret();
+    if ( ! $secret ) {
+        // Immer 500 – ohne Secret darf der Endpoint nicht stillschweigend "ok" liefern.
+        return new WP_REST_Response( array( 'message' => 'Webhook-Secret fehlt.' ), 500 );
+    }
+
+    $payload    = $request->get_body();
+    $sig_header = $request->get_header( 'stripe_signature' );
+    if ( ! $sig_header ) {
+        // WP normalisiert Header-Namen; Fallback via $_SERVER:
+        $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+    }    if ( ! eb_stripe_verify_signature( $payload, $sig_header, $secret ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungueltige Signatur.' ), 400 );
+    }
+
+    $event = json_decode( $payload, true );
+    if ( ! is_array( $event ) || empty( $event['type'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Unleserlicher Event.' ), 400 );
+    }
+
+    $type = $event['type'];
+    $obj  = isset( $event['data']['object'] ) && is_array( $event['data']['object'] ) ? $event['data']['object'] : array();
+
+    switch ( $type ) {
+        case 'payment_intent.succeeded':
+            eb_stripe_record_payment( $obj );
+            break;
+
+        case 'checkout.session.completed':
+            // Session selbst hat keine PI-Details im vollen Umfang – zusaetzlich PI ziehen.
+            $pi_id = isset( $obj['payment_intent'] ) ? sanitize_text_field( $obj['payment_intent'] ) : '';
+            if ( $pi_id && preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi_id ) ) {
+                $sk = eb_load_env_value( 'private_stripe_api_key' );
+                if ( $sk ) {
+                    $ch = curl_init( 'https://api.stripe.com/v1/payment_intents/' . rawurlencode( $pi_id ) );
+                    curl_setopt_array( $ch, array(
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_USERPWD        => $sk . ':',
+                        CURLOPT_TIMEOUT        => 10,
+                    ) );
+                    $resp = curl_exec( $ch );
+                    curl_close( $ch );
+                    $pi = json_decode( $resp, true );
+                    if ( is_array( $pi ) && ( $pi['status'] ?? '' ) === 'succeeded' ) {
+                        eb_stripe_record_payment( $pi );
+                    }
+                }
+            } else {
+                // Metadata direkt auf der Session (alternativ)
+                $meta = isset( $obj['metadata'] ) && is_array( $obj['metadata'] ) ? $obj['metadata'] : array();
+                if ( ! empty( $meta['user_id'] ) ) {
+                    eb_stripe_record_payment( array(
+                        'id'              => $obj['id'] ?? ( 'cs_' . md5( $payload ) ),
+                        'status'          => 'succeeded',
+                        'amount'          => intval( $obj['amount_total'] ?? 0 ),
+                        'amount_received' => intval( $obj['amount_total'] ?? 0 ),
+                        'currency'        => $obj['currency'] ?? 'eur',
+                        'metadata'        => $meta,
+                    ) );
+                }
+            }
+            break;
+
+        case 'payment_intent.payment_failed':
+        case 'payment_intent.canceled':
+            // Optional: zukuenftig Fehlerlog ablegen. Derzeit NOOP (UI zeigt Fehler live).
+            break;
+
+        default:
+            // Unbekannte Events ignorieren, aber mit 200 bestaetigen, damit Stripe nicht retry't.
+            break;
+    }
+
+    return new WP_REST_Response( array( 'received' => true ), 200 );
+}
+
+/**
+ * Liefert ungesehene, per Webhook bestaetigte Zahlungen fuer den aktuellen User.
+ * Client kann damit Karten markieren, die beim Tab-Close verpasst wurden.
+ * Query-Param ?ack=pi_xxx,pi_yyy loescht Eintraege nach Verarbeitung.
+ */
+function eb_stripe_reconcile( WP_REST_Request $request ) {
+    $user = wp_get_current_user();
+    if ( ! $user || ! $user->ID ) {
+        return new WP_REST_Response( array( 'items' => array() ), 200 );
+    }
+    $uid = $user->ID;
+
+    $ack = $request->get_param( 'ack' );
+    if ( $ack ) {
+        $ids = array_filter( array_map( 'trim', explode( ',', (string) $ack ) ) );
+        $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
+        if ( is_array( $existing ) ) {
+            foreach ( $ids as $id ) {
+                if ( isset( $existing[ $id ] ) ) unset( $existing[ $id ] );
+            }
+            update_user_meta( $uid, 'eb_stripe_paid', $existing );
+        }
+        return new WP_REST_Response( array( 'ok' => true, 'acked' => array_values( $ids ) ), 200 );
+    }
+
+    $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
+    if ( ! is_array( $existing ) ) $existing = array();
+    return new WP_REST_Response( array( 'items' => array_values( $existing ) ), 200 );
 }

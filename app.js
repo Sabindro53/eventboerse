@@ -876,6 +876,7 @@ function navigateTo(page, data, skipHistory) {
     case 'board':
       if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }
       renderBoardPage();
+      try { if (currentUser && typeof _reconcileStripePayments === 'function') _reconcileStripePayments(); } catch(e) {}
       break;
     case 'auftraege':
       if (!currentUser) { navigateTo('home'); return; }
@@ -8748,6 +8749,8 @@ function applyLogin() {
     if (adminMenuBtn) adminMenuBtn.style.display = currentUser.isAdmin ? 'flex' : 'none';
     var auftraegeMenuBtn = document.getElementById('auftraegeMenuBtn');
     if (auftraegeMenuBtn) auftraegeMenuBtn.style.display = (currentUser.role === 'Dienstleister') ? 'flex' : 'none';
+    // Reconcile ausstehende Webhook-Bestaetigungen
+    try { if (typeof _reconcileStripePayments === 'function') setTimeout(_reconcileStripePayments, 800); } catch(e) {}
   }
   var createPage = document.getElementById('page-create-listing');
   if (createPage && createPage.classList.contains('active')) updateCreateFormForRole();
@@ -11633,6 +11636,57 @@ function _handleStripeReturn() {
     var clean = window.location.pathname + window.location.hash;
     window.history.replaceState({}, document.title, clean);
   } catch(e) {}
+}
+
+/**
+ * Reconcile: per Webhook bestaetigte Zahlungen, die vom Client ggf. verpasst wurden
+ * (z.B. Tab-Close nach 3DS-Challenge). Wird beim Login und beim Oeffnen des Boards
+ * aufgerufen. Markiert betroffene Karten rueckwirkend als "Bezahlt" und quittiert
+ * die PIs server-seitig (damit sie nicht nochmal liefern).
+ */
+function _reconcileStripePayments() {
+  if (!currentUser) return Promise.resolve();
+  return fetch(_apiUrl('stripe/reconcile'), {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  }).then(function(r){ return r.ok ? r.json() : { items: [] }; })
+    .then(function(resp){
+      var items = (resp && resp.items) || [];
+      if (!items.length) return;
+      try { _migrateBoardProjects && _migrateBoardProjects(); _loadBoardProjects && _loadBoardProjects(); } catch(e) {}
+
+      var acked = [];
+      var matched = 0;
+      items.forEach(function(it){
+        var proj = (_boardProjects || []).find(function(p){ return p.id === it.project_id; });
+        var card = proj && (proj.cards || []).find(function(c){ return c.id === it.card_id; });
+        if (card) {
+          if (card.paymentReference !== it.pi) {
+            card.paymentReference = it.pi;
+            card.paymentMethod    = 'Stripe';
+            card.paymentStatus    = 'Bezahlt';
+            card.paidAt           = card.paidAt || new Date((it.paid_at || 0) * 1000).toISOString();
+            card.paidAmount       = card.paidAmount || ((it.amount || 0) / 100);
+            card.stripePending    = false;
+            if (card.stage === 'angebot') card.stage = 'bestaetigt';
+            matched++;
+          }
+          acked.push(it.pi);
+        }
+      });
+
+      if (matched) {
+        try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
+        try { if (typeof renderBoardFlow === 'function') renderBoardFlow(); } catch(e) {}
+        showToast(matched + ' Zahlung' + (matched === 1 ? '' : 'en') + ' via Webhook nachtraeglich bestaetigt.', 'paid');
+      }
+      if (acked.length) {
+        fetch(_apiUrl('stripe/reconcile') + '?ack=' + encodeURIComponent(acked.join(',')), {
+          method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
+        }).catch(function(){});
+      }
+    }).catch(function(){});
 }
 
 /**
