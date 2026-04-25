@@ -25,9 +25,25 @@ jobs:
             && echo "✅ Alle PHP-Dateien syntaktisch korrekt"
 
       - name: Geänderte Dateien anzeigen
-        run: |
-          echo "### Geänderte Dateien in diesem PR:" >> $GITHUB_STEP_SUMMARY
-          git diff --name-only origin/main...HEAD >> $GITHUB_STEP_SUMMARY
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const lines = ['### Geänderte Dateien in diesem PR:', ''];
+            if (files.length === 0) {
+              lines.push('_Keine Änderungen erkannt._');
+            } else {
+              for (const f of files) {
+                lines.push(`- \`${f.filename}\` (${f.status}, +${f.additions}/-${f.deletions})`);
+              }
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
 
       - name: PR-Kommentar mit Vorschau-Link
         uses: actions/github-script@v7

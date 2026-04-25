@@ -21,7 +21,7 @@ jobs:
           # Try HTTPS first (primary URL)
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time 30 --retry 3 --retry-delay 10 \
-            -L "https://eventboerse.de" 2>/dev/null) || true
+            -L "https://xn--eventbrse-57a.de" 2>/dev/null) || true
 
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
             echo "✅ HTTPS reachable – HTTP $HTTP_CODE"
@@ -32,7 +32,7 @@ jobs:
             # Fallback: try plain HTTP
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 30 --retry 3 --retry-delay 10 \
-              -L "http://eventboerse.de" 2>/dev/null) || true
+              -L "http://xn--eventbrse-57a.de" 2>/dev/null) || true
 
             if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
               echo "⚠️ Only HTTP reachable – HTTP $HTTP_CODE (HTTPS may have certificate issues)"
@@ -52,13 +52,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `🚨 Site Down – eventboerse.de unreachable (HTTP ${process.env.HTTP_CODE})`;
+            const title = `🚨 Site Down – eventbörse.de unreachable (HTTP ${process.env.HTTP_CODE})`;
             const body = [
               `## Site Monitor Alert`,
               ``,
               `| Detail | Value |`,
               `|--------|-------|`,
-              `| **URL** | https://eventboerse.de |`,
+              `| **URL** | https://eventbörse.de (xn--eventbrse-57a.de) |`,
               `| **HTTP Code** | ${process.env.HTTP_CODE} |`,
               `| **Detected** | ${new Date().toISOString()} |`,
               `| **Workflow Run** | [View logs](${process.env.RUN_URL}) |`,
@@ -66,7 +66,7 @@ jobs:
               `### Recommended Actions`,
               `1. Check IONOS hosting control panel for server status`,
               `2. Verify FTP deployment completed successfully`,
-              `3. Check DNS settings for eventboerse.de`,
+              `3. Check DNS settings for eventbörse.de (xn--eventbrse-57a.de)`,
               `4. Review SSL certificate configuration`,
             ].join('\n');
 
