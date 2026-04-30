@@ -13157,6 +13157,9 @@ function _drawFlowConnections() {
   var world  = document.getElementById('flowWorld');
   var svg    = document.getElementById('flowSvg');
   if (!canvas || !svg) return;
+  // Wird beim ersten Stage-Header in der Schleife gefüllt und danach für ALLE
+  // Connectors wiederverwendet → garantiert eine einzige perfekte Y-Achse.
+  var _flowSharedAxisY = null;
 
   var host = world || canvas;
   var W = Math.max(host.scrollWidth || 2400, host.offsetWidth || 2400);
@@ -13257,24 +13260,29 @@ function _drawFlowConnections() {
           + ' L' + x2 + ',' + y2;
       }
     } else {
-      // Desktop: gerade horizontale Linie auf einer einheitlichen Header-Achse,
-      // unabhängig von der individuellen Node-Höhe (Stage-Header-Mittellinie).
+      // Desktop: einheitliche Header-Achse für ALLE Connectors. Wir messen
+      // die Y-Mittellinie des ersten echten Stage-Headers und benutzen
+      // diesen Wert für jede Verbindung – so liegen alle Linien garantiert
+      // auf einer perfekten Geraden, unabhängig von Node-Höhen.
+      if (typeof _flowSharedAxisY !== 'number') {
+        var refStage = canvas.querySelector('[data-nid="stage-geplant"] .flow-node-hdr')
+                    || canvas.querySelector('.flow-node-hdr');
+        if (refStage) {
+          var refCol = refStage.closest('[data-col-id]');
+          var refColY = parseFloat(refCol.style.top) || 0;
+          var refStageNode = refStage.closest('.flow-node');
+          _flowSharedAxisY = refColY
+                           + (refStageNode ? refStageNode.offsetTop : 0)
+                           + refStage.offsetTop
+                           + refStage.offsetHeight / 2;
+        }
+      }
       var from = nodeBounds(seq[i].n);
       var to   = nodeBounds(seq[i + 1].n);
       if (!from || !to) continue;
       var hx1 = from.right, hx2 = to.left - 2;
-      var hy1 = from.anchorY, hy2 = to.anchorY;
-      if (Math.abs(hy1 - hy2) < 2) {
-        // Strikt eine Achse → identischer Y-Wert für beide Punkte
-        var hy = Math.round((hy1 + hy2) / 2);
-        d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
-      } else {
-        var mx = (hx1 + hx2) / 2;
-        d = 'M' + hx1 + ',' + hy1
-          + ' L' + mx  + ',' + hy1
-          + ' L' + mx  + ',' + hy2
-          + ' L' + hx2 + ',' + hy2;
-      }
+      var hy = Math.round(_flowSharedAxisY != null ? _flowSharedAxisY : (from.anchorY + to.anchorY) / 2);
+      d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
     }
 
     paths += '<path d="' + d + '" fill="none" stroke="' + STROKE + '" stroke-width="' + SW + '" stroke-linecap="square" stroke-linejoin="miter" marker-end="url(#' + markerId + ')"/>';
