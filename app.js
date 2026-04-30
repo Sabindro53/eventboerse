@@ -3610,6 +3610,7 @@ function _startChatPoll() {
         currentChat.messages = messages;
         var msgContainer = document.getElementById('chatMessages');
         var wasAtBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight < 80;
+        window._cbcCancelled = _collectCancelledProjectNames(messages);
         msgContainer.innerHTML = (messages || []).map(function(msg) {
           if (msg.msg_type === 'deleted' || msg.deleted) {
             var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
@@ -3640,9 +3641,14 @@ function _startChatPoll() {
           } else {
             var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
             var time = msg.time || '';
-            var delBtn = (msg.type === 'sent' && msg.id)
-              ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>'
-              : '';
+            var delBtn = '';
+            if (msg.id) {
+              if (msg.type === 'sent') {
+                delBtn = '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>';
+              } else if (msg.type === 'received') {
+                delBtn = '<button class="msg-delete-btn" title="Für mich löschen" aria-label="Für mich löschen" onclick="hideMessageForMe(' + msg.id + ')"><span class="material-icons-round">delete</span></button>';
+              }
+            }
             return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
           }
         }).join('');
@@ -3682,6 +3688,27 @@ function _parseOldBookingText(raw) {
   return data.listing ? data : null;
 }
 
+// Scan all messages in a conversation and return a map of project names
+// whose inquiry was cancelled via a structured 'inquiry_cancelled' message.
+// Used by _renderBookingCard to flip matching inquiry cards into a
+// "storniert" state on both sides without any server-side schema changes.
+function _collectCancelledProjectNames(messages) {
+  var out = {};
+  (messages || []).forEach(function(m) {
+    var raw = m.text || m.content || '';
+    if (!raw || raw.charAt(0) !== '{') return;
+    try {
+      var d = JSON.parse(raw);
+      if (d && d.kind === 'inquiry_cancelled') {
+        var key = (d.projectName || '') + '|' + (d.listing || '');
+        out[key] = 1;
+        if (d.projectName) out[d.projectName] = 1;
+      }
+    } catch (e) {}
+  });
+  return out;
+}
+
 function _renderBookingCard(msg) {
   var raw = msg.text || msg.content || '';
   var side = msg.type === 'sent' ? 'sent' : 'received';
@@ -3689,6 +3716,25 @@ function _renderBookingCard(msg) {
   var data;
   try { data = JSON.parse(raw); } catch (e) { data = null; }
   if (!data) data = _parseOldBookingText(raw);
+
+  // Storno-Karte (kompakt): wird beim Löschen des Projekts von der Anfrage-Seite
+  // gesendet und auf beiden Seiten als Info-Banner angezeigt.
+  if (data && data.kind === 'inquiry_cancelled') {
+    var introCancel = side === 'sent'
+      ? 'Du hast das Projekt geschlossen'
+      : 'Projekt wurde vom Kunden geschlossen';
+    var html2 = '<div class="cbc cbc-' + side + ' cbc-cancelled">' +
+      '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Projekt storniert</div>' +
+      '<div class="cbc-content">' +
+        '<div class="cbc-label"><span class="material-icons-round">event_busy</span> ' + _escHtml(introCancel) + '</div>' +
+        (data.projectName ? '<div class="cbc-listing">' + _escHtml(data.projectName) + '</div>' : '') +
+        (data.listing ? '<p class="cbc-intro">Bezug: ' + _escHtml(data.listing) + '</p>' : '') +
+        '<div class="cbc-status"><span class="material-icons-round">block</span> Anfrage nicht mehr aktiv</div>' +
+      '</div>' +
+      (time ? '<span class="cbc-ts">' + _escHtml(time) + '</span>' : '') +
+    '</div>';
+    return html2;
+  }
   if (!data) {
     return '<div class="cbc cbc-' + side + '">' +
       '<div class="cbc-bubble"><p>' + _escHtml(raw).replace(/\n/g, '<br>') + '</p></div>' +
@@ -3713,11 +3759,27 @@ function _renderBookingCard(msg) {
       : 'Neue Projekt-Anfrage zu deinem Angebot';
   }
 
-  var html = '<div class="cbc cbc-' + side + (isInquiry ? ' cbc-inquiry' : '') + '">';
+  // Wurde das Projekt (auf der Anfrage-Seite) gelöscht?  Dann Karte als
+  // storniert markieren – für BEIDE Seiten, auch wenn der Anbieter noch
+  // nicht geantwortet hat.
+  var isCancelled = false;
+  if (isInquiry) {
+    var cset = window._cbcCancelled || {};
+    var key = (data.projectName || '') + '|' + (data.listing || '');
+    if (cset[key] || (data.projectName && cset[data.projectName])) {
+      isCancelled = true;
+    }
+  }
+
+  var html = '<div class="cbc cbc-' + side + (isInquiry ? ' cbc-inquiry' : '') + (isCancelled ? ' cbc-cancelled' : '') + '">';
 
   // System-generated banner
   if (isInquiry) {
-    html += '<div class="cbc-sysbar"><span class="material-icons-round">verified</span> Systemgenerierte Projekt-Anfrage</div>';
+    if (isCancelled) {
+      html += '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Projekt storniert</div>';
+    } else {
+      html += '<div class="cbc-sysbar"><span class="material-icons-round">verified</span> Systemgenerierte Projekt-Anfrage</div>';
+    }
   }
 
   // --- image banner ---
@@ -3750,7 +3812,11 @@ function _renderBookingCard(msg) {
 
   // action buttons
   if (isInquiry) {
-    if (side === 'received') {
+    if (isCancelled) {
+      html += '<div class="cbc-status" style="color:#9E9E9E;"><span class="material-icons-round">block</span> ' +
+        (side === 'sent' ? 'Du hast dieses Projekt geschlossen' : 'Kunde hat das Projekt geschlossen') +
+        '</div>';
+    } else if (side === 'received') {
       var isoDate = (data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) ? data.date : '';
       html += '<div class="cbc-actions">' +
         '<button class="cbc-btn cbc-btn-primary" onclick="proposeAlternativeDate(\'' + isoDate + '\')"><span class="material-icons-round">event_repeat</span> Anderen Termin vorschlagen</button>' +
@@ -3837,11 +3903,18 @@ function renderChatList() {
     .then(function(r) { return r.json(); })
     .then(function(convos) {
       window._conversations = convos || [];
-      if (convos.length === 0) {
-        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Noch keine Nachrichten.</div>';
+      var showArchived = !!window._chatShowArchived;
+      var visible = (convos || []).filter(function(c){ return showArchived ? c.archived : !c.archived; });
+      var archivedCount = (convos || []).filter(function(c){ return c.archived; }).length;
+      var archiveToggle = (!showArchived && archivedCount > 0)
+        ? '<div class="chat-archived-toggle" onclick="toggleArchivedView(true)"><span class="material-icons-round">archive</span> Archiviert (' + archivedCount + ')</div>'
+        : (showArchived ? '<div class="chat-archived-toggle active" onclick="toggleArchivedView(false)"><span class="material-icons-round">arrow_back</span> Zurück zu Chats</div>' : '');
+      if (visible.length === 0) {
+        list.innerHTML = archiveToggle + '<div style="padding:24px;text-align:center;color:var(--text-light);">' + (showArchived ? 'Keine archivierten Chats.' : 'Noch keine Nachrichten.') + '</div>';
+        _updateChatBlockBanner();
         return;
       }
-      list.innerHTML = convos.map(function(c) {
+      list.innerHTML = archiveToggle + visible.map(function(c) {
         var avatar = c.other_photo || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
         var name = c.other_name || 'Unbekannt';
         var lastMsg = c.last_message || '';
@@ -3853,21 +3926,27 @@ function renderChatList() {
         var time = c.updated_at ? new Date(c.updated_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
         var unread = parseInt(c.unread_count) || 0;
         var activeClass = currentChat && currentChat.id === c.id ? 'active' : '';
-        return '<div class="chat-item ' + activeClass + '" onclick="openChat(' + c.id + ')">' +
+        var flagIcons = '';
+        if (c.pinned)   flagIcons += '<span class="chat-item-flag" title="Angeheftet"><span class="material-icons-round">push_pin</span></span>';
+        if (c.muted)    flagIcons += '<span class="chat-item-flag" title="Stummgeschaltet"><span class="material-icons-round">notifications_off</span></span>';
+        if (c.blocked_by_me) flagIcons += '<span class="chat-item-flag" title="Blockiert"><span class="material-icons-round">block</span></span>';
+        return '<div class="chat-item ' + activeClass + (c.pinned ? ' pinned' : '') + (c.muted ? ' muted' : '') + '" oncontextmenu="return openChatItemMenu(event,' + c.id + ')" onclick="openChat(' + c.id + ')">' +
           '<div class="chat-item-avatar-wrap">' +
             '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" />' +
             '<span class="chat-item-dot ' + (c.online ? 'online' : 'offline') + '"></span>' +
           '</div>' +
           '<div class="chat-item-info">' +
-            '<strong>' + _escHtml(name) + '</strong>' +
+            '<strong>' + _escHtml(name) + (flagIcons ? ' ' + flagIcons : '') + '</strong>' +
             '<p>' + _escHtml(lastMsg) + '</p>' +
           '</div>' +
           '<div class="chat-item-meta">' +
             '<span>' + _escHtml(time) + '</span>' +
             (unread > 0 ? '<span class="chat-item-unread">' + unread + '</span>' : '') +
           '</div>' +
+          '<button class="chat-item-delete" title="Chat löschen" aria-label="Chat löschen" onclick="deleteChatFromList(event,' + c.id + ')"><span class="material-icons-round">delete</span></button>' +
         '</div>';
       }).join('');
+      _updateChatBlockBanner();
     })
     .catch(function() {
       list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Fehler beim Laden.</div>';
@@ -3922,6 +4001,7 @@ function openChat(chatId) {
 
       // Render messages
       var msgContainer = document.getElementById('chatMessages');
+      window._cbcCancelled = _collectCancelledProjectNames(messages);
       msgContainer.innerHTML = (messages || []).map(function(msg) {
         if (msg.msg_type === 'deleted' || msg.deleted) {
           var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
@@ -3952,9 +4032,14 @@ function openChat(chatId) {
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           var time = msg.time || '';
-          var delBtn = (msg.type === 'sent' && msg.id)
-            ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>'
-            : '';
+          var delBtn = '';
+          if (msg.id) {
+            if (msg.type === 'sent') {
+              delBtn = '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>';
+            } else if (msg.type === 'received') {
+              delBtn = '<button class="msg-delete-btn" title="Für mich löschen" aria-label="Für mich löschen" onclick="hideMessageForMe(' + msg.id + ')"><span class="material-icons-round">delete</span></button>';
+            }
+          }
           return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
         }
       }).join('');
@@ -3963,6 +4048,7 @@ function openChat(chatId) {
 
       // Update chat list and start live polling
       renderChatList();
+      _updateChatBlockBanner();
       _startChatPoll();
     })
     .catch(function() {
@@ -4109,6 +4195,32 @@ function deleteChatMessage(messageId) {
     });
 }
 
+function hideMessageForMe(messageId) {
+  if (!messageId || !currentChat) return;
+  if (!confirm('Diese Nachricht nur für dich aus dem Chat entfernen?\n\nFür den anderen Kontakt bleibt sie weiterhin sichtbar.')) return;
+  fetch(_apiUrl('messages/' + messageId + '/hide'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r) {
+      if (!r.ok) throw new Error('hide-failed');
+      return r.json();
+    })
+    .then(function() {
+      if (currentChat && Array.isArray(currentChat.messages)) {
+        currentChat.messages = currentChat.messages.filter(function(m) { return !m || m.id !== messageId; });
+      }
+      var container = document.getElementById('chatMessages');
+      if (!container) return;
+      var btn = container.querySelector('button.msg-delete-btn[onclick*="hideMessageForMe(' + messageId + ')"]');
+      var bubble = btn ? btn.closest('.msg') : null;
+      if (bubble) bubble.remove();
+      renderChatList();
+    })
+    .catch(function() {
+      showToast('Aktion fehlgeschlagen', 'error');
+    });
+}
+
 function openDemoChat(chatId) {
   var chat = DEMO_CHATS.find(function(c) { return c.id === chatId; });
   if (!chat) return;
@@ -4140,6 +4252,7 @@ function openDemoChat(chatId) {
 
   // Render messages
   var msgContainer = document.getElementById('chatMessages');
+  window._cbcCancelled = _collectCancelledProjectNames(chat.messages);
   msgContainer.innerHTML = chat.messages.map(function(msg) {
     if (msg.type === 'system') {
       return '<div class="msg msg-system">' + _escHtml(msg.text) + '</div>';
@@ -4172,6 +4285,255 @@ function goToChatProfile() {
   if (currentChat && currentChat.otherId) {
     navigateTo('provider', currentChat.otherId);
   }
+}
+
+/* =====================================================================
+   CHAT-OPTIONEN (WhatsApp-Stil)
+   - Chat leeren, Stummschalten, Archivieren, Anheften, Als ungelesen,
+     Blockieren, Melden, Im Chat suchen, Profil ansehen
+   ===================================================================== */
+function _currentConvMeta() {
+  if (!currentChat || !currentChat.id) return null;
+  return (window._conversations || []).find(function(c){ return c.id === currentChat.id; }) || null;
+}
+function _refreshChatMenuLabels() {
+  var c = _currentConvMeta();
+  var mMute = document.getElementById('chatMenuMute');
+  var mPin  = document.getElementById('chatMenuPin');
+  var mArch = document.getElementById('chatMenuArchive');
+  var mBlk  = document.getElementById('chatMenuBlock');
+  if (mMute) mMute.innerHTML = '<span class="material-icons-round">' + (c && c.muted ? 'notifications_active' : 'notifications_off') + '</span> ' + (c && c.muted ? 'Stummschaltung aufheben' : 'Stummschalten');
+  if (mPin)  mPin.innerHTML  = '<span class="material-icons-round">push_pin</span> ' + (c && c.pinned ? 'Lösen' : 'Anheften');
+  if (mArch) mArch.innerHTML = '<span class="material-icons-round">' + (c && c.archived ? 'unarchive' : 'archive') + '</span> ' + (c && c.archived ? 'Aus Archiv' : 'Archivieren');
+  if (mBlk)  mBlk.innerHTML  = '<span class="material-icons-round">block</span> ' + (c && c.blocked_by_me ? 'Blockierung aufheben' : 'Blockieren');
+}
+function _updateChatBlockBanner() {
+  var c = _currentConvMeta();
+  var banner = document.getElementById('chatBlockBanner');
+  var input  = document.getElementById('chatInputBar');
+  var txt    = document.getElementById('chatBlockBannerText');
+  var btn    = document.getElementById('chatBlockUnbtn');
+  if (!banner || !input) return;
+  if (c && (c.blocked_by_me || c.blocked_me)) {
+    banner.style.display = 'flex';
+    input.style.display = 'none';
+    if (c.blocked_by_me) {
+      txt.textContent = 'Du hast ' + (c.other_name || 'diesen Kontakt') + ' blockiert.';
+      btn.style.display = '';
+    } else {
+      txt.textContent = (c.other_name || 'Dieser Kontakt') + ' kann aktuell keine Nachrichten empfangen.';
+      btn.style.display = 'none';
+    }
+  } else {
+    banner.style.display = 'none';
+    input.style.display = '';
+  }
+}
+function toggleChatMenu(e) {
+  if (e) e.stopPropagation();
+  var menu = document.getElementById('chatMenu');
+  var btn  = document.getElementById('chatMenuBtn');
+  if (!menu) return;
+  var isOpen = !menu.hasAttribute('hidden');
+  if (isOpen) {
+    menu.setAttribute('hidden','');
+    if (btn) btn.setAttribute('aria-expanded','false');
+  } else {
+    _refreshChatMenuLabels();
+    menu.removeAttribute('hidden');
+    if (btn) btn.setAttribute('aria-expanded','true');
+    setTimeout(function(){
+      document.addEventListener('click', _closeChatMenuOnce, { once: true });
+    }, 10);
+  }
+}
+function _closeChatMenuOnce(ev) {
+  var menu = document.getElementById('chatMenu');
+  var wrap = menu && menu.closest('.chat-menu-wrap');
+  if (menu && wrap && !wrap.contains(ev.target)) {
+    menu.setAttribute('hidden','');
+    var btn = document.getElementById('chatMenuBtn');
+    if (btn) btn.setAttribute('aria-expanded','false');
+  }
+}
+function chatMenuAction(action) {
+  var menu = document.getElementById('chatMenu');
+  if (menu) menu.setAttribute('hidden','');
+  if (!currentChat || !currentChat.id) return;
+  var convId = currentChat.id;
+  var c = _currentConvMeta() || {};
+  switch (action) {
+    case 'profile': goToChatProfile(); break;
+    case 'search':  _openChatSearch(); break;
+    case 'mute':    _setChatFlag(convId, 'mute',    !c.muted); break;
+    case 'pin':     _setChatFlag(convId, 'pin',     !c.pinned); break;
+    case 'archive': _setChatFlag(convId, 'archive', !c.archived); break;
+    case 'unread':  _markChatUnread(convId); break;
+    case 'clear':   _clearChat(convId, c.other_name); break;
+    case 'block':   _toggleBlockUser(c); break;
+    case 'report':  _reportUser(c, convId); break;
+  }
+}
+function _setChatFlag(convId, flag, on) {
+  var path = 'conversations/' + convId + '/' + flag;
+  fetch(_apiUrl(path), {
+    method: on ? 'POST' : 'DELETE',
+    credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r){ if (!r.ok) throw new Error('flag'); return r.json(); })
+    .then(function(){
+      var label = { mute:['stummgeschaltet','Stummschaltung aufgehoben'], pin:['angeheftet','gelöst'], archive:['archiviert','aus Archiv entfernt'] }[flag] || ['','' ];
+      showToast('Chat ' + (on ? label[0] : label[1]), 'success');
+      renderChatList();
+    })
+    .catch(function(){ showToast('Aktion fehlgeschlagen', 'error'); });
+}
+function _markChatUnread(convId) {
+  fetch(_apiUrl('conversations/' + convId + '/read'), {
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r){ if (!r.ok) throw new Error('unread'); return r.json(); })
+    .then(function(){ showToast('Als ungelesen markiert', 'success'); renderChatList(); })
+    .catch(function(){ showToast('Aktion fehlgeschlagen', 'error'); });
+}
+function _clearChat(convId, otherName) {
+  if (!confirm('Chat mit ' + (otherName || 'diesem Kontakt') + ' wirklich löschen?\n\nNur bei dir wird der Verlauf entfernt. Die Gegenseite sieht den Verlauf weiterhin. Bei einer neuen Nachricht erscheint der Chat wieder.')) return;
+  fetch(_apiUrl('conversations/' + convId), {
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r){ if (!r.ok) throw new Error('clear'); return r.json(); })
+    .then(function(){
+      showToast('Chat gelöscht', 'success');
+      // Chat schließen und Liste neu laden
+      _stopChatPoll();
+      currentChat = null;
+      var chatActive = document.getElementById('chatActive');
+      var chatEmpty  = document.getElementById('chatEmpty');
+      if (chatActive) chatActive.style.display = 'none';
+      if (chatEmpty)  chatEmpty.style.display  = 'flex';
+      if (window.innerWidth <= 768) {
+        document.getElementById('chatSidebar').classList.remove('hidden');
+        document.getElementById('chatMain').classList.add('hidden');
+      }
+      renderChatList();
+    })
+    .catch(function(){ showToast('Löschen fehlgeschlagen', 'error'); });
+}
+function _toggleBlockUser(c) {
+  if (!c || !c.otherId) return;
+  var willBlock = !c.blocked_by_me;
+  var prompt = willBlock
+    ? 'Möchtest du ' + (c.other_name || 'diesen Kontakt') + ' wirklich blockieren?\n\nIhr könnt euch dann keine Nachrichten mehr senden.'
+    : 'Blockierung von ' + (c.other_name || 'diesem Kontakt') + ' aufheben?';
+  if (!confirm(prompt)) return;
+  fetch(_apiUrl('users/' + c.otherId + '/block'), {
+    method: willBlock ? 'POST' : 'DELETE',
+    credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r){ if (!r.ok) throw new Error('block'); return r.json(); })
+    .then(function(){
+      showToast(willBlock ? 'Kontakt blockiert' : 'Blockierung aufgehoben', 'success');
+      renderChatList();
+      if (currentChat && currentChat.id) {
+        // Conversation-Objekt aktualisieren (banner refresh)
+        setTimeout(function(){
+          var cc = _currentConvMeta();
+          if (cc) _updateChatBlockBanner();
+        }, 250);
+      }
+    })
+    .catch(function(){ showToast('Aktion fehlgeschlagen', 'error'); });
+}
+function _reportUser(c, convId) {
+  if (!c || !c.otherId) return;
+  var reason = prompt('Warum möchtest du ' + (c.other_name || 'diesen Kontakt') + ' melden?\n(z.B. Spam, Belästigung, Betrug)');
+  if (reason === null) return;
+  fetch(_apiUrl('users/' + c.otherId + '/report'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ reason: reason, conversation_id: convId })
+  })
+    .then(function(r){ if (!r.ok) throw new Error('report'); return r.json(); })
+    .then(function(){ showToast('Meldung übermittelt. Danke!', 'success'); })
+    .catch(function(){ showToast('Melden fehlgeschlagen', 'error'); });
+}
+function _openChatSearch() {
+  var q = prompt('Im Chat suchen:');
+  if (!q) return;
+  q = q.trim().toLowerCase();
+  if (!q) return;
+  var container = document.getElementById('chatMessages');
+  if (!container) return;
+  var bubbles = container.querySelectorAll('.msg');
+  var firstHit = null;
+  bubbles.forEach(function(b){
+    b.classList.remove('msg-search-hit');
+    var text = (b.textContent || '').toLowerCase();
+    if (text.indexOf(q) !== -1) {
+      b.classList.add('msg-search-hit');
+      if (!firstHit) firstHit = b;
+    }
+  });
+  if (firstHit) {
+    firstHit.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    showToast('Keine Treffer', 'info');
+  }
+}
+
+function toggleArchivedView(show) {
+  window._chatShowArchived = !!show;
+  renderChatList();
+}
+
+// Direkter „Chat löschen"-Button in der Sidebar (WhatsApp-Stil)
+function deleteChatFromList(ev, convId) {
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+  var c = (window._conversations || []).find(function(x){ return x.id === convId; });
+  var name = c ? c.other_name : 'diesen Chat';
+  // currentChat aktiv setzen, damit _clearChat Close-Logik funktioniert
+  currentChat = Object.assign({}, currentChat || {}, { id: convId, otherId: c && c.otherId, name: name });
+  _clearChat(convId, name);
+}
+
+function openChatItemMenu(ev, convId) {
+  if (!ev) return true;
+  ev.preventDefault();
+  ev.stopPropagation();
+  var existing = document.getElementById('chatItemCtxMenu');
+  if (existing) existing.remove();
+  var c = (window._conversations || []).find(function(x){ return x.id === convId; });
+  if (!c) return false;
+  var menu = document.createElement('div');
+  menu.id = 'chatItemCtxMenu';
+  menu.className = 'chat-item-ctx-menu';
+  menu.innerHTML = [
+    '<button data-act="open"><span class="material-icons-round">chat</span> Öffnen</button>',
+    '<button data-act="pin"><span class="material-icons-round">push_pin</span> ' + (c.pinned ? 'Lösen' : 'Anheften') + '</button>',
+    '<button data-act="mute"><span class="material-icons-round">' + (c.muted ? 'notifications_active' : 'notifications_off') + '</span> ' + (c.muted ? 'Stummschaltung aus' : 'Stummschalten') + '</button>',
+    '<button data-act="archive"><span class="material-icons-round">' + (c.archived ? 'unarchive' : 'archive') + '</span> ' + (c.archived ? 'Aus Archiv' : 'Archivieren') + '</button>',
+    '<button data-act="unread"><span class="material-icons-round">mark_chat_unread</span> Als ungelesen</button>',
+    '<button data-act="clear" class="chat-menu-warn"><span class="material-icons-round">delete_sweep</span> Chat löschen</button>',
+    '<button data-act="block" class="chat-menu-danger"><span class="material-icons-round">block</span> ' + (c.blocked_by_me ? 'Blockierung aufheben' : 'Blockieren') + '</button>'
+  ].join('');
+  document.body.appendChild(menu);
+  var x = Math.min(ev.clientX, window.innerWidth - 240);
+  var y = Math.min(ev.clientY, window.innerHeight - menu.offsetHeight - 8);
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+  menu.addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var act = btn.getAttribute('data-act');
+    menu.remove();
+    // Zielchat aktiv setzen, damit chatMenuAction darauf wirkt
+    currentChat = Object.assign({}, currentChat || {}, { id: convId, otherId: c.otherId, name: c.other_name });
+    if (act === 'open') { openChat(convId); return; }
+    chatMenuAction(act);
+  });
+  setTimeout(function(){
+    document.addEventListener('click', function h(){ menu.remove(); document.removeEventListener('click', h); }, { once: true });
+  }, 10);
+  return false;
 }
 
 function startChat() {
@@ -4923,7 +5285,7 @@ function refreshPasskeySettings() {
       if (listEl) {
         listEl.innerHTML = '<div class="settings-passkey-empty">Passkeys konnten nicht geladen werden.</div>';
       }
-      showToast(err && err.message ? err.message : 'Passkeys konnten nicht geladen werden.', 'error');
+      showToast(_friendlyPasskeyError(err, 'Passkeys konnten nicht geladen werden.'), 'error');
     });
 }
 
@@ -4936,7 +5298,7 @@ async function addPasskeyFromSettings(btn) {
     await refreshPasskeySettings();
     showToast('Neuer Passkey hinzugefügt', 'fingerprint');
   } catch (err) {
-    showToast(err && err.message ? err.message : 'Passkey konnte nicht hinzugefügt werden.', 'error');
+    showToast(_friendlyPasskeyError(err, 'Passkey konnte nicht hinzugefügt werden.'), 'error');
   } finally {
     if (btn) _setBtnLoading(btn, false);
   }
@@ -4952,7 +5314,7 @@ async function removePasskeyFromSettings(credentialId, btn) {
     await refreshPasskeySettings();
     showToast('Passkey entfernt', 'delete');
   } catch (err) {
-    showToast(err && err.message ? err.message : 'Passkey konnte nicht entfernt werden.', 'error');
+    showToast(_friendlyPasskeyError(err, 'Passkey konnte nicht entfernt werden.'), 'error');
   } finally {
     if (btn) _setBtnLoading(btn, false);
   }
@@ -6548,6 +6910,42 @@ function initDatePickers() {
 
   // Negotiation date in modal
   flatpickr('#negDate', fpConfig);
+}
+
+// Einheitlicher deutscher Datumspicker (TT.MM.JJJJ) mit Kalender – für
+// dynamisch eingefügte Modals (z.B. Board-Projekt-Erstellen, Event bearbeiten).
+// Liefert stets ISO-Werte (YYYY-MM-DD) im Input zurück, damit bestehender
+// Auslesecode (.value) unverändert funktioniert. Fallback: natives date-Feld,
+// falls flatpickr (noch) nicht geladen ist.
+function _attachGermanDatePicker(selector, extraOptions) {
+  var el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+  if (!el) return null;
+  // Bereits initialisiert? Dann nichts doppeltes anhängen.
+  if (el._flatpickr) return el._flatpickr;
+  if (typeof flatpickr === 'undefined') {
+    // Fallback: nativer date-Picker, damit der Nutzer trotzdem einen Kalender
+    // bekommt. Anzeige ist dann je nach Browser/Locale.
+    try { el.type = 'date'; } catch (_) {}
+    return null;
+  }
+  var opts = {
+    locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.de) ? 'de' : undefined,
+    dateFormat: 'Y-m-d',   // Wert im Input (ISO) – kompatibel mit bestehender Logik
+    altInput: true,
+    altFormat: 'd.m.Y',    // Anzeige im sichtbaren Feld (TT.MM.JJJJ)
+    allowInput: true,
+    disableMobile: true,
+    onReady: function(selectedDates, dateStr, instance) {
+      try { if (typeof setupYearDropdown === 'function') setupYearDropdown(instance); } catch (_) {}
+    }
+  };
+  if (extraOptions && typeof extraOptions === 'object') {
+    Object.keys(extraOptions).forEach(function(k){ opts[k] = extraOptions[k]; });
+  }
+  try { return flatpickr(el, opts); } catch (_) {
+    try { el.type = 'date'; } catch (_) {}
+    return null;
+  }
 }
 
 // ========== GERMAN CITIES ==========
@@ -8197,6 +8595,41 @@ function isWebAuthnAvailable() {
   return !!(window.PublicKeyCredential && navigator.credentials && typeof navigator.credentials.create === 'function' && typeof navigator.credentials.get === 'function');
 }
 
+// Übersetzt technische WebAuthn-/Passkey-Fehler in eine freundliche,
+// verständliche Meldung auf Deutsch. Fällt bei unbekannten Fehlern auf eine
+// generische, aber nette Nachricht zurück (keine rohen Browser-URLs mehr).
+function _friendlyPasskeyError(err, fallback) {
+  var fb = fallback || 'Hat nicht ganz geklappt – bitte versuche es erneut.';
+  if (!err) return fb;
+  var name = err.name || '';
+  var raw  = (err.message || '') + '';
+  // Typische Browser-Fehler (Chrome/Safari/Firefox)
+  if (name === 'NotAllowedError' || /not allowed|timed out|timeout/i.test(raw)) {
+    return 'Hat nicht ganz geklappt – bitte versuche es erneut.';
+  }
+  if (name === 'AbortError' || /abort/i.test(raw)) {
+    return 'Anmeldung abgebrochen – versuche es einfach noch einmal.';
+  }
+  if (name === 'InvalidStateError') {
+    return 'Dieser Passkey ist bereits eingerichtet. Versuche dich direkt anzumelden.';
+  }
+  if (name === 'SecurityError') {
+    return 'Aus Sicherheitsgründen nicht erlaubt. Bitte lade die Seite neu und versuche es erneut.';
+  }
+  if (name === 'NotSupportedError') {
+    return 'Dein Gerät oder Browser unterstützt Passkeys (noch) nicht.';
+  }
+  if (name === 'ConstraintError') {
+    return 'Das Gerät konnte die Anforderung nicht erfüllen. Bitte versuche es erneut.';
+  }
+  // Rohe WebAuthn-Spec-URL nie dem Nutzer anzeigen
+  if (/webauthn|w3\.org|#sctn-/i.test(raw)) {
+    return 'Hat nicht ganz geklappt – bitte versuche es erneut.';
+  }
+  // Unbekannt: lieber freundlicher Fallback statt technische Meldung
+  return fb;
+}
+
 function getBiometricLoginLabel() {
   var ua = navigator.userAgent || '';
   if (/iPhone|iPad|iPod/i.test(ua)) return 'Mit Face ID anmelden';
@@ -8307,7 +8740,7 @@ async function handlePromptPasskeySetup(btn) {
     closeModal('passkeySetupModal');
     showToast('Passkey erfolgreich eingerichtet', 'fingerprint');
   } catch (err) {
-    showToast(err && err.message ? err.message : 'Passkey konnte nicht eingerichtet werden.', 'error');
+    showToast(_friendlyPasskeyError(err, 'Passkey konnte nicht eingerichtet werden.'), 'error');
   } finally {
     if (btn) _setBtnLoading(btn, false);
   }
@@ -8432,7 +8865,7 @@ async function handleLoginWithPasskey(btn) {
     }
     maybePromptPasskeySetup();
   } catch (err) {
-    showToast(err && err.message ? err.message : 'Passkey-Anmeldung fehlgeschlagen.', 'error');
+    showToast(_friendlyPasskeyError(err, 'Passkey-Anmeldung fehlgeschlagen.'), 'error');
   } finally {
     if (btn) _setBtnLoading(btn, false);
   }
@@ -10130,9 +10563,69 @@ function filterMapMarkers() {
 
 var _boardProjects = [];
 var _activeBoardId = null;
+var _boardTombstones = []; // [{ id, deletedAt }] - cross-device delete sync
 
 function _boardStorageKey() {
   return currentUser ? 'eb_board_projects_' + currentUser.id : null;
+}
+function _boardTombstoneStorageKey() {
+  return currentUser ? 'eb_board_tombstones_' + currentUser.id : null;
+}
+
+function _loadBoardTombstones() {
+  var k = _boardTombstoneStorageKey();
+  if (!k) { _boardTombstones = []; return; }
+  try {
+    var raw = localStorage.getItem(k);
+    var arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) arr = [];
+    // Prune older than 60 days
+    var cutoff = Date.now() - 60 * 86400 * 1000;
+    _boardTombstones = arr.filter(function(t){
+      return t && t.id && typeof t.deletedAt === 'number' && t.deletedAt >= cutoff;
+    });
+  } catch(e) { _boardTombstones = []; }
+}
+
+function _saveBoardTombstones() {
+  var k = _boardTombstoneStorageKey();
+  if (!k) return;
+  try { localStorage.setItem(k, JSON.stringify(_boardTombstones)); } catch(e) {}
+}
+
+function _addBoardTombstone(id) {
+  if (!id) return;
+  var now = Date.now();
+  var existing = null;
+  for (var i = 0; i < _boardTombstones.length; i++) {
+    if (_boardTombstones[i].id === id) { existing = _boardTombstones[i]; break; }
+  }
+  if (existing) { existing.deletedAt = now; }
+  else { _boardTombstones.push({ id: id, deletedAt: now }); }
+  _saveBoardTombstones();
+}
+
+function _mergeTombstones(serverArr) {
+  if (!Array.isArray(serverArr)) return;
+  var byId = {};
+  _boardTombstones.forEach(function(t){ if (t && t.id) byId[t.id] = t.deletedAt || 0; });
+  serverArr.forEach(function(t){
+    if (!t || !t.id) return;
+    var da = typeof t.deletedAt === 'number' ? t.deletedAt : 0;
+    if (!byId[t.id] || byId[t.id] < da) byId[t.id] = da;
+  });
+  var cutoff = Date.now() - 60 * 86400 * 1000;
+  _boardTombstones = Object.keys(byId)
+    .filter(function(id){ return byId[id] >= cutoff; })
+    .map(function(id){ return { id: id, deletedAt: byId[id] }; });
+  _saveBoardTombstones();
+}
+
+function _isTombstoned(id) {
+  for (var i = 0; i < _boardTombstones.length; i++) {
+    if (_boardTombstones[i].id === id) return _boardTombstones[i].deletedAt || 0;
+  }
+  return 0;
 }
 
 function _migrateBoardProjects() {
@@ -10151,8 +10644,13 @@ function _migrateBoardProjects() {
 
 function _loadBoardProjects() {
   var key = _boardStorageKey();
+  _loadBoardTombstones();
   // 1) Schneller Cache: lokal geladene Projekte sofort anzeigen
   _boardProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+  // Lokal bereits getombstoned? Raus damit.
+  if (_boardTombstones.length) {
+    _boardProjects = _boardProjects.filter(function(p){ return !p || !p.id || !_isTombstoned(p.id); });
+  }
   // 2) Vom Server nachladen (account-gebunden, geräteübergreifend)
   if (currentUser) {
     _syncBoardFromServer({ initial: true });
@@ -10187,6 +10685,18 @@ function _mergeBoardProjects(serverArr, localArr) {
       uploadNeeded = true;
     }
   });
+  // Tombstones: IDs, die lokal oder auf dem Server als gelöscht markiert sind, entfernen.
+  // Nur wenn das Projekt nach dem deletedAt geändert wurde, überlebt es (seltener Edge-Case).
+  Object.keys(byId).forEach(function(id){
+    var da = _isTombstoned(id);
+    if (!da) return;
+    var pts = ts(byId[id].project);
+    if (pts <= da) {
+      delete byId[id];
+      // Falls die lokale Kopie das Projekt "lebendig" enthielt, muss die Tombstone-Liste zum Server.
+      uploadNeeded = true;
+    }
+  });
   var merged = Object.keys(byId).map(function(k){ return byId[k].project; });
   // Sortieren: neueste zuerst
   merged.sort(function(a, b){ return ts(b) - ts(a); });
@@ -10195,6 +10705,74 @@ function _mergeBoardProjects(serverArr, localArr) {
 
 var _boardSyncInFlight = false;
 var _boardCloudAvailable = null; // null = noch nicht geprüft, true/false = Ergebnis
+/**
+ * Snapshot des aktuellen Karten-Zustands (stage + Bestätigungs-Marker), um
+ * nach einem Server-Sync zu erkennen, welche Karten ihren Status geändert
+ * haben. Wird für Live-Toasts genutzt (z. B. „Anbieter hat angenommen").
+ */
+function _snapshotBoardCardStates(projects) {
+  var snap = {};
+  (projects || []).forEach(function(p){
+    if (!p || !p.id) return;
+    (p.cards || []).forEach(function(c){
+      if (!c || !c.id) return;
+      snap[p.id + '::' + c.id] = {
+        stage: c.stage || '',
+        providerAcceptedAt: c.providerAcceptedAt || '',
+        providerConfirmedAt: c.providerConfirmedAt || '',
+        fulfilledAt: c.fulfilledAt || '',
+        projectName: p.name || '',
+        projectDate: p.date || '',
+        cardName: c.name || ''
+      };
+    });
+  });
+  return snap;
+}
+
+/**
+ * Vergleicht alten Snapshot mit neuem Board-Stand und sendet Toasts
+ * für relevante Server-getriebene Übergänge:
+ *  – Anbieter hat Auftrag angenommen (angebot/kontaktiert → bestaetigt)
+ *  – Anbieter hat Erbringung bestätigt (providerConfirmedAt neu)
+ *  – Projekt erfüllt (→ abgeschlossen)
+ */
+function _notifyBoardTransitions(prevSnap, newProjects) {
+  if (!prevSnap || !newProjects) return;
+  newProjects.forEach(function(p){
+    if (!p || !p.id) return;
+    (p.cards || []).forEach(function(c){
+      if (!c || !c.id) return;
+      var key = p.id + '::' + c.id;
+      var prev = prevSnap[key];
+      if (!prev) return; // neue Karte – kein Übergang
+      var dateStr = p.date ? _formatDateDe(p.date) : '';
+      var who = c.name || 'Dienstleister';
+      var what = (p.name ? '„' + p.name + '"' : 'dein Projekt');
+      var when = dateStr ? ' am ' + dateStr : '';
+
+      // 1) Anbieter hat Auftrag angenommen
+      if (!prev.providerAcceptedAt && c.providerAcceptedAt) {
+        showToast(who + ' hat deine Anfrage für ' + what + when + ' angenommen!', 'verified');
+      } else if (prev.stage !== 'bestaetigt' && prev.stage !== 'abgeschlossen' &&
+                 (c.stage === 'bestaetigt' || c.stage === 'abgeschlossen')) {
+        // Fallback, falls providerAcceptedAt nicht gesetzt wird
+        showToast(who + ' hat deine Anfrage für ' + what + when + ' angenommen!', 'verified');
+      }
+
+      // 2) Anbieter hat Erbringung bestätigt
+      if (!prev.providerConfirmedAt && c.providerConfirmedAt) {
+        showToast(who + ' hat die Erbringung für ' + what + when + ' bestätigt.', 'task_alt');
+      }
+
+      // 3) Projekt vollständig erfüllt (beidseitig bestätigt)
+      if (!prev.fulfilledAt && c.fulfilledAt) {
+        showToast(what + when + ' ist erfüllt – beide Seiten haben bestätigt.', 'celebration');
+      }
+    });
+  });
+}
+
 function _syncBoardFromServer(opts) {
   opts = opts || {};
   if (!currentUser) return Promise.resolve();
@@ -10224,10 +10802,22 @@ function _syncBoardFromServer(opts) {
     })
     .then(function(data) {
       if (!data || !Array.isArray(data.projects)) return;
+      // Server-Tombstones einspielen, bevor gemerged wird
+      _mergeTombstones(Array.isArray(data.deleted) ? data.deleted : []);
       var serverProjects = data.projects;
       var localProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+      var activeWasDeletedRemotely = !!(_activeBoardId && _isTombstoned(_activeBoardId));
+      // Snapshot des aktuellen Zustands für Live-Diff (Provider-Antworten,
+      // Stage-Transitionen) – muss VOR dem Merge passieren.
+      var _preSyncSnapshot = _snapshotBoardCardStates(_boardProjects);
       var res = _mergeBoardProjects(serverProjects, localProjects);
       _boardProjects = res.merged;
+      // Live-Benachrichtigungen über erkannte Übergänge (z. B. Anbieter hat
+      // Auftrag angenommen oder erfüllt). Erste Sync („initial") überspringt
+      // Toasts, weil dort kein echter Übergang stattfand.
+      if (!opts.initial) {
+        _notifyBoardTransitions(_preSyncSnapshot, _boardProjects);
+      }
       if (key) {
         try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
       }
@@ -10250,6 +10840,9 @@ function _syncBoardFromServer(opts) {
             var currentView = document.querySelector('.board-view-btn.active');
             if (currentView && currentView.dataset.view) switchBoardView(currentView.dataset.view);
           } else {
+            if (activeWasDeletedRemotely) {
+              showToast('Dieses Projekt wurde auf einem anderen Gerät gelöscht.', 'info');
+            }
             showBoardProjects();
           }
         } else {
@@ -10337,9 +10930,15 @@ function _ensureBoardSyncListeners() {
   if (_boardSyncPollTimer) clearInterval(_boardSyncPollTimer);
   _boardSyncPollTimer = setInterval(function() {
     if (currentUser && document.visibilityState === 'visible' && !_boardSaveInflight && !_boardDirty) {
+      // Schnellerer Live-Pulse, wenn die Board-Seite aktiv ist – damit
+      // Server-Bestätigungen des Dienstleisters möglichst zeitnah als
+      // Toast beim User ankommen.
+      var boardActive = !!(document.getElementById('page-board') &&
+        document.getElementById('page-board').classList.contains('active'));
+      if (!boardActive && (Date.now() - _boardLastSyncAt) < 25000) return;
       _syncBoardFromServer();
     }
-  }, 30000);
+  }, 8000);
 }
 
 // Button-Handler: Manueller Cloud-Sync (optimistisch: erst push, dann pull)
@@ -10370,7 +10969,7 @@ function _pushBoardToServer() {
   if (!currentUser) return Promise.resolve();
   _boardSaveInflight = true;
   _boardDirty = true;
-  var payload = JSON.stringify({ projects: _boardProjects });
+  var payload = JSON.stringify({ projects: _boardProjects, deleted: _boardTombstones });
   return fetch(_apiUrl('board-projects'), {
     method: 'POST',
     credentials: 'same-origin',
@@ -10461,7 +11060,7 @@ window.addEventListener('pagehide', function() {
   if (!_boardDirty || !currentUser) return;
   try {
     var url = _apiUrl('board-projects');
-    var payload = JSON.stringify({ projects: _boardProjects });
+    var payload = JSON.stringify({ projects: _boardProjects, deleted: _boardTombstones });
     if (_wpNonce) url += (url.indexOf('?') === -1 ? '?' : '&') + '_wpnonce=' + encodeURIComponent(_wpNonce);
     if (navigator.sendBeacon) {
       var blob = new Blob([payload], { type: 'application/json' });
@@ -10499,8 +11098,8 @@ function renderAuftraegePage() {
       '<span class="material-icons-round" style="color:var(--primary);font-size:28px">info</span>' +
       '<div style="flex:1;font-size:14px;line-height:1.6">' +
         '<strong>So funktioniert\'s:</strong><br>' +
-        '1. Ein Kunde bucht dich verbindlich &rarr; du erh&auml;ltst eine <em>Buchungsbest&auml;tigung</em> per E-Mail (CC an kontakt@eventb&ouml;rse.de f&uuml;r Transparenz).<br>' +
-        '2. Du stellst die Rechnung aus. Der Kunde zahlt (per &Uuml;berweisung, Bar, PayPal &mdash; bald direkt via <strong>Stripe</strong>).<br>' +
+        '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
+        '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix und die Zahlung wird freigegeben (3% Stripe, 3% Eventb&ouml;rse-Provision).<br>' +
         '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.' +
       '</div>' +
     '</div>' +
@@ -10539,6 +11138,11 @@ function renderAuftraegePage() {
     var dateStr = p.date ? _formatDateDe(p.date) : '—';
     var canConfirm = stage === 'bestaetigt' && !c.providerConfirmedAt;
     var alreadyConfirmed = !!c.providerConfirmedAt;
+    var canAccept = stage === 'angebot' && !c.providerAcceptedAt;
+    var priceNum = parseFloat(c.price) || 0;
+    var stripeFee = priceNum * 0.03;
+    var platformFee = priceNum * 0.03;
+    var netPayout = priceNum - stripeFee - platformFee;
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
       '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
@@ -10552,7 +11156,15 @@ function renderAuftraegePage() {
           '<div><span style="color:var(--text-light)">Preis:</span> <strong>' + esc(priceStr) + '</strong></div>' +
           (c.paymentMethod ? '<div><span style="color:var(--text-light)">Zahlung:</span> <strong>' + esc(c.paymentMethod) + '</strong></div>' : '') +
         '</div>' +
-        (canConfirm
+        (canAccept
+          ? '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
+              '<div style="display:flex;justify-content:space-between"><span>Brutto</span><span>' + esc(_formatEuro(priceNum)) + '</span></div>' +
+              '<div style="display:flex;justify-content:space-between"><span>Stripe-Geb&uuml;hr (3%)</span><span>&minus;' + esc(_formatEuro(stripeFee)) + '</span></div>' +
+              '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>&minus;' + esc(_formatEuro(platformFee)) + '</span></div>' +
+              '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Du erh&auml;ltst</span><strong style="color:#66bb6a">' + esc(_formatEuro(netPayout)) + '</strong></div>' +
+            '</div>' +
+            '<button class="btn-primary" style="width:100%;background:#66bb6a;border-color:#66bb6a" onclick="acceptAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')"><span class="material-icons-round">check_circle</span> Auftrag annehmen</button>'
+          : canConfirm
           ? '<button class="btn-primary" style="width:100%" onclick="confirmAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')"><span class="material-icons-round">verified</span> Erbringung best&auml;tigen</button>'
           : alreadyConfirmed
             ? '<div style="padding:10px;background:rgba(102,187,106,0.1);border-radius:8px;color:#388e3c;font-size:13px;text-align:center"><span class="material-icons-round" style="vertical-align:middle;font-size:16px">check_circle</span> Deinerseits best&auml;tigt</div>'
@@ -10580,6 +11192,48 @@ function confirmAuftragProvider(projectId, cardId) {
     showToast('Best\u00e4tigung gespeichert. Wartet auf Kunden-Best\u00e4tigung.', 'hourglass_top');
   }
   _saveBoardProjects();
+  renderAuftraegePage();
+}
+
+/**
+ * Provider nimmt einen gebuchten Auftrag an → Zahlung wird freigegeben.
+ * Setzt die Karte auf „Bezahlt" (bestaetigt) und erfasst die Gebühren-
+ * Aufteilung: 3% Stripe, 3% Eventbörse-Provision, 94% Auszahlung.
+ * Der Kunde sieht die Statusänderung beim nächsten Sync automatisch.
+ */
+function acceptAuftragProvider(projectId, cardId) {
+  var proj = (_boardProjects || []).find(function(p){ return p.id === projectId; });
+  if (!proj) return;
+  var card = (proj.cards || []).find(function(c){ return c.id === cardId; });
+  if (!card) return;
+  if (card.providerAcceptedAt) { showToast('Auftrag wurde bereits angenommen.', 'info'); return; }
+
+  var priceNum = parseFloat(card.price) || 0;
+  var stripeFee = +(priceNum * 0.03).toFixed(2);
+  var platformFee = +(priceNum * 0.03).toFixed(2);
+  var net = +(priceNum - stripeFee - platformFee).toFixed(2);
+
+  var msg = 'Auftrag verbindlich annehmen?\n\n' +
+    'Brutto: ' + _formatEuro(priceNum) + '\n' +
+    '– Stripe-Geb\u00fchr (3%): ' + _formatEuro(stripeFee) + '\n' +
+    '– Eventb\u00f6rse-Provision (3%): ' + _formatEuro(platformFee) + '\n' +
+    'Auszahlung an dich: ' + _formatEuro(net);
+  if (!confirm(msg)) return;
+
+  var nowIso = new Date().toISOString();
+  card.providerAcceptedAt = nowIso;
+  card.stage = 'bestaetigt';
+  card.paidAt = nowIso;
+  card.paymentStatus = 'Bezahlt';
+  if (!card.paymentMethod) card.paymentMethod = 'Stripe';
+  card.paidAmount = priceNum;
+  card.grossAmount = priceNum;
+  card.stripeFeeAmount = stripeFee;
+  card.platformFeeAmount = platformFee;
+  card.netPayoutAmount = net;
+
+  _saveBoardProjects({ immediate: true });
+  showToast('Auftrag angenommen – Auszahlung ' + _formatEuro(net) + '.', 'paid');
   renderAuftraegePage();
 }
 
@@ -10626,10 +11280,36 @@ function renderBoardPage() {
         <h3>${_escHtml(p.name)}</h3>
         <div class="bpc-date"><span class="material-icons-round">event</span>${_escHtml(p.date || 'Datum noch offen')}</div>
         <div class="board-project-progress">
-          ${['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'].map(function(stage) {
-            var cnt = (p.cards || []).filter(function(c) { return c.stage === stage; }).length;
-            return '<div class="bpp-stage' + (cnt > 0 ? ' filled stage-' + stage : '') + '" title="' + stage + ': ' + cnt + '"></div>';
-          }).join('')}
+          ${(function() {
+            var order = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+            var cards = p.cards || [];
+            // Höchste je erreichte Stage pro Karte ableiten – auch wenn die
+            // Karte später zurückgesetzt wurde, sollen frühere Schritte
+            // gefüllt bleiben, weil sie historisch erreicht wurden.
+            function maxStageIndex(c) {
+              var idx = order.indexOf(c.stage);
+              if (idx < 0) idx = 0;
+              if (c.contactDate || c.contactMethod || c.contactMessage) idx = Math.max(idx, 1);
+              if (c.bookedAt || c.invoiceSentAt) idx = Math.max(idx, 2);
+              if (c.providerConfirmedAt) idx = Math.max(idx, 3);
+              if (c.fulfilledAt || (c.userConfirmedAt && c.providerConfirmedAt)) idx = Math.max(idx, 4);
+              return idx;
+            }
+            // Höchster erreichter Index aller Karten – bestimmt, wie weit der
+            // Balken insgesamt gefüllt wird. „Geplant" ist immer erreicht,
+            // sobald das Projekt überhaupt existiert (deshalb Start bei 0).
+            var maxReached = 0;
+            cards.forEach(function(c) {
+              var i = maxStageIndex(c);
+              if (i > maxReached) maxReached = i;
+            });
+            return order.map(function(stage, i) {
+              var atStage = cards.filter(function(c) { return c.stage === stage; }).length;
+              var filled = i <= maxReached;
+              return '<div class="bpp-stage' + (filled ? ' filled stage-' + stage : '') +
+                '" title="' + stage + ': ' + atStage + '"></div>';
+            }).join('');
+          })()}
         </div>
         <div class="board-project-footer">
           <span class="bpf-count"><span class="material-icons-round">group</span>${total} Dienstleister</span>
@@ -10641,9 +11321,55 @@ function renderBoardPage() {
   _initAnimatedEntries();
 }
 
+function _sendProjectCancellation(providerId, listingId, listingTitle, project, cancelText) {
+  var cancelPayload = {
+    kind: 'inquiry_cancelled',
+    listing: listingTitle || '',
+    projectName: (project && project.name) || '',
+    date: (project && project.date) || '',
+    reason: 'Projekt vom Kunden geschlossen'
+  };
+  var cancelJson = JSON.stringify(cancelPayload);
+  return fetch(_apiUrl('conversations'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ other_user_id: providerId, listing_id: listingId })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(convo) {
+      if (!convo || !convo.id) return null;
+      // 1) Strukturierte Storno-Karte (flippt Inquiry-Card auf beiden Seiten)
+      return fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ content: cancelJson, type: 'message' })
+      }).then(function() {
+        // 2) Zusätzliche Text-Absage als höfliche Nachricht
+        return fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
+          method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+          body: JSON.stringify({ content: cancelText, type: 'text' })
+        });
+      });
+    })
+    .catch(function() {});
+}
+
 function deleteBoardProjectById(projectId) {
   var project = _boardProjects.find(function(p) { return p.id === projectId; });
-  if (!project) return;
+  // Re-entry-Guard: schützt vor Doppelklick innerhalb derselben Session.
+  // Bewusst KEIN Tombstone-Check – falls ein „totes" Projekt wieder
+  // auftaucht (Sync-Race etc.), muss der User es nochmal löschen dürfen.
+  if (window._boardDeleteInFlight && window._boardDeleteInFlight[projectId]) return;
+
+  // Wenn das Projekt lokal nicht (mehr) existiert, aber trotzdem noch sichtbar
+  // war (stale DOM), einfach Tombstone aktualisieren und neu rendern.
+  if (!project) {
+    _boardProjects = _boardProjects.filter(function(p) { return p.id !== projectId; });
+    _addBoardTombstone(projectId);
+    _saveBoardProjects({ immediate: true });
+    renderBoardPage();
+    showToast('Projekt gelöscht', 'delete');
+    return;
+  }
+
   var cards = project.cards || [];
   var activeStages = ['kontaktiert', 'angebot', 'bestaetigt'];
   var contactedCards = cards.filter(function(c) {
@@ -10660,6 +11386,15 @@ function deleteBoardProjectById(projectId) {
   }
   if (!confirm(msg)) return;
 
+  window._boardDeleteInFlight = window._boardDeleteInFlight || {};
+  window._boardDeleteInFlight[projectId] = true;
+
+  // In-Memory-Dedupe (pro Aufruf): verhindert, dass mehrere Karten mit
+  // demselben Provider+Listing-Paar eine doppelte Absage bekommen.
+  // Bewusst NICHT in localStorage persistiert – falls der User erneut
+  // löscht (weil Projekt wieder auftauchte), soll die Absage erneut raus.
+  var notified = {};
+
   // Send cancellation notifications to contacted providers
   if (contactedCards.length > 0 && isLoggedIn) {
     var cancelText = 'Hallo,\n\nleider muss ich das Event-Projekt "' + project.name +
@@ -10671,27 +11406,34 @@ function deleteBoardProjectById(projectId) {
       var listing = (typeof LISTINGS !== 'undefined' && LISTINGS)
         ? LISTINGS.find(function(l) { return l.id === card.listingId; })
         : null;
-      var providerId = listing ? listing.providerId : null;
-      if (!providerId) return;
+      var providerId = (listing && listing.providerId) || card.providerId || null;
+      if (!providerId) {
+        // Fallback: Listing nachladen, falls LISTINGS-Cache (noch) leer ist
+        fetch(_apiUrl('listings/' + card.listingId), { credentials: 'same-origin', headers: _apiHeaders() })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(l){
+            if (!l || !l.providerId) return;
+            if (currentUser && l.providerId === currentUser.id) return;
+            var dk = l.providerId + '|' + card.listingId;
+            if (notified[dk]) return;
+            notified[dk] = true;
+            _sendProjectCancellation(l.providerId, card.listingId, l.title || card.name || '', project, cancelText);
+          })
+          .catch(function(){});
+        return;
+      }
       if (currentUser && providerId === currentUser.id) return;
 
-      fetch(_apiUrl('conversations'), {
-        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ other_user_id: providerId, listing_id: card.listingId })
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(convo) {
-          if (!convo || !convo.id) return;
-          return fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
-            method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-            body: JSON.stringify({ content: cancelText, type: 'text' })
-          });
-        })
-        .catch(function() {});
+      var dedupeKey = providerId + '|' + card.listingId;
+      if (notified[dedupeKey]) return;
+      notified[dedupeKey] = true;
+
+      _sendProjectCancellation(providerId, card.listingId, (listing && listing.title) || card.name || '', project, cancelText);
     });
   }
 
   _boardProjects = _boardProjects.filter(function(p) { return p.id !== projectId; });
+  _addBoardTombstone(projectId);
   _saveBoardProjects({ immediate: true });
   renderBoardPage();
 
@@ -10700,6 +11442,12 @@ function deleteBoardProjectById(projectId) {
   } else {
     showToast('Projekt gelöscht', 'delete');
   }
+
+  // Flag nach kurzer Zeit wieder freigeben, damit erneutes Löschen möglich
+  // ist, falls das Projekt durch einen Sync-Race wieder auftaucht.
+  setTimeout(function() {
+    if (window._boardDeleteInFlight) delete window._boardDeleteInFlight[projectId];
+  }, 2000);
 }
 
 function showBoardProjects() {
@@ -10797,6 +11545,14 @@ function allowDrop(event) {
   event.preventDefault();
   event.currentTarget.classList.add('drag-over');
 }
+// Protected stages: nur über Aktions-/Payment-Flow erreichbar, nicht per Drag&Drop.
+var _PROTECTED_STAGES = ['angebot','bestaetigt','abgeschlossen'];
+function _protectedStageMessage(stage) {
+  if (stage === 'angebot') return 'Diese Spalte wird nur über „Jetzt buchen“ befüllt – so bleibt die Buchung verbindlich.';
+  if (stage === 'bestaetigt') return 'Status „Bezahlt“ wird automatisch gesetzt, sobald der Dienstleister den Auftrag annimmt.';
+  if (stage === 'abgeschlossen') return 'Status „Erfüllt“ wird vom System gesetzt, wenn beide Seiten die Erbringung bestätigen.';
+  return 'Dieser Status wird vom System gesetzt.';
+}
 function dropCard(event, toStage) {
   event.preventDefault();
   event.currentTarget.classList.remove('drag-over');
@@ -10805,10 +11561,16 @@ function dropCard(event, toStage) {
   if (!project) return;
   var card = (project.cards || []).find(function(c) { return c.id === _dragCardId; });
   if (card) {
-    card.stage = toStage;
-    _saveBoardProjects();
-    renderKanban(project);
-    _updateBoardStats(project);
+    var isProtected = _PROTECTED_STAGES.indexOf(toStage) !== -1;
+    // Erlaubt: innerhalb derselben Spalte bleiben (reine Sortierung).
+    if (isProtected && card.stage !== toStage) {
+      showToast(_protectedStageMessage(toStage), 'warning');
+    } else {
+      card.stage = toStage;
+      _saveBoardProjects();
+      renderKanban(project);
+      _updateBoardStats(project);
+    }
   }
   _dragCardId = null;
   document.querySelectorAll('.kanban-card.dragging').forEach(function(el) { el.classList.remove('dragging'); });
@@ -10874,7 +11636,82 @@ function renderBoardTimeline() {
 }
 
 /* ─── n8n-style Process Flow ─────────────────────────────── */
+// Aktuelle Breakpoint-Kategorie für das Flow-Board. Layouts werden
+// pro Breakpoint separat gespeichert, damit ein Wechsel zwischen
+// Handy/Tablet/Desktop die Welt nicht zerschiesst.
+function _currentFlowBp() {
+  var vw = window.innerWidth || 1200;
+  if (vw <= 600) return 'mobile';
+  if (vw <= 900) return 'tablet';
+  return 'desktop';
+}
+
+// Liefert das gespeicherte Layout für den aktuellen Breakpoint.
+// Migriert die alte Einzel-Struktur `project.flowLayout` nach Desktop.
+function _getFlowLayoutForBp(project, bp) {
+  if (!project) return {};
+  if (project.flowLayouts && project.flowLayouts[bp] && typeof project.flowLayouts[bp] === 'object') {
+    return project.flowLayouts[bp];
+  }
+  // Legacy: alte Variante war ein einzelnes Layout ohne Breakpoint-Zuordnung.
+  // Wir nehmen an, dass diese für Desktop gedacht war.
+  if (!project.flowLayouts && project.flowLayout && bp === 'desktop' && typeof project.flowLayout === 'object') {
+    return project.flowLayout;
+  }
+  return {};
+}
+
+// Debounced Resize-/Orientation-Watcher: bei Breakpoint-Wechsel neu rendern,
+// sonst nur Verbindungen neu zeichnen. Wird einmal pro Seite registriert.
+var _flowLastBp = null;
+var _flowResizeTimer = null;
+function _initFlowResizeWatcher() {
+  if (window._flowResizeWatcherAttached) return;
+  window._flowResizeWatcherAttached = true;
+  function onResize() {
+    if (_flowResizeTimer) clearTimeout(_flowResizeTimer);
+    _flowResizeTimer = setTimeout(function() {
+      var flow = document.getElementById('boardFlowView');
+      if (!flow) return;
+      // Nur reagieren, wenn die Flow-Ansicht gerade sichtbar ist.
+      var cs = flow.style.display;
+      var visible = cs !== 'none' && flow.offsetParent !== null;
+      if (!visible || !_activeBoardId) return;
+      var bp = _currentFlowBp();
+      if (bp !== _flowLastBp) {
+        _flowLastBp = bp;
+        _flowFittedFor = null; // beim Breakpoint-Wechsel wieder fitten
+        try { renderBoardFlow(); } catch(_) {}
+      } else {
+        try { _drawFlowConnections(); } catch(_) {}
+      }
+    }, 150);
+  }
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+}
+
 function renderBoardFlow() {
+  _initFlowResizeWatcher();
+  _flowLastBp = _currentFlowBp();
+  try {
+    _renderBoardFlowImpl();
+  } catch (e) {
+    try { console.error('[Flow] render failed', e); } catch (_) {}
+    var cont = document.getElementById('boardFlowView');
+    if (cont) {
+      cont.innerHTML =
+        '<div style="padding:40px;text-align:center;color:var(--text-light)">' +
+        '<span class="material-icons-round" style="font-size:48px;opacity:.4;display:block;margin-bottom:12px">warning_amber</span>' +
+        '<p style="margin:0 0 14px 0">Die Board-Ansicht konnte nicht geladen werden.</p>' +
+        '<button class="btn-outline" onclick="try{renderBoardFlow()}catch(e){}">' +
+        '<span class="material-icons-round">refresh</span> Erneut versuchen</button>' +
+        '</div>';
+    }
+  }
+}
+
+function _renderBoardFlowImpl() {
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
   if (!project) return;
@@ -10901,10 +11738,13 @@ function renderBoardFlow() {
   var progressPct = cards.length > 0 ? Math.round(confirmedCount / cards.length * 100) : 0;
 
   // Default layout: responsive sizes based on viewport
-  var storedLayout = project.flowLayout || {};
   var _vw = window.innerWidth || 1200;
   var _isMobile = _vw <= 600;
   var _isTablet = _vw <= 900;
+  var _bp = _isMobile ? 'mobile' : (_isTablet ? 'tablet' : 'desktop');
+  // Stored layouts are kept PER BREAKPOINT, damit eine auf dem Desktop
+  // gespeicherte Position nicht das Handy-Layout zerstört (und umgekehrt).
+  var storedLayout = _getFlowLayoutForBp(project, _bp);
   var _GAP = _isMobile ? 24 : _isTablet ? 36 : 64;
   var _TW  = _isMobile ? 110 : _isTablet ? 136 : 168;
   var _NW  = _isMobile ? 160 : _isTablet ? 190 : 236;
@@ -10963,6 +11803,7 @@ function renderBoardFlow() {
   html += '<div class="flow-tb-divider"></div>';
   html += '<button class="flow-tbtn" onclick="flowFitToScreen()" title="An Bildschirm anpassen"><span class="material-icons-round">fit_screen</span></button>';
   html += '<button class="flow-tbtn" onclick="flowResetView()" title="Ansicht zurücksetzen"><span class="material-icons-round">center_focus_strong</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowAutoLayout()" title="Struktur neu anordnen"><span class="material-icons-round">auto_awesome_motion</span></button>';
   html += '<button class="flow-tbtn" id="flowFullscreenBtn" onclick="toggleFlowFullscreen()" title="Vollbild"><span class="material-icons-round" id="flowFullscreenIcon">fullscreen</span></button>';
   html += '<div class="flow-tb-divider"></div>';
   // Progress ring
@@ -11067,9 +11908,9 @@ function renderBoardFlow() {
       if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
       html += '<div class="flow-prov-actions">';
-      var _saLabels = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Zahlung bestätigen',bestaetigt:'Erbringung bestätigen'};
-      var _saIcons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'paid',bestaetigt:'verified'};
-      var _saColors = {geplant:'#42a5f5',kontaktiert:'#ab47bc',angebot:'#66bb6a',bestaetigt:'#FF385C'};
+      var _saLabels = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Status ansehen',bestaetigt:'Erbringung bestätigen'};
+      var _saIcons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'hourglass_top',bestaetigt:'verified'};
+      var _saColors = {geplant:'#42a5f5',kontaktiert:'#ab47bc',angebot:'#FFA726',bestaetigt:'#FF385C'};
       if (_saLabels[stage.id]) {
         html += '<button class="flow-prov-action-btn" style="--sa-clr:' + _saColors[stage.id] + '" onclick="event.stopPropagation();openStageAdvanceModal(\'' + card.id + '\',\'' + stage.id + '\')">';
         html += '<span class="material-icons-round">' + _saIcons[stage.id] + '</span> ' + _saLabels[stage.id];
@@ -11253,13 +12094,15 @@ function openFlowProjectModal() {
     '<h2>Event bearbeiten</h2></div>' +
     '<form class="modal-form" onsubmit="_saveFlowProject(event)">' +
     '<div class="form-group"><label>Event-Name</label><input type="text" id="fpName" value="' + _escHtml(project.name) + '" required /></div>' +
-    '<div class="form-group"><label>Datum</label><input type="date" id="fpDate" value="' + _escHtml(_toIsoDate(project.date) || '') + '" /></div>' +
+    '<div class="form-group"><label>Datum</label><input type="text" id="fpDate" placeholder="TT.MM.JJJJ" autocomplete="off" value="' + _escHtml(_toIsoDate(project.date) || '') + '" /></div>' +
     '<div class="form-group"><label>Budget (€)</label><input type="number" id="fpBudget" value="' + (project.budget || '') + '" min="0" step="100" /></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
     '<button type="button" class="btn-outline btn-block" style="margin-top:8px;border-color:#f44336;color:#f44336" onclick="_deleteFlowProject()">' +
     '<span class="material-icons-round">delete</span> Projekt löschen</button>' +
     '</form></div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
+  // Deutsches Datumsformat (TT.MM.JJJJ) mit Kalender.
+  _attachGermanDatePicker('#fpDate');
 }
 function _saveFlowProject(event) {
   event.preventDefault();
@@ -11278,7 +12121,9 @@ function _saveFlowProject(event) {
 function _deleteFlowProject() {
   if (!_activeBoardId) return;
   if (!confirm('Projekt wirklich löschen?')) return;
-  _boardProjects = _boardProjects.filter(function(p) { return p.id !== _activeBoardId; });
+  var deletedId = _activeBoardId;
+  _boardProjects = _boardProjects.filter(function(p) { return p.id !== deletedId; });
+  _addBoardTombstone(deletedId);
   _saveBoardProjects({ immediate: true });
   document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
   showBoardProjects();
@@ -11523,7 +12368,12 @@ function _saveFlowCard(event, cardId) {
   card.price     = parseFloat(document.getElementById('fcPrice').value) || 0;
   card.startTime = document.getElementById('fcTime').value;
   card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
-  card.stage     = document.getElementById('fcStage').value;
+  var _newStage = document.getElementById('fcStage').value;
+  if (typeof _PROTECTED_STAGES !== 'undefined' && _PROTECTED_STAGES.indexOf(_newStage) !== -1 && card.stage !== _newStage) {
+    showToast(_protectedStageMessage(_newStage), 'warning');
+  } else {
+    card.stage = _newStage;
+  }
   card.note      = document.getElementById('fcNote').value.trim();
   _saveBoardProjects();
   document.getElementById('flowCardModal') && document.getElementById('flowCardModal').remove();
@@ -11554,6 +12404,14 @@ function moveBoardCardStage(cardId, currentStage) {
   if (!project) return;
   var card = (project.cards || []).find(function(c) { return c.id === cardId; });
   if (!card) return;
+  // Geschützte Stages dürfen nicht per Schnell-Move erreicht werden – der
+  // Übergang muss über den offiziellen Aktions-/Payment-Flow erfolgen
+  // (Anbieter-Annahme, beidseitige Bestätigung). Sonst könnte ein User
+  // einfach durchklicken, ohne dass der Dienstleister geantwortet hat.
+  if (typeof _PROTECTED_STAGES !== 'undefined' && _PROTECTED_STAGES.indexOf(nextStage) !== -1) {
+    showToast(_protectedStageMessage(nextStage), 'warning');
+    return;
+  }
   card.stage = nextStage;
   _saveBoardProjects();
   renderBoardFlow();
@@ -11871,8 +12729,8 @@ function openStageAdvanceModal(cardId, currentStage) {
   var card = (project.cards || []).find(function(c) { return c.id === cardId; });
   if (!card) return;
 
-  var titles = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Zahlung bestätigen',bestaetigt:'Erbringung bestätigen'};
-  var icons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'paid',bestaetigt:'verified'};
+  var titles = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Warten auf Annahme',bestaetigt:'Erbringung bestätigen'};
+  var icons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'hourglass_top',bestaetigt:'verified'};
   var title  = titles[currentStage] || 'Weiter';
   var icon   = icons[currentStage] || 'arrow_forward';
 
@@ -11986,30 +12844,40 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<label class="sa-label">Anmerkung f&uuml;r Rechnung <small>(optional)</small></label>' +
       '<textarea id="saBookNote" class="sa-input" rows="2" placeholder="Uhrzeit, Adresse, Besonderheiten…"></textarea>';
   } else if (currentStage === 'angebot') {
-    // Stage "Gebucht" → "Bezahlt": Zahlung bestätigen (Stripe folgt, derzeit manuell)
-    var _paidAmount = card.price || (_listing && _listing.price) || '';
+    // Stage "Gebucht" → wartet auf Auftragsannahme durch den Dienstleister.
+    // Der Nutzer muss NICHTS mehr bestätigen. Sobald der Dienstleister in seinen
+    // Aufträgen „Auftrag annehmen" drückt, springt die Karte automatisch auf
+    // „Bezahlt". Hier zeigen wir nur den Status (read-only).
+    var _waitPrice = card.price || (_listing && _listing.price) || 0;
+    var _waitPriceStr = _formatEuro(_waitPrice);
+    var _bookedDate = card.bookedAt ? _formatDateDe(card.bookedAt.slice(0,10)) : '—';
+    var _stripeFee = (parseFloat(_waitPrice) || 0) * 0.03;
+    var _platformFee = (parseFloat(_waitPrice) || 0) * 0.03;
     fieldsHtml = '' +
-      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(102,187,106,0.12),rgba(102,187,106,0.04));border:1px solid rgba(102,187,106,0.3);border-radius:12px;padding:14px;margin-bottom:12px">' +
+      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(255,167,38,0.14),rgba(255,167,38,0.04));border:1px solid rgba(255,167,38,0.35);border-radius:12px;padding:14px;margin-bottom:12px">' +
         '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">' +
-          '<span class="material-icons-round" style="color:#66bb6a">paid</span>' +
-          '<strong>Zahlung best&auml;tigen</strong>' +
+          '<span class="material-icons-round" style="color:#FFA726">hourglass_top</span>' +
+          '<strong>Warten auf Auftragsannahme</strong>' +
         '</div>' +
         '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
-          'Sobald die Zahlung eingegangen ist, wird dieses Projekt als <strong>Bezahlt</strong> markiert — ' +
-          'so hast du Planungssicherheit.' +
+          'Deine Buchung ist verbindlich &uuml;bermittelt. Sobald der Dienstleister ' +
+          'den Auftrag in seiner &bdquo;Auftr&auml;ge&ldquo;-Ansicht <strong>annimmt</strong>, ' +
+          'wird die Zahlung freigegeben und dein Projekt springt automatisch auf ' +
+          '<strong>Bezahlt</strong>. Du musst nichts weiter tun.' +
         '</div>' +
       '</div>' +
-      '<label class="sa-label">Bezahlter Betrag (€)</label>' +
-      '<input id="saPaidAmount" type="number" class="sa-input" step="0.01" min="0" value="' + _escHtml(String(_paidAmount)) + '">' +
-      '<label class="sa-label">Zahlungsart</label>' +
-      '<div class="sa-chips">' +
-        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Stripe"><span>💳 Stripe <small>(online)</small></span></label>' +
-        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Überweisung" checked><span>🏦 &Uuml;berweisung</span></label>' +
-        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="Bar"><span>💶 Bar</span></label>' +
-        '<label class="sa-chip"><input type="radio" name="saPayMethod" value="PayPal"><span>🅿️ PayPal</span></label>' +
+      '<label class="sa-label">Gebucht am</label>' +
+      '<input class="sa-input" readonly value="' + _escHtml(_bookedDate) + '">' +
+      '<label class="sa-label">Leistung</label>' +
+      '<input class="sa-input" readonly value="' + _escHtml((_listing && _listing.title) || card.name || '') + '">' +
+      '<label class="sa-label">Betrag (brutto)</label>' +
+      '<input class="sa-input" readonly value="' + _escHtml(_waitPriceStr) + '">' +
+      '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6">' +
+        '<div style="display:flex;justify-content:space-between"><span>Zahlungsgeb&uuml;hr (Stripe 3%)</span><span>' + _escHtml(_formatEuro(_stripeFee)) + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>' + _escHtml(_formatEuro(_platformFee)) + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Dienstleister erh&auml;lt</span><strong>' + _escHtml(_formatEuro((parseFloat(_waitPrice) || 0) - _stripeFee - _platformFee)) + '</strong></div>' +
       '</div>' +
-      '<label class="sa-label">Referenz / Verwendungszweck <small>(optional)</small></label>' +
-      '<input id="saPayRef" type="text" class="sa-input" placeholder="z.B. Rechnungsnummer">';
+      '<input type="hidden" id="saWaitStage" value="1">';
   } else if (currentStage === 'bestaetigt') {
     // Stage "Bezahlt" → "Erfüllt": Dual-Confirmation am Event-Tag.
     var _hasProvConfirm = !!card.providerConfirmedAt;
@@ -12058,6 +12926,9 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<textarea id="saComment" class="sa-input" rows="2" placeholder="Wie war die Zusammenarbeit?"></textarea>';
   }
 
+  var _submitIcon = (currentStage === 'angebot') ? 'close' : icon;
+  var _submitText = (currentStage === 'angebot') ? 'Schlie&szlig;en' : title;
+  var _hideCancel = (currentStage === 'angebot');
   var overlay = document.createElement('div');
   overlay.className = 'sa-overlay';
   overlay.innerHTML = '' +
@@ -12065,8 +12936,8 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<div class="sa-header"><span class="material-icons-round">' + icon + '</span> ' + title + ' – ' + (card.name || 'Karte') + '</div>' +
       '<div class="sa-body">' + fieldsHtml + '</div>' +
       '<div class="sa-footer">' +
-        '<button class="sa-cancel" onclick="this.closest(\'.sa-overlay\').remove()">Abbrechen</button>' +
-        '<button class="sa-submit" id="saSubmitBtn"><span class="material-icons-round">' + icon + '</span> ' + title + '</button>' +
+        (_hideCancel ? '' : '<button class="sa-cancel" onclick="this.closest(\'.sa-overlay\').remove()">Abbrechen</button>') +
+        '<button class="sa-submit" id="saSubmitBtn"><span class="material-icons-round">' + _submitIcon + '</span> ' + _submitText + '</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(overlay);
@@ -12164,20 +13035,25 @@ function openStageAdvanceModal(cardId, currentStage) {
           // "Speichern/Weiter" klicken.
           try {
             if (currentStage === 'geplant') {
-              card.contactMethod = 'Chat + E-Mail';
-              card.contactMessage = msg.trim();
-              card.contactDate = new Date().toISOString().slice(0,10);
+              // Refs frisch aus _boardProjects holen, da ein zwischenzeitlicher
+              // _syncBoardFromServer das Array ersetzt haben kann (alte Refs
+              // wären dann verwaist und Mutationen blieben unsichtbar).
+              var _liveProject = _boardProjects.find(function(p){ return p.id === _activeBoardId; }) || project;
+              var _liveCard = ((_liveProject && _liveProject.cards) || []).find(function(c){ return c.id === cardId; }) || card;
+              _liveCard.contactMethod = 'Chat + E-Mail';
+              _liveCard.contactMessage = msg.trim();
+              _liveCard.contactDate = new Date().toISOString().slice(0,10);
               var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
               var idx = stagesOrder.indexOf(currentStage);
               if (idx >= 0 && idx < stagesOrder.length - 1) {
-                card.stage = stagesOrder[idx + 1];
+                _liveCard.stage = stagesOrder[idx + 1];
               }
               _saveBoardProjects();
               setTimeout(function(){
                 try { overlay.remove(); } catch(_) {}
                 try { renderBoardFlow(); } catch(_) {}
-                try { renderKanban(project); } catch(_) {}
-                try { _updateBoardStats(project); } catch(_) {}
+                try { renderKanban(_liveProject); } catch(_) {}
+                try { _updateBoardStats(_liveProject); } catch(_) {}
               }, 900);
             }
           } catch(_) {}
@@ -12208,6 +13084,18 @@ function openStageAdvanceModal(cardId, currentStage) {
     var _nowIso = new Date().toISOString();
     var _advance = true; // wird ggf. unterdrueckt (Dual-Confirm)
 
+    // Refs frisch auflösen – während das Modal offen war, kann
+    // _syncBoardFromServer das _boardProjects-Array ersetzt haben, sodass
+    // die ursprünglich gefangenen project/card-Referenzen verwaist sind
+    // und Mutationen nicht im neuen Array (und damit auch nicht im
+    // anschließenden Re-Render) sichtbar wären.
+    var _liveProject = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+    if (_liveProject) {
+      project = _liveProject;
+      var _liveCard = (_liveProject.cards || []).find(function(c){ return c.id === cardId; });
+      if (_liveCard) card = _liveCard;
+    }
+
     if (currentStage === 'geplant') {
       var method = (document.getElementById('saContactMethod') || {}).value || 'E-Mail';
       card.contactMethod = method;
@@ -12223,47 +13111,10 @@ function openStageAdvanceModal(cardId, currentStage) {
       _sendInvoiceNotification(card, project, _listing).catch(function(){});
       showToast('Buchung ausgel\u00f6st – Rechnung wurde per E-Mail versendet.', 'receipt_long');
     } else if (currentStage === 'angebot') {
-      // Stage "Gebucht" → "Bezahlt": Zahlung bestaetigen
-      var _pa = parseFloat((document.getElementById('saPaidAmount') || {}).value);
-      if (!isNaN(_pa) && _pa > 0) card.paidAmount = _pa;
-      card.paymentMethod = (document.querySelector('input[name=saPayMethod]:checked') || {}).value || '';
-      card.paymentReference = (document.getElementById('saPayRef') || {}).value || '';
-
-      // Sonderfall Stripe: Eingebettetes Payment Element (kein Redirect)
-      if (card.paymentMethod === 'Stripe') {
-        var _amount = card.paidAmount || card.price || 0;
-        if (!_amount || _amount <= 0) {
-          showToast('Bitte einen Betrag > 0 € eintragen.', 'warning');
-          return;
-        }
-        _openStripePaymentModal({
-          amount: _amount,
-          title: ((_listing && _listing.title) || card.name || 'Buchung'),
-          cardId: card.id,
-          projectId: project.id,
-          listingId: card.listingId || 0,
-          onSuccess: function(result) {
-            card.paidAmount = _amount;
-            card.paidAt = new Date().toISOString();
-            card.paymentStatus = 'Bezahlt';
-            card.paymentMethod = 'Stripe';
-            card.paymentReference = (result && result.payment_intent) || '';
-            card.stripePending = false;
-            if (card.stage === 'angebot') card.stage = 'bestaetigt';
-            _saveBoardProjects();
-            overlay.remove();
-            renderBoardFlow();
-            renderKanban(project);
-            _updateBoardStats(project);
-            showToast('Zahlung erfolgreich – Status: Bezahlt.', 'paid');
-          }
-        });
-        return; // Kein Advance bis Modal-Success
-      }
-
-      card.paidAt = _nowIso;
-      card.paymentStatus = 'Bezahlt';
-      showToast('Zahlung bestaetigt – Stage wird auf „Bezahlt“ gesetzt.', 'paid');
+      // Stage "Gebucht" wartet auf Annahme durch Dienstleister.
+      // User-Aktion hier ist nur "Schließen" – keine Zahlung, keine Stage-Änderung.
+      overlay.remove();
+      return;
     } else if (currentStage === 'bestaetigt') {
       // Stage "Bezahlt" → "Erfuellt": Dual-Confirm (User + Dienstleister)
       var _userOk = !!(document.getElementById('saUserConfirm') || {}).checked;
@@ -12383,8 +13234,8 @@ function _drawFlowConnections() {
       var x1 = fromC.midX, x2 = toC.midX;
       var y1 = fromC.bottom + 2;
       var y2 = toC.top - 2;
-      if (Math.abs(x1 - x2) < 1) {
-        d = 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
+      if (Math.abs(x1 - x2) < 2) {
+        d = 'M' + x2 + ',' + y1 + ' L' + x2 + ',' + y2;
       } else {
         var my = (y1 + y2) / 2;
         d = 'M' + x1 + ',' + y1
@@ -12399,8 +13250,8 @@ function _drawFlowConnections() {
       if (!from || !to) continue;
       var hx1 = from.right, hx2 = to.left - 2;
       var hy1 = from.midY,  hy2 = to.midY;
-      if (Math.abs(hy1 - hy2) < 1) {
-        d = 'M' + hx1 + ',' + hy1 + ' L' + hx2 + ',' + hy2;
+      if (Math.abs(hy1 - hy2) < 2) {
+        d = 'M' + hx1 + ',' + hy2 + ' L' + hx2 + ',' + hy2;
       } else {
         var mx = (hx1 + hx2) / 2;
         d = 'M' + hx1 + ',' + hy1
@@ -12420,6 +13271,11 @@ function _drawFlowConnections() {
 var _flowDrag = null;
 var _flowDragJustEnded = false;
 var _flowDragWinHandlers = null;
+// Snap-to-Grid: muss exakt mit dem Dot-Pattern (28px) in styles.css matchen,
+// damit Spalten visuell an den Punkten einrasten und Verbindungslinien
+// automatisch gerade verlaufen.
+var _FLOW_GRID = 28;
+function _flowSnap(v) { return Math.round(v / _FLOW_GRID) * _FLOW_GRID; }
 
 function _initFlowDrag() {
   // Remove stale window listeners from previous render
@@ -12461,8 +13317,10 @@ function _initFlowDrag() {
       _flowDrag.col.classList.add('is-dragging');
     }
     if (!_flowDrag.moved) return;
-    _flowDrag.col.style.left = Math.max(0, _flowDrag.startLeft + dx) + 'px';
-    _flowDrag.col.style.top  = Math.max(0, _flowDrag.startTop  + dy) + 'px';
+    var nx = _flowSnap(Math.max(0, _flowDrag.startLeft + dx));
+    var ny = _flowSnap(Math.max(0, _flowDrag.startTop  + dy));
+    _flowDrag.col.style.left = nx + 'px';
+    _flowDrag.col.style.top  = ny + 'px';
     _drawFlowConnections();
   }
 
@@ -12514,8 +13372,10 @@ function _initFlowDrag() {
     }
     if (!_flowDrag.moved) return;
     e.preventDefault();
-    _flowDrag.col.style.left = Math.max(0, _flowDrag.startLeft + dx) + 'px';
-    _flowDrag.col.style.top  = Math.max(0, _flowDrag.startTop  + dy) + 'px';
+    var nxT = _flowSnap(Math.max(0, _flowDrag.startLeft + dx));
+    var nyT = _flowSnap(Math.max(0, _flowDrag.startTop  + dy));
+    _flowDrag.col.style.left = nxT + 'px';
+    _flowDrag.col.style.top  = nyT + 'px';
     _drawFlowConnections();
   }, { passive: false });
 
@@ -12538,11 +13398,25 @@ function _saveFlowColPosition(col) {
   if (!project) return;
   var colId = col.dataset.colId;
   if (!colId) return;
-  if (!project.flowLayout) project.flowLayout = {};
-  project.flowLayout[colId] = {
+  // Layouts werden pro Breakpoint gespeichert (mobile/tablet/desktop),
+  // damit ein Wechsel des Formats nicht das Layout zerstört.
+  var bp = _currentFlowBp();
+  if (!project.flowLayouts || typeof project.flowLayouts !== 'object') {
+    project.flowLayouts = {};
+    // Legacy-Layout als Desktop migrieren, falls vorhanden.
+    if (project.flowLayout && typeof project.flowLayout === 'object') {
+      project.flowLayouts.desktop = project.flowLayout;
+    }
+  }
+  if (!project.flowLayouts[bp]) project.flowLayouts[bp] = {};
+  project.flowLayouts[bp][colId] = {
     x: Math.round(parseFloat(col.style.left) || 0),
     y: Math.round(parseFloat(col.style.top)  || 0)
   };
+  // Legacy-Feld für Rückwärtskompatibilität aktuell halten (nur Desktop).
+  if (bp === 'desktop') {
+    project.flowLayout = project.flowLayouts.desktop;
+  }
   _saveBoardProjects();
 }
 
@@ -12631,6 +13505,22 @@ function flowResetView() {
   _flowApplyZoom(_flowDisplayBase || 1);
   var canvas = document.getElementById('flowCanvas');
   if (canvas) { canvas.scrollLeft = 0; canvas.scrollTop = 0; }
+}
+
+// Setzt das Layout für alle Breakpoints zurück auf die saubere Default-
+// Struktur – nützlich wenn nach Gerätewechsel (Handy ↔ Desktop) die
+// Positionen durcheinander geraten sind.
+function flowAutoLayout() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  if (!confirm('Struktur neu anordnen? Alle manuell verschobenen Spalten werden auf die Standard-Anordnung zurückgesetzt (Desktop & Handy).')) return;
+  project.flowLayouts = {};
+  delete project.flowLayout;
+  _saveBoardProjects();
+  _flowFittedFor = null;
+  try { renderBoardFlow(); } catch(_) {}
+  try { showToast && showToast('Struktur wiederhergestellt', 'success'); } catch(_) {}
 }
 
 function toggleFlowFullscreen() {
@@ -13038,23 +13928,12 @@ function _copyFlowShareUrl() {
 
 /* ─── Provider confirmation simulation ────────────────── */
 function toggleFlowCardConfirm(cardId) {
-  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
-  if (!project) return;
-  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
-  if (!card) return;
-  card.confirmedByProvider = !card.confirmedByProvider;
-  if (card.confirmedByProvider) {
-    // Auto-advance stage when confirmed
-    if (card.stage === 'geplant' || card.stage === 'kontaktiert' || card.stage === 'angebot') {
-      card.stage = 'bestaetigt';
-    }
-  }
-  _saveBoardProjects();
-  var modal = document.getElementById('flowCardModal');
-  if (modal) modal.remove();
-  renderBoardFlow();
-  _updateBoardStats(project);
-  showToast(card.confirmedByProvider ? card.name + ' hat zugestimmt!' : 'Bestätigung entfernt', card.confirmedByProvider ? 'verified' : 'undo');
+  // Alte Simulation: User durfte den Anbieter „simuliert" bestätigen und
+  // damit die Stage selbst auf „Bezahlt" springen lassen. Das ist falsch –
+  // Bestätigung MUSS vom Dienstleister-Server kommen. Funktion bleibt als
+  // No-Op erhalten, damit alte Inline-Handler nicht crashen.
+  showToast('Diese Aktion ist deaktiviert – die Bestätigung muss durch den Dienstleister erfolgen.', 'info');
+  return;
 }
 
 // Modals for Board
@@ -13096,7 +13975,7 @@ function openCreateBoardModal() {
         </div>
         <div class="form-group">
           <label>Event-Datum</label>
-          <input type="date" id="newBoardDate" />
+          <input type="text" id="newBoardDate" placeholder="TT.MM.JJJJ" autocomplete="off" />
         </div>
         <div class="form-group">
           <label>Budget (€, optional)</label>
@@ -13112,6 +13991,9 @@ function openCreateBoardModal() {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  // Deutsches Datumsformat (TT.MM.JJJJ) mit Kalender – einheitlich zu den
+  // anderen Datum-Feldern in der App.
+  _attachGermanDatePicker('#newBoardDate');
 }
 
 function _selectBoardTmpl(el) {
