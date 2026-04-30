@@ -11803,6 +11803,9 @@ function _renderBoardFlowImpl() {
   html += '<span class="flow-zoom-pct" id="flowZoomPct">100%</span>';
   html += '<button class="flow-tbtn" onclick="flowZoom(0.15)" title="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
   html += '<div class="flow-tb-divider"></div>';
+  html += '<button class="flow-tbtn" id="flowUndoBtn" onclick="flowUndo()" title="Rückgängig (Ctrl+Z)" disabled><span class="material-icons-round">undo</span></button>';
+  html += '<button class="flow-tbtn" id="flowRedoBtn" onclick="flowRedo()" title="Wiederherstellen (Ctrl+Y)" disabled><span class="material-icons-round">redo</span></button>';
+  html += '<div class="flow-tb-divider"></div>';
   html += '<button class="flow-tbtn" onclick="flowFitToScreen()" title="An Bildschirm anpassen"><span class="material-icons-round">fit_screen</span></button>';
   html += '<button class="flow-tbtn" onclick="flowResetView()" title="Ansicht zurücksetzen"><span class="material-icons-round">center_focus_strong</span></button>';
   html += '<button class="flow-tbtn" onclick="flowAutoLayout()" title="Struktur neu anordnen"><span class="material-icons-round">auto_awesome_motion</span></button>';
@@ -12042,6 +12045,8 @@ function _renderBoardFlowImpl() {
       worldElM.style.height = measuredH + 'px';
     }
     _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan();
+    // Initialer History-Eintrag (idempotent), Buttons aktualisieren
+    try { _flowPushHistory(); _flowUpdateUndoButtons(); } catch(_) {}
     // Auf Mobile IMMER neu fitten + zum Start scrollen, damit der Nutzer
     // den Start-Node sofort im Fokus hat (und nicht im leeren Raum landet).
     if (_isMobile) {
@@ -13187,17 +13192,16 @@ function _drawFlowConnections() {
     var T = colY + el.offsetTop;
     var R = L + el.offsetWidth;
     var B = T + el.offsetHeight;
-    // Anker-Y: Mitte des Stage-Headers (.flow-node-hdr) für eine durchgehende
-    // Achse über alle Stages. Trigger-Node hat keinen Header → wir nehmen
-    // dieselbe Höhe (Top + Header-Halbhöhe), damit alle Connectors exakt auf
-    // einer waagerechten Linie liegen.
-    var HEADER_H = 44; // .flow-node-hdr ~Höhe (siehe styles.css)
+    // Anker-Y: für Stage-Nodes die Mitte des Header-Streifens
+    // (.flow-node-hdr), für Trigger/End-Kreise (kein Header) die echte
+    // Box-Mitte. So setzt jede Linie sauber am optischen Mittelpunkt des
+    // jeweiligen Widgets an und schneidet nicht durch dessen Innenraum.
     var hdr = el.querySelector('.flow-node-hdr');
     var anchorY;
     if (hdr) {
       anchorY = T + hdr.offsetTop + hdr.offsetHeight / 2;
     } else {
-      anchorY = T + HEADER_H / 2;
+      anchorY = T + el.offsetHeight / 2;
     }
     return { left: L, right: R, top: T, bottom: B,
              midX: (L + R) / 2, midY: (T + B) / 2,
@@ -13266,16 +13270,17 @@ function _drawFlowConnections() {
           + ' L' + x2 + ',' + y2;
       }
     } else {
-      // Desktop: jede Verbindung läuft durch die VERTIKALE MITTE des
-      // jeweiligen Widgets (Trigger-Kreis, Stage-Header, End-Kreis). Wenn
-      // beide Mittelpunkte gleich liegen → perfekt gerade. Andernfalls
-      // sauberer 90°-Bend in der Mitte zwischen den Nodes.
+      // Desktop: Linien dürfen NIE durch eine Widget-Box laufen. Ankerpunkte
+      // sind der jeweilige optische Mittelpunkt: bei Stage-Nodes die Mitte
+      // des Header-Streifens (.flow-node-hdr), bei Trigger/End-Kreisen die
+      // Box-Mitte. Der 90°-Bend liegt exakt mittig zwischen den beiden
+      // Boxen, sodass kein Segment in einen Node hineinragt.
       var from = nodeBounds(seq[i].n);
       var to   = nodeBounds(seq[i + 1].n);
       if (!from || !to) continue;
-      var hx1 = from.right, hx2 = to.left - 2;
-      var hy1 = Math.round(from.midY);
-      var hy2 = Math.round(to.midY);
+      var hx1 = from.right + 2, hx2 = to.left - 2;
+      var hy1 = Math.round(from.anchorY);
+      var hy2 = Math.round(to.anchorY);
       if (Math.abs(hy1 - hy2) < 2) {
         var hy = Math.round((hy1 + hy2) / 2);
         d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
@@ -13303,6 +13308,93 @@ var _flowDragWinHandlers = null;
 // automatisch gerade verlaufen.
 var _FLOW_GRID = 28;
 function _flowSnap(v) { return Math.round(v / _FLOW_GRID) * _FLOW_GRID; }
+
+/* ─── Undo / Redo (Layout-Historie pro Projekt + Breakpoint) ─── */
+var _flowHistory = {};   // key = projectId+'|'+bp → { stack:[snapshot...], idx:int }
+var _flowSuppressHistory = false;
+function _flowHistKey() {
+  if (!_activeBoardId) return null;
+  try { return _activeBoardId + '|' + _currentFlowBp(); } catch(_) { return _activeBoardId + '|desktop'; }
+}
+function _flowHistGet() {
+  var k = _flowHistKey();
+  if (!k) return null;
+  if (!_flowHistory[k]) _flowHistory[k] = { stack: [], idx: -1 };
+  return _flowHistory[k];
+}
+function _flowSnapshotLayout() {
+  if (!_activeBoardId) return null;
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return null;
+  var bp = _currentFlowBp();
+  var layout = (project.flowLayouts && project.flowLayouts[bp]) || {};
+  return JSON.stringify(layout);
+}
+function _flowPushHistory() {
+  if (_flowSuppressHistory) return;
+  var h = _flowHistGet();
+  if (!h) return;
+  var snap = _flowSnapshotLayout();
+  if (snap == null) return;
+  // Doppelte Einträge ignorieren
+  if (h.idx >= 0 && h.stack[h.idx] === snap) return;
+  // Alles nach idx verwerfen (neuer Branch)
+  h.stack = h.stack.slice(0, h.idx + 1);
+  h.stack.push(snap);
+  if (h.stack.length > 50) h.stack.shift();
+  h.idx = h.stack.length - 1;
+  _flowUpdateUndoButtons();
+}
+function _flowApplySnapshot(snap) {
+  if (!_activeBoardId || snap == null) return;
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  var bp = _currentFlowBp();
+  if (!project.flowLayouts) project.flowLayouts = {};
+  try { project.flowLayouts[bp] = JSON.parse(snap) || {}; } catch(_) { project.flowLayouts[bp] = {}; }
+  if (bp === 'desktop') project.flowLayout = project.flowLayouts.desktop;
+  _saveBoardProjects();
+  _flowSuppressHistory = true;
+  try { renderBoardFlow(); } finally { _flowSuppressHistory = false; }
+  _flowUpdateUndoButtons();
+}
+function flowUndo() {
+  var h = _flowHistGet();
+  if (!h || h.idx <= 0) return;
+  h.idx--;
+  _flowApplySnapshot(h.stack[h.idx]);
+  showToast('Rückgängig gemacht', 'undo');
+}
+function flowRedo() {
+  var h = _flowHistGet();
+  if (!h || h.idx >= h.stack.length - 1) return;
+  h.idx++;
+  _flowApplySnapshot(h.stack[h.idx]);
+  showToast('Wiederhergestellt', 'redo');
+}
+function _flowUpdateUndoButtons() {
+  var h = _flowHistGet();
+  var u = document.getElementById('flowUndoBtn');
+  var r = document.getElementById('flowRedoBtn');
+  if (u) u.disabled = !h || h.idx <= 0;
+  if (r) r.disabled = !h || h.idx >= (h ? h.stack.length - 1 : 0);
+}
+// Globale Tastatur-Shortcuts: Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y, aber nur
+// wenn die Flow-Ansicht aktiv und kein Eingabefeld fokussiert ist.
+(function _initFlowShortcutsOnce() {
+  if (window._flowShortcutsBound) return;
+  window._flowShortcutsBound = true;
+  document.addEventListener('keydown', function(e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    var flowEl = document.getElementById('boardFlowView');
+    if (!flowEl || flowEl.style.display === 'none' || !flowEl.offsetParent) return;
+    var key = (e.key || '').toLowerCase();
+    if (key === 'z' && !e.shiftKey) { e.preventDefault(); flowUndo(); }
+    else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); flowRedo(); }
+  });
+})();
 
 function _initFlowDrag() {
   // Remove stale window listeners from previous render
@@ -13445,6 +13537,7 @@ function _saveFlowColPosition(col) {
     project.flowLayout = project.flowLayouts.desktop;
   }
   _saveBoardProjects();
+  _flowPushHistory();
 }
 
 /* ─── Flow Zoom / Pan ─────────────────────────────────── */
