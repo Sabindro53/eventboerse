@@ -4227,7 +4227,11 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   right: 0;
   height: auto;
   min-height: 0;
-  padding: 0;
+  /* !important nötig, damit der globale .page-Selector
+     (padding-top: var(--nav-height) !important) das Layout nicht
+     um weitere 80px nach unten drückt – sonst entsteht oben ein
+     toter Bereich und der eigentliche Chat wirkt "gequetscht". */
+  padding: 0 !important;
   overflow: hidden;
   z-index: 100;
 }
@@ -4445,7 +4449,8 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 .offer-theirs { align-self: flex-start; }
 
 /* ===== Chat message delete (hover trash + tombstone) ===== */
-.msg-sent .msg-delete-btn {
+.msg-sent .msg-delete-btn,
+.msg-received .msg-delete-btn {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -4465,20 +4470,28 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   padding: 0;
   z-index: 2;
 }
-.msg-sent .msg-delete-btn .material-icons-round { font-size: 14px; }
+.msg-received .msg-delete-btn {
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+}
+.msg-sent .msg-delete-btn .material-icons-round,
+.msg-received .msg-delete-btn .material-icons-round { font-size: 14px; }
 .msg-sent:hover .msg-delete-btn,
-.msg-sent .msg-delete-btn:focus-visible {
+.msg-sent .msg-delete-btn:focus-visible,
+.msg-received:hover .msg-delete-btn,
+.msg-received .msg-delete-btn:focus-visible {
   opacity: 1;
   pointer-events: auto;
 }
-.msg-sent .msg-delete-btn:hover {
-  background: rgba(0, 0, 0, 0.35);
-}
+.msg-sent .msg-delete-btn:hover { background: rgba(0, 0, 0, 0.35); }
+.msg-received .msg-delete-btn:hover { background: rgba(0, 0, 0, 0.35); color: #fff; }
 @media (max-width: 768px) {
-  .msg-sent .msg-delete-btn { opacity: 1; pointer-events: auto; }
+  .msg-sent .msg-delete-btn,
+  .msg-received .msg-delete-btn { opacity: 1; pointer-events: auto; }
 }
 /* Reserve space so text doesn't run under the button on hover */
 .msg-sent { padding-right: 36px; }
+.msg-received { padding-right: 36px; }
 
 .msg.msg-deleted {
   background: transparent !important;
@@ -4529,6 +4542,12 @@ body.dark-mode .msg.msg-deleted { border-color: rgba(255,255,255,0.18); }
 .cbc-sysbar .material-icons-round { font-size: 16px; }
 .cbc-inquiry .cbc-banner { border-radius: 0; }
 body.dark-mode .cbc.cbc-inquiry { background: var(--bg-alt); border-color: var(--primary); }
+
+/* Cancelled inquiry — muted/grey state on both sides once the project is deleted */
+.cbc.cbc-cancelled { border-color: #9E9E9E !important; box-shadow: 0 2px 10px rgba(0,0,0,0.08) !important; opacity: 0.82; }
+.cbc.cbc-cancelled .cbc-banner img { filter: grayscale(0.9) brightness(0.85); }
+.cbc.cbc-cancelled .cbc-chip { opacity: 0.75; }
+body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #1A1A1A; }
 
 .cbc-banner {
   width: 100%;
@@ -11027,4 +11046,192 @@ body.dark-mode .pec-icon { background: rgba(255,56,92,0.15); }
 @media (max-width: 480px) {
   .stripe-modal { max-width: 100%; border-radius: 14px; }
   .stripe-modal-header, .stripe-modal-body, .stripe-modal-footer { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ===== CHAT OPTIONS (WhatsApp-Stil): Menü, Banner, Item-Flags ===== */
+.chat-menu-wrap { position: relative; display: inline-block; }
+.chat-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 230px;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+body.dark-mode .chat-menu { background: #1E1E1E; border-color: #333; }
+.chat-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+  transition: background 0.15s ease;
+  width: 100%;
+}
+.chat-menu button:hover { background: var(--bg-alt); }
+.chat-menu button .material-icons-round { font-size: 20px; color: var(--text-light); }
+.chat-menu button.chat-menu-warn   { color: #b35c00; }
+.chat-menu button.chat-menu-warn .material-icons-round { color: #b35c00; }
+.chat-menu button.chat-menu-danger { color: #cf2e2e; }
+.chat-menu button.chat-menu-danger .material-icons-round { color: #cf2e2e; }
+.chat-menu[hidden] { display: none; }
+
+/* Block-Banner unter der Nachrichtenliste */
+.chat-block-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: rgba(207, 46, 46, 0.08);
+  border-top: 1px solid rgba(207, 46, 46, 0.25);
+  color: #cf2e2e;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.chat-block-banner .material-icons-round { color: #cf2e2e; }
+.chat-block-unbtn {
+  margin-left: auto;
+  background: #cf2e2e;
+  color: #fff;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+.chat-block-unbtn:hover { background: #b52626; }
+
+/* Sidebar-Flags (Pin/Mute/Block) neben Namen */
+.chat-item-flag {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 4px;
+  color: var(--text-light);
+}
+.chat-item-flag .material-icons-round { font-size: 14px; }
+.chat-item.pinned { background: rgba(0,166,153,0.05); }
+.chat-item.pinned::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.chat-item { position: relative; }
+.chat-item.muted .chat-item-info strong { color: var(--text-light); }
+
+/* Archiv-Umschalter oben in der Liste */
+.chat-archived-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-alt);
+}
+.chat-archived-toggle:hover { background: var(--border-light); }
+.chat-archived-toggle .material-icons-round { font-size: 20px; color: var(--text-light); }
+.chat-archived-toggle.active { color: var(--accent); }
+
+/* Rechtsklick-Kontextmenü für Chat-Einträge */
+.chat-item-ctx-menu {
+  position: fixed;
+  min-width: 220px;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xl);
+  padding: 6px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+}
+body.dark-mode .chat-item-ctx-menu { background: #1E1E1E; border-color: #333; }
+.chat-item-ctx-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+  width: 100%;
+}
+.chat-item-ctx-menu button:hover { background: var(--bg-alt); }
+.chat-item-ctx-menu button .material-icons-round { font-size: 20px; color: var(--text-light); }
+.chat-item-ctx-menu button.chat-menu-warn   { color: #b35c00; }
+.chat-item-ctx-menu button.chat-menu-danger { color: #cf2e2e; }
+
+/* Suchtreffer-Highlight */
+.msg-search-hit {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  animation: msgSearchPulse 1.2s ease 2;
+}
+@keyframes msgSearchPulse {
+  0%,100% { outline-color: var(--accent); }
+  50%     { outline-color: #FFD54F; }
+}
+
+/* Inline „Chat löschen"-Button in der Sidebar */
+.chat-item-delete {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.85);
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(207, 46, 46, 0.12);
+  color: #cf2e2e;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  z-index: 2;
+}
+.chat-item-delete .material-icons-round { font-size: 18px; }
+.chat-item:hover .chat-item-delete,
+.chat-item.active .chat-item-delete,
+.chat-item:focus-within .chat-item-delete {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+.chat-item-delete:hover {
+  background: #cf2e2e;
+  color: #fff;
+}
+/* Auf Touch-Geräten (kein Hover) immer sichtbar */
+@media (hover: none) {
+  .chat-item-delete {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%) scale(1);
+  }
 }
