@@ -12843,7 +12843,7 @@ function openStageAdvanceModal(cardId, currentStage) {
         '</div>' +
         '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
           'Mit dem Buchen wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
-          'und <strong>kontakt@eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
+          'und <strong>eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
         '</div>' +
       '</div>' +
       '<label class="sa-label">Leistung</label>' +
