@@ -13178,8 +13178,21 @@ function _drawFlowConnections() {
     var T = colY + el.offsetTop;
     var R = L + el.offsetWidth;
     var B = T + el.offsetHeight;
+    // Anker-Y: Mitte des Stage-Headers (.flow-node-hdr) für eine durchgehende
+    // Achse über alle Stages. Trigger-Node hat keinen Header → wir nehmen
+    // dieselbe Höhe (Top + Header-Halbhöhe), damit alle Connectors exakt auf
+    // einer waagerechten Linie liegen.
+    var HEADER_H = 44; // .flow-node-hdr ~Höhe (siehe styles.css)
+    var hdr = el.querySelector('.flow-node-hdr');
+    var anchorY;
+    if (hdr) {
+      anchorY = T + hdr.offsetTop + hdr.offsetHeight / 2;
+    } else {
+      anchorY = T + HEADER_H / 2;
+    }
     return { left: L, right: R, top: T, bottom: B,
-             midX: (L + R) / 2, midY: (T + B) / 2 };
+             midX: (L + R) / 2, midY: (T + B) / 2,
+             anchorY: anchorY };
   }
 
   // Bounding-Box der kompletten Spalte (für Mobile: Start am Header-Top,
@@ -13244,14 +13257,17 @@ function _drawFlowConnections() {
           + ' L' + x2 + ',' + y2;
       }
     } else {
-      // Desktop: gerade horizontale Linie von Node-Header zu Node-Header
+      // Desktop: gerade horizontale Linie auf einer einheitlichen Header-Achse,
+      // unabhängig von der individuellen Node-Höhe (Stage-Header-Mittellinie).
       var from = nodeBounds(seq[i].n);
       var to   = nodeBounds(seq[i + 1].n);
       if (!from || !to) continue;
       var hx1 = from.right, hx2 = to.left - 2;
-      var hy1 = from.midY,  hy2 = to.midY;
+      var hy1 = from.anchorY, hy2 = to.anchorY;
       if (Math.abs(hy1 - hy2) < 2) {
-        d = 'M' + hx1 + ',' + hy2 + ' L' + hx2 + ',' + hy2;
+        // Strikt eine Achse → identischer Y-Wert für beide Punkte
+        var hy = Math.round((hy1 + hy2) / 2);
+        d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
       } else {
         var mx = (hx1 + hx2) / 2;
         d = 'M' + hx1 + ',' + hy1
