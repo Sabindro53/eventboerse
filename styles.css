@@ -8287,10 +8287,10 @@ body.dark-mode .legal-page li { color: var(--text); }
 }
 .board-page-header {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 32px 28px 24px;
+  padding: 16px 28px;
   background: linear-gradient(135deg, #fff 0%, #fafafa 100%);
   border-bottom: 1px solid var(--border-light);
   flex-wrap: wrap;
@@ -8304,13 +8304,13 @@ body.dark-mode .legal-page li { color: var(--text); }
   background: rgba(255,56,92,0.09);
   border-radius: 20px;
   padding: 4px 12px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 .board-page-header h1 {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--dark);
-  margin: 0 0 4px;
+  margin: 0 0 2px;
 }
 .board-page-header p {
   color: var(--text-light);
