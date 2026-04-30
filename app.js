@@ -11877,8 +11877,12 @@ function _renderBoardFlowImpl() {
     } else {
       html += '<span class="flow-node-empty">Noch leer</span>';
     }
-    html += '<button class="flow-node-add-btn" onclick="openAddProviderModalFlow(\'' + stage.id + '\')">';
-    html += '<span class="material-icons-round">add</span> Hinzufügen</button>';
+    // "Hinzufügen" nur in der Start-Stage "geplant" anzeigen – alle weiteren
+    // Stages werden systematisch durch Statuswechsel (Drag/Stage-Move) befüllt.
+    if (stage.id === 'geplant') {
+      html += '<button class="flow-node-add-btn" onclick="openAddProviderModalFlow(\'' + stage.id + '\')">';
+      html += '<span class="material-icons-round">add</span> Hinzufügen</button>';
+    }
     html += '</div>';
     html += '</div>';
 
