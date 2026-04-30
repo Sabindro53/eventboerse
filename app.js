@@ -13266,29 +13266,26 @@ function _drawFlowConnections() {
           + ' L' + x2 + ',' + y2;
       }
     } else {
-      // Desktop: einheitliche Header-Achse für ALLE Connectors. Wir messen
-      // die Y-Mittellinie des ersten echten Stage-Headers und benutzen
-      // diesen Wert für jede Verbindung – so liegen alle Linien garantiert
-      // auf einer perfekten Geraden, unabhängig von Node-Höhen.
-      if (typeof _flowSharedAxisY !== 'number') {
-        var refStage = canvas.querySelector('[data-nid="stage-geplant"] .flow-node-hdr')
-                    || canvas.querySelector('.flow-node-hdr');
-        if (refStage) {
-          var refCol = refStage.closest('[data-col-id]');
-          var refColY = parseFloat(refCol.style.top) || 0;
-          var refStageNode = refStage.closest('.flow-node');
-          _flowSharedAxisY = refColY
-                           + (refStageNode ? refStageNode.offsetTop : 0)
-                           + refStage.offsetTop
-                           + refStage.offsetHeight / 2;
-        }
-      }
+      // Desktop: jede Verbindung läuft durch die VERTIKALE MITTE des
+      // jeweiligen Widgets (Trigger-Kreis, Stage-Header, End-Kreis). Wenn
+      // beide Mittelpunkte gleich liegen → perfekt gerade. Andernfalls
+      // sauberer 90°-Bend in der Mitte zwischen den Nodes.
       var from = nodeBounds(seq[i].n);
       var to   = nodeBounds(seq[i + 1].n);
       if (!from || !to) continue;
       var hx1 = from.right, hx2 = to.left - 2;
-      var hy = Math.round(_flowSharedAxisY != null ? _flowSharedAxisY : (from.anchorY + to.anchorY) / 2);
-      d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
+      var hy1 = Math.round(from.midY);
+      var hy2 = Math.round(to.midY);
+      if (Math.abs(hy1 - hy2) < 2) {
+        var hy = Math.round((hy1 + hy2) / 2);
+        d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
+      } else {
+        var mx = Math.round((hx1 + hx2) / 2);
+        d = 'M' + hx1 + ',' + hy1
+          + ' L' + mx  + ',' + hy1
+          + ' L' + mx  + ',' + hy2
+          + ' L' + hx2 + ',' + hy2;
+      }
     }
 
     paths += '<path d="' + d + '" fill="none" stroke="' + STROKE + '" stroke-width="' + SW + '" stroke-linecap="square" stroke-linejoin="miter" marker-end="url(#' + markerId + ')"/>';
