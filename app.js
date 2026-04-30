@@ -11305,7 +11305,9 @@ function renderBoardPage() {
             });
             return order.map(function(stage, i) {
               var atStage = cards.filter(function(c) { return c.stage === stage; }).length;
-              var filled = i <= maxReached;
+              // Stage gilt nur als gefüllt, wenn aktuell mindestens eine Karte
+              // in dieser Stage liegt – nicht über kumulativen "höchsten Index".
+              var filled = atStage > 0;
               return '<div class="bpp-stage' + (filled ? ' filled stage-' + stage : '') +
                 '" title="' + stage + ': ' + atStage + '"></div>';
             }).join('');

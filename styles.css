@@ -8458,8 +8458,11 @@ body.dark-mode .bpc-delete-btn:hover {
   overflow: hidden;
 }
 .bpp-stage.filled { background: var(--primary); }
-.bpp-stage.filled.stage-bestaetigt { background: var(--accent); }
-.bpp-stage.filled.stage-kontaktiert { background: #FFC107; }
+.bpp-stage.filled.stage-geplant       { background: #9E9E9E; }
+.bpp-stage.filled.stage-kontaktiert   { background: #FF9800; }
+.bpp-stage.filled.stage-angebot       { background: #AB47BC; }
+.bpp-stage.filled.stage-bestaetigt    { background: #00A699; }
+.bpp-stage.filled.stage-abgeschlossen { background: #FF385C; }
 .board-project-footer {
   display: flex;
   justify-content: space-between;
