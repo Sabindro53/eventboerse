@@ -1,0 +1,44 @@
+# Roadmap: Aktueller Sprint
+
+> Ziel: Die beste und funktionalste Eventplattform für jedermann
+
+## In Arbeit
+
+- [ ] Obsidian-Vault Einrichtung ✓ (gerade fertiggestellt)
+- [ ] Claude Memory System aufbauen ✓
+
+## Nächste Prioritäten
+
+### P0 - Kritisch
+- [ ] **Demo-Daten ersetzen** - LISTINGS/REVIEWS/CHATS Arrays durch echte DB-Abfragen ersetzen
+  - Betrifft: app.js (Zeile ~100-500 ca.)
+  - Backend: GET /listings schon vorhanden, aber wird es genutzt?
+
+### P1 - Wichtig
+- [ ] **Echtzeit-Nachrichten** - Polling durch WebSockets/SSE ersetzen
+- [ ] **Suchfunktion verbessern** - Echte DB-Volltextsuche (MySQL FULLTEXT)
+- [ ] **Review-System** - Bewertungen werden nach Buchungsabschluss angezeigt
+- [ ] **Mobile Optimierung** - Responsive Design verbessern
+
+### P2 - Nice-to-Have
+- [ ] **PWA / App-Installation** - Service Worker + manifest.json
+- [ ] **Push-Benachrichtigungen** - Neue Nachrichten als Browser-Push
+- [ ] **Analytics** - Wer schaut welche Listings an
+- [ ] **SEO** - Server-Side-Rendering oder Pre-rendering für Google
+
+## Bekannte Bugs
+
+Werden hier dokumentiert wenn sie gemeldet werden.
+
+## Fertiggestellt
+
+- [x] Stripe Zahlungsintegration
+- [x] WebAuthn/Passkeys Authentifizierung
+- [x] 2FA mit OTP
+- [x] Board-System (Kanban: Gebucht/Bezahlt/Erfüllt)
+- [x] Uptime-Monitoring (GitHub Actions alle 30 Min)
+- [x] Automatisches Deployment auf IONOS
+- [x] Obsidian Vault + Claude Memory System
+
+---
+*Zuletzt aktualisiert: 2026-04-29*

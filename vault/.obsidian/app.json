@@ -1,0 +1,17 @@
+{
+  "legacyEditor": false,
+  "livePreview": true,
+  "defaultViewMode": "preview",
+  "strictLineBreaks": false,
+  "showLineNumber": true,
+  "spellcheck": false,
+  "spellcheckDictionary": ["eventboerse"],
+  "tabSize": 2,
+  "promptDelete": false,
+  "trashOption": "local",
+  "useMarkdownLinks": false,
+  "newLinkFormat": "shortest",
+  "attachmentFolderPath": "_assets",
+  "userIgnoreFilters": ["node_modules"],
+  "showFrontmatter": false
+}

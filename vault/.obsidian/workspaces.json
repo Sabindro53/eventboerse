@@ -1,0 +1,107 @@
+{
+  "workspaces": {
+    "Eventboerse": {
+      "main": {
+        "id": "main",
+        "type": "split",
+        "children": [
+          {
+            "id": "left",
+            "type": "split",
+            "children": [
+              {
+                "id": "tab1",
+                "type": "tabs",
+                "children": [
+                  {
+                    "id": "dashboard",
+                    "type": "leaf",
+                    "state": {
+                      "type": "markdown",
+                      "state": {
+                        "file": "Dashboard.md",
+                        "mode": "preview"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "direction": "vertical"
+          },
+          {
+            "id": "right",
+            "type": "split",
+            "children": [
+              {
+                "id": "tab2",
+                "type": "tabs",
+                "children": [
+                  {
+                    "id": "graph",
+                    "type": "leaf",
+                    "state": {
+                      "type": "graph",
+                      "state": {}
+                    }
+                  }
+                ]
+              }
+            ],
+            "direction": "vertical"
+          }
+        ],
+        "direction": "horizontal",
+        "width": 55
+      },
+      "left": {
+        "id": "left-sidebar",
+        "type": "split",
+        "children": [
+          {
+            "id": "file-tree",
+            "type": "tabs",
+            "children": [
+              {
+                "id": "file-explorer",
+                "type": "leaf",
+                "state": {
+                  "type": "file-explorer",
+                  "state": {}
+                }
+              }
+            ]
+          }
+        ],
+        "direction": "horizontal",
+        "width": 240,
+        "collapsed": false
+      },
+      "right": {
+        "id": "right-sidebar",
+        "type": "split",
+        "children": [
+          {
+            "id": "backlinks",
+            "type": "tabs",
+            "children": [
+              {
+                "id": "backlink-leaf",
+                "type": "leaf",
+                "state": {
+                  "type": "backlink",
+                  "state": {}
+                }
+              }
+            ]
+          }
+        ],
+        "direction": "horizontal",
+        "width": 260,
+        "collapsed": false
+      },
+      "active": "dashboard"
+    }
+  },
+  "active": "Eventboerse"
+}
