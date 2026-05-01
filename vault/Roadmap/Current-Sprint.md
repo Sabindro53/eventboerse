@@ -42,3 +42,8 @@ Werden hier dokumentiert wenn sie gemeldet werden.
 
 ---
 *Zuletzt aktualisiert: 2026-04-29*
+
+## Verknüpfte Notizen
+- [[Roadmap/Feature-Ideen]] — Ideen-Sammlung
+- [[Roadmap/Bekannte-Bugs]] — Offene Bugs
+- [[AI-Gedaechtnis/Claude-Kontext]] — Prioritätsliste P0/P1

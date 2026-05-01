@@ -45,4 +45,6 @@
 ## Verknüpfte Notizen
 - [[Architecture/Overview]] — Technischer Überblick
 - [[AI-Gedaechtnis/Claude-Kontext]] — Bekannte Schwächen
+- [[AI-Gedaechtnis/Code-Beziehungen]] — Modul-Abhängigkeiten
+- [[AI-Gedaechtnis/Code-Stats]] — Aktuelle Metriken
 - [[Roadmap/Current-Sprint]] — Was als nächstes kommt

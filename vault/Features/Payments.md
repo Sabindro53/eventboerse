@@ -69,3 +69,4 @@ POST /stripe/verify-payment → Status Update
 - [[Backend/Payment-API]] - API Endpoints
 - [[Features/Messaging]] - Invoice aus Chat heraus
 - [[Architecture/Overview]] - System-Übersicht
+- [[Features/Reviews]] — Bewertung nach Zahlung

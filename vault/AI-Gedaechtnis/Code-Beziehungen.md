@@ -101,3 +101,10 @@ Event stattgefunden → Board: "Erfüllt"
     ↓
 Event-Planer schreibt Bewertung (POST /reviews/{id})
 ```
+
+## Verknüpfte Notizen
+- [[AI-Gedaechtnis/Claude-Kontext]] — Gesamtkontext & Präferenzen
+- [[AI-Gedaechtnis/Code-Stats]] — Aktuelle Code-Metriken
+- [[AI-Gedaechtnis/Entscheidungen]] — Warum was so gebaut wurde
+- [[Frontend/app-js-module]] — Frontend Module
+- [[Backend/API-Endpoints]] — Alle REST Endpoints

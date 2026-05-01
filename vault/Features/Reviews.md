@@ -38,3 +38,4 @@ Durchschnittsbewertung auf Listing aktualisiert
 - [[Backend/API-Endpoints]] — Reviews Endpoints
 - [[Features/Listings]] — Bewertungen auf Listings
 - [[Features/Messaging]] — Review nach Buchungsabschluss
+- [[Features/Payments]] — Review nach Zahlungsabschluss

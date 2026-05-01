@@ -84,3 +84,5 @@
 - [[Dashboard]] - Hauptübersicht
 - [[Backend/API-Endpoints]] - Endpoint-Dokumentation
 - [[AI-Gedaechtnis/Claude-Kontext]] - Claude Kontext
+- [[AI-Gedaechtnis/Code-Beziehungen]] - Modul-Abhängigkeiten
+- [[AI-Gedaechtnis/Entscheidungen]] - Architektur-Gründe

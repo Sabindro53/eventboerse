@@ -25,4 +25,5 @@
 
 ## Verknüpfte Notizen
 - [[Roadmap/Current-Sprint]] — Aktuelle Prioritäten
+- [[Roadmap/Feature-Ideen]] — Feature-Backlog
 - [[AI-Gedaechtnis/Claude-Kontext]] — P0/P1 Liste

@@ -58,6 +58,11 @@
 - **Equipment-Verleih** - Bühne, Technik, Dekoration mieten
 - **Eventplanung-as-a-Service** - Komplettplanung anbieten
 - **B2B** - Firmenfeiern, Konferenzen als Nische
+
+## Verknüpfte Notizen
+- [[Roadmap/Current-Sprint]] — Was gerade umgesetzt wird
+- [[Roadmap/Bekannte-Bugs]] — Bekannte Probleme
+- [[AI-Gedaechtnis/Claude-Kontext]] — Prioritätsliste
 - **International** - Mehrsprachigkeit, andere Länder
 
 ## Verknüpfte Notizen

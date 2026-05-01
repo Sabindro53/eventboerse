@@ -66,3 +66,5 @@ POST /webauthn/login → Session-Token
 - [[Backend/Auth-API]] - API Endpoints
 - [[Backend/WebAuthn-API]] - Passkey Endpoints
 - [[Architecture/Overview]] - System-Übersicht
+- [[Features/Listings]] — Nach Login: Services entdecken
+- [[Features/Admin]] — Admin Nutzerverwaltung
