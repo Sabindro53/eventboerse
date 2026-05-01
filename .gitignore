@@ -35,3 +35,6 @@ wp-config.php
 # Temporary files
 tmp/
 temp/
+
+# Patch files (local workflow only, never commit)
+*.patch
