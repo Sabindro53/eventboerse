@@ -4,6 +4,13 @@
    SPA Router, Chat, Negotiation, Listings, Auth
    ============================================ */
 
+// ========== APP CONFIGURATION ==========
+// Set USE_DEMO_DATA to true only for local development/preview.
+// In production this must remain false to prevent fake data from being shown.
+const APP_CONFIG = {
+  USE_DEMO_DATA: false,
+};
+
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -3655,7 +3662,7 @@ function _startChatPoll() {
         if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
       })
       .catch(function() {});
-  }, 5000);
+  }, 10000);
 }
 function _stopChatPoll() {
   if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
@@ -3883,20 +3890,24 @@ function proposeAlternativeDate(currentIsoDate) {
 function renderChatList() {
   const list = document.getElementById('chatList');
   if (!isLoggedIn) {
-    // Show demo chats for non-logged-in users
-    list.innerHTML = DEMO_CHATS.map(function(c) {
-      return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
-        '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" />' +
-        '<div class="chat-item-info">' +
-          '<strong>' + _escHtml(c.name) + '</strong>' +
-          '<p>' + _escHtml(c.lastMsg) + '</p>' +
-        '</div>' +
-        '<div class="chat-item-meta">' +
-          '<span>' + _escHtml(c.time) + '</span>' +
-          (c.unread > 0 ? '<span class="chat-item-unread">' + c.unread + '</span>' : '') +
-        '</div>' +
-      '</div>';
-    }).join('');
+    if (APP_CONFIG.USE_DEMO_DATA) {
+      // Show demo chats only when explicitly in demo/development mode
+      list.innerHTML = DEMO_CHATS.map(function(c) {
+        return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
+          '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" />' +
+          '<div class="chat-item-info">' +
+            '<strong>' + _escHtml(c.name) + '</strong>' +
+            '<p>' + _escHtml(c.lastMsg) + '</p>' +
+          '</div>' +
+          '<div class="chat-item-meta">' +
+            '<span>' + _escHtml(c.time) + '</span>' +
+            (c.unread > 0 ? '<span class="chat-item-unread">' + c.unread + '</span>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    } else {
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Bitte melde dich an, um deine Nachrichten zu sehen.</div>';
+    }
     return;
   }
   fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
@@ -7317,7 +7328,7 @@ function renderMyListings() {
         });
     } else {
       if (previewBannerEP) previewBannerEP.style.display = 'flex';
-      var events = DEMO_EVENTS;
+      var events = APP_CONFIG.USE_DEMO_DATA ? DEMO_EVENTS : [];
       renderEventGrid(events);
     }
 
@@ -8229,7 +8240,7 @@ function _showConfirmDialog(title, message, confirmText, onConfirm) {
 }
 
 function getAllReviewsForListing(listingId) {
-  var reviews = DEMO_REVIEWS.slice();
+  var reviews = APP_CONFIG.USE_DEMO_DATA ? DEMO_REVIEWS.slice() : [];
   if (userReviews[listingId]) {
     reviews = userReviews[listingId].concat(reviews);
   }
@@ -9154,6 +9165,11 @@ function _sanitizeHtml(str) {
         n.removeAttribute(a.name);
       });
       if (n.tagName === 'A') {
+        // Only allow safe URL schemes to prevent javascript: / data: XSS
+        var href = n.getAttribute('href') || '';
+        if (href && !/^(https?:|mailto:|tel:|#)/i.test(href.trim())) {
+          n.removeAttribute('href');
+        }
         n.setAttribute('rel', 'noopener noreferrer');
         n.setAttribute('target', '_blank');
       }

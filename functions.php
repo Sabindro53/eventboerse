@@ -762,8 +762,18 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
     }
 
+    // Rate-limiting: max 5 failed attempts per IP within 15 minutes.
+    $ip          = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+    $rate_key    = 'eb_login_attempts_' . md5( $ip );
+    $attempts    = (int) get_transient( $rate_key );
+    if ( $attempts >= 5 ) {
+        return new WP_REST_Response( array( 'message' => 'Zu viele Anmeldeversuche. Bitte warte 15 Minuten und versuche es erneut.' ), 429 );
+    }
+
     $user = get_user_by( 'email', $email );
     if ( ! $user || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+        // Increment failure counter; keep existing TTL on first write, refresh on subsequent failures.
+        set_transient( $rate_key, $attempts + 1, 15 * MINUTE_IN_SECONDS );
         return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
     }
 
