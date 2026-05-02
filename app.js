@@ -9165,9 +9165,11 @@ function _sanitizeHtml(str) {
         n.removeAttribute(a.name);
       });
       if (n.tagName === 'A') {
-        // Only allow safe URL schemes to prevent javascript: / data: XSS
-        var href = n.getAttribute('href') || '';
-        if (href && !/^(https?:|mailto:|tel:|#)/i.test(href.trim())) {
+        // Only allow safe URL schemes to prevent javascript: / data: XSS.
+        // Strip all leading whitespace (including unicode) before matching – the
+        // regex is anchored at the start (^) so no mid-string bypass is possible.
+        var href = (n.getAttribute('href') || '').replace(/^[\s\u0000-\u001F\u007F]+/, '');
+        if (!href || !/^(https?:|mailto:|tel:|#)/i.test(href)) {
           n.removeAttribute('href');
         }
         n.setAttribute('rel', 'noopener noreferrer');
