@@ -9166,10 +9166,16 @@ function _sanitizeHtml(str) {
       });
       if (n.tagName === 'A') {
         // Only allow safe URL schemes to prevent javascript: / data: XSS.
-        // Strip all leading whitespace (including unicode) before matching – the
-        // regex is anchored at the start (^) so no mid-string bypass is possible.
-        var href = (n.getAttribute('href') || '').replace(/^[\s\u0000-\u001F\u007F]+/, '');
-        if (!href || !/^(https?:|mailto:|tel:|#)/i.test(href)) {
+        // Strip all leading whitespace including extended Unicode whitespace before
+        // scheme matching. The regex is anchored at the start (^) so a mid-string
+        // scheme cannot bypass the check.
+        // Fragment-only hrefs (#id) are allowed but must only contain word chars,
+        // hyphens, or dots after the hash – avoiding unusual bypass patterns.
+        var href = (n.getAttribute('href') || '')
+          .replace(/^[\s\u0000-\u001F\u007F\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]+/, '');
+        var safeHref = /^(https?:|mailto:|tel:)/i.test(href) ||
+                       /^#[\w\-.]*$/.test(href);
+        if (!href || !safeHref) {
           n.removeAttribute('href');
         }
         n.setAttribute('rel', 'noopener noreferrer');
