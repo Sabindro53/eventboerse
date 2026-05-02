@@ -769,7 +769,8 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
     // trusted reverse-proxy, configure the proxy to set REMOTE_ADDR correctly
     // (e.g. via mod_remoteip / real_ip_module) rather than trusting X-Forwarded-For
     // directly, which can be spoofed by end-users.
-    $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+    $raw_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? wp_unslash( $_SERVER['REMOTE_ADDR'] ) : '';
+    $ip     = filter_var( $raw_ip, FILTER_VALIDATE_IP );
     if ( empty( $ip ) ) {
         return new WP_REST_Response( array( 'message' => 'Anfrage konnte nicht verarbeitet werden.' ), 400 );
     }
