@@ -6709,7 +6709,7 @@ function initDragScroll() {
 
 // ========== DARK MODE ==========
 function initDarkMode() {
-  var isDark = localStorage.getItem('eb_dark_mode') === '1';
+  var isDark = localStorage.getItem('eb_dark_mode') !== '0';
   _applyDarkMode(isDark);
   var toggle = document.getElementById('darkModeToggle');
   if (toggle) toggle.checked = isDark;
