@@ -9151,6 +9151,13 @@ function _stripHtml(str) {
   return doc.body.textContent || '';
 }
 
+// Leading-whitespace characters to strip from href values before scheme validation.
+// Covers: ASCII control (U+0000-U+001F), DEL (U+007F), non-breaking space (U+00A0),
+// Ogham space (U+1680), general punctuation spaces (U+2000-U+200A),
+// narrow no-break space (U+202F), medium math space (U+205F),
+// ideographic space (U+3000), BOM / zero-width no-break space (U+FEFF).
+var _HREF_LEADING_WS = /^[\s\u0000-\u001F\u007F\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]+/;
+
 function _sanitizeHtml(str) {
   if (!str) return '';
   var allowed = ['P','BR','B','STRONG','I','EM','U','UL','OL','LI','H1','H2','H3','H4','H5','H6','A','BLOCKQUOTE','SPAN','DIV','HR'];
@@ -9166,14 +9173,12 @@ function _sanitizeHtml(str) {
       });
       if (n.tagName === 'A') {
         // Only allow safe URL schemes to prevent javascript: / data: XSS.
-        // Strip all leading ASCII and Unicode whitespace characters before
-        // scheme matching. The regex is anchored at the start (^) so a
-        // mid-string scheme cannot bypass the check.
-        // Fragment-only hrefs (#id) are restricted to word chars and hyphens.
-        var href = (n.getAttribute('href') || '')
-          .replace(/^[\s\u0000-\u001F\u007F\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]+/, '');
+        // Strip leading whitespace (see _HREF_LEADING_WS) before an anchored
+        // scheme check so a mid-string scheme cannot bypass the guard.
+        // Fragment hrefs must be non-empty and contain only word chars / hyphens.
+        var href = (n.getAttribute('href') || '').replace(_HREF_LEADING_WS, '');
         var safeHref = /^(https?:|mailto:|tel:)/i.test(href) ||
-                       /^#[\w-]*$/.test(href);
+                       /^#[\w-]+$/.test(href);
         if (!href || !safeHref) {
           n.removeAttribute('href');
         }
