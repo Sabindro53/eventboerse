@@ -762,8 +762,39 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
     }
 
+    // Rate-limiting: max 5 failed attempts per IP within a fixed 15-minute window.
+    // The window starts at the first failure and never extends, so an attacker
+    // cannot keep resetting it by making repeated attempts.
+    // Note: REMOTE_ADDR reflects the direct TCP client. If the site runs behind a
+    // trusted reverse-proxy, configure the proxy to set REMOTE_ADDR correctly
+    // (e.g. via mod_remoteip / real_ip_module) rather than trusting X-Forwarded-For
+    // directly, which can be spoofed by end-users.
+    $raw_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? wp_unslash( $_SERVER['REMOTE_ADDR'] ) : '';
+    $ip     = filter_var( $raw_ip, FILTER_VALIDATE_IP );
+    if ( empty( $ip ) ) {
+        return new WP_REST_Response( array( 'message' => 'Anfrage konnte nicht verarbeitet werden.' ), 400 );
+    }
+    $rate_key = 'eb_login_attempts_' . md5( $ip );
+    $data     = get_transient( $rate_key );
+
+    if ( is_array( $data ) && isset( $data['attempts'] ) && $data['attempts'] >= 5 ) {
+        return new WP_REST_Response( array( 'message' => 'Zu viele Anmeldeversuche. Bitte warte 15 Minuten und versuche es erneut.' ), 429 );
+    }
+
     $user = get_user_by( 'email', $email );
     if ( ! $user || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+        // Increment failure counter while preserving the original 15-minute window expiry.
+        $now = time();
+        if ( is_array( $data ) && isset( $data['first_at'] ) ) {
+            // Window already started – preserve original expiry.
+            $remaining_ttl = max( 1, 15 * MINUTE_IN_SECONDS - ( $now - (int) $data['first_at'] ) );
+            $data['attempts']++;
+        } else {
+            // First failure – start a new fixed window.
+            $remaining_ttl = 15 * MINUTE_IN_SECONDS;
+            $data = array( 'attempts' => 1, 'first_at' => $now );
+        }
+        set_transient( $rate_key, $data, $remaining_ttl );
         return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
     }
 
