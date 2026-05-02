@@ -31,81 +31,16 @@ jobs:
       - name: Run Claude audit
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          python3 << 'PYEOF'
-          import json, os, urllib.request, urllib.error, sys
-
-          app_lines   = "${{ steps.stats.outputs.app_js }}"
-          func_lines  = "${{ steps.stats.outputs.functions }}"
-          style_lines = "${{ steps.stats.outputs.styles }}"
-
-          with open('/tmp/todos.txt', 'r') as f:
-              todos = f.read()[:2000]
-          with open('/tmp/app-start.txt', 'r') as f:
-              app_start = f.read()[:3000]
-
-          prompt = f"""Du bist ein Code-Auditor für das Projekt "Eventbörse" (deutscher Event-Marktplatz, Vanilla JS + WordPress REST API).
-
-Projekt-Überblick:
-- app.js: {app_lines} Zeilen (Vanilla JS SPA)
-- functions.php: {func_lines} Zeilen (WordPress REST API, ~67 Endpoints)
-- styles.css: {style_lines} Zeilen
-
-Beginn von app.js (erste 300 Zeilen, inkl. Demo-Daten):
-{app_start}
-
-TODO/FIXME im Code:
-{todos}
-
-Bekannte Baustellen:
-1. LISTINGS/REVIEWS/CHATS-Arrays in app.js sind hardcodiert (Demo-Daten)
-2. Messaging nutzt Polling alle 3s, kein WebSocket/SSE
-3. Suche ist client-seitig, kein MySQL FULLTEXT Index
-4. Stripe-Integration unvollständig (kein Webhook-Reconcile)
-5. app.js ist eine monolithische Datei (~15 000 Zeilen)
-
-Erstelle einen strukturierten Audit-Bericht auf Deutsch mit maximal 5 Punkten je Kategorie.
-Sei konkret: Dateinamen, Zeilen, und kurze Lösungsansätze.
-
-Format:
-## P0 — Kritisch (Sicherheit / Datenverlust)
-## P1 — Wichtig (diese Sprint)
-## P2 — Nice-to-Have (nächste Sprints)
-## Code-Qualität & Refactoring"""
-
-          payload = {
-              "model": "claude-opus-4-5",
-              "max_tokens": 2000,
-              "messages": [{"role": "user", "content": prompt}]
-          }
-
-          req = urllib.request.Request(
-              "https://api.anthropic.com/v1/messages",
-              data=json.dumps(payload).encode(),
-              headers={
-                  "x-api-key": os.environ["ANTHROPIC_API_KEY"],
-                  "anthropic-version": "2023-06-01",
-                  "content-type": "application/json"
-              }
-          )
-
-          try:
-              with urllib.request.urlopen(req) as resp:
-                  result = json.loads(resp.read())
-                  audit_text = result["content"][0]["text"]
-              with open('/tmp/audit-result.txt', 'w') as f:
-                  f.write(audit_text)
-              print("Audit abgeschlossen.")
-          except urllib.error.HTTPError as e:
-              print(f"API-Fehler: {e.code} — {e.read().decode()}", file=sys.stderr)
-              sys.exit(1)
-          PYEOF
+          APP_LINES: ${{ steps.stats.outputs.app_js }}
+          FUNC_LINES: ${{ steps.stats.outputs.functions }}
+          STYLE_LINES: ${{ steps.stats.outputs.styles }}
+        run: python3 .github/scripts/audit.py
 
       - name: Ensure audit labels exist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh label create "audit"     --color "0075ca" --description "Automatischer Code-Audit" \
+          gh label create "audit" --color "0075ca" --description "Automatischer Code-Audit" \
             --repo ${{ github.repository }} 2>/dev/null || true
           gh label create "automated" --color "e4e669" --description "Bot-generierter Issue" \
             --repo ${{ github.repository }} 2>/dev/null || true
@@ -115,15 +50,16 @@ Format:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DATE=$(date '+%Y-%m-%d')
-          AUDIT=$(cat /tmp/audit-result.txt)
-
+          {
+            echo "## Automatischer Code-Audit vom ${DATE}"
+            echo
+            cat /tmp/audit-result.txt
+            echo
+            echo "---"
+            echo "*Generiert von [Claude Auto-Audit](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · Läuft täglich um 04:00 UTC*"
+          } > /tmp/issue-body.md
           gh issue create \
             --title "🤖 Claude Auto-Audit ${DATE}" \
-            --body "## Automatischer Code-Audit vom ${DATE}
-
-${AUDIT}
-
----
-*Generiert von [Claude Auto-Audit](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · Läuft täglich um 04:00 UTC*" \
+            --body-file /tmp/issue-body.md \
             --label "audit,automated" \
             --repo ${{ github.repository }}
