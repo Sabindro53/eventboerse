@@ -1247,13 +1247,19 @@ function eb_webauthn_register_options() {
             ),
             'pubKeyCredParams'       => array(
                 array( 'type' => 'public-key', 'alg' => -7 ),
+                array( 'type' => 'public-key', 'alg' => -257 ),
             ),
-            'timeout'                => 60000,
+            'timeout'                => 120000,
             'attestation'            => 'none',
+            // Keine harte Bindung an "platform" – sonst kann z.B. ein Desktop-Nutzer
+            // keinen Passkey einrichten (kein Windows Hello / Touch ID)
+            // bzw. Cross-Device-Setup per QR-Code via Smartphone wird blockiert.
+            // residentKey/UV "preferred" maximiert Kompatibilität, ohne Sicherheit
+            // wesentlich zu verschlechtern – Authenticator wählt das Beste.
             'authenticatorSelection' => array(
-                'authenticatorAttachment' => 'platform',
-                'residentKey'            => 'required',
-                'userVerification'       => 'required',
+                'residentKey'            => 'preferred',
+                'requireResidentKey'     => false,
+                'userVerification'       => 'preferred',
             ),
             'excludeCredentials'     => $exclude_credentials,
             'extensions'             => array( 'credProps' => true ),
@@ -1352,13 +1358,14 @@ function eb_webauthn_verify_options( WP_REST_Request $request ) {
             ),
             'pubKeyCredParams'       => array(
                 array( 'type' => 'public-key', 'alg' => -7 ),
+                array( 'type' => 'public-key', 'alg' => -257 ),
             ),
-            'timeout'                => 60000,
+            'timeout'                => 120000,
             'attestation'            => 'none',
             'authenticatorSelection' => array(
-                'authenticatorAttachment' => 'platform',
-                'residentKey'            => 'required',
-                'userVerification'       => 'required',
+                'residentKey'            => 'preferred',
+                'requireResidentKey'     => false,
+                'userVerification'       => 'preferred',
             ),
             'excludeCredentials'     => array(),
             'extensions'             => array( 'credProps' => true ),
@@ -1454,8 +1461,8 @@ function eb_webauthn_login_options( WP_REST_Request $request ) {
     $public_key = array(
         'challenge'        => eb_base64url_encode( $challenge ),
         'rpId'             => eb_webauthn_rp_id(),
-        'timeout'          => 60000,
-        'userVerification' => 'required',
+        'timeout'          => 120000,
+        'userVerification' => 'preferred',
     );
 
     if ( ! empty( $allow_credentials ) ) {

@@ -5321,6 +5321,12 @@ function renderPasskeySettings(data) {
     noteEl.classList.add('is-warning');
     noteEl.textContent = 'Auf diesem Gerät können keine Passkeys eingerichtet werden. Der Login per E-Mail und zusätzlichem Code bleibt möglich.';
   } else {
+    // Eventuell hängengebliebenen Loading-State vom Add-Button bereinigen,
+    // falls eine vorherige Zeremonie nie ordentlich abgeschlossen hat.
+    if (addBtn.classList.contains('btn-loading')) {
+      _setBtnLoading(addBtn, false);
+    }
+    addBtn.dataset.passkeyBusy = '';
     addBtn.disabled = false;
     noteEl.classList.remove('is-warning');
     noteEl.textContent = 'Dieses Gerät unterstützt Passkeys. Du kannst zusätzliche biometrische Anmeldungen direkt hier verwalten.';
@@ -5385,6 +5391,19 @@ function refreshPasskeySettings() {
 }
 
 async function addPasskeyFromSettings(btn) {
+  // Schutz: Doppelklick / parallele Aufrufe verhindern
+  if (btn && btn.dataset.passkeyBusy === '1') return;
+  if (btn) btn.dataset.passkeyBusy = '1';
+  // Watchdog: Falls die WebAuthn-Zeremonie auf irgendeinem Gerät stillsteht
+  // (z.B. Browser-Bug, geschlossener Dialog ohne Reject), den Button trotzdem
+  // nach 130s automatisch zurücksetzen, damit er nie "tot" lädt.
+  var watchdog = setTimeout(function() {
+    if (btn) {
+      _setBtnLoading(btn, false);
+      btn.dataset.passkeyBusy = '';
+    }
+    showToast('Passkey-Einrichtung hat zu lange gedauert. Bitte erneut versuchen.', 'warning');
+  }, 130000);
   try {
     if (btn) _setBtnLoading(btn, true);
     await registerPasskey('Zusätzliches Gerät');
@@ -5395,7 +5414,11 @@ async function addPasskeyFromSettings(btn) {
   } catch (err) {
     showToast(_friendlyPasskeyError(err, 'Passkey konnte nicht hinzugefügt werden.'), 'error');
   } finally {
-    if (btn) _setBtnLoading(btn, false);
+    clearTimeout(watchdog);
+    if (btn) {
+      _setBtnLoading(btn, false);
+      btn.dataset.passkeyBusy = '';
+    }
   }
 }
 
