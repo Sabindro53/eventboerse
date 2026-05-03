@@ -38,6 +38,10 @@
     {
       "query": "path:Roadmap",
       "color": { "a": 1, "rgb": 15680580 }
+    },
+    {
+      "query": "path:Security",
+      "color": { "a": 1, "rgb": 15484569 }
     }
   ],
   "collapse-display": false,
