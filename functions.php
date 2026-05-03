@@ -1261,7 +1261,12 @@ function eb_webauthn_register_options() {
                 'requireResidentKey'     => false,
                 'userVerification'       => 'preferred',
             ),
-            'excludeCredentials'     => $exclude_credentials,
+            // Bewusst KEIN excludeCredentials: iOS Safari schließt den Face-ID-Dialog
+            // sonst stillschweigend (ohne reject) wenn der Nutzer schon einen Passkey
+            // auf dem gleichen Gerät hat -> Button hängt ewig im Lade-Zustand.
+            // Dadurch kann ein Nutzer auch mehrere Passkeys pro Gerät anlegen, was
+            // bewusst gewollt ist (z.B. ein Pixel mit Fingerabdruck + Face Unlock).
+            'excludeCredentials'     => array(),
             'extensions'             => array( 'credProps' => true ),
         ),
     ), 200 );

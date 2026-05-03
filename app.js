@@ -5391,19 +5391,24 @@ function refreshPasskeySettings() {
 }
 
 async function addPasskeyFromSettings(btn) {
-  // Schutz: Doppelklick / parallele Aufrufe verhindern
-  if (btn && btn.dataset.passkeyBusy === '1') return;
+  // Wenn schon ein Lade-Zustand existiert (z.B. nach Reload), erst sauber zurücksetzen
+  if (btn && (btn.classList.contains('btn-loading') || btn.dataset.passkeyBusy === '1')) {
+    _abortPendingPasskey();
+    _setBtnLoading(btn, false);
+    btn.dataset.passkeyBusy = '';
+  }
   if (btn) btn.dataset.passkeyBusy = '1';
   // Watchdog: Falls die WebAuthn-Zeremonie auf irgendeinem Gerät stillsteht
-  // (z.B. Browser-Bug, geschlossener Dialog ohne Reject), den Button trotzdem
-  // nach 130s automatisch zurücksetzen, damit er nie "tot" lädt.
+  // (z.B. iOS Safari schließt den Face-ID-Dialog ohne Reject), die Zeremonie
+  // nach 75s hart abbrechen und den Button zurücksetzen.
   var watchdog = setTimeout(function() {
+    _abortPendingPasskey();
     if (btn) {
       _setBtnLoading(btn, false);
       btn.dataset.passkeyBusy = '';
     }
-    showToast('Passkey-Einrichtung hat zu lange gedauert. Bitte erneut versuchen.', 'warning');
-  }, 130000);
+    showToast('Passkey-Einrichtung wurde abgebrochen. Bitte erneut versuchen.', 'warning');
+  }, 75000);
   try {
     if (btn) _setBtnLoading(btn, true);
     await registerPasskey('Zusätzliches Gerät');
@@ -5415,6 +5420,7 @@ async function addPasskeyFromSettings(btn) {
     showToast(_friendlyPasskeyError(err, 'Passkey konnte nicht hinzugefügt werden.'), 'error');
   } finally {
     clearTimeout(watchdog);
+    _passkeyAbort = null;
     if (btn) {
       _setBtnLoading(btn, false);
       btn.dataset.passkeyBusy = '';
@@ -8864,16 +8870,37 @@ async function handlePromptPasskeySetup(btn) {
   }
 }
 
+// Kleines Hilfsmittel: fetch mit Hard-Timeout, damit kein Aufruf endlos hängt
+function _fetchWithTimeout(url, options, timeoutMs) {
+  options = options || {};
+  var ctrl = new AbortController();
+  var timer = setTimeout(function() { ctrl.abort(); }, timeoutMs || 15000);
+  options.signal = ctrl.signal;
+  return fetch(url, options).finally(function() { clearTimeout(timer); });
+}
+
 async function getPasskeyRegisterOptions() {
-  var response = await fetch(_apiUrl('webauthn/register-options'), {
+  var response = await _fetchWithTimeout(_apiUrl('webauthn/register-options'), {
     method: 'POST',
     credentials: 'same-origin',
     headers: _apiHeaders()
-  });
+  }, 15000);
   _refreshNonce(response);
   var data = await response.json();
   if (!response.ok) throw new Error(data.message || 'Passkey-Optionen konnten nicht geladen werden.');
   return data;
+}
+
+// Globaler Abort-Controller, damit eine laufende WebAuthn-Zeremonie
+// (insb. auf iOS Safari, das gerne mal stillschweigend hängt) hart
+// abgebrochen werden kann.
+var _passkeyAbort = null;
+
+function _abortPendingPasskey() {
+  if (_passkeyAbort) {
+    try { _passkeyAbort.abort(); } catch (e) {}
+    _passkeyAbort = null;
+  }
 }
 
 async function registerPasskey(label) {
@@ -8885,8 +8912,14 @@ async function registerPasskey(label) {
   }
 
   var optionsData = await getPasskeyRegisterOptions();
+
+  // Vorherige Zeremonie ggf. abbrechen, damit sich nichts staut
+  _abortPendingPasskey();
+  _passkeyAbort = new AbortController();
+
   var credential = await navigator.credentials.create({
-    publicKey: _preparePublicKeyOptions(optionsData.publicKey)
+    publicKey: _preparePublicKeyOptions(optionsData.publicKey),
+    signal: _passkeyAbort.signal
   });
 
   var response = await fetch(_apiUrl('webauthn/register'), {
