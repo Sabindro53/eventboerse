@@ -8536,6 +8536,112 @@ body.dark-mode .bpc-delete-btn:hover {
 .board-meta-stat strong { font-weight: 700; font-size: 15px; color: var(--dark); }
 .board-meta-stat small { color: var(--text-light); font-size: 11px; display: block; }
 
+/* Edit button in board meta */
+.bme-edit-btn {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: var(--bg-alt);
+  color: var(--text-light);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; margin-left: 4px;
+  transition: background 0.18s, color 0.18s;
+}
+.bme-edit-btn .material-icons-round { font-size: 16px; }
+.bme-edit-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* Countdown badge on board project cards */
+.bpc-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.bpc-top-row h3 { margin: 0; }
+.bpc-countdown {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px;
+  background: rgba(0,166,153,0.12); color: var(--accent);
+  white-space: nowrap; flex-shrink: 0;
+}
+.bpc-countdown.urgent { background: rgba(255,56,92,0.12); color: #FF385C; }
+.bpc-countdown.past   { background: var(--border-light); color: var(--text-light); }
+
+/* Edit button on project card (hidden until hover) */
+.bpc-edit-btn {
+  position: absolute; top: 10px; right: 44px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: rgba(255,255,255,0.9);
+  color: var(--text-light);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  opacity: 0; transform: scale(0.85);
+  transition: opacity 0.18s, transform 0.18s, background 0.18s, color 0.18s;
+  z-index: 2;
+}
+.bpc-edit-btn .material-icons-round { font-size: 16px; }
+.board-project-card:hover .bpc-edit-btn, .bpc-edit-btn:focus-visible { opacity: 1; transform: scale(1); }
+.bpc-edit-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+@media (max-width: 768px) {
+  .bpc-edit-btn { opacity: 1; transform: scale(1); width: 34px; height: 34px; }
+}
+body.dark-mode .bpc-edit-btn { background: rgba(40,40,40,0.9); border-color: #3a3a3a; color: #cfcfcf; }
+body.dark-mode .bpc-edit-btn:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* "Add to board" button in booking sidebar */
+#btnAddToBoard .material-icons-round { font-size: 18px; }
+
+/* Project picker modal */
+.bsp-list { padding: 0 16px 4px; max-height: 320px; overflow-y: auto; }
+.bsp-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 12px 14px;
+  border: 1px solid var(--border-light); border-radius: 12px;
+  background: var(--bg); cursor: pointer;
+  margin-bottom: 8px; text-align: left;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.bsp-row:hover { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(255,56,92,0.12); }
+.bsp-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.bsp-info strong { font-size: 14px; font-weight: 600; color: var(--dark); }
+.bsp-info small { font-size: 12px; color: var(--text-light); }
+.bsp-arrow { font-size: 20px !important; color: var(--text-light); }
+
+/* Checklist View */
+.board-checklist-view { padding: 20px 28px 60px; }
+.bcl-wrap { max-width: 640px; margin: 0 auto; }
+.bcl-header { margin-bottom: 20px; }
+.bcl-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: var(--dark); margin-bottom: 10px; }
+.bcl-title .material-icons-round { font-size: 22px; color: var(--primary); }
+.bcl-progress-bar-wrap { height: 8px; border-radius: 8px; background: var(--border-light); overflow: hidden; margin-bottom: 6px; }
+.bcl-progress-bar { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.4s ease; }
+.bcl-progress-label { font-size: 12px; color: var(--text-light); }
+.bcl-list { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-direction: column; gap: 6px; }
+.bcl-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px; background: var(--bg);
+  border: 1px solid var(--border-light);
+  transition: background 0.18s;
+}
+.bcl-item.done { background: var(--bg-alt); }
+.bcl-item.done .bcl-text { text-decoration: line-through; color: var(--text-light); }
+.bcl-check { background: none; border: none; cursor: pointer; padding: 0; color: var(--text-light); display: flex; align-items: center; }
+.bcl-check .material-icons-round { font-size: 22px; transition: color 0.18s; }
+.bcl-item.done .bcl-check .material-icons-round { color: var(--accent); }
+.bcl-check:hover .material-icons-round { color: var(--primary); }
+.bcl-text { flex: 1; font-size: 14px; color: var(--dark); }
+.bcl-del { background: none; border: none; cursor: pointer; padding: 2px; color: transparent; display: flex; align-items: center; transition: color 0.18s; margin-left: auto; }
+.bcl-del .material-icons-round { font-size: 16px; }
+.bcl-item:hover .bcl-del { color: var(--text-light); }
+.bcl-del:hover { color: #FF385C !important; }
+.bcl-add-form { display: flex; gap: 8px; }
+.bcl-add-form input { flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-light); font-size: 14px; background: var(--bg); color: var(--text); }
+.bcl-add-form input:focus { outline: none; border-color: var(--primary); }
+.bcl-add-form .btn-primary { padding: 10px 14px; border-radius: 10px; }
+body.dark-mode .bcl-item { background: #1c1c1c; border-color: #2e2e2e; }
+body.dark-mode .bcl-item.done { background: #141414; }
+body.dark-mode .bcl-add-form input { background: #1c1c1c; border-color: #2e2e2e; color: #e0e0e0; }
+
 .board-view-toggle {
   display: flex;
   gap: 4px;
@@ -8686,6 +8792,57 @@ body.dark-mode .bpc-delete-btn:hover {
 .kc-actions button .material-icons-round { font-size: 14px; }
 .kc-actions button:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .kc-actions .kc-del:hover { background: #f44336; border-color: #f44336; }
+
+/* Kanban card stage badges */
+.kc-waiting {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  margin: 6px 12px 2px;
+  border-radius: 20px;
+  background: rgba(255,152,0,0.14);
+  border: 1px solid rgba(255,152,0,0.35);
+  color: #FFA726;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.kc-waiting .material-icons-round { font-size: 13px; }
+.kc-book-now {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% - 24px);
+  margin: 8px 12px 2px;
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #43a047, #66bb6a);
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: opacity 0.15s;
+}
+.kc-book-now:hover { opacity: 0.88; }
+.kc-book-now .material-icons-round { font-size: 14px; }
+
+/* Flow confirm badge for angebot stage */
+.flow-confirm-badge.angebot {
+  background: rgba(102,187,106,0.18);
+  color: #66bb6a;
+  border: 1px solid rgba(102,187,106,0.4);
+}
+
+/* Chat reject button */
+.cbc-btn-reject {
+  background: rgba(255,82,82,0.12);
+  border: 1px solid rgba(255,82,82,0.35);
+  color: #FF5252;
+}
+.cbc-btn-reject:hover { background: rgba(255,82,82,0.22); }
 
 .kanban-add-btn {
   display: flex;

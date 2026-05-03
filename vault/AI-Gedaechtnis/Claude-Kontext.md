@@ -92,9 +92,17 @@ navigateTo('admin')         // Admin-Panel
 | ~505 | SPA Path Helpers |
 | ~539 | Global State (`currentUser`, `currentChat` etc.) |
 | ~718 | `navigateTo()` — Haupt-Router |
+| ~10128 | **Event-Planungs-Board** (Herzstück) |
+| ~10128 | `_boardProjects`, `_activeBoardId`, Sync-Logik |
+| ~11245 | `renderBoardPage()`, `openBoardProject()`, `renderKanban()` |
+| ~11584 | `switchBoardView()` — Kanban/Flow/Timeline/Checkliste |
+| ~14060 | `openCreateBoardModal()`, `_createBoardProject()` |
+| ~14160 | `openEditBoardProjectModal()`, `openSelectBoardProjectModal()` |
+| ~14160 | `addCurrentListingToBoard()`, `_addListingToBoardProject()` |
+| ~14300 | `renderBoardChecklist()`, `toggleChecklistItem()` |
+| ~14400 | `openAddProviderModal()`, `editBoardCard()` |
 | ~8631 | `_apiUrl()` / `_apiHeaders()` |
 | ~9890 | App-Init / DOMContentLoaded |
-| ~10128 | Event-Planer Board |
 | ~11601 | Stripe Return Handler |
 
 ## Lernpunkte aus vergangenen Gesprächen

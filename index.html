@@ -923,6 +923,9 @@
               <button class="btn-primary btn-block" onclick="bookListing()">
                 <span class="material-icons-round">event_available</span> Anfragen
               </button>
+              <button class="btn-secondary btn-block" onclick="addCurrentListingToBoard()" id="btnAddToBoard">
+                <span class="material-icons-round">view_kanban</span> Zum Planungs-Board hinzufügen
+              </button>
               <button class="btn-secondary btn-block" onclick="openNegotiation()">
                 <span class="material-icons-round">gavel</span> Gegenangebot senden
               </button>
@@ -1935,10 +1938,11 @@
                 <h3 id="boardEventName">Mein Event</h3>
                 <span id="boardEventDate" class="board-event-date"></span>
               </div>
+              <button class="bme-edit-btn" onclick="openEditBoardProjectModal()" title="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
             </div>
             <div class="board-meta-stats" id="boardMetaStats">
               <div class="board-meta-stat">
-                <span class="material-icons-round">group</span>
+                <span class="material-icons-round">check_circle</span>
                 <div>
                   <strong id="statConfirmed">0</strong>
                   <small>Bestätigt</small>
@@ -1947,8 +1951,8 @@
               <div class="board-meta-stat">
                 <span class="material-icons-round">euro</span>
                 <div>
-                  <strong id="statBudget">0</strong>
-                  <small>Budget €</small>
+                  <strong id="statBudget">0 €</strong>
+                  <small>Budget</small>
                 </div>
               </div>
               <div class="board-meta-stat">
@@ -1956,6 +1960,20 @@
                 <div>
                   <strong id="statPending">0</strong>
                   <small>Ausstehend</small>
+                </div>
+              </div>
+              <div class="board-meta-stat" id="statGuestsWrap" style="display:none">
+                <span class="material-icons-round">people</span>
+                <div>
+                  <strong id="statGuests">0</strong>
+                  <small>Gäste</small>
+                </div>
+              </div>
+              <div class="board-meta-stat" id="statDaysWrap" style="display:none">
+                <span class="material-icons-round">timer</span>
+                <div>
+                  <strong id="statDays">–</strong>
+                  <small>Tage</small>
                 </div>
               </div>
             </div>
@@ -1968,6 +1986,9 @@
               </button>
               <button class="board-vtoggle" id="btnKanbanView" onclick="switchBoardView('kanban')">
                 <span class="material-icons-round">view_kanban</span> Kanban
+              </button>
+              <button class="board-vtoggle" id="btnChecklistView" onclick="switchBoardView('checklist')">
+                <span class="material-icons-round">checklist</span> Checkliste
               </button>
             </div>
           </div>
@@ -2044,6 +2065,11 @@
 
           <!-- n8n-style Process Flow -->
           <div class="board-flow-view" id="boardFlowView" style="display:none">
+            <!-- Populated by JS -->
+          </div>
+
+          <!-- Checkliste / Aufgaben -->
+          <div class="board-checklist-view" id="boardChecklistView" style="display:none">
             <!-- Populated by JS -->
           </div>
         </div>

@@ -64,6 +64,16 @@
 
 → [[Backend/Listings-API]] | [[Features/Listings]]
 
+## Event-Planungs-Board (2 Endpoints)
+
+| Method | Endpoint | Beschreibung |
+|--------|----------|--------------|
+| GET | `/board-projects` | Alle Projekte des eingeloggten Users laden |
+| POST | `/board-projects` | Projekte speichern (komplette Liste inkl. Tombstones) |
+
+Gespeichert in `wp_usermeta` unter `eb_board_projects` (JSON, max 2 MB).
+→ [[Features/Planungsboard]]
+
 ## Messaging & Verhandlung (5 Endpoints)
 
 | Method | Endpoint | Beschreibung |

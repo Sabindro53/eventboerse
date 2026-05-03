@@ -18,6 +18,7 @@ Der Router verwaltet alle Seiten ohne Seitenneuladen:
 | `/settings` | Settings | Einstellungen |
 | `/create-listing` | Create | Angebot erstellen |
 | `/favorites` | Favorites | Favoriten |
+| `/board` | **Board** | **Event-Planungs-Board (Herzstück)** |
 | `/admin` | Admin | Admin-Panel |
 
 ## Kern-Module
@@ -29,8 +30,22 @@ Der Router verwaltet alle Seiten ohne Seitenneuladen:
 - Session-Management
 - → [[Features/Authentication]]
 
-### Listings & Suche
-- Browse-Ansicht mit Filtermöglichkeiten
+### Event-Planungs-Board (Herzstück)
+- Mehrere Event-Projekte parallel verwalten
+- **Vorlagen:** Hochzeit, Geburtstag, Firmenfeier, Festival, Konferenz, Taufe, Kinderfest, Privatfeier
+- **Auto-Befüllung:** Passende Dienstleister-Kategorien werden bei Projekterstellung als Karten vorausgefüllt
+- **Kanban-Board:** 5 Stages (Geplant → Kontaktiert → Gebucht → Bezahlt → Erfüllt) mit Drag & Drop
+- **Flow-Ansicht:** n8n-artiger Prozessfluss (Standard-Ansicht)
+- **Zeitplan-Ansicht:** Tagesablauf am Event-Tag
+- **Checkliste:** Aufgaben-Checkliste je Event-Typ (abhakbar, benutzerdefiniert erweiterbar)
+- **Projekt-Details:** Name, Datum, Budget, Gästeanzahl, Event-Typ
+- **Countdown:** Tage bis zum Event auf der Projektkarte
+- **Cloud-Sync:** Geräteübergreifende Synchronisation via Server (Tombstone-Merge)
+- **„Zum Board hinzufügen“ Button** auf Service-Detail-Seiten
+- **Dienstleister-Sicht:** Aufträge-Übersicht, Auftrag annehmen/ablehnen, Erbringung bestätigen
+- **Benachrichtigungen:** Live-Toasts bei Statusänderungen vom Anbieter
+- **Projekt löschen** mit automatischer Absage an kontaktierte Dienstleister
+- → [[Features/Planungsboard]]
 - Kategoriefilter (DJ, Catering, Fotografie, etc.)
 - Standortbasierte Suche (Leaflet-Karte)
 - Preisfilter

@@ -3606,7 +3606,9 @@ function _startChatPoll() {
         // Always refresh sidebar (online status dots)
         renderChatList();
         if (newCount <= oldCount) return;
-        // New messages arrived — update
+        // New messages arrived — check for board updates (acceptance/rejection)
+        _checkBoardUpdatesFromMessages(messages || []);
+        // Update display
         currentChat.messages = messages;
         var msgContainer = document.getElementById('chatMessages');
         var wasAtBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight < 80;
@@ -3663,7 +3665,10 @@ function _stopChatPoll() {
 
 function _isBookingContent(text) {
   if (!text) return false;
-  try { var d = JSON.parse(text); if (d && d.listing) return true; } catch(e) {}
+  try {
+    var d = JSON.parse(text);
+    if (d && (d.listing || d.kind === 'inquiry_accepted' || d.kind === 'inquiry_rejected' || d.kind === 'inquiry_cancelled')) return true;
+  } catch(e) {}
   if (/^Anfrage\n/.test(text)) return true;
   return false;
 }
@@ -3717,7 +3722,25 @@ function _renderBookingCard(msg) {
   try { data = JSON.parse(raw); } catch (e) { data = null; }
   if (!data) data = _parseOldBookingText(raw);
 
-  // Storno-Karte (kompakt): wird beim Löschen des Projekts von der Anfrage-Seite
+  // Acceptance/rejection cards
+  if (data && (data.kind === 'inquiry_accepted' || data.kind === 'inquiry_rejected')) {
+    var isAccepted = data.kind === 'inquiry_accepted';
+    var clr = isAccepted ? '#66bb6a' : '#FF5252';
+    var icon = isAccepted ? 'check_circle' : 'cancel';
+    var label = isAccepted
+      ? (side === 'sent' ? 'Du hast die Anfrage angenommen' : 'Anbieter hat angenommen – Jetzt buchen!')
+      : (side === 'sent' ? 'Du hast die Anfrage abgelehnt' : 'Anbieter hat die Anfrage leider abgelehnt');
+    var sysLabel = isAccepted ? 'Anfrage angenommen' : 'Anfrage abgelehnt';
+    return '<div class="cbc cbc-' + side + ' cbc-status-msg">' +
+      '<div class="cbc-sysbar" style="background:' + clr + ';"><span class="material-icons-round">' + icon + '</span> ' + sysLabel + '</div>' +
+      '<div class="cbc-content">' +
+        '<div class="cbc-status" style="color:' + clr + ';"><span class="material-icons-round">' + icon + '</span> ' + _escHtml(label) + '</div>' +
+      '</div>' +
+      (time ? '<span class="cbc-ts">' + _escHtml(time) + '</span>' : '') +
+    '</div>';
+  }
+
+  // Storno-Karte (kompakt)
   // gesendet und auf beiden Seiten als Info-Banner angezeigt.
   if (data && data.kind === 'inquiry_cancelled') {
     var introCancel = side === 'sent'
@@ -3817,10 +3840,12 @@ function _renderBookingCard(msg) {
         (side === 'sent' ? 'Du hast dieses Projekt geschlossen' : 'Kunde hat das Projekt geschlossen') +
         '</div>';
     } else if (side === 'received') {
+      var _cbcCardId = _escHtml(data.cardId || '');
+      var _cbcProjId = _escHtml(data.projectId || '');
       var isoDate = (data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) ? data.date : '';
       html += '<div class="cbc-actions">' +
-        '<button class="cbc-btn cbc-btn-primary" onclick="proposeAlternativeDate(\'' + isoDate + '\')"><span class="material-icons-round">event_repeat</span> Anderen Termin vorschlagen</button>' +
-        '<button class="cbc-btn cbc-btn-accept" onclick="acceptInquiryFromChat()"><span class="material-icons-round">check_circle</span> Annehmen</button>' +
+        '<button class="cbc-btn cbc-btn-reject" onclick="rejectInquiryFromChat(\'' + _cbcCardId + '\',\'' + _cbcProjId + '\')"><span class="material-icons-round">cancel</span> Ablehnen</button>' +
+        '<button class="cbc-btn cbc-btn-accept" onclick="acceptInquiryFromChat(\'' + _cbcCardId + '\',\'' + _cbcProjId + '\')"><span class="material-icons-round">check_circle</span> Annehmen</button>' +
         '</div>';
     } else {
       html += '<div class="cbc-status"><span class="material-icons-round">schedule</span> Warten auf Antwort des Anbieters</div>';
@@ -3847,19 +3872,86 @@ function acceptBookingFromChat() {
   showToast('Anfrage angenommen! Der Kunde wird benachrichtigt.', 'check_circle');
 }
 
-function acceptInquiryFromChat() {
+function acceptInquiryFromChat(cardId, projectId) {
   if (!currentChat) return;
-  var text = '✅ Anfrage angenommen. Ich melde mich in Kürze mit weiteren Details.';
+  // Send structured acceptance so customer's board auto-updates
+  var payload = JSON.stringify({ kind: 'inquiry_accepted', cardId: cardId || '', projectId: projectId || '' });
   fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ content: text, type: 'message' })
+    body: JSON.stringify({ content: payload, type: 'message' })
   })
     .then(function(r){ if(!r.ok) throw new Error('send'); return r.json(); })
     .then(function(){
-      showToast('Zusage gesendet.', 'success');
+      showToast('Zusage gesendet – Kunde wird benachrichtigt.', 'check_circle');
       if (typeof openChat === 'function' && currentChat && currentChat.id) openChat(currentChat.id);
     })
     .catch(function(){ showToast('Senden fehlgeschlagen.', 'error'); });
+}
+
+function rejectInquiryFromChat(cardId, projectId) {
+  if (!currentChat) return;
+  if (!confirm('Anfrage wirklich ablehnen?')) return;
+  var payload = JSON.stringify({ kind: 'inquiry_rejected', cardId: cardId || '', projectId: projectId || '' });
+  fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ content: payload, type: 'message' })
+  })
+    .then(function(r){ if(!r.ok) throw new Error('send'); return r.json(); })
+    .then(function(){
+      showToast('Absage gesendet.', 'info');
+      if (typeof openChat === 'function' && currentChat && currentChat.id) openChat(currentChat.id);
+    })
+    .catch(function(){ showToast('Senden fehlgeschlagen.', 'error'); });
+}
+
+// Called after loading/polling messages on the CUSTOMER side.
+// Scans for inquiry_accepted / inquiry_rejected messages (received) and
+// updates the matching board card automatically.
+var _boardInquiryProcessed = {};
+function _checkBoardUpdatesFromMessages(messages) {
+  if (!Array.isArray(messages) || !_boardProjects || !_boardProjects.length) return;
+  messages.forEach(function(msg) {
+    if (msg.type !== 'received') return; // only messages FROM provider
+    var msgKey = msg.id || (msg.created_at + '_' + (msg.text || '').slice(0,20));
+    if (_boardInquiryProcessed[msgKey]) return;
+    var text = msg.text || msg.content || '';
+    var data;
+    try { data = JSON.parse(text); } catch(e) { return; }
+    if (!data || !data.kind) return;
+    if (data.kind !== 'inquiry_accepted' && data.kind !== 'inquiry_rejected') return;
+    _boardInquiryProcessed[msgKey] = 1;
+    var cid = data.cardId;
+    var pid = data.projectId;
+    if (!cid || !pid) return;
+    var proj = _boardProjects.find(function(p){ return p.id === pid; });
+    if (!proj) return;
+    var card = (proj.cards || []).find(function(c){ return c.id === cid; });
+    if (!card) return;
+    if (data.kind === 'inquiry_accepted' && card.stage === 'kontaktiert') {
+      card.stage = 'angebot';
+      card.providerAcceptedAt = msg.created_at || new Date().toISOString();
+      _saveBoardProjects();
+      showToast((card.name || 'Anbieter') + ' hat deine Anfrage angenommen – jetzt buchen!', 'check_circle');
+      // Refresh board view if active
+      var boardPage = document.getElementById('page-board');
+      if (boardPage && boardPage.classList.contains('active') && _activeBoardId === pid) {
+        try { renderKanban(proj); } catch(_) {}
+        try { renderBoardFlow(); } catch(_) {}
+        try { _updateBoardStats(proj); } catch(_) {}
+      }
+    } else if (data.kind === 'inquiry_rejected' && card.stage === 'kontaktiert') {
+      card.stage = 'geplant';
+      card.rejectedAt = msg.created_at || new Date().toISOString();
+      _saveBoardProjects();
+      showToast((card.name || 'Anbieter') + ' hat die Anfrage leider abgelehnt.', 'cancel');
+      var boardPage = document.getElementById('page-board');
+      if (boardPage && boardPage.classList.contains('active') && _activeBoardId === pid) {
+        try { renderKanban(proj); } catch(_) {}
+        try { renderBoardFlow(); } catch(_) {}
+        try { _updateBoardStats(proj); } catch(_) {}
+      }
+    }
+  });
 }
 
 function proposeAlternativeDate(currentIsoDate) {
@@ -4045,6 +4137,9 @@ function openChat(chatId) {
       }).join('');
       // Scroll to bottom after render
       setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
+
+      // Check for provider acceptance/rejection and auto-update board cards
+      _checkBoardUpdatesFromMessages(messages || []);
 
       // Update chat list and start live polling
       renderChatList();
@@ -11274,18 +11369,34 @@ function renderBoardPage() {
     var total = (p.cards || []).length;
     var confirmed = (p.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; }).length;
     var budgetSum = (p.cards || []).reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+
+    // Countdown badge
+    var countdownHtml = '';
+    if (p.date) {
+      var eventMs = _parseDateDe(p.date);
+      if (eventMs) {
+        var daysLeft = Math.ceil((eventMs - Date.now()) / 86400000);
+        var cdClass = daysLeft <= 0 ? 'bpc-countdown past' : daysLeft <= 30 ? 'bpc-countdown urgent' : 'bpc-countdown';
+        var cdLabel = daysLeft < 0 ? Math.abs(daysLeft) + 'd ago' : daysLeft === 0 ? 'Heute!' : daysLeft + ' Tage';
+        countdownHtml = '<span class="' + cdClass + '">' + cdLabel + '</span>';
+      }
+    }
+    // Guest count badge
+    var guestHtml = p.guests ? '<span class="bpf-count"><span class="material-icons-round">people</span>' + p.guests + ' G&auml;ste</span>' : '';
+
     return `
       <div class="board-project-card animated-entry" onclick="openBoardProject('${p.id}')">
-        <button class="bpc-delete-btn" onclick="event.stopPropagation();deleteBoardProjectById('${p.id}')" title="Projekt löschen" aria-label="Projekt löschen"><span class="material-icons-round">close</span></button>
-        <h3>${_escHtml(p.name)}</h3>
+        <button class="bpc-delete-btn" onclick="event.stopPropagation();deleteBoardProjectById('${p.id}')" title="Projekt l\u00f6schen" aria-label="Projekt l\u00f6schen"><span class="material-icons-round">close</span></button>
+        <button class="bpc-edit-btn" onclick="event.stopPropagation();openEditBoardProjectModal('${p.id}')" title="Projekt bearbeiten" aria-label="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
+        <div class="bpc-top-row">
+          <h3>${_escHtml(p.name)}</h3>
+          ${countdownHtml}
+        </div>
         <div class="bpc-date"><span class="material-icons-round">event</span>${_escHtml(p.date || 'Datum noch offen')}</div>
         <div class="board-project-progress">
           ${(function() {
             var order = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
             var cards = p.cards || [];
-            // Höchste je erreichte Stage pro Karte ableiten – auch wenn die
-            // Karte später zurückgesetzt wurde, sollen frühere Schritte
-            // gefüllt bleiben, weil sie historisch erreicht wurden.
             function maxStageIndex(c) {
               var idx = order.indexOf(c.stage);
               if (idx < 0) idx = 0;
@@ -11295,9 +11406,6 @@ function renderBoardPage() {
               if (c.fulfilledAt || (c.userConfirmedAt && c.providerConfirmedAt)) idx = Math.max(idx, 4);
               return idx;
             }
-            // Höchster erreichter Index aller Karten – bestimmt, wie weit der
-            // Balken insgesamt gefüllt wird. „Geplant" ist immer erreicht,
-            // sobald das Projekt überhaupt existiert (deshalb Start bei 0).
             var maxReached = 0;
             cards.forEach(function(c) {
               var i = maxStageIndex(c);
@@ -11305,8 +11413,6 @@ function renderBoardPage() {
             });
             return order.map(function(stage, i) {
               var atStage = cards.filter(function(c) { return c.stage === stage; }).length;
-              // Stage gilt nur als gefüllt, wenn aktuell mindestens eine Karte
-              // in dieser Stage liegt – nicht über kumulativen "höchsten Index".
               var filled = atStage > 0;
               return '<div class="bpp-stage' + (filled ? ' filled stage-' + stage : '') +
                 '" title="' + stage + ': ' + atStage + '"></div>';
@@ -11315,7 +11421,8 @@ function renderBoardPage() {
         </div>
         <div class="board-project-footer">
           <span class="bpf-count"><span class="material-icons-round">group</span>${total} Dienstleister</span>
-          ${p.budget ? `<span class="bpf-count"><span class="material-icons-round">savings</span>${parseFloat(p.budget).toLocaleString('de-DE')} € Budget</span>` : `<span class="bpf-count"><span class="material-icons-round">euro</span>${budgetSum.toFixed(0)} €</span>`}
+          ${p.budget ? `<span class="bpf-count"><span class="material-icons-round">savings</span>${parseFloat(p.budget).toLocaleString('de-DE')} \u20ac Budget</span>` : `<span class="bpf-count"><span class="material-icons-round">euro</span>${budgetSum.toFixed(0)} \u20ac</span>`}
+          ${guestHtml}
           <span class="bpf-count" style="color:var(--accent)"><span class="material-icons-round">check_circle</span>${confirmed} Best.</span>
         </div>
       </div>`;
@@ -11507,6 +11614,13 @@ function renderKanban(project) {
 
 function renderKanbanCard(card) {
   var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+  // Stage-specific status badge / CTA
+  var stageBadge = '';
+  if (card.stage === 'kontaktiert') {
+    stageBadge = '<div class="kc-waiting"><span class="material-icons-round">hourglass_top</span> Warten auf Antwort</div>';
+  } else if (card.stage === 'angebot') {
+    stageBadge = '<button class="kc-book-now" onclick="event.stopPropagation();openStageAdvanceModal(\''+card.id+'\',\'angebot\')"><span class="material-icons-round">receipt_long</span> Jetzt buchen</button>';
+  }
   return `<div class="kanban-card" draggable="true" data-card-id="${card.id}" ondragstart="dragCard(event,'${card.id}')" onclick="event.stopPropagation()">
     <div class="kc-header">
       <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=fallback'" />
@@ -11517,6 +11631,7 @@ function renderKanbanCard(card) {
     </div>
     ${card.price ? '<div class="kc-price">€ ' + _escHtml(String(card.price)) + '</div>' : ''}
     ${card.note ? '<div class="kc-note">' + _escHtml(card.note) + '</div>' : ''}
+    ${stageBadge}
     <div class="kc-actions">
       ${card.listingId ? '<button onclick="navigateTo(\'detail\',' + card.listingId + ')"><span class="material-icons-round">open_in_new</span></button>' : ''}
       <button onclick="editBoardCard('${card.id}')"><span class="material-icons-round">edit</span></button>
@@ -11526,7 +11641,7 @@ function renderKanbanCard(card) {
 }
 
 function _updateBoardStats(project) {
-  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt'; }).length;
+  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; }).length;
   var budget = parseFloat(project.budget) || 0;
   var pending = (project.cards || []).filter(function(c) { return c.stage === 'kontaktiert' || c.stage === 'angebot'; }).length;
   var statC = document.getElementById('statConfirmed');
@@ -11535,6 +11650,57 @@ function _updateBoardStats(project) {
   if (statC) statC.textContent = confirmed;
   if (statB) statB.textContent = budget.toLocaleString('de-DE') + ' €';
   if (statP) statP.textContent = pending;
+
+  // Guests stat
+  var guestsWrap = document.getElementById('statGuestsWrap');
+  var statG = document.getElementById('statGuests');
+  if (guestsWrap && statG) {
+    if (project.guests) {
+      guestsWrap.style.display = '';
+      statG.textContent = project.guests;
+    } else {
+      guestsWrap.style.display = 'none';
+    }
+  }
+
+  // Countdown stat
+  var daysWrap = document.getElementById('statDaysWrap');
+  var statD = document.getElementById('statDays');
+  if (daysWrap && statD && project.date) {
+    var eventMs = _parseDateDe(project.date);
+    if (eventMs) {
+      var diff = Math.ceil((eventMs - Date.now()) / 86400000);
+      daysWrap.style.display = '';
+      if (diff > 0) {
+        statD.textContent = diff;
+        statD.style.color = diff <= 30 ? '#FF385C' : diff <= 90 ? '#FF9800' : 'var(--accent)';
+        daysWrap.querySelector('small').textContent = 'Tage noch';
+      } else if (diff === 0) {
+        statD.textContent = 'Heute';
+        statD.style.color = '#FF385C';
+        daysWrap.querySelector('small').textContent = 'Event-Tag!';
+      } else {
+        statD.textContent = Math.abs(diff) + ' vor';
+        statD.style.color = 'var(--text-light)';
+        daysWrap.querySelector('small').textContent = 'Tagen past';
+      }
+    } else {
+      daysWrap.style.display = 'none';
+    }
+  } else if (daysWrap) {
+    daysWrap.style.display = 'none';
+  }
+}
+
+// Parse a German date string (DD.MM.YYYY or YYYY-MM-DD) to a timestamp.
+function _parseDateDe(str) {
+  if (!str) return 0;
+  var m;
+  m = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]).getTime();
+  m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]).getTime();
+  return 0;
 }
 
 // Drag & Drop
@@ -11583,20 +11749,24 @@ function _initCardDrag(colEl) {
 
 // View Toggle
 function switchBoardView(view) {
-  var kanban   = document.getElementById('boardKanban');
-  var timeline = document.getElementById('boardTimelineView');
-  var flow     = document.getElementById('boardFlowView');
-  var btnK = document.getElementById('btnKanbanView');
-  var btnT = document.getElementById('btnTimelineView');
-  var btnF = document.getElementById('btnFlowView');
+  var kanban    = document.getElementById('boardKanban');
+  var timeline  = document.getElementById('boardTimelineView');
+  var flow      = document.getElementById('boardFlowView');
+  var checklist = document.getElementById('boardChecklistView');
+  var btnK  = document.getElementById('btnKanbanView');
+  var btnT  = document.getElementById('btnTimelineView');
+  var btnF  = document.getElementById('btnFlowView');
+  var btnCh = document.getElementById('btnChecklistView');
 
   // reset all
-  kanban   && (kanban.style.display   = 'none');
-  timeline && (timeline.style.display = 'none');
-  flow     && (flow.style.display     = 'none');
-  btnK && btnK.classList.remove('active');
-  btnT && btnT.classList.remove('active');
-  btnF && btnF.classList.remove('active');
+  kanban    && (kanban.style.display    = 'none');
+  timeline  && (timeline.style.display  = 'none');
+  flow      && (flow.style.display      = 'none');
+  checklist && (checklist.style.display = 'none');
+  btnK  && btnK.classList.remove('active');
+  btnT  && btnT.classList.remove('active');
+  btnF  && btnF.classList.remove('active');
+  btnCh && btnCh.classList.remove('active');
 
   if (view === 'kanban') {
     kanban && (kanban.style.display = '');
@@ -11609,6 +11779,10 @@ function switchBoardView(view) {
     flow && (flow.style.display = '');
     btnF && btnF.classList.add('active');
     renderBoardFlow();
+  } else if (view === 'checklist') {
+    checklist && (checklist.style.display = '');
+    btnCh && btnCh.classList.add('active');
+    renderBoardChecklist();
   }
 }
 
@@ -11899,8 +12073,10 @@ function _renderBoardFlowImpl() {
       html += '<div class="flow-node flow-node-provider' + (isConfirmed ? ' is-confirmed' : '') + '" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
       if (isConfirmed) {
         html += '<span class="flow-confirm-badge confirmed"><span class="material-icons-round">verified</span>Bestätigt</span>';
-      } else if (card.stage === 'kontaktiert' || card.stage === 'angebot') {
-        html += '<span class="flow-confirm-badge pending"><span class="material-icons-round">hourglass_top</span>Offen</span>';
+      } else if (card.stage === 'angebot') {
+        html += '<span class="flow-confirm-badge angebot"><span class="material-icons-round">check_circle</span>Angebot erhalten</span>';
+      } else if (card.stage === 'kontaktiert') {
+        html += '<span class="flow-confirm-badge pending"><span class="material-icons-round">hourglass_top</span>Warten auf Antwort</span>';
       }
       if (card.listingImage) {
         html += '<div class="flow-prov-banner" style="background-image:url(\''+esc(card.listingImage)+'\')"></div>';
@@ -11917,10 +12093,15 @@ function _renderBoardFlowImpl() {
       if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
       html += '<div class="flow-prov-actions">';
-      var _saLabels = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Status ansehen',bestaetigt:'Erbringung bestätigen'};
-      var _saIcons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'hourglass_top',bestaetigt:'verified'};
-      var _saColors = {geplant:'#42a5f5',kontaktiert:'#ab47bc',angebot:'#FFA726',bestaetigt:'#FF385C'};
-      if (_saLabels[stage.id]) {
+      var _saLabels = {geplant:'Kontaktieren',angebot:'Jetzt buchen',bestaetigt:'Erbringung bestätigen'};
+      var _saIcons  = {geplant:'forum',angebot:'receipt_long',bestaetigt:'verified'};
+      var _saColors = {geplant:'#42a5f5',angebot:'#66bb6a',bestaetigt:'#FF385C'};
+      if (stage.id === 'kontaktiert') {
+        // Locked: waiting for provider response
+        html += '<button class="flow-prov-action-btn flow-prov-waiting" style="--sa-clr:#FF9800;opacity:0.85;cursor:default" onclick="event.stopPropagation();openStageAdvanceModal(\'' + card.id + '\',\'' + stage.id + '\')">';
+        html += '<span class="material-icons-round">hourglass_top</span> Warten auf Antwort';
+        html += '</button>';
+      } else if (_saLabels[stage.id]) {
         html += '<button class="flow-prov-action-btn" style="--sa-clr:' + _saColors[stage.id] + '" onclick="event.stopPropagation();openStageAdvanceModal(\'' + card.id + '\',\'' + stage.id + '\')">';
         html += '<span class="material-icons-round">' + _saIcons[stage.id] + '</span> ' + _saLabels[stage.id];
         html += '</button>';
@@ -12740,8 +12921,8 @@ function openStageAdvanceModal(cardId, currentStage) {
   var card = (project.cards || []).find(function(c) { return c.id === cardId; });
   if (!card) return;
 
-  var titles = {geplant:'Kontaktieren',kontaktiert:'Jetzt buchen',angebot:'Warten auf Annahme',bestaetigt:'Erbringung bestätigen'};
-  var icons  = {geplant:'forum',kontaktiert:'receipt_long',angebot:'hourglass_top',bestaetigt:'verified'};
+  var titles = {geplant:'Kontaktieren',kontaktiert:'Warten auf Antwort',angebot:'Jetzt buchen',bestaetigt:'Erbringung bestätigen'};
+  var icons  = {geplant:'forum',kontaktiert:'hourglass_top',angebot:'receipt_long',bestaetigt:'verified'};
   var title  = titles[currentStage] || 'Weiter';
   var icon   = icons[currentStage] || 'arrow_forward';
 
@@ -12831,18 +13012,42 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<input type="hidden" id="saProvEmail" value="' + _escHtml(_provEmail) + '">' +
       '<input type="hidden" id="saProjectName" value="' + _escHtml(_projectName) + '">';
   } else if (currentStage === 'kontaktiert') {
-    // Stage "Kontaktiert" → "Gebucht": User entscheidet sich fest zu buchen.
+    // Stage "Kontaktiert": Anfrage wurde gesendet – warten auf Anbieter-Antwort.
+    // Hier gibt es KEINE Buchen-Aktion. Der Anbieter muss im Chat Ja/Nein sagen.
+    var _contactedDate = card.contactDate ? _formatDateDe(card.contactDate) : '—';
+    var _contactMethod = card.contactMethod || 'Chat';
+    fieldsHtml = '' +
+      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(255,167,38,0.14),rgba(255,167,38,0.04));border:1px solid rgba(255,167,38,0.35);border-radius:12px;padding:14px;margin-bottom:12px">' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">' +
+          '<span class="material-icons-round" style="color:#FFA726">hourglass_top</span>' +
+          '<strong>Warten auf Antwort des Anbieters</strong>' +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
+          'Deine Anfrage wurde am <strong>' + _escHtml(_contactedDate) + '</strong> via <strong>' + _escHtml(_contactMethod) + '</strong> versendet.<br>' +
+          'Sobald der Anbieter im Chat <strong>Annehmen</strong> oder <strong>Ablehnen</strong> klickt, ' +
+          'wird die Karte automatisch aktualisiert.' +
+        '</div>' +
+      '</div>' +
+      '<label class="sa-label">Dienstleister</label>' +
+      '<input class="sa-input" readonly value="' + _escHtml(card.name || '') + '">' +
+      '<label class="sa-label">Leistung</label>' +
+      '<input class="sa-input" readonly value="' + _escHtml((_listing && _listing.title) || card.name || '') + '">' +
+      (card.conversationId
+        ? '<button type="button" class="sa-action-btn sa-action-primary" style="width:100%;margin-top:8px" onclick="navigateTo(\'messages\');this.closest(\'.sa-overlay\').remove()"><span class="material-icons-round">forum</span> Chat öffnen</button>'
+        : '');
+  } else if (currentStage === 'angebot') {
+    // Stage "Angebot erhalten" → Anbieter hat Ja gesagt → jetzt verbindlich buchen.
     // Rechnung wird angestoßen (E-Mail an User, Anbieter, kontakt@eventbörse.de).
     var _bookPrice = (_listing && _listing.price) || card.price || '';
     var _bookEventDate = (project && project.date) ? _formatDateDe(project.date) : '—';
     fieldsHtml = '' +
-      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(171,71,188,0.12),rgba(171,71,188,0.04));border:1px solid rgba(171,71,188,0.3);border-radius:12px;padding:14px;margin-bottom:12px">' +
+      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(102,187,106,0.14),rgba(102,187,106,0.04));border:1px solid rgba(102,187,106,0.35);border-radius:12px;padding:14px;margin-bottom:12px">' +
         '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">' +
-          '<span class="material-icons-round" style="color:#AB47BC">receipt_long</span>' +
-          '<strong>Verbindlich buchen</strong>' +
+          '<span class="material-icons-round" style="color:#66bb6a">check_circle</span>' +
+          '<strong>Angebot erhalten – jetzt buchen!</strong>' +
         '</div>' +
         '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
-          'Mit dem Buchen wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
+          'Der Anbieter hat deine Anfrage angenommen. Mit dem Buchen wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
           'und <strong>eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
         '</div>' +
       '</div>' +
@@ -12854,41 +13059,6 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<input id="saBookPrice" type="number" class="sa-input" step="1" min="0" value="' + _escHtml(String(_bookPrice)) + '">' +
       '<label class="sa-label">Anmerkung f&uuml;r Rechnung <small>(optional)</small></label>' +
       '<textarea id="saBookNote" class="sa-input" rows="2" placeholder="Uhrzeit, Adresse, Besonderheiten…"></textarea>';
-  } else if (currentStage === 'angebot') {
-    // Stage "Gebucht" → wartet auf Auftragsannahme durch den Dienstleister.
-    // Der Nutzer muss NICHTS mehr bestätigen. Sobald der Dienstleister in seinen
-    // Aufträgen „Auftrag annehmen" drückt, springt die Karte automatisch auf
-    // „Bezahlt". Hier zeigen wir nur den Status (read-only).
-    var _waitPrice = card.price || (_listing && _listing.price) || 0;
-    var _waitPriceStr = _formatEuro(_waitPrice);
-    var _bookedDate = card.bookedAt ? _formatDateDe(card.bookedAt.slice(0,10)) : '—';
-    var _stripeFee = (parseFloat(_waitPrice) || 0) * 0.03;
-    var _platformFee = (parseFloat(_waitPrice) || 0) * 0.03;
-    fieldsHtml = '' +
-      '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(255,167,38,0.14),rgba(255,167,38,0.04));border:1px solid rgba(255,167,38,0.35);border-radius:12px;padding:14px;margin-bottom:12px">' +
-        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">' +
-          '<span class="material-icons-round" style="color:#FFA726">hourglass_top</span>' +
-          '<strong>Warten auf Auftragsannahme</strong>' +
-        '</div>' +
-        '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
-          'Deine Buchung ist verbindlich &uuml;bermittelt. Sobald der Dienstleister ' +
-          'den Auftrag in seiner &bdquo;Auftr&auml;ge&ldquo;-Ansicht <strong>annimmt</strong>, ' +
-          'wird die Zahlung freigegeben und dein Projekt springt automatisch auf ' +
-          '<strong>Bezahlt</strong>. Du musst nichts weiter tun.' +
-        '</div>' +
-      '</div>' +
-      '<label class="sa-label">Gebucht am</label>' +
-      '<input class="sa-input" readonly value="' + _escHtml(_bookedDate) + '">' +
-      '<label class="sa-label">Leistung</label>' +
-      '<input class="sa-input" readonly value="' + _escHtml((_listing && _listing.title) || card.name || '') + '">' +
-      '<label class="sa-label">Betrag (brutto)</label>' +
-      '<input class="sa-input" readonly value="' + _escHtml(_waitPriceStr) + '">' +
-      '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6">' +
-        '<div style="display:flex;justify-content:space-between"><span>Zahlungsgeb&uuml;hr (Stripe 3%)</span><span>' + _escHtml(_formatEuro(_stripeFee)) + '</span></div>' +
-        '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>' + _escHtml(_formatEuro(_platformFee)) + '</span></div>' +
-        '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Dienstleister erh&auml;lt</span><strong>' + _escHtml(_formatEuro((parseFloat(_waitPrice) || 0) - _stripeFee - _platformFee)) + '</strong></div>' +
-      '</div>' +
-      '<input type="hidden" id="saWaitStage" value="1">';
   } else if (currentStage === 'bestaetigt') {
     // Stage "Bezahlt" → "Erfüllt": Dual-Confirmation am Event-Tag.
     var _hasProvConfirm = !!card.providerConfirmedAt;
@@ -12937,9 +13107,9 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<textarea id="saComment" class="sa-input" rows="2" placeholder="Wie war die Zusammenarbeit?"></textarea>';
   }
 
-  var _submitIcon = (currentStage === 'angebot') ? 'close' : icon;
-  var _submitText = (currentStage === 'angebot') ? 'Schlie&szlig;en' : title;
-  var _hideCancel = (currentStage === 'angebot');
+  var _submitIcon = (currentStage === 'kontaktiert') ? 'close' : icon;
+  var _submitText = (currentStage === 'kontaktiert') ? 'Schlie&szlig;en' : title;
+  var _hideCancel = (currentStage === 'kontaktiert');
   var overlay = document.createElement('div');
   overlay.className = 'sa-overlay';
   overlay.innerHTML = '' +
@@ -12994,6 +13164,8 @@ function openStageAdvanceModal(cardId, currentStage) {
 
       // Build structured inquiry payload so it renders as a system widget
       // on both sides (using existing _renderBookingCard infrastructure).
+      // cardId + projectId are included so the provider's acceptance can
+      // reference back to update the customer's board card automatically.
       var inquiryPayload = {
         kind: 'inquiry',
         listing: (_listing && _listing.title) || card.name || '',
@@ -13002,7 +13174,9 @@ function openStageAdvanceModal(cardId, currentStage) {
         eventType: (_listing && (_listing.category || _listing.categoryLabel)) || '',
         projectName: _projectName || '',
         date: (project && project.date) || '',
-        message: msg.trim()
+        message: msg.trim(),
+        cardId: cardId,
+        projectId: _activeBoardId || ''
       };
       var inquiryJson = JSON.stringify(inquiryPayload);
 
@@ -13032,7 +13206,7 @@ function openStageAdvanceModal(cardId, currentStage) {
           }).then(function(r){ if(!r.ok) throw new Error('msg'); return r.json(); })
             .then(function(){ return convId; });
         })
-        .then(function(){
+        .then(function(resolvedConvId){
           _saSetMethod('Chat + E-Mail');
           chatBtn.classList.add('sa-action-done');
           chatBtn.dataset.busy = '';
@@ -13054,6 +13228,8 @@ function openStageAdvanceModal(cardId, currentStage) {
               _liveCard.contactMethod = 'Chat + E-Mail';
               _liveCard.contactMessage = msg.trim();
               _liveCard.contactDate = new Date().toISOString().slice(0,10);
+              // Store conversationId so provider acceptance can be linked back
+              if (resolvedConvId) _liveCard.conversationId = resolvedConvId;
               var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
               var idx = stagesOrder.indexOf(currentStage);
               if (idx >= 0 && idx < stagesOrder.length - 1) {
@@ -13113,7 +13289,11 @@ function openStageAdvanceModal(cardId, currentStage) {
       card.contactMessage = (document.getElementById('saMessage') || {}).value || '';
       card.contactDate = new Date().toISOString().slice(0,10);
     } else if (currentStage === 'kontaktiert') {
-      // Stage "Kontaktiert" → "Gebucht": Rechnung anstossen
+      // Warten auf Antwort – kein Submit-Action nötig, einfach schließen.
+      overlay.remove();
+      return;
+    } else if (currentStage === 'angebot') {
+      // Angebot erhalten → jetzt verbindlich buchen: Rechnung anstossen.
       var _bp = parseFloat((document.getElementById('saBookPrice') || {}).value);
       if (!isNaN(_bp) && _bp > 0) card.price = _bp;
       card.bookingNote = (document.getElementById('saBookNote') || {}).value || '';
@@ -13121,11 +13301,6 @@ function openStageAdvanceModal(cardId, currentStage) {
       card.invoiceSentAt = _nowIso;
       _sendInvoiceNotification(card, project, _listing).catch(function(){});
       showToast('Buchung ausgel\u00f6st – Rechnung wurde per E-Mail versendet.', 'receipt_long');
-    } else if (currentStage === 'angebot') {
-      // Stage "Gebucht" wartet auf Annahme durch Dienstleister.
-      // User-Aktion hier ist nur "Schließen" – keine Zahlung, keine Stage-Änderung.
-      overlay.remove();
-      return;
     } else if (currentStage === 'bestaetigt') {
       // Stage "Bezahlt" → "Erfuellt": Dual-Confirm (User + Dienstleister)
       var _userOk = !!(document.getElementById('saUserConfirm') || {}).checked;
@@ -14101,10 +14276,14 @@ function openCreateBoardModal() {
           <label>Budget (€, optional)</label>
           <input type="number" id="newBoardBudget" placeholder="z.B. 5000" min="0" step="100" />
         </div>
+        <div class="form-group">
+          <label>Gästeanzahl (optional)</label>
+          <input type="number" id="newBoardGuests" placeholder="z.B. 80" min="1" step="1" />
+        </div>
         <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);padding:10px 12px;border-radius:10px">
-          <span class="material-icons-round" style="color:var(--text-light)">public</span>
-          <label for="newBoardPublic" style="margin:0;flex:1;font-size:13px;cursor:pointer">Öffentlich teilbar (Dienstleister können bestätigen)</label>
-          <input type="checkbox" id="newBoardPublic" style="width:18px;height:18px;cursor:pointer" />
+          <span class="material-icons-round" style="color:var(--text-light)">view_kanban</span>
+          <label for="newBoardAutoCards" style="margin:0;flex:1;font-size:13px;cursor:pointer">Passende Dienstleister-Kategorien aus Vorlage vorausfüllen</label>
+          <input type="checkbox" id="newBoardAutoCards" checked style="width:18px;height:18px;cursor:pointer" />
         </div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">add</span> Projekt erstellen</button>
       </form>
@@ -14134,19 +14313,39 @@ function _createBoardProject(event) {
   var name = document.getElementById('newBoardName').value.trim();
   var date = document.getElementById('newBoardDate').value.trim();
   var budget = document.getElementById('newBoardBudget').value.trim();
+  var guests = document.getElementById('newBoardGuests').value.trim();
   var tmplId = (document.getElementById('newBoardTmpl') || {}).value || 'custom';
-  var isPublic = !!(document.getElementById('newBoardPublic') && document.getElementById('newBoardPublic').checked);
+  var autoCards = !!(document.getElementById('newBoardAutoCards') && document.getElementById('newBoardAutoCards').checked);
   if (!name) return;
   var tmpl = (window._boardTemplates || []).find(function(t){ return t.id === tmplId; });
+
+  // Auto-create placeholder cards from template suggestions
   var cards = [];
+  if (autoCards && tmpl && tmpl.suggested && tmpl.suggested.length) {
+    var now = Date.now();
+    cards = tmpl.suggested.map(function(cat, i) {
+      return {
+        id: 'bc_' + (now + i),
+        name: cat,
+        category: cat,
+        stage: 'geplant',
+        price: 0,
+        note: '',
+        avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=' + encodeURIComponent(cat),
+        createdAt: new Date().toISOString()
+      };
+    });
+  }
+
   var project = {
     id: 'bp_' + Date.now(),
     name: name,
     date: date || '',
     budget: parseFloat(budget) || 0,
+    guests: parseInt(guests) || 0,
     template: tmplId,
-    isPublic: isPublic,
     cards: cards,
+    checklist: [],
     createdAt: new Date().toISOString(),
     updatedAt: Date.now()
   };
@@ -14154,11 +14353,295 @@ function _createBoardProject(event) {
   _saveBoardProjects({ immediate: true });
   document.getElementById('createBoardModal') && document.getElementById('createBoardModal').remove();
   openBoardProject(project.id);
-  showToast('Event-Projekt "' + name + '" wurde erstellt!', 'check_circle');
+  var cardMsg = cards.length ? ' · ' + cards.length + ' Kategorien vorausgef\u00fcllt' : '';
+  showToast('Event-Projekt \u201e' + name + '\u201c wurde erstellt!' + cardMsg, 'check_circle');
 }
 
+/* ─── Edit Board Project ──────────────────────────────────── */
+function openEditBoardProjectModal(projectId) {
+  var pid = projectId || _activeBoardId;
+  if (!pid) return;
+  var project = _boardProjects.find(function(p){ return p.id === pid; });
+  if (!project) return;
+
+  var html = '<div class="modal-overlay show" id="editBoardProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
+    '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
+      '<button class="modal-close" onclick="document.getElementById(\'editBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
+      '<div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>Projekt bearbeiten</h2></div>' +
+      '<form class="modal-form" onsubmit="_saveEditBoardProject(event,\'' + pid + '\')">' +
+        '<div class="form-group"><label>Event-Name</label><input type="text" id="editProjName" value="' + _escHtml(project.name) + '" required /></div>' +
+        '<div class="form-group"><label>Event-Datum</label><input type="text" id="editProjDate" value="' + _escHtml(project.date || '') + '" placeholder="TT.MM.JJJJ" /></div>' +
+        '<div class="form-group"><label>Budget (€)</label><input type="number" id="editProjBudget" value="' + (project.budget || '') + '" min="0" step="100" /></div>' +
+        '<div class="form-group"><label>G\u00e4steanzahl</label><input type="number" id="editProjGuests" value="' + (project.guests || '') + '" min="1" step="1" placeholder="z.B. 80" /></div>' +
+        '<div class="form-group"><label>Event-Typ</label><select id="editProjTemplate">' +
+          [
+            {id:'wedding',l:'💍 Hochzeit'},{id:'birthday',l:'🎂 Geburtstag'},{id:'corporate',l:'🏢 Firmenfeier'},
+            {id:'festival',l:'🎪 Festival'},{id:'conference',l:'🎤 Konferenz'},{id:'baptism',l:'⛪ Taufe/Feier'},
+            {id:'kids',l:'🎈 Kinderfest'},{id:'private',l:'🏡 Privatfeier'},{id:'custom',l:'✨ Eigenes'}
+          ].map(function(t){
+            return '<option value="' + t.id + '"' + (project.template === t.id ? ' selected' : '') + '>' + t.l + '</option>';
+          }).join('') +
+        '</select></div>' +
+        '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
+      '</form>' +
+    '</div>' +
+  '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  _attachGermanDatePicker('#editProjDate');
+}
+
+function _saveEditBoardProject(event, projectId) {
+  event.preventDefault();
+  var project = _boardProjects.find(function(p){ return p.id === projectId; });
+  if (!project) return;
+  project.name     = document.getElementById('editProjName').value.trim() || project.name;
+  project.date     = document.getElementById('editProjDate').value.trim();
+  project.budget   = parseFloat(document.getElementById('editProjBudget').value) || 0;
+  project.guests   = parseInt(document.getElementById('editProjGuests').value) || 0;
+  project.template = document.getElementById('editProjTemplate').value || project.template;
+  document.getElementById('editBoardProjectModal') && document.getElementById('editBoardProjectModal').remove();
+  _saveBoardProjects();
+  // Refresh UI
+  var nameEl = document.getElementById('boardEventName');
+  var dateEl = document.getElementById('boardEventDate');
+  if (nameEl) nameEl.textContent = project.name;
+  if (dateEl) dateEl.textContent = project.date || 'Datum noch offen';
+  _updateBoardStats(project);
+  renderBoardPage(); // refresh project card list too
+  showToast('Projekt aktualisiert', 'check_circle');
+}
+window.openEditBoardProjectModal = openEditBoardProjectModal;
+
+/* ─── Add current listing to board ──────────────────────── */
+function addCurrentListingToBoard(listingId) {
+  var lid = listingId || (typeof currentListing !== 'undefined' && currentListing && currentListing.id);
+  if (!lid) { showToast('Kein Service ausgew\u00e4hlt.', 'error'); return; }
+  if (!currentUser) { openModal('loginModal'); return; }
+
+  var listing = (LISTINGS || []).find(function(l){ return l.id === lid; });
+
+  if (_boardProjects.length === 0) {
+    // No projects yet → open create modal, then auto-add after creation
+    window._pendingAddListing = listing || { id: lid };
+    openCreateBoardModal();
+    return;
+  }
+  if (_boardProjects.length === 1) {
+    _addListingToBoardProject(listing || { id: lid }, _boardProjects[0].id);
+    return;
+  }
+  // Multiple projects → show picker
+  openSelectBoardProjectModal(listing || { id: lid });
+}
+window.addCurrentListingToBoard = addCurrentListingToBoard;
+
+function openSelectBoardProjectModal(listing) {
+  var rows = _boardProjects.map(function(p) {
+    var cnt = (p.cards || []).length;
+    var dateStr = p.date ? ' · ' + _escHtml(p.date) : '';
+    return '<button type="button" class="bsp-row" onclick="_addListingToBoardProject(window._pendingBoardListing,\'' + p.id + '\');document.getElementById(\'selectBoardProjectModal\').remove()">' +
+      '<span class="material-icons-round" style="color:var(--primary);font-size:22px">event</span>' +
+      '<span class="bsp-info"><strong>' + _escHtml(p.name) + '</strong>' +
+        '<small>' + cnt + ' Dienstleister' + dateStr + '</small></span>' +
+      '<span class="material-icons-round bsp-arrow">chevron_right</span>' +
+    '</button>';
+  }).join('');
+
+  window._pendingBoardListing = listing;
+  var html = '<div class="modal-overlay show" id="selectBoardProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
+    '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
+      '<button class="modal-close" onclick="document.getElementById(\'selectBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
+      '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Zu welchem Projekt?</h2>' +
+        '<p>' + _escHtml((listing && (listing.title || listing.name)) || 'Dienstleister') + ' zum Planungs-Board hinzuf\u00fcgen</p></div>' +
+      '<div class="bsp-list">' + rows + '</div>' +
+      '<button class="btn-outline btn-block" style="margin:12px 16px 16px" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
+        '<span class="material-icons-round">add</span> Neues Projekt erstellen' +
+      '</button>' +
+    '</div>' +
+  '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _addListingToBoardProject(listing, projectId) {
+  var project = _boardProjects.find(function(p){ return p.id === projectId; });
+  if (!project) return;
+  var now = Date.now();
+  var card = {
+    id: 'bc_' + now,
+    name: (listing && (listing.providerName || listing.title)) || 'Dienstleister',
+    category: (listing && (listing.categoryLabel || listing.category)) || '',
+    stage: 'geplant',
+    price: (listing && listing.price) || 0,
+    listingId: listing && listing.id,
+    avatar: (listing && (listing.providerImg || listing.image)) || '',
+    note: '',
+    createdAt: new Date().toISOString()
+  };
+  project.cards = project.cards || [];
+  project.cards.push(card);
+  _saveBoardProjects();
+  var name = card.name;
+  var projName = project.name;
+  showToast('\u201e' + name + '\u201c zu \u201e' + projName + '\u201c hinzugef\u00fcgt!', 'check_circle');
+  window._pendingBoardListing = null;
+  // Offer to navigate to board
+  setTimeout(function() {
+    showToast('Board ansehen?', 'view_kanban', function(){ navigateTo('board'); openBoardProject(projectId); });
+  }, 1200);
+}
+window._addListingToBoardProject = _addListingToBoardProject;
+
+// Hook: after project creation, check if we have a pending listing to add
+var _origCreateBoardProject = _createBoardProject;
+// The hook is handled inline inside openBoardProject after navigation.
+
+/* ─── Board Checklist ─────────────────────────────────────── */
+var _CHECKLIST_TEMPLATES = {
+  wedding: [
+    'Location buchen', 'Fotograf anfragen', 'DJ / Band buchen', 'Catering auswählen',
+    'Floristik beauftragen', 'Einladungen versenden', 'Sitzordnung erstellen',
+    'Hochzeitstorte bestellen', 'Ringe kaufen', 'Standesamt anmelden',
+    'Hotel für Gäste organisieren', 'Musik-Playlist absprechen',
+    'Zeitplan für den Tag erstellen', 'Brautkleid / Anzug besorgen',
+    'Honeymoon buchen', 'Tag-Koordinator bestätigen'
+  ],
+  birthday: [
+    'Location buchen', 'Einladungen versenden', 'Catering planen',
+    'DJ / Musik buchen', 'Dekoration besorgen', 'Kuchen bestellen',
+    'Fotograf anfragen', 'Programm planen', 'Gästeanzahl bestätigen'
+  ],
+  corporate: [
+    'Location / Meetingraum buchen', 'Catering beauftragen', 'Technik / AV prüfen',
+    'Moderation bestätigen', 'Agenda erstellen', 'Einladungen / Tickets versenden',
+    'Fotograf / Videograf buchen', 'Parkplatzsituation klären',
+    'Namensschilder vorbereiten', 'Nachberichterstattung planen'
+  ],
+  festival: [
+    'Venue / Gelände sichern', 'Bühnentechnik bestellen', 'Line-up finalisieren',
+    'Catering-Stände anfragen', 'Sicherheitsdienst buchen', 'Toiletten organisieren',
+    'Strom- und Wasserversorgung prüfen', 'Ticketing einrichten',
+    'Marketing starten', 'Erste-Hilfe-Posten einplanen'
+  ],
+  conference: [
+    'Location buchen', 'Sprecher bestätigen', 'Catering planen',
+    'Technik / Livestream prüfen', 'Agenda veröffentlichen', 'Tickets / Anmeldung einrichten',
+    'Fotograf buchen', 'Rahmenprogramm planen', 'Fahrtinfos versenden'
+  ],
+  baptism: ['Location reservieren', 'Catering planen', 'Einladungen versenden',
+    'Fotograf buchen', 'Floristik bestellen', 'Zeitplan erstellen'],
+  kids: ['Location buchen', 'Einladungen versenden', 'Catering / Kuchen', 'Animation buchen',
+    'Dekoration besorgen', 'Spieleprogramm planen'],
+  private: ['Einladungen versenden', 'Catering planen', 'Musik / DJ buchen',
+    'Dekoration besorgen', 'Getränke organisieren'],
+  custom: ['Dienstleister recherchieren', 'Budget festlegen', 'Zeitplan erstellen',
+    'Einladungen versenden', 'Ablauf am Eventtag planen']
+};
+
+function _getProjectChecklist(project) {
+  if (!project) return [];
+  var saved = Array.isArray(project.checklist) ? project.checklist : [];
+  // Ensure default items exist (add missing ones)
+  var tmplItems = (_CHECKLIST_TEMPLATES[project.template] || _CHECKLIST_TEMPLATES.custom).map(function(txt, i) {
+    return { id: 'cli_tmpl_' + i, text: txt, done: false, isTemplate: true };
+  });
+  // Merge: prefer saved state; add template items not yet in saved list
+  var savedTexts = {};
+  saved.forEach(function(it){ if (it && it.text) savedTexts[it.text] = it; });
+  var merged = [];
+  tmplItems.forEach(function(ti) {
+    merged.push(savedTexts[ti.text] || ti);
+  });
+  // Custom items (not from template)
+  saved.forEach(function(it){
+    if (it && !it.isTemplate) merged.push(it);
+  });
+  return merged;
+}
+
+function renderBoardChecklist() {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  var container = document.getElementById('boardChecklistView');
+  if (!container) return;
+
+  var items = _getProjectChecklist(project);
+  var done = items.filter(function(it){ return it.done; }).length;
+  var total = items.length;
+  var pct = total ? Math.round((done / total) * 100) : 0;
+
+  var html = '<div class="bcl-wrap">' +
+    '<div class="bcl-header">' +
+      '<div class="bcl-title"><span class="material-icons-round">checklist</span> Planungs-Checkliste</div>' +
+      '<div class="bcl-progress-bar-wrap">' +
+        '<div class="bcl-progress-bar" style="width:' + pct + '%"></div>' +
+      '</div>' +
+      '<div class="bcl-progress-label">' + done + ' / ' + total + ' erledigt</div>' +
+    '</div>' +
+    '<ul class="bcl-list">' +
+    items.map(function(it) {
+      return '<li class="bcl-item' + (it.done ? ' done' : '') + '">' +
+        '<button class="bcl-check" onclick="toggleChecklistItem(\'' + _escHtml(it.id) + '\')" aria-label="' + (it.done ? 'Erledigt' : 'Offen') + '">' +
+          '<span class="material-icons-round">' + (it.done ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
+        '</button>' +
+        '<span class="bcl-text">' + _escHtml(it.text) + '</span>' +
+        (it.isTemplate ? '' : '<button class="bcl-del" onclick="deleteChecklistItem(\'' + _escHtml(it.id) + '\')" title="Löschen"><span class="material-icons-round">close</span></button>') +
+      '</li>';
+    }).join('') +
+    '</ul>' +
+    '<form class="bcl-add-form" onsubmit="addChecklistItem(event)">' +
+      '<input type="text" id="newChecklistText" placeholder="Neue Aufgabe hinzuf\u00fcgen\u2026" required />' +
+      '<button type="submit" class="btn-primary"><span class="material-icons-round">add</span></button>' +
+    '</form>' +
+  '</div>';
+  container.innerHTML = html;
+}
+window.renderBoardChecklist = renderBoardChecklist;
+
+function toggleChecklistItem(itemId) {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  project.checklist = project.checklist || [];
+  var items = _getProjectChecklist(project);
+  var item = items.find(function(it){ return it.id === itemId; });
+  if (!item) return;
+  item.done = !item.done;
+  // Persist: update or insert in project.checklist
+  var existing = project.checklist.find(function(it){ return it.id === itemId; });
+  if (existing) { existing.done = item.done; }
+  else { project.checklist.push(item); }
+  _saveBoardProjects();
+  renderBoardChecklist();
+}
+window.toggleChecklistItem = toggleChecklistItem;
+
+function deleteChecklistItem(itemId) {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  project.checklist = (project.checklist || []).filter(function(it){ return it.id !== itemId; });
+  _saveBoardProjects();
+  renderBoardChecklist();
+}
+window.deleteChecklistItem = deleteChecklistItem;
+
+function addChecklistItem(event) {
+  event.preventDefault();
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  var inp = document.getElementById('newChecklistText');
+  var text = inp ? inp.value.trim() : '';
+  if (!text) return;
+  project.checklist = project.checklist || [];
+  project.checklist.push({ id: 'cli_custom_' + Date.now(), text: text, done: false, isTemplate: false });
+  _saveBoardProjects();
+  renderBoardChecklist();
+}
+window.addChecklistItem = addChecklistItem;
+
 function openAddProviderModal(defaultStage) {
-  defaultStage = defaultStage || 'geplant';
   var _listings = (LISTINGS || []).slice(0, 30);
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';

@@ -35,7 +35,14 @@ Werden hier dokumentiert wenn sie gemeldet werden.
 - [x] Stripe Zahlungsintegration
 - [x] WebAuthn/Passkeys Authentifizierung
 - [x] 2FA mit OTP
-- [x] Board-System (Kanban: Gebucht/Bezahlt/Erfüllt)
+- [x] **Event-Planungs-Board (Herzstück)**
+  - [x] Multi-Projekt-Management + Vorlagen (Hochzeit, Firmenfeier, ...)
+  - [x] Auto-Befüllung mit Kategorie-Karten bei Projekterstellung
+  - [x] Kanban / Flow / Zeitplan / Checkliste-Ansichten
+  - [x] Gästeanzahl & Countdown auf Projektkarten
+  - [x] „Zum Board hinzufügen“-Button auf Detail-Seiten
+  - [x] Cloud-Sync (geräteübergreifend, Tombstone-Merge)
+  - [x] Dienstleister-Aufträge-Ansicht
 - [x] Uptime-Monitoring (GitHub Actions alle 30 Min)
 - [x] Automatisches Deployment auf IONOS
 - [x] Obsidian Vault + Claude Memory System
