@@ -11593,9 +11593,7 @@ function openBoardProject(projectId) {
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');
   if (nameEl) nameEl.textContent = project.name;
-  if (dateEl) dateEl.textContent = project.date || 'Datum noch offen';
-
-  switchBoardView('flow');
+  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';('flow');
   _updateBoardStats(project);
 }
 
@@ -12070,7 +12068,7 @@ function _renderBoardFlowImpl() {
       var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
       var isConfirmed = !!card.confirmedByProvider;
       html += '<div class="flow-col-connector"></div>';
-      html += '<div class="flow-node flow-node-provider' + (isConfirmed ? ' is-confirmed' : '') + '" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
+      html += '<div class="flow-node flow-node-provider' + (isConfirmed ? ' is-confirmed' : '') + '" style="--stage-clr:' + stage.color + '" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
       if (isConfirmed) {
         html += '<span class="flow-confirm-badge confirmed"><span class="material-icons-round">verified</span>Bestätigt</span>';
       } else if (card.stage === 'angebot') {
@@ -12307,8 +12305,7 @@ function _saveFlowProject(event) {
   document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
   renderBoardFlow();
   document.getElementById('boardEventName') && (document.getElementById('boardEventName').textContent = project.name);
-  document.getElementById('boardEventDate') && (document.getElementById('boardEventDate').textContent = project.date || 'Datum noch offen');
-  document.getElementById('statBudget') && (document.getElementById('statBudget').textContent = (project.budget || 0).toLocaleString('de-DE') + ' €');
+  document.getElementById('boardEventDate') && (document.getElementById('boardEventDate').textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen'); && (document.getElementById('statBudget').textContent = (project.budget || 0).toLocaleString('de-DE') + ' €');
 }
 function _deleteFlowProject() {
   if (!_activeBoardId) return;
@@ -14405,7 +14402,7 @@ function _saveEditBoardProject(event, projectId) {
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');
   if (nameEl) nameEl.textContent = project.name;
-  if (dateEl) dateEl.textContent = project.date || 'Datum noch offen';
+  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';
   _updateBoardStats(project);
   renderBoardPage(); // refresh project card list too
   showToast('Projekt aktualisiert', 'check_circle');
