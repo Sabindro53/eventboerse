@@ -10091,14 +10091,11 @@ textarea.sa-input { resize: vertical; }
 /* Responsive – Tablet */
 @media (max-width: 900px) {
   .flow-canvas { min-height: 0; }
-  .flow-node  { width: 190px; }
+  .flow-node { width: 190px; }
   .flow-node-trigger, .flow-node-end { width: 136px; }
   .flow-node-hdr { padding: 7px 10px; font-size: 11px; }
   .flow-node-body { padding: 8px 10px 10px; }
   .flow-budget-bar { padding: 10px 16px; }
-  .flow-provider-inner { flex-wrap: wrap; align-items: center; }
-  .flow-prov-info { flex: 1 1 auto; min-width: 0; }
-  .flow-prov-actions { width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
 }
 /* Responsive – Mobile */
 @media (max-width: 600px) {
