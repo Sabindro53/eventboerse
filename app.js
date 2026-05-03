@@ -11593,7 +11593,9 @@ function openBoardProject(projectId) {
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');
   if (nameEl) nameEl.textContent = project.name;
-  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';('flow');
+  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';
+
+  switchBoardView('flow');
   _updateBoardStats(project);
 }
 
@@ -12305,7 +12307,8 @@ function _saveFlowProject(event) {
   document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
   renderBoardFlow();
   document.getElementById('boardEventName') && (document.getElementById('boardEventName').textContent = project.name);
-  document.getElementById('boardEventDate') && (document.getElementById('boardEventDate').textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen'); && (document.getElementById('statBudget').textContent = (project.budget || 0).toLocaleString('de-DE') + ' €');
+  document.getElementById('boardEventDate') && (document.getElementById('boardEventDate').textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen');
+  document.getElementById('statBudget') && (document.getElementById('statBudget').textContent = (project.budget || 0).toLocaleString('de-DE') + ' €');
 }
 function _deleteFlowProject() {
   if (!_activeBoardId) return;
