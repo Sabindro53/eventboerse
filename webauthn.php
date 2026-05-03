@@ -30,7 +30,15 @@ function eb_webauthn_rp_id() {
 }
 
 function eb_webauthn_origin() {
-    $scheme = is_ssl() ? 'https' : 'http';
+    // Bewusst NICHT auf is_ssl() verlassen – hinter einem Reverse Proxy
+    // (z.B. Cloudflare / Hosting-LB) kann is_ssl() false zurückgeben, obwohl
+    // der Browser per HTTPS spricht. Ergebnis: Origin-Mismatch und der Passkey
+    // kann nicht gespeichert werden. Wir nehmen das Schema direkt aus der
+    // konfigurierten Site-URL (home_url) – das ist die Quelle der Wahrheit.
+    $scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
+    if ( empty( $scheme ) ) {
+        $scheme = is_ssl() ? 'https' : 'http';
+    }
     $host   = eb_webauthn_rp_id();
     $port   = wp_parse_url( home_url(), PHP_URL_PORT );
 

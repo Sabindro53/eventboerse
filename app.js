@@ -8750,6 +8750,21 @@ function _friendlyPasskeyError(err, fallback) {
   if (/webauthn|w3\.org|#sctn-/i.test(raw)) {
     return 'Hat nicht ganz geklappt – bitte versuche es erneut.';
   }
+  // Plain Error vom Server (Error mit menschlich lesbarer deutscher Nachricht):
+  // Diese Meldungen kommen aus webauthn.php (z.B. "Origin stimmt nicht.",
+  // "Challenge stimmt nicht.", "Biometrische Verifizierung wurde nicht
+  // bestätigt.", …) und sind für den Nutzer aussagekräftiger als der Fallback.
+  // Wir zeigen sie nur, wenn sie wie eine echte Satz-Meldung aussehen
+  // (kein Trace, keine URL, keine Klammern/Backslashes, max. 200 Zeichen).
+  if (
+    name === 'Error' &&
+    raw &&
+    raw.length > 0 &&
+    raw.length <= 200 &&
+    !/[<>{}\\]|https?:\/\//i.test(raw)
+  ) {
+    return raw;
+  }
   // Unbekannt: lieber freundlicher Fallback statt technische Meldung
   return fb;
 }
