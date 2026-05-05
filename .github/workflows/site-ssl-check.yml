@@ -47,7 +47,14 @@ jobs:
           echo "SSL_ABLAUF_DATUM=$ABLAUF_DATUM" >> $GITHUB_ENV
 
           # Ablaufdatum in Sekunden umrechnen
-          ABLAUF_SEKUNDEN=$(date -d "$ABLAUF_DATUM" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$ABLAUF_DATUM" +%s 2>/dev/null)
+          ABLAUF_SEKUNDEN=$(date -d "$ABLAUF_DATUM" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$ABLAUF_DATUM" +%s 2>/dev/null || echo "")
+
+          if [ -z "$ABLAUF_SEKUNDEN" ]; then
+            echo "❌ Datumskonvertierung fehlgeschlagen für: $ABLAUF_DATUM"
+            echo "SSL_FEHLER=true" >> $GITHUB_ENV
+            echo "SSL_VERBLEIBENDE_TAGE=unbekannt" >> $GITHUB_ENV
+            exit 0
+          fi
           JETZT_SEKUNDEN=$(date +%s)
           VERBLEIBENDE_SEKUNDEN=$((ABLAUF_SEKUNDEN - JETZT_SEKUNDEN))
           VERBLEIBENDE_TAGE=$((VERBLEIBENDE_SEKUNDEN / 86400))

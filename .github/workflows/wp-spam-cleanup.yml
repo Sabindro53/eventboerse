@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     # Kein automatischer Lauf – SSH-Zugang erforderlich
     inputs:
-      bestaetigung:
+      confirmation:
         description: "Zur Bestätigung 'SPAM-LOESCHEN' eingeben"
         required: true
         default: ""
@@ -32,7 +32,7 @@ jobs:
       # Schritt 1: Bestätigung prüfen
       - name: Eingabe validieren
         run: |
-          if [ "${{ github.event.inputs.bestaetigung }}" != "SPAM-LOESCHEN" ]; then
+          if [ "${{ github.event.inputs.confirmation }}" != "SPAM-LOESCHEN" ]; then
             echo "❌ Bestätigung fehlt! Bitte 'SPAM-LOESCHEN' eingeben."
             echo "Abbruch zum Schutz vor versehentlichem Ausführen."
             exit 1
