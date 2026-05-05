@@ -1,0 +1,20 @@
+# Code-Verantwortliche für eventbörse.de
+# Alle Änderungen im Repository erfordern einen Review von @Sabindro53
+# Dokumentation: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Standard: Alle Dateien – Review von @Sabindro53 erforderlich
+* @Sabindro53
+
+# PHP-Dateien – besonders sicherheitskritisch
+*.php @Sabindro53
+
+# JavaScript – Kernfunktionalität
+*.js @Sabindro53
+
+# GitHub Actions Workflows – Sicherheitsrelevant
+.github/workflows/ @Sabindro53
+
+# Sicherheitskritische Konfigurationsdateien
+.htaccess @Sabindro53
+.gitleaks.toml @Sabindro53
+SECURITY.md @Sabindro53

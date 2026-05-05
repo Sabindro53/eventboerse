@@ -1,0 +1,47 @@
+# Sicherheits-Workflow: CodeQL-Analyse für JavaScript
+# Findet Sicherheitslücken und Bugs im JavaScript-Code automatisch
+name: "Security – CodeQL Analyse"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Wöchentlicher Scan – jeden Montag um 06:00 UTC
+    - cron: "0 6 * * 1"
+
+# Minimale Berechtigungen – nur was für CodeQL nötig ist
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: JavaScript analysieren
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # Schritt 1: Code auschecken
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      # Schritt 2: CodeQL-Datenbank initialisieren
+      - name: CodeQL initialisieren
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          # Sicherheits-Abfragen für maximale Abdeckung
+          queries: security-extended
+
+      # Schritt 3: Automatische Build-Erkennung (für JS nicht nötig, aber schadet nicht)
+      - name: Automatischer Build
+        uses: github/codeql-action/autobuild@v3
+
+      # Schritt 4: Analyse durchführen und Ergebnisse an GitHub Security Tab senden
+      - name: CodeQL-Analyse durchführen
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"

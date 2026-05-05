@@ -38,9 +38,26 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 ├── .vscode/
 │   ├── settings.json    # VS Code Workspace-Einstellungen (Git, Editor)
 │   └── extensions.json  # Empfohlene VS Code Erweiterungen
-├── .github/workflows/
-│   ├── ionos-deploy.yml  # IONOS FTP Deployment
-│   └── site-monitor.yml  # Uptime-Monitor (Keep-Alive Agent)
+├── .github/
+│   ├── workflows/
+│   │   ├── ionos-deploy.yml           # IONOS FTP Deployment
+│   │   ├── site-monitor.yml           # Uptime-Monitor (Keep-Alive Agent)
+│   │   ├── security-codeql.yml        # CodeQL JavaScript-Analyse
+│   │   ├── security-secret-scan.yml   # Gitleaks Secret-Scanner
+│   │   ├── security-php-lint.yml      # PHP Syntax-Check
+│   │   ├── security-dependency-scan.yml # Trivy + npm audit
+│   │   ├── security-malware-scan.yml  # ClamAV + PHP-Pattern-Scan
+│   │   ├── site-uptime-monitor.yml    # Uptime alle 30 Min
+│   │   ├── site-security-headers.yml  # HTTP-Security-Header-Check
+│   │   ├── site-ssl-check.yml         # SSL-Zertifikat-Check
+│   │   ├── wp-spam-cleanup.yml        # WP Spam-Cleanup (manuell)
+│   │   └── wp-update-check.yml        # WP Update-Check (manuell)
+│   ├── ISSUE_TEMPLATE/
+│   │   └── security-finding.md        # Template für Sicherheitsbefunde
+│   ├── dependabot.yml                 # Automatische Dependency-Updates
+│   └── CODEOWNERS                     # Code-Review-Zuständigkeiten
+├── .gitleaks.toml     # Gitleaks Secret-Scanner-Konfiguration
+├── SECURITY.md        # Security Policy
 ├── robots.txt        # SEO-Robots
 ├── sitemap.xml       # XML-Sitemap
 └── README.md         # Projektdokumentation
@@ -173,6 +190,52 @@ Falls die Seite den Fehler `NET::ERR_CERT_COMMON_NAME_INVALID` zeigt (siehe Scre
 6. Warte 10–30 Minuten, bis das Zertifikat aktiv ist
 
 > **Hinweis:** Der Fehler `NET::ERR_CERT_COMMON_NAME_INVALID` bedeutet, dass das SSL-Zertifikat nicht zur Domain passt. Dies muss direkt bei IONOS behoben werden.
+
+## 🔒 Security & Automation
+
+Dieses Repository verfügt über ein vollständiges Security-Automation-System via GitHub Actions. Alle Workflows befinden sich unter `.github/workflows/`.
+
+### Übersicht der Workflows
+
+| Workflow | Datei | Beschreibung | Trigger |
+|----------|-------|--------------|---------|
+| **CodeQL-Analyse** | `security-codeql.yml` | Findet Sicherheitslücken und Bugs im JavaScript-Code automatisch | Push, PR, wöchentlich |
+| **Secret-Scan** | `security-secret-scan.yml` | Sucht nach hardcodierten API-Keys, Passwörtern und anderen Secrets (Gitleaks) | Push, PR, täglich |
+| **PHP Lint** | `security-php-lint.yml` | PHP Syntax-Check (`php -l`) + optionale WordPress Coding Standards (PHPCS) | Bei PHP-Änderungen |
+| **Dependency-Scan** | `security-dependency-scan.yml` | Trivy-Scan + npm audit für bekannte Sicherheitslücken (CVEs) – SARIF an Security Tab | Push, täglich |
+| **Malware-Scan** | `security-malware-scan.yml` | ClamAV-Scan + PHP-Malware-Pattern-Erkennung (eval/base64/gzinflate) | Push, wöchentlich |
+| **Uptime-Monitor** | `site-uptime-monitor.yml` | Prüft alle 30 Min ob eventbörse.de erreichbar ist – erstellt/schließt Issues automatisch | Alle 30 Min, manuell |
+| **Security-Header** | `site-security-headers.yml` | Prüft HTTP-Security-Header (CSP, HSTS, X-Frame-Options, etc.) – Report als Artifact | Täglich, manuell |
+| **SSL-Check** | `site-ssl-check.yml` | Prüft SSL-Zertifikat-Gültigkeit – warnt 30 Tage vor Ablauf via Issue | Täglich |
+| **Spam-Cleanup** | `wp-spam-cleanup.yml` | Löscht WordPress Spam-Kommentare via WP-CLI (SSH erforderlich) | **Nur manuell** |
+| **Update-Check** | `wp-update-check.yml` | Prüft WordPress/Plugin/Theme-Updates via WP-CLI (SSH erforderlich) | **Nur manuell** |
+
+### Erforderliche GitHub Secrets
+
+Für die manuellen WordPress-Workflows (`wp-spam-cleanup.yml`, `wp-update-check.yml`) werden SSH-Zugangsdaten benötigt.
+
+**Anleitung:** Repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+| Secret | Beschreibung | Beispiel |
+|--------|--------------|---------|
+| `SSH_HOST` | Hostname des Webservers | `access123456789.webspace-data.io` |
+| `SSH_USER` | SSH-Benutzername | `u12345678` |
+| `SSH_KEY` | Privater SSH-Schlüssel (kompletter Inhalt der `.pem`-Datei) | `-----BEGIN RSA PRIVATE KEY-----...` |
+| `WP_PATH` | Pfad zur WordPress-Installation auf dem Server | `/var/www/html` |
+| `WPSCAN_API_TOKEN` | *(Optional)* WPScan API-Token für Plugin-Schwachstellen-Scan | Token von [wpscan.com](https://wpscan.com) |
+| `DISCORD_WEBHOOK` | *(Optional)* Discord Webhook-URL für Benachrichtigungen | `https://discord.com/api/webhooks/...` |
+
+### Automatische Sicherheitsberichte
+
+- **GitHub Security Tab** (Repository → Security → Code scanning alerts): Zeigt CodeQL- und Trivy-Befunde
+- **Issues**: Uptime-Probleme, SSL-Ablaufwarnungen und Secret-Funde werden automatisch als Issues erstellt
+- **Artifacts**: Security-Header-Berichte werden 30 Tage als Download-Artifact gespeichert
+
+### Sicherheitslücken melden
+
+Sicherheitslücken bitte **nicht** öffentlich als Issue melden. Stattdessen: [GitHub Security Advisory erstellen](../../security/advisories/new) oder die [SECURITY.md](SECURITY.md) lesen.
+
+---
 
 ## Lizenz
 

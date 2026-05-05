@@ -1,0 +1,140 @@
+# Monitoring-Workflow: Uptime-Überwachung für eventbörse.de
+# Prüft alle 30 Minuten ob die Seite erreichbar ist und erstellt Issues bei Ausfällen
+name: "Monitor – Uptime Check"
+
+on:
+  schedule:
+    # Alle 30 Minuten prüfen (GitHub Actions minimum ist 5 Minuten)
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    # Manuell auslösbar über GitHub Actions UI
+
+# Berechtigungen für Issue-Verwaltung
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  uptime-check:
+    name: Erreichbarkeits-Prüfung
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Schritt 1: HTTP-Prüfung der Live-Seite
+      - name: Erreichbarkeit prüfen
+        id: http-check
+        run: |
+          ZIEL_URL="https://xn--eventbrse-57a.de"
+          echo "=== Uptime-Check für $ZIEL_URL ==="
+
+          # curl mit Timeout (10 Sekunden Verbindung, 30 Sekunden gesamt)
+          HTTP_STATUS=$(curl \
+            --silent \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --location \
+            "$ZIEL_URL" 2>/dev/null || echo "000")
+
+          echo "HTTP-Statuscode: $HTTP_STATUS"
+          echo "HTTP_STATUS=$HTTP_STATUS" >> $GITHUB_ENV
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "SEITE_ERREICHBAR=true" >> $GITHUB_ENV
+            echo "✅ Seite ist erreichbar (HTTP $HTTP_STATUS)"
+          else
+            echo "SEITE_ERREICHBAR=false" >> $GITHUB_ENV
+            echo "🚨 Seite NICHT erreichbar! (HTTP $HTTP_STATUS)"
+          fi
+
+      # Schritt 2: Bei Ausfall – GitHub Issue erstellen oder bestehendes aktualisieren
+      - name: Issue bei Ausfall erstellen
+        if: env.SEITE_ERREICHBAR == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const url = "https://xn--eventbrse-57a.de";
+            const status = process.env.HTTP_STATUS;
+
+            // Prüfen ob bereits ein offenes "site-down"-Issue existiert
+            const vorhandeneIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['site-down']
+            });
+
+            const zeitstempel = new Date().toISOString();
+
+            if (vorhandeneIssues.data.length === 0) {
+              // Neues Issue erstellen
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚨 Site Down: eventbörse.de nicht erreichbar (${zeitstempel})`,
+                body: `## ⚠️ Website-Ausfall erkannt\n\n` +
+                      `**URL:** ${url}\n` +
+                      `**HTTP-Status:** ${status}\n` +
+                      `**Zeitpunkt:** ${zeitstempel}\n` +
+                      `**Workflow:** ${context.workflow}\n\n` +
+                      `### Mögliche Ursachen\n` +
+                      `- Server nicht erreichbar\n` +
+                      `- SSL-Zertifikat abgelaufen oder ungültig\n` +
+                      `- DNS-Probleme\n` +
+                      `- IONOS-Störung\n\n` +
+                      `### Sofortmaßnahmen\n` +
+                      `1. Prüfe [IONOS Status](https://www.ionos.de/status)\n` +
+                      `2. Prüfe SSL-Zertifikat in IONOS-Verwaltung\n` +
+                      `3. Teste manuell: \`curl -I ${url}\`\n\n` +
+                      `> Dieses Issue wird automatisch geschlossen, wenn die Seite wieder erreichbar ist.`,
+                labels: ['site-down', 'monitoring', 'priority: critical']
+              });
+              console.log("✅ Neues 'site-down'-Issue erstellt");
+            } else {
+              // Bestehendes Issue mit Kommentar aktualisieren
+              const issueNummer = vorhandeneIssues.data[0].number;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNummer,
+                body: `🔄 **Update ${zeitstempel}:** Seite immer noch nicht erreichbar (HTTP ${status})`
+              });
+              console.log(`✅ Bestehendes Issue #${issueNummer} aktualisiert`);
+            }
+
+      # Schritt 3: Bei Wiederherstellung – offenes Issue schließen
+      - name: Issue schließen wenn Seite wieder erreichbar
+        if: env.SEITE_ERREICHBAR == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Offene "site-down"-Issues suchen
+            const offeneIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['site-down']
+            });
+
+            if (offeneIssues.data.length > 0) {
+              for (const issue of offeneIssues.data) {
+                // Kommentar hinzufügen und Issue schließen
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `✅ **Wiederhergestellt** (${new Date().toISOString()}): eventbörse.de ist wieder erreichbar. Issue wird automatisch geschlossen.`
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed'
+                });
+                console.log(`✅ Issue #${issue.number} automatisch geschlossen`);
+              }
+            }

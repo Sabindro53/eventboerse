@@ -1,0 +1,126 @@
+# WordPress-Wartung: Spam-Kommentare bereinigen (NUR MANUELL)
+# WICHTIG: Dieser Workflow startet NICHT automatisch – nur manuell via workflow_dispatch
+# Erfordert SSH-Zugang zum Server mit WP-CLI
+name: "WP – Spam-Cleanup (Manuell)"
+
+on:
+  workflow_dispatch:
+    # Kein automatischer Lauf – SSH-Zugang erforderlich
+    inputs:
+      bestaetigung:
+        description: "Zur Bestätigung 'SPAM-LOESCHEN' eingeben"
+        required: true
+        default: ""
+      dry_run:
+        description: "Nur anzeigen (kein Löschen)?"
+        required: false
+        type: boolean
+        default: true
+
+# Minimale Berechtigungen
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  spam-cleanup:
+    name: WordPress Spam-Kommentare löschen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # Schritt 1: Bestätigung prüfen
+      - name: Eingabe validieren
+        run: |
+          if [ "${{ github.event.inputs.bestaetigung }}" != "SPAM-LOESCHEN" ]; then
+            echo "❌ Bestätigung fehlt! Bitte 'SPAM-LOESCHEN' eingeben."
+            echo "Abbruch zum Schutz vor versehentlichem Ausführen."
+            exit 1
+          fi
+          echo "✅ Bestätigung erhalten"
+
+      # Schritt 2: Prüfen ob alle erforderlichen Secrets gesetzt sind
+      - name: SSH-Secrets prüfen
+        run: |
+          SECRETS_FEHLEN=0
+
+          if [ -z "${{ secrets.SSH_HOST }}" ]; then
+            echo "❌ Secret SSH_HOST ist nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          else
+            echo "✅ SSH_HOST ist gesetzt"
+          fi
+
+          if [ -z "${{ secrets.SSH_USER }}" ]; then
+            echo "❌ Secret SSH_USER ist nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          else
+            echo "✅ SSH_USER ist gesetzt"
+          fi
+
+          if [ -z "${{ secrets.SSH_KEY }}" ]; then
+            echo "❌ Secret SSH_KEY ist nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          else
+            echo "✅ SSH_KEY ist gesetzt"
+          fi
+
+          if [ -z "${{ secrets.WP_PATH }}" ]; then
+            echo "❌ Secret WP_PATH ist nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          else
+            echo "✅ WP_PATH ist gesetzt"
+          fi
+
+          if [ $SECRETS_FEHLEN -eq 1 ]; then
+            echo ""
+            echo "❌ Fehlende Secrets! Bitte unter Settings → Secrets and variables → Actions anlegen:"
+            echo "  - SSH_HOST: Hostname des Webservers (z.B. access123.webspace-data.io)"
+            echo "  - SSH_USER: SSH-Benutzername"
+            echo "  - SSH_KEY: Privater SSH-Schlüssel"
+            echo "  - WP_PATH: Pfad zur WordPress-Installation (z.B. /var/www/html)"
+            exit 1
+          fi
+
+      # Schritt 3: Spam-Kommentare via SSH und WP-CLI löschen
+      - name: Spam-Kommentare löschen (via SSH + WP-CLI)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 10m
+          script: |
+            WP_PATH="${{ secrets.WP_PATH }}"
+            cd "$WP_PATH" || { echo "❌ WP_PATH '$WP_PATH' nicht gefunden!"; exit 1; }
+
+            echo "=== WordPress Spam-Cleanup ==="
+            echo "Arbeitsverzeichnis: $(pwd)"
+
+            # WP-CLI prüfen
+            if ! command -v wp &>/dev/null; then
+              echo "❌ WP-CLI nicht installiert! Bitte WP-CLI auf dem Server installieren."
+              exit 1
+            fi
+
+            # Anzahl Spam-Kommentare anzeigen
+            SPAM_ANZAHL=$(wp comment list --status=spam --format=count --allow-root 2>/dev/null || echo "0")
+            echo "Gefundene Spam-Kommentare: $SPAM_ANZAHL"
+
+            if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+              echo "=== DRY-RUN Modus – keine Änderungen werden vorgenommen ==="
+              wp comment list --status=spam --fields=comment_ID,comment_author,comment_date --allow-root 2>/dev/null || true
+              echo "Um Spam wirklich zu löschen: Workflow erneut ausführen mit 'Nur anzeigen' = false"
+            else
+              if [ "$SPAM_ANZAHL" -gt "0" ]; then
+                # Spam-IDs abrufen und löschen
+                SPAM_IDS=$(wp comment list --status=spam --format=ids --allow-root 2>/dev/null)
+                echo "Lösche Spam-Kommentare: $SPAM_IDS"
+                wp comment delete $SPAM_IDS --force --allow-root
+                echo "✅ $SPAM_ANZAHL Spam-Kommentare gelöscht!"
+              else
+                echo "✅ Keine Spam-Kommentare gefunden."
+              fi
+            fi

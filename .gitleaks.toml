@@ -1,0 +1,114 @@
+# Gitleaks-Konfiguration für eventbörse.de (WordPress/PHP Projekt)
+# Dokumentation: https://github.com/gitleaks/gitleaks#configuration
+title = "eventboerse-gitleaks"
+
+# Erweiterung der Standard-Regelsammlung
+[extend]
+  useDefault = true
+
+# ============================================================
+# BENUTZERDEFINIERTE REGELN – WordPress/PHP spezifisch
+# ============================================================
+
+[[rules]]
+  id = "wordpress-db-credentials"
+  description = "WordPress Datenbank-Zugangsdaten in wp-config.php"
+  regex = '''define\s*\(\s*['"]DB_(NAME|USER|PASSWORD|HOST)['"]\s*,\s*['"][^'"]{3,}['"]\s*\)'''
+  tags = ["wordpress", "database", "credentials"]
+  severity = "critical"
+
+[[rules]]
+  id = "wordpress-auth-key"
+  description = "WordPress Authentication Keys und Salts"
+  regex = '''define\s*\(\s*['"](?:AUTH_KEY|SECURE_AUTH_KEY|LOGGED_IN_KEY|NONCE_KEY|AUTH_SALT|SECURE_AUTH_SALT|LOGGED_IN_SALT|NONCE_SALT)['"]\s*,\s*['"][^'"]{20,}['"]\s*\)'''
+  tags = ["wordpress", "auth", "key"]
+  severity = "high"
+
+[[rules]]
+  id = "php-hardcoded-password"
+  description = "Hardcodiertes Passwort in PHP-Variable"
+  regex = '''\$(?:password|passwd|pwd|passwort)\s*=\s*['"][^'"]{6,}['"]'''
+  tags = ["php", "password"]
+  severity = "high"
+
+[[rules]]
+  id = "php-mysql-connect"
+  description = "MySQL-Zugangsdaten direkt in mysqli_connect()"
+  regex = '''mysqli_connect\s*\([^,]+,\s*['"][^'"]+['"]\s*,\s*['"][^'"]{4,}['"]'''
+  tags = ["php", "database", "mysql"]
+  severity = "critical"
+
+[[rules]]
+  id = "stripe-secret-key"
+  description = "Stripe Secret Key"
+  regex = '''sk_(?:live|test)_[0-9a-zA-Z]{24,}'''
+  tags = ["stripe", "payment", "key"]
+  severity = "critical"
+
+[[rules]]
+  id = "generic-api-key-php"
+  description = "Generischer API-Key in PHP-Datei"
+  regex = '''['"]api[_-]?(?:key|secret|token)['"]\s*(?:=>|:)\s*['"][a-zA-Z0-9_\-]{16,}['"]'''
+  tags = ["api", "key", "php"]
+  severity = "medium"
+
+[[rules]]
+  id = "ionos-credentials"
+  description = "IONOS FTP/SFTP Zugangsdaten"
+  regex = '''(?i)(?:ionos|1und1|1&1)[^\n]*(?:password|passwort|key)\s*[=:]\s*['"]?[^\s'"]{6,}'''
+  tags = ["ionos", "hosting", "credentials"]
+  severity = "high"
+
+[[rules]]
+  id = "jwt-secret"
+  description = "JWT Secret in PHP/JS Dateien"
+  regex = '''(?i)jwt[_-]?secret\s*[=:]\s*['"]?[a-zA-Z0-9_\-+/]{16,}'''
+  tags = ["jwt", "secret", "auth"]
+  severity = "high"
+
+# ============================================================
+# ALLOWLIST – Bekannte False-Positives ausschließen
+# ============================================================
+
+[allowlist]
+  description = "Bekannte False-Positives im eventboerse-Projekt"
+
+  # Bestimmte Pfade komplett ausschließen (nur für Nicht-Produktionsdaten)
+  paths = [
+    # VS Code Workspace-Konfiguration enthält keine Secrets
+    '''.vscode/.*''',
+    # Vault enthält nur Dokumentation, keine echten Secrets
+    '''vault/.*\.md$''',
+    # Lizenz-Datei
+    '''LICENSE''',
+    # GitHub Workflows selbst (enthalten nur Referenzen auf Secrets, nicht die Werte)
+    '''.github/workflows/.*\.yml$''',
+    # Diese Konfigurationsdatei
+    '''.gitleaks.toml'''
+  ]
+
+  # Bestimmte Regex-Muster global ausschließen
+  regexes = [
+    # Beispiel-Platzhalter in Dokumentation
+    '''(?i)your[_-]?(?:api[_-]?)?(?:key|token|secret|password)''',
+    # Platzhalter-Werte
+    '''(?i)(?:DEIN|IHRE?S?|EXAMPLE|SAMPLE|DUMMY|TEST|PLACEHOLDER)[_\s].*''',
+    # WordPress-Standardwert für Auth-Keys (noch nicht gesetzt)
+    '''put your unique phrase here''',
+    # Leere oder triviale Passwörter in Beispielen
+    '''\$(?:password|passwd)\s*=\s*['"](?:password|passwort|test|demo|example|)['"]'''
+  ]
+
+  # Bestimmte Commits ausschließen (z.B. bereits bereinigt)
+  commits = []
+
+  # Stop-Words für Passwort-Regeln – diese Werte werden ignoriert
+  stopwords = [
+    "password",
+    "passwort",
+    "example",
+    "placeholder",
+    "your-password-here",
+    "changeme",
+    "xxxxxxxx"
+  ]
