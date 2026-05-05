@@ -4,6 +4,13 @@
    SPA Router, Chat, Negotiation, Listings, Auth
    ============================================ */
 
+// ========== APP CONFIGURATION ==========
+// Set USE_DEMO_DATA to true only for local development/preview.
+// In production this must remain false to prevent fake data from being shown.
+const APP_CONFIG = {
+  USE_DEMO_DATA: false,
+};
+
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -3657,7 +3664,7 @@ function _startChatPoll() {
         if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
       })
       .catch(function() {});
-  }, 5000);
+  }, 10000);
 }
 function _stopChatPoll() {
   if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
@@ -3975,20 +3982,24 @@ function proposeAlternativeDate(currentIsoDate) {
 function renderChatList() {
   const list = document.getElementById('chatList');
   if (!isLoggedIn) {
-    // Show demo chats for non-logged-in users
-    list.innerHTML = DEMO_CHATS.map(function(c) {
-      return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
-        '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" />' +
-        '<div class="chat-item-info">' +
-          '<strong>' + _escHtml(c.name) + '</strong>' +
-          '<p>' + _escHtml(c.lastMsg) + '</p>' +
-        '</div>' +
-        '<div class="chat-item-meta">' +
-          '<span>' + _escHtml(c.time) + '</span>' +
-          (c.unread > 0 ? '<span class="chat-item-unread">' + c.unread + '</span>' : '') +
-        '</div>' +
-      '</div>';
-    }).join('');
+    if (APP_CONFIG.USE_DEMO_DATA) {
+      // Show demo chats only when explicitly in demo/development mode
+      list.innerHTML = DEMO_CHATS.map(function(c) {
+        return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
+          '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" />' +
+          '<div class="chat-item-info">' +
+            '<strong>' + _escHtml(c.name) + '</strong>' +
+            '<p>' + _escHtml(c.lastMsg) + '</p>' +
+          '</div>' +
+          '<div class="chat-item-meta">' +
+            '<span>' + _escHtml(c.time) + '</span>' +
+            (c.unread > 0 ? '<span class="chat-item-unread">' + c.unread + '</span>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    } else {
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Bitte melde dich an, um deine Nachrichten zu sehen.</div>';
+    }
     return;
   }
   fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
@@ -7441,7 +7452,7 @@ function renderMyListings() {
         });
     } else {
       if (previewBannerEP) previewBannerEP.style.display = 'flex';
-      var events = DEMO_EVENTS;
+      var events = APP_CONFIG.USE_DEMO_DATA ? DEMO_EVENTS : [];
       renderEventGrid(events);
     }
 
@@ -8353,7 +8364,7 @@ function _showConfirmDialog(title, message, confirmText, onConfirm) {
 }
 
 function getAllReviewsForListing(listingId) {
-  var reviews = DEMO_REVIEWS.slice();
+  var reviews = APP_CONFIG.USE_DEMO_DATA ? DEMO_REVIEWS.slice() : [];
   if (userReviews[listingId]) {
     reviews = userReviews[listingId].concat(reviews);
   }
@@ -9306,6 +9317,13 @@ function _stripHtml(str) {
   return doc.body.textContent || '';
 }
 
+// Leading-whitespace characters to strip from href values before scheme validation.
+// Covers: ASCII control (U+0000-U+001F), DEL (U+007F), non-breaking space (U+00A0),
+// Ogham space (U+1680), general punctuation spaces (U+2000-U+200A),
+// narrow no-break space (U+202F), medium math space (U+205F),
+// ideographic space (U+3000), BOM / zero-width no-break space (U+FEFF).
+var _HREF_LEADING_WS = /^[\s\u0000-\u001F\u007F\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]+/;
+
 function _sanitizeHtml(str) {
   if (!str) return '';
   var allowed = ['P','BR','B','STRONG','I','EM','U','UL','OL','LI','H1','H2','H3','H4','H5','H6','A','BLOCKQUOTE','SPAN','DIV','HR'];
@@ -9320,6 +9338,16 @@ function _sanitizeHtml(str) {
         n.removeAttribute(a.name);
       });
       if (n.tagName === 'A') {
+        // Only allow safe URL schemes to prevent javascript: / data: XSS.
+        // Strip leading whitespace (see _HREF_LEADING_WS) before an anchored
+        // scheme check so a mid-string scheme cannot bypass the guard.
+        // Fragment hrefs must be non-empty and contain only word chars / hyphens.
+        var href = (n.getAttribute('href') || '').replace(_HREF_LEADING_WS, '');
+        var safeHref = /^(https?:|mailto:|tel:)/i.test(href) ||
+                       /^#[\w-]+$/.test(href);
+        if (!href || !safeHref) {
+          n.removeAttribute('href');
+        }
         n.setAttribute('rel', 'noopener noreferrer');
         n.setAttribute('target', '_blank');
       }
