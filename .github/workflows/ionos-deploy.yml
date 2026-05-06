@@ -33,9 +33,14 @@ jobs:
             set net:timeout 60;
             set net:max-retries 3;
             mirror --reverse --verbose --delete --ignore-time --transfer-all \
-              -x '^\.git' -x '^\.github/' -x '^\.vscode/' \
-              -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' \
-              -x '^\.gitignore$' -x '^sftp-debug\.txt$' -x '^deploy-probe\.txt$' \
+              -x '^\.git' -x '^\.github/' -x '^\.vscode/' -x '^\.idea/' \
+              -x '^\.obsidian/' -x '^\.claude/' -x '^\.claude\.json$' \
+              -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
+              -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' -x '^AGENTS\.md$' \
+              -x '^\.gitignore$' -x '^\.gitattributes$' -x '^\.editorconfig$' \
+              -x '^sftp-debug\.txt$' -x '^deploy-probe\.txt$' \
+              -x '\.bak$' -x '\.log$' -x '\.swp$' -x '\.DS_Store$' \
+              -x '^Attached Element Context' \
               . $DEPLOY_DIR;
             echo '--- Deploy complete ---';
             bye

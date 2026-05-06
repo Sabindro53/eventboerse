@@ -4,6 +4,72 @@
    SPA Router, Chat, Negotiation, Listings, Auth
    ============================================ */
 
+/* ============================================================================
+ * AVATAR-GENERATOR (Self-Hosted, deterministisch, kein externer Roundtrip)
+ *
+ * Erzeugt deterministisch eine Initial-Avatar-SVG-Data-URI aus einem Seed.
+ * Ersatz für DiceBear-API: keine DNS-Queries, kein Drittanbieter-Tracking,
+ * kein Drittlandtransfer (DSGVO-Plus), instant render, voll cachebar.
+ *
+ * Kompatibilitätsschicht: ebAvatar(seed, name?) ist drop-in-Ersatz für
+ *   'https://api.dicebear.com/7.x/avataaars/svg?seed=' + seed.
+ * ============================================================================ */
+(function(){
+  // 12 zugängliche Tailwind-ähnliche Pastell-Töne (gegen Reizüberflutung).
+  var PALETTE = [
+    '#FF385C', '#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444',
+    '#06B6D4', '#8B5CF6', '#EC4899', '#84CC16', '#F97316', '#3B82F6'
+  ];
+  function _hash(s){ var h=0; s = String(s||'guest'); for(var i=0;i<s.length;i++){ h = ((h<<5)-h) + s.charCodeAt(i); h |= 0; } return Math.abs(h); }
+  function _initials(name){
+    if(!name) return '?';
+    var parts = String(name).trim().split(/\s+/);
+    if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+  }
+  var _cache = Object.create(null);
+  /**
+   * @param {string} seed eindeutiger Seed (User-ID, Slug, etc.)
+   * @param {string} [name] Anzeigename für Initialen; fällt zurück auf Seed
+   * @returns {string} data:image/svg+xml;utf8,…
+   */
+  window.ebAvatar = function(seed, name){
+    var key = (seed||'') + '|' + (name||'');
+    if(_cache[key]) return _cache[key];
+    var h = _hash(seed);
+    var bg = PALETTE[h % PALETTE.length];
+    var bg2 = PALETTE[(h >> 4) % PALETTE.length];
+    var initials = _initials(name || seed);
+    var svg = ''
+      + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+      + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+      + '<stop offset="0%" stop-color="' + bg + '"/>'
+      + '<stop offset="100%" stop-color="' + bg2 + '"/>'
+      + '</linearGradient></defs>'
+      + '<rect width="100" height="100" rx="50" fill="url(#g)"/>'
+      + '<text x="50" y="58" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,sans-serif" '
+      + 'font-size="40" font-weight="700" fill="#fff">' + initials + '</text>'
+      + '</svg>';
+    var url = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    _cache[key] = url;
+    return url;
+  };
+
+  // Drop-in-Replacement: Wenn alter DiceBear-Code irgendwo seine URL mitbringt,
+  // fängt das hier den Request ab und rendert lokal. Spart DNS + Roundtrip.
+  if (typeof Image !== 'undefined') {
+    document.addEventListener('error', function(e){
+      var t = e.target;
+      if (!t || t.tagName !== 'IMG' || !t.src) return;
+      if (t.src.indexOf('api.dicebear.com') === -1) return;
+      // Fallback auf lokalen Avatar
+      var m = t.src.match(/seed=([^&]+)/);
+      var seed = m ? decodeURIComponent(m[1]) : (t.alt || 'user');
+      t.src = window.ebAvatar(seed, t.alt || seed);
+    }, true);
+  }
+})();
+
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -22,7 +88,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2747449/pexels-photo-2747449.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Max Beats',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dj1',
+    providerImg: ebAvatar('dj1', 'DJ SoundMaster'),
     providerSince: '2021',
     description: `<p>Hey! Ich bin Max, professioneller DJ mit über 10 Jahren Erfahrung in der Berliner Eventszene. Ob Hochzeit, Geburtstag oder Firmen-Gala – ich bringe die perfekte Stimmung für jedes Event.</p>
     <h3>Was mich auszeichnet</h3>
@@ -48,7 +114,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1199957/pexels-photo-1199957.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Elena Schmitt',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=elena',
+    providerImg: ebAvatar('elena', 'Elena'),
     providerSince: '2019',
     description: `<p>Wir kreieren unvergessliche kulinarische Erlebnisse für Ihr Event. Von feinen Canapés über Flying Buffets bis hin zu mehrgängigen Menüs – alles aus frischen, regionalen Zutaten.</p>
     <h3>Unser Versprechen</h3>
@@ -75,7 +141,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2788792/pexels-photo-2788792.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Sabine Rhein',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sabine',
+    providerImg: ebAvatar('sabine', 'Sabine'),
     providerSince: '2023',
     description: `<p>Modernes Catering aus Düsseldorf für Events jeder Größe. Ob Business-Lunch, Hochzeit oder private Feier – wir liefern kreative Menüs und besten Service direkt an den Rhein.</p>
     <h3>Unser Angebot</h3>
@@ -101,7 +167,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2307040/pexels-photo-2307040.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Lisa Blumen',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lisa',
+    providerImg: ebAvatar('lisa', 'Lisa'),
     providerSince: '2020',
     description: `<p>Wir verwandeln jeden Raum in ein florales Paradies. Unsere Blumenarrangements werden mit Liebe zum Detail und einem Gespür für aktuelle Trends gestaltet.</p>
     <h3>Unser Service</h3>
@@ -127,7 +193,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2263436/pexels-photo-2263436.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Timo Licht',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=timo',
+    providerImg: ebAvatar('timo', 'Timo'),
     providerSince: '2018',
     description: `<p>Professionelle Licht- und Tontechnik für Events jeder Größe. Wir schaffen Atmosphäre mit modernster LED-Technik, Moving Heads und intelligenter Steuerung.</p>`,
     features: ['LED-Beleuchtung', 'Moving Heads', 'Nebelmaschinen', 'Soundsystem', 'DMX-Steuerung', 'Techniker vor Ort'],
@@ -151,7 +217,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1071882/pexels-photo-1071882.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Oliver Pyro',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=oliver',
+    providerImg: ebAvatar('oliver', 'Oliver'),
     providerSince: '2017',
     description: `<p>Spektakuläre Feuerwerke und Pyrotechnik-Shows für unvergessliche Momente. Von Hochzeitsfeuerwerken bis zu Großveranstaltungen – wir setzen Ihr Event in Szene.</p>`,
     features: ['Höhenfeuerwerk', 'Bühnen-Pyro', 'Kalte Funken', 'Indoor-Pyro', 'Flammeneffekte', 'Choreografie'],
@@ -175,7 +241,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1787235/pexels-photo-1787235.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Anna Foto',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anna',
+    providerImg: ebAvatar('anna', 'Anna'),
     providerSince: '2019',
     description: `<p>Emotionale und authentische Event-Fotografie. Ich halte die besonderen Momente eures Events in einzigartigen Bildern fest – natürlich und ungestellt.</p>`,
     features: ['Reportage-Stil', 'Paar-Shooting', 'Fotobox-Option', 'Online-Galerie', 'Alle Bilder bearbeitet', 'Print-Optionen'],
@@ -199,7 +265,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1488267/pexels-photo-1488267.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Schloss Management',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=schloss',
+    providerImg: ebAvatar('schloss', 'Schloss Berg'),
     providerSince: '2016',
     description: `<p>Feiern Sie Ihr Event in einem traumhaften Schloss direkt am See. Unsere Location bietet den perfekten Rahmen für Hochzeiten, Galas und exklusive Veranstaltungen.</p>`,
     features: ['Bis 200 Gäste', 'Außenbereich mit Seeblick', 'Brautsuite', 'Eigene Küche', 'Parkplätze', 'Barrierefreiheit'],
@@ -223,7 +289,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1405528/pexels-photo-1405528.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Sophie Deko',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophie',
+    providerImg: ebAvatar('sophie', 'Sophie'),
     providerSince: '2020',
     description: `<p>Kreative Event-Dekoration die begeistert. Von Ballongirlanden über Tischdeko bis hin zu kompletten Raumkonzepten – wir machen euer Event unvergesslich schön.</p>`,
     features: ['Balloon-Installationen', 'Tischdekorationen', 'Backdrop-Design', 'Candy-Bar', 'Licht-Elemente', 'Auf- und Abbau'],
@@ -247,7 +313,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/5676744/pexels-photo-5676744.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Thomas Meier',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=thomas',
+    providerImg: ebAvatar('thomas', 'Thomas'),
     providerSince: '2015',
     description: `<p>Full-Service Eventplanung für Ihr perfektes Event. Wir kümmern uns um alles – von der Konzeption über die Koordination bis zur Durchführung.</p>`,
     features: ['Konzeptentwicklung', 'Vendor-Management', 'Budget-Planung', 'Tag-Koordination', 'Timeline-Erstellung', 'Notfall-Management'],
@@ -271,7 +337,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/8827060/pexels-photo-8827060.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Stefan MC',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=stefan',
+    providerImg: ebAvatar('stefan', 'Stefan'),
     providerSince: '2018',
     description: `<p>Charmante und professionelle Moderation für jedes Event. Ob Hochzeit, Firmenfeier oder Gala – ich führe souverän durch den Abend.</p>`,
     features: ['Hochzeitsmoderation', 'Firmen-Moderation', 'Gala-Moderation', 'Zweisprachig DE/EN', 'Spielemoderation', 'Musikwünsche'],
@@ -295,7 +361,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/3757952/pexels-photo-3757952.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Lisa & Tom Wellness',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lisaspa',
+    providerImg: ebAvatar('lisaspa', 'Lisa Spa'),
     providerSince: '2022',
     description: `<p>Gönnt euch als Paar einen unvergesslichen Spa-Abend! Unser exklusives Wellness-Paket verwöhnt euch mit wohltuenden Massagen, aromatischen Bädern und einer Atmosphäre zum Entspannen und Genießen.</p>
     <h3>Euer Spa-Erlebnis</h3>
@@ -321,7 +387,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/9009587/pexels-photo-9009587.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Niko & Band',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=niko',
+    providerImg: ebAvatar('niko', 'Niko'),
     providerSince: '2019',
     description: `<p>Live-Musik, die unter die Haut geht! Unsere 5-köpfige Band spielt von Pop über Soul bis Rock – perfekt für Hochzeiten, Firmenfeiern und Galas.</p>
     <h3>Unser Sound</h3>
@@ -347,7 +413,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/4882162/pexels-photo-4882162.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Julian Film',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=julian',
+    providerImg: ebAvatar('julian', 'Julian'),
     providerSince: '2020',
     description: `<p>Wir halten eure schönsten Momente in cineastischen Videos fest. Von emotionalen Hochzeitsfilmen bis zu dynamischen Event-Trailern – wir erzählen eure Geschichte.</p>
     <h3>Unser Angebot</h3>
@@ -373,7 +439,7 @@ const LISTINGS = [
       'https://images.unsplash.com/photo-1510076857177-7470076d4098?w=600&h=400&fit=crop&auto=format',
     ],
     providerName: 'Gartenpark Team',
-    providerImg: 'https://api.dicebear.com/7.x/avataaars/svg?seed=garten',
+    providerImg: ebAvatar('garten', 'Garten'),
     providerSince: '2021',
     description: `<p>Feiern unter freiem Himmel in unserem wunderschönen Gartenpark! Die perfekte Location für Sommerfeste, Gartenpartys und romantische Trauungen im Grünen.</p>
     <h3>Die Location</h3>
@@ -396,7 +462,7 @@ const DEMO_CHATS = [
   {
     id: 1,
     name: 'Max Beats',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dj1',
+    avatar: ebAvatar('dj1', 'DJ SoundMaster'),
     lastMsg: 'Klar, ich kann den Preis auf 420€ reduzieren!',
     time: '14:32',
     unread: 2,
@@ -417,7 +483,7 @@ const DEMO_CHATS = [
   {
     id: 2,
     name: 'Elena Schmitt',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=elena',
+    avatar: ebAvatar('elena', 'Elena'),
     lastMsg: 'Das Menü können wir gerne besprechen!',
     time: '12:15',
     unread: 1,
@@ -433,7 +499,7 @@ const DEMO_CHATS = [
   {
     id: 3,
     name: 'Lisa Blumen',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lisa',
+    avatar: ebAvatar('lisa', 'Lisa'),
     lastMsg: 'Die Brautsträuße werden wunderschön!',
     time: 'Gestern',
     unread: 0,
@@ -862,7 +928,19 @@ function navigateTo(page, data, skipHistory) {
       loadSettings();
       break;
     case 'agb':
+    case 'agb-b2b':
+    case 'agb-dienstleister':
+    case 'marktplatz':
     case 'datenschutz':
+    case 'cookies':
+    case 'widerruf':
+    case 'community':
+    case 'bewertungen':
+    case 'upload':
+    case 'dsa':
+    case 'p2b':
+    case 'barrierefreiheit':
+    case 'vsbg':
     case 'impressum':
       break;
     case 'admin':
@@ -1195,7 +1273,7 @@ function renderFeed(tab) {
   }
 
   list.innerHTML = items.map((l, i) => {
-    const avatar = l.providerImg || l.providerAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName);
+    const avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
     const categoryLabel = l.category ? l.category.charAt(0).toUpperCase() + l.category.slice(1) : 'Service';
     const isFav = favorites.has(l.id);
     const desc = l.description || l.title;
@@ -2442,7 +2520,7 @@ function loadProvider(providerId) {
         _ownProfile: true,
         providerId: pid,
         providerName: currentUser.name || 'Mein Profil',
-        providerImg: currentUser.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name || 'user')),
+        providerImg: currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name),
         providerSince: currentUser.since || new Date().getFullYear().toString(),
         description: currentUser.bio || '',
         location: currentUser.location || '',
@@ -2473,7 +2551,7 @@ function loadProvider(providerId) {
               _fromDb: true,
               providerId: pid,
               providerName: data.name || 'Anbieter',
-              providerImg: data.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(data.name || 'user')),
+              providerImg: data.photoUrl || ebAvatar(data.name || 'user', data.name),
               providerSince: data.since || '',
               description: data.bio || '',
               location: data.location || '',
@@ -2630,7 +2708,7 @@ function loadProvider(providerId) {
             '</div>';
         } else {
           document.getElementById('providerReviewsList').innerHTML = reviews.map(function(r) {
-            var avatar = r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.name || 'user'));
+            var avatar = r.avatar || ebAvatar(r.name || 'user', r.name);
             var rating = parseInt(r.rating) || 0;
             var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + _escHtml(r.listingTitle) + '</div>' : '';
             var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
@@ -3651,7 +3729,7 @@ function _startChatPoll() {
                 delBtn = '<button class="msg-delete-btn" title="Für mich löschen" aria-label="Für mich löschen" onclick="hideMessageForMe(' + msg.id + ')"><span class="material-icons-round">delete</span></button>';
               }
             }
-            return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
+            return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + _escHtml(time) + '</span></div>';
           }
         }).join('');
         if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
@@ -4007,7 +4085,7 @@ function renderChatList() {
         return;
       }
       list.innerHTML = archiveToggle + visible.map(function(c) {
-        var avatar = c.other_photo || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
+        var avatar = c.other_photo || ebAvatar('default');
         var name = c.other_name || 'Unbekannt';
         var lastMsg = c.last_message || '';
         // Pretty-print booking messages in sidebar preview
@@ -4053,7 +4131,7 @@ function openChat(chatId) {
       currentChat = {
         id: chatId,
         name: convo ? convo.other_name : 'Chat',
-        avatar: convo ? (convo.other_photo || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default') : 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+        avatar: convo ? (convo.other_photo || ebAvatar('default')) : ebAvatar('default'),
         otherId: convo ? convo.otherId : null,
         online: false,
         messages: messages || []
@@ -4919,7 +4997,7 @@ function renderDashboard() {
   }
 
   // --- Avatar ---
-  var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name || 'user');
+  var avatarUrl = currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name);
   document.getElementById('profileAvatar').src = avatarUrl;
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = avatarUrl;
@@ -4990,7 +5068,7 @@ function renderDashboard() {
           var canDelete = isOwnReview || isProfileOwner || (currentUser && currentUser.isAdmin);
           var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
-            '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar || r.name) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
+            '<img src="' + _escHtml(ebAvatar(r.avatar || r.name || 'user', r.name)) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
               '<div class="review-top"><strong' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + '>' + _escHtml(r.name || '') + '</strong>' + deleteBtn + '</div>' +
               '<div class="review-stars">' + _renderStars(r.rating || 0) + '</div>' +
@@ -6904,6 +6982,32 @@ document.addEventListener('DOMContentLoaded', function() {
     navigateTo('browse', null, true);
   }
 
+  // App-Loading-Overlay ausblenden (siehe index.html / styles.css)
+  if (typeof window.__hideAppLoader === 'function') {
+    // Doppelter requestAnimationFrame, damit der Browser den ersten Frame mit
+    // gerendertem Content malen kann, bevor wir das Overlay wegblenden.
+    requestAnimationFrame(function(){ requestAnimationFrame(window.__hideAppLoader); });
+  }
+
+  // Performance: alle dynamisch eingefügten <img>-Tags automatisch lazy-loaden.
+  // Spart bei langen Listen (Browse, Gallery, Chat-Avatare) massiv Bandbreite.
+  try {
+    var _imgObserver = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes && m.addedNodes.forEach(function(node){
+          if (node.nodeType !== 1) return;
+          var imgs = node.tagName === 'IMG' ? [node] : node.querySelectorAll ? node.querySelectorAll('img') : [];
+          for (var i = 0; i < imgs.length; i++) {
+            var img = imgs[i];
+            if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+            if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+          }
+        });
+      });
+    });
+    _imgObserver.observe(document.body, { childList: true, subtree: true });
+  } catch (e) { /* MutationObserver nicht verfügbar – egal */ }
+
 // Handle browser back/forward
   window.addEventListener('popstate', function(e) {
     // Always restore scrolling when navigating back/forward
@@ -7851,7 +7955,7 @@ function renderAdminUserList(users) {
   }
   var html = '';
   users.forEach(function(u) {
-    var avatarSrc = u.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(u.login);
+    var avatarSrc = u.avatar || ebAvatar(u.login || 'user', u.login);
     var regDate = u.registered ? new Date(u.registered).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '–';
     var baseRole = u.baseRole || u.role || 'Event-Planer';
     var roleBadge = u.isAdmin
@@ -8274,7 +8378,7 @@ function loadDetailReviews(dbListingId) {
         }
       } else {
         container.innerHTML = reviews.map(function(r) {
-          var avatar = r.photo_url || r.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.author_name || r.name || 'user'));
+          var avatar = r.photo_url || r.avatar || ebAvatar(r.author_name || r.name || 'user', r.author_name || r.name);
           var displayName = r.author_name || r.name || 'Anonym';
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
@@ -8380,7 +8484,7 @@ function renderDetailReviews(listing) {
     var allReviews = getAllReviewsForListing(listing.id);
     container.innerHTML = allReviews.map(function(r) {
       return '<div class="review-card">' +
-        '<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(r.avatar) + '" alt="' + _escHtml(r.name) + '" class="review-avatar" />' +
+        '<img src="' + _escHtml(ebAvatar(r.avatar || r.name || 'user', r.name)) + '" alt="' + _escHtml(r.name) + '" class="review-avatar" />' +
         '<div class="review-content">' +
           '<div class="review-top">' +
             '<strong>' + _escHtml(r.name) + '</strong>' +
@@ -9309,6 +9413,18 @@ function _stripHtml(str) {
 function _sanitizeHtml(str) {
   if (!str) return '';
   var allowed = ['P','BR','B','STRONG','I','EM','U','UL','OL','LI','H1','H2','H3','H4','H5','H6','A','BLOCKQUOTE','SPAN','DIV','HR'];
+  // Erlaubte URL-Schemata für <a href>. Alles andere (javascript:, data:, vbscript:, file:) wird verworfen.
+  var safeUrl = function(u) {
+    if (!u) return '';
+    try {
+      var s = String(u).trim();
+      // Erlaube relative URLs (#anchor, /pfad, ./pfad)
+      if (s.charAt(0) === '#' || s.charAt(0) === '/' || s.indexOf('./') === 0 || s.indexOf('../') === 0) return s;
+      // Erlaube nur http(s):, mailto:, tel:
+      if (/^(https?:|mailto:|tel:)/i.test(s)) return s;
+      return '';
+    } catch(e) { return ''; }
+  };
   var doc = new DOMParser().parseFromString(str, 'text/html');
   function clean(parent) {
     Array.from(parent.childNodes).forEach(function(n) {
@@ -9320,7 +9436,16 @@ function _sanitizeHtml(str) {
         n.removeAttribute(a.name);
       });
       if (n.tagName === 'A') {
-        n.setAttribute('rel', 'noopener noreferrer');
+        var href = safeUrl(n.getAttribute('href'));
+        if (!href) {
+          // Unsicheres Schema → Tag in Span umwandeln, Text behalten.
+          var span = doc.createElement('span');
+          span.textContent = n.textContent;
+          n.parentNode.replaceChild(span, n);
+          return;
+        }
+        n.setAttribute('href', href);
+        n.setAttribute('rel', 'noopener noreferrer nofollow ugc');
         n.setAttribute('target', '_blank');
       }
       clean(n);
@@ -9339,7 +9464,7 @@ function applyLogin() {
   document.getElementById('loggedOutMenu').style.display = 'none';
   document.getElementById('loggedInMenu').style.display = 'block';
   if (currentUser) {
-    var avatarUrl = currentUser.photoUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name);
+    var avatarUrl = currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name);
     var navAvatar = document.querySelector('#avatarBtn img');
     if (navAvatar) navAvatar.src = avatarUrl;
     var adminLabel = document.getElementById('navAdminLabel');
@@ -9422,7 +9547,7 @@ function applyLogout() {
   document.getElementById('loggedInMenu').style.display = 'none';
   document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
-  if (navAvatar) navAvatar.src = 'https://api.dicebear.com/7.x/avataaars/svg?seed=user1';
+  if (navAvatar) navAvatar.src = ebAvatar('user1', 'Gast');
   var adminLabel = document.getElementById('navAdminLabel');
   if (adminLabel) adminLabel.style.display = 'none';
   var adminMenuBtn = document.getElementById('adminMenuBtn');
@@ -10246,6 +10371,8 @@ function showToast(message, icon = 'check_circle') {
 }
 
 // ========== COOKIE CONSENT ==========
+// Nur technisch notwendige Cookies gemäß § 25 Abs. 2 Nr. 2 TDDDG — keine Einwilligung erforderlich.
+// Analytics- und Marketing-Cookies werden derzeit nicht eingesetzt.
 function _getCookieConsent() {
   try {
     var raw = localStorage.getItem('eb_cookie_consent');
@@ -10253,11 +10380,11 @@ function _getCookieConsent() {
   } catch (e) { return null; }
 }
 
-function _saveCookieConsent(analytics, marketing) {
+function _saveCookieConsent() {
   localStorage.setItem('eb_cookie_consent', JSON.stringify({
     necessary: true,
-    analytics: !!analytics,
-    marketing: !!marketing,
+    analytics: false,
+    marketing: false,
     timestamp: new Date().toISOString()
   }));
   var banner = document.getElementById('cookieBanner');
@@ -10274,25 +10401,12 @@ function initCookieConsent() {
   // Show banner with slight delay for smooth entry
   setTimeout(function() { banner.classList.add('show'); }, 400);
 
-  var analyticsBox = document.getElementById('cookieAnalytics');
-  var marketingBox = document.getElementById('cookieMarketing');
-
-  document.getElementById('cookieAcceptAll').addEventListener('click', function() {
-    if (analyticsBox) analyticsBox.checked = true;
-    if (marketingBox) marketingBox.checked = true;
-    _saveCookieConsent(true, true);
-  });
-
-  document.getElementById('cookieRejectOptional').addEventListener('click', function() {
-    _saveCookieConsent(false, false);
-  });
-
-  document.getElementById('cookieSaveChoice').addEventListener('click', function() {
-    _saveCookieConsent(
-      analyticsBox ? analyticsBox.checked : false,
-      marketingBox ? marketingBox.checked : false
-    );
-  });
+  var acceptBtn = document.getElementById('cookieAcceptAll');
+  if (acceptBtn) {
+    acceptBtn.addEventListener('click', function() {
+      _saveCookieConsent();
+    });
+  }
 }
 
 // ========== UPDATE NOTIFICATION ==========
@@ -11684,7 +11798,7 @@ function renderKanban(project) {
 }
 
 function renderKanbanCard(card) {
-  var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+  var avatar = card.avatar || ebAvatar(card.name || 'user', card.name);
   // Stage-specific status badge / CTA
   var stageBadge = '';
   if (card.stage === 'kontaktiert') {
@@ -11694,7 +11808,7 @@ function renderKanbanCard(card) {
   }
   return `<div class="kanban-card" draggable="true" data-card-id="${card.id}" ondragstart="dragCard(event,'${card.id}')" onclick="event.stopPropagation()">
     <div class="kc-header">
-      <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=fallback'" />
+      <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.onerror=null;this.src=ebAvatar('fallback')" />
       <div>
         <div class="kc-name">${_escHtml(card.name)}</div>
         <div class="kc-category">${_escHtml(card.category || '')}</div>
@@ -11869,12 +11983,12 @@ function renderBoardTimeline() {
     return;
   }
   chain.innerHTML = confirmed.map(function(card, i) {
-    var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+    var avatar = card.avatar || ebAvatar(card.name || 'user', card.name);
     var timeStr = card.startTime || ('0' + (8 + i * 2) + ':00').slice(-5);
     var connector = i < confirmed.length - 1 ? '<div class="tl-connector"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 10h10M12 7l3 3-3 3"/></svg></div>' : '';
     return '<div class="tl-card animated-entry">' +
       '<div class="tl-time">' + _escHtml(timeStr) + '</div>' +
-      '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(card.name) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" />' +
+      '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(card.name) + '" onerror="this.onerror=null;this.src=ebAvatar(\'fallback\')" />' +
       '<h4>' + _escHtml(card.name) + '</h4>' +
       '<small>' + _escHtml(card.category || '') + '</small>' +
       '</div>' + connector;
@@ -12138,7 +12252,7 @@ function _renderBoardFlowImpl() {
 
     // Provider nodes
     stageCards.forEach(function(card) {
-      var avatar = card.avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(card.name));
+      var avatar = card.avatar || ebAvatar(card.name || 'user', card.name);
       var isConfirmed = !!card.confirmedByProvider;
       html += '<div class="flow-col-connector"></div>';
       html += '<div class="flow-node flow-node-provider' + (isConfirmed ? ' is-confirmed' : '') + '" style="--stage-clr:' + stage.color + '" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
@@ -12156,7 +12270,7 @@ function _renderBoardFlowImpl() {
         }
       }
       html += '<div class="flow-provider-inner">';
-      html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=x\'" alt="" />';
+      html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.onerror=null;this.src=ebAvatar(\'x\')" alt="" />';
       html += '<div class="flow-prov-info">';
       html += '<strong>' + esc(card.name) + '</strong>';
       html += '<small>' + esc(card.category || '') + '</small>';
@@ -14402,7 +14516,7 @@ function _createBoardProject(event) {
         stage: 'geplant',
         price: 0,
         note: '',
-        avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=' + encodeURIComponent(cat),
+        avatar: ebAvatar(cat, cat),
         createdAt: new Date().toISOString()
       };
     });
@@ -14978,7 +15092,7 @@ function _generateDemoSocialPosts() {
       type: 'suche-dienstleister',
       author: 'Julia & Mark',
       authorId: 1001,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=julia',
+      avatar: ebAvatar('julia', 'Julia'),
       title: 'DJ für Hochzeit gesucht',
       category: 'DJ',
       location: 'Schloss Rheinsberg',
@@ -14996,7 +15110,7 @@ function _generateDemoSocialPosts() {
       type: 'suche-events',
       author: 'DJ Max Beat',
       authorId: 1002,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=djmax',
+      avatar: ebAvatar('djmax', 'DJ Max'),
       title: 'Erfahrener DJ sucht Aufträge in Hamburg',
       category: 'DJ',
       location: 'Hamburg & Umgebung',
@@ -15014,7 +15128,7 @@ function _generateDemoSocialPosts() {
       type: 'met',
       author: 'Sophia K.',
       authorId: 1003,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophia',
+      avatar: ebAvatar('sophia', 'Sophia'),
       content: 'Durch die Firmenfeier mit Top Catering wirklich tolle Menschen kennengelernt. Das Essen war phantastisch! #Catering #Firmenevent',
       image: 'https://images.pexels.com/photos/2291367/pexels-photo-2291367.jpeg?auto=compress&cs=tinysrgb&w=600',
       time: new Date(Date.now() - 86400000).toISOString(),
@@ -15027,7 +15141,7 @@ function _generateDemoSocialPosts() {
       type: 'suche-dienstleister',
       author: 'Anna Berger',
       authorId: 1004,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anna',
+      avatar: ebAvatar('anna', 'Anna'),
       title: 'Fotograf für Firmen-Sommerfest',
       category: 'Fotograf',
       location: 'München',
@@ -15045,7 +15159,7 @@ function _generateDemoSocialPosts() {
       type: 'ankuendigung',
       author: 'BlumenZauber GmbH',
       authorId: 1005,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=blumen',
+      avatar: ebAvatar('blumen', 'Blumen'),
       content: 'Neue Kollektion Frühjahr/Sommer! Exklusive Tischdekoration und Brautsträuße für euren unvergesslichen Tag. Jetzt anfragen! #Floristik #Hochzeit #Dekoration',
       image: 'https://images.pexels.com/photos/1045541/pexels-photo-1045541.jpeg?auto=compress&cs=tinysrgb&w=600',
       time: new Date(Date.now() - 259200000).toISOString(),
@@ -15058,7 +15172,7 @@ function _generateDemoSocialPosts() {
       type: 'suche-events',
       author: 'Catering Deluxe',
       authorId: 1006,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=catering',
+      avatar: ebAvatar('catering', 'Catering'),
       title: 'Catering-Service sucht Sommer-Events',
       category: 'Catering',
       location: 'NRW & Umgebung',
@@ -15206,7 +15320,7 @@ function renderSocialPostCard(post) {
 
   return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '">' +
     '<div class="feed-post-header">' +
-      '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=user') + '" alt="' + _escHtml(post.author) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" />' +
+      '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || ebAvatar(post.author || 'user', post.author)) + '" alt="' + _escHtml(post.author) + '" onerror="this.onerror=null;this.src=ebAvatar(\'fallback\')" />' +
       '<div class="feed-post-author">' +
         '<strong>' + _escHtml(post.author) + '</strong>' +
         '<div class="feed-post-meta">' + typeBadge + ' <span>' + timeAgo(post.time) + '</span></div>' +
@@ -15237,11 +15351,11 @@ function renderSocialPostCard(post) {
 }
 
 function renderListingFeedCard(l) {
-  var avatar = l.providerImg || l.providerAvatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(l.providerName));
+  var avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
   var isFav = favorites.has(l.id);
   return '<div class="feed-post-card">' +
     '<div class="feed-post-header">' +
-      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.src=\'https://api.dicebear.com/7.x/avataaars/svg?seed=fallback\'" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
+      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(\'fallback\')" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
       '<div class="feed-post-author">' +
         '<strong onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')">' + _escHtml(l.providerName) + '</strong>' +
         '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span>' + timeAgo(l.createdAt) + '</span></div>' +
@@ -15704,7 +15818,7 @@ function _createSocialPost(event) {
     type: type,
     author: currentUser ? (currentUser.name || 'Du') : 'Du',
     authorId: currentUser ? currentUser.id : 0,
-    avatar: currentUser ? (currentUser.photoUrl || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(currentUser.name || 'user'))) : 'https://api.dicebear.com/7.x/avataaars/svg?seed=newuser',
+    avatar: currentUser ? (currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name)) : ebAvatar('newuser', 'Neu'),
     content: content,
     image: _postImageData || null,
     time: new Date().toISOString(),

@@ -77,7 +77,7 @@ Der Router verwaltet alle Seiten ohne Seitenneuladen:
 - Portfolio-Galerie (Fotos)
 - Cover-Fotos
 - Unternehmensinformationen
-- Avatar (DiceBear API)
+- Avatar (self-hosted via `ebAvatar()`)
 - Rolle: event_planer / dienstleister
 
 ### Admin-Panel

@@ -1,6 +1,6 @@
 # Feature: Event-Planungs-Board (Herzstück)
 
-> Das Planungs-Board ist das zentrale Werkzeug von Eventbörse – hier plant man den kompletten Ablauf eines Events und verwaltet mehrere Dienstleister gleichzeitig.
+> Das Planungs-Board ist das zentrale Werkzeug der Plattform – hier plant man den kompletten Ablauf eines Events und verwaltet mehrere Dienstleister gleichzeitig.
 
 ## Übersicht
 
@@ -73,7 +73,7 @@ Dienstleister kontaktieren → Buchen → Zahlen → Erfüllen
 - Zeigt alle Karten, bei denen der eingeloggte User als Provider hinterlegt ist
 - Auftrag annehmen (→ Stage wechselt auf "Bezahlt", Provision wird berechnet)
 - Erbringung bestätigen
-- Gebühren-Aufteilung: 3% Stripe + 3% Eventbörse = 94% Auszahlung
+- Gebühren-Aufteilung: 3% Stripe + 3% Plattform = 94% Auszahlung
 
 ## Datenstruktur
 

@@ -1,8 +1,11 @@
 # Eventbörse.de - Apache Configuration for IONOS
+# Security-Hardening + Caching. Header werden zusätzlich PHP-seitig in
+# functions.php gesetzt (redundant, falls mod_headers nicht greift).
 
-# Force HTTPS
+# Force HTTPS (auch hinter Reverse-Proxy via X-Forwarded-Proto)
 RewriteEngine On
-RewriteCond %{HTTPS} off
+RewriteCond %{HTTPS} off [OR]
+RewriteCond %{HTTP:X-Forwarded-Proto} =http
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Enable Gzip Compression
@@ -13,12 +16,32 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # Browser Caching
 <IfModule mod_expires.c>
   ExpiresActive On
-  ExpiresByType text/html "access plus 1 hour"
-  ExpiresByType text/css "access plus 1 month"
-  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
   ExpiresByType image/jpeg "access plus 1 year"
   ExpiresByType image/png "access plus 1 year"
   ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/avif "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType application/font-woff2 "access plus 1 year"
+  ExpiresByType application/manifest+json "access plus 1 week"
+  ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+# Cache-Control für versionierte Assets (Querystring-busted) → immutable
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|woff|woff2|ttf|eot|svg|png|jpg|jpeg|gif|webp|avif|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# Keep-Alive (mehr Requests pro Connection → schneller)
+<IfModule mod_headers.c>
+  Header set Connection keep-alive
 </IfModule>
 
 # Disable caching for REST API (dynamic JSON data)
@@ -30,16 +53,66 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
   </If>
 </IfModule>
 
-# Security Headers
+# Security Headers (OWASP-konform; Volltext-CSP wird aus PHP gesetzt)
 <IfModule mod_headers.c>
-  Header set X-Content-Type-Options "nosniff"
-  Header set X-Frame-Options "SAMEORIGIN"
-  Header set X-XSS-Protection "1; mode=block"
-  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  # HSTS – 2 Jahre, inkl. Subdomains. Nur wenn HTTPS aktiv ist.
+  Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" "expr=%{HTTPS} == 'on'"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  # X-XSS-Protection deaktiviert (legacy, in modernen Browsern durch CSP ersetzt)
+  Header always set X-XSS-Protection "0"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Resource-Policy "same-site"
+  Header always set X-Permitted-Cross-Domain-Policies "none"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(self), payment=(self), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+  # Server-Banner reduzieren
+  Header unset X-Powered-By
+  Header always unset X-Powered-By
+</IfModule>
+ServerSignature Off
+
+# Sensible Dateien blockieren
+<FilesMatch "(^\.|\.(env|git|gitignore|gitattributes|md|markdown|log|sql|yml|yaml|lock|ini|conf|bak|swp|orig|dist)|wp-config\.php|xmlrpc\.php|readme\.html|license\.txt|liesmich\.html)$">
+  Require all denied
+</FilesMatch>
+
+# ===========================================================
+# Upload-Verzeichnisse: KEINE Skript-Ausführung erlauben.
+# Blockiert PHP/CGI/Perl etc. selbst falls eine bösartige Datei
+# dort landet (Defense-in-Depth gegen polyglot-Uploads, RFI/LFI).
+# ===========================================================
+<IfModule mod_rewrite.c>
+  RewriteRule ^wp-content/uploads/.*\.(php|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp|exe|bat|cmd|svg|html?|js)$ - [F,L,NC]
+  RewriteRule ^uploads/.*\.(php|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp|exe|bat|cmd|svg|html?|js)$ - [F,L,NC]
+</IfModule>
+<Directory "wp-content/uploads">
+  <FilesMatch "\.(php|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp|exe|bat|cmd)$">
+    Require all denied
+  </FilesMatch>
+  # SVG könnten <script> enthalten – nicht inline rendern lassen.
+  <FilesMatch "\.svg$">
+    Header set Content-Disposition "attachment"
+    Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+  </FilesMatch>
+  # Wenn doch ein Bild ausgeliefert wird: KEIN MIME-Sniffing.
+  <IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+  </IfModule>
+</Directory>
+
+# Vault- und CI-Verzeichnisse abschotten
+RedirectMatch 404 /\.git
+RedirectMatch 404 ^/(vault|\.github)(/|$)
+
+# Verzeichnis-Listing aus
+Options -Indexes
+<IfModule mod_autoindex.c>
+  IndexIgnore *
 </IfModule>
 
 # Default document
-DirectoryIndex index.html
+DirectoryIndex index.php index.html
 
 # Custom Error Page
 ErrorDocument 404 /index.html

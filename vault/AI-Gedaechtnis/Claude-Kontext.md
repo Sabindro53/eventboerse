@@ -4,7 +4,7 @@
 
 ## Projekt-Essenz
 
-**Eventbörse** ist ein deutscher Marktplatz der Event-Planer mit Dienstleistern (DJs, Catering, Fotografen, Locations etc.) verbindet. Ziel: beste und funktionalste Eventplattform in Deutschland.
+**Plattform** ist ein deutscher Marktplatz, der Event-Planer mit Dienstleistern (DJs, Catering, Foto, Locations etc.) verbindet. Ziel: beste und funktionalste Eventplattform in Deutschland.
 
 → [[Architecture/Overview]] | [[Backend/API-Endpoints]] | [[CI-CD/Deployment]]
 
@@ -22,7 +22,7 @@
 | Frontend | `app.js` ~14 700 Zeilen, Vanilla JS SPA |
 | Backend | `functions.php` ~4 429 Zeilen, WordPress REST API (67 Endpoints) |
 | Styling | `styles.css` ~11 000 Zeilen, mobile-first |
-| Hosting | IONOS WordPress Grow, automatisches Deployment via GitHub Actions |
+| Hosting | Shared WordPress Hosting (Hosting-Provider), automatisches Deployment via GitHub Actions |
 | Auth | Login/Register + 2FA (OTP per E-Mail) + WebAuthn/Passkeys |
 | Zahlungen | Stripe (teilweise integriert, in Entwicklung) |
 
@@ -59,11 +59,11 @@
 app.js ──liest──→ /wp-json/eventboerse/v1/* (functions.php)
        ──nutzt──→ Stripe.js (Zahlungen)
        ──nutzt──→ Leaflet.js (Karten)
-       ──ruft──→ DiceBear API (Avatare)
+       ──ruft──→ self-hosted Avatar-Generator (`ebAvatar()`)
        ──ruft──→ _apiUrl() → _apiHeaders() (Nonce-Auth)
 
 functions.php ──nutzt──→ WordPress User Meta (DB)
-              ──sendet──→ SMTP E-Mail (IONOS)
+              ──sendet──→ SMTP E-Mail (Hosting-Provider)
               ──ruft──→ Stripe API (PHP SDK)
               ──inkludiert──→ webauthn.php (Passkeys)
 ```

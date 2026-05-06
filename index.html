@@ -22,17 +22,55 @@
   <meta name="twitter:image" content="https://xn--eventbrse-57a.de/wp-content/themes/eventboerse/assets/img/og-image.png" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FF385C'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='sans-serif' font-weight='bold' fill='white'%3EE%3C/text%3E%3C/svg%3E" />
   <link rel="canonical" href="https://eventbörse.de" />
-  <link rel="stylesheet" href="styles.css?v=134" />
+
+  <!-- Performance: Preconnect zu kritischen Drittanbietern -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://js.stripe.com" crossorigin />
+
+  <!-- Critical CSS first (render-blocking, but small) -->
+  <link rel="preload" href="styles.css?v=135" as="style" fetchpriority="high" />
+  <link rel="stylesheet" href="styles.css?v=135" />
+
+  <!-- Fonts: async laden, vermeidet Render-Block (FOUT statt FOIT) -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  </noscript>
+
+  <!-- Leaflet & Flatpickr: nur CSS im Head, JS am Ende deferred -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
 </head>
 <body>
+  <!-- ============ APP-LOADING-OVERLAY (vor JS-Render sichtbar) ============ -->
+  <div id="appLoadingOverlay" aria-hidden="true">
+    <div class="app-loading-inner">
+      <div class="app-loading-emoji" aria-hidden="true">
+        <span class="emoji emoji-1">🎉</span>
+        <span class="emoji emoji-2">🎊</span>
+      </div>
+      <div class="app-loading-text">Event<span class="app-loading-accent">börse</span> wird geladen…</div>
+      <div class="app-loading-bar"><span></span></div>
+    </div>
+  </div>
+  <!-- Failsafe: Overlay spätestens nach 8 s ausblenden, falls JS nicht meldet -->
+  <script>
+    (function(){
+      var FAILSAFE_MS = 8000;
+      window.__hideAppLoader = function(){
+        var el = document.getElementById('appLoadingOverlay');
+        if (!el || el.classList.contains('is-hidden')) return;
+        el.classList.add('is-hidden');
+        setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 450);
+      };
+      setTimeout(window.__hideAppLoader, FAILSAFE_MS);
+    })();
+  </script>
   <!-- ============ NAVIGATION ============ -->
   <nav id="navbar">
     <div class="nav-inner">
@@ -93,7 +131,7 @@
           <span class="badge" id="msgBadge" style="display:none"></span>
         </button>
         <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="User" />
+          <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2258%22%20text-anchor%3D%22middle%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22sans-serif%22%3EU%3C%2Ftext%3E%3C%2Fsvg%3E" alt="User" loading="lazy" decoding="async" />
           <span class="nav-admin-label" id="navAdminLabel">Admin</span>
         </button>
       </div>
@@ -178,6 +216,21 @@
       <span>Profil</span>
     </button>
   </nav>
+
+  <!-- ============ BETA / VORGRÜNDUNGS-BANNER ============ -->
+  <div class="beta-banner" id="betaBanner" role="region" aria-label="Beta-Hinweis">
+    <div class="beta-banner-inner">
+      <span class="material-icons-round beta-banner-icon" aria-hidden="true">science</span>
+      <p>
+        <strong>Beta- und Vorgründungsphase.</strong>
+        Diese Plattform wird derzeit von <em>Sandro Salvaggio</em> als Betreiber betrieben; die <strong>Eventbörse UG (haftungsbeschränkt)</strong> befindet sich in Eintragung. Verbindliche Buchungen und Live-Zahlungen sind erst nach Eintragung möglich. Stripe läuft im Testmodus.
+      </p>
+      <button type="button" class="beta-banner-close" aria-label="Hinweis schließen" onclick="(function(b){b.style.display='none';try{localStorage.setItem('eb_beta_banner_dismissed','1');}catch(e){}})(document.getElementById('betaBanner'))">
+        <span class="material-icons-round" aria-hidden="true">close</span>
+      </button>
+    </div>
+  </div>
+  <script>(function(){try{if(localStorage.getItem('eb_beta_banner_dismissed')==='1'){var b=document.getElementById('betaBanner');if(b)b.style.display='none';}}catch(e){}})();</script>
 
   <!-- ============ PAGE: HOME ============ -->
   <main>
@@ -392,7 +445,7 @@
               <div class="testimonial-stars">★★★★★</div>
               <p>"Wir haben über Eventbörse unseren Hochzeits-DJ und Caterer gefunden. Die Preisverhandlung war super einfach!"</p>
               <div class="testimonial-author">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=sarah" alt="Sarah" />
+                <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%237C3AED%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2258%22%20text-anchor%3D%22middle%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22sans-serif%22%3ES%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Sarah" loading="lazy" decoding="async" />
                 <div>
                   <strong>Sarah & Markus</strong>
                   <span>Hochzeit in München</span>
@@ -403,7 +456,7 @@
               <div class="testimonial-stars">★★★★★</div>
               <p>"Als Caterer bekomme ich regelmäßig Anfragen. Die Plattform ist genial für mein Business!"</p>
               <div class="testimonial-author">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=marco" alt="Marco" />
+                <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%230EA5E9%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2258%22%20text-anchor%3D%22middle%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22sans-serif%22%3EM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Marco" loading="lazy" decoding="async" />
                 <div>
                   <strong>Marco R.</strong>
                   <span>Caterer seit 2024</span>
@@ -414,7 +467,7 @@
               <div class="testimonial-stars">★★★★★</div>
               <p>"Unsere Firmenfeier war dank Eventbörse ein voller Erfolg. Alles aus einer Hand!"</p>
               <div class="testimonial-author">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=julia" alt="Julia" />
+                <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%2310B981%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2258%22%20text-anchor%3D%22middle%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22sans-serif%22%3EJ%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Julia" loading="lazy" decoding="async" />
                 <div>
                   <strong>Julia K.</strong>
                   <span>HR Manager, TechCorp</span>
@@ -856,7 +909,7 @@
           </div>
         </div>
         <div class="detail-provider-row">
-          <img id="detailProviderImg" src="https://api.dicebear.com/7.x/avataaars/svg?seed=dj1" alt="Provider" class="detail-provider-avatar" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)" />
+          <img id="detailProviderImg" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3C%2Fsvg%3E" alt="Provider" class="detail-provider-avatar" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)" loading="lazy" decoding="async" />
           <div>
             <strong id="detailProviderName" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)">Max Beats</strong>
             <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
@@ -960,7 +1013,7 @@
         <!-- Profile Card -->
         <div class="provider-profile-card">
           <div class="ppc-left">
-            <img id="providerAvatar" src="" alt="Provider" class="provider-avatar-lg" />
+            <img id="providerAvatar" src="" alt="Provider" class="provider-avatar-lg" loading="lazy" decoding="async" />
             <div class="ppc-verified" id="providerVerifiedBadge">
               <span class="material-icons-round">verified</span> Verifiziert
             </div>
@@ -1081,7 +1134,7 @@
       <div class="provider-lightbox" id="providerLightbox">
         <button class="plb-close" onclick="closeProviderLightbox()"><span class="material-icons-round">close</span></button>
         <button class="plb-nav plb-prev" onclick="event.stopPropagation(); lightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
-        <img id="plbImage" src="" alt="Foto" />
+        <img id="plbImage" src="" alt="Foto" loading="lazy" decoding="async" />
         <button class="plb-nav plb-next" onclick="event.stopPropagation(); lightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
         <div class="plb-counter" id="plbCounter">1 / 5</div>
       </div>
@@ -1113,7 +1166,7 @@
               <button class="chat-back-btn" onclick="closeChatView()">
                 <span class="material-icons-round">arrow_back</span>
               </button>
-              <img src="" alt="" id="chatAvatar" onclick="goToChatProfile()" style="cursor:pointer" />
+              <img src="" alt="" id="chatAvatar" onclick="goToChatProfile()" style="cursor:pointer" loading="lazy" decoding="async" />
               <div onclick="goToChatProfile()" style="cursor:pointer">
                 <strong id="chatName">Max Beats</strong>
                 <span id="chatStatus" class="chat-status online">Online</span>
@@ -1207,14 +1260,14 @@
       <!-- Cover Fullscreen Lightbox -->
       <div class="cover-lightbox" id="coverLightbox" onclick="closeCoverLightbox(event)">
         <button class="plb-close" onclick="closeCoverLightbox()"><span class="material-icons-round">close</span></button>
-        <img id="coverLightboxImg" src="" alt="Cover" />
+        <img id="coverLightboxImg" src="" alt="Cover" loading="lazy" decoding="async" />
       </div>
 
       <!-- Gallery Lightbox -->
       <div class="gallery-lightbox" id="galleryLightbox" onclick="closeGalleryLightbox(event)">
         <button class="plb-close" onclick="closeGalleryLightbox()"><span class="material-icons-round">close</span></button>
         <button class="plb-nav plb-prev" onclick="event.stopPropagation(); galleryLightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
-        <img id="galleryLightboxImg" src="" alt="Galerie" />
+        <img id="galleryLightboxImg" src="" alt="Galerie" loading="lazy" decoding="async" />
         <button class="plb-nav plb-next" onclick="event.stopPropagation(); galleryLightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
         <div class="plb-counter" id="galleryLightboxCounter"></div>
       </div>
@@ -1223,7 +1276,7 @@
       <div class="container">
         <div class="profile-hero">
           <div class="profile-avatar-wrap">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="Profilbild" id="profileAvatar" class="profile-avatar" />
+            <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3C%2Fsvg%3E" alt="Profilbild" id="profileAvatar" class="profile-avatar" loading="lazy" decoding="async" />
             <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Foto ändern">
               <span class="material-icons-round">camera_alt</span>
             </button>
@@ -1848,53 +1901,455 @@
       </div>
     </section>
 
-    <!-- AGB -->
+    <!-- AGB für Privatkunden (B2C) -->
     <section id="page-agb" class="page">
       <div class="container legal-page">
-        <h1>Allgemeine Geschäftsbedingungen (AGB)</h1>
-        <p class="legal-date">Stand: 14. März 2026</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich aktuell in einer Vorgründungs- und Beta-Phase. Diese Rechtstexte sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich. Vor jeder verbindlichen Buchung erfolgt ein Re-Consent-Workflow.</p>
+        <h1>Allgemeine Geschäftsbedingungen für Privatkunden (B2C)</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
 
-        <h2>1. Geltungsbereich</h2>
-        <p>Diese Allgemeinen Geschäftsbedingungen gelten für die Nutzung der Plattform Eventbörse (nachfolgend „Plattform"), betrieben unter der Domain eventbörse.de. Die Plattform dient ausschließlich als Vermittlungsplattform zwischen Event-Planern und Dienstleistern. Eventbörse ist kein Vertragspartner der zwischen Nutzern geschlossenen Vereinbarungen.</p>
+        <p>Diese Allgemeinen Geschäftsbedingungen gelten für die Nutzung der Plattform <strong>eventbörse.de</strong> durch Verbraucher im Sinne des § 13 BGB. Für gewerbliche Eventplaner gelten die <a href="#" onclick="navigateTo('agb-b2b');return false;">AGB B2B</a>; für Dienstleister die <a href="#" onclick="navigateTo('agb-dienstleister');return false;">AGB für Dienstleister</a>; ergänzend gelten die <a href="#" onclick="navigateTo('marktplatz');return false;">Marktplatz- und Vermittlungsbedingungen</a>.</p>
 
-        <h2>2. Leistungsbeschreibung</h2>
-        <p>Eventbörse stellt lediglich eine technische Infrastruktur zur Verfügung, über die Dienstleister ihre Services präsentieren und Event-Planer diese finden und kontaktieren können. <strong>Eventbörse ist kein Veranstalter, kein Dienstleister und kein Vermittler im rechtlichen Sinne.</strong> Sämtliche Verträge kommen ausschließlich zwischen den jeweiligen Nutzern zustande.</p>
+        <h2>§ 1 Anbieter und Geltungsbereich</h2>
+        <p>Anbieter ist die <strong>Eventbörse UG (haftungsbeschränkt) i.&nbsp;G.</strong>, Nonnenberger Str. 95a, 53639 Königswinter (vollständige Anbieterkennzeichnung im <a href="#" onclick="navigateTo('impressum');return false;">Impressum</a>). Diese AGB gelten für alle Verträge zwischen der Plattform und Privatkunden über die Nutzung der Plattform und die Inanspruchnahme der Vermittlungsleistung. Abweichende Bedingungen des Privatkunden werden nicht anerkannt, es sei denn, die Plattform stimmt ihrer Geltung ausdrücklich in Textform zu.</p>
 
-        <h2>3. Registrierung und Nutzerkonto</h2>
-        <p>Für die Nutzung bestimmter Funktionen ist eine Registrierung erforderlich. Der Nutzer ist verpflichtet, wahrheitsgemäße Angaben zu machen und sein Konto vor unbefugtem Zugriff zu schützen. Dienstleister bestätigen bei der Registrierung, dass eine gültige Gewerbeanmeldung vorliegt.</p>
+        <h2>§ 2 Plattformrolle, Vertragsverhältnisse</h2>
+        <p>Die Plattform ist ausschließlich Vermittler. Sie wird nicht selbst Vertragspartner der Eventleistung. Der Vertrag über die Eventleistung kommt direkt zwischen dem Privatkunden und dem ausgewählten Dienstleister zustande, sobald der Kunde ein Angebot des Dienstleisters annimmt und die Zahlung über Stripe erfolgreich bestätigt ist. Für Pflichtverletzungen, Mängel oder Schäden aus der Eventleistung haftet ausschließlich der Dienstleister. Die Vermittlungsleistung der Plattform ist gegenüber dem Privatkunden unentgeltlich.</p>
 
-        <h2>4. Haftungsausschluss</h2>
-        <p><strong>Eventbörse übernimmt keinerlei Haftung für:</strong></p>
+        <h2>§ 3 Registrierung und Nutzerkonto</h2>
+        <p>Die Buchung über die Plattform setzt ein Nutzerkonto voraus. Die Registrierung ist ab Vollendung des 18. Lebensjahres möglich. Der Privatkunde sichert die Richtigkeit und Vollständigkeit seiner Angaben zu und hält diese aktuell. Mehrfachkonten sind unzulässig. Zugangsdaten sind geheim zu halten; bei Verdacht auf Missbrauch ist die Plattform unverzüglich zu informieren.</p>
+
+        <h2>§ 4 Buchungsablauf</h2>
+        <ol>
+          <li>Suche und Auswahl eines Dienstleisters über die Plattformfunktionen.</li>
+          <li>Anfrage über das interne Messaging mit Datum, Ort, Leistungsumfang.</li>
+          <li>Angebot durch den Dienstleister mit Preis, Leistungsbeschreibung und Gültigkeitsdauer (Standard 7 Tage).</li>
+          <li>Annahme des Angebots durch den Kunden und unmittelbare Bezahlung über die Stripe-Zahlungsseite.</li>
+          <li>Buchung kommt verbindlich zustande mit erfolgreicher Zahlungsbestätigung. Bei fehlgeschlagener Zahlung läuft eine Reservierungsfrist von 24 Stunden; danach wird der Slot freigegeben.</li>
+        </ol>
+
+        <h2>§ 5 Preise, Zahlung und Rechnung</h2>
+        <p>Maßgeblich ist der vom Dienstleister im Angebot angegebene Gesamtpreis (Bruttopreis inklusive aller Steuern und Nebenkosten). Die Zahlung erfolgt über den Zahlungsdienstleister <strong>Stripe Payments Europe Ltd.</strong> Die Rechnung wird vom Dienstleister selbst gestellt; die Plattform ist nicht Rechnungssteller der Eventleistung.</p>
+
+        <h2>§ 6 Stornierung, Refunds, Reklamationen</h2>
+        <p>Stornierungs- und Refund-Bedingungen werden vom Dienstleister im jeweiligen Angebot festgelegt. Reklamationen wegen Mängeln der Eventleistung sind unmittelbar an den Dienstleister zu richten. Die Plattform leistet keine Gewährleistung für die Eventleistung; sie unterstützt technisch über das Stripe-Refund-System.</p>
+
+        <h2>§ 7 Widerrufsrecht</h2>
+        <p>Privatkunden steht ein Widerrufsrecht nach Maßgabe der <a href="#" onclick="navigateTo('widerruf');return false;">Widerrufsbelehrung</a> zu. <strong>Wichtig:</strong> Bei termingebundenen Eventleistungen entfällt das Widerrufsrecht gemäß § 312g Abs. 2 Nr. 9 BGB. Hierauf werden Sie vor jeder Buchung gesondert hingewiesen.</p>
+
+        <h2>§ 8 Pflichten des Privatkunden</h2>
         <ul>
-          <li>Die Qualität, Zuverlässigkeit oder Rechtmäßigkeit der angebotenen Dienstleistungen</li>
-          <li>Die Richtigkeit, Vollständigkeit oder Aktualität der von Nutzern eingestellten Inhalte</li>
-          <li>Schäden, die aus Verträgen zwischen Nutzern entstehen</li>
-          <li>Entgangenen Gewinn oder indirekte Schäden jeglicher Art</li>
-          <li>Die Verfügbarkeit oder Funktionsfähigkeit der Plattform</li>
-          <li>Verluste oder Schäden durch höhere Gewalt oder technische Störungen</li>
+          <li>Wahrhaftige und vollständige Angaben in Profil und Buchungsanfragen.</li>
+          <li>Achtsame und respektvolle Kommunikation mit Dienstleistern; Beachtung der <a href="#" onclick="navigateTo('community');return false;">Community-Richtlinien</a>.</li>
+          <li>Keine Veröffentlichung rechtswidriger Inhalte (vgl. <a href="#" onclick="navigateTo('upload');return false;">Upload- und Inhaltsrichtlinie</a>).</li>
+          <li>Keine Umgehung von Buchungs- oder Zahlungsabläufen außerhalb der Plattform.</li>
         </ul>
-        <p>Die Haftung von Eventbörse ist auf Vorsatz und grobe Fahrlässigkeit beschränkt. Eine Haftung für leichte Fahrlässigkeit ist ausgeschlossen, soweit gesetzlich zulässig.</p>
 
-        <h2>5. Pflichten der Nutzer</h2>
-        <p>Nutzer verpflichten sich, die Plattform nur für legale Zwecke zu nutzen, keine irreführenden Angaben zu machen und die Rechte Dritter nicht zu verletzen. Bei Verstößen behält sich Eventbörse das Recht vor, Nutzerkonten ohne Vorankündigung zu sperren oder zu löschen.</p>
+        <h2>§ 9 Bewertungen</h2>
+        <p>Bewertungen sind nur nach tatsächlich durchgeführten Buchungen möglich (§ 5b UWG). Details regelt die <a href="#" onclick="navigateTo('bewertungen');return false;">Bewertungsrichtlinie</a>.</p>
 
-        <h2>6. Inhalte der Nutzer</h2>
-        <p>Nutzer sind für sämtliche von ihnen eingestellten Inhalte (Texte, Bilder, Bewertungen) selbst verantwortlich. Eventbörse übernimmt keine Prüfpflicht, behält sich jedoch vor, rechtswidrige oder unangemessene Inhalte ohne Ankündigung zu entfernen.</p>
+        <h2>§ 10 Sperrung und Kündigung</h2>
+        <p>Die Plattform kann das Nutzerkonto bei Verstoß gegen diese AGB, die Community-Richtlinien oder einschlägige Gesetze sperren oder kündigen. Bei nicht wesentlichen Verstößen geht eine Verwarnung voraus, soweit zumutbar. Der Privatkunde kann sein Konto jederzeit ohne Begründung kündigen. Beschwerden gegen Sperren werden über das interne Beschwerdesystem behandelt; dieses entspricht Art. 20 DSA.</p>
 
-        <h2>7. Gebühren</h2>
-        <p>Die Registrierung und Grundnutzung der Plattform ist derzeit kostenlos. Eventbörse behält sich vor, kostenpflichtige Zusatzfunktionen einzuführen, über die Nutzer rechtzeitig informiert werden.</p>
+        <h2>§ 11 Haftung</h2>
+        <p>Die Plattform haftet uneingeschränkt für Vorsatz und grobe Fahrlässigkeit, für Personenschäden und nach Produkthaftungsgesetz. Bei einfacher Fahrlässigkeit haftet die Plattform nur für die Verletzung wesentlicher Vertragspflichten (Kardinalpflichten); die Haftung ist auf den vorhersehbaren, vertragstypischen Schaden begrenzt. Im Übrigen ist die Haftung ausgeschlossen, soweit gesetzlich zulässig. Für Pflichtverletzungen, Mängel oder Schäden aus der Eventleistung haftet ausschließlich der jeweilige Dienstleister.</p>
 
-        <h2>8. Kündigung</h2>
-        <p>Nutzer können ihr Konto jederzeit löschen. Eventbörse kann das Nutzungsverhältnis jederzeit ohne Angabe von Gründen beenden und Konten sperren oder löschen.</p>
+        <h2>§ 12 Datenschutz</h2>
+        <p>Die Verarbeitung personenbezogener Daten richtet sich nach der <a href="#" onclick="navigateTo('datenschutz');return false;">Datenschutzerklärung</a> und der <a href="#" onclick="navigateTo('cookies');return false;">Cookie-Richtlinie</a>.</p>
 
-        <h2>9. Freistellung</h2>
-        <p>Der Nutzer stellt Eventbörse von sämtlichen Ansprüchen Dritter frei, die aus einer rechtswidrigen Nutzung der Plattform oder aus der Verletzung dieser AGB resultieren.</p>
+        <h2>§ 13 Änderungen dieser AGB</h2>
+        <p>Wesentliche Änderungen werden mindestens 30 Tage im Voraus per E-Mail angekündigt; widerspricht der Kunde nicht innerhalb von 30 Tagen, gelten die Änderungen als angenommen. Im Fall des Widerspruchs steht dem Kunden ein Sonderkündigungsrecht zu.</p>
 
-        <h2>10. Änderungen der AGB</h2>
-        <p>Eventbörse behält sich vor, diese AGB jederzeit zu ändern. Die fortgesetzte Nutzung der Plattform nach Änderungen gilt als Zustimmung zu den aktualisierten AGB.</p>
+        <h2>§ 14 Anwendbares Recht und Gerichtsstand</h2>
+        <p>Es gilt deutsches Recht unter Ausschluss des UN-Kaufrechts. Zwingende verbraucherschützende Vorschriften des Wohnsitzstaates des Kunden bleiben unberührt. Gerichtsstand ist Bonn, soweit der Kunde keinen allgemeinen Gerichtsstand in Deutschland hat. Zwingende Verbrauchergerichtsstände bleiben unberührt.</p>
 
-        <h2>11. Schlussbestimmungen</h2>
-        <p>Es gilt das Recht der Bundesrepublik Deutschland. Sollten einzelne Bestimmungen dieser AGB unwirksam sein, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt.</p>
+        <h2>§ 15 Verbraucherstreitbeilegung</h2>
+        <p>Wir sind weder verpflichtet noch bereit, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle gemäß § 36 VSBG teilzunehmen. Hinweise: <a href="#" onclick="navigateTo('vsbg');return false;">Verbraucherstreitbeilegung</a>.</p>
+
+        <h2>§ 16 Salvatorische Klausel</h2>
+        <p>Sollten einzelne Bestimmungen unwirksam sein, bleibt die Wirksamkeit der übrigen Regelungen unberührt.</p>
+      </div>
+    </section>
+
+    <!-- AGB B2B (gewerbliche Eventplaner) -->
+    <section id="page-agb-b2b" class="page">
+      <div class="container legal-page">
+        <h1>AGB für gewerbliche Eventplaner (B2B)</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Rechtstexte sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p>Diese AGB gelten für die Nutzung der Plattform durch Unternehmer im Sinne des § 14 BGB. Für Privatkunden gelten die <a href="#" onclick="navigateTo('agb');return false;">AGB B2C</a>, für Dienstleister die <a href="#" onclick="navigateTo('agb-dienstleister');return false;">AGB für Dienstleister</a>.</p>
+        <h2>§ 1 Anbieter und Geltungsbereich</h2>
+        <p>Anbieter: Eventbörse UG (haftungsbeschränkt) i.&nbsp;G., Anschrift wie Impressum. Allgemeine Geschäftsbedingungen des gewerblichen Eventplaners gelten nicht; § 305 Abs. 2 BGB ist im B2B-Verkehr nicht einschlägig.</p>
+        <h2>§ 2 Plattformrolle, Vertragsverhältnisse</h2>
+        <p>Die Plattform agiert als Vermittler. Verträge über Eventleistungen kommen direkt zwischen dem gewerblichen Eventplaner (oder dessen Endkunden, falls offen vermittelt) und dem Dienstleister zustande.</p>
+        <h2>§ 3 Registrierung und Nutzerkonto</h2>
+        <p>Erforderlich: Firmierung, Anschrift, Vertretungsberechtigter, Umsatzsteuer-Identifikationsnummer und ggf. Handelsregisternummer. Der gewerbliche Eventplaner sichert seine Unternehmereigenschaft zu.</p>
+        <h2>§ 4 Buchungs- und Vermittlungsablauf</h2>
+        <p>Es gelten die Regelungen wie in den B2C-AGB § 4 entsprechend; Bulk-Buchungen sind möglich.</p>
+        <h2>§ 5 Preise, Zahlung, Rechnung</h2>
+        <p>Preise werden vom Dienstleister angegeben (Brutto, USt ausgewiesen, Reverse-Charge-Hinweise im B2B-Verhältnis nach § 13b UStG). Rechnungstellung erfolgt direkt durch den Dienstleister.</p>
+        <h2>§ 6 Kein Widerrufsrecht</h2>
+        <p>Da der gewerbliche Eventplaner die Plattform für seine gewerbliche Tätigkeit nutzt, steht ihm kein Verbraucherwiderrufsrecht zu (§ 13 BGB e contrario).</p>
+        <h2>§ 7 Pflichten des gewerblichen Eventplaners</h2>
+        <ul><li>Korrekte Angabe seiner Unternehmerkennung.</li><li>Einhaltung gesetzlicher Pflichten gegenüber seinen Endkunden.</li><li>Keine Manipulation von Bewertungen oder Profilen.</li><li>Keine Umgehung der Plattform.</li></ul>
+        <h2>§ 8 Mängelhaftung der Eventleistung</h2>
+        <p>Mängelhaftung obliegt ausschließlich dem Dienstleister.</p>
+        <h2>§ 9 Haftung der Plattform</h2>
+        <p>Bei Vorsatz und grober Fahrlässigkeit unbeschränkt. Bei einfacher Fahrlässigkeit auf wesentliche Vertragspflichten und vorhersehbaren, vertragstypischen Schaden begrenzt. Eine Haftung für entgangenen Gewinn, Datenverlust, mittelbare Schäden ist im Rahmen einfacher Fahrlässigkeit ausgeschlossen, soweit nicht Kardinalpflichten betroffen sind.</p>
+        <h2>§ 10 Sperrung, Kündigung, Beschwerden</h2>
+        <p>Sperrungen werden gemäß DSA Art. 17 begründet und sind über das interne Beschwerdesystem anfechtbar.</p>
+        <h2>§ 11 Datenschutz</h2>
+        <p>Soweit der Eventplaner über die Plattform personenbezogene Daten seiner Endkunden eingibt, ist er hierfür eigenständig Verantwortlicher i.S.d. Art. 4 Nr. 7 DSGVO.</p>
+        <h2>§ 12 Vertragsdauer</h2>
+        <p>Unbestimmte Zeit; Kündigung jederzeit zum Monatsende. Premium-Pakete unterliegen den Premium-Listing-Bedingungen.</p>
+        <h2>§ 13 Anwendbares Recht und Gerichtsstand</h2>
+        <p>Deutsches Recht unter Ausschluss UN-Kaufrecht. Ausschließlicher Gerichtsstand: Bonn. Erfüllungsort: Königswinter.</p>
+        <h2>§ 14 Schlussbestimmungen</h2>
+        <p>Änderungen werden mit Vorlauffrist von 30 Tagen angekündigt. Salvatorische Klausel. Schriftform/Textform für Änderungen.</p>
+      </div>
+    </section>
+
+    <!-- AGB für Dienstleister -->
+    <section id="page-agb-dienstleister" class="page">
+      <div class="container legal-page">
+        <h1>AGB für Dienstleister</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Rechtstexte sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p>Diese AGB sind die maßgebliche Grundlage für die <strong>P2B-Verordnung (EU 2019/1150)</strong> und gelten für alle Dienstleister, die ihre Eventleistungen über die Plattform anbieten.</p>
+        <h2>§ 1 Anbieter und Geltungsbereich</h2>
+        <p>Anbieter: Eventbörse UG (haftungsbeschränkt) i.&nbsp;G. Soweit der Dienstleister Verbraucher (§ 13 BGB) ist, gilt zusätzlich die Widerrufsbelehrung für etwaige kostenpflichtige Plattformleistungen.</p>
+        <h2>§ 2 Vertragsverhältnis und Zahlungsmodell</h2>
+        <p>Die Plattform vermittelt zwischen Dienstleistern und Kunden. Der Vertrag über die Eventleistung kommt direkt zwischen Dienstleister und Kunde zustande. Zahlungsmodell: <strong>Stripe Connect Express, Direct Charges</strong>. Der Dienstleister ist Merchant of Record und stellt selbst die Rechnung an den Endkunden aus. Die Plattform zieht eine Application Fee (Provision) ab.</p>
+        <h2>§ 3 Registrierung, Verifikation, Mindestalter</h2>
+        <p>Mindestalter: 18 Jahre. Verifikation/KYC erfolgen über das Stripe-Onboarding (Express). Bei sensiblen Kategorien (Security, Pyrotechnik, medizinnahe Dienste, Kinderbetreuung) erweiterte Prüfung mit Versicherungsnachweis.</p>
+        <h2>§ 4 Pflichten des Dienstleisters</h2>
+        <ul><li>Wahrhaftige Profil- und Leistungsangaben.</li><li>Aktualität der Verfügbarkeit, Angebote, Preise.</li><li>Beachtung gesetzlicher Anforderungen (Steuerrecht, Verbraucherschutz, Berufsausübung, GwG, Versicherung).</li><li>Beachtung der Community- und Bewertungsrichtlinie.</li><li>Beachtung des Verbots der Plattformumgehung (§ 8).</li></ul>
+        <h2>§ 5 Premium-Listings</h2>
+        <p>Optional kann der Dienstleister kostenpflichtige Premium-Listings buchen. Pakete sind dem Grunde nach Werbeleistungen der Plattform und werden in der Trefferliste deutlich als „Bezahlte Platzierung" gekennzeichnet.</p>
+        <h2>§ 6 Provision (Application Fee)</h2>
+        <p>Bei Vertragsbeginn beträgt die Provision <strong>0,00 %</strong>. Eine Erhöhung wird mindestens <strong>15 Tage</strong> vorab per Dashboard und E-Mail angekündigt (P2B Art. 3 Abs. 2). Innerhalb dieser Frist kann der Dienstleister kündigen.</p>
+        <h2>§ 7 Rechnungsstellung gegenüber Endkunde</h2>
+        <p>Der Dienstleister stellt dem Endkunden direkt die Rechnung. Die Plattform stellt dem Dienstleister eine eigene Rechnung über Provision und Premium-Listings.</p>
+        <h2>§ 8 Plattformumgehung</h2>
+        <p>Verbot für 12 Monate ab erstmaligem Kontakt. Vertragsstrafe bei Verstoß: 50 % des umgangenen Auftragsvolumens, mindestens 250,00 EUR, höchstens 5.000,00 EUR pro Einzelfall. Die Vertragsstrafe ist nur in B2B-Konstellationen wirksam vereinbart; gegenüber Verbrauchern wird keine Vertragsstrafe verhängt.</p>
+        <h2>§ 9 Sperrung, Aussetzung, Beendigung (P2B Art. 4)</h2>
+        <p>Aussetzungen werden begründet und mit Vorlauffrist von 30 Tagen angekündigt, soweit nicht akute Gefahrenabwehr ein sofortiges Eingreifen erfordert (Phishing, Betrugsverdacht, behördliche Anordnung).</p>
+        <h2>§ 10 Haftung</h2>
+        <p>Bei Vorsatz und grober Fahrlässigkeit unbeschränkt; bei einfacher Fahrlässigkeit nur Kardinalpflichten in Höhe des vorhersehbaren, vertragstypischen Schadens. Keine Haftung für Buchungsausfälle wegen Auslastung/Markt; keine Haftung für Ausfälle externer Dienstleister (Stripe, IONOS), soweit nicht zu vertreten.</p>
+        <h2>§ 11 Änderung dieser AGB und Provision</h2>
+        <p>Wesentliche Änderungen werden mit Vorlauffrist von <strong>15 Tagen</strong> angekündigt (P2B Art. 3 Abs. 2). Bei nachteiligen Änderungen Sonderkündigungsrecht.</p>
+        <h2>§ 12 Datenschutz</h2>
+        <p>Soweit der Dienstleister durch das interne Messaging Daten von Kunden eigenständig weiterverarbeitet, ist er hierfür eigenständig Verantwortlicher.</p>
+        <h2>§ 13 Streitbeilegung und Mediation (P2B Art. 12)</h2>
+        <p>Mediatoren: (i) Centre for Effective Dispute Resolution (CEDR), London; (ii) IHK Köln-Bonn — Mediationsstelle. Kosten der Mediation werden grundsätzlich geteilt.</p>
+        <h2>§ 14 Anwendbares Recht und Gerichtsstand</h2>
+        <p>Deutsches Recht unter Ausschluss UN-Kaufrecht. Ausschließlicher Gerichtsstand: Bonn. Erfüllungsort: Königswinter.</p>
+        <h2>§ 15 Schlussbestimmungen</h2>
+        <p>Schriftform/Textform. Salvatorische Klausel.</p>
+      </div>
+    </section>
+
+    <!-- Marktplatz- und Vermittlungsbedingungen -->
+    <section id="page-marktplatz" class="page">
+      <div class="container legal-page">
+        <h1>Marktplatz- und Vermittlungsbedingungen</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Rechtstexte sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p>Diese Bedingungen konkretisieren das Vermittlermodell der Plattform und ergänzen die <a href="#" onclick="navigateTo('agb');return false;">AGB B2C</a>, <a href="#" onclick="navigateTo('agb-b2b');return false;">B2B</a> und <a href="#" onclick="navigateTo('agb-dienstleister');return false;">Dienstleister-AGB</a>.</p>
+        <h2>1. Plattform-, Kunden- und Dienstleisterverhältnis</h2>
+        <p>Die Plattform ist ausschließlich Vermittler im Sinne der §§ 652 ff. BGB analog. Der Vertrag über die Eventleistung wird ausschließlich zwischen Kunde und Dienstleister abgeschlossen. Die Plattform ist nicht Erfüllungsgehilfe und nicht Vertreter (§§ 164 ff. BGB).</p>
+        <h2>2. Zustandekommen des Eventvertrages</h2>
+        <p>Verbindliches Angebot des Dienstleisters → Annahme durch den Kunden („Buchung verbindlich annehmen") → Auslösung der Stripe-Zahlung → mit erfolgreicher Zahlungsbestätigung ist der Eventvertrag verbindlich abgeschlossen. Beide Parteien erhalten Buchungsbestätigung mit Buchungsnummer, Daten der Gegenseite, Leistungsbeschreibung und Stripe-Transaktions-ID.</p>
+        <h2>3. Inhalt der Vermittlungsleistung</h2>
+        <ul><li>Bereitstellung Plattformfunktionen (Profile, Suche, Messaging, Angebots-/Annahmeworkflow, Bewertungssystem).</li><li>Technische Vermittlung der Zahlung über Stripe Connect Express.</li><li>Bereitstellung von DSA- und P2B-Beschwerde- und Notice-Mechaniken.</li></ul>
+        <h2>4. Was die Plattform nicht leistet</h2>
+        <ul><li>Keine Erbringung der Eventleistung.</li><li>Keine Garantie für Buchungsabschluss, Erfolg, Auslastung, Mängelfreiheit.</li><li>Keine Bonitätsprüfung.</li><li>Keine Gewährleistungs- oder Mängelhaftung für die Eventleistung.</li></ul>
+        <h2>5. Verantwortlichkeiten und Reklamationen</h2>
+        <p>Reklamationen, Mängelrügen, Stornierungen und Refund-Anfragen sind unmittelbar zwischen Kunde und Dienstleister zu klären. Die Plattform stellt technische Hilfsmittel bereit, übernimmt aber keine Schiedsfunktion.</p>
+        <h2>6. Plattformumgehung</h2>
+        <p>Untersagt für gewerbliche Dienstleister 12 Monate ab erstmaligem Kontakt. Privaten Endkunden wird die Umgehung lediglich abgemahnt; eine Vertragsstrafe gegenüber Verbrauchern wird nicht vereinbart.</p>
+        <h2>7. Drittansprüche</h2>
+        <p>Diese Bedingungen stellen keinen Vertrag zugunsten Dritter dar.</p>
+        <h2>8. Internationale Sachverhalte</h2>
+        <p>Bei grenzüberschreitenden Buchungen gilt deutsches Recht für das Plattformverhältnis. Steuerliche Folgen klärt der jeweilige Vertragspartner.</p>
+        <h2>9. Anwendbares Recht und Gerichtsstand</h2>
+        <p>Deutsches Recht; Gerichtsstand Bonn (B2B); zwingende Verbrauchergerichtsstände bleiben unberührt.</p>
+      </div>
+    </section>
+
+    <!-- Cookie-Richtlinie -->
+    <section id="page-cookies" class="page">
+      <div class="container legal-page">
+        <h1>Cookie-Richtlinie</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Wir verwenden ausschließlich technisch notwendige Cookies gemäß § 25 Abs. 2 Nr. 2 TDDDG. Diese Richtlinie wird mit Eintragung der UG im Handelsregister verbindlich.</p>
+        <p>Information nach § 25 TDDDG sowie Art. 13 DSGVO über eingesetzte Cookies und vergleichbare Technologien (localStorage, sessionStorage, IndexedDB, Web-Beacons).</p>
+        <h2>1. Eingesetzte Cookies und Technologien</h2>
+        <table class="legal-table">
+          <thead><tr><th>Name / Zweck</th><th>Kategorie</th><th>Speicherdauer</th><th>Anbieter</th></tr></thead>
+          <tbody>
+            <tr><td>PHPSESSID — Session-Cookie für Login</td><td>Technisch erforderlich</td><td>Sitzung</td><td>Eventbörse UG</td></tr>
+            <tr><td>wp-* — WordPress-Funktion (Login, CSRF-Schutz)</td><td>Technisch erforderlich</td><td>Sitzung / 30 Tage</td><td>Eventbörse UG</td></tr>
+            <tr><td>eb_cookie_consent — Speicherung Banner-Auswahl</td><td>Technisch erforderlich</td><td>12 Monate</td><td>Eventbörse UG</td></tr>
+            <tr><td>XSRF-Token — Schutz vor CSRF</td><td>Technisch erforderlich</td><td>Sitzung</td><td>Eventbörse UG</td></tr>
+            <tr><td>Stripe-Cookies (m, stripemid) — Betrugsabwehr</td><td>Technisch erforderlich (Zahlung)</td><td>Bis zu 12 Monate</td><td>Stripe Payments Europe Ltd.</td></tr>
+          </tbody>
+        </table>
+        <h2>2. Rechtsgrundlage</h2>
+        <p>Diese Cookies sind technisch erforderlich, um die angefragten Plattformfunktionen bereitzustellen (Login, Buchung, Bezahlung, Schutz vor Missbrauch). Wir setzen sie gemäß § 25 Abs. 2 Nr. 2 TDDDG ohne Einwilligung. Soweit eine Verarbeitung personenbezogener Daten verbunden ist: Art. 6 Abs. 1 lit. b oder f DSGVO.</p>
+        <h2>3. Marketing- und Analyse-Cookies</h2>
+        <p>Wir setzen aktuell <strong>keine</strong> Marketing-, Analyse- oder Tracking-Cookies ein. Sollten wir solche Dienste künftig aktivieren, holen wir vorab Ihre ausdrückliche Einwilligung gemäß § 25 Abs. 1 TDDDG i.V.m. Art. 6 Abs. 1 lit. a DSGVO über einen Consent-Banner ein.</p>
+        <h2>4. Verwaltung Ihrer Browser-Einstellungen</h2>
+        <p>Sie können Cookies in den Einstellungen Ihres Browsers jederzeit verwalten oder löschen. Die vollständige Deaktivierung kann dazu führen, dass Plattformfunktionen eingeschränkt nutzbar sind (insbesondere Login und Buchung).</p>
+        <p>Sie können <a href="#" onclick="event.preventDefault(); localStorage.removeItem('eb_cookie_consent'); if(typeof initCookieConsent==='function')initCookieConsent();">Ihre Cookie-Einstellungen jederzeit erneut aufrufen</a>.</p>
+      </div>
+    </section>
+
+    <!-- Widerrufsbelehrung -->
+    <section id="page-widerruf" class="page">
+      <div class="container legal-page">
+        <h1>Widerrufsbelehrung und Muster-Widerrufsformular</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Belehrung ist als Versionsentwurf 1.0 veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <h2>1. Hinweis zur Vermittlungsleistung</h2>
+        <p>Die Vermittlungsleistung der Plattform gegenüber Privatkunden ist <strong>unentgeltlich</strong>. Es entsteht kein Verbrauchervertrag mit Entgelt; ein gesondertes Widerrufsrecht für die Vermittlung gegenüber dem Kunden besteht daher nicht.</p>
+        <p>Verträge über die Eventleistung kommen direkt zwischen Kunde und Dienstleister zustande. Bei termingebundenen Veranstaltungsleistungen entfällt das Widerrufsrecht des Verbrauchers gegenüber dem Dienstleister gemäß § 312g Abs. 2 Nr. 9 BGB. Hierauf wird vor jeder Buchung gesondert hingewiesen.</p>
+        <h2>2. Widerrufsbelehrung — Plattformleistung (z.&nbsp;B. Premium-Listing)</h2>
+        <p>Sie haben das Recht, binnen <strong>vierzehn Tagen</strong> ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsabschlusses.</p>
+        <p>Um Ihr Widerrufsrecht auszuüben, müssen Sie uns:</p>
+        <p><strong>Eventbörse UG (haftungsbeschränkt) i.&nbsp;G., Nonnenberger Str. 95a, 53639 Königswinter, E-Mail: widerruf@eventbörse.de</strong></p>
+        <p>mittels einer eindeutigen Erklärung (z.&nbsp;B. ein mit der Post versandter Brief oder eine E-Mail) über Ihren Entschluss, diesen Vertrag zu widerrufen, informieren. Sie können dafür das untenstehende Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist. Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absenden.</p>
+        <h3>Folgen des Widerrufs</h3>
+        <p>Wenn Sie diesen Vertrag widerrufen, haben wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über Ihren Widerruf bei uns eingegangen ist. Für diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das Sie bei der ursprünglichen Transaktion eingesetzt haben.</p>
+        <h3>Vorzeitiges Erlöschen des Widerrufsrechts bei Dienstleistungen</h3>
+        <p>Haben Sie verlangt, dass die Dienstleistung während der Widerrufsfrist beginnen soll, so haben Sie uns einen angemessenen Betrag zu zahlen, der dem Anteil der bis zum Widerruf erbrachten Dienstleistungen entspricht. Das Widerrufsrecht erlischt vorzeitig, wenn der Vertrag vollständig erfüllt wurde, nachdem Sie ausdrücklich zugestimmt haben, dass mit der Ausführung vor Ablauf der Widerrufsfrist begonnen wird, und Sie Ihre Kenntnis vom Erlöschen des Widerrufsrechts bestätigt haben (§ 356 Abs. 4 BGB).</p>
+        <h2>3. Muster-Widerrufsformular</h2>
+        <p><em>Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular aus und senden Sie es zurück.</em></p>
+        <pre class="legal-pre">An: Eventbörse UG (haftungsbeschränkt) i. G.
+Nonnenberger Str. 95a
+53639 Königswinter
+E-Mail: widerruf@eventbörse.de
+
+Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*)
+abgeschlossenen Vertrag über die Erbringung der folgenden
+Dienstleistung (*):
+
+___________________________________________________________
+
+Bestellt am (*) / erhalten am (*): ________________________
+Name des/der Verbraucher(s): _____________________________
+Anschrift des/der Verbraucher(s): ________________________
+Unterschrift (nur bei Mitteilung auf Papier): ____________
+Datum: ___________________________________________________
+(*) Unzutreffendes streichen.</pre>
+        <h2>4. Hinweis auf nicht bestehendes Widerrufsrecht</h2>
+        <p>Bei termingebundenen Veranstaltungsleistungen besteht kein Widerrufsrecht des Verbrauchers gegenüber dem Dienstleister gemäß § 312g Abs. 2 Nr. 9 BGB.</p>
+      </div>
+    </section>
+
+    <!-- Community-Richtlinien -->
+    <section id="page-community" class="page">
+      <div class="container legal-page">
+        <h1>Nutzungs- und Community-Richtlinien</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Richtlinien sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p>Diese Richtlinien gelten verbindlich für alle Nutzer und erfüllen die AGB-Pflichtinhalte gemäß <strong>Art. 14 DSA</strong> (VO (EU) 2022/2065).</p>
+        <h2>1. Grundsätze</h2>
+        <ul><li>Respektvoller, sachlicher und professioneller Umgang.</li><li>Wahrhaftige Profil- und Leistungsangaben.</li><li>Keine Diskriminierung.</li><li>Beachtung des deutschen und europäischen Rechts.</li></ul>
+        <h2>2. Verbotene Inhalte und Verhaltensweisen</h2>
+        <ul><li>Beleidigung, Verleumdung, Hassrede, Volksverhetzung.</li><li>Sexuell explizite oder pornografische Inhalte; Inhalte zum Nachteil Minderjähriger.</li><li>Verstoß gegen Urheber-, Marken-, Persönlichkeits- oder Datenschutzrechte.</li><li>Manipulation des Bewertungs- oder Rankingsystems (Fake-Bewertungen, Sockenpuppen).</li><li>Spam, Phishing, Malware, Identitätsdiebstahl.</li><li>Umgehung der Plattformfunktionen.</li><li>Scraping/Bots ohne Erlaubnis.</li></ul>
+        <h2>3. Profil- und Account-Regeln</h2>
+        <p>Nur ein Account pro Person bzw. rechtlich eigenständigem Träger. Profilangaben müssen wahrhaftig, aktuell und vollständig sein. Demo-/Test-Profile (Beta-Betrieb) sind als solche zu kennzeichnen.</p>
+        <h2>4. Kommunikationsregeln</h2>
+        <p>Kein wiederholtes Anschreiben nach Ablehnung. Keine Aufforderung zur Plattformumgehung; keine Direkt-Kontaktdaten zur Bezahlung außerhalb der Plattform vor Buchungsabschluss.</p>
+        <h2>5. Bewertungen</h2>
+        <p>Nur authentische Bewertungen nach tatsächlicher Buchung und Durchführung (Detail in der <a href="#" onclick="navigateTo('bewertungen');return false;">Bewertungsrichtlinie</a>). Verbot der Belohnung oder Erpressung von Bewertungen.</p>
+        <h2>6. Folgen von Verstößen</h2>
+        <ul><li>Verwarnung mit Hinweis auf konkretes Fehlverhalten.</li><li>Vorübergehende Sperre einzelner Funktionen für 7–30 Tage.</li><li>Vorübergehende oder dauerhafte Account-Sperre.</li><li>Entfernung einzelner Inhalte.</li><li>In schwerwiegenden Fällen: Strafanzeige, zivilrechtliche Schritte.</li></ul>
+        <p>Jede Maßnahme wird mit einem <strong>Statement of Reasons</strong> gemäß DSA Art. 17 begründet.</p>
+        <h2>7. Beschwerderecht</h2>
+        <p>Gegen jede Moderationsmaßnahme steht ein Beschwerderecht nach DSA Art. 20 offen.</p>
+        <h2>8. Meldung rechtswidriger Inhalte</h2>
+        <p>Jeder Nutzer und jede dritte Person kann rechtswidrige Inhalte über das <a href="#" onclick="navigateTo('dsa');return false;">Notice-and-Action-Verfahren</a> melden.</p>
+        <h2>9. Trusted Flagger</h2>
+        <p>Hinweise von nach Art. 22 DSA anerkannten vertrauenswürdigen Hinweisgebern werden bevorzugt behandelt.</p>
+        <h2>10. Inkrafttreten und Änderungen</h2>
+        <p>Änderungen werden mit Vorlauffrist von 15 Tagen angekündigt.</p>
+      </div>
+    </section>
+
+    <!-- Bewertungsrichtlinie -->
+    <section id="page-bewertungen" class="page">
+      <div class="container legal-page">
+        <h1>Bewertungsrichtlinie</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Richtlinie ist als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p>Diese Richtlinie erfüllt § 5b UWG (Authentizität von Verbraucherbewertungen) sowie die einschlägige BGH-Rechtsprechung.</p>
+        <h2>1. Wer darf bewerten?</h2>
+        <p>Nur Privatkunden und gewerbliche Eventplaner, die über die Plattform eine Buchung vorgenommen, bezahlt und erlebt haben. Pro Buchung eine Bewertung.</p>
+        <h2>2. Wann ist eine Bewertung möglich?</h2>
+        <p>Frühestens 24 Stunden nach dem Eventtermin. Spätestens 12 Wochen nach dem Eventtermin.</p>
+        <h2>3. Authentizität (§ 5b UWG)</h2>
+        <p>Veröffentlichte Bewertungen werden mit „Verifizierte Buchung" gekennzeichnet. Keine Bewertungen ohne verifizierte Buchung. Keine Bezahlung oder Belohnung positiver Bewertungen. Negative Bewertungen werden nicht zurückgehalten.</p>
+        <h2>4. Inhalt einer Bewertung</h2>
+        <p>Sterne 1–5 für Pünktlichkeit, Qualität, Kommunikation, Preis-Leistungs-Verhältnis. Optionaler Freitext (max. 2.000 Zeichen). Optional bis zu 3 Bilder mit Eigentumsrechten.</p>
+        <h2>5. Verbotene Inhalte</h2>
+        <ul><li>Beleidigungen, Hassrede, Diskriminierung, persönliche Angriffe.</li><li>Falsche Tatsachenbehauptungen.</li><li>Verletzung von Persönlichkeitsrechten Dritter.</li><li>Werbung für Dritte oder Konkurrenzangebote.</li><li>Aufdeckung personenbezogener Daten Dritter.</li></ul>
+        <h2>6. Stellungnahme des Dienstleisters</h2>
+        <p>Max. 2.000 Zeichen je Bewertung; gleiche Regeln wie unter 5.</p>
+        <h2>7. Beanstandungs- und Löschverfahren</h2>
+        <p>„Inhalt melden"-Link nach DSA Art. 16; Prüfung binnen 7 Tagen; Statement of Reasons nach DSA Art. 17. Beschwerde nach DSA Art. 20 möglich.</p>
+        <h2>8. Bewertungs-Dauer und -Archiv</h2>
+        <p>Bewertungen bleiben dauerhaft sichtbar, solange das Profil besteht. Bei Löschung des bewertenden Accounts werden Bewertungen pseudonymisiert („Verifizierter Kunde").</p>
+        <h2>9. Aggregation und Anzeige</h2>
+        <p>Sterne-Übersicht ab mind. 3 Bewertungen. Verteilung (5★…1★) und Anzahl werden offen ausgewiesen.</p>
+        <h2>10. Rechtsgrundlage und Verantwortlichkeit</h2>
+        <p>Art. 6 Abs. 1 lit. b und f DSGVO. Bei rechtswidrigen Bewertungen unverzügliche Entfernung nach Notice gemäß BGH-Rechtsprechung (insb. VI ZR 34/15).</p>
+      </div>
+    </section>
+
+    <!-- Upload-/UGC-Richtlinie -->
+    <section id="page-upload" class="page">
+      <div class="container legal-page">
+        <h1>Upload- und Inhaltsrichtlinie / UGC-Lizenz</h1>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Richtlinie ist als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <h2>1. Was sind Inhalte?</h2>
+        <p>Profilbilder, Profilbeschreibungen, Logos, Texte, Bilder, Videos (z.&nbsp;B. Portfolio-Fotos, Eventfotos in Bewertungen), Audio (z.&nbsp;B. DJ-Mixe), sonstige hochgeladene Dateien.</p>
+        <h2>2. Pflichten des Hochladenden</h2>
+        <ul><li>Du verfügst über alle erforderlichen Rechte (Urheberrechte, Nutzungsrechte, Persönlichkeitsrechte, Markenrechte).</li><li>Einwilligung aller abgebildeten Personen (Art. 6, 9 DSGVO; KUG).</li><li>Bei Minderjährigen Einwilligung der Erziehungsberechtigten; im Zweifel keine Veröffentlichung.</li><li>Beachtung der Community-Richtlinien.</li></ul>
+        <h2>3. Lizenzeinräumung an die Plattform</h2>
+        <p>Mit dem Upload räumst du der Eventbörse UG (haftungsbeschränkt) ein einfaches, weltweites, zeitlich auf die Dauer der Profil-/Inhaltsverfügbarkeit auf der Plattform begrenztes, unentgeltliches und übertragbares Nutzungsrecht ein, deine Inhalte auf der Plattform öffentlich zugänglich zu machen, zu speichern, zu skalieren, zu transcodieren, in Vorschauen darzustellen und in Profilen, Suchergebnissen, Kommunikation und Bewertungen anzuzeigen. Eine Übertragung von Urheberrechten findet nicht statt; alle Rechte verbleiben beim Hochladenden.</p>
+        <h2>4. Recht zur Entfernung und Sperrung</h2>
+        <p>Inhalte können bei begründetem Verdacht eines Rechtsverstoßes oder Eingang einer Beschwerde nach DSA Art. 16 entfernt oder gesperrt werden; jeweils mit Statement of Reasons. Beschwerde nach DSA Art. 20 möglich.</p>
+        <h2>5. Verantwortung für Inhalte</h2>
+        <p>Die Plattform haftet als Diensteanbieter für fremde Inhalte erst ab Kenntnis (§§ 7–10 DDG). Der Hochladende stellt die Plattform von Ansprüchen Dritter frei, soweit er die Rechtsverletzung zu vertreten hat.</p>
+        <h2>6. Datenformate und Größenlimits</h2>
+        <ul><li>Bilder: JPG, PNG, WEBP — max. 10 MB pro Datei.</li><li>Videos: MP4, WEBM — max. 50 MB pro Datei.</li><li>Audio: MP3, OGG — max. 25 MB pro Datei.</li><li>Dokumente: PDF — max. 5 MB pro Datei.</li></ul>
+        <h2>7. Speicherort und Datenschutz</h2>
+        <p>Speicherung auf den IONOS-Servern in Deutschland. Verarbeitung gemäß Datenschutzerklärung. Bei Löschung des Accounts werden Inhalte gemäß Löschkonzept entfernt.</p>
+      </div>
+    </section>
+
+    <!-- DSA Notice-and-Action -->
+    <section id="page-dsa" class="page">
+      <div class="container legal-page">
+        <h1>DSA — Notice-and-Action-Verfahren</h1>
+        <p class="legal-date">Art. 16, 17, 22 VO (EU) 2022/2065 · Stand: 04. Mai 2026</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Dieses Verfahren ist als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <h2>1. Wer kann melden?</h2>
+        <p>Jede natürliche oder juristische Person; Trusted Flagger (Art. 22 DSA); Behörden im Rahmen ihrer Zuständigkeit.</p>
+        <h2>2. Was kann gemeldet werden?</h2>
+        <p>Profile, Inhalte, Bewertungen, Nachrichten, Bilder, Videos. Mutmaßlich rechtswidrige Inhalte: Beleidigung, Verleumdung, Hassrede, Volksverhetzung, Urheber-/Marken-/Persönlichkeitsrechtsverletzung, Betrug, Phishing, Malware, jugendgefährdende Inhalte, Verstoß gegen JuSchG/JMStV, Schwarzarbeit, unzulässige Werbung.</p>
+        <h2>3. Wie melden?</h2>
+        <ul><li>In-Product-Meldebutton „Inhalt melden" auf jedem Profil/Bewertung/Nachricht.</li><li>E-Mail an <strong>dsa-meldung@eventbörse.de</strong>.</li><li>Postalisch: Eventbörse UG (haftungsbeschränkt) i.&nbsp;G., Nonnenberger Str. 95a, 53639 Königswinter.</li></ul>
+        <h2>4. Pflichtangaben (Art. 16 Abs. 2 DSA)</h2>
+        <ul><li>Begründung der Rechtswidrigkeit (Norm).</li><li>Eindeutige URL/Bezeichnung des Inhalts (Profil-, Bewertungs-, Nachrichten-ID).</li><li>Name und E-Mail des Meldenden (außer bei sexueller Ausbeutung Minderjähriger).</li><li>Erklärung in gutem Glauben.</li></ul>
+        <h2>5. Bestätigung</h2>
+        <p>Eingangsbestätigung binnen 24 Stunden mit Vorgangsnummer.</p>
+        <h2>6. Bearbeitung</h2>
+        <p>Sachliche Prüfung; Entscheidung in der Regel binnen 7 Tagen. Bei klaren Rechtsverstößen sofortige Entfernung. Trusted Flagger werden beschleunigt bearbeitet (Art. 22 Abs. 1 DSA).</p>
+        <h2>7. Mögliche Maßnahmen</h2>
+        <ul><li>Inhaltsentfernung / Sperrung.</li><li>Verwarnung des Verantwortlichen.</li><li>Befristete Funktionssperre.</li><li>Account-Sperrung.</li><li>Strafanzeige bei strafrechtlich relevanten Inhalten.</li></ul>
+        <h2>8. Statement of Reasons (Art. 17 DSA)</h2>
+        <p>Bei jeder Maßnahme erhalten Meldender und Inhaltsersteller eine Begründung mit Maßnahme, geographischem Anwendungsbereich, zugrundeliegenden Tatsachen, Hinweis auf automatisierte Mittel (derzeit: nein), Verweis auf verletzte AGB-Klausel oder Rechtsnorm und Hinweis auf das Beschwerderecht nach Art. 20 DSA und die außergerichtliche Streitbeilegung nach Art. 21 DSA.</p>
+        <h2>9. Trusted Flagger (Art. 22 DSA)</h2>
+        <p>Anerkannte Trusted Flagger werden bevorzugt; Missbrauch führt zur Aussetzung der Bevorzugung mit Möglichkeit zur Stellungnahme (Art. 22 Abs. 6 DSA).</p>
+        <h2>10. Maßnahmen gegen Missbrauch (Art. 23 DSA)</h2>
+        <p>Wer wiederholt offensichtlich unbegründete Meldungen abgibt, wird verwarnt; bei fortgesetztem Missbrauch erfolgt eine Sperre der Meldefunktion.</p>
+        <h2>11. Statistik und Transparenz</h2>
+        <p>Aggregierte Daten fließen in den jährlichen Transparenzbericht (Art. 15 / 24 DSA).</p>
+        <h2>12. DSA-Kontaktstelle (Art. 11/12 DSA)</h2>
+        <p>Zentrale Kontaktstelle für Behörden, Nutzer und Vertreter: kontakt@eventbörse.de · Sprachen: Deutsch, Englisch.</p>
+      </div>
+    </section>
+
+    <!-- P2B Pflichtinformationen -->
+    <section id="page-p2b" class="page">
+      <div class="container legal-page">
+        <h1>P2B-Pflichtinformationen</h1>
+        <p class="legal-date">VO (EU) 2019/1150 · Stand: 04. Mai 2026</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Pflichtinformationen sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p>Diese Pflichtinformationen richten sich an gewerbliche Nutzer der Plattform und ergänzen die <a href="#" onclick="navigateTo('agb-dienstleister');return false;">Dienstleister-AGB</a>.</p>
+        <h2>1. Hauptparameter des Rankings (Art. 5 P2B)</h2>
+        <p>Die Reihenfolge der Suchergebnisse und Empfehlungen wird durch eine Kombination der folgenden Hauptparameter bestimmt (Reihenfolge spiegelt grob die relative Gewichtung wider):</p>
+        <ol>
+          <li><strong>Suchanfrage-Match (Relevanz)</strong> — Übereinstimmung Kategorie/Freitext mit Profilangaben.</li>
+          <li><strong>Geographische Entfernung</strong> — Distanz zwischen Eventort und Sitz, ggf. Anfahrtsradius.</li>
+          <li><strong>Verfügbarkeit</strong> zum gewünschten Termin.</li>
+          <li><strong>Bewertungsdurchschnitt</strong> aus mind. 3 verifizierten Bewertungen.</li>
+          <li><strong>Antwortgeschwindigkeit</strong> (mediane Antwortzeit der letzten 90 Tage).</li>
+          <li><strong>Profilvollständigkeit</strong>.</li>
+          <li><strong>Buchungsabschlussquote</strong>.</li>
+          <li><strong>Aktualität</strong> (letzter Login, Aktualisierung Kalender/Profil).</li>
+          <li><strong>Premium-Status</strong> — aktive Premium-Listings führen zu hervorgehobener Position, deutlich gekennzeichnet als <em>„Bezahlte Platzierung"</em>.</li>
+        </ol>
+        <h2>2. Allgemeine Geschäftsbedingungen (Art. 3 P2B)</h2>
+        <p>Einschlägige AGB für Dienstleister sind jederzeit unter <a href="#" onclick="navigateTo('agb-dienstleister');return false;">/agb-dienstleister</a> abrufbar. Wesentliche Änderungen werden mindestens 15 Tage vor Inkrafttreten angekündigt.</p>
+        <h2>3. Differenzierte Behandlung (Art. 7 P2B)</h2>
+        <p>Die Plattform bietet keine eigenen Eventdienstleistungen an. Eine Bevorzugung eigener Anbieter findet nicht statt. Premium-Listings stellen die einzige Form differenzierter Behandlung dar; sie sind als „Bezahlte Platzierung" gekennzeichnet.</p>
+        <h2>4. Aussetzung, Beschränkung und Beendigung (Art. 4 P2B)</h2>
+        <p>Vorlauffrist von 30 Tagen; bei akuter Gefahr (Betrug, behördliche Anordnung, Phishing) sofortige Wirkung mit Nachreichung der Begründung.</p>
+        <h2>5. Datenzugang (Art. 9 P2B)</h2>
+        <p>Dienstleister haben über das Dashboard Zugriff auf eigene Daten und Statistiken zu Profil-Aufrufen, Anfragen, Buchungen.</p>
+        <h2>6. Beschränkungen für unterschiedliche Konditionen (Art. 8 P2B)</h2>
+        <p>Abweichende Konditionen (z.&nbsp;B. Branchenpartnerschaften, Beta-Programme) werden den Betroffenen begründet.</p>
+        <h2>7. Internes Beschwerdesystem (Art. 11 P2B)</h2>
+        <p>Bestätigung binnen 24 Stunden, Bearbeitung in der Regel binnen 14 Tagen. Keine ausschließlich automatisierten Entscheidungen. Aggregierte Statistiken im jährlichen Transparenzbericht.</p>
+        <h2>8. Mediation (Art. 12 P2B)</h2>
+        <p>Benannte Mediatoren:</p>
+        <ul><li>Centre for Effective Dispute Resolution (CEDR), 100 St Paul's Churchyard, London EC4M 8BU, UK.</li><li>IHK Köln-Bonn — Mediationsstelle, Unter Sachsenhausen 10–26, 50667 Köln.</li></ul>
+        <p>Beide Mediatoren bieten Verfahren in deutscher und englischer Sprache an. Die Plattform trägt einen angemessenen Anteil der Mediationskosten (Art. 12 Abs. 4 P2B).</p>
+        <h2>9. Sprache, Form und Zugänglichkeit</h2>
+        <p>Verfasst in deutscher Sprache; englische Übersetzung wird angeboten.</p>
+        <h2>10. Anwendbares Recht und Gerichtsstand</h2>
+        <p>Deutsches Recht. Gerichtsstand: Bonn.</p>
+      </div>
+    </section>
+
+    <!-- Barrierefreiheit BFSG -->
+    <section id="page-barrierefreiheit" class="page">
+      <div class="container legal-page">
+        <h1>Erklärung zur Barrierefreiheit</h1>
+        <p class="legal-date">§ 14 BFSG / BFSGV · Stand: 04. Mai 2026</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Erklärung wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister aktualisiert.</p>
+        <h2>1. Anwendungsbereich</h2>
+        <p>Die Eventbörse UG (haftungsbeschränkt) i.&nbsp;G. erbringt elektronische Geschäftsverkehrsdienste an Verbraucher i.S.d. § 1 Abs. 3 Nr. 5 BFSG. Eine Ausnahme nach § 3 Abs. 3 BFSG für Kleinstunternehmen (&lt; 10 Mitarbeiter, ≤ 2 Mio. EUR Jahresumsatz/Bilanzsumme) liegt zum Stichtag vor; die Erklärung wird gleichwohl freiwillig abgegeben.</p>
+        <h2>2. Stand der Konformität</h2>
+        <p>Teilkonformität mit EN 301 549 V3.2.1 (entspricht im Web überwiegend WCAG 2.1 Level AA).</p>
+        <h2>3. Bekannte Einschränkungen</h2>
+        <ul><li>Einzelne hochgeladene Bilder ohne Alternativtexte. Dienstleister werden zur Pflege aufgefordert.</li><li>Komplexe interaktive Komponenten (Karten, Datepicker) werden iterativ verbessert.</li><li>Audio/Video ohne Untertitel; Untertitelung in Roadmap.</li></ul>
+        <h2>4. Maßnahmen</h2>
+        <ul><li>Tastaturbedienbarkeit aller Hauptfunktionen (Login, Suche, Buchung, Messaging).</li><li>Kontrastreiches Standard-Theme; High-Contrast- und Dark-Mode geplant.</li><li>Skalierbarkeit der Schriftgröße bis 200&nbsp;% ohne Funktionsverlust.</li><li>Semantisches HTML; aria-Attribute für interaktive Elemente.</li><li>Lokal gehostete Web Fonts und Material Icons (kein US-Drittlandtransfer).</li></ul>
+        <h2>5. Erstellung</h2>
+        <p>Erstellt am 04.05.2026 auf Basis einer Selbstbewertung nach EN 301 549 / WCAG 2.1 AA.</p>
+        <h2>6. Feedback</h2>
+        <p>Hinweise an: <strong>barrierefreiheit@eventbörse.de</strong>.</p>
+        <h2>7. Durchsetzung</h2>
+        <p>Marktüberwachungsbehörde nach BFSG ist die zuständige Landesbehörde, in NRW die Bezirksregierung. Beschwerden über mangelnde Barrierefreiheit können dort eingereicht werden.</p>
+      </div>
+    </section>
+
+    <!-- VSBG -->
+    <section id="page-vsbg" class="page">
+      <div class="container legal-page">
+        <h1>Hinweise zur Verbraucherstreitbeilegung</h1>
+        <p class="legal-date">§ 36 VSBG · Stand: 04. Mai 2026</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Hinweise sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <h2>1. Teilnahme an Verbraucherstreitbeilegung</h2>
+        <p>Die Eventbörse UG (haftungsbeschränkt) i.&nbsp;G. ist <strong>weder verpflichtet noch bereit</strong>, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle gemäß § 36 Abs. 1 Nr. 1 VSBG teilzunehmen.</p>
+        <h2>2. EU-Online-Streitbeilegungsplattform (OS-Plattform)</h2>
+        <p>Die durch die Europäische Kommission betriebene OS-Plattform (Art. 14 Abs. 1 ODR-VO) wurde zum <strong>20. Juli 2025</strong> endgültig eingestellt. Die Verpflichtung zur Verlinkung ist mit der Einstellung entfallen.</p>
+        <h2>3. Zuständige Aufsichts- und Verbraucherschutzstellen</h2>
+        <ul><li>Bundesamt für Justiz als Aufsichtsbehörde nach VSBG: bundesamt.de.</li><li>Allgemeine Verbraucherschlichtungsstelle des Zentrums für Schlichtung e.V., Straßburger Str. 8, 77694 Kehl am Rhein, www.verbraucher-schlichter.de.</li></ul>
+        <h2>4. Datenschutzbeschwerden</h2>
+        <p>LDI NRW, Kavalleriestr. 2-4, 40213 Düsseldorf, www.ldi.nrw.de.</p>
+        <h2>5. Außergerichtliche Streitbeilegung nach DSA Art. 21</h2>
+        <p>Bei Streitigkeiten über Moderationsmaßnahmen kann zusätzlich zur internen Beschwerde eine außergerichtliche Streitbeilegung durch eine vom Digital Services Coordinator zertifizierte Streitbeilegungsstelle nach Art. 21 DSA in Anspruch genommen werden.</p>
+        <h2>6. P2B-Mediation</h2>
+        <p>Gewerbliche Dienstleister können Mediation gemäß Art. 12 P2B-VO in Anspruch nehmen — Details in den <a href="#" onclick="navigateTo('p2b');return false;">P2B-Pflichtinformationen</a>.</p>
+        <h2>7. Gerichtliche Geltendmachung</h2>
+        <p>Die Möglichkeit der gerichtlichen Geltendmachung von Ansprüchen bleibt unberührt.</p>
       </div>
     </section>
 
@@ -2146,95 +2601,130 @@
     <section id="page-datenschutz" class="page">
       <div class="container legal-page">
         <h1>Datenschutzerklärung</h1>
-        <p class="legal-date">Stand: 14. März 2026</p>
+        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Datenschutzerklärung ist als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich. In der Beta-Phase werden ausschließlich technisch notwendige Daten verarbeitet.</p>
+        <p>Information gemäß Art. 13, 14 DSGVO über Art, Umfang und Zweck der Verarbeitung personenbezogener Daten auf der Plattform <strong>eventbörse.de</strong>.</p>
 
-        <h2>1. Verantwortlicher</h2>
-        <p>Verantwortlich für die Datenverarbeitung auf dieser Plattform ist der Betreiber von Eventbörse (eventbörse.de). Kontakt über die auf der Plattform angegebenen Kontaktdaten.</p>
+        <h2>1. Verantwortlicher und Datenschutzkontakt</h2>
+        <p>Verantwortliche Stelle im Sinne der DSGVO:</p>
+        <p><strong>Eventbörse UG (haftungsbeschränkt) i.&nbsp;G.</strong><br>Nonnenberger Str. 95a, 53639 Königswinter<br>E-Mail: <strong>datenschutz@eventbörse.de</strong></p>
+        <p>Ein Datenschutzbeauftragter ist nach § 38 BDSG derzeit nicht erforderlich (keine ständige Beschäftigung von mindestens 20 Personen mit automatisierter Verarbeitung; keine Kerntätigkeit umfangreicher sensibler Verarbeitung).</p>
 
-        <h2>2. Erhebung und Verarbeitung personenbezogener Daten</h2>
-        <p>Wir erheben personenbezogene Daten nur, soweit dies für die Bereitstellung der Plattform und ihrer Funktionen erforderlich ist:</p>
-        <ul>
-          <li><strong>Registrierungsdaten:</strong> Vorname, Nachname, E-Mail-Adresse, Passwort (verschlüsselt), Rolle (Event-Planer/Dienstleister)</li>
-          <li><strong>Profildaten:</strong> Profilbild, Firmenname, Beschreibung, Standort (freiwillig)</li>
-          <li><strong>Nutzungsdaten:</strong> Inserate, Nachrichten, Bewertungen, Favoriten</li>
-          <li><strong>Technische Daten:</strong> IP-Adresse, Browser-Typ, Zugriffszeiten (Serverprotokolle)</li>
-        </ul>
+        <h2>2. Allgemeines zu Verarbeitungen, Empfängern und Speicherdauer</h2>
+        <p>Wir verarbeiten personenbezogene Daten ausschließlich auf einer der folgenden Rechtsgrundlagen: Einwilligung (Art. 6 Abs. 1 lit. a DSGVO), Vertragserfüllung oder vorvertragliche Maßnahmen (Art. 6 Abs. 1 lit. b DSGVO), rechtliche Verpflichtung (Art. 6 Abs. 1 lit. c DSGVO) oder berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO).</p>
 
-        <h2>3. Zweck der Datenverarbeitung</h2>
-        <p>Die Verarbeitung erfolgt zur Bereitstellung der Plattformfunktionen, zur Kommunikation zwischen Nutzern, zur Sicherstellung der Plattformsicherheit und zur Betrugsprävention. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) bzw. Art. 6 Abs. 1 lit. f DSGVO (berechtigte Interessen).</p>
+        <h2>3. Hosting</h2>
+        <p>Hosting bei <strong>IONOS SE</strong>, Elgendorfer Str. 57, 56410 Montabaur, Deutschland (IONOS WordPress Grow Hosting) auf Grundlage eines AVV nach Art. 28 DSGVO. Server in der EU. Verarbeitete Daten: Server-Logs (IP-Adresse, Datum/Uhrzeit, Browser, OS, Referrer-URL, abgerufene Datei). Zweck: Bereitstellung, Sicherheit, Fehleranalyse. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO. Speicherdauer: max. 14 Tage.</p>
 
-        <h2>4. Weitergabe an Dritte</h2>
-        <p>Personenbezogene Daten werden nicht an Dritte verkauft. Eine Weitergabe erfolgt nur, soweit dies zur Erbringung unserer Dienste erforderlich ist (z.&nbsp;B. Hosting-Provider) oder eine gesetzliche Verpflichtung besteht.</p>
+        <h2>4. Bereitstellung der Webseite und Logfiles</h2>
+        <p>Bei jedem Aufruf erfassen wir: IP-Adresse (anonymisiert nach 7 Tagen), Datum/Uhrzeit, Zeitzonendifferenz, Inhalt der Anforderung, HTTP-Statuscode, übertragene Datenmenge, Referrer-URL, Browser, OS, Sprache. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO.</p>
 
-        <h2>5. Cookies</h2>
-        <p>Die Plattform verwendet technisch notwendige Cookies für die Sitzungsverwaltung und Authentifizierung. Darüber hinausgehende Cookies werden nur mit Einwilligung des Nutzers gesetzt. Die Cookie-Einstellungen können jederzeit über den entsprechenden Link im Footer angepasst werden.</p>
+        <h2>5. Cookies und Endgeräte-Speicherung</h2>
+        <p>Wir setzen ausschließlich technisch notwendige Cookies ein (Session-Cookie nach Login, Cookie-Banner-Status). Rechtsgrundlage: § 25 Abs. 2 Nr. 2 TDDDG. Sonstige Cookies (Analyse, Marketing) werden derzeit nicht verwendet. Details: <a href="#" onclick="navigateTo('cookies');return false;">Cookie-Richtlinie</a>.</p>
 
-        <h2>6. Passkeys und WebAuthn</h2>
-        <p>Bei Nutzung der Passkey-Authentifizierung werden kryptografische Schlüssel auf dem Endgerät des Nutzers gespeichert. Auf dem Server werden nur öffentliche Schlüssel gespeichert, keine biometrischen Daten.</p>
+        <h2>6. Registrierung und Nutzerkonto</h2>
+        <p>Verarbeitete Daten: Name, E-Mail, Passwort (gespeichert als Hash), Geburtsdatum (Altersnachweis), Postleitzahl/Ort, optional Telefonnummer und Profilbild. Zweck: Vertragsanbahnung/-durchführung, Authentifizierung. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO. Speicherdauer: für die Dauer des Kontos; nach Löschung gemäß Löschkonzept (steuerrechtlich relevante Daten 6/10 Jahre).</p>
 
-        <h2>7. Datensicherheit</h2>
-        <p>Wir setzen technische und organisatorische Maßnahmen ein, um Ihre Daten vor Verlust, Missbrauch und unberechtigtem Zugriff zu schützen (SSL-Verschlüsselung, Passwort-Hashing, Zugriffskontrollen).</p>
+        <h2>7. Authentifizierung mit WebAuthn / FIDO2</h2>
+        <p>Optional: Passkey nach WebAuthn/FIDO2. Auf Ihrem Endgerät wird ein Schlüsselpaar erzeugt; der private Schlüssel verlässt Ihr Gerät nicht. Wir speichern lediglich den öffentlichen Schlüssel und eine Geräte-Kennung. Eine biometrische Verarbeitung findet ausschließlich lokal auf Ihrem Endgerät statt; an uns werden keine biometrischen Daten übermittelt.</p>
 
-        <h2>8. Speicherdauer</h2>
-        <p>Personenbezogene Daten werden nur so lange gespeichert, wie es zur Erfüllung des Verarbeitungszwecks erforderlich ist oder gesetzliche Aufbewahrungspflichten bestehen. Bei Löschung des Nutzerkontos werden die Daten unverzüglich gelöscht, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</p>
+        <h2>8. Buchungs- und Vermittlungsabwicklung</h2>
+        <p>Verarbeitet werden Inhalte Ihrer Anfragen, Angebote, Buchungsdaten (Datum, Ort, Leistungsbeschreibung, Preis) sowie Statusänderungen (Bestätigung, Stornierung, Refund-Status). Empfänger: jeweils kontaktierter Dienstleister. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO.</p>
 
-        <h2>9. Ihre Rechte</h2>
-        <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Zur Ausübung dieser Rechte wenden Sie sich bitte an uns über die auf der Plattform angegebenen Kontaktdaten.</p>
+        <h2>9. Zahlungsabwicklung über Stripe</h2>
+        <p>Zahlungen über <strong>Stripe Payments Europe Ltd.</strong>, 1 Grand Canal Street Lower, Dublin, Irland. Stripe ist eigenständig verantwortlich. Verarbeitet: Name, Anschrift, E-Mail, Zahlungsdaten, Betrag, Verwendungszweck, IP. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO. Drittlandtransfer: Stripe Inc. (USA) — abgesichert durch <strong>EU-US Data Privacy Framework</strong> + Standardvertragsklauseln. Wir selbst speichern nur Transaktions-Metadaten (Stripe-Charge-ID, Status, Zeitstempel), keine Zahlungsmittel-Daten. Datenschutzerklärung Stripe: <a href="https://stripe.com/de/privacy" target="_blank" rel="noopener noreferrer">stripe.com/de/privacy</a>.</p>
 
-        <h2>10. Haftungsausschluss für Drittinhalte</h2>
-        <p><strong>Eventbörse ist lediglich Vermittler und übernimmt keine Verantwortung für die von Nutzern eingestellten Daten und Inhalte.</strong> Jeder Nutzer ist für die Rechtmäßigkeit seiner eigenen Datenverarbeitung (z.&nbsp;B. bei Kontaktaufnahme mit anderen Nutzern) selbst verantwortlich.</p>
+        <h2>10. Messaging, Bewertungen und Profile</h2>
+        <p>Internes Messaging mit Dienstleistern; nach Buchung Bewertung möglich. Bewertungen werden öffentlich auf dem Profil des bewerteten Dienstleisters angezeigt; nur nach tatsächlich erfolgter und durchgeführter Buchung (Authentizität nach § 5b UWG). Inhalte des internen Messagings werden nicht öffentlich angezeigt.</p>
 
-        <h2>11. Änderungen</h2>
-        <p>Wir behalten uns vor, diese Datenschutzerklärung jederzeit anzupassen. Die aktuelle Version ist stets auf der Plattform einsehbar.</p>
+        <h2>11. Drittlandtransfer</h2>
+        <table class="legal-table">
+          <thead><tr><th>Dienst</th><th>Sitz</th><th>Absicherung</th></tr></thead>
+          <tbody>
+            <tr><td>Stripe Inc. (Sub-Processor)</td><td>USA</td><td>EU-US DPF + SCC</td></tr>
+            <tr><td>GitHub (Microsoft)</td><td>USA</td><td>EU-US DPF + SCC</td></tr>
+            <tr><td>DiceBear (Avatare)</td><td>EU oder Self-Hosted</td><td>Bevorzugt Self-Hosting/EU; kein US-Transfer</td></tr>
+            <tr><td>OpenStreetMap-Tileserver</td><td>EU</td><td>Kein US-Transfer</td></tr>
+            <tr><td>Material Icons / Web Fonts</td><td>lokal</td><td>Kein Drittlandtransfer</td></tr>
+          </tbody>
+        </table>
+
+        <h2>12. Empfänger und Auftragsverarbeiter</h2>
+        <ul><li>IONOS SE — Hosting (DE).</li><li>Stripe Payments Europe Ltd. — Zahlungsdienstleister.</li><li>GitHub Inc. — Source-Code-Verwaltung; keine personenbezogenen Endkundendaten in Repositories.</li></ul>
+
+        <h2>13. Speicher- und Löschfristen</h2>
+        <ul><li>Vertragsdaten: max. 6 Jahre (§ 257 HGB) bzw. 10 Jahre (§ 147 AO).</li><li>Bewertungen: dauerhaft, solange das bewertete Profil besteht.</li><li>Server-Logs: max. 14 Tage.</li><li>Beschwerde- und Moderations-Tickets: 3 Jahre.</li></ul>
+
+        <h2>14. Ihre Rechte als betroffene Person</h2>
+        <ul><li>Auskunft (Art. 15 DSGVO)</li><li>Berichtigung (Art. 16 DSGVO)</li><li>Löschung (Art. 17 DSGVO)</li><li>Einschränkung (Art. 18 DSGVO)</li><li>Datenübertragbarkeit (Art. 20 DSGVO)</li><li>Widerspruch (Art. 21 DSGVO)</li><li>Widerruf einer Einwilligung (Art. 7 Abs. 3 DSGVO)</li><li>Beschwerde bei einer Aufsichtsbehörde (Art. 77 DSGVO): <strong>LDI NRW</strong>, Kavalleriestr. 2-4, 40213 Düsseldorf.</li></ul>
+        <p>Anfragen an <strong>datenschutz@eventbörse.de</strong>.</p>
+
+        <h2>15. Bereitstellungspflicht</h2>
+        <p>Stammdaten zur Vertragserfüllung sind erforderlich; ohne diese keine Buchung. Andere Daten (Profilbild) sind freiwillig.</p>
+
+        <h2>16. Automatisierte Entscheidungsfindung und Profiling</h2>
+        <p>Unser Ranking-/Empfehlungssystem sortiert nach Relevanz, Bewertung, Premium-Status, Verfügbarkeit, Antwortgeschwindigkeit. Eine vollautomatisierte Entscheidung mit rechtlicher Wirkung im Sinne des Art. 22 DSGVO findet nicht statt; jede Sperrung oder Maßnahme mit erheblichen Folgen unterliegt menschlicher Überprüfung.</p>
+
+        <h2>17. Änderungen dieser Erklärung</h2>
+        <p>Aktualisierung bei wesentlichen Änderungen. Wesentliche Änderungen kündigen wir Nutzern per E-Mail oder beim nächsten Login an.</p>
       </div>
     </section>
 
     <!-- ============ PAGE: IMPRESSUM ============ -->
     <section id="page-impressum" class="page">
       <div class="container legal-page">
+        <p class="legal-beta-note"><strong>Vorgründungsphase:</strong> Bis zur Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister wird das Angebot von <strong>Sandro Salvaggio</strong> als verantwortlicher i.S.d. § 5 DDG für die Beta-Webseite betrieben. Mit Eintragung wechselt die Verantwortlichkeit auf die UG.</p>
         <h1>Impressum</h1>
+        <p class="legal-date">Angaben gemäß § 5 DDG (vormals TMG) und § 18 MStV · Stand: 04. Mai 2026</p>
 
-        <h2>Angaben gemäß § 5 TMG</h2>
+        <h2>Anbieter</h2>
         <p>
-          Eventbörse<br>
-          Musterstraße 1<br>
-          10115 Berlin<br>
+          <strong>Eventbörse UG (haftungsbeschränkt) i.&nbsp;G.</strong><br>
+          Nonnenberger Str. 95a<br>
+          53639 Königswinter<br>
           Deutschland
         </p>
 
-        <h2>Vertreten durch</h2>
-        <p>Geschäftsführer: [Name einfügen]</p>
-
         <h2>Kontakt</h2>
         <p>
-          Telefon: [Telefonnummer einfügen]<br>
-          E-Mail: <strong>eventbörse.de</strong>
+          Telefon: [TELEFON-GESCHÄFTLICH]<br>
+          E-Mail: <strong>kontakt@eventbörse.de</strong><br>
+          Internet: <a href="https://www.eventbörse.de">https://www.eventbörse.de</a>
         </p>
 
-        <h2>Umsatzsteuer-ID</h2>
-        <p>Umsatzsteuer-Identifikationsnummer gemäß § 27a Umsatzsteuergesetz: [USt-IdNr. einfügen]</p>
+        <h2>Vertretungsberechtigte Geschäftsführer</h2>
+        <p>Sandro Salvaggio<br>Julian Hammerath<br><em>Beide einzelvertretungsberechtigt.</em></p>
 
-        <h2>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
-        <p>
-          [Name einfügen]<br>
-          Musterstraße 1<br>
-          10115 Berlin
-        </p>
+        <h2>Registereintrag</h2>
+        <p>Eintragung im Handelsregister<br>Registergericht: Amtsgericht Bonn<br>Registernummer: HRB [HR-NUMMER] (in Eintragung)</p>
 
-        <h2>EU-Streitschlichtung</h2>
-        <p>Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer">https://ec.europa.eu/consumers/odr/</a>. Unsere E-Mail-Adresse finden Sie oben im Impressum.</p>
+        <h2>Umsatzsteuer-Identifikationsnummer</h2>
+        <p>USt-IdNr. gemäß § 27a UStG: [USt-IdNr.] (wird nach Eintragung beantragt)</p>
 
-        <h2>Verbraucherstreitbeilegung / Universalschlichtungsstelle</h2>
-        <p>Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.</p>
+        <h2>Wirtschafts-Identifikationsnummer</h2>
+        <p>W-IdNr. gemäß § 139c AO: [W-IdNr.] (wird vom Bundeszentralamt für Steuern vergeben)</p>
+
+        <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
+        <p>Sandro Salvaggio, Anschrift wie oben.</p>
+
+        <h2>Aufsichtsrechtlich relevante Hinweise</h2>
+        <p>Die Eventbörse UG (haftungsbeschränkt) erbringt <strong>keine</strong> erlaubnispflichtigen Tätigkeiten im Sinne des Zahlungsdiensteaufsichtsgesetzes (ZAG). Die Plattform vermittelt zwischen Kunden und Dienstleistern; Zahlungen werden über den lizenzierten Zahlungsdienstleister <strong>Stripe Payments Europe Ltd.</strong>, Irland, abgewickelt (Direct-Charges-Modell).</p>
+
+        <h2>EU-Streitbeilegung und Verbraucherstreitbeilegung</h2>
+        <p>Die durch die Europäische Kommission betriebene Online-Streitbeilegungsplattform (OS-Plattform) wurde zum <strong>20.07.2025</strong> endgültig eingestellt. Auf einen Link wird daher nicht mehr verwiesen.</p>
+        <p>Wir sind weder verpflichtet noch bereit, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle gemäß § 36 Abs. 1 Nr. 1 VSBG teilzunehmen. Weitere Hinweise: <a href="#" onclick="navigateTo('vsbg');return false;">Verbraucherstreitbeilegung</a>.</p>
+
+        <h2>DSA-Kontaktstelle (Art. 11/12 VO (EU) 2022/2065)</h2>
+        <p>Zentrale Kontaktstelle für Behörden, Nutzer und Vertreter: <strong>kontakt@eventbörse.de</strong> · Sprachen: Deutsch und Englisch. Meldungen rechtswidriger Inhalte: <a href="#" onclick="navigateTo('dsa');return false;">DSA Notice-and-Action</a>.</p>
 
         <h2>Haftung für Inhalte</h2>
-        <p>Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.</p>
+        <p>Als Diensteanbieter sind wir gemäß §§ 7–10 DDG für eigene Inhalte nach den allgemeinen Gesetzen verantwortlich. Für fremde Informationen (insbesondere von Dienstleistern, Eventplanern und Kunden eingestellte Inhalte) sind wir nicht verpflichtet, diese zu überwachen. Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt. Eine Haftung ist erst ab dem Zeitpunkt der Kenntnis einer konkreten Rechtsverletzung möglich.</p>
 
         <h2>Haftung für Links</h2>
-        <p>Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.</p>
+        <p>Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber verantwortlich.</p>
 
         <h2>Urheberrecht</h2>
-        <p>Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.</p>
+        <p>Die durch die Seitenbetreiber erstellten Inhalte und Werke unterliegen dem deutschen Urheberrecht. Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechts bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.</p>
       </div>
     </section>
 
@@ -2266,9 +2756,24 @@
           <h4>Rechtliches</h4>
           <a href="#" onclick="navigateTo('impressum')">Impressum</a>
           <a href="#" onclick="navigateTo('datenschutz')">Datenschutz</a>
-          <a href="#" onclick="navigateTo('agb')">AGB</a>
-          <a href="#" onclick="navigateTo('contact')">Kontakt</a>
+          <a href="#" onclick="navigateTo('cookies')">Cookie-Richtlinie</a>
+          <a href="#" onclick="navigateTo('agb')">AGB Privatkunden</a>
+          <a href="#" onclick="navigateTo('agb-b2b')">AGB Eventplaner (B2B)</a>
+          <a href="#" onclick="navigateTo('agb-dienstleister')">AGB Dienstleister</a>
+          <a href="#" onclick="navigateTo('marktplatz')">Marktplatzbedingungen</a>
+          <a href="#" onclick="navigateTo('widerruf')">Widerrufsbelehrung</a>
           <a href="#" onclick="event.preventDefault(); localStorage.removeItem('eb_cookie_consent'); initCookieConsent();">Cookie-Einstellungen</a>
+        </div>
+        <div class="footer-col">
+          <h4>Plattform &amp; Compliance</h4>
+          <a href="#" onclick="navigateTo('community')">Community-Richtlinien</a>
+          <a href="#" onclick="navigateTo('bewertungen')">Bewertungsrichtlinie</a>
+          <a href="#" onclick="navigateTo('upload')">Upload-Richtlinie</a>
+          <a href="#" onclick="navigateTo('dsa')">DSA Notice &amp; Action</a>
+          <a href="#" onclick="navigateTo('p2b')">P2B-Pflichtinformationen</a>
+          <a href="#" onclick="navigateTo('barrierefreiheit')">Barrierefreiheit</a>
+          <a href="#" onclick="navigateTo('vsbg')">Verbraucherstreitbeilegung</a>
+          <a href="#" onclick="navigateTo('contact')">Kontakt</a>
         </div>
         <div class="footer-col">
           <h4>Community</h4>
@@ -2802,56 +3307,39 @@
   </div>
 
   <!-- ============ COOKIE CONSENT BANNER ============ -->
-  <div class="cookie-banner" id="cookieBanner">
+  <!-- Nur technisch notwendige Cookies gemäß § 25 Abs. 2 Nr. 2 TDDDG — keine Einwilligung erforderlich -->
+  <div class="cookie-banner" id="cookieBanner" role="dialog" aria-label="Cookie-Hinweis" aria-modal="true">
     <div class="cookie-banner-inner">
       <div class="cookie-banner-text">
-        <span class="material-icons-round cookie-banner-icon">cookie</span>
+        <span class="material-icons-round cookie-banner-icon" aria-hidden="true">cookie</span>
         <div>
-          <h3>Wir verwenden Cookies</h3>
-          <p>Wir nutzen Cookies, um dir die bestmögliche Erfahrung auf Eventbörse zu bieten. Technisch notwendige Cookies sind für die Funktion der Seite erforderlich. Optionale Cookies helfen uns, die Seite zu verbessern.</p>
+          <h3>Hinweis zu Cookies</h3>
+          <p>Diese Plattform verwendet ausschließlich technisch notwendige Cookies (Session-Login, CSRF-Schutz, Zahlungsabwicklung via Stripe). Analyse- oder Marketing-Cookies werden derzeit <strong>nicht</strong> eingesetzt. Weitere Informationen: <a href="#" onclick="event.preventDefault(); navigateTo('cookies')">Cookie-Richtlinie</a>.</p>
         </div>
       </div>
       <div class="cookie-categories">
         <label class="cookie-category">
           <div class="cookie-cat-info">
             <strong>Technisch notwendig</strong>
-            <span>Login, Sicherheit, Grundfunktionen</span>
+            <span>Login, CSRF-Schutz, Zahlungsabwicklung — immer aktiv</span>
           </div>
           <div class="cookie-toggle cookie-toggle-required">
-            <input type="checkbox" checked disabled />
-            <span class="cookie-slider"></span>
-          </div>
-        </label>
-        <label class="cookie-category">
-          <div class="cookie-cat-info">
-            <strong>Statistik &amp; Analyse</strong>
-            <span>Anonyme Nutzungsdaten zur Verbesserung</span>
-          </div>
-          <div class="cookie-toggle">
-            <input type="checkbox" id="cookieAnalytics" />
-            <span class="cookie-slider"></span>
-          </div>
-        </label>
-        <label class="cookie-category">
-          <div class="cookie-cat-info">
-            <strong>Marketing</strong>
-            <span>Personalisierte Inhalte und Werbung</span>
-          </div>
-          <div class="cookie-toggle">
-            <input type="checkbox" id="cookieMarketing" />
+            <input type="checkbox" checked disabled aria-label="Technisch notwendige Cookies (immer aktiv)" />
             <span class="cookie-slider"></span>
           </div>
         </label>
       </div>
       <div class="cookie-actions">
-        <button class="btn-outline btn-sm" id="cookieRejectOptional">Nur notwendige</button>
-        <button class="btn-primary btn-sm" id="cookieAcceptAll">Alle akzeptieren</button>
-        <button class="btn-outline btn-sm" id="cookieSaveChoice">Auswahl speichern</button>
+        <button class="btn-primary btn-sm" id="cookieAcceptAll">Verstanden</button>
       </div>
     </div>
   </div>
 
-  <script src="https://js.stripe.com/v3/"></script>
-  <script src="app.js?v=130"></script>
+  <!-- Drittanbieter-Skripte deferred am Ende, um Render-Blocking zu vermeiden -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
+  <script src="https://js.stripe.com/v3/" defer></script>
+  <script src="app.js?v=132" defer></script>
 </body>
 </html>

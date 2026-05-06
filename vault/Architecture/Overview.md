@@ -19,7 +19,7 @@
                   │ /wp-json/eventboerse/v1/
                   ▼
 ┌─────────────────────────────────────────────────────┐
-│              IONOS HOSTING (WordPress)              │
+│        SHARED HOSTING (WordPress)                  │
 │  ┌─────────────────────────────────────────────┐   │
 │  │         functions.php (REST API)            │   │
 │  │  67 Endpoints via register_rest_route()    │   │
@@ -42,20 +42,20 @@
 | Flatpickr | Datepicker (DE-Lokalisierung) |
 | Stripe.js | Zahlungsformular |
 | Material Icons | Icon-Set |
-| DiceBear API | Dynamische Avatare |
+| self-hosted SVG | Dynamische Avatare (`ebAvatar()` / `eb_avatar_url()`) |
 
 ### Backend
 | Technologie | Zweck |
 |-------------|-------|
 | WordPress | CMS + Auth + DB |
 | PHP | REST API Endpoints |
-| SMTP (IONOS) | E-Mail Versand |
+| SMTP (Hosting-Provider) | E-Mail Versand |
 | WebAuthn/FIDO2 | Passkey-Authentifizierung |
 
 ### Infrastruktur
 | Technologie | Zweck |
 |-------------|-------|
-| IONOS WordPress Grow | Hosting |
+| Shared WordPress Hosting | Hosting |
 | GitHub Actions | CI/CD Pipeline |
 | SFTP/lftp | Deployment |
 | Let's Encrypt | SSL/TLS |

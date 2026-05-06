@@ -71,10 +71,10 @@
 |---------|-------|-----------------|
 | Stripe | Zahlungen | Stripe.js (Frontend) + Stripe PHP SDK (Backend) |
 | Leaflet.js | Karten | CDN, Tiles via OpenStreetMap |
-| DiceBear | Avatare | REST API Call |
+| Avatar-Generator | self-hosted | Inline SVG via `ebAvatar()` / `eb_avatar_url()` |
 | Google Fonts | Inter Font | CSS @import |
 | Material Icons | Icons | CSS @import |
-| IONOS SMTP | E-Mail | PHP mail() / WordPress wp_mail() |
+| SMTP (Hosting-Provider) | E-Mail | PHP mail() / WordPress wp_mail() |
 
 ## Datenfluss bei Buchung
 

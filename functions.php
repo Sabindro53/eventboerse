@@ -17,6 +17,139 @@ add_action('init', function() {
 require_once get_template_directory() . '/webauthn.php';
 
 /**
+ * Self-Hosted Avatar-Generator (Server-Seite).
+ *
+ * Erzeugt deterministisch eine SVG-Data-URI aus Seed/Name. Ersatz für
+ * DiceBear-API: kein Drittlandtransfer, kein Roundtrip, voll cachebar.
+ *
+ * @param string $seed Eindeutiger Seed (z. B. User-ID, Slug)
+ * @param string $name Anzeigename für Initialen; fällt auf Seed zurück
+ * @return string data:image/svg+xml;utf8,…
+ */
+function eb_avatar_url( $seed, $name = '' ) {
+    static $cache = array();
+    $key = $seed . '|' . $name;
+    if ( isset( $cache[ $key ] ) ) {
+        return $cache[ $key ];
+    }
+    $palette = array( '#FF385C', '#7C3AED', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6', '#EC4899', '#84CC16', '#F97316', '#3B82F6' );
+    $h = 0;
+    $s = (string) ( $seed ?: 'guest' );
+    for ( $i = 0, $len = strlen( $s ); $i < $len; $i++ ) {
+        $h = ( ( $h << 5 ) - $h ) + ord( $s[ $i ] );
+        $h &= 0xFFFFFFFF;
+    }
+    $h = abs( $h );
+    $bg  = $palette[ $h % count( $palette ) ];
+    $bg2 = $palette[ ( $h >> 4 ) % count( $palette ) ];
+    $display = $name !== '' ? $name : $seed;
+    $parts = preg_split( '/\s+/', trim( (string) $display ) );
+    if ( count( $parts ) === 1 ) {
+        $initials = mb_strtoupper( mb_substr( $parts[0], 0, 2 ) );
+    } else {
+        $initials = mb_strtoupper( mb_substr( $parts[0], 0, 1 ) . mb_substr( end( $parts ), 0, 1 ) );
+    }
+    $initials = htmlspecialchars( $initials, ENT_QUOTES | ENT_XML1, 'UTF-8' );
+    $svg  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">';
+    $svg .= '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">';
+    $svg .= '<stop offset="0%" stop-color="' . $bg . '"/>';
+    $svg .= '<stop offset="100%" stop-color="' . $bg2 . '"/>';
+    $svg .= '</linearGradient></defs>';
+    $svg .= '<rect width="100" height="100" rx="50" fill="url(#g)"/>';
+    $svg .= '<text x="50" y="58" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="40" font-weight="700" fill="#fff">' . $initials . '</text>';
+    $svg .= '</svg>';
+    $url = 'data:image/svg+xml;utf8,' . rawurlencode( $svg );
+    $cache[ $key ] = $url;
+    return $url;
+}
+
+/**
+ * Performance-Hardening: WordPress-Bloat entfernen, das das Theme nicht braucht.
+ * Spart pro Request: ~40 kB inline emoji-script, mehrere DNS-Lookups, jquery-migrate,
+ * unnötige <link>-Tags, oEmbed-Discovery, dashicons im Frontend.
+ */
+add_action( 'init', function() {
+    // Emoji-Bloat raus (spart wp-emoji-release.min.js + inline-Settings).
+    remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
+    remove_action( 'admin_print_scripts', 'print_emoji_detection_script' );
+    remove_action( 'wp_print_styles', 'print_emoji_styles' );
+    remove_action( 'admin_print_styles', 'print_emoji_styles' );
+    remove_filter( 'the_content_feed', 'wp_staticize_emoji' );
+    remove_filter( 'comment_text_rss', 'wp_staticize_emoji' );
+    remove_filter( 'wp_mail', 'wp_staticize_emoji_for_email' );
+    add_filter( 'tiny_mce_plugins', function( $p ) { return array_diff( (array) $p, array( 'wpemoji' ) ); } );
+    add_filter( 'emoji_svg_url', '__return_false' );
+
+    // Generator + Versions-Leak.
+    remove_action( 'wp_head', 'wp_generator' );
+    add_filter( 'the_generator', '__return_empty_string' );
+
+    // RSD, wlwmanifest, shortlink, REST-API-Link-Header (nicht benötigt).
+    remove_action( 'wp_head', 'rsd_link' );
+    remove_action( 'wp_head', 'wlwmanifest_link' );
+    remove_action( 'wp_head', 'wp_shortlink_wp_head' );
+    remove_action( 'template_redirect', 'wp_shortlink_header', 11 );
+    remove_action( 'wp_head', 'rest_output_link_wp_head' );
+    remove_action( 'wp_head', 'wp_oembed_add_discovery_links' );
+    remove_action( 'wp_head', 'wp_oembed_add_host_js' );
+    remove_action( 'wp_head', 'feed_links', 2 );
+    remove_action( 'wp_head', 'feed_links_extra', 3 );
+    remove_action( 'wp_head', 'adjacent_posts_rel_link_wp_head', 10 );
+
+    // Block-Editor-Frontend-CSS (wir nutzen den Editor nicht).
+    wp_dequeue_style( 'wp-block-library' );
+    wp_dequeue_style( 'wp-block-library-theme' );
+    wp_dequeue_style( 'wc-blocks-style' );
+    wp_dequeue_style( 'global-styles' );
+    wp_dequeue_style( 'classic-theme-styles' );
+}, 100 );
+
+// jQuery-Migrate raus (Legacy, nicht nötig).
+add_action( 'wp_default_scripts', function( $scripts ) {
+    if ( ! is_admin() && isset( $scripts->registered['jquery'] ) ) {
+        $deps = $scripts->registered['jquery']->deps;
+        $scripts->registered['jquery']->deps = array_diff( $deps, array( 'jquery-migrate' ) );
+    }
+} );
+
+// Heartbeat drosseln (Standard 15s → 60s; spart Admin-AJAX-Last).
+add_filter( 'heartbeat_settings', function( $s ) {
+    $s['interval'] = 60;
+    return $s;
+} );
+// Heartbeat im Frontend ganz aus.
+add_action( 'init', function() {
+    if ( ! is_admin() ) {
+        wp_deregister_script( 'heartbeat' );
+    }
+}, 1 );
+
+// XML-RPC-Endpoint deaktivieren (Sicherheit + Performance).
+add_filter( 'xmlrpc_enabled', '__return_false' );
+add_filter( 'wp_headers', function( $h ) { unset( $h['X-Pingback'] ); return $h; } );
+remove_action( 'wp_head', 'rest_output_link_header', 11 );
+
+// REST-API für Anonyme einschränken: nur eigene Routen erreichbar.
+add_filter( 'rest_authentication_errors', function( $result ) {
+    if ( ! empty( $result ) ) {
+        return $result;
+    }
+    if ( is_user_logged_in() ) {
+        return $result;
+    }
+    // Eigene Routen (eventboerse/v1/*) müssen öffentlich bleiben.
+    $route = isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? $GLOBALS['wp']->query_vars['rest_route'] : '';
+    if ( strpos( $route, '/eventboerse/v1' ) === 0 ) {
+        return $result;
+    }
+    // Login/Register-Endpoints (z. B. Application Passwords / Cookie-Auth) erlauben.
+    if ( in_array( $route, array( '/wp/v2', '/wp/v2/' ), true ) ) {
+        return new WP_Error( 'rest_not_logged_in', 'Authentication required.', array( 'status' => 401 ) );
+    }
+    return $result;
+} );
+
+/**
  * Styles und Scripts einbinden
  */
 function eventboerse_enqueue_assets() {
@@ -149,7 +282,10 @@ add_action( 'init', function() {
         'create-listing', 'edit-profile', 'settings', 'admin',
         'event-erstellen', 'service-erstellen', 'aktuelles',
         'explore', 'board', 'contact', 'impressum', 'datenschutz',
-        'agb', 'favorites',
+        'agb', 'agb-b2b', 'agb-dienstleister', 'marktplatz',
+        'cookies', 'widerruf', 'community', 'bewertungen', 'upload',
+        'dsa', 'p2b', 'barrierefreiheit', 'vsbg',
+        'favorites',
     );
     foreach ( $spa_pages as $slug ) {
         add_rewrite_rule( '^' . $slug . '/?$', 'index.php?eb_spa=1', 'top' );
@@ -178,13 +314,115 @@ add_action( 'after_switch_theme', function() {
     flush_rewrite_rules();
 } );
 
-/* Prevent Safari (and others) from caching page with stale auth state */
+/* Cache-Control: no-store nur für eingeloggte User. Anonyme Besucher dürfen
+ * das HTML zwischenspeichern (Performance!). REST/Admin/AJAX bleibt unberührt.
+ */
 add_action( 'send_headers', function() {
-    if ( ! is_admin() ) {
-        header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+    if ( is_admin() ) {
+        return;
+    }
+    // REST-API hat eigene Cache-Header (siehe weiter unten / .htaccess)
+    if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+        return;
+    }
+    if ( is_user_logged_in() ) {
+        header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0' );
         header( 'Pragma: no-cache' );
+    } else {
+        // Anonyme Besucher: kurzes Edge-Cache, längeres CDN-Cache möglich.
+        header( 'Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=60' );
     }
 } );
+
+/**
+ * Security-Headers (OWASP Secure Headers + DSGVO/DSA-Hardening).
+ *
+ * - HSTS: erzwingt HTTPS nach erstem Besuch (nur \u00fcber HTTPS gesetzt).
+ * - CSP: restriktive Content-Security-Policy mit Whitelist f\u00fcr genutzte CDNs/APIs.
+ *   (Hinweis: 'unsafe-inline' bleibt vorerst f\u00fcr WP-Inline-Scripts/Styles erforderlich;
+ *    Ziel ist sukzessive Migration auf Nonces.)
+ * - X-Frame-Options + frame-ancestors: Clickjacking-Schutz.
+ * - X-Content-Type-Options: kein MIME-Sniffing.
+ * - Referrer-Policy: strikt-bei-Drittanbieter, voll bei eigener Origin.
+ * - Permissions-Policy: deaktiviert Sensoren, Mikrofon, Kamera (nicht ben\u00f6tigt).
+ * - Cross-Origin-Opener-Policy / Resource-Policy: Spectre-/SCA-Hardening.
+ */
+add_action( 'send_headers', function() {
+    if ( is_admin() ) {
+        return;
+    }
+
+    $is_https = ( ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' )
+        || ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' );
+
+    if ( $is_https ) {
+        header( 'Strict-Transport-Security: max-age=63072000; includeSubDomains; preload' );
+    }
+
+    // CSP. WICHTIG: Bei \u00c4nderungen an externen Skripten/CDNs hier nachziehen.
+    $csp_directives = array(
+        "default-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        // Skripte: eigene + Stripe + Leaflet + Flatpickr (\u00dcbergangsweise inline erlaubt).
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
+        "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
+        // Styles: eigene + Google Fonts + Leaflet + Flatpickr.
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
+        "font-src 'self' https://fonts.gstatic.com data:",
+        // Bilder: eigene + IONOS-Uploads + OpenStreetMap-Tiles + Leaflet-Marker. Avatare sind Self-Hosted (data:).
+        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://images.pexels.com https://xn--eventbrse-57a.de https://eventbörse.de",
+        // XHR/Fetch: eigene REST + Stripe + Nominatim (Geocoding).
+        "connect-src 'self' https://api.stripe.com https://m.stripe.network https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
+        // Stripe-Frames (Checkout, 3DS).
+        "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
+        "manifest-src 'self'",
+        "worker-src 'self' blob:",
+        "media-src 'self' data: blob:",
+        "upgrade-insecure-requests",
+    );
+    header( 'Content-Security-Policy: ' . implode( '; ', $csp_directives ) );
+
+    header( 'X-Frame-Options: DENY' );
+    header( 'X-Content-Type-Options: nosniff' );
+    header( 'Referrer-Policy: strict-origin-when-cross-origin' );
+    header( 'X-Permitted-Cross-Domain-Policies: none' );
+    header( 'X-XSS-Protection: 0' ); // Modern Browser nutzen CSP; Legacy-Filter abschalten.
+    header( 'Cross-Origin-Opener-Policy: same-origin' );
+    header( 'Cross-Origin-Resource-Policy: same-site' );
+
+    // Permissions-Policy: keine Hardware-APIs ben\u00f6tigt.
+    header( 'Permissions-Policy: '
+        . 'accelerometer=(), ambient-light-sensor=(), autoplay=(self), '
+        . 'battery=(), camera=(), display-capture=(), document-domain=(), '
+        . 'encrypted-media=(), fullscreen=(self), gamepad=(), geolocation=(self), '
+        . 'gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), '
+        . 'midi=(), payment=(self "https://js.stripe.com" "https://hooks.stripe.com"), '
+        . 'picture-in-picture=(), publickey-credentials-get=(self), '
+        . 'screen-wake-lock=(), serial=(), usb=(), web-share=(self), xr-spatial-tracking=()'
+    );
+} );
+
+/**
+ * Session-Cookie-Hardening: HttpOnly, Secure, SameSite=Lax.
+ * Wirkt f\u00fcr PHPSESSID; WP-Cookies werden separat \u00fcber wp-config.php (FORCE_SSL_ADMIN, COOKIE_DOMAIN) gesch\u00e4rft.
+ */
+add_action( 'init', function() {
+    if ( PHP_SESSION_ACTIVE === session_status() ) {
+        return;
+    }
+    if ( headers_sent() ) {
+        return;
+    }
+    $is_https = ( ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' )
+        || ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' );
+    @ini_set( 'session.cookie_httponly', '1' );
+    @ini_set( 'session.cookie_secure',   $is_https ? '1' : '0' );
+    @ini_set( 'session.cookie_samesite', 'Lax' );
+    @ini_set( 'session.use_strict_mode', '1' );
+}, 1 );
 
 /* Favicon & OG-Meta-Tags */
 add_action( 'wp_head', function() {
@@ -1028,7 +1266,7 @@ function eventboerse_handle_profile_get() {
                 'rating' => (int) $r->rating,
                 'text'   => $r->body,
                 'name'   => $rname ?: $r->display_name,
-                'avatar' => $rphoto ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $rname ?: $r->display_name ) ),
+                'avatar' => $rphoto ?: eb_avatar_url( $rname ?: $r->display_name, $rname ?: $r->display_name ),
                 'date'   => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
             );
         }
@@ -2390,21 +2628,76 @@ function eb_handle_upload( WP_REST_Request $request ) {
     }
 
     $file = $files['file'];
-    $allowed = array( 'image/jpeg', 'image/png', 'image/webp', 'image/gif' );
-    if ( ! in_array( $file['type'], $allowed, true ) ) {
+
+    // 1) Upload-Fehler-Code prüfen.
+    if ( ! empty( $file['error'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Upload-Fehler. Bitte erneut versuchen.' ), 400 );
+    }
+
+    // 2) Größenlimit (5 MB) – früh prüfen, bevor wir Datei lesen.
+    if ( empty( $file['size'] ) || $file['size'] > 5 * 1024 * 1024 ) {
+        return new WP_REST_Response( array( 'message' => 'Datei zu groß. Max. 5MB.' ), 400 );
+    }
+
+    // 3) Tatsächlichen MIME-Type aus den Magic-Bytes der Datei lesen,
+    //    NICHT aus $file['type'] (Client-supplied, leicht zu fälschen).
+    if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Upload.' ), 400 );
+    }
+    $finfo = function_exists( 'finfo_open' ) ? finfo_open( FILEINFO_MIME_TYPE ) : false;
+    if ( $finfo ) {
+        $real_mime = finfo_file( $finfo, $file['tmp_name'] );
+        finfo_close( $finfo );
+    } else {
+        $real_mime = wp_check_filetype( $file['name'] )['type'] ?? '';
+    }
+    $allowed_mimes = array( 'image/jpeg', 'image/png', 'image/webp', 'image/gif' );
+    if ( ! in_array( $real_mime, $allowed_mimes, true ) ) {
         return new WP_REST_Response( array( 'message' => 'Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP, GIF.' ), 400 );
     }
-    if ( $file['size'] > 5 * 1024 * 1024 ) {
-        return new WP_REST_Response( array( 'message' => 'Datei zu groß. Max. 5MB.' ), 400 );
+
+    // 4) Doppel-Extensions (z. B. evil.php.jpg) und gefährliche Endungen blocken.
+    $name_lower = strtolower( $file['name'] );
+    $bad_patterns = array( '.php', '.phtml', '.phar', '.pl', '.py', '.cgi', '.sh', '.htaccess', '.exe', '.bat', '.cmd', '.dll', '.svg', '.html', '.htm', '.js' );
+    foreach ( $bad_patterns as $bp ) {
+        if ( strpos( $name_lower, $bp . '.' ) !== false || substr( $name_lower, -strlen( $bp ) ) === $bp ) {
+            return new WP_REST_Response( array( 'message' => 'Dateiname enthält unerlaubte Endung.' ), 400 );
+        }
+    }
+
+    // 5) WordPress-eigene Endungs/MIME-Validierung (zusätzliche Schicht).
+    $check = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'] );
+    if ( empty( $check['ext'] ) || empty( $check['type'] ) || ! in_array( $check['type'], $allowed_mimes, true ) ) {
+        return new WP_REST_Response( array( 'message' => 'Datei wurde abgelehnt (Inhalt entspricht keiner gültigen Bilddatei).' ), 400 );
     }
 
     require_once ABSPATH . 'wp-admin/includes/image.php';
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/media.php';
 
-    $upload = wp_handle_upload( $file, array( 'test_form' => false ) );
+    // 6) Erzwinge unsere Allowlist beim Upload (mimes-Override).
+    $upload = wp_handle_upload(
+        $file,
+        array(
+            'test_form' => false,
+            'mimes'     => array(
+                'jpg|jpeg|jpe' => 'image/jpeg',
+                'png'          => 'image/png',
+                'webp'         => 'image/webp',
+                'gif'          => 'image/gif',
+            ),
+        )
+    );
     if ( isset( $upload['error'] ) ) {
         return new WP_REST_Response( array( 'message' => $upload['error'] ), 500 );
+    }
+
+    // 7) Bild-Re-Encode-Sanity-Check: Versuche, das Bild über GD/Imagick zu öffnen.
+    //    Wenn das fehlschlägt, ist es kein echtes Bild → löschen.
+    $img_size = @getimagesize( $upload['file'] );
+    if ( $img_size === false ) {
+        @unlink( $upload['file'] );
+        return new WP_REST_Response( array( 'message' => 'Datei ist kein gültiges Bild.' ), 400 );
     }
 
     // Create attachment in media library
@@ -2535,7 +2828,7 @@ function eb_format_listing( $row ) {
 
     $name = $user ? trim( $user->first_name . ' ' . $user->last_name ) : 'Unbekannt';
     $photo = $user ? ( get_user_meta( $user->ID, 'eb_photo_url', true ) ?: '' ) : '';
-    $avatar = $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) );
+    $avatar = $photo ?: eb_avatar_url( $name, $name );
     $since = $user ? date( 'Y', strtotime( $user->user_registered ) ) : '';
 
     return array(
@@ -2793,7 +3086,7 @@ function eb_reviews_list( WP_REST_Request $request ) {
             'comment'     => $r->body,
             'name'        => $name,
             'author_name' => $name,
-            'avatar'      => $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) ),
+            'avatar'      => $photo ?: eb_avatar_url( $name, $name ),
             'photo_url'   => $photo ?: '',
             'date'        => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
             'created_at'  => $r->created_at,
@@ -2943,7 +3236,7 @@ function eb_conversations_list() {
         $other    = get_userdata( $other_id );
         $name     = $other ? trim( $other->first_name . ' ' . $other->last_name ) : 'Unbekannt';
         $photo    = $other ? ( get_user_meta( $other_id, 'eb_photo_url', true ) ?: '' ) : '';
-        $avatar   = $photo ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $name ) );
+        $avatar   = $photo ?: eb_avatar_url( $name, $name );
 
         $time_str = '';
         if ( $c->last_msg_time ) {
@@ -3424,7 +3717,7 @@ function eb_provider_profile( WP_REST_Request $request ) {
             'rating'       => (int) $r->rating,
             'text'         => $r->body,
             'name'         => $rname ?: $r->display_name,
-            'avatar'       => $rphoto ?: ( 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . urlencode( $rname ?: $r->display_name ) ),
+            'avatar'       => $rphoto ?: eb_avatar_url( $rname ?: $r->display_name, $rname ?: $r->display_name ),
             'date'         => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
             'listingTitle' => isset( $listing_titles[ (int) $r->listing_id ] ) ? $listing_titles[ (int) $r->listing_id ] : '',
         );

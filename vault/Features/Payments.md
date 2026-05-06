@@ -39,7 +39,7 @@ POST /stripe/verify-payment → Status Update
 ## Invoice-System
 
 - Automatische Rechnungsgenerierung
-- E-Mail-Versand via IONOS SMTP
+- E-Mail-Versand via Hosting-Provider SMTP
 - PDF-Anhang (geplant)
 - Rechnungsnummer-System
 

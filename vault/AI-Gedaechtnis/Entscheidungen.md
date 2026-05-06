@@ -14,13 +14,13 @@
 
 **Entscheidung:** WordPress nicht als CMS nutzen, sondern als Headless API.
 
-**Warum:** WordPress liefert gratis: User-System, Auth, Datenbank, SMTP, Media-Upload, Hosting-Kompatibilität (IONOS). Kein eigenes Backend aufbauen nötig.
+**Warum:** WordPress liefert gratis: User-System, Auth, Datenbank, SMTP, Media-Upload, Hosting-Kompatibilität. Kein eigenes Backend aufbauen nötig.
 
 **Konsequenz:** `index.php` rendert die gleiche SPA wie `index.html`, aber mit WordPress-Kontext und eingeloggtem User.
 
-## IONOS + SFTP statt Vercel/Netlify
+## Shared Hosting + SFTP statt Vercel/Netlify
 
-**Entscheidung:** Shared Hosting auf IONOS statt moderner Cloud-Plattform.
+**Entscheidung:** Klassisches Shared WordPress-Hosting statt moderner Cloud-Plattform.
 
 **Warum:** Günstiger (bereits vorhanden), WordPress läuft dort nativ, kein DevOps-Aufwand.
 
@@ -38,7 +38,7 @@
 
 **Entscheidung:** Passkey-Implementierung ohne externe PHP-Libraries.
 
-**Warum:** Shared Hosting auf IONOS ohne Shell-Zugriff für Composer.
+**Warum:** Shared Hosting ohne Shell-Zugriff für Composer.
 
 **Konsequenz:** Eigene CBOR-Decoder und Base64URL-Helpers in `webauthn.php`.
 

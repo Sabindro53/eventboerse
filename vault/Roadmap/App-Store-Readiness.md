@@ -1,8 +1,8 @@
 # App-Store-Readiness Roadmap
 
-Stand: 2026-05-02 | Owner: Sabindro53
+Stand: 2026-05-02 | Owner: Owner
 
-Ziel: Eventboerse als native App in **Apple App Store** *und* **Google Play Store** anbieten — mit funktionierender Stripe-Integration und produktionsreifer Sicherheit.
+Ziel: Plattform als native App in **Apple App Store** *und* **Google Play Store** anbieten — mit funktionierender Stripe-Integration und produktionsreifer Sicherheit.
 
 Verwandte Notes: [[Dashboard]], [[Stripe]], [[Authentication]], [[Payments]], [[API-Endpoints]]
 
@@ -10,10 +10,10 @@ Verwandte Notes: [[Dashboard]], [[Stripe]], [[Authentication]], [[Payments]], [[
 
 ## Aktueller Stand
 
-- **Web-App** lebt bei Eventboerse.de, deployed via IONOS-FTP (Workflow `SFTP Deploy to IONOS`).
+- **Web-App** lebt unter `{{DOMAIN}}`, deployed via SFTP-Workflow.
 - **Backend**: WordPress + ~67 REST-Endpoints in `functions.php`.
 - **Frontend**: monolithische `app.js` (~15.000 Zeilen, Vanilla JS SPA).
-- **CI**: PR Check, Site Monitor, IONOS-Deploy, Claude Auto-Audit (nightly).
+- **CI**: PR Check, Site Monitor, SFTP-Deploy, Auto-Audit (nightly).
 - **Branch-Protection**: Ruleset `main-protection` aktiv (PR-Pflicht, Status-Checks).
 - **Audit Issue #13** offen mit 5 P0- und 2 P1-Funden.
 
@@ -80,7 +80,7 @@ Trusted Web Activity ist die einfachste Variante: PWA wird in Chrome-WebView ang
 
 - Voraussetzung: PWA mit perfektem Lighthouse-Score + HTTPS + manifest
 - Bubblewrap-CLI (`@bubblewrap/cli`) generiert Android-Projekt
-- Digital Asset Links (`assetlinks.json` auf eventboerse.de) zur Domain-Verifikation
+- Digital Asset Links (`assetlinks.json` auf der Plattform-Domain) zur Domain-Verifikation
 - Google Play Developer Account (25$ einmalig)
 - AAB-Build, Signing, Submission
 
@@ -93,7 +93,7 @@ Aufwand: 3-5 Tage. Output: PR `feat/twa-android`.
 ### DSGVO + Privacy Policy
 - Eigene `Datenschutz.md` Seite verlinkt vom Footer
 - Cookie-Banner mit echtem Opt-In-Consent (nicht nur Banner-Akzeptieren)
-- Auftragsverarbeitungsvertraege mit Stripe, IONOS, ggf. Google Analytics
+- Auftragsverarbeitungsvertraege mit Stripe, Hosting-Provider, ggf. Analytics-Anbieter
 - DSGVO-Loeschanfrage-Endpoint
 
 ### Test-Strategy

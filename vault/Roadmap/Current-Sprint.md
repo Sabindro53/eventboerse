@@ -44,7 +44,7 @@ Werden hier dokumentiert wenn sie gemeldet werden.
   - [x] Cloud-Sync (geräteübergreifend, Tombstone-Merge)
   - [x] Dienstleister-Aufträge-Ansicht
 - [x] Uptime-Monitoring (GitHub Actions alle 30 Min)
-- [x] Automatisches Deployment auf IONOS
+- [x] Automatisches Deployment auf den Hosting-Provider
 - [x] Obsidian Vault + Claude Memory System
 
 ---

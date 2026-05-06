@@ -5,35 +5,48 @@
 ```
 git push → main Branch
        ↓
-GitHub Actions: ionos-deploy.yml
+GitHub Actions: deploy.yml
        ↓
-SFTP via lftp (mirror zum IONOS Server)
+SFTP via lftp (mirror zum Hosting-Provider)
        ↓
 WordPress Theme-Verzeichnis aktualisiert
        ↓ (optional)
 SMTP-Credentials in wp-config.php injizieren
        ↓
-Seite ist live auf eventbörse.de
+Seite ist live unter `{{DOMAIN}}`
 ```
 
-## Workflow: ionos-deploy.yml
+## Workflow: deploy.yml
 
 **Trigger:** Push auf `main` Branch, manueller Dispatch
 
 **Was passiert:**
 1. Code auschecken
-2. lftp SFTP-Verbindung zu IONOS aufbauen
-3. Alle Dateien spiegeln (außer .git, .github, README)
+2. lftp SFTP-Verbindung aufbauen
+3. Alle Dateien spiegeln (außer .git, .github, README, vault/)
 4. Optional: SMTP-Credentials in wp-config.php schreiben
 
-**Ausgeschlossene Dateien:** `.git`, `.github`, `README.md`, `node_modules`
+**Ausgeschlossene Pfade (lftp `-x`-Pattern, Stand 2026-05-06):**
+
+```
+^\.git           ^\.github/      ^\.vscode/      ^\.idea/
+^\.obsidian/     ^\.claude/      ^\.claude\.json$
+^vault/          ^docs/          ^tests/         ^node_modules/
+^LICENSE$        ^README\.md$    ^CNAME$         ^AGENTS\.md$
+^\.gitignore$    ^\.gitattributes$  ^\.editorconfig$
+^sftp-debug\.txt$  ^deploy-probe\.txt$
+\.bak$  \.log$  \.swp$  \.DS_Store$
+^Attached Element Context
+```
+
+> ⚠️ Wegen `mirror --reverse --delete` werden zuvor bereits hochgeladene Pfade dieser Liste beim nächsten Deploy automatisch vom Server **gelöscht**. Defense-in-Depth zu `.htaccess`-Block (`RedirectMatch 404 /vault`).
 
 ## Workflow: site-monitor.yml
 
 **Trigger:** Alle 30 Minuten (cron), manueller Dispatch
 
 **Was passiert:**
-1. HTTPS-Request an xn--eventbrse-57a.de (eventbörse.de)
+1. HTTPS-Request an `{{DOMAIN}}`
 2. HTTP-Redirect prüfen
 3. Bei Fehler: GitHub Issue erstellen "⚠️ Site Down"
 4. Bei Wiederherstellung: Issue schließen
@@ -52,10 +65,10 @@ Seite ist live auf eventbörse.de
 
 | Secret | Beschreibung |
 |--------|--------------|
-| `IONOS_HOST` | SFTP-Hostname |
-| `IONOS_USER` | SFTP-Benutzername |
-| `IONOS_PASSWORD` | SFTP-Passwort |
-| `IONOS_REMOTE_PATH` | Pfad zum WordPress Theme |
+| `DEPLOY_HOST`     | SFTP-Hostname |
+| `DEPLOY_USER`     | SFTP-Benutzername |
+| `DEPLOY_PASSWORD` | SFTP-Passwort |
+| `DEPLOY_PATH`     | Pfad zum WordPress Theme |
 
 ## Deployment-Hinweise
 

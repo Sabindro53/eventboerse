@@ -1,6 +1,6 @@
 # Roadmap: Feature-Ideen
 
-> Brainstorming - alles was EventBörse noch besser machen könnte
+> Brainstorming - alles was die Plattform noch besser machen könnte
 
 ## Plattform-Erweiterungen
 
