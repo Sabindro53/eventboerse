@@ -86,20 +86,6 @@ ServerSignature Off
   RewriteRule ^wp-content/uploads/.*\.(php|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp|exe|bat|cmd|svg|html?|js)$ - [F,L,NC]
   RewriteRule ^uploads/.*\.(php|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp|exe|bat|cmd|svg|html?|js)$ - [F,L,NC]
 </IfModule>
-<Directory "wp-content/uploads">
-  <FilesMatch "\.(php|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp|exe|bat|cmd)$">
-    Require all denied
-  </FilesMatch>
-  # SVG könnten <script> enthalten – nicht inline rendern lassen.
-  <FilesMatch "\.svg$">
-    Header set Content-Disposition "attachment"
-    Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
-  </FilesMatch>
-  # Wenn doch ein Bild ausgeliefert wird: KEIN MIME-Sniffing.
-  <IfModule mod_headers.c>
-    Header set X-Content-Type-Options "nosniff"
-  </IfModule>
-</Directory>
 
 # Vault- und CI-Verzeichnisse abschotten
 RedirectMatch 404 /\.git
