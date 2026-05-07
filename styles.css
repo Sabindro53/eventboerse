@@ -10782,18 +10782,43 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 .service-badge .material-icons-round { font-size: 12px; }
 
 /* Post Image */
+.feed-post-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  max-height: 420px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* Blurred fill behind the actual image — hides black bars on banners/portraits */
+.feed-post-media::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: inherit;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(0.7) saturate(1.1);
+  transform: scale(1.1);
+  z-index: 0;
+}
 .feed-post-image {
   width: 100%;
+  height: 100%;
   aspect-ratio: 4/3;
   max-height: 420px;
   object-fit: cover;
   display: block;
   cursor: pointer;
   transition: opacity 0.2s;
+  position: relative;
+  z-index: 1;
 }
 .feed-post-image.feed-post-image-contain {
   object-fit: contain;
-  background: #0F0F0F;
+  background: transparent;
 }
 .feed-post-image:hover { opacity: 0.95; }
 

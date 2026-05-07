@@ -15649,7 +15649,7 @@ function renderSocialPostCard(post) {
       '</div>';
   }
 
-  var imgBlock = post.image ? '<img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' : '';
+  var imgBlock = post.image ? '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(post.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' : '';
 
   // Contact button for search posts — only visible to Dienstleister
   var isProvider = currentUser && currentUser.role === 'Dienstleister';
@@ -15699,7 +15699,7 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' +
+    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
     '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +
