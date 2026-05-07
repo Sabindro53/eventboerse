@@ -90,6 +90,28 @@ function filterDemos(arr) {
   return arr.filter(function(l) { return !isDemoListing(l); });
 }
 
+// ========== IMAGE FALLBACK ==========
+// Manche externen Demo-URLs (Pexels) liefern 404. Damit die Karte nicht kaputt aussieht,
+// wird bei einem Image-Load-Fehler ein neutrales SVG-Placeholder eingesetzt.
+window.EB_IMG_FALLBACK = window.EB_IMG_FALLBACK || (
+  'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0" stop-color="#FFE4E9"/><stop offset="1" stop-color="#FFC9D2"/>' +
+      '</linearGradient></defs>' +
+      '<rect width="600" height="400" fill="url(%23g)"/>' +
+      '<g fill="#FF385C" opacity="0.55" transform="translate(260 160)">' +
+        '<rect x="0" y="0" width="80" height="60" rx="6" fill="none" stroke="#FF385C" stroke-width="4"/>' +
+        '<circle cx="22" cy="22" r="6"/>' +
+        '<path d="M0 60 L24 36 L44 50 L80 18 L80 60 Z"/>' +
+      '</g>' +
+      '<text x="300" y="260" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#FF385C" font-weight="600">Bild nicht verf&#252;gbar</text>' +
+    '</svg>'
+  )
+);
+// HTML-Attribut, das Card-Images verwenden – "this.onerror=null" verhindert Endlosschleife.
+window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"';
+
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -1001,7 +1023,7 @@ function renderListingCard(listing) {
     <div class="listing-card" data-listing-id="${listing.id}">
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}">
-          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + (i > 0 ? ' loading="lazy"' : '') + ' /></div>'; }).join('')}
+          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
         </div>
         ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
@@ -1070,7 +1092,7 @@ function renderHeroMarquees() {
 
   function cardHTML(l) {
     return '<a class="hero-marquee-card" href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
-      '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager" />' +
+      '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager"' + window.EB_IMG_ERR_ATTR + ' />' +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
         '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
@@ -1241,7 +1263,7 @@ function renderExploreGrid(filter) {
   grid.innerHTML = items.map((it, i) => {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
     return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;">
-      <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" />
+      <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
         <span class="explore-item-price">${_escHtml(it.price)}</span>
@@ -1307,7 +1329,7 @@ function renderFeed(tab) {
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" />
+      <img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
         <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
@@ -10814,7 +10836,7 @@ function addListingMarkers(listings) {
 
     const popupContent = `
       <div class="map-popup-card">
-        <img src="${listing.image}" alt="${listing.title}" loading="lazy"/>
+        <img src="${listing.image}" alt="${listing.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"/>
         <h4>${listing.title}</h4>
         <div class="popup-meta">
           <span class="material-icons-round" style="font-size:14px;vertical-align:middle">location_on</span>
@@ -10839,7 +10861,7 @@ function renderLocationsList(listings) {
   list.innerHTML = listings.map(l => {
     return `
       <div class="map-loc-item" data-id="${l.id}" onclick="focusMapMarker(${l.id})">
-        <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" />
+        <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
         <div class="map-loc-info">
           <strong>${l.title}</strong>
           <span>${l.location} · ${l.categoryLabel}</span>
