@@ -15408,13 +15408,22 @@ function submitReport(postId, reason) {
 
 var _socialPosts = (function() {
   var stored = JSON.parse(localStorage.getItem('eb_social_posts') || 'null');
-  // Regenerate if old format (no suche- types)
-  if (stored && stored.length && !stored.some(function(p) { return (p.type || '').indexOf('suche') === 0; })) {
+  // Regenerate if old format (no suche- types) oder noch ohne _isDemo-Flag
+  if (stored && stored.length && (!stored.some(function(p) { return (p.type || '').indexOf('suche') === 0; }) || !stored.some(function(p) { return p._isDemo === true; }))) {
     stored = null;
     localStorage.removeItem('eb_social_posts');
   }
-  return stored || _generateDemoSocialPosts();
+  if (!stored) {
+    stored = _generateDemoSocialPosts().map(function(p) { p._isDemo = true; return p; });
+  }
+  return stored;
 })();
+
+// Filter Bot-/Demo-Beiträge aus dem Feed, wenn EB_HIDE_DEMO aktiv ist.
+function _visibleSocialPosts() {
+  if (!window.EB_HIDE_DEMO) return _socialPosts;
+  return _socialPosts.filter(function(p) { return !p || p._isDemo !== true; });
+}
 var _likedPosts = new Set(JSON.parse(localStorage.getItem('eb_liked_posts') || '[]'));
 
 function _saveSocialData() {
@@ -15531,15 +15540,18 @@ function renderFeed(tab) {
 
   renderSidebarUpcoming();
 
+  // Bot-/Demo-Beiträge automatisch ausblenden, wenn EB_HIDE_DEMO aktiv ist.
+  var visiblePosts = _visibleSocialPosts();
+
   if (tab === 'events') {
-    var eventPosts = _socialPosts.filter(function(p) { return p.type === 'event' || p.type === 'ankuendigung'; });
+    var eventPosts = visiblePosts.filter(function(p) { return p.type === 'event' || p.type === 'ankuendigung'; });
     list.innerHTML = eventPosts.length ? eventPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
       '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Events oder Ankündigungen</div>';
     return;
   }
 
   if (tab === 'gesuche') {
-    var searchPosts = _socialPosts.filter(function(p) { return p.type === 'suche-dienstleister' || p.type === 'suche-events'; });
+    var searchPosts = visiblePosts.filter(function(p) { return p.type === 'suche-dienstleister' || p.type === 'suche-events'; });
     list.innerHTML = searchPosts.length ? searchPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
       '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Gesuche – erstelle das erste!</div>';
     return;
@@ -15555,14 +15567,14 @@ function renderFeed(tab) {
 
   if (tab === 'newest') {
     listings = listings.sort(function(a, b) { return b.id - a.id; });
-    var allItems = _socialPosts.slice(0, 2).map(function(p) { return { _social: true, post: p }; })
+    var allItems = visiblePosts.slice(0, 2).map(function(p) { return { _social: true, post: p }; })
       .concat(listings.slice(0, 8).map(function(l) { return { _listing: true, listing: l }; }));
     list.innerHTML = allItems.map(function(item) {
       return item._social ? renderSocialPostCard(item.post) : renderListingFeedCard(item.listing);
     }).join('');
   } else if (tab === 'popular') {
     listings = listings.sort(function(a, b) { return (b.rating || 0) - (a.rating || 0); });
-    var popPosts = _socialPosts.sort(function(a, b) { return (b.likes || 0) - (a.likes || 0); });
+    var popPosts = visiblePosts.slice().sort(function(a, b) { return (b.likes || 0) - (a.likes || 0); });
     var allItems2 = [];
     var li = 0, pi = 0;
     while (li < Math.min(listings.length, 8) || pi < popPosts.length) {
@@ -15580,13 +15592,13 @@ function renderFeed(tab) {
     var mixed = [];
     var sIdx = 0;
     shuffled.slice(0, 8).forEach(function(l, i) {
-      if (i > 0 && i % 2 === 0 && sIdx < _socialPosts.length) {
-        mixed.push(renderSocialPostCard(_socialPosts[sIdx++]));
+      if (i > 0 && i % 2 === 0 && sIdx < visiblePosts.length) {
+        mixed.push(renderSocialPostCard(visiblePosts[sIdx++]));
       }
       mixed.push(renderListingFeedCard(l));
     });
-    while (sIdx < _socialPosts.length) {
-      mixed.push(renderSocialPostCard(_socialPosts[sIdx++]));
+    while (sIdx < visiblePosts.length) {
+      mixed.push(renderSocialPostCard(visiblePosts[sIdx++]));
     }
     list.innerHTML = mixed.join('');
   }
