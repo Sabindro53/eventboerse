@@ -70,6 +70,13 @@
   }
 })();
 
+// Avatar-Normalisierung: PHP-generierte data:SVG-Avatare (y="58", kein dominant-baseline)
+// durch JS-generierte ersetzen. Echte Foto-URLs (https://...) werden unverändert durchgereicht.
+function _resolveAvatar(img, name) {
+  if (!img || img.startsWith('data:')) return window.ebAvatar(name || 'user', name || '');
+  return img;
+}
+
 // ========== DEMO / BOT-ACCOUNT FILTER ==========
 // Bot-Inserate (90001–90009) sind hardcoded und sollen vor Release ausblendbar sein.
 // Flag wird vom Backend per <script>window.EB_HIDE_DEMO=…</script> in den <head> gesetzt.
@@ -1356,7 +1363,7 @@ function renderFeed(tab) {
   }
 
   list.innerHTML = items.map((l, i) => {
-    const avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
+    const avatar = _resolveAvatar(l.providerImg || l.providerAvatar, l.providerName);
     const categoryLabel = l.category ? l.category.charAt(0).toUpperCase() + l.category.slice(1) : 'Service';
     const isFav = favorites.has(l.id);
     const desc = l.description || l.title;
@@ -2536,7 +2543,7 @@ function loadDetail(listingId) {
   document.getElementById('detailRating').textContent = listing.rating || '0';
   document.getElementById('detailReviewCount').textContent = '(' + (listing.reviews || 0) + ' Bewertungen)';
   document.getElementById('detailLocation').textContent = listing.region;
-  document.getElementById('detailProviderImg').src = listing.providerImg;
+  document.getElementById('detailProviderImg').src = _resolveAvatar(listing.providerImg, listing.providerName);
   document.getElementById('detailProviderName').textContent = listing.providerName;
   document.getElementById('detailProviderTag').textContent = `Superhost · Seit ${listing.providerSince} auf Eventbörse`;
 
@@ -2668,7 +2675,7 @@ function loadProvider(providerId) {
   buildGalleryRows(providerImages);
 
   // Profile Card
-  document.getElementById('providerAvatar').src = mainListing.providerImg;
+  document.getElementById('providerAvatar').src = _resolveAvatar(mainListing.providerImg, mainListing.providerName);
   document.getElementById('providerName').textContent = mainListing.providerName;
   document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
   document.getElementById('providerListingCount').textContent = (providerListings.length === 1 && providerListings[0]._ownProfile) ? 0 : providerListings.length;
