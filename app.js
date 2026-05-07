@@ -70,6 +70,26 @@
   }
 })();
 
+// ========== DEMO / BOT-ACCOUNT FILTER ==========
+// Bot-Inserate (90001–90009) sind hardcoded und sollen vor Release ausblendbar sein.
+// Flag wird vom Backend per <script>window.EB_HIDE_DEMO=…</script> in den <head> gesetzt.
+// Admin-Toggle: POST /admin/hide-demo. Falls das Flag (noch) nicht im Window steht, default: false.
+window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,90004,90005,90006,90007,90008,90009];
+window.EB_HIDE_DEMO = !!window.EB_HIDE_DEMO;
+function isDemoListing(l) {
+  if (!l) return false;
+  if (l._fromDb) return false; // echte DB-Inserate sind nie Demo
+  var pid = l.providerId != null ? l.providerId : (l.provider && l.provider.id);
+  return pid != null && window.EB_DEMO_PROVIDER_IDS.indexOf(+pid) !== -1;
+}
+function isDemoUserId(uid) {
+  return uid != null && window.EB_DEMO_PROVIDER_IDS.indexOf(+uid) !== -1;
+}
+function filterDemos(arr) {
+  if (!window.EB_HIDE_DEMO || !Array.isArray(arr)) return arr;
+  return arr.filter(function(l) { return !isDemoListing(l); });
+}
+
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -753,13 +773,13 @@ const BLOCKED_PATTERNS = [
 
 // ========== VISIBLE LISTINGS ==========
 function _visibleListings() {
-  if (!isLoggedIn) return LISTINGS;
+  if (!isLoggedIn) return filterDemos(LISTINGS);
   var dbItems = LISTINGS.filter(function(l) { return l._fromDb; });
-  return dbItems.length > 0 ? dbItems : LISTINGS;
+  return dbItems.length > 0 ? dbItems : filterDemos(LISTINGS);
 }
 
 function getHeroListings() {
-  var all = Array.isArray(LISTINGS) ? LISTINGS.slice() : [];
+  var all = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
   if (!isLoggedIn) return all;
 
   try {
@@ -1205,7 +1225,7 @@ function renderExploreGrid(filter) {
   const query = filter || (document.getElementById('exploreSearch')?.value || '').trim().toLowerCase();
   // Collect all images from all listings
   let items = [];
-  LISTINGS.forEach(l => {
+  filterDemos(LISTINGS).forEach(l => {
     // Main image
     items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
     // Additional images
@@ -1987,9 +2007,10 @@ function performSearch() {
 // ========== BROWSE PAGE ==========
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
-  grid.innerHTML = listings.map(renderListingCard).join('');
+  var rows = filterDemos(listings || []);
+  grid.innerHTML = rows.map(renderListingCard).join('');
   _initGridCards(grid);
-  document.getElementById('browseResultCount').textContent = `${listings.length} Services gefunden`;
+  document.getElementById('browseResultCount').textContent = `${rows.length} Services gefunden`;
 }
 
 // ===== AI Search Hero helpers =====
@@ -7944,6 +7965,54 @@ function renderAdminStats(users) {
     '<div class="admin-stat"><span class="material-icons-round">shield</span><strong>' + admins + '</strong><span>Admins</span></div>' +
     '<div class="admin-stat"><span class="material-icons-round">storefront</span><strong>' + listings + '</strong><span>Inserate</span></div>' +
     '<div class="admin-stat"><span class="material-icons-round">rate_review</span><strong>' + reviews + '</strong><span>Bewertungen</span></div>';
+
+  renderAdminHideDemoToggle();
+}
+
+/** Render Demo-Toggle (Bot-Inserate sitewide ein-/ausblenden). */
+function renderAdminHideDemoToggle() {
+  var host = document.getElementById('adminHideDemoBox');
+  if (!host) return;
+  var on = !!window.EB_HIDE_DEMO;
+  host.innerHTML =
+    '<div class="admin-toggle-info">' +
+      '<span class="material-icons-round" style="color:var(--primary)">science</span>' +
+      '<div>' +
+        '<strong>Test-/Bot-Inserate</strong>' +
+        '<p>Demo-Anbieter (IDs ' + window.EB_DEMO_PROVIDER_IDS.join(', ') + ') in Marquee, Browse, Explore, Feed und Karte ' +
+          (on ? '<u>aktuell ausgeblendet</u>' : '<u>aktuell sichtbar</u>') + '.</p>' +
+      '</div>' +
+    '</div>' +
+    '<button class="admin-toggle-btn ' + (on ? 'is-on' : '') + '" onclick="adminToggleHideDemo()">' +
+      '<span class="material-icons-round">' + (on ? 'visibility_off' : 'visibility') + '</span>' +
+      (on ? 'Testdaten einblenden' : 'Testdaten ausblenden') +
+    '</button>';
+}
+
+/** Toggle hide-demo-Flag — ruft Backend, aktualisiert window-Flag, re-rendert alle Listen. */
+function adminToggleHideDemo() {
+  var next = !window.EB_HIDE_DEMO;
+  fetch(_apiUrl('admin/hide-demo'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ hide: next })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }).then(function(d) {
+    window.EB_HIDE_DEMO = !!d.hide;
+    showToast(window.EB_HIDE_DEMO ? 'Testdaten ausgeblendet' : 'Testdaten eingeblendet', 'success');
+    renderAdminHideDemoToggle();
+    // alle sichtbaren Listen neu rendern
+    try { renderHeroMarquees(); } catch(e) {}
+    try { renderBrowseGrid(LISTINGS); } catch(e) {}
+    try { renderExploreGrid(); } catch(e) {}
+    try { if (document.getElementById('feedList')) renderFeed('foryou'); } catch(e) {}
+  }).catch(function() {
+    showToast('Umschalten fehlgeschlagen', 'error');
+  });
 }
 
 function renderAdminUserList(users) {
@@ -10688,7 +10757,7 @@ function toggleMapOverlay() {
     setTimeout(() => leafletMap.invalidateSize(), 100);
   }
 
-  renderLocationsList(LISTINGS);
+  renderLocationsList(filterDemos(LISTINGS));
 }
 
 function closeMapOverlay() {
@@ -10710,7 +10779,7 @@ function initLeafletMap() {
     attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
   }).addTo(leafletMap);
 
-  addListingMarkers(LISTINGS);
+  addListingMarkers(filterDemos(LISTINGS));
 }
 
 function createPriceIcon(listing) {

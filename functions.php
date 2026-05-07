@@ -373,7 +373,10 @@ add_action( 'send_headers', function() {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
         "font-src 'self' https://fonts.gstatic.com data:",
         // Bilder: eigene + IONOS-Uploads + OpenStreetMap-Tiles + Leaflet-Marker. Avatare sind Self-Hosted (data:).
-        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://images.pexels.com https://xn--eventbrse-57a.de https://eventbörse.de",
+        // WICHTIG: Domains in CSP MÜSSEN Punycode (ASCII) sein. Umlaute (eventbörse.de)
+        // führen dazu, dass Chrome die gesamte Direktive verwirft → Fallback auf default-src 'self'
+        // → alle externen Bilder werden blockiert. Daher nur xn--eventbrse-57a.de hier.
+        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://images.pexels.com https://images.unsplash.com https://xn--eventbrse-57a.de",
         // XHR/Fetch: eigene REST + Stripe + Nominatim (Geocoding).
         "connect-src 'self' https://api.stripe.com https://m.stripe.network https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
         // Stripe-Frames (Checkout, 3DS).
@@ -563,6 +566,45 @@ function eb_is_admin_user( $user_id = 0 ) {
     if ( ! $u ) return false;
     return in_array( 'administrator', (array) $u->roles, true ) || get_user_meta( $user_id, 'eb_admin', true ) === '1';
 }
+
+/**
+ * Demo-Provider-IDs (Bot-Accounts in den hardcoded LISTINGS in app.js).
+ * Wird sowohl für die Mail-CC-Logik als auch den Hide-Demo-Toggle benutzt.
+ */
+function eb_demo_provider_ids() {
+    return array( 90001, 90002, 90003, 90004, 90005, 90006, 90007, 90008, 90009 );
+}
+
+/** Aktueller Zustand des Hide-Demo-Toggles (sitewide, persistent in wp_options). */
+function eb_hide_demo_enabled() {
+    return get_option( 'eb_hide_demo', '0' ) === '1';
+}
+
+/** GET /admin/hide-demo — public, damit Frontend den Zustand kennt. */
+function eb_admin_hide_demo_get() {
+    return new WP_REST_Response( array(
+        'hide'      => eb_hide_demo_enabled(),
+        'demo_ids'  => eb_demo_provider_ids(),
+    ), 200 );
+}
+
+/** POST /admin/hide-demo — Body: { hide: bool } — admin-only. */
+function eb_admin_hide_demo_set( WP_REST_Request $request ) {
+    $params = $request->get_json_params();
+    $hide   = ! empty( $params['hide'] );
+    update_option( 'eb_hide_demo', $hide ? '1' : '0' );
+    return new WP_REST_Response( array( 'hide' => $hide ), 200 );
+}
+
+/**
+ * Globalen Frontend-Flag (window.EB_HIDE_DEMO) in den <head> injizieren,
+ * damit alle Visitoren konsistent dieselben Listings sehen.
+ */
+add_action( 'wp_head', function() {
+    $flag = eb_hide_demo_enabled() ? 'true' : 'false';
+    $ids  = wp_json_encode( eb_demo_provider_ids() );
+    echo "<script>window.EB_HIDE_DEMO=" . $flag . ";window.EB_DEMO_PROVIDER_IDS=" . $ids . ";</script>\n";
+}, 1 );
 
 /**
  * Profil-Meta für einen User zurückgeben
@@ -2442,6 +2484,20 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
+    /* Hide-Demo-Toggle (Bot-Inserate 90001–90009 sitewide ein/ausblenden) */
+    register_rest_route( 'eventboerse/v1', '/admin/hide-demo', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_admin_hide_demo_get',
+            'permission_callback' => '__return_true',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_admin_hide_demo_set',
+            'permission_callback' => function() { return eb_is_admin_user(); },
+        ),
+    ) );
+
     /* ---------- REGISTRATIONS (Event-Anmeldungen / Ticketing) ---------- */
     register_rest_route( 'eventboerse/v1', '/registrations', array(
         array(
@@ -3489,8 +3545,15 @@ function eb_messages_send( WP_REST_Request $request ) {
             $message .= '</div>';
         }
 
-        $mail_result = wp_mail( $recipient->user_email, $subject, $message, array( 'Content-Type: text/html; charset=UTF-8' ) );
-        error_log('[Eventboerse-Mail] To: ' . $recipient->user_email . ' | Subject: ' . $subject . ' | Result: ' . ( $mail_result ? 'OK' : 'FAIL' ) );
+        // Bot-Accounts (Demo-Provider 90001–90009): Kontaktversuche immer
+        // zusätzlich an testaccount weiterleiten, da Bot-Mailbox unüberwacht ist.
+        $eb_bot_ids = array( 90001, 90002, 90003, 90004, 90005, 90006, 90007, 90008, 90009 );
+        $msg_headers = array( 'Content-Type: text/html; charset=UTF-8' );
+        if ( in_array( $recipient_id, $eb_bot_ids, true ) ) {
+            $msg_headers[] = 'Cc: testaccount@eventbörse.de';
+        }
+        $mail_result = wp_mail( $recipient->user_email, $subject, $message, $msg_headers );
+        error_log('[Eventboerse-Mail] To: ' . $recipient->user_email . ' | Subject: ' . $subject . ' | BotCC: ' . ( in_array( $recipient_id, $eb_bot_ids, true ) ? 'yes' : 'no' ) . ' | Result: ' . ( $mail_result ? 'OK' : 'FAIL' ) );
     }
 
     return new WP_REST_Response( array(
@@ -4286,7 +4349,7 @@ function eb_send_invoice( WP_REST_Request $request ) {
               . '<div style="font-size:13px;opacity:0.9">Eventboerse &middot; ' . esc_html( date_i18n( 'd.m.Y' ) ) . '</div>'
             . '</div>'
             . '<div style="padding:24px">'
-              . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht zur vollen Transparenz an <strong>Kunde</strong>, <strong>Anbieter</strong> und <strong>kontakt@eventboerse.de</strong>.</p>'
+              . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht zur vollen Transparenz an <strong>Kunde</strong>, <strong>Anbieter</strong> und <strong>kontakt@eventb&ouml;rse.de</strong>.</p>'
               . '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:14px">' . $rows . '</table>'
               . $note_html
               . '<div style="margin-top:20px;padding:14px;background:#fff5e5;border:1px solid #ffd89e;border-radius:8px;font-size:13px;color:#6b4500;line-height:1.5">'
@@ -4296,16 +4359,22 @@ function eb_send_invoice( WP_REST_Request $request ) {
                 . '<a href="' . esc_url( $site_url . 'board' ) . '" style="display:inline-block;background:' . $brand_primary . ';color:#fff;text-decoration:none;padding:12px 26px;border-radius:10px;font-weight:600;font-size:14px">Zum Projekt &rarr;</a>'
               . '</div>'
             . '</div>'
-            . '<div style="padding:16px 24px;background:#fafafa;color:#717171;font-size:11px;text-align:center;border-top:1px solid #eee">Automatische Nachricht der Eventboerse &middot; Bei Fragen: kontakt@eventboerse.de</div>'
+            . '<div style="padding:16px 24px;background:#fafafa;color:#717171;font-size:11px;text-align:center;border-top:1px solid #eee">Automatische Nachricht der Eventboerse &middot; Bei Fragen: kontakt@eventb&ouml;rse.de</div>'
           . '</div>'
         . '</div></body></html>';
 
     $headers = array( 'Content-Type: text/html; charset=UTF-8' );
 
+    // Bot-Accounts (Demo-Provider 90001–90009): Buchungsversuch immer
+    // zusätzlich an testaccount weiterleiten, da Bot-Mailbox unüberwacht ist.
+    $eb_bot_ids = array( 90001, 90002, 90003, 90004, 90005, 90006, 90007, 90008, 90009 );
     $recipients = array();
     if ( $user_email )     $recipients[] = $user_email;
     if ( $provider_email ) $recipients[] = $provider_email;
-    $recipients[] = 'kontakt@eventboerse.de';
+    $recipients[] = 'kontakt@eventbörse.de';
+    if ( $provider_uid && in_array( $provider_uid, $eb_bot_ids, true ) ) {
+        $recipients[] = 'testaccount@eventbörse.de';
+    }
     $recipients = array_values( array_unique( array_filter( $recipients ) ) );
 
     $sent = 0;
