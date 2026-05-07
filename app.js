@@ -23,8 +23,8 @@
   function _hash(s){ var h=0; s = String(s||'guest'); for(var i=0;i<s.length;i++){ h = ((h<<5)-h) + s.charCodeAt(i); h |= 0; } return Math.abs(h); }
   function _initials(name){
     if(!name) return '?';
-    var parts = String(name).trim().split(/\s+/);
-    if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    var parts = String(name).trim().split(/[\s\-_\.]+/).filter(Boolean);
+    if(parts.length === 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
   }
   var _cache = Object.create(null);
@@ -47,7 +47,7 @@
       + '<stop offset="100%" stop-color="' + bg2 + '"/>'
       + '</linearGradient></defs>'
       + '<rect width="100" height="100" rx="50" fill="url(#g)"/>'
-      + '<text x="50" y="58" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,sans-serif" '
+      + '<text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-family="-apple-system,Segoe UI,Roboto,sans-serif" '
       + 'font-size="40" font-weight="700" fill="#fff">' + initials + '</text>'
       + '</svg>';
     var url = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
