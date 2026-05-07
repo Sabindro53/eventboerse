@@ -56,7 +56,7 @@ function eb_avatar_url( $seed, $name = '' ) {
     $svg .= '<stop offset="100%" stop-color="' . $bg2 . '"/>';
     $svg .= '</linearGradient></defs>';
     $svg .= '<rect width="100" height="100" rx="50" fill="url(#g)"/>';
-    $svg .= '<text x="50" y="58" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="40" font-weight="700" fill="#fff">' . $initials . '</text>';
+    $svg .= '<text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="40" font-weight="700" fill="#fff">' . $initials . '</text>';
     $svg .= '</svg>';
     $url = 'data:image/svg+xml;utf8,' . rawurlencode( $svg );
     $cache[ $key ] = $url;
