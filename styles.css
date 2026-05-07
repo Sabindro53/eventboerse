@@ -2503,6 +2503,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   gap: 4px;
   position: relative;
   color: var(--primary);
+  padding-top: 18px;
 }
 .feed-tab-discover .material-icons-round {
   font-size: 16px;
@@ -2511,16 +2512,19 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   color: var(--primary-dark);
 }
 .feed-tab-badge {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 1px 6px;
-  font-size: 0.6rem;
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.4px;
   color: #fff;
   background: var(--primary);
   border-radius: 8px;
   line-height: 1.4;
+  white-space: nowrap;
 }
 .explore-tabs {
   margin: 8px 0 20px;
@@ -8444,7 +8448,6 @@ body.dark-mode .admin-table tbody tr:hover { background: #252525; }
 
 /* Explore grid */
 body.dark-mode .explore-card { background: #1E1E1E; }
-body.dark-mode .explore-header { background: var(--bg-alt); }
 
 /* My listings / favorites */
 body.dark-mode .my-listing-item { background: #1E1E1E; border-color: var(--border-light); }
