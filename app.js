@@ -74,8 +74,9 @@
 // Bot-Inserate (90001–90009) sind hardcoded und sollen vor Release ausblendbar sein.
 // Flag wird vom Backend per <script>window.EB_HIDE_DEMO=…</script> in den <head> gesetzt.
 // Admin-Toggle: POST /admin/hide-demo. Falls das Flag (noch) nicht im Window steht, default: false.
-window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,90004,90005,90006,90007,90008,90009];
-window.EB_HIDE_DEMO = !!window.EB_HIDE_DEMO;
+window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,90004,90005,90006,90007,90008,90009,90010,90011,90012,90013,90014];
+// Default: Demo-Inserate ausblenden. Backend kann window.EB_HIDE_DEMO=false setzen, um sie wieder anzuzeigen.
+window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB_HIDE_DEMO : true;
 function isDemoListing(l) {
   if (!l) return false;
   // Server liefert isDemo=true für alle als Test/Bot markierten User
