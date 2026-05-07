@@ -15223,6 +15223,135 @@ function _saveCardEdit(event, cardId) {
 // =================== SOCIAL FEED ENHANCED ================
 // =========================================================
 
+var _ignoredPosts = new Set();
+var _ignoredUsers = new Set();
+
+function openPostMenu(event, postId, authorName) {
+  event.stopPropagation();
+  // Remove any existing sheet
+  closePostMenu();
+
+  var overlay = document.createElement('div');
+  overlay.className = 'post-options-overlay';
+  overlay.id = 'postOptionsOverlay';
+  overlay.onclick = closePostMenu;
+
+  var sheet = document.createElement('div');
+  sheet.className = 'post-options-sheet';
+  sheet.id = 'postOptionsSheet';
+  sheet.innerHTML =
+    '<div class="post-options-handle"></div>' +
+    '<button class="post-options-item" onclick="copyPostLink(\'' + postId + '\')">' +
+      '<span class="material-icons-round">link</span> Link kopieren' +
+    '</button>' +
+    '<button class="post-options-item" onclick="markNotInterested(\'' + postId + '\')">' +
+      '<span class="material-icons-round">thumb_down_off_alt</span> Nicht interessiert' +
+    '</button>' +
+    (authorName ? '<button class="post-options-item" onclick="ignoreUser(\'' + authorName + '\')">' +
+      '<span class="material-icons-round">person_off</span> @' + authorName + ' ignorieren' +
+    '</button>' : '') +
+    '<div class="post-options-divider"></div>' +
+    '<button class="post-options-item danger" onclick="reportPost(\'' + postId + '\')">' +
+      '<span class="material-icons-round">flag</span> Beitrag melden' +
+    '</button>' +
+    '<button class="post-options-cancel" onclick="closePostMenu()">Abbrechen</button>';
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(sheet);
+  requestAnimationFrame(function() {
+    overlay.classList.add('visible');
+    sheet.classList.add('visible');
+  });
+}
+
+function closePostMenu() {
+  var overlay = document.getElementById('postOptionsOverlay');
+  var sheet = document.getElementById('postOptionsSheet');
+  if (!sheet) return;
+  overlay.classList.remove('visible');
+  sheet.classList.remove('visible');
+  setTimeout(function() {
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    if (sheet && sheet.parentNode) sheet.parentNode.removeChild(sheet);
+  }, 300);
+}
+
+function copyPostLink(postId) {
+  closePostMenu();
+  var url = window.location.origin + window.location.pathname + '#post-' + postId;
+  try { navigator.clipboard.writeText(url); } catch(e) {}
+  showToast('Link kopiert!', 'link');
+}
+
+function markNotInterested(postId) {
+  closePostMenu();
+  _ignoredPosts.add(postId);
+  var card = document.querySelector('[data-post-id="' + postId + '"]');
+  if (card) {
+    card.style.transition = 'opacity 0.3s, transform 0.3s';
+    card.style.opacity = '0';
+    card.style.transform = 'scale(0.95)';
+    setTimeout(function() { if (card.parentNode) card.parentNode.removeChild(card); }, 300);
+  }
+  showToast('Beitrag ausgeblendet', 'visibility_off');
+}
+
+function ignoreUser(authorName) {
+  closePostMenu();
+  _ignoredUsers.add(authorName);
+  document.querySelectorAll('.feed-post-card').forEach(function(card) {
+    var strong = card.querySelector('.feed-post-author strong');
+    if (strong && strong.textContent.trim() === authorName) {
+      card.style.transition = 'opacity 0.3s';
+      card.style.opacity = '0';
+      setTimeout(function() { if (card.parentNode) card.parentNode.removeChild(card); }, 300);
+    }
+  });
+  showToast('@' + authorName + ' wird ignoriert', 'person_off');
+}
+
+function reportPost(postId) {
+  closePostMenu();
+  // Simple reason selection sheet
+  var overlay = document.createElement('div');
+  overlay.className = 'post-options-overlay';
+  overlay.id = 'postOptionsOverlay';
+  overlay.onclick = closePostMenu;
+
+  var sheet = document.createElement('div');
+  sheet.className = 'post-options-sheet';
+  sheet.id = 'postOptionsSheet';
+  var reasons = ['Spam oder Werbung', 'Unangemessene Inhalte', 'Belästigung oder Mobbing', 'Falsche Informationen', 'Urheberrechtsverletzung', 'Anderer Grund'];
+  sheet.innerHTML =
+    '<div class="post-options-handle"></div>' +
+    '<div style="padding:4px 24px 12px;font-weight:700;font-size:16px;color:var(--text)">Warum möchtest du diesen Beitrag melden?</div>' +
+    reasons.map(function(r) {
+      return '<button class="post-options-item" onclick="submitReport(\'' + postId + '\', \'' + r + '\')">' +
+        '<span class="material-icons-round">chevron_right</span>' + r +
+      '</button>';
+    }).join('') +
+    '<button class="post-options-cancel" onclick="closePostMenu()">Abbrechen</button>';
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(sheet);
+  requestAnimationFrame(function() {
+    overlay.classList.add('visible');
+    sheet.classList.add('visible');
+  });
+}
+
+function submitReport(postId, reason) {
+  closePostMenu();
+  _ignoredPosts.add(postId);
+  var card = document.querySelector('[data-post-id="' + postId + '"]');
+  if (card) {
+    card.style.transition = 'opacity 0.3s';
+    card.style.opacity = '0';
+    setTimeout(function() { if (card.parentNode) card.parentNode.removeChild(card); }, 300);
+  }
+  showToast('Beitrag gemeldet. Danke für dein Feedback.', 'flag');
+}
+
 var _socialPosts = (function() {
   var stored = JSON.parse(localStorage.getItem('eb_social_posts') || 'null');
   // Regenerate if old format (no suche- types)
@@ -15472,14 +15601,14 @@ function renderSocialPostCard(post) {
   var isProvider = currentUser && currentUser.role === 'Dienstleister';
   var contactBtn = (isSearch && isProvider) ? '<button class="feed-contact-btn" onclick="showToast(\'Kontakt-Anfrage gesendet!\',\'check_circle\')"><span class="material-icons-round">mail_outline</span> Angebot stellen</button>' : '';
 
-  return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '">' +
+  return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '" data-post-id="' + post.id + '">' +
     '<div class="feed-post-header">' +
       '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || ebAvatar(post.author || 'user', post.author)) + '" alt="' + _escHtml(post.author) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" />' +
       '<div class="feed-post-author">' +
         '<strong>' + _escHtml(post.author) + '</strong>' +
         '<div class="feed-post-meta">' + typeBadge + ' <span>' + timeAgo(post.time) + '</span></div>' +
       '</div>' +
-      '<button class="feed-more-btn"><span class="material-icons-round">more_horiz</span></button>' +
+      '<button class="feed-more-btn" onclick="openPostMenu(event,\'' + post.id + '\',\'' + (post.author || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
     imgBlock +
     searchInfo +
@@ -15507,14 +15636,14 @@ function renderSocialPostCard(post) {
 function renderListingFeedCard(l) {
   var avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
   var isFav = favorites.has(l.id);
-  return '<div class="feed-post-card">' +
+  return '<div class="feed-post-card" data-post-id="listing-' + l.id + '">' +
     '<div class="feed-post-header">' +
       '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
       '<div class="feed-post-author">' +
         '<strong onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')">' + _escHtml(l.providerName) + '</strong>' +
         '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span>' + timeAgo(l.createdAt) + '</span></div>' +
       '</div>' +
-      '<button class="feed-more-btn"><span class="material-icons-round">more_horiz</span></button>' +
+      '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
     '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" />' +
     '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
