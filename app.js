@@ -128,6 +128,16 @@ window._fitFeedImg = function(img) {
   }
 };
 
+// Explore-Bild Auto-Fit: gleiche Logik wie Feed. Banner / Hochformat -> contain (volles Bild),
+// normale Fotos behalten "cover". Dahinter liegt das Bild als unscharfer Hintergrund (siehe CSS).
+window._fitExploreImg = function(img) {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return;
+  var ratio = img.naturalWidth / img.naturalHeight;
+  if (ratio > 1.4 || ratio < 0.85) {
+    img.classList.add('explore-item-img-contain');
+  }
+};
+
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -1293,8 +1303,8 @@ function renderExploreGrid(filter) {
   }
   grid.innerHTML = items.map((it, i) => {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
-    return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;">
-      <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+    return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
+      <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
         <span class="explore-item-price">${_escHtml(it.price)}</span>
