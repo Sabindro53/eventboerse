@@ -135,7 +135,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2747449/pexels-photo-2747449.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Max Beats',
-    providerImg: ebAvatar('dj1', 'DJ SoundMaster'),
+    providerImg: ebAvatar('dj1', 'Max Beats'),
     providerSince: '2021',
     description: `<p>Hey! Ich bin Max, professioneller DJ mit über 10 Jahren Erfahrung in der Berliner Eventszene. Ob Hochzeit, Geburtstag oder Firmen-Gala – ich bringe die perfekte Stimmung für jedes Event.</p>
     <h3>Was mich auszeichnet</h3>
@@ -161,7 +161,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1199957/pexels-photo-1199957.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Elena Schmitt',
-    providerImg: ebAvatar('elena', 'Elena'),
+    providerImg: ebAvatar('elena', 'Elena Schmitt'),
     providerSince: '2019',
     description: `<p>Wir kreieren unvergessliche kulinarische Erlebnisse für Ihr Event. Von feinen Canapés über Flying Buffets bis hin zu mehrgängigen Menüs – alles aus frischen, regionalen Zutaten.</p>
     <h3>Unser Versprechen</h3>
@@ -188,7 +188,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2788792/pexels-photo-2788792.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Sabine Rhein',
-    providerImg: ebAvatar('sabine', 'Sabine'),
+    providerImg: ebAvatar('sabine', 'Sabine Rhein'),
     providerSince: '2023',
     description: `<p>Modernes Catering aus Düsseldorf für Events jeder Größe. Ob Business-Lunch, Hochzeit oder private Feier – wir liefern kreative Menüs und besten Service direkt an den Rhein.</p>
     <h3>Unser Angebot</h3>
@@ -214,7 +214,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2307040/pexels-photo-2307040.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Lisa Blumen',
-    providerImg: ebAvatar('lisa', 'Lisa'),
+    providerImg: ebAvatar('lisa', 'Lisa Blumen'),
     providerSince: '2020',
     description: `<p>Wir verwandeln jeden Raum in ein florales Paradies. Unsere Blumenarrangements werden mit Liebe zum Detail und einem Gespür für aktuelle Trends gestaltet.</p>
     <h3>Unser Service</h3>
@@ -240,7 +240,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/2263436/pexels-photo-2263436.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Timo Licht',
-    providerImg: ebAvatar('timo', 'Timo'),
+    providerImg: ebAvatar('timo', 'Timo Licht'),
     providerSince: '2018',
     description: `<p>Professionelle Licht- und Tontechnik für Events jeder Größe. Wir schaffen Atmosphäre mit modernster LED-Technik, Moving Heads und intelligenter Steuerung.</p>`,
     features: ['LED-Beleuchtung', 'Moving Heads', 'Nebelmaschinen', 'Soundsystem', 'DMX-Steuerung', 'Techniker vor Ort'],
@@ -264,7 +264,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1071882/pexels-photo-1071882.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Oliver Pyro',
-    providerImg: ebAvatar('oliver', 'Oliver'),
+    providerImg: ebAvatar('oliver', 'Oliver Pyro'),
     providerSince: '2017',
     description: `<p>Spektakuläre Feuerwerke und Pyrotechnik-Shows für unvergessliche Momente. Von Hochzeitsfeuerwerken bis zu Großveranstaltungen – wir setzen Ihr Event in Szene.</p>`,
     features: ['Höhenfeuerwerk', 'Bühnen-Pyro', 'Kalte Funken', 'Indoor-Pyro', 'Flammeneffekte', 'Choreografie'],
@@ -288,7 +288,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1787235/pexels-photo-1787235.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Anna Foto',
-    providerImg: ebAvatar('anna', 'Anna'),
+    providerImg: ebAvatar('anna', 'Anna Foto'),
     providerSince: '2019',
     description: `<p>Emotionale und authentische Event-Fotografie. Ich halte die besonderen Momente eures Events in einzigartigen Bildern fest – natürlich und ungestellt.</p>`,
     features: ['Reportage-Stil', 'Paar-Shooting', 'Fotobox-Option', 'Online-Galerie', 'Alle Bilder bearbeitet', 'Print-Optionen'],
@@ -312,7 +312,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1488267/pexels-photo-1488267.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Schloss Management',
-    providerImg: ebAvatar('schloss', 'Schloss Berg'),
+    providerImg: ebAvatar('schloss', 'Schloss Management'),
     providerSince: '2016',
     description: `<p>Feiern Sie Ihr Event in einem traumhaften Schloss direkt am See. Unsere Location bietet den perfekten Rahmen für Hochzeiten, Galas und exklusive Veranstaltungen.</p>`,
     features: ['Bis 200 Gäste', 'Außenbereich mit Seeblick', 'Brautsuite', 'Eigene Küche', 'Parkplätze', 'Barrierefreiheit'],
@@ -336,7 +336,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/1405528/pexels-photo-1405528.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Sophie Deko',
-    providerImg: ebAvatar('sophie', 'Sophie'),
+    providerImg: ebAvatar('sophie', 'Sophie Deko'),
     providerSince: '2020',
     description: `<p>Kreative Event-Dekoration die begeistert. Von Ballongirlanden über Tischdeko bis hin zu kompletten Raumkonzepten – wir machen euer Event unvergesslich schön.</p>`,
     features: ['Balloon-Installationen', 'Tischdekorationen', 'Backdrop-Design', 'Candy-Bar', 'Licht-Elemente', 'Auf- und Abbau'],
@@ -360,7 +360,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/5676744/pexels-photo-5676744.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Thomas Meier',
-    providerImg: ebAvatar('thomas', 'Thomas'),
+    providerImg: ebAvatar('thomas', 'Thomas Meier'),
     providerSince: '2015',
     description: `<p>Full-Service Eventplanung für Ihr perfektes Event. Wir kümmern uns um alles – von der Konzeption über die Koordination bis zur Durchführung.</p>`,
     features: ['Konzeptentwicklung', 'Vendor-Management', 'Budget-Planung', 'Tag-Koordination', 'Timeline-Erstellung', 'Notfall-Management'],
@@ -384,7 +384,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/8827060/pexels-photo-8827060.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Stefan MC',
-    providerImg: ebAvatar('stefan', 'Stefan'),
+    providerImg: ebAvatar('stefan', 'Stefan MC'),
     providerSince: '2018',
     description: `<p>Charmante und professionelle Moderation für jedes Event. Ob Hochzeit, Firmenfeier oder Gala – ich führe souverän durch den Abend.</p>`,
     features: ['Hochzeitsmoderation', 'Firmen-Moderation', 'Gala-Moderation', 'Zweisprachig DE/EN', 'Spielemoderation', 'Musikwünsche'],
@@ -408,7 +408,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/3757952/pexels-photo-3757952.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Lisa & Tom Wellness',
-    providerImg: ebAvatar('lisaspa', 'Lisa Spa'),
+    providerImg: ebAvatar('lisaspa', 'Lisa & Tom Wellness'),
     providerSince: '2022',
     description: `<p>Gönnt euch als Paar einen unvergesslichen Spa-Abend! Unser exklusives Wellness-Paket verwöhnt euch mit wohltuenden Massagen, aromatischen Bädern und einer Atmosphäre zum Entspannen und Genießen.</p>
     <h3>Euer Spa-Erlebnis</h3>
@@ -434,7 +434,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/9009587/pexels-photo-9009587.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Niko & Band',
-    providerImg: ebAvatar('niko', 'Niko'),
+    providerImg: ebAvatar('niko', 'Niko & Band'),
     providerSince: '2019',
     description: `<p>Live-Musik, die unter die Haut geht! Unsere 5-köpfige Band spielt von Pop über Soul bis Rock – perfekt für Hochzeiten, Firmenfeiern und Galas.</p>
     <h3>Unser Sound</h3>
@@ -460,7 +460,7 @@ const LISTINGS = [
       'https://images.pexels.com/photos/4882162/pexels-photo-4882162.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Julian Film',
-    providerImg: ebAvatar('julian', 'Julian'),
+    providerImg: ebAvatar('julian', 'Julian Film'),
     providerSince: '2020',
     description: `<p>Wir halten eure schönsten Momente in cineastischen Videos fest. Von emotionalen Hochzeitsfilmen bis zu dynamischen Event-Trailern – wir erzählen eure Geschichte.</p>
     <h3>Unser Angebot</h3>
@@ -486,7 +486,7 @@ const LISTINGS = [
       'https://images.unsplash.com/photo-1510076857177-7470076d4098?w=600&h=400&fit=crop&auto=format',
     ],
     providerName: 'Gartenpark Team',
-    providerImg: ebAvatar('garten', 'Garten'),
+    providerImg: ebAvatar('garten', 'Gartenpark Team'),
     providerSince: '2021',
     description: `<p>Feiern unter freiem Himmel in unserem wunderschönen Gartenpark! Die perfekte Location für Sommerfeste, Gartenpartys und romantische Trauungen im Grünen.</p>
     <h3>Die Location</h3>
