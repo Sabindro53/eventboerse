@@ -502,6 +502,14 @@
             <input type="text" id="exploreSearch" placeholder="Angebote durchsuchen..." oninput="filterExploreGrid()" />
           </div>
         </div>
+        <div class="feed-tabs explore-tabs">
+          <button class="feed-tab" onclick="navigateTo('aktuelles')">Für dich</button>
+          <button class="feed-tab feed-tab-discover active"><span class="material-icons-round">explore</span>Entdecken<span class="feed-tab-badge">NEU</span></button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'gesuche\']'); if(b) switchFeedTab(b);},80)">Gesuche</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'events\']'); if(b) switchFeedTab(b);},80)">Events</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'newest\']'); if(b) switchFeedTab(b);},80)">Neueste</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'popular\']'); if(b) switchFeedTab(b);},80)">Beliebt</button>
+        </div>
         <div class="explore-grid" id="exploreGrid"></div>
       </div>
     </section>

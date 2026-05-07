@@ -2522,6 +2522,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   border-radius: 8px;
   line-height: 1.4;
 }
+.explore-tabs {
+  margin: 8px 0 20px;
+}
 .feed-list {
   display: flex;
   flex-direction: column;
