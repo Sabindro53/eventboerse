@@ -2198,10 +2198,10 @@ function updateChipLabel(sel) {
 }
 
 function filterListings() {
-  const search = document.getElementById('browseSearch').value.toLowerCase().trim();
-  const category = document.getElementById('browseCategory').value;
+  const search = (document.getElementById('browseSearch')?.value || '').toLowerCase().trim();
+  const category = document.getElementById('browseCategory')?.value || '';
   const eventType = document.getElementById('browseEventType')?.value || '';
-  const location = document.getElementById('browseLocation').value.toLowerCase().trim();
+  const location = (document.getElementById('browseLocation')?.value || '').toLowerCase().trim();
   const priceRange = document.getElementById('browsePrice')?.value || '';
   const minRating = document.getElementById('browseRating')?.value || '';
 
