@@ -509,6 +509,21 @@ const LISTINGS = [
   }
 ];
 
+// Auto-Sync: Alle Demo-Provider-IDs aus LISTINGS in die Filter-Liste übernehmen,
+// damit jedes hardcodierte Demo-Inserat (Bot-Account) automatisch ausgeblendet wird,
+// wenn EB_HIDE_DEMO aktiv ist. So muss die Liste nie manuell gepflegt werden.
+(function syncDemoProviderIdsFromListings(){
+  try {
+    if (!Array.isArray(LISTINGS)) return;
+    var ids = Array.isArray(window.EB_DEMO_PROVIDER_IDS) ? window.EB_DEMO_PROVIDER_IDS.slice() : [];
+    LISTINGS.forEach(function(l){
+      var pid = l && (l.providerId != null ? l.providerId : (l.provider && l.provider.id));
+      if (pid != null && !isNaN(+pid) && ids.indexOf(+pid) === -1) ids.push(+pid);
+    });
+    window.EB_DEMO_PROVIDER_IDS = ids;
+  } catch(e) { /* fail-safe: kein Block, falls LISTINGS noch nicht da */ }
+})();
+
 const DEMO_REVIEWS = [
   { name: 'Sarah L.', avatar: 'sarah2', rating: 5, date: 'Februar 2026', text: 'Absolut fantastisch! Max hat unsere Hochzeitsfeier unvergesslich gemacht. Die Musikauswahl war perfekt!' },
   { name: 'Markus W.', avatar: 'markus', rating: 5, date: 'Januar 2026', text: 'Professionell, zuverlässig und eine geniale Stimmung. Jederzeit wieder!' },
