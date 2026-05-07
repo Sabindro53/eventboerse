@@ -2496,6 +2496,32 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .feed-tab:hover {
   color: var(--dark);
 }
+.feed-tab-discover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  position: relative;
+  color: var(--primary);
+}
+.feed-tab-discover .material-icons-round {
+  font-size: 16px;
+}
+.feed-tab-discover:hover {
+  color: var(--primary-dark);
+}
+.feed-tab-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #fff;
+  background: var(--primary);
+  border-radius: 8px;
+  line-height: 1.4;
+}
 .feed-list {
   display: flex;
   flex-direction: column;
