@@ -10791,6 +10791,10 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   cursor: pointer;
   transition: opacity 0.2s;
 }
+.feed-post-image.feed-post-image-contain {
+  object-fit: contain;
+  background: #0F0F0F;
+}
 .feed-post-image:hover { opacity: 0.95; }
 
 /* Post Event Info (for event post type) */

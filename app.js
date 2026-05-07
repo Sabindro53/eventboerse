@@ -117,6 +117,16 @@ window.EB_IMG_FALLBACK = window.EB_IMG_FALLBACK || (
 // HTML-Attribut, das Card-Images verwenden – "this.onerror=null" verhindert Endlosschleife.
 window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"';
 
+// Feed-Bild Auto-Fit: Banner / Hochformat -> contain (volles Bild), normale Fotos -> cover
+window._fitFeedImg = function(img) {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return;
+  var ratio = img.naturalWidth / img.naturalHeight;
+  // Sehr breit (Banner mit Text/Logo) oder Hochformat -> komplett zeigen
+  if (ratio > 2.2 || ratio < 0.85) {
+    img.classList.add('feed-post-image-contain');
+  }
+};
+
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -15623,7 +15633,7 @@ function renderSocialPostCard(post) {
       '</div>';
   }
 
-  var imgBlock = post.image ? '<img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" />' : '';
+  var imgBlock = post.image ? '<img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' : '';
 
   // Contact button for search posts — only visible to Dienstleister
   var isProvider = currentUser && currentUser.role === 'Dienstleister';
@@ -15673,7 +15683,7 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" />' +
+    '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' +
     '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +
