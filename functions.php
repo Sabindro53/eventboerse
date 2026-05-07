@@ -575,6 +575,37 @@ function eb_demo_provider_ids() {
     return array( 90001, 90002, 90003, 90004, 90005, 90006, 90007, 90008, 90009 );
 }
 
+/**
+ * Liefert TRUE, wenn der angegebene User als Test-/Bot-Account markiert ist.
+ * Quelle: user_meta `eb_is_demo` = '1' ODER ID in eb_demo_provider_ids().
+ */
+function eb_user_is_demo( $user_id ) {
+    $user_id = (int) $user_id;
+    if ( $user_id <= 0 ) return false;
+    if ( in_array( $user_id, eb_demo_provider_ids(), true ) ) return true;
+    return get_user_meta( $user_id, 'eb_is_demo', true ) === '1';
+}
+
+/**
+ * Sammlung aller bekannten Demo-/Bot-User-IDs:
+ * hardcoded Bot-Range (90001–90009) + alle User mit user_meta `eb_is_demo`='1'.
+ * Wird (a) ans Frontend für `EB_DEMO_PROVIDER_IDS` geliefert und (b) für den
+ * server-seitigen Filter in `eb_listings_list()` genutzt.
+ */
+function eb_all_demo_user_ids() {
+    static $cache = null;
+    if ( $cache !== null ) return $cache;
+    $marked = get_users( array(
+        'meta_key'   => 'eb_is_demo',
+        'meta_value' => '1',
+        'fields'     => 'ID',
+        'number'     => 500,
+    ) );
+    $marked = array_map( 'intval', (array) $marked );
+    $cache  = array_values( array_unique( array_merge( eb_demo_provider_ids(), $marked ) ) );
+    return $cache;
+}
+
 /** Aktueller Zustand des Hide-Demo-Toggles (sitewide, persistent in wp_options). */
 function eb_hide_demo_enabled() {
     return get_option( 'eb_hide_demo', '0' ) === '1';
@@ -584,7 +615,7 @@ function eb_hide_demo_enabled() {
 function eb_admin_hide_demo_get() {
     return new WP_REST_Response( array(
         'hide'      => eb_hide_demo_enabled(),
-        'demo_ids'  => eb_demo_provider_ids(),
+        'demo_ids'  => eb_all_demo_user_ids(),
     ), 200 );
 }
 
@@ -597,12 +628,36 @@ function eb_admin_hide_demo_set( WP_REST_Request $request ) {
 }
 
 /**
+ * POST /admin/toggle-demo — Body: { user_id: int, is_demo: bool }.
+ *
+ * Markiert einen User als Demo-/Bot-Account (oder hebt die Markierung auf).
+ * Hardcoded Bot-IDs (90001–90009) können nicht entmarkiert werden.
+ */
+function eb_admin_toggle_demo( WP_REST_Request $request ) {
+    $params  = $request->get_json_params();
+    $user_id = absint( $params['user_id'] ?? 0 );
+    $on      = ! empty( $params['is_demo'] );
+    if ( ! get_userdata( $user_id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Nutzer nicht gefunden.' ), 404 );
+    }
+    if ( in_array( $user_id, eb_demo_provider_ids(), true ) ) {
+        return new WP_REST_Response( array( 'message' => 'Hardcoded Bot kann nicht geändert werden.' ), 409 );
+    }
+    if ( $on ) {
+        update_user_meta( $user_id, 'eb_is_demo', '1' );
+    } else {
+        delete_user_meta( $user_id, 'eb_is_demo' );
+    }
+    return new WP_REST_Response( array( 'user_id' => $user_id, 'is_demo' => $on ), 200 );
+}
+
+/**
  * Globalen Frontend-Flag (window.EB_HIDE_DEMO) in den <head> injizieren,
  * damit alle Visitoren konsistent dieselben Listings sehen.
  */
 add_action( 'wp_head', function() {
     $flag = eb_hide_demo_enabled() ? 'true' : 'false';
-    $ids  = wp_json_encode( eb_demo_provider_ids() );
+    $ids  = wp_json_encode( eb_all_demo_user_ids() );
     echo "<script>window.EB_HIDE_DEMO=" . $flag . ";window.EB_DEMO_PROVIDER_IDS=" . $ids . ";</script>\n";
 }, 1 );
 
@@ -2484,6 +2539,13 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
+    /* Demo-Flag pro User toggeln — Body: { user_id: int, is_demo: bool }. */
+    register_rest_route( 'eventboerse/v1', '/admin/toggle-demo', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_toggle_demo',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     /* Hide-Demo-Toggle (Bot-Inserate 90001–90009 sitewide ein/ausblenden) */
     register_rest_route( 'eventboerse/v1', '/admin/hide-demo', array(
         array(
@@ -2785,6 +2847,18 @@ function eb_listings_list( WP_REST_Request $request ) {
     $where  = 'WHERE status = %s';
     $params = array( 'active' );
 
+    // Server-seitiger Demo-Filter: wenn der globale Toggle aktiv ist, blenden
+    // wir alle Inserate von als Demo markierten Usern (hardcoded Bots
+    // 90001–90009 + dynamisch markierte Test-User) bereits in der DB-Query aus.
+    if ( eb_hide_demo_enabled() ) {
+        $demo_ids = eb_all_demo_user_ids();
+        if ( ! empty( $demo_ids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $demo_ids ), '%d' ) );
+            $where  .= " AND user_id NOT IN ($placeholders)";
+            $params  = array_merge( $params, array_map( 'intval', $demo_ids ) );
+        }
+    }
+
     // Optional filters
     $category = sanitize_text_field( $request->get_param( 'category' ) );
     if ( $category ) {
@@ -2890,6 +2964,7 @@ function eb_format_listing( $row ) {
     return array(
         'id'            => (int) $row['id'],
         'providerId'    => (int) $row['user_id'],
+        'isDemo'        => eb_user_is_demo( $row['user_id'] ),
         'title'         => $row['title'],
         'category'      => $row['category'],
         'categoryLabel' => $row['category_label'],
@@ -3853,6 +3928,7 @@ function eb_admin_list_users( WP_REST_Request $request ) {
             'company'    => get_user_meta( $u->ID, 'eb_company', true ),
             'isAdmin'    => eb_is_admin_user( $u->ID ),
             'isActive'   => get_user_meta( $u->ID, 'eb_deactivated', true ) !== '1',
+            'isDemo'     => eb_user_is_demo( $u->ID ),
             'listings'   => $listing_count,
             'reviews'    => $review_count,
             'tags'       => array_values( array_filter( (array) get_user_meta( $u->ID, 'eb_tags', true ) ) ),

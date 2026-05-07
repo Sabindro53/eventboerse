@@ -78,7 +78,12 @@ window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,
 window.EB_HIDE_DEMO = !!window.EB_HIDE_DEMO;
 function isDemoListing(l) {
   if (!l) return false;
-  if (l._fromDb) return false; // echte DB-Inserate sind nie Demo
+  // Server liefert isDemo=true für alle als Test/Bot markierten User
+  // (hardcoded 90001–90009 ODER user_meta eb_is_demo='1').
+  // Diese Prüfung greift VOR dem _fromDb-Check, damit auch nachträglich
+  // angelegte DB-Inserate von Demo-Usern korrekt ausgeblendet werden.
+  if (l.isDemo === true) return true;
+  if (l._fromDb) return false; // echte DB-Inserate (nicht-Demo) sind nie Demo
   var pid = l.providerId != null ? l.providerId : (l.provider && l.provider.id);
   return pid != null && window.EB_DEMO_PROVIDER_IDS.indexOf(+pid) !== -1;
 }
@@ -4128,8 +4133,8 @@ function renderChatList() {
         return;
       }
       list.innerHTML = archiveToggle + visible.map(function(c) {
-        var avatar = c.other_photo || ebAvatar('default');
         var name = c.other_name || 'Unbekannt';
+        var avatar = c.other_photo || ebAvatar(name, name);
         var lastMsg = c.last_message || '';
         // Pretty-print booking messages in sidebar preview
         if (_isBookingContent(lastMsg)) {
@@ -4171,10 +4176,11 @@ function openChat(chatId) {
     .then(function(r) { return r.json(); })
     .then(function(messages) {
       var convo = (window._conversations || []).find(function(c) { return c.id === chatId; });
+      var _ccName = convo ? (convo.other_name || 'Chat') : 'Chat';
       currentChat = {
         id: chatId,
-        name: convo ? convo.other_name : 'Chat',
-        avatar: convo ? (convo.other_photo || ebAvatar('default')) : ebAvatar('default'),
+        name: _ccName,
+        avatar: convo ? (convo.other_photo || ebAvatar(_ccName, _ccName)) : ebAvatar(_ccName, _ccName),
         otherId: convo ? convo.otherId : null,
         online: false,
         messages: messages || []
@@ -7996,12 +8002,13 @@ function renderAdminHideDemoToggle() {
   var host = document.getElementById('adminHideDemoBox');
   if (!host) return;
   var on = !!window.EB_HIDE_DEMO;
+  var idCount = (window.EB_DEMO_PROVIDER_IDS || []).length;
   host.innerHTML =
     '<div class="admin-toggle-info">' +
       '<span class="material-icons-round" style="color:var(--primary)">science</span>' +
       '<div>' +
         '<strong>Test-/Bot-Inserate</strong>' +
-        '<p>Demo-Anbieter (IDs ' + window.EB_DEMO_PROVIDER_IDS.join(', ') + ') in Marquee, Browse, Explore, Feed und Karte ' +
+        '<p>' + idCount + ' als Demo markierte Nutzer (Bots 90001–90009 + manuell markierte Konten) werden in Marquee, Browse, Explore, Feed und Karte ' +
           (on ? '<u>aktuell ausgeblendet</u>' : '<u>aktuell sichtbar</u>') + '.</p>' +
       '</div>' +
     '</div>' +
@@ -8068,9 +8075,11 @@ function renderAdminUserList(users) {
       '</div>' +
     '</span>';
     var isActive = u.isActive !== false;
+    var isDemoUser = !!u.isDemo;
     var isSelf = currentUser && currentUser.id === u.id;
     var activeBadge = !isActive ? ' <span class="admin-role-badge admin-role-deactivated">Deaktiviert</span>' : '';
-    var cardClass = 'admin-user-card' + (u.isAdmin ? ' is-admin' : '') + (!isActive ? ' is-deactivated' : '');
+    var demoBadge = isDemoUser ? ' <span class="admin-role-badge admin-role-demo" title="Test-/Bot-Account">Demo</span>' : '';
+    var cardClass = 'admin-user-card' + (u.isAdmin ? ' is-admin' : '') + (!isActive ? ' is-deactivated' : '') + (isDemoUser ? ' is-demo' : '');
 
     // Display name + username
     var realName = '';
@@ -8110,6 +8119,19 @@ function renderAdminUserList(users) {
           '</button>';
         }
       }
+      // Demo-/Bot-Markierung (nicht für hardcoded Bot-IDs 90001–90009 — die sind permanent)
+      var _isHardcodedBot = window.EB_DEMO_PROVIDER_IDS && window.EB_DEMO_PROVIDER_IDS.indexOf(+u.id) !== -1;
+      if (!u.isAdmin && !_isHardcodedBot) {
+        if (isDemoUser) {
+          actionBtns += '<button class="btn-outline btn-sm admin-undemo-btn" onclick="adminToggleDemoUser(' + u.id + ',false)" title="Demo-Markierung entfernen">' +
+            '<span class="material-icons-round">verified_user</span> Echter Nutzer' +
+          '</button>';
+        } else {
+          actionBtns += '<button class="btn-outline btn-sm admin-makedemo-btn" onclick="adminToggleDemoUser(' + u.id + ',true)" title="Als Test-/Bot-Account markieren">' +
+            '<span class="material-icons-round">science</span> Als Testnutzer' +
+          '</button>';
+        }
+      }
       // Admin promote / demote
       if (u.isAdmin) {
         actionBtns += '<button class="btn-outline btn-sm admin-revoke-btn" onclick="adminRevokeAdmin(' + u.id + ')" title="Admin-Rechte entziehen">' +
@@ -8133,7 +8155,7 @@ function renderAdminUserList(users) {
         '<img src="' + _escHtml(avatarSrc) + '" alt="">' +
       '</div>' +
       '<div class="admin-user-info">' +
-        '<div class="admin-user-name">' + displayName + ' ' + roleBadge + tagBadges + activeBadge + '</div>' +
+        '<div class="admin-user-name">' + displayName + ' ' + roleBadge + tagBadges + activeBadge + demoBadge + '</div>' +
         '<div class="admin-user-meta">' +
           '<span>' + _escHtml(u.email) + '</span>' +
           (u.company ? ' · <span>' + _escHtml(u.company) + '</span>' : '') +
@@ -8283,6 +8305,47 @@ function adminToggleActive(userId) {
     showToast('Benutzer ' + (d.isActive ? 'aktiviert' : 'deaktiviert') + '.', d.isActive ? 'success' : 'warning');
     loadAdminUsers();
   }).catch(function(e) { showToast(e.message || 'Fehler beim Umschalten', 'error'); });
+}
+
+/**
+ * Markiert einen User als Test-/Bot-Account oder hebt die Markierung auf.
+ * Nach Erfolg: Admin-Liste neu laden UND Demo-IDs/Listings refreshen,
+ * damit der globale Hide-Demo-Filter sofort greift.
+ */
+function adminToggleDemoUser(userId, makeDemo) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  var msg = makeDemo
+    ? 'Diesen Nutzer als Test-/Bot-Account markieren? Seine Inserate werden bei aktiviertem Demo-Filter sitewide ausgeblendet.'
+    : 'Demo-Markierung wirklich entfernen? Inserate dieses Nutzers werden wieder als echt behandelt.';
+  if (!confirm(msg)) return;
+  fetch(_apiUrl('admin/toggle-demo'), {
+    method: 'POST', credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ user_id: userId, is_demo: !!makeDemo })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (r.ok) return r.json();
+    return r.json().then(function(d) { throw new Error(d.message || 'Fehler'); });
+  }).then(function(d) {
+    // Demo-ID-Liste lokal nachziehen, damit Filter ohne Reload greift
+    var ids = window.EB_DEMO_PROVIDER_IDS || [];
+    var i = ids.indexOf(+userId);
+    if (d.is_demo && i === -1) ids.push(+userId);
+    if (!d.is_demo && i !== -1) ids.splice(i, 1);
+    window.EB_DEMO_PROVIDER_IDS = ids;
+    showToast(d.is_demo ? 'Nutzer als Testaccount markiert' : 'Demo-Markierung entfernt', 'success');
+    loadAdminUsers();
+    // DB-Listings frisch holen (Server filtert bei aktivem Toggle bereits selbst)
+    _dbListingsLoaded = false;
+    if (typeof loadDbListings === 'function') {
+      loadDbListings().then(function() {
+        try { renderHeroMarquees(); } catch(e) {}
+        try { renderBrowseGrid(LISTINGS); } catch(e) {}
+        try { renderExploreGrid(); } catch(e) {}
+        try { if (document.getElementById('feedList')) renderFeed('foryou'); } catch(e) {}
+      });
+    }
+  }).catch(function(e) { showToast(e.message || 'Fehler', 'error'); });
 }
 
 function adminMakeAdmin(userId) {
@@ -11899,7 +11962,7 @@ function renderKanbanCard(card) {
   }
   return `<div class="kanban-card" draggable="true" data-card-id="${card.id}" ondragstart="dragCard(event,'${card.id}')" onclick="event.stopPropagation()">
     <div class="kc-header">
-      <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.onerror=null;this.src=ebAvatar('fallback')" />
+      <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.onerror=null;this.src=ebAvatar(this.alt||'user',this.alt)" />
       <div>
         <div class="kc-name">${_escHtml(card.name)}</div>
         <div class="kc-category">${_escHtml(card.category || '')}</div>
@@ -12079,7 +12142,7 @@ function renderBoardTimeline() {
     var connector = i < confirmed.length - 1 ? '<div class="tl-connector"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 10h10M12 7l3 3-3 3"/></svg></div>' : '';
     return '<div class="tl-card animated-entry">' +
       '<div class="tl-time">' + _escHtml(timeStr) + '</div>' +
-      '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(card.name) + '" onerror="this.onerror=null;this.src=ebAvatar(\'fallback\')" />' +
+      '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(card.name) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" />' +
       '<h4>' + _escHtml(card.name) + '</h4>' +
       '<small>' + _escHtml(card.category || '') + '</small>' +
       '</div>' + connector;
@@ -12361,7 +12424,7 @@ function _renderBoardFlowImpl() {
         }
       }
       html += '<div class="flow-provider-inner">';
-      html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" onerror="this.onerror=null;this.src=ebAvatar(\'x\')" alt="" />';
+      html += '<img class="flow-prov-avatar" src="' + esc(avatar) + '" alt="' + esc(card.name || '') + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" />';
       html += '<div class="flow-prov-info">';
       html += '<strong>' + esc(card.name) + '</strong>';
       html += '<small>' + esc(card.category || '') + '</small>';
@@ -15411,7 +15474,7 @@ function renderSocialPostCard(post) {
 
   return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '">' +
     '<div class="feed-post-header">' +
-      '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || ebAvatar(post.author || 'user', post.author)) + '" alt="' + _escHtml(post.author) + '" onerror="this.onerror=null;this.src=ebAvatar(\'fallback\')" />' +
+      '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || ebAvatar(post.author || 'user', post.author)) + '" alt="' + _escHtml(post.author) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" />' +
       '<div class="feed-post-author">' +
         '<strong>' + _escHtml(post.author) + '</strong>' +
         '<div class="feed-post-meta">' + typeBadge + ' <span>' + timeAgo(post.time) + '</span></div>' +
@@ -15446,7 +15509,7 @@ function renderListingFeedCard(l) {
   var isFav = favorites.has(l.id);
   return '<div class="feed-post-card">' +
     '<div class="feed-post-header">' +
-      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(\'fallback\')" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
+      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
       '<div class="feed-post-author">' +
         '<strong onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')">' + _escHtml(l.providerName) + '</strong>' +
         '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span>' + timeAgo(l.createdAt) + '</span></div>' +

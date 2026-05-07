@@ -7772,9 +7772,21 @@ body.dark-mode .admin-tag-suggestion:hover {
   background: #fbe9e7;
   color: #e53935;
 }
+.admin-role-badge.admin-role-demo {
+  background: #fff3e0;
+  color: #ef6c00;
+}
 .admin-user-card.is-deactivated {
   opacity: 0.6;
   border-left: 3px solid #e53935;
+}
+.admin-user-card.is-demo {
+  border-left: 3px solid #ef6c00;
+}
+.admin-makedemo-btn .material-icons-round,
+.admin-undemo-btn .material-icons-round {
+  font-size: 16px;
+  vertical-align: middle;
 }
 .admin-user-login {
   font-weight: 400;
