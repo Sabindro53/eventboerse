@@ -15262,6 +15262,33 @@ function openPostMenu(event, postId, authorName) {
     overlay.classList.add('visible');
     sheet.classList.add('visible');
   });
+  _attachSheetSwipe(sheet, overlay);
+}
+
+function _attachSheetSwipe(sheet, overlay) {
+  var _startY = 0, _isDragging = false;
+  sheet.addEventListener('touchstart', function(e) {
+    _startY = e.touches[0].clientY;
+    _isDragging = true;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+  sheet.addEventListener('touchmove', function(e) {
+    if (!_isDragging) return;
+    var dy = e.touches[0].clientY - _startY;
+    if (dy > 0) {
+      sheet.style.transform = 'translateX(-50%) translateY(' + dy + 'px)';
+      overlay.style.opacity = Math.max(0, 1 - dy / 300);
+    }
+  }, { passive: true });
+  sheet.addEventListener('touchend', function(e) {
+    if (!_isDragging) return;
+    _isDragging = false;
+    var dy = e.changedTouches[0].clientY - _startY;
+    sheet.style.transition = '';
+    overlay.style.opacity = '';
+    if (dy > 80) { closePostMenu(); }
+    else { sheet.style.transform = 'translateX(-50%) translateY(0)'; }
+  }, { passive: true });
 }
 
 function closePostMenu() {
@@ -15338,6 +15365,7 @@ function reportPost(postId) {
     overlay.classList.add('visible');
     sheet.classList.add('visible');
   });
+  _attachSheetSwipe(sheet, overlay);
 }
 
 function submitReport(postId, reason) {
