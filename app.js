@@ -11126,12 +11126,14 @@ function addListingMarkers(listings) {
 function renderLocationsList(listings) {
   const list = document.getElementById('mapLocationsList');
   list.innerHTML = listings.map(l => {
+    const emoji = CATEGORY_EMOJI[l.category] || '📌';
     return `
       <div class="map-loc-item" data-id="${l.id}" onclick="focusMapMarker(${l.id})">
         <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
         <div class="map-loc-info">
-          <strong>${l.title}</strong>
-          <span>${l.location} · ${l.categoryLabel}</span>
+          <span class="map-loc-city">${l.location}</span>
+          <span class="map-loc-title">${l.title}</span>
+          <span class="map-loc-cat-badge">${emoji} ${l.categoryLabel}</span>
         </div>
         <div class="map-loc-price">${l.priceLabel}</div>
       </div>`;
