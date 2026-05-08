@@ -31,8 +31,8 @@
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
 
   <!-- Critical CSS first (render-blocking, but small) -->
-  <link rel="preload" href="styles.css?v=136" as="style" fetchpriority="high" />
-  <link rel="stylesheet" href="styles.css?v=136" />
+  <link rel="preload" href="styles.css?v=137" as="style" fetchpriority="high" />
+  <link rel="stylesheet" href="styles.css?v=137" />
 
   <!-- Fonts: async laden, vermeidet Render-Block (FOUT statt FOIT) -->
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
@@ -838,11 +838,13 @@
         <div class="no-results-container" id="noResultsContainer" style="display:none;">
           <div class="no-results-box">
             <span class="material-icons-round no-results-icon">search_off</span>
-            <h3>Leider keine Treffer</h3>
-            <p id="noResultsText">Für deine Suche konnten wir leider keine passenden Services finden.</p>
+            <div class="no-results-box-text">
+              <h3>Leider keine Treffer</h3>
+              <p id="noResultsText">Für deine Suche konnten wir leider keine passenden Services finden.</p>
+            </div>
           </div>
           <div class="alternatives-section" id="alternativesSection">
-            <h3><span class="material-icons-round">lightbulb</span> Alternativen in der Nähe</h3>
+            <h3><span class="material-icons-round">lightbulb</span> Das könnte dich auch interessieren</h3>
             <div class="listing-grid" id="alternativesGrid"></div>
           </div>
         </div>
@@ -3346,6 +3348,6 @@ Datum: ___________________________________________________
   <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
-  <script src="app.js?v=133" defer></script>
+  <script src="app.js?v=135" defer></script>
 </body>
 </html>

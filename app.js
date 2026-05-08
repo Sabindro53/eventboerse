@@ -1051,6 +1051,15 @@ function navigateTo(page, data, skipHistory) {
       renderAuftraegePage();
       break;
     case 'contact':
+      // Felder mit Kontaktdaten des angemeldeten Users vorausfüllen
+      try {
+        if (currentUser) {
+          var _cn = document.getElementById('contactName');
+          var _ce = document.getElementById('contactEmail');
+          if (_cn && !_cn.value) _cn.value = currentUser.name || '';
+          if (_ce && !_ce.value) _ce.value = currentUser.email || '';
+        }
+      } catch (e) {}
       break;
     case 'home':
       try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(home)', err); }
@@ -2297,6 +2306,24 @@ function filterListings() {
     noResultsEl.style.display = 'block';
     document.getElementById('browseResultCount').textContent = '0 Services gefunden';
     showNoResultsWithAlternatives(search, category, eventType, location);
+    // Fokus/Feedback: nach unten zum Bereich "Alternativen" scrollen,
+    // damit der Nutzer direkt sieht, dass Alternativen vorgeschlagen werden.
+    if (!window._ebNoResScrollTimer) {
+      window._ebNoResScrollTimer = setTimeout(function() {
+        window._ebNoResScrollTimer = null;
+        var target = document.getElementById('noResultsContainer');
+        if (!target || target.style.display === 'none') return;
+        // Nur scrollen, wenn das Element nicht im Viewport ist
+        var rect = target.getBoundingClientRect();
+        var inView = rect.top >= 80 && rect.top < window.innerHeight - 80;
+        if (!inView) {
+          window.scrollTo({
+            top: rect.top + window.pageYOffset - 100,
+            behavior: 'smooth'
+          });
+        }
+      }, 220);
+    }
   }
 }
 
