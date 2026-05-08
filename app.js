@@ -11132,8 +11132,7 @@ function renderLocationsList(listings) {
         <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
         <div class="map-loc-info">
           <span class="map-loc-city">${l.location}</span>
-          <span class="map-loc-title">${l.title}</span>
-          <span class="map-loc-cat-badge">${emoji} ${l.categoryLabel}</span>
+          <span class="map-loc-cat">${emoji} ${l.categoryLabel}</span>
         </div>
         <div class="map-loc-price">${l.priceLabel}</div>
       </div>`;
