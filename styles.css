@@ -3541,9 +3541,6 @@ body.dark-mode .map-loc-item { background: rgba(255,255,255,0.03); }
 .map-loc-cat {
   font-size: 0.75rem;
   color: var(--text-light);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: block;
   line-height: 1.4;
 }
