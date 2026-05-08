@@ -3250,6 +3250,8 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-top: 20px;
+  margin-bottom: 20px;
 }
 .detail-provider-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
 .detail-provider-row strong { display: block; font-size: 1rem; color: var(--dark); }
