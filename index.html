@@ -3322,7 +3322,7 @@ Datum: ___________________________________________________
         <span class="material-icons-round cookie-banner-icon" aria-hidden="true">cookie</span>
         <div>
           <h3>Hinweis zu Cookies</h3>
-          <p>Diese Plattform verwendet ausschließlich technisch notwendige Cookies (Session-Login, CSRF-Schutz, Zahlungsabwicklung via Stripe). Analyse- oder Marketing-Cookies werden derzeit <strong>nicht</strong> eingesetzt. Weitere Informationen: <a href="#" onclick="event.preventDefault(); navigateTo('cookies')">Cookie-Richtlinie</a>.</p>
+          <p>Diese Plattform verwendet ausschließlich technisch notwendige Cookies (Session-Login, CSRF-Schutz, Zahlungsabwicklung via Stripe). Analyse- oder Marketing-Cookies werden derzeit <strong>nicht</strong> eingesetzt. Weitere Informationen: <a href="#" onclick="event.preventDefault(); openCookiePolicyModal()">Cookie-Richtlinie</a>.</p>
         </div>
       </div>
       <div class="cookie-categories">
@@ -3339,6 +3339,31 @@ Datum: ___________________________________________________
       </div>
       <div class="cookie-actions">
         <button class="btn-primary btn-sm" id="cookieAcceptAll">Verstanden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cookie-Richtlinien Modal -->
+  <div class="modal-overlay" id="cookiePolicyModal" role="dialog" aria-modal="true" aria-label="Cookie-Richtlinie" onclick="if(event.target===this)closeCookiePolicyModal()">
+    <div class="modal" style="max-width:660px">
+      <button class="modal-close" onclick="closeCookiePolicyModal()" aria-label="Schließen"><span class="material-icons-round">close</span></button>
+      <h2 style="margin-bottom:4px">Cookie-Richtlinie</h2>
+      <p style="font-size:0.8rem;color:var(--text-light);margin-bottom:20px">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
+      <p style="font-size:0.85rem;margin-bottom:16px">Diese Plattform verwendet ausschließlich technisch notwendige Cookies gemäß § 25 Abs. 2 Nr. 2 TDDDG. Analyse- oder Marketing-Cookies werden derzeit <strong>nicht</strong> eingesetzt.</p>
+      <table class="legal-table" style="font-size:0.82rem;margin-bottom:16px">
+        <thead><tr><th>Name / Zweck</th><th>Kategorie</th><th>Speicherdauer</th></tr></thead>
+        <tbody>
+          <tr><td>PHPSESSID — Session-Login</td><td>Technisch erforderlich</td><td>Sitzung</td></tr>
+          <tr><td>wp-* — WordPress CSRF-Schutz</td><td>Technisch erforderlich</td><td>Sitzung / 30 Tage</td></tr>
+          <tr><td>eb_cookie_consent — Banner-Auswahl</td><td>Technisch erforderlich</td><td>12 Monate</td></tr>
+          <tr><td>XSRF-Token — CSRF-Schutz</td><td>Technisch erforderlich</td><td>Sitzung</td></tr>
+          <tr><td>Stripe (m, stripemid) — Betrugsabwehr</td><td>Technisch erforderlich</td><td>Bis zu 12 Monate</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:20px">Rechtsgrundlage: § 25 Abs. 2 Nr. 2 TDDDG sowie Art. 6 Abs. 1 lit. b/f DSGVO. Marketing- und Analyse-Cookies werden erst nach ausdrücklicher Einwilligung aktiviert.</p>
+      <div style="display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn-secondary btn-sm" onclick="closeCookiePolicyModal()">Schließen</button>
+        <button class="btn-primary btn-sm" onclick="closeCookiePolicyModal(); document.getElementById('cookieAcceptAll').click()">Verstanden &amp; Akzeptieren</button>
       </div>
     </div>
   </div>

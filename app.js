@@ -10577,6 +10577,15 @@ function _getCookieConsent() {
   } catch (e) { return null; }
 }
 
+function openCookiePolicyModal() {
+  var m = document.getElementById('cookiePolicyModal');
+  if (m) m.classList.add('show');
+}
+function closeCookiePolicyModal() {
+  var m = document.getElementById('cookiePolicyModal');
+  if (m) m.classList.remove('show');
+}
+
 function _saveCookieConsent() {
   localStorage.setItem('eb_cookie_consent', JSON.stringify({
     necessary: true,
