@@ -329,8 +329,9 @@ add_action( 'send_headers', function() {
         header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0' );
         header( 'Pragma: no-cache' );
     } else {
-        // Anonyme Besucher: kurzes Edge-Cache, längeres CDN-Cache möglich.
-        header( 'Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=60' );
+        // Anonyme Besucher: nur kurzer Edge-Cache mit Pflicht-Revalidierung.
+        // Verhindert, dass kaputte/leere Antworten lange ausgeliefert werden.
+        header( 'Cache-Control: public, max-age=0, s-maxage=60, must-revalidate' );
     }
 } );
 
