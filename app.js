@@ -2325,6 +2325,48 @@ function filterListings() {
       }, 220);
     }
   }
+  // Live-Feedback-Chip unter der Hero-Suchleiste aktualisieren
+  try { _ebUpdateLiveFeedback(filtered.length, search, location); } catch (e) {}
+}
+
+// Live-Feedback unterhalb der Searchbar: zeigt Treffer-Anzahl und führt zu den Ergebnissen
+function _ebUpdateLiveFeedback(count, search, location) {
+  var el = document.getElementById('aiLiveFeedback');
+  if (!el) return;
+  // Nur zeigen, wenn der User wirklich etwas eingegeben hat
+  var hasInput = (search && search.length > 0) || (location && location.length > 0);
+  if (!hasInput) {
+    el.hidden = true;
+    return;
+  }
+  var txt = el.querySelector('.ai-live-feedback-text');
+  if (count > 0) {
+    el.classList.remove('is-empty');
+    if (txt) txt.textContent = count === 1
+      ? '1 Treffer — Ergebnisse anzeigen'
+      : count + ' Treffer — Ergebnisse anzeigen';
+  } else {
+    el.classList.add('is-empty');
+    if (txt) txt.textContent = 'Keine Treffer — Vorschläge ansehen';
+  }
+  // Kurzer Re-Animation-Trigger
+  el.style.animation = 'none';
+  // eslint-disable-next-line no-unused-expressions
+  el.offsetHeight;
+  el.style.animation = '';
+  el.hidden = false;
+}
+
+// Sanftes Scrollen zu den Browse-Ergebnissen oder dem Empty-State
+function _ebScrollToBrowseResults() {
+  setTimeout(function() {
+    var noRes = document.getElementById('noResultsContainer');
+    var grid = document.getElementById('browseGrid');
+    var target = (noRes && noRes.style.display !== 'none') ? noRes : grid;
+    if (!target) return;
+    var top = target.getBoundingClientRect().top + window.pageYOffset - 100;
+    window.scrollTo({ top: top, behavior: 'smooth' });
+  }, 60);
 }
 
 function showNoResultsWithAlternatives(search, category, eventType, location) {
