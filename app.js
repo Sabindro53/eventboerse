@@ -10577,13 +10577,20 @@ function _getCookieConsent() {
   } catch (e) { return null; }
 }
 
-function openCookiePolicyModal() {
-  var m = document.getElementById('cookiePolicyModal');
-  if (m) m.classList.add('show');
-}
-function closeCookiePolicyModal() {
-  var m = document.getElementById('cookiePolicyModal');
-  if (m) m.classList.remove('show');
+function toggleCookieDetails() {
+  var d = document.getElementById('cookieBannerDetails');
+  var t = document.getElementById('cookieDetailsToggle');
+  if (!d || !t) return;
+  var open = !d.hasAttribute('hidden');
+  if (open) {
+    d.setAttribute('hidden', '');
+    t.setAttribute('aria-expanded', 'false');
+    t.textContent = 'Details anzeigen';
+  } else {
+    d.removeAttribute('hidden');
+    t.setAttribute('aria-expanded', 'true');
+    t.textContent = 'Details ausblenden';
+  }
 }
 
 function _saveCookieConsent() {
