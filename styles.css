@@ -3518,7 +3518,7 @@ body.dark-mode .map-overlay {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
-body.dark-mode .map-loc-item { background: rgba(255,255,255,0.05); }
+body.dark-mode .map-loc-item { background: rgba(255,255,255,0.03); }
 .map-loc-item:hover { background: rgba(255,56,92,0.06); border-color: rgba(255,56,92,0.2); }
 .map-loc-item.active { background: var(--primary-light); border-color: var(--primary); }
 .map-loc-img {
@@ -8307,10 +8307,24 @@ body.dark-mode .detail-card {
 
 /* Map overlay */
 body.dark-mode .map-overlay {
-  background: #1E1E1E;
+  background: rgba(10,10,14,0.95);
+  border-bottom-color: rgba(255,255,255,0.06);
 }
 body.dark-mode .map-overlay-header {
   border-bottom-color: var(--border-light);
+}
+body.dark-mode .map-search-bar input {
+  background: #0A0A0E;
+  border-color: #2a2a2a;
+  color: var(--text);
+}
+body.dark-mode .map-loc-item {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.05);
+}
+body.dark-mode .map-loc-item:hover {
+  background: rgba(255,56,92,0.08);
+  border-color: rgba(255,56,92,0.25);
 }
 
 /* Scrollbar */
