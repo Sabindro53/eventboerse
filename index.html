@@ -602,13 +602,13 @@
             <div class="ai-searchbar">
               <span class="material-icons-round ai-search-ico">search</span>
               <div class="ai-searchbar-field">
-                <input type="search" id="browseSearch" oninput="filterListings();_aiPlaceholderHideOnInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();filterListings();_ebScrollToBrowseResults();}" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" />
+                <input type="search" id="browseSearch" oninput="_aiPlaceholderHideOnInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();filterListings();_ebScrollToBrowseResults();}" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" />
                 <div class="ai-searchbar-ghost" id="aiPlaceholder"></div>
               </div>
               <div class="ai-searchbar-divider"></div>
               <div class="ai-searchbar-loc">
                 <span class="material-icons-round">location_on</span>
-                <input type="text" id="browseLocation" placeholder="Region" oninput="filterListings()" onkeydown="if(event.key==='Enter'){event.preventDefault();filterListings();_ebScrollToBrowseResults();}" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" />
+                <input type="text" id="browseLocation" placeholder="Region" onkeydown="if(event.key==='Enter'){event.preventDefault();filterListings();_ebScrollToBrowseResults();}" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" />
               </div>
               <button class="ai-searchbar-btn" onclick="filterListings();_ebScrollToBrowseResults()">
                 <span class="material-icons-round">search</span>
