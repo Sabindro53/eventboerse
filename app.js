@@ -2249,6 +2249,85 @@ function updateChipLabel(sel) {
   lbl.textContent = sel.value ? sel.options[sel.selectedIndex].text : (lbl.dataset.default || '');
 }
 
+// ===== Smart Search: Token + Synonym-Cluster =====
+const _EB_STOPWORDS = new Set([
+  'für','fuer','in','im','am','an','mit','und','oder','der','die','das','den','dem','des',
+  'ein','eine','einen','einer','eines','von','zu','zur','zum','auf','bei','aus','nach','vor',
+  'ab','als','wie','sehr','etwas','bisschen','bitte','&','-','+','/','\\','|',',',';',':'
+]);
+// Synonym-Cluster für Event-Dienstleistungen (DE). Jeder Token in einer Gruppe wird
+// als äquivalent behandelt und matched alle anderen Begriffe der Gruppe.
+const _EB_SYN_GROUPS = [
+  ['florist','floristik','floristen','blume','blumen','blumendeko','blumenstrauss','blumenstrauß','brautstrauss','brautstrauß','hochzeitsblumen','blumenträume','blumentraeume'],
+  ['dj','djs','djane','musik','beschallung','plattenteller','mischpult','sound'],
+  ['band','liveband','livemusik','live-musik','musiker','musikerin','musikgruppe','combo'],
+  ['foto','fotos','fotograf','fotografin','fotografie','fotografieren','bild','bilder','aufnahmen','hochzeitsfoto','hochzeitsfotograf','portrait'],
+  ['video','videograf','videografin','videografie','film','filmer','filmemacher','hochzeitsvideo','clip','reels'],
+  ['catering','caterer','buffet','essen','food','koch','köche','küche','partyservice','party-service','fingerfood','grill','bbq','barbecue','verpflegung'],
+  ['bar','barkeeper','barkeeperin','bartender','cocktail','cocktails','mobilebar','mobile-bar','drinks'],
+  ['location','locations','halle','saal','raum','räume','eventlocation','event-location','scheune','schloss','garten','gewölbe','gewoelbe','venue'],
+  ['moderation','moderator','moderatorin','host','hostess','mc','ansage'],
+  ['licht','beleuchtung','lichttechnik','scheinwerfer','lasershow','laser','led'],
+  ['pyro','pyrotechnik','feuerwerk','feuershow','konfettikanone'],
+  ['deko','dekoration','dekorateur','dekorateurin','tischdeko','raumdeko','tischschmuck'],
+  ['security','sicherheit','türsteher','tuersteher','ordner','wachschutz'],
+  ['transport','limousine','limo','shuttle','bus','fahrdienst','chauffeur','oldtimer'],
+  ['torte','torten','kuchen','hochzeitstorte','konditor','konditorin','konditorei','tortenbäcker','tortenbaecker','patissier','patisserie'],
+  ['styling','frisur','friseur','frisör','frisoer','makeup','make-up','haare','visagist','visagistin','braut-styling','brautstyling'],
+  ['entertainment','zauberer','magier','künstler','kuenstler','comedian','animation','animateur','show','clown','jongleur','akrobat'],
+  // Event-Typen (lockere Hinweise)
+  ['hochzeit','hochzeiten','wedding','trauung','heirat','heiraten','brautpaar'],
+  ['geburtstag','geb','bday','birthday','geburtstage'],
+  ['firmenfeier','firma','firmenevent','firmenevents','corporate','business','teamevent','team-event'],
+  ['jubiläum','jubilaeum','jubilaum','anniversary','jubilaeums'],
+  ['gala','galaabend','gala-abend'],
+  ['party','feier','fete','partys','parties'],
+  ['taufe','konfirmation','kommunion','firmung'],
+  ['weihnachtsfeier','weihnachten','xmas','christmas'],
+  ['sommerfest','sommer','sommerparty'],
+  ['openair','open-air','outdoor','draußen','draussen'],
+];
+// Index Token → Set aller Synonyme (inkl. sich selbst)
+const _EB_SYN_INDEX = (function() {
+  const map = new Map();
+  for (const g of _EB_SYN_GROUPS) {
+    const set = new Set(g);
+    for (const t of g) {
+      if (map.has(t)) g.forEach(x => map.get(t).add(x));
+      else map.set(t, new Set(set));
+    }
+  }
+  return map;
+})();
+function _ebTokenizeQuery(q) {
+  if (!q) return [];
+  return q.toLowerCase()
+    .replace(/[.!?()"„"»«]/g, ' ')
+    .split(/[\s,;\/\\|]+/)
+    .map(t => t.replace(/^[^a-z0-9äöüß-]+|[^a-z0-9äöüß-]+$/g, ''))
+    .filter(t => t.length >= 2 && !_EB_STOPWORDS.has(t));
+}
+function _ebSmartTextMatch(search, listing) {
+  const tokens = _ebTokenizeQuery(search);
+  if (!tokens.length) return true;
+  const haystack = `${listing.title || ''} ${listing.categoryLabel || ''} ${listing.category || ''} ${(listing.tags || []).join(' ')} ${listing.providerName || ''} ${listing.description || ''} ${listing.location || ''} ${listing.region || ''}`.toLowerCase();
+  // Jedes Such-Token muss entweder direkt oder über sein Synonym-Cluster im Heuhaufen vorkommen.
+  return tokens.every(tok => {
+    if (haystack.includes(tok)) return true;
+    const variants = _EB_SYN_INDEX.get(tok);
+    if (variants) {
+      for (const v of variants) if (haystack.includes(v)) return true;
+    }
+    // Fuzzy: kleine Tippfehler tolerieren bei Wörtern ≥ 5 Zeichen
+    if (tok.length >= 5) {
+      // Substring-Match auf 4+ Zeichen-Präfix erlaubt (z.B. "fotograf" → "fotografie")
+      const prefix = tok.slice(0, Math.max(4, tok.length - 2));
+      if (haystack.includes(prefix)) return true;
+    }
+    return false;
+  });
+}
+
 function filterListings() {
   const search = (document.getElementById('browseSearch')?.value || '').toLowerCase().trim();
   const category = document.getElementById('browseCategory')?.value || '';
@@ -2258,11 +2337,8 @@ function filterListings() {
   const minRating = document.getElementById('browseRating')?.value || '';
 
   let filtered = getHeroListings().filter(l => {
-    // Text search: title, category label, tags, provider
-    if (search) {
-      const haystack = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.providerName}`.toLowerCase();
-      if (!haystack.includes(search)) return false;
-    }
+    // Smart Text-Suche: tokenisiert, entfernt Stopwörter, kennt Synonym-Cluster
+    if (search && !_ebSmartTextMatch(search, l)) return false;
     if (category && l.category !== category) return false;
     // Multi-category filter from hero picker
     if (selectedCategories.size && !selectedCategories.has(l.category)) return false;
@@ -10964,10 +11040,10 @@ function toggleMapOverlay() {
   document.body.style.overflow = 'hidden';
 
   if (!mapInitialized) {
-    setTimeout(() => initLeafletMap(), 100);
+    setTimeout(() => initLeafletMap(), 350);
     mapInitialized = true;
   } else {
-    setTimeout(() => leafletMap.invalidateSize(), 100);
+    setTimeout(() => leafletMap.invalidateSize(), 350);
   }
 
   renderLocationsList(filterDemos(LISTINGS));
@@ -10987,7 +11063,7 @@ function initLeafletMap() {
 
   L.control.zoom({ position: 'topright' }).addTo(leafletMap);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png', {
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
   }).addTo(leafletMap);
@@ -16758,6 +16834,15 @@ function toggleNavCategoryDropdown(e) {
     return '<button class="nav-cat-item' + sel + '" onclick="selectNavCategory(\'' + c.key + '\',\'' + c.label + '\',\'' + c.emoji + '\')">' +
       '<span class="nav-cat-emoji">' + c.emoji + '</span>' + c.label + '</button>';
   }).join('');
+  // Position using fixed coords from button rect (escapes overflow:hidden on nav-search)
+  var wrap = document.querySelector('.nav-search-segment-wrap');
+  if (wrap) {
+    var rect = wrap.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 6) + 'px';
+    var left = rect.left + rect.width / 2 - 140;
+    var maxLeft = window.innerWidth - 288;
+    dd.style.left = Math.max(8, Math.min(left, maxLeft)) + 'px';
+  }
   dd.classList.add('show');
 }
 
