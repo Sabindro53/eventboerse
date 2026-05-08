@@ -9744,7 +9744,7 @@ function applyLogout() {
   document.getElementById('loggedInMenu').style.display = 'none';
   document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
-  if (navAvatar) navAvatar.src = ebAvatar('user1', 'Gast');
+  if (navAvatar) navAvatar.src = ebAvatar('user', 'User');
   var adminLabel = document.getElementById('navAdminLabel');
   if (adminLabel) adminLabel.style.display = 'none';
   var adminMenuBtn = document.getElementById('adminMenuBtn');
