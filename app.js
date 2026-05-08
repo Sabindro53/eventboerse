@@ -526,6 +526,38 @@ const LISTINGS = [
   }
 ];
 
+// Auto-Inject logical price ranges (priceMax) for demo listings + rebuild priceLabel as range.
+// Multiplikator pro Preismodell: realistische Spannen für DE-Eventmarkt.
+(function injectDemoPriceRanges(){
+  try {
+    if (!Array.isArray(LISTINGS)) return;
+    var multByModel = {
+      'Pro Event':   1.7,
+      'Pro Stunde':  1.6,
+      'Pro Person':  1.8,
+      'Pauschal':    1.5,
+      'Auf Anfrage': 1.6
+    };
+    LISTINGS.forEach(function(l){
+      if (!l || !l.price || l.priceMax) return;
+      var pm = (l.priceLabel || '').match(/\/\s*(.+)$/);
+      var model = pm ? pm[1].trim() : (l.priceModel || 'Event');
+      var mult = 1.7;
+      Object.keys(multByModel).forEach(function(k){
+        if (model.indexOf(k.replace('Pro ','').replace('Pauschal','')) !== -1 || model === k) mult = multByModel[k];
+      });
+      // Round to nice numbers
+      var raw = l.price * mult;
+      var step = raw < 100 ? 5 : raw < 500 ? 25 : raw < 2000 ? 50 : 100;
+      var max = Math.round(raw / step) * step;
+      l.priceMax = max;
+      // Format with German thousand separators
+      var fmt = function(n){ return n.toLocaleString('de-DE'); };
+      l.priceLabel = fmt(l.price) + '–' + fmt(max) + '€ / ' + model;
+    });
+  } catch(e) { console.warn('priceRange inject failed', e); }
+})();
+
 // Auto-Sync: Alle Demo-Provider-IDs aus LISTINGS in die Filter-Liste übernehmen,
 // damit jedes hardcodierte Demo-Inserat (Bot-Account) automatisch ausgeblendet wird,
 // wenn EB_HIDE_DEMO aktiv ist. So muss die Liste nie manuell gepflegt werden.
@@ -6104,6 +6136,8 @@ function submitListing(e) {
   const category = document.getElementById('createCategory').value;
   const description = document.getElementById('createDescription').value.trim();
   const price = parseInt(document.getElementById('createPrice').value) || 0;
+  const priceMaxRaw = parseInt((document.getElementById('createPriceMax')||{}).value) || 0;
+  const priceMax = (priceMaxRaw > 0 && priceMaxRaw > price) ? priceMaxRaw : 0;
   const priceModel = document.getElementById('createPriceModel').value;
 
   // Basic validation
@@ -6130,8 +6164,13 @@ function submitListing(e) {
   // Extract city from region
   const city = region.split(/[,&·–-]/)[0].trim();
 
-  // Build price label
-  const priceLabel = price > 0 ? `ab ${price}€ / ${priceModel.replace('Pro ','').replace('Pauschal','Pauschal')}` : 'Auf Anfrage';
+  // Build price label (range if max provided, else "ab X€")
+  const priceModelSuffix = priceModel.replace('Pro ','').replace('Pauschal','Pauschal');
+  const priceLabel = price > 0
+    ? (priceMax > 0
+        ? `${price}–${priceMax}€ / ${priceModelSuffix}`
+        : `ab ${price}€ / ${priceModelSuffix}`)
+    : 'Auf Anfrage';
 
   // Collect image files from upload preview
   const previewDivs = document.querySelectorAll('#uploadPreview .upload-preview-item');
@@ -6176,6 +6215,7 @@ function submitListing(e) {
       categoryLabel: CATEGORY_LABELS[category] || category,
       description: '<p>' + description.replace(/\n/g, '</p><p>') + '</p>',
       price: price,
+      priceMax: priceMax || null,
       priceModel: priceModel,
       priceLabel: priceLabel,
       location: city,
@@ -7988,6 +8028,8 @@ function editListing(listingId) {
   document.getElementById('createCategory').value = listing.category || '';
   document.getElementById('createDescription').value = (listing.description || '').replace(/<\/?p>/g, '\n').replace(/<\/?h3>/g, '').trim();
   document.getElementById('createPrice').value = listing.price || '';
+  var pmaxEl = document.getElementById('createPriceMax');
+  if (pmaxEl) pmaxEl.value = listing.priceMax || '';
   document.getElementById('createPriceModel').value = listing.priceModel || 'Pro Event';
 
   // === Step 2: Details ===
@@ -11072,9 +11114,14 @@ function initLeafletMap() {
 }
 
 function createPriceIcon(listing) {
-  const priceText = listing.price >= 1000
-    ? (listing.price / 1000).toFixed(listing.price % 1000 === 0 ? 0 : 1) + 'k€'
-    : listing.price + '€';
+  const fmt = function(n) {
+    return n >= 1000
+      ? (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k'
+      : String(n);
+  };
+  const priceText = listing.priceMax && listing.priceMax > listing.price
+    ? fmt(listing.price) + '–' + fmt(listing.priceMax) + '€'
+    : fmt(listing.price) + '€';
 
   return L.divIcon({
     className: 'map-marker-wrapper',
