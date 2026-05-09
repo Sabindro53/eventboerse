@@ -12799,7 +12799,7 @@ function _renderBoardFlowImpl() {
         if (b > maxB) maxB = b;
       });
       // Kleiner Rand rechts/unten, damit nichts an der Kante klebt
-      var PAD_R = 40, PAD_B = _isMobile ? 220 : 40;
+      var PAD_R = 40, PAD_B = _isMobile ? 320 : 40;
       var measuredW, measuredH;
       if (_isMobile && canvasEl) {
         // Mobile: Weltbreite = Canvasbreite (kein horizontaler Scroll,
