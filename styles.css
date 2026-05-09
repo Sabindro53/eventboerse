@@ -9441,10 +9441,9 @@ body.has-pseudo-fullscreen { overflow: hidden; }
   -webkit-user-select: none;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.18) transparent;
-  /* Fallback-Raster auf dem Canvas selbst – deckt Bereiche ab, die beim
-     Rauszoomen (Safari) ausserhalb des flow-world liegen und sonst leer waeren. */
-  background-image: radial-gradient(circle, rgba(255,255,255,0.075) 1.2px, transparent 1.2px);
-  background-size: 28px 28px;
+  /* Dunkler Hintergrund fuer Bereiche ausserhalb des flow-world (sichtbar beim
+     starken Rauszoomen in Safari – kein Raster, aber saubere dunkle Flaeche). */
+  background-color: #0d0d0d;
 }
 .flow-canvas::-webkit-scrollbar { width: 10px; height: 10px; }
 .flow-canvas::-webkit-scrollbar-track { background: transparent; }
