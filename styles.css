@@ -11589,7 +11589,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
 
   /* Flow-Canvas: unter Mobile-Nav ausreichend Scroll-Platz */
   .flow-canvas {
-    padding-bottom: calc(var(--mobile-nav-height) + 40px);
+    padding-bottom: calc(var(--mobile-nav-height) + 120px);
   }
 
   /* Provider-Kette: Stages bleiben vertikal, aber Karten schmaler & lesbar */

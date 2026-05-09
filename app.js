@@ -13999,14 +13999,14 @@ function _drawFlowConnections() {
        {col:'angebot',n:'stage-angebot'},{col:'bestaetigt',n:'stage-bestaetigt'},
        {col:'abgeschlossen',n:'stage-abgeschlossen'},{col:'end',n:'end'}];
 
-  // Pfeilspitze (PowerPoint-Stil: klare dreieckige Spitze)
-  var markerId = isMobile ? 'flarrow-v' : 'flarrow-h';
+  // Pfeilspitze (PowerPoint-Stil: klare dreieckige Spitze).
+  // Wir nutzen EINEN Marker mit orient="auto" – SVG dreht ihn automatisch in
+  // die Linienrichtung (auch nach unten). So zeigt die Spitze immer korrekt
+  // ans Linienende.
+  var markerId = 'flarrow-h';
   var defs = '<defs>'
            + '<marker id="flarrow-h" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
            +   '<polygon points="0,0 10,4 0,8" fill="rgba(255,255,255,0.6)"/>'
-           + '</marker>'
-           + '<marker id="flarrow-v" markerWidth="8" markerHeight="10" refX="4" refY="10" orient="90" markerUnits="userSpaceOnUse">'
-           +   '<polygon points="0,0 8,0 4,10" fill="rgba(255,255,255,0.6)"/>'
            + '</marker>'
            + '</defs>';
 
@@ -14338,7 +14338,7 @@ function _flowApplyZoom(z, immediate) {
   // Node noch scrollen kann (Mobile-Nav + Komfort-Abstand). Sonst wird der
   // letzte Knoten von der unteren Mobile-Nav verdeckt.
   var _isMob = (window.innerWidth || 1200) <= 600;
-  var extraBottom = _isMob ? 200 : 0;
+  var extraBottom = _isMob ? 360 : 0;
   canvas.style.minWidth  = (wW * z) + 'px';
   canvas.style.minHeight = (wH * z + extraBottom) + 'px';
   if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });
