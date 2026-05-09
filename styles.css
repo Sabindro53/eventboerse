@@ -9293,6 +9293,12 @@ body.dark-mode .bcl-add-form input { background: #1c1c1c; border-color: #2e2e2e;
   display: flex;
   flex-direction: column;
 }
+@media (max-width: 768px) {
+  .board-flow-view {
+    height: calc(100vh - var(--nav-height) - var(--mobile-nav-height));
+    min-height: 0;
+  }
+}
 /* Edge vignette (depth) – sits above canvas but below toolbar (z-index:20) */
 .board-flow-view::after {
   content: '';
@@ -10494,21 +10500,22 @@ textarea.sa-input { resize: vertical; }
   }
   .flow-prov-btn.flow-prov-del { font-size: 10.5px; }
 
-  /* Handy: Stages UNTEREINANDER als vertikale Prozesskette,
-     Dienstleister-Karten direkt UNTER dem jeweiligen Stage-Header */
+  /* Handy: Stages als horizontale Kette – Provider-Karten RECHTS vom Stage-Header
+     (statt unter dem Stage). User-Wunsch: "rechts von Kontaktiert, verbunden". */
   .flow-col {
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: nowrap;
   }
   .flow-col-connector {
-    width: 2px;
-    height: 14px;
+    width: 14px;
+    height: 2px;
     align-self: center;
-    background: linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.08));
+    background: linear-gradient(90deg, rgba(255,255,255,0.26), rgba(255,255,255,0.08));
   }
   .flow-col[data-col-id="start"],
-  .flow-col[data-col-id="end"] { flex-direction: column; }
+  .flow-col[data-col-id="end"] { flex-direction: row; }
   /* Toolbar auf Mobile kompakter */
   .flow-toolbar { top: 8px; margin: 8px 10px 0; }
 }
@@ -11448,6 +11455,91 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
 @media (max-width: 768px) {
   .contact-grid { grid-template-columns: 1fr; }
   .contact-hero h1 { font-size: 24px; }
+}
+
+/* ======== MOBILE NAV SEARCH (kompakt) ======== */
+.nav-search-mobile {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  max-width: 100%;
+  margin: 0 10px;
+  padding: 10px 14px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-light);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.nav-search-mobile:hover {
+  border-color: var(--primary);
+  color: var(--dark);
+  box-shadow: 0 2px 10px rgba(255,56,92,0.15);
+}
+.nav-search-mobile .material-icons-round { font-size: 20px; flex-shrink: 0; }
+.nav-search-mobile .nav-search-mobile-text {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-search-mobile .nav-search-mobile-ai {
+  background: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 18px;
+}
+
+/* ======== MOBILE PERFEKTIONIERUNG (Board / Flow / Nav) ======== */
+@media (max-width: 768px) {
+  /* Mobile Such-Pille zeigen, Desktop-Suche ausblenden */
+  .nav-search-mobile { display: inline-flex; }
+
+  /* Board-Seite: unten Platz für Mobile-Nav schaffen */
+  .board-kanban {
+    padding-bottom: calc(var(--mobile-nav-height) + 24px) !important;
+    min-height: calc(100vh - var(--nav-height) - var(--mobile-nav-height) - 80px);
+  }
+  .board-timeline-view,
+  .board-checklist-view {
+    padding-bottom: calc(var(--mobile-nav-height) + 24px) !important;
+  }
+
+  /* Flow-Canvas: unter Mobile-Nav ausreichend Scroll-Platz */
+  .flow-canvas {
+    padding-bottom: calc(var(--mobile-nav-height) + 40px);
+  }
+
+  /* Provider-Kette: Stages bleiben vertikal, aber Karten schmaler & lesbar */
+  .flow-col {
+    max-width: 100%;
+  }
+
+  /* Toolbar nicht über den Bildschirmrand hinausragen */
+  .flow-toolbar {
+    flex-wrap: wrap;
+    margin: 8px;
+  }
+  .flow-budget-bar {
+    flex-wrap: wrap;
+  }
+}
+
+/* Mobile Nav-Layout fix (Suche zentriert in Topbar) */
+@media (max-width: 768px) {
+  .nav-inner { gap: 8px; }
+  .nav-search-mobile {
+    margin: 0 4px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
 }
 
 /* ======== FOOTER CONTACT LINK ======== */

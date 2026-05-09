@@ -31,8 +31,8 @@
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
 
   <!-- Critical CSS first (render-blocking, but small) -->
-  <link rel="preload" href="styles.css?v=145" as="style" fetchpriority="high" />
-  <link rel="stylesheet" href="styles.css?v=145" />
+  <link rel="preload" href="styles.css?v=146" as="style" fetchpriority="high" />
+  <link rel="stylesheet" href="styles.css?v=146" />
 
   <!-- Fonts: async laden, vermeidet Render-Block (FOUT statt FOIT) -->
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
@@ -101,6 +101,12 @@
           <span class="material-icons-round">search</span>
         </button>
       </div>
+      <!-- Mobile: kompakte Suchpille (öffnet KI-Suche) -->
+      <button class="nav-search-mobile" id="navSearchMobile" onclick="openNavAiSearch()" aria-label="Sucheöffnen">
+        <span class="material-icons-round">search</span>
+        <span class="nav-search-mobile-text">Was suchst du?</span>
+        <span class="material-icons-round nav-search-mobile-ai">auto_awesome</span>
+      </button>
       <!-- AI Search Overlay -->
       <div class="nav-ai-overlay" id="navAiOverlay">
         <div class="nav-ai-overlay-inner">
