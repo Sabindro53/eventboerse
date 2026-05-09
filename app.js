@@ -12802,7 +12802,7 @@ function _renderBoardFlowImpl() {
         if (b > maxB) maxB = b;
       });
       // Kleiner Rand rechts/unten, damit nichts an der Kante klebt
-      var PAD_R = 40, PAD_B = _isMobile ? 80 : 40;
+      var PAD_R = 40, PAD_B = _isMobile ? 24 : 40;
       var measuredW, measuredH;
       if (_isMobile && canvasEl) {
         // Mobile: Weltbreite = Canvasbreite (kein horizontaler Scroll,
@@ -14348,7 +14348,7 @@ function _flowApplyZoom(z, immediate) {
   // Scroll-Flaeche kommt aus dem Spacer (visuelle, also skalierte Groesse).
   // Auf Mobile zusaetzlich kleine Bottom-Reserve (Komfort + Mobile-Nav).
   var _isMob = (window.innerWidth || 1200) <= 768;
-  var extraBottom = _isMob ? 120 : 0;
+  var extraBottom = _isMob ? 32 : 0;
   var spacer = document.getElementById('flowSpacer');
   if (spacer) {
     spacer.style.width  = (wW * z) + 'px';
