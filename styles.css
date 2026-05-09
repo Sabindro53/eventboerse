@@ -9531,7 +9531,13 @@ body.has-pseudo-fullscreen { overflow: hidden; }
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   user-select: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
 }
+.flow-zoom-pct:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.95); }
+.flow-zoom-pct:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .flow-tb-divider {
   width: 1px;
   height: 22px;

@@ -12564,9 +12564,9 @@ function _renderBoardFlowImpl() {
 
   // ── Toolbar ──────────────────────────────────────────────
   html += '<div class="flow-toolbar">';
-  html += '<button class="flow-tbtn" onclick="flowZoom(-0.08)" title="Verkleinern (Ctrl + -)"><span class="material-icons-round">remove</span></button>';
-  html += '<span class="flow-zoom-pct" id="flowZoomPct">100%</span>';
-  html += '<button class="flow-tbtn" onclick="flowZoom(0.08)" title="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowZoom(-0.10)" title="Verkleinern (Ctrl + -)"><span class="material-icons-round">remove</span></button>';
+  html += '<span class="flow-zoom-pct" id="flowZoomPct" role="button" tabindex="0" title="Zoom-Prozent eingeben" onclick="flowZoomPrompt()">100%</span>';
+  html += '<button class="flow-tbtn" onclick="flowZoom(0.10)" title="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
   html += '<div class="flow-tb-divider"></div>';
   html += '<button class="flow-tbtn" id="flowUndoBtn" onclick="flowUndo()" title="Rückgängig (Ctrl+Z)" disabled><span class="material-icons-round">undo</span></button>';
   html += '<button class="flow-tbtn" id="flowRedoBtn" onclick="flowRedo()" title="Wiederherstellen (Ctrl+Y)" disabled><span class="material-icons-round">redo</span></button>';
@@ -14369,8 +14369,15 @@ function flowZoom(delta) {
   var canvas = document.getElementById('flowCanvas');
   if (!canvas) return;
   var oldZ = _flowZoom;
-  var newZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, oldZ + delta));
-  if (newZ === oldZ) return;
+  // Anzeige-Basis = 1 (immer 100%-bezogen). Nutzer-Zoom ist absolute Stufe.
+  _flowDisplayBase = 1;
+  // In 10%-Schritten arbeiten: aktuellen Wert auf nächste 10er-Stufe runden
+  // und dann delta (auch ein 10er-Vielfaches) addieren.
+  var stepped = Math.round(oldZ * 10) / 10;
+  var newZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, stepped + delta));
+  // Auf 2 Nachkommastellen runden, damit z.B. 1.0000001 nicht 100,00001 % wird
+  newZ = Math.round(newZ * 100) / 100;
+  if (Math.abs(newZ - oldZ) < 0.001) return;
   // Zoom toward center of current viewport
   var cx = canvas.scrollLeft + canvas.clientWidth / 2;
   var cy = canvas.scrollTop + canvas.clientHeight / 2;
@@ -14379,6 +14386,31 @@ function flowZoom(delta) {
   canvas.scrollLeft = cx * ratio - canvas.clientWidth / 2;
   canvas.scrollTop  = cy * ratio - canvas.clientHeight / 2;
 }
+
+// Custom Zoom-Prozent eingeben (Klick auf Label)
+function flowZoomPrompt() {
+  var canvas = document.getElementById('flowCanvas');
+  if (!canvas) return;
+  var current = Math.round(_flowZoom * 100);
+  var input = window.prompt('Zoom (%) – z. B. 100, 75, 150:', String(current));
+  if (input == null) return;
+  var v = parseInt(String(input).replace(/[^0-9-]/g, ''), 10);
+  if (!isFinite(v) || v <= 0) return;
+  var minPct = Math.round(_flowMinZoom * 100);
+  var maxPct = Math.round(_flowMaxZoom * 100);
+  v = Math.max(minPct, Math.min(maxPct, v));
+  _flowDisplayBase = 1;
+  var oldZ = _flowZoom;
+  var newZ = v / 100;
+  if (Math.abs(newZ - oldZ) < 0.001) return;
+  var cx = canvas.scrollLeft + canvas.clientWidth / 2;
+  var cy = canvas.scrollTop + canvas.clientHeight / 2;
+  var ratio = newZ / oldZ;
+  _flowApplyZoom(newZ);
+  canvas.scrollLeft = cx * ratio - canvas.clientWidth / 2;
+  canvas.scrollTop  = cy * ratio - canvas.clientHeight / 2;
+}
+window.flowZoomPrompt = flowZoomPrompt;
 
 function flowFitToScreen() {
   var canvas = document.getElementById('flowCanvas');
@@ -14613,13 +14645,17 @@ function _initFlowZoomPan() {
   canvas.addEventListener('wheel', function(e) {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      var delta = -Math.sign(e.deltaY) * 0.12;
+      var delta = -Math.sign(e.deltaY) * 0.10;
       var rect = canvas.getBoundingClientRect();
       var cx = e.clientX - rect.left + canvas.scrollLeft;
       var cy = e.clientY - rect.top + canvas.scrollTop;
       var oldZ = _flowZoom;
-      var newZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, oldZ + delta));
-      if (newZ === oldZ) return;
+      // Auf 10er-Raster snappen, damit Anzeige immer ganzzahlige Prozent zeigt
+      _flowDisplayBase = 1;
+      var stepped = Math.round(oldZ * 10) / 10;
+      var newZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, stepped + delta));
+      newZ = Math.round(newZ * 100) / 100;
+      if (Math.abs(newZ - oldZ) < 0.001) return;
       var ratio = newZ / oldZ;
       _flowApplyZoom(newZ);
       canvas.scrollLeft = cx * ratio - (e.clientX - rect.left);
@@ -14764,6 +14800,21 @@ function _initFlowZoomPan() {
     }
   }, { passive: false });
   canvas.addEventListener('touchend', function(e) {
+    // Pinch-Zoom: am Ende auf 10er-Stufe einrasten, damit Anzeige saubere %-Werte zeigt
+    if (touchState && touchState.mode === 'pinch' && e.touches.length < 2) {
+      var snapZ = Math.round(_flowZoom * 10) / 10;
+      snapZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, snapZ));
+      if (Math.abs(snapZ - _flowZoom) > 0.001) {
+        var oldZ = _flowZoom;
+        var ratio = snapZ / oldZ;
+        var sx = canvas.scrollLeft + canvas.clientWidth / 2;
+        var sy = canvas.scrollTop  + canvas.clientHeight / 2;
+        _flowDisplayBase = 1;
+        _flowApplyZoom(snapZ);
+        canvas.scrollLeft = sx * ratio - canvas.clientWidth / 2;
+        canvas.scrollTop  = sy * ratio - canvas.clientHeight / 2;
+      }
+    }
     if (touchState && touchState.moved) {
       // Momentum glide for touch
       var tSamples = touchState.velSamples || [];
@@ -14803,8 +14854,8 @@ function _initFlowZoomPan() {
       var view = document.getElementById('boardFlowView');
       if (!view || view.style.display === 'none') return;
       if (e.target && ['INPUT','TEXTAREA','SELECT'].indexOf(e.target.tagName) > -1) return;
-      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) { e.preventDefault(); flowZoom(0.08); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === '-') { e.preventDefault(); flowZoom(-0.08); }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) { e.preventDefault(); flowZoom(0.10); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === '-') { e.preventDefault(); flowZoom(-0.10); }
       else if ((e.ctrlKey || e.metaKey) && e.key === '0') { e.preventDefault(); flowResetView(); }
       else if (e.key === 'f' || e.key === 'F') { flowFitToScreen(); }
     });
