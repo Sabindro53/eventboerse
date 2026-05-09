@@ -14396,28 +14396,11 @@ function flowFitToScreen() {
   // initialen Zoom, aendert aber nicht, was der Nutzer als „100 %" sieht.
   _flowDisplayBase = 1;
   _flowApplyZoom(fitZ);
-<<<<<<< HEAD
   // Welt zentriert ins Viewport ruecken (horizontal mittig, vertikal oben).
-=======
-  // Auf Desktop: Inhalt horizontal zentrieren (falls Welt schmaler als
-  // Canvas ist, sonst links). Auf Mobile: oben-links bleiben.
->>>>>>> 074fa498d6e56e554f81552bd131fe6d9c39b55d
   setTimeout(function() {
-<<<<<<< HEAD
     var sw = canvas.scrollWidth  - canvas.clientWidth;
     canvas.scrollLeft = isMobile ? 0 : Math.max(0, sw / 2);
     canvas.scrollTop  = 0;
-=======
-    if (isMobile) {
-      canvas.scrollLeft = 0;
-      canvas.scrollTop  = 0;
-    } else {
-      var visualW = wW * fitZ;
-      var diff = canvas.clientWidth - visualW;
-      canvas.scrollLeft = diff > 0 ? 0 : Math.max(0, (visualW - canvas.clientWidth) / 2);
-      canvas.scrollTop  = 0;
-    }
->>>>>>> 074fa498d6e56e554f81552bd131fe6d9c39b55d
   }, 50);
 }
 
