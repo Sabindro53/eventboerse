@@ -9447,6 +9447,10 @@ body.has-pseudo-fullscreen { overflow: hidden; }
   transform-origin: 0 0;
   transition: transform 0.22s cubic-bezier(.22,1,.36,1);
   will-change: transform;
+  /* Verhindert, dass das ::before Punkt-Raster (inset: -800px) die scrollbare
+     BBox der Welt um 800px nach unten erweitert (sonst entsteht riesiger
+     Leerraum unter dem End-Node, vor allem auf Mobile). */
+  overflow: hidden;
 }
 .flow-world.no-transition { transition: none !important; }
 /* Dot grid that pans + zooms WITH the world (natural infinite-canvas feel) */
