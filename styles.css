@@ -6385,7 +6385,7 @@ span.flatpickr-weekday {
 
 @media (max-width: 768px) {
   :root {
-    --nav-height: 64px;
+    --nav-height: 104px;
   }
 
   #page-browse.page {
@@ -6411,11 +6411,28 @@ span.flatpickr-weekday {
   .browse-results { padding: 0 14px 24px; }
 
   /* Navigation */
-  .nav-search { display: flex; flex: 1; max-width: 100%; min-width: 0; }
-  .nav-search .nav-search-segment { padding: 6px 8px; }
-  .nav-search .nav-search-segment .value { display: none; }
+  .nav-search { display: none; }
   .nav-search-mobile { display: none !important; }
   .nav-link { display: none; }
+  /* Search bar as narrow strip below the main nav row */
+  #navSearchBar {
+    display: flex !important;
+    position: absolute;
+    bottom: 6px;
+    left: 12px;
+    right: 12px;
+    height: 36px;
+    border-radius: 24px;
+    overflow: hidden;
+    max-width: none;
+    flex: none;
+  }
+  #navbar { overflow: visible; position: fixed; }
+  #navSearchBar .nav-search-segment { padding: 0 10px; flex: 1; }
+  #navSearchBar .nav-search-segment .label { font-size: 0.68rem; }
+  #navSearchBar .nav-search-segment .value { display: none; }
+  #navSearchBar .nav-search-btn { width: 28px; height: 28px; margin: 4px; }
+  #navSearchBar .nav-search-btn .material-icons-round { font-size: 16px; }
   .mobile-nav { gap: 4px; padding: 0 12px; padding-bottom: env(safe-area-inset-bottom, 0); }
   body { padding-bottom: 0; }
   .nav-inner { padding: 0 16px; }
@@ -11636,14 +11653,9 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
   }
 }
 
-/* Mobile Nav-Layout fix (Suche zentriert in Topbar) */
+/* Mobile Nav-Layout fix */
 @media (max-width: 768px) {
-  .nav-inner { gap: 8px; }
-  .nav-search-mobile {
-    margin: 0 4px;
-    padding: 8px 12px;
-    font-size: 0.85rem;
-  }
+  .nav-inner { gap: 8px; height: 58px; align-items: center; }
 }
 
 /* ======== FOOTER CONTACT LINK ======== */
