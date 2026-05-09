@@ -14027,6 +14027,30 @@ function _drawFlowConnections() {
   var STROKE = 'rgba(255,255,255,0.45)';
   var SW = 2.25;
 
+  // Gemeinsame Y-Achse berechnen: Durchschnitt aller anchorY-Werte → alle
+  // Desktop-Linien verlaufen auf exakt einer Höhe (keine Knicke mehr).
+  var _sharedAxisY = null;
+  if (!isMobile) {
+    var _aySum = 0, _ayCnt = 0;
+    for (var _si = 0; _si < seq.length; _si++) {
+      var _snb = nodeBounds(seq[_si].n);
+      if (_snb) { _aySum += _snb.anchorY; _ayCnt++; }
+    }
+    if (_ayCnt) _sharedAxisY = Math.round(_aySum / _ayCnt);
+  }
+
+  // Compute a single shared Y axis for ALL desktop connections so every
+  // connector is a perfectly straight horizontal line.
+  var _sharedAxisY = null;
+  if (!isMobile) {
+    var _aySum = 0, _ayCnt = 0;
+    for (var _si = 0; _si < seq.length; _si++) {
+      var _snb = nodeBounds(seq[_si].n);
+      if (_snb) { _aySum += _snb.anchorY; _ayCnt++; }
+    }
+    if (_ayCnt) _sharedAxisY = Math.round(_aySum / _ayCnt);
+  }
+
   for (var i = 0; i < seq.length - 1; i++) {
     var d, fromC, toC;
     if (isMobile) {
@@ -14051,27 +14075,13 @@ function _drawFlowConnections() {
           + ' L' + x2 + ',' + y2;
       }
     } else {
-      // Desktop: Linien dürfen NIE durch eine Widget-Box laufen. Ankerpunkte
-      // sind der jeweilige optische Mittelpunkt: bei Stage-Nodes die Mitte
-      // des Header-Streifens (.flow-node-hdr), bei Trigger/End-Kreisen die
-      // Box-Mitte. Der 90°-Bend liegt exakt mittig zwischen den beiden
-      // Boxen, sodass kein Segment in einen Node hineinragt.
+      // Desktop: immer gerade horizontale Linie auf einer gemeinsamen Y-Achse.
       var from = nodeBounds(seq[i].n);
       var to   = nodeBounds(seq[i + 1].n);
       if (!from || !to) continue;
       var hx1 = from.right + 2, hx2 = to.left - 2;
-      var hy1 = Math.round(from.anchorY);
-      var hy2 = Math.round(to.anchorY);
-      if (Math.abs(hy1 - hy2) < 2) {
-        var hy = Math.round((hy1 + hy2) / 2);
-        d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
-      } else {
-        var mx = Math.round((hx1 + hx2) / 2);
-        d = 'M' + hx1 + ',' + hy1
-          + ' L' + mx  + ',' + hy1
-          + ' L' + mx  + ',' + hy2
-          + ' L' + hx2 + ',' + hy2;
-      }
+      var hy = _sharedAxisY != null ? _sharedAxisY : Math.round((from.anchorY + to.anchorY) / 2);
+      d = 'M' + hx1 + ',' + hy + ' L' + hx2 + ',' + hy;
     }
 
     paths += '<path d="' + d + '" fill="none" stroke="' + STROKE + '" stroke-width="' + SW + '" stroke-linecap="square" stroke-linejoin="miter" marker-end="url(#' + markerId + ')"/>';
