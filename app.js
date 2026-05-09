@@ -12808,7 +12808,10 @@ function _renderBoardFlowImpl() {
         // Mobile: Weltbreite = Canvasbreite (kein horizontaler Scroll,
         // Welt richtet sich nach Inhalt/Viewport, nicht endlos in die Breite)
         measuredW = canvasEl.clientWidth;
-        measuredH = Math.max(maxB + PAD_B, parseFloat(worldElM.dataset.worldH) || 0);
+        // WICHTIG: Auf Mobile NICHT mit dem (Desktop-)Initial-Wert maxen –
+        // das wuerde unten viel Leerraum erzeugen. Stattdessen exakt die
+        // gemessene Inhalts-Hoehe + kleiner Bottom-Pad nehmen.
+        measuredH = maxB + PAD_B;
       } else {
         measuredW = Math.max(maxR + PAD_R, parseFloat(worldElM.dataset.worldW) || 0);
         measuredH = Math.max(maxB + PAD_B, parseFloat(worldElM.dataset.worldH) || 0);
