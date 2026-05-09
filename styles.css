@@ -10500,22 +10500,55 @@ textarea.sa-input { resize: vertical; }
   }
   .flow-prov-btn.flow-prov-del { font-size: 10.5px; }
 
-  /* Handy: Stages als horizontale Kette – Provider-Karten RECHTS vom Stage-Header
-     (statt unter dem Stage). User-Wunsch: "rechts von Kontaktiert, verbunden". */
+  /* Handy: Stages stapeln sich UNTEREINANDER (vertikale Prozesskette).
+     INNERHALB einer Stage liegt der Stage-Header LINKS, die mit ihm
+     "verbundenen" Provider-Karten erscheinen RECHTS daneben – mit einer
+     gestrichelten Verbindungslinie pro Karte. */
   .flow-col {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 10px;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 170px);
+    column-gap: 18px;
+    row-gap: 10px;
+    align-items: start;
+    flex-direction: row; /* fallback */
   }
-  .flow-col-connector {
-    width: 14px;
-    height: 2px;
-    align-self: center;
-    background: linear-gradient(90deg, rgba(255,255,255,0.26), rgba(255,255,255,0.08));
+  /* Schmalere Karten auf Handy, damit Stage + Provider nebeneinander passen */
+  .flow-col > .flow-node { width: 150px; }
+  .flow-col > .flow-node-provider { width: auto; max-width: 170px; }
+  /* Stage-Header (1. flow-node) belegt linke Spalte, ueber alle Reihen */
+  .flow-col > .flow-node:first-child {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: start;
   }
+  /* Provider-Karten in rechter Spalte */
+  .flow-col > .flow-node-provider {
+    grid-column: 2;
+    position: relative;
+  }
+  /* Gestrichelte Verbindungslinie vom Stage zur Provider-Karte */
+  .flow-col > .flow-node-provider::before {
+    content: '';
+    position: absolute;
+    top: 26px;
+    left: -18px;
+    width: 18px;
+    border-top: 2px dashed rgba(255,255,255,0.4);
+    pointer-events: none;
+  }
+  /* Alte vertikale Connector-Stege ausblenden – Linien zeichnen wir per ::before */
+  .flow-col-connector { display: none; }
+  /* Start-/End-Spalten haben nur EIN Kind: einspaltig zentrieren */
   .flow-col[data-col-id="start"],
-  .flow-col[data-col-id="end"] { flex-direction: row; }
+  .flow-col[data-col-id="end"] {
+    grid-template-columns: auto;
+    justify-items: center;
+  }
+  .flow-col[data-col-id="start"] > .flow-node:first-child,
+  .flow-col[data-col-id="end"]   > .flow-node:first-child {
+    grid-column: 1;
+    grid-row: auto;
+  }
   /* Toolbar auf Mobile kompakter */
   .flow-toolbar { top: 8px; margin: 8px 10px 0; }
 }
