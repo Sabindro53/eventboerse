@@ -9432,6 +9432,15 @@ body.has-pseudo-fullscreen { overflow: hidden; }
 }
 .flow-canvas::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.26); background-clip: padding-box; }
 .flow-canvas.is-panning { cursor: grabbing; }
+/* Spacer setzt die Scrollarea (visuelle Welt-Groesse nach Zoom),
+   ohne den Canvas selbst aus seinem Flex-Slot herauswachsen zu lassen. */
+.flow-spacer {
+  position: relative;
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+  flex-shrink: 0;
+}
 .flow-world {
   position: absolute;
   top: 0; left: 0;

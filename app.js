@@ -12612,7 +12612,12 @@ function _renderBoardFlowImpl() {
   html += '</div>';
 
   // ── Canvas (scroll container) + World (zoom target) ─────
+  // Spacer-Div setzt die Scroll-Flaeche (visuelle Welt-Groesse nach Zoom),
+  // OHNE den Canvas selbst aus seinem Flex-Slot herauswachsen zu lassen.
+  // (Frueher: canvas.style.minHeight = wH*z + 600  =>  Canvas wurde > Parent
+  // und sprengte das gesamte Page-Layout auf Mobile.)
   html += '<div class="flow-canvas" id="flowCanvas">';
+  html += '<div class="flow-spacer" id="flowSpacer" aria-hidden="true"></div>';
   html += '<div class="flow-world" id="flowWorld">';
   html += '<svg class="flow-svg" id="flowSvg" xmlns="http://www.w3.org/2000/svg"></svg>';
 
@@ -14337,15 +14342,19 @@ function _flowApplyZoom(z, immediate) {
   var wH = parseFloat(world.dataset.worldH) || world.offsetHeight;
   world.style.width  = wW + 'px';
   world.style.height = wH + 'px';
-  // Canvas-Scrollgröße = visuelle Größe nach Skalierung, damit Pan/Scroll
-  // exakt bis zur rechten/unteren Kante des sichtbaren Contents geht.
-  // Auf Mobile zusaetzlich extra Bottom-Reserve, damit man unter dem letzten
-  // Node noch scrollen kann (Mobile-Nav + Komfort-Abstand). Sonst wird der
-  // letzte Knoten von der unteren Mobile-Nav verdeckt.
+  // Scroll-Flaeche kommt aus dem Spacer (visuelle, also skalierte Groesse).
+  // Auf Mobile zusaetzlich extra Bottom-Reserve, damit der letzte Knoten nicht
+  // von der Mobile-Nav verdeckt wird und Drag/Pan komfortabel weiterscrollt.
   var _isMob = (window.innerWidth || 1200) <= 768;
   var extraBottom = _isMob ? 600 : 0;
-  canvas.style.minWidth  = (wW * z) + 'px';
-  canvas.style.minHeight = (wH * z + extraBottom) + 'px';
+  var spacer = document.getElementById('flowSpacer');
+  if (spacer) {
+    spacer.style.width  = (wW * z) + 'px';
+    spacer.style.height = (wH * z + extraBottom) + 'px';
+  }
+  // KEIN canvas.style.minHeight setzen – das wuerde min-height: 0 (flex)
+  // ueberschreiben und den Canvas selbst aus dem Parent-Flex herauswachsen
+  // lassen. Der Spacer uebernimmt die Scrollarea.
   if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });
   var lbl = document.getElementById('flowZoomPct');
   if (lbl) {
