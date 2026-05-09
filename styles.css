@@ -10511,18 +10511,19 @@ textarea.sa-input { resize: vertical; }
   .flow-prov-btn.flow-prov-del { font-size: 10.5px; }
 
   /* Handy: Stages stapeln sich UNTEREINANDER (vertikale Prozesskette).
-     Pro Stage liegt der Stage-Header LINKS in einer fixen Spalte (140 px),
-     die zugehoerigen Provider-Karten erscheinen RECHTS daneben gestapelt
-     untereinander – so bleibt jeder "Inserat"-Block fuer sich lesbar und
-     wandert NIE in die Stage-Spalte. */
+     Pro Stage liegt der Stage-Header LINKS, die Inserate RECHTS daneben.
+     Beide Spalten sind GLEICH BREIT (1fr 1fr) damit das Layout symmetrisch
+     wirkt und beide Cards genug Platz fuer Touch-Bedienung haben. */
   .flow-col {
     display: grid;
-    grid-template-columns: 140px minmax(0, 1fr);
-    column-gap: 14px;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 12px;
     row-gap: 12px;
     align-items: start;
     grid-auto-flow: row;
+    width: calc(100vw - 24px);
     max-width: calc(100vw - 24px);
+    box-sizing: border-box;
   }
   /* Stage-Header (1. flow-node) belegt linke Spalte. '1 / -1' spannt
      dynamisch ueber alle realen Reihen (so viele wie Provider-Karten +1).
@@ -10531,11 +10532,11 @@ textarea.sa-input { resize: vertical; }
   .flow-col > .flow-node-stage {
     grid-column: 1;
     grid-row: 1 / -1;
-    width: 140px;
+    width: 100%;
+    min-width: 0;
     align-self: start;
   }
-  .flow-col > .flow-node-stage,
-  .flow-col > .flow-node { width: 140px; }
+  .flow-col > .flow-node { width: 100%; min-width: 0; }
   /* Provider-Karten: stapeln sich vertikal in Spalte 2 (eine pro Reihe)
      – immer rechts vom Stage, nie darunter, perfekt lesbar. */
   .flow-col > .flow-node-provider {
@@ -10549,16 +10550,20 @@ textarea.sa-input { resize: vertical; }
     content: '';
     position: absolute;
     top: 22px;
-    left: -14px;
-    width: 14px;
+    left: -12px;
+    width: 12px;
     border-top: 2px dashed rgba(255,255,255,0.4);
     pointer-events: none;
   }
   .flow-col-connector { display: none; }
-  /* Start-/End-Spalten: einspaltig, volle Breite */
+  /* Start-/End-Spalten: einspaltig, ueber gesamte Canvas-Breite,
+     Inhalt mittig zentriert. */
   .flow-col[data-col-id="start"],
   .flow-col[data-col-id="end"] {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: calc(100vw - 24px);
     max-width: calc(100vw - 24px);
   }
   .flow-col[data-col-id="start"] > .flow-node-trigger,
