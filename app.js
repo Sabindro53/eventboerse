@@ -14389,10 +14389,18 @@ function flowFitToScreen() {
   // initialen Zoom, aendert aber nicht, was der Nutzer als „100 %“ sieht.
   _flowDisplayBase = 1;
   _flowApplyZoom(fitZ);
-  // Direkt zum Start-Node (oben-links) scrollen
+  // Auf Desktop: Inhalt horizontal zentrieren (falls Welt schmaler als
+  // Canvas ist, sonst links). Auf Mobile: oben-links bleiben.
   setTimeout(function() {
-    canvas.scrollLeft = 0;
-    canvas.scrollTop  = 0;
+    if (isMobile) {
+      canvas.scrollLeft = 0;
+      canvas.scrollTop  = 0;
+    } else {
+      var visualW = wW * fitZ;
+      var diff = canvas.clientWidth - visualW;
+      canvas.scrollLeft = diff > 0 ? 0 : Math.max(0, (visualW - canvas.clientWidth) / 2);
+      canvas.scrollTop  = 0;
+    }
   }, 50);
 }
 
@@ -14882,11 +14890,6 @@ function openCreateBoardModal() {
           <label>Gästeanzahl (optional)</label>
           <input type="number" id="newBoardGuests" placeholder="z.B. 80" min="1" step="1" />
         </div>
-        <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--bg-alt);padding:10px 12px;border-radius:10px">
-          <span class="material-icons-round" style="color:var(--text-light)">view_kanban</span>
-          <label for="newBoardAutoCards" style="margin:0;flex:1;font-size:13px;cursor:pointer">Passende Dienstleister-Kategorien aus Vorlage vorausfüllen</label>
-          <input type="checkbox" id="newBoardAutoCards" checked style="width:18px;height:18px;cursor:pointer" />
-        </div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">add</span> Projekt erstellen</button>
       </form>
     </div>
@@ -14917,27 +14920,12 @@ function _createBoardProject(event) {
   var budget = document.getElementById('newBoardBudget').value.trim();
   var guests = document.getElementById('newBoardGuests').value.trim();
   var tmplId = (document.getElementById('newBoardTmpl') || {}).value || 'custom';
-  var autoCards = !!(document.getElementById('newBoardAutoCards') && document.getElementById('newBoardAutoCards').checked);
   if (!name) return;
-  var tmpl = (window._boardTemplates || []).find(function(t){ return t.id === tmplId; });
 
-  // Auto-create placeholder cards from template suggestions
+  // Keine Beispielinserate / Platzhalter-Karten – das Board startet leer.
+  // Dienstleister werden vom Nutzer ueber „+ Hinzufuegen" und die echte
+  // Inserats-Suche selbst eingetragen.
   var cards = [];
-  if (autoCards && tmpl && tmpl.suggested && tmpl.suggested.length) {
-    var now = Date.now();
-    cards = tmpl.suggested.map(function(cat, i) {
-      return {
-        id: 'bc_' + (now + i),
-        name: cat,
-        category: cat,
-        stage: 'geplant',
-        price: 0,
-        note: '',
-        avatar: ebAvatar(cat, cat),
-        createdAt: new Date().toISOString()
-      };
-    });
-  }
 
   var project = {
     id: 'bp_' + Date.now(),
