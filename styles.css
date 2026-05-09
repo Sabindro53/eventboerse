@@ -10508,17 +10508,17 @@ textarea.sa-input { resize: vertical; }
      Reihe, auf sehr schmalen Geraeten 1 Karte (statt zerquetscht). */
   .flow-col {
     display: grid;
-    grid-template-columns: 100px repeat(auto-fit, minmax(140px, 1fr));
-    column-gap: 14px;
-    row-gap: 12px;
+    grid-template-columns: 130px repeat(auto-fit, minmax(140px, 1fr));
+    column-gap: 12px;
+    row-gap: 14px;
     align-items: start;
     max-width: calc(100vw - 24px);
     flex-direction: row; /* fallback */
   }
-  /* Schmalere Stage-Header auf Handy */
-  .flow-col > .flow-node { width: 100px; }
+  /* Stage-Header auf Handy: natürliche Breite aus Grid-Spalte */
+  .flow-col > .flow-node { width: 130px; }
   .flow-col > .flow-node-trigger,
-  .flow-col > .flow-node-end { width: 100px; }
+  .flow-col > .flow-node-end { width: 130px; }
   /* Provider-Karten: nehmen ihre Grid-Spalten-Breite an */
   .flow-col > .flow-node-provider {
     width: auto;
@@ -10532,25 +10532,21 @@ textarea.sa-input { resize: vertical; }
     grid-row: 1 / -1;
     align-self: start;
   }
-  /* Gestrichelte Verbindungslinie vom Stage zur jeweils LINKEN Provider-Karte
-     (visuelles "verbunden mit"). Karten in Spalte 3+ erben die Geste durch
-     die Naehe – wir vermeiden Linien quer durch andere Karten. */
+  /* Gestrichelte Verbindungslinie vom Stage zur jeweils LINKEN Provider-Karte */
   .flow-col > .flow-node-provider::before {
     content: '';
     position: absolute;
     top: 22px;
-    left: -14px;
-    width: 14px;
+    left: -12px;
+    width: 12px;
     border-top: 2px dashed rgba(255,255,255,0.4);
     pointer-events: none;
   }
   .flow-col-connector { display: none; }
-  /* Start-/End-Spalten: gleiche linke Ausrichtung wie Stage-Spalten,
-     damit XYZ -> Geplant -> ... -> Event abgeschlossen vertikal in EINER
-     Linie linksbuendig untereinander stehen. */
+  /* Start-/End-Spalten: gleiche Breite + linksbuendig */
   .flow-col[data-col-id="start"],
   .flow-col[data-col-id="end"] {
-    grid-template-columns: 100px;
+    grid-template-columns: 130px;
     justify-items: start;
     max-width: calc(100vw - 24px);
   }
@@ -10558,7 +10554,7 @@ textarea.sa-input { resize: vertical; }
   .flow-col[data-col-id="end"]   > .flow-node:first-child {
     grid-column: 1;
     grid-row: auto;
-    width: 100px;
+    width: 130px;
   }
   /* Provider-Karten kompakter, aber nicht gequetscht */
   .flow-col .flow-node-provider .flow-provider-inner {
@@ -10576,24 +10572,24 @@ textarea.sa-input { resize: vertical; }
   .flow-col .flow-node-provider .flow-prov-action-btn { font-size: 10px; padding: 6px 7px; min-height: 30px; }
   .flow-col .flow-node-provider .flow-prov-btn { font-size: 10px; padding: 5px 7px; min-height: 28px; }
   .flow-col .flow-node-provider .flow-confirm-badge { font-size: 8.5px; padding: 1.5px 6px; }
-  /* Stage-Header kompakter (nur Icon + kurzes Label, kein Drag-Icon-Quetsch) */
+  /* Stage-Header: mehr Luft, lesbare Schrift */
   .flow-col > .flow-node-stage .flow-node-hdr {
-    padding: 6px 8px;
-    font-size: 9.5px;
-    gap: 4px;
-    letter-spacing: 0.04em;
+    padding: 8px 10px;
+    font-size: 11px;
+    gap: 5px;
+    letter-spacing: 0.02em;
   }
-  .flow-col > .flow-node-stage .flow-node-hdr .material-icons-round { font-size: 13px; }
+  .flow-col > .flow-node-stage .flow-node-hdr .material-icons-round { font-size: 15px; }
   .flow-col > .flow-node-stage .flow-node-body {
-    padding: 6px 8px 8px;
-    font-size: 10px;
-    gap: 3px;
+    padding: 8px 10px 10px;
+    font-size: 11px;
+    gap: 4px;
   }
   .flow-col > .flow-node-stage .flow-drag-icon { display: none; }
   .flow-col > .flow-node-stage .flow-node-add-btn {
-    font-size: 9.5px;
-    padding: 5px 6px;
-    min-height: 28px;
+    font-size: 10.5px;
+    padding: 6px 8px;
+    min-height: 30px;
   }
   /* Toolbar auf Mobile kompakter */
   .flow-toolbar { top: 8px; margin: 8px 10px 0; }

@@ -12514,7 +12514,7 @@ function _renderBoardFlowImpl() {
   var storedLayout = _getFlowLayoutForBp(project, _bp);
   var _GAP = _isMobile ? 24 : _isTablet ? 36 : 64;
   var _TW  = _isMobile ? 110 : _isTablet ? 136 : 168;
-  var _NW  = _isMobile ? 160 : _isTablet ? 190 : 236;
+  var _NW  = _isMobile ? 130 : _isTablet ? 190 : 236;
   var _PAD = _isMobile ? 16 : _isTablet ? 30 : 60;
   var _defLayout;
   if (_isMobile) {
@@ -14005,8 +14005,8 @@ function _drawFlowConnections() {
            + '<marker id="flarrow-h" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
            +   '<polygon points="0,0 10,4 0,8" fill="rgba(255,255,255,0.6)"/>'
            + '</marker>'
-           + '<marker id="flarrow-v" markerWidth="10" markerHeight="8" refX="4" refY="9" orient="auto" markerUnits="userSpaceOnUse">'
-           +   '<polygon points="0,0 4,10 8,0" fill="rgba(255,255,255,0.6)"/>'
+           + '<marker id="flarrow-v" markerWidth="8" markerHeight="10" refX="4" refY="10" orient="90" markerUnits="userSpaceOnUse">'
+           +   '<polygon points="0,0 8,0 4,10" fill="rgba(255,255,255,0.6)"/>'
            + '</marker>'
            + '</defs>';
 
@@ -14334,8 +14334,13 @@ function _flowApplyZoom(z, immediate) {
   world.style.height = wH + 'px';
   // Canvas-Scrollgröße = visuelle Größe nach Skalierung, damit Pan/Scroll
   // exakt bis zur rechten/unteren Kante des sichtbaren Contents geht.
+  // Auf Mobile zusaetzlich extra Bottom-Reserve, damit man unter dem letzten
+  // Node noch scrollen kann (Mobile-Nav + Komfort-Abstand). Sonst wird der
+  // letzte Knoten von der unteren Mobile-Nav verdeckt.
+  var _isMob = (window.innerWidth || 1200) <= 600;
+  var extraBottom = _isMob ? 200 : 0;
   canvas.style.minWidth  = (wW * z) + 'px';
-  canvas.style.minHeight = (wH * z) + 'px';
+  canvas.style.minHeight = (wH * z + extraBottom) + 'px';
   if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });
   var lbl = document.getElementById('flowZoomPct');
   if (lbl) {
