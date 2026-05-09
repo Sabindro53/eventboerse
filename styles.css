@@ -10515,12 +10515,13 @@ textarea.sa-input { resize: vertical; }
     grid-auto-flow: row;
     max-width: calc(100vw - 24px);
   }
-  /* Stage-Header (1. flow-node) belegt linke Spalte, ueber ALLE Reihen.
-     'span 999' garantiert, dass auch bei vielen Provider-Reihen die linke
-     Spalte fuer den Stage-Header reserviert bleibt. */
+  /* Stage-Header (1. flow-node) belegt linke Spalte. '1 / -1' spannt
+     dynamisch ueber alle realen Reihen (so viele wie Provider-Karten +1).
+     KEIN 'span 999' – das wuerde 998 leere Reihen mit row-gap erzeugen
+     (~12000px pro Spalte) und das gesamte Board-Layout sprengen. */
   .flow-col > .flow-node-stage {
     grid-column: 1;
-    grid-row: 1 / span 999;
+    grid-row: 1 / -1;
     width: 140px;
     align-self: start;
   }
