@@ -12564,9 +12564,9 @@ function _renderBoardFlowImpl() {
 
   // ── Toolbar ──────────────────────────────────────────────
   html += '<div class="flow-toolbar">';
-  html += '<button class="flow-tbtn" onclick="flowZoom(-0.15)" title="Verkleinern (Ctrl + -)"><span class="material-icons-round">remove</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowZoom(-0.08)" title="Verkleinern (Ctrl + -)"><span class="material-icons-round">remove</span></button>';
   html += '<span class="flow-zoom-pct" id="flowZoomPct">100%</span>';
-  html += '<button class="flow-tbtn" onclick="flowZoom(0.15)" title="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowZoom(0.08)" title="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
   html += '<div class="flow-tb-divider"></div>';
   html += '<button class="flow-tbtn" id="flowUndoBtn" onclick="flowUndo()" title="Rückgängig (Ctrl+Z)" disabled><span class="material-icons-round">undo</span></button>';
   html += '<button class="flow-tbtn" id="flowRedoBtn" onclick="flowRedo()" title="Wiederherstellen (Ctrl+Y)" disabled><span class="material-icons-round">redo</span></button>';
@@ -12799,7 +12799,7 @@ function _renderBoardFlowImpl() {
         if (b > maxB) maxB = b;
       });
       // Kleiner Rand rechts/unten, damit nichts an der Kante klebt
-      var PAD_R = 40, PAD_B = 40;
+      var PAD_R = 40, PAD_B = _isMobile ? 220 : 40;
       var measuredW, measuredH;
       if (_isMobile && canvasEl) {
         // Mobile: Weltbreite = Canvasbreite (kein horizontaler Scroll,
@@ -14019,13 +14019,17 @@ function _drawFlowConnections() {
   for (var i = 0; i < seq.length - 1; i++) {
     var d, fromC, toC;
     if (isMobile) {
-      // Auf Mobile: gerade vertikale Linie von Unterkante Spalte A zu Oberkante Spalte B
-      fromC = colBounds(seq[i].col);
-      toC   = colBounds(seq[i + 1].col);
-      if (!fromC || !toC) continue;
-      var x1 = fromC.midX, x2 = toC.midX;
-      var y1 = fromC.bottom + 2;
-      var y2 = toC.top - 2;
+      // Auf Mobile: gerade vertikale Linie vom Stage-Header (LINKE Spalte des
+      // Grid) nach unten zum naechsten Stage-Header. So bleibt die
+      // Hauptachse XYZ → Geplant → Kontaktiert … → Ende sauber gerade,
+      // unabhaengig davon wie breit die Spalte durch Provider-Karten wird.
+      var fromN = nodeBounds(seq[i].n);
+      var toN   = nodeBounds(seq[i + 1].n);
+      if (!fromN || !toN) continue;
+      var x1 = Math.round((fromN.left + fromN.right) / 2);
+      var x2 = Math.round((toN.left   + toN.right)   / 2);
+      var y1 = fromN.bottom + 2;
+      var y2 = toN.top - 2;
       if (Math.abs(x1 - x2) < 2) {
         d = 'M' + x2 + ',' + y1 + ' L' + x2 + ',' + y2;
       } else {
@@ -14766,8 +14770,8 @@ function _initFlowZoomPan() {
       var view = document.getElementById('boardFlowView');
       if (!view || view.style.display === 'none') return;
       if (e.target && ['INPUT','TEXTAREA','SELECT'].indexOf(e.target.tagName) > -1) return;
-      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) { e.preventDefault(); flowZoom(0.15); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === '-') { e.preventDefault(); flowZoom(-0.15); }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) { e.preventDefault(); flowZoom(0.08); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === '-') { e.preventDefault(); flowZoom(-0.08); }
       else if ((e.ctrlKey || e.metaKey) && e.key === '0') { e.preventDefault(); flowResetView(); }
       else if (e.key === 'f' || e.key === 'F') { flowFitToScreen(); }
     });
