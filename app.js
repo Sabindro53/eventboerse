@@ -12514,7 +12514,7 @@ function _renderBoardFlowImpl() {
   var storedLayout = _getFlowLayoutForBp(project, _bp);
   var _GAP = _isMobile ? 24 : _isTablet ? 36 : 64;
   var _TW  = _isMobile ? 110 : _isTablet ? 136 : 168;
-  var _NW  = _isMobile ? 130 : _isTablet ? 190 : 236;
+  var _NW  = _isMobile ? 150 : _isTablet ? 190 : 236;
   var _PAD = _isMobile ? 16 : _isTablet ? 30 : 60;
   var _defLayout;
   if (_isMobile) {
@@ -14337,8 +14337,8 @@ function _flowApplyZoom(z, immediate) {
   // Auf Mobile zusaetzlich extra Bottom-Reserve, damit man unter dem letzten
   // Node noch scrollen kann (Mobile-Nav + Komfort-Abstand). Sonst wird der
   // letzte Knoten von der unteren Mobile-Nav verdeckt.
-  var _isMob = (window.innerWidth || 1200) <= 600;
-  var extraBottom = _isMob ? 360 : 0;
+  var _isMob = (window.innerWidth || 1200) <= 768;
+  var extraBottom = _isMob ? 600 : 0;
   canvas.style.minWidth  = (wW * z) + 'px';
   canvas.style.minHeight = (wH * z + extraBottom) + 'px';
   if (immediate) requestAnimationFrame(function(){ world.classList.remove('no-transition'); });

@@ -10508,7 +10508,7 @@ textarea.sa-input { resize: vertical; }
      Reihe, auf sehr schmalen Geraeten 1 Karte (statt zerquetscht). */
   .flow-col {
     display: grid;
-    grid-template-columns: 130px repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: 150px repeat(auto-fit, minmax(140px, 1fr));
     column-gap: 12px;
     row-gap: 14px;
     align-items: start;
@@ -10516,9 +10516,9 @@ textarea.sa-input { resize: vertical; }
     flex-direction: row; /* fallback */
   }
   /* Stage-Header auf Handy: natürliche Breite aus Grid-Spalte */
-  .flow-col > .flow-node { width: 130px; }
+  .flow-col > .flow-node { width: 150px; }
   .flow-col > .flow-node-trigger,
-  .flow-col > .flow-node-end { width: 130px; }
+  .flow-col > .flow-node-end { width: 150px; }
   /* Provider-Karten: nehmen ihre Grid-Spalten-Breite an */
   .flow-col > .flow-node-provider {
     width: auto;
@@ -10546,7 +10546,7 @@ textarea.sa-input { resize: vertical; }
   /* Start-/End-Spalten: gleiche Breite + linksbuendig */
   .flow-col[data-col-id="start"],
   .flow-col[data-col-id="end"] {
-    grid-template-columns: 130px;
+    grid-template-columns: 150px;
     justify-items: start;
     max-width: calc(100vw - 24px);
   }
@@ -10554,7 +10554,7 @@ textarea.sa-input { resize: vertical; }
   .flow-col[data-col-id="end"]   > .flow-node:first-child {
     grid-column: 1;
     grid-row: auto;
-    width: 130px;
+    width: 150px;
   }
   /* Provider-Karten kompakter, aber nicht gequetscht */
   .flow-col .flow-node-provider .flow-provider-inner {
@@ -11589,7 +11589,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
 
   /* Flow-Canvas: unter Mobile-Nav ausreichend Scroll-Platz */
   .flow-canvas {
-    padding-bottom: calc(var(--mobile-nav-height) + 120px);
+    padding-bottom: calc(var(--mobile-nav-height) + 240px);
   }
 
   /* Provider-Kette: Stages bleiben vertikal, aber Karten schmaler & lesbar */
