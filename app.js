@@ -14310,7 +14310,7 @@ function _saveFlowColPosition(col) {
 
 /* ─── Flow Zoom / Pan ─────────────────────────────────── */
 var _flowZoom = 1;
-var _flowMinZoom = 0.1;
+var _flowMinZoom = 0.4;
 var _flowMaxZoom = 2;
 var _flowPanInit = false;
 var _flowPanWinHandlers = null;
@@ -14380,7 +14380,9 @@ function flowFitToScreen() {
     fitZ = Math.min(availW / wW, availH / wH);
   }
   fitZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, fitZ));
-  _flowDisplayBase = fitZ;
+  // 100 % entspricht IMMER der 1:1-Darstellung. Auto-Fit setzt nur den
+  // initialen Zoom, aendert aber nicht, was der Nutzer als „100 %“ sieht.
+  _flowDisplayBase = 1;
   _flowApplyZoom(fitZ);
   // Direkt zum Start-Node (oben-links) scrollen
   setTimeout(function() {
@@ -14390,7 +14392,9 @@ function flowFitToScreen() {
 }
 
 function flowResetView() {
-  _flowApplyZoom(_flowDisplayBase || 1);
+  // Reset = zurueck auf 100 % (1:1) und an den Anfang scrollen.
+  _flowDisplayBase = 1;
+  _flowApplyZoom(1);
   var canvas = document.getElementById('flowCanvas');
   if (canvas) { canvas.scrollLeft = 0; canvas.scrollTop = 0; }
 }
