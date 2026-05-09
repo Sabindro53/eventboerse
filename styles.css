@@ -10553,18 +10553,20 @@ textarea.sa-input { resize: vertical; }
   }
   /* Alte vertikale Connector-Stege ausblenden – Linien zeichnen wir per ::before */
   .flow-col-connector { display: none; }
-  /* Start-/End-Spalten haben nur EIN Kind: einspaltig zentrieren */
+  /* Start-/End-Spalten: gleiche linke Ausrichtung wie Stage-Spalten,
+     damit XYZ -> Geplant -> ... -> Event abgeschlossen vertikal in EINER
+     Linie linksbuendig untereinander stehen. */
   .flow-col[data-col-id="start"],
   .flow-col[data-col-id="end"] {
-    grid-template-columns: auto;
-    justify-items: center;
-    max-width: none;
+    grid-template-columns: 110px;
+    justify-items: start;
+    max-width: calc(100vw - 24px);
   }
   .flow-col[data-col-id="start"] > .flow-node:first-child,
   .flow-col[data-col-id="end"]   > .flow-node:first-child {
     grid-column: 1;
     grid-row: auto;
-    width: 130px;
+    width: 110px;
   }
   /* Provider-Karten kompakter machen, damit sie zu zweit nebeneinander Platz haben */
   .flow-col .flow-node-provider .flow-provider-inner {

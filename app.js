@@ -12770,16 +12770,14 @@ function _renderBoardFlowImpl() {
       var mobileOrder = ['start','geplant','kontaktiert','angebot','bestaetigt','abgeschlossen','end'];
       var mobileGap   = 40; // Abstand für Verbindungslinie + Pfeil zwischen zwei Spalten
       var yCursor = _PAD;
-      // Einheitliche Spaltenbreite: zentriert im sichtbaren Bereich
-      var canvasW = (canvasEl && canvasEl.clientWidth) || worldElM.offsetWidth || (_NW + 2*_PAD);
-      var centerX = Math.max(_PAD, Math.round((canvasW - _NW) / 2));
+      // ALLE Spalten auf Mobile linksbuendig (gleiches X) untereinander.
+      // So bilden Start (XYZ) + alle Stages + End (Event abgeschlossen)
+      // eine vertikale Linie auf der linken Seite.
+      var leftX = _PAD;
       mobileOrder.forEach(function(cid){
         var col = worldElM.querySelector('[data-col-id="' + cid + '"]');
         if (!col) return;
-        // Spalten links zentriert platzieren (start/end schmaler als stages)
-        var colW = col.offsetWidth || _NW;
-        var x = Math.max(_PAD, Math.round((canvasW - colW) / 2));
-        col.style.left = x + 'px';
+        col.style.left = leftX + 'px';
         col.style.top  = yCursor + 'px';
         // Nach dem Positionieren die tatsächliche Höhe messen
         var h = col.offsetHeight || 120;
