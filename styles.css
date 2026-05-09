@@ -10502,59 +10502,60 @@ textarea.sa-input { resize: vertical; }
   .flow-prov-btn.flow-prov-del { font-size: 10.5px; }
 
   /* Handy: Stages stapeln sich UNTEREINANDER (vertikale Prozesskette).
-     INNERHALB einer Stage liegt der Stage-Header LINKS, die mit ihm
-     "verbundenen" Provider-Karten erscheinen RECHTS daneben.
-     Provider-Spalten: auto-fit – auf breiten Phones kommen 2 Karten in eine
-     Reihe, auf sehr schmalen Geraeten 1 Karte (statt zerquetscht). */
+     Pro Stage liegt der Stage-Header LINKS in einer fixen Spalte (140 px),
+     die zugehoerigen Provider-Karten erscheinen RECHTS daneben gestapelt
+     untereinander – so bleibt jeder "Inserat"-Block fuer sich lesbar und
+     wandert NIE in die Stage-Spalte. */
   .flow-col {
     display: grid;
-    grid-template-columns: 150px repeat(auto-fit, minmax(140px, 1fr));
-    column-gap: 12px;
-    row-gap: 14px;
+    grid-template-columns: 140px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 12px;
     align-items: start;
+    grid-auto-flow: row;
     max-width: calc(100vw - 24px);
-    flex-direction: row; /* fallback */
   }
-  /* Stage-Header auf Handy: natürliche Breite aus Grid-Spalte */
-  .flow-col > .flow-node { width: 150px; }
-  .flow-col > .flow-node-trigger,
-  .flow-col > .flow-node-end { width: 150px; }
-  /* Provider-Karten: nehmen ihre Grid-Spalten-Breite an */
-  .flow-col > .flow-node-provider {
-    width: auto;
-    min-width: 0;
-    grid-column: auto;
-    position: relative;
-  }
-  /* Stage-Header (1. flow-node) belegt linke Spalte, ueber alle Reihen */
-  .flow-col > .flow-node:first-child {
+  /* Stage-Header (1. flow-node) belegt linke Spalte, ueber ALLE Reihen.
+     'span 999' garantiert, dass auch bei vielen Provider-Reihen die linke
+     Spalte fuer den Stage-Header reserviert bleibt. */
+  .flow-col > .flow-node-stage {
     grid-column: 1;
-    grid-row: 1 / -1;
+    grid-row: 1 / span 999;
+    width: 140px;
     align-self: start;
   }
-  /* Gestrichelte Verbindungslinie vom Stage zur jeweils LINKEN Provider-Karte */
+  .flow-col > .flow-node-stage,
+  .flow-col > .flow-node { width: 140px; }
+  /* Provider-Karten: stapeln sich vertikal in Spalte 2 (eine pro Reihe)
+     – immer rechts vom Stage, nie darunter, perfekt lesbar. */
+  .flow-col > .flow-node-provider {
+    grid-column: 2;
+    width: 100%;
+    min-width: 0;
+    position: relative;
+  }
+  /* Gestrichelte Verbindungslinie vom Stage zu jeder Provider-Karte */
   .flow-col > .flow-node-provider::before {
     content: '';
     position: absolute;
     top: 22px;
-    left: -12px;
-    width: 12px;
+    left: -14px;
+    width: 14px;
     border-top: 2px dashed rgba(255,255,255,0.4);
     pointer-events: none;
   }
   .flow-col-connector { display: none; }
-  /* Start-/End-Spalten: gleiche Breite + linksbuendig */
+  /* Start-/End-Spalten: einspaltig, volle Breite */
   .flow-col[data-col-id="start"],
   .flow-col[data-col-id="end"] {
-    grid-template-columns: 150px;
-    justify-items: start;
+    display: block;
     max-width: calc(100vw - 24px);
   }
-  .flow-col[data-col-id="start"] > .flow-node:first-child,
-  .flow-col[data-col-id="end"]   > .flow-node:first-child {
-    grid-column: 1;
-    grid-row: auto;
-    width: 150px;
+  .flow-col[data-col-id="start"] > .flow-node-trigger,
+  .flow-col[data-col-id="end"]   > .flow-node-end {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
   }
   /* Provider-Karten kompakter, aber nicht gequetscht */
   .flow-col .flow-node-provider .flow-provider-inner {

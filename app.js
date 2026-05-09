@@ -12813,6 +12813,11 @@ function _renderBoardFlowImpl() {
       // Basisgroesse (vor transform) setzen – _flowApplyZoom skaliert das dann.
       worldElM.style.width  = measuredW + 'px';
       worldElM.style.height = measuredH + 'px';
+      // WICHTIG: Nach der echten Vermessung Zoom NEU anwenden, damit
+      // canvas.minHeight die TATSAECHLICHE Welt-Hoehe widerspiegelt.
+      // Sonst bleibt die Scroll-Range auf der zu kleinen ersten Schaetzung
+      // haengen und man kann auf Handy nicht bis ganz nach unten scrollen.
+      try { _flowApplyZoom(_flowZoom, true); } catch(_) {}
     }
     _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan();
     // Initialer History-Eintrag (idempotent), Buttons aktualisieren
@@ -14380,18 +14385,29 @@ function flowFitToScreen() {
     // Karten werden 1:1 dargestellt, nur vertikal gescrollt.
     fitZ = 1;
   } else {
-    // Desktop: an beide Achsen anpassen
+    // Desktop: an beide Achsen anpassen (mit kleinem Headroom oben/unten)
     if (availH <= 0 || wH <= 0) return;
     fitZ = Math.min(availW / wW, availH / wH);
+    // Minimal lesbar lassen – nicht mikroskopisch klein einrasten
+    fitZ = Math.max(fitZ, 0.5);
   }
   fitZ = Math.max(_flowMinZoom, Math.min(_flowMaxZoom, fitZ));
   // 100 % entspricht IMMER der 1:1-Darstellung. Auto-Fit setzt nur den
-  // initialen Zoom, aendert aber nicht, was der Nutzer als „100 %“ sieht.
+  // initialen Zoom, aendert aber nicht, was der Nutzer als „100 %" sieht.
   _flowDisplayBase = 1;
   _flowApplyZoom(fitZ);
+<<<<<<< HEAD
+  // Welt zentriert ins Viewport ruecken (horizontal mittig, vertikal oben).
+=======
   // Auf Desktop: Inhalt horizontal zentrieren (falls Welt schmaler als
   // Canvas ist, sonst links). Auf Mobile: oben-links bleiben.
+>>>>>>> 074fa498d6e56e554f81552bd131fe6d9c39b55d
   setTimeout(function() {
+<<<<<<< HEAD
+    var sw = canvas.scrollWidth  - canvas.clientWidth;
+    canvas.scrollLeft = isMobile ? 0 : Math.max(0, sw / 2);
+    canvas.scrollTop  = 0;
+=======
     if (isMobile) {
       canvas.scrollLeft = 0;
       canvas.scrollTop  = 0;
@@ -14401,15 +14417,23 @@ function flowFitToScreen() {
       canvas.scrollLeft = diff > 0 ? 0 : Math.max(0, (visualW - canvas.clientWidth) / 2);
       canvas.scrollTop  = 0;
     }
+>>>>>>> 074fa498d6e56e554f81552bd131fe6d9c39b55d
   }, 50);
 }
 
 function flowResetView() {
-  // Reset = zurueck auf 100 % (1:1) und an den Anfang scrollen.
+  // Reset = zurueck auf 100 % (1:1) und horizontal zentriert.
   _flowDisplayBase = 1;
   _flowApplyZoom(1);
   var canvas = document.getElementById('flowCanvas');
-  if (canvas) { canvas.scrollLeft = 0; canvas.scrollTop = 0; }
+  if (canvas) {
+    var isMobile = (window.innerWidth || 1200) <= 600;
+    setTimeout(function(){
+      var sw = canvas.scrollWidth - canvas.clientWidth;
+      canvas.scrollLeft = isMobile ? 0 : Math.max(0, sw / 2);
+      canvas.scrollTop  = 0;
+    }, 30);
+  }
 }
 
 // Setzt das Layout für alle Breakpoints zurück auf die saubere Default-
@@ -14943,8 +14967,7 @@ function _createBoardProject(event) {
   _saveBoardProjects({ immediate: true });
   document.getElementById('createBoardModal') && document.getElementById('createBoardModal').remove();
   openBoardProject(project.id);
-  var cardMsg = cards.length ? ' · ' + cards.length + ' Kategorien vorausgef\u00fcllt' : '';
-  showToast('Event-Projekt \u201e' + name + '\u201c wurde erstellt!' + cardMsg, 'check_circle');
+  showToast('Event-Projekt \u201e' + name + '\u201c wurde erstellt!', 'check_circle');
 }
 
 /* ─── Edit Board Project ──────────────────────────────────── */
