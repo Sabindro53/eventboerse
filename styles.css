@@ -6411,7 +6411,10 @@ span.flatpickr-weekday {
   .browse-results { padding: 0 14px 24px; }
 
   /* Navigation */
-  .nav-search { display: none; }
+  .nav-search { display: flex; flex: 1; max-width: 100%; min-width: 0; }
+  .nav-search .nav-search-segment { padding: 6px 8px; }
+  .nav-search .nav-search-segment .value { display: none; }
+  .nav-search-mobile { display: none !important; }
   .nav-link { display: none; }
   .mobile-nav { gap: 4px; padding: 0 12px; padding-bottom: env(safe-area-inset-bottom, 0); }
   body { padding-bottom: 0; }
@@ -11600,8 +11603,8 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
 
 /* ======== MOBILE PERFEKTIONIERUNG (Board / Flow / Nav) ======== */
 @media (max-width: 768px) {
-  /* Mobile Such-Pille zeigen, Desktop-Suche ausblenden */
-  .nav-search-mobile { display: inline-flex; }
+  /* Desktop-Suche ist responsiv, Mobile-Pille bleibt versteckt */
+  .nav-search-mobile { display: none !important; }
 
   /* Board-Seite: unten Platz für Mobile-Nav schaffen */
   .board-kanban {
