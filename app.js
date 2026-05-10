@@ -15310,7 +15310,25 @@ function addChecklistItem(event) {
 window.addChecklistItem = addChecklistItem;
 
 function openAddProviderModal(defaultStage) {
-  var _listings = (LISTINGS || []).slice(0, 30);
+  // Nur Dienstleister-Inserate (Angebote) anzeigen, KEINE Such-Inserate.
+  // Filter:
+  //  1. Explizites Feld (zukuenftig): listingType / kind / type === 'search' | 'gesuch' | 'suche-dienstleister' → ausblenden
+  //  2. Heuristik fuer Legacy-Daten: Titel/Kategorie enthaelt "gesucht" / beginnt mit "Suche " → Such-Inserat
+  function _isSearchListing(l) {
+    if (!l) return true;
+    var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
+    if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
+    var title = (l.title || '').toString().toLowerCase();
+    var cat   = (l.categoryLabel || l.category || '').toString().toLowerCase();
+    if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
+    if (/^\s*suche\s/.test(title)) return true;
+    return false;
+  }
+  // Basis: gleiche Sichtbarkeitslogik wie ueberall sonst (Admin kann Demos abschalten)
+  var _baseList = (typeof _visibleListings === 'function')
+    ? _visibleListings()
+    : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
+  var _listings = _baseList.filter(function(l){ return !_isSearchListing(l); }).slice(0, 30);
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
