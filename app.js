@@ -12635,7 +12635,12 @@ function _renderBoardFlowImpl() {
   stagesMeta.forEach(function(stage) {
     var stageCards = cards.filter(function(c) { return c.stage === stage.id; });
     var stageBudget = stageCards.reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
-    html += '<div class="flow-col" data-col-id="' + stage.id + '" style="' + colStyle(stage.id) + '">';
+    // Stage-Spalte ist Drop-Target fuer Provider-Karten
+    html += '<div class="flow-col" data-col-id="' + stage.id + '"' +
+            ' ondragover="_flowColDragOver(event,\'' + stage.id + '\')"' +
+            ' ondragleave="_flowColDragLeave(event)"' +
+            ' ondrop="_flowColDrop(event,\'' + stage.id + '\')"' +
+            ' style="' + colStyle(stage.id) + '">';
 
     // Stage header node
     html += '<div class="flow-node flow-node-stage" data-nid="stage-' + stage.id + '">';
@@ -12666,7 +12671,14 @@ function _renderBoardFlowImpl() {
       var avatar = card.avatar || ebAvatar(card.name || 'user', card.name);
       var isConfirmed = !!card.confirmedByProvider;
       html += '<div class="flow-col-connector"></div>';
-      html += '<div class="flow-node flow-node-provider' + (isConfirmed ? ' is-confirmed' : '') + '" style="--stage-clr:' + stage.color + '" data-nid="card-' + esc(card.id) + '" onclick="openFlowCardModal(\'' + card.id + '\')">';
+      // Provider-Karte: per HTML5-Drag in andere Stage-Spalten verschiebbar.
+      html += '<div class="flow-node flow-node-provider' + (isConfirmed ? ' is-confirmed' : '') + '"' +
+              ' draggable="true"' +
+              ' ondragstart="_flowProvDragStart(event,\'' + esc(card.id) + '\')"' +
+              ' ondragend="_flowProvDragEnd(event)"' +
+              ' data-current-stage="' + stage.id + '"' +
+              ' style="--stage-clr:' + stage.color + '" data-nid="card-' + esc(card.id) + '"' +
+              ' onclick="openFlowCardModal(\'' + card.id + '\')">';
       if (isConfirmed) {
         html += '<span class="flow-confirm-badge confirmed"><span class="material-icons-round">verified</span>Bestätigt</span>';
       } else if (card.stage === 'angebot') {
@@ -12702,6 +12714,7 @@ function _renderBoardFlowImpl() {
         html += '<span class="material-icons-round">' + _saIcons[stage.id] + '</span> ' + _saLabels[stage.id];
         html += '</button>';
       }
+      html += '<button class="flow-prov-btn flow-prov-move" onclick="event.stopPropagation();openStageMoveSheet(\'' + card.id + '\')" title="Stage \u00e4ndern"><span class="material-icons-round">low_priority</span> Verschieben</button>';
       html += '<button class="flow-prov-btn flow-prov-del" onclick="event.stopPropagation();deleteBoardCard(\'' + card.id + '\');renderBoardFlow()" title="Löschen"><span class="material-icons-round">close</span> Löschen</button>';
       html += '</div>';
       html += '</div></div>';
@@ -13514,6 +13527,156 @@ function _formatEuro(n) {
   } catch (e) {
     return v.toFixed(2).replace('.', ',') + ' €';
   }
+}
+
+/* ── Flow-Board Stage-Verschieben (Sheet + Drag&Drop) ──────────────────
+ * Stages laufen strikt sequenziell:
+ *   geplant → kontaktiert → angebot (Gebucht) → bestaetigt (Bezahlt) → abgeschlossen (Erfüllt)
+ * Logik:
+ *   • Gleiche Stage  → ignorieren
+ *   • +1 Schritt     → den vorhandenen Aktions-Flow für die AKTUELLE Stage öffnen
+ *                      (z. B. Geplant→Kontaktiert öffnet "Kontaktieren"-Modal)
+ *   • >+1 Schritt    → blockiert mit Hinweis "Erst „X" abschließen"
+ *   • Rückwärts      → mit Bestätigung erlaubt; setzt nachgelagerte Marker zurück
+ */
+var FLOW_STAGE_ORDER  = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+var FLOW_STAGE_LABELS = { geplant:'Geplant', kontaktiert:'Kontaktiert', angebot:'Gebucht', bestaetigt:'Bezahlt', abgeschlossen:'Erfüllt' };
+var FLOW_STAGE_ICONS  = { geplant:'schedule', kontaktiert:'mail', angebot:'receipt_long', bestaetigt:'paid', abgeschlossen:'verified' };
+var FLOW_STAGE_COLORS = { geplant:'#9E9E9E', kontaktiert:'#FF9800', angebot:'#AB47BC', bestaetigt:'#00A699', abgeschlossen:'#FF385C' };
+
+function openStageMoveSheet(cardId) {
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c){ return c.id === cardId; });
+  if (!card) return;
+  var current = card.stage || 'geplant';
+  var curIdx  = FLOW_STAGE_ORDER.indexOf(current);
+
+  var rowsHtml = FLOW_STAGE_ORDER.map(function(sid, i) {
+    var label = FLOW_STAGE_LABELS[sid];
+    var icon  = FLOW_STAGE_ICONS[sid];
+    var color = FLOW_STAGE_COLORS[sid];
+    var dist  = i - curIdx;
+    var hint = '', cls = '', pinIcon = 'arrow_forward', pinColor = color, disabled = false;
+    if (dist === 0)      { hint = 'Aktuelle Stage';                              cls = 'sm-row-current'; pinIcon = 'place';   disabled = true; }
+    else if (dist === 1) { hint = 'Nächster Schritt – Aktion ausführen';         cls = 'sm-row-next';    pinIcon = 'arrow_forward'; }
+    else if (dist  >  1) {
+      var missing = FLOW_STAGE_LABELS[FLOW_STAGE_ORDER[curIdx + 1]];
+      hint = 'Erst „' + missing + '" abschließen';
+      cls = 'sm-row-locked'; pinIcon = 'lock'; pinColor = '#888'; disabled = true;
+    }
+    else                 { hint = 'Zurücksetzen auf diese Stage';                cls = 'sm-row-back';    pinIcon = 'undo'; }
+    return '<button type="button" class="sm-row ' + cls + '"' + (disabled ? ' disabled' : '') +
+      ' onclick="_attemptMoveCardStage(\'' + cardId + '\',\'' + sid + '\')">' +
+        '<span class="sm-row-dot" style="background:' + color + '"><span class="material-icons-round">' + icon + '</span></span>' +
+        '<span class="sm-row-text"><strong>' + label + '</strong><small>' + hint + '</small></span>' +
+        '<span class="material-icons-round sm-row-pin" style="color:' + pinColor + '">' + pinIcon + '</span>' +
+      '</button>';
+  }).join('');
+
+  var html =
+    '<div class="modal-overlay show sm-overlay" id="stageMoveSheet" onclick="if(event.target===this)this.remove()" style="z-index:2200">' +
+      '<div class="modal sm-modal" onclick="event.stopPropagation()">' +
+        '<button class="modal-close" onclick="document.getElementById(\'stageMoveSheet\').remove()"><span class="material-icons-round">close</span></button>' +
+        '<div class="modal-header">' +
+          '<span class="material-icons-round modal-icon">low_priority</span>' +
+          '<h2>Stage ändern</h2>' +
+          '<p>' + _escHtml(card.name || '') + '</p>' +
+        '</div>' +
+        '<div class="sm-list">' + rowsHtml + '</div>' +
+        '<p class="sm-foot"><span class="material-icons-round" style="font-size:14px;vertical-align:-3px">info</span> Schritte können nicht übersprungen werden – das System führt dich Schritt für Schritt durch.</p>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function _attemptMoveCardStage(cardId, targetStage) {
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  var card = (project.cards || []).find(function(c){ return c.id === cardId; });
+  if (!card) return;
+  var current = card.stage || 'geplant';
+  if (current === targetStage) return;
+  var curIdx = FLOW_STAGE_ORDER.indexOf(current);
+  var tgtIdx = FLOW_STAGE_ORDER.indexOf(targetStage);
+  if (tgtIdx < 0 || curIdx < 0) return;
+
+  // 1) Sprung > 1 Schritt nach vorn → blockieren
+  if (tgtIdx > curIdx + 1) {
+    var missingLabel = FLOW_STAGE_LABELS[FLOW_STAGE_ORDER[curIdx + 1]];
+    showToast('Bitte zuerst „' + missingLabel + '" abschließen, bevor du zu „' + FLOW_STAGE_LABELS[targetStage] + '" springst.', 'lock');
+    return;
+  }
+  // 2) Genau 1 Schritt nach vorn → den natürlichen Aktions-Flow der AKTUELLEN Stage öffnen
+  if (tgtIdx === curIdx + 1) {
+    var sheet = document.getElementById('stageMoveSheet');
+    if (sheet) sheet.remove();
+    openStageAdvanceModal(cardId, current);
+    return;
+  }
+  // 3) Rückwärts → mit Bestätigung erlauben (Korrektur)
+  if (tgtIdx < curIdx) {
+    var ok = window.confirm('Karte von „' + FLOW_STAGE_LABELS[current] + '" zurück auf „' + FLOW_STAGE_LABELS[targetStage] + '" setzen?\n\nBereits gesetzte Bestätigungen ab dieser Stage werden zurückgesetzt.');
+    if (!ok) return;
+    card.stage = targetStage;
+    // Nachgelagerte Marker bereinigen
+    if (tgtIdx < FLOW_STAGE_ORDER.indexOf('bestaetigt')) {
+      card.userConfirmedAt = null;
+      card.providerConfirmedAt = null;
+    }
+    if (tgtIdx < FLOW_STAGE_ORDER.indexOf('angebot')) {
+      card.bookedAt = null;
+      card.paymentStatus = null;
+      card.providerAcceptedAt = null;
+    }
+    if (tgtIdx < FLOW_STAGE_ORDER.indexOf('kontaktiert')) {
+      card.contactDate = null;
+      card.contactMethod = null;
+    }
+    _saveBoardProjects({ immediate: true });
+    var sheet2 = document.getElementById('stageMoveSheet');
+    if (sheet2) sheet2.remove();
+    try { renderBoardFlow(); } catch(_){}
+    showToast('Karte zurück auf „' + FLOW_STAGE_LABELS[targetStage] + '"', 'undo');
+  }
+}
+
+/* HTML5 Drag&Drop Hooks */
+function _flowProvDragStart(ev, cardId) {
+  if (!ev.dataTransfer) return;
+  try { ev.dataTransfer.setData('text/plain', cardId); } catch(_) {}
+  try { ev.dataTransfer.effectAllowed = 'move'; } catch(_) {}
+  if (ev.stopPropagation) ev.stopPropagation();
+  var el = ev.currentTarget;
+  if (el && el.classList) el.classList.add('flow-prov-dragging');
+  // CardId zwischenspeichern (Fallback wenn dataTransfer leer)
+  window._flowDragCardId = cardId;
+}
+function _flowProvDragEnd(ev) {
+  var el = ev.currentTarget;
+  if (el && el.classList) el.classList.remove('flow-prov-dragging');
+  document.querySelectorAll('.flow-col.flow-drop-target').forEach(function(c){ c.classList.remove('flow-drop-target'); });
+  window._flowDragCardId = null;
+}
+function _flowColDragOver(ev, stageId) {
+  if (FLOW_STAGE_ORDER.indexOf(stageId) < 0) return;
+  if (ev.preventDefault) ev.preventDefault();
+  try { ev.dataTransfer.dropEffect = 'move'; } catch(_) {}
+  var col = ev.currentTarget;
+  if (col && col.classList) col.classList.add('flow-drop-target');
+}
+function _flowColDragLeave(ev) {
+  var col = ev.currentTarget;
+  if (col && col.classList) col.classList.remove('flow-drop-target');
+}
+function _flowColDrop(ev, stageId) {
+  if (ev.preventDefault) ev.preventDefault();
+  var col = ev.currentTarget;
+  if (col && col.classList) col.classList.remove('flow-drop-target');
+  var cardId = (ev.dataTransfer && ev.dataTransfer.getData('text/plain')) || window._flowDragCardId || '';
+  window._flowDragCardId = null;
+  if (!cardId) return;
+  _attemptMoveCardStage(cardId, stageId);
 }
 
 /* ── Stage Advance Modal ── */
