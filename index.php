@@ -34,6 +34,9 @@ get_header();
           <span class="label">Wo?</span>
           <span class="value" id="navWoValue">Region</span>
         </button>
+        <button class="nav-clear-search" id="navClearSearch" onclick="clearNavAiSearch()" title="Suche löschen" style="display:none">
+          <span class="material-icons-round">close</span>
+        </button>
         <button class="nav-search-btn" onclick="performNavSearch()">
           <span class="material-icons-round">search</span>
         </button>

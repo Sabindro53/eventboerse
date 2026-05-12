@@ -328,6 +328,25 @@ img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; 
 .nav-search-btn:hover { background: var(--primary-dark); transform: scale(1.05); }
 .nav-search-btn .material-icons-round { font-size: 20px; }
 
+/* ── Nav Clear Search Button (X) ── */
+.nav-clear-search {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  color: var(--text-light);
+  flex-shrink: 0;
+  margin-right: 4px;
+  transition: background var(--transition), color var(--transition);
+}
+.nav-clear-search:hover { background: var(--border-light); color: var(--text); }
+.nav-clear-search .material-icons-round { font-size: 15px; }
+body.dark-mode .nav-clear-search { background: var(--border); }
+body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
+
+
 /* ── Nav AI Search Button Glow ── */
 .nav-search-ai { position: relative; overflow: visible; }
 .nav-search-ai .label { display: flex !important; align-items: center; gap: 3px; }
@@ -6565,6 +6584,8 @@ span.flatpickr-weekday {
   /* Suchknopf kompakt */
   #navSearchBar .nav-search-btn { width: 30px; height: 30px; margin: 3px; flex-shrink: 0; }
   #navSearchBar .nav-search-btn .material-icons-round { font-size: 16px; }
+  #navSearchBar .nav-clear-search { width: 22px; height: 22px; margin-right: 2px; }
+  #navSearchBar .nav-clear-search .material-icons-round { font-size: 13px; }
   .mobile-nav { gap: 4px; padding: 0 12px; padding-bottom: env(safe-area-inset-bottom, 0); }
   body { padding-bottom: 0; }
   .nav-inner { padding: 0 16px; }

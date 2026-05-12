@@ -17139,9 +17139,15 @@ function submitNavAiSearch() {
       if (_navAiTypingTimer) { clearInterval(_navAiTypingTimer); clearTimeout(_navAiTypingTimer); _navAiTypingTimer = null; }
       typingEl.textContent = query;
       if (navBtn) navBtn.classList.add('has-query');
+      try { localStorage.setItem('eb_nav_search', query); } catch(e) {}
+      var clearBtn = document.getElementById('navClearSearch');
+      if (clearBtn) clearBtn.style.display = 'flex';
     } else {
       // No query – restart animation
       if (navBtn) navBtn.classList.remove('has-query');
+      try { localStorage.removeItem('eb_nav_search'); } catch(e) {}
+      var clearBtn2 = document.getElementById('navClearSearch');
+      if (clearBtn2) clearBtn2.style.display = 'none';
       _initNavAiTyping();
     }
   }
@@ -17439,7 +17445,34 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// Init typing on load
-document.addEventListener('DOMContentLoaded', function() {
+// ── Clear nav search ──
+function clearNavAiSearch() {
+  try { localStorage.removeItem('eb_nav_search'); } catch(e) {}
+  var typingEl = document.getElementById('navAiTyping');
+  var navBtn = document.querySelector('.nav-search-ai');
+  var clearBtn = document.getElementById('navClearSearch');
+  if (navBtn) navBtn.classList.remove('has-query');
+  if (clearBtn) clearBtn.style.display = 'none';
+  // Clear browse search if visible
+  var browseInput = document.getElementById('browseSearch');
+  if (browseInput && browseInput.value) { browseInput.value = ''; }
+  if (typeof filterListings === 'function') filterListings();
   _initNavAiTyping();
+}
+
+// Init typing on load — restore saved query if any
+document.addEventListener('DOMContentLoaded', function() {
+  var savedQuery = '';
+  try { savedQuery = localStorage.getItem('eb_nav_search') || ''; } catch(e) {}
+  if (savedQuery) {
+    var typingEl = document.getElementById('navAiTyping');
+    var navBtn = document.querySelector('.nav-search-ai');
+    var clearBtn = document.getElementById('navClearSearch');
+    if (typingEl) typingEl.textContent = savedQuery;
+    if (navBtn) navBtn.classList.add('has-query');
+    if (clearBtn) clearBtn.style.display = 'flex';
+    // Don't start animation when query is active
+  } else {
+    _initNavAiTyping();
+  }
 });
