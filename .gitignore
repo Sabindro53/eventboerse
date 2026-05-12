@@ -38,3 +38,6 @@ temp/
 
 # Patch files (local workflow only, never commit)
 *.patch
+
+# Obsidian vault
+.obsidian/

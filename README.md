@@ -19,7 +19,7 @@ Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und
 - **Frontend:** HTML5, CSS3, Vanilla JavaScript (SPA-Architektur)
 - **Karten:** Leaflet.js (interaktive Kartenansicht)
 - **Fonts:** Google Fonts (Inter, Material Icons)
-- **Avatare:** DiceBear Avatars API
+- ~~**Avatare:** DiceBear Avatars API~~
 - **WordPress:** Integration als WordPress-Theme
 - **SEO:** sitemap.xml, robots.txt, Meta-Tags, OpenGraph
 
