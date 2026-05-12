@@ -11068,9 +11068,6 @@ let mapMarkers = [];
 let mapInitialized = false;
 
 function toggleMapOverlay() {
-  // Mobile: go to browse and focus the location filter directly
-  if (window.innerWidth <= 768) { _navMobileTap('location'); return; }
-
   const overlay = document.getElementById('mapOverlay');
   const backdrop = document.getElementById('mapBackdrop');
   const isOpen = overlay.classList.contains('show');
@@ -16971,8 +16968,6 @@ function _navMobileTap(type) {
 
 // ── Open / Close ──
 function openNavAiSearch() {
-  // Mobile: go straight to browse results instead of opening AI overlay
-  if (window.innerWidth <= 768) { _navMobileTap('search'); return; }
   var overlay = document.getElementById('navAiOverlay');
   if (!overlay) return;
   overlay.classList.add('show');
@@ -17228,13 +17223,13 @@ function selectNavCategory(key, label, emoji) {
 }
 
 function performNavSearch() {
-  // On mobile: go to browse and focus the search input directly
+  var dd = document.getElementById('navCatDropdown');
+  if (dd) dd.classList.remove('show');
+  // On mobile: go to browse and scroll to the results grid (focus on userfeed)
   if (window.innerWidth <= 768) {
     _navMobileTap('search');
     return;
   }
-  var dd = document.getElementById('navCatDropdown');
-  if (dd) dd.classList.remove('show');
   navigateTo('browse');
   setTimeout(function() {
     if (typeof filterListings === 'function') filterListings();
