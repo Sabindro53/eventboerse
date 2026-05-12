@@ -11217,7 +11217,8 @@ function focusMapMarker(listingId) {
 }
 
 function filterMapMarkers() {
-  const query = document.getElementById('mapSearchInput').value.toLowerCase().trim();
+  const inp = document.getElementById('mapSearchInput');
+  const query = inp ? inp.value.toLowerCase().trim() : '';
 
   const filtered = LISTINGS.filter(l => {
     const haystack = `${l.title} ${l.location} ${l.region} ${l.categoryLabel} ${l.tags.join(' ')}`.toLowerCase();
@@ -11229,18 +11230,59 @@ function filterMapMarkers() {
     addListingMarkers(filtered);
     if (filtered.length > 0 && query) {
       const bounds = L.latLngBounds(filtered.map(l => CITY_COORDS[l.location]).filter(Boolean));
-      leafletMap.flyToBounds(bounds, { padding: [40, 40], maxZoom: 11, duration: 0.6 });
+      if (bounds.isValid()) leafletMap.flyToBounds(bounds, { padding: [40, 40], maxZoom: 11, duration: 0.6 });
     }
   }
 
   // Update sidebar list
   renderLocationsList(filtered);
+  return filtered;
+}
 
-  // Update the "Wo?" nav value text
-  const navValue = document.getElementById('navWoValue');
-  if (navValue) {
-    navValue.textContent = query ? (filtered.length > 0 ? filtered[0].location : 'Keine Ergebnisse') : 'Wo?';
-  }
+function _ebTitleCase(s) {
+  return String(s || '').split(/\s+/).map(function(w){
+    return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '';
+  }).join(' ').trim();
+}
+
+function _setNavWoLabel(text) {
+  ['navWoValue', 'navAiQuickWoValue'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.textContent = text || 'Region';
+  });
+  var btn = document.getElementById('navWoBtn');
+  if (btn) btn.classList.toggle('has-value', !!text);
+  var qbtn = document.getElementById('navAiQuickWo');
+  if (qbtn) qbtn.classList.toggle('has-value', !!text);
+}
+
+// Called on Enter / magnifier click in the map overlay search bar.
+// Zooms to the typed city (geocode fallback for unknown cities)
+// and writes the city into the "Wo?" nav segment + browseLocation.
+function submitMapSearch() {
+  var inp = document.getElementById('mapSearchInput');
+  var raw = inp ? inp.value.trim() : '';
+  if (!raw) { _setNavWoLabel(''); filterMapMarkers(); return; }
+
+  var filtered = filterMapMarkers();
+  var labelCity = _ebTitleCase(raw);
+  _setNavWoLabel(labelCity);
+
+  // Sync browseLocation so subsequent listing filter uses this city
+  var loc = document.getElementById('browseLocation');
+  if (loc) loc.value = labelCity;
+
+  if (filtered.length > 0) return; // already zoomed via flyToBounds
+
+  // Fallback: Geocode unknown city via Nominatim (e.g. "Bonn")
+  if (!leafletMap || !window.fetch) return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=' + encodeURIComponent(raw))
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(arr){
+      if (arr && arr[0] && leafletMap) {
+        leafletMap.flyTo([parseFloat(arr[0].lat), parseFloat(arr[0].lon)], 11, { duration: 0.7 });
+      }
+    }).catch(function(){});
 }
 
 // =========================================================
@@ -17294,6 +17336,27 @@ function selectNavCategory(key, label, emoji) {
 function performNavSearch() {
   var dd = document.getElementById('navCatDropdown');
   if (dd) dd.classList.remove('show');
+
+  // Close map overlay if open – focus shifts to results page
+  try {
+    var mapOv = document.getElementById('mapOverlay');
+    if (mapOv && mapOv.classList.contains('show') && typeof closeMapOverlay === 'function') {
+      closeMapOverlay();
+    }
+  } catch(e) {}
+
+  // Sync map search → browseLocation (so "Bonn" carries over and triggers
+  // the existing "Alternativen in der Nähe" fallback in filterListings)
+  try {
+    var mapInp = document.getElementById('mapSearchInput');
+    var loc = document.getElementById('browseLocation');
+    if (mapInp && mapInp.value && mapInp.value.trim()) {
+      var city = _ebTitleCase(mapInp.value.trim());
+      if (loc && !loc.value) loc.value = city;
+      _setNavWoLabel(city);
+    }
+  } catch(e) {}
+
   // On mobile: go to browse and scroll to the results grid (focus on userfeed)
   if (window.innerWidth <= 768) {
     _navMobileTap('search');
