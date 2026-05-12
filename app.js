@@ -17170,6 +17170,11 @@ function selectNavCategory(key, label, emoji) {
 }
 
 function performNavSearch() {
+  // On mobile the search btn also opens the AI overlay (single unified flow)
+  if (window.innerWidth <= 768) {
+    openNavAiSearch();
+    return;
+  }
   var dd = document.getElementById('navCatDropdown');
   if (dd) dd.classList.remove('show');
   navigateTo('browse');
