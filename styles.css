@@ -6428,47 +6428,63 @@ span.flatpickr-weekday {
     flex: none;
   }
   #navbar { overflow: visible; position: fixed; }
-  /* Mobile nav search – unified single-pill design */
-  #navSearchBar .nav-search-divider { display: none; }
-  #navSearchBar .nav-search-segment-wrap { display: none; }
-  #navSearchBar #navWoBtn { display: none; }
-  #navSearchBar .nav-search-ai {
-    flex: 1;
-    padding: 0 14px;
+
+  /* ── Mobile nav search bar: 3 equal segments ── */
+  /* Alle Segmente und Divider sichtbar */
+  #navSearchBar .nav-search-divider { display: flex; width: 1px; height: 18px; }
+  #navSearchBar .nav-search-segment-wrap { display: flex; flex: 1 1 0; min-width: 0; }
+  #navSearchBar #navWoBtn { flex: 1 1 0; min-width: 0; }
+
+  /* Jedes Segment: horizontal, zentriert, gleich groß */
+  #navSearchBar .nav-search-segment {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 6px;
     height: 100%;
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
     overflow: hidden;
   }
-  #navSearchBar .nav-search-ai .ai-glow-dot { display: none; }
-  #navSearchBar .nav-search-ai .label {
+
+  /* value (zweite Zeile) ausblenden – nur eine Zeile */
+  #navSearchBar .nav-search-segment .value { display: none; }
+
+  /* label-Zeile kompakt horizontal */
+  #navSearchBar .nav-search-segment .label {
     display: flex !important;
     align-items: center;
     gap: 3px;
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.3px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    overflow: hidden;
+    white-space: nowrap;
   }
-  #navSearchBar .nav-search-ai .label::after {
-    content: '·';
-    margin-left: 4px;
-    color: var(--border);
-    font-weight: 400;
+
+  /* AI-Segment: etwas breiter, zeigt Tipp-Animation daneben */
+  #navSearchBar .nav-search-ai {
+    flex: 1.6 1 0;
+    position: relative;
+    overflow: hidden;
   }
+  #navSearchBar .nav-search-ai .ai-glow-dot { display: none; }
   #navSearchBar .nav-search-ai .value {
     display: block !important;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     margin-top: 0;
-    max-width: none;
-    flex: 1;
     color: var(--text-light);
-    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
+
+  /* Suchknopf kompakt */
   #navSearchBar .nav-search-btn { width: 30px; height: 30px; margin: 3px; flex-shrink: 0; }
   #navSearchBar .nav-search-btn .material-icons-round { font-size: 16px; }
   .mobile-nav { gap: 4px; padding: 0 12px; padding-bottom: env(safe-area-inset-bottom, 0); }
