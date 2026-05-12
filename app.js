@@ -17472,9 +17472,39 @@ function clearNavAiSearch() {
   var clearBtn = document.getElementById('navClearSearch');
   if (navBtn) navBtn.classList.remove('has-query');
   if (clearBtn) clearBtn.style.display = 'none';
-  // Clear browse search if visible
+
+  // Clear date range
+  if (typeof _navDateRange !== 'undefined') {
+    _navDateRange.from = '';
+    _navDateRange.to = '';
+  }
+  if (typeof _navUpdateDateLabel === 'function') _navUpdateDateLabel();
+
+  // Clear location (Wo?)
+  var woVal = document.getElementById('navWoValue');
+  if (woVal) woVal.textContent = 'Region';
+  var woBtn = document.getElementById('navWoBtn');
+  if (woBtn) woBtn.classList.remove('has-value');
+  var mapSearch = document.getElementById('mapSearchInput');
+  if (mapSearch) mapSearch.value = '';
+
+  // Clear category selection
+  if (typeof selectedCategories !== 'undefined') selectedCategories.clear();
+  if (typeof _navAiCatSelection !== 'undefined') _navAiCatSelection.clear();
+
+  // Clear browse search/location/category inputs if present
   var browseInput = document.getElementById('browseSearch');
-  if (browseInput && browseInput.value) { browseInput.value = ''; }
+  if (browseInput) browseInput.value = '';
+  var browseLocation = document.getElementById('browseLocation');
+  if (browseLocation) browseLocation.value = '';
+  var heroInput = document.getElementById('heroSearchInput');
+  if (heroInput) heroInput.value = '';
+
+  // Re-render category buttons if a render fn exists
+  if (typeof renderCategoryButtons === 'function') {
+    try { renderCategoryButtons(); } catch(e) {}
+  }
+
   if (typeof filterListings === 'function') filterListings();
   _initNavAiTyping();
 }
