@@ -2603,10 +2603,19 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
     alternatives = [...LISTINGS];
   }
 
-  // Sort by proximity to searched location
-  const searchCity = location
-    ? Object.keys(CITY_PROXIMITY).find(c => c.toLowerCase().includes(location))
-    : null;
+  // Sort by proximity to searched location.
+  // Resolve canonical city from explicit location filter OR from free-text search
+  // (so "DJ Bonn" / "in Bonn" also triggers nearest-neighbour sort).
+  var searchCity = null;
+  if (location) {
+    if (typeof _ebDetectCityInText === 'function') searchCity = _ebDetectCityInText(location) || null;
+    if (!searchCity) {
+      searchCity = Object.keys(CITY_PROXIMITY).find(function(c){ return c.toLowerCase().includes(location); }) || null;
+    }
+  }
+  if (!searchCity && search && typeof _ebDetectCityInText === 'function') {
+    searchCity = _ebDetectCityInText(search) || null;
+  }
 
   if (searchCity) {
     const ref = CITY_PROXIMITY[searchCity];
