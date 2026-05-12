@@ -1763,7 +1763,50 @@ const CITY_PROXIMITY = {
   'Starnberg':  { lat: 47.99, lng: 11.341 },
   'Köln':       { lat: 50.94, lng: 6.960 },
   'Stuttgart':  { lat: 48.78, lng: 9.183 },
+  'Bonn':       { lat: 50.74, lng: 7.10  },
+  'Bremen':     { lat: 53.08, lng: 8.802 },
+  'Hannover':   { lat: 52.37, lng: 9.74  },
+  'Leipzig':    { lat: 51.34, lng: 12.37 },
+  'Dresden':    { lat: 51.05, lng: 13.74 },
+  'Nürnberg':   { lat: 49.45, lng: 11.08 },
+  'Essen':      { lat: 51.46, lng: 7.01  },
+  'Dortmund':   { lat: 51.51, lng: 7.47  },
+  'Mannheim':   { lat: 49.49, lng: 8.47  },
+  'Karlsruhe':  { lat: 49.01, lng: 8.40  },
+  'Münster':    { lat: 51.96, lng: 7.63  },
+  'Augsburg':   { lat: 48.37, lng: 10.90 },
+  'Wiesbaden':  { lat: 50.08, lng: 8.24  },
+  'Mainz':      { lat: 50.00, lng: 8.27  },
+  'Aachen':     { lat: 50.78, lng: 6.08  },
+  'Freiburg':   { lat: 47.99, lng: 7.85  },
+  'Heidelberg': { lat: 49.40, lng: 8.67  },
+  'Regensburg': { lat: 49.02, lng: 12.10 },
+  'Würzburg':   { lat: 49.79, lng: 9.93  },
+  'Kiel':       { lat: 54.32, lng: 10.13 },
+  'Lübeck':     { lat: 53.87, lng: 10.69 },
+  'Rostock':    { lat: 54.09, lng: 12.14 },
+  'Potsdam':    { lat: 52.40, lng: 13.06 },
+  'Erfurt':     { lat: 50.98, lng: 11.03 },
+  'Halle':      { lat: 51.48, lng: 11.97 },
+  'Magdeburg':  { lat: 52.13, lng: 11.63 },
+  'Saarbrücken':{ lat: 49.24, lng: 6.99  },
+  'Chemnitz':   { lat: 50.83, lng: 12.92 },
 };
+
+// Detect a known German city inside a free-text query (case-insensitive,
+// matches whole-word boundaries). Returns canonical city name or '' .
+function _ebDetectCityInText(text) {
+  if (!text) return '';
+  var hay = String(text).toLowerCase();
+  // Exact word/substring match against canonical city list
+  var keys = Object.keys(CITY_PROXIMITY);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i].toLowerCase();
+    var re = new RegExp('(^|[^a-zäöüß])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-zäöüß]|$)', 'i');
+    if (re.test(hay)) return keys[i];
+  }
+  return '';
+}
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -11257,24 +11300,47 @@ function _setNavWoLabel(text) {
 }
 
 // Called on Enter / magnifier click in the map overlay search bar.
-// Zooms to the typed city (geocode fallback for unknown cities)
-// and writes the city into the "Wo?" nav segment + browseLocation.
+// Zooms to the typed city (geocode fallback for unknown cities),
+// writes the city into the "Wo?" nav segment + browseLocation, closes the
+// map overlay and triggers the listings filter so the user immediately sees
+// either matching results or the "Keine Ergebnisse / Alternativen in der
+// Nähe von …" state.
 function submitMapSearch() {
   var inp = document.getElementById('mapSearchInput');
   var raw = inp ? inp.value.trim() : '';
   if (!raw) { _setNavWoLabel(''); filterMapMarkers(); return; }
 
   var filtered = filterMapMarkers();
-  var labelCity = _ebTitleCase(raw);
+  // Prefer canonical city name if the input matches a known city
+  var canonical = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(raw) : '';
+  var labelCity = canonical || _ebTitleCase(raw);
   _setNavWoLabel(labelCity);
 
-  // Sync browseLocation so subsequent listing filter uses this city
+  // Sync browseLocation so listing filter uses this city
   var loc = document.getElementById('browseLocation');
   if (loc) loc.value = labelCity;
 
+  // Close map overlay – focus shifts to the listings page
+  if (typeof closeMapOverlay === 'function') {
+    try { closeMapOverlay(); } catch(e) {}
+  }
+
+  // Navigate to browse and run the filter so the user gets immediate
+  // feedback ("Keine Ergebnisse in Bonn" + Alternativen-Section).
+  if (typeof navigateTo === 'function') {
+    navigateTo('browse');
+    setTimeout(function() {
+      if (typeof filterListings === 'function') filterListings();
+      if (typeof _ebScrollToBrowseResults === 'function') _ebScrollToBrowseResults();
+    }, 200);
+  } else if (typeof filterListings === 'function') {
+    filterListings();
+  }
+
   if (filtered.length > 0) return; // already zoomed via flyToBounds
 
-  // Fallback: Geocode unknown city via Nominatim (e.g. "Bonn")
+  // Fallback: Geocode unknown city via Nominatim (e.g. "Bonn") so the
+  // map is positioned correctly the next time it's opened.
   if (!leafletMap || !window.fetch) return;
   fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=' + encodeURIComponent(raw))
     .then(function(r){ return r.ok ? r.json() : []; })
@@ -17231,6 +17297,24 @@ function submitNavAiSearch() {
       browseInput.value = query;
       _aiPlaceholderHideOnInput(browseInput);
     }
+
+    // City detection inside the AI query → auto-sync Wo? + browseLocation.
+    // Lets AI search and Wo? complement each other ("DJ in Köln" sets both),
+    // and avoids the stale-location bug (typing "Köln" while Bonn was set).
+    try {
+      if (query) {
+        var detected = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(query) : '';
+        var locEl = document.getElementById('browseLocation');
+        if (detected) {
+          if (locEl) locEl.value = detected;
+          if (typeof _setNavWoLabel === 'function') _setNavWoLabel(detected);
+          var mapInp = document.getElementById('mapSearchInput');
+          if (mapInp) mapInp.value = detected;
+        }
+        // else: keep whatever Wo? already had – searches complement
+      }
+    } catch(e) {}
+
     if (typeof filterListings === 'function') filterListings();
     // Scroll to results
     setTimeout(function() {
@@ -17345,14 +17429,22 @@ function performNavSearch() {
     }
   } catch(e) {}
 
-  // Sync map search → browseLocation (so "Bonn" carries over and triggers
-  // the existing "Alternativen in der Nähe" fallback in filterListings)
+  // Sync map search → browseLocation. The AI search text wins if it
+  // contains a recognised city ("DJ in Köln" overrides a stale Bonn).
   try {
     var mapInp = document.getElementById('mapSearchInput');
     var loc = document.getElementById('browseLocation');
-    if (mapInp && mapInp.value && mapInp.value.trim()) {
+    var typing = document.getElementById('navAiTyping');
+    var aiQuery = (typing && typing.textContent ? typing.textContent : '').trim();
+    var aiCity = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(aiQuery) : '';
+
+    if (aiCity) {
+      if (loc) loc.value = aiCity;
+      _setNavWoLabel(aiCity);
+      if (mapInp) mapInp.value = aiCity;
+    } else if (mapInp && mapInp.value && mapInp.value.trim()) {
       var city = _ebTitleCase(mapInp.value.trim());
-      if (loc && !loc.value) loc.value = city;
+      if (loc) loc.value = city; // overwrite so Wo? always wins over previous
       _setNavWoLabel(city);
     }
   } catch(e) {}
