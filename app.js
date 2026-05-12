@@ -11068,6 +11068,9 @@ let mapMarkers = [];
 let mapInitialized = false;
 
 function toggleMapOverlay() {
+  // Mobile: go to browse and focus the location filter directly
+  if (window.innerWidth <= 768) { _navMobileTap('location'); return; }
+
   const overlay = document.getElementById('mapOverlay');
   const backdrop = document.getElementById('mapBackdrop');
   const isOpen = overlay.classList.contains('show');
@@ -16915,8 +16918,61 @@ var _NAV_AI_POPULAR = [
   { text: 'Licht & Technik für Party', cat: 'Technik' },
 ];
 
+// ── Mobile nav tap: go to browse and focus the right filter ──
+function _navMobileTap(type) {
+  var onBrowse = !!(document.getElementById('page-browse') && document.getElementById('page-browse').classList.contains('active'));
+
+  function _focusSearchInput() {
+    var inp = document.getElementById('browseSearch');
+    if (!inp) return;
+    inp.focus();
+    inp.select();
+    // Brief flash on the search row to signal focus
+    var row = inp.closest('.browse-search-row') || inp.parentElement;
+    if (row) {
+      row.classList.add('nav-tap-flash');
+      setTimeout(function() { row.classList.remove('nav-tap-flash'); }, 650);
+    }
+    var toolbar = document.querySelector('.browse-toolbar');
+    if (toolbar) {
+      var top = toolbar.getBoundingClientRect().top + window.pageYOffset - 8;
+      window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+  }
+
+  function _focusLocationInput() {
+    var inp = document.getElementById('browseLocation');
+    if (!inp) return;
+    inp.focus();
+    inp.select();
+    var row = inp.closest('.browse-search-row') || inp.parentElement;
+    if (row) {
+      row.classList.add('nav-tap-flash');
+      setTimeout(function() { row.classList.remove('nav-tap-flash'); }, 650);
+    }
+    var toolbar = document.querySelector('.browse-toolbar');
+    if (toolbar) {
+      var top = toolbar.getBoundingClientRect().top + window.pageYOffset - 8;
+      window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+  }
+
+  if (type === 'search') {
+    if (!onBrowse) { navigateTo('browse'); setTimeout(_focusSearchInput, 360); }
+    else _focusSearchInput();
+  } else if (type === 'category') {
+    if (!onBrowse) { navigateTo('browse'); setTimeout(openMobileCatPicker, 360); }
+    else openMobileCatPicker();
+  } else if (type === 'location') {
+    if (!onBrowse) { navigateTo('browse'); setTimeout(_focusLocationInput, 360); }
+    else _focusLocationInput();
+  }
+}
+
 // ── Open / Close ──
 function openNavAiSearch() {
+  // Mobile: go straight to browse results instead of opening AI overlay
+  if (window.innerWidth <= 768) { _navMobileTap('search'); return; }
   var overlay = document.getElementById('navAiOverlay');
   if (!overlay) return;
   overlay.classList.add('show');
@@ -17128,6 +17184,8 @@ function _initNavAiTyping() {
 // ── Category Dropdown ──
 function toggleNavCategoryDropdown(e) {
   if (e) e.stopPropagation();
+  // Mobile: open the mobile category picker on the browse page
+  if (window.innerWidth <= 768) { _navMobileTap('category'); return; }
   var dd = document.getElementById('navCatDropdown');
   if (!dd) return;
   if (dd.classList.contains('show')) {
@@ -17170,9 +17228,9 @@ function selectNavCategory(key, label, emoji) {
 }
 
 function performNavSearch() {
-  // On mobile the search btn also opens the AI overlay (single unified flow)
+  // On mobile: go to browse and focus the search input directly
   if (window.innerWidth <= 768) {
-    openNavAiSearch();
+    _navMobileTap('search');
     return;
   }
   var dd = document.getElementById('navCatDropdown');
