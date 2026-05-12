@@ -189,8 +189,8 @@
         </button>
       </div>
       <div class="map-search-bar">
-        <span class="material-icons-round">search</span>
-        <input type="text" id="mapSearchInput" placeholder="Stadt oder Region suchen..." oninput="filterMapMarkers()" />
+        <span class="material-icons-round" onclick="document.getElementById('mapSearchInput').focus();filterMapMarkers();" style="cursor:pointer;">search</span>
+        <input type="text" id="mapSearchInput" placeholder="Stadt oder Region suchen..." oninput="filterMapMarkers()" onkeydown="if(event.key==='Enter'){filterMapMarkers();this.blur();}" />
       </div>
       <div class="map-container" id="mapContainer"></div>
       <div class="map-locations-list" id="mapLocationsList">
