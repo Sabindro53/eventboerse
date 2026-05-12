@@ -16972,10 +16972,14 @@ function openNavAiSearch() {
   if (!overlay) return;
   overlay.classList.add('show');
   var inp = document.getElementById('navAiInput');
-  if (inp) { inp.value = ''; }
+  // Pre-fill input with current nav label (if user had searched before)
+  var typingEl = document.getElementById('navAiTyping');
+  var navBtn = document.querySelector('.nav-search-ai');
+  var prefill = (navBtn && navBtn.classList.contains('has-query') && typingEl) ? typingEl.textContent : '';
+  if (inp) { inp.value = prefill; }
   _navAiCatSelection.clear();
-  _renderNavAiBody('');
-  setTimeout(function() { if (inp) inp.focus(); }, 350);
+  _renderNavAiBody(prefill);
+  setTimeout(function() { if (inp) { inp.focus(); inp.select(); } }, 350);
 }
 
 function closeNavAiSearch() {
@@ -17125,6 +17129,22 @@ function submitNavAiSearch() {
   var inp = document.getElementById('navAiInput');
   var query = inp ? inp.value.trim() : '';
   closeNavAiSearch();
+
+  // Update nav bar label to show the active search query
+  var typingEl = document.getElementById('navAiTyping');
+  var navBtn = document.querySelector('.nav-search-ai');
+  if (typingEl) {
+    if (query) {
+      // Pause animation and show actual query
+      if (_navAiTypingTimer) { clearInterval(_navAiTypingTimer); clearTimeout(_navAiTypingTimer); _navAiTypingTimer = null; }
+      typingEl.textContent = query;
+      if (navBtn) navBtn.classList.add('has-query');
+    } else {
+      // No query – restart animation
+      if (navBtn) navBtn.classList.remove('has-query');
+      _initNavAiTyping();
+    }
+  }
 
   // Transfer category selections
   if (typeof selectedCategories !== 'undefined') {

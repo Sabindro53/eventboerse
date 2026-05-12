@@ -454,6 +454,10 @@ img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; 
 /* Active state on Wann? button when range is set */
 #navWannBtn.has-value .value { color: var(--primary); font-weight: 600; }
 
+/* Active search query shown in nav AI button */
+.nav-search-ai.has-query #navAiTyping { color: var(--primary); font-weight: 600; opacity: 1 !important; }
+.nav-search-ai.has-query .ai-glow-dot { background: var(--primary); }
+
 /* Mobile bottom-sheet variant */
 .nav-date-popover.sheet {
   position: fixed !important;
