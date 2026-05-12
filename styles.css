@@ -414,6 +414,70 @@ img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; 
 .nav-cat-item.selected { background: var(--primary-light); color: var(--primary-dark); font-weight: 600; }
 .nav-cat-emoji { font-size: 1.15rem; }
 
+/* ── "Wann?" Date Popover ── */
+.nav-date-popover {
+  position: fixed;
+  top: 0; left: 0;
+  width: 340px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-xl);
+  padding: 16px;
+  z-index: 2100;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition: opacity .2s ease, transform .2s ease;
+  font-family: var(--font);
+}
+.nav-date-popover.show { opacity: 1; pointer-events: all; transform: translateY(0); }
+.nav-date-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1rem; color: var(--dark); margin-bottom: 12px; }
+.nav-date-head .material-icons-round { color: var(--primary); }
+.nav-date-close { margin-left: auto; border: none; background: var(--bg-alt); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text); }
+.nav-date-close:hover { background: var(--primary-light); color: var(--primary); }
+.nav-date-close .material-icons-round { font-size: 18px; color: inherit; }
+.nav-date-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.nav-date-chip { padding: 7px 12px; border-radius: 999px; border: 1.5px solid var(--border-light); background: var(--bg); color: var(--text); font-size: .82rem; font-weight: 500; cursor: pointer; transition: all .15s; font-family: var(--font); }
+.nav-date-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.nav-date-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.nav-date-fields label { display: flex; flex-direction: column; gap: 4px; font-size: .75rem; color: var(--text-light); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+.nav-date-fields input[type="date"] { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-family: var(--font); font-size: .9rem; outline: none; transition: border-color .15s; }
+.nav-date-fields input[type="date"]:focus { border-color: var(--primary); }
+.nav-date-actions { display: flex; justify-content: space-between; gap: 10px; }
+.nav-date-clear { padding: 9px 14px; border: none; background: none; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 10px; font-family: var(--font); font-size: .85rem; }
+.nav-date-clear:hover { color: var(--primary); background: var(--bg-alt); }
+.nav-date-apply { display: inline-flex; align-items: center; gap: 4px; padding: 9px 18px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-family: var(--font); font-size: .9rem; box-shadow: 0 4px 14px rgba(255,56,92,.25); transition: all .15s; }
+.nav-date-apply:hover { background: var(--primary-dark); transform: translateY(-1px); }
+.nav-date-apply .material-icons-round { font-size: 18px; }
+
+/* Active state on Wann? button when range is set */
+#navWannBtn.has-value .value { color: var(--primary); font-weight: 600; }
+
+/* Mobile bottom-sheet variant */
+.nav-date-popover.sheet {
+  position: fixed !important;
+  top: auto !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  max-width: 100%;
+  border-radius: 20px 20px 0 0;
+  transform: translateY(100%);
+  padding: 20px 18px max(20px, env(safe-area-inset-bottom)) 18px;
+}
+.nav-date-popover.sheet.show { transform: translateY(0); }
+.nav-date-popover.sheet::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: -4px auto 12px;
+}
+
 /* ── Nav AI Typing animation ── */
 #navAiTyping { transition: opacity .3s; }
 

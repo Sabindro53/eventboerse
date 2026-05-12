@@ -23,9 +23,9 @@ get_header();
         </button>
         <span class="nav-search-divider"></span>
         <div class="nav-search-segment-wrap">
-          <button class="nav-search-segment" onclick="toggleNavCategoryDropdown(event)">
-            <span class="label">Event</span>
-            <span class="value" id="navCatValue">Kategorie</span>
+          <button class="nav-search-segment" onclick="toggleNavDatePicker(event)" id="navWannBtn">
+            <span class="label">Wann?</span>
+            <span class="value" id="navDateValue">Zeitraum</span>
           </button>
           <div class="nav-cat-dropdown" id="navCatDropdown"></div>
         </div>

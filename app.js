@@ -17013,12 +17013,34 @@ function _renderNavAiBody(query) {
     });
     html += '</div>';
   } else {
-    // Live search results from LISTINGS
+    // Live search results from LISTINGS — use smart matcher (synonyms + fuzzy) if available
     var listings = (typeof getHeroListings === 'function') ? getHeroListings() : (typeof LISTINGS !== 'undefined' ? LISTINGS : []);
+    var smart = (typeof _ebSmartTextMatch === 'function');
     var results = listings.filter(function(l) {
+      if (smart) return _ebSmartTextMatch(q, l);
       var haystack = (l.title + ' ' + l.categoryLabel + ' ' + l.tags.join(' ') + ' ' + l.providerName + ' ' + l.location).toLowerCase();
       return haystack.includes(q);
     }).slice(0, 6);
+
+    // Fallback: when no strict match, relax to "any token matches" (so single-word typos still surface something)
+    var relaxedNotice = false;
+    if (results.length === 0 && smart && typeof _ebTokenizeQuery === 'function') {
+      var toks = _ebTokenizeQuery(q);
+      if (toks.length) {
+        var syn = (typeof _EB_SYN_INDEX !== 'undefined') ? _EB_SYN_INDEX : null;
+        results = listings.filter(function(l) {
+          var hay = (l.title + ' ' + l.categoryLabel + ' ' + (l.category||'') + ' ' + l.tags.join(' ') + ' ' + l.providerName + ' ' + l.location + ' ' + (l.region||'')).toLowerCase();
+          return toks.some(function(t) {
+            if (hay.includes(t)) return true;
+            if (syn && syn.get(t)) {
+              for (var v of syn.get(t)) if (hay.includes(v)) return true;
+            }
+            return t.length >= 5 && hay.includes(t.slice(0, Math.max(4, t.length-2)));
+          });
+        }).slice(0, 6);
+        if (results.length) relaxedNotice = true;
+      }
+    }
 
     // Also show matching categories
     var cats = _getNavAiCategories();
@@ -17035,7 +17057,7 @@ function _renderNavAiBody(query) {
     }
 
     if (results.length > 0) {
-      html += '<div class="nav-ai-section-title"><span class="material-icons-round">auto_awesome</span> Ergebnisse</div>';
+      html += '<div class="nav-ai-section-title"><span class="material-icons-round">auto_awesome</span> ' + (relaxedNotice ? 'Ähnliche Treffer' : 'Ergebnisse') + '</div>';
       html += '<div class="nav-ai-results">';
       results.forEach(function(l) {
         var img = (l.images && l.images[0]) ? l.images[0] : '';
@@ -17178,9 +17200,11 @@ function _initNavAiTyping() {
 
 // ── Category Dropdown ──
 function toggleNavCategoryDropdown(e) {
+  // Backwards-compat: legacy "Event" button is now "Wann?" (date picker)
+  return toggleNavDatePicker(e);
+}
+function _toggleNavCategoryDropdownLegacy(e) {
   if (e) e.stopPropagation();
-  // Mobile: open the mobile category picker on the browse page
-  if (window.innerWidth <= 768) { _navMobileTap('category'); return; }
   var dd = document.getElementById('navCatDropdown');
   if (!dd) return;
   if (dd.classList.contains('show')) {
@@ -17236,11 +17260,150 @@ function performNavSearch() {
   }, 200);
 }
 
+// ── "Wann?" Date Range Picker ──
+var _navDateRange = { from: '', to: '' };
+try { window.selectedDateRange = _navDateRange; } catch(e) {}
+
+function _navIsoDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function _navFmtDeDate(iso) {
+  if (!iso) return '';
+  var p = String(iso).split('-');
+  if (p.length !== 3) return iso;
+  return p[2] + '.' + p[1] + '.' + p[0].slice(2);
+}
+function _navDateLabel() {
+  var r = _navDateRange;
+  if (r.from && r.to) {
+    if (r.from === r.to) return _navFmtDeDate(r.from);
+    return _navFmtDeDate(r.from) + ' – ' + _navFmtDeDate(r.to);
+  }
+  if (r.from) return 'ab ' + _navFmtDeDate(r.from);
+  return 'Zeitraum';
+}
+function _navUpdateDateLabel() {
+  var el = document.getElementById('navDateValue');
+  if (el) el.textContent = _navDateLabel();
+  var btn = document.getElementById('navWannBtn');
+  if (btn) btn.classList.toggle('has-value', !!(_navDateRange.from || _navDateRange.to));
+}
+
+function toggleNavDatePicker(e) {
+  if (e) e.stopPropagation();
+  // Close other dropdowns
+  var dd = document.getElementById('navCatDropdown');
+  if (dd) dd.classList.remove('show');
+
+  var pop = document.getElementById('navDatePopover');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'navDatePopover';
+    pop.className = 'nav-date-popover';
+    document.body.appendChild(pop);
+    pop.addEventListener('click', function(ev) { ev.stopPropagation(); });
+  }
+  if (pop.classList.contains('show')) { pop.classList.remove('show'); return; }
+
+  var today = new Date();
+  var todayIso = _navIsoDate(today);
+  var inWeek = new Date(today); inWeek.setDate(inWeek.getDate()+7);
+  var inMonth = new Date(today); inMonth.setMonth(inMonth.getMonth()+1);
+  var endOfYear = new Date(today.getFullYear(), 11, 31);
+
+  pop.innerHTML =
+    '<div class="nav-date-head">' +
+      '<span class="material-icons-round">event</span>' +
+      '<span>Wann ist dein Event?</span>' +
+      '<button class="nav-date-close" onclick="closeNavDatePicker()" aria-label="Schließen"><span class="material-icons-round">close</span></button>' +
+    '</div>' +
+    '<div class="nav-date-presets">' +
+      '<button class="nav-date-chip" onclick="applyNavDateRange(\''+todayIso+'\',\''+_navIsoDate(inWeek)+'\')">Diese Woche</button>' +
+      '<button class="nav-date-chip" onclick="applyNavDateRange(\''+todayIso+'\',\''+_navIsoDate(inMonth)+'\')">Nächste 30 Tage</button>' +
+      '<button class="nav-date-chip" onclick="applyNavDateRange(\''+todayIso+'\',\''+_navIsoDate(endOfYear)+'\')">Dieses Jahr</button>' +
+      '<button class="nav-date-chip" onclick="clearNavDateRange()">Flexibel</button>' +
+    '</div>' +
+    '<div class="nav-date-fields">' +
+      '<label><span>Von</span><input type="date" id="navDateFrom" value="'+_navDateRange.from+'" min="'+todayIso+'" oninput="_navDateInputSync()" /></label>' +
+      '<label><span>Bis</span><input type="date" id="navDateTo" value="'+_navDateRange.to+'" min="'+(_navDateRange.from||todayIso)+'" oninput="_navDateInputSync()" /></label>' +
+    '</div>' +
+    '<div class="nav-date-actions">' +
+      '<button class="nav-date-clear" onclick="clearNavDateRange()">Zurücksetzen</button>' +
+      '<button class="nav-date-apply" onclick="confirmNavDateRange()"><span class="material-icons-round">check</span> Übernehmen</button>' +
+    '</div>';
+
+  var isMobile = window.innerWidth <= 768;
+  pop.classList.toggle('sheet', isMobile);
+  if (!isMobile) {
+    var wrap = document.getElementById('navWannBtn');
+    if (wrap) {
+      var rect = wrap.getBoundingClientRect();
+      pop.style.top = (rect.bottom + 8) + 'px';
+      var w = 340;
+      var left = rect.left + rect.width/2 - w/2;
+      left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+      pop.style.left = left + 'px';
+      pop.style.right = '';
+    }
+  } else {
+    pop.style.top = '';
+    pop.style.left = '';
+    pop.style.right = '';
+  }
+  pop.classList.add('show');
+}
+
+function _navDateInputSync() {
+  var f = document.getElementById('navDateFrom');
+  var t = document.getElementById('navDateTo');
+  if (f && t) {
+    if (f.value) t.min = f.value;
+    if (t.value && f.value && t.value < f.value) t.value = f.value;
+  }
+}
+
+function applyNavDateRange(from, to) {
+  _navDateRange.from = from || '';
+  _navDateRange.to = to || _navDateRange.from || '';
+  _navUpdateDateLabel();
+  closeNavDatePicker();
+  var onBrowse = !!(document.getElementById('page-browse') && document.getElementById('page-browse').classList.contains('active'));
+  if (!onBrowse) {
+    navigateTo('browse');
+    setTimeout(function() { if (typeof filterListings === 'function') filterListings(); }, 250);
+  } else {
+    if (typeof filterListings === 'function') filterListings();
+  }
+}
+
+function confirmNavDateRange() {
+  var f = document.getElementById('navDateFrom');
+  var t = document.getElementById('navDateTo');
+  applyNavDateRange(f ? f.value : '', t ? t.value : '');
+}
+
+function clearNavDateRange() {
+  _navDateRange.from = '';
+  _navDateRange.to = '';
+  _navUpdateDateLabel();
+  closeNavDatePicker();
+  if (typeof filterListings === 'function') filterListings();
+}
+
+function closeNavDatePicker() {
+  var pop = document.getElementById('navDatePopover');
+  if (pop) pop.classList.remove('show');
+}
+
 // Close dropdowns on outside click
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.nav-search-segment-wrap')) {
     var dd = document.getElementById('navCatDropdown');
     if (dd) dd.classList.remove('show');
+  }
+  if (!e.target.closest('#navDatePopover') && !e.target.closest('#navWannBtn')) {
+    var pop = document.getElementById('navDatePopover');
+    if (pop) pop.classList.remove('show');
   }
   if (!e.target.closest('.nav-ai-overlay-inner') && !e.target.closest('.nav-search-ai')) {
     closeNavAiSearch();
@@ -17249,7 +17412,11 @@ document.addEventListener('click', function(e) {
 
 // Escape key closes overlay
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeNavAiSearch();
+  if (e.key === 'Escape') {
+    closeNavAiSearch();
+    var pop = document.getElementById('navDatePopover');
+    if (pop) pop.classList.remove('show');
+  }
 });
 
 // Init typing on load
