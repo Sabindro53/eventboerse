@@ -11578,7 +11578,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
   .hero-stat strong { font-size: 1.1rem; }
   .browse-categories-bar { top: var(--nav-height); }
   .browse-categories-inner { justify-content: flex-start; }
-  .browse-categories-inner .cat-icon-btn { padding: 10px 14px; font-size: 0.68rem; min-width: 50px; }
+  .browse-categories-inner .cat-icon-btn { padding: 10px 12px; font-size: 0.68rem; min-width: 60px; }
   .browse-categories-inner .cat-icon-btn:first-child {
     position: relative;
   }
