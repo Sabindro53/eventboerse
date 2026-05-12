@@ -357,10 +357,10 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .nav-search-ai .value { display: block; font-size: .78rem; color: var(--text-light); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 .nav-search-ai:hover { background: linear-gradient(135deg, rgba(124,58,237,.06), rgba(168,85,247,.08)) !important; }
 
-/* ── Nav AI Overlay ── */
-.nav-ai-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(8px); z-index: 2000; display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+/* ── Nav AI Overlay (anchored dropdown attached to searchbar) ── */
+.nav-ai-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.4); backdrop-filter: blur(4px); z-index: 1500; display: flex; align-items: flex-start; justify-content: center; padding-top: calc(var(--nav-height) - 6px); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .nav-ai-overlay.show { opacity: 1; pointer-events: all; }
-.nav-ai-overlay-inner { background: var(--bg); border-radius: 24px; width: 95%; max-width: 620px; padding: 0; box-shadow: 0 25px 80px rgba(124,58,237,.2), 0 0 0 1px rgba(168,85,247,.1); transform: translateY(-20px) scale(.97); transition: transform .35s cubic-bezier(.4,0,.2,1); position: relative; overflow: hidden; }
+.nav-ai-overlay-inner { background: var(--bg); border-radius: 20px; width: 95%; max-width: 540px; padding: 0; box-shadow: 0 25px 80px rgba(124,58,237,.18), 0 0 0 1px rgba(168,85,247,.08); transform: translateY(-12px) scale(.98); transition: transform .25s cubic-bezier(.4,0,.2,1); position: relative; overflow: hidden; }
 .nav-ai-overlay.show .nav-ai-overlay-inner { transform: translateY(0) scale(1); }
 .nav-ai-overlay-inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #7c3aed, #a855f7, #ec4899, #a855f7, #7c3aed); background-size: 200% 100%; animation: navAiGradient 3s linear infinite; }
 @keyframes navAiGradient { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
@@ -373,6 +373,16 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 
 /* AI Overlay Input */
 .nav-ai-input-wrap { position: relative; padding: 16px 24px 12px; }
+
+/* Quick-Access Wann?/Wo? row */
+.nav-ai-quick-row { display: flex; gap: 8px; padding: 0 24px 12px; }
+.nav-ai-quick { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--border-light); background: var(--bg); color: var(--text); cursor: pointer; transition: all .2s; font-family: var(--font); position: relative; }
+.nav-ai-quick:hover { border-color: #a855f7; background: var(--bg-alt); }
+.nav-ai-quick .material-icons-round { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--text-light); }
+.nav-ai-quick-label { font-size: .7rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: .04em; }
+.nav-ai-quick-value { font-size: .92rem; font-weight: 500; color: var(--dark); }
+.nav-ai-quick.has-value { border-color: var(--primary); }
+.nav-ai-quick.has-value .nav-ai-quick-value { color: var(--primary); font-weight: 600; }
 .nav-ai-input { width: 100%; padding: 14px 18px 14px 44px; font-size: 1.05rem; border: 2px solid var(--border); border-radius: 16px; outline: none; font-family: var(--font); transition: border-color .25s, box-shadow .25s; background: var(--bg); color: var(--text); }
 .nav-ai-input:focus { border-color: #a855f7; box-shadow: 0 0 0 4px rgba(168,85,247,.12); }
 .nav-ai-input-icon { position: absolute; left: 38px; top: 50%; transform: translateY(-50%); color: var(--text-light); font-size: 20px !important; pointer-events: none; transition: color .2s; }

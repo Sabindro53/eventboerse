@@ -16978,6 +16978,23 @@ function openNavAiSearch() {
   var prefill = (navBtn && navBtn.classList.contains('has-query') && typingEl) ? typingEl.textContent : '';
   if (inp) { inp.value = prefill; }
   _navAiCatSelection.clear();
+  // Sync quick-access Wann?/Wo? labels from current segments
+  var wannVal = document.getElementById('navDateValue');
+  var quickWannVal = document.getElementById('navAiQuickWannValue');
+  var quickWann = document.getElementById('navAiQuickWann');
+  if (wannVal && quickWannVal) {
+    var hasDate = wannVal.textContent && wannVal.textContent !== 'Zeitraum';
+    quickWannVal.textContent = hasDate ? wannVal.textContent : 'Zeitraum';
+    if (quickWann) quickWann.classList.toggle('has-value', !!hasDate);
+  }
+  var woVal = document.getElementById('navWoValue');
+  var quickWoVal = document.getElementById('navAiQuickWoValue');
+  var quickWo = document.getElementById('navAiQuickWo');
+  if (woVal && quickWoVal) {
+    var hasWo = woVal.textContent && woVal.textContent !== 'Region' && woVal.textContent !== 'Wo?';
+    quickWoVal.textContent = hasWo ? woVal.textContent : 'Region';
+    if (quickWo) quickWo.classList.toggle('has-value', !!hasWo);
+  }
   _renderNavAiBody(prefill);
   setTimeout(function() { if (inp) { inp.focus(); inp.select(); } }, 350);
 }
@@ -17110,13 +17127,15 @@ function onNavAiInput() {
 }
 
 function toggleNavAiCat(key) {
-  if (_navAiCatSelection.has(key)) {
-    _navAiCatSelection.delete(key);
-  } else {
-    _navAiCatSelection.add(key);
-  }
+  // User clicked a category card → directly search for that category (clear old query, single category)
+  var cats = _getNavAiCategories();
+  var cat = cats.find(function(c) { return c.key === key; });
+  if (!cat) return;
   var inp = document.getElementById('navAiInput');
-  _renderNavAiBody(inp ? inp.value : '');
+  if (inp) inp.value = cat.label;
+  _navAiCatSelection.clear();
+  _navAiCatSelection.add(key);
+  submitNavAiSearch();
 }
 
 function navAiFillAndSearch(text) {

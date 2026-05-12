@@ -51,8 +51,20 @@ get_header();
           </div>
           <div class="nav-ai-input-wrap">
             <span class="material-icons-round nav-ai-input-icon">search</span>
-            <input type="text" id="navAiInput" class="nav-ai-input" placeholder="Was suchst du? z.B. DJ, Fotograf, Catering…" autocomplete="off" oninput="onNavAiInput()" />
+            <input type="text" id="navAiInput" class="nav-ai-input" placeholder="Was suchst du? z.B. DJ, Fotograf, Catering…" autocomplete="off" oninput="onNavAiInput()" onkeydown="if(event.key==='Enter'){submitNavAiSearch();}" />
             <div class="nav-ai-input-glow"></div>
+          </div>
+          <div class="nav-ai-quick-row">
+            <button type="button" class="nav-ai-quick" id="navAiQuickWann" onclick="closeNavAiSearch();setTimeout(function(){toggleNavDatePicker(event)},150);">
+              <span class="material-icons-round">event</span>
+              <span class="nav-ai-quick-label">Wann?</span>
+              <span class="nav-ai-quick-value" id="navAiQuickWannValue">Zeitraum</span>
+            </button>
+            <button type="button" class="nav-ai-quick" id="navAiQuickWo" onclick="closeNavAiSearch();setTimeout(function(){toggleMapOverlay()},150);">
+              <span class="material-icons-round">place</span>
+              <span class="nav-ai-quick-label">Wo?</span>
+              <span class="nav-ai-quick-value" id="navAiQuickWoValue">Region</span>
+            </button>
           </div>
           <div class="nav-ai-body" id="navAiBody">
           </div>
