@@ -12617,3 +12617,57 @@ body.dark-mode .stripe-summary-meta { color: var(--text-light); }
   .stripe-summary-title { font-size: 14px; }
   .stripe-summary-price { font-size: 18px; }
 }
+
+/* ============================================================
+   Flow-Card-Modal: Bezahlt-Block + gesperrte Felder
+   ============================================================ */
+.fc-paid-block {
+  background: linear-gradient(135deg, rgba(0,166,153,.10), rgba(0,166,153,.04));
+  border: 1px solid rgba(0,166,153,.30);
+  border-radius: 14px;
+  padding: 14px;
+  margin: 0 0 18px;
+}
+.fc-paid-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.fc-paid-head > .material-icons-round {
+  color: #00A699; font-size: 28px;
+}
+.fc-paid-head strong { display: block; font-size: 15px; color: var(--dark); }
+.fc-paid-head small { display: block; color: var(--text-light); font-size: 12px; margin-top: 2px; }
+.fc-paid-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 8px;
+}
+.fc-paid-grid > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fc-paid-grid span { font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: var(--text-light); }
+.fc-paid-grid strong { font-size: 14px; color: var(--dark); font-weight: 700; }
+.fc-paid-pi { grid-column: 1 / -1; }
+.fc-paid-pi code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--text);
+  background: rgba(0,0,0,.04); padding: 4px 6px; border-radius: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block;
+}
+body.dark-mode .fc-paid-pi code { background: rgba(255,255,255,.06); }
+.fc-paid-stripe-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #00A699; text-decoration: none;
+  margin-top: 4px;
+}
+.fc-paid-stripe-link:hover { text-decoration: underline; }
+.fc-paid-stripe-link .material-icons-round { font-size: 14px; }
+
+.fc-locked-hint {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 500; color: #00A699;
+  margin-left: 6px;
+  text-transform: none; letter-spacing: 0;
+}
+.fc-locked-hint .material-icons-round { font-size: 13px; }
+.modal-form input[readonly] {
+  background: rgba(0,166,153,.06);
+  border-color: rgba(0,166,153,.30);
+  color: var(--text-light);
+  cursor: not-allowed;
+}

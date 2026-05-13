@@ -13296,6 +13296,45 @@ function openFlowCardModal(cardId) {
   var card = (project.cards || []).find(function(c) { return c.id === cardId; });
   if (!card) return;
 
+  // Zahlung erkannt? → Preis & Stage sperren, Bezahlt-Info anzeigen
+  var _isPaid = !!(card.paymentIntentId || card.paymentReference ||
+    (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
+  var _paidAmount = (typeof card.paidAmount === 'number' && card.paidAmount > 0)
+    ? card.paidAmount
+    : (parseFloat(card.price) || 0);
+  var _paidAtIso = card.paidAt || card.bookedAt || card.invoiceSentAt || '';
+  var _paidAtHuman = '';
+  if (_paidAtIso) {
+    try {
+      _paidAtHuman = new Date(_paidAtIso).toLocaleString('de-DE', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch(e) { _paidAtHuman = _paidAtIso; }
+  }
+  var _piId = card.paymentIntentId || card.paymentReference || '';
+  var _paidBlock = _isPaid
+    ? '<div class="fc-paid-block">' +
+        '<div class="fc-paid-head">' +
+          '<span class="material-icons-round">verified</span>' +
+          '<div>' +
+            '<strong>Zahlung erhalten</strong>' +
+            '<small>Diese Buchung ist sicher \u00fcber Stripe abgeschlossen.</small>' +
+          '</div>' +
+        '</div>' +
+        '<div class="fc-paid-grid">' +
+          '<div><span>Betrag</span><strong>' + _escHtml(_formatEuro(_paidAmount)) + '</strong></div>' +
+          (_paidAtHuman ? '<div><span>Bezahlt am</span><strong>' + _escHtml(_paidAtHuman) + '</strong></div>' : '') +
+          (_piId ? '<div class="fc-paid-pi"><span>Zahlungs-ID</span><code>' + _escHtml(_piId) + '</code></div>' : '') +
+        '</div>' +
+        (_piId && /^pi_/.test(_piId)
+          ? '<a class="fc-paid-stripe-link" href="https://dashboard.stripe.com/payments/' + _escHtml(_piId) + '" target="_blank" rel="noopener">' +
+              '<span class="material-icons-round">open_in_new</span> Beleg in Stripe ansehen' +
+            '</a>'
+          : '') +
+      '</div>'
+    : '';
+
   var stageOptions = [
     { id: 'geplant', label: 'Geplant' }, { id: 'kontaktiert', label: 'Kontaktiert' },
     { id: 'angebot', label: 'Gebucht' }, { id: 'bestaetigt', label: 'Bezahlt' },
@@ -13304,20 +13343,47 @@ function openFlowCardModal(cardId) {
     return '<option value="' + s.id + '"' + (s.id === card.stage ? ' selected' : '') + '>' + s.label + '</option>';
   }).join('');
 
+  // Preis nach Zahlung gesperrt; readOnly statt disabled, damit der Wert
+  // beim Speichern weiterhin gelesen werden kann
+  var _priceField = _isPaid
+    ? '<div class="form-group"><label>Preis (€) <span class="fc-locked-hint"><span class="material-icons-round">lock</span> nach Zahlung gesperrt</span></label>' +
+        '<input type="number" id="fcPrice" value="' + _paidAmount + '" readonly /></div>'
+    : '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="1" /></div>';
+
+  // Stage nach Zahlung nur noch vorwärts auf "abgeschlossen" erlaubt
+  var _stageField = _isPaid
+    ? (function() {
+        var allowed = ['bestaetigt', 'abgeschlossen'];
+        return '<div class="form-group"><label>Status / Stage <span class="fc-locked-hint"><span class="material-icons-round">lock</span> Zahlung abgeschlossen</span></label>' +
+          '<select id="fcStage">' +
+            allowed.map(function(s) {
+              var label = s === 'bestaetigt' ? 'Bezahlt' : 'Erfüllt';
+              return '<option value="' + s + '"' + (s === card.stage ? ' selected' : '') + '>' + label + '</option>';
+            }).join('') +
+          '</select></div>';
+      })()
+    : '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>';
+
+  // "Entfernen"-Button nach Zahlung versteckt (kein verfälschen der Buchhaltung)
+  var _deleteBtn = _isPaid
+    ? ''
+    : '<button type="button" class="btn-outline btn-block" style="margin-top:8px;color:#f44336;border-color:#f44336" onclick="deleteBoardCard(\'' + cardId + '\');renderBoardFlow();document.getElementById(\'flowCardModal\').remove()">' +
+        '<span class="material-icons-round">delete</span> Dienstleister entfernen</button>';
+
   var html = '<div class="modal-overlay show" id="flowCardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
     '<button class="modal-close" onclick="document.getElementById(\'flowCardModal\').remove()"><span class="material-icons-round">close</span></button>' +
     '<div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>' + _escHtml(card.name) + '</h2></div>' +
+    _paidBlock +
     '<form class="modal-form" onsubmit="_saveFlowCard(event,\'' + cardId + '\')">' +
     '<div class="form-group"><label>Name</label><input type="text" id="fcName" value="' + _escHtml(card.name) + '" required /></div>' +
     '<div class="form-group"><label>Kategorie</label><input type="text" id="fcCat" value="' + _escHtml(card.category || '') + '" /></div>' +
-    '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="1" /></div>' +
+    _priceField +
     '<div class="form-group"><label>Uhrzeit am Eventtag</label>' + window._buildTimePicker('fcTime','fcTimeEnd', card.startTime || '10:00', card.endTime || '') + '</div>' +
-    '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>' +
+    _stageField +
     '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
-    '<button type="button" class="btn-outline btn-block" style="margin-top:8px;color:#f44336;border-color:#f44336" onclick="deleteBoardCard(\'' + cardId + '\');renderBoardFlow();document.getElementById(\'flowCardModal\').remove()">' +
-    '<span class="material-icons-round">delete</span> Dienstleister entfernen</button>' +
+    _deleteBtn +
     '</form></div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
 }
@@ -13330,7 +13396,14 @@ function _saveFlowCard(event, cardId) {
   if (!card) return;
   card.name      = document.getElementById('fcName').value.trim();
   card.category  = document.getElementById('fcCat').value.trim();
-  card.price     = parseFloat(document.getElementById('fcPrice').value) || 0;
+
+  // Preis: nach Zahlung NICHT mehr überschreiben (Schutz gegen Verfälschung)
+  var _isPaid = !!(card.paymentIntentId || card.paymentReference ||
+    (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
+  if (!_isPaid) {
+    card.price = parseFloat(document.getElementById('fcPrice').value) || 0;
+  }
+
   card.startTime = document.getElementById('fcTime').value;
   card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
   var _newStage = document.getElementById('fcStage').value;
@@ -14350,7 +14423,11 @@ function openStageAdvanceModal(cardId, currentStage) {
           var _payIso = new Date().toISOString();
           card.bookedAt = _payIso;
           card.invoiceSentAt = _payIso;
+          card.paidAt = _payIso;
+          card.paidAmount = _payAmount;
+          card.paymentMethod = 'Stripe';
           card.paymentIntentId = (_res && _res.payment_intent_id) || '';
+          card.paymentReference = card.paymentIntentId;
           card.paymentStatus = 'paid';
           card.stage = 'bestaetigt';
           _sendInvoiceNotification(card, project, _listing).catch(function(){});
@@ -15738,7 +15815,11 @@ function _startInstantBooking(listing, dateIso, amount) {
         bookingDate: dateIso,
         bookedAt: nowIso,
         invoiceSentAt: nowIso,
+        paidAt: nowIso,
+        paidAmount: amount,
+        paymentMethod: 'Stripe',
         paymentIntentId: (res && res.payment_intent_id) || '',
+        paymentReference: (res && res.payment_intent_id) || '',
         paymentStatus: 'paid',
         createdAt: nowIso
       };
