@@ -13976,17 +13976,28 @@ function openStageAdvanceModal(cardId, currentStage) {
         '<input type="checkbox" id="saUserConfirm"' + (_hasUserConfirm ? ' checked' : '') + '>' +
         '<span><strong>Ich best&auml;tige:</strong> Die Leistung wurde wie vereinbart erbracht.</span>' +
       '</label>' +
-      '<label class="sa-label" style="margin-top:12px">Bewertung <small>(optional)</small></label>' +
-      '<div class="sa-stars" id="saStars">' +
-        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<1?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=1" class="material-icons-round">star_border</span>' +
-        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<2?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=2" class="material-icons-round">star_border</span>' +
-        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<3?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=3" class="material-icons-round">star_border</span>' +
-        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<4?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=4" class="material-icons-round">star_border</span>' +
-        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<5?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=5" class="material-icons-round">star_border</span>' +
-      '</div>' +
-      '<input type="hidden" id="saRating" value="0">' +
-      '<label class="sa-label">Kommentar</label>' +
-      '<textarea id="saComment" class="sa-input" rows="2" placeholder="Wie war die Zusammenarbeit?"></textarea>';
+      '<div class="sa-review-block" style="margin-top:14px;padding:16px;border:1px solid rgba(255,255,255,0.1);border-radius:14px;background:linear-gradient(180deg,rgba(255,193,7,0.06),rgba(255,255,255,0.02))">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+          '<span class="material-icons-round" style="color:#FFC107;font-size:22px">star</span>' +
+          '<strong style="font-size:14px;color:rgba(255,255,255,0.95)">Bewertung abgeben</strong>' +
+          '<span style="margin-left:auto;font-size:10.5px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.5px">öffentlich</span>' +
+        '</div>' +
+        '<div class="sa-stars sa-stars-lg" id="saStars" data-rating="' + (parseInt(card.rating) || 0) + '">' +
+          '<span data-val="1" class="material-icons-round">star</span>' +
+          '<span data-val="2" class="material-icons-round">star</span>' +
+          '<span data-val="3" class="material-icons-round">star</span>' +
+          '<span data-val="4" class="material-icons-round">star</span>' +
+          '<span data-val="5" class="material-icons-round">star</span>' +
+        '</div>' +
+        '<div id="saRatingLabel" style="margin-top:8px;font-size:12.5px;color:rgba(255,255,255,0.6);min-height:18px;font-weight:500">Tippe auf einen Stern, um zu bewerten.</div>' +
+        '<input type="hidden" id="saRating" value="' + (parseInt(card.rating) || 0) + '">' +
+        '<label class="sa-label" style="margin-top:14px;display:block">Dein Kommentar <small style="color:rgba(255,255,255,0.4)">(mind. 10 Zeichen)</small></label>' +
+        '<textarea id="saComment" class="sa-input" rows="4" placeholder="Wie war die Zusammenarbeit? Pünktlich, professionell, kreativ? Andere Kund:innen freuen sich über deine ehrliche Einschätzung.">' + _escHtml(card.reviewComment || '') + '</textarea>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">' +
+          '<span style="font-size:11px;color:rgba(255,255,255,0.4)"><span class="material-icons-round" style="font-size:13px;vertical-align:-2px">public</span> Wird auf dem Anbieter-Profil sichtbar.</span>' +
+          '<span id="saCommentHint" style="font-size:11px;color:rgba(255,255,255,0.4)">0 / 10</span>' +
+        '</div>' +
+      '</div>';
   }
 
   var _submitIcon = (currentStage === 'kontaktiert') ? 'close' : icon;
@@ -14148,6 +14159,65 @@ function openStageAdvanceModal(cardId, currentStage) {
     });
   }
 
+  // ── Review-Widget (bestaetigt stage) ──
+  if (currentStage === 'bestaetigt') {
+    var _saStarsEl = document.getElementById('saStars');
+    var _saRatingInput = document.getElementById('saRating');
+    var _saRatingLabel = document.getElementById('saRatingLabel');
+    var _saCommentEl = document.getElementById('saComment');
+    var _saCommentHint = document.getElementById('saCommentHint');
+    var _ratingTexts = {
+      0: 'Tippe auf einen Stern, um zu bewerten.',
+      1: '★ — Leider enttäuschend.',
+      2: '★★ — Ausbaufähig.',
+      3: '★★★ — In Ordnung.',
+      4: '★★★★ — Sehr gut!',
+      5: '★★★★★ — Hervorragend, klare Empfehlung!'
+    };
+    function _saRenderStars(val, isHover) {
+      if (!_saStarsEl) return;
+      var spans = _saStarsEl.querySelectorAll('span');
+      spans.forEach(function(s, i) {
+        if (i < val) s.classList.add(isHover ? 'is-hover' : 'is-filled');
+        else s.classList.remove(isHover ? 'is-hover' : 'is-filled');
+        if (!isHover) s.classList.remove('is-hover');
+      });
+    }
+    if (_saStarsEl) {
+      var _initialRating = parseInt(_saStarsEl.getAttribute('data-rating')) || 0;
+      _saRenderStars(_initialRating, false);
+      if (_initialRating > 0 && _saRatingLabel) _saRatingLabel.textContent = _ratingTexts[_initialRating];
+      _saStarsEl.querySelectorAll('span').forEach(function(span) {
+        span.addEventListener('mouseenter', function() {
+          var v = parseInt(this.getAttribute('data-val')) || 0;
+          _saRenderStars(v, true);
+        });
+        span.addEventListener('mouseleave', function() {
+          var current = parseInt(_saStarsEl.getAttribute('data-rating')) || 0;
+          _saStarsEl.querySelectorAll('span').forEach(function(s){ s.classList.remove('is-hover'); });
+          _saRenderStars(current, false);
+        });
+        span.addEventListener('click', function() {
+          var v = parseInt(this.getAttribute('data-val')) || 0;
+          _saStarsEl.setAttribute('data-rating', String(v));
+          if (_saRatingInput) _saRatingInput.value = String(v);
+          if (_saRatingLabel) _saRatingLabel.textContent = _ratingTexts[v];
+          _saRenderStars(v, false);
+        });
+      });
+    }
+    function _saUpdateCommentHint() {
+      if (!_saCommentEl || !_saCommentHint) return;
+      var len = (_saCommentEl.value || '').trim().length;
+      _saCommentHint.textContent = len + ' / 10';
+      _saCommentHint.style.color = len >= 10 ? '#66bb6a' : 'rgba(255,255,255,0.4)';
+    }
+    if (_saCommentEl) {
+      _saUpdateCommentHint();
+      _saCommentEl.addEventListener('input', _saUpdateCommentHint);
+    }
+  }
+
   // Submit
   document.getElementById('saSubmitBtn').addEventListener('click', function() {
     var _nowIso = new Date().toISOString();
@@ -14223,21 +14293,66 @@ function openStageAdvanceModal(cardId, currentStage) {
     } else if (currentStage === 'bestaetigt') {
       // Stage "Bezahlt" → "Erfuellt": Dual-Confirm (User + Dienstleister)
       var _userOk = !!(document.getElementById('saUserConfirm') || {}).checked;
+      var _ratingVal = parseInt((document.getElementById('saRating') || {}).value) || 0;
+      var _commentVal = ((document.getElementById('saComment') || {}).value || '').trim();
+
       if (_userOk && !card.userConfirmedAt) card.userConfirmedAt = _nowIso;
       if (!_userOk) card.userConfirmedAt = '';
-      card.rating = parseInt((document.getElementById('saRating') || {}).value) || 0;
-      card.reviewComment = (document.getElementById('saComment') || {}).value || '';
+
+      // Eingaben immer auf die Karte spiegeln, damit nichts verloren geht
+      // wenn der User vorzeitig schliesst oder der Provider noch nicht
+      // bestaetigt hat.
+      card.rating = _ratingVal;
+      card.reviewComment = _commentVal;
+
+      // Pflicht-Validierung – nur wenn der User uberhaupt bestaetigen will
+      if (_userOk) {
+        if (_ratingVal < 1) {
+          showToast('Bitte vergib eine Sterne-Bewertung.', 'warning');
+          _advance = false;
+        } else if (_commentVal.length < 10) {
+          showToast('Bitte schreibe mindestens 10 Zeichen Kommentar.', 'warning');
+          _advance = false;
+        }
+      }
 
       // Nur weiter, wenn BEIDE bestaetigt haben
-      if (!(card.userConfirmedAt && card.providerConfirmedAt)) {
+      if (_advance && !(card.userConfirmedAt && card.providerConfirmedAt)) {
         _advance = false;
         if (card.userConfirmedAt && !card.providerConfirmedAt) {
           showToast('Warten auf Best\u00e4tigung des Dienstleisters.', 'hourglass_top');
         } else if (!card.userConfirmedAt) {
-          showToast('Bitte bestaetige die Erbringung der Leistung.', 'warning');
+          showToast('Bitte best\u00e4tige die Erbringung der Leistung.', 'warning');
         }
-      } else {
+      }
+
+      if (_advance) {
         card.fulfilledAt = _nowIso;
+        // Review an die API uebertragen – einmalig, damit Mehrfach-Submits
+        // keine Duplikate erzeugen (Server lehnt sie ohnehin ab).
+        var _listingDbIdForReview = (_listing && (_listing._dbId || _listing.id)) || 0;
+        if (_listingDbIdForReview && _ratingVal >= 1 && _commentVal.length >= 10 && !card.reviewPostedAt) {
+          fetch(_apiUrl('listings/' + _listingDbIdForReview + '/reviews'), {
+            method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+            body: JSON.stringify({ rating: _ratingVal, comment: _commentVal })
+          })
+            .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+            .then(function(resp){
+              if (resp.ok && resp.data && resp.data.saved) {
+                card.reviewPostedAt = new Date().toISOString();
+                _saveBoardProjects();
+                showToast('Bewertung ver\u00f6ffentlicht! \u2b50', 'star');
+              } else if (resp.data && /bereits bewertet/i.test(resp.data.message || '')) {
+                card.reviewPostedAt = new Date().toISOString();
+                _saveBoardProjects();
+              } else {
+                showToast((resp.data && resp.data.message) || 'Bewertung konnte nicht gespeichert werden.', 'error');
+              }
+            })
+            .catch(function(){
+              showToast('Bewertung konnte nicht gesendet werden (Netzwerk).', 'error');
+            });
+        }
         showToast('Leistung beidseitig best\u00e4tigt – Projekt abgeschlossen!', 'verified');
       }
     }
