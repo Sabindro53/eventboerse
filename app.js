@@ -12348,6 +12348,33 @@ function openBoardProject(projectId) {
   _updateBoardStats(project);
 }
 
+// Resolve a listing cover image for a board card. Prefers stored listingImage,
+// then falls back to a lookup in LISTINGS by listingId. Returns '' if none.
+function _cardListingImage(card) {
+  if (!card) return '';
+  if (card.listingImage) return card.listingImage;
+  var lid = card.listingId;
+  if (lid && Array.isArray(LISTINGS)) {
+    var l = LISTINGS.find(function(x){ return x && (x.id === lid || x._dbId === lid); });
+    if (l) {
+      if (l.image) return l.image;
+      if (Array.isArray(l.images) && l.images.length) return l.images[0];
+      if (l.providerImg) return l.providerImg;
+    }
+  }
+  return card.avatar || '';
+}
+function _cardListingTitle(card) {
+  if (!card) return '';
+  if (card.listingTitle) return card.listingTitle;
+  var lid = card.listingId;
+  if (lid && Array.isArray(LISTINGS)) {
+    var l = LISTINGS.find(function(x){ return x && (x.id === lid || x._dbId === lid); });
+    if (l && l.title) return l.title;
+  }
+  return '';
+}
+
 function renderKanban(project) {
   var stages = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
   stages.forEach(function(stage) {
@@ -12370,7 +12397,15 @@ function renderKanbanCard(card) {
   } else if (card.stage === 'angebot') {
     stageBadge = '<button class="kc-book-now" onclick="event.stopPropagation();openStageAdvanceModal(\''+card.id+'\',\'angebot\')"><span class="material-icons-round">receipt_long</span> Jetzt buchen</button>';
   }
+  var _listImg = _cardListingImage(card);
+  var _listTitle = _cardListingTitle(card);
+  var bannerHtml = _listImg
+    ? '<div class="kc-banner" style="background-image:url(\''+_escHtml(_listImg)+'\')">' +
+        (_listTitle ? '<div class="kc-banner-title">' + _escHtml(_listTitle) + '</div>' : '') +
+      '</div>'
+    : '';
   return `<div class="kanban-card" draggable="true" data-card-id="${card.id}" ondragstart="dragCard(event,'${card.id}')" onclick="event.stopPropagation()">
+    ${bannerHtml}
     <div class="kc-header">
       <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.onerror=null;this.src=ebAvatar(this.alt||'user',this.alt)" />
       <div>
@@ -12844,10 +12879,12 @@ function _renderBoardFlowImpl() {
       } else if (card.stage === 'kontaktiert') {
         html += '<span class="flow-confirm-badge pending"><span class="material-icons-round">hourglass_top</span>Warten auf Antwort</span>';
       }
-      if (card.listingImage) {
-        html += '<div class="flow-prov-banner" style="background-image:url(\''+esc(card.listingImage)+'\')"></div>';
-        if (card.listingTitle) {
-          html += '<div class="flow-prov-listing-title">' + esc(card.listingTitle) + '</div>';
+      var _bImg = _cardListingImage(card);
+      var _bTitle = _cardListingTitle(card);
+      if (_bImg) {
+        html += '<div class="flow-prov-banner" style="background-image:url(\''+esc(_bImg)+'\')"></div>';
+        if (_bTitle) {
+          html += '<div class="flow-prov-listing-title">' + esc(_bTitle) + '</div>';
         }
       }
       html += '<div class="flow-provider-inner">';
@@ -15810,6 +15847,8 @@ function _startInstantBooking(listing, dateIso, amount) {
         stage: 'bestaetigt',
         price: amount,
         listingId: listingId,
+        listingImage: listing.image || (listing.images && listing.images[0]) || '',
+        listingTitle: listing.title || '',
         avatar: listing.providerImg || listing.image || '',
         note: 'Sofortbuchung f\u00fcr ' + dateHuman,
         bookingDate: dateIso,
