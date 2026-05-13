@@ -1590,6 +1590,46 @@
 
         <!-- Account -->
         <div class="settings-card">
+          <!-- ── Stripe Connect: nur für Dienstleister sichtbar ── -->
+          <div id="stripeConnectCard" style="display:none">
+            <div class="settings-card-header">
+              <span class="material-icons-round">account_balance_wallet</span>
+              <h2>Auszahlungs-Konto (Stripe)</h2>
+            </div>
+            <p style="font-size:13px;color:var(--text-light);margin:0 0 14px">
+              Verbinde dein Bankkonto mit Stripe, damit Kunden dich direkt bezahlen können.
+              Eventbörse behält <strong>3% Vermittlungsgebühr</strong> — du erhältst den Rest automatisch.
+            </p>
+            <div id="stripeConnectStatus" style="margin-bottom:14px">
+              <div class="settings-info-row">
+                <span>Status</span>
+                <span id="stripeConnectStatusText" class="settings-info-value">Wird geladen …</span>
+              </div>
+              <div class="settings-info-row" id="stripeConnectAccountRow" style="display:none">
+                <span>Account-ID</span>
+                <span id="stripeConnectAccountId" class="settings-info-value" style="font-family:monospace;font-size:12px"></span>
+              </div>
+            </div>
+            <div id="stripeConnectActions">
+              <button id="stripeConnectBtn" class="btn-primary settings-save-btn" onclick="connectStripeAccount(this)" style="background:#635BFF;border-color:#635BFF">
+                <span class="material-icons-round">link</span> Stripe-Konto verbinden
+              </button>
+              <button id="stripeConnectDashboardBtn" class="btn-outline settings-save-btn" onclick="openStripeConnectDashboard()" style="display:none">
+                <span class="material-icons-round">open_in_new</span> Stripe-Dashboard öffnen
+              </button>
+              <button id="stripeDisconnectBtn" class="btn-outline settings-danger-btn" onclick="disconnectStripeAccount()" style="display:none;margin-top:6px">
+                <span class="material-icons-round">link_off</span> Verbindung trennen
+              </button>
+            </div>
+            <p style="font-size:11px;color:var(--text-light);margin:10px 0 0;line-height:1.5">
+              <span class="material-icons-round" style="font-size:13px;vertical-align:middle">info</span>
+              Stripe ist ein lizenzierter Zahlungsdienstleister (BaFin/PSD2). Deine Bankdaten werden
+              direkt bei Stripe gespeichert — Eventbörse sieht sie nie. Die Zahlung des Kunden
+              wird nach Bestätigung der Leistung automatisch auf dein Konto überwiesen.
+            </p>
+            <hr class="settings-divider" />
+          </div>
+
           <div class="settings-card-header">
             <span class="material-icons-round">manage_accounts</span>
             <h2>Konto</h2>

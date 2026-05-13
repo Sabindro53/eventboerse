@@ -1031,10 +1031,6 @@ function navigateTo(page, data, skipHistory) {
         var dtEl = document.getElementById('createDateTo');
         if (dfEl && dfEl._flatpickr) dfEl._flatpickr.clear();
         if (dtEl && dtEl._flatpickr) dtEl._flatpickr.clear();
-        // Sofortbuchung + Wochentage zurücksetzen
-        var _ibReset = document.getElementById('createInstantBook');
-        if (_ibReset) _ibReset.checked = false;
-        document.querySelectorAll('#createWeekdayPicker .weekday-pill').forEach(function(p) { p.classList.remove('selected'); });
       }
       updateCreateFormForRole();
       break;
@@ -2804,9 +2800,6 @@ function loadDetail(listingId) {
   document.getElementById('detailFeatures').innerHTML = listing.features.map(f =>
     `<div class="feature-item"><span class="material-icons-round">check_circle</span><span>${_escHtml(f)}</span></div>`
   ).join('');
-
-  // Sofortbuchung-Sektion (vor Anfrage-Button im bookingCard)
-  _renderInstantBookSection(listing);
 
   // Reviews
   renderDetailReviews(listing);
@@ -5712,6 +5705,16 @@ function loadSettings() {
   var twoFaStatus = document.getElementById('settings2faStatus');
   if (twoFaToggle) twoFaToggle.checked = !!(currentUser && currentUser.twoFA);
   if (twoFaStatus) twoFaStatus.textContent = (currentUser && currentUser.twoFA) ? 'Aktiviert – Bei jedem Login wird ein E-Mail-Code angefordert.' : 'Deaktiviert – Login nur mit Passwort.';
+
+  // Stripe Connect: nur für Dienstleister anzeigen + Status laden
+  var connectCard = document.getElementById('stripeConnectCard');
+  if (connectCard) {
+    if (currentUser.role === 'Dienstleister') {
+      loadStripeConnectStatus();
+    } else {
+      connectCard.style.display = 'none';
+    }
+  }
 }
 
 function renderPasskeySettings(data) {
@@ -6220,18 +6223,6 @@ function submitListing(e) {
   const tagEls = document.querySelectorAll('#createTags input[type=checkbox]:checked');
   const tags = Array.from(tagEls).map(el => el.value);
 
-  // Sofortbuchung + verfügbare Wochentage
-  const instantBook = !!(document.getElementById('createInstantBook') || {}).checked;
-  const availableWeekdays = Array.from(
-    document.querySelectorAll('#createWeekdayPicker .weekday-pill.selected')
-  ).map(function(b) { return parseInt(b.getAttribute('data-day'), 10); })
-   .filter(function(d) { return !isNaN(d) && d >= 0 && d <= 6; });
-  if (instantBook && availableWeekdays.length === 0) {
-    showToast('Bitte mindestens einen Wochentag für die Sofortbuchung wählen.', 'warning');
-    _setBtnLoading && _setBtnLoading(document.querySelector('#step3 .btn-primary'), false);
-    return;
-  }
-
   // Extract city from region
   const city = region.split(/[,&·–-]/)[0].trim();
 
@@ -6299,9 +6290,7 @@ function submitListing(e) {
       timeFrom: timeFrom || null,
       timeTo: timeTo || null,
       duration: duration,
-      negotiable: true,
-      availableWeekdays: availableWeekdays,
-      instantBook: instantBook
+      negotiable: true
     };
 
     var method = 'POST';
@@ -7300,17 +7289,6 @@ document.addEventListener('DOMContentLoaded', function() {
   initPasswordFields();
   initDragScroll();
   initDatePickers();
-
-  // Wochentag-Pill-Toggle für Sofortbuchung im Inserat-Formular
-  var _wdPicker = document.getElementById('createWeekdayPicker');
-  if (_wdPicker) {
-    _wdPicker.addEventListener('click', function(e) {
-      var pill = e.target.closest('.weekday-pill');
-      if (!pill) return;
-      e.preventDefault();
-      pill.classList.toggle('selected');
-    });
-  }
   initCityAutocomplete();
   initProfileCityAutocomplete();
   initTimePickers();
@@ -8148,15 +8126,6 @@ function editListing(listingId) {
 
   // Duration
   document.getElementById('createDuration').value = listing.duration || 4;
-
-  // Sofortbuchung + Wochentage
-  var ibEl = document.getElementById('createInstantBook');
-  if (ibEl) ibEl.checked = !!listing.instantBook;
-  var _wdSet = (listing.availableWeekdays || []).map(Number);
-  document.querySelectorAll('#createWeekdayPicker .weekday-pill').forEach(function(btn) {
-    var d = parseInt(btn.getAttribute('data-day'), 10);
-    btn.classList.toggle('selected', _wdSet.indexOf(d) !== -1);
-  });
 
   // Tags checkboxes
   var tagCheckboxes = document.querySelectorAll('#createTags input[type=checkbox]');
@@ -10617,6 +10586,52 @@ async function resendVerification(email) {
       setTimeout(function(){ _tryOpenReset(20); }, 100);
     }
   }
+
+  // Stripe Connect Onboarding Return: ?stripe_connect=return
+  if (params.get('stripe_connect') === 'return') {
+    var _scUrl = new URL(window.location);
+    _scUrl.searchParams.delete('stripe_connect');
+    try { window.history.replaceState({}, document.title, _scUrl.pathname + _scUrl.search); } catch(_e) {}
+    // Nach erfolgreichem Onboarding: Einstellungsseite öffnen + Status sofort laden
+    var _tryOpenSettings = function(attempts) {
+      if (typeof navigateTo === 'function' && typeof loadStripeConnectStatus === 'function') {
+        navigateTo('settings');
+        setTimeout(function() {
+          showToast('Stripe-Konto verbunden! Status wird geprüft …', 'check_circle');
+          loadStripeConnectStatus();
+        }, 600);
+        return;
+      }
+      if (attempts > 0) setTimeout(function(){ _tryOpenSettings(attempts - 1); }, 300);
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function(){ _tryOpenSettings(20); });
+    } else {
+      setTimeout(function(){ _tryOpenSettings(20); }, 300);
+    }
+  }
+
+  // Stripe Connect Onboarding Refresh: ?stripe_connect=refresh (Stripe leitet hierher, wenn Link abgelaufen)
+  if (params.get('stripe_connect') === 'refresh') {
+    var _scRefUrl = new URL(window.location);
+    _scRefUrl.searchParams.delete('stripe_connect');
+    try { window.history.replaceState({}, document.title, _scRefUrl.pathname + _scRefUrl.search); } catch(_e) {}
+    // Neuen Onboarding-Link generieren
+    var _tryRefreshOnboard = function(attempts) {
+      if (typeof connectStripeAccount === 'function') {
+        var fakeBtn = { classList: { add: function(){}, remove: function(){} }, disabled: false };
+        showToast('Onboarding-Link wird erneuert …', 'info');
+        connectStripeAccount(fakeBtn);
+        return;
+      }
+      if (attempts > 0) setTimeout(function(){ _tryRefreshOnboard(attempts - 1); }, 300);
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function(){ _tryRefreshOnboard(20); });
+    } else {
+      setTimeout(function(){ _tryRefreshOnboard(20); }, 300);
+    }
+  }
 })();
 
 // ---- NEUES PASSWORT SETZEN ----
@@ -12348,33 +12363,6 @@ function openBoardProject(projectId) {
   _updateBoardStats(project);
 }
 
-// Resolve a listing cover image for a board card. Prefers stored listingImage,
-// then falls back to a lookup in LISTINGS by listingId. Returns '' if none.
-function _cardListingImage(card) {
-  if (!card) return '';
-  if (card.listingImage) return card.listingImage;
-  var lid = card.listingId;
-  if (lid && Array.isArray(LISTINGS)) {
-    var l = LISTINGS.find(function(x){ return x && (x.id === lid || x._dbId === lid); });
-    if (l) {
-      if (l.image) return l.image;
-      if (Array.isArray(l.images) && l.images.length) return l.images[0];
-      if (l.providerImg) return l.providerImg;
-    }
-  }
-  return card.avatar || '';
-}
-function _cardListingTitle(card) {
-  if (!card) return '';
-  if (card.listingTitle) return card.listingTitle;
-  var lid = card.listingId;
-  if (lid && Array.isArray(LISTINGS)) {
-    var l = LISTINGS.find(function(x){ return x && (x.id === lid || x._dbId === lid); });
-    if (l && l.title) return l.title;
-  }
-  return '';
-}
-
 function renderKanban(project) {
   var stages = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
   stages.forEach(function(stage) {
@@ -12397,15 +12385,7 @@ function renderKanbanCard(card) {
   } else if (card.stage === 'angebot') {
     stageBadge = '<button class="kc-book-now" onclick="event.stopPropagation();openStageAdvanceModal(\''+card.id+'\',\'angebot\')"><span class="material-icons-round">receipt_long</span> Jetzt buchen</button>';
   }
-  var _listImg = _cardListingImage(card);
-  var _listTitle = _cardListingTitle(card);
-  var bannerHtml = _listImg
-    ? '<div class="kc-banner" style="background-image:url(\''+_escHtml(_listImg)+'\')">' +
-        (_listTitle ? '<div class="kc-banner-title">' + _escHtml(_listTitle) + '</div>' : '') +
-      '</div>'
-    : '';
   return `<div class="kanban-card" draggable="true" data-card-id="${card.id}" ondragstart="dragCard(event,'${card.id}')" onclick="event.stopPropagation()">
-    ${bannerHtml}
     <div class="kc-header">
       <img class="kc-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(card.name)}" onerror="this.onerror=null;this.src=ebAvatar(this.alt||'user',this.alt)" />
       <div>
@@ -12879,12 +12859,10 @@ function _renderBoardFlowImpl() {
       } else if (card.stage === 'kontaktiert') {
         html += '<span class="flow-confirm-badge pending"><span class="material-icons-round">hourglass_top</span>Warten auf Antwort</span>';
       }
-      var _bImg = _cardListingImage(card);
-      var _bTitle = _cardListingTitle(card);
-      if (_bImg) {
-        html += '<div class="flow-prov-banner" style="background-image:url(\''+esc(_bImg)+'\')"></div>';
-        if (_bTitle) {
-          html += '<div class="flow-prov-listing-title">' + esc(_bTitle) + '</div>';
+      if (card.listingImage) {
+        html += '<div class="flow-prov-banner" style="background-image:url(\''+esc(card.listingImage)+'\')"></div>';
+        if (card.listingTitle) {
+          html += '<div class="flow-prov-listing-title">' + esc(card.listingTitle) + '</div>';
         }
       }
       html += '<div class="flow-provider-inner">';
@@ -13333,69 +13311,6 @@ function openFlowCardModal(cardId) {
   var card = (project.cards || []).find(function(c) { return c.id === cardId; });
   if (!card) return;
 
-  // Zahlung erkannt? → Preis & Stage sperren, Bezahlt-Info anzeigen
-  var _isPaid = !!(card.paymentIntentId || card.paymentReference ||
-    (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
-  var _paidAmount = (typeof card.paidAmount === 'number' && card.paidAmount > 0)
-    ? card.paidAmount
-    : (parseFloat(card.price) || 0);
-
-  // Selbst-Heilung: wenn bezahlt und card.price weicht vom bezahlten Betrag ab
-  // (z.B. manuell verfälscht, bevor der Lock griff), Preis wieder auf den
-  // tatsächlich bezahlten Betrag korrigieren. Stripe ist Quelle der Wahrheit.
-  if (_isPaid && typeof card.paidAmount === 'number' && card.paidAmount > 0) {
-    var _curPrice = parseFloat(card.price);
-    if (!isFinite(_curPrice) || Math.abs(_curPrice - card.paidAmount) > 0.001) {
-      card.price = card.paidAmount;
-      try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
-    }
-  }
-  // Wenn bezahlt aber kein paidAmount auf der Karte (Karte aus Zeit vor dem
-  // Fix): einmalig mit Stripe abgleichen – Webhook-Daten füllen die Felder.
-  if (_isPaid && (typeof card.paidAmount !== 'number' || card.paidAmount <= 0)) {
-    try {
-      if (typeof _reconcileStripePayments === 'function') {
-        _reconcileStripePayments().then(function(){
-          // Modal neu öffnen, damit der korrigierte Betrag erscheint
-          var open = document.getElementById('flowCardModal');
-          if (open) { open.remove(); openFlowCardModal(cardId); }
-        });
-      }
-    } catch(e) {}
-  }
-  var _paidAtIso = card.paidAt || card.bookedAt || card.invoiceSentAt || '';
-  var _paidAtHuman = '';
-  if (_paidAtIso) {
-    try {
-      _paidAtHuman = new Date(_paidAtIso).toLocaleString('de-DE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-    } catch(e) { _paidAtHuman = _paidAtIso; }
-  }
-  var _piId = card.paymentIntentId || card.paymentReference || '';
-  var _paidBlock = _isPaid
-    ? '<div class="fc-paid-block">' +
-        '<div class="fc-paid-head">' +
-          '<span class="material-icons-round">verified</span>' +
-          '<div>' +
-            '<strong>Zahlung erhalten</strong>' +
-            '<small>Diese Buchung ist sicher \u00fcber Stripe abgeschlossen.</small>' +
-          '</div>' +
-        '</div>' +
-        '<div class="fc-paid-grid">' +
-          '<div><span>Betrag</span><strong>' + _escHtml(_formatEuro(_paidAmount)) + '</strong></div>' +
-          (_paidAtHuman ? '<div><span>Bezahlt am</span><strong>' + _escHtml(_paidAtHuman) + '</strong></div>' : '') +
-          (_piId ? '<div class="fc-paid-pi"><span>Zahlungs-ID</span><code>' + _escHtml(_piId) + '</code></div>' : '') +
-        '</div>' +
-        (_piId && /^pi_/.test(_piId)
-          ? '<a class="fc-paid-stripe-link" href="https://dashboard.stripe.com/payments/' + _escHtml(_piId) + '" target="_blank" rel="noopener">' +
-              '<span class="material-icons-round">open_in_new</span> Beleg in Stripe ansehen' +
-            '</a>'
-          : '') +
-      '</div>'
-    : '';
-
   var stageOptions = [
     { id: 'geplant', label: 'Geplant' }, { id: 'kontaktiert', label: 'Kontaktiert' },
     { id: 'angebot', label: 'Gebucht' }, { id: 'bestaetigt', label: 'Bezahlt' },
@@ -13404,47 +13319,20 @@ function openFlowCardModal(cardId) {
     return '<option value="' + s.id + '"' + (s.id === card.stage ? ' selected' : '') + '>' + s.label + '</option>';
   }).join('');
 
-  // Preis nach Zahlung gesperrt; readOnly statt disabled, damit der Wert
-  // beim Speichern weiterhin gelesen werden kann
-  var _priceField = _isPaid
-    ? '<div class="form-group"><label>Preis (€) <span class="fc-locked-hint"><span class="material-icons-round">lock</span> nach Zahlung gesperrt</span></label>' +
-        '<input type="number" id="fcPrice" value="' + _paidAmount + '" readonly /></div>'
-    : '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="1" /></div>';
-
-  // Stage nach Zahlung nur noch vorwärts auf "abgeschlossen" erlaubt
-  var _stageField = _isPaid
-    ? (function() {
-        var allowed = ['bestaetigt', 'abgeschlossen'];
-        return '<div class="form-group"><label>Status / Stage <span class="fc-locked-hint"><span class="material-icons-round">lock</span> Zahlung abgeschlossen</span></label>' +
-          '<select id="fcStage">' +
-            allowed.map(function(s) {
-              var label = s === 'bestaetigt' ? 'Bezahlt' : 'Erfüllt';
-              return '<option value="' + s + '"' + (s === card.stage ? ' selected' : '') + '>' + label + '</option>';
-            }).join('') +
-          '</select></div>';
-      })()
-    : '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>';
-
-  // "Entfernen"-Button nach Zahlung versteckt (kein verfälschen der Buchhaltung)
-  var _deleteBtn = _isPaid
-    ? ''
-    : '<button type="button" class="btn-outline btn-block" style="margin-top:8px;color:#f44336;border-color:#f44336" onclick="deleteBoardCard(\'' + cardId + '\');renderBoardFlow();document.getElementById(\'flowCardModal\').remove()">' +
-        '<span class="material-icons-round">delete</span> Dienstleister entfernen</button>';
-
   var html = '<div class="modal-overlay show" id="flowCardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
     '<button class="modal-close" onclick="document.getElementById(\'flowCardModal\').remove()"><span class="material-icons-round">close</span></button>' +
     '<div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>' + _escHtml(card.name) + '</h2></div>' +
-    _paidBlock +
     '<form class="modal-form" onsubmit="_saveFlowCard(event,\'' + cardId + '\')">' +
     '<div class="form-group"><label>Name</label><input type="text" id="fcName" value="' + _escHtml(card.name) + '" required /></div>' +
     '<div class="form-group"><label>Kategorie</label><input type="text" id="fcCat" value="' + _escHtml(card.category || '') + '" /></div>' +
-    _priceField +
+    '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="1" /></div>' +
     '<div class="form-group"><label>Uhrzeit am Eventtag</label>' + window._buildTimePicker('fcTime','fcTimeEnd', card.startTime || '10:00', card.endTime || '') + '</div>' +
-    _stageField +
+    '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>' +
     '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
-    _deleteBtn +
+    '<button type="button" class="btn-outline btn-block" style="margin-top:8px;color:#f44336;border-color:#f44336" onclick="deleteBoardCard(\'' + cardId + '\');renderBoardFlow();document.getElementById(\'flowCardModal\').remove()">' +
+    '<span class="material-icons-round">delete</span> Dienstleister entfernen</button>' +
     '</form></div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
 }
@@ -13457,14 +13345,7 @@ function _saveFlowCard(event, cardId) {
   if (!card) return;
   card.name      = document.getElementById('fcName').value.trim();
   card.category  = document.getElementById('fcCat').value.trim();
-
-  // Preis: nach Zahlung NICHT mehr überschreiben (Schutz gegen Verfälschung)
-  var _isPaid = !!(card.paymentIntentId || card.paymentReference ||
-    (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
-  if (!_isPaid) {
-    card.price = parseFloat(document.getElementById('fcPrice').value) || 0;
-  }
-
+  card.price     = parseFloat(document.getElementById('fcPrice').value) || 0;
   card.startTime = document.getElementById('fcTime').value;
   card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
   var _newStage = document.getElementById('fcStage').value;
@@ -13646,6 +13527,149 @@ function _reconcileStripePayments() {
     }).catch(function(){});
 }
 
+// ── STRIPE CONNECT: DIENSTLEISTER-AUSZAHLUNG ──────────────────────────────
+//
+//  Architektur:
+//  • Beim Zahlen wird application_fee_amount (3 %) einbehalten.
+//  • Der Rest landet AUTOMATISCH auf dem Express-Account des Dienstleisters
+//    (transfer_data[destination] = acct_xxx).
+//  • Dienstleister verbinden ihr Konto über die Einstellungsseite.
+//  • Onboarding-URL kommt vom Backend (POST /stripe/connect/onboard).
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Stripe-Connect-Status laden und Einstellungs-UI aktualisieren.
+ * Wird von loadSettings() aufgerufen wenn role === 'Dienstleister'.
+ */
+function loadStripeConnectStatus() {
+  var card = document.getElementById('stripeConnectCard');
+  if (!card) return;
+  card.style.display = '';
+
+  var statusEl   = document.getElementById('stripeConnectStatusText');
+  var accountRow = document.getElementById('stripeConnectAccountRow');
+  var accountIdEl= document.getElementById('stripeConnectAccountId');
+  var connectBtn = document.getElementById('stripeConnectBtn');
+  var dashBtn    = document.getElementById('stripeConnectDashboardBtn');
+  var disconnBtn = document.getElementById('stripeDisconnectBtn');
+
+  if (statusEl) statusEl.textContent = 'Wird geladen …';
+
+  fetch(_apiUrl('stripe/connect/status'), {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+  .then(function(r) { return r.ok ? r.json() : { status: 'none' }; })
+  .then(function(data) {
+    var s = (data && data.status) || 'none'; // 'active' | 'pending' | 'incomplete' | 'none'
+
+    if (statusEl) {
+      var labels = {
+        active:     '✅ Aktiv – Auszahlungen freigeschaltet',
+        pending:    '⏳ In Bearbeitung – Stripe prüft deine Angaben',
+        incomplete: '⚠️ Unvollständig – Onboarding nicht abgeschlossen',
+        none:       'Nicht verbunden'
+      };
+      statusEl.textContent = labels[s] || 'Unbekannt';
+    }
+
+    // Account-ID anzeigen wenn vorhanden
+    if (accountRow && accountIdEl && data.connect_id) {
+      accountIdEl.textContent = data.connect_id;
+      accountRow.style.display = (s !== 'none') ? '' : 'none';
+    }
+
+    if (s === 'active') {
+      if (connectBtn)  { connectBtn.style.display = 'none'; }
+      if (dashBtn)     { dashBtn.style.display = ''; }
+      if (disconnBtn)  { disconnBtn.style.display = ''; }
+    } else if (s === 'pending' || s === 'incomplete') {
+      if (connectBtn)  { connectBtn.style.display = ''; connectBtn.innerHTML = '<span class="material-icons-round">settings</span> Onboarding fortsetzen'; }
+      if (dashBtn)     { dashBtn.style.display = 'none'; }
+      if (disconnBtn)  { disconnBtn.style.display = ''; }
+    } else {
+      if (connectBtn)  { connectBtn.style.display = ''; connectBtn.innerHTML = '<span class="material-icons-round">link</span> Stripe-Konto verbinden'; }
+      if (dashBtn)     { dashBtn.style.display = 'none'; }
+      if (disconnBtn)  { disconnBtn.style.display = 'none'; }
+      if (accountRow)  { accountRow.style.display = 'none'; }
+    }
+  })
+  .catch(function() {
+    if (statusEl) statusEl.textContent = 'Fehler beim Laden – bitte Seite neu laden.';
+  });
+}
+
+/**
+ * Stripe Express Onboarding starten (oder fortsetzen).
+ * POST /stripe/connect/onboard → { onboarding_url }
+ * Leitet den Nutzer direkt zu Stripe weiter.
+ */
+function connectStripeAccount(btn) {
+  _setBtnLoading(btn, true);
+  fetch(_apiUrl('stripe/connect/onboard'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data && data.onboarding_url) {
+      window.location.href = data.onboarding_url;
+    } else {
+      showToast((data && data.message) || 'Fehler beim Verbinden. Bitte erneut versuchen.', 'error');
+      _setBtnLoading(btn, false);
+    }
+  })
+  .catch(function() {
+    showToast('Netzwerkfehler. Bitte erneut versuchen.', 'error');
+    _setBtnLoading(btn, false);
+  });
+}
+
+/**
+ * Stripe Express Dashboard öffnen (Umsätze, Auszahlungen, Steuer-Doku).
+ * Das Backend liefert bei /stripe/connect/status?login_link=1 einen Stripe-Login-Link.
+ */
+function openStripeConnectDashboard() {
+  fetch(_apiUrl('stripe/connect/status') + '&login_link=1', {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+  .then(function(r) { return r.ok ? r.json() : {}; })
+  .then(function(data) {
+    var url = (data && data.login_link) || (data && data.dashboard_url) || 'https://dashboard.stripe.com/express';
+    window.open(url, '_blank', 'noopener,noreferrer');
+  })
+  .catch(function() {
+    window.open('https://dashboard.stripe.com/express', '_blank', 'noopener,noreferrer');
+  });
+}
+
+/**
+ * Stripe-Connect-Verknüpfung aufheben.
+ * Entfernt nur unsere Metadaten – das Stripe-Konto des Dienstleisters bleibt bestehen.
+ */
+function disconnectStripeAccount() {
+  if (!confirm('Stripe-Konto wirklich trennen?\n\nFür neue Buchungen erhältst du keine automatischen Auszahlungen mehr, bis du dein Konto wieder verbindest.')) return;
+  fetch(_apiUrl('stripe/connect/disconnect'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    showToast('Stripe-Konto getrennt.', 'info');
+    loadStripeConnectStatus();
+  })
+  .catch(function() {
+    showToast('Fehler beim Trennen. Bitte erneut versuchen.', 'error');
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
 /**
  * Stripe Elements Modal (embedded, kein Redirect).
  * opts: { amount, title, cardId, projectId, listingId, onSuccess(result), onCancel? }
@@ -13668,55 +13692,27 @@ function _openStripePaymentModal(opts) {
   ov.className = 'stripe-modal-overlay';
   ov.setAttribute('role', 'dialog');
   ov.setAttribute('aria-modal', 'true');
-
-  // Visuelle Zusammenfassung (Bild + Meta) – gibt mehr Kontext zur Buchung
-  var _img = opts.image || '';
-  var _provider = opts.provider || '';
-  var _category = opts.category || '';
-  var _dateLabel = opts.dateLabel || '';
-  var _duration = opts.duration || '';
-  var _instant = !!opts.instant;
-  var _summaryThumb = _img
-    ? '<div class="stripe-summary-thumb"><img src="' + _escHtml(_img) + '" alt="" loading="lazy" /></div>'
-    : '<div class="stripe-summary-thumb stripe-summary-thumb-placeholder"><span class="material-icons-round">image</span></div>';
-  var _summaryMeta = '';
-  if (_provider) _summaryMeta += '<span><span class="material-icons-round">person</span>' + _escHtml(_provider) + '</span>';
-  if (_dateLabel) _summaryMeta += '<span><span class="material-icons-round">event</span>' + _escHtml(_dateLabel) + '</span>';
-  if (_duration)  _summaryMeta += '<span><span class="material-icons-round">schedule</span>' + _escHtml(String(_duration)) + ' Std.</span>';
-  var _summaryHtml =
-    '<div class="stripe-summary' + (_instant ? ' is-instant' : '') + '">' +
-      _summaryThumb +
-      '<div class="stripe-summary-body">' +
-        (_instant ? '<span class="stripe-summary-badge"><span class="material-icons-round">bolt</span> Sofortbuchung</span>' : '') +
-        (_category ? '<span class="stripe-summary-cat">' + _escHtml(_category) + '</span>' : '') +
-        '<strong class="stripe-summary-title">' + _escHtml(opts.title || 'Buchung') + '</strong>' +
-        (_summaryMeta ? '<div class="stripe-summary-meta">' + _summaryMeta + '</div>' : '') +
-        '<div class="stripe-summary-price">' + _escHtml(_formatEuro(opts.amount)) + '</div>' +
-      '</div>' +
-    '</div>';
-
   ov.innerHTML =
     '<div class="stripe-modal">' +
       '<div class="stripe-modal-header">' +
         '<div>' +
           '<div class="stripe-modal-title"><span class="material-icons-round">lock</span> Sichere Zahlung</div>' +
-          '<div class="stripe-modal-sub">Pr\u00fcfe deine Buchung und schlie\u00dfe sie sicher ab.</div>' +
+          '<div class="stripe-modal-sub">' + _escHtml(opts.title || 'Buchung') + ' &middot; <strong>' + _escHtml(_formatEuro(opts.amount)) + '</strong></div>' +
         '</div>' +
         '<button class="stripe-modal-close" type="button" aria-label="Schließen">&times;</button>' +
       '</div>' +
       '<div class="stripe-modal-body">' +
-        _summaryHtml +
         '<div id="stripePaymentElement"></div>' +
         '<div id="stripePaymentError" class="stripe-error" role="alert" style="display:none"></div>' +
         '<div class="stripe-trust">' +
-          '<span class="material-icons-round">verified_user</span> Verschl\u00fcsselte Zahlung via <strong>Stripe</strong> \u00b7 Kartendaten ber\u00fchren unsere Server nie.' +
+          '<span class="material-icons-round">verified_user</span> Verschlüsselte Zahlung via <strong>Stripe</strong> · Kartendaten berühren unsere Server nie.' +
         '</div>' +
       '</div>' +
       '<div class="stripe-modal-footer">' +
         '<button type="button" class="btn-outline" id="stripeCancelBtn">Abbrechen</button>' +
         '<button type="button" class="btn-primary" id="stripePayBtn" disabled>' +
           '<span class="stripe-btn-label"><span class="material-icons-round">lock</span> ' + _escHtml(_formatEuro(opts.amount)) + ' bezahlen</span>' +
-          '<span class="stripe-btn-spinner" style="display:none"><span class="material-icons-round spin">sync</span> Verarbeite\u2026</span>' +
+          '<span class="stripe-btn-spinner" style="display:none"><span class="material-icons-round spin">sync</span> Verarbeite…</span>' +
         '</button>' +
       '</div>' +
     '</div>';
@@ -14179,28 +14175,17 @@ function openStageAdvanceModal(cardId, currentStage) {
         '<input type="checkbox" id="saUserConfirm"' + (_hasUserConfirm ? ' checked' : '') + '>' +
         '<span><strong>Ich best&auml;tige:</strong> Die Leistung wurde wie vereinbart erbracht.</span>' +
       '</label>' +
-      '<div class="sa-review-block" style="margin-top:14px;padding:16px;border:1px solid rgba(255,255,255,0.1);border-radius:14px;background:linear-gradient(180deg,rgba(255,193,7,0.06),rgba(255,255,255,0.02))">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
-          '<span class="material-icons-round" style="color:#FFC107;font-size:22px">star</span>' +
-          '<strong style="font-size:14px;color:rgba(255,255,255,0.95)">Bewertung abgeben</strong>' +
-          '<span style="margin-left:auto;font-size:10.5px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.5px">öffentlich</span>' +
-        '</div>' +
-        '<div class="sa-stars sa-stars-lg" id="saStars" data-rating="' + (parseInt(card.rating) || 0) + '">' +
-          '<span data-val="1" class="material-icons-round">star</span>' +
-          '<span data-val="2" class="material-icons-round">star</span>' +
-          '<span data-val="3" class="material-icons-round">star</span>' +
-          '<span data-val="4" class="material-icons-round">star</span>' +
-          '<span data-val="5" class="material-icons-round">star</span>' +
-        '</div>' +
-        '<div id="saRatingLabel" style="margin-top:8px;font-size:12.5px;color:rgba(255,255,255,0.6);min-height:18px;font-weight:500">Tippe auf einen Stern, um zu bewerten.</div>' +
-        '<input type="hidden" id="saRating" value="' + (parseInt(card.rating) || 0) + '">' +
-        '<label class="sa-label" style="margin-top:14px;display:block">Dein Kommentar <small style="color:rgba(255,255,255,0.4)">(mind. 10 Zeichen)</small></label>' +
-        '<textarea id="saComment" class="sa-input" rows="4" placeholder="Wie war die Zusammenarbeit? Pünktlich, professionell, kreativ? Andere Kund:innen freuen sich über deine ehrliche Einschätzung.">' + _escHtml(card.reviewComment || '') + '</textarea>' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">' +
-          '<span style="font-size:11px;color:rgba(255,255,255,0.4)"><span class="material-icons-round" style="font-size:13px;vertical-align:-2px">public</span> Wird auf dem Anbieter-Profil sichtbar.</span>' +
-          '<span id="saCommentHint" style="font-size:11px;color:rgba(255,255,255,0.4)">0 / 10</span>' +
-        '</div>' +
-      '</div>';
+      '<label class="sa-label" style="margin-top:12px">Bewertung <small>(optional)</small></label>' +
+      '<div class="sa-stars" id="saStars">' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<1?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=1" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<2?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=2" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<3?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=3" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<4?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=4" class="material-icons-round">star_border</span>' +
+        '<span onclick="document.querySelectorAll(\'#saStars span\').forEach(function(s,i){s.textContent=i<5?\'star\':\'star_border\'});document.getElementById(\'saRating\').value=5" class="material-icons-round">star_border</span>' +
+      '</div>' +
+      '<input type="hidden" id="saRating" value="0">' +
+      '<label class="sa-label">Kommentar</label>' +
+      '<textarea id="saComment" class="sa-input" rows="2" placeholder="Wie war die Zusammenarbeit?"></textarea>';
   }
 
   var _submitIcon = (currentStage === 'kontaktiert') ? 'close' : icon;
@@ -14362,65 +14347,6 @@ function openStageAdvanceModal(cardId, currentStage) {
     });
   }
 
-  // ── Review-Widget (bestaetigt stage) ──
-  if (currentStage === 'bestaetigt') {
-    var _saStarsEl = document.getElementById('saStars');
-    var _saRatingInput = document.getElementById('saRating');
-    var _saRatingLabel = document.getElementById('saRatingLabel');
-    var _saCommentEl = document.getElementById('saComment');
-    var _saCommentHint = document.getElementById('saCommentHint');
-    var _ratingTexts = {
-      0: 'Tippe auf einen Stern, um zu bewerten.',
-      1: '★ — Leider enttäuschend.',
-      2: '★★ — Ausbaufähig.',
-      3: '★★★ — In Ordnung.',
-      4: '★★★★ — Sehr gut!',
-      5: '★★★★★ — Hervorragend, klare Empfehlung!'
-    };
-    function _saRenderStars(val, isHover) {
-      if (!_saStarsEl) return;
-      var spans = _saStarsEl.querySelectorAll('span');
-      spans.forEach(function(s, i) {
-        if (i < val) s.classList.add(isHover ? 'is-hover' : 'is-filled');
-        else s.classList.remove(isHover ? 'is-hover' : 'is-filled');
-        if (!isHover) s.classList.remove('is-hover');
-      });
-    }
-    if (_saStarsEl) {
-      var _initialRating = parseInt(_saStarsEl.getAttribute('data-rating')) || 0;
-      _saRenderStars(_initialRating, false);
-      if (_initialRating > 0 && _saRatingLabel) _saRatingLabel.textContent = _ratingTexts[_initialRating];
-      _saStarsEl.querySelectorAll('span').forEach(function(span) {
-        span.addEventListener('mouseenter', function() {
-          var v = parseInt(this.getAttribute('data-val')) || 0;
-          _saRenderStars(v, true);
-        });
-        span.addEventListener('mouseleave', function() {
-          var current = parseInt(_saStarsEl.getAttribute('data-rating')) || 0;
-          _saStarsEl.querySelectorAll('span').forEach(function(s){ s.classList.remove('is-hover'); });
-          _saRenderStars(current, false);
-        });
-        span.addEventListener('click', function() {
-          var v = parseInt(this.getAttribute('data-val')) || 0;
-          _saStarsEl.setAttribute('data-rating', String(v));
-          if (_saRatingInput) _saRatingInput.value = String(v);
-          if (_saRatingLabel) _saRatingLabel.textContent = _ratingTexts[v];
-          _saRenderStars(v, false);
-        });
-      });
-    }
-    function _saUpdateCommentHint() {
-      if (!_saCommentEl || !_saCommentHint) return;
-      var len = (_saCommentEl.value || '').trim().length;
-      _saCommentHint.textContent = len + ' / 10';
-      _saCommentHint.style.color = len >= 10 ? '#66bb6a' : 'rgba(255,255,255,0.4)';
-    }
-    if (_saCommentEl) {
-      _saUpdateCommentHint();
-      _saCommentEl.addEventListener('input', _saUpdateCommentHint);
-    }
-  }
-
   // Submit
   document.getElementById('saSubmitBtn').addEventListener('click', function() {
     var _nowIso = new Date().toISOString();
@@ -14448,124 +14374,62 @@ function openStageAdvanceModal(cardId, currentStage) {
       overlay.remove();
       return;
     } else if (currentStage === 'angebot') {
-      // Angebot erhalten → echte Stripe-Zahlung starten.
+      // Angebot erhalten → Stripe-Zahlung ausloesen, dann Rechnung senden.
       var _bp = parseFloat((document.getElementById('saBookPrice') || {}).value);
       if (!isNaN(_bp) && _bp > 0) card.price = _bp;
       card.bookingNote = (document.getElementById('saBookNote') || {}).value || '';
-
-      var _payAmount = parseFloat(card.price) || 0;
-      if (_payAmount <= 0) {
-        showToast('Bitte einen gültigen Preis eintragen.', 'warning');
-        return;
-      }
-
-      // Stage-Advance-Modal schließen, dann Stripe-Modal öffnen.
+      var _cardSnap = card, _projSnap = project, _listSnap = _listing;
+      // Schliesse das Buchungs-Modal VOR dem Stripe-Modal
       overlay.remove();
-      var _stripeImg = (_listing && (_listing.image || (_listing.images && _listing.images[0]))) || card.avatar || '';
       _openStripePaymentModal({
-        amount: _payAmount,
-        title: (_listing && _listing.title) || card.name || 'Buchung',
-        cardId: card.id,
-        projectId: project.id,
-        listingId: (_listing && (_listing._dbId || _listing.id)) || 0,
-        image: _stripeImg,
-        provider: (_listing && _listing.providerName) || '',
-        category: (_listing && (_listing.categoryLabel || _listing.category)) || card.category || '',
-        duration: (_listing && _listing.duration) || '',
-        dateLabel: (project && project.date) ? project.date : '',
-        onSuccess: function(_res) {
-          // Refs erneut frisch auflösen (Modal war offen).
-          var _lp = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
-          if (_lp) {
-            project = _lp;
-            var _lc = (_lp.cards || []).find(function(c){ return c.id === cardId; });
-            if (_lc) card = _lc;
-          }
-          var _payIso = new Date().toISOString();
-          card.bookedAt = _payIso;
-          card.invoiceSentAt = _payIso;
-          card.paidAt = _payIso;
-          card.paidAmount = _payAmount;
-          card.paymentMethod = 'Stripe';
-          card.paymentIntentId = (_res && _res.payment_intent_id) || '';
-          card.paymentReference = card.paymentIntentId;
-          card.paymentStatus = 'paid';
-          card.stage = 'bestaetigt';
-          _sendInvoiceNotification(card, project, _listing).catch(function(){});
+        amount:    _cardSnap.price || 0,
+        title:     ((_listSnap && _listSnap.title) || _cardSnap.name || 'Buchung'),
+        cardId:    _cardSnap.id,
+        projectId: _projSnap.id,
+        listingId: _cardSnap.listingId || 0,
+        onSuccess: function(pi) {
+          var nowIso = new Date().toISOString();
+          // Live-Refs holen (Server-Sync koennte Array ersetzt haben)
+          var lp = (_boardProjects||[]).find(function(p){return p.id===_projSnap.id;}) || _projSnap;
+          var lc = ((lp.cards)||[]).find(function(c){return c.id===_cardSnap.id;}) || _cardSnap;
+          lc.paidAt           = nowIso;
+          lc.bookedAt         = nowIso;
+          lc.invoiceSentAt    = nowIso;
+          lc.paymentStatus    = 'Bezahlt';
+          lc.paymentMethod    = 'Stripe';
+          lc.paymentReference = (pi && pi.payment_intent) || '';
+          lc.paidAmount       = (pi && pi.amount) ? (pi.amount / 100) : (lc.price || 0);
+          lc.stage            = 'bestaetigt';
           _saveBoardProjects();
-          renderBoardFlow();
-          renderKanban(project);
-          _updateBoardStats(project);
-          showToast('Zahlung erfolgreich – Buchung bestätigt!', 'check_circle');
+          _sendInvoiceNotification(lc, lp, _listSnap).catch(function(){});
+          showToast('\u2705 Zahlung erfolgreich! Buchung best\u00e4tigt.', 'paid');
+          try { renderBoardFlow(); } catch(e){}
+          try { renderKanban(lp); } catch(e){}
+          try { _updateBoardStats(lp); } catch(e){}
         },
         onCancel: function() {
-          showToast('Zahlung abgebrochen.', 'info');
+          showToast('Zahlung abgebrochen \u2013 Buchung nicht ausgel\u00f6st.', 'info');
         }
       });
-      return; // Submit-Handler hier beenden – Rest übernimmt onSuccess.
+      return; // Stage-Advance + Speichern laufen ueber onSuccess
     } else if (currentStage === 'bestaetigt') {
       // Stage "Bezahlt" → "Erfuellt": Dual-Confirm (User + Dienstleister)
       var _userOk = !!(document.getElementById('saUserConfirm') || {}).checked;
-      var _ratingVal = parseInt((document.getElementById('saRating') || {}).value) || 0;
-      var _commentVal = ((document.getElementById('saComment') || {}).value || '').trim();
-
       if (_userOk && !card.userConfirmedAt) card.userConfirmedAt = _nowIso;
       if (!_userOk) card.userConfirmedAt = '';
-
-      // Eingaben immer auf die Karte spiegeln, damit nichts verloren geht
-      // wenn der User vorzeitig schliesst oder der Provider noch nicht
-      // bestaetigt hat.
-      card.rating = _ratingVal;
-      card.reviewComment = _commentVal;
-
-      // Pflicht-Validierung – nur wenn der User uberhaupt bestaetigen will
-      if (_userOk) {
-        if (_ratingVal < 1) {
-          showToast('Bitte vergib eine Sterne-Bewertung.', 'warning');
-          _advance = false;
-        } else if (_commentVal.length < 10) {
-          showToast('Bitte schreibe mindestens 10 Zeichen Kommentar.', 'warning');
-          _advance = false;
-        }
-      }
+      card.rating = parseInt((document.getElementById('saRating') || {}).value) || 0;
+      card.reviewComment = (document.getElementById('saComment') || {}).value || '';
 
       // Nur weiter, wenn BEIDE bestaetigt haben
-      if (_advance && !(card.userConfirmedAt && card.providerConfirmedAt)) {
+      if (!(card.userConfirmedAt && card.providerConfirmedAt)) {
         _advance = false;
         if (card.userConfirmedAt && !card.providerConfirmedAt) {
           showToast('Warten auf Best\u00e4tigung des Dienstleisters.', 'hourglass_top');
         } else if (!card.userConfirmedAt) {
-          showToast('Bitte best\u00e4tige die Erbringung der Leistung.', 'warning');
+          showToast('Bitte bestaetige die Erbringung der Leistung.', 'warning');
         }
-      }
-
-      if (_advance) {
+      } else {
         card.fulfilledAt = _nowIso;
-        // Review an die API uebertragen – einmalig, damit Mehrfach-Submits
-        // keine Duplikate erzeugen (Server lehnt sie ohnehin ab).
-        var _listingDbIdForReview = (_listing && (_listing._dbId || _listing.id)) || 0;
-        if (_listingDbIdForReview && _ratingVal >= 1 && _commentVal.length >= 10 && !card.reviewPostedAt) {
-          fetch(_apiUrl('listings/' + _listingDbIdForReview + '/reviews'), {
-            method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-            body: JSON.stringify({ rating: _ratingVal, comment: _commentVal })
-          })
-            .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
-            .then(function(resp){
-              if (resp.ok && resp.data && resp.data.saved) {
-                card.reviewPostedAt = new Date().toISOString();
-                _saveBoardProjects();
-                showToast('Bewertung ver\u00f6ffentlicht! \u2b50', 'star');
-              } else if (resp.data && /bereits bewertet/i.test(resp.data.message || '')) {
-                card.reviewPostedAt = new Date().toISOString();
-                _saveBoardProjects();
-              } else {
-                showToast((resp.data && resp.data.message) || 'Bewertung konnte nicht gespeichert werden.', 'error');
-              }
-            })
-            .catch(function(){
-              showToast('Bewertung konnte nicht gesendet werden (Netzwerk).', 'error');
-            });
-        }
         showToast('Leistung beidseitig best\u00e4tigt – Projekt abgeschlossen!', 'verified');
       }
     }
@@ -15731,180 +15595,27 @@ function addCurrentListingToBoard(listingId) {
   if (!lid) { showToast('Kein Service ausgew\u00e4hlt.', 'error'); return; }
   if (!currentUser) { openModal('loginModal'); return; }
 
-  var listing = (LISTINGS || []).find(function(l){ return l.id === lid; }) || { id: lid };
+  var listing = (LISTINGS || []).find(function(l){ return l.id === lid; });
 
-  // Immer Auswahl-Modal zeigen: „Neues Board" vs. „Vorhandenes Board".
-  // Hat der Nutzer noch keine Projekte, direkt das Erstellen-Modal öffnen.
   if (_boardProjects.length === 0) {
-    window._pendingAddListing = listing;
+    // No projects yet → open create modal, then auto-add after creation
+    window._pendingAddListing = listing || { id: lid };
     openCreateBoardModal();
     return;
   }
-  openSelectBoardProjectModal(listing);
-}
-window.addCurrentListingToBoard = addCurrentListingToBoard;
-
-/* ─── Sofortbuchung (Direkt-Buchung) auf Detailseite ─────── */
-function _renderInstantBookSection(listing) {
-  // Existing Element entfernen (re-render bei jeder loadDetail)
-  var existing = document.getElementById('instantBookSection');
-  if (existing) existing.remove();
-
-  if (!listing || !listing.instantBook) return;
-  var wd = (listing.availableWeekdays || []).map(Number).filter(function(d){ return d>=0 && d<=6; });
-  if (wd.length === 0) return;
-
-  // Anker: vor dem "Anfragen"-Button im bookingCard
-  var bookingForm = document.querySelector('#page-detail .booking-card .booking-form');
-  if (!bookingForm) return;
-
-  // Nächste 12 freie Termine berechnen (ab morgen)
-  var today = new Date(); today.setHours(0,0,0,0);
-  var slots = [];
-  for (var i = 1; slots.length < 12 && i < 90; i++) {
-    var d = new Date(today.getTime() + i*86400000);
-    if (wd.indexOf(d.getDay()) !== -1) slots.push(d);
-  }
-  if (slots.length === 0) return;
-
-  var price = parseFloat(listing.price) || 0;
-  var timeFrom = listing.timeFrom || '';
-  var dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-  var monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-
-  var pills = slots.map(function(d, idx) {
-    var iso = d.toISOString().slice(0,10);
-    return '<button type="button" class="instant-slot" data-iso="' + iso + '" data-idx="' + idx + '">' +
-      '<span class="is-dow">' + dayNames[d.getDay()] + '</span>' +
-      '<span class="is-day">' + d.getDate() + '</span>' +
-      '<span class="is-mon">' + monthNames[d.getMonth()] + '</span>' +
-    '</button>';
-  }).join('');
-
-  var html =
-    '<div class="instant-book-section" id="instantBookSection">' +
-      '<div class="ib-head">' +
-        '<span class="material-icons-round ib-bolt">bolt</span>' +
-        '<div>' +
-          '<strong>Sofortbuchung</strong>' +
-          '<small>Freien Termin w\u00e4hlen \u00b7 direkt bezahlen \u00b7 Buchung best\u00e4tigt</small>' +
-        '</div>' +
-      '</div>' +
-      '<div class="ib-slots">' + pills + '</div>' +
-      '<div class="ib-meta">' +
-        (timeFrom ? '<span><span class="material-icons-round">schedule</span> ab ' + _escHtml(timeFrom) + ' Uhr</span>' : '') +
-        (listing.duration ? '<span><span class="material-icons-round">hourglass_top</span> ' + listing.duration + ' Std.</span>' : '') +
-        '<span><span class="material-icons-round">euro</span> ' + _formatEuro(price) + '</span>' +
-      '</div>' +
-      '<button type="button" class="btn-primary btn-block ib-pay-btn" id="ibPayBtn" disabled>' +
-        '<span class="material-icons-round">lock</span> Termin w\u00e4hlen' +
-      '</button>' +
-      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Sichere Zahlung via Stripe \u00b7 sofortige Best\u00e4tigung</p>' +
-    '</div>';
-
-  bookingForm.insertAdjacentHTML('beforebegin', html);
-
-  var section = document.getElementById('instantBookSection');
-  var payBtn = section.querySelector('#ibPayBtn');
-  var selectedIso = null;
-
-  section.querySelectorAll('.instant-slot').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      section.querySelectorAll('.instant-slot').forEach(function(b){ b.classList.remove('selected'); });
-      btn.classList.add('selected');
-      selectedIso = btn.getAttribute('data-iso');
-      payBtn.disabled = false;
-      var dt = new Date(selectedIso);
-      var human = dayNames[dt.getDay()] + ', ' + dt.getDate() + '. ' + monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
-      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' buchen';
-    });
-  });
-
-  payBtn.addEventListener('click', function() {
-    if (!selectedIso) return;
-    if (!currentUser) { openModal('loginModal'); return; }
-    _startInstantBooking(listing, selectedIso, price);
-  });
-}
-
-function _startInstantBooking(listing, dateIso, amount) {
-  if (!amount || amount <= 0) {
-    showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
+  if (_boardProjects.length === 1) {
+    _addListingToBoardProject(listing || { id: lid }, _boardProjects[0].id);
     return;
   }
-  var dateHuman = (function(){
-    try { var d = new Date(dateIso); return d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
-    catch(e) { return dateIso; }
-  })();
-  var listingId = listing._dbId || listing.id;
-
-  _openStripePaymentModal({
-    amount: amount,
-    title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
-    listingId: listingId,
-    image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
-    provider: listing.providerName || '',
-    category: listing.categoryLabel || listing.category || '',
-    duration: listing.duration || '',
-    dateLabel: dateHuman,
-    instant: true,
-    onSuccess: function(res) {
-      // 1) Eigenes "Direktbuchungen"-Board sicherstellen
-      var proj = (_boardProjects || []).find(function(p){ return p.kind === 'instant'; });
-      if (!proj) {
-        proj = {
-          id: 'proj_' + Date.now(),
-          name: 'Direktbuchungen',
-          kind: 'instant',
-          date: '',
-          cards: [],
-          createdAt: new Date().toISOString()
-        };
-        _boardProjects.push(proj);
-      }
-      // 2) Karte direkt in "bestaetigt"
-      var nowIso = new Date().toISOString();
-      var card = {
-        id: 'bc_' + Date.now(),
-        name: listing.title || 'Direktbuchung',
-        category: listing.categoryLabel || listing.category || '',
-        stage: 'bestaetigt',
-        price: amount,
-        listingId: listingId,
-        listingImage: listing.image || (listing.images && listing.images[0]) || '',
-        listingTitle: listing.title || '',
-        avatar: listing.providerImg || listing.image || '',
-        note: 'Sofortbuchung f\u00fcr ' + dateHuman,
-        bookingDate: dateIso,
-        bookedAt: nowIso,
-        invoiceSentAt: nowIso,
-        paidAt: nowIso,
-        paidAmount: amount,
-        paymentMethod: 'Stripe',
-        paymentIntentId: (res && res.payment_intent_id) || '',
-        paymentReference: (res && res.payment_intent_id) || '',
-        paymentStatus: 'paid',
-        createdAt: nowIso
-      };
-      proj.cards = proj.cards || [];
-      proj.cards.push(card);
-      _saveBoardProjects && _saveBoardProjects();
-      showToast('Buchung best\u00e4tigt – Termin am ' + dateHuman + '!', 'check_circle');
-      setTimeout(function() {
-        showToast('Buchung im Board ansehen?', 'view_kanban', function(){ navigateTo('board'); if (typeof openBoardProject === 'function') openBoardProject(proj.id); });
-      }, 1400);
-    },
-    onCancel: function() {
-      showToast('Zahlung abgebrochen.', 'info');
-    }
-  });
+  // Multiple projects → show picker
+  openSelectBoardProjectModal(listing || { id: lid });
 }
-window._startInstantBooking = _startInstantBooking;
+window.addCurrentListingToBoard = addCurrentListingToBoard;
 
 function openSelectBoardProjectModal(listing) {
   var rows = _boardProjects.map(function(p) {
     var cnt = (p.cards || []).length;
-    var dateStr = p.date ? ' \u00b7 ' + _escHtml(p.date) : '';
+    var dateStr = p.date ? ' · ' + _escHtml(p.date) : '';
     return '<button type="button" class="bsp-row" onclick="_addListingToBoardProject(window._pendingBoardListing,\'' + p.id + '\');document.getElementById(\'selectBoardProjectModal\').remove()">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">event</span>' +
       '<span class="bsp-info"><strong>' + _escHtml(p.name) + '</strong>' +
@@ -15914,18 +15625,15 @@ function openSelectBoardProjectModal(listing) {
   }).join('');
 
   window._pendingBoardListing = listing;
-  var title = (listing && (listing.title || listing.name)) || 'Dienstleister';
   var html = '<div class="modal-overlay show" id="selectBoardProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
       '<button class="modal-close" onclick="document.getElementById(\'selectBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
-      '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Wohin damit?</h2>' +
-        '<p>' + _escHtml(title) + ' zu deinem Planungs-Board hinzuf\u00fcgen.</p></div>' +
-      '<button class="bsp-row bsp-row-new" type="button" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
-        '<span class="material-icons-round" style="color:var(--primary);font-size:22px">add_circle</span>' +
-        '<span class="bsp-info"><strong>Neues Projekt erstellen</strong><small>Frisches Board f\u00fcr dieses Event</small></span>' +
-        '<span class="material-icons-round bsp-arrow">chevron_right</span>' +
+      '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Zu welchem Projekt?</h2>' +
+        '<p>' + _escHtml((listing && (listing.title || listing.name)) || 'Dienstleister') + ' zum Planungs-Board hinzuf\u00fcgen</p></div>' +
+      '<div class="bsp-list">' + rows + '</div>' +
+      '<button class="btn-outline btn-block" style="margin:12px 16px 16px" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
+        '<span class="material-icons-round">add</span> Neues Projekt erstellen' +
       '</button>' +
-      (rows ? '<div class="bsp-divider"><span>oder zu vorhandenem Projekt</span></div><div class="bsp-list">' + rows + '</div>' : '') +
     '</div>' +
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
@@ -16007,19 +15715,24 @@ var _CHECKLIST_TEMPLATES = {
 };
 
 function _getProjectChecklist(project) {
-  // Echte (gespeicherte) Checkliste – nur das, was der Nutzer aktiv hinzugefügt hat.
   if (!project) return [];
   var saved = Array.isArray(project.checklist) ? project.checklist : [];
-  return saved.filter(function(it){ return it && it.text; });
-}
-
-function _getChecklistSuggestions(project) {
-  // Template-Items, die noch NICHT in der gespeicherten Liste sind = Vorschläge.
-  if (!project) return [];
-  var tmpl = _CHECKLIST_TEMPLATES[project.template] || _CHECKLIST_TEMPLATES.custom;
+  // Ensure default items exist (add missing ones)
+  var tmplItems = (_CHECKLIST_TEMPLATES[project.template] || _CHECKLIST_TEMPLATES.custom).map(function(txt, i) {
+    return { id: 'cli_tmpl_' + i, text: txt, done: false, isTemplate: true };
+  });
+  // Merge: prefer saved state; add template items not yet in saved list
   var savedTexts = {};
-  (project.checklist || []).forEach(function(it){ if (it && it.text) savedTexts[it.text.toLowerCase()] = 1; });
-  return tmpl.filter(function(txt){ return !savedTexts[txt.toLowerCase()]; });
+  saved.forEach(function(it){ if (it && it.text) savedTexts[it.text] = it; });
+  var merged = [];
+  tmplItems.forEach(function(ti) {
+    merged.push(savedTexts[ti.text] || ti);
+  });
+  // Custom items (not from template)
+  saved.forEach(function(it){
+    if (it && !it.isTemplate) merged.push(it);
+  });
+  return merged;
 }
 
 function renderBoardChecklist() {
@@ -16030,87 +15743,36 @@ function renderBoardChecklist() {
   if (!container) return;
 
   var items = _getProjectChecklist(project);
-  var suggestions = _getChecklistSuggestions(project);
   var done = items.filter(function(it){ return it.done; }).length;
   var total = items.length;
   var pct = total ? Math.round((done / total) * 100) : 0;
 
-  var listHtml;
-  if (items.length === 0) {
-    listHtml = '<div class="bcl-empty">' +
-      '<span class="material-icons-round">playlist_add_check</span>' +
-      '<p><strong>Noch keine Aufgaben</strong></p>' +
-      '<p class="bcl-empty-hint">Schreib oben eine eigene Aufgabe oder klick unten auf eine Idee.</p>' +
-    '</div>';
-  } else {
-    listHtml = '<ul class="bcl-list">' +
-      items.map(function(it) {
-        return '<li class="bcl-item' + (it.done ? ' done' : '') + '">' +
-          '<button class="bcl-check" onclick="toggleChecklistItem(\'' + _escHtml(it.id) + '\')" aria-label="' + (it.done ? 'Erledigt' : 'Offen') + '">' +
-            '<span class="material-icons-round">' + (it.done ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
-          '</button>' +
-          '<span class="bcl-text">' + _escHtml(it.text) + '</span>' +
-          '<button class="bcl-del" onclick="deleteChecklistItem(\'' + _escHtml(it.id) + '\')" title="Löschen"><span class="material-icons-round">close</span></button>' +
-        '</li>';
-      }).join('') +
-      '</ul>';
-  }
-
-  var suggestionsHtml = '';
-  if (suggestions.length > 0) {
-    suggestionsHtml =
-      '<div class="bcl-suggestions">' +
-        '<div class="bcl-sug-header">' +
-          '<span class="material-icons-round">lightbulb</span>' +
-          '<span>Ideen <span class="bcl-sug-hint">(optional – tippe an, um aufzunehmen)</span></span>' +
-        '</div>' +
-        '<div class="bcl-sug-chips">' +
-          suggestions.map(function(txt) {
-            return '<button type="button" class="bcl-sug-chip" onclick="addChecklistSuggestion(\'' + _escHtml(txt).replace(/'/g, "\\'") + '\')">' +
-              '<span class="material-icons-round">add</span>' +
-              '<span>' + _escHtml(txt) + '</span>' +
-            '</button>';
-          }).join('') +
-        '</div>' +
-      '</div>';
-  }
-
   var html = '<div class="bcl-wrap">' +
-    // Oben: Eingabe + Header
     '<div class="bcl-header">' +
       '<div class="bcl-title"><span class="material-icons-round">checklist</span> Planungs-Checkliste</div>' +
-      (total ? (
-        '<div class="bcl-progress-bar-wrap">' +
-          '<div class="bcl-progress-bar" style="width:' + pct + '%"></div>' +
-        '</div>' +
-        '<div class="bcl-progress-label">' + done + ' / ' + total + ' erledigt</div>'
-      ) : '') +
+      '<div class="bcl-progress-bar-wrap">' +
+        '<div class="bcl-progress-bar" style="width:' + pct + '%"></div>' +
+      '</div>' +
+      '<div class="bcl-progress-label">' + done + ' / ' + total + ' erledigt</div>' +
     '</div>' +
-    '<form class="bcl-add-form bcl-add-top" onsubmit="addChecklistItem(event)">' +
-      '<input type="text" id="newChecklistText" placeholder="Aufgabe hinzuf\u00fcgen\u2026" autocomplete="off" required />' +
-      '<button type="submit" class="btn-primary"><span class="material-icons-round">add</span> Hinzufügen</button>' +
+    '<ul class="bcl-list">' +
+    items.map(function(it) {
+      return '<li class="bcl-item' + (it.done ? ' done' : '') + '">' +
+        '<button class="bcl-check" onclick="toggleChecklistItem(\'' + _escHtml(it.id) + '\')" aria-label="' + (it.done ? 'Erledigt' : 'Offen') + '">' +
+          '<span class="material-icons-round">' + (it.done ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
+        '</button>' +
+        '<span class="bcl-text">' + _escHtml(it.text) + '</span>' +
+        (it.isTemplate ? '' : '<button class="bcl-del" onclick="deleteChecklistItem(\'' + _escHtml(it.id) + '\')" title="Löschen"><span class="material-icons-round">close</span></button>') +
+      '</li>';
+    }).join('') +
+    '</ul>' +
+    '<form class="bcl-add-form" onsubmit="addChecklistItem(event)">' +
+      '<input type="text" id="newChecklistText" placeholder="Neue Aufgabe hinzuf\u00fcgen\u2026" required />' +
+      '<button type="submit" class="btn-primary"><span class="material-icons-round">add</span></button>' +
     '</form>' +
-    // Mitte: tatsächliche Aufgaben
-    listHtml +
-    // Unten: optionale Vorschläge
-    suggestionsHtml +
   '</div>';
   container.innerHTML = html;
 }
-
-function addChecklistSuggestion(text) {
-  if (!_activeBoardId || !text) return;
-  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
-  if (!project) return;
-  project.checklist = project.checklist || [];
-  // Doppelte vermeiden
-  var exists = project.checklist.some(function(it){ return it && it.text && it.text.toLowerCase() === text.toLowerCase(); });
-  if (exists) return;
-  project.checklist.push({ id: 'cli_sug_' + Date.now(), text: text, done: false });
-  _saveBoardProjects();
-  renderBoardChecklist();
-}
-window.addChecklistSuggestion = addChecklistSuggestion;
 window.renderBoardChecklist = renderBoardChecklist;
 
 function toggleChecklistItem(itemId) {
