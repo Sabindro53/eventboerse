@@ -4490,6 +4490,12 @@ function eb_load_env_value( $key ) {
     }
 
     // 2) Fallback: .env-Datei (Legacy, sollte nicht ins Repo).
+    //    Akzeptiert auch Schreibvarianten (z. B. "puplic_stripe_key" / "private_stripe_key").
+    static $alias_map = array(
+        'public_stripe_api_key'  => array( 'public_stripe_key', 'puplic_stripe_key', 'STRIPE_PUBLIC_KEY', 'STRIPE_PUBLISHABLE_KEY' ),
+        'private_stripe_api_key' => array( 'private_stripe_key', 'STRIPE_SECRET_KEY', 'STRIPE_PRIVATE_KEY' ),
+        'stripe_webhook_secret'  => array( 'STRIPE_WEBHOOK_SECRET', 'webhook_secret' ),
+    );
     static $cache = null;
     if ( $cache === null ) {
         $cache = array();
@@ -4508,7 +4514,13 @@ function eb_load_env_value( $key ) {
             }
         }
     }
-    return isset( $cache[ $key ] ) ? $cache[ $key ] : '';
+    if ( isset( $cache[ $key ] ) && $cache[ $key ] !== '' ) return $cache[ $key ];
+    if ( isset( $alias_map[ $key ] ) ) {
+        foreach ( $alias_map[ $key ] as $alias ) {
+            if ( isset( $cache[ $alias ] ) && $cache[ $alias ] !== '' ) return $cache[ $alias ];
+        }
+    }
+    return '';
 }
 
 function eb_stripe_public_key( WP_REST_Request $request ) {

@@ -38,6 +38,7 @@ jobs:
               -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
               -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' -x '^AGENTS\.md$' \
               -x '^\.gitignore$' -x '^\.gitattributes$' -x '^\.editorconfig$' \
+              -x '^\.env' \
               -x '^sftp-debug\.txt$' -x '^deploy-probe\.txt$' \
               -x '\.bak$' -x '\.log$' -x '\.swp$' -x '\.DS_Store$' \
               -x '^Attached Element Context' \
@@ -88,4 +89,52 @@ jobs:
             bye
           "
           echo "✅ SMTP constants written to wp-config.php"
+          rm -f /tmp/wp-config.php
+
+      - name: Inject Stripe credentials into wp-config.php
+        env:
+          SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
+          SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+          SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
+          STRIPE_PUBLIC_KEY: ${{ secrets.EB_STRIPE_PUBLIC_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.EB_STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.EB_STRIPE_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$STRIPE_PUBLIC_KEY" ] || [ -z "$STRIPE_SECRET_KEY" ]; then
+            echo "⚠️ Stripe secrets not set (EB_STRIPE_PUBLIC_KEY / EB_STRIPE_SECRET_KEY) — skipping"
+            exit 0
+          fi
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            get /public/wp-config.php -o /tmp/wp-config.php;
+            bye
+          "
+          echo "--- grep EB_STRIPE (before) ---"
+          grep -n 'EB_STRIPE' /tmp/wp-config.php || echo "(not found)"
+          # Remove any existing EB_STRIPE_* lines (idempotent re-inject)
+          sed -i '/EB_STRIPE_PUBLIC_KEY/d' /tmp/wp-config.php
+          sed -i '/EB_STRIPE_SECRET_KEY/d' /tmp/wp-config.php
+          sed -i '/EB_STRIPE_WEBHOOK_SECRET/d' /tmp/wp-config.php
+          sed -i '/Eventb.*Stripe Config/d' /tmp/wp-config.php
+          LINENUM=$(grep -n '<?php' /tmp/wp-config.php | head -1 | cut -d: -f1)
+          if [ -z "$LINENUM" ]; then
+            echo "ERROR: <?php not found in wp-config.php!"
+            exit 1
+          fi
+          # Escape single quotes in values for safe PHP single-quoted string literal
+          ESC_PK=$(printf "%s" "$STRIPE_PUBLIC_KEY"     | sed "s/'/\\\\'/g")
+          ESC_SK=$(printf "%s" "$STRIPE_SECRET_KEY"     | sed "s/'/\\\\'/g")
+          ESC_WH=$(printf "%s" "$STRIPE_WEBHOOK_SECRET" | sed "s/'/\\\\'/g")
+          sed -i "${LINENUM}a\\
+          define('EB_STRIPE_PUBLIC_KEY', '${ESC_PK}');\\
+          define('EB_STRIPE_SECRET_KEY', '${ESC_SK}');\\
+          define('EB_STRIPE_WEBHOOK_SECRET', '${ESC_WH}');" /tmp/wp-config.php
+          echo "--- verify injection ---"
+          grep -nE 'EB_STRIPE_(PUBLIC|SECRET|WEBHOOK)_' /tmp/wp-config.php | sed 's/= .*/= ***REDACTED***/'
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            put /tmp/wp-config.php -o /public/wp-config.php;
+            bye
+          "
+          echo "✅ Stripe constants written to wp-config.php"
           rm -f /tmp/wp-config.php
