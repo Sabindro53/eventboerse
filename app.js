@@ -12888,7 +12888,10 @@ function _renderBoardFlowImpl() {
         html += '</button>';
       }
       html += '<button class="flow-prov-btn flow-prov-move" onclick="event.stopPropagation();openStageMoveSheet(\'' + card.id + '\')" title="Stage \u00e4ndern"><span class="material-icons-round">low_priority</span> Verschieben</button>';
-      html += '<button class="flow-prov-btn flow-prov-del" onclick="event.stopPropagation();deleteBoardCard(\'' + card.id + '\');renderBoardFlow()" title="Löschen"><span class="material-icons-round">close</span> Löschen</button>';
+      var isPaid = !!(card.paymentIntentId || card.paymentReference || (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
+      if (!isPaid) {
+        html += '<button class="flow-prov-btn flow-prov-del" onclick="event.stopPropagation();deleteBoardCard(\'' + card.id + '\');renderBoardFlow()" title="Löschen"><span class="material-icons-round">close</span> Löschen</button>';
+      }
       html += '</div>';
       html += '</div></div>';
     });
@@ -13349,7 +13352,14 @@ function _saveFlowCard(event, cardId) {
   card.startTime = document.getElementById('fcTime').value;
   card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
   var _newStage = document.getElementById('fcStage').value;
-  if (typeof _PROTECTED_STAGES !== 'undefined' && _PROTECTED_STAGES.indexOf(_newStage) !== -1 && card.stage !== _newStage) {
+  if (_isPaid) {
+    // Nach Zahlung: Stage darf nur noch auf 'abgeschlossen' gehen
+    if (_newStage !== card.stage && !(['bestaetigt','abgeschlossen'].includes(_newStage) && ['bestaetigt','abgeschlossen'].includes(card.stage))) {
+      showToast('Nach Zahlung ist nur noch "Erfüllt" als nächste Stage erlaubt.', 'warning');
+      return;
+    }
+    card.stage = _newStage;
+  } else if (typeof _PROTECTED_STAGES !== 'undefined' && _PROTECTED_STAGES.indexOf(_newStage) !== -1 && card.stage !== _newStage) {
     showToast(_protectedStageMessage(_newStage), 'warning');
   } else {
     card.stage = _newStage;
@@ -15643,14 +15653,108 @@ function addCurrentListingToBoard(listingId) {
 
   var listing = (LISTINGS || []).find(function(l){ return l.id === lid; });
 
-  if (_boardProjects.length === 0) {
-    // No projects yet → open create modal, then auto-add after creation
-    window._pendingAddListing = listing || { id: lid };
-    openCreateBoardModal();
-    return;
-  }
   if (_boardProjects.length === 1) {
     _addListingToBoardProject(listing || { id: lid }, _boardProjects[0].id);
+    return;
+  }
+  openSelectBoardProjectModal(listing);
+}
+window.addCurrentListingToBoard = addCurrentListingToBoard;
+
+/* ─── Sofortbuchung (Direkt-Buchung) auf Detailseite ─────── */
+function _renderInstantBookSection(listing) {
+  // Existing Element entfernen (re-render bei jeder loadDetail)
+  var existing = document.getElementById('instantBookSection');
+  if (existing) existing.remove();
+
+  if (!listing || !listing.instantBook) return;
+  var wd = (listing.availableWeekdays || []).map(Number).filter(function(d){ return d>=0 && d<=6; });
+  if (wd.length === 0) return;
+
+  // Anker: vor dem "Anfragen"-Button im bookingCard
+  var bookingForm = document.querySelector('#page-detail .booking-card .booking-form');
+  if (!bookingForm) return;
+
+  // Nächste 12 freie Termine berechnen (ab morgen)
+  var today = new Date(); today.setHours(0,0,0,0);
+  var slots = [];
+  for (var i = 1; slots.length < 12 && i < 90; i++) {
+    var d = new Date(today.getTime() + i*86400000);
+    if (wd.indexOf(d.getDay()) !== -1) slots.push(d);
+  }
+  if (slots.length === 0) return;
+
+  var price = parseFloat(listing.price) || 0;
+  var timeFrom = listing.timeFrom || '';
+  var dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  var monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+  var pills = slots.map(function(d, idx) {
+    var iso = d.toISOString().slice(0,10);
+    return '<button type="button" class="instant-slot" data-iso="' + iso + '" data-idx="' + idx + '">' +
+      '<span class="is-dow">' + dayNames[d.getDay()] + '</span>' +
+      '<span class="is-day">' + d.getDate() + '</span>' +
+      '<span class="is-mon">' + monthNames[d.getMonth()] + '</span>' +
+    '</button>';
+  }).join('');
+
+  var html =
+    '<div class="instant-book-section" id="instantBookSection">' +
+      '<div class="ib-head">' +
+        '<span class="material-icons-round ib-bolt">bolt</span>' +
+        '<div>' +
+          '<strong>Sofortbuchung</strong>' +
+          '<small>Freien Termin w\u00e4hlen \u00b7 direkt bezahlen \u00b7 Buchung best\u00e4tigt</small>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ib-slots">' + pills + '</div>' +
+      '<div class="ib-meta">' +
+        (timeFrom ? '<span><span class="material-icons-round">schedule</span> ab ' + _escHtml(timeFrom) + ' Uhr</span>' : '') +
+        (listing.duration ? '<span><span class="material-icons-round">hourglass_top</span> ' + listing.duration + ' Std.</span>' : '') +
+        '<span><span class="material-icons-round">euro</span> ' + _formatEuro(price) + '</span>' +
+      '</div>' +
+      '<button type="button" class="btn-primary btn-block ib-pay-btn" id="ibPayBtn" disabled>' +
+        '<span class="material-icons-round">lock</span> Termin w\u00e4hlen' +
+      '</button>' +
+      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Sichere Zahlung via Stripe \u00b7 sofortige Best\u00e4tigung</p>' +
+    '</div>';
+
+  bookingForm.insertAdjacentHTML('beforebegin', html);
+
+  var section = document.getElementById('instantBookSection');
+  var payBtn = section.querySelector('#ibPayBtn');
+  var selectedIso = null;
+
+  section.querySelectorAll('.instant-slot').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      section.querySelectorAll('.instant-slot').forEach(function(b){ b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      selectedIso = btn.getAttribute('data-iso');
+      payBtn.disabled = false;
+      var dt = new Date(selectedIso);
+      var human = dayNames[dt.getDay()] + ', ' + dt.getDate() + '. ' + monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
+      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' buchen';
+    });
+  });
+
+  payBtn.addEventListener('click', function() {
+    if (!selectedIso) return;
+    if (!currentUser) { openModal('loginModal'); return; }
+    _startInstantBooking(listing, selectedIso, price);
+  });
+}
+
+function _startInstantBooking(listing, dateIso, amount) {
+    // Doppelte Karten verhindern (gleiche listingId im selben Projekt)
+    var proj = (_boardProjects || []).find(function(p){ return p.kind === 'instant'; });
+    var listingId = listing._dbId || listing.id;
+    if (proj && proj.cards && proj.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
+      showToast('Dieses Inserat ist bereits im Board.', 'warning');
+      return;
+    }
+  if (!amount || amount <= 0) {
+    showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
+>>>>>>> a6897a4 (fix UI - logic)
     return;
   }
   // Multiple projects → show picker
@@ -16015,6 +16119,11 @@ function _autoFillProviderFromListing(select) {
 }
 
 function _addProviderCard(event, stage) {
+    // Doppelte Karten verhindern (gleiche listingId im selben Projekt)
+    if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
+      showToast('Dieses Inserat ist bereits im Board.', 'warning');
+      return;
+    }
   event.preventDefault();
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -16065,6 +16174,13 @@ function deleteBoardCard(cardId) {
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
   if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  var isPaid = !!(card.paymentIntentId || card.paymentReference || (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
+  if (isPaid) {
+    showToast('Bezahlte Buchungen können nicht gelöscht werden.', 'warning');
+    return;
+  }
   project.cards = (project.cards || []).filter(function(c) { return c.id !== cardId; });
   _saveBoardProjects();
   renderKanban(project);
