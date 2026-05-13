@@ -4477,6 +4477,19 @@ function eb_send_invoice( WP_REST_Request $request ) {
  * ============================================================ */
 
 function eb_load_env_value( $key ) {
+    // 1) Bevorzugt: Konstanten aus wp-config.php (sicherer, kein .env im Repo nötig).
+    static $const_map = array(
+        'public_stripe_api_key'  => 'EB_STRIPE_PUBLIC_KEY',
+        'private_stripe_api_key' => 'EB_STRIPE_SECRET_KEY',
+        'stripe_webhook_secret'  => 'EB_STRIPE_WEBHOOK_SECRET',
+        'STRIPE_WEBHOOK_SECRET'  => 'EB_STRIPE_WEBHOOK_SECRET',
+    );
+    if ( isset( $const_map[ $key ] ) && defined( $const_map[ $key ] ) ) {
+        $val = constant( $const_map[ $key ] );
+        if ( $val !== '' && $val !== null ) return $val;
+    }
+
+    // 2) Fallback: .env-Datei (Legacy, sollte nicht ins Repo).
     static $cache = null;
     if ( $cache === null ) {
         $cache = array();

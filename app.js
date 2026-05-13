@@ -14175,14 +14175,51 @@ function openStageAdvanceModal(cardId, currentStage) {
       overlay.remove();
       return;
     } else if (currentStage === 'angebot') {
-      // Angebot erhalten → jetzt verbindlich buchen: Rechnung anstossen.
+      // Angebot erhalten → echte Stripe-Zahlung starten.
       var _bp = parseFloat((document.getElementById('saBookPrice') || {}).value);
       if (!isNaN(_bp) && _bp > 0) card.price = _bp;
       card.bookingNote = (document.getElementById('saBookNote') || {}).value || '';
-      card.bookedAt = _nowIso;
-      card.invoiceSentAt = _nowIso;
-      _sendInvoiceNotification(card, project, _listing).catch(function(){});
-      showToast('Buchung ausgel\u00f6st – Rechnung wurde per E-Mail versendet.', 'receipt_long');
+
+      var _payAmount = parseFloat(card.price) || 0;
+      if (_payAmount <= 0) {
+        showToast('Bitte einen gültigen Preis eintragen.', 'warning');
+        return;
+      }
+
+      // Stage-Advance-Modal schließen, dann Stripe-Modal öffnen.
+      overlay.remove();
+      _openStripePaymentModal({
+        amount: _payAmount,
+        title: (_listing && _listing.title) || card.name || 'Buchung',
+        cardId: card.id,
+        projectId: project.id,
+        listingId: (_listing && (_listing._dbId || _listing.id)) || 0,
+        onSuccess: function(_res) {
+          // Refs erneut frisch auflösen (Modal war offen).
+          var _lp = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+          if (_lp) {
+            project = _lp;
+            var _lc = (_lp.cards || []).find(function(c){ return c.id === cardId; });
+            if (_lc) card = _lc;
+          }
+          var _payIso = new Date().toISOString();
+          card.bookedAt = _payIso;
+          card.invoiceSentAt = _payIso;
+          card.paymentIntentId = (_res && _res.payment_intent_id) || '';
+          card.paymentStatus = 'paid';
+          card.stage = 'bestaetigt';
+          _sendInvoiceNotification(card, project, _listing).catch(function(){});
+          _saveBoardProjects();
+          renderBoardFlow();
+          renderKanban(project);
+          _updateBoardStats(project);
+          showToast('Zahlung erfolgreich – Buchung bestätigt!', 'check_circle');
+        },
+        onCancel: function() {
+          showToast('Zahlung abgebrochen.', 'info');
+        }
+      });
+      return; // Submit-Handler hier beenden – Rest übernimmt onSuccess.
     } else if (currentStage === 'bestaetigt') {
       // Stage "Bezahlt" → "Erfuellt": Dual-Confirm (User + Dienstleister)
       var _userOk = !!(document.getElementById('saUserConfirm') || {}).checked;
