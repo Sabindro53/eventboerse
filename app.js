@@ -13534,27 +13534,55 @@ function _openStripePaymentModal(opts) {
   ov.className = 'stripe-modal-overlay';
   ov.setAttribute('role', 'dialog');
   ov.setAttribute('aria-modal', 'true');
+
+  // Visuelle Zusammenfassung (Bild + Meta) – gibt mehr Kontext zur Buchung
+  var _img = opts.image || '';
+  var _provider = opts.provider || '';
+  var _category = opts.category || '';
+  var _dateLabel = opts.dateLabel || '';
+  var _duration = opts.duration || '';
+  var _instant = !!opts.instant;
+  var _summaryThumb = _img
+    ? '<div class="stripe-summary-thumb"><img src="' + _escHtml(_img) + '" alt="" loading="lazy" /></div>'
+    : '<div class="stripe-summary-thumb stripe-summary-thumb-placeholder"><span class="material-icons-round">image</span></div>';
+  var _summaryMeta = '';
+  if (_provider) _summaryMeta += '<span><span class="material-icons-round">person</span>' + _escHtml(_provider) + '</span>';
+  if (_dateLabel) _summaryMeta += '<span><span class="material-icons-round">event</span>' + _escHtml(_dateLabel) + '</span>';
+  if (_duration)  _summaryMeta += '<span><span class="material-icons-round">schedule</span>' + _escHtml(String(_duration)) + ' Std.</span>';
+  var _summaryHtml =
+    '<div class="stripe-summary' + (_instant ? ' is-instant' : '') + '">' +
+      _summaryThumb +
+      '<div class="stripe-summary-body">' +
+        (_instant ? '<span class="stripe-summary-badge"><span class="material-icons-round">bolt</span> Sofortbuchung</span>' : '') +
+        (_category ? '<span class="stripe-summary-cat">' + _escHtml(_category) + '</span>' : '') +
+        '<strong class="stripe-summary-title">' + _escHtml(opts.title || 'Buchung') + '</strong>' +
+        (_summaryMeta ? '<div class="stripe-summary-meta">' + _summaryMeta + '</div>' : '') +
+        '<div class="stripe-summary-price">' + _escHtml(_formatEuro(opts.amount)) + '</div>' +
+      '</div>' +
+    '</div>';
+
   ov.innerHTML =
     '<div class="stripe-modal">' +
       '<div class="stripe-modal-header">' +
         '<div>' +
           '<div class="stripe-modal-title"><span class="material-icons-round">lock</span> Sichere Zahlung</div>' +
-          '<div class="stripe-modal-sub">' + _escHtml(opts.title || 'Buchung') + ' &middot; <strong>' + _escHtml(_formatEuro(opts.amount)) + '</strong></div>' +
+          '<div class="stripe-modal-sub">Pr\u00fcfe deine Buchung und schlie\u00dfe sie sicher ab.</div>' +
         '</div>' +
         '<button class="stripe-modal-close" type="button" aria-label="Schließen">&times;</button>' +
       '</div>' +
       '<div class="stripe-modal-body">' +
+        _summaryHtml +
         '<div id="stripePaymentElement"></div>' +
         '<div id="stripePaymentError" class="stripe-error" role="alert" style="display:none"></div>' +
         '<div class="stripe-trust">' +
-          '<span class="material-icons-round">verified_user</span> Verschlüsselte Zahlung via <strong>Stripe</strong> · Kartendaten berühren unsere Server nie.' +
+          '<span class="material-icons-round">verified_user</span> Verschl\u00fcsselte Zahlung via <strong>Stripe</strong> \u00b7 Kartendaten ber\u00fchren unsere Server nie.' +
         '</div>' +
       '</div>' +
       '<div class="stripe-modal-footer">' +
         '<button type="button" class="btn-outline" id="stripeCancelBtn">Abbrechen</button>' +
         '<button type="button" class="btn-primary" id="stripePayBtn" disabled>' +
           '<span class="stripe-btn-label"><span class="material-icons-round">lock</span> ' + _escHtml(_formatEuro(opts.amount)) + ' bezahlen</span>' +
-          '<span class="stripe-btn-spinner" style="display:none"><span class="material-icons-round spin">sync</span> Verarbeite…</span>' +
+          '<span class="stripe-btn-spinner" style="display:none"><span class="material-icons-round spin">sync</span> Verarbeite\u2026</span>' +
         '</button>' +
       '</div>' +
     '</div>';
@@ -14299,12 +14327,18 @@ function openStageAdvanceModal(cardId, currentStage) {
 
       // Stage-Advance-Modal schließen, dann Stripe-Modal öffnen.
       overlay.remove();
+      var _stripeImg = (_listing && (_listing.image || (_listing.images && _listing.images[0]))) || card.avatar || '';
       _openStripePaymentModal({
         amount: _payAmount,
         title: (_listing && _listing.title) || card.name || 'Buchung',
         cardId: card.id,
         projectId: project.id,
         listingId: (_listing && (_listing._dbId || _listing.id)) || 0,
+        image: _stripeImg,
+        provider: (_listing && _listing.providerName) || '',
+        category: (_listing && (_listing.categoryLabel || _listing.category)) || card.category || '',
+        duration: (_listing && _listing.duration) || '',
+        dateLabel: (project && project.date) ? project.date : '',
         onSuccess: function(_res) {
           // Refs erneut frisch auflösen (Modal war offen).
           var _lp = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
@@ -15670,6 +15704,12 @@ function _startInstantBooking(listing, dateIso, amount) {
     amount: amount,
     title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
     listingId: listingId,
+    image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
+    provider: listing.providerName || '',
+    category: listing.categoryLabel || listing.category || '',
+    duration: listing.duration || '',
+    dateLabel: dateHuman,
+    instant: true,
     onSuccess: function(res) {
       // 1) Eigenes "Direktbuchungen"-Board sicherstellen
       var proj = (_boardProjects || []).find(function(p){ return p.kind === 'instant'; });

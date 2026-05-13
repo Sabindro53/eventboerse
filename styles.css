@@ -12539,3 +12539,81 @@ body.dark-mode .admin-hide-demo-box .admin-toggle-info p { color: rgba(255,255,2
 @media (max-width: 480px) {
   .instant-book-section .ib-slots { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ============================================================
+   Stripe-Modal: Buchungs-Summary mit Bild
+   ============================================================ */
+.stripe-summary {
+  display: flex; gap: 14px;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(255,56,92,.05), rgba(0,166,153,.05));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.stripe-summary.is-instant {
+  background: linear-gradient(135deg, rgba(255,56,92,.10), rgba(255,170,60,.08));
+  border-color: rgba(255,56,92,.25);
+}
+.stripe-summary-thumb {
+  flex: 0 0 96px; width: 96px; height: 96px;
+  border-radius: 12px; overflow: hidden;
+  background: #f3f3f3;
+  position: relative;
+}
+.stripe-summary-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.stripe-summary-thumb-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  color: #bbb;
+}
+.stripe-summary-thumb-placeholder .material-icons-round { font-size: 40px; }
+.stripe-summary-body {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px; justify-content: center;
+}
+.stripe-summary-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  align-self: flex-start;
+  padding: 3px 8px;
+  background: #FF385C; color: #fff;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  margin-bottom: 2px;
+}
+.stripe-summary-badge .material-icons-round { font-size: 14px; }
+.stripe-summary-cat {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .4px;
+  color: #FF385C;
+}
+.stripe-summary-title {
+  font-size: 15px; font-weight: 700;
+  color: #222; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.stripe-summary-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 12px;
+  font-size: 12px; color: #666;
+  margin-top: 2px;
+}
+.stripe-summary-meta span { display: inline-flex; align-items: center; gap: 3px; }
+.stripe-summary-meta .material-icons-round { font-size: 14px; opacity: .8; }
+.stripe-summary-price {
+  margin-top: 4px;
+  font-size: 20px; font-weight: 800;
+  color: #222;
+}
+
+/* Dark Mode */
+body.dark-mode .stripe-summary-title { color: var(--text); }
+body.dark-mode .stripe-summary-price { color: var(--text); }
+body.dark-mode .stripe-summary-meta { color: var(--text-light); }
+
+@media (max-width: 480px) {
+  .stripe-summary-thumb { flex-basis: 72px; width: 72px; height: 72px; }
+  .stripe-summary-title { font-size: 14px; }
+  .stripe-summary-price { font-size: 18px; }
+}
