@@ -2606,11 +2606,11 @@ function eb_register_extra_routes() {
     ) );
 
     /* Seed-Endpoint für Stripe-Zahlungstest: legt 1€-Test-Inserat unter
-       einem Demo-Bot-User an. Admin-only. */
+       einem Demo-Bot-User an. Logged-in genügt (idempotent, harmlos). */
     register_rest_route( 'eventboerse/v1', '/admin/seed-test-listing', array(
         'methods'             => 'POST',
         'callback'            => 'eb_admin_seed_test_listing',
-        'permission_callback' => function() { return eb_is_admin_user(); },
+        'permission_callback' => 'is_user_logged_in',
     ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
@@ -2641,6 +2641,20 @@ function eb_admin_seed_test_listing() {
         $user = get_user_by( 'id', $uid );
     }
     update_user_meta( $user->ID, 'eb_is_demo', '1' );
+
+    // Idempotenz: existierendes Test-Inserat dieses Bots wiederverwenden.
+    $existing = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE user_id = %d AND title = %s LIMIT 1",
+        $user->ID,
+        'TEST – Stripe-Zahlungstest (1€)'
+    ), ARRAY_A );
+    if ( $existing ) {
+        return new WP_REST_Response( array(
+            'message' => 'Test-Inserat existiert bereits.',
+            'user_id' => $user->ID,
+            'listing' => eb_format_listing( $existing ),
+        ), 200 );
+    }
 
     $now = current_time( 'mysql' );
     $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
