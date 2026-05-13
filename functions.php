@@ -2612,6 +2612,18 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_admin_seed_test_listing',
         'permission_callback' => 'is_user_logged_in',
     ) );
+
+    /* Bot-Acceptance für Stripe-Zahlungstest: postet als Gegenpartei (Bot)
+       eine freundliche Antwortnachricht + inquiry_accepted-Payload, damit
+       die Karte auf Stufe 'angebot' rutscht und gezahlt werden kann.
+       Nur der andere Conversations-Teilnehmer (also der Kunde) darf das
+       für seine eigene Konversation auslösen, und nur wenn die Gegenseite
+       als Demo-Bot markiert ist. */
+    register_rest_route( 'eventboerse/v1', '/admin/bot-accept-inquiry', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_bot_accept_inquiry',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
 
@@ -2696,7 +2708,105 @@ function eb_admin_seed_test_listing() {
     ), 201 );
 }
 
-/** Check DB tables exist and are functional */
+/**
+ * POST /admin/bot-accept-inquiry
+ * Body: { conversation_id: int, card_id: string, project_id: string,
+ *         service_title?: string, customer_name?: string, price?: float,
+ *         reply_text?: string }
+ *
+ * Postet als Gegenpartei (Demo-Bot) eine freundliche Antwortnachricht im
+ * Chat + eine maschinenlesbare `inquiry_accepted`-Payload, sodass die
+ * Board-Karte des Kunden automatisch auf Stufe 'angebot' rutscht und der
+ * Stripe-Zahlungsablauf gestartet werden kann.
+ *
+ * Sicherheit:
+ *  - Aufrufer muss Teilnehmer der Konversation sein.
+ *  - Gegenpartei muss ein Demo-/Bot-User sein (Schutz vor Missbrauch).
+ */
+function eb_admin_bot_accept_inquiry( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid    = get_current_user_id();
+    $params = $request->get_json_params();
+
+    $conv_id    = absint( $params['conversation_id'] ?? 0 );
+    $card_id    = sanitize_text_field( $params['card_id'] ?? '' );
+    $project_id = sanitize_text_field( $params['project_id'] ?? '' );
+    if ( ! $conv_id || ! $card_id || ! $project_id ) {
+        return new WP_REST_Response( array( 'message' => 'conversation_id, card_id und project_id erforderlich.' ), 400 );
+    }
+
+    $conv = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_conversations WHERE id = %d AND (user_a = %d OR user_b = %d)",
+        $conv_id, $uid, $uid
+    ) );
+    if ( ! $conv ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    $bot_id = ( (int) $conv->user_a === (int) $uid ) ? (int) $conv->user_b : (int) $conv->user_a;
+    if ( ! eb_user_is_demo( $bot_id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Gegenpartei ist kein Demo-Bot.' ), 403 );
+    }
+
+    $bot       = get_userdata( $bot_id );
+    $customer  = get_userdata( $uid );
+    $bot_name  = $bot ? ( $bot->display_name ?: $bot->user_login ) : 'Anbieter';
+    $cust_name = sanitize_text_field( $params['customer_name'] ?? ( $customer ? ( $customer->first_name ?: $customer->display_name ) : 'Kundin' ) );
+    $service   = sanitize_text_field( $params['service_title'] ?? 'deinen Auftrag' );
+    $price     = floatval( $params['price'] ?? 0 );
+
+    $default_reply  = "Hallo " . $cust_name . ",\n\n";
+    $default_reply .= "vielen Dank für deine Anfrage zu \xE2\x80\x9E" . $service . "\xE2\x80\x9C. Ich habe mir alles in Ruhe angeschaut und ";
+    $default_reply .= "kann den Termin gerne übernehmen.\n\n";
+    if ( $price > 0 ) {
+        $default_reply .= "Mein Angebot bleibt wie im Inserat: " . rtrim(rtrim(number_format($price, 2, ',', ''), '0'), ',') . " € pauschal, inklusive Auf- und Abbau.\n\n";
+    }
+    $default_reply .= "Falls du das Angebot annimmst, klick einfach im Board auf \xE2\x80\x9EJetzt buchen\xE2\x80\x9C – die Zahlung läuft sicher über Stripe ";
+    $default_reply .= "und ich bekomme automatisch Bescheid.\n\nIch freue mich auf die Zusammenarbeit!\n\nViele Grüße\n" . $bot_name;
+
+    $reply_text = sanitize_textarea_field( $params['reply_text'] ?? $default_reply );
+
+    $now = current_time( 'mysql' );
+
+    // 1) Freundliche Antwortnachricht
+    $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+        'conversation_id' => $conv_id,
+        'sender_id'       => $bot_id,
+        'body'            => $reply_text,
+        'msg_type'        => 'text',
+        'is_read'         => 0,
+        'created_at'      => $now,
+    ) );
+
+    // 2) inquiry_accepted Payload (Frontend-Poller erkennt das und schaltet die Karte um)
+    $payload = wp_json_encode( array(
+        'kind'       => 'inquiry_accepted',
+        'cardId'     => $card_id,
+        'projectId'  => $project_id,
+    ) );
+    $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+        'conversation_id' => $conv_id,
+        'sender_id'       => $bot_id,
+        'body'            => $payload,
+        'msg_type'        => 'text',
+        'is_read'         => 0,
+        'created_at'      => $now,
+    ) );
+
+    // Conversation timestamp aktualisieren
+    $wpdb->update( $wpdb->prefix . 'eb_conversations',
+        array( 'updated_at' => $now ),
+        array( 'id' => $conv_id )
+    );
+
+    return new WP_REST_Response( array(
+        'message'      => 'Bot hat die Anfrage angenommen.',
+        'bot_id'       => $bot_id,
+        'bot_name'     => $bot_name,
+        'reply_text'   => $reply_text,
+    ), 200 );
+}
+
 /* =====================================================================
    SMTP ADMIN ENDPOINTS
    ===================================================================== */
