@@ -2604,8 +2604,83 @@ function eb_register_extra_routes() {
             return in_array( 'administrator', (array) $u->roles, true );
         },
     ) );
+
+    /* Seed-Endpoint für Stripe-Zahlungstest: legt 1€-Test-Inserat unter
+       einem Demo-Bot-User an. Admin-only. */
+    register_rest_route( 'eventboerse/v1', '/admin/seed-test-listing', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_seed_test_listing',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
+
+/**
+ * POST /admin/seed-test-listing
+ * Legt ein 1€-Test-Inserat unter einem dedizierten Demo-Bot-User an,
+ * damit der Live-Stripe-Zahlungsablauf End-to-End getestet werden kann.
+ */
+function eb_admin_seed_test_listing() {
+    global $wpdb;
+
+    $email = 'stripe-test-bot@xn--eventbrse-57a.de';
+    $user  = get_user_by( 'email', $email );
+    if ( ! $user ) {
+        $uid = wp_insert_user( array(
+            'user_login'   => 'stripe-test-bot',
+            'user_email'   => $email,
+            'user_pass'    => wp_generate_password( 32, true, true ),
+            'display_name' => 'Stripe Test-Bot',
+            'first_name'   => 'Stripe',
+            'last_name'    => 'Test-Bot',
+            'role'         => 'subscriber',
+        ) );
+        if ( is_wp_error( $uid ) ) {
+            return new WP_REST_Response( array( 'message' => $uid->get_error_message() ), 500 );
+        }
+        $user = get_user_by( 'id', $uid );
+    }
+    update_user_meta( $user->ID, 'eb_is_demo', '1' );
+
+    $now = current_time( 'mysql' );
+    $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
+        'user_id'        => $user->ID,
+        'title'          => 'TEST – Stripe-Zahlungstest (1€)',
+        'category'       => 'sonstiges',
+        'category_label' => 'Sonstiges',
+        'description'    => 'Live-Stripe-Zahlungstest. Bitte nicht buchen – wird nach Test gelöscht.',
+        'price'          => 1,
+        'price_model'    => 'pauschal',
+        'price_label'    => 'Pauschal',
+        'location'       => 'Online',
+        'region'         => 'Deutschland',
+        'features'       => '[]',
+        'tags'           => wp_json_encode( array( 'test', 'stripe' ) ),
+        'images'         => '[]',
+        'duration'       => 0,
+        'negotiable'     => 0,
+        'status'         => 'active',
+        'badge'          => 'Test',
+        'created_at'     => $now,
+        'updated_at'     => $now,
+    ) );
+    $new_id = $wpdb->insert_id;
+    if ( ! $new_id ) {
+        return new WP_REST_Response( array(
+            'message'  => 'Insert fehlgeschlagen.',
+            'db_error' => $wpdb->last_error,
+        ), 500 );
+    }
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $new_id
+    ), ARRAY_A );
+
+    return new WP_REST_Response( array(
+        'message' => 'Test-Inserat angelegt.',
+        'user_id' => $user->ID,
+        'listing' => eb_format_listing( $row ),
+    ), 201 );
+}
 
 /** Check DB tables exist and are functional */
 /* =====================================================================
