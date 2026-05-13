@@ -4791,17 +4791,29 @@ function eb_stripe_connect_onboard( WP_REST_Request $request ) {
 
     $connect_id = get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
 
+    // Kontoart aus JSON-Body lesen (individual | company)
+    $body          = json_decode( $request->get_body(), true );
+    $business_type = ( isset( $body['business_type'] ) && $body['business_type'] === 'company' ) ? 'company' : 'individual';
+    $company_name  = isset( $body['company_name'] ) ? sanitize_text_field( $body['company_name'] ) : '';
+    $vat_id        = isset( $body['vat_id'] )        ? sanitize_text_field( $body['vat_id'] )        : '';
+
     // Schritt 1: Express-Account erstellen falls noch keiner vorhanden
     if ( ! $connect_id ) {
         $acc_fields = array(
-            'type'                      => 'express',
-            'country'                   => 'DE',
-            'email'                     => $user->user_email,
+            'type'                                    => 'express',
+            'country'                                 => 'DE',
+            'email'                                   => $user->user_email,
             'capabilities[card_payments][requested]'  => 'true',
             'capabilities[transfers][requested]'      => 'true',
-            'business_type'             => 'individual',
-            'metadata[wp_user_id]'      => (string) $user->ID,
+            'business_type'                           => $business_type,
+            'metadata[wp_user_id]'                    => (string) $user->ID,
         );
+        if ( $business_type === 'company' && $company_name ) {
+            $acc_fields['company[name]'] = $company_name;
+        }
+        if ( $vat_id ) {
+            $acc_fields['company[tax_id]'] = $vat_id;
+        }
         $ch = curl_init( 'https://api.stripe.com/v1/accounts' );
         curl_setopt_array( $ch, array(
             CURLOPT_RETURNTRANSFER => true,

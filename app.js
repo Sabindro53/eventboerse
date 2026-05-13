@@ -13605,25 +13605,71 @@ function loadStripeConnectStatus() {
  * POST /stripe/connect/onboard → { onboarding_url }
  * Leitet den Nutzer direkt zu Stripe weiter.
  */
+// Referenz auf den aufrufenden Button – wird beim Schließen des Modals zurückgesetzt
+var _stripeConnectCallerBtn = null;
+
 function connectStripeAccount(btn) {
-  _setBtnLoading(btn, true);
+  _stripeConnectCallerBtn = btn;
+  // Kontoart-Modal zeigen statt direkt zur API
+  var toggle = document.getElementById('stripeBusinessTypeToggle');
+  if (toggle) {
+    toggle.querySelectorAll('.role-btn').forEach(function(b) { b.classList.remove('active'); });
+    var first = toggle.querySelector('[data-btype="individual"]');
+    if (first) first.classList.add('active');
+  }
+  var companyFields = document.getElementById('stripeCompanyFields');
+  if (companyFields) companyFields.classList.add('reg-collapsed');
+  openModal('stripeBusinessTypeModal');
+}
+
+function selectStripeBusinessType(btn, type) {
+  var toggle = document.getElementById('stripeBusinessTypeToggle');
+  if (toggle) toggle.querySelectorAll('.role-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  var companyFields = document.getElementById('stripeCompanyFields');
+  if (companyFields) {
+    if (type === 'company') companyFields.classList.remove('reg-collapsed');
+    else companyFields.classList.add('reg-collapsed');
+  }
+}
+
+function confirmStripeBusinessType(confirmBtn) {
+  var toggle = document.getElementById('stripeBusinessTypeToggle');
+  var active = toggle ? toggle.querySelector('.role-btn.active') : null;
+  var businessType = active ? (active.dataset.btype || 'individual') : 'individual';
+
+  var companyName = '';
+  var vatId = '';
+  if (businessType === 'company') {
+    companyName = (document.getElementById('stripeCompanyName') || {}).value || '';
+    vatId       = (document.getElementById('stripeCompanyVat')  || {}).value || '';
+    if (!companyName.trim()) {
+      showToast('Bitte Firmennamen eingeben.', 'error');
+      return;
+    }
+  }
+
+  _setBtnLoading(confirmBtn, true);
+
   fetch(_apiUrl('stripe/connect/onboard'), {
     method: 'POST',
     credentials: 'same-origin',
-    headers: _apiHeaders()
+    headers: Object.assign({}, _apiHeaders(), { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ business_type: businessType, company_name: companyName, vat_id: vatId })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
+    _setBtnLoading(confirmBtn, false);
     if (data && data.onboarding_url) {
+      closeModal('stripeBusinessTypeModal');
       window.location.href = data.onboarding_url;
     } else {
       showToast((data && data.message) || 'Fehler beim Verbinden. Bitte erneut versuchen.', 'error');
-      _setBtnLoading(btn, false);
     }
   })
   .catch(function() {
+    _setBtnLoading(confirmBtn, false);
     showToast('Netzwerkfehler. Bitte erneut versuchen.', 'error');
-    _setBtnLoading(btn, false);
   });
 }
 
