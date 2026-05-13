@@ -2653,40 +2653,74 @@ function eb_admin_seed_test_listing() {
         $user = get_user_by( 'id', $uid );
     }
     update_user_meta( $user->ID, 'eb_is_demo', '1' );
+    // Provider-Profil etwas anreichern, damit das Inserat realistisch wirkt
+    update_user_meta( $user->ID, 'description', 'Wir vermitteln freie Konferenzr&auml;ume &amp; Event-Locations zu Lückenzeiten. Statt leerzustehen, werden Räume kurzfristig zu fairen Preisen vergeben – ideal für spontane Meetings, Workshops &amp; kleine Feiern.' );
+    update_user_meta( $user->ID, 'location', 'Berlin' );
+    if ( ! get_user_meta( $user->ID, 'display_name', true ) ) {
+        wp_update_user( array( 'ID' => $user->ID, 'display_name' => 'LückenLocations Berlin' ) );
+    }
 
-    // Idempotenz: existierendes Test-Inserat dieses Bots wiederverwenden.
+    $title       = 'Konferenzraum Berlin-Mitte – Last-Minute-Lücken ab 1€';
+    $description = "Last-Minute-Lückenangebot für unseren modernen Konferenzraum (bis 12 Personen) in Berlin-Mitte.\n\n"
+                 . "Statt leerzustehen, vergeben wir kurzfristig freie Zeitfenster zu unschlagbaren Preisen – schon ab 1 € pro Stunde, wenn das Fenster sonst ungenutzt bliebe.\n\n"
+                 . "Ausstattung:\n• Beamer, Whiteboard, Flipchart\n• High-Speed-WLAN\n• Kaffee &amp; Wasser inklusive\n• Klimatisiert, helle Tageslicht-Atmosphäre\n• U-Bahn 3 Min. fußläufig\n\n"
+                 . "Perfekt für Workshops, Mini-Meetings, Coworking-Sessions oder kleine private Anlässe. Wir machen leere Räume buchbar – du bekommst Top-Lage zum Lücken-Preis.";
+    $image_url   = 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80&auto=format&fit=crop';
+
+    // Idempotenz: existierendes Test-Inserat dieses Bots wiederverwenden / aktualisieren.
     $existing = $wpdb->get_row( $wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE user_id = %d AND title = %s LIMIT 1",
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE user_id = %d AND (title = %s OR title = %s) LIMIT 1",
         $user->ID,
+        $title,
         'TEST – Stripe-Zahlungstest (1€)'
     ), ARRAY_A );
     if ( $existing ) {
+        $wpdb->update( $wpdb->prefix . 'eb_listings', array(
+            'title'          => $title,
+            'category'       => 'location',
+            'category_label' => 'Location',
+            'description'    => $description,
+            'price'          => 1,
+            'price_model'    => 'pro_stunde',
+            'price_label'    => 'ab 1€ / Stunde',
+            'location'       => 'Berlin-Mitte',
+            'region'         => 'Berlin',
+            'features'       => wp_json_encode( array( 'Beamer & Whiteboard', 'High-Speed-WLAN', 'Kaffee & Wasser inkl.', 'Klimatisiert', 'Zentrale Lage' ) ),
+            'tags'           => wp_json_encode( array( 'location', 'konferenzraum', 'last-minute', 'lückenpreis' ) ),
+            'images'         => wp_json_encode( array( $image_url ) ),
+            'status'         => 'active',
+            'badge'          => 'Lücken-Deal',
+            'updated_at'     => current_time( 'mysql' ),
+        ), array( 'id' => (int) $existing['id'] ) );
+        $row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", (int) $existing['id']
+        ), ARRAY_A );
         return new WP_REST_Response( array(
-            'message' => 'Test-Inserat existiert bereits.',
+            'message' => 'Test-Inserat aktualisiert.',
             'user_id' => $user->ID,
-            'listing' => eb_format_listing( $existing ),
+            'listing' => eb_format_listing( $row ),
         ), 200 );
     }
 
     $now = current_time( 'mysql' );
     $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
         'user_id'        => $user->ID,
-        'title'          => 'TEST – Stripe-Zahlungstest (1€)',
-        'category'       => 'sonstiges',
-        'category_label' => 'Sonstiges',
-        'description'    => 'Live-Stripe-Zahlungstest. Bitte nicht buchen – wird nach Test gelöscht.',
+        'title'          => $title,
+        'category'       => 'location',
+        'category_label' => 'Location',
+        'description'    => $description,
         'price'          => 1,
-        'price_model'    => 'pauschal',
-        'price_label'    => 'Pauschal',
-        'location'       => 'Online',
-        'region'         => 'Deutschland',
-        'features'       => '[]',
-        'tags'           => wp_json_encode( array( 'test', 'stripe' ) ),
-        'images'         => '[]',
+        'price_model'    => 'pro_stunde',
+        'price_label'    => 'ab 1€ / Stunde',
+        'location'       => 'Berlin-Mitte',
+        'region'         => 'Berlin',
+        'features'       => wp_json_encode( array( 'Beamer & Whiteboard', 'High-Speed-WLAN', 'Kaffee & Wasser inkl.', 'Klimatisiert', 'Zentrale Lage' ) ),
+        'tags'           => wp_json_encode( array( 'location', 'konferenzraum', 'last-minute', 'lückenpreis' ) ),
+        'images'         => wp_json_encode( array( $image_url ) ),
         'duration'       => 0,
         'negotiable'     => 0,
         'status'         => 'active',
-        'badge'          => 'Test',
+        'badge'          => 'Lücken-Deal',
         'created_at'     => $now,
         'updated_at'     => $now,
     ) );
@@ -4836,6 +4870,11 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'currency'                             => $currency,
         'automatic_payment_methods[enabled]'   => 'true',
         'description'                          => $title,
+        // Bank-Abrechnungstext: Stripe erlaubt nur ASCII. „Eventbörse" mit
+        // Umlaut wird sonst hart durch ein Leerzeichen ersetzt. Wir setzen
+        // hier einen sauberen ASCII-Suffix, der hinter dem in Stripe
+        // hinterlegten Basis-Descriptor erscheint („EVENTBOERSE.DE * <suffix>").
+        'statement_descriptor_suffix'          => 'BUCHUNG',
         'receipt_email'                        => $user ? $user->user_email : '',
         'metadata[card_id]'                    => $card_id,
         'metadata[project_id]'                 => $project_id,
