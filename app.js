@@ -13339,6 +13339,30 @@ function openFlowCardModal(cardId) {
   var _paidAmount = (typeof card.paidAmount === 'number' && card.paidAmount > 0)
     ? card.paidAmount
     : (parseFloat(card.price) || 0);
+
+  // Selbst-Heilung: wenn bezahlt und card.price weicht vom bezahlten Betrag ab
+  // (z.B. manuell verfälscht, bevor der Lock griff), Preis wieder auf den
+  // tatsächlich bezahlten Betrag korrigieren. Stripe ist Quelle der Wahrheit.
+  if (_isPaid && typeof card.paidAmount === 'number' && card.paidAmount > 0) {
+    var _curPrice = parseFloat(card.price);
+    if (!isFinite(_curPrice) || Math.abs(_curPrice - card.paidAmount) > 0.001) {
+      card.price = card.paidAmount;
+      try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
+    }
+  }
+  // Wenn bezahlt aber kein paidAmount auf der Karte (Karte aus Zeit vor dem
+  // Fix): einmalig mit Stripe abgleichen – Webhook-Daten füllen die Felder.
+  if (_isPaid && (typeof card.paidAmount !== 'number' || card.paidAmount <= 0)) {
+    try {
+      if (typeof _reconcileStripePayments === 'function') {
+        _reconcileStripePayments().then(function(){
+          // Modal neu öffnen, damit der korrigierte Betrag erscheint
+          var open = document.getElementById('flowCardModal');
+          if (open) { open.remove(); openFlowCardModal(cardId); }
+        });
+      }
+    } catch(e) {}
+  }
   var _paidAtIso = card.paidAt || card.bookedAt || card.invoiceSentAt || '';
   var _paidAtHuman = '';
   if (_paidAtIso) {
