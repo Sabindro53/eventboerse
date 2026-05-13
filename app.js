@@ -1031,6 +1031,10 @@ function navigateTo(page, data, skipHistory) {
         var dtEl = document.getElementById('createDateTo');
         if (dfEl && dfEl._flatpickr) dfEl._flatpickr.clear();
         if (dtEl && dtEl._flatpickr) dtEl._flatpickr.clear();
+        // Sofortbuchung + Wochentage zurücksetzen
+        var _ibReset = document.getElementById('createInstantBook');
+        if (_ibReset) _ibReset.checked = false;
+        document.querySelectorAll('#createWeekdayPicker .weekday-pill').forEach(function(p) { p.classList.remove('selected'); });
       }
       updateCreateFormForRole();
       break;
@@ -2800,6 +2804,9 @@ function loadDetail(listingId) {
   document.getElementById('detailFeatures').innerHTML = listing.features.map(f =>
     `<div class="feature-item"><span class="material-icons-round">check_circle</span><span>${_escHtml(f)}</span></div>`
   ).join('');
+
+  // Sofortbuchung-Sektion (vor Anfrage-Button im bookingCard)
+  _renderInstantBookSection(listing);
 
   // Reviews
   renderDetailReviews(listing);
@@ -6213,6 +6220,18 @@ function submitListing(e) {
   const tagEls = document.querySelectorAll('#createTags input[type=checkbox]:checked');
   const tags = Array.from(tagEls).map(el => el.value);
 
+  // Sofortbuchung + verfügbare Wochentage
+  const instantBook = !!(document.getElementById('createInstantBook') || {}).checked;
+  const availableWeekdays = Array.from(
+    document.querySelectorAll('#createWeekdayPicker .weekday-pill.selected')
+  ).map(function(b) { return parseInt(b.getAttribute('data-day'), 10); })
+   .filter(function(d) { return !isNaN(d) && d >= 0 && d <= 6; });
+  if (instantBook && availableWeekdays.length === 0) {
+    showToast('Bitte mindestens einen Wochentag für die Sofortbuchung wählen.', 'warning');
+    _setBtnLoading && _setBtnLoading(document.querySelector('#step3 .btn-primary'), false);
+    return;
+  }
+
   // Extract city from region
   const city = region.split(/[,&·–-]/)[0].trim();
 
@@ -6280,7 +6299,9 @@ function submitListing(e) {
       timeFrom: timeFrom || null,
       timeTo: timeTo || null,
       duration: duration,
-      negotiable: true
+      negotiable: true,
+      availableWeekdays: availableWeekdays,
+      instantBook: instantBook
     };
 
     var method = 'POST';
@@ -7279,6 +7300,17 @@ document.addEventListener('DOMContentLoaded', function() {
   initPasswordFields();
   initDragScroll();
   initDatePickers();
+
+  // Wochentag-Pill-Toggle für Sofortbuchung im Inserat-Formular
+  var _wdPicker = document.getElementById('createWeekdayPicker');
+  if (_wdPicker) {
+    _wdPicker.addEventListener('click', function(e) {
+      var pill = e.target.closest('.weekday-pill');
+      if (!pill) return;
+      e.preventDefault();
+      pill.classList.toggle('selected');
+    });
+  }
   initCityAutocomplete();
   initProfileCityAutocomplete();
   initTimePickers();
@@ -8116,6 +8148,15 @@ function editListing(listingId) {
 
   // Duration
   document.getElementById('createDuration').value = listing.duration || 4;
+
+  // Sofortbuchung + Wochentage
+  var ibEl = document.getElementById('createInstantBook');
+  if (ibEl) ibEl.checked = !!listing.instantBook;
+  var _wdSet = (listing.availableWeekdays || []).map(Number);
+  document.querySelectorAll('#createWeekdayPicker .weekday-pill').forEach(function(btn) {
+    var d = parseInt(btn.getAttribute('data-day'), 10);
+    btn.classList.toggle('selected', _wdSet.indexOf(d) !== -1);
+  });
 
   // Tags checkboxes
   var tagCheckboxes = document.querySelectorAll('#createTags input[type=checkbox]');
@@ -15518,27 +15559,168 @@ function addCurrentListingToBoard(listingId) {
   if (!lid) { showToast('Kein Service ausgew\u00e4hlt.', 'error'); return; }
   if (!currentUser) { openModal('loginModal'); return; }
 
-  var listing = (LISTINGS || []).find(function(l){ return l.id === lid; });
+  var listing = (LISTINGS || []).find(function(l){ return l.id === lid; }) || { id: lid };
 
+  // Immer Auswahl-Modal zeigen: „Neues Board" vs. „Vorhandenes Board".
+  // Hat der Nutzer noch keine Projekte, direkt das Erstellen-Modal öffnen.
   if (_boardProjects.length === 0) {
-    // No projects yet → open create modal, then auto-add after creation
-    window._pendingAddListing = listing || { id: lid };
+    window._pendingAddListing = listing;
     openCreateBoardModal();
     return;
   }
-  if (_boardProjects.length === 1) {
-    _addListingToBoardProject(listing || { id: lid }, _boardProjects[0].id);
-    return;
-  }
-  // Multiple projects → show picker
-  openSelectBoardProjectModal(listing || { id: lid });
+  openSelectBoardProjectModal(listing);
 }
 window.addCurrentListingToBoard = addCurrentListingToBoard;
+
+/* ─── Sofortbuchung (Direkt-Buchung) auf Detailseite ─────── */
+function _renderInstantBookSection(listing) {
+  // Existing Element entfernen (re-render bei jeder loadDetail)
+  var existing = document.getElementById('instantBookSection');
+  if (existing) existing.remove();
+
+  if (!listing || !listing.instantBook) return;
+  var wd = (listing.availableWeekdays || []).map(Number).filter(function(d){ return d>=0 && d<=6; });
+  if (wd.length === 0) return;
+
+  // Anker: vor dem "Anfragen"-Button im bookingCard
+  var bookingForm = document.querySelector('#page-detail .booking-card .booking-form');
+  if (!bookingForm) return;
+
+  // Nächste 12 freie Termine berechnen (ab morgen)
+  var today = new Date(); today.setHours(0,0,0,0);
+  var slots = [];
+  for (var i = 1; slots.length < 12 && i < 90; i++) {
+    var d = new Date(today.getTime() + i*86400000);
+    if (wd.indexOf(d.getDay()) !== -1) slots.push(d);
+  }
+  if (slots.length === 0) return;
+
+  var price = parseFloat(listing.price) || 0;
+  var timeFrom = listing.timeFrom || '';
+  var dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  var monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+  var pills = slots.map(function(d, idx) {
+    var iso = d.toISOString().slice(0,10);
+    return '<button type="button" class="instant-slot" data-iso="' + iso + '" data-idx="' + idx + '">' +
+      '<span class="is-dow">' + dayNames[d.getDay()] + '</span>' +
+      '<span class="is-day">' + d.getDate() + '</span>' +
+      '<span class="is-mon">' + monthNames[d.getMonth()] + '</span>' +
+    '</button>';
+  }).join('');
+
+  var html =
+    '<div class="instant-book-section" id="instantBookSection">' +
+      '<div class="ib-head">' +
+        '<span class="material-icons-round ib-bolt">bolt</span>' +
+        '<div>' +
+          '<strong>Sofortbuchung</strong>' +
+          '<small>Freien Termin w\u00e4hlen \u00b7 direkt bezahlen \u00b7 Buchung best\u00e4tigt</small>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ib-slots">' + pills + '</div>' +
+      '<div class="ib-meta">' +
+        (timeFrom ? '<span><span class="material-icons-round">schedule</span> ab ' + _escHtml(timeFrom) + ' Uhr</span>' : '') +
+        (listing.duration ? '<span><span class="material-icons-round">hourglass_top</span> ' + listing.duration + ' Std.</span>' : '') +
+        '<span><span class="material-icons-round">euro</span> ' + _formatEuro(price) + '</span>' +
+      '</div>' +
+      '<button type="button" class="btn-primary btn-block ib-pay-btn" id="ibPayBtn" disabled>' +
+        '<span class="material-icons-round">lock</span> Termin w\u00e4hlen' +
+      '</button>' +
+      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Sichere Zahlung via Stripe \u00b7 sofortige Best\u00e4tigung</p>' +
+    '</div>';
+
+  bookingForm.insertAdjacentHTML('beforebegin', html);
+
+  var section = document.getElementById('instantBookSection');
+  var payBtn = section.querySelector('#ibPayBtn');
+  var selectedIso = null;
+
+  section.querySelectorAll('.instant-slot').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      section.querySelectorAll('.instant-slot').forEach(function(b){ b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      selectedIso = btn.getAttribute('data-iso');
+      payBtn.disabled = false;
+      var dt = new Date(selectedIso);
+      var human = dayNames[dt.getDay()] + ', ' + dt.getDate() + '. ' + monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
+      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' buchen';
+    });
+  });
+
+  payBtn.addEventListener('click', function() {
+    if (!selectedIso) return;
+    if (!currentUser) { openModal('loginModal'); return; }
+    _startInstantBooking(listing, selectedIso, price);
+  });
+}
+
+function _startInstantBooking(listing, dateIso, amount) {
+  if (!amount || amount <= 0) {
+    showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
+    return;
+  }
+  var dateHuman = (function(){
+    try { var d = new Date(dateIso); return d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
+    catch(e) { return dateIso; }
+  })();
+  var listingId = listing._dbId || listing.id;
+
+  _openStripePaymentModal({
+    amount: amount,
+    title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
+    listingId: listingId,
+    onSuccess: function(res) {
+      // 1) Eigenes "Direktbuchungen"-Board sicherstellen
+      var proj = (_boardProjects || []).find(function(p){ return p.kind === 'instant'; });
+      if (!proj) {
+        proj = {
+          id: 'proj_' + Date.now(),
+          name: 'Direktbuchungen',
+          kind: 'instant',
+          date: '',
+          cards: [],
+          createdAt: new Date().toISOString()
+        };
+        _boardProjects.push(proj);
+      }
+      // 2) Karte direkt in "bestaetigt"
+      var nowIso = new Date().toISOString();
+      var card = {
+        id: 'bc_' + Date.now(),
+        name: listing.title || 'Direktbuchung',
+        category: listing.categoryLabel || listing.category || '',
+        stage: 'bestaetigt',
+        price: amount,
+        listingId: listingId,
+        avatar: listing.providerImg || listing.image || '',
+        note: 'Sofortbuchung f\u00fcr ' + dateHuman,
+        bookingDate: dateIso,
+        bookedAt: nowIso,
+        invoiceSentAt: nowIso,
+        paymentIntentId: (res && res.payment_intent_id) || '',
+        paymentStatus: 'paid',
+        createdAt: nowIso
+      };
+      proj.cards = proj.cards || [];
+      proj.cards.push(card);
+      _saveBoardProjects && _saveBoardProjects();
+      showToast('Buchung best\u00e4tigt – Termin am ' + dateHuman + '!', 'check_circle');
+      setTimeout(function() {
+        showToast('Buchung im Board ansehen?', 'view_kanban', function(){ navigateTo('board'); if (typeof openBoardProject === 'function') openBoardProject(proj.id); });
+      }, 1400);
+    },
+    onCancel: function() {
+      showToast('Zahlung abgebrochen.', 'info');
+    }
+  });
+}
+window._startInstantBooking = _startInstantBooking;
 
 function openSelectBoardProjectModal(listing) {
   var rows = _boardProjects.map(function(p) {
     var cnt = (p.cards || []).length;
-    var dateStr = p.date ? ' · ' + _escHtml(p.date) : '';
+    var dateStr = p.date ? ' \u00b7 ' + _escHtml(p.date) : '';
     return '<button type="button" class="bsp-row" onclick="_addListingToBoardProject(window._pendingBoardListing,\'' + p.id + '\');document.getElementById(\'selectBoardProjectModal\').remove()">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">event</span>' +
       '<span class="bsp-info"><strong>' + _escHtml(p.name) + '</strong>' +
@@ -15548,15 +15730,18 @@ function openSelectBoardProjectModal(listing) {
   }).join('');
 
   window._pendingBoardListing = listing;
+  var title = (listing && (listing.title || listing.name)) || 'Dienstleister';
   var html = '<div class="modal-overlay show" id="selectBoardProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
       '<button class="modal-close" onclick="document.getElementById(\'selectBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
-      '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Zu welchem Projekt?</h2>' +
-        '<p>' + _escHtml((listing && (listing.title || listing.name)) || 'Dienstleister') + ' zum Planungs-Board hinzuf\u00fcgen</p></div>' +
-      '<div class="bsp-list">' + rows + '</div>' +
-      '<button class="btn-outline btn-block" style="margin:12px 16px 16px" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
-        '<span class="material-icons-round">add</span> Neues Projekt erstellen' +
+      '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Wohin damit?</h2>' +
+        '<p>' + _escHtml(title) + ' zu deinem Planungs-Board hinzuf\u00fcgen.</p></div>' +
+      '<button class="bsp-row bsp-row-new" type="button" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
+        '<span class="material-icons-round" style="color:var(--primary);font-size:22px">add_circle</span>' +
+        '<span class="bsp-info"><strong>Neues Projekt erstellen</strong><small>Frisches Board f\u00fcr dieses Event</small></span>' +
+        '<span class="material-icons-round bsp-arrow">chevron_right</span>' +
       '</button>' +
+      (rows ? '<div class="bsp-divider"><span>oder zu vorhandenem Projekt</span></div><div class="bsp-list">' + rows + '</div>' : '') +
     '</div>' +
   '</div>';
   document.body.insertAdjacentHTML('beforeend', html);

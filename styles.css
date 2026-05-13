@@ -12431,3 +12431,111 @@ body.dark-mode .admin-hide-demo-box {
 }
 body.dark-mode .admin-hide-demo-box .admin-toggle-info strong { color: #fff; }
 body.dark-mode .admin-hide-demo-box .admin-toggle-info p { color: rgba(255,255,255,0.7); }
+
+/* ============================================================
+   Sofortbuchung – Provider-Formular (Wochentags-Picker)
+   ============================================================ */
+.instant-book-group { margin-top: 14px; }
+.instant-book-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(255,56,92,.07), rgba(255,170,60,.07));
+  border: 1px solid rgba(255,56,92,.18);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.instant-book-toggle .ibt-text { display: flex; align-items: center; gap: 10px; }
+.instant-book-toggle .ibt-text > .material-icons-round { color: #ff385c; font-size: 24px; }
+.instant-book-toggle .ibt-text strong { display: block; font-size: 15px; }
+.instant-book-toggle .ibt-text small { display: block; color: var(--text-light); font-size: 12px; margin-top: 2px; }
+.weekday-picker { margin-top: 12px; padding: 12px 0 0; }
+.weekday-picker-hint { font-size: 13px; color: var(--text-light); margin: 0 0 8px; }
+.weekday-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.weekday-pill {
+  min-width: 48px; height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600; font-size: 14px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.weekday-pill:hover { border-color: var(--primary); }
+.weekday-pill.selected {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255,56,92,.3);
+}
+
+/* ============================================================
+   Board-Picker: „Neues Projekt" Zeile
+   ============================================================ */
+.bsp-row-new { background: linear-gradient(135deg, rgba(255,56,92,.06), rgba(255,170,60,.06)) !important; }
+.bsp-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 16px 6px;
+  color: var(--text-light); font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+}
+.bsp-divider::before, .bsp-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ============================================================
+   Direkt-Buchung Section (Detailseite)
+   ============================================================ */
+.instant-book-section {
+  margin-bottom: 16px; padding: 16px;
+  background: linear-gradient(135deg, rgba(255,56,92,.08), rgba(255,170,60,.06));
+  border: 1px solid rgba(255,56,92,.22);
+  border-radius: 16px;
+}
+.instant-book-section .ib-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.instant-book-section .ib-bolt {
+  color: #fff; background: #ff385c; border-radius: 50%;
+  padding: 6px; font-size: 22px;
+  box-shadow: 0 4px 12px rgba(255,56,92,.4);
+}
+.instant-book-section .ib-head strong { display: block; font-size: 16px; }
+.instant-book-section .ib-head small { display: block; color: var(--text-light); font-size: 12px; margin-top: 2px; }
+.instant-book-section .ib-slots {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.instant-slot {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 8px 4px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.instant-slot:hover { border-color: var(--primary); transform: translateY(-1px); }
+.instant-slot.selected {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+  box-shadow: 0 4px 12px rgba(255,56,92,.35);
+}
+.instant-slot .is-dow { font-size: 11px; font-weight: 600; opacity: .8; text-transform: uppercase; }
+.instant-slot .is-day { font-size: 20px; font-weight: 700; line-height: 1.1; margin: 2px 0; }
+.instant-slot .is-mon { font-size: 11px; opacity: .85; }
+.instant-book-section .ib-meta {
+  display: flex; flex-wrap: wrap; gap: 10px 14px;
+  font-size: 13px; color: var(--text-light);
+  margin-bottom: 12px;
+}
+.instant-book-section .ib-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.instant-book-section .ib-meta .material-icons-round { font-size: 16px; }
+.instant-book-section .ib-pay-btn:disabled { opacity: .55; cursor: not-allowed; }
+.instant-book-section .ib-note {
+  margin: 10px 0 0; font-size: 12px; color: var(--text-light);
+  display: flex; align-items: center; gap: 6px;
+}
+.instant-book-section .ib-note .material-icons-round { font-size: 14px; color: #2e7d32; }
+
+@media (max-width: 480px) {
+  .instant-book-section .ib-slots { grid-template-columns: repeat(3, 1fr); }
+}

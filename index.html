@@ -1735,6 +1735,36 @@
                 <button type="button" class="dur-btn dur-up" id="durUp"><span class="material-icons-round">add</span></button>
               </div>
             </div>
+
+            <!-- ============ Sofortbuchung & Wochentage ============ -->
+            <div class="form-group instant-book-group">
+              <label class="instant-book-toggle">
+                <span class="ibt-text">
+                  <span class="material-icons-round">bolt</span>
+                  <span>
+                    <strong>Sofortbuchung aktivieren</strong>
+                    <small>Gäste können freie Termine direkt buchen &amp; bezahlen – ohne Anfrage.</small>
+                  </span>
+                </span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="createInstantBook" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+              <div class="weekday-picker" id="createWeekdayPicker">
+                <p class="weekday-picker-hint">An welchen Wochentagen bietest du diesen Service an?</p>
+                <div class="weekday-pills">
+                  <button type="button" class="weekday-pill" data-day="1">Mo</button>
+                  <button type="button" class="weekday-pill" data-day="2">Di</button>
+                  <button type="button" class="weekday-pill" data-day="3">Mi</button>
+                  <button type="button" class="weekday-pill" data-day="4">Do</button>
+                  <button type="button" class="weekday-pill" data-day="5">Fr</button>
+                  <button type="button" class="weekday-pill" data-day="6">Sa</button>
+                  <button type="button" class="weekday-pill" data-day="0">So</button>
+                </div>
+              </div>
+            </div>
+
             <div class="form-group">
               <label>Verfügbar für</label>
               <div class="checkbox-group" id="createTags">

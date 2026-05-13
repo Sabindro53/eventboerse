@@ -2083,6 +2083,8 @@ function eb_create_tables() {
         time_from varchar(5) DEFAULT NULL,
         time_to varchar(5) DEFAULT NULL,
         duration float DEFAULT 0,
+        available_weekdays varchar(20) NOT NULL DEFAULT '',
+        instant_book tinyint(1) NOT NULL DEFAULT 0,
         badge varchar(50) DEFAULT 'Neu',
         negotiable tinyint(1) DEFAULT 1,
         status varchar(20) DEFAULT 'active',
@@ -2177,13 +2179,13 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.9' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.0' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
-        update_option( 'eb_db_version', '1.9' );
+        update_option( 'eb_db_version', '2.0' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -3222,6 +3224,8 @@ function eb_format_listing( $row ) {
         'timeFrom'      => $row['time_from'],
         'timeTo'        => $row['time_to'],
         'duration'      => (float) $row['duration'],
+        'availableWeekdays' => array_values( array_filter( array_map( 'intval', explode( ',', (string) ( $row['available_weekdays'] ?? '' ) ) ), function( $d ) { return $d >= 0 && $d <= 6; } ) ),
+        'instantBook'   => ! empty( $row['instant_book'] ),
         'badge'         => $row['badge'],
         'negotiable'    => (bool) $row['negotiable'],
         'views'         => (int) $row['views'],
@@ -3286,6 +3290,15 @@ function eb_listings_create( WP_REST_Request $request ) {
     $duration   = floatval( $params['duration'] ?? 0 );
     $negotiable = isset( $params['negotiable'] ) ? (int) (bool) $params['negotiable'] : 1;
 
+    // Provider availability for instant-booking
+    $available_weekdays = '';
+    if ( isset( $params['availableWeekdays'] ) && is_array( $params['availableWeekdays'] ) ) {
+        $wd = array_unique( array_filter( array_map( 'intval', $params['availableWeekdays'] ), function( $d ) { return $d >= 0 && $d <= 6; } ) );
+        sort( $wd );
+        $available_weekdays = implode( ',', $wd );
+    }
+    $instant_book = ! empty( $params['instantBook'] ) ? 1 : 0;
+
     $now = current_time( 'mysql' );
 
     $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
@@ -3307,6 +3320,8 @@ function eb_listings_create( WP_REST_Request $request ) {
         'time_from'      => $time_from,
         'time_to'        => $time_to,
         'duration'       => $duration,
+        'available_weekdays' => $available_weekdays,
+        'instant_book'   => $instant_book,
         'negotiable'     => $negotiable,
         'status'         => 'active',
         'badge'          => 'Neu',
@@ -3376,6 +3391,14 @@ function eb_listings_update( WP_REST_Request $request ) {
     }
     if ( isset( $params['images'] ) && is_array( $params['images'] ) ) {
         $update['images'] = wp_json_encode( array_map( 'esc_url_raw', $params['images'] ) );
+    }
+    if ( isset( $params['availableWeekdays'] ) && is_array( $params['availableWeekdays'] ) ) {
+        $wd = array_unique( array_filter( array_map( 'intval', $params['availableWeekdays'] ), function( $d ) { return $d >= 0 && $d <= 6; } ) );
+        sort( $wd );
+        $update['available_weekdays'] = implode( ',', $wd );
+    }
+    if ( isset( $params['instantBook'] ) ) {
+        $update['instant_book'] = ! empty( $params['instantBook'] ) ? 1 : 0;
     }
 
     if ( ! empty( $update ) ) {
