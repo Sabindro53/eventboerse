@@ -15983,24 +15983,19 @@ var _CHECKLIST_TEMPLATES = {
 };
 
 function _getProjectChecklist(project) {
+  // Echte (gespeicherte) Checkliste – nur das, was der Nutzer aktiv hinzugefügt hat.
   if (!project) return [];
   var saved = Array.isArray(project.checklist) ? project.checklist : [];
-  // Ensure default items exist (add missing ones)
-  var tmplItems = (_CHECKLIST_TEMPLATES[project.template] || _CHECKLIST_TEMPLATES.custom).map(function(txt, i) {
-    return { id: 'cli_tmpl_' + i, text: txt, done: false, isTemplate: true };
-  });
-  // Merge: prefer saved state; add template items not yet in saved list
+  return saved.filter(function(it){ return it && it.text; });
+}
+
+function _getChecklistSuggestions(project) {
+  // Template-Items, die noch NICHT in der gespeicherten Liste sind = Vorschläge.
+  if (!project) return [];
+  var tmpl = _CHECKLIST_TEMPLATES[project.template] || _CHECKLIST_TEMPLATES.custom;
   var savedTexts = {};
-  saved.forEach(function(it){ if (it && it.text) savedTexts[it.text] = it; });
-  var merged = [];
-  tmplItems.forEach(function(ti) {
-    merged.push(savedTexts[ti.text] || ti);
-  });
-  // Custom items (not from template)
-  saved.forEach(function(it){
-    if (it && !it.isTemplate) merged.push(it);
-  });
-  return merged;
+  (project.checklist || []).forEach(function(it){ if (it && it.text) savedTexts[it.text.toLowerCase()] = 1; });
+  return tmpl.filter(function(txt){ return !savedTexts[txt.toLowerCase()]; });
 }
 
 function renderBoardChecklist() {
@@ -16011,36 +16006,87 @@ function renderBoardChecklist() {
   if (!container) return;
 
   var items = _getProjectChecklist(project);
+  var suggestions = _getChecklistSuggestions(project);
   var done = items.filter(function(it){ return it.done; }).length;
   var total = items.length;
   var pct = total ? Math.round((done / total) * 100) : 0;
 
+  var listHtml;
+  if (items.length === 0) {
+    listHtml = '<div class="bcl-empty">' +
+      '<span class="material-icons-round">playlist_add_check</span>' +
+      '<p><strong>Noch keine Aufgaben</strong></p>' +
+      '<p class="bcl-empty-hint">Schreib oben eine eigene Aufgabe oder klick unten auf eine Idee.</p>' +
+    '</div>';
+  } else {
+    listHtml = '<ul class="bcl-list">' +
+      items.map(function(it) {
+        return '<li class="bcl-item' + (it.done ? ' done' : '') + '">' +
+          '<button class="bcl-check" onclick="toggleChecklistItem(\'' + _escHtml(it.id) + '\')" aria-label="' + (it.done ? 'Erledigt' : 'Offen') + '">' +
+            '<span class="material-icons-round">' + (it.done ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
+          '</button>' +
+          '<span class="bcl-text">' + _escHtml(it.text) + '</span>' +
+          '<button class="bcl-del" onclick="deleteChecklistItem(\'' + _escHtml(it.id) + '\')" title="Löschen"><span class="material-icons-round">close</span></button>' +
+        '</li>';
+      }).join('') +
+      '</ul>';
+  }
+
+  var suggestionsHtml = '';
+  if (suggestions.length > 0) {
+    suggestionsHtml =
+      '<div class="bcl-suggestions">' +
+        '<div class="bcl-sug-header">' +
+          '<span class="material-icons-round">lightbulb</span>' +
+          '<span>Ideen <span class="bcl-sug-hint">(optional – tippe an, um aufzunehmen)</span></span>' +
+        '</div>' +
+        '<div class="bcl-sug-chips">' +
+          suggestions.map(function(txt) {
+            return '<button type="button" class="bcl-sug-chip" onclick="addChecklistSuggestion(\'' + _escHtml(txt).replace(/'/g, "\\'") + '\')">' +
+              '<span class="material-icons-round">add</span>' +
+              '<span>' + _escHtml(txt) + '</span>' +
+            '</button>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+  }
+
   var html = '<div class="bcl-wrap">' +
+    // Oben: Eingabe + Header
     '<div class="bcl-header">' +
       '<div class="bcl-title"><span class="material-icons-round">checklist</span> Planungs-Checkliste</div>' +
-      '<div class="bcl-progress-bar-wrap">' +
-        '<div class="bcl-progress-bar" style="width:' + pct + '%"></div>' +
-      '</div>' +
-      '<div class="bcl-progress-label">' + done + ' / ' + total + ' erledigt</div>' +
+      (total ? (
+        '<div class="bcl-progress-bar-wrap">' +
+          '<div class="bcl-progress-bar" style="width:' + pct + '%"></div>' +
+        '</div>' +
+        '<div class="bcl-progress-label">' + done + ' / ' + total + ' erledigt</div>'
+      ) : '') +
     '</div>' +
-    '<ul class="bcl-list">' +
-    items.map(function(it) {
-      return '<li class="bcl-item' + (it.done ? ' done' : '') + '">' +
-        '<button class="bcl-check" onclick="toggleChecklistItem(\'' + _escHtml(it.id) + '\')" aria-label="' + (it.done ? 'Erledigt' : 'Offen') + '">' +
-          '<span class="material-icons-round">' + (it.done ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
-        '</button>' +
-        '<span class="bcl-text">' + _escHtml(it.text) + '</span>' +
-        (it.isTemplate ? '' : '<button class="bcl-del" onclick="deleteChecklistItem(\'' + _escHtml(it.id) + '\')" title="Löschen"><span class="material-icons-round">close</span></button>') +
-      '</li>';
-    }).join('') +
-    '</ul>' +
-    '<form class="bcl-add-form" onsubmit="addChecklistItem(event)">' +
-      '<input type="text" id="newChecklistText" placeholder="Neue Aufgabe hinzuf\u00fcgen\u2026" required />' +
-      '<button type="submit" class="btn-primary"><span class="material-icons-round">add</span></button>' +
+    '<form class="bcl-add-form bcl-add-top" onsubmit="addChecklistItem(event)">' +
+      '<input type="text" id="newChecklistText" placeholder="Aufgabe hinzuf\u00fcgen\u2026" autocomplete="off" required />' +
+      '<button type="submit" class="btn-primary"><span class="material-icons-round">add</span> Hinzufügen</button>' +
     '</form>' +
+    // Mitte: tatsächliche Aufgaben
+    listHtml +
+    // Unten: optionale Vorschläge
+    suggestionsHtml +
   '</div>';
   container.innerHTML = html;
 }
+
+function addChecklistSuggestion(text) {
+  if (!_activeBoardId || !text) return;
+  var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
+  if (!project) return;
+  project.checklist = project.checklist || [];
+  // Doppelte vermeiden
+  var exists = project.checklist.some(function(it){ return it && it.text && it.text.toLowerCase() === text.toLowerCase(); });
+  if (exists) return;
+  project.checklist.push({ id: 'cli_sug_' + Date.now(), text: text, done: false });
+  _saveBoardProjects();
+  renderBoardChecklist();
+}
+window.addChecklistSuggestion = addChecklistSuggestion;
 window.renderBoardChecklist = renderBoardChecklist;
 
 function toggleChecklistItem(itemId) {
