@@ -2083,6 +2083,8 @@ function eb_create_tables() {
         time_from varchar(5) DEFAULT NULL,
         time_to varchar(5) DEFAULT NULL,
         duration float DEFAULT 0,
+        available_weekdays varchar(20) NOT NULL DEFAULT '',
+        instant_book tinyint(1) NOT NULL DEFAULT 0,
         badge varchar(50) DEFAULT 'Neu',
         negotiable tinyint(1) DEFAULT 1,
         status varchar(20) DEFAULT 'active',
@@ -2177,13 +2179,13 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '1.9' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.0' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
-        update_option( 'eb_db_version', '1.9' );
+        update_option( 'eb_db_version', '2.0' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -2337,19 +2339,18 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_stripe_reconcile',
         'permission_callback' => 'is_user_logged_in',
     ) );
-    // Stripe Connect: Dienstleister-Onboarding starten / fortsetzen
+
+    /* ---------- STRIPE CONNECT (Dienstleister-Auszahlung) ---------- */
     register_rest_route( 'eventboerse/v1', '/stripe/connect/onboard', array(
         'methods'             => 'POST',
         'callback'            => 'eb_stripe_connect_onboard',
         'permission_callback' => 'is_user_logged_in',
     ) );
-    // Stripe Connect: Status des verbundenen Accounts abfragen
     register_rest_route( 'eventboerse/v1', '/stripe/connect/status', array(
         'methods'             => 'GET',
         'callback'            => 'eb_stripe_connect_status',
-        'permission_callback' => '__return_true',
+        'permission_callback' => 'is_user_logged_in',
     ) );
-    // Stripe Connect: Verknüpfung trennen (löscht nur wp_usermeta)
     register_rest_route( 'eventboerse/v1', '/stripe/connect/disconnect', array(
         'methods'             => 'POST',
         'callback'            => 'eb_stripe_connect_disconnect',
@@ -2622,10 +2623,243 @@ function eb_register_extra_routes() {
             return in_array( 'administrator', (array) $u->roles, true );
         },
     ) );
+
+    /* Seed-Endpoint für Stripe-Zahlungstest: legt 1€-Test-Inserat unter
+       einem Demo-Bot-User an. Logged-in genügt (idempotent, harmlos). */
+    register_rest_route( 'eventboerse/v1', '/admin/seed-test-listing', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_seed_test_listing',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* Bot-Acceptance für Stripe-Zahlungstest: postet als Gegenpartei (Bot)
+       eine freundliche Antwortnachricht + inquiry_accepted-Payload, damit
+       die Karte auf Stufe 'angebot' rutscht und gezahlt werden kann.
+       Nur der andere Conversations-Teilnehmer (also der Kunde) darf das
+       für seine eigene Konversation auslösen, und nur wenn die Gegenseite
+       als Demo-Bot markiert ist. */
+    register_rest_route( 'eventboerse/v1', '/admin/bot-accept-inquiry', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_bot_accept_inquiry',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
 
-/** Check DB tables exist and are functional */
+/**
+ * POST /admin/seed-test-listing
+ * Legt ein 1€-Test-Inserat unter einem dedizierten Demo-Bot-User an,
+ * damit der Live-Stripe-Zahlungsablauf End-to-End getestet werden kann.
+ */
+function eb_admin_seed_test_listing() {
+    global $wpdb;
+
+    $email = 'stripe-test-bot@xn--eventbrse-57a.de';
+    $user  = get_user_by( 'email', $email );
+    if ( ! $user ) {
+        $uid = wp_insert_user( array(
+            'user_login'   => 'stripe-test-bot',
+            'user_email'   => $email,
+            'user_pass'    => wp_generate_password( 32, true, true ),
+            'display_name' => 'Stripe Test-Bot',
+            'first_name'   => 'Stripe',
+            'last_name'    => 'Test-Bot',
+            'role'         => 'subscriber',
+        ) );
+        if ( is_wp_error( $uid ) ) {
+            return new WP_REST_Response( array( 'message' => $uid->get_error_message() ), 500 );
+        }
+        $user = get_user_by( 'id', $uid );
+    }
+    update_user_meta( $user->ID, 'eb_is_demo', '1' );
+    // Provider-Profil etwas anreichern, damit das Inserat realistisch wirkt
+    update_user_meta( $user->ID, 'description', 'Wir vermitteln freie Konferenzr&auml;ume &amp; Event-Locations zu Lückenzeiten. Statt leerzustehen, werden Räume kurzfristig zu fairen Preisen vergeben – ideal für spontane Meetings, Workshops &amp; kleine Feiern.' );
+    update_user_meta( $user->ID, 'location', 'Berlin' );
+    if ( ! get_user_meta( $user->ID, 'display_name', true ) ) {
+        wp_update_user( array( 'ID' => $user->ID, 'display_name' => 'LückenLocations Berlin' ) );
+    }
+
+    $title       = 'Konferenzraum Berlin-Mitte – Last-Minute-Lücken ab 1€';
+    $description = "Last-Minute-Lückenangebot für unseren modernen Konferenzraum (bis 12 Personen) in Berlin-Mitte.\n\n"
+                 . "Statt leerzustehen, vergeben wir kurzfristig freie Zeitfenster zu unschlagbaren Preisen – schon ab 1 € pro Stunde, wenn das Fenster sonst ungenutzt bliebe.\n\n"
+                 . "Ausstattung:\n• Beamer, Whiteboard, Flipchart\n• High-Speed-WLAN\n• Kaffee &amp; Wasser inklusive\n• Klimatisiert, helle Tageslicht-Atmosphäre\n• U-Bahn 3 Min. fußläufig\n\n"
+                 . "Perfekt für Workshops, Mini-Meetings, Coworking-Sessions oder kleine private Anlässe. Wir machen leere Räume buchbar – du bekommst Top-Lage zum Lücken-Preis.";
+    $image_url   = 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80&auto=format&fit=crop';
+
+    // Idempotenz: existierendes Test-Inserat dieses Bots wiederverwenden / aktualisieren.
+    $existing = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE user_id = %d AND (title = %s OR title = %s) LIMIT 1",
+        $user->ID,
+        $title,
+        'TEST – Stripe-Zahlungstest (1€)'
+    ), ARRAY_A );
+    if ( $existing ) {
+        $wpdb->update( $wpdb->prefix . 'eb_listings', array(
+            'title'          => $title,
+            'category'       => 'location',
+            'category_label' => 'Location',
+            'description'    => $description,
+            'price'          => 1,
+            'price_model'    => 'pro_stunde',
+            'price_label'    => 'ab 1€ / Stunde',
+            'location'       => 'Berlin-Mitte',
+            'region'         => 'Berlin',
+            'features'       => wp_json_encode( array( 'Beamer & Whiteboard', 'High-Speed-WLAN', 'Kaffee & Wasser inkl.', 'Klimatisiert', 'Zentrale Lage' ) ),
+            'tags'           => wp_json_encode( array( 'location', 'konferenzraum', 'last-minute', 'lückenpreis' ) ),
+            'images'         => wp_json_encode( array( $image_url ) ),
+            'status'         => 'active',
+            'badge'          => 'Lücken-Deal',
+            'updated_at'     => current_time( 'mysql' ),
+        ), array( 'id' => (int) $existing['id'] ) );
+        $row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", (int) $existing['id']
+        ), ARRAY_A );
+        return new WP_REST_Response( array(
+            'message' => 'Test-Inserat aktualisiert.',
+            'user_id' => $user->ID,
+            'listing' => eb_format_listing( $row ),
+        ), 200 );
+    }
+
+    $now = current_time( 'mysql' );
+    $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
+        'user_id'        => $user->ID,
+        'title'          => $title,
+        'category'       => 'location',
+        'category_label' => 'Location',
+        'description'    => $description,
+        'price'          => 1,
+        'price_model'    => 'pro_stunde',
+        'price_label'    => 'ab 1€ / Stunde',
+        'location'       => 'Berlin-Mitte',
+        'region'         => 'Berlin',
+        'features'       => wp_json_encode( array( 'Beamer & Whiteboard', 'High-Speed-WLAN', 'Kaffee & Wasser inkl.', 'Klimatisiert', 'Zentrale Lage' ) ),
+        'tags'           => wp_json_encode( array( 'location', 'konferenzraum', 'last-minute', 'lückenpreis' ) ),
+        'images'         => wp_json_encode( array( $image_url ) ),
+        'duration'       => 0,
+        'negotiable'     => 0,
+        'status'         => 'active',
+        'badge'          => 'Lücken-Deal',
+        'created_at'     => $now,
+        'updated_at'     => $now,
+    ) );
+    $new_id = $wpdb->insert_id;
+    if ( ! $new_id ) {
+        return new WP_REST_Response( array(
+            'message'  => 'Insert fehlgeschlagen.',
+            'db_error' => $wpdb->last_error,
+        ), 500 );
+    }
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $new_id
+    ), ARRAY_A );
+
+    return new WP_REST_Response( array(
+        'message' => 'Test-Inserat angelegt.',
+        'user_id' => $user->ID,
+        'listing' => eb_format_listing( $row ),
+    ), 201 );
+}
+
+/**
+ * POST /admin/bot-accept-inquiry
+ * Body: { conversation_id: int, card_id: string, project_id: string,
+ *         service_title?: string, customer_name?: string, price?: float,
+ *         reply_text?: string }
+ *
+ * Postet als Gegenpartei (Demo-Bot) eine freundliche Antwortnachricht im
+ * Chat + eine maschinenlesbare `inquiry_accepted`-Payload, sodass die
+ * Board-Karte des Kunden automatisch auf Stufe 'angebot' rutscht und der
+ * Stripe-Zahlungsablauf gestartet werden kann.
+ *
+ * Sicherheit:
+ *  - Aufrufer muss Teilnehmer der Konversation sein.
+ *  - Gegenpartei muss ein Demo-/Bot-User sein (Schutz vor Missbrauch).
+ */
+function eb_admin_bot_accept_inquiry( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid    = get_current_user_id();
+    $params = $request->get_json_params();
+
+    $conv_id    = absint( $params['conversation_id'] ?? 0 );
+    $card_id    = sanitize_text_field( $params['card_id'] ?? '' );
+    $project_id = sanitize_text_field( $params['project_id'] ?? '' );
+    if ( ! $conv_id || ! $card_id || ! $project_id ) {
+        return new WP_REST_Response( array( 'message' => 'conversation_id, card_id und project_id erforderlich.' ), 400 );
+    }
+
+    $conv = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_conversations WHERE id = %d AND (user_a = %d OR user_b = %d)",
+        $conv_id, $uid, $uid
+    ) );
+    if ( ! $conv ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    $bot_id = ( (int) $conv->user_a === (int) $uid ) ? (int) $conv->user_b : (int) $conv->user_a;
+    if ( ! eb_user_is_demo( $bot_id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Gegenpartei ist kein Demo-Bot.' ), 403 );
+    }
+
+    $bot       = get_userdata( $bot_id );
+    $customer  = get_userdata( $uid );
+    $bot_name  = $bot ? ( $bot->display_name ?: $bot->user_login ) : 'Anbieter';
+    $cust_name = sanitize_text_field( $params['customer_name'] ?? ( $customer ? ( $customer->first_name ?: $customer->display_name ) : 'Kundin' ) );
+    $service   = sanitize_text_field( $params['service_title'] ?? 'deinen Auftrag' );
+    $price     = floatval( $params['price'] ?? 0 );
+
+    $default_reply  = "Hallo " . $cust_name . ",\n\n";
+    $default_reply .= "vielen Dank für deine Anfrage zu \xE2\x80\x9E" . $service . "\xE2\x80\x9C. Ich habe mir alles in Ruhe angeschaut und ";
+    $default_reply .= "kann den Termin gerne übernehmen.\n\n";
+    if ( $price > 0 ) {
+        $default_reply .= "Mein Angebot bleibt wie im Inserat: " . rtrim(rtrim(number_format($price, 2, ',', ''), '0'), ',') . " € pauschal, inklusive Auf- und Abbau.\n\n";
+    }
+    $default_reply .= "Falls du das Angebot annimmst, klick einfach im Board auf \xE2\x80\x9EJetzt buchen\xE2\x80\x9C – die Zahlung läuft sicher über Stripe ";
+    $default_reply .= "und ich bekomme automatisch Bescheid.\n\nIch freue mich auf die Zusammenarbeit!\n\nViele Grüße\n" . $bot_name;
+
+    $reply_text = sanitize_textarea_field( $params['reply_text'] ?? $default_reply );
+
+    $now = current_time( 'mysql' );
+
+    // 1) Freundliche Antwortnachricht
+    $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+        'conversation_id' => $conv_id,
+        'sender_id'       => $bot_id,
+        'body'            => $reply_text,
+        'msg_type'        => 'text',
+        'is_read'         => 0,
+        'created_at'      => $now,
+    ) );
+
+    // 2) inquiry_accepted Payload (Frontend-Poller erkennt das und schaltet die Karte um)
+    $payload = wp_json_encode( array(
+        'kind'       => 'inquiry_accepted',
+        'cardId'     => $card_id,
+        'projectId'  => $project_id,
+    ) );
+    $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+        'conversation_id' => $conv_id,
+        'sender_id'       => $bot_id,
+        'body'            => $payload,
+        'msg_type'        => 'text',
+        'is_read'         => 0,
+        'created_at'      => $now,
+    ) );
+
+    // Conversation timestamp aktualisieren
+    $wpdb->update( $wpdb->prefix . 'eb_conversations',
+        array( 'updated_at' => $now ),
+        array( 'id' => $conv_id )
+    );
+
+    return new WP_REST_Response( array(
+        'message'      => 'Bot hat die Anfrage angenommen.',
+        'bot_id'       => $bot_id,
+        'bot_name'     => $bot_name,
+        'reply_text'   => $reply_text,
+    ), 200 );
+}
+
 /* =====================================================================
    SMTP ADMIN ENDPOINTS
    ===================================================================== */
@@ -3007,6 +3241,8 @@ function eb_format_listing( $row ) {
         'timeFrom'      => $row['time_from'],
         'timeTo'        => $row['time_to'],
         'duration'      => (float) $row['duration'],
+        'availableWeekdays' => array_values( array_filter( array_map( 'intval', explode( ',', (string) ( $row['available_weekdays'] ?? '' ) ) ), function( $d ) { return $d >= 0 && $d <= 6; } ) ),
+        'instantBook'   => ! empty( $row['instant_book'] ),
         'badge'         => $row['badge'],
         'negotiable'    => (bool) $row['negotiable'],
         'views'         => (int) $row['views'],
@@ -3071,6 +3307,15 @@ function eb_listings_create( WP_REST_Request $request ) {
     $duration   = floatval( $params['duration'] ?? 0 );
     $negotiable = isset( $params['negotiable'] ) ? (int) (bool) $params['negotiable'] : 1;
 
+    // Provider availability for instant-booking
+    $available_weekdays = '';
+    if ( isset( $params['availableWeekdays'] ) && is_array( $params['availableWeekdays'] ) ) {
+        $wd = array_unique( array_filter( array_map( 'intval', $params['availableWeekdays'] ), function( $d ) { return $d >= 0 && $d <= 6; } ) );
+        sort( $wd );
+        $available_weekdays = implode( ',', $wd );
+    }
+    $instant_book = ! empty( $params['instantBook'] ) ? 1 : 0;
+
     $now = current_time( 'mysql' );
 
     $wpdb->insert( $wpdb->prefix . 'eb_listings', array(
@@ -3092,6 +3337,8 @@ function eb_listings_create( WP_REST_Request $request ) {
         'time_from'      => $time_from,
         'time_to'        => $time_to,
         'duration'       => $duration,
+        'available_weekdays' => $available_weekdays,
+        'instant_book'   => $instant_book,
         'negotiable'     => $negotiable,
         'status'         => 'active',
         'badge'          => 'Neu',
@@ -3161,6 +3408,14 @@ function eb_listings_update( WP_REST_Request $request ) {
     }
     if ( isset( $params['images'] ) && is_array( $params['images'] ) ) {
         $update['images'] = wp_json_encode( array_map( 'esc_url_raw', $params['images'] ) );
+    }
+    if ( isset( $params['availableWeekdays'] ) && is_array( $params['availableWeekdays'] ) ) {
+        $wd = array_unique( array_filter( array_map( 'intval', $params['availableWeekdays'] ), function( $d ) { return $d >= 0 && $d <= 6; } ) );
+        sort( $wd );
+        $update['available_weekdays'] = implode( ',', $wd );
+    }
+    if ( isset( $params['instantBook'] ) ) {
+        $update['instant_book'] = ! empty( $params['instantBook'] ) ? 1 : 0;
     }
 
     if ( ! empty( $update ) ) {
@@ -4495,10 +4750,28 @@ function eb_send_invoice( WP_REST_Request $request ) {
  * ============================================================ */
 
 function eb_load_env_value( $key ) {
+    // 1) Bevorzugt: Konstanten aus wp-config.php (sicherer, kein .env im Repo nötig).
+    static $const_map = array(
+        'public_stripe_api_key'  => 'EB_STRIPE_PUBLIC_KEY',
+        'private_stripe_api_key' => 'EB_STRIPE_SECRET_KEY',
+        'stripe_webhook_secret'  => 'EB_STRIPE_WEBHOOK_SECRET',
+        'STRIPE_WEBHOOK_SECRET'  => 'EB_STRIPE_WEBHOOK_SECRET',
+    );
+    if ( isset( $const_map[ $key ] ) && defined( $const_map[ $key ] ) ) {
+        $val = constant( $const_map[ $key ] );
+        if ( $val !== '' && $val !== null ) return $val;
+    }
+
+    // 2) Fallback: .env-Datei (Legacy, sollte nicht ins Repo).
+    //    Akzeptiert auch Schreibvarianten (z. B. "puplic_stripe_key" / "private_stripe_key").
+    static $alias_map = array(
+        'public_stripe_api_key'  => array( 'public_stripe_key', 'puplic_stripe_key', 'STRIPE_PUBLIC_KEY', 'STRIPE_PUBLISHABLE_KEY' ),
+        'private_stripe_api_key' => array( 'private_stripe_key', 'STRIPE_SECRET_KEY', 'STRIPE_PRIVATE_KEY' ),
+        'stripe_webhook_secret'  => array( 'STRIPE_WEBHOOK_SECRET', 'webhook_secret' ),
+    );
     static $cache = null;
     if ( $cache === null ) {
         $cache = array();
-        // Quelle 1: .env Datei im Theme-Verzeichnis oder WordPress-Root
         $path = get_stylesheet_directory() . '/.env';
         if ( ! file_exists( $path ) ) $path = ABSPATH . '.env';
         if ( file_exists( $path ) && is_readable( $path ) ) {
@@ -4509,27 +4782,18 @@ function eb_load_env_value( $key ) {
                 if ( $pos === false ) continue;
                 $k = trim( substr( $line, 0, $pos ) );
                 $v = trim( substr( $line, $pos + 1 ) );
-                $v = trim( $v, "\"'  " );
+                $v = trim( $v, "\"' " );
                 $cache[ $k ] = $v;
             }
         }
-        // Quelle 2: PHP-Konstanten aus wp-config.php (einfacher für IONOS)
-        // define('EB_STRIPE_PUBLIC_KEY',    'pk_test_...');
-        // define('EB_STRIPE_SECRET_KEY',    'sk_test_...');
-        // define('EB_STRIPE_WEBHOOK_SECRET', 'whsec_...');
-        $const_map = array(
-            'public_stripe_api_key'  => 'EB_STRIPE_PUBLIC_KEY',
-            'private_stripe_api_key' => 'EB_STRIPE_SECRET_KEY',
-            'stripe_webhook_secret'  => 'EB_STRIPE_WEBHOOK_SECRET',
-            'STRIPE_WEBHOOK_SECRET'  => 'EB_STRIPE_WEBHOOK_SECRET',
-        );
-        foreach ( $const_map as $env_key => $const_name ) {
-            if ( defined( $const_name ) && constant( $const_name ) ) {
-                $cache[ $env_key ] = constant( $const_name );
-            }
+    }
+    if ( isset( $cache[ $key ] ) && $cache[ $key ] !== '' ) return $cache[ $key ];
+    if ( isset( $alias_map[ $key ] ) ) {
+        foreach ( $alias_map[ $key ] as $alias ) {
+            if ( isset( $cache[ $alias ] ) && $cache[ $alias ] !== '' ) return $cache[ $alias ];
         }
     }
-    return isset( $cache[ $key ] ) ? $cache[ $key ] : '';
+    return '';
 }
 
 function eb_stripe_public_key( WP_REST_Request $request ) {
@@ -4646,6 +4910,11 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'currency'                             => $currency,
         'automatic_payment_methods[enabled]'   => 'true',
         'description'                          => $title,
+        // Bank-Abrechnungstext: Stripe erlaubt nur ASCII. „Eventbörse" mit
+        // Umlaut wird sonst hart durch ein Leerzeichen ersetzt. Wir setzen
+        // hier einen sauberen ASCII-Suffix, der hinter dem in Stripe
+        // hinterlegten Basis-Descriptor erscheint („EVENTBOERSE.DE * <suffix>").
+        'statement_descriptor_suffix'          => 'BUCHUNG',
         'receipt_email'                        => $user ? $user->user_email : '',
         'metadata[card_id]'                    => $card_id,
         'metadata[project_id]'                 => $project_id,
@@ -4654,30 +4923,28 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'metadata[title]'                      => $title,
     );
 
-    // ── Stripe Connect: Automatische Weiterleitung an Dienstleister ──────
-    // Falls das Listing einem echten (nicht-Demo) Nutzer mit aktivem Connect-Account
-    // gehört, wird der Betrag minus 3 % Plattformgebühr direkt weitergeleitet.
-    if ( $listing_id > 0 ) {
-        global $wpdb;
-        $provider_uid = $wpdb->get_var( $wpdb->prepare(
-            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
-            $listing_id
-        ) );
+    // Stripe Connect: Zahlung automatisch an Dienstleister weiterleiten (3% Provision)
+    if ( $listing_id ) {
+        $listing = get_post( $listing_id );
+        $provider_uid = $listing ? (int) get_post_field( 'post_author', $listing_id ) : 0;
+        if ( ! $provider_uid ) {
+            global $wpdb;
+            $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id
+            ) );
+        }
         if ( $provider_uid ) {
             $connect_id = get_user_meta( $provider_uid, 'eb_stripe_connect_id', true );
             $connect_ok = get_user_meta( $provider_uid, 'eb_stripe_connect_active', true );
-            // Nur weiterleiten wenn Account aktiv und kein Demo-Nutzer
-            if ( $connect_id && $connect_ok && ! eb_is_demo_user( $provider_uid ) ) {
-                $fee_cents = (int) round( $amount_cents * 0.03 ); // 3 % Plattformgebühr
-                $fee_cents = max( 1, $fee_cents );                // mind. 1 Cent
-                $fields['application_fee_amount']              = $fee_cents;
-                $fields['transfer_data[destination]']          = $connect_id;
-                $fields['metadata[provider_uid]']              = (string) $provider_uid;
-                $fields['metadata[application_fee_cents]']     = (string) $fee_cents;
+            if ( $connect_id && $connect_ok ) {
+                $fee_cents = (int) round( $amount_cents * 0.03 );
+                $fields['application_fee_amount']          = $fee_cents;
+                $fields['transfer_data[destination]']      = $connect_id;
+                $fields['metadata[connect_id]']            = $connect_id;
+                $fields['metadata[application_fee_cents]'] = (string) $fee_cents;
             }
         }
     }
-    // ─────────────────────────────────────────────────────────────────────
 
     $ch = curl_init( 'https://api.stripe.com/v1/payment_intents' );
     curl_setopt_array( $ch, array(
@@ -4712,6 +4979,210 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'currency'        => $currency,
     ), 200 );
 }
+
+// ─── Stripe Connect: Dienstleister-Onboarding & Auszahlung ───────────────────
+
+/**
+ * POST /stripe/connect/onboard
+ * Erstellt (oder erneuert) einen Stripe Express Account + Onboarding-Link.
+ * Body: { business_type: 'individual'|'company', company_name?, vat_id? }
+ */
+function eb_stripe_connect_onboard( WP_REST_Request $request ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    }
+    $user = wp_get_current_user();
+    if ( ! $user || ! $user->ID ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
+    }
+
+    $connect_id = get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
+
+    // Kontoart aus JSON-Body lesen (individual | company)
+    $body          = json_decode( $request->get_body(), true );
+    $business_type = ( isset( $body['business_type'] ) && $body['business_type'] === 'company' ) ? 'company' : 'individual';
+    $company_name  = isset( $body['company_name'] ) ? sanitize_text_field( $body['company_name'] ) : '';
+    $vat_id        = isset( $body['vat_id'] )        ? sanitize_text_field( $body['vat_id'] )        : '';
+
+    // Express-Account erstellen falls noch keiner vorhanden
+    if ( ! $connect_id ) {
+        $acc_fields = array(
+            'type'                                    => 'express',
+            'country'                                 => 'DE',
+            'email'                                   => $user->user_email,
+            'capabilities[card_payments][requested]'  => 'true',
+            'capabilities[transfers][requested]'      => 'true',
+            'business_type'                           => $business_type,
+            'metadata[wp_user_id]'                    => (string) $user->ID,
+        );
+        if ( $business_type === 'company' && $company_name ) {
+            $acc_fields['company[name]'] = $company_name;
+        }
+        if ( $vat_id ) {
+            $acc_fields['company[tax_id]'] = $vat_id;
+        }
+        $ch = curl_init( 'https://api.stripe.com/v1/accounts' );
+        curl_setopt_array( $ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => http_build_query( $acc_fields ),
+            CURLOPT_USERPWD        => $sk . ':',
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+        ) );
+        $resp = curl_exec( $ch );
+        $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+        $err  = curl_error( $ch );
+        curl_close( $ch );
+
+        if ( $err || $http >= 400 ) {
+            $d   = json_decode( $resp, true );
+            $msg = is_array( $d ) && isset( $d['error']['message'] ) ? $d['error']['message'] : 'Account-Erstellung fehlgeschlagen.';
+            return new WP_REST_Response( array( 'message' => $msg ), 500 );
+        }
+        $acc_data   = json_decode( $resp, true );
+        $connect_id = is_array( $acc_data ) ? ( $acc_data['id'] ?? '' ) : '';
+        if ( ! $connect_id ) {
+            return new WP_REST_Response( array( 'message' => 'Keine Account-ID erhalten.' ), 500 );
+        }
+        update_user_meta( $user->ID, 'eb_stripe_connect_id', sanitize_text_field( $connect_id ) );
+        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
+    }
+
+    // Account-Link generieren (Onboarding-URL, 10 Min. gültig)
+    $base_url    = home_url( '/' );
+    $link_fields = array(
+        'account'     => $connect_id,
+        'refresh_url' => $base_url . '?stripe_connect=refresh',
+        'return_url'  => $base_url . '?stripe_connect=return',
+        'type'        => 'account_onboarding',
+    );
+    $ch = curl_init( 'https://api.stripe.com/v1/account_links' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( $link_fields ),
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err || $http >= 400 ) {
+        $d   = json_decode( $resp, true );
+        $msg = is_array( $d ) && isset( $d['error']['message'] ) ? $d['error']['message'] : 'Link-Generierung fehlgeschlagen.';
+        return new WP_REST_Response( array( 'message' => $msg ), 500 );
+    }
+    $link_data = json_decode( $resp, true );
+    $url       = is_array( $link_data ) ? ( $link_data['url'] ?? '' ) : '';
+    if ( ! $url ) {
+        return new WP_REST_Response( array( 'message' => 'Kein Onboarding-Link erhalten.' ), 500 );
+    }
+
+    return new WP_REST_Response( array(
+        'ok'             => true,
+        'onboarding_url' => $url,
+        'connect_id'     => $connect_id,
+    ), 200 );
+}
+
+/**
+ * GET /stripe/connect/status
+ * Prüft ob der Express-Account aktiv ist (charges_enabled + payouts_enabled).
+ * ?login_link=1 → generiert Dashboard-Login-Link.
+ */
+function eb_stripe_connect_status( WP_REST_Request $request ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    }
+    $user = wp_get_current_user();
+    if ( ! $user || ! $user->ID ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
+    }
+
+    $connect_id = get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
+    if ( ! $connect_id ) {
+        return new WP_REST_Response( array( 'status' => 'none', 'connect_id' => '' ), 200 );
+    }
+
+    $ch = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    curl_close( $ch );
+
+    $data = json_decode( $resp, true );
+    if ( $http >= 400 || ! is_array( $data ) ) {
+        return new WP_REST_Response( array( 'status' => 'incomplete', 'connect_id' => $connect_id ), 200 );
+    }
+
+    $charges_enabled = ! empty( $data['charges_enabled'] );
+    $payouts_enabled = ! empty( $data['payouts_enabled'] );
+    $details_submitted = ! empty( $data['details_submitted'] );
+
+    if ( $charges_enabled && $payouts_enabled ) {
+        $status = 'active';
+        update_user_meta( $user->ID, 'eb_stripe_connect_active', '1' );
+    } elseif ( $details_submitted ) {
+        $status = 'pending';
+        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
+    } else {
+        $status = 'incomplete';
+        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
+    }
+
+    $result = array(
+        'status'          => $status,
+        'connect_id'      => $connect_id,
+        'charges_enabled' => $charges_enabled,
+        'payouts_enabled' => $payouts_enabled,
+    );
+
+    // Login-Link für Stripe Express Dashboard
+    if ( $request->get_param( 'login_link' ) === '1' && $charges_enabled ) {
+        $ch2 = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) . '/login_links' );
+        curl_setopt_array( $ch2, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => '',
+            CURLOPT_USERPWD        => $sk . ':',
+            CURLOPT_TIMEOUT        => 10,
+        ) );
+        $resp2 = curl_exec( $ch2 );
+        curl_close( $ch2 );
+        $link_data = json_decode( $resp2, true );
+        if ( is_array( $link_data ) && ! empty( $link_data['url'] ) ) {
+            $result['login_link'] = $link_data['url'];
+        }
+    }
+
+    return new WP_REST_Response( $result, 200 );
+}
+
+/**
+ * POST /stripe/connect/disconnect
+ * Entfernt die Verknüpfung – das Stripe-Konto bleibt bestehen.
+ */
+function eb_stripe_connect_disconnect( WP_REST_Request $request ) {
+    $user = wp_get_current_user();
+    if ( ! $user || ! $user->ID ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
+    }
+    delete_user_meta( $user->ID, 'eb_stripe_connect_id' );
+    delete_user_meta( $user->ID, 'eb_stripe_connect_active' );
+    return new WP_REST_Response( array( 'ok' => true ), 200 );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function eb_stripe_verify_payment( WP_REST_Request $request ) {
     $sk = eb_load_env_value( 'private_stripe_api_key' );
@@ -4759,224 +5230,6 @@ function eb_stripe_verify_payment( WP_REST_Request $request ) {
         'currency'  => is_array( $data ) ? ( $data['currency'] ?? '' ) : '',
         'metadata'  => $meta,
     ), 200 );
-}
-
-
-/* ============================================================
- *  STRIPE CONNECT – Dienstleister-Auszahlung
- *
- *  Express-Account Architektur:
- *  1. Dienstleister klickt "Stripe-Konto verbinden" in Einstellungen
- *  2. Backend erstellt acct_xxx via POST /v1/accounts (type=express, country=DE)
- *  3. Account-Link-URL → Frontend leitet Nutzer zu Stripe-Onboarding weiter
- *  4. Nach Abschluss kommt Nutzer zurück zu /?stripe_connect=return
- *  5. Bei jeder Buchung: transfer_data[destination]=acct_xxx + application_fee_amount=3%
- * ============================================================ */
-
-/**
- * Stripe Connect Onboarding starten oder fortsetzen.
- * Erstellt einen Express-Account falls noch keiner existiert,
- * generiert einen Account-Link und gibt die Onboarding-URL zurück.
- */
-function eb_stripe_connect_onboard( WP_REST_Request $request ) {
-    $sk = eb_load_env_value( 'private_stripe_api_key' );
-    if ( ! $sk ) {
-        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
-    }
-
-    $user = wp_get_current_user();
-    if ( ! $user || ! $user->ID ) {
-        return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
-    }
-
-    $connect_id = get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
-
-    // Kontoart aus JSON-Body lesen (individual | company)
-    $body          = json_decode( $request->get_body(), true );
-    $business_type = ( isset( $body['business_type'] ) && $body['business_type'] === 'company' ) ? 'company' : 'individual';
-    $company_name  = isset( $body['company_name'] ) ? sanitize_text_field( $body['company_name'] ) : '';
-    $vat_id        = isset( $body['vat_id'] )        ? sanitize_text_field( $body['vat_id'] )        : '';
-
-    // Schritt 1: Express-Account erstellen falls noch keiner vorhanden
-    if ( ! $connect_id ) {
-        $acc_fields = array(
-            'type'                                    => 'express',
-            'country'                                 => 'DE',
-            'email'                                   => $user->user_email,
-            'capabilities[card_payments][requested]'  => 'true',
-            'capabilities[transfers][requested]'      => 'true',
-            'business_type'                           => $business_type,
-            'metadata[wp_user_id]'                    => (string) $user->ID,
-        );
-        if ( $business_type === 'company' && $company_name ) {
-            $acc_fields['company[name]'] = $company_name;
-        }
-        if ( $vat_id ) {
-            $acc_fields['company[tax_id]'] = $vat_id;
-        }
-        $ch = curl_init( 'https://api.stripe.com/v1/accounts' );
-        curl_setopt_array( $ch, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => http_build_query( $acc_fields ),
-            CURLOPT_USERPWD        => $sk . ':',
-            CURLOPT_TIMEOUT        => 20,
-            CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
-        ) );
-        $resp = curl_exec( $ch );
-        $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-        $err  = curl_error( $ch );
-        curl_close( $ch );
-
-        if ( $err || $http >= 400 ) {
-            $d = json_decode( $resp, true );
-            $msg = is_array( $d ) && isset( $d['error']['message'] ) ? $d['error']['message'] : 'Account-Erstellung fehlgeschlagen.';
-            return new WP_REST_Response( array( 'message' => $msg ), 500 );
-        }
-        $acc_data   = json_decode( $resp, true );
-        $connect_id = is_array( $acc_data ) ? ( $acc_data['id'] ?? '' ) : '';
-        if ( ! $connect_id ) {
-            return new WP_REST_Response( array( 'message' => 'Keine Account-ID erhalten.' ), 500 );
-        }
-        update_user_meta( $user->ID, 'eb_stripe_connect_id', sanitize_text_field( $connect_id ) );
-        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' ); // noch nicht aktiv
-    }
-
-    // Schritt 2: Account-Link generieren (Onboarding-URL, 10 Min. gültig)
-    $base_url   = home_url( '/' );
-    $link_fields = array(
-        'account'     => $connect_id,
-        'refresh_url' => $base_url . '?stripe_connect=refresh',
-        'return_url'  => $base_url . '?stripe_connect=return',
-        'type'        => 'account_onboarding',
-    );
-    $ch = curl_init( 'https://api.stripe.com/v1/account_links' );
-    curl_setopt_array( $ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => http_build_query( $link_fields ),
-        CURLOPT_USERPWD        => $sk . ':',
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
-    ) );
-    $resp = curl_exec( $ch );
-    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    $err  = curl_error( $ch );
-    curl_close( $ch );
-
-    if ( $err || $http >= 400 ) {
-        $d   = json_decode( $resp, true );
-        $msg = is_array( $d ) && isset( $d['error']['message'] ) ? $d['error']['message'] : 'Link-Generierung fehlgeschlagen.';
-        return new WP_REST_Response( array( 'message' => $msg ), 500 );
-    }
-    $link_data = json_decode( $resp, true );
-    $url       = is_array( $link_data ) ? ( $link_data['url'] ?? '' ) : '';
-    if ( ! $url ) {
-        return new WP_REST_Response( array( 'message' => 'Kein Onboarding-Link erhalten.' ), 500 );
-    }
-
-    return new WP_REST_Response( array(
-        'ok'             => true,
-        'onboarding_url' => $url,
-        'connect_id'     => $connect_id,
-    ), 200 );
-}
-
-/**
- * Stripe Connect Status abfragen.
- * Gibt Status + (optional) Login-Link zurück.
- * ?login_link=1 generiert einen direkten Dashboard-Login-Link.
- */
-function eb_stripe_connect_status( WP_REST_Request $request ) {
-    $sk = eb_load_env_value( 'private_stripe_api_key' );
-    if ( ! $sk ) {
-        return new WP_REST_Response( array( 'status' => 'none', 'message' => 'Stripe nicht konfiguriert.' ), 200 );
-    }
-
-    $user = wp_get_current_user();
-    if ( ! $user || ! $user->ID ) {
-        return new WP_REST_Response( array( 'status' => 'none' ), 200 );
-    }
-
-    $connect_id = get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
-    if ( ! $connect_id ) {
-        return new WP_REST_Response( array( 'status' => 'none' ), 200 );
-    }
-
-    // Account-Details von Stripe holen
-    $ch = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) );
-    curl_setopt_array( $ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_USERPWD        => $sk . ':',
-        CURLOPT_TIMEOUT        => 15,
-    ) );
-    $resp = curl_exec( $ch );
-    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    curl_close( $ch );
-
-    if ( $http >= 400 ) {
-        return new WP_REST_Response( array( 'status' => 'incomplete', 'connect_id' => $connect_id ), 200 );
-    }
-
-    $data            = json_decode( $resp, true );
-    $charges_enabled = is_array( $data ) && ! empty( $data['charges_enabled'] );
-    $payouts_enabled = is_array( $data ) && ! empty( $data['payouts_enabled'] );
-    $details_done    = is_array( $data ) && ! empty( $data['details_submitted'] );
-
-    if ( $charges_enabled && $payouts_enabled ) {
-        $status = 'active';
-        update_user_meta( $user->ID, 'eb_stripe_connect_active', '1' );
-    } elseif ( $details_done ) {
-        $status = 'pending';
-        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
-    } else {
-        $status = 'incomplete';
-        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
-    }
-
-    $result = array(
-        'ok'              => true,
-        'status'          => $status,
-        'connect_id'      => $connect_id,
-        'charges_enabled' => $charges_enabled,
-        'payouts_enabled' => $payouts_enabled,
-    );
-
-    // Optional: Login-Link für direkten Dashboard-Zugang
-    if ( $request->get_param( 'login_link' ) === '1' && $charges_enabled ) {
-        $ch2 = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) . '/login_links' );
-        curl_setopt_array( $ch2, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => '',
-            CURLOPT_USERPWD        => $sk . ':',
-            CURLOPT_TIMEOUT        => 15,
-            CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
-        ) );
-        $resp2 = curl_exec( $ch2 );
-        curl_close( $ch2 );
-        $link_data = json_decode( $resp2, true );
-        if ( is_array( $link_data ) && ! empty( $link_data['url'] ) ) {
-            $result['login_link'] = $link_data['url'];
-        }
-    }
-
-    return new WP_REST_Response( $result, 200 );
-}
-
-/**
- * Stripe Connect Verknüpfung trennen.
- * Entfernt nur die gespeicherten Metadaten – das Stripe-Konto des Dienstleisters
- * bleibt bestehen (kann jederzeit wieder verbunden werden).
- */
-function eb_stripe_connect_disconnect( WP_REST_Request $request ) {
-    $user = wp_get_current_user();
-    if ( ! $user || ! $user->ID ) {
-        return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
-    }
-    delete_user_meta( $user->ID, 'eb_stripe_connect_id' );
-    delete_user_meta( $user->ID, 'eb_stripe_connect_active' );
-    return new WP_REST_Response( array( 'ok' => true, 'message' => 'Stripe-Konto getrennt.' ), 200 );
 }
 
 
