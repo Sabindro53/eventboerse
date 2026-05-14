@@ -12964,7 +12964,10 @@ function _renderBoardFlowImpl() {
         html += '</button>';
       }
       html += '<button class="flow-prov-btn flow-prov-move" onclick="event.stopPropagation();openStageMoveSheet(\'' + card.id + '\')" title="Stage \u00e4ndern"><span class="material-icons-round">low_priority</span> Verschieben</button>';
-      html += '<button class="flow-prov-btn flow-prov-del" onclick="event.stopPropagation();deleteBoardCard(\'' + card.id + '\');renderBoardFlow()" title="Löschen"><span class="material-icons-round">close</span> Löschen</button>';
+      var isPaid = !!(card.paymentIntentId || card.paymentReference || (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
+      if (!isPaid) {
+        html += '<button class="flow-prov-btn flow-prov-del" onclick="event.stopPropagation();deleteBoardCard(\'' + card.id + '\');renderBoardFlow()" title="Löschen"><span class="material-icons-round">close</span> Löschen</button>';
+      }
       html += '</div>';
       html += '</div></div>';
     });
@@ -13522,7 +13525,14 @@ function _saveFlowCard(event, cardId) {
   card.startTime = document.getElementById('fcTime').value;
   card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
   var _newStage = document.getElementById('fcStage').value;
-  if (typeof _PROTECTED_STAGES !== 'undefined' && _PROTECTED_STAGES.indexOf(_newStage) !== -1 && card.stage !== _newStage) {
+  if (_isPaid) {
+    // Nach Zahlung: Stage darf nur noch auf 'abgeschlossen' gehen
+    if (_newStage !== card.stage && !(['bestaetigt','abgeschlossen'].includes(_newStage) && ['bestaetigt','abgeschlossen'].includes(card.stage))) {
+      showToast('Nach Zahlung ist nur noch "Erfüllt" als nächste Stage erlaubt.', 'warning');
+      return;
+    }
+    card.stage = _newStage;
+  } else if (typeof _PROTECTED_STAGES !== 'undefined' && _PROTECTED_STAGES.indexOf(_newStage) !== -1 && card.stage !== _newStage) {
     showToast(_protectedStageMessage(_newStage), 'warning');
   } else {
     card.stage = _newStage;
@@ -15950,15 +15960,18 @@ function addCurrentListingToBoard(listingId) {
 
   var listing = (LISTINGS || []).find(function(l){ return l.id === lid; }) || { id: lid };
 
-  // Immer Auswahl-Modal zeigen: „Neues Board" vs. „Vorhandenes Board".
-  // Hat der Nutzer noch keine Projekte, direkt das Erstellen-Modal öffnen.
+  // 0 Projekte → direkt Board erstellen; 1 Projekt → direkt hinzufügen; sonst → Auswahl
   if (_boardProjects.length === 0) {
     window._pendingAddListing = listing;
     openCreateBoardModal();
     return;
   }
+  if (_boardProjects.length === 1) {
+    _addListingToBoardProject(listing || { id: lid }, _boardProjects[0].id);
+    return;
+  }
   openSelectBoardProjectModal(listing);
-}
+}}
 window.addCurrentListingToBoard = addCurrentListingToBoard;
 
 /* ─── Sofortbuchung (Direkt-Buchung) auf Detailseite ─────── */
@@ -16524,6 +16537,11 @@ function _autoFillProviderFromListing(select) {
 }
 
 function _addProviderCard(event, stage) {
+    // Doppelte Karten verhindern (gleiche listingId im selben Projekt)
+    if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
+      showToast('Dieses Inserat ist bereits im Board.', 'warning');
+      return;
+    }
   event.preventDefault();
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -16574,6 +16592,13 @@ function deleteBoardCard(cardId) {
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
   if (!project) return;
+  var card = (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  var isPaid = !!(card.paymentIntentId || card.paymentReference || (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus))));
+  if (isPaid) {
+    showToast('Bezahlte Buchungen können nicht gelöscht werden.', 'warning');
+    return;
+  }
   project.cards = (project.cards || []).filter(function(c) { return c.id !== cardId; });
   _saveBoardProjects();
   renderKanban(project);
