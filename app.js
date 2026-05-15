@@ -15971,7 +15971,7 @@ function addCurrentListingToBoard(listingId) {
     return;
   }
   openSelectBoardProjectModal(listing);
-}}
+}
 window.addCurrentListingToBoard = addCurrentListingToBoard;
 
 /* ─── Sofortbuchung (Direkt-Buchung) auf Detailseite ─────── */
