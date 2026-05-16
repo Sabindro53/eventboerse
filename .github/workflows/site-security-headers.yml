@@ -1,0 +1,123 @@
+# Monitoring-Workflow: HTTP-Security-Header-Prüfung
+# Überprüft täglich die wichtigsten Sicherheits-Header der Live-Seite
+name: "Monitor – Security Header Check"
+
+on:
+  schedule:
+    # Täglich um 07:00 UTC prüfen
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    # Manuell auslösbar
+
+# Minimale Berechtigungen
+permissions:
+  contents: read
+
+jobs:
+  header-check:
+    name: HTTP-Security-Header prüfen
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # Schritt 1: HTTP-Header der Live-Seite abrufen
+      - name: Security-Header prüfen und Report erstellen
+        run: |
+          ZIEL_URL="https://xn--eventbrse-57a.de"
+          BERICHT_DATEI="security-header-bericht.md"
+
+          echo "=== Security-Header-Check für $ZIEL_URL ==="
+
+          # HTTP-Header abrufen (nur Header, kein Body)
+          HEADER_AUSGABE=$(curl \
+            --silent \
+            --head \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --location \
+            "$ZIEL_URL" 2>/dev/null || echo "FEHLER: Verbindung fehlgeschlagen")
+
+          echo "$HEADER_AUSGABE"
+
+          # Markdown-Bericht erstellen
+          cat > "$BERICHT_DATEI" << MARKDOWN_ENDE
+          # 🔒 Security-Header-Bericht – eventbörse.de
+
+          **Geprüfte URL:** $ZIEL_URL
+          **Zeitstempel:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          ## Ergebnis-Übersicht
+
+          | Header | Status | Wert |
+          |--------|--------|------|
+          MARKDOWN_ENDE
+
+          # Funktion zum Prüfen eines einzelnen Headers
+          pruefe_header() {
+            local HEADER_NAME="$1"
+            local BESCHREIBUNG="$2"
+            local HEADER_WERT
+            HEADER_WERT=$(echo "$HEADER_AUSGABE" | grep -i "^${HEADER_NAME}:" | head -1 | sed 's/^[^:]*: //' | tr -d '\r')
+
+            if [ -n "$HEADER_WERT" ]; then
+              echo "| \`${HEADER_NAME}\` | ✅ Vorhanden | \`${HEADER_WERT}\` |" >> "$BERICHT_DATEI"
+              echo "✅ $BESCHREIBUNG: $HEADER_WERT"
+            else
+              echo "| \`${HEADER_NAME}\` | ❌ Fehlt | — |" >> "$BERICHT_DATEI"
+              echo "❌ $BESCHREIBUNG: FEHLT!"
+            fi
+          }
+
+          # Alle wichtigen Security-Header prüfen
+          pruefe_header "Content-Security-Policy" "CSP"
+          pruefe_header "X-Frame-Options" "Clickjacking-Schutz"
+          pruefe_header "X-Content-Type-Options" "MIME-Sniffing-Schutz"
+          pruefe_header "Strict-Transport-Security" "HSTS"
+          pruefe_header "Referrer-Policy" "Referrer-Kontrolle"
+          pruefe_header "Permissions-Policy" "Berechtigungs-Kontrolle"
+          pruefe_header "X-XSS-Protection" "XSS-Schutz (veraltet, aber nützlich)"
+          pruefe_header "Cross-Origin-Opener-Policy" "COOP"
+          pruefe_header "Cross-Origin-Embedder-Policy" "COEP"
+
+          # Bericht abschließen
+          cat >> "$BERICHT_DATEI" << MARKDOWN_ENDE2
+
+          ## Rohe HTTP-Header
+
+          \`\`\`
+          $(echo "$HEADER_AUSGABE" | head -50)
+          \`\`\`
+
+          ## Empfehlungen
+
+          Fehlende Header können in \`.htaccess\` hinzugefügt werden:
+
+          \`\`\`apache
+          # Content Security Policy
+          Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
+
+          # Clickjacking-Schutz
+          Header always set X-Frame-Options "SAMEORIGIN"
+
+          # MIME-Sniffing verhindern
+          Header always set X-Content-Type-Options "nosniff"
+
+          # HSTS (nur wenn HTTPS korrekt konfiguriert)
+          Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+          # Referrer-Policy
+          Header always set Referrer-Policy "strict-origin-when-cross-origin"
+          \`\`\`
+          MARKDOWN_ENDE2
+
+          echo ""
+          echo "=== Bericht erstellt: $BERICHT_DATEI ==="
+          cat "$BERICHT_DATEI"
+
+      # Schritt 2: Bericht als Artifact hochladen
+      - name: Bericht als Artifact speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-header-bericht-${{ github.run_id }}
+          path: security-header-bericht.md
+          retention-days: 30

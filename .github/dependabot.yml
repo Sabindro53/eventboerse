@@ -1,0 +1,61 @@
+# Dependabot-Konfiguration für automatische Dependency-Updates
+# Aktualisiert GitHub Actions und (falls vorhanden) npm/composer Abhängigkeiten
+version: 2
+
+updates:
+  # GitHub Actions – wöchentliche Updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps)"
+    # Maximal 5 offene PRs für Actions
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Sabindro53"
+
+  # npm – wöchentliche Updates (nur wenn package.json vorhanden ist)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Berlin"
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Sabindro53"
+    # Nur Sicherheits-Updates als automatische PRs
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Composer – wöchentliche Updates (nur wenn composer.json vorhanden ist)
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    labels:
+      - "dependencies"
+      - "composer"
+      - "php"
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Sabindro53"

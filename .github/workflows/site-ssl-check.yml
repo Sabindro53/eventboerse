@@ -1,0 +1,134 @@
+# Monitoring-Workflow: SSL-Zertifikat-Gültigkeitsprüfung
+# Warnt 30 Tage vor Ablauf des SSL-Zertifikats via GitHub Issue
+name: "Monitor – SSL Zertifikat-Check"
+
+on:
+  schedule:
+    # Täglich um 06:00 UTC prüfen
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    # Manuell auslösbar
+
+# Berechtigungen für Issue-Verwaltung
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  ssl-check:
+    name: SSL-Zertifikat prüfen
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Schritt 1: SSL-Zertifikat-Ablaufdatum prüfen
+      - name: SSL-Zertifikat-Gültigkeit prüfen
+        id: ssl-check
+        run: |
+          DOMAIN="xn--eventbrse-57a.de"
+          WARNUNG_TAGE=30
+
+          echo "=== SSL-Zertifikat-Check für $DOMAIN ==="
+
+          # Ablaufdatum des Zertifikats abrufen
+          ABLAUF_DATUM=$(echo | timeout 10 openssl s_client \
+            -connect "${DOMAIN}:443" \
+            -servername "$DOMAIN" \
+            2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+
+          if [ -z "$ABLAUF_DATUM" ]; then
+            echo "❌ SSL-Zertifikat konnte nicht abgerufen werden!"
+            echo "SSL_FEHLER=true" >> $GITHUB_ENV
+            echo "SSL_ABLAUF_DATUM=unbekannt" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "SSL_FEHLER=false" >> $GITHUB_ENV
+          echo "SSL_ABLAUF_DATUM=$ABLAUF_DATUM" >> $GITHUB_ENV
+
+          # Ablaufdatum in Sekunden umrechnen
+          ABLAUF_SEKUNDEN=$(date -d "$ABLAUF_DATUM" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$ABLAUF_DATUM" +%s 2>/dev/null || echo "")
+
+          if [ -z "$ABLAUF_SEKUNDEN" ]; then
+            echo "❌ Datumskonvertierung fehlgeschlagen für: $ABLAUF_DATUM"
+            echo "SSL_FEHLER=true" >> $GITHUB_ENV
+            echo "SSL_VERBLEIBENDE_TAGE=unbekannt" >> $GITHUB_ENV
+            exit 0
+          fi
+          JETZT_SEKUNDEN=$(date +%s)
+          VERBLEIBENDE_SEKUNDEN=$((ABLAUF_SEKUNDEN - JETZT_SEKUNDEN))
+          VERBLEIBENDE_TAGE=$((VERBLEIBENDE_SEKUNDEN / 86400))
+
+          echo "Ablaufdatum: $ABLAUF_DATUM"
+          echo "Verbleibende Tage: $VERBLEIBENDE_TAGE"
+          echo "SSL_VERBLEIBENDE_TAGE=$VERBLEIBENDE_TAGE" >> $GITHUB_ENV
+
+          if [ $VERBLEIBENDE_TAGE -le 0 ]; then
+            echo "🚨 SSL-Zertifikat ist ABGELAUFEN!"
+            echo "SSL_ABGELAUFEN=true" >> $GITHUB_ENV
+            echo "SSL_WARNUNG=true" >> $GITHUB_ENV
+          elif [ $VERBLEIBENDE_TAGE -le $WARNUNG_TAGE ]; then
+            echo "⚠️ SSL-Zertifikat läuft in $VERBLEIBENDE_TAGE Tagen ab!"
+            echo "SSL_ABGELAUFEN=false" >> $GITHUB_ENV
+            echo "SSL_WARNUNG=true" >> $GITHUB_ENV
+          else
+            echo "✅ SSL-Zertifikat gültig für weitere $VERBLEIBENDE_TAGE Tage."
+            echo "SSL_ABGELAUFEN=false" >> $GITHUB_ENV
+            echo "SSL_WARNUNG=false" >> $GITHUB_ENV
+          fi
+
+      # Schritt 2: Issue erstellen wenn Zertifikat bald abläuft oder bereits abgelaufen ist
+      - name: Warnung-Issue erstellen
+        if: env.SSL_WARNUNG == 'true' || env.SSL_FEHLER == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const abgelaufen = process.env.SSL_ABGELAUFEN === 'true';
+            const fehler = process.env.SSL_FEHLER === 'true';
+            const verbleibendeTage = process.env.SSL_VERBLEIBENDE_TAGE;
+            const ablaufDatum = process.env.SSL_ABLAUF_DATUM;
+            const domain = "xn--eventbrse-57a.de";
+
+            let titel, prioritaet, emoji;
+            if (fehler) {
+              titel = `🚨 SSL-Fehler: Zertifikat für eventbörse.de nicht abrufbar`;
+              prioritaet = 'priority: critical';
+              emoji = '🚨';
+            } else if (abgelaufen) {
+              titel = `🚨 SSL-Zertifikat für eventbörse.de ist ABGELAUFEN!`;
+              prioritaet = 'priority: critical';
+              emoji = '🚨';
+            } else {
+              titel = `⚠️ SSL-Zertifikat läuft in ${verbleibendeTage} Tagen ab (eventbörse.de)`;
+              prioritaet = 'priority: high';
+              emoji = '⚠️';
+            }
+
+            // Prüfen ob bereits ein ähnliches offenes Issue existiert
+            const vorhandeneIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['ssl-certificate']
+            });
+
+            if (vorhandeneIssues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: titel,
+                body: `## ${emoji} SSL-Zertifikat-Warnung\n\n` +
+                      `**Domain:** ${domain}\n` +
+                      `**Ablaufdatum:** ${ablaufDatum}\n` +
+                      `**Verbleibende Tage:** ${verbleibendeTage}\n` +
+                      `**Zeitstempel:** ${new Date().toISOString()}\n\n` +
+                      `### Sofortmaßnahmen\n\n` +
+                      `1. Öffne [IONOS Login](https://login.ionos.de)\n` +
+                      `2. Navigiere zu **Hosting → SSL-Zertifikate**\n` +
+                      `3. Erneuere das Let's Encrypt Wildcard-Zertifikat\n` +
+                      `4. Warte 10-30 Minuten, bis das neue Zertifikat aktiv ist\n\n` +
+                      `> Ein abgelaufenes SSL-Zertifikat zeigt Besuchern eine Sicherheitswarnung und blockiert den Zugang zur Seite.`,
+                labels: ['ssl-certificate', 'monitoring', prioritaet]
+              });
+            }

@@ -1,0 +1,97 @@
+# Sicherheits-Workflow: Dependency-Scan mit Trivy und npm audit
+# Prüft Abhängigkeiten auf bekannte Sicherheitslücken (CVEs)
+name: "Security – Dependency Scan (Trivy + npm)"
+
+on:
+  push:
+    branches: ["main"]
+  schedule:
+    # Täglicher Scan – jeden Morgen um 04:30 UTC
+    - cron: "30 4 * * *"
+
+# Minimale Berechtigungen für SARIF-Upload
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  trivy-scan:
+    name: Trivy Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # Schritt 1: Code auschecken
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      # Schritt 2: Trivy-Scan des gesamten Repository-Inhalts
+      - name: Trivy – Repository-Scan (SARIF)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-ergebnisse.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+          # Trivy ignoriert diese Pfade beim Scan
+          skip-dirs: ".git,node_modules"
+
+      # Schritt 3: SARIF-Ergebnisse an GitHub Security Tab senden
+      - name: SARIF-Ergebnisse hochladen
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-ergebnisse.sarif"
+          category: "trivy"
+
+      # Schritt 4: Trivy-Scan auch als lesbarer Report (für Logs)
+      - name: Trivy – Lesbarer Bericht
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "table"
+          severity: "CRITICAL,HIGH"
+          skip-dirs: ".git,node_modules"
+
+  npm-audit:
+    name: npm audit (falls package.json vorhanden)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # Schritt 1: Code auschecken
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      # Schritt 2: Prüfen ob package.json existiert
+      - name: package.json prüfen
+        id: check-package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "PACKAGE_JSON_VORHANDEN=true" >> $GITHUB_ENV
+            echo "✅ package.json gefunden – führe npm audit aus"
+          else
+            echo "PACKAGE_JSON_VORHANDEN=false" >> $GITHUB_ENV
+            echo "ℹ️ Keine package.json gefunden – npm audit wird übersprungen"
+          fi
+
+      # Schritt 3: Node.js einrichten (nur wenn package.json vorhanden)
+      - name: Node.js einrichten
+        if: env.PACKAGE_JSON_VORHANDEN == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Schritt 4: npm audit ausführen (nur wenn package.json vorhanden)
+      - name: npm audit
+        if: env.PACKAGE_JSON_VORHANDEN == 'true'
+        run: |
+          npm install --package-lock-only 2>/dev/null || true
+          npm audit --audit-level=high || {
+            echo "⚠️ npm audit hat Sicherheitslücken gefunden!"
+            npm audit --audit-level=high --json | head -100
+            exit 1
+          }

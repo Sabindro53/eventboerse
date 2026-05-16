@@ -1,0 +1,101 @@
+# Sicherheits-Workflow: PHP Syntax-Check und Code-Standards
+# Prüft alle PHP-Dateien auf Syntaxfehler und WordPress-Coding-Standards
+name: "Security – PHP Lint & Code-Standards"
+
+on:
+  push:
+    paths:
+      - "**/*.php"
+  pull_request:
+    paths:
+      - "**/*.php"
+
+# Minimale Berechtigungen – nur Lesezugriff auf Repository
+permissions:
+  contents: read
+
+jobs:
+  php-lint:
+    name: PHP Syntax-Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # Schritt 1: Code auschecken
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      # Schritt 2: PHP 8.2 einrichten
+      - name: PHP 8.2 einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: phpcs
+          coverage: none
+
+      # Schritt 3: Alle PHP-Dateien auf Syntax-Fehler prüfen
+      - name: PHP Syntax-Check (php -l)
+        run: |
+          echo "=== PHP Syntax-Prüfung für alle .php-Dateien ==="
+          FEHLER_GEFUNDEN=0
+          # Alle PHP-Dateien finden und prüfen (vendor-Ordner ausschließen)
+          while IFS= read -r -d '' datei; do
+            if ! php -l "$datei" > /dev/null 2>&1; then
+              echo "❌ Syntax-Fehler in: $datei"
+              php -l "$datei"
+              FEHLER_GEFUNDEN=1
+            else
+              echo "✅ OK: $datei"
+            fi
+          done < <(find . -name "*.php" -not -path "./.git/*" -not -path "./vendor/*" -not -path "./node_modules/*" -print0)
+
+          if [ $FEHLER_GEFUNDEN -eq 1 ]; then
+            echo ""
+            echo "❌ PHP Syntax-Fehler gefunden! Bitte korrigieren."
+            exit 1
+          else
+            echo ""
+            echo "✅ Alle PHP-Dateien haben gültige Syntax."
+          fi
+
+  php-codesniffer:
+    name: PHP CodeSniffer (WordPress-Standards)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Dieser Job ist optional – er schlägt nicht fehl, wenn PHPCS nicht verfügbar ist
+    continue-on-error: true
+
+    steps:
+      # Schritt 1: Code auschecken
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      # Schritt 2: PHP und PHPCS mit WordPress-Standards einrichten
+      - name: PHP 8.2 mit CodeSniffer einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: phpcs, composer
+          coverage: none
+
+      # Schritt 3: WordPress Coding Standards via Composer installieren (falls möglich)
+      - name: WordPress Coding Standards installieren
+        id: wpcs-install
+        run: |
+          composer global require wp-coding-standards/wpcs:"^3.0" --no-progress --no-interaction 2>/dev/null || true
+          phpcs --config-set installed_paths ~/.composer/vendor/wp-coding-standards/wpcs 2>/dev/null || true
+          echo "WPCS_VERFUEGBAR=$(phpcs -i 2>/dev/null | grep -c 'WordPress' || echo 0)" >> $GITHUB_ENV
+
+      # Schritt 4: WordPress-Standards prüfen (nur wenn installiert)
+      - name: PHP CodeSniffer mit WordPress-Standards
+        run: |
+          if [ "$WPCS_VERFUEGBAR" -gt "0" ]; then
+            echo "=== PHP CodeSniffer mit WordPress-Standards ==="
+            phpcs --standard=WordPress --extensions=php \
+              --ignore=vendor/,node_modules/ \
+              --report=full \
+              --severity=5 \
+              . || true
+          else
+            echo "ℹ️ WordPress Coding Standards nicht verfügbar – überspringe PHPCS."
+          fi

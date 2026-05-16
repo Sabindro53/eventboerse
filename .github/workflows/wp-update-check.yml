@@ -1,0 +1,145 @@
+# WordPress-Wartung: Update-Check (NUR MANUELL)
+# Prüft verfügbare Updates für WordPress Core, Plugins und Themes
+# WICHTIG: Kein automatischer Lauf – nur manuell via workflow_dispatch
+name: "WP – Update-Check (Manuell)"
+
+on:
+  workflow_dispatch:
+    # Kein automatischer Lauf – SSH-Zugang erforderlich
+
+# Berechtigungen für Issue-Erstellung
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  update-check:
+    name: WordPress-Updates prüfen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # Schritt 1: Prüfen ob alle erforderlichen Secrets gesetzt sind
+      - name: SSH-Secrets prüfen
+        id: secrets-check
+        run: |
+          SECRETS_FEHLEN=0
+
+          if [ -z "${{ secrets.SSH_HOST }}" ]; then
+            echo "❌ Secret SSH_HOST nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          fi
+          if [ -z "${{ secrets.SSH_USER }}" ]; then
+            echo "❌ Secret SSH_USER nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          fi
+          if [ -z "${{ secrets.SSH_KEY }}" ]; then
+            echo "❌ Secret SSH_KEY nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          fi
+          if [ -z "${{ secrets.WP_PATH }}" ]; then
+            echo "❌ Secret WP_PATH nicht gesetzt!"
+            SECRETS_FEHLEN=1
+          fi
+
+          if [ $SECRETS_FEHLEN -eq 1 ]; then
+            echo ""
+            echo "❌ Fehlende Secrets! Bitte unter Settings → Secrets and variables → Actions anlegen:"
+            echo "  - SSH_HOST, SSH_USER, SSH_KEY, WP_PATH"
+            exit 1
+          fi
+          echo "✅ Alle Secrets vorhanden"
+
+      # Schritt 2: Updates via SSH und WP-CLI prüfen
+      - name: WordPress-Updates via SSH prüfen
+        id: wp-updates
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 10m
+          script: |
+            WP_PATH="${{ secrets.WP_PATH }}"
+            cd "$WP_PATH" || { echo "❌ WP_PATH nicht gefunden!"; exit 1; }
+
+            echo "=== WordPress Update-Check ==="
+
+            # WP-CLI prüfen
+            if ! command -v wp &>/dev/null; then
+              echo "❌ WP-CLI nicht installiert!"
+              exit 1
+            fi
+
+            # WordPress Core-Updates prüfen
+            echo ""
+            echo "--- WordPress Core ---"
+            wp core check-update --allow-root 2>/dev/null || echo "Keine Core-Updates verfügbar"
+
+            # Plugin-Updates prüfen
+            echo ""
+            echo "--- Verfügbare Plugin-Updates ---"
+            wp plugin list --update=available --fields=name,version,update_version --format=table --allow-root 2>/dev/null || echo "Keine Plugin-Updates verfügbar"
+
+            # Theme-Updates prüfen
+            echo ""
+            echo "--- Verfügbare Theme-Updates ---"
+            wp theme list --update=available --fields=name,version,update_version --format=table --allow-root 2>/dev/null || echo "Keine Theme-Updates verfügbar"
+
+            # JSON-Ausgabe für Issue-Erstellung speichern
+            echo "CORE_UPDATES=$(wp core check-update --format=count --allow-root 2>/dev/null || echo 0)" >> /tmp/wp-update-info.txt
+            echo "PLUGIN_UPDATES=$(wp plugin list --update=available --format=count --allow-root 2>/dev/null || echo 0)" >> /tmp/wp-update-info.txt
+            echo "THEME_UPDATES=$(wp theme list --update=available --format=count --allow-root 2>/dev/null || echo 0)" >> /tmp/wp-update-info.txt
+
+      # Schritt 3: GitHub Issue mit Update-Informationen erstellen
+      - name: Update-Report als Issue erstellen
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const zeitstempel = new Date().toISOString();
+
+            // Vorhandene Update-Issues prüfen (nicht zu viele erstellen)
+            const vorhandeneIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['wp-updates']
+            });
+
+            const issueBody = `## 🔄 WordPress Update-Report\n\n` +
+              `**Zeitstempel:** ${zeitstempel}\n` +
+              `**Ausgeführt von:** @${context.actor}\n\n` +
+              `### Nächste Schritte\n\n` +
+              `1. WordPress-Admin öffnen: [Dashboard → Aktualisierungen](https://xn--eventbrse-57a.de/wp-admin/update-core.php)\n` +
+              `2. Oder per WP-CLI:\n` +
+              `\`\`\`bash\n` +
+              `# WordPress Core aktualisieren\n` +
+              `wp core update\n\n` +
+              `# Alle Plugins aktualisieren\n` +
+              `wp plugin update --all\n\n` +
+              `# Alle Themes aktualisieren\n` +
+              `wp theme update --all\n` +
+              `\`\`\`\n\n` +
+              `> Detaillierte Update-Informationen befinden sich in den [Workflow-Logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
+
+            if (vorhandeneIssues.data.length > 0) {
+              // Bestehendes Issue aktualisieren
+              const issueNummer = vorhandeneIssues.data[0].number;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNummer,
+                body: `🔄 **Update-Report (${zeitstempel}):**\n\nNeue Prüfung durchgeführt. Siehe [Workflow-Logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) für Details.`
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔄 WordPress Update-Report (${zeitstempel})`,
+                body: issueBody,
+                labels: ['wp-updates', 'maintenance']
+              });
+            }
