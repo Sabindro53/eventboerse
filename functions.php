@@ -2411,6 +2411,13 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return current_user_can( 'manage_options' ); },
     ) );
 
+    /* ---------- AI OFFICE HANDSHAKE ---------- */
+    register_rest_route( 'eventboerse/v1', '/ai-office/health', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_ai_office_health',
+        'permission_callback' => 'eb_ai_office_permission',
+    ) );
+
     /* ---------- ACCOUNT SETTINGS ---------- */
     register_rest_route( 'eventboerse/v1', '/settings', array(
         'methods'             => 'POST',
@@ -2987,6 +2994,56 @@ function eb_test_mail( WP_REST_Request $request ) {
             ? 'SMTP konfiguriert, aber Verbindung fehlgeschlagen. Prüfe das Passwort und den IONOS-Account.'
             : 'SMTP nicht konfiguriert. POST /wp-json/eventboerse/v1/admin/smtp mit {smtp_user, smtp_pass} aufrufen.',
     ), 500 );
+}
+
+/* =====================================================================
+   AI OFFICE HANDSHAKE
+   ===================================================================== */
+
+function eb_ai_office_permission( WP_REST_Request $request ) {
+    if ( function_exists( 'eventboerse_check_rate_limit' ) ) {
+        $rate = eventboerse_check_rate_limit( 'ai-office-health', 60, HOUR_IN_SECONDS );
+        if ( is_wp_error( $rate ) ) return $rate;
+    }
+
+    $expected = eb_load_env_value( 'ai_office_webapp_key' );
+    if ( ! $expected ) {
+        return new WP_Error(
+            'ai_office_key_missing',
+            'AI Office Webapp Key ist serverseitig nicht konfiguriert.',
+            array( 'status' => 503 )
+        );
+    }
+
+    $provided = (string) $request->get_header( 'x-ai-office-key' );
+    if ( $provided === '' ) {
+        $auth = (string) $request->get_header( 'authorization' );
+        if ( preg_match( '/^Bearer\s+(.+)$/i', $auth, $m ) ) {
+            $provided = trim( $m[1] );
+        }
+    }
+
+    if ( $provided === '' || ! hash_equals( $expected, $provided ) ) {
+        return new WP_Error(
+            'ai_office_forbidden',
+            'AI Office Webapp Key fehlt oder ist ungueltig.',
+            array( 'status' => 403 )
+        );
+    }
+
+    return true;
+}
+
+function eb_ai_office_health( WP_REST_Request $request ) {
+    return new WP_REST_Response( array(
+        'ok'          => true,
+        'service'     => 'eventboerse-ai-office',
+        'site_url'    => home_url( '/' ),
+        'rest_base'   => rest_url( 'eventboerse/v1' ),
+        'server_time' => gmdate( 'c' ),
+        'key'         => 'accepted',
+        'version'     => get_bloginfo( 'version' ),
+    ), 200 );
 }
 
 /* =====================================================================
