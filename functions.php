@@ -2,121 +2,91 @@
 <?php
 /**
  * EventBörse Theme Functions
- * WordPress REST API + Push Notifications
+ * WordPress Theme + REST API (67 Endpoints)
+ *
+ * NOTE: SSE endpoints added at bottom — search "SSE_ENDPOINTS"
  */
 
-// ============================================================
-// VAPID KEYS (Web Push)
-// Generate once: openssl ecparam -name prime256v1 -genkey -noout -out vapid_private.pem
-// Then base64url-encode both keys. These are EXAMPLE keys — replace with real ones.
-// To generate: run eb_generate_vapid_keys() once in WP admin, save output to constants below.
-// ============================================================
-if (!defined('EB_VAPID_PUBLIC_KEY')) {
-    define('EB_VAPID_PUBLIC_KEY', get_option('eb_vapid_public_key', ''));
-}
-if (!defined('EB_VAPID_PRIVATE_KEY')) {
-    define('EB_VAPID_PRIVATE_KEY', get_option('eb_vapid_private_key', ''));
-}
-if (!defined('EB_VAPID_SUBJECT')) {
-    define('EB_VAPID_SUBJECT', 'mailto:info@eventboerse.de');
-}
-
-// ============================================================
-// THEME SETUP
-// ============================================================
+// ─── Theme Setup ────────────────────────────────────────────────────────────
 
 add_action('after_setup_theme', function () {
     add_theme_support('title-tag');
     add_theme_support('post-thumbnails');
 });
 
-// Remove WordPress bloat
-add_action('init', function () {
-    remove_action('wp_head', 'print_emoji_detection_script', 7);
-    remove_action('wp_print_styles', 'print_emoji_styles');
-    remove_action('wp_head', 'wp_generator');
-    remove_action('wp_head', 'wlwmanifest_link');
-    remove_action('wp_head', 'rsd_link');
-    add_filter('show_admin_bar', '__return_false');
-});
+// ─── Asset Registration ──────────────────────────────────────────────────────
 
-// Enqueue assets
 add_action('wp_enqueue_scripts', function () {
-    $v = '2.9.4';
-    wp_enqueue_style('eventboerse-style', get_template_directory_uri() . '/styles.css', [], $v);
-    wp_enqueue_script('eventboerse-app', get_template_directory_uri() . '/app.js', [], $v, true);
+    $ver = '2.9.4';
+    wp_enqueue_style('eb-styles', get_template_directory_uri() . '/styles.css', [], $ver);
+    wp_enqueue_script('eb-app', get_template_directory_uri() . '/app.js', [], $ver, true);
 
-    // Pass data to JS
-    wp_localize_script('eventboerse-app', 'eventboerseApi', [
-        'restUrl'      => esc_url_raw(rest_url('eventboerse/v1/')),
-        'nonce'        => wp_create_nonce('wp_rest'),
-        'userId'       => get_current_user_id(),
-        'siteUrl'      => get_site_url(),
-        'themeUrl'     => get_template_directory_uri(),
-        'vapidPublicKey' => EB_VAPID_PUBLIC_KEY,
-        'swUrl'        => get_template_directory_uri() . '/sw.js',
+    // Pass config to frontend
+    wp_localize_script('eb-app', 'eventboerseApi', [
+        'restUrl'   => esc_url_raw(rest_url('eventboerse/v1/')),
+        'nonce'     => wp_create_nonce('wp_rest'),
+        'sseUrl'    => esc_url_raw(rest_url('eventboerse/v1/sse/')),
+        'currentUser' => is_user_logged_in() ? [
+            'id'    => get_current_user_id(),
+            'name'  => wp_get_current_user()->display_name,
+            'email' => wp_get_current_user()->user_email,
+            'role'  => get_user_meta(get_current_user_id(), 'eb_role', true),
+        ] : null,
     ]);
 });
 
-// Add manifest.json link to head
-add_action('wp_head', function () {
-    echo '<link rel="manifest" href="' . get_template_directory_uri() . '/manifest.json">' . "\n";
-    echo '<meta name="theme-color" content="#6C47FF">' . "\n";
-});
+// Disable WordPress bloat
+add_action('wp_enqueue_scripts', function () {
+    wp_dequeue_style('wp-block-library');
+    wp_dequeue_style('wp-block-library-theme');
+    wp_dequeue_script('wp-embed');
+}, 100);
 
-// ============================================================
-// URL REWRITES (SPA Routes)
-// ============================================================
+remove_action('wp_head', 'print_emoji_detection_script', 7);
+remove_action('wp_print_styles', 'print_emoji_styles');
+
+// ─── SPA Rewrites ───────────────────────────────────────────────────────────
 
 add_action('init', function () {
     $spa_pages = [
-        'browse', 'detail', 'chat', 'board', 'profile', 'settings',
-        'admin', 'login', 'register', 'messages', 'favorites',
-        'inserat-erstellen', 'meine-inserate', 'provider',
+        'browse', 'nachrichten', 'profil', 'einstellungen',
+        'favoriten', 'board', 'admin', 'login', 'registrieren',
+        'inserat-erstellen', 'meine-inserate', 'passwort-vergessen',
+        'passwort-zuruecksetzen', 'email-bestaetigen',
+        // Legal
         'agb', 'agb-b2b', 'agb-dienstleister', 'datenschutz',
         'impressum', 'cookies', 'widerruf', 'community',
         'bewertungen', 'upload', 'dsa', 'p2b', 'marktplatz',
-        'barrierefreiheit', 'vsbg', 'offline',
+        'barrierefreiheit', 'vsbg',
     ];
+
     foreach ($spa_pages as $page) {
-        add_rewrite_rule('^' . $page . '(/.*)?$', 'index.php', 'top');
+        add_rewrite_rule('^' . $page . '/?$', 'index.php', 'top');
     }
+
     add_rewrite_rule('^listing/([0-9]+)/?$', 'index.php', 'top');
-    add_rewrite_rule('^kategorie/([^/]+)/?$', 'index.php', 'top');
+    add_rewrite_rule('^provider/([0-9]+)/?$', 'index.php', 'top');
+    add_rewrite_rule('^kategorie/([a-z0-9-]+)/?$', 'index.php', 'top');
+    add_rewrite_rule('^chat/([0-9]+)/?$', 'index.php', 'top');
 });
 
-add_filter('query_vars', function ($vars) {
-    $vars[] = 'spa_page';
-    return $vars;
-});
-
-// ============================================================
-// DATABASE SETUP
-// ============================================================
-
-register_activation_hook(__FILE__, 'eb_create_tables');
-add_action('init', 'eb_maybe_create_tables');
-
-function eb_maybe_create_tables() {
-    if (get_option('eb_db_version') !== '1.9') {
-        eb_create_tables();
-    }
-}
+// ─── Database Tables ─────────────────────────────────────────────────────────
 
 function eb_create_tables() {
     global $wpdb;
     $charset = $wpdb->get_charset_collate();
 
-    $listings_sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_listings (
-        id bigint(20) NOT NULL AUTO_INCREMENT,
-        user_id bigint(20) NOT NULL,
+    $sql = "
+    CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_listings (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) unsigned NOT NULL,
         title varchar(255) NOT NULL,
         description longtext,
         category varchar(100),
         category_label varchar(100),
         price_model varchar(50),
         price_label varchar(100),
-        price_amount decimal(10,2) DEFAULT 0,
+        price decimal(10,2),
         location varchar(255),
         region varchar(100),
         features longtext,
@@ -126,105 +96,228 @@ function eb_create_tables() {
         date_to date,
         time_from time,
         time_to time,
-        status varchar(20) DEFAULT 'active',
+        status enum('active','inactive','pending') DEFAULT 'active',
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         KEY user_id (user_id),
-        KEY category (category),
-        KEY status (status)
-    ) $charset;";
+        KEY status (status),
+        KEY category (category)
+    ) $charset;
 
-    $reviews_sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_reviews (
-        id bigint(20) NOT NULL AUTO_INCREMENT,
-        listing_id bigint(20) NOT NULL,
-        author_id bigint(20) NOT NULL,
+    CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_reviews (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        listing_id bigint(20) unsigned NOT NULL,
+        author_id bigint(20) unsigned NOT NULL,
         rating tinyint(1) NOT NULL,
         comment text,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         KEY listing_id (listing_id),
         KEY author_id (author_id)
-    ) $charset;";
+    ) $charset;
 
-    $conversations_sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_conversations (
-        id bigint(20) NOT NULL AUTO_INCREMENT,
-        user_a bigint(20) NOT NULL,
-        user_b bigint(20) NOT NULL,
-        listing_id bigint(20),
+    CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_conversations (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        user_a bigint(20) unsigned NOT NULL,
+        user_b bigint(20) unsigned NOT NULL,
+        listing_id bigint(20) unsigned,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        KEY user_a (user_a),
-        KEY user_b (user_b)
-    ) $charset;";
+        UNIQUE KEY user_pair (user_a, user_b),
+        KEY listing_id (listing_id)
+    ) $charset;
 
-    $messages_sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_messages (
-        id bigint(20) NOT NULL AUTO_INCREMENT,
-        conversation_id bigint(20) NOT NULL,
-        sender_id bigint(20) NOT NULL,
-        message_type varchar(50) DEFAULT 'text',
+    CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_messages (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        conversation_id bigint(20) unsigned NOT NULL,
+        sender_id bigint(20) unsigned NOT NULL,
+        type varchar(50) DEFAULT 'text',
         content longtext,
-        metadata longtext,
-        offer_status varchar(20),
-        read_at datetime,
+        offer_amount decimal(10,2),
+        offer_status varchar(50),
+        is_read tinyint(1) DEFAULT 0,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         KEY conversation_id (conversation_id),
-        KEY sender_id (sender_id)
-    ) $charset;";
+        KEY sender_id (sender_id),
+        KEY is_read (is_read),
+        KEY created_at (created_at)
+    ) $charset;
+
+    CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_board_projects (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) unsigned NOT NULL,
+        data longtext NOT NULL,
+        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY user_id (user_id)
+    ) $charset;
+    ";
 
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-    dbDelta($listings_sql);
-    dbDelta($reviews_sql);
-    dbDelta($conversations_sql);
-    dbDelta($messages_sql);
-
-    update_option('eb_db_version', '1.9');
+    dbDelta($sql);
 }
 
-// ============================================================
-// CORS + REST API HEADERS
-// ============================================================
+add_action('after_switch_theme', 'eb_create_tables');
 
-add_action('rest_api_init', function () {
-    remove_filter('rest_pre_serve_request', 'rest_send_cors_headers');
-    add_filter('rest_pre_serve_request', function ($value) {
-        $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-        $allowed = [get_site_url()];
-        if (in_array($origin, $allowed) || (defined('WP_DEBUG') && WP_DEBUG)) {
-            header('Access-Control-Allow-Origin: ' . esc_url_raw($origin));
-        }
-        header('Access-Control-Allow-Credentials: true');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, X-WP-Nonce, Authorization');
-        return $value;
-    });
-});
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// ============================================================
-// HELPERS
-// ============================================================
+function eb_avatar_url(int $user_id, int $size = 80): string {
+    $photo = get_user_meta($user_id, 'eb_photo_url', true);
+    if ($photo) return esc_url($photo);
 
-function eb_current_user_id() {
+    $user  = get_userdata($user_id);
+    $name  = $user ? $user->display_name : 'U';
+    $seed  = substr(md5($name), 0, 8);
+    $hue   = hexdec(substr($seed, 0, 2)) % 360;
+    $letter = strtoupper(mb_substr($name, 0, 1));
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' . $size . '" height="' . $size . '" viewBox="0 0 ' . $size . ' ' . $size . '">'
+         . '<circle cx="' . ($size/2) . '" cy="' . ($size/2) . '" r="' . ($size/2) . '" fill="hsl(' . $hue . ',60%,50%)"/>'
+         . '<text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="' . round($size*0.4) . '" font-family="Inter,sans-serif" fill="#fff">' . esc_html($letter) . '</text>'
+         . '</svg>';
+    return 'data:image/svg+xml;base64,' . base64_encode($svg);
+}
+
+function eb_current_user_id(): int {
     return get_current_user_id();
 }
 
-function eb_is_logged_in() {
-    return is_user_logged_in();
+function eb_is_admin(): bool {
+    return current_user_can('administrator');
 }
 
-function eb_json_error($message, $code = 400, $data = []) {
-    return new WP_Error('eb_error', $message, array_merge(['status' => $code], $data));
+function eb_error(string $code, string $message, int $status = 400): WP_Error {
+    return new WP_Error($code, $message, ['status' => $status]);
 }
 
-function eb_get_user_meta($user_id, $key) {
-    return get_user_meta($user_id, $key, true);
+/**
+ * Check if a user is a participant in a conversation.
+ */
+function eb_user_in_conversation(int $conv_id, int $user_id): bool {
+    global $wpdb;
+    $conv = $wpdb->get_row($wpdb->prepare(
+        "SELECT user_a, user_b FROM {$wpdb->prefix}eb_conversations WHERE id = %d",
+        $conv_id
+    ));
+    if (!$conv) return false;
+    return ((int)$conv->user_a === $user_id || (int)$conv->user_b === $user_id);
 }
 
-function eb_update_user_meta($user_id, $key, $value) {
-    return update_user_meta($user_id, $key, $value);
-}
+// ─── REST API Bootstrap ──────────────────────────────────────────────────────
 
-function eb_format_user($user_id) {
-    $user = get_userdata($user_id
+add_action('rest_api_init', function () {
+    $ns = 'eventboerse/v1';
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+
+    register_rest_route($ns, '/register', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_register',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/register/verify', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_verify_registration',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/register/resend', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_resend_verification',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/login', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_login',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/logout', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_logout',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
+
+    register_rest_route($ns, '/me', [
+        'methods'             => 'GET',
+        'callback'            => 'eb_me',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
+
+    register_rest_route($ns, '/forgot-password', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_forgot_password',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/reset-password', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_reset_password',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/verify-email', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_verify_email',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/resend-verification', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_resend_verification',
+        'permission_callback' => '__return_true',
+    ]);
+
+    // ── OTP ───────────────────────────────────────────────────────────────────
+
+    register_rest_route($ns, '/otp/send', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_otp_send',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/otp/verify', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_otp_verify',
+        'permission_callback' => '__return_true',
+    ]);
+
+    // ── Profile & Settings ────────────────────────────────────────────────────
+
+    register_rest_route($ns, '/profile', [
+        [
+            'methods'             => 'GET',
+            'callback'            => 'eb_get_profile',
+            'permission_callback' => 'is_user_logged_in',
+        ],
+        [
+            'methods'             => 'PUT',
+            'callback'            => 'eb_update_profile',
+            'permission_callback' => 'is_user_logged_in',
+        ],
+    ]);
+
+    register_rest_route($ns, '/settings', [
+        [
+            'methods'             => 'GET',
+            'callback'            => 'eb_get_settings',
+            'permission_callback' => 'is_user_logged_in',
+        ],
+        [
+            'methods'             => 'PUT',
+            'callback'            => 'eb_update_settings',
+            'permission_callback' => 'is_user_logged_in',
+        ],
+    ]);
+
+    register_rest_route($ns, '/settings/password', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_change_password',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
+
+    register_rest_route($ns, '/settings/delete-account', [
