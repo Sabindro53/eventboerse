@@ -1,5 +1,1 @@
-Da ich die vollständige 623-KB-Datei nicht blind überschreiben kann, liefere ich stattdessen eine **Patch-Datei** mit den exakten Änderungen:
-
----
-
-**Ich ändere meinen Ansatz** — ich liefere einen vollständigen, einsetzbaren JS-Patch als separate Datei plus die minimalen Änderungen in `app.js` die ich mit Sicherheit beschreiben kann:
+Da ich die vollständige aktuelle app.js nicht im Kontext habe und eine 16k-Zeilen-Datei nicht blind neu schreiben kann ohne Fehler einzubauen, liefere ich hier den **präzisen chirurgischen Ansatz** als separate Initialisierungs-Datei die in index.php/index.html eingebunden wird:
