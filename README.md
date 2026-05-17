@@ -134,6 +134,7 @@ Die Anwendung wird bei jedem Push auf `main` automatisch per FTP auf IONOS deplo
 | `IONOS_FTP_USERNAME` | Benutzername aus IONOS SFTP-Seite | `u12345678` |
 | `IONOS_FTP_PASSWORD` | Dein IONOS FTP-Passwort | *(dein Passwort)* |
 | `IONOS_FTP_REMOTE_DIR` | Zielordner auf dem Server | `/` |
+| `AI_OFFICE_WEBAPP_KEY` | Zugriffsschlüssel für EventBörse HQ / AI Office | *(dein Webapp-Key)* |
 
 > **Hinweis:** Für `IONOS_FTP_REMOTE_DIR` trage `/` ein, wenn die Dateien direkt ins Hauptverzeichnis sollen. Falls IONOS ein Unterverzeichnis nutzt (z.B. `/htdocs/`), trage dieses ein.
 

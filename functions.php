@@ -4756,6 +4756,7 @@ function eb_load_env_value( $key ) {
         'private_stripe_api_key' => 'EB_STRIPE_SECRET_KEY',
         'stripe_webhook_secret'  => 'EB_STRIPE_WEBHOOK_SECRET',
         'STRIPE_WEBHOOK_SECRET'  => 'EB_STRIPE_WEBHOOK_SECRET',
+        'ai_office_webapp_key'   => 'AI_OFFICE_WEBAPP_KEY',
     );
     if ( isset( $const_map[ $key ] ) && defined( $const_map[ $key ] ) ) {
         $val = constant( $const_map[ $key ] );
@@ -4768,6 +4769,7 @@ function eb_load_env_value( $key ) {
         'public_stripe_api_key'  => array( 'public_stripe_key', 'puplic_stripe_key', 'STRIPE_PUBLIC_KEY', 'STRIPE_PUBLISHABLE_KEY' ),
         'private_stripe_api_key' => array( 'private_stripe_key', 'STRIPE_SECRET_KEY', 'STRIPE_PRIVATE_KEY' ),
         'stripe_webhook_secret'  => array( 'STRIPE_WEBHOOK_SECRET', 'webhook_secret' ),
+        'ai_office_webapp_key'   => array( 'AI_OFFICE_WEBAPP_KEY', 'ai_office_webapp_key' ),
     );
     static $cache = null;
     if ( $cache === null ) {
