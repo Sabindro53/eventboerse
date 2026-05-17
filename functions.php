@@ -2,176 +2,131 @@
 <?php
 /**
  * EventBörse Theme Functions
- * WordPress REST API + SSE Notifications
+ * WordPress REST API – alle Endpoints
  *
- * @package eventboerse
+ * Search-Update: GET /listings unterstützt jetzt
+ *   ?search=, ?category=, ?location=, ?region=,
+ *   ?price_min=, ?price_max=, ?sort=, ?page=, ?per_page=
  */
 
-// ─── Prevent direct access ────────────────────────────────────────────────────
+// ─── Sicherheit ────────────────────────────────────────────────────────────
 if (!defined('ABSPATH')) exit;
 
-// ─── Theme Setup ──────────────────────────────────────────────────────────────
-function eb_theme_setup() {
+// ─── Theme-Setup ───────────────────────────────────────────────────────────
+add_action('after_setup_theme', function () {
     add_theme_support('title-tag');
     add_theme_support('post-thumbnails');
-}
-add_action('after_setup_theme', 'eb_theme_setup');
+});
 
-// ─── Asset Registration ───────────────────────────────────────────────────────
-function eb_enqueue_scripts() {
-    $ver = '2.9.1';
-    wp_enqueue_style('eb-styles', get_template_directory_uri() . '/styles.css', [], $ver);
-    wp_enqueue_script('eb-app', get_template_directory_uri() . '/app.js', [], $ver, true);
+// ─── Assets ────────────────────────────────────────────────────────────────
+add_action('wp_enqueue_scripts', function () {
+    $v = '2.9.1'; // bump bei JS/CSS-Änderungen
+    wp_enqueue_style('eb-styles',  get_template_directory_uri() . '/styles.css', [], $v);
+    wp_enqueue_script('eb-app',    get_template_directory_uri() . '/app.js',     [], $v, true);
 
-    // Pass config to frontend
+    // Nonce + API-URL für app.js
     wp_localize_script('eb-app', 'eventboerseApi', [
-        'restUrl'   => esc_url_raw(rest_url('eventboerse/v1/')),
-        'nonce'     => wp_create_nonce('wp_rest'),
-        'userId'    => get_current_user_id(),
-        'isLoggedIn'=> is_user_logged_in(),
-        'siteUrl'   => get_site_url(),
+        'restUrl' => esc_url_raw(rest_url('eventboerse/v1/')),
+        'nonce'   => wp_create_nonce('wp_rest'),
+        'userId'  => get_current_user_id(),
+        'siteUrl' => get_site_url(),
     ]);
-}
-add_action('wp_enqueue_scripts', 'eb_enqueue_scripts');
 
-// ─── Remove WordPress bloat ───────────────────────────────────────────────────
-remove_action('wp_head', 'print_emoji_detection_script', 7);
-remove_action('wp_print_scripts', 'print_emoji_detection_script');
-remove_action('wp_head', 'wp_generator');
-remove_action('wp_head', 'wlwmanifest_link');
-remove_action('wp_head', 'rsd_link');
-add_filter('show_admin_bar', '__return_false');
+    // WordPress-Bloat entfernen
+    wp_dequeue_style('wp-block-library');
+    wp_dequeue_style('global-styles');
+});
 
-// ─── SPA Rewrites ─────────────────────────────────────────────────────────────
-function eb_add_rewrites() {
-    // FIX 1: Vollständiges $spa_pages Array mit korrekter schließender Klammer
-    $spa_pages = [
-        'browse',
-        'messages',
-        'chat',
-        'profile',
-        'settings',
-        'favorites',
-        'board',
-        'inserat-erstellen',
-        'meine-inserate',
-        'admin',
-        'login',
-        'register',
-        'forgot-password',
-        'reset-password',
-        'verify-email',
-        'agb',
-        'agb-b2b',
-        'agb-dienstleister',
-        'datenschutz',
-        'impressum',
-        'cookies',
-        'widerruf',
-        'community',
-        'bewertungen',
-        'upload',
-        'dsa',
-        'p2b',
-        'marktplatz',
-        'barrierefreiheit',
-        'vsbg',
-    ]; // ← schließende Klammer für $spa_pages Array
+// ─── REST API registrieren ──────────────────────────────────────────────────
+add_action('rest_api_init', function () {
 
-    foreach ($spa_pages as $page) {
-        add_rewrite_rule('^' . preg_quote($page, '/') . '/?$', 'index.php', 'top');
-    }
-
-    // Dynamic routes
-    add_rewrite_rule('^listing/([0-9]+)/?$',    'index.php?eb_listing=$1',  'top');
-    add_rewrite_rule('^provider/([0-9]+)/?$',   'index.php?eb_provider=$1', 'top');
-    add_rewrite_rule('^kategorie/([a-z0-9-]+)/?$', 'index.php?eb_category=$1', 'top');
-}
-add_action('init', 'eb_add_rewrites');
-
-function eb_register_query_vars($vars) {
-    $vars[] = 'eb_listing';
-    $vars[] = 'eb_provider';
-    $vars[] = 'eb_category';
-    return $vars;
-}
-add_filter('query_vars', 'eb_register_query_vars');
-
-// ─── REST API Registration ────────────────────────────────────────────────────
-add_action('rest_api_init', 'eb_register_routes');
-
-function eb_register_routes() {
     $ns = 'eventboerse/v1';
 
-    // ── Auth ──────────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/register',           ['methods' => 'POST', 'callback' => 'eb_register',           'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/register/verify',    ['methods' => 'POST', 'callback' => 'eb_register_verify',    'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/register/resend',    ['methods' => 'POST', 'callback' => 'eb_register_resend',    'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/login',              ['methods' => 'POST', 'callback' => 'eb_login',              'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/logout',             ['methods' => 'POST', 'callback' => 'eb_logout',             'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/me',                 ['methods' => 'GET',  'callback' => 'eb_me',                 'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/forgot-password',    ['methods' => 'POST', 'callback' => 'eb_forgot_password',    'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/verify-email',       ['methods' => 'POST', 'callback' => 'eb_verify_email',       'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/reset-password',     ['methods' => 'POST', 'callback' => 'eb_reset_password',     'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/resend-verification',['methods' => 'POST', 'callback' => 'eb_resend_verification','permission_callback' => '__return_true']);
+    // ── Auth ─────────────────────────────────────────────────────────────
+    register_rest_route($ns, '/register',         ['methods' => 'POST', 'callback' => 'eb_register',           'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/register/verify',  ['methods' => 'POST', 'callback' => 'eb_verify_register',    'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/register/resend',  ['methods' => 'POST', 'callback' => 'eb_resend_verify',      'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/login',            ['methods' => 'POST', 'callback' => 'eb_login',              'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/logout',           ['methods' => 'POST', 'callback' => 'eb_logout',             'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/me',               ['methods' => 'GET',  'callback' => 'eb_me',                 'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/forgot-password',  ['methods' => 'POST', 'callback' => 'eb_forgot_password',    'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/verify-email',     ['methods' => 'POST', 'callback' => 'eb_verify_email',       'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/reset-password',   ['methods' => 'POST', 'callback' => 'eb_reset_password',     'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/resend-verification', ['methods' => 'POST', 'callback' => 'eb_resend_verification', 'permission_callback' => '__return_true']);
 
-    // ── Profile / Settings ────────────────────────────────────────────────────
-    register_rest_route($ns, '/profile',            ['methods' => ['GET','PUT'], 'callback' => 'eb_profile',         'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/settings',           ['methods' => ['GET','PUT'], 'callback' => 'eb_settings',        'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/settings/password',  ['methods' => 'POST',        'callback' => 'eb_change_password', 'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/settings/2fa',       ['methods' => ['POST','DELETE'], 'callback' => 'eb_toggle_2fa', 'permission_callback' => 'is_user_logged_in']);
+    // ── OTP / 2FA ─────────────────────────────────────────────────────────
+    register_rest_route($ns, '/otp/send',         ['methods' => 'POST', 'callback' => 'eb_otp_send',           'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/otp/verify',       ['methods' => 'POST', 'callback' => 'eb_otp_verify',         'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/settings/2fa',     ['methods' => ['POST','DELETE'], 'callback' => 'eb_2fa_toggle', 'permission_callback' => 'is_user_logged_in']);
+
+    // ── Profil / Settings ─────────────────────────────────────────────────
+    register_rest_route($ns, '/profile',          ['methods' => ['GET','PUT'], 'callback' => 'eb_profile',     'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/settings',         ['methods' => ['GET','PUT'], 'callback' => 'eb_settings',    'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/settings/password',['methods' => 'POST', 'callback' => 'eb_change_password',   'permission_callback' => 'is_user_logged_in']);
     register_rest_route($ns, '/settings/delete-account', ['methods' => 'DELETE', 'callback' => 'eb_delete_account', 'permission_callback' => 'is_user_logged_in']);
 
-    // ── OTP ───────────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/otp/send',   ['methods' => 'POST', 'callback' => 'eb_otp_send',   'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/otp/verify', ['methods' => 'POST', 'callback' => 'eb_otp_verify', 'permission_callback' => '__return_true']);
+    // ── Listings ──────────────────────────────────────────────────────────
+    register_rest_route($ns, '/listings', [
+        ['methods' => 'GET',  'callback' => 'eb_get_listings',    'permission_callback' => '__return_true'],
+        ['methods' => 'POST', 'callback' => 'eb_create_listing',  'permission_callback' => 'is_user_logged_in'],
+    ]);
+    register_rest_route($ns, '/listings/(?P<id>\d+)', [
+        ['methods' => 'GET', 'callback' => 'eb_get_listing',      'permission_callback' => '__return_true'],
+        ['methods' => 'PUT', 'callback' => 'eb_update_listing',   'permission_callback' => 'is_user_logged_in'],
+        ['methods' => 'DELETE', 'callback' => 'eb_delete_listing','permission_callback' => 'is_user_logged_in'],
+    ]);
+    register_rest_route($ns, '/listings/(?P<id>\d+)/reviews', ['methods' => 'GET', 'callback' => 'eb_get_listing_reviews', 'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/my-listings',      ['methods' => 'GET',  'callback' => 'eb_my_listings',       'permission_callback' => 'is_user_logged_in']);
 
-    // ── WebAuthn ──────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/webauthn/register-options', ['methods' => 'POST', 'callback' => 'eb_webauthn_register_options', 'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/webauthn/register',         ['methods' => 'POST', 'callback' => 'eb_webauthn_register',         'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/webauthn/verify-register',  ['methods' => 'POST', 'callback' => 'eb_webauthn_verify_register',  'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/webauthn/login-options',    ['methods' => 'POST', 'callback' => 'eb_webauthn_login_options',    'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/webauthn/login',            ['methods' => 'POST', 'callback' => 'eb_webauthn_login',            'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/webauthn/verify-options',   ['methods' => 'POST', 'callback' => 'eb_webauthn_verify_options',   'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/webauthn/credentials',      ['methods' => 'GET',  'callback' => 'eb_webauthn_credentials',      'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/webauthn/credentials/(?P<credential_id>[A-Za-z0-9_-]+)', ['methods' => 'DELETE', 'callback' => 'eb_webauthn_delete_credential', 'permission_callback' => 'is_user_logged_in']);
+    // ── Provider ──────────────────────────────────────────────────────────
+    register_rest_route($ns, '/provider/(?P<id>\d+)', ['methods' => 'GET', 'callback' => 'eb_get_provider',   'permission_callback' => '__return_true']);
 
-    // ── Listings ──────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/listings',           ['methods' => ['GET','POST'], 'callback' => 'eb_listings',        'permission_callback' => 'eb_listings_permission']);
-    register_rest_route($ns, '/listings/(?P<id>\d+)',['methods' => ['GET','PUT','DELETE'], 'callback' => 'eb_listing_single', 'permission_callback' => 'eb_listing_permission']);
-    register_rest_route($ns, '/listings/(?P<id>\d+)/reviews', ['methods' => 'GET', 'callback' => 'eb_listing_reviews', 'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/my-listings',        ['methods' => 'GET', 'callback' => 'eb_my_listings',     'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/provider/(?P<id>\d+)',['methods' => 'GET', 'callback' => 'eb_provider_profile','permission_callback' => '__return_true']);
-
-    // ── Reviews ───────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/reviews/(?P<id>\d+)', ['methods' => ['GET','POST'], 'callback' => 'eb_reviews', 'permission_callback' => 'eb_reviews_permission']);
-
-    // ── Messaging ─────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/conversations',              ['methods' => ['GET','POST'], 'callback' => 'eb_conversations',       'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/conversations/(?P<id>\d+)/messages', ['methods' => ['GET','POST'], 'callback' => 'eb_conversation_messages', 'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/messages/(?P<id>\d+)',       ['methods' => ['GET','PUT'], 'callback' => 'eb_message_single',      'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/messages/(?P<id>\d+)/offer-status', ['methods' => 'PUT', 'callback' => 'eb_offer_status',         'permission_callback' => 'is_user_logged_in']);
-
-    // ── SSE Notifications (FIX 3: Explizite Auth-Permission) ──────────────────
-    register_rest_route($ns, '/notifications/stream', [
-        'methods'             => 'GET',
-        'callback'            => 'eb_sse_stream',
-        'permission_callback' => 'eb_sse_permission', // ← explizite Funktion, nicht __return_true
+    // ── Reviews ───────────────────────────────────────────────────────────
+    register_rest_route($ns, '/reviews/(?P<id>\d+)', [
+        ['methods' => 'POST',   'callback' => 'eb_post_review',   'permission_callback' => 'is_user_logged_in'],
+        ['methods' => 'DELETE', 'callback' => 'eb_delete_review', 'permission_callback' => 'is_user_logged_in'],
     ]);
 
-    // ── Unread-Count (polling fallback) ───────────────────────────────────────
-    register_rest_route($ns, '/notifications/unread-count', [
-        'methods'             => 'GET',
-        'callback'            => 'eb_get_unread_count',
-        'permission_callback' => 'is_user_logged_in',
+    // ── Messaging ─────────────────────────────────────────────────────────
+    register_rest_route($ns, '/conversations',    ['methods' => ['GET','POST'], 'callback' => 'eb_conversations', 'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/conversations/(?P<id>\d+)/messages', ['methods' => ['GET','POST'], 'callback' => 'eb_messages', 'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/messages/(?P<id>\d+)',              ['methods' => 'GET',  'callback' => 'eb_get_message',      'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/messages/(?P<id>\d+)/offer-status', ['methods' => 'PUT',  'callback' => 'eb_offer_status',     'permission_callback' => 'is_user_logged_in']);
+
+    // ── Favorites ─────────────────────────────────────────────────────────
+    register_rest_route($ns, '/favorites',                  ['methods' => 'GET',    'callback' => 'eb_get_favorites',    'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/favorites/(?P<listing_id>\d+)', [
+        ['methods' => 'POST',   'callback' => 'eb_add_favorite',    'permission_callback' => 'is_user_logged_in'],
+        ['methods' => 'DELETE', 'callback' => 'eb_remove_favorite', 'permission_callback' => 'is_user_logged_in'],
     ]);
 
-    // ── Board ─────────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/board-projects', ['methods' => ['GET','POST','PUT','DELETE'], 'callback' => 'eb_board_projects', 'permission_callback' => 'is_user_logged_in']);
+    // ── Board ─────────────────────────────────────────────────────────────
+    register_rest_route($ns, '/board-projects', [
+        ['methods' => 'GET',  'callback' => 'eb_get_board_projects',    'permission_callback' => 'is_user_logged_in'],
+        ['methods' => 'POST', 'callback' => 'eb_save_board_projects',   'permission_callback' => 'is_user_logged_in'],
+    ]);
 
-    // ── Favorites ─────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/favorites',              ['methods' => ['GET','POST'], 'callback' => 'eb_favorites',       'permission_callback' => 'is_user_logged_in']);
-    register_rest_route($ns, '/favorites/(?P<listing_id>\d+)', ['methods' => 'DELETE', 'callback' => 'eb_favorite_delete', 'permission_callback' => 'is_user_logged_in']);
+    // ── Payments / Stripe ─────────────────────────────────────────────────
+    register_rest_route($ns, '/stripe/public-key',          ['methods' => 'GET',  'callback' => 'eb_stripe_public_key',      'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/stripe/create-checkout',     ['methods' => 'POST', 'callback' => 'eb_stripe_create_checkout', 'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/stripe/create-payment-intent',['methods' => 'POST','callback' => 'eb_stripe_create_intent',   'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/stripe/verify-payment',      ['methods' => 'POST', 'callback' => 'eb_stripe_verify',          'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/stripe/reconcile',           ['methods' => 'POST', 'callback' => 'eb_stripe_reconcile',       'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/stripe/webhook',             ['methods' => 'POST', 'callback' => 'eb_stripe_webhook',         'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/send-invoice',               ['methods' => 'POST', 'callback' => 'eb_send_invoice',           'permission_callback' => 'is_user_logged_in']);
 
-    // ── Payments ──────────────────────────────────────────────────────────────
-    register_rest_route($ns, '/stripe/public-key',         ['methods
+    // ── Upload ────────────────────────────────────────────────────────────
+    register_rest_route($ns, '/upload',           ['methods' => 'POST', 'callback' => 'eb_handle_upload',      'permission_callback' => 'is_user_logged_in']);
+
+    // ── User-Status ───────────────────────────────────────────────────────
+    register_rest_route($ns, '/user-status/(?P<id>\d+)', ['methods' => 'GET', 'callback' => 'eb_user_status',  'permission_callback' => '__return_true']);
+
+    // ── Registrations ─────────────────────────────────────────────────────
+    register_rest_route($ns, '/registrations',            ['methods' => ['GET','POST'], 'callback' => 'eb_registrations',       'permission_callback' => 'is_user_logged_in']);
+    register_rest_route($ns, '/registrations/(?P<id>\d+)',['methods' => ['PUT','DELETE'],'callback' => 'eb_registration_item',  'permission_callback' => 'is_user_logged_in']);
+
+    // ── Admin ─────────────────────────────────────────────────────────────
+    register_rest_route($ns, '/admin/users',              ['methods' => 'GET',    'callback' => 'eb_admin_users',       'permission_callback' => 'eb_is_admin']);
+    register_rest_route($ns, '/admin/user-tags',          ['methods' => ['GET','PUT'], 'callback' => 'eb_admin_user_tags', 'permission_callback' => 'eb_is_admin']);
+    register_rest_route($ns, '/admin/all-tags',           ['methods' => 'GET',    'callback' => 'eb_admin_all_tags',    'permission_callback' => 'eb_is_admin']);
+    register_rest_route($ns, '/admin/delete-
