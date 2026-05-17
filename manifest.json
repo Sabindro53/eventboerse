@@ -1,0 +1,97 @@
+```json
+{
+  "name": "Eventbörse",
+  "short_name": "Eventbörse",
+  "description": "Dein Marktplatz für Event-Planer und Dienstleister — DJs, Catering, Fotografie, Locations & mehr.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#6c63ff",
+  "background_color": "#0f0f23",
+  "lang": "de",
+  "categories": ["business", "lifestyle"],
+  "icons": [
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/wp-content/themes/eventboerse/screenshots/home.jpg",
+      "sizes": "1280x720",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Eventbörse Startseite"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/screenshots/browse.jpg",
+      "sizes": "390x844",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Dienstleister entdecken"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dienstleister suchen",
+      "short_name": "Suchen",
+      "url": "/browse",
+      "icons": [
+        {
+          "src": "/wp-content/themes/eventboerse/icons/shortcut-browse.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Nachrichten",
+      "short_name": "Nachrichten",
+      "url": "/messages",
+      "icons": [
+        {
+          "src": "/wp-content/themes/eventboerse/icons/shortcut-messages.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Event-Board",
+      "short_name": "Board",
+      "url": "/board",
+      "icons": [
+        {
+          "src": "/wp-content/themes/eventboerse/icons/shortcut-board.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
+```

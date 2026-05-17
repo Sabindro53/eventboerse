@@ -1,0 +1,62 @@
+```html
+<!DOCTYPE html>
+<!--
+  Eventbörse PWA Icon Generator
+  Lokal öffnen → Icons herunterladen → in /icons/ ablegen
+  Einmalig nötig. Nicht auf den Server deployen.
+-->
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Icon Generator</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; background: #1a1a2e; color: #fff; }
+  canvas { display: block; margin: 10px 0; border: 1px solid #444; }
+  button { margin: 5px; padding: 8px 16px; background: #6c63ff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+  .section { margin: 30px 0; }
+</style>
+</head>
+<body>
+<h1>Eventbörse — PWA Icon Generator</h1>
+<p>Klicke "Alle generieren" → Icons werden als PNG heruntergeladen → in <code>/icons/</code> ablegen.</p>
+<button onclick="generateAll()">🚀 Alle generieren</button>
+
+<div id="output"></div>
+
+<script>
+var THEME_COLOR = '#6c63ff';
+var BG_COLOR = '#0f0f23';
+var BG_MASKABLE = '#6c63ff'; // Maskable: safe zone als Vollfarbe
+
+function drawIcon(canvas, size, maskable) {
+  var ctx = canvas.getContext('2d');
+  canvas.width = size;
+  canvas.height = size;
+
+  if (maskable) {
+    // Maskable: kompletter Hintergrund in Brand-Farbe
+    ctx.fillStyle = BG_MASKABLE;
+    ctx.fillRect(0, 0, size, size);
+  } else {
+    // Regulär: dunkler Hintergrund mit leichtem Verlauf
+    var grad = ctx.createLinearGradient(0, 0, size, size);
+    grad.addColorStop(0, '#1a1a2e');
+    grad.addColorStop(1, '#16213e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+  }
+
+  var padding = maskable ? size * 0.2 : size * 0.12;
+  var innerSize = size - padding * 2;
+  var x = padding;
+  var y = padding;
+
+  // Haupt-Kreis / Runder Hintergrund für das "E"-Logo
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, innerSize / 2, 0, Math.PI * 2);
+  ctx.fillStyle = maskable ? 'rgba(255,255,255,0.15)' : THEME_COLOR;
+  ctx.fill();
+
+  // "E" Letter
+  var fontSize = Math.round(innerSize * 0.55);
+  ctx.font = 'bold ' + fontSize + 'px Arial,
