@@ -1,27 +1,147 @@
 ```json
 {
-    "name": "EventBörse",
-    "short_name": "EventBörse",
-    "description": "Der deutsche Marktplatz für Event-Planer und Dienstleister",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#6C47FF",
-    "orientation": "portrait-primary",
-    "lang": "de",
-    "icons": [
+  "name": "Eventbörse – Dein Event-Marktplatz",
+  "short_name": "Eventbörse",
+  "description": "Verbinde Event-Planer mit Dienstleistern: DJs, Catering, Fotografie, Locations und mehr.",
+  "start_url": "/?utm_source=pwa&utm_medium=homescreen",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0f0f",
+  "theme_color": "#6c47ff",
+  "lang": "de",
+  "dir": "ltr",
+  "categories": ["business", "shopping", "events"],
+  "icons": [
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/wp-content/themes/eventboerse/screenshots/screen-home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Startseite – Featured Listings"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/screenshots/screen-browse.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dienstleister entdecken"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/screenshots/screen-board.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Event-Planungs-Board"
+    },
+    {
+      "src": "/wp-content/themes/eventboerse/screenshots/screen-home-desktop.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Startseite Desktop"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dienstleister suchen",
+      "short_name": "Suchen",
+      "description": "Direkt zur Dienstleister-Suche",
+      "url": "/browse?utm_source=pwa_shortcut",
+      "icons": [
         {
-            "src": "/wp-content/themes/eventboerse/icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any maskable"
-        },
-        {
-            "src": "/wp-content/themes/eventboerse/icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "any maskable"
+          "src": "/wp-content/themes/eventboerse/icons/shortcut-browse.png",
+          "sizes": "96x96",
+          "type": "image/png"
         }
-    ]
+      ]
+    },
+    {
+      "name": "Event-Board",
+      "short_name": "Board",
+      "description": "Mein Event-Planungs-Board",
+      "url": "/board?utm_source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "/wp-content/themes/eventboerse/icons/shortcut-board.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Nachrichten",
+      "short_name": "Chat",
+      "description": "Meine Nachrichten",
+      "url": "/messages?utm_source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "/wp-content/themes/eventboerse/icons/shortcut-messages.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }
 ```
+
+---
