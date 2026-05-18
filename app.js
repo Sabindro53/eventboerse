@@ -918,7 +918,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Hide user menu
-  document.getElementById('userMenu').classList.remove('show');
+  document.getElementById('userMenu')?.classList.remove('show');
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
@@ -1003,7 +1003,7 @@ function navigateTo(page, data, skipHistory) {
     case 'profile':
       if (currentUser) {
         // Show provider page for own profile (same nice layout)
-        document.getElementById('page-profile').classList.remove('active');
+        document.getElementById('page-profile')?.classList.remove('active');
         var provPage = document.getElementById('page-provider');
         if (provPage) { provPage.classList.add('active'); currentPage = 'provider'; }
         loadDbListings().then(function() { loadProvider(currentUser.id); });
@@ -1021,7 +1021,7 @@ function navigateTo(page, data, skipHistory) {
         document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
         document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
         document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-        document.getElementById('step1').classList.add('active');
+        document.getElementById('step1')?.classList.add('active');
         // Clear Flatpickr dates
         var dfEl = document.getElementById('createDateFrom');
         var dtEl = document.getElementById('createDateTo');
