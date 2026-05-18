@@ -236,4 +236,7 @@ add_action('rest_api_init', function() {
     register_rest_route($ns, '/webauthn/register', ['methods' => 'POST', 'callback' => 'eb_webauthn_register', 'permission_callback' => 'is_user_logged_in']);
     register_rest_route($ns, '/webauthn/verify-register', ['methods' => 'POST', 'callback' => 'eb_webauthn_verify_register', 'permission_callback' => 'is_user_logged_in']);
     register_rest_route($ns, '/webauthn/login-options', ['methods' => 'POST', 'callback' => 'eb_webauthn_login_options', 'permission_callback' => '__return_true']);
-    register_rest_route($ns, '/webauthn/login',
+    register_rest_route($ns, '/webauthn/login', ['methods' => 'POST', 'callback' => 'eb_webauthn_login', 'permission_callback' => '__return_true']);
+    register_rest_route($ns, '/webauthn/verify-login', ['methods' => 'POST', 'callback' => 'eb_webauthn_verify_login', 'permission_callback' => '__return_true']);
+
+});
