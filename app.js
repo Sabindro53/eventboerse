@@ -918,7 +918,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Hide user menu
-  document.getElementById('userMenu')?.classList.remove('show');
+  document.getElementById('userMenu').classList.remove('show');
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
@@ -1003,7 +1003,7 @@ function navigateTo(page, data, skipHistory) {
     case 'profile':
       if (currentUser) {
         // Show provider page for own profile (same nice layout)
-        document.getElementById('page-profile')?.classList.remove('active');
+        document.getElementById('page-profile').classList.remove('active');
         var provPage = document.getElementById('page-provider');
         if (provPage) { provPage.classList.add('active'); currentPage = 'provider'; }
         loadDbListings().then(function() { loadProvider(currentUser.id); });
@@ -1021,7 +1021,7 @@ function navigateTo(page, data, skipHistory) {
         document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
         document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
         document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-        document.getElementById('step1')?.classList.add('active');
+        document.getElementById('step1').classList.add('active');
         // Clear Flatpickr dates
         var dfEl = document.getElementById('createDateFrom');
         var dtEl = document.getElementById('createDateTo');
@@ -7297,15 +7297,15 @@ function _applyDarkMode(on) {
 
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
-  try{initDarkMode();}catch(e){console.warn("[EB]initDarkMode",e);}
-  try{setupDragDrop();}catch(e){console.warn("[EB]setupDragDrop",e);}
-  try{initAiSearch();}catch(e){console.warn("[EB]initAiSearch",e);}
-  try{restoreSession();}catch(e){console.warn("[EB]restoreSession",e);}
-  try{updatePasskeyLoginUi();}catch(e){console.warn("[EB]updatePasskeyLoginUi",e);}
-  try{initConditionalPasskeyLogin();}catch(e){console.warn("[EB]initConditionalPasskeyLogin",e);}
-  try{initPasswordFields();}catch(e){console.warn("[EB]initPasswordFields",e);}
-  try{initDragScroll();}catch(e){console.warn("[EB]initDragScroll",e);}
-  try{initDatePickers();}catch(e){console.warn("[EB]initDatePickers",e);}
+  initDarkMode();
+  setupDragDrop();
+  initAiSearch();
+  restoreSession();
+  updatePasskeyLoginUi();
+  initConditionalPasskeyLogin();
+  initPasswordFields();
+  initDragScroll();
+  initDatePickers();
 
   // Wochentag-Pill-Toggle für Sofortbuchung im Inserat-Formular
   var _wdPicker = document.getElementById('createWeekdayPicker');
@@ -7317,10 +7317,10 @@ document.addEventListener('DOMContentLoaded', function() {
       pill.classList.toggle('selected');
     });
   }
-  try{initCityAutocomplete();}catch(e){console.warn("[EB]initCityAutocomplete",e);}
-  try{initProfileCityAutocomplete();}catch(e){console.warn("[EB]initProfileCityAutocomplete",e);}
-  try{initTimePickers();}catch(e){console.warn("[EB]initTimePickers",e);}
-  try{initFeatureSearch();}catch(e){console.warn("[EB]initFeatureSearch",e);}
+  initCityAutocomplete();
+  initProfileCityAutocomplete();
+  initTimePickers();
+  initFeatureSearch();
 
   // Clear all browse filters on fresh page load (prevent browser form restoration)
   var _clearBrowseFilters = function(){
@@ -7328,7 +7328,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var el = document.getElementById(id); if(el) el.value = '';
     });
   };
-  try{_clearBrowseFilters();}catch(e){console.warn("[EB]_clearBrowseFilters",e);}
+  _clearBrowseFilters();
   // Some browsers restore form values AFTER DOMContentLoaded – clear again after a tick
   setTimeout(_clearBrowseFilters, 0);
 
@@ -9987,7 +9987,7 @@ function applyLogin() {
   _loadFavoritesFromStorage();
   loadFavorites().catch(function(){});
   loadDbListings().then(function() {
-    try{renderFeaturedGrid();}catch(e){console.warn("[EB]renderFeaturedGrid#1",e);}
+    renderFeaturedGrid();
     renderHeroMarquees();
   }).catch(function(){});
   // Update message badge from API
@@ -11144,7 +11144,7 @@ function initFooterLogoAnimation() {
 
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', () => {
-  try{renderFeaturedGrid();}catch(e){console.warn("[EB]renderFeaturedGrid#2",e);}
+  renderFeaturedGrid();
   try {
     renderHeroMarquees();
   } catch (err) {
