@@ -1,4 +1,3 @@
-```php
 <?php
 /**
  * EventBörse – Analytics Module

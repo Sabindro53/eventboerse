@@ -1,4 +1,3 @@
-```php
 <?php
 /**
  * EventBörse – Main SPA Template
@@ -213,6 +212,3 @@ $asset_ver = '2.4.1';
 <?php wp_footer(); ?>
 </body>
 </html>
-```
-
----
