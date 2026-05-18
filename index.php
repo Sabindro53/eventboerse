@@ -114,7 +114,7 @@ $og_image_esc   = esc_url( $og_image );
 $site_name_esc  = esc_attr( $site_name );
 
 // Cache-version string for assets (increment manually on deploy)
-$asset_ver = '2.4.5'; // cache-bust;
+$asset_ver = '2.4.6'; // cache-bust;
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -306,14 +306,5 @@ $asset_ver = '2.4.5'; // cache-bust;
     </div>
   </nav>
 
-<?php
-// Restlichen Inhalt aus der statischen index.html laden
-$template_dir = get_template_directory();
-$html_file = $template_dir . '/index.html';
-
-if ( file_exists( $html_file ) ) {
-    $html = file_get_contents( $html_file );
-    // Nur den Body-Inhalt nach der Navigation extrahieren (ab Map Overlay)
-    $start = strpos( $html, '<!-- ============ MAP OVERLAY' );
-    $end   = strpos( $html, '</body>
+</body>
 </html>
