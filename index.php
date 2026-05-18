@@ -326,10 +326,10 @@ if ( file_exists( $html_file ) && is_readable( $html_file ) ) {
 
         if ( $start !== false && $end !== false && $end > $start ) {
             $content = substr( $html, $start, $end - $start );
-            // Externes app.js aus dem statischen Snapshot entfernen;
-            // im WP-Theme wird app.js bereits via wp_enqueue_script geladen.
+            // Externe <script src=...> aus dem statischen Snapshot entfernen;
+            // im WP-Theme werden Assets via wp_enqueue_script geladen.
             $content = preg_replace(
-                '#<script\b[^>]*src=["\'][^"\']*app\.js[^"\']*["\'][^>]*>\s*</script>#i',
+                '#<script\b[^>]*\bsrc=["\'][^"\']*["\'][^>]*>\s*</script>#i',
                 '',
                 $content
             );
