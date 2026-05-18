@@ -102,6 +102,21 @@ function filterDemos(arr) {
   if (!window.EB_HIDE_DEMO || !Array.isArray(arr)) return arr;
   return arr.filter(function(l) { return !isDemoListing(l); });
 }
+function _safeRun(label, fn) {
+  try {
+    if (typeof fn === 'function') fn();
+  } catch (err) {
+    console.error('Init-Fehler [' + label + ']', err);
+  }
+}
+function _removeClassById(id, cls) {
+  var el = document.getElementById(id);
+  if (el) el.classList.remove(cls);
+}
+function _addClassById(id, cls) {
+  var el = document.getElementById(id);
+  if (el) el.classList.add(cls);
+}
 
 // ========== IMAGE FALLBACK ==========
 // Manche externen Demo-URLs (Pexels) liefern 404. Damit die Karte nicht kaputt aussieht,
@@ -882,6 +897,10 @@ function _visibleListings() {
 
 function getHeroListings() {
   var all = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
+  if (window.EB_HIDE_DEMO && all.length === 0 && Array.isArray(LISTINGS) && LISTINGS.length > 0) {
+    console.warn('EB_HIDE_DEMO blendet derzeit alle Eintraege aus. Fallback auf sichtbare Basisdaten aktiv.');
+    all = LISTINGS.slice();
+  }
   if (!isLoggedIn) return all;
 
   try {
@@ -918,7 +937,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Hide user menu
-  document.getElementById('userMenu').classList.remove('show');
+  _removeClassById('userMenu', 'show');
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
@@ -1003,7 +1022,7 @@ function navigateTo(page, data, skipHistory) {
     case 'profile':
       if (currentUser) {
         // Show provider page for own profile (same nice layout)
-        document.getElementById('page-profile').classList.remove('active');
+        _removeClassById('page-profile', 'active');
         var provPage = document.getElementById('page-provider');
         if (provPage) { provPage.classList.add('active'); currentPage = 'provider'; }
         loadDbListings().then(function() { loadProvider(currentUser.id); });
@@ -1021,7 +1040,7 @@ function navigateTo(page, data, skipHistory) {
         document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
         document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
         document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-        document.getElementById('step1').classList.add('active');
+        _addClassById('step1', 'active');
         // Clear Flatpickr dates
         var dfEl = document.getElementById('createDateFrom');
         var dtEl = document.getElementById('createDateTo');
@@ -1523,6 +1542,7 @@ function _initGridCards(grid) {
 
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
+  if (!grid) return;
   var visible = getHeroListings();
   grid.innerHTML = visible.map(renderListingCard).join('');
   _initGridCards(grid);
@@ -6356,7 +6376,7 @@ function submitListing(e) {
       document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
       document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
       document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-      document.getElementById('step1').classList.add('active');
+      _addClassById('step1', 'active');
 
       // Force reload from DB on next navigation
       _dbListingsLoaded = false;
@@ -7297,15 +7317,15 @@ function _applyDarkMode(on) {
 
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
-  initDarkMode();
-  setupDragDrop();
-  initAiSearch();
-  restoreSession();
-  updatePasskeyLoginUi();
-  initConditionalPasskeyLogin();
-  initPasswordFields();
-  initDragScroll();
-  initDatePickers();
+  _safeRun('initDarkMode', initDarkMode);
+  _safeRun('setupDragDrop', setupDragDrop);
+  _safeRun('initAiSearch', initAiSearch);
+  _safeRun('restoreSession', restoreSession);
+  _safeRun('updatePasskeyLoginUi', updatePasskeyLoginUi);
+  _safeRun('initConditionalPasskeyLogin', initConditionalPasskeyLogin);
+  _safeRun('initPasswordFields', initPasswordFields);
+  _safeRun('initDragScroll', initDragScroll);
+  _safeRun('initDatePickers', initDatePickers);
 
   // Wochentag-Pill-Toggle für Sofortbuchung im Inserat-Formular
   var _wdPicker = document.getElementById('createWeekdayPicker');
@@ -7317,10 +7337,10 @@ document.addEventListener('DOMContentLoaded', function() {
       pill.classList.toggle('selected');
     });
   }
-  initCityAutocomplete();
-  initProfileCityAutocomplete();
-  initTimePickers();
-  initFeatureSearch();
+  _safeRun('initCityAutocomplete', initCityAutocomplete);
+  _safeRun('initProfileCityAutocomplete', initProfileCityAutocomplete);
+  _safeRun('initTimePickers', initTimePickers);
+  _safeRun('initFeatureSearch', initFeatureSearch);
 
   // Clear all browse filters on fresh page load (prevent browser form restoration)
   var _clearBrowseFilters = function(){
@@ -7333,21 +7353,23 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(_clearBrowseFilters, 0);
 
   // Handle initial route (deep links, clean URLs, legacy hash)
-  var initRoute = _readSpaRoute();
-  var initPage = initRoute.page;
-  var initData = initRoute.data;
-  if (initPage === 'home') initPage = 'browse';
-  // Clean up legacy hash if present
-  if (window.location.hash) {
-    window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
-  } else {
-    window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
-  }
-  if (initPage && initPage !== 'browse') {
-    navigateTo(initPage, initData, true);
-  } else {
-    navigateTo('browse', null, true);
-  }
+  _safeRun('initialRoute', function() {
+    var initRoute = _readSpaRoute();
+    var initPage = initRoute.page;
+    var initData = initRoute.data;
+    if (initPage === 'home') initPage = 'browse';
+    // Clean up legacy hash if present
+    if (window.location.hash) {
+      window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
+    } else {
+      window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
+    }
+    if (initPage && initPage !== 'browse') {
+      navigateTo(initPage, initData, true);
+    } else {
+      navigateTo('browse', null, true);
+    }
+  });
 
   // App-Loading-Overlay ausblenden (siehe index.html / styles.css)
   if (typeof window.__hideAppLoader === 'function') {
@@ -7385,7 +7407,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  initVisualMotion();
+  _safeRun('initVisualMotion', initVisualMotion);
 });
 
 // ========== PAGE MOTION (subtle Apple-like interactivity) ==========
@@ -8208,7 +8230,7 @@ function editListing(listingId) {
 
   // Show step 1
   document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-  document.getElementById('step1').classList.add('active');
+  _addClassById('step1', 'active');
 
   showToast('Inserat wird bearbeitet – passe es an und speichere es.', 'edit');
 }
@@ -10028,7 +10050,7 @@ function applyLogout() {
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
-  document.getElementById('userMenu').classList.remove('show');
+  _removeClassById('userMenu', 'show');
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = ebAvatar('user', 'User');
   var adminLabel = document.getElementById('navAdminLabel');
