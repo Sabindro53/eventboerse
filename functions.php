@@ -1,306 +1,357 @@
-Da ich die vollständige `functions.php` nicht im Kontext habe, liefere ich den **einzufügenden Block** als eigenständige Datei und weise exakt auf den Einfügepunkt hin:
-
----
-
-**Warte** — ich löse das sauber. Ich liefere eine **Patch-Datei** für den SSE-Endpoint und die exakten `app.js`-Funktionen die ersetzt werden.
-
----
-
-## SSE-Endpoint (functions.php — neuer Block)
-
-Dieser Block wird **am Ende von `functions.php`** eingefügt, vor dem schließenden `?>` (falls vorhanden):
-
 ```php
+<?php
+/**
+ * EventBörse Theme Functions
+ * WordPress Theme: REST API (67+ Endpoints), Asset-Registrierung
+ */
+
 // ============================================================
-// SSE: Real-time message stream
-// GET /wp-json/eventboerse/v1/messages/stream
-// Query params: conversation_id (int), last_message_id (int)
+// THEME SETUP & ASSETS
 // ============================================================
-add_action('rest_api_init', function() {
-    register_rest_route('eventboerse/v1', '/messages/stream', [
-        'methods'             => 'GET',
-        'callback'            => 'eb_messages_stream',
-        'permission_callback' => function() {
-            return is_user_logged_in();
-        },
+
+function eb_theme_setup() {
+    add_theme_support('title-tag');
+    add_theme_support('post-thumbnails');
+}
+add_action('after_setup_theme', 'eb_theme_setup');
+
+function eb_enqueue_assets() {
+    $ver = '2.9.4';
+    wp_enqueue_style('eb-styles', get_template_directory_uri() . '/styles.css', [], $ver);
+    wp_enqueue_script('eb-app', get_template_directory_uri() . '/app.js', [], $ver, true);
+
+    // Pass runtime config to JS
+    wp_localize_script('eb-app', 'eventboerseApi', [
+        'restUrl'   => esc_url_raw(rest_url('eventboerse/v1/')),
+        'nonce'     => wp_create_nonce('wp_rest'),
+        'siteUrl'   => esc_url_raw(home_url()),
+        'userId'    => get_current_user_id(),
+        'isLoggedIn'=> is_user_logged_in(),
+        'stripeKey' => defined('EB_STRIPE_PUBLIC_KEY') ? EB_STRIPE_PUBLIC_KEY : '',
+        'avatarUrl' => esc_url_raw(get_template_directory_uri() . '/avatar.php'),
     ]);
+}
+add_action('wp_enqueue_scripts', 'eb_enqueue_assets');
+
+// Remove WP bloat
+add_action('wp_enqueue_scripts', function() {
+    wp_dequeue_style('wp-block-library');
+    wp_dequeue_style('wp-block-library-theme');
+    wp_dequeue_script('wp-embed');
+}, 100);
+remove_action('wp_head', 'print_emoji_detection_script', 7);
+remove_action('wp_print_styles', 'print_emoji_styles');
+
+// ============================================================
+// SPA REWRITES
+// ============================================================
+
+function eb_add_rewrite_rules() {
+    $spa_pages = [
+        'browse', 'login', 'register', 'forgot-password', 'reset-password',
+        'verify-email', 'messages', 'chat', 'profile', 'settings', 'favorites',
+        'board', 'inserat-erstellen', 'meine-inserate', 'admin',
+        'agb', 'agb-b2b', 'agb-dienstleister', 'datenschutz', 'impressum',
+        'cookies', 'widerruf', 'community', 'bewertungen', 'upload', 'dsa',
+        'p2b', 'marktplatz', 'barrierefreiheit', 'vsbg',
+    ];
+    foreach ($spa_pages as $page) {
+        add_rewrite_rule('^' . $page . '/?$', 'index.php', 'top');
+    }
+    add_rewrite_rule('^listing/([0-9]+)/?$', 'index.php', 'top');
+    add_rewrite_rule('^provider/([0-9]+)/?$', 'index.php', 'top');
+    add_rewrite_rule('^kategorie/([a-z0-9-]+)/?$', 'index.php', 'top');
+}
+add_action('init', 'eb_add_rewrite_rules');
+
+// ============================================================
+// DATABASE — ensure tables exist
+// ============================================================
+
+function eb_create_tables() {
+    global $wpdb;
+    $charset = $wpdb->get_charset_collate();
+
+    $listings = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_listings (
+        id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id       BIGINT UNSIGNED NOT NULL,
+        title         VARCHAR(255)    NOT NULL DEFAULT '',
+        description   LONGTEXT,
+        category      VARCHAR(100)    DEFAULT '',
+        category_label VARCHAR(100)   DEFAULT '',
+        price_model   VARCHAR(50)     DEFAULT '',
+        price_label   VARCHAR(100)    DEFAULT '',
+        price_from    DECIMAL(10,2)   DEFAULT 0,
+        price_to      DECIMAL(10,2)   DEFAULT 0,
+        location      VARCHAR(255)    DEFAULT '',
+        region        VARCHAR(100)    DEFAULT '',
+        lat           DECIMAL(10,7)   DEFAULT NULL,
+        lng           DECIMAL(10,7)   DEFAULT NULL,
+        features      LONGTEXT,
+        tags          LONGTEXT,
+        images        LONGTEXT,
+        date_from     DATE            DEFAULT NULL,
+        date_to       DATE            DEFAULT NULL,
+        time_from     TIME            DEFAULT NULL,
+        time_to       TIME            DEFAULT NULL,
+        status        ENUM('active','inactive','pending') DEFAULT 'active',
+        created_at    DATETIME        DEFAULT CURRENT_TIMESTAMP,
+        updated_at    DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY user_id (user_id),
+        KEY category (category),
+        KEY status (status),
+        FULLTEXT KEY ft_search (title, description, location, tags)
+    ) $charset;";
+
+    $reviews = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_reviews (
+        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        listing_id  BIGINT UNSIGNED NOT NULL,
+        author_id   BIGINT UNSIGNED NOT NULL,
+        rating      TINYINT UNSIGNED NOT NULL DEFAULT 5,
+        comment     TEXT,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY listing_id (listing_id),
+        KEY author_id (author_id)
+    ) $charset;";
+
+    $conversations = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_conversations (
+        id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_a     BIGINT UNSIGNED NOT NULL,
+        user_b     BIGINT UNSIGNED NOT NULL,
+        listing_id BIGINT UNSIGNED DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_pair (user_a, user_b),
+        KEY listing_id (listing_id)
+    ) $charset;";
+
+    $messages = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_messages (
+        id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        conversation_id BIGINT UNSIGNED NOT NULL,
+        sender_id       BIGINT UNSIGNED NOT NULL,
+        body            LONGTEXT,
+        type            VARCHAR(50) DEFAULT 'text',
+        meta            LONGTEXT,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY conversation_id (conversation_id),
+        KEY sender_id (sender_id)
+    ) $charset;";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($listings);
+    dbDelta($reviews);
+    dbDelta($conversations);
+    dbDelta($messages);
+}
+add_action('after_switch_theme', 'eb_create_tables');
+add_action('init', function() {
+    if (get_option('eb_db_version') !== '1.3') {
+        eb_create_tables();
+        update_option('eb_db_version', '1.3');
+    }
 });
 
-function eb_messages_stream(WP_REST_Request $request) {
-    $conversation_id = intval($request->get_param('conversation_id'));
-    $last_id         = intval($request->get_param('last_message_id') ?? 0);
+// ============================================================
+// HELPERS
+// ============================================================
 
-    if (!$conversation_id) {
-        return new WP_Error('missing_param', 'conversation_id required', ['status' => 400]);
-    }
+function eb_is_admin_user() {
+    return current_user_can('administrator');
+}
 
+function eb_current_user_id() {
+    return get_current_user_id();
+}
+
+function eb_json_decode_meta($value, $default = []) {
+    if (empty($value)) return $default;
+    $decoded = json_decode($value, true);
+    return (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : $default;
+}
+
+function eb_format_listing($row) {
+    if (!$row) return null;
+    return [
+        'id'             => (int)$row->id,
+        'user_id'        => (int)$row->user_id,
+        'title'          => $row->title,
+        'description'    => $row->description,
+        'category'       => $row->category,
+        'category_label' => $row->category_label,
+        'price_model'    => $row->price_model,
+        'price_label'    => $row->price_label,
+        'price_from'     => (float)$row->price_from,
+        'price_to'       => (float)$row->price_to,
+        'location'       => $row->location,
+        'region'         => $row->region,
+        'lat'            => $row->lat !== null ? (float)$row->lat : null,
+        'lng'            => $row->lng !== null ? (float)$row->lng : null,
+        'features'       => eb_json_decode_meta($row->features),
+        'tags'           => eb_json_decode_meta($row->tags),
+        'images'         => eb_json_decode_meta($row->images),
+        'date_from'      => $row->date_from,
+        'date_to'        => $row->date_to,
+        'time_from'      => $row->time_from,
+        'time_to'        => $row->time_to,
+        'status'         => $row->status,
+        'created_at'     => $row->created_at,
+        'updated_at'     => $row->updated_at,
+        'provider'       => eb_get_provider_info((int)$row->user_id),
+        'avg_rating'     => eb_get_avg_rating((int)$row->id),
+        'review_count'   => eb_get_review_count((int)$row->id),
+    ];
+}
+
+function eb_get_provider_info($user_id) {
+    $user = get_userdata($user_id);
+    if (!$user) return null;
+    return [
+        'id'        => $user_id,
+        'name'      => $user->display_name,
+        'email'     => $user->user_email,
+        'company'   => get_user_meta($user_id, 'eb_company', true),
+        'photo_url' => get_user_meta($user_id, 'eb_photo_url', true),
+        'role'      => get_user_meta($user_id, 'eb_role', true),
+    ];
+}
+
+function eb_get_avg_rating($listing_id) {
     global $wpdb;
-    $current_user_id = get_current_user_id();
-
-    // Verify user is part of this conversation
-    $conv = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}eb_conversations WHERE id = %d AND (user_a = %d OR user_b = %d)",
-        $conversation_id, $current_user_id, $current_user_id
+    $avg = $wpdb->get_var($wpdb->prepare(
+        "SELECT AVG(rating) FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d",
+        $listing_id
     ));
-
-    if (!$conv) {
-        return new WP_Error('forbidden', 'Not part of this conversation', ['status' => 403]);
-    }
-
-    // Disable output buffering at all levels
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-
-    // SSE headers
-    header('Content-Type: text/event-stream; charset=UTF-8');
-    header('Cache-Control: no-cache, no-store');
-    header('X-Accel-Buffering: no'); // Disable nginx buffering (if applicable)
-    header('Connection: keep-alive');
-
-    // Disable PHP time limit for this request (we control the loop duration)
-    @set_time_limit(0);
-
-    $start_time  = time();
-    $max_duration = 25; // seconds before client must reconnect
-    $poll_interval = 2; // seconds between DB checks
-
-    // Send initial connection confirmation
-    echo "event: connected\n";
-    echo "data: {\"conversation_id\":{$conversation_id}}\n\n";
-    flush();
-
-    $current_last_id = $last_id;
-
-    while ((time() - $start_time) < $max_duration) {
-        // Check for new messages since last_id
-        $new_messages = $wpdb->get_results($wpdb->prepare(
-            "SELECT m.*, u.display_name as sender_name
-             FROM {$wpdb->prefix}eb_messages m
-             LEFT JOIN {$wpdb->users} u ON u.ID = m.sender_id
-             WHERE m.conversation_id = %d
-               AND m.id > %d
-             ORDER BY m.id ASC
-             LIMIT 20",
-            $conversation_id, $current_last_id
-        ));
-
-        if (!empty($new_messages)) {
-            foreach ($new_messages as $msg) {
-                $payload = [
-                    'id'              => intval($msg->id),
-                    'conversation_id' => intval($msg->conversation_id),
-                    'sender_id'       => intval($msg->sender_id),
-                    'sender_name'     => $msg->sender_name,
-                    'content'         => $msg->content,
-                    'type'            => $msg->type ?? 'text',
-                    'meta'            => !empty($msg->meta) ? json_decode($msg->meta, true) : null,
-                    'created_at'      => $msg->created_at,
-                    'read_at'         => $msg->read_at,
-                ];
-                echo "event: message\n";
-                echo "data: " . wp_json_encode($payload) . "\n\n";
-                $current_last_id = $msg->id;
-            }
-            flush();
-        }
-
-        // Check connection is still alive
-        if (connection_aborted()) {
-            break;
-        }
-
-        // Heartbeat every ~20s
-        $elapsed = time() - $start_time;
-        if ($elapsed > 0 && $elapsed % 20 === 0) {
-            echo "event: heartbeat\n";
-            echo "data: {\"t\":" . time() . "}\n\n";
-            flush();
-        }
-
-        sleep($poll_interval);
-    }
-
-    // Tell client to reconnect with updated last_id
-    echo "event: reconnect\n";
-    echo "data: {\"last_message_id\":{$current_last_id}}\n\n";
-    flush();
-
-    exit; // Must exit — WP REST framework must not add headers after SSE
+    return $avg ? round((float)$avg, 1) : null;
 }
-```
 
----
+function eb_get_review_count($listing_id) {
+    global $wpdb;
+    return (int)$wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d",
+        $listing_id
+    ));
+}
 
-## Chat-Funktionen (app.js — geänderte Sektionen)
-
-Die folgenden Funktionen ersetzen die bestehenden Polling-Funktionen. Suche in `app.js` nach `_startChatPolling` und ersetze den gesamten Polling-Block:
-
-```javascript
 // ============================================================
-// Real-time chat: SSE with polling fallback
-// Replaces the old setInterval-based polling
+// REST API REGISTRATION
 // ============================================================
 
-var _chatSSE = null;           // active EventSource instance
-var _chatSSELastId = 0;        // last received message id
-var _chatPollingTimer = null;  // fallback polling timer
-var _chatSSEEnabled = (typeof EventSource !== 'undefined');
+add_action('rest_api_init', function() {
 
-/**
- * Start real-time message updates for a conversation.
- * Uses SSE if available, falls back to 3s polling.
- * @param {number} conversationId
- * @param {number} lastMessageId  - ID of last known message (avoid re-rendering)
- */
-function _startChatPolling(conversationId, lastMessageId) {
-    _stopChatPolling(); // clean up any existing connection
-    _chatSSELastId = lastMessageId || 0;
+    $ns = 'eventboerse/v1';
 
-    if (_chatSSEEnabled) {
-        _startChatSSE(conversationId, _chatSSELastId);
-    } else {
-        _startChatFallbackPolling(conversationId);
-    }
-}
+    // ----------------------------------------------------------
+    // AUTH
+    // ----------------------------------------------------------
 
-/**
- * Open SSE connection for real-time messages.
- */
-function _startChatSSE(conversationId, lastId) {
-    var url = _apiUrl('messages/stream')
-        + '?conversation_id=' + conversationId
-        + '&last_message_id=' + lastId;
+    register_rest_route($ns, '/register', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_register',
+        'permission_callback' => '__return_true',
+    ]);
 
-    try {
-        _chatSSE = new EventSource(url, { withCredentials: true });
-    } catch (e) {
-        console.warn('[Chat] SSE not available, falling back to polling:', e);
-        _chatSSEEnabled = false;
-        _startChatFallbackPolling(conversationId);
-        return;
-    }
+    register_rest_route($ns, '/register/verify', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_register_verify',
+        'permission_callback' => '__return_true',
+    ]);
 
-    _chatSSE.addEventListener('message', function(e) {
-        try {
-            var msg = JSON.parse(e.data);
-            _chatSSELastId = msg.id;
-            _appendIncomingMessage(msg);
-        } catch (err) {
-            console.warn('[Chat] SSE message parse error:', err);
-        }
-    });
+    register_rest_route($ns, '/register/resend', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_register_resend',
+        'permission_callback' => '__return_true',
+    ]);
 
-    _chatSSE.addEventListener('reconnect', function(e) {
-        // Server signals end of stream — reconnect with updated last_id
-        try {
-            var data = JSON.parse(e.data);
-            _chatSSELastId = data.last_message_id || _chatSSELastId;
-        } catch (_) {}
-        _chatSSE.close();
-        _chatSSE = null;
-        // Small delay before reconnect to avoid hammering on errors
-        setTimeout(function() {
-            if (_currentConversationId === conversationId) {
-                _startChatSSE(conversationId, _chatSSELastId);
-            }
-        }, 500);
-    });
+    register_rest_route($ns, '/login', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_login',
+        'permission_callback' => '__return_true',
+    ]);
 
-    _chatSSE.addEventListener('heartbeat', function() {
-        // Heartbeat received — connection is alive, nothing to do
-    });
+    register_rest_route($ns, '/logout', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_logout',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
 
-    _chatSSE.onerror = function(e) {
-        console.warn('[Chat] SSE error, falling back to polling');
-        _chatSSE.close();
-        _chatSSE = null;
-        // Fallback: switch to polling for this session
-        _chatSSEEnabled = false;
-        _startChatFallbackPolling(conversationId);
-    };
-}
+    register_rest_route($ns, '/me', [
+        'methods'             => 'GET',
+        'callback'            => 'eb_me',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
 
-/**
- * Fallback: 3s polling (original behavior).
- */
-function _startChatFallbackPolling(conversationId) {
-    _chatPollingTimer = setInterval(function() {
-        if (_currentConversationId !== conversationId) {
-            _stopChatPolling();
-            return;
-        }
-        _pollChatMessages(conversationId);
-    }, 3000);
-}
+    register_rest_route($ns, '/forgot-password', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_forgot_password',
+        'permission_callback' => '__return_true',
+    ]);
 
-/**
- * Stop all real-time updates (SSE + polling timer).
- */
-function _stopChatPolling() {
-    if (_chatSSE) {
-        _chatSSE.close();
-        _chatSSE = null;
-    }
-    if (_chatPollingTimer) {
-        clearInterval(_chatPollingTimer);
-        _chatPollingTimer = null;
-    }
-}
+    register_rest_route($ns, '/verify-email', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_verify_email',
+        'permission_callback' => '__return_true',
+    ]);
 
-/**
- * Polling fallback: fetch new messages and append unseen ones.
- * (Original polling logic, kept for fallback)
- */
-function _pollChatMessages(conversationId) {
-    fetch(_apiUrl('conversations/' + conversationId + '/messages'), {
-        headers: _apiHeaders()
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        var messages = data.messages || data || [];
-        _reconcileChatMessages(messages);
-    })
-    .catch(function(err) {
-        console.warn('[Chat] Polling error:', err);
-    });
-}
+    register_rest_route($ns, '/reset-password', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_reset_password',
+        'permission_callback' => '__return_true',
+    ]);
 
-/**
- * Append a single incoming SSE message to the chat UI.
- * Only renders if we're still viewing this conversation.
- * @param {Object} msg - message object from SSE
- */
-function _appendIncomingMessage(msg) {
-    // Guard: only update if the chat view is still open for this conversation
-    if (!_currentConversationId || _currentConversationId !== msg.conversation_id) {
-        return;
-    }
-    // Guard: don't re-render messages we already have
-    var existing = document.querySelector('[data-message-id="' + msg.id + '"]');
-    if (existing) return;
+    register_rest_route($ns, '/resend-verification', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_resend_verification',
+        'permission_callback' => '__return_true',
+    ]);
 
-    var chatMessages = document.getElementById('chat-messages');
-    if (!chatMessages) return;
+    // ----------------------------------------------------------
+    // OTP / 2FA
+    // ----------------------------------------------------------
 
-    var isSelf = (currentUser && msg.sender_id === currentUser.id);
-    var el = _renderSingleChatMessage(msg, isSelf);
-    chatMessages.appendChild(el);
+    register_rest_route($ns, '/otp/send', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_otp_send',
+        'permission_callback' => '__return_true',
+    ]);
 
-    // Scroll to bottom if user is near the bottom (within 150px)
-    var threshold = 150;
-    var atBottom = (chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight) < threshold;
-    if (atBottom) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
+    register_rest_route($ns, '/otp/verify', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_otp_verify',
+        'permission_callback' => '__return_true',
+    ]);
 
-    // Mark as read if not own message
-    if (!isSelf) {
-        _markConversationRead(msg.conversation_id);
-    }
-}
-```
+    // ----------------------------------------------------------
+    // PROFILE & SETTINGS
+    // ----------------------------------------------------------
 
----
+    register_rest_route($ns, '/me', [
+        'methods'             => 'GET',
+        'callback'            => 'eb_me',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
 
-Jetzt die vollständigen Dateien. Da
+    register_rest_route($ns, '/profile', [
+        'methods'             => ['GET', 'PUT'],
+        'callback'            => 'eb_profile',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
+
+    register_rest_route($ns, '/provider/(?P<id>\d+)', [
+        'methods'             => 'GET',
+        'callback'            => 'eb_get_provider',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route($ns, '/settings', [
+        'methods'             => ['GET', 'PUT'],
+        'callback'            => 'eb_settings',
+        'permission_callback' => 'is_user_logged_in',
+    ]);
+
+    register_rest_route($ns, '/settings/password', [
+        'methods'             => 'POST',
+        'callback'            => 'eb_settings_password',
