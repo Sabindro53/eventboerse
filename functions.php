@@ -1,4 +1,3 @@
-```php
 <?php
 /**
  * EventBörse Theme Functions
@@ -19,8 +18,6 @@ function eb_enqueue_assets() {
     $ver = '2.9.4';
     wp_enqueue_style('eb-styles', get_template_directory_uri() . '/styles.css', [], $ver);
     wp_enqueue_script('eb-app', get_template_directory_uri() . '/app.js', [], $ver, true);
-
-    // Pass runtime config to JS
     wp_localize_script('eb-app', 'eventboerseApi', [
         'restUrl'   => esc_url_raw(rest_url('eventboerse/v1/')),
         'nonce'     => wp_create_nonce('wp_rest'),
@@ -33,7 +30,6 @@ function eb_enqueue_assets() {
 }
 add_action('wp_enqueue_scripts', 'eb_enqueue_assets');
 
-// Remove WP bloat
 add_action('wp_enqueue_scripts', function() {
     wp_dequeue_style('wp-block-library');
     wp_dequeue_style('wp-block-library-theme');
@@ -65,13 +61,12 @@ function eb_add_rewrite_rules() {
 add_action('init', 'eb_add_rewrite_rules');
 
 // ============================================================
-// DATABASE — ensure tables exist
+// DATABASE
 // ============================================================
 
 function eb_create_tables() {
     global $wpdb;
     $charset = $wpdb->get_charset_collate();
-
     $listings = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_listings (
         id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         user_id       BIGINT UNSIGNED NOT NULL,
@@ -103,7 +98,6 @@ function eb_create_tables() {
         KEY status (status),
         FULLTEXT KEY ft_search (title, description, location, tags)
     ) $charset;";
-
     $reviews = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_reviews (
         id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         listing_id  BIGINT UNSIGNED NOT NULL,
@@ -115,7 +109,6 @@ function eb_create_tables() {
         KEY listing_id (listing_id),
         KEY author_id (author_id)
     ) $charset;";
-
     $conversations = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_conversations (
         id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         user_a     BIGINT UNSIGNED NOT NULL,
@@ -127,7 +120,6 @@ function eb_create_tables() {
         UNIQUE KEY uniq_pair (user_a, user_b),
         KEY listing_id (listing_id)
     ) $charset;";
-
     $messages = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}eb_messages (
         id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         conversation_id BIGINT UNSIGNED NOT NULL,
@@ -140,7 +132,6 @@ function eb_create_tables() {
         KEY conversation_id (conversation_id),
         KEY sender_id (sender_id)
     ) $charset;";
-
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($listings);
     dbDelta($reviews);
@@ -159,13 +150,8 @@ add_action('init', function() {
 // HELPERS
 // ============================================================
 
-function eb_is_admin_user() {
-    return current_user_can('administrator');
-}
-
-function eb_current_user_id() {
-    return get_current_user_id();
-}
+function eb_is_admin_user() { return current_user_can('administrator'); }
+function eb_current_user_id() { return get_current_user_id(); }
 
 function eb_json_decode_meta($value, $default = []) {
     if (empty($value)) return $default;
@@ -222,8 +208,7 @@ function eb_get_provider_info($user_id) {
 function eb_get_avg_rating($listing_id) {
     global $wpdb;
     $avg = $wpdb->get_var($wpdb->prepare(
-        "SELECT AVG(rating) FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d",
-        $listing_id
+        "SELECT AVG(rating) FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d", $listing_id
     ));
     return $avg ? round((float)$avg, 1) : null;
 }
@@ -231,127 +216,47 @@ function eb_get_avg_rating($listing_id) {
 function eb_get_review_count($listing_id) {
     global $wpdb;
     return (int)$wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d",
-        $listing_id
+        "SELECT COUNT(*) FROM {$wpdb->prefix}eb_reviews WHERE listing_id = %d", $listing_id
     ));
 }
 
 // ============================================================
-// REST API REGISTRATION
+// REST API
 // ============================================================
 
 add_action('rest_api_init', function() {
-
     $ns = 'eventboerse/v1';
 
-    // ----------------------------------------------------------
-    // AUTH
-    // ----------------------------------------------------------
-
-    register_rest_route($ns, '/register', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_register',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/register/verify', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_register_verify',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/register/resend', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_register_resend',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/login', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_login',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/logout', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_logout',
-        'permission_callback' => 'is_user_logged_in',
-    ]);
-
-    register_rest_route($ns, '/me', [
-        'methods'             => 'GET',
-        'callback'            => 'eb_me',
-        'permission_callback' => 'is_user_logged_in',
-    ]);
-
-    register_rest_route($ns, '/forgot-password', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_forgot_password',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/verify-email', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_verify_email',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/reset-password', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_reset_password',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/resend-verification', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_resend_verification',
-        'permission_callback' => '__return_true',
-    ]);
-
-    // ----------------------------------------------------------
-    // OTP / 2FA
-    // ----------------------------------------------------------
-
-    register_rest_route($ns, '/otp/send', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_otp_send',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/otp/verify', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_otp_verify',
-        'permission_callback' => '__return_true',
-    ]);
-
-    // ----------------------------------------------------------
-    // PROFILE & SETTINGS
-    // ----------------------------------------------------------
-
-    register_rest_route($ns, '/me', [
-        'methods'             => 'GET',
-        'callback'            => 'eb_me',
-        'permission_callback' => 'is_user_logged_in',
-    ]);
-
-    register_rest_route($ns, '/profile', [
-        'methods'             => ['GET', 'PUT'],
-        'callback'            => 'eb_profile',
-        'permission_callback' => 'is_user_logged_in',
-    ]);
-
-    register_rest_route($ns, '/provider/(?P<id>\d+)', [
-        'methods'             => 'GET',
-        'callback'            => 'eb_get_provider',
-        'permission_callback' => '__return_true',
-    ]);
-
-    register_rest_route($ns, '/settings', [
-        'methods'             => ['GET', 'PUT'],
-        'callback'            => 'eb_settings',
-        'permission_callback' => 'is_user_logged_in',
-    ]);
-
-    register_rest_route($ns, '/settings/password', [
-        'methods'             => 'POST',
-        'callback'            => 'eb_settings_password',
+    register_rest_route($ns, '/register',             ['methods'=>'POST',            'callback'=>'eb_register',             'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/register/verify',      ['methods'=>'POST',            'callback'=>'eb_register_verify',      'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/register/resend',      ['methods'=>'POST',            'callback'=>'eb_register_resend',      'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/login',                ['methods'=>'POST',            'callback'=>'eb_login',                'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/logout',               ['methods'=>'POST',            'callback'=>'eb_logout',               'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/me',                   ['methods'=>'GET',             'callback'=>'eb_me',                   'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/forgot-password',      ['methods'=>'POST',            'callback'=>'eb_forgot_password',      'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/verify-email',         ['methods'=>'POST',            'callback'=>'eb_verify_email',         'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/reset-password',       ['methods'=>'POST',            'callback'=>'eb_reset_password',       'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/resend-verification',  ['methods'=>'POST',            'callback'=>'eb_resend_verification',  'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/otp/send',             ['methods'=>'POST',            'callback'=>'eb_otp_send',             'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/otp/verify',           ['methods'=>'POST',            'callback'=>'eb_otp_verify',           'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/profile',              ['methods'=>['GET','PUT'],     'callback'=>'eb_profile',              'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/provider/(?P<id>\d+)',['methods'=>'GET',             'callback'=>'eb_get_provider',         'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/settings',             ['methods'=>['GET','PUT'],     'callback'=>'eb_settings',             'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/settings/password',    ['methods'=>'POST',            'callback'=>'eb_settings_password',    'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/settings/delete-account',['methods'=>'DELETE',        'callback'=>'eb_delete_account',       'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/user-status/(?P<id>\d+)',['methods'=>'GET',          'callback'=>'eb_user_status',          'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/listings',             ['methods'=>['GET','POST'],    'callback'=>'eb_listings',             'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/listings/(?P<id>\d+)',['methods'=>['GET','PUT','DELETE'],'callback'=>'eb_listing_single',   'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/listings/(?P<id>\d+)/reviews',  ['methods'=>['GET','POST'], 'callback'=>'eb_listing_reviews',  'permission_callback'=>'__return_true']);
+    register_rest_route($ns, '/listings/(?P<id>\d+)/favorite', ['methods'=>['POST','DELETE'],'callback'=>'eb_listing_favorite','permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/favorites',            ['methods'=>'GET',             'callback'=>'eb_favorites',            'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/conversations',        ['methods'=>['GET','POST'],    'callback'=>'eb_conversations',        'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/conversations/(?P<id>\d+)',         ['methods'=>'GET',         'callback'=>'eb_conversation_single',  'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/conversations/(?P<id>\d+)/messages',['methods'=>['GET','POST'],'callback'=>'eb_conversation_messages','permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/conversations/(?P<id>\d+)/stream',  ['methods'=>'GET',         'callback'=>'eb_conversation_stream',  'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/unread-count',         ['methods'=>'GET',             'callback'=>'eb_unread_count',         'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/upload',               ['methods'=>'POST',            'callback'=>'eb_upload_image',         'permission_callback'=>'is_user_logged_in']);
+    register_rest_route($ns, '/admin/users',          ['methods'=>'GET',             'callback'=>'eb_admin_users',          'permission_callback'=>function(){ return current_user_can('administrator'); }]);
+    register_rest_route($ns, '/admin/listings',       ['methods'=>'GET',             'callback'=>'eb_admin_listings',       'permission_callback'=>function(){ return current_user_can('administrator'); }]);
+    register_rest_route($ns, '/admin/stats',          ['methods'=>'GET',             'callback'=>'eb_admin_stats',          'permission_callback'=>function(){ return current_user_can('administrator'); }]);
+});
