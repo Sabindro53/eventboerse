@@ -7299,7 +7299,7 @@ function _applyDarkMode(on) {
 document.addEventListener('DOMContentLoaded', function() {
   initDarkMode();
   setupDragDrop();
-  initAiSearch();
+  try{initAiSearch();}catch(e){console.warn("[EB]initAiSearch",e);}
   restoreSession();
   updatePasskeyLoginUi();
   initConditionalPasskeyLogin();
@@ -9987,7 +9987,7 @@ function applyLogin() {
   _loadFavoritesFromStorage();
   loadFavorites().catch(function(){});
   loadDbListings().then(function() {
-    renderFeaturedGrid();
+    try{renderFeaturedGrid();}catch(e){console.warn("[EB]renderFeaturedGrid#1",e);}
     renderHeroMarquees();
   }).catch(function(){});
   // Update message badge from API
@@ -11144,7 +11144,7 @@ function initFooterLogoAnimation() {
 
 // ========== INIT ==========
 document.addEventListener('DOMContentLoaded', () => {
-  renderFeaturedGrid();
+  try{renderFeaturedGrid();}catch(e){console.warn("[EB]renderFeaturedGrid#2",e);}
   try {
     renderHeroMarquees();
   } catch (err) {
