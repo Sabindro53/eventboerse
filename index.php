@@ -114,7 +114,7 @@ $og_image_esc   = esc_url( $og_image );
 $site_name_esc  = esc_attr( $site_name );
 
 // Cache-version string for assets (increment manually on deploy)
-$asset_ver = '2.4.6'; // cache-bust;
+$asset_ver = '2.4.7'; // cache-bust;
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -306,5 +306,6 @@ $asset_ver = '2.4.6'; // cache-bust;
     </div>
   </nav>
 
+<?php wp_footer(); ?>
 </body>
 </html>
