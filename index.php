@@ -307,6 +307,40 @@ $asset_ver = '2.4.8'; // cache-bust;
     </div>
   </nav>
 
+<?php
+// SPA-Inhalt aus der statischen index.html einbetten.
+// WICHTIG: app.js erwartet Map-Overlay, mobile Nav und alle #page-* Sektionen im DOM.
+$template_dir = get_template_directory();
+$html_file = $template_dir . '/index.html';
+
+if ( file_exists( $html_file ) && is_readable( $html_file ) ) {
+    $html = file_get_contents( $html_file );
+    if ( is_string( $html ) && $html !== '' ) {
+        // Nach der Navigation einsteigen (Map-Overlay + alle App-Pages).
+        $start = strpos( $html, '<!-- ============ MAP OVERLAY' );
+        // Fallback: falls Marker fehlt, ab <main> einsteigen.
+        if ( $start === false ) {
+            $start = strpos( $html, '<main>' );
+        }
+        $end = stripos( $html, '</body>' );
+
+        if ( $start !== false && $end !== false && $end > $start ) {
+            $content = substr( $html, $start, $end - $start );
+            // Externes app.js aus dem statischen Snapshot entfernen;
+            // im WP-Theme wird app.js bereits via wp_enqueue_script geladen.
+            $content = preg_replace(
+                '#<script\b[^>]*src=["\'][^"\']*app\.js[^"\']*["\'][^>]*>\s*</script>#i',
+                '',
+                $content
+            );
+            // Direkter Output: trusted Theme-Datei mit bewusstem HTML-Markup.
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo $content;
+        }
+    }
+}
+?>
+
 <?php wp_footer(); ?>
 </body>
 </html>
