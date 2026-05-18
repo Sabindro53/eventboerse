@@ -1,154 +1,155 @@
-```css
-/* ============================================================
-   MOBILE OPTIMIERUNG — Patch-Sektion
-   Eingefügt am Ende der Datei — überschreibt via Kaskade
-   Ziel: Touch-UX, kein Overflow-X, iOS-Keyboard, Safe-Areas
-   ============================================================ */
+Da ich nur eine **Ergänzung** liefere (nicht die komplette 11.000-Zeilen-Datei überschreibe), gebe ich den **anzuhängenden Block** aus. Die App-Übernahme fügt diesen ans Ende der bestehenden Datei:
 
-/* ── 0. CSS-Variablen für Mobile ─────────────────────────── */
-:root {
-  --touch-target: 44px;
-  --mobile-padding: 16px;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
+> ⚠️ **Wichtig für die Übernahme:** Diesen Block ans **Ende** der bestehenden `styles.css` **anhängen**, nicht ersetzen.
+
+```css
+/* ===== MOBILE OPTIMIERUNG v2 — 2025 ===== */
+/* Appended block — do not remove existing CSS above */
+
+/* ─── 1. Base: Horizontal-Scroll-Prävention ─── */
+html {
+  overflow-x: hidden;
 }
 
-/* ── 1. Globaler Overflow-X Fix ──────────────────────────── */
-html,
 body {
   overflow-x: hidden;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  /* iOS Momentum-Scrolling */
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Verhindert dass Kinder rausragen */
-.page,
-.container,
-.main-content,
-.content-wrapper {
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-/* ── 2. Input-Font-Size ≥ 16px (iOS Zoom verhindern) ────── */
-@media (max-width: 768px) {
+/* ─── 2. iOS Input-Zoom-Fix (font-size < 16px triggert Zoom) ─── */
+@media screen and (max-width: 768px) {
   input[type="text"],
   input[type="email"],
   input[type="password"],
-  input[type="number"],
-  input[type="tel"],
   input[type="search"],
+  input[type="tel"],
+  input[type="number"],
   input[type="url"],
   input[type="date"],
-  textarea,
-  select {
+  input[type="time"],
+  select,
+  textarea {
     font-size: 16px !important;
   }
 }
 
-/* ── 3. Touch-Targets: Mindest-Taphöhe 44px ─────────────── */
-@media (max-width: 768px) {
+/* ─── 3. Touch-Targets: Minimum 44×44px (Apple HIG / WCAG 2.5.5) ─── */
+@media screen and (max-width: 768px) {
   button,
   .btn,
-  .btn-primary,
-  .btn-secondary,
-  .btn-ghost,
   [role="button"],
   .nav-item,
   .tab-btn,
+  .chip,
   .filter-chip,
-  .category-chip,
-  .action-btn {
-    min-height: var(--touch-target);
-    min-width: var(--touch-target);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .icon-btn,
+  .action-btn,
+  .close-btn,
+  .modal-close,
+  a.button,
+  .listing-action-btn {
+    min-height: 44px;
+    min-width: 44px;
   }
 
-  /* Links in Listen auch */
-  .listing-card a,
-  .nav-link,
-  .menu-item a {
-    min-height: var(--touch-target);
-    display: flex;
-    align-items: center;
+  /* Inline-Links in Text ausgenommen (würden Layout zerstören) */
+  p a,
+  .description a {
+    min-height: unset;
+    min-width: unset;
   }
 }
 
-/* ── 4. Safe-Area für iPhone (Notch / Home Indicator) ────── */
+/* ─── 4. Safe-Area-Insets (iPhone Notch, Dynamic Island, Home-Indicator) ─── */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* Bottom-Navigation bekommt Safe-Area-Padding */
 .bottom-nav,
-.app-nav-bottom,
 .mobile-nav,
-.nav-bar-bottom {
-  padding-bottom: calc(var(--safe-bottom) + 8px);
+#bottom-nav {
+  padding-bottom: calc(8px + var(--safe-area-bottom));
 }
 
-.top-bar,
+/* Fixed/Sticky Footer-Elemente */
+.sticky-footer,
+.chat-input-area,
+.chat-footer,
+#chat-input-container,
+.message-input-wrapper {
+  padding-bottom: calc(12px + var(--safe-area-bottom));
+}
+
+/* Header Safe-Area */
 .app-header,
-.site-header,
-.navbar {
-  padding-top: calc(var(--safe-top) + 0px);
+.top-bar,
+.nav-header {
+  padding-top: calc(var(--safe-area-top));
 }
 
-/* Globale Page-Bottom-Pufferung wenn Bottom-Nav existiert */
-@media (max-width: 768px) {
-  body.has-bottom-nav .page,
-  body.has-bottom-nav main {
-    padding-bottom: calc(60px + var(--safe-bottom));
-  }
-}
-
-/* ── 5. Modal: Scrollbar + volle Höhe auf Mobile ─────────── */
-@media (max-width: 768px) {
+/* ─── 5. Modal → Bottom-Sheet auf Mobile ─── */
+@media screen and (max-width: 600px) {
   .modal-overlay,
   .modal-backdrop {
-    align-items: flex-end; /* Sheet von unten */
-    padding: 0;
+    align-items: flex-end;
   }
 
   .modal,
   .modal-content,
   .modal-box,
-  .modal-container {
+  [class*="modal-container"] {
     width: 100% !important;
     max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 20px 20px 0 0 !important;
     max-height: 92dvh;
-    max-height: 92vh; /* Fallback */
+    max-height: 92vh; /* Fallback für ältere Browser */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    border-radius: 20px 20px 0 0;
-    margin: 0;
-    padding-bottom: calc(24px + var(--safe-bottom));
+    /* Bottom-Sheet Slide-in Animation */
+    animation: slideUpSheet 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: calc(20px + var(--safe-area-bottom));
   }
 
-  /* Modals die zentriert bleiben sollen (z.B. Bestätigung) */
-  .modal-centered .modal,
-  .modal-centered .modal-content {
-    border-radius: 16px;
-    max-height: 90dvh;
-    max-height: 90vh;
-    margin: auto;
-    width: calc(100% - 32px) !important;
+  @keyframes slideUpSheet {
+    from {
+      transform: translateY(40px);
+      opacity: 0.6;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Drag-Handle Indikator */
+  .modal::before,
+  .modal-content::before,
+  .modal-box::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: #d1d5db;
+    border-radius: 2px;
+    margin: 10px auto 16px;
+    flex-shrink: 0;
   }
 }
 
-/* ── 6. Chat: Keyboard-Fix mit dvh ──────────────────────── */
-.chat-page,
-.page-chat,
-#page-chat {
-  height: 100dvh;
-  height: 100vh; /* Fallback */
-}
-
-@media (max-width: 768px) {
-  .chat-container,
-  .chat-layout,
-  .chat-wrapper {
+/* ─── 6. Chat: Keyboard-aware Layout ─── */
+@media screen and (max-width: 768px) {
+  /* dvh = dynamic viewport height — schrumpft wenn Keyboard offen */
+  .chat-page,
+  #page-chat,
+  .chat-container {
     height: 100dvh;
-    height: calc(var(--vh, 1vh) * 100);
+    height: 100vh; /* Fallback */
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -156,235 +157,232 @@ body {
 
   .chat-messages,
   .messages-list,
-  .chat-body {
+  #chat-messages {
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    /* Scroll bis Input sichtbar */
+    /* Verhindert dass letztes Element hinter Input verschwindet */
     scroll-padding-bottom: 80px;
   }
 
   .chat-input-area,
   .chat-footer,
+  #chat-input-container,
   .message-input-wrapper {
     flex-shrink: 0;
-    padding-bottom: calc(8px + var(--safe-bottom));
-    background: var(--color-bg, #fff);
     position: sticky;
     bottom: 0;
+    background: var(--bg-primary, #ffffff);
+    border-top: 1px solid var(--border-color, #e5e7eb);
     z-index: 10;
   }
 }
 
-/* dvh-Polyfill via JS (wird in app.js ggf. gesetzt) */
-/* Falls nicht: Fallback auf 100vh */
-
-/* ── 7. Listing-Grid: 1 Spalte auf Mobile ────────────────── */
-@media (max-width: 600px) {
+/* ─── 7. Listings-Grid: Kleinere Breakpoints ─── */
+@media screen and (max-width: 480px) {
   .listings-grid,
   .cards-grid,
-  .services-grid,
-  .browse-grid,
-  .provider-grid {
+  .provider-grid,
+  [class*="listings-grid"],
+  [class*="cards-grid"] {
     grid-template-columns: 1fr !important;
     gap: 12px;
   }
 }
 
-@media (min-width: 601px) and (max-width: 900px) {
+@media screen and (min-width: 481px) and (max-width: 768px) {
   .listings-grid,
   .cards-grid,
-  .services-grid,
-  .browse-grid {
+  .provider-grid,
+  [class*="listings-grid"],
+  [class*="cards-grid"] {
     grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px;
   }
 }
 
-/* ── 8. Filter-Panel: Mobile Fullscreen Drawer ───────────── */
-@media (max-width: 768px) {
-  .filter-panel,
-  .filters-sidebar,
-  .search-filters {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    background: var(--color-bg, #fff);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    padding: 20px var(--mobile-padding);
-    padding-top: calc(20px + var(--safe-top));
-    padding-bottom: calc(80px + var(--safe-bottom));
+/* ─── 8. Listing-Card Mobile-Optimierung ─── */
+@media screen and (max-width: 480px) {
+  .listing-card,
+  .provider-card,
+  .service-card,
+  [class*="listing-card"],
+  [class*="provider-card"] {
+    border-radius: 12px;
+    overflow: hidden;
   }
 
-  .filter-panel.is-open,
-  .filter-panel.open,
-  .filters-sidebar.is-open,
-  .filters-sidebar.open {
-    transform: translateX(0);
+  .listing-card img,
+  .provider-card img,
+  .card-image,
+  .listing-image {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
   }
 
-  /* Filter-Toggle-Button einblenden auf Mobile */
-  .filter-toggle-btn,
-  .btn-filter-mobile {
-    display: flex !important;
+  .card-body,
+  .listing-card-body,
+  .card-content {
+    padding: 12px;
   }
 
-  /* Filter-Close-Button */
-  .filter-close,
-  .filter-panel .close-btn {
-    display: flex !important;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--color-bg, #fff);
-    padding: 8px 0;
+  .card-title,
+  .listing-title {
+    font-size: 15px;
+    line-height: 1.3;
   }
 }
 
-/* ── 9. Kanban-Board: Horizontal Scrollbar auf Mobile ────── */
-@media (max-width: 768px) {
+/* ─── 9. Kanban/Board: Horizontales Scroll auf Mobile ─── */
+@media screen and (max-width: 768px) {
   .kanban-board,
+  .board-columns,
   .kanban-columns,
-  .board-columns {
+  [class*="kanban-board"],
+  [class*="board-columns"] {
     display: flex;
-    flex-direction: row;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x mandatory;
     gap: 12px;
-    padding: 0 var(--mobile-padding) 16px;
-    /* Scrollbar ausblenden (Design) */
+    padding: 0 16px 16px;
+    /* Kein Umbruch — horizontal scrollen */
+    flex-wrap: nowrap !important;
+    /* Scrollbar ausblenden aber funktionsfähig lassen */
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
 
   .kanban-board::-webkit-scrollbar,
-  .kanban-columns::-webkit-scrollbar,
   .board-columns::-webkit-scrollbar {
     display: none;
   }
 
   .kanban-column,
   .board-column,
-  .kanban-col {
-    min-width: 280px;
-    width: 80vw;
-    max-width: 320px;
+  [class*="kanban-column"],
+  [class*="board-column"] {
     flex-shrink: 0;
+    width: 280px;
     scroll-snap-align: start;
-    overflow-y: auto;
-    max-height: calc(100dvh - 160px);
-    max-height: calc(100vh - 160px);
   }
 }
 
-/* ── 10. Karten auf Mobile — keine fixen Breiten ─────────── */
-@media (max-width: 600px) {
-  .listing-card,
-  .service-card,
-  .provider-card,
-  .event-card {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  /* Horizontale Scroll-Reihen (Featured etc.) */
-  .cards-row,
-  .horizontal-scroll,
-  .featured-row {
+/* ─── 10. Filter/Chips: Horizontal Scroll statt Wrap ─── */
+@media screen and (max-width: 768px) {
+  .filter-bar,
+  .filter-chips,
+  .category-chips,
+  .tabs-scroll,
+  [class*="filter-bar"],
+  [class*="filter-chips"] {
     display: flex;
-    flex-direction: row;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-    gap: 12px;
-    padding: 0 var(--mobile-padding);
     scrollbar-width: none;
     -ms-overflow-style: none;
+    gap: 8px;
+    padding-bottom: 4px;
+    flex-wrap: nowrap !important;
   }
 
-  .cards-row::-webkit-scrollbar,
-  .horizontal-scroll::-webkit-scrollbar,
-  .featured-row::-webkit-scrollbar {
+  .filter-bar::-webkit-scrollbar,
+  .filter-chips::-webkit-scrollbar,
+  .category-chips::-webkit-scrollbar {
     display: none;
   }
 
-  .cards-row > *,
-  .horizontal-scroll > *,
-  .featured-row > * {
-    min-width: 260px;
-    scroll-snap-align: start;
+  .chip,
+  .filter-chip,
+  .tab-btn,
+  [class*="filter-chip"] {
     flex-shrink: 0;
+    white-space: nowrap;
   }
 }
 
-/* ── 11. Listing-Detail: Stack auf Mobile ────────────────── */
-@media (max-width: 768px) {
+/* ─── 11. Typography: Lesbarkeit auf kleinen Screens ─── */
+@media screen and (max-width: 480px) {
+  h1 { font-size: clamp(22px, 6vw, 32px); }
+  h2 { font-size: clamp(18px, 5vw, 26px); }
+  h3 { font-size: clamp(16px, 4.5vw, 22px); }
+  h4 { font-size: clamp(15px, 4vw, 18px); }
+
+  /* Kein Text-Overflow in Cards */
+  .card-title,
+  .listing-title,
+  .provider-name {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
+/* ─── 12. Fullscreen-Overlay Fix (Auth-Modals etc.) ─── */
+@media screen and (max-width: 600px) {
+  .auth-modal,
+  .login-modal,
+  .register-modal,
+  [class*="auth-modal"] {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    overflow-y: auto;
+  }
+}
+
+/* ─── 13. Detail-Seite: Mobile-Layout ─── */
+@media screen and (max-width: 768px) {
   .detail-layout,
-  .listing-detail-grid,
-  .provider-layout {
-    flex-direction: column !important;
+  .listing-detail,
+  .provider-detail,
+  [class*="detail-layout"] {
     grid-template-columns: 1fr !important;
+    gap: 16px;
   }
 
   .detail-sidebar,
-  .booking-sidebar,
-  .contact-panel {
-    width: 100% !important;
-    position: static !important;
-    margin-top: 16px;
+  .provider-sidebar,
+  [class*="detail-sidebar"] {
+    order: -1; /* CTA (Preis + Kontakt) nach oben auf mobile */
   }
 
-  /* Bilder-Gallery auf Mobile */
-  .gallery-grid,
-  .image-gallery {
-    grid-template-columns: 1fr !important;
+  .detail-gallery,
+  .listing-gallery {
+    /* Horizontales Swipe-Gallery */
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    gap: 4px;
+    scrollbar-width: none;
   }
 
-  .gallery-main,
-  .hero-image {
-    height: 240px;
+  .detail-gallery::-webkit-scrollbar {
+    display: none;
+  }
+
+  .detail-gallery img,
+  .gallery-item {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    width: calc(100vw - 32px);
+    height: 220px;
     object-fit: cover;
+    border-radius: 8px;
   }
 }
 
-/* ── 12. Typo: Lesbare Schriftgrößen auf Mobile ─────────── */
-@media (max-width: 600px) {
-  h1, .h1 { font-size: clamp(1.5rem, 6vw, 2.5rem); }
-  h2, .h2 { font-size: clamp(1.25rem, 5vw, 2rem); }
-  h3, .h3 { font-size: clamp(1.1rem, 4vw, 1.5rem); }
-
-  .hero-title,
-  .page-title {
-    font-size: clamp(1.75rem, 7vw, 3rem);
-    line-height: 1.2;
-  }
-
-  .hero-subtitle,
-  .page-subtitle {
-    font-size: clamp(0.95rem, 4vw, 1.25rem);
-  }
-}
-
-/* ── 13. Formular-Layout: Stack auf Mobile ───────────────── */
-@media (max-width: 600px) {
-  .form-row,
-  .input-row,
-  .field-group {
-    flex-direction: column !important;
-    gap: 12px;
-  }
-
-  .form-col,
-  .input-col,
-  .field-col {
-    width: 100% !important;
-    min-width: 0 !important;
-  }
-}
-
-/* ── 14. Header/Navbar auf Mobile ────────────────────────── */
-@
+/* ─── 14. Sticky CTA-Button auf Detail-Seite ─── */
+@media screen and (max-width: 768px) {
+  .detail-cta-sticky,
+  .contact-btn-sticky {
+    position: fixed;
+    bottom: calc(72px + var(--safe-area
