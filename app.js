@@ -7297,15 +7297,15 @@ function _applyDarkMode(on) {
 
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
-  initDarkMode();
-  setupDragDrop();
+  try{initDarkMode();}catch(e){console.warn("[EB]initDarkMode",e);}
+  try{setupDragDrop();}catch(e){console.warn("[EB]setupDragDrop",e);}
   try{initAiSearch();}catch(e){console.warn("[EB]initAiSearch",e);}
-  restoreSession();
-  updatePasskeyLoginUi();
-  initConditionalPasskeyLogin();
-  initPasswordFields();
-  initDragScroll();
-  initDatePickers();
+  try{restoreSession();}catch(e){console.warn("[EB]restoreSession",e);}
+  try{updatePasskeyLoginUi();}catch(e){console.warn("[EB]updatePasskeyLoginUi",e);}
+  try{initConditionalPasskeyLogin();}catch(e){console.warn("[EB]initConditionalPasskeyLogin",e);}
+  try{initPasswordFields();}catch(e){console.warn("[EB]initPasswordFields",e);}
+  try{initDragScroll();}catch(e){console.warn("[EB]initDragScroll",e);}
+  try{initDatePickers();}catch(e){console.warn("[EB]initDatePickers",e);}
 
   // Wochentag-Pill-Toggle für Sofortbuchung im Inserat-Formular
   var _wdPicker = document.getElementById('createWeekdayPicker');
@@ -7317,10 +7317,10 @@ document.addEventListener('DOMContentLoaded', function() {
       pill.classList.toggle('selected');
     });
   }
-  initCityAutocomplete();
-  initProfileCityAutocomplete();
-  initTimePickers();
-  initFeatureSearch();
+  try{initCityAutocomplete();}catch(e){console.warn("[EB]initCityAutocomplete",e);}
+  try{initProfileCityAutocomplete();}catch(e){console.warn("[EB]initProfileCityAutocomplete",e);}
+  try{initTimePickers();}catch(e){console.warn("[EB]initTimePickers",e);}
+  try{initFeatureSearch();}catch(e){console.warn("[EB]initFeatureSearch",e);}
 
   // Clear all browse filters on fresh page load (prevent browser form restoration)
   var _clearBrowseFilters = function(){
@@ -7328,7 +7328,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var el = document.getElementById(id); if(el) el.value = '';
     });
   };
-  _clearBrowseFilters();
+  try{_clearBrowseFilters();}catch(e){console.warn("[EB]_clearBrowseFilters",e);}
   // Some browsers restore form values AFTER DOMContentLoaded – clear again after a tick
   setTimeout(_clearBrowseFilters, 0);
 
