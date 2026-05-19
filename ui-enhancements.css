@@ -1,97 +1,61 @@
-/* ui-enhancements.css — KI-Worker duerfen diese Datei schreiben.
-   Laedt NACH styles.css, ergaenzt/ueberschreibt gezielt. */
+/*
+  ui-enhancements.css
+  Loads AFTER styles.css. Use this file for all visual improvements, overrides, and new UI components.
+  Always adhere to the Eventbörse Design System and use CSS variables where appropriate.
+*/
 
-/* ===== DESIGN-SYSTEM TOKENS (aus UI-Patterns.md) ===== */
-:root {
-  --eb-radius-sm: 8px;
-  --eb-radius-md: 16px;
-  --eb-radius-lg: 24px;
-  --eb-shadow-1: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  --eb-shadow-2: 0 4px 12px rgba(0,0,0,.1), 0 2px 4px rgba(0,0,0,.06);
-  --eb-shadow-3: 0 8px 24px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.08);
-  --eb-transition-fast: 150ms ease;
-  --eb-transition-normal: 250ms ease;
-  --eb-transition-slow: 400ms cubic-bezier(.4,0,.2,1);
-  --eb-spacing-xs: 4px;
-  --eb-spacing-sm: 8px;
-  --eb-spacing-md: 16px;
-  --eb-spacing-lg: 24px;
-  --eb-spacing-xl: 32px;
-  --eb-spacing-2xl: 48px;
+/* --- Global Enhancements --- */
+
+/* Subtle gradient overlay for page headers */
+.page-header {
+  position: relative;
+  overflow: hidden; /* Ensure gradient doesn't bleed outside if header has radius */
 }
 
-/* ===== SMOOTH TRANSITIONS ===== */
-.listing-card,
-.review-card,
-.kanban-card,
-.tl-card {
-  transition: transform var(--eb-transition-normal), box-shadow var(--eb-transition-normal);
+.page-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, rgba(var(--brand-primary-rgb), 0.05), transparent);
+  pointer-events: none; /* Allow interaction with elements behind the overlay */
+  z-index: 1; /* Place above header background but below content */
 }
 
+/* --- Component Specific Enhancements --- */
+
+/* Example: Add some shadow to cards on hover */
 .listing-card:hover,
 .review-card:hover,
-.kanban-card:hover,
-.tl-card:hover {
-  transform: translateY(-2px);
+.kanban-card:hover {
   box-shadow: var(--eb-shadow-2);
+  transform: translateY(-2px);
+  transition: transform var(--eb-transition-fast), box-shadow var(--eb-transition-fast);
 }
 
-.listing-card:active,
-.review-card:active {
-  transform: translateY(0);
-  transition-duration: 80ms;
+/* Example: Dark mode adjustments */
+[data-theme="dark"] .listing-card,
+[data-theme="dark"] .review-card,
+[data-theme="dark"] .kanban-card {
+  background-color: var(--surface-2); /* Slightly darker card background in dark mode */
 }
 
-/* ===== BUTTON REFINEMENTS ===== */
-.btn, button[class*="btn"] {
-  transition: background var(--eb-transition-fast), transform var(--eb-transition-fast), box-shadow var(--eb-transition-fast);
+[data-theme="dark"] .page-header::before {
+  background: linear-gradient(to bottom, rgba(var(--brand-primary-rgb), 0.08), transparent); /* Slightly more prominent in dark mode */
 }
 
-.btn:active, button[class*="btn"]:active {
-  transform: scale(0.97);
-}
-
-/* ===== FOCUS RING (Accessibility) ===== */
-:focus-visible {
-  outline: 2px solid var(--brand-primary, #FF385C);
+/* Example: Better focus styles for accessibility */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--brand-primary);
   outline-offset: 2px;
-}
-
-/* ===== SCROLL BEHAVIOR ===== */
-html {
-  scroll-behavior: smooth;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* ===== SKELETON SHIMMER IMPROVEMENT ===== */
-@keyframes eb-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.skeleton-card,
-.skeleton-list-item,
-[class*="skeleton"] {
-  background: linear-gradient(90deg, var(--surface-2, #f7f7f7) 25%, #eee 50%, var(--surface-2, #f7f7f7) 75%);
-  background-size: 200% 100%;
-  animation: eb-shimmer 1.5s ease-in-out infinite;
-}
-
-/* ===== TOAST IMPROVEMENTS ===== */
-.toast {
-  backdrop-filter: blur(8px);
   border-radius: var(--eb-radius-sm);
 }
-
-/* ===== IMAGE LOADING ===== */
-/* Lazy image fade-in removed — JS never sets .loaded class, images were invisible */
 
 /* ===== MODAL BACKDROP BLUR ===== */
 .modal-backdrop {
@@ -110,10 +74,45 @@ html {
   .eb-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Adjusting spacing for better readability on larger screens */
 @media (min-width: 768px) {
-  .eb-grid { grid-template-columns: repeat(3, 1fr); }
+  .page-content {
+    padding-left: var(--eb-spacing-md);
+    padding-right: var(--eb-spacing-md);
+  }
 }
 
-@media (min-width: 1280px) {
-  .eb-grid { grid-template-columns: repeat(4, 1fr); }
+@media (min-width: 1024px) {
+  .page-content {
+    padding-left: var(--eb-spacing-lg);
+    padding-right: var(--eb-spacing-lg);
+    max-width: 1280px; /* Constrain content width for very large screens */
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Empty state styling */
+.empty-state {
+  text-align: center;
+  padding: var(--eb-spacing-xl) var(--eb-spacing-md);
+  color: var(--text-light);
+  font-size: 1.1em;
+  border: 2px dashed var(--border);
+  border-radius: var(--eb-radius-md);
+  margin-top: var(--eb-spacing-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--eb-spacing-sm);
+}
+
+.empty-state .material-icons-round {
+  font-size: 3em;
+  color: var(--border);
+}
+
+.empty-state h3 {
+  color: var(--text);
+  margin-bottom: var(--eb-spacing-xs);
 }
