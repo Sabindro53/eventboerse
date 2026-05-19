@@ -170,6 +170,8 @@ $asset_ver = '2.4.8'; // cache-bust;
     <!-- ── App CSS ── -->
     <link rel="stylesheet"
           href="<?php echo get_template_directory_uri(); ?>/styles.css?v=<?php echo $asset_ver; ?>">
+    <link rel="stylesheet"
+          href="<?php echo get_template_directory_uri(); ?>/ui-enhancements.css?v=<?php echo $asset_ver; ?>">
 
     <!-- ── WordPress Nonce (passed to app.js via inline script) ── -->
     <script>
@@ -3634,6 +3636,7 @@ Datum: ___________________________________________________
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
   <script src="app.js?v=158" defer></script>
+  <script src="ux-improvements.js?v=1" defer></script>
 
 <?php wp_footer(); ?>
 </body>

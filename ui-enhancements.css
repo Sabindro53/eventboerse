@@ -1,0 +1,127 @@
+/* ui-enhancements.css — KI-Worker duerfen diese Datei schreiben.
+   Laedt NACH styles.css, ergaenzt/ueberschreibt gezielt. */
+
+/* ===== DESIGN-SYSTEM TOKENS (aus UI-Patterns.md) ===== */
+:root {
+  --eb-radius-sm: 8px;
+  --eb-radius-md: 16px;
+  --eb-radius-lg: 24px;
+  --eb-shadow-1: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --eb-shadow-2: 0 4px 12px rgba(0,0,0,.1), 0 2px 4px rgba(0,0,0,.06);
+  --eb-shadow-3: 0 8px 24px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.08);
+  --eb-transition-fast: 150ms ease;
+  --eb-transition-normal: 250ms ease;
+  --eb-transition-slow: 400ms cubic-bezier(.4,0,.2,1);
+  --eb-spacing-xs: 4px;
+  --eb-spacing-sm: 8px;
+  --eb-spacing-md: 16px;
+  --eb-spacing-lg: 24px;
+  --eb-spacing-xl: 32px;
+  --eb-spacing-2xl: 48px;
+}
+
+/* ===== SMOOTH TRANSITIONS ===== */
+.listing-card,
+.review-card,
+.kanban-card,
+.tl-card {
+  transition: transform var(--eb-transition-normal), box-shadow var(--eb-transition-normal);
+}
+
+.listing-card:hover,
+.review-card:hover,
+.kanban-card:hover,
+.tl-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--eb-shadow-2);
+}
+
+.listing-card:active,
+.review-card:active {
+  transform: translateY(0);
+  transition-duration: 80ms;
+}
+
+/* ===== BUTTON REFINEMENTS ===== */
+.btn, button[class*="btn"] {
+  transition: background var(--eb-transition-fast), transform var(--eb-transition-fast), box-shadow var(--eb-transition-fast);
+}
+
+.btn:active, button[class*="btn"]:active {
+  transform: scale(0.97);
+}
+
+/* ===== FOCUS RING (Accessibility) ===== */
+:focus-visible {
+  outline: 2px solid var(--brand-primary, #FF385C);
+  outline-offset: 2px;
+}
+
+/* ===== SCROLL BEHAVIOR ===== */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== SKELETON SHIMMER IMPROVEMENT ===== */
+@keyframes eb-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-card,
+.skeleton-list-item,
+[class*="skeleton"] {
+  background: linear-gradient(90deg, var(--surface-2, #f7f7f7) 25%, #eee 50%, var(--surface-2, #f7f7f7) 75%);
+  background-size: 200% 100%;
+  animation: eb-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ===== TOAST IMPROVEMENTS ===== */
+.toast {
+  backdrop-filter: blur(8px);
+  border-radius: var(--eb-radius-sm);
+}
+
+/* ===== IMAGE LOADING ===== */
+img[loading="lazy"] {
+  opacity: 0;
+  transition: opacity var(--eb-transition-slow);
+}
+
+img[loading="lazy"].loaded,
+img[loading="lazy"][complete] {
+  opacity: 1;
+}
+
+/* ===== MODAL BACKDROP BLUR ===== */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ===== RESPONSIVE GRID HELPERS ===== */
+.eb-grid {
+  display: grid;
+  gap: var(--eb-spacing-md);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 480px) {
+  .eb-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 768px) {
+  .eb-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1280px) {
+  .eb-grid { grid-template-columns: repeat(4, 1fr); }
+}
