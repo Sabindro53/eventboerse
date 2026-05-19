@@ -1,21 +1,22 @@
-// Global state object to hold application data
-let appState = {
-  connectionStatus: 'online',
-};
+let currentPage;
+let isTabVisible = true;
 
-// Function to update the connection status class on the body
-function updateConnectionStatus(status) {
-  document.body.classList.remove('online', 'offline');
-  document.body.classList.add(status);
+function handleVisibilityChange() {
+  if (!isTabVisible) {
+    pauseApiPolling();
+  } else {
+    resumeApiPolling();
+  }
 }
 
-// Event listeners for online/offline events
-window.addEventListener('online', () => {
-  appState.connectionStatus = 'online';
-  updateConnectionStatus(appState.connectionStatus);
-});
+window.addEventListener('visibilitychange', handleVisibilityChange);
 
-window.addEventListener('offline', () => {
-  appState.connectionStatus = 'offline';
-  updateConnectionStatus(appState.connectionStatus);
-});
+function pauseApiPolling() {
+  // Logic to pause API polling
+  console.log('Pausing API polling');
+}
+
+function resumeApiPolling() {
+  // Logic to resume API polling
+  console.log('Resuming API polling');
+}
