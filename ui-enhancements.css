@@ -91,14 +91,7 @@ html {
 }
 
 /* ===== IMAGE LOADING ===== */
-img[loading="lazy"]:not(.loaded) {
-  opacity: 0;
-  transition: opacity var(--eb-transition-slow);
-}
-
-img[loading="lazy"].loaded {
-  opacity: 1;
-}
+/* Lazy image fade-in removed — JS never sets .loaded class, images were invisible */
 
 /* ===== MODAL BACKDROP BLUR ===== */
 .modal-backdrop {
