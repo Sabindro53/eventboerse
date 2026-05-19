@@ -1,29 +1,46 @@
-```css
-/* Mobile-First Design */
+```
 body {
   font-family: 'Inter', sans-serif;
-  color: #333;
   margin: 0;
   padding: 0;
-  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
 }
 
-/* Dark Mode */
-html[data-theme="dark"] body {
-  background-color: #1a1a1a;
+header {
+  background-color: #333;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1em 2em;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  scroll-behavior: smooth;
+}
+
+main {
+  margin-top: calc(3.5rem + 24px); /* Adjust this value based on your header height */
+}
+
+footer {
+  background-color: #333;
+  color: white;
+  text-align: center;
+  padding: 1em 0;
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+}
+
+/* Dark Mode Toggle */
+body.dark-mode {
+  background-color: #454545;
   color: #fff;
 }
 
-/* Scrollbar Width for Better Touch Scrolling */
-body::-webkit-scrollbar {
-  width: 8px; /* Track width */
-}
-
-body::-webkit-scrollbar-thumb {
-  background: #555; /* Color of the scroll thumb */
-  border-radius: 4px;
-}
-
-body::-webkit-scrollbar-track {
-  background: transparent; /* Color of the track */
+@media (max-width: 768px) {
+  header, footer {
+    padding: 1em 1em;
+  }
 }
