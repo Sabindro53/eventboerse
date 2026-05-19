@@ -1,17 +1,29 @@
 ```css
-/* Mobile-First CSS */
-
+/* Mobile-First Design */
 body {
-    font-family: 'Inter', sans-serif;
-    line-height: 1.6;
-    margin: 0;
-    padding: 0;
-    background-color: #fff;
+  font-family: 'Inter', sans-serif;
+  color: #333;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-    body {
-        background-color: #333;
-        color: #fff;
-    }
+/* Dark Mode */
+html[data-theme="dark"] body {
+  background-color: #1a1a1a;
+  color: #fff;
+}
+
+/* Scrollbar Width for Better Touch Scrolling */
+body::-webkit-scrollbar {
+  width: 8px; /* Track width */
+}
+
+body::-webkit-scrollbar-thumb {
+  background: #555; /* Color of the scroll thumb */
+  border-radius: 4px;
+}
+
+body::-webkit-scrollbar-track {
+  background: transparent; /* Color of the track */
 }
