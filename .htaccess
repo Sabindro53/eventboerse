@@ -1,5 +1,17 @@
-(complete file content)
+```
+# Enable URL rewriting
+RewriteEngine On
 
-```apache
-# Enable Strict-Transport-Security (HSTS)
-Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+# Disable directory listing
+Options -Indexes
+
+# Add noindex to wp-admin and wp-login paths
+RewriteRule ^wp-admin$ http://$HTTP_HOST/wp-admin/index.php?robots=noindex [L,R=301]
+RewriteRule ^wp-login$ http://$HTTP_HOST/wp-login.php?robots=noindex [L,R=301]
+
+# Handle other 404s
+ErrorDocument 404 /404.php
+
+# Redirect to HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [R,L]
