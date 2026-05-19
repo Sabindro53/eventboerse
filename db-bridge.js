@@ -1,23 +1,31 @@
-import { _apiUrl, _apiHeaders, _apiFetch } from './app-utils.js';
+const axios = require('axios');
+const apiBaseUrl = 'https://api.example.com';
 
-async function fetchWithRetry(url, options = {}) {
-    const maxAttempts = 3;
-    let attempt = 0;
-
-    while (attempt < maxAttempts) {
-        try {
-            const response = await _apiFetch(url, options);
-            return response;
-        } catch (error) {
-            if (attempt === maxAttempts - 1) {
-                throw error; // Re-throw the last error if all attempts failed
-            }
-            attempt++;
-            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-            console.error(`Attempt ${attempt} failed. Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
+async function getListingById(listingId) {
+    const url = `${apiBaseUrl}/listings/${listingId}`;
+    try {
+        const response = await axios.get(url);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching listing:', error);
+        throw new Error('Failed to fetch listing');
     }
 }
 
-export { fetchWithRetry };
+async function updateListing(listingId, updatedData) {
+    const url = `${apiBaseUrl}/listings/${listingId}`;
+    try {
+        const response = await axios.put(url, updatedData);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating listing:', error);
+        throw new Error('Failed to update listing');
+    }
+}
+
+// Additional functions can be added for other API endpoints as needed
+
+module.exports = {
+    getListingById,
+    updateListing
+};
