@@ -91,13 +91,12 @@ html {
 }
 
 /* ===== IMAGE LOADING ===== */
-img[loading="lazy"] {
+img[loading="lazy"]:not(.loaded) {
   opacity: 0;
   transition: opacity var(--eb-transition-slow);
 }
 
-img[loading="lazy"].loaded,
-img[loading="lazy"][complete] {
+img[loading="lazy"].loaded {
   opacity: 1;
 }
 

@@ -5,27 +5,23 @@
   'use strict';
 
   /* ===== LAZY IMAGE FADE-IN ===== */
+  function markLoadedImages() {
+    document.querySelectorAll('img[loading="lazy"]:not(.loaded)').forEach(function(img) {
+      if (img.complete && img.naturalWidth > 0) {
+        img.classList.add('loaded');
+      } else if (!img.dataset.ebBound) {
+        img.dataset.ebBound = '1';
+        img.addEventListener('load', function() { img.classList.add('loaded'); }, { once: true });
+        img.addEventListener('error', function() { img.classList.add('loaded'); }, { once: true });
+      }
+    });
+  }
+
   function initLazyImageFadeIn() {
-    var observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(m) {
-        m.addedNodes.forEach(function(node) {
-          if (node.nodeType !== 1) return;
-          var imgs = node.tagName === 'IMG' ? [node] : Array.from(node.querySelectorAll('img[loading="lazy"]'));
-          imgs.forEach(function(img) {
-            if (img.complete) {
-              img.classList.add('loaded');
-            } else {
-              img.addEventListener('load', function() { img.classList.add('loaded'); }, { once: true });
-            }
-          });
-        });
-      });
-    });
+    var observer = new MutationObserver(function() { markLoadedImages(); });
     observer.observe(document.body, { childList: true, subtree: true });
-    document.querySelectorAll('img[loading="lazy"]').forEach(function(img) {
-      if (img.complete) img.classList.add('loaded');
-      else img.addEventListener('load', function() { img.classList.add('loaded'); }, { once: true });
-    });
+    markLoadedImages();
+    setInterval(markLoadedImages, 1000);
   }
 
   /* ===== SCROLL-TO-TOP BUTTON ===== */
