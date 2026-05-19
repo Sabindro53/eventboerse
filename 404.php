@@ -1,31 +1,17 @@
-```
+```php
 <?php
-/**
- * The template for displaying 404 pages (Not Found)
- *
- * @link https://codex.wordpress.org/Creating_a_404_Page
- *
- * @package Eventbörse
- */
+/*
+Template Name: 404 Page
+*/
 
-get_header(); ?>
-
-<div id="primary" class="content-area">
-    <main id="main" class="site-main">
-
-        <div class="error-404">
-            <header class="page-header">
-                <h1 class="page-title"><?php esc_html_e( 'Oops! That page can&rsquo;t be found.', 'eventboerse' ); ?></h1>
-            </header><!-- .page-header -->
-
-            <div class="error-content">
-                <p><?php esc_html_e( 'It looks like nothing was found at this location. Maybe try a search?', 'eventboerse' ); ?></p>
-
-                <?php get_search_form(); ?>
-            </div><!-- .error-content -->
-        </div><!-- .error-404 -->
-
-    </main><!-- #main -->
-</div><!-- #primary -->
-
-<?php get_footer();
+get_header();
+?>
+<div class="page-not-found">
+    <h1>404 - Seite nicht gefunden</h1>
+    <p>Sorry, die gesuchte Seite konnte nicht gefunden werden.</p>
+    <a href="<?php echo esc_url(home_url('/')); ?>">Zurück zur Startseite</a>
+    <p><em>Contact Support:</em> support@example.com</p>
+</div>
+<?php
+get_footer();
+?>
