@@ -1,66 +1,17 @@
 ```css
-/* Mobile-First CSS Reset */
-html {
-  font-size: 16px;
-}
+/* Mobile-First CSS */
 
 body {
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #fff;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-@media (min-width: 768px) { /* Tablet */
-  body {
-    font-size: 18px;
-  }
-}
-
-@media (min-width: 1024px) { /* Desktop */
-  body {
-    font-size: 20px;
-  }
-}
-
-/* Dark Mode Variables */
-:root {
-  --color-primary: #333;
-  --color-secondary: #555;
-  --color-text-light: #fff;
-  --color-text-dark: #333;
-  --color-background: #f9f9f9;
-  --color-background-dark: #282c34;
-  --color-brand: #007bff;
-  --color-accent: #fdcb6e;
-  --color-error: #dc3545;
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-text-light);
-}
-
-a {
-  text-decoration: none;
-  color: var(--color-brand);
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-/* Global Transitions */
-*, *::before, *::after {
-  transition: all .3s ease;
-}
-
-@media (prefers-reduced-motion) { /* Disable transitions and animations for users with reduced motion preferences */
-  *, *::before, *::after {
-    transition: none !important;
-  }
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #333;
+        color: #fff;
+    }
 }
