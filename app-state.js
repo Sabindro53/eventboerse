@@ -1,34 +1,21 @@
-class AppState {
-  constructor() {
-    this.state = {
-      currentPage: 'home',
-      listings: [],
-      providerDetails: {},
-      searchQuery: '',
-      favorites: [],
-      chatMessages: {},
-      messages: [],
-      myListings: [],
-      boardProjects: [],
-      boardSettings: {
-        viewMode: 'kanban'
-      },
-      sidebarOpen: false,
-      isAppLoaderVisible: true
-    };
-  }
+// Global state object to hold application data
+let appState = {
+  connectionStatus: 'online',
+};
 
-  setCurrentPage(page) {
-    this.state.currentPage = page;
-  }
-
-  setState(key, value) {
-    this.state[key] = value;
-  }
-
-  getState() {
-    return this.state;
-  }
+// Function to update the connection status class on the body
+function updateConnectionStatus(status) {
+  document.body.classList.remove('online', 'offline');
+  document.body.classList.add(status);
 }
 
-export default new AppState();
+// Event listeners for online/offline events
+window.addEventListener('online', () => {
+  appState.connectionStatus = 'online';
+  updateConnectionStatus(appState.connectionStatus);
+});
+
+window.addEventListener('offline', () => {
+  appState.connectionStatus = 'offline';
+  updateConnectionStatus(appState.connectionStatus);
+});
