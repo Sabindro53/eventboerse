@@ -116,3 +116,44 @@ select:focus-visible {
   color: var(--text);
   margin-bottom: var(--eb-spacing-xs);
 }
+
+/* ===== LISTING CARD STAGGERED FADE-IN ===== */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.listing-card {
+  opacity: 0; /* Initially hidden to allow animation to start */
+  animation: fadeInUp 0.5s ease-out forwards; /* Apply animation for 0.5s */
+  animation-delay: calc(var(--i, 0) * 80ms); /* Staggered delay using custom property --i */
+}
+
+/* Assign --i variable using nth-child for staggered effect */
+.listing-card:nth-child(1) { --i: 0; }
+.listing-card:nth-child(2) { --i: 1; }
+.listing-card:nth-child(3) { --i: 2; }
+.listing-card:nth-child(4) { --i: 3; }
+.listing-card:nth-child(5) { --i: 4; }
+.listing-card:nth-child(6) { --i: 5; }
+.listing-card:nth-child(7) { --i: 6; }
+.listing-card:nth-child(8) { --i: 7; }
+.listing-card:nth-child(9) { --i: 8; }
+.listing-card:nth-child(10) { --i: 9; }
+.listing-card:nth-child(11) { --i: 10; }
+.listing-card:nth-child(12) { --i: 11; }
+.listing-card:nth-child(13) { --i: 12; }
+.listing-card:nth-child(14) { --i: 13; }
+.listing-card:nth-child(15) { --i: 14; }
+.listing-card:nth-child(16) { --i: 15; }
+.listing-card:nth-child(17) { --i: 16; }
+.listing-card:nth-child(18) { --i: 17; }
+.listing-card:nth-child(19) { --i: 18; }
+.listing-card:nth-child(20) { --i: 19; }
