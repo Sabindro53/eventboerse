@@ -157,3 +157,10 @@ select:focus-visible {
 .listing-card:nth-child(18) { --i: 17; }
 .listing-card:nth-child(19) { --i: 18; }
 .listing-card:nth-child(20) { --i: 19; }
+
+/* ===== PROVIDER CARD HOVER EFFECT ===== */
+.provider-card:hover {
+  box-shadow: var(--eb-shadow-2);
+  transform: translateY(-2px);
+  transition: transform var(--eb-transition-fast), box-shadow var(--eb-transition-fast);
+}
