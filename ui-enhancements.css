@@ -59,8 +59,15 @@ select:focus-visible {
 
 /* ===== MODAL BACKDROP BLUR ===== */
 .modal-backdrop {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-body {
+  max-height: 80vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ===== RESPONSIVE GRID HELPERS ===== */
@@ -212,63 +219,5 @@ select:focus-visible {
   border-radius: var(--eb-radius-sm);
   border: 1px solid var(--border);
   z-index: 100; /* Ensure it appears above other content */
-  padding: var(--eb-spacing-xs) 0;
-  list-style: none; /* Remove default list styling */
-  margin: 0;
-  opacity: 0;
-  transform: translateY(-5px);
-  transition: opacity var(--eb-transition-fast), transform var(--eb-transition-fast);
-  pointer-events: none; /* Prevent interaction when hidden */
-}
-
-.dropdown-menu.is-active {
-  display: block; /* Show when active */
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto; /* Allow interaction when active */
-}
-
-.dropdown-item {
-  color: var(--text);
-  padding: var(--eb-spacing-sm) var(--eb-spacing-md);
-  text-decoration: none;
-  display: block;
-  cursor: pointer;
-  white-space: nowrap; /* Prevent items from wrapping */
-  transition: background-color var(--eb-transition-fast), color var(--eb-transition-fast);
-}
-
-.dropdown-item:hover,
-.dropdown-item.is-selected {
-  background-color: var(--brand-primary);
-  color: var(--surface);
-}
-
-/* Dark mode specific styles for the dropdown */
-[data-theme="dark"] .dropdown-toggle {
-  background-color: var(--surface-2);
-  border-color: var(--border);
-  color: var(--text);
-}
-
-[data-theme="dark"] .dropdown-toggle:hover {
-  background-color: rgba(var(--brand-primary-rgb), 0.1);
-  border-color: var(--brand-primary);
-  color: var(--brand-primary);
-}
-
-[data-theme="dark"] .dropdown-menu {
-  background-color: var(--surface-2);
-  border-color: var(--border);
-  box-shadow: var(--eb-shadow-3); /* Slightly stronger shadow in dark mode */
-}
-
-[data-theme="dark"] .dropdown-item {
-  color: var(--text);
-}
-
-[data-theme="dark"] .dropdown-item:hover,
-[data-theme="dark"] .dropdown-item.is-selected {
-  background-color: var(--brand-primary);
-  color: var(--surface);
-}
+  padding
+/* ... truncated ... */
