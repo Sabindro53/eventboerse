@@ -1,4 +1,3 @@
-```php
 <?php
 // Function to get the current IP address of the client
 function getClientIP() {
