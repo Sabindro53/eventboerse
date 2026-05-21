@@ -3630,14 +3630,6 @@ Datum: ___________________________________________________
     </div>
   </div>
 
-  <!-- Drittanbieter-Skripte deferred am Ende, um Render-Blocking zu vermeiden -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
-  <script src="https://js.stripe.com/v3/" defer></script>
-  <script src="app.js?v=158" defer></script>
-  <script src="ux-improvements.js?v=1" defer></script>
-
 <?php wp_footer(); ?>
 </body>
 </html>

@@ -243,6 +243,16 @@ function eventboerse_enqueue_assets() {
         true
     );
 
+    // UX-Enhancements (nach app.js laden, damit globale App-Funktionen existieren)
+    $ux_ver = file_exists( $theme_dir . '/ux-improvements.js' ) ? filemtime( $theme_dir . '/ux-improvements.js' ) : '1.0.0';
+    wp_enqueue_script(
+        'eventboerse-ux-improvements',
+        get_template_directory_uri() . '/ux-improvements.js',
+        array( 'eventboerse-app' ),
+        $ux_ver,
+        true
+    );
+
     // API-Einstellungen ans Frontend übergeben
     $user_data = null;
     if ( is_user_logged_in() ) {
