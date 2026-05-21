@@ -137,11 +137,7 @@ select:focus-visible {
   }
 }
 
-.listing-card {
-  opacity: 0; /* Initially hidden to allow animation to start */
-  animation: fadeInUp 0.5s ease-out forwards; /* Apply animation for 0.5s */
-  animation-delay: calc(var(--i, 0) * 80ms); /* Staggered delay using custom property --i */
-}
+/* .listing-card animation removed — broken animation kept cards permanently invisible */
 
 /* Assign --i variable using nth-child for staggered effect */
 .listing-card:nth-child(1) { --i: 0; }
