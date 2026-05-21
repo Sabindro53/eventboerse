@@ -7255,6 +7255,95 @@ html { scrollbar-color: var(--primary) transparent; }
 }
 .my-listings-header h1 { margin: 0; }
 
+.my-moderation-panel {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.my-moderation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.my-moderation-head h3 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.98rem;
+}
+.my-moderation-count {
+  font-size: 0.78rem;
+  color: var(--text-light);
+  font-weight: 600;
+}
+.my-moderation-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.my-moderation-item {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--bg-alt);
+}
+.my-moderation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.my-moderation-row strong {
+  font-size: 0.9rem;
+  color: var(--dark);
+}
+.my-moderation-badge {
+  font-size: 0.74rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.my-moderation-badge.is-hidden {
+  background: rgba(245, 158, 11, 0.14);
+  color: #9A6400;
+}
+.my-moderation-badge.is-deleted {
+  background: rgba(239, 68, 68, 0.12);
+  color: #B42318;
+}
+.my-moderation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+.my-moderation-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.my-moderation-meta .material-icons-round {
+  font-size: 14px;
+}
+.my-moderation-reason {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+.my-moderation-empty {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-light);
+}
+
 .my-listing-card {
   display: flex;
   gap: 20px;
@@ -7267,6 +7356,19 @@ html { scrollbar-color: var(--primary) transparent; }
 }
 .my-listing-card:hover {
   box-shadow: var(--shadow-md);
+}
+
+.my-listing-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  margin: 6px 0 2px;
+}
+.my-listing-note .material-icons-round {
+  font-size: 14px;
+  margin-top: 1px;
 }
 
 /* ======== COOKIE CONSENT BANNER ======== */

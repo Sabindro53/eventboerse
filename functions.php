@@ -638,6 +638,44 @@ function eb_notify_listing_owner_moderation( $owner_id, $listing_title, $action 
 }
 
 /**
+ * Persistenter Moderations-Verlauf für Inserat-Ersteller.
+ * So bleiben Gründe auch dann sichtbar, wenn E-Mails nicht zugestellt werden
+ * oder ein Inserat bereits gelöscht wurde.
+ */
+function eb_log_listing_moderation_event( $listing_id, $owner_id, $admin_id, $action = 'hidden', $reason = '', $listing_title = '', $mail_notified = false ) {
+    global $wpdb;
+
+    $table = $wpdb->prefix . 'eb_listing_moderation';
+    $action = $action === 'deleted' ? 'deleted' : 'hidden';
+    $reason = eb_listing_moderation_reason( $reason, $action );
+    $title  = sanitize_text_field( (string) $listing_title );
+    if ( $title === '' ) {
+        $title = 'Ohne Titel';
+    }
+
+    $inserted = $wpdb->insert(
+        $table,
+        array(
+            'listing_id'     => absint( $listing_id ),
+            'owner_id'       => absint( $owner_id ),
+            'admin_id'       => absint( $admin_id ),
+            'action'         => $action,
+            'reason'         => $reason,
+            'listing_title'  => $title,
+            'notified_mail'  => $mail_notified ? 1 : 0,
+            'created_at'     => current_time( 'mysql' ),
+        ),
+        array( '%d', '%d', '%d', '%s', '%s', '%s', '%d', '%s' )
+    );
+
+    if ( $inserted === false ) {
+        return 0;
+    }
+
+    return (int) $wpdb->insert_id;
+}
+
+/**
  * Demo-Provider-IDs (Bot-Accounts in den hardcoded LISTINGS in app.js).
  * Wird sowohl für die Mail-CC-Logik als auch den Hide-Demo-Toggle benutzt.
  */
@@ -2238,6 +2276,22 @@ function eb_create_tables() {
         KEY idx_status (status)
     ) $charset;";
 
+    $sql_listing_moderation = "CREATE TABLE {$wpdb->prefix}eb_listing_moderation (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        listing_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        owner_id bigint(20) unsigned NOT NULL,
+        admin_id bigint(20) unsigned NOT NULL DEFAULT 0,
+        action varchar(20) NOT NULL DEFAULT 'hidden',
+        reason text,
+        listing_title varchar(255) NOT NULL DEFAULT '',
+        notified_mail tinyint(1) NOT NULL DEFAULT 0,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY idx_owner_created (owner_id, created_at),
+        KEY idx_listing (listing_id),
+        KEY idx_action (action)
+    ) $charset;";
+
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta( $sql_listings );
     dbDelta( $sql_reviews );
@@ -2245,17 +2299,18 @@ function eb_create_tables() {
     dbDelta( $sql_messages );
     dbDelta( $sql_favorites );
     dbDelta( $sql_registrations );
+    dbDelta( $sql_listing_moderation );
 }
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '2.0' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.1' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
-        update_option( 'eb_db_version', '2.0' );
+        update_option( 'eb_db_version', '2.1' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -2307,6 +2362,12 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/my-listings', array(
         'methods'             => 'GET',
         'callback'            => 'eb_my_listings',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/my-listing-moderation', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_my_listing_moderation',
         'permission_callback' => 'is_user_logged_in',
     ) );
 
@@ -3014,7 +3075,7 @@ function eb_admin_smtp_set( WP_REST_Request $request ) {
 
 function eb_diagnostics() {
     global $wpdb;
-    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations' );
+    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations', 'eb_listing_moderation' );
     $result = array(
         'db_version'       => get_option( 'eb_db_version' ),
         'smtp_configured'  => eb_smtp_is_configured(),
@@ -3617,12 +3678,22 @@ function eb_admin_hide_listing( WP_REST_Request $request ) {
     if ( $is_admin_action ) {
         $notified = eb_notify_listing_owner_moderation( (int) $row->user_id, (string) $row->title, 'hidden', $reason );
     }
+    $event_id = eb_log_listing_moderation_event(
+        $id,
+        (int) $row->user_id,
+        (int) $admin_id,
+        'hidden',
+        $reason,
+        (string) $row->title,
+        $notified
+    );
 
     return new WP_REST_Response( array(
         'hidden'           => true,
         'listing_id'       => $id,
         'moderationReason' => $reason,
         'ownerNotified'    => (bool) $notified,
+        'moderationEventId'=> (int) $event_id,
     ), 200 );
 }
 
@@ -3656,14 +3727,25 @@ function eb_listings_delete( WP_REST_Request $request ) {
     $wpdb->delete( $wpdb->prefix . 'eb_favorites', array( 'listing_id' => $id ) );
 
     $notified = false;
+    $event_id = 0;
     if ( $is_admin_action ) {
         $notified = eb_notify_listing_owner_moderation( (int) $row->user_id, (string) $row->title, 'deleted', $reason );
+        $event_id = eb_log_listing_moderation_event(
+            $id,
+            (int) $row->user_id,
+            (int) $uid,
+            'deleted',
+            $reason,
+            (string) $row->title,
+            $notified
+        );
     }
 
     return new WP_REST_Response( array(
         'deleted'          => true,
         'ownerNotified'    => (bool) $notified,
         'moderationReason' => $is_admin_action ? $reason : '',
+        'moderationEventId'=> (int) $event_id,
     ), 200 );
 }
 
@@ -3676,7 +3758,93 @@ function eb_my_listings() {
         $uid
     ), ARRAY_A );
 
-    return new WP_REST_Response( array_map( 'eb_format_listing', $rows ?: array() ), 200 );
+    $listings = array_map( 'eb_format_listing', $rows ?: array() );
+    if ( empty( $listings ) ) {
+        return new WP_REST_Response( array(), 200 );
+    }
+
+    $listing_ids = array_values( array_filter( array_map( function( $item ) {
+        return isset( $item['id'] ) ? (int) $item['id'] : 0;
+    }, $listings ) ) );
+
+    if ( ! empty( $listing_ids ) ) {
+        $placeholders = implode( ',', array_fill( 0, count( $listing_ids ), '%d' ) );
+        $params = array_merge( array( $uid ), $listing_ids );
+        $sql = $wpdb->prepare(
+            "SELECT m1.*
+             FROM {$wpdb->prefix}eb_listing_moderation m1
+             INNER JOIN (
+                SELECT listing_id, MAX(id) AS max_id
+                FROM {$wpdb->prefix}eb_listing_moderation
+                WHERE owner_id = %d AND listing_id IN ($placeholders)
+                GROUP BY listing_id
+             ) latest ON latest.max_id = m1.id",
+            $params
+        );
+        $mod_rows = $wpdb->get_results( $sql, ARRAY_A );
+        $mod_by_listing = array();
+        foreach ( $mod_rows as $m ) {
+            $lid = (int) $m['listing_id'];
+            if ( $lid > 0 ) {
+                $mod_by_listing[ $lid ] = $m;
+            }
+        }
+        foreach ( $listings as &$listing ) {
+            $lid = (int) ( $listing['id'] ?? 0 );
+            if ( $lid > 0 && isset( $mod_by_listing[ $lid ] ) ) {
+                $m = $mod_by_listing[ $lid ];
+                $listing['moderationAction']       = (string) $m['action'];
+                $listing['moderationReason']       = (string) $m['reason'];
+                $listing['moderationCreatedAt']    = (string) $m['created_at'];
+                $listing['moderationMailNotified'] = ! empty( $m['notified_mail'] );
+            } else {
+                $listing['moderationAction']       = '';
+                $listing['moderationReason']       = '';
+                $listing['moderationCreatedAt']    = '';
+                $listing['moderationMailNotified'] = false;
+            }
+        }
+        unset( $listing );
+    }
+
+    return new WP_REST_Response( $listings, 200 );
+}
+
+/**
+ * Verlauf aller Moderationsaktionen für den aktuellen Inserat-Ersteller
+ * (inkl. bereits gelöschter Inserate).
+ */
+function eb_my_listing_moderation( WP_REST_Request $request ) {
+    global $wpdb;
+    $uid = get_current_user_id();
+    $limit = absint( $request->get_param( 'limit' ) ?: 100 );
+    if ( $limit < 1 ) $limit = 1;
+    if ( $limit > 300 ) $limit = 300;
+
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, listing_id, listing_title, action, reason, notified_mail, created_at
+         FROM {$wpdb->prefix}eb_listing_moderation
+         WHERE owner_id = %d
+         ORDER BY created_at DESC, id DESC
+         LIMIT %d",
+        $uid, $limit
+    ), ARRAY_A );
+
+    $events = array_map( function( $row ) {
+        $created_at = (string) ( $row['created_at'] ?? '' );
+        return array(
+            'id'              => (int) ( $row['id'] ?? 0 ),
+            'listingId'       => (int) ( $row['listing_id'] ?? 0 ),
+            'listingTitle'    => (string) ( $row['listing_title'] ?? '' ),
+            'action'          => (string) ( $row['action'] ?? '' ),
+            'reason'          => (string) ( $row['reason'] ?? '' ),
+            'mailNotified'    => ! empty( $row['notified_mail'] ),
+            'createdAt'       => $created_at,
+            'createdAtHuman'  => $created_at ? date_i18n( 'd.m.Y H:i', strtotime( $created_at ) ) : '',
+        );
+    }, $rows ?: array() );
+
+    return new WP_REST_Response( $events, 200 );
 }
 
 /* =====================================================================

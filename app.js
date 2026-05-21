@@ -7886,6 +7886,96 @@ function renderFavorites() {
   }
 }
 
+function _ensureMyModerationPanel() {
+  var page = document.getElementById('page-my-listings');
+  if (!page) return null;
+  var panel = document.getElementById('myListingsModerationPanel');
+  if (panel) return panel;
+
+  panel = document.createElement('section');
+  panel.id = 'myListingsModerationPanel';
+  panel.className = 'my-moderation-panel';
+
+  var header = page.querySelector('.my-listings-header');
+  if (header && header.parentNode) {
+    header.parentNode.insertBefore(panel, header.nextSibling);
+  } else {
+    page.insertBefore(panel, page.firstChild);
+  }
+  return panel;
+}
+
+function _setMyModerationPanelLoading() {
+  var panel = _ensureMyModerationPanel();
+  if (!panel) return;
+  panel.style.display = '';
+  panel.innerHTML =
+    '<div class="my-moderation-head">' +
+      '<h3><span class="material-icons-round">history</span> Moderationsverlauf</h3>' +
+    '</div>' +
+    '<p class="my-moderation-empty">Lade Hinweise …</p>';
+}
+
+function _renderMyModerationPanel(events) {
+  var panel = _ensureMyModerationPanel();
+  if (!panel) return;
+
+  if (!isLoggedIn) {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.style.display = '';
+  if (!Array.isArray(events) || events.length === 0) {
+    panel.innerHTML =
+      '<div class="my-moderation-head">' +
+        '<h3><span class="material-icons-round">history</span> Moderationsverlauf</h3>' +
+      '</div>' +
+      '<p class="my-moderation-empty">Aktuell gibt es keine Moderationshinweise zu deinen Inseraten.</p>';
+    return;
+  }
+
+  var items = events.slice(0, 12).map(function(evt) {
+    var isDeleted = evt.action === 'deleted';
+    var actionLabel = isDeleted ? 'Gelöscht' : 'Ausgeblendet';
+    var actionClass = isDeleted ? 'is-deleted' : 'is-hidden';
+    var notifyLabel = evt.mailNotified ? 'E-Mail gesendet' : 'Im Konto gespeichert';
+    return '<div class="my-moderation-item">' +
+      '<div class="my-moderation-row">' +
+        '<strong>' + _escHtml(evt.listingTitle || 'Inserat') + '</strong>' +
+        '<span class="my-moderation-badge ' + actionClass + '">' + actionLabel + '</span>' +
+      '</div>' +
+      '<div class="my-moderation-meta">' +
+        '<span><span class="material-icons-round">schedule</span> ' + _escHtml(evt.createdAtHuman || '') + '</span>' +
+        '<span><span class="material-icons-round">mark_email_read</span> ' + _escHtml(notifyLabel) + '</span>' +
+      '</div>' +
+      '<p class="my-moderation-reason">' + _escHtml(evt.reason || '') + '</p>' +
+    '</div>';
+  }).join('');
+
+  panel.innerHTML =
+    '<div class="my-moderation-head">' +
+      '<h3><span class="material-icons-round">history</span> Moderationsverlauf</h3>' +
+      '<span class="my-moderation-count">' + events.length + ' Hinweise</span>' +
+    '</div>' +
+    '<div class="my-moderation-list">' + items + '</div>';
+}
+
+function _loadMyListingModeration(limit) {
+  if (!isLoggedIn) return Promise.resolve([]);
+  var lim = limit || 120;
+  return fetch(_apiUrl('my-listing-moderation?limit=' + lim), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) {
+      _refreshNonce(r);
+      if (!r.ok) throw new Error('API ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      return Array.isArray(data) ? data : [];
+    });
+}
+
 // ========== MY LISTINGS ==========
 function renderMyListings() {
   var grid = document.getElementById('myListingsGrid');
@@ -7895,6 +7985,16 @@ function renderMyListings() {
   var emptyTitle = document.querySelector('#myListingsEmpty h3');
   var emptyText = document.querySelector('#myListingsEmpty p');
   var emptyBtn = document.querySelector('#myListingsEmpty .btn-primary');
+
+  _ensureMyModerationPanel();
+  if (isLoggedIn) {
+    _setMyModerationPanelLoading();
+    _loadMyListingModeration(120)
+      .then(_renderMyModerationPanel)
+      .catch(function() { _renderMyModerationPanel([]); });
+  } else {
+    _renderMyModerationPanel([]);
+  }
 
   if (isEventPlaner()) {
     // === EVENT-PLANER VIEW ===
@@ -7926,6 +8026,9 @@ function renderMyListings() {
               _fromDb: true,
               status: l.status || 'active',
               isHidden: !!l.isHidden,
+              moderationAction: l.moderationAction || '',
+              moderationReason: l.moderationReason || '',
+              moderationCreatedAt: l.moderationCreatedAt || '',
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
@@ -7965,6 +8068,9 @@ function renderMyListings() {
             var _evtHidden = evt.status === 'hidden' || evt.isHidden;
             var _evtBadgeClass = _evtHidden ? 'status-pending' : 'status-active';
             var _evtBadgeText = _evtHidden ? 'Ausgeblendet' : 'Aktiv';
+            var _evtModerationNote = (_evtHidden && evt.moderationReason)
+              ? '<div class="my-listing-note"><span class="material-icons-round">info</span><span>' + _escHtml(evt.moderationReason) + '</span></div>'
+              : '';
             return '<div class="my-listing-card">' +
               '<div class="my-listing-img">' +
                 '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
@@ -7974,6 +8080,7 @@ function renderMyListings() {
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
                 '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
                 '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
+                _evtModerationNote +
                 '<div class="my-listing-stats">' +
                   '<span><span class="material-icons-round">star</span> ' + (evt.rating || 0).toFixed(1) + '/5</span>' +
                   '<span><span class="material-icons-round">rate_review</span> ' + (evt.reviewCount || 0) + ' Bewertungen</span>' +
@@ -8054,6 +8161,9 @@ function renderMyListings() {
           var _hidden = l.status === 'hidden' || l.isHidden;
           var _badgeClass = _hidden ? 'status-pending' : 'status-active';
           var _badgeText = _hidden ? 'Ausgeblendet' : 'Aktiv';
+          var _moderationNote = (_hidden && l.moderationReason)
+            ? '<div class="my-listing-note"><span class="material-icons-round">info</span><span>' + _escHtml(l.moderationReason) + '</span></div>'
+            : '';
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img">' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
@@ -8063,6 +8173,7 @@ function renderMyListings() {
               '<h3>' + _escHtml(l.title) + '</h3>' +
               '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
               '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
+              _moderationNote +
               '<div class="my-listing-stats">' +
                 '<span><span class="material-icons-round">star</span> ' + rating.toFixed(1) + '/5</span>' +
                 '<span><span class="material-icons-round">rate_review</span> ' + reviewCount + ' Bewertungen</span>' +
@@ -8109,6 +8220,9 @@ function renderMyListings() {
               _fromDb: true,
               status: l.status || 'active',
               isHidden: !!l.isHidden,
+              moderationAction: l.moderationAction || '',
+              moderationReason: l.moderationReason || '',
+              moderationCreatedAt: l.moderationCreatedAt || '',
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
