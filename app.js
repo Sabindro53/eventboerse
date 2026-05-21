@@ -2800,17 +2800,29 @@ function loadDetail(listingId) {
   var editBtn = document.getElementById('detailEditBtn');
   if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
 
-  // Admin delete button for listing
+  // Admin moderation buttons for listing
   var existingAdminDel = document.getElementById('detailAdminDeleteBtn');
   if (existingAdminDel) existingAdminDel.remove();
-  if (currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id) {
+  var existingAdminHide = document.getElementById('detailAdminHideBtn');
+  if (existingAdminHide) existingAdminHide.remove();
+  if (currentUser && currentUser.isAdmin) {
+    var adminHideBtn = document.createElement('button');
+    adminHideBtn.id = 'detailAdminHideBtn';
+    adminHideBtn.className = 'btn-outline btn-sm';
+    adminHideBtn.innerHTML = '<span class="material-icons-round">visibility_off</span> Inserat ausblenden';
+    adminHideBtn.onclick = function() { adminHideListing(listing.id); };
+
     var adminDelBtn = document.createElement('button');
     adminDelBtn.id = 'detailAdminDeleteBtn';
     adminDelBtn.className = 'btn-outline btn-sm btn-danger-outline';
     adminDelBtn.innerHTML = '<span class="material-icons-round">delete</span> Inserat löschen';
     adminDelBtn.onclick = function() { adminDeleteListing(listing.id); };
+
     var provRow = document.querySelector('.detail-provider-row');
-    if (provRow) provRow.appendChild(adminDelBtn);
+    if (provRow) {
+      provRow.appendChild(adminHideBtn);
+      provRow.appendChild(adminDelBtn);
+    }
   }
 
   document.getElementById('detailDescription').innerHTML = _sanitizeHtml(listing.description);
@@ -7912,6 +7924,8 @@ function renderMyListings() {
               id: l.id + 10000,
               _dbId: l.id,
               _fromDb: true,
+              status: l.status || 'active',
+              isHidden: !!l.isHidden,
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
@@ -7948,10 +7962,13 @@ function renderMyListings() {
         grid.innerHTML = events.map(function(evt) {
           // DB events from API
           if (evt._fromDb) {
+            var _evtHidden = evt.status === 'hidden' || evt.isHidden;
+            var _evtBadgeClass = _evtHidden ? 'status-pending' : 'status-active';
+            var _evtBadgeText = _evtHidden ? 'Ausgeblendet' : 'Aktiv';
             return '<div class="my-listing-card">' +
               '<div class="my-listing-img">' +
                 '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
-                '<span class="status-badge status-active">Aktiv</span>' +
+                '<span class="status-badge ' + _evtBadgeClass + '">' + _evtBadgeText + '</span>' +
               '</div>' +
               '<div class="my-listing-info">' +
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
@@ -7969,6 +7986,11 @@ function renderMyListings() {
                 '<button class="btn-outline btn-sm" onclick="editListing(' + evt.id + ')">' +
                   '<span class="material-icons-round">edit</span> Bearbeiten' +
                 '</button>' +
+                (currentUser && currentUser.isAdmin ? (
+                  '<button class="btn-outline btn-sm" onclick="adminHideListing(' + evt.id + ')">' +
+                    '<span class="material-icons-round">visibility_off</span> Ausblenden' +
+                  '</button>'
+                ) : '') +
                 '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + evt.id + ')">' +
                   '<span class="material-icons-round">delete</span> Löschen' +
                 '</button>' +
@@ -8029,10 +8051,13 @@ function renderMyListings() {
         grid.innerHTML = myListings.map(function(l) {
           var rating = l.rating || 0;
           var reviewCount = l.reviewCount || 0;
+          var _hidden = l.status === 'hidden' || l.isHidden;
+          var _badgeClass = _hidden ? 'status-pending' : 'status-active';
+          var _badgeText = _hidden ? 'Ausgeblendet' : 'Aktiv';
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img">' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
-              '<span class="status-badge status-active">Aktiv</span>' +
+              '<span class="status-badge ' + _badgeClass + '">' + _badgeText + '</span>' +
             '</div>' +
             '<div class="my-listing-info">' +
               '<h3>' + _escHtml(l.title) + '</h3>' +
@@ -8050,6 +8075,11 @@ function renderMyListings() {
               '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
                 '<span class="material-icons-round">edit</span> Bearbeiten' +
               '</button>' +
+              (currentUser && currentUser.isAdmin ? (
+                '<button class="btn-outline btn-sm" onclick="adminHideListing(' + l.id + ')">' +
+                  '<span class="material-icons-round">visibility_off</span> Ausblenden' +
+                '</button>'
+              ) : '') +
               '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
                 '<span class="material-icons-round">delete</span> Löschen' +
               '</button>' +
@@ -8077,6 +8107,8 @@ function renderMyListings() {
               id: l.id + 10000,
               _dbId: l.id,
               _fromDb: true,
+              status: l.status || 'active',
+              isHidden: !!l.isHidden,
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
@@ -8269,20 +8301,69 @@ function deleteListing(listingId) {
 function adminDeleteListing(listingId) {
   if (!currentUser || !currentUser.isAdmin) return;
   if (!confirm('Als Admin: Dieses Inserat wirklich löschen?')) return;
+  var defaultReason = 'Dein Inserat wurde im Rahmen einer Qualitäts- und Sicherheitsprüfung entfernt, weil aktuell wichtige Angaben oder Nachweise fehlen.';
+  var reason = prompt('Kurze Begründung für den Nutzer (wird als Nachricht versendet):', defaultReason);
+  if (reason === null) return;
+  reason = String(reason || '').trim() || defaultReason;
+
   var listing = LISTINGS.find(function(l) { return l.id === listingId; });
   var dbId = listing && listing._dbId ? listing._dbId : (listing && listing._fromDb ? listingId - 10000 : null);
   if (!dbId) return showToast('Nur DB-Inserate löschbar', 'error');
   fetch(_apiUrl('listings/' + dbId), {
-    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ reason: reason })
   }).then(function(r) {
     _refreshNonce(r);
     if (r.ok) {
-      var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
-      if (idx !== -1) LISTINGS.splice(idx, 1);
-      showToast('Inserat als Admin gelöscht.', 'delete');
-      navigateTo('browse');
+      return r.json().then(function(data) {
+        var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+        if (idx !== -1) LISTINGS.splice(idx, 1);
+        if (data && data.ownerNotified) {
+          showToast('Inserat gelöscht. Nutzer wurde benachrichtigt.', 'delete');
+        } else {
+          showToast('Inserat gelöscht. Hinweis konnte evtl. nicht zugestellt werden.', 'warning');
+        }
+        navigateTo('browse');
+      });
     } else { showToast('Löschen fehlgeschlagen', 'error'); }
   }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
+}
+
+function adminHideListing(listingId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  if (!confirm('Als Admin: Dieses Inserat vorübergehend ausblenden?')) return;
+  var defaultReason = 'Dein Inserat wurde vorübergehend ausgeblendet, während wir technische Details und Qualitätskriterien prüfen.';
+  var reason = prompt('Kurze Begründung für den Nutzer (wird als Nachricht versendet):', defaultReason);
+  if (reason === null) return;
+  reason = String(reason || '').trim() || defaultReason;
+
+  var listing = LISTINGS.find(function(l) { return l.id === listingId; });
+  var dbId = listing && listing._dbId ? listing._dbId : (listing && listing._fromDb ? listingId - 10000 : null);
+  if (!dbId) return showToast('Nur DB-Inserate ausblendbar', 'error');
+
+  fetch(_apiUrl('admin/listings/' + dbId + '/hide'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ reason: reason })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) throw new Error('hide_failed');
+    return r.json();
+  }).then(function(data) {
+    var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+    if (idx !== -1) LISTINGS.splice(idx, 1);
+    if (data && data.ownerNotified) {
+      showToast('Inserat ausgeblendet. Nutzer wurde benachrichtigt.', 'visibility_off');
+    } else {
+      showToast('Inserat ausgeblendet. Hinweis konnte evtl. nicht zugestellt werden.', 'warning');
+    }
+    navigateTo('browse');
+  }).catch(function() {
+    showToast('Ausblenden fehlgeschlagen', 'error');
+  });
 }
 
 function adminDeleteUser(userId) {
@@ -9190,6 +9271,34 @@ function _refreshNonce(response) {
   return response;
 }
 
+function _isAdminRoleValue(roleValue) {
+  if (!roleValue) return false;
+  var role = String(roleValue).trim().toLowerCase();
+  return role === 'admin' || role === 'administrator';
+}
+
+function _extractAdminFlag(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+
+  if (typeof payload.isAdmin === 'boolean') {
+    return payload.isAdmin;
+  }
+
+  if (_isAdminRoleValue(payload.role)) {
+    return true;
+  }
+
+  if (Array.isArray(payload.roles)) {
+    return payload.roles.some(function(r) { return _isAdminRoleValue(r); });
+  }
+
+  if (typeof payload.roles === 'string' && payload.roles.trim()) {
+    return _isAdminRoleValue(payload.roles);
+  }
+
+  return null;
+}
+
 function _normalizeUserPayload(data, fallback) {
   data = data || {};
   fallback = fallback || {};
@@ -9197,6 +9306,9 @@ function _normalizeUserPayload(data, fallback) {
   var firstName = data.first_name || fallback.first_name || '';
   var lastName = data.last_name || fallback.last_name || '';
   var fullName = ((firstName || '') + ' ' + (lastName || '')).trim();
+  var dataAdmin = _extractAdminFlag(data);
+  var fallbackAdmin = _extractAdminFlag(fallback);
+  var isAdmin = dataAdmin !== null ? dataAdmin : (fallbackAdmin !== null ? fallbackAdmin : false);
 
   if (!fullName) {
     fullName = data.name || fallback.name || '';
@@ -9208,7 +9320,7 @@ function _normalizeUserPayload(data, fallback) {
     email: data.email || fallback.email || '',
     role: data.role || fallback.role || 'Event-Planer',
     subRole: data.subRole || data.sub_role || fallback.subRole || fallback.sub_role || '',
-    isAdmin: (data.role === 'Admin') || (fallback.role === 'Admin') || false,
+    isAdmin: isAdmin,
     tagline: data.tagline || fallback.tagline || '',
     location: data.location || fallback.location || '',
     bio: data.bio || fallback.bio || '',
@@ -16685,6 +16797,10 @@ function openPostMenu(event, postId, authorName) {
   // Remove any existing sheet
   closePostMenu();
 
+  var isListingToken = typeof postId === 'string' && postId.indexOf('listing-') === 0;
+  var listingTokenId = isListingToken ? parseInt(postId.replace('listing-', ''), 10) : NaN;
+  var canAdminModerateListing = !!(isListingToken && currentUser && currentUser.isAdmin && !isNaN(listingTokenId));
+
   var overlay = document.createElement('div');
   overlay.className = 'post-options-overlay';
   overlay.id = 'postOptionsOverlay';
@@ -16708,6 +16824,14 @@ function openPostMenu(event, postId, authorName) {
     '<button class="post-options-item danger" onclick="reportPost(\'' + postId + '\')">' +
       '<span class="material-icons-round">flag</span> Beitrag melden' +
     '</button>' +
+    (canAdminModerateListing ? (
+      '<button class="post-options-item" onclick="adminHideListingFromFeed(\'' + postId + '\')">' +
+        '<span class="material-icons-round">visibility_off</span> Beitrag ausblenden' +
+      '</button>' +
+      '<button class="post-options-item danger" onclick="adminDeleteListingFromFeed(\'' + postId + '\')">' +
+        '<span class="material-icons-round">delete</span> Beitrag löschen' +
+      '</button>'
+    ) : '') +
     '<button class="post-options-cancel" onclick="closePostMenu()">Abbrechen</button>';
 
   document.body.appendChild(overlay);
@@ -16820,6 +16944,26 @@ function reportPost(postId) {
     sheet.classList.add('visible');
   });
   _attachSheetSwipe(sheet, overlay);
+}
+
+function _listingIdFromPostToken(postId) {
+  if (typeof postId !== 'string' || postId.indexOf('listing-') !== 0) return null;
+  var id = parseInt(postId.replace('listing-', ''), 10);
+  return isNaN(id) ? null : id;
+}
+
+function adminHideListingFromFeed(postId) {
+  closePostMenu();
+  var listingId = _listingIdFromPostToken(postId);
+  if (!listingId) return showToast('Ungültiger Beitrag', 'error');
+  adminHideListing(listingId);
+}
+
+function adminDeleteListingFromFeed(postId) {
+  closePostMenu();
+  var listingId = _listingIdFromPostToken(postId);
+  if (!listingId) return showToast('Ungültiger Beitrag', 'error');
+  adminDeleteListing(listingId);
 }
 
 function submitReport(postId, reason) {

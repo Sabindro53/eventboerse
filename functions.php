@@ -579,6 +579,65 @@ function eb_is_admin_user( $user_id = 0 ) {
 }
 
 /**
+ * Standard-Begründung für Moderationsaktionen bei Inseraten.
+ */
+function eb_listing_moderation_default_reason( $action = 'hidden' ) {
+    if ( $action === 'deleted' ) {
+        return 'Dein Inserat wurde im Rahmen einer Qualitäts- und Sicherheitsprüfung entfernt, weil aktuell wichtige Angaben oder Nachweise fehlen.';
+    }
+    return 'Dein Inserat wurde vorübergehend ausgeblendet, während wir technische Details und Qualitätskriterien prüfen.';
+}
+
+/**
+ * Kapselt Moderations-Hinweise in eine sichere, kurze Form.
+ */
+function eb_listing_moderation_reason( $raw_reason, $action = 'hidden' ) {
+    $reason = sanitize_text_field( (string) $raw_reason );
+    if ( $reason === '' ) {
+        $reason = eb_listing_moderation_default_reason( $action );
+    }
+    if ( function_exists( 'mb_substr' ) ) {
+        return mb_substr( $reason, 0, 280 );
+    }
+    return substr( $reason, 0, 280 );
+}
+
+/**
+ * Schickt dem Inserat-Owner eine Moderations-Nachricht per Mail.
+ */
+function eb_notify_listing_owner_moderation( $owner_id, $listing_title, $action = 'hidden', $reason = '' ) {
+    $owner_id = (int) $owner_id;
+    $owner = get_userdata( $owner_id );
+    if ( ! $owner || empty( $owner->user_email ) ) {
+        return false;
+    }
+
+    $site = home_url( '/' );
+    $listing_title = sanitize_text_field( (string) $listing_title );
+    $reason = eb_listing_moderation_reason( $reason, $action );
+    $action_label = $action === 'deleted' ? 'entfernt' : 'vorübergehend ausgeblendet';
+    $subject = $action === 'deleted'
+        ? 'Hinweis zu deinem Inserat auf Eventbörse'
+        : 'Inserat vorübergehend ausgeblendet – Eventbörse';
+
+    $body  = '<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:22px;border:1px solid #ececec;border-radius:12px;background:#fff">';
+    $body .= '<h2 style="margin:0 0 10px 0;font-size:20px;color:#222">Hinweis zu deinem Inserat</h2>';
+    $body .= '<p style="margin:0 0 10px 0;color:#444;line-height:1.6">Hallo ' . esc_html( $owner->display_name ?: 'bei Eventbörse' ) . ',</p>';
+    $body .= '<p style="margin:0 0 10px 0;color:#444;line-height:1.6">dein Inserat <strong>' . esc_html( $listing_title ?: 'ohne Titel' ) . '</strong> wurde ' . esc_html( $action_label ) . '.</p>';
+    $body .= '<p style="margin:0 0 10px 0;color:#444;line-height:1.6"><strong>Grund:</strong> ' . esc_html( $reason ) . '</p>';
+    $body .= '<p style="margin:0 0 14px 0;color:#444;line-height:1.6">Du kannst dein Inserat jederzeit überarbeiten und erneut veröffentlichen.</p>';
+    $body .= '<a href="' . esc_url( $site . 'meine-inserate' ) . '" style="display:inline-block;background:#FF385C;color:#fff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600">Zu meinen Inseraten</a>';
+    $body .= '</div>';
+
+    return wp_mail(
+        $owner->user_email,
+        $subject,
+        $body,
+        array( 'Content-Type: text/html; charset=UTF-8' )
+    );
+}
+
+/**
  * Demo-Provider-IDs (Bot-Accounts in den hardcoded LISTINGS in app.js).
  * Wird sowohl für die Mail-CC-Logik als auch den Hide-Demo-Toggle benutzt.
  */
@@ -710,6 +769,7 @@ function eb_auth_user_payload( $user, $extra = array() ) {
             'last_name'  => $user->last_name,
             'roles'      => (array) $user->roles,
             'role'       => eventboerse_map_role( $user ),
+            'isAdmin'    => eb_is_admin_user( $user->ID ),
             'nonce'      => wp_create_nonce( 'wp_rest' ),
             'phone'      => get_user_meta( $user->ID, 'eb_phone', true ) ?: '',
             'since'      => date_i18n( 'F Y', strtotime( $user->user_registered ) ),
@@ -2539,6 +2599,12 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/admin/listings/(?P<id>\d+)/hide', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_hide_listing',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/admin/make-admin', array(
         'methods'             => 'POST',
         'callback'            => 'eb_admin_make_admin',
@@ -3311,6 +3377,8 @@ function eb_format_listing( $row ) {
         'availableWeekdays' => array_values( array_filter( array_map( 'intval', explode( ',', (string) ( $row['available_weekdays'] ?? '' ) ) ), function( $d ) { return $d >= 0 && $d <= 6; } ) ),
         'instantBook'   => ! empty( $row['instant_book'] ),
         'badge'         => $row['badge'],
+        'status'        => ! empty( $row['status'] ) ? $row['status'] : 'active',
+        'isHidden'      => ( isset( $row['status'] ) && $row['status'] === 'hidden' ),
         'negotiable'    => (bool) $row['negotiable'],
         'views'         => (int) $row['views'],
         'createdAt'     => $row['created_at'],
@@ -3328,6 +3396,15 @@ function eb_listings_get( WP_REST_Request $request ) {
 
     if ( ! $row ) {
         return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+
+    $is_hidden = isset( $row['status'] ) && $row['status'] === 'hidden';
+    if ( $is_hidden ) {
+        $uid = get_current_user_id();
+        $is_owner_or_admin = $uid && ( (int) $row['user_id'] === (int) $uid || eb_is_admin_user( $uid ) );
+        if ( ! $is_owner_or_admin ) {
+            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+        }
     }
 
     // Increment views
@@ -3496,14 +3573,67 @@ function eb_listings_update( WP_REST_Request $request ) {
     return new WP_REST_Response( eb_format_listing( $row ), 200 );
 }
 
-/** Delete listing (only owner) */
+/**
+ * Admin blendet ein Inserat aus (status = hidden) und informiert den Owner.
+ */
+function eb_admin_hide_listing( WP_REST_Request $request ) {
+    global $wpdb;
+    $id = absint( $request['id'] );
+    $admin_id = get_current_user_id();
+    if ( ! $id ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige Inserat-ID.' ), 400 );
+    }
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, user_id, title, status FROM {$wpdb->prefix}eb_listings WHERE id = %d",
+        $id
+    ) );
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht gefunden.' ), 404 );
+    }
+
+    $reason_raw = $request->get_param( 'reason' );
+    if ( $reason_raw === null ) {
+        $json = $request->get_json_params();
+        $reason_raw = is_array( $json ) ? ( $json['reason'] ?? '' ) : '';
+    }
+    $reason = eb_listing_moderation_reason( $reason_raw, 'hidden' );
+
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'eb_listings',
+        array(
+            'status'     => 'hidden',
+            'updated_at' => current_time( 'mysql' ),
+        ),
+        array( 'id' => $id )
+    );
+
+    if ( $updated === false ) {
+        return new WP_REST_Response( array( 'message' => 'Ausblenden fehlgeschlagen.' ), 500 );
+    }
+
+    $is_admin_action = $admin_id && ( (int) $row->user_id !== (int) $admin_id );
+    $notified = false;
+    if ( $is_admin_action ) {
+        $notified = eb_notify_listing_owner_moderation( (int) $row->user_id, (string) $row->title, 'hidden', $reason );
+    }
+
+    return new WP_REST_Response( array(
+        'hidden'           => true,
+        'listing_id'       => $id,
+        'moderationReason' => $reason,
+        'ownerNotified'    => (bool) $notified,
+    ), 200 );
+}
+
+/** Delete listing (owner or admin) */
 function eb_listings_delete( WP_REST_Request $request ) {
     global $wpdb;
     $id  = absint( $request['id'] );
     $uid = get_current_user_id();
 
     $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+        "SELECT id, user_id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
     ) );
 
     if ( ! $row ) {
@@ -3513,11 +3643,28 @@ function eb_listings_delete( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
     }
 
+    $is_admin_action = eb_is_admin_user( $uid ) && ( (int) $row->user_id !== (int) $uid );
+    $reason_raw = $request->get_param( 'reason' );
+    if ( $reason_raw === null ) {
+        $json = $request->get_json_params();
+        $reason_raw = is_array( $json ) ? ( $json['reason'] ?? '' ) : '';
+    }
+    $reason = eb_listing_moderation_reason( $reason_raw, 'deleted' );
+
     $wpdb->delete( $wpdb->prefix . 'eb_listings', array( 'id' => $id ) );
     $wpdb->delete( $wpdb->prefix . 'eb_reviews', array( 'listing_id' => $id ) );
     $wpdb->delete( $wpdb->prefix . 'eb_favorites', array( 'listing_id' => $id ) );
 
-    return new WP_REST_Response( array( 'deleted' => true ), 200 );
+    $notified = false;
+    if ( $is_admin_action ) {
+        $notified = eb_notify_listing_owner_moderation( (int) $row->user_id, (string) $row->title, 'deleted', $reason );
+    }
+
+    return new WP_REST_Response( array(
+        'deleted'          => true,
+        'ownerNotified'    => (bool) $notified,
+        'moderationReason' => $is_admin_action ? $reason : '',
+    ), 200 );
 }
 
 /** My listings */
