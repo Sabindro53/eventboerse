@@ -216,8 +216,37 @@ select:focus-visible {
   background-color: var(--surface);
   min-width: 180px;
   box-shadow: var(--eb-shadow-2);
+  border-radius: var(--eb-radius-md);
+  padding: var(--eb-spacing-xs);
+  z-index: 1000;
+  list-style: none; /* Remove default list styling */
+}
+
+.dropdown-menu-item {
+  padding: var(--eb-spacing-sm) var(--eb-spacing-md);
+  cursor: pointer;
   border-radius: var(--eb-radius-sm);
-  border: 1px solid var(--border);
-  z-index: 100; /* Ensure it appears above other content */
-  padding
-/* ... truncated ... */
+  transition: background-color var(--eb-transition-fast), color var(--eb-transition-fast);
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.dropdown-menu-item:hover {
+  background-color: var(--surface-2);
+  color: var(--brand-primary);
+}
+
+.dropdown-menu-item.is-selected {
+  background-color: var(--brand-primary);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.dropdown-menu.is-active {
+  display: block; /* Show when active */
+}
+
+/* ===== BUTTON PRIMARY HOVER EFFECT ===== */
+.btn-primary:hover {
+  box-shadow: 0 4px 16px rgba(255, 56, 92, 0.35); /* Shadow using brand-primary color */
+  transition: box-shadow var(--eb-transition-fast);
+}
