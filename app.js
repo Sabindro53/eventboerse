@@ -12675,11 +12675,19 @@ function _cardListingTitle(card) {
 
 function renderKanban(project) {
   var stages = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
+  var _profile = _boardPlanningRoleProfile();
   stages.forEach(function(stage) {
     var colEl = document.getElementById('cards' + stage.charAt(0).toUpperCase() + stage.slice(1));
     if (!colEl) return;
     var cards = (project.cards || []).filter(function(c) { return c.stage === stage; });
-    colEl.innerHTML = cards.map(function(card) { return renderKanbanCard(card); }).join('');
+    if (!cards.length && stage === 'geplant') {
+      colEl.innerHTML = '<div style="padding:12px;border:1px dashed var(--border);border-radius:10px;background:rgba(255,255,255,0.02);font-size:12px;color:var(--text-light)">' +
+        '<strong style="display:block;color:var(--text);margin-bottom:4px">' + _escHtml(_profile.stageTitle) + '</strong>' +
+        _escHtml(_profile.stageHint) +
+      '</div>';
+    } else {
+      colEl.innerHTML = cards.map(function(card) { return renderKanbanCard(card); }).join('');
+    }
     _initCardDrag(colEl);
     var cntEl = document.getElementById('cnt' + stage.charAt(0).toUpperCase() + stage.slice(1));
     if (cntEl) cntEl.textContent = cards.length;
@@ -12709,6 +12717,7 @@ function renderKanbanCard(card) {
       <div>
         <div class="kc-name">${_escHtml(card.name)}</div>
         <div class="kc-category">${_escHtml(card.category || '')}</div>
+        ${_boardCardKindBadges(card)}
       </div>
     </div>
     ${card.price ? '<div class="kc-price">€ ' + _escHtml(String(card.price)) + '</div>' : ''}
@@ -13148,6 +13157,16 @@ function _renderBoardFlowImpl() {
     } else {
       html += '<span class="flow-node-empty">Noch leer</span>';
     }
+    if (stage.id === 'geplant') {
+      var _fragCnt = stageCards.filter(function(c){ return c.bundleMode === 'fragment'; }).length;
+      var _packCnt = stageCards.filter(function(c){ return c.bundleMode === 'package'; }).length;
+      var _ownCnt = stageCards.filter(function(c){ return c.sourceKind === 'own_offer'; }).length;
+      var _prof = _boardPlanningRoleProfile();
+      html += '<div class="flow-node-budget-hint">' + esc(_prof.label) + ': Fragmente/Pakete strukturiert planen</div>';
+      if (stageCards.length) {
+        html += '<div class="flow-node-budget-hint">Fragmente: ' + _fragCnt + ' · Pakete: ' + _packCnt + (_ownCnt ? ' · Eigene Angebote: ' + _ownCnt : '') + '</div>';
+      }
+    }
     // "Hinzufügen" nur in der Start-Stage "geplant" anzeigen – alle weiteren
     // Stages werden systematisch durch Statuswechsel (Drag/Stage-Move) befüllt.
     if (stage.id === 'geplant') {
@@ -13190,6 +13209,7 @@ function _renderBoardFlowImpl() {
       html += '<div class="flow-prov-info">';
       html += '<strong>' + esc(card.name) + '</strong>';
       html += '<small>' + esc(card.category || '') + '</small>';
+      html += _boardCardKindBadges(card);
       if (card.price) html += '<span class="flow-prov-price">' + parseFloat(card.price).toLocaleString('de-DE') + ' €</span>';
       if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
@@ -16442,6 +16462,82 @@ function _isBoardSearchListing(listing) {
   return false;
 }
 
+function _boardPlanningRoleProfile() {
+  var role = (currentUser && currentUser.role) ? String(currentUser.role) : '';
+  var sub = (currentUser && currentUser.subRole) ? String(currentUser.subRole) : '';
+  if (role === 'Dienstleister') {
+    return {
+      key: 'provider',
+      label: 'Dienstleister',
+      stageTitle: 'Leistungsplanung & Akquise',
+      stageHint: 'Baue aus Fragmenten oder Paketen ein sauberes Angebot und arbeite offene Gesuche ab.'
+    };
+  }
+  if (sub === 'unternehmen') {
+    return {
+      key: 'planner_business',
+      label: 'Geschäftlicher Eventplaner',
+      stageTitle: 'Business-Event Planung',
+      stageHint: 'Plane Dienstleistungs-Fragmente für Teams, Technik und Ablauf oder setze direkt Gesamtpakete.'
+    };
+  }
+  return {
+    key: 'planner_private',
+    label: 'Privater Eventplaner',
+    stageTitle: 'Privates Event planen',
+    stageHint: 'Kombiniere einzelne Bausteine oder komplette Pakete für ein stimmiges Event.'
+  };
+}
+
+function _boardPlanningPresets(profileKey) {
+  var map = {
+    planner_private: [
+      { id: 'pp_frag_music', mode: 'fragment', name: 'Musik-Baustein', category: 'DJ / Musik', note: 'Musikslot für Stimmung, Übergänge und Wunschlieder.' },
+      { id: 'pp_frag_photo', mode: 'fragment', name: 'Foto-Baustein', category: 'Fotografie', note: 'Begleitung zentraler Momente inkl. Gruppenfotos.' },
+      { id: 'pp_pack_wedding', mode: 'package', name: 'Hochzeits-Basispaket', category: 'Komplettpaket', note: 'DJ + Foto + Deko als abgestimmtes Gesamtpaket.' },
+      { id: 'pp_pack_birthday', mode: 'package', name: 'Geburtstags-Paket', category: 'Komplettpaket', note: 'Musik, Catering und Deko mit klaren Zuständigkeiten.' }
+    ],
+    planner_business: [
+      { id: 'pb_frag_tech', mode: 'fragment', name: 'Technik-Baustein', category: 'AV / Technik', note: 'Ton, Licht, Beamer, Streaming und Backup-Technik.' },
+      { id: 'pb_frag_host', mode: 'fragment', name: 'Moderation-Baustein', category: 'Moderation', note: 'Agenda-Führung, Übergaben und Zeitmanagement.' },
+      { id: 'pb_pack_conference', mode: 'package', name: 'Konferenz-Paket', category: 'Business-Paket', note: 'Technik + Moderation + Catering für Business-Events.' },
+      { id: 'pb_pack_corporate', mode: 'package', name: 'Firmenfeier-Paket', category: 'Business-Paket', note: 'Entertainment, Catering und Ablaufkoordination aus einer Hand.' }
+    ],
+    provider: [
+      { id: 'pr_frag_light', mode: 'fragment', name: 'Leistungs-Fragment', category: 'Teilservice', note: 'Ein klarer Leistungsbaustein aus deinem Angebotsportfolio.' },
+      { id: 'pr_frag_fast', mode: 'fragment', name: 'Express-Modul', category: 'Sofort verfügbar', note: 'Schneller Teilservice für kurzfristige Gesuche.' },
+      { id: 'pr_pack_premium', mode: 'package', name: 'Premium-Paket', category: 'Komplettpaket', note: 'Abgestimmtes Gesamtangebot mit mehreren Leistungsbausteinen.' },
+      { id: 'pr_pack_custom', mode: 'package', name: 'Individuelles Paket', category: 'Komplettpaket', note: 'Mehrere Teilservices als kundenspezifisches Paket bündeln.' }
+    ]
+  };
+  return map[profileKey] || map.planner_private;
+}
+
+function _getOwnOfferListingsForBoard(baseList) {
+  if (!currentUser || !Array.isArray(baseList)) return [];
+  return baseList.filter(function(l) {
+    if (!l) return false;
+    var pid = parseInt(l.providerId, 10);
+    if (isNaN(pid) || pid !== currentUser.id) return false;
+    return !_isBoardSearchListing(l);
+  });
+}
+
+function _boardCardKindBadges(card) {
+  if (!card) return '';
+  var badges = [];
+  if (card.bundleMode === 'fragment') badges.push({ icon: 'splitscreen', label: 'Fragment' });
+  if (card.bundleMode === 'package') badges.push({ icon: 'inventory_2', label: 'Paket' });
+  if (card.sourceKind === 'own_offer') badges.push({ icon: 'storefront', label: 'Eigenes Angebot' });
+  if (card.planProfile === 'planner_business') badges.push({ icon: 'apartment', label: 'Business' });
+  if (card.planProfile === 'planner_private') badges.push({ icon: 'celebration', label: 'Privat' });
+  if (!badges.length) return '';
+  return '<div class="bc-kind-badges">' + badges.map(function(b) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);margin:0 6px 6px 0">' +
+      '<span class="material-icons-round" style="font-size:13px">' + b.icon + '</span>' + b.label + '</span>';
+  }).join('') + '</div>';
+}
+
 function _addListingToBoardProject(listing, projectId) {
   var project = _boardProjects.find(function(p){ return p.id === projectId; });
   if (!project) return false;
@@ -16454,6 +16550,7 @@ function _addListingToBoardProject(listing, projectId) {
     return false;
   }
   var now = Date.now();
+  var _profile = _boardPlanningRoleProfile();
   var card = {
     id: 'bc_' + now,
     name: (listing && (listing.providerName || listing.title)) || 'Dienstleister',
@@ -16462,6 +16559,9 @@ function _addListingToBoardProject(listing, projectId) {
     price: (listing && listing.price) || 0,
     listingId: listing && listing.id,
     avatar: (listing && (listing.providerImg || listing.image)) || '',
+    bundleMode: (_profile.key === 'provider') ? 'package' : 'fragment',
+    sourceKind: 'external_listing',
+    planProfile: _profile.key,
     note: '',
     createdAt: new Date().toISOString()
   };
@@ -16678,10 +16778,13 @@ window.addChecklistItem = addChecklistItem;
 
 function openAddProviderModal(defaultStage) {
   var _isProviderRole = !!(currentUser && currentUser.role === 'Dienstleister');
+  var _profile = _boardPlanningRoleProfile();
+  var _presets = _boardPlanningPresets(_profile.key);
   // Basis: gleiche Sichtbarkeitslogik wie ueberall sonst (Admin kann Demos abschalten)
   var _baseList = (typeof _visibleListings === 'function')
     ? _visibleListings()
     : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
+  var _ownOffers = _getOwnOfferListingsForBoard(_baseList).slice(0, 60);
   var _listings = _baseList.filter(function(l){
     if (!l) return false;
     if (_isOwnBoardListing(l)) return false;
@@ -16695,6 +16798,17 @@ function openAddProviderModal(defaultStage) {
     ? 'Wähle offene Event-Gesuche aus und plane deine Akquise.'
     : 'Wähle passende Angebote aus und plane dein Event.';
   var _pickerLabel = _isProviderRole ? 'Aus Event-Gesuchen wählen' : 'Aus Inseraten wählen';
+  var _presetOptions = _presets.map(function(p) {
+    var modeLabel = p.mode === 'package' ? 'Paket' : 'Fragment';
+    return '<option value="' + _escHtml(p.id) + '" data-mode="' + _escHtml(p.mode) + '" data-name="' + _escHtml(p.name) + '" data-category="' + _escHtml(p.category) + '" data-note="' + _escHtml(p.note) + '">' +
+      _escHtml(modeLabel + ' · ' + p.name) + '</option>';
+  }).join('');
+  var _ownOfferOptions = _ownOffers.map(function(l) {
+    var p = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : 'ohne Preis');
+    return '<option value="' + _escHtml(String(l.id)) + '" data-name="' + _escHtml(l.title || l.providerName || '') + '" data-category="' + _escHtml(l.categoryLabel || l.category || '') + '" data-price="' + _escHtml(String(l.price || '')) + '" data-avatar="' + _escHtml(l.providerImg || l.image || '') + '" data-image="' + _escHtml(l.image || l.providerImg || '') + '" data-note="' + _escHtml('Eigenes Angebot übernommen: ' + (l.title || 'Leistung')) + '" data-title="' + _escHtml(l.title || '') + '">' +
+      _escHtml((l.title || 'Angebot') + ' · ' + p) +
+    '</option>';
+  }).join('');
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
@@ -16724,9 +16838,31 @@ function openAddProviderModal(defaultStage) {
       <div class="modal-header">
         <span class="material-icons-round modal-icon">person_add</span>
         <h2>${_pickerTitle}</h2>
-        <p>${_pickerHint}</p>
+        <p>${_pickerHint} · ${_profile.label}</p>
       </div>
       <form class="modal-form" onsubmit="_addProviderCard(event,'${defaultStage}')">
+        <div class="form-group">
+          <label>Planungsmodus</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button type="button" id="cardModeFragmentBtn" class="btn-outline" style="padding:10px" onclick="_setBoardCardMode('fragment')"><span class="material-icons-round">splitscreen</span> Fragment</button>
+            <button type="button" id="cardModePackageBtn" class="btn-outline" style="padding:10px" onclick="_setBoardCardMode('package')"><span class="material-icons-round">inventory_2</span> Paket</button>
+          </div>
+          <small style="display:block;color:var(--text-light);margin-top:6px">${_profile.stageHint}</small>
+        </div>
+        <div class="form-group">
+          <label>Schnellvorlage</label>
+          <select id="cardPresetSelect" onchange="_applyBoardPreset(this)">
+            <option value="">Vorlage auswählen…</option>
+            ${_presetOptions}
+          </select>
+        </div>
+        ${_ownOffers.length ? `<div class="form-group">
+          <label>Eigenes Angebot übernehmen <span style="font-weight:400;color:var(--text-light);font-size:12px">(ohne Selbstbuchung)</span></label>
+          <select id="cardOwnOfferSelect" onchange="_applyOwnOfferCardTemplate(this)">
+            <option value="">Kein eigenes Angebot übernehmen</option>
+            ${_ownOfferOptions}
+          </select>
+        </div>` : ''}
         <div class="form-group">
           <label>${_pickerLabel} <span style="font-weight:400;color:var(--text-light);font-size:12px">(optional)</span></label>
           <div class="eb-lpick-search">
@@ -16740,6 +16876,10 @@ function openAddProviderModal(defaultStage) {
           <input type="hidden" id="cardListingId" value="" />
           <input type="hidden" id="cardListingImage" value="" />
           <input type="hidden" id="cardListingTitle" value="" />
+          <input type="hidden" id="cardAvatarUrl" value="" />
+          <input type="hidden" id="cardSourceKind" value="manual" />
+          <input type="hidden" id="cardBundleMode" value="${_isProviderRole ? 'package' : 'fragment'}" />
+          <input type="hidden" id="cardPlanProfile" value="${_escHtml(_profile.key)}" />
         </div>
         <div class="form-group">
           <label>Name / Firma</label>
@@ -16768,7 +16908,76 @@ function openAddProviderModal(defaultStage) {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  _setBoardCardMode(_isProviderRole ? 'package' : 'fragment');
 }
+
+window._setBoardCardMode = function(mode) {
+  mode = (mode === 'package') ? 'package' : 'fragment';
+  var hid = document.getElementById('cardBundleMode');
+  if (hid) hid.value = mode;
+  var f = document.getElementById('cardModeFragmentBtn');
+  var p = document.getElementById('cardModePackageBtn');
+  if (f) {
+    f.style.background = mode === 'fragment' ? 'rgba(255,56,92,0.14)' : '';
+    f.style.borderColor = mode === 'fragment' ? 'rgba(255,56,92,0.45)' : '';
+  }
+  if (p) {
+    p.style.background = mode === 'package' ? 'rgba(0,166,153,0.14)' : '';
+    p.style.borderColor = mode === 'package' ? 'rgba(0,166,153,0.45)' : '';
+  }
+};
+
+window._applyBoardPreset = function(sel) {
+  if (!sel || !sel.value) return;
+  var opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  _setBoardCardMode(opt.dataset.mode || 'fragment');
+  var nameEl = document.getElementById('cardName');
+  var catEl = document.getElementById('cardCategory');
+  var noteEl = document.getElementById('cardNote');
+  if (nameEl) nameEl.value = opt.dataset.name || '';
+  if (catEl) catEl.value = opt.dataset.category || '';
+  if (noteEl) noteEl.value = opt.dataset.note || '';
+  var src = document.getElementById('cardSourceKind');
+  if (src) src.value = 'preset';
+};
+
+window._applyOwnOfferCardTemplate = function(sel) {
+  if (!sel) return;
+  if (!sel.value) {
+    var src0 = document.getElementById('cardSourceKind');
+    if (src0 && src0.value === 'own_offer') src0.value = 'manual';
+    return;
+  }
+  var opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+
+  var nameEl = document.getElementById('cardName');
+  var catEl = document.getElementById('cardCategory');
+  var priceEl = document.getElementById('cardPrice');
+  var noteEl = document.getElementById('cardNote');
+  if (nameEl) nameEl.value = opt.dataset.name || '';
+  if (catEl) catEl.value = opt.dataset.category || '';
+  if (priceEl && opt.dataset.price) priceEl.value = opt.dataset.price;
+  if (noteEl && !noteEl.value.trim()) noteEl.value = opt.dataset.note || '';
+
+  // Eigene Angebote nur als Angebots-Baustein übernehmen – NICHT als
+  // buchbares Fremd-Listing verknüpfen (verhindert Selbstbuchung).
+  var listingIdEl = document.getElementById('cardListingId');
+  if (listingIdEl) listingIdEl.value = '';
+  var imgEl = document.getElementById('cardListingImage');
+  if (imgEl) imgEl.value = opt.dataset.image || '';
+  var titleEl = document.getElementById('cardListingTitle');
+  if (titleEl) titleEl.value = opt.dataset.title || '';
+  var avatarEl = document.getElementById('cardAvatarUrl');
+  if (avatarEl) avatarEl.value = opt.dataset.avatar || '';
+  var src = document.getElementById('cardSourceKind');
+  if (src) src.value = 'own_offer';
+  _setBoardCardMode('package');
+
+  var grid = document.getElementById('lpickGrid');
+  if (grid) grid.querySelectorAll('.eb-lpick-card.is-active').forEach(function(b){ b.classList.remove('is-active'); });
+};
 
 window._selectListingCard = function(btn) {
   var grid = btn.parentElement;
@@ -16789,6 +16998,9 @@ window._selectListingCard = function(btn) {
   if (priceEl && btn.dataset.price) { priceEl.value = btn.dataset.price; priceEl.dispatchEvent(new Event('input')); }
   var imgHid = document.getElementById('cardListingImage'); if (imgHid) imgHid.value = btn.dataset.image || '';
   var titleHid = document.getElementById('cardListingTitle'); if (titleHid) titleHid.value = btn.dataset.title || '';
+  var avatarHid = document.getElementById('cardAvatarUrl'); if (avatarHid) avatarHid.value = btn.dataset.avatar || btn.dataset.image || '';
+  var src = document.getElementById('cardSourceKind'); if (src) src.value = 'external_listing';
+  var ownSel = document.getElementById('cardOwnOfferSelect'); if (ownSel) ownSel.value = '';
   // Scroll to filled fields
   if (nameEl) nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
@@ -16799,6 +17011,8 @@ window._clearListingPick = function() {
   var hid = document.getElementById('cardListingId'); if (hid) hid.value = '';
   var imgHid2 = document.getElementById('cardListingImage'); if (imgHid2) imgHid2.value = '';
   var titleHid2 = document.getElementById('cardListingTitle'); if (titleHid2) titleHid2.value = '';
+  var avatarHid = document.getElementById('cardAvatarUrl'); if (avatarHid) avatarHid.value = '';
+  var src = document.getElementById('cardSourceKind'); if (src && src.value === 'external_listing') src.value = 'manual';
   var search = document.getElementById('lpickSearch'); if (search) { search.value = ''; _filterListingPicker(''); }
 };
 
@@ -16838,6 +17052,10 @@ function _addProviderCard(event, stage) {
   var note = document.getElementById('cardNote').value.trim();
   var startTime = document.getElementById('cardStartTime').value || '';
   var endTime = (document.getElementById('cardEndTime') || {}).value || '';
+  var bundleMode = ((document.getElementById('cardBundleMode') || {}).value || 'fragment') === 'package' ? 'package' : 'fragment';
+  var sourceKind = (document.getElementById('cardSourceKind') || {}).value || 'manual';
+  var planProfile = (document.getElementById('cardPlanProfile') || {}).value || (_boardPlanningRoleProfile().key);
+  var avatarInput = (document.getElementById('cardAvatarUrl') || {}).value || '';
 
   var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
   if (_isOwnBoardListing(listing)) {
@@ -16848,7 +17066,7 @@ function _addProviderCard(event, stage) {
     showToast('Dieses Inserat ist bereits im Board.', 'warning');
     return;
   }
-  var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : null;
+  var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : (avatarInput || (currentUser && currentUser.photoUrl) || null);
   var listingImage = (document.getElementById('cardListingImage') || {}).value || (listing ? (listing.image || '') : '');
   var listingTitle = (document.getElementById('cardListingTitle') || {}).value || (listing ? (listing.title || '') : '');
 
@@ -16865,6 +17083,9 @@ function _addProviderCard(event, stage) {
     avatar: avatar,
     listingImage: listingImage || '',
     listingTitle: listingTitle || '',
+    bundleMode: bundleMode,
+    sourceKind: sourceKind,
+    planProfile: planProfile,
     createdAt: new Date().toISOString()
   };
 
