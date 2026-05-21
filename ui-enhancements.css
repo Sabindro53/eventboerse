@@ -218,26 +218,9 @@ select:focus-visible {
   border: 1px solid var(--border);
 }
 
-.dropdown-menu.is-active {
-  display: block; /* Show when active */
-}
+.dropdown-menu.is-a
 
-.dropdown-menu-item {
-  padding: var(--eb-spacing-sm) var(--eb-spacing-md);
-  cursor: pointer;
-  font-size: 0.9em;
-  color: var(--text);
-  transition: background-color var(--eb-transition-fast);
-}
-
-.dropdown-menu-item:hover,
-.dropdown-menu-item.is-selected {
-  background-color: var(--surface-2);
-  color: var(--brand-primary);
-}
-
-/* ===== SECTION TITLE ENHANCEMENTS ===== */
-.section-title {
-  font-size: clamp(1.25rem, 2vw, 1.75rem);
-  letter-spacing: -0.02em;
+/* --- Responsive padding for .card-image on smaller screens --- */
+.card-image {
+  padding-bottom: var(--eb-spacing-sm); /* Adds space below the image container for visual separation */
 }
