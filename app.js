@@ -16202,7 +16202,15 @@ function addCurrentListingToBoard(listingId) {
   if (!lid) { showToast('Kein Service ausgew\u00e4hlt.', 'error'); return; }
   if (!currentUser) { openModal('loginModal'); return; }
 
-  var listing = (LISTINGS || []).find(function(l){ return l.id === lid; }) || { id: lid };
+  var listing = (LISTINGS || []).find(function(l){ return String(l.id) === String(lid); }) || null;
+  if (!listing && typeof currentListing !== 'undefined' && currentListing && String(currentListing.id) === String(lid)) {
+    listing = currentListing;
+  }
+  if (!listing) listing = { id: lid };
+  if (_isOwnBoardListing(listing)) {
+    showToast('Du kannst dich nicht selbst buchen oder dein eigenes Inserat ins Planungsboard setzen.', 'warning');
+    return;
+  }
 
   // 0 Projekte → direkt Board erstellen; 1 Projekt → direkt hinzufügen; sonst → Auswahl
   if (_boardProjects.length === 0) {
@@ -16379,7 +16387,7 @@ function openSelectBoardProjectModal(listing) {
   var rows = _boardProjects.map(function(p) {
     var cnt = (p.cards || []).length;
     var dateStr = p.date ? ' \u00b7 ' + _escHtml(p.date) : '';
-    return '<button type="button" class="bsp-row" onclick="_addListingToBoardProject(window._pendingBoardListing,\'' + p.id + '\');document.getElementById(\'selectBoardProjectModal\').remove()">' +
+    return '<button type="button" class="bsp-row" onclick="if(_addListingToBoardProject(window._pendingBoardListing,\'' + p.id + '\')){document.getElementById(\'selectBoardProjectModal\').remove();}">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">event</span>' +
       '<span class="bsp-info"><strong>' + _escHtml(p.name) + '</strong>' +
         '<small>' + cnt + ' Dienstleister' + dateStr + '</small></span>' +
@@ -16405,9 +16413,46 @@ function openSelectBoardProjectModal(listing) {
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
+function _isOwnBoardListing(listing) {
+  if (!currentUser || !listing) return false;
+  var providerId = parseInt(listing.providerId, 10);
+  var ownerId = parseInt(listing.user_id, 10);
+  if (!isNaN(providerId) && providerId === currentUser.id) return true;
+  if (!isNaN(ownerId) && ownerId === currentUser.id) return true;
+  return false;
+}
+
+function _isBoardSearchListing(listing) {
+  if (!listing) return true;
+
+  // Starkes Signal: Rolle des Erstellers (Event-Planer = Gesuch, Dienstleister = Angebot)
+  var roleRaw = (listing.providerRole || listing.baseRole || listing.role || '').toString().toLowerCase();
+  if (roleRaw.indexOf('event-planer') !== -1 || roleRaw === 'event_planer') return true;
+  if (roleRaw.indexOf('dienstleister') !== -1 || roleRaw === 'provider') return false;
+
+  // Fallback: explizite Typ-Felder
+  var t = (listing.listingType || listing.kind || listing.type || '').toString().toLowerCase();
+  if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
+
+  // Fallback: Heuristik über Text
+  var title = (listing.title || '').toString().toLowerCase();
+  var cat = (listing.categoryLabel || listing.category || '').toString().toLowerCase();
+  if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
+  if (/^\s*suche\s/.test(title)) return true;
+  return false;
+}
+
 function _addListingToBoardProject(listing, projectId) {
   var project = _boardProjects.find(function(p){ return p.id === projectId; });
-  if (!project) return;
+  if (!project) return false;
+  if (_isOwnBoardListing(listing)) {
+    showToast('Du kannst dich nicht selbst buchen oder dein eigenes Inserat ins Planungsboard setzen.', 'warning');
+    return false;
+  }
+  if (listing && listing.id && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listing.id); })) {
+    showToast('Dieses Inserat ist bereits im Board.', 'warning');
+    return false;
+  }
   var now = Date.now();
   var card = {
     id: 'bc_' + now,
@@ -16431,6 +16476,7 @@ function _addListingToBoardProject(listing, projectId) {
   setTimeout(function() {
     showToast('Board ansehen?', 'view_kanban', function(){ navigateTo('board'); openBoardProject(projectId); });
   }, 1200);
+  return true;
 }
 window._addListingToBoardProject = _addListingToBoardProject;
 
@@ -16631,25 +16677,24 @@ function addChecklistItem(event) {
 window.addChecklistItem = addChecklistItem;
 
 function openAddProviderModal(defaultStage) {
-  // Nur Dienstleister-Inserate (Angebote) anzeigen, KEINE Such-Inserate.
-  // Filter:
-  //  1. Explizites Feld (zukuenftig): listingType / kind / type === 'search' | 'gesuch' | 'suche-dienstleister' → ausblenden
-  //  2. Heuristik fuer Legacy-Daten: Titel/Kategorie enthaelt "gesucht" / beginnt mit "Suche " → Such-Inserat
-  function _isSearchListing(l) {
-    if (!l) return true;
-    var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
-    if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
-    var title = (l.title || '').toString().toLowerCase();
-    var cat   = (l.categoryLabel || l.category || '').toString().toLowerCase();
-    if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
-    if (/^\s*suche\s/.test(title)) return true;
-    return false;
-  }
+  var _isProviderRole = !!(currentUser && currentUser.role === 'Dienstleister');
   // Basis: gleiche Sichtbarkeitslogik wie ueberall sonst (Admin kann Demos abschalten)
   var _baseList = (typeof _visibleListings === 'function')
     ? _visibleListings()
     : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
-  var _listings = _baseList.filter(function(l){ return !_isSearchListing(l); }).slice(0, 30);
+  var _listings = _baseList.filter(function(l){
+    if (!l) return false;
+    if (_isOwnBoardListing(l)) return false;
+    var isSearch = _isBoardSearchListing(l);
+    // Event-Planer: Angebote (Biete) sehen, keine Gesuche
+    // Dienstleister: offene Gesuche sehen, keine Angebote
+    return _isProviderRole ? isSearch : !isSearch;
+  }).slice(0, 80);
+  var _pickerTitle = _isProviderRole ? 'Eventanfrage hinzufügen' : 'Dienstleister hinzufügen';
+  var _pickerHint = _isProviderRole
+    ? 'Wähle offene Event-Gesuche aus und plane deine Akquise.'
+    : 'Wähle passende Angebote aus und plane dein Event.';
+  var _pickerLabel = _isProviderRole ? 'Aus Event-Gesuchen wählen' : 'Aus Inseraten wählen';
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
@@ -16678,12 +16723,12 @@ function openAddProviderModal(defaultStage) {
       <button class="modal-close" onclick="document.getElementById('addProviderModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">person_add</span>
-        <h2>Dienstleister hinzufügen</h2>
-        <p>Aus bestehenden Inseraten wählen oder manuell eingeben</p>
+        <h2>${_pickerTitle}</h2>
+        <p>${_pickerHint}</p>
       </div>
       <form class="modal-form" onsubmit="_addProviderCard(event,'${defaultStage}')">
         <div class="form-group">
-          <label>Aus Inseraten wählen <span style="font-weight:400;color:var(--text-light);font-size:12px">(optional)</span></label>
+          <label>${_pickerLabel} <span style="font-weight:400;color:var(--text-light);font-size:12px">(optional)</span></label>
           <div class="eb-lpick-search">
             <span class="material-icons-round">search</span>
             <input type="text" id="lpickSearch" placeholder="Nach Name, Kategorie oder Ort suchen…" oninput="_filterListingPicker(this.value)" />
@@ -16781,11 +16826,6 @@ function _autoFillProviderFromListing(select) {
 }
 
 function _addProviderCard(event, stage) {
-    // Doppelte Karten verhindern (gleiche listingId im selben Projekt)
-    if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
-      showToast('Dieses Inserat ist bereits im Board.', 'warning');
-      return;
-    }
   event.preventDefault();
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -16800,6 +16840,14 @@ function _addProviderCard(event, stage) {
   var endTime = (document.getElementById('cardEndTime') || {}).value || '';
 
   var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
+  if (_isOwnBoardListing(listing)) {
+    showToast('Du kannst dich nicht selbst buchen oder dein eigenes Inserat ins Planungsboard setzen.', 'warning');
+    return;
+  }
+  if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
+    showToast('Dieses Inserat ist bereits im Board.', 'warning');
+    return;
+  }
   var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : null;
   var listingImage = (document.getElementById('cardListingImage') || {}).value || (listing ? (listing.image || '') : '');
   var listingTitle = (document.getElementById('cardListingTitle') || {}).value || (listing ? (listing.title || '') : '');

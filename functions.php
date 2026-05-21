@@ -3407,6 +3407,8 @@ function eb_format_listing( $row ) {
     $photo = $user ? ( get_user_meta( $user->ID, 'eb_photo_url', true ) ?: '' ) : '';
     $avatar = $photo ?: eb_avatar_url( $name, $name );
     $since = $user ? date( 'Y', strtotime( $user->user_registered ) ) : '';
+    $provider_role = $user ? eventboerse_map_role( $user ) : 'Event-Planer';
+    $provider_base_role = $user ? eventboerse_base_role( $user ) : 'Event-Planer';
 
     return array(
         'id'            => (int) $row['id'],
@@ -3427,6 +3429,8 @@ function eb_format_listing( $row ) {
         'providerName'  => $name,
         'providerImg'   => $avatar,
         'providerSince' => $since,
+        'providerRole'  => $provider_role,
+        'baseRole'      => $provider_base_role,
         'description'   => $row['description'],
         'features'      => $features,
         'tags'          => $tags,
