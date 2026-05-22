@@ -16979,7 +16979,6 @@ async function openAddProviderModal(defaultStage) {
   var _ownOffers = _getOwnOfferListingsForBoard(_baseList).slice(0, 60);
   var _offerListings = _baseList.filter(function(l){
     if (!l) return false;
-    if (_isOwnBoardListing(l)) return false;
     return !_isBoardSearchListing(l);
   });
   var _searchListings = _baseList.filter(function(l){
@@ -17009,7 +17008,7 @@ async function openAddProviderModal(defaultStage) {
   var _pickerTitle = _isProviderRole ? 'Baustein oder Anfrage hinzufügen' : 'Dienstleister hinzufügen';
   var _pickerHint = _isProviderRole
     ? 'Nutze eigene und externe Angebote als Bausteine/Pakete und optional offene Event-Gesuche für Akquise.'
-    : 'Wähle passende Angebote als Bausteine oder Pakete für dein Event.';
+    : 'Wähle passende Angebote (inkl. eigener Angebote) als Bausteine oder Pakete für dein Event.';
   var _pickerLabel = _isProviderRole ? 'Aus Angeboten und offenen Gesuchen wählen' : 'Aus Angeboten wählen';
   var _presetOptions = _presets.map(function(p) {
     var modeLabel = p.mode === 'package' ? 'Paket' : 'Baustein';
@@ -17026,7 +17025,8 @@ async function openAddProviderModal(defaultStage) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
     var isSearchListing = _isBoardSearchListing(l);
-    var typeLabel = isSearchListing ? 'Gesuch' : 'Angebot';
+    var isOwnListing = _isOwnBoardListing(l);
+    var typeLabel = isSearchListing ? 'Gesuch' : (isOwnListing ? 'Eigenes Angebot' : 'Angebot');
     var typeCls = isSearchListing ? 'search' : 'offer';
     return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
       '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
@@ -17035,6 +17035,7 @@ async function openAddProviderModal(defaultStage) {
       ' data-avatar="' + _escHtml(img) + '"' +
       ' data-image="' + _escHtml(l.image || img) + '"' +
       ' data-title="' + _escHtml(l.title || '') + '"' +
+      ' data-own="' + (isOwnListing ? '1' : '0') + '"' +
       ' data-kind="' + (isSearchListing ? 'search' : 'offer') + '"' +
       ' onclick="_selectListingCard(this)">' +
       '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
@@ -17207,6 +17208,7 @@ window._applyOwnOfferCardTemplate = function(sel) {
 window._selectListingCard = function(btn) {
   var grid = btn.parentElement;
   var wasActive = btn.classList.contains('is-active');
+  var isOwnListing = btn.dataset.own === '1';
   if (grid) grid.querySelectorAll('.eb-lpick-card').forEach(function(b){ b.classList.remove('is-active'); });
   if (wasActive) {
     _clearListingPick();
@@ -17214,7 +17216,7 @@ window._selectListingCard = function(btn) {
   }
   btn.classList.add('is-active');
   var hid = document.getElementById('cardListingId');
-  if (hid) hid.value = btn.dataset.id || '';
+  if (hid) hid.value = isOwnListing ? '' : (btn.dataset.id || '');
   var nameEl = document.getElementById('cardName');
   var catEl = document.getElementById('cardCategory');
   var priceEl = document.getElementById('cardPrice');
@@ -17225,7 +17227,14 @@ window._selectListingCard = function(btn) {
   var titleHid = document.getElementById('cardListingTitle'); if (titleHid) titleHid.value = btn.dataset.title || '';
   var avatarHid = document.getElementById('cardAvatarUrl'); if (avatarHid) avatarHid.value = btn.dataset.avatar || btn.dataset.image || '';
   var src = document.getElementById('cardSourceKind');
-  if (src) src.value = (btn.dataset.kind === 'search') ? 'search_listing' : 'external_listing';
+  if (src) {
+    if (isOwnListing) src.value = 'own_offer';
+    else src.value = (btn.dataset.kind === 'search') ? 'search_listing' : 'external_listing';
+  }
+  var noteEl = document.getElementById('cardNote');
+  if (isOwnListing && noteEl && !noteEl.value.trim()) {
+    noteEl.value = 'Eigenes Angebot übernommen: ' + (btn.dataset.title || btn.dataset.name || 'Leistung');
+  }
   var ownSel = document.getElementById('cardOwnOfferSelect'); if (ownSel) ownSel.value = '';
   // Scroll to filled fields
   if (nameEl) nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
