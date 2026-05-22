@@ -1,4 +1,3 @@
-```javascript
 /**
  * eb-state.js — Centralized State Module
  * Part of the EventBörse modular refactor.
@@ -175,4 +174,3 @@
     };
 
 }(window));
-```

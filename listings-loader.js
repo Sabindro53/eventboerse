@@ -1,24 +1,24 @@
-```javascript
 /**
- * listings-loader.js — Ersetzt Demo-Daten durch echte DB-Calls
+ * listings-loader.js
  *
- * Wird nach app.js geladen (index.html + index.php).
- * Leert LISTINGS[] sofort und implementiert loadDbListings() neu.
+ * Optional startup helper:
+ * if app.js exposes `loadDbListings`, trigger one background sync on boot.
  */
 (function () {
-    'use strict';
+  'use strict';
 
-    // ── Schritt 1: Demo-Daten sofort leeren ───────────────────────────────
-    // LISTINGS ist var im global scope von app.js → window.LISTINGS
-    if (Array.isArray(window.LISTINGS)) {
-        window.LISTINGS.splice(0, window.LISTINGS.length);
+  function run() {
+    if (typeof window.loadDbListings !== 'function') return;
+    try {
+      window.loadDbListings();
+    } catch (e) {
+      console.warn('[listings-loader] loadDbListings failed:', e);
     }
+  }
 
-    // ── Schritt 2: loadDbListings() neu implementieren ────────────────────
-    /**
-     * Lädt Listings vom Backend und füllt globales LISTINGS-Array.
-     *
-     * @param {Object}   params
-     * @param {string}   [params.category]
-     * @param {string}   [params.location]
-     * @param {string}   [params.search
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+})();

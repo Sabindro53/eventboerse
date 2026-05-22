@@ -48,7 +48,7 @@
   };
 
   // Schemes die in Hrefs/Srcs erlaubt sind. Alles andere (data:, javascript:, vbscript:) raus.
-  var SAFE_URL = /^(https?:|mailto:|tel:|#|/)/i;
+  var SAFE_URL = /^(https?:|mailto:|tel:|#|\/)/i;
 
   // ----- Sanitizer ---------------------------------------------------------
   function sanitizeWithFallback(html) {

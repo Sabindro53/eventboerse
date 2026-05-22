@@ -118,6 +118,62 @@ function _addClassById(id, cls) {
   if (el) el.classList.add(cls);
 }
 
+function _toPositiveInt(value) {
+  var n = parseInt(value, 10);
+  return isNaN(n) || n <= 0 ? 0 : n;
+}
+
+function _currentUserId() {
+  return (typeof currentUser !== 'undefined' && currentUser) ? _toPositiveInt(currentUser.id) : 0;
+}
+
+function _sameUserId(a, b) {
+  var aa = _toPositiveInt(a);
+  var bb = _toPositiveInt(b);
+  return aa > 0 && bb > 0 && aa === bb;
+}
+
+function _listingOwnerId(listing) {
+  if (!listing || typeof listing !== 'object') return 0;
+  var candidates = [
+    listing.providerId,
+    listing.user_id,
+    listing.userId,
+    listing.ownerId,
+    listing.authorId,
+    listing.provider_user_id,
+    listing.providerUserId,
+    listing.provider && listing.provider.id
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    var val = _toPositiveInt(candidates[i]);
+    if (val > 0) return val;
+  }
+  return 0;
+}
+
+function _isCurrentUserListingOwner(listing) {
+  var uid = _currentUserId();
+  var ownerId = _listingOwnerId(listing);
+  return uid > 0 && ownerId > 0 && uid === ownerId;
+}
+
+function _listingMatchesId(listing, anyId) {
+  if (!listing) return false;
+  var needle = _toPositiveInt(anyId);
+  if (!needle) return false;
+  return _toPositiveInt(listing.id) === needle || _toPositiveInt(listing._dbId) === needle;
+}
+
+function _findListingByAnyId(anyId) {
+  var needle = _toPositiveInt(anyId);
+  if (!needle || !Array.isArray(LISTINGS)) return null;
+  for (var i = 0; i < LISTINGS.length; i++) {
+    if (_listingMatchesId(LISTINGS[i], needle)) return LISTINGS[i];
+  }
+  return null;
+}
+
 // ========== IMAGE FALLBACK ==========
 // Manche externen Demo-URLs (Pexels) liefern 404. Damit die Karte nicht kaputt aussieht,
 // wird bei einem Image-Load-Fehler ein neutrales SVG-Placeholder eingesetzt.
@@ -2798,7 +2854,7 @@ function loadDetail(listingId) {
 
   // Show edit button only for own listings
   var editBtn = document.getElementById('detailEditBtn');
-  if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
+  if (editBtn) editBtn.style.display = _isCurrentUserListingOwner(listing) ? '' : 'none';
 
   // Admin moderation buttons for listing
   var existingAdminDel = document.getElementById('detailAdminDeleteBtn');
@@ -3459,7 +3515,7 @@ function _provSaveAll() {
   payload.gallery = gallery;
   // Also update LISTINGS cache so loadProvider won't revert on re-render
   LISTINGS.forEach(function(l) {
-    if (l.providerId === currentUser.id) l.images = gallery.slice();
+    if (_sameUserId(l.providerId, _currentUserId())) l.images = gallery.slice();
   });
   providerImages = gallery.slice();
   return fetch(_apiUrl('profile'), {
@@ -5071,15 +5127,17 @@ function startChat() {
     openModal('loginModal');
     return;
   }
-  if (!currentListing || !currentListing.providerId) return;
-  if (currentUser && currentListing.providerId === currentUser.id) {
+  if (!currentListing) return;
+  var providerId = _listingOwnerId(currentListing);
+  if (!providerId) return;
+  if (_sameUserId(providerId, _currentUserId())) {
     showToast('Du kannst dir nicht selbst schreiben.', 'info');
     return;
   }
   // Create or find conversation with provider
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
+    body: JSON.stringify({ other_user_id: providerId, listing_id: currentListing._dbId || currentListing.id })
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
@@ -5103,6 +5161,10 @@ function startChatWithProvider() {
     showToast('Anbieter nicht gefunden', 'error');
     return;
   }
+  if (_sameUserId(providerId, _currentUserId())) {
+    showToast('Du kannst dir nicht selbst schreiben.', 'info');
+    return;
+  }
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
     body: JSON.stringify({ other_user_id: providerId })
@@ -5124,8 +5186,10 @@ function bookListing() {
     openModal('loginModal');
     return;
   }
-  if (!currentListing || !currentListing.providerId) return;
-  if (currentUser && currentListing.providerId === currentUser.id) {
+  if (!currentListing) return;
+  var providerId = _listingOwnerId(currentListing);
+  if (!providerId) return;
+  if (_sameUserId(providerId, _currentUserId())) {
     showToast('Du kannst dein eigenes Inserat nicht anfragen.', 'info');
     return;
   }
@@ -5138,7 +5202,7 @@ function bookListing() {
   // Create conversation and send booking request
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
+    body: JSON.stringify({ other_user_id: providerId, listing_id: currentListing._dbId || currentListing.id })
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
@@ -5172,7 +5236,7 @@ function openNegotiation() {
     openModal('loginModal');
     return;
   }
-  if (currentUser && currentListing.providerId === currentUser.id) {
+  if (_isCurrentUserListingOwner(currentListing)) {
     showToast('Du kannst bei deinem eigenen Inserat kein Gegenangebot machen.', 'info');
     return;
   }
@@ -5209,12 +5273,18 @@ function submitNegotiation(e) {
   closeModal('negotiationModal');
   showToast(`Angebot über ${price}€ wurde gesendet!`, 'gavel');
 
-  if (!isLoggedIn || !currentListing || !currentListing.providerId) return;
+  if (!isLoggedIn || !currentListing) return;
+  var providerId = _listingOwnerId(currentListing);
+  if (!providerId) return;
+  if (_sameUserId(providerId, _currentUserId())) {
+    showToast('Du kannst dein eigenes Inserat nicht anfragen.', 'warning');
+    return;
+  }
 
   // Create conversation and send offer
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
+    body: JSON.stringify({ other_user_id: providerId, listing_id: currentListing._dbId || currentListing.id })
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
@@ -9083,7 +9153,7 @@ function loadDetailReviews(dbListingId) {
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
           var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
-          var isListingOwner = currentUser && currentListing && currentListing.providerId === currentUser.id;
+          var isListingOwner = _isCurrentUserListingOwner(currentListing);
           var canDelete = isOwnReview || isListingOwner || (currentUser && currentUser.isAdmin);
           var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
@@ -12228,7 +12298,7 @@ function renderAuftraegePage() {
     (proj.cards || []).forEach(function(card){
       var l = card.listingId ? (LISTINGS || []).find(function(x){ return x.id === card.listingId; }) : null;
       var providerId = (l && l.providerId) || card.providerId;
-      if (providerId && myId && providerId === myId) {
+      if (_sameUserId(providerId, myId)) {
         jobs.push({ card: card, project: proj, listing: l });
       }
     });
@@ -12569,7 +12639,7 @@ function deleteBoardProjectById(projectId) {
           .then(function(r){ return r.ok ? r.json() : null; })
           .then(function(l){
             if (!l || !l.providerId) return;
-            if (currentUser && l.providerId === currentUser.id) return;
+            if (_sameUserId(l.providerId, _currentUserId())) return;
             var dk = l.providerId + '|' + card.listingId;
             if (notified[dk]) return;
             notified[dk] = true;
@@ -12578,7 +12648,7 @@ function deleteBoardProjectById(projectId) {
           .catch(function(){});
         return;
       }
-      if (currentUser && providerId === currentUser.id) return;
+      if (_sameUserId(providerId, _currentUserId())) return;
 
       var dedupeKey = providerId + '|' + card.listingId;
       if (notified[dedupeKey]) return;
@@ -13162,9 +13232,9 @@ function _renderBoardFlowImpl() {
       var _packCnt = stageCards.filter(function(c){ return c.bundleMode === 'package'; }).length;
       var _ownCnt = stageCards.filter(function(c){ return c.sourceKind === 'own_offer'; }).length;
       var _prof = _boardPlanningRoleProfile();
-      html += '<div class="flow-node-budget-hint">' + esc(_prof.label) + ': Fragmente/Pakete strukturiert planen</div>';
+      html += '<div class="flow-node-budget-hint">' + esc(_prof.label) + ': Bausteine/Pakete strukturiert planen</div>';
       if (stageCards.length) {
-        html += '<div class="flow-node-budget-hint">Fragmente: ' + _fragCnt + ' · Pakete: ' + _packCnt + (_ownCnt ? ' · Eigene Angebote: ' + _ownCnt : '') + '</div>';
+        html += '<div class="flow-node-budget-hint">Bausteine: ' + _fragCnt + ' · Pakete: ' + _packCnt + (_ownCnt ? ' · Eigene Angebote: ' + _ownCnt : '') + '</div>';
       }
     }
     // "Hinzufügen" nur in der Start-Stage "geplant" anzeigen – alle weiteren
@@ -14153,6 +14223,23 @@ function _openStripePaymentModal(opts) {
     showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.', 'error');
     return;
   }
+  var guardUserId = _currentUserId();
+  var guardProviderId = _toPositiveInt(opts.providerUserId || opts.provider_user_id || opts.providerId || opts.provider_id);
+  var guardListingId = _toPositiveInt(opts.listingId || opts.listing_id);
+  if (guardUserId && guardProviderId && guardUserId === guardProviderId) {
+    showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
+    return;
+  }
+  if (guardUserId && guardListingId) {
+    var guardListing = _findListingByAnyId(guardListingId);
+    if (!guardListing && typeof currentListing !== 'undefined' && currentListing && _listingMatchesId(currentListing, guardListingId)) {
+      guardListing = currentListing;
+    }
+    if (guardListing && _isCurrentUserListingOwner(guardListing)) {
+      showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
+      return;
+    }
+  }
 
   // Overlay + Modal-Markup
   var ov = document.createElement('div');
@@ -14249,7 +14336,8 @@ function _openStripePaymentModal(opts) {
       title:      opts.title || 'Buchung',
       card_id:    opts.cardId || '',
       project_id: opts.projectId || '',
-      listing_id: opts.listingId || 0
+      listing_id: opts.listingId || 0,
+      provider_user_id: opts.providerUserId || 0
     })
   }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
     .then(function(res) {
@@ -14949,6 +15037,11 @@ function openStageAdvanceModal(cardId, currentStage) {
         showToast('Bitte einen gültigen Preis eintragen.', 'warning');
         return;
       }
+      var _selfProviderId = (_listing && _listing.providerId) || card.providerId || 0;
+      if ((_listing && _isCurrentUserListingOwner(_listing)) || _sameUserId(_selfProviderId, _currentUserId())) {
+        showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
+        return;
+      }
 
       // Stage-Advance-Modal schließen, dann Stripe-Modal öffnen.
       overlay.remove();
@@ -14959,6 +15052,7 @@ function openStageAdvanceModal(cardId, currentStage) {
         cardId: card.id,
         projectId: project.id,
         listingId: (_listing && (_listing._dbId || _listing.id)) || 0,
+        providerUserId: _selfProviderId,
         image: _stripeImg,
         provider: (_listing && _listing.providerName) || '',
         category: (_listing && (_listing.categoryLabel || _listing.category)) || card.category || '',
@@ -16222,8 +16316,8 @@ function addCurrentListingToBoard(listingId) {
   if (!lid) { showToast('Kein Service ausgew\u00e4hlt.', 'error'); return; }
   if (!currentUser) { openModal('loginModal'); return; }
 
-  var listing = (LISTINGS || []).find(function(l){ return String(l.id) === String(lid); }) || null;
-  if (!listing && typeof currentListing !== 'undefined' && currentListing && String(currentListing.id) === String(lid)) {
+  var listing = _findListingByAnyId(lid) || null;
+  if (!listing && typeof currentListing !== 'undefined' && currentListing && _listingMatchesId(currentListing, lid)) {
     listing = currentListing;
   }
   if (!listing) listing = { id: lid };
@@ -16253,6 +16347,7 @@ function _renderInstantBookSection(listing) {
   if (existing) existing.remove();
 
   if (!listing || !listing.instantBook) return;
+  if (_isCurrentUserListingOwner(listing)) return;
   var wd = (listing.availableWeekdays || []).map(Number).filter(function(d){ return d>=0 && d<=6; });
   if (wd.length === 0) return;
 
@@ -16330,6 +16425,11 @@ function _renderInstantBookSection(listing) {
 }
 
 function _startInstantBooking(listing, dateIso, amount) {
+  if (!listing) return;
+  if (_isCurrentUserListingOwner(listing)) {
+    showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
+    return;
+  }
   if (!amount || amount <= 0) {
     showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
     return;
@@ -16338,12 +16438,19 @@ function _startInstantBooking(listing, dateIso, amount) {
     try { var d = new Date(dateIso); return d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
     catch(e) { return dateIso; }
   })();
-  var listingId = listing._dbId || listing.id;
+  var listingRef = _findListingByAnyId(listing._dbId || listing.id) || listing;
+  var listingId = _toPositiveInt(listingRef._dbId || listingRef.id);
+  if (!listingId) {
+    showToast('Inserat konnte nicht eindeutig zugeordnet werden. Bitte Seite neu laden.', 'error');
+    return;
+  }
+  var providerUserId = _listingOwnerId(listingRef);
 
   _openStripePaymentModal({
     amount: amount,
     title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
     listingId: listingId,
+    providerUserId: providerUserId,
     image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
     provider: listing.providerName || '',
     category: listing.categoryLabel || listing.category || '',
@@ -16434,12 +16541,7 @@ function openSelectBoardProjectModal(listing) {
 }
 
 function _isOwnBoardListing(listing) {
-  if (!currentUser || !listing) return false;
-  var providerId = parseInt(listing.providerId, 10);
-  var ownerId = parseInt(listing.user_id, 10);
-  if (!isNaN(providerId) && providerId === currentUser.id) return true;
-  if (!isNaN(ownerId) && ownerId === currentUser.id) return true;
-  return false;
+  return _isCurrentUserListingOwner(listing);
 }
 
 function _isBoardSearchListing(listing) {
@@ -16470,7 +16572,7 @@ function _boardPlanningRoleProfile() {
       key: 'provider',
       label: 'Dienstleister',
       stageTitle: 'Leistungsplanung & Akquise',
-      stageHint: 'Baue aus Fragmenten oder Paketen ein sauberes Angebot und arbeite offene Gesuche ab.'
+      stageHint: 'Baue aus Bausteinen oder Paketen ein sauberes Angebot und arbeite offene Gesuche ab.'
     };
   }
   if (sub === 'unternehmen') {
@@ -16478,7 +16580,7 @@ function _boardPlanningRoleProfile() {
       key: 'planner_business',
       label: 'Geschäftlicher Eventplaner',
       stageTitle: 'Business-Event Planung',
-      stageHint: 'Plane Dienstleistungs-Fragmente für Teams, Technik und Ablauf oder setze direkt Gesamtpakete.'
+      stageHint: 'Plane Dienstleistungs-Bausteine für Teams, Technik und Ablauf oder setze direkt Gesamtpakete.'
     };
   }
   return {
@@ -16504,7 +16606,7 @@ function _boardPlanningPresets(profileKey) {
       { id: 'pb_pack_corporate', mode: 'package', name: 'Firmenfeier-Paket', category: 'Business-Paket', note: 'Entertainment, Catering und Ablaufkoordination aus einer Hand.' }
     ],
     provider: [
-      { id: 'pr_frag_light', mode: 'fragment', name: 'Leistungs-Fragment', category: 'Teilservice', note: 'Ein klarer Leistungsbaustein aus deinem Angebotsportfolio.' },
+      { id: 'pr_frag_light', mode: 'fragment', name: 'Leistungs-Baustein', category: 'Teilservice', note: 'Ein klarer Leistungsbaustein aus deinem Angebotsportfolio.' },
       { id: 'pr_frag_fast', mode: 'fragment', name: 'Express-Modul', category: 'Sofort verfügbar', note: 'Schneller Teilservice für kurzfristige Gesuche.' },
       { id: 'pr_pack_premium', mode: 'package', name: 'Premium-Paket', category: 'Komplettpaket', note: 'Abgestimmtes Gesamtangebot mit mehreren Leistungsbausteinen.' },
       { id: 'pr_pack_custom', mode: 'package', name: 'Individuelles Paket', category: 'Komplettpaket', note: 'Mehrere Teilservices als kundenspezifisches Paket bündeln.' }
@@ -16515,10 +16617,11 @@ function _boardPlanningPresets(profileKey) {
 
 function _getOwnOfferListingsForBoard(baseList) {
   if (!currentUser || !Array.isArray(baseList)) return [];
+  var uid = _currentUserId();
   return baseList.filter(function(l) {
     if (!l) return false;
-    var pid = parseInt(l.providerId, 10);
-    if (isNaN(pid) || pid !== currentUser.id) return false;
+    var ownerId = _listingOwnerId(l);
+    if (!uid || ownerId !== uid) return false;
     return !_isBoardSearchListing(l);
   });
 }
@@ -16526,9 +16629,11 @@ function _getOwnOfferListingsForBoard(baseList) {
 function _boardCardKindBadges(card) {
   if (!card) return '';
   var badges = [];
-  if (card.bundleMode === 'fragment') badges.push({ icon: 'splitscreen', label: 'Fragment' });
+  if (card.bundleMode === 'fragment') badges.push({ icon: 'splitscreen', label: 'Baustein' });
   if (card.bundleMode === 'package') badges.push({ icon: 'inventory_2', label: 'Paket' });
   if (card.sourceKind === 'own_offer') badges.push({ icon: 'storefront', label: 'Eigenes Angebot' });
+  if (card.sourceKind === 'external_listing') badges.push({ icon: 'public', label: 'Marktangebot' });
+  if (card.sourceKind === 'search_listing') badges.push({ icon: 'travel_explore', label: 'Gesuch' });
   if (card.planProfile === 'planner_business') badges.push({ icon: 'apartment', label: 'Business' });
   if (card.planProfile === 'planner_private') badges.push({ icon: 'celebration', label: 'Privat' });
   if (!badges.length) return '';
@@ -16551,6 +16656,7 @@ function _addListingToBoardProject(listing, projectId) {
   }
   var now = Date.now();
   var _profile = _boardPlanningRoleProfile();
+  var _listingIsSearch = _isBoardSearchListing(listing);
   var card = {
     id: 'bc_' + now,
     name: (listing && (listing.providerName || listing.title)) || 'Dienstleister',
@@ -16560,7 +16666,7 @@ function _addListingToBoardProject(listing, projectId) {
     listingId: listing && listing.id,
     avatar: (listing && (listing.providerImg || listing.image)) || '',
     bundleMode: (_profile.key === 'provider') ? 'package' : 'fragment',
-    sourceKind: 'external_listing',
+    sourceKind: _listingIsSearch ? 'search_listing' : 'external_listing',
     planProfile: _profile.key,
     note: '',
     createdAt: new Date().toISOString()
@@ -16785,21 +16891,42 @@ function openAddProviderModal(defaultStage) {
     ? _visibleListings()
     : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
   var _ownOffers = _getOwnOfferListingsForBoard(_baseList).slice(0, 60);
-  var _listings = _baseList.filter(function(l){
+  var _offerListings = _baseList.filter(function(l){
     if (!l) return false;
     if (_isOwnBoardListing(l)) return false;
-    var isSearch = _isBoardSearchListing(l);
-    // Event-Planer: Angebote (Biete) sehen, keine Gesuche
-    // Dienstleister: offene Gesuche sehen, keine Angebote
-    return _isProviderRole ? isSearch : !isSearch;
-  }).slice(0, 80);
-  var _pickerTitle = _isProviderRole ? 'Eventanfrage hinzufügen' : 'Dienstleister hinzufügen';
+    return !_isBoardSearchListing(l);
+  });
+  var _searchListings = _baseList.filter(function(l){
+    if (!l) return false;
+    if (_isOwnBoardListing(l)) return false;
+    return _isBoardSearchListing(l);
+  });
+  var _merged = _isProviderRole ? _offerListings.concat(_searchListings) : _offerListings;
+  _merged.sort(function(a, b) {
+    var aIsSearch = _isBoardSearchListing(a) ? 1 : 0;
+    var bIsSearch = _isBoardSearchListing(b) ? 1 : 0;
+    if (aIsSearch !== bIsSearch) return aIsSearch - bIsSearch; // Angebote zuerst
+    var aTitle = String((a && (a.title || a.providerName || '')) || '').toLowerCase();
+    var bTitle = String((b && (b.title || b.providerName || '')) || '').toLowerCase();
+    if (aTitle < bTitle) return -1;
+    if (aTitle > bTitle) return 1;
+    return 0;
+  });
+  var _seen = Object.create(null);
+  var _listings = _merged.filter(function(l) {
+    var idKey = String(_toPositiveInt(l && (l.id || l._dbId)) || (l && l.id) || '');
+    if (!idKey) return false;
+    if (_seen[idKey]) return false;
+    _seen[idKey] = 1;
+    return true;
+  }).slice(0, 140);
+  var _pickerTitle = _isProviderRole ? 'Baustein oder Anfrage hinzufügen' : 'Dienstleister hinzufügen';
   var _pickerHint = _isProviderRole
-    ? 'Wähle offene Event-Gesuche aus und plane deine Akquise.'
-    : 'Wähle passende Angebote aus und plane dein Event.';
-  var _pickerLabel = _isProviderRole ? 'Aus Event-Gesuchen wählen' : 'Aus Inseraten wählen';
+    ? 'Nutze eigene und externe Angebote als Bausteine/Pakete und optional offene Event-Gesuche für Akquise.'
+    : 'Wähle passende Angebote als Bausteine oder Pakete für dein Event.';
+  var _pickerLabel = _isProviderRole ? 'Aus Angeboten und offenen Gesuchen wählen' : 'Aus Angeboten wählen';
   var _presetOptions = _presets.map(function(p) {
-    var modeLabel = p.mode === 'package' ? 'Paket' : 'Fragment';
+    var modeLabel = p.mode === 'package' ? 'Paket' : 'Baustein';
     return '<option value="' + _escHtml(p.id) + '" data-mode="' + _escHtml(p.mode) + '" data-name="' + _escHtml(p.name) + '" data-category="' + _escHtml(p.category) + '" data-note="' + _escHtml(p.note) + '">' +
       _escHtml(modeLabel + ' · ' + p.name) + '</option>';
   }).join('');
@@ -16812,6 +16939,9 @@ function openAddProviderModal(defaultStage) {
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
+    var isSearchListing = _isBoardSearchListing(l);
+    var typeLabel = isSearchListing ? 'Gesuch' : 'Angebot';
+    var typeCls = isSearchListing ? 'search' : 'offer';
     return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
       '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
       ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
@@ -16819,11 +16949,13 @@ function openAddProviderModal(defaultStage) {
       ' data-avatar="' + _escHtml(img) + '"' +
       ' data-image="' + _escHtml(l.image || img) + '"' +
       ' data-title="' + _escHtml(l.title || '') + '"' +
+      ' data-kind="' + (isSearchListing ? 'search' : 'offer') + '"' +
       ' onclick="_selectListingCard(this)">' +
       '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
       '<span class="eb-lpick-body">' +
         '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
         '<span class="eb-lpick-meta">' +
+          '<span class="eb-lpick-type eb-lpick-type-' + typeCls + '">' + typeLabel + '</span>' +
           '<span class="eb-lpick-cat">' + _escHtml(l.categoryLabel || l.category || '') + '</span>' +
           (price ? '<span class="eb-lpick-price">' + _escHtml(price) + '</span>' : '') +
         '</span>' +
@@ -16831,6 +16963,13 @@ function openAddProviderModal(defaultStage) {
       '<span class="eb-lpick-check material-icons-round">check_circle</span>' +
     '</button>';
   }).join('');
+  if (!listingCardsHtml) {
+    listingCardsHtml = '<div class="bcl-empty" style="grid-column:1 / -1;margin:0">' +
+      '<span class="material-icons-round">search_off</span>' +
+      '<p><strong>Keine passenden Einträge gefunden</strong></p>' +
+      '<p class="bcl-empty-hint">Lege einen eigenen Baustein oder ein Paket manuell an.</p>' +
+    '</div>';
+  }
 
   var html = `<div class="modal-overlay show" id="addProviderModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal" onclick="event.stopPropagation()">
@@ -16844,7 +16983,7 @@ function openAddProviderModal(defaultStage) {
         <div class="form-group">
           <label>Planungsmodus</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button type="button" id="cardModeFragmentBtn" class="btn-outline" style="padding:10px" onclick="_setBoardCardMode('fragment')"><span class="material-icons-round">splitscreen</span> Fragment</button>
+            <button type="button" id="cardModeFragmentBtn" class="btn-outline" style="padding:10px" onclick="_setBoardCardMode('fragment')"><span class="material-icons-round">splitscreen</span> Baustein</button>
             <button type="button" id="cardModePackageBtn" class="btn-outline" style="padding:10px" onclick="_setBoardCardMode('package')"><span class="material-icons-round">inventory_2</span> Paket</button>
           </div>
           <small style="display:block;color:var(--text-light);margin-top:6px">${_profile.stageHint}</small>
@@ -16867,7 +17006,7 @@ function openAddProviderModal(defaultStage) {
           <label>${_pickerLabel} <span style="font-weight:400;color:var(--text-light);font-size:12px">(optional)</span></label>
           <div class="eb-lpick-search">
             <span class="material-icons-round">search</span>
-            <input type="text" id="lpickSearch" placeholder="Nach Name, Kategorie oder Ort suchen…" oninput="_filterListingPicker(this.value)" />
+            <input type="text" id="lpickSearch" placeholder="Nach Name, Kategorie, Ort oder Typ suchen…" oninput="_filterListingPicker(this.value)" />
             <button type="button" class="eb-lpick-clear" onclick="_clearListingPick()" title="Auswahl löschen"><span class="material-icons-round">close</span></button>
           </div>
           <div class="eb-lpick-grid" id="lpickGrid">
@@ -16999,7 +17138,8 @@ window._selectListingCard = function(btn) {
   var imgHid = document.getElementById('cardListingImage'); if (imgHid) imgHid.value = btn.dataset.image || '';
   var titleHid = document.getElementById('cardListingTitle'); if (titleHid) titleHid.value = btn.dataset.title || '';
   var avatarHid = document.getElementById('cardAvatarUrl'); if (avatarHid) avatarHid.value = btn.dataset.avatar || btn.dataset.image || '';
-  var src = document.getElementById('cardSourceKind'); if (src) src.value = 'external_listing';
+  var src = document.getElementById('cardSourceKind');
+  if (src) src.value = (btn.dataset.kind === 'search') ? 'search_listing' : 'external_listing';
   var ownSel = document.getElementById('cardOwnOfferSelect'); if (ownSel) ownSel.value = '';
   // Scroll to filled fields
   if (nameEl) nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -17012,7 +17152,8 @@ window._clearListingPick = function() {
   var imgHid2 = document.getElementById('cardListingImage'); if (imgHid2) imgHid2.value = '';
   var titleHid2 = document.getElementById('cardListingTitle'); if (titleHid2) titleHid2.value = '';
   var avatarHid = document.getElementById('cardAvatarUrl'); if (avatarHid) avatarHid.value = '';
-  var src = document.getElementById('cardSourceKind'); if (src && src.value === 'external_listing') src.value = 'manual';
+  var src = document.getElementById('cardSourceKind');
+  if (src && (src.value === 'external_listing' || src.value === 'search_listing')) src.value = 'manual';
   var search = document.getElementById('lpickSearch'); if (search) { search.value = ''; _filterListingPicker(''); }
 };
 
@@ -17057,7 +17198,7 @@ function _addProviderCard(event, stage) {
   var planProfile = (document.getElementById('cardPlanProfile') || {}).value || (_boardPlanningRoleProfile().key);
   var avatarInput = (document.getElementById('cardAvatarUrl') || {}).value || '';
 
-  var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
+  var listing = listingId ? _findListingByAnyId(listingId) : null;
   if (_isOwnBoardListing(listing)) {
     showToast('Du kannst dich nicht selbst buchen oder dein eigenes Inserat ins Planungsboard setzen.', 'warning');
     return;

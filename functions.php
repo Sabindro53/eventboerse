@@ -4075,6 +4075,25 @@ function eb_conversations_create( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
     }
 
+    $listing_title = '';
+    if ( $listing_id ) {
+        $listing = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, user_id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
+            $listing_id
+        ) );
+        if ( ! $listing ) {
+            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+        }
+        $listing_owner_id = (int) $listing->user_id;
+        if ( $listing_owner_id === (int) $uid ) {
+            return new WP_REST_Response( array( 'message' => 'Du kannst keine Unterhaltung für dein eigenes Inserat starten.' ), 403 );
+        }
+        if ( ! eb_is_admin_user( $uid ) && (int) $other_id !== $listing_owner_id ) {
+            return new WP_REST_Response( array( 'message' => 'Empfänger muss der Anbieter des ausgewählten Inserats sein.' ), 400 );
+        }
+        $listing_title = (string) $listing->title;
+    }
+
     // Check if conversation already exists
     $existing = $wpdb->get_var( $wpdb->prepare(
         "SELECT id FROM {$wpdb->prefix}eb_conversations
@@ -4096,11 +4115,7 @@ function eb_conversations_create( WP_REST_Request $request ) {
     $conv_id = $wpdb->insert_id;
 
     // Add system message
-    if ( $listing_id ) {
-        $listing_title = $wpdb->get_var( $wpdb->prepare(
-            "SELECT title FROM {$wpdb->prefix}eb_listings WHERE id = %d", $listing_id
-        ) );
-        if ( $listing_title ) {
+    if ( $listing_id && $listing_title ) {
             $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
                 'conversation_id' => $conv_id,
                 'sender_id'       => 0,
@@ -4108,7 +4123,6 @@ function eb_conversations_create( WP_REST_Request $request ) {
                 'msg_type'        => 'system',
                 'created_at'      => current_time( 'mysql' ),
             ) );
-        }
     }
 
     return new WP_REST_Response( array( 'id' => (int) $conv_id, 'existing' => false ), 201 );
@@ -4928,11 +4942,14 @@ function eb_registrations_create( WP_REST_Request $request ) {
 
     // Check listing exists
     $listing = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d",
+        "SELECT id, title, user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d",
         $listing_id
     ), ARRAY_A );
     if ( ! $listing ) {
         return new WP_REST_Response( array( 'message' => 'Listing nicht gefunden.' ), 404 );
+    }
+    if ( (int) ( $listing['user_id'] ?? 0 ) === (int) $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst dich nicht für dein eigenes Inserat anmelden.' ), 403 );
     }
 
     // Check for duplicate registration
@@ -5036,6 +5053,26 @@ function eb_send_invoice( WP_REST_Request $request ) {
     $user = get_userdata( $uid );
     if ( ! $user ) {
         return new WP_REST_Response( array( 'message' => 'User ungueltig.' ), 400 );
+    }
+
+    if ( $listing_id ) {
+        global $wpdb;
+        $listing_row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, user_id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
+            $listing_id
+        ), ARRAY_A );
+        if ( ! $listing_row ) {
+            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+        }
+        $provider_uid = (int) $listing_row['user_id'];
+        if ( $provider_uid === (int) $uid ) {
+            return new WP_REST_Response( array( 'message' => 'Du kannst keine Rechnung für dein eigenes Inserat auslösen.' ), 403 );
+        }
+        if ( ! empty( $listing_row['title'] ) ) {
+            $listing_title = sanitize_text_field( $listing_row['title'] );
+        }
+    } elseif ( $provider_uid && $provider_uid === (int) $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst keine Rechnung an dich selbst auslösen.' ), 403 );
     }
 
     $user_email = $user->user_email;
@@ -5200,7 +5237,8 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
     $title       = isset( $p['title'] ) ? sanitize_text_field( $p['title'] ) : 'Buchung';
     $card_id     = isset( $p['card_id'] ) ? sanitize_text_field( $p['card_id'] ) : '';
     $project_id  = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] ) : '';
-    $listing_id  = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
+    $listing_id   = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
+    $provider_uid = isset( $p['provider_user_id'] ) ? absint( $p['provider_user_id'] ) : 0;
 
     if ( $amount <= 0 ) {
         return new WP_REST_Response( array( 'message' => 'Ung\u00fcltiger Betrag.' ), 400 );
@@ -5218,6 +5256,26 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
     $cancel_url  = add_query_arg( array( 'stripe' => 'cancel' ), $site );
 
     $user = wp_get_current_user();
+    $uid  = ( $user && isset( $user->ID ) ) ? (int) $user->ID : 0;
+    if ( ! $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht angemeldet.' ), 401 );
+    }
+
+    if ( $listing_id ) {
+        global $wpdb;
+        $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
+            $listing_id
+        ) );
+        if ( ! $provider_uid ) {
+            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+        }
+        if ( $provider_uid === $uid ) {
+            return new WP_REST_Response( array( 'message' => 'Du kannst dein eigenes Inserat nicht buchen oder bezahlen.' ), 403 );
+        }
+    } elseif ( $provider_uid && $provider_uid === $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst keine Zahlung an dich selbst auslösen.' ), 403 );
+    }
 
     $fields = array(
         'mode'                                    => 'payment',
@@ -5232,6 +5290,7 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
         'metadata[card_id]'                       => $card_id,
         'metadata[project_id]'                    => $project_id,
         'metadata[listing_id]'                    => (string) $listing_id,
+        'metadata[provider_user_id]'              => (string) $provider_uid,
         'metadata[user_id]'                       => (string) ( $user ? $user->ID : 0 ),
     );
 
@@ -5283,7 +5342,8 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
     $title      = isset( $p['title'] ) ? sanitize_text_field( $p['title'] ) : 'Buchung';
     $card_id    = isset( $p['card_id'] ) ? sanitize_text_field( $p['card_id'] ) : '';
     $project_id = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] ) : '';
-    $listing_id = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
+    $listing_id   = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
+    $provider_uid = isset( $p['provider_user_id'] ) ? absint( $p['provider_user_id'] ) : 0;
 
     if ( $amount <= 0 ) {
         return new WP_REST_Response( array( 'message' => 'Ungültiger Betrag.' ), 400 );
@@ -5292,6 +5352,26 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
 
     $amount_cents = (int) round( $amount * 100 );
     $user = wp_get_current_user();
+    $uid  = ( $user && isset( $user->ID ) ) ? (int) $user->ID : 0;
+    if ( ! $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht angemeldet.' ), 401 );
+    }
+
+    if ( $listing_id ) {
+        global $wpdb;
+        $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
+            $listing_id
+        ) );
+        if ( ! $provider_uid ) {
+            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+        }
+        if ( $provider_uid === $uid ) {
+            return new WP_REST_Response( array( 'message' => 'Du kannst dein eigenes Inserat nicht buchen oder bezahlen.' ), 403 );
+        }
+    } elseif ( $provider_uid && $provider_uid === $uid ) {
+        return new WP_REST_Response( array( 'message' => 'Du kannst keine Zahlung an dich selbst auslösen.' ), 403 );
+    }
 
     $fields = array(
         'amount'                               => $amount_cents,
@@ -5307,21 +5387,13 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'metadata[card_id]'                    => $card_id,
         'metadata[project_id]'                 => $project_id,
         'metadata[listing_id]'                 => (string) $listing_id,
+        'metadata[provider_user_id]'           => (string) $provider_uid,
         'metadata[user_id]'                    => (string) ( $user ? $user->ID : 0 ),
         'metadata[title]'                      => $title,
     );
 
     // Stripe Connect: Zahlung automatisch an Dienstleister weiterleiten (3% Provision)
-    if ( $listing_id ) {
-        $listing = get_post( $listing_id );
-        $provider_uid = $listing ? (int) get_post_field( 'post_author', $listing_id ) : 0;
-        if ( ! $provider_uid ) {
-            global $wpdb;
-            $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id
-            ) );
-        }
-        if ( $provider_uid ) {
+    if ( $listing_id && $provider_uid ) {
             $connect_id = get_user_meta( $provider_uid, 'eb_stripe_connect_id', true );
             $connect_ok = get_user_meta( $provider_uid, 'eb_stripe_connect_active', true );
             if ( $connect_id && $connect_ok ) {
@@ -5331,7 +5403,6 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
                 $fields['metadata[connect_id]']            = $connect_id;
                 $fields['metadata[application_fee_cents]'] = (string) $fee_cents;
             }
-        }
     }
 
     $ch = curl_init( 'https://api.stripe.com/v1/payment_intents' );
@@ -5608,6 +5679,22 @@ function eb_stripe_verify_payment( WP_REST_Request $request ) {
     $owner = isset( $meta['user_id'] ) ? intval( $meta['user_id'] ) : 0;
     if ( $owner && $uid && $owner !== $uid ) {
         return new WP_REST_Response( array( 'message' => 'Payment-Intent gehört nicht zu diesem Nutzer.' ), 403 );
+    }
+    $listing_id = isset( $meta['listing_id'] ) ? absint( $meta['listing_id'] ) : 0;
+    if ( $listing_id && $uid ) {
+        global $wpdb;
+        $listing_owner = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
+            $listing_id
+        ) );
+        if ( $listing_owner && (int) $listing_owner === (int) $uid ) {
+            return new WP_REST_Response( array( 'message' => 'Selbstbuchung/Selbstzahlung ist nicht erlaubt.' ), 403 );
+        }
+    } elseif ( $uid ) {
+        $provider_uid = isset( $meta['provider_user_id'] ) ? absint( $meta['provider_user_id'] ) : 0;
+        if ( $provider_uid && (int) $provider_uid === (int) $uid ) {
+            return new WP_REST_Response( array( 'message' => 'Selbstbuchung/Selbstzahlung ist nicht erlaubt.' ), 403 );
+        }
     }
 
     return new WP_REST_Response( array(

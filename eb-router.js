@@ -1,176 +1,159 @@
-```javascript
 /**
- * eb-router.js — SPA Router Module
- * Part of the EventBörse modular refactor.
+ * eb-router.js — optional SPA router helper.
  *
- * Exposes window.EB.Router
- *
- * Extracted from app.js navigateTo() + _spaPath() + _readSpaRoute() logic.
- * app.js delegates to EB.Router.navigateTo() — the original function stays as
- * a thin wrapper for backward compatibility (existing call sites unchanged).
- *
- * Loaded BEFORE app.js.
+ * This module is intentionally standalone and safe to include or ignore.
+ * It exposes `window.EB.Router` without changing existing app.js behavior.
  */
 (function (global) {
-    'use strict';
+  'use strict';
 
-    // -------------------------------------------------------------------------
-    // Route registry
-    // All known page tokens mapped to their URL slug and optional init hint.
-    // app.js renderX() functions are still responsible for actual rendering.
-    // -------------------------------------------------------------------------
-    var ROUTES = {
-        home:             { slug: '/',                   title: 'Eventbörse – Dein Event-Marktplatz' },
-        browse:           { slug: '/browse',             title: 'Dienstleister finden – Eventbörse' },
-        detail:           { slug: '/listing/',           title: 'Inserat – Eventbörse' },
-        provider:         { slug: '/provider/',          title: 'Profil – Eventbörse' },
-        chat:             { slug: '/chat/',              title: 'Nachrichten – Eventbörse' },
-        messages:         { slug: '/messages',           title: 'Nachrichten – Eventbörse' },
-        board:            { slug: '/board',              title: 'Event-Board – Eventbörse' },
-        profile:          { slug: '/profile',            title: 'Mein Profil – Eventbörse' },
-        settings:         { slug: '/settings',           title: 'Einstellungen – Eventbörse' },
-        admin:            { slug: '/admin',              title: 'Admin – Eventbörse' },
-        'my-listings':    { slug: '/meine-inserate',     title: 'Meine Inserate – Eventbörse' },
-        'create-listing': { slug: '/inserat-erstellen',  title: 'Inserat erstellen – Eventbörse' },
-        favorites:        { slug: '/favoriten',          title: 'Meine Favoriten – Eventbörse' },
-        login:            { slug: '/login',              title: 'Anmelden – Eventbörse' },
-        register:         { slug: '/registrieren',       title: 'Registrieren – Eventbörse' }
-    };
+  var ROUTES = {
+    home:             { slug: '/',                  title: 'Eventbörse – Dein Event-Marktplatz' },
+    browse:           { slug: '/browse',            title: 'Dienstleister finden – Eventbörse' },
+    detail:           { slug: '/listing/',          title: 'Inserat – Eventbörse' },
+    provider:         { slug: '/provider/',         title: 'Profil – Eventbörse' },
+    chat:             { slug: '/chat/',             title: 'Nachrichten – Eventbörse' },
+    messages:         { slug: '/messages',          title: 'Nachrichten – Eventbörse' },
+    board:            { slug: '/board',             title: 'Event-Board – Eventbörse' },
+    profile:          { slug: '/profile',           title: 'Mein Profil – Eventbörse' },
+    settings:         { slug: '/settings',          title: 'Einstellungen – Eventbörse' },
+    admin:            { slug: '/admin',             title: 'Admin – Eventbörse' },
+    'my-listings':    { slug: '/meine-inserate',    title: 'Meine Inserate – Eventbörse' },
+    'create-listing': { slug: '/inserat-erstellen', title: 'Inserat erstellen – Eventbörse' },
+    favorites:        { slug: '/favoriten',         title: 'Meine Favoriten – Eventbörse' },
+    login:            { slug: '/login',             title: 'Anmelden – Eventbörse' },
+    register:         { slug: '/registrieren',      title: 'Registrieren – Eventbörse' }
+  };
 
-    // -------------------------------------------------------------------------
-    // History helpers (extracted from app.js _spaPath / _readSpaRoute)
-    // -------------------------------------------------------------------------
+  var _leaveHandlers = {};
+  var _enterHandlers = {};
+  var _renderHook = null;
+  var _currentPage = 'home';
+  var _previousPage = null;
 
-    /**
-     * Build a canonical URL path for a given page token + optional id.
-     * @param {string} page
-     * @param {string|number} [id]
-     * @returns {string}
-     */
-    function buildPath(page, id) {
-        var route = ROUTES[page];
-        if (!route) return '/';
-        var slug = route.slug;
-        if (id !== undefined && id !== null) {
-            // slug already ends with '/' for parameterized routes
-            slug = slug + id;
-        }
-        return slug;
+  function _extractRouteId(data) {
+    if (data === null || data === undefined) return null;
+    if (typeof data !== 'object') return data;
+    if (data.id !== undefined && data.id !== null) return data.id;
+    if (data.listingId !== undefined && data.listingId !== null) return data.listingId;
+    if (data.providerId !== undefined && data.providerId !== null) return data.providerId;
+    if (data.userId !== undefined && data.userId !== null) return data.userId;
+    return null;
+  }
+
+  function buildPath(page, id) {
+    var route = ROUTES[page];
+    if (!route) return '/';
+    var slug = route.slug;
+    if (id !== undefined && id !== null && slug !== '/' && slug.slice(-1) === '/') {
+      slug += String(id);
+    }
+    return slug;
+  }
+
+  function readCurrentRoute() {
+    var pathname = global.location.pathname || '/';
+    var hash = global.location.hash || '';
+
+    if (hash.indexOf('#/') === 0) pathname = hash.slice(1);
+
+    var pageKeys = Object.keys(ROUTES);
+    for (var i = 0; i < pageKeys.length; i++) {
+      var key = pageKeys[i];
+      var slug = ROUTES[key].slug;
+      if (slug !== '/' && slug.slice(-1) === '/' && pathname.indexOf(slug) === 0) {
+        return { page: key, id: pathname.slice(slug.length) || null };
+      }
+      if (pathname === slug || pathname === slug + '/') {
+        return { page: key, id: null };
+      }
+    }
+    return { page: 'home', id: null };
+  }
+
+  function pushHistory(page, id, replace) {
+    var route = ROUTES[page];
+    var path = buildPath(page, id);
+    var title = (route && route.title) || document.title;
+    try {
+      if (replace) {
+        global.history.replaceState({ page: page, id: id || null }, title, path);
+      } else {
+        global.history.pushState({ page: page, id: id || null }, title, path);
+      }
+      document.title = title;
+    } catch (e) {
+      // ignore on file://
+    }
+  }
+
+  function onLeave(page, fn) { _leaveHandlers[page] = fn; }
+  function onEnter(page, fn) { _enterHandlers[page] = fn; }
+
+  function _runLeave(page) {
+    var fn = _leaveHandlers[page];
+    if (typeof fn === 'function') {
+      try { fn(); } catch (e) { console.warn('[EB.Router] onLeave failed for', page, e); }
+    }
+  }
+
+  function _runEnter(page, data) {
+    var fn = _enterHandlers[page];
+    if (typeof fn === 'function') {
+      try { fn(data); } catch (e) { console.warn('[EB.Router] onEnter failed for', page, e); }
+    }
+  }
+
+  function _setStatePointers() {
+    if (!global.EB || !global.EB.State) return;
+    try {
+      global.EB.State.set('previousPage', _previousPage);
+      global.EB.State.set('currentPage', _currentPage);
+    } catch (e) {}
+  }
+
+  function navigateTo(page, data, skipHistory, renderFn) {
+    if (!page) return;
+    _runLeave(_currentPage);
+    _previousPage = _currentPage;
+    _currentPage = page;
+    _setStatePointers();
+
+    if (!skipHistory) {
+      pushHistory(page, _extractRouteId(data), false);
     }
 
-    /**
-     * Read the current SPA route from the URL.
-     * Returns { page, id } — mirrors _readSpaRoute() in app.js.
-     * @returns {{ page: string, id: string|null }}
-     */
-    function readCurrentRoute() {
-        var pathname = global.location.pathname;
-        var hash = global.location.hash;
+    var renderer = (typeof renderFn === 'function') ? renderFn : _renderHook;
+    if (typeof renderer === 'function') renderer(page, data);
+    _runEnter(page, data);
+  }
 
-        // Hash-routing fallback (#/browse, #/listing/123)
-        if (hash && hash.indexOf('#/') === 0) {
-            pathname = hash.slice(1);
-        }
+  function setRenderHook(fn) {
+    _renderHook = (typeof fn === 'function') ? fn : null;
+  }
 
-        var pageKeys = Object.keys(ROUTES);
-        for (var i = 0; i < pageKeys.length; i++) {
-            var key = pageKeys[i];
-            var slug = ROUTES[key].slug;
-            // Parameterized route (ends with /)
-            if (slug !== '/' && slug.slice(-1) === '/' && pathname.indexOf(slug) === 0) {
-                var id = pathname.slice(slug.length) || null;
-                return { page: key, id: id };
-            }
-            // Exact match
-            if (pathname === slug || pathname === slug + '/') {
-                return { page: key, id: null };
-            }
-        }
+  function syncFromLocation(renderFn) {
+    var route = readCurrentRoute();
+    navigateTo(route.page, route.id, true, renderFn);
+  }
 
-        // Fallback: home
-        return { page: 'home', id: null };
-    }
+  global.addEventListener('popstate', function (ev) {
+    var state = (ev && ev.state) || readCurrentRoute();
+    navigateTo(state.page || 'home', state.id || null, true);
+  });
 
-    /**
-     * Push a new history entry for a page.
-     * @param {string} page
-     * @param {string|number} [id]
-     * @param {boolean} [replace=false]  use replaceState instead of pushState
-     */
-    function pushHistory(page, id, replace) {
-        var route = ROUTES[page];
-        var path = buildPath(page, id);
-        var title = (route && route.title) || document.title;
-        try {
-            if (replace) {
-                global.history.replaceState({ page: page, id: id || null }, title, path);
-            } else {
-                global.history.pushState({ page: page, id: id || null }, title, path);
-            }
-            document.title = title;
-        } catch (e) {
-            // Fails on file:// origins during local dev — silently ignore
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Navigation lifecycle hooks
-    // app.js registers onLeave / onEnter handlers here.
-    // -------------------------------------------------------------------------
-    var _leaveHandlers = {};
-    var _enterHandlers = {};
-
-    function onLeave(page, fn) {
-        _leaveHandlers[page] = fn;
-    }
-
-    function onEnter(page, fn) {
-        _enterHandlers[page] = fn;
-    }
-
-    function _runLeave(page) {
-        if (_leaveHandlers[page]) {
-            try { _leaveHandlers[page](); } catch (e) {
-                console.warn('[EB.Router] onLeave error for "' + page + '":', e);
-            }
-        }
-    }
-
-    function _runEnter(page, data) {
-        if (_enterHandlers[page]) {
-            try { _enterHandlers[page](data); } catch (e) {
-                console.warn('[EB.Router] onEnter error for "' + page + '":', e);
-            }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Core navigate function
-    // This is called by the shim in app.js — keeps all existing call sites.
-    // -------------------------------------------------------------------------
-    var _currentPage = 'home';
-    var _previousPage = null;
-
-    /**
-     * Navigate to a page.
-     * @param {string}          page
-     * @param {*}               [data]         passed to render function / onEnter
-     * @param {boolean}         [skipHistory]  don't push history entry
-     * @param {function}        [renderFn]     called by app.js shim with (page, data)
-     */
-    function navigateTo(page, data, skipHistory, renderFn) {
-        if (!page) return;
-
-        _runLeave(_currentPage);
-
-        _previousPage = _currentPage;
-        _currentPage = page;
-
-        // Update EB.State if available
-        if (global.EB && global.EB.State) {
-            global.EB.State.set('previousPage', _previousPage);
-            global.EB.State.set('currentPage', _currentPage);
-        }
-
-        if (!skipHistory) {
-            var idForHistory = (data && typeof data !== 'object') ? data
+  global.EB = global.EB || {};
+  global.EB.Router = {
+    ROUTES: ROUTES,
+    buildPath: buildPath,
+    readCurrentRoute: readCurrentRoute,
+    pushHistory: pushHistory,
+    navigateTo: navigateTo,
+    syncFromLocation: syncFromLocation,
+    setRenderHook: setRenderHook,
+    onLeave: onLeave,
+    onEnter: onEnter,
+    getCurrentPage: function () { return _currentPage; },
+    getPreviousPage: function () { return _previousPage; }
+  };
+}(window));
