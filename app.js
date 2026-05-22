@@ -16625,20 +16625,23 @@ function _isOwnBoardListing(listing) {
 function _isBoardSearchListing(listing) {
   if (!listing) return true;
 
-  // Starkes Signal: Rolle des Erstellers (Event-Planer = Gesuch, Dienstleister = Angebot)
-  var roleRaw = (listing.providerRole || listing.baseRole || listing.role || '').toString().toLowerCase();
-  if (roleRaw.indexOf('event-planer') !== -1 || roleRaw === 'event_planer') return true;
-  if (roleRaw.indexOf('dienstleister') !== -1 || roleRaw === 'provider') return false;
-
-  // Fallback: explizite Typ-Felder
+  // 1) Starkes Signal: explizite Typ-/Flag-Felder
+  if (listing.isSearch === true || listing.searchRequest === true || listing.isRequest === true) return true;
   var t = (listing.listingType || listing.kind || listing.type || '').toString().toLowerCase();
+  if (t === 'offer' || t === 'angebot' || t === 'service') return false;
   if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
 
-  // Fallback: Heuristik über Text
+  // 2) Text-Heuristik für Gesuche
   var title = (listing.title || '').toString().toLowerCase();
   var cat = (listing.categoryLabel || listing.category || '').toString().toLowerCase();
   if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
   if (/^\s*suche\s/.test(title)) return true;
+
+  // 3) Tags/Meta als Zusatzsignal
+  var tags = Array.isArray(listing.tags) ? listing.tags.map(function(x){ return String(x || '').toLowerCase(); }) : [];
+  if (tags.indexOf('gesuch') !== -1 || tags.indexOf('suche') !== -1 || tags.indexOf('search') !== -1) return true;
+
+  // Default: Als Angebot behandeln.
   return false;
 }
 
