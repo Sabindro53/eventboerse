@@ -102,6 +102,19 @@ function filterDemos(arr) {
   if (!window.EB_HIDE_DEMO || !Array.isArray(arr)) return arr;
   return arr.filter(function(l) { return !isDemoListing(l); });
 }
+
+// Einheitliche Sichtbarkeit für alle UI-Flächen.
+// Wenn Admin Testdaten eingeblendet hat, werden sie überall angezeigt.
+function _surfaceVisibleListings(arr) {
+  var rows = Array.isArray(arr) ? arr : [];
+  var adminWantsDemo = !!(
+    !window.EB_HIDE_DEMO &&
+    typeof currentUser !== 'undefined' &&
+    currentUser &&
+    currentUser.isAdmin
+  );
+  return adminWantsDemo ? rows : filterDemos(rows);
+}
 function _safeRun(label, fn) {
   try {
     if (typeof fn === 'function') fn();
@@ -1021,7 +1034,7 @@ const BLOCKED_PATTERNS = [
 // ========== VISIBLE LISTINGS ==========
 function _visibleListings() {
   var all = Array.isArray(LISTINGS) ? LISTINGS : [];
-  if (!isLoggedIn) return filterDemos(all);
+  if (!isLoggedIn) return _surfaceVisibleListings(all);
 
   var dbItems = all.filter(function(l) { return l && l._fromDb; });
   var adminWantsDemo = !!(currentUser && currentUser.isAdmin && !window.EB_HIDE_DEMO);
@@ -1037,7 +1050,7 @@ function _visibleListings() {
     return merged;
   }
 
-  return dbItems.length > 0 ? dbItems : filterDemos(all);
+  return dbItems.length > 0 ? dbItems : _surfaceVisibleListings(all);
 }
 
 function getHeroListings() {
@@ -1500,7 +1513,7 @@ function renderExploreGrid(filter) {
   const query = filter || (document.getElementById('exploreSearch')?.value || '').trim().toLowerCase();
   // Collect all images from all listings
   let items = [];
-  filterDemos(LISTINGS).forEach(l => {
+  _surfaceVisibleListings(getHeroListings()).forEach(l => {
     // Main image
     items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
     // Additional images
@@ -2326,7 +2339,7 @@ function performSearch() {
 // ========== BROWSE PAGE ==========
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
-  var rows = filterDemos(listings || []);
+  var rows = _surfaceVisibleListings(listings || []);
   grid.innerHTML = rows.map(renderListingCard).join('');
   _initGridCards(grid);
   document.getElementById('browseResultCount').textContent = `${rows.length} Services gefunden`;
@@ -11638,7 +11651,7 @@ function toggleMapOverlay() {
     setTimeout(() => leafletMap.invalidateSize(), 350);
   }
 
-  renderLocationsList(filterDemos(LISTINGS));
+  renderLocationsList(_surfaceVisibleListings(getHeroListings()));
 }
 
 function closeMapOverlay() {
@@ -11660,7 +11673,7 @@ function initLeafletMap() {
     attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
   }).addTo(leafletMap);
 
-  addListingMarkers(filterDemos(LISTINGS));
+  addListingMarkers(_surfaceVisibleListings(getHeroListings()));
 }
 
 function createPriceIcon(listing) {
