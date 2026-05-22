@@ -811,6 +811,8 @@ let favorites = new Set();
   }
 })();
 let _dbListingsLoaded = false;
+let _dbListingsFullyLoaded = false;
+let _dbListingsLoadPromise = null;
 let _favoritesLoaded = false;
 
 function forceBrowsePage() {
@@ -896,28 +898,100 @@ async function uploadFile(file, _attempt) {
   return await resp.json();
 }
 
-// Load database listings into LISTINGS array (merged with demo data)
-async function loadDbListings() {
-  if (_dbListingsLoaded) return;
-  try {
-    var resp = await fetch(_apiUrl('listings?per_page=50&_t=' + Date.now()), { credentials: 'same-origin', headers: _apiHeaders() });
-    if (!resp.ok) return;
-    var data = await resp.json();
-    if (data.listings && data.listings.length > 0) {
-      // Assign high IDs to avoid collision with demo data
-      data.listings.forEach(function(l) {
-        l.id = l.id + 10000; // offset DB IDs
-        l._fromDb = true;
-        l._dbId = l.id - 10000;
-        // Don't add duplicates (check both offset ID and raw DB ID)
-        if (!LISTINGS.find(function(ex) { return ex.id === l.id || ex._dbId === l._dbId; })) {
-          LISTINGS.unshift(l);
-        }
-      });
+function _mergeDbListingsIntoCache(rows) {
+  if (!Array.isArray(rows) || !rows.length) return 0;
+  var merged = 0;
+  rows.forEach(function(row) {
+    var rawId = _toPositiveInt(row && row.id);
+    if (!rawId) return;
+    var offsetId = rawId + 10000;
+    var existing = (LISTINGS || []).find(function(ex) {
+      if (!ex) return false;
+      return _toPositiveInt(ex.id) === offsetId || _toPositiveInt(ex._dbId) === rawId;
+    });
+    if (existing) {
+      Object.keys(row).forEach(function(k) { existing[k] = row[k]; });
+      existing.id = offsetId;
+      existing._fromDb = true;
+      existing._dbId = rawId;
+      return;
     }
-    _dbListingsLoaded = true;
-    try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
-  } catch(e) { /* API not available yet */ }
+    var listing = Object.assign({}, row, {
+      id: offsetId,
+      _fromDb: true,
+      _dbId: rawId
+    });
+    LISTINGS.unshift(listing);
+    merged++;
+  });
+  return merged;
+}
+
+// Load database listings into LISTINGS array (merged with demo data)
+// options:
+//   includeAllPages: load complete result set via pagination (Board uses this)
+//   forceReload: always fetch again from API
+async function loadDbListings(options) {
+  var opts = options || {};
+  var includeAllPages = !!opts.includeAllPages;
+  var forceReload = !!opts.forceReload;
+
+  if (!forceReload) {
+    if (_dbListingsLoaded && (!includeAllPages || _dbListingsFullyLoaded)) return;
+    if (_dbListingsLoadPromise) {
+      await _dbListingsLoadPromise;
+      if (_dbListingsLoaded && (!includeAllPages || _dbListingsFullyLoaded)) return;
+    }
+  }
+
+  _dbListingsLoadPromise = (async function() {
+    var page = 1;
+    var pages = 1;
+    var maxPages = 80; // Sicherheitslimit gegen Endlosschleifen
+    var hadError = false;
+    var loadedAny = false;
+
+    try {
+      do {
+        var qs = 'per_page=50&page=' + page + '&_t=' + Date.now();
+        var resp = await fetch(_apiUrl('listings?' + qs), { credentials: 'same-origin', headers: _apiHeaders() });
+        if (!resp.ok) {
+          hadError = true;
+          break;
+        }
+        var data = await resp.json();
+        var rows = (data && Array.isArray(data.listings)) ? data.listings : [];
+        if (rows.length) {
+          _mergeDbListingsIntoCache(rows);
+          loadedAny = true;
+        }
+        var parsedPages = _toPositiveInt(data && data.pages);
+        pages = parsedPages > 0 ? parsedPages : 1;
+
+        if (!includeAllPages) break;
+        page++;
+      } while (page <= pages && page <= maxPages);
+    } catch (e) {
+      hadError = true;
+    } finally {
+      if (!hadError) _dbListingsLoaded = true;
+      else _dbListingsLoaded = _dbListingsLoaded || loadedAny;
+      if (!hadError && includeAllPages && (page > pages || pages <= 1)) {
+        _dbListingsFullyLoaded = true;
+      }
+      if (forceReload && !hadError && includeAllPages) {
+        _dbListingsFullyLoaded = true;
+      }
+      try {
+        renderHeroMarquees();
+      } catch (err) {
+        console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err);
+      }
+      _dbListingsLoadPromise = null;
+    }
+  })();
+
+  return _dbListingsLoadPromise;
 }
 
 // Load user's favorites from backend
@@ -13880,17 +13954,21 @@ function _saveFlowCard(event, cardId) {
 }
 
 function openAddProviderModalFlow(stage) {
-  openAddProviderModal(stage);
-  // patch the submit handler to also refresh the flow view
-  var originalForm = document.querySelector('#addProviderModal form');
-  if (originalForm) {
+  Promise.resolve(openAddProviderModal(stage)).then(function() {
+    // patch the submit handler to also refresh the flow view
+    var originalForm = document.querySelector('#addProviderModal form');
+    if (!originalForm) return;
     var origSubmit = originalForm.onsubmit;
     originalForm.onsubmit = function(e) {
       var result = origSubmit ? origSubmit.call(this, e) : null;
-      setTimeout(function() { if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') renderBoardFlow(); }, 50);
+      setTimeout(function() {
+        if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') {
+          renderBoardFlow();
+        }
+      }, 50);
       return result;
     };
-  }
+  });
 }
 
 function moveBoardCardStage(cardId, currentStage) {
@@ -16882,7 +16960,12 @@ function addChecklistItem(event) {
 }
 window.addChecklistItem = addChecklistItem;
 
-function openAddProviderModal(defaultStage) {
+async function openAddProviderModal(defaultStage) {
+  try {
+    await loadDbListings({ includeAllPages: true });
+  } catch (e) {
+    // Fallback: modal still opens with currently cached listings.
+  }
   var _isProviderRole = !!(currentUser && currentUser.role === 'Dienstleister');
   var _profile = _boardPlanningRoleProfile();
   var _presets = _boardPlanningPresets(_profile.key);
@@ -16919,7 +17002,7 @@ function openAddProviderModal(defaultStage) {
     if (_seen[idKey]) return false;
     _seen[idKey] = 1;
     return true;
-  }).slice(0, 140);
+  });
   var _pickerTitle = _isProviderRole ? 'Baustein oder Anfrage hinzufügen' : 'Dienstleister hinzufügen';
   var _pickerHint = _isProviderRole
     ? 'Nutze eigene und externe Angebote als Bausteine/Pakete und optional offene Event-Gesuche für Akquise.'
