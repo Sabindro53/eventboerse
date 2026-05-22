@@ -1020,9 +1020,24 @@ const BLOCKED_PATTERNS = [
 
 // ========== VISIBLE LISTINGS ==========
 function _visibleListings() {
-  if (!isLoggedIn) return filterDemos(LISTINGS);
-  var dbItems = LISTINGS.filter(function(l) { return l._fromDb; });
-  return dbItems.length > 0 ? dbItems : filterDemos(LISTINGS);
+  var all = Array.isArray(LISTINGS) ? LISTINGS : [];
+  if (!isLoggedIn) return filterDemos(all);
+
+  var dbItems = all.filter(function(l) { return l && l._fromDb; });
+  var adminWantsDemo = !!(currentUser && currentUser.isAdmin && !window.EB_HIDE_DEMO);
+
+  // Admin-Ansicht mit eingeblendeten Testdaten:
+  // echte DB-Inserate + lokale Demo-Inserate zusammen anzeigen.
+  if (adminWantsDemo) {
+    var merged = dbItems.slice();
+    all.forEach(function(l) {
+      if (!l || l._fromDb) return;
+      if (isDemoListing(l)) merged.push(l);
+    });
+    return merged;
+  }
+
+  return dbItems.length > 0 ? dbItems : filterDemos(all);
 }
 
 function getHeroListings() {
