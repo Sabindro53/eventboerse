@@ -2985,9 +2985,9 @@ Datum: ___________________________________________________
             Event<span class="accent">börse</span>
           </a>
           <p>Der smarte Marktplatz für unvergessliche Events.</p>
-          <a href="mailto:Kontakt@xn--eventbrse-57a.de" class="footer-contact-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px">
+          <a href="mailto:kontakt@eventbörse.de" class="footer-contact-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px">
             <span class="material-icons-round" style="font-size:14px;vertical-align:middle">mail_outline</span>
-            Kontakt@eventbörse.de
+            kontakt@eventbörse.de
           </a>
         </div>
         <div class="footer-col">
