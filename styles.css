@@ -1617,7 +1617,6 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 }
 .hero-marquee-left .hero-marquee-track { animation: none !important; }
 .hero-marquee-right .hero-marquee-track { animation: none !important; }
-}
 
 /* ---- Marquee Empty State ---- */
 .hero-marquee-empty {
