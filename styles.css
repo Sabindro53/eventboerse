@@ -7255,95 +7255,6 @@ html { scrollbar-color: var(--primary) transparent; }
 }
 .my-listings-header h1 { margin: 0; }
 
-.my-moderation-panel {
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  padding: 14px;
-  margin-bottom: 16px;
-}
-.my-moderation-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.my-moderation-head h3 {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.98rem;
-}
-.my-moderation-count {
-  font-size: 0.78rem;
-  color: var(--text-light);
-  font-weight: 600;
-}
-.my-moderation-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-.my-moderation-item {
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  background: var(--bg-alt);
-}
-.my-moderation-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.my-moderation-row strong {
-  font-size: 0.9rem;
-  color: var(--dark);
-}
-.my-moderation-badge {
-  font-size: 0.74rem;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 3px 9px;
-}
-.my-moderation-badge.is-hidden {
-  background: rgba(245, 158, 11, 0.14);
-  color: #9A6400;
-}
-.my-moderation-badge.is-deleted {
-  background: rgba(239, 68, 68, 0.12);
-  color: #B42318;
-}
-.my-moderation-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 0.78rem;
-  color: var(--text-light);
-  margin-bottom: 6px;
-}
-.my-moderation-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.my-moderation-meta .material-icons-round {
-  font-size: 14px;
-}
-.my-moderation-reason {
-  margin: 0;
-  font-size: 0.86rem;
-  color: var(--text);
-}
-.my-moderation-empty {
-  margin: 0;
-  font-size: 0.86rem;
-  color: var(--text-light);
-}
-
 .my-listing-card {
   display: flex;
   gap: 20px;
@@ -7356,19 +7267,6 @@ html { scrollbar-color: var(--primary) transparent; }
 }
 .my-listing-card:hover {
   box-shadow: var(--shadow-md);
-}
-
-.my-listing-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: var(--text-light);
-  margin: 6px 0 2px;
-}
-.my-listing-note .material-icons-round {
-  font-size: 14px;
-  margin-top: 1px;
 }
 
 /* ======== COOKIE CONSENT BANNER ======== */
@@ -10288,25 +10186,6 @@ body.dark-mode .eb-tp-time::-webkit-calendar-picker-indicator { filter: invert(1
   line-height: 1.2;
 }
 .eb-lpick-meta { display: flex; align-items: center; gap: 8px; }
-.eb-lpick-type {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.25px;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-}
-.eb-lpick-type-offer {
-  color: #0b7f76;
-  background: rgba(0, 166, 153, 0.12);
-  border-color: rgba(0, 166, 153, 0.24);
-}
-.eb-lpick-type-search {
-  color: #8e5d00;
-  background: rgba(255, 193, 7, 0.16);
-  border-color: rgba(255, 193, 7, 0.28);
-}
 .eb-lpick-cat {
   font-size: 10px;
   font-weight: 700;
@@ -12945,3 +12824,398 @@ body.dark-mode .bcl-add-form.bcl-add-top input { background: #1c1c1c; border-col
   .bcl-add-form.bcl-add-top .btn-primary { width: 100%; justify-content: center; }
   .bcl-sug-chip { font-size: 12px; padding: 6px 10px 6px 7px; }
 }
+
+/* =====================================================================
+   EB-POLISH 2026-05 — Nicht-zerstörerische UI/UX-Polish-Schicht
+   ---------------------------------------------------------------------
+   Zweck:  Modernisierung von Fokus, Tiefe, States & Micro-Interactions
+           OHNE bestehende Tokens, Farben oder Layouts zu überschreiben.
+   Regel:  Alle neuen Regeln liegen am Dateiende, sodass sie bei Bedarf
+           als einzelner Block entfernt werden können. Bestehende
+           Selektoren werden nur additiv erweitert (z. B. :focus-visible,
+           :disabled), nicht ersetzt.
+   ===================================================================== */
+
+/* ---- Erweiterte Tokens (additiv – überschreibt nichts) -------------- */
+:root {
+  /* Easing */
+  --eb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --eb-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --eb-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Focus-Ring (a11y) */
+  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.35);
+  --eb-ring-dark: 0 0 0 3px rgba(255, 56, 92, 0.55);
+
+  /* Sanfte Tiefen-Skala (für Ruhezustand der Karten) */
+  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 6px rgba(17, 17, 17, 0.05);
+  --eb-depth-2: 0 2px 4px rgba(17, 17, 17, 0.05), 0 8px 20px rgba(17, 17, 17, 0.07);
+  --eb-depth-3: 0 4px 8px rgba(17, 17, 17, 0.06), 0 18px 36px rgba(17, 17, 17, 0.1);
+
+  /* Skeleton-Schimmer */
+  --eb-skeleton-bg: #ececec;
+  --eb-skeleton-shine: rgba(255, 255, 255, 0.7);
+}
+body.dark-mode {
+  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.42);
+  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --eb-depth-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 20px rgba(0, 0, 0, 0.4);
+  --eb-depth-3: 0 4px 8px rgba(0, 0, 0, 0.45), 0 18px 36px rgba(0, 0, 0, 0.55);
+  --eb-skeleton-bg: #1f1f1f;
+  --eb-skeleton-shine: rgba(255, 255, 255, 0.08);
+}
+
+/* ---- Konsistente Fokus-Ringe (a11y / Tastatur) ---------------------- */
+/* Nur :focus-visible → kein Ring bei Mausklick, klar sichtbar per Tab.   */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: none;
+  box-shadow: var(--eb-ring);
+  border-radius: 8px;
+}
+/* Inputs behalten ihren Border-Radius beim Fokus */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--primary);
+  border-radius: var(--radius-sm);
+}
+/* Subtile, weichere Hervorhebung beim Fokus von Formularfeldern */
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible {
+  box-shadow: 0 0 0 4px rgba(255, 56, 92, 0.12);
+}
+
+/* ---- Karten: dezente Tiefe im Ruhezustand --------------------------- */
+/* Bisher waren Karten flach (kein Shadow at-rest) und hatten erst beim   */
+/* Hover Tiefe. Mit minimalem Depth-1 wirken sie sofort hochwertiger.    */
+.listing-card,
+.listing-card:not(:hover) {
+  box-shadow: var(--eb-depth-1);
+  transition:
+    transform 0.35s var(--eb-ease-out),
+    box-shadow 0.35s var(--eb-ease-out);
+}
+.listing-card:hover { box-shadow: var(--eb-depth-3); }
+.listing-card:active { transform: translateY(-3px) scale(0.998); transition-duration: 0.15s; }
+
+/* ---- Buttons: Press-Feel + Disabled-State --------------------------- */
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-outline:disabled,
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  filter: grayscale(0.15);
+}
+.btn-primary {
+  transition:
+    background var(--transition),
+    transform 0.15s var(--eb-ease-out),
+    box-shadow 0.2s var(--eb-ease-out);
+}
+.btn-primary:hover:not(:disabled) { box-shadow: 0 8px 22px rgba(255, 56, 92, 0.28); }
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 2px 6px rgba(255, 56, 92, 0.25);
+}
+.btn-secondary:active:not(:disabled),
+.btn-outline:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ---- Mobile: sichere Tap-Targets (Apple HIG / WCAG 2.5.5) ----------- */
+/* Greift nur für sehr kleine btn-sm in mobilen Stack-Layouts.          */
+@media (max-width: 640px) {
+  .btn-sm.btn-block,
+  .btn-block.btn-sm {
+    min-height: 44px;
+  }
+  /* Icon-only Aktionen in Karten: mindestens 36×36 px Hit-Area */
+  .listing-fav { width: 40px; height: 40px; }
+  .listing-fav .material-icons-round { font-size: 22px; }
+}
+
+/* ---- Empty / No-Results: etwas einladender -------------------------- */
+.no-results-box {
+  box-shadow: var(--eb-depth-1);
+  transition: transform 0.3s var(--eb-ease-out), box-shadow 0.3s var(--eb-ease-out);
+}
+.no-results-box:hover { transform: translateY(-1px); box-shadow: var(--eb-depth-2); }
+.no-results-icon {
+  background: linear-gradient(135deg, rgba(255, 56, 92, 0.08), rgba(0, 166, 153, 0.08));
+  border-radius: 16px;
+  padding: 10px;
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Skeleton-Loader (für JS: einfach Klasse .eb-skeleton setzen) --- */
+.eb-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--eb-skeleton-bg);
+  border-radius: var(--radius-sm);
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+.eb-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--eb-skeleton-shine) 50%,
+    transparent 100%
+  );
+  animation: eb-skeleton-shine 1.4s linear infinite;
+}
+@keyframes eb-skeleton-shine {
+  to { transform: translateX(100%); }
+}
+.eb-skeleton-line { height: 12px; border-radius: 6px; margin: 6px 0; }
+.eb-skeleton-line.lg { height: 18px; }
+.eb-skeleton-line.sm { height: 10px; width: 60%; }
+.eb-skeleton-circle { border-radius: 50%; aspect-ratio: 1 / 1; }
+.eb-skeleton-card { width: 100%; aspect-ratio: 3 / 2; }
+
+/* ---- Sanfter, dezenter 3D-Effekt (optional via .eb-3d) -------------- */
+/* Wird NICHT global angewendet — JS oder HTML kann die Klasse setzen,   */
+/* z. B. auf Hero-Cards, Profil-Cover, Preis-Karten.                      */
+.eb-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.5s var(--eb-ease-out), box-shadow 0.5s var(--eb-ease-out);
+  will-change: transform;
+}
+.eb-3d:hover {
+  transform: perspective(900px) rotateX(2deg) rotateY(-2deg) translateZ(0);
+  box-shadow: var(--eb-depth-3);
+}
+
+/* ---- Sichtbarer Cursor auf interaktiven Karten (HiDPI) -------------- */
+.listing-card { -webkit-tap-highlight-color: transparent; }
+
+/* ---- Smooth-Scroll der Chip-Filter ---------------------------------- */
+.chip-group { scroll-behavior: smooth; }
+
+/* ---- Form-Fehler: weicheres rotes Highlight ------------------------- */
+.form-group.has-error input,
+.form-group.has-error select,
+.form-group.has-error textarea {
+  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.12);
+}
+
+/* ---- Toast: leichte Tiefe + smoother -------------------------------- */
+.toast { box-shadow: var(--eb-depth-3); }
+
+/* ---- Mobile Nav: aktive Tab subtile Vibration weglassen ------------- */
+@media (hover: none) {
+  .mobile-nav button:hover { transform: none; }
+}
+
+/* ---- Reduzierte Bewegung respektieren ------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .listing-card,
+  .listing-card:hover,
+  .btn-primary:hover,
+  .btn-primary:active,
+  .no-results-box:hover,
+  .eb-3d:hover {
+    transform: none !important;
+    transition-duration: 0.01ms !important;
+  }
+  .eb-skeleton::after { animation: none; }
+}
+
+/* ---- Print: Karten ohne Schatten, klare Trennung -------------------- */
+@media print {
+  .listing-card { box-shadow: none !important; border: 1px solid var(--border); }
+  .mobile-nav, .toast, #appLoadingOverlay { display: none !important; }
+}
+/* ===== /EB-POLISH 2026-05 ============================================ */
+
+
+/* =====================================================================
+   EB-POLISH 2026-05-B — Verstärkung
+   ---------------------------------------------------------------------
+   Aufbauend auf der ersten Polish-Schicht: tiefere Karten-Tiefe,
+   premium Buttons mit subtilem Shimmer, dezenter 3D-Tilt auf Hero-Karten,
+   sichtbare Focus-Rings, dezente Hero-CTA-Float-Animation.
+   Wieder ausschließlich additiv, alles als Block entfernbar.
+   ===================================================================== */
+
+/* ---- Tiefere Karten-Schatten (Override der Token-Werte aus B-Schritt 1) ---- */
+:root {
+  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.05), 0 3px 10px rgba(17, 17, 17, 0.07);
+  --eb-depth-2: 0 3px 6px rgba(17, 17, 17, 0.06), 0 12px 28px rgba(17, 17, 17, 0.10);
+  --eb-depth-3: 0 6px 12px rgba(17, 17, 17, 0.08), 0 24px 48px rgba(17, 17, 17, 0.14);
+  --eb-glow-primary: 0 0 0 4px rgba(255, 56, 92, 0.18), 0 10px 26px rgba(255, 56, 92, 0.35);
+}
+body.dark-mode {
+  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
+  --eb-depth-2: 0 3px 6px rgba(0, 0, 0, 0.5), 0 12px 26px rgba(0, 0, 0, 0.55);
+  --eb-depth-3: 0 6px 12px rgba(0, 0, 0, 0.55), 0 24px 48px rgba(0, 0, 0, 0.65);
+  --eb-glow-primary: 0 0 0 4px rgba(255, 90, 122, 0.28), 0 10px 26px rgba(255, 56, 92, 0.45);
+}
+
+/* ---- Karten: Lift wird etwas spürbarer beim Hover ------------------- */
+.listing-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--eb-depth-3);
+}
+@media (hover: hover) and (pointer: fine) {
+  /* Nur auf Desktop/Maus: dezenter Tilt – auf Touch wäre das störend */
+  .listing-card {
+    transition:
+      transform 0.4s var(--eb-ease-out),
+      box-shadow 0.4s var(--eb-ease-out);
+  }
+  .listing-card:hover {
+    transform: translateY(-8px) perspective(1000px) rotateX(1.5deg);
+  }
+}
+
+/* ---- Primary-Button: Premium-Shimmer beim Hover ---------------------- */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.7s var(--eb-ease-out);
+  pointer-events: none;
+  z-index: 0;
+}
+.btn-primary > * { position: relative; z-index: 1; }
+.btn-primary:hover:not(:disabled)::after {
+  transform: translateX(120%);
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow: var(--eb-glow-primary);
+}
+
+/* ---- Focus-Ring intensiver, mit dezentem Glow ----------------------- */
+:root {
+  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.45), 0 0 0 6px rgba(255, 56, 92, 0.15);
+}
+body.dark-mode {
+  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.55), 0 0 0 6px rgba(255, 90, 122, 0.20);
+}
+
+/* ---- Hero-CTA: dezenter Atem-Effekt --------------------------------- */
+@keyframes eb-cta-breathe {
+  0%, 100% { box-shadow: 0 8px 22px rgba(255, 56, 92, 0.20); }
+  50%       { box-shadow: 0 12px 32px rgba(255, 56, 92, 0.32); }
+}
+.btn-hero-primary,
+.btn-primary.btn-lg {
+  animation: eb-cta-breathe 3.6s var(--eb-ease-in-out) infinite;
+}
+.btn-hero-primary:hover,
+.btn-primary.btn-lg:hover {
+  /* Beim Hover die Atmung pausieren, Glow takes over */
+  animation-play-state: paused;
+}
+
+/* ---- Stats-Ring im Profil: dezenter Lift bei Hover ------------------ */
+.stat-ring {
+  transition: transform 0.3s var(--eb-ease-out);
+}
+.stat-ring:hover {
+  transform: translateY(-2px);
+}
+
+/* ---- Profil-Cover: Cinematic Zoom on Hover -------------------------- */
+.profile-cover {
+  overflow: hidden;
+}
+.profile-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  background-image: inherit;
+  background-position: inherit;
+  background-size: cover;
+  transition: transform 0.8s var(--eb-ease-out);
+  pointer-events: none;
+}
+.profile-cover:hover::before {
+  transform: scale(1.04);
+}
+
+/* ---- No-Results-Box: Verlauf etwas reicher -------------------------- */
+.no-results-box {
+  background: linear-gradient(180deg, var(--bg-alt) 0%, rgba(255, 255, 255, 0) 100%), var(--bg);
+}
+
+/* ---- Skeleton: subtilerer Schimmer ---------------------------------- */
+.eb-skeleton::after {
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    var(--eb-skeleton-shine) 45%,
+    var(--eb-skeleton-shine) 55%,
+    transparent 100%
+  );
+}
+
+/* ---- Toast: leichte 3D-Tiefe + Border --------------------------------- */
+.toast {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ---- Stripe-Modal: hervorgehobene Premium-Optik --------------------- */
+.stripe-modal {
+  box-shadow: var(--eb-depth-3) !important;
+}
+.stripe-modal .stripe-summary {
+  box-shadow: var(--eb-depth-1);
+  border-radius: var(--radius-md);
+}
+
+/* ---- Mobile-Nav Active-Tab: dezenter Push-Effekt -------------------- */
+.mobile-nav button.active {
+  transform: translateY(-1px);
+}
+.mobile-nav button.active .material-icons-round {
+  filter: drop-shadow(0 2px 4px rgba(255, 56, 92, 0.3));
+}
+
+/* ---- Reduced-Motion respektieren auch hier -------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary::after { display: none; }
+  .btn-hero-primary,
+  .btn-primary.btn-lg { animation: none; }
+  .profile-cover:hover::before { transform: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .listing-card:hover { transform: translateY(-4px); }
+  }
+}
+/* ===== /EB-POLISH 2026-05-B ========================================== */

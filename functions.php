@@ -243,16 +243,6 @@ function eventboerse_enqueue_assets() {
         true
     );
 
-    // UX-Enhancements (nach app.js laden, damit globale App-Funktionen existieren)
-    $ux_ver = file_exists( $theme_dir . '/ux-improvements.js' ) ? filemtime( $theme_dir . '/ux-improvements.js' ) : '1.0.0';
-    wp_enqueue_script(
-        'eventboerse-ux-improvements',
-        get_template_directory_uri() . '/ux-improvements.js',
-        array( 'eventboerse-app' ),
-        $ux_ver,
-        true
-    );
-
     // API-Einstellungen ans Frontend übergeben
     $user_data = null;
     if ( is_user_logged_in() ) {
@@ -579,103 +569,6 @@ function eb_is_admin_user( $user_id = 0 ) {
 }
 
 /**
- * Standard-Begründung für Moderationsaktionen bei Inseraten.
- */
-function eb_listing_moderation_default_reason( $action = 'hidden' ) {
-    if ( $action === 'deleted' ) {
-        return 'Dein Inserat wurde im Rahmen einer Qualitäts- und Sicherheitsprüfung entfernt, weil aktuell wichtige Angaben oder Nachweise fehlen.';
-    }
-    return 'Dein Inserat wurde vorübergehend ausgeblendet, während wir technische Details und Qualitätskriterien prüfen.';
-}
-
-/**
- * Kapselt Moderations-Hinweise in eine sichere, kurze Form.
- */
-function eb_listing_moderation_reason( $raw_reason, $action = 'hidden' ) {
-    $reason = sanitize_text_field( (string) $raw_reason );
-    if ( $reason === '' ) {
-        $reason = eb_listing_moderation_default_reason( $action );
-    }
-    if ( function_exists( 'mb_substr' ) ) {
-        return mb_substr( $reason, 0, 280 );
-    }
-    return substr( $reason, 0, 280 );
-}
-
-/**
- * Schickt dem Inserat-Owner eine Moderations-Nachricht per Mail.
- */
-function eb_notify_listing_owner_moderation( $owner_id, $listing_title, $action = 'hidden', $reason = '' ) {
-    $owner_id = (int) $owner_id;
-    $owner = get_userdata( $owner_id );
-    if ( ! $owner || empty( $owner->user_email ) ) {
-        return false;
-    }
-
-    $site = home_url( '/' );
-    $listing_title = sanitize_text_field( (string) $listing_title );
-    $reason = eb_listing_moderation_reason( $reason, $action );
-    $action_label = $action === 'deleted' ? 'entfernt' : 'vorübergehend ausgeblendet';
-    $subject = $action === 'deleted'
-        ? 'Hinweis zu deinem Inserat auf Eventbörse'
-        : 'Inserat vorübergehend ausgeblendet – Eventbörse';
-
-    $body  = '<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:22px;border:1px solid #ececec;border-radius:12px;background:#fff">';
-    $body .= '<h2 style="margin:0 0 10px 0;font-size:20px;color:#222">Hinweis zu deinem Inserat</h2>';
-    $body .= '<p style="margin:0 0 10px 0;color:#444;line-height:1.6">Hallo ' . esc_html( $owner->display_name ?: 'bei Eventbörse' ) . ',</p>';
-    $body .= '<p style="margin:0 0 10px 0;color:#444;line-height:1.6">dein Inserat <strong>' . esc_html( $listing_title ?: 'ohne Titel' ) . '</strong> wurde ' . esc_html( $action_label ) . '.</p>';
-    $body .= '<p style="margin:0 0 10px 0;color:#444;line-height:1.6"><strong>Grund:</strong> ' . esc_html( $reason ) . '</p>';
-    $body .= '<p style="margin:0 0 14px 0;color:#444;line-height:1.6">Du kannst dein Inserat jederzeit überarbeiten und erneut veröffentlichen.</p>';
-    $body .= '<a href="' . esc_url( $site . 'meine-inserate' ) . '" style="display:inline-block;background:#FF385C;color:#fff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600">Zu meinen Inseraten</a>';
-    $body .= '</div>';
-
-    return wp_mail(
-        $owner->user_email,
-        $subject,
-        $body,
-        array( 'Content-Type: text/html; charset=UTF-8' )
-    );
-}
-
-/**
- * Persistenter Moderations-Verlauf für Inserat-Ersteller.
- * So bleiben Gründe auch dann sichtbar, wenn E-Mails nicht zugestellt werden
- * oder ein Inserat bereits gelöscht wurde.
- */
-function eb_log_listing_moderation_event( $listing_id, $owner_id, $admin_id, $action = 'hidden', $reason = '', $listing_title = '', $mail_notified = false ) {
-    global $wpdb;
-
-    $table = $wpdb->prefix . 'eb_listing_moderation';
-    $action = $action === 'deleted' ? 'deleted' : 'hidden';
-    $reason = eb_listing_moderation_reason( $reason, $action );
-    $title  = sanitize_text_field( (string) $listing_title );
-    if ( $title === '' ) {
-        $title = 'Ohne Titel';
-    }
-
-    $inserted = $wpdb->insert(
-        $table,
-        array(
-            'listing_id'     => absint( $listing_id ),
-            'owner_id'       => absint( $owner_id ),
-            'admin_id'       => absint( $admin_id ),
-            'action'         => $action,
-            'reason'         => $reason,
-            'listing_title'  => $title,
-            'notified_mail'  => $mail_notified ? 1 : 0,
-            'created_at'     => current_time( 'mysql' ),
-        ),
-        array( '%d', '%d', '%d', '%s', '%s', '%s', '%d', '%s' )
-    );
-
-    if ( $inserted === false ) {
-        return 0;
-    }
-
-    return (int) $wpdb->insert_id;
-}
-
-/**
  * Demo-Provider-IDs (Bot-Accounts in den hardcoded LISTINGS in app.js).
  * Wird sowohl für die Mail-CC-Logik als auch den Hide-Demo-Toggle benutzt.
  */
@@ -807,7 +700,6 @@ function eb_auth_user_payload( $user, $extra = array() ) {
             'last_name'  => $user->last_name,
             'roles'      => (array) $user->roles,
             'role'       => eventboerse_map_role( $user ),
-            'isAdmin'    => eb_is_admin_user( $user->ID ),
             'nonce'      => wp_create_nonce( 'wp_rest' ),
             'phone'      => get_user_meta( $user->ID, 'eb_phone', true ) ?: '',
             'since'      => date_i18n( 'F Y', strtotime( $user->user_registered ) ),
@@ -2276,22 +2168,6 @@ function eb_create_tables() {
         KEY idx_status (status)
     ) $charset;";
 
-    $sql_listing_moderation = "CREATE TABLE {$wpdb->prefix}eb_listing_moderation (
-        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-        listing_id bigint(20) unsigned NOT NULL DEFAULT 0,
-        owner_id bigint(20) unsigned NOT NULL,
-        admin_id bigint(20) unsigned NOT NULL DEFAULT 0,
-        action varchar(20) NOT NULL DEFAULT 'hidden',
-        reason text,
-        listing_title varchar(255) NOT NULL DEFAULT '',
-        notified_mail tinyint(1) NOT NULL DEFAULT 0,
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY  (id),
-        KEY idx_owner_created (owner_id, created_at),
-        KEY idx_listing (listing_id),
-        KEY idx_action (action)
-    ) $charset;";
-
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta( $sql_listings );
     dbDelta( $sql_reviews );
@@ -2299,18 +2175,17 @@ function eb_create_tables() {
     dbDelta( $sql_messages );
     dbDelta( $sql_favorites );
     dbDelta( $sql_registrations );
-    dbDelta( $sql_listing_moderation );
 }
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '2.1' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.0' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
-        update_option( 'eb_db_version', '2.1' );
+        update_option( 'eb_db_version', '2.0' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -2362,12 +2237,6 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/my-listings', array(
         'methods'             => 'GET',
         'callback'            => 'eb_my_listings',
-        'permission_callback' => 'is_user_logged_in',
-    ) );
-
-    register_rest_route( 'eventboerse/v1', '/my-listing-moderation', array(
-        'methods'             => 'GET',
-        'callback'            => 'eb_my_listing_moderation',
         'permission_callback' => 'is_user_logged_in',
     ) );
 
@@ -2542,13 +2411,6 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return current_user_can( 'manage_options' ); },
     ) );
 
-    /* ---------- AI OFFICE HANDSHAKE ---------- */
-    register_rest_route( 'eventboerse/v1', '/ai-office/health', array(
-        'methods'             => 'GET',
-        'callback'            => 'eb_ai_office_health',
-        'permission_callback' => 'eb_ai_office_permission',
-    ) );
-
     /* ---------- ACCOUNT SETTINGS ---------- */
     register_rest_route( 'eventboerse/v1', '/settings', array(
         'methods'             => 'POST',
@@ -2657,12 +2519,6 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/admin/delete-user/(?P<id>\d+)', array(
         'methods'             => 'DELETE',
         'callback'            => 'eb_admin_delete_user',
-        'permission_callback' => function() { return eb_is_admin_user(); },
-    ) );
-
-    register_rest_route( 'eventboerse/v1', '/admin/listings/(?P<id>\d+)/hide', array(
-        'methods'             => 'POST',
-        'callback'            => 'eb_admin_hide_listing',
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
@@ -3075,7 +2931,7 @@ function eb_admin_smtp_set( WP_REST_Request $request ) {
 
 function eb_diagnostics() {
     global $wpdb;
-    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations', 'eb_listing_moderation' );
+    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations' );
     $result = array(
         'db_version'       => get_option( 'eb_db_version' ),
         'smtp_configured'  => eb_smtp_is_configured(),
@@ -3131,56 +2987,6 @@ function eb_test_mail( WP_REST_Request $request ) {
             ? 'SMTP konfiguriert, aber Verbindung fehlgeschlagen. Prüfe das Passwort und den IONOS-Account.'
             : 'SMTP nicht konfiguriert. POST /wp-json/eventboerse/v1/admin/smtp mit {smtp_user, smtp_pass} aufrufen.',
     ), 500 );
-}
-
-/* =====================================================================
-   AI OFFICE HANDSHAKE
-   ===================================================================== */
-
-function eb_ai_office_permission( WP_REST_Request $request ) {
-    if ( function_exists( 'eventboerse_check_rate_limit' ) ) {
-        $rate = eventboerse_check_rate_limit( 'ai-office-health', 60, HOUR_IN_SECONDS );
-        if ( is_wp_error( $rate ) ) return $rate;
-    }
-
-    $expected = eb_load_env_value( 'ai_office_webapp_key' );
-    if ( ! $expected ) {
-        return new WP_Error(
-            'ai_office_key_missing',
-            'AI Office Webapp Key ist serverseitig nicht konfiguriert.',
-            array( 'status' => 503 )
-        );
-    }
-
-    $provided = (string) $request->get_header( 'x-ai-office-key' );
-    if ( $provided === '' ) {
-        $auth = (string) $request->get_header( 'authorization' );
-        if ( preg_match( '/^Bearer\s+(.+)$/i', $auth, $m ) ) {
-            $provided = trim( $m[1] );
-        }
-    }
-
-    if ( $provided === '' || ! hash_equals( $expected, $provided ) ) {
-        return new WP_Error(
-            'ai_office_forbidden',
-            'AI Office Webapp Key fehlt oder ist ungueltig.',
-            array( 'status' => 403 )
-        );
-    }
-
-    return true;
-}
-
-function eb_ai_office_health( WP_REST_Request $request ) {
-    return new WP_REST_Response( array(
-        'ok'          => true,
-        'service'     => 'eventboerse-ai-office',
-        'site_url'    => home_url( '/' ),
-        'rest_base'   => rest_url( 'eventboerse/v1' ),
-        'server_time' => gmdate( 'c' ),
-        'key'         => 'accepted',
-        'version'     => get_bloginfo( 'version' ),
-    ), 200 );
 }
 
 /* =====================================================================
@@ -3407,8 +3213,6 @@ function eb_format_listing( $row ) {
     $photo = $user ? ( get_user_meta( $user->ID, 'eb_photo_url', true ) ?: '' ) : '';
     $avatar = $photo ?: eb_avatar_url( $name, $name );
     $since = $user ? date( 'Y', strtotime( $user->user_registered ) ) : '';
-    $provider_role = $user ? eventboerse_map_role( $user ) : 'Event-Planer';
-    $provider_base_role = $user ? eventboerse_base_role( $user ) : 'Event-Planer';
 
     return array(
         'id'            => (int) $row['id'],
@@ -3429,8 +3233,6 @@ function eb_format_listing( $row ) {
         'providerName'  => $name,
         'providerImg'   => $avatar,
         'providerSince' => $since,
-        'providerRole'  => $provider_role,
-        'baseRole'      => $provider_base_role,
         'description'   => $row['description'],
         'features'      => $features,
         'tags'          => $tags,
@@ -3442,8 +3244,6 @@ function eb_format_listing( $row ) {
         'availableWeekdays' => array_values( array_filter( array_map( 'intval', explode( ',', (string) ( $row['available_weekdays'] ?? '' ) ) ), function( $d ) { return $d >= 0 && $d <= 6; } ) ),
         'instantBook'   => ! empty( $row['instant_book'] ),
         'badge'         => $row['badge'],
-        'status'        => ! empty( $row['status'] ) ? $row['status'] : 'active',
-        'isHidden'      => ( isset( $row['status'] ) && $row['status'] === 'hidden' ),
         'negotiable'    => (bool) $row['negotiable'],
         'views'         => (int) $row['views'],
         'createdAt'     => $row['created_at'],
@@ -3461,15 +3261,6 @@ function eb_listings_get( WP_REST_Request $request ) {
 
     if ( ! $row ) {
         return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
-    }
-
-    $is_hidden = isset( $row['status'] ) && $row['status'] === 'hidden';
-    if ( $is_hidden ) {
-        $uid = get_current_user_id();
-        $is_owner_or_admin = $uid && ( (int) $row['user_id'] === (int) $uid || eb_is_admin_user( $uid ) );
-        if ( ! $is_owner_or_admin ) {
-            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
-        }
     }
 
     // Increment views
@@ -3638,77 +3429,14 @@ function eb_listings_update( WP_REST_Request $request ) {
     return new WP_REST_Response( eb_format_listing( $row ), 200 );
 }
 
-/**
- * Admin blendet ein Inserat aus (status = hidden) und informiert den Owner.
- */
-function eb_admin_hide_listing( WP_REST_Request $request ) {
-    global $wpdb;
-    $id = absint( $request['id'] );
-    $admin_id = get_current_user_id();
-    if ( ! $id ) {
-        return new WP_REST_Response( array( 'message' => 'Ungültige Inserat-ID.' ), 400 );
-    }
-
-    $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, user_id, title, status FROM {$wpdb->prefix}eb_listings WHERE id = %d",
-        $id
-    ) );
-    if ( ! $row ) {
-        return new WP_REST_Response( array( 'message' => 'Nicht gefunden.' ), 404 );
-    }
-
-    $reason_raw = $request->get_param( 'reason' );
-    if ( $reason_raw === null ) {
-        $json = $request->get_json_params();
-        $reason_raw = is_array( $json ) ? ( $json['reason'] ?? '' ) : '';
-    }
-    $reason = eb_listing_moderation_reason( $reason_raw, 'hidden' );
-
-    $updated = $wpdb->update(
-        $wpdb->prefix . 'eb_listings',
-        array(
-            'status'     => 'hidden',
-            'updated_at' => current_time( 'mysql' ),
-        ),
-        array( 'id' => $id )
-    );
-
-    if ( $updated === false ) {
-        return new WP_REST_Response( array( 'message' => 'Ausblenden fehlgeschlagen.' ), 500 );
-    }
-
-    $is_admin_action = $admin_id && ( (int) $row->user_id !== (int) $admin_id );
-    $notified = false;
-    if ( $is_admin_action ) {
-        $notified = eb_notify_listing_owner_moderation( (int) $row->user_id, (string) $row->title, 'hidden', $reason );
-    }
-    $event_id = eb_log_listing_moderation_event(
-        $id,
-        (int) $row->user_id,
-        (int) $admin_id,
-        'hidden',
-        $reason,
-        (string) $row->title,
-        $notified
-    );
-
-    return new WP_REST_Response( array(
-        'hidden'           => true,
-        'listing_id'       => $id,
-        'moderationReason' => $reason,
-        'ownerNotified'    => (bool) $notified,
-        'moderationEventId'=> (int) $event_id,
-    ), 200 );
-}
-
-/** Delete listing (owner or admin) */
+/** Delete listing (only owner) */
 function eb_listings_delete( WP_REST_Request $request ) {
     global $wpdb;
     $id  = absint( $request['id'] );
     $uid = get_current_user_id();
 
     $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, user_id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+        "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
     ) );
 
     if ( ! $row ) {
@@ -3718,39 +3446,11 @@ function eb_listings_delete( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
     }
 
-    $is_admin_action = eb_is_admin_user( $uid ) && ( (int) $row->user_id !== (int) $uid );
-    $reason_raw = $request->get_param( 'reason' );
-    if ( $reason_raw === null ) {
-        $json = $request->get_json_params();
-        $reason_raw = is_array( $json ) ? ( $json['reason'] ?? '' ) : '';
-    }
-    $reason = eb_listing_moderation_reason( $reason_raw, 'deleted' );
-
     $wpdb->delete( $wpdb->prefix . 'eb_listings', array( 'id' => $id ) );
     $wpdb->delete( $wpdb->prefix . 'eb_reviews', array( 'listing_id' => $id ) );
     $wpdb->delete( $wpdb->prefix . 'eb_favorites', array( 'listing_id' => $id ) );
 
-    $notified = false;
-    $event_id = 0;
-    if ( $is_admin_action ) {
-        $notified = eb_notify_listing_owner_moderation( (int) $row->user_id, (string) $row->title, 'deleted', $reason );
-        $event_id = eb_log_listing_moderation_event(
-            $id,
-            (int) $row->user_id,
-            (int) $uid,
-            'deleted',
-            $reason,
-            (string) $row->title,
-            $notified
-        );
-    }
-
-    return new WP_REST_Response( array(
-        'deleted'          => true,
-        'ownerNotified'    => (bool) $notified,
-        'moderationReason' => $is_admin_action ? $reason : '',
-        'moderationEventId'=> (int) $event_id,
-    ), 200 );
+    return new WP_REST_Response( array( 'deleted' => true ), 200 );
 }
 
 /** My listings */
@@ -3762,93 +3462,7 @@ function eb_my_listings() {
         $uid
     ), ARRAY_A );
 
-    $listings = array_map( 'eb_format_listing', $rows ?: array() );
-    if ( empty( $listings ) ) {
-        return new WP_REST_Response( array(), 200 );
-    }
-
-    $listing_ids = array_values( array_filter( array_map( function( $item ) {
-        return isset( $item['id'] ) ? (int) $item['id'] : 0;
-    }, $listings ) ) );
-
-    if ( ! empty( $listing_ids ) ) {
-        $placeholders = implode( ',', array_fill( 0, count( $listing_ids ), '%d' ) );
-        $params = array_merge( array( $uid ), $listing_ids );
-        $sql = $wpdb->prepare(
-            "SELECT m1.*
-             FROM {$wpdb->prefix}eb_listing_moderation m1
-             INNER JOIN (
-                SELECT listing_id, MAX(id) AS max_id
-                FROM {$wpdb->prefix}eb_listing_moderation
-                WHERE owner_id = %d AND listing_id IN ($placeholders)
-                GROUP BY listing_id
-             ) latest ON latest.max_id = m1.id",
-            $params
-        );
-        $mod_rows = $wpdb->get_results( $sql, ARRAY_A );
-        $mod_by_listing = array();
-        foreach ( $mod_rows as $m ) {
-            $lid = (int) $m['listing_id'];
-            if ( $lid > 0 ) {
-                $mod_by_listing[ $lid ] = $m;
-            }
-        }
-        foreach ( $listings as &$listing ) {
-            $lid = (int) ( $listing['id'] ?? 0 );
-            if ( $lid > 0 && isset( $mod_by_listing[ $lid ] ) ) {
-                $m = $mod_by_listing[ $lid ];
-                $listing['moderationAction']       = (string) $m['action'];
-                $listing['moderationReason']       = (string) $m['reason'];
-                $listing['moderationCreatedAt']    = (string) $m['created_at'];
-                $listing['moderationMailNotified'] = ! empty( $m['notified_mail'] );
-            } else {
-                $listing['moderationAction']       = '';
-                $listing['moderationReason']       = '';
-                $listing['moderationCreatedAt']    = '';
-                $listing['moderationMailNotified'] = false;
-            }
-        }
-        unset( $listing );
-    }
-
-    return new WP_REST_Response( $listings, 200 );
-}
-
-/**
- * Verlauf aller Moderationsaktionen für den aktuellen Inserat-Ersteller
- * (inkl. bereits gelöschter Inserate).
- */
-function eb_my_listing_moderation( WP_REST_Request $request ) {
-    global $wpdb;
-    $uid = get_current_user_id();
-    $limit = absint( $request->get_param( 'limit' ) ?: 100 );
-    if ( $limit < 1 ) $limit = 1;
-    if ( $limit > 300 ) $limit = 300;
-
-    $rows = $wpdb->get_results( $wpdb->prepare(
-        "SELECT id, listing_id, listing_title, action, reason, notified_mail, created_at
-         FROM {$wpdb->prefix}eb_listing_moderation
-         WHERE owner_id = %d
-         ORDER BY created_at DESC, id DESC
-         LIMIT %d",
-        $uid, $limit
-    ), ARRAY_A );
-
-    $events = array_map( function( $row ) {
-        $created_at = (string) ( $row['created_at'] ?? '' );
-        return array(
-            'id'              => (int) ( $row['id'] ?? 0 ),
-            'listingId'       => (int) ( $row['listing_id'] ?? 0 ),
-            'listingTitle'    => (string) ( $row['listing_title'] ?? '' ),
-            'action'          => (string) ( $row['action'] ?? '' ),
-            'reason'          => (string) ( $row['reason'] ?? '' ),
-            'mailNotified'    => ! empty( $row['notified_mail'] ),
-            'createdAt'       => $created_at,
-            'createdAtHuman'  => $created_at ? date_i18n( 'd.m.Y H:i', strtotime( $created_at ) ) : '',
-        );
-    }, $rows ?: array() );
-
-    return new WP_REST_Response( $events, 200 );
+    return new WP_REST_Response( array_map( 'eb_format_listing', $rows ?: array() ), 200 );
 }
 
 /* =====================================================================
@@ -4075,25 +3689,6 @@ function eb_conversations_create( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
     }
 
-    $listing_title = '';
-    if ( $listing_id ) {
-        $listing = $wpdb->get_row( $wpdb->prepare(
-            "SELECT id, user_id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
-            $listing_id
-        ) );
-        if ( ! $listing ) {
-            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
-        }
-        $listing_owner_id = (int) $listing->user_id;
-        if ( $listing_owner_id === (int) $uid ) {
-            return new WP_REST_Response( array( 'message' => 'Du kannst keine Unterhaltung für dein eigenes Inserat starten.' ), 403 );
-        }
-        if ( ! eb_is_admin_user( $uid ) && (int) $other_id !== $listing_owner_id ) {
-            return new WP_REST_Response( array( 'message' => 'Empfänger muss der Anbieter des ausgewählten Inserats sein.' ), 400 );
-        }
-        $listing_title = (string) $listing->title;
-    }
-
     // Check if conversation already exists
     $existing = $wpdb->get_var( $wpdb->prepare(
         "SELECT id FROM {$wpdb->prefix}eb_conversations
@@ -4115,7 +3710,11 @@ function eb_conversations_create( WP_REST_Request $request ) {
     $conv_id = $wpdb->insert_id;
 
     // Add system message
-    if ( $listing_id && $listing_title ) {
+    if ( $listing_id ) {
+        $listing_title = $wpdb->get_var( $wpdb->prepare(
+            "SELECT title FROM {$wpdb->prefix}eb_listings WHERE id = %d", $listing_id
+        ) );
+        if ( $listing_title ) {
             $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
                 'conversation_id' => $conv_id,
                 'sender_id'       => 0,
@@ -4123,6 +3722,7 @@ function eb_conversations_create( WP_REST_Request $request ) {
                 'msg_type'        => 'system',
                 'created_at'      => current_time( 'mysql' ),
             ) );
+        }
     }
 
     return new WP_REST_Response( array( 'id' => (int) $conv_id, 'existing' => false ), 201 );
@@ -4942,14 +4542,11 @@ function eb_registrations_create( WP_REST_Request $request ) {
 
     // Check listing exists
     $listing = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, title, user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d",
+        "SELECT id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d",
         $listing_id
     ), ARRAY_A );
     if ( ! $listing ) {
         return new WP_REST_Response( array( 'message' => 'Listing nicht gefunden.' ), 404 );
-    }
-    if ( (int) ( $listing['user_id'] ?? 0 ) === (int) $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Du kannst dich nicht für dein eigenes Inserat anmelden.' ), 403 );
     }
 
     // Check for duplicate registration
@@ -5055,26 +4652,6 @@ function eb_send_invoice( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'User ungueltig.' ), 400 );
     }
 
-    if ( $listing_id ) {
-        global $wpdb;
-        $listing_row = $wpdb->get_row( $wpdb->prepare(
-            "SELECT id, user_id, title FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
-            $listing_id
-        ), ARRAY_A );
-        if ( ! $listing_row ) {
-            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
-        }
-        $provider_uid = (int) $listing_row['user_id'];
-        if ( $provider_uid === (int) $uid ) {
-            return new WP_REST_Response( array( 'message' => 'Du kannst keine Rechnung für dein eigenes Inserat auslösen.' ), 403 );
-        }
-        if ( ! empty( $listing_row['title'] ) ) {
-            $listing_title = sanitize_text_field( $listing_row['title'] );
-        }
-    } elseif ( $provider_uid && $provider_uid === (int) $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Du kannst keine Rechnung an dich selbst auslösen.' ), 403 );
-    }
-
     $user_email = $user->user_email;
     $user_name  = trim( get_user_meta( $uid, 'first_name', true ) . ' ' . get_user_meta( $uid, 'last_name', true ) );
     if ( ! $user_name ) $user_name = $user->display_name ?: $user->user_login;
@@ -5125,8 +4702,11 @@ function eb_send_invoice( WP_REST_Request $request ) {
               . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht zur vollen Transparenz an <strong>Kunde</strong>, <strong>Anbieter</strong> und <strong>kontakt@eventb&ouml;rse.de</strong>.</p>'
               . '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:14px">' . $rows . '</table>'
               . $note_html
-              . '<div style="margin-top:20px;padding:14px;background:#fff5e5;border:1px solid #ffd89e;border-radius:8px;font-size:13px;color:#6b4500;line-height:1.5">'
-                . '<strong>Naechste Schritte:</strong> Der Anbieter stellt die Rechnung offiziell aus. Die Zahlung kann per Ueberweisung, Bar, PayPal oder (bald) direkt via Stripe abgewickelt werden. Nach Zahlungseingang wird das Projekt auf <em>Bezahlt</em> gesetzt.'
+              . '<div style="margin-top:20px;padding:14px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;font-size:13px;color:#1b5e20;line-height:1.5">'
+                // FIX 2026-05: Text aktualisiert. Stripe ist live; Zahlung ist im
+                // Moment dieser Mail bereits sicher abgewickelt. Der Stripe-eigene
+                // Beleg geht zusätzlich automatisch an die hinterlegte E-Mail.
+                . '<strong>Zahlung abgeschlossen.</strong> Die Buchung wurde sicher per Kreditkarte / Apple Pay / Google Pay via Stripe bezahlt. Du erhältst zusätzlich einen Stripe-Beleg an deine E-Mail. Der Anbieter wird informiert und meldet sich für die Detail-Abstimmung.'
               . '</div>'
               . '<div style="text-align:center;margin:24px 0 6px">'
                 . '<a href="' . esc_url( $site_url . 'board' ) . '" style="display:inline-block;background:' . $brand_primary . ';color:#fff;text-decoration:none;padding:12px 26px;border-radius:10px;font-weight:600;font-size:14px">Zum Projekt &rarr;</a>'
@@ -5179,7 +4759,6 @@ function eb_load_env_value( $key ) {
         'private_stripe_api_key' => 'EB_STRIPE_SECRET_KEY',
         'stripe_webhook_secret'  => 'EB_STRIPE_WEBHOOK_SECRET',
         'STRIPE_WEBHOOK_SECRET'  => 'EB_STRIPE_WEBHOOK_SECRET',
-        'ai_office_webapp_key'   => 'AI_OFFICE_WEBAPP_KEY',
     );
     if ( isset( $const_map[ $key ] ) && defined( $const_map[ $key ] ) ) {
         $val = constant( $const_map[ $key ] );
@@ -5192,7 +4771,6 @@ function eb_load_env_value( $key ) {
         'public_stripe_api_key'  => array( 'public_stripe_key', 'puplic_stripe_key', 'STRIPE_PUBLIC_KEY', 'STRIPE_PUBLISHABLE_KEY' ),
         'private_stripe_api_key' => array( 'private_stripe_key', 'STRIPE_SECRET_KEY', 'STRIPE_PRIVATE_KEY' ),
         'stripe_webhook_secret'  => array( 'STRIPE_WEBHOOK_SECRET', 'webhook_secret' ),
-        'ai_office_webapp_key'   => array( 'AI_OFFICE_WEBAPP_KEY', 'ai_office_webapp_key' ),
     );
     static $cache = null;
     if ( $cache === null ) {
@@ -5237,8 +4815,7 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
     $title       = isset( $p['title'] ) ? sanitize_text_field( $p['title'] ) : 'Buchung';
     $card_id     = isset( $p['card_id'] ) ? sanitize_text_field( $p['card_id'] ) : '';
     $project_id  = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] ) : '';
-    $listing_id   = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
-    $provider_uid = isset( $p['provider_user_id'] ) ? absint( $p['provider_user_id'] ) : 0;
+    $listing_id  = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
 
     if ( $amount <= 0 ) {
         return new WP_REST_Response( array( 'message' => 'Ung\u00fcltiger Betrag.' ), 400 );
@@ -5256,26 +4833,6 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
     $cancel_url  = add_query_arg( array( 'stripe' => 'cancel' ), $site );
 
     $user = wp_get_current_user();
-    $uid  = ( $user && isset( $user->ID ) ) ? (int) $user->ID : 0;
-    if ( ! $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Nicht angemeldet.' ), 401 );
-    }
-
-    if ( $listing_id ) {
-        global $wpdb;
-        $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
-            $listing_id
-        ) );
-        if ( ! $provider_uid ) {
-            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
-        }
-        if ( $provider_uid === $uid ) {
-            return new WP_REST_Response( array( 'message' => 'Du kannst dein eigenes Inserat nicht buchen oder bezahlen.' ), 403 );
-        }
-    } elseif ( $provider_uid && $provider_uid === $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Du kannst keine Zahlung an dich selbst auslösen.' ), 403 );
-    }
 
     $fields = array(
         'mode'                                    => 'payment',
@@ -5290,7 +4847,6 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
         'metadata[card_id]'                       => $card_id,
         'metadata[project_id]'                    => $project_id,
         'metadata[listing_id]'                    => (string) $listing_id,
-        'metadata[provider_user_id]'              => (string) $provider_uid,
         'metadata[user_id]'                       => (string) ( $user ? $user->ID : 0 ),
     );
 
@@ -5342,8 +4898,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
     $title      = isset( $p['title'] ) ? sanitize_text_field( $p['title'] ) : 'Buchung';
     $card_id    = isset( $p['card_id'] ) ? sanitize_text_field( $p['card_id'] ) : '';
     $project_id = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] ) : '';
-    $listing_id   = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
-    $provider_uid = isset( $p['provider_user_id'] ) ? absint( $p['provider_user_id'] ) : 0;
+    $listing_id = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
 
     if ( $amount <= 0 ) {
         return new WP_REST_Response( array( 'message' => 'Ungültiger Betrag.' ), 400 );
@@ -5352,26 +4907,6 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
 
     $amount_cents = (int) round( $amount * 100 );
     $user = wp_get_current_user();
-    $uid  = ( $user && isset( $user->ID ) ) ? (int) $user->ID : 0;
-    if ( ! $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Nicht angemeldet.' ), 401 );
-    }
-
-    if ( $listing_id ) {
-        global $wpdb;
-        $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
-            $listing_id
-        ) );
-        if ( ! $provider_uid ) {
-            return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
-        }
-        if ( $provider_uid === $uid ) {
-            return new WP_REST_Response( array( 'message' => 'Du kannst dein eigenes Inserat nicht buchen oder bezahlen.' ), 403 );
-        }
-    } elseif ( $provider_uid && $provider_uid === $uid ) {
-        return new WP_REST_Response( array( 'message' => 'Du kannst keine Zahlung an dich selbst auslösen.' ), 403 );
-    }
 
     $fields = array(
         'amount'                               => $amount_cents,
@@ -5387,13 +4922,21 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'metadata[card_id]'                    => $card_id,
         'metadata[project_id]'                 => $project_id,
         'metadata[listing_id]'                 => (string) $listing_id,
-        'metadata[provider_user_id]'           => (string) $provider_uid,
         'metadata[user_id]'                    => (string) ( $user ? $user->ID : 0 ),
         'metadata[title]'                      => $title,
     );
 
     // Stripe Connect: Zahlung automatisch an Dienstleister weiterleiten (3% Provision)
-    if ( $listing_id && $provider_uid ) {
+    if ( $listing_id ) {
+        $listing = get_post( $listing_id );
+        $provider_uid = $listing ? (int) get_post_field( 'post_author', $listing_id ) : 0;
+        if ( ! $provider_uid ) {
+            global $wpdb;
+            $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id
+            ) );
+        }
+        if ( $provider_uid ) {
             $connect_id = get_user_meta( $provider_uid, 'eb_stripe_connect_id', true );
             $connect_ok = get_user_meta( $provider_uid, 'eb_stripe_connect_active', true );
             if ( $connect_id && $connect_ok ) {
@@ -5403,6 +4946,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
                 $fields['metadata[connect_id]']            = $connect_id;
                 $fields['metadata[application_fee_cents]'] = (string) $fee_cents;
             }
+        }
     }
 
     $ch = curl_init( 'https://api.stripe.com/v1/payment_intents' );
@@ -5680,21 +5224,13 @@ function eb_stripe_verify_payment( WP_REST_Request $request ) {
     if ( $owner && $uid && $owner !== $uid ) {
         return new WP_REST_Response( array( 'message' => 'Payment-Intent gehört nicht zu diesem Nutzer.' ), 403 );
     }
-    $listing_id = isset( $meta['listing_id'] ) ? absint( $meta['listing_id'] ) : 0;
-    if ( $listing_id && $uid ) {
-        global $wpdb;
-        $listing_owner = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1",
-            $listing_id
-        ) );
-        if ( $listing_owner && (int) $listing_owner === (int) $uid ) {
-            return new WP_REST_Response( array( 'message' => 'Selbstbuchung/Selbstzahlung ist nicht erlaubt.' ), 403 );
-        }
-    } elseif ( $uid ) {
-        $provider_uid = isset( $meta['provider_user_id'] ) ? absint( $meta['provider_user_id'] ) : 0;
-        if ( $provider_uid && (int) $provider_uid === (int) $uid ) {
-            return new WP_REST_Response( array( 'message' => 'Selbstbuchung/Selbstzahlung ist nicht erlaubt.' ), 403 );
-        }
+
+    // FIX 2026-05: Bei erfolgreicher Verifizierung sofort persistieren – nicht
+    // erst auf den Webhook warten. Das macht den Reconcile-Pfad auch dann
+    // robust, wenn das Webhook-Setup im Stripe-Dashboard noch fehlt oder
+    // ein Event temporär nicht ankommt. Dedupliziert via PI-ID.
+    if ( $paid && is_array( $data ) ) {
+        eb_stripe_record_payment( $data );
     }
 
     return new WP_REST_Response( array(
@@ -5789,7 +5325,8 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
     if ( ! $sig_header ) {
         // WP normalisiert Header-Namen; Fallback via $_SERVER:
         $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
-    }    if ( ! eb_stripe_verify_signature( $payload, $sig_header, $secret ) ) {
+    }
+    if ( ! eb_stripe_verify_signature( $payload, $sig_header, $secret ) ) {
         return new WP_REST_Response( array( 'message' => 'Ungueltige Signatur.' ), 400 );
     }
 

@@ -103,90 +103,6 @@ function filterDemos(arr) {
   return arr.filter(function(l) { return !isDemoListing(l); });
 }
 
-// Einheitliche Sichtbarkeit für alle UI-Flächen.
-// Wenn Admin Testdaten eingeblendet hat, werden sie überall angezeigt.
-function _surfaceVisibleListings(arr) {
-  var rows = Array.isArray(arr) ? arr : [];
-  var adminWantsDemo = !!(
-    !window.EB_HIDE_DEMO &&
-    typeof currentUser !== 'undefined' &&
-    currentUser &&
-    currentUser.isAdmin
-  );
-  return adminWantsDemo ? rows : filterDemos(rows);
-}
-function _safeRun(label, fn) {
-  try {
-    if (typeof fn === 'function') fn();
-  } catch (err) {
-    console.error('Init-Fehler [' + label + ']', err);
-  }
-}
-function _removeClassById(id, cls) {
-  var el = document.getElementById(id);
-  if (el) el.classList.remove(cls);
-}
-function _addClassById(id, cls) {
-  var el = document.getElementById(id);
-  if (el) el.classList.add(cls);
-}
-
-function _toPositiveInt(value) {
-  var n = parseInt(value, 10);
-  return isNaN(n) || n <= 0 ? 0 : n;
-}
-
-function _currentUserId() {
-  return (typeof currentUser !== 'undefined' && currentUser) ? _toPositiveInt(currentUser.id) : 0;
-}
-
-function _sameUserId(a, b) {
-  var aa = _toPositiveInt(a);
-  var bb = _toPositiveInt(b);
-  return aa > 0 && bb > 0 && aa === bb;
-}
-
-function _listingOwnerId(listing) {
-  if (!listing || typeof listing !== 'object') return 0;
-  var candidates = [
-    listing.providerId,
-    listing.user_id,
-    listing.userId,
-    listing.ownerId,
-    listing.authorId,
-    listing.provider_user_id,
-    listing.providerUserId,
-    listing.provider && listing.provider.id
-  ];
-  for (var i = 0; i < candidates.length; i++) {
-    var val = _toPositiveInt(candidates[i]);
-    if (val > 0) return val;
-  }
-  return 0;
-}
-
-function _isCurrentUserListingOwner(listing) {
-  var uid = _currentUserId();
-  var ownerId = _listingOwnerId(listing);
-  return uid > 0 && ownerId > 0 && uid === ownerId;
-}
-
-function _listingMatchesId(listing, anyId) {
-  if (!listing) return false;
-  var needle = _toPositiveInt(anyId);
-  if (!needle) return false;
-  return _toPositiveInt(listing.id) === needle || _toPositiveInt(listing._dbId) === needle;
-}
-
-function _findListingByAnyId(anyId) {
-  var needle = _toPositiveInt(anyId);
-  if (!needle || !Array.isArray(LISTINGS)) return null;
-  for (var i = 0; i < LISTINGS.length; i++) {
-    if (_listingMatchesId(LISTINGS[i], needle)) return LISTINGS[i];
-  }
-  return null;
-}
-
 // ========== IMAGE FALLBACK ==========
 // Manche externen Demo-URLs (Pexels) liefern 404. Damit die Karte nicht kaputt aussieht,
 // wird bei einem Image-Load-Fehler ein neutrales SVG-Placeholder eingesetzt.
@@ -824,8 +740,6 @@ let favorites = new Set();
   }
 })();
 let _dbListingsLoaded = false;
-let _dbListingsFullyLoaded = false;
-let _dbListingsLoadPromise = null;
 let _favoritesLoaded = false;
 
 function forceBrowsePage() {
@@ -911,100 +825,28 @@ async function uploadFile(file, _attempt) {
   return await resp.json();
 }
 
-function _mergeDbListingsIntoCache(rows) {
-  if (!Array.isArray(rows) || !rows.length) return 0;
-  var merged = 0;
-  rows.forEach(function(row) {
-    var rawId = _toPositiveInt(row && row.id);
-    if (!rawId) return;
-    var offsetId = rawId + 10000;
-    var existing = (LISTINGS || []).find(function(ex) {
-      if (!ex) return false;
-      return _toPositiveInt(ex.id) === offsetId || _toPositiveInt(ex._dbId) === rawId;
-    });
-    if (existing) {
-      Object.keys(row).forEach(function(k) { existing[k] = row[k]; });
-      existing.id = offsetId;
-      existing._fromDb = true;
-      existing._dbId = rawId;
-      return;
-    }
-    var listing = Object.assign({}, row, {
-      id: offsetId,
-      _fromDb: true,
-      _dbId: rawId
-    });
-    LISTINGS.unshift(listing);
-    merged++;
-  });
-  return merged;
-}
-
 // Load database listings into LISTINGS array (merged with demo data)
-// options:
-//   includeAllPages: load complete result set via pagination (Board uses this)
-//   forceReload: always fetch again from API
-async function loadDbListings(options) {
-  var opts = options || {};
-  var includeAllPages = !!opts.includeAllPages;
-  var forceReload = !!opts.forceReload;
-
-  if (!forceReload) {
-    if (_dbListingsLoaded && (!includeAllPages || _dbListingsFullyLoaded)) return;
-    if (_dbListingsLoadPromise) {
-      await _dbListingsLoadPromise;
-      if (_dbListingsLoaded && (!includeAllPages || _dbListingsFullyLoaded)) return;
-    }
-  }
-
-  _dbListingsLoadPromise = (async function() {
-    var page = 1;
-    var pages = 1;
-    var maxPages = 80; // Sicherheitslimit gegen Endlosschleifen
-    var hadError = false;
-    var loadedAny = false;
-
-    try {
-      do {
-        var qs = 'per_page=50&page=' + page + '&_t=' + Date.now();
-        var resp = await fetch(_apiUrl('listings?' + qs), { credentials: 'same-origin', headers: _apiHeaders() });
-        if (!resp.ok) {
-          hadError = true;
-          break;
+async function loadDbListings() {
+  if (_dbListingsLoaded) return;
+  try {
+    var resp = await fetch(_apiUrl('listings?per_page=50&_t=' + Date.now()), { credentials: 'same-origin', headers: _apiHeaders() });
+    if (!resp.ok) return;
+    var data = await resp.json();
+    if (data.listings && data.listings.length > 0) {
+      // Assign high IDs to avoid collision with demo data
+      data.listings.forEach(function(l) {
+        l.id = l.id + 10000; // offset DB IDs
+        l._fromDb = true;
+        l._dbId = l.id - 10000;
+        // Don't add duplicates (check both offset ID and raw DB ID)
+        if (!LISTINGS.find(function(ex) { return ex.id === l.id || ex._dbId === l._dbId; })) {
+          LISTINGS.unshift(l);
         }
-        var data = await resp.json();
-        var rows = (data && Array.isArray(data.listings)) ? data.listings : [];
-        if (rows.length) {
-          _mergeDbListingsIntoCache(rows);
-          loadedAny = true;
-        }
-        var parsedPages = _toPositiveInt(data && data.pages);
-        pages = parsedPages > 0 ? parsedPages : 1;
-
-        if (!includeAllPages) break;
-        page++;
-      } while (page <= pages && page <= maxPages);
-    } catch (e) {
-      hadError = true;
-    } finally {
-      if (!hadError) _dbListingsLoaded = true;
-      else _dbListingsLoaded = _dbListingsLoaded || loadedAny;
-      if (!hadError && includeAllPages && (page > pages || pages <= 1)) {
-        _dbListingsFullyLoaded = true;
-      }
-      if (forceReload && !hadError && includeAllPages) {
-        _dbListingsFullyLoaded = true;
-      }
-      try {
-        renderHeroMarquees();
-      } catch (err) {
-        console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err);
-      }
-      _dbListingsLoadPromise = null;
+      });
     }
-  })();
-
-  return _dbListingsLoadPromise;
+    _dbListingsLoaded = true;
+    try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
+  } catch(e) { /* API not available yet */ }
 }
 
 // Load user's favorites from backend
@@ -1033,32 +875,13 @@ const BLOCKED_PATTERNS = [
 
 // ========== VISIBLE LISTINGS ==========
 function _visibleListings() {
-  var all = Array.isArray(LISTINGS) ? LISTINGS : [];
-  if (!isLoggedIn) return _surfaceVisibleListings(all);
-
-  var dbItems = all.filter(function(l) { return l && l._fromDb; });
-  var adminWantsDemo = !!(currentUser && currentUser.isAdmin && !window.EB_HIDE_DEMO);
-
-  // Admin-Ansicht mit eingeblendeten Testdaten:
-  // echte DB-Inserate + lokale Demo-Inserate zusammen anzeigen.
-  if (adminWantsDemo) {
-    var merged = dbItems.slice();
-    all.forEach(function(l) {
-      if (!l || l._fromDb) return;
-      if (isDemoListing(l)) merged.push(l);
-    });
-    return merged;
-  }
-
-  return dbItems.length > 0 ? dbItems : _surfaceVisibleListings(all);
+  if (!isLoggedIn) return filterDemos(LISTINGS);
+  var dbItems = LISTINGS.filter(function(l) { return l._fromDb; });
+  return dbItems.length > 0 ? dbItems : filterDemos(LISTINGS);
 }
 
 function getHeroListings() {
   var all = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
-  if (window.EB_HIDE_DEMO && all.length === 0 && Array.isArray(LISTINGS) && LISTINGS.length > 0) {
-    console.warn('EB_HIDE_DEMO blendet derzeit alle Eintraege aus. Fallback auf sichtbare Basisdaten aktiv.');
-    all = LISTINGS.slice();
-  }
   if (!isLoggedIn) return all;
 
   try {
@@ -1095,7 +918,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Hide user menu
-  _removeClassById('userMenu', 'show');
+  document.getElementById('userMenu').classList.remove('show');
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
@@ -1155,7 +978,6 @@ function navigateTo(page, data, skipHistory) {
   switch (page) {
     case 'browse':
       _initAiPlaceholder();
-      
       loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
@@ -1172,6 +994,9 @@ function navigateTo(page, data, skipHistory) {
       loadDbListings().then(function() { loadDetail(data); });
       break;
     case 'provider':
+      // FIX 2026-05: DOM SOFORT leeren, damit kein vorheriges Profil
+      // "durchblitzt", während loadDbListings() async läuft.
+      _resetProviderPageDom();
       loadDbListings().then(function() { loadProvider(data); });
       break;
     case 'messages':
@@ -1180,9 +1005,12 @@ function navigateTo(page, data, skipHistory) {
     case 'profile':
       if (currentUser) {
         // Show provider page for own profile (same nice layout)
-        _removeClassById('page-profile', 'active');
+        document.getElementById('page-profile').classList.remove('active');
         var provPage = document.getElementById('page-provider');
         if (provPage) { provPage.classList.add('active'); currentPage = 'provider'; }
+        // FIX 2026-05: DOM zuerst leeren – sonst zeigt das eigene Profil
+        // kurz die Daten eines vorher angesehenen Anbieters oder Demo-Daten.
+        _resetProviderPageDom();
         loadDbListings().then(function() { loadProvider(currentUser.id); });
         // Highlight mobile nav profile button
         document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
@@ -1198,7 +1026,7 @@ function navigateTo(page, data, skipHistory) {
         document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
         document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
         document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-        _addClassById('step1', 'active');
+        document.getElementById('step1').classList.add('active');
         // Clear Flatpickr dates
         var dfEl = document.getElementById('createDateFrom');
         var dtEl = document.getElementById('createDateTo');
@@ -1513,7 +1341,7 @@ function renderExploreGrid(filter) {
   const query = filter || (document.getElementById('exploreSearch')?.value || '').trim().toLowerCase();
   // Collect all images from all listings
   let items = [];
-  _surfaceVisibleListings(getHeroListings()).forEach(l => {
+  filterDemos(LISTINGS).forEach(l => {
     // Main image
     items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
     // Additional images
@@ -1700,7 +1528,6 @@ function _initGridCards(grid) {
 
 function renderFeaturedGrid() {
   const grid = document.getElementById('featuredGrid');
-  if (!grid) return;
   var visible = getHeroListings();
   grid.innerHTML = visible.map(renderListingCard).join('');
   _initGridCards(grid);
@@ -2339,7 +2166,7 @@ function performSearch() {
 // ========== BROWSE PAGE ==========
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
-  var rows = _surfaceVisibleListings(listings || []);
+  var rows = filterDemos(listings || []);
   grid.innerHTML = rows.map(renderListingCard).join('');
   _initGridCards(grid);
   document.getElementById('browseResultCount').textContent = `${rows.length} Services gefunden`;
@@ -2589,24 +2416,60 @@ function filterListings() {
   const priceRange = document.getElementById('browsePrice')?.value || '';
   const minRating = document.getElementById('browseRating')?.value || '';
 
+  // FIX 2026-05: Date-Range aus Nav-Date-Picker einbeziehen (war vorher nicht
+  // verkabelt). Listings können `availableFrom` / `availableTo` / `unavailableDates`
+  // tragen – wenn nichts angegeben, gelten sie als verfügbar.
+  var dateFrom = '';
+  var dateTo = '';
+  try {
+    if (window.selectedDateRange) {
+      dateFrom = window.selectedDateRange.from || '';
+      dateTo   = window.selectedDateRange.to   || dateFrom;
+    }
+  } catch (e) {}
+
   let filtered = getHeroListings().filter(l => {
+    if (!l) return false;
     // Smart Text-Suche: tokenisiert, entfernt Stopwörter, kennt Synonym-Cluster
     if (search && !_ebSmartTextMatch(search, l)) return false;
     if (category && l.category !== category) return false;
     // Multi-category filter from hero picker
     if (selectedCategories.size && !selectedCategories.has(l.category)) return false;
-    // Event type → check listing tags
-    if (eventType && !l.tags.some(t => t.toLowerCase() === eventType.toLowerCase())) return false;
-    if (location && !l.location.toLowerCase().includes(location) && !l.region.toLowerCase().includes(location)) return false;
+    // Event type → check listing tags (defensiv: tags kann undefined sein)
+    if (eventType) {
+      var et = eventType.toLowerCase();
+      var tagsArr = Array.isArray(l.tags) ? l.tags : [];
+      if (!tagsArr.some(t => (t || '').toLowerCase() === et)) return false;
+    }
+    // Location: defensiv (location/region können fehlen bei DB-Listings)
+    if (location) {
+      var locL = (l.location || '').toLowerCase();
+      var regL = (l.region   || '').toLowerCase();
+      if (!locL.includes(location) && !regL.includes(location)) return false;
+    }
     // Price range
     if (priceRange) {
-      if (priceRange === '2500+') { if (l.price < 2500) return false; }
+      if (priceRange === '2500+') { if ((l.price || 0) < 2500) return false; }
       else {
         const [min, max] = priceRange.split('-').map(Number);
-        if (l.price < min || l.price > max) return false;
+        const p = +l.price || 0;
+        if (p < min || p > max) return false;
       }
     }
-    if (minRating && l.rating < parseFloat(minRating)) return false;
+    if (minRating && (+l.rating || 0) < parseFloat(minRating)) return false;
+    // Date-Range: Listing ausschließen, wenn explizit als "nicht verfügbar"
+    // an einem der gewünschten Tage markiert. Listings ohne Verfügbarkeits-
+    // angaben gelten als verfügbar (kein Ausschluss).
+    if (dateFrom) {
+      var unavail = Array.isArray(l.unavailableDates) ? l.unavailableDates : [];
+      if (unavail.length) {
+        // Bei Range: wir prüfen die End-Tage konservativ
+        if (unavail.indexOf(dateFrom) !== -1) return false;
+        if (dateTo && dateTo !== dateFrom && unavail.indexOf(dateTo) !== -1) return false;
+      }
+      if (l.availableFrom && dateFrom < l.availableFrom) return false;
+      if (l.availableTo   && dateTo   > l.availableTo)   return false;
+    }
     return true;
   });
 
@@ -2724,15 +2587,19 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
       }
     }
     // Also check broader terms
+    // FIX 2026-05: Duplikate entfernt.  Vorher mappte 'sound' erst auf 'dj',
+    // wurde dann von 'sound' → 'licht' überschrieben (JS-Objekt: letzte
+    // Definition gewinnt).  Konsequenz: "DJ Sound" → fälschlich Licht-Kategorie.
+    // 'dekoration' war ebenfalls doppelt (harmlos, beide auf 'deko').
     const categoryAliases = {
-      'musik': 'dj', 'disc': 'dj', 'sound': 'dj',
+      'musik': 'dj', 'disc': 'dj', 'sound': 'dj', 'beats': 'dj',
       'essen': 'catering', 'buffet': 'catering', 'kochen': 'catering', 'küche': 'catering',
       'blumen': 'florist', 'blume': 'florist', 'strauß': 'florist',
-      'technik': 'licht', 'beleuchtung': 'licht', 'ton': 'licht', 'sound': 'licht',
+      'technik': 'licht', 'beleuchtung': 'licht', 'ton': 'licht', 'led': 'licht',
       'feuerwerk': 'pyro', 'feuer': 'pyro',
       'fotograf': 'foto', 'kamera': 'foto', 'video': 'foto', 'bild': 'foto',
       'raum': 'location', 'saal': 'location', 'halle': 'location', 'venue': 'location',
-      'schmuck': 'deko', 'dekoration': 'deko', 'dekoration': 'deko',
+      'schmuck': 'deko', 'dekoration': 'deko',
       'planer': 'planung', 'organisation': 'planung', 'koordination': 'planung',
       'moderator': 'moderation', 'sprecher': 'moderation', 'entertainer': 'moderation',
     };
@@ -2755,30 +2622,40 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
     alternatives = _vis.filter(l => l.category === detectedCategory);
   }
 
-  // 2. Same event type, any location
+  // 2. Same event type, any location  (FIX 2026-05: defensiv gegen fehlende tags)
   if (alternatives.length === 0 && eventType) {
-    alternatives = _vis.filter(l => l.tags.some(t => t.toLowerCase() === eventType.toLowerCase()));
+    var etL = eventType.toLowerCase();
+    alternatives = _vis.filter(l => {
+      var tagsArr = Array.isArray(l && l.tags) ? l.tags : [];
+      return tagsArr.some(t => (t || '').toLowerCase() === etL);
+    });
   }
 
-  // 3. Same location/region, any category
+  // 3. Same location/region, any category  (FIX 2026-05: defensiv)
   if (alternatives.length === 0 && location) {
-    alternatives = _vis.filter(l =>
-      l.location.toLowerCase().includes(location) || l.region.toLowerCase().includes(location)
-    );
+    alternatives = _vis.filter(l => {
+      var locL = (l && l.location ? l.location : '').toLowerCase();
+      var regL = (l && l.region   ? l.region   : '').toLowerCase();
+      return locL.includes(location) || regL.includes(location);
+    });
   }
 
-  // 4. Fuzzy text match: search term in title, tags, description
+  // 4. Fuzzy text match: search term in title, tags, description  (FIX 2026-05: defensiv)
   if (alternatives.length === 0 && search) {
     const words = search.split(/\s+/).filter(w => w.length >= 2);
     alternatives = _vis.filter(l => {
-      const hay = `${l.title} ${l.categoryLabel} ${l.tags.join(' ')} ${l.description} ${l.providerName}`.toLowerCase();
+      if (!l) return false;
+      var tagsTxt = Array.isArray(l.tags) ? l.tags.join(' ') : '';
+      const hay = `${l.title || ''} ${l.categoryLabel || ''} ${tagsTxt} ${l.description || ''} ${l.providerName || ''}`.toLowerCase();
       return words.some(w => hay.includes(w));
     });
   }
 
-  // 5. Fallback: all listings sorted by rating
+  // 5. Fallback: zuerst sichtbare (DB-) Listings statt nur Demo-Daten.
+  // FIX 2026-05: Vorher fiel der Fallback auf [...LISTINGS] zurück und zeigte
+  // damit bei aktiven Nutzern fast nur Demo-Inserate als "Alternativen".
   if (alternatives.length === 0) {
-    alternatives = [...LISTINGS];
+    alternatives = _vis.length > 0 ? _vis.slice() : (Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
   }
 
   // Sort by proximity to searched location.
@@ -2798,13 +2675,14 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
   if (searchCity) {
     const ref = CITY_PROXIMITY[searchCity];
     alternatives = alternatives.map(a => {
-      const dest = CITY_PROXIMITY[a.location];
+      const dest = a && a.location ? CITY_PROXIMITY[a.location] : null;
       const d = dest ? Math.round(haversineKm(ref.lat, ref.lng, dest.lat, dest.lng)) : 9999;
       return { ...a, _distKm: d };
     }).sort((a, b) => a._distKm - b._distKm);
   } else {
-    // No city match — sort by rating
-    alternatives = alternatives.map(a => ({ ...a, _distKm: null })).sort((a, b) => b.rating - a.rating);
+    // No city match — sort by rating (FIX 2026-05: null-safe)
+    alternatives = alternatives.map(a => ({ ...a, _distKm: null }))
+      .sort((a, b) => (+b.rating || 0) - (+a.rating || 0));
   }
 
   // Limit to 6
@@ -2852,7 +2730,7 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
             </div>
             <div class="listing-card-price">${_escHtml(l.priceLabel)}</div>
             <div class="listing-card-tags">
-              ${l.tags.map(t => `<span class="listing-tag">${_escHtml(t)}</span>`).join('')}
+              ${(Array.isArray(l.tags) ? l.tags : []).map(t => `<span class="listing-tag">${_escHtml(t)}</span>`).join('')}
             </div>
           </div>
         </div>`;
@@ -2956,31 +2834,19 @@ function loadDetail(listingId) {
 
   // Show edit button only for own listings
   var editBtn = document.getElementById('detailEditBtn');
-  if (editBtn) editBtn.style.display = _isCurrentUserListingOwner(listing) ? '' : 'none';
+  if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
 
-  // Admin moderation buttons for listing
+  // Admin delete button for listing
   var existingAdminDel = document.getElementById('detailAdminDeleteBtn');
   if (existingAdminDel) existingAdminDel.remove();
-  var existingAdminHide = document.getElementById('detailAdminHideBtn');
-  if (existingAdminHide) existingAdminHide.remove();
-  if (currentUser && currentUser.isAdmin) {
-    var adminHideBtn = document.createElement('button');
-    adminHideBtn.id = 'detailAdminHideBtn';
-    adminHideBtn.className = 'btn-outline btn-sm';
-    adminHideBtn.innerHTML = '<span class="material-icons-round">visibility_off</span> Inserat ausblenden';
-    adminHideBtn.onclick = function() { adminHideListing(listing.id); };
-
+  if (currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id) {
     var adminDelBtn = document.createElement('button');
     adminDelBtn.id = 'detailAdminDeleteBtn';
     adminDelBtn.className = 'btn-outline btn-sm btn-danger-outline';
     adminDelBtn.innerHTML = '<span class="material-icons-round">delete</span> Inserat löschen';
     adminDelBtn.onclick = function() { adminDeleteListing(listing.id); };
-
     var provRow = document.querySelector('.detail-provider-row');
-    if (provRow) {
-      provRow.appendChild(adminHideBtn);
-      provRow.appendChild(adminDelBtn);
-    }
+    if (provRow) provRow.appendChild(adminDelBtn);
   }
 
   document.getElementById('detailDescription').innerHTML = _sanitizeHtml(listing.description);
@@ -3004,6 +2870,99 @@ function loadDetail(listingId) {
 // ========== PROVIDER PROFILE ==========
 let providerImages = [];
 let lightboxIndex = 0;
+
+/**
+ * Setzt das Provider-Page-DOM in einen sauberen, leeren Zustand zurück.
+ * Wird vor jedem Provider/Profil-Aufruf synchron ausgeführt, damit zwischen
+ * Page-Wechsel und Daten-Render keine alten Inhalte (z. B. eines vorher
+ * angesehenen Anbieters) "durchblitzen".  Speziell wichtig für das eigene
+ * Profil: wir wollen NIE Demo-Daten wie "Max Beats" im echten Nutzerkontext.
+ */
+function _resetProviderPageDom() {
+  var setText = function(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  var setHtml = function(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = val;
+  };
+
+  // Cover / Galerie
+  var pcg = document.getElementById('pcgScrollArea');
+  if (pcg) pcg.innerHTML = '';
+
+  // Profile Card
+  var avatar = document.getElementById('providerAvatar');
+  if (avatar) {
+    avatar.src = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23EEEEEE%22%2F%3E%3C%2Fsvg%3E';
+    avatar.alt = 'Profil';
+  }
+  var verified = document.getElementById('providerVerifiedBadge');
+  if (verified) verified.style.display = 'none';
+
+  // Skeleton: schlanke Linien statt Demo-Text während des Ladens
+  setHtml('providerName', '<span class="eb-skeleton eb-skeleton-line lg" style="display:inline-block;width:180px"></span>');
+  setHtml('providerTagline', '<span class="eb-skeleton eb-skeleton-line sm" style="display:inline-block;width:240px"></span>');
+  setHtml('providerBadges', '');
+  setText('providerListingCount', '–');
+  setText('providerRating', '–');
+  setText('providerReviews', '–');
+
+  // Inhalts-Sektionen
+  setHtml('providerBio', '');
+  setHtml('providerHighlights', '');
+  setHtml('providerPortfolio', '');
+  setHtml('providerFacts', '');
+  setHtml('providerSpecTags', '');
+  setHtml('providerListings', '');
+  setHtml('providerReviewsList', '');
+
+  // Provider-User-ID-Hidden-Input zurücksetzen
+  var puidEl = document.getElementById('providerUserId');
+  if (puidEl) puidEl.value = '';
+}
+
+/**
+ * Zeigt einen sauberen Empty-State, wenn für eine Provider-ID keine Daten
+ * gefunden werden konnten. Ersetzt den früheren, fehlerhaften Fallback auf
+ * LISTINGS[0] (das war die Quelle des "Max Beats"-Bugs).
+ */
+function _showProviderNotFound(pid) {
+  var setText = function(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  var setHtml = function(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = val;
+  };
+  setText('providerName', 'Profil nicht gefunden');
+  setText('providerTagline', '');
+  setHtml('providerBadges', '');
+  setText('providerListingCount', '–');
+  setText('providerRating', '–');
+  setText('providerReviews', '–');
+  setHtml('providerBio',
+    '<div class="no-results-box" style="margin-top:12px">' +
+      '<span class="material-icons-round no-results-icon">person_off</span>' +
+      '<div class="no-results-box-text">' +
+        '<h3>Dieses Profil ist nicht verfügbar</h3>' +
+        '<p>Vielleicht wurde es entfernt oder die Verlinkung ist veraltet. ' +
+        '<a href="#" onclick="navigateTo(\'browse\');return false;" style="color:var(--primary);font-weight:600">Zur Übersicht</a></p>' +
+      '</div>' +
+    '</div>'
+  );
+  setHtml('providerHighlights', '');
+  setHtml('providerPortfolio', '');
+  setHtml('providerFacts', '');
+  setHtml('providerSpecTags', '');
+  setHtml('providerListings', '');
+  setHtml('providerReviewsList', '');
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn('[eventboerse] loadProvider: keine Daten für Provider', pid);
+  }
+}
 
 function loadProvider(providerId) {
   var pid = providerId || currentListing?.providerId;
@@ -3085,7 +3044,14 @@ function loadProvider(providerId) {
     }
   }
 
-  const mainListing = providerListings[0] || LISTINGS[0];
+  // FIX 2026-05: Kein Fallback auf LISTINGS[0] (= Demo-Daten "Max Beats").
+  // Wenn wir keine Listings-Daten haben, zeigen wir einen Empty-State statt
+  // ein fremdes Demo-Profil über das echte Nutzerprofil zu legen.
+  const mainListing = providerListings[0];
+  if (!mainListing) {
+    _showProviderNotFound(pid);
+    return;
+  }
   providerImages = providerListings.flatMap(l => l.images || []);
   // For own profile: if currentUser.gallery is non-empty, it is the saved portfolio
   // (may differ from listing images after edits — always prefer saved gallery)
@@ -3617,7 +3583,7 @@ function _provSaveAll() {
   payload.gallery = gallery;
   // Also update LISTINGS cache so loadProvider won't revert on re-render
   LISTINGS.forEach(function(l) {
-    if (_sameUserId(l.providerId, _currentUserId())) l.images = gallery.slice();
+    if (l.providerId === currentUser.id) l.images = gallery.slice();
   });
   providerImages = gallery.slice();
   return fetch(_apiUrl('profile'), {
@@ -4186,16 +4152,25 @@ function _startChatPoll() {
             lastPendingOffer = msg;
           }
         });
+        // FIX 2026-05: Null-Safe – wenn Banner-Elemente nicht (mehr) im DOM sind,
+        // weiter machen, statt mit TypeError zu crashen.
         var banner = document.getElementById('negotiationBanner');
-        if (lastPendingOffer) {
-          document.getElementById('negDetails').textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
-          banner.style.display = 'flex';
-          banner.dataset.offerId = lastPendingOffer.id;
-        } else {
-          banner.style.display = 'none';
+        var negDetails = document.getElementById('negDetails');
+        if (banner) {
+          if (lastPendingOffer) {
+            if (negDetails) negDetails.textContent = lastPendingOffer.label + ': ' + lastPendingOffer.amount;
+            banner.style.display = 'flex';
+            banner.dataset.offerId = lastPendingOffer.id;
+          } else {
+            banner.style.display = 'none';
+          }
         }
-        // Always refresh sidebar (online status dots)
-        renderChatList();
+        // FIX 2026-05: Sidebar nur bei tatsächlichen Änderungen neu rendern –
+        // vorher wurde alle 5 Sek. das gesamte Chat-Listen-DOM neu gebaut, was
+        // auf Mobilgeräten Scroll-Position & Touch-Selektionen zerstörte.
+        if (newCount !== oldCount) {
+          renderChatList();
+        }
         if (newCount <= oldCount) return;
         // New messages arrived — check for board updates (acceptance/rejection)
         _checkBoardUpdatesFromMessages(messages || []);
@@ -4247,7 +4222,14 @@ function _startChatPoll() {
         }).join('');
         if (wasAtBottom) setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
       })
-      .catch(function() {});
+      .catch(function(err) {
+        // FIX 2026-05: Chat-Poll-Fehler werden in DevTools-Konsole sichtbar,
+        // statt komplett geschluckt zu werden.  Kein UI-Toast, weil das
+        // Polling weiter läuft und der nächste Tick es typischerweise löst.
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[eventboerse] chat-poll fehlgeschlagen:', err && err.message ? err.message : err);
+        }
+      });
   }, 5000);
 }
 function _stopChatPoll() {
@@ -4632,7 +4614,17 @@ function renderChatList() {
       _updateChatBlockBanner();
     })
     .catch(function() {
-      list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Fehler beim Laden.</div>';
+      // FIX 2026-05: Statt Sackgasse "Fehler beim Laden." mit Retry-Button.
+      list.innerHTML =
+        '<div class="no-results-box" style="margin:16px">' +
+          '<span class="material-icons-round no-results-icon">cloud_off</span>' +
+          '<div class="no-results-box-text">' +
+            '<h3>Chats konnten nicht geladen werden</h3>' +
+            '<p>Prüfe deine Verbindung. ' +
+              '<a href="#" onclick="event.preventDefault(); renderChatList();" style="color:var(--primary);font-weight:600">Erneut versuchen</a>' +
+            '</p>' +
+          '</div>' +
+        '</div>';
     });
 }
 
@@ -5229,17 +5221,15 @@ function startChat() {
     openModal('loginModal');
     return;
   }
-  if (!currentListing) return;
-  var providerId = _listingOwnerId(currentListing);
-  if (!providerId) return;
-  if (_sameUserId(providerId, _currentUserId())) {
+  if (!currentListing || !currentListing.providerId) return;
+  if (currentUser && currentListing.providerId === currentUser.id) {
     showToast('Du kannst dir nicht selbst schreiben.', 'info');
     return;
   }
   // Create or find conversation with provider
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: providerId, listing_id: currentListing._dbId || currentListing.id })
+    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
@@ -5263,10 +5253,6 @@ function startChatWithProvider() {
     showToast('Anbieter nicht gefunden', 'error');
     return;
   }
-  if (_sameUserId(providerId, _currentUserId())) {
-    showToast('Du kannst dir nicht selbst schreiben.', 'info');
-    return;
-  }
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
     body: JSON.stringify({ other_user_id: providerId })
@@ -5288,10 +5274,8 @@ function bookListing() {
     openModal('loginModal');
     return;
   }
-  if (!currentListing) return;
-  var providerId = _listingOwnerId(currentListing);
-  if (!providerId) return;
-  if (_sameUserId(providerId, _currentUserId())) {
+  if (!currentListing || !currentListing.providerId) return;
+  if (currentUser && currentListing.providerId === currentUser.id) {
     showToast('Du kannst dein eigenes Inserat nicht anfragen.', 'info');
     return;
   }
@@ -5304,7 +5288,7 @@ function bookListing() {
   // Create conversation and send booking request
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: providerId, listing_id: currentListing._dbId || currentListing.id })
+    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
@@ -5338,7 +5322,7 @@ function openNegotiation() {
     openModal('loginModal');
     return;
   }
-  if (_isCurrentUserListingOwner(currentListing)) {
+  if (currentUser && currentListing.providerId === currentUser.id) {
     showToast('Du kannst bei deinem eigenen Inserat kein Gegenangebot machen.', 'info');
     return;
   }
@@ -5375,18 +5359,12 @@ function submitNegotiation(e) {
   closeModal('negotiationModal');
   showToast(`Angebot über ${price}€ wurde gesendet!`, 'gavel');
 
-  if (!isLoggedIn || !currentListing) return;
-  var providerId = _listingOwnerId(currentListing);
-  if (!providerId) return;
-  if (_sameUserId(providerId, _currentUserId())) {
-    showToast('Du kannst dein eigenes Inserat nicht anfragen.', 'warning');
-    return;
-  }
+  if (!isLoggedIn || !currentListing || !currentListing.providerId) return;
 
   // Create conversation and send offer
   fetch(_apiUrl('conversations'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: providerId, listing_id: currentListing._dbId || currentListing.id })
+    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
   })
     .then(function(r) { return r.json(); })
     .then(function(convo) {
@@ -6400,6 +6378,16 @@ function submitListing(e) {
     return;
   }
 
+  // FIX 2026-05: Double-Submit-Guard. Ohne diesen Block kann der User während
+  // des laufenden Uploads erneut auf "Veröffentlichen" klicken und das Inserat
+  // doppelt anlegen (zwei POST /listings parallel). Mit globalem In-Flight-Flag
+  // werden Folge-Klicks ignoriert, bis der erste Submit terminiert.
+  if (window._ebListingSubmitInflight) {
+    showToast('Wird gerade gespeichert…', 'sync');
+    return;
+  }
+  window._ebListingSubmitInflight = true;
+
   // Read form values with validation
   const title = document.getElementById('createTitle').value.trim();
   const category = document.getElementById('createCategory').value;
@@ -6409,11 +6397,14 @@ function submitListing(e) {
   const priceMax = (priceMaxRaw > 0 && priceMaxRaw > price) ? priceMaxRaw : 0;
   const priceModel = document.getElementById('createPriceModel').value;
 
+  // Helper: Flag zurücksetzen UND Schritt setzen
+  var _releaseGuard = function() { window._ebListingSubmitInflight = false; };
+
   // Basic validation
-  if (!title) { showToast('Bitte gib einen Titel ein', 'warning'); nextStep(1); return; }
-  if (!category) { showToast('Bitte wähle eine Kategorie', 'warning'); nextStep(1); return; }
-  if (!description) { showToast('Bitte gib eine Beschreibung ein', 'warning'); nextStep(1); return; }
-  if (!price) { showToast('Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
+  if (!title)       { _releaseGuard(); showToast('Bitte gib einen Titel ein', 'warning'); nextStep(1); return; }
+  if (!category)    { _releaseGuard(); showToast('Bitte wähle eine Kategorie', 'warning'); nextStep(1); return; }
+  if (!description) { _releaseGuard(); showToast('Bitte gib eine Beschreibung ein', 'warning'); nextStep(1); return; }
+  if (!price)       { _releaseGuard(); showToast('Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
   const region = document.getElementById('createRegionValue').value.trim()
     || document.getElementById('createRegion').value.trim() || 'Deutschland';
   const dateFrom = document.getElementById('createDateFrom').value;
@@ -6437,6 +6428,7 @@ function submitListing(e) {
   ).map(function(b) { return parseInt(b.getAttribute('data-day'), 10); })
    .filter(function(d) { return !isNaN(d) && d >= 0 && d <= 6; });
   if (instantBook && availableWeekdays.length === 0) {
+    _releaseGuard();
     showToast('Bitte mindestens einen Wochentag für die Sofortbuchung wählen.', 'warning');
     _setBtnLoading && _setBtnLoading(document.querySelector('#step3 .btn-primary'), false);
     return;
@@ -6484,6 +6476,7 @@ function submitListing(e) {
   Promise.all(uploadPromises).then(function(imageUrls) {
     // Require at least one image
     if (imageUrls.length === 0) {
+      _releaseGuard();
       showToast('Bitte lade mindestens ein Bild hoch', 'warning');
       _setBtnLoading(submitBtn, false);
       nextStep(2);
@@ -6560,7 +6553,7 @@ function submitListing(e) {
       document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
       document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
       document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-      _addClassById('step1', 'active');
+      document.getElementById('step1').classList.add('active');
 
       // Force reload from DB on next navigation
       _dbListingsLoaded = false;
@@ -6568,10 +6561,12 @@ function submitListing(e) {
       var successMsg = isEventPlaner() ? 'Event erfolgreich veröffentlicht! 🎉' : 'Inserat erfolgreich veröffentlicht! 🎉';
       showToast(successMsg, 'check_circle');
       _setBtnLoading(submitBtn, false);
+      _releaseGuard();
       setTimeout(function() { navigateTo('detail', saved.id); }, 800);
     });
   }).catch(function(err) {
     _setBtnLoading(submitBtn, false);
+    _releaseGuard();
     showToast('Fehler beim Speichern: ' + err.message, 'error');
   });
 }
@@ -7501,15 +7496,15 @@ function _applyDarkMode(on) {
 
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
-  _safeRun('initDarkMode', initDarkMode);
-  _safeRun('setupDragDrop', setupDragDrop);
-  _safeRun('initAiSearch', initAiSearch);
-  _safeRun('restoreSession', restoreSession);
-  _safeRun('updatePasskeyLoginUi', updatePasskeyLoginUi);
-  _safeRun('initConditionalPasskeyLogin', initConditionalPasskeyLogin);
-  _safeRun('initPasswordFields', initPasswordFields);
-  _safeRun('initDragScroll', initDragScroll);
-  _safeRun('initDatePickers', initDatePickers);
+  initDarkMode();
+  setupDragDrop();
+  initAiSearch();
+  restoreSession();
+  updatePasskeyLoginUi();
+  initConditionalPasskeyLogin();
+  initPasswordFields();
+  initDragScroll();
+  initDatePickers();
 
   // Wochentag-Pill-Toggle für Sofortbuchung im Inserat-Formular
   var _wdPicker = document.getElementById('createWeekdayPicker');
@@ -7521,10 +7516,10 @@ document.addEventListener('DOMContentLoaded', function() {
       pill.classList.toggle('selected');
     });
   }
-  _safeRun('initCityAutocomplete', initCityAutocomplete);
-  _safeRun('initProfileCityAutocomplete', initProfileCityAutocomplete);
-  _safeRun('initTimePickers', initTimePickers);
-  _safeRun('initFeatureSearch', initFeatureSearch);
+  initCityAutocomplete();
+  initProfileCityAutocomplete();
+  initTimePickers();
+  initFeatureSearch();
 
   // Clear all browse filters on fresh page load (prevent browser form restoration)
   var _clearBrowseFilters = function(){
@@ -7537,23 +7532,21 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(_clearBrowseFilters, 0);
 
   // Handle initial route (deep links, clean URLs, legacy hash)
-  _safeRun('initialRoute', function() {
-    var initRoute = _readSpaRoute();
-    var initPage = initRoute.page;
-    var initData = initRoute.data;
-    if (initPage === 'home') initPage = 'browse';
-    // Clean up legacy hash if present
-    if (window.location.hash) {
-      window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
-    } else {
-      window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
-    }
-    if (initPage && initPage !== 'browse') {
-      navigateTo(initPage, initData, true);
-    } else {
-      navigateTo('browse', null, true);
-    }
-  });
+  var initRoute = _readSpaRoute();
+  var initPage = initRoute.page;
+  var initData = initRoute.data;
+  if (initPage === 'home') initPage = 'browse';
+  // Clean up legacy hash if present
+  if (window.location.hash) {
+    window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
+  } else {
+    window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
+  }
+  if (initPage && initPage !== 'browse') {
+    navigateTo(initPage, initData, true);
+  } else {
+    navigateTo('browse', null, true);
+  }
 
   // App-Loading-Overlay ausblenden (siehe index.html / styles.css)
   if (typeof window.__hideAppLoader === 'function') {
@@ -7591,7 +7584,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  _safeRun('initVisualMotion', initVisualMotion);
+  initVisualMotion();
 });
 
 // ========== PAGE MOTION (subtle Apple-like interactivity) ==========
@@ -8058,96 +8051,6 @@ function renderFavorites() {
   }
 }
 
-function _ensureMyModerationPanel() {
-  var page = document.getElementById('page-my-listings');
-  if (!page) return null;
-  var panel = document.getElementById('myListingsModerationPanel');
-  if (panel) return panel;
-
-  panel = document.createElement('section');
-  panel.id = 'myListingsModerationPanel';
-  panel.className = 'my-moderation-panel';
-
-  var header = page.querySelector('.my-listings-header');
-  if (header && header.parentNode) {
-    header.parentNode.insertBefore(panel, header.nextSibling);
-  } else {
-    page.insertBefore(panel, page.firstChild);
-  }
-  return panel;
-}
-
-function _setMyModerationPanelLoading() {
-  var panel = _ensureMyModerationPanel();
-  if (!panel) return;
-  panel.style.display = '';
-  panel.innerHTML =
-    '<div class="my-moderation-head">' +
-      '<h3><span class="material-icons-round">history</span> Moderationsverlauf</h3>' +
-    '</div>' +
-    '<p class="my-moderation-empty">Lade Hinweise …</p>';
-}
-
-function _renderMyModerationPanel(events) {
-  var panel = _ensureMyModerationPanel();
-  if (!panel) return;
-
-  if (!isLoggedIn) {
-    panel.style.display = 'none';
-    panel.innerHTML = '';
-    return;
-  }
-
-  panel.style.display = '';
-  if (!Array.isArray(events) || events.length === 0) {
-    panel.innerHTML =
-      '<div class="my-moderation-head">' +
-        '<h3><span class="material-icons-round">history</span> Moderationsverlauf</h3>' +
-      '</div>' +
-      '<p class="my-moderation-empty">Aktuell gibt es keine Moderationshinweise zu deinen Inseraten.</p>';
-    return;
-  }
-
-  var items = events.slice(0, 12).map(function(evt) {
-    var isDeleted = evt.action === 'deleted';
-    var actionLabel = isDeleted ? 'Gelöscht' : 'Ausgeblendet';
-    var actionClass = isDeleted ? 'is-deleted' : 'is-hidden';
-    var notifyLabel = evt.mailNotified ? 'E-Mail gesendet' : 'Im Konto gespeichert';
-    return '<div class="my-moderation-item">' +
-      '<div class="my-moderation-row">' +
-        '<strong>' + _escHtml(evt.listingTitle || 'Inserat') + '</strong>' +
-        '<span class="my-moderation-badge ' + actionClass + '">' + actionLabel + '</span>' +
-      '</div>' +
-      '<div class="my-moderation-meta">' +
-        '<span><span class="material-icons-round">schedule</span> ' + _escHtml(evt.createdAtHuman || '') + '</span>' +
-        '<span><span class="material-icons-round">mark_email_read</span> ' + _escHtml(notifyLabel) + '</span>' +
-      '</div>' +
-      '<p class="my-moderation-reason">' + _escHtml(evt.reason || '') + '</p>' +
-    '</div>';
-  }).join('');
-
-  panel.innerHTML =
-    '<div class="my-moderation-head">' +
-      '<h3><span class="material-icons-round">history</span> Moderationsverlauf</h3>' +
-      '<span class="my-moderation-count">' + events.length + ' Hinweise</span>' +
-    '</div>' +
-    '<div class="my-moderation-list">' + items + '</div>';
-}
-
-function _loadMyListingModeration(limit) {
-  if (!isLoggedIn) return Promise.resolve([]);
-  var lim = limit || 120;
-  return fetch(_apiUrl('my-listing-moderation?limit=' + lim), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) {
-      _refreshNonce(r);
-      if (!r.ok) throw new Error('API ' + r.status);
-      return r.json();
-    })
-    .then(function(data) {
-      return Array.isArray(data) ? data : [];
-    });
-}
-
 // ========== MY LISTINGS ==========
 function renderMyListings() {
   var grid = document.getElementById('myListingsGrid');
@@ -8157,16 +8060,6 @@ function renderMyListings() {
   var emptyTitle = document.querySelector('#myListingsEmpty h3');
   var emptyText = document.querySelector('#myListingsEmpty p');
   var emptyBtn = document.querySelector('#myListingsEmpty .btn-primary');
-
-  _ensureMyModerationPanel();
-  if (isLoggedIn) {
-    _setMyModerationPanelLoading();
-    _loadMyListingModeration(120)
-      .then(_renderMyModerationPanel)
-      .catch(function() { _renderMyModerationPanel([]); });
-  } else {
-    _renderMyModerationPanel([]);
-  }
 
   if (isEventPlaner()) {
     // === EVENT-PLANER VIEW ===
@@ -8196,11 +8089,6 @@ function renderMyListings() {
               id: l.id + 10000,
               _dbId: l.id,
               _fromDb: true,
-              status: l.status || 'active',
-              isHidden: !!l.isHidden,
-              moderationAction: l.moderationAction || '',
-              moderationReason: l.moderationReason || '',
-              moderationCreatedAt: l.moderationCreatedAt || '',
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
@@ -8237,22 +8125,15 @@ function renderMyListings() {
         grid.innerHTML = events.map(function(evt) {
           // DB events from API
           if (evt._fromDb) {
-            var _evtHidden = evt.status === 'hidden' || evt.isHidden;
-            var _evtBadgeClass = _evtHidden ? 'status-pending' : 'status-active';
-            var _evtBadgeText = _evtHidden ? 'Ausgeblendet' : 'Aktiv';
-            var _evtModerationNote = (_evtHidden && evt.moderationReason)
-              ? '<div class="my-listing-note"><span class="material-icons-round">info</span><span>' + _escHtml(evt.moderationReason) + '</span></div>'
-              : '';
             return '<div class="my-listing-card">' +
               '<div class="my-listing-img">' +
                 '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
-                '<span class="status-badge ' + _evtBadgeClass + '">' + _evtBadgeText + '</span>' +
+                '<span class="status-badge status-active">Aktiv</span>' +
               '</div>' +
               '<div class="my-listing-info">' +
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
                 '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
                 '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
-                _evtModerationNote +
                 '<div class="my-listing-stats">' +
                   '<span><span class="material-icons-round">star</span> ' + (evt.rating || 0).toFixed(1) + '/5</span>' +
                   '<span><span class="material-icons-round">rate_review</span> ' + (evt.reviewCount || 0) + ' Bewertungen</span>' +
@@ -8265,11 +8146,6 @@ function renderMyListings() {
                 '<button class="btn-outline btn-sm" onclick="editListing(' + evt.id + ')">' +
                   '<span class="material-icons-round">edit</span> Bearbeiten' +
                 '</button>' +
-                (currentUser && currentUser.isAdmin ? (
-                  '<button class="btn-outline btn-sm" onclick="adminHideListing(' + evt.id + ')">' +
-                    '<span class="material-icons-round">visibility_off</span> Ausblenden' +
-                  '</button>'
-                ) : '') +
                 '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + evt.id + ')">' +
                   '<span class="material-icons-round">delete</span> Löschen' +
                 '</button>' +
@@ -8330,22 +8206,15 @@ function renderMyListings() {
         grid.innerHTML = myListings.map(function(l) {
           var rating = l.rating || 0;
           var reviewCount = l.reviewCount || 0;
-          var _hidden = l.status === 'hidden' || l.isHidden;
-          var _badgeClass = _hidden ? 'status-pending' : 'status-active';
-          var _badgeText = _hidden ? 'Ausgeblendet' : 'Aktiv';
-          var _moderationNote = (_hidden && l.moderationReason)
-            ? '<div class="my-listing-note"><span class="material-icons-round">info</span><span>' + _escHtml(l.moderationReason) + '</span></div>'
-            : '';
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img">' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
-              '<span class="status-badge ' + _badgeClass + '">' + _badgeText + '</span>' +
+              '<span class="status-badge status-active">Aktiv</span>' +
             '</div>' +
             '<div class="my-listing-info">' +
               '<h3>' + _escHtml(l.title) + '</h3>' +
               '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
               '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
-              _moderationNote +
               '<div class="my-listing-stats">' +
                 '<span><span class="material-icons-round">star</span> ' + rating.toFixed(1) + '/5</span>' +
                 '<span><span class="material-icons-round">rate_review</span> ' + reviewCount + ' Bewertungen</span>' +
@@ -8358,11 +8227,6 @@ function renderMyListings() {
               '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
                 '<span class="material-icons-round">edit</span> Bearbeiten' +
               '</button>' +
-              (currentUser && currentUser.isAdmin ? (
-                '<button class="btn-outline btn-sm" onclick="adminHideListing(' + l.id + ')">' +
-                  '<span class="material-icons-round">visibility_off</span> Ausblenden' +
-                '</button>'
-              ) : '') +
               '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
                 '<span class="material-icons-round">delete</span> Löschen' +
               '</button>' +
@@ -8390,11 +8254,6 @@ function renderMyListings() {
               id: l.id + 10000,
               _dbId: l.id,
               _fromDb: true,
-              status: l.status || 'active',
-              isHidden: !!l.isHidden,
-              moderationAction: l.moderationAction || '',
-              moderationReason: l.moderationReason || '',
-              moderationCreatedAt: l.moderationCreatedAt || '',
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
@@ -8548,7 +8407,7 @@ function editListing(listingId) {
 
   // Show step 1
   document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-  _addClassById('step1', 'active');
+  document.getElementById('step1').classList.add('active');
 
   showToast('Inserat wird bearbeitet – passe es an und speichere es.', 'edit');
 }
@@ -8587,69 +8446,20 @@ function deleteListing(listingId) {
 function adminDeleteListing(listingId) {
   if (!currentUser || !currentUser.isAdmin) return;
   if (!confirm('Als Admin: Dieses Inserat wirklich löschen?')) return;
-  var defaultReason = 'Dein Inserat wurde im Rahmen einer Qualitäts- und Sicherheitsprüfung entfernt, weil aktuell wichtige Angaben oder Nachweise fehlen.';
-  var reason = prompt('Kurze Begründung für den Nutzer (wird als Nachricht versendet):', defaultReason);
-  if (reason === null) return;
-  reason = String(reason || '').trim() || defaultReason;
-
   var listing = LISTINGS.find(function(l) { return l.id === listingId; });
   var dbId = listing && listing._dbId ? listing._dbId : (listing && listing._fromDb ? listingId - 10000 : null);
   if (!dbId) return showToast('Nur DB-Inserate löschbar', 'error');
   fetch(_apiUrl('listings/' + dbId), {
-    method: 'DELETE',
-    credentials: 'same-origin',
-    headers: _apiHeaders(),
-    body: JSON.stringify({ reason: reason })
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
   }).then(function(r) {
     _refreshNonce(r);
     if (r.ok) {
-      return r.json().then(function(data) {
-        var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
-        if (idx !== -1) LISTINGS.splice(idx, 1);
-        if (data && data.ownerNotified) {
-          showToast('Inserat gelöscht. Nutzer wurde benachrichtigt.', 'delete');
-        } else {
-          showToast('Inserat gelöscht. Hinweis konnte evtl. nicht zugestellt werden.', 'warning');
-        }
-        navigateTo('browse');
-      });
+      var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
+      if (idx !== -1) LISTINGS.splice(idx, 1);
+      showToast('Inserat als Admin gelöscht.', 'delete');
+      navigateTo('browse');
     } else { showToast('Löschen fehlgeschlagen', 'error'); }
   }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
-}
-
-function adminHideListing(listingId) {
-  if (!currentUser || !currentUser.isAdmin) return;
-  if (!confirm('Als Admin: Dieses Inserat vorübergehend ausblenden?')) return;
-  var defaultReason = 'Dein Inserat wurde vorübergehend ausgeblendet, während wir technische Details und Qualitätskriterien prüfen.';
-  var reason = prompt('Kurze Begründung für den Nutzer (wird als Nachricht versendet):', defaultReason);
-  if (reason === null) return;
-  reason = String(reason || '').trim() || defaultReason;
-
-  var listing = LISTINGS.find(function(l) { return l.id === listingId; });
-  var dbId = listing && listing._dbId ? listing._dbId : (listing && listing._fromDb ? listingId - 10000 : null);
-  if (!dbId) return showToast('Nur DB-Inserate ausblendbar', 'error');
-
-  fetch(_apiUrl('admin/listings/' + dbId + '/hide'), {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: _apiHeaders(),
-    body: JSON.stringify({ reason: reason })
-  }).then(function(r) {
-    _refreshNonce(r);
-    if (!r.ok) throw new Error('hide_failed');
-    return r.json();
-  }).then(function(data) {
-    var idx = LISTINGS.findIndex(function(l) { return l.id === listingId; });
-    if (idx !== -1) LISTINGS.splice(idx, 1);
-    if (data && data.ownerNotified) {
-      showToast('Inserat ausgeblendet. Nutzer wurde benachrichtigt.', 'visibility_off');
-    } else {
-      showToast('Inserat ausgeblendet. Hinweis konnte evtl. nicht zugestellt werden.', 'warning');
-    }
-    navigateTo('browse');
-  }).catch(function() {
-    showToast('Ausblenden fehlgeschlagen', 'error');
-  });
 }
 
 function adminDeleteUser(userId) {
@@ -9255,7 +9065,7 @@ function loadDetailReviews(dbListingId) {
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
           var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
-          var isListingOwner = _isCurrentUserListingOwner(currentListing);
+          var isListingOwner = currentUser && currentListing && currentListing.providerId === currentUser.id;
           var canDelete = isOwnReview || isListingOwner || (currentUser && currentUser.isAdmin);
           var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
@@ -9557,34 +9367,6 @@ function _refreshNonce(response) {
   return response;
 }
 
-function _isAdminRoleValue(roleValue) {
-  if (!roleValue) return false;
-  var role = String(roleValue).trim().toLowerCase();
-  return role === 'admin' || role === 'administrator';
-}
-
-function _extractAdminFlag(payload) {
-  if (!payload || typeof payload !== 'object') return null;
-
-  if (typeof payload.isAdmin === 'boolean') {
-    return payload.isAdmin;
-  }
-
-  if (_isAdminRoleValue(payload.role)) {
-    return true;
-  }
-
-  if (Array.isArray(payload.roles)) {
-    return payload.roles.some(function(r) { return _isAdminRoleValue(r); });
-  }
-
-  if (typeof payload.roles === 'string' && payload.roles.trim()) {
-    return _isAdminRoleValue(payload.roles);
-  }
-
-  return null;
-}
-
 function _normalizeUserPayload(data, fallback) {
   data = data || {};
   fallback = fallback || {};
@@ -9592,9 +9374,6 @@ function _normalizeUserPayload(data, fallback) {
   var firstName = data.first_name || fallback.first_name || '';
   var lastName = data.last_name || fallback.last_name || '';
   var fullName = ((firstName || '') + ' ' + (lastName || '')).trim();
-  var dataAdmin = _extractAdminFlag(data);
-  var fallbackAdmin = _extractAdminFlag(fallback);
-  var isAdmin = dataAdmin !== null ? dataAdmin : (fallbackAdmin !== null ? fallbackAdmin : false);
 
   if (!fullName) {
     fullName = data.name || fallback.name || '';
@@ -9606,7 +9385,7 @@ function _normalizeUserPayload(data, fallback) {
     email: data.email || fallback.email || '',
     role: data.role || fallback.role || 'Event-Planer',
     subRole: data.subRole || data.sub_role || fallback.subRole || fallback.sub_role || '',
-    isAdmin: isAdmin,
+    isAdmin: (data.role === 'Admin') || (fallback.role === 'Admin') || false,
     tagline: data.tagline || fallback.tagline || '',
     location: data.location || fallback.location || '',
     bio: data.bio || fallback.bio || '',
@@ -10448,7 +10227,7 @@ function applyLogout() {
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
-  _removeClassById('userMenu', 'show');
+  document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = ebAvatar('user', 'User');
   var adminLabel = document.getElementById('navAdminLabel');
@@ -11651,7 +11430,7 @@ function toggleMapOverlay() {
     setTimeout(() => leafletMap.invalidateSize(), 350);
   }
 
-  renderLocationsList(_surfaceVisibleListings(getHeroListings()));
+  renderLocationsList(filterDemos(LISTINGS));
 }
 
 function closeMapOverlay() {
@@ -11673,7 +11452,7 @@ function initLeafletMap() {
     attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
   }).addTo(leafletMap);
 
-  addListingMarkers(_surfaceVisibleListings(getHeroListings()));
+  addListingMarkers(filterDemos(LISTINGS));
 }
 
 function createPriceIcon(listing) {
@@ -12400,7 +12179,7 @@ function renderAuftraegePage() {
     (proj.cards || []).forEach(function(card){
       var l = card.listingId ? (LISTINGS || []).find(function(x){ return x.id === card.listingId; }) : null;
       var providerId = (l && l.providerId) || card.providerId;
-      if (_sameUserId(providerId, myId)) {
+      if (providerId && myId && providerId === myId) {
         jobs.push({ card: card, project: proj, listing: l });
       }
     });
@@ -12741,7 +12520,7 @@ function deleteBoardProjectById(projectId) {
           .then(function(r){ return r.ok ? r.json() : null; })
           .then(function(l){
             if (!l || !l.providerId) return;
-            if (_sameUserId(l.providerId, _currentUserId())) return;
+            if (currentUser && l.providerId === currentUser.id) return;
             var dk = l.providerId + '|' + card.listingId;
             if (notified[dk]) return;
             notified[dk] = true;
@@ -12750,7 +12529,7 @@ function deleteBoardProjectById(projectId) {
           .catch(function(){});
         return;
       }
-      if (_sameUserId(providerId, _currentUserId())) return;
+      if (currentUser && providerId === currentUser.id) return;
 
       var dedupeKey = providerId + '|' + card.listingId;
       if (notified[dedupeKey]) return;
@@ -12847,19 +12626,11 @@ function _cardListingTitle(card) {
 
 function renderKanban(project) {
   var stages = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
-  var _profile = _boardPlanningRoleProfile();
   stages.forEach(function(stage) {
     var colEl = document.getElementById('cards' + stage.charAt(0).toUpperCase() + stage.slice(1));
     if (!colEl) return;
     var cards = (project.cards || []).filter(function(c) { return c.stage === stage; });
-    if (!cards.length && stage === 'geplant') {
-      colEl.innerHTML = '<div style="padding:12px;border:1px dashed var(--border);border-radius:10px;background:rgba(255,255,255,0.02);font-size:12px;color:var(--text-light)">' +
-        '<strong style="display:block;color:var(--text);margin-bottom:4px">' + _escHtml(_profile.stageTitle) + '</strong>' +
-        _escHtml(_profile.stageHint) +
-      '</div>';
-    } else {
-      colEl.innerHTML = cards.map(function(card) { return renderKanbanCard(card); }).join('');
-    }
+    colEl.innerHTML = cards.map(function(card) { return renderKanbanCard(card); }).join('');
     _initCardDrag(colEl);
     var cntEl = document.getElementById('cnt' + stage.charAt(0).toUpperCase() + stage.slice(1));
     if (cntEl) cntEl.textContent = cards.length;
@@ -12889,7 +12660,6 @@ function renderKanbanCard(card) {
       <div>
         <div class="kc-name">${_escHtml(card.name)}</div>
         <div class="kc-category">${_escHtml(card.category || '')}</div>
-        ${_boardCardKindBadges(card)}
       </div>
     </div>
     ${card.price ? '<div class="kc-price">€ ' + _escHtml(String(card.price)) + '</div>' : ''}
@@ -13329,16 +13099,6 @@ function _renderBoardFlowImpl() {
     } else {
       html += '<span class="flow-node-empty">Noch leer</span>';
     }
-    if (stage.id === 'geplant') {
-      var _fragCnt = stageCards.filter(function(c){ return c.bundleMode === 'fragment'; }).length;
-      var _packCnt = stageCards.filter(function(c){ return c.bundleMode === 'package'; }).length;
-      var _ownCnt = stageCards.filter(function(c){ return c.sourceKind === 'own_offer'; }).length;
-      var _prof = _boardPlanningRoleProfile();
-      html += '<div class="flow-node-budget-hint">' + esc(_prof.label) + ': Bausteine/Pakete strukturiert planen</div>';
-      if (stageCards.length) {
-        html += '<div class="flow-node-budget-hint">Bausteine: ' + _fragCnt + ' · Pakete: ' + _packCnt + (_ownCnt ? ' · Eigene Angebote: ' + _ownCnt : '') + '</div>';
-      }
-    }
     // "Hinzufügen" nur in der Start-Stage "geplant" anzeigen – alle weiteren
     // Stages werden systematisch durch Statuswechsel (Drag/Stage-Move) befüllt.
     if (stage.id === 'geplant') {
@@ -13381,7 +13141,6 @@ function _renderBoardFlowImpl() {
       html += '<div class="flow-prov-info">';
       html += '<strong>' + esc(card.name) + '</strong>';
       html += '<small>' + esc(card.category || '') + '</small>';
-      html += _boardCardKindBadges(card);
       if (card.price) html += '<span class="flow-prov-price">' + parseFloat(card.price).toLocaleString('de-DE') + ' €</span>';
       if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
@@ -13982,21 +13741,17 @@ function _saveFlowCard(event, cardId) {
 }
 
 function openAddProviderModalFlow(stage) {
-  Promise.resolve(openAddProviderModal(stage)).then(function() {
-    // patch the submit handler to also refresh the flow view
-    var originalForm = document.querySelector('#addProviderModal form');
-    if (!originalForm) return;
+  openAddProviderModal(stage);
+  // patch the submit handler to also refresh the flow view
+  var originalForm = document.querySelector('#addProviderModal form');
+  if (originalForm) {
     var origSubmit = originalForm.onsubmit;
     originalForm.onsubmit = function(e) {
       var result = origSubmit ? origSubmit.call(this, e) : null;
-      setTimeout(function() {
-        if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') {
-          renderBoardFlow();
-        }
-      }, 50);
+      setTimeout(function() { if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') renderBoardFlow(); }, 50);
       return result;
     };
-  });
+  }
 }
 
 function moveBoardCardStage(cardId, currentStage) {
@@ -14329,23 +14084,6 @@ function _openStripePaymentModal(opts) {
     showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.', 'error');
     return;
   }
-  var guardUserId = _currentUserId();
-  var guardProviderId = _toPositiveInt(opts.providerUserId || opts.provider_user_id || opts.providerId || opts.provider_id);
-  var guardListingId = _toPositiveInt(opts.listingId || opts.listing_id);
-  if (guardUserId && guardProviderId && guardUserId === guardProviderId) {
-    showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
-    return;
-  }
-  if (guardUserId && guardListingId) {
-    var guardListing = _findListingByAnyId(guardListingId);
-    if (!guardListing && typeof currentListing !== 'undefined' && currentListing && _listingMatchesId(currentListing, guardListingId)) {
-      guardListing = currentListing;
-    }
-    if (guardListing && _isCurrentUserListingOwner(guardListing)) {
-      showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
-      return;
-    }
-  }
 
   // Overlay + Modal-Markup
   var ov = document.createElement('div');
@@ -14442,8 +14180,7 @@ function _openStripePaymentModal(opts) {
       title:      opts.title || 'Buchung',
       card_id:    opts.cardId || '',
       project_id: opts.projectId || '',
-      listing_id: opts.listingId || 0,
-      provider_user_id: opts.providerUserId || 0
+      listing_id: opts.listingId || 0
     })
   }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
     .then(function(res) {
@@ -14509,7 +14246,16 @@ function _openStripePaymentModal(opts) {
               }
               onClose(true);
               if (typeof opts.onSuccess === 'function') {
-                opts.onSuccess({ payment_intent: pi.id, amount: vr.data.amount, status: vr.data.status });
+                // FIX 2026-05: Beide Key-Varianten liefern. Consumer-Code an mehreren
+                // Stellen liest `payment_intent_id` (Snake-Case mit _id), die ältere
+                // API gibt aber `payment_intent` zurück. Ohne diesen Alias landet die
+                // Stripe-PI-ID NICHT in card.paymentIntentId – Audit-Trail wäre weg.
+                opts.onSuccess({
+                  payment_intent:    pi.id,
+                  payment_intent_id: pi.id,
+                  amount:            vr.data.amount,
+                  status:            vr.data.status
+                });
               }
             }).catch(function(e){
               spinnerOn(false);
@@ -15143,11 +14889,6 @@ function openStageAdvanceModal(cardId, currentStage) {
         showToast('Bitte einen gültigen Preis eintragen.', 'warning');
         return;
       }
-      var _selfProviderId = (_listing && _listing.providerId) || card.providerId || 0;
-      if ((_listing && _isCurrentUserListingOwner(_listing)) || _sameUserId(_selfProviderId, _currentUserId())) {
-        showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
-        return;
-      }
 
       // Stage-Advance-Modal schließen, dann Stripe-Modal öffnen.
       overlay.remove();
@@ -15158,7 +14899,6 @@ function openStageAdvanceModal(cardId, currentStage) {
         cardId: card.id,
         projectId: project.id,
         listingId: (_listing && (_listing._dbId || _listing.id)) || 0,
-        providerUserId: _selfProviderId,
         image: _stripeImg,
         provider: (_listing && _listing.providerName) || '',
         category: (_listing && (_listing.categoryLabel || _listing.category)) || card.category || '',
@@ -16422,15 +16162,7 @@ function addCurrentListingToBoard(listingId) {
   if (!lid) { showToast('Kein Service ausgew\u00e4hlt.', 'error'); return; }
   if (!currentUser) { openModal('loginModal'); return; }
 
-  var listing = _findListingByAnyId(lid) || null;
-  if (!listing && typeof currentListing !== 'undefined' && currentListing && _listingMatchesId(currentListing, lid)) {
-    listing = currentListing;
-  }
-  if (!listing) listing = { id: lid };
-  if (_isOwnBoardListing(listing)) {
-    showToast('Du kannst dich nicht selbst buchen oder dein eigenes Inserat ins Planungsboard setzen.', 'warning');
-    return;
-  }
+  var listing = (LISTINGS || []).find(function(l){ return l.id === lid; }) || { id: lid };
 
   // 0 Projekte → direkt Board erstellen; 1 Projekt → direkt hinzufügen; sonst → Auswahl
   if (_boardProjects.length === 0) {
@@ -16453,7 +16185,6 @@ function _renderInstantBookSection(listing) {
   if (existing) existing.remove();
 
   if (!listing || !listing.instantBook) return;
-  if (_isCurrentUserListingOwner(listing)) return;
   var wd = (listing.availableWeekdays || []).map(Number).filter(function(d){ return d>=0 && d<=6; });
   if (wd.length === 0) return;
 
@@ -16531,11 +16262,6 @@ function _renderInstantBookSection(listing) {
 }
 
 function _startInstantBooking(listing, dateIso, amount) {
-  if (!listing) return;
-  if (_isCurrentUserListingOwner(listing)) {
-    showToast('Du kannst dein eigenes Inserat nicht buchen oder bezahlen.', 'warning');
-    return;
-  }
   if (!amount || amount <= 0) {
     showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
     return;
@@ -16544,19 +16270,12 @@ function _startInstantBooking(listing, dateIso, amount) {
     try { var d = new Date(dateIso); return d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
     catch(e) { return dateIso; }
   })();
-  var listingRef = _findListingByAnyId(listing._dbId || listing.id) || listing;
-  var listingId = _toPositiveInt(listingRef._dbId || listingRef.id);
-  if (!listingId) {
-    showToast('Inserat konnte nicht eindeutig zugeordnet werden. Bitte Seite neu laden.', 'error');
-    return;
-  }
-  var providerUserId = _listingOwnerId(listingRef);
+  var listingId = listing._dbId || listing.id;
 
   _openStripePaymentModal({
     amount: amount,
     title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
     listingId: listingId,
-    providerUserId: providerUserId,
     image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
     provider: listing.providerName || '',
     category: listing.categoryLabel || listing.category || '',
@@ -16620,7 +16339,7 @@ function openSelectBoardProjectModal(listing) {
   var rows = _boardProjects.map(function(p) {
     var cnt = (p.cards || []).length;
     var dateStr = p.date ? ' \u00b7 ' + _escHtml(p.date) : '';
-    return '<button type="button" class="bsp-row" onclick="if(_addListingToBoardProject(window._pendingBoardListing,\'' + p.id + '\')){document.getElementById(\'selectBoardProjectModal\').remove();}">' +
+    return '<button type="button" class="bsp-row" onclick="_addListingToBoardProject(window._pendingBoardListing,\'' + p.id + '\');document.getElementById(\'selectBoardProjectModal\').remove()">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">event</span>' +
       '<span class="bsp-info"><strong>' + _escHtml(p.name) + '</strong>' +
         '<small>' + cnt + ' Dienstleister' + dateStr + '</small></span>' +
@@ -16646,126 +16365,10 @@ function openSelectBoardProjectModal(listing) {
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
-function _isOwnBoardListing(listing) {
-  return _isCurrentUserListingOwner(listing);
-}
-
-function _isBoardSearchListing(listing) {
-  if (!listing) return true;
-
-  // 1) Starkes Signal: explizite Typ-/Flag-Felder
-  if (listing.isSearch === true || listing.searchRequest === true || listing.isRequest === true) return true;
-  var t = (listing.listingType || listing.kind || listing.type || '').toString().toLowerCase();
-  if (t === 'offer' || t === 'angebot' || t === 'service') return false;
-  if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
-
-  // 2) Text-Heuristik für Gesuche
-  var title = (listing.title || '').toString().toLowerCase();
-  var cat = (listing.categoryLabel || listing.category || '').toString().toLowerCase();
-  if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
-  if (/^\s*suche\s/.test(title)) return true;
-
-  // 3) Tags/Meta als Zusatzsignal
-  var tags = Array.isArray(listing.tags) ? listing.tags.map(function(x){ return String(x || '').toLowerCase(); }) : [];
-  if (tags.indexOf('gesuch') !== -1 || tags.indexOf('suche') !== -1 || tags.indexOf('search') !== -1) return true;
-
-  // Default: Als Angebot behandeln.
-  return false;
-}
-
-function _boardPlanningRoleProfile() {
-  var role = (currentUser && currentUser.role) ? String(currentUser.role) : '';
-  var sub = (currentUser && currentUser.subRole) ? String(currentUser.subRole) : '';
-  if (role === 'Dienstleister') {
-    return {
-      key: 'provider',
-      label: 'Dienstleister',
-      stageTitle: 'Leistungsplanung & Akquise',
-      stageHint: 'Baue aus Bausteinen oder Paketen ein sauberes Angebot und arbeite offene Gesuche ab.'
-    };
-  }
-  if (sub === 'unternehmen') {
-    return {
-      key: 'planner_business',
-      label: 'Geschäftlicher Eventplaner',
-      stageTitle: 'Business-Event Planung',
-      stageHint: 'Plane Dienstleistungs-Bausteine für Teams, Technik und Ablauf oder setze direkt Gesamtpakete.'
-    };
-  }
-  return {
-    key: 'planner_private',
-    label: 'Privater Eventplaner',
-    stageTitle: 'Privates Event planen',
-    stageHint: 'Kombiniere einzelne Bausteine oder komplette Pakete für ein stimmiges Event.'
-  };
-}
-
-function _boardPlanningPresets(profileKey) {
-  var map = {
-    planner_private: [
-      { id: 'pp_frag_music', mode: 'fragment', name: 'Musik-Baustein', category: 'DJ / Musik', note: 'Musikslot für Stimmung, Übergänge und Wunschlieder.' },
-      { id: 'pp_frag_photo', mode: 'fragment', name: 'Foto-Baustein', category: 'Fotografie', note: 'Begleitung zentraler Momente inkl. Gruppenfotos.' },
-      { id: 'pp_pack_wedding', mode: 'package', name: 'Hochzeits-Basispaket', category: 'Komplettpaket', note: 'DJ + Foto + Deko als abgestimmtes Gesamtpaket.' },
-      { id: 'pp_pack_birthday', mode: 'package', name: 'Geburtstags-Paket', category: 'Komplettpaket', note: 'Musik, Catering und Deko mit klaren Zuständigkeiten.' }
-    ],
-    planner_business: [
-      { id: 'pb_frag_tech', mode: 'fragment', name: 'Technik-Baustein', category: 'AV / Technik', note: 'Ton, Licht, Beamer, Streaming und Backup-Technik.' },
-      { id: 'pb_frag_host', mode: 'fragment', name: 'Moderation-Baustein', category: 'Moderation', note: 'Agenda-Führung, Übergaben und Zeitmanagement.' },
-      { id: 'pb_pack_conference', mode: 'package', name: 'Konferenz-Paket', category: 'Business-Paket', note: 'Technik + Moderation + Catering für Business-Events.' },
-      { id: 'pb_pack_corporate', mode: 'package', name: 'Firmenfeier-Paket', category: 'Business-Paket', note: 'Entertainment, Catering und Ablaufkoordination aus einer Hand.' }
-    ],
-    provider: [
-      { id: 'pr_frag_light', mode: 'fragment', name: 'Leistungs-Baustein', category: 'Teilservice', note: 'Ein klarer Leistungsbaustein aus deinem Angebotsportfolio.' },
-      { id: 'pr_frag_fast', mode: 'fragment', name: 'Express-Modul', category: 'Sofort verfügbar', note: 'Schneller Teilservice für kurzfristige Gesuche.' },
-      { id: 'pr_pack_premium', mode: 'package', name: 'Premium-Paket', category: 'Komplettpaket', note: 'Abgestimmtes Gesamtangebot mit mehreren Leistungsbausteinen.' },
-      { id: 'pr_pack_custom', mode: 'package', name: 'Individuelles Paket', category: 'Komplettpaket', note: 'Mehrere Teilservices als kundenspezifisches Paket bündeln.' }
-    ]
-  };
-  return map[profileKey] || map.planner_private;
-}
-
-function _getOwnOfferListingsForBoard(baseList) {
-  if (!currentUser || !Array.isArray(baseList)) return [];
-  var uid = _currentUserId();
-  return baseList.filter(function(l) {
-    if (!l) return false;
-    var ownerId = _listingOwnerId(l);
-    if (!uid || ownerId !== uid) return false;
-    return !_isBoardSearchListing(l);
-  });
-}
-
-function _boardCardKindBadges(card) {
-  if (!card) return '';
-  var badges = [];
-  if (card.bundleMode === 'fragment') badges.push({ icon: 'splitscreen', label: 'Baustein' });
-  if (card.bundleMode === 'package') badges.push({ icon: 'inventory_2', label: 'Paket' });
-  if (card.sourceKind === 'own_offer') badges.push({ icon: 'storefront', label: 'Eigenes Angebot' });
-  if (card.sourceKind === 'external_listing') badges.push({ icon: 'public', label: 'Marktangebot' });
-  if (card.sourceKind === 'search_listing') badges.push({ icon: 'travel_explore', label: 'Gesuch' });
-  if (card.planProfile === 'planner_business') badges.push({ icon: 'apartment', label: 'Business' });
-  if (card.planProfile === 'planner_private') badges.push({ icon: 'celebration', label: 'Privat' });
-  if (!badges.length) return '';
-  return '<div class="bc-kind-badges">' + badges.map(function(b) {
-    return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);margin:0 6px 6px 0">' +
-      '<span class="material-icons-round" style="font-size:13px">' + b.icon + '</span>' + b.label + '</span>';
-  }).join('') + '</div>';
-}
-
 function _addListingToBoardProject(listing, projectId) {
   var project = _boardProjects.find(function(p){ return p.id === projectId; });
-  if (!project) return false;
-  if (_isOwnBoardListing(listing)) {
-    showToast('Du kannst dich nicht selbst buchen oder dein eigenes Inserat ins Planungsboard setzen.', 'warning');
-    return false;
-  }
-  if (listing && listing.id && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listing.id); })) {
-    showToast('Dieses Inserat ist bereits im Board.', 'warning');
-    return false;
-  }
+  if (!project) return;
   var now = Date.now();
-  var _profile = _boardPlanningRoleProfile();
-  var _listingIsSearch = _isBoardSearchListing(listing);
   var card = {
     id: 'bc_' + now,
     name: (listing && (listing.providerName || listing.title)) || 'Dienstleister',
@@ -16774,9 +16377,6 @@ function _addListingToBoardProject(listing, projectId) {
     price: (listing && listing.price) || 0,
     listingId: listing && listing.id,
     avatar: (listing && (listing.providerImg || listing.image)) || '',
-    bundleMode: (_profile.key === 'provider') ? 'package' : 'fragment',
-    sourceKind: _listingIsSearch ? 'search_listing' : 'external_listing',
-    planProfile: _profile.key,
     note: '',
     createdAt: new Date().toISOString()
   };
@@ -16791,7 +16391,6 @@ function _addListingToBoardProject(listing, projectId) {
   setTimeout(function() {
     showToast('Board ansehen?', 'view_kanban', function(){ navigateTo('board'); openBoardProject(projectId); });
   }, 1200);
-  return true;
 }
 window._addListingToBoardProject = _addListingToBoardProject;
 
@@ -16991,71 +16590,29 @@ function addChecklistItem(event) {
 }
 window.addChecklistItem = addChecklistItem;
 
-async function openAddProviderModal(defaultStage) {
-  try {
-    await loadDbListings({ includeAllPages: true });
-  } catch (e) {
-    // Fallback: modal still opens with currently cached listings.
+function openAddProviderModal(defaultStage) {
+  // Nur Dienstleister-Inserate (Angebote) anzeigen, KEINE Such-Inserate.
+  // Filter:
+  //  1. Explizites Feld (zukuenftig): listingType / kind / type === 'search' | 'gesuch' | 'suche-dienstleister' → ausblenden
+  //  2. Heuristik fuer Legacy-Daten: Titel/Kategorie enthaelt "gesucht" / beginnt mit "Suche " → Such-Inserat
+  function _isSearchListing(l) {
+    if (!l) return true;
+    var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
+    if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
+    var title = (l.title || '').toString().toLowerCase();
+    var cat   = (l.categoryLabel || l.category || '').toString().toLowerCase();
+    if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
+    if (/^\s*suche\s/.test(title)) return true;
+    return false;
   }
-  var _isProviderRole = !!(currentUser && currentUser.role === 'Dienstleister');
-  var _profile = _boardPlanningRoleProfile();
-  var _presets = _boardPlanningPresets(_profile.key);
   // Basis: gleiche Sichtbarkeitslogik wie ueberall sonst (Admin kann Demos abschalten)
   var _baseList = (typeof _visibleListings === 'function')
     ? _visibleListings()
     : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
-  var _ownOffers = _getOwnOfferListingsForBoard(_baseList).slice(0, 60);
-  var _offerListings = _baseList.filter(function(l){
-    if (!l) return false;
-    return !_isBoardSearchListing(l);
-  });
-  var _searchListings = _baseList.filter(function(l){
-    if (!l) return false;
-    if (_isOwnBoardListing(l)) return false;
-    return _isBoardSearchListing(l);
-  });
-  var _merged = _isProviderRole ? _offerListings.concat(_searchListings) : _offerListings;
-  _merged.sort(function(a, b) {
-    var aIsSearch = _isBoardSearchListing(a) ? 1 : 0;
-    var bIsSearch = _isBoardSearchListing(b) ? 1 : 0;
-    if (aIsSearch !== bIsSearch) return aIsSearch - bIsSearch; // Angebote zuerst
-    var aTitle = String((a && (a.title || a.providerName || '')) || '').toLowerCase();
-    var bTitle = String((b && (b.title || b.providerName || '')) || '').toLowerCase();
-    if (aTitle < bTitle) return -1;
-    if (aTitle > bTitle) return 1;
-    return 0;
-  });
-  var _seen = Object.create(null);
-  var _listings = _merged.filter(function(l) {
-    var idKey = String(_toPositiveInt(l && (l.id || l._dbId)) || (l && l.id) || '');
-    if (!idKey) return false;
-    if (_seen[idKey]) return false;
-    _seen[idKey] = 1;
-    return true;
-  });
-  var _pickerTitle = _isProviderRole ? 'Baustein oder Anfrage hinzufügen' : 'Dienstleister hinzufügen';
-  var _pickerHint = _isProviderRole
-    ? 'Nutze eigene und externe Angebote als Bausteine/Pakete und optional offene Event-Gesuche für Akquise.'
-    : 'Wähle passende Angebote (inkl. eigener Angebote) als Bausteine oder Pakete für dein Event.';
-  var _pickerLabel = _isProviderRole ? 'Aus Angeboten und offenen Gesuchen wählen' : 'Aus Angeboten wählen';
-  var _presetOptions = _presets.map(function(p) {
-    var modeLabel = p.mode === 'package' ? 'Paket' : 'Baustein';
-    return '<option value="' + _escHtml(p.id) + '" data-mode="' + _escHtml(p.mode) + '" data-name="' + _escHtml(p.name) + '" data-category="' + _escHtml(p.category) + '" data-note="' + _escHtml(p.note) + '">' +
-      _escHtml(modeLabel + ' · ' + p.name) + '</option>';
-  }).join('');
-  var _ownOfferOptions = _ownOffers.map(function(l) {
-    var p = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : 'ohne Preis');
-    return '<option value="' + _escHtml(String(l.id)) + '" data-name="' + _escHtml(l.title || l.providerName || '') + '" data-category="' + _escHtml(l.categoryLabel || l.category || '') + '" data-price="' + _escHtml(String(l.price || '')) + '" data-avatar="' + _escHtml(l.providerImg || l.image || '') + '" data-image="' + _escHtml(l.image || l.providerImg || '') + '" data-note="' + _escHtml('Eigenes Angebot übernommen: ' + (l.title || 'Leistung')) + '" data-title="' + _escHtml(l.title || '') + '">' +
-      _escHtml((l.title || 'Angebot') + ' · ' + p) +
-    '</option>';
-  }).join('');
+  var _listings = _baseList.filter(function(l){ return !_isSearchListing(l); }).slice(0, 30);
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
-    var isSearchListing = _isBoardSearchListing(l);
-    var isOwnListing = _isOwnBoardListing(l);
-    var typeLabel = isSearchListing ? 'Gesuch' : (isOwnListing ? 'Eigenes Angebot' : 'Angebot');
-    var typeCls = isSearchListing ? 'search' : 'offer';
     return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
       '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
       ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
@@ -17063,14 +16620,11 @@ async function openAddProviderModal(defaultStage) {
       ' data-avatar="' + _escHtml(img) + '"' +
       ' data-image="' + _escHtml(l.image || img) + '"' +
       ' data-title="' + _escHtml(l.title || '') + '"' +
-      ' data-own="' + (isOwnListing ? '1' : '0') + '"' +
-      ' data-kind="' + (isSearchListing ? 'search' : 'offer') + '"' +
       ' onclick="_selectListingCard(this)">' +
       '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
       '<span class="eb-lpick-body">' +
         '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
         '<span class="eb-lpick-meta">' +
-          '<span class="eb-lpick-type eb-lpick-type-' + typeCls + '">' + typeLabel + '</span>' +
           '<span class="eb-lpick-cat">' + _escHtml(l.categoryLabel || l.category || '') + '</span>' +
           (price ? '<span class="eb-lpick-price">' + _escHtml(price) + '</span>' : '') +
         '</span>' +
@@ -17078,50 +16632,21 @@ async function openAddProviderModal(defaultStage) {
       '<span class="eb-lpick-check material-icons-round">check_circle</span>' +
     '</button>';
   }).join('');
-  if (!listingCardsHtml) {
-    listingCardsHtml = '<div class="bcl-empty" style="grid-column:1 / -1;margin:0">' +
-      '<span class="material-icons-round">search_off</span>' +
-      '<p><strong>Keine passenden Einträge gefunden</strong></p>' +
-      '<p class="bcl-empty-hint">Lege einen eigenen Baustein oder ein Paket manuell an.</p>' +
-    '</div>';
-  }
 
   var html = `<div class="modal-overlay show" id="addProviderModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="document.getElementById('addProviderModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">person_add</span>
-        <h2>${_pickerTitle}</h2>
-        <p>${_pickerHint} · ${_profile.label}</p>
+        <h2>Dienstleister hinzufügen</h2>
+        <p>Aus bestehenden Inseraten wählen oder manuell eingeben</p>
       </div>
       <form class="modal-form" onsubmit="_addProviderCard(event,'${defaultStage}')">
         <div class="form-group">
-          <label>Planungsmodus</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button type="button" id="cardModeFragmentBtn" class="btn-outline" style="padding:10px" onclick="_setBoardCardMode('fragment')"><span class="material-icons-round">splitscreen</span> Baustein</button>
-            <button type="button" id="cardModePackageBtn" class="btn-outline" style="padding:10px" onclick="_setBoardCardMode('package')"><span class="material-icons-round">inventory_2</span> Paket</button>
-          </div>
-          <small style="display:block;color:var(--text-light);margin-top:6px">${_profile.stageHint}</small>
-        </div>
-        <div class="form-group">
-          <label>Schnellvorlage</label>
-          <select id="cardPresetSelect" onchange="_applyBoardPreset(this)">
-            <option value="">Vorlage auswählen…</option>
-            ${_presetOptions}
-          </select>
-        </div>
-        ${_ownOffers.length ? `<div class="form-group">
-          <label>Eigenes Angebot übernehmen <span style="font-weight:400;color:var(--text-light);font-size:12px">(ohne Selbstbuchung)</span></label>
-          <select id="cardOwnOfferSelect" onchange="_applyOwnOfferCardTemplate(this)">
-            <option value="">Kein eigenes Angebot übernehmen</option>
-            ${_ownOfferOptions}
-          </select>
-        </div>` : ''}
-        <div class="form-group">
-          <label>${_pickerLabel} <span style="font-weight:400;color:var(--text-light);font-size:12px">(optional)</span></label>
+          <label>Aus Inseraten wählen <span style="font-weight:400;color:var(--text-light);font-size:12px">(optional)</span></label>
           <div class="eb-lpick-search">
             <span class="material-icons-round">search</span>
-            <input type="text" id="lpickSearch" placeholder="Nach Name, Kategorie, Ort oder Typ suchen…" oninput="_filterListingPicker(this.value)" />
+            <input type="text" id="lpickSearch" placeholder="Nach Name, Kategorie oder Ort suchen…" oninput="_filterListingPicker(this.value)" />
             <button type="button" class="eb-lpick-clear" onclick="_clearListingPick()" title="Auswahl löschen"><span class="material-icons-round">close</span></button>
           </div>
           <div class="eb-lpick-grid" id="lpickGrid">
@@ -17130,10 +16655,6 @@ async function openAddProviderModal(defaultStage) {
           <input type="hidden" id="cardListingId" value="" />
           <input type="hidden" id="cardListingImage" value="" />
           <input type="hidden" id="cardListingTitle" value="" />
-          <input type="hidden" id="cardAvatarUrl" value="" />
-          <input type="hidden" id="cardSourceKind" value="manual" />
-          <input type="hidden" id="cardBundleMode" value="${_isProviderRole ? 'package' : 'fragment'}" />
-          <input type="hidden" id="cardPlanProfile" value="${_escHtml(_profile.key)}" />
         </div>
         <div class="form-group">
           <label>Name / Firma</label>
@@ -17162,81 +16683,11 @@ async function openAddProviderModal(defaultStage) {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
-  _setBoardCardMode(_isProviderRole ? 'package' : 'fragment');
 }
-
-window._setBoardCardMode = function(mode) {
-  mode = (mode === 'package') ? 'package' : 'fragment';
-  var hid = document.getElementById('cardBundleMode');
-  if (hid) hid.value = mode;
-  var f = document.getElementById('cardModeFragmentBtn');
-  var p = document.getElementById('cardModePackageBtn');
-  if (f) {
-    f.style.background = mode === 'fragment' ? 'rgba(255,56,92,0.14)' : '';
-    f.style.borderColor = mode === 'fragment' ? 'rgba(255,56,92,0.45)' : '';
-  }
-  if (p) {
-    p.style.background = mode === 'package' ? 'rgba(0,166,153,0.14)' : '';
-    p.style.borderColor = mode === 'package' ? 'rgba(0,166,153,0.45)' : '';
-  }
-};
-
-window._applyBoardPreset = function(sel) {
-  if (!sel || !sel.value) return;
-  var opt = sel.options[sel.selectedIndex];
-  if (!opt) return;
-  _setBoardCardMode(opt.dataset.mode || 'fragment');
-  var nameEl = document.getElementById('cardName');
-  var catEl = document.getElementById('cardCategory');
-  var noteEl = document.getElementById('cardNote');
-  if (nameEl) nameEl.value = opt.dataset.name || '';
-  if (catEl) catEl.value = opt.dataset.category || '';
-  if (noteEl) noteEl.value = opt.dataset.note || '';
-  var src = document.getElementById('cardSourceKind');
-  if (src) src.value = 'preset';
-};
-
-window._applyOwnOfferCardTemplate = function(sel) {
-  if (!sel) return;
-  if (!sel.value) {
-    var src0 = document.getElementById('cardSourceKind');
-    if (src0 && src0.value === 'own_offer') src0.value = 'manual';
-    return;
-  }
-  var opt = sel.options[sel.selectedIndex];
-  if (!opt) return;
-
-  var nameEl = document.getElementById('cardName');
-  var catEl = document.getElementById('cardCategory');
-  var priceEl = document.getElementById('cardPrice');
-  var noteEl = document.getElementById('cardNote');
-  if (nameEl) nameEl.value = opt.dataset.name || '';
-  if (catEl) catEl.value = opt.dataset.category || '';
-  if (priceEl && opt.dataset.price) priceEl.value = opt.dataset.price;
-  if (noteEl && !noteEl.value.trim()) noteEl.value = opt.dataset.note || '';
-
-  // Eigene Angebote nur als Angebots-Baustein übernehmen – NICHT als
-  // buchbares Fremd-Listing verknüpfen (verhindert Selbstbuchung).
-  var listingIdEl = document.getElementById('cardListingId');
-  if (listingIdEl) listingIdEl.value = '';
-  var imgEl = document.getElementById('cardListingImage');
-  if (imgEl) imgEl.value = opt.dataset.image || '';
-  var titleEl = document.getElementById('cardListingTitle');
-  if (titleEl) titleEl.value = opt.dataset.title || '';
-  var avatarEl = document.getElementById('cardAvatarUrl');
-  if (avatarEl) avatarEl.value = opt.dataset.avatar || '';
-  var src = document.getElementById('cardSourceKind');
-  if (src) src.value = 'own_offer';
-  _setBoardCardMode('package');
-
-  var grid = document.getElementById('lpickGrid');
-  if (grid) grid.querySelectorAll('.eb-lpick-card.is-active').forEach(function(b){ b.classList.remove('is-active'); });
-};
 
 window._selectListingCard = function(btn) {
   var grid = btn.parentElement;
   var wasActive = btn.classList.contains('is-active');
-  var isOwnListing = btn.dataset.own === '1';
   if (grid) grid.querySelectorAll('.eb-lpick-card').forEach(function(b){ b.classList.remove('is-active'); });
   if (wasActive) {
     _clearListingPick();
@@ -17244,7 +16695,7 @@ window._selectListingCard = function(btn) {
   }
   btn.classList.add('is-active');
   var hid = document.getElementById('cardListingId');
-  if (hid) hid.value = isOwnListing ? '' : (btn.dataset.id || '');
+  if (hid) hid.value = btn.dataset.id || '';
   var nameEl = document.getElementById('cardName');
   var catEl = document.getElementById('cardCategory');
   var priceEl = document.getElementById('cardPrice');
@@ -17253,17 +16704,6 @@ window._selectListingCard = function(btn) {
   if (priceEl && btn.dataset.price) { priceEl.value = btn.dataset.price; priceEl.dispatchEvent(new Event('input')); }
   var imgHid = document.getElementById('cardListingImage'); if (imgHid) imgHid.value = btn.dataset.image || '';
   var titleHid = document.getElementById('cardListingTitle'); if (titleHid) titleHid.value = btn.dataset.title || '';
-  var avatarHid = document.getElementById('cardAvatarUrl'); if (avatarHid) avatarHid.value = btn.dataset.avatar || btn.dataset.image || '';
-  var src = document.getElementById('cardSourceKind');
-  if (src) {
-    if (isOwnListing) src.value = 'own_offer';
-    else src.value = (btn.dataset.kind === 'search') ? 'search_listing' : 'external_listing';
-  }
-  var noteEl = document.getElementById('cardNote');
-  if (isOwnListing && noteEl && !noteEl.value.trim()) {
-    noteEl.value = 'Eigenes Angebot übernommen: ' + (btn.dataset.title || btn.dataset.name || 'Leistung');
-  }
-  var ownSel = document.getElementById('cardOwnOfferSelect'); if (ownSel) ownSel.value = '';
   // Scroll to filled fields
   if (nameEl) nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
@@ -17274,9 +16714,6 @@ window._clearListingPick = function() {
   var hid = document.getElementById('cardListingId'); if (hid) hid.value = '';
   var imgHid2 = document.getElementById('cardListingImage'); if (imgHid2) imgHid2.value = '';
   var titleHid2 = document.getElementById('cardListingTitle'); if (titleHid2) titleHid2.value = '';
-  var avatarHid = document.getElementById('cardAvatarUrl'); if (avatarHid) avatarHid.value = '';
-  var src = document.getElementById('cardSourceKind');
-  if (src && (src.value === 'external_listing' || src.value === 'search_listing')) src.value = 'manual';
   var search = document.getElementById('lpickSearch'); if (search) { search.value = ''; _filterListingPicker(''); }
 };
 
@@ -17304,6 +16741,11 @@ function _autoFillProviderFromListing(select) {
 }
 
 function _addProviderCard(event, stage) {
+    // Doppelte Karten verhindern (gleiche listingId im selben Projekt)
+    if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
+      showToast('Dieses Inserat ist bereits im Board.', 'warning');
+      return;
+    }
   event.preventDefault();
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
@@ -17316,21 +16758,9 @@ function _addProviderCard(event, stage) {
   var note = document.getElementById('cardNote').value.trim();
   var startTime = document.getElementById('cardStartTime').value || '';
   var endTime = (document.getElementById('cardEndTime') || {}).value || '';
-  var bundleMode = ((document.getElementById('cardBundleMode') || {}).value || 'fragment') === 'package' ? 'package' : 'fragment';
-  var sourceKind = (document.getElementById('cardSourceKind') || {}).value || 'manual';
-  var planProfile = (document.getElementById('cardPlanProfile') || {}).value || (_boardPlanningRoleProfile().key);
-  var avatarInput = (document.getElementById('cardAvatarUrl') || {}).value || '';
 
-  var listing = listingId ? _findListingByAnyId(listingId) : null;
-  if (_isOwnBoardListing(listing)) {
-    showToast('Du kannst dich nicht selbst buchen oder dein eigenes Inserat ins Planungsboard setzen.', 'warning');
-    return;
-  }
-  if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
-    showToast('Dieses Inserat ist bereits im Board.', 'warning');
-    return;
-  }
-  var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : (avatarInput || (currentUser && currentUser.photoUrl) || null);
+  var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
+  var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : null;
   var listingImage = (document.getElementById('cardListingImage') || {}).value || (listing ? (listing.image || '') : '');
   var listingTitle = (document.getElementById('cardListingTitle') || {}).value || (listing ? (listing.title || '') : '');
 
@@ -17347,9 +16777,6 @@ function _addProviderCard(event, stage) {
     avatar: avatar,
     listingImage: listingImage || '',
     listingTitle: listingTitle || '',
-    bundleMode: bundleMode,
-    sourceKind: sourceKind,
-    planProfile: planProfile,
     createdAt: new Date().toISOString()
   };
 
@@ -17444,10 +16871,6 @@ function openPostMenu(event, postId, authorName) {
   // Remove any existing sheet
   closePostMenu();
 
-  var isListingToken = typeof postId === 'string' && postId.indexOf('listing-') === 0;
-  var listingTokenId = isListingToken ? parseInt(postId.replace('listing-', ''), 10) : NaN;
-  var canAdminModerateListing = !!(isListingToken && currentUser && currentUser.isAdmin && !isNaN(listingTokenId));
-
   var overlay = document.createElement('div');
   overlay.className = 'post-options-overlay';
   overlay.id = 'postOptionsOverlay';
@@ -17471,14 +16894,6 @@ function openPostMenu(event, postId, authorName) {
     '<button class="post-options-item danger" onclick="reportPost(\'' + postId + '\')">' +
       '<span class="material-icons-round">flag</span> Beitrag melden' +
     '</button>' +
-    (canAdminModerateListing ? (
-      '<button class="post-options-item" onclick="adminHideListingFromFeed(\'' + postId + '\')">' +
-        '<span class="material-icons-round">visibility_off</span> Beitrag ausblenden' +
-      '</button>' +
-      '<button class="post-options-item danger" onclick="adminDeleteListingFromFeed(\'' + postId + '\')">' +
-        '<span class="material-icons-round">delete</span> Beitrag löschen' +
-      '</button>'
-    ) : '') +
     '<button class="post-options-cancel" onclick="closePostMenu()">Abbrechen</button>';
 
   document.body.appendChild(overlay);
@@ -17591,26 +17006,6 @@ function reportPost(postId) {
     sheet.classList.add('visible');
   });
   _attachSheetSwipe(sheet, overlay);
-}
-
-function _listingIdFromPostToken(postId) {
-  if (typeof postId !== 'string' || postId.indexOf('listing-') !== 0) return null;
-  var id = parseInt(postId.replace('listing-', ''), 10);
-  return isNaN(id) ? null : id;
-}
-
-function adminHideListingFromFeed(postId) {
-  closePostMenu();
-  var listingId = _listingIdFromPostToken(postId);
-  if (!listingId) return showToast('Ungültiger Beitrag', 'error');
-  adminHideListing(listingId);
-}
-
-function adminDeleteListingFromFeed(postId) {
-  closePostMenu();
-  var listingId = _listingIdFromPostToken(postId);
-  if (!listingId) return showToast('Ungültiger Beitrag', 'error');
-  adminDeleteListing(listingId);
 }
 
 function submitReport(postId, reason) {
@@ -18893,12 +18288,17 @@ function submitNavAiSearch() {
       if (_navAiTypingTimer) { clearInterval(_navAiTypingTimer); clearTimeout(_navAiTypingTimer); _navAiTypingTimer = null; }
       typingEl.textContent = query;
       if (navBtn) navBtn.classList.add('has-query');
-      try { localStorage.setItem('eb_nav_search', query); } catch(e) {}
+      // FIX 2026-05: KEIN localStorage.setItem mehr – die Nav-Suche soll wie
+      // bei Google ein Per-Session-State sein, kein persistenter. Vorher landete
+      // jede ausgeführte Suche dauerhaft in localStorage und tauchte beim
+      // nächsten Page-Load überraschend wieder im Header auf (z. B. "Dekoration"
+      // nach Kategorie-Klick). Persistenz ist nicht erwartet.
       var clearBtn = document.getElementById('navClearSearch');
       if (clearBtn) clearBtn.style.display = 'flex';
     } else {
       // No query – restart animation
       if (navBtn) navBtn.classList.remove('has-query');
+      // (Alt-Eintrag aus localStorage trotzdem aufräumen, falls vorhanden)
       try { localStorage.removeItem('eb_nav_search'); } catch(e) {}
       var clearBtn2 = document.getElementById('navClearSearch');
       if (clearBtn2) clearBtn2.style.display = 'none';
@@ -19075,6 +18475,18 @@ function performNavSearch() {
       _setNavWoLabel(city);
     }
   } catch(e) {}
+
+  // FIX 2026-05: Such-Text aus Nav-AI-Searchbar in Browse-Filter übernehmen.
+  // Vorher wurde nur die Location übertragen — der eigentliche Suchbegriff
+  // (z. B. "DJ" in "DJ in Berlin") ging beim Klick aufs Lupen-Icon verloren.
+  try {
+    var typing2 = document.getElementById('navAiTyping');
+    var aiQuery2 = (typing2 && typing2.textContent ? typing2.textContent : '').trim();
+    var browseInp = document.getElementById('browseSearch');
+    if (browseInp && aiQuery2) {
+      browseInp.value = aiQuery2;
+    }
+  } catch (e) {}
 
   // On mobile: go to browse and scroll to the results grid (focus on userfeed)
   if (window.innerWidth <= 768) {
@@ -19291,19 +18703,12 @@ function clearNavAiSearch() {
   _initNavAiTyping();
 }
 
-// Init typing on load — restore saved query if any
+// Init typing on load
+// FIX 2026-05: Auto-Restore der letzten Suche aus localStorage entfernt.
+// Jeder Page-Load startet jetzt mit der Typing-Animation, statt eine
+// alte, oft vergessene Suche (z. B. "Dekoration") wieder anzuzeigen.
+// Migrations-Aufräumung: alten Eintrag einmal still löschen.
 document.addEventListener('DOMContentLoaded', function() {
-  var savedQuery = '';
-  try { savedQuery = localStorage.getItem('eb_nav_search') || ''; } catch(e) {}
-  if (savedQuery) {
-    var typingEl = document.getElementById('navAiTyping');
-    var navBtn = document.querySelector('.nav-search-ai');
-    var clearBtn = document.getElementById('navClearSearch');
-    if (typingEl) typingEl.textContent = savedQuery;
-    if (navBtn) navBtn.classList.add('has-query');
-    if (clearBtn) clearBtn.style.display = 'flex';
-    // Don't start animation when query is active
-  } else {
-    _initNavAiTyping();
-  }
+  try { localStorage.removeItem('eb_nav_search'); } catch(e) {}
+  _initNavAiTyping();
 });

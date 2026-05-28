@@ -2,7 +2,7 @@ name: Deploy to IONOS
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -137,39 +137,4 @@ jobs:
             bye
           "
           echo "✅ Stripe constants written to wp-config.php"
-          rm -f /tmp/wp-config.php
-
-      - name: Inject AI Office Webapp key into wp-config.php
-        env:
-          SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
-          SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
-          SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
-          AI_OFFICE_WEBAPP_KEY: ${{ secrets.AI_OFFICE_WEBAPP_KEY }}
-        run: |
-          if [ -z "$AI_OFFICE_WEBAPP_KEY" ]; then
-            echo "⚠️ AI_OFFICE_WEBAPP_KEY secret not set — skipping"
-            exit 0
-          fi
-          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
-            set sftp:auto-confirm yes;
-            get /public/wp-config.php -o /tmp/wp-config.php;
-            bye
-          "
-          sed -i '/AI_OFFICE_WEBAPP_KEY/d' /tmp/wp-config.php
-          LINENUM=$(grep -n '<?php' /tmp/wp-config.php | head -1 | cut -d: -f1)
-          if [ -z "$LINENUM" ]; then
-            echo "ERROR: <?php not found in wp-config.php!"
-            exit 1
-          fi
-          ESC_AI=$(printf "%s" "$AI_OFFICE_WEBAPP_KEY" | sed "s/'/\\\\'/g")
-          sed -i "${LINENUM}a\\
-          define('AI_OFFICE_WEBAPP_KEY', '${ESC_AI}');" /tmp/wp-config.php
-          echo "--- verify AI Office key injection ---"
-          grep -n 'AI_OFFICE_WEBAPP_KEY' /tmp/wp-config.php | sed 's/= .*/= ***REDACTED***/'
-          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
-            set sftp:auto-confirm yes;
-            put /tmp/wp-config.php -o /public/wp-config.php;
-            bye
-          "
-          echo "✅ AI Office Webapp key written to wp-config.php"
           rm -f /tmp/wp-config.php

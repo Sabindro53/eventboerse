@@ -20,6 +20,16 @@
   <meta name="twitter:title" content="Eventbörse – Dein Event-Marktplatz" />
   <meta name="twitter:description" content="Finde die besten Event-Dienstleister in deiner Nähe. DJs, Caterer, Fotografen und mehr." />
   <meta name="twitter:image" content="https://xn--eventbrse-57a.de/wp-content/themes/eventboerse/assets/img/og-image.png" />
+
+  <!-- Mobile-Browser-Chrome-Farben (Safari iOS / Chrome Android) -->
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Eventbörse" />
+  <meta name="format-detection" content="telephone=no" />
+
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FF385C'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='sans-serif' font-weight='bold' fill='white'%3EE%3C/text%3E%3C/svg%3E" />
   <link rel="canonical" href="https://eventbörse.de" />
 
@@ -31,9 +41,8 @@
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
 
   <!-- Critical CSS first (render-blocking, but small) -->
-  <link rel="preload" href="styles.css?v=162" as="style" fetchpriority="high" />
-  <link rel="stylesheet" href="styles.css?v=162" />
-  <link rel="stylesheet" href="ui-enhancements.css?v=1" />
+  <link rel="preload" href="styles.css?v=164" as="style" fetchpriority="high" />
+  <link rel="stylesheet" href="styles.css?v=164" />
 
   <!-- Fonts: async laden, vermeidet Render-Block (FOUT statt FOIT) -->
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
@@ -934,8 +943,8 @@
         <div class="detail-provider-row">
           <img id="detailProviderImg" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3C%2Fsvg%3E" alt="Provider" class="detail-provider-avatar" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)" loading="lazy" decoding="async" />
           <div>
-            <strong id="detailProviderName" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)">Max Beats</strong>
-            <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
+            <strong id="detailProviderName" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)">&nbsp;</strong>
+            <p id="detailProviderTag">&nbsp;</p>
           </div>
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
           <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
@@ -1033,32 +1042,30 @@
         <!-- Profile Card -->
         <div class="provider-profile-card">
           <div class="ppc-left">
-            <img id="providerAvatar" src="" alt="Provider" class="provider-avatar-lg" loading="lazy" decoding="async" />
-            <div class="ppc-verified" id="providerVerifiedBadge">
+            <!-- Avatar bleibt initial leer; JS füllt ihn (oder zeigt Default-SVG) -->
+            <img id="providerAvatar" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23EEEEEE%22%2F%3E%3C%2Fsvg%3E" alt="Profil" class="provider-avatar-lg" loading="lazy" decoding="async" />
+            <div class="ppc-verified" id="providerVerifiedBadge" style="display:none">
               <span class="material-icons-round">verified</span> Verifiziert
             </div>
           </div>
           <div class="ppc-center">
-            <h1 id="providerName">Max Beats</h1>
-            <p id="providerTagline" class="provider-tagline">DJ & Musikproduktion · Berlin</p>
-            <div class="ppc-badges" id="providerBadges">
-              <span class="ppc-badge ppc-badge-super"><span class="material-icons-round">workspace_premium</span> Superhost</span>
-              <span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit 2021</span>
-              <span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>
-            </div>
+            <!-- Profil-Platzhalter: NIEMALS Demo-Daten in produktiven Bereichen! -->
+            <h1 id="providerName">&nbsp;</h1>
+            <p id="providerTagline" class="provider-tagline">&nbsp;</p>
+            <div class="ppc-badges" id="providerBadges"><!-- gefüllt von JS --></div>
           </div>
           <div class="ppc-right">
             <div class="provider-stats-ring">
               <div class="stat-ring">
-                <strong id="providerListingCount">1</strong>
+                <strong id="providerListingCount">–</strong>
                 <span>Inserate</span>
               </div>
               <div class="stat-ring">
-                <strong id="providerRating">4.9</strong>
+                <strong id="providerRating">–</strong>
                 <span>Bewertung</span>
               </div>
               <div class="stat-ring">
-                <strong id="providerReviews">127</strong>
+                <strong id="providerReviews">–</strong>
                 <span>Reviews</span>
               </div>
             </div>
@@ -1086,7 +1093,7 @@
             <div class="provider-section">
               <h2><span class="material-icons-round">person</span> Über mich</h2>
               <div class="provider-bio" id="providerBio">
-                <p>Professioneller DJ mit über 10 Jahren Erfahrung.</p>
+                <!-- Bio wird von JS gefüllt – KEINE Demo-Daten hier! -->
               </div>
             </div>
 
@@ -1113,11 +1120,7 @@
             <div class="provider-fact-card">
               <h3>Auf einen Blick</h3>
               <ul class="provider-facts" id="providerFacts">
-                <li><span class="material-icons-round">location_on</span> <span>Berlin, Deutschland</span></li>
-                <li><span class="material-icons-round">category</span> <span>DJ & Musik</span></li>
-                <li><span class="material-icons-round">euro</span> <span>ab 450€ / Event</span></li>
-                <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
-                <li><span class="material-icons-round">speed</span> <span>Antwortet innerhalb von 1 Std.</span></li>
+                <!-- Facts werden von JS gefüllt -->
               </ul>
             </div>
 
@@ -1188,8 +1191,8 @@
               </button>
               <img src="" alt="" id="chatAvatar" onclick="goToChatProfile()" style="cursor:pointer" loading="lazy" decoding="async" />
               <div onclick="goToChatProfile()" style="cursor:pointer">
-                <strong id="chatName">Max Beats</strong>
-                <span id="chatStatus" class="chat-status online">Online</span>
+                <strong id="chatName">&nbsp;</strong>
+                <span id="chatStatus" class="chat-status"></span>
               </div>
               <div class="chat-header-actions">
                 <button onclick="openNegotiationInChat()" title="Preisverhandlung">
@@ -2835,9 +2838,9 @@ Datum: ___________________________________________________
             Event<span class="accent">börse</span>
           </a>
           <p>Der smarte Marktplatz für unvergessliche Events.</p>
-          <a href="mailto:kontakt@eventbörse.de" class="footer-contact-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px">
+          <a href="mailto:Kontakt@xn--eventbrse-57a.de" class="footer-contact-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px">
             <span class="material-icons-round" style="font-size:14px;vertical-align:middle">mail_outline</span>
-            kontakt@eventbörse.de
+            Kontakt@eventbörse.de
           </a>
         </div>
         <div class="footer-col">
@@ -3486,6 +3489,5 @@ Datum: ___________________________________________________
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
   <script src="app.js?v=158" defer></script>
-  <script src="ux-improvements.js?v=1" defer></script>
 </body>
 </html>
