@@ -18213,7 +18213,7 @@ function _renderNavAiBody(query) {
       results.forEach(function(l) {
         var img = (l.images && l.images[0]) ? l.images[0] : '';
         var stars = '★'.repeat(Math.round(l.rating)) + '☆'.repeat(5 - Math.round(l.rating));
-        html += '<button class="nav-ai-result-card" onclick="closeNavAiSearch();navigateTo(\'provider\', ' + (l.providerId || l.id) + ')">' +
+        html += '<button class="nav-ai-result-card" type="button" aria-label="Profil ansehen" onclick="closeNavAiSearch();(typeof showToast===\'function\')&&showToast(\'Profil wird geladen…\',\'sync\');navigateTo(\'provider\', ' + (l.providerId || l.id) + ')">' +
           '<img class="nav-ai-result-img" src="' + img + '" alt="" onerror="this.style.display=\'none\'" />' +
           '<div class="nav-ai-result-info">' +
             '<div class="nav-ai-result-name">' + l.title + '</div>' +
