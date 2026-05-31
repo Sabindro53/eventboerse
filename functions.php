@@ -938,6 +938,31 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Diese E-Mail-Adresse ist bereits registriert.' ), 400 );
     }
 
+    // Anti-Spam Patch B 2026-05-29 — Honeypot
+    // Bots füllen alle Felder aus; Mensch lässt 'website' leer.
+    $honeypot = isset( $params['website'] ) ? trim( (string) $params['website'] ) : '';
+    if ( $honeypot !== '' ) {
+        // Silent fake-OK damit Bot nicht merkt dass er erkannt wurde
+        return new WP_REST_Response( array(
+            'requiresOtp'  => true,
+            'email'        => $email,
+            'expiresIn'    => 600,
+            'resendToken'  => bin2hex( random_bytes( 16 ) ),
+        ), 200 );
+    }
+
+    // Anti-Spam Patch A 2026-05-29 — IP-Rate-Limit
+    // max 3 Registrierungs-Versuche pro IP pro Stunde (verhindert Massen-Bot)
+    $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '';
+    if ( $ip ) {
+        $ip_key   = 'eb_reg_ip_' . md5( $ip );
+        $ip_count = (int) get_transient( $ip_key );
+        if ( $ip_count >= 3 ) {
+            return new WP_REST_Response( array( 'message' => 'Zu viele Registrierungs-Versuche von dieser IP. Bitte warte 1 Stunde.' ), 429 );
+        }
+        set_transient( $ip_key, $ip_count + 1, HOUR_IN_SECONDS );
+    }
+
     // Cooldown prüfen
     if ( get_transient( eb_reg_otp_cooldown_key( $email ) ) ) {
         return new WP_REST_Response( array( 'message' => 'Bitte warte kurz, bevor du einen neuen Code anforderst.' ), 429 );
@@ -4724,7 +4749,8 @@ function eb_send_invoice( WP_REST_Request $request ) {
     $recipients = array();
     if ( $user_email )     $recipients[] = $user_email;
     if ( $provider_email ) $recipients[] = $provider_email;
-    $recipients[] = 'kontakt@eventbörse.de';
+    // kontakt@-CC entfernt 2026-05-29 (Anti-Spam Patch C). Buchungen sind im Admin-Dashboard sichtbar.
+    // $recipients[] = 'kontakt@eventbörse.de';
     if ( $provider_uid && in_array( $provider_uid, $eb_bot_ids, true ) ) {
         $recipients[] = 'testaccount@eventbörse.de';
     }
