@@ -4966,11 +4966,22 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
             $connect_id = get_user_meta( $provider_uid, 'eb_stripe_connect_id', true );
             $connect_ok = get_user_meta( $provider_uid, 'eb_stripe_connect_active', true );
             if ( $connect_id && $connect_ok ) {
+                // Fee-Aufteilung 2026-05-31: Direct/Destination Charges + on_behalf_of.
+                // Damit trägt der Dienstleister (Connected Account) die Stripe-Fees,
+                // nicht die Plattform. Bei 1,00 € Buchung:
+                //   Customer zahlt: 1,00 €
+                //   Stripe-Fee:     0,264 € (1,4% + 0,25€ EU-Karte) → vom Dienstleister
+                //   App Fee 3%:     0,03 € → Plattform-Konto
+                //   Dienstleister:  0,706 € → sein Auszahlungs-Konto
                 $fee_cents = (int) round( $amount_cents * 0.03 );
                 $fields['application_fee_amount']          = $fee_cents;
                 $fields['transfer_data[destination]']      = $connect_id;
+                $fields['on_behalf_of']                    = $connect_id;
+                // Statement-Descriptor wird vom Connected Account übernommen → Käufer
+                // sieht 'Eventbörse / <Dienstleister>' auf seiner Bank-Abrechnung.
                 $fields['metadata[connect_id]']            = $connect_id;
                 $fields['metadata[application_fee_cents]'] = (string) $fee_cents;
+                $fields['metadata[fee_model]']             = 'destination_with_on_behalf_of';
             }
         }
     }
