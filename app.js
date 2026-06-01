@@ -10540,7 +10540,9 @@ async function handleRegister(e) {
         first_name: firstName,
         last_name: lastName,
         company: company || '',
-        vat_id: vatId || ''
+        vat_id: vatId || '',
+        // Honeypot 2026-05-29: leeres Feld ist OK; Bot füllt es → Backend silent-rejects
+        website: (document.getElementById('regWebsite') || {}).value || ''
       })
     });
     var data = await response.json();

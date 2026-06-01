@@ -2979,6 +2979,12 @@ Datum: ___________________________________________________
         <p>Erstelle dein kostenloses Konto</p>
       </div>
       <form class="modal-form" onsubmit="handleRegister(event)">
+        <!-- Honeypot 2026-05-29 — Bots füllen alle Felder; Mensch sieht das nicht.
+             KEINE CSS-class verwenden (Bot-Heuristik), nur Inline-Style. -->
+        <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden">
+          <label for="regWebsite">Website (bitte leer lassen)</label>
+          <input type="text" id="regWebsite" name="website" tabindex="-1" autocomplete="off" />
+        </div>
         <!-- Schritt 1: Rolle wählen -->
         <div class="form-group">
           <label>Ich bin...</label>
