@@ -1,9 +1,9 @@
 name: Claude Auto-Audit
 
 on:
+  # Cron deaktiviert 2026-05-31 — Auto-Audit-Reports überfluteten Issues-Liste.
+  # Manuelle Trigger über Actions → Run workflow weiterhin möglich.
   workflow_dispatch:
-  schedule:
-    - cron: '0 4 * * *'
 
 jobs:
   audit:
