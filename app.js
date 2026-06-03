@@ -14145,6 +14145,16 @@ function _reconcileStripePayments() {
 
 function _renderCreatePayoutNotice(data) {
   var notice = document.getElementById('createPayoutNotice');
+  if (!notice) {
+    var subtitle = document.querySelector('#page-create-listing .create-subtitle');
+    if (subtitle && subtitle.parentNode) {
+      notice = document.createElement('div');
+      notice.id = 'createPayoutNotice';
+      notice.className = 'create-payout-notice';
+      notice.style.display = 'none';
+      subtitle.parentNode.insertBefore(notice, subtitle.nextSibling);
+    }
+  }
   if (!notice) return;
   if (!currentUser || !isDienstleister() || (data && data.status === 'hidden')) {
     notice.style.display = 'none';
