@@ -6004,6 +6004,7 @@ function updateCreateFormForRole() {
     if (uploadZoneH3) uploadZoneH3.textContent = 'Event-Bilder hochladen';
     if (uploadZoneP) uploadZoneP.textContent = 'Lade Bilder oder Inspirationen f\u00fcr dein Event hoch';
     if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">event_available</span> Event ver\u00f6ffentlichen';
+    _renderCreatePayoutNotice({ status: 'hidden' });
   } else {
     if (title) title.textContent = 'Inserat erstellen';
     if (subtitle) subtitle.textContent = 'Pr\u00e4sentiere deinen Service und erreiche tausende potenzielle Kunden.';
@@ -6017,6 +6018,8 @@ function updateCreateFormForRole() {
     if (uploadZoneH3) uploadZoneH3.textContent = 'Bilder hochladen';
     if (uploadZoneP) uploadZoneP.textContent = 'Ziehe Bilder hierher oder klicke zum Ausw\u00e4hlen';
     if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">publish</span> Inserat ver\u00f6ffentlichen';
+    _renderCreatePayoutNotice({ status: 'loading' });
+    if (typeof loadStripeConnectStatus === 'function') loadStripeConnectStatus();
   }
 
 }
@@ -6032,7 +6035,7 @@ function loadSettings() {
   var companyField = document.getElementById('settingsCompanyField');
   var companyInput = document.getElementById('settingsCompany');
   if (companyField && companyInput) {
-    if (currentUser.role === 'Dienstleister') {
+    if (isDienstleister()) {
       companyField.style.display = '';
       companyInput.value = currentUser.company || '';
     } else {
@@ -6066,7 +6069,7 @@ function loadSettings() {
   // Stripe Connect: nur für Dienstleister anzeigen + Status laden
   var connectCard = document.getElementById('stripeConnectCard');
   if (connectCard) {
-    if (currentUser && currentUser.role === 'Dienstleister') {
+    if (isDienstleister()) {
       loadStripeConnectStatus();
     } else {
       connectCard.style.display = 'none';
@@ -10382,7 +10385,7 @@ function applyLogin() {
     var adminMenuBtn = document.getElementById('adminMenuBtn');
     if (adminMenuBtn) adminMenuBtn.style.display = currentUser.isAdmin ? 'flex' : 'none';
     var auftraegeMenuBtn = document.getElementById('auftraegeMenuBtn');
-    if (auftraegeMenuBtn) auftraegeMenuBtn.style.display = (currentUser.role === 'Dienstleister') ? 'flex' : 'none';
+    if (auftraegeMenuBtn) auftraegeMenuBtn.style.display = isDienstleister() ? 'flex' : 'none';
     // Reconcile ausstehende Webhook-Bestaetigungen
     try { if (typeof _reconcileStripePayments === 'function') setTimeout(_reconcileStripePayments, 800); } catch(e) {}
   }
@@ -12401,7 +12404,7 @@ window.addEventListener('pagehide', function() {
 function renderAuftraegePage() {
   var container = document.getElementById('auftraegeContent');
   if (!container) return;
-  var isProvider = currentUser && currentUser.role === 'Dienstleister';
+  var isProvider = isDienstleister();
 
   // Aggregation: eigene Board-Karten, bei denen der aktuelle User als
   // providerId des Listings eingetragen ist (lokaler Scope).
@@ -14140,13 +14143,75 @@ function _reconcileStripePayments() {
 
 // ─── Stripe Connect: Auszahlungskonto für Dienstleister ──────────────────────
 
+function _renderCreatePayoutNotice(data) {
+  var notice = document.getElementById('createPayoutNotice');
+  if (!notice) return;
+  if (!currentUser || !isDienstleister() || (data && data.status === 'hidden')) {
+    notice.style.display = 'none';
+    notice.innerHTML = '';
+    return;
+  }
+
+  data = data || {};
+  var status = data.status || 'none';
+  var isActive = status === 'active';
+  var isPending = status === 'pending';
+  var isLoading = status === 'loading';
+  var cls = isActive ? ' is-active' : (isPending ? '' : ' is-warning');
+  var icon = isActive ? 'verified' : (isPending || isLoading ? 'hourglass_top' : 'account_balance');
+  var title = 'Auszahlungskonto verbinden';
+  var text = 'Du kannst dein Inserat erstellen. Buchungen und Sofortzahlungen werden erst freigegeben, wenn Stripe dein Auszahlungs-Konto verifiziert hat.';
+  var actions = '';
+
+  if (isLoading) {
+    title = 'Auszahlungsstatus wird geprüft';
+    text = 'Ich prüfe gerade, ob dein Stripe-Auszahlungskonto bereit ist.';
+  } else if (isActive) {
+    title = 'Auszahlungen sind aktiv';
+    text = 'Kunden können deine Inserate buchen. Zahlungen laufen über Stripe Connect und werden deinem Auszahlungs-Konto zugeordnet.';
+    actions =
+      '<button type="button" class="btn-outline btn-sm" onclick="openStripeConnectDashboard()">' +
+        '<span class="material-icons-round">open_in_new</span> Stripe öffnen' +
+      '</button>';
+  } else if (isPending) {
+    title = 'Stripe prüft deine Angaben';
+    text = 'Dein Konto ist angelegt, aber noch nicht vollständig für Buchungen freigeschaltet. Falls Stripe noch Angaben braucht, führe das Onboarding fort.';
+    actions =
+      '<button type="button" class="btn-primary btn-sm" onclick="connectStripeAccount(this)" style="background:#635BFF;border-color:#635BFF">' +
+        '<span class="material-icons-round">settings</span> Onboarding fortsetzen' +
+      '</button>';
+  } else {
+    actions =
+      '<button type="button" class="btn-primary btn-sm" onclick="connectStripeAccount(this)" style="background:#635BFF;border-color:#635BFF">' +
+        '<span class="material-icons-round">link</span> Stripe verbinden' +
+      '</button>';
+  }
+
+  notice.className = 'create-payout-notice' + cls;
+  notice.innerHTML =
+    '<div class="create-payout-notice-inner">' +
+      '<span class="material-icons-round">' + icon + '</span>' +
+      '<div>' +
+        '<div class="create-payout-title">' + _escHtml(title) + '</div>' +
+        '<div class="create-payout-text">' + _escHtml(text) + '</div>' +
+      '</div>' +
+      '<div class="create-payout-actions">' + actions + '</div>' +
+    '</div>';
+  notice.style.display = '';
+}
+
 /**
  * Stripe-Connect-Status laden und Einstellungs-UI aktualisieren.
  */
 function loadStripeConnectStatus() {
   var card = document.getElementById('stripeConnectCard');
-  if (!card) return;
-  card.style.display = '';
+  if (!currentUser || !isDienstleister()) {
+    if (card) card.style.display = 'none';
+    _renderCreatePayoutNotice({ status: 'hidden' });
+    return Promise.resolve(null);
+  }
+  if (card) card.style.display = '';
+  _renderCreatePayoutNotice({ status: 'loading' });
 
   var statusEl   = document.getElementById('stripeConnectStatusText');
   var accountRow = document.getElementById('stripeConnectAccountRow');
@@ -14157,7 +14222,7 @@ function loadStripeConnectStatus() {
 
   if (statusEl) statusEl.textContent = 'Wird geladen …';
 
-  fetch(_apiUrl('stripe/connect/status'), {
+  return fetch(_apiUrl('stripe/connect/status'), {
     method: 'GET',
     credentials: 'same-origin',
     headers: _apiHeaders()
@@ -14165,6 +14230,8 @@ function loadStripeConnectStatus() {
   .then(function(r) { return r.ok ? r.json() : { status: 'none' }; })
   .then(function(data) {
     var s = (data && data.status) || 'none';
+    window._stripeConnectStatus = data || { status: s };
+    _renderCreatePayoutNotice(data || { status: s });
 
     if (statusEl) {
       var labels = {
@@ -14198,6 +14265,7 @@ function loadStripeConnectStatus() {
   })
   .catch(function() {
     if (statusEl) statusEl.textContent = 'Fehler beim Laden – bitte Seite neu laden.';
+    _renderCreatePayoutNotice({ status: 'none' });
   });
 }
 
@@ -14267,7 +14335,7 @@ function confirmStripeBusinessType(confirmBtn) {
 }
 
 function openStripeConnectDashboard() {
-  fetch(_apiUrl('stripe/connect/status') + '&login_link=1', {
+  fetch(_apiUrl('stripe/connect/status?login_link=1'), {
     method: 'GET',
     credentials: 'same-origin',
     headers: _apiHeaders()
@@ -14418,6 +14486,22 @@ function _openStripePaymentModal(opts) {
   }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
     .then(function(res) {
       if (!res.ok || !res.data || !res.data.client_secret || !res.data.publishable_key) {
+        if (res.data && res.data.requires_connect_onboarding) {
+          var payEl = ov.querySelector('#stripePaymentElement');
+          if (payEl) {
+            payEl.innerHTML =
+              '<div class="stripe-payout-blocked">' +
+                '<span class="material-icons-round">account_balance_wallet</span>' +
+                '<div>' +
+                  '<strong>Dienstleister noch nicht auszahlungsbereit</strong>' +
+                  '<span>' + _escHtml(res.data.message || 'Diese Buchung ist erst möglich, wenn der Dienstleister sein Stripe-Auszahlungskonto eingerichtet hat.') + '</span>' +
+                '</div>' +
+              '</div>';
+          }
+          payBtn.style.display = 'none';
+          showErr('Keine Zahlung gestartet. Der Dienstleister muss zuerst Stripe Connect abschließen.');
+          return;
+        }
         showErr((res.data && res.data.message) || 'Stripe konnte nicht initialisiert werden.');
         return;
       }
@@ -17511,7 +17595,7 @@ function renderSocialPostCard(post) {
   var imgBlock = post.image ? '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(post.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(post.image) + '" alt="Post Bild" loading="lazy" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' : '';
 
   // Contact button for search posts — only visible to Dienstleister
-  var isProvider = currentUser && currentUser.role === 'Dienstleister';
+  var isProvider = isDienstleister();
   var contactBtn = (isSearch && isProvider) ? '<button class="feed-contact-btn" onclick="showToast(\'Kontakt-Anfrage gesendet!\',\'check_circle\')"><span class="material-icons-round">mail_outline</span> Angebot stellen</button>' : '';
 
   return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '" data-post-id="' + post.id + '">' +

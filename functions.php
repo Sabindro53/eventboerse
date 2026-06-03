@@ -4952,20 +4952,55 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'metadata[title]'                      => $title,
     );
 
+    if ( ! $listing_id ) {
+        return new WP_REST_Response( array(
+            'message' => 'Für Buchungen ist ein echtes Inserat erforderlich, damit die Zahlung korrekt dem Dienstleister zugeordnet werden kann.',
+            'code'    => 'listing_required_for_payment',
+        ), 400 );
+    }
+
     // Stripe Connect: Zahlung automatisch an Dienstleister weiterleiten (3% Provision)
     if ( $listing_id ) {
-        $listing = get_post( $listing_id );
-        $provider_uid = $listing ? (int) get_post_field( 'post_author', $listing_id ) : 0;
+        $listing_lookup_id = $listing_id;
+        $listing = get_post( $listing_lookup_id );
+        $provider_uid = $listing ? (int) get_post_field( 'post_author', $listing_lookup_id ) : 0;
         if ( ! $provider_uid ) {
             global $wpdb;
             $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id
+                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
             ) );
+            if ( ! $provider_uid && $listing_id > 10000 ) {
+                $listing_lookup_id = $listing_id - 10000;
+                $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
+                ) );
+            }
+        }
+        if ( ! $provider_uid ) {
+            return new WP_REST_Response( array(
+                'message' => 'Dieses Inserat konnte keinem Dienstleister zugeordnet werden. Die Zahlung wurde nicht gestartet.',
+                'code'    => 'provider_not_found_for_payment',
+            ), 400 );
+        }
+        if ( $user && (int) $user->ID === (int) $provider_uid ) {
+            return new WP_REST_Response( array(
+                'message' => 'Du kannst dein eigenes Inserat nicht buchen.',
+                'code'    => 'cannot_book_own_listing',
+            ), 403 );
         }
         if ( $provider_uid ) {
-            $connect_id = get_user_meta( $provider_uid, 'eb_stripe_connect_id', true );
-            $connect_ok = get_user_meta( $provider_uid, 'eb_stripe_connect_active', true );
-            if ( $connect_id && $connect_ok ) {
+            $connect_state = eb_stripe_connect_state_for_user( $provider_uid, $sk );
+            if ( empty( $connect_state['active'] ) ) {
+                return new WP_REST_Response( array(
+                    'message'                     => 'Dieser Dienstleister hat sein Stripe-Auszahlungskonto noch nicht vollständig eingerichtet. Die Buchung ist erst möglich, wenn Auszahlungen aktiv sind.',
+                    'code'                        => 'provider_payout_onboarding_required',
+                    'requires_connect_onboarding' => true,
+                    'connect_status'              => $connect_state['status'] ?? 'none',
+                    'disabled_reason'             => $connect_state['disabled_reason'] ?? '',
+                ), 409 );
+            }
+            $connect_id = $connect_state['connect_id'] ?? '';
+            if ( $connect_id ) {
                 // Fee-Aufteilung 2026-05-31: Direct/Destination Charges + on_behalf_of.
                 // Damit trägt der Dienstleister (Connected Account) die Stripe-Fees,
                 // nicht die Plattform. Bei 1,00 € Buchung:
@@ -5022,6 +5057,75 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
 
 // ─── Stripe Connect: Dienstleister-Onboarding & Auszahlung ───────────────────
 
+function eb_stripe_connect_state_for_user( $user_id, $sk ) {
+    $connect_id = get_user_meta( $user_id, 'eb_stripe_connect_id', true );
+    if ( ! $connect_id ) {
+        update_user_meta( $user_id, 'eb_stripe_connect_active', '' );
+        return array(
+            'status'          => 'none',
+            'active'          => false,
+            'connect_id'      => '',
+            'charges_enabled' => false,
+            'payouts_enabled' => false,
+        );
+    }
+
+    $ch = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    $data = json_decode( $resp, true );
+    if ( $err || $http >= 400 || ! is_array( $data ) ) {
+        update_user_meta( $user_id, 'eb_stripe_connect_active', '' );
+        return array(
+            'status'          => 'incomplete',
+            'active'          => false,
+            'connect_id'      => $connect_id,
+            'charges_enabled' => false,
+            'payouts_enabled' => false,
+            'disabled_reason' => 'stripe_unreachable',
+        );
+    }
+
+    $charges_enabled  = ! empty( $data['charges_enabled'] );
+    $payouts_enabled  = ! empty( $data['payouts_enabled'] );
+    $details_submitted = ! empty( $data['details_submitted'] );
+    $requirements     = isset( $data['requirements'] ) && is_array( $data['requirements'] ) ? $data['requirements'] : array();
+    $disabled_reason  = isset( $requirements['disabled_reason'] ) ? sanitize_text_field( $requirements['disabled_reason'] ) : '';
+    $currently_due    = isset( $requirements['currently_due'] ) && is_array( $requirements['currently_due'] ) ? array_values( $requirements['currently_due'] ) : array();
+    $eventually_due   = isset( $requirements['eventually_due'] ) && is_array( $requirements['eventually_due'] ) ? array_values( $requirements['eventually_due'] ) : array();
+
+    if ( $charges_enabled && $payouts_enabled ) {
+        $status = 'active';
+        update_user_meta( $user_id, 'eb_stripe_connect_active', '1' );
+    } elseif ( $details_submitted ) {
+        $status = 'pending';
+        update_user_meta( $user_id, 'eb_stripe_connect_active', '' );
+    } else {
+        $status = 'incomplete';
+        update_user_meta( $user_id, 'eb_stripe_connect_active', '' );
+    }
+
+    return array(
+        'status'          => $status,
+        'active'          => $status === 'active',
+        'connect_id'      => $connect_id,
+        'charges_enabled' => $charges_enabled,
+        'payouts_enabled' => $payouts_enabled,
+        'details_submitted' => $details_submitted,
+        'disabled_reason' => $disabled_reason,
+        'currently_due'   => $currently_due,
+        'eventually_due'  => $eventually_due,
+    );
+}
+
 /**
  * POST /stripe/connect/onboard
  * Erstellt (oder erneuert) einen Stripe Express Account + Onboarding-Link.
@@ -5035,6 +5139,9 @@ function eb_stripe_connect_onboard( WP_REST_Request $request ) {
     $user = wp_get_current_user();
     if ( ! $user || ! $user->ID ) {
         return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
+    }
+    if ( eventboerse_base_role( $user ) !== 'Dienstleister' ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe-Auszahlungen sind nur für Dienstleister verfügbar.' ), 403 );
     }
 
     $connect_id = get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
@@ -5088,6 +5195,7 @@ function eb_stripe_connect_onboard( WP_REST_Request $request ) {
         }
         update_user_meta( $user->ID, 'eb_stripe_connect_id', sanitize_text_field( $connect_id ) );
         update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
+        update_user_meta( $user->ID, 'eb_stripe_connect_business_type', $business_type );
     }
 
     // Account-Link generieren (Onboarding-URL, 10 Min. gültig)
@@ -5097,6 +5205,7 @@ function eb_stripe_connect_onboard( WP_REST_Request $request ) {
         'refresh_url' => $base_url . '?stripe_connect=refresh',
         'return_url'  => $base_url . '?stripe_connect=return',
         'type'        => 'account_onboarding',
+        'collection_options[fields]' => 'eventually_due',
     );
     $ch = curl_init( 'https://api.stripe.com/v1/account_links' );
     curl_setopt_array( $ch, array(
@@ -5150,45 +5259,10 @@ function eb_stripe_connect_status( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'status' => 'none', 'connect_id' => '' ), 200 );
     }
 
-    $ch = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) );
-    curl_setopt_array( $ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_USERPWD        => $sk . ':',
-        CURLOPT_TIMEOUT        => 15,
-    ) );
-    $resp = curl_exec( $ch );
-    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    curl_close( $ch );
-
-    $data = json_decode( $resp, true );
-    if ( $http >= 400 || ! is_array( $data ) ) {
-        return new WP_REST_Response( array( 'status' => 'incomplete', 'connect_id' => $connect_id ), 200 );
-    }
-
-    $charges_enabled = ! empty( $data['charges_enabled'] );
-    $payouts_enabled = ! empty( $data['payouts_enabled'] );
-    $details_submitted = ! empty( $data['details_submitted'] );
-
-    if ( $charges_enabled && $payouts_enabled ) {
-        $status = 'active';
-        update_user_meta( $user->ID, 'eb_stripe_connect_active', '1' );
-    } elseif ( $details_submitted ) {
-        $status = 'pending';
-        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
-    } else {
-        $status = 'incomplete';
-        update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
-    }
-
-    $result = array(
-        'status'          => $status,
-        'connect_id'      => $connect_id,
-        'charges_enabled' => $charges_enabled,
-        'payouts_enabled' => $payouts_enabled,
-    );
+    $result = eb_stripe_connect_state_for_user( $user->ID, $sk );
 
     // Login-Link für Stripe Express Dashboard
-    if ( $request->get_param( 'login_link' ) === '1' && $charges_enabled ) {
+    if ( $request->get_param( 'login_link' ) === '1' && ! empty( $result['connect_id'] ) && ! empty( $result['details_submitted'] ) ) {
         $ch2 = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) . '/login_links' );
         curl_setopt_array( $ch2, array(
             CURLOPT_RETURNTRANSFER => true,
