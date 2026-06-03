@@ -4830,6 +4830,53 @@ function eb_stripe_public_key( WP_REST_Request $request ) {
     return new WP_REST_Response( array( 'publishable_key' => $pk ), 200 );
 }
 
+function eb_stripe_sanitize_error_message( $message ) {
+    $message = (string) $message;
+    $message = preg_replace( '/\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9_]+\b/', '***STRIPE_KEY***', $message );
+    $message = preg_replace( '/\bacct_[A-Za-z0-9_]+\b/', 'acct_***', $message );
+    $message = preg_replace( '/\bpi_[A-Za-z0-9_]+\b/', 'pi_***', $message );
+    $message = preg_replace( '/\bcs_(?:live|test)_[A-Za-z0-9_]+\b/', 'cs_***', $message );
+    return trim( $message );
+}
+
+function eb_stripe_public_error_payload( $response, $fallback = 'Stripe-Fehler.' ) {
+    $data           = json_decode( (string) $response, true );
+    $stripe_message = is_array( $data ) && isset( $data['error']['message'] ) ? (string) $data['error']['message'] : '';
+    $stripe_type    = is_array( $data ) && isset( $data['error']['type'] ) ? sanitize_text_field( $data['error']['type'] ) : '';
+    $stripe_code    = is_array( $data ) && isset( $data['error']['code'] ) ? sanitize_text_field( $data['error']['code'] ) : '';
+    $lower          = strtolower( $stripe_message );
+
+    if ( strpos( $lower, 'does not have the required permissions' ) !== false || strpos( $lower, 'required permissions' ) !== false ) {
+        return array(
+            'message'    => 'Stripe Connect ist noch nicht korrekt konfiguriert. Der hinterlegte Stripe-Key hat nicht die nötigen Connect-Rechte für das Auszahlungskonto-Onboarding.',
+            'code'       => 'stripe_key_missing_connect_permissions',
+            'admin_hint' => 'In Stripe unter Developers > API keys den Wert EB_STRIPE_SECRET_KEY prüfen: Nutze einen Live Secret Key (sk_live...) oder einen Restricted Key mit Connect-/Account-Link-/Connected-Account-Rechten.',
+        );
+    }
+
+    if ( strpos( $lower, 'invalid api key' ) !== false || strpos( $lower, 'api key provided' ) !== false ) {
+        return array(
+            'message'    => 'Stripe ist noch nicht korrekt konfiguriert. Der hinterlegte API-Key ist ungültig oder gehört nicht zum passenden Live/Test-Modus.',
+            'code'       => 'stripe_invalid_api_key',
+            'admin_hint' => 'EB_STRIPE_PUBLIC_KEY und EB_STRIPE_SECRET_KEY müssen aus demselben Stripe-Modus stammen.',
+        );
+    }
+
+    $payload = array(
+        'message' => $fallback,
+        'code'    => 'stripe_error',
+    );
+    if ( $stripe_type ) $payload['stripe_type'] = $stripe_type;
+    if ( $stripe_code ) $payload['stripe_code'] = $stripe_code;
+
+    $safe_message = eb_stripe_sanitize_error_message( $stripe_message );
+    if ( $safe_message && strlen( $safe_message ) < 240 ) {
+        $payload['stripe_message'] = $safe_message;
+    }
+
+    return $payload;
+}
+
 function eb_stripe_create_checkout( WP_REST_Request $request ) {
     $sk = eb_load_env_value( 'private_stripe_api_key' );
     if ( ! $sk ) {
@@ -4895,8 +4942,7 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
     }
     $data = json_decode( $response, true );
     if ( $http >= 400 || ! is_array( $data ) || empty( $data['url'] ) ) {
-        $msg = is_array( $data ) && isset( $data['error']['message'] ) ? $data['error']['message'] : 'Stripe-Fehler.';
-        return new WP_REST_Response( array( 'message' => $msg ), $http ?: 500 );
+        return new WP_REST_Response( eb_stripe_public_error_payload( $response, 'Stripe-Checkout konnte nicht gestartet werden.' ), $http ?: 500 );
     }
 
     return new WP_REST_Response( array(
@@ -5040,8 +5086,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
     }
     $data = json_decode( $response, true );
     if ( $http >= 400 || ! is_array( $data ) || empty( $data['client_secret'] ) ) {
-        $msg = is_array( $data ) && isset( $data['error']['message'] ) ? $data['error']['message'] : 'Stripe-Fehler.';
-        return new WP_REST_Response( array( 'message' => $msg ), $http ?: 500 );
+        return new WP_REST_Response( eb_stripe_public_error_payload( $response, 'Stripe konnte die Zahlung nicht vorbereiten.' ), $http ?: 500 );
     }
 
     $pk = eb_load_env_value( 'public_stripe_api_key' );
@@ -5184,9 +5229,7 @@ function eb_stripe_connect_onboard( WP_REST_Request $request ) {
         curl_close( $ch );
 
         if ( $err || $http >= 400 ) {
-            $d   = json_decode( $resp, true );
-            $msg = is_array( $d ) && isset( $d['error']['message'] ) ? $d['error']['message'] : 'Account-Erstellung fehlgeschlagen.';
-            return new WP_REST_Response( array( 'message' => $msg ), 500 );
+            return new WP_REST_Response( eb_stripe_public_error_payload( $resp, 'Stripe-Auszahlungskonto konnte nicht angelegt werden.' ), $http ?: 500 );
         }
         $acc_data   = json_decode( $resp, true );
         $connect_id = is_array( $acc_data ) ? ( $acc_data['id'] ?? '' ) : '';
@@ -5222,9 +5265,7 @@ function eb_stripe_connect_onboard( WP_REST_Request $request ) {
     curl_close( $ch );
 
     if ( $err || $http >= 400 ) {
-        $d   = json_decode( $resp, true );
-        $msg = is_array( $d ) && isset( $d['error']['message'] ) ? $d['error']['message'] : 'Link-Generierung fehlgeschlagen.';
-        return new WP_REST_Response( array( 'message' => $msg ), 500 );
+        return new WP_REST_Response( eb_stripe_public_error_payload( $resp, 'Stripe-Onboarding-Link konnte nicht erstellt werden.' ), $http ?: 500 );
     }
     $link_data = json_decode( $resp, true );
     $url       = is_array( $link_data ) ? ( $link_data['url'] ?? '' ) : '';

@@ -14335,7 +14335,12 @@ function confirmStripeBusinessType(confirmBtn) {
       closeModal('stripeBusinessTypeModal');
       window.location.href = data.onboarding_url;
     } else {
-      showToast((data && data.message) || 'Fehler beim Verbinden. Bitte erneut versuchen.', 'error');
+      if (data && data.admin_hint) console.warn('[eventboerse] Stripe Connect:', data.admin_hint);
+      var msg = (data && data.message) || 'Fehler beim Verbinden. Bitte erneut versuchen.';
+      if (data && data.code === 'stripe_key_missing_connect_permissions' && currentUser && currentUser.isAdmin) {
+        msg += ' Admin: EB_STRIPE_SECRET_KEY in Stripe prüfen.';
+      }
+      showToast(msg, 'error');
     }
   })
   .catch(function() {
