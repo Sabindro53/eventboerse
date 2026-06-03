@@ -103,6 +103,141 @@ function filterDemos(arr) {
   return arr.filter(function(l) { return !isDemoListing(l); });
 }
 
+// Einheitliche Sichtbarkeit für alle UI-Flächen.
+// Wenn Admin Testdaten eingeblendet hat, werden sie überall angezeigt.
+function _surfaceVisibleListings(arr) {
+  var rows = Array.isArray(arr) ? arr : [];
+  var adminWantsDemo = !!(
+    !window.EB_HIDE_DEMO &&
+    typeof currentUser !== 'undefined' &&
+    currentUser &&
+    currentUser.isAdmin
+  );
+  return adminWantsDemo ? rows : filterDemos(rows);
+}
+function _safeRun(label, fn) {
+  try {
+    if (typeof fn === 'function') fn();
+  } catch (err) {
+    console.error('Init-Fehler [' + label + ']', err);
+  }
+}
+function _removeClassById(id, cls) {
+  var el = document.getElementById(id);
+  if (el) el.classList.remove(cls);
+}
+function _addClassById(id, cls) {
+  var el = document.getElementById(id);
+  if (el) el.classList.add(cls);
+}
+
+function _toPositiveInt(value) {
+  var n = parseInt(value, 10);
+  return isNaN(n) || n <= 0 ? 0 : n;
+}
+
+function _currentUserId() {
+  return (typeof currentUser !== 'undefined' && currentUser) ? _toPositiveInt(currentUser.id) : 0;
+}
+
+function _sameUserId(a, b) {
+  var aa = _toPositiveInt(a);
+  var bb = _toPositiveInt(b);
+  return aa > 0 && bb > 0 && aa === bb;
+}
+
+function _listingOwnerId(listing) {
+  if (!listing || typeof listing !== 'object') return 0;
+  var candidates = [
+    listing.providerId,
+    listing.user_id,
+    listing.userId,
+    listing.ownerId,
+    listing.authorId,
+    listing.provider_user_id,
+    listing.providerUserId,
+    listing.provider && listing.provider.id
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    var val = _toPositiveInt(candidates[i]);
+    if (val > 0) return val;
+  }
+  return 0;
+}
+
+function _isCurrentUserListingOwner(listing) {
+  var uid = _currentUserId();
+  var ownerId = _listingOwnerId(listing);
+  return uid > 0 && ownerId > 0 && uid === ownerId;
+}
+
+function _listingMatchesId(listing, anyId) {
+  if (!listing) return false;
+  var needle = _toPositiveInt(anyId);
+  if (!needle) return false;
+  return _toPositiveInt(listing.id) === needle || _toPositiveInt(listing._dbId) === needle;
+}
+
+function _findListingByAnyId(anyId) {
+  var needle = _toPositiveInt(anyId);
+  if (!needle || !Array.isArray(LISTINGS)) return null;
+  for (var i = 0; i < LISTINGS.length; i++) {
+    if (_listingMatchesId(LISTINGS[i], needle)) return LISTINGS[i];
+  }
+  return null;
+}
+
+async function _ensureWriteSessionMatchesCurrentUser(actionLabel) {
+  if (!isLoggedIn || !currentUser) {
+    openModal('loginModal');
+    showToast('Bitte melde dich an, bevor du fortfährst.', 'warning');
+    return false;
+  }
+
+  var response;
+  try {
+    response = await fetch(_apiUrl('me') + '?_t=' + Date.now(), {
+      credentials: 'same-origin',
+      headers: _apiHeaders()
+    });
+    _refreshNonce(response);
+  } catch (e) {
+    showToast('Sitzung konnte nicht geprüft werden. Bitte lade die Seite neu.', 'warning');
+    return false;
+  }
+
+  var data = {};
+  try { data = await response.json(); } catch (_) {}
+
+  if (!response.ok || !data || data.loggedIn === false) {
+    isLoggedIn = false;
+    currentUser = null;
+    openModal('loginModal');
+    showToast('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.', 'warning');
+    return false;
+  }
+
+  var serverId = _toPositiveInt(data.user_id || data.id);
+  var localId = _currentUserId();
+  var serverEmail = String(data.email || '').toLowerCase();
+  var localEmail = String(currentUser.email || '').toLowerCase();
+  var idMismatch = localId > 0 && serverId > 0 && localId !== serverId;
+  var emailMismatch = localEmail && serverEmail && localEmail !== serverEmail;
+
+  if (idMismatch || emailMismatch) {
+    var serverUser = _normalizeUserPayload(data, {});
+    var serverName = serverUser.name || serverEmail || 'einem anderen Account';
+    currentUser = serverUser;
+    isLoggedIn = true;
+    showToast((actionLabel || 'Aktion') + ' gestoppt: Die Browser-Sitzung ist als ' + serverName + ' angemeldet. Bitte neu anmelden und erneut speichern.', 'warning');
+    applyLogin();
+    return false;
+  }
+
+  _applyAuthenticatedUser(data, currentUser);
+  return true;
+}
+
 // ========== IMAGE FALLBACK ==========
 // Manche externen Demo-URLs (Pexels) liefern 404. Damit die Karte nicht kaputt aussieht,
 // wird bei einem Image-Load-Fehler ein neutrales SVG-Placeholder eingesetzt.
@@ -825,6 +960,35 @@ async function uploadFile(file, _attempt) {
   return await resp.json();
 }
 
+function _mergeDbListingsIntoCache(rows) {
+  if (!Array.isArray(rows) || !rows.length) return 0;
+  var merged = 0;
+  rows.forEach(function(row) {
+    var rawId = _toPositiveInt(row && row.id);
+    if (!rawId) return;
+    var offsetId = rawId + 10000;
+    var existing = (LISTINGS || []).find(function(ex) {
+      if (!ex) return false;
+      return _toPositiveInt(ex.id) === offsetId || _toPositiveInt(ex._dbId) === rawId;
+    });
+    if (existing) {
+      Object.keys(row).forEach(function(k) { existing[k] = row[k]; });
+      existing.id = offsetId;
+      existing._fromDb = true;
+      existing._dbId = rawId;
+      return;
+    }
+    var listing = Object.assign({}, row, {
+      id: offsetId,
+      _fromDb: true,
+      _dbId: rawId
+    });
+    LISTINGS.unshift(listing);
+    merged++;
+  });
+  return merged;
+}
+
 // Load database listings into LISTINGS array (merged with demo data)
 async function loadDbListings() {
   if (_dbListingsLoaded) return;
@@ -833,16 +997,7 @@ async function loadDbListings() {
     if (!resp.ok) return;
     var data = await resp.json();
     if (data.listings && data.listings.length > 0) {
-      // Assign high IDs to avoid collision with demo data
-      data.listings.forEach(function(l) {
-        l.id = l.id + 10000; // offset DB IDs
-        l._fromDb = true;
-        l._dbId = l.id - 10000;
-        // Don't add duplicates (check both offset ID and raw DB ID)
-        if (!LISTINGS.find(function(ex) { return ex.id === l.id || ex._dbId === l._dbId; })) {
-          LISTINGS.unshift(l);
-        }
-      });
+      _mergeDbListingsIntoCache(data.listings);
     }
     _dbListingsLoaded = true;
     try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
@@ -2965,16 +3120,24 @@ function _showProviderNotFound(pid) {
 }
 
 function loadProvider(providerId) {
-  var pid = providerId || currentListing?.providerId;
+  var pid = _toPositiveInt(providerId || (currentListing && currentListing.providerId));
+  if (!pid) {
+    _showProviderNotFound(pid);
+    return;
+  }
   // DB listings always take priority over demo data
-  var dbListings = LISTINGS.filter(l => l._fromDb && l.providerId === pid);
+  var dbListings = LISTINGS.filter(function(l) {
+    return l && l._fromDb && _sameUserId(_listingOwnerId(l), pid);
+  });
   var providerListings;
   if (dbListings.length > 0) {
     // Real provider from database
     providerListings = dbListings;
   } else {
     // Fall back to demo data
-    var demoListings = LISTINGS.filter(l => !l._fromDb && l.providerId === pid);
+    var demoListings = LISTINGS.filter(function(l) {
+      return l && !l._fromDb && _sameUserId(l.providerId, pid);
+    });
     if (demoListings.length > 0) {
       providerListings = demoListings;
     } else {
@@ -2986,7 +3149,7 @@ function loadProvider(providerId) {
   // If no listings found locally, fetch provider from API — but NOT for demo providers
   if (providerListings.length === 0 && pid && !isDemoProvider) {
     // For own profile without listings, build from currentUser data
-    if (currentUser && pid === currentUser.id) {
+    if (currentUser && _sameUserId(pid, currentUser.id)) {
       providerListings = [{
         id: 'profile-' + pid,
         _ownProfile: true,
@@ -3011,12 +3174,7 @@ function loadProvider(providerId) {
         .then(function(data) {
           if (!data || data.message) return;
           if (data.listings && data.listings.length > 0) {
-            data.listings.forEach(function(l) {
-              l._fromDb = true;
-              if (!LISTINGS.some(function(ex) { return ex.id === l.id; })) {
-                LISTINGS.push(l);
-              }
-            });
+            _mergeDbListingsIntoCache(data.listings);
           } else {
             LISTINGS.push({
               id: 'profile-' + pid,
@@ -3055,7 +3213,7 @@ function loadProvider(providerId) {
   providerImages = providerListings.flatMap(l => l.images || []);
   // For own profile: if currentUser.gallery is non-empty, it is the saved portfolio
   // (may differ from listing images after edits — always prefer saved gallery)
-  if (currentUser && pid === currentUser.id && currentUser.gallery && currentUser.gallery.length > 0) {
+  if (currentUser && _sameUserId(pid, currentUser.id) && currentUser.gallery && currentUser.gallery.length > 0) {
     providerImages = currentUser.gallery.slice();
   }
 
@@ -3190,8 +3348,8 @@ function loadProvider(providerId) {
             var avatar = r.avatar || ebAvatar(r.name || 'user', r.name);
             var rating = parseInt(r.rating) || 0;
             var ltHtml = r.listingTitle ? '<div style="font-size:0.8rem;color:var(--text-light);margin-top:2px;">zu: ' + _escHtml(r.listingTitle) + '</div>' : '';
-            var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
-            var isProviderOwner = currentUser && pid && pid === currentUser.id;
+            var isOwnReview = currentUser && r.user_id && _sameUserId(r.user_id, currentUser.id);
+            var isProviderOwner = currentUser && pid && _sameUserId(pid, currentUser.id);
             var canDelete = isOwnReview || isProviderOwner || (currentUser && currentUser.isAdmin);
             var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
             return '<div class="review-card">' +
@@ -3222,7 +3380,7 @@ function loadProvider(providerId) {
   }
 
   // Action bar: show edit buttons for own profile, else message/follow
-  var isOwnProviderProfile = currentUser && pid === currentUser.id;
+  var isOwnProviderProfile = currentUser && _sameUserId(pid, currentUser.id);
   var actionBar = document.querySelector('.provider-action-bar');
   if (actionBar) {
     if (isOwnProviderProfile) {
@@ -5569,7 +5727,7 @@ function renderDashboard() {
       var reviewsDisplay = document.getElementById('profileReviewsDisplay');
       if (profile.reviews && profile.reviews.length > 0) {
         reviewsDisplay.innerHTML = profile.reviews.slice(0, 4).map(function(r) {
-          var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
+          var isOwnReview = currentUser && r.user_id && _sameUserId(r.user_id, currentUser.id);
           var isProfileOwner = true; // Profile page = own profile, always owner
           var canDelete = isOwnReview || isProfileOwner || (currentUser && currentUser.isAdmin);
           var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
@@ -6422,17 +6580,21 @@ function submitListing(e) {
   const tags = Array.from(tagEls).map(el => el.value);
 
   // Sofortbuchung + verfügbare Wochentage
-  const instantBook = !!(document.getElementById('createInstantBook') || {}).checked;
-  const availableWeekdays = Array.from(
+  const canUseInstantBook = isDienstleister();
+  const instantBook = canUseInstantBook && !!(document.getElementById('createInstantBook') || {}).checked;
+  const availableWeekdays = canUseInstantBook ? Array.from(
     document.querySelectorAll('#createWeekdayPicker .weekday-pill.selected')
   ).map(function(b) { return parseInt(b.getAttribute('data-day'), 10); })
-   .filter(function(d) { return !isNaN(d) && d >= 0 && d <= 6; });
+   .filter(function(d) { return !isNaN(d) && d >= 0 && d <= 6; }) : [];
   if (instantBook && availableWeekdays.length === 0) {
     _releaseGuard();
     showToast('Bitte mindestens einen Wochentag für die Sofortbuchung wählen.', 'warning');
     _setBtnLoading && _setBtnLoading(document.querySelector('#step3 .btn-primary'), false);
     return;
   }
+
+  const negotiableEl = document.getElementById('createNegotiable');
+  const negotiable = negotiableEl ? !!negotiableEl.checked : false;
 
   // Extract city from region
   const city = region.split(/[,&·–-]/)[0].trim();
@@ -6451,6 +6613,9 @@ function submitListing(e) {
     var img = div.querySelector('img');
     return { src: img ? img.src : '', blob: div._croppedBlob || null };
   });
+
+  _ensureWriteSessionMatchesCurrentUser(isEventPlaner() ? 'Event speichern' : 'Inserat speichern').then(function(sessionOk) {
+    if (!sessionOk) { _releaseGuard(); return; }
 
   // Show loading
   var submitBtn = document.querySelector('#step3 .btn-primary');
@@ -6502,7 +6667,7 @@ function submitListing(e) {
       timeFrom: timeFrom || null,
       timeTo: timeTo || null,
       duration: duration,
-      negotiable: true,
+      negotiable: negotiable,
       availableWeekdays: availableWeekdays,
       instantBook: instantBook
     };
@@ -6541,11 +6706,10 @@ function submitListing(e) {
         window._editingListingId = null;
       }
 
-      // Add to local array
-      saved.id = saved.id + 10000;
-      saved._fromDb = true;
-      saved._dbId = saved.id - 10000;
-      LISTINGS.unshift(saved);
+      // Add/update normalized DB listing in local cache
+      var savedDbId = _toPositiveInt(saved && saved.id);
+      _mergeDbListingsIntoCache([saved]);
+      var savedLocal = _findListingByAnyId(savedDbId) || saved;
 
       // Reset the form
       document.getElementById('createListingForm').reset();
@@ -6562,12 +6726,16 @@ function submitListing(e) {
       showToast(successMsg, 'check_circle');
       _setBtnLoading(submitBtn, false);
       _releaseGuard();
-      setTimeout(function() { navigateTo('detail', saved.id); }, 800);
+      setTimeout(function() { navigateTo('detail', savedLocal.id || (savedDbId + 10000)); }, 800);
     });
   }).catch(function(err) {
     _setBtnLoading(submitBtn, false);
     _releaseGuard();
     showToast('Fehler beim Speichern: ' + err.message, 'error');
+  });
+  }).catch(function(err) {
+    _releaseGuard();
+    showToast('Sitzungsprüfung fehlgeschlagen: ' + (err && err.message ? err.message : 'Bitte Seite neu laden.'), 'error');
   });
 }
 
@@ -8084,11 +8252,19 @@ function renderMyListings() {
         })
         .then(function(data) {
           if (!Array.isArray(data)) { renderEventGrid([]); return; }
+          _mergeDbListingsIntoCache(data);
           var myEvents = data.map(function(l) {
             return {
               id: l.id + 10000,
               _dbId: l.id,
               _fromDb: true,
+              providerId: l.providerId,
+              userId: l.providerId,
+              status: l.status || 'active',
+              isHidden: !!l.isHidden,
+              moderationAction: l.moderationAction || '',
+              moderationReason: l.moderationReason || '',
+              moderationCreatedAt: l.moderationCreatedAt || '',
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
@@ -8100,7 +8276,11 @@ function renderMyListings() {
               rating: parseFloat(l.rating) || 0,
               reviewCount: parseInt(l.reviews) || 0,
               description: l.description,
-              providerName: l.providerName
+              providerName: l.providerName,
+              providerImg: l.providerImg,
+              providerSince: l.providerSince,
+              providerRole: l.providerRole,
+              baseRole: l.baseRole
             };
           });
           renderEventGrid(myEvents);
@@ -8249,11 +8429,19 @@ function renderMyListings() {
         })
         .then(function(data) {
           if (!Array.isArray(data)) { renderMyGrid([]); return; }
+          _mergeDbListingsIntoCache(data);
           var myListings = data.map(function(l) {
             return {
               id: l.id + 10000,
               _dbId: l.id,
               _fromDb: true,
+              providerId: l.providerId,
+              userId: l.providerId,
+              status: l.status || 'active',
+              isHidden: !!l.isHidden,
+              moderationAction: l.moderationAction || '',
+              moderationReason: l.moderationReason || '',
+              moderationCreatedAt: l.moderationCreatedAt || '',
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
@@ -8265,7 +8453,11 @@ function renderMyListings() {
               rating: parseFloat(l.rating) || 0,
               reviewCount: parseInt(l.reviews) || 0,
               description: l.description,
-              providerName: l.providerName
+              providerName: l.providerName,
+              providerImg: l.providerImg,
+              providerSince: l.providerSince,
+              providerRole: l.providerRole,
+              baseRole: l.baseRole
             };
           });
           renderMyGrid(myListings);
@@ -9064,8 +9256,8 @@ function loadDetailReviews(dbListingId) {
           var displayName = r.author_name || r.name || 'Anonym';
           var date = r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
           var rating = parseInt(r.rating) || 0;
-          var isOwnReview = currentUser && r.user_id && r.user_id === currentUser.id;
-          var isListingOwner = currentUser && currentListing && currentListing.providerId === currentUser.id;
+          var isOwnReview = currentUser && r.user_id && _sameUserId(r.user_id, currentUser.id);
+          var isListingOwner = _isCurrentUserListingOwner(currentListing);
           var canDelete = isOwnReview || isListingOwner || (currentUser && currentUser.isAdmin);
           var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
