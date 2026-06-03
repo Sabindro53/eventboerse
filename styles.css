@@ -5575,6 +5575,23 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
   font-size: 0.78rem;
   line-height: 1.45;
 }
+.stripe-connect-error-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #635BFF;
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+.stripe-connect-error-link .material-icons-round {
+  color: #fff;
+  font-size: 17px;
+}
 .settings-status-active { color: var(--accent) !important; }
 .settings-status-passkey-on { color: var(--accent) !important; }
 .settings-status-passkey-off { color: #B45309 !important; }

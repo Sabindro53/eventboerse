@@ -14642,22 +14642,42 @@ function _clearStripeBusinessTypeError() {
 function _stripeConnectReadableError(data) {
   data = data || {};
   var msg = data.message || 'Stripe-Auszahlungskonto konnte nicht eingerichtet werden.';
-  if (data.stripe_message && currentUser && currentUser.isAdmin) {
+
+  if (data.stripe_message) {
     msg += ' Stripe: ' + data.stripe_message;
   }
-  if (Array.isArray(data.required_permissions) && data.required_permissions.length && currentUser && currentUser.isAdmin) {
+
+  if (Array.isArray(data.required_permissions) && data.required_permissions.length) {
     msg += ' Fehlende Rechte: ' + data.required_permissions.join(', ');
   }
+
   if (data.admin_hint && currentUser && currentUser.isAdmin) {
     msg += ' ' + data.admin_hint;
   }
+
+  if (data.http_status && data.http_status >= 500) {
+    msg += ' HTTP ' + data.http_status + '.';
+  }
   return msg;
+}
+
+function _isStripeOnboardingUrl(url) {
+  url = String(url || '');
+  return /^https:\/\/connect\.stripe\.com\//.test(url);
 }
 
 function _showStripeBusinessTypeError(data) {
   _clearStripeBusinessTypeError();
   var confirmBtn = document.getElementById('stripeBusinessTypeConfirmBtn');
   if (!confirmBtn) return;
+  data = data || {};
+  var linkHtml = '';
+  if (data.onboarding_url && _isStripeOnboardingUrl(data.onboarding_url)) {
+    linkHtml =
+      '<a class="stripe-connect-error-link" href="' + _escHtml(data.onboarding_url) + '" target="_blank" rel="noopener noreferrer">' +
+        '<span class="material-icons-round">open_in_new</span> Stripe jetzt öffnen' +
+      '</a>';
+  }
   var box = document.createElement('div');
   box.id = 'stripeBusinessTypeError';
   box.className = 'stripe-connect-inline-error';
@@ -14666,8 +14686,31 @@ function _showStripeBusinessTypeError(data) {
     '<div>' +
       '<strong>Stripe-Verbindung konnte nicht gestartet werden</strong>' +
       '<p>' + _escHtml(_stripeConnectReadableError(data)) + '</p>' +
+      linkHtml +
     '</div>';
   confirmBtn.parentNode.insertBefore(box, confirmBtn);
+}
+
+function _stripeConnectJsonResponse(r) {
+  return r.text().then(function(text) {
+    var data = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        data = {
+          message: r.ok
+            ? 'Stripe hat eine unerwartete Antwort geliefert.'
+            : 'Serverfehler beim Stripe-Onboarding. Bitte Stripe-Konfiguration prüfen.',
+          code: 'stripe_connect_non_json_response',
+          admin_hint: 'Die REST-Antwort war kein JSON. HTTP ' + r.status + '.'
+        };
+      }
+    }
+    data.http_status = r.status;
+    data.http_ok = r.ok;
+    return data;
+  });
 }
 
 function confirmStripeBusinessType(confirmBtn) {
@@ -14694,12 +14737,23 @@ function confirmStripeBusinessType(confirmBtn) {
     headers: Object.assign({}, _apiHeaders(), { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ business_type: businessType, company_name: companyName, vat_id: vatId })
   })
-  .then(function(r) { return r.json(); })
+  .then(_stripeConnectJsonResponse)
   .then(function(data) {
     _setBtnLoading(confirmBtn, false);
     if (data && data.onboarding_url) {
-      closeModal('stripeBusinessTypeModal');
-      window.location.href = data.onboarding_url;
+      if (!_isStripeOnboardingUrl(data.onboarding_url)) {
+        _showStripeBusinessTypeError({ message: 'Stripe hat keinen gültigen Onboarding-Link geliefert.' });
+        showToast('Stripe hat keinen gültigen Onboarding-Link geliefert.', 'error');
+        return;
+      }
+
+      window.location.assign(data.onboarding_url);
+      window.setTimeout(function() {
+        _showStripeBusinessTypeError({
+          message: 'Falls die Weiterleitung nicht automatisch startet, öffne Stripe direkt über diesen Button.',
+          onboarding_url: data.onboarding_url
+        });
+      }, 900);
     } else {
       if (data && data.admin_hint) console.warn('[eventboerse] Stripe Connect:', data.admin_hint);
       _showStripeBusinessTypeError(data || {});
