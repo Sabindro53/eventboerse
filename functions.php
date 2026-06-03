@@ -2354,6 +2354,11 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_stripe_public_key',
         'permission_callback' => '__return_true',
     ) );
+    register_rest_route( 'eventboerse/v1', '/stripe/fee-quote', array(
+        'methods'             => array( 'GET', 'POST' ),
+        'callback'            => 'eb_stripe_fee_quote',
+        'permission_callback' => '__return_true',
+    ) );
     register_rest_route( 'eventboerse/v1', '/stripe/create-payment-intent', array(
         'methods'             => 'POST',
         'callback'            => 'eb_stripe_create_payment_intent',
@@ -4847,6 +4852,56 @@ function eb_stripe_public_key( WP_REST_Request $request ) {
     return new WP_REST_Response( array( 'publishable_key' => $pk ), 200 );
 }
 
+function eb_stripe_platform_fee_rate() {
+    $configured = defined( 'EB_PLATFORM_FEE_RATE' ) ? constant( 'EB_PLATFORM_FEE_RATE' ) : '';
+    $rate = is_numeric( $configured ) ? (float) $configured : 0.03;
+    if ( $rate < 0 ) $rate = 0;
+    if ( $rate > 0.30 ) $rate = 0.30;
+    return $rate;
+}
+
+function eb_stripe_calculate_fee_quote( $amount_cents, $currency = 'eur' ) {
+    $amount_cents = max( 0, (int) $amount_cents );
+    $rate = eb_stripe_platform_fee_rate();
+    $platform_fee_cents = (int) round( $amount_cents * $rate );
+    if ( $platform_fee_cents > $amount_cents ) {
+        $platform_fee_cents = $amount_cents;
+    }
+    $provider_payout_cents = max( 0, $amount_cents - $platform_fee_cents );
+
+    return array(
+        'currency'                         => strtolower( sanitize_text_field( $currency ?: 'eur' ) ),
+        'gross_amount_cents'               => $amount_cents,
+        'platform_fee_rate'                => $rate,
+        'platform_fee_percent'             => round( $rate * 100, 2 ),
+        'platform_fee_cents'               => $platform_fee_cents,
+        'provider_payout_before_adjustments_cents' => $provider_payout_cents,
+        'stripe_fee_payer'                 => 'platform',
+        'fee_model'                        => 'destination_charge_platform_application_fee',
+        'note'                             => 'Eventbörse zieht die Plattformprovision als Stripe Application Fee ab. Stripe-Zahlungsgebühren werden endgültig im Stripe-Dashboard ausgewiesen und können je Zahlungsmethode, Land, Refund oder Dispute abweichen.',
+    );
+}
+
+function eb_stripe_amount_cents_from_request( WP_REST_Request $request ) {
+    $body = $request->get_json_params();
+    if ( ! is_array( $body ) ) $body = array();
+    $amount_cents = isset( $body['amount_cents'] ) ? absint( $body['amount_cents'] ) : absint( $request->get_param( 'amount_cents' ) );
+    if ( $amount_cents > 0 ) return $amount_cents;
+
+    $amount = isset( $body['amount'] ) ? $body['amount'] : $request->get_param( 'amount' );
+    $amount = is_numeric( $amount ) ? (float) $amount : 0;
+    return (int) round( max( 0, $amount ) * 100 );
+}
+
+function eb_stripe_fee_quote( WP_REST_Request $request ) {
+    $currency = sanitize_text_field( $request->get_param( 'currency' ) ?: 'eur' );
+    $amount_cents = eb_stripe_amount_cents_from_request( $request );
+    if ( $amount_cents <= 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Betrag.' ), 400 );
+    }
+    return new WP_REST_Response( eb_stripe_calculate_fee_quote( $amount_cents, $currency ), 200 );
+}
+
 function eb_stripe_sanitize_error_message( $message ) {
     $message = (string) $message;
     $message = preg_replace( '/\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9_]+\b/', '***STRIPE_KEY***', $message );
@@ -5034,6 +5089,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
     if ( strlen( $title ) > 250 ) $title = substr( $title, 0, 250 );
 
     $amount_cents = (int) round( $amount * 100 );
+    $fee_quote = eb_stripe_calculate_fee_quote( $amount_cents, $currency );
     $user = wp_get_current_user();
 
     $fields = array(
@@ -5052,6 +5108,11 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'metadata[listing_id]'                 => (string) $listing_id,
         'metadata[user_id]'                    => (string) ( $user ? $user->ID : 0 ),
         'metadata[title]'                      => $title,
+        'metadata[gross_amount_cents]'         => (string) $fee_quote['gross_amount_cents'],
+        'metadata[platform_fee_cents]'         => (string) $fee_quote['platform_fee_cents'],
+        'metadata[provider_payout_cents]'      => (string) $fee_quote['provider_payout_before_adjustments_cents'],
+        'metadata[stripe_fee_payer]'           => $fee_quote['stripe_fee_payer'],
+        'metadata[fee_model]'                  => $fee_quote['fee_model'],
     );
 
     if ( ! $listing_id ) {
@@ -5103,14 +5164,12 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
             }
             $connect_id = $connect_state['connect_id'] ?? '';
             if ( $connect_id ) {
-                // Fee-Aufteilung 2026-05-31: Direct/Destination Charges + on_behalf_of.
-                // Damit trägt der Dienstleister (Connected Account) die Stripe-Fees,
-                // nicht die Plattform. Bei 1,00 € Buchung:
-                //   Customer zahlt: 1,00 €
-                //   Stripe-Fee:     0,264 € (1,4% + 0,25€ EU-Karte) → vom Dienstleister
-                //   App Fee 3%:     0,03 € → Plattform-Konto
-                //   Dienstleister:  0,706 € → sein Auszahlungs-Konto
-                $fee_cents = (int) round( $amount_cents * 0.03 );
+                // Stripe Connect: Destination Charge + on_behalf_of.
+                // Eventbörse zieht die Plattformprovision als Application Fee ab.
+                // Stripe-Zahlungsgebühren werden endgültig in Stripe ausgewiesen;
+                // bei Destination Charges belastet Stripe typischerweise das
+                // Plattformkonto, nicht als pauschale 3%-Position den Dienstleister.
+                $fee_cents = (int) $fee_quote['platform_fee_cents'];
                 $fields['application_fee_amount']          = $fee_cents;
                 $fields['transfer_data[destination]']      = $connect_id;
                 $fields['on_behalf_of']                    = $connect_id;
@@ -5118,7 +5177,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
                 // sieht 'Eventbörse / <Dienstleister>' auf seiner Bank-Abrechnung.
                 $fields['metadata[connect_id]']            = $connect_id;
                 $fields['metadata[application_fee_cents]'] = (string) $fee_cents;
-                $fields['metadata[fee_model]']             = 'destination_with_on_behalf_of';
+                $fields['metadata[fee_model]']             = $fee_quote['fee_model'];
             }
         }
     }
@@ -5153,6 +5212,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'publishable_key' => $pk,
         'amount'          => $amount_cents,
         'currency'        => $currency,
+        'fee_quote'       => $fee_quote,
     ), 200 );
 }
 
@@ -5592,6 +5652,10 @@ function eb_stripe_record_payment( $pi ) {
         'project_id' => $meta['project_id'] ?? '',
         'listing_id' => isset( $meta['listing_id'] ) ? intval( $meta['listing_id'] ) : 0,
         'title'      => $meta['title'] ?? '',
+        'platform_fee_cents'  => isset( $meta['platform_fee_cents'] ) ? intval( $meta['platform_fee_cents'] ) : 0,
+        'provider_payout_cents' => isset( $meta['provider_payout_cents'] ) ? intval( $meta['provider_payout_cents'] ) : 0,
+        'stripe_fee_payer'    => sanitize_text_field( $meta['stripe_fee_payer'] ?? '' ),
+        'fee_model'           => sanitize_text_field( $meta['fee_model'] ?? '' ),
         'paid_at'    => time(),
     );
 

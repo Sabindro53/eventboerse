@@ -12424,6 +12424,15 @@ body.dark-mode .pec-icon { background: rgba(255,56,92,0.15); }
   font-size: 12px; color: #666;
 }
 .stripe-trust .material-icons-round { font-size: 16px; color: #00A699; }
+.stripe-fee-note {
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: #F7F6FF;
+  border: 1px solid rgba(99, 91, 255, 0.18);
+  border-radius: 10px;
+  line-height: 1.45;
+}
+.stripe-fee-note .material-icons-round { color: #635BFF; }
 .stripe-modal-footer {
   display: flex; gap: 10px; padding: 14px 20px 18px;
   border-top: 1px solid rgba(0,0,0,0.06);

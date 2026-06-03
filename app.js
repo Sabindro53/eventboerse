@@ -12505,6 +12505,31 @@ window.addEventListener('pagehide', function() {
   } catch(e) {}
 });
 
+function calculatePayout(priceGross) {
+  var gross = Math.round((parseFloat(priceGross) || 0) * 100) / 100;
+  var platformFee = Math.round(gross * 0.03 * 100) / 100;
+  var netPayout = Math.round((gross - platformFee) * 100) / 100;
+  return {
+    grossAmount: gross,
+    platformFeeRate: 0.03,
+    platformFeeAmount: platformFee,
+    netPayoutAmount: netPayout,
+    stripeFeeAmount: null,
+    stripeFeePaidBy: 'platform',
+    note: 'Zahlungsdienstleister-Gebühren werden endgültig in Stripe ausgewiesen und nicht als pauschale 3%-Position vom Dienstleister abgezogen.'
+  };
+}
+
+function _payoutBreakdownHtml(priceNum) {
+  var q = calculatePayout(priceNum);
+  return '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
+    '<div style="display:flex;justify-content:space-between"><span>Brutto</span><span>' + _escHtml(_formatEuro(q.grossAmount)) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>&minus;' + _escHtml(_formatEuro(q.platformFeeAmount)) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Voraussichtliche Auszahlung</span><strong style="color:#66bb6a">' + _escHtml(_formatEuro(q.netPayoutAmount)) + '</strong></div>' +
+    '<div style="margin-top:6px;font-size:11px;color:var(--text-light)">Stripe-Zahlungsgeb&uuml;hren werden im Stripe-Dashboard final ausgewiesen.</div>' +
+  '</div>';
+}
+
 /* ─── Aufträge (Dienstleister-Ansicht) ─────────────────── */
 function renderAuftraegePage() {
   var container = document.getElementById('auftraegeContent');
@@ -12533,7 +12558,7 @@ function renderAuftraegePage() {
       '<div style="flex:1;font-size:14px;line-height:1.6">' +
         '<strong>So funktioniert\'s:</strong><br>' +
         '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
-        '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix und die Zahlung wird freigegeben (3% Stripe, 3% Eventb&ouml;rse-Provision).<br>' +
+        '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Eventb&ouml;rse zieht 3% Plattformprovision als Application Fee ab.<br>' +
         '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.' +
       '</div>' +
     '</div>' +
@@ -12553,7 +12578,7 @@ function renderAuftraegePage() {
       '<span class="material-icons-round" style="font-size:56px;opacity:0.3;color:var(--text-light)">inbox</span>' +
       '<h3 style="margin:12px 0 6px">Noch keine Auftr&auml;ge</h3>' +
       '<p style="color:var(--text-light);margin:0 0 6px">Sobald ein Kunde dich verbindlich bucht, erscheinen die Details hier.</p>' +
-      '<p style="color:var(--text-light);font-size:13px;margin:0"><em>Cross-User-Synchronisation &amp; Stripe-Anbindung in Entwicklung.</em></p>' +
+      '<p style="color:var(--text-light);font-size:13px;margin:0">Stelle sicher, dass dein Stripe-Auszahlungskonto aktiv ist, damit Buchungen bezahlt werden k&ouml;nnen.</p>' +
     '</div>';
     container.innerHTML = html;
     return;
@@ -12574,9 +12599,6 @@ function renderAuftraegePage() {
     var alreadyConfirmed = !!c.providerConfirmedAt;
     var canAccept = stage === 'angebot' && !c.providerAcceptedAt;
     var priceNum = parseFloat(c.price) || 0;
-    var stripeFee = priceNum * 0.03;
-    var platformFee = priceNum * 0.03;
-    var netPayout = priceNum - stripeFee - platformFee;
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
       '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
@@ -12591,12 +12613,7 @@ function renderAuftraegePage() {
           (c.paymentMethod ? '<div><span style="color:var(--text-light)">Zahlung:</span> <strong>' + esc(c.paymentMethod) + '</strong></div>' : '') +
         '</div>' +
         (canAccept
-          ? '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
-              '<div style="display:flex;justify-content:space-between"><span>Brutto</span><span>' + esc(_formatEuro(priceNum)) + '</span></div>' +
-              '<div style="display:flex;justify-content:space-between"><span>Stripe-Geb&uuml;hr (3%)</span><span>&minus;' + esc(_formatEuro(stripeFee)) + '</span></div>' +
-              '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>&minus;' + esc(_formatEuro(platformFee)) + '</span></div>' +
-              '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Du erh&auml;ltst</span><strong style="color:#66bb6a">' + esc(_formatEuro(netPayout)) + '</strong></div>' +
-            '</div>' +
+          ? _payoutBreakdownHtml(priceNum) +
             '<button class="btn-primary" style="width:100%;background:#66bb6a;border-color:#66bb6a" onclick="acceptAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')"><span class="material-icons-round">check_circle</span> Auftrag annehmen</button>'
           : canConfirm
           ? '<button class="btn-primary" style="width:100%" onclick="confirmAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')"><span class="material-icons-round">verified</span> Erbringung best&auml;tigen</button>'
@@ -12631,8 +12648,8 @@ function confirmAuftragProvider(projectId, cardId) {
 
 /**
  * Provider nimmt einen gebuchten Auftrag an → Zahlung wird freigegeben.
- * Setzt die Karte auf „Bezahlt" (bestaetigt) und erfasst die Gebühren-
- * Aufteilung: 3% Stripe, 3% Eventbörse-Provision, 94% Auszahlung.
+ * Setzt die Karte auf „Bezahlt" (bestaetigt) und erfasst die
+ * Plattformprovision plus voraussichtliche Auszahlung.
  * Der Kunde sieht die Statusänderung beim nächsten Sync automatisch.
  */
 function acceptAuftragProvider(projectId, cardId) {
@@ -12643,15 +12660,13 @@ function acceptAuftragProvider(projectId, cardId) {
   if (card.providerAcceptedAt) { showToast('Auftrag wurde bereits angenommen.', 'info'); return; }
 
   var priceNum = parseFloat(card.price) || 0;
-  var stripeFee = +(priceNum * 0.03).toFixed(2);
-  var platformFee = +(priceNum * 0.03).toFixed(2);
-  var net = +(priceNum - stripeFee - platformFee).toFixed(2);
+  var payout = calculatePayout(priceNum);
 
   var msg = 'Auftrag verbindlich annehmen?\n\n' +
-    'Brutto: ' + _formatEuro(priceNum) + '\n' +
-    '– Stripe-Geb\u00fchr (3%): ' + _formatEuro(stripeFee) + '\n' +
-    '– Eventb\u00f6rse-Provision (3%): ' + _formatEuro(platformFee) + '\n' +
-    'Auszahlung an dich: ' + _formatEuro(net);
+    'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
+    '– Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' +
+    'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
   if (!confirm(msg)) return;
 
   var nowIso = new Date().toISOString();
@@ -12661,13 +12676,15 @@ function acceptAuftragProvider(projectId, cardId) {
   card.paymentStatus = 'Bezahlt';
   if (!card.paymentMethod) card.paymentMethod = 'Stripe';
   card.paidAmount = priceNum;
-  card.grossAmount = priceNum;
-  card.stripeFeeAmount = stripeFee;
-  card.platformFeeAmount = platformFee;
-  card.netPayoutAmount = net;
+  card.grossAmount = payout.grossAmount;
+  card.stripeFeeAmount = null;
+  card.stripeFeePaidBy = payout.stripeFeePaidBy;
+  card.platformFeeAmount = payout.platformFeeAmount;
+  card.netPayoutAmount = payout.netPayoutAmount;
+  card.feeModel = 'destination_charge_platform_application_fee';
 
   _saveBoardProjects({ immediate: true });
-  showToast('Auftrag angenommen – Auszahlung ' + _formatEuro(net) + '.', 'paid');
+  showToast('Auftrag angenommen – Auszahlung ' + _formatEuro(payout.netPayoutAmount) + '.', 'paid');
   renderAuftraegePage();
 }
 
@@ -14709,6 +14726,9 @@ function _openStripePaymentModal(opts) {
         '<div id="stripePaymentError" class="stripe-error" role="alert" style="display:none"></div>' +
         '<div class="stripe-trust">' +
           '<span class="material-icons-round">verified_user</span> Verschl\u00fcsselte Zahlung via <strong>Stripe</strong> \u00b7 Kartendaten ber\u00fchren unsere Server nie.' +
+        '</div>' +
+        '<div class="stripe-trust stripe-fee-note">' +
+          '<span class="material-icons-round">receipt_long</span> Du zahlst nur den angezeigten Buchungsbetrag. Die Dienstleister-Auszahlung erfolgt \u00fcber Stripe Connect; Eventb\u00f6rse beh\u00e4lt 3% Application Fee ein.' +
         '</div>' +
       '</div>' +
       '<div class="stripe-modal-footer">' +

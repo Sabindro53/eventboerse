@@ -1749,7 +1749,7 @@ $asset_ver = '2.4.8'; // cache-bust;
             </div>
             <p style="font-size:13px;color:var(--text-light);margin:0 0 14px">
               Verbinde dein Bankkonto mit Stripe, damit Kunden dich direkt bezahlen können.
-              Eventbörse behält <strong>3% Vermittlungsgebühr</strong> — du erhältst den Rest automatisch.
+              Eventbörse behält <strong>3% Plattformprovision</strong> als Stripe Application Fee ein — du erhältst den Rest automatisch.
             </p>
             <div id="stripeConnectStatus" style="margin-bottom:14px">
               <div class="settings-info-row">
@@ -2269,7 +2269,7 @@ $asset_ver = '2.4.8'; // cache-bust;
         <h2>§ 1 Anbieter und Geltungsbereich</h2>
         <p>Anbieter: Eventbörse UG (haftungsbeschränkt) i.&nbsp;G. Soweit der Dienstleister Verbraucher (§ 13 BGB) ist, gilt zusätzlich die Widerrufsbelehrung für etwaige kostenpflichtige Plattformleistungen.</p>
         <h2>§ 2 Vertragsverhältnis und Zahlungsmodell</h2>
-        <p>Die Plattform vermittelt zwischen Dienstleistern und Kunden. Der Vertrag über die Eventleistung kommt direkt zwischen Dienstleister und Kunde zustande. Zahlungsmodell: <strong>Stripe Connect Express, Direct Charges</strong>. Der Dienstleister ist Merchant of Record und stellt selbst die Rechnung an den Endkunden aus. Die Plattform zieht eine Application Fee (Provision) ab.</p>
+        <p>Die Plattform vermittelt zwischen Dienstleistern und Kunden. Der Vertrag über die Eventleistung kommt direkt zwischen Dienstleister und Kunde zustande. Zahlungsmodell: <strong>Stripe Connect Express mit Destination Charges und Application Fee</strong>. Die Auszahlung erfolgt über das Stripe-Connect-Konto des Dienstleisters. Die Plattform zieht eine Application Fee (Provision) ab; Zahlungsdienstleister-Gebühren werden im Stripe-Dashboard endgültig ausgewiesen.</p>
         <h2>§ 3 Registrierung, Verifikation, Mindestalter</h2>
         <p>Mindestalter: 18 Jahre. Verifikation/KYC erfolgen über das Stripe-Onboarding (Express). Bei sensiblen Kategorien (Security, Pyrotechnik, medizinnahe Dienste, Kinderbetreuung) erweiterte Prüfung mit Versicherungsnachweis.</p>
         <h2>§ 4 Pflichten des Dienstleisters</h2>
@@ -2277,7 +2277,7 @@ $asset_ver = '2.4.8'; // cache-bust;
         <h2>§ 5 Premium-Listings</h2>
         <p>Optional kann der Dienstleister kostenpflichtige Premium-Listings buchen. Pakete sind dem Grunde nach Werbeleistungen der Plattform und werden in der Trefferliste deutlich als „Bezahlte Platzierung" gekennzeichnet.</p>
         <h2>§ 6 Provision (Application Fee)</h2>
-        <p>Bei Vertragsbeginn beträgt die Provision <strong>0,00 %</strong>. Eine Erhöhung wird mindestens <strong>15 Tage</strong> vorab per Dashboard und E-Mail angekündigt (P2B Art. 3 Abs. 2). Innerhalb dieser Frist kann der Dienstleister kündigen.</p>
+        <p>Bei Vertragsbeginn beträgt die Provision <strong>3,00 %</strong> des bestätigten Buchungsbetrags. Eine Erhöhung wird mindestens <strong>15 Tage</strong> vorab per Dashboard und E-Mail angekündigt (P2B Art. 3 Abs. 2). Innerhalb dieser Frist kann der Dienstleister kündigen.</p>
         <h2>§ 7 Rechnungsstellung gegenüber Endkunde</h2>
         <p>Der Dienstleister stellt dem Endkunden direkt die Rechnung. Die Plattform stellt dem Dienstleister eine eigene Rechnung über Provision und Premium-Listings.</p>
         <h2>§ 8 Plattformumgehung</h2>
