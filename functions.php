@@ -2388,6 +2388,11 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_stripe_connect_status',
         'permission_callback' => 'is_user_logged_in',
     ) );
+    register_rest_route( 'eventboerse/v1', '/stripe/connect/diagnostics', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_stripe_connect_diagnostics',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
     register_rest_route( 'eventboerse/v1', '/stripe/connect/disconnect', array(
         'methods'             => 'POST',
         'callback'            => 'eb_stripe_connect_disconnect',
@@ -4851,19 +4856,58 @@ function eb_stripe_sanitize_error_message( $message ) {
     return trim( $message );
 }
 
+function eb_stripe_key_meta( $key ) {
+    $key = (string) $key;
+    $kind = 'missing';
+    $mode = 'unknown';
+
+    if ( $key !== '' ) {
+        if ( strpos( $key, 'rk_' ) === 0 ) {
+            $kind = 'restricted';
+        } elseif ( strpos( $key, 'sk_' ) === 0 ) {
+            $kind = 'secret';
+        } elseif ( strpos( $key, 'pk_' ) === 0 ) {
+            $kind = 'publishable';
+        } else {
+            $kind = 'unknown';
+        }
+
+        if ( strpos( $key, '_live_' ) !== false ) {
+            $mode = 'live';
+        } elseif ( strpos( $key, '_test_' ) !== false ) {
+            $mode = 'test';
+        }
+    }
+
+    return array(
+        'kind' => $kind,
+        'mode' => $mode,
+    );
+}
+
 function eb_stripe_public_error_payload( $response, $fallback = 'Stripe-Fehler.' ) {
     $data           = json_decode( (string) $response, true );
     $stripe_message = is_array( $data ) && isset( $data['error']['message'] ) ? (string) $data['error']['message'] : '';
     $stripe_type    = is_array( $data ) && isset( $data['error']['type'] ) ? sanitize_text_field( $data['error']['type'] ) : '';
     $stripe_code    = is_array( $data ) && isset( $data['error']['code'] ) ? sanitize_text_field( $data['error']['code'] ) : '';
     $lower          = strtolower( $stripe_message );
+    $required_permissions = array();
+
+    if ( $stripe_message && preg_match_all( "/'((?:rak)_[A-Za-z0-9_]+)'/", $stripe_message, $matches ) ) {
+        $required_permissions = array_values( array_unique( array_map( 'sanitize_text_field', $matches[1] ) ) );
+    }
 
     if ( strpos( $lower, 'does not have the required permissions' ) !== false || strpos( $lower, 'required permissions' ) !== false ) {
-        return array(
+        $payload = array(
             'message'    => 'Stripe Connect ist noch nicht korrekt konfiguriert. Der hinterlegte Stripe-Key hat nicht die nötigen Connect-Rechte für das Auszahlungskonto-Onboarding.',
             'code'       => 'stripe_key_missing_connect_permissions',
             'admin_hint' => 'In Stripe unter Developers > API keys den Wert EB_STRIPE_SECRET_KEY prüfen: Nutze einen Live Secret Key (sk_live...) oder einen Restricted Key mit Connect-/Account-Link-/Connected-Account-Rechten.',
         );
+        if ( ! empty( $required_permissions ) ) {
+            $payload['required_permissions'] = $required_permissions;
+            $payload['admin_hint'] = 'Der Restricted Key braucht diese Stripe-Rechte: ' . implode( ', ', $required_permissions ) . '.';
+        }
+        return $payload;
     }
 
     if ( strpos( $lower, 'invalid api key' ) !== false || strpos( $lower, 'api key provided' ) !== false ) {
@@ -5330,6 +5374,92 @@ function eb_stripe_connect_status( WP_REST_Request $request ) {
         if ( is_array( $link_data ) && ! empty( $link_data['url'] ) ) {
             $result['login_link'] = $link_data['url'];
         }
+    }
+
+    return new WP_REST_Response( $result, 200 );
+}
+
+/**
+ * GET /stripe/connect/diagnostics
+ * Admin-only: prueft, ob Stripe-Keys gesetzt sind und der Secret/Restricted Key
+ * ohne sensible Ausgaben erreichbar ist.
+ */
+function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
+    $user = wp_get_current_user();
+    $sk   = eb_load_env_value( 'private_stripe_api_key' );
+    $pk   = eb_load_env_value( 'public_stripe_api_key' );
+
+    $secret_meta = eb_stripe_key_meta( $sk );
+    $public_meta = eb_stripe_key_meta( $pk );
+    $mode_match  = null;
+    if ( $sk && $pk && $secret_meta['mode'] !== 'unknown' && $public_meta['mode'] !== 'unknown' ) {
+        $mode_match = $secret_meta['mode'] === $public_meta['mode'];
+    }
+
+    $result = array(
+        'ok'                       => false,
+        'checked_at'               => gmdate( 'c' ),
+        'secret_key_configured'    => (bool) $sk,
+        'public_key_configured'    => (bool) $pk,
+        'secret_key_kind'          => $secret_meta['kind'],
+        'secret_key_mode'          => $secret_meta['mode'],
+        'public_key_mode'          => $public_meta['mode'],
+        'mode_match'               => $mode_match,
+        'stripe_account_read_ok'   => false,
+        'stripe_account_live_mode' => null,
+        'connect_status'           => array(
+            'status'             => 'none',
+            'connect_id_present' => false,
+        ),
+    );
+
+    if ( ! $sk ) {
+        $result['message'] = 'EB_STRIPE_SECRET_KEY fehlt oder ist leer.';
+        return new WP_REST_Response( $result, 200 );
+    }
+
+    if ( $mode_match === false ) {
+        $result['message'] = 'EB_STRIPE_PUBLIC_KEY und EB_STRIPE_SECRET_KEY stammen aus unterschiedlichen Modi.';
+        return new WP_REST_Response( $result, 200 );
+    }
+
+    $ch = curl_init( 'https://api.stripe.com/v1/account' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        $result['message'] = 'Stripe konnte nicht erreicht werden: ' . eb_stripe_sanitize_error_message( $err );
+        return new WP_REST_Response( $result, 200 );
+    }
+
+    $data = json_decode( $resp, true );
+    if ( $http >= 400 || ! is_array( $data ) ) {
+        $error_payload = eb_stripe_public_error_payload( $resp, 'Stripe-Account konnte mit dem hinterlegten Key nicht gelesen werden.' );
+        $result['message']      = $error_payload['message'] ?? 'Stripe-Account konnte nicht gelesen werden.';
+        $result['stripe_error'] = $error_payload;
+        if ( ! empty( $error_payload['required_permissions'] ) ) {
+            $result['required_permissions'] = $error_payload['required_permissions'];
+        }
+    } else {
+        $result['ok']                       = true;
+        $result['stripe_account_read_ok']   = true;
+        $result['stripe_account_live_mode'] = isset( $data['livemode'] ) ? (bool) $data['livemode'] : null;
+        $result['message']                  = 'Stripe-Key erreichbar. Basis-Konfiguration sieht gut aus.';
+    }
+
+    $connect_id = $user && $user->ID ? get_user_meta( $user->ID, 'eb_stripe_connect_id', true ) : '';
+    if ( $connect_id ) {
+        $connect_state = eb_stripe_connect_state_for_user( $user->ID, $sk );
+        $connect_state['connect_id_present'] = ! empty( $connect_state['connect_id'] );
+        unset( $connect_state['connect_id'] );
+        $result['connect_status'] = $connect_state;
     }
 
     return new WP_REST_Response( $result, 200 );

@@ -5470,6 +5470,86 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
 }
 .settings-info-row:last-of-type { border-bottom: none; }
 .settings-info-value { font-weight: 600; color: var(--dark); }
+.stripe-connect-diagnostics {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid rgba(99, 91, 255, 0.2);
+  border-radius: var(--radius-sm);
+  background: #F7F6FF;
+  color: var(--dark);
+}
+.stripe-connect-diagnostics-head {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.stripe-connect-diagnostics-head .material-icons-round {
+  color: #635BFF;
+  font-size: 24px;
+}
+.stripe-connect-diagnostics-head strong {
+  display: block;
+  font-size: 0.9rem;
+}
+.stripe-connect-diagnostics-head p {
+  margin: 2px 0 0;
+  color: var(--text-light);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.stripe-connect-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.stripe-connect-diagnostics-row {
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--bg);
+}
+.stripe-connect-diagnostics-row span {
+  display: block;
+  color: var(--text-light);
+  font-size: 0.72rem;
+  margin-bottom: 3px;
+}
+.stripe-connect-diagnostics-row strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+.stripe-connect-diagnostics-row-ok { border-color: rgba(16,185,129,0.35); }
+.stripe-connect-diagnostics-row-warn { border-color: rgba(245,158,11,0.42); }
+.stripe-connect-diagnostics-row-bad { border-color: rgba(239,68,68,0.38); }
+.stripe-connect-diagnostics-hint,
+.stripe-connect-diagnostics-perms {
+  margin: 10px 0 0;
+  color: var(--text-light);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.stripe-connect-diagnostics-perms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.stripe-connect-diagnostics-perms span {
+  flex-basis: 100%;
+  font-weight: 700;
+  color: var(--dark);
+}
+.stripe-connect-diagnostics-perms code {
+  padding: 4px 7px;
+  border-radius: 7px;
+  background: rgba(99, 91, 255, 0.12);
+  color: #5146D8;
+  font-size: 0.72rem;
+}
 .settings-status-active { color: var(--accent) !important; }
 .settings-status-passkey-on { color: var(--accent) !important; }
 .settings-status-passkey-off { color: #B45309 !important; }
@@ -6245,6 +6325,21 @@ span.flatpickr-weekday {
 body.dark-mode .stripe-register-note {
   background: rgba(99, 91, 255, 0.12);
   border-color: rgba(99, 91, 255, 0.34);
+}
+body.dark-mode .stripe-connect-diagnostics {
+  background: rgba(99, 91, 255, 0.1);
+  border-color: rgba(99, 91, 255, 0.34);
+}
+body.dark-mode .stripe-connect-diagnostics-row {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.12);
+}
+body.dark-mode .stripe-connect-diagnostics-perms span {
+  color: var(--dark);
+}
+body.dark-mode .stripe-connect-diagnostics-perms code {
+  background: rgba(99, 91, 255, 0.18);
+  color: #A8A2FF;
 }
 .reg-section { border-top: 1px solid var(--border-light); padding-top: 14px; margin-top: 4px; }
 #regSubRoleGroup { margin-bottom: 6px; }

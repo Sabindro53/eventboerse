@@ -14315,25 +14315,174 @@ function _renderCreatePayoutNotice(data) {
   notice.style.display = '';
 }
 
+function _stripeDiagTone(tone) {
+  return ['ok', 'warn', 'bad'].indexOf(tone) !== -1 ? tone : 'neutral';
+}
+
+function _stripeDiagRow(label, value, tone) {
+  return '<div class="stripe-connect-diagnostics-row stripe-connect-diagnostics-row-' + _stripeDiagTone(tone) + '">' +
+    '<span>' + _escHtml(label) + '</span>' +
+    '<strong>' + _escHtml(value || 'unbekannt') + '</strong>' +
+  '</div>';
+}
+
+function _stripeKeyKindLabel(kind) {
+  var labels = {
+    restricted: 'Restricted Key',
+    secret: 'Secret Key',
+    publishable: 'Publishable Key',
+    missing: 'fehlt',
+    unknown: 'unbekannt'
+  };
+  return labels[kind] || 'unbekannt';
+}
+
+function _stripeStatusLabel(status) {
+  var labels = {
+    active: 'aktiv',
+    pending: 'in Prüfung',
+    incomplete: 'unvollständig',
+    none: 'nicht verbunden',
+    admin: 'Admin-Prüfung'
+  };
+  return labels[status] || 'unbekannt';
+}
+
+function _renderStripeConnectDiagnostics(data) {
+  var box = document.getElementById('stripeConnectDiagnosticsResult');
+  if (!box) return;
+  data = data || {};
+
+  var rows = [];
+  rows.push(_stripeDiagRow('Secret-Key', data.secret_key_configured ? 'gesetzt' : 'fehlt', data.secret_key_configured ? 'ok' : 'bad'));
+  rows.push(_stripeDiagRow('Secret-Typ', _stripeKeyKindLabel(data.secret_key_kind), data.secret_key_configured ? 'ok' : 'bad'));
+  rows.push(_stripeDiagRow('Secret-Modus', data.secret_key_mode || 'unbekannt', data.secret_key_mode === 'live' ? 'ok' : (data.secret_key_mode === 'test' ? 'warn' : 'bad')));
+  rows.push(_stripeDiagRow('Public-Key', data.public_key_configured ? 'gesetzt' : 'fehlt', data.public_key_configured ? 'ok' : 'warn'));
+  rows.push(_stripeDiagRow('Public-Modus', data.public_key_mode || 'unbekannt', data.public_key_mode === 'live' ? 'ok' : (data.public_key_mode === 'test' ? 'warn' : 'neutral')));
+
+  if (data.mode_match === false) {
+    rows.push(_stripeDiagRow('Live/Test-Mix', 'Public und Secret passen nicht zusammen', 'bad'));
+  } else if (data.mode_match === true) {
+    rows.push(_stripeDiagRow('Live/Test-Mix', 'passt', 'ok'));
+  }
+
+  rows.push(_stripeDiagRow('Stripe API', data.stripe_account_read_ok ? 'erreichbar' : 'nicht bestätigt', data.stripe_account_read_ok ? 'ok' : 'bad'));
+
+  var connect = data.connect_status || {};
+  rows.push(_stripeDiagRow('Connect-Konto', connect.connect_id_present ? _stripeStatusLabel(connect.status) : 'noch nicht verbunden', connect.active ? 'ok' : (connect.status === 'pending' ? 'warn' : 'neutral')));
+
+  var error = data.stripe_error || {};
+  var permissions = Array.isArray(data.required_permissions) ? data.required_permissions : (Array.isArray(error.required_permissions) ? error.required_permissions : []);
+  var hint = error.admin_hint || data.admin_hint || '';
+  var message = data.message || (data.ok ? 'Konfiguration erreichbar.' : 'Konfiguration konnte nicht bestätigt werden.');
+
+  var permsHtml = '';
+  if (permissions.length) {
+    permsHtml =
+      '<div class="stripe-connect-diagnostics-perms">' +
+        '<span>Benötigte Stripe-Rechte</span>' +
+        '<code>' + permissions.map(_escHtml).join('</code><code>') + '</code>' +
+      '</div>';
+  }
+
+  box.innerHTML =
+    '<div class="stripe-connect-diagnostics-head">' +
+      '<span class="material-icons-round">' + (data.ok ? 'verified' : 'report') + '</span>' +
+      '<div>' +
+        '<strong>' + (data.ok ? 'Stripe-Konfiguration bereit' : 'Stripe-Konfiguration prüfen') + '</strong>' +
+        '<p>' + _escHtml(message) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<div class="stripe-connect-diagnostics-grid">' + rows.join('') + '</div>' +
+    (hint ? '<p class="stripe-connect-diagnostics-hint">' + _escHtml(hint) + '</p>' : '') +
+    permsHtml;
+  box.style.display = '';
+}
+
+function runStripeConnectDiagnostics(btn) {
+  if (!currentUser || !currentUser.isAdmin) {
+    showToast('Nur Admins können die Stripe-Konfiguration prüfen.', 'warning');
+    return;
+  }
+  var box = document.getElementById('stripeConnectDiagnosticsResult');
+  if (box) {
+    box.style.display = '';
+    box.innerHTML =
+      '<div class="stripe-connect-diagnostics-head">' +
+        '<span class="material-icons-round btn-spinner">sync</span>' +
+        '<div><strong>Stripe-Konfiguration wird geprüft</strong><p>Key wird sicher serverseitig getestet.</p></div>' +
+      '</div>';
+  }
+  _setBtnLoading(btn, true);
+  fetch(_apiUrl('stripe/connect/diagnostics'), {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+  .then(function(r) {
+    return r.json().then(function(data) {
+      data = data || {};
+      if (!r.ok && !data.message) data.message = 'Stripe-Diagnose konnte nicht geladen werden.';
+      return data;
+    });
+  })
+  .then(function(data) {
+    _renderStripeConnectDiagnostics(data);
+    if (data && data.ok) {
+      showToast('Stripe-Konfiguration erreichbar.', 'check_circle');
+    } else {
+      showToast((data && data.message) || 'Stripe-Konfiguration prüfen.', 'warning');
+    }
+  })
+  .catch(function() {
+    if (box) {
+      box.style.display = '';
+      box.innerHTML = '<div class="stripe-connect-diagnostics-head"><span class="material-icons-round">report</span><div><strong>Diagnose fehlgeschlagen</strong><p>Netzwerkfehler beim Prüfen.</p></div></div>';
+    }
+    showToast('Stripe-Diagnose fehlgeschlagen.', 'error');
+  })
+  .finally(function() {
+    _setBtnLoading(btn, false);
+  });
+}
+
 /**
  * Stripe-Connect-Status laden und Einstellungs-UI aktualisieren.
  */
 function loadStripeConnectStatus() {
   var card = document.getElementById('stripeConnectCard');
-  if (!currentUser || !isDienstleister()) {
-    if (card) card.style.display = 'none';
-    _renderCreatePayoutNotice({ status: 'hidden' });
-    return Promise.resolve(null);
-  }
-  if (card) card.style.display = '';
-  _renderCreatePayoutNotice({ status: 'loading' });
-
   var statusEl   = document.getElementById('stripeConnectStatusText');
   var accountRow = document.getElementById('stripeConnectAccountRow');
   var accountIdEl= document.getElementById('stripeConnectAccountId');
   var connectBtn = document.getElementById('stripeConnectBtn');
   var dashBtn    = document.getElementById('stripeConnectDashboardBtn');
   var disconnBtn = document.getElementById('stripeDisconnectBtn');
+  var diagBtn    = document.getElementById('stripeConnectDiagnosticsBtn');
+  var diagResult = document.getElementById('stripeConnectDiagnosticsResult');
+  var isProvider = !!(currentUser && isDienstleister());
+  var isAdmin    = !!(currentUser && currentUser.isAdmin);
+
+  if (!currentUser || (!isProvider && !isAdmin)) {
+    if (card) card.style.display = 'none';
+    if (diagResult) diagResult.style.display = 'none';
+    _renderCreatePayoutNotice({ status: 'hidden' });
+    return Promise.resolve(null);
+  }
+  if (card) card.style.display = '';
+  if (diagBtn) diagBtn.style.display = isAdmin ? '' : 'none';
+  if (diagResult && !isAdmin) diagResult.style.display = 'none';
+
+  if (!isProvider && isAdmin) {
+    if (statusEl) statusEl.textContent = 'Admin-Prüfung verfügbar';
+    if (accountRow) accountRow.style.display = 'none';
+    if (connectBtn) connectBtn.style.display = 'none';
+    if (dashBtn) dashBtn.style.display = 'none';
+    if (disconnBtn) disconnBtn.style.display = 'none';
+    _renderCreatePayoutNotice({ status: 'hidden' });
+    return Promise.resolve({ status: 'admin' });
+  }
+
+  _renderCreatePayoutNotice({ status: 'loading' });
 
   if (statusEl) statusEl.textContent = 'Wird geladen …';
 

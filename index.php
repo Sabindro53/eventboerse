@@ -1771,7 +1771,11 @@ $asset_ver = '2.4.8'; // cache-bust;
               <button id="stripeDisconnectBtn" class="btn-outline settings-danger-btn" onclick="disconnectStripeAccount()" style="display:none;margin-top:6px">
                 <span class="material-icons-round">link_off</span> Verbindung trennen
               </button>
+              <button id="stripeConnectDiagnosticsBtn" class="btn-outline settings-save-btn" onclick="runStripeConnectDiagnostics(this)" style="display:none;margin-top:6px">
+                <span class="material-icons-round">health_and_safety</span> Stripe-Konfiguration prüfen
+              </button>
             </div>
+            <div id="stripeConnectDiagnosticsResult" class="stripe-connect-diagnostics" style="display:none"></div>
             <p style="font-size:11px;color:var(--text-light);margin:10px 0 0;line-height:1.5">
               <span class="material-icons-round" style="font-size:13px;vertical-align:middle">info</span>
               Stripe ist ein lizenzierter Zahlungsdienstleister (BaFin/PSD2). Deine Bankdaten werden
