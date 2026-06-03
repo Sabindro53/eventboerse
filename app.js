@@ -187,6 +187,17 @@ function _findListingByAnyId(anyId) {
   return null;
 }
 
+function _fetchWithTimeout(url, options, timeoutMs) {
+  var ms = timeoutMs || 30000;
+  if (typeof AbortController === 'undefined') return fetch(url, options || {});
+  var controller = new AbortController();
+  var opts = Object.assign({}, options || {}, { signal: controller.signal });
+  var timer = setTimeout(function() { controller.abort(); }, ms);
+  return fetch(url, opts).finally(function() {
+    clearTimeout(timer);
+  });
+}
+
 async function _ensureWriteSessionMatchesCurrentUser(actionLabel) {
   if (!isLoggedIn || !currentUser) {
     openModal('loginModal');
@@ -196,10 +207,10 @@ async function _ensureWriteSessionMatchesCurrentUser(actionLabel) {
 
   var response;
   try {
-    response = await fetch(_apiUrl('me') + '?_t=' + Date.now(), {
+    response = await _fetchWithTimeout(_apiUrl('me') + '?_t=' + Date.now(), {
       credentials: 'same-origin',
       headers: _apiHeaders()
-    });
+    }, 12000);
     _refreshNonce(response);
   } catch (e) {
     showToast('Sitzung konnte nicht geprüft werden. Bitte lade die Seite neu.', 'warning');
@@ -932,13 +943,16 @@ async function uploadFile(file, _attempt) {
   if (_wpNonce) headers['X-WP-Nonce'] = _wpNonce;
   var resp;
   try {
-    resp = await fetch(_apiUrl('upload'), {
+    resp = await _fetchWithTimeout(_apiUrl('upload'), {
       method: 'POST',
       credentials: 'same-origin',
       headers: headers,
       body: formData
-    });
+    }, 30000);
   } catch (networkErr) {
+    if (networkErr && networkErr.name === 'AbortError') {
+      throw new Error('Upload dauert zu lange. Bitte Bildgröße oder Verbindung prüfen und erneut versuchen.');
+    }
     if (attempt < maxRetries) {
       await new Promise(function(r) { setTimeout(r, 1000 * attempt); });
       return uploadFile(file, attempt + 1);
@@ -6527,7 +6541,7 @@ const CATEGORY_LABELS = {
   moderation: 'Moderation'
 };
 
-function submitListing(e) {
+async function submitListing(e) {
   if (e && e.preventDefault) e.preventDefault();
 
   if (!isLoggedIn) {
@@ -6536,27 +6550,48 @@ function submitListing(e) {
     return;
   }
 
+  var submitBtn = document.querySelector('#step3 .btn-primary');
+  var now = Date.now();
+  var startedAt = parseInt(window._ebListingSubmitStartedAt || 0, 10);
   // FIX 2026-05: Double-Submit-Guard. Ohne diesen Block kann der User während
   // des laufenden Uploads erneut auf "Veröffentlichen" klicken und das Inserat
   // doppelt anlegen (zwei POST /listings parallel). Mit globalem In-Flight-Flag
   // werden Folge-Klicks ignoriert, bis der erste Submit terminiert.
   if (window._ebListingSubmitInflight) {
-    showToast('Wird gerade gespeichert…', 'sync');
-    return;
+    if (startedAt && now - startedAt > 90000) {
+      window._ebListingSubmitInflight = false;
+      window._ebListingSubmitStartedAt = 0;
+      if (submitBtn) _setBtnLoading(submitBtn, false);
+      showToast('Alter Speichervorgang wurde zurückgesetzt. Ich versuche es erneut.', 'sync');
+    } else {
+      showToast('Wird gerade gespeichert…', 'sync');
+      return;
+    }
   }
   window._ebListingSubmitInflight = true;
+  window._ebListingSubmitStartedAt = now;
+
+  var _releaseGuard = function() {
+    window._ebListingSubmitInflight = false;
+    window._ebListingSubmitStartedAt = 0;
+    if (submitBtn) _setBtnLoading(submitBtn, false);
+  };
+
+  try {
+    var requiredEl = function(id, label) {
+      var el = document.getElementById(id);
+      if (!el) throw new Error('Formularfeld fehlt: ' + (label || id));
+      return el;
+    };
 
   // Read form values with validation
-  const title = document.getElementById('createTitle').value.trim();
-  const category = document.getElementById('createCategory').value;
-  const description = document.getElementById('createDescription').value.trim();
-  const price = parseInt(document.getElementById('createPrice').value) || 0;
+  const title = requiredEl('createTitle', 'Titel').value.trim();
+  const category = requiredEl('createCategory', 'Kategorie').value;
+  const description = requiredEl('createDescription', 'Beschreibung').value.trim();
+  const price = parseInt(requiredEl('createPrice', 'Preis').value) || 0;
   const priceMaxRaw = parseInt((document.getElementById('createPriceMax')||{}).value) || 0;
   const priceMax = (priceMaxRaw > 0 && priceMaxRaw > price) ? priceMaxRaw : 0;
-  const priceModel = document.getElementById('createPriceModel').value;
-
-  // Helper: Flag zurücksetzen UND Schritt setzen
-  var _releaseGuard = function() { window._ebListingSubmitInflight = false; };
+  const priceModel = requiredEl('createPriceModel', 'Preismodell').value;
 
   // Basic validation
   if (!title)       { _releaseGuard(); showToast('Bitte gib einen Titel ein', 'warning'); nextStep(1); return; }
@@ -6614,11 +6649,10 @@ function submitListing(e) {
     return { src: img ? img.src : '', blob: div._croppedBlob || null };
   });
 
-  _ensureWriteSessionMatchesCurrentUser(isEventPlaner() ? 'Event speichern' : 'Inserat speichern').then(function(sessionOk) {
-    if (!sessionOk) { _releaseGuard(); return; }
+  var sessionOk = await _ensureWriteSessionMatchesCurrentUser(isEventPlaner() ? 'Event speichern' : 'Inserat speichern');
+  if (!sessionOk) return;
 
   // Show loading
-  var submitBtn = document.querySelector('#step3 .btn-primary');
   _setBtnLoading(submitBtn, true);
   showToast('Wird gespeichert...', 'sync');
 
@@ -6638,12 +6672,10 @@ function submitListing(e) {
     return Promise.resolve(entry.src);
   });
 
-  Promise.all(uploadPromises).then(function(imageUrls) {
+  var imageUrls = await Promise.all(uploadPromises);
     // Require at least one image
     if (imageUrls.length === 0) {
-      _releaseGuard();
       showToast('Bitte lade mindestens ein Bild hoch', 'warning');
-      _setBtnLoading(submitBtn, false);
       nextStep(2);
       return;
     }
@@ -6686,19 +6718,20 @@ function submitListing(e) {
       }
     }
 
-    return fetch(url, {
+    var resp = await _fetchWithTimeout(url, {
       method: method,
       credentials: 'same-origin',
       headers: _apiHeaders(),
       body: JSON.stringify(payload)
-    }).then(function(resp) {
-      if (!resp.ok) {
-        return resp.json().catch(function() { return {}; }).then(function(err) {
-          throw new Error(err.message || err.db_error || 'Speichern fehlgeschlagen (Status ' + resp.status + ')');
-        });
-      }
-      return resp.json();
-    }).then(function(saved) {
+    }, 35000);
+
+    if (!resp.ok) {
+      var apiErr = {};
+      try { apiErr = await resp.json(); } catch (_) {}
+      throw new Error(apiErr.message || apiErr.db_error || 'Speichern fehlgeschlagen (Status ' + resp.status + ')');
+    }
+
+    var saved = await resp.json();
       // Remove old from LISTINGS array if editing
       if (window._editingListingId) {
         var editIdx = LISTINGS.findIndex(function(l) { return l.id === window._editingListingId; });
@@ -6724,19 +6757,15 @@ function submitListing(e) {
 
       var successMsg = isEventPlaner() ? 'Event erfolgreich veröffentlicht! 🎉' : 'Inserat erfolgreich veröffentlicht! 🎉';
       showToast(successMsg, 'check_circle');
-      _setBtnLoading(submitBtn, false);
-      _releaseGuard();
       setTimeout(function() { navigateTo('detail', savedLocal.id || (savedDbId + 10000)); }, 800);
-    });
-  }).catch(function(err) {
-    _setBtnLoading(submitBtn, false);
+  } catch (err) {
+    var msg = err && err.name === 'AbortError'
+      ? 'Speichern dauert zu lange. Bitte Internet/Session prüfen und erneut versuchen.'
+      : (err && err.message ? err.message : 'Unbekannter Fehler');
+    showToast('Fehler beim Speichern: ' + msg, 'error');
+  } finally {
     _releaseGuard();
-    showToast('Fehler beim Speichern: ' + err.message, 'error');
-  });
-  }).catch(function(err) {
-    _releaseGuard();
-    showToast('Sitzungsprüfung fehlgeschlagen: ' + (err && err.message ? err.message : 'Bitte Seite neu laden.'), 'error');
-  });
+  }
 }
 
 function handleUpload(input) {
@@ -10464,14 +10493,17 @@ function _clearFieldErrors(formEl) {
 function _setBtnLoading(btn, loading) {
   if (!btn) return;
   if (loading) {
-    btn.dataset.origText = btn.innerHTML;
+    if (!btn.dataset.origText) btn.dataset.origText = btn.innerHTML;
     btn.disabled = true;
     btn.classList.add('btn-loading');
     btn.innerHTML = '<span class="material-icons-round btn-spinner">sync</span>';
   } else {
     btn.disabled = false;
     btn.classList.remove('btn-loading');
-    btn.innerHTML = btn.dataset.origText || btn.innerHTML;
+    if (btn.dataset.origText) {
+      btn.innerHTML = btn.dataset.origText;
+      delete btn.dataset.origText;
+    }
   }
 }
 
