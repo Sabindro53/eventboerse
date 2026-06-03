@@ -3180,6 +3180,13 @@ Datum: ___________________________________________________
               <input type="checkbox" id="regGewerbe" />
               Gewerbeanmeldung vorhanden
             </label>
+            <div class="stripe-register-note">
+              <span class="material-icons-round">account_balance_wallet</span>
+              <div>
+                <strong>Auszahlungen direkt vorbereiten</strong>
+                <p>Nach der E-Mail-Bestätigung führen wir dich zu Stripe Connect. Deine Bankdaten bleiben bei Stripe, Eventbörse sieht sie nie.</p>
+              </div>
+            </div>
           </div>
         </div>
         <!-- Persönliche Daten -->
@@ -3234,6 +3241,30 @@ Datum: ___________________________________________________
   </div>
 
   <!-- Stripe Connect: Kontoart wählen (Privatperson vs. Unternehmen) -->
+  <div class="modal-overlay" id="stripeOnboardingIntroModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="dismissStripeOnboardingPrompt()">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon" style="background:#635BFF">account_balance_wallet</span>
+        <h2 id="stripeOnboardingIntroTitle">Auszahlungskonto verbinden</h2>
+        <p id="stripeOnboardingIntroText">Damit Kunden dich buchen und bezahlen können, führt dich Stripe einmalig durch Bankkonto- und Identitätsprüfung.</p>
+      </div>
+      <div class="stripe-onboarding-steps">
+        <div><span class="material-icons-round">lock</span><strong>Sicher über Stripe</strong><small>Eventbörse speichert keine Bankdaten.</small></div>
+        <div><span class="material-icons-round">payments</span><strong>Buchungen freischalten</strong><small>Kunden zahlen erst, wenn Auszahlungen möglich sind.</small></div>
+        <div><span class="material-icons-round">verified</span><strong>Status bleibt sichtbar</strong><small>Du kannst später jederzeit fortsetzen.</small></div>
+      </div>
+      <div class="stripe-onboarding-actions">
+        <button type="button" class="btn-primary btn-block" onclick="startStripeOnboardingFromIntro(this)" style="background:#635BFF;border-color:#635BFF">
+          <span class="material-icons-round">open_in_new</span> Stripe jetzt verbinden
+        </button>
+        <button type="button" class="btn-outline btn-block" onclick="dismissStripeOnboardingPrompt()">Später erledigen</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="stripeBusinessTypeModal" onclick="closeModalOnOverlay(event)">
     <div class="modal modal-sm">
       <button class="modal-close" onclick="closeModal('stripeBusinessTypeModal')">

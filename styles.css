@@ -6216,6 +6216,36 @@ span.flatpickr-weekday {
 #regProviderFields .reg-section { display: flex; flex-direction: column; gap: 12px; }
 #regProviderFields .form-group { margin-bottom: 0; }
 #regProviderFields label small { color: var(--text-light); font-weight: 400; }
+.stripe-register-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 91, 255, 0.22);
+  background: #F7F6FF;
+  color: var(--dark);
+}
+.stripe-register-note .material-icons-round {
+  color: #635BFF;
+  font-size: 22px;
+  flex: 0 0 auto;
+}
+.stripe-register-note strong {
+  display: block;
+  font-size: 0.86rem;
+  margin-bottom: 2px;
+}
+.stripe-register-note p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-light);
+}
+body.dark-mode .stripe-register-note {
+  background: rgba(99, 91, 255, 0.12);
+  border-color: rgba(99, 91, 255, 0.34);
+}
 .reg-section { border-top: 1px solid var(--border-light); padding-top: 14px; margin-top: 4px; }
 #regSubRoleGroup { margin-bottom: 6px; }
 #regSubRoleGroup .role-toggle-sub { margin-top: 0; }
@@ -6248,6 +6278,45 @@ span.flatpickr-weekday {
   animation: modalIn 0.25s ease;
 }
 .modal-sm { max-width: 420px; }
+.stripe-onboarding-steps {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+.stripe-onboarding-steps > div {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--light);
+}
+.stripe-onboarding-steps .material-icons-round {
+  color: #635BFF;
+  font-size: 22px;
+}
+.stripe-onboarding-steps strong {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--dark);
+}
+.stripe-onboarding-steps small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-light);
+  line-height: 1.35;
+}
+.stripe-onboarding-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+body.dark-mode .stripe-onboarding-steps > div {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.12);
+}
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }
   to { opacity: 1; transform: scale(1) translateY(0); }

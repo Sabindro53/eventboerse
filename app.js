@@ -6019,7 +6019,11 @@ function updateCreateFormForRole() {
     if (uploadZoneP) uploadZoneP.textContent = 'Ziehe Bilder hierher oder klicke zum Ausw\u00e4hlen';
     if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">publish</span> Inserat ver\u00f6ffentlichen';
     _renderCreatePayoutNotice({ status: 'loading' });
-    if (typeof loadStripeConnectStatus === 'function') loadStripeConnectStatus();
+    if (typeof loadStripeConnectStatus === 'function') {
+      loadStripeConnectStatus().then(function(data) {
+        maybePromptStripeOnboarding('create-listing', data);
+      }).catch(function(){});
+    }
   }
 
 }
@@ -9413,6 +9417,7 @@ var _pendingOtpLogin = null;
 var _pendingRegOtp = null;
 var _conditionalAbort = null;
 var _backendAvailable = null; // null = not checked, true/false after check
+var _stripeOnboardingPromptTimer = null;
 
 // ── Offline / Demo Auth (localStorage-based) ──────────────
 function _demoUsers() {
@@ -9477,6 +9482,7 @@ function _demoRegister(email, password, firstName, lastName, role, subRole, comp
     last_name: lastName,
     name: (firstName + ' ' + lastName).trim(),
     role: displayRole,
+    baseRole: displayRole,
     subRole: role === 'user' ? (subRole || 'privat') : '',
     isAdmin: false,
     emailVerified: true,
@@ -9608,6 +9614,7 @@ function _normalizeUserPayload(data, fallback) {
     name: fullName,
     email: data.email || fallback.email || '',
     role: data.role || fallback.role || 'Event-Planer',
+    baseRole: data.baseRole || data.base_role || fallback.baseRole || fallback.base_role || data.role || fallback.role || 'Event-Planer',
     subRole: data.subRole || data.sub_role || fallback.subRole || fallback.sub_role || '',
     isAdmin: (data.role === 'Admin') || (fallback.role === 'Admin') || false,
     tagline: data.tagline || fallback.tagline || '',
@@ -9842,7 +9849,7 @@ async function initConditionalPasskeyLogin() {
 
     _applyAuthenticatedUser(data);
     closeModal('loginModal');
-    applyLogin();
+    applyLogin('login');
     showToast('Willkommen zurück!', 'fingerprint');
   } catch (err) {
     _conditionalAbort = null;
@@ -9870,8 +9877,103 @@ function shouldPromptPasskeySetup() {
 function maybePromptPasskeySetup() {
   if (!shouldPromptPasskeySetup()) return;
   setTimeout(function() {
+    if (document.querySelector('.modal-overlay.show')) return;
     openModal('passkeySetupModal');
-  }, 350);
+  }, isDienstleister() ? 3600 : 350);
+}
+
+function _stripeOnboardingPromptStorageKey(context) {
+  if (!currentUser || !currentUser.id) return '';
+  return 'eb_stripe_onboarding_prompt_' + context + '_' + currentUser.id;
+}
+
+function _stripeOnboardingPromptRecentlyShown(context) {
+  var key = _stripeOnboardingPromptStorageKey(context);
+  if (!key) return false;
+  var raw = localStorage.getItem(key);
+  var last = raw ? parseInt(raw, 10) : 0;
+  if (!last) return false;
+  var hours = context === 'registration' ? 0 : (context === 'create-listing' ? 2 : 24);
+  return hours > 0 && (Date.now() - last) < hours * 60 * 60 * 1000;
+}
+
+function _markStripeOnboardingPromptShown(context) {
+  var key = _stripeOnboardingPromptStorageKey(context);
+  if (key) localStorage.setItem(key, String(Date.now()));
+}
+
+function _stripeOnboardingModalVisible() {
+  var modal = document.getElementById('stripeOnboardingIntroModal');
+  return !!(modal && modal.classList.contains('show'));
+}
+
+function _openStripeOnboardingIntro(context, statusData) {
+  if (!currentUser || !isDienstleister()) return;
+  var modal = document.getElementById('stripeOnboardingIntroModal');
+  if (!modal) {
+    connectStripeAccount(null);
+    return;
+  }
+  var titleEl = document.getElementById('stripeOnboardingIntroTitle');
+  var textEl = document.getElementById('stripeOnboardingIntroText');
+  if (titleEl) titleEl.textContent = context === 'registration' ? 'Fast fertig: Auszahlungen einrichten' : 'Auszahlungskonto verbinden';
+  if (textEl) {
+    textEl.textContent = context === 'create-listing'
+      ? 'Dein Inserat kann online gehen. Damit Kunden dich später direkt buchen können, verbindest du jetzt sicher dein Stripe-Auszahlungskonto.'
+      : 'Damit Kunden dich buchen und bezahlen können, führt dich Stripe einmalig durch Bankkonto- und Identitätsprüfung. Eventbörse sieht deine Bankdaten nie.';
+  }
+  modal.dataset.context = context || 'login';
+  modal.dataset.status = (statusData && statusData.status) || 'none';
+  _markStripeOnboardingPromptShown(context || 'login');
+  openModal('stripeOnboardingIntroModal');
+}
+
+function maybePromptStripeOnboarding(context, statusData) {
+  context = context || 'login';
+  if (!currentUser || !isDienstleister()) return Promise.resolve(null);
+  if (_backendAvailable === false) return Promise.resolve(null);
+  if (_stripeOnboardingPromptRecentlyShown(context)) return Promise.resolve(null);
+  if (_stripeOnboardingPromptTimer) {
+    clearTimeout(_stripeOnboardingPromptTimer);
+    _stripeOnboardingPromptTimer = null;
+  }
+
+  var statusPromise = statusData ? Promise.resolve(statusData) : loadStripeConnectStatus();
+  return statusPromise.then(function(data) {
+    var status = (data && data.status) || 'none';
+    if (status === 'active') return data;
+    if (status === 'pending') {
+      if (context === 'registration' || context === 'create-listing') {
+        showToast('Stripe prüft dein Auszahlungskonto. Buchungen werden freigeschaltet, sobald Stripe fertig ist.', 'hourglass_top');
+      }
+      return data;
+    }
+    var delay = context === 'registration' ? 650 : (context === 'create-listing' ? 500 : 1100);
+    _stripeOnboardingPromptTimer = setTimeout(function() {
+      _stripeOnboardingPromptTimer = null;
+      var blockingModal = document.querySelector('.modal-overlay.show');
+      if (blockingModal && blockingModal.id !== 'stripeOnboardingIntroModal' && blockingModal.id !== 'stripeBusinessTypeModal') {
+        if (context !== 'create-listing') return;
+      }
+      if (!_stripeOnboardingModalVisible()) _openStripeOnboardingIntro(context, data);
+    }, delay);
+    return data;
+  }).catch(function() {
+    return null;
+  });
+}
+
+function startStripeOnboardingFromIntro(btn) {
+  closeModal('stripeOnboardingIntroModal');
+  connectStripeAccount(btn || null);
+}
+
+function dismissStripeOnboardingPrompt() {
+  var modal = document.getElementById('stripeOnboardingIntroModal');
+  var context = (modal && modal.dataset && modal.dataset.context) || 'login';
+  _markStripeOnboardingPromptShown(context);
+  closeModal('stripeOnboardingIntroModal');
+  showToast('Alles klar. Du kannst Stripe später in den Einstellungen verbinden.', 'info');
 }
 
 function dismissPasskeySetupPrompt() {
@@ -10029,14 +10131,14 @@ async function handleLoginWithPasskey(btn) {
       closeModal('loginModal');
       var form = document.querySelector('#loginModal .modal-form');
       if (form) form.reset();
-      applyLogin();
+      applyLogin('login');
       showToast('Passkey-Anmeldung erfolgreich (Offline-Modus)', 'fingerprint');
     } else {
       await loginWithPasskey(email);
       closeModal('loginModal');
       var form = document.querySelector('#loginModal .modal-form');
       if (form) form.reset();
-      applyLogin();
+      applyLogin('login');
       showToast('Passkey-Anmeldung erfolgreich', 'fingerprint');
     }
     maybePromptPasskeySetup();
@@ -10163,7 +10265,7 @@ async function handleLoginOtpVerify(e) {
     _pendingOtpLogin = null;
     closeModal('loginOtpModal');
     form.reset();
-    applyLogin();
+    applyLogin('login');
     showToast('Anmeldung erfolgreich bestätigt', 'mark_email_read');
     maybePromptPasskeySetup();
   } catch (err) {
@@ -10372,7 +10474,7 @@ function isDienstleister() {
   ));
 }
 
-function applyLogin() {
+function applyLogin(context) {
   isLoggedIn = true;
   document.getElementById('loggedOutMenu').style.display = 'none';
   document.getElementById('loggedInMenu').style.display = 'block';
@@ -10437,6 +10539,9 @@ function applyLogin() {
     _migrateBoardProjects();
     _loadBoardProjects();
     renderBoardPage();
+  }
+  if (context === 'login' || context === 'registration') {
+    maybePromptStripeOnboarding(context);
   }
 }
 
@@ -10623,7 +10728,7 @@ async function handleLogin(e) {
     _applyAuthenticatedUser(demoResult.user);
     closeModal('loginModal');
     form.reset();
-    applyLogin();
+    applyLogin('login');
     showToast('Willkommen zurück! (Offline-Modus)', 'login');
     return;
   }
@@ -10680,7 +10785,7 @@ async function handleLogin(e) {
     _setBtnLoading(submitBtn, false);
     closeModal('loginModal');
     form.reset();
-    applyLogin();
+    applyLogin('login');
     showToast('Willkommen zurück!', 'login');
     maybePromptPasskeySetup();
   } catch (err) {
@@ -10756,7 +10861,7 @@ async function handleRegister(e) {
     form.reset();
     var strengthBar = document.getElementById('passwordStrength');
     if (strengthBar) strengthBar.style.display = 'none';
-    applyLogin();
+    applyLogin('registration');
     showToast('Willkommen bei Eventbörse, ' + firstName + '! (Offline-Modus)', 'celebration');
     return;
   }
@@ -10799,7 +10904,7 @@ async function handleRegister(e) {
       form.reset();
       var strengthBar = document.getElementById('passwordStrength');
       if (strengthBar) strengthBar.style.display = 'none';
-      applyLogin();
+      applyLogin('registration');
       showToast('Willkommen bei Eventbörse, ' + firstName + '!', 'celebration');
     } else {
       _setBtnLoading(submitBtn, false);
@@ -10904,7 +11009,7 @@ async function handleRegisterOtpVerify(e) {
     _applyAuthenticatedUser(data);
     closeModal('registerOtpModal');
     form.reset();
-    applyLogin();
+    applyLogin('registration');
     showToast('Willkommen bei Eventbörse! Dein Konto ist verifiziert.', 'celebration');
   } catch (err) {
     _setFieldError('regOtpCode', err && err.message ? err.message : 'Code ist ungültig.');
@@ -10959,7 +11064,7 @@ async function verifyWithPasskey() {
     _pendingVerifyToken = null;
     _applyAuthenticatedUser(regData);
     closeModal('verifyModal');
-    applyLogin();
+    applyLogin('registration');
     showToast('Konto verifiziert – willkommen bei Eventbörse!', 'verified');
   } catch (err) {
     if (btn) _setBtnLoading(btn, false);
@@ -14272,10 +14377,12 @@ function loadStripeConnectStatus() {
       if (disconnBtn)  { disconnBtn.style.display = 'none'; }
       if (accountRow)  { accountRow.style.display = 'none'; }
     }
+    return data || { status: s };
   })
   .catch(function() {
     if (statusEl) statusEl.textContent = 'Fehler beim Laden – bitte Seite neu laden.';
     _renderCreatePayoutNotice({ status: 'none' });
+    return { status: 'none', error: true };
   });
 }
 
@@ -14284,13 +14391,18 @@ var _stripeConnectCallerBtn = null;
 function connectStripeAccount(btn) {
   _stripeConnectCallerBtn = btn;
   var toggle = document.getElementById('stripeBusinessTypeToggle');
+  var defaultType = (currentUser && currentUser.company) ? 'company' : 'individual';
   if (toggle) {
     toggle.querySelectorAll('.role-btn').forEach(function(b) { b.classList.remove('active'); });
-    var first = toggle.querySelector('[data-btype="individual"]');
-    if (first) first.classList.add('active');
+    var selected = toggle.querySelector('[data-btype="' + defaultType + '"]') || toggle.querySelector('[data-btype="individual"]');
+    if (selected) selected.classList.add('active');
   }
   var companyFields = document.getElementById('stripeCompanyFields');
-  if (companyFields) companyFields.classList.add('reg-collapsed');
+  if (companyFields) companyFields.classList.toggle('reg-collapsed', defaultType !== 'company');
+  var companyNameInput = document.getElementById('stripeCompanyName');
+  if (companyNameInput && currentUser && currentUser.company) companyNameInput.value = currentUser.company;
+  var vatInput = document.getElementById('stripeCompanyVat');
+  if (vatInput && currentUser && currentUser.vatId) vatInput.value = currentUser.vatId;
   openModal('stripeBusinessTypeModal');
 }
 

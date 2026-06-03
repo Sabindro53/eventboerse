@@ -672,6 +672,7 @@ function eb_user_profile_meta( $uid ) {
         'tagline'  => get_user_meta( $uid, 'eb_tagline',   true ) ?: '',
         'location' => get_user_meta( $uid, 'eb_location',  true ) ?: '',
         'bio'      => get_user_meta( $uid, 'eb_bio',       true ) ?: '',
+        'vatId'    => get_user_meta( $uid, 'eb_vat_id',    true ) ?: '',
         'gallery'  => is_array( $gallery ) ? $gallery : array(),
         'coverUrl'  => get_user_meta( $uid, 'eb_cover_url', true ) ?: '',
         'coverPosY' => (float) ( get_user_meta( $uid, 'eb_cover_pos_y', true ) ?: 50 ),
@@ -700,6 +701,7 @@ function eb_auth_user_payload( $user, $extra = array() ) {
             'last_name'  => $user->last_name,
             'roles'      => (array) $user->roles,
             'role'       => eventboerse_map_role( $user ),
+            'baseRole'   => eventboerse_base_role( $user ),
             'nonce'      => wp_create_nonce( 'wp_rest' ),
             'phone'      => get_user_meta( $user->ID, 'eb_phone', true ) ?: '',
             'since'      => date_i18n( 'F Y', strtotime( $user->user_registered ) ),
@@ -923,6 +925,8 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     $first_name = isset( $params['first_name'] )  ? sanitize_text_field( $params['first_name'] ) : '';
     $last_name  = isset( $params['last_name'] )   ? sanitize_text_field( $params['last_name'] )  : '';
     $role_input = isset( $params['role'] )         ? sanitize_text_field( $params['role'] )       : 'user';
+    $company    = isset( $params['company'] )      ? sanitize_text_field( $params['company'] )    : '';
+    $vat_id     = isset( $params['vat_id'] )       ? sanitize_text_field( $params['vat_id'] )     : '';
 
     // Validierung
     if ( empty( $email ) || ! is_email( $email ) ) {
@@ -983,6 +987,8 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
         'first_name'    => $first_name,
         'last_name'     => $last_name,
         'role'          => $role_input,
+        'company'       => $company,
+        'vat_id'        => $vat_id,
     ), 10 * MINUTE_IN_SECONDS );
     set_transient( eb_reg_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
 
@@ -1059,6 +1065,12 @@ function eb_register_verify( WP_REST_Request $request ) {
 
     // E-Mail direkt als verifiziert markieren (OTP bestätigt)
     update_user_meta( $user_id, 'eb_email_verified', '1' );
+    if ( ! empty( $payload['company'] ) ) {
+        update_user_meta( $user_id, 'eb_company', sanitize_text_field( $payload['company'] ) );
+    }
+    if ( ! empty( $payload['vat_id'] ) ) {
+        update_user_meta( $user_id, 'eb_vat_id', sanitize_text_field( $payload['vat_id'] ) );
+    }
 
     delete_transient( $otp_key );
 
