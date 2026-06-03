@@ -5550,6 +5550,31 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
   color: #5146D8;
   font-size: 0.72rem;
 }
+.stripe-connect-inline-error {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(220, 53, 69, 0.24);
+  background: rgba(220, 53, 69, 0.08);
+  color: #8A1F2D;
+}
+.stripe-connect-inline-error .material-icons-round {
+  color: #DC3545;
+  font-size: 22px;
+}
+.stripe-connect-inline-error strong {
+  display: block;
+  font-size: 0.86rem;
+}
+.stripe-connect-inline-error p {
+  margin: 3px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
 .settings-status-active { color: var(--accent) !important; }
 .settings-status-passkey-on { color: var(--accent) !important; }
 .settings-status-passkey-off { color: #B45309 !important; }

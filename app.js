@@ -14634,7 +14634,44 @@ function selectStripeBusinessType(btn, type) {
   }
 }
 
+function _clearStripeBusinessTypeError() {
+  var old = document.getElementById('stripeBusinessTypeError');
+  if (old) old.remove();
+}
+
+function _stripeConnectReadableError(data) {
+  data = data || {};
+  var msg = data.message || 'Stripe-Auszahlungskonto konnte nicht eingerichtet werden.';
+  if (data.stripe_message && currentUser && currentUser.isAdmin) {
+    msg += ' Stripe: ' + data.stripe_message;
+  }
+  if (Array.isArray(data.required_permissions) && data.required_permissions.length && currentUser && currentUser.isAdmin) {
+    msg += ' Fehlende Rechte: ' + data.required_permissions.join(', ');
+  }
+  if (data.admin_hint && currentUser && currentUser.isAdmin) {
+    msg += ' ' + data.admin_hint;
+  }
+  return msg;
+}
+
+function _showStripeBusinessTypeError(data) {
+  _clearStripeBusinessTypeError();
+  var confirmBtn = document.getElementById('stripeBusinessTypeConfirmBtn');
+  if (!confirmBtn) return;
+  var box = document.createElement('div');
+  box.id = 'stripeBusinessTypeError';
+  box.className = 'stripe-connect-inline-error';
+  box.innerHTML =
+    '<span class="material-icons-round">report</span>' +
+    '<div>' +
+      '<strong>Stripe-Verbindung konnte nicht gestartet werden</strong>' +
+      '<p>' + _escHtml(_stripeConnectReadableError(data)) + '</p>' +
+    '</div>';
+  confirmBtn.parentNode.insertBefore(box, confirmBtn);
+}
+
 function confirmStripeBusinessType(confirmBtn) {
+  _clearStripeBusinessTypeError();
   var toggle = document.getElementById('stripeBusinessTypeToggle');
   var active = toggle ? toggle.querySelector('.role-btn.active') : null;
   var businessType = active ? (active.dataset.btype || 'individual') : 'individual';
@@ -14665,15 +14702,14 @@ function confirmStripeBusinessType(confirmBtn) {
       window.location.href = data.onboarding_url;
     } else {
       if (data && data.admin_hint) console.warn('[eventboerse] Stripe Connect:', data.admin_hint);
-      var msg = (data && data.message) || 'Fehler beim Verbinden. Bitte erneut versuchen.';
-      if (data && data.code === 'stripe_key_missing_connect_permissions' && currentUser && currentUser.isAdmin) {
-        msg += ' Admin: EB_STRIPE_SECRET_KEY in Stripe prüfen.';
-      }
+      _showStripeBusinessTypeError(data || {});
+      var msg = _stripeConnectReadableError(data || {});
       showToast(msg, 'error');
     }
   })
   .catch(function() {
     _setBtnLoading(confirmBtn, false);
+    _showStripeBusinessTypeError({ message: 'Netzwerkfehler. Bitte erneut versuchen.' });
     showToast('Netzwerkfehler. Bitte erneut versuchen.', 'error');
   });
 }

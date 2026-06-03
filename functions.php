@@ -4970,6 +4970,24 @@ function eb_stripe_public_error_payload( $response, $fallback = 'Stripe-Fehler.'
         return $payload;
     }
 
+    if ( strpos( $lower, 'no such account' ) !== false || $stripe_code === 'resource_missing' ) {
+        return array(
+            'message'    => 'Das gespeicherte Stripe-Auszahlungskonto passt nicht zum aktuellen Stripe-Key. Bitte starte die Verbindung erneut.',
+            'code'       => 'stripe_connect_account_stale',
+            'admin_hint' => 'Der gespeicherte Connected-Account wurde vermutlich in einem anderen Stripe-Modus oder mit einem alten Plattform-Key erzeugt.',
+            'stripe_message' => eb_stripe_sanitize_error_message( $stripe_message ),
+        );
+    }
+
+    if ( strpos( $lower, 'cannot create' ) !== false && strpos( $lower, 'connected account' ) !== false ) {
+        return array(
+            'message'    => 'Stripe Connect ist noch nicht korrekt konfiguriert. Der API-Key muss zum Plattformkonto gehören, nicht zu einem verbundenen Dienstleisterkonto.',
+            'code'       => 'stripe_connect_platform_key_required',
+            'admin_hint' => 'EB_STRIPE_SECRET_KEY muss vom Stripe-Plattformkonto stammen und Connect-Account-Erstellung erlauben.',
+            'stripe_message' => eb_stripe_sanitize_error_message( $stripe_message ),
+        );
+    }
+
     if ( strpos( $lower, 'invalid api key' ) !== false || strpos( $lower, 'api key provided' ) !== false ) {
         return array(
             'message'    => 'Stripe ist noch nicht korrekt konfiguriert. Der hinterlegte API-Key ist ungültig oder gehört nicht zum passenden Live/Test-Modus.',
@@ -4991,6 +5009,14 @@ function eb_stripe_public_error_payload( $response, $fallback = 'Stripe-Fehler.'
     }
 
     return $payload;
+}
+
+function eb_stripe_response_has_error( $response, $needle ) {
+    $payload = json_decode( (string) $response, true );
+    $message = is_array( $payload ) && isset( $payload['error']['message'] ) ? strtolower( (string) $payload['error']['message'] ) : strtolower( (string) $response );
+    $code    = is_array( $payload ) && isset( $payload['error']['code'] ) ? strtolower( (string) $payload['error']['code'] ) : '';
+    $needle  = strtolower( (string) $needle );
+    return strpos( $message, $needle ) !== false || strpos( $code, $needle ) !== false;
 }
 
 function eb_stripe_create_checkout( WP_REST_Request $request ) {
@@ -5292,6 +5318,102 @@ function eb_stripe_connect_state_for_user( $user_id, $sk ) {
     );
 }
 
+function eb_stripe_create_connect_account_for_user( $user, $sk, $business_type, $company_name = '', $vat_id = '' ) {
+    $acc_fields = array(
+        'type'                                    => 'express',
+        'country'                                 => 'DE',
+        'email'                                   => $user->user_email,
+        'capabilities[card_payments][requested]'  => 'true',
+        'capabilities[transfers][requested]'      => 'true',
+        'business_type'                           => $business_type,
+        'metadata[wp_user_id]'                    => (string) $user->ID,
+        'metadata[eventboerse_user_email]'        => $user->user_email,
+    );
+    if ( $business_type === 'company' && $company_name ) {
+        $acc_fields['company[name]'] = $company_name;
+        $acc_fields['metadata[company_name]'] = $company_name;
+    }
+    if ( $vat_id ) {
+        // Hosted Express-Onboarding sammelt/verifiziert steuerliche KYC-Daten.
+        // Eine frei eingegebene USt-ID direkt als Stripe-KYC-Feld zu senden kann
+        // Account-Erstellung blockieren. Wir markieren nur, dass der User
+        // eine USt-ID angegeben hat; Stripe fragt die finalen KYC-Felder selbst ab.
+        $acc_fields['metadata[vat_id_provided]'] = '1';
+    }
+
+    $ch = curl_init( 'https://api.stripe.com/v1/accounts' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( $acc_fields ),
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        return new WP_Error( 'stripe_network_error', 'Netzwerkfehler: ' . eb_stripe_sanitize_error_message( $err ), array( 'status' => 502 ) );
+    }
+    if ( $http >= 400 ) {
+        return new WP_Error( 'stripe_account_create_failed', 'Stripe-Auszahlungskonto konnte nicht angelegt werden.', array(
+            'status'   => $http ?: 500,
+            'response' => $resp,
+        ) );
+    }
+
+    $acc_data = json_decode( $resp, true );
+    $connect_id = is_array( $acc_data ) ? ( $acc_data['id'] ?? '' ) : '';
+    if ( ! $connect_id ) {
+        return new WP_Error( 'stripe_account_missing_id', 'Keine Account-ID erhalten.', array( 'status' => 500 ) );
+    }
+
+    return sanitize_text_field( $connect_id );
+}
+
+function eb_stripe_create_account_link( $sk, $connect_id ) {
+    $base_url    = home_url( '/' );
+    $link_fields = array(
+        'account'     => $connect_id,
+        'refresh_url' => $base_url . '?stripe_connect=refresh',
+        'return_url'  => $base_url . '?stripe_connect=return',
+        'type'        => 'account_onboarding',
+        'collection_options[fields]' => 'eventually_due',
+    );
+    $ch = curl_init( 'https://api.stripe.com/v1/account_links' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( $link_fields ),
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        return new WP_Error( 'stripe_network_error', 'Netzwerkfehler: ' . eb_stripe_sanitize_error_message( $err ), array( 'status' => 502 ) );
+    }
+    if ( $http >= 400 ) {
+        return new WP_Error( 'stripe_account_link_failed', 'Stripe-Onboarding-Link konnte nicht erstellt werden.', array(
+            'status'   => $http ?: 500,
+            'response' => $resp,
+        ) );
+    }
+    $link_data = json_decode( $resp, true );
+    $url       = is_array( $link_data ) ? ( $link_data['url'] ?? '' ) : '';
+    if ( ! $url ) {
+        return new WP_Error( 'stripe_account_link_missing_url', 'Kein Onboarding-Link erhalten.', array( 'status' => 500 ) );
+    }
+    return $url;
+}
+
 /**
  * POST /stripe/connect/onboard
  * Erstellt (oder erneuert) einen Stripe Express Account + Onboarding-Link.
@@ -5320,78 +5442,49 @@ function eb_stripe_connect_onboard( WP_REST_Request $request ) {
 
     // Express-Account erstellen falls noch keiner vorhanden
     if ( ! $connect_id ) {
-        $acc_fields = array(
-            'type'                                    => 'express',
-            'country'                                 => 'DE',
-            'email'                                   => $user->user_email,
-            'capabilities[card_payments][requested]'  => 'true',
-            'capabilities[transfers][requested]'      => 'true',
-            'business_type'                           => $business_type,
-            'metadata[wp_user_id]'                    => (string) $user->ID,
-        );
-        if ( $business_type === 'company' && $company_name ) {
-            $acc_fields['company[name]'] = $company_name;
+        $created = eb_stripe_create_connect_account_for_user( $user, $sk, $business_type, $company_name, $vat_id );
+        if ( is_wp_error( $created ) ) {
+            $data = $created->get_error_data();
+            if ( isset( $data['response'] ) ) {
+                return new WP_REST_Response( eb_stripe_public_error_payload( $data['response'], 'Stripe-Auszahlungskonto konnte nicht angelegt werden.' ), $data['status'] ?? 500 );
+            }
+            return new WP_REST_Response( array( 'message' => $created->get_error_message() ), $data['status'] ?? 500 );
         }
-        if ( $vat_id ) {
-            $acc_fields['company[tax_id]'] = $vat_id;
-        }
-        $ch = curl_init( 'https://api.stripe.com/v1/accounts' );
-        curl_setopt_array( $ch, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => http_build_query( $acc_fields ),
-            CURLOPT_USERPWD        => $sk . ':',
-            CURLOPT_TIMEOUT        => 20,
-            CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
-        ) );
-        $resp = curl_exec( $ch );
-        $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-        $err  = curl_error( $ch );
-        curl_close( $ch );
-
-        if ( $err || $http >= 400 ) {
-            return new WP_REST_Response( eb_stripe_public_error_payload( $resp, 'Stripe-Auszahlungskonto konnte nicht angelegt werden.' ), $http ?: 500 );
-        }
-        $acc_data   = json_decode( $resp, true );
-        $connect_id = is_array( $acc_data ) ? ( $acc_data['id'] ?? '' ) : '';
-        if ( ! $connect_id ) {
-            return new WP_REST_Response( array( 'message' => 'Keine Account-ID erhalten.' ), 500 );
-        }
+        $connect_id = $created;
         update_user_meta( $user->ID, 'eb_stripe_connect_id', sanitize_text_field( $connect_id ) );
         update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
         update_user_meta( $user->ID, 'eb_stripe_connect_business_type', $business_type );
     }
 
     // Account-Link generieren (Onboarding-URL, 10 Min. gültig)
-    $base_url    = home_url( '/' );
-    $link_fields = array(
-        'account'     => $connect_id,
-        'refresh_url' => $base_url . '?stripe_connect=refresh',
-        'return_url'  => $base_url . '?stripe_connect=return',
-        'type'        => 'account_onboarding',
-        'collection_options[fields]' => 'eventually_due',
-    );
-    $ch = curl_init( 'https://api.stripe.com/v1/account_links' );
-    curl_setopt_array( $ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => http_build_query( $link_fields ),
-        CURLOPT_USERPWD        => $sk . ':',
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
-    ) );
-    $resp = curl_exec( $ch );
-    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    $err  = curl_error( $ch );
-    curl_close( $ch );
-
-    if ( $err || $http >= 400 ) {
-        return new WP_REST_Response( eb_stripe_public_error_payload( $resp, 'Stripe-Onboarding-Link konnte nicht erstellt werden.' ), $http ?: 500 );
-    }
-    $link_data = json_decode( $resp, true );
-    $url       = is_array( $link_data ) ? ( $link_data['url'] ?? '' ) : '';
-    if ( ! $url ) {
-        return new WP_REST_Response( array( 'message' => 'Kein Onboarding-Link erhalten.' ), 500 );
+    $url = eb_stripe_create_account_link( $sk, $connect_id );
+    if ( is_wp_error( $url ) ) {
+        $data = $url->get_error_data();
+        $response = $data['response'] ?? '';
+        if ( $response && eb_stripe_response_has_error( $response, 'no such account' ) ) {
+            delete_user_meta( $user->ID, 'eb_stripe_connect_id' );
+            delete_user_meta( $user->ID, 'eb_stripe_connect_active' );
+            $created = eb_stripe_create_connect_account_for_user( $user, $sk, $business_type, $company_name, $vat_id );
+            if ( is_wp_error( $created ) ) {
+                $create_data = $created->get_error_data();
+                if ( isset( $create_data['response'] ) ) {
+                    return new WP_REST_Response( eb_stripe_public_error_payload( $create_data['response'], 'Stripe-Auszahlungskonto konnte nicht neu angelegt werden.' ), $create_data['status'] ?? 500 );
+                }
+                return new WP_REST_Response( array( 'message' => $created->get_error_message() ), $create_data['status'] ?? 500 );
+            }
+            $connect_id = $created;
+            update_user_meta( $user->ID, 'eb_stripe_connect_id', sanitize_text_field( $connect_id ) );
+            update_user_meta( $user->ID, 'eb_stripe_connect_active', '' );
+            update_user_meta( $user->ID, 'eb_stripe_connect_business_type', $business_type );
+            $url = eb_stripe_create_account_link( $sk, $connect_id );
+        }
+        if ( is_wp_error( $url ) ) {
+            $data = $url->get_error_data();
+            if ( isset( $data['response'] ) ) {
+                return new WP_REST_Response( eb_stripe_public_error_payload( $data['response'], 'Stripe-Onboarding-Link konnte nicht erstellt werden.' ), $data['status'] ?? 500 );
+            }
+            return new WP_REST_Response( array( 'message' => $url->get_error_message() ), $data['status'] ?? 500 );
+        }
     }
 
     return new WP_REST_Response( array(
