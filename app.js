@@ -14371,6 +14371,7 @@ function _renderStripeConnectDiagnostics(data) {
   data = data || {};
 
   var rows = [];
+  rows.push(_stripeDiagRow('Stripe-Modus', data.configured_mode === 'test' ? 'Test/Sandbox' : 'Live', data.configured_mode === 'test' ? 'warn' : 'ok'));
   rows.push(_stripeDiagRow('Secret-Key', data.secret_key_configured ? 'gesetzt' : 'fehlt', data.secret_key_configured ? 'ok' : 'bad'));
   rows.push(_stripeDiagRow('Secret-Typ', _stripeKeyKindLabel(data.secret_key_kind), data.secret_key_configured ? 'ok' : 'bad'));
   rows.push(_stripeDiagRow('Secret-Modus', data.secret_key_mode || 'unbekannt', data.secret_key_mode === 'live' ? 'ok' : (data.secret_key_mode === 'test' ? 'warn' : 'bad')));
@@ -14869,6 +14870,7 @@ function _openStripePaymentModal(opts) {
         '<div>' +
           '<div class="stripe-modal-title"><span class="material-icons-round">lock</span> Sichere Zahlung</div>' +
           '<div class="stripe-modal-sub">Pr\u00fcfe deine Buchung und schlie\u00dfe sie sicher ab.</div>' +
+          '<div id="stripeModeBadge" class="stripe-mode-badge" style="display:none"><span class="material-icons-round">science</span> Testmodus / Sandbox</div>' +
         '</div>' +
         '<button class="stripe-modal-close" type="button" aria-label="Schließen">&times;</button>' +
       '</div>' +
@@ -14952,6 +14954,10 @@ function _openStripePaymentModal(opts) {
         }
         showErr((res.data && res.data.message) || 'Stripe konnte nicht initialisiert werden.');
         return;
+      }
+      if (res.data.mode === 'test') {
+        var modeBadge = ov.querySelector('#stripeModeBadge');
+        if (modeBadge) modeBadge.style.display = 'inline-flex';
       }
       var stripe = Stripe(res.data.publishable_key);
       var elements = stripe.elements({

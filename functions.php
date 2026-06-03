@@ -4799,32 +4799,13 @@ function eb_send_invoice( WP_REST_Request $request ) {
 
 /* ============================================================
  *  STRIPE CHECKOUT (MVP)
- *  - Liest Keys aus .env (pk_live / sk_live)
+ *  - Liest Keys aus wp-config.php/.env (Live oder Stripe-Testmodus)
  *  - Erstellt Checkout-Session via Stripe REST API
  *  - success_url markiert Karte client-seitig als bezahlt
  *  - Webhook-Verifikation folgt (Backend-Auftrag)
  * ============================================================ */
 
-function eb_load_env_value( $key ) {
-    // 1) Bevorzugt: Konstanten aus wp-config.php (sicherer, kein .env im Repo nötig).
-    static $const_map = array(
-        'public_stripe_api_key'  => 'EB_STRIPE_PUBLIC_KEY',
-        'private_stripe_api_key' => 'EB_STRIPE_SECRET_KEY',
-        'stripe_webhook_secret'  => 'EB_STRIPE_WEBHOOK_SECRET',
-        'STRIPE_WEBHOOK_SECRET'  => 'EB_STRIPE_WEBHOOK_SECRET',
-    );
-    if ( isset( $const_map[ $key ] ) && defined( $const_map[ $key ] ) ) {
-        $val = constant( $const_map[ $key ] );
-        if ( $val !== '' && $val !== null ) return $val;
-    }
-
-    // 2) Fallback: .env-Datei (Legacy, sollte nicht ins Repo).
-    //    Akzeptiert auch Schreibvarianten (z. B. "puplic_stripe_key" / "private_stripe_key").
-    static $alias_map = array(
-        'public_stripe_api_key'  => array( 'public_stripe_key', 'puplic_stripe_key', 'STRIPE_PUBLIC_KEY', 'STRIPE_PUBLISHABLE_KEY' ),
-        'private_stripe_api_key' => array( 'private_stripe_key', 'STRIPE_SECRET_KEY', 'STRIPE_PRIVATE_KEY' ),
-        'stripe_webhook_secret'  => array( 'STRIPE_WEBHOOK_SECRET', 'webhook_secret' ),
-    );
+function eb_env_file_values() {
     static $cache = null;
     if ( $cache === null ) {
         $cache = array();
@@ -4843,18 +4824,139 @@ function eb_load_env_value( $key ) {
             }
         }
     }
-    if ( isset( $cache[ $key ] ) && $cache[ $key ] !== '' ) return $cache[ $key ];
-    if ( isset( $alias_map[ $key ] ) ) {
-        foreach ( $alias_map[ $key ] as $alias ) {
-            if ( isset( $cache[ $alias ] ) && $cache[ $alias ] !== '' ) return $cache[ $alias ];
+    return $cache;
+}
+
+function eb_stripe_config_mode() {
+    $mode = '';
+    if ( defined( 'EB_STRIPE_MODE' ) ) {
+        $mode = (string) constant( 'EB_STRIPE_MODE' );
+    }
+    if ( ! $mode ) {
+        $cache = eb_env_file_values();
+        foreach ( array( 'EB_STRIPE_MODE', 'STRIPE_MODE', 'stripe_mode' ) as $mode_key ) {
+            if ( ! empty( $cache[ $mode_key ] ) ) {
+                $mode = $cache[ $mode_key ];
+                break;
+            }
+        }
+    }
+
+    $mode = strtolower( trim( (string) $mode ) );
+    return in_array( $mode, array( 'test', 'sandbox' ), true ) ? 'test' : 'live';
+}
+
+function eb_stripe_key_matches_mode( $value, $mode ) {
+    $value = (string) $value;
+    if ( $mode === 'test' ) {
+        return strpos( $value, '_test_' ) !== false;
+    }
+    if ( $mode === 'live' ) {
+        return strpos( $value, '_live_' ) !== false;
+    }
+    return false;
+}
+
+function eb_first_defined_constant_value( $names ) {
+    foreach ( $names as $name ) {
+        if ( defined( $name ) ) {
+            $val = constant( $name );
+            if ( $val !== '' && $val !== null ) return (string) $val;
         }
     }
     return '';
 }
 
+function eb_first_env_value( $names ) {
+    $cache = eb_env_file_values();
+    foreach ( $names as $name ) {
+        if ( isset( $cache[ $name ] ) && $cache[ $name ] !== '' ) return (string) $cache[ $name ];
+    }
+    return '';
+}
+
+function eb_load_env_value( $key ) {
+    // 1) Bevorzugt: Konstanten aus wp-config.php (sicherer, kein .env im Repo nötig).
+    static $const_map = array(
+        'public_stripe_api_key'  => array( 'EB_STRIPE_PUBLIC_KEY' ),
+        'private_stripe_api_key' => array( 'EB_STRIPE_SECRET_KEY' ),
+        'stripe_webhook_secret'  => array( 'EB_STRIPE_WEBHOOK_SECRET' ),
+        'STRIPE_WEBHOOK_SECRET'  => array( 'EB_STRIPE_WEBHOOK_SECRET' ),
+    );
+    static $test_const_map = array(
+        'public_stripe_api_key'  => array( 'EB_STRIPE_TEST_PUBLIC_KEY' ),
+        'private_stripe_api_key' => array( 'EB_STRIPE_TEST_SECRET_KEY' ),
+        'stripe_webhook_secret'  => array( 'EB_STRIPE_TEST_WEBHOOK_SECRET' ),
+        'STRIPE_WEBHOOK_SECRET'  => array( 'EB_STRIPE_TEST_WEBHOOK_SECRET' ),
+    );
+    static $live_const_map = array(
+        'public_stripe_api_key'  => array( 'EB_STRIPE_LIVE_PUBLIC_KEY' ),
+        'private_stripe_api_key' => array( 'EB_STRIPE_LIVE_SECRET_KEY' ),
+        'stripe_webhook_secret'  => array( 'EB_STRIPE_LIVE_WEBHOOK_SECRET' ),
+        'STRIPE_WEBHOOK_SECRET'  => array( 'EB_STRIPE_LIVE_WEBHOOK_SECRET' ),
+    );
+
+    // 2) Fallback: .env-Datei (Legacy, sollte nicht ins Repo).
+    //    Akzeptiert auch Schreibvarianten (z. B. "puplic_stripe_key" / "private_stripe_key").
+    static $alias_map = array(
+        'public_stripe_api_key'  => array( 'public_stripe_key', 'puplic_stripe_key', 'STRIPE_PUBLIC_KEY', 'STRIPE_PUBLISHABLE_KEY' ),
+        'private_stripe_api_key' => array( 'private_stripe_key', 'STRIPE_SECRET_KEY', 'STRIPE_PRIVATE_KEY' ),
+        'stripe_webhook_secret'  => array( 'STRIPE_WEBHOOK_SECRET', 'webhook_secret' ),
+        'STRIPE_WEBHOOK_SECRET'  => array( 'STRIPE_WEBHOOK_SECRET', 'webhook_secret' ),
+    );
+    static $test_alias_map = array(
+        'public_stripe_api_key'  => array( 'EB_STRIPE_TEST_PUBLIC_KEY', 'STRIPE_TEST_PUBLIC_KEY', 'STRIPE_TEST_PUBLISHABLE_KEY' ),
+        'private_stripe_api_key' => array( 'EB_STRIPE_TEST_SECRET_KEY', 'STRIPE_TEST_SECRET_KEY', 'STRIPE_TEST_PRIVATE_KEY' ),
+        'stripe_webhook_secret'  => array( 'EB_STRIPE_TEST_WEBHOOK_SECRET', 'STRIPE_TEST_WEBHOOK_SECRET' ),
+        'STRIPE_WEBHOOK_SECRET'  => array( 'EB_STRIPE_TEST_WEBHOOK_SECRET', 'STRIPE_TEST_WEBHOOK_SECRET' ),
+    );
+    static $live_alias_map = array(
+        'public_stripe_api_key'  => array( 'EB_STRIPE_LIVE_PUBLIC_KEY', 'STRIPE_LIVE_PUBLIC_KEY', 'STRIPE_LIVE_PUBLISHABLE_KEY' ),
+        'private_stripe_api_key' => array( 'EB_STRIPE_LIVE_SECRET_KEY', 'STRIPE_LIVE_SECRET_KEY', 'STRIPE_LIVE_PRIVATE_KEY' ),
+        'stripe_webhook_secret'  => array( 'EB_STRIPE_LIVE_WEBHOOK_SECRET', 'STRIPE_LIVE_WEBHOOK_SECRET' ),
+        'STRIPE_WEBHOOK_SECRET'  => array( 'EB_STRIPE_LIVE_WEBHOOK_SECRET', 'STRIPE_LIVE_WEBHOOK_SECRET' ),
+    );
+
+    $is_stripe_key = in_array( $key, array( 'public_stripe_api_key', 'private_stripe_api_key', 'stripe_webhook_secret', 'STRIPE_WEBHOOK_SECRET' ), true );
+    $mode = $is_stripe_key ? eb_stripe_config_mode() : 'live';
+
+    if ( $is_stripe_key && $mode === 'test' ) {
+        $val = eb_first_defined_constant_value( $test_const_map[ $key ] ?? array() );
+        if ( $val ) return $val;
+
+        // Sicherheitsnetz: generische Konstanten nur im Testmodus nutzen, wenn
+        // der Key selbst eindeutig ein Test-Key ist. Webhook-Secrets haben keinen
+        // Modus im Wert und müssen deshalb test-spezifisch gesetzt werden.
+        $val = eb_first_defined_constant_value( $const_map[ $key ] ?? array() );
+        if ( $val && $key !== 'stripe_webhook_secret' && $key !== 'STRIPE_WEBHOOK_SECRET' && eb_stripe_key_matches_mode( $val, 'test' ) ) return $val;
+
+        $val = eb_first_env_value( $test_alias_map[ $key ] ?? array() );
+        if ( $val ) return $val;
+        $val = eb_first_env_value( $alias_map[ $key ] ?? array() );
+        if ( $val && $key !== 'stripe_webhook_secret' && $key !== 'STRIPE_WEBHOOK_SECRET' && eb_stripe_key_matches_mode( $val, 'test' ) ) return $val;
+
+        return '';
+    }
+
+    $val = eb_first_defined_constant_value( $const_map[ $key ] ?? array() );
+    if ( $val ) return $val;
+    $val = eb_first_defined_constant_value( $live_const_map[ $key ] ?? array() );
+    if ( $val ) return $val;
+
+    $val = eb_first_env_value( $alias_map[ $key ] ?? array() );
+    if ( $val ) return $val;
+    $val = eb_first_env_value( $live_alias_map[ $key ] ?? array() );
+    if ( $val ) return $val;
+
+    return '';
+}
+
 function eb_stripe_public_key( WP_REST_Request $request ) {
     $pk = eb_load_env_value( 'public_stripe_api_key' );
-    return new WP_REST_Response( array( 'publishable_key' => $pk ), 200 );
+    return new WP_REST_Response( array(
+        'publishable_key' => $pk,
+        'mode'            => eb_stripe_config_mode(),
+    ), 200 );
 }
 
 function eb_stripe_platform_fee_rate() {
@@ -5254,6 +5356,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'client_secret'   => $data['client_secret'],
         'payment_intent'  => $data['id'] ?? '',
         'publishable_key' => $pk,
+        'mode'            => eb_stripe_config_mode(),
         'amount'          => $amount_cents,
         'currency'        => $currency,
         'fee_quote'       => $fee_quote,
@@ -5671,6 +5774,7 @@ function eb_stripe_payment_domain_register( WP_REST_Request $request ) {
  */
 function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
     $user = wp_get_current_user();
+    $configured_mode = eb_stripe_config_mode();
     $sk   = eb_load_env_value( 'private_stripe_api_key' );
     $pk   = eb_load_env_value( 'public_stripe_api_key' );
 
@@ -5684,6 +5788,7 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
     $result = array(
         'ok'                       => false,
         'checked_at'               => gmdate( 'c' ),
+        'configured_mode'          => $configured_mode,
         'secret_key_configured'    => (bool) $sk,
         'public_key_configured'    => (bool) $pk,
         'secret_key_kind'          => $secret_meta['kind'],
@@ -5704,12 +5809,16 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
     );
 
     if ( ! $sk ) {
-        $result['message'] = 'EB_STRIPE_SECRET_KEY fehlt oder ist leer.';
+        $result['message'] = $configured_mode === 'test'
+            ? 'Stripe-Testmodus ist aktiv, aber EB_STRIPE_TEST_SECRET_KEY fehlt oder ist leer.'
+            : 'EB_STRIPE_SECRET_KEY fehlt oder ist leer.';
         return new WP_REST_Response( $result, 200 );
     }
 
     if ( $mode_match === false ) {
-        $result['message'] = 'EB_STRIPE_PUBLIC_KEY und EB_STRIPE_SECRET_KEY stammen aus unterschiedlichen Modi.';
+        $result['message'] = $configured_mode === 'test'
+            ? 'EB_STRIPE_TEST_PUBLIC_KEY und EB_STRIPE_TEST_SECRET_KEY stammen aus unterschiedlichen Modi.'
+            : 'EB_STRIPE_PUBLIC_KEY und EB_STRIPE_SECRET_KEY stammen aus unterschiedlichen Modi.';
         return new WP_REST_Response( $result, 200 );
     }
 
@@ -5741,7 +5850,16 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
         $result['ok']                       = true;
         $result['stripe_account_read_ok']   = true;
         $result['stripe_account_live_mode'] = isset( $data['livemode'] ) ? (bool) $data['livemode'] : null;
-        $result['message']                  = 'Stripe-Key erreichbar. Basis-Konfiguration sieht gut aus.';
+        $result['message']                  = $configured_mode === 'test'
+            ? 'Stripe-Testmodus erreichbar. Sandbox-Konfiguration sieht gut aus.'
+            : 'Stripe-Key erreichbar. Basis-Konfiguration sieht gut aus.';
+        if ( isset( $data['livemode'] ) && $configured_mode === 'test' && ! empty( $data['livemode'] ) ) {
+            $result['ok']      = false;
+            $result['message'] = 'Stripe-Testmodus ist aktiv, aber der Secret-Key zeigt auf Live. Bitte Test-Key setzen.';
+        }
+        if ( isset( $data['livemode'] ) && $configured_mode === 'live' && empty( $data['livemode'] ) ) {
+            $result['message'] = 'Stripe ist erreichbar, aber der Key ist ein Test-Key. Für Live-Buchungen Live-Keys setzen.';
+        }
     }
 
     $payment_domain = eb_stripe_payment_domain_lookup( $sk, $result['payment_method_domain']['domain'] );

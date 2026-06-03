@@ -12424,6 +12424,18 @@ body.dark-mode .pec-icon { background: rgba(255,56,92,0.15); }
 }
 .stripe-modal-title .material-icons-round { font-size: 22px; color: #FF385C; }
 .stripe-modal-sub { font-size: 13px; color: #666; margin-top: 2px; }
+.stripe-mode-badge {
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(99, 91, 255, 0.12);
+  color: #5146D8;
+  font-size: 12px;
+  font-weight: 800;
+}
+.stripe-mode-badge .material-icons-round { font-size: 15px; }
 .stripe-modal-close {
   background: transparent; border: 0; font-size: 28px; line-height: 1;
   color: #888; cursor: pointer; padding: 2px 8px; border-radius: 8px;
