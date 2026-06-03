@@ -1809,6 +1809,7 @@ $asset_ver = '2.4.8'; // cache-bust;
       <div class="container container-sm">
         <h1 class="create-title">Inserat erstellen</h1>
         <p class="create-subtitle"></p>
+        <div id="createPayoutNotice" class="create-payout-notice" style="display:none"></div>
         <form class="create-form" id="createListingForm" onsubmit="return false;">
           <!-- Step 1: Basics -->
           <div class="form-step active" id="step1">
