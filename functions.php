@@ -2398,6 +2398,11 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_stripe_connect_diagnostics',
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
+    register_rest_route( 'eventboerse/v1', '/stripe/payment-domain/register', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_stripe_payment_domain_register',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
     register_rest_route( 'eventboerse/v1', '/stripe/connect/disconnect', array(
         'methods'             => 'POST',
         'callback'            => 'eb_stripe_connect_disconnect',
@@ -5439,6 +5444,121 @@ function eb_stripe_connect_status( WP_REST_Request $request ) {
     return new WP_REST_Response( $result, 200 );
 }
 
+function eb_stripe_payment_domain_name() {
+    $host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+    $host = strtolower( sanitize_text_field( $host ?: '' ) );
+    $host = preg_replace( '/^www\./', '', $host );
+    return $host;
+}
+
+function eb_stripe_payment_domain_lookup( $sk, $domain ) {
+    $result = array(
+        'domain'     => $domain,
+        'configured' => false,
+        'status'     => 'unchecked',
+    );
+    if ( ! $sk || ! $domain ) {
+        $result['status'] = 'missing_config';
+        return $result;
+    }
+
+    $url = 'https://api.stripe.com/v1/payment_method_domains?' . http_build_query( array(
+        'domain_name' => $domain,
+        'limit'       => 10,
+    ) );
+    $ch = curl_init( $url );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        $result['status']  = 'network_error';
+        $result['message'] = eb_stripe_sanitize_error_message( $err );
+        return $result;
+    }
+    $data = json_decode( $resp, true );
+    if ( $http >= 400 || ! is_array( $data ) ) {
+        $error_payload = eb_stripe_public_error_payload( $resp, 'Stripe Payment-Method-Domain konnte nicht geprüft werden.' );
+        $result['status']       = 'stripe_error';
+        $result['message']      = $error_payload['message'] ?? 'Stripe Payment-Method-Domain konnte nicht geprüft werden.';
+        $result['stripe_error'] = $error_payload;
+        if ( ! empty( $error_payload['required_permissions'] ) ) {
+            $result['required_permissions'] = $error_payload['required_permissions'];
+        }
+        return $result;
+    }
+
+    $domains = isset( $data['data'] ) && is_array( $data['data'] ) ? $data['data'] : array();
+    foreach ( $domains as $item ) {
+        if ( isset( $item['domain_name'] ) && strtolower( $item['domain_name'] ) === $domain ) {
+            $result['configured'] = true;
+            $result['status']     = ! empty( $item['enabled'] ) ? 'enabled' : 'disabled';
+            return $result;
+        }
+    }
+
+    $result['status'] = 'not_registered';
+    return $result;
+}
+
+function eb_stripe_payment_domain_register( WP_REST_Request $request ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'EB_STRIPE_SECRET_KEY fehlt oder ist leer.' ), 500 );
+    }
+    $domain = eb_stripe_payment_domain_name();
+    if ( ! $domain ) {
+        return new WP_REST_Response( array( 'message' => 'Domain konnte nicht ermittelt werden.' ), 400 );
+    }
+
+    $lookup = eb_stripe_payment_domain_lookup( $sk, $domain );
+    if ( ! empty( $lookup['configured'] ) ) {
+        return new WP_REST_Response( array(
+            'ok' => true,
+            'message' => 'Stripe Payment-Method-Domain ist bereits registriert.',
+            'payment_method_domain' => $lookup,
+        ), 200 );
+    }
+
+    $ch = curl_init( 'https://api.stripe.com/v1/payment_method_domains' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( array( 'domain_name' => $domain ) ),
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe konnte nicht erreicht werden: ' . eb_stripe_sanitize_error_message( $err ) ), 502 );
+    }
+    $data = json_decode( $resp, true );
+    if ( $http >= 400 || ! is_array( $data ) || empty( $data['id'] ) ) {
+        return new WP_REST_Response( eb_stripe_public_error_payload( $resp, 'Stripe Payment-Method-Domain konnte nicht registriert werden.' ), $http ?: 500 );
+    }
+
+    return new WP_REST_Response( array(
+        'ok' => true,
+        'message' => 'Stripe Payment-Method-Domain registriert.',
+        'payment_method_domain' => array(
+            'domain'     => $domain,
+            'configured' => true,
+            'status'     => ! empty( $data['enabled'] ) ? 'enabled' : 'created',
+        ),
+    ), 200 );
+}
+
 /**
  * GET /stripe/connect/diagnostics
  * Admin-only: prueft, ob Stripe-Keys gesetzt sind und der Secret/Restricted Key
@@ -5467,6 +5587,11 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
         'mode_match'               => $mode_match,
         'stripe_account_read_ok'   => false,
         'stripe_account_live_mode' => null,
+        'payment_method_domain'    => array(
+            'domain'     => eb_stripe_payment_domain_name(),
+            'configured' => false,
+            'status'     => 'unchecked',
+        ),
         'connect_status'           => array(
             'status'             => 'none',
             'connect_id_present' => false,
@@ -5512,6 +5637,15 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
         $result['stripe_account_read_ok']   = true;
         $result['stripe_account_live_mode'] = isset( $data['livemode'] ) ? (bool) $data['livemode'] : null;
         $result['message']                  = 'Stripe-Key erreichbar. Basis-Konfiguration sieht gut aus.';
+    }
+
+    $payment_domain = eb_stripe_payment_domain_lookup( $sk, $result['payment_method_domain']['domain'] );
+    $result['payment_method_domain'] = $payment_domain;
+    if ( ! empty( $payment_domain['required_permissions'] ) ) {
+        $result['required_permissions'] = array_values( array_unique( array_merge(
+            $result['required_permissions'] ?? array(),
+            $payment_domain['required_permissions']
+        ) ) );
     }
 
     $connect_id = $user && $user->ID ? get_user_meta( $user->ID, 'eb_stripe_connect_id', true ) : '';

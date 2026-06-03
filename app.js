@@ -14385,12 +14385,19 @@ function _renderStripeConnectDiagnostics(data) {
 
   rows.push(_stripeDiagRow('Stripe API', data.stripe_account_read_ok ? 'erreichbar' : 'nicht bestätigt', data.stripe_account_read_ok ? 'ok' : 'bad'));
 
+  var payDomain = data.payment_method_domain || {};
+  var domainLabel = payDomain.domain ? payDomain.domain + ' · ' + (payDomain.configured ? (payDomain.status || 'registriert') : 'nicht registriert') : 'unbekannt';
+  rows.push(_stripeDiagRow('Apple Pay Domain', domainLabel, payDomain.configured ? 'ok' : (payDomain.status === 'stripe_error' ? 'bad' : 'warn')));
+
   var connect = data.connect_status || {};
   rows.push(_stripeDiagRow('Connect-Konto', connect.connect_id_present ? _stripeStatusLabel(connect.status) : 'noch nicht verbunden', connect.active ? 'ok' : (connect.status === 'pending' ? 'warn' : 'neutral')));
 
   var error = data.stripe_error || {};
+  var domainError = payDomain.stripe_error || {};
   var permissions = Array.isArray(data.required_permissions) ? data.required_permissions : (Array.isArray(error.required_permissions) ? error.required_permissions : []);
+  if (!permissions.length && Array.isArray(domainError.required_permissions)) permissions = domainError.required_permissions;
   var hint = error.admin_hint || data.admin_hint || '';
+  if (!hint && domainError.admin_hint) hint = domainError.admin_hint;
   var message = data.message || (data.ok ? 'Konfiguration erreichbar.' : 'Konfiguration konnte nicht bestätigt werden.');
 
   var permsHtml = '';
@@ -14463,6 +14470,46 @@ function runStripeConnectDiagnostics(btn) {
   });
 }
 
+function registerStripePaymentDomain(btn) {
+  if (!currentUser || !currentUser.isAdmin) {
+    showToast('Nur Admins können die Wallet-Domain registrieren.', 'warning');
+    return;
+  }
+  _setBtnLoading(btn, true);
+  fetch(_apiUrl('stripe/payment-domain/register'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+  .then(function(r) {
+    return r.json().then(function(data) {
+      return { ok: r.ok, data: data || {} };
+    });
+  })
+  .then(function(res) {
+    var data = res.data || {};
+    if (!res.ok || !data.ok) {
+      if (data && data.admin_hint) console.warn('[eventboerse] Stripe Payment Domain:', data.admin_hint);
+      showToast(data.message || 'Wallet-Domain konnte nicht registriert werden.', 'warning');
+      _renderStripeConnectDiagnostics({
+        ok: false,
+        message: data.message || 'Wallet-Domain konnte nicht registriert werden.',
+        stripe_error: data,
+        payment_method_domain: { configured: false, status: 'stripe_error' }
+      });
+      return;
+    }
+    showToast(data.message || 'Wallet-Domain registriert.', 'check_circle');
+    runStripeConnectDiagnostics(null);
+  })
+  .catch(function() {
+    showToast('Wallet-Domain Registrierung fehlgeschlagen.', 'error');
+  })
+  .finally(function() {
+    _setBtnLoading(btn, false);
+  });
+}
+
 /**
  * Stripe-Connect-Status laden und Einstellungs-UI aktualisieren.
  */
@@ -14475,18 +14522,21 @@ function loadStripeConnectStatus() {
   var dashBtn    = document.getElementById('stripeConnectDashboardBtn');
   var disconnBtn = document.getElementById('stripeDisconnectBtn');
   var diagBtn    = document.getElementById('stripeConnectDiagnosticsBtn');
+  var domainBtn  = document.getElementById('stripePaymentDomainBtn');
   var diagResult = document.getElementById('stripeConnectDiagnosticsResult');
   var isProvider = !!(currentUser && isDienstleister());
   var isAdmin    = !!(currentUser && currentUser.isAdmin);
 
   if (!currentUser || (!isProvider && !isAdmin)) {
     if (card) card.style.display = 'none';
+    if (domainBtn) domainBtn.style.display = 'none';
     if (diagResult) diagResult.style.display = 'none';
     _renderCreatePayoutNotice({ status: 'hidden' });
     return Promise.resolve(null);
   }
   if (card) card.style.display = '';
   if (diagBtn) diagBtn.style.display = isAdmin ? '' : 'none';
+  if (domainBtn) domainBtn.style.display = isAdmin ? '' : 'none';
   if (diagResult && !isAdmin) diagResult.style.display = 'none';
 
   if (!isProvider && isAdmin) {
@@ -14495,6 +14545,7 @@ function loadStripeConnectStatus() {
     if (connectBtn) connectBtn.style.display = 'none';
     if (dashBtn) dashBtn.style.display = 'none';
     if (disconnBtn) disconnBtn.style.display = 'none';
+    if (domainBtn) domainBtn.style.display = '';
     _renderCreatePayoutNotice({ status: 'hidden' });
     return Promise.resolve({ status: 'admin' });
   }
