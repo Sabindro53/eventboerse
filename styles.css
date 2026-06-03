@@ -5592,6 +5592,9 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
   color: #fff;
   font-size: 17px;
 }
+.stripe-connect-setup-link {
+  background: #111827;
+}
 .settings-status-active { color: var(--accent) !important; }
 .settings-status-passkey-on { color: var(--accent) !important; }
 .settings-status-passkey-off { color: #B45309 !important; }

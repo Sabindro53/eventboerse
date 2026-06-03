@@ -4945,6 +4945,10 @@ function eb_stripe_key_meta( $key ) {
     );
 }
 
+function eb_stripe_connect_platform_setup_url() {
+    return 'https://dashboard.stripe.com/connect';
+}
+
 function eb_stripe_public_error_payload( $response, $fallback = 'Stripe-Fehler.' ) {
     $data           = json_decode( (string) $response, true );
     $stripe_message = is_array( $data ) && isset( $data['error']['message'] ) ? (string) $data['error']['message'] : '';
@@ -4968,6 +4972,15 @@ function eb_stripe_public_error_payload( $response, $fallback = 'Stripe-Fehler.'
             $payload['admin_hint'] = 'Der Restricted Key braucht diese Stripe-Rechte: ' . implode( ', ', $required_permissions ) . '.';
         }
         return $payload;
+    }
+
+    if ( strpos( $lower, 'signed up for connect' ) !== false || strpos( $lower, 'dashboard.stripe.com/connect' ) !== false ) {
+        return array(
+            'message'           => 'Stripe Connect muss im Eventbörse-Plattformkonto einmal aktiviert werden. Danach können Dienstleister direkt ihr Auszahlungs-Konto verbinden.',
+            'code'              => 'stripe_connect_platform_not_activated',
+            'connect_setup_url' => eb_stripe_connect_platform_setup_url(),
+            'admin_hint'        => 'Öffne Stripe Connect, schließe den Plattform-Check-in ab und starte danach das Dienstleister-Onboarding erneut.',
+        );
     }
 
     if ( strpos( $lower, 'no such account' ) !== false || $stripe_code === 'resource_missing' ) {
@@ -5375,11 +5388,10 @@ function eb_stripe_create_connect_account_for_user( $user, $sk, $business_type, 
 }
 
 function eb_stripe_create_account_link( $sk, $connect_id ) {
-    $base_url    = home_url( '/' );
     $link_fields = array(
         'account'     => $connect_id,
-        'refresh_url' => $base_url . '?stripe_connect=refresh',
-        'return_url'  => $base_url . '?stripe_connect=return',
+        'refresh_url' => add_query_arg( 'stripe_connect', 'refresh', home_url( '/settings' ) ),
+        'return_url'  => add_query_arg( 'stripe_connect', 'return', home_url( '/settings' ) ),
         'type'        => 'account_onboarding',
         'collection_options[fields]' => 'eventually_due',
     );

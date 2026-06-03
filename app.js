@@ -14666,6 +14666,11 @@ function _isStripeOnboardingUrl(url) {
   return /^https:\/\/connect\.stripe\.com\//.test(url);
 }
 
+function _isStripeDashboardUrl(url) {
+  url = String(url || '');
+  return /^https:\/\/dashboard\.stripe\.com\/connect(?:$|[/?#])/.test(url);
+}
+
 function _showStripeBusinessTypeError(data) {
   _clearStripeBusinessTypeError();
   var confirmBtn = document.getElementById('stripeBusinessTypeConfirmBtn');
@@ -14676,6 +14681,12 @@ function _showStripeBusinessTypeError(data) {
     linkHtml =
       '<a class="stripe-connect-error-link" href="' + _escHtml(data.onboarding_url) + '" target="_blank" rel="noopener noreferrer">' +
         '<span class="material-icons-round">open_in_new</span> Stripe jetzt öffnen' +
+      '</a>';
+  }
+  if (data.connect_setup_url && _isStripeDashboardUrl(data.connect_setup_url)) {
+    linkHtml +=
+      '<a class="stripe-connect-error-link stripe-connect-setup-link" href="' + _escHtml(data.connect_setup_url) + '" target="_blank" rel="noopener noreferrer">' +
+        '<span class="material-icons-round">admin_panel_settings</span> Stripe Connect aktivieren' +
       '</a>';
   }
   var box = document.createElement('div');
