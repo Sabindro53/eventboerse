@@ -10362,6 +10362,13 @@ function isEventPlaner() {
   return currentUser && currentUser.role === 'Event-Planer';
 }
 
+function isDienstleister() {
+  return !!(currentUser && (
+    currentUser.role === 'Dienstleister' ||
+    currentUser.baseRole === 'Dienstleister'
+  ));
+}
+
 function applyLogin() {
   isLoggedIn = true;
   document.getElementById('loggedOutMenu').style.display = 'none';
