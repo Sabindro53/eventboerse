@@ -14375,6 +14375,10 @@ function _renderStripeConnectDiagnostics(data) {
   rows.push(_stripeDiagRow('Modus-Schalter', data.configured_mode_present ? 'gesetzt' : 'nicht gesetzt', data.configured_mode_present ? 'ok' : 'warn'));
   rows.push(_stripeDiagRow('Test-Key-Paar', (data.test_public_key_configured && data.test_secret_key_configured) ? 'gesetzt' : 'fehlt', (data.test_public_key_configured && data.test_secret_key_configured) ? 'ok' : (data.configured_mode === 'test' ? 'bad' : 'neutral')));
   rows.push(_stripeDiagRow('Test-Webhook', data.test_webhook_configured ? 'gesetzt' : 'fehlt', data.test_webhook_configured ? 'ok' : (data.configured_mode === 'test' ? 'warn' : 'neutral')));
+  var smoke = data.connect_smoke || {};
+  var smokeReady = smoke.status === 'ready';
+  var smokeSkipped = smoke.status === 'skipped_live';
+  rows.push(_stripeDiagRow('Connect Smoke', smokeReady ? 'bereit' : (smokeSkipped ? 'nur im Testmodus' : 'blockiert'), smokeReady ? 'ok' : (smokeSkipped ? 'neutral' : 'bad')));
   rows.push(_stripeDiagRow('Secret-Key', data.secret_key_configured ? 'gesetzt' : 'fehlt', data.secret_key_configured ? 'ok' : 'bad'));
   rows.push(_stripeDiagRow('Secret-Typ', _stripeKeyKindLabel(data.secret_key_kind), data.secret_key_configured ? 'ok' : 'bad'));
   rows.push(_stripeDiagRow('Secret-Modus', data.secret_key_mode || 'unbekannt', data.secret_key_mode === 'live' ? 'ok' : (data.secret_key_mode === 'test' ? 'warn' : 'bad')));
@@ -14403,6 +14407,10 @@ function _renderStripeConnectDiagnostics(data) {
   var hint = error.admin_hint || data.admin_hint || '';
   if (!hint && domainError.admin_hint) hint = domainError.admin_hint;
   var message = data.message || (data.ok ? 'Konfiguration erreichbar.' : 'Konfiguration konnte nicht bestätigt werden.');
+  var setupUrl = (error && error.connect_setup_url) || data.connect_setup_url || '';
+  var setupHtml = setupUrl
+    ? '<a class="stripe-connect-error-link stripe-connect-setup-link" href="' + _escHtml(setupUrl) + '" target="_blank" rel="noopener noreferrer"><span class="material-icons-round">admin_panel_settings</span> Stripe Connect aktivieren</a>'
+    : '';
 
   var permsHtml = '';
   if (permissions.length) {
@@ -14423,6 +14431,7 @@ function _renderStripeConnectDiagnostics(data) {
     '</div>' +
     '<div class="stripe-connect-diagnostics-grid">' + rows.join('') + '</div>' +
     (hint ? '<p class="stripe-connect-diagnostics-hint">' + _escHtml(hint) + '</p>' : '') +
+    setupHtml +
     permsHtml;
   box.style.display = '';
 }

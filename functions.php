@@ -5778,6 +5778,69 @@ function eb_stripe_payment_domain_register( WP_REST_Request $request ) {
     ), 200 );
 }
 
+function eb_stripe_delete_connect_account( $sk, $connect_id ) {
+    if ( ! $sk || ! $connect_id ) return false;
+    $ch = curl_init( 'https://api.stripe.com/v1/accounts/' . rawurlencode( $connect_id ) );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST  => 'DELETE',
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+    ) );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    curl_close( $ch );
+    $data = json_decode( $resp, true );
+    return $http < 400 && is_array( $data ) && ! empty( $data['deleted'] );
+}
+
+function eb_stripe_connect_smoke_test( $sk ) {
+    $fake_user = (object) array(
+        'ID'         => 0,
+        'user_email' => 'stripe-connect-smoke-test@eventboerse.invalid',
+    );
+
+    $created = eb_stripe_create_connect_account_for_user( $fake_user, $sk, 'individual' );
+    if ( is_wp_error( $created ) ) {
+        $data = $created->get_error_data();
+        $payload = isset( $data['response'] )
+            ? eb_stripe_public_error_payload( $data['response'], 'Stripe Connect Smoke-Test konnte kein Test-Auszahlungskonto anlegen.' )
+            : array( 'message' => $created->get_error_message(), 'code' => $created->get_error_code() );
+        return array(
+            'ok'           => false,
+            'status'       => 'account_create_failed',
+            'message'      => $payload['message'] ?? 'Stripe Connect Smoke-Test fehlgeschlagen.',
+            'stripe_error' => $payload,
+        );
+    }
+
+    $connect_id = sanitize_text_field( $created );
+    $link = eb_stripe_create_account_link( $sk, $connect_id );
+    $cleanup_deleted = eb_stripe_delete_connect_account( $sk, $connect_id );
+
+    if ( is_wp_error( $link ) ) {
+        $data = $link->get_error_data();
+        $payload = isset( $data['response'] )
+            ? eb_stripe_public_error_payload( $data['response'], 'Stripe Connect Smoke-Test konnte keinen Onboarding-Link erstellen.' )
+            : array( 'message' => $link->get_error_message(), 'code' => $link->get_error_code() );
+        return array(
+            'ok'              => false,
+            'status'          => 'account_link_failed',
+            'message'         => $payload['message'] ?? 'Stripe Connect Smoke-Test fehlgeschlagen.',
+            'stripe_error'    => $payload,
+            'cleanup_deleted' => $cleanup_deleted,
+        );
+    }
+
+    return array(
+        'ok'                   => true,
+        'status'               => 'ready',
+        'account_created'      => true,
+        'account_link_created' => true,
+        'cleanup_deleted'      => $cleanup_deleted,
+    );
+}
+
 /**
  * GET /stripe/connect/diagnostics
  * Admin-only: prueft, ob Stripe-Keys gesetzt sind und der Secret/Restricted Key
@@ -5816,6 +5879,9 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
             'domain'     => eb_stripe_payment_domain_name(),
             'configured' => false,
             'status'     => 'unchecked',
+        ),
+        'connect_smoke'            => array(
+            'status' => $configured_mode === 'test' ? 'unchecked' : 'skipped_live',
         ),
         'connect_status'           => array(
             'status'             => 'none',
@@ -5884,6 +5950,27 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
             $result['required_permissions'] ?? array(),
             $payment_domain['required_permissions']
         ) ) );
+    }
+
+    if ( $configured_mode === 'test' && ! empty( $sk ) && ! empty( $result['stripe_account_read_ok'] ) ) {
+        $connect_smoke = eb_stripe_connect_smoke_test( $sk );
+        $result['connect_smoke'] = $connect_smoke;
+        if ( empty( $connect_smoke['ok'] ) ) {
+            $result['ok'] = false;
+            $result['message'] = $connect_smoke['message'] ?? 'Stripe Connect Smoke-Test fehlgeschlagen.';
+            if ( ! empty( $connect_smoke['stripe_error'] ) ) {
+                $result['stripe_error'] = $connect_smoke['stripe_error'];
+                if ( ! empty( $connect_smoke['stripe_error']['required_permissions'] ) ) {
+                    $result['required_permissions'] = array_values( array_unique( array_merge(
+                        $result['required_permissions'] ?? array(),
+                        $connect_smoke['stripe_error']['required_permissions']
+                    ) ) );
+                }
+                if ( ! empty( $connect_smoke['stripe_error']['connect_setup_url'] ) ) {
+                    $result['connect_setup_url'] = $connect_smoke['stripe_error']['connect_setup_url'];
+                }
+            }
+        }
     }
 
     $connect_id = $user && $user->ID ? get_user_meta( $user->ID, 'eb_stripe_connect_id', true ) : '';
