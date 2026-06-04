@@ -4960,10 +4960,14 @@ function eb_load_env_value( $key ) {
 
 function eb_stripe_public_key( WP_REST_Request $request ) {
     $pk = eb_load_env_value( 'public_stripe_api_key' );
-    return new WP_REST_Response( array(
+    $response = new WP_REST_Response( array(
         'publishable_key' => $pk,
         'mode'            => eb_stripe_config_mode(),
     ), 200 );
+    $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+    $response->header( 'Pragma', 'no-cache' );
+    $response->header( 'Expires', '0' );
+    return $response;
 }
 
 function eb_stripe_platform_fee_rate() {
