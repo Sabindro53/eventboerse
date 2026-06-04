@@ -6200,6 +6200,19 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
             // Optional: zukuenftig Fehlerlog ablegen. Derzeit NOOP (UI zeigt Fehler live).
             break;
 
+        case 'account.updated':
+            // Dienstleister hat Onboarding abgeschlossen (oder Konto wurde gesperrt).
+            // Aktualisiert eb_stripe_connect_active in der WP-Usermeta sofort —
+            // ohne dass der Dienstleister oder ein Admin manuell den Status pollen muss.
+            eb_stripe_webhook_handle_account_updated( $obj );
+            break;
+
+        case 'transfer.created':
+            // Stripe hat automatisch einen Transfer ans Dienstleister-Konto ausgeführt.
+            // Derzeit nur Audit-Log; kann für Buchungshistorie erweitert werden.
+            eb_stripe_webhook_handle_transfer_created( $obj );
+            break;
+
         default:
             // Unbekannte Events ignorieren, aber mit 200 bestaetigen, damit Stripe nicht retry't.
             break;
@@ -6236,4 +6249,75 @@ function eb_stripe_reconcile( WP_REST_Request $request ) {
     $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
     if ( ! is_array( $existing ) ) $existing = array();
     return new WP_REST_Response( array( 'items' => array_values( $existing ) ), 200 );
+}
+
+/**
+ * Webhook-Handler: account.updated
+ *
+ * Stripe sendet diesen Event wenn ein Express-Account Onboarding abschließt
+ * (charges_enabled + payouts_enabled werden true) oder gesperrt wird.
+ * Aktualisiert eb_stripe_connect_active im WP-Usermeta aller verknüpften User.
+ *
+ * Warum wichtig: Ohne diesen Handler muss der Dienstleister nach dem
+ * Onboarding manuell die Settings-Seite öffnen, damit der Status-Poll
+ * ausgelöst wird. Mit dem Handler aktualisiert sich der Status sofort.
+ */
+function eb_stripe_webhook_handle_account_updated( $account ) {
+    if ( ! is_array( $account ) ) return;
+
+    $account_id = isset( $account['id'] ) ? sanitize_text_field( (string) $account['id'] ) : '';
+    if ( ! $account_id || strpos( $account_id, 'acct_' ) !== 0 ) return;
+
+    $charges_enabled = ! empty( $account['charges_enabled'] );
+    $payouts_enabled = ! empty( $account['payouts_enabled'] );
+    $active          = $charges_enabled && $payouts_enabled;
+
+    global $wpdb;
+    $user_ids = $wpdb->get_col( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'eb_stripe_connect_id' AND meta_value = %s LIMIT 10",
+        $account_id
+    ) );
+
+    if ( empty( $user_ids ) ) return;
+
+    foreach ( $user_ids as $uid ) {
+        $uid = (int) $uid;
+        if ( ! $uid ) continue;
+        update_user_meta( $uid, 'eb_stripe_connect_active', $active ? '1' : '' );
+        error_log( sprintf(
+            '[eventboerse][stripe-connect] account.updated: acct=%s user=%d charges_enabled=%s payouts_enabled=%s active=%s',
+            $account_id, $uid,
+            $charges_enabled ? '1' : '0',
+            $payouts_enabled ? '1' : '0',
+            $active          ? '1' : '0'
+        ) );
+    }
+}
+
+/**
+ * Webhook-Handler: transfer.created
+ *
+ * Stripe erstellt automatisch einen Transfer wenn ein Destination-Charge
+ * erfolgreich ist. Dieser Handler loggt den Transfer für Audit-Zwecke.
+ * Kann später für eine Auszahlungshistorie im Dienstleister-Dashboard
+ * erweitert werden.
+ */
+function eb_stripe_webhook_handle_transfer_created( $transfer ) {
+    if ( ! is_array( $transfer ) ) return;
+
+    $transfer_id   = isset( $transfer['id'] )                 ? sanitize_text_field( $transfer['id'] )                 : '';
+    $destination   = isset( $transfer['destination'] )        ? sanitize_text_field( $transfer['destination'] )        : '';
+    $amount        = isset( $transfer['amount'] )             ? intval( $transfer['amount'] )                          : 0;
+    $currency      = isset( $transfer['currency'] )           ? strtoupper( sanitize_text_field( $transfer['currency'] ) ) : '';
+    $source_tx     = isset( $transfer['source_transaction'] ) ? sanitize_text_field( $transfer['source_transaction'] ) : '(none)';
+    $description   = isset( $transfer['description'] )        ? sanitize_text_field( $transfer['description'] )        : '';
+
+    error_log( sprintf(
+        '[eventboerse][stripe-connect] transfer.created: id=%s destination=%s amount=%d %s source_tx=%s desc="%s"',
+        $transfer_id, $destination, $amount, $currency, $source_tx, $description
+    ) );
+
+    // Optional: Dienstleister-User anhand destination-Account ermitteln und
+    // Auszahlungseintrag in Usermeta persistieren (für Auszahlungshistorie-Feature).
+    // Derzeit nur Log — Erweiterung wenn Dashboard-Auszahlungsseite gebaut wird.
 }
