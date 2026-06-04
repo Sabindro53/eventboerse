@@ -96,25 +96,40 @@ jobs:
           SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
           SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
-          STRIPE_MODE: ${{ secrets.EB_STRIPE_MODE }}
+          STRIPE_MODE: ${{ secrets.EB_STRIPE_MODE || vars.EB_STRIPE_MODE }}
           STRIPE_PUBLIC_KEY: ${{ secrets.EB_STRIPE_PUBLIC_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.EB_STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.EB_STRIPE_WEBHOOK_SECRET }}
-          STRIPE_TEST_PUBLIC_KEY: ${{ secrets.EB_STRIPE_TEST_PUBLIC_KEY }}
-          STRIPE_TEST_SECRET_KEY: ${{ secrets.EB_STRIPE_TEST_SECRET_KEY }}
+          STRIPE_TEST_PUBLIC_KEY: ${{ secrets.EB_STRIPE_TEST_PUBLIC_KEY || secrets.EB_STRIPE_TEST_PUBLISHABLE_KEY }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.EB_STRIPE_TEST_SECRET_KEY || secrets.EB_STRIPE_TEST_PRIVATE_KEY }}
           STRIPE_TEST_WEBHOOK_SECRET: ${{ secrets.EB_STRIPE_TEST_WEBHOOK_SECRET }}
         run: |
+          RAW_MODE=$(printf "%s" "$STRIPE_MODE" | tr '[:upper:]' '[:lower:]' | tr -d ' _-')
+          if [ "$RAW_MODE" = "test" ] || [ "$RAW_MODE" = "testing" ] || [ "$RAW_MODE" = "testmode" ] || [ "$RAW_MODE" = "testmodus" ] || [ "$RAW_MODE" = "sandbox" ] || [ "$RAW_MODE" = "sandboxmode" ]; then
+            NORMALIZED_STRIPE_MODE="test"
+          else
+            NORMALIZED_STRIPE_MODE="live"
+          fi
+
           if { [ -z "$STRIPE_PUBLIC_KEY" ] || [ -z "$STRIPE_SECRET_KEY" ]; } && { [ -z "$STRIPE_TEST_PUBLIC_KEY" ] || [ -z "$STRIPE_TEST_SECRET_KEY" ]; }; then
             echo "⚠️ Stripe secrets not set (live or test public/secret key pair) — skipping"
             exit 0
           fi
+          if [ "$NORMALIZED_STRIPE_MODE" = "test" ] && { [ -z "$STRIPE_TEST_PUBLIC_KEY" ] || [ -z "$STRIPE_TEST_SECRET_KEY" ]; }; then
+            echo "ERROR: EB_STRIPE_MODE resolves to test, but EB_STRIPE_TEST_PUBLIC_KEY / EB_STRIPE_TEST_SECRET_KEY are missing."
+            exit 1
+          fi
+          if [ "$NORMALIZED_STRIPE_MODE" = "live" ] && [ -n "$STRIPE_TEST_PUBLIC_KEY" ] && [ -n "$STRIPE_TEST_SECRET_KEY" ]; then
+            echo "ℹ️ Stripe test keys are present, but EB_STRIPE_MODE is not test/sandbox. Live mode remains active."
+          fi
+
           lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
             set sftp:auto-confirm yes;
             get /public/wp-config.php -o /tmp/wp-config.php;
             bye
           "
           echo "--- grep EB_STRIPE (before) ---"
-          grep -n 'EB_STRIPE' /tmp/wp-config.php || echo "(not found)"
+          grep -n 'EB_STRIPE' /tmp/wp-config.php | sed -E "s/(define\\('EB_STRIPE_[A-Z_]+', ')[^']*/\\1***REDACTED***/" || echo "(not found)"
           # Remove any existing EB_STRIPE_* lines (idempotent re-inject)
           sed -i '/EB_STRIPE_MODE/d' /tmp/wp-config.php
           sed -i '/EB_STRIPE_PUBLIC_KEY/d' /tmp/wp-config.php
@@ -130,7 +145,7 @@ jobs:
             exit 1
           fi
           # Escape single quotes in values for safe PHP single-quoted string literal
-          ESC_MODE=$(printf "%s" "$STRIPE_MODE"          | sed "s/'/\\\\'/g")
+          ESC_MODE=$(printf "%s" "$NORMALIZED_STRIPE_MODE" | sed "s/'/\\\\'/g")
           ESC_PK=$(printf "%s" "$STRIPE_PUBLIC_KEY"     | sed "s/'/\\\\'/g")
           ESC_SK=$(printf "%s" "$STRIPE_SECRET_KEY"     | sed "s/'/\\\\'/g")
           ESC_WH=$(printf "%s" "$STRIPE_WEBHOOK_SECRET" | sed "s/'/\\\\'/g")

@@ -14372,6 +14372,9 @@ function _renderStripeConnectDiagnostics(data) {
 
   var rows = [];
   rows.push(_stripeDiagRow('Stripe-Modus', data.configured_mode === 'test' ? 'Test/Sandbox' : 'Live', data.configured_mode === 'test' ? 'warn' : 'ok'));
+  rows.push(_stripeDiagRow('Modus-Schalter', data.configured_mode_present ? 'gesetzt' : 'nicht gesetzt', data.configured_mode_present ? 'ok' : 'warn'));
+  rows.push(_stripeDiagRow('Test-Key-Paar', (data.test_public_key_configured && data.test_secret_key_configured) ? 'gesetzt' : 'fehlt', (data.test_public_key_configured && data.test_secret_key_configured) ? 'ok' : (data.configured_mode === 'test' ? 'bad' : 'neutral')));
+  rows.push(_stripeDiagRow('Test-Webhook', data.test_webhook_configured ? 'gesetzt' : 'fehlt', data.test_webhook_configured ? 'ok' : (data.configured_mode === 'test' ? 'warn' : 'neutral')));
   rows.push(_stripeDiagRow('Secret-Key', data.secret_key_configured ? 'gesetzt' : 'fehlt', data.secret_key_configured ? 'ok' : 'bad'));
   rows.push(_stripeDiagRow('Secret-Typ', _stripeKeyKindLabel(data.secret_key_kind), data.secret_key_configured ? 'ok' : 'bad'));
   rows.push(_stripeDiagRow('Secret-Modus', data.secret_key_mode || 'unbekannt', data.secret_key_mode === 'live' ? 'ok' : (data.secret_key_mode === 'test' ? 'warn' : 'bad')));

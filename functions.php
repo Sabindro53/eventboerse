@@ -4843,7 +4843,8 @@ function eb_stripe_config_mode() {
     }
 
     $mode = strtolower( trim( (string) $mode ) );
-    return in_array( $mode, array( 'test', 'sandbox' ), true ) ? 'test' : 'live';
+    $mode = str_replace( array( ' ', '_', '-' ), '', $mode );
+    return in_array( $mode, array( 'test', 'testing', 'testmode', 'testmodus', 'sandbox', 'sandboxmode' ), true ) ? 'test' : 'live';
 }
 
 function eb_stripe_key_matches_mode( $value, $mode ) {
@@ -4873,6 +4874,12 @@ function eb_first_env_value( $names ) {
         if ( isset( $cache[ $name ] ) && $cache[ $name ] !== '' ) return (string) $cache[ $name ];
     }
     return '';
+}
+
+function eb_config_value_is_present( $constant_names, $env_names = array() ) {
+    if ( eb_first_defined_constant_value( $constant_names ) !== '' ) return true;
+    if ( eb_first_env_value( $env_names ) !== '' ) return true;
+    return false;
 }
 
 function eb_load_env_value( $key ) {
@@ -5789,6 +5796,10 @@ function eb_stripe_connect_diagnostics( WP_REST_Request $request ) {
         'ok'                       => false,
         'checked_at'               => gmdate( 'c' ),
         'configured_mode'          => $configured_mode,
+        'configured_mode_present'  => eb_config_value_is_present( array( 'EB_STRIPE_MODE' ), array( 'EB_STRIPE_MODE', 'STRIPE_MODE', 'stripe_mode' ) ),
+        'test_public_key_configured'  => eb_config_value_is_present( array( 'EB_STRIPE_TEST_PUBLIC_KEY' ), array( 'EB_STRIPE_TEST_PUBLIC_KEY', 'STRIPE_TEST_PUBLIC_KEY', 'STRIPE_TEST_PUBLISHABLE_KEY' ) ),
+        'test_secret_key_configured'  => eb_config_value_is_present( array( 'EB_STRIPE_TEST_SECRET_KEY' ), array( 'EB_STRIPE_TEST_SECRET_KEY', 'STRIPE_TEST_SECRET_KEY', 'STRIPE_TEST_PRIVATE_KEY' ) ),
+        'test_webhook_configured'     => eb_config_value_is_present( array( 'EB_STRIPE_TEST_WEBHOOK_SECRET' ), array( 'EB_STRIPE_TEST_WEBHOOK_SECRET', 'STRIPE_TEST_WEBHOOK_SECRET' ) ),
         'secret_key_configured'    => (bool) $sk,
         'public_key_configured'    => (bool) $pk,
         'secret_key_kind'          => $secret_meta['kind'],
