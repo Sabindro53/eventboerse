@@ -752,85 +752,120 @@ $asset_ver = '2.4.8'; // cache-bust;
           <span class="ai-popper pop-1">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M10 88 L62 22 L82 40 Z" fill="#FF385C" stroke="#8b1538" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M22 78 L52 38" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M34 68 L62 32" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M46 56 L70 30" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <ellipse cx="71" cy="31" rx="7" ry="11" fill="#8b1538" transform="rotate(38 71 31)"/>
+                <ellipse cx="71" cy="31" rx="4.5" ry="9" fill="#2a0a14" transform="rotate(38 71 31)"/>
               </g>
               <g class="ai-popper-burst">
-                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
-                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
-                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
-                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q78 12 84 -4"   stroke="#FF385C" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q92 22 104 10"  stroke="#FFB400" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q94 36 104 48"  stroke="#00A699" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q86 16 96 4"    stroke="#a855f7" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <rect   class="ai-popper-bit b1" x="86" y="8"  width="4"   height="4" fill="#FF385C"/>
+                <circle class="ai-popper-bit b2" cx="98" cy="22" r="2.4" fill="#FFB400"/>
+                <rect   class="ai-popper-bit b3" x="80" y="0"  width="3.5" height="5" fill="#00A699"/>
+                <circle class="ai-popper-bit b4" cx="100" cy="36" r="2"  fill="#a855f7"/>
+                <rect   class="ai-popper-bit b5" x="84" y="42" width="3"   height="3" fill="#FF385C"/>
+                <circle class="ai-popper-bit b6" cx="92" cy="2"  r="1.6" fill="#FFB400"/>
               </g>
             </svg>
           </span>
           <span class="ai-popper pop-2">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M10 88 L62 22 L82 40 Z" fill="#00A699" stroke="#00524c" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M22 78 L52 38" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M34 68 L62 32" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M46 56 L70 30" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <ellipse cx="71" cy="31" rx="7" ry="11" fill="#00524c" transform="rotate(38 71 31)"/>
+                <ellipse cx="71" cy="31" rx="4.5" ry="9" fill="#012624" transform="rotate(38 71 31)"/>
               </g>
               <g class="ai-popper-burst">
-                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
-                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
-                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
-                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q78 12 84 -4"   stroke="#00A699" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q92 22 104 10"  stroke="#FF385C" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q94 36 104 48"  stroke="#FFB400" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q86 16 96 4"    stroke="#a855f7" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <rect   class="ai-popper-bit b1" x="86" y="8"  width="4"   height="4" fill="#00A699"/>
+                <circle class="ai-popper-bit b2" cx="98" cy="22" r="2.4" fill="#FF385C"/>
+                <rect   class="ai-popper-bit b3" x="80" y="0"  width="3.5" height="5" fill="#FFB400"/>
+                <circle class="ai-popper-bit b4" cx="100" cy="36" r="2"  fill="#a855f7"/>
+                <rect   class="ai-popper-bit b5" x="84" y="42" width="3"   height="3" fill="#00A699"/>
+                <circle class="ai-popper-bit b6" cx="92" cy="2"  r="1.6" fill="#FF385C"/>
               </g>
             </svg>
           </span>
           <span class="ai-popper pop-3">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M10 88 L62 22 L82 40 Z" fill="#FFB400" stroke="#8b6200" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M22 78 L52 38" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M34 68 L62 32" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M46 56 L70 30" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <ellipse cx="71" cy="31" rx="7" ry="11" fill="#8b6200" transform="rotate(38 71 31)"/>
+                <ellipse cx="71" cy="31" rx="4.5" ry="9" fill="#3e2c00" transform="rotate(38 71 31)"/>
               </g>
               <g class="ai-popper-burst">
-                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
-                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
-                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
-                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q78 12 84 -4"   stroke="#FFB400" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q92 22 104 10"  stroke="#FF385C" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q94 36 104 48"  stroke="#00A699" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q86 16 96 4"    stroke="#a855f7" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <rect   class="ai-popper-bit b1" x="86" y="8"  width="4"   height="4" fill="#FFB400"/>
+                <circle class="ai-popper-bit b2" cx="98" cy="22" r="2.4" fill="#FF385C"/>
+                <rect   class="ai-popper-bit b3" x="80" y="0"  width="3.5" height="5" fill="#00A699"/>
+                <circle class="ai-popper-bit b4" cx="100" cy="36" r="2"  fill="#a855f7"/>
+                <rect   class="ai-popper-bit b5" x="84" y="42" width="3"   height="3" fill="#FFB400"/>
+                <circle class="ai-popper-bit b6" cx="92" cy="2"  r="1.6" fill="#FF385C"/>
               </g>
             </svg>
           </span>
           <span class="ai-popper pop-4">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M10 88 L62 22 L82 40 Z" fill="#a855f7" stroke="#5b2a8e" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M22 78 L52 38" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M34 68 L62 32" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M46 56 L70 30" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <ellipse cx="71" cy="31" rx="7" ry="11" fill="#5b2a8e" transform="rotate(38 71 31)"/>
+                <ellipse cx="71" cy="31" rx="4.5" ry="9" fill="#2c1247" transform="rotate(38 71 31)"/>
               </g>
               <g class="ai-popper-burst">
-                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
-                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
-                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
-                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q78 12 84 -4"   stroke="#a855f7" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q92 22 104 10"  stroke="#FF385C" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q94 36 104 48"  stroke="#00A699" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q86 16 96 4"    stroke="#FFB400" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <rect   class="ai-popper-bit b1" x="86" y="8"  width="4"   height="4" fill="#a855f7"/>
+                <circle class="ai-popper-bit b2" cx="98" cy="22" r="2.4" fill="#FF385C"/>
+                <rect   class="ai-popper-bit b3" x="80" y="0"  width="3.5" height="5" fill="#FFB400"/>
+                <circle class="ai-popper-bit b4" cx="100" cy="36" r="2"  fill="#00A699"/>
+                <rect   class="ai-popper-bit b5" x="84" y="42" width="3"   height="3" fill="#a855f7"/>
+                <circle class="ai-popper-bit b6" cx="92" cy="2"  r="1.6" fill="#FF385C"/>
               </g>
             </svg>
           </span>
           <span class="ai-popper pop-5">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+                <path d="M10 88 L62 22 L82 40 Z" fill="#FF385C" stroke="#8b1538" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M22 78 L52 38" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M34 68 L62 32" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <path d="M46 56 L70 30" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.55"/>
+                <ellipse cx="71" cy="31" rx="7" ry="11" fill="#8b1538" transform="rotate(38 71 31)"/>
+                <ellipse cx="71" cy="31" rx="4.5" ry="9" fill="#2a0a14" transform="rotate(38 71 31)"/>
               </g>
               <g class="ai-popper-burst">
-                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
-                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
-                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
-                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q78 12 84 -4"   stroke="#FF385C" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q92 22 104 10"  stroke="#00A699" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q94 36 104 48"  stroke="#FFB400" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M71 31 Q86 16 96 4"    stroke="#a855f7" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <rect   class="ai-popper-bit b1" x="86" y="8"  width="4"   height="4" fill="#FFB400"/>
+                <circle class="ai-popper-bit b2" cx="98" cy="22" r="2.4" fill="#00A699"/>
+                <rect   class="ai-popper-bit b3" x="80" y="0"  width="3.5" height="5" fill="#a855f7"/>
+                <circle class="ai-popper-bit b4" cx="100" cy="36" r="2"  fill="#FF385C"/>
+                <rect   class="ai-popper-bit b5" x="84" y="42" width="3"   height="3" fill="#FFB400"/>
+                <circle class="ai-popper-bit b6" cx="92" cy="2"  r="1.6" fill="#a855f7"/>
               </g>
             </svg>
           </span>

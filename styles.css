@@ -829,13 +829,14 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .ai-hero-bg { position: absolute; inset: 0; pointer-events: none; }
 
-/* ── Real party-poppers (SVG): cone pops first, then streamers burst ──
-   Each .ai-popper has two <g> groups: .ai-popper-cone (triangle) and
-   .ai-popper-burst (streamers + confetti). They animate separately:
-     1) cone scales in with squash → stretch → settle
-     2) burst then bursts out of the cone mouth and fades
-   The wrapper handles overall fade in/out + a small directional shoot
-   so the whole popper looks like it was launched. */
+/* ── Professional party-poppers (SVG): striped cone + streamers + confetti ──
+   Each .ai-popper is a tiny inline SVG with:
+     • .ai-popper-cone  — cone body, white stripes, dark mouth opening
+     • .ai-popper-stream × 4 — curved streamer paths, animated via stroke-dashoffset
+                              so they appear to be 'drawn' out of the cone mouth
+     • .ai-popper-bit × 6   — confetti rects + circles, each flying in its own
+                              direction with rotation and gravity drop
+   Wrapper does the launch motion (anticipation → shoot → settle → fade). */
 .ai-hero-poppers {
   position: absolute;
   inset: 0;
@@ -848,14 +849,11 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   display: inline-block;
   width: var(--pp-size, 32px);
   height: var(--pp-size, 32px);
-  color: var(--primary);
-  filter: drop-shadow(0 4px 12px rgba(255, 56, 92, 0.3));
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.18));
   opacity: 0;
   will-change: transform, opacity;
-  animation-name: aiPopperShoot;
-  animation-duration: 9s;
-  animation-iteration-count: infinite;
-  animation-timing-function: cubic-bezier(.2, .9, .3, 1.2);
+  animation: aiPopperShoot 9s infinite cubic-bezier(.2, .9, .3, 1.2);
+  animation-delay: var(--pp-delay, 0s);
 }
 .ai-popper-svg {
   width: 100%;
@@ -867,23 +865,33 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   transform-box: fill-box;
   transform-origin: 15% 85%;
   will-change: transform, opacity;
-  animation-name: aiPopperCone;
-  animation-duration: 9s;
-  animation-iteration-count: infinite;
-  animation-timing-function: cubic-bezier(.2, .9, .3, 1.4);
-  animation-delay: inherit;
+  animation: aiPopperCone 9s infinite cubic-bezier(.2, .9, .3, 1.4);
+  animation-delay: var(--pp-delay, 0s);
 }
-.ai-popper-burst {
+.ai-popper-stream {
+  fill: none;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  will-change: stroke-dashoffset, opacity;
+  animation: aiPopperStream 9s infinite cubic-bezier(.15, .85, .3, 1);
+  animation-delay: var(--pp-delay, 0s);
+}
+.ai-popper-bit {
   transform-box: fill-box;
-  transform-origin: 30% 30%;
+  transform-origin: center;
   opacity: 0;
   will-change: transform, opacity;
-  animation-name: aiPopperBurst;
-  animation-duration: 9s;
-  animation-iteration-count: infinite;
-  animation-timing-function: cubic-bezier(.15, .95, .35, 1.25);
-  animation-delay: inherit;
+  animation: aiPopperBit 9s infinite cubic-bezier(.2, .85, .3, 1.1);
+  animation-delay: var(--pp-delay, 0s);
 }
+/* Each confetti bit flies in its own direction (relative to cone-mouth area) */
+.ai-popper-bit.b1 { --fx:  8px; --fy: -10px; --frot:  180deg; }
+.ai-popper-bit.b2 { --fx: 14px; --fy:  -2px; --frot: -140deg; }
+.ai-popper-bit.b3 { --fx:  6px; --fy: -14px; --frot:  240deg; }
+.ai-popper-bit.b4 { --fx: 16px; --fy:   8px; --frot: -180deg; }
+.ai-popper-bit.b5 { --fx:  4px; --fy:  14px; --frot:   90deg; }
+.ai-popper-bit.b6 { --fx: 12px; --fy: -12px; --frot:  300deg; }
 
 /* Asymmetric positions — scattered around the hero */
 .ai-popper.pop-1 {
@@ -894,7 +902,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   --pp-shoot-x: -10px;
   --pp-shoot-y: -8px;
   --pp-spin: -14deg;
-  animation-delay: 0s;
+  --pp-delay: 0s;
 }
 .ai-popper.pop-2 {
   /* upper-right, slightly higher and farther in */
@@ -905,7 +913,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   --pp-shoot-x: 12px;
   --pp-shoot-y: -10px;
   --pp-spin: 18deg;
-  animation-delay: 1.8s;
+  --pp-delay: 1.8s;
 }
 .ai-popper.pop-3 {
   /* mid-right edge, smaller */
@@ -916,7 +924,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   --pp-shoot-x: 14px;
   --pp-shoot-y: 4px;
   --pp-spin: 10deg;
-  animation-delay: 3.6s;
+  --pp-delay: 3.6s;
 }
 .ai-popper.pop-4 {
   /* lower-left, medium */
@@ -926,7 +934,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   --pp-shoot-x: -12px;
   --pp-shoot-y: 12px;
   --pp-spin: -16deg;
-  animation-delay: 5.4s;
+  --pp-delay: 5.4s;
 }
 .ai-popper.pop-5 {
   /* bottom-right, off-corner */
@@ -937,7 +945,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   --pp-shoot-x: 10px;
   --pp-shoot-y: 14px;
   --pp-spin: 12deg;
-  animation-delay: 7.2s;
+  --pp-delay: 7.2s;
 }
 
 /* Wrapper: hidden between pops, brief anticipation, then shoots outward */
@@ -973,7 +981,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
       scaleX(var(--pp-flip, 1));
   }
   55% {
-    opacity: 0.95;
+    opacity: 1;
     transform:
       translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
@@ -1007,15 +1015,40 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   100%     { opacity: 0; transform: scale(0); }
 }
 
-/* Burst: streamers + confetti appear AFTER cone, burst outward from the mouth */
-@keyframes aiPopperBurst {
-  0%, 13%  { opacity: 0; transform: scale(0); }
-  17%      { opacity: 1; transform: scale(0.45); }
-  22%      { opacity: 1; transform: scale(1.25); }
-  26%      { opacity: 1; transform: scale(1); }
-  55%      { opacity: 1; transform: scale(1); }
-  72%      { opacity: 0; transform: scale(1.05); }
-  100%     { opacity: 0; transform: scale(1.05); }
+/* Streamers: drawn out of the cone mouth via stroke-dashoffset */
+@keyframes aiPopperStream {
+  0%, 13% { stroke-dashoffset: 100; opacity: 0; }
+  17%     { opacity: 1; stroke-dashoffset: 100; }
+  30%     { opacity: 1; stroke-dashoffset: 0; }
+  55%     { opacity: 1; stroke-dashoffset: 0; }
+  72%     { opacity: 0; stroke-dashoffset: 0; }
+  100%    { opacity: 0; stroke-dashoffset: 100; }
+}
+
+/* Confetti bits: fly outward in their own direction, rotate, then drop and fade */
+@keyframes aiPopperBit {
+  0%, 13%  { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.4); }
+  17%      { opacity: 1;
+             transform:
+               translate(calc(var(--fx, 8px) * 0.25), calc(var(--fy, -8px) * 0.25))
+               rotate(calc(var(--frot, 180deg) * 0.15))
+               scale(1); }
+  32%      { opacity: 1;
+             transform:
+               translate(var(--fx, 8px), var(--fy, -8px))
+               rotate(var(--frot, 180deg))
+               scale(1); }
+  55%      { opacity: 1;
+             transform:
+               translate(var(--fx, 8px), var(--fy, -8px))
+               rotate(var(--frot, 180deg))
+               scale(1); }
+  72%      { opacity: 0;
+             transform:
+               translate(calc(var(--fx, 8px) * 1.3), calc(var(--fy, -8px) * 1.3 + 5px))
+               rotate(calc(var(--frot, 180deg) * 1.3))
+               scale(1); }
+  100%     { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.4); }
 }
 .ai-bg-orb {
   position: absolute;
