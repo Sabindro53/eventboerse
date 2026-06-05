@@ -114,7 +114,7 @@ $og_image_esc   = esc_url( $og_image );
 $site_name_esc  = esc_attr( $site_name );
 
 // Cache-version string for assets (increment manually on deploy)
-$asset_ver = '2.5.0'; // cache-bust;
+$asset_ver = '2.5.1'; // cache-bust;
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -387,13 +387,13 @@ $asset_ver = '2.5.0'; // cache-bust;
             <circle class="qa-hat-dot qa-hat-dot-primary" cx="52" cy="34" r="4"/>
             <circle class="qa-hat-dot qa-hat-dot-accent" cx="66" cy="49" r="4"/>
             <circle class="qa-hat-dot qa-hat-dot-light" cx="45" cy="52" r="4"/>
-            <path class="qa-headset-band" d="M18 88c14-35 72-43 93 5"/>
-            <path class="qa-head-main" d="M23 103c0-25 18-43 43-43s43 18 43 43v17l-32 10v-19c0-9-7-15-16-15h-2c-10 0-17 8-17 18v19c-12-6-19-17-19-30Z"/>
-            <path class="qa-face-cut" d="M77 109 109 99v20l-32 10Z"/>
-            <path class="qa-earcup" d="M101 88h9c4 0 7 3 7 7v22c0 4-3 7-7 7h-9Z"/>
-            <path class="qa-mic-arm" d="M101 121H78c-9 0-15 6-15 15"/>
+            <path class="qa-body-shape" d="M10 150v-7c4-27 96-27 100 0v7Z"/>
+            <path class="qa-headset-band" d="M21 87c8-27 29-41 58-36 20 4 33 18 39 39"/>
+            <circle class="qa-head-main" cx="58" cy="104" r="38"/>
+            <path class="qa-face-cut" d="M68 110 99 100v23l-28 10c-8 3-14 12-14 21v-20c0-12 4-20 11-24Z"/>
+            <path class="qa-earcup" d="M98 87h11c4 0 7 3 7 7v23c0 4-3 7-7 7H98Z"/>
+            <path class="qa-mic-arm" d="M99 122H77c-8 0-14 6-14 14"/>
             <circle class="qa-mic-dot" cx="63" cy="136" r="7"/>
-            <path class="qa-body-shape" d="M8 150c4-31 100-31 104 0Z"/>
           </svg>
         </div>
         <div>
@@ -428,13 +428,13 @@ $asset_ver = '2.5.0'; // cache-bust;
           <circle class="qa-hat-dot qa-hat-dot-primary" cx="52" cy="34" r="4"/>
           <circle class="qa-hat-dot qa-hat-dot-accent" cx="66" cy="49" r="4"/>
           <circle class="qa-hat-dot qa-hat-dot-light" cx="45" cy="52" r="4"/>
-          <path class="qa-headset-band" d="M18 88c14-35 72-43 93 5"/>
-          <path class="qa-head-main" d="M23 103c0-25 18-43 43-43s43 18 43 43v17l-32 10v-19c0-9-7-15-16-15h-2c-10 0-17 8-17 18v19c-12-6-19-17-19-30Z"/>
-          <path class="qa-face-cut" d="M77 109 109 99v20l-32 10Z"/>
-          <path class="qa-earcup" d="M101 88h9c4 0 7 3 7 7v22c0 4-3 7-7 7h-9Z"/>
-          <path class="qa-mic-arm" d="M101 121H78c-9 0-15 6-15 15"/>
+          <path class="qa-body-shape" d="M10 150v-7c4-27 96-27 100 0v7Z"/>
+          <path class="qa-headset-band" d="M21 87c8-27 29-41 58-36 20 4 33 18 39 39"/>
+          <circle class="qa-head-main" cx="58" cy="104" r="38"/>
+          <path class="qa-face-cut" d="M68 110 99 100v23l-28 10c-8 3-14 12-14 21v-20c0-12 4-20 11-24Z"/>
+          <path class="qa-earcup" d="M98 87h11c4 0 7 3 7 7v23c0 4-3 7-7 7H98Z"/>
+          <path class="qa-mic-arm" d="M99 122H77c-8 0-14 6-14 14"/>
           <circle class="qa-mic-dot" cx="63" cy="136" r="7"/>
-          <path class="qa-body-shape" d="M8 150c4-31 100-31 104 0Z"/>
         </svg>
       </span>
       <span class="eb-qa-status" aria-hidden="true"></span>
