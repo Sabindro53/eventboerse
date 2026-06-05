@@ -203,7 +203,6 @@ $asset_ver = '2.5.1'; // cache-bust;
     <div class="app-loading-inner">
       <div class="app-loading-emoji" aria-hidden="true">
         <span class="emoji emoji-1">🎉</span>
-        <span class="emoji emoji-2">🎊</span>
       </div>
       <div class="app-loading-text">Event<span class="app-loading-accent">börse</span> wird geladen…</div>
       <div class="app-loading-bar"><span></span></div>

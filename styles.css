@@ -8568,11 +8568,6 @@ body.dark-mode .beta-banner-close { color: #f7e6b8; }
 .app-loading-emoji .emoji-1 {
   animation: appPopperShake 1.4s ease-in-out infinite;
 }
-.app-loading-emoji .emoji-2 {
-  animation: appPopperShake 1.4s ease-in-out infinite;
-  animation-delay: 0.7s;
-  opacity: 0.85;
-}
 @keyframes appPopperShake {
   0%   { transform: rotate(-18deg) scale(0.95); }
   15%  { transform: rotate(-12deg) scale(1.05); }
@@ -8640,8 +8635,7 @@ body.dark-mode .beta-banner-close { color: #f7e6b8; }
 
 /* Reduced-Motion-Support: ruhigere Animation */
 @media (prefers-reduced-motion: reduce) {
-  .app-loading-emoji .emoji-1,
-  .app-loading-emoji .emoji-2 { animation: none; transform: rotate(-15deg); }
+  .app-loading-emoji .emoji-1 { animation: none; transform: rotate(-15deg); }
   .app-loading-emoji::before,
   .app-loading-emoji::after  { display: none; }
   .app-loading-bar > span    { animation-duration: 2s; }
