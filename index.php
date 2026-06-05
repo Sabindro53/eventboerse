@@ -752,9 +752,12 @@ $asset_ver = '2.4.8'; // cache-bust;
           <span class="ai-popper pop-1">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C"/>
-                <path d="M52 10 L96 50 L74 30 Z" fill="#E31C5F" opacity="0.55"/>
-                <ellipse cx="80" cy="36" rx="11" ry="16" fill="#E31C5F" transform="rotate(42 80 36)"/>
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="80" cy="36" rx="16" ry="22" fill="#5a0d22" transform="rotate(42 80 36)"/>
+                <ellipse cx="80" cy="36" rx="11" ry="17" fill="#1a0309" transform="rotate(42 80 36)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M80 36 Q86 4 92 -14"   stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -775,9 +778,12 @@ $asset_ver = '2.4.8'; // cache-bust;
           <span class="ai-popper pop-2">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C"/>
-                <path d="M52 10 L96 50 L74 30 Z" fill="#E31C5F" opacity="0.55"/>
-                <ellipse cx="80" cy="36" rx="11" ry="16" fill="#E31C5F" transform="rotate(42 80 36)"/>
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="80" cy="36" rx="16" ry="22" fill="#5a0d22" transform="rotate(42 80 36)"/>
+                <ellipse cx="80" cy="36" rx="11" ry="17" fill="#1a0309" transform="rotate(42 80 36)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M80 36 Q86 4 92 -14"   stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -798,9 +804,12 @@ $asset_ver = '2.4.8'; // cache-bust;
           <span class="ai-popper pop-3">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C"/>
-                <path d="M52 10 L96 50 L74 30 Z" fill="#E31C5F" opacity="0.55"/>
-                <ellipse cx="80" cy="36" rx="11" ry="16" fill="#E31C5F" transform="rotate(42 80 36)"/>
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="80" cy="36" rx="16" ry="22" fill="#5a0d22" transform="rotate(42 80 36)"/>
+                <ellipse cx="80" cy="36" rx="11" ry="17" fill="#1a0309" transform="rotate(42 80 36)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M80 36 Q86 4 92 -14"   stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -821,9 +830,12 @@ $asset_ver = '2.4.8'; // cache-bust;
           <span class="ai-popper pop-4">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C"/>
-                <path d="M52 10 L96 50 L74 30 Z" fill="#E31C5F" opacity="0.55"/>
-                <ellipse cx="80" cy="36" rx="11" ry="16" fill="#E31C5F" transform="rotate(42 80 36)"/>
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="80" cy="36" rx="16" ry="22" fill="#5a0d22" transform="rotate(42 80 36)"/>
+                <ellipse cx="80" cy="36" rx="11" ry="17" fill="#1a0309" transform="rotate(42 80 36)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M80 36 Q86 4 92 -14"   stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -844,9 +856,12 @@ $asset_ver = '2.4.8'; // cache-bust;
           <span class="ai-popper pop-5">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
               <g class="ai-popper-cone">
-                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C"/>
-                <path d="M52 10 L96 50 L74 30 Z" fill="#E31C5F" opacity="0.55"/>
-                <ellipse cx="80" cy="36" rx="11" ry="16" fill="#E31C5F" transform="rotate(42 80 36)"/>
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="80" cy="36" rx="16" ry="22" fill="#5a0d22" transform="rotate(42 80 36)"/>
+                <ellipse cx="80" cy="36" rx="11" ry="17" fill="#1a0309" transform="rotate(42 80 36)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M80 36 Q86 4 92 -14"   stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
