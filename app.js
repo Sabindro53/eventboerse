@@ -12860,6 +12860,13 @@ function renderBoardPage() {
   projectsEl.style.display = '';
   btnAllBoards && (btnAllBoards.style.display = 'none');
 
+  // Übersicht: generischen Planungs-Board-Header wieder einblenden
+  // (wurde in openBoardProject für die Eventboard-Vollansicht versteckt).
+  var headerLeftOv = document.querySelector('#page-board .board-page-header-left');
+  if (headerLeftOv) headerLeftOv.style.display = '';
+  var boardPageOv = document.getElementById('page-board');
+  if (boardPageOv) boardPageOv.classList.remove('board-single-view');
+
   // Hide/show header "new project" button based on login
   if (headerNewBtn) headerNewBtn.style.display = currentUser ? '' : 'none';
   var btnSync = document.getElementById('btnBoardSync');
@@ -13425,6 +13432,17 @@ function openBoardProject(projectId) {
   projectsEl && (projectsEl.style.display = 'none');
   boardViewEl && (boardViewEl.style.display = '');
   btnAllBoards && (btnAllBoards.style.display = '');
+
+  // Eigene Vollbild-Seite fürs Eventboard: generischen Planungs-Board-Header
+  // (Kicker/Titel/Beschreibung + "Neues Event-Projekt") ausblenden, damit das
+  // Board nicht "darunter" erscheint, sondern die ganze Fläche bekommt. Die
+  // eigene Meta-Bar (Eventname/Datum + Zurück) übernimmt die Kopfzeile.
+  var headerLeft = document.querySelector('#page-board .board-page-header-left');
+  if (headerLeft) headerLeft.style.display = 'none';
+  var headerNewBtnOpen = document.querySelector('.board-page-header-actions .board-new-btn');
+  if (headerNewBtnOpen) headerNewBtnOpen.style.display = 'none';
+  var boardPageEl = document.getElementById('page-board');
+  if (boardPageEl) boardPageEl.classList.add('board-single-view');
 
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');

@@ -14068,3 +14068,9 @@ body.dark-mode {
   transition: transform 0.2s ease;
 }
 .auftraege-howto[open] summary::after { transform: rotate(180deg); }
+
+/* Eventboard als eigene Vollbild-Seite: wenn ein Projekt geöffnet ist,
+   wird der generische Header ausgeblendet – die schmale Aktionszeile
+   (Zurück/Sync) rückt nach oben, das Board bekommt die volle Fläche. */
+.board-single-view .board-page-header { margin-bottom: 10px; align-items: center; }
+.board-single-view .board-page-header-actions { margin-left: 0; }
