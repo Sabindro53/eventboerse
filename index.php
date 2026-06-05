@@ -756,8 +756,8 @@ $asset_ver = '2.4.8'; // cache-bust;
                 <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
                 <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
                 <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
-                <ellipse cx="74" cy="30" rx="14" ry="30" fill="#5a0d22" transform="rotate(42 74 30)"/>
-                <ellipse cx="74" cy="30" rx="10" ry="26" fill="#1a0309" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -782,8 +782,8 @@ $asset_ver = '2.4.8'; // cache-bust;
                 <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
                 <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
                 <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
-                <ellipse cx="74" cy="30" rx="14" ry="30" fill="#5a0d22" transform="rotate(42 74 30)"/>
-                <ellipse cx="74" cy="30" rx="10" ry="26" fill="#1a0309" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -808,8 +808,8 @@ $asset_ver = '2.4.8'; // cache-bust;
                 <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
                 <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
                 <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
-                <ellipse cx="74" cy="30" rx="14" ry="30" fill="#5a0d22" transform="rotate(42 74 30)"/>
-                <ellipse cx="74" cy="30" rx="10" ry="26" fill="#1a0309" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -834,8 +834,8 @@ $asset_ver = '2.4.8'; // cache-bust;
                 <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
                 <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
                 <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
-                <ellipse cx="74" cy="30" rx="14" ry="30" fill="#5a0d22" transform="rotate(42 74 30)"/>
-                <ellipse cx="74" cy="30" rx="10" ry="26" fill="#1a0309" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
@@ -860,8 +860,8 @@ $asset_ver = '2.4.8'; // cache-bust;
                 <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
                 <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
                 <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
-                <ellipse cx="74" cy="30" rx="14" ry="30" fill="#5a0d22" transform="rotate(42 74 30)"/>
-                <ellipse cx="74" cy="30" rx="10" ry="26" fill="#1a0309" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
               </g>
               <g class="ai-popper-burst">
                 <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
