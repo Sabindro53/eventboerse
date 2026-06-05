@@ -12536,9 +12536,9 @@ function renderAuftraegePage() {
   if (!container) return;
   var isProvider = isDienstleister();
 
-  // Aggregation: eigene Board-Karten, bei denen der aktuelle User als
-  // providerId des Listings eingetragen ist (lokaler Scope).
-  // Echte cross-user Aggregation folgt mit Backend-Endpoint.
+  // Aggregation: eigene Board-Karten (lokaler Scope) + server-seitige
+  // Buchungen von anderen Nutzern, die ein Angebot des aktuellen
+  // Dienstleisters bezahlt haben.
   var myId = currentUser && currentUser.id;
   var jobs = [];
   (_boardProjects || []).forEach(function(proj){
@@ -12546,11 +12546,45 @@ function renderAuftraegePage() {
       var l = card.listingId ? (LISTINGS || []).find(function(x){ return x.id === card.listingId; }) : null;
       var providerId = (l && l.providerId) || card.providerId;
       if (providerId && myId && providerId === myId) {
-        jobs.push({ card: card, project: proj, listing: l });
+        jobs.push({ card: card, project: proj, listing: l, remote: false });
       }
     });
   });
 
+  // Vom Server: Buchungen in fremden Boards, die zum aktuellen Provider gehören
+  if (isProvider && currentUser) {
+    fetch(_apiUrl('board-bookings'), {
+      method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
+    }).then(function(r){ return r.json(); }).then(function(data){
+      var remoteBookings = (data && data.bookings) || [];
+      remoteBookings.forEach(function(b){
+        // Duplikate mit lokalen Jobs vermeiden (gleiche card.id)
+        var already = jobs.some(function(j){ return j.card.id === b.card.id; });
+        if (!already) {
+          var l = b.card.listingId ? (LISTINGS || []).find(function(x){ return x.id === b.card.listingId; }) : null;
+          jobs.push({
+            card: b.card,
+            project: { id: b.project_id, name: b.project_name, date: b.project_date },
+            listing: l,
+            remote: true,
+            customerId: b.customer_id,
+            customerName: b.customer_name
+          });
+        }
+      });
+      _renderAuftraegeJobs(container, jobs, isProvider);
+    }).catch(function(){
+      _renderAuftraegeJobs(container, jobs, isProvider);
+    });
+    return; // wait for async
+  _renderAuftraegeJobs(container, jobs, isProvider);
+}
+
+/**
+ * Renders the Aufträge job cards into the given container.
+ * Handles both local and remote (cross-user) bookings.
+ */
+function _renderAuftraegeJobs(container, jobs, isProvider) {
   var html = '';
   html += '<div style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px">' +
     '<div style="display:flex;align-items:flex-start;gap:12px">' +
@@ -12599,6 +12633,27 @@ function renderAuftraegePage() {
     var alreadyConfirmed = !!c.providerConfirmedAt;
     var canAccept = stage === 'angebot' && !c.providerAcceptedAt;
     var priceNum = parseFloat(c.price) || 0;
+    var isRemote = !!j.remote;
+    var customerBadge = isRemote && j.customerName
+      ? '<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;display:flex;align-items:center;gap:4px"><span class="material-icons-round" style="font-size:14px">person</span>Kunde: <strong>' + esc(j.customerName) + '</strong></div>'
+      : '';
+    var actionHtml = '';
+    if (canAccept) {
+      var acceptFn = isRemote
+        ? 'acceptAuftragRemote(\'' + esc(String(j.customerId || '')) + '\',\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')'
+        : 'acceptAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')';
+      actionHtml = _payoutBreakdownHtml(priceNum) +
+        '<button class="btn-primary" style="width:100%;background:#66bb6a;border-color:#66bb6a" onclick="' + acceptFn + '"><span class="material-icons-round">check_circle</span> Auftrag annehmen</button>';
+    } else if (canConfirm) {
+      var confirmFn = isRemote
+        ? 'confirmAuftragRemote(\'' + esc(String(j.customerId || '')) + '\',\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')'
+        : 'confirmAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')';
+      actionHtml = '<button class="btn-primary" style="width:100%" onclick="' + confirmFn + '"><span class="material-icons-round">verified</span> Erbringung best&auml;tigen</button>';
+    } else if (alreadyConfirmed) {
+      actionHtml = '<div style="padding:10px;background:rgba(102,187,106,0.1);border-radius:8px;color:#388e3c;font-size:13px;text-align:center"><span class="material-icons-round" style="vertical-align:middle;font-size:16px">check_circle</span> Deinerseits best&auml;tigt</div>';
+    } else {
+      actionHtml = '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + (stage === 'abgeschlossen' ? 'Auftrag erf&uuml;llt' : 'Warten auf n&auml;chsten Schritt') + '</div>';
+    }
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
       '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
@@ -12606,21 +12661,14 @@ function renderAuftraegePage() {
         '<span style="font-size:12px;opacity:0.9">' + esc(dateStr) + '</span>' +
       '</div>' +
       '<div style="padding:16px">' +
+        customerBadge +
         '<div style="font-weight:700;font-size:16px;margin-bottom:4px">' + esc((l && l.title) || c.name || 'Auftrag') + '</div>' +
         '<div style="color:var(--text-light);font-size:13px;margin-bottom:12px">Projekt: ' + esc(p.name || '—') + '</div>' +
         '<div style="display:flex;gap:12px;font-size:13px;margin-bottom:12px">' +
           '<div><span style="color:var(--text-light)">Preis:</span> <strong>' + esc(priceStr) + '</strong></div>' +
           (c.paymentMethod ? '<div><span style="color:var(--text-light)">Zahlung:</span> <strong>' + esc(c.paymentMethod) + '</strong></div>' : '') +
         '</div>' +
-        (canAccept
-          ? _payoutBreakdownHtml(priceNum) +
-            '<button class="btn-primary" style="width:100%;background:#66bb6a;border-color:#66bb6a" onclick="acceptAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')"><span class="material-icons-round">check_circle</span> Auftrag annehmen</button>'
-          : canConfirm
-          ? '<button class="btn-primary" style="width:100%" onclick="confirmAuftragProvider(\'' + esc(p.id) + '\',\'' + esc(c.id) + '\')"><span class="material-icons-round">verified</span> Erbringung best&auml;tigen</button>'
-          : alreadyConfirmed
-            ? '<div style="padding:10px;background:rgba(102,187,106,0.1);border-radius:8px;color:#388e3c;font-size:13px;text-align:center"><span class="material-icons-round" style="vertical-align:middle;font-size:16px">check_circle</span> Deinerseits best&auml;tigt</div>'
-            : '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + (stage === 'abgeschlossen' ? 'Auftrag erf&uuml;llt' : 'Warten auf n&auml;chsten Schritt') + '</div>'
-        ) +
+        actionHtml +
       '</div>' +
     '</div>';
   });
@@ -12629,6 +12677,7 @@ function renderAuftraegePage() {
   container.innerHTML = html;
 }
 
+/** Provider confirms locally (own board projects) */
 function confirmAuftragProvider(projectId, cardId) {
   var proj = (_boardProjects || []).find(function(p){ return p.id === projectId; });
   if (!proj) return;
@@ -12644,6 +12693,48 @@ function confirmAuftragProvider(projectId, cardId) {
   }
   _saveBoardProjects();
   renderAuftraegePage();
+}
+
+/** Provider confirms a remote booking (from another user's board) */
+function confirmAuftragRemote(customerId, projectId, cardId) {
+  fetch(_apiUrl('board-bookings/update-card'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ customer_id: parseInt(customerId), project_id: projectId, card_id: cardId, action: 'confirm' })
+  }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+    .then(function(res){
+      if (!res.ok) { showToast((res.data && res.data.error) || 'Fehler beim Best\u00e4tigen.', 'error'); return; }
+      showToast('Best\u00e4tigung gespeichert. Der Kunde wird beim n\u00e4chsten Sync informiert.', 'hourglass_top');
+      renderAuftraegePage();
+    }).catch(function(){ showToast('Netzwerkfehler.', 'error'); });
+}
+
+/** Provider accepts a remote booking (from another user's board) */
+function acceptAuftragRemote(customerId, projectId, cardId) {
+  // First confirm with provider using same payout breakdown as local
+  var _jobRef = null;
+  // Try to find price from rendered context — do a best-effort lookup
+  var priceNum = 0;
+  (_boardProjects || []).forEach(function(proj){
+    (proj.cards || []).forEach(function(card){
+      if (card.id === cardId) { priceNum = parseFloat(card.price) || 0; }
+    });
+  });
+  var payout = calculatePayout(priceNum);
+  var msg = 'Auftrag verbindlich annehmen?\n\n' +
+    (priceNum > 0 ? 'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
+    '\u2013 Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' : '') +
+    'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
+  if (!confirm(msg)) return;
+  fetch(_apiUrl('board-bookings/update-card'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ customer_id: parseInt(customerId), project_id: projectId, card_id: cardId, action: 'accept' })
+  }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+    .then(function(res){
+      if (!res.ok) { showToast((res.data && res.data.error) || 'Fehler beim Annehmen.', 'error'); return; }
+      showToast('Auftrag angenommen' + (priceNum > 0 ? ' – Auszahlung ' + _formatEuro(payout.netPayoutAmount) : '') + '.', 'paid');
+      renderAuftraegePage();
+    }).catch(function(){ showToast('Netzwerkfehler.', 'error'); });
 }
 
 /**
@@ -12740,10 +12831,16 @@ function renderBoardPage() {
     // Guest count badge
     var guestHtml = p.guests ? '<span class="bpf-count"><span class="material-icons-round">people</span>' + p.guests + ' G&auml;ste</span>' : '';
 
+    // Special badge for instant-booking projects
+    var instantBadge = p.kind === 'instant'
+      ? '<span class="bpc-instant-badge"><span class="material-icons-round">bolt</span>Direktbuchungen</span>'
+      : '';
+
     return `
-      <div class="board-project-card animated-entry" onclick="openBoardProject('${p.id}')">
+      <div class="board-project-card animated-entry${p.kind === 'instant' ? ' bpc-instant' : ''}" onclick="openBoardProject('${p.id}')">
         <button class="bpc-delete-btn" onclick="event.stopPropagation();deleteBoardProjectById('${p.id}')" title="Projekt l\u00f6schen" aria-label="Projekt l\u00f6schen"><span class="material-icons-round">close</span></button>
         <button class="bpc-edit-btn" onclick="event.stopPropagation();openEditBoardProjectModal('${p.id}')" title="Projekt bearbeiten" aria-label="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
+        ${instantBadge}
         <div class="bpc-top-row">
           <h3>${_escHtml(p.name)}</h3>
           ${countdownHtml}
@@ -17295,6 +17392,10 @@ function _addListingToBoardProject(listing, projectId) {
   }, 1200);
 }
 window._addListingToBoardProject = _addListingToBoardProject;
+window.acceptAuftragProvider = acceptAuftragProvider;
+window.acceptAuftragRemote   = acceptAuftragRemote;
+window.confirmAuftragProvider = confirmAuftragProvider;
+window.confirmAuftragRemote   = confirmAuftragRemote;
 
 // Hook: after project creation, check if we have a pending listing to add
 var _origCreateBoardProject = _createBoardProject;

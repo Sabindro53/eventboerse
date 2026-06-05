@@ -967,7 +967,171 @@ function eventboerse_handle_board_save( WP_REST_Request $request ) {
     return new WP_REST_Response( array( 'success' => true, 'count' => count( $projects ) ), 200 );
 }
 
-/* ---------- REGISTER (Step 1: send OTP) ---------- */
+/* ---------- BOARD BOOKINGS – Dienstleister-Sicht --------------------------------
+ * GET  /board-bookings
+ *   Durchsucht alle Nutzer-Boards nach Karten, deren Inserat dem aktuellen
+ *   Dienstleister gehört. Gibt eine flache Liste der Karten inkl. Projekt-Meta
+ *   und Kundennamen zurück.
+ *
+ * POST /board-bookings/update-card
+ *   Erlaubt dem Dienstleister, seine eigene providerAcceptedAt / providerConfirmedAt
+ *   Felder zurückzuschreiben (nach Annehmen / Erbringung bestätigen).
+ * ----------------------------------------------------------------------------- */
+function eb_board_bookings_get( WP_REST_Request $request ) {
+    $provider_uid = get_current_user_id();
+    if ( ! $provider_uid ) {
+        return new WP_REST_Response( array( 'error' => 'not_logged_in' ), 401 );
+    }
+
+    // Alle Listings des Dienstleisters ermitteln
+    global $wpdb;
+    $my_listing_ids = array();
+
+    // (a) WP posts (CPT eb_listing)
+    $post_rows = $wpdb->get_col( $wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_author = %d AND post_status IN ('publish','pending','draft')",
+        $provider_uid
+    ) );
+    if ( is_array( $post_rows ) ) {
+        foreach ( $post_rows as $pid ) {
+            $my_listing_ids[] = (int) $pid;
+        }
+    }
+
+    // (b) Custom eb_listings table (falls vorhanden)
+    $table = $wpdb->prefix . 'eb_listings';
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table ) {
+        $db_rows = $wpdb->get_col( $wpdb->prepare(
+            "SELECT id FROM {$table} WHERE user_id = %d",
+            $provider_uid
+        ) );
+        if ( is_array( $db_rows ) ) {
+            foreach ( $db_rows as $did ) {
+                $my_listing_ids[] = (int) $did;
+                // Auch ID+10000 Variante abdecken (Frontend-Offset)
+                $my_listing_ids[] = (int) $did + 10000;
+            }
+        }
+    }
+    $my_listing_ids = array_unique( array_filter( $my_listing_ids ) );
+
+    // Alle Board-Nutzer durchsuchen (user_meta key eb_board_projects)
+    $users = get_users( array(
+        'meta_key'   => 'eb_board_projects',
+        'meta_value' => '',
+        'compare'    => '!=',
+        'fields'     => array( 'ID', 'display_name', 'first_name', 'last_name', 'user_email' ),
+        'number'     => 500,
+    ) );
+
+    $results = array();
+    foreach ( $users as $u ) {
+        if ( (int) $u->ID === $provider_uid ) continue; // eigene Boards überspringen
+        $raw = get_user_meta( $u->ID, 'eb_board_projects', true );
+        if ( empty( $raw ) ) continue;
+        $projects = json_decode( wp_unslash( $raw ), true );
+        if ( ! is_array( $projects ) ) continue;
+        $customer_name = trim( $u->first_name . ' ' . $u->last_name );
+        if ( ! $customer_name ) $customer_name = $u->display_name ?: $u->user_email;
+        foreach ( $projects as $proj ) {
+            if ( empty( $proj['cards'] ) || ! is_array( $proj['cards'] ) ) continue;
+            foreach ( $proj['cards'] as $card ) {
+                if ( empty( $card['listingId'] ) ) continue;
+                $lid = (int) $card['listingId'];
+                if ( ! in_array( $lid, $my_listing_ids, true ) ) continue;
+                // Karte gehört zum Dienstleister → aufnehmen
+                $results[] = array(
+                    'card'          => $card,
+                    'project_id'    => $proj['id'] ?? '',
+                    'project_name'  => $proj['name'] ?? '',
+                    'project_date'  => $proj['date'] ?? '',
+                    'customer_id'   => (int) $u->ID,
+                    'customer_name' => $customer_name,
+                );
+            }
+        }
+    }
+
+    return new WP_REST_Response( array( 'bookings' => $results ), 200 );
+}
+
+function eb_board_bookings_update_card( WP_REST_Request $request ) {
+    $provider_uid = get_current_user_id();
+    if ( ! $provider_uid ) {
+        return new WP_REST_Response( array( 'error' => 'not_logged_in' ), 401 );
+    }
+    $p           = $request->get_json_params();
+    $customer_id = absint( $p['customer_id'] ?? 0 );
+    $project_id  = sanitize_text_field( $p['project_id'] ?? '' );
+    $card_id     = sanitize_text_field( $p['card_id'] ?? '' );
+    $action      = sanitize_key( $p['action'] ?? '' ); // 'accept' | 'confirm'
+
+    if ( ! $customer_id || ! $project_id || ! $card_id || ! in_array( $action, array( 'accept', 'confirm' ), true ) ) {
+        return new WP_REST_Response( array( 'error' => 'invalid_params' ), 400 );
+    }
+
+    // Sicherheit: Karte muss einem Listing des aktuellen Providers gehören
+    global $wpdb;
+    $raw = get_user_meta( $customer_id, 'eb_board_projects', true );
+    if ( empty( $raw ) ) {
+        return new WP_REST_Response( array( 'error' => 'not_found' ), 404 );
+    }
+    $projects = json_decode( wp_unslash( $raw ), true );
+    if ( ! is_array( $projects ) ) {
+        return new WP_REST_Response( array( 'error' => 'corrupt_data' ), 500 );
+    }
+
+    $found = false;
+    $now   = ( new DateTime( 'now', new DateTimeZone( 'UTC' ) ) )->format( 'Y-m-d\TH:i:s\Z' );
+    foreach ( $projects as &$proj ) {
+        if ( ( $proj['id'] ?? '' ) !== $project_id ) continue;
+        foreach ( $proj['cards'] as &$card ) {
+            if ( ( $card['id'] ?? '' ) !== $card_id ) continue;
+            // Listing-Owner prüfen
+            $lid = (int) ( $card['listingId'] ?? 0 );
+            if ( $lid ) {
+                $author = (int) get_post_field( 'post_author', $lid );
+                if ( ! $author ) {
+                    // Fallback: eb_listings table
+                    $table = $wpdb->prefix . 'eb_listings';
+                    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table ) {
+                        $actual_lid = $lid > 10000 ? $lid - 10000 : $lid;
+                        $author = (int) $wpdb->get_var( $wpdb->prepare(
+                            "SELECT user_id FROM {$table} WHERE id = %d LIMIT 1", $actual_lid
+                        ) );
+                    }
+                }
+                if ( $author && $author !== $provider_uid ) {
+                    return new WP_REST_Response( array( 'error' => 'not_your_listing' ), 403 );
+                }
+            }
+            if ( $action === 'accept' ) {
+                $card['providerAcceptedAt'] = $now;
+                $card['stage']              = 'bestaetigt';
+                if ( empty( $card['paidAt'] ) ) $card['paidAt'] = $now;
+                if ( empty( $card['paymentStatus'] ) ) $card['paymentStatus'] = 'Bezahlt';
+            } elseif ( $action === 'confirm' ) {
+                $card['providerConfirmedAt'] = $now;
+                if ( ! empty( $card['userConfirmedAt'] ) && ( $card['stage'] ?? '' ) === 'bestaetigt' ) {
+                    $card['stage']       = 'abgeschlossen';
+                    $card['fulfilledAt'] = $now;
+                }
+            }
+            $found = true;
+            break 2;
+        }
+        unset( $card );
+    }
+    unset( $proj );
+
+    if ( ! $found ) {
+        return new WP_REST_Response( array( 'error' => 'card_not_found' ), 404 );
+    }
+
+    $encoded = wp_json_encode( $projects );
+    update_user_meta( $customer_id, 'eb_board_projects', wp_slash( $encoded ) );
+    return new WP_REST_Response( array( 'success' => true ), 200 );
+}
 function eventboerse_handle_register( WP_REST_Request $request ) {
     $params     = $request->get_json_params();
     $email_raw  = isset( $params['email'] )      ? (string) $params['email']                    : '';
@@ -2422,6 +2586,22 @@ function eb_register_extra_routes() {
         'permission_callback' => function() {
             return is_user_logged_in() && eb_is_admin_user();
         },
+    ) );
+
+    /* ---------- BOARD BOOKINGS (cross-user provider view + accept/confirm) ---------- */
+    register_rest_route( 'eventboerse/v1', '/board-bookings', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_board_bookings_get',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+    register_rest_route( 'eventboerse/v1', '/board-bookings/update-card', array(
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_board_bookings_update_card',
+            'permission_callback' => 'is_user_logged_in',
+        ),
     ) );
     register_rest_route( 'eventboerse/v1', '/stripe/verify-payment', array(
         'methods'             => 'POST',
