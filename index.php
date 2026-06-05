@@ -114,7 +114,7 @@ $og_image_esc   = esc_url( $og_image );
 $site_name_esc  = esc_attr( $site_name );
 
 // Cache-version string for assets (increment manually on deploy)
-$asset_ver = '2.4.9'; // cache-bust;
+$asset_ver = '2.5.0'; // cache-bust;
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -379,20 +379,21 @@ $asset_ver = '2.4.9'; // cache-bust;
     <section class="eb-qa-panel" id="qaPanel" aria-label="Eventbörse QA-Support" hidden>
       <div class="eb-qa-head">
         <div class="eb-qa-head-avatar" aria-hidden="true">
-          <svg class="eb-qa-icon-svg eb-qa-icon-svg--mini" viewBox="0 0 120 136" focusable="false" aria-hidden="true">
-            <path class="qa-hat-fill" d="M47 11 79 63H29Z"/>
-            <path class="qa-hat-stroke" d="M47 11 79 63H29Z"/>
-            <path class="qa-hat-brim" d="M28 63c13 8 38 8 52 0"/>
-            <circle class="qa-hat-dot qa-hat-dot-primary" cx="46" cy="31" r="4"/>
-            <circle class="qa-hat-dot qa-hat-dot-accent" cx="61" cy="47" r="4"/>
-            <circle class="qa-hat-dot qa-hat-dot-dark" cx="40" cy="51" r="3.5"/>
-            <path class="qa-spark" d="M56 2v14M48 6l16 8M64 6l-16 8"/>
-            <path class="qa-head-shape" d="M36 90c-7-25 10-43 35-43 23 0 39 16 39 37v15l-28 9V90c0-11-8-18-21-18-14 0-25 9-25 18Z"/>
-            <path class="qa-headset-band" d="M25 70c12-30 65-40 85 7"/>
-            <path class="qa-earcup" d="M101 79h9c4 0 6 3 6 7v19c0 4-2 7-6 7h-9Z"/>
-            <path class="qa-mic-arm" d="M101 106H82c-8 0-13 5-13 13v8"/>
-            <circle class="qa-mic-dot" cx="69" cy="125" r="6"/>
-            <path class="qa-body-shape" d="M17 136c4-31 91-31 96 0Z"/>
+          <svg class="eb-qa-icon-svg eb-qa-icon-svg--mini" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
+            <path class="qa-spark" d="M56 5v14M48 9l16 8M64 9l-16 8"/>
+            <path class="qa-hat-fill" d="M30 63 56 18 82 63Z"/>
+            <path class="qa-hat-stroke" d="M30 63 56 18 82 63Z"/>
+            <path class="qa-hat-brim" d="M28 64c13 8 40 8 55 0"/>
+            <circle class="qa-hat-dot qa-hat-dot-primary" cx="52" cy="34" r="4"/>
+            <circle class="qa-hat-dot qa-hat-dot-accent" cx="66" cy="49" r="4"/>
+            <circle class="qa-hat-dot qa-hat-dot-light" cx="45" cy="52" r="4"/>
+            <path class="qa-headset-band" d="M18 88c14-35 72-43 93 5"/>
+            <path class="qa-head-main" d="M23 103c0-25 18-43 43-43s43 18 43 43v17l-32 10v-19c0-9-7-15-16-15h-2c-10 0-17 8-17 18v19c-12-6-19-17-19-30Z"/>
+            <path class="qa-face-cut" d="M77 109 109 99v20l-32 10Z"/>
+            <path class="qa-earcup" d="M101 88h9c4 0 7 3 7 7v22c0 4-3 7-7 7h-9Z"/>
+            <path class="qa-mic-arm" d="M101 121H78c-9 0-15 6-15 15"/>
+            <circle class="qa-mic-dot" cx="63" cy="136" r="7"/>
+            <path class="qa-body-shape" d="M8 150c4-31 100-31 104 0Z"/>
           </svg>
         </div>
         <div>
@@ -419,25 +420,22 @@ $asset_ver = '2.4.9'; // cache-bust;
     </section>
     <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse QA-Support">
       <span class="eb-qa-launcher-icon" aria-hidden="true">
-        <svg class="eb-qa-icon-svg" viewBox="0 0 120 136" focusable="false" aria-hidden="true">
-          <path class="qa-hat-fill" d="M47 11 79 63H29Z"/>
-          <path class="qa-hat-stroke" d="M47 11 79 63H29Z"/>
-          <path class="qa-hat-brim" d="M28 63c13 8 38 8 52 0"/>
-          <circle class="qa-hat-dot qa-hat-dot-primary" cx="46" cy="31" r="4"/>
-          <circle class="qa-hat-dot qa-hat-dot-accent" cx="61" cy="47" r="4"/>
-          <circle class="qa-hat-dot qa-hat-dot-dark" cx="40" cy="51" r="3.5"/>
-          <path class="qa-spark" d="M56 2v14M48 6l16 8M64 6l-16 8"/>
-          <path class="qa-head-shape" d="M36 90c-7-25 10-43 35-43 23 0 39 16 39 37v15l-28 9V90c0-11-8-18-21-18-14 0-25 9-25 18Z"/>
-          <path class="qa-headset-band" d="M25 70c12-30 65-40 85 7"/>
-          <path class="qa-earcup" d="M101 79h9c4 0 6 3 6 7v19c0 4-2 7-6 7h-9Z"/>
-          <path class="qa-mic-arm" d="M101 106H82c-8 0-13 5-13 13v8"/>
-          <circle class="qa-mic-dot" cx="69" cy="125" r="6"/>
-          <path class="qa-body-shape" d="M17 136c4-31 91-31 96 0Z"/>
+        <svg class="eb-qa-icon-svg" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
+          <path class="qa-spark" d="M56 5v14M48 9l16 8M64 9l-16 8"/>
+          <path class="qa-hat-fill" d="M30 63 56 18 82 63Z"/>
+          <path class="qa-hat-stroke" d="M30 63 56 18 82 63Z"/>
+          <path class="qa-hat-brim" d="M28 64c13 8 40 8 55 0"/>
+          <circle class="qa-hat-dot qa-hat-dot-primary" cx="52" cy="34" r="4"/>
+          <circle class="qa-hat-dot qa-hat-dot-accent" cx="66" cy="49" r="4"/>
+          <circle class="qa-hat-dot qa-hat-dot-light" cx="45" cy="52" r="4"/>
+          <path class="qa-headset-band" d="M18 88c14-35 72-43 93 5"/>
+          <path class="qa-head-main" d="M23 103c0-25 18-43 43-43s43 18 43 43v17l-32 10v-19c0-9-7-15-16-15h-2c-10 0-17 8-17 18v19c-12-6-19-17-19-30Z"/>
+          <path class="qa-face-cut" d="M77 109 109 99v20l-32 10Z"/>
+          <path class="qa-earcup" d="M101 88h9c4 0 7 3 7 7v22c0 4-3 7-7 7h-9Z"/>
+          <path class="qa-mic-arm" d="M101 121H78c-9 0-15 6-15 15"/>
+          <circle class="qa-mic-dot" cx="63" cy="136" r="7"/>
+          <path class="qa-body-shape" d="M8 150c4-31 100-31 104 0Z"/>
         </svg>
-      </span>
-      <span class="eb-qa-launcher-copy">
-        <strong>QA</strong>
-        <small>Support</small>
       </span>
       <span class="eb-qa-status" aria-hidden="true"></span>
     </button>
