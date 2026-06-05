@@ -741,7 +741,7 @@ function eb_send_login_otp_email( $user, $code ) {
     $message .= '</div>';
 
     return wp_mail(
-        $user->user_email,
+        eb_normalize_email( $user->user_email ),
         $subject,
         $message,
         array( 'Content-Type: text/html; charset=UTF-8' )
@@ -790,6 +790,89 @@ function eb_normalize_email( string $raw ): string {
 }
 
 /**
+ * Liefert alle sinnvollen Schreibweisen einer E-Mail-Adresse.
+ *
+ * Wichtig für eventbörse.de: Browser normalisieren IDN-E-Mail-Domains in
+ * type="email"-Feldern oft zu Punycode (eventbörse.de → xn--eventbrse-57a.de).
+ * Ältere Accounts oder manuelle Admin-Einträge können aber noch Unicode-Domains
+ * gespeichert haben. Login und OTP müssen beide Varianten als denselben Account
+ * behandeln.
+ */
+function eb_email_variants( string $raw ): array {
+    $variants = array();
+    $raw      = strtolower( trim( $raw ) );
+
+    if ( $raw !== '' ) {
+        $variants[] = $raw;
+    }
+
+    $normalized = eb_normalize_email( $raw );
+    if ( $normalized !== '' ) {
+        $variants[] = $normalized;
+    }
+
+    if ( strpos( $raw, '@' ) !== false ) {
+        [ $local, $domain ] = explode( '@', $raw, 2 );
+
+        if ( $local !== '' && $domain !== '' ) {
+            if ( function_exists( 'idn_to_ascii' ) ) {
+                $ascii = idn_to_ascii( $domain, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
+                if ( $ascii !== false && $ascii !== '' ) {
+                    $variants[] = $local . '@' . strtolower( $ascii );
+                }
+            }
+
+            if ( function_exists( 'idn_to_utf8' ) ) {
+                $utf8 = idn_to_utf8( $domain, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
+                if ( $utf8 !== false && $utf8 !== '' ) {
+                    $variants[] = $local . '@' . strtolower( $utf8 );
+                }
+            }
+        }
+    }
+
+    $out = array();
+    foreach ( $variants as $variant ) {
+        $variant = strtolower( trim( (string) $variant ) );
+        if ( $variant !== '' ) {
+            $out[ $variant ] = $variant;
+        }
+    }
+    return array_values( $out );
+}
+
+function eb_email_identity_matches( string $a, string $b ): bool {
+    $a_variants = eb_email_variants( $a );
+    $b_variants = eb_email_variants( $b );
+    return ! empty( array_intersect( $a_variants, $b_variants ) );
+}
+
+function eb_get_user_by_email( string $raw ) {
+    global $wpdb;
+
+    foreach ( eb_email_variants( $raw ) as $candidate ) {
+        if ( is_email( $candidate ) ) {
+            $user = get_user_by( 'email', $candidate );
+            if ( $user ) {
+                return $user;
+            }
+        }
+
+        $user_id = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->users} WHERE LOWER(user_email) = %s LIMIT 1",
+                $candidate
+            )
+        );
+        if ( $user_id ) {
+            return get_userdata( $user_id );
+        }
+    }
+
+    return false;
+}
+
+/**
  * Prüft ob eine E-Mail bereits existiert – inkl. Fallback für nicht-normalisierte
  * gespeicherte Adressen (z. B. mit Unicode-Domain).
  *
@@ -797,26 +880,7 @@ function eb_normalize_email( string $raw ): string {
  * @param string $raw    Original-Eingabe vor Normalisierung.
  */
 function eb_email_exists( string $email, string $raw = '' ): bool {
-    if ( email_exists( $email ) ) {
-        return true;
-    }
-    // Fallback: direkte DB-Abfrage mit der Roheingabe (case-insensitive).
-    // Greift wenn gespeicherte Adresse Unicode-Domain enthält und sanitize_email
-    // das Zeichen schlicht entfernt hätte (ö → leer statt → xn--).
-    $raw_lower = strtolower( trim( $raw ) );
-    if ( $raw_lower !== '' && $raw_lower !== $email ) {
-        global $wpdb;
-        $count = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->users} WHERE LOWER(user_email) = %s LIMIT 1",
-                $raw_lower
-            )
-        );
-        if ( $count > 0 ) {
-            return true;
-        }
-    }
-    return false;
+    return (bool) eb_get_user_by_email( $raw !== '' ? $raw : $email );
 }
 
 function eb_send_reg_otp_email( $first_name, $email, $code ) {
@@ -1327,7 +1391,7 @@ function eb_register_verify( WP_REST_Request $request ) {
 /* ---------- REGISTER (Resend OTP) ---------- */
 function eb_register_resend( WP_REST_Request $request ) {
     $params       = $request->get_json_params();
-    $email        = sanitize_email( $params['email'] ?? '' );
+    $email        = eb_normalize_email( (string) ( $params['email'] ?? '' ) );
     $resend_token = sanitize_text_field( $params['resend_token'] ?? '' );
     $otp_key      = eb_reg_otp_transient_key( $email );
     $payload      = get_transient( $otp_key );
@@ -1369,15 +1433,16 @@ function eb_register_resend( WP_REST_Request $request ) {
 
 /* ---------- LOGIN ---------- */
 function eventboerse_handle_login( WP_REST_Request $request ) {
-    $params   = $request->get_json_params();
-    $email    = sanitize_email( $params['email'] ?? '' );
-    $password = $params['password'] ?? '';
+    $params    = $request->get_json_params();
+    $email_raw = (string) ( $params['email'] ?? '' );
+    $email     = eb_normalize_email( $email_raw );
+    $password  = $params['password'] ?? '';
 
     if ( empty( $email ) || empty( $password ) ) {
         return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
     }
 
-    $user = get_user_by( 'email', $email );
+    $user = eb_get_user_by_email( $email_raw );
     if ( ! $user || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
         return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
     }
@@ -1387,7 +1452,7 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
         return new WP_REST_Response( array(
             'message'              => 'Bitte bestätige zuerst deine E-Mail-Adresse. Prüfe dein Postfach.',
             'pending_verification' => true,
-            'email'                => $email,
+            'email'                => $user->user_email ?: $email,
         ), 403 );
     }
 
@@ -1451,8 +1516,9 @@ function eventboerse_handle_verify_email( WP_REST_Request $request ) {
 
 /* ---------- VERIFIZIERUNGS-MAIL ERNEUT SENDEN ---------- */
 function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
-    $params = $request->get_json_params();
-    $email  = isset( $params['email'] ) ? sanitize_email( $params['email'] ) : '';
+    $params    = $request->get_json_params();
+    $email_raw = isset( $params['email'] ) ? (string) $params['email'] : '';
+    $email     = eb_normalize_email( $email_raw );
 
     if ( empty( $email ) || ! is_email( $email ) ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib eine gültige E-Mail-Adresse ein.' ), 400 );
@@ -1464,7 +1530,7 @@ function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
     }
     set_transient( $cd_key, 1, 2 * MINUTE_IN_SECONDS );
 
-    $user = get_user_by( 'email', $email );
+    $user = eb_get_user_by_email( $email_raw );
     if ( ! $user ) {
         return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
     }
@@ -1490,15 +1556,16 @@ function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
     $message   .= '<p style="color:#717171;font-size:13px">Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.</p>';
     $message   .= '</div>';
     $headers    = array( 'Content-Type: text/html; charset=UTF-8' );
-    wp_mail( $email, $subject, $message, $headers );
+    wp_mail( eb_normalize_email( $user->user_email ?: $email ), $subject, $message, $headers );
 
     return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
 }
 
 /* ---------- PASSWORT VERGESSEN ---------- */
 function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
-    $params = $request->get_json_params();
-    $email  = isset( $params['email'] ) ? sanitize_email( $params['email'] ) : '';
+    $params    = $request->get_json_params();
+    $email_raw = isset( $params['email'] ) ? (string) $params['email'] : '';
+    $email     = eb_normalize_email( $email_raw );
 
     if ( empty( $email ) || ! is_email( $email ) ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib eine gültige E-Mail-Adresse ein.' ), 400 );
@@ -1510,7 +1577,7 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
     }
     set_transient( $cd_key, 1, 2 * MINUTE_IN_SECONDS );
 
-    $user = get_user_by( 'email', $email );
+    $user = eb_get_user_by_email( $email_raw );
     if ( ! $user ) {
         return new WP_REST_Response( array( 'message' => 'Falls ein Konto mit dieser E-Mail existiert, erhältst du eine E-Mail zum Zurücksetzen.' ), 200 );
     }
@@ -1531,7 +1598,7 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
     $message  .= '<p style="color:#717171;font-size:13px">Dieser Link ist 1 Stunde gültig. Falls du kein Passwort-Reset angefordert hast, ignoriere diese E-Mail.</p>';
     $message  .= '</div>';
     $headers   = array( 'Content-Type: text/html; charset=UTF-8' );
-    $sent = wp_mail( $email, $subject, $message, $headers );
+    $sent = wp_mail( eb_normalize_email( $user->user_email ?: $email ), $subject, $message, $headers );
 
     if ( ! $sent ) {
         // wp_mail fehlgeschlagen – Cooldown zurücksetzen damit man erneut versuchen kann
@@ -1733,7 +1800,8 @@ function eb_settings_update( WP_REST_Request $request ) {
 
     $first_name = sanitize_text_field( $params['first_name'] ?? '' );
     $last_name  = sanitize_text_field( $params['last_name'] ?? '' );
-    $email      = sanitize_email( $params['email'] ?? '' );
+    $email_raw  = (string) ( $params['email'] ?? '' );
+    $email      = eb_normalize_email( $email_raw );
     $phone      = sanitize_text_field( $params['phone'] ?? '' );
     $company    = sanitize_text_field( $params['company'] ?? '' );
 
@@ -1746,7 +1814,8 @@ function eb_settings_update( WP_REST_Request $request ) {
     }
 
     // Check if email is already in use by another user
-    $existing = email_exists( $email );
+    $existing_user = eb_get_user_by_email( $email_raw !== '' ? $email_raw : $email );
+    $existing      = $existing_user ? (int) $existing_user->ID : 0;
     if ( $existing && $existing !== $uid ) {
         return new WP_REST_Response( array( 'message' => 'Diese E-Mail wird bereits verwendet.' ), 400 );
     }
@@ -2059,13 +2128,14 @@ function eb_webauthn_verify_finish( WP_REST_Request $request ) {
 
 function eb_webauthn_login_options( WP_REST_Request $request ) {
     $params            = $request->get_json_params();
-    $email             = sanitize_email( $params['email'] ?? '' );
+    $email_raw         = (string) ( $params['email'] ?? '' );
+    $email             = eb_normalize_email( $email_raw );
     $challenge         = eb_webauthn_generate_challenge();
     $request_id        = wp_generate_uuid4();
     $allow_credentials = array();
 
     if ( $email ) {
-        $user = get_user_by( 'email', $email );
+        $user = eb_get_user_by_email( $email_raw );
         if ( $user ) {
             foreach ( eb_webauthn_get_credentials( $user->ID ) as $credential ) {
                 $descriptor = eb_build_webauthn_credential_descriptor( $credential );
@@ -2190,11 +2260,12 @@ function eb_webauthn_credentials_delete( WP_REST_Request $request ) {
 }
 
 function eb_otp_send( WP_REST_Request $request ) {
-    $params   = $request->get_json_params();
-    $email    = sanitize_email( $params['email'] ?? '' );
-    $password = $params['password'] ?? '';
-    $resend   = ! empty( $params['resend'] );
-    $token    = sanitize_text_field( $params['resend_token'] ?? '' );
+    $params    = $request->get_json_params();
+    $email_raw = (string) ( $params['email'] ?? '' );
+    $email     = eb_normalize_email( $email_raw );
+    $password  = $params['password'] ?? '';
+    $resend    = ! empty( $params['resend'] );
+    $token     = sanitize_text_field( $params['resend_token'] ?? '' );
     $cooldown = get_transient( eb_login_otp_cooldown_key( $email ) );
     $otp_key  = eb_login_otp_transient_key( $email );
     $existing = get_transient( $otp_key );
@@ -2211,7 +2282,7 @@ function eb_otp_send( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Bitte warte kurz, bevor du einen neuen Code anforderst.' ), 429 );
     }
 
-    $user = get_user_by( 'email', $email );
+    $user = eb_get_user_by_email( $email_raw );
     if ( ! $user ) {
         return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
     }
@@ -2221,7 +2292,7 @@ function eb_otp_send( WP_REST_Request $request ) {
         return new WP_REST_Response( array(
             'message'              => 'Bitte bestätige zuerst deine E-Mail-Adresse. Prüfe dein Postfach.',
             'pending_verification' => true,
-            'email'                => $email,
+            'email'                => $user->user_email ?: $email,
         ), 403 );
     }
 
@@ -2255,15 +2326,16 @@ function eb_otp_send( WP_REST_Request $request ) {
     return new WP_REST_Response( array(
         'sent'         => true,
         'expiresIn'    => 10 * MINUTE_IN_SECONDS,
-        'email'        => $email,
+        'email'        => $user->user_email ?: $email,
         'resendToken'  => $resend_token,
     ), 200 );
 }
 
 function eb_otp_verify( WP_REST_Request $request ) {
-    $params  = $request->get_json_params();
-    $email   = sanitize_email( $params['email'] ?? '' );
-    $code    = preg_replace( '/\D+/', '', (string) ( $params['code'] ?? '' ) );
+    $params    = $request->get_json_params();
+    $email_raw = (string) ( $params['email'] ?? '' );
+    $email     = eb_normalize_email( $email_raw );
+    $code      = preg_replace( '/\D+/', '', (string) ( $params['code'] ?? '' ) );
     $otp_key  = eb_login_otp_transient_key( $email );
     $payload = get_transient( $otp_key );
 
@@ -2288,7 +2360,7 @@ function eb_otp_verify( WP_REST_Request $request ) {
     }
 
     $user = get_userdata( (int) $payload['user_id'] );
-    if ( ! $user || ! hash_equals( strtolower( $user->user_email ), strtolower( $email ) ) ) {
+    if ( ! $user || ! eb_email_identity_matches( $user->user_email, $email_raw ) ) {
         return new WP_REST_Response( array( 'message' => 'Code ungültig oder abgelaufen.' ), 400 );
     }
 

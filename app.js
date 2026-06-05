@@ -9526,9 +9526,43 @@ var currentUser = null;
 var _wpNonce = (typeof eventboerseApi !== 'undefined') ? eventboerseApi.nonce : '';
 var _pendingOtpLogin = null;
 var _pendingRegOtp = null;
+var _LOGIN_OTP_STORAGE_KEY = 'eventboerse_pending_login_otp';
 var _conditionalAbort = null;
 var _backendAvailable = null; // null = not checked, true/false after check
 var _stripeOnboardingPromptTimer = null;
+
+function _savePendingLoginOtp() {
+  try {
+    if (_pendingOtpLogin && _pendingOtpLogin.email) {
+      sessionStorage.setItem(_LOGIN_OTP_STORAGE_KEY, JSON.stringify({
+        email: _pendingOtpLogin.email,
+        resendToken: _pendingOtpLogin.resendToken || ''
+      }));
+    }
+  } catch (e) {}
+}
+
+function _restorePendingLoginOtp() {
+  if (_pendingOtpLogin && _pendingOtpLogin.email) return _pendingOtpLogin;
+  try {
+    var raw = sessionStorage.getItem(_LOGIN_OTP_STORAGE_KEY);
+    if (!raw) return null;
+    var parsed = JSON.parse(raw);
+    if (parsed && parsed.email) {
+      _pendingOtpLogin = {
+        email: String(parsed.email || '').trim(),
+        resendToken: String(parsed.resendToken || '').trim()
+      };
+      return _pendingOtpLogin;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function _clearPendingLoginOtp() {
+  _pendingOtpLogin = null;
+  try { sessionStorage.removeItem(_LOGIN_OTP_STORAGE_KEY); } catch (e) {}
+}
 
 // ── Offline / Demo Auth (localStorage-based) ──────────────
 function _demoUsers() {
@@ -10316,6 +10350,7 @@ function openLoginOtpModal(email, password) {
     email: (email || '').trim(),
     resendToken: password && typeof password === 'object' ? password.resendToken || '' : ''
   };
+  _savePendingLoginOtp();
 
   var emailText = document.getElementById('loginOtpEmailText');
   var codeInput = document.getElementById('loginOtpCode');
@@ -10326,11 +10361,12 @@ function openLoginOtpModal(email, password) {
 }
 
 function cancelLoginOtpFlow() {
-  _pendingOtpLogin = null;
+  _clearPendingLoginOtp();
   closeModal('loginOtpModal');
 }
 
 async function resendLoginOtp(btn) {
+  _restorePendingLoginOtp();
   if (!_pendingOtpLogin || !_pendingOtpLogin.email || !_pendingOtpLogin.resendToken) {
     showToast('Bitte starte die Anmeldung erneut.', 'warning');
     cancelLoginOtpFlow();
@@ -10342,6 +10378,7 @@ async function resendLoginOtp(btn) {
     if (btn) _setBtnLoading(btn, true);
     var data = await resendEmailOtp(_pendingOtpLogin.email, _pendingOtpLogin.resendToken);
     _pendingOtpLogin.resendToken = data.resendToken || _pendingOtpLogin.resendToken;
+    _savePendingLoginOtp();
     showToast('Neuer E-Mail-Code wurde gesendet.', 'mark_email_read');
   } catch (err) {
     showToast(err && err.message ? err.message : 'Code konnte nicht erneut gesendet werden.', 'error');
@@ -10354,6 +10391,7 @@ async function handleLoginOtpVerify(e) {
   e.preventDefault();
   var form = e.target;
   _clearFieldErrors(form);
+  _restorePendingLoginOtp();
 
   if (!_pendingOtpLogin || !_pendingOtpLogin.email) {
     showToast('Bitte starte die Anmeldung erneut.', 'warning');
@@ -10373,7 +10411,7 @@ async function handleLoginOtpVerify(e) {
   try {
     _setBtnLoading(submitBtn, true);
     await verifyEmailOtp(_pendingOtpLogin.email, code);
-    _pendingOtpLogin = null;
+    _clearPendingLoginOtp();
     closeModal('loginOtpModal');
     form.reset();
     applyLogin('login');
@@ -10924,7 +10962,7 @@ async function handleLogin(e) {
         var otpData = await sendEmailOtp(email, password);
         _setBtnLoading(submitBtn, false);
         form.reset();
-        openLoginOtpModal(email, otpData);
+        openLoginOtpModal((otpData && otpData.email) || email, otpData);
         showToast('Wir haben dir einen E-Mail-Code gesendet.', 'mark_email_unread');
       } catch (otpErr) {
         _setBtnLoading(submitBtn, false);
