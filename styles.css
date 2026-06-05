@@ -9426,6 +9426,12 @@ body.dark-mode .bpc-delete-btn:hover {
 .board-section-action {
   flex-shrink: 0;
 }
+.board-section-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .board-section-stats {
   display: flex;
   gap: 8px;
@@ -9467,6 +9473,40 @@ body.dark-mode .bpc-delete-btn:hover {
   margin-bottom: 10px;
 }
 .board-section-empty p { margin: 0 0 12px; font-size: 14px; }
+.board-section-empty-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px auto 16px;
+  max-width: 520px;
+  text-align: left;
+}
+.board-section-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  color: var(--text);
+}
+body.dark-mode .board-section-hint { background: rgba(255,255,255,0.04); }
+.board-section-hint .material-icons-round {
+  font-size: 18px;
+  color: var(--primary);
+  flex-shrink: 0;
+  margin: 0;
+  opacity: 1;
+}
+.board-section-empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
 .board-section-loading {
   text-align: center;
   padding: 28px 20px;

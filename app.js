@@ -12998,6 +12998,8 @@ function _loadBoardAuftragsboard() {
     _updateBoardAuftragsboardSection({ state: 'ready', jobs: localJobs });
     return;
   }
+  // Zeige sofort den Lade-State (für manuelles "Aktualisieren")
+  _updateBoardAuftragsboardSection({ state: 'loading', jobs: [] });
   fetch(_apiUrl('board-bookings'), {
     method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
   }).then(function(r){ return r.json(); }).then(function(data){
@@ -13065,10 +13067,15 @@ function _renderAuftragsboardSectionHtml(state) {
         '<h2><span class="material-icons-round">assignment</span> Auftragsboard</h2>' +
         '<p>Dienstleistungen, die du erbringen musst – sortiert nach Event-Datum.</p>' +
       '</div>' +
-      '<div class="board-section-stats">' +
-        (pendingCount ? '<span class="board-section-stat pending"><span class="material-icons-round">hourglass_bottom</span>' + pendingCount + ' zu best&auml;tigen</span>' : '') +
-        (openCount    ? '<span class="board-section-stat open"><span class="material-icons-round">event_available</span>' + openCount + ' offen</span>' : '') +
-        (doneCount    ? '<span class="board-section-stat done"><span class="material-icons-round">verified</span>' + doneCount + ' erf&uuml;llt</span>' : '') +
+      '<div class="board-section-header-right">' +
+        '<button class="btn-outline board-section-action" onclick="_loadBoardAuftragsboard()" title="Auftr\u00e4ge neu laden">' +
+          '<span class="material-icons-round">refresh</span> Aktualisieren' +
+        '</button>' +
+        '<div class="board-section-stats">' +
+          (pendingCount ? '<span class="board-section-stat pending"><span class="material-icons-round">hourglass_bottom</span>' + pendingCount + ' zu best&auml;tigen</span>' : '') +
+          (openCount    ? '<span class="board-section-stat open"><span class="material-icons-round">event_available</span>' + openCount + ' offen</span>' : '') +
+          (doneCount    ? '<span class="board-section-stat done"><span class="material-icons-round">verified</span>' + doneCount + ' erf&uuml;llt</span>' : '') +
+        '</div>' +
       '</div>' +
     '</div>';
 
@@ -13083,7 +13090,16 @@ function _renderAuftragsboardSectionHtml(state) {
       headerHtml +
       '<div class="board-section-empty">' +
         '<span class="material-icons-round">inbox</span>' +
-        '<p>Noch keine bezahlten Auftr&auml;ge. Sobald dich ein Kunde verbindlich bucht, erscheint sein Board hier.</p>' +
+        '<p><strong>Noch keine bezahlten Auftr&auml;ge.</strong></p>' +
+        '<p style="font-size:13px;margin-top:-4px">Sobald ein Kunde eines deiner Angebote verbindlich bucht und bezahlt, erscheint sein Event-Board hier &ndash; mit allen Infos, die du f&uuml;r die Erbringung brauchst.</p>' +
+        '<div class="board-section-empty-hints">' +
+          '<div class="board-section-hint"><span class="material-icons-round">sync</span>Gerade gebucht worden? Tippe auf <strong>&bdquo;Aktualisieren&ldquo;</strong> &ndash; der Kunde synchronisiert sein Board ggf. erst nach wenigen Sekunden.</div>' +
+          '<div class="board-section-hint"><span class="material-icons-round">storefront</span>Keine Auftr&auml;ge erhalten? Pr&uuml;fe, ob deine Angebote sichtbar sind und dein <strong>Stripe-Auszahlungskonto</strong> aktiv ist.</div>' +
+        '</div>' +
+        '<div class="board-section-empty-actions">' +
+          '<button class="btn-outline" onclick="_loadBoardAuftragsboard()"><span class="material-icons-round">refresh</span> Jetzt neu laden</button>' +
+          '<button class="btn-outline" onclick="navigateTo(\'profile\')"><span class="material-icons-round">storefront</span> Meine Angebote</button>' +
+        '</div>' +
       '</div>' +
     '</section>';
   }
@@ -16233,7 +16249,7 @@ function openStageAdvanceModal(cardId, currentStage) {
           card.paymentStatus = 'paid';
           card.stage = 'bestaetigt';
           _sendInvoiceNotification(card, project, _listing).catch(function(){});
-          _saveBoardProjects();
+          _saveBoardProjects({ immediate: true });
           renderBoardFlow();
           renderKanban(project);
           _updateBoardStats(project);
@@ -17632,7 +17648,7 @@ function _startInstantBooking(listing, dateIso, amount) {
       };
       proj.cards = proj.cards || [];
       proj.cards.push(card);
-      _saveBoardProjects && _saveBoardProjects();
+      _saveBoardProjects && _saveBoardProjects({ immediate: true });
       showToast('Buchung best\u00e4tigt – Termin am ' + dateHuman + '!', 'check_circle');
       setTimeout(function() {
         showToast('Buchung im Board ansehen?', 'view_kanban', function(){ navigateTo('board'); if (typeof openBoardProject === 'function') openBoardProject(proj.id); });
