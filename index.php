@@ -2106,7 +2106,7 @@ $asset_ver = '2.4.8'; // cache-bust;
       <div class="container">
         <div class="auftraege-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
           <div>
-            <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Meine Aufträge</h1>
+            <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Auftragsboard</h1>
             <p style="margin:0;color:var(--text-light);font-size:14px">Offene Buchungen, Zahlungen &amp; Event-Tag-Bestätigungen.</p>
           </div>
           <span style="background:rgba(255,56,92,0.12);color:var(--primary);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">BETA</span>
