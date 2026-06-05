@@ -3259,9 +3259,9 @@ Datum: ___________________________________________________
         <p id="stripeOnboardingIntroText">Damit Kunden dich buchen und bezahlen können, führt dich Stripe einmalig durch Bankkonto- und Identitätsprüfung.</p>
       </div>
       <div class="stripe-onboarding-steps">
-        <div><span class="material-icons-round">lock</span><strong>Sicher über Stripe</strong><small>Eventbörse speichert keine Bankdaten.</small></div>
-        <div><span class="material-icons-round">payments</span><strong>Buchungen freischalten</strong><small>Kunden zahlen erst, wenn Auszahlungen möglich sind.</small></div>
-        <div><span class="material-icons-round">verified</span><strong>Status bleibt sichtbar</strong><small>Du kannst später jederzeit fortsetzen.</small></div>
+        <div><span class="material-icons-round">lock</span><span><strong>Sicher über Stripe</strong><small>Eventbörse speichert keine Bankdaten.</small></span></div>
+        <div><span class="material-icons-round">payments</span><span><strong>Buchungen freischalten</strong><small>Kunden zahlen erst, wenn Auszahlungen möglich sind.</small></span></div>
+        <div><span class="material-icons-round">verified</span><span><strong>Status bleibt sichtbar</strong><small>Du kannst später jederzeit fortsetzen.</small></span></div>
       </div>
       <div class="stripe-onboarding-actions">
         <button type="button" class="btn-primary btn-block" onclick="startStripeOnboardingFromIntro(this)" style="background:#635BFF;border-color:#635BFF">

@@ -14932,6 +14932,95 @@ function _openStripePaymentModal(opts) {
     errEl.style.display = '';
   };
 
+  // Stripe-Element initialisieren und Pay-Button binden (wird aus 2 Pfaden gerufen)
+  function _initStripe(stripeData) {
+    var payEl = ov.querySelector('#stripePaymentElement');
+    if (payEl) payEl.innerHTML = '';
+    if (stripeData.mode === 'test') {
+      var modeBadge = ov.querySelector('#stripeModeBadge');
+      if (modeBadge) modeBadge.style.display = 'inline-flex';
+    }
+    payBtn.style.display = '';
+    var stripe = Stripe(stripeData.publishable_key);
+    var elements = stripe.elements({
+      clientSecret: stripeData.client_secret,
+      appearance: {
+        theme: 'stripe',
+        variables: {
+          colorPrimary: '#FF385C',
+          colorBackground: '#ffffff',
+          colorText: '#222222',
+          fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+          borderRadius: '10px'
+        }
+      }
+    });
+    var paymentElement = elements.create('payment', {
+      layout: { type: 'tabs', defaultCollapsed: false }
+    });
+    paymentElement.mount('#stripePaymentElement');
+    paymentElement.on('ready', function(){ payBtn.disabled = false; });
+    paymentElement.on('change', function(e){
+      if (e && e.error) showErr(e.error.message);
+      else errEl.style.display = 'none';
+    });
+    payBtn.addEventListener('click', function onClick() {
+      payBtn.removeEventListener('click', onClick);
+      errEl.style.display = 'none';
+      spinnerOn(true);
+      stripe.confirmPayment({
+        elements: elements,
+        redirect: 'if_required',
+        confirmParams: { return_url: window.location.href }
+      }).then(function(r) {
+        if (r.error) {
+          spinnerOn(false);
+          payBtn.addEventListener('click', onClick);
+          showErr(r.error.message || 'Zahlung fehlgeschlagen.');
+          return;
+        }
+        var pi = r.paymentIntent;
+        if (!pi || pi.status !== 'succeeded') {
+          spinnerOn(false);
+          payBtn.addEventListener('click', onClick);
+          showErr('Status: ' + (pi && pi.status || 'unbekannt') + ' – bitte erneut versuchen.');
+          return;
+        }
+        fetch(_apiUrl('stripe/verify-payment'), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: _apiHeaders(),
+          body: JSON.stringify({ payment_intent: pi.id })
+        }).then(function(r2){ return r2.json().then(function(j){ return { ok: r2.ok, data: j }; }); })
+          .then(function(vr){
+            if (!vr.ok || !vr.data || !vr.data.paid) {
+              spinnerOn(false);
+              payBtn.addEventListener('click', onClick);
+              showErr((vr.data && vr.data.message) || 'Zahlung wurde von Stripe nicht als abgeschlossen bestätigt.');
+              return;
+            }
+            onClose(true);
+            if (typeof opts.onSuccess === 'function') {
+              opts.onSuccess({
+                payment_intent:    pi.id,
+                payment_intent_id: pi.id,
+                amount:            vr.data.amount,
+                status:            vr.data.status
+              });
+            }
+          }).catch(function(e){
+            spinnerOn(false);
+            payBtn.addEventListener('click', onClick);
+            showErr('Verifizierung fehlgeschlagen: ' + (e && e.message || e));
+          });
+      }).catch(function(e){
+        spinnerOn(false);
+        payBtn.addEventListener('click', onClick);
+        showErr('Netzwerkfehler: ' + (e && e.message || e));
+      });
+    });
+  }
+
   // 1) PaymentIntent erstellen
   fetch(_apiUrl('stripe/create-payment-intent'), {
     method: 'POST',
@@ -14951,104 +15040,70 @@ function _openStripePaymentModal(opts) {
         if (res.data && res.data.requires_connect_onboarding) {
           var payEl = ov.querySelector('#stripePaymentElement');
           if (payEl) {
+            var _adminBtnHtml = '';
+            if (currentUser && currentUser.role === 'Admin') {
+              _adminBtnHtml =
+                '<button type="button" class="stripe-admin-test-btn" id="stripeAdminTestBtn">' +
+                  '<span class="material-icons-round">science</span>' +
+                  'Testzahlung durchf\u00fchren\u2002<span class="stripe-admin-badge">admin</span>' +
+                '</button>';
+            }
             payEl.innerHTML =
               '<div class="stripe-payout-blocked">' +
                 '<span class="material-icons-round">account_balance_wallet</span>' +
                 '<div>' +
                   '<strong>Dienstleister noch nicht auszahlungsbereit</strong>' +
-                  '<span>' + _escHtml(res.data.message || 'Diese Buchung ist erst möglich, wenn der Dienstleister sein Stripe-Auszahlungskonto eingerichtet hat.') + '</span>' +
+                  '<span>' + _escHtml(res.data.message || 'Diese Buchung ist erst m\u00f6glich, wenn der Dienstleister sein Stripe-Auszahlungskonto eingerichtet hat.') + '</span>' +
                 '</div>' +
-              '</div>';
+              '</div>' + _adminBtnHtml;
+            if (_adminBtnHtml) {
+              var _adminBtn = ov.querySelector('#stripeAdminTestBtn');
+              _adminBtn.addEventListener('click', function() {
+                _adminBtn.disabled = true;
+                _adminBtn.innerHTML = '<span class="material-icons-round spin">sync</span> Lade\u2026';
+                errEl.style.display = 'none';
+                fetch(_apiUrl('stripe/create-payment-intent-admin'), {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: _apiHeaders(),
+                  body: JSON.stringify({
+                    amount:     opts.amount,
+                    currency:   'eur',
+                    title:      opts.title || 'Admin-Testzahlung',
+                    listing_id: opts.listingId || 0,
+                    card_id:    opts.cardId || '',
+                    project_id: opts.projectId || ''
+                  })
+                }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+                  .then(function(ar) {
+                    if (!ar.ok || !ar.data || !ar.data.client_secret || !ar.data.publishable_key) {
+                      _adminBtn.disabled = false;
+                      _adminBtn.innerHTML =
+                        '<span class="material-icons-round">science</span>' +
+                        'Testzahlung durchf\u00fchren\u2002<span class="stripe-admin-badge">admin</span>';
+                      showErr((ar.data && ar.data.message) || 'Admin-Testzahlung konnte nicht gestartet werden.');
+                      return;
+                    }
+                    _adminBtn.remove();
+                    _initStripe(ar.data);
+                  }).catch(function(e) {
+                    _adminBtn.disabled = false;
+                    _adminBtn.innerHTML =
+                      '<span class="material-icons-round">science</span>' +
+                      'Testzahlung durchf\u00fchren\u2002<span class="stripe-admin-badge">admin</span>';
+                    showErr('Fehler: ' + (e && e.message || e));
+                  });
+              });
+            }
           }
           payBtn.style.display = 'none';
-          showErr('Keine Zahlung gestartet. Der Dienstleister muss zuerst Stripe Connect abschließen.');
+          showErr('Keine Zahlung gestartet. Der Dienstleister muss zuerst Stripe Connect abschlie\u00dfen.');
           return;
         }
         showErr((res.data && res.data.message) || 'Stripe konnte nicht initialisiert werden.');
         return;
       }
-      if (res.data.mode === 'test') {
-        var modeBadge = ov.querySelector('#stripeModeBadge');
-        if (modeBadge) modeBadge.style.display = 'inline-flex';
-      }
-      var stripe = Stripe(res.data.publishable_key);
-      var elements = stripe.elements({
-        clientSecret: res.data.client_secret,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: '#FF385C',
-            colorBackground: '#ffffff',
-            colorText: '#222222',
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-            borderRadius: '10px'
-          }
-        }
-      });
-      var paymentElement = elements.create('payment', {
-        layout: { type: 'tabs', defaultCollapsed: false }
-      });
-      paymentElement.mount('#stripePaymentElement');
-      paymentElement.on('ready', function(){ payBtn.disabled = false; });
-      paymentElement.on('change', function(e){
-        if (e && e.error) showErr(e.error.message);
-        else errEl.style.display = 'none';
-      });
-
-      payBtn.addEventListener('click', function() {
-        errEl.style.display = 'none';
-        spinnerOn(true);
-        stripe.confirmPayment({
-          elements: elements,
-          redirect: 'if_required',
-          confirmParams: { return_url: window.location.href }
-        }).then(function(r) {
-          if (r.error) {
-            spinnerOn(false);
-            showErr(r.error.message || 'Zahlung fehlgeschlagen.');
-            return;
-          }
-          var pi = r.paymentIntent;
-          if (!pi || pi.status !== 'succeeded') {
-            spinnerOn(false);
-            showErr('Status: ' + (pi && pi.status || 'unbekannt') + ' – bitte erneut versuchen.');
-            return;
-          }
-          // 2) Server-seitig verifizieren
-          fetch(_apiUrl('stripe/verify-payment'), {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: _apiHeaders(),
-            body: JSON.stringify({ payment_intent: pi.id })
-          }).then(function(r2){ return r2.json().then(function(j){ return { ok: r2.ok, data: j }; }); })
-            .then(function(vr){
-              if (!vr.ok || !vr.data || !vr.data.paid) {
-                spinnerOn(false);
-                showErr((vr.data && vr.data.message) || 'Zahlung wurde von Stripe nicht als abgeschlossen bestätigt.');
-                return;
-              }
-              onClose(true);
-              if (typeof opts.onSuccess === 'function') {
-                // FIX 2026-05: Beide Key-Varianten liefern. Consumer-Code an mehreren
-                // Stellen liest `payment_intent_id` (Snake-Case mit _id), die ältere
-                // API gibt aber `payment_intent` zurück. Ohne diesen Alias landet die
-                // Stripe-PI-ID NICHT in card.paymentIntentId – Audit-Trail wäre weg.
-                opts.onSuccess({
-                  payment_intent:    pi.id,
-                  payment_intent_id: pi.id,
-                  amount:            vr.data.amount,
-                  status:            vr.data.status
-                });
-              }
-            }).catch(function(e){
-              spinnerOn(false);
-              showErr('Verifizierung fehlgeschlagen: ' + (e && e.message || e));
-            });
-        }).catch(function(e){
-          spinnerOn(false);
-          showErr('Netzwerkfehler: ' + (e && e.message || e));
-        });
-      });
+      _initStripe(res.data);
     }).catch(function(e) {
       showErr('Fehler beim Laden: ' + (e && e.message || e));
     });

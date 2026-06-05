@@ -769,6 +769,56 @@ function eb_reg_otp_cooldown_key( $email ) {
     return 'eb_reg_otp_cd_' . md5( strtolower( trim( (string) $email ) ) );
 }
 
+/**
+ * Normalisiert eine E-Mail: Lowercase + IDN-Domain → ASCII-Punycode + sanitize_email.
+ * Verhindert Duplikat-Bypass via Unicode-Domains (z. B. eventbörse.de → eventbrse.de
+ * nach sanitize_email, obwohl xn--eventbrse-57a.de bereits existiert).
+ */
+function eb_normalize_email( string $raw ): string {
+    $email = strtolower( trim( $raw ) );
+    if ( strpos( $email, '@' ) !== false ) {
+        [ $local, $domain ] = explode( '@', $email, 2 );
+        if ( function_exists( 'idn_to_ascii' ) ) {
+            $ascii = idn_to_ascii( $domain, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
+            if ( $ascii !== false && $ascii !== '' ) {
+                $domain = $ascii;
+            }
+        }
+        $email = $local . '@' . $domain;
+    }
+    return sanitize_email( $email );
+}
+
+/**
+ * Prüft ob eine E-Mail bereits existiert – inkl. Fallback für nicht-normalisierte
+ * gespeicherte Adressen (z. B. mit Unicode-Domain).
+ *
+ * @param string $email  Normalisierte E-Mail (via eb_normalize_email).
+ * @param string $raw    Original-Eingabe vor Normalisierung.
+ */
+function eb_email_exists( string $email, string $raw = '' ): bool {
+    if ( email_exists( $email ) ) {
+        return true;
+    }
+    // Fallback: direkte DB-Abfrage mit der Roheingabe (case-insensitive).
+    // Greift wenn gespeicherte Adresse Unicode-Domain enthält und sanitize_email
+    // das Zeichen schlicht entfernt hätte (ö → leer statt → xn--).
+    $raw_lower = strtolower( trim( $raw ) );
+    if ( $raw_lower !== '' && $raw_lower !== $email ) {
+        global $wpdb;
+        $count = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->users} WHERE LOWER(user_email) = %s LIMIT 1",
+                $raw_lower
+            )
+        );
+        if ( $count > 0 ) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function eb_send_reg_otp_email( $first_name, $email, $code ) {
     $subject  = 'Eventbörse – Dein Registrierungscode';
     $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
@@ -920,7 +970,8 @@ function eventboerse_handle_board_save( WP_REST_Request $request ) {
 /* ---------- REGISTER (Step 1: send OTP) ---------- */
 function eventboerse_handle_register( WP_REST_Request $request ) {
     $params     = $request->get_json_params();
-    $email      = isset( $params['email'] )      ? sanitize_email( $params['email'] )           : '';
+    $email_raw  = isset( $params['email'] )      ? (string) $params['email']                    : '';
+    $email      = eb_normalize_email( $email_raw );
     $password   = isset( $params['password'] )    ? $params['password']                          : '';
     $first_name = isset( $params['first_name'] )  ? sanitize_text_field( $params['first_name'] ) : '';
     $last_name  = isset( $params['last_name'] )   ? sanitize_text_field( $params['last_name'] )  : '';
@@ -938,7 +989,7 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     if ( empty( $first_name ) ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib deinen Vornamen ein.' ), 400 );
     }
-    if ( email_exists( $email ) ) {
+    if ( eb_email_exists( $email, $email_raw ) ) {
         return new WP_REST_Response( array( 'message' => 'Diese E-Mail-Adresse ist bereits registriert.' ), 400 );
     }
 
@@ -1011,11 +1062,12 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
 
 /* ---------- REGISTER (Step 2: verify OTP & create account) ---------- */
 function eb_register_verify( WP_REST_Request $request ) {
-    $params  = $request->get_json_params();
-    $email   = sanitize_email( $params['email'] ?? '' );
-    $code    = preg_replace( '/\D+/', '', (string) ( $params['code'] ?? '' ) );
-    $otp_key = eb_reg_otp_transient_key( $email );
-    $payload = get_transient( $otp_key );
+    $params    = $request->get_json_params();
+    $email_raw = (string) ( $params['email'] ?? '' );
+    $email     = eb_normalize_email( $email_raw );
+    $code      = preg_replace( '/\D+/', '', (string) ( $params['code'] ?? '' ) );
+    $otp_key   = eb_reg_otp_transient_key( $email );
+    $payload   = get_transient( $otp_key );
 
     if ( empty( $email ) || strlen( $code ) !== 6 ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib E-Mail und 6-stelligen Code ein.' ), 400 );
@@ -1038,7 +1090,7 @@ function eb_register_verify( WP_REST_Request $request ) {
     }
 
     // E-Mail nochmal auf Duplikat prüfen (Race-Condition)
-    if ( email_exists( $email ) ) {
+    if ( eb_email_exists( $email, $email_raw ) ) {
         delete_transient( $otp_key );
         return new WP_REST_Response( array( 'message' => 'Diese E-Mail-Adresse ist bereits registriert.' ), 400 );
     }
@@ -2363,6 +2415,13 @@ function eb_register_extra_routes() {
         'methods'             => 'POST',
         'callback'            => 'eb_stripe_create_payment_intent',
         'permission_callback' => 'is_user_logged_in',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/stripe/create-payment-intent-admin', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_stripe_create_payment_intent_admin',
+        'permission_callback' => function() {
+            return is_user_logged_in() && eb_is_admin_user();
+        },
     ) );
     register_rest_route( 'eventboerse/v1', '/stripe/verify-payment', array(
         'methods'             => 'POST',
@@ -5371,6 +5430,87 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'amount'          => $amount_cents,
         'currency'        => $currency,
         'fee_quote'       => $fee_quote,
+    ), 200 );
+}
+
+/**
+ * Admin-only: Erstellt einen direkten (plattformseitigen) PaymentIntent OHNE
+ * Stripe-Connect-Transfer. Dient ausschließlich zum Testen des Zahlungsflows,
+ * wenn der Dienstleister sein Connect-Konto noch nicht eingerichtet hat.
+ * Zugriff: nur Admins (eb_is_admin_user()).
+ */
+function eb_stripe_create_payment_intent_admin( WP_REST_Request $request ) {
+    if ( ! eb_is_admin_user() ) {
+        return new WP_REST_Response( array( 'message' => 'Keine Berechtigung.' ), 403 );
+    }
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    }
+
+    $p          = $request->get_json_params();
+    $amount     = isset( $p['amount'] )     ? floatval( $p['amount'] )                          : 0;
+    $currency   = isset( $p['currency'] )   ? strtolower( sanitize_text_field( $p['currency'] ) ) : 'eur';
+    $title      = isset( $p['title'] )      ? sanitize_text_field( $p['title'] )                : 'Admin-Testzahlung';
+    $card_id    = isset( $p['card_id'] )    ? sanitize_text_field( $p['card_id'] )              : '';
+    $project_id = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] )           : '';
+    $listing_id = isset( $p['listing_id'] ) ? absint( $p['listing_id'] )                        : 0;
+
+    if ( $amount <= 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Betrag.' ), 400 );
+    }
+
+    $amount_cents = (int) round( $amount * 100 );
+    $user         = wp_get_current_user();
+
+    // Direkter Charge ans Plattformkonto – kein transfer_data, kein on_behalf_of.
+    $fields = array(
+        'amount'                             => $amount_cents,
+        'currency'                           => $currency,
+        'automatic_payment_methods[enabled]' => 'true',
+        'description'                        => '[ADMIN-TEST] ' . $title,
+        'statement_descriptor_suffix'        => 'ADMIN-TEST',
+        'receipt_email'                      => $user ? $user->user_email : '',
+        'metadata[admin_test]'               => '1',
+        'metadata[admin_user_id]'            => (string) ( $user ? $user->ID : 0 ),
+        'metadata[card_id]'                  => $card_id,
+        'metadata[project_id]'               => $project_id,
+        'metadata[listing_id]'               => (string) $listing_id,
+        'metadata[title]'                    => $title,
+    );
+
+    $ch = curl_init( 'https://api.stripe.com/v1/payment_intents' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( $fields ),
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+    ) );
+    $response = curl_exec( $ch );
+    $http     = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err      = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) {
+        return new WP_REST_Response( array( 'message' => 'Netzwerkfehler: ' . $err ), 502 );
+    }
+    $data = json_decode( $response, true );
+    if ( $http >= 400 || ! is_array( $data ) || empty( $data['client_secret'] ) ) {
+        return new WP_REST_Response( eb_stripe_public_error_payload( $response, 'Admin-Testzahlung konnte nicht erstellt werden.' ), $http ?: 500 );
+    }
+
+    $pk = eb_load_env_value( 'public_stripe_api_key' );
+    return new WP_REST_Response( array(
+        'ok'              => true,
+        'client_secret'   => $data['client_secret'],
+        'payment_intent'  => $data['id'] ?? '',
+        'publishable_key' => $pk,
+        'mode'            => eb_stripe_config_mode(),
+        'amount'          => $amount_cents,
+        'currency'        => $currency,
+        'admin_test'      => true,
     ), 200 );
 }
 
