@@ -1262,6 +1262,11 @@ function navigateTo(page, data, skipHistory) {
       if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }
       renderBoardPage();
       try { if (currentUser && typeof _reconcileStripePayments === 'function') _reconcileStripePayments(); } catch(e) {}
+      // Deep-Link: /board/<projectId> öffnet das Projekt direkt (z.B. aus neuem Tab)
+      if (data) {
+        _pendingBoardProjectId = String(data);
+        _tryOpenPendingBoardProject();
+      }
       break;
     case 'auftraege':
       if (!currentUser) { navigateTo('home'); return; }
@@ -12429,6 +12434,7 @@ function _syncBoardFromServer(opts) {
           }
         } else {
           renderBoardPage();
+          _tryOpenPendingBoardProject();
         }
       }
     })
@@ -13075,7 +13081,7 @@ function _renderOwnProjectCardHtml(p) {
       : '';
 
     return `
-      <div class="board-project-card animated-entry${p.kind === 'instant' ? ' bpc-instant' : ''}" onclick="openBoardProject('${p.id}')">
+      <div class="board-project-card animated-entry${p.kind === 'instant' ? ' bpc-instant' : ''}" onclick="openBoardProjectInNewTab('${p.id}', event)">
         <button class="bpc-delete-btn" onclick="event.stopPropagation();deleteBoardProjectById('${p.id}')" title="Projekt l\u00f6schen" aria-label="Projekt l\u00f6schen"><span class="material-icons-round">close</span></button>
         <button class="bpc-edit-btn" onclick="event.stopPropagation();openEditBoardProjectModal('${p.id}')" title="Projekt bearbeiten" aria-label="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
         ${instantBadge}
@@ -13505,6 +13511,41 @@ function showBoardProjects() {
   projectsEl && (projectsEl.style.display = '');
   btnAllBoards && (btnAllBoards.style.display = 'none');
   renderBoardPage();
+}
+
+// Öffnet ein Board-Projekt als eigenständigen Tab (Deep-Link über /board/<id>)
+// Mittelklick / Ctrl/Cmd+Klick werden vom Browser nativ behandelt.
+var _pendingBoardProjectId = null;
+function openBoardProjectInNewTab(projectId, ev) {
+  if (ev) {
+    // Modifier-Klicks ohnehin neue Tabs — nicht doppelt öffnen
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return;
+    try { ev.preventDefault(); } catch(e) {}
+  }
+  var url;
+  try {
+    url = (typeof _spaPath === 'function') ? _spaPath('board', projectId) : ('/board/' + projectId);
+  } catch(e) { url = '/board/' + projectId; }
+  try {
+    var w = window.open(url, '_blank', 'noopener');
+    if (!w) {
+      // Popup-Blocker → in-app öffnen als Fallback
+      openBoardProject(projectId);
+    }
+  } catch(e) {
+    openBoardProject(projectId);
+  }
+}
+
+// Versucht ein per Deep-Link angefragtes Projekt zu öffnen, sobald es im Cache vorhanden ist.
+// Wird aus navigateTo('board', id) und nach erfolgreichem Server-Sync aufgerufen.
+function _tryOpenPendingBoardProject() {
+  if (!_pendingBoardProjectId) return;
+  var pid = _pendingBoardProjectId;
+  if (_boardProjects && _boardProjects.some(function(p){ return p && p.id === pid; })) {
+    _pendingBoardProjectId = null;
+    try { openBoardProject(pid); } catch(e) { console.warn('openBoardProject failed', e); }
+  }
 }
 
 function openBoardProject(projectId) {
