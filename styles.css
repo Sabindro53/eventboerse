@@ -827,6 +827,31 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   padding: calc(var(--nav-height) + 16px) 24px 24px;
   background: linear-gradient(160deg, #fff 0%, #fef2f5 45%, #f0fafe 100%);
 }
+.ai-hero::before,
+.ai-hero::after {
+  content: 'celebration';
+  position: absolute;
+  top: 34%;
+  z-index: 0;
+  pointer-events: none;
+  font-family: 'Material Icons Round';
+  font-size: clamp(48px, 7vw, 88px);
+  line-height: 1;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  color: rgba(255, 56, 92, 0.26);
+  text-shadow: 0 0 24px rgba(255, 56, 92, 0.24);
+  animation: aiPartyPopperFloat 7.2s ease-in-out infinite;
+}
+.ai-hero::before {
+  left: clamp(8px, 2vw, 32px);
+  transform: rotate(-16deg);
+}
+.ai-hero::after {
+  right: clamp(8px, 2vw, 32px);
+  transform: rotate(16deg) scaleX(-1);
+  animation-delay: -3.6s;
+}
 .ai-hero-bg { position: absolute; inset: 0; pointer-events: none; }
 .ai-bg-orb {
   position: absolute;
@@ -842,6 +867,26 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   0%, 100% { transform: translate(0, 0) scale(1); }
   33% { transform: translate(40px, -30px) scale(1.07); }
   66% { transform: translate(-25px, 20px) scale(0.94); }
+}
+@keyframes aiPartyPopperFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92) rotate(-16deg);
+  }
+  20% {
+    opacity: 0.52;
+  }
+  50% {
+    opacity: 0.34;
+    transform: translateY(-10px) scale(1.04) rotate(-10deg);
+  }
+  80% {
+    opacity: 0.46;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9) rotate(-18deg);
+  }
 }
 .ai-hero-content {
   position: relative;
@@ -1080,6 +1125,12 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 /* Mobile */
 @media (max-width: 640px) {
   .ai-hero { padding: calc(var(--mobile-nav-height) + 8px) 16px 16px; min-height: auto; }
+  .ai-hero::before,
+  .ai-hero::after {
+    top: 30%;
+    font-size: clamp(36px, 9vw, 52px);
+    opacity: 0.28;
+  }
   .ai-hero-h1 { font-size: 2rem; }
   .ai-hero-sub { font-size: 0.9rem; margin-bottom: 24px; }
   .ai-searchbar { flex-wrap: wrap; border-radius: 18px; padding: 14px 14px; gap: 10px; box-shadow: 0 4px 32px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07); }
@@ -1092,6 +1143,14 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   .ai-searchbar-ghost { left: 0; }
   .ai-suggestions { gap: 6px; }
   .ai-btn-text { display: inline; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-hero::before,
+  .ai-hero::after {
+    animation: none;
+    opacity: 0.25;
+  }
 }
 
 /* ======== Category Icon Bar (Airbnb-style) ======== */
