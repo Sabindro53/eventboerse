@@ -12609,9 +12609,11 @@ function renderAuftraegePage() {
 
   // Vom Server: Buchungen in fremden Boards, die zum aktuellen Provider gehören
   if (isProvider && currentUser) {
-    fetch(_apiUrl('board-bookings'), {
+    fetch(_apiUrl('board-bookings') + '?debug=1', {
       method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
     }).then(function(r){ return r.json(); }).then(function(data){
+      // TEMP-Diagnose: zeigt provider listings, gescannte Boards, gesehene listingIds, Matches
+      try { if (data && data._debug) console.log('[Auftragsboard DEBUG]', JSON.stringify(data._debug, null, 2)); } catch(e){}
       var remoteBookings = (data && data.bookings) || [];
       remoteBookings.forEach(function(b){
         // Duplikate mit lokalen Jobs vermeiden (gleiche card.id)
@@ -14696,16 +14698,29 @@ function _applyInstantBookingSuccess(info, res) {
   info = info || {};
   try { _migrateBoardProjects && _migrateBoardProjects(); } catch (e) {}
   var piId = (res && (res.payment_intent_id || res.payment_intent)) || '';
-  var proj = (_boardProjects || []).find(function(p) { return p.kind === 'instant'; });
-  if (!proj) {
-    proj = { id: 'proj_' + Date.now(), name: 'Direktbuchungen', kind: 'instant', date: '', cards: [], createdAt: new Date().toISOString() };
-    _boardProjects.push(proj);
-  }
-  // Idempotenz: gleiche PaymentIntent nicht doppelt als Karte anlegen
+  // Idempotenz: dieselbe PaymentIntent darf kein zweites Board / keine zweite
+  // Karte erzeugen (z. B. doppelte Redirect-Rückkehr). Über ALLE Projekte
+  // suchen, da jede Direktbuchung ihr eigenes Board hat.
   if (piId) {
-    var dup = (proj.cards || []).find(function(c) { return c.paymentIntentId === piId; });
-    if (dup) return { project: proj, card: dup, duplicate: true };
+    for (var _pi = 0; _pi < (_boardProjects || []).length; _pi++) {
+      var _ep = _boardProjects[_pi];
+      var _dupCard = ((_ep && _ep.cards) || []).find(function(c) { return c.paymentIntentId === piId; });
+      if (_dupCard) return { project: _ep, card: _dupCard, duplicate: true };
+    }
   }
+  // Jede Direktbuchung bekommt ihr EIGENES, umbenennbares Board. Der
+  // Default-Name wird hochgezählt (Direktbuchung 1, 2, 3 …); per Stift-Symbol
+  // im Board umbenennbar.
+  var _instantCount = (_boardProjects || []).filter(function(p) { return p && p.kind === 'instant'; }).length;
+  var proj = {
+    id: 'proj_' + Date.now(),
+    name: 'Direktbuchung ' + (_instantCount + 1),
+    kind: 'instant',
+    date: (info.dateIso || '').slice(0, 10),
+    cards: [],
+    createdAt: new Date().toISOString()
+  };
+  _boardProjects.push(proj);
   var nowIso = new Date().toISOString();
   var card = {
     id: 'bc_' + Date.now(),

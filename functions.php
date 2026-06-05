@@ -982,10 +982,12 @@ function eb_board_bookings_get( WP_REST_Request $request ) {
     if ( ! $provider_uid ) {
         return new WP_REST_Response( array( 'error' => 'not_logged_in' ), 401 );
     }
+    $debug = (bool) $request->get_param( 'debug' );
 
-    // Alle Listings des Dienstleisters ermitteln
     global $wpdb;
     $my_listing_ids = array();
+    $cpt_ids = array();
+    $db_ids  = array();
 
     // (a) WP posts (CPT eb_listing)
     $post_rows = $wpdb->get_col( $wpdb->prepare(
@@ -993,14 +995,13 @@ function eb_board_bookings_get( WP_REST_Request $request ) {
         $provider_uid
     ) );
     if ( is_array( $post_rows ) ) {
-        foreach ( $post_rows as $pid ) {
-            $my_listing_ids[] = (int) $pid;
-        }
+        foreach ( $post_rows as $pid ) { $my_listing_ids[] = (int) $pid; $cpt_ids[] = (int) $pid; }
     }
 
     // (b) Custom eb_listings table (falls vorhanden)
     $table = $wpdb->prefix . 'eb_listings';
-    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table ) {
+    $table_exists = ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table );
+    if ( $table_exists ) {
         $db_rows = $wpdb->get_col( $wpdb->prepare(
             "SELECT id FROM {$table} WHERE user_id = %d",
             $provider_uid
@@ -1008,12 +1009,12 @@ function eb_board_bookings_get( WP_REST_Request $request ) {
         if ( is_array( $db_rows ) ) {
             foreach ( $db_rows as $did ) {
                 $my_listing_ids[] = (int) $did;
-                // Auch ID+10000 Variante abdecken (Frontend-Offset)
-                $my_listing_ids[] = (int) $did + 10000;
+                $my_listing_ids[] = (int) $did + 10000; // Frontend-Offset-Variante
+                $db_ids[] = (int) $did;
             }
         }
     }
-    $my_listing_ids = array_unique( array_filter( $my_listing_ids ) );
+    $my_listing_ids = array_values( array_unique( array_filter( $my_listing_ids ) ) );
 
     // Alle Board-Nutzer durchsuchen (user_meta key eb_board_projects)
     $users = get_users( array(
@@ -1025,21 +1026,29 @@ function eb_board_bookings_get( WP_REST_Request $request ) {
     ) );
 
     $results = array();
+    $dbg_cards_total = 0;
+    $dbg_cards_with_listing = 0;
+    $dbg_seen_listing_ids = array();
+    $dbg_users_with_cards = 0;
     foreach ( $users as $u ) {
-        if ( (int) $u->ID === $provider_uid ) continue; // eigene Boards überspringen
+        if ( (int) $u->ID === $provider_uid ) continue; // eigene Boards ueberspringen
         $raw = get_user_meta( $u->ID, 'eb_board_projects', true );
         if ( empty( $raw ) ) continue;
         $projects = json_decode( wp_unslash( $raw ), true );
         if ( ! is_array( $projects ) ) continue;
         $customer_name = trim( $u->first_name . ' ' . $u->last_name );
         if ( ! $customer_name ) $customer_name = $u->display_name ?: $u->user_email;
+        $had_card = false;
         foreach ( $projects as $proj ) {
             if ( empty( $proj['cards'] ) || ! is_array( $proj['cards'] ) ) continue;
             foreach ( $proj['cards'] as $card ) {
+                $dbg_cards_total++;
+                $had_card = true;
                 if ( empty( $card['listingId'] ) ) continue;
+                $dbg_cards_with_listing++;
                 $lid = (int) $card['listingId'];
+                $dbg_seen_listing_ids[] = $lid;
                 if ( ! in_array( $lid, $my_listing_ids, true ) ) continue;
-                // Karte gehört zum Dienstleister → aufnehmen
                 $results[] = array(
                     'card'          => $card,
                     'project_id'    => $proj['id'] ?? '',
@@ -1050,9 +1059,26 @@ function eb_board_bookings_get( WP_REST_Request $request ) {
                 );
             }
         }
+        if ( $had_card ) $dbg_users_with_cards++;
     }
 
-    return new WP_REST_Response( array( 'bookings' => $results ), 200 );
+    $response = array( 'bookings' => $results );
+    if ( $debug ) {
+        $response['_debug'] = array(
+            'provider_uid'       => (int) $provider_uid,
+            'cpt_listing_ids'    => array_values( array_unique( $cpt_ids ) ),
+            'db_listing_ids'     => array_values( array_unique( $db_ids ) ),
+            'my_listing_ids'     => $my_listing_ids,
+            'eb_listings_table'  => $table_exists,
+            'users_scanned'      => count( $users ),
+            'users_with_cards'   => $dbg_users_with_cards,
+            'cards_total'        => $dbg_cards_total,
+            'cards_with_listing' => $dbg_cards_with_listing,
+            'seen_listing_ids'   => array_values( array_unique( $dbg_seen_listing_ids ) ),
+            'matched'            => count( $results ),
+        );
+    }
+    return new WP_REST_Response( $response, 200 );
 }
 
 function eb_board_bookings_update_card( WP_REST_Request $request ) {
