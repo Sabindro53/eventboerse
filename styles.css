@@ -897,7 +897,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .ai-popper.pop-1 {
   /* upper left, biggest */
   top: 14%; left: 7%;
-  --pp-size: 48px;
+  --pp-size: 62px;
   --pp-rot: -28deg;
   --pp-shoot-x: -10px;
   --pp-shoot-y: -8px;
@@ -907,7 +907,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .ai-popper.pop-2 {
   /* upper-right, slightly higher and farther in */
   top: 8%; right: 14%;
-  --pp-size: 38px;
+  --pp-size: 50px;
   --pp-rot: 36deg;
   --pp-flip: -1;
   --pp-shoot-x: 12px;
@@ -918,7 +918,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .ai-popper.pop-3 {
   /* mid-right edge, smaller */
   top: 54%; right: 4%;
-  --pp-size: 34px;
+  --pp-size: 44px;
   --pp-rot: 95deg;
   --pp-flip: -1;
   --pp-shoot-x: 14px;
@@ -929,7 +929,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .ai-popper.pop-4 {
   /* lower-left, medium */
   bottom: 12%; left: 18%;
-  --pp-size: 44px;
+  --pp-size: 56px;
   --pp-rot: -140deg;
   --pp-shoot-x: -12px;
   --pp-shoot-y: 12px;
@@ -939,7 +939,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .ai-popper.pop-5 {
   /* bottom-right, off-corner */
   bottom: 22%; right: 9%;
-  --pp-size: 36px;
+  --pp-size: 46px;
   --pp-rot: 160deg;
   --pp-flip: -1;
   --pp-shoot-x: 10px;
