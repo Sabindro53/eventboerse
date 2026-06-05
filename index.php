@@ -494,7 +494,6 @@ $asset_ver = '2.5.1'; // cache-bust;
           <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
         </svg>
       </span>
-      <span class="eb-qa-status" aria-hidden="true"></span>
     </button>
   </div>
 
