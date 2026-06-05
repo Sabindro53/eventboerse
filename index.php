@@ -374,6 +374,58 @@ $asset_ver = '2.4.8'; // cache-bust;
     </button>
   </nav>
 
+  <!-- ============ QA SUPPORT BOT ============ -->
+  <div class="eb-qa-bot" id="qaBot">
+    <section class="eb-qa-panel" id="qaPanel" aria-label="Eventbörse QA-Support" hidden>
+      <div class="eb-qa-head">
+        <div class="eb-qa-head-avatar" aria-hidden="true">
+          <span class="eb-qa-mini-icon material-icons-round">support_agent</span>
+        </div>
+        <div>
+          <strong>Eventbörse QA</strong>
+          <span>Support ohne KI-Token</span>
+        </div>
+        <button type="button" class="eb-qa-close" onclick="closeQaBot()" aria-label="QA-Support schließen">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="eb-qa-messages" id="qaMessages" aria-live="polite"></div>
+      <div class="eb-qa-suggestions" id="qaSuggestions">
+        <button type="button" onclick="askQaPreset('Ich kann mich nicht anmelden')">Login</button>
+        <button type="button" onclick="askQaPreset('Ich brauche Hilfe beim Planungsboard')">Board</button>
+        <button type="button" onclick="askQaPreset('Ich will ein Inserat erstellen')">Inserat</button>
+        <button type="button" onclick="askQaPreset('Stripe Auszahlung Konto')">Zahlung</button>
+      </div>
+      <form class="eb-qa-form" onsubmit="handleQaAsk(event)">
+        <input type="text" id="qaInput" placeholder="Was brauchst du gerade?" autocomplete="off" />
+        <button type="submit" aria-label="Frage senden">
+          <span class="material-icons-round">arrow_upward</span>
+        </button>
+      </form>
+    </section>
+    <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse QA-Support">
+      <span class="eb-qa-launcher-icon" aria-hidden="true">
+        <svg viewBox="0 0 88 96" role="img" aria-label="">
+          <path class="qa-hat" d="M32 9 57 52H18Z"/>
+          <path class="qa-hat-band" d="M18 52c10 5 28 5 39 0"/>
+          <circle class="qa-dot qa-dot-1" cx="34" cy="25" r="3"/>
+          <circle class="qa-dot qa-dot-2" cx="47" cy="38" r="3"/>
+          <path class="qa-spark" d="M44 1v13M37 4l14 8M51 4l-14 8"/>
+          <path class="qa-head" d="M24 78c-4-18 7-34 25-34 16 0 27 12 27 28v10l-15 5v-13c0-8-7-14-17-14s-17 8-17 18z"/>
+          <path class="qa-band" d="M17 57c9-17 42-24 59 4"/>
+          <path class="qa-mic" d="M61 82h12V68"/>
+          <circle class="qa-mic-dot" cx="58" cy="82" r="5"/>
+          <path class="qa-body" d="M9 95c2-19 69-19 71 0z"/>
+        </svg>
+      </span>
+      <span class="eb-qa-launcher-copy">
+        <strong>QA</strong>
+        <small>Support</small>
+      </span>
+      <span class="eb-qa-status" aria-hidden="true"></span>
+    </button>
+  </div>
+
   <!-- ============ BETA / VORGRÜNDUNGS-BANNER ============ -->
   <div class="beta-banner" id="betaBanner" role="region" aria-label="Beta-Hinweis">
     <div class="beta-banner-inner">
