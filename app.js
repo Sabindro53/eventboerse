@@ -2344,12 +2344,104 @@ function performSearch() {
 }
 
 // ========== BROWSE PAGE ==========
+var _browseGridPaging = {
+  rows: [],
+  visible: 0,
+  step: 0
+};
+
+function _getBrowseGridColumnCount(grid) {
+  if (!grid) return 1;
+  try {
+    var template = window.getComputedStyle(grid).gridTemplateColumns || '';
+    var cols = template.split(' ').filter(Boolean).length;
+    return Math.max(1, cols || 1);
+  } catch (e) {
+    return 1;
+  }
+}
+
+function _alignBrowseCountToRow(count, total, cols) {
+  if (cols <= 1) return Math.min(count, total);
+  if (count >= total) return total;
+  var rest = count % cols;
+  if (rest === 0) return count;
+  return Math.min(total, count + (cols - rest));
+}
+
+function _ensureBrowseLoadMoreUi() {
+  var grid = document.getElementById('browseGrid');
+  if (!grid || !grid.parentNode) return null;
+
+  var wrap = document.getElementById('browseLoadMoreWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'browseLoadMoreWrap';
+    wrap.className = 'browse-load-more-wrap';
+    var noResults = document.getElementById('noResultsContainer');
+    if (noResults && noResults.parentNode === grid.parentNode) {
+      grid.parentNode.insertBefore(wrap, noResults);
+    } else {
+      grid.parentNode.appendChild(wrap);
+    }
+  }
+
+  var btn = document.getElementById('browseLoadMoreBtn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'browseLoadMoreBtn';
+    btn.type = 'button';
+    btn.className = 'btn-secondary browse-load-more-btn';
+    btn.innerHTML = '<span class="material-icons-round">expand_more</span> Mehr anzeigen';
+    btn.addEventListener('click', browseShowMoreResults);
+    wrap.appendChild(btn);
+  }
+
+  return { wrap: wrap, btn: btn };
+}
+
+function _renderBrowseGridPage() {
+  var grid = document.getElementById('browseGrid');
+  if (!grid) return;
+
+  var total = _browseGridPaging.rows.length;
+  var visibleRows = _browseGridPaging.rows.slice(0, _browseGridPaging.visible);
+  grid.innerHTML = visibleRows.map(renderListingCard).join('');
+  _initGridCards(grid);
+  document.getElementById('browseResultCount').textContent = total + ' Services gefunden';
+
+  var ui = _ensureBrowseLoadMoreUi();
+  if (!ui) return;
+
+  var remaining = total - _browseGridPaging.visible;
+  if (remaining > 0) {
+    ui.wrap.style.display = '';
+    var nextCount = Math.min(remaining, _browseGridPaging.step || remaining);
+    ui.btn.innerHTML = '<span class="material-icons-round">expand_more</span> Mehr anzeigen (' + nextCount + ')';
+  } else {
+    ui.wrap.style.display = 'none';
+  }
+}
+
+function browseShowMoreResults() {
+  var grid = document.getElementById('browseGrid');
+  if (!grid) return;
+
+  var total = _browseGridPaging.rows.length;
+  var cols = _getBrowseGridColumnCount(grid);
+  var next = _browseGridPaging.visible + (_browseGridPaging.step || cols * 3 || 6);
+  _browseGridPaging.visible = _alignBrowseCountToRow(next, total, cols);
+  _renderBrowseGridPage();
+}
+
 function renderBrowseGrid(listings) {
   const grid = document.getElementById('browseGrid');
   var rows = filterDemos(listings || []);
-  grid.innerHTML = rows.map(renderListingCard).join('');
-  _initGridCards(grid);
-  document.getElementById('browseResultCount').textContent = `${rows.length} Services gefunden`;
+  var cols = _getBrowseGridColumnCount(grid);
+  _browseGridPaging.rows = rows;
+  _browseGridPaging.step = Math.max(6, cols * 3);
+  _browseGridPaging.visible = _alignBrowseCountToRow(Math.min(rows.length, cols * 5), rows.length, cols);
+  _renderBrowseGridPage();
 }
 
 // ===== AI Search Hero helpers =====
