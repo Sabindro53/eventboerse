@@ -722,56 +722,72 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .eb-qa-icon-svg circle {
   vector-effect: non-scaling-stroke;
 }
-.eb-qa-icon-svg .qa-head-main,
 .eb-qa-icon-svg .qa-body-shape,
-.eb-qa-icon-svg .qa-earcup,
-.eb-qa-icon-svg .qa-mic-dot {
-  fill: #141414;
+.eb-qa-icon-svg .qa-earcup {
+  fill: #1a1a1a;
 }
-.eb-qa-icon-svg .qa-face-cut {
-  fill: #fff;
+.eb-qa-icon-svg .qa-head-main {
+  fill: #FFE0CC;
+  stroke: #1a1a1a;
+  stroke-width: 3;
+}
+.eb-qa-icon-svg .qa-eye {
+  fill: #1a1a1a;
+}
+.eb-qa-icon-svg .qa-cheek {
+  fill: #FF7A93;
+  opacity: 0.55;
+}
+.eb-qa-icon-svg .qa-smile {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+.eb-qa-icon-svg .qa-mic-dot {
+  fill: var(--primary);
+  stroke: #1a1a1a;
+  stroke-width: 2;
 }
 .eb-qa-icon-svg .qa-headset-band,
 .eb-qa-icon-svg .qa-mic-arm {
   fill: none;
-  stroke: #141414;
-  stroke-width: 9;
+  stroke: #1a1a1a;
+  stroke-width: 7;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .eb-qa-icon-svg .qa-hat-fill {
+  fill: var(--primary);
+}
+.eb-qa-icon-svg--mini .qa-hat-fill {
   fill: #fff;
 }
 .eb-qa-icon-svg .qa-hat-stroke {
   fill: none;
-  stroke: #141414;
-  stroke-width: 4.5;
+  stroke: #1a1a1a;
+  stroke-width: 3.5;
   stroke-linejoin: round;
 }
-.eb-qa-icon-svg .qa-hat-brim,
+.eb-qa-icon-svg .qa-hat-brim {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
 .eb-qa-icon-svg .qa-spark {
   fill: none;
-  stroke: #141414;
-  stroke-width: 4;
+  stroke: #FFC857;
+  stroke-width: 3.5;
   stroke-linecap: round;
-  stroke-linejoin: round;
 }
 .eb-qa-icon-svg .qa-hat-dot {
-  stroke: #141414;
-  stroke-width: 2;
+  stroke: #1a1a1a;
+  stroke-width: 1.5;
 }
-.eb-qa-icon-svg .qa-hat-dot-primary {
-  fill: var(--primary);
-}
-.eb-qa-icon-svg .qa-hat-dot-accent {
-  fill: #00E2C5;
-}
-.eb-qa-icon-svg .qa-hat-dot-light {
-  fill: #fff;
-}
-.eb-qa-launcher .qa-hat-fill {
-  fill: #fff;
-}
+.eb-qa-icon-svg .qa-hat-dot-primary { fill: #fff; }
+.eb-qa-icon-svg .qa-hat-dot-accent  { fill: var(--accent); }
+.eb-qa-icon-svg .qa-hat-dot-light   { fill: #fff; }
 .eb-qa-launcher .qa-body-shape {
   filter: drop-shadow(0 6px 4px rgba(34,34,34,0.12));
 }
