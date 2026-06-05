@@ -1078,6 +1078,21 @@ function navigateTo(page, data, skipHistory) {
     page = 'browse';
   }
 
+  // ── Rollen-Weiche: Planungsboard vs. Auftragsboard ──────────────
+  // Event-Planer (suchende) organisieren ihr Event im Planungs-Board
+  // ('board'). Dienstleister (bietende) verwalten ihre Buchungen im
+  // Auftragsboard ('auftraege'). Jede Rolle bekommt genau EINE Board-
+  // Ansicht. Damit niemand die falsche sieht – auch nicht über alte
+  // Links, Footer-Links oder direkt eingegebene URLs – hier zentral
+  // umleiten, bevor die Seite überhaupt aktiviert wird.
+  if (isLoggedIn) {
+    if (page === 'board' && isDienstleister()) {
+      page = 'auftraege';
+    } else if (page === 'auftraege' && isEventPlaner()) {
+      page = 'board';
+    }
+  }
+
   // Pages that require login — redirect to login modal immediately
   var loginRequired = ['create-listing', 'messages', 'profile', 'edit-profile', 'settings', 'admin'];
   if (!isLoggedIn && loginRequired.indexOf(page) !== -1) {
@@ -6026,6 +6041,9 @@ function updateCreateFormForRole() {
     }
   }
 
+  // Nach jeder Rollen-Änderung auch die Board-Navigation neu ausrichten,
+  // damit Dienstleister/Event-Planer sofort die richtige Ansicht sehen.
+  _applyRoleNav();
 }
 
 // ========== SETTINGS ==========
@@ -10474,6 +10492,52 @@ function isDienstleister() {
   ));
 }
 
+/**
+ * Schaltet alle rollenabhängigen Navigations-Elemente um.
+ *
+ * Grundregel: Jede Rolle sieht GENAU EINE Board-Ansicht.
+ *   • Dienstleister (bietende)  → Auftragsboard ('auftraege')
+ *   • Event-Planer (suchende)   → Planungs-Board ('board')
+ *   • Gast / unbekannte Rolle   → Planungs-Board als Teaser
+ *
+ * Wird bei Login, Logout und jeder Rollen-Änderung aufgerufen, damit
+ * Desktop-Menü, Mobile-Bottom-Nav und kontextbezogene Buttons konsistent
+ * bleiben. Zeigt ein Element mit '' (CSS-Default) und versteckt mit 'none'.
+ */
+function _applyRoleNav() {
+  var provider = isLoggedIn && isDienstleister();
+
+  // Desktop-Menü: Auftragsboard nur für Dienstleister, Planungs-Board für alle anderen.
+  var auftraegeBtn = document.getElementById('auftraegeMenuBtn');
+  if (auftraegeBtn) auftraegeBtn.style.display = provider ? '' : 'none';
+  var boardBtn = document.getElementById('boardMenuBtn');
+  if (boardBtn) boardBtn.style.display = provider ? 'none' : '';
+
+  // Mobile Bottom-Nav: ein einziger Slot, der je nach Rolle Board ODER
+  // Auftragsboard zeigt (Icon, Label, Ziel + data-page für Active-State).
+  var mobileBoardBtn = document.querySelector('#mobileNav .mobile-nav-board');
+  if (mobileBoardBtn) {
+    var icon = mobileBoardBtn.querySelector('.material-icons-round');
+    var label = mobileBoardBtn.querySelector('span:last-child');
+    if (provider) {
+      mobileBoardBtn.setAttribute('onclick', "navigateTo('auftraege')");
+      mobileBoardBtn.dataset.page = 'auftraege';
+      if (icon) icon.textContent = 'assignment';
+      if (label) label.textContent = 'Aufträge';
+    } else {
+      mobileBoardBtn.setAttribute('onclick', "navigateTo('board')");
+      mobileBoardBtn.dataset.page = 'board';
+      if (icon) icon.textContent = 'view_kanban';
+      if (label) label.textContent = 'Board';
+    }
+  }
+
+  // Inserat-Detail: "Zum Planungs-Board hinzufügen" ergibt nur für
+  // suchende Event-Planer Sinn – für Dienstleister ausblenden.
+  var addToBoardBtn = document.getElementById('btnAddToBoard');
+  if (addToBoardBtn) addToBoardBtn.style.display = provider ? 'none' : '';
+}
+
 function applyLogin(context) {
   isLoggedIn = true;
   document.getElementById('loggedOutMenu').style.display = 'none';
@@ -10486,8 +10550,8 @@ function applyLogin(context) {
     if (adminLabel) adminLabel.style.display = currentUser.isAdmin ? 'block' : 'none';
     var adminMenuBtn = document.getElementById('adminMenuBtn');
     if (adminMenuBtn) adminMenuBtn.style.display = currentUser.isAdmin ? 'flex' : 'none';
-    var auftraegeMenuBtn = document.getElementById('auftraegeMenuBtn');
-    if (auftraegeMenuBtn) auftraegeMenuBtn.style.display = isDienstleister() ? 'flex' : 'none';
+    // Rollenabhängige Navigation (Planungs-Board vs. Auftragsboard) setzen
+    _applyRoleNav();
     // Reconcile ausstehende Webhook-Bestaetigungen
     try { if (typeof _reconcileStripePayments === 'function') setTimeout(_reconcileStripePayments, 800); } catch(e) {}
   }
@@ -10570,8 +10634,8 @@ function applyLogout() {
   if (adminLabel) adminLabel.style.display = 'none';
   var adminMenuBtn = document.getElementById('adminMenuBtn');
   if (adminMenuBtn) adminMenuBtn.style.display = 'none';
-  var auftraegeMenuBtn = document.getElementById('auftraegeMenuBtn');
-  if (auftraegeMenuBtn) auftraegeMenuBtn.style.display = 'none';
+  // Rollen-Nav zurücksetzen (Gast → Planungs-Board-Teaser, kein Auftragsboard)
+  _applyRoleNav();
   // Reset mobile nav labels
   var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
   if (mobileCreateBtn) {

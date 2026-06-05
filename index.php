@@ -314,11 +314,11 @@ $asset_ver = '2.4.8'; // cache-bust;
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
         <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
         <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
-        <button onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Event-Planer Board</button>
+        <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Planungs-Board</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
-        <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')" style="display:none"><span class="material-icons-round">assignment</span> Aufträge</button>
+        <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')" style="display:none"><span class="material-icons-round">assignment</span> Auftragsboard</button>
         <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
         <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
         <button onclick="navigateTo('contact')"><span class="material-icons-round">help_outline</span> Kontakt & Support</button>
@@ -3002,7 +3002,7 @@ Datum: ___________________________________________________
           <h4>Plattform</h4>
           <a href="#" onclick="navigateTo('browse')">Services entdecken</a>
           <a href="#" onclick="navigateTo('aktuelles')">Social Feed</a>
-          <a href="#" onclick="navigateTo('board')">Event-Planer Board</a>
+          <a href="#" onclick="navigateTo('board')">Planungs-Board</a>
           <a href="#" onclick="navigateTo('create-listing')">Inserat aufgeben</a>
         </div>
         <div class="footer-col">
