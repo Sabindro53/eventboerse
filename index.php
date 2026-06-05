@@ -753,10 +753,6 @@ $asset_ver = '2.4.8'; // cache-bust;
           <span class="ai-popper pop-tr"><span class="material-icons-round">celebration</span></span>
           <span class="ai-popper pop-bl"><span class="material-icons-round">celebration</span></span>
           <span class="ai-popper pop-br"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-ml"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-mr"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-tm"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-bm"><span class="material-icons-round">celebration</span></span>
         </div>
         <div class="ai-hero-content">
           <div class="ai-badge">

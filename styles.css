@@ -829,7 +829,11 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .ai-hero-bg { position: absolute; inset: 0; pointer-events: none; }
 
-/* ── Animated party poppers on the hero edges & corners ── */
+/* ── Subtle party-popper accent in the 4 corners ──
+   Each popper sits quietly for most of the cycle, then performs ONE
+   real "pop": squash → stretch → shoot diagonally outward with a tiny
+   confetti burst, then fades back to hidden. Cycles are long & staggered
+   so the hero stays calm and serious. */
 .ai-hero-poppers {
   position: absolute;
   inset: 0;
@@ -842,14 +846,15 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   align-items: center;
   justify-content: center;
   color: var(--primary);
-  filter: drop-shadow(0 6px 18px rgba(255, 56, 92, 0.45));
+  filter: drop-shadow(0 4px 10px rgba(255, 56, 92, 0.28));
   opacity: 0;
   transform-origin: center center;
   will-change: transform, opacity;
-  animation: aiPopperPop 4.8s cubic-bezier(.22,1.4,.36,1) infinite;
+  /* Long cycle for a calm cadence */
+  animation: aiPopperPlop 12s cubic-bezier(.22, 1.4, .36, 1) infinite;
 }
 .ai-popper .material-icons-round {
-  font-size: clamp(40px, 5.4vw, 72px);
+  font-size: clamp(26px, 2.6vw, 40px);
   line-height: 1;
 }
 .ai-popper::before,
@@ -859,141 +864,124 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   border-radius: 50%;
   pointer-events: none;
   opacity: 0;
-  animation: aiPopperBurst 4.8s ease-out infinite;
+  animation: aiPopperConfetti 12s ease-out infinite;
   animation-delay: inherit;
 }
 .ai-popper::before {
-  width: 14px; height: 14px;
-  background: #FF385C;
-  top: 8%; left: 90%;
+  width: 5px; height: 5px;
+  background: var(--primary);
+  top: 18%; left: 78%;
   box-shadow:
-    18px 6px 0 -2px #a855f7,
-    34px -10px 0 -4px #00A699,
-    52px 12px 0 -3px #FFB400,
-    -10px 26px 0 -3px #FF385C;
+    10px -2px 0 -1px #a855f7,
+    20px 6px 0 -2px #00A699,
+    -2px 14px 0 -1px #FFB400;
 }
 .ai-popper::after {
-  width: 10px; height: 10px;
+  width: 4px; height: 4px;
   background: #00A699;
-  bottom: 10%; right: 80%;
+  bottom: 22%; right: 70%;
   box-shadow:
-    -16px -8px 0 -2px #FFB400,
-    -30px 6px 0 -3px #a855f7,
-    -46px -12px 0 -4px #FF385C,
-    6px -22px 0 -3px #00A699;
+    -8px -4px 0 -1px #FFB400,
+    -16px 4px 0 -2px #a855f7,
+    4px -12px 0 -1px #FF385C;
 }
 
-/* Position presets — 4 corners + 4 edges */
-.ai-popper.pop-tl { top: 6%;  left: 3%;   transform: rotate(-28deg); animation-delay: 0s;    }
-.ai-popper.pop-tr { top: 4%;  right: 3%;  transform: rotate(28deg) scaleX(-1); animation-delay: 0.6s; }
-.ai-popper.pop-bl { bottom: 6%; left: 4%;  transform: rotate(-150deg); animation-delay: 1.2s; }
-.ai-popper.pop-br { bottom: 5%; right: 4%; transform: rotate(150deg) scaleX(-1); animation-delay: 1.8s; }
-.ai-popper.pop-ml { top: 46%; left: 1%;   transform: rotate(-90deg); animation-delay: 2.4s; }
-.ai-popper.pop-mr { top: 42%; right: 1%;  transform: rotate(90deg) scaleX(-1); animation-delay: 3.0s; }
-.ai-popper.pop-tm { top: 2%;  left: 50%;  transform: translateX(-50%) rotate(180deg); animation-delay: 3.6s; }
-.ai-popper.pop-bm { bottom: 3%; left: 50%; transform: translateX(-50%) rotate(0deg); animation-delay: 4.2s; }
+/* Corner positions only — staggered so only ~one pops at a time */
+.ai-popper.pop-tl {
+  top: 9%;  left: 4%;
+  --pp-rot: -28deg;
+  --pp-shoot-x: -14px;
+  --pp-shoot-y: -10px;
+  animation-delay: 0s;
+}
+.ai-popper.pop-tr {
+  top: 8%;  right: 4%;
+  --pp-rot: 28deg;
+  --pp-flip: -1;
+  --pp-shoot-x: 14px;
+  --pp-shoot-y: -10px;
+  animation-delay: 3s;
+}
+.ai-popper.pop-bl {
+  bottom: 10%; left: 5%;
+  --pp-rot: -150deg;
+  --pp-shoot-x: -14px;
+  --pp-shoot-y: 10px;
+  animation-delay: 6s;
+}
+.ai-popper.pop-br {
+  bottom: 9%; right: 5%;
+  --pp-rot: 150deg;
+  --pp-flip: -1;
+  --pp-shoot-x: 14px;
+  --pp-shoot-y: 10px;
+  animation-delay: 9s;
+}
 
-@keyframes aiPopperPop {
-  0%   { opacity: 0; transform: var(--pp-base, scale(0.2)) scale(0.2); }
-  6%   { opacity: 1; transform: scale(1.25); }
-  12%  { transform: scale(0.95); }
-  18%  { transform: scale(1.08) rotate(4deg); }
-  24%  { transform: scale(1) rotate(-3deg); }
-  30%  { transform: scale(1.02) rotate(2deg); }
-  42%  { opacity: 0.95; transform: scale(1); }
-  62%  { opacity: 0.85; }
-  100% { opacity: 0; transform: scale(0.85); }
+@keyframes aiPopperPlop {
+  /* Hidden, charging up */
+  0%, 12% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(var(--pp-rot, 0deg)) scaleX(var(--pp-flip, 1)) scale(0.4);
+  }
+  /* Squash before the shot */
+  14% {
+    opacity: 0.7;
+    transform: translate(0, 0) rotate(var(--pp-rot, 0deg)) scaleX(var(--pp-flip, 1)) scale(0.85);
+  }
+  /* The actual pop: stretch outward in the shoot direction */
+  18% {
+    opacity: 1;
+    transform:
+      translate(var(--pp-shoot-x, 0), var(--pp-shoot-y, 0))
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1))
+      scale(1.15);
+  }
+  /* Small settle bounce */
+  24% {
+    transform:
+      translate(calc(var(--pp-shoot-x, 0px) * 0.55), calc(var(--pp-shoot-y, 0px) * 0.55))
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1))
+      scale(0.97);
+  }
+  30% {
+    transform:
+      translate(calc(var(--pp-shoot-x, 0px) * 0.7), calc(var(--pp-shoot-y, 0px) * 0.7))
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1))
+      scale(1.02);
+  }
+  /* Calm hold */
+  44% {
+    opacity: 0.55;
+    transform:
+      translate(calc(var(--pp-shoot-x, 0px) * 0.65), calc(var(--pp-shoot-y, 0px) * 0.65))
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1))
+      scale(1);
+  }
+  /* Fade back out, no more motion until next cycle */
+  60% {
+    opacity: 0;
+    transform:
+      translate(calc(var(--pp-shoot-x, 0px) * 0.7), calc(var(--pp-shoot-y, 0px) * 0.7))
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1))
+      scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(var(--pp-rot, 0deg)) scaleX(var(--pp-flip, 1)) scale(0.4);
+  }
 }
-@keyframes aiPopperBurst {
-  0%   { opacity: 0; transform: scale(0.2); }
-  10%  { opacity: 1; transform: scale(0.6); }
-  30%  { opacity: 0.9; transform: scale(1); }
-  55%  { opacity: 0.6; transform: scale(1.35); }
-  80%  { opacity: 0; transform: scale(1.7); }
-  100% { opacity: 0; transform: scale(1.8); }
-}
-
-/* Re-apply rotate via individual keyframe overrides so each preset keeps its angle */
-.ai-popper.pop-tl { animation-name: aiPopperPopTL; }
-.ai-popper.pop-tr { animation-name: aiPopperPopTR; }
-.ai-popper.pop-bl { animation-name: aiPopperPopBL; }
-.ai-popper.pop-br { animation-name: aiPopperPopBR; }
-.ai-popper.pop-ml { animation-name: aiPopperPopML; }
-.ai-popper.pop-mr { animation-name: aiPopperPopMR; }
-.ai-popper.pop-tm { animation-name: aiPopperPopTM; }
-.ai-popper.pop-bm { animation-name: aiPopperPopBM; }
-
-@keyframes aiPopperPopTL {
-  0%   { opacity: 0; transform: rotate(-28deg) scale(0.2); }
-  6%   { opacity: 1; transform: rotate(-28deg) scale(1.25); }
-  14%  { transform: rotate(-24deg) scale(0.95); }
-  22%  { transform: rotate(-32deg) scale(1.06); }
-  30%  { transform: rotate(-28deg) scale(1); }
-  60%  { opacity: 0.92; transform: rotate(-30deg) scale(1.02); }
-  100% { opacity: 0; transform: rotate(-28deg) scale(0.85); }
-}
-@keyframes aiPopperPopTR {
-  0%   { opacity: 0; transform: rotate(28deg) scaleX(-1) scale(0.2); }
-  6%   { opacity: 1; transform: rotate(28deg) scaleX(-1) scale(1.25); }
-  14%  { transform: rotate(24deg) scaleX(-1) scale(0.95); }
-  22%  { transform: rotate(32deg) scaleX(-1) scale(1.06); }
-  30%  { transform: rotate(28deg) scaleX(-1) scale(1); }
-  60%  { opacity: 0.92; transform: rotate(30deg) scaleX(-1) scale(1.02); }
-  100% { opacity: 0; transform: rotate(28deg) scaleX(-1) scale(0.85); }
-}
-@keyframes aiPopperPopBL {
-  0%   { opacity: 0; transform: rotate(-150deg) scale(0.2); }
-  6%   { opacity: 1; transform: rotate(-150deg) scale(1.25); }
-  14%  { transform: rotate(-146deg) scale(0.95); }
-  22%  { transform: rotate(-154deg) scale(1.06); }
-  30%  { transform: rotate(-150deg) scale(1); }
-  60%  { opacity: 0.92; transform: rotate(-152deg) scale(1.02); }
-  100% { opacity: 0; transform: rotate(-150deg) scale(0.85); }
-}
-@keyframes aiPopperPopBR {
-  0%   { opacity: 0; transform: rotate(150deg) scaleX(-1) scale(0.2); }
-  6%   { opacity: 1; transform: rotate(150deg) scaleX(-1) scale(1.25); }
-  14%  { transform: rotate(146deg) scaleX(-1) scale(0.95); }
-  22%  { transform: rotate(154deg) scaleX(-1) scale(1.06); }
-  30%  { transform: rotate(150deg) scaleX(-1) scale(1); }
-  60%  { opacity: 0.92; transform: rotate(152deg) scaleX(-1) scale(1.02); }
-  100% { opacity: 0; transform: rotate(150deg) scaleX(-1) scale(0.85); }
-}
-@keyframes aiPopperPopML {
-  0%   { opacity: 0; transform: rotate(-90deg) scale(0.2); }
-  6%   { opacity: 1; transform: rotate(-90deg) scale(1.25); }
-  14%  { transform: rotate(-86deg) scale(0.95); }
-  22%  { transform: rotate(-94deg) scale(1.06); }
-  30%  { transform: rotate(-90deg) scale(1); }
-  60%  { opacity: 0.92; transform: rotate(-92deg) scale(1.02); }
-  100% { opacity: 0; transform: rotate(-90deg) scale(0.85); }
-}
-@keyframes aiPopperPopMR {
-  0%   { opacity: 0; transform: rotate(90deg) scaleX(-1) scale(0.2); }
-  6%   { opacity: 1; transform: rotate(90deg) scaleX(-1) scale(1.25); }
-  14%  { transform: rotate(86deg) scaleX(-1) scale(0.95); }
-  22%  { transform: rotate(94deg) scaleX(-1) scale(1.06); }
-  30%  { transform: rotate(90deg) scaleX(-1) scale(1); }
-  60%  { opacity: 0.92; transform: rotate(92deg) scaleX(-1) scale(1.02); }
-  100% { opacity: 0; transform: rotate(90deg) scaleX(-1) scale(0.85); }
-}
-@keyframes aiPopperPopTM {
-  0%   { opacity: 0; transform: translateX(-50%) rotate(180deg) scale(0.2); }
-  6%   { opacity: 1; transform: translateX(-50%) rotate(180deg) scale(1.25); }
-  14%  { transform: translateX(-50%) rotate(184deg) scale(0.95); }
-  22%  { transform: translateX(-50%) rotate(176deg) scale(1.06); }
-  30%  { transform: translateX(-50%) rotate(180deg) scale(1); }
-  60%  { opacity: 0.92; transform: translateX(-50%) rotate(182deg) scale(1.02); }
-  100% { opacity: 0; transform: translateX(-50%) rotate(180deg) scale(0.85); }
-}
-@keyframes aiPopperPopBM {
-  0%   { opacity: 0; transform: translateX(-50%) rotate(0deg) scale(0.2); }
-  6%   { opacity: 1; transform: translateX(-50%) rotate(0deg) scale(1.25); }
-  14%  { transform: translateX(-50%) rotate(4deg) scale(0.95); }
-  22%  { transform: translateX(-50%) rotate(-4deg) scale(1.06); }
-  30%  { transform: translateX(-50%) rotate(0deg) scale(1); }
-  60%  { opacity: 0.92; transform: translateX(-50%) rotate(2deg) scale(1.02); }
-  100% { opacity: 0; transform: translateX(-50%) rotate(0deg) scale(0.85); }
+@keyframes aiPopperConfetti {
+  0%, 14% { opacity: 0; transform: scale(0.3); }
+  18% { opacity: 0.9; transform: scale(0.8); }
+  26% { opacity: 0.6; transform: scale(1.1); }
+  38% { opacity: 0; transform: scale(1.4); }
+  100% { opacity: 0; transform: scale(1.4); }
 }
 .ai-bg-orb {
   position: absolute;
@@ -1247,12 +1235,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 /* Mobile */
 @media (max-width: 640px) {
   .ai-hero { padding: calc(var(--mobile-nav-height) + 8px) 16px 16px; min-height: auto; }
-  .ai-popper .material-icons-round { font-size: clamp(28px, 7vw, 42px); }
-  /* Hide edge poppers on small screens to keep the corners clean */
-  .ai-popper.pop-ml,
-  .ai-popper.pop-mr,
-  .ai-popper.pop-tm,
-  .ai-popper.pop-bm { display: none; }
+  .ai-popper .material-icons-round { font-size: clamp(20px, 5vw, 28px); }
   .ai-hero-h1 { font-size: 2rem; }
   .ai-hero-sub { font-size: 0.9rem; margin-bottom: 24px; }
   .ai-searchbar { flex-wrap: wrap; border-radius: 18px; padding: 14px 14px; gap: 10px; box-shadow: 0 4px 32px rgba(0,0,0,0.08), 0 0 0 1.5px rgba(0,0,0,0.07); }
