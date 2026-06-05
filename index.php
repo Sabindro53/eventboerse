@@ -749,10 +749,11 @@ $asset_ver = '2.4.8'; // cache-bust;
           <div class="ai-bg-orb orb-3"></div>
         </div>
         <div class="ai-hero-poppers" aria-hidden="true">
-          <span class="ai-popper pop-tl"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-tr"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-bl"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-br"><span class="material-icons-round">celebration</span></span>
+          <span class="ai-popper pop-1"><span class="material-icons-round">celebration</span></span>
+          <span class="ai-popper pop-2"><span class="material-icons-round">celebration</span></span>
+          <span class="ai-popper pop-3"><span class="material-icons-round">celebration</span></span>
+          <span class="ai-popper pop-4"><span class="material-icons-round">celebration</span></span>
+          <span class="ai-popper pop-5"><span class="material-icons-round">celebration</span></span>
         </div>
         <div class="ai-hero-content">
           <div class="ai-badge">

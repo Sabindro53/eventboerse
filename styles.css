@@ -829,16 +829,17 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .ai-hero-bg { position: absolute; inset: 0; pointer-events: none; }
 
-/* ── Subtle party-popper accent in the 4 corners ──
-   Each popper sits quietly for most of the cycle, then performs ONE
-   real "pop": squash → stretch → shoot diagonally outward with a tiny
-   confetti burst, then fades back to hidden. Cycles are long & staggered
-   so the hero stays calm and serious. */
+/* ── Asymmetric party-popper accents in the hero ──
+   5 poppers scattered (not just corners). Each one performs a real
+   "plopp": hidden → tiny anticipation squash → strong burst outward
+   with rotation + translate → 2 small bounces → calm hold → fade.
+   Staggered delays so usually only one is mid-pop at a time. */
 .ai-hero-poppers {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  overflow: hidden;
 }
 .ai-popper {
   position: absolute;
@@ -846,15 +847,17 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   align-items: center;
   justify-content: center;
   color: var(--primary);
-  filter: drop-shadow(0 4px 10px rgba(255, 56, 92, 0.28));
+  filter: drop-shadow(0 4px 12px rgba(255, 56, 92, 0.3));
   opacity: 0;
   transform-origin: center center;
   will-change: transform, opacity;
-  /* Long cycle for a calm cadence */
-  animation: aiPopperPlop 12s cubic-bezier(.22, 1.4, .36, 1) infinite;
+  animation-name: aiPopperPlop;
+  animation-duration: 9s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(.18, .9, .32, 1.25);
 }
 .ai-popper .material-icons-round {
-  font-size: clamp(26px, 2.6vw, 40px);
+  font-size: var(--pp-size, 32px);
   line-height: 1;
 }
 .ai-popper::before,
@@ -864,124 +867,167 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   border-radius: 50%;
   pointer-events: none;
   opacity: 0;
-  animation: aiPopperConfetti 12s ease-out infinite;
+  animation: aiPopperConfetti 9s ease-out infinite;
   animation-delay: inherit;
 }
 .ai-popper::before {
   width: 5px; height: 5px;
   background: var(--primary);
-  top: 18%; left: 78%;
+  top: 12%; left: 78%;
   box-shadow:
-    10px -2px 0 -1px #a855f7,
-    20px 6px 0 -2px #00A699,
-    -2px 14px 0 -1px #FFB400;
+    12px -4px 0 -1px #a855f7,
+    22px 6px 0 -2px #00A699,
+    -2px 16px 0 -1px #FFB400;
 }
 .ai-popper::after {
   width: 4px; height: 4px;
   background: #00A699;
-  bottom: 22%; right: 70%;
+  bottom: 18%; right: 72%;
   box-shadow:
-    -8px -4px 0 -1px #FFB400,
-    -16px 4px 0 -2px #a855f7,
-    4px -12px 0 -1px #FF385C;
+    -10px -2px 0 -1px #FFB400,
+    -18px 8px 0 -2px #a855f7,
+    4px -14px 0 -1px #FF385C;
 }
 
-/* Corner positions only — staggered so only ~one pops at a time */
-.ai-popper.pop-tl {
-  top: 9%;  left: 4%;
+/* Asymmetric positions — scattered around the hero */
+.ai-popper.pop-1 {
+  /* upper left, biggest */
+  top: 14%; left: 7%;
+  --pp-size: 38px;
   --pp-rot: -28deg;
-  --pp-shoot-x: -14px;
-  --pp-shoot-y: -10px;
+  --pp-shoot-x: -10px;
+  --pp-shoot-y: -8px;
+  --pp-spin: -14deg;
   animation-delay: 0s;
 }
-.ai-popper.pop-tr {
-  top: 8%;  right: 4%;
-  --pp-rot: 28deg;
+.ai-popper.pop-2 {
+  /* upper-right, slightly higher and farther in */
+  top: 8%; right: 14%;
+  --pp-size: 30px;
+  --pp-rot: 36deg;
   --pp-flip: -1;
-  --pp-shoot-x: 14px;
+  --pp-shoot-x: 12px;
   --pp-shoot-y: -10px;
-  animation-delay: 3s;
+  --pp-spin: 18deg;
+  animation-delay: 1.8s;
 }
-.ai-popper.pop-bl {
-  bottom: 10%; left: 5%;
-  --pp-rot: -150deg;
-  --pp-shoot-x: -14px;
-  --pp-shoot-y: 10px;
-  animation-delay: 6s;
-}
-.ai-popper.pop-br {
-  bottom: 9%; right: 5%;
-  --pp-rot: 150deg;
+.ai-popper.pop-3 {
+  /* mid-right edge, smaller */
+  top: 54%; right: 4%;
+  --pp-size: 26px;
+  --pp-rot: 95deg;
   --pp-flip: -1;
   --pp-shoot-x: 14px;
-  --pp-shoot-y: 10px;
-  animation-delay: 9s;
+  --pp-shoot-y: 4px;
+  --pp-spin: 10deg;
+  animation-delay: 3.6s;
+}
+.ai-popper.pop-4 {
+  /* lower-left, medium */
+  bottom: 12%; left: 18%;
+  --pp-size: 34px;
+  --pp-rot: -140deg;
+  --pp-shoot-x: -12px;
+  --pp-shoot-y: 12px;
+  --pp-spin: -16deg;
+  animation-delay: 5.4s;
+}
+.ai-popper.pop-5 {
+  /* bottom-right, off-corner */
+  bottom: 22%; right: 9%;
+  --pp-size: 28px;
+  --pp-rot: 160deg;
+  --pp-flip: -1;
+  --pp-shoot-x: 10px;
+  --pp-shoot-y: 14px;
+  --pp-spin: 12deg;
+  animation-delay: 7.2s;
 }
 
 @keyframes aiPopperPlop {
-  /* Hidden, charging up */
-  0%, 12% {
+  /* Hidden between pops */
+  0%, 6% {
     opacity: 0;
-    transform: translate(0, 0) rotate(var(--pp-rot, 0deg)) scaleX(var(--pp-flip, 1)) scale(0.4);
+    transform:
+      translate(0, 0)
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1))
+      scale(0.3);
   }
-  /* Squash before the shot */
-  14% {
-    opacity: 0.7;
-    transform: translate(0, 0) rotate(var(--pp-rot, 0deg)) scaleX(var(--pp-flip, 1)) scale(0.85);
+  /* Tiny anticipation — squash inward */
+  10% {
+    opacity: 0.85;
+    transform:
+      translate(calc(var(--pp-shoot-x, 0px) * -0.25), calc(var(--pp-shoot-y, 0px) * -0.25))
+      rotate(calc(var(--pp-rot, 0deg) - var(--pp-spin, 0deg) * 0.5))
+      scaleX(var(--pp-flip, 1))
+      scale(0.7);
   }
-  /* The actual pop: stretch outward in the shoot direction */
-  18% {
+  /* THE POP — shoot outward big, slight overshoot */
+  16% {
     opacity: 1;
     transform:
-      translate(var(--pp-shoot-x, 0), var(--pp-shoot-y, 0))
-      rotate(var(--pp-rot, 0deg))
+      translate(calc(var(--pp-shoot-x, 0px) * 1.5), calc(var(--pp-shoot-y, 0px) * 1.5))
+      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg)))
       scaleX(var(--pp-flip, 1))
-      scale(1.15);
+      scale(1.3);
   }
-  /* Small settle bounce */
-  24% {
+  /* First settle */
+  22% {
     transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 0.55), calc(var(--pp-shoot-y, 0px) * 0.55))
-      rotate(var(--pp-rot, 0deg))
+      translate(calc(var(--pp-shoot-x, 0px) * 0.95), calc(var(--pp-shoot-y, 0px) * 0.95))
+      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.3))
       scaleX(var(--pp-flip, 1))
-      scale(0.97);
+      scale(0.94);
   }
-  30% {
+  /* Small second bounce */
+  28% {
     transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 0.7), calc(var(--pp-shoot-y, 0px) * 0.7))
-      rotate(var(--pp-rot, 0deg))
+      translate(calc(var(--pp-shoot-x, 0px) * 1.1), calc(var(--pp-shoot-y, 0px) * 1.1))
+      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.55))
       scaleX(var(--pp-flip, 1))
-      scale(1.02);
+      scale(1.04);
   }
-  /* Calm hold */
-  44% {
-    opacity: 0.55;
+  34% {
     transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 0.65), calc(var(--pp-shoot-y, 0px) * 0.65))
-      rotate(var(--pp-rot, 0deg))
+      translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
+      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
       scaleX(var(--pp-flip, 1))
       scale(1);
   }
-  /* Fade back out, no more motion until next cycle */
-  60% {
+  /* Calm hold */
+  55% {
+    opacity: 0.6;
+    transform:
+      translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
+      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
+      scaleX(var(--pp-flip, 1))
+      scale(1);
+  }
+  /* Fade out */
+  72% {
     opacity: 0;
     transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 0.7), calc(var(--pp-shoot-y, 0px) * 0.7))
-      rotate(var(--pp-rot, 0deg))
+      translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
+      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
       scaleX(var(--pp-flip, 1))
       scale(0.95);
   }
   100% {
     opacity: 0;
-    transform: translate(0, 0) rotate(var(--pp-rot, 0deg)) scaleX(var(--pp-flip, 1)) scale(0.4);
+    transform:
+      translate(0, 0)
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1))
+      scale(0.3);
   }
 }
 @keyframes aiPopperConfetti {
-  0%, 14% { opacity: 0; transform: scale(0.3); }
-  18% { opacity: 0.9; transform: scale(0.8); }
-  26% { opacity: 0.6; transform: scale(1.1); }
-  38% { opacity: 0; transform: scale(1.4); }
-  100% { opacity: 0; transform: scale(1.4); }
+  0%, 10%  { opacity: 0; transform: scale(0.3); }
+  16% { opacity: 0.95; transform: scale(0.85); }
+  24% { opacity: 0.6; transform: scale(1.2); }
+  36% { opacity: 0; transform: scale(1.55); }
+  100% { opacity: 0; transform: scale(1.55); }
 }
 .ai-bg-orb {
   position: absolute;
