@@ -12572,6 +12572,81 @@ body.dark-mode .stripe-admin-test-btn {
   text-transform: uppercase;
   margin-left: 2px;
 }
+/* Admin test card panel */
+.stripe-testcard-panel {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1.5px dashed rgba(99, 91, 255, 0.45);
+  border-radius: 12px;
+  background: rgba(99, 91, 255, 0.05);
+  font-size: 12.5px;
+}
+body.dark-mode .stripe-testcard-panel {
+  background: rgba(99, 91, 255, 0.09);
+  border-color: rgba(148, 142, 255, 0.4);
+}
+.stripe-testcard-header {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  text-transform: uppercase; color: #5146D8;
+  margin-bottom: 10px;
+}
+body.dark-mode .stripe-testcard-header { color: #a09bff; }
+.stripe-testcard-header .material-icons-round { font-size: 15px; }
+.stripe-testcard-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.stripe-testcard-field {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.stripe-testcard-label {
+  font-size: 10px; font-weight: 600; color: #888;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+body.dark-mode .stripe-testcard-label { color: #666; }
+.stripe-testcard-copy {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid rgba(99, 91, 255, 0.3);
+  border-radius: 7px;
+  padding: 6px 9px;
+  cursor: pointer;
+  font-size: 13px; font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: #333;
+  transition: background .12s, border-color .12s;
+  width: 100%;
+  text-align: left;
+}
+body.dark-mode .stripe-testcard-copy {
+  background: rgba(255,255,255,0.07);
+  color: #ddd;
+  border-color: rgba(148, 142, 255, 0.35);
+}
+.stripe-testcard-copy:hover {
+  background: rgba(99, 91, 255, 0.08);
+  border-color: rgba(99, 91, 255, 0.6);
+}
+body.dark-mode .stripe-testcard-copy:hover {
+  background: rgba(148, 142, 255, 0.15);
+}
+.stripe-testcard-copy .material-icons-round {
+  font-size: 14px; color: #635BFF; flex-shrink: 0;
+}
+body.dark-mode .stripe-testcard-copy .material-icons-round { color: #a09bff; }
+.stripe-testcard-copy.copied {
+  border-color: #00A699;
+  background: rgba(0, 166, 153, 0.07);
+}
+.stripe-testcard-copy.copied .material-icons-round { color: #00A699; }
+.stripe-testcard-hint {
+  margin-top: 8px; font-size: 11px; color: #999;
+  display: flex; align-items: center; gap: 4px;
+}
+.stripe-testcard-hint .material-icons-round { font-size: 13px; }
 .stripe-trust {
   margin-top: 12px; display: flex; align-items: center; gap: 8px;
   font-size: 12px; color: #888;

@@ -14939,6 +14939,70 @@ function _openStripePaymentModal(opts) {
     if (stripeData.mode === 'test') {
       var modeBadge = ov.querySelector('#stripeModeBadge');
       if (modeBadge) modeBadge.style.display = 'inline-flex';
+
+      // Admin: Testkarten-Panel über dem Stripe-Element einblenden
+      if (currentUser && currentUser.role === 'Admin' && payEl) {
+        var _tcPanel = document.createElement('div');
+        _tcPanel.className = 'stripe-testcard-panel';
+        _tcPanel.innerHTML =
+          '<div class="stripe-testcard-header">' +
+            '<span class="material-icons-round">science</span>' +
+            'Stripe Testdaten &nbsp;<span class="stripe-admin-badge">admin</span>' +
+          '</div>' +
+          '<div class="stripe-testcard-fields">' +
+            '<div class="stripe-testcard-field">' +
+              '<span class="stripe-testcard-label">Kartennummer</span>' +
+              '<button type="button" class="stripe-testcard-copy" data-val="4242 4242 4242 4242">' +
+                '4242 4242 4242 4242<span class="material-icons-round">content_copy</span>' +
+              '</button>' +
+            '</div>' +
+            '<div class="stripe-testcard-field">' +
+              '<span class="stripe-testcard-label">Ablaufdatum</span>' +
+              '<button type="button" class="stripe-testcard-copy" data-val="12/34">' +
+                '12 / 34<span class="material-icons-round">content_copy</span>' +
+              '</button>' +
+            '</div>' +
+            '<div class="stripe-testcard-field">' +
+              '<span class="stripe-testcard-label">CVC</span>' +
+              '<button type="button" class="stripe-testcard-copy" data-val="123">' +
+                '123<span class="material-icons-round">content_copy</span>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="stripe-testcard-hint">' +
+            '<span class="material-icons-round">touch_app</span>' +
+            'Klicken zum Kopieren, dann in das Stripe-Feld einf\u00fcgen' +
+          '</div>';
+        _tcPanel.querySelectorAll('.stripe-testcard-copy').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var val = btn.dataset.val;
+            var icon = btn.querySelector('.material-icons-round');
+            navigator.clipboard.writeText(val).then(function() {
+              btn.classList.add('copied');
+              if (icon) icon.textContent = 'check';
+              setTimeout(function() {
+                btn.classList.remove('copied');
+                if (icon) icon.textContent = 'content_copy';
+              }, 1800);
+            }).catch(function() {
+              // Fallback: select text
+              var tmp = document.createElement('textarea');
+              tmp.value = val;
+              document.body.appendChild(tmp);
+              tmp.select();
+              document.execCommand('copy');
+              document.body.removeChild(tmp);
+              btn.classList.add('copied');
+              if (icon) icon.textContent = 'check';
+              setTimeout(function() {
+                btn.classList.remove('copied');
+                if (icon) icon.textContent = 'content_copy';
+              }, 1800);
+            });
+          });
+        });
+        payEl.parentNode.insertBefore(_tcPanel, payEl);
+      }
     }
     payBtn.style.display = '';
     var stripe = Stripe(stripeData.publishable_key);
