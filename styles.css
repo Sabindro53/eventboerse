@@ -674,40 +674,31 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   align-items: center;
   justify-content: center;
   gap: 0;
-  width: 92px;
-  min-width: 92px;
-  height: 104px;
-  padding: 8px;
-  border-radius: 30px;
+  width: 88px;
+  min-width: 88px;
+  height: 110px;
+  padding: 0;
+  border-radius: 0;
   color: var(--text);
-  background: linear-gradient(180deg, #fff, #fff7fa);
-  box-shadow: 0 18px 48px rgba(34,34,34,0.22), 0 14px 36px rgba(227,28,95,0.18), 0 2px 0 rgba(255,255,255,0.9) inset;
-  border: 1px solid rgba(255,56,92,0.24);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  transition: transform 0.18s ease, filter 0.18s ease;
   overflow: visible;
+  filter: drop-shadow(0 10px 16px rgba(34,34,34,0.28)) drop-shadow(0 4px 8px rgba(227,28,95,0.28));
 }
-.eb-qa-launcher::before {
-  content: "";
-  position: absolute;
-  inset: 5px;
-  border-radius: 25px;
-  background:
-    radial-gradient(circle at 30% 15%, rgba(255,56,92,0.16), transparent 34%),
-    radial-gradient(circle at 76% 72%, rgba(0,166,153,0.16), transparent 36%);
-  pointer-events: none;
-}
+.eb-qa-launcher::before { content: none; }
 .eb-qa-launcher > span {
   position: relative;
   z-index: 1;
 }
 .eb-qa-launcher:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255,56,92,0.42);
-  box-shadow: 0 24px 60px rgba(34,34,34,0.24), 0 18px 44px rgba(227,28,95,0.24), 0 2px 0 rgba(255,255,255,0.95) inset;
+  transform: translateY(-2px) scale(1.04);
+  filter: drop-shadow(0 14px 22px rgba(34,34,34,0.32)) drop-shadow(0 6px 12px rgba(227,28,95,0.36));
 }
 .eb-qa-launcher-icon {
-  width: 76px;
-  height: 94px;
+  width: 88px;
+  height: 110px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -722,86 +713,132 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .eb-qa-icon-svg circle {
   vector-effect: non-scaling-stroke;
 }
-.eb-qa-icon-svg .qa-body-shape,
+.eb-qa-icon-svg .qa-body-shape {
+  fill: #2A3140;
+  stroke: #0f1117;
+  stroke-width: 2;
+}
+.eb-qa-icon-svg .qa-neck {
+  fill: #4a5263;
+  stroke: #0f1117;
+  stroke-width: 2;
+}
 .eb-qa-icon-svg .qa-earcup {
-  fill: #1a1a1a;
+  fill: #1a1f2b;
+  stroke: #0f1117;
+  stroke-width: 2;
 }
 .eb-qa-icon-svg .qa-head-main {
-  fill: #FFE0CC;
-  stroke: #1a1a1a;
+  fill: #E8ECF3;
+  stroke: #0f1117;
   stroke-width: 3;
 }
+.eb-qa-icon-svg .qa-visor {
+  fill: #0f1117;
+  stroke: #0f1117;
+  stroke-width: 2;
+}
 .eb-qa-icon-svg .qa-eye {
-  fill: #1a1a1a;
+  fill: var(--accent);
+  filter: drop-shadow(0 0 3px rgba(0,226,197,0.9));
 }
-.eb-qa-icon-svg .qa-cheek {
-  fill: #FF7A93;
-  opacity: 0.55;
+.eb-qa-icon-svg .qa-eye-glow {
+  fill: #fff;
 }
-.eb-qa-icon-svg .qa-smile {
-  fill: none;
-  stroke: #1a1a1a;
-  stroke-width: 3.5;
+.eb-qa-icon-svg .qa-mouth {
+  fill: #0f1117;
+  stroke: #0f1117;
+  stroke-width: 2;
+}
+.eb-qa-icon-svg .qa-mouth-line {
+  stroke: #E8ECF3;
+  stroke-width: 1.5;
   stroke-linecap: round;
+}
+.eb-qa-icon-svg .qa-antenna-rod {
+  stroke: #0f1117;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.eb-qa-icon-svg .qa-antenna-tip {
+  fill: var(--primary);
+  stroke: #0f1117;
+  stroke-width: 2;
 }
 .eb-qa-icon-svg .qa-mic-dot {
   fill: var(--primary);
-  stroke: #1a1a1a;
+  stroke: #0f1117;
   stroke-width: 2;
 }
-.eb-qa-icon-svg .qa-headset-band,
 .eb-qa-icon-svg .qa-mic-arm {
   fill: none;
-  stroke: #1a1a1a;
-  stroke-width: 7;
+  stroke: #0f1117;
+  stroke-width: 5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Partyhut: gestreift + Bommel */
 .eb-qa-icon-svg .qa-hat-fill {
   fill: var(--primary);
 }
 .eb-qa-icon-svg--mini .qa-hat-fill {
   fill: #fff;
 }
+.eb-qa-icon-svg .qa-hat-stripe-a {
+  fill: #FFC857;
+}
+.eb-qa-icon-svg .qa-hat-stripe-b {
+  fill: var(--accent);
+}
+.eb-qa-icon-svg--mini .qa-hat-stripe-a { fill: var(--primary); }
+.eb-qa-icon-svg--mini .qa-hat-stripe-b { fill: var(--accent); }
 .eb-qa-icon-svg .qa-hat-stroke {
   fill: none;
-  stroke: #1a1a1a;
-  stroke-width: 3.5;
+  stroke: #0f1117;
+  stroke-width: 3;
   stroke-linejoin: round;
-}
-.eb-qa-icon-svg .qa-hat-brim {
-  fill: none;
-  stroke: #1a1a1a;
-  stroke-width: 3.5;
   stroke-linecap: round;
 }
+.eb-qa-icon-svg .qa-hat-brim {
+  fill: #fff;
+  stroke: #0f1117;
+  stroke-width: 2.5;
+}
+.eb-qa-icon-svg--mini .qa-hat-brim { fill: #fff; }
+.eb-qa-icon-svg .qa-hat-pom {
+  fill: #FFC857;
+  stroke: #0f1117;
+  stroke-width: 2;
+}
+.eb-qa-icon-svg .qa-hat-pom-shadow {
+  fill: rgba(0,0,0,0.18);
+  stroke: none;
+}
+.eb-qa-icon-svg--mini .qa-hat-pom { fill: var(--primary); }
 .eb-qa-icon-svg .qa-spark {
   fill: none;
   stroke: #FFC857;
-  stroke-width: 3.5;
+  stroke-width: 3;
   stroke-linecap: round;
 }
-.eb-qa-icon-svg .qa-hat-dot {
-  stroke: #1a1a1a;
-  stroke-width: 1.5;
+.eb-qa-icon-svg .qa-spark-alt {
+  stroke: var(--accent);
+  stroke-width: 2.5;
 }
-.eb-qa-icon-svg .qa-hat-dot-primary { fill: #fff; }
-.eb-qa-icon-svg .qa-hat-dot-accent  { fill: var(--accent); }
-.eb-qa-icon-svg .qa-hat-dot-light   { fill: #fff; }
 .eb-qa-launcher .qa-body-shape {
-  filter: drop-shadow(0 6px 4px rgba(34,34,34,0.12));
+  filter: none;
 }
 .eb-qa-status {
   position: absolute;
-  right: 12px;
-  top: 12px;
+  right: 6px;
+  bottom: 6px;
   z-index: 2;
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #00E2C5;
   border: 2px solid #fff;
-  box-shadow: 0 0 0 5px rgba(0,166,153,0.2);
+  box-shadow: 0 0 0 3px rgba(0,166,153,0.25), 0 2px 6px rgba(0,0,0,0.25);
 }
 .eb-qa-panel {
   width: min(370px, calc(100vw - 24px));
@@ -993,15 +1030,18 @@ body.dark-mode .eb-qa-action {
     bottom: calc(var(--mobile-nav-height) + 12px + env(safe-area-inset-bottom, 0px));
   }
   .eb-qa-launcher {
-    min-width: 76px;
-    width: 76px;
-    height: 88px;
-    padding: 8px;
-    border-radius: 24px;
+    min-width: 72px;
+    width: 72px;
+    height: 92px;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    border: 0;
     justify-content: center;
   }
-  .eb-qa-launcher::before { border-radius: 20px; }
-  .eb-qa-launcher-icon { width: 62px; height: 78px; }
+  .eb-qa-launcher::before { content: none; }
+  .eb-qa-launcher-icon { width: 72px; height: 92px; }
   .eb-qa-panel {
     width: calc(100vw - 24px);
     max-height: calc(100vh - var(--nav-height) - var(--mobile-nav-height) - 34px);

@@ -380,35 +380,49 @@ $asset_ver = '2.5.1'; // cache-bust;
       <div class="eb-qa-head">
         <div class="eb-qa-head-avatar" aria-hidden="true">
           <svg class="eb-qa-icon-svg eb-qa-icon-svg--mini" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
-            <!-- Headset band (hinter Kopf) -->
-            <path class="qa-headset-band" d="M28 90 C 28 52, 92 52, 92 90"/>
+            <!-- Funkeln um Hut-Spitze -->
+            <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
+            <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
+            <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
+            <!-- Partyhut mit Streifen + Bommel -->
+            <g class="qa-hat-group">
+              <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
+              <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
+              <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
+              <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
+              <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
+              <!-- Bommel -->
+              <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
+              <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
+            </g>
+            <!-- Antenne -->
+            <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
+            <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
+            <!-- Hals -->
+            <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
             <!-- Schultern -->
-            <path class="qa-body-shape" d="M6 150c4-24 26-34 54-34s50 10 54 34Z"/>
-            <!-- Gesicht -->
-            <circle class="qa-head-main" cx="60" cy="92" r="32"/>
-            <!-- Augen -->
-            <circle class="qa-eye" cx="50" cy="88" r="3.2"/>
-            <circle class="qa-eye" cx="70" cy="88" r="3.2"/>
-            <!-- Wangen -->
-            <circle class="qa-cheek" cx="44" cy="100" r="3.5"/>
-            <circle class="qa-cheek" cx="76" cy="100" r="3.5"/>
-            <!-- Lächeln -->
-            <path class="qa-smile" d="M50 104 Q60 112 70 104"/>
-            <!-- Earcups -->
-            <rect class="qa-earcup" x="20" y="82" width="16" height="26" rx="8"/>
-            <rect class="qa-earcup" x="84" y="82" width="16" height="26" rx="8"/>
+            <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
+            <!-- Earcups (Headset) -->
+            <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
+            <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
+            <!-- Roboter-Kopf (gerundetes Rechteck) -->
+            <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
+            <!-- Display-Visier -->
+            <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
+            <!-- LED-Augen -->
+            <circle class="qa-eye" cx="54" cy="90" r="4"/>
+            <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
+            <circle class="qa-eye" cx="76" cy="90" r="4"/>
+            <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
+            <!-- Mund: Speaker-Grille -->
+            <rect class="qa-mouth" x="50" y="108" width="30" height="8" rx="3"/>
+            <line class="qa-mouth-line" x1="56" y1="108" x2="56" y2="116"/>
+            <line class="qa-mouth-line" x1="62" y1="108" x2="62" y2="116"/>
+            <line class="qa-mouth-line" x1="68" y1="108" x2="68" y2="116"/>
+            <line class="qa-mouth-line" x1="74" y1="108" x2="74" y2="116"/>
             <!-- Mikro-Arm + Kugel -->
-            <path class="qa-mic-arm" d="M92 108 Q 98 130, 78 134"/>
-            <circle class="qa-mic-dot" cx="72" cy="136" r="5.5"/>
-            <!-- Partyhut -->
-            <path class="qa-hat-fill"   d="M32 56 L70 12 L90 56 Z"/>
-            <path class="qa-hat-stroke" d="M32 56 L70 12 L90 56 Z"/>
-            <path class="qa-hat-brim"   d="M30 58 Q60 66 92 58"/>
-            <circle class="qa-hat-dot qa-hat-dot-light"  cx="56" cy="34" r="3"/>
-            <circle class="qa-hat-dot qa-hat-dot-accent" cx="70" cy="48" r="3"/>
-            <circle class="qa-hat-dot qa-hat-dot-light"  cx="48" cy="48" r="2.5"/>
-            <!-- Funkeln -->
-            <path class="qa-spark" d="M70 6 v-4 M64 4 l6 2 M76 4 l-6 2"/>
+            <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
+            <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
           </svg>
         </div>
         <div>
@@ -436,35 +450,49 @@ $asset_ver = '2.5.1'; // cache-bust;
     <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse QA-Support">
       <span class="eb-qa-launcher-icon" aria-hidden="true">
         <svg class="eb-qa-icon-svg" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
-          <!-- Headset band (hinter Kopf) -->
-          <path class="qa-headset-band" d="M28 90 C 28 52, 92 52, 92 90"/>
+          <!-- Funkeln um Hut -->
+          <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
+          <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
+          <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
+          <!-- Partyhut mit Streifen + Bommel -->
+          <g class="qa-hat-group">
+            <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
+            <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
+            <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
+            <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
+            <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
+            <!-- Bommel -->
+            <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
+            <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
+          </g>
+          <!-- Antenne -->
+          <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
+          <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
+          <!-- Hals -->
+          <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
           <!-- Schultern -->
-          <path class="qa-body-shape" d="M6 150c4-24 26-34 54-34s50 10 54 34Z"/>
-          <!-- Gesicht -->
-          <circle class="qa-head-main" cx="60" cy="92" r="32"/>
-          <!-- Augen -->
-          <circle class="qa-eye" cx="50" cy="88" r="3.2"/>
-          <circle class="qa-eye" cx="70" cy="88" r="3.2"/>
-          <!-- Wangen -->
-          <circle class="qa-cheek" cx="44" cy="100" r="3.5"/>
-          <circle class="qa-cheek" cx="76" cy="100" r="3.5"/>
-          <!-- Lächeln -->
-          <path class="qa-smile" d="M50 104 Q60 112 70 104"/>
-          <!-- Earcups -->
-          <rect class="qa-earcup" x="20" y="82" width="16" height="26" rx="8"/>
-          <rect class="qa-earcup" x="84" y="82" width="16" height="26" rx="8"/>
+          <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
+          <!-- Earcups (Headset) -->
+          <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
+          <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
+          <!-- Roboter-Kopf (gerundetes Rechteck) -->
+          <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
+          <!-- Display-Visier -->
+          <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
+          <!-- LED-Augen -->
+          <circle class="qa-eye" cx="54" cy="90" r="4"/>
+          <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
+          <circle class="qa-eye" cx="76" cy="90" r="4"/>
+          <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
+          <!-- Mund: Speaker-Grille -->
+          <rect class="qa-mouth" x="50" y="108" width="30" height="8" rx="3"/>
+          <line class="qa-mouth-line" x1="56" y1="108" x2="56" y2="116"/>
+          <line class="qa-mouth-line" x1="62" y1="108" x2="62" y2="116"/>
+          <line class="qa-mouth-line" x1="68" y1="108" x2="68" y2="116"/>
+          <line class="qa-mouth-line" x1="74" y1="108" x2="74" y2="116"/>
           <!-- Mikro-Arm + Kugel -->
-          <path class="qa-mic-arm" d="M92 108 Q 98 130, 78 134"/>
-          <circle class="qa-mic-dot" cx="72" cy="136" r="5.5"/>
-          <!-- Partyhut -->
-          <path class="qa-hat-fill"   d="M32 56 L70 12 L90 56 Z"/>
-          <path class="qa-hat-stroke" d="M32 56 L70 12 L90 56 Z"/>
-          <path class="qa-hat-brim"   d="M30 58 Q60 66 92 58"/>
-          <circle class="qa-hat-dot qa-hat-dot-light"  cx="56" cy="34" r="3"/>
-          <circle class="qa-hat-dot qa-hat-dot-accent" cx="70" cy="48" r="3"/>
-          <circle class="qa-hat-dot qa-hat-dot-light"  cx="48" cy="48" r="2.5"/>
-          <!-- Funkeln -->
-          <path class="qa-spark" d="M70 6 v-4 M64 4 l6 2 M76 4 l-6 2"/>
+          <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
+          <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
         </svg>
       </span>
       <span class="eb-qa-status" aria-hidden="true"></span>
