@@ -12695,6 +12695,7 @@ function confirmAuftragProvider(projectId, cardId) {
   }
   _saveBoardProjects();
   renderAuftraegePage();
+  _refreshBoardPageIfActive();
 }
 
 /** Provider confirms a remote booking (from another user's board) */
@@ -12707,6 +12708,7 @@ function confirmAuftragRemote(customerId, projectId, cardId) {
       if (!res.ok) { showToast((res.data && res.data.error) || 'Fehler beim Best\u00e4tigen.', 'error'); return; }
       showToast('Best\u00e4tigung gespeichert. Der Kunde wird beim n\u00e4chsten Sync informiert.', 'hourglass_top');
       renderAuftraegePage();
+      _refreshBoardPageIfActive();
     }).catch(function(){ showToast('Netzwerkfehler.', 'error'); });
 }
 
@@ -12736,7 +12738,16 @@ function acceptAuftragRemote(customerId, projectId, cardId) {
       if (!res.ok) { showToast((res.data && res.data.error) || 'Fehler beim Annehmen.', 'error'); return; }
       showToast('Auftrag angenommen' + (priceNum > 0 ? ' – Auszahlung ' + _formatEuro(payout.netPayoutAmount) : '') + '.', 'paid');
       renderAuftraegePage();
+      _refreshBoardPageIfActive();
     }).catch(function(){ showToast('Netzwerkfehler.', 'error'); });
+}
+
+/** Re-renders /board if it is the currently active page (project overview only). */
+function _refreshBoardPageIfActive() {
+  var pageBoard = document.getElementById('page-board');
+  if (!pageBoard || !pageBoard.classList.contains('active')) return;
+  if (_activeBoardId) return; // inside a specific board view – don't disturb
+  renderBoardPage();
 }
 
 /**
@@ -12779,6 +12790,7 @@ function acceptAuftragProvider(projectId, cardId) {
   _saveBoardProjects({ immediate: true });
   showToast('Auftrag angenommen – Auszahlung ' + _formatEuro(payout.netPayoutAmount) + '.', 'paid');
   renderAuftraegePage();
+  _refreshBoardPageIfActive();
 }
 
 function renderBoardPage() {
@@ -12799,22 +12811,89 @@ function renderBoardPage() {
   _updateBoardSyncIndicator();
 
   if (!currentUser) { _boardProjects = []; }
-  if (_boardProjects.length === 0) {
+
+  var isProvider = isDienstleister();
+
+  // Not logged in: keep classic empty state (no Auftragsboard either).
+  if (!currentUser) {
+    projectsEl.classList.remove('board-projects--sectioned');
     projectsEl.innerHTML = `
       <div class="board-empty-state">
         <span class="material-icons-round">view_kanban</span>
         <h3>Noch kein Event-Projekt</h3>
-        <p>${!currentUser ? 'Melde dich an, um dein Planungs-Board zu nutzen und Dienstleister für dein Event zu organisieren.' : 'Erstelle dein erstes Planungs-Board und organisiere alle Dienstleister für dein Event.'}</p>
-        ${currentUser ? `<button class="btn-primary board-new-btn" onclick="openCreateBoardModal()">
-          <span class="material-icons-round">add</span> Erstes Projekt erstellen
-        </button>` : `<button class="btn-primary board-new-btn" onclick="openModal('loginModal')">
+        <p>Melde dich an, um dein Planungs-Board zu nutzen und Dienstleister für dein Event zu organisieren.</p>
+        <button class="btn-primary board-new-btn" onclick="openModal('loginModal')">
           <span class="material-icons-round">login</span> Jetzt anmelden
-        </button>`}
+        </button>
       </div>`;
     return;
   }
 
-  projectsEl.innerHTML = _boardProjects.map(function(p) {
+  // Non-Dienstleister without own projects: classic empty state.
+  if (!isProvider && _boardProjects.length === 0) {
+    projectsEl.classList.remove('board-projects--sectioned');
+    projectsEl.innerHTML = `
+      <div class="board-empty-state">
+        <span class="material-icons-round">view_kanban</span>
+        <h3>Noch kein Event-Projekt</h3>
+        <p>Erstelle dein erstes Planungs-Board und organisiere alle Dienstleister für dein Event.</p>
+        <button class="btn-primary board-new-btn" onclick="openCreateBoardModal()">
+          <span class="material-icons-round">add</span> Erstes Projekt erstellen
+        </button>
+      </div>`;
+    return;
+  }
+
+  // Sectioned layout: "Eigene Projekte" + (for providers) "Auftragsboard".
+  projectsEl.classList.add('board-projects--sectioned');
+  projectsEl.innerHTML =
+    _renderOwnProjectsSectionHtml(_boardProjects) +
+    (isProvider ? _renderAuftragsboardSectionHtml({ state: 'loading', jobs: [] }) : '');
+
+  _initAnimatedEntries();
+
+  if (isProvider) {
+    _loadBoardAuftragsboard();
+  }
+}
+
+/**
+ * Builds the "Eigene Projekte" section: heading + grid of project cards
+ * or an inline empty state. Pure HTML – safe to inject inside #boardProjects.
+ */
+function _renderOwnProjectsSectionHtml(projects) {
+  var headerHtml =
+    '<div class="board-section-header">' +
+      '<div class="board-section-header-text">' +
+        '<h2><span class="material-icons-round">view_kanban</span> Eigene Projekte</h2>' +
+        '<p>Deine Event-Projekte – plane, kontaktiere &amp; buche Dienstleister.</p>' +
+      '</div>' +
+      (currentUser ? '<button class="btn-outline board-section-action" onclick="openCreateBoardModal()">' +
+        '<span class="material-icons-round">add</span> Neues Projekt' +
+      '</button>' : '') +
+    '</div>';
+
+  if (!projects || projects.length === 0) {
+    return '<section class="board-section" id="boardOwnSection">' +
+      headerHtml +
+      '<div class="board-section-empty">' +
+        '<span class="material-icons-round">view_kanban</span>' +
+        '<p>Noch kein Event-Projekt angelegt.</p>' +
+        '<button class="btn-primary board-new-btn" onclick="openCreateBoardModal()">' +
+          '<span class="material-icons-round">add</span> Erstes Projekt erstellen' +
+        '</button>' +
+      '</div>' +
+    '</section>';
+  }
+
+  var cardsHtml = projects.map(_renderOwnProjectCardHtml).join('');
+  return '<section class="board-section" id="boardOwnSection">' +
+    headerHtml +
+    '<div class="board-section-grid">' + cardsHtml + '</div>' +
+  '</section>';
+}
+
+function _renderOwnProjectCardHtml(p) {
     var total = (p.cards || []).length;
     var confirmed = (p.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; }).length;
     var budgetSum = (p.cards || []).reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
@@ -12881,8 +12960,238 @@ function renderBoardPage() {
           <span class="bpf-count" style="color:var(--accent)"><span class="material-icons-round">check_circle</span>${confirmed} Best.</span>
         </div>
       </div>`;
-  }).join('');
-  _initAnimatedEntries();
+}
+
+/* ─── Auftragsboard (Dienstleister-Sicht auf /board) ─────── */
+
+/**
+ * Sammelt lokale Board-Karten, bei denen der aktuelle User der
+ * Provider ist. Nur Karten ab Buchung (angebot/bestaetigt/abgeschlossen)
+ * werden als "Auftrag" gewertet.
+ */
+function _collectLocalAuftragsboardJobs() {
+  var myId = currentUser && currentUser.id;
+  var jobs = [];
+  if (!myId) return jobs;
+  var relevantStages = { angebot:1, bestaetigt:1, abgeschlossen:1 };
+  (_boardProjects || []).forEach(function(proj){
+    (proj.cards || []).forEach(function(card){
+      var l = card.listingId ? (LISTINGS || []).find(function(x){ return x.id === card.listingId; }) : null;
+      var providerId = (l && l.providerId) || card.providerId;
+      if (!providerId || providerId !== myId) return;
+      var stage = card.stage || 'geplant';
+      if (!relevantStages[stage] && !card.bookedAt && !card.providerAcceptedAt) return;
+      jobs.push({ card: card, project: proj, listing: l, remote: false });
+    });
+  });
+  return jobs;
+}
+
+/**
+ * Lädt Auftragsboard-Daten (lokal + remote) und rendert die Sektion neu.
+ * Wird ausschließlich aus renderBoardPage() heraus aufgerufen, wenn der
+ * aktuelle Nutzer Dienstleister ist.
+ */
+function _loadBoardAuftragsboard() {
+  var localJobs = _collectLocalAuftragsboardJobs();
+  if (!currentUser) {
+    _updateBoardAuftragsboardSection({ state: 'ready', jobs: localJobs });
+    return;
+  }
+  fetch(_apiUrl('board-bookings'), {
+    method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
+  }).then(function(r){ return r.json(); }).then(function(data){
+    var remote = (data && data.bookings) || [];
+    var jobs = localJobs.slice();
+    remote.forEach(function(b){
+      var already = jobs.some(function(j){ return j.card && b.card && j.card.id === b.card.id; });
+      if (already) return;
+      var l = (b.card && b.card.listingId) ? (LISTINGS || []).find(function(x){ return x.id === b.card.listingId; }) : null;
+      jobs.push({
+        card: b.card,
+        project: { id: b.project_id, name: b.project_name, date: b.project_date },
+        listing: l,
+        remote: true,
+        customerId: b.customer_id,
+        customerName: b.customer_name
+      });
+    });
+    _updateBoardAuftragsboardSection({ state: 'ready', jobs: jobs });
+  }).catch(function(){
+    _updateBoardAuftragsboardSection({ state: 'ready', jobs: localJobs });
+  });
+}
+
+/** Tauscht die Auftragsboard-Sektion in-place aus (ohne komplettes Re-Render). */
+function _updateBoardAuftragsboardSection(state) {
+  var sec = document.getElementById('boardAuftragsboardSection');
+  if (!sec) return;
+  var tmp = document.createElement('div');
+  tmp.innerHTML = _renderAuftragsboardSectionHtml(state);
+  if (tmp.firstElementChild) sec.replaceWith(tmp.firstElementChild);
+}
+
+/**
+ * Rendert die "Auftragsboard"-Sektion.
+ * state = { state:'loading'|'ready', jobs:[...] }
+ */
+function _renderAuftragsboardSectionHtml(state) {
+  var jobs = (state && state.jobs) || [];
+  // Gruppiere Jobs pro Projekt für bessere Übersicht.
+  var groups = {};
+  var order = [];
+  jobs.forEach(function(j){
+    var key = (j.remote ? 'r' : 'l') + ':' + (j.project && j.project.id ? j.project.id : '_');
+    if (!groups[key]) {
+      groups[key] = { project: j.project, customerName: j.customerName, remote: !!j.remote, jobs: [] };
+      order.push(key);
+    }
+    groups[key].jobs.push(j);
+  });
+  // Sortierung: nach Event-Datum aufsteigend, undatierte ans Ende.
+  order.sort(function(a, b){
+    var da = _parseDateDe((groups[a].project && groups[a].project.date) || '') || Number.MAX_SAFE_INTEGER;
+    var db = _parseDateDe((groups[b].project && groups[b].project.date) || '') || Number.MAX_SAFE_INTEGER;
+    return da - db;
+  });
+
+  var pendingCount = jobs.filter(function(j){ return (j.card.stage === 'angebot') && !j.card.providerAcceptedAt; }).length;
+  var openCount    = jobs.filter(function(j){ return j.card.stage === 'bestaetigt' && !j.card.providerConfirmedAt; }).length;
+  var doneCount    = jobs.filter(function(j){ return j.card.stage === 'abgeschlossen'; }).length;
+
+  var headerHtml =
+    '<div class="board-section-header">' +
+      '<div class="board-section-header-text">' +
+        '<h2><span class="material-icons-round">assignment</span> Auftragsboard</h2>' +
+        '<p>Dienstleistungen, die du erbringen musst – sortiert nach Event-Datum.</p>' +
+      '</div>' +
+      '<div class="board-section-stats">' +
+        (pendingCount ? '<span class="board-section-stat pending"><span class="material-icons-round">hourglass_bottom</span>' + pendingCount + ' zu best&auml;tigen</span>' : '') +
+        (openCount    ? '<span class="board-section-stat open"><span class="material-icons-round">event_available</span>' + openCount + ' offen</span>' : '') +
+        (doneCount    ? '<span class="board-section-stat done"><span class="material-icons-round">verified</span>' + doneCount + ' erf&uuml;llt</span>' : '') +
+      '</div>' +
+    '</div>';
+
+  if (state && state.state === 'loading') {
+    return '<section class="board-section board-section--auftraege" id="boardAuftragsboardSection">' +
+      headerHtml +
+      '<div class="board-section-loading"><span class="material-icons-round">refresh</span> Lade Auftr&auml;ge&hellip;</div>' +
+    '</section>';
+  }
+  if (!jobs.length) {
+    return '<section class="board-section board-section--auftraege" id="boardAuftragsboardSection">' +
+      headerHtml +
+      '<div class="board-section-empty">' +
+        '<span class="material-icons-round">inbox</span>' +
+        '<p>Noch keine bezahlten Auftr&auml;ge. Sobald dich ein Kunde verbindlich bucht, erscheint sein Board hier.</p>' +
+      '</div>' +
+    '</section>';
+  }
+
+  var groupsHtml = order.map(function(key){ return _renderAuftragsboardGroupHtml(groups[key]); }).join('');
+  return '<section class="board-section board-section--auftraege" id="boardAuftragsboardSection">' +
+    headerHtml +
+    '<div class="board-auftrag-groups">' + groupsHtml + '</div>' +
+  '</section>';
+}
+
+/** Eine Projekt-Gruppe innerhalb des Auftragsboards. */
+function _renderAuftragsboardGroupHtml(g) {
+  var esc = _escHtml;
+  var projName = (g.project && g.project.name) || 'Event';
+  var projDate = g.project && g.project.date ? _formatDateDe(g.project.date) : '';
+  var countdownHtml = '';
+  if (g.project && g.project.date) {
+    var ms = _parseDateDe(g.project.date);
+    if (ms) {
+      var daysLeft = Math.ceil((ms - Date.now()) / 86400000);
+      var cdClass = daysLeft < 0 ? 'bpc-countdown past' : daysLeft <= 14 ? 'bpc-countdown urgent' : 'bpc-countdown';
+      var cdLabel = daysLeft < 0 ? 'vor ' + Math.abs(daysLeft) + ' Tagen' : daysLeft === 0 ? 'Heute!' : 'in ' + daysLeft + ' Tagen';
+      countdownHtml = '<span class="' + cdClass + '">' + cdLabel + '</span>';
+    }
+  }
+  var customerHtml = g.customerName
+    ? '<span class="board-auftrag-customer"><span class="material-icons-round">person</span>' + esc(g.customerName) + '</span>'
+    : '<span class="board-auftrag-customer board-auftrag-customer--self"><span class="material-icons-round">edit_note</span>Aus eigenem Projekt</span>';
+
+  var cardsHtml = g.jobs.map(function(j){ return _renderAuftragsboardCardHtml(j); }).join('');
+  return '<div class="board-auftrag-group">' +
+    '<div class="board-auftrag-group-header">' +
+      '<div class="board-auftrag-group-title">' +
+        '<h3>' + esc(projName) + '</h3>' +
+        (projDate ? '<span class="board-auftrag-date"><span class="material-icons-round">event</span>' + esc(projDate) + '</span>' : '') +
+        countdownHtml +
+      '</div>' +
+      customerHtml +
+    '</div>' +
+    '<div class="board-auftrag-cards">' + cardsHtml + '</div>' +
+  '</div>';
+}
+
+/** Eine einzelne Auftragskarte (= eine zu erbringende Dienstleistung). */
+function _renderAuftragsboardCardHtml(j) {
+  var esc = _escHtml;
+  var c = j.card, p = j.project, l = j.listing;
+  var stage = c.stage || 'geplant';
+  var stageLabels = { angebot:'Gebucht', bestaetigt:'Bezahlt', abgeschlossen:'Erf\u00fcllt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
+  var stageColors = { angebot:'#AB47BC', bestaetigt:'#00A699', abgeschlossen:'#FF385C', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
+  var color = stageColors[stage] || '#9E9E9E';
+  var priceNum = parseFloat(c.price) || 0;
+  var priceStr = priceNum ? priceNum.toFixed(2).replace(/\.00$/, '') + ' \u20ac' : '\u2014';
+  var serviceTitle = (l && l.title) || c.listingTitle || c.name || 'Auftrag';
+  var category = (l && (l.categoryLabel || l.category)) || c.category || '';
+  var canAccept = stage === 'angebot' && !c.providerAcceptedAt;
+  var canConfirm = stage === 'bestaetigt' && !c.providerConfirmedAt;
+  var alreadyConfirmed = !!c.providerConfirmedAt && stage !== 'abgeschlossen';
+  var isRemote = !!j.remote;
+
+  var actionHtml = '';
+  if (canAccept) {
+    var acceptFn = isRemote
+      ? "acceptAuftragRemote('" + esc(String(j.customerId || '')) + "','" + esc(p.id) + "','" + esc(c.id) + "')"
+      : "acceptAuftragProvider('" + esc(p.id) + "','" + esc(c.id) + "')";
+    actionHtml = _payoutBreakdownHtml(priceNum) +
+      '<button class="btn-primary board-auftrag-btn board-auftrag-btn--accept" onclick="' + acceptFn + '">' +
+        '<span class="material-icons-round">check_circle</span> Auftrag annehmen' +
+      '</button>';
+  } else if (canConfirm) {
+    var confirmFn = isRemote
+      ? "confirmAuftragRemote('" + esc(String(j.customerId || '')) + "','" + esc(p.id) + "','" + esc(c.id) + "')"
+      : "confirmAuftragProvider('" + esc(p.id) + "','" + esc(c.id) + "')";
+    actionHtml = '<button class="btn-primary board-auftrag-btn" onclick="' + confirmFn + '">' +
+      '<span class="material-icons-round">verified</span> Erbringung best&auml;tigen' +
+    '</button>';
+  } else if (alreadyConfirmed) {
+    actionHtml = '<div class="board-auftrag-status board-auftrag-status--waiting">' +
+      '<span class="material-icons-round">hourglass_top</span> Wartet auf Kunden-Best&auml;tigung' +
+    '</div>';
+  } else if (stage === 'abgeschlossen') {
+    actionHtml = '<div class="board-auftrag-status board-auftrag-status--done">' +
+      '<span class="material-icons-round">verified</span> Auftrag erf&uuml;llt' +
+    '</div>';
+  } else {
+    actionHtml = '<div class="board-auftrag-status">Warten auf n&auml;chsten Schritt</div>';
+  }
+
+  var payoutNetto = (typeof c.netPayoutAmount === 'number' && c.netPayoutAmount > 0)
+    ? c.netPayoutAmount
+    : (priceNum ? (priceNum * 0.97) : 0);
+  var payoutHtml = priceNum
+    ? '<div class="board-auftrag-payout"><span class="material-icons-round">payments</span>Auszahlung ca. <strong>' + esc(payoutNetto.toFixed(2).replace(/\.00$/, '') + ' \u20ac') + '</strong></div>'
+    : '';
+
+  return '<div class="board-auftrag-card">' +
+    '<div class="board-auftrag-card-head" style="background:' + color + '">' +
+      '<span class="board-auftrag-stage">' + esc(stageLabels[stage] || stage) + '</span>' +
+      '<span class="board-auftrag-price">' + esc(priceStr) + '</span>' +
+    '</div>' +
+    '<div class="board-auftrag-card-body">' +
+      '<div class="board-auftrag-service">' + esc(serviceTitle) + '</div>' +
+      (category ? '<div class="board-auftrag-cat">' + esc(category) + '</div>' : '') +
+      payoutHtml +
+      actionHtml +
+    '</div>' +
+  '</div>';
 }
 
 function _sendProjectCancellation(providerId, listingId, listingTitle, project, cancelText) {
