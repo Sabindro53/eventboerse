@@ -829,11 +829,13 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .ai-hero-bg { position: absolute; inset: 0; pointer-events: none; }
 
-/* ── Asymmetric party-popper accents in the hero ──
-   5 poppers scattered (not just corners). Each one performs a real
-   "plopp": hidden → tiny anticipation squash → strong burst outward
-   with rotation + translate → 2 small bounces → calm hold → fade.
-   Staggered delays so usually only one is mid-pop at a time. */
+/* ── Real party-poppers (SVG): cone pops first, then streamers burst ──
+   Each .ai-popper has two <g> groups: .ai-popper-cone (triangle) and
+   .ai-popper-burst (streamers + confetti). They animate separately:
+     1) cone scales in with squash → stretch → settle
+     2) burst then bursts out of the cone mouth and fades
+   The wrapper handles overall fade in/out + a small directional shoot
+   so the whole popper looks like it was launched. */
 .ai-hero-poppers {
   position: absolute;
   inset: 0;
@@ -843,50 +845,44 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .ai-popper {
   position: absolute;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
+  width: var(--pp-size, 32px);
+  height: var(--pp-size, 32px);
   color: var(--primary);
   filter: drop-shadow(0 4px 12px rgba(255, 56, 92, 0.3));
   opacity: 0;
-  transform-origin: center center;
   will-change: transform, opacity;
-  animation-name: aiPopperPlop;
+  animation-name: aiPopperShoot;
   animation-duration: 9s;
   animation-iteration-count: infinite;
-  animation-timing-function: cubic-bezier(.18, .9, .32, 1.25);
+  animation-timing-function: cubic-bezier(.2, .9, .3, 1.2);
 }
-.ai-popper .material-icons-round {
-  font-size: var(--pp-size, 32px);
-  line-height: 1;
+.ai-popper-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
 }
-.ai-popper::before,
-.ai-popper::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  opacity: 0;
-  animation: aiPopperConfetti 9s ease-out infinite;
+.ai-popper-cone {
+  transform-box: fill-box;
+  transform-origin: 15% 85%;
+  will-change: transform, opacity;
+  animation-name: aiPopperCone;
+  animation-duration: 9s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(.2, .9, .3, 1.4);
   animation-delay: inherit;
 }
-.ai-popper::before {
-  width: 5px; height: 5px;
-  background: var(--primary);
-  top: 12%; left: 78%;
-  box-shadow:
-    12px -4px 0 -1px #a855f7,
-    22px 6px 0 -2px #00A699,
-    -2px 16px 0 -1px #FFB400;
-}
-.ai-popper::after {
-  width: 4px; height: 4px;
-  background: #00A699;
-  bottom: 18%; right: 72%;
-  box-shadow:
-    -10px -2px 0 -1px #FFB400,
-    -18px 8px 0 -2px #a855f7,
-    4px -14px 0 -1px #FF385C;
+.ai-popper-burst {
+  transform-box: fill-box;
+  transform-origin: 30% 30%;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-name: aiPopperBurst;
+  animation-duration: 9s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(.15, .95, .35, 1.25);
+  animation-delay: inherit;
 }
 
 /* Asymmetric positions — scattered around the hero */
@@ -944,90 +940,82 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   animation-delay: 7.2s;
 }
 
-@keyframes aiPopperPlop {
-  /* Hidden between pops */
-  0%, 6% {
+/* Wrapper: hidden between pops, brief anticipation, then shoots outward */
+@keyframes aiPopperShoot {
+  0%, 5% {
     opacity: 0;
     transform:
       translate(0, 0)
       rotate(var(--pp-rot, 0deg))
-      scaleX(var(--pp-flip, 1))
-      scale(0.3);
+      scaleX(var(--pp-flip, 1));
   }
-  /* Tiny anticipation — squash inward */
-  10% {
-    opacity: 0.85;
-    transform:
-      translate(calc(var(--pp-shoot-x, 0px) * -0.25), calc(var(--pp-shoot-y, 0px) * -0.25))
-      rotate(calc(var(--pp-rot, 0deg) - var(--pp-spin, 0deg) * 0.5))
-      scaleX(var(--pp-flip, 1))
-      scale(0.7);
-  }
-  /* THE POP — shoot outward big, slight overshoot */
-  16% {
+  /* Anticipation — recoil slightly inward */
+  9% {
     opacity: 1;
     transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 1.5), calc(var(--pp-shoot-y, 0px) * 1.5))
+      translate(calc(var(--pp-shoot-x, 0px) * -0.25), calc(var(--pp-shoot-y, 0px) * -0.25))
+      rotate(var(--pp-rot, 0deg))
+      scaleX(var(--pp-flip, 1));
+  }
+  /* THE shot — overshoot with spin */
+  14% {
+    opacity: 1;
+    transform:
+      translate(calc(var(--pp-shoot-x, 0px) * 1.4), calc(var(--pp-shoot-y, 0px) * 1.4))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg)))
-      scaleX(var(--pp-flip, 1))
-      scale(1.3);
+      scaleX(var(--pp-flip, 1));
   }
-  /* First settle */
-  22% {
-    transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 0.95), calc(var(--pp-shoot-y, 0px) * 0.95))
-      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.3))
-      scaleX(var(--pp-flip, 1))
-      scale(0.94);
-  }
-  /* Small second bounce */
-  28% {
-    transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 1.1), calc(var(--pp-shoot-y, 0px) * 1.1))
-      rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.55))
-      scaleX(var(--pp-flip, 1))
-      scale(1.04);
-  }
-  34% {
+  /* Settle */
+  20% {
     transform:
       translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
-      scaleX(var(--pp-flip, 1))
-      scale(1);
+      scaleX(var(--pp-flip, 1));
   }
-  /* Calm hold */
   55% {
-    opacity: 0.6;
+    opacity: 0.95;
     transform:
       translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
-      scaleX(var(--pp-flip, 1))
-      scale(1);
+      scaleX(var(--pp-flip, 1));
   }
-  /* Fade out */
   72% {
     opacity: 0;
     transform:
       translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
-      scaleX(var(--pp-flip, 1))
-      scale(0.95);
+      scaleX(var(--pp-flip, 1));
   }
   100% {
     opacity: 0;
     transform:
       translate(0, 0)
       rotate(var(--pp-rot, 0deg))
-      scaleX(var(--pp-flip, 1))
-      scale(0.3);
+      scaleX(var(--pp-flip, 1));
   }
 }
-@keyframes aiPopperConfetti {
-  0%, 10%  { opacity: 0; transform: scale(0.3); }
-  16% { opacity: 0.95; transform: scale(0.85); }
-  24% { opacity: 0.6; transform: scale(1.2); }
-  36% { opacity: 0; transform: scale(1.55); }
-  100% { opacity: 0; transform: scale(1.55); }
+
+/* Cone: pops in FIRST with squash → stretch → settle, holds, fades */
+@keyframes aiPopperCone {
+  0%, 5%   { opacity: 0; transform: scale(0); }
+  9%       { opacity: 1; transform: scale(1.35, 0.65); }   /* horizontal squash */
+  11%      { transform: scale(0.85, 1.18); }               /* vertical stretch */
+  14%      { transform: scale(1.08, 0.94); }
+  17%      { transform: scale(1); }
+  55%      { opacity: 1; transform: scale(1); }
+  72%      { opacity: 0; transform: scale(1); }
+  100%     { opacity: 0; transform: scale(0); }
+}
+
+/* Burst: streamers + confetti appear AFTER cone, burst outward from the mouth */
+@keyframes aiPopperBurst {
+  0%, 13%  { opacity: 0; transform: scale(0); }
+  17%      { opacity: 1; transform: scale(0.45); }
+  22%      { opacity: 1; transform: scale(1.25); }
+  26%      { opacity: 1; transform: scale(1); }
+  55%      { opacity: 1; transform: scale(1); }
+  72%      { opacity: 0; transform: scale(1.05); }
+  100%     { opacity: 0; transform: scale(1.05); }
 }
 .ai-bg-orb {
   position: absolute;

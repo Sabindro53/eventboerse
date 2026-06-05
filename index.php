@@ -749,11 +749,91 @@ $asset_ver = '2.4.8'; // cache-bust;
           <div class="ai-bg-orb orb-3"></div>
         </div>
         <div class="ai-hero-poppers" aria-hidden="true">
-          <span class="ai-popper pop-1"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-2"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-3"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-4"><span class="material-icons-round">celebration</span></span>
-          <span class="ai-popper pop-5"><span class="material-icons-round">celebration</span></span>
+          <span class="ai-popper pop-1">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+              </g>
+              <g class="ai-popper-burst">
+                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
+                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
+                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
+                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-2">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+              </g>
+              <g class="ai-popper-burst">
+                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
+                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
+                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
+                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-3">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+              </g>
+              <g class="ai-popper-burst">
+                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
+                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
+                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
+                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-4">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+              </g>
+              <g class="ai-popper-burst">
+                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
+                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
+                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
+                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-5">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M14 86 L62 18 L78 42 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+              </g>
+              <g class="ai-popper-burst">
+                <line x1="64" y1="16" x2="82" y2="4"  stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="72" y1="20" x2="94" y2="16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="78" y1="30" x2="98" y2="34" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <line x1="80" y1="42" x2="96" y2="52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="86" cy="6"  r="3"   fill="#a855f7"/>
+                <circle cx="98" cy="24" r="2.5" fill="#00A699"/>
+                <circle cx="92" cy="46" r="2.5" fill="#FFB400"/>
+                <circle cx="70" cy="4"  r="2"   fill="#FF385C"/>
+              </g>
+            </svg>
+          </span>
         </div>
         <div class="ai-hero-content">
           <div class="ai-badge">
