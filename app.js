@@ -1078,19 +1078,15 @@ function navigateTo(page, data, skipHistory) {
     page = 'browse';
   }
 
-  // ── Rollen-Weiche: Planungsboard vs. Auftragsboard ──────────────
-  // Event-Planer (suchende) organisieren ihr Event im Planungs-Board
-  // ('board'). Dienstleister (bietende) verwalten ihre Buchungen im
-  // Auftragsboard ('auftraege'). Jede Rolle bekommt genau EINE Board-
-  // Ansicht. Damit niemand die falsche sieht – auch nicht über alte
-  // Links, Footer-Links oder direkt eingegebene URLs – hier zentral
-  // umleiten, bevor die Seite überhaupt aktiviert wird.
-  if (isLoggedIn) {
-    if (page === 'board' && isDienstleister()) {
-      page = 'auftraege';
-    } else if (page === 'auftraege' && isEventPlaner()) {
-      page = 'board';
-    }
+  // ── Rollen-Weiche: Auftragsboard ist Dienstleister-only ─────────
+  // Das Planungs-Board ('board') steht ALLEN offen: Event-Planer planen
+  // ihr Event, Dienstleister planen ihre eigenen Events (z. B. Firmen-
+  // feier) und stellen ebenfalls Dienstleister zusammen. Das Auftrags-
+  // board ('auftraege') zeigt eingehende Buchungen und ergibt nur für
+  // Dienstleister Sinn – Event-Planer werden zentral umgeleitet (auch
+  // bei alten Links / direkt eingegebenen URLs).
+  if (isLoggedIn && page === 'auftraege' && isEventPlaner()) {
+    page = 'board';
   }
 
   // Pages that require login — redirect to login modal immediately
@@ -10493,49 +10489,42 @@ function isDienstleister() {
 }
 
 /**
- * Schaltet alle rollenabhängigen Navigations-Elemente um.
+ * Schaltet die rollenabhängigen Navigations-Elemente um.
  *
- * Grundregel: Jede Rolle sieht GENAU EINE Board-Ansicht.
- *   • Dienstleister (bietende)  → Auftragsboard ('auftraege')
- *   • Event-Planer (suchende)   → Planungs-Board ('board')
- *   • Gast / unbekannte Rolle   → Planungs-Board als Teaser
+ * Grundregel:
+ *   • Planungs-Board ('board')   → für ALLE (Event-Planer und Dienstleister
+ *     planen eigene Events und stellen Dienstleister zusammen).
+ *   • Auftragsboard ('auftraege') → NUR Dienstleister (eingehende Buchungen).
  *
  * Wird bei Login, Logout und jeder Rollen-Änderung aufgerufen, damit
- * Desktop-Menü, Mobile-Bottom-Nav und kontextbezogene Buttons konsistent
- * bleiben. Zeigt ein Element mit '' (CSS-Default) und versteckt mit 'none'.
+ * Desktop-Menü und kontextbezogene Buttons konsistent bleiben. Zeigt ein
+ * Element mit '' (CSS-Default) und versteckt mit 'none'.
  */
 function _applyRoleNav() {
   var provider = isLoggedIn && isDienstleister();
 
-  // Desktop-Menü: Auftragsboard nur für Dienstleister, Planungs-Board für alle anderen.
+  // Auftragsboard nur für Dienstleister; Planungs-Board für alle sichtbar.
   var auftraegeBtn = document.getElementById('auftraegeMenuBtn');
   if (auftraegeBtn) auftraegeBtn.style.display = provider ? '' : 'none';
   var boardBtn = document.getElementById('boardMenuBtn');
-  if (boardBtn) boardBtn.style.display = provider ? 'none' : '';
+  if (boardBtn) boardBtn.style.display = '';
 
-  // Mobile Bottom-Nav: ein einziger Slot, der je nach Rolle Board ODER
-  // Auftragsboard zeigt (Icon, Label, Ziel + data-page für Active-State).
+  // Mobile Bottom-Nav: der Board-Slot führt immer zum Planungs-Board.
+  // Das Auftragsboard erreichen Dienstleister über das Menü.
   var mobileBoardBtn = document.querySelector('#mobileNav .mobile-nav-board');
   if (mobileBoardBtn) {
     var icon = mobileBoardBtn.querySelector('.material-icons-round');
     var label = mobileBoardBtn.querySelector('span:last-child');
-    if (provider) {
-      mobileBoardBtn.setAttribute('onclick', "navigateTo('auftraege')");
-      mobileBoardBtn.dataset.page = 'auftraege';
-      if (icon) icon.textContent = 'assignment';
-      if (label) label.textContent = 'Aufträge';
-    } else {
-      mobileBoardBtn.setAttribute('onclick', "navigateTo('board')");
-      mobileBoardBtn.dataset.page = 'board';
-      if (icon) icon.textContent = 'view_kanban';
-      if (label) label.textContent = 'Board';
-    }
+    mobileBoardBtn.setAttribute('onclick', "navigateTo('board')");
+    mobileBoardBtn.dataset.page = 'board';
+    if (icon) icon.textContent = 'view_kanban';
+    if (label) label.textContent = 'Board';
   }
 
-  // Inserat-Detail: "Zum Planungs-Board hinzufügen" ergibt nur für
-  // suchende Event-Planer Sinn – für Dienstleister ausblenden.
+  // "Zum Planungs-Board hinzufügen" auf Inserat-Detail: für alle sichtbar –
+  // auch Dienstleister planen eigene Events.
   var addToBoardBtn = document.getElementById('btnAddToBoard');
-  if (addToBoardBtn) addToBoardBtn.style.display = provider ? 'none' : '';
+  if (addToBoardBtn) addToBoardBtn.style.display = '';
 }
 
 function applyLogin(context) {
@@ -10552,6 +10541,9 @@ function applyLogin(context) {
     if (adminMenuBtn) adminMenuBtn.style.display = currentUser.isAdmin ? 'flex' : 'none';
     // Rollenabhängige Navigation (Planungs-Board vs. Auftragsboard) setzen
     _applyRoleNav();
+    // Nach Session-Restore eine evtl. aufgeschobene Stripe-Buchung auflösen
+    // (Redirect-Rückkehr, bei der currentUser noch nicht gesetzt war).
+    try { if (typeof _resolvePendingPayment === 'function') _resolvePendingPayment(); } catch(e) {}
     // Reconcile ausstehende Webhook-Bestaetigungen
     try { if (typeof _reconcileStripePayments === 'function') setTimeout(_reconcileStripePayments, 800); } catch(e) {}
   }
@@ -12652,17 +12644,17 @@ function renderAuftraegePage() {
  */
 function _renderAuftraegeJobs(container, jobs, isProvider) {
   var html = '';
-  html += '<div style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px">' +
-    '<div style="display:flex;align-items:flex-start;gap:12px">' +
-      '<span class="material-icons-round" style="color:var(--primary);font-size:28px">info</span>' +
-      '<div style="flex:1;font-size:14px;line-height:1.6">' +
-        '<strong>So funktioniert\'s:</strong><br>' +
-        '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
-        '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Eventb&ouml;rse zieht 3% Plattformprovision als Application Fee ab.<br>' +
-        '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.' +
-      '</div>' +
+  html += '<details class="auftraege-howto" style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px">' +
+    '<summary style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;list-style:none">' +
+      '<span class="material-icons-round" style="color:var(--primary);font-size:22px">info</span>' +
+      'So funktioniert dein Auftragsboard' +
+    '</summary>' +
+    '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
+      '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
+      '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Eventb&ouml;rse zieht 3% Plattformprovision als Application Fee ab.<br>' +
+      '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.' +
     '</div>' +
-  '</div>';
+  '</details>';
 
   if (!isProvider) {
     html += '<div style="text-align:center;padding:40px 20px;color:var(--text-light)">' +
@@ -14654,13 +14646,239 @@ function _sendInvoiceNotification(card, project, listing) {
   }
 }
 
+/* ─── Pending-Payment Persistenz ─────────────────────────────────
+ * Vor jeder Stripe-Zahlung wird die geplante Aktion serialisierbar in
+ * localStorage abgelegt. Macht die Buchung redirect-fest: kehrt der
+ * Nutzer nach 3-D-Secure/Redirect zurück (Seite neu geladen → onSuccess-
+ * Closure ist weg), rekonstruiert _handlePaymentElementReturn() daraus
+ * die Board-Karte. Schlüssel ist bewusst global (ein Zahlvorgang gleich-
+ * zeitig).
+ */
+var EB_PENDING_PAYMENT_KEY = 'eb_pending_payment';
+function _setPendingPayment(obj) {
+  try { localStorage.setItem(EB_PENDING_PAYMENT_KEY, JSON.stringify(obj || {})); } catch (e) {}
+}
+function _getPendingPayment() {
+  try {
+    var raw = localStorage.getItem(EB_PENDING_PAYMENT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function _clearPendingPayment() {
+  try { localStorage.removeItem(EB_PENDING_PAYMENT_KEY); } catch (e) {}
+}
+
+/**
+ * Legt nach erfolgreicher Sofortbuchung die "Direktbuchungen"-Karte im
+ * Board des Zahlers an. Genutzt von inline-onSuccess UND Redirect-Rückkehr.
+ * info: { listingId, title, category, image, providerImg, provider, providerId, amount, dateIso, dateHuman }
+ * Gibt { project, card, duplicate? } zurück.
+ */
+function _applyInstantBookingSuccess(info, res) {
+  info = info || {};
+  try { _migrateBoardProjects && _migrateBoardProjects(); } catch (e) {}
+  var piId = (res && (res.payment_intent_id || res.payment_intent)) || '';
+  var proj = (_boardProjects || []).find(function(p) { return p.kind === 'instant'; });
+  if (!proj) {
+    proj = { id: 'proj_' + Date.now(), name: 'Direktbuchungen', kind: 'instant', date: '', cards: [], createdAt: new Date().toISOString() };
+    _boardProjects.push(proj);
+  }
+  // Idempotenz: gleiche PaymentIntent nicht doppelt als Karte anlegen
+  if (piId) {
+    var dup = (proj.cards || []).find(function(c) { return c.paymentIntentId === piId; });
+    if (dup) return { project: proj, card: dup, duplicate: true };
+  }
+  var nowIso = new Date().toISOString();
+  var card = {
+    id: 'bc_' + Date.now(),
+    name: info.title || 'Direktbuchung',
+    category: info.category || '',
+    stage: 'bestaetigt',
+    price: info.amount,
+    listingId: info.listingId,
+    listingImage: info.image || '',
+    listingTitle: info.title || '',
+    avatar: info.providerImg || info.image || '',
+    providerId: info.providerId || 0,
+    note: 'Sofortbuchung' + (info.dateHuman ? ' für ' + info.dateHuman : ''),
+    bookingDate: info.dateIso || '',
+    bookedAt: nowIso, invoiceSentAt: nowIso, paidAt: nowIso,
+    paidAmount: info.amount, paymentMethod: 'Stripe',
+    paymentIntentId: piId, paymentReference: piId,
+    paymentStatus: 'paid', createdAt: nowIso
+  };
+  proj.cards = proj.cards || [];
+  proj.cards.push(card);
+  try { _saveBoardProjects && _saveBoardProjects({ immediate: true }); } catch (e) {}
+  // Resonanz für den Dienstleister: Benachrichtigung unabhängig vom Board-Scan
+  if (info.providerId) {
+    try {
+      _sendInvoiceNotification(card, proj, { providerId: info.providerId, _dbId: info.listingId, id: info.listingId, title: info.title }).catch(function() {});
+    } catch (e) {}
+  }
+  return { project: proj, card: card };
+}
+
+/**
+ * Markiert eine bestehende Board-Karte (Angebot bezahlt) als "Bezahlt".
+ * Genutzt von inline-onSuccess UND Redirect-Rückkehr. Gibt { project, card, duplicate? } oder null.
+ */
+function _applyCardPaymentSuccess(cardId, projectId, amount, res) {
+  try { _migrateBoardProjects && _migrateBoardProjects(); } catch (e) {}
+  var project = (_boardProjects || []).find(function(p) { return p.id === projectId; });
+  var card = project && (project.cards || []).find(function(c) { return c.id === cardId; });
+  if (!card) return null;
+  var piId = (res && (res.payment_intent_id || res.payment_intent)) || '';
+  if (piId && card.paymentIntentId === piId && card.paymentStatus === 'paid') {
+    return { project: project, card: card, duplicate: true };
+  }
+  var nowIso = new Date().toISOString();
+  card.bookedAt = card.bookedAt || nowIso;
+  card.invoiceSentAt = card.invoiceSentAt || nowIso;
+  card.paidAt = nowIso;
+  card.paidAmount = amount || parseFloat(card.price) || 0;
+  card.paymentMethod = 'Stripe';
+  card.paymentIntentId = piId;
+  card.paymentReference = piId;
+  card.paymentStatus = 'paid';
+  card.stage = 'bestaetigt';
+  var listing = (typeof LISTINGS !== 'undefined' ? LISTINGS : []).find(function(l) { return l.id === card.listingId; });
+  try { _sendInvoiceNotification(card, project, listing).catch(function() {}); } catch (e) {}
+  try { _saveBoardProjects && _saveBoardProjects({ immediate: true }); } catch (e) {}
+  try {
+    if (_activeBoardId === project.id) {
+      if (typeof renderBoardFlow === 'function') renderBoardFlow();
+      if (typeof renderKanban === 'function') renderKanban(project);
+      if (typeof _updateBoardStats === 'function') _updateBoardStats(project);
+    }
+  } catch (e) {}
+  return { project: project, card: card };
+}
+
+/**
+ * Einheitlicher Erfolgs-Screen nach erfolgreicher Zahlung. Erklärt, was
+ * als Nächstes passiert, und führt direkt ins Board.
+ * info: { projectId, amount, title, dateHuman, providerName }
+ */
+function _showBookingSuccess(info) {
+  info = info || {};
+  var ex = document.getElementById('bookingSuccessModal');
+  if (ex) ex.remove();
+  var amountStr = '';
+  try { amountStr = info.amount ? _formatEuro(info.amount) : ''; } catch (e) { amountStr = info.amount ? (info.amount + ' €') : ''; }
+  var goBoard = info.projectId
+    ? "document.getElementById('bookingSuccessModal').remove();navigateTo('board');if(typeof openBoardProject==='function'){openBoardProject('" + String(info.projectId).replace(/'/g, "") + "');}"
+    : "document.getElementById('bookingSuccessModal').remove();navigateTo('board');";
+  var html =
+    '<div class="modal-overlay show" id="bookingSuccessModal" style="z-index:3000" onclick="if(event.target===this)this.remove()">' +
+      '<div class="modal modal-sm" onclick="event.stopPropagation()" style="text-align:center;max-width:440px">' +
+        '<div style="width:72px;height:72px;border-radius:50%;background:rgba(102,187,106,0.15);display:flex;align-items:center;justify-content:center;margin:8px auto 14px">' +
+          '<span class="material-icons-round" style="font-size:42px;color:#66bb6a">check_circle</span>' +
+        '</div>' +
+        '<h2 style="margin:0 0 6px">Zahlung erfolgreich</h2>' +
+        '<p style="color:var(--text-light);margin:0 0 4px">' + _escHtml(info.title || 'Deine Buchung ist bestätigt.') + '</p>' +
+        (amountStr ? '<p style="font-weight:700;font-size:20px;margin:0 0 14px">' + _escHtml(amountStr) + '</p>' : '<div style="height:8px"></div>') +
+        '<div style="text-align:left;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 18px;font-size:14px;line-height:1.7">' +
+          '<strong>Wie es jetzt weitergeht:</strong>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Direktbuchungen".</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung in seinem <strong>Auftragsboard</strong>.</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">event_available</span><span>Am Event-Tag bestätigt ihr beide die Leistung – erst dann gilt der Auftrag als erfüllt.</span></div>' +
+        '</div>' +
+        '<button class="btn-primary btn-block" onclick="' + goBoard + '"><span class="material-icons-round">view_kanban</span> Zum Board</button>' +
+        '<button class="btn-outline btn-block" style="margin-top:8px" onclick="document.getElementById(\'bookingSuccessModal\').remove()">Schließen</button>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+/**
+ * Redirect-Rückkehr des Stripe Payment Elements (3-D-Secure / Bankredirect).
+ * Stripe hängt ?payment_intent=…&redirect_status=succeeded an die return_url.
+ * Verifiziert server-seitig und wendet das persistierte Pending-Payment an.
+ */
+var _pendingPaymentResolving = false;
+
+function _handlePaymentElementReturn(piParam, redirectStatus) {
+  function cleanUrl() {
+    try {
+      var clean = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, clean);
+    } catch (e) {}
+  }
+  if (redirectStatus && redirectStatus !== 'succeeded') {
+    _clearPendingPayment();
+    cleanUrl();
+    showToast(redirectStatus === 'failed' ? 'Zahlung fehlgeschlagen.' : 'Zahlung nicht abgeschlossen.', 'info');
+    return;
+  }
+  // PaymentIntent ins Pending uebernehmen, damit die Buchung auch einen
+  // Reload bzw. eine noch nicht wiederhergestellte Session uebersteht.
+  var pending = _getPendingPayment() || { type: 'unknown' };
+  pending.pi = piParam;
+  _setPendingPayment(pending);
+  cleanUrl();
+  _resolvePendingPayment();
+}
+
+/**
+ * Verifiziert ein persistiertes Pending-Payment server-seitig und legt die
+ * Board-Karte an - aber nur, wenn currentUser bereit ist (sonst ist der
+ * Board-Storage-Key null und die Karte ginge verloren). Wird beim Init UND
+ * nach jedem Login aufgerufen; das Pending bleibt bis zum Erfolg bestehen.
+ */
+function _resolvePendingPayment() {
+  if (_pendingPaymentResolving) return;
+  var pending = _getPendingPayment();
+  if (!pending || !pending.pi) return;
+  _pendingPaymentResolving = true;
+  fetch(_apiUrl('stripe/verify-payment'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ payment_intent: pending.pi })
+  }).then(function(r) { return r.json().then(function(j) { return { ok: r.ok, data: j }; }); })
+    .then(function(vr) {
+      _pendingPaymentResolving = false;
+      if (vr.ok && vr.data && vr.data.paid === false) {
+        _clearPendingPayment();
+        return;
+      }
+      if (!vr.ok || !vr.data || !vr.data.paid) {
+        return; // unklar (401 vor Session-Restore, Netz) -> Pending behalten, spaeter erneut
+      }
+      if (!currentUser) return; // user-scoped Board braucht currentUser -> nach Login erneut
+      var res = { payment_intent_id: pending.pi, payment_intent: pending.pi, amount: vr.data.amount, status: vr.data.status };
+      try { _migrateBoardProjects && _migrateBoardProjects(); _loadBoardProjects && _loadBoardProjects(); } catch (e) {}
+      if (pending.type === 'instant') {
+        var info = pending.info || {};
+        var r1 = _applyInstantBookingSuccess(info, res);
+        _clearPendingPayment();
+        _showBookingSuccess({ projectId: r1 && r1.project && r1.project.id, amount: info.amount, title: info.title, dateHuman: info.dateHuman, providerName: info.provider });
+      } else if (pending.type === 'card') {
+        var r2 = _applyCardPaymentSuccess(pending.cardId, pending.projectId, pending.amount, res);
+        _clearPendingPayment();
+        if (r2) _showBookingSuccess({ projectId: pending.projectId, amount: pending.amount, title: (r2.card && r2.card.name) || pending.title });
+        else showToast('Zahlung bestaetigt.', 'paid');
+      } else {
+        _clearPendingPayment();
+        try { _reconcileStripePayments && _reconcileStripePayments(); } catch (e) {}
+        showToast('Zahlung erfolgreich bestaetigt.', 'paid');
+      }
+    }).catch(function() {
+      _pendingPaymentResolving = false;
+    });
+}
+
 /**
  * Stripe-Checkout Return Handler: wird beim Laden ausgefuehrt.
  * Liest ?stripe=success|cancel&card_id=&project_id=&session_id=, setzt die
  * entsprechende Karte auf "Bezahlt" (oder rollt zurueck bei Cancel) und
- * raeumt die URL auf.
+ * raeumt die URL auf. Erkennt zusätzlich die Payment-Element-Rückkehr
+ * (?payment_intent=&redirect_status=) für redirect-pflichtige Zahlungen.
  */
 function _handleStripeReturn() {
+  var _peParams = new URLSearchParams(window.location.search || '');
+  var _peIntent = _peParams.get('payment_intent');
+  var _peStatus = _peParams.get('redirect_status');
+  if (_peIntent && _peStatus) { _handlePaymentElementReturn(_peIntent, _peStatus); return; }
   var params = new URLSearchParams(window.location.search || '');
   var status = params.get('stripe');
   if (!status) return;
@@ -16283,6 +16501,7 @@ function openStageAdvanceModal(cardId, currentStage) {
       // Stage-Advance-Modal schließen, dann Stripe-Modal öffnen.
       overlay.remove();
       var _stripeImg = (_listing && (_listing.image || (_listing.images && _listing.images[0]))) || card.avatar || '';
+      _setPendingPayment({ type: 'card', cardId: card.id, projectId: project.id, amount: _payAmount, title: (_listing && _listing.title) || card.name || 'Buchung' });
       _openStripePaymentModal({
         amount: _payAmount,
         title: (_listing && _listing.title) || card.name || 'Buchung',
@@ -16295,31 +16514,13 @@ function openStageAdvanceModal(cardId, currentStage) {
         duration: (_listing && _listing.duration) || '',
         dateLabel: (project && project.date) ? project.date : '',
         onSuccess: function(_res) {
-          // Refs erneut frisch auflösen (Modal war offen).
-          var _lp = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
-          if (_lp) {
-            project = _lp;
-            var _lc = (_lp.cards || []).find(function(c){ return c.id === cardId; });
-            if (_lc) card = _lc;
-          }
-          var _payIso = new Date().toISOString();
-          card.bookedAt = _payIso;
-          card.invoiceSentAt = _payIso;
-          card.paidAt = _payIso;
-          card.paidAmount = _payAmount;
-          card.paymentMethod = 'Stripe';
-          card.paymentIntentId = (_res && _res.payment_intent_id) || '';
-          card.paymentReference = card.paymentIntentId;
-          card.paymentStatus = 'paid';
-          card.stage = 'bestaetigt';
-          _sendInvoiceNotification(card, project, _listing).catch(function(){});
-          _saveBoardProjects({ immediate: true });
-          renderBoardFlow();
-          renderKanban(project);
-          _updateBoardStats(project);
-          showToast('Zahlung erfolgreich – Buchung bestätigt!', 'check_circle');
+          var rr = _applyCardPaymentSuccess(card.id, project.id, _payAmount, _res);
+          _clearPendingPayment();
+          if (rr) _showBookingSuccess({ projectId: project.id, amount: _payAmount, title: (rr.card && rr.card.name) || card.name });
+          else showToast('Zahlung erfolgreich – Buchung bestätigt!', 'check_circle');
         },
         onCancel: function() {
+          _clearPendingPayment();
           showToast('Zahlung abgebrochen.', 'info');
         }
       });
@@ -17662,6 +17863,22 @@ function _startInstantBooking(listing, dateIso, amount) {
   })();
   var listingId = listing._dbId || listing.id;
 
+  // Buchungsdaten, die onSuccess UND die Redirect-Rückkehr brauchen.
+  var info = {
+    listingId: listingId,
+    title: listing.title || 'Direktbuchung',
+    category: listing.categoryLabel || listing.category || '',
+    image: listing.image || (listing.images && listing.images[0]) || '',
+    providerImg: listing.providerImg || listing.image || '',
+    provider: listing.providerName || '',
+    providerId: listing.providerId || 0,
+    amount: amount,
+    dateIso: dateIso,
+    dateHuman: dateHuman
+  };
+  // Redirect-fest machen: vor dem Bezahlen persistieren.
+  _setPendingPayment({ type: 'instant', info: info });
+
   _openStripePaymentModal({
     amount: amount,
     title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
@@ -17673,52 +17890,12 @@ function _startInstantBooking(listing, dateIso, amount) {
     dateLabel: dateHuman,
     instant: true,
     onSuccess: function(res) {
-      // 1) Eigenes "Direktbuchungen"-Board sicherstellen
-      var proj = (_boardProjects || []).find(function(p){ return p.kind === 'instant'; });
-      if (!proj) {
-        proj = {
-          id: 'proj_' + Date.now(),
-          name: 'Direktbuchungen',
-          kind: 'instant',
-          date: '',
-          cards: [],
-          createdAt: new Date().toISOString()
-        };
-        _boardProjects.push(proj);
-      }
-      // 2) Karte direkt in "bestaetigt"
-      var nowIso = new Date().toISOString();
-      var card = {
-        id: 'bc_' + Date.now(),
-        name: listing.title || 'Direktbuchung',
-        category: listing.categoryLabel || listing.category || '',
-        stage: 'bestaetigt',
-        price: amount,
-        listingId: listingId,
-        listingImage: listing.image || (listing.images && listing.images[0]) || '',
-        listingTitle: listing.title || '',
-        avatar: listing.providerImg || listing.image || '',
-        note: 'Sofortbuchung f\u00fcr ' + dateHuman,
-        bookingDate: dateIso,
-        bookedAt: nowIso,
-        invoiceSentAt: nowIso,
-        paidAt: nowIso,
-        paidAmount: amount,
-        paymentMethod: 'Stripe',
-        paymentIntentId: (res && res.payment_intent_id) || '',
-        paymentReference: (res && res.payment_intent_id) || '',
-        paymentStatus: 'paid',
-        createdAt: nowIso
-      };
-      proj.cards = proj.cards || [];
-      proj.cards.push(card);
-      _saveBoardProjects && _saveBoardProjects({ immediate: true });
-      showToast('Buchung best\u00e4tigt – Termin am ' + dateHuman + '!', 'check_circle');
-      setTimeout(function() {
-        showToast('Buchung im Board ansehen?', 'view_kanban', function(){ navigateTo('board'); if (typeof openBoardProject === 'function') openBoardProject(proj.id); });
-      }, 1400);
+      var r = _applyInstantBookingSuccess(info, res);
+      _clearPendingPayment();
+      _showBookingSuccess({ projectId: r && r.project && r.project.id, amount: info.amount, title: info.title, dateHuman: info.dateHuman, providerName: info.provider });
     },
     onCancel: function() {
+      _clearPendingPayment();
       showToast('Zahlung abgebrochen.', 'info');
     }
   });

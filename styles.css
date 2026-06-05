@@ -14055,3 +14055,16 @@ body.dark-mode {
   }
 }
 /* ===== /EB-POLISH 2026-05-B ========================================== */
+
+/* Auftragsboard: einklappbare "So funktioniert's"-Box (mehr Platz für Buchungskarten) */
+.auftraege-howto summary::-webkit-details-marker { display: none; }
+.auftraege-howto summary { outline: none; }
+.auftraege-howto[open] summary { margin-bottom: 2px; }
+.auftraege-howto summary::after {
+  content: 'expand_more';
+  font-family: 'Material Icons Round';
+  margin-left: auto;
+  color: var(--text-light);
+  transition: transform 0.2s ease;
+}
+.auftraege-howto[open] summary::after { transform: rotate(180deg); }
