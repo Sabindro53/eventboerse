@@ -12577,6 +12577,8 @@ function renderAuftraegePage() {
       _renderAuftraegeJobs(container, jobs, isProvider);
     });
     return; // wait for async
+  }
+  // Non-Provider oder kein Login: synchron rendern (keine Server-Buchungen)
   _renderAuftraegeJobs(container, jobs, isProvider);
 }
 
