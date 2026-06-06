@@ -26,10 +26,15 @@ Cache-Buster `?v=` für `app.js`/`styles.css` in `index.php` inkrementieren, fal
 
 ## Cache-Buster erhöhen
 
-1. In `index.php` (oder `header.php`): `app.js?v=132` → `app.js?v=133`
-2. Gleiches für `styles.css?v=…`
+1. In `index.php`: `$asset_ver = '2.5.1';` erhöhen.
+2. Betrifft `styles.css` und `ui-enhancements.css`; bei sichtbaren UI-Änderungen immer erhöhen.
 3. Commit mit Message `chore: bump asset cache to vNNN`
 4. Push → Auto-Deploy
+5. Live prüfen:
+
+```bash
+curl -sL -H 'Cache-Control: no-cache' 'https://xn--eventbrse-57a.de/?check=1' | rg 'styles.css\\?v='
+```
 
 ## SMTP testen
 
@@ -67,6 +72,20 @@ Wenn Webhooks fehlschlagen (siehe [[Operations/Incident-Response#Stripe-Webhook-
 1. Stripe-Dashboard → Developers → Webhooks → Endpoint
 2. „Logs" Tab → fehlgeschlagene Events markieren
 3. „Resend" — idempotenz-sicher
+
+## Stripe Connect Onboarding prüfen
+
+Wenn Dienstleister nicht zum Stripe-Onboarding weitergeleitet werden:
+
+1. Einstellungen → Auszahlungs-Konto → „Stripe-Konfiguration prüfen".
+2. REST-Diagnose prüfen: `GET /wp-json/eventboerse/v1/stripe/connect/diagnostics` (auth erforderlich).
+3. Sicherstellen:
+   - `EB_STRIPE_MODE` passt zu Public/Secret/Webhook Keys.
+   - Secret Key gehört zum Plattformkonto, nicht zu einem Connected Account.
+   - Restricted Key hat Connect-/Account-Link-/Connected-Account-Rechte.
+   - Stripe Connect ist im Plattformkonto aktiviert.
+4. Danach `POST /stripe/connect/onboard` erneut starten.
+5. Eventbörse speichert keine IBAN; Bankdaten müssen im Stripe Express Flow landen.
 
 ## Theme-Update deployen (manueller Force-Push)
 

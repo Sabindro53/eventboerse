@@ -2,53 +2,56 @@
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## In Arbeit
+## Aktiver Fokus (P0)
 
-- [ ] Obsidian-Vault Einrichtung ✓ (gerade fertiggestellt)
-- [ ] Claude Memory System aufbauen ✓
+- [ ] **Listings-/Board-Regressionen ausschließen**
+  - Ziel: Keine verschwundenen Listings mehr in Board/Startseite/Map/Browse.
+  - Pflicht-Checks nach Deploy: Listings API, Board Picker, Demo-Toggle, Selbstbuchungsschutz.
+- [ ] **KI-Änderungs-Guardrails operationalisieren**
+  - Safe Defaults für automatische Worker (kein destruktives Verhalten bei Unsicherheit).
+  - Änderung nur mit nachvollziehbarem Status + Grund.
+- [ ] **Stripe Connect E2E im Testmodus finalisieren**
+  - Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund/Dispute-Pfad prüfen.
+  - Keine echte Buchung ohne aktives Auszahlungskonto des Dienstleisters.
+- [ ] **Admin-Moderation gegen aktuellen Code abgleichen**
+  - Vault erwähnt ältere Moderationsrouten; `functions.php` registriert sie aktuell nicht.
+  - Prüfen, ob UI-Funktion noch vorhanden ist oder wiederhergestellt werden muss.
 
-## Nächste Prioritäten
+## Nächste Prioritäten (P1)
 
-### P0 - Kritisch
-- [ ] **Demo-Daten ersetzen** - LISTINGS/REVIEWS/CHATS Arrays durch echte DB-Abfragen ersetzen
-  - Betrifft: app.js (Zeile ~100-500 ca.)
-  - Backend: GET /listings schon vorhanden, aber wird es genutzt?
+- [ ] **Echtzeit-Messaging** (Polling → SSE/WebSocket).
+- [ ] **Suche auf DB-Volltext** umstellen (MySQL FULLTEXT).
+- [ ] **Stripe-Flow weiter härten** (Reconcile, Return, Regression-Szenarien).
+- [ ] **Board-Paket-Tests** (Mehrfachzeiten pro Paketposition, Edit/Reload-Szenarien).
+- [ ] **QA-Bot Wissensmuster erweitern**
+  - Tokenfrei bleiben.
+  - Mehr direkte Navigations-/Hilfsaktionen für Login, Board, Inserat, Zahlung.
 
-### P1 - Wichtig
-- [ ] **Echtzeit-Nachrichten** - Polling durch WebSockets/SSE ersetzen
-- [ ] **Suchfunktion verbessern** - Echte DB-Volltextsuche (MySQL FULLTEXT)
-- [ ] **Review-System** - Bewertungen werden nach Buchungsabschluss angezeigt
-- [ ] **Mobile Optimierung** - Responsive Design verbessern
+## Nice-to-Have (P2)
 
-### P2 - Nice-to-Have
-- [ ] **PWA / App-Installation** - Service Worker + manifest.json
-- [ ] **Push-Benachrichtigungen** - Neue Nachrichten als Browser-Push
-- [ ] **Analytics** - Wer schaut welche Listings an
-- [ ] **SEO** - Server-Side-Rendering oder Pre-rendering für Google
+- [ ] PWA + Push-Benachrichtigungen.
+- [ ] Analytics-Kennzahlen je Listing/Flow.
+- [ ] SEO-Pre-Rendering für zentrale Landing-/Browse-Routen.
 
-## Bekannte Bugs
+## Zuletzt ausgeliefert (Mai/Juni 2026)
 
-Werden hier dokumentiert wenn sie gemeldet werden.
-
-## Fertiggestellt
-
-- [x] Stripe Zahlungsintegration
-- [x] WebAuthn/Passkeys Authentifizierung
-- [x] 2FA mit OTP
-- [x] **Event-Planungs-Board (Herzstück)**
-  - [x] Multi-Projekt-Management + Vorlagen (Hochzeit, Firmenfeier, ...)
-  - [x] Auto-Befüllung mit Kategorie-Karten bei Projekterstellung
-  - [x] Kanban / Flow / Zeitplan / Checkliste-Ansichten
-  - [x] Gästeanzahl & Countdown auf Projektkarten
-  - [x] „Zum Board hinzufügen“-Button auf Detail-Seiten
-  - [x] Cloud-Sync (geräteübergreifend, Tombstone-Merge)
-  - [x] Dienstleister-Aufträge-Ansicht
-- [x] Uptime-Monitoring (GitHub Actions alle 30 Min)
-- [x] Automatisches Deployment auf den Hosting-Provider
-- [x] Obsidian Vault + Claude Memory System
+- [x] QA-Support-Bot rechts über Bottom-Navigation, tokenfrei, mit direkter Bereichs-Navigation.
+- [x] QA-Bot Launcher auf transparentes Roboter/Headset/Partyhut-Icon reduziert (keine Card, kein Status-Dot).
+- [x] Loader/Hero-Popper bereinigt: doppeltes Popper-Bild entfernt.
+- [x] Login/IDN-E-Mail-Flow repariert.
+- [x] Board Deep-Link `/board/<id>` + Projektkarte im neuen Tab.
+- [x] Stripe Connect Onboarding/Status/Diagnose/Disconnect im Backend/Frontend vorhanden.
+- [x] Board lädt alle Listings im Picker (kein künstlicher Cap).
+- [x] Saubere Trennung Angebot vs. Gesuch in Board-Auswahl.
+- [x] Eigene Angebote für Planer sichtbar, ohne Selbstbuchungslink.
+- [x] Demo-Sichtbarkeit über Home/Browse/Map/Board vereinheitlicht.
+- [x] Admin-Moderation: Ausblenden/Löschen inkl. Begründung + Verlauf.
+- [x] Board-Planungsmodus ausgebaut:
+  - [x] `Baustein` (Einzelposition)
+  - [x] `Paket` (Mehrfachpositionen mit je eigener Zeit/Preis/Notiz)
 
 ---
-*Zuletzt aktualisiert: 2026-04-29*
+*Zuletzt aktualisiert: 2026-06-06*
 
 ## Verknüpfte Notizen
 - [[Roadmap/Feature-Ideen]] — Ideen-Sammlung

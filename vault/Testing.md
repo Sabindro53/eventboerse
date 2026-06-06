@@ -38,7 +38,11 @@ Manuell durchklicken, ~15 Minuten:
 [ ] Chat: XSS-Test "<img src=x onerror=alert(1)>" → escaped
 [ ] Listing erstellen (mind. 1 Bild hochladen → kommt in Uploads an)
 [ ] Stripe Test-Buchung (Karte 4242…) → Success-Page
+[ ] Stripe Connect: Dienstleister-Auszahlungskonto Status/Onboarding/Diagnose prüfen
 [ ] Stripe Webhook in Stripe-Dashboard sichtbar, Status=processed
+[ ] Board: eigenes Inserat kann nicht gebucht/bezahlt werden
+[ ] Board: Paket mit mehreren Positionen speichern, reloaden, erneut öffnen
+[ ] QA-Bot: Launcher rechts über Bottom-Nav, Panel öffnet, Login/Board/Zahlung-Aktion navigiert korrekt
 [ ] Admin-Panel: Userliste, Diagnostik, Logs
 [ ] Logout funktioniert, Session beendet
 [ ] Mobile: Burger-Menü, Bottom-Nav, Forms scrollen
@@ -50,6 +54,22 @@ Manuell durchklicken, ~15 Minuten:
 - Geänderte Dateien via API auflisten
 - PHP-Syntaxcheck via `php -l` für alle geänderten `.php`
 - Größen-Diff für `app.js`, `functions.php` (Hard-Limit-Warnung bei +5 %)
+
+## Aktueller Release-Check 2026-06-06
+
+Pflicht nach sichtbaren UI-Änderungen:
+
+```bash
+php -l index.php
+node --check app.js
+git diff --check
+curl -sL -H 'Cache-Control: no-cache' 'https://xn--eventbrse-57a.de/?check=1' | rg 'styles.css\\?v=2\\.5\\.1|qaLauncher'
+```
+
+Zusätzlich im Browser prüfen:
+- QA-Bot ist transparentes Roboter/Headset/Partyhut-Icon, kein Card-/Status-Dot-Artefakt.
+- Cookie-Banner und Bottom-Nav überdecken den QA-Bot nicht.
+- Start-/Loader-Popper erscheint nicht doppelt.
 
 ## Auto-Audit (`claude-auto-audit.yml`)
 

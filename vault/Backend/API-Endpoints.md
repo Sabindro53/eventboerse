@@ -1,9 +1,9 @@
 # Backend: Alle REST API Endpoints
 
-**Datei:** `functions.php` | **Zeilen:** ~4.429 | **Endpoints:** 67 total
+**Datei:** `functions.php` | **Zeilen:** 6.741 | **Endpoints:** 80 Registrierungen
 **Base URL:** `/wp-json/eventboerse/v1/`
 
-## Authentifizierung (9 Endpoints)
+## Authentifizierung (10 Endpoints)
 
 | Method | Endpoint | Beschreibung |
 |--------|----------|--------------|
@@ -15,11 +15,12 @@
 | GET | `/me` | Eingeloggter Nutzer |
 | POST | `/forgot-password` | Passwort vergessen |
 | POST | `/verify-email` | E-Mail bestätigen |
+| POST | `/resend-verification` | Verifikationsmail erneut senden |
 | POST | `/reset-password` | Passwort zurücksetzen |
 
 → [[Backend/Auth-API]] | [[Features/Authentication]]
 
-## Nutzer-Verwaltung (4 Endpoints)
+## Nutzer-Verwaltung (5 Endpoints)
 
 | Method | Endpoint | Beschreibung |
 |--------|----------|--------------|
@@ -51,7 +52,7 @@
 | POST | `/otp/send` | OTP per E-Mail senden |
 | POST | `/otp/verify` | OTP verifizieren |
 
-## Listings & Services (5 Endpoints)
+## Listings & Services (6 Endpoints)
 
 | Method | Endpoint | Beschreibung |
 |--------|----------|--------------|
@@ -64,12 +65,14 @@
 
 → [[Backend/Listings-API]] | [[Features/Listings]]
 
-## Event-Planungs-Board (2 Endpoints)
+## Event-Planungs-Board (4 Endpoints)
 
 | Method | Endpoint | Beschreibung |
 |--------|----------|--------------|
 | GET | `/board-projects` | Alle Projekte des eingeloggten Users laden |
 | POST | `/board-projects` | Projekte speichern (komplette Liste inkl. Tombstones) |
+| GET | `/board-bookings` | Dienstleister-Auftragsboard aus Kund:innen-Boards aggregieren |
+| POST | `/board-bookings/update-card` | Board-Card aus Auftrags-/Buchungskontext aktualisieren |
 
 Gespeichert in `wp_usermeta` unter `eb_board_projects` (JSON, max 2 MB).
 → [[Features/Planungsboard]]
@@ -95,17 +98,24 @@ Gespeichert in `wp_usermeta` unter `eb_board_projects` (JSON, max 2 MB).
 
 → [[Features/Reviews]]
 
-## Zahlungen / Stripe (7 Endpoints)
+## Zahlungen / Stripe (15 Endpoints)
 
 | Method | Endpoint | Beschreibung |
 |--------|----------|--------------|
 | POST | `/send-invoice` | Rechnung per E-Mail |
 | POST | `/stripe/create-checkout` | Checkout Session erstellen |
 | GET | `/stripe/public-key` | Stripe Public Key |
+| GET | `/stripe/fee-quote` | Gebühren-/Auszahlungs-Vorschau |
 | POST | `/stripe/create-payment-intent` | Payment Intent erstellen |
+| POST | `/stripe/create-payment-intent-admin` | Admin-/Test-Payment Intent |
 | POST | `/stripe/verify-payment` | Zahlung verifizieren |
 | POST | `/stripe/webhook` | Stripe Webhooks empfangen |
 | POST | `/stripe/reconcile` | Zahlungen abgleichen |
+| GET | `/stripe/connect/status` | Connect-Onboarding Status |
+| POST | `/stripe/connect/onboard` | Connect-Onboarding starten |
+| GET | `/stripe/connect/diagnostics` | Connect-Konfiguration prüfen |
+| POST | `/stripe/payment-domain/register` | Stripe Payment Domain registrieren |
+| POST | `/stripe/connect/disconnect` | Stripe Connect trennen |
 
 → [[Backend/Payment-API]] | [[Features/Payments]]
 
@@ -116,7 +126,7 @@ Gespeichert in `wp_usermeta` unter `eb_board_projects` (JSON, max 2 MB).
 | GET/POST | `/favorites` | Favoriten laden/hinzufügen |
 | GET/DELETE | `/favorites/{listing_id}` | Favorit prüfen/entfernen |
 
-## Admin (13 Endpoints)
+## Admin (15 Endpoints)
 
 | Method | Endpoint | Beschreibung |
 |--------|----------|--------------|
@@ -132,8 +142,15 @@ Gespeichert in `wp_usermeta` unter `eb_board_projects` (JSON, max 2 MB).
 | POST | `/admin/toggle-active` | Account aktivieren/deaktivieren |
 | GET/POST | `/admin/smtp` | SMTP-Konfiguration |
 | POST | `/admin/reset` | System zurücksetzen |
+| GET/POST | `/admin/hide-demo` | Demo-Daten global ein-/ausblenden |
+| POST | `/admin/toggle-demo` | Legacy-Toggle für Demo-Sichtbarkeit |
+| POST | `/admin/seed-test-listing` | Test-Listing erzeugen |
 
 → [[Backend/Admin-API]] | [[Features/Admin]]
+
+## Doku-Abgleich: Moderation
+
+Ältere Vault-Notizen erwähnen `admin/listings/{id}/hide` und `my-listing-moderation`. Diese Routen sind im aktuellen `functions.php`-Stand vom 2026-06-06 nicht registriert und müssen vor weiterer Admin-Arbeit geprüft bzw. wiederhergestellt werden.
 
 ## Utilities (diverse)
 
@@ -146,6 +163,6 @@ Gespeichert in `wp_usermeta` unter `eb_board_projects` (JSON, max 2 MB).
 | GET | `/provider/{id}` | Provider-Profil |
 | GET | `/diagnostics` | System-Diagnostik |
 | POST | `/diagnostics/test-mail` | Mail-Test |
-| GET | `/board-projects` | Board-Projekte |
+| GET | `/ai-office/health` | KI-Office Health-Endpoint |
 | GET/POST | `/registrations` | Registrierungen |
 | GET | `/registrations/{id}` | Einzelne Registrierung |

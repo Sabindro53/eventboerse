@@ -4,91 +4,80 @@ tags: [backend, api, board, planning]
 
 # Board-API (Planungsboard)
 
-> Endpoints für das Planungs-Board ([[Features/Planungsboard]]). Vier Ansichten auf demselben Datenmodell: **Kanban**, **Flow** (Timeline), **Liste**, **Checkliste**.
+> Persistente Speicherung aller Board-Projekte pro User für Flow/Kanban/Zeitplan/Checkliste.
 
 REST-Namespace: `eventboerse/v1`
-Tabelle: `wp_eb_board_projects` ([[Architecture/Datenmodell]])
+Speicherort: `wp_usermeta` Key `eb_board_projects` (JSON, kein eigenes Board-Table)
 
-## Datenmodell (verkürzt)
+## Endpoints
+
+| Method | Route | Beschreibung |
+|---|---|---|
+| GET | `/board-projects` | Lädt komplette Projektliste des eingeloggten Users |
+| POST | `/board-projects` | Speichert komplette Projektliste (inkl. Tombstones) |
+| GET | `/board-bookings` | Aggregiert Board-Karten, die für einen Dienstleister relevant sind |
+| POST | `/board-bookings/update-card` | Aktualisiert eine Board-Karte aus Auftrags-/Buchungskontext |
+
+## Auth & Permission
+
+- Alle Board-Routes sind nur für eingeloggte Nutzer verfügbar.
+- Zugriff wird über User-Kontext abgesichert; jeder User schreibt nur in seinen eigenen Meta-Key.
+- `board-bookings` durchsucht fremde Boards nur lesend und darf nur Karten zurückgeben, in denen der aktuelle Dienstleister beteiligt ist.
+
+## Request/Response
+
+### GET `/board-projects`
+
+**Response 200**
 
 ```json
 {
-  "id": 42,
-  "owner_id": 7,
-  "title": "Hochzeit Sommer 2026",
-  "event_date": "2026-08-15",
-  "guests": 80,
-  "budget_cents": 1500000,
-  "stages": [
-    { "id": "venue", "label": "Location", "status": "done", "order": 1, "tasks": [...] },
-    { "id": "catering", "label": "Catering", "status": "in_progress", "order": 2, "tasks": [...] }
-  ],
-  "linked_bookings": [101, 102],
-  "notes": "string ≤ 5000",
-  "created_at": "...",
-  "updated_at": "..."
+  "projects": [
+    {
+      "id": "bp_123",
+      "name": "Sommerfest 2026",
+      "cards": [],
+      "updatedAt": 1770000000000
+    }
+  ]
 }
 ```
 
-`status` ∈ {`open`, `in_progress`, `done`, `blocked`}.
+### POST `/board-projects`
 
-## GET `/board/projects`
+**Body (vereinfacht):**
 
-**Auth:** Login (Event-Planer)
-**Response 200**
 ```json
-{ "items": [ { "id":42, "title":"…", "event_date":"…", "progress":0.6 } ], "total": 1 }
+{
+  "projects": [ ...komplette Projektliste... ]
+}
 ```
-`progress` = Anteil `done`-Stages.
 
-## GET `/board/projects/{id}`
+**Response 200**
 
-**Auth:** Login + Owner
-Volles Project-Objekt inkl. Stages und Tasks.
+```json
+{ "ok": true }
+```
 
-## POST `/board/projects`
+## Datenhinweise
 
-**Auth:** Login (Event-Planer)
-**Body:** `{ "title", "event_date", "guests", "budget_cents" }`
-Default-Stages werden serverseitig generiert (siehe [[Features/Planungsboard]]).
+- Board-State wird absichtlich als vollständiges JSON serialisiert gespeichert.
+- Frontend verwaltet Merge/Sync (u. a. `updatedAt`, Tombstones, Fallback auf localStorage).
+- Paketplanung wird über Felder wie `bundleMode`, `packageItems`, `linkedListingIds` innerhalb von `cards[]` abgebildet.
+- Selbstbuchung bleibt P0-Guardrail: eigene Inserate dürfen planbar sichtbar sein, aber nie als Fremdbuchung oder Zahlungspfad durchrutschen.
 
-## PATCH `/board/projects/{id}`
+## Relevante Stellen im Code
 
-**Auth:** Owner
-Partial-Update auf Top-Level-Felder.
-
-## PATCH `/board/projects/{id}/stages/{stageId}`
-
-**Auth:** Owner
-**Body:** `{ "status": "done", "order": 3 }`
-Wird beim Drag-and-Drop in Kanban/Flow aufgerufen.
-
-## POST `/board/projects/{id}/stages/{stageId}/tasks`
-
-**Auth:** Owner
-**Body:** `{ "title": "Catering anfragen", "due_at": "2026-06-01", "assignee_email": "..." }`
-
-## PATCH `/board/projects/{id}/stages/{stageId}/tasks/{taskId}`
-
-`{ "done": true }` oder `{ "title", "due_at" }`.
-
-## DELETE `/board/projects/{id}`
-
-**Auth:** Owner
-Soft-Delete (`deleted_at`), 30 Tage Wiederherstellung über Admin.
-
-## Limits & Rate-Limits
-
-- Max 50 aktive Projekte pro User (UX, nicht hart)
-- Max 500 Tasks pro Projekt
-- 60 Schreibzugriffe / Minute pro User
-
-## Konsistenz
-
-- Kanban-Drag schreibt **erst nach Drop**, nicht bei Move (Performance + weniger Konflikte)
-- Versioning via `updated_at`-Match — bei Mismatch HTTP 409 mit Server-Version
+- `functions.php`:
+  - Registrierung der Route `/board-projects`
+  - Handler: `eventboerse_handle_board_get`, `eventboerse_handle_board_save`
+  - Handler: `eb_board_bookings_get`, `eb_board_bookings_update_card`
+- `app.js`:
+  - Laden/Speichern + Merge-Logik beim Board-Open/Sync
+  - Dienstleister-Auftragsboard nutzt `/board-bookings`
 
 ## Verknüpft
 
 - [[Features/Planungsboard]]
-- [[Architecture/Datenmodell#wp_eb_board_projects]]
+- [[Backend/API-Endpoints]]
+- [[Architecture/Datenmodell]]

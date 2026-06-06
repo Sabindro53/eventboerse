@@ -19,32 +19,52 @@
 
 | Was | Details |
 |-----|---------|
-| Frontend | `app.js` ~14 700 Zeilen, Vanilla JS SPA |
-| Backend | `functions.php` ~4 429 Zeilen, WordPress REST API (67 Endpoints) |
-| Styling | `styles.css` ~11 000 Zeilen, mobile-first |
-| Hosting | Shared WordPress Hosting (Hosting-Provider), automatisches Deployment via GitHub Actions |
+| Frontend | `app.js` 20.769 Zeilen, Vanilla JS SPA |
+| Backend | `functions.php` 6.741 Zeilen, WordPress REST API (80 Route-Registrierungen) |
+| Styling | `styles.css` 14.716 Zeilen, mobile-first |
+| Hosting | IONOS/Shared WordPress Hosting, automatisches Deployment via GitHub Actions + SFTP |
 | Auth | Login/Register + 2FA (OTP per E-Mail) + WebAuthn/Passkeys |
-| Zahlungen | Stripe (teilweise integriert, in Entwicklung) |
+| Zahlungen | Stripe Payment Element + Connect Express + Webhook + Reconcile (integriert, E2E weiter zu härten) |
+| QA-Support | Tokenfreier QA-Bot in der UI, regelbasiert mit direkten Navigationsaktionen |
 
 → [[Frontend/app-js-module]] | [[Features/Authentication]] | [[Features/Payments]]
+
+## Neuester Stand (2026-06-06)
+
+- Live-Stand: GitHub `main` `3c1e752`, Domain erreichbar, Assets mit `styles.css?v=2.5.1`.
+- Board-Picker lädt vollständige Listing-Mengen (`includeAllPages`), nicht nur gekappte Teilmengen.
+- Such-Listings werden sauber markiert (nicht mehr über Rollen-Heuristik).
+- Selbstbuchung ist auf mehreren Ebenen blockiert (Board + Direktbuchung).
+- Eigene Angebote sind für Planer im Board sichtbar, aber nicht als Fremdbuchung verlinkt.
+- Demo-Sichtbarkeit ist zwischen Home/Browse/Map/Board vereinheitlicht.
+- Paketplanung wurde erweitert: Multi-Select + mehrere Zeitfenster pro Paketposition.
+- Stripe Connect ist als Dienstleister-Onboarding in Einstellungen sichtbar; Bank-/KYC-Daten laufen über Stripe, nicht über Eventbörse.
+- QA-Bot ist rechts über der Bottom-Navigation: Roboter/Support-Agent mit Partyhut, Headset, Mikro; transparent, ohne Card/Status-Dot.
+- Loader/Hero-Popper wurden bereinigt; doppelte Popper-Bilder entfernt.
+- IDN-E-Mail-Login (`eventbörse.de`) ist repariert.
+
+→ [[AI-Gedaechtnis/Latest-Stand-2026-06-06]]
 
 ## Architektur-Stärken (nicht anfassen)
 
 - Einfaches SFTP-Deployment (kein Build-Schritt)
 - WordPress als bewährter Auth/DB-Layer
 - WebAuthn schon implementiert (selten bei kleinen Projekten)
-- Stripe-Grundgerüst vorhanden
+- Stripe-Grundgerüst + Connect-Onboarding vorhanden
+- Tokenfreie Support-Hilfe vorhanden (QA-Bot)
 
 ## Bekannte Schwächen (Prioritätsliste)
 
 ### P0 — Kritisch
-- [ ] **Demo-Daten ersetzen** — `LISTINGS`/`REVIEWS`/`CHATS` Arrays in `app.js` (Zeilen ~7–500) durch echte DB-Calls ersetzen. Backend-Endpoint `GET /listings` existiert schon.
+- [ ] **Listings/Board Regression-Schutz** — feste Smoke-Tests gegen Selbstbuchung, verschwundene Listings und Demo-Visibility-Regressions.
+- [ ] **Sichere Default-Pfade für KI-Automation** — Änderungen nur mit Guardrails (kein destruktives Bulk-Verhalten bei Unsicherheit).
+- [ ] **Stripe Connect E2E absichern** — Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund-Pfad im Testmodus durchtesten.
 
 ### P1 — Wichtig
 - [ ] **Echtzeit-Messaging** — aktuell Polling alle 3s, WebSockets/SSE wäre besser
 - [ ] **Volltextsuche** — echte MySQL FULLTEXT statt client-seitiger Filterung
-- [ ] **Review-System** — Bewertungen nach Buchungsabschluss anzeigen
-- [ ] **Stripe vollständig** — Checkout + Webhook + Reconciliation fertigstellen
+- [ ] **Review-System** — Bewertungen nach Buchungsabschluss konsistent in allen Ansichten ausrollen
+- [ ] **Stripe-Härtung** — Reconcile/Return-Flow weiter absichern, E2E-Prüfpfade automatisieren
 
 → [[Features/Messaging]] | [[Features/Payments]] | [[Roadmap/Current-Sprint]]
 
@@ -87,27 +107,18 @@ navigateTo('admin')         // Admin-Panel
 
 | Zeile | Inhalt |
 |-------|--------|
-| ~7 | Demo-Daten `LISTINGS` Array (hardcoded) |
-| ~453 | Demo-Events Array |
-| ~505 | SPA Path Helpers |
-| ~539 | Global State (`currentUser`, `currentChat` etc.) |
-| ~718 | `navigateTo()` — Haupt-Router |
-| ~10128 | **Event-Planungs-Board** (Herzstück) |
-| ~10128 | `_boardProjects`, `_activeBoardId`, Sync-Logik |
-| ~11245 | `renderBoardPage()`, `openBoardProject()`, `renderKanban()` |
-| ~11584 | `switchBoardView()` — Kanban/Flow/Timeline/Checkliste |
-| ~14060 | `openCreateBoardModal()`, `_createBoardProject()` |
-| ~14160 | `openEditBoardProjectModal()`, `openSelectBoardProjectModal()` |
-| ~14160 | `addCurrentListingToBoard()`, `_addListingToBoardProject()` |
-| ~14300 | `renderBoardChecklist()`, `toggleChecklistItem()` |
-| ~14400 | `openAddProviderModal()`, `editBoardCard()` |
-| ~8631 | `_apiUrl()` / `_apiHeaders()` |
-| ~9890 | App-Init / DOMContentLoaded |
-| ~11601 | Stripe Return Handler |
+| ~947 | `loadDbListings()` |
+| ~10237 | `_apiUrl()` / `_apiHeaders()` |
+| ~11600 | QA-Bot Regeln und Actions (`QA_TOPICS`, `handleQaAsk`) |
+| ~12500 | `renderBoardPage()` |
+| ~13000 | Board-Buchungs-/Provider-Update-Pfade |
+| ~15600 | Stripe Connect Status/Diagnose/Onboarding |
+| ~17000 | `openAddProviderModal()` (Baustein/Paket Picker) |
+| ~17600 | `_addProviderCard()` (Paket-/Selbstbuchungs-Guards) |
 
 ## Lernpunkte aus vergangenen Gesprächen
 
 *(Claude trägt hier neue Erkenntnisse ein)*
 
 ---
-*Zuletzt aktualisiert: 2026-04-30*
+*Zuletzt aktualisiert: 2026-06-06*

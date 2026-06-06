@@ -27,6 +27,8 @@ Pro User-ID viele Key-Value-Paare. Ausgewählte eigene Keys:
 | `eb_password_reset_token` | string | Einmal-Token + TTL |
 | `eb_stripe_account_id` | string | Stripe Connect-ID (Express) |
 | `eb_stripe_onboarded` | bool | Onboarding abgeschlossen |
+| `eb_stripe_connect_business_type` | string | `individual` oder `company` für Onboarding-Vorauswahl |
+| `eb_stripe_connect_status_cache` | JSON | optionaler Frontend-/Status-Cache für Connect |
 | `eb_settings` | JSON | UI-/Notification-Präferenzen |
 
 ## Eigene Tabellen (`wp_eb_*`)
@@ -77,22 +79,33 @@ Pro User-ID viele Key-Value-Paare. Ausgewählte eigene Keys:
 | `meta` | JSON | Offer-Status, Buchungs-Snapshot |
 | `created_at` | DATETIME | |
 
-### `wp_eb_board_projects`
-Pro Event-Planer mehrere Projekte. Komplette Board-State serialisiert als JSON — bewusste Entscheidung gegen normalisierte Cards-Tabelle (siehe [[AI-Gedaechtnis/Entscheidungen]]).
+### Board-Projekte in `wp_usermeta`
+Board-Projekte werden aktuell **nicht** in einer eigenen Tabelle gespeichert, sondern pro Nutzer als JSON in `wp_usermeta`.
 
-| Spalte | Typ | Beschreibung |
+| Meta-Key | Typ | Beschreibung |
 |---|---|---|
-| `id` | BIGINT PK | |
-| `user_id` | BIGINT | |
-| `name`, `event_date` | VARCHAR/DATE | |
-| `data` | LONGTEXT (JSON) | `{ cards, columns, view, … }` |
-| `updated_at` | DATETIME | |
+| `eb_board_projects` | LONGTEXT (JSON) | Komplette Projektliste inkl. `cards`, `checklist`, `updatedAt`, Tombstones |
+
+Hinweis: Diese Entscheidung reduziert Schema-Komplexität und passt zum aktuellen Frontend-Sync-Modell (`GET/POST /board-projects`).
+
+Board-Karten können seit dem Paket-/Baustein-Ausbau zusätzliche Felder enthalten:
+
+| Feld | Zweck |
+|---|---|
+| `bundleMode` | `fragment`/`package` bzw. Baustein/Paket-Logik |
+| `sourceKind` | `manual`, `own_offer`, `external_listing`, `search_listing`, `mixed_package` |
+| `linkedListingIds` | Mehrere verknüpfte Listings bei Paketkarten |
+| `packageItems` | einzelne Paketpositionen mit Zeit, Preis, Notiz |
+
+`/board-bookings` aggregiert diese JSON-Daten für Dienstleister, legt aber keine eigene Tabelle an.
 
 ### `wp_eb_favorites`
 Many-to-Many User ↔ Listing.
 
 ### `wp_eb_registrations`
 Eventregistrierungen / Buchungen + Zahlungs-Status.
+
+Stripe-relevante Felder/Metadaten hängen an Buchungs-/Message-/Registration-Kontexten und enthalten nur Transaktions-IDs, Status und Beträge. Zahlungsdaten und Bankdaten bleiben bei Stripe.
 
 ### `wp_eb_rate_limits`
 Transient-Fallback-Tabelle für Rate-Limiter (Schlüssel + Counter + Reset-Timestamp).

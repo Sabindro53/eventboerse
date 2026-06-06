@@ -2,7 +2,7 @@
 
 > **Ziel:** Die beste und funktionalste Eventplattform für jedermann
 > **Domain:** `{{DOMAIN}}` (anonymisiert) | **Stack:** WordPress + Vanilla JS SPA
-> **Stand:** Auto-aktualisiert via Coding-Agent-Hook
+> **Stand:** 2026-06-06 (Live: `styles.css?v=2.5.1`, GitHub `main` `3c1e752`)
 
 ---
 
@@ -12,12 +12,12 @@
 
 | Bereich | Dateien | Status |
 |---------|---------|--------|
-| [[Frontend/app-js-module\|Frontend SPA]] | `app.js` (14.688 Zeilen) | Aktiv |
-| [[Backend/API-Endpoints\|Backend REST API]] | `functions.php` (4.429 Zeilen) | 67 Endpoints |
+| [[Frontend/app-js-module\|Frontend SPA]] | `app.js` (20.769 Zeilen) | Aktiv |
+| [[Backend/API-Endpoints\|Backend REST API]] | `functions.php` (6.741 Zeilen) | 80 Route-Registrierungen |
 | [[Architecture/Overview\|Architektur]] | WordPress + SPA | Stabil |
 | [[Architecture/Tech-Stack\|Tech-Stack]] | PHP 8.1+ / WP 6.4+ / Vanilla JS | versioniert |
-| [[CI-CD/Deployment\|CI/CD]] | GitHub Actions → Hosting-Provider | Automatisch |
-| [[Testing\|Testing & QA]] | Smoke-Test + PR-Checks + Auto-Audit | manuell + KI |
+| [[CI-CD/Deployment\|CI/CD]] | GitHub Actions → IONOS SFTP | Automatisch |
+| [[Testing\|Testing & QA]] | Smoke-Test + PR-Checks + Live-Monitor | manuell + automatisiert |
 | [[Roadmap/Current-Sprint\|Roadmap]] | Features & Bugs | Aktiv |
 
 ---
@@ -29,6 +29,7 @@
 - [[Features/Listings\|Listings & Suche]] - Dienstleister-Suche, Filter, Karte
 - [[Features/Messaging\|Chat & Nachrichten]] - Echtzeit-Messaging, Angebote/Verhandlung
 - [[Features/Payments\|Zahlungen]] - Stripe Payment Element
+- QA-Support-Bot - tokenfreie Hilfe, rechts über Bottom-Navigation
 - [[Features/Reviews\|Bewertungen]] - 1-5 Sterne System
 - [[Features/Admin\|Admin Panel]] - Nutzerverwaltung, Diagnostik, SMTP
 - [[Features/Planungsboard\|Planungs-Board]] - Kanban / Flow / Timeline / Checkliste
@@ -46,6 +47,7 @@
 - [[Backend/Listings-API\|Listings API]] - 5 Endpoints: CRUD für Dienstleistungen
 - [[Backend/Messaging-API\|Messaging API]] - 5 Endpoints: Konversationen & Nachrichten
 - [[Backend/Payment-API\|Payment API]] - 7 Endpoints: Stripe Checkout, Webhooks
+- Stripe Connect - Dienstleister-Onboarding, Diagnose, Status, Disconnect
 - [[Backend/Admin-API\|Admin API]] - 13 Endpoints: User Management
 - [[Backend/WebAuthn-API\|WebAuthn API]] - 8 Endpoints: Passkey Authentication
 - [[Backend/Reviews-API\|Reviews API]] - Bewertungen + DSA-Notice
@@ -91,6 +93,8 @@
 > Coding-Agents lesen & schreiben in diesen Vault. Jede Code-Änderung wird dokumentiert.
 
 - [[AI-Gedaechtnis/Claude-Kontext\|Agent-Kontext]] - Was der Coding-Agent über dieses Projekt weiß
+- [[AI-Gedaechtnis/Latest-Stand-2026-06-06\|Latest Stand 2026-06-06]] - Aktueller stabiler Projektzustand
+- [[AI-Gedaechtnis/Latest-Stand-2026-05-22\|Latest Stand 2026-05-22]] - Historischer Board/Listings-Snapshot
 - [[AI-Gedaechtnis/Code-Beziehungen\|Code-Beziehungen]] - Welche Module miteinander sprechen
 - [[AI-Gedaechtnis/Entscheidungen\|Architektur-Entscheidungen]] - Warum was so gemacht wurde
 
@@ -116,10 +120,11 @@
 ## Code-Statistiken (Auto-Update)
 
 ```
-app.js        ~14.688 Zeilen  (SPA Frontend)
-functions.php  ~4.429 Zeilen  (WordPress Backend)
-styles.css    ~11.030 Zeilen  (Alle Styles)
-index.html    ~149 KB  (SPA Markup)
+app.js        20.769 Zeilen  (SPA Frontend)
+functions.php  6.741 Zeilen  (WordPress Backend)
+styles.css    14.716 Zeilen  (Alle Styles)
+index.php      3.934 Zeilen  (WP Theme Markup)
+index.html     3.537 Zeilen  (statische/Legacy Markup-Kopie)
 ```
 
-*Zuletzt aktualisiert: 2026-05-06 (Vault-Erweiterung Phase 2 + SFTP-Workflow `vault/`-Exclude)*
+*Zuletzt aktualisiert: 2026-06-06*

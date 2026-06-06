@@ -40,6 +40,17 @@ showToast('Gespeichert', 'success');  // success | error | info | warning
 
 Auto-dismiss nach 3 s, max. 3 gleichzeitig sichtbar.
 
+## QA-Support-Bot
+
+Stand 2026-06-06:
+
+- Markup in `index.php`: `#qaBot`, `#qaPanel`, `#qaLauncher`.
+- Styling in `styles.css`: `.eb-qa-*`.
+- Logik in `app.js`: regelbasierte `QA_TOPICS`, keine KI-Token.
+- Position: rechts über der Bottom-Navigation, auch mobil.
+- Launcher: transparentes Roboter/Support-Agent-Icon mit Partyhut, Headset, Mikro. Keine Card, kein Status-Dot, keine UA-Button-Reste.
+- Pflichtprüfung nach Änderungen: Panel öffnet, Fokus/Click funktioniert, Cookie-Banner/Bottom-Nav überdecken den Button nicht.
+
 ## Skeleton-Loader
 
 Pro Karten-Layout existiert ein zugehöriger Skeleton (`.skeleton-card`, `.skeleton-list-item`). Wird gerendert, solange `await fetchAPI(...)` läuft.

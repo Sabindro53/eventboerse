@@ -18,9 +18,16 @@
 | POST | `/admin/revoke-admin` | Admin-Rechte entziehen |
 | POST | `/admin/toggle-active` | Account sperren/entsperren |
 | GET/POST | `/admin/smtp` | SMTP-Konfiguration lesen/schreiben |
+| GET/POST | `/admin/hide-demo` | Demo-Daten global ein-/ausblenden |
+| POST | `/admin/toggle-demo` | Legacy-Demo-Toggle |
+| POST | `/admin/seed-test-listing` | Test-Listing erzeugen |
 | POST | `/admin/reset` | Testdaten zurücksetzen |
 | GET | `/diagnostics` | System-Status (DB, Mail, API) |
 | POST | `/diagnostics/test-mail` | Test-E-Mail senden |
+
+## Abgleich 2026-06-06
+
+Die ältere Doku/Produktanforderung für `POST /admin/listings/{id}/hide` ist fachlich weiterhin relevant, aber im aktuellen `functions.php` nicht als REST-Route registriert. Vor dem nächsten Admin-Moderations-Fix zuerst Code und Live-UI prüfen, dann Route/Creator-Historie gezielt wiederherstellen.
 
 ## Verknüpfte Notizen
 - [[Features/Admin]] — Frontend Admin-Panel

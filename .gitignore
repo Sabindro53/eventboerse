@@ -39,5 +39,9 @@ temp/
 # Patch files (local workflow only, never commit)
 *.patch
 
+# Local AI/runtime knowledge caches (never deploy into the public theme)
+ki-knowledge.json
+Attached Element Context*
+
 # Obsidian vault
 .obsidian/
