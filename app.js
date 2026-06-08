@@ -13399,7 +13399,7 @@ function _renderOwnProjectCardHtml(p) {
       : '';
 
     return `
-      <div class="board-project-card animated-entry${p.kind === 'instant' ? ' bpc-instant' : ''}" onclick="openBoardProjectInNewTab('${p.id}', event)">
+      <div class="board-project-card animated-entry${p.kind === 'instant' ? ' bpc-instant' : ''}" onclick="openBoardProject('${p.id}')">
         <button class="bpc-delete-btn" onclick="event.stopPropagation();deleteBoardProjectById('${p.id}')" title="Projekt l\u00f6schen" aria-label="Projekt l\u00f6schen"><span class="material-icons-round">close</span></button>
         <button class="bpc-edit-btn" onclick="event.stopPropagation();openEditBoardProjectModal('${p.id}')" title="Projekt bearbeiten" aria-label="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
         ${instantBadge}
@@ -13828,31 +13828,25 @@ function showBoardProjects() {
   boardViewEl && (boardViewEl.style.display = 'none');
   projectsEl && (projectsEl.style.display = '');
   btnAllBoards && (btnAllBoards.style.display = 'none');
+  // URL zurück auf Übersicht /board (sonst bleibt /board/<id> in der Adressleiste)
+  try {
+    var _wantedPath = (typeof _spaPath === 'function') ? _spaPath('board') : '/board';
+    if (window.location.pathname !== _wantedPath) {
+      window.history.pushState({ page: 'board', data: null }, '', _wantedPath);
+    }
+  } catch(e) {}
   renderBoardPage();
 }
 
-// Öffnet ein Board-Projekt als eigenständigen Tab (Deep-Link über /board/<id>)
-// Mittelklick / Ctrl/Cmd+Klick werden vom Browser nativ behandelt.
+// Legacy-Alias: öffnet das Projekt in-app (kein neuer Tab mehr).
+// Wird für Rückwärtskompatibilität mit alten Inline-Handlern beibehalten.
 var _pendingBoardProjectId = null;
 function openBoardProjectInNewTab(projectId, ev) {
   if (ev) {
-    // Modifier-Klicks ohnehin neue Tabs — nicht doppelt öffnen
+    // Modifier-Klicks: User will neuen Tab → nichts tun, Browser-Default greift.
     if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return;
-    try { ev.preventDefault(); } catch(e) {}
   }
-  var url;
-  try {
-    url = (typeof _spaPath === 'function') ? _spaPath('board', projectId) : ('/board/' + projectId);
-  } catch(e) { url = '/board/' + projectId; }
-  try {
-    var w = window.open(url, '_blank', 'noopener');
-    if (!w) {
-      // Popup-Blocker → in-app öffnen als Fallback
-      openBoardProject(projectId);
-    }
-  } catch(e) {
-    openBoardProject(projectId);
-  }
+  openBoardProject(projectId);
 }
 
 // Versucht ein per Deep-Link angefragtes Projekt zu öffnen, sobald es im Cache vorhanden ist.
@@ -13870,6 +13864,14 @@ function openBoardProject(projectId) {
   var project = _boardProjects.find(function(p) { return p.id === projectId; });
   if (!project) return;
   _activeBoardId = projectId;
+
+  // URL synchronisieren → /board/<id> (Deep-Link bleibt funktional, Back-Button geht zur Übersicht)
+  try {
+    var _wantedPath = (typeof _spaPath === 'function') ? _spaPath('board', projectId) : ('/board/' + projectId);
+    if (window.location.pathname !== _wantedPath) {
+      window.history.pushState({ page: 'board', data: projectId }, '', _wantedPath);
+    }
+  } catch(e) {}
 
   // Ensure board page is the active page
   var boardPage = document.getElementById('page-board');
