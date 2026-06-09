@@ -1991,17 +1991,38 @@
         <h1 class="admin-title"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</h1>
         <p class="admin-subtitle">Benutzer verwalten, Inhalte moderieren.</p>
 
-        <div class="admin-search-bar">
-          <span class="material-icons-round">search</span>
-          <input type="text" id="adminUserSearch" placeholder="Benutzer suchen (Name, E-Mail)…" oninput="adminSearchUsers(this.value)">
+        <div class="admin-tabs" role="tablist">
+          <button class="admin-tab is-active" id="adminTabUsers" role="tab" aria-selected="true" onclick="adminSwitchTab('users')">
+            <span class="material-icons-round">people</span> Benutzer
+          </button>
+          <button class="admin-tab" id="adminTabListings" role="tab" aria-selected="false" onclick="adminSwitchTab('listings')">
+            <span class="material-icons-round">storefront</span> Inserate &amp; Bilder
+          </button>
         </div>
 
-        <div class="admin-stats" id="adminStats"></div>
+        <div class="admin-pane" id="adminPaneUsers">
+          <div class="admin-search-bar">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="adminUserSearch" placeholder="Benutzer suchen (Name, E-Mail)…" oninput="adminSearchUsers(this.value)">
+          </div>
 
-        <div class="admin-hide-demo-box" id="adminHideDemoBox"></div>
+          <div class="admin-stats" id="adminStats"></div>
 
-        <div class="admin-user-list" id="adminUserList">
-          <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>
+          <div class="admin-hide-demo-box" id="adminHideDemoBox"></div>
+
+          <div class="admin-user-list" id="adminUserList">
+            <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>
+          </div>
+        </div>
+
+        <div class="admin-pane" id="adminPaneListings" hidden>
+          <div class="admin-search-bar">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="adminListingSearch" placeholder="Inserat suchen (Titel, Ort, Besitzer)…" oninput="adminSearchListings(this.value)">
+          </div>
+          <div class="admin-listings" id="adminListings">
+            <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Inserate…</div>
+          </div>
         </div>
       </div>
     </section>

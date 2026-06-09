@@ -3074,9 +3074,15 @@ function loadDetail(listingId) {
 
   // Swipeable gallery carousel
   var imgs = listing.images;
+  var _isAdminMod = !!(currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id);
+  var _modListingId = listing._dbId || (listing._fromDb ? listing.id - 10000 : listing.id);
   gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
     imgs.map(function(img, i) {
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" /></div>';
+      var safe = _escHtml(img);
+      var modBtn = _isAdminMod
+        ? '<button class="detail-gallery-modbtn" title="Bild als nicht passend entfernen" onclick="event.stopPropagation();adminDeleteListingImage(' + (+_modListingId) + ',\'' + safe.replace(/'/g, "\\'") + '\')"><span class="material-icons-round">flag</span></button>'
+        : '';
+      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" /></div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -4464,6 +4470,9 @@ function _startChatPoll() {
             var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
             return '<div class="msg ' + delCls + ' msg-deleted"><span class="material-icons-round">block</span> Nachricht wurde gelöscht</div>';
           }
+          if (msg.type === 'moderation' || msg.msg_type === 'moderation') {
+            return '<div class="msg msg-moderation"><div class="msg-moderation-head"><span class="material-icons-round">verified_user</span> Hinweis vom Eventbörse-Team</div><div class="msg-moderation-body">' + _escHtml(msg.text || msg.content || '').replace(/\n/g, '<br>') + '</div></div>';
+          }
           if (msg.type === 'system') {
             return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
           } else if (msg.type === 'offer') {
@@ -4963,6 +4972,9 @@ function openChat(chatId) {
           var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           return '<div class="msg ' + delCls + ' msg-deleted"><span class="material-icons-round">block</span> Nachricht wurde gelöscht</div>';
         }
+        if (msg.type === 'moderation' || msg.msg_type === 'moderation') {
+          return '<div class="msg msg-moderation"><div class="msg-moderation-head"><span class="material-icons-round">verified_user</span> Hinweis vom Eventbörse-Team</div><div class="msg-moderation-body">' + _escHtml(msg.text || msg.content || '').replace(/\n/g, '<br>') + '</div></div>';
+        }
         if (msg.type === 'system') {
           return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
         } else if (msg.type === 'offer') {
@@ -5213,6 +5225,9 @@ function openDemoChat(chatId) {
   var msgContainer = document.getElementById('chatMessages');
   window._cbcCancelled = _collectCancelledProjectNames(chat.messages);
   msgContainer.innerHTML = chat.messages.map(function(msg) {
+    if (msg.type === 'moderation' || msg.msg_type === 'moderation') {
+      return '<div class="msg msg-moderation"><div class="msg-moderation-head"><span class="material-icons-round">verified_user</span> Hinweis vom Eventbörse-Team</div><div class="msg-moderation-body">' + _escHtml(msg.text || msg.content || '').replace(/\n/g, '<br>') + '</div></div>';
+    }
     if (msg.type === 'system') {
       return '<div class="msg msg-system">' + _escHtml(msg.text) + '</div>';
     } else if (msg.type === 'offer') {
@@ -9038,6 +9053,211 @@ function renderAdminUserList(users) {
     '</div>';
   });
   list.innerHTML = html;
+}
+
+// ========== ADMIN TABS (Benutzer / Inserate) ==========
+var _adminListings = [];
+var _adminListingsLoaded = false;
+var _adminCurrentTab = 'users';
+var _adminListingSearchDebounce = null;
+
+function adminSwitchTab(tab) {
+  _adminCurrentTab = tab;
+  var tabUsers = document.getElementById('adminTabUsers');
+  var tabList = document.getElementById('adminTabListings');
+  var paneUsers = document.getElementById('adminPaneUsers');
+  var paneList = document.getElementById('adminPaneListings');
+  if (!tabUsers || !tabList || !paneUsers || !paneList) return;
+  var isUsers = (tab === 'users');
+  tabUsers.classList.toggle('is-active', isUsers);
+  tabList.classList.toggle('is-active', !isUsers);
+  tabUsers.setAttribute('aria-selected', isUsers ? 'true' : 'false');
+  tabList.setAttribute('aria-selected', !isUsers ? 'true' : 'false');
+  paneUsers.hidden = !isUsers;
+  paneList.hidden = isUsers;
+  if (!isUsers && !_adminListingsLoaded) {
+    loadAdminListings();
+  }
+}
+
+function adminSearchListings(term) {
+  if (_adminListingSearchDebounce) clearTimeout(_adminListingSearchDebounce);
+  _adminListingSearchDebounce = setTimeout(function() {
+    loadAdminListings(term);
+  }, 220);
+}
+
+function loadAdminListings(searchTerm) {
+  var url = 'admin/listings';
+  if (searchTerm) url += '?search=' + encodeURIComponent(searchTerm);
+  var host = document.getElementById('adminListings');
+  if (host) host.innerHTML = '<div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Inserate…</div>';
+
+  fetch(_apiUrl(url), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) {
+      _refreshNonce(r);
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    })
+    .then(function(rows) {
+      if (!Array.isArray(rows)) throw new Error('bad payload');
+      _adminListings = rows;
+      _adminListingsLoaded = true;
+      renderAdminListings(_adminListings);
+    })
+    .catch(function() {
+      if (host) host.innerHTML = '<p class="admin-error">Fehler beim Laden der Inserate.</p>';
+    });
+}
+
+function renderAdminListings(rows) {
+  var host = document.getElementById('adminListings');
+  if (!host) return;
+  if (!rows || !rows.length) {
+    host.innerHTML = '<p class="admin-empty">Keine Inserate gefunden.</p>';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(l) {
+    var imgs = Array.isArray(l.images) ? l.images : [];
+    var providerName = _escHtml(l.ownerName || l.providerName || '–');
+    var providerEmail = _escHtml(l.ownerEmail || '');
+    var title = _escHtml(l.title || ('Inserat #' + l.id));
+    var cat = _escHtml(l.categoryLabel || l.category || '');
+    var loc = _escHtml(l.region || l.location || '');
+    var imageGrid = imgs.length
+      ? imgs.map(function(src, i) {
+          var safeSrc = _escHtml(src);
+          return '<figure class="admin-listing-img">' +
+            '<img loading="lazy" src="' + safeSrc + '" alt="Bild ' + (i+1) + '" onerror="this.style.opacity=0.3">' +
+            '<button class="admin-listing-img-del" title="Bild entfernen" onclick="adminDeleteListingImage(' + (+l.id) + ',\'' + safeSrc.replace(/'/g, "\\'") + '\')">' +
+              '<span class="material-icons-round">delete</span>' +
+            '</button>' +
+          '</figure>';
+        }).join('')
+      : '<p class="admin-empty">Keine Bilder vorhanden.</p>';
+
+    html += '<article class="admin-listing-card" data-listing-id="' + (+l.id) + '">' +
+      '<header class="admin-listing-head">' +
+        '<div class="admin-listing-meta">' +
+          '<h3 onclick="navigateTo(\'detail\',' + (+l.id) + ')" title="Inserat öffnen">' + title + '</h3>' +
+          '<p class="admin-listing-sub">' + cat + (loc ? ' · ' + loc : '') + ' · Besitzer: ' + providerName + (providerEmail ? ' (' + providerEmail + ')' : '') + '</p>' +
+        '</div>' +
+        '<button class="btn-outline btn-sm btn-danger-outline" onclick="adminDeleteListing(' + (+l.id) + ')" title="Komplettes Inserat löschen">' +
+          '<span class="material-icons-round">delete_forever</span> Inserat löschen' +
+        '</button>' +
+      '</header>' +
+      '<div class="admin-listing-images">' + imageGrid + '</div>' +
+    '</article>';
+  });
+  host.innerHTML = html;
+}
+
+function adminDeleteListingImage(listingId, imageUrl) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  _openImageModerationModal(listingId, imageUrl);
+}
+
+// Liefert ein kleines Overlay-Modal mit Preset-Gründen + freiem Textfeld.
+function _openImageModerationModal(listingId, imageUrl) {
+  // Falls bereits offen, neu starten
+  var existing = document.getElementById('imgModModal');
+  if (existing) existing.remove();
+
+  var presets = [
+    'Bild ist nicht passend zum Angebot',
+    'Verstoß gegen Inhaltsrichtlinien',
+    'Schlechte Bildqualität',
+    'Verdacht auf Urheberrechtsverletzung',
+    'Enthält persönliche Daten / Kontaktdaten'
+  ];
+  var presetHtml = presets.map(function(p) {
+    return '<button type="button" class="imgmod-chip" data-reason="' + _escHtml(p) + '">' + _escHtml(p) + '</button>';
+  }).join('');
+
+  var safeImg = _escHtml(imageUrl || '');
+  var overlay = document.createElement('div');
+  overlay.id = 'imgModModal';
+  overlay.className = 'imgmod-overlay';
+  overlay.innerHTML =
+    '<div class="imgmod-modal" role="dialog" aria-modal="true" aria-labelledby="imgModTitle">' +
+      '<header class="imgmod-head">' +
+        '<h3 id="imgModTitle"><span class="material-icons-round">flag</span> Bild als „nicht passend" entfernen</h3>' +
+        '<button type="button" class="imgmod-close" aria-label="Schließen">&times;</button>' +
+      '</header>' +
+      '<div class="imgmod-body">' +
+        '<div class="imgmod-preview"><img src="' + safeImg + '" alt="Bildvorschau"></div>' +
+        '<p class="imgmod-help">Der Nutzer erhält eine Nachricht mit deiner Begründung. Wähle einen Grund oder ergänze ihn unten.</p>' +
+        '<div class="imgmod-chips">' + presetHtml + '</div>' +
+        '<label class="imgmod-label" for="imgModReason">Begründung (an den Nutzer)</label>' +
+        '<textarea id="imgModReason" rows="3" placeholder="Optional: zusätzlicher Hinweis…"></textarea>' +
+      '</div>' +
+      '<footer class="imgmod-foot">' +
+        '<button type="button" class="btn-outline imgmod-cancel">Abbrechen</button>' +
+        '<button type="button" class="btn-primary imgmod-confirm"><span class="material-icons-round">delete</span> Entfernen &amp; benachrichtigen</button>' +
+      '</footer>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  var textarea = overlay.querySelector('#imgModReason');
+  overlay.querySelectorAll('.imgmod-chip').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var r = btn.getAttribute('data-reason') || '';
+      textarea.value = textarea.value
+        ? (textarea.value.replace(/\s+$/,'') + ' · ' + r)
+        : r;
+      textarea.focus();
+    });
+  });
+
+  function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+  overlay.querySelector('.imgmod-close').addEventListener('click', close);
+  overlay.querySelector('.imgmod-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+
+  overlay.querySelector('.imgmod-confirm').addEventListener('click', function() {
+    var reason = (textarea.value || '').trim();
+    _submitImageModeration(listingId, imageUrl, reason, close);
+  });
+
+  setTimeout(function() { textarea.focus(); }, 50);
+}
+
+function _submitImageModeration(listingId, imageUrl, reason, onDone) {
+  fetch(_apiUrl('admin/listings/' + listingId + '/delete-image'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ image: imageUrl, reason: reason })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }).then(function(d) {
+    showToast('Bild entfernt – Nutzer wurde benachrichtigt.', 'delete');
+    if (typeof onDone === 'function') onDone();
+
+    var idx = _adminListings.findIndex(function(x) { return +x.id === +listingId; });
+    if (idx !== -1 && d && d.listing) {
+      _adminListings[idx] = Object.assign({}, _adminListings[idx], d.listing);
+      renderAdminListings(_adminListings);
+    } else if (_adminListingsLoaded) {
+      loadAdminListings();
+    }
+    try {
+      var lIdx = LISTINGS.findIndex(function(x) { return +x.id === +listingId || (x._dbId && +x._dbId === +listingId); });
+      if (lIdx !== -1 && d && d.listing && Array.isArray(d.listing.images)) {
+        LISTINGS[lIdx].images = d.listing.images;
+        if (typeof currentListing === 'object' && currentListing && (+currentListing.id === +LISTINGS[lIdx].id)) {
+          loadDetail(LISTINGS[lIdx].id);
+        }
+      }
+    } catch(e) {}
+  }).catch(function() {
+    showToast('Entfernen fehlgeschlagen.', 'error');
+  });
 }
 
 var _allAdminTags = [];
@@ -14088,6 +14308,11 @@ function dropCard(event, toStage) {
   document.querySelectorAll('.kanban-card.dragging').forEach(function(el) { el.classList.remove('dragging'); });
 }
 function _initCardDrag(colEl) {
+  // Wichtig: Listener nur EINMAL pro Column-Element anhängen, sonst sammeln
+  // sich bei jedem renderKanban() weitere Handler an (Memory-Leak + doppelte
+  // Klassen-Manipulationen). Markierung über data-Attribut.
+  if (!colEl || colEl.dataset.dragBound === '1') return;
+  colEl.dataset.dragBound = '1';
   colEl.addEventListener('dragleave', function() { colEl.classList.remove('drag-over'); });
 }
 

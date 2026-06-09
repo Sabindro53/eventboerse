@@ -2969,6 +2969,25 @@ function eb_register_extra_routes() {
         ),
     ) );
 
+    /* ---------- ADMIN: LISTING- & BILD-MODERATION ---------- */
+    register_rest_route( 'eventboerse/v1', '/admin/listings', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_admin_list_listings',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/listings/(?P<id>\d+)/delete-image', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_delete_listing_image',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/notify-user', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_notify_user',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     /* ---------- REGISTRATIONS (Event-Anmeldungen / Ticketing) ---------- */
     register_rest_route( 'eventboerse/v1', '/registrations', array(
         array(
@@ -3855,6 +3874,205 @@ function eb_my_listings() {
 }
 
 /* =====================================================================
+   ADMIN MODERATION: Inserate listen, Einzelbild löschen, User benachrichtigen
+   ===================================================================== */
+
+/** Liefert alle Inserate für die Admin-Moderationsansicht. */
+function eb_admin_list_listings( WP_REST_Request $request ) {
+    global $wpdb;
+    $search = trim( (string) $request->get_param( 'search' ) );
+    $where  = '';
+    $params = array();
+    if ( $search !== '' ) {
+        $like     = '%' . $wpdb->esc_like( $search ) . '%';
+        $where    = 'WHERE l.title LIKE %s OR l.location LIKE %s OR u.user_email LIKE %s OR u.display_name LIKE %s';
+        $params   = array( $like, $like, $like, $like );
+    }
+
+    $sql = "SELECT l.*, u.display_name, u.user_email
+            FROM {$wpdb->prefix}eb_listings l
+            LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+            $where
+            ORDER BY l.created_at DESC
+            LIMIT 500";
+
+    $rows = $params
+        ? $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A )
+        : $wpdb->get_results( $sql, ARRAY_A );
+
+    $out = array();
+    foreach ( ( $rows ?: array() ) as $row ) {
+        $formatted = eb_format_listing( $row );
+        $formatted['ownerEmail'] = $row['user_email'] ?? '';
+        $formatted['ownerName']  = $row['display_name'] ?? '';
+        $out[] = $formatted;
+    }
+
+    $response = new WP_REST_Response( $out, 200 );
+    $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+    return $response;
+}
+
+/** Entfernt ein einzelnes Bild aus einem Inserat und benachrichtigt den Eigentümer. */
+function eb_admin_delete_listing_image( WP_REST_Request $request ) {
+    global $wpdb;
+    $id     = absint( $request['id'] );
+    $params = $request->get_json_params();
+    $image  = isset( $params['image'] ) ? esc_url_raw( trim( (string) $params['image'] ) ) : '';
+    $reason = isset( $params['reason'] ) ? sanitize_textarea_field( $params['reason'] ) : '';
+
+    if ( ! $image ) {
+        return new WP_REST_Response( array( 'message' => 'Bild-URL fehlt.' ), 400 );
+    }
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ), ARRAY_A );
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+
+    $images = json_decode( (string) $row['images'], true );
+    if ( ! is_array( $images ) ) $images = array();
+
+    $new_images = array();
+    $removed    = false;
+    foreach ( $images as $img ) {
+        $img = (string) $img;
+        if ( ! $removed && $img === $image ) {
+            $removed = true;
+            continue;
+        }
+        $new_images[] = $img;
+    }
+
+    if ( ! $removed ) {
+        return new WP_REST_Response( array( 'message' => 'Bild nicht im Inserat enthalten.' ), 404 );
+    }
+
+    $wpdb->update(
+        $wpdb->prefix . 'eb_listings',
+        array(
+            'images'     => wp_json_encode( array_values( $new_images ) ),
+            'updated_at' => current_time( 'mysql' ),
+        ),
+        array( 'id' => $id )
+    );
+
+    eb_admin_notify_listing_owner_image_removed( (int) $row['user_id'], (int) $id, $row['title'], $image, $reason );
+
+    $fresh = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ), ARRAY_A );
+
+    return new WP_REST_Response( array(
+        'ok'      => true,
+        'removed' => $image,
+        'listing' => eb_format_listing( $fresh ),
+    ), 200 );
+}
+
+/** Schickt eine freie Moderationsnachricht von einem Admin an einen Nutzer. */
+function eb_admin_notify_user( WP_REST_Request $request ) {
+    $params  = $request->get_json_params();
+    $user_id = isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+    $text    = isset( $params['text'] ) ? sanitize_textarea_field( $params['text'] ) : '';
+    $subject = isset( $params['subject'] ) ? sanitize_text_field( $params['subject'] ) : 'Nachricht vom Eventbörse-Team';
+
+    if ( $user_id <= 0 || $text === '' ) {
+        return new WP_REST_Response( array( 'message' => 'user_id und text sind erforderlich.' ), 400 );
+    }
+
+    $ok = eb_admin_send_moderation_message( $user_id, $text, $subject );
+    return new WP_REST_Response( array( 'ok' => (bool) $ok ), $ok ? 200 : 500 );
+}
+
+/**
+ * Erstellt (falls nötig) eine Conversation zwischen dem aktuellen Admin und dem
+ * Empfänger und legt eine System-Message ab. Zusätzlich wird – sofern verfügbar
+ * – eine E-Mail an den Nutzer verschickt. Gibt true zurück, wenn mindestens
+ * eine der beiden Zustellwege erfolgreich war.
+ */
+function eb_admin_send_moderation_message( $recipient_id, $body, $subject = '' ) {
+    global $wpdb;
+    $recipient_id = (int) $recipient_id;
+    $admin_id     = (int) get_current_user_id();
+    if ( $recipient_id <= 0 || $admin_id <= 0 || $recipient_id === $admin_id ) {
+        return false;
+    }
+
+    $body = trim( (string) $body );
+    if ( $body === '' ) return false;
+
+    // Conversation suchen oder neu anlegen
+    $conv_id = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_conversations
+         WHERE (user_a = %d AND user_b = %d) OR (user_a = %d AND user_b = %d)
+         LIMIT 1",
+        $admin_id, $recipient_id, $recipient_id, $admin_id
+    ) );
+
+    if ( ! $conv_id ) {
+        $wpdb->insert( $wpdb->prefix . 'eb_conversations', array(
+            'user_a'     => $admin_id,
+            'user_b'     => $recipient_id,
+            'updated_at' => current_time( 'mysql' ),
+        ) );
+        $conv_id = (int) $wpdb->insert_id;
+    } else {
+        $wpdb->update(
+            $wpdb->prefix . 'eb_conversations',
+            array( 'updated_at' => current_time( 'mysql' ) ),
+            array( 'id' => $conv_id )
+        );
+    }
+
+    $msg_ok = false;
+    if ( $conv_id ) {
+        $msg_ok = (bool) $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+            'conversation_id' => $conv_id,
+            'sender_id'       => $admin_id,
+            'body'            => $body,
+            'msg_type'        => 'moderation',
+            'is_read'         => 0,
+            'created_at'      => current_time( 'mysql' ),
+        ) );
+    }
+
+    // Zusätzlich per E-Mail benachrichtigen
+    $mail_ok = false;
+    $user    = get_userdata( $recipient_id );
+    if ( $user && ! empty( $user->user_email ) ) {
+        $headers = array( 'Content-Type: text/html; charset=UTF-8' );
+        $html    = '<p>Hallo ' . esc_html( $user->display_name ?: $user->user_login ) . ',</p>' .
+                   '<p>' . nl2br( esc_html( $body ) ) . '</p>' .
+                   '<p style="color:#666;font-size:12px;margin-top:24px">Diese Nachricht stammt vom Eventbörse-Moderationsteam. Du erreichst uns über die Plattform-Nachrichten.</p>';
+        $mail_ok = wp_mail( $user->user_email, $subject ?: 'Nachricht vom Eventbörse-Team', $html, $headers );
+    }
+
+    return $msg_ok || $mail_ok;
+}
+
+/** Spezial-Notification für entfernte Bilder (mit klarer Standardformulierung). */
+function eb_admin_notify_listing_owner_image_removed( $owner_id, $listing_id, $listing_title, $image_url, $reason ) {
+    $owner_id = (int) $owner_id;
+    if ( $owner_id <= 0 ) return false;
+
+    $title  = $listing_title ? '„' . $listing_title . '"' : '#' . (int) $listing_id;
+    $reason = trim( (string) $reason );
+    if ( $reason === '' ) {
+        $reason = 'Das Bild entspricht nicht den Eventbörse-Inhaltsrichtlinien (z. B. nicht passend, irreführend oder von minderer Qualität).';
+    }
+
+    $body  = "Hallo,\n\n";
+    $body .= "ein Bild deines Inserats {$title} wurde von der Moderation entfernt, weil es als nicht passend angesehen wurde.\n\n";
+    $body .= "Begründung: {$reason}\n\n";
+    $body .= "Du kannst jederzeit ein neues, passenderes Bild hochladen. Bei Fragen antworte einfach auf diese Nachricht.";
+
+    return eb_admin_send_moderation_message( $owner_id, $body, 'Bild aus deinem Inserat entfernt' );
+}
+
+/* =====================================================================
    REVIEWS HANDLERS
    ===================================================================== */
 function eb_reviews_list( WP_REST_Request $request ) {
@@ -4145,9 +4363,17 @@ function eb_messages_list( WP_REST_Request $request ) {
     $messages = array();
     foreach ( $rows as $m ) {
         $is_deleted = ( $m->msg_type === 'deleted' );
+        $is_admin_note = ( $m->msg_type === 'moderation' );
+        $type_for_sender = (int) $m->sender_id === $uid ? 'sent' : 'received';
+        if ( $m->msg_type === 'system' ) {
+            $type_for_sender = 'system';
+        } elseif ( $is_admin_note && (int) $m->sender_id !== $uid ) {
+            // Empfänger sieht Moderationsnachrichten als hervorgehobenen Hinweis
+            $type_for_sender = 'moderation';
+        }
         $msg = array(
             'id'         => (int) $m->id,
-            'type'       => (int) $m->sender_id === $uid ? 'sent' : ( $m->msg_type === 'system' ? 'system' : 'received' ),
+            'type'       => $type_for_sender,
             'text'       => $is_deleted ? '' : $m->body,
             'content'    => $is_deleted ? '' : $m->body,
             'time'       => date( 'H:i', strtotime( $m->created_at ) ),
@@ -5512,20 +5738,33 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
 
     $user = wp_get_current_user();
 
+    // Mehrere Zahlungsmethoden zulassen: Karte, SEPA-Lastschrift, Klarna,
+    // Sofort, Giropay, Bancontact, EPS, Przelewy24 sowie Stripe Link.
+    // Wallet-Methoden (Apple Pay / Google Pay) werden automatisch über
+    // "card" angeboten, wenn das jeweilige Endgerät sie unterstützt.
     $fields = array(
-        'mode'                                    => 'payment',
-        'payment_method_types[]'                  => 'card',
-        'line_items[0][price_data][currency]'     => $currency,
-        'line_items[0][price_data][unit_amount]'  => $amount_cents,
+        'mode'                                          => 'payment',
+        'payment_method_types[0]'                       => 'card',
+        'payment_method_types[1]'                       => 'sepa_debit',
+        'payment_method_types[2]'                       => 'klarna',
+        'payment_method_types[3]'                       => 'sofort',
+        'payment_method_types[4]'                       => 'giropay',
+        'payment_method_types[5]'                       => 'bancontact',
+        'payment_method_types[6]'                       => 'eps',
+        'payment_method_types[7]'                       => 'p24',
+        'payment_method_types[8]'                       => 'link',
+        'line_items[0][price_data][currency]'           => $currency,
+        'line_items[0][price_data][unit_amount]'        => $amount_cents,
         'line_items[0][price_data][product_data][name]' => $title,
-        'line_items[0][quantity]'                 => 1,
-        'success_url'                             => $success_url,
-        'cancel_url'                              => $cancel_url,
-        'customer_email'                          => $user ? $user->user_email : '',
-        'metadata[card_id]'                       => $card_id,
-        'metadata[project_id]'                    => $project_id,
-        'metadata[listing_id]'                    => (string) $listing_id,
-        'metadata[user_id]'                       => (string) ( $user ? $user->ID : 0 ),
+        'line_items[0][quantity]'                       => 1,
+        'success_url'                                   => $success_url,
+        'cancel_url'                                    => $cancel_url,
+        'customer_email'                                => $user ? $user->user_email : '',
+        'locale'                                        => 'de',
+        'metadata[card_id]'                             => $card_id,
+        'metadata[project_id]'                          => $project_id,
+        'metadata[listing_id]'                          => (string) $listing_id,
+        'metadata[user_id]'                             => (string) ( $user ? $user->ID : 0 ),
     );
 
     $ch = curl_init( 'https://api.stripe.com/v1/checkout/sessions' );
