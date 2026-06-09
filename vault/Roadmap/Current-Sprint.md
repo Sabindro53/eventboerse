@@ -42,8 +42,14 @@
 - [x] **Security**: msg_type-Whitelist in `eb_messages_send` (Moderation-Impersonation verhindert).
 - [x] **Stage-Hardening**: Server-Whitelist + Anti-Downgrade in `eventboerse_handle_board_save`; Client-Sperre für Rückwärts-Drag bezahlter Karten.
 - [x] **Stripe Checkout**: +8 Methoden (SEPA, Klarna, Sofort, Giropay, Bancontact, EPS, P24, Link), locale=de.
+- [x] **Stripe Refunds + Disputes** vollständig: Webhook-Handler für `charge.refunded`, `refund.created/updated`, `charge.dispute.created/updated/closed`. Karten werden automatisch zurückgesetzt (paymentStatus=Erstattet, stage=kontaktiert), Disputes per wp_mail an admin_email. `/stripe/reconcile` liefert jetzt zusätzlich `refunds[]`.
+- [x] **Stripe-Fehlermeldungen** in Klartext: `_humanizeStripeError` mappt card_declined, insufficient_funds, do_not_honor, authentication_required u.v.m. auf deutsche Texte mit nächstem Schritt. PaymentIntent-Status-Mapping für 3-D Secure, processing usw.
+- [x] **Web Push (PWA)**: VAPID-Keypair lazy via openssl, vollständige RFC-8291-Implementation (ECDH+HKDF+aes128gcm) ohne Composer. Endpoints `/push/vapid-public-key`, `/push/subscribe`, `/push/unsubscribe`, `/push/test`. Service Worker mit `push` + `notificationclick`-Handler. Trigger bei neuer Nachricht. Settings-UI mit Aktivieren/Deaktivieren-Toggle.
 - [x] **PWA repariert**: manifest.json + mobile-overrides.css waren in Markdown-Fences (unparsebar); Service Worker wurde nie registriert → jetzt aktiv (network-first Shell, Offline-Page, Auto-Reload). `.htaccess` Cache-Falle (immutable auf app.js) behoben.
 - [x] **App-Store-Vorbereitung**: `.well-known/assetlinks.json` + `apple-app-site-association` (Templates, via WP-Hook am Domain-Root serviert), Manifest mit `id`/`display_override`, Install-Prompt, Web-Share auf Detail-Seite, Runbook `docs/app-store-release.md`.
+- [x] **SEO**: JSON-LD Service-Schema pro Inserat (provider als LocalBusiness, aggregateRating, areaServed, offers).
+- [x] **Offline-Indicator**: globaler Top-Banner via `navigator.onLine`, „Wieder online"-Toast beim Wiedereinstieg.
+- [x] **Performance**: Bilder mit `loading="lazy"` + `decoding="async"` auf Avataren, Galerie, Chat-Liste; Hero-Bild mit `fetchpriority="high"`.
 - [x] **UX**: QA-Roboter kleiner, dynamische Tab-Titel + OG-Tags, Chat-Skeleton, Chat-Poll pausiert im Hintergrund, Direktbuchung→Einzelbuchung.
 
 ### Davor
