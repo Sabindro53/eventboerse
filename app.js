@@ -885,6 +885,52 @@ let favorites = new Set();
     currentPage = 'browse';
   }
 })();
+
+// SPA Tab-Titel: zentral pro Seite gesetzt, damit Browser-Tabs, Verlauf
+// und geteilte Links sinnvoll benannt sind. Bei Detail/Provider wird der
+// Listing-/Provider-Titel zur Laufzeit nachgereicht (siehe loadDetail/
+// loadProvider).
+var _SPA_TITLES = {
+  browse: 'Dienstleister entdecken · Eventbörse',
+  detail: 'Inserat · Eventbörse',
+  provider: 'Profil · Eventbörse',
+  messages: 'Nachrichten · Eventbörse',
+  chat: 'Chat · Eventbörse',
+  profile: 'Mein Profil · Eventbörse',
+  settings: 'Einstellungen · Eventbörse',
+  admin: 'Admin · Eventbörse',
+  board: 'Mein Planungs-Board · Eventbörse',
+  auftraege: 'Auftragsboard · Eventbörse',
+  favorites: 'Favoriten · Eventbörse',
+  'create-listing': 'Neues Inserat · Eventbörse',
+  'edit-profile': 'Profil bearbeiten · Eventbörse',
+  'event-erstellen': 'Event erstellen · Eventbörse',
+  'service-erstellen': 'Service erstellen · Eventbörse',
+  aktuelles: 'Aktuelles · Eventbörse',
+  contact: 'Kontakt · Eventbörse',
+  impressum: 'Impressum · Eventbörse',
+  agb: 'AGB · Eventbörse',
+  datenschutz: 'Datenschutz · Eventbörse',
+  cookies: 'Cookie-Einstellungen · Eventbörse',
+  widerruf: 'Widerruf · Eventbörse',
+  marktplatz: 'Marktplatzbedingungen · Eventbörse'
+};
+function _updateDocumentTitleForPage(page, data) {
+  try {
+    var defaultTitle = 'Eventbörse – Dein Event-Marktplatz';
+    var title = _SPA_TITLES[page] || defaultTitle;
+    // Detail-/Provider-Titel werden in loadDetail/loadProvider mit dem
+    // konkreten Inserat-/Provider-Namen überschrieben — hier nur ein
+    // sinnvoller Default für den Übergang.
+    if (page === 'detail' && data) {
+      var listing = (typeof LISTINGS !== 'undefined' && LISTINGS)
+        ? LISTINGS.find(function(l) { return l && (+l.id === +data || (l._dbId && +l._dbId === +data)); })
+        : null;
+      if (listing && listing.title) title = listing.title + ' · Eventbörse';
+    }
+    document.title = title;
+  } catch(_) {}
+}
 let _dbListingsLoaded = false;
 let _favoritesLoaded = false;
 
@@ -1008,14 +1054,21 @@ async function loadDbListings() {
   if (_dbListingsLoaded) return;
   try {
     var resp = await fetch(_apiUrl('listings?per_page=50&_t=' + Date.now()), { credentials: 'same-origin', headers: _apiHeaders() });
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      // Sichtbares Debug-Signal in der Konsole (statt schweigend); UI
+      // zeigt weiterhin Demo-Daten — User sieht so nie eine leere Seite.
+      console.warn('[Eventbörse] /listings antwortete HTTP ' + resp.status + ' — weiter mit lokalen Demo-Daten.');
+      return;
+    }
     var data = await resp.json();
     if (data.listings && data.listings.length > 0) {
       _mergeDbListingsIntoCache(data.listings);
     }
     _dbListingsLoaded = true;
     try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
-  } catch(e) { /* API not available yet */ }
+  } catch(e) {
+    console.warn('[Eventbörse] /listings nicht erreichbar:', e && e.message ? e.message : e);
+  }
 }
 
 // Load user's favorites from backend
@@ -1109,6 +1162,10 @@ function navigateTo(page, data, skipHistory) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   _stopChatPoll();
 
+  // Dynamischen Tab-Titel setzen — wichtig für Browser-Tabs, History-
+  // Stack, geteilte Links und für Crawler, die JavaScript ausführen.
+  _updateDocumentTitleForPage(page, data);
+
   // ── Always restore scrolling (modal/lightbox might have locked it) ──
   document.body.style.overflow = '';
   document.body.style.touchAction = '';
@@ -1180,6 +1237,11 @@ function navigateTo(page, data, skipHistory) {
       loadDbListings().then(function() { loadProvider(data); });
       break;
     case 'messages':
+      if (!currentUser) {
+        showToast('Bitte melde dich an, um deine Nachrichten zu sehen.', 'info');
+        navigateTo('home');
+        return;
+      }
       renderChatList();
       break;
     case 'profile':
@@ -3079,6 +3141,29 @@ function loadDetail(listingId) {
     return;
   }
   currentListing = listing;
+  // Tab-Titel + OG/Twitter-Description aktualisieren — wichtig für
+  // geteilte Links (Slack/WhatsApp Preview holt Tags zur Laufzeit).
+  try {
+    if (listing.title) document.title = listing.title + ' · Eventbörse';
+    var _setMeta = function(sel, attr, val) {
+      var el = document.querySelector(sel);
+      if (el) el.setAttribute(attr, val);
+    };
+    var desc = (listing.description || listing.title || '').replace(/<[^>]*>/g, '').slice(0, 160);
+    if (desc) {
+      _setMeta('meta[name="description"]', 'content', desc);
+      _setMeta('meta[property="og:description"]', 'content', desc);
+      _setMeta('meta[name="twitter:description"]', 'content', desc);
+    }
+    if (listing.title) {
+      _setMeta('meta[property="og:title"]', 'content', listing.title + ' · Eventbörse');
+      _setMeta('meta[name="twitter:title"]', 'content', listing.title + ' · Eventbörse');
+    }
+    if (listing.image) {
+      _setMeta('meta[property="og:image"]', 'content', listing.image);
+      _setMeta('meta[name="twitter:image"]', 'content', listing.image);
+    }
+  } catch(_) {}
 
   // Gallery
   const gallery = document.getElementById('detailGallery');
