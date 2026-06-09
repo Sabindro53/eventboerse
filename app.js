@@ -4426,6 +4426,67 @@ function shareProvider() {
   }
 }
 
+/** Teilt das aktuell geöffnete Inserat (Detail-Seite) via Web Share API
+ *  (nativer Share-Sheet auf iOS/Android) mit Clipboard-Fallback. */
+function shareListing() {
+  var title = (currentListing && currentListing.title) || document.title;
+  var text = currentListing && currentListing.priceLabel
+    ? title + ' · ' + currentListing.priceLabel + ' · Eventbörse'
+    : title;
+  if (navigator.share) {
+    navigator.share({ title: title, text: text, url: window.location.href }).catch(function(){});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(window.location.href);
+    showToast('Link kopiert!', 'content_copy');
+  }
+}
+
+// ========== PWA INSTALL PROMPT ==========
+// Chrome/Edge feuern beforeinstallprompt — wir fangen es ab und zeigen einen
+// eigenen, dezenten Install-Hinweis, statt das Browser-Banner zu nutzen.
+var _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  _showInstallHint();
+});
+window.addEventListener('appinstalled', function() {
+  _deferredInstallPrompt = null;
+  var hint = document.getElementById('ebInstallHint');
+  if (hint) hint.remove();
+  showToast('Eventbörse wurde installiert – viel Spaß!', 'celebration');
+});
+function _showInstallHint() {
+  if (document.getElementById('ebInstallHint')) return;
+  // Nicht nerven: höchstens einmal pro Woche anzeigen.
+  try {
+    var last = +localStorage.getItem('eb_install_hint_at') || 0;
+    if (Date.now() - last < 7 * 24 * 3600 * 1000) return;
+  } catch(_) {}
+  var bar = document.createElement('div');
+  bar.id = 'ebInstallHint';
+  bar.className = 'eb-install-hint';
+  bar.innerHTML =
+    '<span class="material-icons-round">install_mobile</span>' +
+    '<div class="eb-install-hint-text"><strong>Eventbörse als App</strong><span>Schneller Zugriff direkt vom Homescreen</span></div>' +
+    '<button class="eb-install-hint-btn" onclick="promptInstallApp()">Installieren</button>' +
+    '<button class="eb-install-hint-close" aria-label="Schließen" onclick="dismissInstallHint()"><span class="material-icons-round">close</span></button>';
+  document.body.appendChild(bar);
+}
+function promptInstallApp() {
+  if (!_deferredInstallPrompt) return dismissInstallHint();
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then(function() {
+    _deferredInstallPrompt = null;
+    dismissInstallHint();
+  });
+}
+function dismissInstallHint() {
+  try { localStorage.setItem('eb_install_hint_at', String(Date.now())); } catch(_) {}
+  var hint = document.getElementById('ebInstallHint');
+  if (hint) hint.remove();
+}
+
 // ========== CHAT / MESSAGES ==========
 function updateMsgBadge(count) {
   var badge = document.getElementById('msgBadge');
@@ -5230,18 +5291,22 @@ function sendMessage() {
   })
     .then(function(r) { return r.json(); })
     .then(function(msg) {
-      // Append the sent message
+      // Append the sent message — insertAdjacentHTML statt innerHTML+=
+      // (innerHTML+= re-parst den GESAMTEN Verlauf und zerstört laufende
+      // Animationen/Selektionen; insertAdjacentHTML hängt nur an).
       var time = msg.time || '';
       var msgContainer = document.getElementById('chatMessages');
       var content = msg.text || msg.content || text;
+      var html;
       if (_isStatusMessage(content)) {
-        msgContainer.innerHTML += '<div class="msg msg-system">' + _escHtml(content) + '</div>';
+        html = '<div class="msg msg-system">' + _escHtml(content) + '</div>';
       } else {
         var delBtn = msg && msg.id
           ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>'
           : '';
-        msgContainer.innerHTML += '<div class="msg msg-sent">' + delBtn + _escHtml(content) + '<span class="msg-time">' + time + '</span></div>';
+        html = '<div class="msg msg-sent">' + delBtn + _escHtml(content) + '<span class="msg-time">' + time + '</span></div>';
       }
+      msgContainer.insertAdjacentHTML('beforeend', html);
       setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
     })
     .catch(function() {

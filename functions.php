@@ -273,6 +273,33 @@ function eventboerse_enqueue_assets() {
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
 
 /**
+ * App-Store-Verknüpfung: /.well-known/assetlinks.json (Android TWA) und
+ * /.well-known/apple-app-site-association (iOS Universal Links) müssen am
+ * DOMAIN-ROOT liegen. Das Deploy schreibt aber nur ins Theme-Verzeichnis —
+ * deshalb fangen wir die Requests früh ab und liefern die Dateien aus dem
+ * Theme aus, mit korrektem Content-Type (Apple verlangt application/json
+ * OHNE .json-Endung im Pfad).
+ */
+add_action( 'parse_request', function( $wp ) {
+    $uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '';
+    $map = array(
+        '/.well-known/assetlinks.json'             => '/.well-known/assetlinks.json',
+        '/.well-known/apple-app-site-association'  => '/.well-known/apple-app-site-association',
+        '/apple-app-site-association'              => '/.well-known/apple-app-site-association',
+    );
+    if ( ! isset( $map[ $uri ] ) ) return;
+    $file = get_template_directory() . $map[ $uri ];
+    if ( ! file_exists( $file ) ) {
+        status_header( 404 );
+        exit;
+    }
+    header( 'Content-Type: application/json; charset=utf-8' );
+    header( 'Cache-Control: public, max-age=3600' );
+    readfile( $file );
+    exit;
+}, 0 );
+
+/**
  * SPA-Routing: Alle Front-End-Pfade auf index.php weiterleiten,
  * damit die Single-Page-App die Navigation übernimmt.
  */

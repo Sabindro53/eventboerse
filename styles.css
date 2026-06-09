@@ -8900,6 +8900,67 @@ body.dark-mode .app-loading-text { color: #f5f5f5; }
   text-align: center;
 }
 
+/* ── PWA Install-Hint (Custom beforeinstallprompt-Banner) ── */
+.eb-install-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--mobile-nav-height, 0px) + 16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+  max-width: min(440px, calc(100vw - 24px));
+  animation: ebInstallSlideUp 0.3s ease;
+}
+@keyframes ebInstallSlideUp {
+  from { transform: translateX(-50%) translateY(16px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);   opacity: 1; }
+}
+.eb-install-hint > .material-icons-round {
+  color: var(--primary);
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.eb-install-hint-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.eb-install-hint-text strong { font-size: 0.92rem; }
+.eb-install-hint-text span { font-size: 0.78rem; color: var(--text-light); }
+.eb-install-hint-btn {
+  border: 0;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 9px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.eb-install-hint-btn:hover { filter: brightness(1.06); }
+.eb-install-hint-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.eb-install-hint-close .material-icons-round { font-size: 20px; }
+body.dark-mode .eb-install-hint { background: #20202f; border-color: rgba(255,255,255,0.1); }
+
 /* ── Bild-Moderations-Modal (Admin) ── */
 .imgmod-overlay {
   position: fixed;

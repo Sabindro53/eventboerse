@@ -1344,6 +1344,7 @@ $asset_ver = '2.5.1'; // cache-bust;
             <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
           </div>
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
+          <button class="btn-outline btn-sm" onclick="shareListing()" title="Inserat teilen" aria-label="Inserat teilen"><span class="material-icons-round">share</span> Teilen</button>
           <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
         </div>
         <div class="detail-gallery" id="detailGallery">

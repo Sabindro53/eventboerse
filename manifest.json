@@ -1,10 +1,13 @@
 {
+  "id": "de.eventboerse.app",
   "name": "Eventbörse – Dein Event-Marktplatz",
   "short_name": "Eventbörse",
   "description": "Verbinde Event-Planer mit Dienstleistern: DJs, Catering, Fotografie, Locations und mehr.",
   "start_url": "/?utm_source=pwa&utm_medium=homescreen",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "launch_handler": { "client_mode": "navigate-existing" },
   "orientation": "portrait-primary",
   "background_color": "#0f0f0f",
   "theme_color": "#6c47ff",
