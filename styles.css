@@ -8900,6 +8900,37 @@ body.dark-mode .app-loading-text { color: #f5f5f5; }
   text-align: center;
 }
 
+/* ── Settings: Push-Status-Pill + Field-Hint ── */
+.settings-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-alt);
+  color: var(--text-light);
+  margin-left: 8px;
+  align-self: center;
+}
+.settings-pill.settings-pill-ok { background: rgba(0, 200, 100, 0.12); color: #0a8a4a; }
+.settings-pill.settings-pill-warn { background: rgba(245, 158, 11, 0.15); color: #92520a; }
+.settings-pill.settings-pill-info { background: rgba(56, 132, 255, 0.12); color: #2a5fb8; }
+body.dark-mode .settings-pill.settings-pill-ok { color: #58e3a3; }
+body.dark-mode .settings-pill.settings-pill-warn { color: #ffce8b; }
+body.dark-mode .settings-pill.settings-pill-info { color: #95bbff; }
+.settings-field-hint {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 /* ── Globaler Offline-Banner ── */
 #ebOfflineBanner {
   position: fixed;

@@ -1895,6 +1895,24 @@ $asset_ver = '2.5.1'; // cache-bust;
         <h1 class="settings-title"><span class="material-icons-round">settings</span> Einstellungen</h1>
         <p class="settings-subtitle">Verwalte dein Konto, Sicherheit und Einstellungen.</p>
 
+        <!-- Push-Benachrichtigungen -->
+        <div class="settings-card" id="settingsPushCard">
+          <div class="settings-card-header">
+            <span class="material-icons-round">notifications_active</span>
+            <h2>Push-Benachrichtigungen</h2>
+          </div>
+          <p class="settings-field-hint">Bekomme sofort Bescheid bei neuen Nachrichten und Buchungs-Updates — auch wenn die App geschlossen ist.</p>
+          <div class="settings-row" style="margin-top:8px">
+            <button class="btn-primary" id="settingsPushEnableBtn" onclick="ebPromptPushPermission().then(_settingsRefreshPushUi)">
+              <span class="material-icons-round">notifications</span> Push aktivieren
+            </button>
+            <button class="btn-outline" id="settingsPushDisableBtn" style="display:none" onclick="ebUnsubscribePush().then(_settingsRefreshPushUi)">
+              <span class="material-icons-round">notifications_off</span> Push deaktivieren
+            </button>
+            <span id="settingsPushStatus" class="settings-pill"></span>
+          </div>
+        </div>
+
         <!-- Personal Info -->
         <div class="settings-card">
           <div class="settings-card-header">

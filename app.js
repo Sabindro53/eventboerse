@@ -1295,6 +1295,7 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'settings':
       loadSettings();
+      try { _settingsRefreshPushUi(); } catch(_) {}
       break;
     case 'agb':
     case 'agb-b2b':
@@ -16046,6 +16047,34 @@ async function _ebPostSubscription(sub) {
       ua: navigator.userAgent || ''
     })
   });
+}
+async function _settingsRefreshPushUi() {
+  var card    = document.getElementById('settingsPushCard');
+  var enable  = document.getElementById('settingsPushEnableBtn');
+  var disable = document.getElementById('settingsPushDisableBtn');
+  var status  = document.getElementById('settingsPushStatus');
+  if (!card) return;
+  // Browser ohne Push-Support → Hinweis
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+    if (enable)  enable.style.display = 'none';
+    if (disable) disable.style.display = 'none';
+    if (status)  { status.textContent = 'Browser unterstützt keine Push-Benachrichtigungen.'; status.className = 'settings-pill settings-pill-info'; }
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    if (enable)  enable.style.display = 'none';
+    if (disable) disable.style.display = 'none';
+    if (status)  { status.textContent = 'Im Browser blockiert — bitte über das Schloss-Symbol erlauben.'; status.className = 'settings-pill settings-pill-warn'; }
+    return;
+  }
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    var active = !!sub;
+    if (enable)  enable.style.display  = active ? 'none' : '';
+    if (disable) disable.style.display = active ? '' : 'none';
+    if (status)  { status.textContent = active ? 'Aktiv ✓' : 'Nicht aktiv'; status.className = 'settings-pill ' + (active ? 'settings-pill-ok' : ''); }
+  } catch (_) {}
 }
 async function ebUnsubscribePush() {
   if (!('serviceWorker' in navigator)) return;
