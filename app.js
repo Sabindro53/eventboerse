@@ -1670,7 +1670,7 @@ function renderFeed(tab) {
     const providerCursor = pid ? '' : 'style="cursor:default"';
     return `<div class="feed-card">
       <div class="feed-card-header">
-        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" ${providerClick} ${providerCursor} />
+        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" ${providerClick} ${providerCursor} loading="lazy" decoding="async" />
         <div class="feed-card-meta">
           <span class="feed-card-provider" ${providerClick} ${providerCursor}>${_escHtml(l.providerName)}</span>
           <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(l.createdAt)}</span>
@@ -3163,6 +3163,45 @@ function loadDetail(listingId) {
       _setMeta('meta[property="og:image"]', 'content', listing.image);
       _setMeta('meta[name="twitter:image"]', 'content', listing.image);
     }
+    // JSON-LD: Service-Strukturdaten für Crawler. Vorhandenes Script
+    // ersetzen (oder anlegen), damit jeder Detail-Aufruf frische Daten
+    // ablegt. So bekommt Google rich snippets pro Inserat.
+    var ld = {
+      '@context': 'https://schema.org',
+      '@type': 'Service',
+      name: listing.title,
+      description: desc,
+      serviceType: listing.categoryLabel || listing.category || 'Dienstleistung',
+      areaServed: listing.region || listing.location || 'Deutschland',
+      image: listing.images && listing.images.length ? listing.images : (listing.image ? [listing.image] : undefined),
+      provider: {
+        '@type': 'LocalBusiness',
+        name: listing.providerName || 'Eventbörse-Anbieter',
+        image: listing.providerImg,
+        address: { '@type': 'PostalAddress', addressLocality: listing.location || listing.region || '', addressCountry: 'DE' }
+      },
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'EUR',
+        price: typeof listing.price === 'number' ? listing.price : undefined,
+        availability: 'https://schema.org/InStock',
+        url: window.location.href
+      },
+      aggregateRating: (listing.rating && listing.reviews) ? {
+        '@type': 'AggregateRating',
+        ratingValue: Number(listing.rating),
+        reviewCount: Number(listing.reviews)
+      } : undefined,
+      url: window.location.href
+    };
+    var ldEl = document.getElementById('ldDetail');
+    if (!ldEl) {
+      ldEl = document.createElement('script');
+      ldEl.type = 'application/ld+json';
+      ldEl.id = 'ldDetail';
+      document.head.appendChild(ldEl);
+    }
+    ldEl.textContent = JSON.stringify(ld, function(_k, v) { return v === undefined ? undefined : v; });
   } catch(_) {}
 
   // Gallery
@@ -3171,7 +3210,7 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (listing.images.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" />`;
+    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" />`;
   }
 
   // Swipeable gallery carousel — Moderations-Flag nur auf echten DB-
@@ -3185,7 +3224,7 @@ function loadDetail(listingId) {
       var modBtn = _isAdminMod
         ? '<button class="detail-gallery-modbtn" title="Bild als nicht passend entfernen" onclick="event.stopPropagation();adminDeleteListingImage(' + (+_modListingId) + ',\'' + safe.replace(/'/g, "\\'") + '\')"><span class="material-icons-round">flag</span></button>'
         : '';
-      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" /></div>';
+      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '" decoding="async" /></div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -5012,7 +5051,7 @@ function renderChatList() {
     // Show demo chats for non-logged-in users
     list.innerHTML = DEMO_CHATS.map(function(c) {
       return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
-        '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" />' +
+        '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" loading="lazy" decoding="async" />' +
         '<div class="chat-item-info">' +
           '<strong>' + _escHtml(c.name) + '</strong>' +
           '<p>' + _escHtml(c.lastMsg) + '</p>' +
@@ -5067,7 +5106,7 @@ function renderChatList() {
         if (c.blocked_by_me) flagIcons += '<span class="chat-item-flag" title="Blockiert"><span class="material-icons-round">block</span></span>';
         return '<div class="chat-item ' + activeClass + (c.pinned ? ' pinned' : '') + (c.muted ? ' muted' : '') + '" oncontextmenu="return openChatItemMenu(event,' + c.id + ')" onclick="openChat(' + c.id + ')">' +
           '<div class="chat-item-avatar-wrap">' +
-            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" />' +
+            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" loading="lazy" decoding="async" />' +
             '<span class="chat-item-dot ' + (c.online ? 'online' : 'offline') + '"></span>' +
           '</div>' +
           '<div class="chat-item-info">' +
@@ -15886,6 +15925,107 @@ function _handleStripeReturn() {
  * aufgerufen. Markiert betroffene Karten rueckwirkend als "Bezahlt" und quittiert
  * die PIs server-seitig (damit sie nicht nochmal liefern).
  */
+/**
+ * Übersetzt Stripe-Fehlerobjekte (aus confirmPayment(), createPaymentMethod()
+ * etc.) in eine klare, deutsche Meldung mit Handlungsaufforderung.
+ * Stripe gibt's standardmäßig auf Englisch und sehr technisch zurück.
+ */
+function _humanizeStripeError(err) {
+  if (!err) return 'Zahlung fehlgeschlagen. Bitte versuche es erneut.';
+  var code = err.code || (err.decline_code) || '';
+  var type = err.type || '';
+  var msg  = err.message || '';
+  var map = {
+    card_declined: 'Karte abgelehnt. Bitte prüfe Daten und Deckung oder nutze eine andere Karte.',
+    expired_card: 'Die Karte ist abgelaufen. Bitte trage eine andere Karte ein.',
+    incorrect_cvc: 'Der Sicherheitscode (CVC) ist nicht korrekt.',
+    incorrect_number: 'Die Kartennummer ist nicht korrekt.',
+    insufficient_funds: 'Nicht genug Deckung auf der Karte. Bitte wähle eine andere Zahlungsmethode.',
+    invalid_cvc: 'Der Sicherheitscode (CVC) hat ein ungültiges Format.',
+    invalid_expiry_month: 'Der Ablaufmonat der Karte ist ungültig.',
+    invalid_expiry_year: 'Das Ablaufjahr der Karte ist ungültig.',
+    invalid_number: 'Die Kartennummer ist ungültig.',
+    processing_error: 'Stripe konnte die Zahlung gerade nicht verarbeiten. Bitte versuche es in ein paar Minuten erneut.',
+    authentication_required: 'Deine Bank verlangt eine zusätzliche Bestätigung (3-D Secure). Bitte folge dem nächsten Schritt deiner Bank.',
+    generic_decline: 'Die Bank hat die Karte ohne Begründung abgelehnt. Bitte versuche eine andere Karte oder Zahlungsmethode.',
+    do_not_honor: 'Die Bank lehnt die Karte ab. Bitte kontaktiere deine Bank oder nutze eine andere Karte.',
+    fraudulent: 'Die Karte wurde aus Sicherheitsgründen abgelehnt. Bitte nutze eine andere Karte.',
+    transaction_not_allowed: 'Diese Karte erlaubt keine Online-Zahlungen. Bitte nutze eine andere Karte.',
+    pin_try_exceeded: 'Zu viele PIN-Versuche. Bitte nutze eine andere Karte.',
+    payment_intent_authentication_failure: 'Die Bank-Bestätigung (3-D Secure) ist fehlgeschlagen. Bitte erneut versuchen.'
+  };
+  if (code && map[code]) return map[code];
+  if (type === 'validation_error') return msg || 'Bitte prüfe deine Zahlungsdaten.';
+  if (type === 'invalid_request_error') return 'Stripe konnte die Anfrage nicht verarbeiten (' + (code || 'Konfiguration') + '). Bitte melde dich beim Support.';
+  if (type === 'api_connection_error' || type === 'api_error') return 'Stripe ist gerade nicht erreichbar. Bitte versuche es in einer Minute erneut.';
+  if (type === 'authentication_error') return 'Stripe konnte die Anmeldung nicht prüfen. Bitte lade die Seite neu und versuche es erneut.';
+  if (type === 'rate_limit_error') return 'Zu viele Versuche kurz hintereinander. Bitte warte einen Moment.';
+  return msg || 'Zahlung fehlgeschlagen. Bitte versuche es erneut.';
+}
+
+/** Mapping für PaymentIntent-Status (z. B. requires_action, processing). */
+function _humanizeStripeIntentStatus(pi) {
+  var st = pi && pi.status;
+  switch (st) {
+    case 'requires_payment_method':
+      return 'Die Zahlungsmethode wurde abgelehnt. Bitte gib eine andere Karte oder Methode ein.';
+    case 'requires_confirmation':
+      return 'Bestätigung steht noch aus. Bitte klicke noch einmal auf „Bezahlen".';
+    case 'requires_action':
+      return 'Deine Bank verlangt eine zusätzliche Bestätigung (3-D Secure). Bitte folge den Anweisungen.';
+    case 'processing':
+      return 'Die Zahlung wird gerade verarbeitet. Bitte einen Moment Geduld — wir aktualisieren automatisch.';
+    case 'requires_capture':
+      return 'Die Zahlung wartet auf Freigabe durch den Anbieter.';
+    case 'canceled':
+      return 'Die Zahlung wurde abgebrochen. Du kannst erneut starten.';
+    default:
+      return 'Zahlung im Status „' + (st || 'unbekannt') + '". Bitte erneut versuchen oder Support kontaktieren.';
+  }
+}
+
+// ========== GLOBALER OFFLINE-INDIKATOR ==========
+// Browser-Event 'offline'/'online' liefert keinen sichtbaren Hinweis. Wir
+// blenden eine schmale Top-Leiste ein, sobald navigator.onLine false ist,
+// und nehmen sie wieder weg, sobald die Verbindung zurück ist. So weiß
+// der Nutzer, warum z. B. Buchungen aktuell nicht durchgehen.
+(function _ebOfflineBannerInit() {
+  function ensureBanner() {
+    var bar = document.getElementById('ebOfflineBanner');
+    if (bar) return bar;
+    bar = document.createElement('div');
+    bar.id = 'ebOfflineBanner';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+    bar.innerHTML = '<span class="material-icons-round">cloud_off</span><span>Keine Verbindung – einige Aktionen funktionieren erst wieder, wenn du online bist.</span>';
+    if (document.body) document.body.appendChild(bar);
+    return bar;
+  }
+  function update() {
+    var on = typeof navigator !== 'undefined' ? navigator.onLine !== false : true;
+    var bar = ensureBanner();
+    if (!bar) return;
+    bar.classList.toggle('show', !on);
+    if (on) {
+      // Ein einmaliger Hinweis beim Wiedereinstieg — aber nur, wenn wir
+      // den Banner vorher tatsächlich gesehen haben.
+      if (bar.dataset.wasOffline === '1') {
+        bar.dataset.wasOffline = '0';
+        try { if (typeof showToast === 'function') showToast('Wieder online.', 'success'); } catch(_) {}
+      }
+    } else {
+      bar.dataset.wasOffline = '1';
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online',  update);
+    window.addEventListener('offline', update);
+    // Initial einmal prüfen — falls der User bereits offline reinkommt.
+    if (document.readyState !== 'loading') update();
+    else document.addEventListener('DOMContentLoaded', update);
+  }
+})();
+
 function _reconcileStripePayments() {
   if (!currentUser) return Promise.resolve();
   return fetch(_apiUrl('stripe/reconcile'), {
@@ -16637,6 +16777,13 @@ function _openStripePaymentModal(opts) {
     errEl.style.display = '';
   };
 
+  // showErr setzt Klartext. Für reichhaltige Hinweise (z. B. mit Link
+  // zum Stripe-Onboarding für Dienstleister) gibt's showErrRich.
+  var showErrRich = function(html) {
+    errEl.innerHTML = html;
+    errEl.style.display = '';
+  };
+
   // Stripe-Element initialisieren und Pay-Button binden (wird aus 2 Pfaden gerufen)
   function _initStripe(stripeData) {
     var payEl = ov.querySelector('#stripePaymentElement');
@@ -16745,14 +16892,14 @@ function _openStripePaymentModal(opts) {
         if (r.error) {
           spinnerOn(false);
           payBtn.addEventListener('click', onClick);
-          showErr(r.error.message || 'Zahlung fehlgeschlagen.');
+          showErr(_humanizeStripeError(r.error));
           return;
         }
         var pi = r.paymentIntent;
         if (!pi || pi.status !== 'succeeded') {
           spinnerOn(false);
           payBtn.addEventListener('click', onClick);
-          showErr('Status: ' + (pi && pi.status || 'unbekannt') + ' – bitte erneut versuchen.');
+          showErr(_humanizeStripeIntentStatus(pi));
           return;
         }
         fetch(_apiUrl('stripe/verify-payment'), {
