@@ -4961,8 +4961,17 @@ function renderChatList() {
     }).join('');
     return;
   }
+  // Skeleton während des Ladens — kein Blank-Flash mehr beim ersten Öffnen.
+  if (list && !list.innerHTML) {
+    list.innerHTML = '<div class="chat-list-skeleton">' +
+      '<div class="chat-item skeleton"><div class="sk-avatar"></div><div class="sk-lines"><div class="sk-line sk-line-lg"></div><div class="sk-line sk-line-sm"></div></div></div>'.repeat(4) +
+    '</div>';
+  }
   fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(convos) {
       window._conversations = convos || [];
       var showArchived = !!window._chatShowArchived;

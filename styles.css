@@ -14771,6 +14771,36 @@ button:disabled {
 .eb-skeleton-circle { border-radius: 50%; aspect-ratio: 1 / 1; }
 .eb-skeleton-card { width: 100%; aspect-ratio: 3 / 2; }
 
+/* Chat-Liste Skeleton — bewusst kleine Footprint, lädt direkt mit. */
+.chat-list-skeleton { padding: 8px; }
+.chat-item.skeleton {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 8px; border-bottom: 1px solid var(--border-light);
+  pointer-events: none;
+}
+.chat-item.skeleton .sk-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--eb-skeleton-bg);
+  position: relative; overflow: hidden;
+}
+.chat-item.skeleton .sk-avatar::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--eb-skeleton-shine), transparent);
+  animation: eb-skeleton-shine 1.4s linear infinite;
+}
+.chat-item.skeleton .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.chat-item.skeleton .sk-line {
+  height: 10px; border-radius: 5px; background: var(--eb-skeleton-bg);
+  position: relative; overflow: hidden;
+}
+.chat-item.skeleton .sk-line::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--eb-skeleton-shine), transparent);
+  animation: eb-skeleton-shine 1.4s linear infinite;
+}
+.chat-item.skeleton .sk-line-lg { height: 14px; width: 60%; }
+.chat-item.skeleton .sk-line-sm { width: 80%; }
+
 /* ---- Sanfter, dezenter 3D-Effekt (optional via .eb-3d) -------------- */
 /* Wird NICHT global angewendet — JS oder HTML kann die Klasse setzen,   */
 /* z. B. auf Hero-Cards, Profil-Cover, Preis-Karten.                      */
