@@ -4491,6 +4491,18 @@ function eb_messages_send( WP_REST_Request $request ) {
     $body     = sanitize_textarea_field( $params['content'] ?? ( $params['text'] ?? '' ) );
     $msg_type = sanitize_text_field( $params['type'] ?? 'text' );
 
+    // SICHERHEIT: msg_type strikt whitelisten. Vorher konnten Nutzer per
+    // direkten POST 'moderation' setzen und sich so als Eventbörse-Team
+    // ausgeben (goldenes Hinweis-Banner). 'moderation', 'system' und
+    // 'deleted' sind reserviert — nur Admins (bzw. interne Code-Pfade)
+    // dürfen sie schreiben.
+    $allowed_user_types = array( 'text', 'offer', 'booking' );
+    if ( ! in_array( $msg_type, $allowed_user_types, true ) ) {
+        if ( ! eb_is_admin_user( $uid ) ) {
+            $msg_type = 'text';
+        }
+    }
+
     if ( empty( $body ) && $msg_type === 'text' ) {
         return new WP_REST_Response( array( 'message' => 'Nachricht darf nicht leer sein.' ), 400 );
     }
