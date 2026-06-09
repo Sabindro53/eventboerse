@@ -1022,13 +1022,87 @@ function eventboerse_handle_board_save( WP_REST_Request $request ) {
     if ( ! is_array( $projects ) ) {
         return new WP_REST_Response( array( 'error' => 'invalid_payload' ), 400 );
     }
+
+    // Vorhandene serverseitige Karten-Stati laden, um Stage-Downgrades nach
+    // bezahlter Buchung zu verhindern (Client darf "bestaetigt"/"abgeschlossen"
+    // nicht mehr zurückdrehen — sonst kann ein Angreifer eine bezahlte
+    // Karte per direktem POST in "geplant" verschieben).
+    $existing_raw = get_user_meta( $uid, 'eb_board_projects', true );
+    $existing     = $existing_raw ? json_decode( $existing_raw, true ) : array();
+    if ( ! is_array( $existing ) ) $existing = array();
+    $existing_cards_by_id = array();
+    foreach ( $existing as $ep ) {
+        if ( ! is_array( $ep ) || ! isset( $ep['cards'] ) || ! is_array( $ep['cards'] ) ) continue;
+        foreach ( $ep['cards'] as $ec ) {
+            if ( is_array( $ec ) && isset( $ec['id'] ) ) {
+                $existing_cards_by_id[ (string) $ec['id'] ] = $ec;
+            }
+        }
+    }
+
+    $allowed_stages   = array( 'geplant', 'kontaktiert', 'angebot', 'bestaetigt', 'abgeschlossen' );
+    $protected_stages = array( 'bestaetigt', 'abgeschlossen' );
+
+    // Stage-Whitelist + Anti-Downgrade auf Karten anwenden
+    foreach ( $projects as $pi => $proj ) {
+        if ( ! is_array( $proj ) || ! isset( $proj['cards'] ) || ! is_array( $proj['cards'] ) ) continue;
+        foreach ( $proj['cards'] as $ci => $card ) {
+            if ( ! is_array( $card ) ) continue;
+            $stage = isset( $card['stage'] ) ? (string) $card['stage'] : 'geplant';
+            if ( ! in_array( $stage, $allowed_stages, true ) ) {
+                $stage = 'geplant';
+            }
+
+            $card_id = isset( $card['id'] ) ? (string) $card['id'] : '';
+            $prev    = ( $card_id !== '' && isset( $existing_cards_by_id[ $card_id ] ) )
+                       ? $existing_cards_by_id[ $card_id ] : null;
+
+            if ( $prev && isset( $prev['stage'] ) && in_array( $prev['stage'], $protected_stages, true ) ) {
+                $prev_stage = $prev['stage'];
+                // Wenn vorher bezahlt/abgeschlossen → nur dieselbe oder
+                // weiter fortgeschrittene Stufe erlauben.
+                $prev_idx = array_search( $prev_stage, $allowed_stages, true );
+                $new_idx  = array_search( $stage,      $allowed_stages, true );
+                if ( $new_idx === false || $new_idx < $prev_idx ) {
+                    $stage = $prev_stage;
+                }
+                // paidAt und paymentIntentId dürfen nicht entfernt werden.
+                if ( ! empty( $prev['paidAt'] ) && empty( $card['paidAt'] ) ) {
+                    $card['paidAt'] = $prev['paidAt'];
+                }
+                if ( ! empty( $prev['paymentIntentId'] ) && empty( $card['paymentIntentId'] ) ) {
+                    $card['paymentIntentId'] = $prev['paymentIntentId'];
+                }
+                if ( ! empty( $prev['paymentStatus'] ) && empty( $card['paymentStatus'] ) ) {
+                    $card['paymentStatus'] = $prev['paymentStatus'];
+                }
+            }
+
+            // Konsistenz-Hardening: wer "bestaetigt"/"abgeschlossen" sendet,
+            // muss auch paidAt mitliefern, sonst auf "angebot" zurückstufen.
+            if ( in_array( $stage, $protected_stages, true ) && empty( $card['paidAt'] ) ) {
+                // Provider-bestätigte Karten ohne Zahlung (z.B. Vor-Ort-
+                // Termine) sind erlaubt, sofern entweder ein vorhandener
+                // Bestand mit paidAt existiert oder providerConfirmedAt
+                // gesetzt wurde.
+                if ( empty( $card['providerConfirmedAt'] ) && ( ! $prev || empty( $prev['paidAt'] ) ) ) {
+                    $stage = 'angebot';
+                }
+            }
+
+            $card['stage'] = $stage;
+            $proj['cards'][ $ci ] = $card;
+        }
+        $projects[ $pi ] = $proj;
+    }
+
     // Defensive size limit (~2 MB JSON)
     $encoded = wp_json_encode( $projects );
     if ( $encoded === false || strlen( $encoded ) > 2 * 1024 * 1024 ) {
         return new WP_REST_Response( array( 'error' => 'payload_too_large' ), 413 );
     }
     update_user_meta( $uid, 'eb_board_projects', wp_slash( $encoded ) );
-    return new WP_REST_Response( array( 'success' => true, 'count' => count( $projects ) ), 200 );
+    return new WP_REST_Response( array( 'success' => true, 'count' => count( $projects ), 'projects' => $projects ), 200 );
 }
 
 /* ---------- BOARD BOOKINGS – Dienstleister-Sicht --------------------------------

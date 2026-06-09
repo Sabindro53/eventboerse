@@ -1599,11 +1599,18 @@ function renderFeed(tab) {
     const isFav = favorites.has(l.id);
     const desc = l.description || l.title;
     const tags = l.features ? l.features.slice(0, 3) : [];
+    // WICHTIG: NIEMALS auf l.id zurückfallen — l.id ist die LISTING-ID (z.B.
+    // 10001 bei DB-Inseraten, offset um +10000), nicht die User-ID des
+    // Anbieters. Fällt providerId weg, sind Avatar/Name nicht klickbar,
+    // statt einen falschen Account zu öffnen.
+    const pid = _toPositiveInt(l.providerId);
+    const providerClick = pid ? 'onclick="navigateTo(\'provider\',' + pid + ')"' : '';
+    const providerCursor = pid ? '' : 'style="cursor:default"';
     return `<div class="feed-card">
       <div class="feed-card-header">
-        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
+        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" ${providerClick} ${providerCursor} />
         <div class="feed-card-meta">
-          <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${_escHtml(l.providerName)}</span>
+          <span class="feed-card-provider" ${providerClick} ${providerCursor}>${_escHtml(l.providerName)}</span>
           <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(l.createdAt)}</span>
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
@@ -13615,7 +13622,7 @@ function _renderOwnProjectCardHtml(p) {
 
     // Special badge for instant-booking projects
     var instantBadge = p.kind === 'instant'
-      ? '<span class="bpc-instant-badge"><span class="material-icons-round">bolt</span>Direktbuchungen</span>'
+      ? '<span class="bpc-instant-badge"><span class="material-icons-round">bolt</span>Einzelbuchungen</span>'
       : '';
 
     return `
@@ -14048,6 +14055,14 @@ function showBoardProjects() {
   boardViewEl && (boardViewEl.style.display = 'none');
   projectsEl && (projectsEl.style.display = '');
   btnAllBoards && (btnAllBoards.style.display = 'none');
+  // Single-View-Header wieder zurücksetzen, damit das Listenraster sauber
+  // mit Titel und „+ Neues Vorhaben"-Button erscheint.
+  var bp = document.getElementById('page-board');
+  if (bp) bp.classList.remove('board-single-view');
+  var headerLeft = document.querySelector('#page-board .board-page-header-left');
+  if (headerLeft) headerLeft.style.display = '';
+  var newBtn = document.querySelector('.board-page-header-actions .board-new-btn');
+  if (newBtn) newBtn.style.display = '';
   // URL zurück auf Übersicht /board (sonst bleibt /board/<id> in der Adressleiste)
   try {
     var _wantedPath = (typeof _spaPath === 'function') ? _spaPath('board') : '/board';
@@ -14060,6 +14075,7 @@ function showBoardProjects() {
 
 // Legacy-Alias: öffnet das Projekt in-app (kein neuer Tab mehr).
 // Wird für Rückwärtskompatibilität mit alten Inline-Handlern beibehalten.
+// Die URL-Synchronisierung (/board/<id>) übernimmt openBoardProject selbst.
 var _pendingBoardProjectId = null;
 function openBoardProjectInNewTab(projectId, ev) {
   if (ev) {
@@ -14126,6 +14142,13 @@ function openBoardProject(projectId) {
 
   switchBoardView('flow');
   _updateBoardStats(project);
+
+  // Scroll an den Seitenanfang, damit Mobil-Nutzer den frisch geöffneten
+  // Event-Header sofort sehen — sonst landet man je nach vorheriger
+  // Scroll-Position mitten im Kanban.
+  try {
+    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  } catch(e) { window.scrollTo(0, 0); }
 }
 
 // Resolve a listing cover image for a board card. Prefers stored listingImage,
@@ -14278,11 +14301,13 @@ function allowDrop(event) {
   event.currentTarget.classList.add('drag-over');
 }
 // Protected stages: nur über Aktions-/Payment-Flow erreichbar, nicht per Drag&Drop.
+var _ALLOWED_STAGES   = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
 var _PROTECTED_STAGES = ['angebot','bestaetigt','abgeschlossen'];
+function _isAllowedStage(s) { return _ALLOWED_STAGES.indexOf(s) !== -1; }
 function _protectedStageMessage(stage) {
-  if (stage === 'angebot') return 'Diese Spalte wird nur über „Jetzt buchen“ befüllt – so bleibt die Buchung verbindlich.';
-  if (stage === 'bestaetigt') return 'Status „Bezahlt“ wird automatisch gesetzt, sobald der Dienstleister den Auftrag annimmt.';
-  if (stage === 'abgeschlossen') return 'Status „Erfüllt“ wird vom System gesetzt, wenn beide Seiten die Erbringung bestätigen.';
+  if (stage === 'angebot') return 'Diese Spalte wird nur über „Jetzt buchen" befüllt – so bleibt die Buchung verbindlich.';
+  if (stage === 'bestaetigt') return 'Status „Bezahlt" wird automatisch gesetzt, sobald der Dienstleister den Auftrag annimmt.';
+  if (stage === 'abgeschlossen') return 'Status „Erfüllt" wird vom System gesetzt, wenn beide Seiten die Erbringung bestätigen.';
   return 'Dieser Status wird vom System gesetzt.';
 }
 function dropCard(event, toStage) {
@@ -14293,6 +14318,23 @@ function dropCard(event, toStage) {
   if (!project) return;
   var card = (project.cards || []).find(function(c) { return c.id === _dragCardId; });
   if (card) {
+    // Whitelist: nur erlaubte Stage-Werte annehmen — DevTools-Manipulation
+    // (Custom data-stage) kann sonst beliebige Strings einschleusen.
+    if (!_isAllowedStage(toStage)) {
+      showToast('Ungültiger Status – Aktion abgebrochen.', 'error');
+      _dragCardId = null;
+      return;
+    }
+    // Bezahlte Karten dürfen nicht rückwärts in frühere Stufen geschoben werden.
+    if (card.paidAt || card.paymentIntentId) {
+      var fromIdx = _ALLOWED_STAGES.indexOf(card.stage);
+      var toIdx   = _ALLOWED_STAGES.indexOf(toStage);
+      if (fromIdx > -1 && toIdx > -1 && toIdx < fromIdx) {
+        showToast('Bezahlte Karten lassen sich nicht zurück verschieben.', 'warning');
+        _dragCardId = null;
+        return;
+      }
+    }
     var isProtected = _PROTECTED_STAGES.indexOf(toStage) !== -1;
     // Erlaubt: innerhalb derselben Spalte bleiben (reine Sortierung).
     if (isProtected && card.stage !== toStage) {
@@ -15367,7 +15409,7 @@ function _clearPendingPayment() {
 }
 
 /**
- * Legt nach erfolgreicher Sofortbuchung die "Direktbuchungen"-Karte im
+ * Legt nach erfolgreicher Sofortbuchung die "Einzelbuchungen"-Karte im
  * Board des Zahlers an. Genutzt von inline-onSuccess UND Redirect-Rückkehr.
  * info: { listingId, title, category, image, providerImg, provider, providerId, amount, dateIso, dateHuman }
  * Gibt { project, card, duplicate? } zurück.
@@ -15378,7 +15420,7 @@ function _applyInstantBookingSuccess(info, res) {
   var piId = (res && (res.payment_intent_id || res.payment_intent)) || '';
   // Idempotenz: dieselbe PaymentIntent darf kein zweites Board / keine zweite
   // Karte erzeugen (z. B. doppelte Redirect-Rückkehr). Über ALLE Projekte
-  // suchen, da jede Direktbuchung ihr eigenes Board hat.
+  // suchen, da jede Einzelbuchung ihr eigenes Board hat.
   if (piId) {
     for (var _pi = 0; _pi < (_boardProjects || []).length; _pi++) {
       var _ep = _boardProjects[_pi];
@@ -15386,13 +15428,13 @@ function _applyInstantBookingSuccess(info, res) {
       if (_dupCard) return { project: _ep, card: _dupCard, duplicate: true };
     }
   }
-  // Jede Direktbuchung bekommt ihr EIGENES, umbenennbares Board. Der
-  // Default-Name wird hochgezählt (Direktbuchung 1, 2, 3 …); per Stift-Symbol
+  // Jede Einzelbuchung bekommt ihr EIGENES, umbenennbares Board. Der
+  // Default-Name wird hochgezählt (Einzelbuchung 1, 2, 3 …); per Stift-Symbol
   // im Board umbenennbar.
   var _instantCount = (_boardProjects || []).filter(function(p) { return p && p.kind === 'instant'; }).length;
   var proj = {
     id: 'proj_' + Date.now(),
-    name: 'Direktbuchung ' + (_instantCount + 1),
+    name: 'Einzelbuchung ' + (_instantCount + 1),
     kind: 'instant',
     date: (info.dateIso || '').slice(0, 10),
     cards: [],
@@ -15402,7 +15444,7 @@ function _applyInstantBookingSuccess(info, res) {
   var nowIso = new Date().toISOString();
   var card = {
     id: 'bc_' + Date.now(),
-    name: info.title || 'Direktbuchung',
+    name: info.title || 'Einzelbuchung',
     category: info.category || '',
     stage: 'bestaetigt',
     price: info.amount,
@@ -15491,7 +15533,7 @@ function _showBookingSuccess(info) {
         (amountStr ? '<p style="font-weight:700;font-size:20px;margin:0 0 14px">' + _escHtml(amountStr) + '</p>' : '<div style="height:8px"></div>') +
         '<div style="text-align:left;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 18px;font-size:14px;line-height:1.7">' +
           '<strong>Wie es jetzt weitergeht:</strong>' +
-          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Direktbuchungen".</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Einzelbuchungen".</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung in seinem <strong>Auftragsboard</strong>.</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">event_available</span><span>Am Event-Tag bestätigt ihr beide die Leistung – erst dann gilt der Auftrag als erfüllt.</span></div>' +
         '</div>' +
@@ -18577,7 +18619,7 @@ function _startInstantBooking(listing, dateIso, amount) {
   // Buchungsdaten, die onSuccess UND die Redirect-Rückkehr brauchen.
   var info = {
     listingId: listingId,
-    title: listing.title || 'Direktbuchung',
+    title: listing.title || 'Einzelbuchung',
     category: listing.categoryLabel || listing.category || '',
     image: listing.image || (listing.images && listing.images[0]) || '',
     providerImg: listing.providerImg || listing.image || '',
@@ -18592,7 +18634,7 @@ function _startInstantBooking(listing, dateIso, amount) {
 
   _openStripePaymentModal({
     amount: amount,
-    title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
+    title: (listing.title || 'Einzelbuchung') + ' \u00b7 ' + dateHuman,
     listingId: listingId,
     image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
     provider: listing.providerName || '',
@@ -19598,11 +19640,14 @@ function renderSocialPostCard(post) {
 function renderListingFeedCard(l) {
   var avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
   var isFav = favorites.has(l.id);
+  // Nie auf l.id zurückfallen – das ist die Listing-ID, nicht die User-ID.
+  var pid = _toPositiveInt(l.providerId);
+  var providerOnClick = pid ? ' onclick="navigateTo(\'provider\',' + pid + ')" style="cursor:pointer"' : '';
   return '<div class="feed-post-card" data-post-id="listing-' + l.id + '">' +
     '<div class="feed-post-header">' +
-      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
+      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)"' + providerOnClick + ' />' +
       '<div class="feed-post-author">' +
-        '<strong onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')">' + _escHtml(l.providerName) + '</strong>' +
+        '<strong' + providerOnClick + '>' + _escHtml(l.providerName) + '</strong>' +
         '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span>' + timeAgo(l.createdAt) + '</span></div>' +
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
@@ -20495,7 +20540,12 @@ function _renderNavAiBody(query) {
       results.forEach(function(l) {
         var img = (l.images && l.images[0]) ? l.images[0] : '';
         var stars = '★'.repeat(Math.round(l.rating)) + '☆'.repeat(5 - Math.round(l.rating));
-        html += '<button class="nav-ai-result-card" type="button" aria-label="Profil ansehen" onclick="closeNavAiSearch();(typeof showToast===\'function\')&&showToast(\'Profil wird geladen…\',\'sync\');navigateTo(\'provider\', ' + (l.providerId || l.id) + ')">' +
+        // Such-Treffer-Karte: Öffnet das Inserat (Detail), nicht das Profil.
+        // Vorher wurde fälschlich navigateTo('provider', l.providerId||l.id)
+        // aufgerufen — bei DB-Inseraten ohne providerId landete man so auf
+        // dem falschen Account (Listing-ID 10001 != User-ID).
+        var detailId = _toPositiveInt(l.id);
+        html += '<button class="nav-ai-result-card" type="button" aria-label="Inserat öffnen" onclick="closeNavAiSearch();(typeof showToast===\'function\')&&showToast(\'Inserat wird geöffnet…\',\'sync\');navigateTo(\'detail\', ' + detailId + ')">' +
           '<img class="nav-ai-result-img" src="' + img + '" alt="" onerror="this.style.display=\'none\'" />' +
           '<div class="nav-ai-result-info">' +
             '<div class="nav-ai-result-name">' + l.title + '</div>' +
