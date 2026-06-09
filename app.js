@@ -15892,12 +15892,14 @@ function _reconcileStripePayments() {
     method: 'GET',
     credentials: 'same-origin',
     headers: _apiHeaders()
-  }).then(function(r){ return r.ok ? r.json() : { items: [] }; })
+  }).then(function(r){ return r.ok ? r.json() : { items: [], refunds: [] }; })
     .then(function(resp){
-      var items = (resp && resp.items) || [];
-      if (!items.length) return;
+      var items   = (resp && resp.items)   || [];
+      var refunds = (resp && resp.refunds) || [];
+      if (!items.length && !refunds.length) return;
       try { _migrateBoardProjects && _migrateBoardProjects(); _loadBoardProjects && _loadBoardProjects(); } catch(e) {}
 
+      // --- Zahlungen ---
       var acked = [];
       var matched = 0;
       items.forEach(function(it){
@@ -15918,13 +15920,48 @@ function _reconcileStripePayments() {
         }
       });
 
-      if (matched) {
+      // --- Refunds: Karte zurücksetzen + Banner + System-Hinweis ---
+      var ackedRefunds = [];
+      var refunded = 0;
+      refunds.forEach(function(rf){
+        var proj = (_boardProjects || []).find(function(p){ return p.id === rf.project_id; });
+        var card = proj && (proj.cards || []).find(function(c){ return c.id === rf.card_id; });
+        if (card) {
+          // Refund nur einmal anwenden — wir merken's am Card-Feld refundedPi.
+          if (card.refundedPi !== rf.pi) {
+            card.refundedPi    = rf.pi;
+            card.refundStatus  = rf.status || 'succeeded';
+            card.refundAmount  = (rf.amount || 0) / 100;
+            card.refundedAt    = new Date((rf.refunded_at || 0) * 1000).toISOString();
+            card.paymentStatus = 'Erstattet';
+            // Stage zurück auf 'kontaktiert' (vor der Buchung) — bezahlte
+            // Karten dürfen sonst nicht zurück, hier ist es System-Aktion.
+            if (card.stage === 'bestaetigt' || card.stage === 'abgeschlossen') {
+              card.stage = 'kontaktiert';
+            }
+            refunded++;
+          }
+        }
+        ackedRefunds.push(rf.refund_id || (rf.pi + '_refund'));
+      });
+
+      if (matched || refunded) {
         try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
         try { if (typeof renderBoardFlow === 'function') renderBoardFlow(); } catch(e) {}
+      }
+      if (matched) {
         showToast(matched + ' Zahlung' + (matched === 1 ? '' : 'en') + ' via Webhook nachtraeglich bestaetigt.', 'paid');
+      }
+      if (refunded) {
+        showToast(refunded + ' Buchung' + (refunded === 1 ? '' : 'en') + ' wurde erstattet.', 'info');
       }
       if (acked.length) {
         fetch(_apiUrl('stripe/reconcile') + '?ack=' + encodeURIComponent(acked.join(',')), {
+          method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
+        }).catch(function(){});
+      }
+      if (ackedRefunds.length) {
+        fetch(_apiUrl('stripe/reconcile') + '?ack_refunds=' + encodeURIComponent(ackedRefunds.join(',')), {
           method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
         }).catch(function(){});
       }

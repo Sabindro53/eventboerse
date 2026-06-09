@@ -1087,14 +1087,24 @@ function eventboerse_handle_board_save( WP_REST_Request $request ) {
 
             if ( $prev && isset( $prev['stage'] ) && in_array( $prev['stage'], $protected_stages, true ) ) {
                 $prev_stage = $prev['stage'];
-                // Wenn vorher bezahlt/abgeschlossen → nur dieselbe oder
-                // weiter fortgeschrittene Stufe erlauben.
-                $prev_idx = array_search( $prev_stage, $allowed_stages, true );
-                $new_idx  = array_search( $stage,      $allowed_stages, true );
-                if ( $new_idx === false || $new_idx < $prev_idx ) {
-                    $stage = $prev_stage;
+
+                // SONDERFALL Refund: Wenn der Client refundedPi gesetzt hat
+                // (und es keinen "Vorbestand"-Refund gab), erlauben wir das
+                // Downgrade auf eine frühere Stage. So kann der Stripe-
+                // Reconcile-Hook die Karte zurückrollen.
+                $is_refund_apply = ! empty( $card['refundedPi'] ) && empty( $prev['refundedPi'] );
+
+                if ( ! $is_refund_apply ) {
+                    // Wenn vorher bezahlt/abgeschlossen → nur dieselbe oder
+                    // weiter fortgeschrittene Stufe erlauben.
+                    $prev_idx = array_search( $prev_stage, $allowed_stages, true );
+                    $new_idx  = array_search( $stage,      $allowed_stages, true );
+                    if ( $new_idx === false || $new_idx < $prev_idx ) {
+                        $stage = $prev_stage;
+                    }
                 }
-                // paidAt und paymentIntentId dürfen nicht entfernt werden.
+                // paidAt und paymentIntentId dürfen nicht entfernt werden (auch
+                // bei Refund nicht — sie bleiben als Historie sichtbar).
                 if ( ! empty( $prev['paidAt'] ) && empty( $card['paidAt'] ) ) {
                     $card['paidAt'] = $prev['paidAt'];
                 }
@@ -6971,6 +6981,24 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
             // Optional: zukuenftig Fehlerlog ablegen. Derzeit NOOP (UI zeigt Fehler live).
             break;
 
+        case 'charge.refunded':
+        case 'refund.created':
+        case 'refund.updated':
+            // Erstattung — sofort verbuchen, damit der Client beim
+            // nächsten Reconcile die Karte auf 'geplant' zurückstuft
+            // und der Nutzer eine System-Nachricht bekommt.
+            eb_stripe_webhook_handle_refund( $obj, $type );
+            break;
+
+        case 'charge.dispute.created':
+        case 'charge.dispute.updated':
+        case 'charge.dispute.closed':
+            // Chargeback / Dispute — Admin per Mail informieren und im
+            // User-Meta vermerken, damit der Reconcile-Endpoint die
+            // betroffene Karte als "im Streit" markiert.
+            eb_stripe_webhook_handle_dispute( $obj, $type );
+            break;
+
         case 'account.updated':
             // Dienstleister hat Onboarding abgeschlossen (oder Konto wurde gesperrt).
             // Aktualisiert eb_stripe_connect_active in der WP-Usermeta sofort —
@@ -6993,6 +7021,227 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
 }
 
 /**
+ * Webhook-Handler: charge.refunded / refund.created / refund.updated
+ *
+ * Aus dem Refund-Objekt holen wir den ursprünglichen Payment Intent,
+ * schreiben den Refund-Status ins eb_stripe_paid-Record des Users und
+ * legen ihn parallel in eb_stripe_refunds ab (für den Reconcile, der
+ * dem Frontend Refund-Events ohne Reload zustellt).
+ */
+function eb_stripe_webhook_handle_refund( $obj, $event_type ) {
+    if ( ! is_array( $obj ) ) return;
+
+    // charge.refunded liefert ein Charge-Objekt; refund.* liefert ein Refund-Objekt.
+    $is_charge_event = ( $event_type === 'charge.refunded' );
+    $pi_id = '';
+    $refund_amount_cents = 0;
+    $refund_id = '';
+    $refund_status = 'succeeded';
+
+    if ( $is_charge_event ) {
+        $pi_id               = (string) ( $obj['payment_intent'] ?? '' );
+        $refund_amount_cents = intval( $obj['amount_refunded'] ?? 0 );
+        $rfs                 = isset( $obj['refunds']['data'] ) && is_array( $obj['refunds']['data'] ) ? $obj['refunds']['data'] : array();
+        if ( ! empty( $rfs ) ) {
+            $last      = end( $rfs );
+            $refund_id = (string) ( $last['id'] ?? '' );
+            $refund_status = (string) ( $last['status'] ?? 'succeeded' );
+        }
+    } else {
+        $pi_id               = (string) ( $obj['payment_intent'] ?? '' );
+        $refund_amount_cents = intval( $obj['amount'] ?? 0 );
+        $refund_id           = (string) ( $obj['id'] ?? '' );
+        $refund_status       = (string) ( $obj['status'] ?? 'succeeded' );
+    }
+
+    if ( ! $pi_id || ! preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi_id ) ) return;
+
+    // Original-PI im User-Meta finden, um user_id, card_id, project_id zu kennen.
+    // Wir scannen ein begrenztes Set Users (alle, die je gezahlt haben).
+    $user_id = eb_stripe_lookup_paying_user_for_pi( $pi_id );
+    if ( ! $user_id ) {
+        // Fallback: aus Refund-Metadata (sofern Stripe sie mitkopiert hat).
+        $meta = isset( $obj['metadata'] ) && is_array( $obj['metadata'] ) ? $obj['metadata'] : array();
+        if ( ! empty( $meta['user_id'] ) ) $user_id = intval( $meta['user_id'] );
+    }
+    if ( ! $user_id ) return;
+
+    // 1) Bestehenden paid-Record als "refunded" markieren.
+    $paid = get_user_meta( $user_id, 'eb_stripe_paid', true );
+    if ( ! is_array( $paid ) ) $paid = array();
+    if ( isset( $paid[ $pi_id ] ) && is_array( $paid[ $pi_id ] ) ) {
+        $paid[ $pi_id ]['refund_status']    = $refund_status;
+        $paid[ $pi_id ]['refund_amount']    = $refund_amount_cents;
+        $paid[ $pi_id ]['refund_at']        = time();
+        $paid[ $pi_id ]['refund_event']     = $event_type;
+        $paid[ $pi_id ]['refund_id']        = $refund_id;
+        update_user_meta( $user_id, 'eb_stripe_paid', $paid );
+    }
+
+    // 2) Separater Refund-Bucket — wird beim nächsten /stripe/reconcile
+    //    an den Client geschickt, damit er die Karte zurückstuft + Toast zeigt.
+    $refunds = get_user_meta( $user_id, 'eb_stripe_refunds', true );
+    if ( ! is_array( $refunds ) ) $refunds = array();
+    $key = $refund_id ?: ( $pi_id . '_refund' );
+    $refunds[ $key ] = array(
+        'pi'         => $pi_id,
+        'refund_id'  => $refund_id,
+        'status'     => $refund_status,
+        'amount'     => $refund_amount_cents,
+        'card_id'    => isset( $paid[ $pi_id ]['card_id'] )    ? $paid[ $pi_id ]['card_id']    : '',
+        'project_id' => isset( $paid[ $pi_id ]['project_id'] ) ? $paid[ $pi_id ]['project_id'] : '',
+        'listing_id' => isset( $paid[ $pi_id ]['listing_id'] ) ? $paid[ $pi_id ]['listing_id'] : 0,
+        'title'      => isset( $paid[ $pi_id ]['title'] )      ? $paid[ $pi_id ]['title']      : '',
+        'refunded_at'=> time(),
+    );
+    // Alte Refunds >180 Tage bereinigen.
+    $cutoff = time() - 180 * 86400;
+    foreach ( $refunds as $rk => $rv ) {
+        if ( is_array( $rv ) && isset( $rv['refunded_at'] ) && $rv['refunded_at'] < $cutoff ) unset( $refunds[ $rk ] );
+    }
+    update_user_meta( $user_id, 'eb_stripe_refunds', $refunds );
+
+    // 3) Moderations-Nachricht in die Chats (Single Source of Truth = Plattform).
+    if ( function_exists( 'eb_admin_send_moderation_message' ) ) {
+        $amount_eur = number_format( $refund_amount_cents / 100, 2, ',', '.' );
+        $title      = ! empty( $paid[ $pi_id ]['title'] ) ? '„' . $paid[ $pi_id ]['title'] . '"' : '';
+        $body  = "Hallo,\n\n";
+        $body .= "deine Zahlung {$title} wurde erstattet ({$amount_eur} €).\n\n";
+        $body .= "Die Buchung wurde aus deinem Planungs-Board zurückgesetzt. Falls du dazu Fragen hast, antworte einfach auf diese Nachricht.";
+        // Wir senden NICHT mit dem aktuellen Admin (Webhook hat keinen)
+        // — eb_admin_send_moderation_message braucht get_current_user_id().
+        // Lösung: direkt System-Insert ohne Admin-Kontext.
+        eb_stripe_insert_system_message_to_user( $user_id, $body );
+    }
+}
+
+/**
+ * Webhook-Handler: charge.dispute.created / updated / closed
+ */
+function eb_stripe_webhook_handle_dispute( $obj, $event_type ) {
+    if ( ! is_array( $obj ) ) return;
+
+    $charge_id = (string) ( $obj['charge'] ?? '' );
+    $pi_id     = (string) ( $obj['payment_intent'] ?? '' );
+    if ( ! $pi_id && $charge_id && preg_match( '/^ch_[A-Za-z0-9_]+$/', $charge_id ) ) {
+        // PI aus Charge nachladen.
+        $sk = eb_load_env_value( 'private_stripe_api_key' );
+        if ( $sk ) {
+            $ch = curl_init( 'https://api.stripe.com/v1/charges/' . rawurlencode( $charge_id ) );
+            curl_setopt_array( $ch, array(
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_USERPWD        => $sk . ':',
+                CURLOPT_TIMEOUT        => 10,
+            ) );
+            $resp = curl_exec( $ch );
+            curl_close( $ch );
+            $charge = json_decode( $resp, true );
+            if ( is_array( $charge ) ) {
+                $pi_id = (string) ( $charge['payment_intent'] ?? '' );
+            }
+        }
+    }
+    if ( ! $pi_id ) return;
+
+    $user_id = eb_stripe_lookup_paying_user_for_pi( $pi_id );
+    if ( ! $user_id ) return;
+
+    $paid = get_user_meta( $user_id, 'eb_stripe_paid', true );
+    if ( ! is_array( $paid ) ) $paid = array();
+    if ( isset( $paid[ $pi_id ] ) && is_array( $paid[ $pi_id ] ) ) {
+        $paid[ $pi_id ]['dispute_status'] = (string) ( $obj['status'] ?? '' );
+        $paid[ $pi_id ]['dispute_reason'] = (string) ( $obj['reason'] ?? '' );
+        $paid[ $pi_id ]['dispute_at']     = time();
+        $paid[ $pi_id ]['dispute_event']  = $event_type;
+        update_user_meta( $user_id, 'eb_stripe_paid', $paid );
+    }
+
+    // Admins alarmieren (zentrale Adresse über admin_email).
+    $admin_email = get_option( 'admin_email' );
+    if ( $admin_email ) {
+        $title  = ! empty( $paid[ $pi_id ]['title'] ) ? $paid[ $pi_id ]['title'] : $pi_id;
+        $status = $obj['status']  ?? '';
+        $reason = $obj['reason']  ?? '';
+        $amount = isset( $obj['amount'] ) ? number_format( intval( $obj['amount'] ) / 100, 2, ',', '.' ) . ' €' : '';
+        $body  = "Stripe-Dispute eingegangen.\n\n";
+        $body .= "Buchung: {$title}\n";
+        $body .= "PI: {$pi_id}\n";
+        $body .= "Status: {$status} ({$event_type})\n";
+        $body .= "Grund: {$reason}\n";
+        $body .= "Betrag: {$amount}\n";
+        $body .= "User-ID: {$user_id}\n\n";
+        $body .= "Bitte zeitnah im Stripe Dashboard prüfen und Beweismittel hochladen.";
+        wp_mail( $admin_email, '[Eventbörse] Stripe-Dispute: ' . $title, $body );
+    }
+}
+
+/**
+ * Sucht den User, dem ein bestimmter Payment Intent zugeordnet ist —
+ * über das eb_stripe_paid-Meta. Vorraussetzung: PI wurde initial per
+ * payment_intent.succeeded oder checkout.session.completed verbucht.
+ */
+function eb_stripe_lookup_paying_user_for_pi( $pi_id ) {
+    if ( ! $pi_id ) return 0;
+    global $wpdb;
+    // Direkte SQL-Suche im Usermeta — Like-Search auf das serialisierte
+    // 'pi'-Feld. Schnell genug bei < 50k Usern; bei mehr → eigene Lookup-Tabelle.
+    $like = '%' . $wpdb->esc_like( $pi_id ) . '%';
+    $row  = $wpdb->get_var( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'eb_stripe_paid' AND meta_value LIKE %s LIMIT 1",
+        $like
+    ) );
+    return $row ? intval( $row ) : 0;
+}
+
+/**
+ * Findet/erstellt eine Konversation zwischen System-User (ID 0 fallback
+ * auf admin_email-User) und Empfänger und schreibt eine System-Notiz.
+ * Eigene Funktion, weil eb_admin_send_moderation_message
+ * get_current_user_id() braucht — das gibt es im Webhook nicht.
+ */
+function eb_stripe_insert_system_message_to_user( $user_id, $body ) {
+    global $wpdb;
+    $user_id = intval( $user_id );
+    if ( $user_id <= 0 || trim( $body ) === '' ) return false;
+
+    // Admin-User als Conversation-Partner ermitteln (für die UI-Anzeige).
+    $admin_user = get_user_by( 'email', get_option( 'admin_email' ) );
+    $admin_id   = $admin_user ? intval( $admin_user->ID ) : 0;
+    if ( $admin_id <= 0 ) {
+        // Fallback: ersten Administrator nehmen.
+        $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+        $admin_id = ! empty( $admins ) ? intval( $admins[0] ) : 0;
+    }
+    if ( $admin_id <= 0 || $admin_id === $user_id ) return false;
+
+    $conv_id = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_conversations
+         WHERE (user_a = %d AND user_b = %d) OR (user_a = %d AND user_b = %d) LIMIT 1",
+        $admin_id, $user_id, $user_id, $admin_id
+    ) );
+    if ( ! $conv_id ) {
+        $wpdb->insert( $wpdb->prefix . 'eb_conversations', array(
+            'user_a'     => $admin_id,
+            'user_b'     => $user_id,
+            'updated_at' => current_time( 'mysql' ),
+        ) );
+        $conv_id = (int) $wpdb->insert_id;
+    } else {
+        $wpdb->update( $wpdb->prefix . 'eb_conversations', array( 'updated_at' => current_time( 'mysql' ) ), array( 'id' => $conv_id ) );
+    }
+    if ( ! $conv_id ) return false;
+
+    return (bool) $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+        'conversation_id' => $conv_id,
+        'sender_id'       => $admin_id,
+        'body'            => $body,
+        'msg_type'        => 'moderation',
+        'is_read'         => 0,
+        'created_at'      => current_time( 'mysql' ),
+    ) );
+}
+
+/**
  * Liefert ungesehene, per Webhook bestaetigte Zahlungen fuer den aktuellen User.
  * Client kann damit Karten markieren, die beim Tab-Close verpasst wurden.
  * Query-Param ?ack=pi_xxx,pi_yyy loescht Eintraege nach Verarbeitung.
@@ -7000,11 +7249,14 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
 function eb_stripe_reconcile( WP_REST_Request $request ) {
     $user = wp_get_current_user();
     if ( ! $user || ! $user->ID ) {
-        return new WP_REST_Response( array( 'items' => array() ), 200 );
+        return new WP_REST_Response( array( 'items' => array(), 'refunds' => array() ), 200 );
     }
     $uid = $user->ID;
 
-    $ack = $request->get_param( 'ack' );
+    $ack         = $request->get_param( 'ack' );
+    $ack_refunds = $request->get_param( 'ack_refunds' );
+
+    // Bezahlungen abquittieren
     if ( $ack ) {
         $ids = array_filter( array_map( 'trim', explode( ',', (string) $ack ) ) );
         $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
@@ -7014,12 +7266,36 @@ function eb_stripe_reconcile( WP_REST_Request $request ) {
             }
             update_user_meta( $uid, 'eb_stripe_paid', $existing );
         }
-        return new WP_REST_Response( array( 'ok' => true, 'acked' => array_values( $ids ) ), 200 );
+    }
+    // Refunds abquittieren (eigene Liste, damit Acks sich nicht überschreiben)
+    if ( $ack_refunds ) {
+        $rids = array_filter( array_map( 'trim', explode( ',', (string) $ack_refunds ) ) );
+        $rf   = get_user_meta( $uid, 'eb_stripe_refunds', true );
+        if ( is_array( $rf ) ) {
+            foreach ( $rids as $rid ) {
+                if ( isset( $rf[ $rid ] ) ) unset( $rf[ $rid ] );
+            }
+            update_user_meta( $uid, 'eb_stripe_refunds', $rf );
+        }
+    }
+    if ( $ack || $ack_refunds ) {
+        return new WP_REST_Response( array(
+            'ok'           => true,
+            'acked'        => $ack ? array_values( array_filter( array_map( 'trim', explode( ',', (string) $ack ) ) ) ) : array(),
+            'acked_refunds'=> $ack_refunds ? array_values( array_filter( array_map( 'trim', explode( ',', (string) $ack_refunds ) ) ) ) : array(),
+        ), 200 );
     }
 
     $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
     if ( ! is_array( $existing ) ) $existing = array();
-    return new WP_REST_Response( array( 'items' => array_values( $existing ) ), 200 );
+
+    $refunds = get_user_meta( $uid, 'eb_stripe_refunds', true );
+    if ( ! is_array( $refunds ) ) $refunds = array();
+
+    return new WP_REST_Response( array(
+        'items'   => array_values( $existing ),
+        'refunds' => array_values( $refunds ),
+    ), 200 );
 }
 
 /**
