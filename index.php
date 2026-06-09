@@ -120,7 +120,8 @@ $asset_ver = '2.5.1'; // cache-bust;
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
 
     <!-- ── Primary SEO ── -->
     <title><?php echo $meta_title_esc; ?></title>
@@ -3951,5 +3952,33 @@ Datum: ___________________________________________________
   </div>
 
 <?php wp_footer(); ?>
+<script>
+// PWA: Service Worker registrieren. Auto-Reload sobald neuer SW aktiv wird.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    var swUrl = (window.eventboerseApi && window.eventboerseApi.themeUrl)
+      ? window.eventboerseApi.themeUrl.replace(/\/$/, '') + '/sw.js'
+      : '/wp-content/themes/eventboerse/sw.js';
+    navigator.serviceWorker.register(swUrl, { scope: '/' }).then(function(reg) {
+      if (!reg) return;
+      reg.addEventListener('updatefound', function() {
+        var nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', function() {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch(_) {}
+          }
+        });
+      });
+    }).catch(function(){ /* SW optional */ });
+    var _refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (_refreshing) return;
+      _refreshing = true;
+      window.location.reload();
+    });
+  });
+}
+</script>
 </body>
 </html>

@@ -267,6 +267,7 @@ function eventboerse_enqueue_assets() {
         'isLoggedIn' => is_user_logged_in(),
         'user'       => $user_data,
         'siteUrl'    => trailingslashit( home_url() ),
+        'themeUrl'   => trailingslashit( get_template_directory_uri() ),
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );

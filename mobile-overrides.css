@@ -1,10 +1,9 @@
-```css
 /**
  * mobile-overrides.css
  * Eventbörse — Mobile Optimization Layer
  * Eingebunden NACH styles.css (höhere Spezifität durch Kontext)
  * Scope: Fixes für Viewport < 768px, ergänzend zu styles.css
- * Stand: 2025
+ * Stand: 2026
  */
 
 /* ============================================================
@@ -484,3 +483,130 @@ body {
 
 /* ============================================================
    8. EVENT-PLANUNGS-BOARD (Kanban / Flow)
+   ============================================================ */
+@media (max-width: 768px) {
+  .board-page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .kanban-board {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 8px;
+  }
+  .kanban-column {
+    scroll-snap-align: start;
+    flex: 0 0 86vw;
+    min-width: 86vw;
+  }
+  .kanban-cards {
+    touch-action: pan-y;
+  }
+  /* "Alle Projekte"-Button im Single-View immer mobil-tauglich */
+  #btnAllBoards {
+    min-height: 44px;
+  }
+}
+
+/* ============================================================
+   9. TOUCH-DEVICE FALLBACKS — Tap-Feedback ohne :hover
+   ============================================================ */
+@media (hover: none) {
+  /* Auf Touch-Geräten lösen :hover-Stile nicht zuverlässig aus
+     (und bleiben nach dem Tap kleben). Mit :active geben wir kurzes
+     visuelles Feedback beim Antippen. */
+  .listing-card:hover,
+  .feed-card:hover,
+  .feed-post-card:hover,
+  .board-project-card:hover,
+  .admin-listing-card:hover,
+  .nav-ai-result-card:hover,
+  .imgmod-chip:hover {
+    transform: none;
+    box-shadow: inherit;
+  }
+  .listing-card:active,
+  .feed-card:active,
+  .feed-post-card:active,
+  .board-project-card:active,
+  .admin-listing-card:active,
+  .nav-ai-result-card:active {
+    transform: scale(0.985);
+    transition: transform 0.08s ease;
+  }
+  /* Buttons brauchen sichtbares :active-Feedback */
+  button:active,
+  .btn:active,
+  .btn-primary:active,
+  .btn-secondary:active,
+  .btn-outline:active,
+  [role="button"]:active {
+    transform: scale(0.97);
+    transition: transform 0.06s ease;
+  }
+}
+
+/* ============================================================
+   10. NOTCH / DYNAMIC ISLAND / HOME-BAR — Safe Areas
+   ============================================================ */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .top-nav, .nav-ai-overlay {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+  .mobile-bottom-nav {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ============================================================
+   11. FONT-SIZE MINIMUM AUF MOBILE — Lesbarkeit
+   ============================================================ */
+@media (max-width: 480px) {
+  /* Sub-12px-Texte auf 11px anheben, damit Labels lesbar bleiben.
+     Wir greifen gezielt nur dort ein, wo Lesbarkeit kritisch ist
+     (Meta-Infos, Badges) — Numerik in Kompakt-Karten bleibt. */
+  .feed-card-time,
+  .feed-card-tag,
+  .feed-card-location,
+  .feed-card-category,
+  .board-project-card .bpc-meta,
+  .nav-ai-result-meta,
+  .admin-listing-sub,
+  .msg-time {
+    font-size: 12px !important;
+  }
+}
+
+/* ============================================================
+   12. INPUTS — Mobile Keyboards optimieren
+   ============================================================ */
+input[type="email"],
+input[type="tel"],
+input[type="search"],
+input[type="url"],
+input[type="number"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* iOS Auto-Zoom auf <16px Inputs verhindern */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: max(16px, 0.95rem);
+  }
+}
+
+/* ============================================================
+   13. SMOOTH SCROLLING + iOS Bounce Fix
+   ============================================================ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.scrollable, .browse-grid, .feed-list, .kanban-board {
+  -webkit-overflow-scrolling: touch;
+}

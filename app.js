@@ -4440,6 +4440,12 @@ function _startChatPoll() {
   _stopChatPoll();
   _chatPollTimer = setInterval(function() {
     if (!currentChat || !currentChat.id) { _stopChatPoll(); return; }
+    // Batteriesparmodus: nicht pollen, wenn der Chat gerade nicht im
+    // Vordergrund ist (anderer Tab) oder der Nutzer auf einer anderen
+    // App-Seite ist. Beim Zurückkehren übernimmt das visibilitychange-
+    // Handling den ersten Refresh.
+    if (document.visibilityState === 'hidden') return;
+    if (typeof currentPage !== 'undefined' && currentPage && currentPage !== 'chat') return;
     // Also refresh online status of chat partner
     if (currentChat.otherId) _updateChatStatus(currentChat.otherId);
     fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
