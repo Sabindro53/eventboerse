@@ -6,7 +6,7 @@
 //  - Statische Assets (Bilder, Fonts, Icons) → cache-first, weil sie sich
 //    selten ändern und mit Hash-Pfaden versioniert werden.
 
-const CACHE_NAME = 'eventboerse-cache-v3-2026-06-09';
+const CACHE_NAME = 'eventboerse-cache-v4-2026-06-09';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -54,7 +54,7 @@ function isAppShellRequest(url) {
 
 function isApiRequest(url) {
   return url.pathname.indexOf('/wp-json/') !== -1
-      || url.pathname.indexOf('/wp-admin/admin-ajax.php') !== -1
+      || url.pathname.indexOf('/wp-admin/') !== -1
       || url.pathname.indexOf('/wp-login.php') !== -1;
 }
 
@@ -74,8 +74,11 @@ self.addEventListener('fetch', (event) => {
         const preload = await event.preloadResponse;
         if (preload) return preload;
         const fresh = await fetch(req);
-        // Erfolgreiche Navigation als Shell aktualisieren
-        if (fresh && fresh.ok && fresh.type !== 'opaque') {
+        // NUR die Root-Navigation als Offline-Shell cachen. Würden wir
+        // jede Navigation unter '/index.html' ablegen, könnte z. B. eine
+        // wp-admin-Seite die SPA-Shell vergiften und der Offline-Modus
+        // würde danach Admin-HTML für die ganze App ausliefern.
+        if (fresh && fresh.ok && fresh.type !== 'opaque' && url.pathname === '/') {
           const cache = await caches.open(CACHE_NAME);
           cache.put('/index.html', fresh.clone()).catch(() => {});
         }

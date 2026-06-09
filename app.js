@@ -3174,10 +3174,11 @@ function loadDetail(listingId) {
     heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" />`;
   }
 
-  // Swipeable gallery carousel
+  // Swipeable gallery carousel — Moderations-Flag nur auf echten DB-
+  // Inseraten zeigen (Demo-IDs 1–15 kollidieren mit fremden rohen DB-IDs).
   var imgs = listing.images;
-  var _isAdminMod = !!(currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id);
-  var _modListingId = listing._dbId || (listing._fromDb ? listing.id - 10000 : listing.id);
+  var _isAdminMod = !!(currentUser && currentUser.isAdmin && listing._fromDb && listing.providerId !== currentUser.id);
+  var _modListingId = listing._dbId || (listing._fromDb ? listing.id - 10000 : 0);
   gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
     imgs.map(function(img, i) {
       var safe = _escHtml(img);
@@ -4591,7 +4592,9 @@ function _startChatPoll() {
     // App-Seite ist. Beim Zurückkehren übernimmt das visibilitychange-
     // Handling den ersten Refresh.
     if (document.visibilityState === 'hidden') return;
-    if (typeof currentPage !== 'undefined' && currentPage && currentPage !== 'chat') return;
+    // Der Chat lebt auf der 'messages'-Seite (es gibt keine eigene
+    // 'chat'-Page) — nur dort weiter pollen.
+    if (typeof currentPage !== 'undefined' && currentPage && currentPage !== 'messages') return;
     // Also refresh online status of chat partner
     if (currentChat.otherId) _updateChatStatus(currentChat.otherId);
     fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
@@ -9319,13 +9322,16 @@ function renderAdminListings(rows) {
         }).join('')
       : '<p class="admin-empty">Keine Bilder vorhanden.</p>';
 
+    // l.id ist hier die ROHE DB-ID (Admin-Endpoint liefert DB-Rows direkt).
+    // Fürs Öffnen im Detail-View brauchen wir die Offset-ID (+10000), fürs
+    // Löschen die rohe ID via adminDeleteListingByDbId.
     html += '<article class="admin-listing-card" data-listing-id="' + (+l.id) + '">' +
       '<header class="admin-listing-head">' +
         '<div class="admin-listing-meta">' +
-          '<h3 onclick="navigateTo(\'detail\',' + (+l.id) + ')" title="Inserat öffnen">' + title + '</h3>' +
+          '<h3 onclick="navigateTo(\'detail\',' + (10000 + (+l.id)) + ')" title="Inserat öffnen">' + title + '</h3>' +
           '<p class="admin-listing-sub">' + cat + (loc ? ' · ' + loc : '') + ' · Besitzer: ' + providerName + (providerEmail ? ' (' + providerEmail + ')' : '') + '</p>' +
         '</div>' +
-        '<button class="btn-outline btn-sm btn-danger-outline" onclick="adminDeleteListing(' + (+l.id) + ')" title="Komplettes Inserat löschen">' +
+        '<button class="btn-outline btn-sm btn-danger-outline" onclick="adminDeleteListingByDbId(' + (+l.id) + ')" title="Komplettes Inserat löschen">' +
           '<span class="material-icons-round">delete_forever</span> Inserat löschen' +
         '</button>' +
       '</header>' +
@@ -9333,6 +9339,31 @@ function renderAdminListings(rows) {
     '</article>';
   });
   host.innerHTML = html;
+}
+
+/** Löscht ein Inserat direkt per roher DB-ID (Admin-Tab "Inserate & Bilder").
+ *  Anders als adminDeleteListing wird NICHT in LISTINGS nachgeschlagen —
+ *  der Admin-Endpoint liefert rohe DB-IDs, die dort nicht (oder falsch,
+ *  Demo-Kollision 1–15) auffindbar wären. */
+function adminDeleteListingByDbId(dbId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  dbId = _toPositiveInt(dbId);
+  if (!dbId) return;
+  if (!confirm('Als Admin: Dieses Inserat wirklich komplett löschen?')) return;
+  fetch(_apiUrl('listings/' + dbId), {
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) throw new Error(r.status);
+    showToast('Inserat gelöscht.', 'delete');
+    // Aus Admin-Liste und lokalem LISTINGS-Cache (Offset-ID) entfernen
+    _adminListings = _adminListings.filter(function(x) { return +x.id !== dbId; });
+    renderAdminListings(_adminListings);
+    var lIdx = LISTINGS.findIndex(function(x) { return x && x._fromDb && +x._dbId === dbId; });
+    if (lIdx !== -1) LISTINGS.splice(lIdx, 1);
+  }).catch(function() {
+    showToast('Löschen fehlgeschlagen.', 'error');
+  });
 }
 
 function adminDeleteListingImage(listingId, imageUrl) {
@@ -9429,7 +9460,10 @@ function _submitImageModeration(listingId, imageUrl, reason, onDone) {
       loadAdminListings();
     }
     try {
-      var lIdx = LISTINGS.findIndex(function(x) { return +x.id === +listingId || (x._dbId && +x._dbId === +listingId); });
+      // listingId ist immer die ROHE DB-ID — nur über _dbId matchen.
+      // Ein +x.id-Match würde bei kleinen IDs (1–15) fälschlich die
+      // hardcodierten Demo-Listings treffen und deren Bilder überschreiben.
+      var lIdx = LISTINGS.findIndex(function(x) { return x && x._fromDb && +x._dbId === +listingId; });
       if (lIdx !== -1 && d && d.listing && Array.isArray(d.listing.images)) {
         LISTINGS[lIdx].images = d.listing.images;
         if (typeof currentListing === 'object' && currentListing && (+currentListing.id === +LISTINGS[lIdx].id)) {

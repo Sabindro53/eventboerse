@@ -4,6 +4,10 @@
 
 ## Aktiver Fokus (P0)
 
+- [ ] **PR #46 mergen + App-Store-Pfad starten**
+  - Branch `claude/amazing-fermat-A0a7e` enthält das Release-Paket (siehe „Zuletzt ausgeliefert").
+  - Nach Merge: `.well-known`-URLs am Domain-Root prüfen, dann PWABuilder
+    (Runbook: `docs/app-store-release.md`).
 - [ ] **Listings-/Board-Regressionen ausschließen**
   - Ziel: Keine verschwundenen Listings mehr in Board/Startseite/Map/Browse.
   - Pflicht-Checks nach Deploy: Listings API, Board Picker, Demo-Toggle, Selbstbuchungsschutz.
@@ -13,9 +17,6 @@
 - [ ] **Stripe Connect E2E im Testmodus finalisieren**
   - Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund/Dispute-Pfad prüfen.
   - Keine echte Buchung ohne aktives Auszahlungskonto des Dienstleisters.
-- [ ] **Admin-Moderation gegen aktuellen Code abgleichen**
-  - Vault erwähnt ältere Moderationsrouten; `functions.php` registriert sie aktuell nicht.
-  - Prüfen, ob UI-Funktion noch vorhanden ist oder wiederhergestellt werden muss.
 
 ## Nächste Prioritäten (P1)
 
@@ -35,6 +36,17 @@
 
 ## Zuletzt ausgeliefert (Mai/Juni 2026)
 
+### PR #46 — Release-Paket (2026-06-09, Branch claude/amazing-fermat-A0a7e)
+- [x] **Bugfix Listing→falscher Account**: Feed/Suche fielen auf `l.id` (Offset-ID) statt `providerId` zurück.
+- [x] **Admin-Bildmoderation**: Tab „Inserate & Bilder", Einzelbild-Löschung mit Begründung, Chat-Nachricht (`msg_type='moderation'`) + E-Mail an Besitzer. Endpoints: `GET /admin/listings`, `POST /admin/listings/{id}/delete-image`, `POST /admin/notify-user`.
+- [x] **Security**: msg_type-Whitelist in `eb_messages_send` (Moderation-Impersonation verhindert).
+- [x] **Stage-Hardening**: Server-Whitelist + Anti-Downgrade in `eventboerse_handle_board_save`; Client-Sperre für Rückwärts-Drag bezahlter Karten.
+- [x] **Stripe Checkout**: +8 Methoden (SEPA, Klarna, Sofort, Giropay, Bancontact, EPS, P24, Link), locale=de.
+- [x] **PWA repariert**: manifest.json + mobile-overrides.css waren in Markdown-Fences (unparsebar); Service Worker wurde nie registriert → jetzt aktiv (network-first Shell, Offline-Page, Auto-Reload). `.htaccess` Cache-Falle (immutable auf app.js) behoben.
+- [x] **App-Store-Vorbereitung**: `.well-known/assetlinks.json` + `apple-app-site-association` (Templates, via WP-Hook am Domain-Root serviert), Manifest mit `id`/`display_override`, Install-Prompt, Web-Share auf Detail-Seite, Runbook `docs/app-store-release.md`.
+- [x] **UX**: QA-Roboter kleiner, dynamische Tab-Titel + OG-Tags, Chat-Skeleton, Chat-Poll pausiert im Hintergrund, Direktbuchung→Einzelbuchung.
+
+### Davor
 - [x] QA-Support-Bot rechts über Bottom-Navigation, tokenfrei, mit direkter Bereichs-Navigation.
 - [x] QA-Bot Launcher auf transparentes Roboter/Headset/Partyhut-Icon reduziert (keine Card, kein Status-Dot).
 - [x] Loader/Hero-Popper bereinigt: doppeltes Popper-Bild entfernt.
@@ -51,7 +63,7 @@
   - [x] `Paket` (Mehrfachpositionen mit je eigener Zeit/Preis/Notiz)
 
 ---
-*Zuletzt aktualisiert: 2026-06-06*
+*Zuletzt aktualisiert: 2026-06-09*
 
 ## Verknüpfte Notizen
 - [[Roadmap/Feature-Ideen]] — Ideen-Sammlung
