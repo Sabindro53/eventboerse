@@ -3005,6 +3005,29 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
+    /* ---------- WEB PUSH (PWA) ---------- */
+    register_rest_route( 'eventboerse/v1', '/push/vapid-public-key', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_push_get_vapid_public_key',
+        'permission_callback' => '__return_true',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/push/subscribe', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_push_subscribe',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/push/unsubscribe', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_push_unsubscribe',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    // Admin-only Endpoint zum Generieren von Test-Pushes (für Setup-Verifikation).
+    register_rest_route( 'eventboerse/v1', '/push/test', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_push_send_test',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/admin/user-tags', array(
         'methods'             => 'POST',
         'callback'            => 'eb_admin_set_user_tags',
@@ -3974,6 +3997,324 @@ function eb_listings_delete( WP_REST_Request $request ) {
 }
 
 /** My listings */
+/* =====================================================================
+   WEB PUSH (PWA) — VAPID + Subscription-Storage + Sender
+   ---------------------------------------------------------------------
+   Implementiert Web Push (RFC 8030/8291) ohne Composer-Abhängigkeiten.
+   VAPID-Schlüssel werden bei Bedarf einmal generiert und in der
+   wp_options-Tabelle abgelegt. Subscriptions liegen pro User in
+   eb_push_subs als Array von { endpoint, keys: { p256dh, auth }, ua, ts }.
+   ===================================================================== */
+
+/** Lazy: VAPID-Keypair erzeugen + zwischenspeichern (ECDSA P-256). */
+function eb_push_get_vapid_keys() {
+    $cached = get_option( 'eb_vapid_keys' );
+    if ( is_array( $cached ) && ! empty( $cached['private'] ) && ! empty( $cached['public_b64u'] ) ) {
+        return $cached;
+    }
+    if ( ! function_exists( 'openssl_pkey_new' ) ) return null;
+    $res = openssl_pkey_new( array(
+        'curve_name'       => 'prime256v1',
+        'private_key_type' => OPENSSL_KEYTYPE_EC,
+    ) );
+    if ( ! $res ) return null;
+    $priv_pem = '';
+    if ( ! openssl_pkey_export( $res, $priv_pem ) ) return null;
+    $details = openssl_pkey_get_details( $res );
+    if ( ! $details || empty( $details['ec']['x'] ) || empty( $details['ec']['y'] ) ) return null;
+    $x = str_pad( $details['ec']['x'], 32, "\0", STR_PAD_LEFT );
+    $y = str_pad( $details['ec']['y'], 32, "\0", STR_PAD_LEFT );
+    $public_uncompressed = "\x04" . $x . $y;          // 65 Bytes
+    $keys = array(
+        'private'     => $priv_pem,
+        'public_b64u' => eb_push_b64url( $public_uncompressed ),
+        'created_at'  => time(),
+    );
+    update_option( 'eb_vapid_keys', $keys, false );
+    return $keys;
+}
+
+function eb_push_get_vapid_public_key() {
+    $k = eb_push_get_vapid_keys();
+    if ( ! $k ) return new WP_REST_Response( array( 'message' => 'VAPID nicht verfügbar' ), 500 );
+    return new WP_REST_Response( array( 'publicKey' => $k['public_b64u'] ), 200 );
+}
+
+function eb_push_subscribe( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $p   = $request->get_json_params();
+    if ( empty( $p['endpoint'] ) || empty( $p['keys']['p256dh'] ) || empty( $p['keys']['auth'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Subscription unvollständig' ), 400 );
+    }
+    // Endpoint sanitieren — nur https-URLs erlauben.
+    $endpoint = esc_url_raw( $p['endpoint'] );
+    if ( strpos( $endpoint, 'https://' ) !== 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Endpoint muss HTTPS sein' ), 400 );
+    }
+    $sub = array(
+        'endpoint' => $endpoint,
+        'keys'     => array(
+            'p256dh' => sanitize_text_field( $p['keys']['p256dh'] ),
+            'auth'   => sanitize_text_field( $p['keys']['auth'] ),
+        ),
+        'ua'       => sanitize_text_field( $p['ua'] ?? '' ),
+        'ts'       => time(),
+    );
+
+    $existing = get_user_meta( $uid, 'eb_push_subs', true );
+    if ( ! is_array( $existing ) ) $existing = array();
+    // Dedup nach endpoint.
+    $existing[ md5( $endpoint ) ] = $sub;
+    update_user_meta( $uid, 'eb_push_subs', $existing );
+
+    return new WP_REST_Response( array( 'ok' => true, 'count' => count( $existing ) ), 200 );
+}
+
+function eb_push_unsubscribe( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $p   = $request->get_json_params();
+    $endpoint = isset( $p['endpoint'] ) ? esc_url_raw( $p['endpoint'] ) : '';
+    $existing = get_user_meta( $uid, 'eb_push_subs', true );
+    if ( ! is_array( $existing ) ) $existing = array();
+    if ( $endpoint ) {
+        unset( $existing[ md5( $endpoint ) ] );
+    } else {
+        $existing = array();
+    }
+    update_user_meta( $uid, 'eb_push_subs', $existing );
+    return new WP_REST_Response( array( 'ok' => true, 'count' => count( $existing ) ), 200 );
+}
+
+function eb_push_send_test( WP_REST_Request $request ) {
+    $p   = $request->get_json_params();
+    $uid = isset( $p['user_id'] ) ? absint( $p['user_id'] ) : get_current_user_id();
+    $payload = array(
+        'title' => $p['title'] ?? 'Eventbörse Test',
+        'body'  => $p['body']  ?? 'Push funktioniert ✓',
+        'url'   => $p['url']   ?? home_url( '/' ),
+        'tag'   => 'eb-test',
+    );
+    $sent = eb_push_send_to_user( $uid, $payload );
+    return new WP_REST_Response( array( 'ok' => true, 'sent' => $sent ), 200 );
+}
+
+/**
+ * Schickt ein Push an alle Subscriptions des Users. Liefert die Zahl
+ * erfolgreich zugestellter Pushes zurück. Bei 404/410 (Subscription
+ * abgelaufen) wird die jeweilige Sub gelöscht.
+ */
+function eb_push_send_to_user( $user_id, $payload ) {
+    $user_id = (int) $user_id;
+    if ( $user_id <= 0 ) return 0;
+    $subs = get_user_meta( $user_id, 'eb_push_subs', true );
+    if ( ! is_array( $subs ) || empty( $subs ) ) return 0;
+    $keys = eb_push_get_vapid_keys();
+    if ( ! $keys ) return 0;
+
+    $payload_json = wp_json_encode( $payload );
+    $sent = 0;
+    $changed = false;
+    foreach ( $subs as $hash => $sub ) {
+        $res = eb_push_send_one( $sub, $payload_json, $keys );
+        if ( $res === true ) {
+            $sent++;
+        } elseif ( $res === 'gone' ) {
+            unset( $subs[ $hash ] );
+            $changed = true;
+        }
+    }
+    if ( $changed ) {
+        update_user_meta( $user_id, 'eb_push_subs', $subs );
+    }
+    return $sent;
+}
+
+/**
+ * Schickt ein einzelnes Push (RFC 8291, aes128gcm). Gibt true bei
+ * Erfolg, 'gone' bei 404/410, false sonst zurück.
+ */
+function eb_push_send_one( $sub, $payload_json, $vapid ) {
+    if ( ! function_exists( 'openssl_pkey_new' ) ) return false;
+
+    $endpoint = $sub['endpoint'];
+    $url      = wp_parse_url( $endpoint );
+    if ( ! $url || empty( $url['host'] ) ) return false;
+    $audience = ( $url['scheme'] ?? 'https' ) . '://' . $url['host'];
+
+    // 1) VAPID-JWT (ES256) erzeugen
+    $jwt_header  = array( 'typ' => 'JWT', 'alg' => 'ES256' );
+    $jwt_payload = array(
+        'aud' => $audience,
+        'exp' => time() + 12 * 3600,
+        'sub' => 'mailto:' . get_option( 'admin_email', 'noreply@eventboerse.de' ),
+    );
+    $signing_input = eb_push_b64url( wp_json_encode( $jwt_header ) ) . '.' . eb_push_b64url( wp_json_encode( $jwt_payload ) );
+    $priv = openssl_pkey_get_private( $vapid['private'] );
+    if ( ! $priv ) return false;
+    $der_sig = '';
+    if ( ! openssl_sign( $signing_input, $der_sig, $priv, 'sha256' ) ) return false;
+    $raw_sig = eb_push_der_to_raw_p256( $der_sig );
+    if ( ! $raw_sig ) return false;
+    $jwt = $signing_input . '.' . eb_push_b64url( $raw_sig );
+
+    // 2) Payload verschlüsseln (aes128gcm gemäß RFC 8291)
+    $client_pub = eb_push_b64url_decode( $sub['keys']['p256dh'] );
+    $client_auth = eb_push_b64url_decode( $sub['keys']['auth'] );
+    if ( strlen( $client_pub ) !== 65 || $client_pub[0] !== "\x04" ) return false;
+
+    // Ephemeres Sender-Keypair
+    $eph = openssl_pkey_new( array( 'curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC ) );
+    if ( ! $eph ) return false;
+    $eph_details = openssl_pkey_get_details( $eph );
+    $ex = str_pad( $eph_details['ec']['x'], 32, "\0", STR_PAD_LEFT );
+    $ey = str_pad( $eph_details['ec']['y'], 32, "\0", STR_PAD_LEFT );
+    $eph_pub_uncompressed = "\x04" . $ex . $ey;
+
+    // ECDH-Shared-Secret berechnen — Client-Public ist auf der Curve.
+    $shared = eb_push_ecdh_compute( $eph, $client_pub );
+    if ( ! $shared ) return false;
+
+    // Encryption-Salt (zufällig 16 Byte)
+    $salt = random_bytes( 16 );
+
+    // HKDF-Ableitung gemäß RFC 8291
+    $key_info     = "WebPush: info\x00" . $client_pub . $eph_pub_uncompressed;
+    $prk_key      = eb_push_hkdf( $client_auth, $shared, $key_info, 32 );
+    $cek_info     = "Content-Encoding: aes128gcm\x00";
+    $cek          = eb_push_hkdf( $salt, $prk_key, $cek_info, 16 );
+    $nonce_info   = "Content-Encoding: nonce\x00";
+    $nonce        = eb_push_hkdf( $salt, $prk_key, $nonce_info, 12 );
+
+    // Payload-Padding: 0x02 || \0
+    $plaintext   = $payload_json . "\x02";
+    $ciphertext  = openssl_encrypt( $plaintext, 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag );
+    if ( $ciphertext === false ) return false;
+    $encrypted   = $ciphertext . $tag;
+
+    // aes128gcm-Header zusammenbauen: salt(16) || rs(4 BE) || idlen(1) || keyid
+    $rs = 4096; // max record size
+    $body = $salt . pack( 'N', $rs ) . chr( 65 ) . $eph_pub_uncompressed . $encrypted;
+
+    // 3) Request abschicken
+    $ch = curl_init( $endpoint );
+    curl_setopt_array( $ch, array(
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $body,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_HTTPHEADER     => array(
+            'TTL: 86400',
+            'Content-Encoding: aes128gcm',
+            'Content-Type: application/octet-stream',
+            'Content-Length: ' . strlen( $body ),
+            'Urgency: normal',
+            'Authorization: vapid t=' . $jwt . ', k=' . $vapid['public_b64u'],
+        ),
+    ) );
+    curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    curl_close( $ch );
+
+    if ( $http >= 200 && $http < 300 ) return true;
+    if ( $http === 404 || $http === 410 ) return 'gone';
+    return false;
+}
+
+/** URL-safe Base64 ohne Padding (RFC 7515). */
+function eb_push_b64url( $bin ) {
+    return rtrim( strtr( base64_encode( $bin ), '+/', '-_' ), '=' );
+}
+function eb_push_b64url_decode( $s ) {
+    $pad = strlen( $s ) % 4;
+    if ( $pad ) $s .= str_repeat( '=', 4 - $pad );
+    return base64_decode( strtr( $s, '-_', '+/' ) );
+}
+
+/** Konvertiert eine ASN.1-DER-ECDSA-Signatur in 64-Byte-Raw-Format (P-256). */
+function eb_push_der_to_raw_p256( $der ) {
+    // SEQUENCE ⟶ 0x30 LEN INT r INT s
+    $off = 0;
+    if ( strlen( $der ) < 8 || $der[0] !== "\x30" ) return null;
+    $len = ord( $der[1] );
+    $off = 2;
+    if ( $len & 0x80 ) {
+        $n = $len & 0x7f;
+        $off += $n;
+    }
+    // INT r
+    if ( $der[ $off ] !== "\x02" ) return null;
+    $rlen = ord( $der[ $off + 1 ] );
+    $rstart = $off + 2;
+    $r = substr( $der, $rstart, $rlen );
+    if ( strlen( $r ) > 32 ) $r = substr( $r, -32 );
+    $r = str_pad( $r, 32, "\0", STR_PAD_LEFT );
+    $off = $rstart + $rlen;
+    // INT s
+    if ( $der[ $off ] !== "\x02" ) return null;
+    $slen = ord( $der[ $off + 1 ] );
+    $sstart = $off + 2;
+    $s = substr( $der, $sstart, $slen );
+    if ( strlen( $s ) > 32 ) $s = substr( $s, -32 );
+    $s = str_pad( $s, 32, "\0", STR_PAD_LEFT );
+    return $r . $s;
+}
+
+/** ECDH P-256 — Shared Secret aus eigener Privat + fremder Public (uncompressed). */
+function eb_push_ecdh_compute( $own_private_res, $peer_public_uncompressed ) {
+    if ( strlen( $peer_public_uncompressed ) !== 65 ) return null;
+    // Peer als EC-Public-Key in PEM verpacken: SubjectPublicKeyInfo für P-256.
+    $der = hex2bin( '3059301306072a8648ce3d020106082a8648ce3d030107034200' ) . $peer_public_uncompressed;
+    $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split( base64_encode( $der ), 64, "\n" ) . "-----END PUBLIC KEY-----\n";
+    // openssl_pkey_derive ist in PHP 7.3+ verfügbar.
+    if ( function_exists( 'openssl_pkey_derive' ) ) {
+        $peer = openssl_pkey_get_public( $pem );
+        if ( ! $peer ) return null;
+        $secret = openssl_pkey_derive( $peer, $own_private_res, 32 );
+        return $secret ?: null;
+    }
+    return null;
+}
+
+/** HKDF-SHA256 — Extract + Expand kombiniert. */
+function eb_push_hkdf( $salt, $ikm, $info, $length ) {
+    if ( function_exists( 'hash_hkdf' ) ) {
+        return hash_hkdf( 'sha256', $ikm, $length, $info, $salt );
+    }
+    // Fallback (PHP < 7.1.2): manuell.
+    $prk = hash_hmac( 'sha256', $ikm, $salt, true );
+    $okm = '';
+    $t   = '';
+    $i   = 1;
+    while ( strlen( $okm ) < $length ) {
+        $t   = hash_hmac( 'sha256', $t . $info . chr( $i ), $prk, true );
+        $okm .= $t;
+        $i++;
+    }
+    return substr( $okm, 0, $length );
+}
+
+/** Hook: Bei neuer Nachricht den Empfänger anpingen. */
+function eb_push_on_new_message( $conversation_id, $sender_id, $body ) {
+    global $wpdb;
+    $conv = $wpdb->get_row( $wpdb->prepare(
+        "SELECT user_a, user_b FROM {$wpdb->prefix}eb_conversations WHERE id = %d",
+        $conversation_id
+    ) );
+    if ( ! $conv ) return;
+    $recipient = ( (int) $conv->user_a === (int) $sender_id ) ? (int) $conv->user_b : (int) $conv->user_a;
+    if ( $recipient <= 0 || $recipient === (int) $sender_id ) return;
+
+    $sender = get_userdata( $sender_id );
+    $name   = $sender ? ( trim( $sender->first_name . ' ' . $sender->last_name ) ?: $sender->display_name ) : 'Eventbörse';
+
+    eb_push_send_to_user( $recipient, array(
+        'title' => 'Neue Nachricht von ' . $name,
+        'body'  => mb_substr( wp_strip_all_tags( (string) $body ), 0, 120 ),
+        'url'   => home_url( '/messages' ),
+        'tag'   => 'msg-' . $conversation_id,
+    ) );
+}
+
 function eb_my_listings() {
     global $wpdb;
     $uid  = get_current_user_id();
@@ -4574,6 +4915,11 @@ function eb_messages_send( WP_REST_Request $request ) {
         array( 'updated_at' => current_time( 'mysql' ) ),
         array( 'id' => $conv_id )
     );
+
+    // Web-Push an den Empfänger (asynchron-tolerant — bei Fehler stört's nicht)
+    if ( function_exists( 'eb_push_on_new_message' ) ) {
+        try { eb_push_on_new_message( $conv_id, $uid, $body ); } catch ( Throwable $_e ) {}
+    }
 
     // E-Mail-Benachrichtigung an Empfänger
     $recipient_id = ((int)$conv->user_a === $uid) ? (int)$conv->user_b : (int)$conv->user_a;

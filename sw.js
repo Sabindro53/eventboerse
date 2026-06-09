@@ -6,7 +6,7 @@
 //  - Statische Assets (Bilder, Fonts, Icons) → cache-first, weil sie sich
 //    selten ändern und mit Hash-Pfaden versioniert werden.
 
-const CACHE_NAME = 'eventboerse-cache-v4-2026-06-09';
+const CACHE_NAME = 'eventboerse-cache-v5-2026-06-09';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -40,6 +40,47 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Web Push: Eingehende Notifications anzeigen.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    if (event.data) data = event.data.json();
+  } catch (_) {
+    try { data = { body: event.data ? event.data.text() : '' }; } catch (__) {}
+  }
+  const title = data.title || 'Eventbörse';
+  const opts = {
+    body: data.body || '',
+    icon: data.icon || '/wp-content/themes/eventboerse/icons/icon-192.png',
+    badge: data.badge || '/wp-content/themes/eventboerse/icons/icon-72.png',
+    data: { url: data.url || '/', payload: data },
+    tag: data.tag || undefined,
+    renotify: !!data.renotify,
+    requireInteraction: !!data.requireInteraction,
+  };
+  event.waitUntil(self.registration.showNotification(title, opts));
+});
+
+// Klick auf Notification: bestehendes Tab fokussieren oder neues öffnen.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) {
+      try {
+        const u = new URL(c.url);
+        if (u.origin === self.location.origin) {
+          await c.focus();
+          if (c.navigate) try { await c.navigate(targetUrl); } catch (_) {}
+          return;
+        }
+      } catch (_) {}
+    }
+    await clients.openWindow(targetUrl);
+  })());
 });
 
 function isAppShellRequest(url) {

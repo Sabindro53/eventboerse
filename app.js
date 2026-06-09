@@ -15984,6 +15984,86 @@ function _humanizeStripeIntentStatus(pi) {
   }
 }
 
+// ========== WEB PUSH (PWA) ==========
+// Registriert beim ersten Login eine Push-Subscription nach Permission-
+// Prompt. Bewusst NICHT direkt nach Pageload — Browser blockieren das
+// und nerven den Nutzer. Stattdessen rufen wir ebPromptPushPermission()
+// aus einem User-Trigger (z. B. Settings-Toggle oder erster Klick auf
+// "Benachrichtigungen aktivieren") oder leise nach erfolgter Buchung.
+var _ebPushSetup = false;
+function _ebBase64UrlToUint8Array(b64) {
+  var pad = '='.repeat((4 - b64.length % 4) % 4);
+  var raw = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  var bin = atob(raw);
+  var arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+async function ebPromptPushPermission() {
+  if (_ebPushSetup) return true;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (typeof showToast === 'function') showToast('Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.', 'info');
+    return false;
+  }
+  try {
+    var permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      if (typeof showToast === 'function') showToast('Push wurde nicht erlaubt.', 'info');
+      return false;
+    }
+    var reg = await navigator.serviceWorker.ready;
+    var existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      _ebPushSetup = true;
+      await _ebPostSubscription(existing);
+      return true;
+    }
+    var resp = await fetch(_apiUrl('push/vapid-public-key'), { credentials: 'same-origin' });
+    if (!resp.ok) throw new Error('vapid http ' + resp.status);
+    var data = await resp.json();
+    if (!data || !data.publicKey) throw new Error('keine publicKey');
+    var appKey = _ebBase64UrlToUint8Array(data.publicKey);
+    var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+    await _ebPostSubscription(sub);
+    _ebPushSetup = true;
+    if (typeof showToast === 'function') showToast('Push-Benachrichtigungen aktiv.', 'success');
+    return true;
+  } catch (e) {
+    console.warn('[push] Subscribe fehlgeschlagen:', e);
+    if (typeof showToast === 'function') showToast('Push-Aktivierung fehlgeschlagen.', 'error');
+    return false;
+  }
+}
+async function _ebPostSubscription(sub) {
+  var json = sub.toJSON ? sub.toJSON() : sub;
+  return fetch(_apiUrl('push/subscribe'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      endpoint: json.endpoint,
+      keys: json.keys,
+      ua: navigator.userAgent || ''
+    })
+  });
+}
+async function ebUnsubscribePush() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await sub.unsubscribe();
+      await fetch(_apiUrl('push/unsubscribe'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ endpoint: sub.endpoint })
+      });
+    }
+    _ebPushSetup = false;
+    if (typeof showToast === 'function') showToast('Push deaktiviert.', 'info');
+  } catch (e) { console.warn('[push] unsubscribe', e); }
+}
+
 // ========== GLOBALER OFFLINE-INDIKATOR ==========
 // Browser-Event 'offline'/'online' liefert keinen sichtbaren Hinweis. Wir
 // blenden eine schmale Top-Leiste ein, sobald navigator.onLine false ist,
