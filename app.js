@@ -3066,8 +3066,18 @@ function setView(view) {
 
 // ========== DETAIL PAGE ==========
 function loadDetail(listingId) {
-  const listing = LISTINGS.find(l => l.id === listingId);
-  if (!listing) return;
+  // Robust: akzeptiert sowohl Offset-IDs (10001) als auch rohe DB-IDs (1),
+  // damit Deep-Links und Such-Treffer aus verschiedenen Quellen verlässlich
+  // landen. Vorher führte ein nackter DB-ID-Aufruf zu einem stillen Abbruch.
+  const idNum = _toPositiveInt(listingId);
+  let listing = LISTINGS.find(l => l && (l.id === idNum || l.id === listingId));
+  if (!listing && idNum) {
+    listing = LISTINGS.find(l => l && (_toPositiveInt(l._dbId) === idNum || _toPositiveInt(l.id) === idNum + 10000));
+  }
+  if (!listing) {
+    if (typeof showToast === 'function') showToast('Inserat nicht gefunden.', 'error');
+    return;
+  }
   currentListing = listing;
 
   // Gallery
