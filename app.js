@@ -16791,8 +16791,227 @@ function disconnectStripeAccount() {
  *   4) /stripe/verify-payment → server-seitig bestaetigen (authoritativ)
  *   5) onSuccess(result) aufrufen
  */
+/**
+ * App-Modus-Erkennung (installierte PWA, Android-TWA, iOS-Wrapper).
+ *
+ * WICHTIG — App-Store-Compliance (Apple Guideline 3.1.1):
+ * Innerhalb der App-Hülle darf KEIN Zahlungsvorgang in der App-Oberfläche
+ * stattfinden. Zahlungen werden deshalb im App-Modus IMMER in den externen
+ * Browser ausgelagert (Stripe Hosted Checkout). Diese Funktion entscheidet,
+ * welcher Pfad greift. NICHT entfernen oder umgehen — sonst riskieren wir
+ * eine App-Store-Ablehnung oder den Rauswurf.
+ */
+function _ebIsAppContext() {
+  try {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+    if (navigator.standalone === true) return true; // iOS A2HS / Wrapper
+    if (document.referrer && document.referrer.indexOf('android-app://') === 0) return true; // TWA
+  } catch (_) {}
+  return false;
+}
+
+/**
+ * Externer Zahlungs-Flow für den App-Modus: erstellt eine Hosted-Checkout-
+ * Session und öffnet sie im EXTERNEN Browser (window.open mit _blank →
+ * Safari auf iOS, Custom Tab/Browser bei TWA). In der App erscheint nur
+ * eine Warte-Karte; der Abschluss kommt über Webhook + /stripe/reconcile
+ * zurück (Board-Karte wird automatisch als bezahlt markiert).
+ */
+function _openExternalCheckout(opts) {
+  opts = opts || {};
+
+  // Sofortbuchung: Board-Karte existiert noch nicht → VOR dem Checkout
+  // eine Pending-Karte anlegen (Stage 'angebot', stripePending). Der
+  // Webhook schreibt die Zahlung mit diesen IDs, /stripe/reconcile matcht
+  // sie und befördert die Karte automatisch auf 'bestaetigt'.
+  var _pendingInstant = null;
+  if (opts.instant && !opts.cardId) {
+    try {
+      _migrateBoardProjects && _migrateBoardProjects();
+      var _instantCount = (_boardProjects || []).filter(function(p) { return p && p.kind === 'instant'; }).length;
+      var nowIso = new Date().toISOString();
+      var proj = {
+        id: 'proj_' + Date.now(),
+        name: 'Einzelbuchung ' + (_instantCount + 1),
+        kind: 'instant',
+        date: (opts.dateLabel || '').slice(0, 10),
+        cards: [],
+        createdAt: nowIso
+      };
+      var card = {
+        id: 'bc_' + Date.now(),
+        name: opts.title || 'Einzelbuchung',
+        category: opts.category || '',
+        stage: 'angebot',
+        price: opts.amount,
+        listingId: opts.listingId || 0,
+        listingImage: opts.image || '',
+        listingTitle: opts.title || '',
+        avatar: opts.image || '',
+        note: 'Sofortbuchung – Zahlung im Browser gestartet',
+        bookedAt: nowIso,
+        stripePending: true,
+        createdAt: nowIso
+      };
+      proj.cards.push(card);
+      _boardProjects.push(proj);
+      try { _saveBoardProjects && _saveBoardProjects({ immediate: true }); } catch(_) {}
+      _pendingInstant = { projectId: proj.id, cardId: card.id };
+      opts.projectId = proj.id;
+      opts.cardId = card.id;
+    } catch(e) { console.warn('[checkout] pending card', e); }
+  }
+
+  var ov = document.createElement('div');
+  ov.className = 'stripe-modal-overlay';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.innerHTML =
+    '<div class="stripe-modal stripe-external-modal">' +
+      '<div class="stripe-modal-header">' +
+        '<div>' +
+          '<div class="stripe-modal-title"><span class="material-icons-round">open_in_browser</span> Bezahlung im Browser</div>' +
+          '<div class="stripe-modal-sub">Aus der App heraus wird die Zahlung sicher in deinem Browser abgeschlossen.</div>' +
+        '</div>' +
+        '<button class="stripe-modal-close" type="button" aria-label="Schließen">&times;</button>' +
+      '</div>' +
+      '<div class="stripe-modal-body">' +
+        '<div class="stripe-external-info">' +
+          '<span class="material-icons-round">lock</span>' +
+          '<p><strong>' + _escHtml(opts.title || 'Buchung') + '</strong> · ' + _escHtml(_formatEuro(opts.amount)) + '<br>' +
+          'Du wirst zu Stripe weitergeleitet. Nach der Zahlung kannst du den Browser schließen — diese App aktualisiert sich automatisch.</p>' +
+        '</div>' +
+        '<div id="stripeExternalStatus" class="stripe-external-status" style="display:none">' +
+          '<span class="material-icons-round spin">sync</span> Warte auf Zahlungsbestätigung…' +
+        '</div>' +
+        '<div id="stripeExternalError" class="stripe-error" role="alert" style="display:none"></div>' +
+      '</div>' +
+      '<div class="stripe-modal-footer">' +
+        '<button class="btn-primary" id="stripeExternalOpenBtn"><span class="material-icons-round">open_in_new</span> Im Browser bezahlen</button>' +
+        '<button class="btn-outline" id="stripeExternalCancelBtn">Abbrechen</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+
+  var pollTimer = null;
+  function cleanup() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    ov.remove();
+  }
+  function onCancel() {
+    cleanup();
+    // Pending-Sofortbuchungs-Karte wieder entfernen, falls noch unbezahlt.
+    if (_pendingInstant) {
+      try {
+        var pIdx = (_boardProjects || []).findIndex(function(p){ return p && p.id === _pendingInstant.projectId; });
+        if (pIdx !== -1) {
+          var pc = (_boardProjects[pIdx].cards || []).find(function(c){ return c.id === _pendingInstant.cardId; });
+          if (pc && !pc.paidAt) {
+            _boardProjects.splice(pIdx, 1);
+            try { _saveBoardProjects && _saveBoardProjects({ immediate: true }); } catch(_) {}
+          }
+        }
+      } catch(_) {}
+    }
+    if (typeof opts.onCancel === 'function') opts.onCancel();
+  }
+  ov.querySelector('.stripe-modal-close').addEventListener('click', onCancel);
+  ov.querySelector('#stripeExternalCancelBtn').addEventListener('click', onCancel);
+  ov.addEventListener('click', function(e){ if (e.target === ov) onCancel(); });
+
+  var openBtn = ov.querySelector('#stripeExternalOpenBtn');
+  var statusEl = ov.querySelector('#stripeExternalStatus');
+  var errEl = ov.querySelector('#stripeExternalError');
+
+  openBtn.addEventListener('click', function() {
+    openBtn.disabled = true;
+    errEl.style.display = 'none';
+    fetch(_apiUrl('stripe/create-checkout'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        amount: opts.amount,
+        title: opts.title || 'Buchung',
+        card_id: opts.cardId || '',
+        project_id: opts.projectId || '',
+        listing_id: opts.listingId || 0
+      })
+    }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+      .then(function(res){
+        if (!res.ok || !res.data || !res.data.url) {
+          openBtn.disabled = false;
+          errEl.textContent = (res.data && res.data.message) || 'Checkout konnte nicht gestartet werden.';
+          errEl.style.display = '';
+          return;
+        }
+        // Externen Browser öffnen. _blank + noopener → verlässt die
+        // App-Hülle (TWA: Custom Tab; iOS-Wrapper: Safari).
+        var w = null;
+        try { w = window.open(res.data.url, '_blank', 'noopener'); } catch(_) {}
+        if (!w) {
+          // Popup-Blocker: Link anzeigen, User tippt selbst.
+          errEl.innerHTML = 'Browser konnte nicht geöffnet werden. ' +
+            '<a href="' + _escHtml(res.data.url) + '" target="_blank" rel="noopener noreferrer">Hier tippen, um die Zahlung zu öffnen.</a>';
+          errEl.style.display = '';
+        }
+        openBtn.style.display = 'none';
+        statusEl.style.display = '';
+        // Aktiv auf Zahlungseingang pollen (Webhook → /stripe/reconcile),
+        // alle 5 s für max. 10 Minuten. Zusätzlich greift der bestehende
+        // visibility/focus-Reconcile beim App-Wechsel zurück.
+        var tries = 0;
+        pollTimer = setInterval(function() {
+          tries++;
+          if (tries > 120) { clearInterval(pollTimer); pollTimer = null; return; }
+          var before = JSON.stringify((_boardProjects || []).map(function(p){ return (p.cards||[]).map(function(c){ return c.id + ':' + (c.paymentStatus||''); }).join(','); }));
+          Promise.resolve(_reconcileStripePayments()).then(function() {
+            var after = JSON.stringify((_boardProjects || []).map(function(p){ return (p.cards||[]).map(function(c){ return c.id + ':' + (c.paymentStatus||''); }).join(','); }));
+            if (before !== after) {
+              cleanup();
+              // WICHTIG: opts.onSuccess NICHT aufrufen — die Inline-
+              // Closures (_applyCardPaymentSuccess/_applyInstantBooking-
+              // Success) würden die Buchung doppelt anlegen. Der Reconcile
+              // hat Karte + Stage bereits authoritativ aktualisiert.
+              try { _clearPendingPayment && _clearPendingPayment(); } catch(_) {}
+              try {
+                if (typeof _showBookingSuccess === 'function') {
+                  _showBookingSuccess({
+                    projectId: opts.projectId,
+                    amount: opts.amount,
+                    title: opts.title || 'Buchung'
+                  });
+                } else {
+                  showToast('Zahlung bestätigt – Buchung abgeschlossen!', 'check_circle');
+                }
+              } catch(_) {
+                showToast('Zahlung bestätigt – Buchung abgeschlossen!', 'check_circle');
+              }
+              try { if (typeof renderBoardFlow === 'function') renderBoardFlow(); } catch(_) {}
+            }
+          });
+        }, 5000);
+      })
+      .catch(function(){
+        openBtn.disabled = false;
+        errEl.textContent = 'Netzwerkfehler – bitte erneut versuchen.';
+        errEl.style.display = '';
+      });
+  });
+}
+
 function _openStripePaymentModal(opts) {
   opts = opts || {};
+
+  // App-Store-Compliance: Im App-Modus (installierte PWA / TWA / iOS-
+  // Wrapper) NIE das eingebettete Payment Element zeigen — Zahlung läuft
+  // komplett extern im Browser. Siehe _ebIsAppContext()-Kommentar.
+  if (_ebIsAppContext()) {
+    _openExternalCheckout(opts);
+    return;
+  }
+
   if (typeof Stripe === 'undefined') {
     showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.', 'error');
     return;

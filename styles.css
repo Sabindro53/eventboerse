@@ -8931,6 +8931,39 @@ body.dark-mode .settings-pill.settings-pill-info { color: #95bbff; }
   align-items: center;
 }
 
+/* ── Externer Checkout (App-Modus: Zahlung im Browser) ── */
+.stripe-external-modal { max-width: 460px; }
+.stripe-external-info {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--bg-alt);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.stripe-external-info .material-icons-round {
+  color: var(--primary);
+  font-size: 26px;
+  flex-shrink: 0;
+}
+.stripe-external-info p { margin: 0; font-size: 0.92rem; line-height: 1.45; }
+.stripe-external-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(56, 132, 255, 0.08);
+  color: #2a5fb8;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.stripe-external-status .material-icons-round { font-size: 20px; }
+body.dark-mode .stripe-external-info { background: #1c1c2a; border-color: rgba(255,255,255,0.08); }
+body.dark-mode .stripe-external-status { color: #95bbff; background: rgba(56,132,255,0.12); }
+
 /* ── Globaler Offline-Banner ── */
 #ebOfflineBanner {
   position: fixed;

@@ -6197,6 +6197,7 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
     if ( strlen( $title ) > 250 ) $title = substr( $title, 0, 250 );
 
     $amount_cents = (int) round( $amount * 100 );
+    $fee_quote    = eb_stripe_calculate_fee_quote( $amount_cents, $currency );
     $site        = home_url( '/' );
     $success_url = add_query_arg( array(
         'stripe'     => 'success',
@@ -6235,7 +6236,74 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
         'metadata[project_id]'                          => $project_id,
         'metadata[listing_id]'                          => (string) $listing_id,
         'metadata[user_id]'                             => (string) ( $user ? $user->ID : 0 ),
+        'metadata[title]'                               => $title,
+        'metadata[platform_fee_cents]'                  => (string) $fee_quote['platform_fee_cents'],
+        'metadata[fee_model]'                           => $fee_quote['fee_model'],
+        // Metadata auch auf den entstehenden PaymentIntent kopieren — der
+        // Webhook (payment_intent.succeeded) liest sie dort, nicht auf der Session.
+        'payment_intent_data[metadata][card_id]'        => $card_id,
+        'payment_intent_data[metadata][project_id]'     => $project_id,
+        'payment_intent_data[metadata][listing_id]'     => (string) $listing_id,
+        'payment_intent_data[metadata][user_id]'        => (string) ( $user ? $user->ID : 0 ),
+        'payment_intent_data[metadata][title]'          => $title,
     );
+
+    // Gleiche Schutzregeln wie der PaymentIntent-Pfad: ohne echtes Inserat
+    // keine Zahlung; eigenes Inserat nicht buchbar; Dienstleister braucht
+    // ein aktives Connect-Konto. Ohne diesen Block würde Geld aus dem
+    // Hosted-Checkout unrouted auf dem Plattformkonto landen.
+    if ( ! $listing_id ) {
+        return new WP_REST_Response( array(
+            'message' => 'Für Buchungen ist ein echtes Inserat erforderlich, damit die Zahlung korrekt dem Dienstleister zugeordnet werden kann.',
+            'code'    => 'listing_required_for_payment',
+        ), 400 );
+    }
+    global $wpdb;
+    $listing_lookup_id = $listing_id;
+    $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
+    ) );
+    if ( ! $provider_uid && $listing_id > 10000 ) {
+        $listing_lookup_id = $listing_id - 10000;
+        $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
+        ) );
+    }
+    if ( ! $provider_uid ) {
+        return new WP_REST_Response( array(
+            'message' => 'Dieses Inserat konnte keinem Dienstleister zugeordnet werden. Die Zahlung wurde nicht gestartet.',
+            'code'    => 'provider_not_found_for_payment',
+        ), 400 );
+    }
+    if ( $user && (int) $user->ID === (int) $provider_uid ) {
+        return new WP_REST_Response( array(
+            'message' => 'Du kannst dein eigenes Inserat nicht buchen.',
+            'code'    => 'cannot_book_own_listing',
+        ), 403 );
+    }
+    $connect_state = eb_stripe_connect_state_for_user( $provider_uid, $sk );
+    if ( empty( $connect_state['active'] ) ) {
+        return new WP_REST_Response( array(
+            'message'                     => 'Dieser Dienstleister hat sein Stripe-Auszahlungskonto noch nicht vollständig eingerichtet. Die Buchung ist erst möglich, wenn Auszahlungen aktiv sind.',
+            'code'                        => 'provider_payout_onboarding_required',
+            'requires_connect_onboarding' => true,
+            'connect_status'              => $connect_state['status'] ?? 'none',
+            'disabled_reason'             => $connect_state['disabled_reason'] ?? '',
+        ), 409 );
+    }
+    $connect_id = $connect_state['connect_id'] ?? '';
+    if ( $connect_id ) {
+        // Destination Charge mit Application Fee — identisch zum
+        // PaymentIntent-Pfad, via payment_intent_data der Checkout-Session.
+        $fee_cents = (int) $fee_quote['platform_fee_cents'];
+        $fields['payment_intent_data[application_fee_amount]']           = $fee_cents;
+        $fields['payment_intent_data[transfer_data][destination]']       = $connect_id;
+        $fields['payment_intent_data[on_behalf_of]']                     = $connect_id;
+        $fields['payment_intent_data[metadata][connect_id]']             = $connect_id;
+        $fields['payment_intent_data[metadata][application_fee_cents]']  = (string) $fee_cents;
+        $fields['payment_intent_data[metadata][fee_model]']              = $fee_quote['fee_model'];
+        $fields['metadata[connect_id]']                                  = $connect_id;
+    }
 
     $ch = curl_init( 'https://api.stripe.com/v1/checkout/sessions' );
     curl_setopt_array( $ch, array(
