@@ -12053,6 +12053,7 @@ function selectSubRole(btn, subRole) {
 // ========== MODALS ==========
 function openModal(id) {
   var modal = document.getElementById(id);
+  if (!modal) return;
   // Reset-Zustand bei Forgot-Modal
   if (id === 'forgotModal') {
     var fg = modal.querySelector('.form-group');
@@ -12064,12 +12065,59 @@ function openModal(id) {
   }
   modal.classList.add('show');
   document.body.style.overflow = 'hidden';
+  // A11y: Modal als Dialog markieren + Focus-Trap aktivieren. Vorheriger
+  // Fokus wird beim Schließen wiederhergestellt.
+  if (!modal.hasAttribute('role')) modal.setAttribute('role', 'dialog');
+  if (!modal.hasAttribute('aria-modal')) modal.setAttribute('aria-modal', 'true');
+  modal._ebPrevFocus = document.activeElement;
+  _ebActivateFocusTrap(modal);
+  // Ersten Input/Button fokussieren (kein Klau bei Auth-Modals — sind eh OK).
+  setTimeout(function() {
+    var focusables = modal.querySelectorAll('input:not([type=hidden]):not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (focusables.length) try { focusables[0].focus({ preventScroll: true }); } catch(_) {}
+  }, 60);
+}
+
+function _ebActivateFocusTrap(modal) {
+  if (modal._ebTrapHandler) document.removeEventListener('keydown', modal._ebTrapHandler);
+  function handler(e) {
+    if (!modal.classList.contains('show')) return;
+    if (e.key === 'Escape') {
+      // Auth-Modals nicht per Escape schließen (Login-Flow soll bewusst sein).
+      var noEscape = ['loginModal','registerModal','verifyModal','loginOtpModal','registerOtpModal','passkeySetupModal'];
+      if (noEscape.indexOf(modal.id) === -1) closeModal(modal.id);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    var nodes = modal.querySelectorAll('a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    var list = Array.prototype.filter.call(nodes, function(n) { return n.offsetParent !== null; });
+    if (!list.length) return;
+    var first = list[0];
+    var last  = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  }
+  modal._ebTrapHandler = handler;
+  document.addEventListener('keydown', handler);
 }
 
 function closeModal(id) {
   var el = document.getElementById(id);
+  if (!el) return;
   el.classList.remove('show');
   document.body.style.overflow = '';
+  // Focus-Trap aufräumen, vorherigen Fokus wiederherstellen.
+  if (el._ebTrapHandler) {
+    document.removeEventListener('keydown', el._ebTrapHandler);
+    el._ebTrapHandler = null;
+  }
+  if (el._ebPrevFocus && typeof el._ebPrevFocus.focus === 'function') {
+    try { el._ebPrevFocus.focus({ preventScroll: true }); } catch(_) {}
+    el._ebPrevFocus = null;
+  }
   // Fehler-Anzeigen zurücksetzen
   _clearFieldErrors(el);
 }
@@ -12098,6 +12146,13 @@ document.addEventListener('click', (e) => {
 // ========== TOAST ==========
 function showToast(message, icon = 'check_circle') {
   const toast = document.getElementById('toast');
+  if (!toast) return;
+  // A11y: Toast vor Screen Readern anpreisen. role=status + aria-live=polite
+  // sorgt für die Vorlese-Ankündigung ohne Fokus-Klau. Wird beim ersten
+  // Aufruf einmal gesetzt — Markup-Anpassung wäre invasiv.
+  if (!toast.hasAttribute('role'))      toast.setAttribute('role', 'status');
+  if (!toast.hasAttribute('aria-live')) toast.setAttribute('aria-live', 'polite');
+  if (!toast.hasAttribute('aria-atomic')) toast.setAttribute('aria-atomic', 'true');
   document.getElementById('toastMessage').textContent = message;
   document.getElementById('toastIcon').textContent = icon;
   toast.classList.add('show');

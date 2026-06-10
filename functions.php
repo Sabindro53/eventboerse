@@ -7315,6 +7315,8 @@ function eb_stripe_record_payment( $pi ) {
 
     $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
     if ( ! is_array( $existing ) ) $existing = array();
+    // Erstmaliges Verbuchen erkennen (= echtes Zahlungs-Event)
+    $is_first_record = ! isset( $existing[ $pi['id'] ] );
     // Deduplizieren by PI-ID
     $existing[ $pi['id'] ] = $record;
     // Alte Eintraege >90 Tage bereinigen
@@ -7323,6 +7325,44 @@ function eb_stripe_record_payment( $pi ) {
         if ( is_array( $v ) && isset( $v['paid_at'] ) && $v['paid_at'] < $cutoff ) unset( $existing[ $k ] );
     }
     update_user_meta( $uid, 'eb_stripe_paid', $existing );
+
+    // Web Push beim ersten Verbuchen — Käufer UND Dienstleister bekommen
+    // sofort Bescheid. Im App-Modus ist das die einzige Live-Rückmeldung
+    // aus dem externen Browser-Checkout zurück in die App.
+    if ( $is_first_record && function_exists( 'eb_push_send_to_user' ) ) {
+        global $wpdb;
+        $title_clean = ! empty( $record['title'] ) ? $record['title'] : 'Buchung';
+        $amount_eur  = number_format( $record['amount'] / 100, 2, ',', '.' );
+
+        // Käufer
+        eb_push_send_to_user( $uid, array(
+            'title' => 'Buchung bestätigt',
+            'body'  => $title_clean . ' · ' . $amount_eur . ' € · jetzt im Planungs-Board.',
+            'url'   => home_url( '/board' ),
+            'tag'   => 'paid-' . $pi['id'],
+        ) );
+
+        // Dienstleister: über listing_id → user_id
+        if ( $record['listing_id'] > 0 ) {
+            $lookup = $record['listing_id'];
+            $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $lookup
+            ) );
+            if ( ! $provider_uid && $lookup > 10000 ) {
+                $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $lookup - 10000
+                ) );
+            }
+            if ( $provider_uid > 0 && $provider_uid !== (int) $uid ) {
+                eb_push_send_to_user( $provider_uid, array(
+                    'title' => 'Neue Buchung',
+                    'body'  => $title_clean . ' · ' . $amount_eur . ' €',
+                    'url'   => home_url( '/auftraege' ),
+                    'tag'   => 'incoming-' . $pi['id'],
+                ) );
+            }
+        }
+    }
 }
 
 function eb_stripe_webhook( WP_REST_Request $request ) {
@@ -7526,6 +7566,19 @@ function eb_stripe_webhook_handle_refund( $obj, $event_type ) {
         // — eb_admin_send_moderation_message braucht get_current_user_id().
         // Lösung: direkt System-Insert ohne Admin-Kontext.
         eb_stripe_insert_system_message_to_user( $user_id, $body );
+    }
+
+    // Web-Push parallel zum System-Chat — sofortige Sichtbarkeit, auch
+    // wenn die App geschlossen ist.
+    if ( function_exists( 'eb_push_send_to_user' ) ) {
+        $amount_eur = number_format( $refund_amount_cents / 100, 2, ',', '.' );
+        $listing_title = ! empty( $paid[ $pi_id ]['title'] ) ? $paid[ $pi_id ]['title'] : 'Buchung';
+        eb_push_send_to_user( $user_id, array(
+            'title' => 'Zahlung erstattet',
+            'body'  => $listing_title . ' · ' . $amount_eur . ' €',
+            'url'   => home_url( '/board' ),
+            'tag'   => 'refund-' . $pi_id,
+        ) );
     }
 }
 
