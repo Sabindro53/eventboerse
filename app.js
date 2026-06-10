@@ -13298,10 +13298,16 @@ function _ensureBoardSyncListeners() {
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
       _syncBoardFromServer();
+      // Auch verpasste Zahlungen/Refunds abholen — wichtig nach Rückkehr
+      // aus dem externen Browser-Checkout (App-Modus-Zahlungen).
+      try { _reconcileStripePayments && _reconcileStripePayments(); } catch(_) {}
     }
   });
   window.addEventListener('focus', function() {
-    if (currentUser) _syncBoardFromServer();
+    if (currentUser) {
+      _syncBoardFromServer();
+      try { _reconcileStripePayments && _reconcileStripePayments(); } catch(_) {}
+    }
   });
   window.addEventListener('online', function() {
     if (currentUser) {

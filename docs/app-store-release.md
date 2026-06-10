@@ -64,10 +64,17 @@ Native-Code nötig.
 
 - **Updates**: Web-Deploys (Push auf `main`) aktualisieren die App-Inhalte
   sofort — Store-Updates nur nötig, wenn sich Manifest/Wrapper ändern.
-- **Stripe**: Da Zahlungen für physische Dienstleistungen (Events) sind,
-  greift Apple In-App-Purchase **nicht** (Guideline 3.1.3(e) — physische
-  Güter/Services dürfen externe Payment nutzen). Stripe Checkout im
-  WebView ist konform.
+- **Stripe / Apple-Compliance (wichtig fürs Review)**: Die App wickelt
+  **keinerlei Zahlungen innerhalb der App-Oberfläche** ab. Im App-Modus
+  (installierte PWA / TWA / iOS-Wrapper) erkennt `_ebIsAppContext()` den
+  Kontext und leitet jeden Bezahlvorgang über „Im Browser bezahlen" in
+  den **externen Browser** (Stripe Hosted Checkout in Safari bzw. Custom
+  Tab). Der Abschluss kommt per Webhook + `/stripe/reconcile` zurück in
+  die App. Damit ist sowohl Guideline 3.1.1 (kein externes Payment in
+  der App-UI) als auch 3.1.3(e) (physische Dienstleistungen) abgedeckt.
+  Im Review-Formular explizit erwähnen: *"Payments are processed
+  entirely outside the app in the user's default browser (Stripe Hosted
+  Checkout). The app itself never initiates an in-app payment flow."*
 - **Push-Notifications** (optional, nächster Ausbau): Web Push via VAPID
   funktioniert in TWA (Android) nativ; iOS ab 16.4 für installierte PWAs.
   Server-Seite braucht: VAPID-Keys, Subscription-Endpoint, Trigger bei
