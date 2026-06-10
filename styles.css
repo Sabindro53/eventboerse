@@ -10025,8 +10025,11 @@ body.dark-mode .bpc-delete-btn:hover {
 .board-empty-state h3 { font-size: 20px; color: var(--dark); margin-bottom: 8px; }
 
 /* ─── Sectioned Board (Eigene Projekte + Auftragsboard) ─── */
+/* Hinweis: KEIN !important auf display, sonst kann openBoardProject() die
+   Liste nicht per inline style="display:none" verstecken und das Eventboard
+   erscheint unter der Projektübersicht statt als eigene Vollbild-Unterseite. */
 .board-projects--sectioned {
-  display: block !important;
+  display: block;
   padding: 0;
 }
 .board-section {
@@ -14714,3 +14717,8 @@ body.dark-mode {
    (Zurück/Sync) rückt nach oben, das Board bekommt die volle Fläche. */
 .board-single-view .board-page-header { margin-bottom: 10px; align-items: center; }
 .board-single-view .board-page-header-actions { margin-left: 0; }
+
+/* Projekt-Übersicht wird in der Single-View hart ausgeblendet, damit das
+   Eventboard nicht darunter erscheint. Überschreibt auch das frühere
+   `display:block !important` aus .board-projects--sectioned. */
+.board-single-view #boardProjects { display: none !important; }
