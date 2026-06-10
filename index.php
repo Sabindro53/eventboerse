@@ -120,7 +120,8 @@ $asset_ver = '2.5.1'; // cache-bust;
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
 
     <!-- ── Primary SEO ── -->
     <title><?php echo $meta_title_esc; ?></title>
@@ -1343,6 +1344,7 @@ $asset_ver = '2.5.1'; // cache-bust;
             <p id="detailProviderTag">Superhost · Seit 2021 auf Eventbörse</p>
           </div>
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
+          <button class="btn-outline btn-sm" onclick="shareListing()" title="Inserat teilen" aria-label="Inserat teilen"><span class="material-icons-round">share</span> Teilen</button>
           <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
         </div>
         <div class="detail-gallery" id="detailGallery">
@@ -1893,6 +1895,24 @@ $asset_ver = '2.5.1'; // cache-bust;
         <h1 class="settings-title"><span class="material-icons-round">settings</span> Einstellungen</h1>
         <p class="settings-subtitle">Verwalte dein Konto, Sicherheit und Einstellungen.</p>
 
+        <!-- Push-Benachrichtigungen -->
+        <div class="settings-card" id="settingsPushCard">
+          <div class="settings-card-header">
+            <span class="material-icons-round">notifications_active</span>
+            <h2>Push-Benachrichtigungen</h2>
+          </div>
+          <p class="settings-field-hint">Bekomme sofort Bescheid bei neuen Nachrichten und Buchungs-Updates — auch wenn die App geschlossen ist.</p>
+          <div class="settings-row" style="margin-top:8px">
+            <button class="btn-primary" id="settingsPushEnableBtn" onclick="ebPromptPushPermission().then(_settingsRefreshPushUi)">
+              <span class="material-icons-round">notifications</span> Push aktivieren
+            </button>
+            <button class="btn-outline" id="settingsPushDisableBtn" style="display:none" onclick="ebUnsubscribePush().then(_settingsRefreshPushUi)">
+              <span class="material-icons-round">notifications_off</span> Push deaktivieren
+            </button>
+            <span id="settingsPushStatus" class="settings-pill"></span>
+          </div>
+        </div>
+
         <!-- Personal Info -->
         <div class="settings-card">
           <div class="settings-card-header">
@@ -2394,17 +2414,38 @@ $asset_ver = '2.5.1'; // cache-bust;
         <h1 class="admin-title"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</h1>
         <p class="admin-subtitle">Benutzer verwalten, Inhalte moderieren.</p>
 
-        <div class="admin-search-bar">
-          <span class="material-icons-round">search</span>
-          <input type="text" id="adminUserSearch" placeholder="Benutzer suchen (Name, E-Mail)…" oninput="adminSearchUsers(this.value)">
+        <div class="admin-tabs" role="tablist">
+          <button class="admin-tab is-active" id="adminTabUsers" role="tab" aria-selected="true" onclick="adminSwitchTab('users')">
+            <span class="material-icons-round">people</span> Benutzer
+          </button>
+          <button class="admin-tab" id="adminTabListings" role="tab" aria-selected="false" onclick="adminSwitchTab('listings')">
+            <span class="material-icons-round">storefront</span> Inserate &amp; Bilder
+          </button>
         </div>
 
-        <div class="admin-stats" id="adminStats"></div>
+        <div class="admin-pane" id="adminPaneUsers">
+          <div class="admin-search-bar">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="adminUserSearch" placeholder="Benutzer suchen (Name, E-Mail)…" oninput="adminSearchUsers(this.value)">
+          </div>
 
-        <div class="admin-hide-demo-box" id="adminHideDemoBox"></div>
+          <div class="admin-stats" id="adminStats"></div>
 
-        <div class="admin-user-list" id="adminUserList">
-          <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>
+          <div class="admin-hide-demo-box" id="adminHideDemoBox"></div>
+
+          <div class="admin-user-list" id="adminUserList">
+            <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>
+          </div>
+        </div>
+
+        <div class="admin-pane" id="adminPaneListings" hidden>
+          <div class="admin-search-bar">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="adminListingSearch" placeholder="Inserat suchen (Titel, Ort, Besitzer)…" oninput="adminSearchListings(this.value)">
+          </div>
+          <div class="admin-listings" id="adminListings">
+            <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Inserate…</div>
+          </div>
         </div>
       </div>
     </section>
@@ -3930,5 +3971,33 @@ Datum: ___________________________________________________
   </div>
 
 <?php wp_footer(); ?>
+<script>
+// PWA: Service Worker registrieren. Auto-Reload sobald neuer SW aktiv wird.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    var swUrl = (window.eventboerseApi && window.eventboerseApi.themeUrl)
+      ? window.eventboerseApi.themeUrl.replace(/\/$/, '') + '/sw.js'
+      : '/wp-content/themes/eventboerse/sw.js';
+    navigator.serviceWorker.register(swUrl, { scope: '/' }).then(function(reg) {
+      if (!reg) return;
+      reg.addEventListener('updatefound', function() {
+        var nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', function() {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch(_) {}
+          }
+        });
+      });
+    }).catch(function(){ /* SW optional */ });
+    var _refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (_refreshing) return;
+      _refreshing = true;
+      window.location.reload();
+    });
+  });
+}
+</script>
 </body>
 </html>

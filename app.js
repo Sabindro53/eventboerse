@@ -885,6 +885,52 @@ let favorites = new Set();
     currentPage = 'browse';
   }
 })();
+
+// SPA Tab-Titel: zentral pro Seite gesetzt, damit Browser-Tabs, Verlauf
+// und geteilte Links sinnvoll benannt sind. Bei Detail/Provider wird der
+// Listing-/Provider-Titel zur Laufzeit nachgereicht (siehe loadDetail/
+// loadProvider).
+var _SPA_TITLES = {
+  browse: 'Dienstleister entdecken · Eventbörse',
+  detail: 'Inserat · Eventbörse',
+  provider: 'Profil · Eventbörse',
+  messages: 'Nachrichten · Eventbörse',
+  chat: 'Chat · Eventbörse',
+  profile: 'Mein Profil · Eventbörse',
+  settings: 'Einstellungen · Eventbörse',
+  admin: 'Admin · Eventbörse',
+  board: 'Mein Planungs-Board · Eventbörse',
+  auftraege: 'Auftragsboard · Eventbörse',
+  favorites: 'Favoriten · Eventbörse',
+  'create-listing': 'Neues Inserat · Eventbörse',
+  'edit-profile': 'Profil bearbeiten · Eventbörse',
+  'event-erstellen': 'Event erstellen · Eventbörse',
+  'service-erstellen': 'Service erstellen · Eventbörse',
+  aktuelles: 'Aktuelles · Eventbörse',
+  contact: 'Kontakt · Eventbörse',
+  impressum: 'Impressum · Eventbörse',
+  agb: 'AGB · Eventbörse',
+  datenschutz: 'Datenschutz · Eventbörse',
+  cookies: 'Cookie-Einstellungen · Eventbörse',
+  widerruf: 'Widerruf · Eventbörse',
+  marktplatz: 'Marktplatzbedingungen · Eventbörse'
+};
+function _updateDocumentTitleForPage(page, data) {
+  try {
+    var defaultTitle = 'Eventbörse – Dein Event-Marktplatz';
+    var title = _SPA_TITLES[page] || defaultTitle;
+    // Detail-/Provider-Titel werden in loadDetail/loadProvider mit dem
+    // konkreten Inserat-/Provider-Namen überschrieben — hier nur ein
+    // sinnvoller Default für den Übergang.
+    if (page === 'detail' && data) {
+      var listing = (typeof LISTINGS !== 'undefined' && LISTINGS)
+        ? LISTINGS.find(function(l) { return l && (+l.id === +data || (l._dbId && +l._dbId === +data)); })
+        : null;
+      if (listing && listing.title) title = listing.title + ' · Eventbörse';
+    }
+    document.title = title;
+  } catch(_) {}
+}
 let _dbListingsLoaded = false;
 let _favoritesLoaded = false;
 
@@ -1008,14 +1054,21 @@ async function loadDbListings() {
   if (_dbListingsLoaded) return;
   try {
     var resp = await fetch(_apiUrl('listings?per_page=50&_t=' + Date.now()), { credentials: 'same-origin', headers: _apiHeaders() });
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      // Sichtbares Debug-Signal in der Konsole (statt schweigend); UI
+      // zeigt weiterhin Demo-Daten — User sieht so nie eine leere Seite.
+      console.warn('[Eventbörse] /listings antwortete HTTP ' + resp.status + ' — weiter mit lokalen Demo-Daten.');
+      return;
+    }
     var data = await resp.json();
     if (data.listings && data.listings.length > 0) {
       _mergeDbListingsIntoCache(data.listings);
     }
     _dbListingsLoaded = true;
     try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
-  } catch(e) { /* API not available yet */ }
+  } catch(e) {
+    console.warn('[Eventbörse] /listings nicht erreichbar:', e && e.message ? e.message : e);
+  }
 }
 
 // Load user's favorites from backend
@@ -1043,14 +1096,28 @@ const BLOCKED_PATTERNS = [
 ];
 
 // ========== VISIBLE LISTINGS ==========
+// Sichtbarkeitsregel: ECHTE DB-Inserate haben IMMER Vorrang. Demo-Inserate
+// erscheinen nur, solange die DB-Liste leer ist (frischer Stand, noch
+// keine Anbieter) — und auch dann nur, wenn nicht per Admin-Toggle
+// EB_HIDE_DEMO=true explizit ausgeblendet. Damit sehen Gäste nach Release
+// keine Pexels-Demo-Dienstleister mehr, sobald echte Inserate existieren.
 function _visibleListings() {
-  if (!isLoggedIn) return filterDemos(LISTINGS);
-  var dbItems = LISTINGS.filter(function(l) { return l._fromDb; });
-  return dbItems.length > 0 ? dbItems : filterDemos(LISTINGS);
+  var dbItems = (LISTINGS || []).filter(function(l) { return l && l._fromDb; });
+  if (dbItems.length > 0) return dbItems;
+  // Kein einziges DB-Listing → erst dann Demos (sofern erlaubt).
+  if (typeof window !== 'undefined' && window.EB_HIDE_DEMO) return [];
+  return filterDemos(LISTINGS);
 }
 
 function getHeroListings() {
+  var dbAll = (LISTINGS || []).filter(function(l){ return l && l._fromDb; });
+  // Wenn echte Inserate da sind → nur die. Nie mit Demos mischen.
+  if (dbAll.length > 0) {
+    var seen = new Set();
+    return dbAll.filter(function(l){ if (seen.has(l.id)) return false; seen.add(l.id); return true; });
+  }
   var all = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
+  if (typeof window !== 'undefined' && window.EB_HIDE_DEMO) return [];
   if (!isLoggedIn) return all;
 
   try {
@@ -1108,6 +1175,10 @@ function navigateTo(page, data, skipHistory) {
   // Deactivate all pages
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   _stopChatPoll();
+
+  // Dynamischen Tab-Titel setzen — wichtig für Browser-Tabs, History-
+  // Stack, geteilte Links und für Crawler, die JavaScript ausführen.
+  _updateDocumentTitleForPage(page, data);
 
   // ── Always restore scrolling (modal/lightbox might have locked it) ──
   document.body.style.overflow = '';
@@ -1180,6 +1251,11 @@ function navigateTo(page, data, skipHistory) {
       loadDbListings().then(function() { loadProvider(data); });
       break;
     case 'messages':
+      if (!currentUser) {
+        showToast('Bitte melde dich an, um deine Nachrichten zu sehen.', 'info');
+        navigateTo('home');
+        return;
+      }
       renderChatList();
       break;
     case 'profile':
@@ -1233,6 +1309,7 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'settings':
       loadSettings();
+      try { _settingsRefreshPushUi(); } catch(_) {}
       break;
     case 'agb':
     case 'agb-b2b':
@@ -1599,11 +1676,18 @@ function renderFeed(tab) {
     const isFav = favorites.has(l.id);
     const desc = l.description || l.title;
     const tags = l.features ? l.features.slice(0, 3) : [];
+    // WICHTIG: NIEMALS auf l.id zurückfallen — l.id ist die LISTING-ID (z.B.
+    // 10001 bei DB-Inseraten, offset um +10000), nicht die User-ID des
+    // Anbieters. Fällt providerId weg, sind Avatar/Name nicht klickbar,
+    // statt einen falschen Account zu öffnen.
+    const pid = _toPositiveInt(l.providerId);
+    const providerClick = pid ? 'onclick="navigateTo(\'provider\',' + pid + ')"' : '';
+    const providerCursor = pid ? '' : 'style="cursor:default"';
     return `<div class="feed-card">
       <div class="feed-card-header">
-        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
+        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" ${providerClick} ${providerCursor} loading="lazy" decoding="async" />
         <div class="feed-card-meta">
-          <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${_escHtml(l.providerName)}</span>
+          <span class="feed-card-provider" ${providerClick} ${providerCursor}>${_escHtml(l.providerName)}</span>
           <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(l.createdAt)}</span>
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
@@ -3059,9 +3143,81 @@ function setView(view) {
 
 // ========== DETAIL PAGE ==========
 function loadDetail(listingId) {
-  const listing = LISTINGS.find(l => l.id === listingId);
-  if (!listing) return;
+  // Robust: akzeptiert sowohl Offset-IDs (10001) als auch rohe DB-IDs (1),
+  // damit Deep-Links und Such-Treffer aus verschiedenen Quellen verlässlich
+  // landen. Vorher führte ein nackter DB-ID-Aufruf zu einem stillen Abbruch.
+  const idNum = _toPositiveInt(listingId);
+  let listing = LISTINGS.find(l => l && (l.id === idNum || l.id === listingId));
+  if (!listing && idNum) {
+    listing = LISTINGS.find(l => l && (_toPositiveInt(l._dbId) === idNum || _toPositiveInt(l.id) === idNum + 10000));
+  }
+  if (!listing) {
+    if (typeof showToast === 'function') showToast('Inserat nicht gefunden.', 'error');
+    return;
+  }
   currentListing = listing;
+  // Tab-Titel + OG/Twitter-Description aktualisieren — wichtig für
+  // geteilte Links (Slack/WhatsApp Preview holt Tags zur Laufzeit).
+  try {
+    if (listing.title) document.title = listing.title + ' · Eventbörse';
+    var _setMeta = function(sel, attr, val) {
+      var el = document.querySelector(sel);
+      if (el) el.setAttribute(attr, val);
+    };
+    var desc = (listing.description || listing.title || '').replace(/<[^>]*>/g, '').slice(0, 160);
+    if (desc) {
+      _setMeta('meta[name="description"]', 'content', desc);
+      _setMeta('meta[property="og:description"]', 'content', desc);
+      _setMeta('meta[name="twitter:description"]', 'content', desc);
+    }
+    if (listing.title) {
+      _setMeta('meta[property="og:title"]', 'content', listing.title + ' · Eventbörse');
+      _setMeta('meta[name="twitter:title"]', 'content', listing.title + ' · Eventbörse');
+    }
+    if (listing.image) {
+      _setMeta('meta[property="og:image"]', 'content', listing.image);
+      _setMeta('meta[name="twitter:image"]', 'content', listing.image);
+    }
+    // JSON-LD: Service-Strukturdaten für Crawler. Vorhandenes Script
+    // ersetzen (oder anlegen), damit jeder Detail-Aufruf frische Daten
+    // ablegt. So bekommt Google rich snippets pro Inserat.
+    var ld = {
+      '@context': 'https://schema.org',
+      '@type': 'Service',
+      name: listing.title,
+      description: desc,
+      serviceType: listing.categoryLabel || listing.category || 'Dienstleistung',
+      areaServed: listing.region || listing.location || 'Deutschland',
+      image: listing.images && listing.images.length ? listing.images : (listing.image ? [listing.image] : undefined),
+      provider: {
+        '@type': 'LocalBusiness',
+        name: listing.providerName || 'Eventbörse-Anbieter',
+        image: listing.providerImg,
+        address: { '@type': 'PostalAddress', addressLocality: listing.location || listing.region || '', addressCountry: 'DE' }
+      },
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'EUR',
+        price: typeof listing.price === 'number' ? listing.price : undefined,
+        availability: 'https://schema.org/InStock',
+        url: window.location.href
+      },
+      aggregateRating: (listing.rating && listing.reviews) ? {
+        '@type': 'AggregateRating',
+        ratingValue: Number(listing.rating),
+        reviewCount: Number(listing.reviews)
+      } : undefined,
+      url: window.location.href
+    };
+    var ldEl = document.getElementById('ldDetail');
+    if (!ldEl) {
+      ldEl = document.createElement('script');
+      ldEl.type = 'application/ld+json';
+      ldEl.id = 'ldDetail';
+      document.head.appendChild(ldEl);
+    }
+    ldEl.textContent = JSON.stringify(ld, function(_k, v) { return v === undefined ? undefined : v; });
+  } catch(_) {}
 
   // Gallery
   const gallery = document.getElementById('detailGallery');
@@ -3069,14 +3225,21 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (listing.images.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" />`;
+    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" />`;
   }
 
-  // Swipeable gallery carousel
+  // Swipeable gallery carousel — Moderations-Flag nur auf echten DB-
+  // Inseraten zeigen (Demo-IDs 1–15 kollidieren mit fremden rohen DB-IDs).
   var imgs = listing.images;
+  var _isAdminMod = !!(currentUser && currentUser.isAdmin && listing._fromDb && listing.providerId !== currentUser.id);
+  var _modListingId = listing._dbId || (listing._fromDb ? listing.id - 10000 : 0);
   gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
     imgs.map(function(img, i) {
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" /></div>';
+      var safe = _escHtml(img);
+      var modBtn = _isAdminMod
+        ? '<button class="detail-gallery-modbtn" title="Bild als nicht passend entfernen" onclick="event.stopPropagation();adminDeleteListingImage(' + (+_modListingId) + ',\'' + safe.replace(/'/g, "\\'") + '\')"><span class="material-icons-round">flag</span></button>'
+        : '';
+      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '" decoding="async" /></div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -4318,6 +4481,67 @@ function shareProvider() {
   }
 }
 
+/** Teilt das aktuell geöffnete Inserat (Detail-Seite) via Web Share API
+ *  (nativer Share-Sheet auf iOS/Android) mit Clipboard-Fallback. */
+function shareListing() {
+  var title = (currentListing && currentListing.title) || document.title;
+  var text = currentListing && currentListing.priceLabel
+    ? title + ' · ' + currentListing.priceLabel + ' · Eventbörse'
+    : title;
+  if (navigator.share) {
+    navigator.share({ title: title, text: text, url: window.location.href }).catch(function(){});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(window.location.href);
+    showToast('Link kopiert!', 'content_copy');
+  }
+}
+
+// ========== PWA INSTALL PROMPT ==========
+// Chrome/Edge feuern beforeinstallprompt — wir fangen es ab und zeigen einen
+// eigenen, dezenten Install-Hinweis, statt das Browser-Banner zu nutzen.
+var _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  _showInstallHint();
+});
+window.addEventListener('appinstalled', function() {
+  _deferredInstallPrompt = null;
+  var hint = document.getElementById('ebInstallHint');
+  if (hint) hint.remove();
+  showToast('Eventbörse wurde installiert – viel Spaß!', 'celebration');
+});
+function _showInstallHint() {
+  if (document.getElementById('ebInstallHint')) return;
+  // Nicht nerven: höchstens einmal pro Woche anzeigen.
+  try {
+    var last = +localStorage.getItem('eb_install_hint_at') || 0;
+    if (Date.now() - last < 7 * 24 * 3600 * 1000) return;
+  } catch(_) {}
+  var bar = document.createElement('div');
+  bar.id = 'ebInstallHint';
+  bar.className = 'eb-install-hint';
+  bar.innerHTML =
+    '<span class="material-icons-round">install_mobile</span>' +
+    '<div class="eb-install-hint-text"><strong>Eventbörse als App</strong><span>Schneller Zugriff direkt vom Homescreen</span></div>' +
+    '<button class="eb-install-hint-btn" onclick="promptInstallApp()">Installieren</button>' +
+    '<button class="eb-install-hint-close" aria-label="Schließen" onclick="dismissInstallHint()"><span class="material-icons-round">close</span></button>';
+  document.body.appendChild(bar);
+}
+function promptInstallApp() {
+  if (!_deferredInstallPrompt) return dismissInstallHint();
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then(function() {
+    _deferredInstallPrompt = null;
+    dismissInstallHint();
+  });
+}
+function dismissInstallHint() {
+  try { localStorage.setItem('eb_install_hint_at', String(Date.now())); } catch(_) {}
+  var hint = document.getElementById('ebInstallHint');
+  if (hint) hint.remove();
+}
+
 // ========== CHAT / MESSAGES ==========
 function updateMsgBadge(count) {
   var badge = document.getElementById('msgBadge');
@@ -4417,6 +4641,14 @@ function _startChatPoll() {
   _stopChatPoll();
   _chatPollTimer = setInterval(function() {
     if (!currentChat || !currentChat.id) { _stopChatPoll(); return; }
+    // Batteriesparmodus: nicht pollen, wenn der Chat gerade nicht im
+    // Vordergrund ist (anderer Tab) oder der Nutzer auf einer anderen
+    // App-Seite ist. Beim Zurückkehren übernimmt das visibilitychange-
+    // Handling den ersten Refresh.
+    if (document.visibilityState === 'hidden') return;
+    // Der Chat lebt auf der 'messages'-Seite (es gibt keine eigene
+    // 'chat'-Page) — nur dort weiter pollen.
+    if (typeof currentPage !== 'undefined' && currentPage && currentPage !== 'messages') return;
     // Also refresh online status of chat partner
     if (currentChat.otherId) _updateChatStatus(currentChat.otherId);
     fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
@@ -4457,12 +4689,19 @@ function _startChatPoll() {
         // Update display
         currentChat.messages = messages;
         var msgContainer = document.getElementById('chatMessages');
+        // Race-Schutz: User kann während des Fetch auf eine andere Seite
+        // navigiert haben — der Chat-Container existiert dann nicht mehr.
+        // Vorher TypeError, der den Poll-Loop tötete und Folge-Updates fraß.
+        if (!msgContainer) return;
         var wasAtBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight < 80;
         window._cbcCancelled = _collectCancelledProjectNames(messages);
         msgContainer.innerHTML = (messages || []).map(function(msg) {
           if (msg.msg_type === 'deleted' || msg.deleted) {
             var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
             return '<div class="msg ' + delCls + ' msg-deleted"><span class="material-icons-round">block</span> Nachricht wurde gelöscht</div>';
+          }
+          if (msg.type === 'moderation' || msg.msg_type === 'moderation') {
+            return '<div class="msg msg-moderation"><div class="msg-moderation-head"><span class="material-icons-round">verified_user</span> Hinweis vom Eventbörse-Team</div><div class="msg-moderation-body">' + _escHtml(msg.text || msg.content || '').replace(/\n/g, '<br>') + '</div></div>';
           }
           if (msg.type === 'system') {
             return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
@@ -4831,7 +5070,7 @@ function renderChatList() {
     // Show demo chats for non-logged-in users
     list.innerHTML = DEMO_CHATS.map(function(c) {
       return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
-        '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" />' +
+        '<img src="' + _escHtml(c.avatar) + '" alt="' + _escHtml(c.name) + '" loading="lazy" decoding="async" />' +
         '<div class="chat-item-info">' +
           '<strong>' + _escHtml(c.name) + '</strong>' +
           '<p>' + _escHtml(c.lastMsg) + '</p>' +
@@ -4844,8 +5083,17 @@ function renderChatList() {
     }).join('');
     return;
   }
+  // Skeleton während des Ladens — kein Blank-Flash mehr beim ersten Öffnen.
+  if (list && !list.innerHTML) {
+    list.innerHTML = '<div class="chat-list-skeleton">' +
+      '<div class="chat-item skeleton"><div class="sk-avatar"></div><div class="sk-lines"><div class="sk-line sk-line-lg"></div><div class="sk-line sk-line-sm"></div></div></div>'.repeat(4) +
+    '</div>';
+  }
   fetch(_apiUrl('conversations'), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(convos) {
       window._conversations = convos || [];
       var showArchived = !!window._chatShowArchived;
@@ -4877,7 +5125,7 @@ function renderChatList() {
         if (c.blocked_by_me) flagIcons += '<span class="chat-item-flag" title="Blockiert"><span class="material-icons-round">block</span></span>';
         return '<div class="chat-item ' + activeClass + (c.pinned ? ' pinned' : '') + (c.muted ? ' muted' : '') + '" oncontextmenu="return openChatItemMenu(event,' + c.id + ')" onclick="openChat(' + c.id + ')">' +
           '<div class="chat-item-avatar-wrap">' +
-            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" />' +
+            '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(name) + '" loading="lazy" decoding="async" />' +
             '<span class="chat-item-dot ' + (c.online ? 'online' : 'offline') + '"></span>' +
           '</div>' +
           '<div class="chat-item-info">' +
@@ -4962,6 +5210,9 @@ function openChat(chatId) {
         if (msg.msg_type === 'deleted' || msg.deleted) {
           var delCls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           return '<div class="msg ' + delCls + ' msg-deleted"><span class="material-icons-round">block</span> Nachricht wurde gelöscht</div>';
+        }
+        if (msg.type === 'moderation' || msg.msg_type === 'moderation') {
+          return '<div class="msg msg-moderation"><div class="msg-moderation-head"><span class="material-icons-round">verified_user</span> Hinweis vom Eventbörse-Team</div><div class="msg-moderation-body">' + _escHtml(msg.text || msg.content || '').replace(/\n/g, '<br>') + '</div></div>';
         }
         if (msg.type === 'system') {
           return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
@@ -5101,18 +5352,22 @@ function sendMessage() {
   })
     .then(function(r) { return r.json(); })
     .then(function(msg) {
-      // Append the sent message
+      // Append the sent message — insertAdjacentHTML statt innerHTML+=
+      // (innerHTML+= re-parst den GESAMTEN Verlauf und zerstört laufende
+      // Animationen/Selektionen; insertAdjacentHTML hängt nur an).
       var time = msg.time || '';
       var msgContainer = document.getElementById('chatMessages');
       var content = msg.text || msg.content || text;
+      var html;
       if (_isStatusMessage(content)) {
-        msgContainer.innerHTML += '<div class="msg msg-system">' + _escHtml(content) + '</div>';
+        html = '<div class="msg msg-system">' + _escHtml(content) + '</div>';
       } else {
         var delBtn = msg && msg.id
           ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + msg.id + ')"><span class="material-icons-round">delete</span></button>'
           : '';
-        msgContainer.innerHTML += '<div class="msg msg-sent">' + delBtn + _escHtml(content) + '<span class="msg-time">' + time + '</span></div>';
+        html = '<div class="msg msg-sent">' + delBtn + _escHtml(content) + '<span class="msg-time">' + time + '</span></div>';
       }
+      msgContainer.insertAdjacentHTML('beforeend', html);
       setTimeout(function() { msgContainer.scrollTop = msgContainer.scrollHeight; }, 50);
     })
     .catch(function() {
@@ -5213,6 +5468,9 @@ function openDemoChat(chatId) {
   var msgContainer = document.getElementById('chatMessages');
   window._cbcCancelled = _collectCancelledProjectNames(chat.messages);
   msgContainer.innerHTML = chat.messages.map(function(msg) {
+    if (msg.type === 'moderation' || msg.msg_type === 'moderation') {
+      return '<div class="msg msg-moderation"><div class="msg-moderation-head"><span class="material-icons-round">verified_user</span> Hinweis vom Eventbörse-Team</div><div class="msg-moderation-body">' + _escHtml(msg.text || msg.content || '').replace(/\n/g, '<br>') + '</div></div>';
+    }
     if (msg.type === 'system') {
       return '<div class="msg msg-system">' + _escHtml(msg.text) + '</div>';
     } else if (msg.type === 'offer') {
@@ -8882,7 +9140,30 @@ function renderAdminHideDemoToggle() {
     '<button class="admin-toggle-btn ' + (on ? 'is-on' : '') + '" onclick="adminToggleHideDemo()">' +
       '<span class="material-icons-round">' + (on ? 'visibility_off' : 'visibility') + '</span>' +
       (on ? 'Testdaten einblenden' : 'Testdaten ausblenden') +
+    '</button>' +
+    '<button class="admin-toggle-btn admin-test-push-btn" onclick="adminSendTestPush()" title="Sendet einen Test-Push an den eigenen Account">' +
+      '<span class="material-icons-round">notifications_active</span> Test-Push an mich' +
     '</button>';
+}
+
+/** Admin-Hilfsknopf: Test-Push an die eigenen Push-Subscriptions. */
+function adminSendTestPush() {
+  if (!currentUser || !currentUser.isAdmin) return;
+  fetch(_apiUrl('push/test'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      title: 'Eventbörse Test-Push',
+      body: 'Push-Setup funktioniert ✓',
+      url: window.location.origin + '/settings'
+    })
+  }).then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function(d){
+      var n = (d && d.sent) || 0;
+      if (n > 0) showToast('Test-Push gesendet (' + n + ' Gerät' + (n === 1 ? '' : 'e') + ').', 'check_circle');
+      else showToast('Keine Push-Subscription gefunden — erst in Einstellungen aktivieren.', 'info');
+    }).catch(function(){ showToast('Test-Push fehlgeschlagen.', 'error'); });
 }
 
 /** Toggle hide-demo-Flag — ruft Backend, aktualisiert window-Flag, re-rendert alle Listen. */
@@ -9038,6 +9319,243 @@ function renderAdminUserList(users) {
     '</div>';
   });
   list.innerHTML = html;
+}
+
+// ========== ADMIN TABS (Benutzer / Inserate) ==========
+var _adminListings = [];
+var _adminListingsLoaded = false;
+var _adminCurrentTab = 'users';
+var _adminListingSearchDebounce = null;
+
+function adminSwitchTab(tab) {
+  _adminCurrentTab = tab;
+  var tabUsers = document.getElementById('adminTabUsers');
+  var tabList = document.getElementById('adminTabListings');
+  var paneUsers = document.getElementById('adminPaneUsers');
+  var paneList = document.getElementById('adminPaneListings');
+  if (!tabUsers || !tabList || !paneUsers || !paneList) return;
+  var isUsers = (tab === 'users');
+  tabUsers.classList.toggle('is-active', isUsers);
+  tabList.classList.toggle('is-active', !isUsers);
+  tabUsers.setAttribute('aria-selected', isUsers ? 'true' : 'false');
+  tabList.setAttribute('aria-selected', !isUsers ? 'true' : 'false');
+  paneUsers.hidden = !isUsers;
+  paneList.hidden = isUsers;
+  if (!isUsers && !_adminListingsLoaded) {
+    loadAdminListings();
+  }
+}
+
+function adminSearchListings(term) {
+  if (_adminListingSearchDebounce) clearTimeout(_adminListingSearchDebounce);
+  _adminListingSearchDebounce = setTimeout(function() {
+    loadAdminListings(term);
+  }, 220);
+}
+
+function loadAdminListings(searchTerm) {
+  var url = 'admin/listings';
+  if (searchTerm) url += '?search=' + encodeURIComponent(searchTerm);
+  var host = document.getElementById('adminListings');
+  if (host) host.innerHTML = '<div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Inserate…</div>';
+
+  fetch(_apiUrl(url), { credentials: 'same-origin', headers: _apiHeaders() })
+    .then(function(r) {
+      _refreshNonce(r);
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    })
+    .then(function(rows) {
+      if (!Array.isArray(rows)) throw new Error('bad payload');
+      _adminListings = rows;
+      _adminListingsLoaded = true;
+      renderAdminListings(_adminListings);
+    })
+    .catch(function() {
+      if (host) host.innerHTML = '<p class="admin-error">Fehler beim Laden der Inserate.</p>';
+    });
+}
+
+function renderAdminListings(rows) {
+  var host = document.getElementById('adminListings');
+  if (!host) return;
+  if (!rows || !rows.length) {
+    host.innerHTML = '<p class="admin-empty">Keine Inserate gefunden.</p>';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(l) {
+    var imgs = Array.isArray(l.images) ? l.images : [];
+    var providerName = _escHtml(l.ownerName || l.providerName || '–');
+    var providerEmail = _escHtml(l.ownerEmail || '');
+    var title = _escHtml(l.title || ('Inserat #' + l.id));
+    var cat = _escHtml(l.categoryLabel || l.category || '');
+    var loc = _escHtml(l.region || l.location || '');
+    var imageGrid = imgs.length
+      ? imgs.map(function(src, i) {
+          var safeSrc = _escHtml(src);
+          return '<figure class="admin-listing-img">' +
+            '<img loading="lazy" src="' + safeSrc + '" alt="Bild ' + (i+1) + '" onerror="this.style.opacity=0.3">' +
+            '<button class="admin-listing-img-del" title="Bild entfernen" onclick="adminDeleteListingImage(' + (+l.id) + ',\'' + safeSrc.replace(/'/g, "\\'") + '\')">' +
+              '<span class="material-icons-round">delete</span>' +
+            '</button>' +
+          '</figure>';
+        }).join('')
+      : '<p class="admin-empty">Keine Bilder vorhanden.</p>';
+
+    // l.id ist hier die ROHE DB-ID (Admin-Endpoint liefert DB-Rows direkt).
+    // Fürs Öffnen im Detail-View brauchen wir die Offset-ID (+10000), fürs
+    // Löschen die rohe ID via adminDeleteListingByDbId.
+    html += '<article class="admin-listing-card" data-listing-id="' + (+l.id) + '">' +
+      '<header class="admin-listing-head">' +
+        '<div class="admin-listing-meta">' +
+          '<h3 onclick="navigateTo(\'detail\',' + (10000 + (+l.id)) + ')" title="Inserat öffnen">' + title + '</h3>' +
+          '<p class="admin-listing-sub">' + cat + (loc ? ' · ' + loc : '') + ' · Besitzer: ' + providerName + (providerEmail ? ' (' + providerEmail + ')' : '') + '</p>' +
+        '</div>' +
+        '<button class="btn-outline btn-sm btn-danger-outline" onclick="adminDeleteListingByDbId(' + (+l.id) + ')" title="Komplettes Inserat löschen">' +
+          '<span class="material-icons-round">delete_forever</span> Inserat löschen' +
+        '</button>' +
+      '</header>' +
+      '<div class="admin-listing-images">' + imageGrid + '</div>' +
+    '</article>';
+  });
+  host.innerHTML = html;
+}
+
+/** Löscht ein Inserat direkt per roher DB-ID (Admin-Tab "Inserate & Bilder").
+ *  Anders als adminDeleteListing wird NICHT in LISTINGS nachgeschlagen —
+ *  der Admin-Endpoint liefert rohe DB-IDs, die dort nicht (oder falsch,
+ *  Demo-Kollision 1–15) auffindbar wären. */
+function adminDeleteListingByDbId(dbId) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  dbId = _toPositiveInt(dbId);
+  if (!dbId) return;
+  if (!confirm('Als Admin: Dieses Inserat wirklich komplett löschen?')) return;
+  fetch(_apiUrl('listings/' + dbId), {
+    method: 'DELETE', credentials: 'same-origin', headers: _apiHeaders()
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) throw new Error(r.status);
+    showToast('Inserat gelöscht.', 'delete');
+    // Aus Admin-Liste und lokalem LISTINGS-Cache (Offset-ID) entfernen
+    _adminListings = _adminListings.filter(function(x) { return +x.id !== dbId; });
+    renderAdminListings(_adminListings);
+    var lIdx = LISTINGS.findIndex(function(x) { return x && x._fromDb && +x._dbId === dbId; });
+    if (lIdx !== -1) LISTINGS.splice(lIdx, 1);
+  }).catch(function() {
+    showToast('Löschen fehlgeschlagen.', 'error');
+  });
+}
+
+function adminDeleteListingImage(listingId, imageUrl) {
+  if (!currentUser || !currentUser.isAdmin) return;
+  _openImageModerationModal(listingId, imageUrl);
+}
+
+// Liefert ein kleines Overlay-Modal mit Preset-Gründen + freiem Textfeld.
+function _openImageModerationModal(listingId, imageUrl) {
+  // Falls bereits offen, neu starten
+  var existing = document.getElementById('imgModModal');
+  if (existing) existing.remove();
+
+  var presets = [
+    'Bild ist nicht passend zum Angebot',
+    'Verstoß gegen Inhaltsrichtlinien',
+    'Schlechte Bildqualität',
+    'Verdacht auf Urheberrechtsverletzung',
+    'Enthält persönliche Daten / Kontaktdaten'
+  ];
+  var presetHtml = presets.map(function(p) {
+    return '<button type="button" class="imgmod-chip" data-reason="' + _escHtml(p) + '">' + _escHtml(p) + '</button>';
+  }).join('');
+
+  var safeImg = _escHtml(imageUrl || '');
+  var overlay = document.createElement('div');
+  overlay.id = 'imgModModal';
+  overlay.className = 'imgmod-overlay';
+  overlay.innerHTML =
+    '<div class="imgmod-modal" role="dialog" aria-modal="true" aria-labelledby="imgModTitle">' +
+      '<header class="imgmod-head">' +
+        '<h3 id="imgModTitle"><span class="material-icons-round">flag</span> Bild als „nicht passend" entfernen</h3>' +
+        '<button type="button" class="imgmod-close" aria-label="Schließen">&times;</button>' +
+      '</header>' +
+      '<div class="imgmod-body">' +
+        '<div class="imgmod-preview"><img src="' + safeImg + '" alt="Bildvorschau"></div>' +
+        '<p class="imgmod-help">Der Nutzer erhält eine Nachricht mit deiner Begründung. Wähle einen Grund oder ergänze ihn unten.</p>' +
+        '<div class="imgmod-chips">' + presetHtml + '</div>' +
+        '<label class="imgmod-label" for="imgModReason">Begründung (an den Nutzer)</label>' +
+        '<textarea id="imgModReason" rows="3" placeholder="Optional: zusätzlicher Hinweis…"></textarea>' +
+      '</div>' +
+      '<footer class="imgmod-foot">' +
+        '<button type="button" class="btn-outline imgmod-cancel">Abbrechen</button>' +
+        '<button type="button" class="btn-primary imgmod-confirm"><span class="material-icons-round">delete</span> Entfernen &amp; benachrichtigen</button>' +
+      '</footer>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  _ebTrapFocus(overlay, { onEscape: function(){ close(); } });
+
+  var textarea = overlay.querySelector('#imgModReason');
+  overlay.querySelectorAll('.imgmod-chip').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var r = btn.getAttribute('data-reason') || '';
+      textarea.value = textarea.value
+        ? (textarea.value.replace(/\s+$/,'') + ' · ' + r)
+        : r;
+      textarea.focus();
+    });
+  });
+
+  function close() { _ebReleaseFocusTrap(overlay); overlay.remove(); document.removeEventListener('keydown', onKey); }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+  overlay.querySelector('.imgmod-close').addEventListener('click', close);
+  overlay.querySelector('.imgmod-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+
+  overlay.querySelector('.imgmod-confirm').addEventListener('click', function() {
+    var reason = (textarea.value || '').trim();
+    _submitImageModeration(listingId, imageUrl, reason, close);
+  });
+
+  setTimeout(function() { textarea.focus(); }, 50);
+}
+
+function _submitImageModeration(listingId, imageUrl, reason, onDone) {
+  fetch(_apiUrl('admin/listings/' + listingId + '/delete-image'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ image: imageUrl, reason: reason })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }).then(function(d) {
+    showToast('Bild entfernt – Nutzer wurde benachrichtigt.', 'delete');
+    if (typeof onDone === 'function') onDone();
+
+    var idx = _adminListings.findIndex(function(x) { return +x.id === +listingId; });
+    if (idx !== -1 && d && d.listing) {
+      _adminListings[idx] = Object.assign({}, _adminListings[idx], d.listing);
+      renderAdminListings(_adminListings);
+    } else if (_adminListingsLoaded) {
+      loadAdminListings();
+    }
+    try {
+      // listingId ist immer die ROHE DB-ID — nur über _dbId matchen.
+      // Ein +x.id-Match würde bei kleinen IDs (1–15) fälschlich die
+      // hardcodierten Demo-Listings treffen und deren Bilder überschreiben.
+      var lIdx = LISTINGS.findIndex(function(x) { return x && x._fromDb && +x._dbId === +listingId; });
+      if (lIdx !== -1 && d && d.listing && Array.isArray(d.listing.images)) {
+        LISTINGS[lIdx].images = d.listing.images;
+        if (typeof currentListing === 'object' && currentListing && (+currentListing.id === +LISTINGS[lIdx].id)) {
+          loadDetail(LISTINGS[lIdx].id);
+        }
+      }
+    } catch(e) {}
+  }).catch(function() {
+    showToast('Entfernen fehlgeschlagen.', 'error');
+  });
 }
 
 var _allAdminTags = [];
@@ -11577,6 +12095,7 @@ function selectSubRole(btn, subRole) {
 // ========== MODALS ==========
 function openModal(id) {
   var modal = document.getElementById(id);
+  if (!modal) return;
   // Reset-Zustand bei Forgot-Modal
   if (id === 'forgotModal') {
     var fg = modal.querySelector('.form-group');
@@ -11588,12 +12107,98 @@ function openModal(id) {
   }
   modal.classList.add('show');
   document.body.style.overflow = 'hidden';
+  // A11y: Modal als Dialog markieren + Focus-Trap aktivieren. Vorheriger
+  // Fokus wird beim Schließen wiederhergestellt.
+  if (!modal.hasAttribute('role')) modal.setAttribute('role', 'dialog');
+  if (!modal.hasAttribute('aria-modal')) modal.setAttribute('aria-modal', 'true');
+  modal._ebPrevFocus = document.activeElement;
+  _ebActivateFocusTrap(modal);
+  // Ersten Input/Button fokussieren (kein Klau bei Auth-Modals — sind eh OK).
+  setTimeout(function() {
+    var focusables = modal.querySelectorAll('input:not([type=hidden]):not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (focusables.length) try { focusables[0].focus({ preventScroll: true }); } catch(_) {}
+  }, 60);
+}
+
+/**
+ * Generischer Focus-Trap für beliebige Overlay-Elemente (z. B. Stripe-
+ * Payment-Modal, Image-Moderations-Modal), die NICHT über openModal()
+ * laufen. Pendant: _ebReleaseFocusTrap(overlay).
+ */
+function _ebTrapFocus(overlay, opts) {
+  if (!overlay || overlay._ebTrapHandler) return;
+  overlay._ebPrevFocus = document.activeElement;
+  function handler(e) {
+    if (!overlay.isConnected) return;
+    if (e.key === 'Escape' && opts && opts.onEscape) { opts.onEscape(); return; }
+    if (e.key !== 'Tab') return;
+    var nodes = overlay.querySelectorAll('a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    var list = Array.prototype.filter.call(nodes, function(n) { return n.offsetParent !== null; });
+    if (!list.length) return;
+    var first = list[0], last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+  overlay._ebTrapHandler = handler;
+  document.addEventListener('keydown', handler);
+  // Ersten fokussierbaren anspringen.
+  setTimeout(function() {
+    var n = overlay.querySelector('button:not([disabled]), input:not([type=hidden]):not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (n) try { n.focus({ preventScroll: true }); } catch(_) {}
+  }, 40);
+}
+function _ebReleaseFocusTrap(overlay) {
+  if (!overlay) return;
+  if (overlay._ebTrapHandler) {
+    document.removeEventListener('keydown', overlay._ebTrapHandler);
+    overlay._ebTrapHandler = null;
+  }
+  if (overlay._ebPrevFocus && typeof overlay._ebPrevFocus.focus === 'function') {
+    try { overlay._ebPrevFocus.focus({ preventScroll: true }); } catch(_) {}
+    overlay._ebPrevFocus = null;
+  }
+}
+
+function _ebActivateFocusTrap(modal) {
+  if (modal._ebTrapHandler) document.removeEventListener('keydown', modal._ebTrapHandler);
+  function handler(e) {
+    if (!modal.classList.contains('show')) return;
+    if (e.key === 'Escape') {
+      // Auth-Modals nicht per Escape schließen (Login-Flow soll bewusst sein).
+      var noEscape = ['loginModal','registerModal','verifyModal','loginOtpModal','registerOtpModal','passkeySetupModal'];
+      if (noEscape.indexOf(modal.id) === -1) closeModal(modal.id);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    var nodes = modal.querySelectorAll('a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    var list = Array.prototype.filter.call(nodes, function(n) { return n.offsetParent !== null; });
+    if (!list.length) return;
+    var first = list[0];
+    var last  = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  }
+  modal._ebTrapHandler = handler;
+  document.addEventListener('keydown', handler);
 }
 
 function closeModal(id) {
   var el = document.getElementById(id);
+  if (!el) return;
   el.classList.remove('show');
   document.body.style.overflow = '';
+  // Focus-Trap aufräumen, vorherigen Fokus wiederherstellen.
+  if (el._ebTrapHandler) {
+    document.removeEventListener('keydown', el._ebTrapHandler);
+    el._ebTrapHandler = null;
+  }
+  if (el._ebPrevFocus && typeof el._ebPrevFocus.focus === 'function') {
+    try { el._ebPrevFocus.focus({ preventScroll: true }); } catch(_) {}
+    el._ebPrevFocus = null;
+  }
   // Fehler-Anzeigen zurücksetzen
   _clearFieldErrors(el);
 }
@@ -11622,6 +12227,13 @@ document.addEventListener('click', (e) => {
 // ========== TOAST ==========
 function showToast(message, icon = 'check_circle') {
   const toast = document.getElementById('toast');
+  if (!toast) return;
+  // A11y: Toast vor Screen Readern anpreisen. role=status + aria-live=polite
+  // sorgt für die Vorlese-Ankündigung ohne Fokus-Klau. Wird beim ersten
+  // Aufruf einmal gesetzt — Markup-Anpassung wäre invasiv.
+  if (!toast.hasAttribute('role'))      toast.setAttribute('role', 'status');
+  if (!toast.hasAttribute('aria-live')) toast.setAttribute('aria-live', 'polite');
+  if (!toast.hasAttribute('aria-atomic')) toast.setAttribute('aria-atomic', 'true');
   document.getElementById('toastMessage').textContent = message;
   document.getElementById('toastIcon').textContent = icon;
   toast.classList.add('show');
@@ -12061,7 +12673,7 @@ function _initDetailGallerySwipe() {
       _detailGalleryIdx = idx;
       _updateDetailGalleryUI();
     }
-  });
+  }, { passive: true });
 
   // Mouse drag
   track.addEventListener('mousedown', function(e) {
@@ -12822,10 +13434,16 @@ function _ensureBoardSyncListeners() {
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && currentUser) {
       _syncBoardFromServer();
+      // Auch verpasste Zahlungen/Refunds abholen — wichtig nach Rückkehr
+      // aus dem externen Browser-Checkout (App-Modus-Zahlungen).
+      try { _reconcileStripePayments && _reconcileStripePayments(); } catch(_) {}
     }
   });
   window.addEventListener('focus', function() {
-    if (currentUser) _syncBoardFromServer();
+    if (currentUser) {
+      _syncBoardFromServer();
+      try { _reconcileStripePayments && _reconcileStripePayments(); } catch(_) {}
+    }
   });
   window.addEventListener('online', function() {
     if (currentUser) {
@@ -13395,7 +14013,7 @@ function _renderOwnProjectCardHtml(p) {
 
     // Special badge for instant-booking projects
     var instantBadge = p.kind === 'instant'
-      ? '<span class="bpc-instant-badge"><span class="material-icons-round">bolt</span>Direktbuchungen</span>'
+      ? '<span class="bpc-instant-badge"><span class="material-icons-round">bolt</span>Einzelbuchungen</span>'
       : '';
 
     return `
@@ -13828,6 +14446,14 @@ function showBoardProjects() {
   boardViewEl && (boardViewEl.style.display = 'none');
   projectsEl && (projectsEl.style.display = '');
   btnAllBoards && (btnAllBoards.style.display = 'none');
+  // Single-View-Header wieder zurücksetzen, damit das Listenraster sauber
+  // mit Titel und „+ Neues Vorhaben"-Button erscheint.
+  var bp = document.getElementById('page-board');
+  if (bp) bp.classList.remove('board-single-view');
+  var headerLeft = document.querySelector('#page-board .board-page-header-left');
+  if (headerLeft) headerLeft.style.display = '';
+  var newBtn = document.querySelector('.board-page-header-actions .board-new-btn');
+  if (newBtn) newBtn.style.display = '';
   // URL zurück auf Übersicht /board (sonst bleibt /board/<id> in der Adressleiste)
   try {
     var _wantedPath = (typeof _spaPath === 'function') ? _spaPath('board') : '/board';
@@ -13840,6 +14466,7 @@ function showBoardProjects() {
 
 // Legacy-Alias: öffnet das Projekt in-app (kein neuer Tab mehr).
 // Wird für Rückwärtskompatibilität mit alten Inline-Handlern beibehalten.
+// Die URL-Synchronisierung (/board/<id>) übernimmt openBoardProject selbst.
 var _pendingBoardProjectId = null;
 function openBoardProjectInNewTab(projectId, ev) {
   if (ev) {
@@ -13906,6 +14533,13 @@ function openBoardProject(projectId) {
 
   switchBoardView('flow');
   _updateBoardStats(project);
+
+  // Scroll an den Seitenanfang, damit Mobil-Nutzer den frisch geöffneten
+  // Event-Header sofort sehen — sonst landet man je nach vorheriger
+  // Scroll-Position mitten im Kanban.
+  try {
+    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  } catch(e) { window.scrollTo(0, 0); }
 }
 
 // Resolve a listing cover image for a board card. Prefers stored listingImage,
@@ -14058,11 +14692,13 @@ function allowDrop(event) {
   event.currentTarget.classList.add('drag-over');
 }
 // Protected stages: nur über Aktions-/Payment-Flow erreichbar, nicht per Drag&Drop.
+var _ALLOWED_STAGES   = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
 var _PROTECTED_STAGES = ['angebot','bestaetigt','abgeschlossen'];
+function _isAllowedStage(s) { return _ALLOWED_STAGES.indexOf(s) !== -1; }
 function _protectedStageMessage(stage) {
-  if (stage === 'angebot') return 'Diese Spalte wird nur über „Jetzt buchen“ befüllt – so bleibt die Buchung verbindlich.';
-  if (stage === 'bestaetigt') return 'Status „Bezahlt“ wird automatisch gesetzt, sobald der Dienstleister den Auftrag annimmt.';
-  if (stage === 'abgeschlossen') return 'Status „Erfüllt“ wird vom System gesetzt, wenn beide Seiten die Erbringung bestätigen.';
+  if (stage === 'angebot') return 'Diese Spalte wird nur über „Jetzt buchen" befüllt – so bleibt die Buchung verbindlich.';
+  if (stage === 'bestaetigt') return 'Status „Bezahlt" wird automatisch gesetzt, sobald der Dienstleister den Auftrag annimmt.';
+  if (stage === 'abgeschlossen') return 'Status „Erfüllt" wird vom System gesetzt, wenn beide Seiten die Erbringung bestätigen.';
   return 'Dieser Status wird vom System gesetzt.';
 }
 function dropCard(event, toStage) {
@@ -14073,6 +14709,23 @@ function dropCard(event, toStage) {
   if (!project) return;
   var card = (project.cards || []).find(function(c) { return c.id === _dragCardId; });
   if (card) {
+    // Whitelist: nur erlaubte Stage-Werte annehmen — DevTools-Manipulation
+    // (Custom data-stage) kann sonst beliebige Strings einschleusen.
+    if (!_isAllowedStage(toStage)) {
+      showToast('Ungültiger Status – Aktion abgebrochen.', 'error');
+      _dragCardId = null;
+      return;
+    }
+    // Bezahlte Karten dürfen nicht rückwärts in frühere Stufen geschoben werden.
+    if (card.paidAt || card.paymentIntentId) {
+      var fromIdx = _ALLOWED_STAGES.indexOf(card.stage);
+      var toIdx   = _ALLOWED_STAGES.indexOf(toStage);
+      if (fromIdx > -1 && toIdx > -1 && toIdx < fromIdx) {
+        showToast('Bezahlte Karten lassen sich nicht zurück verschieben.', 'warning');
+        _dragCardId = null;
+        return;
+      }
+    }
     var isProtected = _PROTECTED_STAGES.indexOf(toStage) !== -1;
     // Erlaubt: innerhalb derselben Spalte bleiben (reine Sortierung).
     if (isProtected && card.stage !== toStage) {
@@ -14088,6 +14741,11 @@ function dropCard(event, toStage) {
   document.querySelectorAll('.kanban-card.dragging').forEach(function(el) { el.classList.remove('dragging'); });
 }
 function _initCardDrag(colEl) {
+  // Wichtig: Listener nur EINMAL pro Column-Element anhängen, sonst sammeln
+  // sich bei jedem renderKanban() weitere Handler an (Memory-Leak + doppelte
+  // Klassen-Manipulationen). Markierung über data-Attribut.
+  if (!colEl || colEl.dataset.dragBound === '1') return;
+  colEl.dataset.dragBound = '1';
   colEl.addEventListener('dragleave', function() { colEl.classList.remove('drag-over'); });
 }
 
@@ -15142,7 +15800,7 @@ function _clearPendingPayment() {
 }
 
 /**
- * Legt nach erfolgreicher Sofortbuchung die "Direktbuchungen"-Karte im
+ * Legt nach erfolgreicher Sofortbuchung die "Einzelbuchungen"-Karte im
  * Board des Zahlers an. Genutzt von inline-onSuccess UND Redirect-Rückkehr.
  * info: { listingId, title, category, image, providerImg, provider, providerId, amount, dateIso, dateHuman }
  * Gibt { project, card, duplicate? } zurück.
@@ -15153,7 +15811,7 @@ function _applyInstantBookingSuccess(info, res) {
   var piId = (res && (res.payment_intent_id || res.payment_intent)) || '';
   // Idempotenz: dieselbe PaymentIntent darf kein zweites Board / keine zweite
   // Karte erzeugen (z. B. doppelte Redirect-Rückkehr). Über ALLE Projekte
-  // suchen, da jede Direktbuchung ihr eigenes Board hat.
+  // suchen, da jede Einzelbuchung ihr eigenes Board hat.
   if (piId) {
     for (var _pi = 0; _pi < (_boardProjects || []).length; _pi++) {
       var _ep = _boardProjects[_pi];
@@ -15161,13 +15819,13 @@ function _applyInstantBookingSuccess(info, res) {
       if (_dupCard) return { project: _ep, card: _dupCard, duplicate: true };
     }
   }
-  // Jede Direktbuchung bekommt ihr EIGENES, umbenennbares Board. Der
-  // Default-Name wird hochgezählt (Direktbuchung 1, 2, 3 …); per Stift-Symbol
+  // Jede Einzelbuchung bekommt ihr EIGENES, umbenennbares Board. Der
+  // Default-Name wird hochgezählt (Einzelbuchung 1, 2, 3 …); per Stift-Symbol
   // im Board umbenennbar.
   var _instantCount = (_boardProjects || []).filter(function(p) { return p && p.kind === 'instant'; }).length;
   var proj = {
     id: 'proj_' + Date.now(),
-    name: 'Direktbuchung ' + (_instantCount + 1),
+    name: 'Einzelbuchung ' + (_instantCount + 1),
     kind: 'instant',
     date: (info.dateIso || '').slice(0, 10),
     cards: [],
@@ -15177,7 +15835,7 @@ function _applyInstantBookingSuccess(info, res) {
   var nowIso = new Date().toISOString();
   var card = {
     id: 'bc_' + Date.now(),
-    name: info.title || 'Direktbuchung',
+    name: info.title || 'Einzelbuchung',
     category: info.category || '',
     stage: 'bestaetigt',
     price: info.amount,
@@ -15266,7 +15924,7 @@ function _showBookingSuccess(info) {
         (amountStr ? '<p style="font-weight:700;font-size:20px;margin:0 0 14px">' + _escHtml(amountStr) + '</p>' : '<div style="height:8px"></div>') +
         '<div style="text-align:left;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 18px;font-size:14px;line-height:1.7">' +
           '<strong>Wie es jetzt weitergeht:</strong>' +
-          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Direktbuchungen".</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Einzelbuchungen".</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung in seinem <strong>Auftragsboard</strong>.</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">event_available</span><span>Am Event-Tag bestätigt ihr beide die Leistung – erst dann gilt der Auftrag als erfüllt.</span></div>' +
         '</div>' +
@@ -15410,18 +16068,229 @@ function _handleStripeReturn() {
  * aufgerufen. Markiert betroffene Karten rueckwirkend als "Bezahlt" und quittiert
  * die PIs server-seitig (damit sie nicht nochmal liefern).
  */
+/**
+ * Übersetzt Stripe-Fehlerobjekte (aus confirmPayment(), createPaymentMethod()
+ * etc.) in eine klare, deutsche Meldung mit Handlungsaufforderung.
+ * Stripe gibt's standardmäßig auf Englisch und sehr technisch zurück.
+ */
+function _humanizeStripeError(err) {
+  if (!err) return 'Zahlung fehlgeschlagen. Bitte versuche es erneut.';
+  var code = err.code || (err.decline_code) || '';
+  var type = err.type || '';
+  var msg  = err.message || '';
+  var map = {
+    card_declined: 'Karte abgelehnt. Bitte prüfe Daten und Deckung oder nutze eine andere Karte.',
+    expired_card: 'Die Karte ist abgelaufen. Bitte trage eine andere Karte ein.',
+    incorrect_cvc: 'Der Sicherheitscode (CVC) ist nicht korrekt.',
+    incorrect_number: 'Die Kartennummer ist nicht korrekt.',
+    insufficient_funds: 'Nicht genug Deckung auf der Karte. Bitte wähle eine andere Zahlungsmethode.',
+    invalid_cvc: 'Der Sicherheitscode (CVC) hat ein ungültiges Format.',
+    invalid_expiry_month: 'Der Ablaufmonat der Karte ist ungültig.',
+    invalid_expiry_year: 'Das Ablaufjahr der Karte ist ungültig.',
+    invalid_number: 'Die Kartennummer ist ungültig.',
+    processing_error: 'Stripe konnte die Zahlung gerade nicht verarbeiten. Bitte versuche es in ein paar Minuten erneut.',
+    authentication_required: 'Deine Bank verlangt eine zusätzliche Bestätigung (3-D Secure). Bitte folge dem nächsten Schritt deiner Bank.',
+    generic_decline: 'Die Bank hat die Karte ohne Begründung abgelehnt. Bitte versuche eine andere Karte oder Zahlungsmethode.',
+    do_not_honor: 'Die Bank lehnt die Karte ab. Bitte kontaktiere deine Bank oder nutze eine andere Karte.',
+    fraudulent: 'Die Karte wurde aus Sicherheitsgründen abgelehnt. Bitte nutze eine andere Karte.',
+    transaction_not_allowed: 'Diese Karte erlaubt keine Online-Zahlungen. Bitte nutze eine andere Karte.',
+    pin_try_exceeded: 'Zu viele PIN-Versuche. Bitte nutze eine andere Karte.',
+    payment_intent_authentication_failure: 'Die Bank-Bestätigung (3-D Secure) ist fehlgeschlagen. Bitte erneut versuchen.'
+  };
+  if (code && map[code]) return map[code];
+  if (type === 'validation_error') return msg || 'Bitte prüfe deine Zahlungsdaten.';
+  if (type === 'invalid_request_error') return 'Stripe konnte die Anfrage nicht verarbeiten (' + (code || 'Konfiguration') + '). Bitte melde dich beim Support.';
+  if (type === 'api_connection_error' || type === 'api_error') return 'Stripe ist gerade nicht erreichbar. Bitte versuche es in einer Minute erneut.';
+  if (type === 'authentication_error') return 'Stripe konnte die Anmeldung nicht prüfen. Bitte lade die Seite neu und versuche es erneut.';
+  if (type === 'rate_limit_error') return 'Zu viele Versuche kurz hintereinander. Bitte warte einen Moment.';
+  return msg || 'Zahlung fehlgeschlagen. Bitte versuche es erneut.';
+}
+
+/** Mapping für PaymentIntent-Status (z. B. requires_action, processing). */
+function _humanizeStripeIntentStatus(pi) {
+  var st = pi && pi.status;
+  switch (st) {
+    case 'requires_payment_method':
+      return 'Die Zahlungsmethode wurde abgelehnt. Bitte gib eine andere Karte oder Methode ein.';
+    case 'requires_confirmation':
+      return 'Bestätigung steht noch aus. Bitte klicke noch einmal auf „Bezahlen".';
+    case 'requires_action':
+      return 'Deine Bank verlangt eine zusätzliche Bestätigung (3-D Secure). Bitte folge den Anweisungen.';
+    case 'processing':
+      return 'Die Zahlung wird gerade verarbeitet. Bitte einen Moment Geduld — wir aktualisieren automatisch.';
+    case 'requires_capture':
+      return 'Die Zahlung wartet auf Freigabe durch den Anbieter.';
+    case 'canceled':
+      return 'Die Zahlung wurde abgebrochen. Du kannst erneut starten.';
+    default:
+      return 'Zahlung im Status „' + (st || 'unbekannt') + '". Bitte erneut versuchen oder Support kontaktieren.';
+  }
+}
+
+// ========== WEB PUSH (PWA) ==========
+// Registriert beim ersten Login eine Push-Subscription nach Permission-
+// Prompt. Bewusst NICHT direkt nach Pageload — Browser blockieren das
+// und nerven den Nutzer. Stattdessen rufen wir ebPromptPushPermission()
+// aus einem User-Trigger (z. B. Settings-Toggle oder erster Klick auf
+// "Benachrichtigungen aktivieren") oder leise nach erfolgter Buchung.
+var _ebPushSetup = false;
+function _ebBase64UrlToUint8Array(b64) {
+  var pad = '='.repeat((4 - b64.length % 4) % 4);
+  var raw = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  var bin = atob(raw);
+  var arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+async function ebPromptPushPermission() {
+  if (_ebPushSetup) return true;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (typeof showToast === 'function') showToast('Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.', 'info');
+    return false;
+  }
+  try {
+    var permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      if (typeof showToast === 'function') showToast('Push wurde nicht erlaubt.', 'info');
+      return false;
+    }
+    var reg = await navigator.serviceWorker.ready;
+    var existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      _ebPushSetup = true;
+      await _ebPostSubscription(existing);
+      return true;
+    }
+    var resp = await fetch(_apiUrl('push/vapid-public-key'), { credentials: 'same-origin' });
+    if (!resp.ok) throw new Error('vapid http ' + resp.status);
+    var data = await resp.json();
+    if (!data || !data.publicKey) throw new Error('keine publicKey');
+    var appKey = _ebBase64UrlToUint8Array(data.publicKey);
+    var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+    await _ebPostSubscription(sub);
+    _ebPushSetup = true;
+    if (typeof showToast === 'function') showToast('Push-Benachrichtigungen aktiv.', 'success');
+    return true;
+  } catch (e) {
+    console.warn('[push] Subscribe fehlgeschlagen:', e);
+    if (typeof showToast === 'function') showToast('Push-Aktivierung fehlgeschlagen.', 'error');
+    return false;
+  }
+}
+async function _ebPostSubscription(sub) {
+  var json = sub.toJSON ? sub.toJSON() : sub;
+  return fetch(_apiUrl('push/subscribe'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      endpoint: json.endpoint,
+      keys: json.keys,
+      ua: navigator.userAgent || ''
+    })
+  });
+}
+async function _settingsRefreshPushUi() {
+  var card    = document.getElementById('settingsPushCard');
+  var enable  = document.getElementById('settingsPushEnableBtn');
+  var disable = document.getElementById('settingsPushDisableBtn');
+  var status  = document.getElementById('settingsPushStatus');
+  if (!card) return;
+  // Browser ohne Push-Support → Hinweis
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+    if (enable)  enable.style.display = 'none';
+    if (disable) disable.style.display = 'none';
+    if (status)  { status.textContent = 'Browser unterstützt keine Push-Benachrichtigungen.'; status.className = 'settings-pill settings-pill-info'; }
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    if (enable)  enable.style.display = 'none';
+    if (disable) disable.style.display = 'none';
+    if (status)  { status.textContent = 'Im Browser blockiert — bitte über das Schloss-Symbol erlauben.'; status.className = 'settings-pill settings-pill-warn'; }
+    return;
+  }
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    var active = !!sub;
+    if (enable)  enable.style.display  = active ? 'none' : '';
+    if (disable) disable.style.display = active ? '' : 'none';
+    if (status)  { status.textContent = active ? 'Aktiv ✓' : 'Nicht aktiv'; status.className = 'settings-pill ' + (active ? 'settings-pill-ok' : ''); }
+  } catch (_) {}
+}
+async function ebUnsubscribePush() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await sub.unsubscribe();
+      await fetch(_apiUrl('push/unsubscribe'), {
+        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+        body: JSON.stringify({ endpoint: sub.endpoint })
+      });
+    }
+    _ebPushSetup = false;
+    if (typeof showToast === 'function') showToast('Push deaktiviert.', 'info');
+  } catch (e) { console.warn('[push] unsubscribe', e); }
+}
+
+// ========== GLOBALER OFFLINE-INDIKATOR ==========
+// Browser-Event 'offline'/'online' liefert keinen sichtbaren Hinweis. Wir
+// blenden eine schmale Top-Leiste ein, sobald navigator.onLine false ist,
+// und nehmen sie wieder weg, sobald die Verbindung zurück ist. So weiß
+// der Nutzer, warum z. B. Buchungen aktuell nicht durchgehen.
+(function _ebOfflineBannerInit() {
+  function ensureBanner() {
+    var bar = document.getElementById('ebOfflineBanner');
+    if (bar) return bar;
+    bar = document.createElement('div');
+    bar.id = 'ebOfflineBanner';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+    bar.innerHTML = '<span class="material-icons-round">cloud_off</span><span>Keine Verbindung – einige Aktionen funktionieren erst wieder, wenn du online bist.</span>';
+    if (document.body) document.body.appendChild(bar);
+    return bar;
+  }
+  function update() {
+    var on = typeof navigator !== 'undefined' ? navigator.onLine !== false : true;
+    var bar = ensureBanner();
+    if (!bar) return;
+    bar.classList.toggle('show', !on);
+    if (on) {
+      // Ein einmaliger Hinweis beim Wiedereinstieg — aber nur, wenn wir
+      // den Banner vorher tatsächlich gesehen haben.
+      if (bar.dataset.wasOffline === '1') {
+        bar.dataset.wasOffline = '0';
+        try { if (typeof showToast === 'function') showToast('Wieder online.', 'success'); } catch(_) {}
+      }
+    } else {
+      bar.dataset.wasOffline = '1';
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online',  update);
+    window.addEventListener('offline', update);
+    // Initial einmal prüfen — falls der User bereits offline reinkommt.
+    if (document.readyState !== 'loading') update();
+    else document.addEventListener('DOMContentLoaded', update);
+  }
+})();
+
 function _reconcileStripePayments() {
   if (!currentUser) return Promise.resolve();
   return fetch(_apiUrl('stripe/reconcile'), {
     method: 'GET',
     credentials: 'same-origin',
     headers: _apiHeaders()
-  }).then(function(r){ return r.ok ? r.json() : { items: [] }; })
+  }).then(function(r){ return r.ok ? r.json() : { items: [], refunds: [] }; })
     .then(function(resp){
-      var items = (resp && resp.items) || [];
-      if (!items.length) return;
+      var items   = (resp && resp.items)   || [];
+      var refunds = (resp && resp.refunds) || [];
+      if (!items.length && !refunds.length) return;
       try { _migrateBoardProjects && _migrateBoardProjects(); _loadBoardProjects && _loadBoardProjects(); } catch(e) {}
 
+      // --- Zahlungen ---
       var acked = [];
       var matched = 0;
       items.forEach(function(it){
@@ -15442,13 +16311,52 @@ function _reconcileStripePayments() {
         }
       });
 
-      if (matched) {
+      // --- Refunds: Karte zurücksetzen + Banner + System-Hinweis ---
+      var ackedRefunds = [];
+      var refunded = 0;
+      refunds.forEach(function(rf){
+        var proj = (_boardProjects || []).find(function(p){ return p.id === rf.project_id; });
+        var card = proj && (proj.cards || []).find(function(c){ return c.id === rf.card_id; });
+        if (card) {
+          // Refund nur einmal anwenden — wir merken's am Card-Feld refundedPi.
+          if (card.refundedPi !== rf.pi) {
+            card.refundedPi    = rf.pi;
+            card.refundStatus  = rf.status || 'succeeded';
+            card.refundAmount  = (rf.amount || 0) / 100;
+            card.refundedAt    = new Date((rf.refunded_at || 0) * 1000).toISOString();
+            card.paymentStatus = 'Erstattet';
+            // Stage zurück auf 'kontaktiert' (vor der Buchung) — bezahlte
+            // Karten dürfen sonst nicht zurück, hier ist es System-Aktion.
+            if (card.stage === 'bestaetigt' || card.stage === 'abgeschlossen') {
+              card.stage = 'kontaktiert';
+            }
+            refunded++;
+          }
+          // Nur abquittieren, wenn die Karte lokal vorhanden war. Sonst
+          // (z. B. anderes Gerät, leerer LocalStorage) bleibt der Refund
+          // serverseitig liegen und wird bei der nächsten Sync-Runde,
+          // sobald die Karte da ist, korrekt angewendet.
+          ackedRefunds.push(rf.refund_id || (rf.pi + '_refund'));
+        }
+      });
+
+      if (matched || refunded) {
         try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
         try { if (typeof renderBoardFlow === 'function') renderBoardFlow(); } catch(e) {}
+      }
+      if (matched) {
         showToast(matched + ' Zahlung' + (matched === 1 ? '' : 'en') + ' via Webhook nachtraeglich bestaetigt.', 'paid');
+      }
+      if (refunded) {
+        showToast(refunded + ' Buchung' + (refunded === 1 ? '' : 'en') + ' wurde erstattet.', 'info');
       }
       if (acked.length) {
         fetch(_apiUrl('stripe/reconcile') + '?ack=' + encodeURIComponent(acked.join(',')), {
+          method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
+        }).catch(function(){});
+      }
+      if (ackedRefunds.length) {
+        fetch(_apiUrl('stripe/reconcile') + '?ack_refunds=' + encodeURIComponent(ackedRefunds.join(',')), {
           method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
         }).catch(function(){});
       }
@@ -16029,8 +16937,229 @@ function disconnectStripeAccount() {
  *   4) /stripe/verify-payment → server-seitig bestaetigen (authoritativ)
  *   5) onSuccess(result) aufrufen
  */
+/**
+ * App-Modus-Erkennung (installierte PWA, Android-TWA, iOS-Wrapper).
+ *
+ * WICHTIG — App-Store-Compliance (Apple Guideline 3.1.1):
+ * Innerhalb der App-Hülle darf KEIN Zahlungsvorgang in der App-Oberfläche
+ * stattfinden. Zahlungen werden deshalb im App-Modus IMMER in den externen
+ * Browser ausgelagert (Stripe Hosted Checkout). Diese Funktion entscheidet,
+ * welcher Pfad greift. NICHT entfernen oder umgehen — sonst riskieren wir
+ * eine App-Store-Ablehnung oder den Rauswurf.
+ */
+function _ebIsAppContext() {
+  try {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+    if (navigator.standalone === true) return true; // iOS A2HS / Wrapper
+    if (document.referrer && document.referrer.indexOf('android-app://') === 0) return true; // TWA
+  } catch (_) {}
+  return false;
+}
+
+/**
+ * Externer Zahlungs-Flow für den App-Modus: erstellt eine Hosted-Checkout-
+ * Session und öffnet sie im EXTERNEN Browser (window.open mit _blank →
+ * Safari auf iOS, Custom Tab/Browser bei TWA). In der App erscheint nur
+ * eine Warte-Karte; der Abschluss kommt über Webhook + /stripe/reconcile
+ * zurück (Board-Karte wird automatisch als bezahlt markiert).
+ */
+function _openExternalCheckout(opts) {
+  opts = opts || {};
+
+  // Sofortbuchung: Board-Karte existiert noch nicht → VOR dem Checkout
+  // eine Pending-Karte anlegen (Stage 'angebot', stripePending). Der
+  // Webhook schreibt die Zahlung mit diesen IDs, /stripe/reconcile matcht
+  // sie und befördert die Karte automatisch auf 'bestaetigt'.
+  var _pendingInstant = null;
+  if (opts.instant && !opts.cardId) {
+    try {
+      _migrateBoardProjects && _migrateBoardProjects();
+      var _instantCount = (_boardProjects || []).filter(function(p) { return p && p.kind === 'instant'; }).length;
+      var nowIso = new Date().toISOString();
+      var proj = {
+        id: 'proj_' + Date.now(),
+        name: 'Einzelbuchung ' + (_instantCount + 1),
+        kind: 'instant',
+        date: (opts.dateLabel || '').slice(0, 10),
+        cards: [],
+        createdAt: nowIso
+      };
+      var card = {
+        id: 'bc_' + Date.now(),
+        name: opts.title || 'Einzelbuchung',
+        category: opts.category || '',
+        stage: 'angebot',
+        price: opts.amount,
+        listingId: opts.listingId || 0,
+        listingImage: opts.image || '',
+        listingTitle: opts.title || '',
+        avatar: opts.image || '',
+        note: 'Sofortbuchung – Zahlung im Browser gestartet',
+        bookedAt: nowIso,
+        stripePending: true,
+        createdAt: nowIso
+      };
+      proj.cards.push(card);
+      _boardProjects.push(proj);
+      try { _saveBoardProjects && _saveBoardProjects({ immediate: true }); } catch(_) {}
+      _pendingInstant = { projectId: proj.id, cardId: card.id };
+      opts.projectId = proj.id;
+      opts.cardId = card.id;
+    } catch(e) { console.warn('[checkout] pending card', e); }
+  }
+
+  var ov = document.createElement('div');
+  ov.className = 'stripe-modal-overlay';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.innerHTML =
+    '<div class="stripe-modal stripe-external-modal">' +
+      '<div class="stripe-modal-header">' +
+        '<div>' +
+          '<div class="stripe-modal-title"><span class="material-icons-round">open_in_browser</span> Bezahlung im Browser</div>' +
+          '<div class="stripe-modal-sub">Aus der App heraus wird die Zahlung sicher in deinem Browser abgeschlossen.</div>' +
+        '</div>' +
+        '<button class="stripe-modal-close" type="button" aria-label="Schließen">&times;</button>' +
+      '</div>' +
+      '<div class="stripe-modal-body">' +
+        '<div class="stripe-external-info">' +
+          '<span class="material-icons-round">lock</span>' +
+          '<p><strong>' + _escHtml(opts.title || 'Buchung') + '</strong> · ' + _escHtml(_formatEuro(opts.amount)) + '<br>' +
+          'Du wirst zu Stripe weitergeleitet. Nach der Zahlung kannst du den Browser schließen — diese App aktualisiert sich automatisch.</p>' +
+        '</div>' +
+        '<div id="stripeExternalStatus" class="stripe-external-status" style="display:none">' +
+          '<span class="material-icons-round spin">sync</span> Warte auf Zahlungsbestätigung…' +
+        '</div>' +
+        '<div id="stripeExternalError" class="stripe-error" role="alert" style="display:none"></div>' +
+      '</div>' +
+      '<div class="stripe-modal-footer">' +
+        '<button class="btn-primary" id="stripeExternalOpenBtn"><span class="material-icons-round">open_in_new</span> Im Browser bezahlen</button>' +
+        '<button class="btn-outline" id="stripeExternalCancelBtn">Abbrechen</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  _ebTrapFocus(ov, { onEscape: function(){ onCancel(); } });
+
+  var pollTimer = null;
+  function cleanup() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    _ebReleaseFocusTrap(ov);
+    ov.remove();
+  }
+  function onCancel() {
+    cleanup();
+    // Pending-Sofortbuchungs-Karte wieder entfernen, falls noch unbezahlt.
+    if (_pendingInstant) {
+      try {
+        var pIdx = (_boardProjects || []).findIndex(function(p){ return p && p.id === _pendingInstant.projectId; });
+        if (pIdx !== -1) {
+          var pc = (_boardProjects[pIdx].cards || []).find(function(c){ return c.id === _pendingInstant.cardId; });
+          if (pc && !pc.paidAt) {
+            _boardProjects.splice(pIdx, 1);
+            try { _saveBoardProjects && _saveBoardProjects({ immediate: true }); } catch(_) {}
+          }
+        }
+      } catch(_) {}
+    }
+    if (typeof opts.onCancel === 'function') opts.onCancel();
+  }
+  ov.querySelector('.stripe-modal-close').addEventListener('click', onCancel);
+  ov.querySelector('#stripeExternalCancelBtn').addEventListener('click', onCancel);
+  ov.addEventListener('click', function(e){ if (e.target === ov) onCancel(); });
+
+  var openBtn = ov.querySelector('#stripeExternalOpenBtn');
+  var statusEl = ov.querySelector('#stripeExternalStatus');
+  var errEl = ov.querySelector('#stripeExternalError');
+
+  openBtn.addEventListener('click', function() {
+    openBtn.disabled = true;
+    errEl.style.display = 'none';
+    fetch(_apiUrl('stripe/create-checkout'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        amount: opts.amount,
+        title: opts.title || 'Buchung',
+        card_id: opts.cardId || '',
+        project_id: opts.projectId || '',
+        listing_id: opts.listingId || 0
+      })
+    }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
+      .then(function(res){
+        if (!res.ok || !res.data || !res.data.url) {
+          openBtn.disabled = false;
+          errEl.textContent = (res.data && res.data.message) || 'Checkout konnte nicht gestartet werden.';
+          errEl.style.display = '';
+          return;
+        }
+        // Externen Browser öffnen. _blank + noopener → verlässt die
+        // App-Hülle (TWA: Custom Tab; iOS-Wrapper: Safari).
+        var w = null;
+        try { w = window.open(res.data.url, '_blank', 'noopener'); } catch(_) {}
+        if (!w) {
+          // Popup-Blocker: Link anzeigen, User tippt selbst.
+          errEl.innerHTML = 'Browser konnte nicht geöffnet werden. ' +
+            '<a href="' + _escHtml(res.data.url) + '" target="_blank" rel="noopener noreferrer">Hier tippen, um die Zahlung zu öffnen.</a>';
+          errEl.style.display = '';
+        }
+        openBtn.style.display = 'none';
+        statusEl.style.display = '';
+        // Aktiv auf Zahlungseingang pollen (Webhook → /stripe/reconcile),
+        // alle 5 s für max. 10 Minuten. Zusätzlich greift der bestehende
+        // visibility/focus-Reconcile beim App-Wechsel zurück.
+        var tries = 0;
+        pollTimer = setInterval(function() {
+          tries++;
+          if (tries > 120) { clearInterval(pollTimer); pollTimer = null; return; }
+          var before = JSON.stringify((_boardProjects || []).map(function(p){ return (p.cards||[]).map(function(c){ return c.id + ':' + (c.paymentStatus||''); }).join(','); }));
+          Promise.resolve(_reconcileStripePayments()).then(function() {
+            var after = JSON.stringify((_boardProjects || []).map(function(p){ return (p.cards||[]).map(function(c){ return c.id + ':' + (c.paymentStatus||''); }).join(','); }));
+            if (before !== after) {
+              cleanup();
+              // WICHTIG: opts.onSuccess NICHT aufrufen — die Inline-
+              // Closures (_applyCardPaymentSuccess/_applyInstantBooking-
+              // Success) würden die Buchung doppelt anlegen. Der Reconcile
+              // hat Karte + Stage bereits authoritativ aktualisiert.
+              try { _clearPendingPayment && _clearPendingPayment(); } catch(_) {}
+              try {
+                if (typeof _showBookingSuccess === 'function') {
+                  _showBookingSuccess({
+                    projectId: opts.projectId,
+                    amount: opts.amount,
+                    title: opts.title || 'Buchung'
+                  });
+                } else {
+                  showToast('Zahlung bestätigt – Buchung abgeschlossen!', 'check_circle');
+                }
+              } catch(_) {
+                showToast('Zahlung bestätigt – Buchung abgeschlossen!', 'check_circle');
+              }
+              try { if (typeof renderBoardFlow === 'function') renderBoardFlow(); } catch(_) {}
+            }
+          });
+        }, 5000);
+      })
+      .catch(function(){
+        openBtn.disabled = false;
+        errEl.textContent = 'Netzwerkfehler – bitte erneut versuchen.';
+        errEl.style.display = '';
+      });
+  });
+}
+
 function _openStripePaymentModal(opts) {
   opts = opts || {};
+
+  // App-Store-Compliance: Im App-Modus (installierte PWA / TWA / iOS-
+  // Wrapper) NIE das eingebettete Payment Element zeigen — Zahlung läuft
+  // komplett extern im Browser. Siehe _ebIsAppContext()-Kommentar.
+  if (_ebIsAppContext()) {
+    _openExternalCheckout(opts);
+    return;
+  }
+
   if (typeof Stripe === 'undefined') {
     showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.', 'error');
     return;
@@ -16099,8 +17228,10 @@ function _openStripePaymentModal(opts) {
     '</div>';
   document.body.appendChild(ov);
   document.body.style.overflow = 'hidden';
+  _ebTrapFocus(ov, { onEscape: function(){ try { onClose(false); } catch(_) { ov.remove(); document.body.style.overflow = ''; } } });
 
   function cleanup() {
+    _ebReleaseFocusTrap(ov);
     try { document.body.removeChild(ov); } catch(e) {}
     document.body.style.overflow = '';
   }
@@ -16121,6 +17252,13 @@ function _openStripePaymentModal(opts) {
   };
   var showErr = function(msg) {
     errEl.textContent = msg || 'Zahlung fehlgeschlagen.';
+    errEl.style.display = '';
+  };
+
+  // showErr setzt Klartext. Für reichhaltige Hinweise (z. B. mit Link
+  // zum Stripe-Onboarding für Dienstleister) gibt's showErrRich.
+  var showErrRich = function(html) {
+    errEl.innerHTML = html;
     errEl.style.display = '';
   };
 
@@ -16232,14 +17370,14 @@ function _openStripePaymentModal(opts) {
         if (r.error) {
           spinnerOn(false);
           payBtn.addEventListener('click', onClick);
-          showErr(r.error.message || 'Zahlung fehlgeschlagen.');
+          showErr(_humanizeStripeError(r.error));
           return;
         }
         var pi = r.paymentIntent;
         if (!pi || pi.status !== 'succeeded') {
           spinnerOn(false);
           payBtn.addEventListener('click', onClick);
-          showErr('Status: ' + (pi && pi.status || 'unbekannt') + ' – bitte erneut versuchen.');
+          showErr(_humanizeStripeIntentStatus(pi));
           return;
         }
         fetch(_apiUrl('stripe/verify-payment'), {
@@ -18352,7 +19490,7 @@ function _startInstantBooking(listing, dateIso, amount) {
   // Buchungsdaten, die onSuccess UND die Redirect-Rückkehr brauchen.
   var info = {
     listingId: listingId,
-    title: listing.title || 'Direktbuchung',
+    title: listing.title || 'Einzelbuchung',
     category: listing.categoryLabel || listing.category || '',
     image: listing.image || (listing.images && listing.images[0]) || '',
     providerImg: listing.providerImg || listing.image || '',
@@ -18367,7 +19505,7 @@ function _startInstantBooking(listing, dateIso, amount) {
 
   _openStripePaymentModal({
     amount: amount,
-    title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
+    title: (listing.title || 'Einzelbuchung') + ' \u00b7 ' + dateHuman,
     listingId: listingId,
     image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
     provider: listing.providerName || '',
@@ -19373,11 +20511,14 @@ function renderSocialPostCard(post) {
 function renderListingFeedCard(l) {
   var avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
   var isFav = favorites.has(l.id);
+  // Nie auf l.id zurückfallen – das ist die Listing-ID, nicht die User-ID.
+  var pid = _toPositiveInt(l.providerId);
+  var providerOnClick = pid ? ' onclick="navigateTo(\'provider\',' + pid + ')" style="cursor:pointer"' : '';
   return '<div class="feed-post-card" data-post-id="listing-' + l.id + '">' +
     '<div class="feed-post-header">' +
-      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
+      '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)"' + providerOnClick + ' />' +
       '<div class="feed-post-author">' +
-        '<strong onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')">' + _escHtml(l.providerName) + '</strong>' +
+        '<strong' + providerOnClick + '>' + _escHtml(l.providerName) + '</strong>' +
         '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span>' + timeAgo(l.createdAt) + '</span></div>' +
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
@@ -20270,7 +21411,12 @@ function _renderNavAiBody(query) {
       results.forEach(function(l) {
         var img = (l.images && l.images[0]) ? l.images[0] : '';
         var stars = '★'.repeat(Math.round(l.rating)) + '☆'.repeat(5 - Math.round(l.rating));
-        html += '<button class="nav-ai-result-card" type="button" aria-label="Profil ansehen" onclick="closeNavAiSearch();(typeof showToast===\'function\')&&showToast(\'Profil wird geladen…\',\'sync\');navigateTo(\'provider\', ' + (l.providerId || l.id) + ')">' +
+        // Such-Treffer-Karte: Öffnet das Inserat (Detail), nicht das Profil.
+        // Vorher wurde fälschlich navigateTo('provider', l.providerId||l.id)
+        // aufgerufen — bei DB-Inseraten ohne providerId landete man so auf
+        // dem falschen Account (Listing-ID 10001 != User-ID).
+        var detailId = _toPositiveInt(l.id);
+        html += '<button class="nav-ai-result-card" type="button" aria-label="Inserat öffnen" onclick="closeNavAiSearch();(typeof showToast===\'function\')&&showToast(\'Inserat wird geöffnet…\',\'sync\');navigateTo(\'detail\', ' + detailId + ')">' +
           '<img class="nav-ai-result-img" src="' + img + '" alt="" onerror="this.style.display=\'none\'" />' +
           '<div class="nav-ai-result-info">' +
             '<div class="nav-ai-result-name">' + l.title + '</div>' +

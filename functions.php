@@ -267,9 +267,37 @@ function eventboerse_enqueue_assets() {
         'isLoggedIn' => is_user_logged_in(),
         'user'       => $user_data,
         'siteUrl'    => trailingslashit( home_url() ),
+        'themeUrl'   => trailingslashit( get_template_directory_uri() ),
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
+
+/**
+ * App-Store-Verknüpfung: /.well-known/assetlinks.json (Android TWA) und
+ * /.well-known/apple-app-site-association (iOS Universal Links) müssen am
+ * DOMAIN-ROOT liegen. Das Deploy schreibt aber nur ins Theme-Verzeichnis —
+ * deshalb fangen wir die Requests früh ab und liefern die Dateien aus dem
+ * Theme aus, mit korrektem Content-Type (Apple verlangt application/json
+ * OHNE .json-Endung im Pfad).
+ */
+add_action( 'parse_request', function( $wp ) {
+    $uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '';
+    $map = array(
+        '/.well-known/assetlinks.json'             => '/.well-known/assetlinks.json',
+        '/.well-known/apple-app-site-association'  => '/.well-known/apple-app-site-association',
+        '/apple-app-site-association'              => '/.well-known/apple-app-site-association',
+    );
+    if ( ! isset( $map[ $uri ] ) ) return;
+    $file = get_template_directory() . $map[ $uri ];
+    if ( ! file_exists( $file ) ) {
+        status_header( 404 );
+        exit;
+    }
+    header( 'Content-Type: application/json; charset=utf-8' );
+    header( 'Cache-Control: public, max-age=3600' );
+    readfile( $file );
+    exit;
+}, 0 );
 
 /**
  * SPA-Routing: Alle Front-End-Pfade auf index.php weiterleiten,
@@ -1022,13 +1050,97 @@ function eventboerse_handle_board_save( WP_REST_Request $request ) {
     if ( ! is_array( $projects ) ) {
         return new WP_REST_Response( array( 'error' => 'invalid_payload' ), 400 );
     }
+
+    // Vorhandene serverseitige Karten-Stati laden, um Stage-Downgrades nach
+    // bezahlter Buchung zu verhindern (Client darf "bestaetigt"/"abgeschlossen"
+    // nicht mehr zurückdrehen — sonst kann ein Angreifer eine bezahlte
+    // Karte per direktem POST in "geplant" verschieben).
+    $existing_raw = get_user_meta( $uid, 'eb_board_projects', true );
+    $existing     = $existing_raw ? json_decode( $existing_raw, true ) : array();
+    if ( ! is_array( $existing ) ) $existing = array();
+    $existing_cards_by_id = array();
+    foreach ( $existing as $ep ) {
+        if ( ! is_array( $ep ) || ! isset( $ep['cards'] ) || ! is_array( $ep['cards'] ) ) continue;
+        foreach ( $ep['cards'] as $ec ) {
+            if ( is_array( $ec ) && isset( $ec['id'] ) ) {
+                $existing_cards_by_id[ (string) $ec['id'] ] = $ec;
+            }
+        }
+    }
+
+    $allowed_stages   = array( 'geplant', 'kontaktiert', 'angebot', 'bestaetigt', 'abgeschlossen' );
+    $protected_stages = array( 'bestaetigt', 'abgeschlossen' );
+
+    // Stage-Whitelist + Anti-Downgrade auf Karten anwenden
+    foreach ( $projects as $pi => $proj ) {
+        if ( ! is_array( $proj ) || ! isset( $proj['cards'] ) || ! is_array( $proj['cards'] ) ) continue;
+        foreach ( $proj['cards'] as $ci => $card ) {
+            if ( ! is_array( $card ) ) continue;
+            $stage = isset( $card['stage'] ) ? (string) $card['stage'] : 'geplant';
+            if ( ! in_array( $stage, $allowed_stages, true ) ) {
+                $stage = 'geplant';
+            }
+
+            $card_id = isset( $card['id'] ) ? (string) $card['id'] : '';
+            $prev    = ( $card_id !== '' && isset( $existing_cards_by_id[ $card_id ] ) )
+                       ? $existing_cards_by_id[ $card_id ] : null;
+
+            if ( $prev && isset( $prev['stage'] ) && in_array( $prev['stage'], $protected_stages, true ) ) {
+                $prev_stage = $prev['stage'];
+
+                // SONDERFALL Refund: Wenn der Client refundedPi gesetzt hat
+                // (und es keinen "Vorbestand"-Refund gab), erlauben wir das
+                // Downgrade auf eine frühere Stage. So kann der Stripe-
+                // Reconcile-Hook die Karte zurückrollen.
+                $is_refund_apply = ! empty( $card['refundedPi'] ) && empty( $prev['refundedPi'] );
+
+                if ( ! $is_refund_apply ) {
+                    // Wenn vorher bezahlt/abgeschlossen → nur dieselbe oder
+                    // weiter fortgeschrittene Stufe erlauben.
+                    $prev_idx = array_search( $prev_stage, $allowed_stages, true );
+                    $new_idx  = array_search( $stage,      $allowed_stages, true );
+                    if ( $new_idx === false || $new_idx < $prev_idx ) {
+                        $stage = $prev_stage;
+                    }
+                }
+                // paidAt und paymentIntentId dürfen nicht entfernt werden (auch
+                // bei Refund nicht — sie bleiben als Historie sichtbar).
+                if ( ! empty( $prev['paidAt'] ) && empty( $card['paidAt'] ) ) {
+                    $card['paidAt'] = $prev['paidAt'];
+                }
+                if ( ! empty( $prev['paymentIntentId'] ) && empty( $card['paymentIntentId'] ) ) {
+                    $card['paymentIntentId'] = $prev['paymentIntentId'];
+                }
+                if ( ! empty( $prev['paymentStatus'] ) && empty( $card['paymentStatus'] ) ) {
+                    $card['paymentStatus'] = $prev['paymentStatus'];
+                }
+            }
+
+            // Konsistenz-Hardening: wer "bestaetigt"/"abgeschlossen" sendet,
+            // muss auch paidAt mitliefern, sonst auf "angebot" zurückstufen.
+            if ( in_array( $stage, $protected_stages, true ) && empty( $card['paidAt'] ) ) {
+                // Provider-bestätigte Karten ohne Zahlung (z.B. Vor-Ort-
+                // Termine) sind erlaubt, sofern entweder ein vorhandener
+                // Bestand mit paidAt existiert oder providerConfirmedAt
+                // gesetzt wurde.
+                if ( empty( $card['providerConfirmedAt'] ) && ( ! $prev || empty( $prev['paidAt'] ) ) ) {
+                    $stage = 'angebot';
+                }
+            }
+
+            $card['stage'] = $stage;
+            $proj['cards'][ $ci ] = $card;
+        }
+        $projects[ $pi ] = $proj;
+    }
+
     // Defensive size limit (~2 MB JSON)
     $encoded = wp_json_encode( $projects );
     if ( $encoded === false || strlen( $encoded ) > 2 * 1024 * 1024 ) {
         return new WP_REST_Response( array( 'error' => 'payload_too_large' ), 413 );
     }
     update_user_meta( $uid, 'eb_board_projects', wp_slash( $encoded ) );
-    return new WP_REST_Response( array( 'success' => true, 'count' => count( $projects ) ), 200 );
+    return new WP_REST_Response( array( 'success' => true, 'count' => count( $projects ), 'projects' => $projects ), 200 );
 }
 
 /* ---------- BOARD BOOKINGS – Dienstleister-Sicht --------------------------------
@@ -1196,10 +1308,16 @@ function eb_board_bookings_update_card( WP_REST_Request $request ) {
                 }
             }
             if ( $action === 'accept' ) {
+                // SECURITY: Vorher setzte 'accept' direkt stage='bestaetigt'
+                // + paidAt + paymentStatus='Bezahlt'. Damit konnte der
+                // Dienstleister jede Anfrage als bezahlt fixieren, ohne
+                // dass je eine Stripe-Zahlung lief — und der Anti-Downgrade-
+                // Schutz im board_save hat das danach permanent gemacht.
+                //
+                // Korrekt: 'accept' markiert NUR die Anbieter-Zustimmung
+                // (providerAcceptedAt). Die Stage-Promotion auf 'bestaetigt'
+                // gehört allein an den Stripe-Webhook (eb_stripe_record_payment).
                 $card['providerAcceptedAt'] = $now;
-                $card['stage']              = 'bestaetigt';
-                if ( empty( $card['paidAt'] ) ) $card['paidAt'] = $now;
-                if ( empty( $card['paymentStatus'] ) ) $card['paymentStatus'] = 'Bezahlt';
             } elseif ( $action === 'confirm' ) {
                 $card['providerConfirmedAt'] = $now;
                 if ( ! empty( $card['userConfirmedAt'] ) && ( $card['stage'] ?? '' ) === 'bestaetigt' ) {
@@ -2893,6 +3011,29 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
+    /* ---------- WEB PUSH (PWA) ---------- */
+    register_rest_route( 'eventboerse/v1', '/push/vapid-public-key', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_push_get_vapid_public_key',
+        'permission_callback' => '__return_true',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/push/subscribe', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_push_subscribe',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/push/unsubscribe', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_push_unsubscribe',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    // Admin-only Endpoint zum Generieren von Test-Pushes (für Setup-Verifikation).
+    register_rest_route( 'eventboerse/v1', '/push/test', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_push_send_test',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/admin/user-tags', array(
         'methods'             => 'POST',
         'callback'            => 'eb_admin_set_user_tags',
@@ -2923,11 +3064,24 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
-    // Einmalig: Erster Admin kann sich selbst setzen wenn kein eb_admin existiert
+    // Einmalig-Bootstrap: setzt die initialen eb_admin-Metas auf die
+    // hardcodierten Owner-Emails. SECURITY-KRITISCH — vorher hatte der
+    // Endpoint nur is_user_logged_in, sodass JEDER eingeloggte Nutzer
+    // alle bestehenden Admins per Knopfdruck löschen konnte. Jetzt:
+    // entweder WP-Administrator ODER kein eb_admin existiert (echter
+    // Erst-Bootstrap nach Frisch-Install).
     register_rest_route( 'eventboerse/v1', '/admin/init', array(
         'methods'             => 'POST',
         'callback'            => 'eb_admin_init',
-        'permission_callback' => function() { return is_user_logged_in(); },
+        'permission_callback' => function() {
+            if ( ! is_user_logged_in() ) return false;
+            if ( current_user_can( 'manage_options' ) ) return true;
+            global $wpdb;
+            $exists = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
+            );
+            return $exists === 0;
+        },
     ) );
 
     register_rest_route( 'eventboerse/v1', '/admin/change-role', array(
@@ -2967,6 +3121,25 @@ function eb_register_extra_routes() {
             'callback'            => 'eb_admin_hide_demo_set',
             'permission_callback' => function() { return eb_is_admin_user(); },
         ),
+    ) );
+
+    /* ---------- ADMIN: LISTING- & BILD-MODERATION ---------- */
+    register_rest_route( 'eventboerse/v1', '/admin/listings', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_admin_list_listings',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/listings/(?P<id>\d+)/delete-image', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_delete_listing_image',
+        'permission_callback' => function() { return eb_is_admin_user(); },
+    ) );
+
+    register_rest_route( 'eventboerse/v1', '/admin/notify-user', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_notify_user',
+        'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
     /* ---------- REGISTRATIONS (Event-Anmeldungen / Ticketing) ---------- */
@@ -3843,6 +4016,324 @@ function eb_listings_delete( WP_REST_Request $request ) {
 }
 
 /** My listings */
+/* =====================================================================
+   WEB PUSH (PWA) — VAPID + Subscription-Storage + Sender
+   ---------------------------------------------------------------------
+   Implementiert Web Push (RFC 8030/8291) ohne Composer-Abhängigkeiten.
+   VAPID-Schlüssel werden bei Bedarf einmal generiert und in der
+   wp_options-Tabelle abgelegt. Subscriptions liegen pro User in
+   eb_push_subs als Array von { endpoint, keys: { p256dh, auth }, ua, ts }.
+   ===================================================================== */
+
+/** Lazy: VAPID-Keypair erzeugen + zwischenspeichern (ECDSA P-256). */
+function eb_push_get_vapid_keys() {
+    $cached = get_option( 'eb_vapid_keys' );
+    if ( is_array( $cached ) && ! empty( $cached['private'] ) && ! empty( $cached['public_b64u'] ) ) {
+        return $cached;
+    }
+    if ( ! function_exists( 'openssl_pkey_new' ) ) return null;
+    $res = openssl_pkey_new( array(
+        'curve_name'       => 'prime256v1',
+        'private_key_type' => OPENSSL_KEYTYPE_EC,
+    ) );
+    if ( ! $res ) return null;
+    $priv_pem = '';
+    if ( ! openssl_pkey_export( $res, $priv_pem ) ) return null;
+    $details = openssl_pkey_get_details( $res );
+    if ( ! $details || empty( $details['ec']['x'] ) || empty( $details['ec']['y'] ) ) return null;
+    $x = str_pad( $details['ec']['x'], 32, "\0", STR_PAD_LEFT );
+    $y = str_pad( $details['ec']['y'], 32, "\0", STR_PAD_LEFT );
+    $public_uncompressed = "\x04" . $x . $y;          // 65 Bytes
+    $keys = array(
+        'private'     => $priv_pem,
+        'public_b64u' => eb_push_b64url( $public_uncompressed ),
+        'created_at'  => time(),
+    );
+    update_option( 'eb_vapid_keys', $keys, false );
+    return $keys;
+}
+
+function eb_push_get_vapid_public_key() {
+    $k = eb_push_get_vapid_keys();
+    if ( ! $k ) return new WP_REST_Response( array( 'message' => 'VAPID nicht verfügbar' ), 500 );
+    return new WP_REST_Response( array( 'publicKey' => $k['public_b64u'] ), 200 );
+}
+
+function eb_push_subscribe( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $p   = $request->get_json_params();
+    if ( empty( $p['endpoint'] ) || empty( $p['keys']['p256dh'] ) || empty( $p['keys']['auth'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Subscription unvollständig' ), 400 );
+    }
+    // Endpoint sanitieren — nur https-URLs erlauben.
+    $endpoint = esc_url_raw( $p['endpoint'] );
+    if ( strpos( $endpoint, 'https://' ) !== 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Endpoint muss HTTPS sein' ), 400 );
+    }
+    $sub = array(
+        'endpoint' => $endpoint,
+        'keys'     => array(
+            'p256dh' => sanitize_text_field( $p['keys']['p256dh'] ),
+            'auth'   => sanitize_text_field( $p['keys']['auth'] ),
+        ),
+        'ua'       => sanitize_text_field( $p['ua'] ?? '' ),
+        'ts'       => time(),
+    );
+
+    $existing = get_user_meta( $uid, 'eb_push_subs', true );
+    if ( ! is_array( $existing ) ) $existing = array();
+    // Dedup nach endpoint.
+    $existing[ md5( $endpoint ) ] = $sub;
+    update_user_meta( $uid, 'eb_push_subs', $existing );
+
+    return new WP_REST_Response( array( 'ok' => true, 'count' => count( $existing ) ), 200 );
+}
+
+function eb_push_unsubscribe( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $p   = $request->get_json_params();
+    $endpoint = isset( $p['endpoint'] ) ? esc_url_raw( $p['endpoint'] ) : '';
+    $existing = get_user_meta( $uid, 'eb_push_subs', true );
+    if ( ! is_array( $existing ) ) $existing = array();
+    if ( $endpoint ) {
+        unset( $existing[ md5( $endpoint ) ] );
+    } else {
+        $existing = array();
+    }
+    update_user_meta( $uid, 'eb_push_subs', $existing );
+    return new WP_REST_Response( array( 'ok' => true, 'count' => count( $existing ) ), 200 );
+}
+
+function eb_push_send_test( WP_REST_Request $request ) {
+    $p   = $request->get_json_params();
+    $uid = isset( $p['user_id'] ) ? absint( $p['user_id'] ) : get_current_user_id();
+    $payload = array(
+        'title' => $p['title'] ?? 'Eventbörse Test',
+        'body'  => $p['body']  ?? 'Push funktioniert ✓',
+        'url'   => $p['url']   ?? home_url( '/' ),
+        'tag'   => 'eb-test',
+    );
+    $sent = eb_push_send_to_user( $uid, $payload );
+    return new WP_REST_Response( array( 'ok' => true, 'sent' => $sent ), 200 );
+}
+
+/**
+ * Schickt ein Push an alle Subscriptions des Users. Liefert die Zahl
+ * erfolgreich zugestellter Pushes zurück. Bei 404/410 (Subscription
+ * abgelaufen) wird die jeweilige Sub gelöscht.
+ */
+function eb_push_send_to_user( $user_id, $payload ) {
+    $user_id = (int) $user_id;
+    if ( $user_id <= 0 ) return 0;
+    $subs = get_user_meta( $user_id, 'eb_push_subs', true );
+    if ( ! is_array( $subs ) || empty( $subs ) ) return 0;
+    $keys = eb_push_get_vapid_keys();
+    if ( ! $keys ) return 0;
+
+    $payload_json = wp_json_encode( $payload );
+    $sent = 0;
+    $changed = false;
+    foreach ( $subs as $hash => $sub ) {
+        $res = eb_push_send_one( $sub, $payload_json, $keys );
+        if ( $res === true ) {
+            $sent++;
+        } elseif ( $res === 'gone' ) {
+            unset( $subs[ $hash ] );
+            $changed = true;
+        }
+    }
+    if ( $changed ) {
+        update_user_meta( $user_id, 'eb_push_subs', $subs );
+    }
+    return $sent;
+}
+
+/**
+ * Schickt ein einzelnes Push (RFC 8291, aes128gcm). Gibt true bei
+ * Erfolg, 'gone' bei 404/410, false sonst zurück.
+ */
+function eb_push_send_one( $sub, $payload_json, $vapid ) {
+    if ( ! function_exists( 'openssl_pkey_new' ) ) return false;
+
+    $endpoint = $sub['endpoint'];
+    $url      = wp_parse_url( $endpoint );
+    if ( ! $url || empty( $url['host'] ) ) return false;
+    $audience = ( $url['scheme'] ?? 'https' ) . '://' . $url['host'];
+
+    // 1) VAPID-JWT (ES256) erzeugen
+    $jwt_header  = array( 'typ' => 'JWT', 'alg' => 'ES256' );
+    $jwt_payload = array(
+        'aud' => $audience,
+        'exp' => time() + 12 * 3600,
+        'sub' => 'mailto:' . get_option( 'admin_email', 'noreply@eventboerse.de' ),
+    );
+    $signing_input = eb_push_b64url( wp_json_encode( $jwt_header ) ) . '.' . eb_push_b64url( wp_json_encode( $jwt_payload ) );
+    $priv = openssl_pkey_get_private( $vapid['private'] );
+    if ( ! $priv ) return false;
+    $der_sig = '';
+    if ( ! openssl_sign( $signing_input, $der_sig, $priv, 'sha256' ) ) return false;
+    $raw_sig = eb_push_der_to_raw_p256( $der_sig );
+    if ( ! $raw_sig ) return false;
+    $jwt = $signing_input . '.' . eb_push_b64url( $raw_sig );
+
+    // 2) Payload verschlüsseln (aes128gcm gemäß RFC 8291)
+    $client_pub = eb_push_b64url_decode( $sub['keys']['p256dh'] );
+    $client_auth = eb_push_b64url_decode( $sub['keys']['auth'] );
+    if ( strlen( $client_pub ) !== 65 || $client_pub[0] !== "\x04" ) return false;
+
+    // Ephemeres Sender-Keypair
+    $eph = openssl_pkey_new( array( 'curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC ) );
+    if ( ! $eph ) return false;
+    $eph_details = openssl_pkey_get_details( $eph );
+    $ex = str_pad( $eph_details['ec']['x'], 32, "\0", STR_PAD_LEFT );
+    $ey = str_pad( $eph_details['ec']['y'], 32, "\0", STR_PAD_LEFT );
+    $eph_pub_uncompressed = "\x04" . $ex . $ey;
+
+    // ECDH-Shared-Secret berechnen — Client-Public ist auf der Curve.
+    $shared = eb_push_ecdh_compute( $eph, $client_pub );
+    if ( ! $shared ) return false;
+
+    // Encryption-Salt (zufällig 16 Byte)
+    $salt = random_bytes( 16 );
+
+    // HKDF-Ableitung gemäß RFC 8291
+    $key_info     = "WebPush: info\x00" . $client_pub . $eph_pub_uncompressed;
+    $prk_key      = eb_push_hkdf( $client_auth, $shared, $key_info, 32 );
+    $cek_info     = "Content-Encoding: aes128gcm\x00";
+    $cek          = eb_push_hkdf( $salt, $prk_key, $cek_info, 16 );
+    $nonce_info   = "Content-Encoding: nonce\x00";
+    $nonce        = eb_push_hkdf( $salt, $prk_key, $nonce_info, 12 );
+
+    // Payload-Padding: 0x02 || \0
+    $plaintext   = $payload_json . "\x02";
+    $ciphertext  = openssl_encrypt( $plaintext, 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag );
+    if ( $ciphertext === false ) return false;
+    $encrypted   = $ciphertext . $tag;
+
+    // aes128gcm-Header zusammenbauen: salt(16) || rs(4 BE) || idlen(1) || keyid
+    $rs = 4096; // max record size
+    $body = $salt . pack( 'N', $rs ) . chr( 65 ) . $eph_pub_uncompressed . $encrypted;
+
+    // 3) Request abschicken
+    $ch = curl_init( $endpoint );
+    curl_setopt_array( $ch, array(
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $body,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_HTTPHEADER     => array(
+            'TTL: 86400',
+            'Content-Encoding: aes128gcm',
+            'Content-Type: application/octet-stream',
+            'Content-Length: ' . strlen( $body ),
+            'Urgency: normal',
+            'Authorization: vapid t=' . $jwt . ', k=' . $vapid['public_b64u'],
+        ),
+    ) );
+    curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    curl_close( $ch );
+
+    if ( $http >= 200 && $http < 300 ) return true;
+    if ( $http === 404 || $http === 410 ) return 'gone';
+    return false;
+}
+
+/** URL-safe Base64 ohne Padding (RFC 7515). */
+function eb_push_b64url( $bin ) {
+    return rtrim( strtr( base64_encode( $bin ), '+/', '-_' ), '=' );
+}
+function eb_push_b64url_decode( $s ) {
+    $pad = strlen( $s ) % 4;
+    if ( $pad ) $s .= str_repeat( '=', 4 - $pad );
+    return base64_decode( strtr( $s, '-_', '+/' ) );
+}
+
+/** Konvertiert eine ASN.1-DER-ECDSA-Signatur in 64-Byte-Raw-Format (P-256). */
+function eb_push_der_to_raw_p256( $der ) {
+    // SEQUENCE ⟶ 0x30 LEN INT r INT s
+    $off = 0;
+    if ( strlen( $der ) < 8 || $der[0] !== "\x30" ) return null;
+    $len = ord( $der[1] );
+    $off = 2;
+    if ( $len & 0x80 ) {
+        $n = $len & 0x7f;
+        $off += $n;
+    }
+    // INT r
+    if ( $der[ $off ] !== "\x02" ) return null;
+    $rlen = ord( $der[ $off + 1 ] );
+    $rstart = $off + 2;
+    $r = substr( $der, $rstart, $rlen );
+    if ( strlen( $r ) > 32 ) $r = substr( $r, -32 );
+    $r = str_pad( $r, 32, "\0", STR_PAD_LEFT );
+    $off = $rstart + $rlen;
+    // INT s
+    if ( $der[ $off ] !== "\x02" ) return null;
+    $slen = ord( $der[ $off + 1 ] );
+    $sstart = $off + 2;
+    $s = substr( $der, $sstart, $slen );
+    if ( strlen( $s ) > 32 ) $s = substr( $s, -32 );
+    $s = str_pad( $s, 32, "\0", STR_PAD_LEFT );
+    return $r . $s;
+}
+
+/** ECDH P-256 — Shared Secret aus eigener Privat + fremder Public (uncompressed). */
+function eb_push_ecdh_compute( $own_private_res, $peer_public_uncompressed ) {
+    if ( strlen( $peer_public_uncompressed ) !== 65 ) return null;
+    // Peer als EC-Public-Key in PEM verpacken: SubjectPublicKeyInfo für P-256.
+    $der = hex2bin( '3059301306072a8648ce3d020106082a8648ce3d030107034200' ) . $peer_public_uncompressed;
+    $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split( base64_encode( $der ), 64, "\n" ) . "-----END PUBLIC KEY-----\n";
+    // openssl_pkey_derive ist in PHP 7.3+ verfügbar.
+    if ( function_exists( 'openssl_pkey_derive' ) ) {
+        $peer = openssl_pkey_get_public( $pem );
+        if ( ! $peer ) return null;
+        $secret = openssl_pkey_derive( $peer, $own_private_res, 32 );
+        return $secret ?: null;
+    }
+    return null;
+}
+
+/** HKDF-SHA256 — Extract + Expand kombiniert. */
+function eb_push_hkdf( $salt, $ikm, $info, $length ) {
+    if ( function_exists( 'hash_hkdf' ) ) {
+        return hash_hkdf( 'sha256', $ikm, $length, $info, $salt );
+    }
+    // Fallback (PHP < 7.1.2): manuell.
+    $prk = hash_hmac( 'sha256', $ikm, $salt, true );
+    $okm = '';
+    $t   = '';
+    $i   = 1;
+    while ( strlen( $okm ) < $length ) {
+        $t   = hash_hmac( 'sha256', $t . $info . chr( $i ), $prk, true );
+        $okm .= $t;
+        $i++;
+    }
+    return substr( $okm, 0, $length );
+}
+
+/** Hook: Bei neuer Nachricht den Empfänger anpingen. */
+function eb_push_on_new_message( $conversation_id, $sender_id, $body ) {
+    global $wpdb;
+    $conv = $wpdb->get_row( $wpdb->prepare(
+        "SELECT user_a, user_b FROM {$wpdb->prefix}eb_conversations WHERE id = %d",
+        $conversation_id
+    ) );
+    if ( ! $conv ) return;
+    $recipient = ( (int) $conv->user_a === (int) $sender_id ) ? (int) $conv->user_b : (int) $conv->user_a;
+    if ( $recipient <= 0 || $recipient === (int) $sender_id ) return;
+
+    $sender = get_userdata( $sender_id );
+    $name   = $sender ? ( trim( $sender->first_name . ' ' . $sender->last_name ) ?: $sender->display_name ) : 'Eventbörse';
+
+    eb_push_send_to_user( $recipient, array(
+        'title' => 'Neue Nachricht von ' . $name,
+        'body'  => mb_substr( wp_strip_all_tags( (string) $body ), 0, 120 ),
+        'url'   => home_url( '/messages' ),
+        'tag'   => 'msg-' . $conversation_id,
+    ) );
+}
+
 function eb_my_listings() {
     global $wpdb;
     $uid  = get_current_user_id();
@@ -3852,6 +4343,205 @@ function eb_my_listings() {
     ), ARRAY_A );
 
     return new WP_REST_Response( array_map( 'eb_format_listing', $rows ?: array() ), 200 );
+}
+
+/* =====================================================================
+   ADMIN MODERATION: Inserate listen, Einzelbild löschen, User benachrichtigen
+   ===================================================================== */
+
+/** Liefert alle Inserate für die Admin-Moderationsansicht. */
+function eb_admin_list_listings( WP_REST_Request $request ) {
+    global $wpdb;
+    $search = trim( (string) $request->get_param( 'search' ) );
+    $where  = '';
+    $params = array();
+    if ( $search !== '' ) {
+        $like     = '%' . $wpdb->esc_like( $search ) . '%';
+        $where    = 'WHERE l.title LIKE %s OR l.location LIKE %s OR u.user_email LIKE %s OR u.display_name LIKE %s';
+        $params   = array( $like, $like, $like, $like );
+    }
+
+    $sql = "SELECT l.*, u.display_name, u.user_email
+            FROM {$wpdb->prefix}eb_listings l
+            LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+            $where
+            ORDER BY l.created_at DESC
+            LIMIT 500";
+
+    $rows = $params
+        ? $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A )
+        : $wpdb->get_results( $sql, ARRAY_A );
+
+    $out = array();
+    foreach ( ( $rows ?: array() ) as $row ) {
+        $formatted = eb_format_listing( $row );
+        $formatted['ownerEmail'] = $row['user_email'] ?? '';
+        $formatted['ownerName']  = $row['display_name'] ?? '';
+        $out[] = $formatted;
+    }
+
+    $response = new WP_REST_Response( $out, 200 );
+    $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+    return $response;
+}
+
+/** Entfernt ein einzelnes Bild aus einem Inserat und benachrichtigt den Eigentümer. */
+function eb_admin_delete_listing_image( WP_REST_Request $request ) {
+    global $wpdb;
+    $id     = absint( $request['id'] );
+    $params = $request->get_json_params();
+    $image  = isset( $params['image'] ) ? esc_url_raw( trim( (string) $params['image'] ) ) : '';
+    $reason = isset( $params['reason'] ) ? sanitize_textarea_field( $params['reason'] ) : '';
+
+    if ( ! $image ) {
+        return new WP_REST_Response( array( 'message' => 'Bild-URL fehlt.' ), 400 );
+    }
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ), ARRAY_A );
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+
+    $images = json_decode( (string) $row['images'], true );
+    if ( ! is_array( $images ) ) $images = array();
+
+    $new_images = array();
+    $removed    = false;
+    foreach ( $images as $img ) {
+        $img = (string) $img;
+        if ( ! $removed && $img === $image ) {
+            $removed = true;
+            continue;
+        }
+        $new_images[] = $img;
+    }
+
+    if ( ! $removed ) {
+        return new WP_REST_Response( array( 'message' => 'Bild nicht im Inserat enthalten.' ), 404 );
+    }
+
+    $wpdb->update(
+        $wpdb->prefix . 'eb_listings',
+        array(
+            'images'     => wp_json_encode( array_values( $new_images ) ),
+            'updated_at' => current_time( 'mysql' ),
+        ),
+        array( 'id' => $id )
+    );
+
+    eb_admin_notify_listing_owner_image_removed( (int) $row['user_id'], (int) $id, $row['title'], $image, $reason );
+
+    $fresh = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ), ARRAY_A );
+
+    return new WP_REST_Response( array(
+        'ok'      => true,
+        'removed' => $image,
+        'listing' => eb_format_listing( $fresh ),
+    ), 200 );
+}
+
+/** Schickt eine freie Moderationsnachricht von einem Admin an einen Nutzer. */
+function eb_admin_notify_user( WP_REST_Request $request ) {
+    $params  = $request->get_json_params();
+    $user_id = isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+    $text    = isset( $params['text'] ) ? sanitize_textarea_field( $params['text'] ) : '';
+    $subject = isset( $params['subject'] ) ? sanitize_text_field( $params['subject'] ) : 'Nachricht vom Eventbörse-Team';
+
+    if ( $user_id <= 0 || $text === '' ) {
+        return new WP_REST_Response( array( 'message' => 'user_id und text sind erforderlich.' ), 400 );
+    }
+
+    $ok = eb_admin_send_moderation_message( $user_id, $text, $subject );
+    return new WP_REST_Response( array( 'ok' => (bool) $ok ), $ok ? 200 : 500 );
+}
+
+/**
+ * Erstellt (falls nötig) eine Conversation zwischen dem aktuellen Admin und dem
+ * Empfänger und legt eine System-Message ab. Zusätzlich wird – sofern verfügbar
+ * – eine E-Mail an den Nutzer verschickt. Gibt true zurück, wenn mindestens
+ * eine der beiden Zustellwege erfolgreich war.
+ */
+function eb_admin_send_moderation_message( $recipient_id, $body, $subject = '' ) {
+    global $wpdb;
+    $recipient_id = (int) $recipient_id;
+    $admin_id     = (int) get_current_user_id();
+    if ( $recipient_id <= 0 || $admin_id <= 0 || $recipient_id === $admin_id ) {
+        return false;
+    }
+
+    $body = trim( (string) $body );
+    if ( $body === '' ) return false;
+
+    // Conversation suchen oder neu anlegen
+    $conv_id = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_conversations
+         WHERE (user_a = %d AND user_b = %d) OR (user_a = %d AND user_b = %d)
+         LIMIT 1",
+        $admin_id, $recipient_id, $recipient_id, $admin_id
+    ) );
+
+    if ( ! $conv_id ) {
+        $wpdb->insert( $wpdb->prefix . 'eb_conversations', array(
+            'user_a'     => $admin_id,
+            'user_b'     => $recipient_id,
+            'updated_at' => current_time( 'mysql' ),
+        ) );
+        $conv_id = (int) $wpdb->insert_id;
+    } else {
+        $wpdb->update(
+            $wpdb->prefix . 'eb_conversations',
+            array( 'updated_at' => current_time( 'mysql' ) ),
+            array( 'id' => $conv_id )
+        );
+    }
+
+    $msg_ok = false;
+    if ( $conv_id ) {
+        $msg_ok = (bool) $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+            'conversation_id' => $conv_id,
+            'sender_id'       => $admin_id,
+            'body'            => $body,
+            'msg_type'        => 'moderation',
+            'is_read'         => 0,
+            'created_at'      => current_time( 'mysql' ),
+        ) );
+    }
+
+    // Zusätzlich per E-Mail benachrichtigen
+    $mail_ok = false;
+    $user    = get_userdata( $recipient_id );
+    if ( $user && ! empty( $user->user_email ) ) {
+        $headers = array( 'Content-Type: text/html; charset=UTF-8' );
+        $html    = '<p>Hallo ' . esc_html( $user->display_name ?: $user->user_login ) . ',</p>' .
+                   '<p>' . nl2br( esc_html( $body ) ) . '</p>' .
+                   '<p style="color:#666;font-size:12px;margin-top:24px">Diese Nachricht stammt vom Eventbörse-Moderationsteam. Du erreichst uns über die Plattform-Nachrichten.</p>';
+        $mail_ok = wp_mail( $user->user_email, $subject ?: 'Nachricht vom Eventbörse-Team', $html, $headers );
+    }
+
+    return $msg_ok || $mail_ok;
+}
+
+/** Spezial-Notification für entfernte Bilder (mit klarer Standardformulierung). */
+function eb_admin_notify_listing_owner_image_removed( $owner_id, $listing_id, $listing_title, $image_url, $reason ) {
+    $owner_id = (int) $owner_id;
+    if ( $owner_id <= 0 ) return false;
+
+    $title  = $listing_title ? '„' . $listing_title . '"' : '#' . (int) $listing_id;
+    $reason = trim( (string) $reason );
+    if ( $reason === '' ) {
+        $reason = 'Das Bild entspricht nicht den Eventbörse-Inhaltsrichtlinien (z. B. nicht passend, irreführend oder von minderer Qualität).';
+    }
+
+    $body  = "Hallo,\n\n";
+    $body .= "ein Bild deines Inserats {$title} wurde von der Moderation entfernt, weil es als nicht passend angesehen wurde.\n\n";
+    $body .= "Begründung: {$reason}\n\n";
+    $body .= "Du kannst jederzeit ein neues, passenderes Bild hochladen. Bei Fragen antworte einfach auf diese Nachricht.";
+
+    return eb_admin_send_moderation_message( $owner_id, $body, 'Bild aus deinem Inserat entfernt' );
 }
 
 /* =====================================================================
@@ -4145,9 +4835,17 @@ function eb_messages_list( WP_REST_Request $request ) {
     $messages = array();
     foreach ( $rows as $m ) {
         $is_deleted = ( $m->msg_type === 'deleted' );
+        $is_admin_note = ( $m->msg_type === 'moderation' );
+        $type_for_sender = (int) $m->sender_id === $uid ? 'sent' : 'received';
+        if ( $m->msg_type === 'system' ) {
+            $type_for_sender = 'system';
+        } elseif ( $is_admin_note && (int) $m->sender_id !== $uid ) {
+            // Empfänger sieht Moderationsnachrichten als hervorgehobenen Hinweis
+            $type_for_sender = 'moderation';
+        }
         $msg = array(
             'id'         => (int) $m->id,
-            'type'       => (int) $m->sender_id === $uid ? 'sent' : ( $m->msg_type === 'system' ? 'system' : 'received' ),
+            'type'       => $type_for_sender,
             'text'       => $is_deleted ? '' : $m->body,
             'content'    => $is_deleted ? '' : $m->body,
             'time'       => date( 'H:i', strtotime( $m->created_at ) ),
@@ -4190,6 +4888,18 @@ function eb_messages_send( WP_REST_Request $request ) {
     $body     = sanitize_textarea_field( $params['content'] ?? ( $params['text'] ?? '' ) );
     $msg_type = sanitize_text_field( $params['type'] ?? 'text' );
 
+    // SICHERHEIT: msg_type strikt whitelisten. Vorher konnten Nutzer per
+    // direkten POST 'moderation' setzen und sich so als Eventbörse-Team
+    // ausgeben (goldenes Hinweis-Banner). 'moderation', 'system' und
+    // 'deleted' sind reserviert — nur Admins (bzw. interne Code-Pfade)
+    // dürfen sie schreiben.
+    $allowed_user_types = array( 'text', 'offer', 'booking' );
+    if ( ! in_array( $msg_type, $allowed_user_types, true ) ) {
+        if ( ! eb_is_admin_user( $uid ) ) {
+            $msg_type = 'text';
+        }
+    }
+
     if ( empty( $body ) && $msg_type === 'text' ) {
         return new WP_REST_Response( array( 'message' => 'Nachricht darf nicht leer sein.' ), 400 );
     }
@@ -4224,6 +4934,11 @@ function eb_messages_send( WP_REST_Request $request ) {
         array( 'updated_at' => current_time( 'mysql' ) ),
         array( 'id' => $conv_id )
     );
+
+    // Web-Push an den Empfänger (asynchron-tolerant — bei Fehler stört's nicht)
+    if ( function_exists( 'eb_push_on_new_message' ) ) {
+        try { eb_push_on_new_message( $conv_id, $uid, $body ); } catch ( Throwable $_e ) {}
+    }
 
     // E-Mail-Benachrichtigung an Empfänger
     $recipient_id = ((int)$conv->user_a === $uid) ? (int)$conv->user_b : (int)$conv->user_a;
@@ -5501,6 +6216,7 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
     if ( strlen( $title ) > 250 ) $title = substr( $title, 0, 250 );
 
     $amount_cents = (int) round( $amount * 100 );
+    $fee_quote    = eb_stripe_calculate_fee_quote( $amount_cents, $currency );
     $site        = home_url( '/' );
     $success_url = add_query_arg( array(
         'stripe'     => 'success',
@@ -5512,21 +6228,101 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
 
     $user = wp_get_current_user();
 
+    // Mehrere Zahlungsmethoden zulassen: Karte, SEPA-Lastschrift, Klarna,
+    // Sofort, Giropay, Bancontact, EPS, Przelewy24 sowie Stripe Link.
+    // Wallet-Methoden (Apple Pay / Google Pay) werden automatisch über
+    // "card" angeboten, wenn das jeweilige Endgerät sie unterstützt.
     $fields = array(
-        'mode'                                    => 'payment',
-        'payment_method_types[]'                  => 'card',
-        'line_items[0][price_data][currency]'     => $currency,
-        'line_items[0][price_data][unit_amount]'  => $amount_cents,
+        'mode'                                          => 'payment',
+        'payment_method_types[0]'                       => 'card',
+        'payment_method_types[1]'                       => 'sepa_debit',
+        'payment_method_types[2]'                       => 'klarna',
+        'payment_method_types[3]'                       => 'sofort',
+        'payment_method_types[4]'                       => 'giropay',
+        'payment_method_types[5]'                       => 'bancontact',
+        'payment_method_types[6]'                       => 'eps',
+        'payment_method_types[7]'                       => 'p24',
+        'payment_method_types[8]'                       => 'link',
+        'line_items[0][price_data][currency]'           => $currency,
+        'line_items[0][price_data][unit_amount]'        => $amount_cents,
         'line_items[0][price_data][product_data][name]' => $title,
-        'line_items[0][quantity]'                 => 1,
-        'success_url'                             => $success_url,
-        'cancel_url'                              => $cancel_url,
-        'customer_email'                          => $user ? $user->user_email : '',
-        'metadata[card_id]'                       => $card_id,
-        'metadata[project_id]'                    => $project_id,
-        'metadata[listing_id]'                    => (string) $listing_id,
-        'metadata[user_id]'                       => (string) ( $user ? $user->ID : 0 ),
+        'line_items[0][quantity]'                       => 1,
+        'success_url'                                   => $success_url,
+        'cancel_url'                                    => $cancel_url,
+        'customer_email'                                => $user ? $user->user_email : '',
+        'locale'                                        => 'de',
+        'metadata[card_id]'                             => $card_id,
+        'metadata[project_id]'                          => $project_id,
+        'metadata[listing_id]'                          => (string) $listing_id,
+        'metadata[user_id]'                             => (string) ( $user ? $user->ID : 0 ),
+        'metadata[title]'                               => $title,
+        'metadata[platform_fee_cents]'                  => (string) $fee_quote['platform_fee_cents'],
+        'metadata[fee_model]'                           => $fee_quote['fee_model'],
+        // Metadata auch auf den entstehenden PaymentIntent kopieren — der
+        // Webhook (payment_intent.succeeded) liest sie dort, nicht auf der Session.
+        'payment_intent_data[metadata][card_id]'        => $card_id,
+        'payment_intent_data[metadata][project_id]'     => $project_id,
+        'payment_intent_data[metadata][listing_id]'     => (string) $listing_id,
+        'payment_intent_data[metadata][user_id]'        => (string) ( $user ? $user->ID : 0 ),
+        'payment_intent_data[metadata][title]'          => $title,
     );
+
+    // Gleiche Schutzregeln wie der PaymentIntent-Pfad: ohne echtes Inserat
+    // keine Zahlung; eigenes Inserat nicht buchbar; Dienstleister braucht
+    // ein aktives Connect-Konto. Ohne diesen Block würde Geld aus dem
+    // Hosted-Checkout unrouted auf dem Plattformkonto landen.
+    if ( ! $listing_id ) {
+        return new WP_REST_Response( array(
+            'message' => 'Für Buchungen ist ein echtes Inserat erforderlich, damit die Zahlung korrekt dem Dienstleister zugeordnet werden kann.',
+            'code'    => 'listing_required_for_payment',
+        ), 400 );
+    }
+    global $wpdb;
+    $listing_lookup_id = $listing_id;
+    $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
+    ) );
+    if ( ! $provider_uid && $listing_id > 10000 ) {
+        $listing_lookup_id = $listing_id - 10000;
+        $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
+        ) );
+    }
+    if ( ! $provider_uid ) {
+        return new WP_REST_Response( array(
+            'message' => 'Dieses Inserat konnte keinem Dienstleister zugeordnet werden. Die Zahlung wurde nicht gestartet.',
+            'code'    => 'provider_not_found_for_payment',
+        ), 400 );
+    }
+    if ( $user && (int) $user->ID === (int) $provider_uid ) {
+        return new WP_REST_Response( array(
+            'message' => 'Du kannst dein eigenes Inserat nicht buchen.',
+            'code'    => 'cannot_book_own_listing',
+        ), 403 );
+    }
+    $connect_state = eb_stripe_connect_state_for_user( $provider_uid, $sk );
+    if ( empty( $connect_state['active'] ) ) {
+        return new WP_REST_Response( array(
+            'message'                     => 'Dieser Dienstleister hat sein Stripe-Auszahlungskonto noch nicht vollständig eingerichtet. Die Buchung ist erst möglich, wenn Auszahlungen aktiv sind.',
+            'code'                        => 'provider_payout_onboarding_required',
+            'requires_connect_onboarding' => true,
+            'connect_status'              => $connect_state['status'] ?? 'none',
+            'disabled_reason'             => $connect_state['disabled_reason'] ?? '',
+        ), 409 );
+    }
+    $connect_id = $connect_state['connect_id'] ?? '';
+    if ( $connect_id ) {
+        // Destination Charge mit Application Fee — identisch zum
+        // PaymentIntent-Pfad, via payment_intent_data der Checkout-Session.
+        $fee_cents = (int) $fee_quote['platform_fee_cents'];
+        $fields['payment_intent_data[application_fee_amount]']           = $fee_cents;
+        $fields['payment_intent_data[transfer_data][destination]']       = $connect_id;
+        $fields['payment_intent_data[on_behalf_of]']                     = $connect_id;
+        $fields['payment_intent_data[metadata][connect_id]']             = $connect_id;
+        $fields['payment_intent_data[metadata][application_fee_cents]']  = (string) $fee_cents;
+        $fields['payment_intent_data[metadata][fee_model]']              = $fee_quote['fee_model'];
+        $fields['metadata[connect_id]']                                  = $connect_id;
+    }
 
     $ch = curl_init( 'https://api.stripe.com/v1/checkout/sessions' );
     curl_setopt_array( $ch, array(
@@ -6538,6 +7334,8 @@ function eb_stripe_record_payment( $pi ) {
 
     $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
     if ( ! is_array( $existing ) ) $existing = array();
+    // Erstmaliges Verbuchen erkennen (= echtes Zahlungs-Event)
+    $is_first_record = ! isset( $existing[ $pi['id'] ] );
     // Deduplizieren by PI-ID
     $existing[ $pi['id'] ] = $record;
     // Alte Eintraege >90 Tage bereinigen
@@ -6546,6 +7344,44 @@ function eb_stripe_record_payment( $pi ) {
         if ( is_array( $v ) && isset( $v['paid_at'] ) && $v['paid_at'] < $cutoff ) unset( $existing[ $k ] );
     }
     update_user_meta( $uid, 'eb_stripe_paid', $existing );
+
+    // Web Push beim ersten Verbuchen — Käufer UND Dienstleister bekommen
+    // sofort Bescheid. Im App-Modus ist das die einzige Live-Rückmeldung
+    // aus dem externen Browser-Checkout zurück in die App.
+    if ( $is_first_record && function_exists( 'eb_push_send_to_user' ) ) {
+        global $wpdb;
+        $title_clean = ! empty( $record['title'] ) ? $record['title'] : 'Buchung';
+        $amount_eur  = number_format( $record['amount'] / 100, 2, ',', '.' );
+
+        // Käufer
+        eb_push_send_to_user( $uid, array(
+            'title' => 'Buchung bestätigt',
+            'body'  => $title_clean . ' · ' . $amount_eur . ' € · jetzt im Planungs-Board.',
+            'url'   => home_url( '/board' ),
+            'tag'   => 'paid-' . $pi['id'],
+        ) );
+
+        // Dienstleister: über listing_id → user_id
+        if ( $record['listing_id'] > 0 ) {
+            $lookup = $record['listing_id'];
+            $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $lookup
+            ) );
+            if ( ! $provider_uid && $lookup > 10000 ) {
+                $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $lookup - 10000
+                ) );
+            }
+            if ( $provider_uid > 0 && $provider_uid !== (int) $uid ) {
+                eb_push_send_to_user( $provider_uid, array(
+                    'title' => 'Neue Buchung',
+                    'body'  => $title_clean . ' · ' . $amount_eur . ' €',
+                    'url'   => home_url( '/auftraege' ),
+                    'tag'   => 'incoming-' . $pi['id'],
+                ) );
+            }
+        }
+    }
 }
 
 function eb_stripe_webhook( WP_REST_Request $request ) {
@@ -6618,6 +7454,24 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
             // Optional: zukuenftig Fehlerlog ablegen. Derzeit NOOP (UI zeigt Fehler live).
             break;
 
+        case 'charge.refunded':
+        case 'refund.created':
+        case 'refund.updated':
+            // Erstattung — sofort verbuchen, damit der Client beim
+            // nächsten Reconcile die Karte auf 'geplant' zurückstuft
+            // und der Nutzer eine System-Nachricht bekommt.
+            eb_stripe_webhook_handle_refund( $obj, $type );
+            break;
+
+        case 'charge.dispute.created':
+        case 'charge.dispute.updated':
+        case 'charge.dispute.closed':
+            // Chargeback / Dispute — Admin per Mail informieren und im
+            // User-Meta vermerken, damit der Reconcile-Endpoint die
+            // betroffene Karte als "im Streit" markiert.
+            eb_stripe_webhook_handle_dispute( $obj, $type );
+            break;
+
         case 'account.updated':
             // Dienstleister hat Onboarding abgeschlossen (oder Konto wurde gesperrt).
             // Aktualisiert eb_stripe_connect_active in der WP-Usermeta sofort —
@@ -6640,6 +7494,240 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
 }
 
 /**
+ * Webhook-Handler: charge.refunded / refund.created / refund.updated
+ *
+ * Aus dem Refund-Objekt holen wir den ursprünglichen Payment Intent,
+ * schreiben den Refund-Status ins eb_stripe_paid-Record des Users und
+ * legen ihn parallel in eb_stripe_refunds ab (für den Reconcile, der
+ * dem Frontend Refund-Events ohne Reload zustellt).
+ */
+function eb_stripe_webhook_handle_refund( $obj, $event_type ) {
+    if ( ! is_array( $obj ) ) return;
+
+    // charge.refunded liefert ein Charge-Objekt; refund.* liefert ein Refund-Objekt.
+    $is_charge_event = ( $event_type === 'charge.refunded' );
+    $pi_id = '';
+    $refund_amount_cents = 0;
+    $refund_id = '';
+    $refund_status = 'succeeded';
+
+    if ( $is_charge_event ) {
+        $pi_id               = (string) ( $obj['payment_intent'] ?? '' );
+        $refund_amount_cents = intval( $obj['amount_refunded'] ?? 0 );
+        $rfs                 = isset( $obj['refunds']['data'] ) && is_array( $obj['refunds']['data'] ) ? $obj['refunds']['data'] : array();
+        if ( ! empty( $rfs ) ) {
+            $last      = end( $rfs );
+            $refund_id = (string) ( $last['id'] ?? '' );
+            $refund_status = (string) ( $last['status'] ?? 'succeeded' );
+        }
+    } else {
+        $pi_id               = (string) ( $obj['payment_intent'] ?? '' );
+        $refund_amount_cents = intval( $obj['amount'] ?? 0 );
+        $refund_id           = (string) ( $obj['id'] ?? '' );
+        $refund_status       = (string) ( $obj['status'] ?? 'succeeded' );
+    }
+
+    if ( ! $pi_id || ! preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi_id ) ) return;
+
+    // Original-PI im User-Meta finden, um user_id, card_id, project_id zu kennen.
+    // Wir scannen ein begrenztes Set Users (alle, die je gezahlt haben).
+    $user_id = eb_stripe_lookup_paying_user_for_pi( $pi_id );
+    if ( ! $user_id ) {
+        // Fallback: aus Refund-Metadata (sofern Stripe sie mitkopiert hat).
+        $meta = isset( $obj['metadata'] ) && is_array( $obj['metadata'] ) ? $obj['metadata'] : array();
+        if ( ! empty( $meta['user_id'] ) ) $user_id = intval( $meta['user_id'] );
+    }
+    if ( ! $user_id ) return;
+
+    // 1) Bestehenden paid-Record als "refunded" markieren.
+    $paid = get_user_meta( $user_id, 'eb_stripe_paid', true );
+    if ( ! is_array( $paid ) ) $paid = array();
+    if ( isset( $paid[ $pi_id ] ) && is_array( $paid[ $pi_id ] ) ) {
+        $paid[ $pi_id ]['refund_status']    = $refund_status;
+        $paid[ $pi_id ]['refund_amount']    = $refund_amount_cents;
+        $paid[ $pi_id ]['refund_at']        = time();
+        $paid[ $pi_id ]['refund_event']     = $event_type;
+        $paid[ $pi_id ]['refund_id']        = $refund_id;
+        update_user_meta( $user_id, 'eb_stripe_paid', $paid );
+    }
+
+    // 2) Separater Refund-Bucket — wird beim nächsten /stripe/reconcile
+    //    an den Client geschickt, damit er die Karte zurückstuft + Toast zeigt.
+    $refunds = get_user_meta( $user_id, 'eb_stripe_refunds', true );
+    if ( ! is_array( $refunds ) ) $refunds = array();
+    $key = $refund_id ?: ( $pi_id . '_refund' );
+    $refunds[ $key ] = array(
+        'pi'         => $pi_id,
+        'refund_id'  => $refund_id,
+        'status'     => $refund_status,
+        'amount'     => $refund_amount_cents,
+        'card_id'    => isset( $paid[ $pi_id ]['card_id'] )    ? $paid[ $pi_id ]['card_id']    : '',
+        'project_id' => isset( $paid[ $pi_id ]['project_id'] ) ? $paid[ $pi_id ]['project_id'] : '',
+        'listing_id' => isset( $paid[ $pi_id ]['listing_id'] ) ? $paid[ $pi_id ]['listing_id'] : 0,
+        'title'      => isset( $paid[ $pi_id ]['title'] )      ? $paid[ $pi_id ]['title']      : '',
+        'refunded_at'=> time(),
+    );
+    // Alte Refunds >180 Tage bereinigen.
+    $cutoff = time() - 180 * 86400;
+    foreach ( $refunds as $rk => $rv ) {
+        if ( is_array( $rv ) && isset( $rv['refunded_at'] ) && $rv['refunded_at'] < $cutoff ) unset( $refunds[ $rk ] );
+    }
+    update_user_meta( $user_id, 'eb_stripe_refunds', $refunds );
+
+    // 3) Moderations-Nachricht in die Chats (Single Source of Truth = Plattform).
+    if ( function_exists( 'eb_admin_send_moderation_message' ) ) {
+        $amount_eur = number_format( $refund_amount_cents / 100, 2, ',', '.' );
+        $title      = ! empty( $paid[ $pi_id ]['title'] ) ? '„' . $paid[ $pi_id ]['title'] . '"' : '';
+        $body  = "Hallo,\n\n";
+        $body .= "deine Zahlung {$title} wurde erstattet ({$amount_eur} €).\n\n";
+        $body .= "Die Buchung wurde aus deinem Planungs-Board zurückgesetzt. Falls du dazu Fragen hast, antworte einfach auf diese Nachricht.";
+        // Wir senden NICHT mit dem aktuellen Admin (Webhook hat keinen)
+        // — eb_admin_send_moderation_message braucht get_current_user_id().
+        // Lösung: direkt System-Insert ohne Admin-Kontext.
+        eb_stripe_insert_system_message_to_user( $user_id, $body );
+    }
+
+    // Web-Push parallel zum System-Chat — sofortige Sichtbarkeit, auch
+    // wenn die App geschlossen ist.
+    if ( function_exists( 'eb_push_send_to_user' ) ) {
+        $amount_eur = number_format( $refund_amount_cents / 100, 2, ',', '.' );
+        $listing_title = ! empty( $paid[ $pi_id ]['title'] ) ? $paid[ $pi_id ]['title'] : 'Buchung';
+        eb_push_send_to_user( $user_id, array(
+            'title' => 'Zahlung erstattet',
+            'body'  => $listing_title . ' · ' . $amount_eur . ' €',
+            'url'   => home_url( '/board' ),
+            'tag'   => 'refund-' . $pi_id,
+        ) );
+    }
+}
+
+/**
+ * Webhook-Handler: charge.dispute.created / updated / closed
+ */
+function eb_stripe_webhook_handle_dispute( $obj, $event_type ) {
+    if ( ! is_array( $obj ) ) return;
+
+    $charge_id = (string) ( $obj['charge'] ?? '' );
+    $pi_id     = (string) ( $obj['payment_intent'] ?? '' );
+    if ( ! $pi_id && $charge_id && preg_match( '/^ch_[A-Za-z0-9_]+$/', $charge_id ) ) {
+        // PI aus Charge nachladen.
+        $sk = eb_load_env_value( 'private_stripe_api_key' );
+        if ( $sk ) {
+            $ch = curl_init( 'https://api.stripe.com/v1/charges/' . rawurlencode( $charge_id ) );
+            curl_setopt_array( $ch, array(
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_USERPWD        => $sk . ':',
+                CURLOPT_TIMEOUT        => 10,
+            ) );
+            $resp = curl_exec( $ch );
+            curl_close( $ch );
+            $charge = json_decode( $resp, true );
+            if ( is_array( $charge ) ) {
+                $pi_id = (string) ( $charge['payment_intent'] ?? '' );
+            }
+        }
+    }
+    if ( ! $pi_id ) return;
+
+    $user_id = eb_stripe_lookup_paying_user_for_pi( $pi_id );
+    if ( ! $user_id ) return;
+
+    $paid = get_user_meta( $user_id, 'eb_stripe_paid', true );
+    if ( ! is_array( $paid ) ) $paid = array();
+    if ( isset( $paid[ $pi_id ] ) && is_array( $paid[ $pi_id ] ) ) {
+        $paid[ $pi_id ]['dispute_status'] = (string) ( $obj['status'] ?? '' );
+        $paid[ $pi_id ]['dispute_reason'] = (string) ( $obj['reason'] ?? '' );
+        $paid[ $pi_id ]['dispute_at']     = time();
+        $paid[ $pi_id ]['dispute_event']  = $event_type;
+        update_user_meta( $user_id, 'eb_stripe_paid', $paid );
+    }
+
+    // Admins alarmieren (zentrale Adresse über admin_email).
+    $admin_email = get_option( 'admin_email' );
+    if ( $admin_email ) {
+        $title  = ! empty( $paid[ $pi_id ]['title'] ) ? $paid[ $pi_id ]['title'] : $pi_id;
+        $status = $obj['status']  ?? '';
+        $reason = $obj['reason']  ?? '';
+        $amount = isset( $obj['amount'] ) ? number_format( intval( $obj['amount'] ) / 100, 2, ',', '.' ) . ' €' : '';
+        $body  = "Stripe-Dispute eingegangen.\n\n";
+        $body .= "Buchung: {$title}\n";
+        $body .= "PI: {$pi_id}\n";
+        $body .= "Status: {$status} ({$event_type})\n";
+        $body .= "Grund: {$reason}\n";
+        $body .= "Betrag: {$amount}\n";
+        $body .= "User-ID: {$user_id}\n\n";
+        $body .= "Bitte zeitnah im Stripe Dashboard prüfen und Beweismittel hochladen.";
+        wp_mail( $admin_email, '[Eventbörse] Stripe-Dispute: ' . $title, $body );
+    }
+}
+
+/**
+ * Sucht den User, dem ein bestimmter Payment Intent zugeordnet ist —
+ * über das eb_stripe_paid-Meta. Vorraussetzung: PI wurde initial per
+ * payment_intent.succeeded oder checkout.session.completed verbucht.
+ */
+function eb_stripe_lookup_paying_user_for_pi( $pi_id ) {
+    if ( ! $pi_id ) return 0;
+    global $wpdb;
+    // Direkte SQL-Suche im Usermeta — Like-Search auf das serialisierte
+    // 'pi'-Feld. Schnell genug bei < 50k Usern; bei mehr → eigene Lookup-Tabelle.
+    $like = '%' . $wpdb->esc_like( $pi_id ) . '%';
+    $row  = $wpdb->get_var( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'eb_stripe_paid' AND meta_value LIKE %s LIMIT 1",
+        $like
+    ) );
+    return $row ? intval( $row ) : 0;
+}
+
+/**
+ * Findet/erstellt eine Konversation zwischen System-User (ID 0 fallback
+ * auf admin_email-User) und Empfänger und schreibt eine System-Notiz.
+ * Eigene Funktion, weil eb_admin_send_moderation_message
+ * get_current_user_id() braucht — das gibt es im Webhook nicht.
+ */
+function eb_stripe_insert_system_message_to_user( $user_id, $body ) {
+    global $wpdb;
+    $user_id = intval( $user_id );
+    if ( $user_id <= 0 || trim( $body ) === '' ) return false;
+
+    // Admin-User als Conversation-Partner ermitteln (für die UI-Anzeige).
+    $admin_user = get_user_by( 'email', get_option( 'admin_email' ) );
+    $admin_id   = $admin_user ? intval( $admin_user->ID ) : 0;
+    if ( $admin_id <= 0 ) {
+        // Fallback: ersten Administrator nehmen.
+        $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+        $admin_id = ! empty( $admins ) ? intval( $admins[0] ) : 0;
+    }
+    if ( $admin_id <= 0 || $admin_id === $user_id ) return false;
+
+    $conv_id = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}eb_conversations
+         WHERE (user_a = %d AND user_b = %d) OR (user_a = %d AND user_b = %d) LIMIT 1",
+        $admin_id, $user_id, $user_id, $admin_id
+    ) );
+    if ( ! $conv_id ) {
+        $wpdb->insert( $wpdb->prefix . 'eb_conversations', array(
+            'user_a'     => $admin_id,
+            'user_b'     => $user_id,
+            'updated_at' => current_time( 'mysql' ),
+        ) );
+        $conv_id = (int) $wpdb->insert_id;
+    } else {
+        $wpdb->update( $wpdb->prefix . 'eb_conversations', array( 'updated_at' => current_time( 'mysql' ) ), array( 'id' => $conv_id ) );
+    }
+    if ( ! $conv_id ) return false;
+
+    return (bool) $wpdb->insert( $wpdb->prefix . 'eb_messages', array(
+        'conversation_id' => $conv_id,
+        'sender_id'       => $admin_id,
+        'body'            => $body,
+        'msg_type'        => 'moderation',
+        'is_read'         => 0,
+        'created_at'      => current_time( 'mysql' ),
+    ) );
+}
+
+/**
  * Liefert ungesehene, per Webhook bestaetigte Zahlungen fuer den aktuellen User.
  * Client kann damit Karten markieren, die beim Tab-Close verpasst wurden.
  * Query-Param ?ack=pi_xxx,pi_yyy loescht Eintraege nach Verarbeitung.
@@ -6647,11 +7735,14 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
 function eb_stripe_reconcile( WP_REST_Request $request ) {
     $user = wp_get_current_user();
     if ( ! $user || ! $user->ID ) {
-        return new WP_REST_Response( array( 'items' => array() ), 200 );
+        return new WP_REST_Response( array( 'items' => array(), 'refunds' => array() ), 200 );
     }
     $uid = $user->ID;
 
-    $ack = $request->get_param( 'ack' );
+    $ack         = $request->get_param( 'ack' );
+    $ack_refunds = $request->get_param( 'ack_refunds' );
+
+    // Bezahlungen abquittieren
     if ( $ack ) {
         $ids = array_filter( array_map( 'trim', explode( ',', (string) $ack ) ) );
         $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
@@ -6661,12 +7752,36 @@ function eb_stripe_reconcile( WP_REST_Request $request ) {
             }
             update_user_meta( $uid, 'eb_stripe_paid', $existing );
         }
-        return new WP_REST_Response( array( 'ok' => true, 'acked' => array_values( $ids ) ), 200 );
+    }
+    // Refunds abquittieren (eigene Liste, damit Acks sich nicht überschreiben)
+    if ( $ack_refunds ) {
+        $rids = array_filter( array_map( 'trim', explode( ',', (string) $ack_refunds ) ) );
+        $rf   = get_user_meta( $uid, 'eb_stripe_refunds', true );
+        if ( is_array( $rf ) ) {
+            foreach ( $rids as $rid ) {
+                if ( isset( $rf[ $rid ] ) ) unset( $rf[ $rid ] );
+            }
+            update_user_meta( $uid, 'eb_stripe_refunds', $rf );
+        }
+    }
+    if ( $ack || $ack_refunds ) {
+        return new WP_REST_Response( array(
+            'ok'           => true,
+            'acked'        => $ack ? array_values( array_filter( array_map( 'trim', explode( ',', (string) $ack ) ) ) ) : array(),
+            'acked_refunds'=> $ack_refunds ? array_values( array_filter( array_map( 'trim', explode( ',', (string) $ack_refunds ) ) ) ) : array(),
+        ), 200 );
     }
 
     $existing = get_user_meta( $uid, 'eb_stripe_paid', true );
     if ( ! is_array( $existing ) ) $existing = array();
-    return new WP_REST_Response( array( 'items' => array_values( $existing ) ), 200 );
+
+    $refunds = get_user_meta( $uid, 'eb_stripe_refunds', true );
+    if ( ! is_array( $refunds ) ) $refunds = array();
+
+    return new WP_REST_Response( array(
+        'items'   => array_values( $existing ),
+        'refunds' => array_values( $refunds ),
+    ), 200 );
 }
 
 /**

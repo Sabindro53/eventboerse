@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Eventbörse – Dein Event-Marktplatz für Dienstleister</title>
   <meta name="description" content="Eventbörse.de – Finde DJs, Caterer, Fotografen, Floristen und mehr für dein Event. Der Marktplatz für Event-Dienstleister in Deutschland." />
   <meta name="keywords" content="Event, Marktplatz, DJ, Catering, Fotograf, Florist, Hochzeit, Party, Firmen-Event, Dienstleister" />
@@ -26,11 +26,16 @@
   <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
   <meta name="color-scheme" content="light dark" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Eventbörse" />
   <meta name="format-detection" content="telephone=no" />
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23FF385C'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='sans-serif' font-weight='bold' fill='white'%3EE%3C/text%3E%3C/svg%3E" />
+  <link rel="apple-touch-icon" href="/wp-content/themes/eventboerse/icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="152x152" href="/wp-content/themes/eventboerse/icons/icon-152.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/wp-content/themes/eventboerse/icons/icon-192.png" />
+  <link rel="manifest" href="/wp-content/themes/eventboerse/manifest.json" />
   <link rel="canonical" href="https://eventbörse.de" />
 
   <!-- Performance: Preconnect zu kritischen Drittanbietern -->
@@ -41,8 +46,8 @@
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
 
   <!-- Critical CSS first (render-blocking, but small) -->
-  <link rel="preload" href="styles.css?v=164" as="style" fetchpriority="high" />
-  <link rel="stylesheet" href="styles.css?v=164" />
+  <link rel="preload" href="styles.css?v=169" as="style" fetchpriority="high" />
+  <link rel="stylesheet" href="styles.css?v=169" />
 
   <!-- Fonts: async laden, vermeidet Render-Block (FOUT statt FOIT) -->
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
@@ -946,6 +951,7 @@
             <p id="detailProviderTag">&nbsp;</p>
           </div>
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
+          <button class="btn-outline btn-sm" onclick="shareListing()" title="Inserat teilen" aria-label="Inserat teilen"><span class="material-icons-round">share</span> Teilen</button>
           <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
         </div>
         <div class="detail-gallery" id="detailGallery">
@@ -1490,6 +1496,24 @@
         <h1 class="settings-title"><span class="material-icons-round">settings</span> Einstellungen</h1>
         <p class="settings-subtitle">Verwalte dein Konto, Sicherheit und Einstellungen.</p>
 
+        <!-- Push-Benachrichtigungen -->
+        <div class="settings-card" id="settingsPushCard">
+          <div class="settings-card-header">
+            <span class="material-icons-round">notifications_active</span>
+            <h2>Push-Benachrichtigungen</h2>
+          </div>
+          <p class="settings-field-hint">Bekomme sofort Bescheid bei neuen Nachrichten und Buchungs-Updates — auch wenn die App geschlossen ist.</p>
+          <div class="settings-row" style="margin-top:8px">
+            <button class="btn-primary" id="settingsPushEnableBtn" onclick="ebPromptPushPermission().then(_settingsRefreshPushUi)">
+              <span class="material-icons-round">notifications</span> Push aktivieren
+            </button>
+            <button class="btn-outline" id="settingsPushDisableBtn" style="display:none" onclick="ebUnsubscribePush().then(_settingsRefreshPushUi)">
+              <span class="material-icons-round">notifications_off</span> Push deaktivieren
+            </button>
+            <span id="settingsPushStatus" class="settings-pill"></span>
+          </div>
+        </div>
+
         <!-- Personal Info -->
         <div class="settings-card">
           <div class="settings-card-header">
@@ -1991,17 +2015,38 @@
         <h1 class="admin-title"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</h1>
         <p class="admin-subtitle">Benutzer verwalten, Inhalte moderieren.</p>
 
-        <div class="admin-search-bar">
-          <span class="material-icons-round">search</span>
-          <input type="text" id="adminUserSearch" placeholder="Benutzer suchen (Name, E-Mail)…" oninput="adminSearchUsers(this.value)">
+        <div class="admin-tabs" role="tablist">
+          <button class="admin-tab is-active" id="adminTabUsers" role="tab" aria-selected="true" onclick="adminSwitchTab('users')">
+            <span class="material-icons-round">people</span> Benutzer
+          </button>
+          <button class="admin-tab" id="adminTabListings" role="tab" aria-selected="false" onclick="adminSwitchTab('listings')">
+            <span class="material-icons-round">storefront</span> Inserate &amp; Bilder
+          </button>
         </div>
 
-        <div class="admin-stats" id="adminStats"></div>
+        <div class="admin-pane" id="adminPaneUsers">
+          <div class="admin-search-bar">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="adminUserSearch" placeholder="Benutzer suchen (Name, E-Mail)…" oninput="adminSearchUsers(this.value)">
+          </div>
 
-        <div class="admin-hide-demo-box" id="adminHideDemoBox"></div>
+          <div class="admin-stats" id="adminStats"></div>
 
-        <div class="admin-user-list" id="adminUserList">
-          <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>
+          <div class="admin-hide-demo-box" id="adminHideDemoBox"></div>
+
+          <div class="admin-user-list" id="adminUserList">
+            <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Benutzer…</div>
+          </div>
+        </div>
+
+        <div class="admin-pane" id="adminPaneListings" hidden>
+          <div class="admin-search-bar">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="adminListingSearch" placeholder="Inserat suchen (Titel, Ort, Besitzer)…" oninput="adminSearchListings(this.value)">
+          </div>
+          <div class="admin-listings" id="adminListings">
+            <div class="admin-loading"><span class="material-icons-round spin">sync</span> Lade Inserate…</div>
+          </div>
         </div>
       </div>
     </section>
@@ -3532,6 +3577,33 @@ Datum: ___________________________________________________
   <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
-  <script src="app.js?v=158" defer></script>
+  <script src="app.js?v=167" defer></script>
+  <script>
+    // PWA: Service Worker registrieren (nur HTTPS / localhost).
+    // Auto-Reload, wenn ein neuer SW aktiv wird — Nutzer landen ohne
+    // Refresh auf der neuesten Version.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
+          if (!reg) return;
+          reg.addEventListener('updatefound', function() {
+            var nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', function() {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch(_) {}
+              }
+            });
+          });
+        }).catch(function(){ /* SW optional — bei Fehler einfach ohne */ });
+        var _refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (_refreshing) return;
+          _refreshing = true;
+          window.location.reload();
+        });
+      });
+    }
+  </script>
 </body>
 </html>
