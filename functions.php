@@ -1308,10 +1308,16 @@ function eb_board_bookings_update_card( WP_REST_Request $request ) {
                 }
             }
             if ( $action === 'accept' ) {
+                // SECURITY: Vorher setzte 'accept' direkt stage='bestaetigt'
+                // + paidAt + paymentStatus='Bezahlt'. Damit konnte der
+                // Dienstleister jede Anfrage als bezahlt fixieren, ohne
+                // dass je eine Stripe-Zahlung lief — und der Anti-Downgrade-
+                // Schutz im board_save hat das danach permanent gemacht.
+                //
+                // Korrekt: 'accept' markiert NUR die Anbieter-Zustimmung
+                // (providerAcceptedAt). Die Stage-Promotion auf 'bestaetigt'
+                // gehört allein an den Stripe-Webhook (eb_stripe_record_payment).
                 $card['providerAcceptedAt'] = $now;
-                $card['stage']              = 'bestaetigt';
-                if ( empty( $card['paidAt'] ) ) $card['paidAt'] = $now;
-                if ( empty( $card['paymentStatus'] ) ) $card['paymentStatus'] = 'Bezahlt';
             } elseif ( $action === 'confirm' ) {
                 $card['providerConfirmedAt'] = $now;
                 if ( ! empty( $card['userConfirmedAt'] ) && ( $card['stage'] ?? '' ) === 'bestaetigt' ) {
@@ -3058,11 +3064,24 @@ function eb_register_extra_routes() {
         'permission_callback' => function() { return eb_is_admin_user(); },
     ) );
 
-    // Einmalig: Erster Admin kann sich selbst setzen wenn kein eb_admin existiert
+    // Einmalig-Bootstrap: setzt die initialen eb_admin-Metas auf die
+    // hardcodierten Owner-Emails. SECURITY-KRITISCH — vorher hatte der
+    // Endpoint nur is_user_logged_in, sodass JEDER eingeloggte Nutzer
+    // alle bestehenden Admins per Knopfdruck löschen konnte. Jetzt:
+    // entweder WP-Administrator ODER kein eb_admin existiert (echter
+    // Erst-Bootstrap nach Frisch-Install).
     register_rest_route( 'eventboerse/v1', '/admin/init', array(
         'methods'             => 'POST',
         'callback'            => 'eb_admin_init',
-        'permission_callback' => function() { return is_user_logged_in(); },
+        'permission_callback' => function() {
+            if ( ! is_user_logged_in() ) return false;
+            if ( current_user_can( 'manage_options' ) ) return true;
+            global $wpdb;
+            $exists = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
+            );
+            return $exists === 0;
+        },
     ) );
 
     register_rest_route( 'eventboerse/v1', '/admin/change-role', array(

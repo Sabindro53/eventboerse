@@ -1096,14 +1096,28 @@ const BLOCKED_PATTERNS = [
 ];
 
 // ========== VISIBLE LISTINGS ==========
+// Sichtbarkeitsregel: ECHTE DB-Inserate haben IMMER Vorrang. Demo-Inserate
+// erscheinen nur, solange die DB-Liste leer ist (frischer Stand, noch
+// keine Anbieter) — und auch dann nur, wenn nicht per Admin-Toggle
+// EB_HIDE_DEMO=true explizit ausgeblendet. Damit sehen Gäste nach Release
+// keine Pexels-Demo-Dienstleister mehr, sobald echte Inserate existieren.
 function _visibleListings() {
-  if (!isLoggedIn) return filterDemos(LISTINGS);
-  var dbItems = LISTINGS.filter(function(l) { return l._fromDb; });
-  return dbItems.length > 0 ? dbItems : filterDemos(LISTINGS);
+  var dbItems = (LISTINGS || []).filter(function(l) { return l && l._fromDb; });
+  if (dbItems.length > 0) return dbItems;
+  // Kein einziges DB-Listing → erst dann Demos (sofern erlaubt).
+  if (typeof window !== 'undefined' && window.EB_HIDE_DEMO) return [];
+  return filterDemos(LISTINGS);
 }
 
 function getHeroListings() {
+  var dbAll = (LISTINGS || []).filter(function(l){ return l && l._fromDb; });
+  // Wenn echte Inserate da sind → nur die. Nie mit Demos mischen.
+  if (dbAll.length > 0) {
+    var seen = new Set();
+    return dbAll.filter(function(l){ if (seen.has(l.id)) return false; seen.add(l.id); return true; });
+  }
   var all = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
+  if (typeof window !== 'undefined' && window.EB_HIDE_DEMO) return [];
   if (!isLoggedIn) return all;
 
   try {
@@ -4675,6 +4689,10 @@ function _startChatPoll() {
         // Update display
         currentChat.messages = messages;
         var msgContainer = document.getElementById('chatMessages');
+        // Race-Schutz: User kann während des Fetch auf eine andere Seite
+        // navigiert haben — der Chat-Container existiert dann nicht mehr.
+        // Vorher TypeError, der den Poll-Loop tötete und Folge-Updates fraß.
+        if (!msgContainer) return;
         var wasAtBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight < 80;
         window._cbcCancelled = _collectCancelledProjectNames(messages);
         msgContainer.innerHTML = (messages || []).map(function(msg) {
@@ -9122,7 +9140,30 @@ function renderAdminHideDemoToggle() {
     '<button class="admin-toggle-btn ' + (on ? 'is-on' : '') + '" onclick="adminToggleHideDemo()">' +
       '<span class="material-icons-round">' + (on ? 'visibility_off' : 'visibility') + '</span>' +
       (on ? 'Testdaten einblenden' : 'Testdaten ausblenden') +
+    '</button>' +
+    '<button class="admin-toggle-btn admin-test-push-btn" onclick="adminSendTestPush()" title="Sendet einen Test-Push an den eigenen Account">' +
+      '<span class="material-icons-round">notifications_active</span> Test-Push an mich' +
     '</button>';
+}
+
+/** Admin-Hilfsknopf: Test-Push an die eigenen Push-Subscriptions. */
+function adminSendTestPush() {
+  if (!currentUser || !currentUser.isAdmin) return;
+  fetch(_apiUrl('push/test'), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({
+      title: 'Eventbörse Test-Push',
+      body: 'Push-Setup funktioniert ✓',
+      url: window.location.origin + '/settings'
+    })
+  }).then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function(d){
+      var n = (d && d.sent) || 0;
+      if (n > 0) showToast('Test-Push gesendet (' + n + ' Gerät' + (n === 1 ? '' : 'e') + ').', 'check_circle');
+      else showToast('Keine Push-Subscription gefunden — erst in Einstellungen aktivieren.', 'info');
+    }).catch(function(){ showToast('Test-Push fehlgeschlagen.', 'error'); });
 }
 
 /** Toggle hide-demo-Flag — ruft Backend, aktualisiert window-Flag, re-rendert alle Listen. */
@@ -9451,6 +9492,7 @@ function _openImageModerationModal(listingId, imageUrl) {
       '</footer>' +
     '</div>';
   document.body.appendChild(overlay);
+  _ebTrapFocus(overlay, { onEscape: function(){ close(); } });
 
   var textarea = overlay.querySelector('#imgModReason');
   overlay.querySelectorAll('.imgmod-chip').forEach(function(btn) {
@@ -9463,7 +9505,7 @@ function _openImageModerationModal(listingId, imageUrl) {
     });
   });
 
-  function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+  function close() { _ebReleaseFocusTrap(overlay); overlay.remove(); document.removeEventListener('keydown', onKey); }
   function onKey(e) { if (e.key === 'Escape') close(); }
   document.addEventListener('keydown', onKey);
   overlay.querySelector('.imgmod-close').addEventListener('click', close);
@@ -12078,6 +12120,45 @@ function openModal(id) {
   }, 60);
 }
 
+/**
+ * Generischer Focus-Trap für beliebige Overlay-Elemente (z. B. Stripe-
+ * Payment-Modal, Image-Moderations-Modal), die NICHT über openModal()
+ * laufen. Pendant: _ebReleaseFocusTrap(overlay).
+ */
+function _ebTrapFocus(overlay, opts) {
+  if (!overlay || overlay._ebTrapHandler) return;
+  overlay._ebPrevFocus = document.activeElement;
+  function handler(e) {
+    if (!overlay.isConnected) return;
+    if (e.key === 'Escape' && opts && opts.onEscape) { opts.onEscape(); return; }
+    if (e.key !== 'Tab') return;
+    var nodes = overlay.querySelectorAll('a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    var list = Array.prototype.filter.call(nodes, function(n) { return n.offsetParent !== null; });
+    if (!list.length) return;
+    var first = list[0], last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+  overlay._ebTrapHandler = handler;
+  document.addEventListener('keydown', handler);
+  // Ersten fokussierbaren anspringen.
+  setTimeout(function() {
+    var n = overlay.querySelector('button:not([disabled]), input:not([type=hidden]):not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (n) try { n.focus({ preventScroll: true }); } catch(_) {}
+  }, 40);
+}
+function _ebReleaseFocusTrap(overlay) {
+  if (!overlay) return;
+  if (overlay._ebTrapHandler) {
+    document.removeEventListener('keydown', overlay._ebTrapHandler);
+    overlay._ebTrapHandler = null;
+  }
+  if (overlay._ebPrevFocus && typeof overlay._ebPrevFocus.focus === 'function') {
+    try { overlay._ebPrevFocus.focus({ preventScroll: true }); } catch(_) {}
+    overlay._ebPrevFocus = null;
+  }
+}
+
 function _ebActivateFocusTrap(modal) {
   if (modal._ebTrapHandler) document.removeEventListener('keydown', modal._ebTrapHandler);
   function handler(e) {
@@ -12592,7 +12673,7 @@ function _initDetailGallerySwipe() {
       _detailGalleryIdx = idx;
       _updateDetailGalleryUI();
     }
-  });
+  }, { passive: true });
 
   // Mouse drag
   track.addEventListener('mousedown', function(e) {
@@ -16251,8 +16332,12 @@ function _reconcileStripePayments() {
             }
             refunded++;
           }
+          // Nur abquittieren, wenn die Karte lokal vorhanden war. Sonst
+          // (z. B. anderes Gerät, leerer LocalStorage) bleibt der Refund
+          // serverseitig liegen und wird bei der nächsten Sync-Runde,
+          // sobald die Karte da ist, korrekt angewendet.
+          ackedRefunds.push(rf.refund_id || (rf.pi + '_refund'));
         }
-        ackedRefunds.push(rf.refund_id || (rf.pi + '_refund'));
       });
 
       if (matched || refunded) {
@@ -16954,10 +17039,12 @@ function _openExternalCheckout(opts) {
       '</div>' +
     '</div>';
   document.body.appendChild(ov);
+  _ebTrapFocus(ov, { onEscape: function(){ onCancel(); } });
 
   var pollTimer = null;
   function cleanup() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    _ebReleaseFocusTrap(ov);
     ov.remove();
   }
   function onCancel() {
@@ -17141,8 +17228,10 @@ function _openStripePaymentModal(opts) {
     '</div>';
   document.body.appendChild(ov);
   document.body.style.overflow = 'hidden';
+  _ebTrapFocus(ov, { onEscape: function(){ try { onClose(false); } catch(_) { ov.remove(); document.body.style.overflow = ''; } } });
 
   function cleanup() {
+    _ebReleaseFocusTrap(ov);
     try { document.body.removeChild(ov); } catch(e) {}
     document.body.style.overflow = '';
   }
