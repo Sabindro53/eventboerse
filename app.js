@@ -21366,6 +21366,91 @@ function _r3dInitHeroOrbs() {
   }
 }
 
+/* ── App-Teaser Phone: Scroll-getriebene Rotation ──
+   Das Handy am Ende der Startseite dreht sich proportional zur Scroll-
+   Position im sichtbaren Bereich seiner Sektion. Reduziert auf reine
+   transform-Variablen-Updates (kein Reflow, GPU-komponiert). Stoppt
+   automatisch, wenn die Sektion außer Sicht ist (kein Battery-Drain).
+*/
+(function _initAppTeaserPhone() {
+  if (typeof document === 'undefined') return;
+
+  function startWhenReady() {
+    var section = document.getElementById('ebAppTeaser');
+    var phone = section && section.querySelector('.eb-phone');
+    if (!section || !phone) return false;
+    if (phone.dataset.spinBound === '1') return true;
+    phone.dataset.spinBound = '1';
+
+    var reduced = false;
+    try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(_) {}
+    if (reduced) return true; // CSS hält rotateY/X auf 0
+
+    var ticking = false;
+    var visible = false;
+
+    function update() {
+      ticking = false;
+      if (!visible) return;
+      var rect = section.getBoundingClientRect();
+      var vh = window.innerHeight || document.documentElement.clientHeight || 800;
+      // Fortschritt: 0 wenn Sektion gerade von unten auftaucht,
+      // 1 wenn ihre Mitte den Viewport verlassen hat.
+      var sectionH = rect.height || 1;
+      var top = rect.top;
+      // Mitte der Sektion relativ zur Viewport-Mitte
+      var center = top + sectionH / 2;
+      var distance = (vh / 2) - center; // <0: noch nicht erreicht; >0: vorbei
+      var maxDist = (vh + sectionH) / 2;
+      var progress = Math.max(-1, Math.min(1, distance / maxDist)); // -1..1
+      // Phone dreht von +25° (auftauchend von unten/rechts) über 0°
+      // (Mitte) zu -25° (verschwindet nach oben/links).
+      var roty = (-progress * 28) - 8; // Basis-Twist nach links damit's "lebt"
+      var rotx = Math.max(-6, Math.min(8, progress * 8));
+      phone.style.setProperty('--ebp-roty', roty.toFixed(2) + 'deg');
+      phone.style.setProperty('--ebp-rotx', rotx.toFixed(2) + 'deg');
+    }
+
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+
+    // Nur lauschen, wenn Sektion sichtbar ist (Battery-friendly)
+    if (window.IntersectionObserver) {
+      var io = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          visible = e.isIntersecting;
+          if (visible) {
+            window.addEventListener('scroll', onScroll, { passive: true });
+            update();
+          } else {
+            window.removeEventListener('scroll', onScroll);
+          }
+        });
+      }, { threshold: [0, 0.1, 0.5, 0.9, 1] });
+      io.observe(section);
+    } else {
+      visible = true;
+      window.addEventListener('scroll', onScroll, { passive: true });
+      update();
+    }
+    // Initial einmal rechnen, falls Sektion bereits im Viewport
+    setTimeout(update, 100);
+    return true;
+  }
+
+  if (document.readyState !== 'loading') {
+    // Sektion existiert evtl. erst nach SPA-Page-Wechsel — retry
+    if (!startWhenReady()) setTimeout(startWhenReady, 400);
+  } else {
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!startWhenReady()) setTimeout(startWhenReady, 400);
+    });
+  }
+})();
+
 // Auto-Init nach DOM-Ready (defer-Script → DOM steht schon).
 if (document.readyState !== 'loading') {
   setTimeout(initScrollMotion3D, 80);

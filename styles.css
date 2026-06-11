@@ -15248,3 +15248,292 @@ body.dark-mode {
   .eb-r3d { opacity: 1 !important; transition: none !important; }
   .eb-orb { animation: none !important; }
 }
+
+/* =====================================================================
+   EB-APP-TEASER — Rotierendes Handy-Mockup ganz unten auf der Startseite
+   ===================================================================== */
+
+.eb-app-teaser {
+  position: relative;
+  margin: 80px 0 40px;
+  padding: 48px 24px 64px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.eb-app-teaser-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(255, 56, 92, 0.18), transparent 55%),
+    radial-gradient(ellipse at 80% 80%, rgba(108, 71, 255, 0.18), transparent 55%),
+    radial-gradient(ellipse at 60% 30%, rgba(0, 226, 197, 0.10), transparent 60%);
+  z-index: -1;
+}
+.eb-app-teaser-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 360px);
+  gap: 56px;
+  align-items: center;
+}
+.eb-app-teaser-copy { max-width: 540px; }
+.eb-app-teaser-eyebrow {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--primary, #FF385C), #6c47ff);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+}
+.eb-app-teaser h2 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.15;
+  font-weight: 800;
+  margin: 0 0 16px;
+  color: var(--dark, #222);
+}
+.eb-app-teaser-grad {
+  background: linear-gradient(135deg, #FF385C, #6c47ff 50%, #00e2c5);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.eb-app-teaser p {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--text-light, #555);
+  margin: 0 0 22px;
+}
+.eb-app-teaser-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.eb-app-teaser-bullets li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: var(--text, #222);
+}
+.eb-app-teaser-bullets .material-icons-round {
+  color: var(--primary, #FF385C);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.eb-app-teaser-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.eb-app-cta-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.98rem;
+  padding: 14px 22px;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(255, 56, 92, 0.32);
+}
+.eb-app-teaser-cta small {
+  color: var(--text-light, #777);
+  font-size: 0.82rem;
+}
+
+/* ── Phone Stage ── */
+.eb-phone-stage {
+  position: relative;
+  width: 280px;
+  height: 580px;
+  margin: 0 auto;
+  perspective: 1400px;
+  /* 3D-Kontext IST auf .eb-phone-stage NICHT auf Container in der Browse-
+     Grid (Phone-Stage ist position:static im Grid-Slot, hat keine Kinder
+     mit fixed/sticky → kein Layout-Risiko). */
+}
+.eb-phone {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 38px;
+  background: linear-gradient(155deg, #1c1c2a 0%, #0d0d18 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.08),
+    0 30px 70px rgba(0, 0, 0, 0.45),
+    0 8px 24px rgba(255, 56, 92, 0.18);
+  /* Rotation wird per CSS-Variable von JS gesetzt — bei reduced-motion
+     bleibt sie 0. Light-Y-Achsen-Drehung lässt das Phone "leben". */
+  transform: rotateY(var(--ebp-roty, -12deg)) rotateX(var(--ebp-rotx, 4deg));
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+.eb-phone-notch {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 24px;
+  background: #000;
+  border-radius: 14px;
+  z-index: 3;
+}
+.eb-phone-screen {
+  position: absolute;
+  inset: 14px;
+  border-radius: 28px;
+  background: var(--bg, #fff);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+}
+.eb-phone-reflection {
+  position: absolute;
+  inset: 0;
+  border-radius: 38px;
+  pointer-events: none;
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.15) 0%, transparent 35%, transparent 65%, rgba(255, 255, 255, 0.08) 100%);
+  mix-blend-mode: screen;
+  z-index: 4;
+}
+.eb-phone-shadow {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 75%;
+  height: 36px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.35), transparent 70%);
+  filter: blur(8px);
+  z-index: -1;
+}
+
+/* ── Inhalt des Phone-Screens (nachgebaute Startseite) ── */
+.eb-pm-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 36px 14px 8px;
+  flex-shrink: 0;
+}
+.eb-pm-logo {
+  font-weight: 800;
+  font-size: 14px;
+  background: linear-gradient(135deg, #FF385C, #6c47ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.eb-pm-nav .material-icons-round {
+  font-size: 18px;
+  color: var(--text-light, #888);
+}
+.eb-pm-hero {
+  padding: 0 14px 10px;
+  flex-shrink: 0;
+}
+.eb-pm-hero-title {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.25;
+  margin-bottom: 8px;
+  color: var(--dark, #222);
+}
+.eb-pm-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-alt, #f5f5f7);
+  border: 1px solid var(--border-light, #e5e5ea);
+  border-radius: 18px;
+  padding: 8px 12px;
+  font-size: 10px;
+  color: var(--text-light, #888);
+}
+.eb-pm-search .material-icons-round { font-size: 14px; }
+.eb-pm-chips {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px 6px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.eb-pm-chip {
+  background: var(--bg-alt, #f5f5f7);
+  color: var(--text, #333);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.eb-pm-chip.is-active {
+  background: var(--primary, #FF385C);
+  color: #fff;
+}
+.eb-pm-card {
+  display: flex;
+  gap: 10px;
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+.eb-pm-card-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.eb-pm-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.eb-pm-card-title { font-weight: 700; font-size: 11px; color: var(--dark, #222); }
+.eb-pm-card-meta { font-size: 9.5px; color: var(--text-light, #888); }
+.eb-pm-bnav {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 10px 0 16px;
+  border-top: 1px solid var(--border-light, #eee);
+  background: var(--bg, #fff);
+  flex-shrink: 0;
+}
+.eb-pm-bnav .material-icons-round {
+  font-size: 18px;
+  color: var(--text-light, #999);
+}
+.eb-pm-bnav .material-icons-round:first-child { color: var(--primary, #FF385C); }
+body.dark-mode .eb-pm-search { background: #1a1a26; border-color: rgba(255,255,255,0.08); }
+body.dark-mode .eb-pm-chip { background: #1a1a26; color: #d8d8e2; }
+body.dark-mode .eb-pm-bnav { background: var(--bg, #14141f); border-top-color: rgba(255,255,255,0.08); }
+
+/* ── Mobile-Layout: Phone unter dem Text ── */
+@media (max-width: 768px) {
+  .eb-app-teaser { padding: 32px 16px 48px; margin-top: 40px; }
+  .eb-app-teaser-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    text-align: center;
+  }
+  .eb-app-teaser-bullets li { justify-content: center; }
+  .eb-app-teaser-cta { align-items: center; }
+  .eb-phone-stage { width: 240px; height: 500px; }
+  .eb-phone { border-radius: 32px; transform: rotateY(var(--ebp-roty, -8deg)) rotateX(var(--ebp-rotx, 2deg)); }
+}
+
+/* Reduced motion: keine Rotation, ruhiges Standbild */
+@media (prefers-reduced-motion: reduce) {
+  .eb-phone {
+    transform: rotateY(0) rotateX(0) !important;
+    transition: none !important;
+  }
+}

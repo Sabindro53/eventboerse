@@ -1313,6 +1313,79 @@ $asset_ver = '2.5.1'; // cache-bust;
       <div class="hero-marquee hero-marquee-below">
         <div class="hero-marquee-track"></div>
       </div>
+
+      <!-- App-Teaser: rotierendes Handy-Mockup ganz unten auf der Startseite -->
+      <section class="eb-app-teaser" id="ebAppTeaser" aria-labelledby="ebAppTeaserTitle">
+        <div class="eb-app-teaser-bg" aria-hidden="true"></div>
+        <div class="eb-app-teaser-grid">
+          <div class="eb-app-teaser-copy">
+            <span class="eb-app-teaser-eyebrow">Bald auch als App</span>
+            <h2 id="ebAppTeaserTitle">
+              Plane deine Hochzeit<br>
+              <span class="eb-app-teaser-grad">unterwegs</span> mit Eventbörse.de
+            </h2>
+            <p>Alle Dienstleister, Anfragen, Zahlungen und dein Planungs-Board – ab Sommer 2026 auch als App für iOS und Android. Vormerken und als Erster bekommen.</p>
+            <ul class="eb-app-teaser-bullets">
+              <li><span class="material-icons-round">bolt</span> Sofortbuchung mit einem Tap</li>
+              <li><span class="material-icons-round">notifications_active</span> Push-Nachrichten von deinen Dienstleistern</li>
+              <li><span class="material-icons-round">view_kanban</span> Dein Planungs-Board immer dabei</li>
+            </ul>
+            <div class="eb-app-teaser-cta">
+              <button class="btn-primary eb-app-cta-btn" onclick="ebPromptPushPermission&amp;&amp;ebPromptPushPermission()" type="button">
+                <span class="material-icons-round">notifications</span> Per Push erinnern lassen
+              </button>
+              <small>Wir benachrichtigen dich, sobald die App im Store ist.</small>
+            </div>
+          </div>
+
+          <div class="eb-phone-stage" aria-hidden="true">
+            <div class="eb-phone">
+              <div class="eb-phone-notch"></div>
+              <div class="eb-phone-screen">
+                <div class="eb-pm-nav">
+                  <div class="eb-pm-logo">Eventbörse</div>
+                  <span class="material-icons-round">favorite_border</span>
+                </div>
+                <div class="eb-pm-hero">
+                  <div class="eb-pm-hero-title">Finde deinen Event-Dienstleister</div>
+                  <div class="eb-pm-search">
+                    <span class="material-icons-round">search</span>
+                    <span>DJ, Hochzeit, Berlin …</span>
+                  </div>
+                </div>
+                <div class="eb-pm-chips">
+                  <span class="eb-pm-chip is-active">DJ</span>
+                  <span class="eb-pm-chip">Catering</span>
+                  <span class="eb-pm-chip">Foto</span>
+                  <span class="eb-pm-chip">Locati…</span>
+                </div>
+                <div class="eb-pm-card">
+                  <div class="eb-pm-card-img" style="background:linear-gradient(135deg,#FF385C,#6c47ff)"></div>
+                  <div class="eb-pm-card-body">
+                    <div class="eb-pm-card-title">DJ SoundMaster</div>
+                    <div class="eb-pm-card-meta">Berlin · ★ 4.9</div>
+                  </div>
+                </div>
+                <div class="eb-pm-card">
+                  <div class="eb-pm-card-img" style="background:linear-gradient(135deg,#00e2c5,#6c47ff)"></div>
+                  <div class="eb-pm-card-body">
+                    <div class="eb-pm-card-title">Gourmet Catering</div>
+                    <div class="eb-pm-card-meta">Hamburg · ★ 4.8</div>
+                  </div>
+                </div>
+                <div class="eb-pm-bnav">
+                  <span class="material-icons-round">search</span>
+                  <span class="material-icons-round">view_kanban</span>
+                  <span class="material-icons-round">chat</span>
+                  <span class="material-icons-round">person</span>
+                </div>
+              </div>
+              <div class="eb-phone-reflection" aria-hidden="true"></div>
+            </div>
+            <div class="eb-phone-shadow" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
     </section>
 
     <!-- ============ PAGE: LISTING DETAIL ============ -->
