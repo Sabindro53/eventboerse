@@ -21132,6 +21132,176 @@ function _initAnimatedEntries() {
 })();
 
 // =========================================================
+// ====== EB-MOTION-3D: Scroll-getriebene 3D-Animationen ===
+// =========================================================
+// Additive Schicht: dekoriert bestehende Karten/Sektionen automatisch
+// (MutationObserver) mit Reveal-Varianten, Pointer-Tilt und Parallax.
+// Ändert KEINE Render-Funktionen und keinen App-State. Komplett aus bei
+// prefers-reduced-motion oder fehlendem IntersectionObserver.
+
+var _r3dObserver = null;
+var _r3dMutObserver = null;
+var _r3dIdxCounters = {}; // pro Container fortlaufender Stagger-Index
+
+function _r3dReducedMotion() {
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch(_) { return false; }
+}
+
+/* Welche Selektoren bekommen welchen Effekt. Reihenfolge = Priorität. */
+var _R3D_RULES = [
+  { sel: '.listing-card',        variant: 'alt',     tilt: true  },
+  { sel: '.feed-card',           variant: 'rise',    tilt: false },
+  { sel: '.feed-post-card',      variant: 'alt',     tilt: true  },
+  { sel: '.board-project-card',  variant: 'zoom',    tilt: true  },
+  { sel: '.admin-listing-card',  variant: 'rise',    tilt: false },
+  { sel: '.kanban-column',       variant: 'rise',    tilt: false },
+  { sel: '.tl-card',             variant: 'flip-up', tilt: false },
+  { sel: '.detail-gallery',      variant: 'self',    tilt: false },
+  { sel: '.booking-card',        variant: 'self',    tilt: false },
+  { sel: '.review-card',         variant: 'rise',    tilt: false },
+  { sel: '.settings-card',       variant: 'rise',    tilt: false },
+  { sel: '.admin-stat',          variant: 'flip-up', tilt: false }
+];
+
+function _r3dPickVariant(rule, el) {
+  if (rule.variant === 'self') return el.classList.contains('booking-card') ? 'tilt-r' : 'zoom';
+  if (rule.variant === 'alt') {
+    // Links/rechts alternierend nach Position im Eltern-Container.
+    var idx = 0, sib = el;
+    while ((sib = sib.previousElementSibling)) idx++;
+    return idx % 2 === 0 ? 'tilt-l' : 'tilt-r';
+  }
+  return rule.variant;
+}
+
+function _r3dDecorate(root) {
+  if (!_r3dObserver) return;
+  root = root && root.querySelectorAll ? root : document;
+  _R3D_RULES.forEach(function(rule) {
+    var nodes;
+    try { nodes = root.querySelectorAll(rule.sel + ':not(.eb-r3d):not(.in-view)'); } catch(_) { return; }
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      // Bereits sichtbare ALTE Inhalte nicht verstecken: nur Elemente
+      // dekorieren, die (noch) unterhalb des Viewports liegen oder frisch
+      // eingefügt wurden. Grobe Heuristik: rect.top > 40px unterhalb der
+      // Fold ODER Element ist <300ms alt (frisch gerendert).
+      el.classList.add('eb-r3d');
+      el.setAttribute('data-r3d', _r3dPickVariant(rule, el));
+      // Stagger-Index pro Eltern-Container (max 8, sonst wartet man ewig)
+      var pKey = (el.parentElement && (el.parentElement.id || el.parentElement.className)) || 'root';
+      _r3dIdxCounters[pKey] = ((_r3dIdxCounters[pKey] || 0) % 8) + 1;
+      el.style.setProperty('--r3d-idx', String(_r3dIdxCounters[pKey] - 1));
+      if (rule.tilt) el.classList.add('eb-tilt');
+      _r3dObserver.observe(el);
+    }
+  });
+}
+
+function initScrollMotion3D() {
+  if (_r3dReducedMotion()) return;
+  if (!window.IntersectionObserver || !window.MutationObserver) return;
+  if (_r3dObserver) return; // schon initialisiert
+
+  _r3dObserver = new IntersectionObserver(function(records) {
+    records.forEach(function(r) {
+      if (r.isIntersecting) {
+        r.target.classList.add('in-view');
+        _r3dObserver.unobserve(r.target);
+        // will-change nach Transition-Ende freigeben (GPU-RAM auf Mobile).
+        setTimeout(function(){ try { r.target.classList.add('r3d-done'); } catch(_) {} }, 1400);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' });
+
+  // Bestehendes DOM dekorieren + auf SPA-Re-Renders lauschen.
+  _r3dDecorate(document);
+  var rafPending = false;
+  _r3dMutObserver = new MutationObserver(function() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(function() {
+      rafPending = false;
+      _r3dDecorate(document);
+    });
+  });
+  _r3dMutObserver.observe(document.body, { childList: true, subtree: true });
+
+  _r3dInitPointerTilt();
+  _r3dInitHeroOrbs();
+}
+
+/* Pointer-Tilt: EIN delegierter mousemove-Listener für alle .eb-tilt-
+   Karten — kein Listener-Leak bei Re-Renders. rAF-gedrosselt. */
+function _r3dInitPointerTilt() {
+  var fine;
+  try { fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch(_) { fine = false; }
+  if (!fine) return;
+
+  var activeEl = null;
+  var pending = false;
+  var lastEvt = null;
+
+  function applyTilt() {
+    pending = false;
+    if (!activeEl || !lastEvt) return;
+    var rect = activeEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    var px = (lastEvt.clientX - rect.left) / rect.width;   // 0..1
+    var py = (lastEvt.clientY - rect.top) / rect.height;   // 0..1
+    var maxDeg = 7;
+    var ry = ((px - 0.5) * 2) * maxDeg;       // links/rechts
+    var rx = ((0.5 - py) * 2) * maxDeg * 0.7; // oben/unten (gedämpft)
+    activeEl.style.setProperty('--tilt-x', rx.toFixed(2) + 'deg');
+    activeEl.style.setProperty('--tilt-y', ry.toFixed(2) + 'deg');
+    activeEl.style.setProperty('--tilt-z', '12px');
+    activeEl.style.setProperty('--tilt-gx', ((px - 0.5) * rect.width * 0.6).toFixed(0) + 'px');
+    activeEl.style.setProperty('--tilt-gy', ((py - 0.5) * rect.height * 0.6).toFixed(0) + 'px');
+  }
+  function resetTilt(el) {
+    if (!el) return;
+    el.classList.remove('tilting');
+    el.style.setProperty('--tilt-x', '0deg');
+    el.style.setProperty('--tilt-y', '0deg');
+    el.style.setProperty('--tilt-z', '0px');
+  }
+
+  document.addEventListener('mousemove', function(e) {
+    var t = e.target && e.target.closest ? e.target.closest('.eb-tilt') : null;
+    if (t !== activeEl) {
+      resetTilt(activeEl);
+      activeEl = t;
+      if (activeEl) activeEl.classList.add('tilting');
+    }
+    if (!activeEl) return;
+    lastEvt = e;
+    if (!pending) { pending = true; requestAnimationFrame(applyTilt); }
+  }, { passive: true });
+
+  document.addEventListener('mouseleave', function() { resetTilt(activeEl); activeEl = null; }, { passive: true });
+}
+
+/* Schwebende Farb-Orbs im Browse-Hero — reine Deko hinter dem Content. */
+function _r3dInitHeroOrbs() {
+  var hero = document.querySelector('.browse-hero');
+  if (!hero || hero.querySelector('.eb-orb')) return;
+  for (var i = 1; i <= 3; i++) {
+    var orb = document.createElement('div');
+    orb.className = 'eb-orb eb-orb-' + i;
+    orb.setAttribute('aria-hidden', 'true');
+    hero.appendChild(orb);
+  }
+}
+
+// Auto-Init nach DOM-Ready (defer-Script → DOM steht schon).
+if (document.readyState !== 'loading') {
+  setTimeout(initScrollMotion3D, 80);
+} else {
+  document.addEventListener('DOMContentLoaded', function() { setTimeout(initScrollMotion3D, 80); });
+}
+
+// =========================================================
 // ========= EVENT CONNECTIONS (Profile) ===================
 // =========================================================
 

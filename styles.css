@@ -15195,3 +15195,133 @@ body.dark-mode {
    (Zurück/Sync) rückt nach oben, das Board bekommt die volle Fläche. */
 .board-single-view .board-page-header { margin-bottom: 10px; align-items: center; }
 .board-single-view .board-page-header-actions { margin-left: 0; }
+
+/* =====================================================================
+   EB-MOTION-3D — Scroll-getriebene 3D-Animationen (additiv)
+   ---------------------------------------------------------------------
+   Dekoriert bestehende Karten/Sektionen mit Reveal-, Tilt- und Depth-
+   Effekten. Rein transform/opacity-basiert (GPU-komponiert, kein Reflow).
+   JS-Gegenstück: initScrollMotion3D() in app.js. Alles wird über
+   prefers-reduced-motion vollständig deaktiviert.
+   ===================================================================== */
+
+/* Perspektiven-Kontext auf den Listen-Containern, damit Kinder echtes
+   3D-Gefühl bekommen (rotateX/rotateY wirken sonst flach). */
+.browse-grid, .feed-list, .explore-grid, .board-projects-grid,
+.kanban-board, .admin-listings, #feedList, #browseGrid {
+  perspective: 1200px;
+  perspective-origin: 50% 30%;
+}
+
+/* ── Reveal-Basis: unsichtbar + räumlich versetzt, bis .in-view ── */
+.eb-r3d {
+  opacity: 0;
+  will-change: transform, opacity;
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--r3d-idx, 0) * 70ms);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+.eb-r3d.in-view {
+  opacity: 1;
+  transform: none;
+}
+/* Nach dem Reveal will-change freigeben (Speicher!) — über Animationsende
+   hinaus gehaltene will-change-Layer fressen GPU-RAM auf Mobile. */
+.eb-r3d.in-view.r3d-done { will-change: auto; }
+
+/* Varianten — gesetzt via data-r3d Attribut */
+.eb-r3d[data-r3d="rise"]    { transform: translate3d(0, 42px, -60px) rotateX(7deg); }
+.eb-r3d[data-r3d="tilt-l"]  { transform: translate3d(-36px, 24px, -40px) rotateY(9deg) rotateX(4deg); }
+.eb-r3d[data-r3d="tilt-r"]  { transform: translate3d(36px, 24px, -40px) rotateY(-9deg) rotateX(4deg); }
+.eb-r3d[data-r3d="zoom"]    { transform: translate3d(0, 18px, -120px) scale(0.92); }
+.eb-r3d[data-r3d="flip-up"] { transform: translate3d(0, 30px, 0) rotateX(18deg); transform-origin: 50% 100%; }
+.eb-r3d[data-r3d="depth"]   { transform: translate3d(0, 10px, -200px); }
+
+/* ── Pointer-Tilt (nur Desktop / feine Zeiger) ──
+   JS setzt --tilt-x/--tilt-y; Karte folgt der Maus in 3D. */
+@media (hover: hover) and (pointer: fine) {
+  .eb-tilt {
+    position: relative; /* Anker für den ::after-Glanzreflex */
+    transform:
+      perspective(900px)
+      rotateX(var(--tilt-x, 0deg))
+      rotateY(var(--tilt-y, 0deg))
+      translateZ(var(--tilt-z, 0px));
+    transition: transform 0.18s ease-out, box-shadow 0.25s ease;
+    transform-style: preserve-3d;
+  }
+  .eb-tilt.tilting {
+    transition: transform 0.06s linear;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.16), 0 8px 16px rgba(227,28,95,0.10);
+    z-index: 2;
+  }
+  /* Glanz-Effekt: leichter Lichtreflex der mitwandert */
+  .eb-tilt::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle at calc(50% + var(--tilt-gx, 0px)) calc(40% + var(--tilt-gy, 0px)),
+      rgba(255,255,255,0.13), transparent 55%
+    );
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .eb-tilt.tilting::after { opacity: 1; }
+}
+
+/* ── Scroll-Parallax: Elemente schweben mit unterschiedlicher Tiefe ── */
+.eb-parallax {
+  will-change: transform;
+  transform: translate3d(0, var(--plx-y, 0px), 0);
+}
+
+/* ── Kanban: Spalten staffeln sich beim Board-Öffnen in die Tiefe ── */
+.kanban-column.eb-r3d[data-r3d="rise"] { transform: translate3d(0, 50px, -90px) rotateX(9deg); }
+
+/* ── Sektions-Titel: dezenter Flip aus der Tiefe ── */
+h2.eb-r3d, .section-title.eb-r3d, .browse-section-title.eb-r3d {
+  transform-origin: 50% 100%;
+}
+
+/* ── Detail-Seite: Galerie + Buchungskarte schweben ein ── */
+.detail-gallery.eb-r3d   { transform: translate3d(0, 26px, -80px) scale(0.97); }
+.booking-card.eb-r3d     { transform: translate3d(40px, 0, -60px) rotateY(-7deg); }
+
+/* ── Schwebende Akzent-Orbs im Browse-Hero (reine Deko, pointer-events none) ── */
+.browse-hero { transform-style: preserve-3d; }
+.eb-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(42px);
+  opacity: 0.4;
+  z-index: 1;
+  will-change: transform;
+  animation: ebOrbFloat 14s ease-in-out infinite alternate;
+}
+.eb-orb-1 { width: 280px; height: 280px; left: -60px;  top: 8%;  background: radial-gradient(circle, rgba(255,56,92,0.55), transparent 70%); animation-duration: 16s; }
+.eb-orb-2 { width: 220px; height: 220px; right: -40px; top: 30%; background: radial-gradient(circle, rgba(108,71,255,0.5), transparent 70%);  animation-duration: 13s; animation-delay: -4s; }
+.eb-orb-3 { width: 170px; height: 170px; left: 35%;    bottom: -30px; background: radial-gradient(circle, rgba(0,226,197,0.45), transparent 70%); animation-duration: 18s; animation-delay: -8s; }
+@keyframes ebOrbFloat {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(28px, -34px, 0) scale(1.12); }
+}
+
+/* ── Reduced Motion: ALLES aus, Inhalte sofort sichtbar ── */
+@media (prefers-reduced-motion: reduce) {
+  .eb-r3d {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .eb-tilt { transform: none !important; transition: none !important; }
+  .eb-tilt::after { display: none !important; }
+  .eb-parallax { transform: none !important; }
+  .eb-orb { animation: none !important; }
+}
