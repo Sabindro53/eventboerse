@@ -15254,6 +15254,15 @@ body.dark-mode {
     transform-style: preserve-3d;
   }
   .eb-tilt.tilting {
+    /* Transform hier DOPPELT deklariert: .listing-card:hover &
+       .board-project-card:hover setzen eigene transforms mit Spezifität
+       0,2,0 — .eb-tilt allein (0,1,0) würde verlieren. .eb-tilt.tilting
+       zieht gleich und gewinnt über die Cascade-Reihenfolge. */
+    transform:
+      perspective(900px)
+      rotateX(var(--tilt-x, 0deg))
+      rotateY(var(--tilt-y, 0deg))
+      translateZ(var(--tilt-z, 0px));
     transition: transform 0.06s linear;
     box-shadow: 0 24px 48px rgba(0,0,0,0.16), 0 8px 16px rgba(227,28,95,0.10);
     z-index: 2;

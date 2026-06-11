@@ -1338,6 +1338,27 @@ function eb_board_bookings_update_card( WP_REST_Request $request ) {
 
     $encoded = wp_json_encode( $projects );
     update_user_meta( $customer_id, 'eb_board_projects', wp_slash( $encoded ) );
+
+    // Web Push an den Kunden: Anbieter hat angenommen bzw. Erbringung
+    // bestätigt — schließt die Benachrichtigungs-Lücke im Board-Flow.
+    if ( function_exists( 'eb_push_send_to_user' ) && $customer_id > 0 ) {
+        if ( $action === 'accept' ) {
+            eb_push_send_to_user( $customer_id, array(
+                'title' => 'Anbieter hat angenommen',
+                'body'  => 'Deine Anfrage wurde angenommen – jetzt kannst du buchen.',
+                'url'   => home_url( '/board' ),
+                'tag'   => 'accept-' . $card_id,
+            ) );
+        } elseif ( $action === 'confirm' ) {
+            eb_push_send_to_user( $customer_id, array(
+                'title' => 'Erbringung bestätigt',
+                'body'  => 'Der Anbieter hat die Erbringung bestätigt. Bitte bestätige auch du im Board.',
+                'url'   => home_url( '/board' ),
+                'tag'   => 'confirm-' . $card_id,
+            ) );
+        }
+    }
+
     return new WP_REST_Response( array( 'success' => true ), 200 );
 }
 function eventboerse_handle_register( WP_REST_Request $request ) {

@@ -1441,7 +1441,11 @@ function renderHeroMarquees() {
   });
 
   if (!Array.isArray(visible) || visible.length === 0) {
-    var emptyHtml = '<div class="hero-marquee-empty">Noch keine Angebote gefunden.</div>';
+    var emptyHtml = '<div class="hero-marquee-empty">' +
+      '<span class="material-icons-round" style="font-size:28px;opacity:0.5;display:block;margin-bottom:6px">celebration</span>' +
+      'Sei der Erste! ' +
+      '<a href="#" onclick="navigateTo(\'create-listing\');return false" style="color:var(--primary);font-weight:600">Jetzt Inserat erstellen</a>' +
+    '</div>';
     topTracks.concat(bottomTracks).forEach(function(t) { t.innerHTML = emptyHtml; });
     return;
   }
@@ -9196,7 +9200,7 @@ function renderAdminUserList(users) {
   var list = document.getElementById('adminUserList');
   if (!list) return;
   if (!users || !users.length) {
-    list.innerHTML = '<p class="admin-empty">Keine Benutzer gefunden.</p>';
+    list.innerHTML = '<p class="admin-empty">Keine Benutzer gefunden. Suche zurücksetzen oder anderen Begriff probieren.</p>';
     return;
   }
   var html = '';
@@ -9380,7 +9384,7 @@ function renderAdminListings(rows) {
   var host = document.getElementById('adminListings');
   if (!host) return;
   if (!rows || !rows.length) {
-    host.innerHTML = '<p class="admin-empty">Keine Inserate gefunden.</p>';
+    host.innerHTML = '<p class="admin-empty">Keine Inserate gefunden. Suche zurücksetzen oder anderen Begriff probieren.</p>';
     return;
   }
   var html = '';
