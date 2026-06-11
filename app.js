@@ -276,6 +276,87 @@ window.EB_IMG_FALLBACK = window.EB_IMG_FALLBACK || (
 // HTML-Attribut, das Card-Images verwenden – "this.onerror=null" verhindert Endlosschleife.
 window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"';
 
+/**
+ * Kategoriebasierte Fallback-Bilder. Jedes Bild ist ein selbst-gebautes
+ * SVG (data:URL) im Brand-Gradient + thematisches Material-Icon. Vorteile:
+ * - Keine externen Requests, lädt instant, ist NIE kaputt
+ * - Sieht thematisch passend aus (DJ-Note, Catering-Besteck, ...) statt
+ *   generisches "Bild nicht verfügbar"
+ * - Vollständig stilkonform zur Brand
+ * Wird sowohl als Render-Time-Default genutzt (wenn ein DB-Listing kein
+ * Bild hat) als auch als onerror-Fallback für kaputte externe URLs.
+ */
+window.EB_CATEGORY_IMAGES = window.EB_CATEGORY_IMAGES || (function() {
+  // Brand-Gradienten (Pink/Lila/Türkis) je Kategorie, dezent variiert
+  var palettes = {
+    dj:        ['#FF385C', '#8A4BFF'],
+    musik:     ['#FF385C', '#8A4BFF'],
+    catering:  ['#FF6F61', '#FFA559'],
+    florist:   ['#FF8FB1', '#FF385C'],
+    licht:     ['#6C47FF', '#00E2C5'],
+    pyro:      ['#FF385C', '#FFB347'],
+    foto:      ['#1F2A44', '#6C47FF'],
+    location:  ['#00B894', '#6C47FF'],
+    deko:      ['#FFAFBD', '#FFC371'],
+    planung:   ['#6C47FF', '#FF385C'],
+    moderation:['#1F2A44', '#FF385C'],
+    wellness:  ['#79CBCA', '#FFB6C1'],
+    default:   ['#FF385C', '#6C47FF']
+  };
+  // SVG-Pfade für Material-Style-Icons (white, 60% opacity) pro Kategorie
+  var icons = {
+    dj:        '<path d="M310 110a90 90 0 100 180 90 90 0 000-180zm0 130a40 40 0 110-80 40 40 0 010 80z"/><path d="M408 175l-26 14a90 90 0 010 22l26 14a14 14 0 11-14 24l-26-14a90 90 0 01-17 17l14 26a14 14 0 11-24 14l-14-26a90 90 0 01-22 0l-14 26a14 14 0 11-24-14l14-26a90 90 0 01-17-17l-26 14a14 14 0 11-14-24l26-14a90 90 0 010-22l-26-14a14 14 0 1114-24l26 14a90 90 0 0117-17l-14-26a14 14 0 1124-14l14 26a90 90 0 0122 0l14-26a14 14 0 1124 14l-14 26a90 90 0 0117 17l26-14a14 14 0 1114 24z"/>',
+    musik:     '<path d="M380 100v160a50 50 0 11-30-46V150l-90 24v110a50 50 0 11-30-46V130z"/>',
+    catering:  '<path d="M220 110h20v280h-20zM200 110h20v40h-20a20 20 0 01-20-20v-20zM260 130v-20h20v20a20 20 0 01-20 20h-20zM390 110a40 40 0 0140 40v100l-40 30v110h-30V280l-40-30V150a40 40 0 0140-40z"/>',
+    florist:   '<circle cx="300" cy="200" r="50" fill="#fff" opacity="0.95"/><circle cx="240" cy="170" r="35" fill="#fff" opacity="0.85"/><circle cx="360" cy="170" r="35" fill="#fff" opacity="0.85"/><circle cx="220" cy="230" r="35" fill="#fff" opacity="0.85"/><circle cx="380" cy="230" r="35" fill="#fff" opacity="0.85"/><circle cx="300" cy="260" r="35" fill="#fff" opacity="0.85"/><path d="M298 270 L298 360" stroke="#fff" stroke-width="8" opacity="0.85"/>',
+    licht:     '<path d="M300 100l-50 90h100zM300 230a50 50 0 100 100 50 50 0 000-100z"/><circle cx="180" cy="160" r="25"/><circle cx="420" cy="160" r="25"/><circle cx="200" cy="260" r="22"/><circle cx="400" cy="260" r="22"/>',
+    pyro:      '<path d="M300 120v60M300 220v60M220 200h60M320 200h60M250 150l40 40M310 210l40 40M250 250l40-40M310 190l40-40"/><circle cx="300" cy="200" r="30" fill="#fff" opacity="0.4"/>',
+    foto:      '<rect x="180" y="170" width="240" height="170" rx="20" fill="none" stroke="#fff" stroke-width="8"/><rect x="250" y="140" width="100" height="50" rx="10"/><circle cx="300" cy="255" r="50" fill="none" stroke="#fff" stroke-width="8"/><circle cx="300" cy="255" r="20"/>',
+    location:  '<path d="M180 280l120-130 120 130v90H300v-70h0v70H180z"/><rect x="240" y="280" width="30" height="30" fill="#fff" opacity="0.5"/><rect x="330" y="280" width="30" height="30" fill="#fff" opacity="0.5"/>',
+    deko:      '<path d="M300 130l25 70h70l-55 45 20 75-60-42-60 42 20-75-55-45h70z"/>',
+    planung:   '<rect x="190" y="150" width="220" height="180" rx="14" fill="none" stroke="#fff" stroke-width="8"/><path d="M190 200h220" stroke="#fff" stroke-width="8"/><path d="M230 240h60M230 280h120M230 320h80" stroke="#fff" stroke-width="6"/>',
+    moderation:'<rect x="270" y="120" width="60" height="120" rx="30"/><path d="M250 240a50 50 0 00100 0M300 290v50M270 340h60" stroke="#fff" stroke-width="8" fill="none"/>',
+    wellness:  '<path d="M210 220c0-40 30-80 90-80s90 40 90 80c0 60-60 110-90 130-30-20-90-70-90-130z"/><circle cx="270" cy="200" r="12" fill="#fff" opacity="0.6"/><circle cx="320" cy="220" r="10" fill="#fff" opacity="0.5"/>'
+  };
+  function build(category) {
+    var key = (category || '').toLowerCase();
+    var p = palettes[key] || palettes.default;
+    var icon = icons[key] || '<circle cx="300" cy="200" r="50"/><path d="M260 240h80v40h-80z"/>';
+    var label = key ? (key.charAt(0).toUpperCase() + key.slice(1)) : 'Eventbörse';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="' + p[0] + '"/><stop offset="1" stop-color="' + p[1] + '"/>' +
+      '</linearGradient></defs>' +
+      '<rect width="600" height="400" fill="url(%23g)"/>' +
+      '<g fill="#ffffff" fill-opacity="0.95">' + icon + '</g>' +
+      '<text x="300" y="380" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="20" font-weight="700" fill="#ffffff" fill-opacity="0.85">' + label + '</text>' +
+      '</svg>';
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+  var cache = {};
+  return function(category) {
+    var key = (category || 'default').toLowerCase();
+    if (!cache[key]) cache[key] = build(key);
+    return cache[key];
+  };
+})();
+
+/** Bild-URL für ein Listing ermitteln: erst Original, dann Themen-Fallback,
+ *  dann generisches Fallback. Wird auch als onerror-Resolver genutzt. */
+window.EB_RESOLVE_IMG = function(listing) {
+  if (listing && listing.image) return listing.image;
+  if (listing && listing.images && listing.images[0]) return listing.images[0];
+  if (listing && listing.category) return window.EB_CATEGORY_IMAGES(listing.category);
+  return window.EB_IMG_FALLBACK;
+};
+
+/** onerror-Handler für Listing-Bilder: probiert erst das Themen-Bild,
+ *  dann das generische Fallback. Kein endloser Retry (this.onerror=null). */
+window.EB_THEMED_FALLBACK = function(img, category) {
+  img.onerror = null;
+  img.src = window.EB_CATEGORY_IMAGES(category || 'default');
+};
+
 // Feed-Bild Auto-Fit: Banner / Hochformat -> contain (volles Bild), normale Fotos -> cover
 window._fitFeedImg = function(img) {
   if (!img || !img.naturalWidth || !img.naturalHeight) return;
@@ -530,13 +611,13 @@ const LISTINGS = [
     location: 'Stuttgart', region: 'Baden-Württemberg',
     price: 1500, priceLabel: 'ab 1.500€ / Event',
     rating: 4.8, reviews: 73,
-    image: 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    image: 'https://images.pexels.com/photos/265947/pexels-photo-265947.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     images: [
-      'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
-      'https://images.pexels.com/photos/2833037/pexels-photo-2833037.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/7648022/pexels-photo-7648022.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/5676744/pexels-photo-5676744.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/265947/pexels-photo-265947.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
+      'https://images.pexels.com/photos/1043902/pexels-photo-1043902.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/1244627/pexels-photo-1244627.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Thomas Meier',
     providerImg: ebAvatar('thomas', 'Thomas Meier'),
@@ -554,13 +635,13 @@ const LISTINGS = [
     location: 'München', region: 'Bayern',
     price: 700, priceLabel: 'ab 700€ / Event',
     rating: 4.7, reviews: 56,
-    image: 'https://images.pexels.com/photos/29708277/pexels-photo-29708277.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+    image: 'https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     images: [
-      'https://images.pexels.com/photos/29708277/pexels-photo-29708277.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
-      'https://images.pexels.com/photos/8348626/pexels-photo-8348626.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/29708270/pexels-photo-29708270.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/64057/pexels-photo-64057.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
-      'https://images.pexels.com/photos/8827060/pexels-photo-8827060.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=1',
+      'https://images.pexels.com/photos/2774558/pexels-photo-2774558.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/4090910/pexels-photo-4090910.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/164821/pexels-photo-164821.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
+      'https://images.pexels.com/photos/787961/pexels-photo-787961.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
     ],
     providerName: 'Stefan MC',
     providerImg: ebAvatar('stefan', 'Stefan MC'),
@@ -1032,6 +1113,16 @@ function _mergeDbListingsIntoCache(rows) {
     var rawId = _toPositiveInt(row && row.id);
     if (!rawId) return;
     var offsetId = rawId + 10000;
+    // DB-Inserate ohne Bild bekommen ein themenpassendes Default-Bild
+    // (Brand-Gradient + Kategorie-Icon, SVG-data-URL — kein Request).
+    // So sind frische Inserate vom Tag-1 an schön statt leer.
+    if (!row.image && (!row.images || row.images.length === 0)) {
+      var fallbackImg = window.EB_CATEGORY_IMAGES ? window.EB_CATEGORY_IMAGES(row.category || 'default') : (window.EB_IMG_FALLBACK || '');
+      row.image = fallbackImg;
+      row.images = [fallbackImg];
+    } else if (!row.image && row.images && row.images[0]) {
+      row.image = row.images[0];
+    }
     var existing = (LISTINGS || []).find(function(ex) {
       if (!ex) return false;
       return _toPositiveInt(ex.id) === offsetId || _toPositiveInt(ex._dbId) === rawId;
@@ -1389,7 +1480,7 @@ function renderListingCard(listing) {
     <div class="listing-card" data-listing-id="${listing.id}">
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}">
-          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide">' + _adminImgFlagBtn(listing.id, img) + '<img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
+          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide">' + _adminImgFlagBtn(listing.id, img) + '<img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async" onerror="EB_THEMED_FALLBACK(this,\'' + _escHtml(listing.category||'') + '\')" /></div>'; }).join('')}
         </div>
         ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
@@ -1462,7 +1553,7 @@ function renderHeroMarquees() {
 
   function cardHTML(l) {
     return '<a class="hero-marquee-card" href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
-      '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager"' + window.EB_IMG_ERR_ATTR + ' />' +
+      '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager" decoding="async" onerror="EB_THEMED_FALLBACK(this,\'' + _escHtml(l.category||'') + '\')" />' +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
         '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
@@ -1618,12 +1709,12 @@ function renderExploreGrid(filter) {
   // Collect all images from all listings
   let items = [];
   filterDemos(LISTINGS).forEach(l => {
-    // Main image
-    items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+    // Main image — category mitgeben für Themen-Fallback
+    items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, category: l.category });
     // Additional images
     if (l.images) {
       l.images.slice(1).forEach(img => {
-        items.push({ image: img, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+        items.push({ image: img, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, category: l.category });
       });
     }
   });
@@ -1634,7 +1725,7 @@ function renderExploreGrid(filter) {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
     return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
       ${_adminImgFlagBtn(it.listingId, it.image)}
-      <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+      <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="EB_THEMED_FALLBACK(this,'${_escHtml(it.category||'')}')" />
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
         <span class="explore-item-price">${_escHtml(it.price)}</span>
@@ -1707,7 +1798,7 @@ function renderFeed(tab) {
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <div class="eb-imgwrap">${_adminImgFlagBtn(l.id, l.image)}<img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>
+      <div class="eb-imgwrap">${_adminImgFlagBtn(l.id, l.image)}<img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="EB_THEMED_FALLBACK(this,'${_escHtml(l.category||'')}')" /></div>
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
         <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
@@ -3243,7 +3334,7 @@ function loadDetail(listingId) {
   // EB_IMG_FALLBACK (SVG-Placeholder), sonst bliebe ein leerer Container.
   if (listing.images.length > 0) {
     heroImg.innerHTML = _adminImgFlagBtn(listing.id, listing.images[0]) +
-      `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />`;
+      `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" onerror="EB_THEMED_FALLBACK(this,'${_escHtml(listing.category||'')}')" />`;
   }
 
   // Swipeable gallery carousel — Moderations-Flag nur auf echten DB-
@@ -3257,7 +3348,7 @@ function loadDetail(listingId) {
       var modBtn = _isAdminMod
         ? '<button class="detail-gallery-modbtn" title="Bild als nicht passend entfernen" onclick="event.stopPropagation();adminDeleteListingImage(' + (+_modListingId) + ',\'' + safe.replace(/'/g, "\\'") + '\')"><span class="material-icons-round">flag</span></button>'
         : '';
-      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '" decoding="async" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>';
+      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '" decoding="async" onerror="EB_THEMED_FALLBACK(this,\'' + _escHtml(listing.category||'') + '\')" /></div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -12966,7 +13057,7 @@ function addListingMarkers(listings) {
 
     const popupContent = `
       <div class="map-popup-card">
-        <img src="${listing.image}" alt="${listing.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"/>
+        <img src="${listing.image}" alt="${listing.title}" loading="lazy" onerror="EB_THEMED_FALLBACK(this,'${_escHtml(listing.category||'')}')"/>
         <h4>${listing.title}</h4>
         <div class="popup-meta">
           <span class="material-icons-round" style="font-size:14px;vertical-align:middle">location_on</span>
@@ -12992,7 +13083,7 @@ function renderLocationsList(listings) {
     const emoji = CATEGORY_EMOJI[l.category] || '📌';
     return `
       <div class="map-loc-item" data-id="${l.id}" onclick="focusMapMarker(${l.id})">
-        <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+        <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" onerror="EB_THEMED_FALLBACK(this,'${_escHtml(l.category||'')}')" />
         <div class="map-loc-info">
           <span class="map-loc-city">${l.location}</span>
           <span class="map-loc-cat">${emoji} ${l.categoryLabel}</span>
@@ -20573,7 +20664,7 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)">' + _adminImgFlagBtn(l.id, l.image) + '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
+    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)">' + _adminImgFlagBtn(l.id, l.image) + '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="EB_THEMED_FALLBACK(this,\'' + _escHtml(l.category||'') + '\')" /></div>' +
     '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +
