@@ -1389,7 +1389,7 @@ function renderListingCard(listing) {
     <div class="listing-card" data-listing-id="${listing.id}">
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}">
-          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
+          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide">' + _adminImgFlagBtn(listing.id, img) + '<img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
         </div>
         ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
@@ -1633,6 +1633,7 @@ function renderExploreGrid(filter) {
   grid.innerHTML = items.map((it, i) => {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
     return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
+      ${_adminImgFlagBtn(it.listingId, it.image)}
       <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
@@ -1706,7 +1707,7 @@ function renderFeed(tab) {
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+      <div class="eb-imgwrap">${_adminImgFlagBtn(l.id, l.image)}<img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
         <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
@@ -3241,7 +3242,8 @@ function loadDetail(listingId) {
   // onerror-Fallback: bei kaputten/blockten Bild-URLs greift das globale
   // EB_IMG_FALLBACK (SVG-Placeholder), sonst bliebe ein leerer Container.
   if (listing.images.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />`;
+    heroImg.innerHTML = _adminImgFlagBtn(listing.id, listing.images[0]) +
+      `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />`;
   }
 
   // Swipeable gallery carousel — Moderations-Flag nur auf echten DB-
@@ -9463,6 +9465,29 @@ function adminDeleteListingByDbId(dbId) {
   });
 }
 
+/**
+ * Zentraler Admin-Bild-Flag-Button. Gibt '' zurück für Nicht-Admins,
+ * Demo-Listings und eigene Inserate — sonst einen kleinen Flag-Button,
+ * der das Moderations-Modal (_openImageModerationModal) öffnet:
+ * Sicherheits-Nachfrage + Begründung + automatische Nutzer-Nachricht
+ * ("Inhalt wurde von der Moderation entfernt … Richtlinienverstoß").
+ *
+ * @param listingPublicId  Offset-ID (10000+x) oder Demo-ID aus LISTINGS
+ * @param imageUrl         exakte Bild-URL wie im listing.images-Array
+ */
+function _adminImgFlagBtn(listingPublicId, imageUrl) {
+  if (!currentUser || !currentUser.isAdmin || !imageUrl) return '';
+  var listing = (LISTINGS || []).find(function(l) { return l && +l.id === +listingPublicId; });
+  if (!listing || !listing._fromDb) return '';
+  if (_sameUserId(listing.providerId, currentUser.id)) return '';
+  var dbId = _toPositiveInt(listing._dbId) || (+listingPublicId - 10000);
+  if (dbId <= 0) return '';
+  var safeUrl = _escHtml(imageUrl).replace(/'/g, "\\'");
+  return '<button class="eb-imgflag" type="button" title="Bild als Admin entfernen (Richtlinien-Moderation)" aria-label="Bild moderieren" ' +
+    'onclick="event.stopPropagation();event.preventDefault();adminDeleteListingImage(' + dbId + ',\'' + safeUrl + '\')">' +
+    '<span class="material-icons-round">flag</span></button>';
+}
+
 function adminDeleteListingImage(listingId, imageUrl) {
   if (!currentUser || !currentUser.isAdmin) return;
   _openImageModerationModal(listingId, imageUrl);
@@ -9497,7 +9522,8 @@ function _openImageModerationModal(listingId, imageUrl) {
       '</header>' +
       '<div class="imgmod-body">' +
         '<div class="imgmod-preview"><img src="' + safeImg + '" alt="Bildvorschau"></div>' +
-        '<p class="imgmod-help">Der Nutzer erhält eine Nachricht mit deiner Begründung. Wähle einen Grund oder ergänze ihn unten.</p>' +
+        '<p class="imgmod-help"><strong>Bist du sicher?</strong> Das Bild wird unwiderruflich aus dem Inserat entfernt. ' +
+        'Der Besitzer erhält automatisch eine Nachricht, dass der Inhalt von der Moderation wegen eines möglichen Richtlinienverstoßes gelöscht wurde — wähle einen Grund oder ergänze ihn unten.</p>' +
         '<div class="imgmod-chips">' + presetHtml + '</div>' +
         '<label class="imgmod-label" for="imgModReason">Begründung (an den Nutzer)</label>' +
         '<textarea id="imgModReason" rows="3" placeholder="Optional: zusätzlicher Hinweis…"></textarea>' +
@@ -9564,9 +9590,17 @@ function _submitImageModeration(listingId, imageUrl, reason, onDone) {
       var lIdx = LISTINGS.findIndex(function(x) { return x && x._fromDb && +x._dbId === +listingId; });
       if (lIdx !== -1 && d && d.listing && Array.isArray(d.listing.images)) {
         LISTINGS[lIdx].images = d.listing.images;
+        // Hauptbild-Property mitziehen — Feed/Explore/Grid lesen l.image.
+        LISTINGS[lIdx].image = d.listing.images[0] || '';
         if (typeof currentListing === 'object' && currentListing && (+currentListing.id === +LISTINGS[lIdx].id)) {
           loadDetail(LISTINGS[lIdx].id);
         }
+        // Alle sichtbaren Listen-Ansichten aktualisieren, damit das
+        // gelöschte Bild sofort überall verschwindet (Best-Effort).
+        try { if (document.getElementById('browseGrid')) renderBrowseGrid(LISTINGS); } catch(_) {}
+        try { if (document.getElementById('exploreGrid')) renderExploreGrid(); } catch(_) {}
+        try { if (document.getElementById('feedList')) renderFeed(document.querySelector('.feed-tab.active') ? document.querySelector('.feed-tab.active').dataset.feed : 'foryou'); } catch(_) {}
+        try { renderHeroMarquees(); } catch(_) {}
       }
     } catch(e) {}
   }).catch(function() {
@@ -20539,7 +20573,7 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
+    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)">' + _adminImgFlagBtn(l.id, l.image) + '<img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
     '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +

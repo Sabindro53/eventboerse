@@ -4560,11 +4560,14 @@ function eb_admin_notify_listing_owner_image_removed( $owner_id, $listing_id, $l
     }
 
     $body  = "Hallo,\n\n";
-    $body .= "ein Bild deines Inserats {$title} wurde von der Moderation entfernt, weil es als nicht passend angesehen wurde.\n\n";
+    $body .= "ein Bild deines Inserats {$title} wurde von einem Administrator gelöscht, da es möglicherweise gegen unsere Inhaltsrichtlinien verstößt.\n\n";
     $body .= "Begründung: {$reason}\n\n";
-    $body .= "Du kannst jederzeit ein neues, passenderes Bild hochladen. Bei Fragen antworte einfach auf diese Nachricht.";
+    $body .= "Was du jetzt tun kannst:\n";
+    $body .= "• Lade ein neues, richtlinienkonformes Bild hoch (Inserat bearbeiten).\n";
+    $body .= "• Wenn du denkst, dass die Entscheidung ein Irrtum war, antworte einfach auf diese Nachricht — wir prüfen das gern noch einmal.\n\n";
+    $body .= "Mehr Infos zu unseren Richtlinien findest du unter eventbörse.de/community.";
 
-    return eb_admin_send_moderation_message( $owner_id, $body, 'Bild aus deinem Inserat entfernt' );
+    return eb_admin_send_moderation_message( $owner_id, $body, 'Inhalt von der Moderation entfernt (möglicher Richtlinienverstoß)' );
 }
 
 /* =====================================================================

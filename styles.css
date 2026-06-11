@@ -15537,3 +15537,41 @@ body.dark-mode .eb-pm-bnav { background: var(--bg, #14141f); border-top-color: r
     transition: none !important;
   }
 }
+
+/* =====================================================================
+   EB-IMGFLAG — Admin-Moderations-Button auf allen sichtbaren Bildern
+   (Browse-Grid, Explore, Feed, Feed-Posts, Detail-Hero, Detail-Galerie)
+   ===================================================================== */
+.eb-imgflag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 6;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(220, 38, 38, 0.92);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  opacity: 0.85;
+  transition: opacity 0.15s ease, transform 0.12s ease;
+}
+.eb-imgflag:hover { opacity: 1; transform: scale(1.08); background: rgba(185, 28, 28, 0.96); }
+.eb-imgflag .material-icons-round { font-size: 17px; }
+
+/* Positionierungs-Anker für die Container, in denen der Button lebt */
+.grid-gallery-slide { position: relative; }
+.explore-item { position: relative; }
+.feed-post-media { position: relative; }
+#detailHeroImg { position: relative; }
+.eb-imgwrap { position: relative; display: block; }
+
+/* Auf Touch-Geräten den Button etwas größer (44px-Tap-Target) */
+@media (hover: none) {
+  .eb-imgflag { width: 40px; height: 40px; opacity: 0.9; }
+}
