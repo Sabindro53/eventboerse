@@ -21249,6 +21249,11 @@ function initScrollMotion3D() {
   if (!window.IntersectionObserver || !window.MutationObserver) return;
   if (_r3dObserver) return; // schon initialisiert
 
+  // GLOBAL OFF-Switch: window.EB_R3D = false in DevTools/Backend setzen
+  // schaltet die Reveal-Schicht komplett aus (z. B. wenn ein Layout-Bug
+  // auftritt). Default: an.
+  if (typeof window !== 'undefined' && window.EB_R3D === false) return;
+
   _r3dObserver = new IntersectionObserver(function(records) {
     records.forEach(function(r) {
       if (r.isIntersecting) {
@@ -21290,7 +21295,12 @@ function initScrollMotion3D() {
     }
   });
 
-  _r3dInitPointerTilt();
+  // Pointer-Tilt: temporär deaktiviert — sammelte sich mit existierenden
+  // :hover-Transforms (translateY, scale) zu inkonsistenten Stacking-
+  // Contexts auf, und der Glanzreflex (::after radial-gradient) deckte
+  // bei manchen Listing-Card-Markups Inhalt ab. CSS macht .eb-tilt
+  // ohnehin wirkungslos. Reaktivierung nur nach gezieltem Re-Test.
+  // _r3dInitPointerTilt();
   _r3dInitHeroOrbs();
 }
 
