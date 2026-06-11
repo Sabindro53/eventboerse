@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Eventbörse">
+  <rect width="512" height="512" rx="112" fill="#FF385C"/>
+  <path d="M142 162h228v64H214v49h132v62H214v13h164v64H142V162z" fill="#fff"/>
+  <circle cx="368" cy="148" r="36" fill="#00A699"/>
+</svg>

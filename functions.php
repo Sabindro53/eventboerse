@@ -150,6 +150,56 @@ add_filter( 'rest_authentication_errors', function( $result ) {
 } );
 
 /**
+ * Root-Dateien aus dem Theme ausliefern.
+ *
+ * Das Deployment legt Theme-Dateien unter /wp-content/themes/eventboerse/ ab,
+ * Browser erwarten PWA-Dateien aber am Origin-Root: /manifest.json und /sw.js.
+ */
+function eb_serve_theme_root_file() {
+    $path = parse_url( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '', PHP_URL_PATH );
+    $path = '/' . ltrim( (string) $path, '/' );
+
+    $files = array(
+        '/manifest.json' => array(
+            'file'  => 'manifest.json',
+            'type'  => 'application/manifest+json; charset=UTF-8',
+            'cache' => 'public, max-age=3600, must-revalidate',
+        ),
+        '/sw.js' => array(
+            'file'  => 'sw.js',
+            'type'  => 'application/javascript; charset=UTF-8',
+            'cache' => 'no-cache, no-store, must-revalidate',
+        ),
+        '/favicon.svg' => array(
+            'file'  => 'favicon.svg',
+            'type'  => 'image/svg+xml; charset=UTF-8',
+            'cache' => 'public, max-age=31536000, immutable',
+        ),
+    );
+
+    if ( ! isset( $files[ $path ] ) ) {
+        return;
+    }
+
+    $meta = $files[ $path ];
+    $file = get_template_directory() . '/' . $meta['file'];
+    if ( ! is_readable( $file ) ) {
+        status_header( 404 );
+        exit;
+    }
+
+    status_header( 200 );
+    header( 'Content-Type: ' . $meta['type'] );
+    header( 'Cache-Control: ' . $meta['cache'] );
+    if ( $path === '/sw.js' ) {
+        header( 'Service-Worker-Allowed: /' );
+    }
+    readfile( $file );
+    exit;
+}
+add_action( 'template_redirect', 'eb_serve_theme_root_file', 0 );
+
+/**
  * Styles und Scripts einbinden
  */
 function eventboerse_enqueue_assets() {

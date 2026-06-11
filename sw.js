@@ -1,15 +1,10 @@
 // sw.js
 
-const CACHE_NAME = 'eventboerse-cache-v1'; // Update cache version if content changes significantly
+const CACHE_NAME = 'eventboerse-cache-v2'; // Update cache version if content changes significantly
 const urlsToCache = [
-  '/', // Root of the SPA
-  '/index.html', // Main HTML file
-  '/app.js',     // Main JavaScript bundle
-  '/styles.css', // Main CSS file
-  '/manifest.json', // Web App Manifest
-  // Add other critical assets here for offline capability and initial load
-  // e.g., common images, fonts, specific API data that can be pre-cached.
-  // For Eventbörse, this might include placeholder images, default categories, etc.
+  '/',
+  '/manifest.json',
+  '/favicon.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -18,7 +13,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[Service Worker] Caching app shell assets.');
-        return cache.addAll(urlsToCache);
+        return Promise.allSettled(urlsToCache.map((url) => cache.add(url)));
       })
       .catch(error => {
         console.error('[Service Worker] Failed to cache during install:', error);

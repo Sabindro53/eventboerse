@@ -198,6 +198,18 @@ function _fetchWithTimeout(url, options, timeoutMs) {
   });
 }
 
+function registerEventboerseServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return;
+  }
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(err) {
+      console.warn('Service Worker konnte nicht registriert werden:', err);
+    });
+  });
+}
+
 async function _ensureWriteSessionMatchesCurrentUser(actionLabel) {
   if (!isLoggedIn || !currentUser) {
     openModal('loginModal');
@@ -7812,6 +7824,7 @@ function _applyDarkMode(on) {
 // Init drag & drop after DOM loaded
 document.addEventListener('DOMContentLoaded', function() {
   initDarkMode();
+  registerEventboerseServiceWorker();
   setupDragDrop();
   initAiSearch();
   restoreSession();
