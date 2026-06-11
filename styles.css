@@ -674,9 +674,9 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   align-items: center;
   justify-content: center;
   gap: 0;
-  width: 88px;
-  min-width: 88px;
-  height: 110px;
+  width: 64px;
+  min-width: 64px;
+  height: 80px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -690,7 +690,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.18s ease, filter 0.18s ease;
   overflow: visible;
-  filter: drop-shadow(0 10px 16px rgba(34,34,34,0.28)) drop-shadow(0 4px 8px rgba(227,28,95,0.28));
+  filter: drop-shadow(0 6px 12px rgba(34,34,34,0.18)) drop-shadow(0 2px 5px rgba(227,28,95,0.18));
 }
 .eb-qa-launcher::before,
 .eb-qa-launcher::after { content: none; }
@@ -705,12 +705,12 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   background: transparent;
   border: 0;
   box-shadow: none;
-  transform: translateY(-2px) scale(1.04);
-  filter: drop-shadow(0 14px 22px rgba(34,34,34,0.32)) drop-shadow(0 6px 12px rgba(227,28,95,0.36));
+  transform: translateY(-2px) scale(1.05);
+  filter: drop-shadow(0 10px 18px rgba(34,34,34,0.22)) drop-shadow(0 4px 9px rgba(227,28,95,0.24));
 }
 .eb-qa-launcher-icon {
-  width: 88px;
-  height: 110px;
+  width: 64px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -727,65 +727,65 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .eb-qa-icon-svg .qa-body-shape {
   fill: #2A3140;
-  stroke: #0f1117;
-  stroke-width: 2;
+  stroke: #2a3140;
+  stroke-width: 1.6;
 }
 .eb-qa-icon-svg .qa-neck {
   fill: #4a5263;
-  stroke: #0f1117;
-  stroke-width: 2;
+  stroke: #2a3140;
+  stroke-width: 1.6;
 }
 .eb-qa-icon-svg .qa-earcup {
-  fill: #1a1f2b;
-  stroke: #0f1117;
-  stroke-width: 2;
+  fill: #1f2632;
+  stroke: #2a3140;
+  stroke-width: 1.6;
 }
 .eb-qa-icon-svg .qa-head-main {
-  fill: #E8ECF3;
-  stroke: #0f1117;
-  stroke-width: 3;
+  fill: #F2F4F8;
+  stroke: #2a3140;
+  stroke-width: 2.2;
 }
 .eb-qa-icon-svg .qa-visor {
-  fill: #0f1117;
-  stroke: #0f1117;
-  stroke-width: 2;
+  fill: #1a1f2b;
+  stroke: #1a1f2b;
+  stroke-width: 1.6;
 }
 .eb-qa-icon-svg .qa-eye {
   fill: var(--accent);
-  filter: drop-shadow(0 0 3px rgba(0,226,197,0.9));
+  filter: drop-shadow(0 0 2px rgba(0,226,197,0.7));
 }
 .eb-qa-icon-svg .qa-eye-glow {
   fill: #fff;
 }
-.eb-qa-icon-svg .qa-mouth {
-  fill: #0f1117;
-  stroke: #0f1117;
-  stroke-width: 2;
-}
-.eb-qa-icon-svg .qa-mouth-line {
-  stroke: #E8ECF3;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-.eb-qa-icon-svg .qa-antenna-rod {
-  stroke: #0f1117;
+.eb-qa-icon-svg .qa-mouth-smile {
+  fill: none;
+  stroke: #2a3140;
   stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Alte Mund-Elemente: falls noch im DOM, dezent ausblenden */
+.eb-qa-icon-svg .qa-mouth,
+.eb-qa-icon-svg .qa-mouth-line { display: none; }
+.eb-qa-icon-svg .qa-antenna-rod {
+  stroke: #2a3140;
+  stroke-width: 2.2;
   stroke-linecap: round;
 }
 .eb-qa-icon-svg .qa-antenna-tip {
   fill: var(--primary);
-  stroke: #0f1117;
-  stroke-width: 2;
+  stroke: #2a3140;
+  stroke-width: 1.6;
 }
 .eb-qa-icon-svg .qa-mic-dot {
   fill: var(--primary);
-  stroke: #0f1117;
-  stroke-width: 2;
+  stroke: #2a3140;
+  stroke-width: 1.6;
 }
 .eb-qa-icon-svg .qa-mic-arm {
   fill: none;
-  stroke: #0f1117;
-  stroke-width: 5;
+  stroke: #2a3140;
+  stroke-width: 3.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -806,36 +806,36 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .eb-qa-icon-svg--mini .qa-hat-stripe-b { fill: var(--accent); }
 .eb-qa-icon-svg .qa-hat-stroke {
   fill: none;
-  stroke: #0f1117;
-  stroke-width: 3;
+  stroke: #2a3140;
+  stroke-width: 2.2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 .eb-qa-icon-svg .qa-hat-brim {
   fill: #fff;
-  stroke: #0f1117;
-  stroke-width: 2.5;
+  stroke: #2a3140;
+  stroke-width: 1.8;
 }
 .eb-qa-icon-svg--mini .qa-hat-brim { fill: #fff; }
 .eb-qa-icon-svg .qa-hat-pom {
   fill: #FFC857;
-  stroke: #0f1117;
-  stroke-width: 2;
+  stroke: #2a3140;
+  stroke-width: 1.6;
 }
 .eb-qa-icon-svg .qa-hat-pom-shadow {
-  fill: rgba(0,0,0,0.18);
+  fill: rgba(0,0,0,0.12);
   stroke: none;
 }
 .eb-qa-icon-svg--mini .qa-hat-pom { fill: var(--primary); }
 .eb-qa-icon-svg .qa-spark {
   fill: none;
   stroke: #FFC857;
-  stroke-width: 3;
+  stroke-width: 2.2;
   stroke-linecap: round;
 }
 .eb-qa-icon-svg .qa-spark-alt {
   stroke: var(--accent);
-  stroke-width: 2.5;
+  stroke-width: 2;
 }
 .eb-qa-launcher .qa-body-shape {
   filter: none;
@@ -1033,9 +1033,9 @@ body.dark-mode .eb-qa-action {
     bottom: calc(var(--mobile-nav-height) + 12px + env(safe-area-inset-bottom, 0px));
   }
   .eb-qa-launcher {
-    min-width: 72px;
-    width: 72px;
-    height: 92px;
+    min-width: 56px;
+    width: 56px;
+    height: 72px;
     padding: 0;
     border-radius: 0;
     background: transparent;
@@ -1044,7 +1044,7 @@ body.dark-mode .eb-qa-action {
     justify-content: center;
   }
   .eb-qa-launcher::before { content: none; }
-  .eb-qa-launcher-icon { width: 72px; height: 92px; }
+  .eb-qa-launcher-icon { width: 56px; height: 72px; }
   .eb-qa-panel {
     width: calc(100vw - 24px);
     max-height: calc(100vh - var(--nav-height) - var(--mobile-nav-height) - 34px);

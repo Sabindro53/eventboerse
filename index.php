@@ -413,12 +413,8 @@ $asset_ver = '2.5.1'; // cache-bust;
             <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
             <circle class="qa-eye" cx="76" cy="90" r="4"/>
             <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
-            <!-- Mund: Speaker-Grille -->
-            <rect class="qa-mouth" x="50" y="108" width="30" height="8" rx="3"/>
-            <line class="qa-mouth-line" x1="56" y1="108" x2="56" y2="116"/>
-            <line class="qa-mouth-line" x1="62" y1="108" x2="62" y2="116"/>
-            <line class="qa-mouth-line" x1="68" y1="108" x2="68" y2="116"/>
-            <line class="qa-mouth-line" x1="74" y1="108" x2="74" y2="116"/>
+            <!-- Mund: freundliches Lächeln -->
+            <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
             <!-- Mikro-Arm + Kugel -->
             <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
             <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
@@ -483,12 +479,8 @@ $asset_ver = '2.5.1'; // cache-bust;
           <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
           <circle class="qa-eye" cx="76" cy="90" r="4"/>
           <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
-          <!-- Mund: Speaker-Grille -->
-          <rect class="qa-mouth" x="50" y="108" width="30" height="8" rx="3"/>
-          <line class="qa-mouth-line" x1="56" y1="108" x2="56" y2="116"/>
-          <line class="qa-mouth-line" x1="62" y1="108" x2="62" y2="116"/>
-          <line class="qa-mouth-line" x1="68" y1="108" x2="68" y2="116"/>
-          <line class="qa-mouth-line" x1="74" y1="108" x2="74" y2="116"/>
+          <!-- Mund: freundliches Lächeln -->
+          <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
           <!-- Mikro-Arm + Kugel -->
           <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
           <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
