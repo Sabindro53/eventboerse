@@ -21152,7 +21152,11 @@ function _r3dReducedMotion() {
   catch(_) { return false; }
 }
 
-/* Welche Selektoren bekommen welchen Effekt. Reihenfolge = Priorität. */
+/* Welche Selektoren bekommen welchen Effekt. Reihenfolge = Priorität.
+ * .detail-gallery, .booking-card und Hero-Marquee-Karten sind bewusst
+ * NICHT in dieser Liste — sie liegen typischerweise im initialen
+ * Viewport, und der Reveal-Effekt würde sie nur unnötig kurz unsichtbar
+ * machen (Risiko: bei Race-Conditions bleiben sie unsichtbar). */
 var _R3D_RULES = [
   { sel: '.listing-card',        variant: 'alt',     tilt: true  },
   { sel: '.feed-card',           variant: 'rise',    tilt: false },
@@ -21161,8 +21165,6 @@ var _R3D_RULES = [
   { sel: '.admin-listing-card',  variant: 'rise',    tilt: false },
   { sel: '.kanban-column',       variant: 'rise',    tilt: false },
   { sel: '.tl-card',             variant: 'flip-up', tilt: false },
-  { sel: '.detail-gallery',      variant: 'self',    tilt: false },
-  { sel: '.booking-card',        variant: 'self',    tilt: false },
   { sel: '.review-card',         variant: 'rise',    tilt: false },
   { sel: '.settings-card',       variant: 'rise',    tilt: false },
   { sel: '.admin-stat',          variant: 'flip-up', tilt: false }
@@ -21182,25 +21184,50 @@ function _r3dPickVariant(rule, el) {
 function _r3dDecorate(root) {
   if (!_r3dObserver) return;
   root = root && root.querySelectorAll ? root : document;
+  var vh = window.innerHeight || document.documentElement.clientHeight || 800;
   _R3D_RULES.forEach(function(rule) {
     var nodes;
     try { nodes = root.querySelectorAll(rule.sel + ':not(.eb-r3d):not(.in-view)'); } catch(_) { return; }
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
-      // Bereits sichtbare ALTE Inhalte nicht verstecken: nur Elemente
-      // dekorieren, die (noch) unterhalb des Viewports liegen oder frisch
-      // eingefügt wurden. Grobe Heuristik: rect.top > 40px unterhalb der
-      // Fold ODER Element ist <300ms alt (frisch gerendert).
+      // Karten, die BEIM RENDERN bereits sichtbar sind, NICHT verstecken.
+      // Sonst Race: IntersectionObserver wird erst nach dem Layout-Pass
+      // beobachtet → first-check kann das Element verpassen → Karte
+      // bleibt dauerhaft auf opacity:0 (Bilder unsichtbar).
+      var rect;
+      try { rect = el.getBoundingClientRect(); } catch(_) { rect = null; }
+      var alreadyVisible = rect && rect.top < vh && rect.bottom > 0 && rect.width > 0 && rect.height > 0;
       el.classList.add('eb-r3d');
       el.setAttribute('data-r3d', _r3dPickVariant(rule, el));
-      // Stagger-Index pro Eltern-Container (max 8, sonst wartet man ewig)
       var pKey = (el.parentElement && (el.parentElement.id || el.parentElement.className)) || 'root';
       _r3dIdxCounters[pKey] = ((_r3dIdxCounters[pKey] || 0) % 8) + 1;
       el.style.setProperty('--r3d-idx', String(_r3dIdxCounters[pKey] - 1));
       if (rule.tilt) el.classList.add('eb-tilt');
-      _r3dObserver.observe(el);
+      if (alreadyVisible) {
+        // Direkt sichtbar machen (kein Reveal-Verzug, kein Risiko)
+        el.classList.add('in-view', 'r3d-done');
+      } else {
+        _r3dObserver.observe(el);
+      }
     }
   });
+}
+
+// Safety-Net: 1s nach Decorate alle nicht-eingeblendeten Karten zwangsweise
+// sichtbar machen. Greift, wenn ein Element observed wurde, der IO aber nie
+// gefeuert hat (z. B. Element in versteckter Tab, später sichtbar gemacht).
+var _r3dSafetyTimer = null;
+function _r3dArmSafetyNet() {
+  if (_r3dSafetyTimer) clearTimeout(_r3dSafetyTimer);
+  _r3dSafetyTimer = setTimeout(function() {
+    document.querySelectorAll('.eb-r3d:not(.in-view)').forEach(function(el) {
+      var rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0 && rect.top < (window.innerHeight + 200)) {
+        el.classList.add('in-view', 'r3d-done');
+        if (_r3dObserver) try { _r3dObserver.unobserve(el); } catch(_) {}
+      }
+    });
+  }, 1200);
 }
 
 function initScrollMotion3D() {
@@ -21221,6 +21248,7 @@ function initScrollMotion3D() {
 
   // Bestehendes DOM dekorieren + auf SPA-Re-Renders lauschen.
   _r3dDecorate(document);
+  _r3dArmSafetyNet();
   var rafPending = false;
   _r3dMutObserver = new MutationObserver(function() {
     if (rafPending) return;
@@ -21228,9 +21256,25 @@ function initScrollMotion3D() {
     requestAnimationFrame(function() {
       rafPending = false;
       _r3dDecorate(document);
+      _r3dArmSafetyNet();
     });
   });
   _r3dMutObserver.observe(document.body, { childList: true, subtree: true });
+
+  // Bei Tab-Sichtbarkeits-Wechsel (z. B. Page-Switch in der SPA): alle
+  // hängenden Karten sofort sichtbar machen — IO feuert nicht immer nach
+  // display:none → display:'' Übergängen.
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      document.querySelectorAll('.eb-r3d:not(.in-view)').forEach(function(el) {
+        var rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          el.classList.add('in-view', 'r3d-done');
+          try { _r3dObserver.unobserve(el); } catch(_) {}
+        }
+      });
+    }
+  });
 
   _r3dInitPointerTilt();
   _r3dInitHeroOrbs();
