@@ -6,7 +6,7 @@
 //  - Statische Assets (Bilder, Fonts, Icons) → cache-first, weil sie sich
 //    selten ändern und mit Hash-Pfaden versioniert werden.
 
-const CACHE_NAME = 'eventboerse-cache-v5-2026-06-09';
+const CACHE_NAME = 'eventboerse-cache-v6-2026-06-09';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -158,16 +158,28 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Restliche GET-Requests (Bilder, Fonts, Icons) → cache-first.
+  // Wichtig: Cache-Hit nur zurückgeben, wenn die Antwort entweder
+  // opaque (cross-origin, ok-Status nicht prüfbar — Browser entscheidet)
+  // oder ok=true ist. Sonst (kaputter/leerer Eintrag aus früherem Fehler)
+  // einmal Netzwerk versuchen, damit Bilder nicht „dauerhaft kaputt"
+  // bleiben.
   event.respondWith(
     caches.match(req).then((cached) => {
-      if (cached) return cached;
+      if (cached) {
+        var stale = cached.type !== 'opaque' && !cached.ok;
+        if (!stale) return cached;
+      }
       return fetch(req).then((fresh) => {
         if (fresh && fresh.ok && fresh.type !== 'opaque' && url.origin === self.location.origin) {
           const clone = fresh.clone();
           caches.open(CACHE_NAME).then((c) => c.put(req, clone)).catch(() => {});
         }
         return fresh;
-      }).catch(() => new Response('', { status: 503, statusText: 'Service Unavailable' }));
+      }).catch(() => {
+        // Falls Cache was hat (auch wenn stale) → lieber das als ein 503.
+        if (cached) return cached;
+        return new Response('', { status: 503, statusText: 'Service Unavailable' });
+      });
     })
   );
 });

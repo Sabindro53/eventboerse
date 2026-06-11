@@ -405,7 +405,9 @@ add_action( 'send_headers', function() {
         // WICHTIG: Domains in CSP MÜSSEN Punycode (ASCII) sein. Umlaute (eventbörse.de)
         // führen dazu, dass Chrome die gesamte Direktive verwirft → Fallback auf default-src 'self'
         // → alle externen Bilder werden blockiert. Daher nur xn--eventbrse-57a.de hier.
-        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://images.pexels.com https://images.unsplash.com https://xn--eventbrse-57a.de",
+        // Zusätzlich: alle Sub-Domains (www, cdn) und IONOS-Storage-Hosts erlauben.
+        // gravatar.com für WordPress-Avatare; pixabay/pexels für Demo-Stock-Bilder.
+        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://images.pexels.com https://images.unsplash.com https://cdn.pixabay.com https://*.gravatar.com https://secure.gravatar.com https://xn--eventbrse-57a.de https://*.xn--eventbrse-57a.de https://*.ionos.de https://*.ionos.com",
         // XHR/Fetch: eigene REST + Stripe + Nominatim (Geocoding).
         "connect-src 'self' https://api.stripe.com https://m.stripe.network https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
         // Stripe-Frames (Checkout, 3DS).

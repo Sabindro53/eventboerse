@@ -80,10 +80,15 @@ function _resolveAvatar(img, name) {
 // ========== DEMO / BOT-ACCOUNT FILTER ==========
 // Bot-Inserate (90001–90009) sind hardcoded und sollen vor Release ausblendbar sein.
 // Flag wird vom Backend per <script>window.EB_HIDE_DEMO=…</script> in den <head> gesetzt.
-// Admin-Toggle: POST /admin/hide-demo. Falls das Flag (noch) nicht im Window steht, default: false.
+// Admin-Toggle: POST /admin/hide-demo.
 window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,90004,90005,90006,90007,90008,90009,90010,90011,90012,90013,90014];
-// Default: Demo-Inserate ausblenden. Backend kann window.EB_HIDE_DEMO=false setzen, um sie wieder anzuzeigen.
-window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB_HIDE_DEMO : true;
+// Default: NICHT ausblenden. Wenn die DB-Antwort leer ist (Backend-Fehler,
+// noch keine Inserate), würde EB_HIDE_DEMO=true sonst eine komplett leere
+// Browse-/Feed-/Explore-Seite zeigen — bei Default false zeigen wir
+// stattdessen die eingebauten Beispiel-Inserate, damit nie eine tote
+// Seite erscheint. Backend setzt das Flag per <script> aktiv auf true,
+// sobald genug echte DB-Inserate existieren.
+window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB_HIDE_DEMO : false;
 function isDemoListing(l) {
   if (!l) return false;
   // Server liefert isDemo=true für alle als Test/Bot markierten User
@@ -1104,8 +1109,10 @@ const BLOCKED_PATTERNS = [
 function _visibleListings() {
   var dbItems = (LISTINGS || []).filter(function(l) { return l && l._fromDb; });
   if (dbItems.length > 0) return dbItems;
-  // Kein einziges DB-Listing → erst dann Demos (sofern erlaubt).
-  if (typeof window !== 'undefined' && window.EB_HIDE_DEMO) return [];
+  // Kein DB-Listing geladen → Demos. NIE komplett leer zurückgeben,
+  // auch wenn EB_HIDE_DEMO=true ist: lieber ein paar Beispiel-Inserate
+  // als eine tote Browse-Seite. Sobald _dbListingsLoaded=true UND echte
+  // Items kamen, greift der dbItems-Pfad oben.
   return filterDemos(LISTINGS);
 }
 
@@ -1116,8 +1123,11 @@ function getHeroListings() {
     var seen = new Set();
     return dbAll.filter(function(l){ if (seen.has(l.id)) return false; seen.add(l.id); return true; });
   }
+  // Keine DB-Inserate da → Demos zeigen. Bewusst KEIN harter "return []"
+  // bei EB_HIDE_DEMO=true, sonst hätte das Hero auf einer frisch aufge-
+  // setzten Site eine tote Marquee-Fläche. filterDemos() respektiert den
+  // Toggle bereits intern.
   var all = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
-  if (typeof window !== 'undefined' && window.EB_HIDE_DEMO) return [];
   if (!isLoggedIn) return all;
 
   try {
@@ -3228,8 +3238,10 @@ function loadDetail(listingId) {
   const heroImg = document.getElementById('detailHeroImg');
 
   // Hero image for mobile (first image, shown prominently)
+  // onerror-Fallback: bei kaputten/blockten Bild-URLs greift das globale
+  // EB_IMG_FALLBACK (SVG-Placeholder), sonst bliebe ein leerer Container.
   if (listing.images.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" />`;
+    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" fetchpriority="high" decoding="async" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />`;
   }
 
   // Swipeable gallery carousel — Moderations-Flag nur auf echten DB-
@@ -3243,7 +3255,7 @@ function loadDetail(listingId) {
       var modBtn = _isAdminMod
         ? '<button class="detail-gallery-modbtn" title="Bild als nicht passend entfernen" onclick="event.stopPropagation();adminDeleteListingImage(' + (+_modListingId) + ',\'' + safe.replace(/'/g, "\\'") + '\')"><span class="material-icons-round">flag</span></button>'
         : '';
-      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '" decoding="async" /></div>';
+      return '<div class="detail-gallery-slide">' + modBtn + '<img src="' + safe + '" alt="' + _escHtml(listing.title) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '" decoding="async" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -21199,8 +21211,10 @@ function _r3dDecorate(root) {
       var alreadyVisible = rect && rect.top < vh && rect.bottom > 0 && rect.width > 0 && rect.height > 0;
       el.classList.add('eb-r3d');
       el.setAttribute('data-r3d', _r3dPickVariant(rule, el));
+      // Kürzerer Stagger (max 4 statt 8 Stufen): bei vielen Karten wirkt
+      // das sonst wie "Bilder kommen erst nach 500ms hinterher".
       var pKey = (el.parentElement && (el.parentElement.id || el.parentElement.className)) || 'root';
-      _r3dIdxCounters[pKey] = ((_r3dIdxCounters[pKey] || 0) % 8) + 1;
+      _r3dIdxCounters[pKey] = ((_r3dIdxCounters[pKey] || 0) % 4) + 1;
       el.style.setProperty('--r3d-idx', String(_r3dIdxCounters[pKey] - 1));
       if (rule.tilt) el.classList.add('eb-tilt');
       if (alreadyVisible) {
