@@ -1251,10 +1251,12 @@ body.dark-mode .eb-qa-action {
   display: inline-block;
   width: var(--pp-size, 32px);
   height: var(--pp-size, 32px);
-  filter: drop-shadow(0 4px 10px rgba(255, 56, 92, 0.45));
+  /* Weicherer, gefarbter Glow statt harter Shadow */
+  filter: drop-shadow(0 6px 14px rgba(255, 56, 92, 0.22))
+          drop-shadow(0 2px 4px rgba(168, 85, 247, 0.14));
   opacity: 0;
   will-change: transform, opacity;
-  animation: aiPopperShoot 9s infinite cubic-bezier(.2, .9, .3, 1.2);
+  animation: aiPopperShoot 11s infinite cubic-bezier(.22, .8, .3, 1.05);
   animation-delay: var(--pp-delay, 0s);
 }
 .ai-popper-svg {
@@ -1267,7 +1269,7 @@ body.dark-mode .eb-qa-action {
   transform-box: fill-box;
   transform-origin: 15% 85%;
   will-change: transform, opacity;
-  animation: aiPopperCone 9s infinite cubic-bezier(.2, .9, .3, 1.4);
+  animation: aiPopperCone 11s infinite cubic-bezier(.22, .8, .3, 1.2);
   animation-delay: var(--pp-delay, 0s);
 }
 .ai-popper-stream {
@@ -1276,7 +1278,7 @@ body.dark-mode .eb-qa-action {
   stroke-dashoffset: 100;
   opacity: 0;
   will-change: stroke-dashoffset, opacity;
-  animation: aiPopperStream 9s infinite cubic-bezier(.15, .85, .3, 1);
+  animation: aiPopperStream 11s infinite cubic-bezier(.18, .82, .3, 1);
   animation-delay: var(--pp-delay, 0s);
 }
 .ai-popper-bit {
@@ -1284,7 +1286,7 @@ body.dark-mode .eb-qa-action {
   transform-origin: center;
   opacity: 0;
   will-change: transform, opacity;
-  animation: aiPopperBit 9s infinite cubic-bezier(.2, .85, .3, 1.1);
+  animation: aiPopperBit 11s infinite cubic-bezier(.22, .82, .3, 1);
   animation-delay: var(--pp-delay, 0s);
 }
 /* Each confetti bit flies in its own direction (relative to cone-mouth area) */
@@ -1299,55 +1301,55 @@ body.dark-mode .eb-qa-action {
 .ai-popper.pop-1 {
   /* upper left, biggest */
   top: 14%; left: 7%;
-  --pp-size: 62px;
+  --pp-size: 46px;
   --pp-rot: -28deg;
-  --pp-shoot-x: -10px;
-  --pp-shoot-y: -8px;
-  --pp-spin: -14deg;
+  --pp-shoot-x: -8px;
+  --pp-shoot-y: -6px;
+  --pp-spin: -10deg;
   --pp-delay: 0s;
 }
 .ai-popper.pop-2 {
-  /* upper-right, slightly higher and farther in */
+  /* upper-right */
   top: 8%; right: 14%;
-  --pp-size: 50px;
+  --pp-size: 38px;
   --pp-rot: 36deg;
   --pp-flip: -1;
-  --pp-shoot-x: 12px;
-  --pp-shoot-y: -10px;
-  --pp-spin: 18deg;
-  --pp-delay: 1.8s;
+  --pp-shoot-x: 9px;
+  --pp-shoot-y: -8px;
+  --pp-spin: 14deg;
+  --pp-delay: 2.2s;
 }
 .ai-popper.pop-3 {
   /* mid-right edge, smaller */
   top: 54%; right: 4%;
-  --pp-size: 44px;
+  --pp-size: 32px;
   --pp-rot: 95deg;
   --pp-flip: -1;
-  --pp-shoot-x: 14px;
-  --pp-shoot-y: 4px;
-  --pp-spin: 10deg;
-  --pp-delay: 3.6s;
+  --pp-shoot-x: 10px;
+  --pp-shoot-y: 3px;
+  --pp-spin: 8deg;
+  --pp-delay: 4.4s;
 }
 .ai-popper.pop-4 {
   /* lower-left, medium */
   bottom: 12%; left: 18%;
-  --pp-size: 56px;
+  --pp-size: 40px;
   --pp-rot: -140deg;
-  --pp-shoot-x: -12px;
-  --pp-shoot-y: 12px;
-  --pp-spin: -16deg;
-  --pp-delay: 5.4s;
+  --pp-shoot-x: -10px;
+  --pp-shoot-y: 10px;
+  --pp-spin: -12deg;
+  --pp-delay: 6.6s;
 }
 .ai-popper.pop-5 {
   /* bottom-right, off-corner */
   bottom: 22%; right: 9%;
-  --pp-size: 46px;
+  --pp-size: 34px;
   --pp-rot: 160deg;
   --pp-flip: -1;
-  --pp-shoot-x: 10px;
-  --pp-shoot-y: 14px;
-  --pp-spin: 12deg;
-  --pp-delay: 7.2s;
+  --pp-shoot-x: 8px;
+  --pp-shoot-y: 11px;
+  --pp-spin: 10deg;
+  --pp-delay: 8.8s;
 }
 
 /* Wrapper: hidden between pops, brief anticipation, then shoots outward */
@@ -1361,29 +1363,30 @@ body.dark-mode .eb-qa-action {
   }
   /* Anticipation — recoil slightly inward */
   9% {
-    opacity: 1;
+    opacity: 0.78;
     transform:
       translate(calc(var(--pp-shoot-x, 0px) * -0.25), calc(var(--pp-shoot-y, 0px) * -0.25))
       rotate(var(--pp-rot, 0deg))
       scaleX(var(--pp-flip, 1));
   }
-  /* THE shot — overshoot with spin */
+  /* THE shot — sanfter, weniger Overshoot */
   14% {
-    opacity: 1;
+    opacity: 0.85;
     transform:
-      translate(calc(var(--pp-shoot-x, 0px) * 1.4), calc(var(--pp-shoot-y, 0px) * 1.4))
+      translate(calc(var(--pp-shoot-x, 0px) * 1.15), calc(var(--pp-shoot-y, 0px) * 1.15))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg)))
       scaleX(var(--pp-flip, 1));
   }
   /* Settle */
   20% {
+    opacity: 0.85;
     transform:
       translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
       scaleX(var(--pp-flip, 1));
   }
   55% {
-    opacity: 1;
+    opacity: 0.85;
     transform:
       translate(var(--pp-shoot-x, 0px), var(--pp-shoot-y, 0px))
       rotate(calc(var(--pp-rot, 0deg) + var(--pp-spin, 0deg) * 0.4))
@@ -1420,9 +1423,9 @@ body.dark-mode .eb-qa-action {
 /* Streamers: drawn out of the cone mouth via stroke-dashoffset */
 @keyframes aiPopperStream {
   0%, 13% { stroke-dashoffset: 100; opacity: 0; }
-  17%     { opacity: 1; stroke-dashoffset: 100; }
-  30%     { opacity: 1; stroke-dashoffset: 0; }
-  55%     { opacity: 1; stroke-dashoffset: 0; }
+  17%     { opacity: 0.8; stroke-dashoffset: 100; }
+  30%     { opacity: 0.8; stroke-dashoffset: 0; }
+  55%     { opacity: 0.8; stroke-dashoffset: 0; }
   72%     { opacity: 0; stroke-dashoffset: 0; }
   100%    { opacity: 0; stroke-dashoffset: 100; }
 }
@@ -1430,17 +1433,17 @@ body.dark-mode .eb-qa-action {
 /* Confetti bits: fly outward in their own direction, rotate, then drop and fade */
 @keyframes aiPopperBit {
   0%, 13%  { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.4); }
-  17%      { opacity: 1;
+  17%      { opacity: 0.85;
              transform:
                translate(calc(var(--fx, 8px) * 0.25), calc(var(--fy, -8px) * 0.25))
                rotate(calc(var(--frot, 180deg) * 0.15))
                scale(1); }
-  32%      { opacity: 1;
+  32%      { opacity: 0.85;
              transform:
                translate(var(--fx, 8px), var(--fy, -8px))
                rotate(var(--frot, 180deg))
                scale(1); }
-  55%      { opacity: 1;
+  55%      { opacity: 0.85;
              transform:
                translate(var(--fx, 8px), var(--fy, -8px))
                rotate(var(--frot, 180deg))
@@ -1452,6 +1455,105 @@ body.dark-mode .eb-qa-action {
                scale(1); }
   100%     { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.4); }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Dezente Deko: hängende Luftschlangen + kleine Funken/Feuerwerk
+   Subtile Hintergrund-Layer hinter den Poppers, low-opacity, langsame Loop.
+   ─────────────────────────────────────────────────────────────────────────── */
+.ai-hero-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.ai-streamer {
+  position: absolute;
+  top: -8px;
+  width: 26px;
+  height: 180px;
+  opacity: 0.22;
+  transform-origin: 50% 0;
+  animation: aiStreamerSway 7s ease-in-out infinite;
+  will-change: transform;
+}
+.ai-streamer path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ai-streamer.st-1 { left: 12%; color: #FF385C; height: 200px; animation-delay: 0s;   animation-duration: 8s; }
+.ai-streamer.st-2 { left: 32%; color: #a855f7; height: 150px; animation-delay: -1.2s; animation-duration: 6.5s; }
+.ai-streamer.st-3 { right: 24%; color: #00A699; height: 170px; animation-delay: -2.4s; animation-duration: 7.5s; }
+.ai-streamer.st-4 { right: 6%;  color: #E31C5F; height: 140px; animation-delay: -3.6s; animation-duration: 9s; }
+.ai-streamer.st-5 { left: 48%; color: #a855f7; height: 110px; opacity: 0.16; animation-delay: -4.8s; animation-duration: 10s; }
+body.dark-mode .ai-streamer { opacity: 0.18; }
+body.dark-mode .ai-streamer.st-5 { opacity: 0.12; }
+
+@keyframes aiStreamerSway {
+  0%, 100% { transform: rotate(-2.5deg) translateY(0); }
+  50%      { transform: rotate( 3deg)  translateY(4px); }
+}
+
+/* Funken / Feuerwerk - winzige Lichtpunkte, sanftes Pulsieren */
+.ai-spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,56,92,0.55) 45%, transparent 75%);
+  opacity: 0;
+  filter: blur(0.2px);
+  animation: aiSparkTwinkle 4.5s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+.ai-spark::before,
+.ai-spark::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  transform: translate(-50%, -50%);
+}
+.ai-spark::after { transform: translate(-50%, -50%) rotate(90deg); }
+
+.ai-spark.sp-1 { top: 22%; left: 22%; animation-delay: 0s;   --sp-hue: #FF385C; }
+.ai-spark.sp-2 { top: 18%; right: 28%; animation-delay: 0.7s; --sp-hue: #a855f7; width: 5px; height: 5px; }
+.ai-spark.sp-3 { top: 44%; left: 4%;  animation-delay: 1.4s; --sp-hue: #00A699; width: 4px; height: 4px; }
+.ai-spark.sp-4 { top: 62%; right: 18%; animation-delay: 2.1s; --sp-hue: #FF385C; width: 5px; height: 5px; }
+.ai-spark.sp-5 { bottom: 28%; left: 36%; animation-delay: 2.8s; --sp-hue: #E31C5F; width: 4px; height: 4px; }
+.ai-spark.sp-6 { bottom: 18%; right: 32%; animation-delay: 3.5s; --sp-hue: #a855f7; }
+.ai-spark.sp-7 { top: 36%; left: 58%;  animation-delay: 1.0s; --sp-hue: #00A699; width: 3px; height: 3px; }
+.ai-spark.sp-8 { bottom: 36%; right: 6%; animation-delay: 3.0s; --sp-hue: #FF385C; width: 4px; height: 4px; }
+
+.ai-spark { background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, var(--sp-hue, #FF385C) 50%, transparent 75%); }
+
+@keyframes aiSparkTwinkle {
+  0%, 100%  { opacity: 0;    transform: scale(0.4); }
+  40%       { opacity: 0.55; transform: scale(1); }
+  60%       { opacity: 0.55; transform: scale(1); }
+}
+body.dark-mode .ai-spark { filter: blur(0.2px) brightness(1.1); }
+
+@media (max-width: 640px) {
+  /* Auf Mobile schlanker halten */
+  .ai-streamer.st-2,
+  .ai-streamer.st-5,
+  .ai-spark.sp-7,
+  .ai-spark.sp-8 { display: none; }
+  .ai-streamer { opacity: 0.16; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-streamer,
+  .ai-spark { animation: none; }
+  .ai-spark { opacity: 0.35; }
+}
+
 .ai-bg-orb {
   position: absolute;
   border-radius: 50%;

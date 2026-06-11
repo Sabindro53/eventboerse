@@ -871,6 +871,32 @@ $asset_ver = '2.5.1'; // cache-bust;
           <div class="ai-bg-orb orb-2"></div>
           <div class="ai-bg-orb orb-3"></div>
         </div>
+        <!-- Dezente Deko: hängende Luftschlangen + Funken -->
+        <div class="ai-hero-decor" aria-hidden="true">
+          <svg class="ai-streamer st-1" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q2 38 20 76 Q26 118 6 158 Q-2 184 16 200"/>
+          </svg>
+          <svg class="ai-streamer st-2" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q24 32 6 70 Q-2 110 22 150 Q28 180 10 200"/>
+          </svg>
+          <svg class="ai-streamer st-3" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q4 36 22 74 Q26 116 4 156 Q0 182 18 200"/>
+          </svg>
+          <svg class="ai-streamer st-4" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q22 34 4 72 Q-2 112 20 152 Q26 182 8 200"/>
+          </svg>
+          <svg class="ai-streamer st-5" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q6 30 18 60 Q24 95 8 130 Q2 160 14 200"/>
+          </svg>
+          <span class="ai-spark sp-1"></span>
+          <span class="ai-spark sp-2"></span>
+          <span class="ai-spark sp-3"></span>
+          <span class="ai-spark sp-4"></span>
+          <span class="ai-spark sp-5"></span>
+          <span class="ai-spark sp-6"></span>
+          <span class="ai-spark sp-7"></span>
+          <span class="ai-spark sp-8"></span>
+        </div>
         <div class="ai-hero-poppers" aria-hidden="true">
           <span class="ai-popper pop-1">
             <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
