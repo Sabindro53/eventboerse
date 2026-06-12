@@ -422,7 +422,6 @@ $asset_ver = '2.5.1'; // cache-bust;
         </div>
         <div>
           <strong>Eventbörse QA</strong>
-          <span>Support ohne KI-Token</span>
         </div>
         <button type="button" class="eb-qa-close" onclick="closeQaBot()" aria-label="QA-Support schließen">
           <span class="material-icons-round">close</span>
