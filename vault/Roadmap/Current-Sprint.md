@@ -4,6 +4,12 @@
 
 ## Aktiver Fokus (P0)
 
+- [x] **Self-Improvement-Dashboard** *(2026-06-13)*
+  - `dev-status.html` zeigt Live-Puls (Asset-Loads, SW, API, JS-Fehler, Perf) und Audit-Vorschläge mit Annehmen/Ablehnen.
+  - `improvements.json` enthält 10 verifizierte Befunde (AUD-001 … AUD-010).
+  - Operator-Workflow: Entscheidungen exportieren → `decisions.json` in Repo → nächste Claude-Session arbeitet die Approved-Items ab.
+- [ ] **AUD-Liste abarbeiten** (sobald `decisions.json` vorliegt)
+  - Reihenfolge nach Impact: AUD-002 (Admin-Moderation), AUD-006 (Stripe-Cron), AUD-004 (Chat-Backoff), AUD-009 (Health-Endpoint), Rest.
 - [ ] **Listings-/Board-Regressionen ausschließen**
   - Ziel: Keine verschwundenen Listings mehr in Board/Startseite/Map/Browse.
   - Pflicht-Checks nach Deploy: Listings API, Board Picker, Demo-Toggle, Selbstbuchungsschutz.

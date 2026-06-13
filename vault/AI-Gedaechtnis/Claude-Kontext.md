@@ -120,5 +120,22 @@ navigateTo('admin')         // Admin-Panel
 
 *(Claude trägt hier neue Erkenntnisse ein)*
 
+## Self-Improvement-Loop (seit 2026-06-13)
+
+Eigenständiges Dashboard, das laufende Audits sichtbar macht und Vorschläge per Annehmen/Ablehnen verwaltet:
+
+- `dev-status.html` + `dev-status.js` + `dev-status.css` — standalone Diagnose-Seite. Lokal: `http://localhost:8000/dev-status.html`. Live: `https://eventbörse.de/wp-content/themes/eventboerse/dev-status.html`.
+- `improvements.json` — Audit-Manifest, jeweils mit `id`, `type`, `effort`, `impact`, `evidence`, `why`, `what_changes`, `risk`. Aktuell: AUD-001 bis AUD-010.
+- **Schleife für nächste Claude-Sessions:**
+  1. Operator öffnet `dev-status.html`, sieht "Was läuft / Was nicht" (System-Puls) + alle offenen Vorschläge.
+  2. Operator klickt Annehmen / Ablehnen / Später.
+  3. Operator klickt "Entscheidungen exportieren" → lädt `decisions.json`.
+  4. `decisions.json` ins Repo committen (oder in eine PR-Beschreibung paste).
+  5. Nächste Claude-Session liest `decisions.json` und arbeitet die `approved` Einträge ab.
+  6. Erledigte Einträge werden in `improvements.json` auf `status: "done"` gesetzt und neue Audit-Items angehängt.
+- **Wichtig:** Dashboard fasst weder `app.js` noch `functions.php` an — Null-Risiko-Tool.
+
+→ Workflow-Status in `vault/Roadmap/Current-Sprint.md` als neuer P0-Punkt.
+
 ---
-*Zuletzt aktualisiert: 2026-06-06*
+*Zuletzt aktualisiert: 2026-06-13*
