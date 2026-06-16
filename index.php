@@ -1485,9 +1485,9 @@ $asset_ver = '2.5.1'; // cache-bust;
               <button class="btn-secondary btn-block" onclick="startChat()">
                 <span class="material-icons-round">chat</span> Nachricht senden
               </button>
-              <p class="booking-note">
+              <p class="booking-note" id="bookingNoteText">
                 <span class="material-icons-round">info</span>
-                Du bezahlst erst nach der Buchungsbestätigung.
+                <span>Du bezahlst erst nach Annahme deiner Anfrage durch den Anbieter.</span>
               </p>
             </div>
           </div>
@@ -1969,6 +1969,36 @@ $asset_ver = '2.5.1'; // cache-bust;
         <p class="settings-subtitle">Verwalte dein Konto, Sicherheit und Einstellungen.</p>
 
         <!-- Push-Benachrichtigungen -->
+        <!-- Dienstleister: Auszahlungs- & Gebühren-Übersicht -->
+        <div class="settings-card eb-settings-fees" id="settingsFeesCard" style="display:none">
+          <div class="settings-card-header">
+            <span class="material-icons-round">account_balance</span>
+            <h2>Auszahlungen & Gebühren</h2>
+          </div>
+          <p class="settings-field-hint">So wird eine Buchung bei dir verteilt — transparent, ohne versteckte Posten.</p>
+          <div class="eb-fee-info-grid">
+            <div class="eb-fee-info-tile">
+              <span class="eb-fee-info-label">Eventbörse-Provision</span>
+              <strong id="settingsFeePct">3 %</strong>
+              <small>nur auf erfolgreiche Buchungen</small>
+            </div>
+            <div class="eb-fee-info-tile">
+              <span class="eb-fee-info-label">Stripe-Zahlungsgebühr</span>
+              <strong>trägt Eventbörse</strong>
+              <small>du bekommst den vollen Restbetrag</small>
+            </div>
+            <div class="eb-fee-info-tile">
+              <span class="eb-fee-info-label">Auszahlung</span>
+              <strong>nach Stripe-Schedule</strong>
+              <small>direkt aufs hinterlegte Bankkonto</small>
+            </div>
+          </div>
+          <div class="eb-fee-examples" id="settingsFeeExamples"></div>
+          <button class="btn-outline btn-sm" type="button" onclick="openStripeConnectDashboard()" style="margin-top:14px">
+            <span class="material-icons-round">open_in_new</span> Auszahlungs-Konto bei Stripe öffnen
+          </button>
+        </div>
+
         <div class="settings-card" id="settingsPushCard">
           <div class="settings-card-header">
             <span class="material-icons-round">notifications_active</span>

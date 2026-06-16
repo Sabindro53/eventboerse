@@ -15653,3 +15653,38 @@ body.dark-mode .eb-fee-row-net { color: #58e3a3; }
 .ib-form-row-2col > div { display: flex; flex-direction: column; gap: 6px; }
 .ib-hint { color: var(--text-light, #888); font-size: 0.78rem; }
 @media (max-width: 480px) { .ib-form-row-2col { grid-template-columns: 1fr; } }
+
+/* ===== Settings: Fee-Info-Karte für Dienstleister ===== */
+.eb-fee-info-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin-top: 6px;
+}
+.eb-fee-info-tile {
+  background: var(--bg-alt, #f7f7f9);
+  border: 1px solid var(--border-light, #ececef);
+  border-radius: 12px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.eb-fee-info-label { font-size: 0.75rem; color: var(--text-light, #888); text-transform: uppercase; letter-spacing: 0.04em; }
+.eb-fee-info-tile strong { font-size: 1.05rem; color: var(--dark, #222); }
+.eb-fee-info-tile small { font-size: 0.78rem; color: var(--text-light, #777); }
+.eb-fee-examples {
+  margin-top: 14px;
+  background: linear-gradient(135deg, rgba(0,184,148,0.06), rgba(108,71,255,0.04));
+  border: 1px solid var(--border-light, #ececef);
+  border-radius: 12px; padding: 12px 14px;
+}
+.eb-fee-examples-head { font-size: 0.82rem; color: var(--text-light, #888); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+.eb-fee-example {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px dashed var(--border-light, #e8e8ec);
+  font-size: 0.92rem; flex-wrap: wrap;
+}
+.eb-fee-example:last-child { border-bottom: 0; padding-bottom: 0; }
+.eb-fee-example-gross { color: var(--text, #333); }
+.eb-fee-example-arrow { color: var(--text-light, #aaa); }
+.eb-fee-example-net { color: #00B894; font-weight: 700; }
+.eb-fee-example-fee { color: var(--text-light, #aaa); font-size: 0.82rem; margin-left: auto; }
+body.dark-mode .eb-fee-info-tile { background: #1a1a26; border-color: rgba(255,255,255,0.06); }
+body.dark-mode .eb-fee-info-tile strong { color: #f1f1f4; }
+body.dark-mode .eb-fee-example-net { color: #58e3a3; }

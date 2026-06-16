@@ -1411,6 +1411,7 @@ function navigateTo(page, data, skipHistory) {
     case 'settings':
       loadSettings();
       try { _settingsRefreshPushUi(); } catch(_) {}
+      try { _settingsRefreshFeeCard(); } catch(_) {}
       break;
     case 'agb':
     case 'agb-b2b':
@@ -3412,6 +3413,21 @@ function loadDetail(listingId) {
 
   // Sofortbuchung-Sektion (vor Anfrage-Button im bookingCard)
   _renderInstantBookSection(listing);
+  // Booking-Note dynamisch: bei Sofortbuchung anders formulieren
+  var noteEl = document.getElementById('bookingNoteText');
+  if (noteEl) {
+    var noteIcon = noteEl.querySelector('.material-icons-round');
+    var noteSpan = noteEl.querySelector('span:last-child');
+    if (noteSpan) {
+      if (listing.instantBook && Array.isArray(listing.availableWeekdays) && listing.availableWeekdays.length > 0) {
+        noteSpan.textContent = 'Mit Sofortbuchung direkt online bezahlen oder unten unverbindlich anfragen — Zahlung dann nach Annahme.';
+        if (noteIcon) noteIcon.textContent = 'bolt';
+      } else {
+        noteSpan.textContent = 'Du bezahlst erst, wenn der Anbieter deine Anfrage annimmt. Wir behalten 3% als Plattform-Provision ein.';
+        if (noteIcon) noteIcon.textContent = 'lock';
+      }
+    }
+  }
 
   // Reviews
   renderDetailReviews(listing);
@@ -13992,6 +14008,27 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
       actionHtml = '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + (stage === 'abgeschlossen' ? 'Auftrag erf&uuml;llt' : 'Warten auf n&auml;chsten Schritt') + '</div>';
     }
 
+    // Strukturierte Sofortbuchungs-Details (falls vorhanden) als eigener
+    // Block, statt sie nur als Fließtext in der Notiz zu zeigen.
+    var details = [];
+    if (c.bookingTime)   details.push({ ic:'schedule', label:'Beginn', val: c.bookingTime + ' Uhr' });
+    if (c.bookingGuests) details.push({ ic:'groups', label:'Gäste', val: c.bookingGuests });
+    if (c.bookingVenue)  details.push({ ic:'location_on', label:'Ort', val: c.bookingVenue });
+    var detailsHtml = '';
+    if (details.length) {
+      detailsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:12px;padding:10px;background:var(--bg-alt);border-radius:10px">';
+      details.forEach(function(d){
+        detailsHtml += '<div style="display:flex;align-items:flex-start;gap:6px;font-size:12.5px">' +
+          '<span class="material-icons-round" style="font-size:16px;color:var(--primary);flex-shrink:0;margin-top:1px">' + d.ic + '</span>' +
+          '<div><div style="color:var(--text-light);font-size:11px">' + d.label + '</div><strong>' + esc(String(d.val)) + '</strong></div>' +
+        '</div>';
+      });
+      detailsHtml += '</div>';
+    }
+    var notesHtml = c.bookingNotes
+      ? '<div style="font-size:12.5px;color:var(--text);background:rgba(108,71,255,0.06);border-left:3px solid var(--primary);padding:8px 10px;border-radius:6px;margin-bottom:12px"><strong>Wunsch:</strong> ' + esc(c.bookingNotes) + '</div>'
+      : '';
+
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
       '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
         '<strong style="font-size:13px;letter-spacing:0.5px;text-transform:uppercase">' + esc(stageLabels[stage] || stage) + '</strong>' +
@@ -14001,6 +14038,8 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
         customerBadge +
         '<div style="font-weight:700;font-size:16px;margin-bottom:4px">' + esc((l && l.title) || c.name || 'Auftrag') + '</div>' +
         '<div style="color:var(--text-light);font-size:13px;margin-bottom:12px">Projekt: ' + esc(p.name || '—') + '</div>' +
+        detailsHtml +
+        notesHtml +
         '<div style="display:flex;gap:12px;font-size:13px;margin-bottom:12px">' +
           '<div><span style="color:var(--text-light)">Preis:</span> <strong>' + esc(priceStr) + '</strong></div>' +
           (c.paymentMethod ? '<div><span style="color:var(--text-light)">Zahlung:</span> <strong>' + esc(c.paymentMethod) + '</strong></div>' : '') +
@@ -16445,6 +16484,34 @@ async function _ebPostSubscription(sub) {
     })
   });
 }
+/** Fee-Karte in Settings: nur für Dienstleister anzeigen, mit zwei
+ *  Live-Rechenbeispielen (klein + groß). Verwendet die zentrale
+ *  EB_PLATFORM_FEE_RATE (Default 3%). */
+function _settingsRefreshFeeCard() {
+  var card = document.getElementById('settingsFeesCard');
+  if (!card) return;
+  var isDl = (typeof isDienstleister === 'function') ? isDienstleister() : false;
+  if (!currentUser || !isDl) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  var feeRate = (typeof window.EB_PLATFORM_FEE_RATE === 'number') ? window.EB_PLATFORM_FEE_RATE : 0.03;
+  var feePct = (feeRate * 100).toFixed(1).replace(/\.0$/, '');
+  var pctEl = document.getElementById('settingsFeePct');
+  if (pctEl) pctEl.textContent = feePct + ' %';
+  var examples = document.getElementById('settingsFeeExamples');
+  if (!examples) return;
+  function eg(amount) {
+    var fee = Math.round(amount * feeRate * 100) / 100;
+    var net = Math.round((amount - fee) * 100) / 100;
+    return '<div class="eb-fee-example">' +
+      '<span class="eb-fee-example-gross">' + amount.toLocaleString('de-DE', { style:'currency', currency:'EUR' }) + ' Buchung</span>' +
+      '<span class="eb-fee-example-arrow">→</span>' +
+      '<span class="eb-fee-example-net">' + net.toLocaleString('de-DE', { style:'currency', currency:'EUR' }) + ' bei dir</span>' +
+      '<span class="eb-fee-example-fee">−' + fee.toLocaleString('de-DE', { style:'currency', currency:'EUR' }) + '</span>' +
+    '</div>';
+  }
+  examples.innerHTML = '<div class="eb-fee-examples-head">Beispielrechnung</div>' + eg(250) + eg(1500);
+}
+
 async function _settingsRefreshPushUi() {
   var card    = document.getElementById('settingsPushCard');
   var enable  = document.getElementById('settingsPushEnableBtn');
