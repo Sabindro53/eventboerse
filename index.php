@@ -2093,12 +2093,15 @@ $asset_ver = '2.5.1'; // cache-bust;
           <!-- Step 1: Basics -->
           <div class="form-step active" id="step1">
             <h2>Grundlagen</h2>
+            <p class="step-intro">Mit klaren Angaben erhältst du mehr passende Anfragen. Du kannst alles später ändern.</p>
             <div class="form-group">
               <label>Titel deines Services</label>
+              <small class="form-hint">Kurz, konkret, mit Mehrwert. Vermeide Werbe-Floskeln. Beispiel: „DJ für Hochzeiten in Berlin – Vinyl &amp; House“.</small>
               <input type="text" id="createTitle" placeholder="z.B. Professionelle DJ-Services für jedes Event" />
             </div>
             <div class="form-group">
               <label>Kategorie</label>
+              <small class="form-hint">Bestimmt, in welchen Suchergebnissen du auftauchst.</small>
               <select id="createCategory">
                 <option value="">Wähle eine Kategorie</option>
                 <option value="dj">DJ & Musik</option>
@@ -2115,11 +2118,13 @@ $asset_ver = '2.5.1'; // cache-bust;
             </div>
             <div class="form-group">
               <label>Beschreibung</label>
+              <small class="form-hint">Was bekommt der Gast genau? Was macht dich besonders? Mind. 80 Zeichen werden empfohlen.</small>
               <textarea id="createDescription" rows="5" placeholder="Beschreibe deinen Service detailliert..."></textarea>
             </div>
             <div class="form-row">
               <div class="form-group">
                 <label>Preisspanne (€)</label>
+                <small class="form-hint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events.</small>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                   <input type="number" id="createPrice" min="0" placeholder="von z.B. 450" />
                   <input type="number" id="createPriceMax" min="0" placeholder="bis (optional)" />
@@ -2127,6 +2132,7 @@ $asset_ver = '2.5.1'; // cache-bust;
               </div>
               <div class="form-group">
                 <label>Preismodell</label>
+                <small class="form-hint">Wie ist dein Preis kalkuliert? Pro Event = Pauschale; Pro Stunde = stundenbasiert.</small>
                 <select id="createPriceModel">
                   <option value="Pro Event">Pro Event</option>
                   <option value="Pro Stunde">Pro Stunde</option>
@@ -2144,8 +2150,10 @@ $asset_ver = '2.5.1'; // cache-bust;
           <!-- Step 2: Details -->
           <div class="form-step" id="step2">
             <h2>Details & Leistungen</h2>
+            <p class="step-intro">Diese Angaben filtern Anfragen vor – je präziser, desto besser passt es.</p>
             <div class="form-group">
               <label>Region / Stadt</label>
+              <small class="form-hint">Hauptstandort. Falls du überregional arbeitest, schreib das in die Beschreibung.</small>
               <div class="city-autocomplete-wrap">
                 <input type="text" id="createRegion" placeholder="Stadt eingeben…" autocomplete="off" />
                 <input type="hidden" id="createRegionValue" />
@@ -2155,10 +2163,12 @@ $asset_ver = '2.5.1'; // cache-bust;
             <div class="form-row">
               <div class="form-group">
                 <label>Verfügbar ab</label>
+                <small class="form-hint">Erstes Datum, ab dem du Buchungen annimmst.</small>
                 <input type="text" id="createDateFrom" placeholder="TT.MM.JJJJ" autocomplete="off" />
               </div>
               <div class="form-group">
                 <label>Verfügbar bis (optional)</label>
+                <small class="form-hint">Leer lassen = unbegrenzt verfügbar.</small>
                 <input type="text" id="createDateTo" placeholder="TT.MM.JJJJ" autocomplete="off" />
               </div>
             </div>
@@ -2200,6 +2210,7 @@ $asset_ver = '2.5.1'; // cache-bust;
             </div>
             <div class="form-group duration-group">
               <label>Dauer (Std.)</label>
+              <small class="form-hint">Wie lange dauert dein Einsatz im Schnitt? Beispiel: DJ-Set 4–6 Std., Catering-Service 3–4 Std.</small>
               <div class="duration-stepper">
                 <button type="button" class="dur-btn dur-down" id="durDown"><span class="material-icons-round">remove</span></button>
                 <input type="text" id="createDuration" inputmode="decimal" value="4" />
@@ -2223,7 +2234,7 @@ $asset_ver = '2.5.1'; // cache-bust;
                 </label>
               </label>
               <div class="weekday-picker" id="createWeekdayPicker">
-                <p class="weekday-picker-hint">An welchen Wochentagen bietest du diesen Service an?</p>
+                <p class="weekday-picker-hint">An welchen Wochentagen bietest du diesen Service an? Diese Tage werden Suchenden in der Sofortbuchung angeboten – einzelne Termine kannst du später unter „Meine Inserate › Verfügbarkeit“ blocken.</p>
                 <div class="weekday-pills">
                   <button type="button" class="weekday-pill" data-day="1">Mo</button>
                   <button type="button" class="weekday-pill" data-day="2">Di</button>
@@ -2238,6 +2249,7 @@ $asset_ver = '2.5.1'; // cache-bust;
 
             <div class="form-group">
               <label>Verfügbar für</label>
+              <small class="form-hint">Für welche Event-Arten ist dein Service geeignet? Suchende filtern danach.</small>
               <div class="checkbox-group" id="createTags">
                 <label class="check-label"><input type="checkbox" value="Hochzeit" checked /> Hochzeiten</label>
                 <label class="check-label"><input type="checkbox" value="Geburtstag" checked /> Geburtstage</label>
@@ -2249,6 +2261,7 @@ $asset_ver = '2.5.1'; // cache-bust;
             </div>
             <div class="form-group">
               <label>Leistungen <span style="font-weight:400; color:var(--text-light);">(suchen oder anklicken)</span></label>
+              <small class="form-hint">Wähle alles aus, was im Preis enthalten ist. Mindestens 3 Leistungen werden empfohlen – das erhöht deine Sichtbarkeit.</small>
               <div class="feature-search-wrap">
                 <span class="material-icons-round feature-search-icon">search</span>
                 <input type="text" id="featureSearchInput" placeholder="Leistung suchen…" autocomplete="off" />
@@ -2305,6 +2318,7 @@ $asset_ver = '2.5.1'; // cache-bust;
           <!-- Step 3: Photos -->
           <div class="form-step" id="step3">
             <h2>Fotos & Galerie</h2>
+            <p class="step-intro">Inserate mit hochwertigen Fotos werden bis zu <strong>3&times; h&auml;ufiger</strong> angefragt. Lade mind. 3 Bilder hoch.</p>
             <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
               <span class="material-icons-round">cloud_upload</span>
               <h3>Bilder hochladen</h3>
@@ -3901,6 +3915,44 @@ Datum: ___________________________________________________
       <button class="btn-primary btn-block" onclick="cropConfirm()" style="margin-top:16px">
         <span class="material-icons-round">check</span> Übernehmen
       </button>
+    </div>
+  </div>
+
+  <!-- ============ VERFÜGBARKEITS-KALENDER (für Anbieter) ============ -->
+  <!-- Geblockte Tage werden zentral pro Listing gepflegt; Suchende sehen sie auf der Detailseite. -->
+  <div class="modal-overlay" id="availabilityModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-md">
+      <button class="modal-close" onclick="closeModal('availabilityModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">event_busy</span>
+        <h2>Verfügbarkeit verwalten</h2>
+        <p id="availabilityListingTitle" class="availability-listing-title"></p>
+      </div>
+
+      <div class="availability-help">
+        <span class="material-icons-round">info</span>
+        <div>
+          <strong>Tippe Tage an, an denen du nicht verfügbar bist.</strong>
+          <small>Geblockte Tage werden auf der Detailseite rot markiert. Suchende können sie nicht buchen oder anfragen.</small>
+        </div>
+      </div>
+
+      <div class="availability-cal" id="availabilityCal" aria-live="polite">
+        <!-- gerendert von renderAvailabilityCalendar() -->
+      </div>
+
+      <div class="availability-summary" id="availabilitySummary"></div>
+
+      <div class="availability-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="resetAvailabilityBlocks()">
+          <span class="material-icons-round">restart_alt</span> Alle entsperren
+        </button>
+        <button type="button" class="btn-primary" id="availabilitySaveBtn" onclick="saveAvailabilityBlocks()">
+          <span class="material-icons-round">check</span> Speichern
+        </button>
+      </div>
     </div>
   </div>
 

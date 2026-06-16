@@ -3149,6 +3149,9 @@ function loadDetail(listingId) {
   // Sofortbuchung-Sektion (vor Anfrage-Button im bookingCard)
   _renderInstantBookSection(listing);
 
+  // Verfügbarkeit aus DB nachladen → Picker disablen + Sofortbuchungs-Slots refreshen
+  _applyAvailabilityToDetail(listing);
+
   // Reviews
   renderDetailReviews(listing);
 
@@ -5573,6 +5576,12 @@ function bookListing() {
   }
   var date = document.getElementById('bookingDate').value;
   if (!date) { showToast('Bitte wähle ein Event-Datum.', 'warning'); return; }
+  // Block-Check: Anbieter hat dieses Datum als nicht verfügbar markiert.
+  var blockedList = (currentListing && Array.isArray(currentListing.blockedDates)) ? currentListing.blockedDates : [];
+  if (blockedList.indexOf(date) !== -1) {
+    showToast('Dieser Termin ist beim Anbieter bereits blockiert. Bitte wähle ein anderes Datum.', 'warning');
+    return;
+  }
   var eventType = document.getElementById('bookingEventType').value;
   var guests = document.getElementById('bookingGuests').value;
   var message = _sanitizeOutgoingMessage(document.getElementById('bookingMessage').value, date, { enforceFormalSignature: true });
@@ -8566,6 +8575,9 @@ function renderMyListings() {
               '</button>' +
               '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
                 '<span class="material-icons-round">edit</span> Bearbeiten' +
+              '</button>' +
+              '<button class="btn-outline btn-sm" onclick="openAvailabilityModal(' + (l._dbId || l.id) + ')">' +
+                '<span class="material-icons-round">event_busy</span> Verfügbarkeit' +
               '</button>' +
               '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
                 '<span class="material-icons-round">delete</span> Löschen' +
@@ -18268,6 +18280,260 @@ function addCurrentListingToBoard(listingId) {
 }
 window.addCurrentListingToBoard = addCurrentListingToBoard;
 
+/* ─── Verfügbarkeitsverwaltung (Anbieter-Modal) ───────────────────────────
+ * Anbieter blocken einzelne Tage über einen kleinen 2-Monats-Kalender.
+ * Daten kommen aus GET /listings/{id}/availability und werden per PUT
+ * persistiert. Suchende sehen geblockte Tage beim Datums-Picker (rot)
+ * und in der Sofortbuchungs-Slot-Liste.
+ *  - openAvailabilityModal(listingId)
+ *  - renderAvailabilityCalendar()
+ *  - toggleAvailabilityDate(iso)
+ *  - resetAvailabilityBlocks()
+ *  - saveAvailabilityBlocks()
+ *  - Cache: _availabilityCache (Map<listingId, { blockedDates, weekdays, ts }>)
+ *  - getCachedAvailability(listingId, maxAgeMs)  → für Detail-Picker
+ */
+var _availabilityCache = Object.create(null);
+var _availabilityState = { listingId: 0, title: '', blocked: [], originalBlocked: [], monthOffset: 0 };
+
+function _isoDate(d) {
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+function _parseIso(iso) {
+  // Lokales Datum (kein UTC-Drift) — wichtig fürs Kalenderraster.
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  var p = iso.split('-');
+  return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+}
+
+function getCachedAvailability(listingId, maxAgeMs) {
+  if (!listingId) return Promise.resolve({ blockedDates: [], availableWeekdays: [] });
+  var cached = _availabilityCache[listingId];
+  var max = (typeof maxAgeMs === 'number') ? maxAgeMs : 60000;
+  if (cached && (Date.now() - cached.ts) < max) {
+    return Promise.resolve({
+      blockedDates: cached.blockedDates.slice(),
+      availableWeekdays: cached.availableWeekdays.slice()
+    });
+  }
+  return fetch(_apiUrl('listings/' + listingId + '/availability'), {
+    credentials: 'same-origin',
+    headers: _apiHeaders()
+  })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) {
+      if (!data) return { blockedDates: [], availableWeekdays: [] };
+      _availabilityCache[listingId] = {
+        ts: Date.now(),
+        blockedDates: Array.isArray(data.blockedDates) ? data.blockedDates : [],
+        availableWeekdays: Array.isArray(data.availableWeekdays) ? data.availableWeekdays : []
+      };
+      return {
+        blockedDates: _availabilityCache[listingId].blockedDates.slice(),
+        availableWeekdays: _availabilityCache[listingId].availableWeekdays.slice()
+      };
+    })
+    .catch(function() { return { blockedDates: [], availableWeekdays: [] }; });
+}
+window.getCachedAvailability = getCachedAvailability;
+
+function openAvailabilityModal(listingId) {
+  if (!isLoggedIn) { showToast('Bitte zuerst anmelden.', 'warning'); openModal('loginModal'); return; }
+  if (!listingId) return;
+
+  // Listing-Titel aus der Liste holen (Cache aus _mergeDbListingsIntoCache).
+  var title = '';
+  try {
+    var hit = (LISTINGS || []).find(function(l) { return l && (l._dbId === listingId || l.id === listingId); });
+    if (hit) title = hit.title || '';
+  } catch (e) {}
+  var titleEl = document.getElementById('availabilityListingTitle');
+  if (titleEl) titleEl.textContent = title || ('Inserat #' + listingId);
+
+  _availabilityState.listingId = listingId;
+  _availabilityState.title = title;
+  _availabilityState.blocked = [];
+  _availabilityState.originalBlocked = [];
+  _availabilityState.monthOffset = 0;
+
+  openModal('availabilityModal');
+
+  // Lade aktuelle Daten frisch (kein Cache, damit der Anbieter den realen Stand sieht).
+  delete _availabilityCache[listingId];
+  fetch(_apiUrl('listings/' + listingId + '/availability'), {
+    credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r) { return r.ok ? r.json() : { blockedDates: [] }; })
+    .then(function(data) {
+      var blocked = Array.isArray(data && data.blockedDates) ? data.blockedDates : [];
+      _availabilityState.blocked = blocked.slice();
+      _availabilityState.originalBlocked = blocked.slice();
+      _availabilityCache[listingId] = {
+        ts: Date.now(),
+        blockedDates: blocked.slice(),
+        availableWeekdays: Array.isArray(data && data.availableWeekdays) ? data.availableWeekdays : []
+      };
+      renderAvailabilityCalendar();
+    })
+    .catch(function() { renderAvailabilityCalendar(); });
+}
+window.openAvailabilityModal = openAvailabilityModal;
+
+function renderAvailabilityCalendar() {
+  var host = document.getElementById('availabilityCal');
+  if (!host) return;
+
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var startMonth = new Date(today.getFullYear(), today.getMonth() + (_availabilityState.monthOffset | 0), 1);
+
+  function monthHtml(monthDate) {
+    var year = monthDate.getFullYear();
+    var month = monthDate.getMonth();
+    var firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mo=0 … So=6
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+    var cells = '';
+    for (var i = 0; i < firstDow; i++) cells += '<span class="ac-cell ac-blank"></span>';
+    for (var d = 1; d <= daysInMonth; d++) {
+      var dt = new Date(year, month, d);
+      var iso = _isoDate(dt);
+      var isPast = dt < today;
+      var isBlocked = _availabilityState.blocked.indexOf(iso) !== -1;
+      var classes = ['ac-cell', 'ac-day'];
+      if (isPast) classes.push('ac-past');
+      if (isBlocked) classes.push('ac-blocked');
+      if (dt.getTime() === today.getTime()) classes.push('ac-today');
+      cells += '<button type="button" class="' + classes.join(' ') + '"' +
+        (isPast ? ' disabled aria-disabled="true"' : ' onclick="toggleAvailabilityDate(\'' + iso + '\')"') +
+        ' data-iso="' + iso + '"' +
+        ' aria-pressed="' + (isBlocked ? 'true' : 'false') + '"' +
+        ' aria-label="' + d + '. ' + monthNames[month] + ' ' + year + (isBlocked ? ' (geblockt)' : ' (verfügbar)') + '">' +
+        d +
+        '</button>';
+    }
+    return '<div class="ac-month">' +
+      '<div class="ac-month-title">' + monthNames[month] + ' ' + year + '</div>' +
+      '<div class="ac-dow"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>' +
+      '<div class="ac-grid">' + cells + '</div>' +
+      '</div>';
+  }
+
+  var nextMonth = new Date(startMonth.getFullYear(), startMonth.getMonth() + 1, 1);
+  host.innerHTML =
+    '<div class="ac-nav">' +
+      '<button type="button" class="ac-nav-btn"' + (_availabilityState.monthOffset <= 0 ? ' disabled' : '') + ' onclick="_availabilityMonthShift(-1)" aria-label="Vorheriger Monat"><span class="material-icons-round">chevron_left</span></button>' +
+      '<button type="button" class="ac-nav-btn" onclick="_availabilityMonthShift(1)" aria-label="Nächster Monat"><span class="material-icons-round">chevron_right</span></button>' +
+    '</div>' +
+    '<div class="ac-months">' + monthHtml(startMonth) + monthHtml(nextMonth) + '</div>';
+
+  var sum = document.getElementById('availabilitySummary');
+  if (sum) {
+    var n = _availabilityState.blocked.filter(function(iso) {
+      var d = _parseIso(iso); return d && d >= today;
+    }).length;
+    sum.textContent = n === 0
+      ? 'Keine Tage geblockt – alle Termine offen.'
+      : n + (n === 1 ? ' Tag geblockt.' : ' Tage geblockt.');
+  }
+}
+window.renderAvailabilityCalendar = renderAvailabilityCalendar;
+
+function _availabilityMonthShift(dir) {
+  _availabilityState.monthOffset = Math.max(0, (_availabilityState.monthOffset | 0) + (dir < 0 ? -1 : 1));
+  renderAvailabilityCalendar();
+}
+window._availabilityMonthShift = _availabilityMonthShift;
+
+function toggleAvailabilityDate(iso) {
+  if (!iso) return;
+  var idx = _availabilityState.blocked.indexOf(iso);
+  if (idx === -1) _availabilityState.blocked.push(iso);
+  else _availabilityState.blocked.splice(idx, 1);
+  _availabilityState.blocked.sort();
+  renderAvailabilityCalendar();
+}
+window.toggleAvailabilityDate = toggleAvailabilityDate;
+
+function resetAvailabilityBlocks() {
+  _availabilityState.blocked = [];
+  renderAvailabilityCalendar();
+}
+window.resetAvailabilityBlocks = resetAvailabilityBlocks;
+
+function saveAvailabilityBlocks() {
+  var listingId = _availabilityState.listingId;
+  if (!listingId) { closeModal('availabilityModal'); return; }
+  var btn = document.getElementById('availabilitySaveBtn');
+  if (btn) { btn.disabled = true; btn.dataset._html = btn.innerHTML; btn.innerHTML = '<span class="material-icons-round spin">progress_activity</span> Speichern…'; }
+
+  fetch(_apiUrl('listings/' + listingId + '/availability'), {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: _apiHeaders(),
+    body: JSON.stringify({ blockedDates: _availabilityState.blocked })
+  })
+    .then(function(r) {
+      if (!r.ok) throw new Error('save failed');
+      return r.json();
+    })
+    .then(function(data) {
+      var blocked = Array.isArray(data && data.blockedDates) ? data.blockedDates : _availabilityState.blocked;
+      _availabilityCache[listingId] = {
+        ts: Date.now(),
+        blockedDates: blocked.slice(),
+        availableWeekdays: (_availabilityCache[listingId] && _availabilityCache[listingId].availableWeekdays) || []
+      };
+      _availabilityState.originalBlocked = blocked.slice();
+      showToast('Verfügbarkeit gespeichert.', 'event_available');
+      closeModal('availabilityModal');
+    })
+    .catch(function() {
+      showToast('Speichern fehlgeschlagen. Bitte erneut versuchen.', 'error');
+    })
+    .finally(function() {
+      if (btn) { btn.disabled = false; if (btn.dataset._html) btn.innerHTML = btn.dataset._html; }
+    });
+}
+window.saveAvailabilityBlocks = saveAvailabilityBlocks;
+
+/**
+ * Wendet die Verfügbarkeit eines Listings auf der Detailseite an:
+ *  - markiert geblockte Tage im Flatpickr-Datumsfeld als nicht wählbar (rot)
+ *  - re-rendert die Sofortbuchung mit aktuellen blockedDates
+ * Wird nach loadDetail() aufgerufen. Ruft `getCachedAvailability()` auf,
+ * um per HTTP frisch (oder aus 60s-Cache) zu lesen.
+ */
+function _applyAvailabilityToDetail(listing) {
+  if (!listing) return;
+  var listingId = listing._dbId || listing.id;
+  if (!listingId) return;
+
+  getCachedAvailability(listingId, 60000).then(function(av) {
+    var blocked = (av && Array.isArray(av.blockedDates)) ? av.blockedDates : [];
+    // Auf currentListing spiegeln, damit andere Render-Pfade den State haben.
+    if (currentListing && (currentListing._dbId === listingId || currentListing.id === listingId)) {
+      currentListing.blockedDates = blocked.slice();
+    }
+
+    // Flatpickr: geblockte Tage als disable-Array setzen.
+    var bookingDateEl = document.getElementById('bookingDate');
+    if (bookingDateEl && bookingDateEl._flatpickr) {
+      try { bookingDateEl._flatpickr.set('disable', blocked.slice()); } catch (e) {}
+    }
+
+    // Sofortbuchung neu rendern, damit Slots ohne geblockte Tage erscheinen.
+    if (listing.instantBook) {
+      _renderInstantBookSection(Object.assign({}, listing, { blockedDates: blocked }));
+    }
+  });
+}
+window._applyAvailabilityToDetail = _applyAvailabilityToDetail;
+
 /* ─── Sofortbuchung (Direkt-Buchung) auf Detailseite ─────── */
 function _renderInstantBookSection(listing) {
   // Existing Element entfernen (re-render bei jeder loadDetail)
@@ -18282,12 +18548,23 @@ function _renderInstantBookSection(listing) {
   var bookingForm = document.querySelector('#page-detail .booking-card .booking-form');
   if (!bookingForm) return;
 
-  // Nächste 12 freie Termine berechnen (ab morgen)
+  // Geblockte Einzeltermine (vom Anbieter im Verfügbarkeits-Modal gepflegt).
+  var blockedSet = (function() {
+    var arr = (listing.blockedDates || []).filter(function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); });
+    var s = Object.create(null);
+    arr.forEach(function(d) { s[d] = true; });
+    return s;
+  })();
+
+  // Nächste 12 freie Termine berechnen (ab morgen, geblockte Tage überspringen)
   var today = new Date(); today.setHours(0,0,0,0);
   var slots = [];
-  for (var i = 1; slots.length < 12 && i < 90; i++) {
+  for (var i = 1; slots.length < 12 && i < 120; i++) {
     var d = new Date(today.getTime() + i*86400000);
-    if (wd.indexOf(d.getDay()) !== -1) slots.push(d);
+    if (wd.indexOf(d.getDay()) === -1) continue;
+    var iso = _isoDate(d);
+    if (blockedSet[iso]) continue;
+    slots.push(d);
   }
   if (slots.length === 0) return;
 

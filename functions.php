@@ -2485,6 +2485,7 @@ function eb_create_tables() {
         time_to varchar(5) DEFAULT NULL,
         duration float DEFAULT 0,
         available_weekdays varchar(20) NOT NULL DEFAULT '',
+        blocked_dates longtext,
         instant_book tinyint(1) NOT NULL DEFAULT 0,
         badge varchar(50) DEFAULT 'Neu',
         negotiable tinyint(1) DEFAULT 1,
@@ -2580,13 +2581,19 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '2.0' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.1' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET status = 'active' WHERE status = '' OR status IS NULL" );
         $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET badge = 'Neu' WHERE badge = '' OR badge IS NULL" );
-        update_option( 'eb_db_version', '2.0' );
+        // 2.1: explizite ALTER TABLE für blocked_dates (dbDelta erkennt longtext-Hinzufügung
+        // nicht zuverlässig, falls die Tabelle bereits existiert).
+        $col = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings LIKE 'blocked_dates'" );
+        if ( ! $col ) {
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD COLUMN blocked_dates longtext NULL AFTER available_weekdays" );
+        }
+        update_option( 'eb_db_version', '2.1' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -2639,6 +2646,22 @@ function eb_register_extra_routes() {
         'methods'             => 'GET',
         'callback'            => 'eb_my_listings',
         'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- AVAILABILITY (geblockte Tage pro Listing) ---------- */
+    // GET ist öffentlich (Suchende sehen geblockte Tage, um nicht doppelt zu buchen),
+    // PUT nur für Inhaber (oder Admin).
+    register_rest_route( 'eventboerse/v1', '/listings/(?P<id>\d+)/availability', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_listing_availability_get',
+            'permission_callback' => '__return_true',
+        ),
+        array(
+            'methods'             => 'PUT',
+            'callback'            => 'eb_listing_availability_update',
+            'permission_callback' => 'is_user_logged_in',
+        ),
     ) );
 
     /* ---------- REVIEWS ---------- */
@@ -2766,6 +2789,13 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/stripe/reconcile', array(
         'methods'             => 'GET',
         'callback'            => 'eb_stripe_reconcile',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    // Refund: Anbieter (Inhaber des Connect-Kontos) ODER Admin können stornieren.
+    register_rest_route( 'eventboerse/v1', '/stripe/refund', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_stripe_refund',
         'permission_callback' => 'is_user_logged_in',
     ) );
 
@@ -3648,6 +3678,22 @@ function eb_format_listing( $row ) {
     $tags = json_decode( $row['tags'], true );
     if ( ! is_array( $tags ) ) $tags = array();
 
+    // Blockierte Einzeltermine (ISO-Daten "YYYY-MM-DD")
+    $blocked_dates = array();
+    if ( ! empty( $row['blocked_dates'] ) ) {
+        $decoded = json_decode( $row['blocked_dates'], true );
+        if ( is_array( $decoded ) ) {
+            foreach ( $decoded as $d ) {
+                $d = trim( (string) $d );
+                if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d ) ) {
+                    $blocked_dates[] = $d;
+                }
+            }
+            $blocked_dates = array_values( array_unique( $blocked_dates ) );
+            sort( $blocked_dates );
+        }
+    }
+
     $name = $user ? trim( $user->first_name . ' ' . $user->last_name ) : 'Unbekannt';
     $photo = $user ? ( get_user_meta( $user->ID, 'eb_photo_url', true ) ?: '' ) : '';
     $avatar = $photo ?: eb_avatar_url( $name, $name );
@@ -3681,6 +3727,7 @@ function eb_format_listing( $row ) {
         'timeTo'        => $row['time_to'],
         'duration'      => (float) $row['duration'],
         'availableWeekdays' => array_values( array_filter( array_map( 'intval', explode( ',', (string) ( $row['available_weekdays'] ?? '' ) ) ), function( $d ) { return $d >= 0 && $d <= 6; } ) ),
+        'blockedDates'  => $blocked_dates,
         'instantBook'   => ! empty( $row['instant_book'] ),
         'badge'         => $row['badge'],
         'negotiable'    => (bool) $row['negotiable'],
@@ -3902,6 +3949,100 @@ function eb_my_listings() {
     ), ARRAY_A );
 
     return new WP_REST_Response( array_map( 'eb_format_listing', $rows ?: array() ), 200 );
+}
+
+/**
+ * Hilfsfunktion: Liest blockierte Termine aus dem JSON-Feld "blocked_dates"
+ * und gibt sie als sortierte, normalisierte ISO-Datumsliste zurück.
+ */
+function eb_normalize_blocked_dates( $raw ) {
+    $out = array();
+    if ( ! is_array( $raw ) ) return $out;
+    foreach ( $raw as $d ) {
+        $d = trim( (string) $d );
+        if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d ) ) {
+            $out[] = $d;
+        }
+    }
+    $out = array_values( array_unique( $out ) );
+    sort( $out );
+    return $out;
+}
+
+/** GET /listings/{id}/availability – öffentlich. */
+function eb_listing_availability_get( WP_REST_Request $request ) {
+    global $wpdb;
+    $id  = absint( $request['id'] );
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, available_weekdays, blocked_dates, date_from, date_to FROM {$wpdb->prefix}eb_listings WHERE id = %d",
+        $id
+    ), ARRAY_A );
+
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+
+    $blocked = array();
+    if ( ! empty( $row['blocked_dates'] ) ) {
+        $blocked = eb_normalize_blocked_dates( json_decode( $row['blocked_dates'], true ) );
+    }
+
+    $weekdays = array_values( array_filter(
+        array_map( 'intval', explode( ',', (string) ( $row['available_weekdays'] ?? '' ) ) ),
+        function( $d ) { return $d >= 0 && $d <= 6; }
+    ) );
+
+    $response = new WP_REST_Response( array(
+        'listingId'         => (int) $row['id'],
+        'blockedDates'      => $blocked,
+        'availableWeekdays' => $weekdays,
+        'dateFrom'          => $row['date_from'],
+        'dateTo'            => $row['date_to'],
+    ), 200 );
+    // Kurzes Caching im Client erlaubt — Backend ist Source of Truth, Frontend
+    // ruft beim Picker-Öffnen ohnehin frisch ab.
+    $response->header( 'Cache-Control', 'public, max-age=60' );
+    return $response;
+}
+
+/** PUT /listings/{id}/availability – nur Inhaber oder Admin. */
+function eb_listing_availability_update( WP_REST_Request $request ) {
+    global $wpdb;
+    $id  = absint( $request['id'] );
+    $uid = get_current_user_id();
+
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d", $id
+    ) );
+    if ( ! $row ) {
+        return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+    $is_admin = function_exists( 'eb_is_admin_user' ) ? eb_is_admin_user( $uid ) : false;
+    if ( (int) $row->user_id !== $uid && ! $is_admin ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+
+    $params  = $request->get_json_params();
+    $blocked = eb_normalize_blocked_dates( $params['blockedDates'] ?? array() );
+    // Hartes Limit zur Spam-/Missbrauchsvermeidung.
+    if ( count( $blocked ) > 1000 ) {
+        $blocked = array_slice( $blocked, 0, 1000 );
+    }
+
+    $wpdb->update(
+        $wpdb->prefix . 'eb_listings',
+        array(
+            'blocked_dates' => wp_json_encode( $blocked ),
+            'updated_at'    => current_time( 'mysql' ),
+        ),
+        array( 'id' => $id )
+    );
+
+    return new WP_REST_Response( array(
+        'listingId'    => $id,
+        'blockedDates' => $blocked,
+        'updated'      => true,
+    ), 200 );
 }
 
 /* =====================================================================
@@ -6537,6 +6678,135 @@ function eb_stripe_webhook_secret() {
     $s = eb_load_env_value( 'stripe_webhook_secret' );
     if ( ! $s ) { $s = eb_load_env_value( 'STRIPE_WEBHOOK_SECRET' ); }
     return $s;
+}
+
+/**
+ * POST /stripe/refund
+ * Erstattet einen Payment-Intent. Berechtigt sind:
+ *  - der Anbieter, dem das Geld zugeflossen ist (Connect-Account-Inhaber des PI)
+ *  - Plattform-Admins
+ * Body: { payment_intent: "pi_…", amount?: number(Cent), reason?: string }
+ * Reason wird auf Stripe's erlaubte Werte gemappt: requested_by_customer (Default),
+ * duplicate, fraudulent. amount weglassen = Voll-Refund.
+ *
+ * Sicherheitsmodell:
+ *  - Stripe verifiziert die PI-Existenz (HTTP-Aufruf an /payment_intents/{id})
+ *  - Der Caller muss entweder Admin sein oder als transfer_data.destination
+ *    bzw. on_behalf_of im PI hinterlegt sein (= sein Connect-Account)
+ *  - Wir prüfen optional auch metadata.user_id, falls die App den Owner dort
+ *    hinterlegt hat.
+ */
+function eb_stripe_refund( WP_REST_Request $request ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) {
+        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    }
+
+    $user = wp_get_current_user();
+    if ( ! $user || ! $user->ID ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
+    }
+
+    $params = $request->get_json_params();
+    $pi     = isset( $params['payment_intent'] ) ? sanitize_text_field( $params['payment_intent'] ) : '';
+    if ( ! $pi || ! preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige Payment-Intent-ID.' ), 400 );
+    }
+
+    $amount_cents = isset( $params['amount'] ) ? max( 0, intval( $params['amount'] ) ) : 0;
+    $allowed_reasons = array( 'requested_by_customer', 'duplicate', 'fraudulent' );
+    $reason = isset( $params['reason'] ) && in_array( $params['reason'], $allowed_reasons, true )
+        ? $params['reason']
+        : 'requested_by_customer';
+
+    // Schritt 1: PaymentIntent abfragen, um Berechtigung zu prüfen.
+    $ch = curl_init( 'https://api.stripe.com/v1/payment_intents/' . rawurlencode( $pi ) );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 15,
+    ) );
+    $pi_resp = curl_exec( $ch );
+    $pi_http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    curl_close( $ch );
+
+    if ( ! $pi_resp || $pi_http >= 400 ) {
+        return new WP_REST_Response( array( 'message' => 'Payment-Intent nicht abrufbar.' ), 502 );
+    }
+    $pi_data = json_decode( $pi_resp, true );
+    if ( ! is_array( $pi_data ) || empty( $pi_data['id'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Payment-Intent ungültig.' ), 502 );
+    }
+    if ( ( $pi_data['status'] ?? '' ) !== 'succeeded' ) {
+        return new WP_REST_Response( array( 'message' => 'Nur erfolgreiche Zahlungen können erstattet werden.' ), 400 );
+    }
+
+    $is_admin    = function_exists( 'eb_is_admin_user' ) ? eb_is_admin_user( $user->ID ) : false;
+    $owner_uid   = isset( $pi_data['metadata']['user_id'] ) ? intval( $pi_data['metadata']['user_id'] ) : 0;
+    $destination = '';
+    if ( ! empty( $pi_data['transfer_data']['destination'] ) ) $destination = $pi_data['transfer_data']['destination'];
+    if ( ! $destination && ! empty( $pi_data['on_behalf_of'] ) ) $destination = $pi_data['on_behalf_of'];
+
+    $caller_connect = (string) get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
+
+    $owner_match = ( $owner_uid && $owner_uid === (int) $user->ID );
+    $connect_match = ( $caller_connect && $destination && $caller_connect === $destination );
+
+    if ( ! $is_admin && ! $owner_match && ! $connect_match ) {
+        return new WP_REST_Response( array( 'message' => 'Keine Berechtigung für diese Erstattung.' ), 403 );
+    }
+
+    // Schritt 2: Refund anlegen.
+    $refund_amount = $amount_cents > 0 ? $amount_cents : intval( $pi_data['amount_received'] ?? $pi_data['amount'] ?? 0 );
+    if ( $refund_amount <= 0 ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültiger Erstattungsbetrag.' ), 400 );
+    }
+
+    $body = array(
+        'payment_intent' => $pi,
+        'amount'         => $refund_amount,
+        'reason'         => $reason,
+        'metadata[refunded_by_user_id]' => (string) $user->ID,
+        'metadata[refunded_at]'         => gmdate( 'c' ),
+    );
+    // Reverse Transfer auch bei Connect, damit Geld zurückfließt.
+    if ( $destination ) {
+        $body['reverse_transfer'] = 'true';
+    }
+
+    $ch = curl_init( 'https://api.stripe.com/v1/refunds' );
+    curl_setopt_array( $ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query( $body ),
+        CURLOPT_HTTPHEADER     => array(
+            'Idempotency-Key: refund_' . $pi . '_' . $refund_amount,
+        ),
+        CURLOPT_TIMEOUT        => 20,
+    ) );
+    $r_resp = curl_exec( $ch );
+    $r_http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $r_err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $r_err || $r_http >= 400 ) {
+        $err_msg = 'Erstattung fehlgeschlagen.';
+        $err_data = json_decode( $r_resp, true );
+        if ( is_array( $err_data ) && ! empty( $err_data['error']['message'] ) ) {
+            $err_msg .= ' ' . $err_data['error']['message'];
+        }
+        return new WP_REST_Response( array( 'message' => $err_msg ), 502 );
+    }
+
+    $refund = json_decode( $r_resp, true );
+    return new WP_REST_Response( array(
+        'ok'             => true,
+        'refund_id'      => is_array( $refund ) ? ( $refund['id'] ?? '' ) : '',
+        'amount'         => $refund_amount,
+        'status'         => is_array( $refund ) ? ( $refund['status'] ?? '' ) : '',
+        'payment_intent' => $pi,
+    ), 200 );
 }
 
 /**
