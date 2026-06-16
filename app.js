@@ -14028,6 +14028,15 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     var notesHtml = c.bookingNotes
       ? '<div style="font-size:12.5px;color:var(--text);background:rgba(108,71,255,0.06);border-left:3px solid var(--primary);padding:8px 10px;border-radius:6px;margin-bottom:12px"><strong>Wunsch:</strong> ' + esc(c.bookingNotes) + '</div>'
       : '';
+    var billingHtml = '';
+    if (c.isBusiness && (c.billingCompany || c.billingAddress)) {
+      billingHtml = '<div style="font-size:12.5px;color:var(--text);background:rgba(0,184,148,0.06);border-left:3px solid #00B894;padding:8px 10px;border-radius:6px;margin-bottom:12px">' +
+        '<strong><span class="material-icons-round" style="font-size:14px;vertical-align:middle">business_center</span> Geschäftliche Buchung — Rechnung an:</strong><br>' +
+        (c.billingCompany ? esc(c.billingCompany) + '<br>' : '') +
+        (c.billingAddress ? esc(c.billingAddress) + '<br>' : '') +
+        (c.billingVatId ? '<small>USt-IdNr.: ' + esc(c.billingVatId) + '</small>' : '') +
+      '</div>';
+    }
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
       '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
@@ -14039,6 +14048,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
         '<div style="font-weight:700;font-size:16px;margin-bottom:4px">' + esc((l && l.title) || c.name || 'Auftrag') + '</div>' +
         '<div style="color:var(--text-light);font-size:13px;margin-bottom:12px">Projekt: ' + esc(p.name || '—') + '</div>' +
         detailsHtml +
+        billingHtml +
         notesHtml +
         '<div style="display:flex;gap:12px;font-size:13px;margin-bottom:12px">' +
           '<div><span style="color:var(--text-light)">Preis:</span> <strong>' + esc(priceStr) + '</strong></div>' +
@@ -16140,6 +16150,10 @@ function _applyInstantBookingSuccess(info, res) {
     bookingVenue: info.bookingVenue || '',
     bookingGuests: info.bookingGuests || 0,
     bookingNotes: info.bookingNotes || '',
+    isBusiness: !!info.isBusiness,
+    billingCompany: info.company || '',
+    billingAddress: info.billingAddress || '',
+    billingVatId: info.vatId || '',
     bookedAt: nowIso, invoiceSentAt: nowIso, paidAt: nowIso,
     paidAmount: info.amount, paymentMethod: 'Stripe',
     paymentIntentId: piId, paymentReference: piId,
@@ -19800,6 +19814,26 @@ function _renderInstantBookSection(listing) {
         '<label for="ibNotesInput"><span class="material-icons-round">edit_note</span> Sonderwünsche (optional)</label>' +
         '<textarea id="ibNotesInput" rows="2" maxlength="500" placeholder="z. B. Genre-Wünsche, Songs, Setup-Details"></textarea>' +
       '</div>' +
+      '<div class="ib-form-row ib-b2b-toggle-row">' +
+        '<label class="ib-b2b-toggle">' +
+          '<input type="checkbox" id="ibIsBusiness" />' +
+          '<span><span class="material-icons-round">business_center</span> Geschäftliche Buchung (Rechnung an Firma)</span>' +
+        '</label>' +
+      '</div>' +
+      '<div class="ib-b2b-fields" id="ibB2bFields" style="display:none">' +
+        '<div class="ib-form-row">' +
+          '<label for="ibCompanyInput"><span class="material-icons-round">apartment</span> Firma</label>' +
+          '<input type="text" id="ibCompanyInput" maxlength="160" placeholder="Firmenname" />' +
+        '</div>' +
+        '<div class="ib-form-row">' +
+          '<label for="ibBillingInput"><span class="material-icons-round">receipt</span> Rechnungsadresse</label>' +
+          '<input type="text" id="ibBillingInput" maxlength="240" placeholder="Straße, PLZ Ort, Land" />' +
+        '</div>' +
+        '<div class="ib-form-row">' +
+          '<label for="ibVatInput"><span class="material-icons-round">badge</span> USt-IdNr. (optional)</label>' +
+          '<input type="text" id="ibVatInput" maxlength="32" placeholder="DE123456789" />' +
+        '</div>' +
+      '</div>' +
       '<div class="ib-meta">' +
         (duration ? '<span><span class="material-icons-round">hourglass_top</span> ' + duration + ' Std.</span>' : '') +
         '<span><span class="material-icons-round">euro</span> ' + _formatEuro(price) + '</span>' +
@@ -19819,6 +19853,24 @@ function _renderInstantBookSection(listing) {
   var venueInput = section.querySelector('#ibVenueInput');
   var guestsInput = section.querySelector('#ibGuestsInput');
   var notesInput = section.querySelector('#ibNotesInput');
+  var isBusinessInput = section.querySelector('#ibIsBusiness');
+  var b2bFields = section.querySelector('#ibB2bFields');
+  var companyInput = section.querySelector('#ibCompanyInput');
+  var billingInput = section.querySelector('#ibBillingInput');
+  var vatInput = section.querySelector('#ibVatInput');
+  if (isBusinessInput && b2bFields) {
+    // Wenn der User als Firma registriert ist, B2B-Toggle automatisch an.
+    try {
+      if (currentUser && (currentUser.subRole === 'business' || currentUser.role === 'business' || currentUser.company)) {
+        isBusinessInput.checked = true;
+        b2bFields.style.display = '';
+        if (companyInput && currentUser.company) companyInput.value = currentUser.company;
+      }
+    } catch(_) {}
+    isBusinessInput.addEventListener('change', function(){
+      b2bFields.style.display = isBusinessInput.checked ? '' : 'none';
+    });
+  }
 
   function isAllowedDate(iso) {
     if (!iso) return false;
@@ -19872,8 +19924,17 @@ function _renderInstantBookSection(listing) {
       time: timeInput.value || '',
       venue: (venueInput.value || '').trim(),
       guests: parseInt(guestsInput.value, 10) || 0,
-      notes: (notesInput.value || '').trim()
+      notes: (notesInput.value || '').trim(),
+      isBusiness: !!(isBusinessInput && isBusinessInput.checked),
+      company: companyInput ? (companyInput.value || '').trim() : '',
+      billingAddress: billingInput ? (billingInput.value || '').trim() : '',
+      vatId: vatInput ? (vatInput.value || '').trim() : ''
     };
+    // Pflicht-Validierung im B2B-Modus
+    if (details.isBusiness && (!details.company || !details.billingAddress)) {
+      showToast('Bitte Firma und Rechnungsadresse für die geschäftliche Buchung angeben.', 'warning');
+      return;
+    }
     _startInstantBooking(listing, dateInput.value, price, details);
   });
 }
@@ -19906,7 +19967,11 @@ function _startInstantBooking(listing, dateIso, amount, details) {
     bookingTime: details.time || '',
     bookingVenue: details.venue || '',
     bookingGuests: details.guests || 0,
-    bookingNotes: details.notes || ''
+    bookingNotes: details.notes || '',
+    isBusiness: !!details.isBusiness,
+    company: details.company || '',
+    billingAddress: details.billingAddress || '',
+    vatId: details.vatId || ''
   };
   // Redirect-fest machen: vor dem Bezahlen persistieren.
   _setPendingPayment({ type: 'instant', info: info });

@@ -15688,3 +15688,25 @@ body.dark-mode .eb-fee-row-net { color: #58e3a3; }
 body.dark-mode .eb-fee-info-tile { background: #1a1a26; border-color: rgba(255,255,255,0.06); }
 body.dark-mode .eb-fee-info-tile strong { color: #f1f1f4; }
 body.dark-mode .eb-fee-example-net { color: #58e3a3; }
+
+/* ===== Sofortbuchung: B2B-Toggle + Felder ===== */
+.ib-b2b-toggle-row { margin-top: 6px; }
+.ib-b2b-toggle {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-alt, #f7f7f9);
+  border: 1px solid var(--border-light, #e5e5ea);
+  border-radius: 10px; cursor: pointer;
+  font-size: 0.9rem; font-weight: 600; color: var(--text, #333);
+}
+.ib-b2b-toggle input[type="checkbox"] { transform: scale(1.15); cursor: pointer; }
+.ib-b2b-toggle span { display: inline-flex; align-items: center; gap: 6px; }
+.ib-b2b-toggle .material-icons-round { font-size: 17px; color: var(--primary, #FF385C); }
+.ib-b2b-fields {
+  background: rgba(0,184,148,0.05);
+  border: 1px solid rgba(0,184,148,0.2);
+  border-radius: 12px; padding: 12px;
+  margin-top: -4px; margin-bottom: 8px;
+}
+body.dark-mode .ib-b2b-toggle { background: #1a1a26; border-color: rgba(255,255,255,0.06); }
+body.dark-mode .ib-b2b-fields { background: rgba(0,184,148,0.08); border-color: rgba(0,184,148,0.3); }
