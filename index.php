@@ -2309,7 +2309,24 @@ $asset_ver = '2.5.1'; // cache-bust;
                   <button type="button" class="weekday-pill" data-day="6">Sa</button>
                   <button type="button" class="weekday-pill" data-day="0">So</button>
                 </div>
+                <p class="weekday-picker-hint" style="margin-top:18px">Urlaub oder bereits vergebene Tage (werden für Käufer ausgegraut):</p>
+                <div class="eb-blackout-wrap">
+                  <input type="date" id="createBlackoutPicker" class="eb-blackout-input" />
+                  <button type="button" class="btn-outline btn-sm" id="createBlackoutAddBtn"><span class="material-icons-round">add</span> Hinzufügen</button>
+                </div>
+                <div class="eb-blackout-list" id="createBlackoutList" aria-live="polite"></div>
+                <input type="hidden" id="createBlackoutDates" />
               </div>
+            </div>
+
+            <!-- Live-Auszahlungs-Vorschau (Fee-Transparenz) -->
+            <div class="form-group eb-fee-preview" id="createFeePreview" style="display:none">
+              <div class="eb-fee-preview-head">
+                <span class="material-icons-round">account_balance</span>
+                <strong>Was bei dir ankommt</strong>
+              </div>
+              <div class="eb-fee-preview-rows" id="createFeePreviewRows"></div>
+              <p class="eb-fee-preview-note">Wir zeigen dir transparent, was Eventbörse als Plattform-Provision einbehält. Die Stripe-Zahlungsgebühr trägt Eventbörse (nicht du). Die endgültige Stripe-Gebühr siehst du immer in deinem Stripe-Dashboard.</p>
             </div>
 
             <div class="form-group">

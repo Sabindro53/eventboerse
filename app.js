@@ -2934,8 +2934,12 @@ function filterListings() {
         if (unavail.indexOf(dateFrom) !== -1) return false;
         if (dateTo && dateTo !== dateFrom && unavail.indexOf(dateTo) !== -1) return false;
       }
-      if (l.availableFrom && dateFrom < l.availableFrom) return false;
-      if (l.availableTo   && dateTo   > l.availableTo)   return false;
+      // dateFrom/dateTo (alte Felder) UND server-seitige dateFrom/dateTo
+      // beide unterstützen — beide Naming-Varianten existieren historisch.
+      var listingFrom = l.availableFrom || l.dateFrom;
+      var listingTo   = l.availableTo   || l.dateTo;
+      if (listingFrom && dateFrom < listingFrom) return false;
+      if (listingTo   && dateTo   > listingTo)   return false;
     }
     return true;
   });
@@ -7186,6 +7190,7 @@ async function submitListing(e) {
       duration: duration,
       negotiable: negotiable,
       availableWeekdays: availableWeekdays,
+      unavailableDates: _readBlackoutDates(),
       instantBook: instantBook
     };
 
@@ -8202,6 +8207,103 @@ document.addEventListener('DOMContentLoaded', function() {
   initProfileCityAutocomplete();
   initTimePickers();
   initFeatureSearch();
+  _initListingBlackoutPicker();
+  _initListingFeePreview();
+});
+
+// ===== Inserat-Verfügbarkeit: Blackout-Daten + Fee-Vorschau =====
+
+/** Liest die aktuell im Form gespeicherten Blackout-Daten (ISO YYYY-MM-DD-Strings). */
+function _readBlackoutDates() {
+  var raw = (document.getElementById('createBlackoutDates') || {}).value || '';
+  if (!raw) return [];
+  return raw.split(',').map(function(s){ return s.trim(); }).filter(function(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s); });
+}
+function _writeBlackoutDates(arr) {
+  var input = document.getElementById('createBlackoutDates');
+  if (input) input.value = (arr || []).join(',');
+  _renderBlackoutList(arr || []);
+}
+function _renderBlackoutList(arr) {
+  var host = document.getElementById('createBlackoutList');
+  if (!host) return;
+  if (!arr.length) { host.innerHTML = '<p class="eb-blackout-empty">Keine Termine geblockt.</p>'; return; }
+  arr.sort();
+  host.innerHTML = arr.map(function(iso){
+    var d = new Date(iso + 'T00:00:00');
+    var label = isNaN(d.getTime()) ? iso : d.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+    return '<span class="eb-blackout-pill" data-iso="' + iso + '">' +
+      '<span class="material-icons-round">event_busy</span>' + label +
+      '<button type="button" class="eb-blackout-rm" aria-label="Entfernen"><span class="material-icons-round">close</span></button>' +
+    '</span>';
+  }).join('');
+}
+function _initListingBlackoutPicker() {
+  var addBtn = document.getElementById('createBlackoutAddBtn');
+  var picker = document.getElementById('createBlackoutPicker');
+  var list = document.getElementById('createBlackoutList');
+  if (!addBtn || !picker || !list) return;
+  if (addBtn.dataset.bound === '1') return;
+  addBtn.dataset.bound = '1';
+  _renderBlackoutList(_readBlackoutDates());
+  addBtn.addEventListener('click', function(){
+    var iso = picker.value;
+    if (!iso) { showToast('Bitte ein Datum wählen.', 'warning'); return; }
+    var arr = _readBlackoutDates();
+    if (arr.indexOf(iso) === -1) arr.push(iso);
+    _writeBlackoutDates(arr);
+    picker.value = '';
+  });
+  list.addEventListener('click', function(e){
+    var rm = e.target.closest('.eb-blackout-rm');
+    if (!rm) return;
+    var pill = rm.closest('.eb-blackout-pill');
+    var iso = pill && pill.getAttribute('data-iso');
+    if (!iso) return;
+    var arr = _readBlackoutDates().filter(function(d){ return d !== iso; });
+    _writeBlackoutDates(arr);
+  });
+}
+
+/** Live-Vorschau: was bleibt dem Dienstleister bei dem eingegebenen Preis? */
+function _initListingFeePreview() {
+  var input = document.getElementById('createPrice');
+  if (!input || input.dataset.feeBound === '1') return;
+  input.dataset.feeBound = '1';
+  var update = function(){ _updateCreateListingFeePreview(); };
+  input.addEventListener('input', update);
+  var maxInput = document.getElementById('createPriceMax');
+  if (maxInput) maxInput.addEventListener('input', update);
+  update();
+}
+function _updateCreateListingFeePreview() {
+  var price = parseFloat((document.getElementById('createPrice') || {}).value) || 0;
+  var priceMax = parseFloat((document.getElementById('createPriceMax') || {}).value) || 0;
+  var box = document.getElementById('createFeePreview');
+  var rows = document.getElementById('createFeePreviewRows');
+  if (!box || !rows) return;
+  if (price <= 0) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  var feeRate = (typeof window.EB_PLATFORM_FEE_RATE === 'number') ? window.EB_PLATFORM_FEE_RATE : 0.03;
+  var feePct = (feeRate * 100).toFixed(1).replace(/\.0$/, '');
+  function row(amount) {
+    var fee = Math.round(amount * feeRate * 100) / 100;
+    var net = Math.round((amount - fee) * 100) / 100;
+    return '<div class="eb-fee-row">' +
+      '<span class="eb-fee-row-label">Bei <strong>' + amount.toLocaleString('de-DE', { style:'currency', currency:'EUR' }) + '</strong> Buchungspreis</span>' +
+      '<span class="eb-fee-row-net">bekommst du <strong>' + net.toLocaleString('de-DE', { style:'currency', currency:'EUR' }) + '</strong></span>' +
+      '<span class="eb-fee-row-fee">Eventbörse-Provision: ' + fee.toLocaleString('de-DE', { style:'currency', currency:'EUR' }) + ' (' + feePct + '%)</span>' +
+    '</div>';
+  }
+  var html = row(price);
+  if (priceMax > 0 && priceMax !== price) html += row(priceMax);
+  rows.innerHTML = html;
+}
+
+// === Restlicher DOMContentLoaded-Code aus dem ursprünglich verschachtelten
+// Init-Listener — vorheriger Init-Block wurde durch die Verfügbarkeits-Helper
+// oben geschlossen, ab hier laufen wir weiter im selben Boot-Kontext. ===
+document.addEventListener('DOMContentLoaded', function() {
 
   // Clear all browse filters on fresh page load (prevent browser form restoration)
   var _clearBrowseFilters = function(){
@@ -15974,6 +16076,14 @@ function _applyInstantBookingSuccess(info, res) {
   };
   _boardProjects.push(proj);
   var nowIso = new Date().toISOString();
+  // Notiz mit kompletter Sofortbuchungs-Information zusammenbauen, damit
+  // Dienstleister + Käufer im Board sofort den vollen Kontext sehen.
+  var noteParts = ['Sofortbuchung'];
+  if (info.dateHuman) noteParts.push('für ' + info.dateHuman);
+  if (info.bookingTime) noteParts.push('ab ' + info.bookingTime + ' Uhr');
+  if (info.bookingGuests) noteParts.push(info.bookingGuests + ' Gäste');
+  if (info.bookingVenue) noteParts.push('@ ' + info.bookingVenue);
+  if (info.bookingNotes) noteParts.push('Wunsch: ' + info.bookingNotes);
   var card = {
     id: 'bc_' + Date.now(),
     name: info.title || 'Einzelbuchung',
@@ -15985,8 +16095,12 @@ function _applyInstantBookingSuccess(info, res) {
     listingTitle: info.title || '',
     avatar: info.providerImg || info.image || '',
     providerId: info.providerId || 0,
-    note: 'Sofortbuchung' + (info.dateHuman ? ' für ' + info.dateHuman : ''),
+    note: noteParts.join(' · '),
     bookingDate: info.dateIso || '',
+    bookingTime: info.bookingTime || '',
+    bookingVenue: info.bookingVenue || '',
+    bookingGuests: info.bookingGuests || 0,
+    bookingNotes: info.bookingNotes || '',
     bookedAt: nowIso, invoiceSentAt: nowIso, paidAt: nowIso,
     paidAmount: info.amount, paymentMethod: 'Stripe',
     paymentIntentId: piId, paymentReference: piId,
@@ -19548,28 +19662,42 @@ function _renderInstantBookSection(listing) {
   var bookingForm = document.querySelector('#page-detail .booking-card .booking-form');
   if (!bookingForm) return;
 
-  // Nächste 12 freie Termine berechnen (ab morgen)
-  var today = new Date(); today.setHours(0,0,0,0);
-  var slots = [];
-  for (var i = 1; slots.length < 12 && i < 90; i++) {
-    var d = new Date(today.getTime() + i*86400000);
-    if (wd.indexOf(d.getDay()) !== -1) slots.push(d);
-  }
-  if (slots.length === 0) return;
-
   var price = parseFloat(listing.price) || 0;
   var timeFrom = listing.timeFrom || '';
+  var duration = listing.duration || '';
+  var unavailable = Array.isArray(listing.unavailableDates) ? listing.unavailableDates : [];
+  var blocked = {};
+  unavailable.forEach(function(d){ blocked[d] = true; });
+
+  // Datepicker-Grenzen
+  var today = new Date(); today.setHours(0,0,0,0);
+  var minIso = (function(){ var t = new Date(today.getTime() + 86400000); return t.toISOString().slice(0,10); })();
+  var maxIso = (function(){ var t = new Date(today.getTime() + 365*86400000); return t.toISOString().slice(0,10); })();
+
+  // Quick-Pills: nächste 6 freie Tage
+  var quickSlots = [];
+  for (var i = 1; quickSlots.length < 6 && i < 120; i++) {
+    var d = new Date(today.getTime() + i*86400000);
+    var iso = d.toISOString().slice(0,10);
+    if (wd.indexOf(d.getDay()) !== -1 && !blocked[iso]) quickSlots.push({ d: d, iso: iso });
+  }
+
   var dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   var monthNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-
-  var pills = slots.map(function(d, idx) {
-    var iso = d.toISOString().slice(0,10);
-    return '<button type="button" class="instant-slot" data-iso="' + iso + '" data-idx="' + idx + '">' +
-      '<span class="is-dow">' + dayNames[d.getDay()] + '</span>' +
-      '<span class="is-day">' + d.getDate() + '</span>' +
-      '<span class="is-mon">' + monthNames[d.getMonth()] + '</span>' +
+  var pills = quickSlots.map(function(s) {
+    return '<button type="button" class="instant-slot" data-iso="' + s.iso + '">' +
+      '<span class="is-dow">' + dayNames[s.d.getDay()] + '</span>' +
+      '<span class="is-day">' + s.d.getDate() + '</span>' +
+      '<span class="is-mon">' + monthNames[s.d.getMonth()] + '</span>' +
     '</button>';
   }).join('');
+
+  // Default-Uhrzeit aus Listing-timeFrom extrahieren
+  var defaultTime = '';
+  if (timeFrom) {
+    var mTime = String(timeFrom).match(/(\d{1,2}):?(\d{2})?/);
+    if (mTime) defaultTime = (mTime[1].length===1?'0':'') + mTime[1] + ':' + (mTime[2]||'00');
+  }
 
   var html =
     '<div class="instant-book-section" id="instantBookSection">' +
@@ -19577,58 +19705,126 @@ function _renderInstantBookSection(listing) {
         '<span class="material-icons-round ib-bolt">bolt</span>' +
         '<div>' +
           '<strong>Sofortbuchung</strong>' +
-          '<small>Freien Termin w\u00e4hlen \u00b7 direkt bezahlen \u00b7 Buchung best\u00e4tigt</small>' +
+          '<small>Termin wählen, Details ergänzen, direkt bezahlen — sofort bestätigt</small>' +
         '</div>' +
       '</div>' +
-      '<div class="ib-slots">' + pills + '</div>' +
+      (pills ? '<div class="ib-section-label">Schnellauswahl freier Termine</div><div class="ib-slots">' + pills + '</div>' : '') +
+      '<div class="ib-section-label">Oder konkretes Datum wählen</div>' +
+      '<div class="ib-form-row">' +
+        '<label for="ibDateInput"><span class="material-icons-round">event</span> Wunschdatum</label>' +
+        '<input type="date" id="ibDateInput" min="' + minIso + '" max="' + maxIso + '" required />' +
+      '</div>' +
+      '<div class="ib-form-row ib-form-row-2col">' +
+        '<div>' +
+          '<label for="ibTimeInput"><span class="material-icons-round">schedule</span> Uhrzeit Beginn</label>' +
+          '<input type="time" id="ibTimeInput" value="' + _escHtml(defaultTime) + '" required />' +
+          (timeFrom ? '<small class="ib-hint">Anbieter regulär ab ' + _escHtml(timeFrom) + ' Uhr verfügbar</small>' : '') +
+        '</div>' +
+        '<div>' +
+          '<label for="ibGuestsInput"><span class="material-icons-round">groups</span> Gäste (ca.)</label>' +
+          '<input type="number" id="ibGuestsInput" min="1" max="2000" step="1" placeholder="z. B. 50" />' +
+        '</div>' +
+      '</div>' +
+      '<div class="ib-form-row">' +
+        '<label for="ibVenueInput"><span class="material-icons-round">location_on</span> Veranstaltungsort</label>' +
+        '<input type="text" id="ibVenueInput" placeholder="Straße, PLZ Ort oder Locationname" maxlength="160" />' +
+      '</div>' +
+      '<div class="ib-form-row">' +
+        '<label for="ibNotesInput"><span class="material-icons-round">edit_note</span> Sonderwünsche (optional)</label>' +
+        '<textarea id="ibNotesInput" rows="2" maxlength="500" placeholder="z. B. Genre-Wünsche, Songs, Setup-Details"></textarea>' +
+      '</div>' +
       '<div class="ib-meta">' +
-        (timeFrom ? '<span><span class="material-icons-round">schedule</span> ab ' + _escHtml(timeFrom) + ' Uhr</span>' : '') +
-        (listing.duration ? '<span><span class="material-icons-round">hourglass_top</span> ' + listing.duration + ' Std.</span>' : '') +
+        (duration ? '<span><span class="material-icons-round">hourglass_top</span> ' + duration + ' Std.</span>' : '') +
         '<span><span class="material-icons-round">euro</span> ' + _formatEuro(price) + '</span>' +
       '</div>' +
       '<button type="button" class="btn-primary btn-block ib-pay-btn" id="ibPayBtn" disabled>' +
-        '<span class="material-icons-round">lock</span> Termin w\u00e4hlen' +
+        '<span class="material-icons-round">lock</span> Termin auswählen' +
       '</button>' +
-      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Sichere Zahlung via Stripe \u00b7 sofortige Best\u00e4tigung</p>' +
+      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Sichere Zahlung via Stripe, sofortige Bestätigung. Falls du keine Sofortbuchung willst, kannst du unten eine Anfrage senden.</p>' +
     '</div>';
 
   bookingForm.insertAdjacentHTML('beforebegin', html);
 
   var section = document.getElementById('instantBookSection');
   var payBtn = section.querySelector('#ibPayBtn');
-  var selectedIso = null;
+  var dateInput = section.querySelector('#ibDateInput');
+  var timeInput = section.querySelector('#ibTimeInput');
+  var venueInput = section.querySelector('#ibVenueInput');
+  var guestsInput = section.querySelector('#ibGuestsInput');
+  var notesInput = section.querySelector('#ibNotesInput');
 
+  function isAllowedDate(iso) {
+    if (!iso) return false;
+    if (blocked[iso]) return false;
+    var dt = new Date(iso + 'T00:00:00');
+    if (isNaN(dt.getTime())) return false;
+    if (dt < new Date(today.getTime() + 86400000)) return false;
+    return wd.indexOf(dt.getDay()) !== -1;
+  }
+  function refreshPayBtn() {
+    var iso = dateInput.value;
+    var ok = isAllowedDate(iso) && timeInput.value;
+    payBtn.disabled = !ok;
+    if (ok) {
+      var dt = new Date(iso);
+      var human = dayNames[dt.getDay()] + ', ' + dt.getDate() + '. ' + monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
+      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' · ' + timeInput.value + ' Uhr · ' + _formatEuro(price) + ' buchen';
+    } else {
+      var hint;
+      if (!iso) hint = 'Datum wählen';
+      else if (blocked[iso]) hint = 'Dieser Tag ist nicht verfügbar';
+      else if (!isAllowedDate(iso)) hint = 'Wochentag nicht verfügbar';
+      else hint = 'Uhrzeit ergänzen';
+      payBtn.innerHTML = '<span class="material-icons-round">info</span> ' + hint;
+    }
+  }
   section.querySelectorAll('.instant-slot').forEach(function(btn) {
     btn.addEventListener('click', function() {
       section.querySelectorAll('.instant-slot').forEach(function(b){ b.classList.remove('selected'); });
       btn.classList.add('selected');
-      selectedIso = btn.getAttribute('data-iso');
-      payBtn.disabled = false;
-      var dt = new Date(selectedIso);
-      var human = dayNames[dt.getDay()] + ', ' + dt.getDate() + '. ' + monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
-      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' buchen';
+      dateInput.value = btn.getAttribute('data-iso');
+      refreshPayBtn();
     });
   });
+  dateInput.addEventListener('change', function(){
+    section.querySelectorAll('.instant-slot').forEach(function(b){
+      b.classList.toggle('selected', b.getAttribute('data-iso') === dateInput.value);
+    });
+    if (dateInput.value && !isAllowedDate(dateInput.value)) {
+      showToast('Dieser Tag ist nicht verfügbar (Wochentag oder geblockt). Bitte einen anderen wählen.', 'warning');
+    }
+    refreshPayBtn();
+  });
+  timeInput.addEventListener('change', refreshPayBtn);
+  refreshPayBtn();
 
   payBtn.addEventListener('click', function() {
-    if (!selectedIso) return;
+    if (payBtn.disabled) return;
     if (!currentUser) { openModal('loginModal'); return; }
-    _startInstantBooking(listing, selectedIso, price);
+    var details = {
+      time: timeInput.value || '',
+      venue: (venueInput.value || '').trim(),
+      guests: parseInt(guestsInput.value, 10) || 0,
+      notes: (notesInput.value || '').trim()
+    };
+    _startInstantBooking(listing, dateInput.value, price, details);
   });
 }
 
-function _startInstantBooking(listing, dateIso, amount) {
+function _startInstantBooking(listing, dateIso, amount, details) {
   if (!amount || amount <= 0) {
     showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
     return;
   }
+  details = details || {};
   var dateHuman = (function(){
     try { var d = new Date(dateIso); return d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
     catch(e) { return dateIso; }
   })();
   var listingId = listing._dbId || listing.id;
 
-  // Buchungsdaten, die onSuccess UND die Redirect-Rückkehr brauchen.
+  // Buchungsdaten - onSuccess, Redirect-R\u00fcckkehr und System-Chat
+  // rekonstruieren daraus die volle Buchung.
   var info = {
     listingId: listingId,
     title: listing.title || 'Einzelbuchung',
@@ -19639,7 +19835,11 @@ function _startInstantBooking(listing, dateIso, amount) {
     providerId: listing.providerId || 0,
     amount: amount,
     dateIso: dateIso,
-    dateHuman: dateHuman
+    dateHuman: dateHuman,
+    bookingTime: details.time || '',
+    bookingVenue: details.venue || '',
+    bookingGuests: details.guests || 0,
+    bookingNotes: details.notes || ''
   };
   // Redirect-fest machen: vor dem Bezahlen persistieren.
   _setPendingPayment({ type: 'instant', info: info });

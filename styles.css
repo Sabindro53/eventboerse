@@ -15575,3 +15575,81 @@ body.dark-mode .eb-pm-bnav { background: var(--bg, #14141f); border-top-color: r
 @media (hover: none) {
   .eb-imgflag { width: 40px; height: 40px; opacity: 0.9; }
 }
+
+/* =====================================================================
+   Inserat: Blackout-Daten + Live-Fee-Vorschau
+   ===================================================================== */
+.eb-blackout-wrap {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+}
+.eb-blackout-input {
+  flex: 1; min-width: 160px;
+  padding: 9px 12px; border: 1px solid var(--border-light, #e5e5ea);
+  border-radius: 10px; background: var(--bg, #fff); color: var(--text, #222);
+  font: inherit;
+}
+.eb-blackout-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; min-height: 32px; }
+.eb-blackout-empty { color: var(--text-light, #888); font-size: 0.85rem; margin: 0; }
+.eb-blackout-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px 6px 8px;
+  background: rgba(220, 38, 38, 0.10); color: #b91c1c;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+}
+.eb-blackout-pill .material-icons-round { font-size: 16px; }
+.eb-blackout-rm {
+  border: 0; background: rgba(185, 28, 28, 0.18); color: #b91c1c;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; margin-left: 2px;
+}
+.eb-blackout-rm:hover { background: #b91c1c; color: #fff; }
+.eb-blackout-rm .material-icons-round { font-size: 14px; }
+
+.eb-fee-preview {
+  background: linear-gradient(135deg, rgba(0, 184, 148, 0.08), rgba(108, 71, 255, 0.06));
+  border: 1px solid rgba(0, 184, 148, 0.30);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.eb-fee-preview-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.95rem; margin-bottom: 12px;
+}
+.eb-fee-preview-head .material-icons-round { color: #00B894; }
+.eb-fee-preview-rows { display: flex; flex-direction: column; gap: 12px; }
+.eb-fee-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+  padding: 10px 12px; background: var(--bg, #fff);
+  border: 1px solid var(--border-light, #eee); border-radius: 10px;
+}
+.eb-fee-row-label { font-size: 0.88rem; color: var(--text, #333); }
+.eb-fee-row-net { font-size: 0.95rem; color: #00B894; font-weight: 700; text-align: right; }
+.eb-fee-row-fee { grid-column: 1 / -1; font-size: 0.78rem; color: var(--text-light, #888); }
+.eb-fee-preview-note { margin: 10px 0 0; font-size: 0.78rem; color: var(--text-light, #777); }
+body.dark-mode .eb-fee-row { background: #1a1a26; border-color: rgba(255,255,255,0.08); }
+body.dark-mode .eb-fee-row-net { color: #58e3a3; }
+
+/* Sofortbuchung — Formular-Erweiterung */
+.ib-section-label {
+  font-size: 0.82rem; color: var(--text-light, #777);
+  font-weight: 600; margin: 14px 0 8px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ib-form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.ib-form-row > label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.88rem; font-weight: 600; color: var(--text, #333);
+}
+.ib-form-row > label .material-icons-round { font-size: 17px; color: var(--primary, #FF385C); }
+.ib-form-row input, .ib-form-row textarea, .ib-form-row select {
+  padding: 10px 12px; border: 1px solid var(--border-light, #e5e5ea);
+  border-radius: 10px; background: var(--bg, #fff); color: var(--text, #222);
+  font: inherit; font-size: 0.95rem;
+}
+.ib-form-row textarea { resize: vertical; min-height: 56px; }
+.ib-form-row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ib-form-row-2col > div { display: flex; flex-direction: column; gap: 6px; }
+.ib-hint { color: var(--text-light, #888); font-size: 0.78rem; }
+@media (max-width: 480px) { .ib-form-row-2col { grid-template-columns: 1fr; } }
