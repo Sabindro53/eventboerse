@@ -79,13 +79,13 @@ Gespeichert in `wp_usermeta` unter `eb_board_projects` (JSON, max 2 MB).
 
 ## Messaging & Verhandlung (5 Endpoints)
 
-| Method | Endpoint | Beschreibung |
-|--------|----------|--------------|
-| GET | `/conversations` | Alle Konversationen |
-| POST | `/conversations` | Neue Konversation starten |
-| GET | `/conversations/{id}/messages` | Nachrichten laden |
-| PUT | `/messages/{id}` | Nachricht aktualisieren |
-| PUT | `/messages/{id}/offer-status` | Angebotsstatus ändern |
+| Method | Endpoint                       | Beschreibung              |
+| ------ | ------------------------------ | ------------------------- |
+| GET    | `/conversations`               | Alle Konversationen       |
+| POST   | `/conversations`               | Neue Konversation starten |
+| GET    | `/conversations/{id}/messages` | Nachrichten laden         |
+| PUT    | `/messages/{id}`               | Nachricht aktualisieren   |
+| PUT    | `/messages/{id}/offer-status`  | Angebotsstatus ändern     |
 
 → [[Backend/Messaging-API]] | [[Features/Messaging]]
 
