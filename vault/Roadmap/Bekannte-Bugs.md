@@ -4,12 +4,41 @@
 
 ## Offen
 
+### [CHAT] 8 Chat-Menü-Aktionen schlagen still fehl — Backend-Routen fehlen
+**Gefunden:** 2026-06-16 (Self-Audit)
+**Betrifft:** `app.js` (Chat-Menü, Nachrichten-Hover-Aktionen), `functions.php` (REST-API)
+**Symptom:** UI-Buttons im Chat zeigen `showToast('Aktion fehlgeschlagen', 'error')` nach Klick. Die Frontend-Funktionen rufen REST-Endpoints auf, die in `functions.php` nicht via `register_rest_route` registriert sind:
+
+| Frontend-Funktion | Endpoint | UI-Button |
+|---|---|---|
+| `hideMessageForMe()` (app.js:5172) | `POST messages/{id}/hide` | „Für mich löschen" pro Nachricht |
+| `_markChatUnread()` (app.js:5365) | `DELETE conversations/{id}/read` | „Als ungelesen markieren" im Chat-Menü |
+| `_clearChat()` (app.js:5373) | `DELETE conversations/{id}` | „Chat löschen" |
+| `_toggleBlockUser()` (app.js:5396) | `POST/DELETE users/{id}/block` | „Blockieren / Blockierung aufheben" |
+| `_reportUser()` (app.js:5421) | `POST users/{id}/report` | „Melden" |
+| `_setChatFlag('mute')` (app.js:5351) | `POST/DELETE conversations/{id}/mute` | „Stummschalten" |
+| `_setChatFlag('pin')` (app.js:5351) | `POST/DELETE conversations/{id}/pin` | „Anheften" |
+| `_setChatFlag('archive')` (app.js:5351) | `POST/DELETE conversations/{id}/archive` | „Archivieren" |
+
+**Reproduzieren:** Im Chat auf das 3-Punkte-Menü → eine der Aktionen klicken. Erwartet: Aktion wird ausgeführt. Tatsächlich: roter Toast „Aktion fehlgeschlagen".
+**Status:** offen (P0 — UI verspricht Funktion, die nirgends implementiert ist)
+**Proposed Fix:** REST-Routen in `functions.php` ergänzen + 1-2 User-Meta-Felder bzw. neue DB-Tabelle für `eb_conversation_flags` (mute/pin/archive/read-state) und `eb_user_blocks` / `eb_user_reports`. Siehe `vault/AI-Gedaechtnis/Audit-2026-06-16.md` für Detail-Vorschlag.
+
+### [REPO] 12 ungenutzte JS-Patch-Dateien werden ausgeliefert
+**Gefunden:** 2026-06-16 (Self-Audit)
+**Betrifft:** Repo-Root (`app-state.js`, `app-router.js`, `app-utils.js`, `app-init-override.js`, `app-demo-patch.js`, `app_patch_listings.js`, `eb-router.js`, `eb-state.js`, `db-bridge.js`, `listings-loader.js`, `mock-data.js`, `ux-improvements.js`) + 2 Patch-Markdowns (`_PATCH_ANLEITUNG.md`, `_patch_demo_data.md`, `functions-analytics-patch.php`)
+**Symptom:** Ca. 615 Zeilen JS werden per SFTP nach IONOS deployed, aber von keinem `<script>`-Tag in `index.html`/`index.php` oder via `wp_enqueue_script` in `functions.php` geladen. Sie können nur über direkte URL-Aufrufe (z.B. `/wp-content/themes/eventboerse/eb-state.js`) ausgeliefert werden — toter Code im Live-Theme.
+**Reproduzieren:** `grep -rE "app-state\.js|eb-router\.js|...." index.html index.php functions.php` liefert keine Treffer.
+**Status:** offen (P2 — kein Funktionsbug, aber Wartungslast + IDE-Verwirrung beim Refactor)
+**Proposed Fix:** Dateien einzeln per `git rm` entfernen, nachdem stichprobenweise bestätigt ist, dass kein externer Service sie referenziert.
+
 ### [ADMIN] Moderationsrouten im Vault vs. Code abgleichen
 **Gefunden:** 2026-06-06
 **Betrifft:** Admin-Moderation, `functions.php`, Vault-Doku
 **Symptom:** Ältere Vault-Notizen dokumentieren `/admin/listings/{id}/hide` und `/my-listing-moderation`; aktueller Code registriert diese REST-Routen nicht.
 **Reproduzieren:** `rg -n "admin/listings|my-listing-moderation" functions.php` liefert keine Route.
 **Status:** offen (P0/P1 prüfen, weil Admin-Ausblenden/Löschen produktrelevant ist)
+**Update 2026-06-16:** Self-Audit bestätigt: in der aktuellen `app.js` ruft kein Frontend-Pfad diese Routen auf. Wahrscheinlich nie implementiert; Vault-Notiz war aspirativ. → Entscheidung nötig: a) Feature bauen oder b) Vault-Notizen archivieren.
 
 ### [PAYMENTS] Stripe Connect E2E noch nicht vollständig verifiziert
 **Gefunden:** 2026-06-06
