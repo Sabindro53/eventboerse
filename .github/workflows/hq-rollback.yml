@@ -1,4 +1,4 @@
-name: HQ Rollback – Deploy SHA
+name: HQ Rollback â Deploy SHA
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   rollback:
-    name: Rollback → ${{ github.event.inputs.target_sha }}
+    name: Rollback â ${{ github.event.inputs.target_sha }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
@@ -25,13 +25,13 @@ jobs:
       - name: Validate SHA exists
         run: |
           SHA="${{ github.event.inputs.target_sha }}"
-          echo "Prüfe SHA: $SHA"
+          echo "PrÃ¼fe SHA: $SHA"
           git cat-file -t "$SHA" 2>/dev/null | grep -q commit \
-            || { echo "❌ SHA '$SHA' nicht gefunden"; exit 1; }
+            || { echo "â SHA '$SHA' nicht gefunden"; exit 1; }
           FULL_SHA=$(git rev-parse "$SHA")
           SHORT_SHA="${FULL_SHA:0:7}"
           MSG=$(git log --format='%s' -1 "$FULL_SHA")
-          echo "✅ SHA gefunden: $FULL_SHA"
+          echo "â SHA gefunden: $FULL_SHA"
           echo "   Commit: $MSG"
           echo "FULL_SHA=$FULL_SHA" >> $GITHUB_ENV
           echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
@@ -39,7 +39,7 @@ jobs:
 
       - name: Create rollback commit on main
         run: |
-          git config user.name  "EventBörse HQ"
+          git config user.name  "EventBÃ¶rse HQ"
           git config user.email "hq@eventboerse.de"
           # Read the tree from target SHA (not a revert, a direct rollback)
           git checkout "$FULL_SHA" -- .
@@ -48,17 +48,13 @@ jobs:
           git restore .github/ vault/ README.md CLAUDE.md LICENSE* .gitignore .gitattributes .vscode/ .editorconfig 2>/dev/null || true
           # Check if anything changed
           if git diff --cached --quiet; then
-            echo "ℹ️ Keine Unterschiede zum aktuellen Stand — nichts zu committen."
+            echo "â¹ï¸ Keine Unterschiede zum aktuellen Stand â nichts zu committen."
             echo "SKIP_DEPLOY=true" >> $GITHUB_ENV
           else
-            git commit -m "rollback: zurück zu $SHORT_SHA ($COMMIT_MSG)
-
-HQ Rollback ausgelöst via workflow_dispatch.
-Target: $FULL_SHA
-Triggered by: ${{ github.actor }}
-Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+            git commit -m "rollback: zurueck zu $SHORT_SHA ($COMMIT_MSG) | by ${{ github.actor }} @ $TIMESTAMP"
             git push origin main
-            echo "✅ Rollback-Commit gepusht."
+            echo "â Rollback-Commit gepusht."
             echo "SKIP_DEPLOY=false" >> $GITHUB_ENV
           fi
 
@@ -74,7 +70,7 @@ Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
         run: |
           DEPLOY_DIR="/public/wp-content/themes/eventboerse/"
-          echo "🚀 Deploye Rollback zu sftp://$SFTP_HOST → $DEPLOY_DIR"
+          echo "ð Deploye Rollback zu sftp://$SFTP_HOST â $DEPLOY_DIR"
           lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
             set sftp:auto-confirm yes;
             set net:timeout 60;
@@ -96,15 +92,15 @@ Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
       - name: Summary
         run: |
           if [ "$SKIP_DEPLOY" = "true" ]; then
-            echo "## ℹ️ Rollback übersprungen" >> $GITHUB_STEP_SUMMARY
-            echo "Der gewählte Commit ist identisch mit dem aktuellen Stand." >> $GITHUB_STEP_SUMMARY
+            echo "## â¹ï¸ Rollback Ã¸bersprungen" >> $GITHUB_STEP_SUMMARY
+            echo "Der gewÃ¤hlte Commit ist identisch mit dem aktuellen Stand." >> $GITHUB_STEP_SUMMARY
           else
-            echo "## ✅ Rollback erfolgreich" >> $GITHUB_STEP_SUMMARY
+            echo "## â Rollback erfolgreich" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| | |" >> $GITHUB_STEP_SUMMARY
             echo "|---|---|" >> $GITHUB_STEP_SUMMARY
             echo "| **Target SHA** | \`$FULL_SHA\` |" >> $GITHUB_STEP_SUMMARY
             echo "| **Commit** | $COMMIT_MSG |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Ausgelöst von** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Deploy** | SFTP → IONOS ✅ |" >> $GITHUB_STEP_SUMMARY
+            echo "| **AusgelÃ¶st von** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Deploy** | SFTP â IONOS â |" >> $GITHUB_STEP_SUMMARY
           fi
