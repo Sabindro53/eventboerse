@@ -341,9 +341,55 @@
   .run-link { color: var(--pink); font-size: .75rem; text-decoration: none; }
   .run-link:hover { text-decoration: underline; }
 
+  /* ── Bot Team ── */
+  .bots { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .bot-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    transition: border-color .2s;
+  }
+  .bot-card:hover { border-color: var(--violet); }
+  .bot-card.running { border-color: var(--yellow); animation: pulse-border 2s infinite; }
+  @keyframes pulse-border { 0%,100%{border-color:var(--yellow);} 50%{border-color:var(--surface2);} }
+  .bot-avatar { font-size: 2rem; }
+  .bot-name { font-weight: 700; font-size: .95rem; }
+  .bot-role { font-size: .78rem; color: var(--muted); line-height: 1.4; }
+  .bot-status-row { display: flex; align-items: center; gap: .4rem; font-size: .78rem; }
+  .bot-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .bot-dot.idle { background: var(--muted); }
+  .bot-dot.running { background: var(--yellow); animation: pulse 1.5s infinite; }
+  .bot-dot.success { background: var(--green); }
+  .bot-dot.fail { background: var(--red); }
+  .bot-last { font-size: .73rem; color: var(--muted); }
+  .bot-actions { margin-top: auto; display: flex; gap: .4rem; flex-wrap: wrap; }
+  .bot-btn {
+    font-size: .75rem;
+    padding: .3rem .7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    transition: border-color .15s, background .15s;
+  }
+  .bot-btn:hover { border-color: var(--violet); background: #2d2d50; }
+  .bot-btn.primary { background: linear-gradient(135deg, var(--pink), var(--violet)); border: none; color: #fff; font-weight: 600; }
+  .bot-btn.primary:hover { opacity: .9; }
+  .bot-btn:disabled { opacity: .4; cursor: not-allowed; }
+
   @media (max-width: 600px) {
     .stats { grid-template-columns: 1fr 1fr; }
     .release-top { flex-direction: column; gap: .3rem; }
+    .bots { grid-template-columns: 1fr 1fr; }
   }
 </style>
 </head>
@@ -440,6 +486,19 @@
       <div class="skeleton" style="height:48px;"></div>
       <div class="skeleton" style="height:48px;"></div>
       <div class="skeleton" style="height:48px;"></div>
+    </div>
+
+    <!-- Bot Team -->
+    <div class="section-header">
+      <div class="section-title">🤖 Bot-Team</div>
+      <div class="section-badge">4 Aktiv</div>
+    </div>
+    <div class="bots" id="bots-grid">
+      <!-- Populated by loadBots() -->
+      <div class="skeleton" style="height:180px;"></div>
+      <div class="skeleton" style="height:180px;"></div>
+      <div class="skeleton" style="height:180px;"></div>
+      <div class="skeleton" style="height:180px;"></div>
     </div>
   </main>
 </div>
@@ -763,17 +822,163 @@ function showToast(msg, type = '') {
   setTimeout(() => t.className = 'toast', 3500);
 }
 
+// ─── Bot Team ────────────────────────────────────────────────
+const BOTS = [
+  {
+    id: 'claude-dev',
+    avatar: '🤖',
+    name: 'Claude Dev-Bot',
+    role: 'Analysiert Code mit Claude AI, findet Bugs & Verbesserungen, erstellt GitHub Issues',
+    workflow: 'claude-auto-audit.yml',
+    canTrigger: true,
+    triggerLabel: '▶ Audit starten',
+    logsLabel: '📋 Issues',
+    logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit`,
+  },
+  {
+    id: 'monitor',
+    avatar: '👁️',
+    name: 'Monitor-Bot',
+    role: 'Prüft Live-Site alle 30 Minuten auf Erreichbarkeit. Öffnet automatisch GitHub Issues bei Ausfall.',
+    workflow: 'site-monitor.yml',
+    canTrigger: false,
+    logsLabel: '📋 Logs',
+    logsUrl: `https://github.com/${REPO}/actions/workflows/site-monitor.yml`,
+  },
+  {
+    id: 'deploy',
+    avatar: '🚀',
+    name: 'Deploy-Bot',
+    role: 'Deploymt automatisch bei jedem Push via SFTP zu IONOS. Kein manueller Trigger nötig.',
+    workflow: 'ionos-deploy.yml',
+    canTrigger: false,
+    logsLabel: '📋 Deploy-Logs',
+    logsUrl: `https://github.com/${REPO}/actions/workflows/ionos-deploy.yml`,
+  },
+  {
+    id: 'rollback',
+    avatar: '⏪',
+    name: 'Rollback-Bot',
+    role: 'Setzt Live-Site auf beliebigen Commit zurück. Nutz den "Hierher zurück"-Button im Release-Verlauf.',
+    workflow: 'hq-rollback.yml',
+    canTrigger: false,
+    logsLabel: '📋 Rollback-Logs',
+    logsUrl: `https://github.com/${REPO}/actions/workflows/hq-rollback.yml`,
+  },
+];
+
+const _botRunCache = {};
+
+async function loadBots() {
+  const grid = document.getElementById('bots-grid');
+  grid.innerHTML = '';
+  for (const bot of BOTS) {
+    const card = document.createElement('div');
+    card.className = 'bot-card';
+    card.id = `bot-${bot.id}`;
+    card.innerHTML = `
+      <div class="bot-avatar">${bot.avatar}</div>
+      <div class="bot-name">${bot.name}</div>
+      <div class="bot-role">${bot.role}</div>
+      <div class="bot-status-row">
+        <div class="bot-dot idle" id="dot-${bot.id}"></div>
+        <span id="status-${bot.id}" style="color:var(--muted);">Lade…</span>
+      </div>
+      <div class="bot-last" id="last-${bot.id}"></div>
+      <div class="bot-actions">
+        ${bot.canTrigger ? `<button class="bot-btn primary" id="trig-${bot.id}" onclick="triggerBot('${bot.id}','${bot.workflow}')">
+          ${bot.triggerLabel}
+        </button>` : ''}
+        <a class="bot-btn" href="${bot.logsUrl}" target="_blank">${bot.logsLabel}</a>
+      </div>`;
+    grid.appendChild(card);
+    fetchBotStatus(bot);
+  }
+}
+
+async function fetchBotStatus(bot) {
+  try {
+    const data = await ghFetch(`/actions/workflows/${bot.workflow}/runs?per_page=1`);
+    const run = (data.workflow_runs || [])[0];
+    const dot = document.getElementById(`dot-${bot.id}`);
+    const statusEl = document.getElementById(`status-${bot.id}`);
+    const lastEl = document.getElementById(`last-${bot.id}`);
+    const card = document.getElementById(`bot-${bot.id}`);
+    if (!run) {
+      dot.className = 'bot-dot idle';
+      statusEl.textContent = 'Noch kein Run';
+      statusEl.style.color = 'var(--muted)';
+      return;
+    }
+    _botRunCache[bot.id] = run;
+    const isRunning = run.status === 'in_progress' || run.status === 'queued';
+    const isOk = run.conclusion === 'success';
+    const isFail = run.conclusion === 'failure';
+    dot.className = 'bot-dot ' + (isRunning ? 'running' : isOk ? 'success' : isFail ? 'fail' : 'idle');
+    card.className = 'bot-card ' + (isRunning ? 'running' : '');
+    statusEl.textContent = isRunning ? '🔄 Läuft gerade…' : isOk ? '✅ Bereit' : isFail ? '❌ Letzter Run fehlgeschlagen' : '💤 Bereit';
+    statusEl.style.color = isRunning ? 'var(--yellow)' : isOk ? 'var(--green)' : isFail ? 'var(--red)' : 'var(--muted)';
+    lastEl.textContent = 'Zuletzt: ' + humanDate(run.updated_at) + (run.run_number ? ` · Run #${run.run_number}` : '');
+    if (isRunning) setTimeout(() => fetchBotStatus(bot), 15000);
+  } catch (e) {
+    const statusEl = document.getElementById(`status-${bot.id}`);
+    if (statusEl) statusEl.textContent = 'Nicht erreichbar';
+  }
+}
+
+async function triggerBot(botId, workflow) {
+  const pat = getPat();
+  if (!pat) {
+    document.getElementById('pat-notice').style.display = 'flex';
+    document.getElementById('pat-input').focus();
+    showToast('⚠️ GitHub Token erforderlich', 'error');
+    return;
+  }
+  const btn = document.getElementById(`trig-${botId}`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Starte…'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${pat}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: 'main' })
+    });
+    if (res.status === 204 || res.ok) {
+      showToast(`✅ ${botId === 'claude-dev' ? 'Claude Dev-Bot' : 'Bot'} gestartet! Läuft via GitHub Actions.`, 'success');
+      const bot = BOTS.find(b => b.id === botId);
+      const dot = document.getElementById(`dot-${botId}`);
+      const statusEl = document.getElementById(`status-${botId}`);
+      const card = document.getElementById(`bot-${botId}`);
+      if (dot) dot.className = 'bot-dot running';
+      if (statusEl) { statusEl.textContent = '🔄 Läuft gerade…'; statusEl.style.color = 'var(--yellow)'; }
+      if (card) card.className = 'bot-card running';
+      setTimeout(() => { if (bot) fetchBotStatus(bot); }, 10000);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  } catch (e) {
+    showToast(`❌ Fehler: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = BOTS.find(b=>b.id===botId)?.triggerLabel || '▶ Starten'; }
+  }
+}
+
 // ─── Init ────────────────────────────────────────────────────
 async function init() {
   checkPatNotice();
   await checkSiteStatus();
-  await Promise.all([loadCommits(), loadRuns()]);
+  await Promise.all([loadCommits(), loadRuns(), loadBots()]);
 }
 
 async function refreshAll() {
   document.getElementById('releases-list').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
   document.getElementById('runs-list').innerHTML = '<div class="skeleton" style="height:48px;"></div><div class="skeleton" style="height:48px;"></div><div class="skeleton" style="height:48px;"></div>';
-  await Promise.all([checkSiteStatus(), loadCommits(), loadRuns()]);
+  document.getElementById('bots-grid').innerHTML = '<div class="skeleton" style="height:180px;"></div><div class="skeleton" style="height:180px;"></div><div class="skeleton" style="height:180px;"></div><div class="skeleton" style="height:180px;"></div>';
+  await Promise.all([checkSiteStatus(), loadCommits(), loadRuns(), loadBots()]);
   showToast('✅ Aktualisiert', 'success');
 }
 
