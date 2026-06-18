@@ -118,7 +118,7 @@ navigateTo('admin')         // Admin-Panel
 
 ## Lernpunkte aus vergangenen Gesprächen
 
-*(Claude trägt hier neue Erkenntnisse ein)*
+- **`hq.html` = EventBörse HQ (Mission Control):** Eigenständiges, self-contained Dev-Command-Center über die GitHub-API. Gamifiziert (Level/XP, Streak, Quests = Roadmap, Achievements, Bot-Team, Aktivitäts-Log, Confetti/SFX). Kein Build-Schritt, kein Framework. Zugriff per `HQ_KEYS`, GitHub-PAT (sessionStorage) für Rollback/Bot-Trigger. Quests spiegeln die Sprint-Roadmap — beim Hinzufügen neuer Roadmap-Punkte auch das `QUESTS`-Array in `hq.html` pflegen. GitHub-Daten werden per stale-while-revalidate in `localStorage` gecacht (geringere Rate-Limit-Last).
 
 ---
-*Zuletzt aktualisiert: 2026-06-06*
+*Zuletzt aktualisiert: 2026-06-17*

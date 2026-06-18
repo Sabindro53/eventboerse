@@ -3,407 +3,413 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EventBörse HQ</title>
+<meta name="theme-color" content="#0b0b14">
+<title>EventBörse HQ — Mission Control</title>
 <style>
   :root {
     --pink: #e91e8c;
     --violet: #7c3aed;
     --teal: #0d9488;
-    --bg: #0f0f17;
-    --surface: #1a1a2e;
-    --surface2: #22223a;
+    --cyan: #22d3ee;
+    --bg: #0b0b14;
+    --bg2: #0f0f1c;
+    --surface: #161628;
+    --surface2: #1f1f38;
+    --surface3: #272748;
     --border: #2d2d4e;
-    --text: #e2e8f0;
-    --muted: #94a3b8;
+    --text: #e7ecf5;
+    --muted: #97a1b8;
     --green: #22c55e;
     --red: #ef4444;
     --yellow: #f59e0b;
+    --gold: #fbbf24;
+    --glow: 0 0 24px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
+  /* ── Animated background ── */
+  #bg-layer {
+    position: fixed; inset: 0; z-index: -2;
+    background:
+      radial-gradient(900px 600px at 12% -5%, rgba(124,58,237,.20), transparent 60%),
+      radial-gradient(800px 600px at 95% 0%, rgba(233,30,140,.16), transparent 55%),
+      radial-gradient(700px 700px at 50% 110%, rgba(34,211,238,.10), transparent 60%),
+      var(--bg);
+  }
+  #bg-grid {
+    position: fixed; inset: 0; z-index: -1; opacity: .35; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(124,58,237,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,58,237,.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 35%, transparent 80%);
+    animation: gridDrift 24s linear infinite;
+  }
+  @keyframes gridDrift { from { background-position: 0 0; } to { background-position: 44px 44px; } }
+
+  /* ── Top load bar ── */
+  #loadbar {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--pink), var(--violet), var(--cyan));
+    z-index: 500; box-shadow: var(--glow) rgba(233,30,140,.6);
+    transition: width .25s ease, opacity .4s ease; opacity: 0; border-radius: 0 3px 3px 0;
+  }
+  #loadbar.active { opacity: 1; }
+
   /* ── Auth screen ── */
-  #auth-screen {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 2rem;
-  }
+  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
   .auth-box {
-    background: var(--surface);
+    background: linear-gradient(160deg, var(--surface), var(--bg2));
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 2.5rem;
-    width: 100%;
-    max-width: 380px;
-    text-align: center;
+    border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 400px; text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+    position: relative; overflow: hidden;
   }
-  .auth-box .logo { font-size: 2rem; margin-bottom: 1rem; }
-  .auth-box h1 { font-size: 1.4rem; margin-bottom: .4rem; }
+  .auth-box::before {
+    content: ''; position: absolute; inset: -2px; border-radius: 22px; z-index: -1;
+    background: conic-gradient(from 0deg, var(--pink), var(--violet), var(--cyan), var(--pink));
+    filter: blur(14px); opacity: .35; animation: spin 8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .auth-box .logo { font-size: 2.4rem; margin-bottom: 1rem; filter: drop-shadow(0 0 14px rgba(233,30,140,.5)); }
+  .auth-box h1 { font-size: 1.5rem; margin-bottom: .4rem; letter-spacing: -.01em; }
+  .auth-box .tag { display:inline-block; font-size:.68rem; letter-spacing:.18em; text-transform:uppercase; color:var(--cyan); margin-bottom:1rem; }
   .auth-box p { color: var(--muted); font-size: .9rem; margin-bottom: 1.5rem; }
   .auth-box input {
-    width: 100%;
-    padding: .75rem 1rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 1rem;
-    margin-bottom: 1rem;
-    outline: none;
+    width: 100%; padding: .8rem 1rem; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px; color: var(--text);
+    font-size: 1rem; margin-bottom: 1rem; outline: none; transition: border-color .2s, box-shadow .2s;
   }
-  .auth-box input:focus { border-color: var(--pink); }
+  .auth-box input:focus { border-color: var(--pink); box-shadow: var(--glow) rgba(233,30,140,.25); }
   .auth-error { color: var(--red); font-size: .85rem; margin-top: -.5rem; margin-bottom: .75rem; display: none; }
 
   /* ── Main HQ ── */
-  #hq { display: none; }
+  #hq { display: none; animation: fadeUp .5s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px);} to { opacity:1; transform:none;} }
 
   header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 1rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    background: rgba(16,16,28,.82); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border); padding: .85rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    position: sticky; top: 0; z-index: 100;
   }
   .header-left { display: flex; align-items: center; gap: .75rem; }
-  .header-logo { font-size: 1.5rem; }
-  .header-title { font-size: 1.1rem; font-weight: 700; }
-  .header-sub { font-size: .75rem; color: var(--muted); }
+  .header-logo { font-size: 1.5rem; filter: drop-shadow(0 0 10px rgba(233,30,140,.5)); }
+  .header-title { font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; }
+  .header-sub { font-size: .72rem; color: var(--muted); font-family: monospace; }
+  .header-actions { display:flex; gap:.5rem; align-items:center; }
+
+  .lvl-chip {
+    display:flex; align-items:center; gap:.5rem; cursor:pointer;
+    background: linear-gradient(135deg, rgba(124,58,237,.25), rgba(233,30,140,.18));
+    border: 1px solid var(--violet); border-radius: 999px; padding: .3rem .35rem .3rem .3rem;
+    transition: transform .15s, box-shadow .2s;
+  }
+  .lvl-chip:hover { transform: translateY(-1px); box-shadow: var(--glow) rgba(124,58,237,.4); }
+  .lvl-badge {
+    width: 28px; height: 28px; border-radius: 50%; display:grid; place-items:center;
+    background: linear-gradient(135deg, var(--pink), var(--violet)); color:#fff;
+    font-weight: 800; font-size: .8rem; box-shadow: var(--glow) rgba(233,30,140,.5);
+  }
+  .lvl-chip .lvl-rank { font-size: .78rem; font-weight: 700; padding-right:.35rem; white-space:nowrap; }
 
   .status-pill {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: .35rem .85rem;
-    font-size: .85rem;
-    cursor: pointer;
-    transition: border-color .2s;
+    display: flex; align-items: center; gap: .5rem; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 999px; padding: .35rem .85rem;
+    font-size: .82rem; cursor: pointer; transition: border-color .2s;
   }
   .status-pill:hover { border-color: var(--pink); }
-  .status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--muted);
-    animation: pulse 2s infinite;
-  }
-  .status-dot.up { background: var(--green); }
-  .status-dot.down { background: var(--red); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); animation: pulse 2s infinite; }
+  .status-dot.up { background: var(--green); box-shadow: var(--glow) rgba(34,197,94,.6); }
+  .status-dot.down { background: var(--red); box-shadow: var(--glow) rgba(239,68,68,.6); }
   .status-dot.checking { background: var(--yellow); }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .5; }
-  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 
-  main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+  .icon-btn {
+    width: 34px; height: 34px; display:grid; place-items:center; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+    cursor: pointer; font-size: .95rem; transition: all .15s;
+  }
+  .icon-btn:hover { border-color: var(--violet); background: var(--surface3); }
 
-  /* ── Stat cards ── */
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-  }
-  .stat-label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .3rem; }
-  .stat-value { font-size: 1.5rem; font-weight: 700; }
-  .stat-value.green { color: var(--green); }
-  .stat-value.red { color: var(--red); }
-  .stat-value.pink { color: var(--pink); }
-  .stat-sub { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+  main { max-width: 1000px; margin: 0 auto; padding: 1.25rem; }
 
-  /* ── Section titles ── */
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
+  /* ── Commander HUD ── */
+  .hud {
+    background: linear-gradient(150deg, var(--surface), var(--bg2));
+    border: 1px solid var(--border); border-radius: 18px; padding: 1.25rem 1.4rem;
+    margin-bottom: 1.4rem; position: relative; overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
   }
-  .section-title { font-size: 1rem; font-weight: 600; }
-  .section-badge {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: .2rem .65rem;
-    font-size: .75rem;
-    color: var(--muted);
+  .hud::after {
+    content:''; position:absolute; top:-40%; right:-10%; width:340px; height:340px;
+    background: radial-gradient(circle, rgba(124,58,237,.22), transparent 65%); pointer-events:none;
   }
+  .hud-top { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+  .hud-avatar {
+    width: 64px; height: 64px; border-radius: 18px; display:grid; place-items:center; font-size: 2rem;
+    background: linear-gradient(135deg, var(--pink), var(--violet)); flex-shrink:0;
+    box-shadow: var(--glow) rgba(233,30,140,.45); position:relative;
+  }
+  .hud-lvlnum {
+    position:absolute; bottom:-8px; right:-8px; background:var(--gold); color:#3a2a00;
+    font-weight:800; font-size:.72rem; border-radius:8px; padding:.05rem .4rem;
+    border:2px solid var(--bg2); box-shadow:0 2px 8px rgba(0,0,0,.4);
+  }
+  .hud-id { flex:1; min-width: 200px; }
+  .hud-hello { font-size:.78rem; color:var(--muted); }
+  .hud-name { font-size:1.35rem; font-weight:800; letter-spacing:-.01em; cursor:pointer; display:inline-flex; align-items:center; gap:.4rem; }
+  .hud-name .edit { font-size:.7rem; opacity:0; transition:opacity .2s; }
+  .hud-name:hover .edit { opacity:.6; }
+  .hud-rank { font-size:.85rem; color:var(--cyan); font-weight:700; margin-top:.1rem; }
+  .hud-streak {
+    display:flex; align-items:center; gap:.4rem; background:rgba(245,158,11,.12);
+    border:1px solid rgba(245,158,11,.4); border-radius:12px; padding:.5rem .8rem; flex-shrink:0;
+  }
+  .hud-streak .flame { font-size:1.5rem; filter:drop-shadow(0 0 8px rgba(245,158,11,.6)); }
+  .hud-streak .num { font-size:1.3rem; font-weight:800; line-height:1; color:var(--gold); }
+  .hud-streak .lbl { font-size:.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+
+  .xp-wrap { margin-top:1.1rem; }
+  .xp-meta { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.4rem; font-size:.78rem; }
+  .xp-meta .xp-cur { color:var(--text); font-weight:700; }
+  .xp-meta .xp-next { color:var(--muted); }
+  .xp-bar { height: 14px; background: var(--surface3); border-radius:999px; overflow:hidden; border:1px solid var(--border); position:relative; }
+  .xp-fill {
+    height:100%; width:0%; border-radius:999px;
+    background: linear-gradient(90deg, var(--pink), var(--violet), var(--cyan));
+    background-size: 200% 100%; transition: width 1.1s cubic-bezier(.2,.8,.2,1);
+    box-shadow: var(--glow) rgba(124,58,237,.5); animation: shimmerBar 3s linear infinite;
+  }
+  @keyframes shimmerBar { to { background-position: 200% 0; } }
+
+  .hud-stats { display:grid; grid-template-columns: repeat(4,1fr); gap:.6rem; margin-top:1.1rem; }
+  .hud-stat { background: rgba(255,255,255,.025); border:1px solid var(--border); border-radius:12px; padding:.7rem .8rem; }
+  .hud-stat .v { font-size:1.3rem; font-weight:800; }
+  .hud-stat .v.green{color:var(--green);} .hud-stat .v.pink{color:var(--pink);} .hud-stat .v.cyan{color:var(--cyan);}
+  .hud-stat .l { font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-top:.15rem; }
+
+  /* ── Quick actions ── */
+  .qa-bar { display:flex; gap:.55rem; flex-wrap:wrap; margin-bottom:1.4rem; }
+  .qa-btn {
+    display:inline-flex; align-items:center; gap:.45rem; padding:.55rem .9rem; border-radius:11px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text);
+    font-size:.82rem; font-weight:600; cursor:pointer; text-decoration:none; transition:all .15s;
+  }
+  .qa-btn:hover { border-color:var(--violet); background:var(--surface2); transform:translateY(-1px); }
+  .qa-btn.accent { background:linear-gradient(135deg,var(--pink),var(--violet)); border-color:transparent; color:#fff; }
+  .qa-btn.accent:hover { opacity:.92; }
+
+  /* ── Section ── */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 1rem; }
+  .section-title { font-size: 1.02rem; font-weight: 700; display:flex; align-items:center; gap:.5rem; }
+  .section-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .7rem; font-size: .72rem; color: var(--muted); }
+
+  /* ── Quests ── */
+  .campaign { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1rem 1.2rem; margin-bottom:1rem; }
+  .campaign-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem; }
+  .campaign-top .t { font-size:.85rem; font-weight:700; }
+  .campaign-top .p { font-size:.8rem; color:var(--cyan); font-weight:700; }
+  .campaign-bar { height:9px; background:var(--surface3); border-radius:999px; overflow:hidden; }
+  .campaign-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--teal),var(--cyan)); border-radius:999px; transition:width 1s cubic-bezier(.2,.8,.2,1); }
+
+  .quests { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:.7rem; margin-bottom:2rem; }
+  .quest {
+    background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:.85rem 1rem;
+    display:flex; gap:.75rem; align-items:flex-start; transition:border-color .2s, transform .15s; cursor:pointer;
+  }
+  .quest:hover { border-color:var(--violet); transform:translateY(-1px); }
+  .quest.done { opacity:.62; }
+  .quest.done .quest-title { text-decoration:line-through; }
+  .quest-check {
+    width:24px; height:24px; border-radius:7px; border:2px solid var(--border); flex-shrink:0;
+    display:grid; place-items:center; font-size:.85rem; transition:all .2s; margin-top:1px;
+  }
+  .quest.done .quest-check { background:var(--green); border-color:var(--green); color:#06240f; }
+  .quest-body { flex:1; min-width:0; }
+  .quest-title { font-size:.9rem; font-weight:700; line-height:1.3; }
+  .quest-desc { font-size:.78rem; color:var(--muted); margin-top:.25rem; line-height:1.45; }
+  .quest-foot { display:flex; align-items:center; gap:.5rem; margin-top:.55rem; }
+  .prio { font-size:.64rem; font-weight:800; letter-spacing:.05em; padding:.12rem .45rem; border-radius:6px; }
+  .prio.p0 { background:#3a1414; color:#fca5a5; } .prio.p1 { background:#3a2a14; color:#fcd34d; } .prio.p2 { background:#14283a; color:#93c5fd; }
+  .quest-xp { font-size:.7rem; color:var(--gold); font-weight:700; }
+
+  /* ── Achievements ── */
+  .achts { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:.6rem; margin-bottom:2rem; }
+  .acht {
+    background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:.9rem .6rem; text-align:center;
+    transition:transform .15s, border-color .2s; position:relative;
+  }
+  .acht.locked { opacity:.4; filter:grayscale(.8); }
+  .acht.unlocked { border-color:rgba(251,191,36,.45); }
+  .acht.unlocked:hover { transform:translateY(-2px); box-shadow:var(--glow) rgba(251,191,36,.25); }
+  .acht .ic { font-size:1.7rem; display:block; margin-bottom:.35rem; }
+  .acht .nm { font-size:.7rem; font-weight:700; line-height:1.2; }
+  .acht .ds { font-size:.62rem; color:var(--muted); margin-top:.2rem; line-height:1.25; }
+  .acht.unlocked .ribbon { position:absolute; top:6px; right:6px; font-size:.6rem; }
+
+  /* ── Bots / Party ── */
+  .bots { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .8rem; margin-bottom: 2rem; }
+  .bot-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem;
+    display: flex; flex-direction: column; gap: .55rem; transition: border-color .2s, transform .15s; position:relative; overflow:hidden;
+  }
+  .bot-card:hover { border-color: var(--violet); transform:translateY(-1px); }
+  .bot-card.running { border-color: var(--yellow); }
+  .bot-card.running::after { content:''; position:absolute; inset:0; border-radius:14px; box-shadow:inset 0 0 0 1px var(--yellow); animation:pulse 1.6s infinite; pointer-events:none; }
+  .bot-avatar { font-size: 1.9rem; }
+  .bot-name { font-weight: 800; font-size: .92rem; }
+  .bot-role { font-size: .75rem; color: var(--muted); line-height: 1.45; }
+  .bot-status-row { display: flex; align-items: center; gap: .4rem; font-size: .76rem; }
+  .bot-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .bot-dot.idle { background: var(--muted); } .bot-dot.running { background: var(--yellow); animation: pulse 1.5s infinite; }
+  .bot-dot.success { background: var(--green); } .bot-dot.fail { background: var(--red); }
+  .bot-last { font-size: .71rem; color: var(--muted); }
+  .bot-actions { margin-top: auto; display: flex; gap: .4rem; flex-wrap: wrap; padding-top:.3rem; }
+  .bot-btn {
+    font-size: .74rem; padding: .35rem .75rem; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: .3rem; transition: all .15s;
+  }
+  .bot-btn:hover { border-color: var(--violet); background: var(--surface3); }
+  .bot-btn.primary { background: linear-gradient(135deg, var(--pink), var(--violet)); border: none; color: #fff; font-weight: 700; }
+  .bot-btn.primary:hover { opacity: .92; }
+  .bot-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Quest log (activity) ── */
+  .log { display:flex; flex-direction:column; margin-bottom:2rem; position:relative; }
+  .log::before { content:''; position:absolute; left:15px; top:6px; bottom:6px; width:2px; background:linear-gradient(var(--violet),transparent); opacity:.4; }
+  .log-row { display:flex; gap:.85rem; align-items:flex-start; padding:.5rem 0; position:relative; }
+  .log-ic {
+    width:32px; height:32px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; font-size:.95rem;
+    background:var(--surface2); border:1px solid var(--border); z-index:1;
+  }
+  .log-main { flex:1; min-width:0; padding-top:.15rem; }
+  .log-title { font-size:.86rem; font-weight:600; line-height:1.35; }
+  .log-meta { font-size:.72rem; color:var(--muted); margin-top:.15rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  .log-link { color:var(--pink); text-decoration:none; }
+  .log-link:hover { text-decoration:underline; }
 
   /* ── Release cards ── */
-  .releases { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 2rem; }
-  .release-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    transition: border-color .2s;
-    position: relative;
-  }
+  .releases { display: flex; flex-direction: column; gap: .7rem; margin-bottom: 2rem; }
+  .release-card { background: var(--surface); border: 1px solid var(--border); border-radius: 13px; padding: 1rem 1.2rem; transition: border-color .2s; position: relative; }
   .release-card:hover { border-color: var(--violet); }
-  .release-card.current { border-color: var(--pink); }
+  .release-card.current { border-color: var(--pink); box-shadow: var(--glow) rgba(233,30,140,.12); }
   .release-card.current::before {
-    content: 'LIVE';
-    position: absolute;
-    top: -10px;
-    left: 16px;
-    background: var(--pink);
-    color: #fff;
-    font-size: .65rem;
-    font-weight: 700;
-    letter-spacing: .08em;
-    padding: .15rem .5rem;
-    border-radius: 999px;
+    content: 'LIVE'; position: absolute; top: -10px; left: 16px; background: var(--pink); color: #fff;
+    font-size: .62rem; font-weight: 800; letter-spacing: .08em; padding: .15rem .55rem; border-radius: 999px;
+    box-shadow: var(--glow) rgba(233,30,140,.5);
   }
-  .release-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: .6rem;
-  }
-  .release-sha {
-    font-family: monospace;
-    font-size: .8rem;
-    color: var(--muted);
-    background: var(--surface2);
-    padding: .2rem .5rem;
-    border-radius: 6px;
-    flex-shrink: 0;
-  }
-  .release-date { font-size: .75rem; color: var(--muted); flex-shrink: 0; }
-  .release-message { font-weight: 600; font-size: .95rem; margin-bottom: .4rem; line-height: 1.4; }
-  .release-body { font-size: .85rem; color: var(--muted); line-height: 1.5; }
+  .release-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .55rem; }
+  .release-sha { font-family: monospace; font-size: .78rem; color: var(--cyan); background: var(--surface2); padding: .2rem .5rem; border-radius: 6px; flex-shrink: 0; }
+  .release-date { font-size: .73rem; color: var(--muted); flex-shrink: 0; }
+  .release-message { font-weight: 700; font-size: .94rem; margin-bottom: .4rem; line-height: 1.4; }
+  .release-body { font-size: .82rem; color: var(--muted); line-height: 1.5; white-space:pre-wrap; }
   .release-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
-  .release-tag {
-    font-size: .7rem;
-    padding: .15rem .5rem;
-    border-radius: 999px;
-    font-weight: 500;
-  }
-  .tag-fix { background: #422020; color: #f87171; }
-  .tag-feat { background: #1a2e1a; color: #86efac; }
-  .tag-security { background: #2a1c3a; color: #c4b5fd; }
-  .tag-ux { background: #1e2a3a; color: #93c5fd; }
-  .tag-perf { background: #2a2200; color: #fde68a; }
-  .tag-deploy { background: #1a2e2e; color: #5eead4; }
+  .release-tag { font-size: .68rem; padding: .15rem .55rem; border-radius: 999px; font-weight: 600; }
+  .tag-fix { background: #422020; color: #f87171; } .tag-feat { background: #1a2e1a; color: #86efac; }
+  .tag-security { background: #2a1c3a; color: #c4b5fd; } .tag-ux { background: #1e2a3a; color: #93c5fd; }
+  .tag-perf { background: #2a2200; color: #fde68a; } .tag-deploy { background: #1a2e2e; color: #5eead4; }
   .tag-stripe { background: #1e2a20; color: #86efac; }
+  .release-actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap:wrap; }
 
-  .release-actions { display: flex; gap: .5rem; margin-top: .75rem; }
   .btn {
-    padding: .4rem .85rem;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
-    font-size: .8rem;
-    cursor: pointer;
-    transition: all .2s;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: .35rem;
+    padding: .42rem .9rem; border-radius: 9px; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text); font-size: .8rem; cursor: pointer; transition: all .15s; text-decoration: none;
+    display: inline-flex; align-items: center; gap: .35rem; font-weight:600;
   }
-  .btn:hover { border-color: var(--violet); background: var(--surface); }
-  .btn-primary {
-    background: linear-gradient(135deg, var(--pink), var(--violet));
-    border-color: transparent;
-    color: #fff;
-    font-weight: 600;
-  }
-  .btn-primary:hover { opacity: .9; border-color: transparent; }
-  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn:hover { border-color: var(--violet); background: var(--surface3); }
+  .btn-primary { background: linear-gradient(135deg, var(--pink), var(--violet)); border-color: transparent; color: #fff; }
+  .btn-primary:hover { opacity: .92; border-color: transparent; }
+  .btn-danger { border-color: var(--red); color: #fca5a5; }
   .btn-danger:hover { background: #2a1010; }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
 
-  /* ── Rollback modal ── */
-  .modal-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.7);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-  }
-  .modal-backdrop.open { display: flex; }
-  .modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 2rem;
-    width: 100%;
-    max-width: 480px;
-  }
+  /* ── Runs ── */
+  .runs { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 2rem; }
+  .run-row { display: flex; align-items: center; gap: .75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: .6rem 1rem; font-size: .84rem; }
+  .run-status-icon { font-size: 1rem; flex-shrink: 0; }
+  .run-name { font-weight: 600; flex: 1; min-width:0; }
+  .run-time { color: var(--muted); font-size: .73rem; }
+  .run-link { color: var(--pink); font-size: .73rem; text-decoration: none; }
+  .run-link:hover { text-decoration: underline; }
+
+  /* ── Modal ── */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.72); backdrop-filter:blur(4px); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
+  .modal-backdrop.open { display: flex; animation: fadeUp .25s ease; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 2rem; width: 100%; max-width: 480px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
   .modal h2 { font-size: 1.2rem; margin-bottom: .5rem; }
   .modal p { color: var(--muted); font-size: .9rem; margin-bottom: 1.25rem; line-height: 1.5; }
-  .modal-sha {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: .6rem 1rem;
-    font-family: monospace;
-    font-size: .85rem;
-    margin-bottom: 1rem;
-    word-break: break-all;
-  }
+  .modal-sha { background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: .6rem 1rem; font-family: monospace; font-size: .82rem; margin-bottom: 1rem; word-break: break-all; color:var(--cyan); }
   .modal-actions { display: flex; gap: .75rem; justify-content: flex-end; }
 
-  /* ── PAT setup ── */
-  .pat-notice {
-    background: var(--surface);
-    border: 1px solid var(--yellow);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 1.5rem;
-    font-size: .85rem;
-    line-height: 1.5;
-    display: flex;
-    align-items: flex-start;
-    gap: .75rem;
-  }
+  /* ── PAT notice ── */
+  .pat-notice { background: var(--surface); border: 1px solid var(--yellow); border-radius: 13px; padding: 1rem 1.25rem; margin-bottom: 1.4rem; font-size: .85rem; line-height: 1.5; display: flex; align-items: flex-start; gap: .75rem; }
   .pat-notice .pat-icon { font-size: 1.2rem; flex-shrink: 0; }
   .pat-notice a { color: var(--pink); }
   .pat-input-row { display: flex; gap: .5rem; margin-top: .5rem; }
-  .pat-input-row input {
-    flex: 1;
-    padding: .5rem .75rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: .85rem;
-    outline: none;
-    font-family: monospace;
-  }
+  .pat-input-row input { flex: 1; padding: .5rem .75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .85rem; outline: none; font-family: monospace; }
   .pat-input-row input:focus { border-color: var(--pink); }
 
-  /* ── Loading ── */
-  .skeleton {
-    background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 8px;
-    height: 90px;
-    margin-bottom: .75rem;
-  }
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-  .toast {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: .75rem 1.25rem;
-    font-size: .875rem;
-    z-index: 300;
-    transform: translateY(100px);
-    opacity: 0;
-    transition: all .3s;
-  }
+  /* ── Skeleton / toast ── */
+  .skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 10px; height: 90px; margin-bottom: .7rem; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .8rem 1.3rem; font-size: .88rem; z-index: 400; transform: translateY(120px); opacity: 0; transition: all .35s cubic-bezier(.2,.9,.2,1); box-shadow:0 12px 40px rgba(0,0,0,.4); max-width:90vw; }
   .toast.show { transform: translateY(0); opacity: 1; }
-  .toast.success { border-color: var(--green); }
-  .toast.error { border-color: var(--red); }
+  .toast.success { border-color: var(--green); } .toast.error { border-color: var(--red); }
 
-  /* ── Workflow runs ── */
-  .runs { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 2rem; }
-  .run-row {
-    display: flex;
-    align-items: center;
-    gap: .75rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: .6rem 1rem;
-    font-size: .85rem;
+  /* ── Level-up overlay ── */
+  #confetti { position: fixed; inset: 0; z-index: 600; pointer-events: none; }
+  #levelup {
+    position: fixed; inset: 0; z-index: 590; display:none; align-items:center; justify-content:center; pointer-events:none;
   }
-  .run-status-icon { font-size: 1rem; flex-shrink: 0; }
-  .run-name { font-weight: 500; flex: 1; }
-  .run-time { color: var(--muted); font-size: .75rem; }
-  .run-link { color: var(--pink); font-size: .75rem; text-decoration: none; }
-  .run-link:hover { text-decoration: underline; }
+  #levelup .lu-card {
+    background: linear-gradient(160deg, var(--surface), var(--bg2)); border:1px solid var(--gold);
+    border-radius:20px; padding:2rem 2.5rem; text-align:center; box-shadow:var(--glow) rgba(251,191,36,.5), 0 30px 80px rgba(0,0,0,.6);
+    animation: luPop .6s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  @keyframes luPop { from { transform:scale(.6); opacity:0;} to { transform:scale(1); opacity:1;} }
+  #levelup .lu-t { font-size:.8rem; letter-spacing:.25em; color:var(--gold); text-transform:uppercase; }
+  #levelup .lu-l { font-size:3rem; font-weight:900; line-height:1; margin:.3rem 0; }
+  #levelup .lu-r { font-size:1rem; color:var(--cyan); font-weight:700; }
 
-  /* ── Bot Team ── */
-  .bots { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-  .bot-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: .6rem;
-    transition: border-color .2s;
-  }
-  .bot-card:hover { border-color: var(--violet); }
-  .bot-card.running { border-color: var(--yellow); animation: pulse-border 2s infinite; }
-  @keyframes pulse-border { 0%,100%{border-color:var(--yellow);} 50%{border-color:var(--surface2);} }
-  .bot-avatar { font-size: 2rem; }
-  .bot-name { font-weight: 700; font-size: .95rem; }
-  .bot-role { font-size: .78rem; color: var(--muted); line-height: 1.4; }
-  .bot-status-row { display: flex; align-items: center; gap: .4rem; font-size: .78rem; }
-  .bot-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .bot-dot.idle { background: var(--muted); }
-  .bot-dot.running { background: var(--yellow); animation: pulse 1.5s infinite; }
-  .bot-dot.success { background: var(--green); }
-  .bot-dot.fail { background: var(--red); }
-  .bot-last { font-size: .73rem; color: var(--muted); }
-  .bot-actions { margin-top: auto; display: flex; gap: .4rem; flex-wrap: wrap; }
-  .bot-btn {
-    font-size: .75rem;
-    padding: .3rem .7rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: .3rem;
-    transition: border-color .15s, background .15s;
-  }
-  .bot-btn:hover { border-color: var(--violet); background: #2d2d50; }
-  .bot-btn.primary { background: linear-gradient(135deg, var(--pink), var(--violet)); border: none; color: #fff; font-weight: 600; }
-  .bot-btn.primary:hover { opacity: .9; }
-  .bot-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .empty { color: var(--muted); padding: 1rem; text-align:center; font-size:.85rem; }
+  .err { color: #fca5a5; padding: 1rem; font-size:.85rem; }
 
-  @media (max-width: 600px) {
-    .stats { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 720px) {
+    .hud-stats { grid-template-columns: 1fr 1fr; }
     .release-top { flex-direction: column; gap: .3rem; }
-    .bots { grid-template-columns: 1fr 1fr; }
+    .toast { left:1rem; right:1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+    #bg-grid { animation: none; }
   }
 </style>
 </head>
 <body>
+<div id="bg-layer"></div>
+<div id="bg-grid"></div>
+<div id="loadbar"></div>
 
-<!-- ══ Auth Screen ══ -->
+<!-- ══ Auth ══ -->
 <div id="auth-screen">
   <div class="auth-box">
     <div class="logo">🏢</div>
+    <div class="tag">Mission Control</div>
     <h1>EventBörse HQ</h1>
-    <p>Gib deinen Zugriffsschlüssel ein</p>
+    <p>Gib deinen Zugriffsschlüssel ein, Commander.</p>
     <input type="password" id="auth-input" placeholder="Webapp-Key…" autocomplete="off">
     <div class="auth-error" id="auth-error">❌ Falscher Schlüssel</div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:.65rem;" onclick="checkAuth()">Einloggen</button>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:.7rem;" id="auth-btn">🚀 Einloggen</button>
   </div>
 </div>
 
@@ -417,88 +423,131 @@
         <div class="header-sub" id="header-sha">Lade…</div>
       </div>
     </div>
-    <div style="display:flex;gap:.5rem;align-items:center;">
-      <div class="status-pill" onclick="checkSiteStatus()" title="Klicken zum Aktualisieren">
+    <div class="header-actions">
+      <div class="lvl-chip" id="lvl-chip" title="Zum Commander-HUD">
+        <div class="lvl-badge" id="chip-lvl">1</div>
+        <span class="lvl-rank" id="chip-rank">Praktikant</span>
+      </div>
+      <div class="status-pill" id="status-pill" title="Klicken zum Aktualisieren">
         <div class="status-dot checking" id="status-dot"></div>
         <span id="status-text">Prüfe…</span>
       </div>
-      <button class="btn" onclick="refreshAll()" title="Alles neu laden">🔄</button>
-      <button class="btn btn-danger" onclick="logout()" style="font-size:.75rem;">Logout</button>
+      <button class="icon-btn" id="sound-btn" title="Sound an/aus">🔇</button>
+      <button class="icon-btn" id="refresh-btn" title="Alles neu laden (R)">🔄</button>
+      <button class="icon-btn" id="logout-btn" title="Logout" style="color:#fca5a5;">⏻</button>
     </div>
   </header>
 
   <main>
-    <!-- Stats -->
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-label">Site Status</div>
-        <div class="stat-value" id="stat-status">–</div>
-        <div class="stat-sub" id="stat-latency">–</div>
+    <!-- Commander HUD -->
+    <div class="hud">
+      <div class="hud-top">
+        <div class="hud-avatar" id="hud-avatar">🎯<span class="hud-lvlnum" id="hud-lvlnum">1</span></div>
+        <div class="hud-id">
+          <div class="hud-hello">Willkommen zurück,</div>
+          <div class="hud-name" id="hud-name">Commander <span class="edit">✏️</span></div>
+          <div class="hud-rank" id="hud-rank">🌱 Praktikant</div>
+        </div>
+        <div class="hud-streak" title="Aufeinanderfolgende Tage mit Commits">
+          <span class="flame">🔥</span>
+          <div>
+            <div class="num" id="streak-num">0</div>
+            <div class="lbl">Tage Streak</div>
+          </div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Aktueller Commit</div>
-        <div class="stat-value pink" id="stat-sha" style="font-size:1.1rem;font-family:monospace;">–</div>
-        <div class="stat-sub" id="stat-sha-msg">–</div>
+
+      <div class="xp-wrap">
+        <div class="xp-meta">
+          <span class="xp-cur"><span id="xp-current">0</span> XP</span>
+          <span class="xp-next">Level <span id="xp-nextlvl">2</span> in <span id="xp-remaining">0</span> XP</span>
+        </div>
+        <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Letzter Deploy</div>
-        <div class="stat-value" id="stat-deploy" style="font-size:1rem;">–</div>
-        <div class="stat-sub" id="stat-deploy-status">–</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Total Commits</div>
-        <div class="stat-value pink" id="stat-commits">–</div>
-        <div class="stat-sub">auf main</div>
+
+      <div class="hud-stats">
+        <div class="hud-stat"><div class="v pink" id="s-commits">–</div><div class="l">Commits</div></div>
+        <div class="hud-stat"><div class="v green" id="s-status">–</div><div class="l">Site</div></div>
+        <div class="hud-stat"><div class="v cyan" id="s-deploy">–</div><div class="l">Letzter Deploy</div></div>
+        <div class="hud-stat"><div class="v" id="s-open">–</div><div class="l">Offene Tickets</div></div>
       </div>
     </div>
 
-    <!-- PAT Notice (shown if no PAT) -->
+    <!-- Quick actions -->
+    <div class="qa-bar" id="qa-bar"></div>
+
+    <!-- PAT notice -->
     <div class="pat-notice" id="pat-notice" style="display:none;">
       <div class="pat-icon">🔑</div>
       <div>
-        <strong>GitHub Token für Rollback</strong><br>
-        Für den Rollback-Button brauchst du ein GitHub Personal Access Token mit <code>repo</code> + <code>workflow</code> Berechtigung.
-        <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=EventBörse+HQ" target="_blank">Token erstellen →</a>
+        <strong>GitHub Token verbinden</strong> — schaltet Bot-Trigger, Rollback &amp; höhere API-Limits frei (sonst nur 60 Anfragen/Std).<br>
+        Benötigt <code>repo</code> + <code>workflow</code> Berechtigung.
+        <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=EventB%C3%B6rse+HQ" target="_blank" rel="noopener">Token erstellen →</a>
         <div class="pat-input-row">
           <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
-          <button class="btn btn-primary" onclick="savePat()">Speichern</button>
+          <button class="btn btn-primary" id="pat-save">Speichern</button>
         </div>
       </div>
     </div>
 
-    <!-- Recent Releases -->
+    <!-- Quests -->
+    <div class="section-header">
+      <div class="section-title">🎯 Quests <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— die Roadmap</span></div>
+      <div class="section-badge" id="quests-badge">–</div>
+    </div>
+    <div class="campaign">
+      <div class="campaign-top"><span class="t">Kampagnen-Fortschritt</span><span class="p" id="campaign-pct">0%</span></div>
+      <div class="campaign-bar"><div class="campaign-fill" id="campaign-fill"></div></div>
+    </div>
+    <div class="quests" id="quests-list"></div>
+
+    <!-- Achievements -->
+    <div class="section-header">
+      <div class="section-title">🏆 Errungenschaften</div>
+      <div class="section-badge" id="achts-badge">–</div>
+    </div>
+    <div class="achts" id="achts-grid"></div>
+
+    <!-- Bot Team -->
+    <div class="section-header">
+      <div class="section-title">🤖 Bot-Team</div>
+      <div class="section-badge">Deine Crew</div>
+    </div>
+    <div class="bots" id="bots-grid">
+      <div class="skeleton" style="height:180px;"></div>
+      <div class="skeleton" style="height:180px;"></div>
+      <div class="skeleton" style="height:180px;"></div>
+      <div class="skeleton" style="height:180px;"></div>
+    </div>
+
+    <!-- Quest log -->
+    <div class="section-header">
+      <div class="section-title">📜 Aktivitäts-Log</div>
+      <a href="https://github.com/Sabindro53/eventboerse/commits/main" target="_blank" rel="noopener" class="btn" style="font-size:.74rem;">Alle →</a>
+    </div>
+    <div class="log" id="log-list">
+      <div class="skeleton" style="height:48px;"></div>
+      <div class="skeleton" style="height:48px;"></div>
+      <div class="skeleton" style="height:48px;"></div>
+    </div>
+
+    <!-- Releases -->
     <div class="section-header">
       <div class="section-title">📦 Release-Verlauf</div>
       <div class="section-badge" id="commits-badge">–</div>
     </div>
     <div class="releases" id="releases-list">
-      <div class="skeleton"></div>
-      <div class="skeleton"></div>
-      <div class="skeleton"></div>
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
     </div>
 
-    <!-- Recent Workflow Runs -->
+    <!-- Runs -->
     <div class="section-header">
       <div class="section-title">⚙️ Letzte Deployments</div>
-      <a href="https://github.com/Sabindro53/eventboerse/actions" target="_blank" class="btn" style="font-size:.75rem;">Alle anzeigen →</a>
+      <a href="https://github.com/Sabindro53/eventboerse/actions" target="_blank" rel="noopener" class="btn" style="font-size:.74rem;">Alle →</a>
     </div>
     <div class="runs" id="runs-list">
       <div class="skeleton" style="height:48px;"></div>
       <div class="skeleton" style="height:48px;"></div>
-      <div class="skeleton" style="height:48px;"></div>
-    </div>
-
-    <!-- Bot Team -->
-    <div class="section-header">
-      <div class="section-title">🤖 Bot-Team</div>
-      <div class="section-badge">4 Aktiv</div>
-    </div>
-    <div class="bots" id="bots-grid">
-      <!-- Populated by loadBots() -->
-      <div class="skeleton" style="height:180px;"></div>
-      <div class="skeleton" style="height:180px;"></div>
-      <div class="skeleton" style="height:180px;"></div>
-      <div class="skeleton" style="height:180px;"></div>
     </div>
   </main>
 </div>
@@ -507,485 +556,651 @@
 <div class="modal-backdrop" id="rollback-modal">
   <div class="modal">
     <h2>⏪ Rollback bestätigen</h2>
-    <p>Du bist dabei, die Live-Site auf diesen Commit zurückzusetzen. GitHub Actions wird den Deploy automatisch starten.</p>
+    <p>Du setzt die Live-Site auf diesen Commit zurück. GitHub Actions startet den Deploy automatisch.</p>
     <div class="modal-sha" id="modal-sha-display">–</div>
     <div id="modal-commit-msg" style="font-size:.85rem;color:var(--muted);margin-bottom:1rem;"></div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal()">Abbrechen</button>
-      <button class="btn btn-danger" id="modal-confirm-btn" onclick="confirmRollback()">🔄 Rollback starten</button>
+      <button class="btn" id="modal-cancel">Abbrechen</button>
+      <button class="btn btn-danger" id="modal-confirm-btn">🔄 Rollback starten</button>
     </div>
   </div>
 </div>
 
-<!-- ══ Toast ══ -->
+<!-- ══ Effects ══ -->
+<canvas id="confetti"></canvas>
+<div id="levelup"><div class="lu-card"><div class="lu-t">Level Up!</div><div class="lu-l" id="lu-level">2</div><div class="lu-r" id="lu-rank">Junior Dev</div></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
+/* ════════════════════════════════════════════════════════════════
+   EventBörse HQ — Mission Control
+   Self-contained game-like dev command center over the GitHub API.
+   ════════════════════════════════════════════════════════════════ */
 const REPO = 'Sabindro53/eventboerse';
 const SITE_URL = 'https://xn--eventbrse-57a.de/';
 const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ─── Auth ───────────────────────────────────────────────────
+const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
+const $ = id => document.getElementById(id);
+
+/* ─── Auth ─────────────────────────────────────────────────────── */
 const HQ_KEYS = ['eb-hq-2026', 'eventboerse-hq', 'hq-admin'];
-
 function checkAuth() {
-  const val = document.getElementById('auth-input').value.trim();
+  const val = $('auth-input').value.trim();
   const stored = sessionStorage.getItem('hq_key');
   if (HQ_KEYS.includes(val) || stored) {
     if (val) sessionStorage.setItem('hq_key', val);
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('hq').style.display = 'block';
+    $('auth-screen').style.display = 'none';
+    $('hq').style.display = 'block';
     init();
   } else {
-    document.getElementById('auth-error').style.display = 'block';
+    $('auth-error').style.display = 'block';
+    $('auth-input').value = '';
   }
 }
+function logout() { sessionStorage.removeItem('hq_key'); sessionStorage.removeItem('hq_pat'); location.reload(); }
 
-function logout() {
-  sessionStorage.removeItem('hq_key');
-  sessionStorage.removeItem('hq_pat');
-  location.reload();
-}
-
-document.getElementById('auth-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') checkAuth();
-});
-
-// Auto-login if key already in session
-if (sessionStorage.getItem('hq_key')) {
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('hq').style.display = 'block';
-  window.addEventListener('DOMContentLoaded', init);
-} else {
-  window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('auth-input').focus();
-  });
-}
-
-// ─── PAT ────────────────────────────────────────────────────
+/* ─── PAT ──────────────────────────────────────────────────────── */
 function getPat() { return sessionStorage.getItem('hq_pat') || ''; }
 function savePat() {
-  const v = document.getElementById('pat-input').value.trim();
+  const v = $('pat-input').value.trim();
   if (!v) return;
   sessionStorage.setItem('hq_pat', v);
-  document.getElementById('pat-notice').style.display = 'none';
-  showToast('✅ Token gespeichert', 'success');
+  $('pat-notice').style.display = 'none';
+  showToast('✅ Token gespeichert — Vollzugriff aktiv', 'success'); sfx('success');
+  refreshAll();
 }
-function checkPatNotice() {
-  if (!getPat()) {
-    document.getElementById('pat-notice').style.display = 'flex';
-  }
+function requirePat() {
+  $('pat-notice').style.display = 'flex';
+  $('pat-input').focus();
+  $('pat-notice').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-// ─── GitHub API ─────────────────────────────────────────────
-async function ghFetch(path, opts = {}) {
+/* ─── localStorage cache (stale-while-revalidate) ──────────────── */
+function cacheGet(key) { try { return JSON.parse(localStorage.getItem('hqc_' + key)); } catch { return null; } }
+function cacheSet(key, data) { try { localStorage.setItem('hqc_' + key, JSON.stringify({ t: Date.now(), data })); } catch {} }
+
+/* ─── GitHub API ───────────────────────────────────────────────── */
+let inflight = 0;
+function loadbarStart() { inflight++; $('loadbar').classList.add('active'); $('loadbar').style.width = Math.min(85, 15 + inflight * 18) + '%'; }
+function loadbarEnd() { inflight = Math.max(0, inflight - 1); if (!inflight) { $('loadbar').style.width = '100%'; setTimeout(() => { $('loadbar').classList.remove('active'); $('loadbar').style.width = '0'; }, 350); } }
+
+async function ghRes(path, opts = {}) {
   const headers = { 'Accept': 'application/vnd.github+json', ...opts.headers };
   const pat = getPat();
   if (pat) headers['Authorization'] = `Bearer ${pat}`;
-  const res = await fetch(`https://api.github.com/repos/${REPO}${path}`, { ...opts, headers });
-  if (!res.ok) throw new Error(`GitHub API ${res.status}: ${res.statusText}`);
-  return res.json();
-}
-
-// ─── Site Status ─────────────────────────────────────────────
-async function checkSiteStatus() {
-  const dot = document.getElementById('status-dot');
-  const txt = document.getElementById('status-text');
-  const statVal = document.getElementById('stat-status');
-  const statLat = document.getElementById('stat-latency');
-  dot.className = 'status-dot checking';
-  txt.textContent = 'Prüfe…';
-  const t0 = Date.now();
+  loadbarStart();
   try {
-    const res = await fetch(SITE_URL + '?hq=' + Date.now(), { mode: 'no-cors', cache: 'no-store' });
-    const ms = Date.now() - t0;
-    dot.className = 'status-dot up';
-    txt.textContent = '✅ Online';
-    statVal.textContent = 'ONLINE';
-    statVal.className = 'stat-value green';
-    statLat.textContent = `${ms}ms Antwortzeit`;
-  } catch {
-    const ms = Date.now() - t0;
-    dot.className = 'status-dot up'; // no-cors always "succeeds" for reachable sites
-    txt.textContent = '✅ Online';
-    statVal.textContent = 'ONLINE';
-    statVal.className = 'stat-value green';
-    statLat.textContent = `${ms}ms`;
-  }
+    const res = await fetch(`https://api.github.com/repos/${REPO}${path}`, { ...opts, headers });
+    if (res.status === 403 || res.status === 429) {
+      const remaining = res.headers.get('X-RateLimit-Remaining');
+      if (remaining === '0') { state.rateLimited = true; throw new Error('GitHub API Limit erreicht — Token verbinden für mehr'); }
+    }
+    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+    return res;
+  } finally { loadbarEnd(); }
+}
+async function gh(path, opts) { return (await ghRes(path, opts)).json(); }
+
+/* ─── Site status ──────────────────────────────────────────────── */
+async function checkSiteStatus() {
+  const dot = $('status-dot'), txt = $('status-text'), sVal = $('s-status');
+  dot.className = 'status-dot checking'; txt.textContent = 'Prüfe…';
+  const t0 = Date.now();
+  try { await fetch(SITE_URL + '?hq=' + Date.now(), { mode: 'no-cors', cache: 'no-store' }); } catch {}
+  const ms = Date.now() - t0;
+  // no-cors fetch resolves for any reachable host; treat completion as online.
+  dot.className = 'status-dot up'; txt.textContent = '✅ Online';
+  sVal.textContent = 'ONLINE'; sVal.className = 'v green';
+  state.siteUp = true;
+  return ms;
 }
 
-// ─── Commit parsing ──────────────────────────────────────────
+/* ─── Commit helpers ───────────────────────────────────────────── */
 function classifyCommit(msg) {
-  const lower = msg.toLowerCase();
-  const tags = [];
-  if (/fix|fehler|bug|repair|korr|patch/.test(lower)) tags.push({ cls: 'tag-fix', label: '🐛 Fix' });
-  if (/feat|add|neu|new|impl|einbau|erstell|bau|feature/.test(lower)) tags.push({ cls: 'tag-feat', label: '✨ Feature' });
-  if (/secur|sicher|rate.?limit|csrf|xss|auth|permiss/.test(lower)) tags.push({ cls: 'tag-security', label: '🔒 Security' });
-  if (/ux|ui|design|layout|style|css|optik|look|icon|mobil/.test(lower)) tags.push({ cls: 'tag-ux', label: '🎨 UX' });
-  if (/perf|speed|cache|optim|fast|schnell|lad/.test(lower)) tags.push({ cls: 'tag-perf', label: '⚡ Performance' });
-  if (/deploy|workflow|action|ci|sftp|ionos/.test(lower)) tags.push({ cls: 'tag-deploy', label: '🚀 Deploy' });
-  if (/stripe|zahlung|payment|connect|checkout/.test(lower)) tags.push({ cls: 'tag-stripe', label: '💳 Stripe' });
-  if (tags.length === 0) tags.push({ cls: 'tag-feat', label: '📝 Update' });
+  const l = msg.toLowerCase(); const tags = [];
+  if (/fix|fehler|bug|repair|korr|patch/.test(l)) tags.push({ cls: 'tag-fix', label: '🐛 Fix' });
+  if (/feat|add|neu|new|impl|einbau|erstell|bau|feature/.test(l)) tags.push({ cls: 'tag-feat', label: '✨ Feature' });
+  if (/secur|sicher|rate.?limit|csrf|xss|auth|permiss/.test(l)) tags.push({ cls: 'tag-security', label: '🔒 Security' });
+  if (/ux|ui|design|layout|style|css|optik|look|icon|mobil/.test(l)) tags.push({ cls: 'tag-ux', label: '🎨 UX' });
+  if (/perf|speed|cache|optim|fast|schnell|lad/.test(l)) tags.push({ cls: 'tag-perf', label: '⚡ Perf' });
+  if (/deploy|workflow|action|ci|sftp|ionos/.test(l)) tags.push({ cls: 'tag-deploy', label: '🚀 Deploy' });
+  if (/stripe|zahlung|payment|connect|checkout/.test(l)) tags.push({ cls: 'tag-stripe', label: '💳 Stripe' });
+  if (!tags.length) tags.push({ cls: 'tag-feat', label: '📝 Update' });
   return tags;
 }
-
-function formatCommitMsg(msg) {
-  // Remove conventional commit prefixes for display
-  return msg
-    .replace(/^(fix|feat|chore|docs|style|refactor|perf|test|ci|build|revert)(\(.*?\))?!?:\s*/i, '')
-    .replace(/^(WIP|DRAFT|TEMP):\s*/i, '');
+function formatCommitMsg(m) {
+  return m.replace(/^(fix|feat|chore|docs|style|refactor|perf|test|ci|build|revert)(\(.*?\))?!?:\s*/i, '')
+          .replace(/^(WIP|DRAFT|TEMP):\s*/i, '');
 }
-
 function humanDate(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = (now - d) / 1000;
+  const d = new Date(iso), now = new Date(), diff = (now - d) / 1000;
   if (diff < 60) return 'gerade eben';
   if (diff < 3600) return `vor ${Math.floor(diff/60)} Min`;
   if (diff < 86400) return `vor ${Math.floor(diff/3600)} Std`;
   if (diff < 604800) return `vor ${Math.floor(diff/86400)} Tagen`;
-  return d.toLocaleDateString('de-DE', { day:'2-digit', month:'short', year:'numeric' });
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ─── Load Commits ────────────────────────────────────────────
-let currentSha = '';
-let pendingRollbackSha = '';
-let pendingRollbackMsg = '';
-
+/* ─── Data loaders ─────────────────────────────────────────────── */
+function parseLastPage(link) {
+  if (!link) return null;
+  const part = link.split(',').find(s => /rel="last"/.test(s));
+  const m = part && part.match(/[?&]page=(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+async function loadTotalCommits() {
+  try {
+    const res = await ghRes('/commits?sha=main&per_page=1');
+    const total = parseLastPage(res.headers.get('Link'));
+    state.totalCommits = total || (await res.json()).length || state.commits.length;
+    cacheSet('totalCommits', state.totalCommits);
+  } catch { const c = cacheGet('totalCommits'); if (c) state.totalCommits = c.data; }
+}
 async function loadCommits() {
-  try {
-    const commits = await ghFetch('/commits?per_page=25&sha=main');
-    if (!commits.length) return;
-
-    currentSha = commits[0].sha;
-    const shortSha = currentSha.slice(0, 7);
-    const firstMsg = formatCommitMsg(commits[0].commit.message.split('\n')[0]);
-
-    document.getElementById('header-sha').textContent = `main @ ${shortSha}`;
-    document.getElementById('stat-sha').textContent = shortSha;
-    document.getElementById('stat-sha-msg').textContent = firstMsg.slice(0, 40) + (firstMsg.length > 40 ? '…' : '');
-    document.getElementById('stat-commits').textContent = commits.length + '+';
-    document.getElementById('commits-badge').textContent = `${commits.length} Commits`;
-
-    const list = document.getElementById('releases-list');
-    list.innerHTML = '';
-
-    commits.forEach((c, i) => {
-      const sha7 = c.sha.slice(0, 7);
-      const msgLines = c.commit.message.split('\n');
-      const title = formatCommitMsg(msgLines[0]);
-      const body = msgLines.slice(1).join('\n').trim().slice(0, 200);
-      const tags = classifyCommit(msgLines[0]);
-      const date = humanDate(c.commit.committer.date);
-      const isCurrent = i === 0;
-
-      const card = document.createElement('div');
-      card.className = `release-card${isCurrent ? ' current' : ''}`;
-      card.innerHTML = `
-        <div class="release-top">
-          <div>
-            <span class="release-sha">${sha7}</span>
-          </div>
-          <div class="release-date">${date}</div>
-        </div>
-        <div class="release-message">${escHtml(title)}</div>
-        ${body ? `<div class="release-body">${escHtml(body)}</div>` : ''}
-        <div class="release-tags">
-          ${tags.map(t => `<span class="release-tag ${t.cls}">${t.label}</span>`).join('')}
-        </div>
-        <div class="release-actions">
-          <a class="btn" href="https://github.com/${REPO}/commit/${c.sha}" target="_blank">📋 Details</a>
-          ${!isCurrent ? `<button class="btn btn-danger" onclick="openRollback('${c.sha}', ${JSON.stringify(title)})">⏪ Hierher zurück</button>` : `<span class="btn" style="opacity:.4;cursor:default;">✅ Aktuell live</span>`}
-        </div>
-      `;
-      list.appendChild(card);
-    });
-
-  } catch (e) {
-    document.getElementById('releases-list').innerHTML = `<div style="color:var(--red);padding:1rem;">Fehler beim Laden: ${e.message}</div>`;
-  }
+  try { state.commits = await gh('/commits?per_page=30&sha=main'); cacheSet('commits', state.commits); }
+  catch (e) { const c = cacheGet('commits'); if (c) state.commits = c.data; else throw e; }
 }
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ─── Load Workflow Runs ──────────────────────────────────────
 async function loadRuns() {
+  try { const d = await gh('/actions/runs?per_page=30'); state.runs = d.workflow_runs || []; cacheSet('runs', state.runs); }
+  catch { const c = cacheGet('runs'); if (c) state.runs = c.data; }
+  state.deploySuccessCount = state.runs.filter(r => /ionos-deploy\.yml$/.test(r.path || '') && r.conclusion === 'success').length;
+}
+async function loadIssues() {
   try {
-    const data = await ghFetch('/actions/runs?per_page=8');
-    const runs = data.workflow_runs || [];
-    const list = document.getElementById('runs-list');
-    list.innerHTML = '';
-
-    if (runs.length === 0) {
-      list.innerHTML = '<div style="color:var(--muted);padding:.5rem;">Keine Runs gefunden</div>';
-      return;
-    }
-
-    // Update last deploy stat
-    const lastDeploy = runs.find(r => r.name === 'Deploy to IONOS');
-    if (lastDeploy) {
-      document.getElementById('stat-deploy').textContent = humanDate(lastDeploy.updated_at);
-      const conclusion = lastDeploy.conclusion;
-      document.getElementById('stat-deploy-status').textContent =
-        conclusion === 'success' ? '✅ Erfolgreich' :
-        conclusion === 'failure' ? '❌ Fehlgeschlagen' :
-        lastDeploy.status === 'in_progress' ? '🔄 Läuft gerade' : conclusion || lastDeploy.status;
-    }
-
-    runs.forEach(r => {
-      const icon = r.conclusion === 'success' ? '✅' :
-                   r.conclusion === 'failure' ? '❌' :
-                   r.status === 'in_progress' ? '🔄' : '⏸️';
-      const row = document.createElement('div');
-      row.className = 'run-row';
-      row.innerHTML = `
-        <span class="run-status-icon">${icon}</span>
-        <span class="run-name">${escHtml(r.name)} <span style="font-size:.75rem;color:var(--muted);">#${r.run_number}</span></span>
-        <span class="run-time">${humanDate(r.updated_at)}</span>
-        <a class="run-link" href="${r.html_url}" target="_blank">↗ Logs</a>
-      `;
-      list.appendChild(row);
-    });
-  } catch (e) {
-    document.getElementById('runs-list').innerHTML = `<div style="color:var(--red);padding:.5rem;">Fehler: ${e.message}</div>`;
-  }
+    const all = await gh('/issues?state=open&per_page=50&sort=updated');
+    state.pulls = all.filter(i => i.pull_request);
+    state.issues = all.filter(i => !i.pull_request);
+    cacheSet('issues', { issues: state.issues, pulls: state.pulls });
+  } catch { const c = cacheGet('issues'); if (c) { state.issues = c.data.issues; state.pulls = c.data.pulls; } }
 }
 
-// ─── Rollback ────────────────────────────────────────────────
-function openRollback(sha, msg) {
-  pendingRollbackSha = sha;
-  pendingRollbackMsg = msg;
-  document.getElementById('modal-sha-display').textContent = sha;
-  document.getElementById('modal-commit-msg').textContent = msg;
-  document.getElementById('rollback-modal').classList.add('open');
-}
-
-function closeModal() {
-  document.getElementById('rollback-modal').classList.remove('open');
-  pendingRollbackSha = '';
-  pendingRollbackMsg = '';
-}
-
-async function confirmRollback() {
-  const pat = getPat();
-  if (!pat) {
-    closeModal();
-    checkPatNotice();
-    document.getElementById('pat-notice').style.display = 'flex';
-    document.getElementById('pat-input').focus();
-    showToast('⚠️ Bitte zuerst GitHub Token eingeben', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('modal-confirm-btn');
-  btn.disabled = true;
-  btn.textContent = '🔄 Starte…';
-
-  try {
-    // Trigger the hq-rollback workflow via GitHub API
-    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${ROLLBACK_WORKFLOW}/dispatches`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${pat}`,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ref: 'main',
-        inputs: { target_sha: pendingRollbackSha }
-      })
-    });
-
-    if (res.status === 204 || res.ok) {
-      closeModal();
-      showToast('✅ Rollback gestartet! Deploy läuft via GitHub Actions.', 'success');
-      setTimeout(loadRuns, 8000); // Reload runs after 8s
-    } else {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${res.status}`);
-    }
-  } catch (e) {
-    showToast(`❌ Fehler: ${e.message}`, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔄 Rollback starten';
-  }
-}
-
-// ─── Toast ───────────────────────────────────────────────────
-function showToast(msg, type = '') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type} show`;
-  setTimeout(() => t.className = 'toast', 3500);
-}
-
-// ─── Bot Team ────────────────────────────────────────────────
-const BOTS = [
-  {
-    id: 'claude-dev',
-    avatar: '🤖',
-    name: 'Claude Dev-Bot',
-    role: 'Analysiert Code mit Claude AI, findet Bugs & Verbesserungen, erstellt GitHub Issues',
-    workflow: 'claude-auto-audit.yml',
-    canTrigger: true,
-    triggerLabel: '▶ Audit starten',
-    logsLabel: '📋 Issues',
-    logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit`,
-  },
-  {
-    id: 'monitor',
-    avatar: '👁️',
-    name: 'Monitor-Bot',
-    role: 'Prüft Live-Site alle 30 Minuten auf Erreichbarkeit. Öffnet automatisch GitHub Issues bei Ausfall.',
-    workflow: 'site-monitor.yml',
-    canTrigger: false,
-    logsLabel: '📋 Logs',
-    logsUrl: `https://github.com/${REPO}/actions/workflows/site-monitor.yml`,
-  },
-  {
-    id: 'deploy',
-    avatar: '🚀',
-    name: 'Deploy-Bot',
-    role: 'Deploymt automatisch bei jedem Push via SFTP zu IONOS. Kein manueller Trigger nötig.',
-    workflow: 'ionos-deploy.yml',
-    canTrigger: false,
-    logsLabel: '📋 Deploy-Logs',
-    logsUrl: `https://github.com/${REPO}/actions/workflows/ionos-deploy.yml`,
-  },
-  {
-    id: 'rollback',
-    avatar: '⏪',
-    name: 'Rollback-Bot',
-    role: 'Setzt Live-Site auf beliebigen Commit zurück. Nutz den "Hierher zurück"-Button im Release-Verlauf.',
-    workflow: 'hq-rollback.yml',
-    canTrigger: false,
-    logsLabel: '📋 Rollback-Logs',
-    logsUrl: `https://github.com/${REPO}/actions/workflows/hq-rollback.yml`,
-  },
+/* ─── XP / Level / Streak ──────────────────────────────────────── */
+const RANKS = [
+  { min: 1,  icon: '🌱', name: 'Praktikant' },
+  { min: 3,  icon: '💻', name: 'Junior Dev' },
+  { min: 5,  icon: '⚔️', name: 'Code-Ritter' },
+  { min: 8,  icon: '🚀', name: 'Deploy-Meister' },
+  { min: 11, icon: '🏗️', name: 'System-Architekt' },
+  { min: 15, icon: '🧠', name: 'Tech-Lead' },
+  { min: 20, icon: '👑', name: 'EventBörse-Legende' },
 ];
+function rankFor(lvl) { let r = RANKS[0]; for (const x of RANKS) if (lvl >= x.min) r = x; return r; }
+function xpThreshold(L) { return 100 * (L - 1) * L; } // cumulative XP to reach level L
+function levelFromXp(xp) { let L = 1; while (xp >= xpThreshold(L + 1)) L++; return L; }
 
-const _botRunCache = {};
+function computeXp() {
+  const questXp = QUESTS.reduce((s, q) => s + (isQuestDone(q.id) ? q.xp : 0), 0);
+  return state.totalCommits * 100 + state.deploySuccessCount * 50 + questXp;
+}
+function commitDays() {
+  const set = new Set();
+  state.commits.forEach(c => { const d = new Date(c.commit.committer.date); set.add(d.toISOString().slice(0, 10)); });
+  return set;
+}
+function computeStreak() {
+  const set = commitDays();
+  if (!set.size) return 0;
+  const day = new Date(); day.setHours(12, 0, 0, 0);
+  const key = d => d.toISOString().slice(0, 10);
+  if (!set.has(key(day))) { day.setDate(day.getDate() - 1); if (!set.has(key(day))) return 0; } // 1-day grace
+  let streak = 0;
+  while (set.has(key(day))) { streak++; day.setDate(day.getDate() - 1); }
+  return streak;
+}
+function commitsLast7() {
+  const cut = Date.now() - 7 * 86400000;
+  return state.commits.filter(c => new Date(c.commit.committer.date).getTime() >= cut).length;
+}
 
-async function loadBots() {
-  const grid = document.getElementById('bots-grid');
-  grid.innerHTML = '';
-  for (const bot of BOTS) {
+/* ─── Quests (mirror of the vault roadmap) ─────────────────────── */
+const QUESTS = [
+  { id: 'q-regress',  prio: 'p0', xp: 500, title: 'Listings/Board-Regressionen ausschließen', desc: 'Smoke-Checks gegen Selbstbuchung, verschwundene Listings & Demo-Visibility.' },
+  { id: 'q-guard',    prio: 'p0', xp: 500, title: 'KI-Änderungs-Guardrails', desc: 'Safe Defaults für Auto-Worker — kein destruktives Verhalten bei Unsicherheit.' },
+  { id: 'q-stripe',   prio: 'p0', xp: 500, title: 'Stripe Connect E2E (Testmodus)', desc: 'Onboarding, Payment Intent, Webhook, Reconcile, Refund-Pfad durchtesten.' },
+  { id: 'q-mod',      prio: 'p0', xp: 500, title: 'Admin-Moderation abgleichen', desc: 'Vault-Moderationsrouten gegen aktuellen functions.php prüfen.' },
+  { id: 'q-realtime', prio: 'p1', xp: 300, title: 'Echtzeit-Messaging', desc: 'Polling (3s) → SSE/WebSocket umstellen.' },
+  { id: 'q-search',   prio: 'p1', xp: 300, title: 'Volltextsuche (MySQL FULLTEXT)', desc: 'Client-Filter durch echte DB-Volltextsuche ersetzen.' },
+  { id: 'q-harden',   prio: 'p1', xp: 300, title: 'Stripe-Flow härten', desc: 'Reconcile/Return-Flow absichern, E2E-Prüfpfade automatisieren.' },
+  { id: 'q-pkg',      prio: 'p1', xp: 300, title: 'Board-Paket-Tests', desc: 'Mehrfachzeiten pro Paketposition, Edit/Reload-Szenarien.' },
+  { id: 'q-qa',       prio: 'p1', xp: 300, title: 'QA-Bot Wissen erweitern', desc: 'Tokenfrei bleiben, mehr direkte Navigations-/Hilfsaktionen.' },
+  { id: 'q-pwa',      prio: 'p2', xp: 150, title: 'PWA + Push', desc: 'Service Worker, Push-Benachrichtigungen, App-Installation.' },
+  { id: 'q-analytics',prio: 'p2', xp: 150, title: 'Analytics-Dashboard', desc: 'Kennzahlen je Listing/Flow.' },
+  { id: 'q-seo',      prio: 'p2', xp: 150, title: 'SEO-Pre-Rendering', desc: 'Zentrale Landing-/Browse-Routen für Google rendern.' },
+];
+function questStore() { try { return JSON.parse(localStorage.getItem('hq_quests') || '{}'); } catch { return {}; } }
+function isQuestDone(id) { return !!questStore()[id]; }
+function toggleQuest(id) {
+  const s = questStore(); const was = !!s[id]; s[id] = !was;
+  localStorage.setItem('hq_quests', JSON.stringify(s));
+  if (!was) { sfx('quest'); confettiBurst(0.5, 0.5, 50); showToast('🎯 Quest abgeschlossen! +' + (QUESTS.find(q => q.id === id)?.xp || 0) + ' XP', 'success'); }
+  else sfx('click');
+  renderQuests(); renderHud(); renderAchievements();
+}
+
+/* ─── Achievements ─────────────────────────────────────────────── */
+function achievements() {
+  const recent = state.commits;
+  const hasAudit = state.runs.some(r => /claude-auto-audit\.yml$/.test(r.path || ''));
+  const nightOwl = recent.some(c => { const h = new Date(c.commit.committer.date).getHours(); return h >= 0 && h < 5; });
+  const security = recent.some(c => /secur|sicher|csrf|xss|auth|permiss/.test(c.commit.message.toLowerCase()));
+  const streak = computeStreak();
+  const allP0 = QUESTS.filter(q => q.prio === 'p0').every(q => isQuestDone(q.id));
+  return [
+    { ic: '🎉', nm: 'Erster Commit',      ds: '1 Commit',        on: state.totalCommits >= 1 },
+    { ic: '⚡', nm: 'Vielschreiber',       ds: '50 Commits',      on: state.totalCommits >= 50 },
+    { ic: '💯', nm: 'Jahrhundert',         ds: '100 Commits',     on: state.totalCommits >= 100 },
+    { ic: '🏆', nm: 'Veteran',             ds: '250 Commits',     on: state.totalCommits >= 250 },
+    { ic: '🚀', nm: 'Live geschaltet',     ds: 'Erster Deploy',   on: state.deploySuccessCount >= 1 },
+    { ic: '🛡️', nm: 'Wächter',            ds: 'Site online',     on: state.siteUp === true },
+    { ic: '🐛', nm: 'Bug-Jäger',           ds: 'Audit gelaufen',  on: hasAudit },
+    { ic: '🔥', nm: 'Im Flow',             ds: '3 Tage Streak',   on: streak >= 3 },
+    { ic: '🏃', nm: 'Eiserne Disziplin',   ds: '7 Tage Streak',   on: streak >= 7 },
+    { ic: '🦉', nm: 'Nachteule',           ds: 'Commit 0–5 Uhr',  on: nightOwl },
+    { ic: '🔒', nm: 'Festungsbau',         ds: 'Security-Commit', on: security },
+    { ic: '📜', nm: 'Quest-Meister',       ds: 'Alle P0-Quests',  on: allP0 },
+  ];
+}
+
+/* ─── Renderers ────────────────────────────────────────────────── */
+function animateNum(el, to, fmt = v => Math.round(v).toLocaleString('de-DE')) {
+  if (!el) return;
+  if (reduceMotion) { el.textContent = fmt(to); return; }
+  const from = parseFloat((el.textContent || '0').replace(/[^\d.-]/g, '')) || 0;
+  const dur = 900, start = performance.now();
+  (function step(now) {
+    const p = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(from + (to - from) * e);
+    if (p < 1) requestAnimationFrame(step);
+  })(performance.now());
+}
+
+function renderHud() {
+  const xp = computeXp(), lvl = levelFromXp(xp), rank = rankFor(lvl);
+  const cur = xpThreshold(lvl), next = xpThreshold(lvl + 1);
+  const pct = Math.max(2, Math.min(100, ((xp - cur) / (next - cur)) * 100));
+
+  $('hud-lvlnum').textContent = lvl; $('chip-lvl').textContent = lvl;
+  $('hud-avatar').firstChild.textContent = rank.icon;
+  $('hud-rank').textContent = `${rank.icon} ${rank.name}`;
+  $('chip-rank').textContent = rank.name;
+  $('xp-nextlvl').textContent = lvl + 1;
+  animateNum($('xp-current'), xp);
+  animateNum($('xp-remaining'), Math.max(0, next - xp));
+  $('hud-name').firstChild.textContent = (localStorage.getItem('hq_name') || 'Commander') + ' ';
+  setTimeout(() => { $('xp-fill').style.width = pct + '%'; }, 60);
+
+  animateNum($('s-commits'), state.totalCommits);
+  $('s-status').textContent = state.siteUp ? 'ONLINE' : '…';
+  const lastDeploy = state.runs.find(r => /ionos-deploy\.yml$/.test(r.path || ''));
+  $('s-deploy').textContent = lastDeploy ? humanDate(lastDeploy.updated_at) : '–';
+  animateNum($('s-open'), state.issues.length + state.pulls.length);
+  $('streak-num').textContent = '0'; animateNum($('streak-num'), computeStreak());
+
+  // Level-up celebration
+  const prev = parseInt(localStorage.getItem('hq_last_level') || '0', 10);
+  if (prev && lvl > prev) celebrateLevelUp(lvl, rank);
+  localStorage.setItem('hq_last_level', String(lvl));
+}
+
+function renderQuests() {
+  const list = $('quests-list'); list.innerHTML = '';
+  QUESTS.forEach(q => {
+    const done = isQuestDone(q.id);
+    const el = document.createElement('div');
+    el.className = 'quest' + (done ? ' done' : '');
+    el.dataset.quest = q.id;
+    el.innerHTML = `
+      <div class="quest-check">${done ? '✓' : ''}</div>
+      <div class="quest-body">
+        <div class="quest-title">${escHtml(q.title)}</div>
+        <div class="quest-desc">${escHtml(q.desc)}</div>
+        <div class="quest-foot">
+          <span class="prio ${q.prio}">${q.prio.toUpperCase()}</span>
+          <span class="quest-xp">+${q.xp} XP</span>
+        </div>
+      </div>`;
+    list.appendChild(el);
+  });
+  const total = QUESTS.length, done = QUESTS.filter(q => isQuestDone(q.id)).length;
+  const pct = Math.round((done / total) * 100);
+  $('quests-badge').textContent = `${done}/${total}`;
+  $('campaign-pct').textContent = pct + '%';
+  setTimeout(() => { $('campaign-fill').style.width = pct + '%'; }, 60);
+}
+
+function renderAchievements() {
+  const grid = $('achts-grid'); grid.innerHTML = '';
+  const list = achievements(); let unlocked = 0;
+  list.forEach(a => {
+    if (a.on) unlocked++;
+    const el = document.createElement('div');
+    el.className = 'acht ' + (a.on ? 'unlocked' : 'locked');
+    el.innerHTML = `${a.on ? '<span class="ribbon">✨</span>' : ''}<span class="ic">${a.on ? a.ic : '🔒'}</span><div class="nm">${escHtml(a.nm)}</div><div class="ds">${escHtml(a.ds)}</div>`;
+    grid.appendChild(el);
+  });
+  $('achts-badge').textContent = `${unlocked}/${list.length}`;
+}
+
+function renderCommits() {
+  const commits = state.commits;
+  if (!commits.length) { $('releases-list').innerHTML = '<div class="err">Keine Commits ladbar</div>'; return; }
+  const short = commits[0].sha.slice(0, 7);
+  $('header-sha').textContent = `main @ ${short}`;
+  $('commits-badge').textContent = `${state.totalCommits || commits.length} Commits`;
+
+  const list = $('releases-list'); list.innerHTML = '';
+  commits.slice(0, 15).forEach((c, i) => {
+    const sha7 = c.sha.slice(0, 7), lines = c.commit.message.split('\n');
+    const title = formatCommitMsg(lines[0]);
+    const body = lines.slice(1).join('\n').trim().slice(0, 220);
+    const tags = classifyCommit(lines[0]);
+    const isCurrent = i === 0;
     const card = document.createElement('div');
-    card.className = 'bot-card';
-    card.id = `bot-${bot.id}`;
+    card.className = `release-card${isCurrent ? ' current' : ''}`;
+    card.innerHTML = `
+      <div class="release-top"><div><span class="release-sha">${sha7}</span></div><div class="release-date">${humanDate(c.commit.committer.date)}</div></div>
+      <div class="release-message">${escHtml(title)}</div>
+      ${body ? `<div class="release-body">${escHtml(body)}</div>` : ''}
+      <div class="release-tags">${tags.map(t => `<span class="release-tag ${t.cls}">${t.label}</span>`).join('')}</div>
+      <div class="release-actions">
+        <a class="btn" href="https://github.com/${REPO}/commit/${c.sha}" target="_blank" rel="noopener">📋 Details</a>
+        ${isCurrent
+          ? `<span class="btn" style="opacity:.4;cursor:default;">✅ Aktuell live</span>`
+          : `<button class="btn btn-danger" data-rollback="${c.sha}" data-msg="${escHtml(title)}">⏪ Hierher zurück</button>`}
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function renderRuns() {
+  const list = $('runs-list'); list.innerHTML = '';
+  const runs = state.runs.slice(0, 8);
+  if (!runs.length) { list.innerHTML = '<div class="empty">Keine Runs gefunden</div>'; return; }
+  runs.forEach(r => {
+    const icon = r.conclusion === 'success' ? '✅' : r.conclusion === 'failure' ? '❌' : r.status === 'in_progress' ? '🔄' : '⏸️';
+    const row = document.createElement('div');
+    row.className = 'run-row';
+    row.innerHTML = `
+      <span class="run-status-icon">${icon}</span>
+      <span class="run-name">${escHtml(r.name)} <span style="font-size:.72rem;color:var(--muted);">#${r.run_number}</span></span>
+      <span class="run-time">${humanDate(r.updated_at)}</span>
+      <a class="run-link" href="${r.html_url}" target="_blank" rel="noopener">↗ Logs</a>`;
+    list.appendChild(row);
+  });
+}
+
+function renderLog() {
+  const items = [];
+  state.commits.slice(0, 12).forEach(c => items.push({
+    t: new Date(c.commit.committer.date).getTime(), ic: '📝',
+    title: formatCommitMsg(c.commit.message.split('\n')[0]),
+    meta: `Commit ${c.sha.slice(0, 7)} · ${humanDate(c.commit.committer.date)}`,
+    url: `https://github.com/${REPO}/commit/${c.sha}`,
+  }));
+  state.runs.slice(0, 8).forEach(r => items.push({
+    t: new Date(r.updated_at).getTime(),
+    ic: r.conclusion === 'success' ? '✅' : r.conclusion === 'failure' ? '❌' : '🔄',
+    title: r.name, meta: `Run #${r.run_number} · ${humanDate(r.updated_at)}`, url: r.html_url,
+  }));
+  items.sort((a, b) => b.t - a.t);
+  const list = $('log-list'); list.innerHTML = '';
+  if (!items.length) { list.innerHTML = '<div class="empty">Noch keine Aktivität</div>'; return; }
+  items.slice(0, 14).forEach(it => {
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    row.innerHTML = `<div class="log-ic">${it.ic}</div><div class="log-main"><div class="log-title">${escHtml(it.title)}</div><div class="log-meta">${escHtml(it.meta)} · <a class="log-link" href="${it.url}" target="_blank" rel="noopener">öffnen ↗</a></div></div>`;
+    list.appendChild(row);
+  });
+}
+
+/* ─── Bot Team ─────────────────────────────────────────────────── */
+const BOTS = [
+  { id: 'claude-dev', avatar: '🤖', name: 'Claude Dev-Bot', role: 'Analysiert Code mit Claude AI, findet Bugs & öffnet GitHub-Issues.', workflow: 'claude-auto-audit.yml', canTrigger: true, triggerLabel: '▶ Audit', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
+  { id: 'monitor',    avatar: '👁️', name: 'Monitor-Bot',    role: 'Prüft die Live-Site alle 30 Min auf Erreichbarkeit. Öffnet Issues bei Ausfall.', workflow: 'site-monitor.yml', canTrigger: true, triggerLabel: '▶ Check', logsLabel: '📋 Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/site-monitor.yml` },
+  { id: 'deploy',     avatar: '🚀', name: 'Deploy-Bot',     role: 'Deployt bei jedem Push automatisch via SFTP zu IONOS.', workflow: 'ionos-deploy.yml', canTrigger: false, logsLabel: '📋 Deploy-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/ionos-deploy.yml` },
+  { id: 'rollback',   avatar: '⏪', name: 'Rollback-Bot',   role: 'Setzt die Live-Site auf einen beliebigen Commit zurück (Release-Verlauf).', workflow: 'hq-rollback.yml', canTrigger: false, logsLabel: '📋 Rollback-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-rollback.yml` },
+];
+function renderBots() {
+  const grid = $('bots-grid'); grid.innerHTML = '';
+  BOTS.forEach(bot => {
+    const run = state.runs.find(r => new RegExp(bot.workflow.replace('.', '\\.') + '$').test(r.path || ''));
+    const isRunning = run && (run.status === 'in_progress' || run.status === 'queued');
+    const isOk = run && run.conclusion === 'success', isFail = run && run.conclusion === 'failure';
+    const dotCls = isRunning ? 'running' : isOk ? 'success' : isFail ? 'fail' : 'idle';
+    const statusTxt = !run ? 'Noch kein Run' : isRunning ? '🔄 Läuft gerade…' : isOk ? '✅ Bereit' : isFail ? '❌ Letzter Run fehlgeschlagen' : '💤 Bereit';
+    const card = document.createElement('div');
+    card.className = 'bot-card' + (isRunning ? ' running' : '');
     card.innerHTML = `
       <div class="bot-avatar">${bot.avatar}</div>
       <div class="bot-name">${bot.name}</div>
       <div class="bot-role">${bot.role}</div>
-      <div class="bot-status-row">
-        <div class="bot-dot idle" id="dot-${bot.id}"></div>
-        <span id="status-${bot.id}" style="color:var(--muted);">Lade…</span>
-      </div>
-      <div class="bot-last" id="last-${bot.id}"></div>
+      <div class="bot-status-row"><div class="bot-dot ${dotCls}"></div><span style="color:var(--muted);">${statusTxt}</span></div>
+      <div class="bot-last">${run ? 'Zuletzt: ' + humanDate(run.updated_at) + ' · #' + run.run_number : ''}</div>
       <div class="bot-actions">
-        ${bot.canTrigger ? `<button class="bot-btn primary" id="trig-${bot.id}" onclick="triggerBot('${bot.id}','${bot.workflow}')">
-          ${bot.triggerLabel}
-        </button>` : ''}
-        <a class="bot-btn" href="${bot.logsUrl}" target="_blank">${bot.logsLabel}</a>
+        ${bot.canTrigger ? `<button class="bot-btn primary" data-trigger="${bot.workflow}" data-bot="${bot.id}">${bot.triggerLabel}</button>` : ''}
+        <a class="bot-btn" href="${bot.logsUrl}" target="_blank" rel="noopener">${bot.logsLabel}</a>
       </div>`;
     grid.appendChild(card);
-    fetchBotStatus(bot);
-  }
+  });
 }
 
-async function fetchBotStatus(bot) {
+/* ─── Quick actions ────────────────────────────────────────────── */
+function renderQuickActions() {
+  const acts = [
+    { ic: '🌐', label: 'Live-Site', href: SITE_URL, accent: true },
+    { ic: '🐙', label: 'Repo', href: `https://github.com/${REPO}` },
+    { ic: '⚙️', label: 'Actions', href: `https://github.com/${REPO}/actions` },
+    { ic: '🎫', label: `Issues${state.issues.length ? ' (' + state.issues.length + ')' : ''}`, href: `https://github.com/${REPO}/issues` },
+    { ic: '🔀', label: `PRs${state.pulls.length ? ' (' + state.pulls.length + ')' : ''}`, href: `https://github.com/${REPO}/pulls` },
+    { ic: '➕', label: 'Neues Issue', href: `https://github.com/${REPO}/issues/new` },
+  ];
+  $('qa-bar').innerHTML = acts.map(a =>
+    `<a class="qa-btn${a.accent ? ' accent' : ''}" href="${a.href}" target="_blank" rel="noopener">${a.ic} ${escHtml(a.label)}</a>`
+  ).join('');
+}
+
+/* ─── Rollback ─────────────────────────────────────────────────── */
+let pendingRollback = '';
+function openRollback(sha, msg) {
+  pendingRollback = sha;
+  $('modal-sha-display').textContent = sha;
+  $('modal-commit-msg').textContent = msg;
+  $('rollback-modal').classList.add('open'); sfx('click');
+}
+function closeModal() { $('rollback-modal').classList.remove('open'); pendingRollback = ''; }
+async function confirmRollback() {
+  if (!getPat()) { closeModal(); requirePat(); showToast('⚠️ Bitte zuerst GitHub Token verbinden', 'error'); sfx('error'); return; }
+  const btn = $('modal-confirm-btn'); btn.disabled = true; btn.textContent = '🔄 Starte…';
   try {
-    const data = await ghFetch(`/actions/workflows/${bot.workflow}/runs?per_page=1`);
-    const run = (data.workflow_runs || [])[0];
-    const dot = document.getElementById(`dot-${bot.id}`);
-    const statusEl = document.getElementById(`status-${bot.id}`);
-    const lastEl = document.getElementById(`last-${bot.id}`);
-    const card = document.getElementById(`bot-${bot.id}`);
-    if (!run) {
-      dot.className = 'bot-dot idle';
-      statusEl.textContent = 'Noch kein Run';
-      statusEl.style.color = 'var(--muted)';
-      return;
-    }
-    _botRunCache[bot.id] = run;
-    const isRunning = run.status === 'in_progress' || run.status === 'queued';
-    const isOk = run.conclusion === 'success';
-    const isFail = run.conclusion === 'failure';
-    dot.className = 'bot-dot ' + (isRunning ? 'running' : isOk ? 'success' : isFail ? 'fail' : 'idle');
-    card.className = 'bot-card ' + (isRunning ? 'running' : '');
-    statusEl.textContent = isRunning ? '🔄 Läuft gerade…' : isOk ? '✅ Bereit' : isFail ? '❌ Letzter Run fehlgeschlagen' : '💤 Bereit';
-    statusEl.style.color = isRunning ? 'var(--yellow)' : isOk ? 'var(--green)' : isFail ? 'var(--red)' : 'var(--muted)';
-    lastEl.textContent = 'Zuletzt: ' + humanDate(run.updated_at) + (run.run_number ? ` · Run #${run.run_number}` : '');
-    if (isRunning) setTimeout(() => fetchBotStatus(bot), 15000);
-  } catch (e) {
-    const statusEl = document.getElementById(`status-${bot.id}`);
-    if (statusEl) statusEl.textContent = 'Nicht erreichbar';
-  }
+    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${ROLLBACK_WORKFLOW}/dispatches`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main', inputs: { target_sha: pendingRollback } }),
+    });
+    if (res.status === 204 || res.ok) { closeModal(); showToast('✅ Rollback gestartet! Deploy läuft.', 'success'); sfx('success'); setTimeout(refreshRuns, 8000); }
+    else { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+  } catch (e) { showToast(`❌ Fehler: ${e.message}`, 'error'); sfx('error'); }
+  finally { btn.disabled = false; btn.textContent = '🔄 Rollback starten'; }
 }
 
-async function triggerBot(botId, workflow) {
-  const pat = getPat();
-  if (!pat) {
-    document.getElementById('pat-notice').style.display = 'flex';
-    document.getElementById('pat-input').focus();
-    showToast('⚠️ GitHub Token erforderlich', 'error');
-    return;
-  }
-  const btn = document.getElementById(`trig-${botId}`);
+/* ─── Bot trigger ──────────────────────────────────────────────── */
+async function triggerBot(workflow, botId) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  const btn = document.querySelector(`[data-trigger="${workflow}"]`);
   if (btn) { btn.disabled = true; btn.textContent = '🔄 Starte…'; }
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${pat}`,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ ref: 'main' })
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
     });
     if (res.status === 204 || res.ok) {
-      showToast(`✅ ${botId === 'claude-dev' ? 'Claude Dev-Bot' : 'Bot'} gestartet! Läuft via GitHub Actions.`, 'success');
-      const bot = BOTS.find(b => b.id === botId);
-      const dot = document.getElementById(`dot-${botId}`);
-      const statusEl = document.getElementById(`status-${botId}`);
-      const card = document.getElementById(`bot-${botId}`);
-      if (dot) dot.className = 'bot-dot running';
-      if (statusEl) { statusEl.textContent = '🔄 Läuft gerade…'; statusEl.style.color = 'var(--yellow)'; }
-      if (card) card.className = 'bot-card running';
-      setTimeout(() => { if (bot) fetchBotStatus(bot); }, 10000);
-    } else {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${res.status}`);
-    }
+      showToast('✅ Bot gestartet! Läuft via GitHub Actions.', 'success'); sfx('success');
+      setTimeout(refreshRuns, 9000);
+    } else { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+  } catch (e) { showToast(`❌ Fehler: ${e.message}`, 'error'); sfx('error'); }
+  finally { const b = document.querySelector(`[data-trigger="${workflow}"]`); if (b) { b.disabled = false; b.textContent = BOTS.find(x => x.id === botId)?.triggerLabel || '▶ Start'; } }
+}
+async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); }
+
+/* ─── Toast / SFX / FX ─────────────────────────────────────────── */
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = $('toast'); t.textContent = msg; t.className = `toast ${type} show`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = 'toast', 3600);
+}
+
+let soundOn = localStorage.getItem('hq_sound') === '1';
+let audioCtx;
+function ensureCtx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+function tone(freq, start, dur, type = 'sine', vol = 0.06) {
+  const ctx = ensureCtx(), o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
+  const t = ctx.currentTime + start;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function sfx(name) {
+  if (!soundOn) return;
+  try {
+    if (name === 'click') tone(520, 0, 0.07, 'triangle', 0.04);
+    else if (name === 'success') [523, 659, 784].forEach((f, i) => tone(f, i * 0.08, 0.18, 'sine', 0.05));
+    else if (name === 'quest') { tone(660, 0, 0.12, 'triangle', 0.05); tone(880, 0.1, 0.2, 'sine', 0.05); }
+    else if (name === 'error') { tone(180, 0, 0.18, 'sawtooth', 0.05); tone(120, 0.08, 0.2, 'sawtooth', 0.04); }
+    else if (name === 'levelup') [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.1, 0.3, 'sine', 0.06));
+  } catch {}
+}
+function toggleSound() {
+  soundOn = !soundOn; localStorage.setItem('hq_sound', soundOn ? '1' : '0');
+  $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+  if (soundOn) { ensureCtx(); sfx('success'); showToast('🔊 Sound an', 'success'); } else showToast('🔇 Sound aus');
+}
+
+/* Confetti (lightweight canvas burst) */
+const cvs = $('confetti'), cx = cvs.getContext('2d');
+let particles = [], rafId = null;
+function resizeCvs() { cvs.width = innerWidth; cvs.height = innerHeight; }
+addEventListener('resize', resizeCvs); resizeCvs();
+function confettiBurst(rx = 0.5, ry = 0.4, count = 120) {
+  if (reduceMotion) return;
+  const colors = ['#e91e8c', '#7c3aed', '#22d3ee', '#fbbf24', '#22c55e'];
+  const ox = cvs.width * rx, oy = cvs.height * ry;
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 4 + Math.random() * 9;
+    particles.push({ x: ox, y: oy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 4, g: 0.18 + Math.random() * 0.1,
+      size: 4 + Math.random() * 6, color: colors[i % colors.length], life: 1, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4 });
+  }
+  if (!rafId) rafId = requestAnimationFrame(stepConfetti);
+}
+function stepConfetti() {
+  cx.clearRect(0, 0, cvs.width, cvs.height);
+  particles.forEach(p => { p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= 0.008; });
+  particles = particles.filter(p => p.life > 0 && p.y < cvs.height + 40);
+  particles.forEach(p => {
+    cx.save(); cx.globalAlpha = Math.max(0, p.life); cx.translate(p.x, p.y); cx.rotate(p.rot);
+    cx.fillStyle = p.color; cx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6); cx.restore();
+  });
+  if (particles.length) rafId = requestAnimationFrame(stepConfetti);
+  else { cx.clearRect(0, 0, cvs.width, cvs.height); rafId = null; }
+}
+function celebrateLevelUp(lvl, rank) {
+  sfx('levelup');
+  $('lu-level').textContent = 'Level ' + lvl;
+  $('lu-rank').textContent = rank.icon + ' ' + rank.name;
+  const o = $('levelup'); o.style.display = 'flex';
+  confettiBurst(0.5, 0.4, 160);
+  setTimeout(() => confettiBurst(0.25, 0.45, 80), 250);
+  setTimeout(() => confettiBurst(0.75, 0.45, 80), 450);
+  setTimeout(() => { o.style.display = 'none'; }, 2600);
+}
+
+/* ─── Init / refresh ───────────────────────────────────────────── */
+function renderFromCache() {
+  const c = cacheGet('commits'), r = cacheGet('runs'), i = cacheGet('issues'), tc = cacheGet('totalCommits');
+  if (c) state.commits = c.data; if (r) state.runs = r.data;
+  if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
+  if (tc) state.totalCommits = tc.data;
+  if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
+  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
+}
+
+async function loadAll() {
+  try {
+    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
+    renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
+    renderQuests(); renderAchievements(); renderHud();
   } catch (e) {
-    showToast(`❌ Fehler: ${e.message}`, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = BOTS.find(b=>b.id===botId)?.triggerLabel || '▶ Starten'; }
+    if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
+    else $('releases-list').innerHTML = `<div class="err">Fehler beim Laden: ${escHtml(e.message)}</div>`;
   }
 }
 
-// ─── Init ────────────────────────────────────────────────────
 async function init() {
-  checkPatNotice();
+  if (!getPat()) $('pat-notice').style.display = 'flex';
+  $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+  renderQuests(); renderAchievements(); // instant, local
+  renderFromCache();                    // instant, cached GitHub data
   await checkSiteStatus();
-  await Promise.all([loadCommits(), loadRuns(), loadBots()]);
+  await loadAll();                      // fresh GitHub data
+  renderHud();
 }
 
 async function refreshAll() {
-  document.getElementById('releases-list').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
-  document.getElementById('runs-list').innerHTML = '<div class="skeleton" style="height:48px;"></div><div class="skeleton" style="height:48px;"></div><div class="skeleton" style="height:48px;"></div>';
-  document.getElementById('bots-grid').innerHTML = '<div class="skeleton" style="height:180px;"></div><div class="skeleton" style="height:180px;"></div><div class="skeleton" style="height:180px;"></div><div class="skeleton" style="height:180px;"></div>';
-  await Promise.all([checkSiteStatus(), loadCommits(), loadRuns(), loadBots()]);
-  showToast('✅ Aktualisiert', 'success');
+  showToast('🔄 Aktualisiere…');
+  await checkSiteStatus();
+  await loadAll();
+  renderHud();
+  showToast('✅ Aktualisiert', 'success'); sfx('click');
 }
 
-// Close modal on backdrop click
-document.getElementById('rollback-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
+/* ─── Wiring ───────────────────────────────────────────────────── */
+$('auth-btn').addEventListener('click', checkAuth);
+$('auth-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkAuth(); });
+$('logout-btn').addEventListener('click', logout);
+$('refresh-btn').addEventListener('click', refreshAll);
+$('sound-btn').addEventListener('click', toggleSound);
+$('pat-save').addEventListener('click', savePat);
+$('pat-input').addEventListener('keydown', e => { if (e.key === 'Enter') savePat(); });
+$('status-pill').addEventListener('click', checkSiteStatus);
+$('lvl-chip').addEventListener('click', () => $('hq').querySelector('.hud').scrollIntoView({ behavior: 'smooth' }));
+$('modal-cancel').addEventListener('click', closeModal);
+$('modal-confirm-btn').addEventListener('click', confirmRollback);
+$('rollback-modal').addEventListener('click', e => { if (e.target === $('rollback-modal')) closeModal(); });
+
+$('hud-name').addEventListener('click', () => {
+  const cur = localStorage.getItem('hq_name') || 'Commander';
+  const v = prompt('Wie sollen wir dich nennen, Commander?', cur);
+  if (v && v.trim()) { localStorage.setItem('hq_name', v.trim().slice(0, 24)); renderHud(); sfx('click'); }
 });
+
+// Event delegation for dynamic buttons
+document.addEventListener('click', e => {
+  const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
+  const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
+  const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if ($('hq').style.display === 'none') return;
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') closeModal();
+  else if (e.key.toLowerCase() === 'r') { e.preventDefault(); refreshAll(); }
+  else if (e.key.toLowerCase() === 's') toggleSound();
+});
+
+// Boot
+if (sessionStorage.getItem('hq_key')) {
+  $('auth-screen').style.display = 'none';
+  $('hq').style.display = 'block';
+  window.addEventListener('DOMContentLoaded', init);
+} else {
+  window.addEventListener('DOMContentLoaded', () => $('auth-input').focus());
+}
 </script>
 </body>
 </html>
