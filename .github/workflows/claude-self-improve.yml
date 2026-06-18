@@ -1,0 +1,114 @@
+name: Claude Self-Improve
+
+# Manuell vom HQ Mission Control gestartet ("Self-Improve Bot ▶ Scan").
+# Erzeugt einen Draft-PR mit einer einzigen, eng begrenzten Verbesserung.
+# Der PR ist im HQ unter "Verbesserungs-Vorschläge" sichtbar — Approve = merge, Reject = close.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hint:
+        description: 'Optional: Themen-Hinweis für den Bot (z.B. "performance", "security", "accessibility")'
+        required: false
+        default: ''
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "EventBörse Self-Improve Bot"
+          git config user.email "self-improve-bot@users.noreply.github.com"
+
+      - name: Gather code signals
+        id: signals
+        run: |
+          {
+            echo "── Code-Statistik ──"
+            echo "app.js:       $(wc -l < app.js) Zeilen"
+            echo "functions.php: $(wc -l < functions.php) Zeilen"
+            echo "styles.css:   $(wc -l < styles.css) Zeilen"
+            echo "hq.html:      $(wc -l < hq.html) Zeilen"
+            echo
+            echo "── TODO/FIXME/HACK Marker ──"
+            grep -nE "TODO|FIXME|HACK|XXX" app.js functions.php hq.html styles.css 2>/dev/null | head -30 || echo "(keine)"
+            echo
+            echo "── Letzte 10 Commits ──"
+            git log --oneline -10
+            echo
+            echo "── Geöffnete Self-Improve PRs (vermeiden) ──"
+            grep -h "^title:" .github/self-improve-history/*.md 2>/dev/null | tail -20 || echo "(noch keine)"
+          } > /tmp/signals.txt
+          cat /tmp/signals.txt
+
+      - name: Generate proposal
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          HINT: ${{ github.event.inputs.hint }}
+        run: python3 .github/scripts/self-improve.py
+
+      - name: Inspect proposal
+        run: |
+          if [ ! -f /tmp/proposal.json ]; then
+            echo "::error::Kein Vorschlag generiert (proposal.json fehlt)."
+            exit 1
+          fi
+          echo "── Proposal ──"
+          cat /tmp/proposal.json | python3 -m json.tool
+
+      - name: Apply changes & open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH=$(jq -r '.branch' /tmp/proposal.json)
+          TITLE=$(jq -r '.title' /tmp/proposal.json)
+          SCOPE=$(jq -r '.scope' /tmp/proposal.json)
+          BODY=$(jq -r '.body' /tmp/proposal.json)
+          PATCH_PATH=$(jq -r '.patch_path' /tmp/proposal.json)
+
+          if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ]; then
+            echo "::error::Branch-Name fehlt im Proposal."
+            exit 1
+          fi
+
+          git checkout -b "$BRANCH"
+
+          if [ -f "$PATCH_PATH" ] && [ -s "$PATCH_PATH" ]; then
+            git apply --whitespace=fix "$PATCH_PATH" || {
+              echo "::warning::Patch konnte nicht sauber angewendet werden — überspringe."
+              exit 0
+            }
+            git add -A
+          fi
+
+          if git diff --cached --quiet; then
+            echo "::notice::Keine Code-Änderung im Proposal — überspringe PR-Erstellung."
+            exit 0
+          fi
+
+          git commit -m "$TITLE"
+          git push -u origin "$BRANCH"
+
+          # Labels sicherstellen
+          gh label create "self-improve" --color "a855f7" --description "Vom Self-Improve Bot vorgeschlagen" --repo "${{ github.repository }}" 2>/dev/null || true
+          gh label create "scope:$SCOPE" --color "93c5fd" --description "Self-Improve Scope" --repo "${{ github.repository }}" 2>/dev/null || true
+
+          echo "$BODY" > /tmp/pr-body.md
+          gh pr create \
+            --draft \
+            --title "🧪 $TITLE" \
+            --body-file /tmp/pr-body.md \
+            --label "self-improve,scope:$SCOPE" \
+            --base main \
+            --head "$BRANCH" \
+            --repo "${{ github.repository }}"

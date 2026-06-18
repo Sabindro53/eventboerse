@@ -45,3 +45,7 @@ Attached Element Context*
 
 # Obsidian vault
 .obsidian/
+
+# Python bytecode
+__pycache__/
+*.pyc
