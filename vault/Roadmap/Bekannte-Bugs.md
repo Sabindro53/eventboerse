@@ -25,6 +25,20 @@
 
 ## Behoben
 
+### [UI] Einzelne Bilder wurden nicht angezeigt (kaputtes Bild-Icon)
+**Gefunden:** 2026-06-20
+**Betrifft:** `app.js` — alle `<img>`-Render-Stellen (Detail-Hero/-Galerie, Alternativen, Portfolio, Events, Booking u. a.)
+**Symptom:** Nur einige Render-Stellen (Card, Hero-Marquee) hatten ein `onerror`-Fallback. Andere — insbesondere die Detail-Seiten-Hero und -Galerie — zeigten bei einer toten URL ein kaputtes Bild-Icon statt eines Platzhalters.
+**Fix:** Globaler Capture-Phase-`error`-Handler für JEDES `<img>` (Avatar → `ebAvatar`, Inhaltsbild → `EB_IMG_FALLBACK`); Render-Stellen mit eigenem `onerror` werden übersprungen. Zusätzlich `loadDetail()` defensiv: Bilder werden normalisiert (`images` → `image` → Platzhalter), Detailseite zeigt nie mehr eine leere Galerie.
+**Status:** gefixt
+
+### [DETAIL] Detailseite konnte bei Listing ohne `images`-Array crashen
+**Gefunden:** 2026-06-20
+**Betrifft:** `app.js` `loadDetail()`
+**Symptom:** `listing.images.length` / `.map()` ohne Array-Guard → `TypeError`, gesamte Detailseite blieb leer, wenn ein Listing kein `images`-Array trug. Auch `priceLabel.split()` und `features.map()` waren nicht defensiv.
+**Fix:** Defensive Normalisierung von `images`, `priceLabel`, `features`. Zusätzlich `browseSort`-Zugriff in `filterListings()` mit `?.` abgesichert (war als einziger Filterzugriff nicht defensiv).
+**Status:** gefixt
+
 ### [QA] QA-Bot Icon/Launcher wirkte kaputt und nicht wie Support
 **Gefunden:** 2026-06-05
 **Betrifft:** `index.php`, `styles.css`, QA-Bot Launcher
