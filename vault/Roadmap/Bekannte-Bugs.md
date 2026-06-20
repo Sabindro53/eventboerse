@@ -25,6 +25,20 @@
 
 ## Behoben
 
+### [SECURITY] `/admin/init` erlaubte jedem eingeloggten Nutzer Admin-Reset
+**Gefunden:** 2026-06-20
+**Betrifft:** `functions.php` `eb_admin_init()` (Route `/admin/init`, `permission_callback => is_user_logged_in`)
+**Symptom:** Die Funktion löschte ungeprüft ALLE `eb_admin`-Metas und setzte sie auf zwei hartkodierte E-Mails. Jeder eingeloggte Nutzer konnte so legitim hinzugefügte Admins entfernen (Privilege-Manipulation / Availability).
+**Fix:** Bootstrap-Guard — sobald bereits ein `eb_admin` existiert, ist die (Neu-)Initialisierung nur für bestehende `eb_admin` oder echte WP-Admins (`manage_options`) erlaubt; sonst 403. Initialer Bootstrap (kein Admin vorhanden) bleibt möglich.
+**Status:** gefixt
+
+### [DSGVO] `analytics.php` loggte IP-Adressen ohne Rechtsgrundlage
+**Gefunden:** 2026-06-20
+**Betrifft:** `analytics.php`, `functions-analytics-patch.php`
+**Symptom:** `analytics.php` schrieb bei jedem Direktaufruf die Client-IP (personenbezogenes Datum) in eine Flat-File `analytics.log` — toter Code, nirgends eingebunden, aber als Theme-Datei direkt erreichbar und mitdeployed. Widersprach der Aussage „nur technisch notwendige Cookies, keine Analyse". `functions-analytics-patch.php` war kaputtes Garbage.
+**Fix:** `analytics.php` auf inerte No-Op reduziert (kein Logging/PII; nächster Deploy überschreibt die Live-Datei). `functions-analytics-patch.php` entfernt. Kein `analytics.log` im Repo.
+**Status:** gefixt (Live-Datei nach Deploy verifizieren; ggf. komplett löschen)
+
 ### [UI] Einzelne Bilder wurden nicht angezeigt (kaputtes Bild-Icon)
 **Gefunden:** 2026-06-20
 **Betrifft:** `app.js` — alle `<img>`-Render-Stellen (Detail-Hero/-Galerie, Alternativen, Portfolio, Events, Booking u. a.)
