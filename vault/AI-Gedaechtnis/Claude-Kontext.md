@@ -29,6 +29,13 @@
 
 → [[Frontend/app-js-module]] | [[Features/Authentication]] | [[Features/Payments]]
 
+## Neuester Stand (2026-06-20)
+
+- **Bild-Robustheit:** Globaler `<img>`-Fehler-Handler (Capture-Phase) sorgt dafür, dass JEDES Bild bei toter URL ein sauberes Fallback bekommt (Avatar bzw. „Bild nicht verfügbar"). Vorher hatten nur Card + Hero-Marquee ein Fallback — Detail-Hero/-Galerie zeigten kaputte Icons.
+- **Detailseite crash-sicher:** `loadDetail()` normalisiert `images`/`priceLabel`/`features` defensiv; ein Listing ohne `images`-Array zerstört die Seite nicht mehr.
+- **Filter gehärtet:** `browseSort`-Zugriff defensiv (`?.`). Filterlogik (Tokenisierung, Synonyme, Fuzzy, Kategorie/Ort/Preis/Rating/Datum) per Headless-Browser verifiziert: dj→3, „catering hamburg"→1, fotograf→2, cat+ort→1, keine Treffer→Alternativen.
+- Verifikation: Vanilla-SPA lokal mit Playwright/Chromium durchgeklickt (browse/detail/provider/board/feed/favorites/settings) — **0 Page-Errors**. Backend-/API-gebundene Flows (Login, Inserat-Erstellung, Stripe) brauchen den Live-WordPress-Server und sind hier nicht prüfbar.
+
 ## Neuester Stand (2026-06-06)
 
 - Live-Stand: GitHub `main` `3c1e752`, Domain erreichbar, Assets mit `styles.css?v=2.5.1`.

@@ -283,6 +283,31 @@ window.EB_IMG_FALLBACK = window.EB_IMG_FALLBACK || (
 // HTML-Attribut, das Card-Images verwenden – "this.onerror=null" verhindert Endlosschleife.
 window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"';
 
+// Globaler Bild-Fehler-Auffang (Capture-Phase, da error-Events nicht bubblen).
+// Stellt sicher, dass JEDES <img> ein Fallback bekommt – auch Render-Stellen ohne
+// eigenes inline-onerror. Bilder mit eigenem onerror-Handler werden übersprungen.
+// Avatar-Bilder bekommen einen generierten Avatar, Inhaltsbilder das neutrale Placeholder.
+(function installGlobalImgFallback() {
+  if (window.__ebImgFallbackInstalled) return;
+  window.__ebImgFallbackInstalled = true;
+  document.addEventListener('error', function(e) {
+    var el = e && e.target;
+    if (!el || el.tagName !== 'IMG') return;
+    // Schon ein Fallback gesetzt? -> nichts tun (keine Endlosschleife).
+    if (el.dataset.ebFallback === 'done') return;
+    // Render-Stelle hat einen eigenen inline-onerror -> der kümmert sich selbst.
+    if (el.getAttribute('onerror')) return;
+    el.dataset.ebFallback = 'done';
+    var cls = el.className || '';
+    var isAvatar = /avatar/i.test(cls) || el.hasAttribute('data-eb-avatar');
+    if (isAvatar && typeof ebAvatar === 'function') {
+      el.src = ebAvatar(el.alt || 'user', el.alt || '');
+    } else {
+      el.src = window.EB_IMG_FALLBACK;
+    }
+  }, true);
+})();
+
 // Feed-Bild Auto-Fit: Banner / Hochformat -> contain (volles Bild), normale Fotos -> cover
 window._fitFeedImg = function(img) {
   if (!img || !img.naturalWidth || !img.naturalHeight) return;
@@ -2763,7 +2788,7 @@ function filterListings() {
   });
 
   // Sort
-  const sort = document.getElementById('browseSort').value;
+  const sort = document.getElementById('browseSort')?.value || '';
   switch (sort) {
     case 'preis-asc': filtered.sort((a, b) => a.price - b.price); break;
     case 'preis-desc': filtered.sort((a, b) => b.price - a.price); break;
@@ -3079,16 +3104,23 @@ function loadDetail(listingId) {
   const gallery = document.getElementById('detailGallery');
   const heroImg = document.getElementById('detailHeroImg');
 
+  // Bilder defensiv normalisieren: images-Array → einzelnes image → Placeholder.
+  // Verhindert Crashes bei DB-Listings ohne images-Array und eine leere Galerie
+  // bei Inseraten ganz ohne Foto.
+  var imgs = (Array.isArray(listing.images) && listing.images.length)
+    ? listing.images
+    : (listing.image ? [listing.image] : []);
+  if (!imgs.length) imgs = [window.EB_IMG_FALLBACK];
+
   // Hero image for mobile (first image, shown prominently)
-  if (listing.images.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(listing.images[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo" />`;
+  if (imgs.length > 0) {
+    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />`;
   }
 
   // Swipeable gallery carousel
-  var imgs = listing.images;
   gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
     imgs.map(function(img, i) {
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" /></div>';
+      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' /></div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -3139,10 +3171,10 @@ function loadDetail(listingId) {
   }
 
   document.getElementById('detailDescription').innerHTML = _sanitizeHtml(listing.description);
-  document.getElementById('detailPrice').textContent = listing.priceLabel.split('/')[0];
+  document.getElementById('detailPrice').textContent = (listing.priceLabel || '').split('/')[0];
 
   // Features
-  document.getElementById('detailFeatures').innerHTML = listing.features.map(f =>
+  document.getElementById('detailFeatures').innerHTML = (Array.isArray(listing.features) ? listing.features : []).map(f =>
     `<div class="feature-item"><span class="material-icons-round">check_circle</span><span>${_escHtml(f)}</span></div>`
   ).join('');
 
