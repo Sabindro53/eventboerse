@@ -84,6 +84,9 @@ function _resolveAvatar(img, name) {
 window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,90004,90005,90006,90007,90008,90009,90010,90011,90012,90013,90014];
 // Default: Demo-Inserate ausblenden. Backend kann window.EB_HIDE_DEMO=false setzen, um sie wieder anzuzeigen.
 window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB_HIDE_DEMO : true;
+// Einzige Quelle der Wahrheit für die Sichtbarkeit ALLER Demo-Daten
+// (Listings, Chats, Events, Marketing-Zahlen). Folgt dem Admin-Switch.
+function demoVisible() { return !window.EB_HIDE_DEMO; }
 function isDemoListing(l) {
   if (!l) return false;
   // Server liefert isDemo=true für alle als Test/Bot markierten User
