@@ -87,6 +87,39 @@ window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB
 // Einzige Quelle der Wahrheit für die Sichtbarkeit ALLER Demo-Daten
 // (Listings, Chats, Events, Marketing-Zahlen). Folgt dem Admin-Switch.
 function demoVisible() { return !window.EB_HIDE_DEMO; }
+// Berechnet die Startseiten-Marketing-Zahlen aus dem SICHTBAREN Listing-Set
+// (filterDemos respektiert window.EB_HIDE_DEMO → Zahlen folgen dem Switch).
+function updateHeroStats() {
+  var visible = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
+  var providerIds = {};
+  var ratedSum = 0, ratedCount = 0;
+  visible.forEach(function(l) {
+    if (!l) return;
+    var pid = l.providerId != null ? l.providerId : (l.provider && l.provider.id);
+    if (pid != null) providerIds[pid] = true;
+    var r = parseFloat(l.rating);
+    if (r > 0) { ratedSum += r; ratedCount++; }
+  });
+  var providerCount = Object.keys(providerIds).length;
+  if (providerCount === 0) providerCount = visible.length; // Fallback: Listings zählen
+
+  var elProv = document.getElementById('statProviders');
+  if (elProv) elProv.textContent = String(providerCount);
+  var elSub = document.getElementById('heroSubProviders');
+  if (elSub) elSub.textContent = providerCount + ' Dienstleister';
+
+  var elRatingItem = document.getElementById('statRatingItem');
+  if (elRatingItem) {
+    if (ratedCount > 0) {
+      var avg = Math.round((ratedSum / ratedCount) * 10) / 10;
+      elRatingItem.innerHTML = '<strong id="statRating">' + avg.toFixed(1) + '★</strong> Ø Bewertung';
+    } else {
+      elRatingItem.innerHTML = '<strong id="statRating">Neu</strong>';
+    }
+  }
+  var elSubRated = document.getElementById('heroSubRated');
+  if (elSubRated) elSubRated.textContent = ratedCount > 0 ? 'Top bewertet' : 'Neu gestartet';
+}
 function isDemoListing(l) {
   if (!l) return false;
   // Server liefert isDemo=true für alle als Test/Bot markierten User
