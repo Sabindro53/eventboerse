@@ -28,7 +28,7 @@ if ( preg_match('#^/listing/(\d+)#', $request_uri, $m) ) {
 
 // Default SEO values
 $site_name   = 'EventBörse';
-$site_url    = 'https://xn--eventbrse-q5a.de'; // IDN: eventbörse.de
+$site_url    = rtrim( home_url(), '/' ); // IDN-Domain aus WP — nie hardcoden (vermeidet falsches Punycode)
 $og_image    = $site_url . '/wp-content/themes/eventboerse/og-image.jpg';
 $meta_title  = 'EventBörse – Dein Event-Marktplatz für Deutschland';
 $meta_desc   = 'Finde DJs, Catering, Fotografen, Locations und mehr für dein nächstes Event. Deutschlands größter Marktplatz für Event-Dienstleister.';
