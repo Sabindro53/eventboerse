@@ -1482,6 +1482,40 @@ function eb_register_resend( WP_REST_Request $request ) {
 }
 
 /* ---------- LOGIN ---------- */
+/* Brute-Force-Schutz Login (Security-Audit 2026-06-09):
+ * - 5 Fehlversuche pro E-Mail+IP → 15 Minuten Sperre
+ * - 20 Fehlversuche pro IP/Stunde (über alle Konten) → 1 Stunde Sperre
+ * Transient-basiert, gleiches Muster wie das Registrierungs-Rate-Limit. */
+function eb_login_throttle_keys( $email ) {
+    $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : 'noip';
+    return array(
+        'pair' => 'eb_login_fail_' . md5( strtolower( $email ) . '|' . $ip ),
+        'ip'   => 'eb_login_ipfail_' . md5( $ip ),
+    );
+}
+
+function eb_login_is_throttled( $email ) {
+    $k = eb_login_throttle_keys( $email );
+    if ( (int) get_transient( $k['pair'] ) >= 5 ) {
+        return 'Zu viele fehlgeschlagene Anmeldeversuche. Bitte warte 15 Minuten oder setze dein Passwort zurück.';
+    }
+    if ( (int) get_transient( $k['ip'] ) >= 20 ) {
+        return 'Zu viele fehlgeschlagene Anmeldeversuche von dieser IP. Bitte warte 1 Stunde.';
+    }
+    return false;
+}
+
+function eb_login_register_failure( $email ) {
+    $k = eb_login_throttle_keys( $email );
+    set_transient( $k['pair'], (int) get_transient( $k['pair'] ) + 1, 15 * MINUTE_IN_SECONDS );
+    set_transient( $k['ip'], (int) get_transient( $k['ip'] ) + 1, HOUR_IN_SECONDS );
+}
+
+function eb_login_clear_failures( $email ) {
+    $k = eb_login_throttle_keys( $email );
+    delete_transient( $k['pair'] );
+}
+
 function eventboerse_handle_login( WP_REST_Request $request ) {
     $params    = $request->get_json_params();
     $email_raw = (string) ( $params['email'] ?? '' );
@@ -1492,10 +1526,18 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'E-Mail und Passwort sind erforderlich.' ), 400 );
     }
 
+    $throttled = eb_login_is_throttled( $email );
+    if ( $throttled ) {
+        return new WP_REST_Response( array( 'message' => $throttled ), 429 );
+    }
+
     $user = eb_get_user_by_email( $email_raw );
     if ( ! $user || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+        eb_login_register_failure( $email );
         return new WP_REST_Response( array( 'message' => 'Anmeldung fehlgeschlagen. Bitte prüfe deine Eingaben.' ), 401 );
     }
+
+    eb_login_clear_failures( $email );
 
     $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
     if ( '0' === (string) $verified ) {
@@ -1551,9 +1593,19 @@ function eventboerse_handle_verify_email( WP_REST_Request $request ) {
         wp_die( 'Ungültiger oder abgelaufener Verifizierungslink.', 'Fehler', array( 'response' => 400 ) );
     }
 
+    // Ablauf prüfen (Security-Audit 2026-06-09). Alt-Tokens ohne Expires-Meta
+    // werden als abgelaufen behandelt — Nutzer kann jederzeit neu anfordern.
+    $expires = (int) get_user_meta( $user_id, 'eb_email_verify_expires', true );
+    if ( $expires <= 0 || time() > $expires ) {
+        delete_user_meta( $user_id, 'eb_email_verify_token' );
+        delete_user_meta( $user_id, 'eb_email_verify_expires' );
+        wp_die( 'Dieser Verifizierungslink ist abgelaufen. Bitte fordere in der App einen neuen Link an („E-Mail erneut senden").', 'Link abgelaufen', array( 'response' => 410 ) );
+    }
+
     // E-Mail als verifiziert markieren und Token löschen
     update_user_meta( $user_id, 'eb_email_verified', '1' );
     delete_user_meta( $user_id, 'eb_email_verify_token' );
+    delete_user_meta( $user_id, 'eb_email_verify_expires' );
 
     // Weiterleitung zur Startseite mit Erfolgs-Parameter
     $user = get_userdata( $user_id );
@@ -1591,9 +1643,10 @@ function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Falls ein Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' ), 200 );
     }
 
-    // Neuen Token generieren
+    // Neuen Token generieren (Ablauf: 48 h — Security-Audit 2026-06-09)
     $token = bin2hex( random_bytes( 32 ) );
     update_user_meta( $user->ID, 'eb_email_verify_token', $token );
+    update_user_meta( $user->ID, 'eb_email_verify_expires', time() + 48 * HOUR_IN_SECONDS );
 
     $verify_url = rest_url( 'eventboerse/v1/verify-email' ) . '?token=' . $token . '&uid=' . $user->ID;
     $subject    = 'Eventbörse – Bitte bestätige deine E-Mail-Adresse';
@@ -2167,6 +2220,7 @@ function eb_webauthn_verify_finish( WP_REST_Request $request ) {
     // Verifizierung + Token aufräumen
     update_user_meta( $user_id, 'eb_email_verified', '1' );
     delete_user_meta( $user_id, 'eb_email_verify_token' );
+    delete_user_meta( $user_id, 'eb_email_verify_expires' );
     delete_transient( $tk_key );
 
     // Einloggen
@@ -2730,12 +2784,12 @@ function eb_register_extra_routes() {
         'permission_callback' => 'is_user_logged_in',
     ) );
 
-    /* ---------- STRIPE CHECKOUT ---------- */
-    register_rest_route( 'eventboerse/v1', '/stripe/create-checkout', array(
-        'methods'             => 'POST',
-        'callback'            => 'eb_stripe_create_checkout',
-        'permission_callback' => 'is_user_logged_in',
-    ) );
+    /* ---------- STRIPE CHECKOUT ----------
+     * 2026-06-09: /stripe/create-checkout deaktiviert (Security-Audit).
+     * Der Endpoint wurde vom Frontend nicht mehr genutzt (app.js referenziert
+     * nur create-payment-intent), hatte KEINE Server-Validierung des Betrags
+     * und KEINE Connect-Weiterleitung an den Dienstleister. Handler-Code
+     * bleibt vorerst erhalten; Route bewusst nicht registriert. */
     register_rest_route( 'eventboerse/v1', '/stripe/public-key', array(
         'methods'             => 'GET',
         'callback'            => 'eb_stripe_public_key',
@@ -5772,6 +5826,66 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
  *  - verify-payment: serverseitige Pruefung nach Abschluss (Single Source of Truth)
  * ============================================================ */
 
+/**
+ * Server-side amount validation for bookings (Security-Audit 2026-06-09).
+ *
+ * The client sends the amount, but the server decides whether it is
+ * plausible. An amount is accepted when at least one of these holds:
+ *   a) it matches an accepted offer between buyer and provider (chat offers
+ *      are the platform's source of truth for negotiated prices), or
+ *   b) it is >= the listing's base price ("ab"-Preis; covers instant
+ *      bookings and board payments without a platform offer), or
+ *   c) the listing has no base price (price = 0) — nothing to validate.
+ *
+ * Returns the validated amount in cents (int) or WP_Error.
+ */
+function eb_stripe_validate_booking_amount( $buyer_id, $listing_id, $amount_cents ) {
+    global $wpdb;
+
+    // Resolve listing (frontend may send the +10000 display offset).
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, user_id, price FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id
+    ) );
+    if ( ! $row && $listing_id > 10000 ) {
+        $row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, user_id, price FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id - 10000
+        ) );
+    }
+    if ( ! $row ) {
+        // Provider-Resolution schlägt später ohnehin fehl; hier kein Urteil.
+        return (int) $amount_cents;
+    }
+
+    $provider_id = (int) $row->user_id;
+    $base_cents  = (int) $row->price * 100;
+
+    // a) Accepted platform offer between buyer and provider?
+    $offer_amounts = $wpdb->get_col( $wpdb->prepare(
+        "SELECT m.offer_amount
+           FROM {$wpdb->prefix}eb_messages m
+           JOIN {$wpdb->prefix}eb_conversations c ON c.id = m.conversation_id
+          WHERE m.msg_type = 'offer' AND m.offer_status = 'accepted'
+            AND ( (c.user_a = %d AND c.user_b = %d) OR (c.user_a = %d AND c.user_b = %d) )
+          ORDER BY m.created_at DESC LIMIT 25",
+        $buyer_id, $provider_id, $provider_id, $buyer_id
+    ) );
+    foreach ( (array) $offer_amounts as $oa ) {
+        if ( (int) round( ( (float) $oa ) * 100 ) === (int) $amount_cents ) {
+            return (int) $amount_cents;
+        }
+    }
+
+    // b) / c) Listing base price as floor.
+    if ( $base_cents <= 0 || $amount_cents >= $base_cents ) {
+        return (int) $amount_cents;
+    }
+
+    return new WP_Error( 'amount_below_listing_price', sprintf(
+        'Der Betrag liegt unter dem Inseratspreis (ab %s €). Bitte lass dir vom Dienstleister ein offizielles Angebot im Chat senden — akzeptierte Angebote können in beliebiger Höhe bezahlt werden.',
+        number_format( $base_cents / 100, 2, ',', '.' )
+    ) );
+}
+
 function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
     $sk = eb_load_env_value( 'private_stripe_api_key' );
     if ( ! $sk ) {
@@ -5791,8 +5905,21 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
     if ( strlen( $title ) > 250 ) $title = substr( $title, 0, 250 );
 
     $amount_cents = (int) round( $amount * 100 );
-    $fee_quote = eb_stripe_calculate_fee_quote( $amount_cents, $currency );
     $user = wp_get_current_user();
+
+    // Security-Audit 2026-06-09: Betrag server-seitig plausibilisieren.
+    if ( $listing_id ) {
+        $validated = eb_stripe_validate_booking_amount( (int) $user->ID, $listing_id, $amount_cents );
+        if ( is_wp_error( $validated ) ) {
+            return new WP_REST_Response( array(
+                'message' => $validated->get_error_message(),
+                'code'    => $validated->get_error_code(),
+            ), 400 );
+        }
+        $amount_cents = $validated;
+    }
+
+    $fee_quote = eb_stripe_calculate_fee_quote( $amount_cents, $currency );
 
     $fields = array(
         'amount'                               => $amount_cents,
@@ -7075,4 +7202,93 @@ function eb_stripe_webhook_handle_transfer_created( $transfer ) {
     // Optional: Dienstleister-User anhand destination-Account ermitteln und
     // Auszahlungseintrag in Usermeta persistieren (für Auszahlungshistorie-Feature).
     // Derzeit nur Log — Erweiterung wenn Dashboard-Auszahlungsseite gebaut wird.
+}
+
+/* ============================================================
+ *  SEO: robots.txt + dynamische sitemap.xml
+ *  Audit-Fix 2026-06-09. Hintergrund: Das SFTP-Deployment spiegelt
+ *  das Repo in den THEME-Ordner — statische robots.txt/sitemap.xml
+ *  erreichen den Webroot nie. WordPress lieferte deshalb Defaults
+ *  aus (Sitemap mit hello-world/sample-page). Beide werden jetzt
+ *  hier aus dem Theme heraus generiert; Domain via home_url(),
+ *  damit nie wieder eine falsche Punycode-Domain hardcodiert ist.
+ * ============================================================ */
+
+add_filter( 'robots_txt', 'eb_seo_robots_txt', 99, 2 );
+function eb_seo_robots_txt( $output, $public ) {
+    if ( '0' === (string) $public ) {
+        return $output; // „Suchmaschinen abhalten" respektieren
+    }
+    $lines = array(
+        'User-agent: *',
+        'Allow: /',
+        '',
+        '# Keine Indexierung von Auth-/Account-Seiten (SPA-Routen)',
+        'Disallow: /settings',
+        'Disallow: /admin',
+        'Disallow: /board',
+        'Disallow: /chat',
+        'Disallow: /profile',
+        '',
+        '# WordPress-Interna',
+        'Disallow: /wp-admin/',
+        'Allow: /wp-admin/admin-ajax.php',
+        'Disallow: /wp-login.php',
+        'Disallow: /xmlrpc.php',
+        '',
+        'Sitemap: ' . home_url( '/sitemap.xml' ),
+    );
+    return implode( "\n", $lines ) . "\n";
+}
+
+add_action( 'init', 'eb_seo_serve_sitemap', 0 );
+function eb_seo_serve_sitemap() {
+    if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+        return;
+    }
+    $path = (string) parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+    if ( ! in_array( $path, array( '/sitemap.xml', '/sitemap_index.xml' ), true ) ) {
+        return;
+    }
+
+    global $wpdb;
+    $urls = array(
+        array( 'loc' => home_url( '/' ),       'changefreq' => 'daily',  'priority' => '1.0' ),
+        array( 'loc' => home_url( '/browse' ), 'changefreq' => 'hourly', 'priority' => '0.9' ),
+    );
+
+    $table  = $wpdb->prefix . 'eb_listings';
+    $exists = ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table );
+    if ( $exists ) {
+        $rows = $wpdb->get_results(
+            "SELECT id, updated_at, created_at FROM {$table} WHERE status = 'active' ORDER BY id ASC LIMIT 2000"
+        );
+        foreach ( (array) $rows as $r ) {
+            $lastmod = $r->updated_at ?: $r->created_at;
+            $urls[]  = array(
+                // Frontend-Routen nutzen die +10000-Offset-IDs (siehe app.js)
+                'loc'        => home_url( '/detail/' . ( 10000 + (int) $r->id ) ),
+                'lastmod'    => $lastmod ? gmdate( 'c', strtotime( $lastmod ) ) : '',
+                'changefreq' => 'weekly',
+                'priority'   => '0.8',
+            );
+        }
+    }
+
+    header( 'Content-Type: application/xml; charset=UTF-8' );
+    header( 'X-Robots-Tag: noindex' ); // die Sitemap selbst nicht indexieren
+    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    foreach ( $urls as $u ) {
+        echo "  <url>\n";
+        echo '    <loc>' . esc_url( $u['loc'] ) . "</loc>\n";
+        if ( ! empty( $u['lastmod'] ) ) {
+            echo '    <lastmod>' . esc_html( $u['lastmod'] ) . "</lastmod>\n";
+        }
+        echo '    <changefreq>' . esc_html( $u['changefreq'] ) . "</changefreq>\n";
+        echo '    <priority>' . esc_html( $u['priority'] ) . "</priority>\n";
+        echo "  </url>\n";
+    }
+    echo '</urlset>' . "\n";
+    exit;
 }

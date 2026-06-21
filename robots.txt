@@ -1,46 +1,23 @@
-```
-# robots.txt – eventbörse.de
-# Zuletzt aktualisiert: 2025-01
+# robots.txt – eventbörse.de (Referenz)
+#
+# ACHTUNG: Diese Datei wird NICHT live ausgeliefert! Das Deployment
+# spiegelt das Repo in den Theme-Ordner, nicht in den Webroot.
+# Die live robots.txt wird dynamisch in functions.php generiert
+# (Filter: eb_seo_robots_txt) — Änderungen bitte dort vornehmen.
+# Stand: 2026-06-09
 
 User-agent: *
 Allow: /
-Allow: /browse
-Allow: /listing/
-Allow: /provider/
-Allow: /kategorie/
 
-# Kein Index für Auth-/Account-Seiten
-Disallow: /login
-Disallow: /register
 Disallow: /settings
 Disallow: /admin
 Disallow: /board
 Disallow: /chat
-Disallow: /messages
 Disallow: /profile
-Disallow: /favoriten
 
-# WordPress-Interna
 Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
 Disallow: /wp-login.php
-Disallow: /wp-json/
 Disallow: /xmlrpc.php
-Disallow: /?s=
-Disallow: /feed/
-Disallow: /trackback/
 
-# Crawl-Delay für weniger aggressive Bots
-User-agent: SemrushBot
-Crawl-delay: 10
-
-User-agent: AhrefsBot
-Crawl-delay: 10
-
-User-agent: MJ12bot
-Disallow: /
-
-# Sitemap
-Sitemap: https://xn--eventbrse-q5a.de/sitemap.xml
-```
-
----
+Sitemap: https://xn--eventbrse-57a.de/sitemap.xml
