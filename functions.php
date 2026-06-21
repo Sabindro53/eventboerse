@@ -480,20 +480,10 @@ add_action( 'init', function() {
 
 /* Favicon & OG-Meta-Tags */
 add_action( 'wp_head', function() {
-    $theme_url = get_template_directory_uri();
+    // Nur Favicon. SEO-Meta (og/twitter/title) wird per-page in index.php gesetzt (#4c) —
+    // hier KEINE generischen og/twitter-Tags mehr, sonst Duplikate, die (weil später im
+    // <head>) die korrekten Per-Page-Tags überschreiben.
     echo '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'%3E%3Crect width=\'32\' height=\'32\' rx=\'8\' fill=\'%23FF385C\'/%3E%3Ctext x=\'16\' y=\'23\' text-anchor=\'middle\' font-size=\'20\' font-family=\'sans-serif\' font-weight=\'bold\' fill=\'white\'%3EE%3C/text%3E%3C/svg%3E" />' . "\n";
-    echo '<meta property="og:title" content="Eventbörse – Dein Event-Marktplatz" />' . "\n";
-    echo '<meta property="og:description" content="Finde die besten Event-Dienstleister in deiner Nähe. DJs, Caterer, Fotografen und mehr." />' . "\n";
-    echo '<meta property="og:type" content="website" />' . "\n";
-    echo '<meta property="og:url" content="' . esc_url( home_url( '/' ) ) . '" />' . "\n";
-    echo '<meta property="og:locale" content="de_DE" />' . "\n";
-    echo '<meta property="og:image" content="' . esc_url( $theme_url . '/assets/img/og-image.png' ) . '" />' . "\n";
-    echo '<meta property="og:image:width" content="1200" />' . "\n";
-    echo '<meta property="og:image:height" content="630" />' . "\n";
-    echo '<meta name="twitter:card" content="summary_large_image" />' . "\n";
-    echo '<meta name="twitter:title" content="Eventbörse – Dein Event-Marktplatz" />' . "\n";
-    echo '<meta name="twitter:description" content="Finde die besten Event-Dienstleister in deiner Nähe. DJs, Caterer, Fotografen und mehr." />' . "\n";
-    echo '<meta name="twitter:image" content="' . esc_url( $theme_url . '/assets/img/og-image.png' ) . '" />' . "\n";
 } );
 
 /* WordPress Admin-Bar für alle User ausblenden */
@@ -573,7 +563,8 @@ add_filter( 'wp_mail_from_name', function() {
  * Theme-Setup
  */
 function eventboerse_setup() {
-    add_theme_support( 'title-tag' );
+    // 'title-tag' bewusst NICHT aktiviert (#4c): index.php setzt den <title> per-page;
+    // WP soll keinen konkurrierenden generischen <title> via wp_head erzeugen.
     add_theme_support( 'html5', array( 'search-form', 'gallery', 'caption', 'style', 'script' ) );
 }
 add_action( 'after_setup_theme', 'eventboerse_setup' );
