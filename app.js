@@ -1088,6 +1088,7 @@ async function loadDbListings() {
     }
     _dbListingsLoaded = true;
     try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
+    try { updateHeroStats(); } catch (err) { /* Stats optional */ }
   } catch(e) { /* API not available yet */ }
 }
 
@@ -1358,6 +1359,7 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'home':
       try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(home)', err); }
+      try { updateHeroStats(); } catch (err) { /* Stats optional */ }
       break;
   }
 
@@ -9005,6 +9007,7 @@ function adminToggleHideDemo() {
     // alle sichtbaren Listen neu rendern
     try { renderHeroMarquees(); } catch(e) {}
     try { renderBrowseGrid(LISTINGS); } catch(e) {}
+    try { updateHeroStats(); } catch(e) {}
     try { renderExploreGrid(); } catch(e) {}
     try { if (document.getElementById('feedList')) renderFeed('foryou'); } catch(e) {}
   }).catch(function() {
