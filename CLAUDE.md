@@ -2,15 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Obsidian Vault — Kontext immer laden
+## Vault — Kontext immer laden
+
+Der Vault liegt **versioniert im Repo** unter `vault/` (kanonisch, Stand 2026-06-21).
+Der frühere externe Obsidian-Vault `~/Documents/eventboerse-vault/` ist **veraltet
+und abgehängt** — nicht mehr verwenden.
 
 Zu Beginn jeder Session diese Dateien lesen (in dieser Reihenfolge):
 
-1. `~/Documents/eventboerse-vault/EventBoerse-Vault/AI-Gedaechtnis/Claude-Kontext.md` — Projekt-Gedächtnis & Präferenzen
-2. `~/Documents/eventboerse-vault/EventBoerse-Vault/Roadmap/Current-Sprint.md` — Was gerade gebaut wird
-3. `~/Documents/eventboerse-vault/EventBoerse-Vault/AI-Gedaechtnis/Code-Beziehungen.md` — Modul-Abhängigkeiten
+1. `vault/AI-Gedaechtnis/Claude-Kontext.md` — Projekt-Gedächtnis & Präferenzen
+2. `vault/Roadmap/Current-Sprint.md` — Was gerade gebaut wird
+3. `vault/AI-Gedaechtnis/Code-Beziehungen.md` — Modul-Abhängigkeiten
 
-Nach Code-Änderungen, die relevant für den Vault sind: `Claude-Kontext.md` oder `Current-Sprint.md` aktualisieren.
+Nach Code-Änderungen, die relevant für den Vault sind: `vault/AI-Gedaechtnis/Claude-Kontext.md`
+oder `vault/Roadmap/Current-Sprint.md` aktualisieren.
 
 ## Projekt
 
