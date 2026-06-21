@@ -937,6 +937,35 @@ function _readSpaRoute() {
   return { page: pg, data: dt };
 }
 
+// Setzt document.title + meta[description] je SPA-Route (#4c). Templates
+// spiegeln die Server-Vorlagen in index.php für Konsistenz.
+function _setPageMeta(page, data) {
+  var base = 'EventBörse';
+  var title = base + ' – Dein Event-Marktplatz';
+  var desc  = 'Finde DJs, Catering, Fotografen, Locations und mehr für dein nächstes Event.';
+  switch (page) {
+    case 'browse': title = 'Dienstleister entdecken – ' + base; break;
+    case 'detail':
+      if (currentListing && currentListing.title) {
+        var cat = currentListing.categoryLabel || currentListing.category || '';
+        title = currentListing.title + (cat ? ' – ' + cat : '') + ' | ' + base;
+        if (currentListing.description) {
+          desc = String(currentListing.description).replace(/<[^>]*>/g, '').trim().slice(0, 155);
+        }
+      }
+      break;
+    case 'board':    title = 'Eventboard – ' + base; break;
+    case 'chat':     title = 'Nachrichten – ' + base; break;
+    case 'messages': title = 'Nachrichten – ' + base; break;
+    case 'profile':  title = 'Profil – ' + base; break;
+    case 'settings': title = 'Einstellungen – ' + base; break;
+    case 'admin':    title = 'Admin – ' + base; break;
+  }
+  document.title = title;
+  var md = document.querySelector('meta[name="description"]');
+  if (md) md.setAttribute('content', desc);
+}
+
 // Prevent href="#" from appending "#" to clean URLs
 document.addEventListener('click', function(e) {
   var link = e.target.closest('a[href="#"]');
