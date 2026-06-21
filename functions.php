@@ -5011,6 +5011,23 @@ function eb_admin_list_admins( WP_REST_Request $request ) {
 // Einmalig: Setzt die zwei festgelegten Admins und entfernt alle anderen
 function eb_admin_init( WP_REST_Request $request ) {
     global $wpdb;
+
+    // SECURITY: Diese Route läuft nur mit is_user_logged_in() (Bootstrap-Fall,
+    // wenn noch gar kein Admin existiert). Ohne weiteren Schutz könnte sonst
+    // JEDER eingeloggte Nutzer die komplette Admin-Liste zurücksetzen und damit
+    // legitim hinzugefügte Admins entfernen. Sobald bereits ein eb_admin
+    // existiert, darf die (Neu-)Initialisierung nur von einem bestehenden
+    // eb_admin oder einem echten WordPress-Administrator ausgelöst werden.
+    $existing_admins = (int) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'eb_admin' AND meta_value = '1'"
+    );
+    if ( $existing_admins > 0 && ! eb_is_admin_user() && ! current_user_can( 'manage_options' ) ) {
+        return new WP_REST_Response(
+            array( 'message' => 'Nicht erlaubt: Es existiert bereits ein Admin.' ),
+            403
+        );
+    }
+
     // Erst alle bestehenden eb_admin Metas löschen
     $wpdb->delete( $wpdb->usermeta, array( 'meta_key' => 'eb_admin' ) );
 
