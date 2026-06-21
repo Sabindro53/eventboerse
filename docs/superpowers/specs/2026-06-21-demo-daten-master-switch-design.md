@@ -120,8 +120,9 @@ Kein automatisiertes Test-Harness im Projekt. Stattdessen:
 3. Nach Deploy live: Admin-Switch an/aus schalten und prüfen, dass Listings, Chats,
    Events UND die Zahlen jeweils konsistent mitschalten.
 
-## Offene Punkte
+## Entschiedene Detailpunkte (2026-06-21, freigegeben)
 
-- Genauer Wortlaut des Besucher-Empty-States bei Chats (Vorschlag im Plan).
-- Ob „Top bewertet" in der Hero-Sub bei 0 Reviews ganz entfällt oder durch „Neu gestartet"
-  ersetzt wird (Vorschlag: ersetzen).
+- **Besucher-Empty-State bei Chats** (Demo aus, nicht eingeloggt): dezenter CTA
+  „Melde dich an, um Chats zu sehen" statt Demo-Chats.
+- **Hero-Sub bei 0 Bewertungen:** „Top bewertet" wird durch „Neu gestartet" ersetzt
+  (nicht ersatzlos gestrichen).
