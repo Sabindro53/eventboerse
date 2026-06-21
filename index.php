@@ -14,7 +14,11 @@ $listing_id    = 0;
 $provider_id   = 0;
 $page_type     = 'home';
 
-if ( preg_match('#^/listing/(\d+)#', $request_uri, $m) ) {
+if ( preg_match('#^/detail/(\d+)#', $request_uri, $m) ) {
+    $url_id     = (int) $m[1];
+    $listing_id = $url_id > 10000 ? $url_id - 10000 : $url_id; // Frontend nutzt +10000-Offset
+    $page_type  = 'listing';
+} elseif ( preg_match('#^/listing/(\d+)#', $request_uri, $m) ) {
     $listing_id = (int) $m[1];
     $page_type  = 'listing';
 } elseif ( preg_match('#^/provider/(\d+)#', $request_uri, $m) ) {
@@ -60,7 +64,7 @@ if ( $page_type === 'listing' && $listing_id > 0 ) {
 
         $meta_title  = $title_safe . ' – ' . $cat_safe . ' | EventBörse';
         $meta_desc   = $desc_short ? $desc_short . '…' : 'Jetzt ' . $cat_safe . ' in ' . $loc_safe . ' auf EventBörse buchen.';
-        $canonical   = $site_url . '/listing/' . $listing_id;
+        $canonical   = $site_url . '/detail/' . ( 10000 + $listing_id );
 
         // Listing image for OG
         $images = json_decode( $listing->images, true );
