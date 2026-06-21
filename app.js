@@ -4878,6 +4878,10 @@ function proposeAlternativeDate(currentIsoDate) {
 function renderChatList() {
   const list = document.getElementById('chatList');
   if (!isLoggedIn) {
+    if (!demoVisible()) {
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-light);">Melde dich an, um Chats zu sehen.</div>';
+      return;
+    }
     // Show demo chats for non-logged-in users
     list.innerHTML = DEMO_CHATS.map(function(c) {
       return '<div class="chat-item" onclick="openDemoChat(' + c.id + ')">' +
