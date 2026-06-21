@@ -1395,6 +1395,7 @@ function navigateTo(page, data, skipHistory) {
   // Hide footer on messages page, show on all others
   var gf = document.getElementById('globalFooter');
   if (gf) gf.style.display = (page === 'messages') ? 'none' : '';
+  try { _setPageMeta(page, data); } catch (e) { /* Meta optional */ }
 }
 
 // ========== LISTING CARD RENDERER ==========
@@ -3166,6 +3167,7 @@ function loadDetail(listingId) {
   const listing = LISTINGS.find(l => l.id === listingId);
   if (!listing) return;
   currentListing = listing;
+  try { _setPageMeta('detail', listingId); } catch (e) { /* Meta optional */ }
 
   // Gallery
   const gallery = document.getElementById('detailGallery');
