@@ -8498,9 +8498,13 @@ function renderMyListings() {
           renderEventGrid([]);
         });
     } else {
-      if (previewBannerEP) previewBannerEP.style.display = 'flex';
-      var events = DEMO_EVENTS;
-      renderEventGrid(events);
+      if (demoVisible()) {
+        if (previewBannerEP) previewBannerEP.style.display = 'flex';
+        renderEventGrid(DEMO_EVENTS);
+      } else {
+        if (previewBannerEP) previewBannerEP.style.display = 'none';
+        renderEventGrid([]);
+      }
     }
 
     function renderEventGrid(events) {
