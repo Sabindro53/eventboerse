@@ -22,7 +22,7 @@
 │        SHARED HOSTING (WordPress)                  │
 │  ┌─────────────────────────────────────────────┐   │
 │  │         functions.php (REST API)            │   │
-│  │  67 Endpoints via register_rest_route()    │   │
+│  │  81 Endpoints via register_rest_route()    │   │
 │  └──────────────┬──────────────────────────────┘   │
 │                  │                                   │
 │  ┌───────────────┼──────────────────────────────┐   │

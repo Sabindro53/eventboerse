@@ -12,8 +12,8 @@
 
 | Bereich | Dateien | Status |
 |---------|---------|--------|
-| [[Frontend/app-js-module\|Frontend SPA]] | `app.js` (20.769 Zeilen) | Aktiv |
-| [[Backend/API-Endpoints\|Backend REST API]] | `functions.php` (6.741 Zeilen) | 80 Route-Registrierungen |
+| [[Frontend/app-js-module\|Frontend SPA]] | `app.js` (21.093 Zeilen) | Aktiv |
+| [[Backend/API-Endpoints\|Backend REST API]] | `functions.php` (7.294 Zeilen) | 81 Route-Registrierungen |
 | [[Architecture/Overview\|Architektur]] | WordPress + SPA | Stabil |
 | [[Architecture/Tech-Stack\|Tech-Stack]] | PHP 8.1+ / WP 6.4+ / Vanilla JS | versioniert |
 | [[CI-CD/Deployment\|CI/CD]] | GitHub Actions → IONOS SFTP | Automatisch |
@@ -120,8 +120,8 @@
 ## Code-Statistiken (Auto-Update)
 
 ```
-app.js        20.769 Zeilen  (SPA Frontend)
-functions.php  6.741 Zeilen  (WordPress Backend)
+app.js        21.093 Zeilen  (SPA Frontend)
+functions.php  7.294 Zeilen  (WordPress Backend)
 styles.css    14.716 Zeilen  (Alle Styles)
 index.php      3.934 Zeilen  (WP Theme Markup)
 index.html     3.537 Zeilen  (statische/Legacy Markup-Kopie)

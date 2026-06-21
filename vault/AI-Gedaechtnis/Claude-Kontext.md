@@ -19,8 +19,8 @@
 
 | Was | Details |
 |-----|---------|
-| Frontend | `app.js` 20.769 Zeilen, Vanilla JS SPA |
-| Backend | `functions.php` 6.741 Zeilen, WordPress REST API (80 Route-Registrierungen) |
+| Frontend | `app.js` 21.093 Zeilen, Vanilla JS SPA |
+| Backend | `functions.php` 7.294 Zeilen, WordPress REST API (81 Route-Registrierungen) |
 | Styling | `styles.css` 14.716 Zeilen, mobile-first |
 | Hosting | IONOS/Shared WordPress Hosting, automatisches Deployment via GitHub Actions + SFTP |
 | Auth | Login/Register + 2FA (OTP per E-Mail) + WebAuthn/Passkeys |

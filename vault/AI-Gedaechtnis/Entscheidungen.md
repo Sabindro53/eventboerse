@@ -8,7 +8,7 @@
 
 **Warum:** Einfaches Deployment via SFTP ohne Build-Pipeline. Keine `node_modules`, kein Webpack, kein Vite. Jede Änderung sofort live ohne Build-Schritt.
 
-**Konsequenz:** `app.js` ist ein 14.700-Zeilen-Monolith. Das ist bewusst akzeptiert.
+**Konsequenz:** `app.js` ist ein ~21.000-Zeilen-Monolith. Das ist bewusst akzeptiert.
 
 ## WordPress als API-Backend
 

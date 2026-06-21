@@ -1,6 +1,6 @@
 # Backend: Alle REST API Endpoints
 
-**Datei:** `functions.php` | **Zeilen:** 6.741 | **Endpoints:** 80 Registrierungen
+**Datei:** `functions.php` | **Zeilen:** 7.294 | **Endpoints:** 81 Registrierungen
 **Base URL:** `/wp-json/eventboerse/v1/`
 
 ## Authentifizierung (10 Endpoints)
