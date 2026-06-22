@@ -48,7 +48,7 @@
           <span class="label">Wo?</span>
           <span class="value" id="navWoValue">Region</span>
         </button>
-        <button class="nav-search-btn" onclick="performNavSearch()">
+        <button class="nav-search-btn" aria-label="Suchen" onclick="performNavSearch()">
           <span class="material-icons-round">search</span>
         </button>
       </div>
@@ -64,7 +64,7 @@
           <div class="nav-ai-header">
             <span class="material-icons-round ai-spark-lg">auto_awesome</span>
             <span>Suche</span>
-            <button class="nav-ai-close" onclick="closeNavAiSearch()"><span class="material-icons-round">close</span></button>
+            <button class="nav-ai-close" aria-label="Suche schließen" onclick="closeNavAiSearch()"><span class="material-icons-round">close</span></button>
           </div>
           <div class="nav-ai-input-wrap">
             <span class="material-icons-round nav-ai-input-icon">search</span>
@@ -135,7 +135,7 @@
     <div class="map-overlay-inner">
       <div class="map-overlay-header">
         <h3><span class="material-icons-round">map</span> Veranstaltungen auf der Karte</h3>
-        <button class="map-close-btn" onclick="closeMapOverlay()">
+        <button class="map-close-btn" aria-label="Karte schließen" onclick="closeMapOverlay()">
           <span class="material-icons-round">close</span>
         </button>
       </div>
@@ -1050,10 +1050,10 @@
               </div>
             </div>
             <div class="browse-view-toggles">
-              <button class="view-toggle active" id="gridViewBtn" onclick="setView('grid')">
+              <button class="view-toggle active" id="gridViewBtn" aria-label="Rasteransicht" onclick="setView('grid')">
                 <span class="material-icons-round">grid_view</span>
               </button>
-              <button class="view-toggle" id="listViewBtn" onclick="setView('list')">
+              <button class="view-toggle" id="listViewBtn" aria-label="Listenansicht" onclick="setView('list')">
                 <span class="material-icons-round">view_list</span>
               </button>
             </div>
@@ -1241,7 +1241,7 @@
     <!-- ============ PAGE: PROVIDER PROFILE ============ -->
     <section id="page-provider" class="page">
       <!-- Back Button -->
-      <button class="provider-back-btn" onclick="history.back()">
+      <button class="provider-back-btn" aria-label="Zurück" onclick="history.back()">
         <span class="material-icons-round">arrow_back</span>
       </button>
       <!-- Cover Gallery -->
@@ -1369,10 +1369,10 @@
 
       <!-- Lightbox -->
       <div class="provider-lightbox" id="providerLightbox">
-        <button class="plb-close" onclick="closeProviderLightbox()"><span class="material-icons-round">close</span></button>
-        <button class="plb-nav plb-prev" onclick="event.stopPropagation(); lightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
+        <button class="plb-close" aria-label="Galerie schließen" onclick="closeProviderLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-nav plb-prev" aria-label="Vorheriges Bild" onclick="event.stopPropagation(); lightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
         <img id="plbImage" src="" alt="Foto" loading="lazy" decoding="async" />
-        <button class="plb-nav plb-next" onclick="event.stopPropagation(); lightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
+        <button class="plb-nav plb-next" aria-label="Nächstes Bild" onclick="event.stopPropagation(); lightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
         <div class="plb-counter" id="plbCounter">1 / 5</div>
       </div>
     </section>
@@ -1400,7 +1400,7 @@
           </div>
           <div class="chat-active" id="chatActive" style="display:none">
             <div class="chat-header" id="chatHeader">
-              <button class="chat-back-btn" onclick="closeChatView()">
+              <button class="chat-back-btn" aria-label="Zurück zu den Chats" onclick="closeChatView()">
                 <span class="material-icons-round">arrow_back</span>
               </button>
               <img src="" alt="" id="chatAvatar" onclick="goToChatProfile()" style="cursor:pointer" loading="lazy" decoding="async" />
@@ -1464,7 +1464,7 @@
                 <span class="material-icons-round">attach_file</span>
               </button>
               <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" />
-              <button class="chat-send-btn" onclick="sendMessage()">
+              <button class="chat-send-btn" aria-label="Nachricht senden" onclick="sendMessage()">
                 <span class="material-icons-round">send</span>
               </button>
             </div>
@@ -1496,16 +1496,16 @@
 
       <!-- Cover Fullscreen Lightbox -->
       <div class="cover-lightbox" id="coverLightbox" onclick="closeCoverLightbox(event)">
-        <button class="plb-close" onclick="closeCoverLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-close" aria-label="Galerie schließen" onclick="closeCoverLightbox()"><span class="material-icons-round">close</span></button>
         <img id="coverLightboxImg" src="" alt="Cover" loading="lazy" decoding="async" />
       </div>
 
       <!-- Gallery Lightbox -->
       <div class="gallery-lightbox" id="galleryLightbox" onclick="closeGalleryLightbox(event)">
-        <button class="plb-close" onclick="closeGalleryLightbox()"><span class="material-icons-round">close</span></button>
-        <button class="plb-nav plb-prev" onclick="event.stopPropagation(); galleryLightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
+        <button class="plb-close" aria-label="Galerie schließen" onclick="closeGalleryLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-nav plb-prev" aria-label="Vorheriges Bild" onclick="event.stopPropagation(); galleryLightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
         <img id="galleryLightboxImg" src="" alt="Galerie" loading="lazy" decoding="async" />
-        <button class="plb-nav plb-next" onclick="event.stopPropagation(); galleryLightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
+        <button class="plb-nav plb-next" aria-label="Nächstes Bild" onclick="event.stopPropagation(); galleryLightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
         <div class="plb-counter" id="galleryLightboxCounter"></div>
       </div>
 
