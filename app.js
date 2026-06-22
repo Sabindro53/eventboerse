@@ -1409,8 +1409,8 @@ function renderListingCard(listing) {
         <div class="grid-gallery-track" id="${galleryId}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
         </div>
-        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
-        <button class="listing-fav ${isFav ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
+        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" aria-label="Vorheriges Bild" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" aria-label="Nächstes Bild" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
+        <button class="listing-fav ${isFav ? 'liked' : ''}" aria-label="Zu Favoriten hinzufügen" aria-pressed="${isFav ? 'true' : 'false'}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
           <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
         </button>
         ${listing.badge ? '<span class="listing-badge">' + _escHtml(listing.badge) + '</span>' : ''}
@@ -1723,10 +1723,10 @@ function renderFeed(tab) {
       <div class="feed-card-footer">
         <span class="feed-card-price">${_escHtml(l.priceLabel)}</span>
         <div class="feed-card-actions">
-          <button class="feed-card-action ${isFav ? 'active' : ''}" onclick="toggleFeedFav(this,${l.id})">
+          <button class="feed-card-action ${isFav ? 'active' : ''}" aria-label="Zu Favoriten hinzufügen" aria-pressed="${isFav ? 'true' : 'false'}" onclick="toggleFeedFav(this,${l.id})">
             <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
           </button>
-          <button class="feed-card-action" onclick="navigateTo('detail',${l.id})">
+          <button class="feed-card-action" aria-label="Details ansehen" onclick="navigateTo('detail',${l.id})">
             <span class="material-icons-round">arrow_forward</span>
           </button>
         </div>
@@ -1753,6 +1753,7 @@ function toggleFeedFav(btn, id) {
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
   }
+  if (btn) btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
   _saveFavoritesToStorage();
   // Sync with API if logged in (only for real DB listings)
   if (isLoggedIn) {
@@ -3094,7 +3095,7 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
         <div class="listing-card" onclick="navigateTo('detail', ${l.id})">
           <div class="listing-card-img">
             <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" />
-            <button class="listing-fav" onclick="event.stopPropagation(); toggleFavorite(${l.id}, this)">
+            <button class="listing-fav" aria-label="Zu Favoriten hinzufügen" aria-pressed="false" onclick="event.stopPropagation(); toggleFavorite(${l.id}, this)">
               <span class="material-icons-round">favorite_border</span>
             </button>
             ${l.badge ? `<span class="listing-badge">${_escHtml(l.badge)}</span>` : ''}
@@ -3192,8 +3193,8 @@ function loadDetail(listingId) {
       return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' /></div>';
     }).join('') +
     '</div>' +
-    (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
-    '<button class="detail-gallery-arrow next" onclick="detailGalleryNav(1)"><span class="material-icons-round">chevron_right</span></button>' +
+    (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
+    '<button class="detail-gallery-arrow next" aria-label="Nächstes Bild" onclick="detailGalleryNav(1)"><span class="material-icons-round">chevron_right</span></button>' +
     '<div class="detail-gallery-dots" id="detailGalleryDots">' +
     imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')"></button>'; }).join('') +
     '</div>' +
@@ -8446,6 +8447,7 @@ function toggleFavorite(listingId, btn) {
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
   }
+  if (btn) btn.setAttribute('aria-pressed', btn.classList.contains('liked') ? 'true' : 'false');
   _saveFavoritesToStorage();
   // Sync with API if logged in (only for real DB listings)
   if (isLoggedIn) {
