@@ -4540,10 +4540,20 @@ function _updateChatStatus(userId) {
 
 // Live polling for new messages
 var _chatPollTimer = null;
+var _CHAT_POLL_BASE = 5000;
+var _CHAT_POLL_CAP = 20000;
+var _chatPollDelay = _CHAT_POLL_BASE;
+function _scheduleChatPoll() {
+  _chatPollTimer = setTimeout(_chatPollTick, _chatPollDelay);
+}
 function _startChatPoll() {
   _stopChatPoll();
-  _chatPollTimer = setInterval(function() {
-    if (!currentChat || !currentChat.id) { _stopChatPoll(); return; }
+  _chatPollDelay = _CHAT_POLL_BASE;
+  _scheduleChatPoll();
+}
+function _chatPollTick() {
+  if (!currentChat || !currentChat.id) { _stopChatPoll(); return; }
+  if (document.hidden) { _chatPollTimer = null; return; } // Hidden-Pause: kein Fetch/Reschedule
     // Also refresh online status of chat partner
     if (currentChat.otherId) _updateChatStatus(currentChat.otherId);
     fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
@@ -4552,6 +4562,9 @@ function _startChatPoll() {
         if (!currentChat) return;
         var oldCount = currentChat.messages ? currentChat.messages.length : 0;
         var newCount = (messages || []).length;
+        // #8 Backoff: neue Nachricht → schnelle Basis, sonst Intervall erhöhen (Cap 20s)
+        if (newCount > oldCount) { _chatPollDelay = _CHAT_POLL_BASE; }
+        else { _chatPollDelay = Math.min(Math.round(_chatPollDelay * 1.6), _CHAT_POLL_CAP); }
         // Always keep negotiation banner in sync
         var lastPendingOffer = null;
         (messages || []).forEach(function(msg) {
@@ -4636,12 +4649,20 @@ function _startChatPoll() {
         if (typeof console !== 'undefined' && console.warn) {
           console.warn('[eventboerse] chat-poll fehlgeschlagen:', err && err.message ? err.message : err);
         }
-      });
-  }, 5000);
+      })
+      .catch(function(){})
+      .then(_scheduleChatPoll);
 }
 function _stopChatPoll() {
-  if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+  if (_chatPollTimer) { clearTimeout(_chatPollTimer); _chatPollTimer = null; }
 }
+// #8: Tab wieder sichtbar → wenn Chat-Poll pausiert war, sofort pollen + Backoff-Reset
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && currentChat && currentChat.id && _chatPollTimer === null) {
+    _chatPollDelay = _CHAT_POLL_BASE;
+    _chatPollTick();
+  }
+});
 
 function _isBookingContent(text) {
   if (!text) return false;
