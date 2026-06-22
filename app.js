@@ -5246,6 +5246,10 @@ function sendMessage() {
 
   input.value = '';
 
+  // #8: nach eigenem Senden Backoff zurücksetzen + zeitnah pollen
+  _chatPollDelay = _CHAT_POLL_BASE;
+  if (currentChat && currentChat.id && !document.hidden) { clearTimeout(_chatPollTimer); _chatPollTick(); }
+
   // Send to API
   fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
