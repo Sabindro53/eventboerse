@@ -4473,6 +4473,7 @@ function _stopHeartbeat() {
 }
 function _sendHeartbeat() {
   if (!isLoggedIn) return;
+  if (document.hidden) return; // #8: kein Heartbeat bei Hintergrund-Tab
   fetch(_apiUrl('heartbeat'), { method: 'POST', credentials: 'same-origin', headers: _apiHeaders() }).catch(function(){});
 }
 function _sendOfflineBeacon() {
