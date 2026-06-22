@@ -45,10 +45,16 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 |-------|--------|
 | `app.js` | ~21 000-Zeilen-Monolith: SPA-Router, alle UI-Module, State |
 | `styles.css` | ~15 000 Zeilen CSS, mobile-first |
-| `index.html` | SPA-Shell für lokale Nutzung |
-| `index.php` | WordPress-Template (gleiche SPA) |
+| `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
+| `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
+| `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
 | `functions.php` | WordPress-Theme: REST API (~81 Routen), Asset-Registrierung |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
+
+**Shell-Workflow (kein Drift, #7):** SPA-Body-Änderungen NUR in `app-shell.html`. `index.php`
+liest sie zur Laufzeit per `readfile` (immer aktuell). Für die lokale `index.html` danach
+`./build-index-html.sh` ausführen und committen. Head/Foot unterscheiden sich bewusst
+(PHP-dynamisch vs. statisch) und werden in `index.php` bzw. `index.local-head/foot.html` gepflegt.
 
 ### SPA-Router
 
