@@ -14954,3 +14954,25 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   color: var(--primary);
   text-decoration: line-through;
 }
+
+/* ============================================================
+ *  #12 A11y — Reduced Motion (global)
+ *  Die UI ist animationslastig (64 @keyframes, 79 animation-Decls:
+ *  Konfetti, Splash, Party-Popper, Streamer, QA-Funken, Marquees).
+ *  Für Nutzer mit System-Einstellung "Bewegung reduzieren" werden
+ *  Animationen/Transitions global auf quasi-sofort gesetzt — ein
+ *  einziger Block deckt alle bestehenden und künftigen Animationen
+ *  ab, ohne Einzelregeln anzufassen. Spinner/One-shots laufen genau
+ *  einmal sofort durch (kein Dauerlauf). Funktionale Zustände
+ *  (display/JS-gesteuertes Ein-/Ausblenden) bleiben unberührt.
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
