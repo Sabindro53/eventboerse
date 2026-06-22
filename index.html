@@ -108,7 +108,7 @@
           <span class="label">Wo?</span>
           <span class="value" id="navWoValue">Region</span>
         </button>
-        <button class="nav-search-btn" onclick="performNavSearch()">
+        <button class="nav-search-btn" aria-label="Suchen" onclick="performNavSearch()">
           <span class="material-icons-round">search</span>
         </button>
       </div>
@@ -124,7 +124,7 @@
           <div class="nav-ai-header">
             <span class="material-icons-round ai-spark-lg">auto_awesome</span>
             <span>Suche</span>
-            <button class="nav-ai-close" onclick="closeNavAiSearch()"><span class="material-icons-round">close</span></button>
+            <button class="nav-ai-close" aria-label="Suche schließen" onclick="closeNavAiSearch()"><span class="material-icons-round">close</span></button>
           </div>
           <div class="nav-ai-input-wrap">
             <span class="material-icons-round nav-ai-input-icon">search</span>
@@ -143,7 +143,7 @@
       </div>
       <div class="nav-actions">
         <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
-        <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten">
+        <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten" aria-label="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
           <span class="badge" id="msgBadge" style="display:none"></span>
         </button>
@@ -195,7 +195,7 @@
     <div class="map-overlay-inner">
       <div class="map-overlay-header">
         <h3><span class="material-icons-round">map</span> Veranstaltungen auf der Karte</h3>
-        <button class="map-close-btn" onclick="closeMapOverlay()">
+        <button class="map-close-btn" aria-label="Karte schließen" onclick="closeMapOverlay()">
           <span class="material-icons-round">close</span>
         </button>
       </div>
@@ -1110,10 +1110,10 @@
               </div>
             </div>
             <div class="browse-view-toggles">
-              <button class="view-toggle active" id="gridViewBtn" onclick="setView('grid')">
+              <button class="view-toggle active" id="gridViewBtn" aria-label="Rasteransicht" onclick="setView('grid')">
                 <span class="material-icons-round">grid_view</span>
               </button>
-              <button class="view-toggle" id="listViewBtn" onclick="setView('list')">
+              <button class="view-toggle" id="listViewBtn" aria-label="Listenansicht" onclick="setView('list')">
                 <span class="material-icons-round">view_list</span>
               </button>
             </div>
@@ -1301,13 +1301,13 @@
     <!-- ============ PAGE: PROVIDER PROFILE ============ -->
     <section id="page-provider" class="page">
       <!-- Back Button -->
-      <button class="provider-back-btn" onclick="history.back()">
+      <button class="provider-back-btn" aria-label="Zurück" onclick="history.back()">
         <span class="material-icons-round">arrow_back</span>
       </button>
       <!-- Cover Gallery -->
       <div class="provider-cover-gallery" id="providerCoverGallery">
         <div class="pcg-scroll-area" id="pcgScrollArea"></div>
-        <button class="pcg-show-all" onclick="openProviderLightbox(0)" title="Alle Fotos">
+        <button class="pcg-show-all" onclick="openProviderLightbox(0)" title="Alle Fotos" aria-label="Alle Fotos">
           <span class="material-icons-round">photo_library</span>
         </button>
       </div>
@@ -1429,10 +1429,10 @@
 
       <!-- Lightbox -->
       <div class="provider-lightbox" id="providerLightbox">
-        <button class="plb-close" onclick="closeProviderLightbox()"><span class="material-icons-round">close</span></button>
-        <button class="plb-nav plb-prev" onclick="event.stopPropagation(); lightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
+        <button class="plb-close" aria-label="Galerie schließen" onclick="closeProviderLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-nav plb-prev" aria-label="Vorheriges Bild" onclick="event.stopPropagation(); lightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
         <img id="plbImage" src="" alt="Foto" loading="lazy" decoding="async" />
-        <button class="plb-nav plb-next" onclick="event.stopPropagation(); lightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
+        <button class="plb-nav plb-next" aria-label="Nächstes Bild" onclick="event.stopPropagation(); lightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
         <div class="plb-counter" id="plbCounter">1 / 5</div>
       </div>
     </section>
@@ -1460,7 +1460,7 @@
           </div>
           <div class="chat-active" id="chatActive" style="display:none">
             <div class="chat-header" id="chatHeader">
-              <button class="chat-back-btn" onclick="closeChatView()">
+              <button class="chat-back-btn" aria-label="Zurück zu den Chats" onclick="closeChatView()">
                 <span class="material-icons-round">arrow_back</span>
               </button>
               <img src="" alt="" id="chatAvatar" onclick="goToChatProfile()" style="cursor:pointer" loading="lazy" decoding="async" />
@@ -1469,11 +1469,11 @@
                 <span id="chatStatus" class="chat-status"></span>
               </div>
               <div class="chat-header-actions">
-                <button onclick="openNegotiationInChat()" title="Preisverhandlung">
+                <button onclick="openNegotiationInChat()" title="Preisverhandlung" aria-label="Preisverhandlung">
                   <span class="material-icons-round">gavel</span>
                 </button>
                 <div class="chat-menu-wrap">
-                  <button onclick="toggleChatMenu(event)" title="Mehr Optionen" aria-haspopup="true" aria-expanded="false" id="chatMenuBtn">
+                  <button onclick="toggleChatMenu(event)" title="Mehr Optionen" aria-label="Mehr Optionen" aria-haspopup="true" aria-expanded="false" id="chatMenuBtn">
                     <span class="material-icons-round">more_vert</span>
                   </button>
                   <div class="chat-menu" id="chatMenu" role="menu" hidden>
@@ -1520,11 +1520,11 @@
               <button class="chat-block-unbtn" onclick="chatMenuAction('block')" id="chatBlockUnbtn">Blockierung aufheben</button>
             </div>
             <div class="chat-input-bar" id="chatInputBar">
-              <button class="chat-attach-btn" title="Anhang">
+              <button class="chat-attach-btn" title="Anhang" aria-label="Anhang">
                 <span class="material-icons-round">attach_file</span>
               </button>
               <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" />
-              <button class="chat-send-btn" onclick="sendMessage()">
+              <button class="chat-send-btn" aria-label="Nachricht senden" onclick="sendMessage()">
                 <span class="material-icons-round">send</span>
               </button>
             </div>
@@ -1538,10 +1538,10 @@
       <!-- Profile Cover -->
       <div class="profile-cover" id="profileCover">
         <div class="profile-cover-overlay" onclick="if(!this.parentElement.classList.contains('repositioning'))openCoverLightbox()"></div>
-        <button class="profile-cover-edit" onclick="document.getElementById('coverInput').click()" title="Cover ändern">
+        <button class="profile-cover-edit" onclick="document.getElementById('coverInput').click()" title="Cover ändern" aria-label="Cover ändern">
           <span class="material-icons-round">photo_camera</span>
         </button>
-        <button class="profile-cover-edit profile-cover-reposition" id="coverRepositionBtn" onclick="startCoverReposition()" title="Sichtbereich anpassen">
+        <button class="profile-cover-edit profile-cover-reposition" id="coverRepositionBtn" onclick="startCoverReposition()" title="Sichtbereich anpassen" aria-label="Sichtbereich anpassen">
           <span class="material-icons-round">open_with</span>
         </button>
         <div class="cover-reposition-bar" id="coverRepositionBar">
@@ -1556,16 +1556,16 @@
 
       <!-- Cover Fullscreen Lightbox -->
       <div class="cover-lightbox" id="coverLightbox" onclick="closeCoverLightbox(event)">
-        <button class="plb-close" onclick="closeCoverLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-close" aria-label="Galerie schließen" onclick="closeCoverLightbox()"><span class="material-icons-round">close</span></button>
         <img id="coverLightboxImg" src="" alt="Cover" loading="lazy" decoding="async" />
       </div>
 
       <!-- Gallery Lightbox -->
       <div class="gallery-lightbox" id="galleryLightbox" onclick="closeGalleryLightbox(event)">
-        <button class="plb-close" onclick="closeGalleryLightbox()"><span class="material-icons-round">close</span></button>
-        <button class="plb-nav plb-prev" onclick="event.stopPropagation(); galleryLightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
+        <button class="plb-close" aria-label="Galerie schließen" onclick="closeGalleryLightbox()"><span class="material-icons-round">close</span></button>
+        <button class="plb-nav plb-prev" aria-label="Vorheriges Bild" onclick="event.stopPropagation(); galleryLightboxNav(-1)"><span class="material-icons-round">chevron_left</span></button>
         <img id="galleryLightboxImg" src="" alt="Galerie" loading="lazy" decoding="async" />
-        <button class="plb-nav plb-next" onclick="event.stopPropagation(); galleryLightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
+        <button class="plb-nav plb-next" aria-label="Nächstes Bild" onclick="event.stopPropagation(); galleryLightboxNav(1)"><span class="material-icons-round">chevron_right</span></button>
         <div class="plb-counter" id="galleryLightboxCounter"></div>
       </div>
 
@@ -1574,7 +1574,7 @@
         <div class="profile-hero">
           <div class="profile-avatar-wrap">
             <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3C%2Fsvg%3E" alt="Profilbild" id="profileAvatar" class="profile-avatar" loading="lazy" decoding="async" />
-            <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Foto ändern">
+            <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Foto ändern" aria-label="Foto ändern">
               <span class="material-icons-round">camera_alt</span>
             </button>
             <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)" />
@@ -1582,7 +1582,7 @@
           <div class="profile-hero-info">
             <div class="profile-name-row">
               <h1 class="profile-display-name" id="profileDisplayName">Dein Name</h1>
-              <button class="profile-inline-edit" onclick="toggleProfileEdit('name')" title="Name bearbeiten">
+              <button class="profile-inline-edit" onclick="toggleProfileEdit('name')" title="Name bearbeiten" aria-label="Name bearbeiten">
                 <span class="material-icons-round">edit</span>
               </button>
             </div>
@@ -1595,7 +1595,7 @@
             </div>
             <div class="profile-tagline-row">
               <p class="profile-tagline" id="profileDisplayTagline">Dein Slogan · Dein Standort</p>
-              <button class="profile-inline-edit" onclick="toggleProfileEdit('tagline')" title="Slogan bearbeiten">
+              <button class="profile-inline-edit" onclick="toggleProfileEdit('tagline')" title="Slogan bearbeiten" aria-label="Slogan bearbeiten">
                 <span class="material-icons-round">edit</span>
               </button>
             </div>
@@ -1640,7 +1640,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">person</span> Über mich</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('bio')" title="Bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('bio')" title="Bearbeiten" aria-label="Bearbeiten">
               <span class="material-icons-round">edit</span>
             </button>
           </div>
@@ -1656,7 +1656,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">collections</span> Galerie</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('gallery')" title="Galerie bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('gallery')" title="Galerie bearbeiten" aria-label="Galerie bearbeiten">
               <span class="material-icons-round">edit</span>
             </button>
           </div>
@@ -1683,7 +1683,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">sell</span> Services & Preise</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('services')" title="Services bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('services')" title="Services bearbeiten" aria-label="Services bearbeiten">
               <span class="material-icons-round">add</span>
             </button>
           </div>
@@ -1721,7 +1721,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">link</span> Soziale Links</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('socialLinks')" title="Links bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('socialLinks')" title="Links bearbeiten" aria-label="Links bearbeiten">
               <span class="material-icons-round">edit</span>
             </button>
           </div>
@@ -2787,7 +2787,7 @@ Datum: ___________________________________________________
                 <h3 id="boardEventName">Mein Event</h3>
                 <span id="boardEventDate" class="board-event-date"></span>
               </div>
-              <button class="bme-edit-btn" onclick="openEditBoardProjectModal()" title="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
+              <button class="bme-edit-btn" onclick="openEditBoardProjectModal()" title="Projekt bearbeiten" aria-label="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
             </div>
             <div class="board-meta-stats" id="boardMetaStats">
               <div class="board-meta-stat">
