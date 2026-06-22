@@ -3599,7 +3599,7 @@ function loadProvider(providerId) {
             var isOwnReview = currentUser && r.user_id && _sameUserId(r.user_id, currentUser.id);
             var isProviderOwner = currentUser && pid && _sameUserId(pid, currentUser.id);
             var canDelete = isOwnReview || isProviderOwner || (currentUser && currentUser.isAdmin);
-            var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
+            var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen" aria-label="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
             return '<div class="review-card">' +
               '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(r.name || 'Anonym') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
               '<div class="review-content">' +
@@ -5988,7 +5988,7 @@ function renderDashboard() {
           var isOwnReview = currentUser && r.user_id && _sameUserId(r.user_id, currentUser.id);
           var isProfileOwner = true; // Profile page = own profile, always owner
           var canDelete = isOwnReview || isProfileOwner || (currentUser && currentUser.isAdmin);
-          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
+          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen" aria-label="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="' + _escHtml(ebAvatar(r.avatar || r.name || 'user', r.name)) + '" alt="' + _escHtml(r.name || '') + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
@@ -6036,8 +6036,8 @@ function renderDashboard() {
         div.setAttribute('data-url', src);
         div.innerHTML = '<img src="' + src + '" alt="Galerie" />' +
           '<div class="upload-preview-actions">' +
-            '<button type="button" class="upload-act-crop" title="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
-            '<button type="button" class="upload-act-remove" title="Entfernen"><span class="material-icons-round">close</span></button>' +
+            '<button type="button" class="upload-act-crop" title="Zuschneiden" aria-label="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
+            '<button type="button" class="upload-act-remove" title="Entfernen" aria-label="Entfernen"><span class="material-icons-round">close</span></button>' +
           '</div>';
         // Crop button
         div.querySelector('.upload-act-crop').onclick = function(e) {
@@ -7257,8 +7257,8 @@ function _addListingPreviewItem(src, blob) {
   div.innerHTML =
     '<img src="' + _escHtml(src) + '" alt="Preview" />' +
     '<div class="upload-preview-actions">' +
-      '<button type="button" class="upload-act-crop" title="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
-      '<button type="button" class="upload-act-remove" title="Entfernen"><span class="material-icons-round">close</span></button>' +
+      '<button type="button" class="upload-act-crop" title="Zuschneiden" aria-label="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
+      '<button type="button" class="upload-act-remove" title="Entfernen" aria-label="Entfernen"><span class="material-icons-round">close</span></button>' +
     '</div>' +
     (isFirst ? '<span class="upload-preview-badge">Titelbild</span>' : '');
 
@@ -7732,8 +7732,8 @@ function _addGalleryPreviewItem(src, blob) {
   div.className = 'upload-preview-item';
   div.innerHTML = '<img src="' + _escHtml(src) + '" alt="Galerie" />' +
     '<div class="upload-preview-actions">' +
-      '<button type="button" class="upload-act-crop" title="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
-      '<button type="button" class="upload-act-remove" title="Entfernen"><span class="material-icons-round">close</span></button>' +
+      '<button type="button" class="upload-act-crop" title="Zuschneiden" aria-label="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
+      '<button type="button" class="upload-act-remove" title="Entfernen" aria-label="Entfernen"><span class="material-icons-round">close</span></button>' +
     '</div>';
 
   // Crop button
@@ -9551,7 +9551,7 @@ function loadDetailReviews(dbListingId) {
           var isOwnReview = currentUser && r.user_id && _sameUserId(r.user_id, currentUser.id);
           var isListingOwner = _isCurrentUserListingOwner(currentListing);
           var canDelete = isOwnReview || isListingOwner || (currentUser && currentUser.isAdmin);
-          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
+          var deleteBtn = canDelete ? '<button onclick="deleteReview(' + r.id + ')" class="review-delete-btn" title="Bewertung löschen" aria-label="Bewertung löschen"><span class="material-icons-round">close</span></button>' : '';
           return '<div class="review-card">' +
             '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(displayName) + '" class="review-avatar"' + (r.user_id ? ' style="cursor:pointer" onclick="navigateTo(\'provider\',' + r.user_id + ')"' : '') + ' />' +
             '<div class="review-content">' +
@@ -14462,16 +14462,16 @@ function _renderBoardFlowImpl() {
 
   // ── Toolbar ──────────────────────────────────────────────
   html += '<div class="flow-toolbar">';
-  html += '<button class="flow-tbtn" onclick="flowZoom(-0.10)" title="Verkleinern (Ctrl + -)"><span class="material-icons-round">remove</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowZoom(-0.10)" title="Verkleinern (Ctrl + -)" aria-label="Verkleinern (Ctrl + -)"><span class="material-icons-round">remove</span></button>';
   html += '<span class="flow-zoom-pct" id="flowZoomPct" role="button" tabindex="0" title="Zoom-Prozent eingeben" onclick="flowZoomPrompt()">100%</span>';
-  html += '<button class="flow-tbtn" onclick="flowZoom(0.10)" title="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowZoom(0.10)" title="Vergrößern (Ctrl + +)" aria-label="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
   html += '<div class="flow-tb-divider"></div>';
-  html += '<button class="flow-tbtn" id="flowUndoBtn" onclick="flowUndo()" title="Rückgängig (Ctrl+Z)" disabled><span class="material-icons-round">undo</span></button>';
-  html += '<button class="flow-tbtn" id="flowRedoBtn" onclick="flowRedo()" title="Wiederherstellen (Ctrl+Y)" disabled><span class="material-icons-round">redo</span></button>';
+  html += '<button class="flow-tbtn" id="flowUndoBtn" onclick="flowUndo()" title="Rückgängig (Ctrl+Z)" aria-label="Rückgängig (Ctrl+Z)" disabled><span class="material-icons-round">undo</span></button>';
+  html += '<button class="flow-tbtn" id="flowRedoBtn" onclick="flowRedo()" title="Wiederherstellen (Ctrl+Y)" aria-label="Wiederherstellen (Ctrl+Y)" disabled><span class="material-icons-round">redo</span></button>';
   html += '<div class="flow-tb-divider"></div>';
-  html += '<button class="flow-tbtn" onclick="flowFitToScreen()" title="An Bildschirm anpassen"><span class="material-icons-round">fit_screen</span></button>';
-  html += '<button class="flow-tbtn" onclick="flowResetView()" title="Ansicht zurücksetzen"><span class="material-icons-round">center_focus_strong</span></button>';
-  html += '<button class="flow-tbtn" onclick="flowAutoLayout()" title="Struktur neu anordnen"><span class="material-icons-round">auto_awesome_motion</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowFitToScreen()" title="An Bildschirm anpassen" aria-label="An Bildschirm anpassen"><span class="material-icons-round">fit_screen</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowResetView()" title="Ansicht zurücksetzen" aria-label="Ansicht zurücksetzen"><span class="material-icons-round">center_focus_strong</span></button>';
+  html += '<button class="flow-tbtn" onclick="flowAutoLayout()" title="Struktur neu anordnen" aria-label="Struktur neu anordnen"><span class="material-icons-round">auto_awesome_motion</span></button>';
   html += '<button class="flow-tbtn" id="flowFullscreenBtn" onclick="toggleFlowFullscreen()" title="Vollbild"><span class="material-icons-round" id="flowFullscreenIcon">fullscreen</span></button>';
   html += '<div class="flow-tb-divider"></div>';
   // Progress ring
@@ -14487,9 +14487,9 @@ function _renderBoardFlowImpl() {
   html += '<span class="material-icons-round">' + (isPublic ? 'public' : 'lock') + '</span>' + (isPublic ? 'Öffentlich' : 'Privat');
   html += '</button>';
   if (isPublic) {
-    html += '<button class="flow-tbtn" onclick="openFlowShareModal()" title="Teilen"><span class="material-icons-round">ios_share</span></button>';
+    html += '<button class="flow-tbtn" onclick="openFlowShareModal()" title="Teilen" aria-label="Teilen"><span class="material-icons-round">ios_share</span></button>';
   }
-  html += '<button class="flow-tbtn" onclick="openAddProviderModalFlow(\'geplant\')" title="Dienstleister hinzufügen" style="background:rgba(255,56,92,0.18);border-color:rgba(255,56,92,0.4);color:#fff"><span class="material-icons-round">add</span></button>';
+  html += '<button class="flow-tbtn" onclick="openAddProviderModalFlow(\'geplant\')" title="Dienstleister hinzufügen" aria-label="Dienstleister hinzufügen" style="background:rgba(255,56,92,0.18);border-color:rgba(255,56,92,0.4);color:#fff"><span class="material-icons-round">add</span></button>';
   html += '</div>';
 
   // ── Budget Overview Bar ──────────────────────────────────
@@ -18951,7 +18951,7 @@ function renderBoardChecklist() {
             '<span class="material-icons-round">' + (it.done ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
           '</button>' +
           '<span class="bcl-text">' + _escHtml(it.text) + '</span>' +
-          '<button class="bcl-del" onclick="deleteChecklistItem(\'' + _escHtml(it.id) + '\')" title="Löschen"><span class="material-icons-round">close</span></button>' +
+          '<button class="bcl-del" onclick="deleteChecklistItem(\'' + _escHtml(it.id) + '\')" title="Löschen" aria-label="Löschen"><span class="material-icons-round">close</span></button>' +
         '</li>';
       }).join('') +
       '</ul>';
@@ -19114,7 +19114,7 @@ function openAddProviderModal(defaultStage) {
           <div class="eb-lpick-search">
             <span class="material-icons-round">search</span>
             <input type="text" id="lpickSearch" placeholder="Nach Name, Kategorie oder Ort suchen…" oninput="_filterListingPicker(this.value)" />
-            <button type="button" class="eb-lpick-clear" onclick="_clearListingPick()" title="Auswahl löschen"><span class="material-icons-round">close</span></button>
+            <button type="button" class="eb-lpick-clear" onclick="_clearListingPick()" title="Auswahl löschen" aria-label="Auswahl löschen"><span class="material-icons-round">close</span></button>
           </div>
           <div class="eb-lpick-grid" id="lpickGrid">
             ${listingCardsHtml}

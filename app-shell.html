@@ -83,7 +83,7 @@
       </div>
       <div class="nav-actions">
         <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
-        <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten">
+        <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten" aria-label="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
           <span class="badge" id="msgBadge" style="display:none"></span>
         </button>
@@ -1247,7 +1247,7 @@
       <!-- Cover Gallery -->
       <div class="provider-cover-gallery" id="providerCoverGallery">
         <div class="pcg-scroll-area" id="pcgScrollArea"></div>
-        <button class="pcg-show-all" onclick="openProviderLightbox(0)" title="Alle Fotos">
+        <button class="pcg-show-all" onclick="openProviderLightbox(0)" title="Alle Fotos" aria-label="Alle Fotos">
           <span class="material-icons-round">photo_library</span>
         </button>
       </div>
@@ -1409,11 +1409,11 @@
                 <span id="chatStatus" class="chat-status"></span>
               </div>
               <div class="chat-header-actions">
-                <button onclick="openNegotiationInChat()" title="Preisverhandlung">
+                <button onclick="openNegotiationInChat()" title="Preisverhandlung" aria-label="Preisverhandlung">
                   <span class="material-icons-round">gavel</span>
                 </button>
                 <div class="chat-menu-wrap">
-                  <button onclick="toggleChatMenu(event)" title="Mehr Optionen" aria-haspopup="true" aria-expanded="false" id="chatMenuBtn">
+                  <button onclick="toggleChatMenu(event)" title="Mehr Optionen" aria-label="Mehr Optionen" aria-haspopup="true" aria-expanded="false" id="chatMenuBtn">
                     <span class="material-icons-round">more_vert</span>
                   </button>
                   <div class="chat-menu" id="chatMenu" role="menu" hidden>
@@ -1460,7 +1460,7 @@
               <button class="chat-block-unbtn" onclick="chatMenuAction('block')" id="chatBlockUnbtn">Blockierung aufheben</button>
             </div>
             <div class="chat-input-bar" id="chatInputBar">
-              <button class="chat-attach-btn" title="Anhang">
+              <button class="chat-attach-btn" title="Anhang" aria-label="Anhang">
                 <span class="material-icons-round">attach_file</span>
               </button>
               <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" />
@@ -1478,10 +1478,10 @@
       <!-- Profile Cover -->
       <div class="profile-cover" id="profileCover">
         <div class="profile-cover-overlay" onclick="if(!this.parentElement.classList.contains('repositioning'))openCoverLightbox()"></div>
-        <button class="profile-cover-edit" onclick="document.getElementById('coverInput').click()" title="Cover ändern">
+        <button class="profile-cover-edit" onclick="document.getElementById('coverInput').click()" title="Cover ändern" aria-label="Cover ändern">
           <span class="material-icons-round">photo_camera</span>
         </button>
-        <button class="profile-cover-edit profile-cover-reposition" id="coverRepositionBtn" onclick="startCoverReposition()" title="Sichtbereich anpassen">
+        <button class="profile-cover-edit profile-cover-reposition" id="coverRepositionBtn" onclick="startCoverReposition()" title="Sichtbereich anpassen" aria-label="Sichtbereich anpassen">
           <span class="material-icons-round">open_with</span>
         </button>
         <div class="cover-reposition-bar" id="coverRepositionBar">
@@ -1514,7 +1514,7 @@
         <div class="profile-hero">
           <div class="profile-avatar-wrap">
             <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3C%2Fsvg%3E" alt="Profilbild" id="profileAvatar" class="profile-avatar" loading="lazy" decoding="async" />
-            <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Foto ändern">
+            <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Foto ändern" aria-label="Foto ändern">
               <span class="material-icons-round">camera_alt</span>
             </button>
             <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)" />
@@ -1522,7 +1522,7 @@
           <div class="profile-hero-info">
             <div class="profile-name-row">
               <h1 class="profile-display-name" id="profileDisplayName">Dein Name</h1>
-              <button class="profile-inline-edit" onclick="toggleProfileEdit('name')" title="Name bearbeiten">
+              <button class="profile-inline-edit" onclick="toggleProfileEdit('name')" title="Name bearbeiten" aria-label="Name bearbeiten">
                 <span class="material-icons-round">edit</span>
               </button>
             </div>
@@ -1535,7 +1535,7 @@
             </div>
             <div class="profile-tagline-row">
               <p class="profile-tagline" id="profileDisplayTagline">Dein Slogan · Dein Standort</p>
-              <button class="profile-inline-edit" onclick="toggleProfileEdit('tagline')" title="Slogan bearbeiten">
+              <button class="profile-inline-edit" onclick="toggleProfileEdit('tagline')" title="Slogan bearbeiten" aria-label="Slogan bearbeiten">
                 <span class="material-icons-round">edit</span>
               </button>
             </div>
@@ -1580,7 +1580,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">person</span> Über mich</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('bio')" title="Bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('bio')" title="Bearbeiten" aria-label="Bearbeiten">
               <span class="material-icons-round">edit</span>
             </button>
           </div>
@@ -1596,7 +1596,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">collections</span> Galerie</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('gallery')" title="Galerie bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('gallery')" title="Galerie bearbeiten" aria-label="Galerie bearbeiten">
               <span class="material-icons-round">edit</span>
             </button>
           </div>
@@ -1623,7 +1623,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">sell</span> Services & Preise</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('services')" title="Services bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('services')" title="Services bearbeiten" aria-label="Services bearbeiten">
               <span class="material-icons-round">add</span>
             </button>
           </div>
@@ -1661,7 +1661,7 @@
         <div class="profile-section">
           <div class="profile-section-header">
             <h2><span class="material-icons-round">link</span> Soziale Links</h2>
-            <button class="profile-inline-edit" onclick="toggleProfileEdit('socialLinks')" title="Links bearbeiten">
+            <button class="profile-inline-edit" onclick="toggleProfileEdit('socialLinks')" title="Links bearbeiten" aria-label="Links bearbeiten">
               <span class="material-icons-round">edit</span>
             </button>
           </div>
@@ -2727,7 +2727,7 @@ Datum: ___________________________________________________
                 <h3 id="boardEventName">Mein Event</h3>
                 <span id="boardEventDate" class="board-event-date"></span>
               </div>
-              <button class="bme-edit-btn" onclick="openEditBoardProjectModal()" title="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
+              <button class="bme-edit-btn" onclick="openEditBoardProjectModal()" title="Projekt bearbeiten" aria-label="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>
             </div>
             <div class="board-meta-stats" id="boardMetaStats">
               <div class="board-meta-stat">
