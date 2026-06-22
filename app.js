@@ -3240,7 +3240,17 @@ function loadDetail(listingId) {
   }
 
   document.getElementById('detailDescription').innerHTML = _sanitizeHtml(listing.description);
-  document.getElementById('detailPrice').textContent = (listing.priceLabel || '').split('/')[0];
+  // Preis + Einheit getrennt setzen — Einheit kommt aus priceLabel, NICHT hardcodiert
+  // (sonst zeigt Detail z.B. "/ Event" obwohl die Karte "/ Stunde" zeigt).
+  var _pl = listing.priceLabel || '';
+  var _slash = _pl.indexOf('/');
+  document.getElementById('detailPrice').textContent = (_slash >= 0 ? _pl.slice(0, _slash) : _pl).trim();
+  var _unitEl = document.getElementById('detailPriceUnit');
+  if (_unitEl) {
+    var _unit = _slash >= 0 ? _pl.slice(_slash).trim() : '';
+    _unitEl.textContent = _unit;
+    _unitEl.style.display = _unit ? '' : 'none';
+  }
 
   // Features
   document.getElementById('detailFeatures').innerHTML = (Array.isArray(listing.features) ? listing.features : []).map(f =>
