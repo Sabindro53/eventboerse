@@ -58,6 +58,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 </head>
 <body>
+
   <!-- ============ APP-LOADING-OVERLAY (vor JS-Render sichtbar) ============ -->
   <div id="appLoadingOverlay" aria-hidden="true">
     <div class="app-loading-inner">
@@ -232,6 +233,121 @@
       <span>Profil</span>
     </button>
   </nav>
+
+  <!-- ============ QA SUPPORT BOT ============ -->
+  <div class="eb-qa-bot" id="qaBot">
+    <section class="eb-qa-panel" id="qaPanel" aria-label="Eventbörse QA-Support" hidden>
+      <div class="eb-qa-head">
+        <div class="eb-qa-head-avatar" aria-hidden="true">
+          <svg class="eb-qa-icon-svg eb-qa-icon-svg--mini" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
+            <!-- Funkeln um Hut-Spitze -->
+            <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
+            <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
+            <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
+            <!-- Partyhut mit Streifen + Bommel -->
+            <g class="qa-hat-group">
+              <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
+              <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
+              <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
+              <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
+              <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
+              <!-- Bommel -->
+              <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
+              <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
+            </g>
+            <!-- Antenne -->
+            <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
+            <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
+            <!-- Hals -->
+            <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
+            <!-- Schultern -->
+            <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
+            <!-- Earcups (Headset) -->
+            <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
+            <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
+            <!-- Roboter-Kopf (gerundetes Rechteck) -->
+            <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
+            <!-- Display-Visier -->
+            <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
+            <!-- LED-Augen -->
+            <circle class="qa-eye" cx="54" cy="90" r="4"/>
+            <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
+            <circle class="qa-eye" cx="76" cy="90" r="4"/>
+            <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
+            <!-- Mund: freundliches Lächeln -->
+            <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
+            <!-- Mikro-Arm + Kugel -->
+            <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
+            <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
+          </svg>
+        </div>
+        <div>
+          <strong>Eventbörse QA</strong>
+        </div>
+        <button type="button" class="eb-qa-close" onclick="closeQaBot()" aria-label="QA-Support schließen">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+      <div class="eb-qa-messages" id="qaMessages" aria-live="polite"></div>
+      <div class="eb-qa-suggestions" id="qaSuggestions">
+        <button type="button" onclick="askQaPreset('Ich kann mich nicht anmelden')">Login</button>
+        <button type="button" onclick="askQaPreset('Ich brauche Hilfe beim Planungsboard')">Board</button>
+        <button type="button" onclick="askQaPreset('Ich will ein Inserat erstellen')">Inserat</button>
+        <button type="button" onclick="askQaPreset('Stripe Auszahlung Konto')">Zahlung</button>
+      </div>
+      <form class="eb-qa-form" onsubmit="handleQaAsk(event)">
+        <input type="text" id="qaInput" placeholder="Was brauchst du gerade?" autocomplete="off" />
+        <button type="submit" aria-label="Frage senden">
+          <span class="material-icons-round">arrow_upward</span>
+        </button>
+      </form>
+    </section>
+    <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse QA-Support">
+      <span class="eb-qa-launcher-icon" aria-hidden="true">
+        <svg class="eb-qa-icon-svg" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
+          <!-- Funkeln um Hut -->
+          <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
+          <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
+          <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
+          <!-- Partyhut mit Streifen + Bommel -->
+          <g class="qa-hat-group">
+            <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
+            <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
+            <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
+            <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
+            <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
+            <!-- Bommel -->
+            <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
+            <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
+          </g>
+          <!-- Antenne -->
+          <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
+          <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
+          <!-- Hals -->
+          <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
+          <!-- Schultern -->
+          <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
+          <!-- Earcups (Headset) -->
+          <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
+          <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
+          <!-- Roboter-Kopf (gerundetes Rechteck) -->
+          <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
+          <!-- Display-Visier -->
+          <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
+          <!-- LED-Augen -->
+          <circle class="qa-eye" cx="54" cy="90" r="4"/>
+          <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
+          <circle class="qa-eye" cx="76" cy="90" r="4"/>
+          <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
+          <!-- Mund: freundliches Lächeln -->
+          <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
+          <!-- Mikro-Arm + Kugel -->
+          <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
+          <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
+        </svg>
+      </span>
+    </button>
+  </div>
 
   <!-- ============ BETA / VORGRÜNDUNGS-BANNER ============ -->
   <div class="beta-banner" id="betaBanner" role="region" aria-label="Beta-Hinweis">
@@ -606,6 +722,164 @@
           <div class="ai-bg-orb orb-1"></div>
           <div class="ai-bg-orb orb-2"></div>
           <div class="ai-bg-orb orb-3"></div>
+        </div>
+        <!-- Dezente Deko: hängende Luftschlangen + Funken -->
+        <div class="ai-hero-decor" aria-hidden="true">
+          <svg class="ai-streamer st-1" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q2 38 20 76 Q26 118 6 158 Q-2 184 16 200"/>
+          </svg>
+          <svg class="ai-streamer st-2" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q24 32 6 70 Q-2 110 22 150 Q28 180 10 200"/>
+          </svg>
+          <svg class="ai-streamer st-3" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q4 36 22 74 Q26 116 4 156 Q0 182 18 200"/>
+          </svg>
+          <svg class="ai-streamer st-4" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q22 34 4 72 Q-2 112 20 152 Q26 182 8 200"/>
+          </svg>
+          <svg class="ai-streamer st-5" viewBox="0 0 26 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 0 Q6 30 18 60 Q24 95 8 130 Q2 160 14 200"/>
+          </svg>
+          <span class="ai-spark sp-1"></span>
+          <span class="ai-spark sp-2"></span>
+          <span class="ai-spark sp-3"></span>
+          <span class="ai-spark sp-4"></span>
+          <span class="ai-spark sp-5"></span>
+          <span class="ai-spark sp-6"></span>
+          <span class="ai-spark sp-7"></span>
+          <span class="ai-spark sp-8"></span>
+        </div>
+        <div class="ai-hero-poppers" aria-hidden="true">
+          <span class="ai-popper pop-1">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
+              </g>
+              <g class="ai-popper-burst">
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 4 122 4"   stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q116 28 132 46"  stroke="#00A699" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 50 118 72"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q94 8 108 -8"    stroke="#E31C5F" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q66 2 64 -14"    stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <circle class="ai-popper-bit b1" cx="88"  cy="-20" r="5"   fill="#FF385C"/>
+                <circle class="ai-popper-bit b2" cx="124" cy="4"   r="5.5" fill="#a855f7"/>
+                <circle class="ai-popper-bit b3" cx="134" cy="46"  r="5"   fill="#00A699"/>
+                <circle class="ai-popper-bit b4" cx="120" cy="74"  r="4.5" fill="#FF385C"/>
+                <circle class="ai-popper-bit b5" cx="110" cy="-10" r="4"   fill="#E31C5F"/>
+                <circle class="ai-popper-bit b6" cx="62"  cy="-16" r="4.5" fill="#a855f7"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-2">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
+              </g>
+              <g class="ai-popper-burst">
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 4 122 4"   stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q116 28 132 46"  stroke="#00A699" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 50 118 72"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q94 8 108 -8"    stroke="#E31C5F" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q66 2 64 -14"    stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <circle class="ai-popper-bit b1" cx="88"  cy="-20" r="5"   fill="#FF385C"/>
+                <circle class="ai-popper-bit b2" cx="124" cy="4"   r="5.5" fill="#a855f7"/>
+                <circle class="ai-popper-bit b3" cx="134" cy="46"  r="5"   fill="#00A699"/>
+                <circle class="ai-popper-bit b4" cx="120" cy="74"  r="4.5" fill="#FF385C"/>
+                <circle class="ai-popper-bit b5" cx="110" cy="-10" r="4"   fill="#E31C5F"/>
+                <circle class="ai-popper-bit b6" cx="62"  cy="-16" r="4.5" fill="#a855f7"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-3">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
+              </g>
+              <g class="ai-popper-burst">
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 4 122 4"   stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q116 28 132 46"  stroke="#00A699" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 50 118 72"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q94 8 108 -8"    stroke="#E31C5F" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q66 2 64 -14"    stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <circle class="ai-popper-bit b1" cx="88"  cy="-20" r="5"   fill="#FF385C"/>
+                <circle class="ai-popper-bit b2" cx="124" cy="4"   r="5.5" fill="#a855f7"/>
+                <circle class="ai-popper-bit b3" cx="134" cy="46"  r="5"   fill="#00A699"/>
+                <circle class="ai-popper-bit b4" cx="120" cy="74"  r="4.5" fill="#FF385C"/>
+                <circle class="ai-popper-bit b5" cx="110" cy="-10" r="4"   fill="#E31C5F"/>
+                <circle class="ai-popper-bit b6" cx="62"  cy="-16" r="4.5" fill="#a855f7"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-4">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
+              </g>
+              <g class="ai-popper-burst">
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 4 122 4"   stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q116 28 132 46"  stroke="#00A699" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 50 118 72"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q94 8 108 -8"    stroke="#E31C5F" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q66 2 64 -14"    stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <circle class="ai-popper-bit b1" cx="88"  cy="-20" r="5"   fill="#FF385C"/>
+                <circle class="ai-popper-bit b2" cx="124" cy="4"   r="5.5" fill="#a855f7"/>
+                <circle class="ai-popper-bit b3" cx="134" cy="46"  r="5"   fill="#00A699"/>
+                <circle class="ai-popper-bit b4" cx="120" cy="74"  r="4.5" fill="#FF385C"/>
+                <circle class="ai-popper-bit b5" cx="110" cy="-10" r="4"   fill="#E31C5F"/>
+                <circle class="ai-popper-bit b6" cx="62"  cy="-16" r="4.5" fill="#a855f7"/>
+              </g>
+            </svg>
+          </span>
+          <span class="ai-popper pop-5">
+            <svg class="ai-popper-svg" viewBox="0 0 100 100" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+              <g class="ai-popper-cone">
+                <path d="M2 96 L52 10 L96 50 Z" fill="#FF385C" stroke="#5a0d22" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M2 96 L52 10" stroke="#5a0d22" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <path d="M30 74 L62 30" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <path d="M52 56 L80 28" stroke="#5a0d22" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+                <ellipse cx="74" cy="30" rx="26" ry="11" fill="#5a0d22" transform="rotate(42 74 30)"/>
+                <ellipse cx="74" cy="30" rx="22" ry="7" fill="#1a0309" transform="rotate(42 74 30)"/>
+              </g>
+              <g class="ai-popper-burst">
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q80 -2 86 -18"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 4 122 4"   stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q116 28 132 46"  stroke="#00A699" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q104 50 118 72"  stroke="#FF385C" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q94 8 108 -8"    stroke="#E31C5F" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path class="ai-popper-stream" pathLength="100" d="M74 30 Q66 2 64 -14"    stroke="#a855f7" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <circle class="ai-popper-bit b1" cx="88"  cy="-20" r="5"   fill="#FF385C"/>
+                <circle class="ai-popper-bit b2" cx="124" cy="4"   r="5.5" fill="#a855f7"/>
+                <circle class="ai-popper-bit b3" cx="134" cy="46"  r="5"   fill="#00A699"/>
+                <circle class="ai-popper-bit b4" cx="120" cy="74"  r="4.5" fill="#FF385C"/>
+                <circle class="ai-popper-bit b5" cx="110" cy="-10" r="4"   fill="#E31C5F"/>
+                <circle class="ai-popper-bit b6" cx="62"  cy="-16" r="4.5" fill="#a855f7"/>
+              </g>
+            </svg>
+          </span>
         </div>
         <div class="ai-hero-content">
           <div class="ai-badge">
@@ -1674,12 +1948,15 @@
           <!-- Step 1: Basics -->
           <div class="form-step active" id="step1">
             <h2>Grundlagen</h2>
+            <p class="step-intro">Mit klaren Angaben erhältst du mehr passende Anfragen. Du kannst alles später ändern.</p>
             <div class="form-group">
               <label>Titel deines Services</label>
+              <small class="form-hint">Kurz, konkret, mit Mehrwert. Vermeide Werbe-Floskeln. Beispiel: „DJ für Hochzeiten in Berlin – Vinyl &amp; House“.</small>
               <input type="text" id="createTitle" placeholder="z.B. Professionelle DJ-Services für jedes Event" />
             </div>
             <div class="form-group">
               <label>Kategorie</label>
+              <small class="form-hint">Bestimmt, in welchen Suchergebnissen du auftauchst.</small>
               <select id="createCategory">
                 <option value="">Wähle eine Kategorie</option>
                 <option value="dj">DJ & Musik</option>
@@ -1696,11 +1973,13 @@
             </div>
             <div class="form-group">
               <label>Beschreibung</label>
+              <small class="form-hint">Was bekommt der Gast genau? Was macht dich besonders? Mind. 80 Zeichen werden empfohlen.</small>
               <textarea id="createDescription" rows="5" placeholder="Beschreibe deinen Service detailliert..."></textarea>
             </div>
             <div class="form-row">
               <div class="form-group">
                 <label>Preisspanne (€)</label>
+                <small class="form-hint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events.</small>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                   <input type="number" id="createPrice" min="0" placeholder="von z.B. 450" />
                   <input type="number" id="createPriceMax" min="0" placeholder="bis (optional)" />
@@ -1708,6 +1987,7 @@
               </div>
               <div class="form-group">
                 <label>Preismodell</label>
+                <small class="form-hint">Wie ist dein Preis kalkuliert? Pro Event = Pauschale; Pro Stunde = stundenbasiert.</small>
                 <select id="createPriceModel">
                   <option value="Pro Event">Pro Event</option>
                   <option value="Pro Stunde">Pro Stunde</option>
@@ -1725,8 +2005,10 @@
           <!-- Step 2: Details -->
           <div class="form-step" id="step2">
             <h2>Details & Leistungen</h2>
+            <p class="step-intro">Diese Angaben filtern Anfragen vor – je präziser, desto besser passt es.</p>
             <div class="form-group">
               <label>Region / Stadt</label>
+              <small class="form-hint">Hauptstandort. Falls du überregional arbeitest, schreib das in die Beschreibung.</small>
               <div class="city-autocomplete-wrap">
                 <input type="text" id="createRegion" placeholder="Stadt eingeben…" autocomplete="off" />
                 <input type="hidden" id="createRegionValue" />
@@ -1736,10 +2018,12 @@
             <div class="form-row">
               <div class="form-group">
                 <label>Verfügbar ab</label>
+                <small class="form-hint">Erstes Datum, ab dem du Buchungen annimmst.</small>
                 <input type="text" id="createDateFrom" placeholder="TT.MM.JJJJ" autocomplete="off" />
               </div>
               <div class="form-group">
                 <label>Verfügbar bis (optional)</label>
+                <small class="form-hint">Leer lassen = unbegrenzt verfügbar.</small>
                 <input type="text" id="createDateTo" placeholder="TT.MM.JJJJ" autocomplete="off" />
               </div>
             </div>
@@ -1781,6 +2065,7 @@
             </div>
             <div class="form-group duration-group">
               <label>Dauer (Std.)</label>
+              <small class="form-hint">Wie lange dauert dein Einsatz im Schnitt? Beispiel: DJ-Set 4–6 Std., Catering-Service 3–4 Std.</small>
               <div class="duration-stepper">
                 <button type="button" class="dur-btn dur-down" id="durDown"><span class="material-icons-round">remove</span></button>
                 <input type="text" id="createDuration" inputmode="decimal" value="4" />
@@ -1804,7 +2089,7 @@
                 </label>
               </label>
               <div class="weekday-picker" id="createWeekdayPicker">
-                <p class="weekday-picker-hint">An welchen Wochentagen bietest du diesen Service an?</p>
+                <p class="weekday-picker-hint">An welchen Wochentagen bietest du diesen Service an? Diese Tage werden Suchenden in der Sofortbuchung angeboten – einzelne Termine kannst du später unter „Meine Inserate › Verfügbarkeit“ blocken.</p>
                 <div class="weekday-pills">
                   <button type="button" class="weekday-pill" data-day="1">Mo</button>
                   <button type="button" class="weekday-pill" data-day="2">Di</button>
@@ -1819,6 +2104,7 @@
 
             <div class="form-group">
               <label>Verfügbar für</label>
+              <small class="form-hint">Für welche Event-Arten ist dein Service geeignet? Suchende filtern danach.</small>
               <div class="checkbox-group" id="createTags">
                 <label class="check-label"><input type="checkbox" value="Hochzeit" checked /> Hochzeiten</label>
                 <label class="check-label"><input type="checkbox" value="Geburtstag" checked /> Geburtstage</label>
@@ -1830,6 +2116,7 @@
             </div>
             <div class="form-group">
               <label>Leistungen <span style="font-weight:400; color:var(--text-light);">(suchen oder anklicken)</span></label>
+              <small class="form-hint">Wähle alles aus, was im Preis enthalten ist. Mindestens 3 Leistungen werden empfohlen – das erhöht deine Sichtbarkeit.</small>
               <div class="feature-search-wrap">
                 <span class="material-icons-round feature-search-icon">search</span>
                 <input type="text" id="featureSearchInput" placeholder="Leistung suchen…" autocomplete="off" />
@@ -1886,6 +2173,7 @@
           <!-- Step 3: Photos -->
           <div class="form-step" id="step3">
             <h2>Fotos & Galerie</h2>
+            <p class="step-intro">Inserate mit hochwertigen Fotos werden bis zu <strong>3&times; h&auml;ufiger</strong> angefragt. Lade mind. 3 Bilder hoch.</p>
             <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
               <span class="material-icons-round">cloud_upload</span>
               <h3>Bilder hochladen</h3>
@@ -2846,9 +3134,9 @@ Datum: ___________________________________________________
             Event<span class="accent">börse</span>
           </a>
           <p>Der smarte Marktplatz für unvergessliche Events.</p>
-          <a href="mailto:Kontakt@xn--eventbrse-57a.de" class="footer-contact-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px">
+          <a href="mailto:kontakt@eventbörse.de" class="footer-contact-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px">
             <span class="material-icons-round" style="font-size:14px;vertical-align:middle">mail_outline</span>
-            Kontakt@eventbörse.de
+            kontakt@eventbörse.de
           </a>
         </div>
         <div class="footer-col">
@@ -2987,8 +3275,7 @@ Datum: ___________________________________________________
         <p>Erstelle dein kostenloses Konto</p>
       </div>
       <form class="modal-form" onsubmit="handleRegister(event)">
-        <!-- Honeypot 2026-05-29 — Bots füllen alle Felder; Mensch sieht das nicht.
-             KEINE CSS-class verwenden (Bot-Heuristik), nur Inline-Style. -->
+        <!-- Honeypot 2026-05-29 -->
         <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden">
           <label for="regWebsite">Website (bitte leer lassen)</label>
           <input type="text" id="regWebsite" name="website" tabindex="-1" autocomplete="off" />
@@ -3483,6 +3770,44 @@ Datum: ___________________________________________________
       <button class="btn-primary btn-block" onclick="cropConfirm()" style="margin-top:16px">
         <span class="material-icons-round">check</span> Übernehmen
       </button>
+    </div>
+  </div>
+
+  <!-- ============ VERFÜGBARKEITS-KALENDER (für Anbieter) ============ -->
+  <!-- Geblockte Tage werden zentral pro Listing gepflegt; Suchende sehen sie auf der Detailseite. -->
+  <div class="modal-overlay" id="availabilityModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-md">
+      <button class="modal-close" onclick="closeModal('availabilityModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">event_busy</span>
+        <h2>Verfügbarkeit verwalten</h2>
+        <p id="availabilityListingTitle" class="availability-listing-title"></p>
+      </div>
+
+      <div class="availability-help">
+        <span class="material-icons-round">info</span>
+        <div>
+          <strong>Tippe Tage an, an denen du nicht verfügbar bist.</strong>
+          <small>Geblockte Tage werden auf der Detailseite rot markiert. Suchende können sie nicht buchen oder anfragen.</small>
+        </div>
+      </div>
+
+      <div class="availability-cal" id="availabilityCal" aria-live="polite">
+        <!-- gerendert von renderAvailabilityCalendar() -->
+      </div>
+
+      <div class="availability-summary" id="availabilitySummary"></div>
+
+      <div class="availability-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="resetAvailabilityBlocks()">
+          <span class="material-icons-round">restart_alt</span> Alle entsperren
+        </button>
+        <button type="button" class="btn-primary" id="availabilitySaveBtn" onclick="saveAvailabilityBlocks()">
+          <span class="material-icons-round">check</span> Speichern
+        </button>
+      </div>
     </div>
   </div>
 
