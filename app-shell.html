@@ -845,7 +845,7 @@
                 <span class="ai-btn-text">Suchen</span>
               </button>
             </div>
-            <button type="button" class="ai-live-feedback" id="aiLiveFeedback" hidden onclick="_ebScrollToBrowseResults()" aria-live="polite">
+            <button type="button" class="ai-live-feedback" id="aiLiveFeedback" hidden aria-label="Zu den Ergebnissen" onclick="_ebScrollToBrowseResults()" aria-live="polite">
               <span class="ai-live-feedback-dot"></span>
               <span class="ai-live-feedback-text"></span>
               <span class="material-icons-round ai-live-feedback-arrow">arrow_downward</span>
@@ -1744,21 +1744,21 @@
             <label>Aktuelles Passwort</label>
             <div class="settings-password-wrap">
               <input type="password" id="settingsCurrentPw" placeholder="Aktuelles Passwort" autocomplete="current-password" />
-              <button type="button" class="settings-pw-toggle" onclick="toggleSettingsPw('settingsCurrentPw', this)"><span class="material-icons-round">visibility_off</span></button>
+              <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsCurrentPw', this)"><span class="material-icons-round">visibility_off</span></button>
             </div>
           </div>
           <div class="settings-field">
             <label>Neues Passwort</label>
             <div class="settings-password-wrap">
               <input type="password" id="settingsNewPw" placeholder="Neues Passwort (min. 8 Zeichen)" autocomplete="new-password" />
-              <button type="button" class="settings-pw-toggle" onclick="toggleSettingsPw('settingsNewPw', this)"><span class="material-icons-round">visibility_off</span></button>
+              <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsNewPw', this)"><span class="material-icons-round">visibility_off</span></button>
             </div>
           </div>
           <div class="settings-field">
             <label>Neues Passwort bestätigen</label>
             <div class="settings-password-wrap">
               <input type="password" id="settingsConfirmPw" placeholder="Passwort wiederholen" autocomplete="new-password" />
-              <button type="button" class="settings-pw-toggle" onclick="toggleSettingsPw('settingsConfirmPw', this)"><span class="material-icons-round">visibility_off</span></button>
+              <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsConfirmPw', this)"><span class="material-icons-round">visibility_off</span></button>
             </div>
           </div>
           <button class="btn-primary settings-save-btn" onclick="savePasswordSettings()">Passwort ändern</button>
@@ -2007,9 +2007,9 @@
               <label>Dauer (Std.)</label>
               <small class="form-hint">Wie lange dauert dein Einsatz im Schnitt? Beispiel: DJ-Set 4–6 Std., Catering-Service 3–4 Std.</small>
               <div class="duration-stepper">
-                <button type="button" class="dur-btn dur-down" id="durDown"><span class="material-icons-round">remove</span></button>
+                <button type="button" class="dur-btn dur-down" id="durDown" aria-label="Verringern"><span class="material-icons-round">remove</span></button>
                 <input type="text" id="createDuration" inputmode="decimal" value="4" />
-                <button type="button" class="dur-btn dur-up" id="durUp"><span class="material-icons-round">add</span></button>
+                <button type="button" class="dur-btn dur-up" id="durUp" aria-label="Erhöhen"><span class="material-icons-round">add</span></button>
               </div>
             </div>
 
@@ -2129,10 +2129,10 @@
               </div>
               <div class="listing-live-preview-gallery">
                 <div class="listing-live-preview-track" id="livePreviewTrack"></div>
-                <button type="button" class="listing-live-preview-arrow prev" onclick="livePreviewNav(-1)">
+                <button type="button" class="listing-live-preview-arrow prev" aria-label="Vorheriges Bild" onclick="livePreviewNav(-1)">
                   <span class="material-icons-round">chevron_left</span>
                 </button>
-                <button type="button" class="listing-live-preview-arrow next" onclick="livePreviewNav(1)">
+                <button type="button" class="listing-live-preview-arrow next" aria-label="Nächstes Bild" onclick="livePreviewNav(1)">
                   <span class="material-icons-round">chevron_right</span>
                 </button>
                 <div class="listing-live-preview-dots" id="livePreviewDots"></div>
@@ -3147,7 +3147,7 @@ Datum: ___________________________________________________
           <label>Passwort</label>
           <div class="password-wrapper">
             <input type="password" id="loginPassword" placeholder="Dein Passwort" required />
-            <button type="button" class="password-toggle" tabindex="-1">
+            <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
               <span class="material-icons-round">visibility</span>
             </button>
           </div>
@@ -3297,7 +3297,7 @@ Datum: ___________________________________________________
             <label>Passwort</label>
             <div class="password-wrapper">
               <input type="password" id="regPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
-              <button type="button" class="password-toggle" tabindex="-1">
+              <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
                 <span class="material-icons-round">visibility</span>
               </button>
             </div>
@@ -3500,7 +3500,7 @@ Datum: ___________________________________________________
           <label>Neues Passwort</label>
           <div class="password-wrapper">
             <input type="password" id="resetNewPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
-            <button type="button" class="password-toggle" tabindex="-1">
+            <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
               <span class="material-icons-round">visibility</span>
             </button>
           </div>
@@ -3509,7 +3509,7 @@ Datum: ___________________________________________________
           <label>Passwort bestätigen</label>
           <div class="password-wrapper">
             <input type="password" id="resetConfirmPassword" placeholder="Passwort wiederholen" required minlength="8" />
-            <button type="button" class="password-toggle" tabindex="-1">
+            <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
               <span class="material-icons-round">visibility</span>
             </button>
           </div>
@@ -3761,7 +3761,7 @@ Datum: ___________________________________________________
   <div class="comm-warning" id="commWarning" style="display:none">
     <span class="material-icons-round">warning</span>
     <p>Das Teilen von persönlichen Kontaktdaten (Telefon, E-Mail, Adresse) ist auf Eventbörse nicht erlaubt. Bitte nutze ausschließlich unsere Plattform zur Kommunikation.</p>
-    <button onclick="document.getElementById('commWarning').style.display='none'">
+    <button aria-label="Hinweis schließen" onclick="document.getElementById('commWarning').style.display='none'">
       <span class="material-icons-round">close</span>
     </button>
   </div>
