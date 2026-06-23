@@ -4376,15 +4376,25 @@ function eb_messages_list( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
     }
 
-    // Mark messages as read
+    // Delta-Cursor (#8): nur neue/geänderte Nachrichten seit ?since=
+    $since = (string) $request->get_param( 'since' );
+    if ( $since !== '' ) {
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}eb_messages WHERE conversation_id = %d AND updated_at > %s ORDER BY created_at ASC",
+            $conv_id, $since
+        ) );
+    } else {
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}eb_messages WHERE conversation_id = %d ORDER BY created_at ASC",
+            $conv_id
+        ) );
+    }
+
+    // Mark messages as read (NACH dem SELECT, damit der Anfragende seine eigenen
+    // gerade gelesenen Nachrichten nicht im Delta zurückbekommt)
     $wpdb->query( $wpdb->prepare(
         "UPDATE {$wpdb->prefix}eb_messages SET is_read = 1 WHERE conversation_id = %d AND sender_id != %d AND is_read = 0",
         $conv_id, $uid
-    ) );
-
-    $rows = $wpdb->get_results( $wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}eb_messages WHERE conversation_id = %d ORDER BY created_at ASC",
-        $conv_id
     ) );
 
     $messages = array();
@@ -4414,7 +4424,14 @@ function eb_messages_list( WP_REST_Request $request ) {
         $messages[] = $msg;
     }
 
-    return new WP_REST_Response( $messages, 200 );
+    // Cursor = MAX(updated_at) der ganzen Konversation (rückt auch bei leerem Delta vor)
+    $cursor = (string) $wpdb->get_var( $wpdb->prepare(
+        "SELECT MAX(updated_at) FROM {$wpdb->prefix}eb_messages WHERE conversation_id = %d",
+        $conv_id
+    ) );
+    $resp = new WP_REST_Response( $messages, 200 ); // Array bleibt (abwärtskompatibel)
+    if ( $cursor ) { $resp->header( 'X-EB-Cursor', $cursor ); }
+    return $resp;
 }
 
 function eb_messages_send( WP_REST_Request $request ) {
