@@ -284,6 +284,44 @@
   .bot-btn.primary:hover { opacity: .92; }
   .bot-btn:disabled { opacity: .4; cursor: not-allowed; }
 
+  /* ── Verbesserungs-Vorschläge ── */
+  .proposals { display:flex; flex-direction:column; gap:.7rem; margin-bottom:2rem; }
+  .proposal-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:1rem 1.2rem;
+    transition:border-color .2s; position:relative;
+  }
+  .proposal-card:hover { border-color:var(--violet); }
+  .proposal-card.pending { border-color:rgba(251,191,36,.4); }
+  .proposal-card.pending::before {
+    content:'NEU'; position:absolute; top:-10px; left:16px; background:var(--gold); color:#1a1100;
+    font-size:.62rem; font-weight:800; letter-spacing:.08em; padding:.15rem .55rem; border-radius:999px;
+    box-shadow:var(--glow) rgba(251,191,36,.5);
+  }
+  .proposal-top { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:.5rem; }
+  .proposal-meta { font-size:.72rem; color:var(--muted); display:flex; gap:.6rem; flex-wrap:wrap; }
+  .proposal-num { font-family:monospace; color:var(--cyan); background:var(--surface2); padding:.15rem .45rem; border-radius:6px; }
+  .proposal-title { font-weight:700; font-size:.94rem; line-height:1.4; margin-bottom:.45rem; }
+  .proposal-body { font-size:.82rem; color:var(--muted); line-height:1.5; max-height:5.5em; overflow:hidden; position:relative; }
+  .proposal-body.expanded { max-height:none; }
+  .proposal-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.55rem; }
+  .proposal-tag {
+    font-size:.66rem; padding:.15rem .55rem; border-radius:999px; font-weight:600;
+    background:var(--surface2); color:var(--muted); border:1px solid var(--border);
+  }
+  .proposal-tag.scope { background:#1e2a3a; color:#93c5fd; }
+  .proposal-tag.bot { background:#2a1c3a; color:#c4b5fd; }
+  .proposal-actions { display:flex; gap:.5rem; margin-top:.85rem; flex-wrap:wrap; align-items:center; }
+  .btn-approve {
+    background:linear-gradient(135deg,#10b981,#0d9488); border:none; color:#fff; font-weight:700;
+    padding:.45rem 1rem; border-radius:9px; cursor:pointer; font-size:.82rem;
+    display:inline-flex; align-items:center; gap:.35rem; transition:all .15s;
+  }
+  .btn-approve:hover { opacity:.92; transform:translateY(-1px); box-shadow:var(--glow) rgba(16,185,129,.35); }
+  .btn-reject { border-color:var(--red); color:#fca5a5; }
+  .btn-reject:hover { background:#2a1010; }
+  .proposal-expand { font-size:.74rem; color:var(--cyan); cursor:pointer; background:none; border:none; padding:0; margin-left:auto; }
+  .proposal-expand:hover { text-decoration:underline; }
+
   /* ── Quest log (activity) ── */
   .log { display:flex; flex-direction:column; margin-bottom:2rem; position:relative; }
   .log::before { content:''; position:absolute; left:15px; top:6px; bottom:6px; width:2px; background:linear-gradient(var(--violet),transparent); opacity:.4; }
@@ -520,6 +558,16 @@
       <div class="skeleton" style="height:180px;"></div>
     </div>
 
+    <!-- Verbesserungs-Vorschläge -->
+    <div class="section-header">
+      <div class="section-title">🧪 Verbesserungs-Vorschläge <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— vom Self-Improve Bot</span></div>
+      <div class="section-badge" id="proposals-badge">–</div>
+    </div>
+    <div class="proposals" id="proposals-list">
+      <div class="skeleton" style="height:90px;"></div>
+      <div class="skeleton" style="height:90px;"></div>
+    </div>
+
     <!-- Quest log -->
     <div class="section-header">
       <div class="section-title">📜 Aktivitäts-Log</div>
@@ -581,7 +629,7 @@ const SITE_URL = 'https://xn--eventbrse-57a.de/';
 const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
+const state = { commits: [], runs: [], issues: [], pulls: [], proposals: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
 const $ = id => document.getElementById(id);
 
 /* ─── Auth ─────────────────────────────────────────────────────── */
@@ -962,6 +1010,7 @@ const BOTS = [
   { id: 'monitor',    avatar: '👁️', name: 'Monitor-Bot',    role: 'Prüft die Live-Site alle 30 Min auf Erreichbarkeit. Öffnet Issues bei Ausfall.', workflow: 'site-monitor.yml', canTrigger: true, triggerLabel: '▶ Check', logsLabel: '📋 Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/site-monitor.yml` },
   { id: 'deploy',     avatar: '🚀', name: 'Deploy-Bot',     role: 'Deployt bei jedem Push automatisch via SFTP zu IONOS.', workflow: 'ionos-deploy.yml', canTrigger: false, logsLabel: '📋 Deploy-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/ionos-deploy.yml` },
   { id: 'rollback',   avatar: '⏪', name: 'Rollback-Bot',   role: 'Setzt die Live-Site auf einen beliebigen Commit zurück (Release-Verlauf).', workflow: 'hq-rollback.yml', canTrigger: false, logsLabel: '📋 Rollback-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-rollback.yml` },
+  { id: 'self-improve', avatar: '🧪', name: 'Self-Improve Bot', role: 'Scannt regelmäßig den Code, schlägt kleine Verbesserungen vor und öffnet PRs zum Genehmigen.', workflow: 'claude-self-improve.yml', canTrigger: true, triggerLabel: '▶ Scan', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=label%3Aself-improve` },
 ];
 function renderBots() {
   const grid = $('bots-grid'); grid.innerHTML = '';
@@ -1046,6 +1095,109 @@ async function triggerBot(workflow, botId) {
 }
 async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); }
 
+/* ─── Verbesserungs-Vorschläge ─────────────────────────────────── */
+async function loadProposals() {
+  try {
+    const list = await gh('/issues?state=open&labels=self-improve&per_page=20');
+    state.proposals = (list || []).filter(i => i.pull_request);
+    cacheSet('proposals', state.proposals);
+  } catch {
+    const c = cacheGet('proposals');
+    if (c) state.proposals = c.data;
+  }
+}
+function renderProposals() {
+  const list = $('proposals-list');
+  const items = state.proposals || [];
+  $('proposals-badge').textContent = items.length ? `${items.length} offen` : '0 offen';
+  list.innerHTML = '';
+  if (!items.length) {
+    list.innerHTML = `<div class="empty">Keine offenen Vorschläge. Starte den Self-Improve Bot (oben in der Bot-Crew) — er scannt den Code und öffnet automatisch PRs zum Genehmigen.</div>`;
+    return;
+  }
+  items.forEach(p => {
+    const num = p.number;
+    const created = humanDate(p.created_at);
+    const author = p.user?.login || 'bot';
+    const body = (p.body || '').slice(0, 800);
+    const labels = (p.labels || []).map(l => typeof l === 'string' ? l : l.name);
+    const scope = labels.find(l => /^scope:/.test(l))?.replace('scope:', '') || 'allgemein';
+    const card = document.createElement('div');
+    card.className = 'proposal-card pending';
+    card.innerHTML = `
+      <div class="proposal-top">
+        <div>
+          <div class="proposal-meta">
+            <span class="proposal-num">#${num}</span>
+            <span>von ${escHtml(author)}</span>
+            <span>·</span>
+            <span>${escHtml(created)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="proposal-title">${escHtml(p.title || 'Vorschlag')}</div>
+      <div class="proposal-body" id="prop-body-${num}">${escHtml(body) || '<em>Kein Kontext im PR-Body.</em>'}</div>
+      <div class="proposal-tags">
+        <span class="proposal-tag bot">🧪 self-improve</span>
+        <span class="proposal-tag scope">📁 ${escHtml(scope)}</span>
+        ${labels.filter(l => l !== 'self-improve' && !l.startsWith('scope:')).map(l => `<span class="proposal-tag">${escHtml(l)}</span>`).join('')}
+      </div>
+      <div class="proposal-actions">
+        <button class="btn-approve" data-approve="${num}">✅ Genehmigen &amp; mergen</button>
+        <button class="btn btn-reject" data-reject="${num}">❌ Ablehnen</button>
+        <a class="btn" href="${escHtml(p.html_url)}" target="_blank" rel="noopener">📋 Diff &amp; Details</a>
+        ${body.length >= 800 ? `<button class="proposal-expand" data-expand="${num}">Mehr anzeigen ↓</button>` : ''}
+      </div>`;
+    list.appendChild(card);
+  });
+}
+async function approveProposal(num) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich zum Mergen', 'error'); sfx('error'); return; }
+  if (!confirm(`PR #${num} wirklich mergen? Geht direkt auf main → triggert Deploy.`)) return;
+  const btn = document.querySelector(`[data-approve="${num}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Merge…'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${num}/merge`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merge_method: 'squash' }),
+    });
+    if (res.ok) {
+      showToast(`✅ PR #${num} gemergt — Deploy startet.`, 'success'); sfx('success'); confettiBurst(0.5, 0.55, 80);
+      setTimeout(() => { loadProposals().then(renderProposals); refreshRuns(); }, 2000);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  } catch (e) {
+    showToast(`❌ Merge fehlgeschlagen: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Genehmigen & mergen'; }
+  }
+}
+async function rejectProposal(num) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  if (!confirm(`PR #${num} ablehnen & schließen?`)) return;
+  const btn = document.querySelector(`[data-reject="${num}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Schließe…'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${num}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'closed' }),
+    });
+    if (res.ok) {
+      showToast(`❌ PR #${num} abgelehnt.`, ''); sfx('click');
+      setTimeout(() => { loadProposals().then(renderProposals); }, 1500);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  } catch (e) {
+    showToast(`❌ Schließen fehlgeschlagen: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '❌ Ablehnen'; }
+  }
+}
+
 /* ─── Toast / SFX / FX ─────────────────────────────────────────── */
 let toastTimer;
 function showToast(msg, type = '') {
@@ -1125,13 +1277,14 @@ function renderFromCache() {
   if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
   if (tc) state.totalCommits = tc.data;
   if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
-  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
+  const pp = cacheGet('proposals'); if (pp) state.proposals = pp.data;
+  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); renderProposals(); }
 }
 
 async function loadAll() {
   try {
-    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
-    renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
+    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits(), loadProposals()]);
+    renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderProposals();
     renderQuests(); renderAchievements(); renderHud();
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
@@ -1182,6 +1335,13 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const ap = e.target.closest('[data-approve]'); if (ap) { approveProposal(ap.dataset.approve); return; }
+  const rj = e.target.closest('[data-reject]');  if (rj) { rejectProposal(rj.dataset.reject); return; }
+  const ex = e.target.closest('[data-expand]');  if (ex) {
+    const body = document.getElementById('prop-body-' + ex.dataset.expand);
+    if (body) { body.classList.toggle('expanded'); ex.textContent = body.classList.contains('expanded') ? 'Weniger anzeigen ↑' : 'Mehr anzeigen ↓'; }
+    return;
+  }
 });
 
 // Keyboard shortcuts
