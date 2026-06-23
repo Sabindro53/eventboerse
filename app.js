@@ -4557,14 +4557,25 @@ function _chatPollTick() {
   if (document.hidden) { _chatPollTimer = null; return; } // Hidden-Pause: kein Fetch/Reschedule
     // Also refresh online status of chat partner
     if (currentChat.otherId) _updateChatStatus(currentChat.otherId);
-    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
-      .then(function(r) { return r.json(); })
-      .then(function(messages) {
+    var _q = currentChat._cursor ? ('?since=' + encodeURIComponent(currentChat._cursor)) : '';
+    fetch(_apiUrl('conversations/' + currentChat.id + '/messages' + _q), { credentials: 'same-origin', headers: _apiHeaders() })
+      .then(function(r) { var _cur = r.headers.get('X-EB-Cursor'); return r.json().then(function(m){ return { delta: m, cursor: _cur }; }); })
+      .then(function(res) {
         if (!currentChat) return;
-        var oldCount = currentChat.messages ? currentChat.messages.length : 0;
-        var newCount = (messages || []).length;
-        // #8 Backoff: neue Nachricht → schnelle Basis, sonst Intervall erhöhen (Cap 20s)
-        if (newCount > oldCount) { _chatPollDelay = _CHAT_POLL_BASE; }
+        var delta = (res && res.delta) || [];
+        if (res && res.cursor) currentChat._cursor = res.cursor;
+        // #8 inkrementell: Delta per ID in die volle Liste mergen (Upsert: ersetzen/anhängen)
+        if (!Array.isArray(currentChat.messages)) currentChat.messages = [];
+        if (delta.length) {
+          var _byId = {}; currentChat.messages.forEach(function(m){ if (m) _byId[m.id] = m; });
+          delta.forEach(function(m){ if (m) _byId[m.id] = m; });
+          currentChat.messages = Object.keys(_byId).map(function(k){ return _byId[k]; })
+            .sort(function(a,b){ return (a.created_at || '') < (b.created_at || '') ? -1 : 1; });
+        }
+        var messages = currentChat.messages;
+        var hadDelta = delta.length > 0;
+        // #8 Backoff: neue/geänderte Nachricht → schnelle Basis, sonst Intervall erhöhen (Cap 20s)
+        if (hadDelta) { _chatPollDelay = _CHAT_POLL_BASE; }
         else { _chatPollDelay = Math.min(Math.round(_chatPollDelay * 1.6), _CHAT_POLL_CAP); }
         // Always keep negotiation banner in sync
         var lastPendingOffer = null;
@@ -4589,10 +4600,10 @@ function _chatPollTick() {
         // FIX 2026-05: Sidebar nur bei tatsächlichen Änderungen neu rendern –
         // vorher wurde alle 5 Sek. das gesamte Chat-Listen-DOM neu gebaut, was
         // auf Mobilgeräten Scroll-Position & Touch-Selektionen zerstörte.
-        if (newCount !== oldCount) {
+        if (hadDelta) {
           renderChatList();
         }
-        if (newCount <= oldCount) return;
+        if (!hadDelta) return;
         // New messages arrived — check for board updates (acceptance/rejection)
         _checkBoardUpdatesFromMessages(messages || []);
         // Update display
@@ -5063,8 +5074,9 @@ function renderChatList() {
 
 function openChat(chatId) {
   fetch(_apiUrl('conversations/' + chatId + '/messages'), { credentials: 'same-origin', headers: _apiHeaders() })
-    .then(function(r) { return r.json(); })
-    .then(function(messages) {
+    .then(function(r) { var _cur = r.headers.get('X-EB-Cursor'); return r.json().then(function(m){ return { messages: m, cursor: _cur }; }); })
+    .then(function(res) {
+      var messages = res.messages; var _openCursor = res.cursor;
       var convo = (window._conversations || []).find(function(c) { return c.id === chatId; });
       var _ccName = convo ? (convo.other_name || 'Chat') : 'Chat';
       currentChat = {
@@ -5073,7 +5085,8 @@ function openChat(chatId) {
         avatar: convo ? (convo.other_photo || ebAvatar(_ccName, _ccName)) : ebAvatar(_ccName, _ccName),
         otherId: convo ? convo.otherId : null,
         online: false,
-        messages: messages || []
+        messages: messages || [],
+        _cursor: _openCursor
       };
 
       // On mobile: hide sidebar, show chat
