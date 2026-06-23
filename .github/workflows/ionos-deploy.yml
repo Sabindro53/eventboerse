@@ -16,6 +16,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Minify assets (#6 Part 2)
+        run: |
+          echo "Vorher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
+          npx --yes terser app.js --mangle -o app.js
+          # Gate 1: gültiges JS?
+          node --check app.js
+          # Gate 2: Inline-Handler-Globals noch da? (mangle.toplevel=false -> ja)
+          for fn in navigateTo toggleFavorite sendMessage filterListings _startChatPoll; do
+            grep -q "function $fn" app.js || { echo "FATAL: $fn fehlt nach Minify - Abbruch"; exit 1; }
+          done
+          # CSS (csso-cli, Fallback csso)
+          npx --yes csso-cli styles.css -o styles.css || npx --yes csso styles.css -o styles.css
+          echo "Nachher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
+
       - name: Install lftp
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
