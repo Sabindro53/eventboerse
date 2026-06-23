@@ -2580,6 +2580,7 @@ function eb_create_tables() {
         offer_status varchar(20) DEFAULT NULL,
         is_read tinyint(1) DEFAULT 0,
         created_at datetime DEFAULT '0000-00-00 00:00:00',
+        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         KEY idx_conv (conversation_id),
         KEY idx_sender (sender_id)
@@ -2626,7 +2627,7 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '2.1' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.2' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
@@ -2638,7 +2639,15 @@ function eb_maybe_create_tables() {
         if ( ! $col ) {
             $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD COLUMN blocked_dates longtext NULL AFTER available_weekdays" );
         }
-        update_option( 'eb_db_version', '2.1' );
+        // 2.2: updated_at für inkrementelles Chat-Polling (#8). Explizites ALTER,
+        // da dbDelta Spalten-Adds an existierenden Tabellen unzuverlässig macht.
+        $ucol = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_messages LIKE 'updated_at'" );
+        if ( ! $ucol ) {
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_messages ADD COLUMN updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at" );
+            // Backfill auf festes Vergangenheits-Literal (tz-sicher, < alle künftigen CURRENT_TIMESTAMP)
+            $wpdb->query( "UPDATE {$wpdb->prefix}eb_messages SET updated_at = '2000-01-01 00:00:00'" );
+        }
+        update_option( 'eb_db_version', '2.2' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
