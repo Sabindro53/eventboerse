@@ -14840,7 +14840,7 @@ function openFlowProjectModal() {
   if (!project) return;
   var html = '<div class="modal-overlay show" id="flowProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
-    '<button class="modal-close" onclick="document.getElementById(\'flowProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'flowProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
     '<div class="modal-header"><span class="material-icons-round modal-icon" style="color:var(--primary)">celebration</span>' +
     '<h2>Event bearbeiten</h2></div>' +
     '<form class="modal-form" onsubmit="_saveFlowProject(event)">' +
@@ -14925,7 +14925,7 @@ function openFlowBudgetModal() {
 
   var html = '<div class="modal-overlay show" id="flowBudgetModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal" onclick="event.stopPropagation()" style="max-width:520px">' +
-    '<button class="modal-close" onclick="document.getElementById(\'flowBudgetModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'flowBudgetModal\').remove()"><span class="material-icons-round">close</span></button>' +
     '<div class="modal-header"><span class="material-icons-round modal-icon" style="color:' + col + '">account_balance_wallet</span>' +
     '<h2>Budget-Übersicht</h2></div>' +
     '<div class="flow-bm-summary">' +
@@ -15182,7 +15182,7 @@ function openFlowCardModal(cardId) {
 
   var html = '<div class="modal-overlay show" id="flowCardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
-    '<button class="modal-close" onclick="document.getElementById(\'flowCardModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'flowCardModal\').remove()"><span class="material-icons-round">close</span></button>' +
     '<div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>' + _escHtml(card.name) + '</h2></div>' +
     _paidBlock +
     '<form class="modal-form" onsubmit="_saveFlowCard(event,\'' + cardId + '\')">' +
@@ -16608,7 +16608,7 @@ function openStageMoveSheet(cardId) {
   var html =
     '<div class="modal-overlay show sm-overlay" id="stageMoveSheet" onclick="if(event.target===this)this.remove()" style="z-index:2200">' +
       '<div class="modal sm-modal" onclick="event.stopPropagation()">' +
-        '<button class="modal-close" onclick="document.getElementById(\'stageMoveSheet\').remove()"><span class="material-icons-round">close</span></button>' +
+        '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'stageMoveSheet\').remove()"><span class="material-icons-round">close</span></button>' +
         '<div class="modal-header">' +
           '<span class="material-icons-round modal-icon">low_priority</span>' +
           '<h2>Stage ändern</h2>' +
@@ -18229,7 +18229,7 @@ function openFlowShareModal() {
   var url = window.location.origin + window.location.pathname + '?board=' + encodeURIComponent(project.id);
   var html = '<div class="modal-overlay show" id="flowShareModal" onclick="closeModalOnOverlay(event)" style="z-index:2200">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
-    '<button class="modal-close" onclick="document.getElementById(\'flowShareModal\').remove()"><span class="material-icons-round">close</span></button>' +
+    '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'flowShareModal\').remove()"><span class="material-icons-round">close</span></button>' +
     '<div class="modal-header"><span class="material-icons-round modal-icon">ios_share</span><h2>Projekt teilen</h2><p>Teile diesen Link mit Freunden, Familie oder Dienstleistern</p></div>' +
     '<div class="modal-form">' +
     '<div class="flow-share-row"><input type="text" readonly id="flowShareUrl" value="' + _escHtml(url) + '" onclick="this.select()" />' +
@@ -18280,7 +18280,7 @@ function openCreateBoardModal() {
 
   var html = `<div class="modal-overlay show" id="createBoardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal modal-sm" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="document.getElementById('createBoardModal').remove()"><span class="material-icons-round">close</span></button>
+      <button class="modal-close" aria-label="Schließen" onclick="document.getElementById('createBoardModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">view_kanban</span>
         <h2>Neues Event-Projekt</h2>
@@ -18373,7 +18373,7 @@ function openEditBoardProjectModal(projectId) {
 
   var html = '<div class="modal-overlay show" id="editBoardProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
-      '<button class="modal-close" onclick="document.getElementById(\'editBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
+      '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'editBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
       '<div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>Projekt bearbeiten</h2></div>' +
       '<form class="modal-form" onsubmit="_saveEditBoardProject(event,\'' + pid + '\')">' +
         '<div class="form-group"><label>Event-Name</label><input type="text" id="editProjName" value="' + _escHtml(project.name) + '" required /></div>' +
@@ -18855,7 +18855,7 @@ function openSelectBoardProjectModal(listing) {
   var title = (listing && (listing.title || listing.name)) || 'Dienstleister';
   var html = '<div class="modal-overlay show" id="selectBoardProjectModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">' +
     '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
-      '<button class="modal-close" onclick="document.getElementById(\'selectBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
+      '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'selectBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
       '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Wohin damit?</h2>' +
         '<p>' + _escHtml(title) + ' zu deinem Planungs-Board hinzuf\u00fcgen.</p></div>' +
       '<button class="bsp-row bsp-row-new" type="button" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
@@ -19143,7 +19143,7 @@ function openAddProviderModal(defaultStage) {
 
   var html = `<div class="modal-overlay show" id="addProviderModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="document.getElementById('addProviderModal').remove()"><span class="material-icons-round">close</span></button>
+      <button class="modal-close" aria-label="Schließen" onclick="document.getElementById('addProviderModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">person_add</span>
         <h2>Dienstleister hinzufügen</h2>
@@ -19326,7 +19326,7 @@ function editBoardCard(cardId) {
 
   var html = `<div class="modal-overlay show" id="editCardModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal modal-sm" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="document.getElementById('editCardModal').remove()"><span class="material-icons-round">close</span></button>
+      <button class="modal-close" aria-label="Schließen" onclick="document.getElementById('editCardModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header"><span class="material-icons-round modal-icon">edit</span><h2>Karte bearbeiten</h2></div>
       <form class="modal-form" onsubmit="_saveCardEdit(event,'${cardId}')">
         <div class="form-group"><label>Name</label><input type="text" id="editCardName" value="${_escHtml(card.name)}" required /></div>
@@ -19908,7 +19908,7 @@ function openCreatePostModal() {
   if (!isLoggedIn) { openModal('loginModal'); return; }
   var html = `<div class="modal-overlay show" id="createPostModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal modal-lg" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="document.getElementById('createPostModal').remove()"><span class="material-icons-round">close</span></button>
+      <button class="modal-close" aria-label="Schließen" onclick="document.getElementById('createPostModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">campaign</span>
         <h2>Inserat erstellen</h2>
@@ -20449,7 +20449,7 @@ function openAddEventConnectionModal() {
   if (!isLoggedIn) { openModal('loginModal'); return; }
   var html = `<div class="modal-overlay show" id="addEventConnModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal modal-sm" onclick="event.stopPropagation()">
-      <button class="modal-close" onclick="document.getElementById('addEventConnModal').remove()"><span class="material-icons-round">close</span></button>
+      <button class="modal-close" aria-label="Schließen" onclick="document.getElementById('addEventConnModal').remove()"><span class="material-icons-round">close</span></button>
       <div class="modal-header">
         <span class="material-icons-round modal-icon">celebration</span>
         <h2>Event hinzufügen</h2>
