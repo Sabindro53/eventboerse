@@ -24,28 +24,38 @@ Status-Updates (Löschen, Offer-Accept/Decline, Lesebestätigung) — ohne Funkt
 
 ## Design
 
-### 1. Schema-Migration (functions.php)
+### 1. Schema-Migration (functions.php) — DB-verwaltetes `updated_at`
 
-- `$sql_messages` CREATE TABLE um `updated_at datetime DEFAULT '0000-00-00 00:00:00'` (nach
-  `created_at`) ergänzen — für Frischinstallationen.
+`updated_at` wird **von MySQL automatisch** gepflegt (kein PHP-Eingriff an Schreibstellen):
+`datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`. MySQL setzt es bei jedem
+INSERT und bumpt es bei jedem UPDATE, das mindestens eine Spalte ändert (mark-read 0→1,
+Löschen, Offer-Status, Auto-Decline) — **keine vergessene Schreibstelle möglich**.
+
+- `$sql_messages` CREATE TABLE um `updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`
+  (nach `created_at`) ergänzen — für Frischinstallationen.
 - Versions-Gate in `eb_maybe_create_tables()`: `!== '2.1'` → `!== '2.2'`,
   `update_option('eb_db_version', '2.2')`.
-- **Explizites** `ALTER TABLE` (Muster wie `blocked_dates`, da dbDelta Spalten-Adds bei
-  existierenden Tabellen unzuverlässig macht), idempotent via `SHOW COLUMNS … LIKE 'updated_at'`:
+- **Explizites** `ALTER TABLE` (Muster wie `blocked_dates`; dbDelta ist bei Spalten-Adds an
+  existierenden Tabellen unzuverlässig), idempotent via `SHOW COLUMNS … LIKE 'updated_at'`:
   ```php
-  ALTER TABLE {prefix}eb_messages ADD COLUMN updated_at datetime DEFAULT '0000-00-00 00:00:00' AFTER created_at
+  ALTER TABLE {prefix}eb_messages ADD COLUMN updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at
   ```
-- **Backfill:** `UPDATE {prefix}eb_messages SET updated_at = created_at WHERE updated_at = '0000-00-00 00:00:00' OR updated_at IS NULL`.
+- **Backfill** der Bestandszeilen auf ein **festes Vergangenheits-Literal** (tz-sicher, da es
+  garantiert vor allen künftigen `CURRENT_TIMESTAMP`-Werten liegt — unabhängig von der
+  Server-Zeitzone):
+  ```php
+  UPDATE {prefix}eb_messages SET updated_at = '2000-01-01 00:00:00'
+  ```
+  (Altnachrichten werden beim ersten Chat-Öffnen ohnehin voll geladen; `updated_at` dient nur
+  dem Delta-Cursor, nicht der Anzeige/Sortierung.) **MySQL-Version:** `ON UPDATE CURRENT_TIMESTAMP`
+  braucht MySQL ≥5.6.5 / MariaDB ≥10 (auf IONOS gegeben); schlägt das ALTER fehl, wird es geloggt
+  und die Migration bricht nicht den Rest (try/Catch um die einzelne Query).
 
-### 2. `updated_at` bei allen Schreibvorgängen bumpen
+### 2. Keine PHP-Schreibstellen-Änderungen
 
-`updated_at = current_time('mysql')` (bzw. `= created_at` beim Insert) bei:
-- **Senden** (`eb_messages_send` INSERT) → `updated_at = created_at`.
-- **mark-read** (in `eb_messages_list`, `SET is_read=1 WHERE … is_read=0`) → `, updated_at = NOW`.
-  Bumpt jede Nachricht genau einmal (0→1), kein Dauer-Churn (Filter `is_read=0`). Liefert dem
-  *Sender* per nächstem Poll die Lesebestätigung.
-- **Löschen** (Handler `msg_type='deleted'`) → `, updated_at = NOW`.
-- **Offer-Status** (`/messages/{id}/offer-status`) → `, updated_at = NOW`.
+Entfällt bewusst — `updated_at` ist DB-verwaltet (siehe 1). Das eliminiert das Risiko, eine
+der vielen Insert/Update-Stellen (Bot-Insert, Offer-Insert, mark-read, Auto-Decline,
+Offer-Status, Löschen) zu vergessen.
 
 ### 3. Endpoint `eb_messages_list`
 
