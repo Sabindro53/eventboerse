@@ -3140,7 +3140,7 @@ function renderActiveFilters(search, category, eventType, location, priceRange, 
   if (tags.length === 0) { container.innerHTML = ''; return; }
 
   container.innerHTML = tags.map(t =>
-    `<span class="filter-tag">${_escHtml(t.label)}<button onclick="document.getElementById('${t.field}').value=''; filterListings();"><span class="material-icons-round">close</span></button></span>`
+    `<span class="filter-tag">${_escHtml(t.label)}<button aria-label="Eingabe löschen" onclick="document.getElementById('${t.field}').value=''; filterListings();"><span class="material-icons-round">close</span></button></span>`
   ).join('') + `<button class="filter-tag-clear-all" onclick="clearAllFilters()">Alle Filter löschen</button>`;
 }
 
@@ -5637,12 +5637,12 @@ function openChatItemMenu(ev, convId) {
   menu.className = 'chat-item-ctx-menu';
   menu.innerHTML = [
     '<button data-act="open"><span class="material-icons-round">chat</span> Öffnen</button>',
-    '<button data-act="pin"><span class="material-icons-round">push_pin</span> ' + (c.pinned ? 'Lösen' : 'Anheften') + '</button>',
-    '<button data-act="mute"><span class="material-icons-round">' + (c.muted ? 'notifications_active' : 'notifications_off') + '</span> ' + (c.muted ? 'Stummschaltung aus' : 'Stummschalten') + '</button>',
-    '<button data-act="archive"><span class="material-icons-round">' + (c.archived ? 'unarchive' : 'archive') + '</span> ' + (c.archived ? 'Aus Archiv' : 'Archivieren') + '</button>',
+    '<button data-act="pin" aria-label="Anpinnen"><span class="material-icons-round">push_pin</span> ' + (c.pinned ? 'Lösen' : 'Anheften') + '</button>',
+    '<button data-act="mute" aria-label="Stummschalten"><span class="material-icons-round">' + (c.muted ? 'notifications_active' : 'notifications_off') + '</span> ' + (c.muted ? 'Stummschaltung aus' : 'Stummschalten') + '</button>',
+    '<button data-act="archive" aria-label="Archivieren"><span class="material-icons-round">' + (c.archived ? 'unarchive' : 'archive') + '</span> ' + (c.archived ? 'Aus Archiv' : 'Archivieren') + '</button>',
     '<button data-act="unread"><span class="material-icons-round">mark_chat_unread</span> Als ungelesen</button>',
     '<button data-act="clear" class="chat-menu-warn"><span class="material-icons-round">delete_sweep</span> Chat löschen</button>',
-    '<button data-act="block" class="chat-menu-danger"><span class="material-icons-round">block</span> ' + (c.blocked_by_me ? 'Blockierung aufheben' : 'Blockieren') + '</button>'
+    '<button data-act="block" class="chat-menu-danger" aria-label="Blockieren"><span class="material-icons-round">block</span> ' + (c.blocked_by_me ? 'Blockierung aufheben' : 'Blockieren') + '</button>'
   ].join('');
   document.body.appendChild(menu);
   var x = Math.min(ev.clientX, window.innerWidth - 240);
@@ -6165,7 +6165,7 @@ function _renderProfileEventConnections() {
         '<span>' + _escHtml(ev.date || '') + (ev.location ? ' · ' + _escHtml(ev.location) : '') + '</span>' +
         (ev.metPerson ? '<div class="pec-met"><span class="material-icons-round">people</span> Kennengelernt: <em>' + _escHtml(ev.metPerson) + '</em></div>' : '') +
       '</div>' +
-      '<button class="pec-delete" onclick="_deleteEventConnection(\'' + ev.id + '\')"><span class="material-icons-round">close</span></button>' +
+      '<button class="pec-delete" aria-label="Verknüpfung entfernen" onclick="_deleteEventConnection(\'' + ev.id + '\')"><span class="material-icons-round">close</span></button>' +
     '</div>';
   }).join('');
 }
@@ -14163,9 +14163,9 @@ function renderKanbanCard(card) {
     ${card.note ? '<div class="kc-note">' + _escHtml(card.note) + '</div>' : ''}
     ${stageBadge}
     <div class="kc-actions">
-      ${card.listingId ? '<button onclick="navigateTo(\'detail\',' + card.listingId + ')"><span class="material-icons-round">open_in_new</span></button>' : ''}
-      <button onclick="editBoardCard('${card.id}')"><span class="material-icons-round">edit</span></button>
-      <button class="kc-del" onclick="deleteBoardCard('${card.id}')"><span class="material-icons-round">delete</span></button>
+      ${card.listingId ? '<button aria-label="Details ansehen" onclick="navigateTo(\'detail\',' + card.listingId + ')"><span class="material-icons-round">open_in_new</span></button>' : ''}
+      <button aria-label="Karte bearbeiten" onclick="editBoardCard('${card.id}')"><span class="material-icons-round">edit</span></button>
+      <button class="kc-del" aria-label="Karte löschen" onclick="deleteBoardCard('${card.id}')"><span class="material-icons-round">delete</span></button>
     </div>
   </div>`;
 }
@@ -16925,7 +16925,7 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<div class="sa-body">' + fieldsHtml + '</div>' +
       '<div class="sa-footer">' +
         (_hideCancel ? '' : '<button class="sa-cancel" onclick="this.closest(\'.sa-overlay\').remove()">Abbrechen</button>') +
-        '<button class="sa-submit" id="saSubmitBtn"><span class="material-icons-round">' + _submitIcon + '</span> ' + _submitText + '</button>' +
+        '<button class="sa-submit" id="saSubmitBtn" aria-label="Absenden"><span class="material-icons-round">' + _submitIcon + '</span> ' + _submitText + '</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(overlay);
@@ -18233,7 +18233,7 @@ function openFlowShareModal() {
     '<div class="modal-header"><span class="material-icons-round modal-icon">ios_share</span><h2>Projekt teilen</h2><p>Teile diesen Link mit Freunden, Familie oder Dienstleistern</p></div>' +
     '<div class="modal-form">' +
     '<div class="flow-share-row"><input type="text" readonly id="flowShareUrl" value="' + _escHtml(url) + '" onclick="this.select()" />' +
-    '<button type="button" class="btn-primary" onclick="_copyFlowShareUrl()"><span class="material-icons-round">content_copy</span></button></div>' +
+    '<button type="button" class="btn-primary" aria-label="Link kopieren" onclick="_copyFlowShareUrl()"><span class="material-icons-round">content_copy</span></button></div>' +
     '<p style="font-size:12px;color:var(--text-light);margin-top:10px">Dienstleister können über diesen Link ihre Zustimmung bestätigen.</p>' +
     '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
@@ -19984,9 +19984,9 @@ function openCreatePostModal() {
                 <input type="hidden" id="postDate" value="" />
                 <div class="post-cal-dropdown" id="postCalDropdown">
                   <div class="cal-header">
-                    <button type="button" class="cal-nav" onclick="_postCalNav(event,-1)"><span class="material-icons-round">chevron_left</span></button>
+                    <button type="button" class="cal-nav" aria-label="Voriger Monat" onclick="_postCalNav(event,-1)"><span class="material-icons-round">chevron_left</span></button>
                     <span class="cal-title" id="postCalTitle"></span>
-                    <button type="button" class="cal-nav" onclick="_postCalNav(event,1)"><span class="material-icons-round">chevron_right</span></button>
+                    <button type="button" class="cal-nav" aria-label="Nächster Monat" onclick="_postCalNav(event,1)"><span class="material-icons-round">chevron_right</span></button>
                   </div>
                   <div class="cal-weekdays"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
                   <div class="cal-grid" id="postCalGrid"></div>
@@ -20037,7 +20037,7 @@ function openCreatePostModal() {
           <input type="file" id="postImgInput" accept="image/*" style="display:none" onchange="_handlePostImage(this)" />
           <div class="post-img-preview" id="postImgPreview" style="display:none">
             <img id="postImgThumb" />
-            <button type="button" class="post-img-remove" onclick="_removePostImage()"><span class="material-icons-round">close</span></button>
+            <button type="button" class="post-img-remove" aria-label="Bild entfernen" onclick="_removePostImage()"><span class="material-icons-round">close</span></button>
           </div>
         </div>
 
