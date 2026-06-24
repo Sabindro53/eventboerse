@@ -5058,6 +5058,66 @@ body.dark-mode .leaflet-control-zoom a:hover { background: #2A2A2C !important; }
 .prov-portfolio-crop:hover { background: #fff; transform: scale(1.1); }
 .prov-portfolio-crop .material-icons-round { font-size: 18px; }
 
+/* Admin-Moderation: Lösch-Overlay auf Portfolio-Bildern fremder Profile */
+.prov-portfolio-mod-wrap {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.prov-portfolio-mod-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  background: rgba(220,38,38,0.92);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  opacity: 0;
+  transition: all var(--transition);
+}
+.prov-portfolio-mod-wrap:hover .prov-portfolio-mod-del,
+.prov-portfolio-mod-del:focus-visible { opacity: 1; }
+.prov-portfolio-mod-del:hover { background: #dc2626; transform: scale(1.1); }
+.prov-portfolio-mod-del .material-icons-round { font-size: 18px; }
+/* Touch-Geräte: Button immer sichtbar (kein Hover) */
+@media (hover: none) {
+  .prov-portfolio-mod-del { opacity: 1; }
+}
+
+/* Admin-Lösch-Button im Provider-Lightbox */
+.plb-admin-delete {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(220,38,38,0.92);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  transition: all var(--transition);
+}
+.plb-admin-delete:hover { background: #dc2626; }
+.plb-admin-delete:active { transform: translateX(-50%) scale(0.96); }
+.plb-admin-delete .material-icons-round { font-size: 18px; }
+
 .prov-portfolio-add {
   display: flex;
   flex-direction: column;

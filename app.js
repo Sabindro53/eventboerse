@@ -344,6 +344,51 @@ window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FAL
   }, true);
 })();
 
+// --- Admin-Bild-Blocklist ---
+// Vom Admin gelöschte Bilder (auch bei hardcodierten Demo-Listings, die nicht
+// in der DB liegen). Der Server liefert normalisierte Pfade via eventboerseApi;
+// der Client blendet passende Bilder aus, sodass Löschungen Reload-fest sind.
+window.EB_IMG_BLOCKLIST = (function() {
+  var set = new Set();
+  try {
+    var list = (window.eventboerseApi && window.eventboerseApi.imageBlocklist) || [];
+    if (Array.isArray(list)) list.forEach(function(p) { if (p) set.add(String(p)); });
+  } catch (e) {}
+  return set;
+})();
+
+// Normalisiert eine Bild-URL auf ihren Pfad ohne Query (spiegelt serverseitiges
+// eb_norm_img_url) — so matchen verschiedene Größen-/Query-Varianten desselben Bilds.
+function _imgNormPath(u) {
+  if (!u) return '';
+  try {
+    var s = String(u);
+    var q = s.indexOf('?');
+    if (q >= 0) s = s.slice(0, q);
+    try { return new URL(s, window.location.origin).pathname; }
+    catch (e) { return s; }
+  } catch (e) { return ''; }
+}
+
+function _isImgBlocked(u) {
+  if (!u || !window.EB_IMG_BLOCKLIST || window.EB_IMG_BLOCKLIST.size === 0) return false;
+  return window.EB_IMG_BLOCKLIST.has(_imgNormPath(u));
+}
+
+// Entfernt geblockte Bilder aus einer Listing-Liste (images[] + image-Cover).
+function _applyImageBlocklist(arr) {
+  if (!window.EB_IMG_BLOCKLIST || window.EB_IMG_BLOCKLIST.size === 0) return;
+  (Array.isArray(arr) ? arr : []).forEach(function(l) {
+    if (!l) return;
+    if (Array.isArray(l.images)) {
+      l.images = l.images.filter(function(u) { return !_isImgBlocked(u); });
+    }
+    if (l.image && _isImgBlocked(l.image)) {
+      l.image = (Array.isArray(l.images) && l.images.length) ? l.images[0] : window.EB_IMG_FALLBACK;
+    }
+  });
+}
+
 // Feed-Bild Auto-Fit: Banner / Hochformat -> contain (volles Bild), normale Fotos -> cover
 window._fitFeedImg = function(img) {
   if (!img || !img.naturalWidth || !img.naturalHeight) return;
@@ -792,6 +837,11 @@ const LISTINGS = [
   } catch(e) { /* fail-safe: kein Block, falls LISTINGS noch nicht da */ }
 })();
 
+// Vom Admin gelöschte Bilder aus den Demo-Listings entfernen (Reload-fest).
+(function applyDemoImageBlocklist(){
+  try { if (Array.isArray(LISTINGS)) _applyImageBlocklist(LISTINGS); } catch(e) {}
+})();
+
 const DEMO_REVIEWS = [
   { name: 'Sarah L.', avatar: 'sarah2', rating: 5, date: 'Februar 2026', text: 'Absolut fantastisch! Max hat unsere Hochzeitsfeier unvergesslich gemacht. Die Musikauswahl war perfekt!' },
   { name: 'Markus W.', avatar: 'markus', rating: 5, date: 'Januar 2026', text: 'Professionell, zuverlässig und eine geniale Stimmung. Jederzeit wieder!' },
@@ -1115,6 +1165,7 @@ async function loadDbListings() {
     if (data.listings && data.listings.length > 0) {
       _mergeDbListingsIntoCache(data.listings);
     }
+    _applyImageBlocklist(LISTINGS); // vom Admin gelöschte Bilder auch hier ausblenden
     _dbListingsLoaded = true;
     try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
     try { updateHeroStats(); } catch (err) { /* Stats optional */ }
@@ -3274,6 +3325,10 @@ function loadDetail(listingId) {
 // ========== PROVIDER PROFILE ==========
 let providerImages = [];
 let lightboxIndex = 0;
+// ID des aktuell angezeigten Provider-Profils + ob es das eigene ist
+// (für Admin-Moderation von Bildern auf fremden Profilen).
+let _currentProviderId = 0;
+let _currentProviderIsOwn = false;
 
 /**
  * Setzt das Provider-Page-DOM in einen sauberen, leeren Zustand zurück.
@@ -3283,6 +3338,12 @@ let lightboxIndex = 0;
  * Profil: wir wollen NIE Demo-Daten wie "Max Beats" im echten Nutzerkontext.
  */
 function _resetProviderPageDom() {
+  // Admin-Moderations-State zurücksetzen (kein stale Lösch-Button auf
+  // „nicht gefunden"- oder eigenem Profil)
+  _currentProviderId = 0;
+  _currentProviderIsOwn = false;
+  var existingLbDel = document.getElementById('plbAdminDelete');
+  if (existingLbDel) existingLbDel.style.display = 'none';
   var setText = function(id, val) {
     var el = document.getElementById(id);
     if (el) el.textContent = val;
@@ -3460,11 +3521,16 @@ function loadProvider(providerId) {
     return;
   }
   providerImages = providerListings.flatMap(l => l.images || []);
+  // Aktuell betrachtetes Profil merken (für Admin-Bildmoderation)
+  _currentProviderId = pid;
+  _currentProviderIsOwn = !!(currentUser && _sameUserId(pid, currentUser.id));
   // For own profile: if currentUser.gallery is non-empty, it is the saved portfolio
   // (may differ from listing images after edits — always prefer saved gallery)
   if (currentUser && _sameUserId(pid, currentUser.id) && currentUser.gallery && currentUser.gallery.length > 0) {
     providerImages = currentUser.gallery.slice();
   }
+  // Vom Admin gelöschte Bilder ausblenden (auch Demo-Profile, Reload-fest)
+  providerImages = providerImages.filter(function(u) { return !_isImgBlocked(u); });
 
   // Cover Gallery — full-width animated scroll rows
   buildGalleryRows(providerImages);
@@ -3537,12 +3603,8 @@ function loadProvider(providerId) {
     `<div class="prov-highlight"><span class="material-icons-round">${icons[i % icons.length]}</span> ${_escHtml(f)}</div>`
   ).join('');
 
-  // Portfolio
-  const portfolioEl = document.getElementById('providerPortfolio');
-  portfolioEl.innerHTML = providerImages.map((img, i) =>
-    `<img src="${_escHtml(img)}" alt="Portfolio" loading="lazy" onclick="openProviderLightbox(${i})" />`
-  ).join('');
-  portfolioEl.querySelectorAll('img').forEach(detectWideBannerImg);
+  // Portfolio (admin-bewusst: auf fremden Profilen Lösch-Overlay für Admins)
+  _renderProviderPortfolio();
 
   // Sidebar Facts
   document.getElementById('providerFacts').innerHTML = `
@@ -4358,14 +4420,106 @@ function startRowAnimation(row, segW, dir, baseSpeed, wrap, itemW) {
   wrap.addEventListener('touchcancel', onEnd);
 }
 
+/**
+ * Rendert das Portfolio-Grid auf der Provider-Profilseite (View-Modus).
+ * Für Admins, die ein FREMDES Profil ansehen, bekommt jedes Bild ein
+ * Lösch-Overlay (Moderation). Der Eigentümer-Edit-Modus ist davon
+ * unberührt (separater Render in toggleProviderEditMode).
+ */
+function _renderProviderPortfolio() {
+  var portfolioEl = document.getElementById('providerPortfolio');
+  if (!portfolioEl) return;
+  var canModerate = !!(currentUser && currentUser.isAdmin && !_currentProviderIsOwn && _currentProviderId);
+  portfolioEl.innerHTML = providerImages.map(function(img, i) {
+    var imgTag = '<img src="' + _escHtml(img) + '" alt="Portfolio" loading="lazy" onclick="openProviderLightbox(' + i + ')" />';
+    if (!canModerate) return imgTag;
+    return '<div class="prov-portfolio-mod-wrap">' + imgTag +
+      '<button type="button" class="prov-portfolio-mod-del" title="Als Admin löschen" ' +
+      'aria-label="Bild als Admin löschen" onclick="adminDeleteProfileImage(' + i + ', event)">' +
+      '<span class="material-icons-round">delete</span></button></div>';
+  }).join('');
+  portfolioEl.querySelectorAll('img').forEach(detectWideBannerImg);
+}
+
+/**
+ * Admin-Moderation: löscht ein einzelnes Bild vom aktuell betrachteten
+ * (fremden) Profil — serverseitig aus eb_gallery + allen Listings des
+ * Nutzers, lokal aus providerImages + LISTINGS-Cache.
+ */
+function adminDeleteProfileImage(index, ev) {
+  if (ev) { ev.stopPropagation(); if (ev.preventDefault) ev.preventDefault(); }
+  if (!currentUser || !currentUser.isAdmin) return;
+  var url = providerImages[index];
+  if (!url) return;
+  var targetId = _currentProviderId;
+  if (!targetId) { showToast('Profil-ID unbekannt', 'error'); return; }
+  if (!confirm('Als Admin: Dieses Bild wirklich vom Profil löschen?')) return;
+  fetch(_apiUrl('admin/moderate-image'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ user_id: targetId, image: url })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) { showToast('Löschen fehlgeschlagen', 'error'); return; }
+    // Blocklist im Client mitziehen → entfernt alle Größen-Varianten + Cover,
+    // greift sofort und bleibt nach Reload weg (Server persistiert ebenfalls).
+    if (window.EB_IMG_BLOCKLIST) window.EB_IMG_BLOCKLIST.add(_imgNormPath(url));
+    providerImages = providerImages.filter(function(u) { return !_isImgBlocked(u); });
+    _applyImageBlocklist(LISTINGS);
+    _renderProviderPortfolio();
+    buildGalleryRows(providerImages);
+    // Lightbox-Status nachziehen, falls geöffnet
+    var lb = document.getElementById('providerLightbox');
+    var lbOpen = lb && lb.classList.contains('show');
+    if (providerImages.length === 0) {
+      closeProviderLightbox();
+    } else {
+      if (lightboxIndex >= providerImages.length) lightboxIndex = providerImages.length - 1;
+      if (lbOpen) {
+        document.getElementById('plbImage').src = providerImages[lightboxIndex];
+        document.getElementById('plbCounter').textContent = (lightboxIndex + 1) + ' / ' + providerImages.length;
+      }
+    }
+    showToast('Bild als Admin gelöscht.', 'delete');
+  }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
+}
+
 function openProviderLightbox(index) {
   lightboxIndex = index;
   const lb = document.getElementById('providerLightbox');
   document.getElementById('plbImage').src = providerImages[lightboxIndex];
   document.getElementById('plbCounter').textContent = `${lightboxIndex + 1} / ${providerImages.length}`;
+  _updateProviderLightboxAdminBtn();
   lb.classList.add('show');
   document.body.style.overflow = 'hidden';
   document.body.style.touchAction = 'none';
+}
+
+/**
+ * Blendet im Provider-Lightbox einen Admin-Lösch-Button ein (nur fremde
+ * Profile, nur Admins). Der Button wird bei Bedarf dynamisch erzeugt,
+ * sodass kein Eingriff in die SPA-Shell (index.php/index.html) nötig ist.
+ */
+function _updateProviderLightboxAdminBtn() {
+  var lb = document.getElementById('providerLightbox');
+  if (!lb) return;
+  var canModerate = !!(currentUser && currentUser.isAdmin && !_currentProviderIsOwn && _currentProviderId);
+  var btn = document.getElementById('plbAdminDelete');
+  if (!canModerate) { if (btn) btn.style.display = 'none'; return; }
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'plbAdminDelete';
+    btn.type = 'button';
+    btn.className = 'plb-admin-delete';
+    btn.title = 'Als Admin löschen';
+    btn.setAttribute('aria-label', 'Bild als Admin löschen');
+    btn.innerHTML = '<span class="material-icons-round">delete</span> Löschen';
+    btn.onclick = function(e) { adminDeleteProfileImage(lightboxIndex, e); };
+    btn.addEventListener('touchend', function(e) {
+      e.stopPropagation(); e.preventDefault(); adminDeleteProfileImage(lightboxIndex, e);
+    });
+    lb.appendChild(btn);
+  }
+  btn.style.display = '';
 }
 
 function closeProviderLightbox(e) {
@@ -10779,9 +10933,18 @@ function _renderStars(rating) {
 }
 
 function _escHtml(str) {
-  var d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  // Encodet ALLE HTML-Sonderzeichen inkl. Anführungszeichen. Wichtig:
+  // textContent→innerHTML encodet " und ' NICHT — dadurch wäre jede
+  // Interpolation in ein Attribut (alt="${_escHtml(x)}") per Quote-Injection
+  // angreifbar (serverseitiges sanitize_text_field lässt Quotes durch).
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/`/g, '&#96;');
 }
 
 // Parse a date string in various formats (ISO, DD.MM.YYYY, "15. August 2026", etc.)
@@ -12568,14 +12731,14 @@ function addListingMarkers(listings) {
 
     const popupContent = `
       <div class="map-popup-card">
-        <img src="${listing.image}" alt="${listing.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"/>
-        <h4>${listing.title}</h4>
+        <img src="${_escHtml(listing.image)}" alt="${_escHtml(listing.title)}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"/>
+        <h4>${_escHtml(listing.title)}</h4>
         <div class="popup-meta">
           <span class="material-icons-round" style="font-size:14px;vertical-align:middle">location_on</span>
-          ${listing.location} · ${listing.categoryLabel}
+          ${_escHtml(listing.location)} · ${_escHtml(listing.categoryLabel)}
         </div>
-        <div class="popup-meta">★ ${listing.rating} (${listing.reviews} Bewertungen)</div>
-        <div class="popup-price">${listing.priceLabel}</div>
+        <div class="popup-meta">★ ${_escHtml(listing.rating)} (${_escHtml(listing.reviews)} Bewertungen)</div>
+        <div class="popup-price">${_escHtml(listing.priceLabel)}</div>
         <button class="popup-btn" onclick="closeMapOverlay(); navigateTo('detail', ${listing.id});">
           Details ansehen
         </button>
@@ -12594,10 +12757,10 @@ function renderLocationsList(listings) {
     const emoji = CATEGORY_EMOJI[l.category] || '📌';
     return `
       <div class="map-loc-item" data-id="${l.id}" onclick="focusMapMarker(${l.id})">
-        <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+        <img class="map-loc-img" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
         <div class="map-loc-info">
-          <span class="map-loc-city">${l.location}</span>
-          <span class="map-loc-cat">${emoji} ${l.categoryLabel}</span>
+          <span class="map-loc-city">${_escHtml(l.location)}</span>
+          <span class="map-loc-cat">${emoji} ${_escHtml(l.categoryLabel)}</span>
         </div>
         <div class="map-loc-price">${l.priceLabel}</div>
       </div>`;

@@ -16,6 +16,11 @@ add_action('init', function() {
 
 require_once get_template_directory() . '/webauthn.php';
 
+// Brute-Force-Schutz (Transient-basiertes Rate-Limit, per REMOTE_ADDR).
+// War zuvor vorhanden, aber nirgends eingebunden → jetzt aktiv verdrahtet
+// (siehe eventboerse_check_rate_limit-Aufrufe in den Auth-Handlern).
+require_once get_template_directory() . '/includes/security/rate-limit.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *
@@ -129,6 +134,30 @@ add_filter( 'xmlrpc_enabled', '__return_false' );
 add_filter( 'wp_headers', function( $h ) { unset( $h['X-Pingback'] ); return $h; } );
 remove_action( 'wp_head', 'rest_output_link_header', 11 );
 
+// --- User-Enumeration-Schutz ---
+// 1) WP-Core-REST-User-Endpoints für nicht eingeloggte Besucher sperren.
+//    Die App nutzt ausschließlich /eventboerse/v1/, niemals /wp/v2/users —
+//    der Default-Endpoint würde sonst Benutzernamen/Slugs preisgeben.
+add_filter( 'rest_endpoints', function( $endpoints ) {
+    if ( ! is_user_logged_in() ) {
+        unset( $endpoints['/wp/v2/users'] );
+        unset( $endpoints['/wp/v2/users/(?P<id>[\d]+)'] );
+    }
+    return $endpoints;
+} );
+// 2) Author-Archive/?author=N-Enumeration unterbinden (leakt den User-Slug).
+//    Priorität 1 läuft vor redirect_canonical (das sonst ?author=1 → /author/slug
+//    auflösen und den Namen verraten würde).
+add_action( 'template_redirect', function() {
+    if ( is_admin() ) {
+        return;
+    }
+    if ( isset( $_GET['author'] ) || ( function_exists( 'is_author' ) && is_author() ) ) {
+        wp_safe_redirect( home_url( '/' ), 302 );
+        exit;
+    }
+}, 1 );
+
 // REST-API für Anonyme einschränken: nur eigene Routen erreichbar.
 add_filter( 'rest_authentication_errors', function( $result ) {
     if ( ! empty( $result ) ) {
@@ -237,23 +266,25 @@ function eventboerse_enqueue_assets() {
         true
     );
 
-    // Flatpickr
+    // Flatpickr — Pfad auf exakte Version gepinnt (jsdelivr ist pro Version
+    // immutable). 'npm/flatpickr' ohne @Version würde sonst bei jedem Build
+    // die jeweils neueste Version ausliefern (Supply-Chain-Risiko).
     wp_enqueue_style(
         'flatpickr',
-        'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css',
         array(),
         '4.6.13'
     );
     wp_enqueue_script(
         'flatpickr',
-        'https://cdn.jsdelivr.net/npm/flatpickr',
+        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js',
         array(),
         '4.6.13',
         true
     );
     wp_enqueue_script(
         'flatpickr-de',
-        'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js',
+        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/de.js',
         array( 'flatpickr' ),
         '4.6.13',
         true
@@ -317,6 +348,9 @@ function eventboerse_enqueue_assets() {
         'isLoggedIn' => is_user_logged_in(),
         'user'       => $user_data,
         'siteUrl'    => trailingslashit( home_url() ),
+        // Vom Admin entfernte Bilder (normalisierte Pfade) — der Client blendet
+        // sie aus, auch bei hardcodierten Demo-Listings (siehe eb_admin_moderate_image).
+        'imageBlocklist' => array_values( (array) get_option( 'eb_demo_image_blocklist', array() ) ),
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
@@ -418,7 +452,9 @@ add_action( 'send_headers', function() {
         "frame-ancestors 'none'",
         "object-src 'none'",
         // Skripte: eigene + Stripe + Leaflet + Flatpickr (\u00dcbergangsweise inline erlaubt).
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
+        // 'unsafe-eval' entfernt: weder eigener Code noch Stripe/Leaflet/Flatpickr
+        // benötigen eval()/new Function(). Reduziert die XSS-Exploit-Fläche.
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
         "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
         // Styles: eigene + Google Fonts + Leaflet + Flatpickr.
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
@@ -1264,6 +1300,10 @@ function eb_board_bookings_update_card( WP_REST_Request $request ) {
     return new WP_REST_Response( array( 'success' => true ), 200 );
 }
 function eventboerse_handle_register( WP_REST_Request $request ) {
+    // Anti-Spam: max. 20 Registrierungen pro IP / Stunde (lenient wegen
+    // Shared-IP bei Events; verhindert Massen-Account-/E-Mail-Spam).
+    $rl = eventboerse_check_rate_limit( 'register', 20, HOUR_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params     = $request->get_json_params();
     $email_raw  = isset( $params['email'] )      ? (string) $params['email']                    : '';
     $email      = eb_normalize_email( $email_raw );
@@ -1508,6 +1548,9 @@ function eb_login_clear_failures( $email ) {
 }
 
 function eventboerse_handle_login( WP_REST_Request $request ) {
+    // Brute-Force-Schutz: max. 10 Login-Versuche pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'login', 10, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = (string) ( $params['email'] ?? '' );
     $email     = eb_normalize_email( $email_raw );
@@ -1529,6 +1572,8 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
     }
 
     eb_login_clear_failures( $email );
+    // Passwort war korrekt → IP-Rate-Limit-Bucket leeren (nur Fehlversuche zählen).
+    eventboerse_reset_rate_limit( 'login' );
 
     $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
     if ( '0' === (string) $verified ) {
@@ -1657,6 +1702,9 @@ function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
 
 /* ---------- PASSWORT VERGESSEN ---------- */
 function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
+    // Anti-Bombing/Enumeration: max. 5 Reset-Mails pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'forgot_password', 5, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = isset( $params['email'] ) ? (string) $params['email'] : '';
     $email     = eb_normalize_email( $email_raw );
@@ -1706,6 +1754,9 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
 
 /* ---------- PASSWORT RESET AUSFÜHREN ---------- */
 function eventboerse_handle_reset_password( WP_REST_Request $request ) {
+    // Brute-Force-Schutz für Reset-Token: max. 10 Versuche pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'reset_password', 10, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params   = $request->get_json_params();
     $token    = isset( $params['token'] )    ? sanitize_text_field( $params['token'] )    : '';
     $uid      = isset( $params['uid'] )      ? absint( $params['uid'] )                   : 0;
@@ -2355,6 +2406,9 @@ function eb_webauthn_credentials_delete( WP_REST_Request $request ) {
 }
 
 function eb_otp_send( WP_REST_Request $request ) {
+    // Anti-Bombing: max. 8 Code-Versände pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'otp_send', 8, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = (string) ( $params['email'] ?? '' );
     $email     = eb_normalize_email( $email_raw );
@@ -2427,6 +2481,9 @@ function eb_otp_send( WP_REST_Request $request ) {
 }
 
 function eb_otp_verify( WP_REST_Request $request ) {
+    // Brute-Force-Schutz: 6-stelliger Code → max. 10 Versuche pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'otp_verify', 10, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = (string) ( $params['email'] ?? '' );
     $email     = eb_normalize_email( $email_raw );
@@ -2460,6 +2517,7 @@ function eb_otp_verify( WP_REST_Request $request ) {
     }
 
     delete_transient( $otp_key );
+    eventboerse_reset_rate_limit( 'otp_verify' );
 
     wp_set_current_user( $user->ID );
     wp_set_auth_cookie( $user->ID, true, is_ssl() );
@@ -3176,6 +3234,16 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_admin_bot_accept_inquiry',
         'permission_callback' => 'is_user_logged_in',
     ) );
+
+    /* Moderation: Admin entfernt ein einzelnes Bild eines beliebigen Nutzers
+       (aus dessen Portfolio-Galerie UND aus allen seinen Listings). */
+    register_rest_route( 'eventboerse/v1', '/admin/moderate-image', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_moderate_image',
+        'permission_callback' => function() {
+            return is_user_logged_in() && eb_is_admin_user();
+        },
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
 
@@ -3390,6 +3458,106 @@ function eb_admin_bot_accept_inquiry( WP_REST_Request $request ) {
         'bot_id'       => $bot_id,
         'bot_name'     => $bot_name,
         'reply_text'   => $reply_text,
+    ), 200 );
+}
+
+/**
+ * Normalisiert eine Bild-URL für den Vergleich: Query-String (z. B. Crop-
+ * Parameter) wird entfernt und nur der Pfad behalten, damit dasselbe Bild
+ * auch über Host-/Parameter-Unterschiede hinweg erkannt wird.
+ */
+function eb_norm_img_url( $u ) {
+    $u = trim( (string) $u );
+    if ( $u === '' ) return '';
+    $q = strpos( $u, '?' );
+    if ( $q !== false ) $u = substr( $u, 0, $q );
+    $p = wp_parse_url( $u, PHP_URL_PATH );
+    return $p ? $p : $u;
+}
+
+/** Vergleicht zwei Bild-URLs tolerant (exakt oder per normalisiertem Pfad). */
+function eb_same_image_url( $a, $b ) {
+    if ( $a === $b ) return true;
+    $na = eb_norm_img_url( $a );
+    $nb = eb_norm_img_url( $b );
+    return $na !== '' && $na === $nb;
+}
+
+/**
+ * POST /admin/moderate-image
+ * Body: { user_id: int, image: string }
+ * Entfernt die Bild-URL aus der Portfolio-Galerie (eb_gallery) des Ziel-
+ * Nutzers und aus den images-Arrays aller seiner Listings. Nur für Admins.
+ */
+function eb_admin_moderate_image( WP_REST_Request $request ) {
+    global $wpdb;
+    $params = $request->get_json_params();
+    $target = isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+    $image  = isset( $params['image'] ) ? esc_url_raw( trim( (string) $params['image'] ) ) : '';
+
+    if ( ! $target || $image === '' ) {
+        return new WP_REST_Response( array( 'message' => 'user_id und image sind erforderlich.' ), 400 );
+    }
+
+    $gallery_removed = 0;
+    $listing_removed = 0;
+
+    // 1) Portfolio-Galerie des Ziel-Nutzers (User-Meta eb_gallery)
+    $gallery = get_user_meta( $target, 'eb_gallery', true );
+    if ( is_array( $gallery ) ) {
+        $kept = array_values( array_filter( $gallery, function( $u ) use ( $image ) {
+            return ! eb_same_image_url( $u, $image );
+        } ) );
+        if ( count( $kept ) !== count( $gallery ) ) {
+            update_user_meta( $target, 'eb_gallery', $kept );
+            $gallery_removed = count( $gallery ) - count( $kept );
+        }
+    }
+
+    // 2) Alle Listings des Ziel-Nutzers
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, images FROM {$wpdb->prefix}eb_listings WHERE user_id = %d", $target
+    ) );
+    if ( is_array( $rows ) ) {
+        foreach ( $rows as $r ) {
+            $imgs = json_decode( (string) $r->images, true );
+            if ( ! is_array( $imgs ) ) continue;
+            $kept = array_values( array_filter( $imgs, function( $u ) use ( $image ) {
+                return ! eb_same_image_url( $u, $image );
+            } ) );
+            if ( count( $kept ) !== count( $imgs ) ) {
+                $wpdb->update(
+                    $wpdb->prefix . 'eb_listings',
+                    array( 'images' => wp_json_encode( $kept ) ),
+                    array( 'id' => (int) $r->id )
+                );
+                $listing_removed += count( $imgs ) - count( $kept );
+            }
+        }
+    }
+
+    // 3) Persistente Blocklist (normalisierter Pfad). Wirkt auch für
+    //    hardcodierte Demo-Listings im Client, die NICHT in der DB liegen —
+    //    sonst käme das Bild nach jedem Reload zurück.
+    $norm = eb_norm_img_url( $image );
+    if ( $norm !== '' ) {
+        $blocklist = (array) get_option( 'eb_demo_image_blocklist', array() );
+        if ( ! in_array( $norm, $blocklist, true ) ) {
+            $blocklist[] = $norm;
+            // Begrenzen, damit die Option nicht unbegrenzt wächst.
+            if ( count( $blocklist ) > 1000 ) {
+                $blocklist = array_slice( $blocklist, -1000 );
+            }
+            update_option( 'eb_demo_image_blocklist', array_values( $blocklist ), false );
+        }
+    }
+
+    return new WP_REST_Response( array(
+        'removed'         => true,
+        'image'           => $image,
+        'gallery_removed' => $gallery_removed,
+        'listing_removed' => $listing_removed,
+        'blocklisted'     => $norm,
     ), 200 );
 }
 

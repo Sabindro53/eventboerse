@@ -1,0 +1,81 @@
+name: Security Checks
+
+# Läuft bei jedem Push auf main und bei jedem PR. Ziel: Fatals und
+# offensichtliche Security-Regressionen abfangen, BEVOR der Deploy-Workflow
+# (ionos-deploy.yml) auf den Live-Server schreibt.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    name: Lint & Pattern-Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ubuntu-latest hat PHP vorinstalliert — kein Drittanbieter-Action nötig
+      # (Supply-Chain-Hygiene: in einem Security-Workflow keine ungeprüften Actions).
+      - name: PHP-Version
+        run: php --version
+
+      - name: PHP-Lint aller .php-Dateien (Gate — verhindert Fatal-Deploys)
+        run: |
+          err=0
+          while IFS= read -r f; do
+            php -l "$f" >/dev/null 2>&1 || { echo "::error file=$f::PHP-Syntaxfehler"; php -l "$f"; err=1; }
+          done < <(find . -name '*.php' -not -path './node_modules/*' -not -path './.git/*')
+          [ "$err" -eq 0 ] && echo "✅ Alle PHP-Dateien syntaktisch OK"
+          exit $err
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JS-Syntax-Check (app.js) — Gate
+        run: node --check app.js
+
+      - name: Danger-Pattern-Scan (advisory, blockiert nicht)
+        continue-on-error: true
+        run: |
+          echo "## Security Pattern-Scan" >> "$GITHUB_STEP_SUMMARY"
+          flag() { echo "⚠️  $1"; echo "- $1" >> "$GITHUB_STEP_SUMMARY"; }
+
+          # 1) eval() / extract() / create_function() in PHP
+          if grep -rnE '\b(eval|extract|create_function|assert)\s*\(' --include='*.php' . | grep -vE '//|\*'; then
+            flag "eval/extract/create_function/assert in PHP gefunden — prüfen."
+          fi
+
+          # 2) Direkte Superglobals in SQL-Strings (SQLi-Verdacht)
+          if grep -rnE '"(SELECT|INSERT|UPDATE|DELETE)[^"]*\$_(GET|POST|REQUEST|COOKIE)' --include='*.php' .; then
+            flag "Superglobal direkt in SQL-String — MUSS über \$wpdb->prepare()."
+          fi
+
+          # 3) \$wpdb->query/get_* mit interpolierter Variable (Heuristik; Prefix-only
+          #    wird herausgefiltert, da {\$wpdb->prefix} legitim ist).
+          if grep -rnE '\$wpdb->(query|get_results|get_row|get_var|get_col)\(\s*"[^"]*\$' --include='*.php' . \
+               | grep -vE '\{\$wpdb->prefix\}|\$wpdb->prefix|\$wpdb->users|->prepare\('; then
+            flag "Mögliche SQL-Interpolation ohne prepare() — prüfen."
+          fi
+
+          # 4) JS: eval / document.write / innerHTML mit unescapter User-Variable
+          if grep -rnE '\b(eval|document\.write)\s*\(' --include='*.js' app.js; then
+            flag "eval/document.write in app.js — prüfen."
+          fi
+
+          # 5) Passwort-Hashing mit md5/sha1 (statt wp_hash_password/password_hash)
+          if grep -rnE '(md5|sha1)\s*\(\s*\$?(pass|pwd|password)' --include='*.php' .; then
+            flag "Schwaches Hashing (md5/sha1) auf Passwort-artiger Variable — prüfen."
+          fi
+
+          # 6) Info: Anzahl öffentlicher (__return_true) Endpoints
+          pub=$(grep -rcE "permission_callback'[^,]*__return_true" --include='*.php' . | awk -F: '{s+=$2} END{print s}')
+          echo "ℹ️  Öffentliche (__return_true) Endpoint-Definitionen: ${pub:-0}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Scan abgeschlossen (advisory)."
