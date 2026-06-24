@@ -2752,6 +2752,11 @@ function eb_register_extra_routes() {
         ),
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/conversations/(?P<id>\d+)/typing', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_typing_set',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
     register_rest_route( 'eventboerse/v1', '/conversations/(?P<id>\d+)/messages', array(
         array(
             'methods'             => 'GET',
@@ -4362,6 +4367,21 @@ function eb_conversations_create( WP_REST_Request $request ) {
     return new WP_REST_Response( array( 'id' => (int) $conv_id, 'existing' => false ), 201 );
 }
 
+function eb_typing_set( WP_REST_Request $request ) {
+    global $wpdb;
+    $conv_id = absint( $request['id'] );
+    $uid     = get_current_user_id();
+    $conv = $wpdb->get_row( $wpdb->prepare(
+        "SELECT user_a, user_b FROM {$wpdb->prefix}eb_conversations WHERE id = %d AND (user_a = %d OR user_b = %d)",
+        $conv_id, $uid, $uid
+    ) );
+    if ( ! $conv ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
+    }
+    set_transient( 'eb_typing_' . $conv_id . '_' . $uid, 1, 6 );
+    return new WP_REST_Response( null, 204 );
+}
+
 function eb_messages_list( WP_REST_Request $request ) {
     global $wpdb;
     $conv_id = absint( $request['id'] );
@@ -4431,6 +4451,11 @@ function eb_messages_list( WP_REST_Request $request ) {
     ) );
     $resp = new WP_REST_Response( $messages, 200 ); // Array bleibt (abwärtskompatibel)
     if ( $cursor ) { $resp->header( 'X-EB-Cursor', $cursor ); }
+    // Tipp-Indikator: tippt der Partner gerade? (Transient, piggyback)
+    $partner_uid = ( (int) $conv->user_a === $uid ) ? (int) $conv->user_b : (int) $conv->user_a;
+    if ( $partner_uid && get_transient( 'eb_typing_' . $conv_id . '_' . $partner_uid ) ) {
+        $resp->header( 'X-EB-Partner-Typing', '1' );
+    }
     return $resp;
 }
 
