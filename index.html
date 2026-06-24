@@ -1519,11 +1519,15 @@
               <span id="chatBlockBannerText">Du hast diesen Kontakt blockiert.</span>
               <button class="chat-block-unbtn" onclick="chatMenuAction('block')" id="chatBlockUnbtn">Blockierung aufheben</button>
             </div>
+            <div class="chat-typing-indicator" id="chatTypingIndicator" style="display:none" aria-live="polite">
+              <span id="chatTypingName">Jemand</span> schreibt
+              <span class="cti-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            </div>
             <div class="chat-input-bar" id="chatInputBar">
               <button class="chat-attach-btn" title="Anhang" aria-label="Anhang">
                 <span class="material-icons-round">attach_file</span>
               </button>
-              <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" />
+              <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" oninput="_onChatInput()" />
               <button class="chat-send-btn" aria-label="Nachricht senden" onclick="sendMessage()">
                 <span class="material-icons-round">send</span>
               </button>
