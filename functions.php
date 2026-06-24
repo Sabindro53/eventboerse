@@ -134,6 +134,30 @@ add_filter( 'xmlrpc_enabled', '__return_false' );
 add_filter( 'wp_headers', function( $h ) { unset( $h['X-Pingback'] ); return $h; } );
 remove_action( 'wp_head', 'rest_output_link_header', 11 );
 
+// --- User-Enumeration-Schutz ---
+// 1) WP-Core-REST-User-Endpoints für nicht eingeloggte Besucher sperren.
+//    Die App nutzt ausschließlich /eventboerse/v1/, niemals /wp/v2/users —
+//    der Default-Endpoint würde sonst Benutzernamen/Slugs preisgeben.
+add_filter( 'rest_endpoints', function( $endpoints ) {
+    if ( ! is_user_logged_in() ) {
+        unset( $endpoints['/wp/v2/users'] );
+        unset( $endpoints['/wp/v2/users/(?P<id>[\d]+)'] );
+    }
+    return $endpoints;
+} );
+// 2) Author-Archive/?author=N-Enumeration unterbinden (leakt den User-Slug).
+//    Priorität 1 läuft vor redirect_canonical (das sonst ?author=1 → /author/slug
+//    auflösen und den Namen verraten würde).
+add_action( 'template_redirect', function() {
+    if ( is_admin() ) {
+        return;
+    }
+    if ( isset( $_GET['author'] ) || ( function_exists( 'is_author' ) && is_author() ) ) {
+        wp_safe_redirect( home_url( '/' ), 302 );
+        exit;
+    }
+}, 1 );
+
 // REST-API für Anonyme einschränken: nur eigene Routen erreichbar.
 add_filter( 'rest_authentication_errors', function( $result ) {
     if ( ! empty( $result ) ) {
@@ -242,23 +266,25 @@ function eventboerse_enqueue_assets() {
         true
     );
 
-    // Flatpickr
+    // Flatpickr — Pfad auf exakte Version gepinnt (jsdelivr ist pro Version
+    // immutable). 'npm/flatpickr' ohne @Version würde sonst bei jedem Build
+    // die jeweils neueste Version ausliefern (Supply-Chain-Risiko).
     wp_enqueue_style(
         'flatpickr',
-        'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css',
         array(),
         '4.6.13'
     );
     wp_enqueue_script(
         'flatpickr',
-        'https://cdn.jsdelivr.net/npm/flatpickr',
+        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js',
         array(),
         '4.6.13',
         true
     );
     wp_enqueue_script(
         'flatpickr-de',
-        'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js',
+        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/de.js',
         array( 'flatpickr' ),
         '4.6.13',
         true
@@ -423,7 +449,9 @@ add_action( 'send_headers', function() {
         "frame-ancestors 'none'",
         "object-src 'none'",
         // Skripte: eigene + Stripe + Leaflet + Flatpickr (\u00dcbergangsweise inline erlaubt).
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
+        // 'unsafe-eval' entfernt: weder eigener Code noch Stripe/Leaflet/Flatpickr
+        // benötigen eval()/new Function(). Reduziert die XSS-Exploit-Fläche.
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
         "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
         // Styles: eigene + Google Fonts + Leaflet + Flatpickr.
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
@@ -1269,6 +1297,10 @@ function eb_board_bookings_update_card( WP_REST_Request $request ) {
     return new WP_REST_Response( array( 'success' => true ), 200 );
 }
 function eventboerse_handle_register( WP_REST_Request $request ) {
+    // Anti-Spam: max. 20 Registrierungen pro IP / Stunde (lenient wegen
+    // Shared-IP bei Events; verhindert Massen-Account-/E-Mail-Spam).
+    $rl = eventboerse_check_rate_limit( 'register', 20, HOUR_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params     = $request->get_json_params();
     $email_raw  = isset( $params['email'] )      ? (string) $params['email']                    : '';
     $email      = eb_normalize_email( $email_raw );
