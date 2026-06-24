@@ -62,6 +62,7 @@ jobs:
               -x '^\.obsidian/' -x '^\.claude/' -x '^\.claude\.json$' \
               -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
               -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' -x '^AGENTS\.md$' \
+              -x '^SECURITY\.md$' \
               -x '^\.gitignore$' -x '^\.gitattributes$' -x '^\.editorconfig$' \
               -x '^\.env' \
               -x '^sftp-debug\.txt$' -x '^deploy-probe\.txt$' \
