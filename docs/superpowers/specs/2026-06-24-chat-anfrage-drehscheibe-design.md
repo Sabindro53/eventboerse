@@ -1,97 +1,87 @@
-# Design: Chat als vernetzte Anfrage- & Verhandlungs-Drehscheibe
+# Design: Chat-Anfragen vernetzen & VB-Gegenangebote (korrigiert)
 
-**Datum:** 2026-06-24 · **Bezug:** Chat-Ausbau („voll umfangreich") · **Status:** Freigegeben (Scope + Architektur)
+**Datum:** 2026-06-24 · **Bezug:** Chat-Ausbau · **Status:** Freigegeben (auf bestehenden Mechanismus korrigiert)
 
-## Vision
+## Korrektur-Hinweis
 
-Jede Anfrage auf der Plattform — egal ob von einer **Listing-Detailseite**, **Unterseiten-CTAs**
-oder dem **Planungsboard** — läuft über *einen* Kommunikationsweg: sie erzeugt im Chat eine
-**erkennbare System-Anfrage mit allen Details** und parallel eine **reiche, deep-verlinkte E-Mail**.
-**Gegenangebote** erscheinen nur bei Inseraten mit **Verhandlungsbasis (VB / `negotiable`)**.
+Erste Spec-Annahme war falsch: Das Inquiry-Karten-/E-Mail-System **existiert bereits** und wird
+wiederverwendet — **kein** paralleles System. Konkret vorhanden:
+- `_renderBookingCard()` (app.js ~4730) rendert Nachrichten mit JSON-`body` als reiche Karte;
+  `data.kind === 'inquiry'` → „**Systemgenerierte Projekt-Anfrage**" (cbc-inquiry, Bild, Datum,
+  Annehmen/Ablehnen). Lebenszyklus `inquiry`/`inquiry_accepted`/`inquiry_rejected`/`inquiry_cancelled` da.
+- `eb_messages_send` (functions.php ~4500) rendert dasselbe `kind:'inquiry'`-JSON als reiche
+  E-Mail („✦ Systemgenerierte Projekt-Anfrage").
+- **Board** „Kontaktieren" (app.js ~16998) sendet bereits `kind:'inquiry'`.
 
-## Ist-Zustand (Gap-Analyse, verifiziert)
+## Ist-Zustand pro Einstiegspunkt (Audit)
 
-- 8 Einstiegspunkte rufen den `conversations`-POST-Endpoint (app.js 5011/5680/5706/5745/5821/10903/13889/16998), aber **uneinheitlich** (nicht alle übergeben vollen Kontext).
-- Der Endpoint (functions.php ~4337) legt nur eine **Plain-System-Nachricht** an: „Gespräch gestartet über „{Titel}"" — **ohne** Details.
-- Die reichen Anfrage-Details (Datum, Event-Typ, Budget, Nachricht) landen aktuell nur in der **E-Mail** (functions.php ~4520), **nicht** im Chat.
-- System-Nachrichten werden 7× als simples `<div class="msg msg-system">text</div>` gerendert — **keine** Detail-Karte.
-- `negotiable` (VB) existiert als Feld (eb_listings, API `(bool)`), aber der **Gegenangebot-Button ist nicht darauf gegated** (app.js ~5775 prüft nur Login + nicht-eigenes-Inserat).
+| Einstieg | Verhalten | Bewertung |
+|----------|-----------|-----------|
+| **Board** „Kontaktieren" | `kind:'inquiry'` → reiche Karte **+** reiche Mail | ✅ Soll-Zustand |
+| **Listing** `bookListing` (Buchungsanfrage) | `type:'booking'`, JSON **ohne `kind`** → schwächere „Anfrage"-Karte; Mail fällt auf generisch → **zeigt rohes JSON** | 🔴 Gap |
+| `startChat` / `startChatWithProvider` (Plain „Nachricht senden") | leere Conversation, „Gespräch gestartet" | ✅ ok (keine strukturierte Anfrage) |
+| **Gegenangebot** | nur Login + nicht-eigenes-Inserat geprüft | 🔴 nicht auf `negotiable` (VB) gegated |
+
+## Ziel
+
+Jede *strukturierte Anfrage* (Listing-Buchung, Board) erzeugt **dieselbe** reiche „Projekt-Anfrage"-
+Karte im Chat **und** dieselbe reiche E-Mail, mit erkennbarer **Quelle**. Gegenangebote nur bei VB.
 
 ## Komponenten
 
-### A — Einheitliche Anfrage-Pipeline (`sendInquiry`)
+### A — `bookListing` auf das bestehende `kind:'inquiry'` umstellen
 
-Ein Client-Helper `sendInquiry(opts)`, den **alle** Einstiege nutzen:
+`bookListing` (app.js ~5745) sendet künftig statt `{ content: bookingText, type:'booking' }` ein
+`kind:'inquiry'`-JSON mit denselben Feldern, die Karte/Mail erwarten:
 
 ```js
-sendInquiry({
-  providerId, listingId,        // Ziel
-  message,                      // Freitext des Anfragenden
-  eventDate, eventType, budget, // strukturierter Kontext (optional je Quelle)
-  source                        // 'listing' | 'board' | 'subpage:<name>' | 'profile'
-})
+{ kind:'inquiry', listing:<titel>, image:<bild>, date:<datum>, eventType:<kategorie>,
+  price:<priceLabel>, message:<freitext>, source:'listing' }
 ```
 
-Er ruft `POST /conversations` mit `{ other_user_id, listing_id, inquiry:{...} }`. Bestehende
-Einstiegspunkte werden auf `sendInquiry` umgestellt (Audit der 8 Call-Sites + Board-/Unterseiten-CTAs).
+Damit erbt die Listing-Anfrage automatisch die reiche Karte (`cbc-inquiry`) **und** die reiche
+E-Mail (`eb_messages_send`-Inquiry-Zweig). Der bisherige rohe-JSON-Mail-Bug entfällt.
+Audit ergab keine weiteren strukturierten Einstiege, die umzustellen wären (Plain-„Nachricht
+senden" bleibt bewusst leer).
 
-### B — Strukturierte System-Anfrage als Karte
+### B — Quelle (`source`) in Karte & Mail
 
-**Backend** (`conversations`-Endpoint): legt die System-Nachricht mit **JSON-`body`** an, getaggt
-zur Erkennung:
+`source`-Feld (`'listing'` | `'board'` | künftige) wird in der Karte (`_renderBookingCard`) und in
+der E-Mail (eb_messages_send) als kleine Herkunftszeile gezeigt: „Anfrage von der Inseratsseite" /
+„… aus dem Planungsboard". Board-Sends bekommen `source:'board'` ergänzt. Abwärtskompatibel
+(fehlt `source` → keine Zeile).
 
-```json
-{"_eb":"inquiry","title":"…","image":"…","listingId":123,"date":"…","eventType":"…","budget":"…","source":"listing","message":"…"}
-```
+### C — Gegenangebot nur bei VB (`negotiable`)
 
-Bei **bestehender** Konversation: zusätzliche System-Anfrage-Nachricht anhängen (kein Duplikat
-der Konversation) + E-Mail.
+- **UI:** Verhandlungs-/Gegenangebot-Einstiege (`openNegotiationInChat`, `openCounterOffer`,
+  „Gegenangebot"-Button Detailseite + Chat) nur sichtbar/aktiv wenn das relevante Listing
+  `negotiable === true`. Bei Festpreis: Button aus + dezenter Hinweis „Festpreis".
+- **Server-Guard:** `eb_messages_send` lehnt `type:'offer'` ab, wenn das Listing der Konversation
+  `negotiable = 0` ist (400 mit Hinweis). Erst-Anfrage/Buchung zum Festpreis bleibt erlaubt.
 
-**Client-Render:** System-Nachricht, deren `body` als getaggtes Inquiry-JSON parst →
-**Detail-Karte** `_renderSystemInquiryCard(data)`: „**Systemanfrage**"-Badge, Listing-Thumbnail +
-Titel, Datum, Event-Typ, Budget, Quelle, der Nachrichtentext. Nicht-JSON-System-Nachrichten →
-bestehender Plain-Text (abwärtskompatibel).
-
-### C — Gegenangebot nur bei VB
-
-Verhandlungs-/Gegenangebot-Einstiege (`openNegotiationInChat`, `openCounterOffer`, der
-„Gegenangebot"-Button auf der Detailseite und im Chat) nur **sichtbar/aktiv**, wenn das relevante
-Listing `negotiable === true`. Bei Festpreis: Button ausblenden + dezenter Hinweis „Festpreis —
-keine Verhandlung". **Server-Guard:** der Offer-/Counter-Endpoint lehnt Gegenangebote auf
-`negotiable=0`-Listings ab (400), damit die Regel nicht nur UI-seitig gilt.
-
-### D — E-Mail konsistent
-
-Dieselbe reiche Anfrage-Mail (bestehendes Template, functions.php ~4520) aus **allen** Einstiegen,
-gespeist aus demselben `inquiry`-Payload → Chat-Karte **und** Mail tragen identische Details +
-denselben Deep-Link in den Chat.
-
-## Datenfluss
+## Datenfluss (unverändert, nur vereinheitlicht)
 
 ```
-Einstieg (Listing / Board / Unterseite)
-  → sendInquiry({providerId, listingId, message, eventDate, eventType, budget, source})
-    → POST /conversations { other_user_id, listing_id, inquiry }
-       ├─ Konversation finden/erstellen
-       ├─ System-Nachricht body = JSON(inquiry)         → Chat: Detail-Karte
-       └─ wp_mail reiche Anfrage-Mail + Deep-Link        → E-Mail
+Listing bookListing / Board Kontaktieren
+  → POST /conversations {other_user_id, listing_id}
+  → POST /messages { content: JSON{kind:'inquiry', …, source}, type:'message' }
+       ├─ Chat: _renderBookingCard → cbc-inquiry-Karte (mit Quelle)
+       └─ eb_messages_send: reiche Inquiry-Mail (mit Quelle) + Deep-Link
 ```
 
 ## Edge Cases / Sicherheit
 
-- **Bestehende Konversation:** neue System-Anfrage anhängen (Endpoint gibt heute `existing:true` zurück → erweitern: auch dann Inquiry-Message + Mail).
-- **Nicht-VB-Listing:** kein Gegenangebot (UI + Server); Erst-Anfrage/Buchung zum Festpreis bleibt erlaubt.
-- **Abwärtskompat:** alte Plain-System-Nachrichten („Gespräch gestartet …") rendern unverändert.
-- **XSS:** alle Inquiry-Felder bei Render (`_escHtml`) und in der Mail (`esc_html`) escapen; JSON nur server-seitig erzeugt, Client parst defensiv (try/catch, Tag-Check `_eb==='inquiry'`).
-- **Self-Inquiry:** eigenes Inserat anfragen bleibt blockiert (bestehende Prüfung).
+- **Abwärtskompat:** bestehende `type:'booking'`-Altnachrichten rendern weiter (booking-Zweig bleibt).
+- **Nicht-VB:** kein Gegenangebot (UI + Server); Erst-Buchung zum Festpreis erlaubt.
+- **XSS:** Felder in Karte (`_escHtml`) und Mail (`esc_html`) escapen (bestehend).
+- **VB-Quelle:** `negotiable` kommt aus dem Listing der Konversation (Server-Lookup), nicht aus dem Client.
 
 ## Verifikation
 
-- `php -l functions.php`, `~/node-v22/bin/node --check app.js`, Rebuild `index.html` (app-shell betroffen).
-- Server live (von mir): Anfrage erzeugt JSON-System-Nachricht; `conversations`-Endpoint kein 500; Offer-Endpoint lehnt Gegenangebot auf non-VB ab.
-- **Eingeloggter Browser-Check (Nutzer):** Anfrage aus Listing/Board/Unterseite → erkennbare Detail-Karte im Chat + Mail mit identischen Details; Gegenangebot nur bei VB-Inseraten; alle Einstiege landen im selben Chat.
+- `php -l functions.php`, `~/node-v22/bin/node --check app.js`, Rebuild `index.html` falls app-shell betroffen (VB-Button Detailseite).
+- Server live (von mir): `type:'offer'` auf non-VB-Listing → 400; `conversations`/`messages` kein 500.
+- **Eingeloggter Browser-Check (Nutzer):** Listing-Anfrage → identische „Projekt-Anfrage"-Karte wie Board + reiche Mail (kein rohes JSON); Quelle sichtbar; Gegenangebot nur bei VB-Inseraten.
 
 ## Offene Punkte
 
-- Genaue Liste der „Unterseiten-CTAs", die noch nicht über `sendInquiry` laufen → im Plan via Audit der Call-Sites bestimmt.
-- Budget-Quelle je Einstieg (Listing-Preis vs. freie Eingabe) → im Plan je Call-Site festgelegt.
+Keine — Scope auf den realen Gap (A Listing→inquiry, B Quelle, C VB-Gating) eingegrenzt.
