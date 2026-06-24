@@ -5252,6 +5252,29 @@ function _sanitizeOutgoingMessage(text, dateHint, options) {
   return msg;
 }
 
+function _sendChatImage(input) {
+  var file = input && input.files && input.files[0];
+  if (input) input.value = '';
+  if (!file || !currentChat || !currentChat.id) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('Bild zu groß! Max. 5 MB', 'error'); return; }
+  showToast('Bild wird gesendet…', 'image');
+  uploadFile(file).then(function(r) {
+    var url = r && r.url;
+    if (!url) throw new Error('Upload fehlgeschlagen.');
+    return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+      body: JSON.stringify({ content: url, type: 'image' })
+    });
+  }).then(function() {
+    // Sofort pollen, damit das Bild gleich erscheint (#8-Mechanik)
+    _chatPollDelay = _CHAT_POLL_BASE;
+    if (currentChat && currentChat.id && !document.hidden && typeof _chatPollTick === 'function') {
+      clearTimeout(_chatPollTimer); _chatPollTick();
+    }
+  }).catch(function(err) {
+    showToast((err && err.message) || 'Bild konnte nicht gesendet werden.', 'error');
+  });
+}
 var _lastTypingPing = 0;
 function _onChatInput() {
   if (!currentChat || !currentChat.id || document.hidden) return;
