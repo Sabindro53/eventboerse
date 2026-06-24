@@ -13289,11 +13289,11 @@ function renderAuftraegePage() {
 
   // Vom Server: Buchungen in fremden Boards, die zum aktuellen Provider gehören
   if (isProvider && currentUser) {
-    fetch(_apiUrl('board-bookings') + '?debug=1', {
+    var _ebIsLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(window.location.hostname);
+    fetch(_apiUrl('board-bookings') + (_ebIsLocal ? '?debug=1' : ''), {
       method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
     }).then(function(r){ return r.json(); }).then(function(data){
-      // TEMP-Diagnose: zeigt provider listings, gescannte Boards, gesehene listingIds, Matches
-      try { if (data && data._debug) console.log('[Auftragsboard DEBUG]', JSON.stringify(data._debug, null, 2)); } catch(e){}
+      if (_ebIsLocal) { try { if (data && data._debug) console.log('[Auftragsboard DEBUG]', JSON.stringify(data._debug, null, 2)); } catch(e){} }
       var remoteBookings = (data && data.bookings) || [];
       remoteBookings.forEach(function(b){
         // Duplikate mit lokalen Jobs vermeiden (gleiche card.id)

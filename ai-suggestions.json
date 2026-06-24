@@ -1,0 +1,86 @@
+{
+  "generated_at": "2026-06-20T00:00:00Z",
+  "generated_by": "Claude Code-Audit (claude/stoic-darwin-3u27vu)",
+  "version": 1,
+  "suggestions": [
+    {
+      "id": "csp-unsafe-eval-2026-06-20",
+      "severity": "high",
+      "category": "security",
+      "title": "CSP: 'unsafe-eval' entfernen (DOM-XSS-Risiko)",
+      "file": "functions.php",
+      "line": 421,
+      "why": "Die Content-Security-Policy erlaubt aktuell 'unsafe-eval'. Damit kann jeder injizierte Code 'eval()' / 'new Function()' nutzen und beliebigen Script ausführen. Stripe, Leaflet und Flatpickr brauchen 'unsafe-eval' NICHT.",
+      "before": "\"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com ...\"",
+      "after": "\"script-src 'self' 'unsafe-inline' https://js.stripe.com ...\"",
+      "risk_if_applied": "Niedrig — sollte auf der Live-Site getestet werden (Console öffnen, prüfen ob CSP-Verstöße auftauchen). Falls doch ein Lib eval nutzt, lässt sich der Eintrag schnell wieder ergänzen.",
+      "impact": "Schließt eine konkrete XSS-Angriffsfläche."
+    },
+    {
+      "id": "temp-admin-init-2026-06-20",
+      "severity": "medium",
+      "category": "cleanup",
+      "title": "TEMP-Admin-Role-Fix in functions.php entfernen oder absichern",
+      "file": "functions.php",
+      "line": 8,
+      "why": "Der 'One-time admin role fix' läuft bei JEDEM WordPress-Init-Hook. Er forciert User ID 1 als Administrator. Bei zukünftigen User-Migrationen oder wenn User 1 später bewusst eine andere Rolle bekommt, schlägt das fehl. Marker im Code: '// TEMP: ... - remove after verification'.",
+      "before": "add_action('init', function() {\n    $u = get_userdata(1);\n    if ($u && !in_array('administrator', (array) $u->roles, true)) {\n        $u->set_role('administrator');\n        update_user_meta(1, 'eb_admin', '1');\n    }\n}, 1);",
+      "after": "// entfernen — Fix bereits angewendet (eb_admin Meta gesetzt)",
+      "risk_if_applied": "Sehr niedrig — Fix ist laut Kommentar bereits durchgeführt.",
+      "impact": "Verhindert ungewollte Rollen-Überschreibungen, spart Init-Hook-Cycles."
+    },
+    {
+      "id": "dead-patch-files-2026-06-20",
+      "severity": "low",
+      "category": "cleanup",
+      "title": "9 tote Patch-/Override-Dateien löschen (~135 KB Bloat)",
+      "file": "<multiple>",
+      "line": 0,
+      "why": "Diese Dateien sind weder in index.php, index.html noch hq.html referenziert. Stammen aus früheren Patch-Versuchen und blockieren Verständnis der echten Code-Struktur.",
+      "files_to_delete": [
+        "app-demo-patch.js",
+        "app-init-override.js",
+        "app-router.js",
+        "app-state.js",
+        "app-utils.js",
+        "app_patch_listings.js",
+        "db-bridge.js",
+        "eb-router.js",
+        "eb-state.js",
+        "functions-analytics-patch.php",
+        "_PATCH_ANLEITUNG.md",
+        "_patch_demo_data.md"
+      ],
+      "before": "12 ungenutzte Dateien im Repo-Root",
+      "after": "Aufgeräumtes Repo, klar erkennbare Aktiv-Dateien (app.js, functions.php, hq.html)",
+      "risk_if_applied": "Sehr niedrig — vor dem Push via Grep nochmal geprüft, dass nichts referenziert ist.",
+      "impact": "Sauberere Code-Basis, weniger Verwirrung für künftige Sessions."
+    },
+    {
+      "id": "messaging-polling-2026-06-20",
+      "severity": "low",
+      "category": "performance",
+      "title": "Chat-Polling (3s) durch SSE oder LongPoll ersetzen",
+      "file": "app.js",
+      "line": 0,
+      "why": "Bekannte Schwäche aus CLAUDE.md: Messaging nutzt 3-Sekunden-Polling. Das sind ~20 Requests/Min pro offenem Chat — unnötige WordPress-Last + Client-CPU.",
+      "before": "setInterval(loadMessages, 3000)",
+      "after": "Server-Sent Events (SSE) via PHP 'text/event-stream' oder LongPolling-Endpoint.",
+      "risk_if_applied": "Mittel — größere Änderung, braucht Server-Endpoint + Client-EventSource. Erstmal als Issue für später.",
+      "impact": "Spürbar weniger Backend-Last bei aktiven Chats."
+    },
+    {
+      "id": "demo-listings-hardcoded-2026-06-20",
+      "severity": "low",
+      "category": "architecture",
+      "title": "Demo-LISTINGS/REVIEWS/CHATS aus app.js entfernen",
+      "file": "app.js",
+      "line": 0,
+      "why": "Bekannte Schwäche aus CLAUDE.md: Demo-Daten sind noch hardcoded in app.js. Plan war: schrittweise durch DB-Calls via loadDbListings() ersetzen. Macht app.js unnötig groß und vermischt Demo-/Prod-State.",
+      "before": "var LISTINGS = [ ... 50+ hartcodierte Einträge ... ]",
+      "after": "var LISTINGS = []; // wird via loadDbListings() befüllt",
+      "risk_if_applied": "Mittel — vorher prüfen, dass loadDbListings() alle Felder zuverlässig liefert und Fallbacks für 'Listing nicht gefunden' existieren.",
+      "impact": "Reduziert app.js-Größe, sauberer Daten-Flow, schnellerer initialer Parse."
+    }
+  ]
+}

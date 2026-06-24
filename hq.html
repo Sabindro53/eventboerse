@@ -384,6 +384,53 @@
   .empty { color: var(--muted); padding: 1rem; text-align:center; font-size:.85rem; }
   .err { color: #fca5a5; padding: 1rem; font-size:.85rem; }
 
+  /* ── KI-Vorschläge ── */
+  .sugs { display: grid; gap: .8rem; margin-bottom: 2rem; }
+  .sug-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1rem 1.15rem; transition: border-color .2s, transform .15s; position: relative;
+  }
+  .sug-card:hover { border-color: var(--violet); }
+  .sug-card.sev-high { border-left: 3px solid var(--red); }
+  .sug-card.sev-medium { border-left: 3px solid var(--yellow); }
+  .sug-card.sev-low { border-left: 3px solid var(--cyan); }
+  .sug-card.approved { opacity: .55; border-color: var(--green); }
+  .sug-card.rejected { opacity: .35; }
+  .sug-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .6rem; margin-bottom: .35rem; }
+  .sug-title { font-size: .92rem; font-weight: 700; line-height: 1.35; }
+  .sug-sev { font-size: .65rem; padding: .15rem .55rem; border-radius: 999px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
+  .sug-sev.high { background: rgba(239,68,68,.15); color: #fca5a5; }
+  .sug-sev.medium { background: rgba(234,179,8,.15); color: var(--yellow); }
+  .sug-sev.low { background: rgba(34,211,238,.15); color: var(--cyan); }
+  .sug-meta { font-size: .72rem; color: var(--muted); display: flex; gap: .65rem; flex-wrap: wrap; margin-bottom: .55rem; }
+  .sug-meta code { background: var(--surface2); padding: .05rem .35rem; border-radius: 4px; font-size: .7rem; }
+  .sug-why { font-size: .82rem; line-height: 1.5; color: var(--text); margin-bottom: .55rem; }
+  .sug-details { margin: .5rem 0; }
+  .sug-details summary { cursor: pointer; font-size: .76rem; color: var(--violet); user-select: none; padding: .15rem 0; }
+  .sug-details summary:hover { color: var(--pink); }
+  .sug-diff {
+    background: var(--surface2); border-radius: 8px; padding: .6rem .8rem; margin-top: .45rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .72rem; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+  }
+  .sug-diff .lbl { color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: .15rem; }
+  .sug-diff .before { color: #fca5a5; }
+  .sug-diff .after { color: #86efac; }
+  .sug-actions { display: flex; gap: .45rem; flex-wrap: wrap; margin-top: .65rem; padding-top: .6rem; border-top: 1px solid var(--border); }
+  .sug-btn {
+    font-size: .76rem; padding: .4rem .85rem; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: .3rem; transition: all .15s; font-weight: 600;
+  }
+  .sug-btn:hover { border-color: var(--violet); background: var(--surface3); }
+  .sug-btn.approve { background: linear-gradient(135deg, #16a34a, #22c55e); border: none; color: #fff; }
+  .sug-btn.approve:hover { opacity: .9; }
+  .sug-btn.reject { background: var(--surface2); color: var(--muted); }
+  .sug-btn.reject:hover { color: #fca5a5; border-color: var(--red); }
+  .sug-status { font-size: .72rem; font-weight: 700; padding: .3rem .7rem; border-radius: 999px; }
+  .sug-status.approved { background: rgba(34,197,94,.15); color: var(--green); }
+  .sug-status.rejected { background: rgba(148,163,184,.15); color: var(--muted); }
+
   @media (max-width: 720px) {
     .hud-stats { grid-template-columns: 1fr 1fr; }
     .release-top { flex-direction: column; gap: .3rem; }
@@ -520,6 +567,16 @@
       <div class="skeleton" style="height:180px;"></div>
     </div>
 
+    <!-- KI-Vorschläge -->
+    <div class="section-header">
+      <div class="section-title">🧠 KI-Vorschläge <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— zustimmen oder ablehnen</span></div>
+      <div class="section-badge" id="sugs-badge">–</div>
+    </div>
+    <div class="sugs" id="sugs-list">
+      <div class="skeleton" style="height:120px;"></div>
+      <div class="skeleton" style="height:120px;"></div>
+    </div>
+
     <!-- Quest log -->
     <div class="section-header">
       <div class="section-title">📜 Aktivitäts-Log</div>
@@ -581,7 +638,7 @@ const SITE_URL = 'https://xn--eventbrse-57a.de/';
 const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
+const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0, suggestions: [] };
 const $ = id => document.getElementById(id);
 
 /* ─── Auth ─────────────────────────────────────────────────────── */
@@ -987,6 +1044,160 @@ function renderBots() {
   });
 }
 
+/* ─── KI-Vorschläge ────────────────────────────────────────────── */
+const SUGS_DECISIONS_KEY = 'hq_sug_decisions';
+function loadSugDecisions() { try { return JSON.parse(localStorage.getItem(SUGS_DECISIONS_KEY)) || {}; } catch { return {}; } }
+function saveSugDecision(id, decision, extra) {
+  const all = loadSugDecisions();
+  all[id] = Object.assign({ decision, at: new Date().toISOString() }, extra || {});
+  localStorage.setItem(SUGS_DECISIONS_KEY, JSON.stringify(all));
+}
+
+async function loadSuggestions() {
+  try {
+    const res = await fetch('ai-suggestions.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    state.suggestions = data.suggestions || [];
+    state.suggestionsGeneratedAt = data.generated_at;
+    renderSuggestions();
+  } catch (e) {
+    $('sugs-list').innerHTML = `<div class="empty">Keine KI-Vorschläge gefunden (ai-suggestions.json fehlt oder ist leer).</div>`;
+    $('sugs-badge').textContent = '0';
+  }
+}
+
+function renderSuggestions() {
+  const list = $('sugs-list');
+  const sugs = state.suggestions || [];
+  const decisions = loadSugDecisions();
+  const showRejected = localStorage.getItem('hq_sug_show_rejected') === '1';
+  const visible = sugs.filter(s => showRejected || !(decisions[s.id] && decisions[s.id].decision === 'rejected'));
+  const pending = sugs.filter(s => !decisions[s.id]).length;
+  $('sugs-badge').textContent = pending ? pending + ' offen' : '✓ alle bewertet';
+  if (!visible.length) {
+    list.innerHTML = `<div class="empty">🎉 Alles bewertet. <button class="sug-btn" id="show-rejected-btn" style="margin-left:.5rem;">Abgelehnte anzeigen</button></div>`;
+    const btn = $('show-rejected-btn');
+    if (btn) btn.addEventListener('click', () => { localStorage.setItem('hq_sug_show_rejected', '1'); renderSuggestions(); });
+    return;
+  }
+  list.innerHTML = visible.map(s => {
+    const d = decisions[s.id];
+    const sevCls = s.severity || 'low';
+    const filesList = s.files_to_delete ? '<br><strong>Dateien:</strong> <code>' + s.files_to_delete.map(escHtml).join('</code> <code>') + '</code>' : '';
+    const lineInfo = s.line ? `:${s.line}` : '';
+    const stateCls = d ? d.decision : '';
+    const statusBadge = d
+      ? `<span class="sug-status ${d.decision}">${d.decision === 'approved' ? '✓ Zugestimmt' : '✗ Abgelehnt'}</span>`
+      : '';
+    const actions = d
+      ? `<button class="sug-btn" data-sug-reset="${escHtml(s.id)}">↺ Bewertung zurücksetzen</button>${d.issue_url ? `<a class="sug-btn" href="${escHtml(d.issue_url)}" target="_blank" rel="noopener">📋 Issue öffnen</a>` : ''}`
+      : `<button class="sug-btn approve" data-sug-approve="${escHtml(s.id)}">✓ Zustimmen</button>
+         <button class="sug-btn reject" data-sug-reject="${escHtml(s.id)}">✗ Ablehnen</button>`;
+    return `
+      <div class="sug-card sev-${sevCls} ${stateCls}">
+        <div class="sug-head">
+          <div class="sug-title">${escHtml(s.title)}</div>
+          <span class="sug-sev ${sevCls}">${sevCls === 'high' ? '🔴 hoch' : sevCls === 'medium' ? '🟡 mittel' : '🟢 niedrig'}</span>
+        </div>
+        <div class="sug-meta">
+          <span>📁 <code>${escHtml(s.file)}${lineInfo}</code></span>
+          <span>🏷️ ${escHtml(s.category || '')}</span>
+          ${statusBadge}
+        </div>
+        <div class="sug-why">${escHtml(s.why || '')}${filesList}</div>
+        <details class="sug-details">
+          <summary>Vorgeschlagene Änderung anzeigen</summary>
+          <div class="sug-diff">
+            ${s.before ? `<span class="lbl">Vorher</span><span class="before">${escHtml(s.before)}</span>\n\n` : ''}
+            ${s.after ? `<span class="lbl">Nachher</span><span class="after">${escHtml(s.after)}</span>` : ''}
+          </div>
+          ${s.risk_if_applied ? `<div style="font-size:.78rem;color:var(--muted);margin-top:.55rem;"><strong>Risiko:</strong> ${escHtml(s.risk_if_applied)}</div>` : ''}
+          ${s.impact ? `<div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;"><strong>Nutzen:</strong> ${escHtml(s.impact)}</div>` : ''}
+        </details>
+        <div class="sug-actions">${actions}</div>
+      </div>`;
+  }).join('');
+}
+
+async function approveSuggestion(id) {
+  const sug = (state.suggestions || []).find(s => s.id === id);
+  if (!sug) return;
+  const pat = getPat();
+  if (!pat) {
+    showToast('🔑 GitHub-Token nötig, um ein Issue zu öffnen', 'error');
+    requirePat();
+    return;
+  }
+  const btn = document.querySelector(`[data-sug-approve="${id}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Erstelle Issue…'; }
+  const filesLine = sug.files_to_delete ? '\n\n**Dateien:**\n' + sug.files_to_delete.map(f => '- `' + f + '`').join('\n') : '';
+  const lineRef = sug.line ? ':' + sug.line : '';
+  const body = `**KI-Vorschlag aus HQ — vom User zugestimmt**
+
+- **Datei:** \`${sug.file}${lineRef}\`
+- **Severity:** ${sug.severity}
+- **Kategorie:** ${sug.category}
+- **Suggestion-ID:** \`${sug.id}\`
+
+## Warum
+${sug.why || '–'}
+
+## Vorgeschlagene Änderung
+**Vorher:**
+\`\`\`
+${sug.before || '–'}
+\`\`\`
+
+**Nachher:**
+\`\`\`
+${sug.after || '–'}
+\`\`\`
+${filesLine}
+
+## Risiko
+${sug.risk_if_applied || '–'}
+
+## Nutzen
+${sug.impact || '–'}
+
+---
+_Erstellt via EventBörse HQ · KI-Vorschläge-Panel · ${new Date().toISOString()}_`;
+  try {
+    const res = await ghRes('/issues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `[AI-Fix] ${sug.title}`,
+        body,
+        labels: ['approved-fix', 'ai-suggestion', sug.category || 'cleanup']
+      })
+    });
+    const issue = await res.json();
+    saveSugDecision(id, 'approved', { issue_url: issue.html_url, issue_number: issue.number });
+    showToast(`✅ Issue #${issue.number} erstellt — Claude-Bot kann den Fix jetzt aufgreifen`, 'success');
+    sfx('success');
+    renderSuggestions();
+  } catch (e) {
+    showToast('❌ Issue konnte nicht erstellt werden: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Zustimmen'; }
+  }
+}
+
+function rejectSuggestion(id) {
+  saveSugDecision(id, 'rejected');
+  showToast('Vorschlag abgelehnt', 'info');
+  sfx('click');
+  renderSuggestions();
+}
+
+function resetSuggestionDecision(id) {
+  const all = loadSugDecisions();
+  delete all[id];
+  localStorage.setItem(SUGS_DECISIONS_KEY, JSON.stringify(all));
+  renderSuggestions();
+}
+
 /* ─── Quick actions ────────────────────────────────────────────── */
 function renderQuickActions() {
   const acts = [
@@ -1144,6 +1355,7 @@ async function init() {
   $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
   renderQuests(); renderAchievements(); // instant, local
   renderFromCache();                    // instant, cached GitHub data
+  loadSuggestions();                    // local file, no auth needed
   await checkSiteStatus();
   await loadAll();                      // fresh GitHub data
   renderHud();
@@ -1153,6 +1365,7 @@ async function refreshAll() {
   showToast('🔄 Aktualisiere…');
   await checkSiteStatus();
   await loadAll();
+  loadSuggestions();
   renderHud();
   showToast('✅ Aktualisiert', 'success'); sfx('click');
 }
@@ -1182,6 +1395,9 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const sa = e.target.closest('[data-sug-approve]'); if (sa) { approveSuggestion(sa.dataset.sugApprove); return; }
+  const sr = e.target.closest('[data-sug-reject]'); if (sr) { rejectSuggestion(sr.dataset.sugReject); return; }
+  const sx = e.target.closest('[data-sug-reset]'); if (sx) { resetSuggestionDecision(sx.dataset.sugReset); return; }
 });
 
 // Keyboard shortcuts
