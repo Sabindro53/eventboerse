@@ -1524,7 +1524,8 @@
               <span class="cti-dots" aria-hidden="true"><i></i><i></i><i></i></span>
             </div>
             <div class="chat-input-bar" id="chatInputBar">
-              <button class="chat-attach-btn" title="Anhang" aria-label="Anhang">
+              <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="_sendChatImage(this)" />
+              <button class="chat-attach-btn" title="Bild anhängen" aria-label="Bild anhängen" onclick="document.getElementById('chatImageInput').click()">
                 <span class="material-icons-round">attach_file</span>
               </button>
               <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" oninput="_onChatInput()" />

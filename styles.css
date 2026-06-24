@@ -14955,6 +14955,13 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   text-decoration: line-through;
 }
 
+/* Chat-Bild-Anhänge (#img) */
+.chat-img-msg { padding: 4px !important; }
+.chat-image {
+  display: block; max-width: 220px; max-height: 260px; width: auto; height: auto;
+  border-radius: 12px; cursor: pointer; object-fit: cover;
+}
+
 /* Chat-Tipp-Indikator (#typing) */
 .chat-typing-indicator {
   display: flex; align-items: center; gap: 6px;
