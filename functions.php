@@ -4477,6 +4477,14 @@ function eb_messages_send( WP_REST_Request $request ) {
     $body     = sanitize_textarea_field( $params['content'] ?? ( $params['text'] ?? '' ) );
     $msg_type = sanitize_text_field( $params['type'] ?? 'text' );
 
+    // Bild-Anhang: body muss eine URL aus dem eigenen Upload-Origin sein (kein Fremd-Hotlinking).
+    if ( $msg_type === 'image' ) {
+        $up_base = wp_upload_dir()['baseurl'];
+        if ( ! $body || strpos( $body, $up_base ) !== 0 ) {
+            return new WP_REST_Response( array( 'message' => 'Ungültiger Bild-Anhang.' ), 400 );
+        }
+    }
+
     if ( empty( $body ) && $msg_type === 'text' ) {
         return new WP_REST_Response( array( 'message' => 'Nachricht darf nicht leer sein.' ), 400 );
     }
@@ -4571,6 +4579,13 @@ function eb_messages_send( WP_REST_Request $request ) {
             $message .= '<p style="margin:22px 0 4px 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Im Chat antworten</a></p>';
             $message .= '<p style="color:#717171;font-size:13px;margin-top:22px">Im Chat kannst du direkt <strong>Annehmen</strong> oder einen <strong>Alternativtermin</strong> vorschlagen.</p>';
             $message .= '</div></div>';
+        } elseif ( $msg_type === 'image' ) {
+            $subject  = '📷 Neues Bild auf Eventbörse';
+            $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#222">';
+            $message .= '<h2 style="margin:0 0 8px">📷 Neues Bild von ' . esc_html( $sender_name ) . '</h2>';
+            $message .= '<img src="' . esc_url( $body ) . '" alt="Bild" style="max-width:100%;border-radius:10px;margin:12px 0" />';
+            $message .= '<p style="margin:18px 0 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Im Chat ansehen</a></p>';
+            $message .= '</div>';
         } else {
             $subject = 'Neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' auf Eventbörse';
             $preview = $is_offer ? $insert['body'] : $body;
