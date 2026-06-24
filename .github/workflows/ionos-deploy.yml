@@ -24,7 +24,7 @@ jobs:
       - name: Minify assets (#6 Part 2)
         run: |
           echo "Vorher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
-          npx --yes terser app.js --mangle -o app.js
+          npx --yes terser app.js --compress --mangle -o app.js
           # Gate 1: gültiges JS?
           node --check app.js
           # Gate 2: Inline-Handler-Globals noch da? (mangle.toplevel=false -> ja)
