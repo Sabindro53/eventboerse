@@ -4559,7 +4559,7 @@ function _chatPollTick() {
     if (currentChat.otherId) _updateChatStatus(currentChat.otherId);
     var _q = currentChat._cursor ? ('?since=' + encodeURIComponent(currentChat._cursor)) : '';
     fetch(_apiUrl('conversations/' + currentChat.id + '/messages' + _q), { credentials: 'same-origin', headers: _apiHeaders() })
-      .then(function(r) { var _cur = r.headers.get('X-EB-Cursor'); return r.json().then(function(m){ return { delta: m, cursor: _cur }; }); })
+      .then(function(r) { var _cur = r.headers.get('X-EB-Cursor'); var _typ = r.headers.get('X-EB-Partner-Typing'); return r.json().then(function(m){ return { delta: m, cursor: _cur, typing: _typ }; }); })
       .then(function(res) {
         if (!currentChat) return;
         var delta = (res && res.delta) || [];
@@ -4574,6 +4574,8 @@ function _chatPollTick() {
         }
         var messages = currentChat.messages;
         var hadDelta = delta.length > 0;
+        if (res.typing === '1') { _showTypingIndicator(); _chatPollDelay = _CHAT_POLL_BASE; }
+        else { _hideTypingIndicator(); }
         // #8 Backoff: neue/geänderte Nachricht → schnelle Basis, sonst Intervall erhöhen (Cap 20s)
         if (hadDelta) { _chatPollDelay = _CHAT_POLL_BASE; }
         else { _chatPollDelay = Math.min(Math.round(_chatPollDelay * 1.6), _CHAT_POLL_CAP); }
@@ -5250,6 +5252,27 @@ function _sanitizeOutgoingMessage(text, dateHint, options) {
   return msg;
 }
 
+var _lastTypingPing = 0;
+function _onChatInput() {
+  if (!currentChat || !currentChat.id || document.hidden) return;
+  var now = Date.now();
+  if (now - _lastTypingPing < 4000) return; // Drossel: max 1×/4s
+  _lastTypingPing = now;
+  fetch(_apiUrl('conversations/' + currentChat.id + '/typing'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders()
+  }).catch(function(){});
+}
+function _showTypingIndicator() {
+  var el = document.getElementById('chatTypingIndicator');
+  if (!el || !currentChat) return;
+  var nameEl = document.getElementById('chatTypingName');
+  if (nameEl) nameEl.textContent = (currentChat.name || 'Jemand');
+  el.style.display = '';
+}
+function _hideTypingIndicator() {
+  var el = document.getElementById('chatTypingIndicator');
+  if (el) el.style.display = 'none';
+}
 function sendMessage() {
   const input = document.getElementById('chatInput');
   const text = _sanitizeOutgoingMessage(input.value, '', { enforceFormalSignature: false });
