@@ -344,6 +344,51 @@ window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FAL
   }, true);
 })();
 
+// --- Admin-Bild-Blocklist ---
+// Vom Admin gelöschte Bilder (auch bei hardcodierten Demo-Listings, die nicht
+// in der DB liegen). Der Server liefert normalisierte Pfade via eventboerseApi;
+// der Client blendet passende Bilder aus, sodass Löschungen Reload-fest sind.
+window.EB_IMG_BLOCKLIST = (function() {
+  var set = new Set();
+  try {
+    var list = (window.eventboerseApi && window.eventboerseApi.imageBlocklist) || [];
+    if (Array.isArray(list)) list.forEach(function(p) { if (p) set.add(String(p)); });
+  } catch (e) {}
+  return set;
+})();
+
+// Normalisiert eine Bild-URL auf ihren Pfad ohne Query (spiegelt serverseitiges
+// eb_norm_img_url) — so matchen verschiedene Größen-/Query-Varianten desselben Bilds.
+function _imgNormPath(u) {
+  if (!u) return '';
+  try {
+    var s = String(u);
+    var q = s.indexOf('?');
+    if (q >= 0) s = s.slice(0, q);
+    try { return new URL(s, window.location.origin).pathname; }
+    catch (e) { return s; }
+  } catch (e) { return ''; }
+}
+
+function _isImgBlocked(u) {
+  if (!u || !window.EB_IMG_BLOCKLIST || window.EB_IMG_BLOCKLIST.size === 0) return false;
+  return window.EB_IMG_BLOCKLIST.has(_imgNormPath(u));
+}
+
+// Entfernt geblockte Bilder aus einer Listing-Liste (images[] + image-Cover).
+function _applyImageBlocklist(arr) {
+  if (!window.EB_IMG_BLOCKLIST || window.EB_IMG_BLOCKLIST.size === 0) return;
+  (Array.isArray(arr) ? arr : []).forEach(function(l) {
+    if (!l) return;
+    if (Array.isArray(l.images)) {
+      l.images = l.images.filter(function(u) { return !_isImgBlocked(u); });
+    }
+    if (l.image && _isImgBlocked(l.image)) {
+      l.image = (Array.isArray(l.images) && l.images.length) ? l.images[0] : window.EB_IMG_FALLBACK;
+    }
+  });
+}
+
 // Feed-Bild Auto-Fit: Banner / Hochformat -> contain (volles Bild), normale Fotos -> cover
 window._fitFeedImg = function(img) {
   if (!img || !img.naturalWidth || !img.naturalHeight) return;
@@ -792,6 +837,11 @@ const LISTINGS = [
   } catch(e) { /* fail-safe: kein Block, falls LISTINGS noch nicht da */ }
 })();
 
+// Vom Admin gelöschte Bilder aus den Demo-Listings entfernen (Reload-fest).
+(function applyDemoImageBlocklist(){
+  try { if (Array.isArray(LISTINGS)) _applyImageBlocklist(LISTINGS); } catch(e) {}
+})();
+
 const DEMO_REVIEWS = [
   { name: 'Sarah L.', avatar: 'sarah2', rating: 5, date: 'Februar 2026', text: 'Absolut fantastisch! Max hat unsere Hochzeitsfeier unvergesslich gemacht. Die Musikauswahl war perfekt!' },
   { name: 'Markus W.', avatar: 'markus', rating: 5, date: 'Januar 2026', text: 'Professionell, zuverlässig und eine geniale Stimmung. Jederzeit wieder!' },
@@ -1115,6 +1165,7 @@ async function loadDbListings() {
     if (data.listings && data.listings.length > 0) {
       _mergeDbListingsIntoCache(data.listings);
     }
+    _applyImageBlocklist(LISTINGS); // vom Admin gelöschte Bilder auch hier ausblenden
     _dbListingsLoaded = true;
     try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
     try { updateHeroStats(); } catch (err) { /* Stats optional */ }
@@ -3478,6 +3529,8 @@ function loadProvider(providerId) {
   if (currentUser && _sameUserId(pid, currentUser.id) && currentUser.gallery && currentUser.gallery.length > 0) {
     providerImages = currentUser.gallery.slice();
   }
+  // Vom Admin gelöschte Bilder ausblenden (auch Demo-Profile, Reload-fest)
+  providerImages = providerImages.filter(function(u) { return !_isImgBlocked(u); });
 
   // Cover Gallery — full-width animated scroll rows
   buildGalleryRows(providerImages);
@@ -4407,13 +4460,11 @@ function adminDeleteProfileImage(index, ev) {
   }).then(function(r) {
     _refreshNonce(r);
     if (!r.ok) { showToast('Löschen fehlgeschlagen', 'error'); return; }
-    // Lokal entfernen (alle Vorkommen) + Caches aktualisieren
-    providerImages = providerImages.filter(function(u) { return u !== url; });
-    LISTINGS.forEach(function(l) {
-      if (l && Array.isArray(l.images) && _sameUserId(_listingOwnerId(l), targetId)) {
-        l.images = l.images.filter(function(u) { return u !== url; });
-      }
-    });
+    // Blocklist im Client mitziehen → entfernt alle Größen-Varianten + Cover,
+    // greift sofort und bleibt nach Reload weg (Server persistiert ebenfalls).
+    if (window.EB_IMG_BLOCKLIST) window.EB_IMG_BLOCKLIST.add(_imgNormPath(url));
+    providerImages = providerImages.filter(function(u) { return !_isImgBlocked(u); });
+    _applyImageBlocklist(LISTINGS);
     _renderProviderPortfolio();
     buildGalleryRows(providerImages);
     // Lightbox-Status nachziehen, falls geöffnet

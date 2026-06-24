@@ -348,6 +348,9 @@ function eventboerse_enqueue_assets() {
         'isLoggedIn' => is_user_logged_in(),
         'user'       => $user_data,
         'siteUrl'    => trailingslashit( home_url() ),
+        // Vom Admin entfernte Bilder (normalisierte Pfade) — der Client blendet
+        // sie aus, auch bei hardcodierten Demo-Listings (siehe eb_admin_moderate_image).
+        'imageBlocklist' => array_values( (array) get_option( 'eb_demo_image_blocklist', array() ) ),
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
@@ -3533,11 +3536,28 @@ function eb_admin_moderate_image( WP_REST_Request $request ) {
         }
     }
 
+    // 3) Persistente Blocklist (normalisierter Pfad). Wirkt auch für
+    //    hardcodierte Demo-Listings im Client, die NICHT in der DB liegen —
+    //    sonst käme das Bild nach jedem Reload zurück.
+    $norm = eb_norm_img_url( $image );
+    if ( $norm !== '' ) {
+        $blocklist = (array) get_option( 'eb_demo_image_blocklist', array() );
+        if ( ! in_array( $norm, $blocklist, true ) ) {
+            $blocklist[] = $norm;
+            // Begrenzen, damit die Option nicht unbegrenzt wächst.
+            if ( count( $blocklist ) > 1000 ) {
+                $blocklist = array_slice( $blocklist, -1000 );
+            }
+            update_option( 'eb_demo_image_blocklist', array_values( $blocklist ), false );
+        }
+    }
+
     return new WP_REST_Response( array(
-        'removed'         => ( $gallery_removed + $listing_removed ) > 0,
+        'removed'         => true,
         'image'           => $image,
         'gallery_removed' => $gallery_removed,
         'listing_removed' => $listing_removed,
+        'blocklisted'     => $norm,
     ), 200 );
 }
 
