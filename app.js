@@ -4640,6 +4640,8 @@ function _chatPollTick() {
             return _renderBookingCard(msg);
           } else if (_isStatusMessage(msg.text || msg.content)) {
             return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
+          } else if (msg.msg_type === 'image' || msg.type === 'image') {
+            return _renderChatImageMsg(msg);
           } else {
             var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
             var time = msg.time || '';
@@ -4729,6 +4731,20 @@ function _collectCancelledProjectNames(messages) {
   return out;
 }
 
+function _renderChatImageMsg(msg) {
+  var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
+  var url = msg.text || msg.content || '';
+  var time = msg.time || '';
+  return '<div class="msg ' + cls + ' chat-img-msg">' +
+    '<img class="chat-image" src="' + _escHtml(url) + '" alt="Bild" loading="lazy" decoding="async" onclick="openChatImage(\'' + _escHtml(url) + '\')" />' +
+    '<span class="msg-time">' + _escHtml(time) + '</span></div>';
+}
+function openChatImage(url) {
+  if (typeof _galleryLightboxImages !== 'undefined') { _galleryLightboxImages = [url]; _galleryLightboxIndex = 0; }
+  var img = document.getElementById('galleryLightboxImg'); if (img) img.src = url;
+  var c = document.getElementById('galleryLightboxCounter'); if (c) c.textContent = '1 / 1';
+  var lb = document.getElementById('galleryLightbox'); if (lb) lb.classList.add('show');
+}
 function _renderBookingCard(msg) {
   var raw = msg.text || msg.content || '';
   var side = msg.type === 'sent' ? 'sent' : 'received';
@@ -5157,6 +5173,8 @@ function openChat(chatId) {
           return _renderBookingCard(msg);
         } else if (_isStatusMessage(msg.text || msg.content)) {
           return '<div class="msg msg-system">' + _escHtml(msg.text || msg.content || '') + '</div>';
+        } else if (msg.msg_type === 'image' || msg.type === 'image') {
+          return _renderChatImageMsg(msg);
         } else {
           var cls = msg.type === 'sent' ? 'msg-sent' : 'msg-received';
           var time = msg.time || '';
