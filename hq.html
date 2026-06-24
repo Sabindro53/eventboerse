@@ -342,6 +342,35 @@
   .run-link { color: var(--pink); font-size: .73rem; text-decoration: none; }
   .run-link:hover { text-decoration: underline; }
 
+  /* ── Proposals (open PRs) ── */
+  .proposals { display: flex; flex-direction: column; gap: .7rem; margin-bottom: 2rem; }
+  .proposal-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 13px;
+    padding: 1rem 1.2rem; transition: border-color .2s; position: relative; overflow: hidden;
+  }
+  .proposal-card:hover { border-color: var(--violet); }
+  .proposal-card.draft { border-style: dashed; }
+  .proposal-card.bot::before {
+    content: '🤖 BOT'; position: absolute; top: -10px; right: 16px;
+    background: linear-gradient(135deg, var(--violet), var(--cyan)); color: #fff;
+    font-size: .6rem; font-weight: 800; letter-spacing: .08em; padding: .18rem .6rem;
+    border-radius: 999px; box-shadow: var(--glow) rgba(124,58,237,.4);
+  }
+  .proposal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .55rem; }
+  .proposal-num { font-family: monospace; font-size: .78rem; color: var(--cyan); background: var(--surface2); padding: .2rem .5rem; border-radius: 6px; flex-shrink: 0; }
+  .proposal-date { font-size: .73rem; color: var(--muted); flex-shrink: 0; }
+  .proposal-title { font-weight: 700; font-size: .94rem; margin-bottom: .4rem; line-height: 1.4; }
+  .proposal-body { font-size: .82rem; color: var(--muted); line-height: 1.5; max-height: 4.6em; overflow: hidden; white-space: pre-wrap; }
+  .proposal-meta { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .6rem; font-size: .7rem; align-items: center; }
+  .proposal-stat { display: inline-flex; align-items: center; gap: .25rem; padding: .18rem .55rem; border-radius: 999px; background: var(--surface2); color: var(--muted); }
+  .proposal-stat.merge-ok { color: #86efac; background: #1a2e1a; }
+  .proposal-stat.merge-conflict { color: #fbbf24; background: #2a2200; }
+  .proposal-stat.draft-badge { color: #9ca3af; background: #1f1f38; }
+  .proposal-actions { display: flex; gap: .5rem; margin-top: .8rem; flex-wrap: wrap; }
+  .btn-approve { background: linear-gradient(135deg, #16a34a, #22c55e); border-color: transparent; color: #fff; }
+  .btn-approve:hover { opacity: .92; border-color: transparent; }
+  .proposal-empty { background: var(--surface); border: 1px dashed var(--border); border-radius: 13px; padding: 1.5rem; text-align: center; color: var(--muted); font-size: .86rem; }
+
   /* ── Modal ── */
   .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.72); backdrop-filter:blur(4px); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
   .modal-backdrop.open { display: flex; animation: fadeUp .25s ease; }
@@ -520,6 +549,15 @@
       <div class="skeleton" style="height:180px;"></div>
     </div>
 
+    <!-- Proposals (open PRs) -->
+    <div class="section-header">
+      <div class="section-title">🧪 Vorschläge <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— Änderungen prüfen, übernehmen oder ablehnen</span></div>
+      <div class="section-badge" id="proposals-badge">–</div>
+    </div>
+    <div class="proposals" id="proposals-list">
+      <div class="skeleton" style="height:120px;"></div>
+    </div>
+
     <!-- Quest log -->
     <div class="section-header">
       <div class="section-title">📜 Aktivitäts-Log</div>
@@ -566,6 +604,19 @@
   </div>
 </div>
 
+<!-- ══ Proposal Confirm Modal ══ -->
+<div class="modal-backdrop" id="proposal-modal">
+  <div class="modal">
+    <h2 id="proposal-modal-title">Vorschlag bestätigen</h2>
+    <p id="proposal-modal-text">–</p>
+    <div class="modal-sha" id="proposal-modal-detail">–</div>
+    <div class="modal-actions">
+      <button class="btn" id="proposal-cancel">Abbrechen</button>
+      <button class="btn" id="proposal-confirm">Bestätigen</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ Effects ══ -->
 <canvas id="confetti"></canvas>
 <div id="levelup"><div class="lu-card"><div class="lu-t">Level Up!</div><div class="lu-l" id="lu-level">2</div><div class="lu-r" id="lu-rank">Junior Dev</div></div></div>
@@ -581,7 +632,7 @@ const SITE_URL = 'https://xn--eventbrse-57a.de/';
 const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
+const state = { commits: [], runs: [], issues: [], pulls: [], proposals: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
 const $ = id => document.getElementById(id);
 
 /* ─── Auth ─────────────────────────────────────────────────────── */
@@ -715,6 +766,12 @@ async function loadIssues() {
     state.issues = all.filter(i => !i.pull_request);
     cacheSet('issues', { issues: state.issues, pulls: state.pulls });
   } catch { const c = cacheGet('issues'); if (c) { state.issues = c.data.issues; state.pulls = c.data.pulls; } }
+}
+async function loadProposals() {
+  try {
+    state.proposals = await gh('/pulls?state=open&per_page=20&sort=updated&direction=desc');
+    cacheSet('proposals', state.proposals);
+  } catch { const c = cacheGet('proposals'); if (c) state.proposals = c.data; }
 }
 
 /* ─── XP / Level / Streak ──────────────────────────────────────── */
@@ -987,6 +1044,95 @@ function renderBots() {
   });
 }
 
+/* ─── Proposals (open PRs — approve / reject) ──────────────────── */
+function classifyProposal(p) {
+  const login = (p.user && p.user.login) || '';
+  const ref = (p.head && p.head.ref) || '';
+  const isBot = /(claude|bot|github-actions|dependabot|renovate)/i.test(login)
+             || /^(claude\/|dependabot\/|renovate\/|chore\/auto|bot\/)/i.test(ref);
+  return { isBot };
+}
+function renderProposals() {
+  const list = $('proposals-list');
+  const props = state.proposals || [];
+  $('proposals-badge').textContent = props.length ? `${props.length} offen` : '0';
+  list.innerHTML = '';
+  if (!props.length) {
+    list.innerHTML = '<div class="proposal-empty">✨ Keine offenen Vorschläge — alles aufgeräumt.</div>';
+    return;
+  }
+  props.forEach(p => {
+    const { isBot } = classifyProposal(p);
+    const draft = !!p.draft;
+    const mergeOk = p.mergeable_state === 'clean' || p.mergeable_state === 'unstable' || p.mergeable_state === 'has_hooks';
+    const mergeConflict = p.mergeable === false || p.mergeable_state === 'dirty';
+    const body = (p.body || '').replace(/<!--[\s\S]*?-->/g, '').trim().split('\n').filter(Boolean).slice(0, 4).join(' ').slice(0, 240);
+    const card = document.createElement('div');
+    card.className = `proposal-card${draft ? ' draft' : ''}${isBot ? ' bot' : ''}`;
+    card.innerHTML = `
+      <div class="proposal-top">
+        <div><span class="proposal-num">#${p.number}</span></div>
+        <div class="proposal-date">${humanDate(p.updated_at)}</div>
+      </div>
+      <div class="proposal-title">${escHtml(p.title)}</div>
+      ${body ? `<div class="proposal-body">${escHtml(body)}</div>` : ''}
+      <div class="proposal-meta">
+        <span class="proposal-stat">🌿 ${escHtml((p.head && p.head.ref) || '–')}</span>
+        ${draft ? '<span class="proposal-stat draft-badge">📝 Entwurf</span>' : ''}
+        ${mergeConflict ? '<span class="proposal-stat merge-conflict">⚠️ Konflikt</span>' : mergeOk ? '<span class="proposal-stat merge-ok">✅ Bereit</span>' : ''}
+        <span class="proposal-stat">👤 ${escHtml((p.user && p.user.login) || '–')}</span>
+      </div>
+      <div class="proposal-actions">
+        <button class="btn btn-approve" data-approve="${p.number}" data-title="${escHtml(p.title)}" ${mergeConflict ? 'disabled title="Merge-Konflikt — bitte zuerst auflösen"' : ''}>✅ Übernehmen</button>
+        <button class="btn btn-danger" data-reject="${p.number}" data-title="${escHtml(p.title)}">❌ Ablehnen</button>
+        <a class="btn" href="${p.html_url}" target="_blank" rel="noopener">📋 Details ↗</a>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+let pendingProposal = null;
+function openProposalConfirm(number, action, title) {
+  pendingProposal = { number, action };
+  const isApprove = action === 'approve';
+  $('proposal-modal-title').textContent = isApprove ? '✅ Vorschlag übernehmen' : '❌ Vorschlag ablehnen';
+  $('proposal-modal-text').textContent = isApprove
+    ? 'Der Pull Request wird gemerged (squash). GitHub Actions startet danach automatisch den Deploy.'
+    : 'Der Pull Request wird ohne Merge geschlossen. Die Änderungen werden NICHT übernommen.';
+  $('proposal-modal-detail').textContent = `#${number} — ${title}`;
+  const btn = $('proposal-confirm');
+  btn.className = 'btn ' + (isApprove ? 'btn-approve' : 'btn-danger');
+  btn.textContent = isApprove ? '✅ Übernehmen' : '❌ Ablehnen';
+  btn.disabled = false;
+  $('proposal-modal').classList.add('open'); sfx('click');
+}
+function closeProposalModal() { $('proposal-modal').classList.remove('open'); pendingProposal = null; }
+async function confirmProposal() {
+  if (!pendingProposal) return;
+  if (!getPat()) { closeProposalModal(); requirePat(); showToast('⚠️ Bitte zuerst GitHub Token verbinden', 'error'); sfx('error'); return; }
+  const { number, action } = pendingProposal;
+  const btn = $('proposal-confirm'); const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '🔄 Sende…';
+  try {
+    const isApprove = action === 'approve';
+    const url = `https://api.github.com/repos/${REPO}${isApprove ? `/pulls/${number}/merge` : `/pulls/${number}`}`;
+    const res = await fetch(url, {
+      method: isApprove ? 'PUT' : 'PATCH',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(isApprove ? { merge_method: 'squash' } : { state: 'closed' }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+    closeProposalModal();
+    if (isApprove) { showToast('✅ Übernommen! Deploy startet gleich.', 'success'); sfx('success'); confettiBurst(0.5, 0.5, 80); }
+    else { showToast('❌ Vorschlag abgelehnt.', ''); sfx('click'); }
+    await loadProposals(); renderProposals();
+    setTimeout(refreshRuns, 9000);
+  } catch (e) {
+    showToast(`❌ Fehler: ${e.message}`, 'error'); sfx('error');
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
 /* ─── Quick actions ────────────────────────────────────────────── */
 function renderQuickActions() {
   const acts = [
@@ -1120,18 +1266,20 @@ function celebrateLevelUp(lvl, rank) {
 
 /* ─── Init / refresh ───────────────────────────────────────────── */
 function renderFromCache() {
-  const c = cacheGet('commits'), r = cacheGet('runs'), i = cacheGet('issues'), tc = cacheGet('totalCommits');
+  const c = cacheGet('commits'), r = cacheGet('runs'), i = cacheGet('issues'), tc = cacheGet('totalCommits'), pr = cacheGet('proposals');
   if (c) state.commits = c.data; if (r) state.runs = r.data;
   if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
+  if (pr) state.proposals = pr.data;
   if (tc) state.totalCommits = tc.data;
   if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
   if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
+  if (pr) renderProposals();
 }
 
 async function loadAll() {
   try {
-    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
-    renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
+    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits(), loadProposals()]);
+    renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderProposals();
     renderQuests(); renderAchievements(); renderHud();
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
@@ -1170,6 +1318,9 @@ $('lvl-chip').addEventListener('click', () => $('hq').querySelector('.hud').scro
 $('modal-cancel').addEventListener('click', closeModal);
 $('modal-confirm-btn').addEventListener('click', confirmRollback);
 $('rollback-modal').addEventListener('click', e => { if (e.target === $('rollback-modal')) closeModal(); });
+$('proposal-cancel').addEventListener('click', closeProposalModal);
+$('proposal-confirm').addEventListener('click', confirmProposal);
+$('proposal-modal').addEventListener('click', e => { if (e.target === $('proposal-modal')) closeProposalModal(); });
 
 $('hud-name').addEventListener('click', () => {
   const cur = localStorage.getItem('hq_name') || 'Commander';
@@ -1182,13 +1333,15 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const ap = e.target.closest('[data-approve]'); if (ap && !ap.disabled) { openProposalConfirm(ap.dataset.approve, 'approve', ap.dataset.title); return; }
+  const rj = e.target.closest('[data-reject]'); if (rj) { openProposalConfirm(rj.dataset.reject, 'reject', rj.dataset.title); return; }
 });
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
   if ($('hq').style.display === 'none') return;
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') { closeModal(); closeProposalModal(); }
   else if (e.key.toLowerCase() === 'r') { e.preventDefault(); refreshAll(); }
   else if (e.key.toLowerCase() === 's') toggleSound();
 });
