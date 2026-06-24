@@ -23,16 +23,22 @@ jobs:
 
       - name: Minify assets (#6 Part 2)
         run: |
+          # WICHTIG: Versionen GEPINNT. 'npx --yes terser' (ohne Pin) zog bei
+          # jedem Deploy die neueste Version — ein Minifier-Update kann aus
+          # identischem Quellcode plötzlich kaputtes JS erzeugen und die Seite
+          # lahmlegen (passiert am 2026-06-24). Bei Updates: Version hier
+          # bewusst anheben und vorher testen.
           echo "Vorher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
-          npx --yes terser app.js --compress --mangle -o app.js
+          npx --yes terser@5.48.0 app.js --compress --mangle -o app.js
           # Gate 1: gültiges JS?
           node --check app.js
           # Gate 2: Inline-Handler-Globals noch da? (mangle.toplevel=false -> ja)
           for fn in navigateTo toggleFavorite sendMessage filterListings _startChatPoll; do
             grep -q "function $fn" app.js || { echo "FATAL: $fn fehlt nach Minify - Abbruch"; exit 1; }
           done
-          # CSS (csso-cli, Fallback csso)
-          npx --yes csso-cli styles.css -o styles.css || npx --yes csso styles.css -o styles.css
+          # CSS (csso-cli, gepinnt). Fehler ist NICHT fatal — unminifiziertes
+          # CSS bricht die Seite nicht, deshalb Deploy nicht abbrechen.
+          npx --yes csso-cli@5.0.5 styles.css -o styles.css || echo "⚠️ csso-cli fehlgeschlagen — deploye unminifiziertes styles.css"
           echo "Nachher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
 
       - name: Install lftp
