@@ -4464,6 +4464,15 @@ function eb_messages_send( WP_REST_Request $request ) {
     );
 
     if ( $msg_type === 'offer' ) {
+        // VB-Gating: Gegenangebote nur bei verhandelbaren Inseraten (negotiable).
+        if ( $conv->listing_id ) {
+            $neg = $wpdb->get_var( $wpdb->prepare(
+                "SELECT negotiable FROM {$wpdb->prefix}eb_listings WHERE id = %d", (int) $conv->listing_id
+            ) );
+            if ( $neg !== null && (int) $neg === 0 ) {
+                return new WP_REST_Response( array( 'message' => 'Dieses Inserat ist ein Festpreis — Gegenangebote sind nicht möglich.' ), 400 );
+            }
+        }
         $insert['offer_amount'] = round( abs( floatval( $params['amount'] ?? 0 ) ), 2 );
         $insert['offer_status'] = 'pending';
         $insert['body']         = 'Preisangebot: ' . rtrim(rtrim(number_format($insert['offer_amount'], 2, ',', ''), '0'), ',') . '€';
