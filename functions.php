@@ -3176,6 +3176,16 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_admin_bot_accept_inquiry',
         'permission_callback' => 'is_user_logged_in',
     ) );
+
+    /* Moderation: Admin entfernt ein einzelnes Bild eines beliebigen Nutzers
+       (aus dessen Portfolio-Galerie UND aus allen seinen Listings). */
+    register_rest_route( 'eventboerse/v1', '/admin/moderate-image', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_admin_moderate_image',
+        'permission_callback' => function() {
+            return is_user_logged_in() && eb_is_admin_user();
+        },
+    ) );
 }
 add_action( 'rest_api_init', 'eb_register_extra_routes' );
 
@@ -3390,6 +3400,89 @@ function eb_admin_bot_accept_inquiry( WP_REST_Request $request ) {
         'bot_id'       => $bot_id,
         'bot_name'     => $bot_name,
         'reply_text'   => $reply_text,
+    ), 200 );
+}
+
+/**
+ * Normalisiert eine Bild-URL für den Vergleich: Query-String (z. B. Crop-
+ * Parameter) wird entfernt und nur der Pfad behalten, damit dasselbe Bild
+ * auch über Host-/Parameter-Unterschiede hinweg erkannt wird.
+ */
+function eb_norm_img_url( $u ) {
+    $u = trim( (string) $u );
+    if ( $u === '' ) return '';
+    $q = strpos( $u, '?' );
+    if ( $q !== false ) $u = substr( $u, 0, $q );
+    $p = wp_parse_url( $u, PHP_URL_PATH );
+    return $p ? $p : $u;
+}
+
+/** Vergleicht zwei Bild-URLs tolerant (exakt oder per normalisiertem Pfad). */
+function eb_same_image_url( $a, $b ) {
+    if ( $a === $b ) return true;
+    $na = eb_norm_img_url( $a );
+    $nb = eb_norm_img_url( $b );
+    return $na !== '' && $na === $nb;
+}
+
+/**
+ * POST /admin/moderate-image
+ * Body: { user_id: int, image: string }
+ * Entfernt die Bild-URL aus der Portfolio-Galerie (eb_gallery) des Ziel-
+ * Nutzers und aus den images-Arrays aller seiner Listings. Nur für Admins.
+ */
+function eb_admin_moderate_image( WP_REST_Request $request ) {
+    global $wpdb;
+    $params = $request->get_json_params();
+    $target = isset( $params['user_id'] ) ? absint( $params['user_id'] ) : 0;
+    $image  = isset( $params['image'] ) ? esc_url_raw( trim( (string) $params['image'] ) ) : '';
+
+    if ( ! $target || $image === '' ) {
+        return new WP_REST_Response( array( 'message' => 'user_id und image sind erforderlich.' ), 400 );
+    }
+
+    $gallery_removed = 0;
+    $listing_removed = 0;
+
+    // 1) Portfolio-Galerie des Ziel-Nutzers (User-Meta eb_gallery)
+    $gallery = get_user_meta( $target, 'eb_gallery', true );
+    if ( is_array( $gallery ) ) {
+        $kept = array_values( array_filter( $gallery, function( $u ) use ( $image ) {
+            return ! eb_same_image_url( $u, $image );
+        } ) );
+        if ( count( $kept ) !== count( $gallery ) ) {
+            update_user_meta( $target, 'eb_gallery', $kept );
+            $gallery_removed = count( $gallery ) - count( $kept );
+        }
+    }
+
+    // 2) Alle Listings des Ziel-Nutzers
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, images FROM {$wpdb->prefix}eb_listings WHERE user_id = %d", $target
+    ) );
+    if ( is_array( $rows ) ) {
+        foreach ( $rows as $r ) {
+            $imgs = json_decode( (string) $r->images, true );
+            if ( ! is_array( $imgs ) ) continue;
+            $kept = array_values( array_filter( $imgs, function( $u ) use ( $image ) {
+                return ! eb_same_image_url( $u, $image );
+            } ) );
+            if ( count( $kept ) !== count( $imgs ) ) {
+                $wpdb->update(
+                    $wpdb->prefix . 'eb_listings',
+                    array( 'images' => wp_json_encode( $kept ) ),
+                    array( 'id' => (int) $r->id )
+                );
+                $listing_removed += count( $imgs ) - count( $kept );
+            }
+        }
+    }
+
+    return new WP_REST_Response( array(
+        'removed'         => ( $gallery_removed + $listing_removed ) > 0,
+        'image'           => $image,
+        'gallery_removed' => $gallery_removed,
+        'listing_removed' => $listing_removed,
     ), 200 );
 }
 
