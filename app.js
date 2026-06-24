@@ -5847,6 +5847,10 @@ function submitNegotiation(e) {
 }
 
 function openNegotiationInChat() {
+  if (currentListing && currentListing.negotiable === false) {
+    showToast('Dieses Inserat ist ein Festpreis — kein Gegenangebot möglich.', 'info');
+    return;
+  }
   openModal('counterOfferModal');
 }
 
@@ -5869,6 +5873,10 @@ function moneyInputFilter(el) {
 }
 
 function openCounterOffer() {
+  if (currentListing && currentListing.negotiable === false) {
+    showToast('Dieses Inserat ist ein Festpreis — kein Gegenangebot möglich.', 'info');
+    return;
+  }
   openModal('counterOfferModal');
 }
 
