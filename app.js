@@ -5749,6 +5749,8 @@ function bookListing() {
     .then(function(r) { return r.json(); })
     .then(function(convo) {
       var bookingText = JSON.stringify({
+        kind: 'inquiry',
+        source: 'listing',
         listing: currentListing.title || '',
         date: date,
         eventType: eventType,
@@ -5759,7 +5761,7 @@ function bookListing() {
       });
       fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: bookingText, type: 'booking' })
+        body: JSON.stringify({ content: bookingText, type: 'message' })
       }).catch(function(){});
       showToast('Anfrage gesendet!', 'event_available');
       navigateTo('messages');
