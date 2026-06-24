@@ -10882,9 +10882,18 @@ function _renderStars(rating) {
 }
 
 function _escHtml(str) {
-  var d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  // Encodet ALLE HTML-Sonderzeichen inkl. Anführungszeichen. Wichtig:
+  // textContent→innerHTML encodet " und ' NICHT — dadurch wäre jede
+  // Interpolation in ein Attribut (alt="${_escHtml(x)}") per Quote-Injection
+  // angreifbar (serverseitiges sanitize_text_field lässt Quotes durch).
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/`/g, '&#96;');
 }
 
 // Parse a date string in various formats (ISO, DD.MM.YYYY, "15. August 2026", etc.)
@@ -12671,14 +12680,14 @@ function addListingMarkers(listings) {
 
     const popupContent = `
       <div class="map-popup-card">
-        <img src="${listing.image}" alt="${listing.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"/>
-        <h4>${listing.title}</h4>
+        <img src="${_escHtml(listing.image)}" alt="${_escHtml(listing.title)}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"/>
+        <h4>${_escHtml(listing.title)}</h4>
         <div class="popup-meta">
           <span class="material-icons-round" style="font-size:14px;vertical-align:middle">location_on</span>
-          ${listing.location} · ${listing.categoryLabel}
+          ${_escHtml(listing.location)} · ${_escHtml(listing.categoryLabel)}
         </div>
-        <div class="popup-meta">★ ${listing.rating} (${listing.reviews} Bewertungen)</div>
-        <div class="popup-price">${listing.priceLabel}</div>
+        <div class="popup-meta">★ ${_escHtml(listing.rating)} (${_escHtml(listing.reviews)} Bewertungen)</div>
+        <div class="popup-price">${_escHtml(listing.priceLabel)}</div>
         <button class="popup-btn" onclick="closeMapOverlay(); navigateTo('detail', ${listing.id});">
           Details ansehen
         </button>
@@ -12697,10 +12706,10 @@ function renderLocationsList(listings) {
     const emoji = CATEGORY_EMOJI[l.category] || '📌';
     return `
       <div class="map-loc-item" data-id="${l.id}" onclick="focusMapMarker(${l.id})">
-        <img class="map-loc-img" src="${l.image}" alt="${l.title}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+        <img class="map-loc-img" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
         <div class="map-loc-info">
-          <span class="map-loc-city">${l.location}</span>
-          <span class="map-loc-cat">${emoji} ${l.categoryLabel}</span>
+          <span class="map-loc-city">${_escHtml(l.location)}</span>
+          <span class="map-loc-cat">${emoji} ${_escHtml(l.categoryLabel)}</span>
         </div>
         <div class="map-loc-price">${l.priceLabel}</div>
       </div>`;

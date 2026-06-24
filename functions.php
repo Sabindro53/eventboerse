@@ -16,6 +16,11 @@ add_action('init', function() {
 
 require_once get_template_directory() . '/webauthn.php';
 
+// Brute-Force-Schutz (Transient-basiertes Rate-Limit, per REMOTE_ADDR).
+// War zuvor vorhanden, aber nirgends eingebunden → jetzt aktiv verdrahtet
+// (siehe eventboerse_check_rate_limit-Aufrufe in den Auth-Handlern).
+require_once get_template_directory() . '/includes/security/rate-limit.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *
@@ -1508,6 +1513,9 @@ function eb_login_clear_failures( $email ) {
 }
 
 function eventboerse_handle_login( WP_REST_Request $request ) {
+    // Brute-Force-Schutz: max. 10 Login-Versuche pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'login', 10, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = (string) ( $params['email'] ?? '' );
     $email     = eb_normalize_email( $email_raw );
@@ -1529,6 +1537,8 @@ function eventboerse_handle_login( WP_REST_Request $request ) {
     }
 
     eb_login_clear_failures( $email );
+    // Passwort war korrekt → IP-Rate-Limit-Bucket leeren (nur Fehlversuche zählen).
+    eventboerse_reset_rate_limit( 'login' );
 
     $verified = get_user_meta( $user->ID, 'eb_email_verified', true );
     if ( '0' === (string) $verified ) {
@@ -1657,6 +1667,9 @@ function eventboerse_handle_resend_verification( WP_REST_Request $request ) {
 
 /* ---------- PASSWORT VERGESSEN ---------- */
 function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
+    // Anti-Bombing/Enumeration: max. 5 Reset-Mails pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'forgot_password', 5, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = isset( $params['email'] ) ? (string) $params['email'] : '';
     $email     = eb_normalize_email( $email_raw );
@@ -1706,6 +1719,9 @@ function eventboerse_handle_forgot_password( WP_REST_Request $request ) {
 
 /* ---------- PASSWORT RESET AUSFÜHREN ---------- */
 function eventboerse_handle_reset_password( WP_REST_Request $request ) {
+    // Brute-Force-Schutz für Reset-Token: max. 10 Versuche pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'reset_password', 10, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params   = $request->get_json_params();
     $token    = isset( $params['token'] )    ? sanitize_text_field( $params['token'] )    : '';
     $uid      = isset( $params['uid'] )      ? absint( $params['uid'] )                   : 0;
@@ -2355,6 +2371,9 @@ function eb_webauthn_credentials_delete( WP_REST_Request $request ) {
 }
 
 function eb_otp_send( WP_REST_Request $request ) {
+    // Anti-Bombing: max. 8 Code-Versände pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'otp_send', 8, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = (string) ( $params['email'] ?? '' );
     $email     = eb_normalize_email( $email_raw );
@@ -2427,6 +2446,9 @@ function eb_otp_send( WP_REST_Request $request ) {
 }
 
 function eb_otp_verify( WP_REST_Request $request ) {
+    // Brute-Force-Schutz: 6-stelliger Code → max. 10 Versuche pro IP / 15 Min.
+    $rl = eventboerse_check_rate_limit( 'otp_verify', 10, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
     $params    = $request->get_json_params();
     $email_raw = (string) ( $params['email'] ?? '' );
     $email     = eb_normalize_email( $email_raw );
@@ -2460,6 +2482,7 @@ function eb_otp_verify( WP_REST_Request $request ) {
     }
 
     delete_transient( $otp_key );
+    eventboerse_reset_rate_limit( 'otp_verify' );
 
     wp_set_current_user( $user->ID );
     wp_set_auth_cookie( $user->ID, true, is_ssl() );
