@@ -2752,6 +2752,11 @@ function eb_register_extra_routes() {
         ),
     ) );
 
+    register_rest_route( 'eventboerse/v1', '/push/selftest', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_push_selftest',
+        'permission_callback' => function() { return current_user_can( 'manage_options' ); },
+    ) );
     register_rest_route( 'eventboerse/v1', '/conversations/(?P<id>\d+)/typing', array(
         'methods'             => 'POST',
         'callback'            => 'eb_typing_set',
@@ -4365,6 +4370,21 @@ function eb_conversations_create( WP_REST_Request $request ) {
     }
 
     return new WP_REST_Response( array( 'id' => (int) $conv_id, 'existing' => false ), 201 );
+}
+
+function eb_push_selftest() {
+    $out = array( 'php' => PHP_VERSION, 'ec_keygen' => false, 'ecdh' => false, 'aesgcm' => false, 'hkdf' => function_exists( 'hash_hkdf' ) );
+    $a = @openssl_pkey_new( array( 'private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1' ) );
+    $b = @openssl_pkey_new( array( 'private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1' ) );
+    $out['ec_keygen'] = (bool) $a && (bool) $b;
+    if ( $a && $b && function_exists( 'openssl_pkey_derive' ) ) {
+        $bd  = openssl_pkey_get_details( $b );
+        $sec = @openssl_pkey_derive( $bd['key'], $a, 32 );
+        $out['ecdh'] = ( $sec !== false && strlen( $sec ) === 32 );
+    }
+    $ct = openssl_encrypt( 'hello', 'aes-128-gcm', str_repeat( 'k', 16 ), OPENSSL_RAW_DATA, str_repeat( 'n', 12 ), $tag );
+    $out['aesgcm'] = ( $ct !== false && strlen( $tag ) === 16 );
+    return new WP_REST_Response( $out, 200 );
 }
 
 function eb_typing_set( WP_REST_Request $request ) {
