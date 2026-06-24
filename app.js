@@ -4826,6 +4826,10 @@ function _renderBookingCard(msg) {
   // --- content ---
   html += '<div class="cbc-content">';
   html += '<div class="cbc-label"><span class="material-icons-round">' + (isInquiry ? 'event_note' : 'event_available') + '</span> ' + (isInquiry ? 'Projekt-Anfrage' : 'Anfrage') + '</div>';
+  if (isInquiry && data.source) {
+    var _srcTxt = data.source === 'board' ? 'aus dem Planungsboard' : (data.source === 'listing' ? 'von der Inseratsseite' : '');
+    if (_srcTxt) html += '<div class="cbc-source" style="font-size:12px;color:#717171;margin:2px 0 6px">Anfrage ' + _srcTxt + '</div>';
+  }
   html += '<p class="cbc-intro">' + _escHtml(intro) + '</p>';
 
   if (data.listing) {
@@ -16977,6 +16981,7 @@ function openStageAdvanceModal(cardId, currentStage) {
       // reference back to update the customer's board card automatically.
       var inquiryPayload = {
         kind: 'inquiry',
+        source: 'board',
         listing: (_listing && _listing.title) || card.name || '',
         image: (_listing && (_listing.image || (_listing.images && _listing.images[0]))) || '',
         price: (_listing && _listing.price) ? (_listing.price + (typeof _listing.price === 'number' ? '€' : '')) : '',

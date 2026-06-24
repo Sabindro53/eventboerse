@@ -4521,6 +4521,10 @@ function eb_messages_send( WP_REST_Request $request ) {
             $message .= '<div style="padding:22px 26px">';
             $message .= '<h2 style="margin:0 0 6px 0;color:#222;font-size:20px">Neue Anfrage zu „' . esc_html( $inquiry['listing'] ?? 'deinem Angebot' ) . '"</h2>';
             $message .= '<p style="color:#484848;margin:0 0 14px 0">Von <strong>' . esc_html( $sender_name ) . '</strong></p>';
+            if ( ! empty( $inquiry['source'] ) ) {
+                $src_txt = $inquiry['source'] === 'board' ? 'aus dem Planungsboard' : ( $inquiry['source'] === 'listing' ? 'von der Inseratsseite' : '' );
+                if ( $src_txt ) $message .= '<div style="padding:2px 0 8px;color:#717171;font-size:13px">Anfrage ' . esc_html( $src_txt ) . '</div>';
+            }
             $message .= '<div style="display:block;margin:14px 0">';
             if ( ! empty( $inquiry['projectName'] ) ) $message .= '<div style="padding:6px 0;color:#484848"><strong>Projekt:</strong> ' . esc_html( $inquiry['projectName'] ) . '</div>';
             if ( $date_fmt ) $message .= '<div style="padding:6px 0;color:#484848"><strong>Datum:</strong> ' . esc_html( $date_fmt ) . '</div>';
