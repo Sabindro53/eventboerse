@@ -29,6 +29,14 @@
 
 → [[Frontend/app-js-module]] | [[Features/Authentication]] | [[Features/Payments]]
 
+## Neuester Stand (2026-06-25)
+
+- **HQ Selbst-Check + KI-Vorschläge** (`hq.html`): zwei neue Sektionen direkt im Mission Control.
+  - **🩺 Selbst-Check** probt 10 Live-Endpoints (Startseite, app.js, styles.css, sw.js, manifest, REST `/listings`, Sitemap, robots.txt, Favicon, SPA-Shell) per `fetch` (mit `no-cors`-Fallback wenn CORS blockt). Jede Karte zeigt ✅/❌ + Latenz. „Neu prüfen"-Button + Aufruf in `init()`/`refreshAll()`.
+  - **🤖 KI-Vorschläge** listet offene PRs, deren Branch mit `claude/` beginnt **oder** Label `auto-vorschlag`/`ai-proposal`/`claude`/`ki-vorschlag` trägt. Pro PR: Titel, Autor, Branch, Updated-At, Live-CI-Status (grün/gelb/rot), Body-Excerpt. Buttons: **Annehmen & mergen** (Squash via `PUT /pulls/:n/merge`), **Ablehnen** (Reason-Prompt → Comment + `PATCH state=closed`), **Diff ansehen**.
+  - Beides nutzt den bestehenden PAT-Flow (read-only ohne Token, Schreibaktionen mit Token).
+- **Workflow für die Zukunft:** Auto-Worker pushen Vorschläge auf Branches `claude/<thema>` und öffnen Draft-PR. Sandro sieht alles in HQ und entscheidet 1-Klick. Keine destruktiven Auto-Merges.
+
 ## Neuester Stand (2026-06-20)
 
 - **Bild-Robustheit:** Globaler `<img>`-Fehler-Handler (Capture-Phase) sorgt dafür, dass JEDES Bild bei toter URL ein sauberes Fallback bekommt (Avatar bzw. „Bild nicht verfügbar"). Vorher hatten nur Card + Hero-Marquee ein Fallback — Detail-Hero/-Galerie zeigten kaputte Icons.
