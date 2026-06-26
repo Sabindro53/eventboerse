@@ -3239,9 +3239,15 @@ function loadDetail(listingId) {
   }
 
   // Swipeable gallery carousel
+  // Admins sehen pro Bild einen Lösch-Button (fremde Inserate) — entfernt das
+  // Bild persistent (auch bei Demo-Listings) via adminDeleteListingImage.
+  var _detailCanModerate = !!(currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id);
   gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
     imgs.map(function(img, i) {
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' /></div>';
+      var delBtn = _detailCanModerate && img !== window.EB_IMG_FALLBACK
+        ? '<button type="button" class="detail-gallery-admin-del" title="Bild als Admin löschen" aria-label="Bild als Admin löschen" onclick="adminDeleteListingImage(' + i + ', event)"><span class="material-icons-round">delete</span> Löschen</button>'
+        : '';
+      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + delBtn + '</div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -4480,6 +4486,36 @@ function adminDeleteProfileImage(index, ev) {
       }
     }
     showToast('Bild als Admin gelöscht.', 'delete');
+  }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
+}
+
+/**
+ * Admin-Moderation auf der INSERAT-DETAILSEITE: löscht ein einzelnes Bild der
+ * aktuell offenen Inserat-Galerie (currentListing) — persistent via Blocklist,
+ * wirkt auch für hardcodierte Demo-Listings.
+ */
+function adminDeleteListingImage(index, ev) {
+  if (ev) { ev.stopPropagation(); if (ev.preventDefault) ev.preventDefault(); }
+  if (!currentUser || !currentUser.isAdmin || !currentListing) return;
+  var imgs = (Array.isArray(currentListing.images) && currentListing.images.length)
+    ? currentListing.images
+    : (currentListing.image ? [currentListing.image] : []);
+  var url = imgs[index];
+  if (!url || url === window.EB_IMG_FALLBACK) return;
+  var targetId = currentListing.providerId;
+  if (!targetId) { showToast('Anbieter-ID unbekannt', 'error'); return; }
+  if (!confirm('Als Admin: Dieses Bild wirklich löschen?')) return;
+  fetch(_apiUrl('admin/moderate-image'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ user_id: targetId, image: url })
+  }).then(function(r) {
+    _refreshNonce(r);
+    if (!r.ok) { showToast('Löschen fehlgeschlagen', 'error'); return; }
+    // Blocklist mitziehen (alle Größen-Varianten + Cover) und Detailseite neu rendern
+    if (window.EB_IMG_BLOCKLIST) window.EB_IMG_BLOCKLIST.add(_imgNormPath(url));
+    _applyImageBlocklist(LISTINGS);
+    showToast('Bild als Admin gelöscht.', 'delete');
+    if (currentListing) loadDetail(currentListing.id);
   }).catch(function() { showToast('Löschen fehlgeschlagen', 'error'); });
 }
 
