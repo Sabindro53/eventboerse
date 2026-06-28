@@ -359,6 +359,66 @@
   .pat-input-row input { flex: 1; padding: .5rem .75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .85rem; outline: none; font-family: monospace; }
   .pat-input-row input:focus { border-color: var(--pink); }
 
+  /* ── Selbst-Check ── */
+  .health-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.6rem; margin-bottom:2rem; }
+  .health-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:.8rem 1rem;
+    display:flex; gap:.7rem; align-items:flex-start; transition:border-color .2s, transform .15s; position:relative;
+  }
+  .health-card:hover { transform:translateY(-1px); }
+  .health-card.ok { border-color:rgba(34,197,94,.45); }
+  .health-card.ok:hover { box-shadow:var(--glow) rgba(34,197,94,.18); }
+  .health-card.warn { border-color:rgba(245,158,11,.45); }
+  .health-card.warn:hover { box-shadow:var(--glow) rgba(245,158,11,.18); }
+  .health-card.fail { border-color:rgba(239,68,68,.55); }
+  .health-card.fail:hover { box-shadow:var(--glow) rgba(239,68,68,.20); }
+  .health-card.check { border-color:rgba(124,58,237,.45); }
+  .health-card .h-ic { font-size:1.15rem; width:30px; height:30px; border-radius:8px; display:grid; place-items:center; background:var(--surface2); border:1px solid var(--border); flex-shrink:0; }
+  .health-card.ok .h-ic { background:#0e2a18; color:var(--green); }
+  .health-card.warn .h-ic { background:#2a2008; color:var(--yellow); }
+  .health-card.fail .h-ic { background:#2a0e0e; color:#fca5a5; }
+  .health-card .h-body { flex:1; min-width:0; }
+  .health-card .h-name { font-size:.85rem; font-weight:700; line-height:1.25; }
+  .health-card .h-meta { font-size:.71rem; color:var(--muted); margin-top:.18rem; line-height:1.4; }
+  .health-card .h-meta b { color:var(--text); font-weight:600; }
+  .health-summary { display:flex; gap:.5rem; align-items:center; font-size:.82rem; margin:.2rem 0 .9rem; flex-wrap:wrap; }
+  .health-summary .pill { background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:.18rem .65rem; font-size:.72rem; }
+  .health-summary .pill.ok { color:var(--green); border-color:rgba(34,197,94,.4); }
+  .health-summary .pill.warn { color:var(--yellow); border-color:rgba(245,158,11,.4); }
+  .health-summary .pill.fail { color:#fca5a5; border-color:rgba(239,68,68,.5); }
+
+  /* ── KI-Vorschläge ── */
+  .proposals-list { display:flex; flex-direction:column; gap:.7rem; margin-bottom:2rem; }
+  .proposal-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1rem 1.2rem;
+    transition:border-color .2s; position:relative;
+  }
+  .proposal-card:hover { border-color:var(--violet); }
+  .proposal-top { display:flex; gap:.6rem; align-items:flex-start; margin-bottom:.4rem; flex-wrap:wrap; }
+  .proposal-icon { font-size:1.1rem; }
+  .proposal-title { font-weight:700; font-size:.96rem; line-height:1.35; flex:1; min-width:0; }
+  .proposal-num { font-family:monospace; font-size:.74rem; color:var(--cyan); background:var(--surface2); padding:.15rem .45rem; border-radius:6px; flex-shrink:0; }
+  .proposal-meta { font-size:.74rem; color:var(--muted); display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-bottom:.5rem; }
+  .proposal-meta .ci { display:inline-flex; align-items:center; gap:.25rem; padding:.1rem .45rem; border-radius:6px; background:var(--surface2); border:1px solid var(--border); }
+  .proposal-meta .ci.ok { color:var(--green); border-color:rgba(34,197,94,.4); }
+  .proposal-meta .ci.fail { color:#fca5a5; border-color:rgba(239,68,68,.5); }
+  .proposal-meta .ci.run { color:var(--yellow); border-color:rgba(245,158,11,.4); }
+  .proposal-meta .diff-add { color:var(--green); }
+  .proposal-meta .diff-del { color:#fca5a5; }
+  .proposal-body { font-size:.83rem; color:var(--muted); line-height:1.5; white-space:pre-wrap; margin-bottom:.7rem; max-height:7em; overflow:hidden; position:relative; }
+  .proposal-body.collapsed::after {
+    content:''; position:absolute; left:0; right:0; bottom:0; height:1.8em;
+    background:linear-gradient(transparent, var(--surface));
+    pointer-events:none;
+  }
+  .proposal-actions { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.4rem; }
+  .proposal-actions .btn-approve {
+    background:linear-gradient(135deg,var(--green),var(--teal)); border:none; color:#06240f; font-weight:800;
+  }
+  .proposal-actions .btn-approve:hover { opacity:.92; filter:brightness(1.08); }
+  .proposal-actions .btn-reject { border-color:var(--red); color:#fca5a5; }
+  .proposal-actions .btn-reject:hover { background:#2a1010; }
+
   /* ── Skeleton / toast ── */
   .skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 10px; height: 90px; margin-bottom: .7rem; }
   @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
@@ -488,6 +548,34 @@
           <button class="btn btn-primary" id="pat-save">Speichern</button>
         </div>
       </div>
+    </div>
+
+    <!-- Selbst-Check (Live-Status) -->
+    <div class="section-header">
+      <div class="section-title">🩺 Selbst-Check <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— was läuft live, was nicht</span></div>
+      <div style="display:flex;gap:.4rem;align-items:center;">
+        <div class="section-badge" id="health-badge">–</div>
+        <button class="btn" id="health-refresh-btn" style="font-size:.72rem;padding:.3rem .6rem;">🔄 Neu prüfen</button>
+      </div>
+    </div>
+    <div class="health-summary" id="health-summary"></div>
+    <div class="health-grid" id="health-grid">
+      <div class="skeleton" style="height:62px;"></div>
+      <div class="skeleton" style="height:62px;"></div>
+      <div class="skeleton" style="height:62px;"></div>
+      <div class="skeleton" style="height:62px;"></div>
+    </div>
+
+    <!-- KI-Vorschläge (Auto-PRs zur Freigabe) -->
+    <div class="section-header">
+      <div class="section-title">🤖 KI-Vorschläge <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— offene Auto-PRs zur Freigabe</span></div>
+      <div style="display:flex;gap:.4rem;align-items:center;">
+        <div class="section-badge" id="proposals-badge">–</div>
+        <a href="https://github.com/Sabindro53/eventboerse/pulls?q=is%3Apr+is%3Aopen+head%3Aclaude%2F" target="_blank" rel="noopener" class="btn" style="font-size:.72rem;padding:.3rem .6rem;">Alle PRs →</a>
+      </div>
+    </div>
+    <div class="proposals-list" id="proposals-list">
+      <div class="skeleton" style="height:110px;"></div>
     </div>
 
     <!-- Quests -->
@@ -716,6 +804,232 @@ async function loadIssues() {
     cacheSet('issues', { issues: state.issues, pulls: state.pulls });
   } catch { const c = cacheGet('issues'); if (c) { state.issues = c.data.issues; state.pulls = c.data.pulls; } }
 }
+
+/* ─── Selbst-Check (live Probes) ───────────────────────────────── */
+// Probe a URL — first try a normal CORS fetch (gives status code on same-origin),
+// fall back to no-cors so we at least know it's reachable.
+async function probe(url, expected) {
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url, { cache: 'no-store', credentials: 'omit' });
+    const ms = Math.round(performance.now() - t0);
+    if (expected && !expected(r)) {
+      return { ok: false, ms, status: r.status, detail: `HTTP ${r.status}` };
+    }
+    return { ok: r.ok, ms, status: r.status, detail: r.ok ? `${r.status} · ${ms} ms` : `HTTP ${r.status}` };
+  } catch {
+    // CORS-blocked or network — fall back to reachability check.
+    try {
+      await fetch(url, { mode: 'no-cors', cache: 'no-store', credentials: 'omit' });
+      const ms = Math.round(performance.now() - t0);
+      return { ok: true, ms, status: 0, detail: `erreichbar · ${ms} ms`, noCors: true };
+    } catch (e2) {
+      const ms = Math.round(performance.now() - t0);
+      return { ok: false, ms, error: e2.message || 'Netzwerkfehler', detail: 'nicht erreichbar' };
+    }
+  }
+}
+
+const HEALTH_CHECKS = [
+  { id: 'site',      ic: '🌐', name: 'Live-Site',           hint: 'Startseite eventbörse.de',          run: () => probe(SITE_URL) },
+  { id: 'spa',       ic: '📱', name: 'SPA-Shell',           hint: 'app-shell.html via WP-Template',    run: () => probe(SITE_URL + 'index.php') },
+  { id: 'appjs',     ic: '⚙️', name: 'app.js',              hint: 'Frontend-Monolith',                 run: () => probe(SITE_URL + 'wp-content/themes/eventboerse/app.js') },
+  { id: 'css',       ic: '🎨', name: 'styles.css',          hint: 'Haupt-Stylesheet',                  run: () => probe(SITE_URL + 'wp-content/themes/eventboerse/styles.css') },
+  { id: 'sw',        ic: '🛰️', name: 'Service Worker',      hint: 'sw.js für PWA-Cache',               run: () => probe(SITE_URL + 'wp-content/themes/eventboerse/sw.js') },
+  { id: 'manifest',  ic: '📦', name: 'Web Manifest',        hint: 'manifest.json',                     run: () => probe(SITE_URL + 'wp-content/themes/eventboerse/manifest.json') },
+  { id: 'api',       ic: '🔌', name: 'REST-API',            hint: '/wp-json/eventboerse/v1/listings',  run: () => probe(SITE_URL + 'wp-json/eventboerse/v1/listings?per_page=1') },
+  { id: 'sitemap',   ic: '🗺️', name: 'Sitemap',             hint: 'sitemap.xml für SEO',               run: () => probe(SITE_URL + 'sitemap.xml') },
+  { id: 'robots',    ic: '🤖', name: 'robots.txt',          hint: 'Crawler-Steuerung',                 run: () => probe(SITE_URL + 'robots.txt') },
+  { id: 'favicon',   ic: '⭐', name: 'Favicon',             hint: 'favicon.svg',                       run: () => probe(SITE_URL + 'favicon.svg') },
+];
+
+state.health = HEALTH_CHECKS.map(c => ({ id: c.id, status: 'check' }));
+
+async function runHealthChecks() {
+  // Mark all as "running"
+  state.health = HEALTH_CHECKS.map(c => ({ id: c.id, status: 'check' }));
+  renderHealth();
+  const results = await Promise.all(HEALTH_CHECKS.map(async c => {
+    try { const r = await c.run(); return { id: c.id, status: r.ok ? 'ok' : 'fail', ...r }; }
+    catch (e) { return { id: c.id, status: 'fail', detail: e.message || 'Fehler' }; }
+  }));
+  state.health = results;
+  renderHealth();
+}
+
+function renderHealth() {
+  const grid = $('health-grid'); if (!grid) return;
+  grid.innerHTML = '';
+  HEALTH_CHECKS.forEach(c => {
+    const r = state.health.find(x => x.id === c.id) || { status: 'check' };
+    const cls = r.status === 'check' ? 'check' : (r.status === 'ok' ? 'ok' : 'fail');
+    const icon = r.status === 'check' ? '⏳' : (r.status === 'ok' ? '✅' : '❌');
+    const detail = r.detail || (r.status === 'check' ? 'prüfe…' : '');
+    const card = document.createElement('div');
+    card.className = 'health-card ' + cls;
+    card.innerHTML = `
+      <div class="h-ic">${icon}</div>
+      <div class="h-body">
+        <div class="h-name">${escHtml(c.name)}</div>
+        <div class="h-meta">${escHtml(c.hint)} · <b>${escHtml(detail)}</b></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+  const okN = state.health.filter(x => x.status === 'ok').length;
+  const failN = state.health.filter(x => x.status === 'fail').length;
+  const pending = state.health.filter(x => x.status === 'check').length;
+  const badge = $('health-badge');
+  if (badge) badge.textContent = `${okN}/${HEALTH_CHECKS.length} ok`;
+  const sum = $('health-summary');
+  if (sum) {
+    sum.innerHTML = '';
+    if (okN) sum.insertAdjacentHTML('beforeend', `<span class="pill ok">✅ ${okN} laufen</span>`);
+    if (failN) sum.insertAdjacentHTML('beforeend', `<span class="pill fail">❌ ${failN} fehlerhaft</span>`);
+    if (pending) sum.insertAdjacentHTML('beforeend', `<span class="pill warn">⏳ ${pending} prüfe…</span>`);
+    if (!pending && !failN && okN) sum.insertAdjacentHTML('beforeend', `<span style="color:var(--muted);font-size:.78rem;">Alles grün — Site läuft sauber.</span>`);
+    if (failN) sum.insertAdjacentHTML('beforeend', `<span style="color:var(--muted);font-size:.78rem;">${failN} Probe${failN===1?'':'n'} fehlgeschlagen — Details in den Karten.</span>`);
+  }
+}
+
+/* ─── KI-Vorschläge (Auto-PRs) ──────────────────────────────────── */
+// Treat PRs as "AI proposals" if their head branch starts with `claude/`
+// OR they carry a label like `auto-vorschlag` / `ai-proposal` / `claude`.
+const PROPOSAL_BRANCH_PREFIX = 'claude/';
+const PROPOSAL_LABELS = ['auto-vorschlag', 'ai-proposal', 'claude', 'ki-vorschlag'];
+
+function isProposalPR(pr) {
+  const branch = pr.head?.ref || '';
+  if (branch.startsWith(PROPOSAL_BRANCH_PREFIX)) return true;
+  const labels = (pr.labels || []).map(l => (l.name || '').toLowerCase());
+  return PROPOSAL_LABELS.some(x => labels.includes(x));
+}
+
+async function loadProposals() {
+  try {
+    state.proposals = await gh('/pulls?state=open&per_page=30&sort=updated&direction=desc');
+    cacheSet('proposals', state.proposals);
+  } catch (e) {
+    const c = cacheGet('proposals'); if (c) state.proposals = c.data; else state.proposals = [];
+  }
+}
+
+async function loadProposalCi(pr) {
+  // Latest combined CI status for the PR head SHA
+  if (!pr.head?.sha) return null;
+  try {
+    const d = await gh(`/commits/${pr.head.sha}/status`);
+    return d.state; // success | pending | failure | error
+  } catch { return null; }
+}
+
+function renderProposals() {
+  const list = $('proposals-list'); if (!list) return;
+  const all = (state.proposals || []).filter(isProposalPR);
+  $('proposals-badge').textContent = all.length ? `${all.length} offen` : 'keine';
+  list.innerHTML = '';
+  if (!all.length) {
+    list.innerHTML = `<div class="empty">🌱 Keine offenen KI-Vorschläge. Die Auto-Worker melden sich, sobald sie etwas zur Freigabe haben.</div>`;
+    return;
+  }
+  all.forEach(pr => {
+    const card = document.createElement('div');
+    card.className = 'proposal-card';
+    card.dataset.pr = pr.number;
+    const body = (pr.body || '').trim();
+    const bodyShort = body ? body.slice(0, 600) : '(keine Beschreibung)';
+    const author = pr.user?.login || 'unbekannt';
+    const branch = pr.head?.ref || '';
+    const ciSlot = `<span class="ci" id="ci-${pr.number}" title="CI-Status">⏳ CI…</span>`;
+    card.innerHTML = `
+      <div class="proposal-top">
+        <span class="proposal-icon">🤖</span>
+        <div class="proposal-title">${escHtml(pr.title)}</div>
+        <span class="proposal-num">#${pr.number}</span>
+      </div>
+      <div class="proposal-meta">
+        <span>👤 ${escHtml(author)}</span>
+        <span>🌿 <code style="font-size:.72rem;">${escHtml(branch)}</code></span>
+        <span>${humanDate(pr.updated_at)}</span>
+        ${ciSlot}
+      </div>
+      <div class="proposal-body ${body.length > 600 ? 'collapsed' : ''}">${escHtml(bodyShort)}</div>
+      <div class="proposal-actions">
+        <button class="btn btn-approve" data-approve="${pr.number}" data-title="${escHtml(pr.title)}">✅ Annehmen &amp; mergen</button>
+        <button class="btn btn-reject"  data-reject="${pr.number}"  data-title="${escHtml(pr.title)}">❌ Ablehnen</button>
+        <a class="btn" href="${pr.html_url}" target="_blank" rel="noopener">🔍 Diff ansehen</a>
+      </div>`;
+    list.appendChild(card);
+  });
+  // Load CI status in parallel (non-blocking)
+  all.forEach(async pr => {
+    const ciState = await loadProposalCi(pr);
+    const el = document.getElementById('ci-' + pr.number);
+    if (!el) return;
+    if (ciState === 'success') { el.className = 'ci ok'; el.textContent = '✅ CI grün'; }
+    else if (ciState === 'failure' || ciState === 'error') { el.className = 'ci fail'; el.textContent = '❌ CI rot'; }
+    else if (ciState === 'pending') { el.className = 'ci run'; el.textContent = '🔄 CI läuft'; }
+    else { el.className = 'ci'; el.textContent = 'CI ?'; }
+  });
+}
+
+async function approveProposal(num, title) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  if (!confirm(`PR #${num} "${title}" wirklich mergen?\n\nDas startet automatisch den Live-Deploy.`)) return;
+  const btn = document.querySelector(`[data-approve="${num}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Merge…'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${num}/merge`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merge_method: 'squash', commit_title: title }),
+    });
+    if (res.ok) {
+      showToast(`✅ PR #${num} gemergt — Deploy läuft an.`, 'success'); sfx('success'); confettiBurst(0.5, 0.4, 60);
+      setTimeout(refreshProposals, 2500);
+      setTimeout(refreshRuns, 9000);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  } catch (e) {
+    showToast(`❌ Merge fehlgeschlagen: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Annehmen & mergen'; }
+  }
+}
+
+async function rejectProposal(num, title) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  const reason = prompt(`PR #${num} "${title}" ablehnen.\n\nKurz erklären, warum (optional, hilft dem nächsten KI-Lauf):`, '');
+  if (reason === null) return; // cancelled
+  const btn = document.querySelector(`[data-reject="${num}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Schließe…'; }
+  try {
+    if (reason && reason.trim()) {
+      await fetch(`https://api.github.com/repos/${REPO}/issues/${num}/comments`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: `Abgelehnt via HQ — Grund:\n\n${reason.trim()}` }),
+      });
+    }
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${num}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'closed' }),
+    });
+    if (res.ok) {
+      showToast(`✖️ PR #${num} abgelehnt.`, 'success'); sfx('click');
+      setTimeout(refreshProposals, 1500);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  } catch (e) {
+    showToast(`❌ Ablehnen fehlgeschlagen: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '❌ Ablehnen'; }
+  }
+}
+
+async function refreshProposals() { await loadProposals(); renderProposals(); }
 
 /* ─── XP / Level / Streak ──────────────────────────────────────── */
 const RANKS = [
@@ -1130,9 +1444,9 @@ function renderFromCache() {
 
 async function loadAll() {
   try {
-    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
+    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits(), loadProposals()]);
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
-    renderQuests(); renderAchievements(); renderHud();
+    renderQuests(); renderAchievements(); renderHud(); renderProposals();
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
     else $('releases-list').innerHTML = `<div class="err">Fehler beim Laden: ${escHtml(e.message)}</div>`;
@@ -1143,7 +1457,9 @@ async function init() {
   if (!getPat()) $('pat-notice').style.display = 'flex';
   $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
   renderQuests(); renderAchievements(); // instant, local
+  renderHealth();                       // instant: pending skeletons → checks run async
   renderFromCache();                    // instant, cached GitHub data
+  runHealthChecks();                    // async, no need to await
   await checkSiteStatus();
   await loadAll();                      // fresh GitHub data
   renderHud();
@@ -1152,7 +1468,7 @@ async function init() {
 async function refreshAll() {
   showToast('🔄 Aktualisiere…');
   await checkSiteStatus();
-  await loadAll();
+  await Promise.all([loadAll(), runHealthChecks()]);
   renderHud();
   showToast('✅ Aktualisiert', 'success'); sfx('click');
 }
@@ -1182,6 +1498,9 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const ap = e.target.closest('[data-approve]'); if (ap) { approveProposal(ap.dataset.approve, ap.dataset.title); return; }
+  const rj = e.target.closest('[data-reject]');  if (rj) { rejectProposal(rj.dataset.reject, rj.dataset.title); return; }
+  if (e.target.closest('#health-refresh-btn')) { runHealthChecks(); sfx('click'); return; }
 });
 
 // Keyboard shortcuts

@@ -35,6 +35,8 @@
 
 ## Zuletzt ausgeliefert (Mai/Juni 2026)
 
+- [x] **HQ Selbst-Check** (`hq.html`): Live-Probes für 10 zentrale Endpoints/Assets mit ✅/❌ + Latenz. Zeigt sofort, was läuft und was nicht.
+- [x] **HQ KI-Vorschläge** (`hq.html`): offene `claude/*`-PRs + Label-PRs werden gesammelt gelistet — Annehmen (Squash-Merge), Ablehnen (mit Begründungs-Comment) oder Diff ansehen direkt im Mission Control.
 - [x] QA-Support-Bot rechts über Bottom-Navigation, tokenfrei, mit direkter Bereichs-Navigation.
 - [x] QA-Bot Launcher auf transparentes Roboter/Headset/Partyhut-Icon reduziert (keine Card, kein Status-Dot).
 - [x] Loader/Hero-Popper bereinigt: doppeltes Popper-Bild entfernt.
