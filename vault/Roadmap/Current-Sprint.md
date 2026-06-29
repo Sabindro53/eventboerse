@@ -13,9 +13,12 @@
 - [ ] **Stripe Connect E2E im Testmodus finalisieren**
   - Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund/Dispute-Pfad prüfen.
   - Keine echte Buchung ohne aktives Auszahlungskonto des Dienstleisters.
-- [ ] **Admin-Moderation gegen aktuellen Code abgleichen**
-  - Vault erwähnt ältere Moderationsrouten; `functions.php` registriert sie aktuell nicht.
-  - Prüfen, ob UI-Funktion noch vorhanden ist oder wiederhergestellt werden muss.
+- [x] **Admin-Moderation gegen aktuellen Code abgleichen** *(erledigt 2026-06-26, live)*
+  - Admin-Bild-Löschen umgesetzt: Detailseite (`adminDeleteListingImage`) + Provider-Portfolio/Lightbox (`adminDeleteProfileImage`).
+  - Backend `POST /admin/moderate-image` + persistente Blocklist (`eb_demo_image_blocklist`) → wirkt auch für hardcodierte Demo-Listings.
+- [x] **Security-Härtung** *(erledigt 2026-06-26, live)*
+  - XSS-Escaping (`_escHtml` inkl. Quotes), Brute-Force-Rate-Limiting (Login/OTP/Reset/Register), CSP ohne `'unsafe-eval'`, WP-User-Enumeration gesperrt, CDN gepinnt, CI-Security-Workflow + `SECURITY.md`.
+  - Offen (User): `security@eventbörse.de`-Postfach; optional CDN-SRI; CSP ohne `'unsafe-inline'` (Inline-Handler-Refactor).
 
 ## Nächste Prioritäten (P1)
 
