@@ -384,6 +384,38 @@
   .empty { color: var(--muted); padding: 1rem; text-align:center; font-size:.85rem; }
   .err { color: #fca5a5; padding: 1rem; font-size:.85rem; }
 
+  /* ── Selbstcheck (KI-Audit) ── */
+  .audit-summary {
+    display:flex; gap:.45rem; flex-wrap:wrap; align-items:center; margin-bottom:.85rem;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:.7rem 1rem; font-size:.82rem;
+  }
+  .audit-summary .as-meta { color:var(--muted); font-size:.74rem; margin-left:auto; }
+  .audit-chip { display:inline-flex; align-items:center; gap:.35rem; padding:.18rem .55rem; border-radius:999px;
+    font-weight:700; font-size:.74rem; border:1px solid var(--border); background:var(--surface2); }
+  .audit-chip.error { background:#3a1414; color:#fca5a5; border-color:rgba(239,68,68,.5); }
+  .audit-chip.warn  { background:#3a2a14; color:#fcd34d; border-color:rgba(245,158,11,.5); }
+  .audit-chip.info  { background:#14283a; color:#93c5fd; border-color:rgba(34,211,238,.4); }
+  .audit-chip.ok    { background:#14321f; color:#86efac; border-color:rgba(34,197,94,.4); }
+  .findings { display:grid; gap:.6rem; margin-bottom:2rem; }
+  .finding {
+    background:var(--surface); border:1px solid var(--border); border-radius:13px;
+    padding:.85rem 1rem; transition:border-color .2s, transform .15s; position:relative;
+  }
+  .finding.sev-error { border-color:rgba(239,68,68,.55); }
+  .finding.sev-warn  { border-color:rgba(245,158,11,.45); }
+  .finding.sev-ok    { border-color:rgba(34,197,94,.4); }
+  .finding-head { display:flex; align-items:center; gap:.55rem; margin-bottom:.35rem; flex-wrap:wrap; }
+  .finding-title { font-weight:700; font-size:.92rem; line-height:1.35; flex:1; min-width:0; }
+  .finding-area { font-size:.62rem; padding:.12rem .45rem; border-radius:6px; background:var(--surface2);
+    color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+  .finding-detail { font-size:.8rem; color:var(--muted); line-height:1.5; margin-bottom:.4rem; }
+  .finding-sugg {
+    font-size:.78rem; padding:.5rem .7rem; border-left:3px solid var(--cyan);
+    background:rgba(34,211,238,.06); border-radius:0 8px 8px 0; line-height:1.5;
+  }
+  .finding-actions { display:flex; gap:.4rem; margin-top:.6rem; flex-wrap:wrap; }
+
   @media (max-width: 720px) {
     .hud-stats { grid-template-columns: 1fr 1fr; }
     .release-top { flex-direction: column; gap: .3rem; }
@@ -488,6 +520,23 @@
           <button class="btn btn-primary" id="pat-save">Speichern</button>
         </div>
       </div>
+    </div>
+
+    <!-- Selbstcheck (KI-Audit) -->
+    <div class="section-header">
+      <div class="section-title">🔧 Selbstcheck <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— was läuft, was nicht</span></div>
+      <div class="section-badge" id="audit-badge">–</div>
+    </div>
+    <div class="audit-summary" id="audit-summary">
+      <span class="audit-chip" id="audit-chip-err">❌ –</span>
+      <span class="audit-chip" id="audit-chip-warn">⚠️ –</span>
+      <span class="audit-chip" id="audit-chip-info">💡 –</span>
+      <span class="audit-chip" id="audit-chip-ok">✅ –</span>
+      <span class="as-meta" id="audit-meta">Audit wird geladen…</span>
+    </div>
+    <div class="findings" id="findings-list">
+      <div class="skeleton" style="height:80px;"></div>
+      <div class="skeleton" style="height:80px;"></div>
     </div>
 
     <!-- Quests -->
@@ -1144,6 +1193,7 @@ async function init() {
   $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
   renderQuests(); renderAchievements(); // instant, local
   renderFromCache();                    // instant, cached GitHub data
+  loadSelfAudit();                      // local audit/latest.json
   await checkSiteStatus();
   await loadAll();                      // fresh GitHub data
   renderHud();
@@ -1151,10 +1201,74 @@ async function init() {
 
 async function refreshAll() {
   showToast('🔄 Aktualisiere…');
+  loadSelfAudit();
   await checkSiteStatus();
   await loadAll();
   renderHud();
   showToast('✅ Aktualisiert', 'success'); sfx('click');
+}
+
+/* ─── Self-Audit (liest audit/latest.json) ─────────────────────── */
+const SEV_ICON = { error: '❌', warn: '⚠️', info: '💡', ok: '✅' };
+async function loadSelfAudit() {
+  const list = $('findings-list'), meta = $('audit-meta'), badge = $('audit-badge');
+  // Versuche zuerst lokales File (gleicher Pfad wie hq.html, also Theme-Wurzel),
+  // dann GitHub Raw als Fallback (damit hq.html auch standalone funktioniert).
+  const tryUrls = [
+    new URL('audit/latest.json', location.href).href + '?t=' + Date.now(),
+    `https://raw.githubusercontent.com/${REPO}/main/audit/latest.json`,
+  ];
+  let data = null;
+  for (const u of tryUrls) {
+    try {
+      const r = await fetch(u, { cache: 'no-store' });
+      if (!r.ok) continue;
+      data = await r.json();
+      break;
+    } catch {}
+  }
+  if (!data || !Array.isArray(data.findings)) {
+    list.innerHTML = '<div class="empty">Noch kein Audit. <code>node scripts/self-audit.mjs</code> ausführen.</div>';
+    badge.textContent = '0';
+    meta.textContent = 'kein Audit gefunden';
+    return;
+  }
+  const c = data.counts || {};
+  $('audit-chip-err').textContent  = `❌ ${c.error || 0}`;
+  $('audit-chip-warn').textContent = `⚠️ ${c.warn  || 0}`;
+  $('audit-chip-info').textContent = `💡 ${c.info  || 0}`;
+  $('audit-chip-ok').textContent   = `✅ ${c.ok    || 0}`;
+  badge.textContent = String(data.findings.length);
+  meta.textContent = `Stand ${humanDate(data.generatedAt)} · Commit ${data.commit || '–'}`;
+
+  // Sortierung: error → warn → info → ok
+  const order = { error: 0, warn: 1, info: 2, ok: 3 };
+  const sorted = [...data.findings].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+  list.innerHTML = sorted.map(f => {
+    const sev = f.severity || 'info';
+    const icon = SEV_ICON[sev] || '•';
+    const issueQ = encodeURIComponent(`is:issue ${f.id}`);
+    const newIssueTitle = encodeURIComponent(`[audit] ${f.title}`);
+    const newIssueBody  = encodeURIComponent(
+      `**Finding-ID:** \`${f.id}\`\n**Schweregrad:** ${sev}\n**Bereich:** ${f.area || '–'}\n\n` +
+      `**Detail:** ${f.detail || '–'}\n\n**Vorschlag:** ${f.suggestion || '–'}\n\n` +
+      `_Automatisch erzeugt vom Self-Audit (${data.commit || '–'})._`
+    );
+    return `
+      <div class="finding sev-${sev}" data-id="${escHtml(f.id)}">
+        <div class="finding-head">
+          <span>${icon}</span>
+          <div class="finding-title">${escHtml(f.title)}</div>
+          <span class="finding-area">${escHtml(f.area || 'general')}</span>
+        </div>
+        ${f.detail ? `<div class="finding-detail">${escHtml(f.detail)}</div>` : ''}
+        ${f.suggestion ? `<div class="finding-sugg"><strong>Vorschlag:</strong> ${escHtml(f.suggestion)}</div>` : ''}
+        <div class="finding-actions">
+          <a class="btn" href="https://github.com/${REPO}/issues?q=${issueQ}" target="_blank" rel="noopener">🔎 Vorhandene Issues</a>
+          <a class="btn btn-primary" href="https://github.com/${REPO}/issues/new?title=${newIssueTitle}&body=${newIssueBody}&labels=audit" target="_blank" rel="noopener">📝 Als Issue anlegen</a>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 /* ─── Wiring ───────────────────────────────────────────────────── */
