@@ -1,0 +1,95 @@
+{
+  "schema": "eb-self-audit/v1",
+  "generatedAt": "2026-06-29T11:09:33Z",
+  "commit": "2330172",
+  "counts": {
+    "total": 7,
+    "error": 0,
+    "warn": 2,
+    "info": 4,
+    "ok": 1
+  },
+  "findings": [
+    {
+      "id": "dsgvo-analytics-inert",
+      "title": "analytics.php ist inert (kein Tracking)",
+      "area": "security",
+      "severity": "ok",
+      "status": "fixed",
+      "detail": "Keine Verarbeitung personenbezogener Daten — kann nach Deploy-Verifikation gelöscht werden.",
+      "suggestion": "Datei nach Live-Verifikation entfernen (chore-PR).",
+      "evidence": null
+    },
+    {
+      "id": "route-admin-mod-missing",
+      "title": "Admin-Moderationsrouten im Vault dokumentiert, aber nicht im Code",
+      "area": "backend",
+      "severity": "warn",
+      "status": "open",
+      "detail": "`/admin/listings/{id}/hide` und `/my-listing-moderation` werden im Vault erwähnt, fehlen aber in functions.php.",
+      "suggestion": "Entweder die Routen wiederherstellen oder die Vault-Notiz korrigieren.",
+      "evidence": null
+    },
+    {
+      "id": "size-app.js-watch",
+      "title": "app.js wächst (21501 Zeilen)",
+      "area": "maintainability",
+      "severity": "info",
+      "status": "open",
+      "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
+      "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
+      "evidence": {
+        "lines": 21501,
+        "threshold": 20000
+      }
+    },
+    {
+      "id": "size-functions.php-watch",
+      "title": "functions.php wächst (7553 Zeilen)",
+      "area": "maintainability",
+      "severity": "info",
+      "status": "open",
+      "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
+      "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
+      "evidence": {
+        "lines": 7553,
+        "threshold": 6000
+      }
+    },
+    {
+      "id": "size-styles.css-watch",
+      "title": "styles.css wächst (15078 Zeilen)",
+      "area": "maintainability",
+      "severity": "info",
+      "status": "open",
+      "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
+      "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
+      "evidence": {
+        "lines": 15078,
+        "threshold": 12000
+      }
+    },
+    {
+      "id": "console-noise",
+      "title": "17 console.*-Aufrufe in app.js",
+      "area": "cleanup",
+      "severity": "info",
+      "status": "open",
+      "detail": "Aufrufe landen in der Browser-Konsole der Nutzer. Für Production wäre ein Debug-Flag sauberer.",
+      "suggestion": "Kosmetik: console-Aufrufe hinter einen `EB_DEBUG`-Flag stellen oder in production strippen.",
+      "evidence": {
+        "count": 17
+      }
+    },
+    {
+      "id": "no-tests",
+      "title": "Keine automatisierten Tests im Repo",
+      "area": "quality",
+      "severity": "warn",
+      "status": "open",
+      "detail": "Bekannte Schwäche aus CLAUDE.md. Ein paar Smoke-Tests gegen die SPA wären schon viel wert.",
+      "suggestion": "Playwright-Smoke-Suite für browse/detail/board/chat (regression-Schutz P0).",
+      "evidence": null
+    }
+  ]
+}
