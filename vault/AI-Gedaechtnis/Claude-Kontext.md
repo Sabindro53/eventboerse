@@ -139,5 +139,25 @@ navigateTo('admin')         // Admin-Panel
 - **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
 - **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
 
+## Stand 2026-06-30 — Self-Improvement Loop UI (HQ KI-Vorschläge)
+
+- **HQ Mission Control (`hq.html`) hat einen Approve/Reject-Workflow für KI-Vorschläge.** Damit kann ich Änderungen autonom als PR vorschlagen, du musst nur noch klicken.
+- **Neue Sektion „🤖 KI-Vorschläge"** listet offene Pull-Requests, die als KI-Vorschlag erkannt werden:
+  - Label `auto-improve` / `ai-improve` / `claude` ODER
+  - Branch-Präfix `claude/`, `ai/`, `auto/`
+- **Pro Vorschlag** zeigt die Karte: Titel, Branch, Body-Excerpt (klappbar), geänderte Dateien (Top 6), +/− Zeilen, CI-Status (✅/❌/⏳), Draft/Bereit/Konflikt-Tag.
+- **Drei Aktionen pro Karte:**
+  - `✅ Annehmen & mergen` → Squash-Merge via REST + Branch-Cleanup (`DELETE /git/refs/heads/<branch>`). Deploy startet automatisch (IONOS).
+  - `❌ Verwerfen` → `PATCH /pulls/N {state:closed}` + Branch-Löschung, mit Confirm-Dialog.
+  - `📤 Bereit markieren` (nur bei Drafts) → GraphQL `markPullRequestReadyForReview` (REST kann das nicht).
+  - `🔍 Diff ansehen` → öffnet `/files` auf GitHub.
+- **Neue Sektion „📡 Status & Gesundheit"** zeigt vier Tiles:
+  1. Live-Site (verlinkt zu offenem `site-down`-Issue, falls vorhanden).
+  2. Letzter Deploy (Status + Run-Nummer).
+  3. CI-Erfolgsquote letzte 20 Runs + Namen der schwachen Workflows.
+  4. Backlog (offene KI-Vorschläge + offene Issues).
+- **Voraussetzungen für den Loop:** Token (PAT) im HQ, `repo` + `workflow` Scope (war schon da für Rollback/Bot-Trigger). Keine neuen Secrets.
+- **Was noch fehlt für vollautonomes Self-Improve:** ein Workflow, der Claude in CI laufen lässt und eigenständig PRs gegen `claude/auto-improve-*` öffnet. UI-Seite ist jetzt komplett — sobald solche PRs entstehen, tauchen sie im Panel auf. Das ist der nächste Schritt (eigener PR).
+
 ---
-*Zuletzt aktualisiert: 2026-06-26*
+*Zuletzt aktualisiert: 2026-06-30*
