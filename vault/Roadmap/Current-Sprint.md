@@ -10,6 +10,8 @@
 - [ ] **KI-Änderungs-Guardrails operationalisieren**
   - Safe Defaults für automatische Worker (kein destruktives Verhalten bei Unsicherheit).
   - Änderung nur mit nachvollziehbarem Status + Grund.
+  - **Teil 1 erledigt (2026-06-30):** Approve/Reject-UI in `hq.html` (Sektion „🤖 KI-Vorschläge"). Jeder PR mit Label `auto-improve` oder Branch `claude/*`/`ai/*`/`auto/*` lässt sich per Klick mergen oder verwerfen (inkl. Branch-Cleanup).
+  - **Teil 2 offen:** Autonomer Auto-Improve-Workflow (Claude in CI, öffnet Vorschläge als Draft-PRs).
 - [ ] **Stripe Connect E2E im Testmodus finalisieren**
   - Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund/Dispute-Pfad prüfen.
   - Keine echte Buchung ohne aktives Auszahlungskonto des Dienstleisters.
