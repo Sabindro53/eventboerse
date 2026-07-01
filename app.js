@@ -12218,12 +12218,17 @@ document.addEventListener('click', (e) => {
 });
 
 // ========== TOAST ==========
+var _toastTimer = null;
 function showToast(message, icon = 'check_circle') {
   const toast = document.getElementById('toast');
   document.getElementById('toastMessage').textContent = message;
   document.getElementById('toastIcon').textContent = icon;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function() {
+    toast.classList.remove('show');
+    _toastTimer = null;
+  }, 3000);
 }
 
 // ========== QA SUPPORT BOT (tokenfrei / muster-basiert) ==========
