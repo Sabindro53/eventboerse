@@ -5474,7 +5474,7 @@ function openChat(chatId) {
               delBtn = '<button class="msg-delete-btn" title="Für mich löschen" aria-label="Für mich löschen" onclick="hideMessageForMe(' + msg.id + ')"><span class="material-icons-round">delete</span></button>';
             }
           }
-          return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + time + '</span></div>';
+          return '<div class="msg ' + cls + '">' + delBtn + _escHtml(msg.text || msg.content || '') + '<span class="msg-time">' + _escHtml(time) + '</span></div>';
         }
       }).join('');
       // Scroll to bottom after render
