@@ -4682,6 +4682,8 @@ function _sendOfflineBeacon() {
 var _inactivityTimer = null;
 var _lastActivity = 0;
 var _INACTIVITY_MS = 15 * 60 * 1000;
+var _INACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+var _inactivityAttached = false;
 
 function _touchActivity() {
   _lastActivity = Date.now();
@@ -4696,22 +4698,32 @@ function _checkInactivity() {
   }
 }
 
+function _onInactivityVisibility() {
+  if (!document.hidden) _checkInactivity();
+}
+
 function _startInactivityWatch() {
   _touchActivity();
-  var events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-  events.forEach(function(evt) {
-    document.addEventListener(evt, _touchActivity, { passive: true });
-  });
-  // Check every 30 s (aligns with heartbeat)
+  if (!_inactivityAttached) {
+    _INACTIVITY_EVENTS.forEach(function(evt) {
+      document.addEventListener(evt, _touchActivity, { passive: true });
+    });
+    document.addEventListener('visibilitychange', _onInactivityVisibility);
+    _inactivityAttached = true;
+  }
+  if (_inactivityTimer) clearInterval(_inactivityTimer);
   _inactivityTimer = setInterval(_checkInactivity, 30000);
-  // Also check when Safari un-freezes the tab
-  document.addEventListener('visibilitychange', function() {
-    if (!document.hidden) _checkInactivity();
-  });
 }
 
 function _stopInactivityWatch() {
   if (_inactivityTimer) { clearInterval(_inactivityTimer); _inactivityTimer = null; }
+  if (_inactivityAttached) {
+    _INACTIVITY_EVENTS.forEach(function(evt) {
+      document.removeEventListener(evt, _touchActivity);
+    });
+    document.removeEventListener('visibilitychange', _onInactivityVisibility);
+    _inactivityAttached = false;
+  }
 }
 
 // ──── Update chat header online/offline status ────
