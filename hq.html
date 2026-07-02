@@ -333,6 +333,59 @@
   .btn-danger:hover { background: #2a1010; }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
 
+  /* ── Health Checks (welche Systeme laufen) ── */
+  .health-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.6rem; margin-bottom:2rem; }
+  .health-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:.85rem 1rem;
+    display:flex; align-items:center; gap:.7rem; transition:border-color .2s;
+  }
+  .health-card.up { border-color:rgba(34,197,94,.35); }
+  .health-card.down { border-color:rgba(239,68,68,.45); }
+  .health-card.checking { border-color:rgba(245,158,11,.35); }
+  .health-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .health-dot.up { background:var(--green); box-shadow:var(--glow) rgba(34,197,94,.5); }
+  .health-dot.down { background:var(--red); box-shadow:var(--glow) rgba(239,68,68,.5); }
+  .health-dot.checking { background:var(--yellow); animation:pulse 1.4s infinite; }
+  .health-body { flex:1; min-width:0; }
+  .health-name { font-size:.86rem; font-weight:700; line-height:1.2; }
+  .health-sub { font-size:.7rem; color:var(--muted); margin-top:.15rem; }
+  .health-ms { font-size:.72rem; color:var(--cyan); font-family:monospace; margin-left:auto; flex-shrink:0; }
+
+  /* ── Proposals (KI-Vorschläge) ── */
+  .proposals { display:flex; flex-direction:column; gap:.7rem; margin-bottom:2rem; }
+  .proposal-card {
+    background:linear-gradient(160deg, var(--surface), var(--bg2));
+    border:1px solid var(--border); border-radius:14px; padding:1rem 1.2rem;
+    display:flex; flex-direction:column; gap:.55rem; transition:border-color .2s;
+  }
+  .proposal-card:hover { border-color:var(--violet); }
+  .proposal-card.pr { border-color:rgba(124,58,237,.35); }
+  .proposal-top { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .proposal-title { font-size:.94rem; font-weight:700; line-height:1.35; flex:1; min-width:0; }
+  .proposal-meta { display:flex; gap:.4rem; align-items:center; flex-shrink:0; }
+  .proposal-kind {
+    font-size:.64rem; font-weight:800; letter-spacing:.05em; padding:.15rem .5rem; border-radius:6px;
+    text-transform:uppercase;
+  }
+  .proposal-kind.pr { background:#2a1c3a; color:#c4b5fd; }
+  .proposal-kind.issue { background:#1e2a3a; color:#93c5fd; }
+  .proposal-body { font-size:.82rem; color:var(--muted); line-height:1.55; white-space:pre-wrap; max-height:8em; overflow:hidden; position:relative; }
+  .proposal-body.expanded { max-height:none; }
+  .proposal-body::after {
+    content:''; position:absolute; left:0; right:0; bottom:0; height:2.2em;
+    background:linear-gradient(transparent, var(--bg2)); pointer-events:none;
+  }
+  .proposal-body.expanded::after { display:none; }
+  .proposal-foot { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-top:.3rem; }
+  .proposal-nr { font-family:monospace; color:var(--muted); font-size:.72rem; }
+  .proposal-labels { display:flex; gap:.3rem; flex-wrap:wrap; }
+  .proposal-label { font-size:.62rem; padding:.1rem .45rem; border-radius:999px; background:var(--surface3); color:var(--muted); border:1px solid var(--border); }
+  .proposal-actions { margin-left:auto; display:flex; gap:.4rem; flex-wrap:wrap; }
+  .btn-accept { background:linear-gradient(135deg, #16a34a, #22c55e); border-color:transparent; color:#04140a; font-weight:700; }
+  .btn-accept:hover { opacity:.94; border-color:transparent; }
+  .btn-reject { background:var(--surface2); border-color:rgba(239,68,68,.4); color:#fca5a5; }
+  .btn-reject:hover { background:#2a1010; border-color:var(--red); }
+
   /* ── Runs ── */
   .runs { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 2rem; }
   .run-row { display: flex; align-items: center; gap: .75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: .6rem 1rem; font-size: .84rem; }
@@ -475,6 +528,27 @@
 
     <!-- Quick actions -->
     <div class="qa-bar" id="qa-bar"></div>
+
+    <!-- Health Checks: was läuft, was nicht -->
+    <div class="section-header">
+      <div class="section-title">🩺 Zustand <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— was läuft, was nicht</span></div>
+      <div class="section-badge" id="health-badge">Prüfe…</div>
+    </div>
+    <div class="health-grid" id="health-grid">
+      <div class="skeleton" style="height:64px;"></div>
+      <div class="skeleton" style="height:64px;"></div>
+      <div class="skeleton" style="height:64px;"></div>
+      <div class="skeleton" style="height:64px;"></div>
+    </div>
+
+    <!-- KI-Vorschläge (zustimmen / ablehnen) -->
+    <div class="section-header">
+      <div class="section-title">🧠 KI-Vorschläge <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— zustimmen oder ablehnen</span></div>
+      <div class="section-badge" id="proposals-badge">–</div>
+    </div>
+    <div class="proposals" id="proposals-list">
+      <div class="skeleton" style="height:110px;"></div>
+    </div>
 
     <!-- PAT notice -->
     <div class="pat-notice" id="pat-notice" style="display:none;">
@@ -956,6 +1030,175 @@ function renderLog() {
   });
 }
 
+/* ─── Health Checks (was läuft, was nicht) ────────────────────── */
+const HEALTH_CHECKS = [
+  { id: 'site',      name: 'Startseite',        sub: 'HTML-Auslieferung',        url: SITE_URL, mode: 'no-cors' },
+  { id: 'listings',  name: 'Listings-API',       sub: 'GET /listings?limit=1',   url: SITE_URL + 'wp-json/eventboerse/v1/listings?limit=1', mode: 'cors', expectJson: true },
+  { id: 'rest',      name: 'WordPress REST',     sub: '/wp-json/',               url: SITE_URL + 'wp-json/', mode: 'cors', expectJson: true },
+  { id: 'reviews',   name: 'Reviews-API',        sub: 'GET /reviews?limit=1',    url: SITE_URL + 'wp-json/eventboerse/v1/reviews?limit=1', mode: 'cors', expectJson: true },
+  { id: 'assets',    name: 'Theme-Assets',       sub: 'styles.css erreichbar',   url: SITE_URL + 'wp-content/themes/eventboerse/styles.css', mode: 'no-cors' },
+  { id: 'auth',      name: 'Auth-Endpoint',      sub: 'POST /login (erwartet 400)', url: SITE_URL + 'wp-json/eventboerse/v1/login', mode: 'cors', method: 'POST', expectStatus: [400, 401, 403] },
+];
+
+async function checkOneEndpoint(chk) {
+  const t0 = performance.now();
+  const opts = { mode: chk.mode || 'cors', cache: 'no-store', credentials: 'omit' };
+  if (chk.method) opts.method = chk.method;
+  try {
+    const res = await Promise.race([
+      fetch(chk.url + (chk.url.includes('?') ? '&' : '?') + '_hq=' + Date.now(), opts),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000)),
+    ]);
+    const ms = Math.round(performance.now() - t0);
+    if (chk.mode === 'no-cors') return { up: true, ms, note: 'erreichbar' };
+    if (chk.expectStatus && chk.expectStatus.includes(res.status)) return { up: true, ms, note: `HTTP ${res.status} (erwartet)` };
+    if (chk.expectJson) {
+      try { await res.clone().json(); return { up: res.ok, ms, note: res.ok ? `HTTP ${res.status} · JSON ok` : `HTTP ${res.status}` }; }
+      catch { return { up: false, ms, note: `HTTP ${res.status} · kein JSON` }; }
+    }
+    return { up: res.ok, ms, note: `HTTP ${res.status}` };
+  } catch (e) {
+    const ms = Math.round(performance.now() - t0);
+    return { up: false, ms, note: (e && e.message) || 'Fehler' };
+  }
+}
+
+async function runHealthChecks() {
+  const grid = $('health-grid');
+  grid.innerHTML = HEALTH_CHECKS.map(c => `
+    <div class="health-card checking" data-hid="${c.id}">
+      <div class="health-dot checking"></div>
+      <div class="health-body">
+        <div class="health-name">${escHtml(c.name)}</div>
+        <div class="health-sub">${escHtml(c.sub)}</div>
+      </div>
+      <div class="health-ms">…</div>
+    </div>`).join('');
+  const results = await Promise.all(HEALTH_CHECKS.map(checkOneEndpoint));
+  let upCount = 0;
+  results.forEach((r, i) => {
+    const chk = HEALTH_CHECKS[i];
+    const card = grid.querySelector(`[data-hid="${chk.id}"]`);
+    if (!card) return;
+    card.className = 'health-card ' + (r.up ? 'up' : 'down');
+    card.querySelector('.health-dot').className = 'health-dot ' + (r.up ? 'up' : 'down');
+    card.querySelector('.health-sub').textContent = r.note;
+    card.querySelector('.health-ms').textContent = r.ms + ' ms';
+    if (r.up) upCount++;
+  });
+  $('health-badge').textContent = `${upCount}/${HEALTH_CHECKS.length} online`;
+  state.healthUp = upCount; state.healthTotal = HEALTH_CHECKS.length;
+}
+
+/* ─── KI-Vorschläge (Vorschlags-Feed aus Issues + PRs) ─────────── */
+const PROPOSAL_LABELS = ['audit', 'automated', 'ai-suggestion', 'auto-improve', 'claude-vorschlag'];
+function isProposal(item) {
+  const labels = (item.labels || []).map(l => (typeof l === 'string' ? l : l.name).toLowerCase());
+  return labels.some(l => PROPOSAL_LABELS.includes(l));
+}
+function proposalItems() {
+  const issues = (state.issues || []).filter(isProposal).map(i => ({ kind: 'issue', item: i }));
+  const pulls = (state.pulls || []).filter(isProposal).map(p => ({ kind: 'pr', item: p }));
+  const other = (state.pulls || []).filter(p => !isProposal(p)).map(p => ({ kind: 'pr', item: p }));
+  return [...pulls, ...issues, ...other].slice(0, 12);
+}
+function renderProposals() {
+  const list = $('proposals-list'); const items = proposalItems();
+  const total = items.length;
+  $('proposals-badge').textContent = total ? `${total} offen` : 'Nichts offen';
+  if (!total) {
+    list.innerHTML = `
+      <div class="empty" style="border:1px dashed var(--border);border-radius:12px;padding:1.4rem;">
+        Keine offenen Vorschläge. Bot-Team starten (▶ Audit) oder <a class="log-link" href="https://github.com/${REPO}/issues/new" target="_blank" rel="noopener">manuell öffnen</a>.
+      </div>`;
+    return;
+  }
+  list.innerHTML = '';
+  items.forEach(({ kind, item }) => {
+    const body = String(item.body || '').replace(/\r/g, '').trim();
+    const truncated = body.length > 600;
+    const shortBody = truncated ? body.slice(0, 600) + '…' : body;
+    const labels = (item.labels || []).map(l => typeof l === 'string' ? l : l.name).filter(Boolean);
+    const card = document.createElement('div');
+    card.className = 'proposal-card' + (kind === 'pr' ? ' pr' : '');
+    card.innerHTML = `
+      <div class="proposal-top">
+        <div class="proposal-title">${escHtml(item.title || 'Ohne Titel')}</div>
+        <div class="proposal-meta">
+          <span class="proposal-kind ${kind}">${kind === 'pr' ? 'Pull Request' : 'Vorschlag'}</span>
+        </div>
+      </div>
+      ${body ? `<div class="proposal-body" data-body>${escHtml(shortBody)}</div>` : ''}
+      <div class="proposal-foot">
+        <span class="proposal-nr">#${item.number}</span>
+        <span class="proposal-nr">${humanDate(item.updated_at || item.created_at)}</span>
+        <div class="proposal-labels">${labels.map(l => `<span class="proposal-label">${escHtml(l)}</span>`).join('')}</div>
+        <div class="proposal-actions">
+          <a class="btn" href="${item.html_url}" target="_blank" rel="noopener">👀 Ansehen</a>
+          ${truncated ? '<button class="btn" data-expand>Mehr</button>' : ''}
+          <button class="btn btn-accept" data-accept="${kind}:${item.number}${kind === 'pr' && item.head ? ':' + (item.head.sha || '') : ''}">✅ Zustimmen</button>
+          <button class="btn btn-reject" data-reject="${kind}:${item.number}">❌ Ablehnen</button>
+        </div>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+async function acceptProposal(kind, number, sha) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  const btn = document.querySelector(`[data-accept^="${kind}:${number}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ …'; }
+  try {
+    if (kind === 'pr') {
+      const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${number}/merge`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merge_method: 'squash', ...(sha ? { sha } : {}) }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+      showToast('✅ PR gemerged — Deploy startet', 'success'); sfx('success'); confettiBurst(0.5, 0.5, 60);
+    } else {
+      const labelRes = await fetch(`https://api.github.com/repos/${REPO}/issues/${number}/labels`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels: ['accepted'] }),
+      });
+      const closeRes = await fetch(`https://api.github.com/repos/${REPO}/issues/${number}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'closed', state_reason: 'completed' }),
+      });
+      if (!closeRes.ok) { const err = await closeRes.json().catch(() => ({})); throw new Error(err.message || `HTTP ${closeRes.status}`); }
+      showToast('✅ Vorschlag angenommen (Issue geschlossen)', 'success'); sfx('success');
+    }
+    await loadIssues(); renderProposals(); renderQuickActions();
+  } catch (e) { showToast(`❌ ${e.message}`, 'error'); sfx('error'); }
+  finally { const b = document.querySelector(`[data-accept^="${kind}:${number}"]`); if (b) { b.disabled = false; b.textContent = '✅ Zustimmen'; } }
+}
+
+async function rejectProposal(kind, number) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  if (!confirm(`${kind === 'pr' ? 'PR' : 'Vorschlag'} #${number} wirklich ablehnen?`)) return;
+  const btn = document.querySelector(`[data-reject="${kind}:${number}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ …'; }
+  try {
+    await fetch(`https://api.github.com/repos/${REPO}/issues/${number}/labels`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labels: ['rejected'] }),
+    });
+    const res = await fetch(`https://api.github.com/repos/${REPO}/issues/${number}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'closed', state_reason: 'not_planned' }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+    showToast('❌ Abgelehnt und geschlossen', 'success'); sfx('click');
+    await loadIssues(); renderProposals(); renderQuickActions();
+  } catch (e) { showToast(`❌ ${e.message}`, 'error'); sfx('error'); }
+  finally { const b = document.querySelector(`[data-reject="${kind}:${number}"]`); if (b) { b.disabled = false; b.textContent = '❌ Ablehnen'; } }
+}
+
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
   { id: 'claude-dev', avatar: '🤖', name: 'Claude Dev-Bot', role: 'Analysiert Code mit Claude AI, findet Bugs & öffnet GitHub-Issues.', workflow: 'claude-auto-audit.yml', canTrigger: true, triggerLabel: '▶ Audit', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
@@ -1125,14 +1368,14 @@ function renderFromCache() {
   if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
   if (tc) state.totalCommits = tc.data;
   if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
-  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
+  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); renderProposals(); }
 }
 
 async function loadAll() {
   try {
     await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
-    renderQuests(); renderAchievements(); renderHud();
+    renderQuests(); renderAchievements(); renderProposals(); renderHud();
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
     else $('releases-list').innerHTML = `<div class="err">Fehler beim Laden: ${escHtml(e.message)}</div>`;
@@ -1144,6 +1387,7 @@ async function init() {
   $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
   renderQuests(); renderAchievements(); // instant, local
   renderFromCache();                    // instant, cached GitHub data
+  runHealthChecks();                    // parallel, non-blocking
   await checkSiteStatus();
   await loadAll();                      // fresh GitHub data
   renderHud();
@@ -1151,6 +1395,7 @@ async function init() {
 
 async function refreshAll() {
   showToast('🔄 Aktualisiere…');
+  runHealthChecks();
   await checkSiteStatus();
   await loadAll();
   renderHud();
@@ -1182,6 +1427,9 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const ac = e.target.closest('[data-accept]'); if (ac) { const [kind, num, sha] = ac.dataset.accept.split(':'); acceptProposal(kind, num, sha); return; }
+  const rj = e.target.closest('[data-reject]'); if (rj) { const [kind, num] = rj.dataset.reject.split(':'); rejectProposal(kind, num); return; }
+  const ex = e.target.closest('[data-expand]'); if (ex) { const body = ex.closest('.proposal-card')?.querySelector('[data-body]'); if (body) { body.classList.toggle('expanded'); ex.textContent = body.classList.contains('expanded') ? 'Weniger' : 'Mehr'; } return; }
 });
 
 // Keyboard shortcuts

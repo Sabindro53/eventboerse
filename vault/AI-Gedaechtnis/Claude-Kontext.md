@@ -139,5 +139,25 @@ navigateTo('admin')         // Admin-Panel
 - **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
 - **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
 
+## Stand 2026-07-02 — HQ Self-Improvement Cockpit (Branch `claude/stoic-darwin-2gohr2`)
+
+- **`hq.html` erweitert** um zwei neue Sektionen zwischen Quick-Actions und Quests:
+  - **🩺 Zustand** — Live-Health-Checks (Startseite, WordPress REST, Listings, Reviews, Assets, Auth-Endpoint).
+    Client-seitig via `fetch` (CORS wo möglich, no-cors wo nötig), zeigt Response-Zeit + Status.
+    Läuft bei jedem Init und bei `refreshAll()` parallel, blockiert nichts.
+  - **🧠 KI-Vorschläge** — Feed aus offenen GitHub-Issues (Labels: `audit`, `automated`, `ai-suggestion`,
+    `auto-improve`, `claude-vorschlag`) + offene PRs. Jeder Vorschlag ist eine Karte mit **✅ Zustimmen**
+    und **❌ Ablehnen** — 1-Klick-Aktion.
+    - Zustimmen bei PR = `PUT /pulls/{n}/merge` (Squash-Merge).
+    - Zustimmen bei Issue = Label `accepted` + Issue schließen (`completed`).
+    - Ablehnen = Label `rejected` + Issue schließen (`not_planned`).
+    - Beide Aktionen brauchen den PAT, der schon vorher für Rollback/Bot-Trigger genutzt wird.
+- **Workflow-Bestand:** `claude-auto-audit.yml` erzeugt bereits Vorschläge als Issues (Labels
+  `audit,automated`). Sie erscheinen automatisch im neuen Vorschlags-Feed. Der Bot ist auch schon
+  in der Bot-Team-Sektion mit "▶ Audit"-Trigger sichtbar. Kein neuer Workflow nötig.
+- **Warum das reicht:** Der Nutzer sieht auf einer Seite: (1) was läuft/nicht läuft, (2) welche
+  KI-Vorschläge offen sind, (3) kann per Klick zustimmen oder ablehnen. Kein manuelles GitHub-UI
+  mehr für den Regelfall. Bot-Trigger + Rollback + Bewertung alles im HQ.
+
 ---
-*Zuletzt aktualisiert: 2026-06-26*
+*Zuletzt aktualisiert: 2026-07-02*
