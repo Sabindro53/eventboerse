@@ -139,5 +139,26 @@ navigateTo('admin')         // Admin-Panel
 - **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
 - **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
 
+## Stand 2026-07-03 — PR-Stau bei „Self-Improvement-Panel" (WICHTIG für nächste Session)
+
+**Beobachtung:** 10 offene Draft-PRs seit dem 17.06., davon **sechs** (
+#49, #51, #52, #53, #57, #60, #62, #64, #66) versuchen dieselbe Bitte des Users
+umzusetzen: „Code soll sich eigenständig verbessern und mir zeigen was läuft /
+nicht läuft — ich will nur zustimmen/ablehnen." Jede Session öffnete einen
+neuen Panel-PR, statt den existierenden Stapel zu triagieren.
+
+**Regel für Routine-Läufe:**
+
+1. **NICHT** noch einen HQ-Self-Improve-/Approve-Panel-PR öffnen. Das Muster ist
+   erschöpft — der Bottleneck ist die User-Entscheidung, nicht mehr UI.
+2. Wenn der Vault-Kontext auf denselben Wunsch trifft, **erst** `list_pull_requests`
+   prüfen. Wenn N > 3 offene Panel-PRs existieren, ist der richtige Schritt:
+   Triage-Notiz per PushNotification (schließen/mergen-Vorschlag), kein neuer Code.
+3. Aktuell empfohlene Entscheidung: **#66 als jüngsten behalten**, #49/#51/#52/#53/#57/#60/#62/#64 schließen
+   (redundant/veraltet). #65 (3 konkrete Bugfixes) ist eigenständig und sollte
+   pro-Commit gemergt oder abgelehnt werden.
+4. Auch **16 stale `claude/*`-Branches** auf origin — nach PR-Close aufräumen
+   (`git push origin --delete <branch>`).
+
 ---
-*Zuletzt aktualisiert: 2026-06-26*
+*Zuletzt aktualisiert: 2026-07-03*
