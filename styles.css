@@ -3062,6 +3062,35 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   z-index: 5;
   box-shadow: var(--shadow-sm);
 }
+
+/* Board-Status-Badge: "Im Plan / Kontaktiert / Angebot / Gebucht" —
+   Verknüpfung Planungsboard ↔ Browse/Detail/Profil */
+.board-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+.board-status-badge .material-icons-round { font-size: 14px; }
+.board-status-badge.bsb-geplant       { background: #3b82f6; }
+.board-status-badge.bsb-kontaktiert   { background: #f59e0b; }
+.board-status-badge.bsb-angebot       { background: #8b5cf6; }
+.board-status-badge.bsb-gebucht       { background: #16a34a; }
+.board-status-badge.bsb-abgeschlossen { background: #64748b; }
+/* Auf der Browse-Karte: unten links im Bild (Badge oben links bleibt frei) */
+.board-status-badge.bsb-on-card {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  z-index: 5;
+}
+/* In der Detail-Provider-Zeile etwas größer + klickbar */
+#detailBoardStatus .board-status-badge { font-size: 0.8rem; padding: 6px 12px; }
 .listing-card-body { padding: 14px 6px 8px; }
 .listing-card-top {
   display: flex;
@@ -10660,6 +10689,153 @@ body.dark-mode .bpc-edit-btn:hover { background: var(--primary); border-color: v
 .board-checklist-view { padding: 20px 28px 60px; }
 .bcl-wrap { max-width: 640px; margin: 0 auto; }
 .bcl-header { margin-bottom: 20px; }
+
+/* ===== Planungs-Guide (geführte Steps im Board) ===== */
+.bguide-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 16px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+.bguide-header { margin-bottom: 10px; }
+.bguide-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+.bguide-title .material-icons-round { color: var(--primary, #FF385C); }
+.bguide-tmpl {
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+.bguide-progress-label {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  margin: 6px 0 4px;
+}
+.bguide-progress-bar-wrap {
+  height: 8px;
+  border-radius: 6px;
+  background: var(--bg-alt);
+  overflow: hidden;
+}
+.bguide-progress-bar {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #FF385C, #8b5cf6);
+  transition: width .35s ease;
+}
+.bguide-current-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,56,92,0.07);
+  border: 1px dashed rgba(255,56,92,0.35);
+}
+.bguide-current-hint .material-icons-round { font-size: 18px; color: var(--primary, #FF385C); }
+.bguide-current-hint.bguide-all-done {
+  background: rgba(22,163,74,0.08);
+  border-color: rgba(22,163,74,0.35);
+}
+.bguide-current-hint.bguide-all-done .material-icons-round { color: #16a34a; }
+.bguide-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.bguide-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--border);
+  min-height: 44px; /* Touch-Target unterwegs */
+}
+.bguide-step:last-child { border-bottom: none; }
+.bguide-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.bguide-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+}
+.bguide-state-icon { font-size: 20px; color: var(--text-light); }
+.bguide-step.done .bguide-state-icon { color: #16a34a; }
+.bguide-step.current .bguide-state-icon { color: var(--primary, #FF385C); }
+.bguide-step.done .bguide-text {
+  text-decoration: line-through;
+  color: var(--text-light);
+}
+.bguide-step.current .bguide-text { font-weight: 700; }
+.bguide-text { flex: 1; font-size: 0.92rem; min-width: 0; }
+.bguide-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.bguide-stage .material-icons-round { font-size: 13px; }
+.bguide-stage.bsb-geplant       { background: #3b82f6; }
+.bguide-stage.bsb-kontaktiert   { background: #f59e0b; }
+.bguide-stage.bsb-angebot       { background: #8b5cf6; }
+.bguide-stage.bsb-gebucht       { background: #16a34a; }
+.bguide-stage.bsb-abgeschlossen { background: #64748b; }
+.bguide-find {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--primary, #FF385C);
+  background: none;
+  color: var(--primary, #FF385C);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .15s ease;
+}
+.bguide-find:hover { background: var(--primary, #FF385C); color: #fff; }
+.bguide-find .material-icons-round { font-size: 15px; }
+body.dark-mode .bguide-wrap { background: var(--bg); }
+@media (max-width: 480px) {
+  .bguide-step { flex-wrap: wrap; }
+  .bguide-text { flex-basis: calc(100% - 70px); }
+  .bguide-stage, .bguide-find { margin-left: 62px; }
+}
 .bcl-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: var(--dark); margin-bottom: 10px; }
 .bcl-title .material-icons-round { font-size: 22px; color: var(--primary); }
 .bcl-progress-bar-wrap { height: 8px; border-radius: 8px; background: var(--border-light); overflow: hidden; margin-bottom: 6px; }

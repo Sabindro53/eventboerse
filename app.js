@@ -1165,6 +1165,19 @@ async function loadDbListings() {
     if (data.listings && data.listings.length > 0) {
       _mergeDbListingsIntoCache(data.listings);
     }
+    // FIX: Server kappt bei 50/Seite — Folgeseiten nachladen, sonst fehlen
+    // Inserate ab dem 51. überall (Browse, Board-Picker, Map). Cap bei 10
+    // Seiten (500 Listings) als Sicherheitsnetz; Fehler einzelner Seiten
+    // brechen den Rest nicht ab.
+    var totalPages = Math.min(parseInt(data.pages, 10) || 1, 10);
+    for (var p = 2; p <= totalPages; p++) {
+      try {
+        var r2 = await fetch(_apiUrl('listings?per_page=50&page=' + p + '&_t=' + Date.now()), { credentials: 'same-origin', headers: _apiHeaders() });
+        if (!r2.ok) continue;
+        var d2 = await r2.json();
+        if (d2.listings && d2.listings.length > 0) _mergeDbListingsIntoCache(d2.listings);
+      } catch (pageErr) { /* Einzelseite fehlgeschlagen — Rest weiterladen */ }
+    }
     _applyImageBlocklist(LISTINGS); // vom Admin gelöschte Bilder auch hier ausblenden
     _dbListingsLoaded = true;
     try { renderHeroMarquees(); } catch (err) { console.error('Fehler beim Rendern der Hero-Marquee nach Daten-Ladung', err); }
@@ -1449,6 +1462,44 @@ function navigateTo(page, data, skipHistory) {
   try { _setPageMeta(page, data); } catch (e) { /* Meta optional */ }
 }
 
+// ========== BOARD-STATUS-VERKNÜPFUNG ==========
+// Zeigt überall (Browse-Karte, Detailseite, Provider-Profil), ob ein Inserat
+// bereits im eigenen Planungsboard steckt und in welcher Phase.
+var EB_BOARD_STAGE_INFO = {
+  geplant:       { label: 'Im Plan',      icon: 'assignment',      cls: 'geplant' },
+  kontaktiert:   { label: 'Kontaktiert',  icon: 'forum',           cls: 'kontaktiert' },
+  angebot:       { label: 'Angebot',      icon: 'request_quote',   cls: 'angebot' },
+  bestaetigt:    { label: 'Gebucht',      icon: 'event_available', cls: 'gebucht' },
+  abgeschlossen: { label: 'Abgeschlossen',icon: 'task_alt',        cls: 'abgeschlossen' }
+};
+var EB_BOARD_STAGE_ORDER = ['geplant', 'kontaktiert', 'angebot', 'bestaetigt', 'abgeschlossen'];
+
+// Höchste Board-Phase eines Inserats über ALLE Projekte des Nutzers.
+// Liefert null, wenn das Inserat in keinem Board steckt.
+function _boardStatusForListing(listingId) {
+  if (listingId == null || !Array.isArray(_boardProjects) || !_boardProjects.length) return null;
+  var best = -1;
+  _boardProjects.forEach(function(p) {
+    (p && Array.isArray(p.cards) ? p.cards : []).forEach(function(c) {
+      if (!c || c.listingId == null) return;
+      if (String(c.listingId) !== String(listingId)) return;
+      var idx = EB_BOARD_STAGE_ORDER.indexOf(c.stage);
+      if (idx > best) best = idx;
+    });
+  });
+  if (best < 0) return null;
+  var stage = EB_BOARD_STAGE_ORDER[best];
+  return { stage: stage, info: EB_BOARD_STAGE_INFO[stage] };
+}
+
+// Kleines Status-Badge-HTML (leer, wenn kein Board-Bezug).
+function _boardStatusBadgeHtml(listingId, extraClass) {
+  var st = _boardStatusForListing(listingId);
+  if (!st) return '';
+  return '<span class="board-status-badge bsb-' + st.info.cls + (extraClass ? ' ' + extraClass : '') + '" title="Dieser Dienstleister ist in deinem Planungsboard">' +
+    '<span class="material-icons-round">' + st.info.icon + '</span>' + st.info.label + '</span>';
+}
+
 // ========== LISTING CARD RENDERER ==========
 function renderListingCard(listing) {
   const isFav = favorites.has(listing.id);
@@ -1465,6 +1516,7 @@ function renderListingCard(listing) {
           <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
         </button>
         ${listing.badge ? '<span class="listing-badge">' + _escHtml(listing.badge) + '</span>' : ''}
+        ${_boardStatusBadgeHtml(listing.id, 'bsb-on-card')}
       </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
@@ -3284,6 +3336,22 @@ function loadDetail(listingId) {
   var editBtn = document.getElementById('detailEditBtn');
   if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
 
+  // Board-Status-Chip: zeigt, ob dieses Inserat schon im Planungsboard steckt
+  // (Im Plan / Kontaktiert / Angebot / Gebucht) — Verknüpfung Detail ↔ Board.
+  var existingBoardStatus = document.getElementById('detailBoardStatus');
+  if (existingBoardStatus) existingBoardStatus.remove();
+  var _detailBadgeHtml = _boardStatusBadgeHtml(listing.id);
+  if (_detailBadgeHtml) {
+    var statusWrap = document.createElement('span');
+    statusWrap.id = 'detailBoardStatus';
+    statusWrap.innerHTML = _detailBadgeHtml;
+    statusWrap.style.cursor = 'pointer';
+    statusWrap.title = 'Im Planungsboard öffnen';
+    statusWrap.onclick = function() { navigateTo('board'); };
+    var provRowStatus = document.querySelector('.detail-provider-row');
+    if (provRowStatus) provRowStatus.appendChild(statusWrap);
+  }
+
   // Admin delete button for listing
   var existingAdminDel = document.getElementById('detailAdminDeleteBtn');
   if (existingAdminDel) existingAdminDel.remove();
@@ -3579,6 +3647,19 @@ function loadProvider(providerId) {
   }
   badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${_escHtml(mainListing.providerSince)}</span>`;
   badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
+  // Board-Verknüpfung: höchste Phase über alle Inserate dieses Anbieters
+  (function() {
+    var bestBadge = '';
+    var bestIdx = -1;
+    providerListings.forEach(function(l) {
+      var st = l && _boardStatusForListing(l.id);
+      if (st) {
+        var idx = EB_BOARD_STAGE_ORDER.indexOf(st.stage);
+        if (idx > bestIdx) { bestIdx = idx; bestBadge = _boardStatusBadgeHtml(l.id); }
+      }
+    });
+    if (bestBadge) badgesHtml += bestBadge;
+  })();
   badgesEl.innerHTML = badgesHtml;
 
   // Bio with read-more
@@ -19233,6 +19314,159 @@ function _getProjectChecklist(project) {
   return saved.filter(function(it){ return it && it.text; });
 }
 
+// ========== PLANUNGS-GUIDE (geführte Steps) ==========
+// Macht aus den Checklisten-Templates einen geführten Assistenten:
+// geprüfte Steps in sinnvoller Reihenfolge, pro Step direkt passende
+// Dienstleister finden ("unterwegs die Hochzeit planen"). Rein additiv —
+// die bestehende freie Checkliste bleibt unverändert darunter.
+
+// Step-Text → Browse-Kategorie (Keys wie in AI_CATEGORIES / browseCategory).
+var _GUIDE_CAT_RULES = [
+  [/location|venue|gel[äa]nde|meetingraum|schloss|saal/i, 'location'],
+  [/fotograf|videograf|foto/i, 'foto'],
+  [/\bdj\b|band|musik|line-up|playlist/i, 'dj'],
+  [/catering|kuchen|torte|men[üu]|getr[äa]nke/i, 'catering'],
+  [/florist|blumen|brautstrau/i, 'florist'],
+  [/deko/i, 'deko'],
+  [/technik|licht|\bav\b|strom|b[üu]hne|livestream/i, 'licht'],
+  [/moderation|sprecher/i, 'moderation'],
+  [/koordinator|planer|komplettplanung/i, 'planung'],
+  [/feuerwerk|pyro/i, 'pyro'],
+];
+function _guideCategoryFor(text) {
+  for (var i = 0; i < _GUIDE_CAT_RULES.length; i++) {
+    if (_GUIDE_CAT_RULES[i][0].test(text || '')) return _GUIDE_CAT_RULES[i][1];
+  }
+  return null;
+}
+
+// Hat das Projekt schon einen Dienstleister dieser Kategorie im Board?
+// Liefert die höchste Karten-Phase (für "Kontaktiert/Gebucht"-Chip im Step).
+function _guideCardStageForCategory(project, cat) {
+  if (!project || !cat || !Array.isArray(project.cards)) return null;
+  var best = -1;
+  project.cards.forEach(function(c) {
+    if (!c) return;
+    var cardCat = null;
+    if (c.listingId != null) {
+      var l = (LISTINGS || []).find(function(x) { return x && String(x.id) === String(c.listingId); });
+      if (l) cardCat = l.category || _guideCategoryFor(l.categoryLabel || '');
+    }
+    if (!cardCat) cardCat = _guideCategoryFor(c.category || c.name || '');
+    if (cardCat !== cat) return;
+    var idx = EB_BOARD_STAGE_ORDER.indexOf(c.stage);
+    if (idx > best) best = idx;
+  });
+  return best >= 0 ? EB_BOARD_STAGE_ORDER[best] : null;
+}
+
+// Geführte Steps mit Status aus Checkliste + Board-Karten ableiten.
+function _guideSteps(project) {
+  if (!project) return [];
+  var tmpl = _CHECKLIST_TEMPLATES[project.template] || _CHECKLIST_TEMPLATES.custom;
+  var doneMap = {};
+  (project.checklist || []).forEach(function(it) {
+    if (it && it.text) doneMap[it.text.toLowerCase()] = !!it.done;
+  });
+  return tmpl.map(function(text, i) {
+    var cat = _guideCategoryFor(text);
+    var cardStage = cat ? _guideCardStageForCategory(project, cat) : null;
+    // Ein Step gilt als erledigt, wenn abgehakt ODER der Dienstleister
+    // dafür bereits fest gebucht/abgeschlossen ist.
+    var done = doneMap[text.toLowerCase()] === true ||
+      cardStage === 'bestaetigt' || cardStage === 'abgeschlossen';
+    return { idx: i, text: text, cat: cat, cardStage: cardStage, done: done };
+  });
+}
+
+function _renderBoardGuide(project) {
+  var steps = _guideSteps(project);
+  if (!steps.length) return '';
+  var doneCount = steps.filter(function(s) { return s.done; }).length;
+  var pct = Math.round((doneCount / steps.length) * 100);
+  var currentIdx = -1;
+  for (var i = 0; i < steps.length; i++) { if (!steps[i].done) { currentIdx = i; break; } }
+
+  var tmplLabels = { wedding: '💍 Hochzeit', birthday: '🎂 Geburtstag', corporate: '🏢 Firmenfeier', festival: '🎪 Festival', conference: '🎤 Konferenz', baptism: '⛪ Taufe/Feier', kids: '🎈 Kinderfest', private: '🏡 Privatfeier', custom: '✨ Event' };
+  var tmplLabel = tmplLabels[project.template] || tmplLabels.custom;
+
+  var stepsHtml = steps.map(function(s) {
+    var state = s.done ? 'done' : (s.idx === currentIdx ? 'current' : 'open');
+    var icon = s.done ? 'check_circle' : (state === 'current' ? 'radio_button_checked' : 'radio_button_unchecked');
+    var stageChip = '';
+    if (!s.done && s.cardStage) {
+      var info = EB_BOARD_STAGE_INFO[s.cardStage];
+      stageChip = '<span class="bguide-stage bsb-' + info.cls + '"><span class="material-icons-round">' + info.icon + '</span>' + info.label + '</span>';
+    }
+    var findBtn = (!s.done && s.cat)
+      ? '<button type="button" class="bguide-find" onclick="_guideFindProviders(\'' + s.cat + '\')"><span class="material-icons-round">search</span> Finden</button>'
+      : '';
+    var safeText = _escHtml(s.text).replace(/'/g, "\\'");
+    return '<li class="bguide-step ' + state + '">' +
+      '<button type="button" class="bguide-check" onclick="_guideToggleStep(\'' + safeText + '\')" aria-label="' + (s.done ? 'Als offen markieren' : 'Als erledigt markieren') + '">' +
+        '<span class="bguide-num">' + (s.idx + 1) + '</span>' +
+        '<span class="material-icons-round bguide-state-icon">' + icon + '</span>' +
+      '</button>' +
+      '<span class="bguide-text">' + _escHtml(s.text) + '</span>' +
+      stageChip + findBtn +
+    '</li>';
+  }).join('');
+
+  return '<div class="bguide-wrap">' +
+    '<div class="bguide-header">' +
+      '<div class="bguide-title"><span class="material-icons-round">route</span> Planungs-Guide <span class="bguide-tmpl">' + tmplLabel + '</span></div>' +
+      '<div class="bguide-progress-label">' + doneCount + ' / ' + steps.length + ' Schritten</div>' +
+      '<div class="bguide-progress-bar-wrap"><div class="bguide-progress-bar" style="width:' + pct + '%"></div></div>' +
+    '</div>' +
+    (currentIdx >= 0
+      ? '<div class="bguide-current-hint"><span class="material-icons-round">arrow_forward</span> Nächster Schritt: <strong>' + _escHtml(steps[currentIdx].text) + '</strong></div>'
+      : '<div class="bguide-current-hint bguide-all-done"><span class="material-icons-round">celebration</span> Alle Schritte erledigt — dein Event ist durchgeplant!</div>') +
+    '<ol class="bguide-list">' + stepsHtml + '</ol>' +
+  '</div>';
+}
+
+// Step-Aktion: passende Dienstleister für die Kategorie öffnen (Browse
+// mit vorgewähltem Kategorie-Filter) — von unterwegs direkt buchbar.
+function _guideFindProviders(cat) {
+  navigateTo('browse');
+  setTimeout(function() {
+    var sel = document.getElementById('browseCategory');
+    if (sel) sel.value = cat || '';
+    // Active-State der Kategorie-Buttons nachziehen (cat steckt im onclick,
+    // Mobile-Picker nutzt data-cat).
+    document.querySelectorAll('.cat-icon-btn').forEach(function(b) {
+      var m = (b.getAttribute('onclick') || '').match(/filterByCategory\(this,\s*'([^']*)'/);
+      b.classList.toggle('active', !!m && m[1] === (cat || ''));
+    });
+    document.querySelectorAll('.mobile-cat-option').forEach(function(o) {
+      o.classList.toggle('active', (o.getAttribute('data-cat') || '') === (cat || ''));
+    });
+    if (typeof filterListings === 'function') filterListings();
+    var grid = document.getElementById('browseGrid');
+    if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 350);
+}
+
+// Step abhaken/reaktivieren — synchron zur gespeicherten Checkliste
+// (gleicher Text = gleicher Eintrag), damit Guide und Checkliste nie
+// auseinanderlaufen.
+function _guideToggleStep(text) {
+  if (!_activeBoardId) return;
+  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  project.checklist = project.checklist || [];
+  var existing = project.checklist.find(function(it) {
+    return it && it.text && it.text.toLowerCase() === String(text).toLowerCase();
+  });
+  if (existing) {
+    existing.done = !existing.done;
+  } else {
+    project.checklist.push({ id: 'cli_guide_' + Date.now(), text: String(text), done: true, isTemplate: true });
+  }
+  _saveBoardProjects();
+  renderBoardChecklist();
+}
+
 function _getChecklistSuggestions(project) {
   // Template-Items, die noch NICHT in der gespeicherten Liste sind = Vorschläge.
   if (!project) return [];
@@ -19296,6 +19530,9 @@ function renderBoardChecklist() {
   }
 
   var html = '<div class="bcl-wrap">' +
+    // Geführter Planungs-Guide (Steps in geprüfter Reihenfolge, mit
+    // Dienstleister-Suche pro Schritt) — die freie Checkliste bleibt darunter.
+    _renderBoardGuide(project) +
     // Oben: Eingabe + Header
     '<div class="bcl-header">' +
       '<div class="bcl-title"><span class="material-icons-round">checklist</span> Planungs-Checkliste</div>' +
@@ -19395,7 +19632,9 @@ function openAddProviderModal(defaultStage) {
   var _baseList = (typeof _visibleListings === 'function')
     ? _visibleListings()
     : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
-  var _listings = _baseList.filter(function(l){ return !_isSearchListing(l); }).slice(0, 30);
+  // Kein 30er-Cap mehr: sonst fehlen Inserate im Picker und die Suche darüber
+  // findet sie nie (sie filtert nur gerenderte Karten). 300 als Sicherheitsnetz.
+  var _listings = _baseList.filter(function(l){ return !_isSearchListing(l); }).slice(0, 300);
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
