@@ -75,7 +75,11 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: '--max-turns 50'
+          # Pin the model: the action's default resolves to the 1M-context
+          # variant (opus-4-8[1m]), which not every API tier can access and
+          # then fails instantly. Plain opus-4-8 works on standard tiers.
+          claude_args: '--model claude-opus-4-8 --max-turns 50'
+          show_full_output: 'true'
           prompt: |
             Du bist die automatische Verbesserungs-Routine fuer das Projekt "Eventboerse"
             (deutscher Event-Marktplatz, Vanilla-JS-SPA + WordPress REST API).
@@ -105,6 +109,27 @@ jobs:
 
             Zum Schluss: Schreibe eine kurze deutsche Zusammenfassung (Markdown: was, warum, welche Dateien)
             in die Datei CLAUDE_SUMMARY.md im Repo-Wurzelverzeichnis.
+
+      # claude-code-action reports step success even when the Claude run
+      # errored internally (is_error in the execution log). Fail loudly so
+      # the HQ shows red instead of a silent no-op run.
+      - name: Claude-Ergebnis pruefen
+        run: |
+          OUT=/home/runner/work/_temp/claude-execution-output.json
+          if [ ! -f "$OUT" ]; then
+            echo "::warning::Kein Execution-Log gefunden — Pruefung uebersprungen."
+            exit 0
+          fi
+          python3 - "$OUT" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          entries = data if isinstance(data, list) else [data]
+          results = [e for e in entries if isinstance(e, dict) and e.get("type") == "result"]
+          if any(e.get("is_error") for e in results):
+            print("::error title=Claude-Lauf fehlgeschlagen::Der Claude-Schritt endete mit is_error=true. Details im Schritt 'Claude setzt Verbesserung um' (show_full_output aktiv).")
+            sys.exit(1)
+          print("Claude-Lauf OK")
+          PY
 
       - name: Zusammenfassung einlesen
         id: summary
