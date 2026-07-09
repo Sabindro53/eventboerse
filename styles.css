@@ -10830,6 +10830,76 @@ body.dark-mode .bpc-edit-btn:hover { background: var(--primary); border-color: v
 }
 .bguide-find:hover { background: var(--primary, #FF385C); color: #fff; }
 .bguide-find .material-icons-round { font-size: 15px; }
+
+/* Budget-Tracking im Guide */
+.bguide-budget {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+}
+.bguide-budget-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.bguide-budget-row .material-icons-round { font-size: 18px; color: var(--text-light); }
+.bguide-budget-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #dc2626;
+  font-weight: 800;
+}
+.bguide-budget-warn .material-icons-round { font-size: 16px; color: #dc2626; }
+.bguide-budget-bar-wrap {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.bguide-budget-bar {
+  height: 100%;
+  border-radius: 6px;
+  background: #16a34a;
+  transition: width .35s ease;
+}
+.bguide-budget.over .bguide-budget-bar { background: #dc2626; }
+
+/* Termin-Empfehlung pro Step */
+.bguide-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  color: var(--text-light);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.bguide-deadline .material-icons-round { font-size: 13px; }
+.bguide-deadline.overdue {
+  background: rgba(220,38,38,0.1);
+  border-color: rgba(220,38,38,0.4);
+  color: #dc2626;
+}
+.bguide-step.overdue .bguide-text { color: #dc2626; }
+
+/* Chat-Header: Board-Status neben dem Namen */
+#chatBoardStatus { margin-left: 8px; display: inline-flex; vertical-align: middle; }
+#chatBoardStatus .board-status-badge { font-size: 0.68rem; padding: 3px 9px; }
+@media (max-width: 480px) {
+  .bguide-deadline { margin-left: 62px; }
+}
 body.dark-mode .bguide-wrap { background: var(--bg); }
 @media (max-width: 480px) {
   .bguide-step { flex-wrap: wrap; }
