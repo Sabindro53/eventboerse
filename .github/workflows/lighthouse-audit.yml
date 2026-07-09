@@ -1,0 +1,27 @@
+name: Lighthouse Audit
+
+# Deterministische Qualitaetsmessung der Live-Seite: Performance, SEO,
+# Accessibility & Best-Practices. Braucht KEINEN API-Key.
+# Der oeffentliche Report-Link erscheint in der Job-Zusammenfassung.
+
+on:
+  schedule:
+    # Montags 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    name: Live-Site messen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lighthouse ausfuehren
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            https://xn--eventbrse-57a.de/
+          uploadArtifacts: true
+          temporaryPublicStorage: true

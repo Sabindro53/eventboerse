@@ -1,0 +1,149 @@
+name: Claude Verbesserungs-Routine
+
+# Autonome Verbesserungs-Routine: Claude setzt woechentlich EINE fokussierte
+# Optimierung um (rotierender Fokus) und oeffnet einen Draft-PR zum Review.
+# Merge nach main deployt automatisch via ionos-deploy.yml.
+
+on:
+  schedule:
+    # Montags 05:00 UTC
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: 'Fokus der Verbesserung'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - performance
+          - ux
+          - accessibility
+          - seo
+          - security
+          - code-quality
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: claude-improve
+  cancel-in-progress: false
+
+jobs:
+  improve:
+    name: Verbesserung umsetzen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: API-Key pruefen
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error title=ANTHROPIC_API_KEY fehlt::Bitte in Settings -> Secrets and variables -> Actions als 'ANTHROPIC_API_KEY' hinterlegen."
+            exit 1
+          fi
+          echo "API-Key vorhanden."
+
+      - name: Fokus bestimmen
+        id: focus
+        run: |
+          IN="${{ github.event.inputs.focus }}"
+          if [ -z "$IN" ] || [ "$IN" = "auto" ]; then
+            FOCI=(performance ux accessibility seo security code-quality)
+            WEEK=$(date +%V)
+            IDX=$(( 10#$WEEK % ${#FOCI[@]} ))
+            FOCUS="${FOCI[$IDX]}"
+          else
+            FOCUS="$IN"
+          fi
+          echo "focus=$FOCUS" >> "$GITHUB_OUTPUT"
+          echo "date=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "### Fokus dieser Routine: \`$FOCUS\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Claude setzt Verbesserung um
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--max-turns 50'
+          prompt: |
+            Du bist die automatische Verbesserungs-Routine fuer das Projekt "Eventboerse"
+            (deutscher Event-Marktplatz, Vanilla-JS-SPA + WordPress REST API).
+            Lies zuerst CLAUDE.md und den Ordner vault/ fuer Kontext, Praeferenzen und Roadmap.
+
+            AUFGABE - Fokus: **${{ steps.focus.outputs.focus }}**
+            Setze GENAU EINE fokussierte, in sich geschlossene Verbesserung in diesem Bereich um.
+
+            Bedeutung der Fokus-Bereiche:
+            - performance: Ladezeit/Runtime (Lazy-Loading, weniger Reflows, effizientere Loops/Selektoren, Caching, kleinere Payloads).
+            - ux: Bedienbarkeit/Politur (Fehlermeldungen, Leerzustaende, Fokus-States, Konsistenz, Mikro-Interaktionen).
+            - accessibility: A11y (ARIA-Labels, Tastatur-Navigation, Kontraste, alt-Texte, Fokus-Reihenfolge).
+            - seo: Meta-Tags, strukturierte Daten, semantisches HTML, Titel/Descriptions.
+            - security: Haertung (Input-Validierung, Escaping/XSS, sichere Defaults) - KEINE Auth-/Payment-Kernlogik umbauen.
+            - code-quality: kleine, sichere Refactorings OHNE Verhaltensaenderung (Duplikate, tote Pfade, Lesbarkeit).
+
+            HARTE REGELN:
+            - Kein neues Framework, keine neuen Abhaengigkeiten. Vanilla JS bleibt.
+            - Bestehendes Verhalten NICHT veraendern (ausser es ist der explizite Bugfix).
+            - Kleiner, gut reviewbarer Diff. Lieber eine saubere Sache als viele halbe.
+            - Nichts anfassen, was in CLAUDE.md/vault als "nicht anfassen" markiert ist.
+            - UI-Texte auf Deutsch, Code-Kommentare auf Englisch.
+            - Fuehre KEINE git-Befehle aus, erstelle KEINE Commits/Branches/PRs und pushe nichts.
+              Aendere nur Dateien im Arbeitsverzeichnis - den PR erstellt ein spaeterer Schritt.
+            - Wenn du im gewaehlten Bereich nichts sinnvoll und sicher verbessern kannst,
+              nimm KEINE Aenderung vor und schreibe das in die Zusammenfassung.
+
+            Zum Schluss: Schreibe eine kurze deutsche Zusammenfassung (Markdown: was, warum, welche Dateien)
+            in die Datei CLAUDE_SUMMARY.md im Repo-Wurzelverzeichnis.
+
+      - name: Zusammenfassung einlesen
+        id: summary
+        run: |
+          if [ -f CLAUDE_SUMMARY.md ]; then
+            {
+              echo "body<<SUMMARY_EOF"
+              cat CLAUDE_SUMMARY.md
+              echo "SUMMARY_EOF"
+            } >> "$GITHUB_OUTPUT"
+            rm -f CLAUDE_SUMMARY.md
+          else
+            echo "body=Automatische Verbesserung im Bereich \`${{ steps.focus.outputs.focus }}\`." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Draft-PR erstellen
+        id: cpr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          branch: claude/auto-${{ steps.focus.outputs.focus }}
+          delete-branch: true
+          draft: true
+          commit-message: "chore(auto): ${{ steps.focus.outputs.focus }}-Verbesserung durch Claude-Routine"
+          title: "🤖 Auto-Verbesserung: ${{ steps.focus.outputs.focus }} (${{ steps.focus.outputs.date }})"
+          labels: |
+            automated
+            claude-routine
+          body: |
+            ## 🤖 Automatische Verbesserungs-Routine
+            **Fokus:** `${{ steps.focus.outputs.focus }}` · ${{ steps.focus.outputs.date }}
+
+            ${{ steps.summary.outputs.body }}
+
+            ---
+            _Als **Draft** von der Claude-Verbesserungs-Routine erstellt. Bitte reviewen — Merge nach `main` deployt automatisch nach IONOS._
+
+      - name: Ergebnis
+        run: |
+          if [ -n "${{ steps.cpr.outputs.pull-request-number }}" ]; then
+            echo "✅ Draft-PR #${{ steps.cpr.outputs.pull-request-number }} — ${{ steps.cpr.outputs.pull-request-url }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ℹ️ Keine Aenderungen — kein PR erstellt." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -273,6 +273,7 @@
   .bot-dot.idle { background: var(--muted); } .bot-dot.running { background: var(--yellow); animation: pulse 1.5s infinite; }
   .bot-dot.success { background: var(--green); } .bot-dot.fail { background: var(--red); }
   .bot-last { font-size: .71rem; color: var(--muted); }
+  .bot-sched { font-size: .7rem; color: var(--cyan); font-weight: 600; display:flex; align-items:center; gap:.3rem; }
   .bot-actions { margin-top: auto; display: flex; gap: .4rem; flex-wrap: wrap; padding-top:.3rem; }
   .bot-btn {
     font-size: .74rem; padding: .35rem .75rem; border-radius: 8px; border: 1px solid var(--border);
@@ -508,10 +509,10 @@
     </div>
     <div class="achts" id="achts-grid"></div>
 
-    <!-- Bot Team -->
+    <!-- Routinen & Bot Team -->
     <div class="section-header">
-      <div class="section-title">🤖 Bot-Team</div>
-      <div class="section-badge">Deine Crew</div>
+      <div class="section-title">🤖 Routinen &amp; Bot-Team <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— arbeiten für dich</span></div>
+      <div class="section-badge">Auto-Verbesserung</div>
     </div>
     <div class="bots" id="bots-grid">
       <div class="skeleton" style="height:180px;"></div>
@@ -958,10 +959,12 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
-  { id: 'claude-dev', avatar: '🤖', name: 'Claude Dev-Bot', role: 'Analysiert Code mit Claude AI, findet Bugs & öffnet GitHub-Issues.', workflow: 'claude-auto-audit.yml', canTrigger: true, triggerLabel: '▶ Audit', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
-  { id: 'monitor',    avatar: '👁️', name: 'Monitor-Bot',    role: 'Prüft die Live-Site alle 30 Min auf Erreichbarkeit. Öffnet Issues bei Ausfall.', workflow: 'site-monitor.yml', canTrigger: true, triggerLabel: '▶ Check', logsLabel: '📋 Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/site-monitor.yml` },
-  { id: 'deploy',     avatar: '🚀', name: 'Deploy-Bot',     role: 'Deployt bei jedem Push automatisch via SFTP zu IONOS.', workflow: 'ionos-deploy.yml', canTrigger: false, logsLabel: '📋 Deploy-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/ionos-deploy.yml` },
-  { id: 'rollback',   avatar: '⏪', name: 'Rollback-Bot',   role: 'Setzt die Live-Site auf einen beliebigen Commit zurück (Release-Verlauf).', workflow: 'hq-rollback.yml', canTrigger: false, logsLabel: '📋 Rollback-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-rollback.yml` },
+  { id: 'improve',    avatar: '✨', name: 'Verbesserungs-Bot', role: 'Setzt jede Woche EINE fokussierte Optimierung um und öffnet einen Draft-PR zum Review.', workflow: 'claude-improve.yml', schedule: '⏱️ Wöchentl. · Mo 05:00 · rotierender Fokus', canTrigger: true, triggerLabel: '▶ Verbessern', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
+  { id: 'claude-dev', avatar: '🤖', name: 'Audit-Bot',        role: 'Analysiert den Code mit Claude, priorisiert Schwachstellen und öffnet Verbesserungs-Issues.', workflow: 'claude-auto-audit.yml', schedule: '⏱️ Wöchentl. · Mo 04:00', canTrigger: true, triggerLabel: '▶ Audit', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
+  { id: 'lighthouse', avatar: '📊', name: 'Lighthouse-Bot',   role: 'Misst Performance, SEO, Accessibility & Best-Practices der Live-Seite.', workflow: 'lighthouse-audit.yml', schedule: '⏱️ Wöchentl. · Mo 06:00', canTrigger: true, triggerLabel: '▶ Messen', logsLabel: '📋 Reports', logsUrl: `https://github.com/${REPO}/actions/workflows/lighthouse-audit.yml` },
+  { id: 'monitor',    avatar: '👁️', name: 'Monitor-Bot',      role: 'Prüft die Live-Site alle 30 Min auf Erreichbarkeit. Öffnet Issues bei Ausfall.', workflow: 'site-monitor.yml', schedule: '⏱️ Alle 30 Min', canTrigger: true, triggerLabel: '▶ Check', logsLabel: '📋 Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/site-monitor.yml` },
+  { id: 'deploy',     avatar: '🚀', name: 'Deploy-Bot',       role: 'Deployt bei jedem Push automatisch via SFTP zu IONOS.', workflow: 'ionos-deploy.yml', schedule: '⚡ Bei jedem Push', canTrigger: false, logsLabel: '📋 Deploy-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/ionos-deploy.yml` },
+  { id: 'rollback',   avatar: '⏪', name: 'Rollback-Bot',     role: 'Setzt die Live-Site auf einen beliebigen Commit zurück (Release-Verlauf).', workflow: 'hq-rollback.yml', schedule: '🕹️ Manuell', canTrigger: false, logsLabel: '📋 Rollback-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-rollback.yml` },
 ];
 function renderBots() {
   const grid = $('bots-grid'); grid.innerHTML = '';
@@ -977,6 +980,7 @@ function renderBots() {
       <div class="bot-avatar">${bot.avatar}</div>
       <div class="bot-name">${bot.name}</div>
       <div class="bot-role">${bot.role}</div>
+      ${bot.schedule ? `<div class="bot-sched">${bot.schedule}</div>` : ''}
       <div class="bot-status-row"><div class="bot-dot ${dotCls}"></div><span style="color:var(--muted);">${statusTxt}</span></div>
       <div class="bot-last">${run ? 'Zuletzt: ' + humanDate(run.updated_at) + ' · #' + run.run_number : ''}</div>
       <div class="bot-actions">
