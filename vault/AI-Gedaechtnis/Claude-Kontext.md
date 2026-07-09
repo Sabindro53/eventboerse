@@ -140,5 +140,17 @@ navigateTo('admin')         // Admin-Panel
 - **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
 - **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
 
+## Stand 2026-06-26 — Admin-Bildmoderation & Security-Härtung (live auf main)
+
+- **Admin-Bildmoderation (umgesetzt):** Admins können einzelne Bilder löschen
+  - Detailseite: roter „Löschen"-Button pro Galerie-Bild (`adminDeleteListingImage`).
+  - Provider-Portfolio: Lösch-Overlay (`adminDeleteProfileImage`) + Lightbox-Button, dauerhaft sichtbar.
+  - Backend: `POST /admin/moderate-image` (nur Admin) entfernt Bild aus `eb_gallery` + allen Listings des Nutzers.
+  - **Persistente Blocklist** (`eb_demo_image_blocklist`, normalisierte Pfade) → wirkt auch für hardcodierte Demo-Listings (z. B. Blumenträume München, Pyroshock), reload-fest. Client: `window.EB_IMG_BLOCKLIST` via `eventboerseApi.imageBlocklist`, gefiltert in Demo-LISTINGS, `loadDbListings`, `loadProvider`.
+  - Damit ist der alte Sprint-P0 „Admin-Moderation gegen Code abgleichen" erledigt.
+- **Security (live):** XSS-Härtung (`_escHtml` encodet jetzt auch Quotes; Map-/Card-Render escapt); Brute-Force-Rate-Limiting verdrahtet (`includes/security/rate-limit.php` war vorher nie eingebunden) auf Login/OTP/Reset/Register mit Reset-on-Success; CSP `'unsafe-eval'` entfernt (Frontend nutzt kein eval, kein jQuery); WP-User-Enumeration gesperrt (`/wp/v2/users` + `?author=N`).
+- **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
+- **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
+
 ---
 *Zuletzt aktualisiert: 2026-06-26*
