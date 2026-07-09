@@ -1500,6 +1500,22 @@ function _boardStatusBadgeHtml(listingId, extraClass) {
     '<span class="material-icons-round">' + st.info.icon + '</span>' + st.info.label + '</span>';
 }
 
+// Höchste Board-Phase über ALLE Inserate eines Anbieters (User-ID) —
+// für Kontexte, die den Partner kennen, aber kein konkretes Listing (Chat).
+function _boardStatusBadgeForProvider(userId, extraClass) {
+  if (userId == null || !Array.isArray(LISTINGS)) return '';
+  var bestHtml = '', bestIdx = -1;
+  LISTINGS.forEach(function(l) {
+    if (!l || !_sameUserId(_listingOwnerId(l), userId)) return;
+    var st = _boardStatusForListing(l.id);
+    if (st) {
+      var idx = EB_BOARD_STAGE_ORDER.indexOf(st.stage);
+      if (idx > bestIdx) { bestIdx = idx; bestHtml = _boardStatusBadgeHtml(l.id, extraClass); }
+    }
+  });
+  return bestHtml;
+}
+
 // ========== LISTING CARD RENDERER ==========
 function renderListingCard(listing) {
   const isFav = favorites.has(listing.id);
@@ -5393,6 +5409,24 @@ function openChat(chatId) {
 
       document.getElementById('chatAvatar').src = currentChat.avatar;
       document.getElementById('chatName').textContent = currentChat.name;
+      // Board-Verknüpfung im Chat-Header: plant man mit diesem Dienstleister
+      // bereits im Board, erscheint der Status (Im Plan/Kontaktiert/…) neben
+      // dem Namen — klickbar ins Board.
+      (function() {
+        var old = document.getElementById('chatBoardStatus');
+        if (old) old.remove();
+        var badge = _boardStatusBadgeForProvider(currentChat.otherId);
+        if (!badge) return;
+        var nameEl = document.getElementById('chatName');
+        if (!nameEl) return;
+        var wrap = document.createElement('span');
+        wrap.id = 'chatBoardStatus';
+        wrap.innerHTML = badge;
+        wrap.style.cursor = 'pointer';
+        wrap.title = 'Im Planungsboard öffnen';
+        wrap.onclick = function(e) { e.stopPropagation(); navigateTo('board'); };
+        nameEl.insertAdjacentElement('afterend', wrap);
+      })();
       // Fetch real online status
       _updateChatStatus(currentChat.otherId);
 
@@ -19360,6 +19394,37 @@ function _guideCardStageForCategory(project, cat) {
   return best >= 0 ? EB_BOARD_STAGE_ORDER[best] : null;
 }
 
+// Empfohlene Vorlaufzeiten (Wochen vor dem Event) — Text-Regeln zuerst
+// (spezifischer), dann Kategorie-Fallback. Steps ohne Regel bekommen
+// keinen Termin-Chip.
+var _GUIDE_LEAD_TEXT_RULES = [
+  [/standesamt/i, 26], [/kleid|anzug/i, 24], [/ringe/i, 20], [/honeymoon/i, 20],
+  [/einladung/i, 16], [/hotel/i, 12], [/torte|kuchen/i, 8], [/playlist/i, 6],
+  [/sitzordnung/i, 4], [/koordinator/i, 4], [/zeitplan|ablauf/i, 2],
+  [/tickets|anmeldung/i, 20], [/marketing/i, 24], [/sicherheitsdienst/i, 16],
+  [/agenda|programm/i, 6], [/budget/i, 30],
+];
+var _GUIDE_LEAD_CAT_WEEKS = {
+  location: 52, planung: 48, foto: 36, dj: 32, catering: 24, moderation: 20,
+  licht: 16, florist: 12, pyro: 12, deko: 8,
+};
+function _guideLeadWeeksFor(text, cat) {
+  for (var i = 0; i < _GUIDE_LEAD_TEXT_RULES.length; i++) {
+    if (_GUIDE_LEAD_TEXT_RULES[i][0].test(text || '')) return _GUIDE_LEAD_TEXT_RULES[i][1];
+  }
+  if (cat && _GUIDE_LEAD_CAT_WEEKS[cat]) return _GUIDE_LEAD_CAT_WEEKS[cat];
+  return null;
+}
+
+// Event-Datum des Projekts als Date (oder null).
+function _guideEventDate(project) {
+  if (!project || !project.date) return null;
+  var iso = (typeof _toIsoDate === 'function') ? _toIsoDate(project.date) : '';
+  if (!iso) return null;
+  var d = new Date(iso + 'T12:00:00');
+  return isNaN(d.getTime()) ? null : d;
+}
+
 // Geführte Steps mit Status aus Checkliste + Board-Karten ableiten.
 function _guideSteps(project) {
   if (!project) return [];
@@ -19368,6 +19433,8 @@ function _guideSteps(project) {
   (project.checklist || []).forEach(function(it) {
     if (it && it.text) doneMap[it.text.toLowerCase()] = !!it.done;
   });
+  var eventDate = _guideEventDate(project);
+  var now = new Date();
   return tmpl.map(function(text, i) {
     var cat = _guideCategoryFor(text);
     var cardStage = cat ? _guideCardStageForCategory(project, cat) : null;
@@ -19375,7 +19442,16 @@ function _guideSteps(project) {
     // dafür bereits fest gebucht/abgeschlossen ist.
     var done = doneMap[text.toLowerCase()] === true ||
       cardStage === 'bestaetigt' || cardStage === 'abgeschlossen';
-    return { idx: i, text: text, cat: cat, cardStage: cardStage, done: done };
+    // Empfohlene Deadline: Eventdatum minus Vorlaufzeit (nur mit Datum).
+    var deadline = null, overdue = false;
+    if (eventDate) {
+      var weeks = _guideLeadWeeksFor(text, cat);
+      if (weeks != null) {
+        deadline = new Date(eventDate.getTime() - weeks * 7 * 24 * 3600 * 1000);
+        overdue = !done && deadline < now;
+      }
+    }
+    return { idx: i, text: text, cat: cat, cardStage: cardStage, done: done, deadline: deadline, overdue: overdue };
   });
 }
 
@@ -19398,19 +19474,47 @@ function _renderBoardGuide(project) {
       var info = EB_BOARD_STAGE_INFO[s.cardStage];
       stageChip = '<span class="bguide-stage bsb-' + info.cls + '"><span class="material-icons-round">' + info.icon + '</span>' + info.label + '</span>';
     }
+    // Termin-Empfehlung: "bis TT.MM." aus Eventdatum + Vorlaufzeit;
+    // überfällige offene Steps werden rot markiert.
+    var deadlineChip = '';
+    if (!s.done && s.deadline) {
+      var dd = ('0' + s.deadline.getDate()).slice(-2) + '.' + ('0' + (s.deadline.getMonth() + 1)).slice(-2) + '.';
+      if (s.deadline.getFullYear() !== (new Date()).getFullYear()) dd += s.deadline.getFullYear();
+      deadlineChip = '<span class="bguide-deadline' + (s.overdue ? ' overdue' : '') + '" title="Empfohlen bis ' + dd + ' (Vorlaufzeit)">' +
+        '<span class="material-icons-round">' + (s.overdue ? 'notification_important' : 'schedule') + '</span> bis ' + dd + '</span>';
+    }
     var findBtn = (!s.done && s.cat)
       ? '<button type="button" class="bguide-find" onclick="_guideFindProviders(\'' + s.cat + '\')"><span class="material-icons-round">search</span> Finden</button>'
       : '';
     var safeText = _escHtml(s.text).replace(/'/g, "\\'");
-    return '<li class="bguide-step ' + state + '">' +
+    return '<li class="bguide-step ' + state + (s.overdue ? ' overdue' : '') + '">' +
       '<button type="button" class="bguide-check" onclick="_guideToggleStep(\'' + safeText + '\')" aria-label="' + (s.done ? 'Als offen markieren' : 'Als erledigt markieren') + '">' +
         '<span class="bguide-num">' + (s.idx + 1) + '</span>' +
         '<span class="material-icons-round bguide-state-icon">' + icon + '</span>' +
       '</button>' +
       '<span class="bguide-text">' + _escHtml(s.text) + '</span>' +
-      stageChip + findBtn +
+      deadlineChip + stageChip + findBtn +
     '</li>';
   }).join('');
+
+  // Budget-Tracking: verplant (Summe Karten-Preise) vs. Projekt-Budget.
+  var budgetHtml = '';
+  var planned = (project.cards || []).reduce(function(sum, c) {
+    return sum + (c && !isNaN(parseFloat(c.price)) ? parseFloat(c.price) : 0);
+  }, 0);
+  if (project.budget > 0 || planned > 0) {
+    var fmt = function(n) { return Math.round(n).toLocaleString('de-DE') + ' €'; };
+    var over = project.budget > 0 && planned > project.budget;
+    var bpct = project.budget > 0 ? Math.min(100, Math.round((planned / project.budget) * 100)) : 0;
+    budgetHtml = '<div class="bguide-budget' + (over ? ' over' : '') + '">' +
+      '<div class="bguide-budget-row">' +
+        '<span class="material-icons-round">account_balance_wallet</span>' +
+        '<span>' + fmt(planned) + (project.budget > 0 ? ' von ' + fmt(project.budget) + ' verplant' : ' verplant') + '</span>' +
+        (over ? '<span class="bguide-budget-warn"><span class="material-icons-round">warning</span> ' + fmt(planned - project.budget) + ' über Budget</span>' : '') +
+      '</div>' +
+      (project.budget > 0 ? '<div class="bguide-budget-bar-wrap"><div class="bguide-budget-bar" style="width:' + bpct + '%"></div></div>' : '') +
+    '</div>';
+  }
 
   return '<div class="bguide-wrap">' +
     '<div class="bguide-header">' +
@@ -19418,6 +19522,7 @@ function _renderBoardGuide(project) {
       '<div class="bguide-progress-label">' + doneCount + ' / ' + steps.length + ' Schritten</div>' +
       '<div class="bguide-progress-bar-wrap"><div class="bguide-progress-bar" style="width:' + pct + '%"></div></div>' +
     '</div>' +
+    budgetHtml +
     (currentIdx >= 0
       ? '<div class="bguide-current-hint"><span class="material-icons-round">arrow_forward</span> Nächster Schritt: <strong>' + _escHtml(steps[currentIdx].text) + '</strong></div>'
       : '<div class="bguide-current-hint bguide-all-done"><span class="material-icons-round">celebration</span> Alle Schritte erledigt — dein Event ist durchgeplant!</div>') +
