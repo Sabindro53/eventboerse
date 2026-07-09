@@ -158,6 +158,65 @@ add_action( 'template_redirect', function() {
     }
 }, 1 );
 
+// --- WordPress-Kommentare plattformweit deaktivieren (Spam-Schutz) ---
+// Die Plattform nutzt WP-Kommentare NICHT (eigenes Review-/Chat-System).
+// Spam-Bots fluteten den Default-Beitrag "Hello world!" mit Kommentaren →
+// hunderte "Bitte moderiere"-Mails an den Admin. Daher: Kommentare überall
+// schließen, Benachrichtigungen aus, REST-Endpoint zu, Alt-Spam aufräumen.
+
+// 1) Kommentare + Pings überall geschlossen (wirkt auch auf wp-comments-post.php:
+//    WordPress lehnt Einsendungen bei geschlossenen Kommentaren ab).
+add_filter( 'comments_open', '__return_false', 20 );
+add_filter( 'pings_open', '__return_false', 20 );
+add_filter( 'comments_array', '__return_empty_array', 20 );
+
+// 2) Keine Moderations-/Autor-Mails mehr ("Bitte moderiere: …").
+add_filter( 'notify_moderator', '__return_false' );
+add_filter( 'notify_post_author', '__return_false' );
+
+// 3) Kommentar-Support von allen Post-Types entfernen + Admin-Menüpunkt weg.
+add_action( 'admin_init', function() {
+    foreach ( get_post_types() as $pt ) {
+        if ( post_type_supports( $pt, 'comments' ) ) {
+            remove_post_type_support( $pt, 'comments' );
+            remove_post_type_support( $pt, 'trackbacks' );
+        }
+    }
+} );
+add_action( 'admin_menu', function() {
+    remove_menu_page( 'edit-comments.php' );
+} );
+
+// 4) REST-Kommentar-Endpoints für nicht eingeloggte Besucher sperren.
+add_filter( 'rest_endpoints', function( $endpoints ) {
+    if ( ! is_user_logged_in() ) {
+        unset( $endpoints['/wp/v2/comments'] );
+        unset( $endpoints['/wp/v2/comments/(?P<id>[\d]+)'] );
+    }
+    return $endpoints;
+} );
+
+// 5) Einmalige Bereinigung (batched, reversibel): alle unmoderierten
+//    Spam-Kommentare in den Papierkorb + Default-Beitrag "Hello world!"
+//    auf Entwurf (Spam-Ziel-URL verschwindet). Läuft nur im wp-admin,
+//    max. 100 Kommentare pro Seitenaufruf, bis alles weg ist.
+add_action( 'admin_init', function() {
+    if ( get_option( 'eb_comment_spam_purged' ) ) return;
+    if ( ! current_user_can( 'manage_options' ) ) return;
+    global $wpdb;
+    $ids = $wpdb->get_col( "SELECT comment_ID FROM {$wpdb->comments} WHERE comment_approved = '0' LIMIT 100" );
+    foreach ( $ids as $cid ) {
+        wp_trash_comment( (int) $cid );
+    }
+    if ( count( $ids ) < 100 ) {
+        $hello = get_page_by_path( 'hello-world', OBJECT, 'post' );
+        if ( $hello && $hello->post_status === 'publish' ) {
+            wp_update_post( array( 'ID' => $hello->ID, 'post_status' => 'draft', 'comment_status' => 'closed' ) );
+        }
+        update_option( 'eb_comment_spam_purged', 1, false );
+    }
+}, 30 );
+
 // REST-API für Anonyme einschränken: nur eigene Routen erreichbar.
 add_filter( 'rest_authentication_errors', function( $result ) {
     if ( ! empty( $result ) ) {
