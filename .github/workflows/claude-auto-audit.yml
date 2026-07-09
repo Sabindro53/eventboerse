@@ -1,8 +1,10 @@
 name: Claude Auto-Audit
 
 on:
-  # Cron deaktiviert 2026-05-31 — Auto-Audit-Reports überfluteten Issues-Liste.
-  # Manuelle Trigger über Actions → Run workflow weiterhin möglich.
+  schedule:
+    # Wöchentlich Montag 04:00 UTC. (Vorher täglich → Issues-Flut, deshalb auf
+    # wöchentlich reduziert statt komplett deaktiviert.)
+    - cron: '0 4 * * 1'
   workflow_dispatch:
 
 jobs:
@@ -56,7 +58,7 @@ jobs:
             cat /tmp/audit-result.txt
             echo
             echo "---"
-            echo "*Generiert von [Claude Auto-Audit](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · Läuft täglich um 04:00 UTC*"
+            echo "*Generiert von [Claude Auto-Audit](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · Läuft wöchentlich montags um 04:00 UTC*"
           } > /tmp/issue-body.md
           gh issue create \
             --title "🤖 Claude Auto-Audit ${DATE}" \

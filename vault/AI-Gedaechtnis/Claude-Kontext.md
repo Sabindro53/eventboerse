@@ -126,6 +126,7 @@ navigateTo('admin')         // Admin-Panel
 ## Lernpunkte aus vergangenen Gesprächen
 
 - **`hq.html` = EventBörse HQ (Mission Control):** Eigenständiges, self-contained Dev-Command-Center über die GitHub-API. Gamifiziert (Level/XP, Streak, Quests = Roadmap, Achievements, Bot-Team, Aktivitäts-Log, Confetti/SFX). Kein Build-Schritt, kein Framework. Zugriff per `HQ_KEYS`, GitHub-PAT (sessionStorage) für Rollback/Bot-Trigger. Quests spiegeln die Sprint-Roadmap — beim Hinzufügen neuer Roadmap-Punkte auch das `QUESTS`-Array in `hq.html` pflegen. GitHub-Daten werden per stale-while-revalidate in `localStorage` gecacht (geringere Rate-Limit-Last).
+- **Auto-Routinen (GitHub Actions):** `claude-improve.yml` setzt wöchentlich (Mo 05:00 UTC, rotierender Fokus performance→ux→a11y→seo→security→code-quality) EINE fokussierte Verbesserung um und öffnet via `peter-evans/create-pull-request` einen **Draft-PR** (nutzt `anthropics/claude-code-action` + Secret `ANTHROPIC_API_KEY`). `lighthouse-audit.yml` misst wöchentlich Perf/SEO/A11y der Live-Seite (kein API-Key). `claude-auto-audit.yml` läuft wieder wöchentlich (Report-Issues). Alle im HQ unter „Routinen & Bot-Team" sichtbar/triggerbar (`BOTS`-Array). **Voraussetzungen:** Secret `ANTHROPIC_API_KEY` + Repo-Setting „Allow GitHub Actions to create and approve pull requests". Draft-PRs werden von `security.yml` (`node --check app.js`) + `pr-check.yml` geprüft, bevor sie mergebar sind; Merge nach `main` deployt automatisch.
 
 ## Stand 2026-06-26 — Admin-Bildmoderation & Security-Härtung (live auf main)
 
