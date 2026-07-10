@@ -38,7 +38,9 @@ jobs:
           done
           # CSS (csso-cli, gepinnt). Fehler ist NICHT fatal — unminifiziertes
           # CSS bricht die Seite nicht, deshalb Deploy nicht abbrechen.
-          npx --yes csso-cli@5.0.5 styles.css -o styles.css || echo "⚠️ csso-cli fehlgeschlagen — deploye unminifiziertes styles.css"
+          # csso-cli (CLI-Paket) max. 4.0.2 — "5.0.5" war die Version der csso-LIB,
+          # die das CLI ausgibt. Pin auf 5.0.5 existierte nicht → CSS lief unminifiziert.
+          npx --yes csso-cli@4.0.2 styles.css -o styles.css || echo "⚠️ csso-cli fehlgeschlagen — deploye unminifiziertes styles.css"
           echo "Nachher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
 
       - name: Install lftp

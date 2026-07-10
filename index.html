@@ -55,7 +55,7 @@
 
   <!-- Leaflet & Flatpickr: nur CSS im Head, JS am Ende deferred -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 </head>
 <body>
 
@@ -1185,6 +1185,129 @@
           </button>
         </div>
       </div>
+
+      <!-- ============ SHOWCASE: How-to-Demo + 3D-Geräte (Apple-Style) ============ -->
+      <div class="section eb-showcase" id="ebShowcase">
+        <div class="container">
+
+          <!-- A) "Video": auto-abspielende How-to-Demo -->
+          <div class="ebsc-head center">
+            <span class="ebsc-eyebrow">So funktioniert's</span>
+            <h2>Dein Event. Vier Schritte. Fertig.</h2>
+            <p class="ebsc-sub">Von der Idee bis zur Buchung — alles auf einer Plattform.</p>
+          </div>
+          <div class="ebsc-demo" id="ebscDemo" aria-label="So funktioniert Eventbörse – Demo">
+            <div class="ebsc-stage">
+              <div class="ebsc-scene active" data-scene="0">
+                <div class="ebsc-scene-visual">
+                  <div class="ebsc-searchpill"><span class="material-icons-round">search</span><span class="ebsc-typing">DJ für Hochzeit…</span></div>
+                  <div class="ebsc-chips"><span>🎧 DJ &amp; Musik</span><span>📷 Fotografie</span><span>🍽️ Catering</span><span>🏰 Location</span></div>
+                </div>
+                <div class="ebsc-scene-caption"><strong>1 · Suchen</strong><span>Finde geprüfte Dienstleister in deiner Region.</span></div>
+              </div>
+              <div class="ebsc-scene" data-scene="1">
+                <div class="ebsc-scene-visual">
+                  <div class="ebsc-minicards">
+                    <div class="ebsc-minicard"><i class="mc-img g1"></i><b>DJ Max Beats</b><em>★ 4.9 · Berlin</em></div>
+                    <div class="ebsc-minicard hl"><i class="mc-img g2"></i><b>Blumenträume</b><em>★ 5.0 · München</em></div>
+                    <div class="ebsc-minicard"><i class="mc-img g3"></i><b>Feinkost Catering</b><em>★ 4.8 · Hamburg</em></div>
+                  </div>
+                </div>
+                <div class="ebsc-scene-caption"><strong>2 · Vergleichen</strong><span>Echte Bewertungen, klare Preise, Favoriten merken.</span></div>
+              </div>
+              <div class="ebsc-scene" data-scene="2">
+                <div class="ebsc-scene-visual">
+                  <div class="ebsc-chat">
+                    <div class="ebsc-bubble left">Hi! Ist der 15.08. noch frei? 👋</div>
+                    <div class="ebsc-bubble right">Ja! Ich schicke dir ein Angebot 🎉</div>
+                    <div class="ebsc-bubble offer"><span class="material-icons-round">request_quote</span> Angebot: 890 €</div>
+                  </div>
+                </div>
+                <div class="ebsc-scene-caption"><strong>3 · Chatten &amp; Verhandeln</strong><span>Direkter Draht, Angebote direkt im Chat.</span></div>
+              </div>
+              <div class="ebsc-scene" data-scene="3">
+                <div class="ebsc-scene-visual">
+                  <div class="ebsc-guide">
+                    <div class="ebsc-guiderow done"><span class="material-icons-round">check_circle</span> Location buchen</div>
+                    <div class="ebsc-guiderow done"><span class="material-icons-round">check_circle</span> DJ / Band buchen</div>
+                    <div class="ebsc-guiderow booked"><span class="material-icons-round">event_available</span> Gebucht &amp; sicher bezahlt</div>
+                  </div>
+                </div>
+                <div class="ebsc-scene-caption"><strong>4 · Planen &amp; Buchen</strong><span>Planungs-Guide, Budget im Blick, sichere Zahlung.</span></div>
+              </div>
+            </div>
+            <div class="ebsc-progress" id="ebscProgress" aria-label="Demo-Schritte">
+              <button type="button" data-goto="0" aria-label="Schritt 1: Suchen"><i></i></button>
+              <button type="button" data-goto="1" aria-label="Schritt 2: Vergleichen"><i></i></button>
+              <button type="button" data-goto="2" aria-label="Schritt 3: Chatten"><i></i></button>
+              <button type="button" data-goto="3" aria-label="Schritt 4: Buchen"><i></i></button>
+            </div>
+          </div>
+
+          <!-- B) 3D-iPhone: dreht sich beim Scrollen von hinten nach vorn -->
+          <div class="ebsc-devices">
+            <div class="ebsc-device-block">
+              <div class="eb3d-phone-wrap" id="ebPhone3d" aria-hidden="true">
+                <div class="eb3d-phone">
+                  <div class="eb3d-face eb3d-back">
+                    <div class="eb3d-cam"><i></i><i></i><i></i></div>
+                    <div class="eb3d-backlogo">🎉<span>eventbörse</span></div>
+                  </div>
+                  <div class="eb3d-face eb3d-front">
+                    <div class="eb3d-notch"></div>
+                    <div class="ebmock ebmock-mobile">
+                      <div class="ebmock-nav">🎉 <b>eventbörse</b></div>
+                      <div class="ebmock-hero"><b>Finde deinen<br/>perfekten DJ</b><span class="ebmock-search"><span class="material-icons-round">search</span> Suchen…</span></div>
+                      <div class="ebmock-chiprow"><span>🎧</span><span>📷</span><span>🍽️</span><span>🌸</span><span>🏰</span></div>
+                      <div class="ebmock-card"><i class="mc-img g1"></i><div><b>DJ Max Beats</b><em>★ 4.9 · ab 899 €</em></div></div>
+                      <div class="ebmock-card"><i class="mc-img g2"></i><div><b>Blumenträume</b><em>★ 5.0 · ab 800 €</em></div></div>
+                      <div class="ebmock-tabbar"><span class="material-icons-round">home</span><span class="material-icons-round">search</span><span class="material-icons-round">dashboard</span><span class="material-icons-round">chat_bubble</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="ebsc-device-text">
+                <h3>Eventbörse in deiner Tasche</h3>
+                <p>Unterwegs planen, chatten und buchen — die volle Plattform, optimiert für dein Smartphone.</p>
+                <div class="ebsc-store-badges">
+                  <span class="ebsc-store-badge"><span class="ebsc-store-icon">📱</span><span><small>Bald verfügbar im</small><b>App Store</b></span></span>
+                  <span class="ebsc-store-badge soon"><span class="ebsc-store-icon">🤖</span><span><small>Danach auch bei</small><b>Google Play</b></span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- C) MacBook: Deckel öffnet sich beim Scrollen, zeigt Web-Ansicht -->
+            <div class="ebsc-device-block reverse">
+              <div class="eb3d-mac-wrap" id="ebMac3d" aria-hidden="true">
+                <div class="eb3d-mac">
+                  <div class="eb3d-mac-lid">
+                    <div class="eb3d-mac-screen">
+                      <div class="ebmock ebmock-desktop">
+                        <div class="ebmock-dnav"><span>🎉 <b>eventbörse</b></span><i></i><i></i><i></i></div>
+                        <div class="ebmock-dhero"><b>Die Eventplattform für jedermann</b><span class="ebmock-search wide"><span class="material-icons-round">search</span> Was suchst du für dein Event?</span></div>
+                        <div class="ebmock-dgrid">
+                          <div class="ebmock-dcard"><i class="mc-img g1"></i><b>DJ Max Beats</b></div>
+                          <div class="ebmock-dcard"><i class="mc-img g2"></i><b>Blumenträume</b></div>
+                          <div class="ebmock-dcard"><i class="mc-img g3"></i><b>Feinkost Catering</b></div>
+                          <div class="ebmock-dcard"><i class="mc-img g4"></i><b>Schloss am See</b></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="eb3d-mac-base"><i></i></div>
+                </div>
+              </div>
+              <div class="ebsc-device-text">
+                <h3>Die volle Power im Browser</h3>
+                <p>Keine Installation nötig: Planungsboard, Chat und Buchung laufen auf jedem Gerät — sofort startklar.</p>
+                <button class="btn-primary" onclick="navigateTo('browse')"><span class="material-icons-round">explore</span> Jetzt entdecken</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
 
       <!-- Bottom marquee -->
       <div class="hero-marquee hero-marquee-below">
@@ -3860,8 +3983,8 @@ Datum: ___________________________________________________
 
   <!-- Drittanbieter-Skripte deferred am Ende, um Render-Blocking zu vermeiden -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/de.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
   <script src="app.js?v=158" defer></script>
 </body>
