@@ -15558,44 +15558,135 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   width: 92px; height: 24px; background: #000; border-radius: 14px; z-index: 3;
 }
 
-/* Mini-Mockups (Handy + Desktop) */
-.ebmock { position: absolute; inset: 0; display: flex; flex-direction: column; background: #f7f7fa; color: #222; }
-.ebmock-nav { padding: 40px 16px 10px; font-size: 0.85rem; font-weight: 800; }
-.ebmock-hero {
-  margin: 4px 12px 10px; padding: 16px 14px;
-  background: linear-gradient(135deg, #FF385C, #8b5cf6);
-  border-radius: 18px; color: #fff;
+/* Mini-Mockups (Handy + Desktop) — originalgetreu zur echten Eventbörse-UI */
+.ebmock { position: absolute; inset: 0; display: flex; flex-direction: column; background: #fff; color: #484848; font-family: inherit; }
+
+/* Echte Top-Nav: weiß, 🎉-Logo mit accent-"börse", Avatar rechts */
+.ebm-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 42px 14px 10px; background: #fff; border-bottom: 1px solid #f0f0f0;
 }
-.ebmock-hero b { font-size: 1rem; line-height: 1.25; display: block; margin-bottom: 10px; }
-.ebmock-search {
+.ebm-logo {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.9rem; font-weight: 800; color: #222;
+}
+.ebm-logo .material-icons-round { font-size: 18px; color: #FF385C; }
+.ebm-logo b { color: #FF385C; font-weight: 800; }
+.ebm-ava {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, #FF385C, #8b5cf6); flex-shrink: 0;
+}
+
+/* Echter AI-Hero: heller Verlauf (weiß→rosa→hellblau) mit Farb-Orbs */
+.ebm-hero {
+  position: relative; overflow: hidden;
+  margin: 0; padding: 18px 14px 16px;
+  background: linear-gradient(160deg, #fff 0%, #fef2f5 45%, #f0fafe 100%);
+}
+.ebm-orb { position: absolute; border-radius: 50%; filter: blur(14px); opacity: 0.5; }
+.ebm-orb.o1 { width: 90px; height: 90px; background: #ffd1dc; top: -24px; right: -18px; }
+.ebm-orb.o2 { width: 70px; height: 70px; background: #cdeafd; bottom: -22px; left: -14px; }
+.ebm-orb.o3 { width: 110px; height: 110px; background: #ffe9c7; top: 30%; left: 40%; }
+.ebm-hero b { position: relative; display: block; font-size: 1.02rem; line-height: 1.3; color: #222; margin-bottom: 12px; }
+.ebm-searchpill {
+  position: relative;
   display: inline-flex; align-items: center; gap: 6px;
-  background: #fff; color: #999; border-radius: 999px;
-  padding: 7px 12px; font-size: 0.75rem;
+  background: #fff; color: #999;
+  border-radius: 999px; padding: 9px 14px;
+  font-size: 0.72rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
 }
-.ebmock-search .material-icons-round { font-size: 15px; color: #FF385C; }
-.ebmock-search.wide { width: min(360px, 70%); }
-.ebmock-chiprow { display: flex; gap: 8px; padding: 0 14px 10px; font-size: 1rem; }
-.ebmock-chiprow span {
-  width: 34px; height: 34px; border-radius: 50%;
-  background: #fff; border: 1px solid #eee;
-  display: inline-flex; align-items: center; justify-content: center;
+.ebm-searchpill .material-icons-round { font-size: 14px; color: #FF385C; }
+.ebm-searchpill u {
+  text-decoration: none; margin-left: 10px;
+  background: #FF385C; color: #fff; font-weight: 700;
+  border-radius: 999px; padding: 5px 12px; font-size: 0.7rem;
 }
-.ebmock-card {
-  display: flex; gap: 10px; align-items: center;
-  background: #fff; border-radius: 14px;
-  margin: 0 12px 10px; padding: 8px;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.06);
+
+/* Echte Kategorie-Buttons: Icon über Label, dezent */
+.ebm-cats { display: flex; justify-content: space-around; padding: 10px 8px 6px; }
+.ebm-cats span {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 0.58rem; font-weight: 600; color: #717171;
 }
-.ebmock-card .mc-img { width: 62px; height: 46px; border-radius: 10px; flex-shrink: 0; }
-.ebmock-card b { display: block; font-size: 0.78rem; }
-.ebmock-card em { font-style: normal; font-size: 0.68rem; color: #717171; }
-.ebmock-tabbar {
+.ebm-cats i { font-style: normal; font-size: 1.05rem; }
+
+/* Echte Listing-Karte: Foto + Badge + Herz, Titel + ★, Ort, Preis */
+.ebm-card {
+  background: #fff; border-radius: 16px;
+  margin: 8px 12px 0; overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+}
+.ebm-card-img { position: relative; display: block; height: 108px; }
+.ebm-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ebm-badge {
+  position: absolute; top: 8px; left: 8px;
+  background: #fff; border-radius: 20px; padding: 2px 8px;
+  font-size: 0.6rem; font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.ebm-fav {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 16px !important; color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.45);
+}
+.ebm-card-body { padding: 8px 10px 10px; }
+.ebm-row { display: flex; justify-content: space-between; align-items: center; }
+.ebm-row b { font-size: 0.78rem; color: #222; }
+.ebm-row em { font-style: normal; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; }
+.ebm-row em .material-icons-round { font-size: 12px; color: #FF385C; }
+.ebm-sub { display: block; font-size: 0.65rem; color: #717171; margin-top: 1px; }
+.ebm-price { display: block; font-size: 0.74rem; font-weight: 800; color: #222; margin-top: 4px; }
+.ebm-price i { font-style: normal; font-weight: 400; color: #717171; font-size: 0.62rem; }
+
+/* Echte Mobile-Bottom-Nav: 5 Tabs mit Icon + Label, aktiv = primary */
+.ebm-tabbar {
   margin-top: auto;
-  display: flex; justify-content: space-around;
-  padding: 10px 8px 22px; background: #fff; border-top: 1px solid #eee;
+  display: flex; justify-content: space-around; align-items: center;
+  padding: 8px 4px 20px; background: #fff; border-top: 1px solid #f0f0f0;
 }
-.ebmock-tabbar .material-icons-round { font-size: 20px; color: #b6b6c0; }
-.ebmock-tabbar .material-icons-round:first-child { color: #FF385C; }
+.ebm-tabbar span {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 0.52rem; font-weight: 600; color: #b0b0b8;
+}
+.ebm-tabbar span .material-icons-round { font-size: 18px; }
+.ebm-tabbar span.act { color: #FF385C; }
+
+/* Desktop-Variante (im MacBook) */
+.ebm-dnav {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 14px; background: #fff; border-bottom: 1px solid #f0f0f0;
+}
+.ebm-dnav .ebm-logo { font-size: 0.82rem; }
+.ebm-dsearch {
+  flex: 1; max-width: 330px; margin: 0 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #eee; border-radius: 999px;
+  padding: 6px 12px; font-size: 0.66rem; font-weight: 700; color: #444;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.ebm-dsearch .material-icons-round { font-size: 13px; color: #FF385C; }
+.ebm-dsearch i { font-style: normal; font-weight: 400; color: #999; border-left: 1px solid #eee; padding-left: 8px; }
+.ebm-dhero { padding: 20px 18px; }
+.ebm-dhero b { font-size: 1.05rem; max-width: 380px; }
+.ebm-searchpill.wide { width: min(400px, 78%); justify-content: flex-start; }
+.ebm-searchpill.wide u { margin-left: auto; }
+.ebm-dgrid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px; padding: 12px 14px;
+}
+.ebm-dcard {
+  background: #fff; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+}
+.ebm-dimg { position: relative; display: block; height: 56px; }
+.ebm-dimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ebm-dimg .ebm-fav { top: 5px; right: 5px; font-size: 12px !important; }
+.ebm-dcard b { display: block; font-size: 0.6rem; color: #222; padding: 5px 7px 0; }
+.ebm-dcard em {
+  font-style: normal; display: inline-flex; align-items: center; gap: 2px;
+  font-size: 0.55rem; color: #717171; padding: 1px 7px 7px;
+}
+.ebm-dcard em .material-icons-round { font-size: 10px; color: #FF385C; }
 
 /* MacBook */
 .eb3d-mac-wrap { perspective: 1600px; --eb-lid: -78deg; width: min(560px, 92vw); }
