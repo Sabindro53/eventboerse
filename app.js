@@ -22061,7 +22061,12 @@ function submitKvOffer(e) {
     body: JSON.stringify({ content: content, type: 'offer', amount: amount })
   }).then(function(r) {
     _refreshNonce(r);
-    if (!r.ok) throw new Error('fail');
+    if (!r.ok) {
+      // Server-Grund anzeigen (z. B. Festpreis-Inserat → keine Angebote)
+      return r.json().then(function(d) {
+        showToast((d && d.message) || 'Senden fehlgeschlagen', 'error');
+      }).catch(function() { showToast('Senden fehlgeschlagen', 'error'); });
+    }
     showToast('Kostenvoranschlag über ' + _formatEuro(amount) + ' gesendet!', 'request_quote');
     openChat(currentChat.id);
   }).catch(function() { showToast('Senden fehlgeschlagen', 'error'); });
@@ -22156,6 +22161,14 @@ function _startOfferPayment(msgId, amount) {
     note: 'Verhandelt im Chat (Kostenvoranschlag angenommen)'
   });
   if (!rec) { showToast('Board-Karte konnte nicht angelegt werden', 'error'); return; }
+
+  // Doppelzahlungs-Schutz: dieses Listing ist bereits verbindlich gebucht
+  // und bezahlt → keine zweite Zahlung starten.
+  if (rec.card.paymentStatus === 'paid' || rec.card.stage === 'bestaetigt' || rec.card.stage === 'abgeschlossen') {
+    showToast('Bereits verbindlich gebucht & bezahlt — siehe Planungsboard.', 'info');
+    try { navigateTo('board'); } catch (e) {}
+    return;
+  }
 
   var img = listing.image || (listing.images && listing.images[0]) || '';
   try { _setPendingPayment({ type: 'card', cardId: rec.card.id, projectId: rec.projectId, amount: amount, title: listing.title || currentChat.name }); } catch (e) {}

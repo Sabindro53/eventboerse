@@ -4755,7 +4755,12 @@ function eb_messages_send( WP_REST_Request $request ) {
         }
         $insert['offer_amount'] = round( abs( floatval( $params['amount'] ?? 0 ) ), 2 );
         $insert['offer_status'] = 'pending';
-        $insert['body']         = 'Preisangebot: ' . rtrim(rtrim(number_format($insert['offer_amount'], 2, ',', ''), '0'), ',') . '€';
+        // Strukturierte Kostenvoranschläge (Leistung/Beschreibung/Datum im
+        // body) NICHT überschreiben — sonst geht der KV-Inhalt verloren.
+        // Alle anderen Offers bekommen wie bisher den Standard-Text.
+        if ( strpos( $body, '📋 Kostenvoranschlag' ) !== 0 ) {
+            $insert['body'] = 'Preisangebot: ' . rtrim(rtrim(number_format($insert['offer_amount'], 2, ',', ''), '0'), ',') . '€';
+        }
 
         // Auto-decline all other pending offers in this conversation
         $wpdb->query( $wpdb->prepare(
