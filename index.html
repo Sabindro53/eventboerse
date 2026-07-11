@@ -1680,6 +1680,9 @@
               <button class="chat-attach-btn" title="Bild anhängen" aria-label="Bild anhängen" onclick="document.getElementById('chatImageInput').click()">
                 <span class="material-icons-round">attach_file</span>
               </button>
+              <button class="chat-attach-btn chat-kv-btn" title="Kostenvoranschlag / Angebot senden" aria-label="Kostenvoranschlag senden" onclick="openKvModal()">
+                <span class="material-icons-round">request_quote</span>
+              </button>
               <input type="text" id="chatInput" placeholder="Nachricht schreiben..." onkeypress="handleChatKeypress(event)" oninput="_onChatInput()" />
               <button class="chat-send-btn" aria-label="Nachricht senden" onclick="sendMessage()">
                 <span class="material-icons-round">send</span>

@@ -15763,3 +15763,74 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   .ebsc-scene.active .ebsc-guiderow,
   .ebsc-progress button.active i::after { animation: none; }
 }
+
+/* ==================== Kostenvoranschlag & verbindliche Buchung ==================== */
+/* KV-Karte im Chat (strukturierter Kostenvoranschlag) */
+.msg-kv { max-width: 320px; }
+.kv-head {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 800;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--primary, #FF385C);
+  margin-bottom: 4px;
+}
+.kv-head .material-icons-round { font-size: 15px; }
+.kv-title { font-weight: 800; font-size: 0.95rem; margin-bottom: 2px; }
+.kv-desc { font-size: 0.82rem; color: var(--text-light); white-space: pre-line; margin-bottom: 4px; }
+.kv-date {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; color: var(--text-light); margin-bottom: 2px;
+}
+.kv-date .material-icons-round { font-size: 14px; }
+.kv-modal-hint {
+  font-size: 0.82rem; color: var(--text-light);
+  margin: -6px 0 14px; line-height: 1.5;
+}
+
+/* Aktions-Buttons auf Angebots-Bubbles */
+.offer-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 10px;
+}
+.btn-accept-pay {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: #16a34a; color: #fff;
+  border: none; border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 0.8rem; font-weight: 700;
+  cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.btn-accept-pay:hover { background: #15803d; }
+.btn-accept-pay:active { transform: scale(0.97); }
+.btn-accept-pay .material-icons-round { font-size: 16px; }
+
+/* Verbindlichkeits-Abfrage */
+#bindingConfirmModal .modal { max-width: 420px; }
+.binding-summary {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.binding-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 0.88rem; padding: 4px 0;
+}
+.binding-row span { color: var(--text-light); }
+.binding-row.binding-amount { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 10px; }
+.binding-row.binding-amount strong { font-size: 1.05rem; color: var(--primary, #FF385C); }
+.binding-hint {
+  display: flex; gap: 8px;
+  font-size: 0.8rem; color: var(--text-light); line-height: 1.5;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+.binding-hint .material-icons-round { font-size: 18px; color: #f59e0b; flex-shrink: 0; }
+.binding-actions { display: flex; gap: 10px; }
+.binding-actions .btn-outline { flex: 1; }
+.binding-actions .btn-primary { flex: 2; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
