@@ -15359,6 +15359,7 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
 .ebsc-scene {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15689,8 +15690,12 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
 .ebm-dcard em .material-icons-round { font-size: 10px; color: #FF385C; }
 
 /* MacBook */
-.eb3d-mac-wrap { perspective: 1600px; --eb-lid: -78deg; width: min(560px, 92vw); }
-.eb3d-mac { transform-style: preserve-3d; }
+.eb3d-mac-wrap { perspective: 1500px; --eb-lid: -95deg; --eb-mrot: -42deg; width: min(560px, 92vw); }
+.eb3d-mac {
+  transform-style: preserve-3d;
+  transform: rotateY(var(--eb-mrot)) rotateX(10deg);
+  transition: transform .12s linear;
+}
 .eb3d-mac-lid {
   transform-origin: bottom center;
   transform: rotateX(var(--eb-lid));
@@ -15709,17 +15714,45 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   overflow: hidden;
   background: #0c0c11;
 }
+/* Basis = nach vorn gekippte Alu-Fläche mit sichtbarer Tastatur + Trackpad */
 .eb3d-mac-base {
-  height: 16px;
-  background: linear-gradient(180deg, #3a3a42 0%, #1c1c22 80%);
-  border-radius: 0 0 16px 16px;
+  height: 150px;
+  transform-origin: top center;
+  transform: rotateX(74deg);
+  background: linear-gradient(180deg, #2e2e36 0%, #232329 70%, #1a1a20 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-top: none;
+  border-radius: 0 0 22px 22px;
   position: relative;
+  padding: 12px 26px 0;
+  backface-visibility: hidden;
+}
+.eb3d-kbd {
+  display: block;
+  height: 76px;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(90deg, #101014 0 4px, transparent 4px 34px),
+    repeating-linear-gradient(180deg, #101014 0 3px, transparent 3px 21px),
+    linear-gradient(180deg, #3b3b45, #2c2c34);
+  background-clip: padding-box;
+  border: 3px solid #101014;
+  box-shadow: inset 0 1px 4px rgba(0,0,0,0.5);
+}
+.eb3d-trackpad {
+  display: block;
+  width: 120px; height: 42px;
+  margin: 9px auto 0;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #34343e, #2a2a32);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
 }
 .eb3d-mac-base i {
   position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 90px; height: 7px;
+  width: 96px; height: 8px;
   background: #101014;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 12px 12px;
 }
 .ebmock-desktop { padding: 0; }
 .ebmock-dnav {
@@ -15834,3 +15867,101 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
 .binding-actions { display: flex; gap: 10px; }
 .binding-actions .btn-outline { flex: 1; }
 .binding-actions .btn-primary { flex: 2; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* ==================== Showcase-Upgrade: Blur-Hero, Journey, CSS-Art ==================== */
+/* Geblurrter Foto-Hintergrund der Demo-Stage. Fallback: Nachtlicht-Gradient
+   in der Stimmung des Live-Fotos (lila/magenta Pavillon-Licht). Legt man
+   assets/showcase/dj-hero.jpg ins Repo, erscheint automatisch das echte Foto. */
+.ebsc-stage-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(90% 70% at 70% 18%, rgba(216,112,255,0.45) 0%, transparent 60%),
+    radial-gradient(70% 60% at 20% 80%, rgba(255,94,148,0.35) 0%, transparent 65%),
+    radial-gradient(50% 45% at 85% 85%, rgba(94,120,255,0.3) 0%, transparent 60%),
+    linear-gradient(175deg, #241b33 0%, #170f22 55%, #0e0a16 100%);
+  overflow: hidden;
+}
+.ebsc-stage-bg img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  filter: blur(14px) brightness(0.55) saturate(1.15);
+  transform: scale(1.12); /* Blur-Ränder verstecken */
+}
+.ebsc-stage-bg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(10,8,16,0.35) 0%, rgba(10,8,16,0.55) 100%);
+}
+
+/* Journey-Band: DJ gesucht › Inserat erstellen › finden lassen › … */
+.ebsc-journey {
+  position: absolute;
+  top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 3;
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; justify-content: center;
+  max-width: 94%;
+}
+.ebsc-journey span {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(245,245,247,0.75);
+  white-space: nowrap;
+  transition: all .3s ease;
+}
+.ebsc-journey span.active {
+  background: #FF385C;
+  border-color: #FF385C;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255,56,92,0.45);
+  transform: scale(1.06);
+}
+.ebsc-journey span.done {
+  background: rgba(22,163,74,0.35);
+  border-color: rgba(52,211,153,0.4);
+  color: #d1fae5;
+}
+.ebsc-journey i { color: rgba(255,255,255,0.4); font-style: normal; font-weight: 800; }
+
+/* Feier-Szene */
+.ebsc-stars {
+  text-align: center;
+  color: #facc15;
+  font-size: 1.05rem;
+  letter-spacing: 2px;
+  padding: 4px 0;
+}
+.ebsc-stars em { display: block; font-style: normal; font-size: 0.8rem; color: rgba(245,245,247,0.75); letter-spacing: 0; margin-top: 2px; }
+.ebsc-scene.active .ebsc-stars { animation: ebscPop .5s ease .9s backwards; }
+
+/* Logo im Mockup: „Eventbörse" zusammen (gap trennt nur Icon und Text) */
+.ebm-logo-text { display: inline; }
+.ebm-logo-text b { color: #FF385C; }
+
+/* CSS-Art-Thumbs: laden immer, markenfarbig, mit Icon */
+.ebm-art {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.ebm-art .material-icons-round {
+  font-size: 30px; color: rgba(255,255,255,0.92);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.ebm-card-img .ebm-art { position: absolute; }
+.ebm-card-img, .ebm-dimg { overflow: hidden; }
+.ebm-art.art-dj      { background: radial-gradient(80% 80% at 30% 25%, #c084fc 0%, transparent 55%), linear-gradient(135deg, #7c3aed, #FF385C); }
+.ebm-art.art-licht   { background: radial-gradient(80% 80% at 70% 20%, #fde68a 0%, transparent 55%), linear-gradient(135deg, #f59e0b, #ef4444); }
+.ebm-art.art-mic     { background: radial-gradient(80% 80% at 30% 70%, #6ee7b7 0%, transparent 55%), linear-gradient(135deg, #0d9488, #2563eb); }
+.ebm-art.art-schloss { background: radial-gradient(80% 80% at 60% 30%, #fcd34d 0%, transparent 55%), linear-gradient(135deg, #d97706, #92400e); }
+
+/* Demo-Szenen: Platz für das Journey-Band oben */
+.ebsc-scene { padding-top: 64px; }
+@media (max-width: 600px) {
+  .ebsc-journey span { font-size: 0.6rem; padding: 3px 8px; }
+  .ebsc-scene { padding-top: 84px; }
+  .ebsc-stage { min-height: 430px; }
+}

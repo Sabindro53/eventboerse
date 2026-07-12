@@ -21847,6 +21847,12 @@ function _initEbShowcase() {
       d.classList.toggle('active', k === sceneIdx);
       d.classList.toggle('played', k < sceneIdx);
     });
+    // Journey-Band ("DJ gesucht › Inserat erstellen › …") mitführen
+    if (demo) demo.querySelectorAll('.ebsc-journey span').forEach(function(sp) {
+      var j = parseInt(sp.getAttribute('data-j'), 10);
+      sp.classList.toggle('active', j === sceneIdx);
+      sp.classList.toggle('done', j < sceneIdx);
+    });
   }
   function startDemo() {
     if (sceneTimer || reduceMotion || !scenes.length) return;
@@ -21893,10 +21899,12 @@ function _initEbShowcase() {
       phone.style.setProperty('--eb-ry', (180 - eased * 180).toFixed(1) + 'deg');
     }
     if (mac) {
-      // Deckel: -78° (fast zu) → 0° (offen)
+      // Seitlich drehend aufklappen: Gehäuse rotateY -42°→0°, Deckel
+      // rotateX -95° (zu, Tastatur sichtbar) → -8° (offen, leicht geneigt)
       var m = scrollProgress(mac);
       var em = 1 - Math.pow(1 - m, 2);
-      mac.style.setProperty('--eb-lid', (-78 + em * 78).toFixed(1) + 'deg');
+      mac.style.setProperty('--eb-lid', (-95 + em * 87).toFixed(1) + 'deg');
+      mac.style.setProperty('--eb-mrot', (-42 + em * 42).toFixed(1) + 'deg');
     }
   }
   function onScroll() {
@@ -21908,7 +21916,7 @@ function _initEbShowcase() {
   if (reduceMotion) {
     // Statische Endzustände, keine Scroll-Kopplung
     if (phone) phone.style.setProperty('--eb-ry', '0deg');
-    if (mac) mac.style.setProperty('--eb-lid', '0deg');
+    if (mac) { mac.style.setProperty('--eb-lid', '-8deg'); mac.style.setProperty('--eb-mrot', '0deg'); }
     showScene(0);
     return;
   }
@@ -21925,7 +21933,7 @@ function _initEbShowcase() {
   } else {
     // Fallback ohne IO: Endzustände setzen
     if (phone) phone.style.setProperty('--eb-ry', '0deg');
-    if (mac) mac.style.setProperty('--eb-lid', '0deg');
+    if (mac) { mac.style.setProperty('--eb-lid', '-8deg'); mac.style.setProperty('--eb-mrot', '0deg'); }
   }
   applyFx();
 }
