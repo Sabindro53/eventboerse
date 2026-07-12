@@ -19714,7 +19714,11 @@ function openAddProviderModal(defaultStage) {
     : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
   // Kein 30er-Cap mehr: sonst fehlen Inserate im Picker und die Suche darüber
   // findet sie nie (sie filtert nur gerenderte Karten). 300 als Sicherheitsnetz.
-  var _listings = _baseList.filter(function(l){ return !_isSearchListing(l); }).slice(0, 300);
+  // Rollen-Sichtbarkeit: Event-Planer sehen nur Dienstleister-Angebote;
+  // Dienstleister sehen ALLES — Angebote UND Gesuche (um z. B. auf ein
+  // "DJ gesucht"-Inserat zu reagieren und es einzuplanen).
+  var _showSearchListings = (typeof isDienstleister === 'function') && isDienstleister();
+  var _listings = _baseList.filter(function(l){ return _showSearchListings || !_isSearchListing(l); }).slice(0, 300);
   var listingCardsHtml = _listings.map(function(l) {
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
@@ -21899,12 +21903,20 @@ function _initEbShowcase() {
       phone.style.setProperty('--eb-ry', (180 - eased * 180).toFixed(1) + 'deg');
     }
     if (mac) {
-      // Seitlich drehend aufklappen: Gehäuse rotateY -42°→0°, Deckel
-      // rotateX -95° (zu, Tastatur sichtbar) → -8° (offen, leicht geneigt)
+      // Zwei Phasen, scrollgekoppelt:
+      //  Phase 1 (0→0.55): dreht von der Rückseite (rotateY 180°→0°),
+      //    Deckel bleibt fast zu (-92°) — man sieht erst das Logo hinten.
+      //  Phase 2 (0.55→1): Deckel klappt drehend auf (-92°→-100° visuell
+      //    via rotateX auf 0°-nah) und das Gerät schwebt sanft nach oben.
       var m = scrollProgress(mac);
-      var em = 1 - Math.pow(1 - m, 2);
-      mac.style.setProperty('--eb-lid', (-95 + em * 87).toFixed(1) + 'deg');
-      mac.style.setProperty('--eb-mrot', (-42 + em * 42).toFixed(1) + 'deg');
+      var e = 1 - Math.pow(1 - m, 3); // weiches Ease-out
+      var spin = 180 * (1 - Math.min(1, m / 0.55));            // 180°→0°
+      var lidP = Math.max(0, (m - 0.4) / 0.6);                  // erst öffnen, wenn fast gedreht
+      var lid = -92 + (1 - Math.pow(1 - lidP, 2)) * 84;         // -92°→-8°
+      var floatY = -Math.sin(Math.min(1, m) * Math.PI) * 10;    // Schweben (max ~10px)
+      mac.style.setProperty('--eb-mrot', spin.toFixed(1) + 'deg');
+      mac.style.setProperty('--eb-lid', lid.toFixed(1) + 'deg');
+      mac.style.setProperty('--eb-float', floatY.toFixed(1) + 'px');
     }
   }
   function onScroll() {
@@ -21916,7 +21928,7 @@ function _initEbShowcase() {
   if (reduceMotion) {
     // Statische Endzustände, keine Scroll-Kopplung
     if (phone) phone.style.setProperty('--eb-ry', '0deg');
-    if (mac) { mac.style.setProperty('--eb-lid', '-8deg'); mac.style.setProperty('--eb-mrot', '0deg'); }
+    if (mac) { mac.style.setProperty('--eb-lid', '-8deg'); mac.style.setProperty('--eb-mrot', '0deg'); mac.style.setProperty('--eb-float', '0px'); }
     showScene(0);
     return;
   }
@@ -21933,7 +21945,7 @@ function _initEbShowcase() {
   } else {
     // Fallback ohne IO: Endzustände setzen
     if (phone) phone.style.setProperty('--eb-ry', '0deg');
-    if (mac) { mac.style.setProperty('--eb-lid', '-8deg'); mac.style.setProperty('--eb-mrot', '0deg'); }
+    if (mac) { mac.style.setProperty('--eb-lid', '-8deg'); mac.style.setProperty('--eb-mrot', '0deg'); mac.style.setProperty('--eb-float', '0px'); }
   }
   applyFx();
 }
