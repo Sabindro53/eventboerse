@@ -13841,43 +13841,14 @@ function renderBoardPage() {
 
   var isProvider = isDienstleister();
 
-  // Not logged in: keep classic empty state (no Auftragsboard either).
-  if (!currentUser) {
-    projectsEl.classList.remove('board-projects--sectioned');
-    projectsEl.innerHTML = `
-      <div class="board-empty-state">
-        <span class="material-icons-round">view_kanban</span>
-        <h3>Noch kein Event-Projekt</h3>
-        <p>Melde dich an, um dein Planungs-Board zu nutzen und Dienstleister für dein Event zu organisieren.</p>
-        <button class="btn-primary board-new-btn" onclick="openModal('loginModal')">
-          <span class="material-icons-round">login</span> Jetzt anmelden
-        </button>
-      </div>`;
-    return;
-  }
-
-  // Non-Dienstleister without own projects: classic empty state.
-  if (!isProvider && _boardProjects.length === 0) {
-    projectsEl.classList.remove('board-projects--sectioned');
-    projectsEl.innerHTML = `
-      <div class="board-empty-state">
-        <span class="material-icons-round">view_kanban</span>
-        <h3>Noch kein Event-Projekt</h3>
-        <p>Erstelle dein erstes Planungs-Board und organisiere alle Dienstleister für dein Event.</p>
-        <button class="btn-primary board-new-btn" onclick="openCreateBoardModal()">
-          <span class="material-icons-round">add</span> Erstes Projekt erstellen
-        </button>
-      </div>`;
-    return;
-  }
-
-  // Sectioned layout: "Eigene Projekte" + (for providers) "Auftragsboard".
-  projectsEl.classList.add('board-projects--sectioned');
-  projectsEl.innerHTML =
-    _renderOwnProjectsSectionHtml(_boardProjects) +
-    (isProvider ? _renderAuftragsboardSectionHtml({ state: 'loading', jobs: [] }) : '');
-
-  _initAnimatedEntries();
+  // ChatGPT-Look: Sidebar (Projekte + Kategorien) links, lokaler
+  // Planungs-Assistent rechts. Funktioniert auch ohne Login (Aktionen,
+  // die ein Board brauchen, fragen dann nach Anmeldung).
+  projectsEl.classList.remove('board-projects--sectioned');
+  projectsEl.classList.add('board-projects--ai');
+  projectsEl.innerHTML = _aiBoardLayoutHtml(isProvider);
+  _aiRenderSidebarProjects();
+  _aiRenderChat();
 
   if (isProvider) {
     _loadBoardAuftragsboard();
@@ -19850,17 +19821,17 @@ function _autoFillProviderFromListing(select) {
 }
 
 function _addProviderCard(event, stage) {
-    // Doppelte Karten verhindern (gleiche listingId im selben Projekt)
-    if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
-      showToast('Dieses Inserat ist bereits im Board.', 'warning');
-      return;
-    }
   event.preventDefault();
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
   if (!project) return;
 
   var listingId = document.getElementById('cardListingId') ? parseInt(document.getElementById('cardListingId').value) || null : null;
+  // Doppelte Karten verhindern (gleiche listingId im selben Projekt)
+  if (listingId && project.cards && project.cards.some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
+    showToast('Dieses Inserat ist bereits im Board.', 'warning');
+    return;
+  }
   var name = document.getElementById('cardName').value.trim();
   var category = document.getElementById('cardCategory').value.trim();
   var price = parseFloat(document.getElementById('cardPrice').value) || 0;
@@ -22279,4 +22250,501 @@ function _recordBookingToBoard(opts) {
   project.cards.push(card);
   _saveBoardProjects({ immediate: true });
   return { projectId: project.id, card: card };
+}
+
+/* ==================== PLANUNGS-ASSISTENT (lokale "KI", ChatGPT-Look) ==================== */
+// Regelbasierter Assistent für das Planungs-Board — läuft KOMPLETT im
+// Browser: keine externen KI-Calls, keine Tokens, keine Kosten. Versteht
+// Event-Typen, Dienstleister-Kategorien, Budget-/Termin-/Checklisten-Fragen
+// und legt Projekte & Board-Karten direkt an.
+
+var _AI_CATS = [
+  { key: 'dj',         emoji: '🎧', label: 'DJ & Musik' },
+  { key: 'catering',   emoji: '🍽️', label: 'Catering' },
+  { key: 'foto',       emoji: '📷', label: 'Fotografie' },
+  { key: 'location',   emoji: '🏰', label: 'Location' },
+  { key: 'licht',      emoji: '💡', label: 'Licht & Technik' },
+  { key: 'florist',    emoji: '💐', label: 'Floristik' },
+  { key: 'moderation', emoji: '🎤', label: 'Moderation' },
+  { key: 'deko',       emoji: '🎈', label: 'Dekoration' }
+];
+var _AI_TYPES = [
+  [/hochzeit|heirat|braut/i,                                        'wedding',    '💍', 'Hochzeit'],
+  [/kinderfest|kindergeburtstag/i,                                  'kids',       '🎈', 'Kinderfest'],
+  [/geburtstag|b-?day/i,                                            'birthday',   '🎂', 'Geburtstag'],
+  [/firmenfeier|firmen-?event|weihnachtsfeier|sommerfest|betriebsfeier/i, 'corporate', '🏢', 'Firmenfeier'],
+  [/festival|open-?air/i,                                           'festival',   '🎪', 'Festival'],
+  [/konferenz|tagung|kongress|seminar/i,                            'conference', '🎤', 'Konferenz'],
+  [/taufe|kommunion|konfirmation/i,                                 'baptism',    '⛪', 'Taufe/Feier'],
+  [/privatfeier|party|feier|jubil[äa]um|abschluss/i,                'private',    '🏡', 'Privatfeier']
+];
+var _AI_TMPL_EMOJI = { wedding:'💍', birthday:'🎂', corporate:'🏢', festival:'🎪', conference:'🎤', baptism:'⛪', kids:'🎈', private:'🏡', custom:'✨' };
+
+/* ─── Chat-State (localStorage, pro Nutzer) ─────────────────── */
+var _aiMsgs = null;
+var _aiCtxProjectId = null;
+
+function _aiKey() {
+  return 'eb_ai_chat_v1_' + (currentUser && currentUser.id ? currentUser.id : 'gast');
+}
+function _aiLoad() {
+  if (_aiMsgs) return _aiMsgs;
+  try { _aiMsgs = JSON.parse(localStorage.getItem(_aiKey()) || '[]'); } catch (e) { _aiMsgs = []; }
+  if (!Array.isArray(_aiMsgs)) _aiMsgs = [];
+  return _aiMsgs;
+}
+function _aiSave() {
+  try { localStorage.setItem(_aiKey(), JSON.stringify((_aiMsgs || []).slice(-60))); } catch (e) {}
+}
+function _aiCtxProject() {
+  if (_aiCtxProjectId) {
+    var p = (_boardProjects || []).find(function(x) { return x.id === _aiCtxProjectId; });
+    if (p) return p;
+  }
+  return (_boardProjects || [])[0] || null;
+}
+
+/* ─── Layout (Sidebar + Chat) ───────────────────────────────── */
+function _aiBoardLayoutHtml(isProvider) {
+  var catsHtml = _AI_CATS.map(function(c) {
+    return '<button type="button" class="bai-cat" onclick="_aiAskCategory(\'' + c.key + '\')">' +
+      '<span class="bai-cat-emoji">' + c.emoji + '</span>' + c.label + '</button>';
+  }).join('');
+  return '<div class="board-ai-layout">' +
+    '<aside class="bai-side">' +
+      '<button type="button" class="bai-new" onclick="' + (currentUser ? 'openCreateBoardModal()' : "openModal('loginModal')") + '">' +
+        '<span class="material-icons-round">add</span> Neues Event-Projekt</button>' +
+      '<div class="bai-side-scroll">' +
+        '<div class="bai-side-title">Projekte</div>' +
+        '<div class="bai-plist" id="baiProjects"></div>' +
+        '<div class="bai-side-title">Kategorien</div>' +
+        '<div class="bai-cats">' + catsHtml + '</div>' +
+      '</div>' +
+      '<div class="bai-side-foot"><span class="material-icons-round">offline_bolt</span>' +
+        'Läuft lokal im Browser — ohne KI-Token, 0&nbsp;€ Kosten</div>' +
+    '</aside>' +
+    '<div class="bai-main">' +
+      '<div class="bai-head">' +
+        '<div class="bai-head-title"><span class="bai-ava">✨</span>' +
+          '<div><b>Planungs-Assistent</b><em>Dein Event-Copilot — lokal &amp; kostenlos</em></div></div>' +
+        '<button type="button" class="bai-clear" onclick="_aiClearChat()" title="Verlauf löschen" aria-label="Verlauf löschen">' +
+          '<span class="material-icons-round">delete_sweep</span></button>' +
+      '</div>' +
+      '<div class="bai-chat" id="baiChat"></div>' +
+      '<div class="bai-suggests" id="baiSuggests"></div>' +
+      '<form class="bai-inputrow" onsubmit="_aiSend(event)">' +
+        '<input type="text" id="baiInput" placeholder="Beschreib dein Event oder stell eine Frage…" autocomplete="off" maxlength="300" />' +
+        '<button type="submit" class="bai-send" aria-label="Senden"><span class="material-icons-round">arrow_upward</span></button>' +
+      '</form>' +
+    '</div>' +
+  '</div>' +
+  (isProvider ? _renderAuftragsboardSectionHtml({ state: 'loading', jobs: [] }) : '');
+}
+
+function _aiRenderSidebarProjects() {
+  var el = document.getElementById('baiProjects');
+  if (!el) return;
+  if (!currentUser) {
+    el.innerHTML = '<button type="button" class="bai-plist-login" onclick="openModal(\'loginModal\')">' +
+      '<span class="material-icons-round">login</span> Anmelden für Projekte</button>';
+    return;
+  }
+  if (!(_boardProjects || []).length) {
+    el.innerHTML = '<div class="bai-plist-empty">Noch keine Projekte — sag mir einfach, was du planst!</div>';
+    return;
+  }
+  var ctx = _aiCtxProject();
+  el.innerHTML = _boardProjects.map(function(p) {
+    var active = ctx && p.id === ctx.id;
+    return '<div class="bai-pitem' + (active ? ' active' : '') + '" onclick="openBoardProject(\'' + p.id + '\')" title="' + _escHtml(p.name) + '">' +
+      '<span class="bai-pitem-emoji">' + (_AI_TMPL_EMOJI[p.template] || '✨') + '</span>' +
+      '<span class="bai-pitem-name">' + _escHtml(p.name) + '</span>' +
+      '<span class="bai-pitem-acts">' +
+        '<button type="button" onclick="event.stopPropagation();openEditBoardProjectModal(\'' + p.id + '\')" title="Bearbeiten" aria-label="Projekt bearbeiten"><span class="material-icons-round">edit</span></button>' +
+        '<button type="button" onclick="event.stopPropagation();deleteBoardProjectById(\'' + p.id + '\')" title="Löschen" aria-label="Projekt löschen"><span class="material-icons-round">close</span></button>' +
+      '</span></div>';
+  }).join('');
+}
+
+/* ─── Chat-Rendering ────────────────────────────────────────── */
+function _aiMsgHtml(m) {
+  if (m.role === 'user') {
+    return '<div class="bai-msg user"><div class="bai-bubble">' + m.html + '</div></div>';
+  }
+  return '<div class="bai-msg ai"><span class="bai-msg-ava">✨</span><div class="bai-bubble">' + m.html + '</div></div>';
+}
+
+function _aiRenderChat() {
+  _aiMsgs = null; // pro Nutzer neu laden (Login-Wechsel)
+  var chat = document.getElementById('baiChat');
+  if (!chat) return;
+  var msgs = _aiLoad();
+  if (!msgs.length) {
+    chat.innerHTML = '<div class="bai-hello">' +
+      '<span class="bai-hello-emoji">✨</span>' +
+      '<h3>Womit kann ich helfen?</h3>' +
+      '<p>Ich bin dein Planungs-Assistent: Ich lege Event-Projekte an, finde passende Dienstleister, checke Budget &amp; Termine — direkt hier im Browser, ohne externe KI.</p>' +
+    '</div>';
+  } else {
+    chat.innerHTML = msgs.map(_aiMsgHtml).join('');
+  }
+  _aiRenderSuggests();
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function _aiRenderSuggests() {
+  var el = document.getElementById('baiSuggests');
+  if (!el) return;
+  var chips = (currentUser && _aiCtxProject())
+    ? ['Was fehlt noch?', 'Budget-Übersicht', 'Zeig mir Fotografen', 'Wie viele Tage noch?']
+    : ['Ich plane eine Hochzeit', 'Geburtstagsparty organisieren', 'Zeig mir DJs', 'Was kannst du?'];
+  el.innerHTML = chips.map(function(c) {
+    return '<button type="button" class="bai-chip" onclick="_aiQuick(this.textContent)">' + c + '</button>';
+  }).join('');
+}
+
+function _aiPushMsg(role, html) {
+  var msgs = _aiLoad();
+  msgs.push({ role: role, html: html, t: Date.now() });
+  _aiSave();
+  var chat = document.getElementById('baiChat');
+  if (!chat) return;
+  var hello = chat.querySelector('.bai-hello');
+  if (hello) hello.remove();
+  chat.insertAdjacentHTML('beforeend', _aiMsgHtml({ role: role, html: html }));
+  chat.scrollTop = chat.scrollHeight;
+  if (role === 'ai') _aiRenderSuggests();
+}
+
+function _aiTyping(on) {
+  var chat = document.getElementById('baiChat');
+  if (!chat) return;
+  var t = document.getElementById('baiTyping');
+  if (on && !t) {
+    chat.insertAdjacentHTML('beforeend',
+      '<div class="bai-msg ai" id="baiTyping"><span class="bai-msg-ava">✨</span>' +
+      '<div class="bai-bubble bai-typing"><i></i><i></i><i></i></div></div>');
+    chat.scrollTop = chat.scrollHeight;
+  }
+  if (!on && t) t.remove();
+}
+
+function _aiClearChat() {
+  _aiMsgs = [];
+  _aiSave();
+  _aiRenderChat();
+}
+
+/* ─── Eingaben ──────────────────────────────────────────────── */
+function _aiSend(ev) {
+  ev.preventDefault();
+  var inp = document.getElementById('baiInput');
+  var t = (inp && inp.value || '').trim();
+  if (!t) return;
+  inp.value = '';
+  _aiUserSays(t);
+}
+function _aiQuick(t) {
+  _aiUserSays(String(t || '').trim());
+}
+function _aiAskCategory(catKey) {
+  var cat = _AI_CATS.find(function(c) { return c.key === catKey; });
+  _aiPushMsg('user', _escHtml('Zeig mir ' + (cat ? cat.label : catKey)));
+  _aiTyping(true);
+  setTimeout(function() {
+    _aiTyping(false);
+    _aiPushMsg('ai', _aiAnswerCategory(catKey));
+  }, 380);
+}
+function _aiUserSays(text) {
+  if (!text) return;
+  _aiPushMsg('user', _escHtml(text));
+  _aiTyping(true);
+  setTimeout(function() {
+    _aiTyping(false);
+    var html;
+    try { html = _aiAnswer(text); }
+    catch (e) { html = 'Hoppla, da ist etwas schiefgelaufen. Versuch es bitte noch einmal!'; }
+    _aiPushMsg('ai', html);
+  }, 420 + Math.random() * 380);
+}
+
+/* ─── Antwort-Engine (Intent-Erkennung) ─────────────────────── */
+function _aiCatFromText(t) {
+  if (/\bdjs?\b|musik|band/.test(t)) return 'dj';
+  if (/catering|essen|buffet|men[üu]/.test(t)) return 'catering';
+  if (/fotograf|foto|kamera|video/.test(t)) return 'foto';
+  if (/location|saal|halle|räum|raum|schloss/.test(t)) return 'location';
+  if (/licht|technik|ton|bühne/.test(t)) return 'licht';
+  if (/blume|florist|strauß/.test(t)) return 'florist';
+  if (/moderat|sprecher/.test(t)) return 'moderation';
+  if (/deko/.test(t)) return 'deko';
+  return null;
+}
+
+function _aiAnswer(raw) {
+  var t = (raw || '').toLowerCase();
+  var cat = _aiCatFromText(t);
+  var type = null;
+  for (var i = 0; i < _AI_TYPES.length; i++) {
+    if (_AI_TYPES[i][0].test(t)) { type = _AI_TYPES[i]; break; }
+  }
+
+  // 1) Event-Typ → Projekt anlegen ("Ich plane eine Hochzeit …")
+  if (type && (/(plan|organisier|erstell|anleg|neu|vorbereit|steht an|vor der tür)/.test(t) || !cat)) {
+    return _aiAnswerCreate(type, raw);
+  }
+  // 2) Kategorie → Dienstleister-Empfehlungen
+  if (cat) return _aiAnswerCategory(cat);
+  // 3) Budget
+  if (/(budget|kosten|preis|ausgeben|teuer|euro|€)/.test(t)) return _aiAnswerBudget();
+  // 4) Offene Schritte / Checkliste
+  if (/(fehlt|offen|nächst|weiter|schritt|checklist|to-?do|aufgabe)/.test(t)) return _aiAnswerNextSteps();
+  // 5) Countdown / Datum
+  if (/(wie ?viele? tage|countdown|wann|datum|termin)/.test(t)) return _aiAnswerCountdown();
+  // 6) Status / Übersicht
+  if (/(status|übersicht|zusammenfassung|fortschritt|wie läuft)/.test(t)) return _aiAnswerStatus();
+  // 7) Gruß / Hilfe
+  if (/^(hi|hallo|hey|servus|moin|na\b|guten)/.test(t) || /(hilfe|was kannst du|funktion)/.test(t)) return _aiAnswerHelp();
+  // 8) Danke
+  if (/(danke|super|top|perfekt|nice|cool)/.test(t)) {
+    return 'Sehr gerne! 🎉 Sag Bescheid, wenn ich noch etwas für dein Event tun kann.';
+  }
+  return _aiAnswerFallback();
+}
+
+function _aiAnswerHelp() {
+  return 'Hey! 👋 Ich bin dein <b>lokaler</b> Planungs-Assistent — keine externe KI, keine Kosten. Das kann ich:' +
+    '<ul class="bai-list">' +
+    '<li>🗂️ <b>Projekt anlegen</b> — „Ich plane eine Hochzeit am 20.09. für 80 Gäste"</li>' +
+    '<li>🎧 <b>Dienstleister finden</b> — „Zeig mir DJs" oder links eine Kategorie wählen</li>' +
+    '<li>💶 <b>Budget checken</b> — „Budget-Übersicht"</li>' +
+    '<li>📋 <b>Nächste Schritte</b> — „Was fehlt noch?"</li>' +
+    '<li>⏳ <b>Countdown</b> — „Wie viele Tage noch?"</li>' +
+    '</ul>';
+}
+
+function _aiAnswerFallback() {
+  return 'Das habe ich nicht ganz verstanden. 🤔 Probier zum Beispiel:' +
+    '<ul class="bai-list">' +
+    '<li>„Ich plane eine <b>Hochzeit</b> am 20.09.2026 für 80 Gäste"</li>' +
+    '<li>„Zeig mir <b>DJs</b>" — oder wähle links eine Kategorie</li>' +
+    '<li>„<b>Was fehlt noch?</b>" oder „<b>Budget-Übersicht</b>"</li>' +
+    '</ul>';
+}
+
+function _aiAnswerCreate(type, raw) {
+  var t = raw.toLowerCase();
+  var dateM = raw.match(/(\d{1,2}\.\d{1,2}\.(?:\d{4}|\d{2})?)/);
+  var guestsM = t.match(/(\d{1,4})\s*(gäste|personen|leute|pax)/);
+  var budgetM = t.match(/(\d[\d\.]{0,8})\s*(€|euro)/);
+  var date = dateM ? dateM[1] : '';
+  var guests = guestsM ? parseInt(guestsM[1], 10) : 0;
+  var budget = budgetM ? parseFloat(budgetM[1].replace(/\./g, '')) : 0;
+  window._aiDraft = {
+    template: type[1],
+    name: type[3] + ' ' + new Date().getFullYear(),
+    date: date, guests: guests, budget: budget
+  };
+  if (!currentUser) {
+    return type[2] + ' Eine ' + type[3] + ' — wie schön! Melde dich kurz an, dann lege ich dir ein Planungs-Board mit geführter Checkliste an.' +
+      '<div class="bai-actions"><button type="button" class="bai-act primary" onclick="openModal(\'loginModal\')">' +
+      '<span class="material-icons-round">login</span> Anmelden</button></div>';
+  }
+  var sugg = (_CHECKLIST_TEMPLATES[type[1]] || []).slice(0, 5).map(function(s) {
+    return '<li>' + _escHtml(s) + '</li>';
+  }).join('');
+  return type[2] + ' <b>' + type[3] + '</b> — super! ' +
+    (date ? 'Am <b>' + _escHtml(date) + '</b>. ' : '') +
+    (guests ? '<b>' + guests + ' Gäste</b>. ' : '') +
+    (budget ? 'Budget ca. <b>' + budget.toLocaleString('de-DE') + ' €</b>. ' : '') +
+    'Ich lege dir ein Board mit geführter Checkliste an, u.&nbsp;a.:' +
+    '<ul class="bai-list">' + sugg + '</ul>' +
+    '<div class="bai-actions"><button type="button" class="bai-act primary" onclick="_aiCreateFromDraft()">' +
+    '<span class="material-icons-round">add</span> Projekt anlegen</button></div>';
+}
+
+function _aiCreateFromDraft() {
+  var d = window._aiDraft;
+  if (!d) return;
+  if (!currentUser) { openModal('loginModal'); return; }
+  var project = {
+    id: 'bp_' + Date.now(),
+    name: d.name || 'Mein Event',
+    date: d.date || '',
+    budget: d.budget || 0,
+    guests: d.guests || 0,
+    template: d.template || 'custom',
+    cards: [], checklist: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: Date.now()
+  };
+  _boardProjects.unshift(project);
+  _saveBoardProjects({ immediate: true });
+  _aiCtxProjectId = project.id;
+  _aiRenderSidebarProjects();
+  showToast('Event-Projekt „' + project.name + '“ wurde erstellt!', 'check_circle');
+  _aiPushMsg('ai', '✅ Projekt <b>' + _escHtml(project.name) + '</b> ist angelegt! Die geführte Checkliste wartet im Board. ' +
+    'Was brauchst du als Erstes — z.&nbsp;B. <b>Location</b> oder <b>DJ</b>?' +
+    '<div class="bai-actions"><button type="button" class="bai-act" onclick="openBoardProject(\'' + project.id + '\')">' +
+    '<span class="material-icons-round">view_kanban</span> Board öffnen</button></div>');
+}
+
+function _aiIsSearch(l) {
+  var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
+  if (t === 'search' || t === 'gesuch' || t.indexOf('suche') === 0) return true;
+  return /\bgesucht\b/i.test(l.title || '') || /^\s*suche\s/i.test(l.title || '');
+}
+
+function _aiAnswerCategory(catKey) {
+  var cat = _AI_CATS.find(function(c) { return c.key === catKey; }) || { key: catKey, emoji: '✨', label: catKey };
+  var base = (typeof _visibleListings === 'function') ? _visibleListings() : (LISTINGS || []);
+  var list = base.filter(function(l) {
+    if (!l || _aiIsSearch(l)) return false;
+    return l.category === catKey ||
+      _guideCategoryFor(l.categoryLabel || '') === catKey ||
+      _guideCategoryFor(l.title || '') === catKey;
+  }).sort(function(a, b) {
+    return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+  }).slice(0, 3);
+
+  if (!list.length) {
+    return 'In der Kategorie <b>' + cat.label + '</b> habe ich gerade keine Inserate gefunden. Schau mal in der Suche vorbei!' +
+      '<div class="bai-actions"><button type="button" class="bai-act" onclick="navigateTo(\'browse\')">' +
+      '<span class="material-icons-round">search</span> Zur Suche</button></div>';
+  }
+  var cards = list.map(function(l) {
+    var img = l.image || l.providerImg || '';
+    var price = l.priceLabel || (l.price ? 'ab ' + l.price + ' €' : '');
+    return '<div class="bai-lcard">' +
+      (img
+        ? '<span class="bai-lcard-img" style="background-image:url(\'' + _escHtml(img) + '\')"></span>'
+        : '<span class="bai-lcard-img bai-lcard-noimg">' + cat.emoji + '</span>') +
+      '<span class="bai-lcard-body"><b>' + _escHtml(l.providerName || l.title || '') + '</b>' +
+        '<em>★ ' + (l.rating || '–') + (price ? ' · ' + _escHtml(price) : '') + '</em></span>' +
+      '<span class="bai-lcard-acts">' +
+        '<button type="button" class="bai-act" onclick="navigateTo(\'detail\',' + l.id + ')">Ansehen</button>' +
+        '<button type="button" class="bai-act primary" onclick="_aiAddListing(' + l.id + ')">+ Board</button>' +
+      '</span></div>';
+  }).join('');
+  return cat.emoji + ' Hier sind Top-Empfehlungen für <b>' + cat.label + '</b>:' +
+    '<div class="bai-lcards">' + cards + '</div>';
+}
+
+function _aiAddListing(listingId) {
+  if (!currentUser) { openModal('loginModal'); return; }
+  var l = (LISTINGS || []).find(function(x) { return x && x.id === listingId; });
+  if (!l) { showToast('Inserat nicht gefunden', 'warning'); return; }
+  var project = _aiCtxProject();
+  if (!project) {
+    window._aiDraft = { template: 'custom', name: 'Mein Event', date: '', guests: 0, budget: 0 };
+    _aiPushMsg('ai', 'Du hast noch kein Projekt. Soll ich eins anlegen und <b>' + _escHtml(l.providerName || l.title || '') + '</b> direkt einplanen?' +
+      '<div class="bai-actions"><button type="button" class="bai-act primary" onclick="_aiCreateFromDraft();_aiAddListing(' + listingId + ')">Ja, anlegen &amp; einplanen</button></div>');
+    return;
+  }
+  if ((project.cards || []).some(function(c) { return c.listingId && String(c.listingId) === String(listingId); })) {
+    _aiPushMsg('ai', '<b>' + _escHtml(l.providerName || l.title || '') + '</b> ist schon in „' + _escHtml(project.name) + '“ eingeplant. 👍');
+    return;
+  }
+  var card = {
+    id: 'card_' + Date.now(),
+    name: l.providerName || l.title || 'Dienstleister',
+    category: l.categoryLabel || l.category || '',
+    price: parseFloat(l.price) || 0,
+    note: '', startTime: '', endTime: '',
+    stage: 'geplant',
+    listingId: l.id,
+    avatar: l.providerImg || '',
+    listingImage: l.image || '',
+    listingTitle: l.title || '',
+    createdAt: new Date().toISOString()
+  };
+  if (!project.cards) project.cards = [];
+  project.cards.push(card);
+  _saveBoardProjects({ immediate: true });
+  _aiPushMsg('ai', '✅ <b>' + _escHtml(card.name) + '</b> ist jetzt in „' + _escHtml(project.name) + '“ unter <b>Geplant</b>.' +
+    '<div class="bai-actions"><button type="button" class="bai-act" onclick="openBoardProject(\'' + project.id + '\')">' +
+    '<span class="material-icons-round">view_kanban</span> Board öffnen</button></div>');
+}
+
+function _aiAnswerBudget() {
+  var p = currentUser ? _aiCtxProject() : null;
+  if (!p) {
+    return 'Dafür brauche ich ein Projekt. Sag mir z.&nbsp;B. „Ich plane eine Hochzeit mit 5000 € Budget" — dann rechne ich für dich mit!';
+  }
+  var sum = (p.cards || []).reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+  var booked = (p.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; })
+    .reduce(function(s, c) { return s + (parseFloat(c.price) || 0); }, 0);
+  var budgetLine;
+  if (p.budget) {
+    var diff = p.budget - sum;
+    budgetLine = '<li>Budget: <b>' + (+p.budget).toLocaleString('de-DE') + ' €</b> → ' +
+      (diff >= 0
+        ? 'noch <b>' + diff.toLocaleString('de-DE') + ' € frei</b> ✅'
+        : '<b>' + Math.abs(diff).toLocaleString('de-DE') + ' € drüber</b> ⚠️') + '</li>';
+  } else {
+    budgetLine = '<li>Kein Budget hinterlegt — ergänze es über „Projekt bearbeiten".</li>';
+  }
+  return '💶 <b>Budget für „' + _escHtml(p.name) + '“</b>' +
+    '<ul class="bai-list">' +
+    '<li>Eingeplant gesamt: <b>' + sum.toLocaleString('de-DE') + ' €</b></li>' +
+    '<li>Davon fest gebucht: <b>' + booked.toLocaleString('de-DE') + ' €</b></li>' +
+    budgetLine + '</ul>';
+}
+
+function _aiAnswerNextSteps() {
+  var p = currentUser ? _aiCtxProject() : null;
+  if (!p) {
+    return 'Noch kein Projekt vorhanden — sag mir, was du planst (z.&nbsp;B. „Ich plane einen Geburtstag"), dann erstelle ich dir eine geführte Checkliste!';
+  }
+  var steps = _guideSteps(p);
+  var open = steps.filter(function(s) { return !s.done; });
+  if (!open.length) {
+    return '🎉 Alles erledigt in „' + _escHtml(p.name) + '“ — dein Event kann kommen!';
+  }
+  var lis = open.slice(0, 5).map(function(s) {
+    var dl = '';
+    if (s.deadline) {
+      var dd = ('0' + s.deadline.getDate()).slice(-2) + '.' + ('0' + (s.deadline.getMonth() + 1)).slice(-2) + '.';
+      dl = ' <em class="bai-dl' + (s.overdue ? ' od' : '') + '">bis ' + dd + '</em>';
+    }
+    return '<li>' + _escHtml(s.text) + dl + '</li>';
+  }).join('');
+  return '📋 In „' + _escHtml(p.name) + '“ sind noch <b>' + open.length + ' Schritte</b> offen:' +
+    '<ul class="bai-list">' + lis + '</ul>' +
+    '<div class="bai-actions"><button type="button" class="bai-act" onclick="openBoardProject(\'' + p.id + '\')">' +
+    '<span class="material-icons-round">checklist</span> Zum Planungs-Guide</button></div>';
+}
+
+function _aiAnswerCountdown() {
+  var p = currentUser ? _aiCtxProject() : null;
+  if (!p) return 'Leg zuerst ein Projekt an — dann zähle ich die Tage bis zu deinem Event runter! ⏳';
+  if (!p.date) {
+    return 'Für „' + _escHtml(p.name) + '“ ist noch kein Datum hinterlegt. Ergänze es über „Projekt bearbeiten", dann starte ich den Countdown!';
+  }
+  var ms = _parseDateDe(p.date);
+  if (!ms) return 'Das Datum „' + _escHtml(p.date) + '“ kann ich nicht lesen (Format TT.MM.JJJJ).';
+  var days = Math.ceil((ms - Date.now()) / 86400000);
+  if (days < 0) return '„' + _escHtml(p.name) + '“ war vor <b>' + Math.abs(days) + ' Tagen</b>. Ich hoffe, es war großartig! 🎉';
+  if (days === 0) return '🎉 <b>Heute ist es so weit!</b> Viel Spaß bei „' + _escHtml(p.name) + '“!';
+  return '⏳ Noch <b>' + days + ' Tage</b> bis „' + _escHtml(p.name) + '“ am <b>' + _escHtml(p.date) + '</b>.' +
+    (days <= 30 ? ' Es wird ernst — check am besten die offenen Schritte! 💪' : '');
+}
+
+function _aiAnswerStatus() {
+  var p = currentUser ? _aiCtxProject() : null;
+  if (!p) return 'Noch kein Projekt vorhanden — erzähl mir von deinem Event, dann starten wir!';
+  var cards = p.cards || [];
+  var byStage = { geplant: 0, kontaktiert: 0, angebot: 0, bestaetigt: 0, abgeschlossen: 0 };
+  cards.forEach(function(c) { if (byStage[c.stage] != null) byStage[c.stage]++; });
+  var steps = _guideSteps(p);
+  var done = steps.filter(function(s) { return s.done; }).length;
+  return '📊 <b>Status „' + _escHtml(p.name) + '“</b>' +
+    '<ul class="bai-list">' +
+    '<li>Checkliste: <b>' + done + ' / ' + steps.length + '</b> Schritten erledigt</li>' +
+    '<li>Dienstleister: <b>' + cards.length + '</b> im Board (' + byStage.bestaetigt + ' bestätigt, ' + byStage.abgeschlossen + ' abgeschlossen)</li>' +
+    (p.date ? '<li>Datum: <b>' + _escHtml(p.date) + '</b></li>' : '') +
+    '</ul>' +
+    '<div class="bai-actions"><button type="button" class="bai-act" onclick="openBoardProject(\'' + p.id + '\')">' +
+    '<span class="material-icons-round">view_kanban</span> Board öffnen</button></div>';
 }

@@ -36,6 +36,11 @@
 - [ ] Analytics-Kennzahlen je Listing/Flow.
 - [ ] SEO-Pre-Rendering für zentrale Landing-/Browse-Routen.
 
+## Zuletzt ausgeliefert (Juli 2026)
+
+- [x] Planungs-Board im ChatGPT-Look: Sidebar links (Neues Projekt, Projekt-Liste mit Edit/Delete, 8 Dienstleister-Kategorien), rechts lokaler Planungs-Assistent (`_ai*` in app.js, `.bai-*` CSS). Regelbasiert, ohne KI-Token: legt Projekte aus Freitext an (Typ/Datum/Gäste/Budget-Parsing), empfiehlt Dienstleister je Kategorie („+ Board" → Karte in Geplant), beantwortet Budget/offene Schritte (Guide-Deadlines)/Countdown/Status. Chat-Verlauf in localStorage pro Nutzer; Auftragsboard für Dienstleister bleibt darunter.
+- [x] Home-Showcase finalisiert: Mac dreht von Rückseite auf & schwebt, Demo-Szene + Widgets mit Inline-SVG-Illustrationen, Spacing/Mobile-Fixes, Board-Picker-Rollen (Planer sehen Angebote, Dienstleister alles).
+
 ## Zuletzt ausgeliefert (Mai/Juni 2026)
 
 - [x] QA-Support-Bot rechts über Bottom-Navigation, tokenfrei, mit direkter Bereichs-Navigation.
@@ -54,7 +59,7 @@
   - [x] `Paket` (Mehrfachpositionen mit je eigener Zeit/Preis/Notiz)
 
 ---
-*Zuletzt aktualisiert: 2026-06-06*
+*Zuletzt aktualisiert: 2026-07-16*
 
 ## Verknüpfte Notizen
 - [[Roadmap/Feature-Ideen]] — Ideen-Sammlung
