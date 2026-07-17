@@ -15522,7 +15522,9 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   width: 250px; height: 510px;
   transform-style: preserve-3d;
   transform: rotateY(var(--eb-ry));
-  transition: transform .12s linear;
+  /* Keine CSS-Transition: der rAF-Loop in app.js glättet per Lerp —
+     eine Transition obendrauf ruckelt auf iOS/Touch. */
+  will-change: transform;
 }
 .eb3d-face {
   position: absolute; inset: 0;
@@ -15694,7 +15696,6 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
 .eb3d-mac {
   transform-style: preserve-3d;
   transform: translateY(var(--eb-float)) rotateY(var(--eb-mrot)) rotateX(8deg);
-  transition: transform .1s linear;
   will-change: transform;
 }
 .eb3d-mac-lid {
@@ -15702,7 +15703,7 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   transform-origin: bottom center;
   transform: rotateX(var(--eb-lid));
   transform-style: preserve-3d;
-  transition: transform .1s linear;
+  will-change: transform;
   border-radius: 18px 18px 0 0;
   border: 1px solid rgba(255,255,255,0.14);
   background: #17171c;

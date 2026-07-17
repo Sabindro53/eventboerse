@@ -21853,10 +21853,20 @@ function _initEbShowcase() {
     }, { threshold: 0.25 }).observe(demo);
   } else { demoVisible = true; startDemo(); }
 
-  /* --- B/C) Scroll-getriebene 3D-Geräte --- */
+  /* --- B/C) Scroll-getriebene 3D-Geräte ---
+   * Butterweich auf allen Geräten: statt Scroll-Events + CSS-Transitions
+   * (die auf iOS/Touch ruckeln, weil Events sporadisch kommen und jede
+   * Transition neu startet) läuft ein durchgehender rAF-Loop, solange die
+   * Geräte im Viewport sind. Pro Frame wird der Ziel-Wert aus der
+   * Scroll-Position gelesen und der Ist-Wert per Lerp geglättet — das
+   * ergibt auch bei Momentum-Scroll (Safari) eine flüssige Drehung.
+   * Wichtig: Es wird NIE geschrieben, solange die Section display:none
+   * ist (rect.height 0) — sonst friert ein falscher Endzustand ein. */
   var phone = document.getElementById('ebPhone3d');
   var mac = document.getElementById('ebMac3d');
-  var fxActive = false, ticking = false;
+  var fxActive = false, fxRaf = null;
+  // Ist-Werte; Startwerte = CSS-Defaults (Rückseite, Deckel zu)
+  var fxCur = { ry: 180, rot: 180, lid: -92, fl: 0 };
 
   // Fortschritt 0→1, während das Element durch den Viewport wandert.
   function scrollProgress(el) {
@@ -21865,35 +21875,40 @@ function _initEbShowcase() {
     var p = (vh - r.top) / (vh * 0.75 + r.height * 0.5);
     return Math.max(0, Math.min(1, p));
   }
-  function applyFx() {
-    ticking = false;
-    if (phone) {
+  function fxLerp(key, target) {
+    var d = target - fxCur[key];
+    fxCur[key] = Math.abs(d) < 0.04 ? target : fxCur[key] + d * 0.16;
+  }
+  function fxFrame() {
+    fxRaf = null;
+    if (phone && phone.getBoundingClientRect().height > 0) {
       // 180° (Rückseite) → 0° (Front), mit sanftem Ease-out
       var p = scrollProgress(phone);
       var eased = 1 - Math.pow(1 - p, 2);
-      phone.style.setProperty('--eb-ry', (180 - eased * 180).toFixed(1) + 'deg');
+      fxLerp('ry', 180 - eased * 180);
+      phone.style.setProperty('--eb-ry', fxCur.ry.toFixed(2) + 'deg');
     }
-    if (mac) {
-      // Zwei Phasen, scrollgekoppelt:
-      //  Phase 1 (0→0.55): dreht von der Rückseite (rotateY 180°→0°),
-      //    Deckel bleibt fast zu (-92°) — man sieht erst das Logo hinten.
-      //  Phase 2 (0.55→1): Deckel klappt drehend auf (-92°→-100° visuell
-      //    via rotateX auf 0°-nah) und das Gerät schwebt sanft nach oben.
+    if (mac && mac.getBoundingClientRect().height > 0) {
+      // Phase 1 (0→0.55): dreht von der Rückseite (rotateY 180°→0°),
+      //   Deckel bleibt fast zu — man sieht erst das Logo hinten.
+      // Phase 2 (ab 0.4): Deckel klappt drehend auf (-92°→-8°),
+      //   dazu sanftes Schweben (Sinus, max ~10px).
       var m = scrollProgress(mac);
-      var e = 1 - Math.pow(1 - m, 3); // weiches Ease-out
-      var spin = 180 * (1 - Math.min(1, m / 0.55));            // 180°→0°
-      var lidP = Math.max(0, (m - 0.4) / 0.6);                  // erst öffnen, wenn fast gedreht
-      var lid = -92 + (1 - Math.pow(1 - lidP, 2)) * 84;         // -92°→-8°
-      var floatY = -Math.sin(Math.min(1, m) * Math.PI) * 10;    // Schweben (max ~10px)
-      mac.style.setProperty('--eb-mrot', spin.toFixed(1) + 'deg');
-      mac.style.setProperty('--eb-lid', lid.toFixed(1) + 'deg');
-      mac.style.setProperty('--eb-float', floatY.toFixed(1) + 'px');
+      var lidP = Math.max(0, (m - 0.4) / 0.6);
+      fxLerp('rot', 180 * (1 - Math.min(1, m / 0.55)));
+      fxLerp('lid', -92 + (1 - Math.pow(1 - lidP, 2)) * 84);
+      fxLerp('fl', -Math.sin(Math.min(1, m) * Math.PI) * 10);
+      mac.style.setProperty('--eb-mrot', fxCur.rot.toFixed(2) + 'deg');
+      mac.style.setProperty('--eb-lid', fxCur.lid.toFixed(2) + 'deg');
+      mac.style.setProperty('--eb-float', fxCur.fl.toFixed(2) + 'px');
     }
+    if (fxActive) fxRaf = requestAnimationFrame(fxFrame);
   }
-  function onScroll() {
-    if (!fxActive || ticking) return;
-    ticking = true;
-    requestAnimationFrame(applyFx);
+  function fxStart() {
+    if (fxRaf === null) fxRaf = requestAnimationFrame(fxFrame);
+  }
+  function fxStop() {
+    if (fxRaf !== null) { cancelAnimationFrame(fxRaf); fxRaf = null; }
   }
 
   if (reduceMotion) {
@@ -21905,20 +21920,19 @@ function _initEbShowcase() {
   }
 
   if ('IntersectionObserver' in window && (phone || mac)) {
+    var fxVisible = {};
     var fxIo = new IntersectionObserver(function(entries) {
-      fxActive = entries.some(function(e) { return e.isIntersecting; });
-      if (fxActive) applyFx();
-    }, { rootMargin: '25% 0px 25% 0px' });
+      entries.forEach(function(e) { fxVisible[e.target.id] = e.isIntersecting; });
+      fxActive = Object.keys(fxVisible).some(function(k) { return fxVisible[k]; });
+      if (fxActive) fxStart(); else fxStop();
+    }, { rootMargin: '30% 0px 30% 0px' });
     if (phone) fxIo.observe(phone);
     if (mac) fxIo.observe(mac);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
   } else {
     // Fallback ohne IO: Endzustände setzen
     if (phone) phone.style.setProperty('--eb-ry', '0deg');
     if (mac) { mac.style.setProperty('--eb-lid', '-8deg'); mac.style.setProperty('--eb-mrot', '0deg'); mac.style.setProperty('--eb-float', '0px'); }
   }
-  applyFx();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
