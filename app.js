@@ -1427,6 +1427,10 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'board':
       if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }
+      // DB-Inserate nachladen: Karten referenzieren sie per listingId —
+      // ohne sie kann das Kontakt-Modal Anbieter/Preis nicht auflösen
+      // (Chat-Button wäre nach direktem /board-Aufruf fälschlich deaktiviert).
+      try { loadDbListings(); } catch (e) {}
       renderBoardPage();
       try { if (currentUser && typeof _reconcileStripePayments === 'function') _reconcileStripePayments(); } catch(e) {}
       // Deep-Link: /board/<projectId> öffnet das Projekt direkt (z.B. aus neuem Tab)
@@ -17094,9 +17098,15 @@ function openStageAdvanceModal(cardId, currentStage) {
       (_senderName ? '\\n\\nMit freundlichen Grüßen\\n' + _senderName : '\\n\\nMit freundlichen Grüßen');
     var _defaultMsgClean = _defaultMsg.replace(/\\n/g, '\n');
 
-    var _provUserId = (_listing && _listing.providerId) ? _listing.providerId : '';
-    var _listingDbId = (_listing && (_listing._dbId || _listing.id)) ? (_listing._dbId || _listing.id) : '';
-    var _canChat = !!_provUserId;
+    // Fallbacks: providerId direkt von der Karte (wird beim Hinzufügen
+    // gespeichert), DB-Id aus dem 10000er-Offset der Frontend-Id ableiten —
+    // so funktioniert Kontakt auch, wenn das Inserat (noch) nicht in
+    // LISTINGS aufgelöst werden kann.
+    var _provUserId = (_listing && _listing.providerId) || card.providerId || '';
+    var _listingDbId = (_listing && (_listing._dbId || _listing.id)) ||
+      (card.listingId && card.listingId > 10000 ? card.listingId - 10000 : '');
+    var _isDemoProv = !!_provUserId && isDemoUserId(_provUserId);
+    var _canChat = !!_provUserId && !_isDemoProv;
 
     fieldsHtml = '' +
       '<label class="sa-label">Nachricht anpassen</label>' +
@@ -17108,7 +17118,7 @@ function openStageAdvanceModal(cardId, currentStage) {
           '<span class="sa-action-icon"><span class="material-icons-round">forum</span></span>' +
           '<span class="sa-action-text">' +
             '<strong>Nachricht senden</strong>' +
-            '<small>' + (_canChat ? 'Im Chat · automatisch per E-Mail benachrichtigt' : 'Anbieter nicht verfügbar') + '</small>' +
+            '<small>' + (_canChat ? 'Im Chat · automatisch per E-Mail benachrichtigt' : (_isDemoProv ? 'Demo-Inserat — Chat nicht möglich' : 'Anbieter nicht verfügbar')) + '</small>' +
           '</span>' +
           '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
         '</button>' +
@@ -17159,9 +17169,10 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<input class="sa-input" readonly value="' + _escHtml(card.name || '') + '">' +
       '<label class="sa-label">Leistung</label>' +
       '<input class="sa-input" readonly value="' + _escHtml((_listing && _listing.title) || card.name || '') + '">' +
-      (card.conversationId
-        ? '<button type="button" class="sa-action-btn sa-action-primary" style="width:100%;margin-top:8px" onclick="navigateTo(\'messages\');this.closest(\'.sa-overlay\').remove()"><span class="material-icons-round">forum</span> Chat öffnen</button>'
-        : '');
+      '<button type="button" class="sa-action-btn sa-action-primary" style="width:100%;margin-top:8px" ' +
+        'onclick="this.closest(\'.sa-overlay\').remove();navigateTo(\'messages\');' +
+        (card.conversationId ? 'setTimeout(function(){try{openChat(' + parseInt(card.conversationId, 10) + ')}catch(e){}},300)' : '') +
+        '"><span class="material-icons-round">forum</span> Chat öffnen</button>';
   } else if (currentStage === 'angebot') {
     // Stage "Angebot erhalten" → Anbieter hat Ja gesagt → jetzt verbindlich buchen.
     // Rechnung wird angestoßen (E-Mail an User, Anbieter, kontakt@eventbörse.de).
@@ -17289,6 +17300,14 @@ function openStageAdvanceModal(cardId, currentStage) {
     var chatBtn = document.getElementById('saDoChat');
     if (chatBtn) chatBtn.addEventListener('click', function() {
       if (chatBtn.classList.contains('sa-action-disabled') || chatBtn.dataset.busy === '1') return;
+      // Bereits gesendet: Klick öffnet den Chat (statt erneut zu senden)
+      if (chatBtn.classList.contains('sa-action-done')) {
+        var _cid = parseInt((document.getElementById('saConversationId') || {}).value) || 0;
+        try { overlay.remove(); } catch(_) {}
+        navigateTo('messages');
+        if (_cid) setTimeout(function(){ try { openChat(_cid); } catch(_) {} }, 250);
+        return;
+      }
       if (typeof isLoggedIn !== 'undefined' && !isLoggedIn) {
         showToast('Bitte melde dich an, um eine Nachricht zu senden.', 'warning');
         try { openModal('loginModal'); } catch(_) {}
@@ -17298,6 +17317,10 @@ function openStageAdvanceModal(cardId, currentStage) {
       var listingDbId = parseInt((document.getElementById('saListingDbId') || {}).value) || 0;
       var msg = _saMsg();
       if (!provUserId) { showToast('Anbieter nicht gefunden', 'error'); return; }
+      if (isDemoUserId(provUserId)) {
+        showToast('Das ist ein Demo-Inserat — Chat ist nur bei echten Anbietern möglich.', 'info');
+        return;
+      }
       if (!msg || !msg.trim()) { showToast('Bitte schreibe eine Nachricht.', 'warning'); return; }
 
       // Build structured inquiry payload so it renders as a system widget
@@ -17331,7 +17354,7 @@ function openStageAdvanceModal(cardId, currentStage) {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
         body: JSON.stringify(convoPayload)
       })
-        .then(function(r){ if(!r.ok) throw new Error('conv'); return r.json(); })
+        .then(function(r){ if(!r.ok) { var e = new Error('conv'); e.status = r.status; throw e; } return r.json(); })
         .then(function(convo){
           var convId = convo && convo.id;
           if (!convId) throw new Error('conv-id');
@@ -17350,9 +17373,9 @@ function openStageAdvanceModal(cardId, currentStage) {
           chatBtn.classList.add('sa-action-done');
           chatBtn.dataset.busy = '';
           chatBtn.innerHTML = '<span class="sa-action-icon" style="background:#66bb6a"><span class="material-icons-round">check</span></span>' +
-            '<span class="sa-action-text"><strong>Nachricht gesendet</strong><small>Anbieter wurde auch per E-Mail benachrichtigt</small></span>' +
-            '<span class="material-icons-round sa-action-arrow">check</span>';
-          showToast('Anfrage gesendet – Stage wird auf „Kontaktiert“ gesetzt.', 'success');
+            '<span class="sa-action-text"><strong>Nachricht gesendet</strong><small>Tippen, um den Chat zu öffnen</small></span>' +
+            '<span class="material-icons-round sa-action-arrow">arrow_forward</span>';
+          showToast('Anfrage gesendet — du findest sie unter „Chat".', 'forum');
 
           // Auto-Advance: Stage von "geplant" -> "kontaktiert" direkt nach
           // erfolgreichem Senden. Der Nutzer muss NICHT extra auf
@@ -17375,19 +17398,23 @@ function openStageAdvanceModal(cardId, currentStage) {
                 _liveCard.stage = stagesOrder[idx + 1];
               }
               _saveBoardProjects();
+              // Etwas länger offen lassen: „Nachricht gesendet — tippen zum
+              // Öffnen des Chats" soll noch klickbar sein.
               setTimeout(function(){
                 try { overlay.remove(); } catch(_) {}
                 try { renderBoardFlow(); } catch(_) {}
                 try { renderKanban(_liveProject); } catch(_) {}
                 try { _updateBoardStats(_liveProject); } catch(_) {}
-              }, 900);
+              }, 2200);
             }
           } catch(_) {}
         })
-        .catch(function(){
+        .catch(function(err){
           chatBtn.dataset.busy = '';
           chatBtn.innerHTML = _origInner;
-          showToast('Nachricht konnte nicht gesendet werden.', 'error');
+          showToast(err && err.status === 404
+            ? 'Anbieter-Konto nicht gefunden — dieses Inserat kann keine Nachrichten empfangen.'
+            : 'Nachricht konnte nicht gesendet werden.', 'error');
         });
     });
 
@@ -19854,6 +19881,7 @@ function _addProviderCard(event, stage) {
     endTime: endTime,
     stage: stage,
     listingId: listingId,
+    providerId: listing ? (listing.providerId || null) : null,
     avatar: avatar,
     listingImage: listingImage || '',
     listingTitle: listingTitle || '',
@@ -22255,6 +22283,7 @@ function _recordBookingToBoard(opts) {
     startTime: '', endTime: '',
     stage: opts.stage || 'angebot',
     listingId: lid,
+    providerId: listing.providerId || null,
     avatar: listing.providerImg || '',
     listingImage: listing.image || (listing.images && listing.images[0]) || '',
     listingTitle: listing.title || '',
@@ -22668,6 +22697,7 @@ function _aiAddListing(listingId) {
     note: '', startTime: '', endTime: '',
     stage: 'geplant',
     listingId: l.id,
+    providerId: l.providerId || null,
     avatar: l.providerImg || '',
     listingImage: l.image || '',
     listingTitle: l.title || '',
