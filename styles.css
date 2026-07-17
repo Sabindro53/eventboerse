@@ -16026,7 +16026,9 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
 /* Mehr Luft zwischen Journey-Band, Karten und Caption */
 .ebsc-stage { min-height: 430px; }
 .ebsc-scene { padding-top: 96px; gap: 28px; }
-.ebsc-journey { top: 18px; gap: 8px; row-gap: 8px; }
+/* width:max-content — sonst begrenzt left:50% die Shrink-to-fit-Breite
+   auf die halbe Bühne und das Band bricht unnötig um */
+.ebsc-journey { top: 18px; gap: 8px; row-gap: 8px; width: max-content; }
 .ebsc-scene-caption { max-width: 560px; }
 .ebsc-scene-caption strong { margin-bottom: 6px; }
 .ebsc-scene-caption span { line-height: 1.55; }
