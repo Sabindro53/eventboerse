@@ -1156,8 +1156,10 @@ function _mergeDbListingsIntoCache(rows) {
 }
 
 // Load database listings into LISTINGS array (merged with demo data)
-async function loadDbListings() {
-  if (_dbListingsLoaded) return;
+// forceReload=true: Cache-Flag ignorieren und frisch vom Server holen
+// (z. B. beim Öffnen des Board-Pickers, damit neue Inserate auftauchen).
+async function loadDbListings(forceReload) {
+  if (_dbListingsLoaded && !forceReload) return;
   try {
     var resp = await fetch(_apiUrl('listings?per_page=50&_t=' + Date.now()), { credentials: 'same-origin', headers: _apiHeaders() });
     if (!resp.ok) return;
@@ -19779,29 +19781,27 @@ function openAddProviderModal(defaultStage) {
   // Dienstleister sehen ALLES — Angebote UND Gesuche (um z. B. auf ein
   // "DJ gesucht"-Inserat zu reagieren und es einzuplanen).
   var _showSearchListings = (typeof isDienstleister === 'function') && isDienstleister();
-  var _listings = _baseList.filter(function(l){ return _showSearchListings || !_isSearchListing(l); }).slice(0, 300);
-  var listingCardsHtml = _listings.map(function(l) {
-    var img = l.image || l.providerImg || '';
-    var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
-    return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
-      '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
-      ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
-      ' data-price="' + (l.price || '') + '"' +
-      ' data-avatar="' + _escHtml(img) + '"' +
-      ' data-image="' + _escHtml(l.image || img) + '"' +
-      ' data-title="' + _escHtml(l.title || '') + '"' +
-      ' onclick="_selectListingCard(this)">' +
-      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
-      '<span class="eb-lpick-body">' +
-        '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
-        '<span class="eb-lpick-meta">' +
-          '<span class="eb-lpick-cat">' + _escHtml(l.categoryLabel || l.category || '') + '</span>' +
-          (price ? '<span class="eb-lpick-price">' + _escHtml(price) + '</span>' : '') +
-        '</span>' +
-      '</span>' +
-      '<span class="eb-lpick-check material-icons-round">check_circle</span>' +
-    '</button>';
-  }).join('');
+  var listingCardsHtml = _buildListingPickerCardsHtml(_baseList, _isSearchListing, _showSearchListings);
+
+  // Liste IMMER aktuell halten: Inserate frisch vom Server nachladen und
+  // das Grid danach neu aufbauen (Auswahl + Suchfilter bleiben erhalten).
+  try {
+    loadDbListings(true).then(function() {
+      var grid = document.getElementById('lpickGrid');
+      if (!grid) return; // Modal inzwischen geschlossen
+      var freshBase = (typeof _visibleListings === 'function')
+        ? _visibleListings()
+        : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
+      var selectedId = (document.getElementById('cardListingId') || {}).value || '';
+      grid.innerHTML = _buildListingPickerCardsHtml(freshBase, _isSearchListing, _showSearchListings);
+      if (selectedId) {
+        var selBtn = grid.querySelector('.eb-lpick-card[data-id="' + selectedId + '"]');
+        if (selBtn) selBtn.classList.add('is-active');
+      }
+      var searchEl = document.getElementById('lpickSearch');
+      if (searchEl && searchEl.value) _filterListingPicker(searchEl.value);
+    });
+  } catch (e) { /* offline — gecachte Liste bleibt sichtbar */ }
 
   var html = `<div class="modal-overlay show" id="addProviderModal" onclick="closeModalOnOverlay(event)" style="z-index:2000">
     <div class="modal" onclick="event.stopPropagation()">
@@ -19853,6 +19853,35 @@ function openAddProviderModal(defaultStage) {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+}
+
+/** Baut die Karten-Buttons für den Inserat-Picker (Board "Dienstleister hinzufügen"). */
+function _buildListingPickerCardsHtml(baseList, isSearchListingFn, showSearchListings) {
+  var listings = (baseList || [])
+    .filter(function(l){ return showSearchListings || !isSearchListingFn(l); })
+    .slice(0, 300);
+  return listings.map(function(l) {
+    var img = l.image || l.providerImg || '';
+    var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
+    return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
+      '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
+      ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
+      ' data-price="' + (l.price || '') + '"' +
+      ' data-avatar="' + _escHtml(img) + '"' +
+      ' data-image="' + _escHtml(l.image || img) + '"' +
+      ' data-title="' + _escHtml(l.title || '') + '"' +
+      ' onclick="_selectListingCard(this)">' +
+      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
+      '<span class="eb-lpick-body">' +
+        '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
+        '<span class="eb-lpick-meta">' +
+          '<span class="eb-lpick-cat">' + _escHtml(l.categoryLabel || l.category || '') + '</span>' +
+          (price ? '<span class="eb-lpick-price">' + _escHtml(price) + '</span>' : '') +
+        '</span>' +
+      '</span>' +
+      '<span class="eb-lpick-check material-icons-round">check_circle</span>' +
+    '</button>';
+  }).join('');
 }
 
 window._selectListingCard = function(btn) {
