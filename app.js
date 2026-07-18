@@ -13884,9 +13884,38 @@ function renderBoardPage() {
   // die ein Board brauchen, fragen dann nach Anmeldung).
   projectsEl.classList.remove('board-projects--sectioned');
   projectsEl.classList.add('board-projects--ai');
+
+  // Soft-Refresh: Layout steht bereits für denselben Nutzer & dieselbe Rolle
+  // → nur Sidebar/Daten aktualisieren, NICHT das Eingabefeld/den Chat neu
+  // aufbauen (sonst löscht der 30-s-Cloud-Sync den gerade getippten Text).
+  var renderKey = (currentUser && currentUser.id ? currentUser.id : 'gast') + ':' + (isProvider ? 'p' : 'u');
+  var hasLayout = !!projectsEl.querySelector('.board-ai-layout');
+  if (hasLayout && projectsEl.dataset.aiRenderKey === renderKey) {
+    _aiRenderSidebarProjects();
+    if (isProvider) _loadBoardAuftragsboard();
+    return;
+  }
+
+  // Voll-Rebuild nötig: laufende Eingabe im Assistent-Feld erhalten.
+  var prevInp = document.getElementById('baiInput');
+  var prevVal = prevInp ? prevInp.value : '';
+  var prevFocus = prevInp && document.activeElement === prevInp;
+
+  projectsEl.dataset.aiRenderKey = renderKey;
   projectsEl.innerHTML = _aiBoardLayoutHtml(isProvider);
   _aiRenderSidebarProjects();
   _aiRenderChat();
+
+  if (prevVal) {
+    var newInp = document.getElementById('baiInput');
+    if (newInp) {
+      newInp.value = prevVal;
+      if (prevFocus) {
+        newInp.focus();
+        try { newInp.setSelectionRange(prevVal.length, prevVal.length); } catch (e) {}
+      }
+    }
+  }
 
   if (isProvider) {
     _loadBoardAuftragsboard();
