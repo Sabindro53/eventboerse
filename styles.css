@@ -16223,3 +16223,101 @@ body.dark-mode .bai-dl.od { color: #f87171; }
   .bai-msg { max-width: 95%; }
   .bai-lcard-acts { flex-direction: column; }
 }
+
+/* ==================== Inserat-Maske: einseitig, Biete/Suche, Verfügbarkeitskalender ==================== */
+/* Alle Abschnitte untereinander als Karten — kein Step-Wizard mehr */
+.create-form-single .form-section {
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.create-form-single .form-section h2 {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 1.15rem; margin-bottom: 6px; color: var(--dark);
+}
+.fs-num {
+  width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; font-weight: 800;
+}
+.create-form-single .step-intro { margin-bottom: 16px; }
+
+/* Typ-Umschalter: Ich biete / Ich suche */
+.cl-type-toggle { display: flex; gap: 12px; margin-bottom: 20px; }
+.cl-type-btn {
+  flex: 1; display: flex; align-items: center; gap: 12px;
+  border: 2px solid var(--border-light); border-radius: 16px;
+  background: var(--bg); padding: 14px 16px; cursor: pointer;
+  text-align: left; transition: border-color .15s, box-shadow .15s;
+}
+.cl-type-btn:hover { border-color: var(--border); }
+.cl-type-btn.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255,56,92,0.12);
+}
+.cl-type-emoji { font-size: 26px; flex: 0 0 auto; }
+.cl-type-text strong { display: block; font-size: 0.95rem; color: var(--dark); }
+.cl-type-text small { display: block; font-size: 0.76rem; color: var(--text-light); line-height: 1.4; margin-top: 2px; }
+
+/* Suche-Modus: Verfügbarkeit + Sofortbuchung ausblenden */
+.cl-search-mode .cl-avail-block,
+.cl-search-mode .instant-book-group { display: none; }
+
+/* Verfügbarkeitskalender */
+.clav {
+  border: 1px solid var(--border-light); border-radius: 14px;
+  padding: 12px; background: var(--bg-alt); margin-top: 8px;
+  max-width: 420px;
+}
+.clav-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.clav-head b { font-size: 0.92rem; color: var(--dark); }
+.clav-nav {
+  border: 1px solid var(--border-light); background: var(--bg); border-radius: 8px;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text);
+}
+.clav-nav:disabled { opacity: 0.35; cursor: default; }
+.clav-nav .material-icons-round { font-size: 18px; }
+.clav-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.clav-dow { text-align: center; font-size: 0.66rem; font-weight: 800; color: var(--text-light); padding: 2px 0 4px; text-transform: uppercase; }
+.clav-pad { }
+.clav-day {
+  position: relative; aspect-ratio: 1; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 600; border: 1px solid transparent;
+  cursor: pointer; padding: 0;
+}
+.clav-day.past { color: var(--text-light); opacity: 0.4; cursor: default; }
+.clav-day.avail { background: rgba(0,166,153,0.1); color: var(--accent); border-color: rgba(0,166,153,0.25); }
+.clav-day.avail::after {
+  content: '✓'; position: absolute; right: 3px; bottom: 1px; font-size: 8px; font-weight: 800;
+}
+.clav-day.avail:hover { background: rgba(0,166,153,0.2); }
+.clav-day.blocked { background: rgba(255,56,92,0.1); color: var(--primary); border-color: rgba(255,56,92,0.3); text-decoration: line-through; }
+.clav-day.blocked::after {
+  content: '✕'; position: absolute; right: 3px; bottom: 1px; font-size: 8px; font-weight: 800;
+}
+.clav-day.blocked:hover { background: rgba(255,56,92,0.2); }
+.clav-legend { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.clav-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-light); }
+.clav-leg i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.clav-leg.avail i { background: rgba(0,166,153,0.35); }
+.clav-leg.blocked i { background: rgba(255,56,92,0.4); }
+.clav-leg.past i { background: var(--border-light); }
+.clav-summary { margin-top: 8px; font-size: 0.78rem; color: var(--text); display: flex; align-items: center; gap: 10px; }
+.clav-clear { border: 0; background: transparent; color: var(--primary); font-size: 0.75rem; font-weight: 700; cursor: pointer; padding: 0; }
+.clav-clear:hover { text-decoration: underline; }
+
+/* Submit-Bar am Ende der Maske */
+.cl-submit-bar { margin-top: 20px; }
+.cl-submit-bar .btn-primary { font-size: 1rem; padding: 15px; }
+
+@media (max-width: 600px) {
+  .cl-type-toggle { flex-direction: column; }
+  .create-form-single .form-section { padding: 18px 14px; }
+  .clav { max-width: none; }
+}

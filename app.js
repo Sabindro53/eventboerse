@@ -1372,8 +1372,6 @@ function navigateTo(page, data, skipHistory) {
         document.getElementById('uploadPreview').innerHTML = '';
         document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
         document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
-        document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-        document.getElementById('step1').classList.add('active');
         // Clear Flatpickr dates
         var dfEl = document.getElementById('createDateFrom');
         var dtEl = document.getElementById('createDateTo');
@@ -1383,6 +1381,13 @@ function navigateTo(page, data, skipHistory) {
         var _ibReset = document.getElementById('createInstantBook');
         if (_ibReset) _ibReset.checked = false;
         document.querySelectorAll('#createWeekdayPicker .weekday-pill').forEach(function(p) { p.classList.remove('selected'); });
+        // Typ + Verfügbarkeitskalender + Titel/Buttons zurücksetzen
+        try { _clSetType('offer'); } catch (e) {}
+        try { _clAvailReset(); } catch (e) {}
+        var _ctH = document.querySelector('#page-create-listing .create-title');
+        if (_ctH) _ctH.textContent = 'Inserat erstellen';
+        var _csB = document.querySelector('#step3 .btn-primary');
+        if (_csB) _csB.innerHTML = '<span class="material-icons-round">publish</span> <span id="clSubmitLabel">Inserat veröffentlichen</span>';
       }
       updateCreateFormForRole();
       break;
@@ -6642,7 +6647,7 @@ function updateCreateFormForRole() {
     if (step3Title) step3Title.textContent = 'Fotos & Inspiration';
     if (uploadZoneH3) uploadZoneH3.textContent = 'Event-Bilder hochladen';
     if (uploadZoneP) uploadZoneP.textContent = 'Lade Bilder oder Inspirationen f\u00fcr dein Event hoch';
-    if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">event_available</span> Event ver\u00f6ffentlichen';
+    if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">event_available</span> <span id="clSubmitLabel">Event ver\u00f6ffentlichen</span>';
     _renderCreatePayoutNotice({ status: 'hidden' });
   } else {
     if (title) title.textContent = 'Inserat erstellen';
@@ -6656,7 +6661,7 @@ function updateCreateFormForRole() {
     if (step3Title) step3Title.textContent = 'Fotos & Galerie';
     if (uploadZoneH3) uploadZoneH3.textContent = 'Bilder hochladen';
     if (uploadZoneP) uploadZoneP.textContent = 'Ziehe Bilder hierher oder klicke zum Ausw\u00e4hlen';
-    if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">publish</span> Inserat ver\u00f6ffentlichen';
+    if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">publish</span> <span id="clSubmitLabel">Inserat ver\u00f6ffentlichen</span>';
     _renderCreatePayoutNotice({ status: 'loading' });
     if (typeof loadStripeConnectStatus === 'function') {
       loadStripeConnectStatus().then(function(data) {
@@ -6664,6 +6669,11 @@ function updateCreateFormForRole() {
       }).catch(function(){});
     }
   }
+
+  // Typ-Vorwahl nach Rolle: Event-Planer suchen Dienstleister (Gesuch),
+  // Dienstleister bieten an. Beim Bearbeiten überschreibt editListing()
+  // das anschließend mit dem echten Typ des Inserats.
+  try { _clSetType(isEventPlaner() ? 'search' : 'offer'); } catch (e) {}
 
   // Nach jeder Rollen-Änderung auch die Board-Navigation neu ausrichten,
   // damit Dienstleister/Event-Planer sofort die richtige Ansicht sehen.
@@ -6979,10 +6989,11 @@ function confirmDeleteAccount() {
     .catch(function() { showToast('Netzwerkfehler', 'error'); });
 }
 
+// Einseitige Maske: alle Abschnitte sind sichtbar — "nextStep" scrollt nur
+// noch zum jeweiligen Abschnitt (z. B. bei Validierungsfehlern).
 function nextStep(step) {
-  document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('step' + step).classList.add('active');
-  window.scrollTo(0, 0);
+  var el = document.getElementById('step' + step);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function toggleFeatureTag(btn) {
@@ -7234,6 +7245,8 @@ async function submitListing(e) {
     };
 
   // Read form values with validation
+  const listingType = ((document.getElementById('createListingType') || {}).value === 'search') ? 'search' : 'offer';
+  const isSearch = listingType === 'search';
   const title = requiredEl('createTitle', 'Titel').value.trim();
   const category = requiredEl('createCategory', 'Kategorie').value;
   const description = requiredEl('createDescription', 'Beschreibung').value.trim();
@@ -7246,7 +7259,7 @@ async function submitListing(e) {
   if (!title)       { _releaseGuard(); showToast('Bitte gib einen Titel ein', 'warning'); nextStep(1); return; }
   if (!category)    { _releaseGuard(); showToast('Bitte wähle eine Kategorie', 'warning'); nextStep(1); return; }
   if (!description) { _releaseGuard(); showToast('Bitte gib eine Beschreibung ein', 'warning'); nextStep(1); return; }
-  if (!price)       { _releaseGuard(); showToast('Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
+  if (!price)       { _releaseGuard(); showToast(isSearch ? 'Bitte gib dein Budget ein' : 'Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
   const region = document.getElementById('createRegionValue').value.trim()
     || document.getElementById('createRegion').value.trim() || 'Deutschland';
   const dateFrom = document.getElementById('createDateFrom').value;
@@ -7263,8 +7276,8 @@ async function submitListing(e) {
   const tagEls = document.querySelectorAll('#createTags input[type=checkbox]:checked');
   const tags = Array.from(tagEls).map(el => el.value);
 
-  // Sofortbuchung + verfügbare Wochentage
-  const canUseInstantBook = isDienstleister();
+  // Sofortbuchung + verfügbare Wochentage (nur Biete-Inserate)
+  const canUseInstantBook = isDienstleister() && !isSearch;
   const instantBook = canUseInstantBook && !!(document.getElementById('createInstantBook') || {}).checked;
   const availableWeekdays = canUseInstantBook ? Array.from(
     document.querySelectorAll('#createWeekdayPicker .weekday-pill.selected')
@@ -7283,12 +7296,14 @@ async function submitListing(e) {
   // Extract city from region
   const city = region.split(/[,&·–-]/)[0].trim();
 
-  // Build price label (range if max provided, else "ab X€")
+  // Build price label (range if max provided, else "ab X€"; Gesuch = Budget)
   const priceModelSuffix = priceModel.replace('Pro ','').replace('Pauschal','Pauschal');
   const priceLabel = price > 0
-    ? (priceMax > 0
-        ? `${price}–${priceMax}€ / ${priceModelSuffix}`
-        : `ab ${price}€ / ${priceModelSuffix}`)
+    ? (isSearch
+        ? `Budget bis ${priceMax > 0 ? priceMax : price}€`
+        : (priceMax > 0
+            ? `${price}–${priceMax}€ / ${priceModelSuffix}`
+            : `ab ${price}€ / ${priceModelSuffix}`))
     : 'Auf Anfrage';
 
   // Collect image files from upload preview
@@ -7322,15 +7337,16 @@ async function submitListing(e) {
   });
 
   var imageUrls = await Promise.all(uploadPromises);
-    // Require at least one image
-    if (imageUrls.length === 0) {
+    // Require at least one image (Gesuche: Bilder optional)
+    if (imageUrls.length === 0 && !isSearch) {
       showToast('Bitte lade mindestens ein Bild hoch', 'warning');
-      nextStep(2);
+      nextStep(3);
       return;
     }
 
     var payload = {
       title: title,
+      listingType: listingType,
       category: category,
       categoryLabel: CATEGORY_LABELS[category] || category,
       description: '<p>' + description.replace(/\n/g, '</p><p>') + '</p>',
@@ -7393,13 +7409,27 @@ async function submitListing(e) {
       _mergeDbListingsIntoCache([saved]);
       var savedLocal = _findListingByAnyId(savedDbId) || saved;
 
+      // Verfügbarkeitskalender speichern (nur Biete): geblockte Tage aus der
+      // Maske per PUT an /listings/<id>/availability — fire-and-forget.
+      if (!isSearch && savedDbId && typeof _clAvailBlockedList === 'function') {
+        try {
+          var _clBlockedOut = _clAvailBlockedList();
+          fetch(_apiUrl('listings/' + savedDbId + '/availability'), {
+            method: 'PUT', credentials: 'same-origin', headers: _apiHeaders(),
+            body: JSON.stringify({ blockedDates: _clBlockedOut })
+          }).then(function() {
+            if (_availabilityCache) delete _availabilityCache[savedDbId];
+          }).catch(function(){});
+        } catch (e) {}
+      }
+
       // Reset the form
       document.getElementById('createListingForm').reset();
       document.getElementById('uploadPreview').innerHTML = '';
       document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
       document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
-      document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-      document.getElementById('step1').classList.add('active');
+      try { _clSetType('offer'); } catch (e) {}
+      try { _clAvailReset(); } catch (e) {}
 
       // Force reload from DB on next navigation
       _dbListingsLoaded = false;
@@ -9191,6 +9221,11 @@ function editListing(listingId) {
   var submitBtn = document.querySelector('#step3 .btn-primary');
   if (submitBtn) submitBtn.innerHTML = '<span class="material-icons-round">save</span> Änderungen speichern';
 
+  // Typ (Biete/Suche) aus dem Inserat übernehmen
+  try { _clSetType(listing.listingType === 'search' ? 'search' : 'offer'); } catch (e) {}
+  // Verfügbarkeitskalender mit bestehenden Block-Tagen vorbefüllen
+  try { _clAvailPrefill(listing); } catch (e) {}
+
   // === Step 1: Basics ===
   document.getElementById('createTitle').value = listing.title || '';
   document.getElementById('createCategory').value = listing.category || '';
@@ -9284,9 +9319,8 @@ function editListing(listingId) {
     });
   }
 
-  // Show step 1
-  document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('active'); });
-  document.getElementById('step1').classList.add('active');
+  // Einseitige Maske: nach oben scrollen
+  window.scrollTo(0, 0);
 
   showToast('Inserat wird bearbeitet – passe es an und speichere es.', 'edit');
 }
@@ -22792,3 +22826,146 @@ function _aiAnswerStatus() {
     '<div class="bai-actions"><button type="button" class="bai-act" onclick="openBoardProject(\'' + p.id + '\')">' +
     '<span class="material-icons-round">view_kanban</span> Board öffnen</button></div>';
 }
+
+/* ==================== INSERAT-MASKE: Biete/Suche-Typ + Verfügbarkeitskalender ==================== */
+// Einseitige Erstell-Maske: Typ-Umschalter („Ich biete" / „Ich suche") passt
+// Labels und sichtbare Blöcke an; der Verfügbarkeitskalender (nur Biete)
+// zeigt alle künftigen Tage als ✓ verfügbar — Antippen blockt einen Tag.
+// Die geblockten Tage werden nach dem Speichern per
+// PUT /listings/<id>/availability übernommen (gleiches Modell wie das
+// bestehende Verfügbarkeits-Modal unter „Meine Inserate").
+
+var _clAvailBlocked = {};   // { 'YYYY-MM-DD': true }
+var _clAvailMonthOff = 0;   // 0 = aktueller Monat, max. +11
+
+function _clAvailBlockedList() {
+  return Object.keys(_clAvailBlocked).filter(function(d) { return _clAvailBlocked[d]; }).sort();
+}
+
+function _clSetType(type) {
+  type = type === 'search' ? 'search' : 'offer';
+  var inp = document.getElementById('createListingType');
+  if (inp) inp.value = type;
+  document.querySelectorAll('#clTypeToggle .cl-type-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-type') === type);
+  });
+  var form = document.getElementById('createListingForm');
+  if (form) form.classList.toggle('cl-search-mode', type === 'search');
+
+  var isSearch = type === 'search';
+  var set = function(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; };
+  var setPh = function(id, ph) { var el = document.getElementById(id); if (el) el.placeholder = ph; };
+
+  set('clTitleLabel', isSearch ? 'Was suchst du?' : 'Titel deines Services');
+  set('clTitleHint', isSearch
+    ? 'Kurz und konkret — so finden dich die richtigen Anbieter. Beispiel: „DJ für Hochzeit am 20.09. in Berlin gesucht".'
+    : 'Kurz, konkret, mit Mehrwert. Beispiel: „DJ für Hochzeiten in Berlin – Vinyl & House".');
+  setPh('createTitle', isSearch ? 'z.B. DJ für Hochzeit am 20.09. gesucht' : 'z.B. Professionelle DJ-Services für jedes Event');
+  set('clIntro1', isSearch
+    ? 'Beschreib, was du brauchst — passende Dienstleister melden sich direkt bei dir.'
+    : 'Mit klaren Angaben erhältst du mehr passende Anfragen. Du kannst alles später ändern.');
+  setPh('createDescription', isSearch
+    ? 'Beschreibe dein Event: Anlass, Ort, Uhrzeit, Gäste, Musikrichtung/Stil, Besonderheiten…'
+    : 'Beschreibe deinen Service detailliert...');
+  set('clPriceLabel', isSearch ? 'Budget (€)' : 'Preisspanne (€)');
+  set('clPriceHint', isSearch
+    ? 'Was möchtest du ungefähr ausgeben? Hilft Anbietern, passende Angebote zu machen.'
+    : 'Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events.');
+  set('clTagsLabel', isSearch ? 'Anlass' : 'Verfügbar für');
+  set('clFeaturesLabel', isSearch ? 'Gewünschte Leistungen' : 'Leistungen');
+  set('clFeaturesHint', isSearch
+    ? 'Was soll enthalten sein? Wähle aus oder ergänze eigene Wünsche.'
+    : 'Wähle alles aus, was im Preis enthalten ist. Mindestens 3 Leistungen werden empfohlen – das erhöht deine Sichtbarkeit.');
+  var introEl = document.getElementById('clPhotosIntro');
+  if (introEl) introEl.innerHTML = isSearch
+    ? 'Optional: Bilder (z.&nbsp;B. Location oder Moodboard) machen dein Gesuch anschaulicher.'
+    : 'Inserate mit hochwertigen Fotos werden bis zu <strong>3&times; h&auml;ufiger</strong> angefragt. Lade mind. 3 Bilder hoch.';
+  var subLabel = document.getElementById('clSubmitLabel');
+  if (subLabel) subLabel.textContent = isSearch ? 'Gesuch veröffentlichen' : 'Inserat veröffentlichen';
+}
+
+/* ─── Verfügbarkeitskalender (Häkchen = verfügbar) ──────────── */
+function _clAvailReset() {
+  _clAvailBlocked = {};
+  _clAvailMonthOff = 0;
+  _clAvailRender();
+}
+
+function _clAvailPrefill(listing) {
+  _clAvailBlocked = {};
+  _clAvailMonthOff = 0;
+  var apply = function(dates) {
+    (dates || []).forEach(function(d) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) _clAvailBlocked[d] = true;
+    });
+    _clAvailRender();
+  };
+  if (listing && Array.isArray(listing.blockedDates) && listing.blockedDates.length) {
+    apply(listing.blockedDates);
+    return;
+  }
+  var dbId = listing && (listing._dbId || (listing.id > 10000 ? listing.id - 10000 : 0));
+  if (dbId && typeof _fetchListingAvailability === 'function') {
+    _fetchListingAvailability(dbId).then(function(av) { apply(av && av.blockedDates); });
+  } else {
+    _clAvailRender();
+  }
+}
+
+function _clAvailNav(delta) {
+  _clAvailMonthOff = Math.max(0, Math.min(11, _clAvailMonthOff + delta));
+  _clAvailRender();
+}
+
+function _clAvailToggle(iso) {
+  if (_clAvailBlocked[iso]) delete _clAvailBlocked[iso];
+  else _clAvailBlocked[iso] = true;
+  _clAvailRender();
+}
+
+function _clAvailRender() {
+  var host = document.getElementById('clAvailCal');
+  if (!host) return;
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var base = new Date(today.getFullYear(), today.getMonth() + _clAvailMonthOff, 1);
+  var year = base.getFullYear(), month = base.getMonth();
+  var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Montag-basierter Wochenstart
+  var firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
+
+  var html = '<div class="clav-head">' +
+    '<button type="button" class="clav-nav" onclick="_clAvailNav(-1)" ' + (_clAvailMonthOff === 0 ? 'disabled' : '') + ' aria-label="Voriger Monat"><span class="material-icons-round">chevron_left</span></button>' +
+    '<b>' + monthNames[month] + ' ' + year + '</b>' +
+    '<button type="button" class="clav-nav" onclick="_clAvailNav(1)" ' + (_clAvailMonthOff >= 11 ? 'disabled' : '') + ' aria-label="Nächster Monat"><span class="material-icons-round">chevron_right</span></button>' +
+  '</div>' +
+  '<div class="clav-grid">' +
+    ['Mo','Di','Mi','Do','Fr','Sa','So'].map(function(d) { return '<span class="clav-dow">' + d + '</span>'; }).join('');
+
+  for (var i = 0; i < firstDow; i++) html += '<span class="clav-pad"></span>';
+  for (var day = 1; day <= daysInMonth; day++) {
+    var dt = new Date(year, month, day);
+    var iso = year + '-' + ('0' + (month + 1)).slice(-2) + '-' + ('0' + day).slice(-2);
+    if (dt < today) {
+      html += '<span class="clav-day past">' + day + '</span>';
+    } else {
+      var blocked = !!_clAvailBlocked[iso];
+      html += '<button type="button" class="clav-day ' + (blocked ? 'blocked' : 'avail') + '"' +
+        ' onclick="_clAvailToggle(\'' + iso + '\')"' +
+        ' aria-label="' + iso + (blocked ? ' geblockt' : ' verfügbar') + '"' +
+        ' title="' + (blocked ? 'Geblockt — tippen zum Freigeben' : 'Verfügbar — tippen zum Blocken') + '">' + day + '</button>';
+    }
+  }
+  html += '</div>';
+  var nBlocked = _clAvailBlockedList().length;
+  if (nBlocked > 0) {
+    html += '<div class="clav-summary">' + nBlocked + ' Tag' + (nBlocked === 1 ? '' : 'e') + ' geblockt' +
+      ' <button type="button" class="clav-clear" onclick="_clAvailBlocked={};_clAvailRender()">Alle freigeben</button></div>';
+  }
+  host.innerHTML = html;
+}
+
+// Kalender beim Start einmal rendern (Seite kann direkt geöffnet werden)
+document.addEventListener('DOMContentLoaded', function() {
+  try { _clAvailRender(); } catch (e) {}
+});

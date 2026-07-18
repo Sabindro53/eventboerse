@@ -2083,16 +2083,30 @@
     <section id="page-create-listing" class="page">
       <div class="container container-sm">
         <h1 class="create-title">Inserat erstellen</h1>
-        <p class="create-subtitle"></p>
+        <p class="create-subtitle">Alles auf einer Seite — ausfüllen, veröffentlichen, fertig.</p>
         <div id="createPayoutNotice" class="create-payout-notice" style="display:none"></div>
-        <form class="create-form" id="createListingForm" onsubmit="return false;">
-          <!-- Step 1: Basics -->
-          <div class="form-step active" id="step1">
-            <h2>Grundlagen</h2>
-            <p class="step-intro">Mit klaren Angaben erhältst du mehr passende Anfragen. Du kannst alles später ändern.</p>
+        <form class="create-form create-form-single" id="createListingForm" onsubmit="return false;">
+
+          <!-- Typ: Biete oder Suche -->
+          <div class="cl-type-toggle" id="clTypeToggle" role="radiogroup" aria-label="Inserat-Typ">
+            <button type="button" class="cl-type-btn active" data-type="offer" onclick="_clSetType('offer')">
+              <span class="cl-type-emoji">💼</span>
+              <span class="cl-type-text"><strong>Ich biete</strong><small>Service anbieten — z.&nbsp;B. DJ, Catering, Location</small></span>
+            </button>
+            <button type="button" class="cl-type-btn" data-type="search" onclick="_clSetType('search')">
+              <span class="cl-type-emoji">🔍</span>
+              <span class="cl-type-text"><strong>Ich suche</strong><small>Gesuch aufgeben — Dienstleister melden sich bei dir</small></span>
+            </button>
+          </div>
+          <input type="hidden" id="createListingType" value="offer" />
+
+          <!-- Abschnitt 1: Grundlagen -->
+          <div class="form-section" id="step1">
+            <h2><span class="fs-num">1</span> Grundlagen</h2>
+            <p class="step-intro" id="clIntro1">Mit klaren Angaben erhältst du mehr passende Anfragen. Du kannst alles später ändern.</p>
             <div class="form-group">
-              <label>Titel deines Services</label>
-              <small class="form-hint">Kurz, konkret, mit Mehrwert. Vermeide Werbe-Floskeln. Beispiel: „DJ für Hochzeiten in Berlin – Vinyl &amp; House“.</small>
+              <label id="clTitleLabel">Titel deines Services</label>
+              <small class="form-hint" id="clTitleHint">Kurz, konkret, mit Mehrwert. Beispiel: „DJ für Hochzeiten in Berlin – Vinyl &amp; House“.</small>
               <input type="text" id="createTitle" placeholder="z.B. Professionelle DJ-Services für jedes Event" />
             </div>
             <div class="form-group">
@@ -2119,8 +2133,8 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Preisspanne (€)</label>
-                <small class="form-hint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events.</small>
+                <label id="clPriceLabel">Preisspanne (€)</label>
+                <small class="form-hint" id="clPriceHint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events.</small>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                   <input type="number" id="createPrice" min="0" placeholder="von z.B. 450" />
                   <input type="number" id="createPriceMax" min="0" placeholder="bis (optional)" />
@@ -2128,7 +2142,7 @@
               </div>
               <div class="form-group">
                 <label>Preismodell</label>
-                <small class="form-hint">Wie ist dein Preis kalkuliert? Pro Event = Pauschale; Pro Stunde = stundenbasiert.</small>
+                <small class="form-hint">Wie ist der Preis kalkuliert? Pro Event = Pauschale; Pro Stunde = stundenbasiert.</small>
                 <select id="createPriceModel">
                   <option value="Pro Event">Pro Event</option>
                   <option value="Pro Stunde">Pro Stunde</option>
@@ -2138,14 +2152,11 @@
                 </select>
               </div>
             </div>
-            <button type="button" class="btn-primary btn-block" onclick="nextStep(2)">
-              Weiter <span class="material-icons-round">arrow_forward</span>
-            </button>
           </div>
 
-          <!-- Step 2: Details -->
-          <div class="form-step" id="step2">
-            <h2>Details & Leistungen</h2>
+          <!-- Abschnitt 2: Details & Verfügbarkeit -->
+          <div class="form-section" id="step2">
+            <h2><span class="fs-num">2</span> Details &amp; Verfügbarkeit</h2>
             <p class="step-intro">Diese Angaben filtern Anfragen vor – je präziser, desto besser passt es.</p>
             <div class="form-group">
               <label>Region / Stadt</label>
@@ -2230,7 +2241,7 @@
                 </label>
               </label>
               <div class="weekday-picker" id="createWeekdayPicker">
-                <p class="weekday-picker-hint">An welchen Wochentagen bietest du diesen Service an? Diese Tage werden Suchenden in der Sofortbuchung angeboten – einzelne Termine kannst du später unter „Meine Inserate › Verfügbarkeit“ blocken.</p>
+                <p class="weekday-picker-hint">An welchen Wochentagen bietest du diesen Service an? Diese Tage werden Suchenden in der Sofortbuchung angeboten.</p>
                 <div class="weekday-pills">
                   <button type="button" class="weekday-pill" data-day="1">Mo</button>
                   <button type="button" class="weekday-pill" data-day="2">Di</button>
@@ -2243,8 +2254,20 @@
               </div>
             </div>
 
+            <!-- Verfügbarkeitskalender (nur „Biete"): Häkchen = verfügbar -->
+            <div class="form-group cl-avail-block" id="clAvailBlock">
+              <label>Verfügbarkeitskalender</label>
+              <small class="form-hint">Alle künftigen Tage sind standardmäßig <b>✓ verfügbar</b>. Tippe Tage an, um sie zu <b>blockieren</b> (z.&nbsp;B. Urlaub oder bereits gebucht) — Suchende sehen das direkt im Inserat.</small>
+              <div class="clav" id="clAvailCal"></div>
+              <div class="clav-legend">
+                <span class="clav-leg avail"><i></i> verfügbar</span>
+                <span class="clav-leg blocked"><i></i> geblockt</span>
+                <span class="clav-leg past"><i></i> vergangen</span>
+              </div>
+            </div>
+
             <div class="form-group">
-              <label>Verfügbar für</label>
+              <label id="clTagsLabel">Verfügbar für</label>
               <small class="form-hint">Für welche Event-Arten ist dein Service geeignet? Suchende filtern danach.</small>
               <div class="checkbox-group" id="createTags">
                 <label class="check-label"><input type="checkbox" value="Hochzeit" checked /> Hochzeiten</label>
@@ -2256,8 +2279,8 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Leistungen <span style="font-weight:400; color:var(--text-light);">(suchen oder anklicken)</span></label>
-              <small class="form-hint">Wähle alles aus, was im Preis enthalten ist. Mindestens 3 Leistungen werden empfohlen – das erhöht deine Sichtbarkeit.</small>
+              <label><span id="clFeaturesLabel">Leistungen</span> <span style="font-weight:400; color:var(--text-light);">(suchen oder anklicken)</span></label>
+              <small class="form-hint" id="clFeaturesHint">Wähle alles aus, was im Preis enthalten ist. Mindestens 3 Leistungen werden empfohlen – das erhöht deine Sichtbarkeit.</small>
               <div class="feature-search-wrap">
                 <span class="material-icons-round feature-search-icon">search</span>
                 <input type="text" id="featureSearchInput" placeholder="Leistung suchen…" autocomplete="off" />
@@ -2301,20 +2324,12 @@
                 <button type="button" class="btn-outline btn-sm" onclick="addCustomFeature()">+ Hinzufügen</button>
               </div>
             </div>
-            <div class="form-nav">
-              <button type="button" class="btn-outline" onclick="nextStep(1)">
-                <span class="material-icons-round">arrow_back</span> Zurück
-              </button>
-              <button type="button" class="btn-primary" onclick="nextStep(3)">
-                Weiter <span class="material-icons-round">arrow_forward</span>
-              </button>
-            </div>
           </div>
 
-          <!-- Step 3: Photos -->
-          <div class="form-step" id="step3">
-            <h2>Fotos & Galerie</h2>
-            <p class="step-intro">Inserate mit hochwertigen Fotos werden bis zu <strong>3&times; h&auml;ufiger</strong> angefragt. Lade mind. 3 Bilder hoch.</p>
+          <!-- Abschnitt 3: Fotos -->
+          <div class="form-section" id="step3">
+            <h2><span class="fs-num">3</span> Fotos &amp; Galerie</h2>
+            <p class="step-intro" id="clPhotosIntro">Inserate mit hochwertigen Fotos werden bis zu <strong>3&times; h&auml;ufiger</strong> angefragt. Lade mind. 3 Bilder hoch.</p>
             <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
               <span class="material-icons-round">cloud_upload</span>
               <h3>Bilder hochladen</h3>
@@ -2340,12 +2355,9 @@
                 <div class="listing-live-preview-counter" id="livePreviewCounter"></div>
               </div>
             </div>
-            <div class="form-nav">
-              <button type="button" class="btn-outline" onclick="nextStep(2)">
-                <span class="material-icons-round">arrow_back</span> Zurück
-              </button>
-              <button type="button" class="btn-primary" onclick="submitListing(event)">
-                <span class="material-icons-round">publish</span> Inserat veröffentlichen
+            <div class="cl-submit-bar">
+              <button type="button" class="btn-primary btn-block" onclick="submitListing(event)">
+                <span class="material-icons-round">publish</span> <span id="clSubmitLabel">Inserat veröffentlichen</span>
               </button>
             </div>
           </div>

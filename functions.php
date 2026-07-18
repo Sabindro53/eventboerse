@@ -2632,6 +2632,7 @@ function eb_create_tables() {
         title varchar(255) NOT NULL,
         category varchar(100) NOT NULL DEFAULT '',
         category_label varchar(100) NOT NULL DEFAULT '',
+        listing_type varchar(20) NOT NULL DEFAULT 'offer',
         description longtext,
         price int(10) unsigned NOT NULL DEFAULT 0,
         price_model varchar(50) NOT NULL DEFAULT '',
@@ -2744,7 +2745,7 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '2.2' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.3' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
@@ -2764,7 +2765,14 @@ function eb_maybe_create_tables() {
             // Backfill auf festes Vergangenheits-Literal (tz-sicher, < alle künftigen CURRENT_TIMESTAMP)
             $wpdb->query( "UPDATE {$wpdb->prefix}eb_messages SET updated_at = '2000-01-01 00:00:00'" );
         }
-        update_option( 'eb_db_version', '2.2' );
+        // 2.3: listing_type ('offer' | 'search') — explizite Biete/Suche-Inserate.
+        $tcol = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings LIKE 'listing_type'" );
+        if ( ! $tcol ) {
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD COLUMN listing_type varchar(20) NOT NULL DEFAULT 'offer' AFTER category_label" );
+            // Bestands-Gesuche anhand der bisherigen Titel-Heuristik markieren
+            $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET listing_type = 'search' WHERE title REGEXP 'gesucht' OR title REGEXP '^[[:space:]]*[Ss]uche[[:space:]]'" );
+        }
+        update_option( 'eb_db_version', '2.3' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -3997,6 +4005,7 @@ function eb_format_listing( $row ) {
         'title'         => $row['title'],
         'category'      => $row['category'],
         'categoryLabel' => $row['category_label'],
+        'listingType'   => ( isset( $row['listing_type'] ) && $row['listing_type'] === 'search' ) ? 'search' : 'offer',
         'location'      => $row['location'],
         'region'        => $row['region'],
         'price'         => (int) $row['price'],
@@ -4062,6 +4071,7 @@ function eb_listings_create( WP_REST_Request $request ) {
 
     $category       = sanitize_text_field( $params['category'] ?? '' );
     $category_label = sanitize_text_field( $params['categoryLabel'] ?? $category );
+    $listing_type   = ( ( $params['listingType'] ?? '' ) === 'search' ) ? 'search' : 'offer';
     $description    = wp_kses_post( $params['description'] ?? '' );
     $price          = absint( $params['price'] ?? 0 );
     $price_model    = sanitize_text_field( $params['priceModel'] ?? '' );
@@ -4100,6 +4110,7 @@ function eb_listings_create( WP_REST_Request $request ) {
         'title'          => $title,
         'category'       => $category,
         'category_label' => $category_label,
+        'listing_type'   => $listing_type,
         'description'    => $description,
         'price'          => $price,
         'price_model'    => $price_model,
@@ -4171,6 +4182,9 @@ function eb_listings_update( WP_REST_Request $request ) {
                 ? wp_kses_post( $params[ $key ] )
                 : sanitize_text_field( $params[ $key ] );
         }
+    }
+    if ( isset( $params['listingType'] ) ) {
+        $update['listing_type'] = ( $params['listingType'] === 'search' ) ? 'search' : 'offer';
     }
     if ( isset( $params['price'] ) )    $update['price']    = absint( $params['price'] );
     if ( isset( $params['duration'] ) ) $update['duration'] = floatval( $params['duration'] );
