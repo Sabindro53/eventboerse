@@ -19771,10 +19771,19 @@ function openAddProviderModal(defaultStage) {
     if (/^\s*suche\s/.test(title)) return true;
     return false;
   }
-  // Basis: gleiche Sichtbarkeitslogik wie ueberall sonst (Admin kann Demos abschalten)
-  var _baseList = (typeof _visibleListings === 'function')
-    ? _visibleListings()
-    : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
+  // Basis: BROWSE-PARITÄT — der Picker zeigt exakt das, was auch die Suche
+  // zeigt: alle DB-Inserate PLUS Demo-Inserate, sofern sie nicht per
+  // EB_HIDE_DEMO ausgeblendet sind. _visibleListings() ließ eingeloggt nur
+  // DB-Inserate durch — dadurch fehlten unter „Geplant" sichtbare Inserate.
+  function _pickerBaseList() {
+    try {
+      if (typeof getHeroListings === 'function') return getHeroListings();
+    } catch (e) {}
+    return (typeof _visibleListings === 'function')
+      ? _visibleListings()
+      : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
+  }
+  var _baseList = _pickerBaseList();
   // Kein 30er-Cap mehr: sonst fehlen Inserate im Picker und die Suche darüber
   // findet sie nie (sie filtert nur gerenderte Karten). 300 als Sicherheitsnetz.
   // Rollen-Sichtbarkeit: Event-Planer sehen nur Dienstleister-Angebote;
@@ -19789,9 +19798,7 @@ function openAddProviderModal(defaultStage) {
     loadDbListings(true).then(function() {
       var grid = document.getElementById('lpickGrid');
       if (!grid) return; // Modal inzwischen geschlossen
-      var freshBase = (typeof _visibleListings === 'function')
-        ? _visibleListings()
-        : (typeof filterDemos === 'function' ? filterDemos(LISTINGS || []) : (LISTINGS || []));
+      var freshBase = _pickerBaseList();
       var selectedId = (document.getElementById('cardListingId') || {}).value || '';
       grid.innerHTML = _buildListingPickerCardsHtml(freshBase, _isSearchListing, _showSearchListings);
       if (selectedId) {
