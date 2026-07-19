@@ -38,6 +38,10 @@
 
 ## Zuletzt ausgeliefert (Juli 2026)
 
+- [x] Demo-Konten kontaktierbar (wie eBay): Nachricht landet im Chat, Benachrichtigungs-Mail geht an kontakt@eventbörse.de (Banner: Demo-Konto, Absender inkl. User-ID/E-Mail, Inserat, Conversation-Nr.). Server: eb_demo_provider_name-Verzeichnis, eb_ops_notify_address, Demo-IDs auf 90001–90015 vervollständigt.
+- [x] Inserate-Erstellung als EINE Maske: Biete/Suche-Umschalter (listing_type in DB, Migration 2.3), optionaler einklappbarer Verfügbarkeitskalender (Häkchen = verfügbar, PUT availability nach dem Speichern), Rollen-Vorwahl (Planer→Suche).
+- [x] Board→Chat-Kette repariert: providerId auf Karten, loadDbListings in Board-Route, Erfolgs-Button öffnet Konversation; Picker mit Browse-Parität (getHeroListings statt _visibleListings).
+- [x] Showcase-Animationen butterweich: rAF-Loop + Lerp statt Scroll-Events/CSS-Transitions (iPhone-Einfrier-Bug behoben); „So funktioniert's" auf 4 Schritte gestrafft.
 - [x] Planungs-Board im ChatGPT-Look: Sidebar links (Neues Projekt, Projekt-Liste mit Edit/Delete, 8 Dienstleister-Kategorien), rechts lokaler Planungs-Assistent (`_ai*` in app.js, `.bai-*` CSS). Regelbasiert, ohne KI-Token: legt Projekte aus Freitext an (Typ/Datum/Gäste/Budget-Parsing), empfiehlt Dienstleister je Kategorie („+ Board" → Karte in Geplant), beantwortet Budget/offene Schritte (Guide-Deadlines)/Countdown/Status. Chat-Verlauf in localStorage pro Nutzer; Auftragsboard für Dienstleister bleibt darunter.
 - [x] Home-Showcase finalisiert: Mac dreht von Rückseite auf & schwebt, Demo-Szene + Widgets mit Inline-SVG-Illustrationen, Spacing/Mobile-Fixes, Board-Picker-Rollen (Planer sehen Angebote, Dienstleister alles).
 

@@ -4841,6 +4841,30 @@ function eb_messages_send( WP_REST_Request $request ) {
         $is_offer = ( $msg_type === 'offer' );
         $sender_name = $sender->first_name ?: $sender->display_name;
 
+        // Inserat (Angebot) der Unterhaltung — wird in ALLEN Benachrichtigungen
+        // mitgeschickt (Betreff + Inserat-Chip), für echte wie für Demo-Konten.
+        $conv_listing_title = '';
+        $conv_listing_image = '';
+        if ( ! empty( $conv->listing_id ) ) {
+            $lrow = $wpdb->get_row( $wpdb->prepare(
+                "SELECT title, images FROM {$wpdb->prefix}eb_listings WHERE id = %d", $conv->listing_id ) );
+            if ( $lrow ) {
+                $conv_listing_title = (string) $lrow->title;
+                $limgs = json_decode( (string) $lrow->images, true );
+                if ( is_array( $limgs ) && ! empty( $limgs[0] ) ) $conv_listing_image = $limgs[0];
+            }
+        }
+        // Wiederverwendbarer Inserat-Chip für die Mail-Templates
+        $listing_chip = '';
+        if ( $conv_listing_title ) {
+            $listing_chip  = '<div style="display:flex;align-items:center;gap:12px;background:#fafafa;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin:14px 0">';
+            if ( $conv_listing_image ) {
+                $listing_chip .= '<img src="' . esc_url( $conv_listing_image ) . '" alt="" width="52" height="52" style="width:52px;height:52px;border-radius:8px;object-fit:cover;display:block" />';
+            }
+            $listing_chip .= '<div style="font-size:13px;color:#717171">Zum Angebot<br><strong style="color:#222;font-size:14px">' . esc_html( $conv_listing_title ) . '</strong></div>';
+            $listing_chip .= '</div>';
+        }
+
         // Strukturierte Anfrage (JSON-Widget vom Board „Kontaktieren")?
         $inquiry = null;
         if ( ! $is_offer && $body && $body[0] === '{' ) {
@@ -4887,15 +4911,17 @@ function eb_messages_send( WP_REST_Request $request ) {
             $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#222">';
             $message .= '<h2 style="margin:0 0 8px">📷 Neues Bild von ' . esc_html( $sender_name ) . '</h2>';
             $message .= '<img src="' . esc_url( $body ) . '" alt="Bild" style="max-width:100%;border-radius:10px;margin:12px 0" />';
+            $message .= $listing_chip;
             $message .= '<p style="margin:18px 0 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Im Chat ansehen</a></p>';
             $message .= '</div>';
         } else {
-            $subject = 'Neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' auf Eventbörse';
+            $subject = 'Neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ( $conv_listing_title ? ' zu „' . $conv_listing_title . '“' : '' ) . ' auf Eventbörse';
             $preview = $is_offer ? $insert['body'] : $body;
             $message  = '<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:12px">';
             $message .= '<h2 style="color:#222;margin-bottom:8px">Du hast eine neue ' . ( $is_offer ? 'Preisverhandlung' : 'Nachricht' ) . ' erhalten</h2>';
             $message .= '<p style="color:#484848;line-height:1.6">Von <strong>' . esc_html( $sender_name ) . '</strong>:</p>';
             $message .= '<div style="background:#f7f7f7;border-radius:8px;padding:16px 18px;margin:18px 0;font-size:1.08em;color:#222;white-space:pre-wrap">' . esc_html( $preview ) . '</div>';
+            $message .= $listing_chip;
             $message .= '<p style="margin:18px 0 0 0"><a href="' . esc_url( $chat_url ) . '" style="display:inline-block;background:#FF385C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Im Chat antworten</a></p>';
             $message .= '<p style="color:#717171;font-size:13px;margin-top:24px">Du kannst jederzeit im Bereich "Nachrichten" auf Eventbörse antworten.</p>';
             $message .= '</div>';
@@ -4908,11 +4934,7 @@ function eb_messages_send( WP_REST_Request $request ) {
             // Inserat kontaktiert (sonst ist nicht erkennbar, ob ein Fremder
             // oder man selbst das Demo-Konto angeschrieben hat).
             $demo_name = eb_demo_provider_name( $recipient_id );
-            $listing_title = '';
-            if ( ! empty( $conv->listing_id ) ) {
-                $listing_title = (string) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT title FROM {$wpdb->prefix}eb_listings WHERE id = %d", $conv->listing_id ) );
-            }
+            $listing_title = $conv_listing_title;
             if ( ! $listing_title && $inquiry && ! empty( $inquiry['listing'] ) ) {
                 $listing_title = $inquiry['listing'];
             }
