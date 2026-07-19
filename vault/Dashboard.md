@@ -2,18 +2,30 @@
 
 > **Ziel:** Die beste und funktionalste Eventplattform für jedermann
 > **Domain:** `{{DOMAIN}}` (anonymisiert) | **Stack:** WordPress + Vanilla JS SPA
-> **Stand:** 2026-06-06 (Live: `styles.css?v=2.5.1`, GitHub `main` `3c1e752`)
+> **Stand:** 2026-07-19
 
 ---
 
 > **Neu hier?** → Starte mit [[Onboarding]].
 
+## Ordner-Struktur (was gehört wohin)
+
+| Ordner | Inhalt | Regel |
+|--------|--------|-------|
+| `AI-Gedaechtnis/` | Agent-Kontext, Code-Beziehungen, Entscheidungen | **Lebende** Dokumente — bei Änderungen aktualisieren, keine Datums-Snapshots anlegen |
+| `Roadmap/` | Current-Sprint, Feature-Ideen, Bekannte Bugs | Sprint-Doku nach jedem Release-Push ergänzen |
+| `Architecture/` · `Frontend/` · `Backend/` · `Komponenten/` | Wie das System gebaut ist | Nur bei Architektur-Änderungen anfassen |
+| `Features/` · `UserFlows/` | Was das Produkt kann, aus Nutzersicht | Pro Feature eine Datei |
+| `Security/` · `Legal/` · `Operations/` · `CI-CD/` | Betrieb, Recht, Sicherheit | Referenz, selten ändern |
+| `Integrationen/` | Externe Dienste (Stripe, SMTP, Leaflet …) | Pro Dienst eine Datei |
+| `Archiv/` | Historische Snapshots & abgeschlossene Logs | Nur ablegen, nie weiterpflegen |
+
 ## Schnellübersicht
 
 | Bereich | Dateien | Status |
 |---------|---------|--------|
-| [[Frontend/app-js-module\|Frontend SPA]] | `app.js` (21.093 Zeilen) | Aktiv |
-| [[Backend/API-Endpoints\|Backend REST API]] | `functions.php` (7.294 Zeilen) | 81 Route-Registrierungen |
+| [[Frontend/app-js-module\|Frontend SPA]] | `app.js` (~23.100 Zeilen) | Aktiv |
+| [[Backend/API-Endpoints\|Backend REST API]] | `functions.php` (~7.700 Zeilen) | 84 Route-Registrierungen |
 | [[Architecture/Overview\|Architektur]] | WordPress + SPA | Stabil |
 | [[Architecture/Tech-Stack\|Tech-Stack]] | PHP 8.1+ / WP 6.4+ / Vanilla JS | versioniert |
 | [[CI-CD/Deployment\|CI/CD]] | GitHub Actions → IONOS SFTP | Automatisch |
@@ -93,10 +105,12 @@
 > Coding-Agents lesen & schreiben in diesen Vault. Jede Code-Änderung wird dokumentiert.
 
 - [[AI-Gedaechtnis/Claude-Kontext\|Agent-Kontext]] - Was der Coding-Agent über dieses Projekt weiß
-- [[AI-Gedaechtnis/Latest-Stand-2026-06-06\|Latest Stand 2026-06-06]] - Aktueller stabiler Projektzustand
-- [[AI-Gedaechtnis/Latest-Stand-2026-05-22\|Latest Stand 2026-05-22]] - Historischer Board/Listings-Snapshot
 - [[AI-Gedaechtnis/Code-Beziehungen\|Code-Beziehungen]] - Welche Module miteinander sprechen
 - [[AI-Gedaechtnis/Entscheidungen\|Architektur-Entscheidungen]] - Warum was so gemacht wurde
+- [[AI-Gedaechtnis/Code-Stats\|Code-Stats]] - Kennzahlen-Verlauf
+
+### Archiv (historisch, nicht mehr pflegen)
+- [[Archiv/Latest-Stand-2026-06-06\|Stand-Snapshot 06/2026]] · [[Archiv/Latest-Stand-2026-05-22\|Stand-Snapshot 05/2026]] · [[Archiv/KI-Office-Offline-Betrieb\|KI-Office-Log]]
 
 ---
 
@@ -117,14 +131,15 @@
 
 ---
 
-## Code-Statistiken (Auto-Update)
+## Code-Statistiken
 
 ```
-app.js        21.093 Zeilen  (SPA Frontend)
-functions.php  7.294 Zeilen  (WordPress Backend)
-styles.css    14.716 Zeilen  (Alle Styles)
-index.php      3.934 Zeilen  (WP Theme Markup)
-index.html     3.537 Zeilen  (statische/Legacy Markup-Kopie)
+app.js         23.054 Zeilen  (SPA Frontend)
+functions.php   7.717 Zeilen  (WordPress Backend, 84 REST-Routen)
+styles.css     16.354 Zeilen  (Alle Styles)
+app-shell.html  3.957 Zeilen  (SPA-Body, einzige Quelle)
+index.php         208 Zeilen  (WP-Template: Head + readfile(app-shell))
+index.html      4.025 Zeilen  (lokale Dev-Shell, generiert)
 ```
 
-*Zuletzt aktualisiert: 2026-06-06*
+*Zuletzt aktualisiert: 2026-07-19*

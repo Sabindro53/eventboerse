@@ -16340,3 +16340,15 @@ body.dark-mode .bai-dl.od { color: #f87171; }
 .clav-toggle .material-icons-round { font-size: 18px; }
 .clav-toggle-arrow { margin-left: auto; }
 .clav-body { margin-top: 10px; }
+
+/* Geräte-Kicker: „Jetzt auch auf dem PC" über dem animierten Mac */
+.ebsc-device-kicker {
+  display: inline-flex; align-items: center; gap: 8px;
+  align-self: center;
+  background: rgba(255,56,92,0.14); border: 1px solid rgba(255,56,92,0.4);
+  color: #ff8aa1; border-radius: 999px; padding: 7px 16px;
+  font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 4px;
+  animation: ebscPop .5s ease backwards;
+}
+.ebsc-device-kicker .material-icons-round { font-size: 16px; }
