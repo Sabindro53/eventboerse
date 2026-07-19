@@ -16321,3 +16321,22 @@ body.dark-mode .bai-dl.od { color: #f87171; }
   .create-form-single .form-section { padding: 18px 14px; }
   .clav { max-width: none; }
 }
+
+/* Verfügbarkeitskalender: optional & einklappbar */
+.cl-optional {
+  display: inline-block; vertical-align: middle; margin-left: 6px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-light); background: var(--bg-alt);
+  border: 1px solid var(--border-light); border-radius: 999px; padding: 2px 8px;
+}
+.clav-toggle {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px dashed var(--border); background: var(--bg); border-radius: 12px;
+  padding: 11px 14px; margin-top: 8px; cursor: pointer;
+  font-size: 0.86rem; font-weight: 700; color: var(--text); width: 100%;
+  transition: border-color .15s, color .15s;
+}
+.clav-toggle:hover { border-color: var(--primary); color: var(--primary); }
+.clav-toggle .material-icons-round { font-size: 18px; }
+.clav-toggle-arrow { margin-left: auto; }
+.clav-body { margin-top: 10px; }

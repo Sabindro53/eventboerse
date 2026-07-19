@@ -2254,15 +2254,23 @@
               </div>
             </div>
 
-            <!-- Verfügbarkeitskalender (nur „Biete"): Häkchen = verfügbar -->
+            <!-- Verfügbarkeitskalender (nur „Biete", OPTIONAL): Häkchen = verfügbar -->
             <div class="form-group cl-avail-block" id="clAvailBlock">
-              <label>Verfügbarkeitskalender</label>
-              <small class="form-hint">Alle künftigen Tage sind standardmäßig <b>✓ verfügbar</b>. Tippe Tage an, um sie zu <b>blockieren</b> (z.&nbsp;B. Urlaub oder bereits gebucht) — Suchende sehen das direkt im Inserat.</small>
-              <div class="clav" id="clAvailCal"></div>
-              <div class="clav-legend">
-                <span class="clav-leg avail"><i></i> verfügbar</span>
-                <span class="clav-leg blocked"><i></i> geblockt</span>
-                <span class="clav-leg past"><i></i> vergangen</span>
+              <label>Verfügbarkeitskalender <span class="cl-optional">optional</span></label>
+              <small class="form-hint"><b>Kein Muss:</b> Ohne Angabe gilt dein Service einfach als <b>an allen Tagen verfügbar</b> — du kannst sofort veröffentlichen und Termine jederzeit später unter „Meine Inserate › Verfügbarkeit“ pflegen.</small>
+              <button type="button" class="clav-toggle" id="clAvailToggleBtn" onclick="_clAvailExpandToggle()">
+                <span class="material-icons-round">event_available</span>
+                <span id="clAvailToggleLabel">Termine jetzt eintragen</span>
+                <span class="material-icons-round clav-toggle-arrow" id="clAvailToggleArrow">expand_more</span>
+              </button>
+              <div class="clav-body" id="clAvailBody" style="display:none">
+                <small class="form-hint">Alle künftigen Tage sind standardmäßig <b>✓ verfügbar</b>. Tippe Tage an, um sie zu <b>blockieren</b> (z.&nbsp;B. Urlaub oder bereits gebucht) — Suchende sehen das direkt im Inserat.</small>
+                <div class="clav" id="clAvailCal"></div>
+                <div class="clav-legend">
+                  <span class="clav-leg avail"><i></i> verfügbar</span>
+                  <span class="clav-leg blocked"><i></i> geblockt</span>
+                  <span class="clav-leg past"><i></i> vergangen</span>
+                </div>
               </div>
             </div>
 

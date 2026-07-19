@@ -22942,20 +22942,41 @@ function _clSetType(type) {
   if (subLabel) subLabel.textContent = isSearch ? 'Gesuch veröffentlichen' : 'Inserat veröffentlichen';
 }
 
-/* ─── Verfügbarkeitskalender (Häkchen = verfügbar) ──────────── */
+/* ─── Verfügbarkeitskalender (Häkchen = verfügbar, OPTIONAL) ── */
+// Standardmäßig eingeklappt: ohne Angabe gilt „alle Tage verfügbar".
+// Der Dienstleister wird nie aufgehalten — Termine sind jederzeit später
+// unter „Meine Inserate › Verfügbarkeit" pflegbar.
+function _clAvailSetExpanded(open) {
+  var body = document.getElementById('clAvailBody');
+  var label = document.getElementById('clAvailToggleLabel');
+  var arrow = document.getElementById('clAvailToggleArrow');
+  if (body) body.style.display = open ? '' : 'none';
+  if (label) label.textContent = open ? 'Kalender ausblenden' : 'Termine jetzt eintragen';
+  if (arrow) arrow.textContent = open ? 'expand_less' : 'expand_more';
+}
+function _clAvailExpandToggle() {
+  var body = document.getElementById('clAvailBody');
+  var open = body && body.style.display === 'none';
+  _clAvailSetExpanded(open);
+  if (open) _clAvailRender();
+}
 function _clAvailReset() {
   _clAvailBlocked = {};
   _clAvailMonthOff = 0;
+  _clAvailSetExpanded(false);
   _clAvailRender();
 }
 
 function _clAvailPrefill(listing) {
   _clAvailBlocked = {};
   _clAvailMonthOff = 0;
+  _clAvailSetExpanded(false);
   var apply = function(dates) {
     (dates || []).forEach(function(d) {
       if (/^\d{4}-\d{2}-\d{2}$/.test(d)) _clAvailBlocked[d] = true;
     });
+    // Bestehende Block-Tage vorhanden → Kalender direkt aufklappen
+    if (_clAvailBlockedList().length) _clAvailSetExpanded(true);
     _clAvailRender();
   };
   if (listing && Array.isArray(listing.blockedDates) && listing.blockedDates.length) {
