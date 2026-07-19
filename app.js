@@ -81,7 +81,7 @@ function _resolveAvatar(img, name) {
 // Bot-Inserate (90001–90009) sind hardcoded und sollen vor Release ausblendbar sein.
 // Flag wird vom Backend per <script>window.EB_HIDE_DEMO=…</script> in den <head> gesetzt.
 // Admin-Toggle: POST /admin/hide-demo. Falls das Flag (noch) nicht im Window steht, default: false.
-window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,90004,90005,90006,90007,90008,90009,90010,90011,90012,90013,90014];
+window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,90004,90005,90006,90007,90008,90009,90010,90011,90012,90013,90014,90015];
 // Default: Demo-Inserate ausblenden. Backend kann window.EB_HIDE_DEMO=false setzen, um sie wieder anzuzeigen.
 window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB_HIDE_DEMO : true;
 // Einzige Quelle der Wahrheit für die Sichtbarkeit ALLER Demo-Daten
@@ -17167,11 +17167,12 @@ function openStageAdvanceModal(cardId, currentStage) {
     // gespeichert), DB-Id aus dem 10000er-Offset der Frontend-Id ableiten —
     // so funktioniert Kontakt auch, wenn das Inserat (noch) nicht in
     // LISTINGS aufgelöst werden kann.
+    // Demo-Konten sind kontaktierbar wie echte Anbieter — der Server leitet
+    // die Benachrichtigung an kontakt@eventbörse.de um.
     var _provUserId = (_listing && _listing.providerId) || card.providerId || '';
     var _listingDbId = (_listing && (_listing._dbId || _listing.id)) ||
       (card.listingId && card.listingId > 10000 ? card.listingId - 10000 : '');
-    var _isDemoProv = !!_provUserId && isDemoUserId(_provUserId);
-    var _canChat = !!_provUserId && !_isDemoProv;
+    var _canChat = !!_provUserId;
 
     fieldsHtml = '' +
       '<label class="sa-label">Nachricht anpassen</label>' +
@@ -17183,7 +17184,7 @@ function openStageAdvanceModal(cardId, currentStage) {
           '<span class="sa-action-icon"><span class="material-icons-round">forum</span></span>' +
           '<span class="sa-action-text">' +
             '<strong>Nachricht senden</strong>' +
-            '<small>' + (_canChat ? 'Im Chat · automatisch per E-Mail benachrichtigt' : (_isDemoProv ? 'Demo-Inserat — Chat nicht möglich' : 'Anbieter nicht verfügbar')) + '</small>' +
+            '<small>' + (_canChat ? 'Im Chat · automatisch per E-Mail benachrichtigt' : 'Anbieter nicht verfügbar') + '</small>' +
           '</span>' +
           '<span class="material-icons-round sa-action-arrow">arrow_forward</span>' +
         '</button>' +
@@ -17382,10 +17383,6 @@ function openStageAdvanceModal(cardId, currentStage) {
       var listingDbId = parseInt((document.getElementById('saListingDbId') || {}).value) || 0;
       var msg = _saMsg();
       if (!provUserId) { showToast('Anbieter nicht gefunden', 'error'); return; }
-      if (isDemoUserId(provUserId)) {
-        showToast('Das ist ein Demo-Inserat — Chat ist nur bei echten Anbietern möglich.', 'info');
-        return;
-      }
       if (!msg || !msg.trim()) { showToast('Bitte schreibe eine Nachricht.', 'warning'); return; }
 
       // Build structured inquiry payload so it renders as a system widget

@@ -709,7 +709,35 @@ function eb_is_admin_user( $user_id = 0 ) {
  * Wird sowohl für die Mail-CC-Logik als auch den Hide-Demo-Toggle benutzt.
  */
 function eb_demo_provider_ids() {
-    return array( 90001, 90002, 90003, 90004, 90005, 90006, 90007, 90008, 90009 );
+    return array( 90001, 90002, 90003, 90004, 90005, 90006, 90007, 90008, 90009, 90010, 90011, 90012, 90013, 90014, 90015 );
+}
+
+/**
+ * Anzeigename eines Demo-Providers (Spiegel der hardcoded LISTINGS in app.js).
+ * Wird für Chat-Liste und Kontakt-Benachrichtigungen gebraucht, da Demo-
+ * Accounts keine WP-User sind.
+ */
+function eb_demo_provider_name( $user_id ) {
+    $map = array(
+        90001 => 'Max Beats',          90002 => 'Elena Schmitt',
+        90003 => 'Lisa Blumen',        90004 => 'Timo Licht',
+        90005 => 'Oliver Pyro',        90006 => 'Anna Foto',
+        90007 => 'Schloss Management', 90008 => 'Sophie Deko',
+        90009 => 'Thomas Meier',       90010 => 'Stefan MC',
+        90011 => 'Lisa & Tom Wellness',90012 => 'Sabine Rhein',
+        90013 => 'Niko & Band',        90014 => 'Julian Film',
+        90015 => 'Gartenpark Team',
+    );
+    return $map[ (int) $user_id ] ?? 'Demo-Anbieter';
+}
+
+/**
+ * Betreiber-Postfach für Benachrichtigungen (kontakt@eventbörse.de).
+ * Nutzt den SMTP-Login (Punycode), damit IONOS die Mail zustellt.
+ */
+function eb_ops_notify_address() {
+    $user = function_exists( 'eb_get_smtp_user' ) ? eb_get_smtp_user() : '';
+    return $user ?: 'kontakt@xn--eventbrse-57a.de';
 }
 
 /**
@@ -4524,7 +4552,9 @@ function eb_conversations_list() {
     foreach ( $rows as $c ) {
         $other_id = ( (int) $c->user_a === $uid ) ? (int) $c->user_b : (int) $c->user_a;
         $other    = get_userdata( $other_id );
-        $name     = $other ? trim( $other->first_name . ' ' . $other->last_name ) : 'Unbekannt';
+        $name     = $other
+            ? trim( $other->first_name . ' ' . $other->last_name )
+            : ( eb_user_is_demo( $other_id ) ? eb_demo_provider_name( $other_id ) : 'Unbekannt' );
         $photo    = $other ? ( get_user_meta( $other_id, 'eb_photo_url', true ) ?: '' ) : '';
         $avatar   = $photo ?: eb_avatar_url( $name, $name );
 
@@ -4570,7 +4600,10 @@ function eb_conversations_create( WP_REST_Request $request ) {
     if ( ! $other_id || $other_id === $uid ) {
         return new WP_REST_Response( array( 'message' => 'Ungültiger Empfänger.' ), 400 );
     }
-    if ( ! get_userdata( $other_id ) ) {
+    // Demo-Provider sind KEINE WP-User, dürfen aber kontaktiert werden —
+    // die Nachricht landet im Chat und wird zusätzlich an
+    // kontakt@eventbörse.de gemeldet (siehe eb_messages_send).
+    if ( ! get_userdata( $other_id ) && ! eb_user_is_demo( $other_id ) ) {
         return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
     }
 
@@ -4795,11 +4828,15 @@ function eb_messages_send( WP_REST_Request $request ) {
         array( 'id' => $conv_id )
     );
 
-    // E-Mail-Benachrichtigung an Empfänger
+    // E-Mail-Benachrichtigung an Empfänger.
+    // Demo-Konten haben kein eigenes Postfach: dort geht die Benachrichtigung
+    // stattdessen an kontakt@eventbörse.de — mit Absender, Inserat und der
+    // Nachricht als Inhalt (wie eine normale Kontakt-Mail, nur umgeleitet).
     $recipient_id = ((int)$conv->user_a === $uid) ? (int)$conv->user_b : (int)$conv->user_a;
     $recipient = get_userdata( $recipient_id );
     $sender = get_userdata( $uid );
-    if ( $recipient && $recipient->user_email && $recipient_id !== $uid ) {
+    $is_demo_recipient = ! $recipient && eb_user_is_demo( $recipient_id );
+    if ( ( ( $recipient && $recipient->user_email ) || $is_demo_recipient ) && $recipient_id !== $uid ) {
         $chat_url = home_url( '/#chat/' . $conv_id );
         $is_offer = ( $msg_type === 'offer' );
         $sender_name = $sender->first_name ?: $sender->display_name;
@@ -4864,15 +4901,43 @@ function eb_messages_send( WP_REST_Request $request ) {
             $message .= '</div>';
         }
 
-        // Bot-Accounts (Demo-Provider 90001–90009): Kontaktversuche immer
-        // zusätzlich an testaccount weiterleiten, da Bot-Mailbox unüberwacht ist.
-        $eb_bot_ids = array( 90001, 90002, 90003, 90004, 90005, 90006, 90007, 90008, 90009 );
         $msg_headers = array( 'Content-Type: text/html; charset=UTF-8' );
-        if ( in_array( $recipient_id, $eb_bot_ids, true ) ) {
-            $msg_headers[] = 'Cc: testaccount@eventbörse.de';
+        if ( $is_demo_recipient ) {
+            // Demo-Konto kontaktiert → Benachrichtigung an kontakt@eventbörse.de,
+            // mit klarem Hinweis-Banner: WER hat WELCHES Demo-Konto zu WELCHEM
+            // Inserat kontaktiert (sonst ist nicht erkennbar, ob ein Fremder
+            // oder man selbst das Demo-Konto angeschrieben hat).
+            $demo_name = eb_demo_provider_name( $recipient_id );
+            $listing_title = '';
+            if ( ! empty( $conv->listing_id ) ) {
+                $listing_title = (string) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT title FROM {$wpdb->prefix}eb_listings WHERE id = %d", $conv->listing_id ) );
+            }
+            if ( ! $listing_title && $inquiry && ! empty( $inquiry['listing'] ) ) {
+                $listing_title = $inquiry['listing'];
+            }
+            $sender_mail = ( $sender && $sender->user_email ) ? $sender->user_email : '';
+            $notice  = '<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto 14px;padding:14px 18px;background:#fff7ed;border:1px solid #fdba74;border-radius:12px;color:#7c2d12">';
+            $notice .= '<div style="font-weight:800;margin-bottom:6px">🤖 Demo-Konto kontaktiert: „' . esc_html( $demo_name ) . '“ (ID ' . (int) $recipient_id . ')</div>';
+            $notice .= '<div style="font-size:13px;line-height:1.7">';
+            $notice .= 'Absender: <strong>' . esc_html( $sender_name ) . '</strong> (User-ID ' . (int) $uid . ( $sender_mail ? ', ' . esc_html( $sender_mail ) : '' ) . ')<br>';
+            if ( $listing_title ) $notice .= 'Inserat: <strong>' . esc_html( $listing_title ) . '</strong><br>';
+            $notice .= 'Unterhaltung #' . (int) $conv_id . ' &middot; ' . esc_html( current_time( 'd.m.Y H:i' ) ) . '<br>';
+            $notice .= 'Diese Mail geht an kontakt@eventbörse.de, weil Demo-Konten kein eigenes Postfach haben. Die Original-Benachrichtigung folgt darunter.';
+            $notice .= '</div></div>';
+            $subject = '🤖 Demo „' . $demo_name . '“ kontaktiert — ' . $subject;
+            $message = $notice . $message;
+            $mail_result = wp_mail( eb_ops_notify_address(), $subject, $message, $msg_headers );
+            error_log('[Eventboerse-Mail] DemoContact → ' . eb_ops_notify_address() . ' | Demo: ' . $demo_name . ' (' . $recipient_id . ') | Von: ' . $uid . ' | Result: ' . ( $mail_result ? 'OK' : 'FAIL' ) );
+        } else {
+            // Bot-markierte ECHTE Accounts (user_meta eb_is_demo): Kontaktversuche
+            // zusätzlich an das Betreiber-Postfach spiegeln (Mailbox unüberwacht).
+            if ( eb_user_is_demo( $recipient_id ) ) {
+                $msg_headers[] = 'Cc: ' . eb_ops_notify_address();
+            }
+            $mail_result = wp_mail( $recipient->user_email, $subject, $message, $msg_headers );
+            error_log('[Eventboerse-Mail] To: ' . $recipient->user_email . ' | Subject: ' . $subject . ' | DemoCC: ' . ( eb_user_is_demo( $recipient_id ) ? 'yes' : 'no' ) . ' | Result: ' . ( $mail_result ? 'OK' : 'FAIL' ) );
         }
-        $mail_result = wp_mail( $recipient->user_email, $subject, $message, $msg_headers );
-        error_log('[Eventboerse-Mail] To: ' . $recipient->user_email . ' | Subject: ' . $subject . ' | BotCC: ' . ( in_array( $recipient_id, $eb_bot_ids, true ) ? 'yes' : 'no' ) . ' | Result: ' . ( $mail_result ? 'OK' : 'FAIL' ) );
     }
 
     return new WP_REST_Response( array(
