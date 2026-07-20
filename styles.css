@@ -16341,14 +16341,20 @@ body.dark-mode .bai-dl.od { color: #f87171; }
 .clav-toggle-arrow { margin-left: auto; }
 .clav-body { margin-top: 10px; }
 
-/* Geräte-Kicker: „Jetzt auch auf dem PC" über dem animierten Mac */
+/* Geräte-Überschrift: „Jetzt auch auf dem PC" über dem animierten Mac —
+   echte Heading-Typografie statt kleinem Pill-Badge */
 .ebsc-device-kicker {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 12px;
   align-self: center;
-  background: rgba(255,56,92,0.14); border: 1px solid rgba(255,56,92,0.4);
-  color: #ff8aa1; border-radius: 999px; padding: 7px 16px;
-  font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
-  margin-bottom: 4px;
+  font-size: clamp(1.5rem, 3.2vw, 2.1rem);
+  font-weight: 800; line-height: 1.2; letter-spacing: -0.01em;
+  color: #f5f5f7; text-align: center;
+  margin: 0 0 6px;
   animation: ebscPop .5s ease backwards;
 }
-.ebsc-device-kicker .material-icons-round { font-size: 16px; }
+.ebsc-device-kicker .material-icons-round {
+  font-size: 1.15em; color: #FF385C;
+}
+@media (max-width: 720px) {
+  .ebsc-device-kicker { gap: 8px; }
+}
