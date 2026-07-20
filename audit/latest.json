@@ -1,25 +1,15 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-07-19T12:25:32Z",
-  "commit": "3c58c41",
+  "generatedAt": "2026-07-20T11:07:17Z",
+  "commit": "3729d53",
   "counts": {
-    "total": 7,
+    "total": 6,
     "error": 0,
     "warn": 2,
     "info": 4,
-    "ok": 1
+    "ok": 0
   },
   "findings": [
-    {
-      "id": "dsgvo-analytics-inert",
-      "title": "analytics.php ist inert (kein Tracking)",
-      "area": "security",
-      "severity": "ok",
-      "status": "fixed",
-      "detail": "Keine Verarbeitung personenbezogener Daten — kann nach Deploy-Verifikation gelöscht werden.",
-      "suggestion": "Datei nach Live-Verifikation entfernen (chore-PR).",
-      "evidence": null
-    },
     {
       "id": "route-admin-mod-missing",
       "title": "Admin-Moderationsrouten im Vault dokumentiert, aber nicht im Code",
@@ -32,14 +22,14 @@
     },
     {
       "id": "size-app.js-watch",
-      "title": "app.js wächst (23055 Zeilen)",
+      "title": "app.js wächst (23072 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 23055,
+        "lines": 23072,
         "threshold": 20000
       }
     },
@@ -58,14 +48,14 @@
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (16343 Zeilen)",
+      "title": "styles.css wächst (16557 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 16343,
+        "lines": 16557,
         "threshold": 12000
       }
     },
