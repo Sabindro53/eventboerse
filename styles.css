@@ -1487,14 +1487,15 @@ body.dark-mode .eb-qa-action {
 /* Lametta hängt still von oben und WIEGT nur sanft vertikal + schimmert —
    KEINE Skew/Rotation mehr (die erzeugte die kreisförmige Bewegung).
    Bewusst wenige, dezente Stränge (vorher „zu viel"). */
-.ai-streamer.st-1 { left: 14%; color: #FF385C; height: 190px; animation-delay: 0s;    animation-duration: 9s; }
-.ai-streamer.st-2 { right: 16%; color: #a855f7; height: 160px; animation-delay: -2.5s; animation-duration: 10.5s; }
-.ai-streamer.st-3 { right: 40%; color: #00A699; height: 120px; opacity: 0.14; animation-delay: -4s; animation-duration: 12s; }
-.ai-streamer.st-4,
+.ai-streamer.st-1 { left: 12%;  color: #FF385C; height: 190px; animation-delay: 0s;    animation-duration: 9s; }
+.ai-streamer.st-2 { left: 34%;  color: #a855f7; height: 150px; opacity: 0.13; animation-delay: -2.5s; animation-duration: 11s; }
+.ai-streamer.st-3 { right: 34%; color: #00A699; height: 130px; opacity: 0.13; animation-delay: -4s;   animation-duration: 12s; }
+.ai-streamer.st-4 { right: 9%;  color: #a855f7; height: 175px; animation-delay: -1.5s; animation-duration: 10s; } /* oben rechts */
 .ai-streamer.st-5 { display: none; }
 .ai-streamer { opacity: 0.16; }
 body.dark-mode .ai-streamer { opacity: 0.24; }
-body.dark-mode .ai-streamer.st-3 { opacity: 0.16; }
+body.dark-mode .ai-streamer.st-2,
+body.dark-mode .ai-streamer.st-3 { opacity: 0.15; }
 
 @keyframes aiStreamerSway {
   0%, 100% { transform: translateY(0); }
@@ -16414,33 +16415,36 @@ body.dark-mode .hero.hero-night .hero-content {
 /* Feuerwerk: gestrichelter Streifen steigt von unten auf → BOOM (Partikel-Ring).
    .hero-fw sitzt am Explosionspunkt; ::after = Aufstieg, ::before = Ring.
    Beide teilen Dauer + Delay, damit der Ring genau beim Ankommen zündet. */
-.hero-fw { position: absolute; width: 6px; height: 6px; --fw-dur: 4.4s; }
+/* SEQUENZIELL: gemeinsamer 8s-Zyklus, Raketen 2s versetzt (0/2/4/6s) →
+   es steigt IMMER NUR EINE auf und explodiert, dann die nächste. Aktives
+   Fenster pro Rakete ~2s (Aufstieg 0–11 %, Boom 13–26 %), Rest Pause. */
+.hero-fw { position: absolute; width: 6px; height: 6px; --fw-dur: 8s; }
 
-/* Aufstieg — dünner gestrichelter Streifen von unten nach oben */
+/* Aufstieg — dünner gestrichelter Streifen kommt klar von UNTEN hoch */
 .hero-fw::after {
   content: '';
   position: absolute;
   left: 50%; top: 0;
-  width: 3px; height: 48px;
+  width: 3px; height: 52px;
   border-radius: 3px;
   background: repeating-linear-gradient(to bottom,
     currentColor 0 5px, transparent 5px 11px);
-  filter: drop-shadow(0 0 4px currentColor);
-  transform: translate(-50%, 132px) scaleY(0.5);
+  filter: drop-shadow(0 0 5px currentColor);
+  transform: translate(-50%, 150px) scaleY(0.4);
   opacity: 0;
-  animation: heroFwRise var(--fw-dur) cubic-bezier(.25,.6,.3,1) infinite;
+  animation: heroFwRise var(--fw-dur) cubic-bezier(.2,.7,.3,1) infinite;
   animation-delay: var(--fw-delay, 0s);
   will-change: transform, opacity;
 }
 @keyframes heroFwRise {
-  0%   { transform: translate(-50%, 132px) scaleY(0.45); opacity: 0; }
-  4%   { opacity: 1; }
-  19%  { transform: translate(-50%, 6px)   scaleY(1);    opacity: 1; }
-  24%  { transform: translate(-50%, -10px) scaleY(0.6);  opacity: 0; }
-  100% { transform: translate(-50%, -10px) scaleY(0.6);  opacity: 0; }
+  0%   { transform: translate(-50%, 150px) scaleY(0.4);  opacity: 0; }
+  2%   { opacity: 1; }
+  11%  { transform: translate(-50%, 4px)   scaleY(1);    opacity: 1; }
+  13%  { transform: translate(-50%, -10px) scaleY(0.5);  opacity: 0; }
+  100% { transform: translate(-50%, -10px) scaleY(0.5);  opacity: 0; }
 }
 
-/* BOOM — Partikel-Ring, zündet exakt am Ende des Aufstiegs (~23 %) */
+/* BOOM — Partikel-Ring, zündet exakt wenn der Streifen oben ankommt (13 %) */
 .hero-fw::before {
   content: '';
   position: absolute; inset: 0; border-radius: 50%;
@@ -16460,15 +16464,17 @@ body.dark-mode .hero.hero-night .hero-content {
   will-change: transform, opacity;
 }
 @keyframes heroFwBurst {
-  0%, 21% { transform: scale(0.1);  opacity: 0; }
-  24%     { transform: scale(0.4);  opacity: 1; }
-  46%     { transform: scale(1.1);  opacity: 0.95; }
-  62%     { transform: scale(1.4);  opacity: 0; }
+  0%, 11% { transform: scale(0.1);  opacity: 0; }
+  13%     { transform: scale(0.4);  opacity: 1; }
+  21%     { transform: scale(1.1);  opacity: 0.95; }
+  27%     { transform: scale(1.4);  opacity: 0; }
   100%    { transform: scale(1.4);  opacity: 0; }
 }
-.hero-fw.fw1 { top: 30%; left: 14%; color: #ff5c7c; --fw-delay: 0s; }
-.hero-fw.fw2 { top: 20%; left: 76%; color: #c084fc; --fw-delay: 1.6s; }
-.hero-fw.fw3 { top: 46%; left: 90%; color: #fbbf24; --fw-delay: 3.0s; }
+/* Vier Raketen, streng nacheinander (0 → 2 → 4 → 6 s), mehr auf der rechten Seite */
+.hero-fw.fw1 { top: 32%; left: 16%; color: #ff5c7c; --fw-delay: 0s; }
+.hero-fw.fw2 { top: 24%; left: 58%; color: #c084fc; --fw-delay: 2s; }
+.hero-fw.fw3 { top: 30%; left: 74%; color: #34d399; --fw-delay: 4s; }
+.hero-fw.fw4 { top: 38%; left: 89%; color: #fbbf24; --fw-delay: 6s; }
 
 /* Konfetti: fallende Farbpunkte über box-shadow verteilt */
 .hero-confetti { position: absolute; top: -12px; left: 0; width: 6px; height: 10px; border-radius: 2px; opacity: 0.85; }
@@ -16529,7 +16535,7 @@ body.dark-mode .hero.hero-night .hero-content {
   .hero-fw::before { opacity: 0.5; transform: scale(1); }
 }
 @media (max-width: 720px) {
-  .hero-fw.fw3 { display: none; }
+  .hero-fw.fw3, .hero-fw.fw4 { display: none; }
   .hero-popper.popper-tl { top: 14px; }
   .hero-popper.popper-br { bottom: 12px; }
 }
@@ -16564,11 +16570,15 @@ body.dark-mode .ai-nightsky {
   animation: heroStars 6s ease-in-out infinite alternate;
 }
 
-/* Feuerwerk-Positionen im Such-Hero (Klassen aus dem Home-Hero wiederverwendet).
+/* Feuerwerk-Positionen im Such-Hero — 4 Raketen, mehr auf der rechten Seite.
    Explosionspunkte im oberen Drittel, damit der Aufstieg darunter Platz hat. */
-.ai-hero .hero-fw.fw1 { top: 34%; left: 12%; }
-.ai-hero .hero-fw.fw2 { top: 22%; left: 74%; }
-.ai-hero .hero-fw.fw3 { top: 40%; left: 90%; }
+.ai-hero .hero-fw.fw1 { top: 34%; left: 13%; }
+.ai-hero .hero-fw.fw2 { top: 26%; left: 60%; }
+.ai-hero .hero-fw.fw3 { top: 32%; left: 76%; }
+.ai-hero .hero-fw.fw4 { top: 40%; left: 90%; }
+/* Konfetti-Regen entfernt (rotierte unruhig, wirkte „too much"); die
+   Logo-Popper liefern weiterhin Konfetti-Bursts. */
+.hero-confetti { display: none; }
 
 /* Popper-Layout: genau ZWEI — groß oben links, unten rechts (wie gewünscht) */
 .ai-popper.pop-1 {
@@ -16585,7 +16595,8 @@ body.dark-mode .ai-nightsky {
 @media (max-width: 640px) {
   .ai-popper.pop-1 { --pp-size: 40px; top: 9%; left: 4%; }
   .ai-popper.pop-2 { --pp-size: 34px; bottom: 6%; right: 4%; }
-  .ai-hero .hero-fw.fw3 { display: none; }
+  /* Mobile: nur 2 Raketen (fw1 links, fw2 mitte) — ruhiger */
+  .ai-hero .hero-fw.fw3, .ai-hero .hero-fw.fw4 { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   body.dark-mode .ai-nightsky { animation: none; }
