@@ -1484,19 +1484,21 @@ body.dark-mode .eb-qa-action {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* Lametta hängt oben fest und flattert unten sanft seitlich (Skew statt
-   Pivot-Rotation — vorher „drehte" es sich unnatürlich). --sw = Amplitude. */
-.ai-streamer.st-1 { left: 12%; color: #FF385C; height: 200px; --sw: 7px;  --sk: 3deg;   animation-delay: 0s;    animation-duration: 8s; }
-.ai-streamer.st-2 { left: 32%; color: #a855f7; height: 150px; --sw: -5px; --sk: -2.5deg; animation-delay: -1.2s; animation-duration: 6.5s; }
-.ai-streamer.st-3 { right: 24%; color: #00A699; height: 170px; --sw: 6px;  --sk: 2.5deg;  animation-delay: -2.4s; animation-duration: 7.5s; }
-.ai-streamer.st-4 { right: 6%;  color: #E31C5F; height: 140px; --sw: -6px; --sk: -3deg;   animation-delay: -3.6s; animation-duration: 9s; }
-.ai-streamer.st-5 { left: 48%; color: #a855f7; height: 110px; --sw: 4px;  --sk: 2deg;    opacity: 0.16; animation-delay: -4.8s; animation-duration: 10s; }
-body.dark-mode .ai-streamer { opacity: 0.3; }
-body.dark-mode .ai-streamer.st-5 { opacity: 0.2; }
+/* Lametta hängt still von oben und WIEGT nur sanft vertikal + schimmert —
+   KEINE Skew/Rotation mehr (die erzeugte die kreisförmige Bewegung).
+   Bewusst wenige, dezente Stränge (vorher „zu viel"). */
+.ai-streamer.st-1 { left: 14%; color: #FF385C; height: 190px; animation-delay: 0s;    animation-duration: 9s; }
+.ai-streamer.st-2 { right: 16%; color: #a855f7; height: 160px; animation-delay: -2.5s; animation-duration: 10.5s; }
+.ai-streamer.st-3 { right: 40%; color: #00A699; height: 120px; opacity: 0.14; animation-delay: -4s; animation-duration: 12s; }
+.ai-streamer.st-4,
+.ai-streamer.st-5 { display: none; }
+.ai-streamer { opacity: 0.16; }
+body.dark-mode .ai-streamer { opacity: 0.24; }
+body.dark-mode .ai-streamer.st-3 { opacity: 0.16; }
 
 @keyframes aiStreamerSway {
-  0%, 100% { transform: translateX(0) skewX(0deg); }
-  50%      { transform: translateX(var(--sw, 6px)) skewX(var(--sk, 3deg)); }
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(4px); }
 }
 
 /* Funken / Feuerwerk - winzige Lichtpunkte, sanftes Pulsieren */
@@ -1543,12 +1545,12 @@ body.dark-mode .ai-streamer.st-5 { opacity: 0.2; }
 body.dark-mode .ai-spark { filter: blur(0.2px) brightness(1.1); }
 
 @media (max-width: 640px) {
-  /* Auf Mobile schlanker halten */
+  /* Auf Mobile nur EIN dezenter Strang — sonst wirkt es überladen */
   .ai-streamer.st-2,
-  .ai-streamer.st-5,
+  .ai-streamer.st-3,
   .ai-spark.sp-7,
   .ai-spark.sp-8 { display: none; }
-  .ai-streamer { opacity: 0.16; }
+  .ai-streamer { opacity: 0.14; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ai-streamer,
