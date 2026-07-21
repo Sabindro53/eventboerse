@@ -657,8 +657,10 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 /* ======== QA SUPPORT BOT ======== */
 .eb-qa-bot {
   position: fixed;
-  right: 22px;
-  bottom: calc(var(--mobile-nav-height) + 18px + env(safe-area-inset-bottom, 0px));
+  right: 16px;
+  /* An die Bottom-Navbar angedockt: der Roboter „sitzt" mit den Füßen auf
+     der Bar-Oberkante (leichter Überlapp), statt frei darüber zu schweben. */
+  bottom: calc(var(--mobile-nav-height) - 8px + env(safe-area-inset-bottom, 0px));
   z-index: 1200;
   display: flex;
   flex-direction: column;
@@ -1029,8 +1031,8 @@ body.dark-mode .eb-qa-action {
 }
 @media (max-width: 640px) {
   .eb-qa-bot {
-    right: 12px;
-    bottom: calc(var(--mobile-nav-height) + 12px + env(safe-area-inset-bottom, 0px));
+    right: 8px;
+    bottom: calc(var(--mobile-nav-height) - 6px + env(safe-area-inset-bottom, 0px));
   }
   .eb-qa-launcher {
     min-width: 56px;
