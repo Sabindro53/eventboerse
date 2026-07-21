@@ -1484,17 +1484,19 @@ body.dark-mode .eb-qa-action {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.ai-streamer.st-1 { left: 12%; color: #FF385C; height: 200px; animation-delay: 0s;   animation-duration: 8s; }
-.ai-streamer.st-2 { left: 32%; color: #a855f7; height: 150px; animation-delay: -1.2s; animation-duration: 6.5s; }
-.ai-streamer.st-3 { right: 24%; color: #00A699; height: 170px; animation-delay: -2.4s; animation-duration: 7.5s; }
-.ai-streamer.st-4 { right: 6%;  color: #E31C5F; height: 140px; animation-delay: -3.6s; animation-duration: 9s; }
-.ai-streamer.st-5 { left: 48%; color: #a855f7; height: 110px; opacity: 0.16; animation-delay: -4.8s; animation-duration: 10s; }
-body.dark-mode .ai-streamer { opacity: 0.18; }
-body.dark-mode .ai-streamer.st-5 { opacity: 0.12; }
+/* Lametta hängt oben fest und flattert unten sanft seitlich (Skew statt
+   Pivot-Rotation — vorher „drehte" es sich unnatürlich). --sw = Amplitude. */
+.ai-streamer.st-1 { left: 12%; color: #FF385C; height: 200px; --sw: 7px;  --sk: 3deg;   animation-delay: 0s;    animation-duration: 8s; }
+.ai-streamer.st-2 { left: 32%; color: #a855f7; height: 150px; --sw: -5px; --sk: -2.5deg; animation-delay: -1.2s; animation-duration: 6.5s; }
+.ai-streamer.st-3 { right: 24%; color: #00A699; height: 170px; --sw: 6px;  --sk: 2.5deg;  animation-delay: -2.4s; animation-duration: 7.5s; }
+.ai-streamer.st-4 { right: 6%;  color: #E31C5F; height: 140px; --sw: -6px; --sk: -3deg;   animation-delay: -3.6s; animation-duration: 9s; }
+.ai-streamer.st-5 { left: 48%; color: #a855f7; height: 110px; --sw: 4px;  --sk: 2deg;    opacity: 0.16; animation-delay: -4.8s; animation-duration: 10s; }
+body.dark-mode .ai-streamer { opacity: 0.3; }
+body.dark-mode .ai-streamer.st-5 { opacity: 0.2; }
 
 @keyframes aiStreamerSway {
-  0%, 100% { transform: rotate(-2.5deg) translateY(0); }
-  50%      { transform: rotate( 3deg)  translateY(4px); }
+  0%, 100% { transform: translateX(0) skewX(0deg); }
+  50%      { transform: translateX(var(--sw, 6px)) skewX(var(--sk, 3deg)); }
 }
 
 /* Funken / Feuerwerk - winzige Lichtpunkte, sanftes Pulsieren */
@@ -16407,8 +16409,36 @@ body.dark-mode .hero.hero-night .hero-content {
 /* ── FX-Ebene ── */
 .hero-fx { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 
-/* Feuerwerk: Punkt steigt auf und zerplatzt in einen Partikel-Ring */
-.hero-fw { position: absolute; width: 6px; height: 6px; border-radius: 50%; }
+/* Feuerwerk: gestrichelter Streifen steigt von unten auf → BOOM (Partikel-Ring).
+   .hero-fw sitzt am Explosionspunkt; ::after = Aufstieg, ::before = Ring.
+   Beide teilen Dauer + Delay, damit der Ring genau beim Ankommen zündet. */
+.hero-fw { position: absolute; width: 6px; height: 6px; --fw-dur: 4.4s; }
+
+/* Aufstieg — dünner gestrichelter Streifen von unten nach oben */
+.hero-fw::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 0;
+  width: 3px; height: 48px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(to bottom,
+    currentColor 0 5px, transparent 5px 11px);
+  filter: drop-shadow(0 0 4px currentColor);
+  transform: translate(-50%, 132px) scaleY(0.5);
+  opacity: 0;
+  animation: heroFwRise var(--fw-dur) cubic-bezier(.25,.6,.3,1) infinite;
+  animation-delay: var(--fw-delay, 0s);
+  will-change: transform, opacity;
+}
+@keyframes heroFwRise {
+  0%   { transform: translate(-50%, 132px) scaleY(0.45); opacity: 0; }
+  4%   { opacity: 1; }
+  19%  { transform: translate(-50%, 6px)   scaleY(1);    opacity: 1; }
+  24%  { transform: translate(-50%, -10px) scaleY(0.6);  opacity: 0; }
+  100% { transform: translate(-50%, -10px) scaleY(0.6);  opacity: 0; }
+}
+
+/* BOOM — Partikel-Ring, zündet exakt am Ende des Aufstiegs (~23 %) */
 .hero-fw::before {
   content: '';
   position: absolute; inset: 0; border-radius: 50%;
@@ -16421,20 +16451,22 @@ body.dark-mode .hero.hero-night .hero-content {
     14px 0 0 -2px currentColor,   10px 10px 0 -2.5px currentColor,
     0 14px 0 -2px currentColor,   -10px 10px 0 -2.5px currentColor,
     -14px 0 0 -2px currentColor,  -10px -10px 0 -2.5px currentColor;
-  animation: heroFwBurst 3.6s ease-out infinite;
+  transform: scale(0.1);
+  opacity: 0;
+  animation: heroFwBurst var(--fw-dur) ease-out infinite;
+  animation-delay: var(--fw-delay, 0s);
+  will-change: transform, opacity;
 }
-.hero-fw.fw1 { top: 24%; left: 14%; color: #ff5c7c; }
-.hero-fw.fw2 { top: 16%; left: 78%; color: #c084fc; }
-.hero-fw.fw2::before { animation-delay: 1.2s; }
-.hero-fw.fw3 { top: 58%; left: 88%; color: #fbbf24; }
-.hero-fw.fw3::before { animation-delay: 2.4s; }
 @keyframes heroFwBurst {
-  0%   { transform: scale(0.1); opacity: 0; }
-  8%   { opacity: 1; }
-  45%  { transform: scale(1); opacity: 0.9; }
-  70%  { transform: scale(1.25); opacity: 0; }
-  100% { transform: scale(1.25); opacity: 0; }
+  0%, 21% { transform: scale(0.1);  opacity: 0; }
+  24%     { transform: scale(0.4);  opacity: 1; }
+  46%     { transform: scale(1.1);  opacity: 0.95; }
+  62%     { transform: scale(1.4);  opacity: 0; }
+  100%    { transform: scale(1.4);  opacity: 0; }
 }
+.hero-fw.fw1 { top: 30%; left: 14%; color: #ff5c7c; --fw-delay: 0s; }
+.hero-fw.fw2 { top: 20%; left: 76%; color: #c084fc; --fw-delay: 1.6s; }
+.hero-fw.fw3 { top: 46%; left: 90%; color: #fbbf24; --fw-delay: 3.0s; }
 
 /* Konfetti: fallende Farbpunkte über box-shadow verteilt */
 .hero-confetti { position: absolute; top: -12px; left: 0; width: 6px; height: 10px; border-radius: 2px; opacity: 0.85; }
@@ -16489,9 +16521,10 @@ body.dark-mode .hero.hero-night .hero-content {
 
 /* Ruhe-Modus: alles statisch */
 @media (prefers-reduced-motion: reduce) {
-  .hero-fw::before, .hero-confetti, .hero-confetti::before, .hero-confetti::after,
+  .hero-fw::before, .hero-fw::after, .hero-confetti, .hero-confetti::before, .hero-confetti::after,
   .hero-popper, .hero.hero-night .hero-bg::after { animation: none; }
-  .hero-confetti, .hero-confetti::before, .hero-confetti::after { display: none; }
+  .hero-confetti, .hero-confetti::before, .hero-confetti::after, .hero-fw::after { display: none; }
+  .hero-fw::before { opacity: 0.5; transform: scale(1); }
 }
 @media (max-width: 720px) {
   .hero-fw.fw3 { display: none; }
@@ -16529,10 +16562,11 @@ body.dark-mode .ai-nightsky {
   animation: heroStars 6s ease-in-out infinite alternate;
 }
 
-/* Feuerwerk-Positionen im Such-Hero (Klassen aus dem Home-Hero wiederverwendet) */
-.ai-hero .hero-fw.fw1 { top: 30%; left: 12%; }
-.ai-hero .hero-fw.fw2 { top: 18%; left: 72%; }
-.ai-hero .hero-fw.fw3 { top: 64%; left: 90%; }
+/* Feuerwerk-Positionen im Such-Hero (Klassen aus dem Home-Hero wiederverwendet).
+   Explosionspunkte im oberen Drittel, damit der Aufstieg darunter Platz hat. */
+.ai-hero .hero-fw.fw1 { top: 34%; left: 12%; }
+.ai-hero .hero-fw.fw2 { top: 22%; left: 74%; }
+.ai-hero .hero-fw.fw3 { top: 40%; left: 90%; }
 
 /* Popper-Layout: genau ZWEI — groß oben links, unten rechts (wie gewünscht) */
 .ai-popper.pop-1 {
