@@ -4,13 +4,6 @@
 
 ## Offen
 
-### [ADMIN] Moderationsrouten im Vault vs. Code abgleichen
-**Gefunden:** 2026-06-06
-**Betrifft:** Admin-Moderation, `functions.php`, Vault-Doku
-**Symptom:** Ältere Vault-Notizen dokumentieren `/admin/listings/{id}/hide` und `/my-listing-moderation`; aktueller Code registriert diese REST-Routen nicht.
-**Reproduzieren:** `rg -n "admin/listings|my-listing-moderation" functions.php` liefert keine Route.
-**Status:** offen (P0/P1 prüfen, weil Admin-Ausblenden/Löschen produktrelevant ist)
-
 ### [PAYMENTS] Stripe Connect E2E noch nicht vollständig verifiziert
 **Gefunden:** 2026-06-06
 **Betrifft:** Stripe Connect, Payment Intent, Webhook/Reconcile
@@ -24,6 +17,13 @@
 **Status:** offen (P1)
 
 ## Behoben
+
+### [ADMIN] Moderationsrouten im Vault vs. Code abgleichen
+**Gefunden:** 2026-06-06
+**Betrifft:** Admin-Moderation, `functions.php`, Vault-Doku
+**Symptom:** Ältere Vault-Notizen dokumentierten `/admin/listings/{id}/hide` und `/my-listing-moderation`; der Code registriert diese Routen nicht (mehr).
+**Fix:** Admin-Bildmoderation wurde 2026-06-26 anders umgesetzt und ist live: `POST /admin/moderate-image` (functions.php:3335) entfernt Bilder aus Galerie + Listings; persistente Blocklist (`eb_demo_image_blocklist`) greift auch für Demo-Listings. Frontend: `adminDeleteListingImage` (Detailseite) + `adminDeleteProfileImage` (Provider-Portfolio/Lightbox). Alte Route-Namen sind damit erledigt — Vault-Notizen aktualisiert.
+**Status:** gefixt (2026-06-26)
 
 ### [SECURITY] `/admin/init` erlaubte jedem eingeloggten Nutzer Admin-Reset
 **Gefunden:** 2026-06-20

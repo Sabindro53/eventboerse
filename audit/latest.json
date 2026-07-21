@@ -1,12 +1,12 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-07-19T12:25:32Z",
-  "commit": "3c58c41",
+  "generatedAt": "2026-07-21T11:09:22Z",
+  "commit": "bfb4f40",
   "counts": {
-    "total": 7,
+    "total": 5,
     "error": 0,
-    "warn": 2,
-    "info": 4,
+    "warn": 1,
+    "info": 3,
     "ok": 1
   },
   "findings": [
@@ -21,25 +21,15 @@
       "evidence": null
     },
     {
-      "id": "route-admin-mod-missing",
-      "title": "Admin-Moderationsrouten im Vault dokumentiert, aber nicht im Code",
-      "area": "backend",
-      "severity": "warn",
-      "status": "open",
-      "detail": "`/admin/listings/{id}/hide` und `/my-listing-moderation` werden im Vault erwähnt, fehlen aber in functions.php.",
-      "suggestion": "Entweder die Routen wiederherstellen oder die Vault-Notiz korrigieren.",
-      "evidence": null
-    },
-    {
       "id": "size-app.js-watch",
-      "title": "app.js wächst (23055 Zeilen)",
+      "title": "app.js wächst (23094 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 23055,
+        "lines": 23094,
         "threshold": 20000
       }
     },
@@ -58,27 +48,15 @@
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (16343 Zeilen)",
+      "title": "styles.css wächst (16604 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 16343,
+        "lines": 16604,
         "threshold": 12000
-      }
-    },
-    {
-      "id": "console-noise",
-      "title": "17 console.*-Aufrufe in app.js",
-      "area": "cleanup",
-      "severity": "info",
-      "status": "open",
-      "detail": "Aufrufe landen in der Browser-Konsole der Nutzer. Für Production wäre ein Debug-Flag sauberer.",
-      "suggestion": "Kosmetik: console-Aufrufe hinter einen `EB_DEBUG`-Flag stellen oder in production strippen.",
-      "evidence": {
-        "count": 17
       }
     },
     {

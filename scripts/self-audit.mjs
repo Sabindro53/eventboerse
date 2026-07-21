@@ -76,10 +76,13 @@ try {
     suggestion: `In Claude-Kontext.md auf „${routes} Route-Registrierungen" aktualisieren.`,
     evidence: { documented, actual: routes },
   });
-  // 3. Vault erwähnt Admin-Moderationsrouten, die im Code fehlen
+  // 3. Vault erwähnt Admin-Moderationsrouten in der OFFEN-Sektion, die im Code fehlen.
+  //    Historische Erwähnungen unter "## Behoben" sind absichtlich als Erinnerung an
+  //    den früheren Bug drin — die dürfen kein neues Warning triggern.
   if (!/admin\/listings|my-listing-moderation/.test(fns)) {
     const bugs = exists('vault/Roadmap/Bekannte-Bugs.md') ? read('vault/Roadmap/Bekannte-Bugs.md') : '';
-    if (/admin\/listings|my-listing-moderation/.test(bugs)) add({
+    const openSection = bugs.split(/^##\s+Behoben/mi)[0]; // nur der offene Teil
+    if (/admin\/listings|my-listing-moderation/.test(openSection)) add({
       id: 'route-admin-mod-missing',
       title: 'Admin-Moderationsrouten im Vault dokumentiert, aber nicht im Code',
       area: 'backend',
