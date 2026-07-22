@@ -1346,6 +1346,9 @@
         <button class="back-btn" onclick="history.back()">
           <span class="material-icons-round">arrow_back</span> Zurück
         </button>
+        <div class="detail-gallery" id="detailGallery">
+          <!-- Images loaded by JS -->
+        </div>
         <div class="detail-hero-img" id="detailHeroImg"></div>
         <div class="detail-header">
           <div class="detail-badge" id="detailCategory">DJ & Musik</div>
@@ -1370,9 +1373,6 @@
           </div>
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
           <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
-        </div>
-        <div class="detail-gallery" id="detailGallery">
-          <!-- Images loaded by JS -->
         </div>
         <div class="detail-layout">
           <div class="detail-main">

@@ -4030,10 +4030,13 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   border-radius: var(--radius-lg);
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  max-height: 560px;
-  margin-bottom: 32px;
+  /* Bild kompakt halten, damit es ohne Scrollen komplett sichtbar ist:
+     auf hohen Bildschirmen moderat gedeckelt, auf niedrigen an die
+     Fensterhöhe gekoppelt (max. ~42% der sichtbaren Höhe). */
+  max-height: min(380px, 42vh);
+  margin-bottom: 24px;
   width: 100%;
-  max-width: 100%;
+  max-width: 640px;
   left: auto;
   transform: none;
   margin-left: 0;
