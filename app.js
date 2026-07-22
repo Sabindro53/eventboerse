@@ -20266,29 +20266,25 @@ function _listingTs(l) {
   return isNaN(t) ? 0 : t;
 }
 
-// Gemeinsame, pro Browser persistierte Basiszeit für ALLE Demo-Inhalte
-// (Inserate + Social-Posts). Dadurch zeigt jeder Beitrag einen FESTEN,
-// KONSTANTEN Erstellzeitpunkt, der über Reloads hinweg stabil bleibt und
-// natürlich altert – statt bei jedem Laden zurückzuspringen.
-function _ebDemoBase() {
-  var base = parseInt(localStorage.getItem('eb_demo_listing_base') || '', 10);
-  if (!base || isNaN(base)) { base = Date.now(); localStorage.setItem('eb_demo_listing_base', String(base)); }
-  return base;
-}
+// Fester, KONSTANTER Anker für alle Demo-/Seed-Erstellzeiten (KEIN Date.now!).
+// Demo-Inhalte sind KEINE frisch geposteten Beiträge – sie bekommen daher feste,
+// ältere Erstelldaten (Wochen zurück). Dadurch ist der angezeigte Zeitpunkt
+// konstant UND ehrlich: nichts erscheint fälschlich als „gerade eben"/„gestern".
+// Echte Nutzerbeiträge (DB / selbst erstellt) behalten ihren realen Zeitpunkt.
+var EB_DEMO_ANCHOR_MS = Date.parse('2026-07-20T10:00:00Z');
+function _ebDemoBase() { return EB_DEMO_ANCHOR_MS; }
 
-// Demo-Inserate: stabile Erstellzeit pro Browser (persistiert), damit die
-// Feed-Zeiten KONSTANT bleiben und natürlich altern, statt bei jedem Reload
-// zu springen oder leer zu sein. Höhere id = neuer. Echte DB-Inserate
-// bekommen ihr createdAt (UTC) vom Server.
+// Demo-Inserate: feste Erstelldaten (Wochen zurück, höhere id = neuer).
+// Echte DB-Inserate (_fromDb) behalten ihr createdAt (UTC) vom Server.
 (function _assignDemoListingTimes() {
   try {
     if (typeof LISTINGS === 'undefined' || !Array.isArray(LISTINGS)) return;
-    var base = _ebDemoBase();
     LISTINGS.forEach(function(l) {
-      if (!l || l._fromDb || l.createdAt) return;
-      var hoursAgo = (16 - (parseInt(l.id, 10) || 1)) * 6; // id 15→6h … id 1→90h
-      if (hoursAgo < 1) hoursAgo = 1;
-      l.createdAt = new Date(base - hoursAgo * 3600000).toISOString();
+      if (!l || l._fromDb) return;
+      var id = parseInt(l.id, 10) || 1;
+      var daysAgo = 12 + (15 - id) * 4; // id15→12T … id11→28T … id1→68T
+      if (daysAgo < 10) daysAgo = 10;
+      l.createdAt = new Date(EB_DEMO_ANCHOR_MS - daysAgo * 86400000).toISOString();
     });
   } catch (e) {}
 })();
@@ -20304,6 +20300,21 @@ var _socialPosts = (function() {
     stored = _generateDemoSocialPosts().map(function(p) { p._isDemo = true; return p; });
   }
   return stored;
+})();
+
+// Bestehende (evtl. veraltete) Demo-Post-Zeiten auf die festen Anker-Zeiten
+// bringen – ohne echte Nutzerbeiträge anzufassen. So zeigen auch Browser mit
+// altem localStorage-Stand sofort die korrekten, konstanten Erstellzeiten.
+(function _syncDemoPostTimes() {
+  try {
+    var tpl = {};
+    _generateDemoSocialPosts().forEach(function(p) { tpl[p.id] = p.time; });
+    var changed = false;
+    _socialPosts.forEach(function(p) {
+      if (p && p._isDemo && tpl[p.id] && p.time !== tpl[p.id]) { p.time = tpl[p.id]; changed = true; }
+    });
+    if (changed) { try { localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {} }
+  } catch (e) {}
 })();
 
 // Filter Bot-/Demo-Beiträge aus dem Feed, wenn EB_HIDE_DEMO aktiv ist.
@@ -20335,7 +20346,7 @@ function _generateDemoSocialPosts() {
       budget: 'bis 800€',
       content: 'Wir suchen einen erfahrenen DJ für unsere Hochzeit! Circa 120 Gäste, Mix aus Charts, 80er und ein bisschen Techno zum Schluss. Eigene Anlage sollte vorhanden sein. #Hochzeit #DJ #Berlin',
       image: null,
-      time: new Date(base - 1800000).toISOString(),
+      time: new Date(base - 14 * 86400000).toISOString(),
       likes: 12,
       comments: 5,
       metAt: null
@@ -20353,7 +20364,7 @@ function _generateDemoSocialPosts() {
       budget: 'ab 400€',
       content: 'Professioneller Event-DJ mit 8 Jahren Erfahrung sucht neue Aufträge! Hochzeiten, Firmenevents, Geburtstage. Eigene PA-Anlage & Lichtshow. #DJLife #EventDJ #Hamburg',
       image: 'https://images.pexels.com/photos/32589034/pexels-photo-32589034.jpeg?auto=compress&cs=tinysrgb&w=600',
-      time: new Date(base - 7200000).toISOString(),
+      time: new Date(base - 18 * 86400000).toISOString(),
       likes: 83,
       comments: 7,
       metAt: null
@@ -20366,7 +20377,7 @@ function _generateDemoSocialPosts() {
       avatar: ebAvatar('sophia', 'Sophia'),
       content: 'Durch die Firmenfeier mit Top Catering wirklich tolle Menschen kennengelernt. Das Essen war phantastisch! #Catering #Firmenevent',
       image: 'https://images.pexels.com/photos/2291367/pexels-photo-2291367.jpeg?auto=compress&cs=tinysrgb&w=600',
-      time: new Date(base - 86400000).toISOString(),
+      time: new Date(base - 23 * 86400000).toISOString(),
       likes: 31,
       comments: 4,
       metAt: { eventName: 'Sommerfest Tech GmbH', date: '2026-06-20' }
@@ -20384,7 +20395,7 @@ function _generateDemoSocialPosts() {
       budget: 'Verhandlungsbasis',
       content: 'Wir suchen einen Fotografen für unser Firmen-Sommerfest (ca. 200 Mitarbeiter). Mindestens 4 Stunden, am besten mit Erfahrung bei Firmenevents. Gerne Portfolio mitschicken! #Fotografie #Firmenevent #München',
       image: null,
-      time: new Date(base - 172800000).toISOString(),
+      time: new Date(base - 30 * 86400000).toISOString(),
       likes: 24,
       comments: 9,
       metAt: null
@@ -20397,7 +20408,7 @@ function _generateDemoSocialPosts() {
       avatar: ebAvatar('blumen', 'Blumen'),
       content: 'Neue Kollektion Frühjahr/Sommer! Exklusive Tischdekoration und Brautsträuße für euren unvergesslichen Tag. Jetzt anfragen! #Floristik #Hochzeit #Dekoration',
       image: 'https://images.pexels.com/photos/1045541/pexels-photo-1045541.jpeg?auto=compress&cs=tinysrgb&w=600',
-      time: new Date(base - 259200000).toISOString(),
+      time: new Date(base - 38 * 86400000).toISOString(),
       likes: 56,
       comments: 8,
       metAt: null
@@ -20415,7 +20426,7 @@ function _generateDemoSocialPosts() {
       budget: 'ab 25€ p.P.',
       content: 'Wir haben noch freie Kapazitäten für Sommer-Events! Buffets, Flying Dinner, BBQ – alles möglich. Bio & regional. Gerne auch größere Events ab 50 Personen. #Catering #Sommer #Events',
       image: null,
-      time: new Date(base - 345600000).toISOString(),
+      time: new Date(base - 48 * 86400000).toISOString(),
       likes: 38,
       comments: 11,
       metAt: null
@@ -20757,22 +20768,40 @@ var _postComments = (function() {
   try { return JSON.parse(localStorage.getItem('eb_post_comments') || 'null') || _seedDemoComments(); }
   catch (e) { return _seedDemoComments(); }
 })();
-function _seedDemoComments() {
-  // Ein paar Beispiel-Kommentare, damit der Feed nicht leer wirkt (persistiert).
-  // Zeiten aus der persistierten Demo-Basis → konstant über Reloads.
+function _demoCommentSeed() {
+  // Feste Demo-Kommentare mit KONSTANTEN Zeiten (kurz nach dem jeweiligen Post),
+  // abgeleitet vom festen Demo-Anker – niemals „gerade eben"/„gestern".
   var base = _ebDemoBase();
-  var seed = {
+  return {
     sp1: [
-      { id: 'cd1', author: 'DJ Max Beat', avatar: ebAvatar('djmax','DJ Max'), text: 'Klingt super — schicke euch gleich eine Anfrage! 🎧', time: new Date(base - 1500000).toISOString() },
-      { id: 'cd2', author: 'Lena K.', avatar: ebAvatar('lena','Lena'), text: 'Viel Erfolg bei der Suche, wird bestimmt eine tolle Feier!', time: new Date(base - 900000).toISOString() }
+      { id: 'cd1', author: 'DJ Max Beat', avatar: ebAvatar('djmax','DJ Max'), text: 'Klingt super — schicke euch gleich eine Anfrage! 🎧', time: new Date(base - 14 * 86400000 + 6 * 3600000).toISOString() },
+      { id: 'cd2', author: 'Lena K.', avatar: ebAvatar('lena','Lena'), text: 'Viel Erfolg bei der Suche, wird bestimmt eine tolle Feier!', time: new Date(base - 14 * 86400000 + 20 * 3600000).toISOString() }
     ],
     sp2: [
-      { id: 'cd3', author: 'Julia & Mark', avatar: ebAvatar('julia','Julia'), text: 'Genau sowas suchen wir! Melden uns 😊', time: new Date(base - 600000).toISOString() }
+      { id: 'cd3', author: 'Julia & Mark', avatar: ebAvatar('julia','Julia'), text: 'Genau sowas suchen wir! Melden uns 😊', time: new Date(base - 18 * 86400000 + 5 * 3600000).toISOString() }
     ]
   };
+}
+function _seedDemoComments() {
+  var seed = _demoCommentSeed();
   try { localStorage.setItem('eb_post_comments', JSON.stringify(seed)); } catch (e) {}
   return seed;
 }
+// Bestehende (evtl. veraltete) Demo-Kommentar-Zeiten auf die festen Anker-Zeiten
+// bringen – ohne echte Nutzer-Kommentare zu verändern.
+(function _syncDemoCommentTimes() {
+  try {
+    var tpl = {}, seed = _demoCommentSeed();
+    Object.keys(seed).forEach(function(pid) { seed[pid].forEach(function(c) { tpl[c.id] = c.time; }); });
+    var changed = false;
+    Object.keys(_postComments || {}).forEach(function(pid) {
+      (_postComments[pid] || []).forEach(function(c) {
+        if (c && tpl[c.id] && c.time !== tpl[c.id]) { c.time = tpl[c.id]; changed = true; }
+      });
+    });
+    if (changed && typeof _savePostComments === 'function') _savePostComments();
+  } catch (e) {}
+})();
 function _savePostComments() {
   try { localStorage.setItem('eb_post_comments', JSON.stringify(_postComments)); } catch (e) {}
 }
