@@ -12802,24 +12802,25 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 .feed-content-layout {
   display: flex;
   flex-direction: column;
-  max-width: 1100px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 24px 20px;
   width: 100%;
 }
 .feed-top {
   max-width: 620px;
+  margin: 0 auto;
 }
 .feed-body {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 620px) minmax(0, 1fr);
   gap: 0;
   align-items: flex-start;
   width: 100%;
 }
 .feed-main {
-  flex: 1;
+  grid-column: 2;
   min-width: 0;
-  max-width: 620px;
 }
 .feed-header {
   display: flex;
@@ -13334,7 +13335,8 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
 
 /* Feed Sidebar */
 .feed-sidebar {
-  flex: 0 0 280px;
+  grid-column: 3;
+  width: 280px;
   margin-left: 28px;
   display: flex;
   flex-direction: column;
@@ -13593,9 +13595,9 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
 /* ======== RESPONSIVE: SOCIAL FEED ======== */
 @media (max-width: 900px) {
   .feed-sidebar { display: none; }
-  .feed-body { flex-direction: column; }
+  .feed-body { grid-template-columns: minmax(0, 1fr); }
   .feed-top { max-width: 100%; }
-  .feed-main { max-width: 100%; }
+  .feed-main { grid-column: 1; max-width: 100%; }
 }
 @media (max-width: 768px) {
   .feed-content-layout { padding: 16px 14px; }
