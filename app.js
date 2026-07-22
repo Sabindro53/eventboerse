@@ -20397,6 +20397,109 @@ function _generateDemoSocialPosts() {
   ];
 }
 
+// ========== FEED: STANDORT / „In deiner Nähe" ==========
+var _feedNearby = false;        // Standort-Sortierung aktiv?
+var _feedUserCoords = null;     // { lat, lng } des Nutzers
+var _feedUserCity = null;       // nächste bekannte Stadt
+var _feedLocating = false;      // Standortabfrage läuft?
+
+// Nächstgelegene bekannte Stadt zu Koordinaten finden.
+function _nearestCity(lat, lng) {
+  var best = null, bestD = Infinity;
+  Object.keys(CITY_PROXIMITY).forEach(function(c) {
+    var p = CITY_PROXIMITY[c];
+    var d = haversineKm(lat, lng, p.lat, p.lng);
+    if (d < bestD) { bestD = d; best = c; }
+  });
+  return best ? { city: best, km: bestD } : null;
+}
+
+// Entfernung eines Feed-Eintrags (Listing/Post) zum Nutzer-Standort in km.
+// Erkennt Städtenamen auch in Freitext-Orten („Hamburg & Umgebung").
+function _feedItemKm(loc) {
+  if (!_feedUserCoords || !loc) return null;
+  var city = CITY_PROXIMITY[loc] ? loc : (typeof _ebDetectCityInText === 'function' ? _ebDetectCityInText(loc) : '');
+  var p = city ? CITY_PROXIMITY[city] : null;
+  if (!p) return null;
+  return haversineKm(_feedUserCoords.lat, _feedUserCoords.lng, p.lat, p.lng);
+}
+
+// Array nach Nähe zum Nutzer sortieren (stabil, unbekannte Orte ans Ende).
+function _sortByNearby(arr, getLoc) {
+  return arr.slice().map(function(it, i) {
+    return { it: it, i: i, km: _feedItemKm(getLoc(it)) };
+  }).sort(function(a, b) {
+    var ak = (a.km == null) ? Infinity : a.km;
+    var bk = (b.km == null) ? Infinity : b.km;
+    return (ak - bk) || (a.i - b.i);
+  }).map(function(x) { return x.it; });
+}
+
+// Badge-Zustand aktualisieren: 'idle' | 'loading' | 'active'.
+function _setFeedNearbyUI(state) {
+  var badge = document.getElementById('feedLocationBadge');
+  var txt = document.getElementById('feedLocationText');
+  if (!badge || !txt) return;
+  var icon = badge.querySelector('.material-icons-round');
+  badge.classList.remove('active', 'loading');
+  if (state === 'loading') {
+    badge.classList.add('loading');
+    txt.textContent = 'Standort…';
+    if (icon) icon.textContent = 'my_location';
+    badge.setAttribute('aria-pressed', 'false');
+  } else if (state === 'active') {
+    badge.classList.add('active');
+    txt.textContent = _feedUserCity ? ('In der Nähe · ' + _feedUserCity) : 'In deiner Nähe';
+    if (icon) icon.textContent = 'my_location';
+    badge.setAttribute('aria-pressed', 'true');
+  } else {
+    txt.textContent = 'In deiner Nähe';
+    if (icon) icon.textContent = 'location_on';
+    badge.setAttribute('aria-pressed', 'false');
+  }
+}
+
+// Aktuell aktiven Feed-Tab neu rendern (Standort-Sortierung greift automatisch).
+function _rerenderCurrentFeed() {
+  var activeTab = document.querySelector('#page-aktuelles .feed-tab.active');
+  var tab = (activeTab && activeTab.dataset.feed) ? activeTab.dataset.feed : 'foryou';
+  renderFeed(tab);
+}
+
+// Standort-Button umschalten: an → Standort abfragen & Feed nach Nähe sortieren.
+function toggleFeedNearby() {
+  if (_feedNearby) {
+    _feedNearby = false;
+    _feedUserCoords = null;
+    _feedUserCity = null;
+    _setFeedNearbyUI('idle');
+    _rerenderCurrentFeed();
+    return;
+  }
+  if (!navigator.geolocation) {
+    showToast('Standort wird von deinem Browser nicht unterstützt.', 'error_outline');
+    return;
+  }
+  if (_feedLocating) return;
+  _feedLocating = true;
+  _setFeedNearbyUI('loading');
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    _feedLocating = false;
+    _feedUserCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    var near = _nearestCity(_feedUserCoords.lat, _feedUserCoords.lng);
+    _feedUserCity = near ? near.city : null;
+    _feedNearby = true;
+    _setFeedNearbyUI('active');
+    _rerenderCurrentFeed();
+    showToast('Feed nach deinem Standort sortiert' + (_feedUserCity ? ' · ' + _feedUserCity : ''), 'my_location');
+  }, function(err) {
+    _feedLocating = false;
+    _setFeedNearbyUI('idle');
+    var denied = err && err.code === 1;
+    showToast(denied ? 'Standort-Zugriff abgelehnt. Bitte im Browser erlauben.' : 'Standort konnte nicht ermittelt werden.', 'error_outline');
+  }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+}
+
 function renderFeed(tab) {
   var list = document.getElementById('feedList');
   if (!list) return;
@@ -20405,9 +20508,11 @@ function renderFeed(tab) {
 
   // Bot-/Demo-Beiträge automatisch ausblenden, wenn EB_HIDE_DEMO aktiv ist.
   var visiblePosts = _visibleSocialPosts();
+  var nearby = _feedNearby && !!_feedUserCoords;
 
   if (tab === 'events') {
     var eventPosts = visiblePosts.filter(function(p) { return p.type === 'event' || p.type === 'ankuendigung'; });
+    if (nearby) eventPosts = _sortByNearby(eventPosts, function(p) { return p.location; });
     list.innerHTML = eventPosts.length ? eventPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
       '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Events oder Ankündigungen</div>';
     return;
@@ -20415,6 +20520,7 @@ function renderFeed(tab) {
 
   if (tab === 'gesuche') {
     var searchPosts = visiblePosts.filter(function(p) { return p.type === 'suche-dienstleister' || p.type === 'suche-events'; });
+    if (nearby) searchPosts = _sortByNearby(searchPosts, function(p) { return p.location; });
     list.innerHTML = searchPosts.length ? searchPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
       '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Gesuche – erstelle das erste!</div>';
     return;
@@ -20430,17 +20536,21 @@ function renderFeed(tab) {
 
   if (tab === 'newest') {
     // Nach echter Erstellzeit sortieren (nicht id) — dann stimmt die Reihenfolge
-    // mit den angezeigten „vor X"-Zeiten überein.
-    listings = listings.sort(function(a, b) { return (_listingTs(b) - _listingTs(a)) || (b.id - a.id); });
-    var newestPosts = visiblePosts.slice().sort(function(a, b) { return _listingTs(b) - _listingTs(a); });
+    // mit den angezeigten „vor X"-Zeiten überein. Bei aktivem Standort: Nähe zuerst.
+    listings = nearby ? _sortByNearby(listings, function(l) { return l.location; })
+      : listings.sort(function(a, b) { return (_listingTs(b) - _listingTs(a)) || (b.id - a.id); });
+    var newestPosts = nearby ? _sortByNearby(visiblePosts.slice(), function(p) { return p.location; })
+      : visiblePosts.slice().sort(function(a, b) { return _listingTs(b) - _listingTs(a); });
     var allItems = newestPosts.slice(0, 2).map(function(p) { return { _social: true, post: p }; })
       .concat(listings.slice(0, 8).map(function(l) { return { _listing: true, listing: l }; }));
     list.innerHTML = allItems.map(function(item) {
       return item._social ? renderSocialPostCard(item.post) : renderListingFeedCard(item.listing);
     }).join('');
   } else if (tab === 'popular') {
-    listings = listings.sort(function(a, b) { return (b.rating || 0) - (a.rating || 0); });
-    var popPosts = visiblePosts.slice().sort(function(a, b) { return (b.likes || 0) - (a.likes || 0); });
+    listings = nearby ? _sortByNearby(listings, function(l) { return l.location; })
+      : listings.sort(function(a, b) { return (b.rating || 0) - (a.rating || 0); });
+    var popPosts = nearby ? _sortByNearby(visiblePosts.slice(), function(p) { return p.location; })
+      : visiblePosts.slice().sort(function(a, b) { return (b.likes || 0) - (a.likes || 0); });
     var allItems2 = [];
     var li = 0, pi = 0;
     while (li < Math.min(listings.length, 8) || pi < popPosts.length) {
@@ -20453,18 +20563,20 @@ function renderFeed(tab) {
       return item._social ? renderSocialPostCard(item.post) : renderListingFeedCard(item.listing);
     }).join('');
   } else {
-    // foryou — interleaved
-    var shuffled = listings.slice().sort(function() { return Math.random() - 0.5; });
+    // foryou — interleaved. Bei aktivem Standort: nach Nähe statt zufällig.
+    var shuffled = nearby ? _sortByNearby(listings, function(l) { return l.location; })
+      : listings.slice().sort(function() { return Math.random() - 0.5; });
+    var orderedPosts = nearby ? _sortByNearby(visiblePosts, function(p) { return p.location; }) : visiblePosts;
     var mixed = [];
     var sIdx = 0;
     shuffled.slice(0, 8).forEach(function(l, i) {
-      if (i > 0 && i % 2 === 0 && sIdx < visiblePosts.length) {
-        mixed.push(renderSocialPostCard(visiblePosts[sIdx++]));
+      if (i > 0 && i % 2 === 0 && sIdx < orderedPosts.length) {
+        mixed.push(renderSocialPostCard(orderedPosts[sIdx++]));
       }
       mixed.push(renderListingFeedCard(l));
     });
-    while (sIdx < visiblePosts.length) {
-      mixed.push(renderSocialPostCard(visiblePosts[sIdx++]));
+    while (sIdx < orderedPosts.length) {
+      mixed.push(renderSocialPostCard(orderedPosts[sIdx++]));
     }
     list.innerHTML = mixed.join('');
   }

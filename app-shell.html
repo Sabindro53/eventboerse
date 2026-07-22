@@ -606,10 +606,10 @@
             <div class="feed-header">
               <h2 class="feed-title">Aktuelles</h2>
               <div class="feed-header-actions">
-                <div class="feed-location-badge" id="feedLocationBadge">
+                <button type="button" class="feed-location-badge" id="feedLocationBadge" onclick="toggleFeedNearby()" aria-pressed="false" title="Feed nach deinem Standort sortieren">
                   <span class="material-icons-round">location_on</span>
                   <span id="feedLocationText">In deiner Nähe</span>
-                </div>
+                </button>
                 <button class="feed-post-btn" onclick="openCreatePostModal()">
                   <span class="material-icons-round">add_circle</span>
                   Inserat erstellen

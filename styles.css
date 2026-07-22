@@ -3404,10 +3404,38 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   font-size: 0.8rem;
   color: var(--text-light);
   font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.feed-location-badge:hover {
+  border-color: var(--primary);
+  color: var(--dark);
+}
+.feed-location-badge:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255,56,92,0.15);
 }
 .feed-location-badge .material-icons-round {
   font-size: 16px;
   color: var(--primary);
+}
+.feed-location-badge.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.feed-location-badge.active .material-icons-round {
+  color: #fff;
+}
+.feed-location-badge.loading {
+  cursor: progress;
+}
+.feed-location-badge.loading .material-icons-round {
+  animation: fbSpin 0.9s linear infinite;
+}
+@keyframes fbSpin {
+  to { transform: rotate(360deg); }
 }
 .feed-tabs {
   display: flex;
