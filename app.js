@@ -1808,6 +1808,21 @@ function timeAgo(dateStr) {
   return 'vor ' + Math.floor(days / 365) + (Math.floor(days / 365) === 1 ? ' Jahr' : ' Jahren');
 }
 
+// Absoluter Erstellzeitpunkt (deutsches Format) — als Tooltip auf den
+// relativen Zeitangaben, damit der genaue Zeitpunkt der Erstellung sichtbar
+// ist (wie bei Instagram beim Hovern). Robust ggü. MySQL- und ISO-Format.
+function _absTime(dateStr) {
+  if (!dateStr) return '';
+  var s = String(dateStr);
+  var d = new Date(s.replace(' ', 'T') + (s.indexOf('T') !== -1 || s.indexOf('+') !== -1 ? '' : 'Z'));
+  if (isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleString('de-DE', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+  } catch (e) {
+    return d.toLocaleString();
+  }
+}
+
 function renderFeed(tab) {
   const list = document.getElementById('feedList');
   if (!list) return;
@@ -20251,6 +20266,16 @@ function _listingTs(l) {
   return isNaN(t) ? 0 : t;
 }
 
+// Gemeinsame, pro Browser persistierte Basiszeit für ALLE Demo-Inhalte
+// (Inserate + Social-Posts). Dadurch zeigt jeder Beitrag einen FESTEN,
+// KONSTANTEN Erstellzeitpunkt, der über Reloads hinweg stabil bleibt und
+// natürlich altert – statt bei jedem Laden zurückzuspringen.
+function _ebDemoBase() {
+  var base = parseInt(localStorage.getItem('eb_demo_listing_base') || '', 10);
+  if (!base || isNaN(base)) { base = Date.now(); localStorage.setItem('eb_demo_listing_base', String(base)); }
+  return base;
+}
+
 // Demo-Inserate: stabile Erstellzeit pro Browser (persistiert), damit die
 // Feed-Zeiten KONSTANT bleiben und natürlich altern, statt bei jedem Reload
 // zu springen oder leer zu sein. Höhere id = neuer. Echte DB-Inserate
@@ -20258,8 +20283,7 @@ function _listingTs(l) {
 (function _assignDemoListingTimes() {
   try {
     if (typeof LISTINGS === 'undefined' || !Array.isArray(LISTINGS)) return;
-    var base = parseInt(localStorage.getItem('eb_demo_listing_base') || '', 10);
-    if (!base || isNaN(base)) { base = Date.now(); localStorage.setItem('eb_demo_listing_base', String(base)); }
+    var base = _ebDemoBase();
     LISTINGS.forEach(function(l) {
       if (!l || l._fromDb || l.createdAt) return;
       var hoursAgo = (16 - (parseInt(l.id, 10) || 1)) * 6; // id 15→6h … id 1→90h
@@ -20295,6 +20319,8 @@ function _saveSocialData() {
 }
 
 function _generateDemoSocialPosts() {
+  // Zeiten aus der persistierten Demo-Basis ableiten → über Reloads konstant.
+  var base = _ebDemoBase();
   return [
     {
       id: 'sp1',
@@ -20309,7 +20335,7 @@ function _generateDemoSocialPosts() {
       budget: 'bis 800€',
       content: 'Wir suchen einen erfahrenen DJ für unsere Hochzeit! Circa 120 Gäste, Mix aus Charts, 80er und ein bisschen Techno zum Schluss. Eigene Anlage sollte vorhanden sein. #Hochzeit #DJ #Berlin',
       image: null,
-      time: new Date(Date.now() - 1800000).toISOString(),
+      time: new Date(base - 1800000).toISOString(),
       likes: 12,
       comments: 5,
       metAt: null
@@ -20327,7 +20353,7 @@ function _generateDemoSocialPosts() {
       budget: 'ab 400€',
       content: 'Professioneller Event-DJ mit 8 Jahren Erfahrung sucht neue Aufträge! Hochzeiten, Firmenevents, Geburtstage. Eigene PA-Anlage & Lichtshow. #DJLife #EventDJ #Hamburg',
       image: 'https://images.pexels.com/photos/32589034/pexels-photo-32589034.jpeg?auto=compress&cs=tinysrgb&w=600',
-      time: new Date(Date.now() - 7200000).toISOString(),
+      time: new Date(base - 7200000).toISOString(),
       likes: 83,
       comments: 7,
       metAt: null
@@ -20340,7 +20366,7 @@ function _generateDemoSocialPosts() {
       avatar: ebAvatar('sophia', 'Sophia'),
       content: 'Durch die Firmenfeier mit Top Catering wirklich tolle Menschen kennengelernt. Das Essen war phantastisch! #Catering #Firmenevent',
       image: 'https://images.pexels.com/photos/2291367/pexels-photo-2291367.jpeg?auto=compress&cs=tinysrgb&w=600',
-      time: new Date(Date.now() - 86400000).toISOString(),
+      time: new Date(base - 86400000).toISOString(),
       likes: 31,
       comments: 4,
       metAt: { eventName: 'Sommerfest Tech GmbH', date: '2026-06-20' }
@@ -20358,7 +20384,7 @@ function _generateDemoSocialPosts() {
       budget: 'Verhandlungsbasis',
       content: 'Wir suchen einen Fotografen für unser Firmen-Sommerfest (ca. 200 Mitarbeiter). Mindestens 4 Stunden, am besten mit Erfahrung bei Firmenevents. Gerne Portfolio mitschicken! #Fotografie #Firmenevent #München',
       image: null,
-      time: new Date(Date.now() - 172800000).toISOString(),
+      time: new Date(base - 172800000).toISOString(),
       likes: 24,
       comments: 9,
       metAt: null
@@ -20371,7 +20397,7 @@ function _generateDemoSocialPosts() {
       avatar: ebAvatar('blumen', 'Blumen'),
       content: 'Neue Kollektion Frühjahr/Sommer! Exklusive Tischdekoration und Brautsträuße für euren unvergesslichen Tag. Jetzt anfragen! #Floristik #Hochzeit #Dekoration',
       image: 'https://images.pexels.com/photos/1045541/pexels-photo-1045541.jpeg?auto=compress&cs=tinysrgb&w=600',
-      time: new Date(Date.now() - 259200000).toISOString(),
+      time: new Date(base - 259200000).toISOString(),
       likes: 56,
       comments: 8,
       metAt: null
@@ -20389,7 +20415,7 @@ function _generateDemoSocialPosts() {
       budget: 'ab 25€ p.P.',
       content: 'Wir haben noch freie Kapazitäten für Sommer-Events! Buffets, Flying Dinner, BBQ – alles möglich. Bio & regional. Gerne auch größere Events ab 50 Personen. #Catering #Sommer #Events',
       image: null,
-      time: new Date(Date.now() - 345600000).toISOString(),
+      time: new Date(base - 345600000).toISOString(),
       likes: 38,
       comments: 11,
       metAt: null
@@ -20650,7 +20676,7 @@ function renderSocialPostCard(post) {
       '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || ebAvatar(post.author || 'user', post.author)) + '" alt="' + _escHtml(post.author) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" />' +
       '<div class="feed-post-author">' +
         '<strong>' + _escHtml(post.author) + '</strong>' +
-        '<div class="feed-post-meta">' + typeBadge + ' <span>' + timeAgo(post.time) + '</span></div>' +
+        '<div class="feed-post-meta">' + typeBadge + ' <span title="' + _escHtml(_absTime(post.time)) + '">' + timeAgo(post.time) + '</span></div>' +
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'' + post.id + '\',\'' + (post.author || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
@@ -20685,7 +20711,7 @@ function renderListingFeedCard(l) {
       '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
       '<div class="feed-post-author">' +
         '<strong onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')">' + _escHtml(l.providerName) + '</strong>' +
-        '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span>' + timeAgo(l.createdAt) + '</span></div>' +
+        '<div class="feed-post-meta"><span class="service-badge"><span class="material-icons-round">storefront</span>' + _escHtml(l.categoryLabel || 'Service') + '</span> <span title="' + _escHtml(_absTime(l.createdAt)) + '">' + timeAgo(l.createdAt) + '</span></div>' +
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
@@ -20733,13 +20759,15 @@ var _postComments = (function() {
 })();
 function _seedDemoComments() {
   // Ein paar Beispiel-Kommentare, damit der Feed nicht leer wirkt (persistiert).
+  // Zeiten aus der persistierten Demo-Basis → konstant über Reloads.
+  var base = _ebDemoBase();
   var seed = {
     sp1: [
-      { id: 'cd1', author: 'DJ Max Beat', avatar: ebAvatar('djmax','DJ Max'), text: 'Klingt super — schicke euch gleich eine Anfrage! 🎧', time: new Date(Date.now() - 1500000).toISOString() },
-      { id: 'cd2', author: 'Lena K.', avatar: ebAvatar('lena','Lena'), text: 'Viel Erfolg bei der Suche, wird bestimmt eine tolle Feier!', time: new Date(Date.now() - 900000).toISOString() }
+      { id: 'cd1', author: 'DJ Max Beat', avatar: ebAvatar('djmax','DJ Max'), text: 'Klingt super — schicke euch gleich eine Anfrage! 🎧', time: new Date(base - 1500000).toISOString() },
+      { id: 'cd2', author: 'Lena K.', avatar: ebAvatar('lena','Lena'), text: 'Viel Erfolg bei der Suche, wird bestimmt eine tolle Feier!', time: new Date(base - 900000).toISOString() }
     ],
     sp2: [
-      { id: 'cd3', author: 'Julia & Mark', avatar: ebAvatar('julia','Julia'), text: 'Genau sowas suchen wir! Melden uns 😊', time: new Date(Date.now() - 600000).toISOString() }
+      { id: 'cd3', author: 'Julia & Mark', avatar: ebAvatar('julia','Julia'), text: 'Genau sowas suchen wir! Melden uns 😊', time: new Date(base - 600000).toISOString() }
     ]
   };
   try { localStorage.setItem('eb_post_comments', JSON.stringify(seed)); } catch (e) {}
@@ -20762,7 +20790,7 @@ function _renderCommentItemHtml(c) {
     '<div class="fc-bubble">' +
       '<span class="fc-author">' + _escHtml(c.author || 'Nutzer') + '</span>' +
       '<span class="fc-text">' + _escHtml(c.text || '') + '</span>' +
-      '<span class="fc-time">' + timeAgo(c.time) + '</span>' +
+      '<span class="fc-time" title="' + _escHtml(_absTime(c.time)) + '">' + timeAgo(c.time) + '</span>' +
     '</div>' +
   '</div>';
 }
