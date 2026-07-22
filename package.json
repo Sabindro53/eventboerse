@@ -1,0 +1,14 @@
+{
+  "name": "eventboerse-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "description": "E2E-Smoketests fuer die Eventboerse-SPA (nur devDependencies, kein Build-Schritt fuer die Site).",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --project=chromium",
+    "audit": "node scripts/self-audit.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0"
+  }
+}
