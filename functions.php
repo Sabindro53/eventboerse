@@ -4060,8 +4060,27 @@ function eb_format_listing( $row ) {
         'badge'         => $row['badge'],
         'negotiable'    => (bool) $row['negotiable'],
         'views'         => (int) $row['views'],
-        'createdAt'     => $row['created_at'],
+        // createdAt als eindeutige UTC-ISO-Zeit ausgeben. Die Spalte speichert
+        // WordPress-Lokalzeit; ohne Umrechnung deutet das Frontend sie als UTC
+        // und zeigt frische Inserate stundenlang als „gerade eben". get_gmt_from_date
+        // rechnet die Lokalzeit korrekt nach UTC um.
+        'createdAt'     => eb_iso_utc( $row['created_at'] ),
     );
+}
+
+/**
+ * MySQL-Datetime (WP-Lokalzeit) → eindeutige UTC-ISO-Zeit „YYYY-MM-DDTHH:MM:SSZ".
+ * Leere/ungültige Werte werden unverändert zurückgegeben.
+ */
+function eb_iso_utc( $mysql_datetime ) {
+    if ( empty( $mysql_datetime ) || $mysql_datetime === '0000-00-00 00:00:00' ) {
+        return '';
+    }
+    $ts = get_gmt_from_date( $mysql_datetime, 'U' );
+    if ( ! $ts ) {
+        $ts = strtotime( $mysql_datetime );
+    }
+    return $ts ? gmdate( 'Y-m-d\TH:i:s\Z', (int) $ts ) : $mysql_datetime;
 }
 
 /** Get single listing */
@@ -5691,8 +5710,8 @@ function eb_format_registration( $row ) {
         'paymentRef'  => $row['payment_ref'],
         'status'      => $row['status'],
         'notes'       => $row['notes'],
-        'createdAt'   => $row['created_at'],
-        'updatedAt'   => $row['updated_at'],
+        'createdAt'   => eb_iso_utc( $row['created_at'] ),
+        'updatedAt'   => eb_iso_utc( $row['updated_at'] ),
     );
 }
 

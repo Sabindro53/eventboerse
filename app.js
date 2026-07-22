@@ -20241,6 +20241,34 @@ function submitReport(postId, reason) {
   showToast('Beitrag gemeldet. Danke für dein Feedback.', 'flag');
 }
 
+// Vergleichbarer Zeitstempel (ms) aus createdAt/time — robust ggü. MySQL-
+// ("2026-07-21 02:00:00") und ISO-Formaten. Basis für Feed-Sortierung.
+function _listingTs(l) {
+  var d = l && (l.createdAt || l.time);
+  if (!d) return 0;
+  var s = String(d);
+  var t = new Date(s.replace(' ', 'T') + (s.indexOf('T') !== -1 || s.indexOf('+') !== -1 ? '' : 'Z')).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
+// Demo-Inserate: stabile Erstellzeit pro Browser (persistiert), damit die
+// Feed-Zeiten KONSTANT bleiben und natürlich altern, statt bei jedem Reload
+// zu springen oder leer zu sein. Höhere id = neuer. Echte DB-Inserate
+// bekommen ihr createdAt (UTC) vom Server.
+(function _assignDemoListingTimes() {
+  try {
+    if (typeof LISTINGS === 'undefined' || !Array.isArray(LISTINGS)) return;
+    var base = parseInt(localStorage.getItem('eb_demo_listing_base') || '', 10);
+    if (!base || isNaN(base)) { base = Date.now(); localStorage.setItem('eb_demo_listing_base', String(base)); }
+    LISTINGS.forEach(function(l) {
+      if (!l || l._fromDb || l.createdAt) return;
+      var hoursAgo = (16 - (parseInt(l.id, 10) || 1)) * 6; // id 15→6h … id 1→90h
+      if (hoursAgo < 1) hoursAgo = 1;
+      l.createdAt = new Date(base - hoursAgo * 3600000).toISOString();
+    });
+  } catch (e) {}
+})();
+
 var _socialPosts = (function() {
   var stored = JSON.parse(localStorage.getItem('eb_social_posts') || 'null');
   // Regenerate if old format (no suche- types) oder noch ohne _isDemo-Flag
@@ -20401,8 +20429,11 @@ function renderFeed(tab) {
   });
 
   if (tab === 'newest') {
-    listings = listings.sort(function(a, b) { return b.id - a.id; });
-    var allItems = visiblePosts.slice(0, 2).map(function(p) { return { _social: true, post: p }; })
+    // Nach echter Erstellzeit sortieren (nicht id) — dann stimmt die Reihenfolge
+    // mit den angezeigten „vor X"-Zeiten überein.
+    listings = listings.sort(function(a, b) { return (_listingTs(b) - _listingTs(a)) || (b.id - a.id); });
+    var newestPosts = visiblePosts.slice().sort(function(a, b) { return _listingTs(b) - _listingTs(a); });
+    var allItems = newestPosts.slice(0, 2).map(function(p) { return { _social: true, post: p }; })
       .concat(listings.slice(0, 8).map(function(l) { return { _listing: true, listing: l }; }));
     list.innerHTML = allItems.map(function(item) {
       return item._social ? renderSocialPostCard(item.post) : renderListingFeedCard(item.listing);
@@ -20523,7 +20554,7 @@ function renderSocialPostCard(post) {
           '<span class="like-count">' + (post.likes || 0) + '</span>' +
         '</button>' +
         '<button class="feed-action-btn" onclick="openPostComments(\'' + post.id + '\')">' +
-          '<span class="material-icons-round">chat_bubble_outline</span> ' + (post.comments || 0) +
+          '<span class="material-icons-round">chat_bubble_outline</span> <span class="comment-count" data-cc="' + _escHtml(post.id) + '">' + _postCommentCount(post.id) + '</span>' +
         '</button>' +
       '</div>' +
       contactBtn +
@@ -20581,8 +20612,116 @@ function togglePostLike(btn, postId) {
   _saveSocialData();
 }
 
+/* ==================== FEED-KOMMENTARE (Instagram-Style, XSS-sicher) ==================== */
+// Kommentare liegen pro Post in localStorage (eb_post_comments). Jeder Text wird
+// beim Rendern mit _escHtml escaped — kein rohes HTML, sicher gegen XSS.
+var _postComments = (function() {
+  try { return JSON.parse(localStorage.getItem('eb_post_comments') || 'null') || _seedDemoComments(); }
+  catch (e) { return _seedDemoComments(); }
+})();
+function _seedDemoComments() {
+  // Ein paar Beispiel-Kommentare, damit der Feed nicht leer wirkt (persistiert).
+  var seed = {
+    sp1: [
+      { id: 'cd1', author: 'DJ Max Beat', avatar: ebAvatar('djmax','DJ Max'), text: 'Klingt super — schicke euch gleich eine Anfrage! 🎧', time: new Date(Date.now() - 1500000).toISOString() },
+      { id: 'cd2', author: 'Lena K.', avatar: ebAvatar('lena','Lena'), text: 'Viel Erfolg bei der Suche, wird bestimmt eine tolle Feier!', time: new Date(Date.now() - 900000).toISOString() }
+    ],
+    sp2: [
+      { id: 'cd3', author: 'Julia & Mark', avatar: ebAvatar('julia','Julia'), text: 'Genau sowas suchen wir! Melden uns 😊', time: new Date(Date.now() - 600000).toISOString() }
+    ]
+  };
+  try { localStorage.setItem('eb_post_comments', JSON.stringify(seed)); } catch (e) {}
+  return seed;
+}
+function _savePostComments() {
+  try { localStorage.setItem('eb_post_comments', JSON.stringify(_postComments)); } catch (e) {}
+}
+function _postCommentCount(postId) {
+  var arr = _postComments[postId];
+  return Array.isArray(arr) ? arr.length : 0;
+}
+function _currentUserAvatar() {
+  var n = (currentUser && (currentUser.name || currentUser.first_name)) || 'Ich';
+  return (currentUser && (currentUser.photo || currentUser.avatar || currentUser.eb_photo_url)) || ebAvatar(n, n);
+}
+function _renderCommentItemHtml(c) {
+  return '<div class="fc-item">' +
+    '<img class="fc-avatar" src="' + _escHtml(c.avatar || ebAvatar(c.author || 'user', c.author)) + '" alt="" onerror="this.onerror=null;this.src=ebAvatar(\'user\',\'user\')" />' +
+    '<div class="fc-bubble">' +
+      '<span class="fc-author">' + _escHtml(c.author || 'Nutzer') + '</span>' +
+      '<span class="fc-text">' + _escHtml(c.text || '') + '</span>' +
+      '<span class="fc-time">' + timeAgo(c.time) + '</span>' +
+    '</div>' +
+  '</div>';
+}
+function _renderCommentsSectionHtml(postId) {
+  var list = (_postComments[postId] || []).map(_renderCommentItemHtml).join('') ||
+    '<div class="fc-empty">Noch keine Kommentare — schreib den ersten! ✨</div>';
+  var inputRow;
+  if (isLoggedIn && currentUser) {
+    inputRow = '<form class="fc-input-row" onsubmit="return submitPostComment(event,\'' + _escHtml(postId) + '\')">' +
+      '<img class="fc-avatar" src="' + _escHtml(_currentUserAvatar()) + '" alt="" onerror="this.onerror=null;this.src=ebAvatar(\'user\',\'user\')" />' +
+      '<input type="text" class="fc-input" maxlength="500" placeholder="Kommentar hinzufügen…" aria-label="Kommentar" autocomplete="off" />' +
+      '<button type="submit" class="fc-post-btn">Posten</button>' +
+    '</form>';
+  } else {
+    inputRow = '<div class="fc-login-hint"><span class="material-icons-round">lock</span> ' +
+      '<button type="button" onclick="openModal(\'loginModal\')">Melde dich an</button>, um zu kommentieren.</div>';
+  }
+  return '<div class="feed-comments" id="fc-' + _escHtml(postId) + '">' +
+    '<div class="fc-list">' + list + '</div>' + inputRow + '</div>';
+}
+
 function openPostComments(postId) {
-  showToast('Kommentare kommen bald!', 'chat_bubble_outline');
+  var card = document.querySelector('.feed-post-card[data-post-id="' + (window.CSS && CSS.escape ? CSS.escape(postId) : postId) + '"]');
+  if (!card) return;
+  var existing = card.querySelector('.feed-comments');
+  if (existing) { existing.remove(); return; } // Toggle zu
+  card.insertAdjacentHTML('beforeend', _renderCommentsSectionHtml(postId));
+  var sec = card.querySelector('.feed-comments');
+  if (sec) {
+    var inp = sec.querySelector('.fc-input');
+    if (inp) inp.focus();
+    sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function submitPostComment(ev, postId) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  if (!isLoggedIn || !currentUser) { showToast('Bitte melde dich an, um zu kommentieren.', 'lock'); try { openModal('loginModal'); } catch(e){} return false; }
+  var card = document.querySelector('.feed-post-card[data-post-id="' + (window.CSS && CSS.escape ? CSS.escape(postId) : postId) + '"]');
+  var sec = card && card.querySelector('.feed-comments');
+  var inp = sec && sec.querySelector('.fc-input');
+  if (!inp) return false;
+  var text = (inp.value || '').trim();
+  if (!text) return false;
+  if (text.length > 500) text = text.slice(0, 500);
+  var name = (currentUser.name || currentUser.first_name || 'Ich').toString();
+  var comment = {
+    id: 'c' + Date.now() + Math.random().toString(36).slice(2, 6),
+    author: name,
+    avatar: _currentUserAvatar(),
+    text: text,               // roh gespeichert, beim Rendern escaped
+    time: new Date().toISOString()
+  };
+  if (!Array.isArray(_postComments[postId])) _postComments[postId] = [];
+  _postComments[postId].push(comment);
+  _savePostComments();
+  // Neue Kommentar-Karte anhängen (escaped) + Eingabe leeren
+  var listEl = sec.querySelector('.fc-list');
+  if (listEl) {
+    var emptyEl = listEl.querySelector('.fc-empty');
+    if (emptyEl) emptyEl.remove();
+    listEl.insertAdjacentHTML('beforeend', _renderCommentItemHtml(comment));
+  }
+  inp.value = '';
+  // Zähler live aktualisieren (alle Vorkommen dieses Posts)
+  document.querySelectorAll('.comment-count[data-cc="' + (window.CSS && CSS.escape ? CSS.escape(postId) : postId) + '"]').forEach(function(el) {
+    el.textContent = _postCommentCount(postId);
+  });
+  var post = _socialPosts.find(function(p) { return p.id === postId; });
+  if (post) { post.comments = _postCommentCount(postId); _saveSocialData(); }
+  return false;
 }
 
 function sharePost(postId) {
