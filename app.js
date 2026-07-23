@@ -5197,10 +5197,14 @@ function _renderBookingCard(msg) {
       html += '<div class="cbc-status"><span class="material-icons-round">schedule</span> Warten auf Antwort des Anbieters</div>';
     }
   } else if (side === 'received') {
-    html += '<div class="cbc-actions">' +
-      '<button class="cbc-btn cbc-btn-primary" onclick="openNegotiationInChat()"><span class="material-icons-round">gavel</span> Gegenangebot</button>' +
-      '<button class="cbc-btn cbc-btn-accept" onclick="acceptBookingFromChat()"><span class="material-icons-round">check_circle</span> Annehmen</button>' +
-      '</div>';
+    if (typeof _isBookingAccepted === 'function' && _isBookingAccepted(msg.id)) {
+      html += '<div class="cbc-status" style="color:#2E7D32"><span class="material-icons-round">check_circle</span> Anfrage angenommen</div>';
+    } else {
+      html += '<div class="cbc-actions">' +
+        '<button class="cbc-btn cbc-btn-primary" onclick="openNegotiationInChat()"><span class="material-icons-round">gavel</span> Gegenangebot</button>' +
+        '<button class="cbc-btn cbc-btn-accept" onclick="acceptBookingFromChat(\'' + _escHtml(String(msg.id || '')) + '\', this)"><span class="material-icons-round">check_circle</span> Annehmen</button>' +
+        '</div>';
+    }
   } else {
     html += '<div class="cbc-status"><span class="material-icons-round">check</span> Gesendet</div>';
   }
@@ -5214,8 +5218,75 @@ function _renderBookingCard(msg) {
   return html;
 }
 
-function acceptBookingFromChat() {
+function _chatNowLabel() {
+  var d = new Date();
+  return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+}
+// „Angenommen"-Status pro Buchungsanfrage (conv:msgId) persistent merken, damit
+// die Karte nach Poll-Vollrender/Reload angenommen bleibt und nicht erneut
+// angenommen werden kann.
+function _acceptedBookingKey(msgId) {
+  return (currentChat && currentChat.id ? currentChat.id : '') + ':' + (msgId != null ? msgId : '');
+}
+function _markBookingAccepted(msgId) {
+  try {
+    var s = JSON.parse(localStorage.getItem('eb_accepted_bookings') || '[]');
+    var k = _acceptedBookingKey(msgId);
+    if (s.indexOf(k) === -1) { s.push(k); localStorage.setItem('eb_accepted_bookings', JSON.stringify(s)); }
+  } catch (e) {}
+}
+function _isBookingAccepted(msgId) {
+  try {
+    var s = JSON.parse(localStorage.getItem('eb_accepted_bookings') || '[]');
+    return s.indexOf(_acceptedBookingKey(msgId)) !== -1;
+  } catch (e) { return false; }
+}
+// Antwort-Bubble sofort im Chatverlauf anzeigen (ohne Vollrender) und in
+// currentChat spiegeln, damit sie einen späteren Poll-Vollrender übersteht.
+// Doppelte Einträge (Poll hat sie schon geladen) werden vermieden.
+function _appendChatSentMessage(serverMsg, text) {
+  if (serverMsg && serverMsg.id && currentChat && Array.isArray(currentChat.messages) &&
+      currentChat.messages.some(function(m) { return m && String(m.id) === String(serverMsg.id); })) {
+    return;
+  }
+  var container = document.getElementById('chatMessages');
+  var time = (serverMsg && serverMsg.time) || _chatNowLabel();
+  if (container) {
+    var delBtn = serverMsg && serverMsg.id
+      ? '<button class="msg-delete-btn" title="Nachricht löschen" aria-label="Nachricht löschen" onclick="deleteChatMessage(' + serverMsg.id + ')"><span class="material-icons-round">delete</span></button>'
+      : '';
+    container.innerHTML += '<div class="msg msg-sent">' + delBtn + _escHtml(text) + '<span class="msg-time">' + _escHtml(time) + '</span></div>';
+    setTimeout(function() { container.scrollTop = container.scrollHeight; }, 40);
+  }
+  if (currentChat && serverMsg && serverMsg.id) {
+    if (!Array.isArray(currentChat.messages)) currentChat.messages = [];
+    currentChat.messages.push({ id: serverMsg.id, type: 'sent', text: text, time: time, created_at: serverMsg.created_at || new Date().toISOString() });
+  }
+}
+
+function acceptBookingFromChat(msgId, btn) {
+  // 1) Angenommen-Status merken (überlebt Poll/Reload, verhindert Doppel-Annahme)
+  _markBookingAccepted(msgId);
+  // 2) Karte sofort auf „angenommen" umstellen
+  var card = btn && btn.closest ? btn.closest('.cbc') : null;
+  if (card) {
+    var actions = card.querySelector('.cbc-actions');
+    if (actions) actions.outerHTML = '<div class="cbc-status" style="color:#2E7D32"><span class="material-icons-round">check_circle</span> Anfrage angenommen</div>';
+  }
   showToast('Anfrage angenommen! Der Kunde wird benachrichtigt.', 'check_circle');
+  // 3) Antwort (Resonanz) in den Chat schreiben — persistiert & benachrichtigt den Kunden
+  var replyText = 'Ich nehme deine Anfrage gerne an – ich freue mich riesig auf dein Event! 🎉 Lass uns die Details klären.';
+  if (currentChat && currentChat.id) {
+    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+      body: JSON.stringify({ content: replyText, type: 'message' })
+    })
+      .then(function(r) { if (!r.ok) throw new Error('send'); return r.json(); })
+      .then(function(serverMsg) { _appendChatSentMessage(serverMsg, replyText); })
+      .catch(function() { _appendChatSentMessage(null, replyText); });
+  } else {
+    _appendChatSentMessage(null, replyText);
+  }
 }
 
 function acceptInquiryFromChat(cardId, projectId) {

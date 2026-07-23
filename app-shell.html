@@ -1286,9 +1286,6 @@
         <button class="back-btn" onclick="history.back()">
           <span class="material-icons-round">arrow_back</span> Zurück
         </button>
-        <div class="detail-gallery" id="detailGallery">
-          <!-- Images loaded by JS -->
-        </div>
         <div class="detail-hero-img" id="detailHeroImg"></div>
         <div class="detail-header">
           <div class="detail-badge" id="detailCategory">DJ & Musik</div>
@@ -1304,6 +1301,9 @@
               <span id="detailLocation">Berlin, Deutschland</span>
             </span>
           </div>
+        </div>
+        <div class="detail-gallery" id="detailGallery">
+          <!-- Images loaded by JS -->
         </div>
         <div class="detail-provider-row">
           <img id="detailProviderImg" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3C%2Fsvg%3E" alt="Provider" class="detail-provider-avatar" style="cursor:pointer" onclick="navigateTo('provider', currentListing?.providerId)" loading="lazy" decoding="async" />
