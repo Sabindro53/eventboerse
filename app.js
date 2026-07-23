@@ -70,6 +70,28 @@
   }
 })();
 
+/* ============================================================================
+ * DEBUG-LOG-GATE (EB_DEBUG)
+ *
+ * Diagnose-Ausgaben (Board-Sync-Status, Chat-Poll-Fehler, Stripe-Hints etc.)
+ * sollen NICHT in jeder Nutzer-Konsole erscheinen. Aktivieren per:
+ *   window.EB_DEBUG = true                                 // per Session
+ *   localStorage.setItem('EB_DEBUG','1'); location.reload() // dauerhaft im Browser
+ * Errors (console.error) bleiben immer sichtbar.
+ * ============================================================================ */
+(function(){
+  var enabled = false;
+  try {
+    if (typeof window !== 'undefined' && window.EB_DEBUG) enabled = true;
+    else if (typeof localStorage !== 'undefined' && localStorage.getItem('EB_DEBUG') === '1') enabled = true;
+  } catch(e) {}
+  function noop(){}
+  var c = (typeof console !== 'undefined') ? console : null;
+  window._ebLog  = (enabled && c && c.log)  ? c.log.bind(c)  : noop;
+  window._ebWarn = (enabled && c && c.warn) ? c.warn.bind(c) : noop;
+  window._ebInfo = (enabled && c && c.info) ? c.info.bind(c) : noop;
+})();
+
 // Avatar-Normalisierung: PHP-generierte data:SVG-Avatare (y="58", kein dominant-baseline)
 // durch JS-generierte ersetzen. Echte Foto-URLs (https://...) werden unverändert durchgereicht.
 function _resolveAvatar(img, name) {
@@ -241,7 +263,7 @@ function registerEventboerseServiceWorker() {
   }
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(err) {
-      console.warn('Service Worker konnte nicht registriert werden:', err);
+      _ebWarn('Service Worker konnte nicht registriert werden:', err);
     });
   });
 }
@@ -819,7 +841,7 @@ const LISTINGS = [
       var fmt = function(n){ return n.toLocaleString('de-DE'); };
       l.priceLabel = fmt(l.price) + '–' + fmt(max) + '€ / ' + model;
     });
-  } catch(e) { console.warn('priceRange inject failed', e); }
+  } catch(e) { _ebWarn('priceRange inject failed', e); }
 })();
 
 // Auto-Sync: Alle Demo-Provider-IDs aus LISTINGS in die Filter-Liste übernehmen,
@@ -1056,7 +1078,7 @@ function forceBrowsePage() {
   browse.classList.add('active');
   currentPage = 'browse';
 
-  console.log('[forceBrowsePage]', window.location.pathname, 'state', {
+  _ebLog('[forceBrowsePage]', window.location.pathname, 'state', {
     home: home ? home.className : null,
     browse: browse.className,
     currentPage
@@ -1065,7 +1087,7 @@ function forceBrowsePage() {
   try {
     renderHeroMarquees();
   } catch (e) {
-    console.warn('forceBrowsePage: renderHeroMarquees failed', e);
+    _ebWarn('forceBrowsePage: renderHeroMarquees failed', e);
   }
 }
 
@@ -1234,7 +1256,7 @@ function getHeroListings() {
       }
     });
   } catch (e) {
-    console.warn('getHeroListings: Fehler beim Zusammenführen der Listings', e);
+    _ebWarn('getHeroListings: Fehler beim Zusammenführen der Listings', e);
   }
 
   return all;
@@ -3541,7 +3563,7 @@ function _showProviderNotFound(pid) {
   setHtml('providerListings', '');
   setHtml('providerReviewsList', '');
   if (typeof console !== 'undefined' && console.warn) {
-    console.warn('[eventboerse] loadProvider: keine Daten für Provider', pid);
+    _ebWarn('[eventboerse] loadProvider: keine Daten für Provider', pid);
   }
 }
 
@@ -4974,7 +4996,7 @@ function _chatPollTick() {
         // statt komplett geschluckt zu werden.  Kein UI-Toast, weil das
         // Polling weiter läuft und der nächste Tick es typischerweise löst.
         if (typeof console !== 'undefined' && console.warn) {
-          console.warn('[eventboerse] chat-poll fehlgeschlagen:', err && err.message ? err.message : err);
+          _ebWarn('[eventboerse] chat-poll fehlgeschlagen:', err && err.message ? err.message : err);
         }
       })
       .catch(function(){})
@@ -13379,7 +13401,7 @@ function _syncBoardFromServer(opts) {
       if (!r.ok) {
         _boardCloudAvailable = false;
         _boardLastSyncError = 'HTTP ' + r.status + (r.status === 404 ? ' – API-Route fehlt (Server-Update nötig)' : '');
-        console.warn('[Board] Laden vom Server fehlgeschlagen: HTTP ' + r.status);
+        _ebWarn('[Board] Laden vom Server fehlgeschlagen: HTTP ' + r.status);
         if (opts.initial && r.status === 404) {
           showToast('Cloud-Sync nicht verfügbar (API 404). Bitte Theme-Update auf Server prüfen.', 'error');
         } else if (opts.initial && (r.status === 401 || r.status === 403)) {
@@ -13416,13 +13438,13 @@ function _syncBoardFromServer(opts) {
         try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
       }
       if (res.uploadNeeded) {
-        console.info('[Board] Lokale Änderungen werden zum Server synchronisiert.');
+        _ebInfo('[Board] Lokale Änderungen werden zum Server synchronisiert.');
         _saveBoardProjects({ immediate: true });
       }
       _boardLastSyncAt = Date.now();
       _updateBoardSyncIndicator();
       if (opts.initial) {
-        console.info('[Board] Cloud-Sync OK – ' + serverProjects.length + ' Projekt(e) vom Server geladen.');
+        _ebInfo('[Board] Cloud-Sync OK – ' + serverProjects.length + ' Projekt(e) vom Server geladen.');
       }
       // Ansicht neu rendern, falls Board-Seite aktiv ist
       var boardPage = document.getElementById('page-board');
@@ -13448,7 +13470,7 @@ function _syncBoardFromServer(opts) {
     .catch(function(err){
       _boardCloudAvailable = false;
       _boardLastSyncError = 'Server nicht erreichbar';
-      console.warn('[Board] Server nicht erreichbar, verwende lokalen Cache.', err);
+      _ebWarn('[Board] Server nicht erreichbar, verwende lokalen Cache.', err);
       if (opts.initial) showToast('Cloud-Sync: Server nicht erreichbar – arbeite offline.', 'error');
       else if (opts.showError) showToast('Cloud-Sync: Server nicht erreichbar.', 'error');
       _updateBoardSyncIndicator();
@@ -13575,7 +13597,7 @@ function _pushBoardToServer() {
     .then(function(r) {
       _refreshNonce(r);
       if (!r.ok) {
-        console.warn('[Board] Server-Speicherung fehlgeschlagen: HTTP ' + r.status);
+        _ebWarn('[Board] Server-Speicherung fehlgeschlagen: HTTP ' + r.status);
         if (r.status === 404) {
           showToast('Cloud-Speicherung fehlgeschlagen: API nicht verfügbar (404). Server-Update nötig.', 'error');
           _boardCloudAvailable = false;
@@ -13599,7 +13621,7 @@ function _pushBoardToServer() {
       _boardCloudAvailable = false;
       _boardLastSyncError = 'Server nicht erreichbar';
       _updateBoardSyncIndicator();
-      console.warn('[Board] Server-Speicherung Netzwerkfehler – wird erneut versucht.', err);
+      _ebWarn('[Board] Server-Speicherung Netzwerkfehler – wird erneut versucht.', err);
     })
     .then(function(res){
       _boardSaveInflight = false;
@@ -13718,7 +13740,7 @@ function renderAuftraegePage() {
       method: 'GET', credentials: 'same-origin', headers: _apiHeaders()
     }).then(function(r){ return r.json(); }).then(function(data){
       // TEMP-Diagnose: zeigt provider listings, gescannte Boards, gesehene listingIds, Matches
-      try { if (data && data._debug) console.log('[Auftragsboard DEBUG]', JSON.stringify(data._debug, null, 2)); } catch(e){}
+      try { if (data && data._debug) _ebLog('[Auftragsboard DEBUG]', JSON.stringify(data._debug, null, 2)); } catch(e){}
       var remoteBookings = (data && data.bookings) || [];
       remoteBookings.forEach(function(b){
         // Duplikate mit lokalen Jobs vermeiden (gleiche card.id)
@@ -14545,7 +14567,7 @@ function _tryOpenPendingBoardProject() {
   var pid = _pendingBoardProjectId;
   if (_boardProjects && _boardProjects.some(function(p){ return p && p.id === pid; })) {
     _pendingBoardProjectId = null;
-    try { openBoardProject(pid); } catch(e) { console.warn('openBoardProject failed', e); }
+    try { openBoardProject(pid); } catch(e) { _ebWarn('openBoardProject failed', e); }
   }
 }
 
@@ -16383,7 +16405,7 @@ function registerStripePaymentDomain(btn) {
   .then(function(res) {
     var data = res.data || {};
     if (!res.ok || !data.ok) {
-      if (data && data.admin_hint) console.warn('[eventboerse] Stripe Payment Domain:', data.admin_hint);
+      if (data && data.admin_hint) _ebWarn('[eventboerse] Stripe Payment Domain:', data.admin_hint);
       showToast(data.message || 'Wallet-Domain konnte nicht registriert werden.', 'warning');
       _renderStripeConnectDiagnostics({
         ok: false,
@@ -16660,7 +16682,7 @@ function confirmStripeBusinessType(confirmBtn) {
         });
       }, 900);
     } else {
-      if (data && data.admin_hint) console.warn('[eventboerse] Stripe Connect:', data.admin_hint);
+      if (data && data.admin_hint) _ebWarn('[eventboerse] Stripe Connect:', data.admin_hint);
       _showStripeBusinessTypeError(data || {});
       var msg = _stripeConnectReadableError(data || {});
       showToast(msg, 'error');
