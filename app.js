@@ -13984,6 +13984,15 @@ function renderBoardPage() {
 
   var isProvider = isDienstleister();
 
+  // Header-Rolle korrekt zur angemeldeten Rolle anzeigen (Dienstleister sahen
+  // fälschlich „EVENT-PLANER"). Gäste sehen den Standard „EVENT-PLANER".
+  var _bpk = document.getElementById('boardPageKicker');
+  if (_bpk) _bpk.textContent = (currentUser && isProvider) ? 'DIENSTLEISTER' : 'EVENT-PLANER';
+  var _bps = document.getElementById('boardPageSubtitle');
+  if (_bps) _bps.textContent = (currentUser && isProvider)
+    ? 'Organisiere deine Buchungen, Kunden & Termine im Chat mit deinem Planungs-Assistenten'
+    : 'Plane dein Event im Chat mit deinem Assistenten — Projekte, Dienstleister, Budget & Termine';
+
   // ChatGPT-Look: Sidebar (Projekte + Kategorien) links, lokaler
   // Planungs-Assistent rechts. Funktioniert auch ohne Login (Aktionen,
   // die ein Board brauchen, fragen dann nach Anmeldung).
