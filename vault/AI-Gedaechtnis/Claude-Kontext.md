@@ -140,17 +140,30 @@ navigateTo('admin')         // Admin-Panel
 - **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
 - **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
 
-## Stand 2026-06-26 — Admin-Bildmoderation & Security-Härtung (live auf main)
+## Stand 2026-07-24 — Auto-Routinen: was läuft, was nicht
 
-- **Admin-Bildmoderation (umgesetzt):** Admins können einzelne Bilder löschen
-  - Detailseite: roter „Löschen"-Button pro Galerie-Bild (`adminDeleteListingImage`).
-  - Provider-Portfolio: Lösch-Overlay (`adminDeleteProfileImage`) + Lightbox-Button, dauerhaft sichtbar.
-  - Backend: `POST /admin/moderate-image` (nur Admin) entfernt Bild aus `eb_gallery` + allen Listings des Nutzers.
-  - **Persistente Blocklist** (`eb_demo_image_blocklist`, normalisierte Pfade) → wirkt auch für hardcodierte Demo-Listings (z. B. Blumenträume München, Pyroshock), reload-fest. Client: `window.EB_IMG_BLOCKLIST` via `eventboerseApi.imageBlocklist`, gefiltert in Demo-LISTINGS, `loadDbListings`, `loadProvider`.
-  - Damit ist der alte Sprint-P0 „Admin-Moderation gegen Code abgleichen" erledigt.
-- **Security (live):** XSS-Härtung (`_escHtml` encodet jetzt auch Quotes; Map-/Card-Render escapt); Brute-Force-Rate-Limiting verdrahtet (`includes/security/rate-limit.php` war vorher nie eingebunden) auf Login/OTP/Reset/Register mit Reset-on-Success; CSP `'unsafe-eval'` entfernt (Frontend nutzt kein eval, kein jQuery); WP-User-Enumeration gesperrt (`/wp/v2/users` + `?author=N`).
-- **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
-- **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
+**Läuft ✅**
+- `ionos-deploy.yml` — jeder Push auf `main` deployt via SFTP (letzter Erfolg: 2026-07-24 05:24 UTC).
+- `site-monitor.yml` — Keep-Alive stündlich grün.
+- `security.yml`, `pr-check.yml` — greifen bei PRs.
+- **Session-basierte Selbstverbesserung (Claude-Code-Sessions wie diese)** — hat in den letzten Tagen die Draft-PRs #74/#76/#77 erzeugt.
+
+**Steht ❌ (blockiert seit ~5 Wochen — Ursache: fehlendes API-Guthaben)**
+- `claude-auto-audit.yml` — letzte 3 Läufe (Jul 20, Jul 13, Jun 1) alle rot. Fehler: `Your credit balance is too low to access the Anthropic API` (`ANTHROPIC_API_KEY` ohne Guthaben).
+- `claude-improve.yml` — letzte 3 Läufe (Jul 20, Jul 13, Jul 9) alle rot. Gleiche Ursache (`terminal_reason=api_error`, `input_tokens=0`).
+
+**Nutzer-Action nötig:** Anthropic-Konto aufladen ODER Repo-Secret `ANTHROPIC_API_KEY` auf einen neuen Key mit Guthaben umstellen. Alternative: die Auto-Routinen bewusst pausieren, weil die Session-basierte Selbstverbesserung dieselbe Rolle inzwischen abdeckt.
+
+**Offene Draft-PRs zum Zustimmen/Ablehnen (Approve-Reject-Flow)**
+- **#77** Playwright-Smoke-Suite (Regressionsschutz P0, 6 Tests, kein Live-Verhalten).
+- **#76** `EB_DEBUG`-Gate + Vault-/Audit-Konsistenz (17 `console.*`-Aufrufe hinter Debug-Flag, Doku-Fix).
+- **#74** `analytics.php` löschen + Vault-Route-Count 84→82 (reine Hygiene).
+- **#46** Großes Release-Paket (Juni 9, still open) — Admin-Moderation + Stripe Refunds/Disputes + Web-Push + PWA + JSON-LD + Routing-Fix. **Prüfen, ob Inhalte in der Zwischenzeit anderweitig gemerged wurden.**
+
+**Aktueller Self-Audit (`node scripts/self-audit.mjs`)**
+- 8 Findings: 0 Errors, 2 Warnings, 5 Info, 1 OK.
+- Warns: `route-admin-mod-missing` (Vault-Notiz vs Code), `no-tests` (adressiert durch PR #77).
+- Infos: `docs-routes-drift` (84→82, adressiert durch PR #74/#76), `console-noise` (17 Aufrufe, adressiert durch PR #76), `size-*-watch` (Monolith-Wachstum: app.js 23460, functions.php 7737, styles.css 16676 Zeilen).
 
 ---
-*Zuletzt aktualisiert: 2026-06-26*
+*Zuletzt aktualisiert: 2026-07-24*
