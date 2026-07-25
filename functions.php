@@ -407,6 +407,9 @@ function eventboerse_enqueue_assets() {
         'isLoggedIn' => is_user_logged_in(),
         'user'       => $user_data,
         'siteUrl'    => trailingslashit( home_url() ),
+        // Theme-Basis-URL — u. a. für assets/eb-knowledge.json (Wissensbasis der
+        // Website-KI, erzeugt aus dem Vault via scripts/build-knowledge.mjs).
+        'themeUrl'   => trailingslashit( get_template_directory_uri() ),
         // Vom Admin entfernte Bilder (normalisierte Pfade) — der Client blendet
         // sie aus, auch bei hardcodierten Demo-Listings (siehe eb_admin_moderate_image).
         'imageBlocklist' => array_values( (array) get_option( 'eb_demo_image_blocklist', array() ) ),

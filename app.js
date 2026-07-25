@@ -12430,6 +12430,115 @@ var QA_TOPICS = [
   }
 ];
 
+/* ══════════════════════════════════════════════════════════════════
+   WISSENSBASIS (Vault → Website)  ·  Impuls 5 aus vault/00-Kern/Wissensstroeme
+   ------------------------------------------------------------------
+   assets/eb-knowledge.json wird aus dem Obsidian-Vault erzeugt und enthält
+   AUSSCHLIESSLICH Notizen mit `share: public` (siehe
+   vault/00-Kern/Sicherheits-Klassifikation.md). Sowohl der QA-Bot als auch
+   der Board-Planungs-Assistent befragen dieselbe Basis — dadurch hat die
+   Seite auf deutlich mehr Fragen eine fundierte Antwort statt eines
+   allgemeinen Fallbacks.
+   Läuft rein lokal im Browser: Laden = eine statische JSON-Datei, die Suche
+   ist ein kleines Keyword-Ranking. Keine externe KI, keine Tokens.
+   ══════════════════════════════════════════════════════════════════ */
+var _ebKb = null;          // { entries: [...] } sobald geladen
+var _ebKbState = 'idle';   // idle | loading | ready | failed
+var _ebKbMiss = [];        // Impuls 6: Fragen ohne Treffer (Wissenslücken)
+
+function _ebKbLoad() {
+  if (_ebKbState === 'loading' || _ebKbState === 'ready') return;
+  _ebKbState = 'loading';
+  // Basis-URL robust bestimmen: bevorzugt themeUrl vom Server, sonst aus dem
+  // <script src=".../app.js"> ableiten (funktioniert auch auf Unterrouten wie
+  // /detail/10010, wo ein relativer Pfad ins Leere liefe).
+  var base = '';
+  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
+    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
+  } else {
+    var tag = document.querySelector('script[src*="app.js"]');
+    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
+  }
+  var url = (base ? base + '/' : '') + 'assets/eb-knowledge.json';
+  fetch(url, { credentials: 'same-origin' })
+    .then(function(r) { if (!r.ok) throw new Error('kb'); return r.json(); })
+    .then(function(kb) {
+      _ebKb = (kb && Array.isArray(kb.entries)) ? kb : null;
+      _ebKbState = _ebKb ? 'ready' : 'failed';
+    })
+    .catch(function() { _ebKbState = 'failed'; });
+}
+
+var _EB_KB_STOP = ['und','oder','der','die','das','den','dem','ein','eine','ist','sind','wie','was','wer',
+  'wo','wann','warum','kann','ich','mir','mich','mein','meine','für','mit','von','auf','aus','bei','zum',
+  'zur','man','sich','nicht','nur','man','habe','hab','soll','muss','wird','werden','wenn','dann','denn'];
+
+function _ebKbTokens(text) {
+  return String(text || '').toLowerCase()
+    .replace(/[^a-zäöüß0-9\s-]/g, ' ')
+    .split(/\s+/)
+    // ab 2 Zeichen, damit Fachbegriffe wie „dj" nicht verloren gehen
+    .filter(function(w) { return w.length >= 2 && _EB_KB_STOP.indexOf(w) === -1; });
+}
+
+/** Grober deutscher Wortstamm — fängt Beugungen ab (kostet→kost, Zahlungen→zahlung). */
+function _ebKbStem(w) {
+  if (w.length <= 4) return w;
+  return w.replace(/(ungen|ende|erin|keit|heit|ung|est|ern|em|en|er|es|et|st|e|n|s|t)$/, '');
+}
+
+/** Beste Wissens-Abschnitte zu einer Frage (Keyword-Ranking, lokal). */
+function _ebKbSearch(query, limit) {
+  if (_ebKbState !== 'ready' || !_ebKb) return [];
+  var qs = _ebKbTokens(query);
+  if (!qs.length) return [];
+  var scored = [];
+  _ebKb.entries.forEach(function(e) {
+    var hay = (e.title + ' ' + e.heading + ' ' + e.text).toLowerCase();
+    var keys = e.keys || [];
+    var score = 0, hits = 0;
+    qs.forEach(function(w) {
+      var inKey = keys.indexOf(w) !== -1;
+      var inHead = (e.heading || '').toLowerCase().indexOf(w) !== -1;
+      var inText = hay.indexOf(w) !== -1;
+      if (inHead) { score += 6; hits++; }
+      else if (inKey) { score += 4; hits++; }
+      else if (inText) { score += 2; hits++; }
+      else {
+        // Beugung/Komposita abfangen: „kostet"~„Kosten", „zahlungsdaten"~„Zahlung"
+        var stem = _ebKbStem(w);
+        if (stem.length >= 4 && hay.indexOf(stem) !== -1) { score += 1.5; hits++; }
+      }
+    });
+    if (!hits) return;
+    // Abdeckung belohnen: viele der Frage-Wörter gefunden = relevanter
+    score *= (0.5 + hits / qs.length);
+    scored.push({ e: e, score: score, hits: hits });
+  });
+  scored.sort(function(a, b) { return b.score - a.score; });
+  return scored.slice(0, limit || 3);
+}
+
+/** Reicht der beste Treffer als echte Antwort? */
+function _ebKbGoodHit(query) {
+  var r = _ebKbSearch(query, 1);
+  if (!r.length) return null;
+  var qs = _ebKbTokens(query);
+  var need = qs.length <= 2 ? 1 : 2;
+  if (r[0].hits < need || r[0].score < 5) return null;
+  return r[0].e;
+}
+
+/** Wissenslücke merken (Impuls 6). */
+function _ebKbNoteMiss(q) {
+  try {
+    if (!q) return;
+    _ebKbMiss.push({ q: String(q).slice(0, 140), t: Date.now() });
+    if (_ebKbMiss.length > 50) _ebKbMiss.shift();
+    localStorage.setItem('eb_kb_misses', JSON.stringify(_ebKbMiss));
+  } catch (e) {}
+}
+
 var QA_FALLBACK = {
   id: 'fallback',
   icon: 'support_agent',
@@ -12520,6 +12629,7 @@ function openQaBot() {
   var btn = document.getElementById('qaLauncher');
   var input = document.getElementById('qaInput');
   if (!panel || !btn) return;
+  _ebKbLoad(); // Wissensbasis beim Öffnen laden (einmalig, still)
   panel.hidden = false;
   btn.setAttribute('aria-expanded', 'true');
   if (!_qaBotOpenedOnce) {
@@ -12557,10 +12667,23 @@ function askQaPreset(text) {
 function _qaAnswer(text) {
   var topic = _qaFindTopic(text);
   _qaAddMessage('user', text);
+
+  // Wissensbasis zuerst befragen: liefert sie einen klaren Treffer, antworten
+  // wir inhaltlich statt nur weiterzuleiten (Impuls 5).
+  var hit = _ebKbGoodHit(text);
+  if (hit) {
+    var kbAnswer = hit.text;
+    if (kbAnswer.length > 460) kbAnswer = kbAnswer.slice(0, 450).replace(/\s+\S*$/, '') + ' …';
+    var acts = (topic.id !== 'fallback' && topic.actions) ? topic.actions : QA_FALLBACK.actions;
+    setTimeout(function() { _qaAddMessage('bot', kbAnswer, acts); }, 180);
+    return;
+  }
+
   var answer = _qaPick(topic.replies, topic.id + ':' + text);
   if (topic.id !== 'fallback' && currentUser) {
     answer += ' Ich berücksichtige, dass du gerade als ' + (currentUser.role || 'Nutzer') + ' unterwegs bist.';
   }
+  if (topic.id === 'fallback') _ebKbNoteMiss(text);
   setTimeout(function() {
     _qaAddMessage('bot', answer, topic.actions);
   }, 180);
@@ -13983,6 +14106,7 @@ function renderBoardPage() {
   if (!currentUser) { _boardProjects = []; }
 
   var isProvider = isDienstleister();
+  _ebKbLoad(); // Wissensbasis für den Planungs-Assistenten bereitstellen
 
   // Header-Rolle korrekt zur angemeldeten Rolle anzeigen (Dienstleister sahen
   // fälschlich „EVENT-PLANER"). Gäste sehen den Standard „EVENT-PLANER".
@@ -23054,7 +23178,31 @@ function _aiAnswer(raw) {
   if (/(danke|super|top|perfekt|nice|cool)/.test(t)) {
     return 'Sehr gerne! 🎉 Sag Bescheid, wenn ich noch etwas für dein Event tun kann.';
   }
+  // 9) Wissensbasis aus dem Vault (nur freigegebenes Wissen) — beantwortet
+  //    alles rund um Konto, Buchung, Zahlung, Sicherheit, Planungspraxis …
+  var kbHit = _ebKbGoodHit(raw);
+  if (kbHit) return _aiKbAnswerHtml(kbHit);
+  _ebKbNoteMiss(raw);
   return _aiAnswerFallback();
+}
+
+/** Wissens-Treffer als Chat-Antwort im Board-Look aufbereiten. */
+function _aiKbAnswerHtml(hit) {
+  var txt = hit.text || '';
+  if (txt.length > 620) txt = txt.slice(0, 610).replace(/\s+\S*$/, '') + ' …';
+  var paras = txt.split('\n\n').filter(Boolean).slice(0, 3);
+  var body = paras.map(function(p) {
+    var lines = p.split('\n').filter(Boolean);
+    var bullets = lines.filter(function(l) { return /^•\s/.test(l.trim()); });
+    if (bullets.length >= 2) {
+      return '<ul class="bai-list">' + bullets.map(function(l) {
+        return '<li>' + _escHtml(l.replace(/^•\s*/, '').trim()) + '</li>';
+      }).join('') + '</ul>';
+    }
+    return '<p>' + _escHtml(p.replace(/\n/g, ' ').trim()) + '</p>';
+  }).join('');
+  var head = hit.heading ? '<b>' + _escHtml(hit.heading) + '</b><br>' : '';
+  return head + body;
 }
 
 function _aiAnswerHelp() {

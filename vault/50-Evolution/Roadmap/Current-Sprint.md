@@ -1,0 +1,97 @@
+---
+layer: L5
+domain: evolution
+share: internal
+tags: [layer/L5, domain/evolution, share/internal]
+---
+
+# Roadmap: Aktueller Sprint
+
+> Ziel: Die beste und funktionalste Eventplattform für jedermann
+
+## Zuletzt abgeschlossen (2026-07-24)
+
+- [x] **Brain-Umbau: 6-Layer-Vault + Synergie zur Website**
+  - Vault in `00-Kern` … `50-Evolution` geschichtet, alle 92 Notizen mit Frontmatter
+    (`layer`, `domain`, `share`) klassifiziert, alle Wiki-Links umgeschrieben (0 tote Links).
+  - Graph färbt nach `tag:#layer/*`; `neural.css` mit Impuls-Puls und Layer-/Share-Badges.
+  - Neue L0-Notizen: [[00-Kern/Layer-Modell]], [[00-Kern/Neural-Map]],
+    [[00-Kern/Wissensstroeme]], [[00-Kern/Sicherheits-Klassifikation]],
+    [[00-Kern/Synergie-Pipeline]].
+  - Neuer öffentlicher Wissens-Layer `10-Produkt/Wissen/` (9 Notizen, nutzerseitige Fragen).
+  - `scripts/build-knowledge.mjs` → `assets/eb-knowledge.json` (115 Abschnitte aus 21
+    `share: public`-Notizen). Whitelist + Verbotsmuster-Scan; `secret`/`internal` bleiben drin.
+  - `app.js`: `_ebKbLoad/_ebKbSearch/_ebKbGoodHit` — **QA-Bot und Board-Assistent**
+    beantworten Inhaltsfragen aus dem Vault, Intents behalten Vorrang bei Navigation.
+    Ohne Treffer: ehrlicher Fallback + Wissenslücke in `eb_kb_misses` (Impuls 6).
+  - `functions.php`: `themeUrl` in `eventboerseApi` ergänzt (KB-URL auf Unterrouten).
+  - Verifiziert: 10/11 Testfragen korrekt beantwortet, Off-Topic korrekt abgelehnt,
+    0 Leckage aus Governance/System/Betrieb/Evolution.
+
+## Aktiver Fokus (P0)
+
+- [ ] **Listings-/Board-Regressionen ausschließen**
+  - Ziel: Keine verschwundenen Listings mehr in Board/Startseite/Map/Browse.
+  - Pflicht-Checks nach Deploy: Listings API, Board Picker, Demo-Toggle, Selbstbuchungsschutz.
+- [ ] **KI-Änderungs-Guardrails operationalisieren**
+  - Safe Defaults für automatische Worker (kein destruktives Verhalten bei Unsicherheit).
+  - Änderung nur mit nachvollziehbarem Status + Grund.
+- [ ] **Stripe Connect E2E im Testmodus finalisieren**
+  - Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund/Dispute-Pfad prüfen.
+  - Keine echte Buchung ohne aktives Auszahlungskonto des Dienstleisters.
+- [x] **Admin-Moderation gegen aktuellen Code abgleichen** *(erledigt 2026-06-26, live)*
+  - Admin-Bild-Löschen umgesetzt: Detailseite (`adminDeleteListingImage`) + Provider-Portfolio/Lightbox (`adminDeleteProfileImage`).
+  - Backend `POST /admin/moderate-image` + persistente Blocklist (`eb_demo_image_blocklist`) → wirkt auch für hardcodierte Demo-Listings.
+- [x] **Security-Härtung** *(erledigt 2026-06-26, live)*
+  - XSS-Escaping (`_escHtml` inkl. Quotes), Brute-Force-Rate-Limiting (Login/OTP/Reset/Register), CSP ohne `'unsafe-eval'`, WP-User-Enumeration gesperrt, CDN gepinnt, CI-Security-Workflow + `SECURITY.md`.
+  - Offen (User): `security@eventbörse.de`-Postfach; optional CDN-SRI; CSP ohne `'unsafe-inline'` (Inline-Handler-Refactor).
+
+## Nächste Prioritäten (P1)
+
+- [ ] **Echtzeit-Messaging** (Polling → SSE/WebSocket).
+- [ ] **Suche auf DB-Volltext** umstellen (MySQL FULLTEXT).
+- [ ] **Stripe-Flow weiter härten** (Reconcile, Return, Regression-Szenarien).
+- [ ] **Board-Paket-Tests** (Mehrfachzeiten pro Paketposition, Edit/Reload-Szenarien).
+- [ ] **QA-Bot Wissensmuster erweitern**
+  - Tokenfrei bleiben.
+  - Mehr direkte Navigations-/Hilfsaktionen für Login, Board, Inserat, Zahlung.
+
+## Nice-to-Have (P2)
+
+- [ ] PWA + Push-Benachrichtigungen.
+- [ ] Analytics-Kennzahlen je Listing/Flow.
+- [ ] SEO-Pre-Rendering für zentrale Landing-/Browse-Routen.
+
+## Zuletzt ausgeliefert (Juli 2026)
+
+- [x] Demo-Konten kontaktierbar (wie eBay): Nachricht landet im Chat, Benachrichtigungs-Mail geht an kontakt@eventbörse.de (Banner: Demo-Konto, Absender inkl. User-ID/E-Mail, Inserat, Conversation-Nr.). Server: eb_demo_provider_name-Verzeichnis, eb_ops_notify_address, Demo-IDs auf 90001–90015 vervollständigt.
+- [x] Inserate-Erstellung als EINE Maske: Biete/Suche-Umschalter (listing_type in DB, Migration 2.3), optionaler einklappbarer Verfügbarkeitskalender (Häkchen = verfügbar, PUT availability nach dem Speichern), Rollen-Vorwahl (Planer→Suche).
+- [x] Board→Chat-Kette repariert: providerId auf Karten, loadDbListings in Board-Route, Erfolgs-Button öffnet Konversation; Picker mit Browse-Parität (getHeroListings statt _visibleListings).
+- [x] Showcase-Animationen butterweich: rAF-Loop + Lerp statt Scroll-Events/CSS-Transitions (iPhone-Einfrier-Bug behoben); „So funktioniert's" auf 4 Schritte gestrafft.
+- [x] Planungs-Board im ChatGPT-Look: Sidebar links (Neues Projekt, Projekt-Liste mit Edit/Delete, 8 Dienstleister-Kategorien), rechts lokaler Planungs-Assistent (`_ai*` in app.js, `.bai-*` CSS). Regelbasiert, ohne KI-Token: legt Projekte aus Freitext an (Typ/Datum/Gäste/Budget-Parsing), empfiehlt Dienstleister je Kategorie („+ Board" → Karte in Geplant), beantwortet Budget/offene Schritte (Guide-Deadlines)/Countdown/Status. Chat-Verlauf in localStorage pro Nutzer; Auftragsboard für Dienstleister bleibt darunter.
+- [x] Home-Showcase finalisiert: Mac dreht von Rückseite auf & schwebt, Demo-Szene + Widgets mit Inline-SVG-Illustrationen, Spacing/Mobile-Fixes, Board-Picker-Rollen (Planer sehen Angebote, Dienstleister alles).
+
+## Zuletzt ausgeliefert (Mai/Juni 2026)
+
+- [x] QA-Support-Bot rechts über Bottom-Navigation, tokenfrei, mit direkter Bereichs-Navigation.
+- [x] QA-Bot Launcher auf transparentes Roboter/Headset/Partyhut-Icon reduziert (keine Card, kein Status-Dot).
+- [x] Loader/Hero-Popper bereinigt: doppeltes Popper-Bild entfernt.
+- [x] Login/IDN-E-Mail-Flow repariert.
+- [x] Board Deep-Link `/board/<id>` + Projektkarte im neuen Tab.
+- [x] Stripe Connect Onboarding/Status/Diagnose/Disconnect im Backend/Frontend vorhanden.
+- [x] Board lädt alle Listings im Picker (kein künstlicher Cap).
+- [x] Saubere Trennung Angebot vs. Gesuch in Board-Auswahl.
+- [x] Eigene Angebote für Planer sichtbar, ohne Selbstbuchungslink.
+- [x] Demo-Sichtbarkeit über Home/Browse/Map/Board vereinheitlicht.
+- [x] Admin-Moderation: Ausblenden/Löschen inkl. Begründung + Verlauf.
+- [x] Board-Planungsmodus ausgebaut:
+  - [x] `Baustein` (Einzelposition)
+  - [x] `Paket` (Mehrfachpositionen mit je eigener Zeit/Preis/Notiz)
+
+---
+*Zuletzt aktualisiert: 2026-07-16*
+
+## Verknüpfte Notizen
+- [[50-Evolution/Roadmap/Feature-Ideen]] — Ideen-Sammlung
+- [[50-Evolution/Roadmap/Bekannte-Bugs]] — Offene Bugs
+- [[50-Evolution/AI-Gedaechtnis/Claude-Kontext]] — Prioritätsliste P0/P1

@@ -2,20 +2,56 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Vault — Kontext immer laden
+## Vault (Brain) — Kontext immer laden
 
-Der Vault liegt **versioniert im Repo** unter `vault/` (kanonisch, Stand 2026-06-21).
+Der Vault liegt **versioniert im Repo** unter `vault/` (kanonisch).
 Der frühere externe Obsidian-Vault `~/Documents/eventboerse-vault/` ist **veraltet
 und abgehängt** — nicht mehr verwenden.
 
+Er ist in **sechs Ebenen** geschichtet (Details: `vault/00-Kern/Layer-Modell.md`):
+
+| Layer | Ordner | Inhalt |
+|-------|--------|--------|
+| L0 Kern | `00-Kern/` | Wissensarchitektur: Layer-Modell, Neural-Map, Wissensströme, Freigaben |
+| L1 Produkt | `10-Produkt/` | Features, UserFlows, **öffentliches Wissen** (`Wissen/`) |
+| L2 System | `20-System/` | Architecture, Frontend, Backend, Komponenten |
+| L3 Betrieb | `30-Betrieb/` | Operations, CI-CD, Integrationen, Testing |
+| L4 Governance | `40-Governance/` | Security (🔒 `secret`), Legal |
+| L5 Evolution | `50-Evolution/` | Roadmap, AI-Gedaechtnis, Archiv |
+
 Zu Beginn jeder Session diese Dateien lesen (in dieser Reihenfolge):
 
-1. `vault/AI-Gedaechtnis/Claude-Kontext.md` — Projekt-Gedächtnis & Präferenzen
-2. `vault/Roadmap/Current-Sprint.md` — Was gerade gebaut wird
-3. `vault/AI-Gedaechtnis/Code-Beziehungen.md` — Modul-Abhängigkeiten
+1. `vault/50-Evolution/AI-Gedaechtnis/Claude-Kontext.md` — Projekt-Gedächtnis & Präferenzen
+2. `vault/50-Evolution/Roadmap/Current-Sprint.md` — Was gerade gebaut wird
+3. `vault/50-Evolution/AI-Gedaechtnis/Code-Beziehungen.md` — Modul-Abhängigkeiten
 
-Nach Code-Änderungen, die relevant für den Vault sind: `vault/AI-Gedaechtnis/Claude-Kontext.md`
-oder `vault/Roadmap/Current-Sprint.md` aktualisieren.
+Nach Code-Änderungen, die relevant für den Vault sind:
+`vault/50-Evolution/AI-Gedaechtnis/Claude-Kontext.md` oder
+`vault/50-Evolution/Roadmap/Current-Sprint.md` aktualisieren.
+
+### Frontmatter-Pflicht
+
+Jede Notiz beginnt mit `layer`, `domain`, `share`, `tags`. `share` steuert die Freigabe:
+
+- `public` → fließt in die Website-Wissensbasis (KI-Bot + Board-Assistent)
+- `internal` → bleibt im Vault
+- `secret` → verlässt den Vault **nie** (gesamter `40-Governance/Security/`-Ordner)
+
+**Fail-Safe:** Fehlt `share`, gilt die Notiz als nicht öffentlich. Eine Notiz von
+`internal` auf `public` zu heben ist eine Sicherheitsentscheidung → eigener Commit
+mit Begründung. Regeln: `vault/00-Kern/Sicherheits-Klassifikation.md`.
+
+### Wissensbasis neu bauen
+
+Nach jeder Änderung an einer `share: public`-Notiz:
+
+```bash
+node scripts/build-knowledge.mjs --report   # baut assets/eb-knowledge.json + Freigabe-Bilanz
+```
+
+Die erzeugte `assets/eb-knowledge.json` **mitcommitten** — sie wird mit dem Theme
+ausgeliefert und von `_ebKbSearch()` in `app.js` befragt (QA-Bot und Board-Assistent).
+Nie von Hand editieren. Pipeline: `vault/00-Kern/Synergie-Pipeline.md`.
 
 ## Projekt
 
