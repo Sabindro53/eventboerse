@@ -14,9 +14,9 @@ Suche über die Absprache im Chat bis zur bezahlten Buchung läuft alles an eine
 
 ## Was kostet die Nutzung?
 Konto, Inserate, Suche, Chat und Planungs-Board sind kostenlos. Nur bei einer erfolgreich über
-die Plattform bezahlten Buchung fallen **3 % Provision** an, die vom Buchungsbetrag abgezogen
-werden. Als Kunde zahlst du genau den Angebotspreis, als Dienstleister bekommst du 97 %
-ausgezahlt.
+die Plattform bezahlten Buchung fallen **3 % Provision** plus die **Stripe-Zahlungsgebühr** an —
+beides wird vom Buchungsbetrag abgezogen. Als Kunde zahlst du genau den Angebotspreis, als
+Dienstleister bekommst du den Betrag abzüglich dieser beiden Positionen ausgezahlt.
 
 ## Was macht Eventbörse anders?
 Alles greift ineinander: Suche, Chat, Planungs-Board und Zahlung. Du musst nicht zwischen

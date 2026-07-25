@@ -47,6 +47,6 @@ Chat vereinbart habt, sowie die AGB.
 
 ## Welche Gebühren fallen an?
 Konto, Inserate, Suche und Chat sind kostenlos. Bei einer erfolgreich über die Plattform
-bezahlten Buchung behält Eventbörse **3 % Provision** ein — abgezogen vom Buchungsbetrag,
-also getragen vom Dienstleister. Für dich als Kunde kommt nichts obendrauf. Details:
-Gebühren & Provision.
+bezahlten Buchung werden **3 % Eventbörse-Provision** und die **Stripe-Zahlungsgebühr**
+(ca. 1,5 % + 0,25 €) vom Buchungsbetrag abgezogen — beides trägt der Dienstleister. Für dich
+als Kunde kommt nichts obendrauf. Details: Gebühren & Provision.

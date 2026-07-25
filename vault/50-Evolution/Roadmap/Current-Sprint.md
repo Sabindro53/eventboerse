@@ -9,6 +9,26 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-07-25, Nachtrag)
+
+- [x] **Gebührenmodell wirtschaftlich korrigiert: Stripe-Gebühr trägt der Dienstleister**
+  - Vorher trug die **Plattform** die Stripe-Zahlungsgebühr (Application Fee = nur 3 %) —
+    bei 1.000 € blieben der Plattform real nur ~1,5 % statt 3 %. Nicht tragfähig.
+  - Jetzt: `application_fee_amount = Provision + geschätzte Stripe-Gebühr`.
+    Stripe belastet bei Destination Charges das Plattformkonto; über die erhöhte
+    Application Fee wird die Gebühr vom Auszahlungsbetrag einbehalten. Netto bleibt
+    der Plattform die **volle Provision**.
+  - Neue Konstanten (in wp-config überschreibbar): `EB_STRIPE_FEE_PERCENT` (0.015),
+    `EB_STRIPE_FEE_FIXED_CENTS` (25) — Standard EWR-Karten.
+  - Beispiel 1.000 €: Provision 30 € + Stripe 15,25 € → **Auszahlung 954,75 €**.
+  - Frontend (`calculatePayout`, Aufschlüsselung, Auftrags-Texte) spiegelt das Modell
+    centgenau; `stripe_fee_payer` ist jetzt `provider`.
+  - Wissensbasis aktualisiert (Gebühren & Provision, Buchung & Zahlung, Über Eventbörse);
+    Gebührenfragen werden nicht mehr vom Budget-Intent abgefangen.
+  - **Offen/Hinweis:** Die Stripe-Gebühr ist ein *Schätzwert*. Weicht die reale Gebühr ab
+    (Amex, Nicht-EWR-Karten, Wallets), trägt die Differenz die Plattform. Bei Bedarf die
+    Konstanten je nach tatsächlichem Zahlungsmix nachziehen.
+
 ## Zuletzt abgeschlossen (2026-07-25)
 
 - [x] **Board-Assistent führt durch die Projektanlage (Slot-Filling)**

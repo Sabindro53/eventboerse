@@ -6022,6 +6022,48 @@ function eb_stripe_platform_fee_rate() {
     return $rate;
 }
 
+/**
+ * Geschätzte Stripe-Zahlungsgebühr für einen Betrag.
+ *
+ * Stripe rechnet prozentual + fix und je nach Zahlungsmittel/Kartenland
+ * unterschiedlich ab. Für die Auszahlungsvorschau und die Application Fee
+ * arbeiten wir mit einem konfigurierbaren Schätzwert (Standard: EWR-Karten,
+ * 1,5 % + 0,25 €). Überschreibbar per Konstante in wp-config:
+ *   EB_STRIPE_FEE_PERCENT      (z. B. 0.015)
+ *   EB_STRIPE_FEE_FIXED_CENTS  (z. B. 25)
+ */
+function eb_stripe_processing_fee_rate() {
+    $configured = defined( 'EB_STRIPE_FEE_PERCENT' ) ? constant( 'EB_STRIPE_FEE_PERCENT' ) : '';
+    $rate = is_numeric( $configured ) ? (float) $configured : 0.015;
+    if ( $rate < 0 ) $rate = 0;
+    if ( $rate > 0.10 ) $rate = 0.10;
+    return $rate;
+}
+
+function eb_stripe_processing_fee_fixed_cents() {
+    $configured = defined( 'EB_STRIPE_FEE_FIXED_CENTS' ) ? constant( 'EB_STRIPE_FEE_FIXED_CENTS' ) : '';
+    $fixed = is_numeric( $configured ) ? (int) $configured : 25;
+    if ( $fixed < 0 ) $fixed = 0;
+    if ( $fixed > 500 ) $fixed = 500;
+    return $fixed;
+}
+
+function eb_stripe_processing_fee_estimate_cents( $amount_cents ) {
+    $amount_cents = max( 0, (int) $amount_cents );
+    if ( $amount_cents <= 0 ) return 0;
+    return (int) round( $amount_cents * eb_stripe_processing_fee_rate() ) + eb_stripe_processing_fee_fixed_cents();
+}
+
+/**
+ * Gebühren-Aufstellung einer Buchung.
+ *
+ * Wirtschaftsmodell: Der Kunde zahlt den Angebotspreis. Vom Betrag gehen
+ * Plattformprovision UND die Stripe-Zahlungsgebühr ab — beide trägt der
+ * Dienstleister. Technisch bündeln wir beides in der Application Fee:
+ * Stripe belastet bei Destination Charges die Plattform mit der
+ * Zahlungsgebühr, die Plattform holt sie über die erhöhte Application Fee
+ * zurück. Netto bleibt der Plattform damit die reine Provision.
+ */
 function eb_stripe_calculate_fee_quote( $amount_cents, $currency = 'eur' ) {
     $amount_cents = max( 0, (int) $amount_cents );
     $rate = eb_stripe_platform_fee_rate();
@@ -6029,7 +6071,16 @@ function eb_stripe_calculate_fee_quote( $amount_cents, $currency = 'eur' ) {
     if ( $platform_fee_cents > $amount_cents ) {
         $platform_fee_cents = $amount_cents;
     }
-    $provider_payout_cents = max( 0, $amount_cents - $platform_fee_cents );
+    $stripe_fee_cents = eb_stripe_processing_fee_estimate_cents( $amount_cents );
+
+    // Application Fee = Provision + geschätzte Stripe-Gebühr, gedeckelt auf den
+    // Bruttobetrag, damit die Auszahlung nie negativ wird.
+    $application_fee_cents = $platform_fee_cents + $stripe_fee_cents;
+    if ( $application_fee_cents > $amount_cents ) {
+        $application_fee_cents = $amount_cents;
+        $stripe_fee_cents = max( 0, $application_fee_cents - $platform_fee_cents );
+    }
+    $provider_payout_cents = max( 0, $amount_cents - $application_fee_cents );
 
     return array(
         'currency'                         => strtolower( sanitize_text_field( $currency ?: 'eur' ) ),
@@ -6037,10 +6088,15 @@ function eb_stripe_calculate_fee_quote( $amount_cents, $currency = 'eur' ) {
         'platform_fee_rate'                => $rate,
         'platform_fee_percent'             => round( $rate * 100, 2 ),
         'platform_fee_cents'               => $platform_fee_cents,
+        'stripe_fee_rate'                  => eb_stripe_processing_fee_rate(),
+        'stripe_fee_percent'               => round( eb_stripe_processing_fee_rate() * 100, 2 ),
+        'stripe_fee_fixed_cents'           => eb_stripe_processing_fee_fixed_cents(),
+        'stripe_fee_cents'                 => $stripe_fee_cents,
+        'application_fee_cents'            => $application_fee_cents,
         'provider_payout_before_adjustments_cents' => $provider_payout_cents,
-        'stripe_fee_payer'                 => 'platform',
-        'fee_model'                        => 'destination_charge_platform_application_fee',
-        'note'                             => 'Eventbörse zieht die Plattformprovision als Stripe Application Fee ab. Stripe-Zahlungsgebühren werden endgültig im Stripe-Dashboard ausgewiesen und können je Zahlungsmethode, Land, Refund oder Dispute abweichen.',
+        'stripe_fee_payer'                 => 'provider',
+        'fee_model'                        => 'destination_charge_application_fee_incl_processing',
+        'note'                             => 'Vom Buchungsbetrag gehen Eventbörse-Provision und Stripe-Zahlungsgebühr ab; beide trägt der Dienstleister. Die Stripe-Gebühr ist ein Schätzwert (Standard EWR-Karten) — der endgültige Betrag hängt von Zahlungsmethode und Kartenland ab und wird im Stripe-Dashboard ausgewiesen.',
     );
 }
 
@@ -6384,6 +6440,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'metadata[title]'                      => $title,
         'metadata[gross_amount_cents]'         => (string) $fee_quote['gross_amount_cents'],
         'metadata[platform_fee_cents]'         => (string) $fee_quote['platform_fee_cents'],
+        'metadata[stripe_fee_est_cents]'       => (string) $fee_quote['stripe_fee_cents'],
         'metadata[provider_payout_cents]'      => (string) $fee_quote['provider_payout_before_adjustments_cents'],
         'metadata[stripe_fee_payer]'           => $fee_quote['stripe_fee_payer'],
         'metadata[fee_model]'                  => $fee_quote['fee_model'],
@@ -6439,11 +6496,13 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
             $connect_id = $connect_state['connect_id'] ?? '';
             if ( $connect_id ) {
                 // Stripe Connect: Destination Charge + on_behalf_of.
-                // Eventbörse zieht die Plattformprovision als Application Fee ab.
-                // Stripe-Zahlungsgebühren werden endgültig in Stripe ausgewiesen;
-                // bei Destination Charges belastet Stripe typischerweise das
-                // Plattformkonto, nicht als pauschale 3%-Position den Dienstleister.
-                $fee_cents = (int) $fee_quote['platform_fee_cents'];
+                // Die Application Fee bündelt Plattformprovision UND die
+                // geschätzte Stripe-Zahlungsgebühr. Stripe belastet die
+                // Zahlungsgebühr dem Plattformkonto; über die erhöhte
+                // Application Fee wird sie vom Auszahlungsbetrag des
+                // Dienstleisters einbehalten. Netto bleibt der Plattform
+                // damit die reine Provision.
+                $fee_cents = (int) $fee_quote['application_fee_cents'];
                 $fields['application_fee_amount']          = $fee_cents;
                 $fields['transfer_data[destination]']      = $connect_id;
                 $fields['on_behalf_of']                    = $connect_id;
@@ -6451,6 +6510,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
                 // sieht 'Eventbörse / <Dienstleister>' auf seiner Bank-Abrechnung.
                 $fields['metadata[connect_id]']            = $connect_id;
                 $fields['metadata[application_fee_cents]'] = (string) $fee_cents;
+                $fields['metadata[stripe_fee_cents]']      = (string) $fee_quote['stripe_fee_cents'];
                 $fields['metadata[fee_model]']             = $fee_quote['fee_model'];
             }
         }

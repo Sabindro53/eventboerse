@@ -13846,28 +13846,44 @@ window.addEventListener('pagehide', function() {
   } catch(e) {}
 });
 
+// Gebührenmodell (Spiegel von eb_stripe_calculate_fee_quote in functions.php):
+// Vom Buchungsbetrag gehen Plattformprovision UND Stripe-Zahlungsgebühr ab —
+// beide trägt der Dienstleister. Die Stripe-Gebühr ist ein Schätzwert
+// (EWR-Karten), der endgültige Betrag hängt von Zahlungsmethode/Kartenland ab.
+var EB_PLATFORM_FEE_RATE = 0.03;
+var EB_STRIPE_FEE_RATE = 0.015;
+var EB_STRIPE_FEE_FIXED = 0.25;
+
 function calculatePayout(priceGross) {
   var gross = Math.round((parseFloat(priceGross) || 0) * 100) / 100;
-  var platformFee = Math.round(gross * 0.03 * 100) / 100;
-  var netPayout = Math.round((gross - platformFee) * 100) / 100;
+  var platformFee = Math.round(gross * EB_PLATFORM_FEE_RATE * 100) / 100;
+  var stripeFee = gross > 0
+    ? Math.round((gross * EB_STRIPE_FEE_RATE + EB_STRIPE_FEE_FIXED) * 100) / 100
+    : 0;
+  var totalFees = Math.round((platformFee + stripeFee) * 100) / 100;
+  if (totalFees > gross) { totalFees = gross; stripeFee = Math.max(0, Math.round((gross - platformFee) * 100) / 100); }
+  var netPayout = Math.round((gross - totalFees) * 100) / 100;
   return {
     grossAmount: gross,
-    platformFeeRate: 0.03,
+    platformFeeRate: EB_PLATFORM_FEE_RATE,
     platformFeeAmount: platformFee,
+    stripeFeeAmount: stripeFee,
+    totalFeeAmount: totalFees,
     netPayoutAmount: netPayout,
-    stripeFeeAmount: null,
-    stripeFeePaidBy: 'platform',
-    note: 'Zahlungsdienstleister-Gebühren werden endgültig in Stripe ausgewiesen und nicht als pauschale 3%-Position vom Dienstleister abgezogen.'
+    stripeFeePaidBy: 'provider',
+    note: 'Stripe-Gebühr ist ein Schätzwert (' + (EB_STRIPE_FEE_RATE * 100).toFixed(1).replace('.', ',') +
+      ' % + ' + _formatEuro(EB_STRIPE_FEE_FIXED) + ', EWR-Karten). Der endgültige Betrag hängt von Zahlungsmethode und Kartenland ab.'
   };
 }
 
 function _payoutBreakdownHtml(priceNum) {
   var q = calculatePayout(priceNum);
   return '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
-    '<div style="display:flex;justify-content:space-between"><span>Brutto</span><span>' + _escHtml(_formatEuro(q.grossAmount)) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Brutto (Kunde zahlt)</span><span>' + _escHtml(_formatEuro(q.grossAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>&minus;' + _escHtml(_formatEuro(q.platformFeeAmount)) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Stripe-Zahlungsgeb&uuml;hr (ca.)</span><span>&minus;' + _escHtml(_formatEuro(q.stripeFeeAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Voraussichtliche Auszahlung</span><strong style="color:#66bb6a">' + _escHtml(_formatEuro(q.netPayoutAmount)) + '</strong></div>' +
-    '<div style="margin-top:6px;font-size:11px;color:var(--text-light)">Stripe-Zahlungsgeb&uuml;hren werden im Stripe-Dashboard final ausgewiesen.</div>' +
+    '<div style="margin-top:6px;font-size:11px;color:var(--text-light)">' + _escHtml(q.note) + '</div>' +
   '</div>';
 }
 
@@ -13938,7 +13954,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     '</summary>' +
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
-      '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Eventb&ouml;rse zieht 3% Plattformprovision als Application Fee ab.<br>' +
+      '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen 3% Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
       '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.' +
     '</div>' +
   '</details>';
@@ -14070,6 +14086,7 @@ function acceptAuftragRemote(customerId, projectId, cardId) {
   var msg = 'Auftrag verbindlich annehmen?\n\n' +
     (priceNum > 0 ? 'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
     '\u2013 Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    '\u2013 Stripe-Zahlungsgeb\u00fchr (ca.): ' + _formatEuro(payout.stripeFeeAmount) + '\n' +
     'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' : '') +
     'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
   if (!confirm(msg)) return;
@@ -14112,6 +14129,7 @@ function acceptAuftragProvider(projectId, cardId) {
   var msg = 'Auftrag verbindlich annehmen?\n\n' +
     'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
     '– Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    '– Stripe-Zahlungsgeb\u00fchr (ca.): ' + _formatEuro(payout.stripeFeeAmount) + '\n' +
     'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' +
     'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
   if (!confirm(msg)) return;
@@ -14124,11 +14142,12 @@ function acceptAuftragProvider(projectId, cardId) {
   if (!card.paymentMethod) card.paymentMethod = 'Stripe';
   card.paidAmount = priceNum;
   card.grossAmount = payout.grossAmount;
-  card.stripeFeeAmount = null;
+  card.stripeFeeAmount = payout.stripeFeeAmount;
   card.stripeFeePaidBy = payout.stripeFeePaidBy;
   card.platformFeeAmount = payout.platformFeeAmount;
+  card.totalFeeAmount = payout.totalFeeAmount;
   card.netPayoutAmount = payout.netPayoutAmount;
-  card.feeModel = 'destination_charge_platform_application_fee';
+  card.feeModel = 'destination_charge_application_fee_incl_processing';
 
   _saveBoardProjects({ immediate: true });
   showToast('Auftrag angenommen – Auszahlung ' + _formatEuro(payout.netPayoutAmount) + '.', 'paid');
@@ -23232,8 +23251,15 @@ function _aiAnswer(raw) {
   }
   // 2) Kategorie → Dienstleister-Empfehlungen
   if (cat) return _aiAnswerCategory(cat);
-  // 3) Budget
-  if (/(budget|kosten|preis|ausgeben|teuer|euro|€)/.test(t)) return _aiAnswerBudget();
+  // 3) Budget — aber Plattform-/Gebührenfragen gehören in die Wissensbasis,
+  //    nicht in die Budget-Rechnung des eigenen Projekts.
+  if (/(budget|kosten|preis|ausgeben|teuer|euro|€)/.test(t)) {
+    if (/(provision|geb[üu]hr|versteckt|auszahl|stripe|storn|r[üu]ckerstatt|was kostet (die nutzung|eventb)|inserier)/.test(t)) {
+      var feeHit = _ebKbGoodHit(raw);
+      if (feeHit) return _aiKbAnswerHtml(feeHit);
+    }
+    return _aiAnswerBudget();
+  }
   // 4) Offene Schritte / Checkliste
   if (/(fehlt|offen|nächst|weiter|schritt|checklist|to-?do|aufgabe)/.test(t)) return _aiAnswerNextSteps();
   // 5) Countdown / Datum
