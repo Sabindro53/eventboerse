@@ -12471,7 +12471,10 @@ function _ebKbLoad() {
 
 var _EB_KB_STOP = ['und','oder','der','die','das','den','dem','ein','eine','ist','sind','wie','was','wer',
   'wo','wann','warum','kann','ich','mir','mich','mein','meine','für','mit','von','auf','aus','bei','zum',
-  'zur','man','sich','nicht','nur','man','habe','hab','soll','muss','wird','werden','wenn','dann','denn'];
+  'zur','man','sich','nicht','nur','man','habe','hab','soll','muss','wird','werden','wenn','dann','denn',
+  // Füllverben in Fragen — sonst gewinnt „…funktioniert nicht" jede „Wie funktioniert X?"-Frage
+  'funktioniert','funktionieren','funktionierts','geht','gehts','macht','machen','erklär','erkläre',
+  'erklaer','erklaere','sagen','sag','bitte','eigentlich','genau','überhaupt','ueberhaupt'];
 
 function _ebKbTokens(text) {
   return String(text || '').toLowerCase()
@@ -12505,9 +12508,23 @@ function _ebKbSearch(query, limit) {
       else if (inKey) { score += 4; hits++; }
       else if (inText) { score += 2; hits++; }
       else {
-        // Beugung/Komposita abfangen: „kostet"~„Kosten", „zahlungsdaten"~„Zahlung"
+        // Beugung abfangen: „kostet" ~ „Kosten"
         var stem = _ebKbStem(w);
-        if (stem.length >= 4 && hay.indexOf(stem) !== -1) { score += 1.5; hits++; }
+        var frag = (stem.length >= 4 && hay.indexOf(stem) !== -1) ? stem : '';
+        // Komposita über Präfixe: „provisionsregelung" ~ „Provision",
+        // „zahlungsdaten" ~ „Zahlung"
+        if (!frag && w.length >= 8) {
+          for (var L = w.length - 1; L >= 6 && !frag; L--) {
+            if (hay.indexOf(w.slice(0, L)) !== -1) frag = w.slice(0, L);
+          }
+        }
+        if (frag) {
+          // Lange, spezifische Wörter sind ein starkes Signal — und noch stärker,
+          // wenn sie in der Überschrift des Abschnitts stecken.
+          var inHeadFrag = (e.heading || '').toLowerCase().indexOf(frag) !== -1;
+          score += inHeadFrag ? 5 : (w.length >= 8 ? 4 : 1.5);
+          hits++;
+        }
       }
     });
     if (!hits) return;
@@ -12527,6 +12544,29 @@ function _ebKbGoodHit(query) {
   var need = qs.length <= 2 ? 1 : 2;
   if (r[0].hits < need || r[0].score < 5) return null;
   return r[0].e;
+}
+
+/** Alle erklärbaren Themen (Notiztitel) mit ihren Fragen — für „Was kannst du erklären?". */
+function _ebKbTopics() {
+  if (_ebKbState !== 'ready' || !_ebKb) return [];
+  var byTitle = {};
+  _ebKb.entries.forEach(function(e) {
+    // Themenliste = nutzerseitige Hilfe-Notizen. Feature-/Flow-Doku bleibt als
+    // Antwortquelle nutzbar, taucht aber nicht als „Thema" auf.
+    if (String(e.source || '').indexOf('10-Produkt/Wissen/') !== 0) return;
+    if (!byTitle[e.title]) byTitle[e.title] = [];
+    if (e.heading) byTitle[e.title].push(e.heading);
+  });
+  return Object.keys(byTitle).map(function(title) {
+    return { title: title, questions: byTitle[title] };
+  });
+}
+
+/** Ähnliche Fragen vorschlagen, wenn kein sicherer Treffer da ist. */
+function _ebKbSuggestions(query, n) {
+  return _ebKbSearch(query, n || 3)
+    .filter(function(r) { return r.e.heading; })
+    .map(function(r) { return r.e.heading; });
 }
 
 /** Wissenslücke merken (Impuls 6). */
@@ -12679,11 +12719,28 @@ function _qaAnswer(text) {
     return;
   }
 
+  // Themenübersicht: „Was kannst du erklären?"
+  if (/(was kannst du|welche themen|worüber|worueber|themen|hilfe|womit hilfst)/i.test(text)) {
+    var topics = _ebKbTopics();
+    if (topics.length) {
+      var list = 'Ich kann dir zu allem Auskunft geben, was öffentlich ist: ' +
+        topics.map(function(t) { return t.title; }).join(' · ') +
+        '. Stell einfach deine Frage — z. B. „Wie hoch ist die Provision?".';
+      setTimeout(function() { _qaAddMessage('bot', list, QA_FALLBACK.actions); }, 180);
+      return;
+    }
+  }
+
   var answer = _qaPick(topic.replies, topic.id + ':' + text);
   if (topic.id !== 'fallback' && currentUser) {
     answer += ' Ich berücksichtige, dass du gerade als ' + (currentUser.role || 'Nutzer') + ' unterwegs bist.';
   }
-  if (topic.id === 'fallback') _ebKbNoteMiss(text);
+  if (topic.id === 'fallback') {
+    _ebKbNoteMiss(text);
+    // Statt Sackgasse: ähnliche beantwortbare Fragen anbieten.
+    var sug = _ebKbSuggestions(text, 3);
+    if (sug.length) answer += ' Vielleicht hilft dir eine dieser Fragen: „' + sug.join('", „') + '".';
+  }
   setTimeout(function() {
     _qaAddMessage('bot', answer, topic.actions);
   }, 180);
@@ -23152,6 +23209,17 @@ function _aiCatFromText(t) {
 
 function _aiAnswer(raw) {
   var t = (raw || '').toLowerCase();
+
+  // 0) Läuft gerade eine geführte Rückfrage? Dann ist die Eingabe die Antwort
+  //    darauf — außer der Nutzer bricht ausdrücklich ab.
+  if (_aiSlots) {
+    if (/(abbrech|stop|vergiss|abbruch|doch nicht)/.test(t)) {
+      _aiSlots = null;
+      return 'Okay, ich habe das Anlegen abgebrochen. Sag Bescheid, wenn du neu starten willst.';
+    }
+    return _aiHandleSlotAnswer(raw);
+  }
+
   var cat = _aiCatFromText(t);
   var type = null;
   for (var i = 0; i < _AI_TYPES.length; i++) {
@@ -23173,17 +23241,23 @@ function _aiAnswer(raw) {
   // 6) Status / Übersicht
   if (/(status|übersicht|zusammenfassung|fortschritt|wie läuft)/.test(t)) return _aiAnswerStatus();
   // 7) Gruß / Hilfe
-  if (/^(hi|hallo|hey|servus|moin|na\b|guten)/.test(t) || /(hilfe|was kannst du|funktion)/.test(t)) return _aiAnswerHelp();
+  // „funktioniert …?" ist eine Inhaltsfrage, keine Hilfe-Anfrage → nicht abfangen.
+  if (/^(hi|hallo|hey|servus|moin|na\b|guten)/.test(t) ||
+      /(^|\s)(hilfe|was kannst du|welche funktionen|funktionsumfang)(\s|$|\?)/.test(t)) return _aiAnswerHelp();
   // 8) Danke
   if (/(danke|super|top|perfekt|nice|cool)/.test(t)) {
     return 'Sehr gerne! 🎉 Sag Bescheid, wenn ich noch etwas für dein Event tun kann.';
   }
-  // 9) Wissensbasis aus dem Vault (nur freigegebenes Wissen) — beantwortet
-  //    alles rund um Konto, Buchung, Zahlung, Sicherheit, Planungspraxis …
+  // 9) Themenübersicht: „Was kannst du erklären / worüber weißt du Bescheid?"
+  if (/(was kannst du (alles )?(erklär|erklaer|beantworten)|welche themen|worüber|worueber|themen|übersicht der themen)/.test(t)) {
+    return _aiAnswerTopics();
+  }
+  // 10) Wissensbasis aus dem Vault (nur freigegebenes Wissen) — beantwortet
+  //     alles rund um Konto, Buchung, Zahlung, Provision, Sicherheit, Praxis …
   var kbHit = _ebKbGoodHit(raw);
   if (kbHit) return _aiKbAnswerHtml(kbHit);
   _ebKbNoteMiss(raw);
-  return _aiAnswerFallback();
+  return _aiAnswerFallback(raw);
 }
 
 /** Wissens-Treffer als Chat-Antwort im Board-Look aufbereiten. */
@@ -23205,55 +23279,238 @@ function _aiKbAnswerHtml(hit) {
   return head + body;
 }
 
+function _aiQuickBtn(label) {
+  var safe = String(label).replace(/'/g, '\\u0027');
+  return '<button type="button" class="bai-act" onclick="_aiQuick(\'' + _escHtml(safe) + '\')">' +
+    '<span class="material-icons-round">help_outline</span> ' + _escHtml(label) + '</button>';
+}
+
 function _aiAnswerHelp() {
+  var topics = _ebKbTopics();
+  var topicList = topics.length
+    ? '<br><b>Außerdem erkläre ich dir alles rund um die Plattform:</b><ul class="bai-list">' +
+      topics.map(function(t) { return '<li>' + _escHtml(t.title) + '</li>'; }).join('') +
+      '</ul>Frag einfach — z.&nbsp;B. „Wie hoch ist die Provision?" oder „Wie sicher sind meine Zahlungsdaten?".'
+    : '';
   return 'Hey! 👋 Ich bin dein <b>lokaler</b> Planungs-Assistent — keine externe KI, keine Kosten. Das kann ich:' +
     '<ul class="bai-list">' +
-    '<li>🗂️ <b>Projekt anlegen</b> — „Ich plane eine Hochzeit am 20.09. für 80 Gäste"</li>' +
+    '<li>🗂️ <b>Projekt anlegen</b> — „Ich plane eine Hochzeit 2030" (ich frage die Eckdaten ab)</li>' +
     '<li>🎧 <b>Dienstleister finden</b> — „Zeig mir DJs" oder links eine Kategorie wählen</li>' +
     '<li>💶 <b>Budget checken</b> — „Budget-Übersicht"</li>' +
     '<li>📋 <b>Nächste Schritte</b> — „Was fehlt noch?"</li>' +
     '<li>⏳ <b>Countdown</b> — „Wie viele Tage noch?"</li>' +
-    '</ul>';
+    '</ul>' + topicList +
+    '<div class="bai-actions">' + _aiQuickBtn('Wie hoch ist die Provision?') + _aiQuickBtn('Wie läuft eine Buchung ab?') + '</div>';
 }
 
-function _aiAnswerFallback() {
+/** „Was kannst du erklären?" — alle freigegebenen Themen auflisten. */
+function _aiAnswerTopics() {
+  var topics = _ebKbTopics();
+  if (!topics.length) {
+    return 'Meine Wissensbasis lädt gerade noch — frag mich gleich noch einmal. ' +
+      'In der Zwischenzeit: „Was fehlt noch?" oder „Budget-Übersicht" beantworte ich sofort.';
+  }
+  var html = 'Ich kann dir zu diesen Themen alles erklären, was öffentlich ist: 📚<ul class="bai-list">';
+  topics.forEach(function(t) {
+    var qs = t.questions.slice(0, 3).map(function(q) { return _escHtml(q); }).join(' · ');
+    html += '<li><b>' + _escHtml(t.title) + '</b>' + (qs ? '<br><small>' + qs + '</small>' : '') + '</li>';
+  });
+  html += '</ul>Stell einfach deine Frage — oder tippe eine der Fragen oben ab.' +
+    '<div class="bai-actions">' + _aiQuickBtn('Wie hoch ist die Provision?') +
+    _aiQuickBtn('Was kostet ein DJ?') + '</div>';
+  return html;
+}
+
+function _aiAnswerFallback(raw) {
+  var sugg = raw ? _ebKbSuggestions(raw, 3) : [];
+  if (sugg.length) {
+    return 'Das habe ich nicht sicher verstanden. 🤔 Meintest du vielleicht eine dieser Fragen?' +
+      '<div class="bai-actions">' + sugg.map(_aiQuickBtn).join('') + '</div>' +
+      '<br><small>Oder tippe „Was kannst du erklären?" für alle Themen.</small>';
+  }
   return 'Das habe ich nicht ganz verstanden. 🤔 Probier zum Beispiel:' +
     '<ul class="bai-list">' +
-    '<li>„Ich plane eine <b>Hochzeit</b> am 20.09.2026 für 80 Gäste"</li>' +
+    '<li>„Ich plane eine <b>Hochzeit 2030</b>" — ich frage dann die Eckdaten ab</li>' +
     '<li>„Zeig mir <b>DJs</b>" — oder wähle links eine Kategorie</li>' +
     '<li>„<b>Was fehlt noch?</b>" oder „<b>Budget-Übersicht</b>"</li>' +
-    '</ul>';
+    '<li>„<b>Wie hoch ist die Provision?</b>" — ich erkläre dir die Plattform</li>' +
+    '</ul>' +
+    '<div class="bai-actions">' + _aiQuickBtn('Was kannst du erklären?') + '</div>';
+}
+
+/* ─── Geführte Rückfragen („Slot-Filling") ────────────────────────
+   Statt sofort ein halbleeres Projekt anzulegen, fragt der Assistent die
+   fehlenden Eckdaten nacheinander ab: Datum → Gäste → Budget → Ort.
+   Jede Frage ist überspringbar („weiß ich noch nicht").            */
+var _aiSlots = null;
+
+var _AI_SLOT_DEFS = [
+  { key: 'date',     icon: 'calendar_today', q: 'Wann soll es stattfinden? Nenn mir gern ein Datum wie <b>20.09.2030</b> — ein Jahr oder Monat reicht auch.', skip: 'Datum steht noch nicht fest' },
+  { key: 'guests',   icon: 'group',          q: 'Mit wie vielen <b>Gästen</b> rechnest du ungefähr?', skip: 'Gästezahl offen' },
+  { key: 'budget',   icon: 'savings',        q: 'Welches <b>Gesamtbudget</b> hast du im Kopf? Ich rechne dann mit, wie viel noch frei ist.', skip: 'Budget offen' },
+  { key: 'location', icon: 'place',          q: 'In welcher <b>Stadt oder Region</b> soll es stattfinden? Dann schlage ich passende Dienstleister in der Nähe vor.', skip: 'Ort offen' }
+];
+
+function _aiSlotSkipped(t) {
+  return /(weiß|weiss) (ich )?(noch )?nicht|keine ahnung|unklar|offen|später|spaeter|überspring|ueberspring|skip|egal|noch nicht|^-$|^\?$/i.test(t.trim());
+}
+
+function _aiParseSlot(key, raw) {
+  var t = String(raw || '').toLowerCase().trim();
+  if (key === 'guests') {
+    var g = t.match(/(\d{1,4})/);
+    return g ? parseInt(g[1], 10) : null;
+  }
+  if (key === 'budget') {
+    var b = t.match(/(\d[\d.\s]{0,9})\s*(?:€|euro|eur)?/);
+    if (!b) return null;
+    var n = parseFloat(b[1].replace(/[.\s]/g, ''));
+    if (!isNaN(n) && /(k|tsd|tausend)\b/.test(t)) n *= 1000;
+    return isNaN(n) || n <= 0 ? null : n;
+  }
+  if (key === 'date') {
+    var full = raw.match(/\d{1,2}\.\d{1,2}\.\d{2,4}/);
+    if (full) return full[0];
+    var dm = raw.match(/\d{1,2}\.\d{1,2}\./);
+    if (dm) return dm[0];
+    var MON = ['januar','februar','märz','maerz','april','mai','juni','juli','august','september','oktober','november','dezember'];
+    for (var i = 0; i < MON.length; i++) {
+      if (t.indexOf(MON[i]) !== -1) {
+        var dnum = t.match(new RegExp('(\\d{1,2})\\s*\\.?\\s*' + MON[i])) || t.match(/(\d{1,2})\s*\./);
+        var yr = t.match(/(20\d{2})/);
+        return (dnum ? dnum[1] + '. ' : '') + MON[i].charAt(0).toUpperCase() + MON[i].slice(1) + (yr ? ' ' + yr[1] : '');
+      }
+    }
+    var y = t.match(/\b(20\d{2})\b/);
+    return y ? y[1] : null;
+  }
+  if (key === 'location') {
+    var city = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(raw) : '';
+    if (city) return city;
+    var clean = String(raw).trim().replace(/^(in|im|bei|nahe|rund um)\s+/i, '');
+    return clean.length >= 2 && clean.length <= 40 ? clean : null;
+  }
+  return null;
+}
+
+function _aiSlotAsk() {
+  var s = _aiSlots;
+  if (!s) return '';
+  while (s.queue.length) {
+    var key = s.queue[0];
+    var def = _AI_SLOT_DEFS.filter(function(d) { return d.key === key; })[0];
+    if (!def) { s.queue.shift(); continue; }
+    s.asked = key;
+    var step = (s.total - s.queue.length + 1) + '/' + s.total;
+    return '<span class="material-icons-round" style="font-size:15px;vertical-align:-3px">' + def.icon + '</span> ' +
+      '<b>Frage ' + step + ':</b> ' + def.q +
+      '<div class="bai-actions"><button type="button" class="bai-act" onclick="_aiQuick(\'weiß ich noch nicht\')">' +
+      '<span class="material-icons-round">redo</span> Weiß ich noch nicht</button></div>';
+  }
+  return _aiSlotSummary();
+}
+
+function _aiSlotSummary() {
+  var d = window._aiDraft || {};
+  _aiSlots = null;
+  var rows = [
+    { l: 'Event', v: d.name || 'Mein Event' },
+    { l: 'Datum', v: d.date || '— offen' },
+    { l: 'Gäste', v: d.guests ? d.guests + ' Personen' : '— offen' },
+    { l: 'Budget', v: d.budget ? d.budget.toLocaleString('de-DE') + ' €' : '— offen' },
+    { l: 'Ort', v: d.location || '— offen' }
+  ].map(function(r) { return '<li><b>' + r.l + ':</b> ' + _escHtml(String(r.v)) + '</li>'; }).join('');
+  var sugg = (_CHECKLIST_TEMPLATES[d.template] || []).slice(0, 5).map(function(s) {
+    return '<li>' + _escHtml(s) + '</li>';
+  }).join('');
+  return 'Perfekt, das reicht mir für den Start! 🎯<ul class="bai-list">' + rows + '</ul>' +
+    'Ich lege dir ein Board mit geführter Checkliste an, u.&nbsp;a.:' +
+    '<ul class="bai-list">' + sugg + '</ul>' +
+    '<div class="bai-actions"><button type="button" class="bai-act primary" onclick="_aiCreateFromDraft()">' +
+    '<span class="material-icons-round">add</span> Projekt anlegen</button></div>';
+}
+
+/* Antwort dem Slot zuordnen, zu dem sie inhaltlich passt — auch wenn der
+   Nutzer sie in anderer Reihenfolge liefert („20.06.2030" auf die Gästefrage). */
+function _aiRouteSlot(raw, queue, asked) {
+  var t = String(raw || '').toLowerCase();
+  var has = function(k) { return queue.indexOf(k) !== -1; };
+  if (has('date') && /\d{1,2}\.\d{1,2}\.?(\d{2,4})?/.test(raw)) return 'date';
+  if (has('guests') && /(gäste|gaeste|personen|leute|pax)/.test(t)) return 'guests';
+  if (has('budget') && /(€|euro|eur|budget|\d\s*k\b|tausend)/.test(t)) return 'budget';
+  if (has('location') && typeof _ebDetectCityInText === 'function' && _ebDetectCityInText(raw)) return 'location';
+  return asked;
+}
+
+function _aiHandleSlotAnswer(raw) {
+  var s = _aiSlots;
+  var key = _aiRouteSlot(raw, s.queue, s.asked);
+  if (!key) return _aiSlotAsk();
+  var d = window._aiDraft = window._aiDraft || {};
+  if (_aiSlotSkipped(raw)) {
+    s.queue.shift();
+    return 'Alles gut, das klären wir später. ' + _aiSlotAsk();
+  }
+  var val = _aiParseSlot(key, raw);
+  if (val === null) {
+    var def2 = _AI_SLOT_DEFS.filter(function(x) { return x.key === key; })[0];
+    return 'Das konnte ich nicht sicher lesen. ' + (def2 ? def2.q : '') +
+      '<div class="bai-actions"><button type="button" class="bai-act" onclick="_aiQuick(\'weiß ich noch nicht\')">' +
+      '<span class="material-icons-round">redo</span> Weiß ich noch nicht</button></div>';
+  }
+  d[key] = val;
+  // Jahr im Projektnamen mitziehen, wenn das Datum eines nennt
+  var yr = String(val).match(/\b(20\d{2})\b/);
+  if (key === 'date' && yr && d.name) d.name = d.name.replace(/\b20\d{2}\b/, yr[1]);
+  // Genau diesen Slot entfernen (nicht zwingend den zuerst gefragten)
+  var pos = s.queue.indexOf(key);
+  if (pos !== -1) s.queue.splice(pos, 1); else s.queue.shift();
+  var ack = key === 'budget' ? ('Notiert: <b>' + Number(val).toLocaleString('de-DE') + ' €</b>. ')
+    : key === 'guests' ? ('Notiert: <b>' + val + ' Gäste</b>. ')
+    : ('Notiert: <b>' + _escHtml(String(val)) + '</b>. ');
+  return ack + _aiSlotAsk();
 }
 
 function _aiAnswerCreate(type, raw) {
   var t = raw.toLowerCase();
   var dateM = raw.match(/(\d{1,2}\.\d{1,2}\.(?:\d{4}|\d{2})?)/);
+  var yearM = raw.match(/\b(20\d{2})\b/);
   var guestsM = t.match(/(\d{1,4})\s*(gäste|personen|leute|pax)/);
-  var budgetM = t.match(/(\d[\d\.]{0,8})\s*(€|euro)/);
+  var budgetM = t.match(/(\d[\d.]{0,8})\s*(€|euro)/);
+  // Eine blanke Jahreszahl ist KEIN Termin — sie benennt nur das Projekt.
+  // Nach dem konkreten Datum wird trotzdem gefragt.
   var date = dateM ? dateM[1] : '';
   var guests = guestsM ? parseInt(guestsM[1], 10) : 0;
   var budget = budgetM ? parseFloat(budgetM[1].replace(/\./g, '')) : 0;
+  var loc = (typeof _ebDetectCityInText === 'function') ? (_ebDetectCityInText(raw) || '') : '';
+  var year = yearM ? yearM[1] : String(new Date().getFullYear());
   window._aiDraft = {
     template: type[1],
-    name: type[3] + ' ' + new Date().getFullYear(),
-    date: date, guests: guests, budget: budget
+    name: type[3] + ' ' + year,
+    date: date, guests: guests, budget: budget, location: loc
   };
   if (!currentUser) {
     return type[2] + ' Eine ' + type[3] + ' — wie schön! Melde dich kurz an, dann lege ich dir ein Planungs-Board mit geführter Checkliste an.' +
       '<div class="bai-actions"><button type="button" class="bai-act primary" onclick="openModal(\'loginModal\')">' +
       '<span class="material-icons-round">login</span> Anmelden</button></div>';
   }
-  var sugg = (_CHECKLIST_TEMPLATES[type[1]] || []).slice(0, 5).map(function(s) {
-    return '<li>' + _escHtml(s) + '</li>';
-  }).join('');
-  return type[2] + ' <b>' + type[3] + '</b> — super! ' +
-    (date ? 'Am <b>' + _escHtml(date) + '</b>. ' : '') +
+  // Fehlende Eckdaten der Reihe nach erfragen, statt halbleer anzulegen.
+  var missing = [];
+  if (!date) missing.push('date');
+  if (!guests) missing.push('guests');
+  if (!budget) missing.push('budget');
+  if (!loc) missing.push('location');
+  var known = (date ? 'Am <b>' + _escHtml(date) + '</b>. ' : '') +
     (guests ? '<b>' + guests + ' Gäste</b>. ' : '') +
     (budget ? 'Budget ca. <b>' + budget.toLocaleString('de-DE') + ' €</b>. ' : '') +
-    'Ich lege dir ein Board mit geführter Checkliste an, u.&nbsp;a.:' +
-    '<ul class="bai-list">' + sugg + '</ul>' +
-    '<div class="bai-actions"><button type="button" class="bai-act primary" onclick="_aiCreateFromDraft()">' +
-    '<span class="material-icons-round">add</span> Projekt anlegen</button></div>';
+    (loc ? 'In <b>' + _escHtml(loc) + '</b>. ' : '');
+  if (missing.length) {
+    _aiSlots = { queue: missing, total: missing.length, asked: null };
+    return type[2] + ' <b>' + type[3] + '</b> — schön! ' + known +
+      'Damit dein Board wirklich hilft, brauche ich noch ' + missing.length +
+      (missing.length === 1 ? ' Angabe' : ' Angaben') + '.<br><br>' + _aiSlotAsk();
+  }
+  return type[2] + ' <b>' + type[3] + '</b> — super! ' + known + _aiSlotSummary();
 }
 
 function _aiCreateFromDraft() {
@@ -23266,6 +23523,7 @@ function _aiCreateFromDraft() {
     date: d.date || '',
     budget: d.budget || 0,
     guests: d.guests || 0,
+    location: d.location || '',
     template: d.template || 'custom',
     cards: [], checklist: [],
     createdAt: new Date().toISOString(),

@@ -13,8 +13,10 @@ DJs, Catering, Fotografen, Locations und mehr — und Dienstleister finden Auftr
 Suche über die Absprache im Chat bis zur bezahlten Buchung läuft alles an einem Ort.
 
 ## Was kostet die Nutzung?
-Konto und Inserate sind kostenlos. Eine Gebühr fällt nur bei einer erfolgreich über die
-Plattform abgewickelten Buchung an — sie wird dir vor dem Abschluss transparent angezeigt.
+Konto, Inserate, Suche, Chat und Planungs-Board sind kostenlos. Nur bei einer erfolgreich über
+die Plattform bezahlten Buchung fallen **3 % Provision** an, die vom Buchungsbetrag abgezogen
+werden. Als Kunde zahlst du genau den Angebotspreis, als Dienstleister bekommst du 97 %
+ausgezahlt.
 
 ## Was macht Eventbörse anders?
 Alles greift ineinander: Suche, Chat, Planungs-Board und Zahlung. Du musst nicht zwischen

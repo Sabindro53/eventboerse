@@ -46,6 +46,7 @@ Rückabwicklungen wende dich an Kontakt & Support. Maßgeblich sind die Bedingun
 Chat vereinbart habt, sowie die AGB.
 
 ## Welche Gebühren fallen an?
-Das Anlegen von Konto und Inseraten ist kostenlos. Eine Vermittlungsgebühr fällt nur bei einer
-erfolgreich über die Plattform abgewickelten Buchung an. Die konkrete Höhe siehst du transparent
-vor dem Abschluss.
+Konto, Inserate, Suche und Chat sind kostenlos. Bei einer erfolgreich über die Plattform
+bezahlten Buchung behält Eventbörse **3 % Provision** ein — abgezogen vom Buchungsbetrag,
+also getragen vom Dienstleister. Für dich als Kunde kommt nichts obendrauf. Details:
+Gebühren & Provision.

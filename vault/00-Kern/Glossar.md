@@ -1,8 +1,8 @@
 ---
 layer: L0
 domain: kern
-share: public
-tags: [layer/L0, domain/kern, share/public]
+share: internal
+tags: [layer/L0, domain/kern, share/internal]
 ---
 
 # Glossar & Anonymisierungs-Konventionen

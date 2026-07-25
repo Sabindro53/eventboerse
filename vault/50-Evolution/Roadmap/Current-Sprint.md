@@ -9,6 +9,27 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-07-25)
+
+- [x] **Board-Assistent führt durch die Projektanlage (Slot-Filling)**
+  - Fehlende Eckdaten werden nacheinander erfragt: Datum → Gäste → Budget → Ort,
+    jede Frage überspringbar („Weiß ich noch nicht"), Abbruch per „abbrechen".
+  - Antworten werden dem **passenden** Slot zugeordnet, auch in falscher Reihenfolge
+    (`_aiRouteSlot`). Blanke Jahreszahl ist kein Termin mehr, benennt nur das Projekt.
+  - `location` wird im Projekt gespeichert; Abschluss zeigt eine Zusammenfassung.
+- [x] **Beide Bots klären über alles Öffentliche auf**
+  - Neue public-Notiz [[10-Produkt/Wissen/Gebuehren-und-Provision]] mit den echten
+    Fakten aus `eb_stripe_platform_fee_rate()`: **3 % Provision** (Application Fee),
+    Auszahlung 97 %, Stripe-Gebühren trägt die Plattform, keine Grundgebühr.
+    Vage Gebührensätze in „Buchung & Zahlung" und „Über Eventbörse" korrigiert.
+  - „Was kannst du erklären?" listet alle Themen (nur `10-Produkt/Wissen/`).
+  - Fallback schlägt jetzt passende Fragen vor statt in der Sackgasse zu enden.
+  - Retrieval gehärtet: Füllverben („funktioniert") als Stoppwörter, Komposita über
+    Präfixe („Provisionsregelung" → „Provision"), Überschriften-Treffer stärker gewichtet.
+  - `Glossar` und `Features/Admin` auf `internal` gesetzt (Entwickler-/Admin-Interna).
+  - Verifiziert: **17/17** Fachfragen korrekt beantwortet, 2/2 Off-Topic abgelehnt,
+    geführter Dialog liefert vollständigen Entwurf, 0 Leckage.
+
 ## Zuletzt abgeschlossen (2026-07-24)
 
 - [x] **Brain-Umbau: 6-Layer-Vault + Synergie zur Website**
