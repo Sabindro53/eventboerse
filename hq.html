@@ -417,6 +417,51 @@
   }
   .finding-actions { display:flex; gap:.4rem; margin-top:.6rem; flex-wrap:wrap; }
 
+  /* ── Pull requests (Änderungen zur Freigabe) ── */
+  .pulls { display:grid; gap:.7rem; margin-bottom:2rem; }
+  .pull-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:13px;
+    padding:.9rem 1rem; transition:border-color .2s, transform .15s; position:relative;
+  }
+  .pull-card:hover { border-color:var(--violet); }
+  .pull-card.ci-fail { border-color:rgba(239,68,68,.45); }
+  .pull-card.ci-pending { border-color:rgba(245,158,11,.4); }
+  .pull-card.ci-ok { border-color:rgba(34,197,94,.4); }
+  .pull-head { display:flex; align-items:center; gap:.5rem; margin-bottom:.45rem; flex-wrap:wrap; }
+  .pull-num { font-family:monospace; color:var(--cyan); font-weight:800; font-size:.82rem; }
+  .pull-title { flex:1; font-weight:700; font-size:.94rem; line-height:1.35; min-width:0; word-break:break-word; }
+  .pull-badge {
+    font-size:.62rem; padding:.14rem .5rem; border-radius:6px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; border:1px solid var(--border);
+    background:var(--surface2); color:var(--muted); white-space:nowrap;
+  }
+  .pull-badge.draft { background:rgba(148,163,184,.14); color:#cbd5e1; border-color:rgba(148,163,184,.35); }
+  .pull-badge.ready { background:rgba(124,58,237,.14); color:#c4b5fd; border-color:rgba(124,58,237,.45); }
+  .pull-badge.ci-ok { background:rgba(34,197,94,.12); color:#86efac; border-color:rgba(34,197,94,.45); }
+  .pull-badge.ci-fail { background:rgba(239,68,68,.14); color:#fca5a5; border-color:rgba(239,68,68,.5); }
+  .pull-badge.ci-pending { background:rgba(245,158,11,.14); color:#fcd34d; border-color:rgba(245,158,11,.45); }
+  .pull-meta { color:var(--muted); font-size:.74rem; margin-bottom:.5rem; }
+  .pull-summary {
+    font-size:.8rem; color:var(--text); opacity:.85; line-height:1.5; margin-bottom:.7rem;
+    max-height:5.4em; overflow:hidden; position:relative;
+  }
+  .pull-summary::after {
+    content:''; position:absolute; bottom:0; left:0; right:0; height:1.6em;
+    background:linear-gradient(to bottom, transparent, var(--surface)); pointer-events:none;
+  }
+  .pull-actions { display:flex; gap:.4rem; flex-wrap:wrap; }
+  .btn-approve {
+    background:linear-gradient(135deg, #22c55e, #16a34a); color:#04180a; border:none;
+    font-weight:800; padding:.4rem .85rem;
+  }
+  .btn-approve:hover:not(:disabled) { transform:translateY(-1px); box-shadow:var(--glow) rgba(34,197,94,.45); }
+  .btn-approve:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn-reject {
+    background:rgba(239,68,68,.1); color:#fca5a5;
+    border:1px solid rgba(239,68,68,.5); font-weight:700; padding:.4rem .85rem;
+  }
+  .btn-reject:hover:not(:disabled) { background:rgba(239,68,68,.18); }
+
   @media (max-width: 720px) {
     .hud-stats { grid-template-columns: 1fr 1fr; }
     .release-top { flex-direction: column; gap: .3rem; }
@@ -538,6 +583,15 @@
     <div class="findings" id="findings-list">
       <div class="skeleton" style="height:80px;"></div>
       <div class="skeleton" style="height:80px;"></div>
+    </div>
+
+    <!-- Änderungen zur Freigabe (Draft-PRs) -->
+    <div class="section-header">
+      <div class="section-title">🟡 Änderungen zur Freigabe <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— zustimmen oder ablehnen</span></div>
+      <div class="section-badge" id="pulls-badge">–</div>
+    </div>
+    <div class="pulls" id="pulls-list">
+      <div class="skeleton" style="height:120px;"></div>
     </div>
 
     <!-- Quests -->
@@ -765,6 +819,54 @@ async function loadIssues() {
     state.issues = all.filter(i => !i.pull_request);
     cacheSet('issues', { issues: state.issues, pulls: state.pulls });
   } catch { const c = cacheGet('issues'); if (c) { state.issues = c.data.issues; state.pulls = c.data.pulls; } }
+}
+
+/* ─── Pull-Requests mit CI-Status (für „Änderungen zur Freigabe") ── */
+async function loadPulls() {
+  try {
+    const list = await gh('/pulls?state=open&per_page=30&sort=updated&direction=desc');
+    await Promise.all(list.map(async (pr) => {
+      const sha = pr.head && pr.head.sha;
+      if (!sha) { pr._ci = 'unknown'; return; }
+      // Combined commit status + check_runs — one may be empty depending on setup
+      try { const s = await gh(`/commits/${sha}/status`); pr._status = s && s.state; }
+      catch { pr._status = null; }
+      try { const cr = await gh(`/commits/${sha}/check-runs`); pr._checkRuns = (cr && cr.check_runs) || []; }
+      catch { pr._checkRuns = []; }
+      pr._ci = combinedCiState(pr);
+    }));
+    state.pullsDetailed = list;
+    cacheSet('pullsDetailed', list);
+  } catch {
+    const c = cacheGet('pullsDetailed'); if (c) state.pullsDetailed = c.data;
+  }
+}
+
+function combinedCiState(pr) {
+  const runs = pr._checkRuns || [];
+  if (runs.length) {
+    if (runs.some(r => r.status !== 'completed')) return 'pending';
+    if (runs.some(r => ['failure', 'cancelled', 'timed_out'].includes(r.conclusion))) return 'failure';
+    return 'success';
+  }
+  const s = pr._status;
+  if (s === 'success' || s === 'failure' || s === 'pending') return s;
+  return 'unknown';
+}
+
+function pullSummary(body) {
+  if (!body) return '';
+  const t = String(body)
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^#{1,6}\s.*$/gm, '')
+    .replace(/^[-*|>].*$/gm, '')
+    .replace(/[*_`~]/g, '')
+    .split('\n').map(l => l.trim()).filter(Boolean)
+    .slice(0, 3).join(' ');
+  return t.length > 280 ? t.slice(0, 277) + '…' : t;
 }
 
 /* ─── XP / Level / Streak ──────────────────────────────────────── */
@@ -1174,17 +1276,21 @@ function celebrateLevelUp(lvl, rank) {
 /* ─── Init / refresh ───────────────────────────────────────────── */
 function renderFromCache() {
   const c = cacheGet('commits'), r = cacheGet('runs'), i = cacheGet('issues'), tc = cacheGet('totalCommits');
+  const pd = cacheGet('pullsDetailed');
   if (c) state.commits = c.data; if (r) state.runs = r.data;
   if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
+  if (pd) state.pullsDetailed = pd.data;
   if (tc) state.totalCommits = tc.data;
   if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
   if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
+  if (pd) renderPulls();
 }
 
 async function loadAll() {
   try {
-    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
+    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadPulls(), loadTotalCommits()]);
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
+    renderPulls();
     renderQuests(); renderAchievements(); renderHud();
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
@@ -1275,6 +1381,124 @@ async function loadSelfAudit() {
   }).join('');
 }
 
+/* ─── Änderungen zur Freigabe (Draft-PRs) ──────────────────────── */
+function renderPulls() {
+  const list = $('pulls-list'), badge = $('pulls-badge');
+  const items = state.pullsDetailed || [];
+  if (!items.length) {
+    badge.textContent = '0';
+    list.innerHTML = '<div class="empty" style="padding:1rem;border:1px dashed var(--border);border-radius:12px;color:var(--muted);text-align:center;">✅ Keine offenen Änderungen — alles gemerged oder abgelehnt.</div>';
+    return;
+  }
+  badge.textContent = String(items.length);
+  list.innerHTML = items.map(pr => {
+    const ci = pr._ci || 'unknown';
+    const isDraft = !!pr.draft;
+    const canMerge = ci === 'success';
+    const ciBadge = ci === 'success' ? '<span class="pull-badge ci-ok">✅ CI grün</span>'
+      : ci === 'failure' ? '<span class="pull-badge ci-fail">❌ CI rot</span>'
+      : ci === 'pending' ? '<span class="pull-badge ci-pending">🔄 CI läuft</span>'
+      : '<span class="pull-badge ci-pending">⏳ CI unklar</span>';
+    const stateBadge = isDraft ? '<span class="pull-badge draft">Draft</span>' : '<span class="pull-badge ready">Bereit</span>';
+    const summary = pullSummary(pr.body);
+    const sha = (pr.head && pr.head.sha) || '';
+    const approveTitle = canMerge
+      ? 'Squash-Merge, danach deployt IONOS automatisch'
+      : ci === 'failure' ? 'CI ist rot — bitte zuerst PR-Ergebnis prüfen'
+      : 'CI läuft noch — bitte kurz warten';
+    return `
+      <div class="pull-card ci-${ci === 'unknown' ? 'pending' : ci}" data-pr="${pr.number}">
+        <div class="pull-head">
+          <span class="pull-num">#${pr.number}</span>
+          <div class="pull-title">${escHtml(pr.title || '')}</div>
+          ${stateBadge}
+          ${ciBadge}
+        </div>
+        <div class="pull-meta">${escHtml((pr.user && pr.user.login) || '')} · aktualisiert ${humanDate(pr.updated_at)}</div>
+        ${summary ? `<div class="pull-summary">${escHtml(summary)}</div>` : ''}
+        <div class="pull-actions">
+          <a class="btn" href="${escHtml(pr.html_url)}" target="_blank" rel="noopener">🔎 Details</a>
+          <button class="btn btn-approve" data-approve-pr="${pr.number}" data-approve-sha="${escHtml(sha)}" ${canMerge ? '' : 'disabled'} title="${escHtml(approveTitle)}">🟢 Zustimmen (Merge)</button>
+          <button class="btn btn-reject" data-reject-pr="${pr.number}">🔴 Ablehnen (Schließen)</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function refreshPulls() { await loadPulls(); renderPulls(); renderHud(); }
+
+async function approvePr(number, sha) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token nötig, um zu mergen', 'error'); sfx('error'); return; }
+  if (!confirm(`PR #${number} zustimmen und mergen?\n\nAblauf: Draft → Ready → Squash-Merge → Deploy nach IONOS läuft automatisch.`)) return;
+  const btn = document.querySelector(`[data-approve-pr="${number}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Merge läuft…'; }
+  try {
+    // 1) Draft aufheben, falls nötig (GraphQL: markPullRequestReadyForReview)
+    const gq = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){id isDraft}}}`,
+        variables: { o: REPO.split('/')[0], n: REPO.split('/')[1], p: number },
+      }),
+    }).then(r => r.json()).catch(() => null);
+    const pr = gq && gq.data && gq.data.repository && gq.data.repository.pullRequest;
+    if (pr && pr.isDraft) {
+      const ready = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getPat()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{id}}}`,
+          variables: { id: pr.id },
+        }),
+      }).then(r => r.json());
+      if (ready && ready.errors && ready.errors.length) {
+        throw new Error('Draft → Ready fehlgeschlagen: ' + ready.errors[0].message);
+      }
+    }
+    // 2) Squash-Merge
+    const mergeRes = await fetch(`https://api.github.com/repos/${REPO}/pulls/${number}/merge`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merge_method: 'squash', sha }),
+    });
+    if (!mergeRes.ok) {
+      const err = await mergeRes.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${mergeRes.status}`);
+    }
+    showToast(`✅ PR #${number} gemerged — Deploy läuft`, 'success');
+    sfx('success');
+    if (typeof confettiBurst === 'function') confettiBurst(0.5, 0.5, 80);
+    setTimeout(refreshPulls, 3500);
+    setTimeout(refreshRuns, 8000);
+  } catch (e) {
+    showToast(`❌ Merge fehlgeschlagen: ${e.message}`, 'error');
+    sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '🟢 Zustimmen (Merge)'; }
+  }
+}
+
+async function rejectPr(number) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token nötig, um zu schließen', 'error'); sfx('error'); return; }
+  if (!confirm(`PR #${number} ablehnen und schließen? Kein Merge, kein Deploy.`)) return;
+  const btn = document.querySelector(`[data-reject-pr="${number}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Schließe…'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${number}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'closed' }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+    showToast(`🚫 PR #${number} geschlossen`, 'success'); sfx('click');
+    setTimeout(refreshPulls, 1500);
+  } catch (e) {
+    showToast(`❌ Schließen fehlgeschlagen: ${e.message}`, 'error');
+    sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔴 Ablehnen (Schließen)'; }
+  }
+}
+
 /* ─── Wiring ───────────────────────────────────────────────────── */
 $('auth-btn').addEventListener('click', checkAuth);
 $('auth-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkAuth(); });
@@ -1300,6 +1524,8 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const ap = e.target.closest('[data-approve-pr]'); if (ap) { approvePr(Number(ap.dataset.approvePr), ap.dataset.approveSha); return; }
+  const rj = e.target.closest('[data-reject-pr]'); if (rj) { rejectPr(Number(rj.dataset.rejectPr)); return; }
 });
 
 // Keyboard shortcuts

@@ -9,6 +9,26 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-07-25, Abend-Nachtrag)
+
+- [x] **HQ: „Änderungen zur Freigabe" — Approve/Reject direkt aus dem Dashboard**
+  - Neue Sektion in `hq.html` zwischen Selbstcheck und Quests: listet alle offenen
+    Draft-PRs mit CI-Status (grün/rot/gelb), letztem Update, Kurzbeschreibung.
+  - **🟢 Zustimmen (Merge)** löst Draft-Ready-Umschaltung (GraphQL
+    `markPullRequestReadyForReview`) + Squash-Merge (REST) aus — Deploy nach IONOS
+    läuft danach automatisch via `ionos-deploy.yml`. Button ist **disabled** solange
+    CI nicht grün ist (Schutz gegen versehentliche rote Merges).
+  - **🔴 Ablehnen (Schließen)** schließt den PR ohne Merge (`PATCH state=closed`).
+  - PAT wird wie bisher aus `sessionStorage.hq_pat` gelesen (`repo`+`workflow`-Scope
+    reicht — Konto-Owner). Ohne PAT: Buttons zeigen Fehler + Fokus zurück auf PAT-Eingabe.
+  - Datenfluss: `loadPulls()` liefert `/pulls?state=open`, dann parallel je PR
+    `/commits/{sha}/status` + `/commits/{sha}/check-runs` (kombiniert in
+    `combinedCiState()`). Ergebnis wird stale-while-revalidate gecacht wie die
+    anderen HQ-Daten.
+  - **Warum:** Bis eben lagen 4 Draft-PRs (#74, #76, #77, #78) auf `main` und
+    warteten — sichtbar war nur ein Zähler „Offene Tickets 4". Ab jetzt zeigt HQ
+    jede Änderung als Karte mit One-Klick-Entscheidung.
+
 ## Zuletzt abgeschlossen (2026-07-25, Nachtrag)
 
 - [x] **Gebührenmodell wirtschaftlich korrigiert: Stripe-Gebühr trägt der Dienstleister**
