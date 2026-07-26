@@ -9,6 +9,31 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-07-26) — Centgenaue Gebührenabrechnung
+
+- [x] **Ist-Gebühren statt Schätzung: automatischer Abgleich gegen Stripe**
+  - `eb_stripe_settlement_facts()` liest die echte **Balance-Transaction**
+    (`expand=latest_charge.balance_transaction`) inkl. `fee_details`-Aufschlüsselung.
+  - `eb_stripe_reconcile_payment()` vergleicht Ist gegen Schätzung und korrigiert:
+    Δ > 0 → **Transfer-Reversal** (Differenz vom Dienstleister zurück),
+    Δ < 0 → **Nachtransfer** (Differenz an den Dienstleister).
+    Idempotent über Idempotency-Keys + `reconciled`-Flag.
+  - Hooks: Webhook `payment_intent.succeeded` **und** `charge.updated` (dort liefert
+    Stripe die Balance-Transaction meist erst), plus stündlicher Cron
+    `eb_stripe_reconcile_cron` für Nachzügler (max. 12 Versuche, dann Aufgabe).
+  - **Ledger** (`eb_payment_ledger`, 180 Tage): Brutto, Provision, Schätzung, Ist,
+    Δ, Ausgleichsbuchung, Auszahlung, Plattform-Netto, Refunds.
+  - Neue Endpoints: `GET /stripe/settlement/{pi}` (Käufer/Anbieter/Admin) und
+    `GET /stripe/cost-report` (Admin: Summen, Ist-vs-Schätzung, Gebühren nach Typ,
+    effektive Netto-Marge, offene Abgleiche).
+  - Frontend: `fetchSettlement()` + `_settlementBreakdownHtml()` zeigen den
+    **Ist-Betrag** mit Aufschlüsselung und „✓ Centgenau abgerechnet".
+  - **Fail-Safe:** Schlägt die Ausgleichsbuchung fehl, bleibt es beim Schätzwert —
+    die Differenz trägt dann die Plattform, nie der Dienstleister unbemerkt.
+  - Verifiziert (6 Szenarien: EWR, Amex, SEPA, Nicht-EWR, 10 €, 25.000 €):
+    Brutto = Provision + Ist-Gebühr + Auszahlung **centgenau**, Plattform behält
+    in **allen** Fällen exakt 3 %. Idempotenz geprüft (zweiter Lauf ohne API-Calls).
+
 ## Zuletzt abgeschlossen (2026-07-25, Nachtrag)
 
 - [x] **Gebührenmodell wirtschaftlich korrigiert: Stripe-Gebühr trägt der Dienstleister**

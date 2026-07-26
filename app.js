@@ -13871,9 +13871,47 @@ function calculatePayout(priceGross) {
     totalFeeAmount: totalFees,
     netPayoutAmount: netPayout,
     stripeFeePaidBy: 'provider',
-    note: 'Stripe-Gebühr ist ein Schätzwert (' + (EB_STRIPE_FEE_RATE * 100).toFixed(1).replace('.', ',') +
-      ' % + ' + _formatEuro(EB_STRIPE_FEE_FIXED) + ', EWR-Karten). Der endgültige Betrag hängt von Zahlungsmethode und Kartenland ab.'
+    note: 'Stripe-Gebühr ist eine Vorschau (' + (EB_STRIPE_FEE_RATE * 100).toFixed(1).replace('.', ',') +
+      ' % + ' + _formatEuro(EB_STRIPE_FEE_FIXED) + ', EWR-Karten). Nach dem Zahlungseingang wird sie ' +
+      'centgenau gegen die echte Stripe-Abrechnung nachjustiert.'
   };
+}
+
+/**
+ * Holt die centgenaue Abrechnung einer Zahlung (echte Stripe-Gebühren aus der
+ * Balance-Transaction). Liefert null, solange Stripe noch nicht abgerechnet hat.
+ */
+function fetchSettlement(paymentIntentId) {
+  if (!paymentIntentId) return Promise.resolve(null);
+  return fetch(_apiUrl('stripe/settlement/' + encodeURIComponent(paymentIntentId)), {
+    credentials: 'same-origin', headers: _apiHeaders()
+  })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) { return (d && d.ok) ? d : null; })
+    .catch(function() { return null; });
+}
+
+/** Exakte Abrechnung als HTML-Block (nach erfolgreicher Zahlung). */
+function _settlementBreakdownHtml(s) {
+  if (!s || !s.formatted) return '';
+  var f = s.formatted;
+  var exact = s.reconciled;
+  var rows =
+    '<div style="display:flex;justify-content:space-between"><span>Brutto (Kunde zahlt)</span><span>' + _escHtml(f.gross) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision</span><span>&minus;' + _escHtml(f.platform_fee) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Stripe-Zahlungsgeb&uuml;hr' + (exact ? ' (Ist)' : ' (vorl&auml;ufig)') + '</span><span>&minus;' + _escHtml(f.stripe_fee) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Auszahlung</span><strong style="color:#66bb6a">' + _escHtml(f.provider_payout) + '</strong></div>';
+  var details = (s.stripe_fee_details || []).filter(function(d) { return d && d.amount; }).map(function(d) {
+    return '<div style="display:flex;justify-content:space-between;font-size:11px;opacity:.8"><span>' +
+      _escHtml(d.description || d.type) + '</span><span>' + _escHtml(_formatEuro((d.amount || 0) / 100)) + '</span></div>';
+  }).join('');
+  var badge = exact
+    ? '<span style="color:#66bb6a;font-weight:600">✓ Centgenau abgerechnet</span>'
+    : '<span style="color:var(--text-light)">Abrechnung l&auml;uft — endg&uuml;ltige Geb&uuml;hr folgt</span>';
+  return '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
+    rows + (details ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dotted var(--border)">' + details + '</div>' : '') +
+    '<div style="margin-top:6px;font-size:11px">' + badge + '</div>' +
+  '</div>';
 }
 
 function _payoutBreakdownHtml(priceNum) {
@@ -13881,7 +13919,7 @@ function _payoutBreakdownHtml(priceNum) {
   return '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
     '<div style="display:flex;justify-content:space-between"><span>Brutto (Kunde zahlt)</span><span>' + _escHtml(_formatEuro(q.grossAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>&minus;' + _escHtml(_formatEuro(q.platformFeeAmount)) + '</span></div>' +
-    '<div style="display:flex;justify-content:space-between"><span>Stripe-Zahlungsgeb&uuml;hr (ca.)</span><span>&minus;' + _escHtml(_formatEuro(q.stripeFeeAmount)) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Stripe-Zahlungsgeb&uuml;hr (Vorschau)</span><span>&minus;' + _escHtml(_formatEuro(q.stripeFeeAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Voraussichtliche Auszahlung</span><strong style="color:#66bb6a">' + _escHtml(_formatEuro(q.netPayoutAmount)) + '</strong></div>' +
     '<div style="margin-top:6px;font-size:11px;color:var(--text-light)">' + _escHtml(q.note) + '</div>' +
   '</div>';

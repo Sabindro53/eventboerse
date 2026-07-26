@@ -3005,6 +3005,18 @@ function eb_register_extra_routes() {
         'callback'            => 'eb_stripe_webhook',
         'permission_callback' => '__return_true',
     ) );
+    // Centgenaue Abrechnung einer Zahlung (Ist-Gebühren aus Stripe).
+    register_rest_route( 'eventboerse/v1', '/stripe/settlement/(?P<pi>pi_[A-Za-z0-9_]+)', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_stripe_settlement_endpoint',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    // Kostenübersicht (Admin): alle Gebühren, Ist-Werte und offene Abgleiche.
+    register_rest_route( 'eventboerse/v1', '/stripe/cost-report', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_stripe_cost_report',
+        'permission_callback' => function () { return current_user_can( 'manage_options' ); },
+    ) );
     // Client-Reconcile: liefert unbestaetigt-aber-bezahlte PaymentIntents fuer den User.
     register_rest_route( 'eventboerse/v1', '/stripe/reconcile', array(
         'methods'             => 'GET',
@@ -6096,8 +6108,452 @@ function eb_stripe_calculate_fee_quote( $amount_cents, $currency = 'eur' ) {
         'provider_payout_before_adjustments_cents' => $provider_payout_cents,
         'stripe_fee_payer'                 => 'provider',
         'fee_model'                        => 'destination_charge_application_fee_incl_processing',
-        'note'                             => 'Vom Buchungsbetrag gehen Eventbörse-Provision und Stripe-Zahlungsgebühr ab; beide trägt der Dienstleister. Die Stripe-Gebühr ist ein Schätzwert (Standard EWR-Karten) — der endgültige Betrag hängt von Zahlungsmethode und Kartenland ab und wird im Stripe-Dashboard ausgewiesen.',
+        'note'                             => 'Vom Buchungsbetrag gehen Eventbörse-Provision und Stripe-Zahlungsgebühr ab; beide trägt der Dienstleister. Beim Zahlungseingang wird die Gebühr centgenau gegen die echte Stripe-Abrechnung nachjustiert.',
     );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CENTGENAUE GEBÜHREN-ABRECHNUNG
+   --------------------------------------------------------------------
+   Beim Bezahlen steht die echte Stripe-Gebühr noch nicht fest (sie hängt
+   von Zahlungsmethode und Kartenland ab). Wir ziehen daher zunächst einen
+   Schätzwert über die Application Fee ein und gleichen danach gegen die
+   tatsächliche Balance-Transaction ab:
+
+     Differenz > 0  (real teurer)   → Transfer-Reversal: Betrag wird vom
+                                      Dienstleister-Konto zurückgeholt.
+     Differenz < 0  (real günstiger)→ Nachtransfer: Differenz geht an den
+                                      Dienstleister.
+
+   Ergebnis: Der Dienstleister trägt exakt die real angefallene Gebühr,
+   der Plattform bleibt centgenau die reine Provision.
+   ════════════════════════════════════════════════════════════════════ */
+
+/** Schlanker Stripe-API-Aufruf (GET/POST) mit optionaler Idempotenz. */
+function eb_stripe_api( $method, $path, $params = array(), $idempotency_key = '' ) {
+    $sk = eb_load_env_value( 'private_stripe_api_key' );
+    if ( ! $sk ) return array( 'ok' => false, 'error' => 'stripe_key_missing' );
+
+    $url = 'https://api.stripe.com/v1/' . ltrim( $path, '/' );
+    $method = strtoupper( $method );
+    if ( 'GET' === $method && $params ) {
+        $url .= ( strpos( $url, '?' ) === false ? '?' : '&' ) . http_build_query( $params );
+    }
+    $headers = array();
+    if ( $idempotency_key ) $headers[] = 'Idempotency-Key: ' . $idempotency_key;
+
+    $ch = curl_init( $url );
+    $opts = array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD        => $sk . ':',
+        CURLOPT_TIMEOUT        => 20,
+    );
+    if ( $headers ) $opts[ CURLOPT_HTTPHEADER ] = $headers;
+    if ( 'POST' === $method ) {
+        $opts[ CURLOPT_POST ] = true;
+        $opts[ CURLOPT_POSTFIELDS ] = http_build_query( $params );
+    }
+    curl_setopt_array( $ch, $opts );
+    $resp = curl_exec( $ch );
+    $http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $err  = curl_error( $ch );
+    curl_close( $ch );
+
+    if ( $err ) return array( 'ok' => false, 'error' => $err );
+    $data = json_decode( $resp, true );
+    if ( ! is_array( $data ) ) return array( 'ok' => false, 'error' => 'invalid_json', 'http' => $http );
+    if ( $http >= 400 ) {
+        return array( 'ok' => false, 'http' => $http, 'error' => $data['error']['message'] ?? 'stripe_error', 'data' => $data );
+    }
+    return array( 'ok' => true, 'http' => $http, 'data' => $data );
+}
+
+/**
+ * Holt die echten Abrechnungsdaten einer Zahlung.
+ * Liefert u. a. die tatsächliche Stripe-Gebühr aus der Balance-Transaction
+ * inkl. Aufschlüsselung (fee_details) — oder available=false, solange Stripe
+ * die Transaktion noch nicht abgeschlossen hat.
+ */
+function eb_stripe_settlement_facts( $pi_id ) {
+    if ( ! $pi_id || ! preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi_id ) ) {
+        return array( 'available' => false, 'reason' => 'invalid_pi' );
+    }
+    $res = eb_stripe_api( 'GET', 'payment_intents/' . rawurlencode( $pi_id ), array(
+        'expand' => array( 'latest_charge.balance_transaction' ),
+    ) );
+    if ( empty( $res['ok'] ) ) {
+        return array( 'available' => false, 'reason' => $res['error'] ?? 'api_error' );
+    }
+    $pi = $res['data'];
+    $charge = ( isset( $pi['latest_charge'] ) && is_array( $pi['latest_charge'] ) ) ? $pi['latest_charge'] : array();
+    if ( ! $charge ) return array( 'available' => false, 'reason' => 'no_charge' );
+
+    $bt = ( isset( $charge['balance_transaction'] ) && is_array( $charge['balance_transaction'] ) ) ? $charge['balance_transaction'] : array();
+    if ( ! $bt || ! isset( $bt['fee'] ) ) return array( 'available' => false, 'reason' => 'balance_transaction_pending' );
+
+    // Reine Zahlungsgebühr = fee_details ohne die eigene Application Fee.
+    $stripe_fee = 0;
+    $details = array();
+    if ( ! empty( $bt['fee_details'] ) && is_array( $bt['fee_details'] ) ) {
+        foreach ( $bt['fee_details'] as $d ) {
+            if ( ! is_array( $d ) ) continue;
+            $dtype = $d['type'] ?? '';
+            $damt  = intval( $d['amount'] ?? 0 );
+            $details[] = array(
+                'type'        => sanitize_text_field( $dtype ),
+                'amount'      => $damt,
+                'currency'    => sanitize_text_field( $d['currency'] ?? 'eur' ),
+                'description' => sanitize_text_field( $d['description'] ?? '' ),
+            );
+            if ( 'application_fee' !== $dtype ) $stripe_fee += $damt;
+        }
+    }
+    if ( ! $details ) $stripe_fee = intval( $bt['fee'] );
+
+    $transfer_id = '';
+    if ( ! empty( $charge['transfer'] ) ) {
+        $transfer_id = is_array( $charge['transfer'] ) ? ( $charge['transfer']['id'] ?? '' ) : $charge['transfer'];
+    }
+    $destination = '';
+    if ( ! empty( $charge['destination'] ) ) {
+        $destination = is_array( $charge['destination'] ) ? ( $charge['destination']['id'] ?? '' ) : $charge['destination'];
+    } elseif ( ! empty( $pi['transfer_data']['destination'] ) ) {
+        $destination = $pi['transfer_data']['destination'];
+    }
+
+    return array(
+        'available'          => true,
+        'pi'                 => $pi_id,
+        'charge_id'          => $charge['id'] ?? '',
+        'transfer_id'        => sanitize_text_field( $transfer_id ),
+        'destination'        => sanitize_text_field( $destination ),
+        'currency'           => sanitize_text_field( $bt['currency'] ?? 'eur' ),
+        'gross_cents'        => intval( $bt['amount'] ?? ( $charge['amount'] ?? 0 ) ),
+        'stripe_fee_cents'   => (int) $stripe_fee,
+        'total_bt_fee_cents' => intval( $bt['fee'] ?? 0 ),
+        'net_cents'          => intval( $bt['net'] ?? 0 ),
+        'fee_details'        => $details,
+        'amount_refunded'    => intval( $charge['amount_refunded'] ?? 0 ),
+        'metadata'           => isset( $pi['metadata'] ) && is_array( $pi['metadata'] ) ? $pi['metadata'] : array(),
+    );
+}
+
+/** Abrechnungs-Ledger einer Zahlung lesen/schreiben (Option, 180 Tage). */
+function eb_stripe_ledger_key() { return 'eb_payment_ledger'; }
+
+function eb_stripe_ledger_get( $pi_id = '' ) {
+    $all = get_option( eb_stripe_ledger_key(), array() );
+    if ( ! is_array( $all ) ) $all = array();
+    if ( ! $pi_id ) return $all;
+    return isset( $all[ $pi_id ] ) && is_array( $all[ $pi_id ] ) ? $all[ $pi_id ] : array();
+}
+
+function eb_stripe_ledger_put( $pi_id, $entry ) {
+    $all = eb_stripe_ledger_get();
+    $all[ $pi_id ] = $entry;
+    $cutoff = time() - 180 * 86400;
+    foreach ( $all as $k => $v ) {
+        if ( is_array( $v ) && isset( $v['updated_at'] ) && $v['updated_at'] < $cutoff ) unset( $all[ $k ] );
+    }
+    update_option( eb_stripe_ledger_key(), $all, false );
+}
+
+/**
+ * Gleicht die geschätzte gegen die echte Stripe-Gebühr ab und korrigiert die
+ * Auszahlung centgenau. Idempotent: eine bereits abgeglichene Zahlung wird
+ * nicht erneut angefasst.
+ */
+function eb_stripe_reconcile_payment( $pi_id, $force = false ) {
+    $pi_id = sanitize_text_field( $pi_id );
+    $existing = eb_stripe_ledger_get( $pi_id );
+    if ( ! $force && ! empty( $existing['reconciled'] ) ) {
+        return array( 'ok' => true, 'skipped' => 'already_reconciled', 'ledger' => $existing );
+    }
+
+    $facts = eb_stripe_settlement_facts( $pi_id );
+    if ( empty( $facts['available'] ) ) {
+        $entry = array_merge( $existing, array(
+            'pi'          => $pi_id,
+            'reconciled'  => false,
+            'pending'     => sanitize_text_field( $facts['reason'] ?? 'unknown' ),
+            'attempts'    => intval( $existing['attempts'] ?? 0 ) + 1,
+            'updated_at'  => time(),
+        ) );
+        eb_stripe_ledger_put( $pi_id, $entry );
+        return array( 'ok' => false, 'pending' => $entry['pending'], 'ledger' => $entry );
+    }
+
+    $meta = $facts['metadata'];
+    $gross          = (int) $facts['gross_cents'];
+    $platform_fee   = isset( $meta['platform_fee_cents'] ) ? intval( $meta['platform_fee_cents'] ) : (int) round( $gross * eb_stripe_platform_fee_rate() );
+    $stripe_est     = isset( $meta['stripe_fee_est_cents'] ) ? intval( $meta['stripe_fee_est_cents'] ) : 0;
+    $stripe_actual  = (int) $facts['stripe_fee_cents'];
+    $delta          = $stripe_actual - $stripe_est;   // >0: real teurer
+
+    $adjustment = array( 'applied' => false, 'type' => 'none', 'amount' => 0, 'id' => '', 'error' => '' );
+
+    if ( $delta !== 0 && ! empty( $facts['transfer_id'] ) ) {
+        if ( $delta > 0 ) {
+            // Real teurer → Differenz vom Dienstleister zurückholen.
+            $r = eb_stripe_api( 'POST', 'transfers/' . rawurlencode( $facts['transfer_id'] ) . '/reversals',
+                array(
+                    'amount'                       => $delta,
+                    'description'                  => 'Stripe-Gebuehren-Ausgleich (Ist > Schaetzung)',
+                    'metadata[reason]'             => 'fee_reconciliation',
+                    'metadata[payment_intent]'     => $pi_id,
+                ),
+                'ebfeerev_' . $pi_id
+            );
+            $adjustment['type']   = 'transfer_reversal';
+            $adjustment['amount'] = $delta;
+            if ( ! empty( $r['ok'] ) ) {
+                $adjustment['applied'] = true;
+                $adjustment['id'] = $r['data']['id'] ?? '';
+            } else {
+                $adjustment['error'] = sanitize_text_field( $r['error'] ?? 'reversal_failed' );
+            }
+        } elseif ( ! empty( $facts['destination'] ) ) {
+            // Real günstiger → Differenz an den Dienstleister nachzahlen.
+            $amount = abs( $delta );
+            $r = eb_stripe_api( 'POST', 'transfers',
+                array(
+                    'amount'                   => $amount,
+                    'currency'                 => $facts['currency'] ?: 'eur',
+                    'destination'              => $facts['destination'],
+                    'source_transaction'       => $facts['charge_id'],
+                    'description'              => 'Stripe-Gebuehren-Ausgleich (Ist < Schaetzung)',
+                    'metadata[reason]'         => 'fee_reconciliation',
+                    'metadata[payment_intent]' => $pi_id,
+                ),
+                'ebfeetop_' . $pi_id
+            );
+            $adjustment['type']   = 'additional_transfer';
+            $adjustment['amount'] = $amount;
+            if ( ! empty( $r['ok'] ) ) {
+                $adjustment['applied'] = true;
+                $adjustment['id'] = $r['data']['id'] ?? '';
+            } else {
+                $adjustment['error'] = sanitize_text_field( $r['error'] ?? 'transfer_failed' );
+            }
+        }
+    }
+
+    // Endgültige Beträge. Der Ausgleich wirkt nur, wenn er auch durchging.
+    $effective_stripe_fee = $adjustment['applied'] ? $stripe_actual : $stripe_est;
+    $provider_payout      = max( 0, $gross - $platform_fee - $effective_stripe_fee );
+    $platform_net         = $gross - $provider_payout - $stripe_actual;
+
+    $entry = array(
+        'pi'                    => $pi_id,
+        'charge_id'             => $facts['charge_id'],
+        'transfer_id'           => $facts['transfer_id'],
+        'destination'           => $facts['destination'],
+        'currency'              => $facts['currency'],
+        'gross_cents'           => $gross,
+        'platform_fee_cents'    => $platform_fee,
+        'stripe_fee_est_cents'  => $stripe_est,
+        'stripe_fee_actual_cents' => $stripe_actual,
+        'stripe_fee_details'    => $facts['fee_details'],
+        'delta_cents'           => $delta,
+        'adjustment'            => $adjustment,
+        'provider_payout_cents' => $provider_payout,
+        'platform_net_cents'    => $platform_net,
+        'amount_refunded_cents' => intval( $facts['amount_refunded'] ),
+        'reconciled'            => ( 0 === $delta ) || ! empty( $adjustment['applied'] ),
+        'pending'               => '',
+        'attempts'              => intval( $existing['attempts'] ?? 0 ) + 1,
+        'updated_at'            => time(),
+    );
+    eb_stripe_ledger_put( $pi_id, $entry );
+
+    // Nutzer-Zahlungsdatensatz mit den echten Zahlen anreichern.
+    $uid = isset( $meta['user_id'] ) ? intval( $meta['user_id'] ) : 0;
+    if ( $uid ) {
+        $paid = get_user_meta( $uid, 'eb_stripe_paid', true );
+        if ( is_array( $paid ) && isset( $paid[ $pi_id ] ) && is_array( $paid[ $pi_id ] ) ) {
+            $paid[ $pi_id ]['stripe_fee_actual_cents'] = $stripe_actual;
+            $paid[ $pi_id ]['provider_payout_cents']   = $provider_payout;
+            $paid[ $pi_id ]['platform_net_cents']      = $platform_net;
+            $paid[ $pi_id ]['fee_reconciled']          = $entry['reconciled'];
+            update_user_meta( $uid, 'eb_stripe_paid', $paid );
+        }
+    }
+
+    return array( 'ok' => true, 'ledger' => $entry );
+}
+
+/** Cent-Beträge hübsch als Euro-String (für Anzeige/Report). */
+function eb_cents_to_euro_string( $cents ) {
+    return number_format( ( (int) $cents ) / 100, 2, ',', '.' ) . ' €';
+}
+
+/**
+ * Endpoint: centgenaue Abrechnung einer einzelnen Zahlung.
+ * Zugriff: Admin, Käufer oder der beteiligte Dienstleister.
+ */
+function eb_stripe_settlement_endpoint( WP_REST_Request $request ) {
+    $pi   = sanitize_text_field( $request['pi'] );
+    $user = wp_get_current_user();
+    if ( ! $user || ! $user->ID ) {
+        return new WP_REST_Response( array( 'message' => 'Nicht angemeldet.' ), 401 );
+    }
+
+    $ledger = eb_stripe_ledger_get( $pi );
+    if ( empty( $ledger ) || empty( $ledger['reconciled'] ) ) {
+        // Noch nicht abgeglichen → jetzt versuchen (z. B. direkt nach der Zahlung).
+        $r = eb_stripe_reconcile_payment( $pi );
+        $ledger = $r['ledger'] ?? $ledger;
+    }
+    if ( empty( $ledger ) ) {
+        return new WP_REST_Response( array( 'message' => 'Keine Abrechnungsdaten gefunden.' ), 404 );
+    }
+
+    // Berechtigung: Admin, Käufer (user_id in Metadaten) oder Ziel-Connect-Konto.
+    $is_admin = current_user_can( 'manage_options' );
+    $buyer_ok = false;
+    $paid = get_user_meta( $user->ID, 'eb_stripe_paid', true );
+    if ( is_array( $paid ) && isset( $paid[ $pi ] ) ) $buyer_ok = true;
+    $provider_ok = false;
+    if ( ! empty( $ledger['transfer_id'] ) || ! empty( $ledger['charge_id'] ) ) {
+        $my_connect = get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
+        $facts_dest = $ledger['destination'] ?? '';
+        if ( $my_connect && $facts_dest && $my_connect === $facts_dest ) $provider_ok = true;
+    }
+    if ( ! $is_admin && ! $buyer_ok && ! $provider_ok ) {
+        return new WP_REST_Response( array( 'message' => 'Keine Berechtigung für diese Abrechnung.' ), 403 );
+    }
+
+    $gross    = intval( $ledger['gross_cents'] ?? 0 );
+    $platform = intval( $ledger['platform_fee_cents'] ?? 0 );
+    $stripe   = intval( $ledger['stripe_fee_actual_cents'] ?? $ledger['stripe_fee_est_cents'] ?? 0 );
+    $payout   = intval( $ledger['provider_payout_cents'] ?? 0 );
+
+    return new WP_REST_Response( array(
+        'ok'          => true,
+        'payment'     => $pi,
+        'reconciled'  => ! empty( $ledger['reconciled'] ),
+        'pending'     => $ledger['pending'] ?? '',
+        'currency'    => $ledger['currency'] ?? 'eur',
+        'exact'       => array(
+            'gross_cents'             => $gross,
+            'platform_fee_cents'      => $platform,
+            'stripe_fee_cents'        => $stripe,
+            'provider_payout_cents'   => $payout,
+            'platform_net_cents'      => intval( $ledger['platform_net_cents'] ?? 0 ),
+        ),
+        'formatted'   => array(
+            'gross'            => eb_cents_to_euro_string( $gross ),
+            'platform_fee'     => eb_cents_to_euro_string( $platform ),
+            'stripe_fee'       => eb_cents_to_euro_string( $stripe ),
+            'provider_payout'  => eb_cents_to_euro_string( $payout ),
+            'platform_net'     => eb_cents_to_euro_string( intval( $ledger['platform_net_cents'] ?? 0 ) ),
+        ),
+        'stripe_fee_details' => $ledger['stripe_fee_details'] ?? array(),
+        'estimate'    => array(
+            'stripe_fee_cents' => intval( $ledger['stripe_fee_est_cents'] ?? 0 ),
+            'delta_cents'      => intval( $ledger['delta_cents'] ?? 0 ),
+            'adjustment'       => $ledger['adjustment'] ?? array(),
+        ),
+        'balances_out' => ( $gross === $platform + $stripe + $payout ),
+    ), 200 );
+}
+
+/**
+ * Endpoint (Admin): Gesamt-Kostenübersicht über alle abgerechneten Zahlungen —
+ * Umsatz, Provision, reale Stripe-Kosten, Netto der Plattform, offene Abgleiche.
+ */
+function eb_stripe_cost_report( WP_REST_Request $request ) {
+    $all = eb_stripe_ledger_get();
+    $sum = array(
+        'bookings' => 0, 'gross' => 0, 'platform_fee' => 0, 'stripe_fee_actual' => 0,
+        'stripe_fee_est' => 0, 'provider_payout' => 0, 'platform_net' => 0,
+        'refunded' => 0, 'adjustments_applied' => 0, 'adjustment_volume' => 0,
+    );
+    $pending = array();
+    $by_fee_type = array();
+    $rows = array();
+
+    foreach ( $all as $pi => $e ) {
+        if ( ! is_array( $e ) ) continue;
+        if ( empty( $e['reconciled'] ) ) {
+            $pending[] = array(
+                'pi' => $pi,
+                'reason' => $e['pending'] ?? 'unbekannt',
+                'attempts' => intval( $e['attempts'] ?? 0 ),
+            );
+            continue;
+        }
+        $sum['bookings']++;
+        $sum['gross']             += intval( $e['gross_cents'] ?? 0 );
+        $sum['platform_fee']      += intval( $e['platform_fee_cents'] ?? 0 );
+        $sum['stripe_fee_actual'] += intval( $e['stripe_fee_actual_cents'] ?? 0 );
+        $sum['stripe_fee_est']    += intval( $e['stripe_fee_est_cents'] ?? 0 );
+        $sum['provider_payout']   += intval( $e['provider_payout_cents'] ?? 0 );
+        $sum['platform_net']      += intval( $e['platform_net_cents'] ?? 0 );
+        $sum['refunded']          += intval( $e['amount_refunded_cents'] ?? 0 );
+        if ( ! empty( $e['adjustment']['applied'] ) ) {
+            $sum['adjustments_applied']++;
+            $sum['adjustment_volume'] += abs( intval( $e['adjustment']['amount'] ?? 0 ) );
+        }
+        foreach ( (array) ( $e['stripe_fee_details'] ?? array() ) as $d ) {
+            $t = $d['type'] ?? 'unbekannt';
+            $by_fee_type[ $t ] = ( $by_fee_type[ $t ] ?? 0 ) + intval( $d['amount'] ?? 0 );
+        }
+        $rows[] = array(
+            'pi'              => $pi,
+            'gross'           => eb_cents_to_euro_string( $e['gross_cents'] ?? 0 ),
+            'platform_fee'    => eb_cents_to_euro_string( $e['platform_fee_cents'] ?? 0 ),
+            'stripe_fee'      => eb_cents_to_euro_string( $e['stripe_fee_actual_cents'] ?? 0 ),
+            'provider_payout' => eb_cents_to_euro_string( $e['provider_payout_cents'] ?? 0 ),
+            'platform_net'    => eb_cents_to_euro_string( $e['platform_net_cents'] ?? 0 ),
+            'delta_cents'     => intval( $e['delta_cents'] ?? 0 ),
+            'updated_at'      => intval( $e['updated_at'] ?? 0 ),
+        );
+    }
+
+    $effective_rate = $sum['gross'] > 0 ? round( $sum['platform_net'] / $sum['gross'] * 100, 3 ) : 0;
+
+    return new WP_REST_Response( array(
+        'ok'         => true,
+        'summary'    => $sum,
+        'formatted'  => array(
+            'gross'            => eb_cents_to_euro_string( $sum['gross'] ),
+            'platform_fee'     => eb_cents_to_euro_string( $sum['platform_fee'] ),
+            'stripe_fee_actual'=> eb_cents_to_euro_string( $sum['stripe_fee_actual'] ),
+            'provider_payout'  => eb_cents_to_euro_string( $sum['provider_payout'] ),
+            'platform_net'     => eb_cents_to_euro_string( $sum['platform_net'] ),
+            'adjustment_volume'=> eb_cents_to_euro_string( $sum['adjustment_volume'] ),
+        ),
+        'platform_fee_rate_configured' => round( eb_stripe_platform_fee_rate() * 100, 2 ),
+        'platform_net_rate_effective'  => $effective_rate,
+        'estimate_vs_actual_delta_cents' => $sum['stripe_fee_actual'] - $sum['stripe_fee_est'],
+        'stripe_fee_by_type' => $by_fee_type,
+        'pending'            => $pending,
+        'rows'               => $rows,
+    ), 200 );
+}
+
+/**
+ * Nicht abgeschlossene Abrechnungen erneut versuchen (z. B. wenn die
+ * Balance-Transaction beim Webhook noch nicht bereitstand).
+ */
+function eb_stripe_reconcile_pending( $limit = 15 ) {
+    $all = eb_stripe_ledger_get();
+    $done = 0; $fixed = 0;
+    foreach ( $all as $pi => $entry ) {
+        if ( $done >= $limit ) break;
+        if ( ! is_array( $entry ) || ! empty( $entry['reconciled'] ) ) continue;
+        if ( intval( $entry['attempts'] ?? 0 ) > 12 ) continue; // aufgeben statt endlos pollen
+        $done++;
+        $r = eb_stripe_reconcile_payment( $pi );
+        if ( ! empty( $r['ledger']['reconciled'] ) ) $fixed++;
+    }
+    return array( 'checked' => $done, 'reconciled' => $fixed );
+}
+add_action( 'eb_stripe_reconcile_cron', 'eb_stripe_reconcile_pending' );
+
+if ( ! wp_next_scheduled( 'eb_stripe_reconcile_cron' ) ) {
+    wp_schedule_event( time() + 900, 'hourly', 'eb_stripe_reconcile_cron' );
 }
 
 function eb_stripe_amount_cents_from_request( WP_REST_Request $request ) {
@@ -7545,6 +8001,16 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
     switch ( $type ) {
         case 'payment_intent.succeeded':
             eb_stripe_record_payment( $obj );
+            // Sofort gegen die echte Stripe-Abrechnung abgleichen. Steht die
+            // Balance-Transaction noch nicht bereit, holt das der Cron nach.
+            if ( ! empty( $obj['id'] ) ) eb_stripe_reconcile_payment( sanitize_text_field( $obj['id'] ) );
+            break;
+
+        case 'charge.updated':
+            // Stripe reicht die Balance-Transaction oft erst hier nach —
+            // idealer Zeitpunkt für den centgenauen Gebührenabgleich.
+            $cu_pi = isset( $obj['payment_intent'] ) ? sanitize_text_field( $obj['payment_intent'] ) : '';
+            if ( $cu_pi ) eb_stripe_reconcile_payment( $cu_pi );
             break;
 
         case 'checkout.session.completed':

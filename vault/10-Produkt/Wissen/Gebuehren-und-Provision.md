@@ -31,10 +31,22 @@ Auszahlung — siehst du **vor** dem Annehmen eines Auftrags.
 
 ## Zahle ich als Dienstleister auch die Stripe-Gebühren?
 Ja. Die Zahlungsgebühr des Zahlungsdienstleisters wird zusammen mit der Provision vom
-Buchungsbetrag einbehalten. Der angezeigte Wert ist ein **Schätzwert** für EWR-Karten
-(ca. 1,5 % + 0,25 €). Je nach Zahlungsmethode und Kartenland kann die tatsächliche Gebühr
-abweichen; den endgültigen Betrag weist Stripe aus. Bei Rückerstattungen oder
-Zahlungsstreitigkeiten können sich Beträge nachträglich ändern.
+Buchungsbetrag einbehalten. Vor der Buchung siehst du eine **Vorschau** (ca. 1,5 % + 0,25 €
+für EWR-Karten). Nach dem Zahlungseingang wird der Betrag **centgenau** gegen die echte
+Abrechnung nachjustiert.
+
+## Wird die Gebühr exakt abgerechnet oder nur geschätzt?
+Exakt. Die tatsächliche Gebühr steht erst fest, wenn die Zahlung durch ist — sie hängt von
+Zahlungsmethode und Kartenland ab. Sobald sie feststeht, gleicht Eventbörse automatisch ab:
+War die Gebühr höher als die Vorschau, wird die Differenz nachträglich verrechnet; war sie
+niedriger, bekommst du die Differenz gutgeschrieben. In deiner Abrechnung siehst du am Ende
+den **Ist-Betrag** samt Aufschlüsselung, nicht den Schätzwert.
+
+## Warum kann die Gebühr von der Vorschau abweichen?
+Weil Stripe je nach Zahlungsmittel unterschiedlich abrechnet: Karten aus dem EWR sind günstiger
+als Karten von außerhalb, Amex und einige Wallets kosten mehr, Lastschrift ist deutlich
+günstiger. Deshalb zeigen wir vorab einen realistischen Richtwert und korrigieren danach
+auf den Cent genau.
 
 ## Warum wird die Zahlungsgebühr weitergegeben?
 Sie fällt pro Transaktion tatsächlich an und ist keine Marge der Plattform. Die 3 % Provision
