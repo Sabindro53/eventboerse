@@ -64,7 +64,8 @@ try {
 try {
   const fns = read('functions.php');
   const routes = (fns.match(/register_rest_route\s*\(/g) || []).length;
-  const ctx = exists('vault/AI-Gedaechtnis/Claude-Kontext.md') ? read('vault/AI-Gedaechtnis/Claude-Kontext.md') : '';
+  const ctxPath = 'vault/50-Evolution/AI-Gedaechtnis/Claude-Kontext.md';
+  const ctx = exists(ctxPath) ? read(ctxPath) : '';
   const m = ctx.match(/\((\d+)\s*Route-Registrierungen/);
   const documented = m ? parseInt(m[1], 10) : null;
   if (documented !== null && documented !== routes) add({
@@ -72,13 +73,14 @@ try {
     title: `Vault-Doku zählt ${documented} REST-Routen, Code hat ${routes}`,
     area: 'docs',
     severity: 'info',
-    detail: 'vault/AI-Gedaechtnis/Claude-Kontext.md weicht von functions.php ab.',
+    detail: `${ctxPath} weicht von functions.php ab.`,
     suggestion: `In Claude-Kontext.md auf „${routes} Route-Registrierungen" aktualisieren.`,
     evidence: { documented, actual: routes },
   });
   // 3. Vault erwähnt Admin-Moderationsrouten, die im Code fehlen
   if (!/admin\/listings|my-listing-moderation/.test(fns)) {
-    const bugs = exists('vault/Roadmap/Bekannte-Bugs.md') ? read('vault/Roadmap/Bekannte-Bugs.md') : '';
+    const bugsPath = 'vault/50-Evolution/Roadmap/Bekannte-Bugs.md';
+    const bugs = exists(bugsPath) ? read(bugsPath) : '';
     if (/admin\/listings|my-listing-moderation/.test(bugs)) add({
       id: 'route-admin-mod-missing',
       title: 'Admin-Moderationsrouten im Vault dokumentiert, aber nicht im Code',
@@ -86,6 +88,126 @@ try {
       severity: 'warn',
       detail: '`/admin/listings/{id}/hide` und `/my-listing-moderation` werden im Vault erwähnt, fehlen aber in functions.php.',
       suggestion: 'Entweder die Routen wiederherstellen oder die Vault-Notiz korrigieren.',
+    });
+  }
+} catch {}
+
+/* ─── 3b. Vault-Frontmatter-Konsistenz (Fail-Safe aus CLAUDE.md) ─── */
+// Jede Notiz braucht layer/domain/share/tags. Fehlt `share`, gilt sie als
+// nicht-öffentlich — aber schlampige Frontmatter macht den Vault brüchig.
+try {
+  const walk = (dir) => {
+    const out = [];
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue;
+      const rel = path.posix.join(dir, e.name);
+      if (e.isDirectory()) out.push(...walk(rel));
+      else if (e.name.endsWith('.md')) out.push(rel);
+    }
+    return out;
+  };
+  const notes = exists('vault') ? walk('vault') : [];
+  const parseFm = (text) => {
+    if (!text.startsWith('---\n')) return null;
+    const end = text.indexOf('\n---', 4);
+    if (end === -1) return null;
+    const data = {};
+    for (const line of text.slice(4, end).split('\n')) {
+      const mm = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+      if (mm) data[mm[1]] = mm[2].trim();
+    }
+    return data;
+  };
+  const required = ['layer', 'domain', 'share', 'tags'];
+  const missing = [];
+  const wrongSecret = [];
+  const leaked = [];
+  for (const rel of notes) {
+    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    const fm = parseFm(text);
+    if (!fm) { missing.push({ file: rel, why: 'kein Frontmatter' }); continue; }
+    const miss = required.filter(k => !(k in fm) || !fm[k]);
+    if (miss.length) missing.push({ file: rel, why: `fehlt: ${miss.join(', ')}` });
+    // Security-Ordner MUSS share: secret sein — sonst Leck-Gefahr
+    if (rel.startsWith('vault/40-Governance/Security/') && fm.share !== 'secret') {
+      wrongSecret.push(rel);
+    }
+    // Wenn share: public gesetzt ist, wird die Notiz in die KB gepresst.
+    // Governance-Notizen dürfen das nie sein.
+    if (rel.startsWith('vault/40-Governance/') && fm.share === 'public') {
+      leaked.push(rel);
+    }
+  }
+  if (missing.length) add({
+    id: 'vault-frontmatter-missing',
+    title: `${missing.length} Vault-Notizen mit unvollständigem Frontmatter`,
+    area: 'docs',
+    severity: 'warn',
+    detail: missing.slice(0, 5).map(m => `${m.file} (${m.why})`).join('; ') + (missing.length > 5 ? ` … und ${missing.length - 5} weitere` : ''),
+    suggestion: 'Frontmatter-Pflichtfelder ergänzen: layer, domain, share, tags. Ohne `share` gilt die Notiz als nicht öffentlich (Fail-Safe).',
+    evidence: { count: missing.length, samples: missing.slice(0, 10) },
+  });
+  if (wrongSecret.length) add({
+    id: 'vault-security-not-secret',
+    title: `${wrongSecret.length} Security-Notizen NICHT als share:secret markiert`,
+    area: 'security',
+    severity: 'error',
+    detail: `Dateien in vault/40-Governance/Security/ ohne share:secret: ${wrongSecret.slice(0, 5).join(', ')}`,
+    suggestion: 'Sofort `share: secret` setzen — sonst kann build-knowledge.mjs die Notiz exportieren, falls jemand versehentlich `share: public` einträgt.',
+    evidence: { files: wrongSecret },
+  });
+  if (leaked.length) add({
+    id: 'vault-governance-public',
+    title: `${leaked.length} Governance-Notiz(en) als share:public — Leck-Risiko`,
+    area: 'security',
+    severity: 'error',
+    detail: `Diese Notizen würden in die öffentliche Wissensbasis fließen: ${leaked.join(', ')}`,
+    suggestion: 'Auf `share: internal` oder `share: secret` zurücksetzen und `assets/eb-knowledge.json` neu bauen.',
+    evidence: { files: leaked },
+  });
+} catch {}
+
+/* ─── 3c. Wissensbasis-Frische ────────────────────────────────────── */
+// assets/eb-knowledge.json wird von QA-Bot und Board-Assistent gelesen.
+// Wenn eine `share: public`-Notiz neuer ist als die JSON, hinkt die Website nach.
+try {
+  const kbPath = 'assets/eb-knowledge.json';
+  if (exists(kbPath)) {
+    const kbMtime = fs.statSync(path.join(ROOT, kbPath)).mtimeMs;
+    const walk = (dir) => {
+      const out = [];
+      for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+        if (e.name.startsWith('.')) continue;
+        const rel = path.posix.join(dir, e.name);
+        if (e.isDirectory()) out.push(...walk(rel));
+        else if (e.name.endsWith('.md')) out.push(rel);
+      }
+      return out;
+    };
+    const stale = [];
+    for (const rel of exists('vault') ? walk('vault') : []) {
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      if (!/share:\s*public/.test(text.slice(0, 400))) continue;
+      const noteMtime = fs.statSync(path.join(ROOT, rel)).mtimeMs;
+      if (noteMtime > kbMtime + 1000) stale.push(rel);
+    }
+    if (stale.length) add({
+      id: 'kb-stale',
+      title: `Wissensbasis hinkt ${stale.length} public-Notiz(en) hinterher`,
+      area: 'docs',
+      severity: 'warn',
+      detail: 'assets/eb-knowledge.json ist älter als mindestens eine `share: public`-Notiz. QA-Bot und Board-Assistent antworten mit veralteten Inhalten.',
+      suggestion: '`node scripts/build-knowledge.mjs --report` ausführen und die neue JSON mitcommitten.',
+      evidence: { stale: stale.slice(0, 8) },
+    });
+  } else {
+    add({
+      id: 'kb-missing',
+      title: 'Keine Wissensbasis vorhanden',
+      area: 'docs',
+      severity: 'error',
+      detail: 'assets/eb-knowledge.json fehlt — Bots fallen auf leere Wissensbasis zurück.',
+      suggestion: '`node scripts/build-knowledge.mjs` ausführen.',
     });
   }
 } catch {}
