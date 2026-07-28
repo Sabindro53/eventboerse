@@ -40,7 +40,17 @@ jobs:
           # CSS bricht die Seite nicht, deshalb Deploy nicht abbrechen.
           # csso-cli (CLI-Paket) max. 4.0.2 — "5.0.5" war die Version der csso-LIB,
           # die das CLI ausgibt. Pin auf 5.0.5 existierte nicht → CSS lief unminifiziert.
-          npx --yes csso-cli@4.0.2 styles.css -o styles.css || echo "⚠️ csso-cli fehlgeschlagen — deploye unminifiziertes styles.css"
+          #
+          # --no-restructure ist PFLICHT: csso zieht sonst Deklarationen zwischen
+          # Regeln um und schiebt dabei die `background`-Kurzform HINTER
+          # `background-clip: text`. Die Kurzform setzt background-clip zurück →
+          # Verlaufsschrift (Hero-Headline, KI-Funken) wird als massiver Farbblock
+          # gerendert. Lokal unauffällig, nur in Produktion sichtbar.
+          npx --yes csso-cli@4.0.2 --no-restructure styles.css -o styles.css || echo "⚠️ csso-cli fehlgeschlagen — deploye unminifiziertes styles.css"
+          # Gate: Verlaufsschrift muss nach dem Minify intakt sein.
+          if ! grep -q 'background-clip:text' styles.css; then
+            echo "FATAL: background-clip:text nach Minify verloren - Abbruch"; exit 1;
+          fi
           echo "Nachher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
 
       - name: Install lftp
