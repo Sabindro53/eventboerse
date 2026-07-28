@@ -44,3 +44,21 @@ Bewertungen — viele Bewertungen sind aussagekräftiger als eine einzelne Bestn
 ## Ich finde nichts in meiner Region
 Erweitere die Region oder such ohne Ortsfilter — viele Dienstleister reisen an. Alternativ
 kannst du selbst ein Gesuch einstellen; dann melden sich passende Anbieter bei dir.
+
+## Was sind die Vorschläge unter dem Suchfeld?
+Sobald du zu tippen beginnst, schlägt die Suche dir vor, wie dein Satz weitergehen könnte —
+zum Beispiel „Ich suche einen DJ" → „… für meine Hochzeit in Köln". Mit **Tab** oder einem Klick
+übernimmst du den Vorschlag und kannst danach ganz normal weiterschreiben. Darunter siehst du
+drei alternative Enden, etwa denselben Anlass mit einem anderen Gewerk („Fotograf für die
+Hochzeit") — so entdeckst du Leistungen, an die du vielleicht noch nicht gedacht hast.
+
+## Woher weiß die Suche, was ich meine?
+Sie erkennt Gewerk (DJ, Catering, Location …), Anlass (Hochzeit, Firmenfeier, Geburtstag …),
+Ort, Gästezahl und Zeitraum in deinem Satz — und merkt sich, wonach du häufiger suchst.
+Dadurch werden Vorschläge und Trefferreihenfolge mit der Zeit passender.
+
+## Werden meine Suchen gespeichert oder ausgewertet?
+Deine Such-Personalisierung entsteht **ausschließlich lokal in deinem Browser** und wird nicht
+an uns übertragen. Gespeichert werden nur grobe Interessen wie Kategorie, Ort und Anlass —
+keine ganzen Sätze und keine Kontaktdaten. Du kannst sie jederzeit über „Personalisierung
+löschen" direkt unter den Suchvorschlägen zurücksetzen.

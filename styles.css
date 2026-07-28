@@ -1622,6 +1622,154 @@ body.dark-mode .ai-spark { filter: blur(0.2px) brightness(1.1); }
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+/* Markenzeile „EVENTBÖRSE, finde dein Event ©" */
+.ai-hero-brand {
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #fff 0%, #ffe9ef 60%, #ffd0dc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+}
+body:not(.dark-mode) .ai-hero-brand {
+  background: linear-gradient(135deg, #1f1f1f 0%, #3b3b3b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+}
+.ai-hero-comma { color: var(--primary); }
+.ai-hero-cr {
+  font-size: 0.30em;
+  font-weight: 700;
+  vertical-align: super;
+  margin-left: 4px;
+  opacity: 0.75;
+  -webkit-text-fill-color: currentColor;
+}
+
+/* ── KI-Bildmontage im Hero ───────────────────────────────────────── */
+.ai-hero-shots { position: absolute; inset: 0; overflow: hidden; }
+.ai-hero-shot {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 900ms ease, transform 6000ms ease-out;
+  will-change: opacity, transform;
+}
+.ai-hero-shot.active { opacity: 1; transform: scale(1); }
+/* Montage-Phase: harte, schnelle Schnitte (10 Motive in 2 s) */
+.ai-hero-shots.is-montage .ai-hero-shot {
+  transition: opacity 120ms linear, transform 0ms;
+  transform: scale(1.02);
+}
+/* Lesbarkeit sichern: Verlauf über den Bildern */
+.ai-hero-shots-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(10,10,20,0.55) 0%, rgba(10,10,20,0.30) 45%, rgba(10,10,20,0.72) 100%);
+}
+body:not(.dark-mode) .ai-hero-shots-veil {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0.62) 45%, rgba(255,255,255,0.86) 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-hero-shot { transition: none; transform: none; }
+}
+
+/* ── Such-Vervollständigung (Inline-Ghost + Vorschläge) ───────────── */
+/* Muss pixelgenau auf dem Input liegen — gleiche Schrift, gleiches Padding,
+   damit die graue Fortsetzung exakt hinter dem getippten Text ansetzt. */
+.eb-ghost-complete {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-family: var(--font);
+  line-height: normal;
+  pointer-events: none;
+  white-space: pre;
+  overflow: hidden;
+  z-index: 1;
+}
+.eb-ghost-complete .ebg-typed { visibility: hidden; }
+.eb-ghost-complete .ebg-rest { color: var(--text-light); opacity: 0.55; }
+
+.eb-sug-panel {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(100% + 8px);
+  z-index: 60;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.18);
+  overflow: hidden;
+  text-align: left;
+}
+body.dark-mode .eb-sug-panel { background: #1c1c1e; border-color: rgba(255,255,255,0.10); }
+.eb-sug-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: var(--dark);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+}
+.eb-sug-row:last-of-type { border-bottom: none; }
+.eb-sug-row:hover, .eb-sug-row.active { background: var(--bg-alt); }
+.eb-sug-primary { background: linear-gradient(90deg, rgba(255,56,92,0.06), transparent); }
+.eb-sug-ico { font-size: 18px; color: var(--primary); }
+.eb-sug-emoji { font-size: 16px; width: 20px; text-align: center; }
+.eb-sug-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eb-sug-text .ebs-typed { font-weight: 600; }
+.eb-sug-text .ebs-rest { color: var(--text-light); }
+.eb-sug-why {
+  font-size: 0.68rem;
+  color: var(--text-light);
+  background: var(--bg-alt);
+  border-radius: 20px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.eb-sug-key {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-light);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+.eb-sug-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.7rem;
+  color: var(--text-light);
+  background: var(--bg-alt);
+  flex-wrap: wrap;
+}
+.eb-sug-foot .material-icons-round { font-size: 13px; }
+.eb-sug-reset {
+  background: none; border: none; padding: 0;
+  font: inherit; color: var(--primary); cursor: pointer; text-decoration: underline;
+}
+.bai-chip-sug { border-color: var(--primary); }
 .ai-hero-sub {
   font-size: 1.05rem;
   color: var(--text-light);
@@ -1629,7 +1777,7 @@ body.dark-mode .ai-spark { filter: blur(0.2px) brightness(1.1); }
   line-height: 1.5;
 }
 /* AI Searchbar */
-.ai-searchbar-outer { max-width: 700px; margin: 0 auto; }
+.ai-searchbar-outer { max-width: 700px; margin: 0 auto; position: relative; }
 .ai-searchbar {
   display: flex;
   align-items: center;

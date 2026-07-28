@@ -9,6 +9,39 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-07-27) — Intelligente Suche & Hero
+
+- [x] **Satz-Vervollständigung („Look & Feel AI") in Suche + Board**
+  - `_ebSuggest(text)` erkennt Gewerk, Anlass, Ort, Gästezahl und Datum im
+    angefangenen Satz und setzt ihn **in der Formulierung des Nutzers** fort.
+    Grammatik über `_EB_CAT_GRAMMAR` (Akkusativ-Artikel) und `_EB_TYPE_GRAMMAR`.
+  - Bindewort-Logik: „Fotograf für" + „für meine Hochzeit" wird zu
+    „Fotograf **für meine Hochzeit**" (kein doppeltes „für"). Wer sein Event
+    beschreibt, bekommt einen sauberen Anschluss („… — dafür suche ich einen DJ").
+  - UI Suchseite: Inline-Ghost im Feld (grau) + Panel mit Primärvorschlag
+    (**Tab** übernimmt) und **3 Alternativen** (anderer Anlass / passendes
+    Zusatzgewerk / Ort bzw. Größe eingrenzen). Weiterschreiben bleibt möglich.
+  - Board-Assistent nutzt dieselbe Engine live beim Tippen (`_aiInputSuggest`).
+- [x] **Selbstlernendes Ranking (`_ebTaste`)**
+  - Signale: Suche (1), Ansicht (1.5), Favorit (3), Board (4), Kontakt (6);
+    Buckets cats/locs/types/terms, tägliches Decay (×0,92), gedeckelt.
+  - Wirkt auf: Suchvorschläge, Standard-Sortierung der Treffer, Feed „Für dich",
+    Board-Chips. Ohne Signale bleibt Verhalten wie bisher (keine Filterblase
+    für Neulinge).
+  - **Sicherheit:** rein lokal (localStorage), keine Übertragung; Blockliste
+    gegen Kontakt-/Zahlungsdaten (`@`, Telefon, IBAN, URLs, lange Zahlen);
+    max. 32 Zeichen/Token, 40 Begriffe; jede Ausgabe `_escHtml`;
+    `_ebTasteReset()` direkt im Vorschlags-Panel verlinkt.
+- [x] **Hero der Suchseite neu**
+  - Headline **„EVENTBÖRSE, finde dein Event ©"**.
+  - 10 generative Motive (`_ebHeroSceneSvg`, Data-URI, keine externen Requests):
+    Montage in 2 s (200 ms/Bild), danach ruhiger 5-s-Wechsel;
+    `prefers-reduced-motion` → Standbild. Lesbarkeits-Verlauf darüber.
+  - Motive sind austauschbar: echte Foto-Renderings können in `_ebHeroShots()`
+    eingesetzt werden, der Ablauf bleibt gleich.
+  - Verifiziert: Ghost pixelgenau am Input (Versatz 0), Tab übernimmt,
+    Weiterschreiben funktioniert, 10 Bilder self-hosted, 0 Page-Errors.
+
 ## Zuletzt abgeschlossen (2026-07-26) — Centgenaue Gebührenabrechnung
 
 - [x] **Ist-Gebühren statt Schätzung: automatischer Abgleich gegen Stripe**

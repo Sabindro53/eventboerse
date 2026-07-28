@@ -668,6 +668,9 @@
       <!-- ── AI Search Hero ── -->
       <div class="ai-hero">
         <div class="ai-hero-bg">
+          <!-- KI-generierte Bildmontage: 10 Motive, per JS eingesetzt -->
+          <div class="ai-hero-shots" id="aiHeroShots" aria-hidden="true"></div>
+          <div class="ai-hero-shots-veil" aria-hidden="true"></div>
           <div class="ai-bg-orb orb-1"></div>
           <div class="ai-bg-orb orb-2"></div>
           <div class="ai-bg-orb orb-3"></div>
@@ -840,13 +843,13 @@
             <span class="ai-badge-dot"></span>
             Smarte Suche · Verifizierte Anbieter
           </div>
-          <h1 class="ai-hero-h1">Finde deinen<br><span class="ai-hero-gradient">perfekten Event-Partner</span></h1>
+          <h1 class="ai-hero-h1"><span class="ai-hero-brand">EVENTBÖRSE</span><span class="ai-hero-comma">,</span><br><span class="ai-hero-gradient">finde dein Event</span><sup class="ai-hero-cr" aria-label="Copyright">&copy;</sup></h1>
           <p class="ai-hero-sub"><span id="heroSubProviders">150+ Dienstleister</span> · Sofort kontaktierbar · <span id="heroSubRated">Top bewertet</span></p>
           <div class="ai-searchbar-outer">
             <div class="ai-searchbar">
               <span class="material-icons-round ai-search-ico">search</span>
               <div class="ai-searchbar-field">
-                <input type="search" id="browseSearch" oninput="_aiPlaceholderHideOnInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();filterListings();_ebScrollToBrowseResults();}" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore data-form-type="other" />
+                <input type="search" id="browseSearch" oninput="_aiPlaceholderHideOnInput(this)" onkeydown="_ebSuggestKeydown(event);if(event.key==='Enter'&&!event.defaultPrevented){event.preventDefault();_ebSuggestClose();filterListings();_ebScrollToBrowseResults();}" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" />
                 <div class="ai-searchbar-ghost" id="aiPlaceholder"></div>
               </div>
               <div class="ai-searchbar-divider"></div>

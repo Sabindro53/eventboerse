@@ -1327,6 +1327,7 @@ function navigateTo(page, data, skipHistory) {
   switch (page) {
     case 'browse':
       _initAiPlaceholder();
+      try { _initHeroShots(); } catch (err) { console.warn('Hero-Montage konnte nicht starten', err); }
       loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
@@ -2257,6 +2258,343 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   EB INTELLIGENCE — Geschmacks-Gedächtnis & Satz-Vervollständigung
+   ----------------------------------------------------------------------
+   Zwei Bausteine, die überall greifen, wo gesucht, gefiltert oder geplant
+   wird (Suchseite, Board-Assistent, Feed „Für dich"):
+
+   1) _ebTaste  — lernt LOKAL, was diesen Nutzer interessiert (Kategorien,
+      Orte, Event-Typen, häufige Suchen). Recency-gewichtet, gedeckelt.
+   2) _ebSuggest — vervollständigt den angefangenen Satz in der Formulierung
+      des Nutzers und schlägt drei alternative Enden vor.
+
+   SICHERHEIT — bewusste Grenzen (siehe vault/40-Governance):
+   • Alles bleibt im Browser (localStorage). Es werden keine Suchbegriffe,
+     Profile oder Signale an den Server gesendet.
+   • Gespeichert werden nur normalisierte, kurze Tokens (max. 32 Zeichen,
+     max. 40 Begriffe) — keine Sätze, keine E-Mails, keine Zahlen-Folgen,
+     die nach Kontaktdaten/Konten aussehen.
+   • Jede Ausgabe wird beim Rendern escaped (_escHtml), niemals innerHTML
+     mit rohem Nutzertext.
+   • Vollständig abschaltbar/löschbar: _ebTasteReset().
+   ══════════════════════════════════════════════════════════════════════ */
+
+var EB_TASTE_KEY = 'eb_taste_v1';
+var _ebTasteCache = null;
+
+/** Tokens, die niemals gelernt werden (Kontakt-/Zahlungsdaten-Schutz). */
+var _EB_TASTE_BLOCK = /(@|\+\d|www\.|https?:|\d{4,}|iban|bic|paypal|whatsapp|telegram|telefon|handy|passwort|password)/i;
+
+function _ebTasteLoad() {
+  if (_ebTasteCache) return _ebTasteCache;
+  var t = null;
+  try { t = JSON.parse(localStorage.getItem(EB_TASTE_KEY) || 'null'); } catch (e) {}
+  if (!t || typeof t !== 'object') t = {};
+  t.cats   = t.cats   && typeof t.cats   === 'object' ? t.cats   : {};
+  t.locs   = t.locs   && typeof t.locs   === 'object' ? t.locs   : {};
+  t.types  = t.types  && typeof t.types  === 'object' ? t.types  : {};
+  t.terms  = t.terms  && typeof t.terms  === 'object' ? t.terms  : {};
+  t.day    = t.day || '';
+  _ebTasteCache = t;
+  _ebTasteDecay();
+  return t;
+}
+
+/** Einmal pro Tag alle Gewichte leicht abklingen lassen — Interessen altern. */
+function _ebTasteDecay() {
+  var t = _ebTasteCache; if (!t) return;
+  var today = new Date().toISOString().slice(0, 10);
+  if (t.day === today) return;
+  ['cats', 'locs', 'types', 'terms'].forEach(function(bucket) {
+    Object.keys(t[bucket]).forEach(function(k) {
+      var v = t[bucket][k] * 0.92;
+      if (v < 0.35) delete t[bucket][k]; else t[bucket][k] = Math.round(v * 1000) / 1000;
+    });
+  });
+  t.day = today;
+  _ebTasteSave();
+}
+
+function _ebTasteSave() {
+  try {
+    var t = _ebTasteCache; if (!t) return;
+    // Deckeln: pro Bucket nur die stärksten Einträge behalten.
+    ['cats', 'locs', 'types', 'terms'].forEach(function(bucket) {
+      var keys = Object.keys(t[bucket]);
+      var max = bucket === 'terms' ? 40 : 24;
+      if (keys.length > max) {
+        keys.sort(function(a, b) { return t[bucket][b] - t[bucket][a]; })
+            .slice(max).forEach(function(k) { delete t[bucket][k]; });
+      }
+    });
+    localStorage.setItem(EB_TASTE_KEY, JSON.stringify(t));
+  } catch (e) {}
+}
+
+function _ebTasteBump(bucket, key, weight) {
+  if (!key) return;
+  var k = String(key).toLowerCase().trim().slice(0, 32);
+  if (!k || k.length < 2 || _EB_TASTE_BLOCK.test(k)) return;
+  var t = _ebTasteLoad();
+  if (!t[bucket]) return;
+  t[bucket][k] = Math.min(50, (t[bucket][k] || 0) + (weight || 1));
+}
+
+/**
+ * Ein Nutzer-Signal verarbeiten. kind: 'search' | 'view' | 'fav' | 'board' | 'contact'
+ * Gewichte steigen mit der Verbindlichkeit der Handlung.
+ */
+function _ebTasteSignal(kind, data) {
+  try {
+    data = data || {};
+    var w = { search: 1, view: 1.5, fav: 3, board: 4, contact: 6 }[kind] || 1;
+    if (data.category) _ebTasteBump('cats', data.category, w);
+    if (data.location) {
+      var city = (typeof _ebDetectCityInText === 'function' ? _ebDetectCityInText(data.location) : '') || data.location;
+      _ebTasteBump('locs', city, w);
+    }
+    if (data.eventType) _ebTasteBump('types', data.eventType, w);
+    if (data.query) {
+      var q = String(data.query).toLowerCase();
+      if (!_EB_TASTE_BLOCK.test(q)) {
+        (q.match(/[a-zäöüß]{3,}/g) || []).slice(0, 6).forEach(function(word) {
+          if (_EB_STOPWORDS_SUGGEST.indexOf(word) === -1) _ebTasteBump('terms', word, w * 0.6);
+        });
+      }
+      var c = _ebGuessCategory(q); if (c) _ebTasteBump('cats', c, w * 0.8);
+      var ty = _ebGuessEventType(q); if (ty) _ebTasteBump('types', ty, w * 0.8);
+      var lc = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(q) : '';
+      if (lc) _ebTasteBump('locs', lc, w * 0.8);
+    }
+    _ebTasteSave();
+  } catch (e) {}
+}
+
+/** Stärkste Interessen eines Buckets. */
+function _ebTasteTop(bucket, n) {
+  var t = _ebTasteLoad();
+  var b = t[bucket] || {};
+  return Object.keys(b).sort(function(a, c) { return b[c] - b[a]; }).slice(0, n || 3);
+}
+
+/** Affinität 0…1 für ein Listing — Grundlage für personalisiertes Ranking. */
+function _ebTasteAffinity(listing) {
+  if (!listing) return 0;
+  var t = _ebTasteLoad();
+  var score = 0;
+  var cat = String(listing.category || '').toLowerCase();
+  if (cat && t.cats[cat]) score += t.cats[cat] * 2;
+  var loc = String(listing.location || '').toLowerCase();
+  if (loc && t.locs[loc]) score += t.locs[loc] * 1.5;
+  var hay = (String(listing.title || '') + ' ' + String(listing.categoryLabel || '')).toLowerCase();
+  Object.keys(t.terms).forEach(function(term) {
+    if (hay.indexOf(term) !== -1) score += t.terms[term] * 0.6;
+  });
+  return score;
+}
+
+/** Alles vergessen (Datenschutz-Kontrolle für den Nutzer). */
+function _ebTasteReset() {
+  _ebTasteCache = null;
+  try { localStorage.removeItem(EB_TASTE_KEY); } catch (e) {}
+  if (typeof showToast === 'function') showToast('Deine Such-Personalisierung wurde gelöscht.', 'lock_reset');
+}
+
+/* ─── Vokabular für Vervollständigung ──────────────────────────────── */
+
+var _EB_STOPWORDS_SUGGEST = ['ich','für','und','der','die','das','ein','eine','einen','mit','von','auf',
+  'suche','brauche','möchte','will','wir','uns','mir','mein','meine','einem','einer','den','dem','bei','zum','zur'];
+
+// Kategorien mit korrektem Artikel — damit die Vorschläge grammatisch sauber sind.
+var _EB_CAT_GRAMMAR = {
+  dj:         { akk: 'einen DJ',              label: 'DJ & Musik',      emoji: '🎧', re: /\bdjs?\b|musik|band|beats|auflegen/ },
+  catering:   { akk: 'ein Catering',          label: 'Catering',        emoji: '🍽️', re: /catering|essen|buffet|men[üu]|koch|foodtruck/ },
+  foto:       { akk: 'einen Fotografen',      label: 'Fotografie',      emoji: '📷', re: /fotograf|foto|kamera|video|film/ },
+  location:   { akk: 'eine Location',         label: 'Location',        emoji: '🏰', re: /location|saal|halle|r[äa]um|schloss|scheune|hof/ },
+  licht:      { akk: 'Licht & Technik',       label: 'Licht & Technik', emoji: '💡', re: /licht|technik|ton|b[üu]hne|sound|beschallung/ },
+  florist:    { akk: 'einen Floristen',       label: 'Floristik',       emoji: '💐', re: /blume|florist|strau[ßs]|blumendeko/ },
+  deko:       { akk: 'eine Dekoration',       label: 'Dekoration',      emoji: '🎈', re: /deko|ballon|tischdeko|ausstattung/ },
+  moderation: { akk: 'einen Moderator',       label: 'Moderation',      emoji: '🎤', re: /moderat|sprecher|redner|host/ },
+  planung:    { akk: 'eine Eventplanung',     label: 'Eventplanung',    emoji: '📋', re: /planer|planung|organisation|wedding ?planner/ },
+  pyro:       { akk: 'ein Feuerwerk',         label: 'Pyrotechnik',     emoji: '🎆', re: /feuerwerk|pyro|funken/ },
+  wellness:   { akk: 'ein Wellness-Angebot',  label: 'Wellness & Spa',  emoji: '💆', re: /wellness|spa|massage/ }
+};
+
+var _EB_TYPE_GRAMMAR = {
+  wedding:   { dat: 'für meine Hochzeit',        label: 'Hochzeit',    emoji: '💍', re: /hochzeit|heirat|braut|trauung/ },
+  birthday:  { dat: 'für meinen Geburtstag',     label: 'Geburtstag',  emoji: '🎂', re: /geburtstag|b-?day/ },
+  corporate: { dat: 'für unsere Firmenfeier',    label: 'Firmenfeier', emoji: '🏢', re: /firmen|betriebs|weihnachtsfeier|sommerfest|team-?event/ },
+  festival:  { dat: 'für unser Open-Air',        label: 'Open-Air',    emoji: '🎪', re: /festival|open-?air/ },
+  conference:{ dat: 'für unsere Konferenz',      label: 'Konferenz',   emoji: '🎤', re: /konferenz|tagung|kongress|seminar/ },
+  kids:      { dat: 'für einen Kindergeburtstag',label: 'Kinderfest',  emoji: '🎈', re: /kinder/ },
+  baptism:   { dat: 'für die Taufe',             label: 'Taufe',       emoji: '⛪', re: /taufe|kommunion|konfirmation/ },
+  private:   { dat: 'für unsere Feier',          label: 'Privatfeier', emoji: '🏡', re: /party|feier|jubil[äa]um|abschluss|abiball/ }
+};
+
+function _ebGuessCategory(text) {
+  var t = String(text || '').toLowerCase();
+  for (var k in _EB_CAT_GRAMMAR) {
+    if (_EB_CAT_GRAMMAR[k].re.test(t)) return k;
+  }
+  return '';
+}
+function _ebGuessEventType(text) {
+  var t = String(text || '').toLowerCase();
+  for (var k in _EB_TYPE_GRAMMAR) {
+    if (_EB_TYPE_GRAMMAR[k].re.test(t)) return k;
+  }
+  return '';
+}
+
+/** Wie viele echte Angebote gibt es zu einer Kategorie? (Relevanz-Signal) */
+function _ebCatSupply(catKey) {
+  try {
+    var all = (typeof getHeroListings === 'function') ? getHeroListings() : [];
+    return all.filter(function(l) { return String(l.category || '').toLowerCase() === catKey; }).length;
+  } catch (e) { return 0; }
+}
+
+/**
+ * Kern: Vorschläge zu einer angefangenen Eingabe.
+ * Liefert { head, completion, full, alternatives:[{text,label,emoji,why}] }
+ *  - head       : der bereits getippte Text (unverändert erhalten)
+ *  - completion : die wahrscheinlichste Fortsetzung SEINES Satzes
+ *  - alternatives: drei andere sinnvolle Satz-Enden (Cross-Sell / smart)
+ */
+function _ebSuggest(raw) {
+  var input = String(raw || '');
+  var t = input.trim();
+  var low = t.toLowerCase();
+  var out = { head: input, completion: '', full: '', alternatives: [] };
+
+  var cat  = _ebGuessCategory(low);
+  var type = _ebGuessEventType(low);
+  var city = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(t) : '';
+  var hasGuests = /\b\d{1,4}\s*(g[äa]ste|personen|leute|pax)\b/.test(low);
+  var hasDate   = /\b\d{1,2}\.\d{1,2}\.|\b(20\d{2})\b|januar|februar|märz|april|mai|juni|juli|august|september|oktober|november|dezember/.test(low);
+
+  var topCats  = _ebTasteTop('cats', 3);
+  var topTypes = _ebTasteTop('types', 2);
+  var topLocs  = _ebTasteTop('locs', 2);
+
+  // Beginnt der Nutzer einen Satz („Ich suche …") oder tippt er nur Stichworte?
+  var isSentence = /^(ich|wir|suche|brauche|hab|habe|kann|wer|gibt|wo)\b/.test(low) || t.split(/\s+/).length >= 3;
+  // Endet die Eingabe auf ein offenes Bindewort? Dann darf die Fortsetzung
+  // es NICHT wiederholen („Fotograf für" + „für meine Hochzeit" = falsch).
+  var openWord = (low.match(/\b(für|in|am|mit|ab|zum|zur|einen|eine|ein|meine|meinen|unser|unsere)$/) || [])[1] || '';
+  // Beschreibt der Nutzer bereits sein Event („wir planen eine Hochzeit")?
+  var describesEvent = /^(wir|ich)\s+(planen?|organisieren?|feiern?|haben|machen)/.test(low);
+
+  /** Bindewort am Anfang eines Fragments entfernen, wenn es schon dasteht. */
+  function joinFragment(frag) {
+    var f = frag.replace(/^\s+/, '');
+    if (openWord) {
+      var re = new RegExp('^' + openWord + '\\s+', 'i');
+      if (re.test(f)) return ' ' + f.replace(re, '');
+      // „für" getippt, Fragment beginnt mit „in" o. ä. → Bindewort passt nicht,
+      // Fragment trotzdem ohne doppeltes Leerzeichen anhängen.
+    }
+    return ' ' + f;
+  }
+
+  // ── 1) Fortsetzung des eigenen Satzes ──────────────────────────────
+  var parts = [];
+  if (!cat) {
+    var pick = topCats.filter(function(c) { return _EB_CAT_GRAMMAR[c]; })[0] || 'dj';
+    var catFrag = _EB_CAT_GRAMMAR[pick].akk;
+    // Wer sein Event beschreibt, bekommt einen sauberen Anschluss statt
+    // eines angeklebten Objekts („… in München" → „… — dafür suche ich einen DJ").
+    if (describesEvent && (type || city)) catFrag = '— dafür suche ich ' + catFrag;
+    parts.push(joinFragment(catFrag));
+  }
+  if (!type) {
+    var pt = topTypes.filter(function(x) { return _EB_TYPE_GRAMMAR[x]; })[0] || 'wedding';
+    parts.push(joinFragment(_EB_TYPE_GRAMMAR[pt].dat));
+  }
+  if (!city) {
+    var pl = topLocs[0];
+    var cityName = pl ? pl.charAt(0).toUpperCase() + pl.slice(1) : 'Köln';
+    parts.push(joinFragment('in ' + cityName));
+  }
+  if (cat && type && city && !hasGuests) parts.push(' für 80 Gäste');
+  if (cat && type && city && hasGuests && !hasDate) parts.push(' im nächsten Sommer');
+
+  out.completion = parts.join('').replace(/\s{2,}/g, ' ');
+  out.full = (input.replace(/\s+$/, '') + out.completion).replace(/\s{2,}/g, ' ');
+
+  // ── 2) Drei alternative Satz-Enden ────────────────────────────────
+  var alts = [];
+  var baseCat = cat || topCats[0] || 'dj';
+  var stem = input.replace(/\s+$/, '');
+  /** Fragment an den getippten Text hängen, ohne Bindewörter zu doppeln. */
+  function appendToStem(frag) {
+    return (stem + joinFragment(frag)).replace(/\s{2,}/g, ' ');
+  }
+
+  function addAlt(text, label, emoji, why) {
+    if (!text) return;
+    var clean = text.replace(/\s{2,}/g, ' ').trim();
+    if (alts.some(function(a) { return a.text.toLowerCase() === clean.toLowerCase(); })) return;
+    if (clean.toLowerCase() === out.full.trim().toLowerCase()) return;
+    alts.push({ text: clean, label: label || '', emoji: emoji || '✨', why: why || '' });
+  }
+
+  // a) Gleiche Kategorie, anderer Anlass — aber nur, wenn der Anlass nicht
+  //    schon im getippten Begriff steckt („Hochzeits-Location" bleibt Hochzeit).
+  var typeLocked = !!type;
+  if (!typeLocked) {
+    var typeCandidates = topTypes.concat(['wedding', 'birthday', 'corporate']);
+    typeCandidates.forEach(function(k) {
+      if (alts.length >= 2) return;
+      var g = _EB_TYPE_GRAMMAR[k];
+      var c = _EB_CAT_GRAMMAR[baseCat];
+      if (!g || !c) return;
+      var sentence = cat ? appendToStem(g.dat) : 'Ich suche ' + c.akk + ' ' + g.dat;
+      addAlt(sentence, g.label, g.emoji, 'Anderer Anlass');
+    });
+  }
+
+  // b) Passende Zusatz-Gewerke zum erkannten Anlass (echtes Cross-Sell)
+  var companions = {
+    wedding:   ['foto', 'florist', 'catering', 'location'],
+    birthday:  ['dj', 'catering', 'deko'],
+    corporate: ['catering', 'licht', 'moderation', 'location'],
+    festival:  ['licht', 'pyro', 'dj'],
+    conference:['licht', 'moderation', 'catering'],
+    kids:      ['deko', 'catering'],
+    baptism:   ['florist', 'catering', 'foto'],
+    private:   ['dj', 'catering', 'deko']
+  }[type || 'wedding'] || ['foto', 'catering'];
+
+  companions.forEach(function(ck) {
+    if (ck === cat) return;
+    var g = _EB_CAT_GRAMMAR[ck];
+    if (!g) return;
+    var tg = _EB_TYPE_GRAMMAR[type || topTypes[0] || 'wedding'];
+    addAlt('Ich suche ' + g.akk + (tg ? ' ' + tg.dat : ''), g.label, g.emoji, 'Passt dazu');
+  });
+
+  // c) Konkretisierung mit Ort/Größe, wenn noch nichts angegeben ist
+  if (cat && !city) {
+    var lc = topLocs[0] ? topLocs[0].charAt(0).toUpperCase() + topLocs[0].slice(1) : 'Berlin';
+    addAlt(appendToStem('in ' + lc), 'In ' + lc, '📍', 'Ort eingrenzen');
+  }
+  if (cat && !hasGuests) addAlt(appendToStem('für 120 Gäste'), 'Für 120 Gäste', '👥', 'Größe angeben');
+
+  // Reihenfolge: Angebotslage + Geschmack zuerst, dann Rest
+  alts.sort(function(a, b) {
+    var ac = _ebGuessCategory(a.text), bc = _ebGuessCategory(b.text);
+    var as = (topCats.indexOf(ac) !== -1 ? 5 : 0) + Math.min(3, _ebCatSupply(ac));
+    var bs = (topCats.indexOf(bc) !== -1 ? 5 : 0) + Math.min(3, _ebCatSupply(bc));
+    return bs - as;
+  });
+
+  out.alternatives = alts.slice(0, 3);
+  out.meta = { cat: cat, type: type, city: city, isSentence: isSentence };
+  return out;
+}
+
 // ========== KI-SUCHE ==========
 const AI_KEYWORDS = {
   'dj': { term: 'DJ', category: 'dj', emoji: '🎧', hint: 'DJ & Musik für dein Event' },
@@ -2700,6 +3038,164 @@ function renderBrowseGrid(listings) {
   _renderBrowseGridPage();
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   HERO-BILDMONTAGE — 10 Motive, generativ erzeugt
+   ----------------------------------------------------------------------
+   Die Motive werden im Browser prozedural als SVG erzeugt (Farbverlauf,
+   Bokeh-Lichter, Lichtkegel, Silhouetten, Konfetti) und als Data-URI
+   eingesetzt. Vorteil: keine externen Requests (CSP-fest), kein Ladezeit-
+   Ruckler, funktioniert offline und kostet kein Bild-Hosting.
+   Sollen später echte Foto-Renderings genutzt werden, genügt es, in
+   _ebHeroShots() Data-URIs bzw. Bild-URLs zurückzugeben — der Ablauf
+   (Montage + Dauerwechsel) bleibt unverändert.
+   ══════════════════════════════════════════════════════════════════════ */
+var _EB_HERO_SCENES = [
+  { name: 'Hochzeit',      sky: ['#2b1055', '#7597de'], glow: '#ffd9e8', accent: '#ffffff', mood: 'soft'   },
+  { name: 'Club-Night',    sky: ['#0f0c29', '#302b63'], glow: '#ff3b6b', accent: '#7b2ff7', mood: 'beams'  },
+  { name: 'Dinner',        sky: ['#3a1c1c', '#b06a3b'], glow: '#ffcf87', accent: '#ffe9c4', mood: 'soft'   },
+  { name: 'Open-Air',      sky: ['#12263a', '#2b6777'], glow: '#7ee8c0', accent: '#ffe66d', mood: 'beams'  },
+  { name: 'Gala',          sky: ['#1a1a2e', '#16213e'], glow: '#e9c46a', accent: '#f4a261', mood: 'bokeh'  },
+  { name: 'Geburtstag',    sky: ['#42275a', '#734b6d'], glow: '#ff8ba7', accent: '#ffc6c7', mood: 'confetti' },
+  { name: 'Firmenevent',   sky: ['#0b3866', '#1f6feb'], glow: '#8ecae6', accent: '#ffffff', mood: 'beams'  },
+  { name: 'Gartenfest',    sky: ['#1d3b2a', '#57886c'], glow: '#ffe8a3', accent: '#f2f7f5', mood: 'bokeh'  },
+  { name: 'Konzert',       sky: ['#160f29', '#4b1d3f'], glow: '#ff5f6d', accent: '#ffc371', mood: 'beams'  },
+  { name: 'Sommerfeier',   sky: ['#2c3e50', '#e96443'], glow: '#ffd86f', accent: '#fc913a', mood: 'confetti' }
+];
+
+/** Deterministischer Pseudo-Zufall — gleiche Szene sieht immer gleich aus. */
+function _ebRnd(seed) {
+  var s = seed;
+  return function() { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+}
+
+function _ebHeroSceneSvg(scene, seed) {
+  var r = _ebRnd(seed * 7919 + 13);
+  var W = 1200, H = 700;
+  var parts = [];
+  parts.push('<defs>' +
+    '<linearGradient id="sky" x1="0" y1="0" x2="0.6" y2="1">' +
+      '<stop offset="0%" stop-color="' + scene.sky[0] + '"/>' +
+      '<stop offset="100%" stop-color="' + scene.sky[1] + '"/>' +
+    '</linearGradient>' +
+    '<radialGradient id="glow" cx="50%" cy="42%" r="62%">' +
+      '<stop offset="0%" stop-color="' + scene.glow + '" stop-opacity="0.55"/>' +
+      '<stop offset="100%" stop-color="' + scene.glow + '" stop-opacity="0"/>' +
+    '</radialGradient>' +
+    '<filter id="blur"><feGaussianBlur stdDeviation="18"/></filter>' +
+    '<filter id="soft"><feGaussianBlur stdDeviation="6"/></filter>' +
+  '</defs>');
+  parts.push('<rect width="' + W + '" height="' + H + '" fill="url(#sky)"/>');
+  parts.push('<rect width="' + W + '" height="' + H + '" fill="url(#glow)"/>');
+
+  // Lichtkegel (Bühne/Club)
+  if (scene.mood === 'beams') {
+    for (var b = 0; b < 5; b++) {
+      var bx = 120 + r() * (W - 240);
+      var spread = 70 + r() * 90;
+      parts.push('<polygon points="' + bx + ',-40 ' + (bx - spread) + ',' + H + ' ' + (bx + spread) + ',' + H + '" fill="' +
+        scene.accent + '" opacity="' + (0.06 + r() * 0.09).toFixed(3) + '" filter="url(#blur)"/>');
+    }
+  }
+  // Bokeh-Lichter (überall, Dichte je Stimmung)
+  var bokehCount = scene.mood === 'bokeh' ? 34 : 20;
+  for (var i = 0; i < bokehCount; i++) {
+    var cx = r() * W, cy = r() * H * 0.86;
+    var rad = 6 + r() * 46;
+    var col = r() > 0.55 ? scene.glow : scene.accent;
+    parts.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + rad.toFixed(1) +
+      '" fill="' + col + '" opacity="' + (0.05 + r() * 0.22).toFixed(3) + '" filter="url(#soft)"/>');
+  }
+  // Konfetti (Party-Motive)
+  if (scene.mood === 'confetti') {
+    for (var c = 0; c < 46; c++) {
+      var px = r() * W, py = r() * H * 0.8, w = 5 + r() * 9, h = 9 + r() * 14;
+      var rot = (r() * 360).toFixed(0);
+      var cc = [scene.glow, scene.accent, '#ffffff'][Math.floor(r() * 3)];
+      parts.push('<rect x="' + px.toFixed(0) + '" y="' + py.toFixed(0) + '" width="' + w.toFixed(0) + '" height="' + h.toFixed(0) +
+        '" rx="2" fill="' + cc + '" opacity="' + (0.25 + r() * 0.5).toFixed(2) + '" transform="rotate(' + rot + ' ' + px.toFixed(0) + ' ' + py.toFixed(0) + ')"/>');
+    }
+  }
+  // Lichterketten
+  var yBase = 90 + r() * 60;
+  for (var s2 = 0; s2 < 2; s2++) {
+    var yy = yBase + s2 * 46;
+    var d = 'M0 ' + yy + ' Q' + (W * 0.25) + ' ' + (yy + 56) + ' ' + (W * 0.5) + ' ' + yy + ' T' + W + ' ' + yy;
+    parts.push('<path d="' + d + '" fill="none" stroke="' + scene.accent + '" stroke-opacity="0.22" stroke-width="1.5"/>');
+    for (var l = 0; l <= 22; l++) {
+      var tt = l / 22, xx = tt * W;
+      var yl = yy + Math.sin(tt * Math.PI) * 46;
+      parts.push('<circle cx="' + xx.toFixed(0) + '" cy="' + yl.toFixed(0) + '" r="3.4" fill="' + scene.glow + '" opacity="0.75"/>');
+    }
+  }
+  // Horizont + Silhouetten (Menschen/Skyline als weiche Formen)
+  parts.push('<rect y="' + (H * 0.72) + '" width="' + W + '" height="' + (H * 0.28) + '" fill="#000" opacity="0.34"/>');
+  for (var p = 0; p < 16; p++) {
+    var sx = r() * W;
+    var sh = 60 + r() * 90;
+    var sw = 22 + r() * 16;
+    parts.push('<ellipse cx="' + sx.toFixed(0) + '" cy="' + (H * 0.74 + 6).toFixed(0) + '" rx="' + (sw / 2.6).toFixed(0) + '" ry="' + (sw / 2.6).toFixed(0) + '" fill="#000" opacity="0.5"/>');
+    parts.push('<rect x="' + (sx - sw / 2).toFixed(0) + '" y="' + (H * 0.74 + 10).toFixed(0) + '" width="' + sw.toFixed(0) + '" height="' + sh.toFixed(0) + '" rx="' + (sw / 2).toFixed(0) + '" fill="#000" opacity="0.5"/>');
+  }
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">' + parts.join('') + '</svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+var _ebHeroShotsCache = null;
+function _ebHeroShots() {
+  if (_ebHeroShotsCache) return _ebHeroShotsCache;
+  _ebHeroShotsCache = _EB_HERO_SCENES.map(function(sc, i) {
+    return { name: sc.name, url: _ebHeroSceneSvg(sc, i + 1) };
+  });
+  return _ebHeroShotsCache;
+}
+
+var _ebHeroTimer = null;
+/**
+ * Montage: alle 10 Motive laufen in 2 Sekunden durch (200 ms je Bild),
+ * danach wechselt der Hintergrund ruhig weiter (5 s je Motiv).
+ * Bei „prefers-reduced-motion" bleibt es bei einem einzigen Standbild.
+ */
+function _initHeroShots() {
+  var host = document.getElementById('aiHeroShots');
+  if (!host) return;
+  var shots = _ebHeroShots();
+  if (!host.childElementCount) {
+    host.innerHTML = shots.map(function(s, i) {
+      return '<div class="ai-hero-shot' + (i === 0 ? ' active' : '') + '" data-i="' + i + '" role="img" aria-label="' +
+        _escHtml(s.name) + '" style="background-image:url(&quot;' + s.url + '&quot;)"></div>';
+    }).join('');
+  }
+  var slides = host.querySelectorAll('.ai-hero-shot');
+  if (!slides.length) return;
+
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (_ebHeroTimer) { clearInterval(_ebHeroTimer); _ebHeroTimer = null; }
+  if (reduce) {
+    slides.forEach(function(s, i) { s.classList.toggle('active', i === 0); });
+    return;
+  }
+
+  var idx = 0;
+  function show(i) {
+    slides.forEach(function(s, k) { s.classList.toggle('active', k === i); });
+  }
+  // Phase 1 — schnelle Montage: 10 Motive in 2 Sekunden.
+  host.classList.add('is-montage');
+  _ebHeroTimer = setInterval(function() {
+    idx = (idx + 1) % slides.length;
+    show(idx);
+    if (idx === slides.length - 1) {
+      clearInterval(_ebHeroTimer);
+      host.classList.remove('is-montage');
+      // Phase 2 — ruhiger Dauerwechsel.
+      _ebHeroTimer = setInterval(function() {
+        idx = (idx + 1) % slides.length;
+        show(idx);
+      }, 5000);
+    }
+  }, 200);
+}
+
 // ===== AI Search Hero helpers =====
 function setQuickSearch(term) {
   var input = document.getElementById('browseSearch');
@@ -2712,9 +3208,152 @@ function setQuickSearch(term) {
 }
 function _aiPlaceholderHideOnInput(input) {
   var el = document.getElementById('aiPlaceholder');
-  if (!el) return;
-  el.style.opacity = input.value ? '0' : '1';
+  if (el) el.style.opacity = input.value ? '0' : '1';
+  _ebSearchSuggestUpdate(input);
 }
+
+/* ─── Such-Vervollständigung (Inline-Ghost + Vorschlagsliste) ─────────
+   Der getippte Text bleibt IMMER unangetastet — die Fortsetzung erscheint
+   nur als Vorschau (grau) und wird per Tab/→ oder Klick übernommen.      */
+var _ebSug = { data: null, timer: null, open: false, idx: -1 };
+
+function _ebSuggestPanel() {
+  var el = document.getElementById('ebSuggestPanel');
+  if (el) return el;
+  var host = document.querySelector('#page-browse .ai-searchbar-outer');
+  if (!host) return null;
+  el = document.createElement('div');
+  el.id = 'ebSuggestPanel';
+  el.className = 'eb-sug-panel';
+  el.setAttribute('role', 'listbox');
+  el.hidden = true;
+  var bar = host.querySelector('.ai-searchbar');
+  if (bar && bar.nextSibling) host.insertBefore(el, bar.nextSibling); else host.appendChild(el);
+  return el;
+}
+
+function _ebSearchSuggestUpdate(input) {
+  input = input || document.getElementById('browseSearch');
+  if (!input) return;
+  clearTimeout(_ebSug.timer);
+  _ebSug.timer = setTimeout(function() { _ebSearchSuggestRender(input); }, 90);
+}
+
+function _ebSearchSuggestRender(input) {
+  var ghost = document.getElementById('ebGhostComplete');
+  var panel = _ebSuggestPanel();
+  var val = input.value || '';
+  if (!val.trim()) { _ebSuggestClose(); return; }
+
+  var s = _ebSuggest(val);
+  _ebSug.data = s;
+  _ebSug.idx = -1;
+
+  // Inline-Ghost: getippter Text unsichtbar als Platzhalter, Rest grau daneben.
+  if (!ghost) {
+    var field = input.parentNode;
+    if (field) {
+      ghost = document.createElement('div');
+      ghost.id = 'ebGhostComplete';
+      ghost.className = 'eb-ghost-complete';
+      ghost.setAttribute('aria-hidden', 'true');
+      field.appendChild(ghost);
+    }
+  }
+  if (ghost) {
+    ghost.innerHTML = s.completion
+      ? '<span class="ebg-typed">' + _escHtml(val) + '</span><span class="ebg-rest">' + _escHtml(s.completion) + '</span>'
+      : '';
+  }
+
+  if (!panel) return;
+  var rows = '';
+  if (s.completion) {
+    rows += '<button type="button" class="eb-sug-row eb-sug-primary" role="option" onclick="_ebSuggestAccept()">' +
+      '<span class="material-icons-round eb-sug-ico">auto_awesome</span>' +
+      '<span class="eb-sug-text"><span class="ebs-typed">' + _escHtml(val) + '</span><span class="ebs-rest">' + _escHtml(s.completion) + '</span></span>' +
+      '<span class="eb-sug-key">Tab</span></button>';
+  }
+  s.alternatives.forEach(function(a, i) {
+    rows += '<button type="button" class="eb-sug-row" role="option" onclick="_ebSuggestPick(' + i + ')">' +
+      '<span class="eb-sug-emoji">' + _escHtml(a.emoji) + '</span>' +
+      '<span class="eb-sug-text">' + _escHtml(a.text) + '</span>' +
+      (a.why ? '<span class="eb-sug-why">' + _escHtml(a.why) + '</span>' : '') +
+      '</button>';
+  });
+  if (!rows) { _ebSuggestClose(); return; }
+  panel.innerHTML = rows +
+    '<div class="eb-sug-foot"><span class="material-icons-round">shield</span> Vorschläge entstehen lokal in deinem Browser' +
+    ' · <button type="button" class="eb-sug-reset" onclick="_ebTasteReset();_ebSuggestClose()">Personalisierung löschen</button></div>';
+  panel.hidden = false;
+  _ebSug.open = true;
+}
+
+function _ebSuggestClose() {
+  var panel = document.getElementById('ebSuggestPanel');
+  if (panel) { panel.hidden = true; panel.innerHTML = ''; }
+  var ghost = document.getElementById('ebGhostComplete');
+  if (ghost) ghost.innerHTML = '';
+  _ebSug.open = false; _ebSug.idx = -1;
+}
+
+/** Inline-Vorschlag übernehmen (Tab / → / Klick auf die erste Zeile). */
+function _ebSuggestAccept() {
+  var input = document.getElementById('browseSearch');
+  if (!input || !_ebSug.data || !_ebSug.data.completion) return;
+  input.value = _ebSug.data.full;
+  _ebSuggestClose();
+  input.focus();
+  _ebSearchSuggestUpdate(input);   // weiter vervollständigen — Satz kann wachsen
+}
+
+/** Einen der drei Alternativvorschläge übernehmen und suchen. */
+function _ebSuggestPick(i) {
+  var input = document.getElementById('browseSearch');
+  if (!input || !_ebSug.data) return;
+  var a = _ebSug.data.alternatives[i];
+  if (!a) return;
+  input.value = a.text;
+  _ebSuggestClose();
+  _ebTasteSignal('search', { query: a.text });
+  if (typeof filterListings === 'function') filterListings();
+  if (typeof _ebScrollToBrowseResults === 'function') _ebScrollToBrowseResults();
+}
+
+/** Tastatursteuerung: Tab/→ übernimmt, ↓/↑ wählt, Esc schließt. */
+function _ebSuggestKeydown(ev) {
+  var input = ev.target;
+  if (!_ebSug.open) return;
+  var panel = document.getElementById('ebSuggestPanel');
+  var rows = panel ? panel.querySelectorAll('.eb-sug-row') : [];
+  if (ev.key === 'Tab' && _ebSug.data && _ebSug.data.completion && _ebSug.idx < 0) {
+    ev.preventDefault(); _ebSuggestAccept(); return;
+  }
+  if (ev.key === 'ArrowRight' && input.selectionStart === input.value.length && _ebSug.data && _ebSug.data.completion) {
+    ev.preventDefault(); _ebSuggestAccept(); return;
+  }
+  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    if (!rows.length) return;
+    ev.preventDefault();
+    _ebSug.idx += (ev.key === 'ArrowDown' ? 1 : -1);
+    if (_ebSug.idx < 0) _ebSug.idx = rows.length - 1;
+    if (_ebSug.idx >= rows.length) _ebSug.idx = 0;
+    rows.forEach(function(r, i) { r.classList.toggle('active', i === _ebSug.idx); });
+    return;
+  }
+  if (ev.key === 'Enter' && _ebSug.idx >= 0 && rows[_ebSug.idx]) {
+    ev.preventDefault(); rows[_ebSug.idx].click(); return;
+  }
+  if (ev.key === 'Escape') { _ebSuggestClose(); }
+}
+
+// Klick außerhalb schließt die Vorschläge.
+document.addEventListener('click', function(e) {
+  if (!_ebSug.open) return;
+  var panel = document.getElementById('ebSuggestPanel');
+  var input = document.getElementById('browseSearch');
+  if (panel && !panel.contains(e.target) && e.target !== input) _ebSuggestClose();
+});
 var _aiPlaceholderTimer = null;
 function _initAiPlaceholder() {
   var el = document.getElementById('aiPlaceholder');
@@ -2956,6 +3595,11 @@ function filterListings() {
     }
   } catch (e) {}
 
+  // Lernsignal: was sucht dieser Nutzer? (bleibt lokal, siehe _ebTaste)
+  if (search || category || location || eventType) {
+    _ebTasteSignal('search', { query: search, category: category, location: location, eventType: eventType });
+  }
+
   let filtered = getHeroListings().filter(l => {
     if (!l) return false;
     // Smart Text-Suche: tokenisiert, entfernt Stopwörter, kennt Synonym-Cluster
@@ -3008,6 +3652,16 @@ function filterListings() {
     case 'preis-desc': filtered.sort((a, b) => b.price - a.price); break;
     case 'rating': filtered.sort((a, b) => b.rating - a.rating); break;
     case 'neu': filtered.sort((a, b) => b.id - a.id); break;
+    default:
+      // Ohne explizite Sortierung: Relevanz + gelernte Vorlieben.
+      // Bewertung bleibt Basis, Affinität hebt Passendes nach oben —
+      // ohne schlechte Treffer künstlich hochzuspülen.
+      filtered.sort(function(a, b) {
+        var af = _ebTasteAffinity(a), bf = _ebTasteAffinity(b);
+        var as = (+a.rating || 0) + Math.min(1.2, af * 0.12);
+        var bs = (+b.rating || 0) + Math.min(1.2, bf * 0.12);
+        return bs - as;
+      });
   }
 
   // Render active filter tags
@@ -3313,6 +3967,8 @@ function loadDetail(listingId) {
   const listing = LISTINGS.find(l => l.id === listingId);
   if (!listing) return;
   currentListing = listing;
+  // Lernsignal: angesehenes Inserat (lokal, siehe _ebTaste)
+  _ebTasteSignal('view', { category: listing.category, location: listing.location });
   try { _setPageMeta('detail', listingId); } catch (e) { /* Meta optional */ }
 
   // Gallery
@@ -8970,6 +9626,11 @@ function toggleFavorite(listingId, btn) {
     btn.classList.add('liked');
     btn.querySelector('.material-icons-round').textContent = 'favorite';
     showToast('Zu Favoriten hinzugefügt! ❤️', 'favorite');
+    // Lernsignal: Favorit ist ein starkes Interesse (lokal)
+    try {
+      var _fl = getHeroListings().find(function(l) { return l && l.id === listingId; });
+      if (_fl) _ebTasteSignal('fav', { category: _fl.category, location: _fl.location });
+    } catch (e) {}
   }
   if (btn) btn.setAttribute('aria-pressed', btn.classList.contains('liked') ? 'true' : 'false');
   _saveFavoritesToStorage();
@@ -20918,9 +21579,13 @@ function renderFeed(tab) {
       return item._social ? renderSocialPostCard(item.post) : renderListingFeedCard(item.listing);
     }).join('');
   } else {
-    // foryou — interleaved. Bei aktivem Standort: nach Nähe statt zufällig.
+    // foryou — nach gelernten Vorlieben sortiert (Standort hat Vorrang, wenn aktiv).
+    // Ohne Signale bleibt es bei zufälliger Mischung, damit Neulinge Vielfalt sehen.
+    var hasTaste = _ebTasteTop('cats', 1).length > 0;
     var shuffled = nearby ? _sortByNearby(listings, function(l) { return l.location; })
-      : listings.slice().sort(function() { return Math.random() - 0.5; });
+      : (hasTaste
+          ? listings.slice().sort(function(a, b) { return _ebTasteAffinity(b) - _ebTasteAffinity(a); })
+          : listings.slice().sort(function() { return Math.random() - 0.5; }));
     var orderedPosts = nearby ? _sortByNearby(visiblePosts, function(p) { return p.location; }) : visiblePosts;
     var mixed = [];
     var sIdx = 0;
@@ -23115,7 +23780,7 @@ function _aiBoardLayoutHtml(isProvider) {
       '<div class="bai-chat" id="baiChat"></div>' +
       '<div class="bai-suggests" id="baiSuggests"></div>' +
       '<form class="bai-inputrow" onsubmit="_aiSend(event)">' +
-        '<input type="text" id="baiInput" placeholder="Beschreib dein Event oder stell eine Frage…" autocomplete="off" maxlength="300" />' +
+        '<input type="text" id="baiInput" placeholder="Beschreib dein Event oder stell eine Frage…" autocomplete="off" maxlength="300" oninput="_aiInputSuggest(this)" />' +
         '<button type="submit" class="bai-send" aria-label="Senden"><span class="material-icons-round">arrow_upward</span></button>' +
       '</form>' +
     '</div>' +
@@ -23179,10 +23844,51 @@ function _aiRenderSuggests() {
   if (!el) return;
   var chips = (currentUser && _aiCtxProject())
     ? ['Was fehlt noch?', 'Budget-Übersicht', 'Zeig mir Fotografen', 'Wie viele Tage noch?']
-    : ['Ich plane eine Hochzeit', 'Geburtstagsparty organisieren', 'Zeig mir DJs', 'Was kannst du?'];
-  el.innerHTML = chips.map(function(c) {
-    return '<button type="button" class="bai-chip" onclick="_aiQuick(this.textContent)">' + c + '</button>';
+    : ['Ich plane eine Hochzeit', 'Geburtstagsparty organisieren', 'Zeig mir DJs', 'Was kannst du erklären?'];
+  // Gelernte Vorlieben nach vorn holen — der Assistent kennt seinen Nutzer.
+  try {
+    var topCat = _ebTasteTop('cats', 1)[0];
+    var topType = _ebTasteTop('types', 1)[0];
+    if (topCat && _EB_CAT_GRAMMAR[topCat]) {
+      chips.unshift('Zeig mir ' + _EB_CAT_GRAMMAR[topCat].label);
+    } else if (topType && _EB_TYPE_GRAMMAR[topType]) {
+      chips.unshift('Ich plane ' + _EB_TYPE_GRAMMAR[topType].label.toLowerCase());
+    }
+  } catch (e) {}
+  el.innerHTML = chips.slice(0, 5).map(function(c) {
+    return '<button type="button" class="bai-chip" onclick="_aiQuick(this.textContent)">' + _escHtml(c) + '</button>';
   }).join('');
+}
+
+/**
+ * Live-Vervollständigung im Board-Assistenten: während des Tippens werden
+ * dieselben Satz-Vorschläge angeboten wie in der Suche.
+ */
+function _aiInputSuggest(inputEl) {
+  var el = document.getElementById('baiSuggests');
+  if (!el || !inputEl) return;
+  var val = inputEl.value || '';
+  if (val.trim().length < 3) { _aiRenderSuggests(); return; }
+  var s = _ebSuggest(val);
+  var items = [];
+  if (s.completion) items.push({ text: s.full, emoji: '✨' });
+  s.alternatives.forEach(function(a) { items.push({ text: a.text, emoji: a.emoji }); });
+  if (!items.length) { _aiRenderSuggests(); return; }
+  el.innerHTML = items.slice(0, 4).map(function(it) {
+    var safe = String(it.text).replace(/'/g, '\\u0027');
+    return '<button type="button" class="bai-chip bai-chip-sug" onclick="_aiAcceptSuggest(\'' + _escHtml(safe) + '\')">' +
+      _escHtml(it.emoji) + ' ' + _escHtml(it.text) + '</button>';
+  }).join('');
+}
+
+/** Vorschlag ins Eingabefeld übernehmen — der Nutzer kann weiterschreiben. */
+function _aiAcceptSuggest(text) {
+  var inp = document.getElementById('baiInput');
+  if (!inp) return;
+  inp.value = String(text || '');
+  inp.focus();
+  try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) {}
+  _aiInputSuggest(inp);
 }
 
 function _aiPushMsg(role, html) {
