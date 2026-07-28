@@ -3215,7 +3215,7 @@ function _aiPlaceholderHideOnInput(input) {
 /* ─── Such-Vervollständigung (Inline-Ghost + Vorschlagsliste) ─────────
    Der getippte Text bleibt IMMER unangetastet — die Fortsetzung erscheint
    nur als Vorschau (grau) und wird per Tab/→ oder Klick übernommen.      */
-var _ebSug = { data: null, timer: null, open: false, idx: -1 };
+var _ebSug = { data: null, timer: null, scrollTimer: null, open: false, idx: -1 };
 
 function _ebSuggestPanel() {
   var el = document.getElementById('ebSuggestPanel');
@@ -3287,11 +3287,33 @@ function _ebSearchSuggestRender(input) {
     ' · <button type="button" class="eb-sug-reset" onclick="_ebTasteReset();_ebSuggestClose()">Personalisierung löschen</button></div>';
   panel.hidden = false;
   _ebSug.open = true;
+  // Suchbereich über die sticky Kategorieleiste heben, solange die Liste offen ist
+  var heroContent = document.querySelector('#page-browse .ai-hero-content');
+  if (heroContent) heroContent.classList.add('eb-sug-active');
+  // Auf kleinen Schirmen öffnet die Liste unterhalb des Falzes — sanft
+  // heranscrollen, damit alle Vorschläge sichtbar sind (Tastatur bleibt offen).
+  if (window.innerWidth <= 820) {
+    clearTimeout(_ebSug.scrollTimer);
+    _ebSug.scrollTimer = setTimeout(function() {
+      var r = panel.getBoundingClientRect();
+      // Die feste Bottom-Navigation verdeckt sonst die letzte Zeile.
+      var navH = 0;
+      try {
+        var nv = getComputedStyle(document.documentElement).getPropertyValue('--mobile-nav-height');
+        navH = parseInt(nv, 10) || 0;
+      } catch (e) {}
+      if (!navH) { var mn = document.querySelector('.mobile-nav'); navH = mn ? mn.offsetHeight : 64; }
+      var overflow = r.bottom - (window.innerHeight - navH);
+      if (overflow > 0) window.scrollBy({ top: overflow + 12, behavior: 'smooth' });
+    }, 120);
+  }
 }
 
 function _ebSuggestClose() {
   var panel = document.getElementById('ebSuggestPanel');
   if (panel) { panel.hidden = true; panel.innerHTML = ''; }
+  var heroContent = document.querySelector('#page-browse .ai-hero-content');
+  if (heroContent) heroContent.classList.remove('eb-sug-active');
   var ghost = document.getElementById('ebGhostComplete');
   if (ghost) ghost.innerHTML = '';
   _ebSug.open = false; _ebSug.idx = -1;
