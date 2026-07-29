@@ -3555,7 +3555,21 @@ function updateChipLabel(sel) {
 const _EB_STOPWORDS = new Set([
   'für','fuer','in','im','am','an','mit','und','oder','der','die','das','den','dem','des',
   'ein','eine','einen','einer','eines','von','zu','zur','zum','auf','bei','aus','nach','vor',
-  'ab','als','wie','sehr','etwas','bisschen','bitte','&','-','+','/','\\','|',',',';',':'
+  'ab','als','wie','sehr','etwas','bisschen','bitte','&','-','+','/','\\','|',',',';',':',
+  // Satz-Füllwörter: Nutzer formulieren ganze Sätze („Ich suche einen DJ für
+  // meine Hochzeit"). Ohne diese Liste scheiterte die Suche an „ich/suche/meine".
+  'ich','du','wir','ihr','sie','er','es','man','mir','mich','uns','euch',
+  'mein','meine','meinen','meinem','meiner','unser','unsere','unseren','unserem',
+  'dein','deine','sein','seine','ihre','ihren',
+  'suche','suchen','sucht','gesucht','such','finde','finden','brauche','brauchen',
+  'braucht','benötige','benoetige','benötigen','benoetigen','möchte','moechte',
+  'möchten','moechten','will','wollen','hätte','haette','habe','hab','haben','hat',
+  'ist','sind','wäre','waere','wird','werden','kann','können','koennen','soll','sollte',
+  'jemand','jemanden','wer','was','wo','wann','warum','welche','welcher','welches',
+  'noch','gern','gerne','mal','denn','doch','auch','nur','schon','bald','dringend',
+  'guten','gute','guter','gutes','schönen','schoenen','passenden','passende','passend',
+  'professionellen','professionelle','günstigen','guenstigen','günstige','guenstige',
+  'toll','tolle','tollen','super','beste','besten','bester'
 ]);
 // Synonym-Cluster für Event-Dienstleistungen (DE). Jeder Token in einer Gruppe wird
 // als äquivalent behandelt und matched alle anderen Begriffe der Gruppe.
@@ -3603,31 +3617,100 @@ const _EB_SYN_INDEX = (function() {
 })();
 function _ebTokenizeQuery(q) {
   if (!q) return [];
-  return q.toLowerCase()
+  const raw = q.toLowerCase()
     .replace(/[.!?()"„"»«]/g, ' ')
     .split(/[\s,;\/\\|]+/)
     .map(t => t.replace(/^[^a-z0-9äöüß-]+|[^a-z0-9äöüß-]+$/g, ''))
     .filter(t => t.length >= 2 && !_EB_STOPWORDS.has(t));
-}
-function _ebSmartTextMatch(search, listing) {
-  const tokens = _ebTokenizeQuery(search);
-  if (!tokens.length) return true;
-  const haystack = `${listing.title || ''} ${listing.categoryLabel || ''} ${listing.category || ''} ${(listing.tags || []).join(' ')} ${listing.providerName || ''} ${listing.description || ''} ${listing.location || ''} ${listing.region || ''}`.toLowerCase();
-  // Jedes Such-Token muss entweder direkt oder über sein Synonym-Cluster im Heuhaufen vorkommen.
-  return tokens.every(tok => {
-    if (haystack.includes(tok)) return true;
-    const variants = _EB_SYN_INDEX.get(tok);
-    if (variants) {
-      for (const v of variants) if (haystack.includes(v)) return true;
+
+  // Zusammengesetzte Wörter aufbrechen: „Hochzeits-Location" → auch
+  // „hochzeits" + „location"; „Hochzeitsfotograf" → auch „fotograf".
+  const out = [];
+  const seen = new Set();
+  const push = t => { if (t && t.length >= 2 && !_EB_STOPWORDS.has(t) && !seen.has(t)) { seen.add(t); out.push(t); } };
+  raw.forEach(tok => {
+    push(tok);
+    if (tok.indexOf('-') !== -1) tok.split('-').forEach(push);
+    // Bekannten Fachbegriff im Kompositum erkennen (ohne Bindestrich)
+    if (tok.length >= 8 && typeof _EB_SYN_INDEX !== 'undefined') {
+      for (const key of _EB_SYN_INDEX.keys()) {
+        if (key.length >= 5 && key !== tok && tok.indexOf(key) !== -1) { push(key); break; }
+      }
     }
-    // Fuzzy: kleine Tippfehler tolerieren bei Wörtern ≥ 5 Zeichen
-    if (tok.length >= 5) {
-      // Substring-Match auf 4+ Zeichen-Präfix erlaubt (z.B. "fotograf" → "fotografie")
-      const prefix = tok.slice(0, Math.max(4, tok.length - 2));
-      if (haystack.includes(prefix)) return true;
-    }
-    return false;
   });
+  return out;
+}
+/** Durchsuchbarer Text eines Inserats. */
+function _ebHaystack(listing) {
+  return `${listing.title || ''} ${listing.categoryLabel || ''} ${listing.category || ''} ${(listing.tags || []).join(' ')} ${listing.providerName || ''} ${listing.description || ''} ${listing.location || ''} ${listing.region || ''}`.toLowerCase();
+}
+
+/** Trifft ein einzelnes Token (direkt, per Synonym oder als Wortstamm)? */
+function _ebTokenHits(tok, haystack) {
+  if (haystack.includes(tok)) return true;
+  const variants = _EB_SYN_INDEX.get(tok);
+  if (variants) {
+    for (const v of variants) if (haystack.includes(v)) return true;
+  }
+  if (tok.length >= 5) {
+    // Präfix fängt Beugung/Komposita: „fotograf" → „fotografie"
+    const prefix = tok.slice(0, Math.max(4, tok.length - 2));
+    if (haystack.includes(prefix)) return true;
+  }
+  return false;
+}
+
+/**
+ * Zerlegt die Anfrage in das GESUCHTE (Gewerk/Leistung) und den KONTEXT
+ * (Anlass, Ort, Größe). Nur das Gesuchte darf ausschließen — der Kontext
+ * verfeinert nur die Reihenfolge. Sonst findet „DJ für meine Hochzeit"
+ * keinen DJ, der das Wort „Hochzeit" nicht zufällig im Text stehen hat.
+ */
+function _ebQueryParts(search) {
+  const tokens = _ebTokenizeQuery(search);
+  const core = [], context = [];
+  const typeWords = new Set(['hochzeit','hochzeiten','wedding','trauung','heirat','heiraten','brautpaar',
+    'geburtstag','bday','birthday','geburtstage','firmenfeier','firma','firmenevent','corporate',
+    'business','teamevent','jubiläum','jubilaeum','gala','party','feier','fete','taufe','konfirmation',
+    'kommunion','weihnachtsfeier','weihnachten','sommerfest','sommer','openair','open-air','outdoor']);
+  tokens.forEach(t => {
+    const isCity = (typeof _ebDetectCityInText === 'function') && !!_ebDetectCityInText(t);
+    const isNum = /^\d+$/.test(t);
+    if (typeWords.has(t) || isCity || isNum) context.push(t);
+    else core.push(t);
+  });
+  return { tokens, core, context };
+}
+
+/**
+ * Relevanz einer Anfrage für ein Inserat.
+ * 0 = passt nicht. Höher = besser (für die Sortierung).
+ */
+function _ebMatchScore(search, listing) {
+  const { tokens, core, context } = _ebQueryParts(search);
+  if (!tokens.length) return 1;
+  const hay = _ebHaystack(listing);
+
+  // Das GESUCHTE muss vorkommen — sonst ist es schlicht das falsche Gewerk.
+  let coreHits = 0;
+  for (const t of core) if (_ebTokenHits(t, hay)) coreHits++;
+  if (core.length && coreHits === 0) return 0;
+
+  // Kein erkennbares Gewerk (z. B. nur „Hochzeit Köln")? Dann reicht ein Treffer.
+  let ctxHits = 0;
+  for (const t of context) if (_ebTokenHits(t, hay)) ctxHits++;
+  if (!core.length && ctxHits === 0) return 0;
+
+  // Punkte: Gewerk zählt am stärksten, Kontext hebt passende Treffer nach oben.
+  let score = coreHits * 10 + ctxHits * 3;
+  if (core.length && coreHits === core.length) score += 6;   // alle Kernbegriffe
+  const title = String(listing.title || '').toLowerCase();
+  for (const t of core) if (title.includes(t)) score += 4;   // Treffer im Titel
+  return score;
+}
+
+function _ebSmartTextMatch(search, listing) {
+  return _ebMatchScore(search, listing) > 0;
 }
 
 function filterListings() {
@@ -3708,10 +3791,14 @@ function filterListings() {
     case 'rating': filtered.sort((a, b) => b.rating - a.rating); break;
     case 'neu': filtered.sort((a, b) => b.id - a.id); break;
     default:
-      // Ohne explizite Sortierung: Relevanz + gelernte Vorlieben.
-      // Bewertung bleibt Basis, Affinität hebt Passendes nach oben —
-      // ohne schlechte Treffer künstlich hochzuspülen.
+      // Ohne explizite Sortierung: Text-Relevanz zuerst, dann Bewertung und
+      // gelernte Vorlieben. So steht der passendste Treffer oben, ohne dass
+      // schwache Treffer künstlich hochgespült werden.
       filtered.sort(function(a, b) {
+        if (search) {
+          var ar = _ebMatchScore(search, a), br = _ebMatchScore(search, b);
+          if (br !== ar) return br - ar;
+        }
         var af = _ebTasteAffinity(a), bf = _ebTasteAffinity(b);
         var as = (+a.rating || 0) + Math.min(1.2, af * 0.12);
         var bs = (+b.rating || 0) + Math.min(1.2, bf * 0.12);
