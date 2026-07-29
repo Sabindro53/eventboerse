@@ -3127,15 +3127,38 @@ function _ebHeroSceneSvg(scene, seed) {
       parts.push('<circle cx="' + xx.toFixed(0) + '" cy="' + yl.toFixed(0) + '" r="3.4" fill="' + scene.glow + '" opacity="0.75"/>');
     }
   }
-  // Horizont + Silhouetten (Menschen/Skyline als weiche Formen)
-  parts.push('<rect y="' + (H * 0.72) + '" width="' + W + '" height="' + (H * 0.28) + '" fill="#000" opacity="0.34"/>');
-  for (var p = 0; p < 16; p++) {
-    var sx = r() * W;
-    var sh = 60 + r() * 90;
-    var sw = 22 + r() * 16;
-    parts.push('<ellipse cx="' + sx.toFixed(0) + '" cy="' + (H * 0.74 + 6).toFixed(0) + '" rx="' + (sw / 2.6).toFixed(0) + '" ry="' + (sw / 2.6).toFixed(0) + '" fill="#000" opacity="0.5"/>');
-    parts.push('<rect x="' + (sx - sw / 2).toFixed(0) + '" y="' + (H * 0.74 + 10).toFixed(0) + '" width="' + sw.toFixed(0) + '" height="' + sh.toFixed(0) + '" rx="' + (sw / 2).toFixed(0) + '" fill="#000" opacity="0.5"/>');
+  // Horizont + Publikums-Silhouetten.
+  // Menschliche Proportionen: Kopfdurchmesser d, Gesamthöhe ~6,5·d,
+  // Schultern ~2,2·d breit. Dadurch wirken die Figuren nie gestreckt,
+  // egal wie stark das Motiv skaliert wird.
+  parts.push('<rect y="' + (H * 0.74) + '" width="' + W + '" height="' + (H * 0.26) + '" fill="#000" opacity="0.30"/>');
+  var ground = H * 0.995;              // Fußlinie knapp über dem unteren Rand
+  var crowd = [];
+  for (var p = 0; p < 26; p++) {
+    crowd.push({ x: r() * (W + 80) - 40, d: 15 + r() * 7, back: r() > 0.55 });
   }
+  // Hintere Reihe zuerst zeichnen (kleiner, blasser) → Tiefe
+  crowd.sort(function(a, b) { return (a.back === b.back) ? 0 : (a.back ? -1 : 1); });
+  crowd.forEach(function(c) {
+    var d = c.back ? c.d * 0.82 : c.d;             // Kopfdurchmesser
+    var bodyH = d * 5.2;                            // Rumpf + Beine
+    var shoulder = d * 2.15;                        // Schulterbreite
+    var op = c.back ? 0.42 : 0.62;
+    var headCy = ground - bodyH - d * 0.55;
+    // Kopf
+    parts.push('<circle cx="' + c.x.toFixed(1) + '" cy="' + headCy.toFixed(1) + '" r="' + (d / 2).toFixed(1) + '" fill="#000" opacity="' + op + '"/>');
+    // Hals + Oberkörper (oben schmaler, unten breiter) als weiche Form
+    var topY = headCy + d * 0.55;
+    var pth = 'M' + (c.x - shoulder * 0.30).toFixed(1) + ' ' + topY.toFixed(1) +
+      ' Q' + (c.x - shoulder * 0.52).toFixed(1) + ' ' + (topY + d * 0.55).toFixed(1) +
+      ' ' + (c.x - shoulder * 0.5).toFixed(1) + ' ' + (topY + d * 1.5).toFixed(1) +
+      ' L' + (c.x - shoulder * 0.42).toFixed(1) + ' ' + ground.toFixed(1) +
+      ' L' + (c.x + shoulder * 0.42).toFixed(1) + ' ' + ground.toFixed(1) +
+      ' L' + (c.x + shoulder * 0.5).toFixed(1) + ' ' + (topY + d * 1.5).toFixed(1) +
+      ' Q' + (c.x + shoulder * 0.52).toFixed(1) + ' ' + (topY + d * 0.55).toFixed(1) +
+      ' ' + (c.x + shoulder * 0.30).toFixed(1) + ' ' + topY.toFixed(1) + ' Z';
+    parts.push('<path d="' + pth + '" fill="#000" opacity="' + op + '"/>');
+  });
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">' + parts.join('') + '</svg>';
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
@@ -3220,16 +3243,42 @@ var _ebSug = { data: null, timer: null, scrollTimer: null, open: false, idx: -1 
 function _ebSuggestPanel() {
   var el = document.getElementById('ebSuggestPanel');
   if (el) return el;
-  var host = document.querySelector('#page-browse .ai-searchbar-outer');
-  if (!host) return null;
+  // Bewusst direkt an <body>: im Hero wurde die Liste je nach Stacking-
+  // Kontext von der sticky Kategorieleiste überlagert bzw. abgeschnitten.
+  // Als fixiertes Element auf oberster Ebene kann das nicht mehr passieren.
   el = document.createElement('div');
   el.id = 'ebSuggestPanel';
   el.className = 'eb-sug-panel';
   el.setAttribute('role', 'listbox');
   el.hidden = true;
-  var bar = host.querySelector('.ai-searchbar');
-  if (bar && bar.nextSibling) host.insertBefore(el, bar.nextSibling); else host.appendChild(el);
+  document.body.appendChild(el);
   return el;
+}
+
+/** Liste exakt unter der Suchleiste positionieren (fixed, body-Ebene). */
+function _ebSuggestPosition() {
+  var panel = document.getElementById('ebSuggestPanel');
+  var bar = document.querySelector('#page-browse .ai-searchbar');
+  if (!panel || !bar || panel.hidden) return;
+  var r = bar.getBoundingClientRect();
+  var gap = 8;
+  panel.style.left = Math.round(r.left) + 'px';
+  panel.style.width = Math.round(r.width) + 'px';
+  // Platz nach unten prüfen; sonst über der Leiste öffnen.
+  var navH = 0;
+  var mn = document.querySelector('.mobile-nav');
+  if (mn && getComputedStyle(mn).display !== 'none') navH = mn.offsetHeight;
+  var below = window.innerHeight - r.bottom - gap - navH - 8;
+  var above = r.top - gap - 8;
+  if (below < 180 && above > below) {
+    panel.style.top = 'auto';
+    panel.style.bottom = Math.round(window.innerHeight - r.top + gap) + 'px';
+    panel.style.maxHeight = Math.max(140, Math.min(above, 420)) + 'px';
+  } else {
+    panel.style.bottom = 'auto';
+    panel.style.top = Math.round(r.bottom + gap) + 'px';
+    panel.style.maxHeight = Math.max(140, Math.min(below, 420)) + 'px';
+  }
 }
 
 function _ebSearchSuggestUpdate(input) {
@@ -3287,33 +3336,17 @@ function _ebSearchSuggestRender(input) {
     ' · <button type="button" class="eb-sug-reset" onclick="_ebTasteReset();_ebSuggestClose()">Personalisierung löschen</button></div>';
   panel.hidden = false;
   _ebSug.open = true;
-  // Suchbereich über die sticky Kategorieleiste heben, solange die Liste offen ist
-  var heroContent = document.querySelector('#page-browse .ai-hero-content');
-  if (heroContent) heroContent.classList.add('eb-sug-active');
-  // Auf kleinen Schirmen öffnet die Liste unterhalb des Falzes — sanft
-  // heranscrollen, damit alle Vorschläge sichtbar sind (Tastatur bleibt offen).
-  if (window.innerWidth <= 820) {
-    clearTimeout(_ebSug.scrollTimer);
-    _ebSug.scrollTimer = setTimeout(function() {
-      var r = panel.getBoundingClientRect();
-      // Die feste Bottom-Navigation verdeckt sonst die letzte Zeile.
-      var navH = 0;
-      try {
-        var nv = getComputedStyle(document.documentElement).getPropertyValue('--mobile-nav-height');
-        navH = parseInt(nv, 10) || 0;
-      } catch (e) {}
-      if (!navH) { var mn = document.querySelector('.mobile-nav'); navH = mn ? mn.offsetHeight : 64; }
-      var overflow = r.bottom - (window.innerHeight - navH);
-      if (overflow > 0) window.scrollBy({ top: overflow + 12, behavior: 'smooth' });
-    }, 120);
+  _ebSuggestPosition();
+  if (!_ebSug.bound) {
+    _ebSug.bound = true;
+    window.addEventListener('scroll', _ebSuggestPosition, { passive: true });
+    window.addEventListener('resize', _ebSuggestPosition);
   }
 }
 
 function _ebSuggestClose() {
   var panel = document.getElementById('ebSuggestPanel');
   if (panel) { panel.hidden = true; panel.innerHTML = ''; }
-  var heroContent = document.querySelector('#page-browse .ai-hero-content');
-  if (heroContent) heroContent.classList.remove('eb-sug-active');
   var ghost = document.getElementById('ebGhostComplete');
   if (ghost) ghost.innerHTML = '';
   _ebSug.open = false; _ebSug.idx = -1;
