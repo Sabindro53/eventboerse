@@ -9276,7 +9276,6 @@ document.addEventListener('DOMContentLoaded', function() {
   initAiSearch();
   restoreSession();
   updatePasskeyLoginUi();
-  initConditionalPasskeyLogin();
   initPasswordFields();
   initDragScroll();
   initDatePickers();
@@ -11437,6 +11436,7 @@ function updatePasskeyLoginUi() {
 
 // -- Conditional UI: auto-prompt Face ID / biometric via autofill --
 async function initConditionalPasskeyLogin() {
+  if (_conditionalAbort) return;
   if (isLoggedIn) return;
   if (!isWebAuthnAvailable()) return;
   if (!window.PublicKeyCredential ||
@@ -13075,6 +13075,7 @@ function openModal(id) {
   }
   modal.classList.add('show');
   document.body.style.overflow = 'hidden';
+  if (id === 'loginModal') initConditionalPasskeyLogin();
 }
 
 function closeModal(id) {
@@ -13083,6 +13084,10 @@ function closeModal(id) {
   document.body.style.overflow = '';
   // Fehler-Anzeigen zurücksetzen
   _clearFieldErrors(el);
+  if (id === 'loginModal' && _conditionalAbort) {
+    _conditionalAbort.abort();
+    _conditionalAbort = null;
+  }
 }
 
 function closeModalOnOverlay(e) {
