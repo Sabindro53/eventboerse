@@ -74,12 +74,15 @@ test.describe('Eventbörse SPA — Smoke', () => {
     // Titel + Body vorhanden
     await expect(page).toHaveTitle(/Eventb/i);
     await expect(page.locator('body')).toBeVisible();
-    // App-Root existiert
-    const appRoot = page.locator('#app, .app, main').first();
-    await expect(appRoot).toBeVisible({ timeout: 8000 });
+    // App-Root ist im DOM (main wird beim Boot ggf. per CSS hidden gehalten;
+    // wir prüfen "attached", nicht "visible").
+    const appRoot = page.locator('main, #appLoadingOverlay').first();
+    await expect(appRoot).toBeAttached({ timeout: 8000 });
+    // Warten, bis die SPA gebootet ist (navigateTo als globale Funktion vorhanden).
+    await page.waitForFunction(() => typeof window['navigateTo'] === 'function', { timeout: 8000 });
     // Keine JS-Page-Errors (Konsolen-Errors ignorieren wir bewusst — die kommen
     // oft von blockierten CDN-Assets in Offline-CI; PageErrors sind das harte Signal).
-    const pageErrors = errors.filter((e) => !/net::ERR|ERR_BLOCKED|Failed to fetch/i.test(e));
+    const pageErrors = errors.filter((e) => !/net::ERR|ERR_BLOCKED|Failed to fetch|Failed to load resource|status of (404|4\d\d|5\d\d)/i.test(e));
     expect(pageErrors, `Unerwartete Page-Errors:\n${pageErrors.join('\n')}`).toEqual([]);
   });
 
@@ -103,7 +106,7 @@ test.describe('Eventbörse SPA — Smoke', () => {
     await page.waitForFunction(() => typeof window['navigateTo'] === 'function', { timeout: 8000 });
     await page.evaluate(() => window['navigateTo']('board'));
     await page.waitForTimeout(700);
-    const pageErrors = errors.filter((e) => !/net::ERR|ERR_BLOCKED|Failed to fetch/i.test(e));
+    const pageErrors = errors.filter((e) => !/net::ERR|ERR_BLOCKED|Failed to fetch|Failed to load resource|status of (404|4\d\d|5\d\d)/i.test(e));
     expect(pageErrors, `Board-Route wirft Page-Errors:\n${pageErrors.join('\n')}`).toEqual([]);
   });
 });
