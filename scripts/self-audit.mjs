@@ -148,7 +148,9 @@ try {
 } catch {}
 
 /* ─── 7. Automatisierte Tests vorhanden? ─────────────────────────── */
-const hasTests = ['tests', 'test', '__tests__'].some(d => exists(d))
+const hasSmokeSpec = exists('tests/smoke.spec.js');
+const hasPwConfig = exists('playwright.config.js');
+const hasTests = hasSmokeSpec && hasPwConfig
               || (exists('package.json') && /"(jest|vitest|playwright|mocha|cypress)"/.test(read('package.json')));
 if (!hasTests) add({
   id: 'no-tests',
@@ -157,6 +159,14 @@ if (!hasTests) add({
   severity: 'warn',
   detail: 'Bekannte Schwäche aus CLAUDE.md. Ein paar Smoke-Tests gegen die SPA wären schon viel wert.',
   suggestion: 'Playwright-Smoke-Suite für browse/detail/board/chat (regression-Schutz P0).',
+}); else if (hasSmokeSpec && hasPwConfig) add({
+  id: 'no-tests',
+  title: 'Smoke-Suite vorhanden',
+  area: 'quality',
+  severity: 'ok',
+  status: 'fixed',
+  detail: 'tests/smoke.spec.js + playwright.config.js sind eingerichtet.',
+  suggestion: 'Suite bei jedem Feature erweitern (browse/detail/board/chat).',
 });
 
 /* ─── 8. Service Worker registriert? ─────────────────────────────── */

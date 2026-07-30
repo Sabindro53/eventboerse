@@ -1,4 +1,6 @@
 name: Deploy to IONOS
+# NOTE: tests/, playwright.config.js, package.json und node_modules landen nicht auf dem Server
+# — sie sind Dev-Werkzeuge. Falls das Deploy-Script eine Exclude-Liste hat, dort ergänzen.
 
 on:
   push:
@@ -73,6 +75,9 @@ jobs:
               -x '^\.git' -x '^\.github/' -x '^\.vscode/' -x '^\.idea/' \
               -x '^\.obsidian/' -x '^\.claude/' -x '^\.claude\.json$' \
               -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
+              -x '^audit/' -x '^scripts/' \
+              -x '^package\.json$' -x '^package-lock\.json$' \
+              -x '^playwright\.config\.js$' -x '^playwright-report/' -x '^test-results/' \
               -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' -x '^AGENTS\.md$' \
               -x '^SECURITY\.md$' \
               -x '^\.gitignore$' -x '^\.gitattributes$' -x '^\.editorconfig$' \

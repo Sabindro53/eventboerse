@@ -45,3 +45,9 @@ Attached Element Context*
 
 # Obsidian vault
 .obsidian/
+
+# Playwright / smoke-test artifacts (Dev-only, nie ausliefern)
+playwright-report/
+test-results/
+.playwright/
+package-lock.json
