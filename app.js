@@ -13401,7 +13401,9 @@ var _EB_KB_STOP = ['und','oder','der','die','das','den','dem','ein','eine','ist'
   'zur','man','sich','nicht','nur','man','habe','hab','soll','muss','wird','werden','wenn','dann','denn',
   // Füllverben in Fragen — sonst gewinnt „…funktioniert nicht" jede „Wie funktioniert X?"-Frage
   'funktioniert','funktionieren','funktionierts','geht','gehts','macht','machen','erklär','erkläre',
-  'erklaer','erklaere','sagen','sag','bitte','eigentlich','genau','überhaupt','ueberhaupt'];
+  'erklaer','erklaere','sagen','sag','bitte','eigentlich','genau','überhaupt','ueberhaupt',
+  // Frage-Modifikatoren ohne eigenen Inhalt („Wie hoch/viel/lange …")
+  'hoch','viel','viele','lange','oft','weit','groß','gross'];
 
 function _ebKbTokens(text) {
   return String(text || '').toLowerCase()
@@ -13428,9 +13430,15 @@ function _ebKbSearch(query, limit) {
     var keys = e.keys || [];
     var score = 0, hits = 0;
     qs.forEach(function(w) {
+      // Kurze Wörter nur als ganzes Wort werten — sonst trifft „hoch" die
+      // „Hochzeit" und eine Off-Topic-Frage bekommt eine Scheinantwort.
+      var whole = function(h) {
+        if (w.length >= 6) return h.indexOf(w) !== -1;
+        return new RegExp('(^|[^a-zäöüß])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-zäöüß]|$)').test(h);
+      };
       var inKey = keys.indexOf(w) !== -1;
-      var inHead = (e.heading || '').toLowerCase().indexOf(w) !== -1;
-      var inText = hay.indexOf(w) !== -1;
+      var inHead = whole((e.heading || '').toLowerCase());
+      var inText = whole(hay);
       if (inHead) { score += 6; hits++; }
       else if (inKey) { score += 4; hits++; }
       else if (inText) { score += 2; hits++; }

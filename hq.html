@@ -426,6 +426,43 @@
     *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
     #bg-grid { animation: none; }
   }
+
+/* ══ EB CIRCLE — sprechender KI-Kreis ══════════════════════════════ */
+#eb-circle-dock{position:fixed;right:24px;bottom:24px;z-index:9000;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+#eb-circle{width:74px;height:74px;border-radius:50%;border:none;cursor:pointer;position:relative;
+  background:radial-gradient(circle at 32% 28%,#ff6b8b 0%,#ff385c 38%,#a855f7 72%,#00A699 100%);
+  box-shadow:0 8px 34px rgba(255,56,92,.42),0 0 0 0 rgba(168,85,247,.55);
+  transition:transform .25s ease,box-shadow .25s ease}
+#eb-circle:hover{transform:scale(1.06)}
+#eb-circle::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:2px solid rgba(255,255,255,.28);opacity:0;transition:opacity .3s}
+#eb-circle.listening::after{opacity:1;animation:ebRing 1.5s ease-out infinite}
+#eb-circle.listening{box-shadow:0 8px 34px rgba(255,56,92,.6),0 0 0 14px rgba(168,85,247,.12)}
+#eb-circle.speaking{animation:ebPulse 1.1s ease-in-out infinite}
+@keyframes ebRing{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.5);opacity:0}}
+@keyframes ebPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+#eb-circle .eb-c-ico{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+#eb-circle-panel{width:min(400px,calc(100vw - 48px));max-height:min(62vh,520px);display:none;flex-direction:column;
+  background:rgba(18,18,26,.97);border:1px solid rgba(255,255,255,.10);border-radius:18px;overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.5);backdrop-filter:blur(14px)}
+#eb-circle-panel.open{display:flex}
+.ebc-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.ebc-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}
+.ebc-head b{font-size:.9rem}
+.ebc-head small{color:#9aa0aa;font-size:.7rem;display:block}
+.ebc-head .ebc-x{margin-left:auto;background:none;border:none;color:#9aa0aa;font-size:1.2rem;cursor:pointer;line-height:1}
+.ebc-log{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;font-size:.86rem;line-height:1.5}
+.ebc-msg{max-width:88%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;word-break:break-word}
+.ebc-msg.me{align-self:flex-end;background:#ff385c;color:#fff;border-bottom-right-radius:4px}
+.ebc-msg.ai{align-self:flex-start;background:rgba(255,255,255,.07);color:#e9ecf1;border-bottom-left-radius:4px}
+.ebc-src{display:block;margin-top:5px;font-size:.66rem;color:#8b93a1}
+.ebc-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.08)}
+.ebc-row input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:11px;
+  padding:9px 12px;color:#fff;font:inherit;font-size:.85rem;outline:none}
+.ebc-row input:focus{border-color:#ff385c}
+.ebc-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);border-radius:11px;color:#e9ecf1;
+  padding:0 12px;cursor:pointer;font-size:1rem}
+.ebc-btn.on{background:#ff385c;border-color:#ff385c;color:#fff}
+.ebc-hint{padding:0 14px 10px;font-size:.66rem;color:#7f8794}
 </style>
 </head>
 <body>
@@ -1319,6 +1356,191 @@ if (sessionStorage.getItem('hq_key')) {
 } else {
   window.addEventListener('DOMContentLoaded', () => $('auth-input').focus());
 }
+</script>
+
+<!-- ══ EB CIRCLE — sprechender KI-Kreis (Voice + Wissensbasis) ══ -->
+<div id="eb-circle-dock">
+  <div id="eb-circle-panel" role="dialog" aria-label="EB Circle">
+    <div class="ebc-head">
+      <span class="ebc-dot"></span>
+      <div><b>EB Circle</b><small id="ebc-state">Bereit · lokal, ohne externe KI</small></div>
+      <button class="ebc-x" id="ebc-close" aria-label="Schließen">×</button>
+    </div>
+    <div class="ebc-log" id="ebc-log"></div>
+    <div class="ebc-row">
+      <input id="ebc-input" placeholder="Frag mich etwas — oder sprich…" autocomplete="off">
+      <button class="ebc-btn" id="ebc-mic" title="Sprechen (Mikrofon)" aria-label="Sprechen">🎙️</button>
+      <button class="ebc-btn" id="ebc-speak" title="Antworten vorlesen" aria-label="Vorlesen">🔊</button>
+    </div>
+    <div class="ebc-hint" id="ebc-hint"></div>
+  </div>
+  <button id="eb-circle" aria-label="EB Circle öffnen"><span class="eb-c-ico">◍</span></button>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   EB CIRCLE — sprechender Assistent im HQ
+   ------------------------------------------------------------------
+   Beantwortet Fragen aus derselben Wissensbasis wie die Website
+   (assets/eb-knowledge.json, erzeugt aus dem Vault, nur share:public)
+   und kennt zusätzlich den Live-Zustand des HQ.
+   Spracheingabe/-ausgabe laufen über die Web-Speech-API des Browsers —
+   kein externer Dienst, keine Tokens, nichts verlässt das Gerät.
+   ══════════════════════════════════════════════════════════════════ */
+(function () {
+  var circle = document.getElementById('eb-circle');
+  if (!circle) return;
+  var panel = document.getElementById('eb-circle-panel');
+  var log   = document.getElementById('ebc-log');
+  var input = document.getElementById('ebc-input');
+  var micBtn = document.getElementById('ebc-mic');
+  var spkBtn = document.getElementById('ebc-speak');
+  var stateEl = document.getElementById('ebc-state');
+  var hintEl = document.getElementById('ebc-hint');
+
+  var KB = null, speakOn = false, rec = null, listening = false;
+  var esc = function (t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; };
+
+  fetch('assets/eb-knowledge.json', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (k) { KB = (k && Array.isArray(k.entries)) ? k : null;
+      hintEl.textContent = KB ? (KB.entries.length + ' Wissens-Abschnitte geladen · Antworten nur aus freigegebenem Wissen')
+                              : 'Wissensbasis nicht erreichbar — HQ-Status funktioniert trotzdem.'; })
+    .catch(function () { hintEl.textContent = 'Wissensbasis nicht erreichbar.'; });
+
+  var STOP = ['und','oder','der','die','das','ein','eine','ist','wie','was','wer','wo','wann','warum','kann',
+    'ich','mir','mich','mein','meine','für','mit','von','auf','aus','bei','man','sich','nicht','nur','wir',
+    'funktioniert','erklär','erkläre','bitte','mal','denn','doch',
+    // Frage-Modifikatoren: „Wie HOCH ist …", „Wie VIEL …" — sie tragen keinen
+    // Inhalt und würden sonst über Wortstämme falsche Treffer erzeugen.
+    'hoch','viel','viele','lange','oft','weit','groß','gross','genau','eigentlich'];
+  function toks(t) {
+    return String(t || '').toLowerCase().replace(/[^a-zäöüß0-9\s-]/g, ' ').split(/\s+/)
+      .filter(function (w) { return w.length >= 2 && STOP.indexOf(w) === -1; });
+  }
+  /* Kurze Wörter nur als ganzes Wort werten — sonst trifft „hoch"
+     (aus „Wie hoch ist der Mond?") die „Hochzeit" und liefert Unsinn. */
+  function inText(hay, w) {
+    if (w.length >= 6) return hay.indexOf(w) !== -1;
+    return new RegExp('(^|[^a-zäöüß])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-zäöüß]|$)').test(hay);
+  }
+  function search(q) {
+    if (!KB) return null;
+    var qs = toks(q); if (!qs.length) return null;
+    var best = null, bestScore = 0;
+    KB.entries.forEach(function (e) {
+      var hay = (e.title + ' ' + e.heading + ' ' + e.text).toLowerCase();
+      var sc = 0, hits = 0;
+      qs.forEach(function (w) {
+        if (inText((e.heading || '').toLowerCase(), w)) { sc += 6; hits++; }
+        else if ((e.keys || []).indexOf(w) !== -1) { sc += 4; hits++; }
+        else if (inText(hay, w)) { sc += 2; hits++; }
+        else if (w.length >= 8) { for (var L = w.length - 1; L >= 6; L--) { if (hay.indexOf(w.slice(0, L)) !== -1) { sc += 4; hits++; break; } } }
+      });
+      if (!hits) return;
+      sc *= (0.5 + hits / qs.length);
+      if (sc > bestScore) { bestScore = sc; best = e; }
+    });
+    return (bestScore >= 5) ? best : null;
+  }
+
+  /* HQ-Livezustand: der Circle kennt den Betrieb, nicht nur das Handbuch. */
+  function hqStatus(q) {
+    var t = String(q || '').toLowerCase();
+    if (!/(status|deploy|live|version|sha|build|läuft|laeuft|seite|hq|system)/.test(t)) return null;
+    var sha = (document.getElementById('header-sha') || {}).textContent || 'unbekannt';
+    var bits = ['Aktueller HQ-Stand: ' + sha.trim()];
+    var lvl = document.getElementById('lvl-chip');
+    if (lvl && lvl.textContent.trim()) bits.push('Commander-Level: ' + lvl.textContent.trim());
+    return bits.join('. ') + '.';
+  }
+
+  function add(role, html, source) {
+    var d = document.createElement('div');
+    d.className = 'ebc-msg ' + (role === 'me' ? 'me' : 'ai');
+    d.innerHTML = html + (source ? '<span class="ebc-src">Quelle: ' + esc(source) + '</span>' : '');
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
+    return d;
+  }
+  function say(text) {
+    if (!speakOn || !window.speechSynthesis) return;
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
+      u.lang = 'de-DE'; u.rate = 1.02; u.pitch = 1.0;
+      u.onstart = function () { circle.classList.add('speaking'); };
+      u.onend = function () { circle.classList.remove('speaking'); };
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function ask(q) {
+    q = String(q || '').trim(); if (!q) return;
+    add('me', esc(q));
+    var status = hqStatus(q);
+    if (status) { add('ai', esc(status)); say(status); return; }
+    var hit = search(q);
+    if (hit) {
+      var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
+      var head = hit.heading ? '<b>' + esc(hit.heading) + '</b><br>' : '';
+      add('ai', head + esc(txt).replace(/\n/g, '<br>'), hit.title);
+      say((hit.heading ? hit.heading + '. ' : '') + txt);
+      return;
+    }
+    var fb = 'Dazu habe ich nichts Belegtes. Ich antworte nur aus freigegebenem Wissen — ' +
+             'frag mich z. B. nach Provision, Auszahlung, Buchung, Sicherheit oder dem HQ-Status.';
+    add('ai', esc(fb)); say(fb);
+  }
+
+  /* ── Spracheingabe (Web Speech API, lokal im Browser) ───────────── */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { micBtn.disabled = true; micBtn.title = 'Spracheingabe wird von diesem Browser nicht unterstützt'; micBtn.style.opacity = .4; }
+  function toggleMic() {
+    if (!SR) return;
+    if (listening) { try { rec.stop(); } catch (e) {} return; }
+    rec = new SR(); rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false;
+    var finalText = '';
+    rec.onstart = function () { listening = true; circle.classList.add('listening'); micBtn.classList.add('on'); stateEl.textContent = 'Hört zu…'; };
+    rec.onresult = function (ev) {
+      var interim = '';
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
+        else interim += ev.results[i][0].transcript;
+      }
+      input.value = (finalText + interim).trim();
+    };
+    rec.onerror = function (e) { stateEl.textContent = e.error === 'not-allowed' ? 'Mikrofon nicht erlaubt' : 'Spracheingabe gestoppt'; };
+    rec.onend = function () {
+      listening = false; circle.classList.remove('listening'); micBtn.classList.remove('on');
+      stateEl.textContent = 'Bereit · lokal, ohne externe KI';
+      var t = input.value.trim(); if (t) { input.value = ''; ask(t); }
+    };
+    try { rec.start(); } catch (e) {}
+  }
+
+  function open() {
+    panel.classList.add('open');
+    if (!log.childElementCount) {
+      var hi = 'Hi Commander. Ich bin der EB Circle. Ich beantworte Fragen zur Plattform aus dem freigegebenen Wissen und kenne den HQ-Status. Tippe oder drück auf das Mikrofon.';
+      add('ai', esc(hi));
+    }
+    setTimeout(function () { input.focus(); }, 60);
+  }
+  function close() { panel.classList.remove('open'); try { speechSynthesis.cancel(); } catch (e) {} }
+
+  circle.addEventListener('click', function () { panel.classList.contains('open') ? close() : open(); });
+  document.getElementById('ebc-close').addEventListener('click', close);
+  micBtn.addEventListener('click', toggleMic);
+  spkBtn.addEventListener('click', function () {
+    speakOn = !speakOn; spkBtn.classList.toggle('on', speakOn);
+    spkBtn.title = speakOn ? 'Vorlesen ist an' : 'Vorlesen ist aus';
+    if (!speakOn) { try { speechSynthesis.cancel(); } catch (e) {} }
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); var v = input.value.trim(); input.value = ''; ask(v); }
+    if (e.key === 'Escape') close();
+  });
+})();
 </script>
 </body>
 </html>
