@@ -27,7 +27,7 @@ tags: [layer/L5, domain/evolution, share/internal]
 | Was | Details |
 |-----|---------|
 | Frontend | `app.js` ~23.100 Zeilen, Vanilla JS SPA |
-| Backend | `functions.php` ~7.700 Zeilen, WordPress REST API (84 Route-Registrierungen) |
+| Backend | `functions.php` ~8.300 Zeilen, WordPress REST API (84 Route-Registrierungen) |
 | Styling | `styles.css` ~16.300 Zeilen, mobile-first |
 | Hosting | IONOS/Shared WordPress Hosting, automatisches Deployment via GitHub Actions + SFTP |
 | Auth | Login/Register + 2FA (OTP per E-Mail) + WebAuthn/Passkeys |
