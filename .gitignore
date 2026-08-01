@@ -1,6 +1,13 @@
 # Dependencies
 node_modules/
 vendor/
+package-lock.json
+
+# Playwright / E2E
+playwright-report/
+test-results/
+blob-report/
+.playwright/
 
 # IDE
 .vscode/*
