@@ -7451,7 +7451,9 @@ function renderDashboard() {
         var div = document.createElement('div');
         div.className = 'upload-preview-item';
         div.setAttribute('data-url', src);
-        div.innerHTML = '<img src="' + src + '" alt="Galerie" />' +
+        // XSS-Härtung: src escapen (Server sanitisiert mit esc_url_raw, aber
+        // Attribut-Injection per Quote wäre sonst der einzige offene Pfad hier)
+        div.innerHTML = '<img src="' + _escHtml(src) + '" alt="Galerie" />' +
           '<div class="upload-preview-actions">' +
             '<button type="button" class="upload-act-crop" title="Zuschneiden" aria-label="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
             '<button type="button" class="upload-act-remove" title="Entfernen" aria-label="Entfernen"><span class="material-icons-round">close</span></button>' +
@@ -18614,7 +18616,7 @@ function openStageAdvanceModal(cardId, currentStage) {
   overlay.className = 'sa-overlay';
   overlay.innerHTML = '' +
     '<div class="sa-modal">' +
-      '<div class="sa-header"><span class="material-icons-round">' + icon + '</span> ' + title + ' – ' + (card.name || 'Karte') + '</div>' +
+      '<div class="sa-header"><span class="material-icons-round">' + icon + '</span> ' + title + ' – ' + _escHtml(card.name || 'Karte') + '</div>' +
       '<div class="sa-body">' + fieldsHtml + '</div>' +
       '<div class="sa-footer">' +
         (_hideCancel ? '' : '<button class="sa-cancel" onclick="this.closest(\'.sa-overlay\').remove()">Abbrechen</button>') +
