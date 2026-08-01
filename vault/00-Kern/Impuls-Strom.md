@@ -63,17 +63,17 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **15** |
-| Commits (30 Tage) | 62 |
-| Letzter Commit | `9f9e215 · docs(vault): Stand finalisiert - Betriebsregeln, Sprint-Abschluss, offener Punkt` (2026-08-01) |
+| Commits (7 Tage) | **21** |
+| Commits (30 Tage) | 58 |
+| Letzter Commit | `0a241fa · Fable-5-Strang zusammenführen: Testsuite, 22 Module, A11y auf null Verstöße (#85)` (2026-08-01) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-36 app.js
-     31 styles.css
-     21 index.html
-     21 app-shell.html
-      9 functions.php
+33 app.js
+     26 styles.css
+     18 index.html
+     18 app-shell.html
+      8 functions.php
 ```
 
 **Codegröße:**
