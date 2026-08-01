@@ -9,6 +9,51 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-08-01) — Event-Universum, EB Circle, Brain-Messung
+
+- [x] **Offenes Event-Universum** — `EB_EVENT_UNIVERSE`: 30 Typen in 7 Gruppen
+  statt 6 fixer Optionen. Enthält Tabletop/D&D, LAN & Gaming, Cosplay,
+  Quiz, Escape/Krimidinner, Vernissage, Poetry Slam, Retreat, Saisonfeste,
+  Trauerfeier; `custom` hält die Liste offen. Filter-Select wird gruppiert
+  daraus befüllt, Vorschlags-Engine erkennt die Typen, 20 neue Synonym-Cluster
+  machen sie auffindbar. Geprüft: „DJ für mein Dungeons and Dragons Event"
+  → als Tabletop erkannt, 14 Treffer.
+- [x] **EB Circle im HQ** — sprechender KI-Kreis: antwortet aus der
+  Wissensbasis **mit Quellenangabe**, kennt den HQ-Livezustand, zeigt
+  **Wissenslücken** (Impuls 6) gruppiert nach Häufigkeit. Voice in beide
+  Richtungen über die Web-Speech-API (lokal, kein externer Dienst).
+- [x] **Sicherheit: Leckage in der Wissensbasis geschlossen**
+  `Features/Payments.md` exportierte „Stripe Webhook-Signatur-Verifizierung
+  (HMAC)" und interne API-Routen an anonyme Chat-Nutzer. Ursache: die
+  Erst-Migration stufte `Features/` und `UserFlows/` pauschal als `public`
+  ein — das sind aber Entwickler-Notizen. **10 Notizen auf `internal`**;
+  die Wissensbasis speist sich jetzt nur noch aus `10-Produkt/Wissen/`.
+  Verifiziert: 0 Leckage, Abdeckung unverändert 17/17.
+- [x] **Retrieval gehärtet (beide Engines)** — kurze Wörter zählen nur als
+  ganzes Wort, Frage-Modifikatoren (hoch, viel, lange …) sind Stoppwörter.
+  Vorher beantwortete „Wie hoch ist der Mond?" mit „Hochzeit".
+- [x] **Impuls-Strom messbar** — `scripts/pulse.mjs` → [[00-Kern/Impuls-Strom]]:
+  Schichtung, Freigabe-Bilanz, Wissensbasis, Event-Abdeckung, Code-Bewegung.
+- [x] **MCP-Architektur dokumentiert** → [[30-Betrieb/MCP-Architektur]]:
+  Ist-Stand, MCP-Bewertung nach Nutzen ÷ Risiko, Quarantäne-Tor für externen
+  Zufluss, Empfehlung **gegen** einen Obsidian-MCP.
+- [x] **Tages-Routine aktiv** (04:00 UTC): Gesundheitscheck → ein verifizierter
+  Fortschritt → Vault fortschreiben → deployen.
+
+### ⚠️ Offen — nicht von hier lösbar
+
+**Fable 5s sieben Commits sind nirgends im Remote.** Geprüft: keiner der
+Commits (`fddac3c`…`148fdae`) liegt auf einem Branch, kein Branch enthält
+`js/modules/`. Die Arbeit (Testsuite, Sicherheits-Audit, Modularisierung in
+22 Module, Design-Tokens, A11y 97→0) existiert nur lokal auf der
+VS-Code-Maschine.
+
+→ Dort im Terminal `git push origin HEAD:main` ausführen (kostet keine
+Tokens, ist ein Git-Befehl). Bis dahin gilt: **`app.js`, `styles.css` und
+`app-shell.html` möglichst nicht umbauen** — jede Änderung kollidiert sonst
+mit der Modularisierung. Ist der Workspace weg, muss die Testsuite neu
+gebaut werden (höchste Priorität, siehe [[00-Kern/Fable5-Auftrag]]).
+
 ## Zuletzt abgeschlossen (2026-07-27) — Intelligente Suche & Hero
 
 - [x] **Satz-Vervollständigung („Look & Feel AI") in Suche + Board**

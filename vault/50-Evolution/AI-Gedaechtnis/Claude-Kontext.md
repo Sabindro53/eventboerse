@@ -36,6 +36,33 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 → [[20-System/Frontend/app-js-module]] | [[10-Produkt/Features/Authentication]] | [[10-Produkt/Features/Payments]]
 
+## Stand 2026-08-01 — Betriebsregeln für kommende Sessions
+
+**Zuerst lesen, dann handeln.** Was eine neue Session wissen muss:
+
+- **Wissensbasis speist sich NUR aus `10-Produkt/Wissen/`.** `Features/` und
+  `UserFlows/` sind `internal` — sie enthalten Endpunkte und
+  Schutzmaßnahmen. Nie zurück auf `public` heben, ohne Zeile für Zeile zu
+  prüfen. Ein Verstoß war live: HMAC-Webhook-Verifizierung ging an anonyme
+  Chat-Nutzer.
+- **Zwei Retrieval-Engines, gleiche Regeln:** `_ebKbSearch` in `app.js` und
+  der EB Circle in `hq.html`. Ändert man die eine, die andere mitziehen —
+  sonst antworten Website und HQ unterschiedlich.
+- **`node scripts/pulse.mjs`** nach größeren Änderungen laufen lassen; die
+  Notiz [[00-Kern/Impuls-Strom]] ist generiert und wird überschrieben.
+- **Event-Universum ist die Vision-Metrik.** „Jede Art von Event abbilden"
+  misst sich an `EB_EVENT_UNIVERSE` (aktuell 30 Typen). Erweitern heißt:
+  Eintrag + Synonym-Cluster in `_EB_SYN_GROUPS`, sonst findet die Suche nichts.
+- **Externer Zufluss braucht Quarantäne** → [[30-Betrieb/MCP-Architektur]].
+  Geholtes Wissen landet als `internal` in `50-Evolution/Recherche/`; die
+  Hebung auf `public` entscheidet der Mensch.
+- **Konfliktlage beachten:** Solange Fable 5s Modularisierung nicht gepusht
+  ist, sind `app.js`/`styles.css`/`app-shell.html` heikel. Siehe
+  „Offen" in [[50-Evolution/Roadmap/Current-Sprint]].
+- **Rolle:** Der Nutzer führt als CEO/Review, ich arbeite operativ. Er greift
+  ein, wenn ihm etwas nicht gefällt — das heißt: liefern, verifizieren,
+  ehrlich berichten, Risiken benennen statt zu beschönigen.
+
 ## Stand 2026-07-24 — Brain-Architektur & Website-Synergie (live)
 
 **Der Vault ist jetzt geschichtet und speist die Website.** Wichtigste Konsequenzen für

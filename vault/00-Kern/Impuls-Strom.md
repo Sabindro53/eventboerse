@@ -16,28 +16,28 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 | Ebene | Notizen | Verteilung |
 |-------|---------|------------|
-| **L0** | 9 | `███████···············` |
+| **L0** | 10 | `████████··············` |
 | **L1** | 21 | `█████████████████·····` |
 | **L2** | 28 | `██████████████████████` |
-| **L3** | 11 | `█████████·············` |
+| **L3** | 12 | `█████████·············` |
 | **L4** | 13 | `██████████············` |
 | **L5** | 12 | `█████████·············` |
 
-**Gesamt: 94 Notizen**
+**Gesamt: 96 Notizen**
 
 ## 🔒 Freigabe-Bilanz (Impuls 5 + L4-Veto)
 
 | Klasse | Notizen | Bedeutung |
 |--------|---------|-----------|
 | 🟢 `public` | **10** | fließt zur Website-KI |
-| 🟡 `internal` | 75 | bleibt im Vault |
+| 🟡 `internal` | 77 | bleibt im Vault |
 | 🔴 `secret` | 9 | verlässt den Vault nie |
 | ⚠️ fehlt | 0 | keine — sauber |
 
 ```mermaid
 graph LR
-  V["🗄️ Vault<br/>94 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
-  V -->|"84 intern/secret"| X["🔒 bleibt drin"]
+  V["🗄️ Vault<br/>96 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
+  V -->|"86 intern/secret"| X["🔒 bleibt drin"]
   K --> W["🌐 KI-Bot · Board · EB Circle"]
   W -.->|"Wissenslücke"| V
   classDef ok fill:#22c55e,stroke:#16a34a,color:#fff
@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **13** |
-| Commits (30 Tage) | 60 |
-| Letzter Commit | `d9c9e3b · security(kb): Entwickler-Doku aus der oeffentlichen Wissensbasis entfernen` (2026-08-01) |
+| Commits (7 Tage) | **14** |
+| Commits (30 Tage) | 61 |
+| Letzter Commit | `22517bd · feat(brain): Impuls-Strom messbar, Wissensluecken sichtbar, MCP-Architektur` (2026-08-01) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
