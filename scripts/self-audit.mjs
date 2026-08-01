@@ -64,7 +64,7 @@ try {
 try {
   const fns = read('functions.php');
   const routes = (fns.match(/register_rest_route\s*\(/g) || []).length;
-  const ctx = exists('vault/AI-Gedaechtnis/Claude-Kontext.md') ? read('vault/AI-Gedaechtnis/Claude-Kontext.md') : '';
+  const ctx = exists('vault/50-Evolution/AI-Gedaechtnis/Claude-Kontext.md') ? read('vault/50-Evolution/AI-Gedaechtnis/Claude-Kontext.md') : '';
   const m = ctx.match(/\((\d+)\s*Route-Registrierungen/);
   const documented = m ? parseInt(m[1], 10) : null;
   if (documented !== null && documented !== routes) add({
@@ -72,13 +72,13 @@ try {
     title: `Vault-Doku zählt ${documented} REST-Routen, Code hat ${routes}`,
     area: 'docs',
     severity: 'info',
-    detail: 'vault/AI-Gedaechtnis/Claude-Kontext.md weicht von functions.php ab.',
+    detail: 'vault/50-Evolution/AI-Gedaechtnis/Claude-Kontext.md weicht von functions.php ab.',
     suggestion: `In Claude-Kontext.md auf „${routes} Route-Registrierungen" aktualisieren.`,
     evidence: { documented, actual: routes },
   });
   // 3. Vault erwähnt Admin-Moderationsrouten, die im Code fehlen
   if (!/admin\/listings|my-listing-moderation/.test(fns)) {
-    const bugs = exists('vault/Roadmap/Bekannte-Bugs.md') ? read('vault/Roadmap/Bekannte-Bugs.md') : '';
+    const bugs = exists('vault/50-Evolution/Roadmap/Bekannte-Bugs.md') ? read('vault/50-Evolution/Roadmap/Bekannte-Bugs.md') : '';
     if (/admin\/listings|my-listing-moderation/.test(bugs)) add({
       id: 'route-admin-mod-missing',
       title: 'Admin-Moderationsrouten im Vault dokumentiert, aber nicht im Code',

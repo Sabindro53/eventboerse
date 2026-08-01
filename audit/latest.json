@@ -1,7 +1,7 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-07-19T12:25:32Z",
-  "commit": "3c58c41",
+  "generatedAt": "2026-07-31T11:08:39Z",
+  "commit": "c7709ad",
   "counts": {
     "total": 7,
     "error": 0,
@@ -32,53 +32,53 @@
     },
     {
       "id": "size-app.js-watch",
-      "title": "app.js wächst (23055 Zeilen)",
+      "title": "app.js wächst (24783 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 23055,
+        "lines": 24783,
         "threshold": 20000
       }
     },
     {
       "id": "size-functions.php-watch",
-      "title": "functions.php wächst (7718 Zeilen)",
+      "title": "functions.php wächst (8266 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 7718,
+        "lines": 8266,
         "threshold": 6000
       }
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (16343 Zeilen)",
+      "title": "styles.css wächst (16855 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 16343,
+        "lines": 16855,
         "threshold": 12000
       }
     },
     {
       "id": "console-noise",
-      "title": "17 console.*-Aufrufe in app.js",
+      "title": "18 console.*-Aufrufe in app.js",
       "area": "cleanup",
       "severity": "info",
       "status": "open",
       "detail": "Aufrufe landen in der Browser-Konsole der Nutzer. Für Production wäre ein Debug-Flag sauberer.",
       "suggestion": "Kosmetik: console-Aufrufe hinter einen `EB_DEBUG`-Flag stellen oder in production strippen.",
       "evidence": {
-        "count": 17
+        "count": 18
       }
     },
     {
