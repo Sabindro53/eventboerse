@@ -1874,8 +1874,13 @@ body.dark-mode .eb-sug-panel { background: #1c1c1e; border-color: rgba(255,255,2
 .ai-searchbar-btn:hover { background: var(--primary-dark); box-shadow: 0 6px 24px rgba(255,56,92,0.4); }
 .ai-searchbar-btn:active { transform: scale(0.97); }
 .ai-searchbar-btn .material-icons-round { font-size: 18px; }
-/* Quick suggestions */
-.ai-suggestions { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+/* Quick suggestions („Beliebt:“-Chips unter der Hero-Suchleiste).
+   FIX 2026-08: eigene Klasse .ai-sug-row — vorher hieß der Container
+   .ai-suggestions und kollidierte mit dem gleichnamigen KI-Dropdown
+   (Z. ~2917, display:none + position:absolute). Die spätere Regel hebelte
+   diese hier still aus → Chips waren unsichtbar. Gefunden per
+   tests/audit/css-duplicates.js, verifiziert headless (display:none → flex). */
+.ai-sug-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
 
 /* Live result-feedback chip directly under the searchbar */
 .ai-live-feedback {
@@ -1992,7 +1997,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   .ai-searchbar-btn { width: 100%; justify-content: center; border-radius: 12px; order: 2; }
   .ai-search-ico { order: 0; }
   .ai-searchbar-ghost { left: 0; }
-  .ai-suggestions { gap: 6px; }
+  .ai-sug-row { gap: 6px; }
   .ai-btn-text { display: inline; }
 }
 
@@ -14947,31 +14952,38 @@ body.dark-mode .bcl-add-form.bcl-add-top input { background: #1c1c1c; border-col
            :disabled), nicht ersetzt.
    ===================================================================== */
 
-/* ---- Erweiterte Tokens (additiv – überschreibt nichts) -------------- */
+/* ---- Erweiterte Tokens (KONSOLIDIERT 2026-08) ----------------------
+   Diese Werte sind die EINZIGE Definition der --eb-*-Tokens. Früher
+   wurden --eb-depth-* und --eb-ring weiter unten (Polish-Schicht 2)
+   erneut mit anderen Werten definiert — die spätere Regel gewann still.
+   Jetzt stehen hier direkt die effektiven Endwerte. Wer Tiefe/Ringe
+   ändern will, ändert sie HIER und nirgendwo sonst. -------------------- */
 :root {
   /* Easing */
   --eb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --eb-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --eb-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* Focus-Ring (a11y) */
-  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.35);
+  /* Focus-Ring (a11y) — mit dezentem Außen-Glow */
+  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.45), 0 0 0 6px rgba(255, 56, 92, 0.15);
   --eb-ring-dark: 0 0 0 3px rgba(255, 56, 92, 0.55);
 
-  /* Sanfte Tiefen-Skala (für Ruhezustand der Karten) */
-  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 6px rgba(17, 17, 17, 0.05);
-  --eb-depth-2: 0 2px 4px rgba(17, 17, 17, 0.05), 0 8px 20px rgba(17, 17, 17, 0.07);
-  --eb-depth-3: 0 4px 8px rgba(17, 17, 17, 0.06), 0 18px 36px rgba(17, 17, 17, 0.1);
+  /* Tiefen-Skala (Karten-Ruhezustand bis Hover) */
+  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.05), 0 3px 10px rgba(17, 17, 17, 0.07);
+  --eb-depth-2: 0 3px 6px rgba(17, 17, 17, 0.06), 0 12px 28px rgba(17, 17, 17, 0.10);
+  --eb-depth-3: 0 6px 12px rgba(17, 17, 17, 0.08), 0 24px 48px rgba(17, 17, 17, 0.14);
+  --eb-glow-primary: 0 0 0 4px rgba(255, 56, 92, 0.18), 0 10px 26px rgba(255, 56, 92, 0.35);
 
   /* Skeleton-Schimmer */
   --eb-skeleton-bg: #ececec;
   --eb-skeleton-shine: rgba(255, 255, 255, 0.7);
 }
 body.dark-mode {
-  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.42);
-  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --eb-depth-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 20px rgba(0, 0, 0, 0.4);
-  --eb-depth-3: 0 4px 8px rgba(0, 0, 0, 0.45), 0 18px 36px rgba(0, 0, 0, 0.55);
+  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.55), 0 0 0 6px rgba(255, 90, 122, 0.20);
+  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
+  --eb-depth-2: 0 3px 6px rgba(0, 0, 0, 0.5), 0 12px 26px rgba(0, 0, 0, 0.55);
+  --eb-depth-3: 0 6px 12px rgba(0, 0, 0, 0.55), 0 24px 48px rgba(0, 0, 0, 0.65);
+  --eb-glow-primary: 0 0 0 4px rgba(255, 90, 122, 0.28), 0 10px 26px rgba(255, 56, 92, 0.45);
   --eb-skeleton-bg: #1f1f1f;
   --eb-skeleton-shine: rgba(255, 255, 255, 0.08);
 }
@@ -15169,19 +15181,10 @@ button:disabled {
    Wieder ausschließlich additiv, alles als Block entfernbar.
    ===================================================================== */
 
-/* ---- Tiefere Karten-Schatten (Override der Token-Werte aus B-Schritt 1) ---- */
-:root {
-  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.05), 0 3px 10px rgba(17, 17, 17, 0.07);
-  --eb-depth-2: 0 3px 6px rgba(17, 17, 17, 0.06), 0 12px 28px rgba(17, 17, 17, 0.10);
-  --eb-depth-3: 0 6px 12px rgba(17, 17, 17, 0.08), 0 24px 48px rgba(17, 17, 17, 0.14);
-  --eb-glow-primary: 0 0 0 4px rgba(255, 56, 92, 0.18), 0 10px 26px rgba(255, 56, 92, 0.35);
-}
-body.dark-mode {
-  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
-  --eb-depth-2: 0 3px 6px rgba(0, 0, 0, 0.5), 0 12px 26px rgba(0, 0, 0, 0.55);
-  --eb-depth-3: 0 6px 12px rgba(0, 0, 0, 0.55), 0 24px 48px rgba(0, 0, 0, 0.65);
-  --eb-glow-primary: 0 0 0 4px rgba(255, 90, 122, 0.28), 0 10px 26px rgba(255, 56, 92, 0.45);
-}
+/* ---- Karten-Tiefe & Fokus-Ring: Token-Werte stehen KONSOLIDIERT im
+        :root-Block der ersten Polish-Schicht („Erweiterte Tokens“).
+        Hier standen früher Overrides derselben Tokens — entfernt, weil
+        spätere Definition die frühere still aushebelte. ---- */
 
 /* ---- Karten: Lift wird etwas spürbarer beim Hover ------------------- */
 .listing-card:hover {
@@ -15229,13 +15232,7 @@ body.dark-mode {
   box-shadow: var(--eb-glow-primary);
 }
 
-/* ---- Focus-Ring intensiver, mit dezentem Glow ----------------------- */
-:root {
-  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.45), 0 0 0 6px rgba(255, 56, 92, 0.15);
-}
-body.dark-mode {
-  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.55), 0 0 0 6px rgba(255, 90, 122, 0.20);
-}
+/* ---- Focus-Ring: Werte konsolidiert im :root-Block „Erweiterte Tokens“ ---- */
 
 /* ---- Hero-CTA: dezenter Atem-Effekt --------------------------------- */
 @keyframes eb-cta-breathe {
