@@ -71,3 +71,42 @@ jobs:
                 body
               });
             }
+
+  # ── Blockierendes Test-Gate ─────────────────────────────────────────
+  # Playwright-Suite: Smoke (alle Routen), Suche (natürliche Sätze),
+  # Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
+  # Leckage-Schutz), CSS-Minify-Regression (Verlaufsschrift).
+  # Schlägt ein Test fehl, ist der PR nicht mergebar.
+  tests:
+    name: E2E-Testsuite (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Playwright-Browser installieren
+        run: npx playwright install --with-deps chromium
+
+      - name: Wissensbasis-Konsistenz prüfen
+        run: node scripts/build-knowledge.mjs --check
+
+      - name: Testsuite ausführen
+        run: npx playwright test
+
+      - name: Test-Report hochladen (bei Fehlern)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+

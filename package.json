@@ -1,0 +1,33 @@
+{
+  "name": "eventboerse",
+  "version": "1.0.0",
+  "description": "Eventbörse.de ist eine moderne Event-Marktplatz-Plattform, die Veranstalter und Event-Dienstleister zusammenbringt. Nutzer können Events erstellen, Services entdecken, Preise verhandeln und direkt über die Plattform zusammenarbeiten.",
+  "main": "app.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test tests/e2e/smoke.spec.js",
+    "test:suche": "playwright test tests/e2e/suche.spec.js",
+    "test:gebuehren": "playwright test tests/e2e/gebuehren.spec.js",
+    "test:wissen": "playwright test tests/e2e/wissensbasis.spec.js",
+    "test:css": "playwright test tests/e2e/css-minify.spec.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sabindro53/eventboerse.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Sabindro53/eventboerse/issues"
+  },
+  "homepage": "https://github.com/Sabindro53/eventboerse#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "csso-cli": "^4.0.2"
+  }
+}
