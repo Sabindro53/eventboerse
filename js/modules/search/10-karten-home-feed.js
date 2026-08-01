@@ -6,10 +6,10 @@ function renderListingCard(listing) {
   return `
     <div class="listing-card" data-listing-id="${listing.id}">
       <div class="listing-card-img">
-        <div class="grid-gallery-track" id="${galleryId}">
+        <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bilder: ${_escHtml(listing.title)}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
         </div>
-        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" aria-label="Vorheriges Bild" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" aria-label="Nächstes Bild" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
+        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" aria-label="Vorheriges Bild" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" aria-label="Nächstes Bild" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '" role="group" aria-label="Bildauswahl">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" aria-label="Zu Favoriten hinzufügen" aria-pressed="${isFav ? 'true' : 'false'}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
           <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
         </button>

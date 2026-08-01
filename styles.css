@@ -100,8 +100,15 @@ html.dark-early body {
   --primary: #FF385C;
   --primary-dark: #E31C5F;
   --primary-light: #FFE4E9;
+  /* A11y 2026-08: Markenfarbe als TEXT auf hellem Grund erreicht nur 3,5:1.
+     Für Textnutzung gibt es --primary-text: hell 5,9:1 auf Weiß /
+     4,9:1 auf primary-light; dunkel 7,5:1 auf #121212. Flächen und Icons
+     dürfen weiter --primary nutzen. */
+  --primary-text: #C4154F;
   --accent: #00A699;
   --accent-light: #E0F7F5;
+  /* A11y: Akzent als TEXT auf hellem Grund (Badges/Banner) braucht mehr Tiefe */
+  --accent-text: #007A70;
   --dark: #222222;
   --text: #484848;
   --text-light: #717171;
@@ -641,7 +648,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .mobile-nav button:hover { color: var(--dark); transform: translateY(-1px); }
 .mobile-nav button .material-icons-round { font-size: 20px; }
-.mobile-nav button.active { color: var(--primary); }
+.mobile-nav button.active { color: var(--primary-text); }
 .mobile-nav button.active::after {
   content: '';
   position: absolute;
@@ -1857,7 +1864,9 @@ body.dark-mode .eb-sug-panel { background: #1c1c1e; border-color: rgba(255,255,2
   display: flex;
   align-items: center;
   gap: 7px;
-  background: var(--primary);
+  /* A11y 2026-08: --primary-dark statt --primary — Weiß auf #FF385C erreichte
+     nur 3,51:1 (WCAG AA verlangt 4,5:1). Auf #E31C5F sind es 5,7:1. */
+  background: var(--primary-dark);
   color: #fff;
   border: none;
   border-radius: 16px;
@@ -1871,7 +1880,7 @@ body.dark-mode .eb-sug-panel { background: #1c1c1e; border-color: rgba(255,255,2
   box-shadow: 0 4px 16px rgba(255,56,92,0.3);
   flex-shrink: 0;
 }
-.ai-searchbar-btn:hover { background: var(--primary-dark); box-shadow: 0 6px 24px rgba(255,56,92,0.4); }
+.ai-searchbar-btn:hover { background: #C4154F; box-shadow: 0 6px 24px rgba(255,56,92,0.4); }
 .ai-searchbar-btn:active { transform: scale(0.97); }
 .ai-searchbar-btn .material-icons-round { font-size: 18px; }
 /* Quick suggestions („Beliebt:“-Chips unter der Hero-Suchleiste).
@@ -3643,7 +3652,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   justify-content: center;
   gap: 4px;
   position: relative;
-  color: var(--primary);
+  color: var(--primary-text);
   padding-top: 18px;
 }
 .feed-tab-discover .material-icons-round {
@@ -3662,7 +3671,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   font-weight: 700;
   letter-spacing: 0.4px;
   color: #fff;
-  background: var(--primary);
+  /* A11y 2026-08: --primary-dark statt --primary (Weiß auf #FF385C = 3,5:1,
+     auf #E31C5F = 5,7:1 — WCAG AA). */
+  background: var(--primary-dark);
   border-radius: 8px;
   line-height: 1.4;
   white-space: nowrap;
@@ -4404,7 +4415,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 .detail-badge {
   display: inline-block;
   background: var(--primary-light);
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 0.78rem;
   font-weight: 700;
   padding: 4px 14px;
@@ -8682,7 +8693,7 @@ html { scrollbar-color: var(--primary) transparent; }
   border: none;
   padding: 0;
   margin-left: 6px;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: inherit;
   font-family: inherit;
   cursor: pointer;
@@ -9639,6 +9650,8 @@ body.dark-mode {
   --dark: #E8E8E8;
   --text: #CCCCCC;
   --text-light: #999999;
+  --primary-text: #FF7A93;
+  --accent-text: #2DD4BF;
   --border: #333333;
   --border-light: #2A2A2A;
   --primary-light: #3D1520;
@@ -13040,7 +13053,8 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: var(--primary);
+  /* A11y 2026-08: --primary-dark statt --primary (Kontrast 5,7:1 statt 3,5:1) */
+  background: var(--primary-dark);
   color: #fff;
   border: none;
   border-radius: 20px;
@@ -13207,12 +13221,15 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 }
 .met-badge {
   background: rgba(0,166,153,0.1);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .service-badge {
   background: rgba(102,126,234,0.1);
-  color: #667eea;
+  /* A11y 2026-08: #667eea erreichte weder hell (3,2:1) noch dunkel (3,4:1)
+     die 4,5:1 — dunkleres Indigo hell, helleres Indigo im Dark-Mode. */
+  color: #4c51bf;
 }
+body.dark-mode .service-badge { color: #a5b4fc; }
 .event-badge .material-icons-round,
 .met-badge .material-icons-round,
 .service-badge .material-icons-round { font-size: 12px; }
@@ -13279,7 +13296,7 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   color: var(--dark);
 }
 .feed-post-content .feed-hashtag {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 500;
   cursor: pointer;
 }
@@ -13296,7 +13313,7 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .met-at-banner .material-icons-round { font-size: 16px; }
 .met-at-banner strong { color: var(--dark); }
@@ -13324,8 +13341,8 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
-.feed-action-btn:hover { color: var(--primary); background: rgba(255,56,92,0.06); }
-.feed-action-btn.liked { color: var(--primary); }
+.feed-action-btn:hover { color: var(--primary-text); background: rgba(255,56,92,0.06); }
+.feed-action-btn.liked { color: var(--primary-text); }
 .feed-action-btn .material-icons-round { font-size: 18px; }
 .feed-action-btn.liked .material-icons-round { animation: heartPop 0.35s ease; }
 @keyframes heartPop {
@@ -13353,12 +13370,12 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 /* ===== Search / Suchinserat Styles ===== */
 .search-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  background: rgba(255,56,92,0.08); color: var(--primary);
+  background: rgba(255,56,92,0.08); color: var(--primary-text);
   font-size: 11px; font-weight: 600; padding: 3px 8px;
   border-radius: 6px;
 }
 .search-badge .material-icons-round { font-size: 13px; }
-.search-badge-offer { background: rgba(0,166,153,0.08); color: var(--accent); }
+.search-badge-offer { background: rgba(0,166,153,0.08); color: var(--accent-text); }
 
 .feed-search-card {
   border-left: 3px solid var(--primary);
@@ -15704,7 +15721,12 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   border-radius: 12px; padding: 8px 14px;
   color: #fff;
 }
-.ebsc-store-badge.soon { opacity: 0.55; }
+/* A11y 2026-08: vorher opacity 0.55 auf dem ganzen Badge — drückte den
+   Text unter 1,5:1 Kontrast. Jetzt volle Deckkraft, Gedämpftheit nur über
+   Text-Alpha (≥ 4,5:1 auf Schwarz bleibt gewahrt). */
+.ebsc-store-badge.soon { border-style: dashed; }
+.ebsc-store-badge.soon small { color: rgba(255,255,255,0.72); }
+.ebsc-store-badge.soon b { color: rgba(255,255,255,0.92); }
 .ebsc-store-icon { font-size: 1.4rem; }
 .ebsc-store-badge small { display: block; font-size: 0.62rem; color: rgba(255,255,255,0.6); letter-spacing: 0.02em; }
 .ebsc-store-badge b { display: block; font-size: 0.95rem; line-height: 1.1; }

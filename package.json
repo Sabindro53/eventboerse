@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/Sabindro53/eventboerse#readme",
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.62.1",
     "csso-cli": "^4.0.2"
   }

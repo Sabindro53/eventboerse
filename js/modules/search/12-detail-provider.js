@@ -28,7 +28,7 @@ function loadDetail(listingId) {
   // Admins sehen pro Bild einen Lösch-Button (fremde Inserate) — entfernt das
   // Bild persistent (auch bei Demo-Listings) via adminDeleteListingImage.
   var _detailCanModerate = !!(currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id);
-  gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
+  gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack" tabindex="0" role="region" aria-label="Bilder: ' + _escHtml(listing.title) + '">' +
     imgs.map(function(img, i) {
       var delBtn = _detailCanModerate && img !== window.EB_IMG_FALLBACK
         ? '<button type="button" class="detail-gallery-admin-del" title="Bild als Admin löschen" aria-label="Bild als Admin löschen" onclick="adminDeleteListingImage(' + i + ', event)"><span class="material-icons-round">delete</span> Löschen</button>'
@@ -38,8 +38,8 @@ function loadDetail(listingId) {
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
     '<button class="detail-gallery-arrow next" aria-label="Nächstes Bild" onclick="detailGalleryNav(1)"><span class="material-icons-round">chevron_right</span></button>' +
-    '<div class="detail-gallery-dots" id="detailGalleryDots">' +
-    imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')"></button>'; }).join('') +
+    '<div class="detail-gallery-dots" id="detailGalleryDots" role="group" aria-label="Bildauswahl">' +
+    imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') +
     '</div>' +
     '<div class="detail-gallery-counter" id="detailGalleryCounter">1 / ' + imgs.length + '</div>' : '');
   _initDetailGallerySwipe();

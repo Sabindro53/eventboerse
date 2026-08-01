@@ -1324,7 +1324,7 @@ function renderListingFeedCard(l) {
           '<span class="material-icons-round">open_in_new</span> Ansehen' +
         '</button>' +
       '</div>' +
-      '<span style="font-size:14px;font-weight:700;color:var(--primary)">' + _escHtml(l.priceLabel || '') + '</span>' +
+      '<span style="font-size:14px;font-weight:700;color:var(--primary-text)">' + _escHtml(l.priceLabel || '') + '</span>' +
     '</div>' +
   '</div>';
 }

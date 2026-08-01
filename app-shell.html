@@ -849,7 +849,7 @@
             <div class="ai-searchbar">
               <span class="material-icons-round ai-search-ico">search</span>
               <div class="ai-searchbar-field">
-                <input type="search" id="browseSearch" oninput="_aiPlaceholderHideOnInput(this)" onkeydown="_ebSuggestKeydown(event);if(event.key==='Enter'&&!event.defaultPrevented){event.preventDefault();_ebSuggestClose();filterListings();_ebScrollToBrowseResults();}" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" />
+                <input type="search" id="browseSearch" aria-label="Suche nach Dienstleistern, Events oder Orten" oninput="_aiPlaceholderHideOnInput(this)" onkeydown="_ebSuggestKeydown(event);if(event.key==='Enter'&&!event.defaultPrevented){event.preventDefault();_ebSuggestClose();filterListings();_ebScrollToBrowseResults();}" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" />
                 <div class="ai-searchbar-ghost" id="aiPlaceholder"></div>
               </div>
               <div class="ai-searchbar-divider"></div>
@@ -1002,7 +1002,7 @@
                 <span class="material-icons-round chip-lead">category</span>
                 <span class="chip-label" data-default="Kategorie">Kategorie</span>
                 <span class="material-icons-round chip-chevron">expand_more</span>
-                <select id="browseCategory" onchange="updateChipLabel(this); filterListings()">
+                <select id="browseCategory" aria-label="Kategorie wählen" onchange="updateChipLabel(this); filterListings()">
                   <option value="">Kategorie</option>
                   <option value="dj">DJ & Musik</option>
                   <option value="catering">Catering</option>
@@ -1020,7 +1020,7 @@
                 <span class="material-icons-round chip-lead">celebration</span>
                 <span class="chip-label" data-default="Event-Typ">Event-Typ</span>
                 <span class="material-icons-round chip-chevron">expand_more</span>
-                <select id="browseEventType" onchange="updateChipLabel(this); filterListings()">
+                <select id="browseEventType" aria-label="Event-Typ wählen" onchange="updateChipLabel(this); filterListings()">
                   <option value="">Event-Typ</option>
                   <option value="Hochzeit">Hochzeit</option>
                   <option value="Geburtstag">Geburtstag</option>
@@ -1034,7 +1034,7 @@
                 <span class="material-icons-round chip-lead">euro</span>
                 <span class="chip-label" data-default="Preis">Preis</span>
                 <span class="material-icons-round chip-chevron">expand_more</span>
-                <select id="browsePrice" onchange="updateChipLabel(this); filterListings()">
+                <select id="browsePrice" aria-label="Preisbereich wählen" onchange="updateChipLabel(this); filterListings()">
                   <option value="">Preis</option>
                   <option value="0-500">Bis 500€</option>
                   <option value="500-1000">500–1.000€</option>
@@ -1046,7 +1046,7 @@
                 <span class="material-icons-round chip-lead">star</span>
                 <span class="chip-label" data-default="Bewertung">Bewertung</span>
                 <span class="material-icons-round chip-chevron">expand_more</span>
-                <select id="browseRating" onchange="updateChipLabel(this); filterListings()">
+                <select id="browseRating" aria-label="Mindestbewertung wählen" onchange="updateChipLabel(this); filterListings()">
                   <option value="">Bewertung</option>
                   <option value="4.5">★ 4.5+</option>
                   <option value="4">★ 4.0+</option>
@@ -1057,7 +1057,7 @@
                 <span class="material-icons-round chip-lead">swap_vert</span>
                 <span class="chip-label" data-default="Relevanz">Relevanz</span>
                 <span class="material-icons-round chip-chevron">expand_more</span>
-                <select id="browseSort" onchange="updateChipLabel(this); filterListings()">
+                <select id="browseSort" aria-label="Sortierung wählen" onchange="updateChipLabel(this); filterListings()">
                   <option value="relevanz">Relevanz</option>
                   <option value="preis-asc">Preis ↑</option>
                   <option value="preis-desc">Preis ↓</option>
@@ -1353,7 +1353,7 @@
                 </div>
                 <div class="booking-field">
                   <label>Event-Typ</label>
-                  <select id="bookingEventType">
+                  <select id="bookingEventType" aria-label="Event-Typ für die Buchung wählen">
                     <option>Hochzeit</option>
                     <option>Geburtstag</option>
                     <option>Party</option>
