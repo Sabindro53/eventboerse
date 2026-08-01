@@ -1327,6 +1327,7 @@ function navigateTo(page, data, skipHistory) {
   switch (page) {
     case 'browse':
       _initAiPlaceholder();
+      try { _ebFillEventTypeSelect(); } catch (err) { console.warn('Event-Typen konnten nicht geladen werden', err); }
       try { _initHeroShots(); } catch (err) { console.warn('Hero-Montage konnte nicht starten', err); }
       loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
@@ -2421,6 +2422,97 @@ var _EB_CAT_GRAMMAR = {
   wellness:   { akk: 'ein Wellness-Angebot',  label: 'Wellness & Spa',  emoji: '💆', re: /wellness|spa|massage/ }
 };
 
+/* ══════════════════════════════════════════════════════════════════════
+   EVENT-UNIVERSUM — jede Art von Event, nicht nur die üblichen sechs
+   ----------------------------------------------------------------------
+   Eventbörse soll ALLES abbilden: von der Hochzeit über die Firmenfeier
+   bis zum Dungeons-&-Dragons-Abend, LAN-Party, Vernissage oder Retreat.
+   Diese Liste ist der gemeinsame Wortschatz für Filter, Suche,
+   Vorschläge und Inseratserstellung. Sie ist bewusst OFFEN: `custom`
+   erlaubt jeden frei formulierten Event-Typ.
+   ══════════════════════════════════════════════════════════════════════ */
+var EB_EVENT_UNIVERSE = [
+  // ── Feiern & Familie ───────────────────────────────────────────────
+  { key: 'hochzeit',    label: 'Hochzeit',            emoji: '💍', group: 'Feiern & Familie', syn: ['hochzeit','heirat','trauung','brautpaar','wedding','standesamt','freie trauung'] },
+  { key: 'verlobung',   label: 'Verlobung',           emoji: '💐', group: 'Feiern & Familie', syn: ['verlobung','antrag','polterabend','junggesellenabschied','jga'] },
+  { key: 'geburtstag',  label: 'Geburtstag',          emoji: '🎂', group: 'Feiern & Familie', syn: ['geburtstag','bday','birthday','runder geburtstag'] },
+  { key: 'kinderfest',  label: 'Kinderfest',          emoji: '🎈', group: 'Feiern & Familie', syn: ['kinderfest','kindergeburtstag','kinderparty','einschulung'] },
+  { key: 'taufe',       label: 'Taufe & Kommunion',   emoji: '⛪', group: 'Feiern & Familie', syn: ['taufe','kommunion','konfirmation','firmung','bar mizwa'] },
+  { key: 'jubilaeum',   label: 'Jubiläum',            emoji: '🥂', group: 'Feiern & Familie', syn: ['jubiläum','jubilaeum','anniversary','silberhochzeit','goldene hochzeit'] },
+  { key: 'abschluss',   label: 'Abschlussfeier',      emoji: '🎓', group: 'Feiern & Familie', syn: ['abschluss','abiball','abschlussfeier','graduation','examensfeier'] },
+  { key: 'trauerfeier', label: 'Trauerfeier',         emoji: '🕊️', group: 'Feiern & Familie', syn: ['trauerfeier','beerdigung','gedenkfeier','abschiedsfeier'] },
+
+  // ── Business ───────────────────────────────────────────────────────
+  { key: 'firmenfeier', label: 'Firmenfeier',         emoji: '🏢', group: 'Business',        syn: ['firmenfeier','betriebsfeier','sommerfest','weihnachtsfeier','teamevent','firmenevent'] },
+  { key: 'konferenz',   label: 'Konferenz & Tagung',  emoji: '🎤', group: 'Business',        syn: ['konferenz','tagung','kongress','seminar','symposium','summit'] },
+  { key: 'messe',       label: 'Messe & Ausstellung', emoji: '🏬', group: 'Business',        syn: ['messe','ausstellung','fachmesse','expo','stand'] },
+  { key: 'produktlaunch', label: 'Produkt-Launch',    emoji: '🚀', group: 'Business',        syn: ['launch','produktlaunch','markteinführung','eröffnung','opening'] },
+  { key: 'workshop',    label: 'Workshop & Training', emoji: '🧑‍🏫', group: 'Business',      syn: ['workshop','training','schulung','coaching','bootcamp'] },
+  { key: 'netzwerk',    label: 'Netzwerk-Event',      emoji: '🤝', group: 'Business',        syn: ['netzwerk','networking','meetup','stammtisch','pitch night'] },
+
+  // ── Kultur & Bühne ─────────────────────────────────────────────────
+  { key: 'konzert',     label: 'Konzert',             emoji: '🎸', group: 'Kultur & Bühne',  syn: ['konzert','gig','livemusik','auftritt','bandabend'] },
+  { key: 'festival',    label: 'Festival & Open-Air', emoji: '🎪', group: 'Kultur & Bühne',  syn: ['festival','open-air','openair','stadtfest','straßenfest'] },
+  { key: 'theater',     label: 'Theater & Lesung',    emoji: '🎭', group: 'Kultur & Bühne',  syn: ['theater','lesung','poetry slam','improtheater','kabarett'] },
+  { key: 'vernissage',  label: 'Vernissage',          emoji: '🖼️', group: 'Kultur & Bühne',  syn: ['vernissage','ausstellungseröffnung','kunstausstellung','galerie'] },
+  { key: 'filmabend',   label: 'Film & Kino',         emoji: '🎬', group: 'Kultur & Bühne',  syn: ['filmabend','kino','open-air-kino','filmpremiere','screening'] },
+
+  // ── Community, Spiel & Nerd-Kultur ─────────────────────────────────
+  { key: 'tabletop',    label: 'Tabletop & Rollenspiel', emoji: '🐉', group: 'Community & Spiel', syn: ['dungeons and dragons','dungeons & dragons','dnd','d&d','pen and paper','rollenspiel','tabletop','warhammer','brettspielabend','rpg'] },
+  { key: 'lan',         label: 'LAN & Gaming',        emoji: '🎮', group: 'Community & Spiel', syn: ['lan','lan-party','gaming','esport','e-sport','turnier','konsolenabend'] },
+  { key: 'cosplay',     label: 'Cosplay & Convention', emoji: '🦸', group: 'Community & Spiel', syn: ['cosplay','convention','comic con','anime','manga','fantreffen'] },
+  { key: 'quiz',        label: 'Quiz & Pub-Abend',    emoji: '🧠', group: 'Community & Spiel', syn: ['quiz','pubquiz','kneipenquiz','bingo','spieleabend'] },
+  { key: 'escape',      label: 'Escape & Krimi-Dinner', emoji: '🕵️', group: 'Community & Spiel', syn: ['escape','escape room','krimidinner','krimi-dinner','schnitzeljagd','stadtrallye'] },
+
+  // ── Sport & Outdoor ────────────────────────────────────────────────
+  { key: 'sportevent',  label: 'Sport-Event',         emoji: '🏅', group: 'Sport & Outdoor', syn: ['sportfest','turnier','lauf','marathon','sportevent','vereinsfest'] },
+  { key: 'outdoor',     label: 'Outdoor & Camp',      emoji: '⛺', group: 'Sport & Outdoor', syn: ['outdoor','camp','zeltlager','wanderung','grillfest','picknick'] },
+
+  // ── Wellness, Spirituelles & Saison ────────────────────────────────
+  { key: 'retreat',     label: 'Retreat & Wellness',  emoji: '🧘', group: 'Wellness & Saison', syn: ['retreat','yoga','wellness','meditation','achtsamkeit','spa-tag'] },
+  { key: 'saison',      label: 'Saisonfest',          emoji: '🎃', group: 'Wellness & Saison', syn: ['halloween','silvester','neujahr','karneval','fasching','ostern','oktoberfest'] },
+  { key: 'privatfeier', label: 'Private Feier',       emoji: '🏡', group: 'Wellness & Saison', syn: ['party','feier','hausparty','gartenparty','dinner','pop-up dinner'] },
+
+  // ── Offen ──────────────────────────────────────────────────────────
+  { key: 'custom',      label: 'Anderes Event',       emoji: '✨', group: 'Offen',            syn: [] }
+];
+
+/** Event-Typ aus Freitext bestimmen — kennt das gesamte Universum. */
+function _ebEventTypeFromText(text) {
+  var t = String(text || '').toLowerCase();
+  if (!t) return null;
+  var best = null, bestLen = 0;
+  EB_EVENT_UNIVERSE.forEach(function(ev) {
+    ev.syn.forEach(function(s) {
+      if (s.length > bestLen && t.indexOf(s) !== -1) { best = ev; bestLen = s.length; }
+    });
+  });
+  return best;
+}
+
+/** Alle Event-Typen als gruppierte <optgroup>-Optionen. */
+function _ebEventTypeOptionsHtml(selected) {
+  var groups = {};
+  EB_EVENT_UNIVERSE.forEach(function(ev) {
+    (groups[ev.group] = groups[ev.group] || []).push(ev);
+  });
+  return Object.keys(groups).map(function(g) {
+    return '<optgroup label="' + _escHtml(g) + '">' + groups[g].map(function(ev) {
+      return '<option value="' + _escHtml(ev.label) + '"' + (selected === ev.label ? ' selected' : '') + '>' +
+        ev.emoji + ' ' + _escHtml(ev.label) + '</option>';
+    }).join('') + '</optgroup>';
+  }).join('');
+}
+
+/** Event-Typ-Filter mit dem vollen Universum befüllen (einmalig). */
+function _ebFillEventTypeSelect() {
+  var sel = document.getElementById('browseEventType');
+  if (!sel || sel.dataset.ebFilled === '1') return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">Event-Typ</option>' + _ebEventTypeOptionsHtml(cur);
+  sel.dataset.ebFilled = '1';
+}
+
 var _EB_TYPE_GRAMMAR = {
   wedding:   { dat: 'für meine Hochzeit',        label: 'Hochzeit',    emoji: '💍', re: /hochzeit|heirat|braut|trauung/ },
   birthday:  { dat: 'für meinen Geburtstag',     label: 'Geburtstag',  emoji: '🎂', re: /geburtstag|b-?day/ },
@@ -2444,7 +2536,9 @@ function _ebGuessEventType(text) {
   for (var k in _EB_TYPE_GRAMMAR) {
     if (_EB_TYPE_GRAMMAR[k].re.test(t)) return k;
   }
-  return '';
+  // Fallback auf das volle Event-Universum (D&D, LAN, Vernissage, Retreat …)
+  var ev = (typeof _ebEventTypeFromText === 'function') ? _ebEventTypeFromText(t) : null;
+  return ev && ev.key !== 'custom' ? ev.key : '';
 }
 
 /** Wie viele echte Angebote gibt es zu einer Kategorie? (Relevanz-Signal) */
@@ -2483,8 +2577,12 @@ function _ebSuggest(raw) {
   // Endet die Eingabe auf ein offenes Bindewort? Dann darf die Fortsetzung
   // es NICHT wiederholen („Fotograf für" + „für meine Hochzeit" = falsch).
   var openWord = (low.match(/\b(für|in|am|mit|ab|zum|zur|einen|eine|ein|meine|meinen|unser|unsere)$/) || [])[1] || '';
-  // Beschreibt der Nutzer bereits sein Event („wir planen eine Hochzeit")?
-  var describesEvent = /^(wir|ich)\s+(planen?|organisieren?|feiern?|haben|machen)/.test(low);
+  // Beschreibt der Nutzer bereits sein Event („wir planen eine Hochzeit")
+  // oder nennt er nur den Anlass („Krimidinner")? Dann braucht die
+  // Fortsetzung einen Anschluss statt eines angeklebten Objekts.
+  var hasVerb = /\b(suche|suchen|brauche|brauchen|möchte|moechte|will|finde|benötige|benoetige)\b/.test(low);
+  var describesEvent = /^(wir|ich)\s+(planen?|organisieren?|feiern?|haben|machen)/.test(low) ||
+    (!!type && !cat && !hasVerb);
 
   /** Bindewort am Anfang eines Fragments entfernen, wenn es schon dasteht. */
   function joinFragment(frag) {
@@ -3602,6 +3700,27 @@ const _EB_SYN_GROUPS = [
   ['weihnachtsfeier','weihnachten','xmas','christmas'],
   ['sommerfest','sommer','sommerparty'],
   ['openair','open-air','outdoor','draußen','draussen'],
+  // Erweitertes Event-Universum: auch Nischen-Events sollen gefunden werden
+  ['dnd','d&d','dungeons','tabletop','rollenspiel','pen-and-paper','warhammer','brettspiel','brettspielabend','rpg','pen','paper'],
+  ['lan','lanparty','lan-party','gaming','esport','e-sport','konsole','turnier'],
+  ['cosplay','convention','con','comiccon','comic-con','anime','manga','fantreffen'],
+  ['quiz','pubquiz','kneipenquiz','bingo','spieleabend','spieleabende'],
+  ['escape','escaperoom','escape-room','krimidinner','krimi-dinner','schnitzeljagd','stadtrallye'],
+  ['vernissage','ausstellung','ausstellungseroeffnung','galerie','kunst','kunstausstellung'],
+  ['lesung','poetry','poetryslam','poetry-slam','improtheater','kabarett','theater','buehne','bühne'],
+  ['retreat','yoga','meditation','achtsamkeit','wellness','spa','entspannung'],
+  ['halloween','silvester','neujahr','karneval','fasching','ostern','oktoberfest','saisonfest'],
+  ['konferenz','tagung','kongress','seminar','symposium','summit','workshop','schulung','training'],
+  ['messe','fachmesse','expo','ausstellungsstand','stand'],
+  ['launch','produktlaunch','markteinfuehrung','markteinführung','eroeffnung','eröffnung','opening'],
+  ['netzwerk','networking','meetup','stammtisch','pitch'],
+  ['konzert','gig','auftritt','bandabend','livegig'],
+  ['abiball','abschlussfeier','abschluss','graduation','examensfeier','einschulung'],
+  ['polterabend','junggesellenabschied','jga','verlobung','antrag'],
+  ['trauerfeier','beerdigung','gedenkfeier','abschiedsfeier'],
+  ['sportfest','marathon','lauf','vereinsfest','sportevent'],
+  ['camp','zeltlager','wanderung','picknick','grillfest'],
+  ['filmabend','kino','filmpremiere','screening','openairkino'],
 ];
 // Index Token → Set aller Synonyme (inkl. sich selbst)
 const _EB_SYN_INDEX = (function() {
