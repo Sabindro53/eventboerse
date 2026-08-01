@@ -73,6 +73,8 @@ jobs:
               -x '^\.git' -x '^\.github/' -x '^\.vscode/' -x '^\.idea/' \
               -x '^\.obsidian/' -x '^\.claude/' -x '^\.claude\.json$' \
               -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
+              -x '^js/modules/' -x '^build-app-js\.sh$' \
+              -x '^package\.json$' -x '^package-lock\.json$' -x '^playwright\.config\.js$' \
               -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' -x '^AGENTS\.md$' \
               -x '^SECURITY\.md$' \
               -x '^\.gitignore$' -x '^\.gitattributes$' -x '^\.editorconfig$' \

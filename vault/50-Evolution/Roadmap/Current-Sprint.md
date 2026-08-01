@@ -9,6 +9,32 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-08-01) — Fable-5-Auftrag: Fundament gesichert
+
+- [x] **Testsuite von null** (Priorität 1): 68 Playwright-Tests in 7 Suiten,
+  blockierendes Gate in `pr-check.yml`. Smoke (alle Routen, 0 Page-Errors),
+  Suche (natürliche Sätze ↔ Unsinn), Gebühren (centgenau, **JS↔PHP-Parität**
+  gegen die echten functions.php-Funktionen), Wissensbasis (Antworten,
+  Off-Topic, **0 Leckage**), CSS-Minify (Verlaufsschrift überlebt csso),
+  Design-System (Konflikt-Ratsche), A11y (axe, beide Farbmodi).
+- [x] **Sicherheits-Audit** über functions.php + app.js gemeinsam: 86 Routen
+  (permission, IDOR, SQL, Upload, Webhook, Rate-Limits) + 237 innerHTML-Pfade.
+  Juni-Härtung trägt. Behoben: KB-Leckage (Webhook-Signatur-Erwähnung in
+  public-Notiz + Verbotsmuster-Filter erweitert), 2 Low-XSS (_escHtml).
+  Bericht: 40-Governance/Security/2026-08-01-… (secret).
+- [x] **app.js modularisiert**: 24.900 Zeilen → 22 Module (`js/modules/**`),
+  `./build-app-js.sh` konkateniert (kein Bundler, byte-identisch verifiziert),
+  Drift-Check in CI, Deploy-Artefakt bleibt app.js.
+- [x] **Design-System**: --eb-*-Tokens konsolidiert (1 Definition statt 3
+  überschreibenden), Live-Bug behoben („Beliebt:"-Chips unsichtbar durch
+  Klassenkollision .ai-suggestions → .ai-sug-row), css-duplicates-Analyzer
+  + Ratsche gegen neue stille Überschreibungen.
+- [x] **Barrierefreiheit**: axe-Verstöße 97 Nodes → **0** (beide Modi × 6
+  Seiten). Galerie-Karussells tastaturbedienbar + benannt, Selects/Suchfeld
+  beschriftet, neue Text-Tokens --primary-text/--accent-text ≥ 4,5:1.
+  Offen: Lighthouse-Score gegen die Live-Seite messen (CI-Umgebung hat
+  keinen Zugriff auf eventbörse.de; lighthouse-audit.yml läuft wöchentlich).
+
 ## Zuletzt abgeschlossen (2026-08-01) — Event-Universum, EB Circle, Brain-Messung
 
 - [x] **Offenes Event-Universum** — `EB_EVENT_UNIVERSE`: 30 Typen in 7 Gruppen
@@ -40,19 +66,31 @@ tags: [layer/L5, domain/evolution, share/internal]
 - [x] **Tages-Routine aktiv** (04:00 UTC): Gesundheitscheck → ein verifizierter
   Fortschritt → Vault fortschreiben → deployen.
 
-### ⚠️ Offen — nicht von hier lösbar
+## Zusammenführung (2026-08-01) — beide Stränge sind vereint
 
-**Fable 5s sieben Commits sind nirgends im Remote.** Geprüft: keiner der
-Commits (`fddac3c`…`148fdae`) liegt auf einem Branch, kein Branch enthält
-`js/modules/`. Die Arbeit (Testsuite, Sicherheits-Audit, Modularisierung in
-22 Module, Design-Tokens, A11y 97→0) existiert nur lokal auf der
-VS-Code-Maschine.
+Fable 5s Arbeit lag zunächst nur lokal auf der VS-Code-Maschine; sie ist
+inzwischen als `fable5-integration` im Remote und mit dem Opus-5-Strang
+zusammengeführt. Was die Zusammenführung gekostet hat:
 
-→ Dort im Terminal `git push origin HEAD:main` ausführen (kostet keine
-Tokens, ist ein Git-Befehl). Bis dahin gilt: **`app.js`, `styles.css` und
-`app-shell.html` möglichst nicht umbauen** — jede Änderung kollidiert sonst
-mit der Modularisierung. Ist der Workspace weg, muss die Testsuite neu
-gebaut werden (höchste Priorität, siehe [[00-Kern/Fable5-Auftrag]]).
+- **Zwei Konflikte**, beide inhaltlich aufgelöst statt weggeworfen:
+  `Current-Sprint.md` behält **beide** Abschnitte; `assets/eb-knowledge.json`
+  wurde neu gebaut statt von Hand gemischt (89 Abschnitte / 10 Notizen).
+- **`app.js` neu aus den 22 Modulen erzeugt**, `index.html` aus der Shell —
+  beide driftfrei. Alle Opus-5-Funktionen nachweislich enthalten
+  (`EB_EVENT_UNIVERSE`, `_ebSuggest`, `_ebTasteSignal`, `_ebKbGoodHit`,
+  `_ebHeroSceneSvg`, `_ebMatchScore`, `_ebEventTypeFromText`).
+- **`playwright.config.js` umgebaut**: der Browser-Pfad wird jetzt erkannt
+  statt angenommen (`PW_CHROMIUM_PATH` → `/opt/pw-browsers/chromium` →
+  Playwright-Standard). Vorher fielen 58 Tests aus, weil die Umgebung eine
+  andere Chromium-Revision vorhält als die Fixversion erwartet.
+- **A11y-Nachzügler behoben**: Material-Icons sind Ligatur-**Text**, axe misst
+  sie wie Schrift. Gold `#FFB400` (1,8:1), Akzent und Markenrot als Icon-Farbe
+  fielen im Hellmodus durch. Neues Token `--star-text` (hell `#8F6400` 5,3:1,
+  dunkel bleibt Gold 10,5:1); Icons in `.feature-item`, `.bai-side-foot`,
+  `.feed-chip`, `.feed-location-badge`, `.detail-rating`, `.review-stars`,
+  `.testimonial-stars` auf die Text-Token umgestellt.
+
+**Stand: 68/68 Tests grün**, A11y 0 Verstöße über beide Farbmodi.
 
 ## Zuletzt abgeschlossen (2026-07-27) — Intelligente Suche & Hero
 

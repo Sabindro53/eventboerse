@@ -45,3 +45,8 @@ Attached Element Context*
 
 # Obsidian vault
 .obsidian/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/

@@ -76,13 +76,16 @@
   justify-content: center;
   z-index: 10;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  opacity: 0.7;
+  /* KEIN opacity auf dem Button: es dimmt auch das Icon und drückte den
+     Kontrast auf 3,09:1. Stattdessen nur die Fläche leicht transparent —
+     das Icon bleibt voll deckend und damit lesbar. */
+  background: rgba(255,255,255,0.82);
   color: var(--dark);
   font-size: 18px;
-  transition: opacity 0.2s;
+  transition: background 0.2s;
   pointer-events: auto;
 }
-.grid-gallery-arrow:hover { opacity: 1; background: #fff; }
+.grid-gallery-arrow:hover { background: #fff; }
 .grid-gallery-arrow.prev { left: 8px; }
 .grid-gallery-arrow.next { right: 8px; }
 /* ========================================
@@ -100,8 +103,19 @@ html.dark-early body {
   --primary: #FF385C;
   --primary-dark: #E31C5F;
   --primary-light: #FFE4E9;
+  /* A11y 2026-08: Markenfarbe als TEXT auf hellem Grund erreicht nur 3,5:1.
+     Für Textnutzung gibt es --primary-text: hell 5,9:1 auf Weiß /
+     4,9:1 auf primary-light; dunkel 7,5:1 auf #121212. Flächen und Icons
+     dürfen weiter --primary nutzen. */
+  --primary-text: #C4154F;
   --accent: #00A699;
   --accent-light: #E0F7F5;
+  /* A11y: Akzent als TEXT auf hellem Grund (Badges/Banner) braucht mehr Tiefe */
+  --accent-text: #007A70;
+  /* Material-Icons sind Ligatur-TEXT — axe misst sie wie Schrift. Das helle
+     Gold #FFB400 erreicht auf Weiß nur 1,8:1. --star-text: 5,3:1 auf Weiß /
+     4,9:1 auf --bg-alt. Flächen (Sterne-Balken, Grafiken) dürfen Gold bleiben. */
+  --star-text: #8F6400;
   --dark: #222222;
   --text: #484848;
   --text-light: #717171;
@@ -163,7 +177,10 @@ img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; 
 #page-detail .container { max-width: 1060px; overflow: visible; }
 .container-sm { max-width: 720px; }
 .center { text-align: center; }
-.accent { color: var(--primary); }
+/* .accent ist reine TEXT-Auszeichnung (z. B. „Eventbörse" im Footer).
+   Als Text erreicht die Markenfarbe #FF385C nur 3,28:1 auf hellem Grund —
+   deshalb das AA-sichere Text-Token. Für Flächen/Icons bleibt --primary. */
+.accent { color: var(--primary-text); }
 
 /* ---- Buttons ---- */
 .btn-primary {
@@ -641,7 +658,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .mobile-nav button:hover { color: var(--dark); transform: translateY(-1px); }
 .mobile-nav button .material-icons-round { font-size: 20px; }
-.mobile-nav button.active { color: var(--primary); }
+.mobile-nav button.active { color: var(--primary-text); }
 .mobile-nav button.active::after {
   content: '';
   position: absolute;
@@ -1857,7 +1874,9 @@ body.dark-mode .eb-sug-panel { background: #1c1c1e; border-color: rgba(255,255,2
   display: flex;
   align-items: center;
   gap: 7px;
-  background: var(--primary);
+  /* A11y 2026-08: --primary-dark statt --primary — Weiß auf #FF385C erreichte
+     nur 3,51:1 (WCAG AA verlangt 4,5:1). Auf #E31C5F sind es 5,7:1. */
+  background: var(--primary-dark);
   color: #fff;
   border: none;
   border-radius: 16px;
@@ -1871,11 +1890,16 @@ body.dark-mode .eb-sug-panel { background: #1c1c1e; border-color: rgba(255,255,2
   box-shadow: 0 4px 16px rgba(255,56,92,0.3);
   flex-shrink: 0;
 }
-.ai-searchbar-btn:hover { background: var(--primary-dark); box-shadow: 0 6px 24px rgba(255,56,92,0.4); }
+.ai-searchbar-btn:hover { background: #C4154F; box-shadow: 0 6px 24px rgba(255,56,92,0.4); }
 .ai-searchbar-btn:active { transform: scale(0.97); }
 .ai-searchbar-btn .material-icons-round { font-size: 18px; }
-/* Quick suggestions */
-.ai-suggestions { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+/* Quick suggestions („Beliebt:“-Chips unter der Hero-Suchleiste).
+   FIX 2026-08: eigene Klasse .ai-sug-row — vorher hieß der Container
+   .ai-suggestions und kollidierte mit dem gleichnamigen KI-Dropdown
+   (Z. ~2917, display:none + position:absolute). Die spätere Regel hebelte
+   diese hier still aus → Chips waren unsichtbar. Gefunden per
+   tests/audit/css-duplicates.js, verifiziert headless (display:none → flex). */
+.ai-sug-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
 
 /* Live result-feedback chip directly under the searchbar */
 .ai-live-feedback {
@@ -1992,7 +2016,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   .ai-searchbar-btn { width: 100%; justify-content: center; border-radius: 12px; order: 2; }
   .ai-search-ico { order: 0; }
   .ai-searchbar-ghost { left: 0; }
-  .ai-suggestions { gap: 6px; }
+  .ai-sug-row { gap: 6px; }
   .ai-btn-text { display: inline; }
 }
 
@@ -3195,12 +3219,17 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
     padding-top: 66.67%;
   }
 }
+/* Zurückhaltend bis zum Hover — aber über die FLÄCHE, nicht über opacity.
+   opacity dimmt auch das Icon und drückte den Kontrast auf 3,09:1 (AA
+   verlangt 4,5:1). Die Fläche darf blass sein, das Symbol nicht. */
 .listing-card .grid-gallery-arrow {
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
+  background: rgba(255,255,255,0.55);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 .listing-card:hover .grid-gallery-arrow {
-  opacity: 0.9;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
 }
 .listing-card-img img {
   position: absolute;
@@ -3365,7 +3394,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   scroll-snap-align: start;
 }
 .testimonial-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.testimonial-stars { color: #FFB400; font-size: 1.1rem; margin-bottom: 12px; letter-spacing: 2px; }
+.testimonial-stars { color: var(--star-text); font-size: 1.1rem; margin-bottom: 12px; letter-spacing: 2px; }
 .testimonial-card p { font-size: 0.95rem; color: var(--text); margin-bottom: 20px; line-height: 1.7; }
 .testimonial-author {
   display: flex; align-items: center; gap: 14px;
@@ -3586,7 +3615,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 }
 .feed-location-badge .material-icons-round {
   font-size: 16px;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .feed-location-badge.active {
   background: var(--primary);
@@ -3638,7 +3667,7 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   justify-content: center;
   gap: 4px;
   position: relative;
-  color: var(--primary);
+  color: var(--primary-text);
   padding-top: 18px;
 }
 .feed-tab-discover .material-icons-round {
@@ -3657,7 +3686,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   font-weight: 700;
   letter-spacing: 0.4px;
   color: #fff;
-  background: var(--primary);
+  /* A11y 2026-08: --primary-dark statt --primary (Weiß auf #FF385C = 3,5:1,
+     auf #E31C5F = 5,7:1 — WCAG AA). */
+  background: var(--primary-dark);
   border-radius: 8px;
   line-height: 1.4;
   white-space: nowrap;
@@ -4168,7 +4199,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   border: 1px solid var(--border);
   transition: all var(--transition);
 }
-.view-toggle.active { background: transparent; color: var(--primary); border-color: var(--primary); }
+/* Als Text braucht die Markenfarbe das AA-Token (#FF385C = 3,5:1 auf Weiß).
+   Der Rahmen darf die kräftige Markenfarbe behalten — dort gilt 3:1. */
+.view-toggle.active { background: transparent; color: var(--primary-text); border-color: var(--primary); }
 
 /* ======== DETAIL PAGE ======== */
 .back-btn {
@@ -4399,7 +4432,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 .detail-badge {
   display: inline-block;
   background: var(--primary-light);
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 0.78rem;
   font-weight: 700;
   padding: 4px 14px;
@@ -4417,7 +4450,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   font-size: 0.9rem;
   color: var(--text);
 }
-.detail-rating .material-icons-round { font-size: 18px; color: #FFB400; }
+.detail-rating .material-icons-round { font-size: 18px; color: var(--star-text); }
 .detail-location .material-icons-round { font-size: 18px; }
 .detail-divider { border: none; border-top: 1px solid var(--border-light); margin: 24px 0; height: 0; }
 .detail-provider-row {
@@ -4447,7 +4480,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   border-radius: var(--radius-sm);
   background: var(--bg-alt);
 }
-.feature-item .material-icons-round { font-size: 22px; color: var(--accent); }
+.feature-item .material-icons-round { font-size: 22px; color: var(--accent-text); }
 .feature-item span { font-size: 0.9rem; color: var(--text); }
 
 /* Reviews */
@@ -4466,7 +4499,7 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
 }
 .review-top strong { font-size: 0.95rem; color: var(--dark); }
 .review-top span { font-size: 0.8rem; color: var(--text-light); }
-.review-stars { color: #FFB400; font-size: 0.85rem; margin-bottom: 6px; letter-spacing: 1px; }
+.review-stars { color: var(--star-text); font-size: 0.85rem; margin-bottom: 6px; letter-spacing: 1px; }
 .review-text { font-size: 0.9rem; color: var(--text); line-height: 1.6; }
 .review-date { display: block; text-align: right; font-size: 0.8rem; color: var(--text-light); margin-top: 6px; }
 .review-delete-btn {
@@ -8677,7 +8710,7 @@ html { scrollbar-color: var(--primary) transparent; }
   border: none;
   padding: 0;
   margin-left: 6px;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: inherit;
   font-family: inherit;
   cursor: pointer;
@@ -9634,6 +9667,10 @@ body.dark-mode {
   --dark: #E8E8E8;
   --text: #CCCCCC;
   --text-light: #999999;
+  --primary-text: #FF7A93;
+  --accent-text: #2DD4BF;
+  /* Auf #121212 trägt das originale Gold 10,5:1 — im Dunkelmodus bleibt es. */
+  --star-text: #FFB400;
   --border: #333333;
   --border-light: #2A2A2A;
   --primary-light: #3D1520;
@@ -13035,7 +13072,8 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: var(--primary);
+  /* A11y 2026-08: --primary-dark statt --primary (Kontrast 5,7:1 statt 3,5:1) */
+  background: var(--primary-dark);
   color: #fff;
   border: none;
   border-radius: 20px;
@@ -13202,12 +13240,15 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 }
 .met-badge {
   background: rgba(0,166,153,0.1);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .service-badge {
   background: rgba(102,126,234,0.1);
-  color: #667eea;
+  /* A11y 2026-08: #667eea erreichte weder hell (3,2:1) noch dunkel (3,4:1)
+     die 4,5:1 — dunkleres Indigo hell, helleres Indigo im Dark-Mode. */
+  color: #4c51bf;
 }
+body.dark-mode .service-badge { color: #a5b4fc; }
 .event-badge .material-icons-round,
 .met-badge .material-icons-round,
 .service-badge .material-icons-round { font-size: 12px; }
@@ -13274,7 +13315,7 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   color: var(--dark);
 }
 .feed-post-content .feed-hashtag {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 500;
   cursor: pointer;
 }
@@ -13291,7 +13332,7 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .met-at-banner .material-icons-round { font-size: 16px; }
 .met-at-banner strong { color: var(--dark); }
@@ -13319,8 +13360,8 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
-.feed-action-btn:hover { color: var(--primary); background: rgba(255,56,92,0.06); }
-.feed-action-btn.liked { color: var(--primary); }
+.feed-action-btn:hover { color: var(--primary-text); background: rgba(255,56,92,0.06); }
+.feed-action-btn.liked { color: var(--primary-text); }
 .feed-action-btn .material-icons-round { font-size: 18px; }
 .feed-action-btn.liked .material-icons-round { animation: heartPop 0.35s ease; }
 @keyframes heartPop {
@@ -13348,12 +13389,12 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
 /* ===== Search / Suchinserat Styles ===== */
 .search-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  background: rgba(255,56,92,0.08); color: var(--primary);
+  background: rgba(255,56,92,0.08); color: var(--primary-text);
   font-size: 11px; font-weight: 600; padding: 3px 8px;
   border-radius: 6px;
 }
 .search-badge .material-icons-round { font-size: 13px; }
-.search-badge-offer { background: rgba(0,166,153,0.08); color: var(--accent); }
+.search-badge-offer { background: rgba(0,166,153,0.08); color: var(--accent-text); }
 
 .feed-search-card {
   border-left: 3px solid var(--primary);
@@ -13378,7 +13419,7 @@ body.dark-mode .tl-card h4 { color: var(--dark); }
   background: var(--bg-alt); border: 1px solid var(--border-light);
   font-size: 12px; color: var(--text-light); font-weight: 500;
 }
-.feed-chip .material-icons-round { font-size: 14px; color: var(--accent); }
+.feed-chip .material-icons-round { font-size: 14px; color: var(--accent-text); }
 
 .feed-contact-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -14947,31 +14988,38 @@ body.dark-mode .bcl-add-form.bcl-add-top input { background: #1c1c1c; border-col
            :disabled), nicht ersetzt.
    ===================================================================== */
 
-/* ---- Erweiterte Tokens (additiv – überschreibt nichts) -------------- */
+/* ---- Erweiterte Tokens (KONSOLIDIERT 2026-08) ----------------------
+   Diese Werte sind die EINZIGE Definition der --eb-*-Tokens. Früher
+   wurden --eb-depth-* und --eb-ring weiter unten (Polish-Schicht 2)
+   erneut mit anderen Werten definiert — die spätere Regel gewann still.
+   Jetzt stehen hier direkt die effektiven Endwerte. Wer Tiefe/Ringe
+   ändern will, ändert sie HIER und nirgendwo sonst. -------------------- */
 :root {
   /* Easing */
   --eb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --eb-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --eb-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* Focus-Ring (a11y) */
-  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.35);
+  /* Focus-Ring (a11y) — mit dezentem Außen-Glow */
+  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.45), 0 0 0 6px rgba(255, 56, 92, 0.15);
   --eb-ring-dark: 0 0 0 3px rgba(255, 56, 92, 0.55);
 
-  /* Sanfte Tiefen-Skala (für Ruhezustand der Karten) */
-  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 6px rgba(17, 17, 17, 0.05);
-  --eb-depth-2: 0 2px 4px rgba(17, 17, 17, 0.05), 0 8px 20px rgba(17, 17, 17, 0.07);
-  --eb-depth-3: 0 4px 8px rgba(17, 17, 17, 0.06), 0 18px 36px rgba(17, 17, 17, 0.1);
+  /* Tiefen-Skala (Karten-Ruhezustand bis Hover) */
+  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.05), 0 3px 10px rgba(17, 17, 17, 0.07);
+  --eb-depth-2: 0 3px 6px rgba(17, 17, 17, 0.06), 0 12px 28px rgba(17, 17, 17, 0.10);
+  --eb-depth-3: 0 6px 12px rgba(17, 17, 17, 0.08), 0 24px 48px rgba(17, 17, 17, 0.14);
+  --eb-glow-primary: 0 0 0 4px rgba(255, 56, 92, 0.18), 0 10px 26px rgba(255, 56, 92, 0.35);
 
   /* Skeleton-Schimmer */
   --eb-skeleton-bg: #ececec;
   --eb-skeleton-shine: rgba(255, 255, 255, 0.7);
 }
 body.dark-mode {
-  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.42);
-  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --eb-depth-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 20px rgba(0, 0, 0, 0.4);
-  --eb-depth-3: 0 4px 8px rgba(0, 0, 0, 0.45), 0 18px 36px rgba(0, 0, 0, 0.55);
+  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.55), 0 0 0 6px rgba(255, 90, 122, 0.20);
+  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
+  --eb-depth-2: 0 3px 6px rgba(0, 0, 0, 0.5), 0 12px 26px rgba(0, 0, 0, 0.55);
+  --eb-depth-3: 0 6px 12px rgba(0, 0, 0, 0.55), 0 24px 48px rgba(0, 0, 0, 0.65);
+  --eb-glow-primary: 0 0 0 4px rgba(255, 90, 122, 0.28), 0 10px 26px rgba(255, 56, 92, 0.45);
   --eb-skeleton-bg: #1f1f1f;
   --eb-skeleton-shine: rgba(255, 255, 255, 0.08);
 }
@@ -15169,19 +15217,10 @@ button:disabled {
    Wieder ausschließlich additiv, alles als Block entfernbar.
    ===================================================================== */
 
-/* ---- Tiefere Karten-Schatten (Override der Token-Werte aus B-Schritt 1) ---- */
-:root {
-  --eb-depth-1: 0 1px 2px rgba(17, 17, 17, 0.05), 0 3px 10px rgba(17, 17, 17, 0.07);
-  --eb-depth-2: 0 3px 6px rgba(17, 17, 17, 0.06), 0 12px 28px rgba(17, 17, 17, 0.10);
-  --eb-depth-3: 0 6px 12px rgba(17, 17, 17, 0.08), 0 24px 48px rgba(17, 17, 17, 0.14);
-  --eb-glow-primary: 0 0 0 4px rgba(255, 56, 92, 0.18), 0 10px 26px rgba(255, 56, 92, 0.35);
-}
-body.dark-mode {
-  --eb-depth-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
-  --eb-depth-2: 0 3px 6px rgba(0, 0, 0, 0.5), 0 12px 26px rgba(0, 0, 0, 0.55);
-  --eb-depth-3: 0 6px 12px rgba(0, 0, 0, 0.55), 0 24px 48px rgba(0, 0, 0, 0.65);
-  --eb-glow-primary: 0 0 0 4px rgba(255, 90, 122, 0.28), 0 10px 26px rgba(255, 56, 92, 0.45);
-}
+/* ---- Karten-Tiefe & Fokus-Ring: Token-Werte stehen KONSOLIDIERT im
+        :root-Block der ersten Polish-Schicht („Erweiterte Tokens“).
+        Hier standen früher Overrides derselben Tokens — entfernt, weil
+        spätere Definition die frühere still aushebelte. ---- */
 
 /* ---- Karten: Lift wird etwas spürbarer beim Hover ------------------- */
 .listing-card:hover {
@@ -15229,13 +15268,7 @@ body.dark-mode {
   box-shadow: var(--eb-glow-primary);
 }
 
-/* ---- Focus-Ring intensiver, mit dezentem Glow ----------------------- */
-:root {
-  --eb-ring: 0 0 0 3px rgba(255, 56, 92, 0.45), 0 0 0 6px rgba(255, 56, 92, 0.15);
-}
-body.dark-mode {
-  --eb-ring: 0 0 0 3px rgba(255, 90, 122, 0.55), 0 0 0 6px rgba(255, 90, 122, 0.20);
-}
+/* ---- Focus-Ring: Werte konsolidiert im :root-Block „Erweiterte Tokens“ ---- */
 
 /* ---- Hero-CTA: dezenter Atem-Effekt --------------------------------- */
 @keyframes eb-cta-breathe {
@@ -15707,7 +15740,12 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   border-radius: 12px; padding: 8px 14px;
   color: #fff;
 }
-.ebsc-store-badge.soon { opacity: 0.55; }
+/* A11y 2026-08: vorher opacity 0.55 auf dem ganzen Badge — drückte den
+   Text unter 1,5:1 Kontrast. Jetzt volle Deckkraft, Gedämpftheit nur über
+   Text-Alpha (≥ 4,5:1 auf Schwarz bleibt gewahrt). */
+.ebsc-store-badge.soon { border-style: dashed; }
+.ebsc-store-badge.soon small { color: rgba(255,255,255,0.72); }
+.ebsc-store-badge.soon b { color: rgba(255,255,255,0.92); }
 .ebsc-store-icon { font-size: 1.4rem; }
 .ebsc-store-badge small { display: block; font-size: 0.62rem; color: rgba(255,255,255,0.6); letter-spacing: 0.02em; }
 .ebsc-store-badge b { display: block; font-size: 0.95rem; line-height: 1.1; }
@@ -16314,7 +16352,7 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
   font-size: 0.71rem; color: var(--text-light); line-height: 1.45;
   border-top: 1px solid var(--border-light); padding-top: 10px;
 }
-.bai-side-foot .material-icons-round { font-size: 18px; color: var(--accent); flex: 0 0 auto; }
+.bai-side-foot .material-icons-round { font-size: 18px; color: var(--accent-text); flex: 0 0 auto; }
 
 /* Chat (rechts) */
 .bai-main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg); }
