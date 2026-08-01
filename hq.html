@@ -1444,6 +1444,27 @@ if (sessionStorage.getItem('hq_key')) {
     return (bestScore >= 5) ? best : null;
   }
 
+  /* Wissenslücken (Impuls 6): Fragen, auf die die Bots keine Antwort hatten.
+     Sie liegen im localStorage DIESES Browsers — es wird nichts übertragen.
+     Damit schliesst sich der Kreis: aus echten Fragen werden neue Notizen. */
+  function gaps(q) {
+    if (!/(wissensl|lücke|luecke|gaps|was fehlt|offene fragen|unbeantwortet)/i.test(String(q || ''))) return null;
+    var list = [];
+    try { list = JSON.parse(localStorage.getItem('eb_kb_misses') || '[]'); } catch (e) {}
+    if (!list.length) return 'Keine offenen Wissenslücken in diesem Browser. ' +
+      'Sobald ein Bot eine Frage nicht beantworten kann, erscheint sie hier — ' +
+      'Rohmaterial für neue Notizen in 10-Produkt/Wissen/.';
+    var counts = {};
+    list.forEach(function (m) {
+      var k = String(m && m.q || '').toLowerCase().trim().slice(0, 90);
+      if (k) counts[k] = (counts[k] || 0) + 1;
+    });
+    var rows = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 12);
+    return rows.length + ' offene Frage(n) aus diesem Browser:\n• ' +
+      rows.map(function (k) { return k + (counts[k] > 1 ? ' (' + counts[k] + '×)' : ''); }).join('\n• ') +
+      '\n\nJede davon ist ein Kandidat für eine neue share:public-Notiz.';
+  }
+
   /* HQ-Livezustand: der Circle kennt den Betrieb, nicht nur das Handbuch. */
   function hqStatus(q) {
     var t = String(q || '').toLowerCase();
@@ -1477,6 +1498,8 @@ if (sessionStorage.getItem('hq_key')) {
   function ask(q) {
     q = String(q || '').trim(); if (!q) return;
     add('me', esc(q));
+    var g = gaps(q);
+    if (g) { add('ai', esc(g).replace(/\n/g, '<br>')); say(g); return; }
     var status = hqStatus(q);
     if (status) { add('ai', esc(status)); say(status); return; }
     var hit = search(q);
@@ -1521,7 +1544,7 @@ if (sessionStorage.getItem('hq_key')) {
   function open() {
     panel.classList.add('open');
     if (!log.childElementCount) {
-      var hi = 'Hi Commander. Ich bin der EB Circle. Ich beantworte Fragen zur Plattform aus dem freigegebenen Wissen und kenne den HQ-Status. Tippe oder drück auf das Mikrofon.';
+      var hi = 'Hi Commander. Ich bin der EB Circle. Ich beantworte Fragen zur Plattform aus dem freigegebenen Wissen, kenne den HQ-Status und zeige dir offene Wissenslücken („Wissenslücken"). Tippe oder drück auf das Mikrofon.';
       add('ai', esc(hi));
     }
     setTimeout(function () { input.focus(); }, 60);

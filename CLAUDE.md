@@ -49,6 +49,16 @@ Nach jeder Änderung an einer `share: public`-Notiz:
 node scripts/build-knowledge.mjs --report   # baut assets/eb-knowledge.json + Freigabe-Bilanz
 ```
 
+### Impuls-Strom messen
+
+```bash
+node scripts/pulse.mjs   # schreibt vault/00-Kern/Impuls-Strom.md (Ist-Zustand)
+```
+
+Zeigt Schichtung, Freigabe-Bilanz, Wissensbasis-Größe, Event-Abdeckung und
+Code-Bewegung. Die Notiz wird bei jedem Lauf überschrieben — nicht von Hand
+bearbeiten. Architektur & MCP-Ausbau: `vault/30-Betrieb/MCP-Architektur.md`.
+
 Die erzeugte `assets/eb-knowledge.json` **mitcommitten** — sie wird mit dem Theme
 ausgeliefert und von `_ebKbSearch()` in `app.js` befragt (QA-Bot und Board-Assistent).
 Nie von Hand editieren. Pipeline: `vault/00-Kern/Synergie-Pipeline.md`.
