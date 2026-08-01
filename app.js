@@ -21797,10 +21797,106 @@ function toggleFeedNearby() {
   }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   TAGES-DEMO-FEED  ·  assets/eb-demo-feed.json
+   ------------------------------------------------------------------
+   Erzeugt von scripts/demo-feed.mjs, täglich von der Routine erneuert.
+   Löst das Altern des fest einprogrammierten Ankers: ohne die Datei
+   stünde nach Monaten unter jedem Demo-Beitrag „vor 6 Monaten".
+
+   Die Ehrlichkeitsregel bleibt: der Generator gibt keinem Beitrag eine
+   Erstellzeit von weniger als 10 Tagen zurück, und diese Seite prüft das
+   beim Laden noch einmal nach. Ein Feed, der „gestern" behauptet, obwohl
+   nichts gepostet wurde, wird hier verworfen statt angezeigt.
+   ══════════════════════════════════════════════════════════════════ */
+var _ebDemoFeedState = 'idle';   // idle | loading | ready | failed
+
+function _ebDemoFeedUrl() {
+  var base = '';
+  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
+    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
+  } else {
+    var tag = document.querySelector('script[src*="app.js"]');
+    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
+  }
+  return (base ? base + '/' : '') + 'assets/eb-demo-feed.json';
+}
+
+function _ebDemoFeedLoad() {
+  if (_ebDemoFeedState === 'loading' || _ebDemoFeedState === 'ready') return;
+  _ebDemoFeedState = 'loading';
+  fetch(_ebDemoFeedUrl(), { credentials: 'same-origin' })
+    .then(function(r) { if (!r.ok) throw new Error('feed'); return r.json(); })
+    .then(function(feed) {
+      if (!feed || !Array.isArray(feed.posts) || !feed.posts.length) throw new Error('leer');
+      var anker = Date.parse(feed.anchor);
+      if (isNaN(anker)) throw new Error('anker');
+
+      // Ehrlichkeitsprüfung im Browser — der Generator garantiert es, aber
+      // eine ausgelieferte Datei kann veraltet oder verfälscht sein.
+      var minTage = typeof feed.minTageZurueck === 'number' ? feed.minTageZurueck : 10;
+      var sauber = feed.posts.filter(function(p) {
+        var t = Date.parse(p.time);
+        return !isNaN(t) && t <= anker && (anker - t) / 86400000 >= minTage;
+      });
+      if (!sauber.length) throw new Error('unehrlich');
+
+      EB_DEMO_ANCHOR_MS = anker;
+      _applyDemoFeed(sauber);
+      _ebDemoFeedState = 'ready';
+    })
+    .catch(function() { _ebDemoFeedState = 'failed'; });  // fest verdrahtete Beiträge bleiben
+}
+
+/** Tages-Beiträge an die Stelle der fest verdrahteten Demo-Beiträge setzen. */
+function _applyDemoFeed(posts) {
+  var eigene = _socialPosts.filter(function(p) { return p && !p._isDemo; });
+  var neue = posts.map(function(p) {
+    return {
+      id: p.id,
+      type: p.type,
+      author: p.author,
+      authorId: p.authorId,
+      avatar: (typeof ebAvatar === 'function') ? ebAvatar(p.avatarSeed, p.author) : null,
+      title: p.title || null,
+      category: p.category || null,
+      location: p.location || null,
+      date: p.date || null,
+      budget: p.budget || null,
+      content: p.content,
+      image: p.image || null,
+      time: p.time,
+      likes: p.likes || 0,
+      comments: p.comments || 0,
+      metAt: p.metAt || null,
+      _isDemo: true
+    };
+  });
+  _socialPosts = eigene.concat(neue);
+  try { localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {}
+
+  // Inserats-Zeiten hängen am selben Anker — sonst driften Feed und Karten.
+  try {
+    if (typeof LISTINGS !== 'undefined' && Array.isArray(LISTINGS)) {
+      LISTINGS.forEach(function(l) {
+        if (!l || l._fromDb) return;
+        var id = parseInt(l.id, 10) || 1;
+        var daysAgo = 12 + (15 - id) * 4;
+        if (daysAgo < 10) daysAgo = 10;
+        l.createdAt = new Date(EB_DEMO_ANCHOR_MS - daysAgo * 86400000).toISOString();
+      });
+    }
+  } catch (e) {}
+
+  var seite = document.getElementById('page-aktuelles');
+  if (seite && seite.classList.contains('active')) _rerenderCurrentFeed();
+}
+
 function renderFeed(tab) {
   var list = document.getElementById('feedList');
   if (!list) return;
 
+  _ebDemoFeedLoad();
   renderSidebarUpcoming();
 
   // Bot-/Demo-Beiträge automatisch ausblenden, wenn EB_HIDE_DEMO aktiv ist.

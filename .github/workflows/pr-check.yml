@@ -102,6 +102,16 @@ jobs:
       - name: Wissensbasis-Konsistenz prüfen
         run: node scripts/build-knowledge.mjs --check
 
+      # Externer Zufluss: nichts aus der Recherche-Schleuse darf öffentlich
+      # sein, jede Notiz nennt ihre Herkunft, Fremdtext bleibt Datenblock.
+      - name: Quarantäne-Tor prüfen
+        run: node scripts/quarantine.mjs --check
+
+      # Demo-Inhalte dürfen nie frisch wirken (nichts wurde gepostet) und
+      # müssen reproduzierbar sein, sonst committet die Tagesroutine umsonst.
+      - name: Demo-Feed prüfen
+        run: node scripts/demo-feed.mjs --check
+
       - name: Testsuite ausführen
         run: npx playwright test
 

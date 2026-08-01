@@ -7,8 +7,8 @@ share: internal
 
 # Testing
 
-> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 68 Tests
-> in 7 Suiten) als blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die
+> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 80 Tests
+> in 8 Suiten) als blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die
 > letzten Produktionsfehler (Verlaufsschrift nach Minify, Suche ohne Treffer,
 > doppelte CSS-Regeln) waren alle Regressionen, die diese Suite gefangen hätte.
 > Manueller Smoke-Test bleibt für Backend-Flows (Login, Stripe live).
@@ -20,7 +20,7 @@ share: internal
        │ Manual E2E  │   ← Backend-Flows bei Release (Login, Stripe live)
        └──────┬──────┘
        ┌──────┴───────┐
-       │  Playwright  │   ← 68 Tests, blockierend in pr-check.yml (NEU 2026-08)
+       │  Playwright  │   ← 80 Tests, blockierend in pr-check.yml (NEU 2026-08)
        └──────┬───────┘
        ┌──────┴───────────────┐
        │ Auto-Audit (KI)      │   ← claude-auto-audit.yml
@@ -40,6 +40,7 @@ Keine Unit-Tests aktuell — Codebase ist hauptsächlich UI-Glue + REST-Wrapper,
 | `css-minify.spec.js` | Gegen **minifiziertes** CSS (csso-cli\@4.0.2 --no-restructure wie Deploy): Verlaufsschrift statisch + computed styles | Regression ae3f624 |
 | `design-system.spec.js` | Chips sichtbar; Konflikt-Ratsche (max. 56 Alt-Konflikte); Token-Eindeutigkeit | Klassenkollision .ai-suggestions |
 | `barrierefreiheit.spec.js` | axe-core WCAG AA, **beide Farbmodi** × 4 Seiten; Fokus; Dot-Labels | Stand 0 Verstöße halten (vorher 97 Nodes) |
+| `zufluss.spec.js` | **Quarantäne-Tor** (5 Regeln einzeln, Injection innen erlaubt/außen verboten, Geheimnis-Import verweigert) + **Demo-Feed** (nichts wirkt frisch, reproduzierbar, Event-Vielfalt, gerenderte Zeitangaben) | Externer Zufluss ist die einzige Stelle, an der ungeprüfter Text ins System kommt |
 
 ```bash
 npm test               # alles — Server startet automatisch (playwright.config.js)
