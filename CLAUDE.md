@@ -69,6 +69,18 @@ npx serve .
 
 API-Calls (`/wp-json/eventboerse/v1/…`) funktionieren nur auf dem Live-WordPress-Server.
 
+## Tests (Pflicht vor jedem Merge)
+
+```bash
+npm test                # komplette Playwright-Suite (Server startet automatisch)
+npm run test:smoke      # nur Routen-Smoke-Tests
+npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
+```
+
+55 Tests in 5 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
+Leckage-Schutz), CSS-Minify. `pr-check.yml` blockiert PRs bei Fehlern.
+
 ## Deployment
 
 Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SFTP nach `/public/wp-content/themes/eventboerse/` auf IONOS. Kein manueller Build nötig.
@@ -79,13 +91,19 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 
 | Datei | Inhalt |
 |-------|--------|
-| `app.js` | ~21 000-Zeilen-Monolith: SPA-Router, alle UI-Module, State |
-| `styles.css` | ~15 000 Zeilen CSS, mobile-first |
+| `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
+| `js/modules/` | Quelle des Frontends: 22 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/` (Reihenfolge: `modules.list`) |
+| `styles.css` | ~16 300 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (~81 Routen), Asset-Registrierung |
+| `functions.php` | WordPress-Theme: REST API (86 Routen), Asset-Registrierung |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
+
+**JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
+danach `./build-app-js.sh` ausführen und die regenerierte `app.js` mitcommitten. Reine
+Konkatenation — kein Bundler, kein Transpiler, Deploy-Artefakt bleibt `app.js`.
+CI (`pr-check.yml`) bricht bei Drift zwischen Modulen und `app.js` ab.
 
 **Shell-Workflow (kein Drift, #7):** SPA-Body-Änderungen NUR in `app-shell.html`. `index.php`
 liest sie zur Laufzeit per `readfile` (immer aktuell). Für die lokale `index.html` danach
@@ -114,4 +132,3 @@ Kanban/Flow-Planer (`renderBoardPage`, `renderKanban`, `renderBoardFlow`) mit `l
 
 - Demo-Daten (`LISTINGS`/`REVIEWS`/`CHATS`) noch hardcoded — werden schrittweise durch DB-Calls ersetzt
 - Messaging nutzt Polling (alle 3s), kein WebSocket/SSE
-- Keine automatisierten Tests

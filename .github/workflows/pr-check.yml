@@ -93,6 +93,9 @@ jobs:
       - name: Abhängigkeiten installieren
         run: npm ci
 
+      - name: app.js ↔ Module Drift-Check
+        run: ./build-app-js.sh --check
+
       - name: Playwright-Browser installieren
         run: npx playwright install --with-deps chromium
 

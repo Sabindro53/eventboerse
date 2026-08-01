@@ -2,6 +2,11 @@
 /* ============================================
    Eventbörse – Event Marketplace Application
    SPA Router, Chat, Negotiation, Listings, Auth
+
+   ⚠️ app.js IST GENERIERT — NICHT VON HAND EDITIEREN!
+   Quelle: js/modules/** (Reihenfolge: js/modules/modules.list).
+   Nach Modul-Änderungen: ./build-app-js.sh ausführen und app.js
+   mitcommitten. CI prüft Drift (./build-app-js.sh --check).
    ============================================ */
 
 /* ============================================================================
