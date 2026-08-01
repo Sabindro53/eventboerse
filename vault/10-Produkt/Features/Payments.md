@@ -1,8 +1,8 @@
 ---
 layer: L1
 domain: produkt
-share: public
-tags: [layer/L1, domain/produkt, share/public]
+share: internal
+tags: [layer/L1, domain/produkt, share/internal]
 ---
 
 # Features: Zahlungen (Stripe)
