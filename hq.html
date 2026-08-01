@@ -577,6 +577,23 @@
       <div class="skeleton" style="height:80px;"></div>
     </div>
 
+    <!-- Aktive Vorschläge (Approve/Reject) -->
+    <div class="section-header">
+      <div class="section-title">📝 Aktive Vorschläge <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— du entscheidest ja/nein</span></div>
+      <div class="section-badge" id="proposals-badge">–</div>
+    </div>
+    <div class="audit-summary" id="proposals-summary">
+      <span class="audit-chip" id="prop-chip-ready">🚀 –</span>
+      <span class="audit-chip" id="prop-chip-manual">🖐 –</span>
+      <span class="audit-chip" id="prop-chip-unmapped">❓ –</span>
+      <span class="audit-chip" id="prop-chip-done">✅ –</span>
+      <span class="as-meta" id="proposals-meta">Vorschläge werden geladen…</span>
+    </div>
+    <div class="findings" id="proposals-list">
+      <div class="skeleton" style="height:80px;"></div>
+      <div class="skeleton" style="height:80px;"></div>
+    </div>
+
     <!-- Quests -->
     <div class="section-header">
       <div class="section-title">🎯 Quests <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— die Roadmap</span></div>
@@ -1235,6 +1252,7 @@ async function init() {
   renderQuests(); renderAchievements(); // instant, local
   renderFromCache();                    // instant, cached GitHub data
   loadSelfAudit();                      // local audit/latest.json
+  loadProposals();                      // local audit/proposals.json
   await checkSiteStatus();
   await loadAll();                      // fresh GitHub data
   renderHud();
@@ -1243,6 +1261,7 @@ async function init() {
 async function refreshAll() {
   showToast('🔄 Aktualisiere…');
   loadSelfAudit();
+  loadProposals();
   await checkSiteStatus();
   await loadAll();
   renderHud();
@@ -1312,6 +1331,101 @@ async function loadSelfAudit() {
   }).join('');
 }
 
+/* ─── Vorschläge (Approve/Reject, liest audit/proposals.json) ──── */
+const PROP_STATUS_ICON = { ready: '🚀', manual: '🖐', unmapped: '❓', done: '✅' };
+const PROP_STATUS_LABEL = {
+  ready: 'Umsetzbar',
+  manual: 'Braucht Entscheidung',
+  unmapped: 'Neu',
+  done: 'Erledigt',
+};
+function _propRejected(id) {
+  try { return (JSON.parse(localStorage.getItem('hq_prop_rejected') || '[]')).includes(id); }
+  catch { return false; }
+}
+function _propToggleReject(id) {
+  let set;
+  try { set = new Set(JSON.parse(localStorage.getItem('hq_prop_rejected') || '[]')); }
+  catch { set = new Set(); }
+  if (set.has(id)) set.delete(id); else set.add(id);
+  localStorage.setItem('hq_prop_rejected', JSON.stringify([...set]));
+}
+async function loadProposals() {
+  const list = $('proposals-list'), meta = $('proposals-meta'), badge = $('proposals-badge');
+  if (!list || !meta || !badge) return;
+  const tryUrls = [
+    new URL('audit/proposals.json', location.href).href + '?t=' + Date.now(),
+    `https://raw.githubusercontent.com/${REPO}/main/audit/proposals.json`,
+  ];
+  let data = null;
+  for (const u of tryUrls) {
+    try {
+      const r = await fetch(u, { cache: 'no-store' });
+      if (!r.ok) continue;
+      data = await r.json();
+      break;
+    } catch {}
+  }
+  if (!data || !Array.isArray(data.proposals)) {
+    list.innerHTML = '<div class="empty">Noch keine Vorschläge. <code>node scripts/propose-fixes.mjs</code> ausführen.</div>';
+    badge.textContent = '0';
+    meta.textContent = 'noch nicht generiert';
+    return;
+  }
+  const c = data.counts || {};
+  $('prop-chip-ready').textContent    = `🚀 ${c.ready    || 0}`;
+  $('prop-chip-manual').textContent   = `🖐 ${c.manual   || 0}`;
+  $('prop-chip-unmapped').textContent = `❓ ${c.unmapped || 0}`;
+  $('prop-chip-done').textContent     = `✅ ${c.done     || 0}`;
+  badge.textContent = String(data.proposals.length);
+  meta.textContent  = `Stand ${humanDate(data.generatedAt)} · Commit ${data.commit || '–'}`;
+
+  const order = { ready: 0, manual: 1, unmapped: 2, done: 3 };
+  const sorted = [...data.proposals].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+  list.innerHTML = sorted.map(p => {
+    const st = p.status || 'unmapped';
+    const rejected = _propRejected(p.id);
+    const icon = PROP_STATUS_ICON[st] || '•';
+    const label = PROP_STATUS_LABEL[st] || st;
+    const fileList = Array.isArray(p.files) && p.files.length
+      ? `<div class="finding-detail"><strong>Dateien:</strong> ${p.files.map(escHtml).join(', ')}</div>` : '';
+    const howLine = p.how ? `<div class="finding-detail"><strong>Wie:</strong> ${escHtml(p.how)}</div>` : '';
+    const riskLine = p.risk ? `<div class="finding-detail"><strong>Risiko:</strong> ${escHtml(p.risk)}</div>` : '';
+    const cmdLine = p.command ? `<div class="finding-detail"><code>${escHtml(p.command)}</code></div>` : '';
+    const doneBadge = st === 'done' ? '<span class="finding-area">erledigt</span>' : '';
+    const rejectedBadge = rejected ? '<span class="finding-area">abgelehnt</span>' : '';
+    const prQ = encodeURIComponent(`is:pr ${p.source}`);
+    const newIssueTitle = encodeURIComponent(`[proposal] ${p.title}`);
+    const newIssueBody  = encodeURIComponent(
+      `**Vorschlag:** ${p.title}\n**Finding-ID:** \`${p.source}\`\n**Status:** ${st}\n\n` +
+      `${p.rationale || ''}\n\n**Wie:** ${p.how || '–'}\n**Risiko:** ${p.risk || '–'}\n` +
+      (Array.isArray(p.files) && p.files.length ? `\n**Dateien:** ${p.files.join(', ')}\n` : '') +
+      `\n_Automatisch vom Proposal-Generator (${data.commit || '–'})._`
+    );
+    const approveBtn = st === 'done'
+      ? ''
+      : `<a class="btn btn-primary" href="https://github.com/${REPO}/issues/new?title=${newIssueTitle}&body=${newIssueBody}&labels=proposal" target="_blank" rel="noopener">✅ Annehmen (Issue anlegen)</a>`;
+    const rejectBtn = st === 'done'
+      ? ''
+      : `<button class="btn" data-reject-proposal="${escHtml(p.id)}">${rejected ? '↩ Ablehnung aufheben' : '✖ Ablehnen'}</button>`;
+    return `
+      <div class="finding sev-${p.severity || 'info'}${rejected ? ' rejected' : ''}" data-id="${escHtml(p.id)}" style="${rejected ? 'opacity:.55;' : ''}">
+        <div class="finding-head">
+          <span title="${escHtml(label)}">${icon}</span>
+          <div class="finding-title">${escHtml(p.title)}</div>
+          <span class="finding-area">${escHtml(p.area || 'general')}</span>
+          ${doneBadge}${rejectedBadge}
+        </div>
+        ${p.rationale ? `<div class="finding-sugg">${escHtml(p.rationale)}</div>` : ''}
+        ${howLine}${fileList}${riskLine}${cmdLine}
+        <div class="finding-actions">
+          <a class="btn" href="https://github.com/${REPO}/pulls?q=${prQ}" target="_blank" rel="noopener">🔎 PRs zu diesem Finding</a>
+          ${approveBtn}${rejectBtn}
+        </div>
+      </div>`;
+  }).join('');
+}
+
 /* ─── Wiring ───────────────────────────────────────────────────── */
 $('auth-btn').addEventListener('click', checkAuth);
 $('auth-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkAuth(); });
@@ -1337,6 +1451,8 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const pr = e.target.closest('[data-reject-proposal]');
+  if (pr) { _propToggleReject(pr.dataset.rejectProposal); loadProposals(); sfx('click'); return; }
 });
 
 // Keyboard shortcuts

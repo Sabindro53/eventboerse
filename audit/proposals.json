@@ -1,0 +1,101 @@
+{
+  "schema": "eb-proposals/v1",
+  "generatedAt": "2026-07-30T11:10:14Z",
+  "commit": "c7709ad",
+  "auditCommit": "c7709ad",
+  "counts": {
+    "total": 6,
+    "ready": 0,
+    "manual": 4,
+    "unmapped": 0,
+    "done": 2
+  },
+  "proposals": [
+    {
+      "id": "p-size-app.js-watch",
+      "source": "size-app.js-watch",
+      "title": "app.js schrittweise in Module aufteilen",
+      "rationale": "Monolith-Risiko wächst (>20k Zeilen). Splitting in Router/API/Board/Chat verbessert Wartbarkeit deutlich.",
+      "area": "maintainability",
+      "severity": "info",
+      "status": "manual",
+      "files": [
+        "app.js",
+        "js/"
+      ],
+      "how": "Ein Modul pro Sprint (z. B. zuerst `js/api.js` mit `_apiUrl`, `_apiHeaders`, `loadDbListings`).",
+      "command": null,
+      "risk": "mittel — Reihenfolge/Sichtbarkeit von globalen Vars muss beachtet werden.",
+      "priority": 2
+    },
+    {
+      "id": "p-size-functions.php-watch",
+      "source": "size-functions.php-watch",
+      "title": "functions.php in Sub-Includes aufteilen",
+      "rationale": "REST-Routen wachsen (>6k Zeilen). Grouping nach Feature (Auth, Listings, Payments) senkt Kognitionslast.",
+      "area": "maintainability",
+      "severity": "info",
+      "status": "manual",
+      "files": [
+        "functions.php",
+        "includes/"
+      ],
+      "how": "Weitere `includes/rest/*.php` extrahieren, in functions.php per require_once einbinden.",
+      "command": null,
+      "risk": "niedrig — Verhalten bleibt gleich, nur Datei-Layout ändert sich.",
+      "priority": 2
+    },
+    {
+      "id": "p-size-styles.css-watch",
+      "source": "size-styles.css-watch",
+      "title": "styles.css sektionsweise dokumentieren",
+      "rationale": "CSS-Monolith. Ein Section-Index oben in der Datei hilft, bevor Splitting nötig wird.",
+      "area": "maintainability",
+      "severity": "info",
+      "status": "manual",
+      "files": [
+        "styles.css"
+      ],
+      "how": "Kommentar-Kopf mit „Contents:\" und Anker-Kommentaren pro Sektion.",
+      "command": null,
+      "risk": "kein Runtime-Impact.",
+      "priority": 2
+    },
+    {
+      "id": "p-console-noise",
+      "source": "console-noise",
+      "title": "18 console.*-Aufrufe hinter EB_DEBUG-Flag stellen",
+      "rationale": "Konsolen-Ausgaben landen im Browser der Nutzer. Ein Debug-Flag hält Prod-Konsolen sauber, ohne die Debug-Fähigkeit zu verlieren.",
+      "area": "cleanup",
+      "severity": "info",
+      "status": "manual",
+      "files": [
+        "app.js"
+      ],
+      "how": "Neue Hilfsfunktion `_dbg = () => (window.EB_DEBUG && console.log)` und schrittweise Ersatz der bestehenden Calls.",
+      "command": null,
+      "risk": "niedrig — reines Kosmetik-Refactor.",
+      "priority": 2
+    },
+    {
+      "id": "p-dsgvo-analytics-inert",
+      "source": "dsgvo-analytics-inert",
+      "title": "analytics.php ist inert (kein Tracking)",
+      "rationale": "Keine Verarbeitung personenbezogener Daten — kann nach Deploy-Verifikation gelöscht werden.",
+      "area": "security",
+      "severity": "ok",
+      "status": "done",
+      "priority": 3
+    },
+    {
+      "id": "p-no-tests",
+      "source": "no-tests",
+      "title": "Smoke-Suite vorhanden",
+      "rationale": "tests/smoke.spec.js + playwright.config.js sind eingerichtet.",
+      "area": "quality",
+      "severity": "ok",
+      "status": "done",
+      "priority": 3
+    }
+  ]
+}

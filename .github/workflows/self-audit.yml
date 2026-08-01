@@ -1,0 +1,43 @@
+name: Self-Audit & Proposals
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Werktags 05:00 UTC — vor dem Rest der Auto-Routinen.
+    - cron: '0 5 * * 1-5'
+  workflow_dispatch: {}
+
+concurrency:
+  group: self-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run self-audit
+        run: node scripts/self-audit.mjs
+      - name: Generate proposals
+        run: node scripts/propose-fixes.mjs
+      - name: Commit updated audit + proposals (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -n "$(git status --porcelain audit/)" ]; then
+            git config user.name "eventboerse-bot"
+            git config user.email "bot@eventboerse.local"
+            git add audit/latest.json audit/proposals.json
+            git commit -m "chore(audit): refresh latest + proposals [skip ci]"
+            git push
+          else
+            echo "Kein Delta in audit/ — nichts zu commiten."
+          fi

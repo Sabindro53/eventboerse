@@ -1,0 +1,16 @@
+{
+  "name": "eventboerse-devkit",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Dev-only helpers (Smoke-Tests, Self-Audit, Proposal-Generator). Wird nicht ausgeliefert.",
+  "scripts": {
+    "audit": "node scripts/self-audit.mjs",
+    "audit:print": "node scripts/self-audit.mjs --print",
+    "propose": "node scripts/propose-fixes.mjs",
+    "test:smoke": "playwright test",
+    "test:smoke:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.47.2"
+  }
+}
