@@ -9,6 +9,32 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-08-01) — Fable-5-Auftrag: Fundament gesichert
+
+- [x] **Testsuite von null** (Priorität 1): 68 Playwright-Tests in 7 Suiten,
+  blockierendes Gate in `pr-check.yml`. Smoke (alle Routen, 0 Page-Errors),
+  Suche (natürliche Sätze ↔ Unsinn), Gebühren (centgenau, **JS↔PHP-Parität**
+  gegen die echten functions.php-Funktionen), Wissensbasis (Antworten,
+  Off-Topic, **0 Leckage**), CSS-Minify (Verlaufsschrift überlebt csso),
+  Design-System (Konflikt-Ratsche), A11y (axe, beide Farbmodi).
+- [x] **Sicherheits-Audit** über functions.php + app.js gemeinsam: 86 Routen
+  (permission, IDOR, SQL, Upload, Webhook, Rate-Limits) + 237 innerHTML-Pfade.
+  Juni-Härtung trägt. Behoben: KB-Leckage (Webhook-Signatur-Erwähnung in
+  public-Notiz + Verbotsmuster-Filter erweitert), 2 Low-XSS (_escHtml).
+  Bericht: 40-Governance/Security/2026-08-01-… (secret).
+- [x] **app.js modularisiert**: 24.900 Zeilen → 22 Module (`js/modules/**`),
+  `./build-app-js.sh` konkateniert (kein Bundler, byte-identisch verifiziert),
+  Drift-Check in CI, Deploy-Artefakt bleibt app.js.
+- [x] **Design-System**: --eb-*-Tokens konsolidiert (1 Definition statt 3
+  überschreibenden), Live-Bug behoben („Beliebt:"-Chips unsichtbar durch
+  Klassenkollision .ai-suggestions → .ai-sug-row), css-duplicates-Analyzer
+  + Ratsche gegen neue stille Überschreibungen.
+- [x] **Barrierefreiheit**: axe-Verstöße 97 Nodes → **0** (beide Modi × 6
+  Seiten). Galerie-Karussells tastaturbedienbar + benannt, Selects/Suchfeld
+  beschriftet, neue Text-Tokens --primary-text/--accent-text ≥ 4,5:1.
+  Offen: Lighthouse-Score gegen die Live-Seite messen (CI-Umgebung hat
+  keinen Zugriff auf eventbörse.de; lighthouse-audit.yml läuft wöchentlich).
+
 ## Zuletzt abgeschlossen (2026-07-27) — Intelligente Suche & Hero
 
 - [x] **Satz-Vervollständigung („Look & Feel AI") in Suche + Board**

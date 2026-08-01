@@ -7,16 +7,20 @@ share: internal
 
 # Testing
 
-> Pragmatisches QA-Setup ohne Test-Framework-Overkill. Schwerpunkt: manueller Smoke-Test, Lint via PHP-Interpreter, statische Checks via Auto-Audit-Workflow.
+> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 68 Tests
+> in 7 Suiten) als blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die
+> letzten Produktionsfehler (Verlaufsschrift nach Minify, Suche ohne Treffer,
+> doppelte CSS-Regeln) waren alle Regressionen, die diese Suite gefangen hätte.
+> Manueller Smoke-Test bleibt für Backend-Flows (Login, Stripe live).
 
 ## Pyramide
 
 ```
        ┌─────────────┐
-       │ Manual E2E  │   ← Smoke-Test bei Release
+       │ Manual E2E  │   ← Backend-Flows bei Release (Login, Stripe live)
        └──────┬──────┘
        ┌──────┴───────┐
-       │  PR-Checks   │   ← GitHub Action pr-check.yml
+       │  Playwright  │   ← 68 Tests, blockierend in pr-check.yml (NEU 2026-08)
        └──────┬───────┘
        ┌──────┴───────────────┐
        │ Auto-Audit (KI)      │   ← claude-auto-audit.yml
@@ -24,6 +28,27 @@ share: internal
 ```
 
 Keine Unit-Tests aktuell — Codebase ist hauptsächlich UI-Glue + REST-Wrapper, hoher Mock-Overhead vs. Mehrwert.
+
+## Automatisierte E2E-Suite (tests/e2e/, NEU 2026-08-01)
+
+| Suite | Prüft | Hintergrund |
+|-------|-------|-------------|
+| `smoke.spec.js` | 15 öffentliche SPA-Routen + Detail/Provider + Login-Umleitung + Historie, 0 Page-Errors | Verschwundene Listings / kaputte Routen |
+| `suche.spec.js` | Natürliche Sätze liefern Treffer, Unsinn 0; Suchbegriffe verlassen den Browser nicht | Regression 8eb5b2b + Lokalitäts-Leitplanke |
+| `gebuehren.spec.js` | Brutto = Provision + Stripe + Auszahlung centgenau; **JS↔PHP-Parität** (PHP-Funktionen aus functions.php extrahiert, php-CLI) | Geld-Code nur mit Tests |
+| `wissensbasis.spec.js` | Fachfragen beantwortet, Off-Topic abgelehnt, **0 Leckage** (nur 10-Produkt, Verbotsmuster-Scan) | Fand real die Webhook-Signatur-Leckage |
+| `css-minify.spec.js` | Gegen **minifiziertes** CSS (csso-cli\@4.0.2 --no-restructure wie Deploy): Verlaufsschrift statisch + computed styles | Regression ae3f624 |
+| `design-system.spec.js` | Chips sichtbar; Konflikt-Ratsche (max. 56 Alt-Konflikte); Token-Eindeutigkeit | Klassenkollision .ai-suggestions |
+| `barrierefreiheit.spec.js` | axe-core WCAG AA, **beide Farbmodi** × 4 Seiten; Fokus; Dot-Labels | Stand 0 Verstöße halten (vorher 97 Nodes) |
+
+```bash
+npm test               # alles — Server startet automatisch (playwright.config.js)
+npm run test:smoke     # nur Smoke
+npm run test:css       # nur CSS-Minify-Regression
+```
+
+Audit-Werkzeuge in `tests/audit/`: `xss-scan.js` (ungeescapte innerHTML-
+Interpolationen), `css-duplicates.js` (still überschreibende Regeln).
 
 ## Smoke-Test (vor jedem Release)
 
@@ -54,9 +79,9 @@ Manuell durchklicken, ~15 Minuten:
 
 ## PR-Checks (`pr-check.yml`)
 
+- **Job tests (blockierend):** npm ci → `./build-app-js.sh --check` (Modul-Drift) → Playwright-Browser → `build-knowledge.mjs --check` → `npx playwright test`; Report-Artefakt bei Fehlern
 - Geänderte Dateien via API auflisten
 - PHP-Syntaxcheck via `php -l` für alle geänderten `.php`
-- Größen-Diff für `app.js`, `functions.php` (Hard-Limit-Warnung bei +5 %)
 
 ## Aktueller Release-Check 2026-06-06
 
