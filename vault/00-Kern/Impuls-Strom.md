@@ -21,23 +21,23 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 | **L2** | 28 | `██████████████████████` |
 | **L3** | 12 | `█████████·············` |
 | **L4** | 14 | `███████████···········` |
-| **L5** | 12 | `█████████·············` |
+| **L5** | 13 | `██████████············` |
 
-**Gesamt: 97 Notizen**
+**Gesamt: 98 Notizen**
 
 ## 🔒 Freigabe-Bilanz (Impuls 5 + L4-Veto)
 
 | Klasse | Notizen | Bedeutung |
 |--------|---------|-----------|
 | 🟢 `public` | **10** | fließt zur Website-KI |
-| 🟡 `internal` | 77 | bleibt im Vault |
+| 🟡 `internal` | 78 | bleibt im Vault |
 | 🔴 `secret` | 10 | verlässt den Vault nie |
 | ⚠️ fehlt | 0 | keine — sauber |
 
 ```mermaid
 graph LR
-  V["🗄️ Vault<br/>97 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
-  V -->|"87 intern/secret"| X["🔒 bleibt drin"]
+  V["🗄️ Vault<br/>98 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
+  V -->|"88 intern/secret"| X["🔒 bleibt drin"]
   K --> W["🌐 KI-Bot · Board · EB Circle"]
   W -.->|"Wissenslücke"| V
   classDef ok fill:#22c55e,stroke:#16a34a,color:#fff
@@ -63,21 +63,21 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **15** |
-| Commits (30 Tage) | 62 |
-| Letzter Commit | `9f9e215 · docs(vault): Stand finalisiert - Betriebsregeln, Sprint-Abschluss, offener Punkt` (2026-08-01) |
+| Commits (7 Tage) | **21** |
+| Commits (30 Tage) | 71 |
+| Letzter Commit | `0a241fa · Fable-5-Strang zusammenführen: Testsuite, 22 Module, A11y auf null Verstöße (#85)` (2026-08-01) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-36 app.js
-     31 styles.css
-     21 index.html
-     21 app-shell.html
+39 app.js
+     33 styles.css
+     23 index.html
+     23 app-shell.html
       9 functions.php
 ```
 
 **Codegröße:**
-- `app.js` — 24.916 Zeilen
+- `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
 - `functions.php` — 8.265 Zeilen
 - `app-shell.html` — 3.974 Zeilen

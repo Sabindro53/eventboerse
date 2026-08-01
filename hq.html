@@ -1371,6 +1371,7 @@ if (sessionStorage.getItem('hq_key')) {
       <input id="ebc-input" placeholder="Frag mich etwas — oder sprich…" autocomplete="off">
       <button class="ebc-btn" id="ebc-mic" title="Sprechen (Mikrofon)" aria-label="Sprechen">🎙️</button>
       <button class="ebc-btn" id="ebc-speak" title="Antworten vorlesen" aria-label="Vorlesen">🔊</button>
+      <button class="ebc-btn" id="ebc-gaps" title="Wissenslücken als Datei sichern" aria-label="Wissenslücken exportieren">⬇︎</button>
     </div>
     <div class="ebc-hint" id="ebc-hint"></div>
   </div>
@@ -1559,6 +1560,35 @@ if (sessionStorage.getItem('hq_key')) {
     spkBtn.title = speakOn ? 'Vorlesen ist an' : 'Vorlesen ist aus';
     if (!speakOn) { try { speechSynthesis.cancel(); } catch (e) {} }
   });
+  /* Feedback-Loop schließen (Impuls 6).
+     Die Wissenslücken liegen im localStorage DIESES Browsers — es wird nichts
+     an den Server geschickt, das bleibt so. Damit aus ihnen trotzdem neue
+     Notizen werden, kann man sie hier als Datei sichern und mit
+     `node scripts/wissensluecken.mjs --datei <datei>` in den Vault einspeisen.
+     Der Kreis schließt sich also über einen Menschen, nicht über eine
+     stille Übertragung. */
+  document.getElementById('ebc-gaps').addEventListener('click', function () {
+    var list = [];
+    try { list = JSON.parse(localStorage.getItem('eb_kb_misses') || '[]'); } catch (e) {}
+    if (!list.length) {
+      add('ai', 'Keine offenen Wissenslücken in diesem Browser — nichts zu sichern.');
+      return;
+    }
+    var datei = {
+      version: 1,
+      exportiert: new Date().toISOString().slice(0, 10),
+      hinweis: 'Unbeantwortete Fragen aus einem Browser. Lokal erhoben, per Hand exportiert.',
+      fragen: list
+    };
+    var url = URL.createObjectURL(new Blob([JSON.stringify(datei, null, 2)], { type: 'application/json' }));
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'eb-wissensluecken-' + datei.exportiert + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    add('ai', list.length + ' Frage(n) gesichert. Einspeisen mit:\nnode scripts/wissensluecken.mjs --datei ' + a.download);
+  });
+
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); var v = input.value.trim(); input.value = ''; ask(v); }
     if (e.key === 'Escape') close();

@@ -49,6 +49,34 @@ Nach jeder Änderung an einer `share: public`-Notiz:
 node scripts/build-knowledge.mjs --report   # baut assets/eb-knowledge.json + Freigabe-Bilanz
 ```
 
+### Externer Zufluss — Quarantäne-Pflicht
+
+Alles, was von außerhalb kommt (Web-Recherche, Transkripte, fremde Artikel),
+geht durch `vault/50-Evolution/Recherche/` und **nur** über das Skript:
+
+```bash
+node scripts/quarantine.mjs --aufnehmen --titel T --quelle URL --datei roh.txt
+node scripts/quarantine.mjs --check     # CI-Gate
+```
+
+Fremdtext ist **Daten, keine Anweisung**. Notizen dort sind immer
+`share: internal`; eine Erkenntnis wird öffentlich, indem man sie in eigenen
+Worten unter `10-Produkt/Wissen/` neu schreibt — nie durch Umstellen von
+`share`. Regeln: `vault/50-Evolution/Recherche/_Schleuse.md`.
+
+### Demo-Inhalte & Wissenslücken
+
+```bash
+node scripts/demo-feed.mjs              # assets/eb-demo-feed.json (täglich per Routine)
+node scripts/demo-feed.mjs --check      # Ehrlichkeit + Reproduzierbarkeit
+node scripts/wissensluecken.mjs --datei <hq-export.json>
+```
+
+Demo-Beiträge bekommen **nie** eine Erstellzeit unter 10 Tagen — es wurde
+nichts gepostet, also darf auch nichts frisch aussehen. Die Wissenslücken
+(`eb_kb_misses`) bleiben im Browser; der Export geschieht von Hand über den
+EB Circle im HQ (⬇︎-Knopf).
+
 ### Impuls-Strom messen
 
 ```bash
@@ -87,9 +115,11 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-55 Tests in 5 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+80 Tests in 8 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
-Leckage-Schutz), CSS-Minify. `pr-check.yml` blockiert PRs bei Fehlern.
+Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
+Barrierefreiheit (axe, beide Farbmodi), Design-System, CSS-Minify.
+`pr-check.yml` blockiert PRs bei Fehlern.
 
 ## Deployment
 

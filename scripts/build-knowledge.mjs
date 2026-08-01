@@ -18,6 +18,7 @@
 import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { OEFFENTLICH_VERBOTEN, ersterTreffer } from './lib/verbotsmuster.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VAULT = join(ROOT, 'vault');
@@ -26,24 +27,13 @@ const OUT = join(ROOT, 'assets', 'eb-knowledge.json');
 const REPORT = process.argv.includes('--report');
 const CHECK_ONLY = process.argv.includes('--check');
 
-/** Harte Ausschlusskriterien — siehe vault/00-Kern/Sicherheits-Klassifikation.md */
-const FORBIDDEN = [
-  { re: /\bsk_(live|test)_[A-Za-z0-9]/i,        why: 'Stripe-Secret-Key-Muster' },
-  { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/,   why: 'Privater Schlüssel' },
-  { re: /\b(api[_-]?key|apikey)\s*[:=]\s*\S+/i, why: 'API-Key-Zuweisung' },
-  { re: /\bbearer\s+[A-Za-z0-9._-]{12,}/i,      why: 'Bearer-Token' },
-  { re: /\b(passwor[dt]|secret)\s*[:=]\s*\S+/i, why: 'Passwort/Secret-Zuweisung' },
-  { re: /\bwp-config\b/i,                       why: 'WordPress-Konfiguration' },
-  { re: /\b\d{1,3}(\.\d{1,3}){3}\b/,            why: 'IP-Adresse' },
-  { re: /\bsftp:\/\/|\bssh:\/\/|\bmysql:\/\//i, why: 'Infrastruktur-Zugang' },
-  // Angriffsfläche (Sicherheits-Klassifikation): Abwehrmechanismen benennen
-  // hilft nur Angreifern — Webhook-Signaturlogik, Rate-Limit-Schwellen, Nonce-Interna
-  { re: /webhook-?signatur/i,                   why: 'Webhook-Signaturlogik (Angriffsfläche)' },
-  { re: /rate-?limit/i,                         why: 'Rate-Limit-Interna (Angriffsfläche)' },
-  { re: /\bnonce\b/i,                           why: 'Nonce-/Session-Interna (Angriffsfläche)' },
-  // E-Mail-Adressen, ausgenommen die offizielle Support-Adresse
-  { re: /(?!kontakt@)[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/, why: 'E-Mail-Adresse' },
-];
+/**
+ * Harte Ausschlusskriterien — siehe vault/00-Kern/Sicherheits-Klassifikation.md
+ * Für den öffentlichen Export gilt beides: Geheimnisse UND Angriffsfläche.
+ * Die Muster liegen in scripts/lib/verbotsmuster.mjs, damit das
+ * Quarantäne-Tor (scripts/quarantine.mjs) dieselbe Liste prüft.
+ */
+const FORBIDDEN = OEFFENTLICH_VERBOTEN;
 
 /** Sehr einfache, abhängigkeitsfreie Frontmatter-Auswertung. */
 function parseFrontmatter(text) {
@@ -141,7 +131,7 @@ for (const file of files) {
   }
 
   // Schloss 2 — Inhaltsscan.
-  const hit = FORBIDDEN.find(f => f.re.test(body));
+  const hit = ersterTreffer(body, FORBIDDEN);
   if (hit) {
     rejected.push({ rel, reason: `Verbotsmuster: ${hit.why}` });
     continue;

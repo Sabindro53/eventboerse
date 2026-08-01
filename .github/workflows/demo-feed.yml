@@ -1,0 +1,66 @@
+name: Tages-Demo-Feed
+
+# Erzeugt taeglich frische Demo-Beitraege (scripts/demo-feed.mjs) und
+# committet sie nach main, wenn sich etwas geaendert hat. Der Push loest
+# den normalen IONOS-Deploy aus.
+#
+# Warum direkt nach main statt ueber einen PR: die Aenderung betrifft
+# ausschliesslich die erzeugte Datei assets/eb-demo-feed.json, der Generator
+# ist deterministisch, und die Ehrlichkeitsregel (nichts wirkt frisch) wird
+# vor dem Commit geprueft. Ein taeglicher PR waere reines Rauschen.
+#
+# Sicherheitsnetz: Schlaegt die Pruefung fehl, wird NICHT committet.
+
+on:
+  schedule:
+    # Taeglich 03:17 UTC — bewusst nicht zur vollen Stunde.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: demo-feed
+  cancel-in-progress: false
+
+jobs:
+  feed:
+    name: Demo-Feed erneuern
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Feed erzeugen
+        run: node scripts/demo-feed.mjs
+
+      - name: Ehrlichkeit + Reproduzierbarkeit pruefen
+        run: node scripts/demo-feed.mjs --check
+
+      - name: Committen, falls geaendert
+        run: |
+          if git diff --quiet -- assets/eb-demo-feed.json; then
+            echo "Keine Aenderung — heutiger Feed steht bereits." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name  "Eventboerse Routine"
+          git config user.email "noreply@users.noreply.github.com"
+          git add assets/eb-demo-feed.json
+          git commit -m "chore(feed): Demo-Beitraege fuer $(date -u +%Y-%m-%d)"
+          for i in 1 2 3 4; do
+            git push origin HEAD:main && break
+            sleep $((2 ** i))
+            git pull --rebase origin main || true
+          done
+          {
+            echo "### Demo-Feed erneuert"
+            node -e "const f=require('./assets/eb-demo-feed.json');
+              console.log('- Beitraege: '+f.posts.length);
+              console.log('- Aelteste/juengste: '+Math.max(...f.posts.map(p=>p.tageZurueck))+'/'+Math.min(...f.posts.map(p=>p.tageZurueck))+' Tage zurueck');"
+          } >> "$GITHUB_STEP_SUMMARY"

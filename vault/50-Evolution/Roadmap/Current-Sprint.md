@@ -92,6 +92,47 @@ zusammengeführt. Was die Zusammenführung gekostet hat:
 
 **Stand: 68/68 Tests grün**, A11y 0 Verstöße über beide Farbmodi.
 
+## Zuletzt abgeschlossen (2026-08-01) — der Zufluss von außen
+
+Die drei offenen Punkte aus [[30-Betrieb/MCP-Architektur]] §5 sind zu.
+Gemeinsamer Nenner: an jeder Stelle, an der Inhalte ins System kommen, ohne
+dass ein Mensch sie geschrieben hat, steht jetzt ein Tor.
+
+- [x] **Quarantäne-Tor** (`scripts/quarantine.mjs`) — `vault/50-Evolution/Recherche/`
+  ist die einzige Schleuse für externen Text. Fünf Regeln, in CI durchgesetzt:
+  nichts darin ist `public`, Herkunft (`quelle` + `abgerufen`) ist Pflicht,
+  Fremdtext steht im Datenblock, keine Geheimnisse (auch nicht in `internal`),
+  **keine fremden Anweisungen in unserem eigenen Text**. Die letzte Regel ist
+  der Prompt-Injection-Schutz: im Datenblock ist „ignoriere deine Anweisungen"
+  erwartbarer Inhalt, außerhalb ein Befund. Aufnahme mit Geheimnis wird
+  verweigert, statt sie als `internal` zu verstecken.
+- [x] **Web-Recherche** (`recherche.yml`, Do 06:23 UTC) — schreibt
+  ausschließlich über das Skript, öffnet einen **Draft-PR**, veröffentlicht
+  nichts. Zwei Riegel im Workflow: jede Änderung außerhalb der Schleuse und
+  jedes `+share: public` brechen den Lauf ab.
+- [x] **Tages-Demo-Feed** (`demo-feed.yml`, 03:17 UTC) — erzeugt täglich
+  9 Beiträge aus dem gesamten Event-Universum. Der feste Anker
+  `EB_DEMO_ANCHOR_MS` alterte (nach Monaten stand überall „vor 6 Monaten");
+  die naheliegende Abhilfe wäre eine Lüge gewesen. Jetzt: frischer Inhalt,
+  Erstellzeiten aber **immer ≥ 10 Tage** zurück — der Browser prüft das beim
+  Laden nach und verwirft einen Feed, der „gestern" behauptet.
+- [x] **Feedback-Loop geschlossen** — der EB Circle im HQ exportiert die
+  Wissenslücken (⬇︎), `scripts/wissensluecken.mjs` macht daraus
+  [[50-Evolution/AI-Gedaechtnis/Wissensluecken]]. Bewusst über einen Menschen:
+  die Fragen bleiben im Browser, bis jemand sie exportiert. Versehentlich
+  eingetippte Zugangsdaten filtert das Skript heraus.
+- [x] **Verbotsmuster vereinheitlicht** (`scripts/lib/verbotsmuster.mjs`) —
+  getrennt in *Geheimnisse* (nirgends erlaubt, auch nicht in `internal`) und
+  *Angriffsfläche* (nur im öffentlichen Export verboten). Vorher lag die Liste
+  nur in `build-knowledge.mjs`; das Quarantäne-Tor hätte sonst eine zweite,
+  driftende Kopie gebraucht.
+
+**Stand: 80/80 Tests in 8 Suiten grün** (`zufluss.spec.js` neu, 12 Tests).
+
+### Offen aus §5
+Stripe-MCP lesend fürs HQ-Kostenbild · Vektor- statt Keyword-Suche ·
+YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
+
 ## Zuletzt abgeschlossen (2026-07-27) — Intelligente Suche & Hero
 
 - [x] **Satz-Vervollständigung („Look & Feel AI") in Suche + Board**

@@ -26,12 +26,15 @@ MCP-Etikett:
 | Visualisierung | `scripts/pulse.mjs` → [[00-Kern/Impuls-Strom]] | ✅ läuft |
 | Graph/Network | Obsidian-Graph + `graph.json` Layer-Farben | ✅ läuft |
 | LLM/AI | Claude-Sessions (Opus 5) | ✅ läuft |
-| Web Search / Research | — | ⬜ offen |
+| Web Search / Research | `recherche.yml` → `scripts/quarantine.mjs` → Draft-PR | ✅ läuft (seit 2026-08-01) |
+| Quarantäne-Tor | `quarantine.mjs --check`, CI-Gate + 8 Tests | ✅ läuft |
+| Demo-Inhalte | `demo-feed.yml` → `scripts/demo-feed.mjs` (täglich) | ✅ läuft |
+| Feedback-Loop | HQ-Export → `scripts/wissensluecken.mjs` → Vault-Aufgabenliste | ✅ läuft |
 | YouTube-Transkripte | — | ⬜ offen |
-| Feedback-Loop | `eb_kb_misses` (Wissenslücken) — noch nicht eingesammelt | 🟨 halb |
 
-**Kernaussage:** Das Rückgrat steht. Was fehlt, ist **Zufluss von außen**
-(Recherche, Transkripte) und das **Einsammeln des Feedback-Loops**.
+**Kernaussage:** Das Rückgrat steht, und der Zufluss von außen ist
+angeschlossen — aber durch ein Tor, nicht durch eine offene Tür. Offen bleibt
+nur noch der Transkript-Kanal.
 
 ## 2 · Welche MCP-Server wirklich sinnvoll sind
 
@@ -102,6 +105,11 @@ offene Tür in die eigene Wissensbasis.
 
 ## 4 · Sicherheitsregeln für externen Zufluss
 
+> **Seit 2026-08-01 sind diese Regeln durchgesetzt, nicht nur notiert.**
+> `node scripts/quarantine.mjs --check` prüft sie bei jedem PR; acht Tests in
+> `tests/e2e/zufluss.spec.js` halten die Prüfung selbst ehrlich. Details:
+> [[50-Evolution/Recherche/_Schleuse]].
+
 Sobald ein MCP Inhalte von außen holt, gilt:
 
 1. **Quarantäne-Pflicht.** Alles Externe wird als `share: internal` in
@@ -118,13 +126,14 @@ Sobald ein MCP Inhalte von außen holt, gilt:
 
 ## 5 · Nächste Schritte (nach Nutzen sortiert)
 
-| # | Schritt | Aufwand | Nutzen |
-|---|---------|---------|--------|
-| 1 | **Feedback-Loop schließen** — Wissenslücken (`eb_kb_misses`) aus dem Browser einsammeln und der Routine als Aufgabenliste geben | klein | **hoch** — das Netz lernt an echten Fragen |
-| 2 | **Web-Recherche mit Quarantäne** — Routine recherchiert wöchentlich Event-Trends → `50-Evolution/Recherche/` | mittel | hoch — nährt das Event-Universum |
-| 3 | **Demo-Feed-Routine** — täglich frische, realistische Demo-Inhalte | mittel | mittel — Seite wirkt lebendig |
-| 4 | Stripe-MCP lesend fürs HQ-Kostenbild | klein | mittel |
-| 5 | Vektor-Suche statt Keyword-Suche in der Wissensbasis | groß | mittel |
+| # | Schritt | Stand |
+|---|---------|-------|
+| 1 | **Feedback-Loop schließen** — Wissenslücken aus dem Browser als Aufgabenliste in den Vault | ✅ 2026-08-01 · Export im EB Circle (⬇︎) → `scripts/wissensluecken.mjs` → [[50-Evolution/AI-Gedaechtnis/Wissensluecken]]. Bewusst **über einen Menschen**: die Fragen verlassen den Browser nur, wenn jemand sie exportiert |
+| 2 | **Web-Recherche mit Quarantäne** — wöchentlich Event-Trends → `50-Evolution/Recherche/` | ✅ 2026-08-01 · `recherche.yml` (Do 06:23 UTC) schreibt ausschließlich über `quarantine.mjs` und öffnet einen **Draft-PR**. Zwei Riegel im Workflow: Änderungen außerhalb der Schleuse und jedes `+share: public` brechen den Lauf ab |
+| 3 | **Demo-Feed-Routine** — täglich frische, realistische Demo-Inhalte | ✅ 2026-08-01 · `demo-feed.yml` (03:17 UTC). Deterministisch pro Tag, Erstellzeiten **immer ≥ 10 Tage** zurück |
+| 4 | Stripe-MCP lesend fürs HQ-Kostenbild | ⬜ offen (klein / mittlerer Nutzen) |
+| 5 | Vektor-Suche statt Keyword-Suche in der Wissensbasis | ⬜ offen (groß / mittlerer Nutzen) |
+| 6 | YouTube-Transkripte über dieselbe Schleuse | ⬜ offen — das Tor steht bereits, es fehlt nur der Abholer |
 
 ## 6 · Was der Mensch entscheidet
 
