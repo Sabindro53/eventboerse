@@ -59,7 +59,7 @@ POST /stripe/verify-payment → Status Update
 
 ## Sicherheit
 
-- Stripe Webhook-Signatur-Verifizierung (HMAC)
+- Zahlungen laufen vollständig über Stripe — Eventbörse sieht keine Kartendaten
 - PCI-DSS Compliance via Stripe Payment Element
 - Kein direkter Kartenumgang
 - Keine Speicherung von IBAN/Bankdaten in Eventbörse; Stripe sammelt KYC/Bankdaten.

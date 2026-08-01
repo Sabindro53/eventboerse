@@ -7,7 +7,24 @@ tags: [layer/L2, domain/system, share/internal]
 
 # Frontend: app.js Module
 
-**Datei:** `app.js` | **Zeilen:** ~14.688 | **Architektur:** Vanilla JS SPA
+**Artefakt:** `app.js` (~24.900 Zeilen, **generiert**) | **Quelle:** `js/modules/**` (22 Module) | **Architektur:** Vanilla JS SPA
+
+## Modul-Layout (seit 2026-08-01)
+
+`app.js` wird aus den Modulen konkateniert — `./build-app-js.sh` (reines `cat`,
+kein Bundler, kein Transpiler; dasselbe Muster wie `build-index-html.sh`).
+Reihenfolge: `js/modules/modules.list`. CI (`pr-check.yml`) bricht bei Drift ab.
+**app.js nie von Hand editieren** — Modul ändern, bauen, beide committen.
+
+| Ordner | Module | Inhalt |
+|--------|--------|--------|
+| `core/` | 00-basis, 01-demo-daten, 02-router-navigation, 30-auth | Avatar-Generator, Demo-Filter, LISTINGS, SPA-Router, State, Auth/2FA/Passkey |
+| `search/` | 10-karten-home-feed, 11-suche-ki, 12-detail-provider | Card-Renderer, Galerien, `_ebSuggest`/`_ebTaste`, `filterListings`, Detail + Provider |
+| `chat/` | 20-chat-nachrichten | Chat, Polling, Offer-Rendering |
+| `payments/` | 21-buchung-verhandlung, 44-kv-buchung | Buchung, `calculatePayout`, Kostenvoranschlag→Zahlung |
+| `board/` | 40-board-kanban, 41-flow-zahlung, 42-guide-social-feed | Kanban, Flow-View, Stripe-Return/Reconcile, Guide, Social Feed |
+| `ai/` | 50-planungs-assistent | Board-Assistent (Intents, Slot-Filling) |
+| `ui/` | 22–25, 31, 32, 43, 51 | Inserat-Maske, Settings, Uploads, Dark-Mode, Favoriten, Admin, Reviews, Modals/Toast/QA-Bot, Consent/Init/Map, Showcase, Kalender |
 
 ## SPA Router
 

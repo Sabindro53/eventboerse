@@ -2,6 +2,11 @@
 /* ============================================
    Eventbörse – Event Marketplace Application
    SPA Router, Chat, Negotiation, Listings, Auth
+
+   ⚠️ app.js IST GENERIERT — NICHT VON HAND EDITIEREN!
+   Quelle: js/modules/** (Reihenfolge: js/modules/modules.list).
+   Nach Modul-Änderungen: ./build-app-js.sh ausführen und app.js
+   mitcommitten. CI prüft Drift (./build-app-js.sh --check).
    ============================================ */
 
 /* ============================================================================
@@ -1537,10 +1542,10 @@ function renderListingCard(listing) {
   return `
     <div class="listing-card" data-listing-id="${listing.id}">
       <div class="listing-card-img">
-        <div class="grid-gallery-track" id="${galleryId}">
+        <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bilder: ${_escHtml(listing.title)}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
         </div>
-        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" aria-label="Vorheriges Bild" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" aria-label="Nächstes Bild" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '"></button>'; }).join('') + '</div>' : ''}
+        ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" aria-label="Vorheriges Bild" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" aria-label="Nächstes Bild" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '" role="group" aria-label="Bildauswahl">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" aria-label="Zu Favoriten hinzufügen" aria-pressed="${isFav ? 'true' : 'false'}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
           <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
         </button>
@@ -4253,7 +4258,7 @@ function loadDetail(listingId) {
   // Admins sehen pro Bild einen Lösch-Button (fremde Inserate) — entfernt das
   // Bild persistent (auch bei Demo-Listings) via adminDeleteListingImage.
   var _detailCanModerate = !!(currentUser && currentUser.isAdmin && listing.providerId !== currentUser.id);
-  gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack">' +
+  gallery.innerHTML = '<div class="detail-gallery-track" id="detailGalleryTrack" tabindex="0" role="region" aria-label="Bilder: ' + _escHtml(listing.title) + '">' +
     imgs.map(function(img, i) {
       var delBtn = _detailCanModerate && img !== window.EB_IMG_FALLBACK
         ? '<button type="button" class="detail-gallery-admin-del" title="Bild als Admin löschen" aria-label="Bild als Admin löschen" onclick="adminDeleteListingImage(' + i + ', event)"><span class="material-icons-round">delete</span> Löschen</button>'
@@ -4263,8 +4268,8 @@ function loadDetail(listingId) {
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
     '<button class="detail-gallery-arrow next" aria-label="Nächstes Bild" onclick="detailGalleryNav(1)"><span class="material-icons-round">chevron_right</span></button>' +
-    '<div class="detail-gallery-dots" id="detailGalleryDots">' +
-    imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')"></button>'; }).join('') +
+    '<div class="detail-gallery-dots" id="detailGalleryDots" role="group" aria-label="Bildauswahl">' +
+    imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') +
     '</div>' +
     '<div class="detail-gallery-counter" id="detailGalleryCounter">1 / ' + imgs.length + '</div>' : '');
   _initDetailGallerySwipe();
@@ -7451,7 +7456,9 @@ function renderDashboard() {
         var div = document.createElement('div');
         div.className = 'upload-preview-item';
         div.setAttribute('data-url', src);
-        div.innerHTML = '<img src="' + src + '" alt="Galerie" />' +
+        // XSS-Härtung: src escapen (Server sanitisiert mit esc_url_raw, aber
+        // Attribut-Injection per Quote wäre sonst der einzige offene Pfad hier)
+        div.innerHTML = '<img src="' + _escHtml(src) + '" alt="Galerie" />' +
           '<div class="upload-preview-actions">' +
             '<button type="button" class="upload-act-crop" title="Zuschneiden" aria-label="Zuschneiden"><span class="material-icons-round">crop</span></button>' +
             '<button type="button" class="upload-act-remove" title="Entfernen" aria-label="Entfernen"><span class="material-icons-round">close</span></button>' +
@@ -18614,7 +18621,7 @@ function openStageAdvanceModal(cardId, currentStage) {
   overlay.className = 'sa-overlay';
   overlay.innerHTML = '' +
     '<div class="sa-modal">' +
-      '<div class="sa-header"><span class="material-icons-round">' + icon + '</span> ' + title + ' – ' + (card.name || 'Karte') + '</div>' +
+      '<div class="sa-header"><span class="material-icons-round">' + icon + '</span> ' + title + ' – ' + _escHtml(card.name || 'Karte') + '</div>' +
       '<div class="sa-body">' + fieldsHtml + '</div>' +
       '<div class="sa-footer">' +
         (_hideCancel ? '' : '<button class="sa-cancel" onclick="this.closest(\'.sa-overlay\').remove()">Abbrechen</button>') +
@@ -21994,7 +22001,7 @@ function renderListingFeedCard(l) {
           '<span class="material-icons-round">open_in_new</span> Ansehen' +
         '</button>' +
       '</div>' +
-      '<span style="font-size:14px;font-weight:700;color:var(--primary)">' + _escHtml(l.priceLabel || '') + '</span>' +
+      '<span style="font-size:14px;font-weight:700;color:var(--primary-text)">' + _escHtml(l.priceLabel || '') + '</span>' +
     '</div>' +
   '</div>';
 }

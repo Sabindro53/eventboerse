@@ -20,10 +20,10 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 | **L1** | 21 | `█████████████████·····` |
 | **L2** | 28 | `██████████████████████` |
 | **L3** | 12 | `█████████·············` |
-| **L4** | 13 | `██████████············` |
+| **L4** | 14 | `███████████···········` |
 | **L5** | 12 | `█████████·············` |
 
-**Gesamt: 96 Notizen**
+**Gesamt: 97 Notizen**
 
 ## 🔒 Freigabe-Bilanz (Impuls 5 + L4-Veto)
 
@@ -31,13 +31,13 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 |--------|---------|-----------|
 | 🟢 `public` | **10** | fließt zur Website-KI |
 | 🟡 `internal` | 77 | bleibt im Vault |
-| 🔴 `secret` | 9 | verlässt den Vault nie |
+| 🔴 `secret` | 10 | verlässt den Vault nie |
 | ⚠️ fehlt | 0 | keine — sauber |
 
 ```mermaid
 graph LR
-  V["🗄️ Vault<br/>96 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
-  V -->|"86 intern/secret"| X["🔒 bleibt drin"]
+  V["🗄️ Vault<br/>97 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
+  V -->|"87 intern/secret"| X["🔒 bleibt drin"]
   K --> W["🌐 KI-Bot · Board · EB Circle"]
   W -.->|"Wissenslücke"| V
   classDef ok fill:#22c55e,stroke:#16a34a,color:#fff
@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **14** |
-| Commits (30 Tage) | 61 |
-| Letzter Commit | `22517bd · feat(brain): Impuls-Strom messbar, Wissensluecken sichtbar, MCP-Architektur` (2026-08-01) |
+| Commits (7 Tage) | **15** |
+| Commits (30 Tage) | 62 |
+| Letzter Commit | `9f9e215 · docs(vault): Stand finalisiert - Betriebsregeln, Sprint-Abschluss, offener Punkt` (2026-08-01) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
@@ -77,13 +77,13 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 ```
 
 **Codegröße:**
-- `app.js` — 24.909 Zeilen
-- `styles.css` — 16.854 Zeilen
+- `app.js` — 24.916 Zeilen
+- `styles.css` — 16.892 Zeilen
 - `functions.php` — 8.265 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt
 - [[00-Kern/Wissensstroeme]] — die sechs Impulse
 - [[00-Kern/Synergie-Pipeline]] — der Weg zur Website
-- [[00-Kern/Sicherheits-Klassifikation]] — warum 9 Notizen nie hinausgehen
+- [[00-Kern/Sicherheits-Klassifikation]] — warum 10 Notizen nie hinausgehen
 - [[00-Kern/Neural-Map]] — dasselbe Netz visuell

@@ -9,6 +9,34 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-08-01 — Fable-5-Auftrag umgesetzt (Testsuite, Audit, Module, Design, A11y)
+
+**Die fünf Auftragsschritte sind live auf main. Wichtigste neue Regeln:**
+
+1. **app.js ist GENERIERT** — Quelle ist `js/modules/**` (22 Module in core/,
+   search/, chat/, payments/, board/, ai/, ui/; Reihenfolge `modules.list`).
+   Nach Modul-Änderung: `./build-app-js.sh` + regenerierte app.js mitcommitten.
+   CI bricht bei Drift ab. Reines cat — kein Bundler (Leitplanke bleibt gewahrt).
+2. **Testsuite existiert** (68 Tests, 7 Suiten, `npm test`): Smoke alle Routen,
+   Suche (natürliche Sätze), Gebühren (centgenau, JS↔PHP-Parität via php-CLI),
+   Wissensbasis (Antworten + Leckage), CSS-Minify (Verlaufsschrift), Design-System
+   (Konflikt-Ratsche), Barrierefreiheit (axe, beide Modi). **Blockiert PRs.**
+   Vor jedem Merge: `npm test` muss grün sein.
+3. **Sicherheits-Audit** aller 86 Routen + 237 innerHTML-Pfade: Bericht in
+   `40-Governance/Security/2026-08-01-Sicherheits-Audit-Fable5.md` (secret).
+   Ergebnis: Juni-Härtung trägt; 1 mittlerer Fund (KB-Leckage Webhook-Signatur,
+   behoben + Verbotsmuster erweitert), 2 Low-XSS behoben. Scanner bleiben in
+   `tests/audit/` (xss-scan.js, css-duplicates.js).
+4. **Design-Tokens:** --eb-*-Tokens nur noch EINMAL definiert (vorher 3×
+   überschreibend). Neue Text-Tokens `--primary-text` / `--accent-text` für
+   WCAG-AA-Text auf hellem/dunklem Grund — Markenfarbe #FF385C bleibt für
+   Flächen/Icons. Behobener Live-Bug: „Beliebt:"-Chips waren durch
+   Klassenkollision (.ai-suggestions ×2) unsichtbar → Hero-Chips heißen
+   jetzt `.ai-sug-row`.
+5. **A11y:** 97 axe-Verstoß-Nodes → **0** über beide Farbmodi × 6 Kernseiten
+   (Galerie-Dots/Tracks mit Labels + Tastatur, Selects beschriftet, Kontraste).
+   axe ist Teil der Suite — neue Verstöße machen CI rot.
+
 ## Projekt-Essenz
 
 **Plattform** ist ein deutscher Marktplatz, der Event-Planer mit Dienstleistern (DJs, Catering, Foto, Locations etc.) verbindet. Ziel: beste und funktionalste Eventplattform in Deutschland.

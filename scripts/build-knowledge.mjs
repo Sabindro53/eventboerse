@@ -36,6 +36,11 @@ const FORBIDDEN = [
   { re: /\bwp-config\b/i,                       why: 'WordPress-Konfiguration' },
   { re: /\b\d{1,3}(\.\d{1,3}){3}\b/,            why: 'IP-Adresse' },
   { re: /\bsftp:\/\/|\bssh:\/\/|\bmysql:\/\//i, why: 'Infrastruktur-Zugang' },
+  // Angriffsfläche (Sicherheits-Klassifikation): Abwehrmechanismen benennen
+  // hilft nur Angreifern — Webhook-Signaturlogik, Rate-Limit-Schwellen, Nonce-Interna
+  { re: /webhook-?signatur/i,                   why: 'Webhook-Signaturlogik (Angriffsfläche)' },
+  { re: /rate-?limit/i,                         why: 'Rate-Limit-Interna (Angriffsfläche)' },
+  { re: /\bnonce\b/i,                           why: 'Nonce-/Session-Interna (Angriffsfläche)' },
   // E-Mail-Adressen, ausgenommen die offizielle Support-Adresse
   { re: /(?!kontakt@)[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/, why: 'E-Mail-Adresse' },
 ];

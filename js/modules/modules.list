@@ -1,0 +1,24 @@
+# Reihenfolge der Konkatenation — NICHT alphabetisch umsortieren!
+# app.js wird daraus von ./build-app-js.sh erzeugt.
+core/00-basis.js
+core/01-demo-daten.js
+core/02-router-navigation.js
+search/10-karten-home-feed.js
+search/11-suche-ki.js
+search/12-detail-provider.js
+chat/20-chat-nachrichten.js
+payments/21-buchung-verhandlung.js
+ui/22-inserat-settings-uploads.js
+ui/23-darkmode-staedte-picker.js
+ui/24-favoriten-inserate-admin.js
+ui/25-reviews.js
+core/30-auth.js
+ui/31-modals-toast-qabot.js
+ui/32-consent-init-map.js
+board/40-board-kanban.js
+board/41-flow-zahlung.js
+board/42-guide-social-feed.js
+ui/43-showcase.js
+payments/44-kv-buchung.js
+ai/50-planungs-assistent.js
+ui/51-inserat-maske-kalender.js
