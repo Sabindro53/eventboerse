@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-01**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-02**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -63,23 +63,23 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **21** |
-| Commits (30 Tage) | 71 |
-| Letzter Commit | `0a241fa · Fable-5-Strang zusammenführen: Testsuite, 22 Module, A11y auf null Verstöße (#85)` (2026-08-01) |
+| Commits (7 Tage) | **24** |
+| Commits (30 Tage) | 60 |
+| Letzter Commit | `fecf34a · HQ-Dashboard unter eventbörse.de/hq erreichbar machen (#88)` (2026-08-02) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-39 app.js
-     33 styles.css
-     23 index.html
-     23 app-shell.html
+32 app.js
+     24 styles.css
+     17 index.html
+     17 app-shell.html
       9 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.265 Zeilen
+- `functions.php` — 8.276 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt
