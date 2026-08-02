@@ -263,6 +263,17 @@ function eb_serve_theme_root_file() {
             'type'  => 'image/svg+xml; charset=UTF-8',
             'cache' => 'public, max-age=31536000, immutable',
         ),
+        // HQ-Dashboard: eventbörse.de/hq statt .../wp-content/themes/eventboerse/hq.html
+        '/hq' => array(
+            'file'  => 'hq.html',
+            'type'  => 'text/html; charset=UTF-8',
+            'cache' => 'no-cache, no-store, must-revalidate',
+        ),
+        '/hq/' => array(
+            'file'  => 'hq.html',
+            'type'  => 'text/html; charset=UTF-8',
+            'cache' => 'no-cache, no-store, must-revalidate',
+        ),
     );
 
     if ( ! isset( $files[ $path ] ) ) {
