@@ -577,6 +577,15 @@
       <div class="skeleton" style="height:80px;"></div>
     </div>
 
+    <!-- Vorschläge zum Freigeben (offene PRs) -->
+    <div class="section-header">
+      <div class="section-title">✅ Vorschläge zum Freigeben <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— zustimmen oder ablehnen</span></div>
+      <div class="section-badge" id="proposals-badge">–</div>
+    </div>
+    <div class="findings" id="proposals-list">
+      <div class="skeleton" style="height:80px;"></div>
+    </div>
+
     <!-- Quests -->
     <div class="section-header">
       <div class="section-title">🎯 Quests <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— die Roadmap</span></div>
@@ -1215,14 +1224,14 @@ function renderFromCache() {
   if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
   if (tc) state.totalCommits = tc.data;
   if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
-  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
+  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); renderProposals(); }
 }
 
 async function loadAll() {
   try {
     await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
-    renderQuests(); renderAchievements(); renderHud();
+    renderQuests(); renderAchievements(); renderHud(); renderProposals();
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
     else $('releases-list').innerHTML = `<div class="err">Fehler beim Laden: ${escHtml(e.message)}</div>`;
@@ -1247,6 +1256,95 @@ async function refreshAll() {
   await loadAll();
   renderHud();
   showToast('✅ Aktualisiert', 'success'); sfx('click');
+}
+
+/* ─── Vorschläge (offene PRs mit Zustimmen/Ablehnen) ───────────── */
+function renderProposals() {
+  const list = $('proposals-list'), badge = $('proposals-badge');
+  if (!list) return;
+  const pulls = (state.pulls || []).slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+  badge.textContent = String(pulls.length);
+  if (!pulls.length) {
+    list.innerHTML = '<div class="empty">Keine offenen Vorschläge — alles verarbeitet.</div>';
+    return;
+  }
+  list.innerHTML = pulls.map(p => {
+    const num = p.number;
+    const draft = !!(p.draft || (p.pull_request && p.pull_request.draft));
+    const author = (p.user && p.user.login) || '–';
+    const labels = (p.labels || []).map(l => (l && l.name) || '').filter(Boolean);
+    const isRoutine = labels.some(n => /claude-routine|audit|routine/i.test(n));
+    const kind = isRoutine ? 'Bot-Routine' : (author.endsWith('[bot]') ? 'Bot' : 'Mensch');
+    const body = (p.body || '').replace(/\r/g, '').trim();
+    const preview = body ? (body.length > 260 ? body.slice(0, 260) + '…' : body) : '';
+    const age = humanDate(p.updated_at);
+    return `
+      <div class="finding sev-info" data-pr="${num}">
+        <div class="finding-head">
+          <span>${draft ? '📝' : '🔀'}</span>
+          <div class="finding-title">#${num} · ${escHtml(p.title || '')}</div>
+          <span class="finding-area">${escHtml(kind)}</span>
+        </div>
+        <div class="finding-detail">Von ${escHtml(author)} · Stand ${escHtml(age)}${draft ? ' · Draft' : ''}${labels.length ? ' · ' + escHtml(labels.join(', ')) : ''}</div>
+        ${preview ? `<div class="finding-sugg">${escHtml(preview)}</div>` : ''}
+        <div class="finding-actions">
+          <a class="btn" href="${p.html_url}" target="_blank" rel="noopener">🔎 Diff ansehen</a>
+          <button class="btn btn-primary" data-approve-pr="${num}">✅ Zustimmen &amp; Mergen</button>
+          <button class="btn" data-reject-pr="${num}">❌ Ablehnen</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function approvePr(num) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token nötig zum Mergen', 'error'); sfx('error'); return; }
+  const btn = document.querySelector(`[data-approve-pr="${num}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Merge…'; }
+  try {
+    const pr = await gh(`/pulls/${num}`);
+    if (pr.draft && pr.node_id) {
+      const g = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: 'mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{isDraft}}}',
+          variables: { id: pr.node_id },
+        }),
+      });
+      if (!g.ok) throw new Error('Draft → Bereit fehlgeschlagen (HTTP ' + g.status + ')');
+    }
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${num}/merge`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merge_method: 'squash' }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+    showToast('✅ Zusammengeführt — Deploy startet.', 'success'); sfx('success');
+    setTimeout(async () => { await loadIssues(); renderProposals(); animateNum($('s-open'), state.issues.length + state.pulls.length); }, 1500);
+  } catch (e) {
+    showToast(`❌ Merge-Fehler: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Zustimmen & Mergen'; }
+  }
+}
+
+async function rejectPr(num) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token nötig zum Schließen', 'error'); sfx('error'); return; }
+  if (!confirm(`Vorschlag #${num} ablehnen (schließen ohne Merge)?`)) return;
+  const btn = document.querySelector(`[data-reject-pr="${num}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Schließe…'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${num}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'closed' }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+    showToast('❌ Abgelehnt und geschlossen.', 'success'); sfx('click');
+    setTimeout(async () => { await loadIssues(); renderProposals(); animateNum($('s-open'), state.issues.length + state.pulls.length); }, 700);
+  } catch (e) {
+    showToast(`❌ Fehler: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '❌ Ablehnen'; }
+  }
 }
 
 /* ─── Self-Audit (liest audit/latest.json) ─────────────────────── */
@@ -1337,6 +1435,8 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const ap = e.target.closest('[data-approve-pr]'); if (ap) { approvePr(ap.dataset.approvePr); return; }
+  const rp = e.target.closest('[data-reject-pr]'); if (rp) { rejectPr(rp.dataset.rejectPr); return; }
 });
 
 // Keyboard shortcuts

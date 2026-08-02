@@ -9,6 +9,26 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-08-02 — HQ: „Vorschläge zum Freigeben" (Zustimmen/Ablehnen)
+
+Neue Sektion im HQ direkt unter dem Selbstcheck: alle offenen PRs werden
+mit Titel, Autor, Draft-Status, Labels und Body-Vorschau gelistet. Zwei
+Knöpfe pro Vorschlag:
+
+- **✅ Zustimmen & Mergen** — wandelt Draft in „ready", squasht + merged
+  über die GitHub-REST-API (mit dem im HQ hinterlegten PAT).
+- **❌ Ablehnen** — schließt die PR ohne Merge (mit Bestätigungsdialog).
+
+Ohne PAT: die Buttons öffnen den PAT-Dialog statt zu senden. Nach jeder
+Aktion wird die Liste + der Ticket-Zähler neu geladen. Damit ist der
+Kreis geschlossen: `claude-improve.yml` öffnet den Draft-PR, das HQ
+zeigt ihn, ein Klick reicht — kein Wechsel nach GitHub nötig.
+
+Wired: `renderProposals()` in `hq.html` läuft nach `renderFromCache()`
+und `loadAll()`. Event-Delegation liest `[data-approve-pr]` /
+`[data-reject-pr]`. Kein neuer Bot, kein neuer Endpoint — reine
+Verdrahtung existierender Bausteine.
+
 ## Stand 2026-08-01 — Fable-5-Auftrag umgesetzt (Testsuite, Audit, Module, Design, A11y)
 
 **Die fünf Auftragsschritte sind live auf main. Wichtigste neue Regeln:**
