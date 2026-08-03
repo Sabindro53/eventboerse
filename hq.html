@@ -1390,6 +1390,52 @@ function connSetze(id, status, opts = {}) {
   renderConnections();
 }
 
+/**
+ * Prüfung über den Serverseiten-Proxy.
+ *
+ * OpenAI und Anthropic lassen sich aus dem Browser nicht prüfen, ohne den
+ * Schlüssel in die Seite zu legen. /wp-json/eventboerse/v1/hq/probe/<anbieter>
+ * ruft den Anbieter serverseitig auf und gibt nur Zahlen zurück — der
+ * Schlüssel bleibt auf dem Server.
+ *
+ * Die Route ist auf Administratoren beschränkt; wer das HQ sieht, ist einer.
+ */
+async function connProxyPruefung(anbieter) {
+  let res;
+  try {
+    res = await fetch(`/wp-json/eventboerse/v1/hq/probe/${anbieter}`, {
+      credentials: 'same-origin', cache: 'no-store',
+    });
+  } catch (e) {
+    // Lokal (python -m http.server) gibt es kein WordPress — das ist kein
+    // Fehler des Connectors, sondern eine fehlende Serverseite.
+    return { status: 'getrennt', fehler: 'Serverseite nicht erreichbar (lokal ohne WordPress).', details: [] };
+  }
+  if (res.status === 401 || res.status === 403) {
+    return { status: 'fehler', fehler: 'Serverseite verweigert den Zugriff.', details: [] };
+  }
+  if (!res.ok) {
+    return { status: 'getrennt', fehler: `Proxy antwortete ${res.status} — Route noch nicht deployed?`, details: [] };
+  }
+  const j = await res.json();
+  const k = j.kontingent || {};
+  const details = [];
+  if (k.anfragenRest)  details.push(['Anfragen übrig', `${k.anfragenRest}${k.anfragenLimit ? ' von ' + k.anfragenLimit : ''}`]);
+  if (k.tokenRest)     details.push(['Token übrig', `${k.tokenRest}${k.tokenLimit ? ' von ' + k.tokenLimit : ''}`]);
+  if (k.anfragenReset) details.push(['Zurückgesetzt', k.anfragenReset]);
+  if (j.modelle)       details.push(['Modelle erreichbar', String(j.modelle)]);
+
+  // „verbunden" heißt hier: der Schlüssel gilt, geprüft durch einen echten
+  // Aufruf. Verbrauch und Guthaben bleiben unerreichbar — das wird gesagt,
+  // nicht geschätzt.
+  const hinweis = (j.verbrauch && j.verbrauch.abrufbar === false) ? j.verbrauch.grund : null;
+  return {
+    status: j.status || 'fehler',
+    fehler: j.status === 'verbunden' ? hinweis : (j.meldung || hinweis),
+    details,
+  };
+}
+
 /* ── Echte Prüfungen ───────────────────────────────────────────────
    Jede gibt zurück: { status, details[], fehler? }. Was nicht geprüft
    werden kann, meldet das — es wird nicht wohlwollend geraten.        */
@@ -1430,46 +1476,8 @@ const CONN_PRUEFUNG = {
     };
   },
 
-  async anthropic() {
-    const pat = getPat();
-    if (!pat) return { status: 'getrennt', fehler: 'Braucht den GitHub-Token, um die Secret-Ablage zu prüfen.', details: [] };
-    // Prüft, OB das Secret hinterlegt ist — GitHub gibt nur Namen heraus,
-    // nie Werte. Der Schlüssel selbst bleibt, wo er hingehört.
-    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/secrets/ANTHROPIC_API_KEY`, {
-      headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${pat}` },
-    });
-    if (res.status === 404) {
-      return { status: 'getrennt', fehler: 'ANTHROPIC_API_KEY ist nicht als GitHub-Secret hinterlegt.', details: [] };
-    }
-    if (res.status === 403) {
-      return { status: 'eingeschraenkt', fehler: 'Token darf Secrets nicht lesen — Ablage nicht prüfbar.', details: [] };
-    }
-    if (!res.ok) return { status: 'fehler', fehler: `GitHub antwortete ${res.status}`, details: [] };
-    const j = await res.json();
-    return {
-      status: 'eingeschraenkt',
-      fehler: 'Schlüssel liegt sicher, aber Verbrauch und Guthaben sind von hier aus '
-        + 'nicht abrufbar — das ginge nur mit dem Schlüssel im Browser.',
-      details: [
-        ['Secret hinterlegt', 'ja'],
-        ['Zuletzt geändert', j.updated_at ? new Date(j.updated_at).toLocaleDateString('de-DE') : '–'],
-        ['Verwendet in', 'claude-improve.yml, recherche.yml, claude-auto-audit.yml'],
-      ],
-    };
-  },
-
-  async openai() {
-    const pat = getPat();
-    if (!pat) return { status: 'getrennt', fehler: 'Nicht eingerichtet.', details: [] };
-    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/secrets/OPENAI_API_KEY`, {
-      headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${pat}` },
-    });
-    if (res.status === 404) {
-      return { status: 'getrennt', fehler: 'Kein OPENAI_API_KEY hinterlegt — OpenAI ist nicht angebunden.', details: [] };
-    }
-    if (!res.ok) return { status: 'getrennt', fehler: 'Nicht eingerichtet.', details: [] };
-    return { status: 'eingeschraenkt', fehler: 'Schlüssel hinterlegt, aber noch keine Routine nutzt ihn.', details: [] };
-  },
+  anthropic() { return connProxyPruefung('anthropic'); },
+  openai() { return connProxyPruefung('openai'); },
 
   async obsidian() {
     const res = await ghRes('/contents/vault').catch(() => null);

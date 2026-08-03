@@ -209,3 +209,52 @@ jobs:
           "
           echo "✅ Stripe constants written to wp-config.php"
           rm -f /tmp/wp-config.php
+
+      - name: Inject AI keys into wp-config.php (optional)
+        env:
+          SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
+          SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+          SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
+          ANTHROPIC_KEY: ${{ secrets.EB_ANTHROPIC_API_KEY }}
+          OPENAI_KEY: ${{ secrets.EB_OPENAI_API_KEY }}
+        run: |
+          # Bewusst OPT-IN. Ohne diese Secrets passiert nichts — ein Schluessel
+          # wandert nicht stillschweigend an einen weiteren Ort. Die HQ-Karten
+          # melden dann "nicht hinterlegt", was zutrifft.
+          #
+          # Gesetzt bedeutet: der Schluessel liegt danach auf dem Webserver
+          # (wie EB_STRIPE_SECRET_KEY schon heute) und ist damit bei einer
+          # Server-Kompromittierung mit betroffen. Dafuer kann das HQ
+          # Gueltigkeit und Kontingent serverseitig pruefen, ohne dass der
+          # Schluessel je den Browser erreicht.
+          if [ -z "$ANTHROPIC_KEY" ] && [ -z "$OPENAI_KEY" ]; then
+            echo "ℹ️ Keine AI-Keys als Secrets gesetzt — wp-config bleibt unveraendert." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            get /public/wp-config.php -o /tmp/wp-config.php;
+            bye
+          "
+          sed -i '/EB_ANTHROPIC_API_KEY/d' /tmp/wp-config.php
+          sed -i '/EB_OPENAI_API_KEY/d'    /tmp/wp-config.php
+          LINENUM=$(grep -n '<?php' /tmp/wp-config.php | head -1 | cut -d: -f1)
+          if [ -z "$LINENUM" ]; then
+            echo "ERROR: <?php not found in wp-config.php!"
+            exit 1
+          fi
+          ESC_ANT=$(printf "%s" "$ANTHROPIC_KEY" | sed "s/'/\\\\'/g")
+          ESC_OAI=$(printf "%s" "$OPENAI_KEY"    | sed "s/'/\\\\'/g")
+          sed -i "${LINENUM}a\\
+          define('EB_ANTHROPIC_API_KEY', '${ESC_ANT}');\\
+          define('EB_OPENAI_API_KEY', '${ESC_OAI}');" /tmp/wp-config.php
+          echo "--- verify (redacted) ---"
+          grep -nE "EB_(ANTHROPIC|OPENAI)_API_KEY" /tmp/wp-config.php \
+            | sed -E "s/(define\('EB_[A-Z_]+', ')[^']*/\1***REDACTED***/"
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            put /tmp/wp-config.php -o /public/wp-config.php;
+            bye
+          "
+          rm -f /tmp/wp-config.php
+          echo "✅ AI keys written to wp-config.php" >> "$GITHUB_STEP_SUMMARY"

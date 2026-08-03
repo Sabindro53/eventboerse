@@ -139,25 +139,32 @@ const CONNECTORS = [
     zweck: 'Architekturprüfung, Analyse, die Routinen in GitHub Actions.',
     methoden: ['api', 'schluessel'],
     methodeAktiv: 'schluessel',
-    hinweisMethode: 'Der Schlüssel liegt als GitHub-Secret (ANTHROPIC_API_KEY) und wird '
-      + 'ausschließlich in Actions verwendet. Das HQ ruft die API NICHT direkt auf — '
-      + 'ein Schlüssel im Browser wäre ein Schlüssel in der Seite.',
+    hinweisMethode: 'Der Schlüssel liegt als GitHub-Secret (Actions) und — sofern '
+      + 'die Server-Konstante gesetzt ist — auch dort, für den Serverseiten-Proxy. '
+      + 'Das HQ ruft die API nie direkt auf: ein Schlüssel im Browser wäre ein '
+      + 'Schlüssel in der Seite.',
     berechtigungen: ['Messages API (in CI)'],
     leseZugriffe: [],
     schreibZugriffe: [],
     freigabegrenzen: ['Routinen öffnen Draft-PRs, sie veröffentlichen nichts'],
     faehigkeiten: f({
       connect: 'ja', disconnect: 'ja',
-      healthCheck: 'proxy', getUsage: 'proxy', getQuota: 'proxy', getResetTime: 'proxy',
+      // Seit dem Serverseiten-Proxy (eb_hq_probe_anthropic): der Aufruf läuft
+      // auf dem Server, der Schlüssel erreicht den Browser nie.
+      healthCheck: 'ja', getQuota: 'ja', getResetTime: 'ja',
+      // Verbrauch und Guthaben verlangen einen gesonderten Admin-Schlüssel —
+      // auch mit Proxy gibt es dafür keine Zahl.
+      getUsage: 'proxy',
       getCapabilities: 'ja', execute: 'proxy',
     }),
     kontingent: {
-      ueberApiAbrufbar: false,
-      quelle: 'https://console.anthropic.com/settings/usage',
-      hinweis: 'Verbrauch und Guthaben stehen in der Console. Aus dem Browser nicht '
-        + 'abrufbar, ohne den Schlüssel preiszugeben.',
+      ueberApiAbrufbar: true,
+      quelle: 'Rate-Limit-Kopfzeilen über /wp-json/eventboerse/v1/hq/probe/anthropic',
+      hinweis: 'Restanfragen, Token-Kontingent und Reset kommen aus den Kopfzeilen '
+        + 'jeder API-Antwort. Verbrauch und Guthaben brauchen einen Admin-Schlüssel '
+        + 'und stehen weiterhin nur in der Console.',
     },
-    geheimnisAblage: 'GitHub Secret (ANTHROPIC_API_KEY)',
+    geheimnisAblage: 'GitHub Secret (Actions) + Server-Konstante EB_ANTHROPIC_API_KEY (opt-in)',
     unterscheidung: {
       titel: 'Abonnement ist nicht gleich API-Guthaben',
       punkte: [
@@ -180,25 +187,28 @@ const CONNECTORS = [
     logo: '⚡',
     zweck: 'Operative Planung, Textarbeit — noch nicht angebunden.',
     methoden: ['api', 'schluessel'],
-    methodeAktiv: null,
-    hinweisMethode: 'Nicht eingerichtet. Ein Schlüssel gehört als GitHub-Secret hinterlegt '
-      + 'und in Actions verwendet, nicht in diese Seite.',
+    methodeAktiv: 'api',
+    hinweisMethode: 'Der Serverseiten-Proxy (/wp-json/eventboerse/v1/hq/probe/openai) prüft '
+      + 'Gültigkeit und Kontingent, sobald die Server-Konstante gesetzt ist. Bis dahin '
+      + 'meldet die Karte ehrlich „nicht hinterlegt". Der Schlüssel erreicht den Browser nie.',
     berechtigungen: [],
     leseZugriffe: [],
     schreibZugriffe: [],
     freigabegrenzen: [],
     faehigkeiten: f({
       connect: 'ja', disconnect: 'ja',
-      healthCheck: 'proxy', getUsage: 'proxy', getQuota: 'proxy', execute: 'proxy',
-      getCapabilities: 'ja',
+      healthCheck: 'ja', getQuota: 'ja', getResetTime: 'ja',
+      getUsage: 'proxy',
+      getCapabilities: 'ja', execute: 'proxy',
     }),
     kontingent: {
-      ueberApiAbrufbar: false,
-      quelle: 'https://platform.openai.com/usage',
-      hinweis: 'Verbrauch steht im OpenAI-Dashboard. Aus dem Browser nicht abrufbar, '
-        + 'ohne den Schlüssel preiszugeben.',
+      ueberApiAbrufbar: true,
+      quelle: 'Rate-Limit-Kopfzeilen über /wp-json/eventboerse/v1/hq/probe/openai',
+      hinweis: 'Restanfragen, Token-Kontingent und Reset kommen aus den Kopfzeilen '
+        + 'jeder API-Antwort. Verbrauch und Guthaben brauchen einen Admin-Schlüssel '
+        + 'und stehen weiterhin nur im Dashboard.',
     },
-    geheimnisAblage: 'noch keine',
+    geheimnisAblage: 'Server-Konstante EB_OPENAI_API_KEY (opt-in) — noch nicht gesetzt',
     unterscheidung: {
       titel: 'Abonnement ist nicht gleich API-Guthaben',
       punkte: [
