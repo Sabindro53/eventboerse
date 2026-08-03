@@ -112,6 +112,11 @@ jobs:
       - name: Demo-Feed prüfen
         run: node scripts/demo-feed.mjs --check
 
+      # Connector-Katalog: keine Geheimnisse, keine undeklarierten Fähigkeiten,
+      # kein Verbindungszustand — der entsteht nur aus echten Aufrufen.
+      - name: Connector-Katalog prüfen
+        run: node scripts/connectors.mjs --check
+
       - name: Testsuite ausführen
         run: npx playwright test
 

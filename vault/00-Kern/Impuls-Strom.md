@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-01**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-03**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -19,25 +19,25 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 | **L0** | 10 | `████████··············` |
 | **L1** | 21 | `█████████████████·····` |
 | **L2** | 28 | `██████████████████████` |
-| **L3** | 12 | `█████████·············` |
+| **L3** | 13 | `██████████············` |
 | **L4** | 14 | `███████████···········` |
 | **L5** | 13 | `██████████············` |
 
-**Gesamt: 98 Notizen**
+**Gesamt: 99 Notizen**
 
 ## 🔒 Freigabe-Bilanz (Impuls 5 + L4-Veto)
 
 | Klasse | Notizen | Bedeutung |
 |--------|---------|-----------|
 | 🟢 `public` | **10** | fließt zur Website-KI |
-| 🟡 `internal` | 78 | bleibt im Vault |
+| 🟡 `internal` | 79 | bleibt im Vault |
 | 🔴 `secret` | 10 | verlässt den Vault nie |
 | ⚠️ fehlt | 0 | keine — sauber |
 
 ```mermaid
 graph LR
-  V["🗄️ Vault<br/>98 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
-  V -->|"88 intern/secret"| X["🔒 bleibt drin"]
+  V["🗄️ Vault<br/>99 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
+  V -->|"89 intern/secret"| X["🔒 bleibt drin"]
   K --> W["🌐 KI-Bot · Board · EB Circle"]
   W -.->|"Wissenslücke"| V
   classDef ok fill:#22c55e,stroke:#16a34a,color:#fff
@@ -63,23 +63,23 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **21** |
-| Commits (30 Tage) | 71 |
-| Letzter Commit | `0a241fa · Fable-5-Strang zusammenführen: Testsuite, 22 Module, A11y auf null Verstöße (#85)` (2026-08-01) |
+| Commits (7 Tage) | **24** |
+| Commits (30 Tage) | 75 |
+| Letzter Commit | `fecf34a · HQ-Dashboard unter eventbörse.de/hq erreichbar machen (#88)` (2026-08-02) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-39 app.js
+40 app.js
      33 styles.css
      23 index.html
      23 app-shell.html
-      9 functions.php
+     10 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.265 Zeilen
+- `functions.php` — 8.310 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt

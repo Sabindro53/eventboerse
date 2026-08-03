@@ -1,0 +1,148 @@
+// Verbindungs-Tests: Connector-Katalog und HQ-Zugang.
+//
+// Zwei Dinge werden hier festgehalten, die beide schon einmal falsch waren:
+//
+//   1. Das HQ war faktisch offen — die Prüfung lief im Browser gegen eine
+//      im HTML mitgelieferte Schlüsselliste. Kein Test hätte das gemeldet.
+//   2. Ein Katalog, der Status behauptet, ist eine Lüge in Dateiform. Der
+//      Katalog beschreibt Möglichkeiten; ob etwas verbunden IST, entscheidet
+//      ausschließlich ein echter Aufruf zur Laufzeit.
+const { test, expect } = require('@playwright/test');
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = path.join(__dirname, '..', '..');
+const KATALOG = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-connectors.json'), 'utf8'));
+const HQ = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
+const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+const HTACCESS = fs.readFileSync(path.join(ROOT, '.htaccess'), 'utf8');
+
+test.describe('HQ-Zugang', () => {
+  test('hq.html enthält keine Zugangsschlüssel im Klartext', () => {
+    // Der konkrete Rückfall, den es hier gab: HQ_KEYS = ['eb-hq-2026', …].
+    expect(HQ, 'Schlüsselliste im ausgelieferten HTML').not.toMatch(/HQ_KEYS/);
+    expect(HQ).not.toMatch(/eb-hq-2026|eventboerse-hq/);
+    expect(HQ, 'clientseitige Schlüsselprüfung ist keine Prüfung').not.toMatch(/function checkAuth/);
+  });
+
+  test('Auslieferung prüft serverseitig auf Administrator', () => {
+    expect(FUNCTIONS).toMatch(/function eb_serve_hq/);
+    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'));
+    expect(fn, 'ohne Rechteprüfung wäre /hq offen').toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+    // 404 statt 403: eine Seite, deren Existenz man nicht bestätigt, wird
+    // auch nicht gezielt angegriffen.
+    expect(fn.slice(0, 900)).toMatch(/status_header\(\s*404\s*\)/);
+  });
+
+  test('direkter Theme-Pfad ist gesperrt', () => {
+    // Apache liefert Theme-Dateien direkt aus, PHP läuft dabei nie — ohne
+    // diese Sperre wäre die Rechteprüfung schlicht umgehbar.
+    expect(HTACCESS).toMatch(/wp-content\/themes\/\[\^\/\]\+\/hq\\\.html/);
+  });
+
+  test('HQ wird nicht indexiert', () => {
+    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'));
+    expect(fn.slice(0, 1400)).toMatch(/X-Robots-Tag.*noindex/);
+  });
+});
+
+test.describe('Connector-Katalog', () => {
+  test('Katalog-Prüfung läuft sauber durch', () => {
+    const out = execFileSync('node', ['scripts/connectors.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
+    expect(out).toMatch(/kein vorgetäuschter Zustand/);
+  });
+
+  test('Katalog behauptet keinen Verbindungszustand', () => {
+    for (const c of KATALOG.connectors) {
+      expect(c, `${c.id} darf keinen Status mitliefern`).not.toHaveProperty('status');
+      expect(c).not.toHaveProperty('letzteSynchronisierung');
+      expect(c).not.toHaveProperty('letzterFehler');
+    }
+  });
+
+  test('jeder Connector deklariert alle 15 HQ-Funktionen', () => {
+    for (const c of KATALOG.connectors) {
+      for (const fn of KATALOG.funktionen) {
+        expect(['ja', 'nein', 'proxy'], `${c.id}.${fn}`).toContain(c.faehigkeiten[fn]);
+      }
+    }
+  });
+
+  test('nicht eingerichtete Connectors behaupten keine Fähigkeiten', () => {
+    const harmlos = ['connect', 'disconnect', 'getCapabilities'];
+    for (const c of KATALOG.connectors.filter((x) => !x.methodeAktiv)) {
+      const behauptet = KATALOG.funktionen.filter((fn) => c.faehigkeiten[fn] === 'ja' && !harmlos.includes(fn));
+      expect(behauptet, `${c.id} ist nicht eingerichtet`).toEqual([]);
+    }
+  });
+
+  test('Copilot-Kontingent wird als nicht abrufbar geführt', () => {
+    const c = KATALOG.connectors.find((x) => x.id === 'copilot');
+    expect(c.kontingent.ueberApiAbrufbar).toBe(false);
+    // Wortlaut aus der Spezifikation — geschätzte Tokenzahlen sind keine Werte.
+    expect(c.kontingent.hinweis).toContain('nicht über die API verfügbar');
+  });
+
+  test('Abonnement und API-Zugang werden getrennt ausgewiesen', () => {
+    for (const id of ['openai', 'anthropic']) {
+      const c = KATALOG.connectors.find((x) => x.id === id);
+      expect(c.unterscheidung, `${id} braucht die Abgrenzung Abo ↔ API`).toBeTruthy();
+      expect(c.unterscheidung.punkte.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test('kein Geheimnis im ausgelieferten Katalog', () => {
+    const roh = JSON.stringify(KATALOG);
+    for (const muster of [/sk_(live|test)_/i, /ghp_[A-Za-z0-9]/, /sk-[A-Za-z0-9]{20}/, /api[_-]?key\s*[:=]\s*\S/i]) {
+      expect(roh, `Verbotsmuster ${muster}`).not.toMatch(muster);
+    }
+  });
+
+  test('alle hinterlegten Links sind https', () => {
+    for (const c of KATALOG.connectors) {
+      for (const [name, url] of Object.entries(c.links)) {
+        if (url) expect(url, `${c.id}.${name}`).toMatch(/^https:\/\//);
+      }
+    }
+  });
+});
+
+test.describe('Verbindungs-Oberfläche', () => {
+  test('Karten starten getrennt und werden nur durch echte Prüfung grün', async ({ page }) => {
+    const fehler = [];
+    page.on('pageerror', (e) => fehler.push(e.message));
+    // Ohne Netz nach draußen: alle GitHub-Aufrufe scheitern. Genau dann darf
+    // keine Karte „verbunden" zeigen.
+    await page.route('https://api.github.com/**', (r) => r.abort());
+    await page.goto('/hq.html');
+    await page.waitForTimeout(2500);
+
+    const zustand = await page.evaluate(() => ({
+      geladen: !!window.connKatalog || typeof connKatalog !== 'undefined' && !!connKatalog,
+      karten: document.querySelectorAll('.conn').length,
+      verbunden: [...document.querySelectorAll('.conn')].filter(
+        (el) => el.querySelector('.st-verbunden')).map((el) => el.id),
+    }));
+
+    expect(fehler, `Page-Errors: ${fehler.join(' | ')}`).toEqual([]);
+    expect(zustand.karten, 'Verbindungskarten müssen gerendert sein').toBeGreaterThanOrEqual(10);
+    // eventboerse prüft gleiche Herkunft und darf grün sein — GitHub-gestützte
+    // Connectors dürfen es ohne erreichbare API nicht.
+    const ghGestuetzt = zustand.verbunden.filter((id) => id !== 'conn-eventboerse');
+    expect(ghGestuetzt, 'ohne API-Antwort darf nichts „verbunden" behaupten').toEqual([]);
+  });
+
+  test('jede Karte nennt Berechtigungen, Kontingent und Schlüssel-Ablage', async ({ page }) => {
+    await page.route('https://api.github.com/**', (r) => r.abort());
+    await page.goto('/hq.html');
+    await page.waitForTimeout(2000);
+    const fehlend = await page.evaluate(() =>
+      [...document.querySelectorAll('.conn')].filter((el) => {
+        const t = el.textContent;
+        return !t.includes('Berechtigungen') || !t.includes('Kontingent') || !t.includes('Schlüssel liegt');
+      }).map((el) => el.id)
+    );
+    expect(fehlend).toEqual([]);
+  });
+});

@@ -92,6 +92,42 @@ zusammengeführt. Was die Zusammenführung gekostet hat:
 
 **Stand: 68/68 Tests grün**, A11y 0 Verstöße über beide Farbmodi.
 
+## Zuletzt abgeschlossen (2026-08-02) — HQ-Zugang und Verbindungszentrale
+
+- [x] **Das HQ war faktisch offen.** Die Zugangsprüfung lief im Browser gegen
+  eine im HTML mitgelieferte Schlüsselliste (`HQ_KEYS = ['eb-hq-2026', …]`) —
+  wer den Quelltext las, kam rein. Jetzt prüft `eb_serve_hq()` serverseitig auf
+  `manage_options`, bevor ein Byte das Haus verlässt; Unberechtigte bekommen
+  **404** statt 403. Der direkte Theme-Pfad ist in `.htaccess` gesperrt, weil
+  Apache dort ausliefert, ohne PHP je zu fragen — ohne diese Sperre wäre die
+  Rechteprüfung schlicht umgehbar. Das Schein-Tor im HTML ist ersatzlos raus.
+- [x] **Kurze Adresse:** `eventbörse.de/hq`, inklusive Unterpfaden
+  (`/hq/connections/github`, `/connections/anthropic`).
+- [x] **Systeme & KI-Verbindungen** (HQ 3A, erste Ausbaustufe) — 10 Connectors
+  mit Berechtigungen, Fähigkeiten, Kontingent, Schlüssel-Ablage und den
+  offiziellen Einrichtungslinks. Tragende Entscheidung: **Katalog ist nicht
+  Zustand.** `assets/eb-connectors.json` beschreibt Möglichkeiten; ob etwas
+  verbunden ist, entscheidet ausschließlich ein echter Aufruf zur Laufzeit.
+  Der Prüfer lehnt jeden Katalogeintrag mit `status` ab.
+- [x] **Ehrliche Prüfungen statt Dekoration** — GitHub (`/rate_limit` mit
+  echtem Kontingent), Deploy und Monitoring (Actions-Läufe), Vault
+  (Contents-API), Website (gleiche Herkunft). Für Anthropic wird geprüft,
+  **ob** das Secret hinterlegt ist — GitHub gibt nur Namen heraus, nie Werte.
+  Was nicht prüfbar ist, bleibt gelb mit Begründung: Copilot-Restkontingent
+  (persönlich nicht als Schnittstelle vorgesehen), Verbrauch bei OpenAI und
+  Anthropic (ein Schlüssel im Browser wäre ein Schlüssel für jeden Besucher).
+- [x] **Abonnement ≠ API-Guthaben** wird auf beiden KI-Karten getrennt
+  ausgewiesen — ein Test erzwingt das.
+
+**Stand: 94/94 Tests in 9 Suiten grün** (`verbindungen.spec.js` neu, 14 Tests).
+Ein Test fährt die Seite mit blockierter GitHub-API und besteht nur, wenn dann
+nichts „verbunden" behauptet.
+
+### Offen an 3A
+Echte OAuth-2.1/PKCE-Flows, `getUsage`/`getQuota` für OpenAI und Anthropic
+(beides braucht eine Serverseite als Proxy), anklickbare Impuls-Ströme rund um
+den Orb, Connector-Assistent für neue Dienste.
+
 ## Zuletzt abgeschlossen (2026-08-01) — der Zufluss von außen
 
 Die drei offenen Punkte aus [[30-Betrieb/MCP-Architektur]] §5 sind zu.

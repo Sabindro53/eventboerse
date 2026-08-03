@@ -1,0 +1,100 @@
+---
+layer: L3
+domain: betrieb
+share: internal
+tags: [layer/L3, domain/betrieb, share/internal, typ/architektur]
+---
+
+# Systeme & KI-Verbindungen — die Integrationsschicht des HQ
+
+Umsetzung von HQ 3A. Ziel: neue Schnittstellen als Modul ergänzen, statt sie
+in den Agenten einzubauen. Der Kern ist eine Trennung, die alles andere trägt.
+
+## Katalog ist nicht Zustand
+
+| | Katalog | Zustand |
+|---|---|---|
+| Wo | `assets/eb-connectors.json` (versioniert) | nur im Browser, zur Laufzeit |
+| Was | Was es gibt, wie man verbindet, welche Rechte nötig sind, wohin die offiziellen Seiten führen | Verbunden oder nicht, letzte Prüfung, letzter Fehler, Kontingent |
+| Quelle | `scripts/connectors.mjs` | echte HTTP-Aufrufe |
+
+**Warum getrennt:** Ein Katalog, der „verbunden" mitliefert, behauptet etwas,
+das niemand geprüft hat. Der Prüfer (`--check`) lehnt deshalb jeden Eintrag ab,
+der `status`, `letzteSynchronisierung` oder `letzterFehler` enthält.
+
+Jede Karte startet auf **getrennt** und wird erst grün, wenn ein Aufruf
+tatsächlich zurückkam. Ein Test fährt die Seite mit blockierter GitHub-API und
+besteht nur, wenn dann nichts „verbunden" behauptet.
+
+## Die drei Fähigkeitswerte
+
+Jeder Connector deklariert alle 15 HQ-Funktionen (`connect`, `healthCheck`,
+`getQuota`, … ) mit genau einem von drei Werten:
+
+- **ja** — der Anbieter kann es, und das HQ kann es von hier aus aufrufen
+- **proxy** — der Anbieter kann es, das HQ nicht aus dem Browser heraus.
+  Entweder CORS, oder der Schlüssel läge im Seitenkontext. Braucht eine
+  Serverseite, die es noch nicht gibt
+- **nein** — gibt es beim Anbieter nicht
+
+Ein fehlender Eintrag ist ein Fehler, keine Auslassung — sonst schleicht sich
+später ein „ja" in die Lücke.
+
+## Was ehrlich nicht geht
+
+**Copilot-Restkontingent.** Persönlich nicht als Schnittstelle vorgesehen (die
+Metrics-API ist Organisations- und Enterprise-Ebene). Die Karte zeigt den
+vorgegebenen Wortlaut statt einer geschätzten Zahl.
+
+**Verbrauch bei OpenAI und Anthropic.** Ein API-Schlüssel im Browser wäre ein
+Schlüssel für jeden, der die Seite öffnet. Der Anthropic-Schlüssel liegt als
+GitHub-Secret; das HQ prüft, **ob** er hinterlegt ist — GitHub gibt nur Namen
+heraus, nie Werte. Das ist eine echte Prüfung ohne Preisgabe.
+
+**Abonnement ≠ API-Guthaben.** Weder ein ChatGPT- noch ein Claude-Abo ist ein
+API-Kontingent. Beide Karten weisen das getrennt aus.
+
+## Zugang zum HQ
+
+Seit 2026-08-02 prüft `eb_serve_hq()` in `functions.php` serverseitig auf
+`manage_options`, bevor ein Byte das Haus verlässt. Wer nicht berechtigt ist,
+bekommt **404** statt 403 — eine Seite, deren Existenz man nicht bestätigt,
+wird auch nicht gezielt angegriffen.
+
+Vorher lief die Prüfung im Browser gegen eine im HTML mitgelieferte
+Schlüsselliste (`HQ_KEYS`). Wer den Quelltext las, kam rein. Eine Prüfung, die
+der Prüfling selbst ausführt, ist keine.
+
+Der direkte Theme-Pfad `/wp-content/themes/…/hq.html` ist zusätzlich in
+`.htaccess` gesperrt: dort liefert Apache aus, ohne PHP je zu fragen — ohne die
+Sperre wäre die Rechteprüfung schlicht umgehbar.
+
+## Wo Geheimnisse liegen
+
+| Ablage | Was | Erreichbar für |
+|---|---|---|
+| GitHub Secrets | `ANTHROPIC_API_KEY`, `IONOS_FTP_*`, `EB_SMTP_*`, `EB_STRIPE_*` | nur Actions-Läufe |
+| `wp-config.php` | zur Laufzeit injizierte Konstanten | nur der Server |
+| `sessionStorage` | GitHub-Token, von Hand eingegeben | nur dieser Tab, dieser Rechner |
+| Repo / Vault / Katalog | **nichts** | — |
+
+Der Katalog-Prüfer scannt jeden Eintrag gegen die Verbotsmuster aus
+`scripts/lib/verbotsmuster.mjs`.
+
+## Einen Connector ergänzen
+
+1. Eintrag in `CONNECTORS` in `scripts/connectors.mjs` — alle 15 Fähigkeiten
+   deklarieren, Methode, Rechte, Grenzen, offizielle Links
+2. `node scripts/connectors.mjs` und die erzeugte JSON mitcommitten
+3. Falls prüfbar: Eintrag in `CONN_PRUEFUNG` in `hq.html` — die Prüfung muss
+   einen echten Aufruf machen und im Fehlerfall den Fehler zeigen, nicht
+   schweigen
+4. `npm run gate`
+
+Ohne Schritt 3 bleibt die Karte grau. Das ist der gewollte Standardfall: lieber
+ehrlich grau als unbelegt grün.
+
+## Verwandt
+- [[30-Betrieb/MCP-Architektur]] — MCP als gemeinsame Verbindungsschicht
+- [[00-Kern/Sicherheits-Klassifikation]] — was den Vault verlässt
+- [[50-Evolution/Recherche/_Schleuse]] — externer Zufluss

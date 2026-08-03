@@ -77,6 +77,22 @@ nichts gepostet, also darf auch nichts frisch aussehen. Die Wissenslücken
 (`eb_kb_misses`) bleiben im Browser; der Export geschieht von Hand über den
 EB Circle im HQ (⬇︎-Knopf).
 
+### HQ & Verbindungen
+
+Das HQ (`hq.html`) liegt unter **eventbörse.de/hq** und wird von
+`eb_serve_hq()` in `functions.php` nur an angemeldete Administratoren
+ausgeliefert (`manage_options`, sonst 404). Der direkte Theme-Pfad ist in
+`.htaccess` gesperrt — dort läuft PHP nie.
+
+```bash
+node scripts/connectors.mjs            # assets/eb-connectors.json (Katalog)
+node scripts/connectors.mjs --check    # keine Geheimnisse, kein Zustand im Katalog
+```
+
+Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
+verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.
+Details: `vault/30-Betrieb/Verbindungen.md`.
+
 ### Impuls-Strom messen
 
 ```bash
@@ -115,11 +131,11 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-80 Tests in 8 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+94 Tests in 9 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
-Barrierefreiheit (axe, beide Farbmodi), Design-System, CSS-Minify.
-`pr-check.yml` blockiert PRs bei Fehlern.
+Verbindungen (HQ-Zugang + Connector-Katalog), Barrierefreiheit (axe, beide
+Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei Fehlern.
 
 ## Deployment
 
