@@ -91,6 +91,33 @@ innerhalb des Zielordners landen. Geprüft gegen echte Angriffsmuster
 Sicherheitlich ändert sich nichts: die Dateien waren über den Theme-Pfad
 ohnehin öffentlich lesbar.
 
+## CSP: warum das HQ mit GitHub sprechen darf
+
+Neun von zehn Karten meldeten „Failed to fetch", obwohl Route und Token in
+Ordnung waren. Ursache: `connect-src` erlaubte `api.github.com` nicht — der
+Browser ließ die Anfragen gar nicht erst raus. Ein abgelehnter Token hätte
+401 mit JSON geliefert; „Failed to fetch" ohne Status ist die Signatur eines
+CSP-Verstoßes.
+
+`eb_hq_csp_erweitern()` liest den bereits gesetzten Header aus und ergänzt
+`connect-src` um `api.github.com` und `raw.githubusercontent.com` — **nur für
+die `/hq`-Antwort**. Die öffentliche Seite spricht nie mit GitHub, und was sie
+nicht braucht, soll ihr auch nicht offenstehen.
+
+Erweitert statt zusätzlich gesendet: zwei CSP-Header wertet der Browser als
+**Schnittmenge** aus. Ein zweiter Header hätte also nichts erlaubt, sondern nur
+weiter eingeschränkt.
+
+**Warum die Testsuite das nicht fand:** `verbindungen.spec.js` blockiert
+`api.github.com` absichtlich, um zu prüfen, dass dann nichts „verbunden"
+behauptet. Ein CSP-Verstoß sieht für den Test genauso aus. Deshalb rechnet
+`tests/e2e/csp-hq.php` den Header jetzt separat in PHP durch — gegen die echte
+Direktivenliste, mit Zusicherung, dass nur `connect-src` sich ändert.
+
+Die CSP wird ausschließlich in `functions.php` gesetzt; `.htaccess` setzt zwar
+andere Sicherheitsheader, aber keine CSP. Es gibt also keine zweite Stelle, die
+den Wert überschreiben könnte.
+
 ## Zwischengespeicherte Stände
 
 `renderFromCache()` zeigt sofort den letzten bekannten Stand, damit die Seite
@@ -102,6 +129,16 @@ sich wie der aktuelle.
 Jetzt trägt jeder aus dem Zwischenspeicher gerenderte Stand den Zusatz
 *zwischengespeichert*, bis `loadAll()` ihn durch echte Daten ersetzt. Ein alter
 Wert darf angezeigt werden — aber nicht als frischer.
+
+Dasselbe gilt für den Selbstcheck: `audit/latest.json` lag zwei Wochen still
+und meldete „Keine automatisierten Tests", während die Playwright-Suite längst
+stand. Ein Befund über einen alten Code-Stand ist schlimmer als keiner — man
+handelt danach. Zwei Änderungen:
+
+- die **Tagesroutine** (`tagesroutine.yml`, 03:17 UTC) erneuert den Selbstcheck
+  zusammen mit dem Demo-Feed und committet, wenn sich etwas geändert hat
+- ist der Stand älter als sieben Tage, schreibt das HQ es dazu, statt ihn nur
+  zu datieren
 
 ## Wo Geheimnisse liegen
 
