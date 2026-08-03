@@ -273,6 +273,43 @@ function eb_serve_theme_root_file() {
         return;
     }
 
+    // Datendateien des Themes unter kurzem Pfad: /assets/*.json, /audit/*.json.
+    //
+    // Das HQ läuft unter /hq (und /hq/…), nicht im Theme-Verzeichnis. Ein
+    // relativer Pfad zeigt von dort ins Leere — genau daran scheiterten
+    // Connector-Katalog, Wissensbasis und Selbstcheck.
+    //
+    // Bewusst eng gehalten:
+    //   · nur .json — Skripte und Stile laden bereits über ihren Theme-Pfad,
+    //     eine zweite Route dafür wäre Angriffsfläche ohne Nutzen
+    //   · nur diese beiden Ordner, keine freie Pfadangabe
+    //   · der Dateiname darf keinen Schrägstrich enthalten, und der aufgelöste
+    //     Pfad MUSS im Zielordner liegen. Ohne die zweite Prüfung wäre ein
+    //     Ausbruch nach oben einen Versuch wert
+    //
+    // $path stammt aus parse_url() und ist NICHT dekodiert — %2f bleibt %2f
+    // und fällt schon durch den Zeichensatz des Musters.
+    // Der Dateiname beginnt mit einem Buchstaben oder einer Ziffer — eine
+    // Punktdatei hat in einer öffentlichen Route nichts zu suchen.
+    if ( preg_match( '#^/(assets|audit)/([A-Za-z0-9][A-Za-z0-9._-]*\.json)$#', $path, $m ) ) {
+        $basis = realpath( get_template_directory() . '/' . $m[1] );
+        $ziel  = $basis ? realpath( $basis . '/' . $m[2] ) : false;
+
+        if ( ! $basis || ! $ziel || strpos( $ziel, $basis . DIRECTORY_SEPARATOR ) !== 0 || ! is_file( $ziel ) ) {
+            status_header( 404 );
+            nocache_headers();
+            exit;
+        }
+
+        status_header( 200 );
+        header( 'Content-Type: application/json; charset=UTF-8' );
+        header( 'X-Content-Type-Options: nosniff' );
+        // Kurz genug, dass ein neuer Katalog schnell durchkommt.
+        header( 'Cache-Control: public, max-age=300, must-revalidate' );
+        readfile( $ziel );
+        exit;
+    }
+
     if ( ! isset( $files[ $path ] ) ) {
         return;
     }

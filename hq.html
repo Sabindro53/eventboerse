@@ -686,7 +686,7 @@ const SITE_URL = 'https://xn--eventbrse-57a.de/';
 const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
+const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0, ausCache: false };
 const $ = id => document.getElementById(id);
 
 /* ─── Zugang ───────────────────────────────────────────────────────
@@ -718,6 +718,18 @@ function requirePat() {
   $('pat-notice').style.display = 'flex';
   $('pat-input').focus();
   $('pat-notice').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ─── Datendateien des Themes ──────────────────────────────────────
+   assets/ und audit/ liegen im Theme-Verzeichnis, das HQ läuft aber unter
+   /hq — bei Tieflinks sogar unter /hq/connections/github. Ein relativer
+   Pfad zeigt von dort jedes Mal woandershin, deshalb wird er absolut
+   aufgelöst. functions.php bedient /assets/*.json und /audit/*.json.
+
+   Ausnahme: wird die Datei direkt geöffnet (…/hq.html, auch file://),
+   liegen die Ordner tatsächlich daneben — dann bleibt es relativ.        */
+function hqAsset(pfad) {
+  return /\.html?$/i.test(location.pathname) ? pfad : '/' + pfad;
 }
 
 /* ─── localStorage cache (stale-while-revalidate) ──────────────── */
@@ -991,7 +1003,11 @@ function renderCommits() {
   const commits = state.commits;
   if (!commits.length) { $('releases-list').innerHTML = '<div class="err">Keine Commits ladbar</div>'; return; }
   const short = commits[0].sha.slice(0, 7);
-  $('header-sha').textContent = `main @ ${short}`;
+  // Aus dem Zwischenspeicher gerenderte Stände sind womöglich Tage alt. Ohne
+  // Kennzeichnung liest man einen fremden SHA als den aktuellen — genau das
+  // ist hier passiert („main @ 97d7eff", während main längst weiter war).
+  // Ein veralteter Wert darf angezeigt werden, aber nicht als frischer.
+  $('header-sha').textContent = `main @ ${short}` + (state.ausCache ? ' · zwischengespeichert' : '');
   $('commits-badge').textContent = `${state.totalCommits || commits.length} Commits`;
 
   const list = $('releases-list'); list.innerHTML = '';
@@ -1231,12 +1247,16 @@ function renderFromCache() {
   if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
   if (tc) state.totalCommits = tc.data;
   if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
+  // Alles hier stammt aus dem Zwischenspeicher — bis loadAll() frische
+  // Daten bringt, wird das auch so ausgewiesen.
+  state.ausCache = true;
   if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
 }
 
 async function loadAll() {
   try {
     await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
+    state.ausCache = false;   // ab hier sind die Daten nachweislich frisch
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
     renderQuests(); renderAchievements(); renderHud();
   } catch (e) {
@@ -1274,7 +1294,7 @@ async function loadSelfAudit() {
   // Versuche zuerst lokales File (gleicher Pfad wie hq.html, also Theme-Wurzel),
   // dann GitHub Raw als Fallback (damit hq.html auch standalone funktioniert).
   const tryUrls = [
-    new URL('audit/latest.json', location.href).href + '?t=' + Date.now(),
+    hqAsset('audit/latest.json') + '?t=' + Date.now(),
     `https://raw.githubusercontent.com/${REPO}/main/audit/latest.json`,
   ];
   let data = null;
@@ -1460,7 +1480,7 @@ const CONN_PRUEFUNG = {
 
   async eventboerse() {
     // Gleiche Herkunft — echter Statuscode, keine opake Antwort.
-    const res = await fetch('assets/eb-knowledge.json', { cache: 'no-store' });
+    const res = await fetch(hqAsset('assets/eb-knowledge.json'), { cache: 'no-store' });
     if (!res.ok) return { status: 'fehler', fehler: `Wissensbasis antwortete ${res.status}`, details: [] };
     const kb = await res.json();
     return {
@@ -1636,7 +1656,7 @@ function connTiefenlink() {
 
 async function initConnections() {
   try {
-    const res = await fetch('assets/eb-connectors.json', { cache: 'no-store' });
+    const res = await fetch(hqAsset('assets/eb-connectors.json'), { cache: 'no-store' });
     connKatalog = await res.json();
   } catch {
     $('conns-grid').innerHTML = '<div class="conn-warn">Connector-Katalog nicht ladbar.</div>';
@@ -1754,7 +1774,7 @@ window.addEventListener('DOMContentLoaded', init);
   var KB = null, speakOn = false, rec = null, listening = false;
   var esc = function (t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; };
 
-  fetch('assets/eb-knowledge.json', { cache: 'no-store' })
+  fetch(hqAsset('assets/eb-knowledge.json'), { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (k) { KB = (k && Array.isArray(k.entries)) ? k : null;
       hintEl.textContent = KB ? (KB.entries.length + ' Wissens-Abschnitte geladen · Antworten nur aus freigegebenem Wissen')
