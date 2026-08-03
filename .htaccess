@@ -91,6 +91,12 @@ ServerSignature Off
 RedirectMatch 404 /\.git
 RedirectMatch 404 ^/(vault|\.github)(/|$)
 
+# HQ nur über /hq — und damit nur durch die PHP-Rechteprüfung.
+# Die Theme-Datei selbst wird von Apache direkt ausgeliefert, PHP läuft dabei
+# nie. Ohne diese Sperre wäre die Rechteprüfung in functions.php umgehbar,
+# indem man den Theme-Pfad direkt aufruft.
+RedirectMatch 404 ^/wp-content/themes/[^/]+/hq\.html$
+
 # Verzeichnis-Listing aus
 Options -Indexes
 <IfModule mod_autoindex.c>

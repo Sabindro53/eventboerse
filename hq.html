@@ -64,33 +64,6 @@
   }
   #loadbar.active { opacity: 1; }
 
-  /* ── Auth screen ── */
-  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
-  .auth-box {
-    background: linear-gradient(160deg, var(--surface), var(--bg2));
-    border: 1px solid var(--border);
-    border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 400px; text-align: center;
-    box-shadow: 0 30px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
-    position: relative; overflow: hidden;
-  }
-  .auth-box::before {
-    content: ''; position: absolute; inset: -2px; border-radius: 22px; z-index: -1;
-    background: conic-gradient(from 0deg, var(--pink), var(--violet), var(--cyan), var(--pink));
-    filter: blur(14px); opacity: .35; animation: spin 8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .auth-box .logo { font-size: 2.4rem; margin-bottom: 1rem; filter: drop-shadow(0 0 14px rgba(233,30,140,.5)); }
-  .auth-box h1 { font-size: 1.5rem; margin-bottom: .4rem; letter-spacing: -.01em; }
-  .auth-box .tag { display:inline-block; font-size:.68rem; letter-spacing:.18em; text-transform:uppercase; color:var(--cyan); margin-bottom:1rem; }
-  .auth-box p { color: var(--muted); font-size: .9rem; margin-bottom: 1.5rem; }
-  .auth-box input {
-    width: 100%; padding: .8rem 1rem; background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 10px; color: var(--text);
-    font-size: 1rem; margin-bottom: 1rem; outline: none; transition: border-color .2s, box-shadow .2s;
-  }
-  .auth-box input:focus { border-color: var(--pink); box-shadow: var(--glow) rgba(233,30,140,.25); }
-  .auth-error { color: var(--red); font-size: .85rem; margin-top: -.5rem; margin-bottom: .75rem; display: none; }
-
   /* ── Main HQ ── */
   #hq { display: none; animation: fadeUp .5s ease both; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(12px);} to { opacity:1; transform:none;} }
@@ -212,6 +185,51 @@
   .section-header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 1rem; }
   .section-title { font-size: 1.02rem; font-weight: 700; display:flex; align-items:center; gap:.5rem; }
   .section-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .7rem; font-size: .72rem; color: var(--muted); }
+
+  /* ── Systeme & KI-Verbindungen ── */
+  .conn-note { font-size: .78rem; color: var(--muted); line-height: 1.6; margin-bottom: 1rem;
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--cyan);
+    border-radius: 10px; padding: .7rem .9rem; }
+  .conns { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .conn {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: .7rem;
+  }
+  .conn-head { display: flex; align-items: flex-start; gap: .7rem; }
+  .conn-logo { font-size: 1.5rem; line-height: 1; flex: 0 0 auto; }
+  .conn-id { flex: 1; min-width: 0; }
+  .conn-id b { display: block; font-size: .95rem; }
+  .conn-id small { color: var(--muted); font-size: .74rem; }
+  /* Statusfarben: grün heißt geprüft, nicht gehofft. */
+  .conn-status { font-size: .68rem; font-weight: 600; padding: .18rem .55rem; border-radius: 999px;
+    border: 1px solid; white-space: nowrap; flex: 0 0 auto; }
+  .st-verbunden   { color: #4ade80; border-color: #4ade8055; background: #4ade8014; }
+  .st-eingeschr   { color: #fbbf24; border-color: #fbbf2455; background: #fbbf2414; }
+  .st-getrennt    { color: var(--muted); border-color: var(--border); background: var(--surface2); }
+  .st-fehler      { color: #f87171; border-color: #f8717155; background: #f8717114; }
+  .st-pruefe      { color: var(--cyan); border-color: #22d3ee55; background: #22d3ee14; }
+
+  .conn-zweck { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+  .conn-rows { display: flex; flex-direction: column; gap: .3rem; font-size: .74rem; }
+  .conn-row { display: flex; gap: .5rem; }
+  .conn-row .k { color: var(--muted); flex: 0 0 8.5rem; }
+  .conn-row .v { flex: 1; min-width: 0; }
+  .conn-warn { font-size: .74rem; line-height: 1.5; color: #fbbf24;
+    background: #fbbf240e; border: 1px solid #fbbf2433; border-radius: 8px; padding: .45rem .6rem; }
+  .conn-caps { display: flex; flex-wrap: wrap; gap: .25rem; }
+  .conn-cap { font-size: .64rem; font-family: monospace; padding: .12rem .4rem; border-radius: 5px;
+    border: 1px solid var(--border); }
+  .cap-ja    { color: #4ade80; border-color: #4ade8044; }
+  .cap-proxy { color: #fbbf24; border-color: #fbbf2444; }
+  .cap-nein  { color: #52525b; border-color: #3f3f46; text-decoration: line-through; }
+  .conn-acts { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: auto; padding-top: .3rem; }
+  .conn-acts .btn { font-size: .72rem; padding: .32rem .6rem; }
+  .conn-detail { font-size: .74rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--border);
+    padding-top: .6rem; display: none; }
+  .conn-detail.open { display: block; }
+  .conn-detail ul { margin: .3rem 0 .6rem 1rem; }
+  .conn-detail b { color: var(--text); }
+  @media (max-width: 600px) { .conn-row .k { flex-basis: 7rem; } }
 
   /* ── Quests ── */
   .campaign { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1rem 1.2rem; margin-bottom:1rem; }
@@ -471,18 +489,6 @@
 <div id="loadbar"></div>
 
 <!-- ══ Auth ══ -->
-<div id="auth-screen">
-  <div class="auth-box">
-    <div class="logo">🏢</div>
-    <div class="tag">Mission Control</div>
-    <h1>EventBörse HQ</h1>
-    <p>Gib deinen Zugriffsschlüssel ein, Commander.</p>
-    <input type="password" id="auth-input" placeholder="Webapp-Key…" autocomplete="off">
-    <div class="auth-error" id="auth-error">❌ Falscher Schlüssel</div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:.7rem;" id="auth-btn">🚀 Einloggen</button>
-  </div>
-</div>
-
 <!-- ══ HQ ══ -->
 <div id="hq">
   <header>
@@ -595,6 +601,18 @@
     </div>
     <div class="achts" id="achts-grid"></div>
 
+    <!-- Systeme & KI-Verbindungen -->
+    <div class="section-header" id="connections">
+      <div class="section-title">🔌 Systeme &amp; KI-Verbindungen <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— was womit spricht</span></div>
+      <div class="section-badge" id="conn-badge">–</div>
+    </div>
+    <div class="conn-note" id="conn-note"></div>
+    <div class="conns" id="conns-grid">
+      <div class="skeleton" style="height:230px;"></div>
+      <div class="skeleton" style="height:230px;"></div>
+      <div class="skeleton" style="height:230px;"></div>
+    </div>
+
     <!-- Routinen & Bot Team -->
     <div class="section-header">
       <div class="section-title">🤖 Routinen &amp; Bot-Team <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— arbeiten für dich</span></div>
@@ -671,22 +689,20 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0 };
 const $ = id => document.getElementById(id);
 
-/* ─── Auth ─────────────────────────────────────────────────────── */
-const HQ_KEYS = ['eb-hq-2026', 'eventboerse-hq', 'hq-admin'];
-function checkAuth() {
-  const val = $('auth-input').value.trim();
-  const stored = sessionStorage.getItem('hq_key');
-  if (HQ_KEYS.includes(val) || stored) {
-    if (val) sessionStorage.setItem('hq_key', val);
-    $('auth-screen').style.display = 'none';
-    $('hq').style.display = 'block';
-    init();
-  } else {
-    $('auth-error').style.display = 'block';
-    $('auth-input').value = '';
-  }
+/* ─── Zugang ───────────────────────────────────────────────────────
+   Die Rechteprüfung liegt seit 2026-08-02 auf dem Server: eb_serve_hq() in
+   functions.php liefert diese Datei nur an angemeldete Administratoren aus,
+   alle anderen bekommen 404. Der direkte Theme-Pfad ist in .htaccess gesperrt.
+
+   Vorher stand hier eine Schlüsselliste im Klartext — wer den Quelltext las,
+   kam rein. Eine Prüfung, die der Prüfling selbst ausführt, ist keine.
+   Deshalb ist hier bewusst NICHTS mehr: wer diese Zeile liest, ist bereits
+   durch das echte Tor.                                                    */
+function logout() {
+  sessionStorage.removeItem('hq_pat');
+  // Der Server entscheidet über den Zugang — abmelden heißt WordPress abmelden.
+  location.href = '/wp-login.php?action=logout';
 }
-function logout() { sessionStorage.removeItem('hq_key'); sessionStorage.removeItem('hq_pat'); location.reload(); }
 
 /* ─── PAT ──────────────────────────────────────────────────────── */
 function getPat() { return sessionStorage.getItem('hq_pat') || ''; }
@@ -1237,6 +1253,7 @@ async function init() {
   loadSelfAudit();                      // local audit/latest.json
   await checkSiteStatus();
   await loadAll();                      // fresh GitHub data
+  await initConnections();              // Katalog + echte Verbindungsprüfungen
   renderHud();
 }
 
@@ -1245,6 +1262,7 @@ async function refreshAll() {
   loadSelfAudit();
   await checkSiteStatus();
   await loadAll();
+  await connPruefeAlle();
   renderHud();
   showToast('✅ Aktualisiert', 'success'); sfx('click');
 }
@@ -1312,9 +1330,325 @@ async function loadSelfAudit() {
   }).join('');
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   SYSTEME & KI-VERBINDUNGEN  ·  HQ 3A
+   ------------------------------------------------------------------
+   Der Katalog (assets/eb-connectors.json) sagt, WAS es gibt und WIE man
+   es verbindet. Ob eine Verbindung STEHT, sagt ausschließlich eine echte
+   Prüfung hier — deshalb startet jede Karte auf „getrennt" und wird erst
+   grün, wenn ein Aufruf tatsächlich zurückkam.
+
+   Eine animierte Linie, die Arbeit zeigt, die nicht stattfindet, ist
+   schlimmer als gar keine Anzeige: sie kostet Vertrauen genau dann, wenn
+   man sich auf sie verlassen würde.
+   ══════════════════════════════════════════════════════════════════ */
+let connKatalog = null;
+const connZustand = {};   // id → { status, geprueft, fehler, details[] }
+
+const CONN_STATUS_LABEL = {
+  verbunden: 'verbunden', eingeschraenkt: 'eingeschränkt',
+  getrennt: 'getrennt', fehler: 'fehlerhaft', pruefe: 'prüfe…',
+};
+const CONN_STATUS_CLASS = {
+  verbunden: 'st-verbunden', eingeschraenkt: 'st-eingeschr',
+  getrennt: 'st-getrennt', fehler: 'st-fehler', pruefe: 'st-pruefe',
+};
+
+function connSetze(id, status, opts = {}) {
+  connZustand[id] = {
+    status,
+    geprueft: opts.geprueft !== false ? new Date().toISOString() : (connZustand[id] || {}).geprueft || null,
+    fehler: opts.fehler || null,
+    details: opts.details || [],
+  };
+  renderConnections();
+}
+
+/* ── Echte Prüfungen ───────────────────────────────────────────────
+   Jede gibt zurück: { status, details[], fehler? }. Was nicht geprüft
+   werden kann, meldet das — es wird nicht wohlwollend geraten.        */
+const CONN_PRUEFUNG = {
+  async github() {
+    const pat = getPat();
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    if (pat) headers['Authorization'] = `Bearer ${pat}`;
+    const res = await fetch('https://api.github.com/rate_limit', { headers });
+    if (!res.ok) return { status: 'fehler', fehler: `GitHub antwortete ${res.status}`, details: [] };
+    const j = await res.json();
+    const core = j.resources && j.resources.core;
+    const details = core ? [
+      ['Kontingent', `${core.remaining} von ${core.limit} übrig`],
+      ['Zurückgesetzt', new Date(core.reset * 1000).toLocaleTimeString('de-DE')],
+    ] : [];
+    // Ohne Token sind es 60 Anfragen pro Stunde — das reicht fürs Dashboard
+    // nicht dauerhaft. „Eingeschränkt" ist hier die ehrliche Beschreibung.
+    return { status: pat ? 'verbunden' : 'eingeschraenkt', details,
+      fehler: pat ? null : 'Kein Token — nur 60 Anfragen pro Stunde, Schreibaktionen gesperrt.' };
+  },
+
+  async copilot() {
+    const pat = getPat();
+    if (!pat) return { status: 'getrennt', fehler: 'Braucht den GitHub-Token.', details: [] };
+    const res = await fetch('https://api.github.com/user', {
+      headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${pat}` },
+    });
+    if (!res.ok) return { status: 'fehler', fehler: `GitHub antwortete ${res.status}`, details: [] };
+    // Der Lizenz- und Kontingentstand einer PERSÖNLICHEN Copilot-Nutzung ist
+    // nicht als Schnittstelle vorgesehen (die Metrics-API ist Organisations-
+    // und Enterprise-Ebene). Genau das steht auf der Karte, statt einer Zahl.
+    return {
+      status: 'eingeschraenkt',
+      fehler: 'Genauer Kontingentstand nicht über die API verfügbar. '
+        + 'Letzter bekannter Zustand: Kontingent erschöpft.',
+      details: [['GitHub-Verbindung', 'steht'], ['Copilot-Kontingent', 'nicht abrufbar']],
+    };
+  },
+
+  async anthropic() {
+    const pat = getPat();
+    if (!pat) return { status: 'getrennt', fehler: 'Braucht den GitHub-Token, um die Secret-Ablage zu prüfen.', details: [] };
+    // Prüft, OB das Secret hinterlegt ist — GitHub gibt nur Namen heraus,
+    // nie Werte. Der Schlüssel selbst bleibt, wo er hingehört.
+    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/secrets/ANTHROPIC_API_KEY`, {
+      headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${pat}` },
+    });
+    if (res.status === 404) {
+      return { status: 'getrennt', fehler: 'ANTHROPIC_API_KEY ist nicht als GitHub-Secret hinterlegt.', details: [] };
+    }
+    if (res.status === 403) {
+      return { status: 'eingeschraenkt', fehler: 'Token darf Secrets nicht lesen — Ablage nicht prüfbar.', details: [] };
+    }
+    if (!res.ok) return { status: 'fehler', fehler: `GitHub antwortete ${res.status}`, details: [] };
+    const j = await res.json();
+    return {
+      status: 'eingeschraenkt',
+      fehler: 'Schlüssel liegt sicher, aber Verbrauch und Guthaben sind von hier aus '
+        + 'nicht abrufbar — das ginge nur mit dem Schlüssel im Browser.',
+      details: [
+        ['Secret hinterlegt', 'ja'],
+        ['Zuletzt geändert', j.updated_at ? new Date(j.updated_at).toLocaleDateString('de-DE') : '–'],
+        ['Verwendet in', 'claude-improve.yml, recherche.yml, claude-auto-audit.yml'],
+      ],
+    };
+  },
+
+  async openai() {
+    const pat = getPat();
+    if (!pat) return { status: 'getrennt', fehler: 'Nicht eingerichtet.', details: [] };
+    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/secrets/OPENAI_API_KEY`, {
+      headers: { 'Accept': 'application/vnd.github+json', 'Authorization': `Bearer ${pat}` },
+    });
+    if (res.status === 404) {
+      return { status: 'getrennt', fehler: 'Kein OPENAI_API_KEY hinterlegt — OpenAI ist nicht angebunden.', details: [] };
+    }
+    if (!res.ok) return { status: 'getrennt', fehler: 'Nicht eingerichtet.', details: [] };
+    return { status: 'eingeschraenkt', fehler: 'Schlüssel hinterlegt, aber noch keine Routine nutzt ihn.', details: [] };
+  },
+
+  async obsidian() {
+    const res = await ghRes('/contents/vault').catch(() => null);
+    if (!res) return { status: 'fehler', fehler: 'Vault-Ordner nicht erreichbar.', details: [] };
+    const j = await res.json();
+    return {
+      status: 'verbunden',
+      details: [
+        ['Ebenen im Vault', `${Array.isArray(j) ? j.filter(e => e.type === 'dir').length : '?'}`],
+        ['Zugriffsweg', 'GitHub-Contents-API'],
+      ],
+    };
+  },
+
+  async eventboerse() {
+    // Gleiche Herkunft — echter Statuscode, keine opake Antwort.
+    const res = await fetch('assets/eb-knowledge.json', { cache: 'no-store' });
+    if (!res.ok) return { status: 'fehler', fehler: `Wissensbasis antwortete ${res.status}`, details: [] };
+    const kb = await res.json();
+    return {
+      status: 'verbunden',
+      details: [
+        ['Wissensbasis', `${(kb.entries || []).length} Abschnitte`],
+        ['Stand', kb.generated || '–'],
+      ],
+    };
+  },
+
+  async deployment() {
+    const res = await ghRes('/actions/workflows/ionos-deploy.yml/runs?per_page=1').catch(() => null);
+    if (!res) return { status: 'fehler', fehler: 'Actions-API nicht erreichbar.', details: [] };
+    const j = await res.json();
+    const run = (j.workflow_runs || [])[0];
+    if (!run) return { status: 'eingeschraenkt', fehler: 'Noch kein Deploy-Lauf gefunden.', details: [] };
+    return {
+      status: run.conclusion === 'success' ? 'verbunden' : 'fehler',
+      fehler: run.conclusion === 'success' ? null : `Letzter Deploy: ${run.conclusion || run.status}`,
+      details: [
+        ['Letzter Deploy', new Date(run.created_at).toLocaleString('de-DE')],
+        ['Ergebnis', run.conclusion || run.status],
+        ['Commit', (run.head_sha || '').slice(0, 7)],
+      ],
+    };
+  },
+
+  async monitoring() {
+    const res = await ghRes('/actions/workflows/site-monitor.yml/runs?per_page=1').catch(() => null);
+    if (!res) return { status: 'fehler', fehler: 'Actions-API nicht erreichbar.', details: [] };
+    const j = await res.json();
+    const run = (j.workflow_runs || [])[0];
+    if (!run) return { status: 'eingeschraenkt', fehler: 'Noch kein Monitor-Lauf gefunden.', details: [] };
+    return {
+      status: run.conclusion === 'success' ? 'verbunden' : 'fehler',
+      fehler: run.conclusion === 'success' ? null : `Letzte Prüfung: ${run.conclusion || run.status}`,
+      details: [
+        ['Letzte Prüfung', new Date(run.created_at).toLocaleString('de-DE')],
+        ['Takt', 'alle 30 Minuten'],
+      ],
+    };
+  },
+};
+
+async function connPruefe(id, leise) {
+  const c = (connKatalog.connectors || []).find(x => x.id === id);
+  if (!c) return;
+  const pruefung = CONN_PRUEFUNG[id];
+  if (!pruefung) {
+    // Kein Prüfweg — dann bleibt die Karte grau. Nicht grün, nicht gelb.
+    connSetze(id, 'getrennt', { geprueft: false,
+      fehler: 'Nicht eingerichtet — es gibt nichts zu prüfen.' });
+    return;
+  }
+  connSetze(id, 'pruefe', { geprueft: false });
+  try {
+    const r = await pruefung();
+    connSetze(id, r.status, { fehler: r.fehler, details: r.details });
+    if (!leise) showToast(`${c.dienst}: ${CONN_STATUS_LABEL[r.status]}`, r.status === 'verbunden' ? 'success' : '');
+  } catch (e) {
+    connSetze(id, 'fehler', { fehler: String(e && e.message || e) });
+    if (!leise) showToast(`${c.dienst}: Prüfung fehlgeschlagen`, 'error');
+  }
+}
+
+async function connPruefeAlle() {
+  if (!connKatalog) return;
+  for (const c of connKatalog.connectors) {
+    if (CONN_PRUEFUNG[c.id]) await connPruefe(c.id, true);
+    else connSetze(c.id, 'getrennt', { geprueft: false, fehler: 'Nicht eingerichtet.' });
+  }
+}
+
+function connMethodenLabel(c) {
+  if (!c.methodeAktiv) return 'keine aktive Verbindung';
+  const m = (connKatalog.methoden || {})[c.methodeAktiv];
+  return m ? m.label : c.methodeAktiv;
+}
+
+function renderConnections() {
+  const grid = $('conns-grid');
+  if (!grid || !connKatalog) return;
+
+  const gezaehlt = { verbunden: 0, eingeschraenkt: 0, getrennt: 0, fehler: 0 };
+  for (const c of connKatalog.connectors) {
+    const s = (connZustand[c.id] || {}).status || 'getrennt';
+    if (gezaehlt[s] !== undefined) gezaehlt[s]++;
+  }
+  $('conn-badge').textContent = `${gezaehlt.verbunden} verbunden · ${gezaehlt.eingeschraenkt} eingeschränkt · ${gezaehlt.getrennt + gezaehlt.fehler} offen`;
+  $('conn-note').innerHTML =
+    '<b>Grün heißt geprüft, nicht gehofft.</b> Jede Karte zeigt den Stand des letzten '
+    + 'echten Aufrufs. Zugangsschlüssel stehen nirgends in dieser Seite: der GitHub-Token '
+    + 'lebt nur in dieser Sitzung, alles andere liegt als GitHub-Secret. '
+    + '<span style="color:#fbbf24">Gelb</span> heißt: der Dienst kann es, das HQ von hier '
+    + 'aus aber nicht — dafür bräuchte es eine Serverseite, die es noch nicht gibt.';
+
+  grid.innerHTML = connKatalog.connectors.map(c => {
+    const z = connZustand[c.id] || { status: 'getrennt', details: [] };
+    const caps = (connKatalog.funktionen || []).map(fn => {
+      const v = (c.faehigkeiten || {})[fn] || 'nein';
+      return `<span class="conn-cap cap-${v}" title="${escHtml(
+        v === 'ja' ? 'verfügbar' : v === 'proxy' ? 'Anbieter kann es, HQ braucht dafür eine Serverseite' : 'vom Anbieter nicht angeboten'
+      )}">${escHtml(fn)}</span>`;
+    }).join('');
+
+    const zeile = (k, v) => `<div class="conn-row"><span class="k">${escHtml(k)}</span><span class="v">${v}</span></div>`;
+    const liste = (arr) => (arr && arr.length) ? arr.map(escHtml).join(', ') : '<span style="color:var(--muted)">—</span>';
+
+    const kontingent = c.kontingent.ueberApiAbrufbar
+      ? escHtml(c.kontingent.quelle)
+      : `<span style="color:var(--muted)">nicht über die API abrufbar</span>`;
+
+    return `
+      <div class="conn" id="conn-${escHtml(c.id)}">
+        <div class="conn-head">
+          <div class="conn-logo">${escHtml(c.logo)}</div>
+          <div class="conn-id">
+            <b>${escHtml(c.dienst)}</b>
+            <small>${escHtml(c.anbieter)}</small>
+          </div>
+          <span class="conn-status ${CONN_STATUS_CLASS[z.status]}">${escHtml(CONN_STATUS_LABEL[z.status])}</span>
+        </div>
+        <div class="conn-zweck">${escHtml(c.zweck)}</div>
+        <div class="conn-rows">
+          ${zeile('Verbindungsart', escHtml(connMethodenLabel(c)))}
+          ${zeile('Berechtigungen', liste(c.berechtigungen))}
+          ${zeile('Liest', liste(c.leseZugriffe))}
+          ${zeile('Schreibt', liste(c.schreibZugriffe))}
+          ${zeile('Kontingent', kontingent)}
+          ${zeile('Schlüssel liegt', escHtml(c.geheimnisAblage))}
+          ${zeile('Zuletzt geprüft', z.geprueft ? new Date(z.geprueft).toLocaleTimeString('de-DE') : '<span style="color:var(--muted)">noch nie</span>')}
+          ${(z.details || []).map(([k, v]) => zeile(k, escHtml(String(v)))).join('')}
+        </div>
+        ${z.fehler ? `<div class="conn-warn">${escHtml(z.fehler)}</div>` : ''}
+        <div class="conn-caps">${caps}</div>
+        <div class="conn-acts">
+          <button class="btn" data-conn-test="${escHtml(c.id)}">Verbindung testen</button>
+          <button class="btn" data-conn-guide="${escHtml(c.id)}">Verbinden</button>
+          ${c.links.einrichten ? `<a class="btn" href="${escHtml(c.links.einrichten)}" target="_blank" rel="noopener">Berechtigungen</a>` : ''}
+          ${c.links.doku ? `<a class="btn" href="${escHtml(c.links.doku)}" target="_blank" rel="noopener">Doku</a>` : ''}
+          ${c.id === 'github' ? `<button class="btn" data-conn-trennen="${escHtml(c.id)}">Trennen</button>` : ''}
+        </div>
+        <div class="conn-detail" id="conn-detail-${escHtml(c.id)}">
+          <b>So wird verbunden</b>
+          <div style="margin:.3rem 0 .6rem">${escHtml(c.hinweisMethode)}</div>
+          ${c.unterscheidung ? `<b>${escHtml(c.unterscheidung.titel)}</b><ul>${
+            c.unterscheidung.punkte.map(p => `<li>${escHtml(p)}</li>`).join('')}</ul>` : ''}
+          ${(c.freigabegrenzen && c.freigabegrenzen.length) ? `<b>Grenzen</b><ul>${
+            c.freigabegrenzen.map(g => `<li>${escHtml(g)}</li>`).join('')}</ul>` : ''}
+          ${!c.kontingent.ueberApiAbrufbar && c.kontingent.hinweis
+            ? `<b>Kontingent</b><div style="margin:.3rem 0 .6rem">${escHtml(c.kontingent.hinweis)}</div>` : ''}
+          ${c.links.nutzung ? `<a href="${escHtml(c.links.nutzung)}" target="_blank" rel="noopener">Nutzung beim Anbieter ansehen →</a>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/** Tiefe Links: /connections/github, /hq/connections/github, #connections */
+function connTiefenlink() {
+  const m = location.pathname.match(/\/connections\/([a-z0-9-]+)\/?$/i)
+    || location.hash.match(/^#conn-([a-z0-9-]+)$/i);
+  const ziel = m ? m[1] : null;
+  const anker = ziel ? $('conn-' + ziel) : (/\/connections\/?$/.test(location.pathname) || location.hash === '#connections' ? $('connections') : null);
+  if (!anker) return;
+  anker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (ziel) {
+    const d = $('conn-detail-' + ziel);
+    if (d) d.classList.add('open');
+    anker.style.borderColor = 'var(--cyan)';
+  }
+}
+
+async function initConnections() {
+  try {
+    const res = await fetch('assets/eb-connectors.json', { cache: 'no-store' });
+    connKatalog = await res.json();
+  } catch {
+    $('conns-grid').innerHTML = '<div class="conn-warn">Connector-Katalog nicht ladbar.</div>';
+    return;
+  }
+  for (const c of connKatalog.connectors) connZustand[c.id] = { status: 'getrennt', details: [] };
+  renderConnections();
+  await connPruefeAlle();
+  connTiefenlink();
+}
+
 /* ─── Wiring ───────────────────────────────────────────────────── */
-$('auth-btn').addEventListener('click', checkAuth);
-$('auth-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkAuth(); });
 $('logout-btn').addEventListener('click', logout);
 $('refresh-btn').addEventListener('click', refreshAll);
 $('sound-btn').addEventListener('click', toggleSound);
@@ -1337,6 +1671,29 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+
+  const ct = e.target.closest('[data-conn-test]');
+  if (ct) { connPruefe(ct.dataset.connTest); sfx('click'); return; }
+
+  const cg = e.target.closest('[data-conn-guide]');
+  if (cg) {
+    const d = $('conn-detail-' + cg.dataset.connGuide);
+    if (d) d.classList.toggle('open');
+    // GitHub ist der einzige Connector, der hier im Browser verbunden wird —
+    // bei allen anderen führt „Verbinden" bewusst nur zur Anleitung, weil ein
+    // Schlüssel in dieser Seite ein Schlüssel für jeden wäre, der sie öffnet.
+    if (cg.dataset.connGuide === 'github' && !getPat()) requirePat();
+    sfx('click');
+    return;
+  }
+
+  const cx = e.target.closest('[data-conn-trennen]');
+  if (cx) {
+    sessionStorage.removeItem('hq_pat');
+    connPruefe('github', true); connPruefe('copilot', true); connPruefe('anthropic', true);
+    showToast('GitHub-Token aus dieser Sitzung entfernt', 'success');
+    return;
+  }
 });
 
 // Keyboard shortcuts
@@ -1348,14 +1705,9 @@ document.addEventListener('keydown', e => {
   else if (e.key.toLowerCase() === 's') toggleSound();
 });
 
-// Boot
-if (sessionStorage.getItem('hq_key')) {
-  $('auth-screen').style.display = 'none';
-  $('hq').style.display = 'block';
-  window.addEventListener('DOMContentLoaded', init);
-} else {
-  window.addEventListener('DOMContentLoaded', () => $('auth-input').focus());
-}
+// Boot — wer diese Datei bekommt, ist serverseitig bereits berechtigt.
+$('hq').style.display = 'block';
+window.addEventListener('DOMContentLoaded', init);
 </script>
 
 <!-- ══ EB CIRCLE — sprechender KI-Kreis (Voice + Wissensbasis) ══ -->

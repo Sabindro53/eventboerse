@@ -263,18 +263,15 @@ function eb_serve_theme_root_file() {
             'type'  => 'image/svg+xml; charset=UTF-8',
             'cache' => 'public, max-age=31536000, immutable',
         ),
-        // HQ-Dashboard: eventbörse.de/hq statt .../wp-content/themes/eventboerse/hq.html
-        '/hq' => array(
-            'file'  => 'hq.html',
-            'type'  => 'text/html; charset=UTF-8',
-            'cache' => 'no-cache, no-store, must-revalidate',
-        ),
-        '/hq/' => array(
-            'file'  => 'hq.html',
-            'type'  => 'text/html; charset=UTF-8',
-            'cache' => 'no-cache, no-store, must-revalidate',
-        ),
     );
+
+    // HQ-Dashboard unter /hq — inklusive Unterpfaden wie /hq/today oder
+    // /hq/connections/github. Die Seite selbst entscheidet anhand des Pfads,
+    // welcher Bereich geöffnet wird; ausgeliefert wird immer dieselbe Datei.
+    if ( preg_match( '#^/hq(/.*)?$#', $path ) || preg_match( '#^/connections(/.*)?$#', $path ) ) {
+        eb_serve_hq();
+        return;
+    }
 
     if ( ! isset( $files[ $path ] ) ) {
         return;
@@ -296,6 +293,43 @@ function eb_serve_theme_root_file() {
     readfile( $file );
     exit;
 }
+/**
+ * HQ-Dashboard ausliefern — nur für angemeldete Administratoren.
+ *
+ * Bis 2026-08-02 war das HQ faktisch offen: die Prüfung lief im Browser gegen
+ * eine im HTML mitgelieferte Schlüsselliste. Wer den Quelltext las, kam rein.
+ * Die Rechteprüfung gehört auf den Server, bevor auch nur ein Byte der Seite
+ * das Haus verlässt.
+ *
+ * Wer nicht berechtigt ist, bekommt 404 statt 403: eine Seite, deren Existenz
+ * man nicht bestätigt, wird auch nicht angegriffen. Der direkte Theme-Pfad
+ * (/wp-content/themes/…/hq.html) ist zusätzlich in .htaccess gesperrt — dort
+ * liefert Apache aus, ohne PHP je zu fragen.
+ */
+function eb_serve_hq() {
+    if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+        status_header( 404 );
+        nocache_headers();
+        header( 'Content-Type: text/html; charset=UTF-8' );
+        header( 'X-Robots-Tag: noindex, nofollow', true );
+        readfile( get_template_directory() . '/404.html' );
+        exit;
+    }
+
+    $file = get_template_directory() . '/hq.html';
+    if ( ! is_readable( $file ) ) {
+        status_header( 404 );
+        exit;
+    }
+
+    status_header( 200 );
+    header( 'Content-Type: text/html; charset=UTF-8' );
+    header( 'Cache-Control: no-cache, no-store, must-revalidate, private' );
+    header( 'X-Robots-Tag: noindex, nofollow, noarchive', true );
+    readfile( $file );
+    exit;
+}
+
 add_action( 'template_redirect', 'eb_serve_theme_root_file', 0 );
 
 /**
