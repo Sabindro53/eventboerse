@@ -47,6 +47,62 @@ test.describe('HQ-Zugang', () => {
   });
 });
 
+test.describe('Datendateien erreichbar', () => {
+  // Der konkrete Ausfall: das HQ läuft unter /hq, die Datendateien liegen im
+  // Theme. Ein relativer fetch zeigte von dort ins Leere — der Katalog kam nie
+  // an („Connector-Katalog nicht ladbar"). Bei Tieflinks wie
+  // /hq/connections/github wäre es noch eine Ebene daneben gelandet.
+  test('HQ holt Datendateien über absolute Pfade', () => {
+    expect(HQ, 'hqAsset() löst assets/ und audit/ absolut auf').toMatch(/function hqAsset/);
+    // Kein roher relativer fetch auf die Datenordner mehr.
+    expect(HQ).not.toMatch(/fetch\(\s*['"]assets\//);
+    expect(HQ).not.toMatch(/new URL\(\s*['"]audit\//);
+  });
+
+  test('functions.php liefert /assets/*.json und /audit/*.json aus', () => {
+    expect(FUNCTIONS).toMatch(/\^\/\(assets\|audit\)\//);
+    const block = FUNCTIONS.slice(FUNCTIONS.indexOf("'#^/(assets|audit)/"));
+    // Nur JSON — für Skripte und Stile gibt es den Theme-Pfad.
+    expect(block.slice(0, 200)).toMatch(/\\\.json/);
+    // Ausbruch nach oben muss am aufgelösten Pfad scheitern, nicht nur am Muster.
+    expect(block.slice(0, 900)).toMatch(/realpath/);
+    expect(block.slice(0, 900)).toMatch(/strpos\(\s*\$ziel/);
+    expect(block.slice(0, 900)).toMatch(/X-Content-Type-Options/);
+  });
+
+  test('Route ist auf die zwei Ordner und .json begrenzt', () => {
+    const m = FUNCTIONS.match(/preg_match\(\s*'(#\^\/\(assets\|audit\)\/[^']+#)'/);
+    expect(m, 'Muster nicht gefunden').toBeTruthy();
+    const re = new RegExp(m[1].slice(1, -1));
+    expect(re.test('/assets/eb-connectors.json')).toBe(true);
+    expect(re.test('/audit/latest.json')).toBe(true);
+    // Was nicht durchkommen darf:
+    expect(re.test('/assets/../wp-config.php'), 'Verzeichniswechsel').toBe(false);
+    expect(re.test('/assets/js/app.js'), 'Unterordner').toBe(false);
+    expect(re.test('/assets/evil.php'), 'anderes Format').toBe(false);
+    expect(re.test('/vault/geheim.json'), 'fremder Ordner').toBe(false);
+  });
+
+  test('audit/latest.json existiert und wird ausgeliefert', () => {
+    // Wurde einmal als „nie erzeugt" abgetan — die Datei liegt seit dem
+    // 1. August im Repo, sie war nur nicht erreichbar.
+    const p = path.join(ROOT, 'audit', 'latest.json');
+    expect(fs.existsSync(p), 'audit/latest.json fehlt').toBe(true);
+    JSON.parse(fs.readFileSync(p, 'utf8'));
+    const deploy = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'ionos-deploy.yml'), 'utf8');
+    expect(deploy, 'audit/ darf nicht vom Deploy ausgeschlossen sein').not.toMatch(/-x '\^audit\//);
+  });
+
+  test('zwischengespeicherter Stand wird als solcher gekennzeichnet', () => {
+    // Der Header zeigte einen alten Commit-SHA, als wäre er der aktuelle:
+    // renderFromCache() schreibt ihn, und wenn der frische Abruf scheitert
+    // (ohne Token greift GitHubs Limit), bleibt er unmarkiert stehen.
+    expect(HQ).toMatch(/state\.ausCache\s*=\s*true/);
+    expect(HQ).toMatch(/state\.ausCache\s*=\s*false/);
+    expect(HQ).toMatch(/zwischengespeichert/);
+  });
+});
+
 test.describe('Connector-Katalog', () => {
   test('Katalog-Prüfung läuft sauber durch', () => {
     const out = execFileSync('node', ['scripts/connectors.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });

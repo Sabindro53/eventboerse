@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **24** |
-| Commits (30 Tage) | 75 |
-| Letzter Commit | `fecf34a · HQ-Dashboard unter eventbörse.de/hq erreichbar machen (#88)` (2026-08-02) |
+| Commits (7 Tage) | **26** |
+| Commits (30 Tage) | 77 |
+| Letzter Commit | `0303143 · HQ absichern und Verbindungszentrale bauen (3A, erste Ausbaustufe) (#90)` (2026-08-03) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
@@ -73,13 +73,13 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
      33 styles.css
      23 index.html
      23 app-shell.html
-     10 functions.php
+     11 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.310 Zeilen
+- `functions.php` — 8.347 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt

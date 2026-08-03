@@ -69,6 +69,40 @@ Der direkte Theme-Pfad `/wp-content/themes/…/hq.html` ist zusätzlich in
 `.htaccess` gesperrt: dort liefert Apache aus, ohne PHP je zu fragen — ohne die
 Sperre wäre die Rechteprüfung schlicht umgehbar.
 
+## Datendateien unter kurzem Pfad
+
+Das HQ läuft unter `/hq`, die Datendateien liegen im Theme-Verzeichnis. Ein
+relativer `fetch` zeigt von dort ins Leere — daran scheiterten Connector-Katalog,
+Wissensbasis und Selbstcheck gleichzeitig („Connector-Katalog nicht ladbar").
+Bei einem Tieflink wie `/hq/connections/github` wäre es sogar eine Ebene weiter
+danebengegangen.
+
+Zwei Hälften, beide nötig:
+
+- `functions.php` bedient `/assets/*.json` und `/audit/*.json`
+- `hqAsset()` in `hq.html` löst die Pfade absolut auf (relativ nur, wenn die
+  Datei direkt als `…/hq.html` geöffnet wird — lokal und über `file://`)
+
+Die Route ist bewusst eng: nur diese zwei Ordner, nur `.json`, kein
+Schrägstrich im Dateinamen, kein führender Punkt, und `realpath()` muss
+innerhalb des Zielordners landen. Geprüft gegen echte Angriffsmuster
+(`../`, `..%2f`, `....//`, Unterordner, `.php`, fremde Ordner) — alle abgewiesen.
+
+Sicherheitlich ändert sich nichts: die Dateien waren über den Theme-Pfad
+ohnehin öffentlich lesbar.
+
+## Zwischengespeicherte Stände
+
+`renderFromCache()` zeigt sofort den letzten bekannten Stand, damit die Seite
+nicht leer startet. Scheitert danach der frische Abruf — ohne GitHub-Token
+greift das Limit bei 60 Anfragen pro Stunde —, blieb der alte Wert **unmarkiert**
+stehen. Im Header stand dann ein Commit-SHA, der längst überholt war, und las
+sich wie der aktuelle.
+
+Jetzt trägt jeder aus dem Zwischenspeicher gerenderte Stand den Zusatz
+*zwischengespeichert*, bis `loadAll()` ihn durch echte Daten ersetzt. Ein alter
+Wert darf angezeigt werden — aber nicht als frischer.
+
 ## Wo Geheimnisse liegen
 
 | Ablage | Was | Erreichbar für |
