@@ -95,7 +95,14 @@ verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.
 `eb_hq_csp_erweitern()` erlaubt `connect-src` GitHub **nur für die /hq-Antwort**.
 Ohne das blockiert die CSP jeden GitHub-Aufruf des HQ. Die **Tagesroutine**
 (`tagesroutine.yml`, 03:17 UTC) hält Demo-Feed und Selbstcheck
-(`audit/latest.json`) frisch. Details: `vault/30-Betrieb/Verbindungen.md`.
+(`audit/latest.json`) frisch.
+
+`/wp-json/eventboerse/v1/hq/probe/{anthropic|openai}` prüft die KI-Schlüssel
+**serverseitig** — Gültigkeit und Rate-Limit-Kontingent, ohne dass der Schlüssel
+den Browser erreicht. Opt-in: nur aktiv, wenn die Server-Konstante gesetzt ist.
+`eb-connectors.json` und `audit/latest.json` sind admin-only; öffentlich sind
+nur `eb-knowledge.json` und `eb-demo-feed.json`.
+Details: `vault/30-Betrieb/Verbindungen.md`.
 
 ### Impuls-Strom messen
 
@@ -135,7 +142,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-104 Tests in 9 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+107 Tests in 9 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Barrierefreiheit (axe, beide

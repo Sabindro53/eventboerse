@@ -61,13 +61,88 @@ test.describe('Datendateien erreichbar', () => {
 
   test('functions.php liefert /assets/*.json und /audit/*.json aus', () => {
     expect(FUNCTIONS).toMatch(/\^\/\(assets\|audit\)\//);
-    const block = FUNCTIONS.slice(FUNCTIONS.indexOf("'#^/(assets|audit)/"));
+    // Bis zum `exit;` des Blocks lesen statt eine Zeichenzahl zu raten —
+    // ein zusätzlicher Kommentar darf den Test nicht kippen.
+    const start = FUNCTIONS.indexOf("'#^/(assets|audit)/");
+    const block = FUNCTIONS.slice(start, FUNCTIONS.indexOf('readfile( $ziel );', start) + 40);
     // Nur JSON — für Skripte und Stile gibt es den Theme-Pfad.
     expect(block.slice(0, 200)).toMatch(/\\\.json/);
     // Ausbruch nach oben muss am aufgelösten Pfad scheitern, nicht nur am Muster.
-    expect(block.slice(0, 900)).toMatch(/realpath/);
-    expect(block.slice(0, 900)).toMatch(/strpos\(\s*\$ziel/);
-    expect(block.slice(0, 900)).toMatch(/X-Content-Type-Options/);
+    expect(block).toMatch(/realpath/);
+    expect(block).toMatch(/strpos\(\s*\$ziel/);
+    expect(block).toMatch(/X-Content-Type-Options/);
+  });
+
+  test('nur harmlose Datendateien sind öffentlich', () => {
+    // Der Connector-Katalog nennt Berechtigungen, interne Endpunkte und
+    // Schlüssel-Ablagen; der Selbstcheck listet die eigenen Schwachstellen.
+    // Beides ist eine Landkarte, die Angreifer nicht bekommen sollen.
+    const start = FUNCTIONS.indexOf("'#^/(assets|audit)/");
+    const block = FUNCTIONS.slice(start, FUNCTIONS.indexOf('readfile( $ziel );', start) + 40);
+    expect(block, 'Whitelist der öffentlichen Dateien fehlt').toMatch(/\$oeffentlich\s*=\s*array\(/);
+    const liste = block.match(/\$oeffentlich\s*=\s*array\(([^)]*)\)/)[1];
+    expect(liste).toContain('eb-knowledge.json');   // der Website-Bot braucht sie
+    expect(liste).toContain('eb-demo-feed.json');   // Demo-Inhalte für jeden
+    expect(liste, 'der Connector-Katalog darf nicht öffentlich sein').not.toContain('eb-connectors.json');
+    expect(liste, 'der Selbstcheck darf nicht öffentlich sein').not.toContain('latest.json');
+    // Alles außerhalb der Liste verlangt Administratorrechte.
+    expect(block).toMatch(/in_array\(\s*\$m\[2\],\s*\$oeffentlich/);
+    expect(block).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+  });
+
+  test('Serverseiten-Proxy hält den Schlüssel auf dem Server', () => {
+    // Beide Routen nur für Administratoren.
+    expect(FUNCTIONS).toMatch(/function eb_hq_proxy_darf/);
+    const darf = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_proxy_darf'), FUNCTIONS.indexOf('function eb_hq_proxy_darf') + 260);
+    expect(darf).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+    for (const anbieter of ['anthropic', 'openai']) {
+      expect(FUNCTIONS).toMatch(new RegExp(`/hq/probe/${anbieter}`));
+    }
+    expect(FUNCTIONS.match(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/g) || [],
+      'jede Probe-Route braucht die Rechteprüfung').toHaveLength(2);
+
+    // Die Antwort darf den Schlüssel nicht zurückgeben — nur Zahlen.
+    // Genau bis zum Ende DIESER Funktion lesen; die nächste nennt die
+    // Konstante zu Recht, weil sie den Aufruf macht.
+    const von = FUNCTIONS.indexOf('function eb_hq_proxy_antwort');
+    const bis = FUNCTIONS.indexOf('\nfunction ', von + 10);
+    const antwort = FUNCTIONS.slice(von, bis);
+    expect(antwort, 'die Antwort darf den Schlüssel nicht enthalten').not.toMatch(/EB_(ANTHROPIC|OPENAI)_API_KEY/);
+    // Verbrauch bleibt als nicht abrufbar geführt — dafür braucht es einen
+    // gesonderten Admin-Schlüssel, den wir nicht haben.
+    expect(antwort).toMatch(/'abrufbar'\s*=>\s*false/);
+
+    // Auch die Probe-Funktionen dürfen den Schlüssel nur SENDEN, nie
+    // zurückgeben. Gefährlich ist die Konstante als AUSDRUCK; ihr Name in
+    // einer Meldung („… ist nicht hinterlegt") ist Text und hilfreich.
+    // Deshalb erst die Zeichenketten entfernen, dann suchen.
+    for (const fn of ['eb_hq_probe_anthropic', 'eb_hq_probe_openai']) {
+      const a = FUNCTIONS.indexOf('function ' + fn);
+      const b = FUNCTIONS.indexOf('\nfunction ', a + 10);
+      const body = FUNCTIONS.slice(a, b > 0 ? b : undefined);
+      for (const r of body.match(/eb_hq_proxy_antwort\([^;]*/g) || []) {
+        const ohneText = r.replace(/'(?:[^'\\]|\\.)*'/g, "''");
+        expect(ohneText, `${fn} gibt den Schlüssel zurück`).not.toMatch(/EB_(ANTHROPIC|OPENAI)_API_KEY/);
+      }
+      // Der Schlüssel darf ausschließlich in den Anfrage-Kopfzeilen stehen.
+      const alsAusdruck = (body.replace(/'(?:[^'\\]|\\.)*'/g, "''")
+        .match(/EB_(ANTHROPIC|OPENAI)_API_KEY/g) || []).length;
+      const inKopfzeilen = (body.match(/(x-api-key|Authorization)[^\n]*EB_(ANTHROPIC|OPENAI)_API_KEY/g) || []).length;
+      // Einmal in der defined()-Prüfung, einmal im Wert, einmal in der Kopfzeile.
+      expect(alsAusdruck, `${fn}: Konstante an unerwarteter Stelle`).toBeLessThanOrEqual(3);
+      expect(inKopfzeilen, `${fn}: Schlüssel gehört in die Kopfzeile`).toBe(1);
+    }
+  });
+
+  test('AI-Schlüssel werden nur auf ausdrücklichen Wunsch auf den Server gelegt', () => {
+    const deploy = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'ionos-deploy.yml'), 'utf8');
+    const block = deploy.slice(deploy.indexOf('Inject AI keys'));
+    // Ohne gesetzte Secrets passiert nichts — ein Schlüssel wandert nicht
+    // stillschweigend an einen weiteren Ort.
+    expect(block).toMatch(/if \[ -z "\$ANTHROPIC_KEY" \] && \[ -z "\$OPENAI_KEY" \]; then/);
+    expect(block).toMatch(/exit 0/);
+    // In der Ausgabe darf der Wert nicht auftauchen.
+    expect(block).toMatch(/REDACTED/);
   });
 
   test('Route ist auf die zwei Ordner und .json begrenzt', () => {

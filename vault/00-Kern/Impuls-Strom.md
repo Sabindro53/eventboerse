@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **28** |
-| Commits (30 Tage) | 79 |
-| Letzter Commit | `7633937 · HQ: /assets/*.json und /audit/*.json ausliefern (#91)` (2026-08-03) |
+| Commits (7 Tage) | **30** |
+| Commits (30 Tage) | 81 |
+| Letzter Commit | `77bea84 · HQ: CSP erlaubt GitHub, Selbstcheck bleibt frisch (#92)` (2026-08-03) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
@@ -73,13 +73,13 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
      33 styles.css
      23 index.html
      23 app-shell.html
-     12 functions.php
+     13 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.395 Zeilen
+- `functions.php` — 8.571 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt

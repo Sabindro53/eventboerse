@@ -140,6 +140,46 @@ handelt danach. Zwei Änderungen:
 - ist der Stand älter als sieben Tage, schreibt das HQ es dazu, statt ihn nur
   zu datieren
 
+## Serverseiten-Proxy für die KI-Anbieter
+
+`/wp-json/eventboerse/v1/hq/probe/{anthropic|openai}`, nur für Administratoren.
+Der Aufruf läuft auf dem Server, die Antwort enthält ausschließlich Zahlen und
+Zeitpunkte — der Schlüssel erreicht den Browser nie.
+
+| Funktion | Geht? | Wie |
+|---|---|---|
+| `healthCheck` | ✅ | ein minimaler Aufruf (`/v1/models`) beweist, dass der Schlüssel gilt |
+| `getQuota` | ✅ | Rate-Limit-Kopfzeilen, die beide Anbieter bei **jeder** Antwort mitschicken |
+| `getResetTime` | ✅ | dito |
+| `getUsage` (Verbrauch, Guthaben) | ❌ | verlangt bei beiden Anbietern einen **gesonderten Admin-Schlüssel** |
+
+Der letzte Punkt bleibt ehrlich offen: ein Proxy schafft die Zahl nicht herbei,
+die es ohne Admin-Schlüssel nicht gibt.
+
+**Opt-in.** Die Route arbeitet nur, wenn `EB_ANTHROPIC_API_KEY` bzw.
+`EB_OPENAI_API_KEY` als Server-Konstante gesetzt sind; der Deploy legt sie nur
+an, wenn die passenden GitHub-Secrets existieren. Ohne sie meldet die Karte
+„nicht hinterlegt" — kein Schlüssel wandert stillschweigend an einen weiteren
+Ort. Wer sie setzt, entscheidet bewusst: der Schlüssel liegt danach auf dem
+Webserver und ist bei einer Server-Kompromittierung mit betroffen. Dafür kann
+das HQ Gültigkeit und Kontingent prüfen, ohne ihn je auszuliefern.
+
+## Nicht jede Datendatei ist öffentlich
+
+Die Route `/assets/*.json` war anfangs offen für alle. Das war zu weit:
+
+| Datei | Sichtbar für | Warum |
+|---|---|---|
+| `eb-knowledge.json` | jeden | der Website-Bot befragt sie, sie enthält nur `share: public` |
+| `eb-demo-feed.json` | jeden | Demo-Inhalte für jeden Besucher |
+| `eb-connectors.json` | Administratoren | nennt Berechtigungen, interne Endpunkte, Schlüssel-Ablagen |
+| `audit/latest.json` | Administratoren | listet die Schwachstellen der eigenen Codebasis |
+
+Keine Geheimhaltung um ihrer selbst willen — beides ist schlicht eine
+Landkarte, die man Angreifern nicht mitgibt. Nicht-öffentliche Dateien gehen
+mit `Cache-Control: private, no-store` raus, damit kein geteilter
+Zwischenspeicher sie für einen anderen Abrufer aufhebt.
+
 ## Wo Geheimnisse liegen
 
 | Ablage | Was | Erreichbar für |
@@ -147,6 +187,7 @@ handelt danach. Zwei Änderungen:
 | GitHub Secrets | `ANTHROPIC_API_KEY`, `IONOS_FTP_*`, `EB_SMTP_*`, `EB_STRIPE_*` | nur Actions-Läufe |
 | `wp-config.php` | zur Laufzeit injizierte Konstanten | nur der Server |
 | `sessionStorage` | GitHub-Token, von Hand eingegeben | nur dieser Tab, dieser Rechner |
+| Server-Konstanten | `EB_ANTHROPIC_API_KEY`, `EB_OPENAI_API_KEY` (opt-in) | nur der Server, nie die Antwort |
 | Repo / Vault / Katalog | **nichts** | — |
 
 Der Katalog-Prüfer scannt jeden Eintrag gegen die Verbotsmuster aus

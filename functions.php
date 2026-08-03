@@ -292,6 +292,26 @@ function eb_serve_theme_root_file() {
     // Der Dateiname beginnt mit einem Buchstaben oder einer Ziffer — eine
     // Punktdatei hat in einer öffentlichen Route nichts zu suchen.
     if ( preg_match( '#^/(assets|audit)/([A-Za-z0-9][A-Za-z0-9._-]*\.json)$#', $path, $m ) ) {
+
+        // Nicht jede Datendatei gehört ins offene Netz.
+        //
+        //   eb-knowledge.json   öffentlich — der Website-Bot befragt sie, sie
+        //                       enthält ausschließlich share:public
+        //   eb-demo-feed.json   öffentlich — Demo-Inhalte für jeden Besucher
+        //
+        // Alles andere beschreibt den Betrieb: der Connector-Katalog nennt
+        // Berechtigungen, interne Endpunkte und wo Schlüssel liegen; der
+        // Selbstcheck listet die Schwachstellen der eigenen Codebasis. Beides
+        // ist keine Geheimhaltung um ihrer selbst willen, sondern schlicht eine
+        // Landkarte, die man Angreifern nicht mitgibt.
+        $oeffentlich = array( 'eb-knowledge.json', 'eb-demo-feed.json' );
+        if ( ! in_array( $m[2], $oeffentlich, true )
+             && ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) ) {
+            status_header( 404 );
+            nocache_headers();
+            exit;
+        }
+
         $basis = realpath( get_template_directory() . '/' . $m[1] );
         $ziel  = $basis ? realpath( $basis . '/' . $m[2] ) : false;
 
@@ -301,11 +321,20 @@ function eb_serve_theme_root_file() {
             exit;
         }
 
+        $istOeffentlich = in_array( $m[2], $oeffentlich, true );
+
         status_header( 200 );
         header( 'Content-Type: application/json; charset=UTF-8' );
         header( 'X-Content-Type-Options: nosniff' );
-        // Kurz genug, dass ein neuer Katalog schnell durchkommt.
-        header( 'Cache-Control: public, max-age=300, must-revalidate' );
+        // Öffentlich: kurz genug, dass ein neuer Stand schnell durchkommt.
+        // Nicht-öffentlich: private, damit kein geteilter Zwischenspeicher die
+        // Antwort für einen anderen Abrufer aufhebt.
+        header( $istOeffentlich
+            ? 'Cache-Control: public, max-age=300, must-revalidate'
+            : 'Cache-Control: private, no-store' );
+        if ( ! $istOeffentlich ) {
+            header( 'X-Robots-Tag: noindex, nofollow', true );
+        }
         readfile( $ziel );
         exit;
     }
@@ -8393,3 +8422,150 @@ function eb_seo_serve_sitemap() {
     echo '</urlset>' . "\n";
     exit;
 }
+
+/* ============================================================================
+ * HQ-Proxy: Kontingente der KI-Anbieter, ohne den Schlüssel preiszugeben
+ * ----------------------------------------------------------------------------
+ * Bis hierher standen OpenAI und Anthropic im HQ auf „eingeschränkt": ihre
+ * Zahlen sind nur mit dem API-Schlüssel abrufbar, und ein Schlüssel im Browser
+ * wäre ein Schlüssel für jeden, der die Seite öffnet.
+ *
+ * Diese Routen rufen die Anbieter serverseitig auf. Der Schlüssel bleibt in
+ * wp-config, die Antwort enthält ausschließlich Zahlen und Zeitpunkte.
+ *
+ * Was ehrlich geht und was nicht:
+ *   healthCheck   ja   — ein minimaler Aufruf beweist, dass der Schlüssel gilt
+ *   getQuota      ja   — Anbieter liefern Rate-Limit-Kopfzeilen bei jeder Antwort
+ *   getResetTime  ja   — dito
+ *   getUsage      nein — Verbrauch und Guthaben verlangen bei BEIDEN Anbietern
+ *                        einen gesonderten Admin-Schlüssel. Ohne den gibt es
+ *                        keine Zahl, und eine geschätzte wäre keine.
+ *
+ * Der Schlüssel muss ausdrücklich hinterlegt werden (EB_ANTHROPIC_API_KEY /
+ * EB_OPENAI_API_KEY in wp-config, gesetzt vom Deploy aus GitHub-Secrets).
+ * Ohne ihn meldet die Route „nicht eingerichtet" — es wird nichts stillschweigend
+ * an einen weiteren Ort kopiert.
+ * ========================================================================= */
+
+/** Nur angemeldete Administratoren. Dieselbe Schwelle wie fürs HQ selbst. */
+function eb_hq_proxy_darf() {
+    return is_user_logged_in() && current_user_can( 'manage_options' );
+}
+
+/**
+ * Rate-Limit-Kopfzeilen einsammeln.
+ *
+ * Bewusst nur diese: sie sagen etwas über unser Kontingent aus und enthalten
+ * keine Kontodaten. Alles andere aus der Antwort bleibt auf dem Server.
+ */
+function eb_hq_ratelimit_aus_headern( $headers ) {
+    $interessant = array(
+        'anthropic-ratelimit-requests-remaining' => 'anfragenRest',
+        'anthropic-ratelimit-requests-limit'     => 'anfragenLimit',
+        'anthropic-ratelimit-requests-reset'     => 'anfragenReset',
+        'anthropic-ratelimit-tokens-remaining'   => 'tokenRest',
+        'anthropic-ratelimit-tokens-limit'       => 'tokenLimit',
+        'anthropic-ratelimit-tokens-reset'       => 'tokenReset',
+        'x-ratelimit-remaining-requests'         => 'anfragenRest',
+        'x-ratelimit-limit-requests'             => 'anfragenLimit',
+        'x-ratelimit-reset-requests'             => 'anfragenReset',
+        'x-ratelimit-remaining-tokens'           => 'tokenRest',
+        'x-ratelimit-limit-tokens'               => 'tokenLimit',
+        'x-ratelimit-reset-tokens'               => 'tokenReset',
+    );
+    $out = array();
+    foreach ( $interessant as $kopf => $name ) {
+        $wert = wp_remote_retrieve_header( array( 'headers' => $headers ), $kopf );
+        if ( $wert !== '' && $wert !== null && ! isset( $out[ $name ] ) ) {
+            $out[ $name ] = is_array( $wert ) ? reset( $wert ) : $wert;
+        }
+    }
+    return $out;
+}
+
+/** Gemeinsame Antwortform, damit das HQ beide Anbieter gleich behandeln kann. */
+function eb_hq_proxy_antwort( $status, $meldung, $extra = array() ) {
+    return rest_ensure_response( array_merge( array(
+        'status'   => $status,   // verbunden | eingeschraenkt | getrennt | fehler
+        'meldung'  => $meldung,
+        'geprueft' => gmdate( 'c' ),
+        // Verbrauch ist bei beiden Anbietern nur mit Admin-Schlüssel abrufbar.
+        'verbrauch' => array(
+            'abrufbar' => false,
+            'grund'    => 'Verbrauch und Guthaben verlangen einen gesonderten '
+                        . 'Admin-Schlüssel. Ohne den gibt es keine Zahl.',
+        ),
+    ), $extra ) );
+}
+
+function eb_hq_probe_anthropic() {
+    if ( ! defined( 'EB_ANTHROPIC_API_KEY' ) || ! EB_ANTHROPIC_API_KEY ) {
+        return eb_hq_proxy_antwort( 'getrennt',
+            'EB_ANTHROPIC_API_KEY ist auf dem Server nicht hinterlegt.' );
+    }
+    // Kleinstmöglicher Aufruf: beweist, dass der Schlüssel gilt, und bringt die
+    // Rate-Limit-Kopfzeilen mit. Kein Token-Verbrauch für Inhalte.
+    $res = wp_remote_get( 'https://api.anthropic.com/v1/models?limit=1', array(
+        'timeout' => 12,
+        'headers' => array(
+            'x-api-key'         => EB_ANTHROPIC_API_KEY,
+            'anthropic-version' => '2023-06-01',
+        ),
+    ) );
+    if ( is_wp_error( $res ) ) {
+        return eb_hq_proxy_antwort( 'fehler', 'Anthropic nicht erreichbar: ' . $res->get_error_message() );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $res );
+    if ( $code === 401 || $code === 403 ) {
+        return eb_hq_proxy_antwort( 'fehler', 'Schlüssel wurde abgelehnt (HTTP ' . $code . ').' );
+    }
+    if ( $code !== 200 ) {
+        return eb_hq_proxy_antwort( 'fehler', 'Anthropic antwortete HTTP ' . $code . '.' );
+    }
+    $body    = json_decode( wp_remote_retrieve_body( $res ), true );
+    $modelle = isset( $body['data'] ) ? count( (array) $body['data'] ) : 0;
+    return eb_hq_proxy_antwort( 'verbunden', 'Schlüssel gilt.', array(
+        'kontingent' => eb_hq_ratelimit_aus_headern( wp_remote_retrieve_headers( $res ) ),
+        'modelle'    => $modelle,
+    ) );
+}
+
+function eb_hq_probe_openai() {
+    if ( ! defined( 'EB_OPENAI_API_KEY' ) || ! EB_OPENAI_API_KEY ) {
+        return eb_hq_proxy_antwort( 'getrennt',
+            'EB_OPENAI_API_KEY ist auf dem Server nicht hinterlegt.' );
+    }
+    $res = wp_remote_get( 'https://api.openai.com/v1/models', array(
+        'timeout' => 12,
+        'headers' => array( 'Authorization' => 'Bearer ' . EB_OPENAI_API_KEY ),
+    ) );
+    if ( is_wp_error( $res ) ) {
+        return eb_hq_proxy_antwort( 'fehler', 'OpenAI nicht erreichbar: ' . $res->get_error_message() );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $res );
+    if ( $code === 401 || $code === 403 ) {
+        return eb_hq_proxy_antwort( 'fehler', 'Schlüssel wurde abgelehnt (HTTP ' . $code . ').' );
+    }
+    if ( $code !== 200 ) {
+        return eb_hq_proxy_antwort( 'fehler', 'OpenAI antwortete HTTP ' . $code . '.' );
+    }
+    $body    = json_decode( wp_remote_retrieve_body( $res ), true );
+    $modelle = isset( $body['data'] ) ? count( (array) $body['data'] ) : 0;
+    return eb_hq_proxy_antwort( 'verbunden', 'Schlüssel gilt.', array(
+        'kontingent' => eb_hq_ratelimit_aus_headern( wp_remote_retrieve_headers( $res ) ),
+        'modelle'    => $modelle,
+    ) );
+}
+
+add_action( 'rest_api_init', function () {
+    register_rest_route( 'eventboerse/v1', '/hq/probe/anthropic', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_hq_probe_anthropic',
+        'permission_callback' => 'eb_hq_proxy_darf',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/hq/probe/openai', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_hq_probe_openai',
+        'permission_callback' => 'eb_hq_proxy_darf',
+    ) );
+} );
