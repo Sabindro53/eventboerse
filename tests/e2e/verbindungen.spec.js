@@ -103,6 +103,51 @@ test.describe('Datendateien erreichbar', () => {
   });
 });
 
+test.describe('CSP: HQ darf mit GitHub sprechen', () => {
+  // Der teuerste Fehler dieser Reihe. Route und Token waren in Ordnung, neun
+  // von zehn Karten meldeten trotzdem „Failed to fetch": connect-src erlaubte
+  // api.github.com nicht, der Browser ließ die Anfragen gar nicht erst raus.
+  //
+  // Die Playwright-Tests konnten das nicht finden — sie blockieren
+  // api.github.com absichtlich und sehen deshalb dasselbe Bild wie bei einem
+  // CSP-Verstoß. Deshalb wird hier der Header selbst gerechnet, in PHP, gegen
+  // die echte Direktivenliste aus functions.php.
+  const csp = JSON.parse(execFileSync('php', ['tests/e2e/csp-hq.php'], { cwd: ROOT, encoding: 'utf8' }));
+
+  test('connect-src erlaubt api.github.com für /hq', () => {
+    expect(csp.github, `connect-src nachher: ${csp.nachher}`).toBe(true);
+    expect(csp.raw, 'raw.githubusercontent.com ist der Fallback des Selbstchecks').toBe(true);
+  });
+
+  test('bestehende Quellen bleiben unangetastet', () => {
+    expect(csp.self).toBe(true);
+    expect(csp.stripe).toBe(true);
+    expect(csp.nominatim).toBe(true);
+    expect(csp.scriptSrcGleich, 'nur connect-src darf sich ändern').toBe(true);
+    expect(csp.imgSrcGleich).toBe(true);
+    expect(csp.gleicheAnzahl, 'keine Direktive dazu oder weg').toBe(true);
+  });
+
+  test('genau ein connect-src, mehrfach aufrufbar', () => {
+    // Zwei CSP-Header wertet der Browser als Schnittmenge — ein zweiter hätte
+    // nichts erlaubt, sondern weiter eingeschränkt.
+    expect(csp.einConnectSrc).toBe(true);
+    expect(csp.idempotent, 'erneuter Aufruf darf nichts erneut senden').toBe(true);
+  });
+
+  test('die öffentliche Seite bekommt GitHub NICHT erlaubt', () => {
+    // Was die Website nicht braucht, soll ihr auch nicht offenstehen.
+    expect(csp.oeffentlichOhneGithub, `öffentliches connect-src: ${csp.vorher}`).toBe(true);
+  });
+
+  test('Erweiterung hängt nur an der HQ-Auslieferung', () => {
+    const hq = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'));
+    expect(hq.slice(0, 1600), 'eb_serve_hq muss die Erweiterung aufrufen').toMatch(/eb_hq_csp_erweitern\(\)/);
+    // Kein globaler Hook — sonst gälte die Lockerung für jede Seite.
+    expect(FUNCTIONS).not.toMatch(/add_action\([^)]*eb_hq_csp_erweitern/);
+  });
+});
+
 test.describe('Connector-Katalog', () => {
   test('Katalog-Prüfung läuft sauber durch', () => {
     const out = execFileSync('node', ['scripts/connectors.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });

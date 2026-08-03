@@ -1318,7 +1318,13 @@ async function loadSelfAudit() {
   $('audit-chip-info').textContent = `💡 ${c.info  || 0}`;
   $('audit-chip-ok').textContent   = `✅ ${c.ok    || 0}`;
   badge.textContent = String(data.findings.length);
-  meta.textContent = `Stand ${humanDate(data.generatedAt)} · Commit ${data.commit || '–'}`;
+  // Ein alter Selbstcheck beschreibt einen alten Code-Stand. Solange das nur
+  // als Datum dasteht, liest man die Befunde trotzdem als aktuell — genau so
+  // hielt sich „Keine automatisierten Tests" wochenlang, obwohl die Suite
+  // längst existierte. Ab einer Woche wird es benannt statt nur datiert.
+  const tageAlt = (Date.now() - Date.parse(data.generatedAt)) / 86400000;
+  meta.textContent = `Stand ${humanDate(data.generatedAt)} · Commit ${data.commit || '–'}`
+    + (tageAlt > 7 ? ` · ⚠️ ${Math.floor(tageAlt)} Tage alt — beschreibt einen älteren Code-Stand` : '');
 
   // Sortierung: error → warn → info → ok
   const order = { error: 0, warn: 1, info: 2, ok: 3 };

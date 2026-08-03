@@ -1,12 +1,12 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-07-19T12:25:32Z",
-  "commit": "3c58c41",
+  "generatedAt": "2026-08-03T07:22:43Z",
+  "commit": "7633937",
   "counts": {
-    "total": 7,
+    "total": 6,
     "error": 0,
-    "warn": 2,
-    "info": 4,
+    "warn": 0,
+    "info": 5,
     "ok": 1
   },
   "findings": [
@@ -21,75 +21,67 @@
       "evidence": null
     },
     {
-      "id": "route-admin-mod-missing",
-      "title": "Admin-Moderationsrouten im Vault dokumentiert, aber nicht im Code",
-      "area": "backend",
-      "severity": "warn",
-      "status": "open",
-      "detail": "`/admin/listings/{id}/hide` und `/my-listing-moderation` werden im Vault erwähnt, fehlen aber in functions.php.",
-      "suggestion": "Entweder die Routen wiederherstellen oder die Vault-Notiz korrigieren.",
-      "evidence": null
-    },
-    {
       "id": "size-app.js-watch",
-      "title": "app.js wächst (23055 Zeilen)",
+      "title": "app.js wächst (25013 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 23055,
+        "lines": 25013,
         "threshold": 20000
       }
     },
     {
       "id": "size-functions.php-watch",
-      "title": "functions.php wächst (7718 Zeilen)",
+      "title": "functions.php wächst (8396 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 7718,
+        "lines": 8396,
         "threshold": 6000
       }
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (16343 Zeilen)",
+      "title": "styles.css wächst (16893 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 16343,
+        "lines": 16893,
         "threshold": 12000
       }
     },
     {
       "id": "console-noise",
-      "title": "17 console.*-Aufrufe in app.js",
+      "title": "19 console.*-Aufrufe in app.js",
       "area": "cleanup",
       "severity": "info",
       "status": "open",
       "detail": "Aufrufe landen in der Browser-Konsole der Nutzer. Für Production wäre ein Debug-Flag sauberer.",
       "suggestion": "Kosmetik: console-Aufrufe hinter einen `EB_DEBUG`-Flag stellen oder in production strippen.",
       "evidence": {
-        "count": 17
+        "count": 19
       }
     },
     {
-      "id": "no-tests",
-      "title": "Keine automatisierten Tests im Repo",
-      "area": "quality",
-      "severity": "warn",
+      "id": "open-todos",
+      "title": "74 offene TODO/FIXME-Marker im Code",
+      "area": "cleanup",
+      "severity": "info",
       "status": "open",
-      "detail": "Bekannte Schwäche aus CLAUDE.md. Ein paar Smoke-Tests gegen die SPA wären schon viel wert.",
-      "suggestion": "Playwright-Smoke-Suite für browse/detail/board/chat (regression-Schutz P0).",
-      "evidence": null
+      "detail": "Sammlung an Notizen, die noch nicht in Bekannte-Bugs.md überführt wurden.",
+      "suggestion": "Beim nächsten Sweep abklären: erledigt → entfernen, sonst in vault/Roadmap/Bekannte-Bugs.md überführen.",
+      "evidence": {
+        "count": 74
+      }
     }
   ]
 }

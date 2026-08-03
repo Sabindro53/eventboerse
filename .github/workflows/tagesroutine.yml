@@ -1,8 +1,15 @@
-name: Tages-Demo-Feed
+name: Tagesroutine
 
-# Erzeugt taeglich frische Demo-Beitraege (scripts/demo-feed.mjs) und
-# committet sie nach main, wenn sich etwas geaendert hat. Der Push loest
-# den normalen IONOS-Deploy aus.
+# Haelt zwei erzeugte Dateien frisch und committet sie nach main, wenn sich
+# etwas geaendert hat. Der Push loest den normalen IONOS-Deploy aus.
+#
+#   assets/eb-demo-feed.json   frische Demo-Beitraege (scripts/demo-feed.mjs)
+#   audit/latest.json          Selbstcheck (scripts/self-audit.mjs)
+#
+# Warum der Selbstcheck dazugehoert: er lag zuletzt zwei Wochen still und
+# meldete "Keine automatisierten Tests", waehrend die Playwright-Suite laengst
+# stand. Ein Befund ueber einen alten Code-Stand ist schlimmer als keiner —
+# man handelt danach.
 #
 # Warum direkt nach main statt ueber einen PR: die Aenderung betrifft
 # ausschliesslich die erzeugte Datei assets/eb-demo-feed.json, der Generator
@@ -21,12 +28,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: demo-feed
+  group: tagesroutine
   cancel-in-progress: false
 
 jobs:
   feed:
-    name: Demo-Feed erneuern
+    name: Demo-Feed und Selbstcheck erneuern
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -43,24 +50,29 @@ jobs:
       - name: Ehrlichkeit + Reproduzierbarkeit pruefen
         run: node scripts/demo-feed.mjs --check
 
+      - name: Selbstcheck erneuern
+        run: node scripts/self-audit.mjs
+
       - name: Committen, falls geaendert
         run: |
-          if git diff --quiet -- assets/eb-demo-feed.json; then
-            echo "Keine Aenderung — heutiger Feed steht bereits." >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- assets/eb-demo-feed.json audit/latest.json; then
+            echo "Keine Aenderung — Feed und Selbstcheck sind aktuell." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name  "Eventboerse Routine"
           git config user.email "noreply@users.noreply.github.com"
-          git add assets/eb-demo-feed.json
-          git commit -m "chore(feed): Demo-Beitraege fuer $(date -u +%Y-%m-%d)"
+          git add assets/eb-demo-feed.json audit/latest.json
+          git commit -m "chore(routine): Demo-Feed und Selbstcheck fuer $(date -u +%Y-%m-%d)"
           for i in 1 2 3 4; do
             git push origin HEAD:main && break
             sleep $((2 ** i))
             git pull --rebase origin main || true
           done
           {
-            echo "### Demo-Feed erneuert"
+            echo "### Tagesroutine gelaufen"
             node -e "const f=require('./assets/eb-demo-feed.json');
-              console.log('- Beitraege: '+f.posts.length);
+              console.log('- Demo-Beitraege: '+f.posts.length);
               console.log('- Aelteste/juengste: '+Math.max(...f.posts.map(p=>p.tageZurueck))+'/'+Math.min(...f.posts.map(p=>p.tageZurueck))+' Tage zurueck');"
+            node -e "const a=require('./audit/latest.json'); const c=a.counts||{};
+              console.log('- Selbstcheck: '+(a.findings||[]).length+' Befunde (err '+(c.error||0)+', warn '+(c.warn||0)+')');"
           } >> "$GITHUB_STEP_SUMMARY"

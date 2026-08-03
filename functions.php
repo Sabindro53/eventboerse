@@ -343,6 +343,52 @@ function eb_serve_theme_root_file() {
  * (/wp-content/themes/…/hq.html) ist zusätzlich in .htaccess gesperrt — dort
  * liefert Apache aus, ohne PHP je zu fragen.
  */
+/**
+ * connect-src für die HQ-Antwort um GitHub erweitern.
+ *
+ * Das HQ ist die einzige Seite, die api.github.com braucht (Commits, Actions,
+ * Kontingent) und raw.githubusercontent.com als Fallback für den Selbstcheck.
+ * Ohne diesen Zusatz lässt der Browser die Anfragen gar nicht erst raus — im
+ * HQ sah das nach „Failed to fetch" auf neun von zehn Karten aus, obwohl
+ * weder Token noch Route schuld waren.
+ *
+ * Bewusst NUR hier: die öffentliche Seite spricht nie mit GitHub, und was sie
+ * nicht braucht, soll ihr auch nicht erlaubt sein.
+ *
+ * Der bereits gesetzte Header wird ausgelesen und erweitert, statt einen
+ * zweiten zu senden. Zwei CSP-Header werden vom Browser als Schnittmenge
+ * ausgewertet — der zusätzliche hätte also nichts erlaubt, sondern nur
+ * weiter eingeschränkt.
+ */
+function eb_hq_csp_erweitern() {
+    $zusatz = 'https://api.github.com https://raw.githubusercontent.com';
+
+    foreach ( headers_list() as $h ) {
+        if ( stripos( $h, 'Content-Security-Policy:' ) !== 0 ) {
+            continue;
+        }
+        $wert = trim( substr( $h, strlen( 'Content-Security-Policy:' ) ) );
+        if ( strpos( $wert, 'api.github.com' ) !== false ) {
+            return; // schon erlaubt
+        }
+
+        $treffer = 0;
+        $neu = preg_replace(
+            '/(^|;\s*)connect-src\s+([^;]*)/i',
+            '$1connect-src $2 ' . $zusatz,
+            $wert,
+            1,
+            $treffer
+        );
+        // Fehlt connect-src ganz, greift default-src — dann die Direktive
+        // ergänzen, statt stillschweigend nichts zu tun.
+        header( 'Content-Security-Policy: ' . ( $treffer ? $neu : $wert . "; connect-src 'self' " . $zusatz ), true );
+        return;
+    }
+
+    // Kein CSP-Header gesetzt (z. B. weil send_headers nicht lief): nichts zu tun.
+}
+
 function eb_serve_hq() {
     if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
         status_header( 404 );
@@ -358,6 +404,8 @@ function eb_serve_hq() {
         status_header( 404 );
         exit;
     }
+
+    eb_hq_csp_erweitern();
 
     status_header( 200 );
     header( 'Content-Type: text/html; charset=UTF-8' );
