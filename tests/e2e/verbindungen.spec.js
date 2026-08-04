@@ -45,6 +45,18 @@ test.describe('HQ-Zugang', () => {
     const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'));
     expect(fn.slice(0, 1400)).toMatch(/X-Robots-Tag.*noindex/);
   });
+
+  test('geschützte REST-Proxies erhalten den WordPress-Nonce', () => {
+    // Cookie-Auth allein reicht in der WP-REST-API nicht: ohne X-WP-Nonce
+    // wird der aktuelle Nutzer auf 0 gesetzt und manage_options scheitert.
+    expect(HQ).toMatch(/const HQ_REST_NONCE\s*=\s*['"]__EB_HQ_REST_NONCE__/);
+    expect(HQ).toMatch(/['"]X-WP-Nonce['"]\s*:\s*HQ_REST_NONCE/);
+    const start = FUNCTIONS.indexOf('function eb_serve_hq');
+    const fn = FUNCTIONS.slice(start, FUNCTIONS.indexOf("add_action( 'template_redirect'", start));
+    expect(fn).toMatch(/wp_create_nonce\(\s*'wp_rest'\s*\)/);
+    expect(fn).toMatch(/str_replace\(\s*'__EB_HQ_REST_NONCE__'/);
+    expect(fn).toMatch(/file_get_contents\(\s*\$file\s*\)/);
+  });
 });
 
 test.describe('Datendateien erreichbar', () => {

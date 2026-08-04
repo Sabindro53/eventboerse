@@ -25,6 +25,9 @@ test.describe('Ensemble-Katalog', () => {
     for (const m of KATALOG.modelle) {
       expect(m.offen, `${m.id} ist nicht offen`).toBe(true);
       expect(m.lizenz, `${m.id} ohne Lizenz`).toBeTruthy();
+      if (m.weg === 'openrouter') {
+        expect(m.modellId, `${m.id} ohne aufrufbare OpenRouter-ID`).toMatch(/^[a-z0-9~.-]+\/[a-z0-9.~-]+/i);
+      }
     }
   });
 
@@ -80,6 +83,41 @@ test.describe('Ensemble-Katalog', () => {
       expect(m).not.toHaveProperty('aktiv');
       expect(m).not.toHaveProperty('verbunden');
     }
+  });
+});
+
+test.describe('OpenRouter-Autopilot', () => {
+  const runner = fs.readFileSync(path.join(ROOT, 'scripts', 'openrouter-agents.mjs'), 'utf8');
+  const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-autopilot.yml'), 'utf8');
+  const merge = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-auto-merge.yml'), 'utf8');
+
+  test('Guardrail-Selbsttest blockiert verbotene Seiteneffekte', () => {
+    const out = execFileSync('node', ['scripts/openrouter-agents.mjs', '--self-test'], { cwd: ROOT, encoding: 'utf8' });
+    expect(out).toMatch(/Guardrail-Selbsttest OK/);
+    expect(runner).toMatch(/Scout -> Architekt -> Implementierer -> Reviewer/);
+    expect(runner).toMatch(/data_collection:\s*'deny'/);
+    expect(runner).toMatch(/runBudget.*0\.35/);
+  });
+
+  test('autonomer Scope schließt sensible Dateien und Seiteneffekte aus', () => {
+    const whitelist = runner.slice(runner.indexOf('const SICHERE_DATEIEN'), runner.indexOf('const AGENTEN'));
+    expect(whitelist).not.toMatch(/functions\.php|payments\/|core\/30-auth|chat\/20-/);
+    expect(runner).toMatch(/git', \['apply', '--check', '--whitespace=error-all'/);
+    expect(runner).toMatch(/localStorage\|sessionStorage\|indexedDB/);
+    expect(runner).toMatch(/additions\.length \+ deletions\.length > 260/);
+  });
+
+  test('Auslieferung braucht erfolgreichen Gesamtlauf und prüft den Scope erneut', () => {
+    expect(workflow).toMatch(/EB_OPENROUTER_RUN_BUDGET_USD:\s*'0\.35'/);
+    expect(workflow).toMatch(/npm run gate/);
+    expect(workflow).toMatch(/npm test/);
+    expect(merge).toMatch(/workflow_run:/);
+    expect(merge).toMatch(/workflow_run\.conclusion == 'success'/);
+    expect(merge).toMatch(/workflows: \['OpenRouter Autopilot'\]/);
+    expect(merge).toMatch(/actions\.createWorkflowDispatch/);
+    expect(merge).toMatch(/workflow_id: 'ionos-deploy\.yml'/);
+    expect(merge).toMatch(/openrouter-autonomous/);
+    expect(merge).toMatch(/merge_method: 'squash'/);
   });
 });
 

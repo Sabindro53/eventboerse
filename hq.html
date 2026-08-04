@@ -839,6 +839,9 @@
 const REPO = 'Sabindro53/eventboerse';
 const SITE_URL = 'https://xn--eventbrse-57a.de/';
 const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
+// functions.php ersetzt den Platzhalter nur in der admin-geschuetzten,
+// nicht cachebaren /hq-Antwort. Lokal bleibt er harmloser Text.
+const HQ_REST_NONCE = '__EB_HQ_REST_NONCE__';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0, ausCache: false };
@@ -1232,8 +1235,9 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
-  { id: 'improve',    avatar: '✨', name: 'Verbesserungs-Bot', role: 'Setzt jede Woche EINE fokussierte Optimierung um und öffnet einen Draft-PR zum Review.', workflow: 'claude-improve.yml', schedule: '⏱️ Wöchentl. · Mo 05:00 · rotierender Fokus', canTrigger: true, triggerLabel: '▶ Verbessern', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
-  { id: 'claude-dev', avatar: '🤖', name: 'Audit-Bot',        role: 'Analysiert den Code mit Claude, priorisiert Schwachstellen und öffnet Verbesserungs-Issues.', workflow: 'claude-auto-audit.yml', schedule: '⏱️ Wöchentl. · Mo 04:00', canTrigger: true, triggerLabel: '▶ Audit', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
+  { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Scout, Architekt, Implementierer und Reviewer liefern eine kleine Verbesserung nach Kosten- und Scope-Gates autonom aus.', workflow: 'openrouter-autopilot.yml', schedule: '⏱️ Wöchentl. · Mi 02:11 · max. $0,35', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
+  { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
+  { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
   { id: 'lighthouse', avatar: '📊', name: 'Lighthouse-Bot',   role: 'Misst Performance, SEO, Accessibility & Best-Practices der Live-Seite.', workflow: 'lighthouse-audit.yml', schedule: '⏱️ Wöchentl. · Mo 06:00', canTrigger: true, triggerLabel: '▶ Messen', logsLabel: '📋 Reports', logsUrl: `https://github.com/${REPO}/actions/workflows/lighthouse-audit.yml` },
   { id: 'monitor',    avatar: '👁️', name: 'Monitor-Bot',      role: 'Prüft die Live-Site alle 30 Min auf Erreichbarkeit. Öffnet Issues bei Ausfall.', workflow: 'site-monitor.yml', schedule: '⏱️ Alle 30 Min', canTrigger: true, triggerLabel: '▶ Check', logsLabel: '📋 Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/site-monitor.yml` },
   { id: 'deploy',     avatar: '🚀', name: 'Deploy-Bot',       role: 'Deployt bei jedem Push automatisch via SFTP zu IONOS.', workflow: 'ionos-deploy.yml', schedule: '⚡ Bei jedem Push', canTrigger: false, logsLabel: '📋 Deploy-Logs', logsUrl: `https://github.com/${REPO}/actions/workflows/ionos-deploy.yml` },
@@ -1573,6 +1577,7 @@ async function connProxyPruefung(anbieter) {
   try {
     res = await fetch(`/wp-json/eventboerse/v1/hq/probe/${anbieter}`, {
       credentials: 'same-origin', cache: 'no-store',
+      headers: { 'X-WP-Nonce': HQ_REST_NONCE },
     });
   } catch (e) {
     // Lokal (python -m http.server) gibt es kein WordPress — das ist kein
@@ -1592,10 +1597,21 @@ async function connProxyPruefung(anbieter) {
   if (k.tokenRest)     details.push(['Token übrig', `${k.tokenRest}${k.tokenLimit ? ' von ' + k.tokenLimit : ''}`]);
   if (k.anfragenReset) details.push(['Zurückgesetzt', k.anfragenReset]);
   if (j.modelle)       details.push(['Modelle erreichbar', String(j.modelle)]);
+  const usd = value => new Intl.NumberFormat('de-DE', {
+    style: 'currency', currency: 'USD', maximumFractionDigits: 4,
+  }).format(Number(value));
+  if (k.guthabenRest !== undefined) {
+    details.push(['Schlüssel-Limit übrig', `${usd(k.guthabenRest)}${k.guthabenLimit !== undefined ? ' von ' + usd(k.guthabenLimit) : ''}`]);
+  }
+  if (k.verbraucht !== undefined)     details.push(['Verbrauch gesamt', usd(k.verbraucht)]);
+  if (k.verbrauchtHeute !== undefined) details.push(['Verbrauch heute', usd(k.verbrauchtHeute)]);
+  if (k.verbrauchtWoche !== undefined) details.push(['Verbrauch Woche', usd(k.verbrauchtWoche)]);
+  if (k.limitReset) details.push(['Kostenlimit setzt zurück', ({ daily: 'täglich', weekly: 'wöchentlich', monthly: 'monatlich' })[k.limitReset] || k.limitReset]);
+  if (k.laeuftAb) details.push(['Schlüssel läuft ab', new Date(k.laeuftAb).toLocaleDateString('de-DE')]);
 
   // „verbunden" heißt hier: der Schlüssel gilt, geprüft durch einen echten
-  // Aufruf. Verbrauch und Guthaben bleiben unerreichbar — das wird gesagt,
-  // nicht geschätzt.
+  // Aufruf. Wo der Anbieter keine Zahl liefert, wird weiterhin nichts
+  // geschätzt. OpenRouter liefert seinen eigenen Schlüsselverbrauch direkt.
   const hinweis = (j.verbrauch && j.verbrauch.abrufbar === false) ? j.verbrauch.grund : null;
   return {
     status: j.status || 'fehler',

@@ -9,6 +9,30 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-08-04 — OpenRouter-Autopilot ist die primäre KI-Automation
+
+- **Vier echte Rollen statt Modell-Dekoration:** Ela/Gemma scoutet, Ada/Llama
+  plant, Timo/Qwen Coder schreibt einen kleinen Patch, Kito/DeepSeek prüft ihn
+  unabhängig. OpenRouter-Fallbacks halten den Lauf bei Provider-Ausfällen am
+  Leben. Alle IDs stehen als echte OpenRouter-Modell-Slugs im Katalog.
+- **Harte Änderungsgrenze:** ausschließlich eine feste Whitelist kleiner,
+  nicht-sensibler Frontend-Dateien; höchstens 2 Dateien und 260 Diff-Zeilen.
+  Kein Backend, Auth, Payment, Workflow, bestehender Test, Netzwerk-, Cookie-
+  oder Storage-Pfad. `git apply --check` läuft vor dem Anwenden.
+- **Kostenbremse:** höchstens 0,35 USD je Wochenlauf; unter 1 USD verbleibendem
+  Schlüssel-Limit startet kein Lauf. Modell, Token und Kosten stehen im PR.
+- **Vollautonome, aber rückholbare Auslieferung:** Agenten-Review → Gate →
+  Syntax-Gates → komplette Playwright-Suite → eindeutig zugeordneter PR →
+  erneute Scope-Prüfung → Squash-Merge → explizit gestarteter bestehender
+  IONOS-Deploy. Jeder Schritt kann den Lauf stoppen; Geld/Kommunikation bleiben
+  außerhalb.
+- **Anthropic-Routinen sind Legacy/manuell.** Ihre Zeitpläne sind entfernt,
+  damit fehlende oder getrennt abgerechnete Anthropic-Keys nicht wöchentlich
+  rote Läufe erzeugen.
+- **HQ-Proxy repariert:** `/hq` setzt jetzt einen `wp_rest`-Nonce in die nur für
+  Admins ausgelieferte Seite ein; die Probes senden `X-WP-Nonce`. Der vorherige
+  401/403 war Cookie-Auth ohne REST-Nonce, nicht ein ungültiger OpenRouter-Key.
+
 ## Stand 2026-08-01 — Fable-5-Auftrag umgesetzt (Testsuite, Audit, Module, Design, A11y)
 
 **Die fünf Auftragsschritte sind live auf main. Wichtigste neue Regeln:**

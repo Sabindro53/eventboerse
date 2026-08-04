@@ -292,9 +292,14 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
 - [ ] **Listings-/Board-Regressionen ausschließen**
   - Ziel: Keine verschwundenen Listings mehr in Board/Startseite/Map/Browse.
   - Pflicht-Checks nach Deploy: Listings API, Board Picker, Demo-Toggle, Selbstbuchungsschutz.
-- [ ] **KI-Änderungs-Guardrails operationalisieren**
-  - Safe Defaults für automatische Worker (kein destruktives Verhalten bei Unsicherheit).
-  - Änderung nur mit nachvollziehbarem Status + Grund.
+- [x] **KI-Änderungs-Guardrails operationalisieren** *(2026-08-04, OpenRouter-Autopilot)*
+  - Vier getrennte Rollen: Scout → Architektur → Implementierung → unabhängiges Review.
+  - Feste Whitelist kleiner Frontend-Dateien; max. 2 Dateien/260 Diff-Zeilen;
+    Backend, Auth, Payment, Workflows, Netzwerk und Storage hart ausgeschlossen.
+  - Kostenlimit 0,35 USD/Lauf, Mindestrest 1 USD; Modell/Token/Kosten im PR.
+  - Autonome Auslieferung nur nach Syntax-Gates, Reproduzierbarkeits-Gate,
+    kompletter Playwright-Suite und erneuter Scope-Prüfung; danach explizit
+    gestarteter, normaler Rollback-fähiger Deploy.
 - [ ] **Stripe Connect E2E im Testmodus finalisieren**
   - Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund/Dispute-Pfad prüfen.
   - Keine echte Buchung ohne aktives Auszahlungskonto des Dienstleisters.

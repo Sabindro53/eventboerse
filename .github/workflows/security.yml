@@ -40,7 +40,9 @@ jobs:
           node-version: '20'
 
       - name: JS-Syntax-Check (app.js) — Gate
-        run: node --check app.js
+        run: |
+          node --check app.js
+          node --check scripts/openrouter-agents.mjs
 
       - name: Danger-Pattern-Scan (advisory, blockiert nicht)
         continue-on-error: true

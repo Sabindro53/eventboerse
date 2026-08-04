@@ -15,7 +15,8 @@
     "test:css": "playwright test tests/e2e/css-minify.spec.js",
     "test:zufluss": "playwright test tests/e2e/zufluss.spec.js",
     "test:a11y": "playwright test tests/e2e/barrierefreiheit.spec.js",
-    "gate": "node scripts/build-knowledge.mjs --check && node scripts/quarantine.mjs --check && node scripts/demo-feed.mjs --check && node scripts/connectors.mjs --check && node scripts/models.mjs --check && ./build-app-js.sh --check",
+    "gate": "node scripts/build-knowledge.mjs --check && node scripts/quarantine.mjs --check && node scripts/demo-feed.mjs --check && node scripts/connectors.mjs --check && node scripts/models.mjs --check && node scripts/openrouter-agents.mjs --self-test && ./build-app-js.sh --check",
+    "test:agents": "node scripts/openrouter-agents.mjs --self-test",
     "test:verbindungen": "playwright test tests/e2e/verbindungen.spec.js",
     "test:kern": "playwright test tests/e2e/kern.spec.js"
   },

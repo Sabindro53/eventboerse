@@ -164,6 +164,51 @@ Ort. Wer sie setzt, entscheidet bewusst: der Schlüssel liegt danach auf dem
 Webserver und ist bei einer Server-Kompromittierung mit betroffen. Dafür kann
 das HQ Gültigkeit und Kontingent prüfen, ohne ihn je auszuliefern.
 
+### WordPress-REST-Nonce: warum der gültige Schlüssel rot war
+
+Die Probe-Routen verlangen `manage_options`. Eine angemeldete Browser-Sitzung
+reicht für WordPress-Cookie-Authentifizierung an der REST-API nicht: Fehlt der
+`X-WP-Nonce`-Header, setzt WordPress den aktuellen Nutzer für den REST-Aufruf
+auf 0. Das HQ sah deshalb bei Anthropic, OpenAI und OpenRouter 401/403
+„Serverseite verweigert den Zugriff", obwohl Anmeldung, Route und Schlüssel in
+Ordnung waren.
+
+`eb_serve_hq()` liest die statische HQ-Datei jetzt serverseitig, ersetzt genau
+einen Platzhalter durch `wp_create_nonce('wp_rest')`, und die Proxy-Prüfung
+sendet ihn als `X-WP-Nonce`. Die Antwort ist admin-only sowie `private,
+no-store`; der direkte Theme-Pfad bleibt gesperrt.
+
+## OpenRouter-Autopilot
+
+`openrouter-autopilot.yml` ist seit 2026-08-04 die geplante KI-Routine. Ein
+Lauf nutzt vier voneinander getrennte Rollen und strukturierte JSON-Ausgaben:
+
+| Rolle | Primärmodell | Aufgabe |
+|---|---|---|
+| Scout | Gemma 3 12B | genau eine kleine, sichtbare Verbesserung auswählen |
+| Architektur | Llama 3.3 70B | Scope, Invarianten und Abnahme festlegen oder stoppen |
+| Implementierung | Qwen3 Coder 30B | kleinen Unified-Diff schreiben |
+| Review | DeepSeek V4 Flash | unabhängig ablehnen oder mit ≥ 86 % freigeben |
+
+OpenRouter übernimmt Provider- und Modell-Fallbacks. Der Request verlangt
+Provider ohne Datenweitergabe (`data_collection: deny`) und Unterstützung aller
+verwendeten Parameter. Jeder Wochenlauf ist auf 0,35 USD begrenzt und startet
+nicht unter 1 USD verbleibendem Schlüssel-Limit.
+
+**Doppelte technische Grenze:** Das Agentenskript lässt nur eine feste Liste
+kleiner Frontend-Dateien zu und blockiert unter anderem Auth, Payment, Backend,
+Workflows, Netzwerk, Cookies, Storage, neue Dateien und mehr als 260
+Diff-Zeilen. Nach dem Patch laufen Reproduzierbarkeits-Gate und die komplette
+Testsuite. Der Auto-Merge-Workflow liest die PR-Dateiliste anschließend neu,
+akzeptiert nur den exakt zum erfolgreichen Autopilot-Lauf gehörenden,
+vertrauenswürdigen Branch und merged ihn per Squash. Weil GitHubs eingebauter
+`GITHUB_TOKEN` absichtlich keine Folge-Workflows durch PR oder Push auslöst,
+startet der Wächter den bestehenden IONOS-Deploy danach explizit auf `main`.
+
+Die früher geplanten Anthropic-Routinen bleiben manuell als Legacy-Fallback,
+haben aber keinen Cron mehr. So laufen nicht zwei autonome Systeme mit
+getrennter Abrechnung gegeneinander.
+
 ## Nicht jede Datendatei ist öffentlich
 
 Die Route `/assets/*.json` war anfangs offen für alle. Das war zu weit:

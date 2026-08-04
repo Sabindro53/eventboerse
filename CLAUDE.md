@@ -107,6 +107,8 @@ stillstehendes System aus wie ein arbeitendes.
 `/wp-json/eventboerse/v1/hq/probe/{anthropic|openai|openrouter}` prüft die KI-Schlüssel
 **serverseitig** — Gültigkeit und Rate-Limit-Kontingent, ohne dass der Schlüssel
 den Browser erreicht. Opt-in: nur aktiv, wenn die Server-Konstante gesetzt ist.
+Die HQ-Antwort injiziert dafür einen `wp_rest`-Nonce; ohne `X-WP-Nonce` verwirft
+WordPress trotz Admin-Cookie die Identität und die Route antwortet 401/403.
 `eb-connectors.json` und `audit/latest.json` sind admin-only; öffentlich sind
 nur `eb-knowledge.json` und `eb-demo-feed.json`.
 Details: `vault/30-Betrieb/Verbindungen.md`.
@@ -149,12 +151,31 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-125 Tests in 10 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+129 Tests in 10 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Kern (Impuls-Ehrlichkeit +
 Autonomie + offenes Ensemble), Barrierefreiheit (axe, beide
 Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei Fehlern.
+
+### OpenRouter-Autopilot
+
+`scripts/openrouter-agents.mjs` betreibt mittwochs vier getrennte Rollen über
+OpenRouter: Scout → Architekt → Implementierer → Reviewer. Ein Lauf darf
+höchstens zwei fest freigegebene, kleine Frontend-Dateien und 260 Diff-Zeilen
+berühren; Backend, Auth, Zahlungen, Workflows, Netzwerk- und Storage-Pfade sind
+hart ausgeschlossen. Kostenlimit: 0,35 USD pro Lauf, Mindestrest 1 USD.
+
+Der Autopilot führt Syntax-Gates, Reproduzierbarkeits-Gate und die komplette
+Playwright-Suite aus und erstellt erst dann einen PR. `openrouter-auto-merge.yml`
+reagiert nur auf einen vollständig erfolgreichen Autopilot-Lauf, ordnet den PR
+über die Lauf-ID eindeutig zu und prüft die Dateiliste erneut. Nach dem
+Squash-Merge startet er den bestehenden rückholbaren IONOS-Deploy explizit.
+Guardrails lokal prüfen:
+
+```bash
+npm run test:agents
+```
 
 ## Deployment
 

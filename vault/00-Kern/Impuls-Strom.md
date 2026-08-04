@@ -63,23 +63,23 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **35** |
-| Commits (30 Tage) | 86 |
-| Letzter Commit | `60c07ff · HQ neu gebaut: neuronaler Kern, Autonomie-Ebene, offenes Modell-Ensemble (#94)` (2026-08-04) |
+| Commits (7 Tage) | **37** |
+| Commits (30 Tage) | 88 |
+| Letzter Commit | `7c7298b · HQ-Kern: drei Ebenen, KI-Mitarbeiter mit Schicht und Gehalt, Stimme am Kreis (#95)` (2026-08-04) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 40 app.js
-     33 styles.css
-     23 index.html
-     23 app-shell.html
-     15 functions.php
+  33 styles.css
+  23 index.html
+  23 app-shell.html
+  15 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.624 Zeilen
+- `functions.php` — 8.653 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt

@@ -244,7 +244,7 @@ const CONNECTORS = [
     ],
     faehigkeiten: f({
       connect: 'ja', disconnect: 'ja', healthCheck: 'ja', getCapabilities: 'ja',
-      getUsage: 'ja', getQuota: 'ja', getResetTime: 'ja', execute: 'proxy',
+      getUsage: 'ja', getQuota: 'ja', getResetTime: 'ja', execute: 'ja',
     }),
     kontingent: {
       ueberApiAbrufbar: true,

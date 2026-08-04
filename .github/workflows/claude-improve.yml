@@ -5,9 +5,8 @@ name: Claude Verbesserungs-Routine
 # Merge nach main deployt automatisch via ionos-deploy.yml.
 
 on:
-  schedule:
-    # Montags 05:00 UTC
-    - cron: '0 5 * * 1'
+  # Legacy-Fallback. Der autonome Zeitplan liegt seit 2026-08-04 beim
+  # kostenbegrenzten OpenRouter-Autopiloten.
   workflow_dispatch:
     inputs:
       focus:
