@@ -176,6 +176,9 @@ deterministisch validiert und lösen bei Verstoß ebenfalls den Rollen-Fallback 
 Eine Architekturentscheidung `skip` braucht einen substanziellen Grund, aber
 keine erfundenen Implementierungsschritte; nur `implement` verlangt Plan,
 Invarianten und Verifikation in voller Mindestmenge.
+Findet bereits der Scout keinen klaren, risikoarmen Vorschlag, darf er eine
+leere Dateiliste liefern. Das beendet den Lauf erfolgreich ohne Patch/PR;
+sobald er Dateien nennt, gelten weiter exakt 1–2 Einträge der festen Whitelist.
 
 Der Autopilot führt Syntax-Gates, Reproduzierbarkeits-Gate und die komplette
 Playwright-Suite aus und erstellt erst dann einen PR. `openrouter-auto-merge.yml`
