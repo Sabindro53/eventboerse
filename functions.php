@@ -420,11 +420,27 @@ function eb_hq_csp_erweitern() {
 
 function eb_serve_hq() {
     if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+        // 404 statt 403: eine Seite, deren Existenz man nicht bestätigt, wird
+        // auch nicht gezielt angegriffen.
+        //
+        // Daraus folgt aber mehr als der Statuscode — die Antwort muss genau
+        // die sein, die jede andere unbekannte Adresse bekommt. Deshalb hier
+        // die reguläre 404-Seite des Themes und KEIN eigener Body, kein
+        // zusätzlicher X-Robots-Tag: jeder Unterschied zur normalen 404 ist
+        // ein messbares Signal, dass unter /hq etwas liegt. (Eine 404 wird
+        // ohnehin nicht indexiert; die Auslieferung unten setzt noindex.)
+        //
+        // Vorher stand hier readfile('404.html') — eine eingefrorene Kopie der
+        // SPA mit relativen Pfaden zu styles.css und app.js. Unter /hq zeigten
+        // die ins Leere, die Seite kam ohne Stile an.
+        global $wp_query;
+        if ( $wp_query instanceof WP_Query ) {
+            $wp_query->set_404();
+        }
         status_header( 404 );
         nocache_headers();
         header( 'Content-Type: text/html; charset=UTF-8' );
-        header( 'X-Robots-Tag: noindex, nofollow', true );
-        readfile( get_template_directory() . '/404.html' );
+        require get_template_directory() . '/404.php';
         exit;
     }
 

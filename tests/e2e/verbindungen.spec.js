@@ -18,6 +18,33 @@ const HQ = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
 const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 const HTACCESS = fs.readFileSync(path.join(ROOT, '.htaccess'), 'utf8');
 
+/**
+ * Rumpf einer PHP-Funktion — bis zur nächsten Funktion oder add_action.
+ *
+ * Feste Zeichenfenster (`.slice(0, 900)`) haben hier schon dreimal gelogen:
+ * wächst der Kommentar über der Prüfung, rutscht die Zusicherung aus dem
+ * Fenster und der Test wird grün, ohne noch etwas zu prüfen.
+ */
+/**
+ * PHP-Kommentare entfernen.
+ *
+ * Eine Zusicherung gegen den Rohtext prüft auch die Kommentare — und ein
+ * Kommentar, der den behobenen Fehler beschreibt („vorher stand hier
+ * readfile('404.html')"), lässt den Test dann über die eigene Erklärung
+ * stolpern. Geprüft wird, was ausgeführt wird.
+ */
+function ohneKommentare(php) {
+  return php.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+}
+
+function rumpfVon(quelle, name) {
+  const von = quelle.indexOf(`function ${name}`);
+  if (von === -1) return '';
+  const enden = [quelle.indexOf('\nfunction ', von + 10), quelle.indexOf('\nadd_action', von + 10)]
+    .filter((i) => i !== -1);
+  return quelle.slice(von, enden.length ? Math.min(...enden) : undefined);
+}
+
 test.describe('HQ-Zugang', () => {
   test('hq.html enthält keine Zugangsschlüssel im Klartext', () => {
     // Der konkrete Rückfall, den es hier gab: HQ_KEYS = ['eb-hq-2026', …].
@@ -28,11 +55,32 @@ test.describe('HQ-Zugang', () => {
 
   test('Auslieferung prüft serverseitig auf Administrator', () => {
     expect(FUNCTIONS).toMatch(/function eb_serve_hq/);
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'));
+    const fn = rumpfVon(FUNCTIONS, 'eb_serve_hq');
     expect(fn, 'ohne Rechteprüfung wäre /hq offen').toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
     // 404 statt 403: eine Seite, deren Existenz man nicht bestätigt, wird
     // auch nicht gezielt angegriffen.
-    expect(fn.slice(0, 900)).toMatch(/status_header\(\s*404\s*\)/);
+    const abweisung = fn.slice(0, fn.indexOf('$file'));
+    expect(abweisung, 'Abweisung muss 404 setzen').toMatch(/status_header\(\s*404\s*\)/);
+    expect(abweisung, 'nie 403 — das bestätigt die Existenz').not.toMatch(/status_header\(\s*40[13]\s*\)/);
+  });
+
+  test('Abweisung sieht aus wie jede andere unbekannte Adresse', () => {
+    // Der Fehler, der das ausgelöst hat: die Abweisung lieferte 404.html —
+    // eine eingefrorene SPA-Kopie mit relativen Pfaden. Unter /hq zeigten
+    // styles.css und app.js ins Leere, die Seite kam nackt an.
+    const fn = ohneKommentare(rumpfVon(FUNCTIONS, 'eb_serve_hq'));
+    const abweisung = fn.slice(0, fn.indexOf('$file'));
+    expect(abweisung, 'kein eigener Body — die reguläre 404-Seite des Themes')
+      .toMatch(/require\s+get_template_directory\(\)\s*\.\s*'\/404\.php'/);
+    expect(abweisung, 'eingefrorene SPA-Kopie darf nicht zurückkommen').not.toMatch(/404\.html/);
+    // Ein Header, den nur /hq setzt, ist ein messbares Signal.
+    expect(abweisung, 'kein Header, den andere 404er nicht haben').not.toMatch(/X-Robots-Tag/);
+  });
+
+  test('keine eingefrorene SPA-Kopie mehr im Theme', () => {
+    // app-shell.html ist die einzige Quelle des SPA-Bodys. Eine zweite Kopie
+    // driftet zwangsläufig — diese hier war vier Monate alt.
+    expect(fs.existsSync(path.join(ROOT, '404.html')), '404.html ist eine Kopie von app-shell.html').toBe(false);
   });
 
   test('direkter Theme-Pfad ist gesperrt', () => {
@@ -42,8 +90,11 @@ test.describe('HQ-Zugang', () => {
   });
 
   test('HQ wird nicht indexiert', () => {
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'));
-    expect(fn.slice(0, 1400)).toMatch(/X-Robots-Tag.*noindex/);
+    // Geprüft wird die AUSLIEFERUNG an den Administrator — nur die ist eine
+    // echte Seite. Die Abweisung ist eine 404 und wird ohnehin nicht indexiert.
+    const fn = rumpfVon(FUNCTIONS, 'eb_serve_hq');
+    const auslieferung = fn.slice(fn.indexOf('$file'));
+    expect(auslieferung, 'ausgeliefertes HQ ohne noindex').toMatch(/X-Robots-Tag.*noindex/);
   });
 
   test('geschützte REST-Proxies erhalten den WordPress-Nonce', () => {
@@ -250,8 +301,11 @@ test.describe('CSP: HQ darf mit GitHub sprechen', () => {
   });
 
   test('Erweiterung hängt nur an der HQ-Auslieferung', () => {
-    const hq = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'));
-    expect(hq.slice(0, 1600), 'eb_serve_hq muss die Erweiterung aufrufen').toMatch(/eb_hq_csp_erweitern\(\)/);
+    const hq = rumpfVon(FUNCTIONS, 'eb_serve_hq');
+    expect(hq, 'eb_serve_hq muss die Erweiterung aufrufen').toMatch(/eb_hq_csp_erweitern\(\)/);
+    // Und zwar erst NACH der Abweisung — sonst lockert schon der 404-Weg die CSP.
+    expect(hq.indexOf('eb_hq_csp_erweitern()'), 'Erweiterung liegt vor der Rechteprüfung')
+      .toBeGreaterThan(hq.indexOf('$file'));
     // Kein globaler Hook — sonst gälte die Lockerung für jede Seite.
     expect(FUNCTIONS).not.toMatch(/add_action\([^)]*eb_hq_csp_erweitern/);
   });
