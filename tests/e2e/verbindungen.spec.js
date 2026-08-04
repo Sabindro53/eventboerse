@@ -95,11 +95,12 @@ test.describe('Datendateien erreichbar', () => {
     expect(FUNCTIONS).toMatch(/function eb_hq_proxy_darf/);
     const darf = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_proxy_darf'), FUNCTIONS.indexOf('function eb_hq_proxy_darf') + 260);
     expect(darf).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
-    for (const anbieter of ['anthropic', 'openai']) {
-      expect(FUNCTIONS).toMatch(new RegExp(`/hq/probe/${anbieter}`));
-    }
+    // Strukturell prüfen statt auf eine Anzahl festnageln: eine weitere
+    // Probe-Route ist erwünscht, sie muss nur dieselbe Schwelle tragen.
+    const routen = FUNCTIONS.match(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\/probe\/[a-z]+'/g) || [];
+    expect(routen.length, 'es muss Probe-Routen geben').toBeGreaterThanOrEqual(2);
     expect(FUNCTIONS.match(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/g) || [],
-      'jede Probe-Route braucht die Rechteprüfung').toHaveLength(2);
+      'jede Probe-Route braucht die Rechteprüfung').toHaveLength(routen.length);
 
     // Die Antwort darf den Schlüssel nicht zurückgeben — nur Zahlen.
     // Genau bis zum Ende DIESER Funktion lesen; die nächste nennt die
@@ -107,7 +108,7 @@ test.describe('Datendateien erreichbar', () => {
     const von = FUNCTIONS.indexOf('function eb_hq_proxy_antwort');
     const bis = FUNCTIONS.indexOf('\nfunction ', von + 10);
     const antwort = FUNCTIONS.slice(von, bis);
-    expect(antwort, 'die Antwort darf den Schlüssel nicht enthalten').not.toMatch(/EB_(ANTHROPIC|OPENAI)_API_KEY/);
+    expect(antwort, 'die Antwort darf den Schlüssel nicht enthalten').not.toMatch(/EB_(ANTHROPIC|OPENAI|OPENROUTER)_API_KEY/);
     // Verbrauch bleibt als nicht abrufbar geführt — dafür braucht es einen
     // gesonderten Admin-Schlüssel, den wir nicht haben.
     expect(antwort).toMatch(/'abrufbar'\s*=>\s*false/);
@@ -116,18 +117,21 @@ test.describe('Datendateien erreichbar', () => {
     // zurückgeben. Gefährlich ist die Konstante als AUSDRUCK; ihr Name in
     // einer Meldung („… ist nicht hinterlegt") ist Text und hilfreich.
     // Deshalb erst die Zeichenketten entfernen, dann suchen.
-    for (const fn of ['eb_hq_probe_anthropic', 'eb_hq_probe_openai']) {
+    for (const fn of ['eb_hq_probe_anthropic', 'eb_hq_probe_openai', 'eb_hq_probe_openrouter']) {
       const a = FUNCTIONS.indexOf('function ' + fn);
-      const b = FUNCTIONS.indexOf('\nfunction ', a + 10);
-      const body = FUNCTIONS.slice(a, b > 0 ? b : undefined);
+      // Bis zur nächsten Funktion ODER zum nächsten add_action — die letzte
+      // Probe-Funktion liefe sonst bis Dateiende und zöge Fremdes herein.
+      const kandidaten = [FUNCTIONS.indexOf('\nfunction ', a + 10), FUNCTIONS.indexOf('\nadd_action', a + 10)]
+        .filter((x) => x > 0);
+      const body = FUNCTIONS.slice(a, kandidaten.length ? Math.min(...kandidaten) : undefined);
       for (const r of body.match(/eb_hq_proxy_antwort\([^;]*/g) || []) {
         const ohneText = r.replace(/'(?:[^'\\]|\\.)*'/g, "''");
-        expect(ohneText, `${fn} gibt den Schlüssel zurück`).not.toMatch(/EB_(ANTHROPIC|OPENAI)_API_KEY/);
+        expect(ohneText, `${fn} gibt den Schlüssel zurück`).not.toMatch(/EB_(ANTHROPIC|OPENAI|OPENROUTER)_API_KEY/);
       }
       // Der Schlüssel darf ausschließlich in den Anfrage-Kopfzeilen stehen.
       const alsAusdruck = (body.replace(/'(?:[^'\\]|\\.)*'/g, "''")
-        .match(/EB_(ANTHROPIC|OPENAI)_API_KEY/g) || []).length;
-      const inKopfzeilen = (body.match(/(x-api-key|Authorization)[^\n]*EB_(ANTHROPIC|OPENAI)_API_KEY/g) || []).length;
+        .match(/EB_(ANTHROPIC|OPENAI|OPENROUTER)_API_KEY/g) || []).length;
+      const inKopfzeilen = (body.match(/(x-api-key|Authorization)[^\n]*EB_(ANTHROPIC|OPENAI|OPENROUTER)_API_KEY/g) || []).length;
       // Einmal in der defined()-Prüfung, einmal im Wert, einmal in der Kopfzeile.
       expect(alsAusdruck, `${fn}: Konstante an unerwarteter Stelle`).toBeLessThanOrEqual(3);
       expect(inKopfzeilen, `${fn}: Schlüssel gehört in die Kopfzeile`).toBe(1);
@@ -139,7 +143,18 @@ test.describe('Datendateien erreichbar', () => {
     const block = deploy.slice(deploy.indexOf('Inject AI keys'));
     // Ohne gesetzte Secrets passiert nichts — ein Schlüssel wandert nicht
     // stillschweigend an einen weiteren Ort.
-    expect(block).toMatch(/if \[ -z "\$ANTHROPIC_KEY" \] && \[ -z "\$OPENAI_KEY" \]; then/);
+    //
+    // Nicht auf den Wortlaut festnageln: ein weiterer Anbieter darf dazukommen.
+    // Entscheidend ist, dass die Abbruchbedingung JEDEN Schlüssel abdeckt —
+    // eine Lücke hier hieße, dass ein Secret ungefragt geschrieben wird.
+    const wache = (block.match(/^\s*if\s+(.*-z\s+"\$[A-Z_]+".*);\s*then\s*$/m) || [])[1];
+    expect(wache, 'Abbruchbedingung nicht gefunden').toBeTruthy();
+    const bewacht = (wache.match(/\$([A-Z_]+)/g) || []).map((x) => x.slice(1));
+    const uebergeben = [...block.matchAll(/^\s{10}([A-Z_]+_KEY):\s*\$\{\{\s*secrets\./gm)].map((m) => m[1]);
+    expect(uebergeben.length, 'keine Schlüssel-Variablen gefunden').toBeGreaterThan(0);
+    for (const k of uebergeben) {
+      expect(bewacht, `${k} ist nicht von der Abbruchbedingung gedeckt`).toContain(k);
+    }
     expect(block).toMatch(/exit 0/);
     // In der Ausgabe darf der Wert nicht auftauchen.
     expect(block).toMatch(/REDACTED/);

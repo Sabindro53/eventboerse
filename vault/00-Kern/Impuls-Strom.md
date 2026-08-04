@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **32** |
-| Commits (30 Tage) | 83 |
-| Letzter Commit | `6b1d870 · HQ-Proxy: KI-Kontingente serverseitig, Datendateien nach Schutzbedarf (#93)` (2026-08-03) |
+| Commits (7 Tage) | **33** |
+| Commits (30 Tage) | 84 |
+| Letzter Commit | `754eb88 · HQ neu gebaut: neuronaler Kern, Autonomie-Ebene, offenes Modell-Ensemble` (2026-08-04) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
@@ -73,7 +73,7 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
      33 styles.css
      23 index.html
      23 app-shell.html
-     14 functions.php
+     15 functions.php
 ```
 
 **Codegröße:**
