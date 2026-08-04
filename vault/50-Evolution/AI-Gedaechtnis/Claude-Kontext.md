@@ -19,8 +19,9 @@ tags: [layer/L5, domain/evolution, share/internal]
   nicht-sensibler Frontend-Dateien; höchstens 2 Dateien und 260 Diff-Zeilen.
   Kein Backend, Auth, Payment, Workflow, bestehender Test, Netzwerk-, Cookie-
   oder Storage-Pfad. `git apply --check` läuft vor dem Anwenden.
-- **Kostenbremse:** höchstens 0,35 USD je Wochenlauf; unter 1 USD verbleibendem
-  Schlüssel-Limit startet kein Lauf. Modell, Token und Kosten stehen im PR.
+- **Kostenbremse:** höchstens 0,35 USD je Wochenlauf; bei einem Key mit eigenem
+  Limit startet unter 1 USD Rest kein Lauf. OpenRouters `null` bedeutet „kein
+  Key-Limit", nicht 0 USD. Modell, Token und Kosten stehen im PR.
 - **Vollautonome, aber rückholbare Auslieferung:** Agenten-Review → Gate →
   Syntax-Gates → komplette Playwright-Suite → eindeutig zugeordneter PR →
   erneute Scope-Prüfung → Squash-Merge → explizit gestarteter bestehender

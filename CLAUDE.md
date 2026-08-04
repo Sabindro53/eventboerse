@@ -164,7 +164,9 @@ Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei Fehlern.
 OpenRouter: Scout → Architekt → Implementierer → Reviewer. Ein Lauf darf
 höchstens zwei fest freigegebene, kleine Frontend-Dateien und 260 Diff-Zeilen
 berühren; Backend, Auth, Zahlungen, Workflows, Netzwerk- und Storage-Pfade sind
-hart ausgeschlossen. Kostenlimit: 0,35 USD pro Lauf, Mindestrest 1 USD.
+hart ausgeschlossen. Kostenlimit: 0,35 USD pro Lauf; hat der verwendete Key
+ein eigenes Limit, startet er unter 1 USD Rest nicht mehr. `null` bedeutet bei
+OpenRouter „kein Key-Limit", nicht „kein Guthaben".
 
 Der Autopilot führt Syntax-Gates, Reproduzierbarkeits-Gate und die komplette
 Playwright-Suite aus und erstellt erst dann einen PR. `openrouter-auto-merge.yml`
