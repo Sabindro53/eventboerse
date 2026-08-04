@@ -167,6 +167,9 @@ berühren; Backend, Auth, Zahlungen, Workflows, Netzwerk- und Storage-Pfade sind
 hart ausgeschlossen. Kostenlimit: 0,35 USD pro Lauf; hat der verwendete Key
 ein eigenes Limit, startet er unter 1 USD Rest nicht mehr. `null` bedeutet bei
 OpenRouter „kein Key-Limit", nicht „kein Guthaben".
+Eine leere oder nicht parsebare Antwort wird nie angewendet: dieselbe Rolle
+wechselt kontrolliert zum nächsten freigegebenen Modell und bucht auch den
+fehlgeschlagenen Versuch gegen dasselbe Laufbudget.
 
 Der Autopilot führt Syntax-Gates, Reproduzierbarkeits-Gate und die komplette
 Playwright-Suite aus und erstellt erst dann einen PR. `openrouter-auto-merge.yml`
