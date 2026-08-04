@@ -97,6 +97,8 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/Scout -> Architekt -> Implementierer -> Reviewer/);
     expect(runner).toMatch(/data_collection:\s*'deny'/);
     expect(runner).toMatch(/runBudget.*0\.35/);
+    expect(runner).toMatch(/for \(const modell of \[spec\.model, \.\.\.spec\.fallbacks\]\)/);
+    expect(runner).toMatch(/ergebnis: 'unbrauchbar'/);
   });
 
   test('autonomer Scope schließt sensible Dateien und Seiteneffekte aus', () => {

@@ -195,6 +195,9 @@ Provider ohne Datenweitergabe (`data_collection: deny`) und Unterstützung aller
 verwendeten Parameter. Jeder Wochenlauf ist auf 0,35 USD begrenzt. Hat der Key
 ein eigenes Limit, startet er unter 1 USD Rest nicht; OpenRouters `null` bei
 einem Key ohne eigenes Limit darf dabei nicht als 0 USD interpretiert werden.
+Formal erfolgreiche, aber leere/nicht parsebare Antworten lösen zusätzlich
+einen rollenweisen Modell-Fallback aus; auch solche Versuche zählen zum selben
+0,35-USD-Laufbudget und werden nie als Patch weitergereicht.
 
 **Doppelte technische Grenze:** Das Agentenskript lässt nur eine feste Liste
 kleiner Frontend-Dateien zu und blockiert unter anderem Auth, Payment, Backend,
