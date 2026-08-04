@@ -292,3 +292,80 @@ test.describe('Neuronaler Kern', () => {
     expect(ok, 'Knoten und Kreis brauchen tabindex und Label').toBe(true);
   });
 });
+
+test.describe('Arbeitsjournal & Gespräch', () => {
+  const JOURNAL = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-arbeit.json'), 'utf8'));
+  const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+
+  test('Journal-Prüfung läuft sauber durch', () => {
+    const out = execFileSync('node', ['scripts/agent.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
+    expect(out).toMatch(/Nur echte Läufe/);
+  });
+
+  test('ohne Schlüssel fällt die Schicht aus statt zu lügen', () => {
+    // Der Lauf endet mit 0 — eine Routine soll nicht rot werden, weil ein
+    // optionaler Schlüssel fehlt. Aber der Ausfall muss im Journal stehen.
+    const agent = fs.readFileSync(path.join(ROOT, 'scripts', 'agent.mjs'), 'utf8');
+    expect(agent).toMatch(/ergebnis: 'uebersprungen'/);
+    expect(agent, 'ein Ausfall darf die Routine nicht abbrechen').toMatch(/process\.exit\(0\)/);
+    // „fertig" ohne Ergebnis wäre Arbeit, die nie stattfand.
+    expect(agent).toMatch(/'fertig' && !\(e\.text \|\| ''\)\.trim\(\)/);
+  });
+
+  test('Geheimnisse verlassen den Betrieb nicht', () => {
+    const agent = fs.readFileSync(path.join(ROOT, 'scripts', 'agent.mjs'), 'utf8');
+    // Vor jedem Aufruf wird der Kontext gescannt — lieber gar nicht arbeiten
+    // als einen Schlüssel an einen fremden Dienst schicken.
+    const vorAufruf = agent.slice(0, agent.indexOf('fetch(\'https://openrouter.ai'));
+    expect(vorAufruf).toMatch(/ersterTreffer\(kontext, GEHEIMNISSE\)/);
+    expect(vorAufruf).toMatch(/ergebnis: 'abgebrochen'/);
+  });
+
+  test('jede Rolle mit Schicht hat einen Auftrag mit Grenze', () => {
+    const agent = fs.readFileSync(path.join(ROOT, 'scripts', 'agent.mjs'), 'utf8');
+    const auftraege = agent.slice(agent.indexOf('const AUFTRAG'), agent.indexOf('const heute'));
+    for (const m of KATALOG.modelle.filter((x) => x.schicht && x.weg === 'openrouter')) {
+      expect(auftraege, `${m.id} ohne Auftrag`).toContain(`'${m.id}':`);
+    }
+    // Die Grenzen stehen im Auftrag selbst — ein Modell, das seine Schranke
+    // erst nachgelagert erfährt, hat sie schon überschritten.
+    expect(auftraege).toMatch(/Mache keine Zusage/);
+    expect(auftraege).toMatch(/Löse nichts aus/);
+    // Über Zeilenumbrüche hinweg prüfen: die Zeichenkette ist im Quelltext
+    // umgebrochen, die Aussage ist es nicht.
+    const flach = auftraege.replace(/'\s*\+\s*'/g, '').replace(/\s+/g, ' ');
+    expect(flach, 'der Entwurfsschreiber darf nichts senden').toMatch(/wird NICHT gesendet/);
+  });
+
+  test('das Gespräch antwortet nur aus freigegebenem Wissen', () => {
+    expect(FUNCTIONS).toMatch(/function eb_hq_chat/);
+    const chat = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_chat'));
+    const rumpf = chat.slice(0, chat.indexOf('\nadd_action'));
+    // Ein erfundener Provisionssatz wäre schlimmer als keine Antwort.
+    expect(rumpf).toMatch(/AUSSCHLIESSLICH aus dem/);
+    expect(rumpf).toMatch(/rate nicht/);
+    // Nur Administratoren, und der Schlüssel bleibt auf dem Server.
+    expect(FUNCTIONS).toMatch(/'\/hq\/chat'[\s\S]{0,220}eb_hq_proxy_darf/);
+    expect(rumpf).not.toMatch(/echo|print/);
+  });
+
+  test('der Kreis fällt ohne Modell auf die lokale Suche zurück', () => {
+    expect(HQ).toMatch(/topTreffer/);
+    const ask = HQ.slice(HQ.indexOf('async function ask('), HQ.indexOf('async function ask(') + 2600);
+    expect(ask, 'Gespräch über die Serverseite').toMatch(/hq\/chat/);
+    expect(ask, 'Rückfall auf die Stichwortsuche').toMatch(/Rückfall/);
+    expect(ask).toMatch(/sie erfindet nichts/);
+  });
+
+  test('HQ zeigt das Journal ehrlich, auch wenn es leer ist', async ({ page }) => {
+    await page.route('https://api.github.com/**', (r) => r.abort());
+    await page.goto('/hq.html');
+    await page.waitForTimeout(2200);
+    const text = await page.evaluate(() => document.getElementById('journal').textContent);
+    if (!JOURNAL.eintraege.length) {
+      expect(text, 'ein leeres Journal sagt das, statt leer zu bleiben').toMatch(/Noch kein Eintrag/);
+    } else {
+      expect(text).toMatch(/Schichten gearbeitet/);
+    }
+  });
+});

@@ -89,7 +89,16 @@ node scripts/connectors.mjs            # assets/eb-connectors.json (Katalog)
 node scripts/connectors.mjs --check    # keine Geheimnisse, kein Zustand im Katalog
 node scripts/models.mjs                # assets/eb-models.json (Bereiche + Ensemble)
 node scripts/models.mjs --check        # nur offene Modelle, jede Grenze begründet
+node scripts/agent.mjs --rolle <id>    # eine Schicht arbeiten lassen (OPENROUTER_API_KEY)
+node scripts/agent.mjs --check         # Arbeitsjournal prüfen
 ```
+
+Die **Mitarbeiter arbeiten wirklich**: `tagesroutine.yml` lässt Lagemelder und
+Sortierer laufen, `pr-check.yml` den Code-Prüfer (kommentiert nur, blockiert
+nie). Ohne `EB_OPENROUTER_API_KEY` fällt die Schicht aus **und steht als
+`uebersprungen` im Journal** — ein Journal, das nur Erfolge führt, sieht aus
+wie ein Betrieb ohne Ausfälle. `/hq/chat` lässt den Circle ein echtes Gespräch
+führen, ausschließlich aus freigegebenem Wissen.
 
 Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
 verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.

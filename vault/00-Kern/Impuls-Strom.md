@@ -70,16 +70,16 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 **Meistbewegte Dateien (30 Tage):**
 ```
 40 app.js
-  33 styles.css
-  23 index.html
-  23 app-shell.html
-  15 functions.php
+     33 styles.css
+     23 index.html
+     23 app-shell.html
+     15 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.653 Zeilen
+- `functions.php` — 8.720 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt

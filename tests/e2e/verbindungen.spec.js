@@ -107,12 +107,19 @@ test.describe('Datendateien erreichbar', () => {
     expect(FUNCTIONS).toMatch(/function eb_hq_proxy_darf/);
     const darf = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_proxy_darf'), FUNCTIONS.indexOf('function eb_hq_proxy_darf') + 260);
     expect(darf).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
-    // Strukturell prüfen statt auf eine Anzahl festnageln: eine weitere
-    // Probe-Route ist erwünscht, sie muss nur dieselbe Schwelle tragen.
-    const routen = FUNCTIONS.match(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\/probe\/[a-z]+'/g) || [];
-    expect(routen.length, 'es muss Probe-Routen geben').toBeGreaterThanOrEqual(2);
-    expect(FUNCTIONS.match(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/g) || [],
-      'jede Probe-Route braucht die Rechteprüfung').toHaveLength(routen.length);
+    // Jede EINZELNE /hq-Route prüfen, statt Anzahlen zu vergleichen. Eine
+    // weitere Route ist erwünscht — sie muss nur dieselbe Schwelle tragen,
+    // und genau das ist die Aussage. Zweimal hat eine Zählung hier zu Unrecht
+    // Alarm geschlagen, weil eine neue Route dazugekommen war.
+    const routen = [...FUNCTIONS.matchAll(
+      /register_rest_route\(\s*'eventboerse\/v1',\s*'(\/hq\/[a-z\/]+)',\s*array\(([\s\S]*?)\)\s*\);/g)];
+    expect(routen.length, 'es muss HQ-Routen geben').toBeGreaterThanOrEqual(3);
+    for (const [, pfad, rumpf] of routen) {
+      expect(rumpf, `${pfad} ohne Rechteprüfung`).toMatch(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/);
+    }
+    // Umgekehrt: keine HQ-Route darf an der Prüfung vorbei registriert werden.
+    const alleHq = FUNCTIONS.match(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\//g) || [];
+    expect(alleHq.length, 'jede /hq-Route muss oben erfasst sein').toBe(routen.length);
 
     // Die Antwort darf den Schlüssel nicht zurückgeben — nur Zahlen.
     // Genau bis zum Ende DIESER Funktion lesen; die nächste nennt die

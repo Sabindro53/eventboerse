@@ -8651,3 +8651,99 @@ add_action( 'rest_api_init', function () {
         'permission_callback' => 'eb_hq_proxy_darf',
     ) );
 } );
+
+/**
+ * HQ-Gespräch: der Kreis spricht mit einem echten Modell.
+ *
+ * Bis hierher beantwortete der EB Circle Fragen über Stichwort-Treffer in der
+ * Wissensbasis. Das reicht für „Wie hoch ist die Provision?" und scheitert an
+ * jeder Frage, die anders formuliert ist als die Notiz.
+ *
+ * Diese Route schickt die Frage zusammen mit den passendsten Abschnitten der
+ * Wissensbasis an ein offenes Modell. Der Schlüssel bleibt auf dem Server.
+ *
+ * Zwei Grenzen stehen im Auftrag selbst, nicht nur in der Oberfläche:
+ *   · Es wird ausschließlich aus dem mitgelieferten Wissen geantwortet.
+ *     Was nicht dasteht, wird als „weiß ich nicht" beantwortet — ein erfundener
+ *     Provisionssatz wäre schlimmer als keine Antwort.
+ *   · Die Route liest nur. Sie löst nichts aus, ändert nichts, deployt nichts.
+ */
+function eb_hq_chat( WP_REST_Request $req ) {
+    $frage = trim( (string) $req->get_param( 'frage' ) );
+    if ( $frage === '' || mb_strlen( $frage ) > 600 ) {
+        return new WP_REST_Response( array( 'fehler' => 'Frage fehlt oder ist zu lang.' ), 400 );
+    }
+    if ( ! defined( 'EB_OPENROUTER_API_KEY' ) || ! EB_OPENROUTER_API_KEY ) {
+        // Kein Schlüssel: das HQ fällt auf die lokale Stichwortsuche zurück.
+        return rest_ensure_response( array(
+            'verfuegbar' => false,
+            'grund'      => 'EB_OPENROUTER_API_KEY ist auf dem Server nicht hinterlegt.',
+        ) );
+    }
+
+    // Wissen mitgeben: der Aufrufer schickt die Abschnitte, die seine lokale
+    // Suche gefunden hat. So bleibt die Auswahl im Browser und der Server
+    // muss die Wissensbasis nicht zweimal vorhalten.
+    $wissen = (array) $req->get_param( 'wissen' );
+    $teile  = array();
+    foreach ( array_slice( $wissen, 0, 6 ) as $w ) {
+        $t = isset( $w['text'] ) ? wp_strip_all_tags( (string) $w['text'] ) : '';
+        $h = isset( $w['heading'] ) ? wp_strip_all_tags( (string) $w['heading'] ) : '';
+        if ( $t !== '' ) {
+            $teile[] = ( $h !== '' ? $h . ":\n" : '' ) . mb_substr( $t, 0, 900 );
+        }
+    }
+    $kontext = $teile ? implode( "\n\n---\n\n", $teile ) : '(kein passender Abschnitt gefunden)';
+
+    $system = 'Du bist der EB Circle, die Stimme des Eventbörse-HQ. Antworte kurz, '
+        . 'auf Deutsch, in höchstens vier Sätzen. Antworte AUSSCHLIESSLICH aus dem '
+        . 'mitgelieferten Wissen. Steht die Antwort nicht darin, sage genau das und '
+        . 'rate nicht — ein erfundener Zahlenwert ist schlimmer als keine Antwort. '
+        . 'Du löst nichts aus und änderst nichts; du erklärst.';
+
+    $res = wp_remote_post( 'https://openrouter.ai/api/v1/chat/completions', array(
+        'timeout' => 25,
+        'headers' => array(
+            'Authorization' => 'Bearer ' . EB_OPENROUTER_API_KEY,
+            'Content-Type'  => 'application/json',
+            'X-Title'       => 'Eventboerse HQ Circle',
+        ),
+        'body' => wp_json_encode( array(
+            // Klein und schnell — ein Gespräch muss sofort antworten.
+            'model'       => 'mistralai/mistral-small-24b-instruct-2501',
+            'max_tokens'  => 320,
+            'temperature' => 0.3,
+            'messages'    => array(
+                array( 'role' => 'system', 'content' => $system ),
+                array( 'role' => 'user', 'content' => "WISSEN:\n" . $kontext . "\n\nFRAGE: " . $frage ),
+            ),
+        ) ),
+    ) );
+
+    if ( is_wp_error( $res ) ) {
+        return rest_ensure_response( array( 'verfuegbar' => false, 'grund' => $res->get_error_message() ) );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $res );
+    if ( $code !== 200 ) {
+        return rest_ensure_response( array( 'verfuegbar' => false, 'grund' => 'OpenRouter antwortete HTTP ' . $code ) );
+    }
+    $body = json_decode( wp_remote_retrieve_body( $res ), true );
+    $text = isset( $body['choices'][0]['message']['content'] ) ? trim( $body['choices'][0]['message']['content'] ) : '';
+    if ( $text === '' ) {
+        return rest_ensure_response( array( 'verfuegbar' => false, 'grund' => 'Leere Antwort.' ) );
+    }
+    return rest_ensure_response( array(
+        'verfuegbar' => true,
+        'antwort'    => $text,
+        'modell'     => 'Mistral Small 3 · offene Gewichte',
+        'tokens'     => isset( $body['usage']['total_tokens'] ) ? (int) $body['usage']['total_tokens'] : null,
+    ) );
+}
+
+add_action( 'rest_api_init', function () {
+    register_rest_route( 'eventboerse/v1', '/hq/chat', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_hq_chat',
+        'permission_callback' => 'eb_hq_proxy_darf',
+    ) );
+} );
