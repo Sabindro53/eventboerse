@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **33** |
-| Commits (30 Tage) | 84 |
-| Letzter Commit | `754eb88 · HQ neu gebaut: neuronaler Kern, Autonomie-Ebene, offenes Modell-Ensemble` (2026-08-04) |
+| Commits (7 Tage) | **35** |
+| Commits (30 Tage) | 86 |
+| Letzter Commit | `60c07ff · HQ neu gebaut: neuronaler Kern, Autonomie-Ebene, offenes Modell-Ensemble (#94)` (2026-08-04) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```

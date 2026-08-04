@@ -15,6 +15,13 @@
  * Zeile Aufgabenlogik sich ändert — die Rolle bleibt, der Anbieter ist
  * austauschbar. Genau deshalb steht in jedem Eintrag die Rolle vor dem Namen.
  *
+ * Jede Rolle ist als STELLE beschrieben, nicht als Spielerei: sie hat einen
+ * Auslöser (wann sie arbeitet), eine Schicht (welcher Workflow sie ausführt)
+ * und einen Gehaltsvergleich. Letzterer ist ausdrücklich ein Vergleichswert
+ * für dieselbe Aufgabe als menschliche Stelle — keine Behauptung, dass ein
+ * Modell einen Menschen ersetzt. Er macht sichtbar, welchen Umfang an Arbeit
+ * hier automatisch läuft.
+ *
  * Nutzung:
  *   node scripts/models.mjs           # Katalog schreiben
  *   node scripts/models.mjs --check   # prüfen (CI)
@@ -101,89 +108,144 @@ const AUTONOMIE_TEXT = {
  */
 const MODELLE = [
   {
-    id: 'llama-arch', name: 'Llama 3.3 70B', anbieter: 'Meta', offen: true,
+    id: 'llama-arch', werkzeuge: ['github','openrouter'], person: 'Ada Brenner', name: 'Llama 3.3 70B', anbieter: 'Meta', offen: true,
     lizenz: 'Llama Community License', bereich: 'architektur',
     rolle: 'Architektur-Gegenleser',
     aufgabe: 'Liest Diffs und benennt, was ein Umbau an anderer Stelle kaputt macht.',
     warum: 'Großer Kontext, belastbar bei langen Dateien — hier zählt Überblick '
       + 'mehr als Geschwindigkeit.',
     weg: 'openrouter',
+    schicht: 'claude-improve.yml',
+    ausloeser: 'Liest jeden geöffneten Pull Request gegen.',
+    gehaltVergleich: 78000,
+    vergleichsstelle: 'Senior-Entwickler:in im Review',
   },
   {
-    id: 'deepseek-code', name: 'DeepSeek-V3', anbieter: 'DeepSeek', offen: true,
+    id: 'deepseek-code', werkzeuge: ['github','openrouter'], person: 'Kito Sarr', name: 'DeepSeek-V3', anbieter: 'DeepSeek', offen: true,
     lizenz: 'MIT (Gewichte)', bereich: 'architektur',
     rolle: 'Code-Prüfer',
     aufgabe: 'Sucht Fehler in geändertem Code, bevor die Testsuite läuft.',
     warum: 'Auf Code trainiert, findet Klassen von Fehlern, die generische Modelle übersehen.',
     weg: 'openrouter',
+    schicht: 'pr-check.yml',
+    ausloeser: 'Läuft bei jedem Pull Request mit der Testsuite.',
+    gehaltVergleich: 72000,
+    vergleichsstelle: 'Code-Reviewer:in',
   },
   {
-    id: 'mistral-ops', name: 'Mistral Small 3', anbieter: 'Mistral AI', offen: true,
+    id: 'mistral-ops', werkzeuge: ['deployment','github','openrouter'], person: 'Nils Falk', name: 'Mistral Small 3', anbieter: 'Mistral AI', offen: true,
     lizenz: 'Apache 2.0', bereich: 'betrieb',
     rolle: 'Lagemelder',
     aufgabe: 'Fasst Deploy-Läufe, Testergebnisse und Selbstcheck zu einem Satz zusammen.',
     warum: 'Schnell und günstig. Ein Lagebericht muss sofort da sein, nicht perfekt.',
     weg: 'openrouter',
+    schicht: 'ionos-deploy.yml',
+    ausloeser: 'Fasst jeden Deploy in einem Satz zusammen.',
+    gehaltVergleich: 55000,
+    vergleichsstelle: 'DevOps-Bereitschaft',
   },
   {
-    id: 'qwen-wissen', name: 'Qwen 2.5 72B', anbieter: 'Alibaba', offen: true,
+    id: 'qwen-wissen', werkzeuge: ['openrouter'], person: 'Mira Yun', name: 'Qwen 2.5 72B', anbieter: 'Alibaba', offen: true,
     lizenz: 'Apache 2.0', bereich: 'intelligence',
     rolle: 'Recherche-Leser',
     aufgabe: 'Liest Fremdtext in der Quarantäne und schlägt eine Einordnung vor.',
     warum: 'Stark mehrsprachig — Marktrecherche endet selten auf Deutsch.',
     weg: 'openrouter',
+    schicht: 'recherche.yml',
+    ausloeser: 'Liest den wöchentlichen Fund in der Quarantäne.',
+    gehaltVergleich: 62000,
+    vergleichsstelle: 'Marktrecherche',
   },
   {
-    id: 'gemma-sort', name: 'Gemma 2 27B', anbieter: 'Google', offen: true,
+    id: 'gemma-sort', werkzeuge: ['obsidian','openrouter'], person: 'Ela Voss', name: 'Gemma 2 27B', anbieter: 'Google', offen: true,
     lizenz: 'Gemma Terms of Use', bereich: 'intelligence',
     rolle: 'Sortierer',
     aufgabe: 'Ordnet Wissenslücken nach Häufigkeit und Nähe zum Produkt.',
     warum: 'Klein genug für viele kurze Aufrufe, gut bei Klassifikation.',
     weg: 'openrouter',
+    schicht: 'tagesroutine.yml',
+    ausloeser: 'Sortiert täglich die offenen Wissenslücken.',
+    gehaltVergleich: 48000,
+    vergleichsstelle: 'Content-Redaktion',
   },
   {
-    id: 'phi-kurz', name: 'Phi-4', anbieter: 'Microsoft', offen: true,
+    id: 'phi-kurz', werkzeuge: ['openrouter'], person: 'Timo Rast', name: 'Phi-4', anbieter: 'Microsoft', offen: true,
     lizenz: 'MIT', bereich: 'community',
     rolle: 'Entwurfsschreiber',
     aufgabe: 'Schreibt kurze Antwortentwürfe — abgesendet wird nichts davon.',
     warum: 'Sehr klein, läuft notfalls auf eigener Hardware. Für kurze Texte reicht das.',
     weg: 'openrouter',
+    schicht: 'tagesroutine.yml',
+    ausloeser: 'Schreibt Antwortentwürfe — sendet nie.',
+    gehaltVergleich: 44000,
+    vergleichsstelle: 'Community-Betreuung',
   },
   {
-    id: 'mixtral-sales', name: 'Mixtral 8x7B', anbieter: 'Mistral AI', offen: true,
+    id: 'mixtral-sales', werkzeuge: ['openrouter'], person: 'Jana Krohn', name: 'Mixtral 8x7B', anbieter: 'Mistral AI', offen: true,
     lizenz: 'Apache 2.0', bereich: 'sales',
     rolle: 'Anfragen-Sichter',
     aufgabe: 'Liest Anfragen und schlägt Kategorie, Dringlichkeit und Preisrahmen vor.',
     warum: 'Mixture-of-Experts: viel Leistung pro Aufruf, ohne ein 70B-Modell zu bezahlen.',
     weg: 'openrouter',
+    schicht: 'tagesroutine.yml',
+    ausloeser: 'Sichtet eingehende Anfragen.',
+    gehaltVergleich: 58000,
+    vergleichsstelle: 'Vertriebsinnendienst',
   },
   {
-    id: 'llama-finance', name: 'Llama 3.1 8B', anbieter: 'Meta', offen: true,
+    id: 'llama-finance', werkzeuge: ['openrouter'], person: 'Ben Oduya', name: 'Llama 3.1 8B', anbieter: 'Meta', offen: true,
     lizenz: 'Llama Community License', bereich: 'finance',
     rolle: 'Abweichungs-Melder',
     aufgabe: 'Vergleicht erwartete und tatsächliche Gebühren und meldet Differenzen.',
     warum: 'Klein und schnell. Die Rechnung selbst macht der Code centgenau — '
       + 'das Modell erklärt nur, was auffällt.',
     weg: 'openrouter',
+    schicht: 'tagesroutine.yml',
+    ausloeser: 'Vergleicht täglich Soll- und Ist-Gebühren.',
+    gehaltVergleich: 65000,
+    vergleichsstelle: 'Buchhaltung',
   },
   {
-    id: 'whisper', name: 'Whisper large-v3', anbieter: 'OpenAI (offene Gewichte)', offen: true,
+    id: 'whisper', werkzeuge: [], person: 'Sena Ilk', name: 'Whisper large-v3', anbieter: 'OpenAI (offene Gewichte)', offen: true,
     lizenz: 'MIT', bereich: 'intelligence',
     rolle: 'Zuhörer',
     aufgabe: 'Wandelt Gesprochenes in Text, wenn die Browser-Erkennung nicht reicht.',
     warum: 'Offene Gewichte, selbst betreibbar. Sprache muss den Rechner nicht verlassen.',
     weg: 'lokal',
+    schicht: null,
+    ausloeser: 'Wird aktiv, sobald du sprichst.',
+    gehaltVergleich: 0,
+    vergleichsstelle: 'läuft lokal, keine Stelle',
   },
   {
-    id: 'kokoro', name: 'Kokoro TTS', anbieter: 'Community', offen: true,
+    id: 'kokoro', werkzeuge: [], person: 'Lea Kimm', name: 'Kokoro TTS', anbieter: 'Community', offen: true,
     lizenz: 'Apache 2.0', bereich: 'betrieb',
     rolle: 'Stimme',
     aufgabe: 'Spricht Lageberichte aus. Heute übernimmt das die Browser-Stimme.',
     warum: 'Klein und natürlich klingend. Der Wechsel kostet genau eine Funktion — '
       + 'der sprechbare Text ist die Datenquelle, nicht die Oberfläche.',
     weg: 'lokal',
+    schicht: null,
+    ausloeser: 'Spricht, wenn du eine Antwort hören willst.',
+    gehaltVergleich: 0,
+    vergleichsstelle: 'läuft lokal, keine Stelle',
   },
 ];
+
+/**
+ * Schichten: welcher echte Workflow diese Rolle ausführt. Das HQ liest die
+ * letzten Läufe über die Actions-API — dadurch steht auf jeder Mitarbeiter-
+ * Karte, wann sie ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte.
+ */
+const SCHICHTEN = {
+  'tagesroutine.yml':      { takt: 'täglich 03:17 UTC', label: 'Tagesroutine' },
+  'recherche.yml':         { takt: 'donnerstags 06:23 UTC', label: 'Recherche' },
+  'claude-improve.yml':    { takt: 'montags 05:00 UTC', label: 'Verbesserungs-Routine' },
+  'claude-auto-audit.yml': { takt: 'montags 04:00 UTC', label: 'Auto-Audit' },
+  'pr-check.yml':          { takt: 'bei jedem Pull Request', label: 'PR-Gate' },
+  'ionos-deploy.yml':      { takt: 'bei jedem Push auf main', label: 'Deploy' },
+  'site-monitor.yml':      { takt: 'alle 30 Minuten', label: 'Erreichbarkeit' },
+};
 
 const WEGE = {
   openrouter: {
@@ -221,7 +283,8 @@ function pruefen() {
     const melde = (t) => fehler.push(`${m.id || '(ohne id)'}: ${t}`);
     if (!m.id || ids.has(m.id)) melde('id fehlt oder ist doppelt');
     ids.add(m.id);
-    for (const feld of ['name', 'anbieter', 'lizenz', 'rolle', 'aufgabe', 'warum', 'weg']) {
+    for (const feld of ['name', 'anbieter', 'lizenz', 'rolle', 'aufgabe', 'warum', 'weg',
+                        'ausloeser', 'vergleichsstelle', 'person']) {
       if (!m[feld]) melde(`Pflichtfeld „${feld}" fehlt`);
     }
     // Das Ensemble ist ausdrücklich offen — ein geschlossenes Modell hier wäre
@@ -229,6 +292,17 @@ function pruefen() {
     if (m.offen !== true) melde('nur offene Modelle gehören ins Ensemble');
     if (!bereichIds.has(m.bereich)) melde(`unbekannter Bereich „${m.bereich}"`);
     if (!WEGE[m.weg]) melde(`unbekannter Weg „${m.weg}"`);
+    if (typeof m.gehaltVergleich !== 'number') melde('gehaltVergleich fehlt (0 = keine Stelle)');
+    // Ein Name macht die Rolle ansprechbar — er darf aber nie verdecken,
+    // welches Modell dahintersteht. Beides steht immer zusammen auf der Karte.
+    if (m.person && m.person === m.name) melde('person darf nicht der Modellname sein');
+    if (!Array.isArray(m.werkzeuge)) melde('werkzeuge fehlt (leeres Array = arbeitet lokal)');
+    // Eine Schicht muss ein ECHTER Workflow sein. Ein erfundener Auslöser
+    // wäre genau die Sorte Behauptung, die dieses Dashboard vermeiden soll.
+    if (m.schicht !== null && !SCHICHTEN[m.schicht]) melde(`unbekannte Schicht „${m.schicht}"`);
+    // Wer eine Schicht hat, arbeitet — und hat dann auch einen Vergleichswert.
+    if (m.schicht && m.gehaltVergleich <= 0) melde('Rolle mit Schicht ohne Gehaltsvergleich');
+    if (!m.schicht && m.gehaltVergleich !== 0) melde('Rolle ohne Schicht darf kein Gehalt führen');
     if ('status' in m || 'aktiv' in m || 'verbunden' in m) {
       melde('Laufzeit-Zustand gehört nicht in den Katalog');
     }
@@ -251,6 +325,7 @@ const katalog = {
     + 'bearbeiten. Ob ein Modell antwortet, entscheidet ein echter Aufruf.',
   autonomieStufen: AUTONOMIE_TEXT,
   wege: WEGE,
+  schichten: SCHICHTEN,
   bereiche: BEREICHE,
   modelle: MODELLE,
 };
@@ -279,10 +354,15 @@ if (CHECK) {
     const n = BEREICHE.filter((b) => b.autonomie === stufe).length;
     console.log(`   ${t.label.padEnd(22)}: ${n} Bereich(e)`);
   }
+  const summe = MODELLE.reduce((a, m) => a + (m.gehaltVergleich || 0), 0);
+  console.log(`Besetzte Stellen    : ${MODELLE.filter(m => m.schicht).length}`);
+  console.log(`Gehaltsvergleich    : ${summe.toLocaleString('de-DE')} € / Jahr (Marktwert derselben Aufgaben)`);
   console.log('✓ Rollen eindeutig, jede Grenze begründet, kein Zustand im Katalog.');
   console.log('─────────────────────────────────────────────────');
 } else {
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(katalog), 'utf8');
-  console.log(`✓ ${relative(ROOT, OUT)} — ${MODELLE.length} Modelle in ${BEREICHE.length} Bereichen`);
+  const summe = MODELLE.reduce((a, m) => a + (m.gehaltVergleich || 0), 0);
+  console.log(`✓ ${relative(ROOT, OUT)} — ${MODELLE.length} Rollen in ${BEREICHE.length} Bereichen, `
+    + `${MODELLE.filter(m => m.schicht).length} mit Schicht (${summe.toLocaleString('de-DE')} € Vergleichswert)`);
 }

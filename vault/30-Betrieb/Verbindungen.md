@@ -235,6 +235,49 @@ nicht als stille Sperre. Der Prüfer lehnt jeden Bereich ab, dessen Begründung
 kürzer als 40 Zeichen ist: eine Grenze ohne Grund wird irgendwann verschoben,
 weil niemand mehr weiß, warum sie da war.
 
+### Drei Ebenen im Kern
+
+Die erste Fassung hatte nur einen Ring aus sechs Bereichen — zu wenig, um zu
+zeigen, wer woran arbeitet. Jetzt drei konzentrische Ebenen:
+
+| Ebene | Was | Woher |
+|---|---|---|
+| Mitte | **Wissenskern** — ein Punkt je Abschnitt der Wissensbasis | `eb-knowledge.json` |
+| Ring 1 | die sechs **Bereiche** mit ihrer Autonomiestufe | `eb-models.json` |
+| Ring 2 | zehn **KI-Mitarbeiter** mit Namen, Rolle und Arbeitsstand | `eb-models.json` + Actions-API |
+| Ring 3 | die **Werkzeuge**, die sie benutzen | `eb-connectors.json` |
+
+Ein Klick auf einen Bereich klappt ihn als **Baum** auf: der Bereich unten,
+seine Mitarbeiter darüber, deren Werkzeuge ganz oben. Eine Hierarchie liest man
+von unten nach oben — ein zweiter Ring hätte nur wie eine kleinere Übersicht
+ausgesehen.
+
+Die Punkte im Kern sind nicht beliebig: ihre Zahl folgt der tatsächlichen
+Größe der Wissensbasis. Ein dichter Kern bei leerem Vault wäre Dekoration.
+
+### Mitarbeiter statt Modelle
+
+Jede Rolle hat einen **Namen** (Ada Brenner, Kito Sarr, Nils Falk …), damit man
+über sie reden kann. Der Name verdeckt nie das Modell — beides steht immer
+zusammen auf der Karte, und der Prüfer lehnt einen Namen ab, der dem
+Modellnamen gleicht.
+
+Dazu pro Stelle:
+
+- **Auslöser** — wann sie arbeitet („bei jedem Pull Request")
+- **Schicht** — welcher echte Workflow sie ausführt; der Prüfer verlangt, dass
+  die Datei in `.github/workflows/` existiert
+- **Arbeitsstand** — aus echten Läufen der Actions-API: *arbeitet gerade*,
+  *zuletzt vor 3 Std.*, *fehlgeschlagen* oder *unbekannt — kein Token*. Ohne
+  Token gibt es keine Läufe, und dann steht dort „unbekannt", nicht „bereit"
+- **Gehaltsvergleich** — was dieselbe Aufgabe als menschliche Stelle kostet.
+  Ausdrücklich ein Vergleichswert, keine Behauptung, dass ein Modell jemanden
+  ersetzt. Er macht den Umfang sichtbar: 482 000 € über acht besetzte Stellen
+
+Der Arbeits-Puls am Knoten ist neben dem Hör-Ring die **einzige** zweite
+Dauer-Animation im Kern — und er läuft nur, solange ein Workflow tatsächlich
+`in_progress` ist.
+
 ### Das Ensemble
 
 `assets/eb-models.json` (aus `scripts/models.mjs`) führt zehn Modelle mit je
@@ -257,6 +300,11 @@ Der sprechbare Text ist die **Datenquelle**, nicht die Oberfläche. Heute
 spricht die Web-Speech-API des Browsers — kostenlos, lokal, nichts verlässt
 den Rechner. Der Wechsel zu Kokoro oder Whisper kostet genau eine Funktion;
 beide stehen bereits als Rolle im Ensemble.
+
+Ein Klick auf die Mitte **startet die Stimme**: Oberfläche auf und Mikrofon an,
+in einem Griff. Vorher öffnete der Kreis nur den Chat in der Ecke — das ist die
+Bedienung eines Eingabefelds, nicht einer Stimme. Wer auf einen sprechenden
+Kreis tippt, will reden.
 
 Der Kreis in der Ecke bleibt als Nebeneingang, kleiner und ruhiger. Beide Wege
 führen zur selben Oberfläche: das Zentrum ist der Ort, an dem man ihn sucht,
