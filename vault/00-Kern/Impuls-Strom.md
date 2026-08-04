@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-03**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-04**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **30** |
-| Commits (30 Tage) | 81 |
-| Letzter Commit | `77bea84 · HQ: CSP erlaubt GitHub, Selbstcheck bleibt frisch (#92)` (2026-08-03) |
+| Commits (7 Tage) | **32** |
+| Commits (30 Tage) | 83 |
+| Letzter Commit | `6b1d870 · HQ-Proxy: KI-Kontingente serverseitig, Datendateien nach Schutzbedarf (#93)` (2026-08-03) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
@@ -73,13 +73,13 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
      33 styles.css
      23 index.html
      23 app-shell.html
-     13 functions.php
+     14 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.571 Zeilen
+- `functions.php` — 8.624 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt

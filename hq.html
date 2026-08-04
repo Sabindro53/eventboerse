@@ -186,6 +186,100 @@
   .section-title { font-size: 1.02rem; font-weight: 700; display:flex; align-items:center; gap:.5rem; }
   .section-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .7rem; font-size: .72rem; color: var(--muted); }
 
+  /* ══ Neuronaler Kern ══════════════════════════════════════════════
+     Das Zentrum des HQ. Sechs Bereiche im Ring, in der Mitte der Circle.
+     Wichtig: die Impulse auf den Bahnen laufen NUR bei echten Ereignissen.
+     Eine Dauer-Animation würde Arbeit zeigen, die nicht stattfindet — und
+     genau dann täuschen, wenn man sich auf sie verlässt.                  */
+  .neural {
+    position: relative; margin: 0 0 1.6rem; border-radius: 24px; overflow: hidden;
+    background:
+      radial-gradient(80% 120% at 50% 0%, rgba(168,85,247,.16), transparent 60%),
+      radial-gradient(70% 100% at 50% 100%, rgba(34,211,238,.12), transparent 60%),
+      linear-gradient(165deg, var(--surface), var(--bg2));
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 24px 70px rgba(0,0,0,.45);
+  }
+  .neural-canvas { display: block; width: 100%; height: auto; }
+  .neural-head {
+    position: absolute; top: 1rem; left: 1.2rem; right: 1.2rem;
+    display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; pointer-events: none;
+  }
+  .neural-head b { font-size: .95rem; letter-spacing: -.01em; }
+  .neural-head span { font-size: .72rem; color: var(--muted); }
+  .neural-foot {
+    position: absolute; bottom: .9rem; left: 1.2rem; right: 1.2rem;
+    display: flex; justify-content: center; gap: 1.2rem; flex-wrap: wrap;
+    font-size: .66rem; color: var(--muted); pointer-events: none;
+  }
+  .neural-foot i { font-style: normal; display: inline-flex; align-items: center; gap: .3rem; }
+  .neural-foot i::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  /* Knoten */
+  .nn-node { cursor: pointer; }
+  .nn-ring { fill: none; stroke-width: 1.5; opacity: .55; transition: opacity .3s, stroke-width .3s; }
+  .nn-node:hover .nn-ring, .nn-node.aktiv .nn-ring { opacity: 1; stroke-width: 2.5; }
+  .nn-core { transition: r .25s ease, opacity .25s; }
+  .nn-label { font-size: 11px; font-weight: 600; fill: var(--text); text-anchor: middle; }
+  .nn-sub { font-size: 8.5px; fill: var(--muted); text-anchor: middle; }
+  .nn-bahn { fill: none; stroke: rgba(255,255,255,.16); stroke-width: 1; stroke-dasharray: 3 5; }
+  /* Der Impuls: einmalig, dann weg. Kein Loop. */
+  .nn-impuls { fill: none; stroke-width: 2.2; stroke-linecap: round; opacity: .95; }
+
+  /* Der Circle in der Mitte */
+  .nn-orb-hit { cursor: pointer; }
+  .nn-orb-ring { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 1; }
+  .neural.hoert .nn-orb-ring { animation: nnHoer 1.4s ease-out infinite; }
+  @keyframes nnHoer { 0% { r: 40; opacity: .8; } 100% { r: 62; opacity: 0; } }
+  .nn-welle { stroke: #fff; stroke-width: 2; fill: none; stroke-linecap: round; opacity: .0; transition: opacity .2s; }
+  .neural.spricht .nn-welle { opacity: .85; }
+
+  /* Bereichskarten */
+  .bereiche { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .9rem; margin-bottom: 2rem; }
+  .bereich { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: .9rem 1rem;
+    border-top: 2px solid; display: flex; flex-direction: column; gap: .5rem; }
+  .bereich-top { display: flex; align-items: center; gap: .55rem; }
+  .bereich-top .e { font-size: 1.2rem; }
+  .bereich-top b { flex: 1; font-size: .92rem; }
+  .aut { font-size: .64rem; font-weight: 700; padding: .16rem .5rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+  .aut-voll      { color: #4ade80; border-color: #4ade8055; background: #4ade8012; }
+  .aut-vorletzt  { color: #fbbf24; border-color: #fbbf2455; background: #fbbf2412; }
+  .aut-vorbereit { color: #f87171; border-color: #f8717155; background: #f8717112; }
+  .bereich-auf { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+  .bereich-grund { font-size: .72rem; line-height: 1.55; color: var(--muted);
+    border-left: 2px solid var(--border); padding-left: .6rem; }
+  .bereich-modelle { display: flex; flex-wrap: wrap; gap: .25rem; }
+  .mchip { font-size: .64rem; padding: .14rem .45rem; border-radius: 6px; border: 1px solid var(--border);
+    color: var(--muted); }
+  .mchip b { color: var(--text); font-weight: 600; }
+
+  /* Wartet auf dich */
+  .wartet { background: linear-gradient(160deg, rgba(251,191,36,.08), transparent);
+    border: 1px solid #fbbf2433; border-radius: 14px; padding: 1rem 1.1rem; margin-bottom: 2rem; }
+  .wartet h4 { font-size: .9rem; margin-bottom: .2rem; }
+  .wartet > p { font-size: .74rem; color: var(--muted); margin-bottom: .8rem; line-height: 1.55; }
+  .wartet-item { display: flex; gap: .6rem; padding: .55rem 0; border-top: 1px solid var(--border); font-size: .78rem; }
+  .wartet-item .w-e { flex: 0 0 auto; }
+  .wartet-item .w-t { flex: 1; }
+  .wartet-item .w-t small { display: block; color: var(--muted); font-size: .7rem; margin-top: .15rem; line-height: 1.5; }
+
+  /* Modell-Ensemble */
+  .modelle { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .8rem; margin-bottom: 2rem; }
+  .modell { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .8rem .9rem;
+    display: flex; flex-direction: column; gap: .35rem; }
+  .modell-top { display: flex; align-items: baseline; gap: .4rem; }
+  .modell-rolle { font-size: .82rem; font-weight: 700; flex: 1; }
+  .modell-offen { font-size: .6rem; color: #4ade80; border: 1px solid #4ade8044; border-radius: 5px; padding: .1rem .35rem; }
+  .modell-name { font-size: .7rem; color: var(--muted); font-family: monospace; }
+  .modell-auf { font-size: .75rem; line-height: 1.5; }
+  .modell-warum { font-size: .7rem; color: var(--muted); line-height: 1.5; }
+  .modell-weg { font-size: .66rem; color: var(--cyan); }
+
+  @media (max-width: 640px) {
+    .neural-foot { gap: .6rem; font-size: .6rem; }
+    .neural-head span { display: none; }
+  }
+
   /* ── Systeme & KI-Verbindungen ── */
   .conn-note { font-size: .78rem; color: var(--muted); line-height: 1.6; margin-bottom: 1rem;
     background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--cyan);
@@ -446,19 +540,20 @@
   }
 
 /* ══ EB CIRCLE — sprechender KI-Kreis ══════════════════════════════ */
-#eb-circle-dock{position:fixed;right:24px;bottom:24px;z-index:9000;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
-#eb-circle{width:74px;height:74px;border-radius:50%;border:none;cursor:pointer;position:relative;
+#eb-circle-dock{position:fixed;right:20px;bottom:20px;opacity:.82;z-index:9000;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+#eb-circle{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;position:relative;
   background:radial-gradient(circle at 32% 28%,#ff6b8b 0%,#ff385c 38%,#a855f7 72%,#00A699 100%);
   box-shadow:0 8px 34px rgba(255,56,92,.42),0 0 0 0 rgba(168,85,247,.55);
   transition:transform .25s ease,box-shadow .25s ease}
 #eb-circle:hover{transform:scale(1.06)}
+#eb-circle-dock:hover{opacity:1}
 #eb-circle::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:2px solid rgba(255,255,255,.28);opacity:0;transition:opacity .3s}
 #eb-circle.listening::after{opacity:1;animation:ebRing 1.5s ease-out infinite}
 #eb-circle.listening{box-shadow:0 8px 34px rgba(255,56,92,.6),0 0 0 14px rgba(168,85,247,.12)}
 #eb-circle.speaking{animation:ebPulse 1.1s ease-in-out infinite}
 @keyframes ebRing{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.5);opacity:0}}
 @keyframes ebPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-#eb-circle .eb-c-ico{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+#eb-circle .eb-c-ico{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:21px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)}
 #eb-circle-panel{width:min(400px,calc(100vw - 48px));max-height:min(62vh,520px);display:none;flex-direction:column;
   background:rgba(18,18,26,.97);border:1px solid rgba(255,255,255,.10);border-radius:18px;overflow:hidden;
   box-shadow:0 24px 64px rgba(0,0,0,.5);backdrop-filter:blur(14px)}
@@ -515,6 +610,41 @@
   </header>
 
   <main>
+    <!-- ══ Neuronaler Kern ══════════════════════════════════════════
+         Sechs Bereiche im Ring, in der Mitte der Circle. Die Impulse auf
+         den Bahnen laufen nur, wenn tatsächlich etwas passiert ist. -->
+    <div class="neural" id="neural">
+      <div class="neural-head">
+        <b>Neuronaler Kern</b>
+        <span id="neural-sub">Klick auf den Kreis zum Sprechen · Klick auf einen Knoten für den Bereich</span>
+      </div>
+      <svg class="neural-canvas" id="nn" viewBox="0 0 900 460" role="img"
+           aria-label="Neuronaler Kern: sechs Bereiche um den zentralen KI-Kreis"></svg>
+      <div class="neural-foot">
+        <i style="color:#4ade80">handelt selbst</i>
+        <i style="color:#fbbf24">stoppt vor dem Senden</i>
+        <i style="color:#f87171">bereitet nur vor</i>
+        <i style="color:#6b7280">Impuls = ein echtes Ereignis</i>
+      </div>
+    </div>
+
+    <!-- Bereiche & Autonomie -->
+    <div class="section-header" id="bereiche">
+      <div class="section-title">🧭 Bereiche &amp; Autonomie <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— wer wie weit allein darf</span></div>
+      <div class="section-badge" id="aut-badge">–</div>
+    </div>
+    <div class="bereiche" id="bereiche-grid"></div>
+
+    <!-- Wartet auf dich -->
+    <div class="wartet" id="wartet"></div>
+
+    <!-- Modell-Ensemble -->
+    <div class="section-header" id="modelle">
+      <div class="section-title">🧬 Modell-Ensemble <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— offene Gewichte, je eine Rolle</span></div>
+      <div class="section-badge" id="modelle-badge">–</div>
+    </div>
+    <div class="modelle" id="modelle-grid"></div>
+
     <!-- Commander HUD -->
     <div class="hud">
       <div class="hud-top">
@@ -1257,6 +1387,7 @@ async function loadAll() {
   try {
     await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
     state.ausCache = false;   // ab hier sind die Daten nachweislich frisch
+    ebImpuls('architektur', 'gut');
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
     renderQuests(); renderAchievements(); renderHud();
   } catch (e) {
@@ -1273,6 +1404,7 @@ async function init() {
   loadSelfAudit();                      // local audit/latest.json
   await checkSiteStatus();
   await loadAll();                      // fresh GitHub data
+  await initNeural();                   // Kern zeichnen, bevor Impulse kommen
   await initConnections();              // Katalog + echte Verbindungsprüfungen
   renderHud();
 }
@@ -1313,6 +1445,7 @@ async function loadSelfAudit() {
     return;
   }
   const c = data.counts || {};
+  ebImpuls('betrieb', (c.error || 0) ? 'schlecht' : 'gut');
   $('audit-chip-err').textContent  = `❌ ${c.error || 0}`;
   $('audit-chip-warn').textContent = `⚠️ ${c.warn  || 0}`;
   $('audit-chip-info').textContent = `💡 ${c.info  || 0}`;
@@ -1370,6 +1503,16 @@ async function loadSelfAudit() {
    ══════════════════════════════════════════════════════════════════ */
 let connKatalog = null;
 const connZustand = {};   // id → { status, geprueft, fehler, details[] }
+
+/* Welcher Bereich im neuronalen Kern leuchtet, wenn dieser Connector
+   antwortet. Ohne die Zuordnung liefe jeder Impuls auf denselben Knoten
+   und die Anzeige wäre hübsch, aber ohne Aussage. */
+const CONN_BEREICH = {
+  github: 'architektur', copilot: 'architektur',
+  anthropic: 'architektur', openai: 'architektur',
+  deployment: 'betrieb', monitoring: 'betrieb', eventboerse: 'betrieb',
+  obsidian: 'intelligence', analytics: 'sales', 'mail-kalender': 'community',
+};
 
 const CONN_STATUS_LABEL = {
   verbunden: 'verbunden', eingeschraenkt: 'eingeschränkt',
@@ -1554,9 +1697,12 @@ async function connPruefe(id, leise) {
   try {
     const r = await pruefung();
     connSetze(id, r.status, { fehler: r.fehler, details: r.details });
+    // Ein echter Aufruf kam zurück — genau dafür gibt es den Impuls.
+    ebImpuls(CONN_BEREICH[id] || 'betrieb', r.status === 'verbunden' ? 'gut' : 'schlecht');
     if (!leise) showToast(`${c.dienst}: ${CONN_STATUS_LABEL[r.status]}`, r.status === 'verbunden' ? 'success' : '');
   } catch (e) {
     connSetze(id, 'fehler', { fehler: String(e && e.message || e) });
+    ebImpuls(CONN_BEREICH[id] || 'betrieb', 'schlecht');
     if (!leise) showToast(`${c.dienst}: Prüfung fehlgeschlagen`, 'error');
   }
 }
@@ -1680,6 +1826,220 @@ async function initConnections() {
   renderConnections();
   await connPruefeAlle();
   connTiefenlink();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NEURONALER KERN
+   ------------------------------------------------------------------
+   Sechs Bereiche im Ring, in der Mitte der KI-Kreis. Die eine Regel, die
+   alles trägt: **ein Impuls entspricht einem echten Ereignis**. Keine
+   Dauer-Animation, keine dekorative Bewegung. Ein System, das nichts tut,
+   sieht hier auch so aus — sonst wäre die Anzeige genau dann wertlos, wenn
+   man sich auf sie verlässt.
+   ══════════════════════════════════════════════════════════════════ */
+let nnKatalog = null;
+const NN_MITTE = { x: 450, y: 232 };
+const NN_RADIUS = 158;
+
+function nnZustand(klasse, an) {
+  const el = $('neural');
+  if (el) el.classList.toggle(klasse, !!an);
+}
+
+/** Position eines Bereichsknotens auf dem Ring. */
+function nnPos(i, n) {
+  // Bei -90° starten, damit der erste Knoten oben sitzt.
+  const w = (Math.PI * 2 * i) / n - Math.PI / 2;
+  return { x: NN_MITTE.x + Math.cos(w) * NN_RADIUS * 2.05, y: NN_MITTE.y + Math.sin(w) * NN_RADIUS * 0.86 };
+}
+
+function nnZeichnen() {
+  const svg = $('nn');
+  if (!svg || !nnKatalog) return;
+  const b = nnKatalog.bereiche;
+  const NS = 'http://www.w3.org/2000/svg';
+  const teile = [];
+
+  // Bahnen zuerst, damit die Knoten darüber liegen.
+  b.forEach((x, i) => {
+    const p = nnPos(i, b.length);
+    teile.push(`<path class="nn-bahn" id="bahn-${x.id}" d="M ${NN_MITTE.x} ${NN_MITTE.y} Q ${(NN_MITTE.x + p.x) / 2} ${(NN_MITTE.y + p.y) / 2 - 26} ${p.x} ${p.y}"/>`);
+  });
+
+  // Zentraler Kreis — der Siri-Kern.
+  teile.push(`
+    <g class="nn-orb-hit" id="nn-orb" role="button" tabindex="0"
+       aria-label="KI-Kreis öffnen und sprechen">
+      <circle class="nn-orb-ring" cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="40"/>
+      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="34" fill="url(#nnOrb)"/>
+      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="34" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
+      <path class="nn-welle" id="nn-welle" d="M ${NN_MITTE.x - 16} ${NN_MITTE.y} q 5 -10 8 0 t 8 0 t 8 0"/>
+      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 6}" class="nn-label" style="font-size:19px;fill:#fff" id="nn-orb-ico">◍</text>
+      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 60}" class="nn-sub">EB Circle · sprich mit mir</text>
+    </g>`);
+
+  // Bereichsknoten.
+  b.forEach((x, i) => {
+    const p = nnPos(i, b.length);
+    const stufe = (nnKatalog.autonomieStufen[x.autonomie] || {}).kurz || '';
+    teile.push(`
+      <g class="nn-node" id="node-${x.id}" data-bereich="${x.id}" role="button" tabindex="0"
+         aria-label="${escHtml(x.label)}: ${escHtml(stufe)}">
+        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="26" stroke="${x.farbe}"/>
+        <circle class="nn-core" cx="${p.x}" cy="${p.y}" r="16" fill="${x.farbe}" opacity=".18"/>
+        <text x="${p.x}" y="${p.y + 5}" style="font-size:15px;text-anchor:middle">${x.emoji}</text>
+        <text x="${p.x}" y="${p.y + 44}" class="nn-label">${escHtml(x.label)}</text>
+        <text x="${p.x}" y="${p.y + 57}" class="nn-sub">${escHtml(stufe)}</text>
+      </g>`);
+  });
+
+  svg.innerHTML = `
+    <defs>
+      <radialGradient id="nnOrb" cx="35%" cy="30%">
+        <stop offset="0%" stop-color="#f0abfc"/>
+        <stop offset="55%" stop-color="#a855f7"/>
+        <stop offset="100%" stop-color="#e91e8c"/>
+      </radialGradient>
+    </defs>` + teile.join('');
+}
+
+/**
+ * Ein Impuls läuft die Bahn entlang — einmal, dann ist er weg.
+ *
+ * Aufgerufen wird das ausschließlich dort, wo tatsächlich etwas zurückkam:
+ * eine Verbindungsprüfung, ein geladener Selbstcheck, frische Commits.
+ * `art` färbt: 'gut' grün, 'schlecht' rot, sonst die Bereichsfarbe.
+ */
+function ebImpuls(bereichId, art) {
+  const svg = $('nn');
+  const bahn = svg && svg.querySelector('#bahn-' + bereichId);
+  if (!bahn) return;
+  const bereich = (nnKatalog.bereiche || []).find(x => x.id === bereichId);
+  const farbe = art === 'gut' ? '#4ade80' : art === 'schlecht' ? '#f87171' : (bereich ? bereich.farbe : '#a855f7');
+
+  const laenge = bahn.getTotalLength();
+  const puls = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  puls.setAttribute('class', 'nn-impuls');
+  puls.setAttribute('d', bahn.getAttribute('d'));
+  puls.setAttribute('stroke', farbe);
+  puls.setAttribute('stroke-dasharray', `26 ${laenge}`);
+  puls.setAttribute('stroke-dashoffset', String(laenge));
+  svg.appendChild(puls);
+
+  // Bewusst als einmalige Animation ohne Wiederholung.
+  const anim = puls.animate(
+    [{ strokeDashoffset: laenge }, { strokeDashoffset: -26 }],
+    { duration: 900, easing: 'cubic-bezier(.4,0,.2,1)' }
+  );
+  anim.onfinish = () => puls.remove();
+
+  const knoten = svg.querySelector('#node-' + bereichId);
+  if (knoten) {
+    knoten.classList.add('aktiv');
+    setTimeout(() => knoten.classList.remove('aktiv'), 1100);
+  }
+}
+
+function renderBereiche() {
+  if (!nnKatalog) return;
+  const modelleJe = {};
+  for (const m of nnKatalog.modelle) (modelleJe[m.bereich] = modelleJe[m.bereich] || []).push(m);
+
+  const zaehl = { voll: 0, vorletzt: 0, vorbereit: 0 };
+  for (const b of nnKatalog.bereiche) zaehl[b.autonomie]++;
+  $('aut-badge').textContent = `${zaehl.voll} selbstständig · ${zaehl.vorletzt + zaehl.vorbereit} mit Grenze`;
+
+  $('bereiche-grid').innerHTML = nnKatalog.bereiche.map(b => {
+    const stufe = nnKatalog.autonomieStufen[b.autonomie] || {};
+    return `
+      <div class="bereich" style="border-top-color:${b.farbe}">
+        <div class="bereich-top">
+          <span class="e">${b.emoji}</span>
+          <b>${escHtml(b.label)}</b>
+          <span class="aut aut-${b.autonomie}">${escHtml(stufe.label || b.autonomie)}</span>
+        </div>
+        <div class="bereich-auf">${escHtml(b.aufgabe)}</div>
+        <div class="bereich-grund">${escHtml(b.begruendung)}</div>
+        <div class="bereich-modelle">${(modelleJe[b.id] || []).map(m =>
+          `<span class="mchip"><b>${escHtml(m.rolle)}</b> · ${escHtml(m.name)}</span>`).join('')}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderWartet() {
+  if (!nnKatalog) return;
+  // Nur die Bereiche mit Grenze — und die Grenze steht mit Begründung da,
+  // nicht als stille Sperre. Verschieben kann man sie, aber man soll wissen,
+  // dass man es tut.
+  const mitGrenze = nnKatalog.bereiche.filter(b => b.autonomie !== 'voll');
+  $('wartet').innerHTML = `
+    <h4>⏸ Wartet auf dich</h4>
+    <p>Diese Schritte laufen nicht von allein. Das Kriterium ist
+       <b>Reversibilität</b>, nicht Vorsicht: was sich in einer Minute
+       zurücknehmen lässt, macht das HQ selbst.</p>
+    ${mitGrenze.map(b => `
+      <div class="wartet-item">
+        <span class="w-e">${b.emoji}</span>
+        <span class="w-t"><b>${escHtml(b.label)}</b> — ${escHtml((nnKatalog.autonomieStufen[b.autonomie] || {}).kurz || '')}
+          <small>${escHtml(b.begruendung)}</small></span>
+      </div>`).join('')}`;
+}
+
+function renderModelle() {
+  if (!nnKatalog) return;
+  const wege = nnKatalog.wege || {};
+  $('modelle-badge').textContent = `${nnKatalog.modelle.length} Modelle · alle offen`;
+  $('modelle-grid').innerHTML = nnKatalog.modelle.map(m => {
+    const b = nnKatalog.bereiche.find(x => x.id === m.bereich);
+    return `
+      <div class="modell" style="border-left:2px solid ${b ? b.farbe : 'var(--border)'}">
+        <div class="modell-top">
+          <span class="modell-rolle">${escHtml(m.rolle)}</span>
+          <span class="modell-offen">offen</span>
+        </div>
+        <div class="modell-name">${escHtml(m.name)} · ${escHtml(m.anbieter)} · ${escHtml(m.lizenz)}</div>
+        <div class="modell-auf">${escHtml(m.aufgabe)}</div>
+        <div class="modell-warum">${escHtml(m.warum)}</div>
+        <div class="modell-weg">${escHtml((wege[m.weg] || {}).label || m.weg)}</div>
+      </div>`;
+  }).join('');
+}
+
+async function initNeural() {
+  try {
+    const res = await fetch(hqAsset('assets/eb-models.json'), { cache: 'no-store' });
+    nnKatalog = await res.json();
+  } catch {
+    $('neural-sub').textContent = 'Ensemble-Katalog nicht ladbar.';
+    return;
+  }
+  nnZeichnen();
+  renderBereiche();
+  renderWartet();
+  renderModelle();
+
+  const svg = $('nn');
+  svg.addEventListener('click', e => {
+    if (e.target.closest('#nn-orb')) {
+      if (window.ebCircleAPI) window.ebCircleAPI.oeffnen();
+      sfx('click');
+      return;
+    }
+    const n = e.target.closest('[data-bereich]');
+    if (n) {
+      const el = $('bereiche-grid');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      ebImpuls(n.dataset.bereich);
+      sfx('click');
+    }
+  });
+  svg.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const ziel = e.target.closest('#nn-orb, [data-bereich]');
+    if (!ziel) return;
+    e.preventDefault();
+    ziel.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
 }
 
 /* ─── Wiring ───────────────────────────────────────────────────── */
@@ -1876,8 +2236,8 @@ window.addEventListener('DOMContentLoaded', init);
       speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
       u.lang = 'de-DE'; u.rate = 1.02; u.pitch = 1.0;
-      u.onstart = function () { circle.classList.add('speaking'); };
-      u.onend = function () { circle.classList.remove('speaking'); };
+      u.onstart = function () { circle.classList.add('speaking'); nnZustand('spricht', true); };
+      u.onend = function () { circle.classList.remove('speaking'); nnZustand('spricht', false); };
       speechSynthesis.speak(u);
     } catch (e) {}
   }
@@ -1910,7 +2270,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (listening) { try { rec.stop(); } catch (e) {} return; }
     rec = new SR(); rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false;
     var finalText = '';
-    rec.onstart = function () { listening = true; circle.classList.add('listening'); micBtn.classList.add('on'); stateEl.textContent = 'Hört zu…'; };
+    rec.onstart = function () { listening = true; circle.classList.add('listening'); nnZustand('hoert', true); micBtn.classList.add('on'); stateEl.textContent = 'Hört zu…'; };
     rec.onresult = function (ev) {
       var interim = '';
       for (var i = ev.resultIndex; i < ev.results.length; i++) {
@@ -1921,7 +2281,7 @@ window.addEventListener('DOMContentLoaded', init);
     };
     rec.onerror = function (e) { stateEl.textContent = e.error === 'not-allowed' ? 'Mikrofon nicht erlaubt' : 'Spracheingabe gestoppt'; };
     rec.onend = function () {
-      listening = false; circle.classList.remove('listening'); micBtn.classList.remove('on');
+      listening = false; circle.classList.remove('listening'); nnZustand('hoert', false); micBtn.classList.remove('on');
       stateEl.textContent = 'Bereit · lokal, ohne externe KI';
       var t = input.value.trim(); if (t) { input.value = ''; ask(t); }
     };
@@ -1939,6 +2299,15 @@ window.addEventListener('DOMContentLoaded', init);
   function close() { panel.classList.remove('open'); try { speechSynthesis.cancel(); } catch (e) {} }
 
   circle.addEventListener('click', function () { panel.classList.contains('open') ? close() : open(); });
+
+  /* Der Kreis lebt jetzt im neuronalen Kern, nicht mehr nur unten rechts.
+     Beide Wege führen zur selben Oberfläche — der Knopf in der Ecke bleibt
+     für den schnellen Griff, das Zentrum ist der Ort, an dem man ihn sucht. */
+  window.ebCircleAPI = {
+    oeffnen: function () { panel.classList.contains('open') ? close() : open(); },
+    sprechen: toggleMic,
+    istOffen: function () { return panel.classList.contains('open'); }
+  };
   document.getElementById('ebc-close').addEventListener('click', close);
   micBtn.addEventListener('click', toggleMic);
   spkBtn.addEventListener('click', function () {

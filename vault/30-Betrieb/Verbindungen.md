@@ -206,6 +206,62 @@ Der Katalog-Prüfer scannt jeden Eintrag gegen die Verbotsmuster aus
 Ohne Schritt 3 bleibt die Karte grau. Das ist der gewollte Standardfall: lieber
 ehrlich grau als unbelegt grün.
 
+## Neuronaler Kern & Modell-Ensemble
+
+Das HQ hat seit 2026-08-03 einen anderen Mittelpunkt. Statt Spiel-HUD oben und
+QA-Bot unten rechts steht jetzt der **neuronale Kern** an der Spitze: sechs
+Bereichsknoten im Ring, in der Mitte der KI-Kreis.
+
+**Die eine Regel, die alles trägt:** ein Impuls auf einer Bahn entspricht
+**einem echten Ereignis**. Keine Dauer-Animation, kein dekoratives Pulsieren.
+Ein System, das nichts tut, sieht hier auch so aus — sonst wäre die Anzeige
+genau dann wertlos, wenn man sich auf sie verlässt. `ebImpuls(bereich, art)`
+wird ausschließlich dort aufgerufen, wo tatsächlich etwas zurückkam:
+Verbindungsprüfung, geladener Selbstcheck, frische Commits. Ein Test prüft,
+dass nach 1,4 Sekunden wieder null Impulse im DOM stehen.
+
+### Sechs Bereiche, drei Autonomiestufen
+
+Das Kriterium ist **Reversibilität**, nicht Vorsicht.
+
+| Stufe | Bereiche | Warum |
+|---|---|---|
+| handelt selbst | Architektur, Betrieb, Intelligence | Draft-PR, Rollback in einer Minute, Quarantäne davor |
+| stoppt vor dem Senden | Community, Sales | ein Beitrag unter unserem Namen steht im Netz; eine Zusage bindet |
+| bereitet nur vor | Finance | eine Überweisung ist nicht rückholbar |
+
+Jede Grenze trägt ihre Begründung sichtbar im HQ unter „Wartet auf dich" —
+nicht als stille Sperre. Der Prüfer lehnt jeden Bereich ab, dessen Begründung
+kürzer als 40 Zeichen ist: eine Grenze ohne Grund wird irgendwann verschoben,
+weil niemand mehr weiß, warum sie da war.
+
+### Das Ensemble
+
+`assets/eb-models.json` (aus `scripts/models.mjs`) führt zehn Modelle mit je
+**genau einer** Rolle. Ein Allrounder wäre im Betrieb nicht nachvollziehbar:
+fällt er aus, weiß niemand, was fehlt.
+
+Aufnahmebedingung ist `offen: true` — freie Gewichte. Was heute über
+OpenRouter läuft, muss morgen auf eigener Hardware laufen können, ohne dass
+eine Zeile Aufgabenlogik sich ändert. Deshalb steht in jedem Eintrag die
+**Rolle vor dem Namen**; der Anbieter ist die austauschbare Stelle.
+
+Der Aufruf läuft über `/wp-json/eventboerse/v1/hq/probe/openrouter` —
+serverseitig, opt-in wie die anderen Schlüssel. OpenRouter ist der einzige
+Anbieter, der Verbrauch ohne gesonderten Admin-Schlüssel herausgibt; das darf
+die Antwort auch sagen.
+
+### Stimme
+
+Der sprechbare Text ist die **Datenquelle**, nicht die Oberfläche. Heute
+spricht die Web-Speech-API des Browsers — kostenlos, lokal, nichts verlässt
+den Rechner. Der Wechsel zu Kokoro oder Whisper kostet genau eine Funktion;
+beide stehen bereits als Rolle im Ensemble.
+
+Der Kreis in der Ecke bleibt als Nebeneingang, kleiner und ruhiger. Beide Wege
+führen zur selben Oberfläche: das Zentrum ist der Ort, an dem man ihn sucht,
+die Ecke der schnelle Griff beim Scrollen.
+
 ## Verwandt
 - [[30-Betrieb/MCP-Architektur]] — MCP als gemeinsame Verbindungsschicht
 - [[00-Kern/Sicherheits-Klassifikation]] — was den Vault verlässt
