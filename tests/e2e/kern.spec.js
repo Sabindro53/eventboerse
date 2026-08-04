@@ -56,6 +56,24 @@ test.describe('Ensemble-Katalog', () => {
     expect(finance.autonomie, 'eine Überweisung ist nicht rückholbar').toBe('vorbereit');
   });
 
+  test('jede besetzte Stelle hat Auslöser, echte Schicht und Gehaltsvergleich', () => {
+    const workflows = fs.readdirSync(path.join(ROOT, '.github', 'workflows'));
+    for (const m of KATALOG.modelle) {
+      expect(m.ausloeser, `${m.id} ohne Auslöser`).toBeTruthy();
+      expect(m.vergleichsstelle, `${m.id} ohne Vergleichsstelle`).toBeTruthy();
+      if (m.schicht) {
+        // Eine erfundene Schicht wäre genau die Sorte Behauptung, die dieses
+        // Dashboard vermeiden soll — der Workflow muss es wirklich geben.
+        expect(workflows, `${m.id}: Workflow ${m.schicht} existiert nicht`).toContain(m.schicht);
+        expect(KATALOG.schichten[m.schicht], `${m.id}: Schicht nicht beschrieben`).toBeTruthy();
+        expect(m.gehaltVergleich, `${m.id}: Stelle ohne Gehaltsvergleich`).toBeGreaterThan(0);
+      } else {
+        // Ohne Schicht keine Stelle — und dann auch kein Gehalt.
+        expect(m.gehaltVergleich, `${m.id}: Gehalt ohne Schicht`).toBe(0);
+      }
+    }
+  });
+
   test('Katalog behauptet keinen Laufzeit-Zustand', () => {
     for (const m of KATALOG.modelle) {
       expect(m).not.toHaveProperty('status');
@@ -72,19 +90,41 @@ test.describe('Neuronaler Kern', () => {
     await page.waitForTimeout(2200);
   });
 
-  test('Kern zeichnet Knoten, Bahnen und den Kreis', async ({ page }) => {
+  test('Kern zeichnet drei Ebenen: Bereiche, Mitarbeiter, Werkzeuge', async ({ page }) => {
     const r = await page.evaluate(() => ({
-      knoten: document.querySelectorAll('.nn-node').length,
-      bahnen: document.querySelectorAll('.nn-bahn').length,
+      bereiche: document.querySelectorAll('[data-bereich]').length,
+      agenten: document.querySelectorAll('[data-modell]').length,
+      werkzeuge: document.querySelectorAll('[data-werkzeug]').length,
       orb: !!document.getElementById('nn-orb'),
-      bereiche: document.querySelectorAll('.bereich').length,
-      modelle: document.querySelectorAll('.modell').length,
+      karten: document.querySelectorAll('.bereich').length,
+      mitarbeiterkarten: document.querySelectorAll('.modell').length,
     }));
-    expect(r.knoten).toBe(6);
-    expect(r.bahnen).toBe(6);
+    expect(r.bereiche, 'sechs Bereiche im inneren Ring').toBe(6);
+    expect(r.agenten, 'zehn Mitarbeiter im mittleren Ring').toBe(10);
+    expect(r.werkzeuge, 'Werkzeuge im äußeren Ring').toBeGreaterThan(0);
     expect(r.orb).toBe(true);
-    expect(r.bereiche).toBe(6);
-    expect(r.modelle).toBe(10);
+    expect(r.karten).toBe(6);
+    expect(r.mitarbeiterkarten).toBe(10);
+  });
+
+  test('die Dichte des Wissenskerns folgt der echten Wissensbasis', async ({ page }) => {
+    const r = await page.evaluate(() => ({
+      punkte: document.querySelectorAll('#nn circle[fill="#f0abfc"]').length,
+      kopf: document.getElementById('neural-sub').textContent,
+    }));
+    // Ein dichter Kern bei leerem Vault wäre Dekoration.
+    expect(r.punkte, 'der Kern besteht aus so vielen Punkten wie es Abschnitte gibt').toBeGreaterThan(10);
+    expect(r.kopf).toMatch(/\d+ Wissens-Abschnitte/);
+  });
+
+  test('Werkzeuge sind echte Connectors, keine Deko', async ({ page }) => {
+    const ids = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-werkzeug]')].map((n) => n.dataset.werkzeug));
+    const katalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-connectors.json'), 'utf8'));
+    const bekannt = katalog.connectors.map((c) => c.id);
+    for (const id of ids) {
+      expect(bekannt, `Werkzeug ${id} steht nicht im Connector-Katalog`).toContain(id);
+    }
   });
 
   test('Impulse sind einmalig und verschwinden wieder', async ({ page }) => {
@@ -99,20 +139,93 @@ test.describe('Neuronaler Kern', () => {
     expect(nachher, 'ein Impuls darf nicht endlos weiterlaufen').toBe(0);
   });
 
-  test('nichts im Kern animiert dauerhaft von selbst', async () => {
-    // Keine `infinite`-Animation auf den Bahnen oder Impulsen. Erlaubt bleibt
-    // der Hör-Ring des Kreises — der läuft nur, während das Mikrofon offen ist.
-    const dauer = HQ.match(/\.nn-(bahn|impuls|core|ring)[^}]*infinite/g) || [];
+  test('nichts im Kern animiert dauerhaft ohne echten Anlass', async ({ page }) => {
+    // Bahnen und Impulse dürfen nie dauerschleifen.
+    const dauer = HQ.match(/\.nn-(bahn|impuls)[^}]*infinite/g) || [];
     expect(dauer, 'Bahnen und Impulse dürfen nicht dauerschleifen').toEqual([]);
+
+    // Genau zwei Dauer-Animationen sind erlaubt, und beide hängen an einem
+    // echten Zustand: der Hör-Ring läuft nur bei offenem Mikrofon, der
+    // Arbeits-Puls nur, solange ein Workflow in_progress ist.
+    expect(HQ).toMatch(/\.neural\.hoert .nn-orb-ring\s*\{\s*animation/);
+    expect(HQ).toMatch(/\.nn-node\.arbeitet .nn-ring\s*\{\s*animation/);
+
+    // Ohne laufenden Workflow trägt kein Knoten die Arbeits-Klasse.
+    const arbeitend = await page.evaluate(() => document.querySelectorAll('.nn-node.arbeitet').length);
+    expect(arbeitend, 'ohne echten Lauf darf nichts „arbeitet gerade" zeigen').toBe(0);
   });
 
-  test('der Kreis sitzt im Zentrum und öffnet die Sprachoberfläche', async ({ page }) => {
-    expect(HQ).toMatch(/window\.ebCircleAPI/);
-    const offen = await page.evaluate(() => {
+  test('Arbeitsstand kommt aus echten Workflow-Läufen', async ({ page }) => {
+    // Ohne Token gibt es keine Läufe — dann steht dort „unbekannt", nicht
+    // „bereit". Eine Rolle, die nie lief, darf nicht wie eine aussehen, die
+    // gerade fertig wurde.
+    const staende = await page.evaluate(() =>
+      [...document.querySelectorAll('.modell .stand')].map((s) => s.textContent.trim()));
+    expect(staende.length).toBe(10);
+    const erfunden = staende.filter((t) => /bereit|aktiv|läuft$/i.test(t));
+    expect(erfunden, `kein Stand darf Bereitschaft behaupten: ${staende.join(' | ')}`).toEqual([]);
+    expect(staende.some((t) => /unbekannt|lokal|zuletzt|arbeitet/i.test(t))).toBe(true);
+  });
+
+  test('Klick auf die Mitte startet die Stimme, nicht nur ein Textfeld', async ({ page }) => {
+    // Vorher öffnete der Kreis bloß den Chat in der Ecke — das ist die
+    // Bedienung eines Eingabefelds, nicht einer Stimme. Wer auf einen
+    // sprechenden Kreis tippt, will reden.
+    expect(HQ).toMatch(/sprich:\s*function/);
+    const r = await page.evaluate(() => {
+      let mikro = false;
+      const echt = window.ebCircleAPI.sprechen;
+      window.ebCircleAPI.sprechen = () => { mikro = true; };
+      // sprich() ruft intern toggleMic — hier zählt, dass der Klick beides
+      // auslöst: Oberfläche auf UND Mikrofon an.
       document.getElementById('nn-orb').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      return !!document.querySelector('#eb-circle-panel.open');
+      window.ebCircleAPI.sprechen = echt;
+      return { offen: !!document.querySelector('#eb-circle-panel.open') };
     });
-    expect(offen, 'Klick auf den Kern-Kreis muss den Circle öffnen').toBe(true);
+    expect(r.offen, 'die Sprachoberfläche muss aufgehen').toBe(true);
+    // Der Aufruf muss beides tun — im Test-Browser gibt es keine echte
+    // Spracherkennung, deshalb wird die Verdrahtung im Quelltext geprüft.
+    const sprich = HQ.slice(HQ.indexOf('sprich: function'), HQ.indexOf('sprich: function') + 260);
+    expect(sprich).toMatch(/open\(\)/);
+    expect(sprich).toMatch(/toggleMic\(\)/);
+  });
+
+  test('Bereiche klappen in ihr eigenes Teilnetz auf und wieder zu', async ({ page }) => {
+    const auf = await page.evaluate(() => {
+      nnOeffne('intelligence');
+      return {
+        modelle: document.querySelectorAll('[data-modell]').length,
+        bereiche: document.querySelectorAll('[data-bereich]').length,
+        zurueck: !!document.getElementById('nn-zurueck'),
+        orb: !!document.getElementById('nn-orb'),
+      };
+    });
+    const erwartet = KATALOG.modelle.filter((m) => m.bereich === 'intelligence').length;
+    expect(auf.modelle, 'im Bereich stehen seine Rollen').toBe(erwartet);
+    expect(auf.bereiche, 'die Bereichsknoten weichen den Rollen').toBe(0);
+    // Baum statt Ring: die Rollen stehen in einer Reihe über dem Bereich.
+    expect(auf.zurueck, 'die Mitte wird zum Rückweg').toBe(true);
+    expect(auf.orb, 'im Teilnetz gibt es keinen Sprech-Kreis').toBe(false);
+
+    const zu = await page.evaluate(() => {
+      document.getElementById('nn-zurueck').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return {
+        bereiche: document.querySelectorAll('[data-bereich]').length,
+        orb: !!document.getElementById('nn-orb'),
+      };
+    });
+    expect(zu.bereiche).toBe(6);
+    expect(zu.orb).toBe(true);
+  });
+
+  test('jeder Bereich lässt sich aufklappen', async ({ page }) => {
+    for (const b of KATALOG.bereiche) {
+      const n = await page.evaluate((id) => {
+        nnOeffne(id);
+        return document.querySelectorAll('[data-modell]').length;
+      }, b.id);
+      expect(n, `${b.id} zeigt keine Rollen`).toBeGreaterThan(0);
+    }
   });
 
   test('„Wartet auf dich" listet genau die Bereiche mit Grenze', async ({ page }) => {

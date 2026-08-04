@@ -225,6 +225,41 @@ const CONNECTORS = [
     },
   },
   {
+    id: 'openrouter',
+    anbieter: 'OpenRouter',
+    dienst: 'Zugang zu offenen Modellen',
+    logo: '🧬',
+    zweck: 'Ein Zugang für das gesamte Modell-Ensemble — Llama, Mistral, Qwen, DeepSeek, Gemma, Phi.',
+    methoden: ['api', 'schluessel'],
+    methodeAktiv: 'api',
+    hinweisMethode: 'Der Serverseiten-Proxy (/wp-json/eventboerse/v1/hq/probe/openrouter) prüft '
+      + 'Gültigkeit, Kontingent und Verbrauch, sobald die Server-Konstante gesetzt ist. '
+      + 'Der Schlüssel erreicht den Browser nie.',
+    berechtigungen: ['Modellaufrufe im Namen dieses Schlüssels'],
+    leseZugriffe: ['Kontingent', 'Verbrauch', 'verfügbare Modelle'],
+    schreibZugriffe: ['Modellaufrufe der Ensemble-Rollen'],
+    freigabegrenzen: [
+      'nur offene Modelle — geschlossene gehören nicht ins Ensemble',
+      'Community und Sales stoppen vor dem Schritt nach außen, Finance löst nie aus',
+    ],
+    faehigkeiten: f({
+      connect: 'ja', disconnect: 'ja', healthCheck: 'ja', getCapabilities: 'ja',
+      getUsage: 'ja', getQuota: 'ja', getResetTime: 'ja', execute: 'proxy',
+    }),
+    kontingent: {
+      ueberApiAbrufbar: true,
+      quelle: 'GET /api/v1/key über den Serverseiten-Proxy',
+      hinweis: 'Der einzige Anbieter im Katalog, der Verbrauch ohne gesonderten '
+        + 'Admin-Schlüssel herausgibt.',
+    },
+    geheimnisAblage: 'Server-Konstante EB_OPENROUTER_API_KEY (opt-in)',
+    links: {
+      einrichten: 'https://openrouter.ai/keys',
+      nutzung: 'https://openrouter.ai/activity',
+      doku: 'https://openrouter.ai/docs',
+    },
+  },
+  {
     id: 'obsidian',
     anbieter: 'Obsidian',
     dienst: 'Vault (vault/ im Repo)',

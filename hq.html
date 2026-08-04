@@ -263,6 +263,28 @@
   .wartet-item .w-t { flex: 1; }
   .wartet-item .w-t small { display: block; color: var(--muted); font-size: .7rem; margin-top: .15rem; line-height: 1.5; }
 
+  /* Mitarbeiter-Karten */
+  .modelle-summe { font-size: .78rem; color: var(--text); line-height: 1.6; margin-bottom: 1rem;
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--cyan);
+    border-radius: 10px; padding: .7rem .9rem; }
+  .modelle-summe b { font-size: 1.05rem; color: var(--cyan); }
+  .modelle-summe span { color: var(--muted); }
+  .stand { font-size: .62rem; font-weight: 700; padding: .14rem .45rem; border-radius: 999px;
+    border: 1px solid; white-space: nowrap; }
+  .stand-laeuft    { color: #22d3ee; border-color: #22d3ee66; background: #22d3ee14; }
+  .stand-ok        { color: #4ade80; border-color: #4ade8055; background: #4ade8010; }
+  .stand-fehler    { color: #f87171; border-color: #f8717155; background: #f8717110; }
+  .stand-unbekannt { color: var(--muted); border-color: var(--border); }
+  .stand-lokal     { color: #a855f7; border-color: #a855f755; background: #a855f710; }
+  .modell-zeile { display: flex; gap: .5rem; font-size: .72rem; }
+  .modell-zeile .k { color: var(--muted); flex: 0 0 6.6rem; }
+  .modell-zeile .v { flex: 1; min-width: 0; }
+  .modell.hervor { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  /* „arbeitet gerade" ist der EINZIGE Dauerpuls im Kern — und er läuft nur,
+     solange ein Workflow tatsächlich in_progress ist. */
+  .nn-node.arbeitet .nn-ring { animation: nnArbeit 1.6s ease-in-out infinite; }
+  @keyframes nnArbeit { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+
   /* Modell-Ensemble */
   .modelle { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .8rem; margin-bottom: 2rem; }
   .modell { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .8rem .9rem;
@@ -618,12 +640,14 @@
         <b>Neuronaler Kern</b>
         <span id="neural-sub">Klick auf den Kreis zum Sprechen · Klick auf einen Knoten für den Bereich</span>
       </div>
-      <svg class="neural-canvas" id="nn" viewBox="0 0 900 460" role="img"
+      <svg class="neural-canvas" id="nn" viewBox="0 0 900 540" role="img"
            aria-label="Neuronaler Kern: sechs Bereiche um den zentralen KI-Kreis"></svg>
       <div class="neural-foot">
-        <i style="color:#4ade80">handelt selbst</i>
-        <i style="color:#fbbf24">stoppt vor dem Senden</i>
-        <i style="color:#f87171">bereitet nur vor</i>
+        <i style="color:#f0abfc">Wissenskern</i>
+        <i style="color:#a855f7">Bereich</i>
+        <i style="color:#22d3ee">KI-Mitarbeiter</i>
+        <i style="color:#64748b">Werkzeug</i>
+        <i style="color:#4ade80">arbeitet · geprüft</i>
         <i style="color:#6b7280">Impuls = ein echtes Ereignis</i>
       </div>
     </div>
@@ -643,6 +667,7 @@
       <div class="section-title">🧬 Modell-Ensemble <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— offene Gewichte, je eine Rolle</span></div>
       <div class="section-badge" id="modelle-badge">–</div>
     </div>
+    <div class="modelle-summe" id="modelle-summe"></div>
     <div class="modelle" id="modelle-grid"></div>
 
     <!-- Commander HUD -->
@@ -1509,7 +1534,7 @@ const connZustand = {};   // id → { status, geprueft, fehler, details[] }
    und die Anzeige wäre hübsch, aber ohne Aussage. */
 const CONN_BEREICH = {
   github: 'architektur', copilot: 'architektur',
-  anthropic: 'architektur', openai: 'architektur',
+  anthropic: 'architektur', openai: 'architektur', openrouter: 'intelligence',
   deployment: 'betrieb', monitoring: 'betrieb', eventboerse: 'betrieb',
   obsidian: 'intelligence', analytics: 'sales', 'mail-kalender': 'community',
 };
@@ -1621,6 +1646,7 @@ const CONN_PRUEFUNG = {
 
   anthropic() { return connProxyPruefung('anthropic'); },
   openai() { return connProxyPruefung('openai'); },
+  openrouter() { return connProxyPruefung('openrouter'); },
 
   async obsidian() {
     const res = await ghRes('/contents/vault').catch(() => null);
@@ -1713,6 +1739,8 @@ async function connPruefeAlle() {
     if (CONN_PRUEFUNG[c.id]) await connPruefe(c.id, true);
     else connSetze(c.id, 'getrennt', { geprueft: false, fehler: 'Nicht eingerichtet.' });
   }
+  // Die Werkzeugfarben im Kern stammen aus diesen Prüfungen — jetzt stimmen sie.
+  if (nnKatalog) nnZeichnen();
 }
 
 function connMethodenLabel(c) {
@@ -1838,7 +1866,9 @@ async function initConnections() {
    man sich auf sie verlässt.
    ══════════════════════════════════════════════════════════════════ */
 let nnKatalog = null;
-const NN_MITTE = { x: 450, y: 232 };
+let nnEbene = null;          // null = Übersicht, sonst die id eines Bereichs
+let nnWissen = 0;            // Abschnitte in der Wissensbasis — Dichte des Kerns
+const NN_MITTE = { x: 450, y: 268 };
 const NN_RADIUS = 158;
 
 function nnZustand(klasse, an) {
@@ -1846,61 +1876,256 @@ function nnZustand(klasse, an) {
   if (el) el.classList.toggle(klasse, !!an);
 }
 
-/** Position eines Bereichsknotens auf dem Ring. */
-function nnPos(i, n) {
-  // Bei -90° starten, damit der erste Knoten oben sitzt.
-  const w = (Math.PI * 2 * i) / n - Math.PI / 2;
-  return { x: NN_MITTE.x + Math.cos(w) * NN_RADIUS * 2.05, y: NN_MITTE.y + Math.sin(w) * NN_RADIUS * 0.86 };
+/**
+ * Position auf dem Ring.
+ *
+ * Bei wenigen Knoten beginnt der Kreis rechts statt oben — sonst stehen zwei
+ * Rollen senkrecht übereinander und die halbe Fläche bleibt leer.
+ */
+function nnPos(i, n, weite, hoehe) {
+  const start = n <= 3 ? 0 : -Math.PI / 2;
+  const w = (Math.PI * 2 * i) / n + start;
+  return {
+    x: NN_MITTE.x + Math.cos(w) * NN_RADIUS * (weite || 2.05),
+    y: NN_MITTE.y + Math.sin(w) * NN_RADIUS * (hoehe || 0.86),
+  };
+}
+
+/**
+ * Arbeitsstand einer Rolle — aus ECHTEN Workflow-Läufen.
+ *
+ * `state.runs` kommt von der Actions-API. Damit steht auf jeder Karte, wann
+ * die Rolle ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte. Ohne
+ * Token gibt es keine Läufe — dann steht dort „unbekannt", nicht „bereit".
+ */
+function nnSchichtStand(schicht) {
+  if (!schicht) return { stand: 'lokal', text: 'läuft auf diesem Rechner' };
+  const lauf = (state.runs || []).find(r => (r.path || '').endsWith('/' + schicht));
+  if (!lauf) {
+    return { stand: 'unbekannt', text: getPat() ? 'kein Lauf in den letzten 30' : 'unbekannt — kein Token' };
+  }
+  if (lauf.status === 'in_progress' || lauf.status === 'queued') {
+    return { stand: 'laeuft', text: 'arbeitet gerade', run: lauf };
+  }
+  const wann = new Date(lauf.created_at);
+  const std = Math.round((Date.now() - wann.getTime()) / 3600000);
+  const rel = std < 1 ? 'vor wenigen Minuten' : std < 24 ? `vor ${std} Std.` : `vor ${Math.round(std / 24)} Tg.`;
+  return {
+    stand: lauf.conclusion === 'success' ? 'ok' : 'fehler',
+    text: `${lauf.conclusion === 'success' ? 'zuletzt' : 'fehlgeschlagen'} ${rel}`,
+    run: lauf,
+  };
+}
+
+const NN_STAND_FARBE = {
+  laeuft: '#22d3ee', ok: '#4ade80', fehler: '#f87171',
+  unbekannt: '#6b7280', lokal: '#a855f7',
+};
+
+/**
+ * Wissenskern: viele kleine Punkte statt einer Scheibe.
+ *
+ * Die Zahl der Punkte ist NICHT beliebig — sie folgt der tatsächlichen Größe
+ * der Wissensbasis (Abschnitte in eb-knowledge.json). Ein dichter Kern bei
+ * leerem Vault wäre Dekoration.
+ */
+function nnKernPunkte(cx, cy, r, anzahl) {
+  const out = [];
+  // Fester Startwert: derselbe Kern bei jedem Laden, kein Flimmern.
+  let z = 20260804;
+  const zuf = () => { z = (z * 1103515245 + 12345) & 0x7fffffff; return z / 0x7fffffff; };
+  for (let i = 0; i < anzahl; i++) {
+    const w = zuf() * Math.PI * 2;
+    const d = Math.sqrt(zuf()) * r;
+    out.push(`<circle cx="${(cx + Math.cos(w) * d).toFixed(1)}" cy="${(cy + Math.sin(w) * d * .92).toFixed(1)}" r="${(zuf() * 1.5 + .6).toFixed(1)}" fill="#f0abfc" opacity="${(zuf() * .5 + .25).toFixed(2)}"/>`);
+  }
+  return out.join('');
 }
 
 function nnZeichnen() {
   const svg = $('nn');
   if (!svg || !nnKatalog) return;
-  const b = nnKatalog.bereiche;
-  const NS = 'http://www.w3.org/2000/svg';
   const teile = [];
+  const defs = `
+    <defs>
+      <radialGradient id="nnOrb" cx="35%" cy="30%">
+        <stop offset="0%" stop-color="#f0abfc"/><stop offset="55%" stop-color="#a855f7"/>
+        <stop offset="100%" stop-color="#e91e8c"/>
+      </radialGradient>
+      <radialGradient id="nnKern">
+        <stop offset="0%" stop-color="#a855f7" stop-opacity=".35"/>
+        <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+      </radialGradient>
+    </defs>`;
 
-  // Bahnen zuerst, damit die Knoten darüber liegen.
-  b.forEach((x, i) => {
-    const p = nnPos(i, b.length);
-    teile.push(`<path class="nn-bahn" id="bahn-${x.id}" d="M ${NN_MITTE.x} ${NN_MITTE.y} Q ${(NN_MITTE.x + p.x) / 2} ${(NN_MITTE.y + p.y) / 2 - 26} ${p.x} ${p.y}"/>`);
+  if (nnEbene) { svg.innerHTML = defs + nnBaum(); nnKopfzeile(); return; }
+
+  // ── Übersicht: drei Ringe um den Wissenskern ────────────────────────
+  const B = nnKatalog.bereiche, M = nnKatalog.modelle;
+  const posB = {}, posM = {}, posW = {};
+
+  B.forEach((x, i) => { posB[x.id] = nnPos(i, B.length, 1.02, 0.52); });
+  M.forEach((m, i) => { posM[m.id] = nnPos(i + 0.5, M.length, 1.80, 1.02); });
+
+  // Werkzeuge im äußeren Ring — nur die, die eine Rolle tatsächlich nutzt.
+  const werkzeuge = [...new Set(M.flatMap(m => m.werkzeuge || []))];
+  werkzeuge.forEach((w, i) => { posW[w] = nnPos(i + 0.5, werkzeuge.length, 2.32, 1.42); });
+
+  const bahn = (p, q, farbe, op) =>
+    `<path class="nn-bahn" stroke="${farbe}" style="opacity:${op}" d="M ${p.x} ${p.y} L ${q.x} ${q.y}"/>`;
+
+  // Kern → Bereich, Bereich → Rolle, Rolle → Werkzeug
+  B.forEach(x => teile.push(`<path class="nn-bahn" id="bahn-${x.id}" d="M ${NN_MITTE.x} ${NN_MITTE.y} L ${posB[x.id].x} ${posB[x.id].y}"/>`));
+  M.forEach(m => {
+    const b = B.find(x => x.id === m.bereich);
+    if (b) teile.push(bahn(posB[m.bereich], posM[m.id], b.farbe, .3));
+    (m.werkzeuge || []).forEach(w => {
+      if (posW[w]) teile.push(bahn(posM[m.id], posW[w], '#64748b', .18));
+    });
   });
 
-  // Zentraler Kreis — der Siri-Kern.
-  teile.push(`
-    <g class="nn-orb-hit" id="nn-orb" role="button" tabindex="0"
-       aria-label="KI-Kreis öffnen und sprechen">
-      <circle class="nn-orb-ring" cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="40"/>
-      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="34" fill="url(#nnOrb)"/>
-      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="34" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
-      <path class="nn-welle" id="nn-welle" d="M ${NN_MITTE.x - 16} ${NN_MITTE.y} q 5 -10 8 0 t 8 0 t 8 0"/>
-      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 6}" class="nn-label" style="font-size:19px;fill:#fff" id="nn-orb-ico">◍</text>
-      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 60}" class="nn-sub">EB Circle · sprich mit mir</text>
-    </g>`);
+  // Wissenskern
+  const abschnitte = nnWissen;
+  teile.push(`<circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="52" fill="url(#nnKern)"/>`);
+  teile.push(nnKernPunkte(NN_MITTE.x, NN_MITTE.y, 44, Math.min(abschnitte, 120)));
 
-  // Bereichsknoten.
-  b.forEach((x, i) => {
-    const p = nnPos(i, b.length);
-    const stufe = (nnKatalog.autonomieStufen[x.autonomie] || {}).kurz || '';
+  // Werkzeuge
+  werkzeuge.forEach(w => {
+    const c = (connKatalog && connKatalog.connectors || []).find(x => x.id === w);
+    const z = (connZustand[w] || {}).status || 'getrennt';
+    const farbe = z === 'verbunden' ? '#4ade80' : z === 'eingeschraenkt' ? '#fbbf24'
+      : z === 'fehler' ? '#f87171' : '#475569';
+    const p = posW[w];
     teile.push(`
-      <g class="nn-node" id="node-${x.id}" data-bereich="${x.id}" role="button" tabindex="0"
-         aria-label="${escHtml(x.label)}: ${escHtml(stufe)}">
-        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="26" stroke="${x.farbe}"/>
-        <circle class="nn-core" cx="${p.x}" cy="${p.y}" r="16" fill="${x.farbe}" opacity=".18"/>
-        <text x="${p.x}" y="${p.y + 5}" style="font-size:15px;text-anchor:middle">${x.emoji}</text>
-        <text x="${p.x}" y="${p.y + 44}" class="nn-label">${escHtml(x.label)}</text>
-        <text x="${p.x}" y="${p.y + 57}" class="nn-sub">${escHtml(stufe)}</text>
+      <g class="nn-node nn-wz" data-werkzeug="${escHtml(w)}" role="button" tabindex="0"
+         aria-label="Werkzeug ${escHtml(c ? c.dienst : w)}">
+        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="13" stroke="${farbe}"/>
+        <text x="${p.x}" y="${p.y + 4}" style="font-size:11px;text-anchor:middle">${c ? c.logo : '🔌'}</text>
+        <text x="${p.x}" y="${p.y + 26}" class="nn-sub">${escHtml(c ? c.anbieter : w)}</text>
       </g>`);
   });
 
-  svg.innerHTML = `
-    <defs>
-      <radialGradient id="nnOrb" cx="35%" cy="30%">
-        <stop offset="0%" stop-color="#f0abfc"/>
-        <stop offset="55%" stop-color="#a855f7"/>
-        <stop offset="100%" stop-color="#e91e8c"/>
-      </radialGradient>
-    </defs>` + teile.join('');
+  // Rollen
+  M.forEach(m => {
+    const st = nnSchichtStand(m.schicht);
+    const farbe = NN_STAND_FARBE[st.stand];
+    const p = posM[m.id];
+    teile.push(`
+      <g class="nn-node nn-agent ${st.stand === 'laeuft' ? 'arbeitet' : ''}" id="node-${m.id}"
+         data-modell="${m.id}" role="button" tabindex="0"
+         aria-label="${escHtml(m.person)}, ${escHtml(m.rolle)}: ${escHtml(st.text)}">
+        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="17" stroke="${farbe}"/>
+        <circle class="nn-core" cx="${p.x}" cy="${p.y}" r="11" fill="${farbe}" opacity=".16"/>
+        <text x="${p.x}" y="${p.y + 4}" style="font-size:11px;text-anchor:middle">👤</text>
+        <text x="${p.x}" y="${p.y + 31}" class="nn-label" style="font-size:10px">${escHtml(m.person)}</text>
+        <text x="${p.x}" y="${p.y + 42}" class="nn-sub" style="font-size:8px">${escHtml(m.rolle)}</text>
+      </g>`);
+  });
+
+  // Bereiche
+  B.forEach(x => {
+    const p = posB[x.id];
+    const arbeitet = M.some(m => m.bereich === x.id && nnSchichtStand(m.schicht).stand === 'laeuft');
+    teile.push(`
+      <g class="nn-node nn-bereich ${arbeitet ? 'arbeitet' : ''}" id="node-${x.id}" data-bereich="${x.id}"
+         role="button" tabindex="0" aria-label="${escHtml(x.label)} aufklappen">
+        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="22" stroke="${x.farbe}" style="opacity:.9"/>
+        <circle class="nn-core" cx="${p.x}" cy="${p.y}" r="15" fill="${x.farbe}" opacity=".22"/>
+        <text x="${p.x}" y="${p.y + 5}" style="font-size:14px;text-anchor:middle">${x.emoji}</text>
+        <text x="${p.x}" y="${p.y + 36}" class="nn-label">${escHtml(x.label)}</text>
+      </g>`);
+  });
+
+  // Sprech-Kreis am Kern
+  teile.push(`
+    <g class="nn-orb-hit" id="nn-orb" role="button" tabindex="0" aria-label="Sprechen — KI-Kreis starten">
+      <circle class="nn-orb-ring" cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="30"/>
+      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="21" fill="url(#nnOrb)"/>
+      <path class="nn-welle" id="nn-welle" d="M ${NN_MITTE.x - 11} ${NN_MITTE.y} q 3.5 -7 5.5 0 t 5.5 0 t 5.5 0"/>
+      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 5}" style="font-size:14px;text-anchor:middle;fill:#fff">🎙</text>
+      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 40}" class="nn-sub" id="nn-orb-text">sprechen</text>
+    </g>`);
+
+  svg.innerHTML = defs + teile.join('');
+  nnKopfzeile();
+}
+
+/**
+ * Aufklappung als BAUM statt als Ring: Bereich unten, seine Rollen darüber,
+ * darüber deren Werkzeuge. Eine Hierarchie liest man von unten nach oben —
+ * ein zweiter Ring würde nur wie eine kleinere Übersicht aussehen.
+ */
+function nnBaum() {
+  const b = nnKatalog.bereiche.find(x => x.id === nnEbene);
+  const rollen = nnKatalog.modelle.filter(m => m.bereich === b.id);
+  const teile = [];
+  const unten = 396, mitteReihe = 250, oben = 108;
+  const bx = 450;
+
+  const spalten = rollen.length;
+  const px = i => 450 + (i - (spalten - 1) / 2) * Math.min(230, 780 / Math.max(spalten, 1));
+
+  // Bereich unten
+  teile.push(`
+    <g id="nn-zurueck" class="nn-orb-hit" role="button" tabindex="0" aria-label="Zurück zur Übersicht">
+      <circle cx="${bx}" cy="${unten}" r="30" fill="${b.farbe}" opacity=".2"/>
+      <circle cx="${bx}" cy="${unten}" r="30" fill="none" stroke="${b.farbe}" stroke-width="1.5"/>
+      <text x="${bx}" y="${unten + 5}" style="font-size:17px;text-anchor:middle">${b.emoji}</text>
+      <text x="${bx}" y="${unten + 46}" class="nn-label">${escHtml(b.label)}</text>
+      <text x="${bx}" y="${unten + 58}" class="nn-sub">← zurück</text>
+    </g>`);
+
+  rollen.forEach((m, i) => {
+    const x = px(i);
+    const st = nnSchichtStand(m.schicht);
+    const farbe = NN_STAND_FARBE[st.stand];
+
+    // Bereich → Rolle (gestrichelt, wie die Aufgabenlinien in der Vorlage)
+    teile.push(`<path class="nn-bahn" id="bahn-${m.id}" d="M ${bx} ${unten - 30} L ${x} ${mitteReihe + 20}"/>`);
+
+    // Rolle → Werkzeuge
+    (m.werkzeuge || []).forEach((w, j) => {
+      const wx = x + (j - ((m.werkzeuge.length - 1) / 2)) * 74;
+      const c = (connKatalog && connKatalog.connectors || []).find(y => y.id === w);
+      const z = (connZustand[w] || {}).status || 'getrennt';
+      const wf = z === 'verbunden' ? '#4ade80' : z === 'eingeschraenkt' ? '#fbbf24' : '#475569';
+      teile.push(`<path class="nn-bahn" style="opacity:.3" d="M ${x} ${mitteReihe - 20} L ${wx} ${oben + 14}"/>`);
+      teile.push(`
+        <g class="nn-node nn-wz" data-werkzeug="${escHtml(w)}" role="button" tabindex="0"
+           aria-label="Werkzeug ${escHtml(c ? c.dienst : w)}">
+          <circle class="nn-ring" cx="${wx}" cy="${oben}" r="13" stroke="${wf}"/>
+          <text x="${wx}" y="${oben + 4}" style="font-size:11px;text-anchor:middle">${c ? c.logo : '🔌'}</text>
+          <text x="${wx}" y="${oben - 20}" class="nn-sub">${escHtml(c ? c.anbieter : w)}</text>
+        </g>`);
+    });
+
+    teile.push(`
+      <g class="nn-node nn-agent ${st.stand === 'laeuft' ? 'arbeitet' : ''}" id="node-${m.id}"
+         data-modell="${m.id}" role="button" tabindex="0"
+         aria-label="${escHtml(m.person)}, ${escHtml(m.rolle)}: ${escHtml(st.text)}">
+        <circle class="nn-ring" cx="${x}" cy="${mitteReihe}" r="20" stroke="${farbe}"/>
+        <circle class="nn-core" cx="${x}" cy="${mitteReihe}" r="13" fill="${farbe}" opacity=".16"/>
+        <text x="${x}" y="${mitteReihe + 5}" style="font-size:13px;text-anchor:middle">👤</text>
+        <text x="${x}" y="${mitteReihe + 36}" class="nn-label">${escHtml(m.person)}</text>
+        <text x="${x}" y="${mitteReihe + 48}" class="nn-sub">${escHtml(m.rolle)}</text>
+        <text x="${x}" y="${mitteReihe + 60}" class="nn-sub" fill="${farbe}">${escHtml(st.text)}</text>
+      </g>`);
+  });
+  return teile.join('');
+}
+
+function nnKopfzeile() {
+  const b = nnEbene ? nnKatalog.bereiche.find(x => x.id === nnEbene) : null;
+  $('neural-sub').textContent = b
+    ? `${b.label} · ${nnKatalog.modelle.filter(m => m.bereich === b.id).length} Mitarbeiter · Mitte antippen für zurück`
+    : `${nnWissen} Wissens-Abschnitte im Kern · Mitte antippen zum Sprechen · Bereich antippen zum Aufklappen`;
+}
+
+/** Ebene wechseln — Übersicht ⇄ Bereich. */
+function nnOeffne(bereichId) {
+  nnEbene = bereichId || null;
+  nnZeichnen();
+  if (bereichId) ebImpuls(bereichId);
 }
 
 /**
@@ -1908,13 +2133,12 @@ function nnZeichnen() {
  *
  * Aufgerufen wird das ausschließlich dort, wo tatsächlich etwas zurückkam:
  * eine Verbindungsprüfung, ein geladener Selbstcheck, frische Commits.
- * `art` färbt: 'gut' grün, 'schlecht' rot, sonst die Bereichsfarbe.
  */
-function ebImpuls(bereichId, art) {
+function ebImpuls(zielId, art) {
   const svg = $('nn');
-  const bahn = svg && svg.querySelector('#bahn-' + bereichId);
+  const bahn = svg && svg.querySelector('#bahn-' + zielId);
   if (!bahn) return;
-  const bereich = (nnKatalog.bereiche || []).find(x => x.id === bereichId);
+  const bereich = (nnKatalog.bereiche || []).find(x => x.id === zielId);
   const farbe = art === 'gut' ? '#4ade80' : art === 'schlecht' ? '#f87171' : (bereich ? bereich.farbe : '#a855f7');
 
   const laenge = bahn.getTotalLength();
@@ -1926,18 +2150,14 @@ function ebImpuls(bereichId, art) {
   puls.setAttribute('stroke-dashoffset', String(laenge));
   svg.appendChild(puls);
 
-  // Bewusst als einmalige Animation ohne Wiederholung.
   const anim = puls.animate(
     [{ strokeDashoffset: laenge }, { strokeDashoffset: -26 }],
     { duration: 900, easing: 'cubic-bezier(.4,0,.2,1)' }
   );
   anim.onfinish = () => puls.remove();
 
-  const knoten = svg.querySelector('#node-' + bereichId);
-  if (knoten) {
-    knoten.classList.add('aktiv');
-    setTimeout(() => knoten.classList.remove('aktiv'), 1100);
-  }
+  const k = svg.querySelector('#node-' + zielId);
+  if (k) { k.classList.add('aktiv'); setTimeout(() => k.classList.remove('aktiv'), 1100); }
 }
 
 function renderBereiche() {
@@ -1988,17 +2208,36 @@ function renderWartet() {
 function renderModelle() {
   if (!nnKatalog) return;
   const wege = nnKatalog.wege || {};
-  $('modelle-badge').textContent = `${nnKatalog.modelle.length} Modelle · alle offen`;
+  const schichten = nnKatalog.schichten || {};
+  const besetzt = nnKatalog.modelle.filter(m => m.schicht);
+  const summe = nnKatalog.modelle.reduce((a, m) => a + (m.gehaltVergleich || 0), 0);
+  const arbeiten = nnKatalog.modelle.filter(m => nnSchichtStand(m.schicht).stand === 'laeuft').length;
+
+  $('modelle-badge').textContent =
+    `${besetzt.length} Stellen besetzt${arbeiten ? ` · ${arbeiten} arbeiten gerade` : ''}`;
+
+  $('modelle-summe').innerHTML =
+    `<b>${summe.toLocaleString('de-DE')} €</b> wäre der Marktwert derselben Aufgaben als `
+    + `menschliche Stellen — <span>Vergleichswert, keine Behauptung, dass ein Modell `
+    + `jemanden ersetzt. Er zeigt, welcher Umfang an Arbeit hier ohne Rückfrage läuft.</span>`;
+
   $('modelle-grid').innerHTML = nnKatalog.modelle.map(m => {
     const b = nnKatalog.bereiche.find(x => x.id === m.bereich);
+    const st = nnSchichtStand(m.schicht);
+    const sch = schichten[m.schicht];
     return `
-      <div class="modell" style="border-left:2px solid ${b ? b.farbe : 'var(--border)'}">
+      <div class="modell" id="modell-${escHtml(m.id)}" style="border-left:3px solid ${b ? b.farbe : 'var(--border)'}">
         <div class="modell-top">
           <span class="modell-rolle">${escHtml(m.rolle)}</span>
-          <span class="modell-offen">offen</span>
+          <span class="stand stand-${st.stand}">${escHtml(st.text)}</span>
         </div>
-        <div class="modell-name">${escHtml(m.name)} · ${escHtml(m.anbieter)} · ${escHtml(m.lizenz)}</div>
+        <div class="modell-name">${escHtml(m.name)} · ${escHtml(m.anbieter)} · ${escHtml(m.lizenz)} · offen</div>
         <div class="modell-auf">${escHtml(m.aufgabe)}</div>
+        <div class="modell-zeile"><span class="k">Auslöser</span><span class="v">${escHtml(m.ausloeser)}</span></div>
+        <div class="modell-zeile"><span class="k">Schicht</span><span class="v">${
+          sch ? escHtml(sch.label + ' · ' + sch.takt) : '<i>lokal, kein Zeitplan</i>'}</span></div>
+        <div class="modell-zeile"><span class="k">Vergleichsstelle</span><span class="v">${escHtml(m.vergleichsstelle)}${
+          m.gehaltVergleich ? ` · <b>${m.gehaltVergleich.toLocaleString('de-DE')} €/Jahr</b>` : ''}</span></div>
         <div class="modell-warum">${escHtml(m.warum)}</div>
         <div class="modell-weg">${escHtml((wege[m.weg] || {}).label || m.weg)}</div>
       </div>`;
@@ -2013,29 +2252,60 @@ async function initNeural() {
     $('neural-sub').textContent = 'Ensemble-Katalog nicht ladbar.';
     return;
   }
+  // Die Dichte des Kerns folgt der echten Größe der Wissensbasis.
+  try {
+    const kb = await (await fetch(hqAsset('assets/eb-knowledge.json'), { cache: 'no-store' })).json();
+    nnWissen = (kb.entries || []).length;
+  } catch { nnWissen = 0; }
+
   nnZeichnen();
   renderBereiche();
   renderWartet();
   renderModelle();
 
+  // Ohne SpeechRecognition (z. B. Firefox) sagt der Kreis das, statt beim
+  // Tippen stumm zu bleiben.
+  if (window.ebCircleAPI && !window.ebCircleAPI.kannHoeren()) {
+    const t = document.getElementById('nn-orb-text');
+    if (t) t.textContent = 'Spracherkennung fehlt — tippen';
+  }
+
   const svg = $('nn');
   svg.addEventListener('click', e => {
+    // Mitte in der Übersicht: SPRECHEN. Vorher öffnete das nur den Chat in
+    // der Ecke — das war die Bedienung eines Textfelds, nicht einer Stimme.
     if (e.target.closest('#nn-orb')) {
-      if (window.ebCircleAPI) window.ebCircleAPI.oeffnen();
+      if (window.ebCircleAPI) window.ebCircleAPI.sprich();
       sfx('click');
       return;
     }
-    const n = e.target.closest('[data-bereich]');
-    if (n) {
-      const el = $('bereiche-grid');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      ebImpuls(n.dataset.bereich);
+    if (e.target.closest('#nn-zurueck')) { nnOeffne(null); sfx('click'); return; }
+
+    const b = e.target.closest('[data-bereich]');
+    if (b) { nnOeffne(b.dataset.bereich); sfx('click'); return; }
+
+    const w = e.target.closest('[data-werkzeug]');
+    if (w) {
+      const k = document.getElementById('conn-' + w.dataset.werkzeug);
+      if (k) { k.scrollIntoView({ behavior: 'smooth', block: 'center' }); k.style.borderColor = 'var(--cyan)'; }
+      sfx('click');
+      return;
+    }
+
+    const m = e.target.closest('[data-modell]');
+    if (m) {
+      const karte = document.getElementById('modell-' + m.dataset.modell);
+      if (karte) {
+        karte.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        karte.classList.add('hervor');
+        setTimeout(() => karte.classList.remove('hervor'), 1800);
+      }
       sfx('click');
     }
   });
   svg.addEventListener('keydown', e => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    const ziel = e.target.closest('#nn-orb, [data-bereich]');
+    const ziel = e.target.closest('#nn-orb, #nn-zurueck, [data-bereich], [data-modell], [data-werkzeug]');
     if (!ziel) return;
     e.preventDefault();
     ziel.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -2305,8 +2575,16 @@ window.addEventListener('DOMContentLoaded', init);
      für den schnellen Griff, das Zentrum ist der Ort, an dem man ihn sucht. */
   window.ebCircleAPI = {
     oeffnen: function () { panel.classList.contains('open') ? close() : open(); },
+    /* Ein Griff für den Kern: öffnen UND zuhören. Wer auf einen sprechenden
+       Kreis tippt, will reden — nicht erst ein Textfeld sehen und dann noch
+       ein Mikrofon suchen. */
+    sprich: function () {
+      if (!panel.classList.contains('open')) open();
+      if (!listening) toggleMic();
+    },
     sprechen: toggleMic,
-    istOffen: function () { return panel.classList.contains('open'); }
+    istOffen: function () { return panel.classList.contains('open'); },
+    kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
   };
   document.getElementById('ebc-close').addEventListener('click', close);
   micBtn.addEventListener('click', toggleMic);
