@@ -8557,7 +8557,60 @@ function eb_hq_probe_openai() {
     ) );
 }
 
+/**
+ * OpenRouter — ein Zugang, viele offene Modelle.
+ *
+ * Das Ensemble in assets/eb-models.json ist bewusst auf offene Gewichte
+ * beschränkt: was heute hierüber läuft, kann morgen auf eigener Hardware
+ * laufen, ohne dass eine Zeile Aufgabenlogik sich ändert.
+ */
+function eb_hq_probe_openrouter() {
+    if ( ! defined( 'EB_OPENROUTER_API_KEY' ) || ! EB_OPENROUTER_API_KEY ) {
+        return eb_hq_proxy_antwort( 'getrennt',
+            'EB_OPENROUTER_API_KEY ist auf dem Server nicht hinterlegt.' );
+    }
+    // /key gibt Kontingent und Verbrauch dieses Schlüssels zurück — bei
+    // OpenRouter ausnahmsweise ohne gesonderten Admin-Schlüssel.
+    $res = wp_remote_get( 'https://openrouter.ai/api/v1/key', array(
+        'timeout' => 12,
+        'headers' => array( 'Authorization' => 'Bearer ' . EB_OPENROUTER_API_KEY ),
+    ) );
+    if ( is_wp_error( $res ) ) {
+        return eb_hq_proxy_antwort( 'fehler', 'OpenRouter nicht erreichbar: ' . $res->get_error_message() );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $res );
+    if ( $code === 401 || $code === 403 ) {
+        return eb_hq_proxy_antwort( 'fehler', 'Schluessel wurde abgelehnt (HTTP ' . $code . ').' );
+    }
+    if ( $code !== 200 ) {
+        return eb_hq_proxy_antwort( 'fehler', 'OpenRouter antwortete HTTP ' . $code . '.' );
+    }
+    $body = json_decode( wp_remote_retrieve_body( $res ), true );
+    $d    = isset( $body['data'] ) ? $body['data'] : array();
+
+    $extra = array( 'kontingent' => eb_hq_ratelimit_aus_headern( wp_remote_retrieve_headers( $res ) ) );
+    // Nur Zahlen weitergeben, nie das Schluesselobjekt selbst.
+    if ( isset( $d['limit'] ) )           $extra['kontingent']['guthabenLimit'] = $d['limit'];
+    if ( isset( $d['usage'] ) )           $extra['kontingent']['verbraucht']    = $d['usage'];
+    if ( isset( $d['is_free_tier'] ) )    $extra['freierZugang']                = (bool) $d['is_free_tier'];
+
+    $antwort = eb_hq_proxy_antwort( 'verbunden', 'Schluessel gilt.', $extra );
+    // OpenRouter ist der eine Anbieter, der den Verbrauch ohne Admin-Schluessel
+    // herausgibt — das darf die Antwort auch sagen.
+    $daten = $antwort->get_data();
+    if ( isset( $d['usage'] ) ) {
+        $daten['verbrauch'] = array( 'abrufbar' => true, 'wert' => $d['usage'] );
+        $antwort->set_data( $daten );
+    }
+    return $antwort;
+}
+
 add_action( 'rest_api_init', function () {
+    register_rest_route( 'eventboerse/v1', '/hq/probe/openrouter', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_hq_probe_openrouter',
+        'permission_callback' => 'eb_hq_proxy_darf',
+    ) );
     register_rest_route( 'eventboerse/v1', '/hq/probe/anthropic', array(
         'methods'             => 'GET',
         'callback'            => 'eb_hq_probe_anthropic',

@@ -87,6 +87,8 @@ ausgeliefert (`manage_options`, sonst 404). Der direkte Theme-Pfad ist in
 ```bash
 node scripts/connectors.mjs            # assets/eb-connectors.json (Katalog)
 node scripts/connectors.mjs --check    # keine Geheimnisse, kein Zustand im Katalog
+node scripts/models.mjs                # assets/eb-models.json (Bereiche + Ensemble)
+node scripts/models.mjs --check        # nur offene Modelle, jede Grenze begründet
 ```
 
 Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
@@ -97,7 +99,12 @@ Ohne das blockiert die CSP jeden GitHub-Aufruf des HQ. Die **Tagesroutine**
 (`tagesroutine.yml`, 03:17 UTC) hält Demo-Feed und Selbstcheck
 (`audit/latest.json`) frisch.
 
-`/wp-json/eventboerse/v1/hq/probe/{anthropic|openai}` prüft die KI-Schlüssel
+Der **neuronale Kern** ist die Startseite des HQ: sechs Bereichsknoten im Ring,
+in der Mitte der KI-Kreis mit Sprache. Ein Impuls auf einer Bahn entspricht
+**einem echten Ereignis** — keine Dauer-Animation, sonst sieht ein
+stillstehendes System aus wie ein arbeitendes.
+
+`/wp-json/eventboerse/v1/hq/probe/{anthropic|openai|openrouter}` prüft die KI-Schlüssel
 **serverseitig** — Gültigkeit und Rate-Limit-Kontingent, ohne dass der Schlüssel
 den Browser erreicht. Opt-in: nur aktiv, wenn die Server-Konstante gesetzt ist.
 `eb-connectors.json` und `audit/latest.json` sind admin-only; öffentlich sind
@@ -142,10 +149,11 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-107 Tests in 9 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+119 Tests in 10 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
-Verbindungen (HQ-Zugang + Connector-Katalog), Barrierefreiheit (axe, beide
+Verbindungen (HQ-Zugang + Connector-Katalog), Kern (Impuls-Ehrlichkeit +
+Autonomie + offenes Ensemble), Barrierefreiheit (axe, beide
 Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei Fehlern.
 
 ## Deployment

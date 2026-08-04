@@ -117,6 +117,11 @@ jobs:
       - name: Connector-Katalog prüfen
         run: node scripts/connectors.mjs --check
 
+      # Modell-Ensemble: nur offene Gewichte, eindeutige Rollen, jede
+      # Autonomie-Grenze begründet, kein Zustand im Katalog.
+      - name: Modell-Ensemble prüfen
+        run: node scripts/models.mjs --check
+
       - name: Testsuite ausführen
         run: npx playwright test
 
