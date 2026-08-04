@@ -192,8 +192,9 @@ Lauf nutzt vier voneinander getrennte Rollen und strukturierte JSON-Ausgaben:
 
 OpenRouter übernimmt Provider- und Modell-Fallbacks. Der Request verlangt
 Provider ohne Datenweitergabe (`data_collection: deny`) und Unterstützung aller
-verwendeten Parameter. Jeder Wochenlauf ist auf 0,35 USD begrenzt und startet
-nicht unter 1 USD verbleibendem Schlüssel-Limit.
+verwendeten Parameter. Jeder Wochenlauf ist auf 0,35 USD begrenzt. Hat der Key
+ein eigenes Limit, startet er unter 1 USD Rest nicht; OpenRouters `null` bei
+einem Key ohne eigenes Limit darf dabei nicht als 0 USD interpretiert werden.
 
 **Doppelte technische Grenze:** Das Agentenskript lässt nur eine feste Liste
 kleiner Frontend-Dateien zu und blockiert unter anderem Auth, Payment, Backend,

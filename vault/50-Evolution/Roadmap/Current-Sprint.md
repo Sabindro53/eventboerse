@@ -296,7 +296,8 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
   - Vier getrennte Rollen: Scout → Architektur → Implementierung → unabhängiges Review.
   - Feste Whitelist kleiner Frontend-Dateien; max. 2 Dateien/260 Diff-Zeilen;
     Backend, Auth, Payment, Workflows, Netzwerk und Storage hart ausgeschlossen.
-  - Kostenlimit 0,35 USD/Lauf, Mindestrest 1 USD; Modell/Token/Kosten im PR.
+  - Kostenlimit 0,35 USD/Lauf; bei gesetztem Key-Limit Mindestrest 1 USD;
+    Modell/Token/Kosten im PR.
   - Autonome Auslieferung nur nach Syntax-Gates, Reproduzierbarkeits-Gate,
     kompletter Playwright-Suite und erneuter Scope-Prüfung; danach explizit
     gestarteter, normaler Rollback-fähiger Deploy.

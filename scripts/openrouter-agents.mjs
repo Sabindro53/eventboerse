@@ -224,6 +224,9 @@ function jsonAusAntwort(inhalt) {
 }
 
 function zahl(v) {
+  // OpenRouter verwendet null fuer „kein eigenes Schluessel-Limit". Number(null)
+  // waere 0 und wuerde einen unbegrenzten Key faelschlich als leer sperren.
+  if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
@@ -283,6 +286,9 @@ async function main(argv = []) {
     ?? ((zahl(kd.limit) !== null && zahl(kd.usage) !== null) ? zahl(kd.limit) - zahl(kd.usage) : null);
   if (remaining !== null && remaining < minRemaining) {
     throw new Error(`OpenRouter-Kostenbremse: nur noch $${remaining.toFixed(2)} Schluessel-Limit uebrig.`);
+  }
+  if (remaining === null) {
+    console.log(`OpenRouter-Schluessel ohne eigenes Limit; Laufbudget bleibt bei $${runBudget.toFixed(2)}.`);
   }
 
   const modellPreise = new Map((modelInfo.data || []).map((m) => [m.id, m.pricing || {}]));
@@ -503,6 +509,9 @@ function prBody(r) {
 }
 
 function selfTest() {
+  if (zahl(null) !== null || zahl(undefined) !== null || zahl('') !== null || zahl('0') !== 0) {
+    throw new Error('Zahlparser unterscheidet kein Limit nicht korrekt von dem Wert 0.');
+  }
   pruefeDateiliste(['js/modules/ui/43-showcase.js']);
   const gut = [
     'diff --git a/js/modules/ui/43-showcase.js b/js/modules/ui/43-showcase.js',
