@@ -482,10 +482,17 @@ function validiereAgentenJson(rolle, json) {
     if (json.risk !== 'low') throw new Error('Scout-Risiko ist nicht low.');
   } else if (rolle === 'architect') {
     pruefeDateiliste(json.target_files);
-    textLaenge(json, 'skip_reason', 0, 500);
-    arrayLaenge(json, 'steps', 2, 6);
-    arrayLaenge(json, 'invariants', 3, 8);
-    arrayLaenge(json, 'verification', 2, 6);
+    if (json.decision === 'skip') {
+      textLaenge(json, 'skip_reason', 20, 1000);
+      arrayLaenge(json, 'steps', 0, 6);
+      arrayLaenge(json, 'invariants', 0, 8);
+      arrayLaenge(json, 'verification', 0, 6);
+    } else {
+      textLaenge(json, 'skip_reason', 0, 1000);
+      arrayLaenge(json, 'steps', 2, 6);
+      arrayLaenge(json, 'invariants', 3, 8);
+      arrayLaenge(json, 'verification', 2, 6);
+    }
   } else if (rolle === 'implementer') {
     textLaenge(json, 'patch', 0, 48000);
     textLaenge(json, 'summary', 20, 700);
@@ -604,6 +611,12 @@ function selfTest() {
   if (/"(?:minLength|maxLength|minItems|maxItems|uniqueItems|minimum|maximum)"/.test(schemas)) {
     throw new Error('API-Schema enthaelt nicht portable Validierungs-Schluesselwoerter.');
   }
+  validiereAgentenJson('architect', {
+    decision: 'skip',
+    skip_reason: 'Der Nutzen ist mit dem vorhandenen Kontext nicht sicher belegbar.',
+    target_files: ['js/modules/ui/43-showcase.js'],
+    steps: [], invariants: [], verification: [],
+  });
   pruefeDateiliste(['js/modules/ui/43-showcase.js']);
   const gut = [
     'diff --git a/js/modules/ui/43-showcase.js b/js/modules/ui/43-showcase.js',

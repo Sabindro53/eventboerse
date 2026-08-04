@@ -173,6 +173,9 @@ fehlgeschlagenen Versuch gegen dasselbe Laufbudget.
 Das an Provider gesendete JSON-Schema nutzt nur den gemeinsamen Structured-
 Output-Kern; feinere Längen-, Mengen- und Risikogrenzen werden danach lokal
 deterministisch validiert und lösen bei Verstoß ebenfalls den Rollen-Fallback aus.
+Eine Architekturentscheidung `skip` braucht einen substanziellen Grund, aber
+keine erfundenen Implementierungsschritte; nur `implement` verlangt Plan,
+Invarianten und Verifikation in voller Mindestmenge.
 
 Der Autopilot führt Syntax-Gates, Reproduzierbarkeits-Gate und die komplette
 Playwright-Suite aus und erstellt erst dann einen PR. `openrouter-auto-merge.yml`

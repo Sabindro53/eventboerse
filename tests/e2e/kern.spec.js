@@ -101,6 +101,7 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/ergebnis: 'unbrauchbar'/);
     expect(runner).toMatch(/validiereAgentenJson\(rolle, json\)/);
     expect(runner).toMatch(/nicht portable Validierungs-Schluesselwoerter/);
+    expect(runner).toMatch(/json\.decision === 'skip'/);
   });
 
   test('autonomer Scope schließt sensible Dateien und Seiteneffekte aus', () => {
