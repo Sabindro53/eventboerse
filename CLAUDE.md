@@ -170,6 +170,9 @@ OpenRouter „kein Key-Limit", nicht „kein Guthaben".
 Eine leere oder nicht parsebare Antwort wird nie angewendet: dieselbe Rolle
 wechselt kontrolliert zum nächsten freigegebenen Modell und bucht auch den
 fehlgeschlagenen Versuch gegen dasselbe Laufbudget.
+Das an Provider gesendete JSON-Schema nutzt nur den gemeinsamen Structured-
+Output-Kern; feinere Längen-, Mengen- und Risikogrenzen werden danach lokal
+deterministisch validiert und lösen bei Verstoß ebenfalls den Rollen-Fallback aus.
 
 Der Autopilot führt Syntax-Gates, Reproduzierbarkeits-Gate und die komplette
 Playwright-Suite aus und erstellt erst dann einen PR. `openrouter-auto-merge.yml`

@@ -74,57 +74,57 @@ const AGENTEN = Object.freeze({
 });
 
 const SCOUT_SCHEMA = objectSchema({
-  title: { type: 'string', minLength: 8, maxLength: 100 },
-  goal: { type: 'string', minLength: 30, maxLength: 700 },
-  why_now: { type: 'string', minLength: 20, maxLength: 500 },
+  title: { type: 'string' },
+  goal: { type: 'string' },
+  why_now: { type: 'string' },
   target_files: {
-    type: 'array', minItems: 1, maxItems: 2, uniqueItems: true,
+    type: 'array',
     items: { type: 'string', enum: Object.keys(SICHERE_DATEIEN) },
   },
   acceptance: {
-    type: 'array', minItems: 2, maxItems: 5,
-    items: { type: 'string', minLength: 8, maxLength: 240 },
+    type: 'array',
+    items: { type: 'string' },
   },
   risk: { type: 'string', enum: ['low'] },
 });
 
 const ARCHITECT_SCHEMA = objectSchema({
   decision: { type: 'string', enum: ['implement', 'skip'] },
-  skip_reason: { type: 'string', maxLength: 500 },
+  skip_reason: { type: 'string' },
   target_files: {
-    type: 'array', minItems: 1, maxItems: 2, uniqueItems: true,
+    type: 'array',
     items: { type: 'string', enum: Object.keys(SICHERE_DATEIEN) },
   },
   steps: {
-    type: 'array', minItems: 2, maxItems: 6,
-    items: { type: 'string', minLength: 8, maxLength: 300 },
+    type: 'array',
+    items: { type: 'string' },
   },
   invariants: {
-    type: 'array', minItems: 3, maxItems: 8,
-    items: { type: 'string', minLength: 8, maxLength: 240 },
+    type: 'array',
+    items: { type: 'string' },
   },
   verification: {
-    type: 'array', minItems: 2, maxItems: 6,
-    items: { type: 'string', minLength: 3, maxLength: 200 },
+    type: 'array',
+    items: { type: 'string' },
   },
 });
 
 const IMPLEMENTER_SCHEMA = objectSchema({
-  patch: { type: 'string', maxLength: 48000 },
-  summary: { type: 'string', minLength: 20, maxLength: 700 },
+  patch: { type: 'string' },
+  summary: { type: 'string' },
   tests_considered: {
-    type: 'array', minItems: 2, maxItems: 6,
-    items: { type: 'string', minLength: 3, maxLength: 200 },
+    type: 'array',
+    items: { type: 'string' },
   },
 });
 
 const REVIEW_SCHEMA = objectSchema({
   approved: { type: 'boolean' },
-  confidence: { type: 'number', minimum: 0, maximum: 1 },
-  summary: { type: 'string', minLength: 20, maxLength: 700 },
+  confidence: { type: 'number' },
+  summary: { type: 'string' },
   findings: {
-    type: 'array', maxItems: 8,
-    items: { type: 'string', minLength: 5, maxLength: 300 },
+    type: 'array',
+    items: { type: 'string' },
   },
   safety: objectSchema({
     scope_respected: { type: 'boolean' },
@@ -258,9 +258,10 @@ async function apiJson(url, init, timeoutMs = 120000) {
     const text = await res.text();
     let body;
     try { body = JSON.parse(text); } catch { body = { raw: text.slice(0, 1000) }; }
-    if (!res.ok) {
+    if (!res.ok || body?.error) {
       const msg = body?.error?.message || body?.message || `HTTP ${res.status}`;
-      throw new Error(`OpenRouter ${res.status}: ${String(msg).slice(0, 500)}`);
+      const code = body?.error?.code || res.status;
+      throw new Error(`OpenRouter ${code}: ${String(msg).slice(0, 500)}`);
     }
     return body;
   } finally {
@@ -374,6 +375,7 @@ async function main(argv = []) {
       laeufe.push(lauf);
       try {
         const json = jsonAusAntwort(antwort?.choices?.[0]?.message?.content);
+        validiereAgentenJson(rolle, json);
         lauf.ergebnis = 'verwendet';
         return json;
       } catch (error) {
@@ -445,6 +447,56 @@ async function main(argv = []) {
     changed: true, fokus, scout, architekt, implementierung, review,
     laeufe, kosten: ausgegeben, changed_files: changedFiles, diff_stat: diffStat,
   });
+}
+
+function textLaenge(objekt, feld, min, max) {
+  const wert = objekt?.[feld];
+  if (typeof wert !== 'string' || wert.length < min || wert.length > max) {
+    throw new Error(`${feld} muss ${min} bis ${max} Zeichen lang sein.`);
+  }
+}
+
+function arrayLaenge(objekt, feld, min, max) {
+  const wert = objekt?.[feld];
+  if (!Array.isArray(wert) || wert.length < min || wert.length > max) {
+    throw new Error(`${feld} muss ${min} bis ${max} Eintraege enthalten.`);
+  }
+  return wert;
+}
+
+// Provideruebergreifend bleibt das API-Schema bewusst beim gemeinsamen
+// Structured-Output-Kern. Feinere Grenzen erzwingt dieser deterministische
+// Code danach; ein Modell kann sie weder lockern noch umgehen.
+function validiereAgentenJson(rolle, json) {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) {
+    throw new Error('Strukturierte Antwort ist kein Objekt.');
+  }
+  if (rolle === 'scout') {
+    textLaenge(json, 'title', 8, 100);
+    textLaenge(json, 'goal', 30, 700);
+    textLaenge(json, 'why_now', 20, 500);
+    pruefeDateiliste(json.target_files);
+    arrayLaenge(json, 'acceptance', 2, 5).forEach((x) => {
+      if (typeof x !== 'string' || x.length < 8 || x.length > 240) throw new Error('Akzeptanzkriterium ungueltig.');
+    });
+    if (json.risk !== 'low') throw new Error('Scout-Risiko ist nicht low.');
+  } else if (rolle === 'architect') {
+    pruefeDateiliste(json.target_files);
+    textLaenge(json, 'skip_reason', 0, 500);
+    arrayLaenge(json, 'steps', 2, 6);
+    arrayLaenge(json, 'invariants', 3, 8);
+    arrayLaenge(json, 'verification', 2, 6);
+  } else if (rolle === 'implementer') {
+    textLaenge(json, 'patch', 0, 48000);
+    textLaenge(json, 'summary', 20, 700);
+    arrayLaenge(json, 'tests_considered', 2, 6);
+  } else if (rolle === 'reviewer') {
+    textLaenge(json, 'summary', 20, 700);
+    arrayLaenge(json, 'findings', 0, 8);
+    if (typeof json.confidence !== 'number' || json.confidence < 0 || json.confidence > 1) {
+      throw new Error('Review-Konfidenz liegt nicht zwischen 0 und 1.');
+    }
+  }
 }
 
 function pruefeDateiliste(dateien) {
@@ -548,6 +600,10 @@ function selfTest() {
   }
   const segmentiert = jsonAusAntwort([{ type: 'text', text: '{"ok":' }, { type: 'text', text: 'true}' }]);
   if (segmentiert.ok !== true) throw new Error('Segmentierte Modellantwort wird nicht als JSON gelesen.');
+  const schemas = JSON.stringify([SCOUT_SCHEMA, ARCHITECT_SCHEMA, IMPLEMENTER_SCHEMA, REVIEW_SCHEMA]);
+  if (/"(?:minLength|maxLength|minItems|maxItems|uniqueItems|minimum|maximum)"/.test(schemas)) {
+    throw new Error('API-Schema enthaelt nicht portable Validierungs-Schluesselwoerter.');
+  }
   pruefeDateiliste(['js/modules/ui/43-showcase.js']);
   const gut = [
     'diff --git a/js/modules/ui/43-showcase.js b/js/modules/ui/43-showcase.js',
