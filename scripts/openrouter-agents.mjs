@@ -391,6 +391,9 @@ async function main(argv = []) {
     `Du bist der konservative Scout fuer EventBoerse. ${fremdtextRegel} `
       + 'Waehle genau EINE kleine, sichtbare, risikoarme Verbesserung. Keine erfundene Dringlichkeit, kein Backend, kein Auth, kein Payment.',
     basisKontext(fokus));
+  if (!scout.target_files.length) {
+    return ergebnisSchreiben({ changed: false, fokus, scout, laeufe, kosten: ausgegeben });
+  }
   pruefeDateiliste(scout.target_files);
 
   const quellen = dateiKontext(scout.target_files);
@@ -475,7 +478,7 @@ function validiereAgentenJson(rolle, json) {
     textLaenge(json, 'title', 8, 100);
     textLaenge(json, 'goal', 30, 700);
     textLaenge(json, 'why_now', 20, 500);
-    pruefeDateiliste(json.target_files);
+    pruefeDateiliste(json.target_files, true);
     arrayLaenge(json, 'acceptance', 2, 5).forEach((x) => {
       if (typeof x !== 'string' || x.length < 8 || x.length > 240) throw new Error('Akzeptanzkriterium ungueltig.');
     });
@@ -506,10 +509,14 @@ function validiereAgentenJson(rolle, json) {
   }
 }
 
-function pruefeDateiliste(dateien) {
-  if (!Array.isArray(dateien) || dateien.length < 1 || dateien.length > 2) {
-    throw new Error('Agent muss ein bis zwei Dateien auswaehlen.');
+function pruefeDateiliste(dateien, leerErlaubt = false) {
+  const minimum = leerErlaubt ? 0 : 1;
+  if (!Array.isArray(dateien) || dateien.length < minimum || dateien.length > 2) {
+    throw new Error(leerErlaubt
+      ? 'Scout darf null bis zwei Dateien auswaehlen.'
+      : 'Agent muss ein bis zwei Dateien auswaehlen.');
   }
+  if (new Set(dateien).size !== dateien.length) throw new Error('Dateiliste enthaelt Duplikate.');
   for (const datei of dateien) {
     if (!Object.hasOwn(SICHERE_DATEIEN, datei)) throw new Error(`Datei nicht freigegeben: ${datei}`);
     const norm = relative(ROOT, resolve(ROOT, datei));
@@ -617,6 +624,13 @@ function selfTest() {
     target_files: ['js/modules/ui/43-showcase.js'],
     steps: [], invariants: [], verification: [],
   });
+  const keinVorschlag = {
+    title: 'Kein sicherer Vorschlag',
+    goal: 'Der Scout beendet diesen Lauf bewusst ohne Aenderung am Produkt.',
+    why_now: 'Im aktuellen Kontext ist kein klarer risikoarmer Nutzen belegbar.',
+    target_files: [], acceptance: ['Keine Datei wird veraendert.', 'Der Lauf endet erfolgreich ohne PR.'], risk: 'low',
+  };
+  validiereAgentenJson('scout', keinVorschlag);
   pruefeDateiliste(['js/modules/ui/43-showcase.js']);
   const gut = [
     'diff --git a/js/modules/ui/43-showcase.js b/js/modules/ui/43-showcase.js',
