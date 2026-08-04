@@ -440,7 +440,18 @@ function eb_serve_hq() {
     header( 'Content-Type: text/html; charset=UTF-8' );
     header( 'Cache-Control: no-cache, no-store, must-revalidate, private' );
     header( 'X-Robots-Tag: noindex, nofollow, noarchive', true );
-    readfile( $file );
+    // Cookie-Authentifizierung an der WordPress-REST-API braucht zusaetzlich
+    // den wp_rest-Nonce. Ohne ihn setzt WordPress den aktuellen Nutzer fuer
+    // den REST-Aufruf auf 0; die geschuetzten KI-Proxies antworten dann trotz
+    // gueltiger Admin-Sitzung mit 401/403. Der Nonce wird nur in die bereits
+    // admin-geschuetzte, nicht cachebare HQ-Antwort eingesetzt.
+    $html = file_get_contents( $file );
+    if ( $html === false ) {
+        status_header( 500 );
+        exit;
+    }
+    $html = str_replace( '__EB_HQ_REST_NONCE__', esc_js( wp_create_nonce( 'wp_rest' ) ), $html );
+    echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- statische Datei + gezielt escapeter Nonce
     exit;
 }
 
@@ -8589,10 +8600,28 @@ function eb_hq_probe_openrouter() {
     $d    = isset( $body['data'] ) ? $body['data'] : array();
 
     $extra = array( 'kontingent' => eb_hq_ratelimit_aus_headern( wp_remote_retrieve_headers( $res ) ) );
-    // Nur Zahlen weitergeben, nie das Schluesselobjekt selbst.
-    if ( isset( $d['limit'] ) )           $extra['kontingent']['guthabenLimit'] = $d['limit'];
-    if ( isset( $d['usage'] ) )           $extra['kontingent']['verbraucht']    = $d['usage'];
-    if ( isset( $d['is_free_tier'] ) )    $extra['freierZugang']                = (bool) $d['is_free_tier'];
+    // Nur dokumentierte Zahlen und Zeitpunkte weitergeben, nie Label, Hash,
+    // Creator-ID oder das Schluesselobjekt selbst.
+    $zahlen = array(
+        'limit'             => 'guthabenLimit',
+        'limit_remaining'   => 'guthabenRest',
+        'usage'             => 'verbraucht',
+        'usage_daily'       => 'verbrauchtHeute',
+        'usage_weekly'      => 'verbrauchtWoche',
+        'usage_monthly'     => 'verbrauchtMonat',
+    );
+    foreach ( $zahlen as $quelle => $ziel ) {
+        if ( isset( $d[ $quelle ] ) && is_numeric( $d[ $quelle ] ) ) {
+            $extra['kontingent'][ $ziel ] = (float) $d[ $quelle ];
+        }
+    }
+    if ( isset( $d['limit_reset'] ) && in_array( $d['limit_reset'], array( 'daily', 'weekly', 'monthly' ), true ) ) {
+        $extra['kontingent']['limitReset'] = $d['limit_reset'];
+    }
+    if ( ! empty( $d['expires_at'] ) && strtotime( $d['expires_at'] ) ) {
+        $extra['kontingent']['laeuftAb'] = gmdate( 'c', strtotime( $d['expires_at'] ) );
+    }
+    if ( isset( $d['is_free_tier'] ) ) $extra['freierZugang'] = (bool) $d['is_free_tier'];
 
     $antwort = eb_hq_proxy_antwort( 'verbunden', 'Schluessel gilt.', $extra );
     // OpenRouter ist der eine Anbieter, der den Verbrauch ohne Admin-Schluessel

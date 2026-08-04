@@ -38,6 +38,7 @@ temp/
 
 # Patch files (local workflow only, never commit)
 *.patch
+.ai-run/
 
 # Local AI/runtime knowledge caches (never deploy into the public theme)
 ki-knowledge.json

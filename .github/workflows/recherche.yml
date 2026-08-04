@@ -10,9 +10,8 @@ name: Web-Recherche (Quarantaene)
 # Entscheidung mit eigenem Commit (MCP-Architektur §6).
 
 on:
-  schedule:
-    # Donnerstags 06:23 UTC — bewusst nicht zur vollen Stunde.
-    - cron: '23 6 * * 4'
+  # Bis die Recherche-Schleuse ebenfalls auf OpenRouter portiert ist, bleibt
+  # dieser Anthropic-Workflow bewusst manuell statt wöchentlich rot zu laufen.
   workflow_dispatch:
     inputs:
       thema:

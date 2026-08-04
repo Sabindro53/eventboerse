@@ -1,0 +1,130 @@
+name: OpenRouter Auto-Merge
+
+# Dieser Workflow laeuft aus dem vertrauenswuerdigen main-Branch. Er reagiert
+# ausschliesslich auf einen vollstaendig erfolgreichen OpenRouter-Autopiloten,
+# findet den exakt zu diesem Lauf gehoerenden PR und prueft dessen Diff erneut.
+# Das ist noetig, weil PRs des eingebauten GITHUB_TOKEN absichtlich keine
+# weiteren pull_request-Workflows ausloesen.
+
+on:
+  workflow_run:
+    workflows: ['OpenRouter Autopilot']
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  merge:
+    name: Scope und Gates verifizieren
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sicheren Autopilot-PR ausliefern
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            if (run.head_branch !== 'main' || run.head_repository?.full_name !== `${owner}/${repo}`) {
+              core.notice('Der erfolgreiche Lauf stammt nicht vom main-Branch dieses Repositories.');
+              return;
+            }
+
+            const { data: openPulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base: 'main', per_page: 100,
+            });
+            const runMarker = `/actions/runs/${run.id}`;
+            const candidates = openPulls.filter((item) =>
+              item.head.ref.startsWith('openrouter/auto-')
+                && item.head.repo.full_name === `${owner}/${repo}`
+                && (item.body || '').includes(runMarker));
+            if (candidates.length !== 1) {
+              core.notice(`Kein eindeutiger Autopilot-PR fuer Lauf ${run.id}: ${candidates.length}`);
+              return;
+            }
+
+            const pull_number = candidates[0].number;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            const labels = new Set((pr.labels || []).map((x) => x.name));
+
+            if (pr.draft || !labels.has('openrouter-autonomous')
+                || !pr.head.ref.startsWith('openrouter/auto-')
+                || pr.head.repo.full_name !== `${owner}/${repo}`) {
+              core.notice(`PR #${pull_number} ist kein auslieferbarer Autopilot-PR.`);
+              return;
+            }
+
+            const safeSources = new Set([
+              'js/modules/core/00-basis.js',
+              'js/modules/core/02-router-navigation.js',
+              'js/modules/search/10-karten-home-feed.js',
+              'js/modules/ui/23-darkmode-staedte-picker.js',
+              'js/modules/ui/25-reviews.js',
+              'js/modules/ui/31-modals-toast-qabot.js',
+              'js/modules/ui/32-consent-init-map.js',
+              'js/modules/ui/43-showcase.js',
+              'js/modules/ai/50-planungs-assistent.js',
+              'js/modules/ui/51-inserat-maske-kalender.js',
+              'ui-enhancements.css',
+              'mobile-overrides.css',
+            ]);
+            const generated = new Set(['app.js']);
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number, per_page: 100,
+            });
+            const sourceFiles = files.filter((f) => safeSources.has(f.filename));
+            const forbidden = files.filter((f) => !safeSources.has(f.filename) && !generated.has(f.filename));
+            const tooLarge = files.reduce((sum, f) => sum + f.additions + f.deletions, 0) > 700;
+            const destructive = files.some((f) => !['modified'].includes(f.status));
+
+            if (!sourceFiles.length || forbidden.length || tooLarge || destructive) {
+              const reason = [
+                forbidden.length ? `nicht freigegeben: ${forbidden.map((f) => f.filename).join(', ')}` : null,
+                tooLarge ? 'Diff groesser als 700 Zeilen inklusive app.js-Regenerierung' : null,
+                destructive ? 'Datei neu, geloescht oder umbenannt' : null,
+              ].filter(Boolean).join('; ');
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pull_number,
+                body: `⛔ **Auto-Merge gestoppt:** ${reason || 'keine freigegebene Quelldatei'}.`,
+              });
+              await github.rest.issues.removeLabel({
+                owner, repo, issue_number: pull_number, name: 'openrouter-autonomous',
+              }).catch(() => {});
+              core.setFailed(`Autopilot-Scope verletzt: ${reason}`);
+              return;
+            }
+
+            const merged = await github.rest.pulls.merge({
+              owner, repo, pull_number,
+              merge_method: 'squash',
+              commit_title: `${pr.title} (#${pull_number})`,
+              commit_message: `Vier OpenRouter-Rollen, Syntax-Gates, Katalog-Gates und die komplette Playwright-Suite waren in Lauf ${run.id} gruen.`,
+            });
+            if (!merged.data.merged) {
+              core.setFailed(`GitHub hat den Merge abgelehnt: ${merged.data.message}`);
+              return;
+            }
+            // Ein Merge mit GITHUB_TOKEN loest aus Absicht keinen push-Workflow
+            // aus. Deshalb den bestehenden, unveraenderten Deploy explizit auf
+            // dem jetzt aktualisierten main-Branch starten.
+            let mainReady = false;
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+              const { data: main } = await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
+              if (main.commit.sha === merged.data.sha) {
+                mainReady = true;
+                break;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+            if (!mainReady) {
+              core.setFailed('Merge ist erfolgt, aber main zeigt noch nicht auf den Merge-Commit; Deploy nicht gestartet.');
+              return;
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              owner, repo, workflow_id: 'ionos-deploy.yml', ref: 'main',
+            });
+            core.notice(`Autopilot-PR #${pull_number} gemerge't; IONOS-Deploy wurde explizit gestartet.`);

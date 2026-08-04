@@ -14,6 +14,11 @@ tags: [layer/L3, domain/betrieb, share/internal, typ/architektur]
 
 ## 1 · Der ehrliche Ist-Stand
 
+**Aktualisierung 2026-08-04:** Der geplante KI-Ausbau läuft primär über den
+kostenbegrenzten OpenRouter-Autopiloten (Scout → Architektur → Implementierung
+→ Review). Anthropic-Workflows bleiben manuell als Legacy-Fallback. Externer
+Zufluss und Freigabe-Tor ändern sich dadurch nicht.
+
 Wir haben bereits eine funktionierende Automatisierungskette — nur ohne
 MCP-Etikett:
 

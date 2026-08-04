@@ -122,6 +122,9 @@ jobs:
       - name: Modell-Ensemble prüfen
         run: node scripts/models.mjs --check
 
+      - name: OpenRouter-Guardrails prüfen
+        run: node scripts/openrouter-agents.mjs --self-test
+
       - name: Testsuite ausführen
         run: npx playwright test
 
@@ -132,4 +135,3 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-

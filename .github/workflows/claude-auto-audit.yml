@@ -1,10 +1,8 @@
 name: Claude Auto-Audit
 
 on:
-  schedule:
-    # Wöchentlich Montag 04:00 UTC. (Vorher täglich → Issues-Flut, deshalb auf
-    # wöchentlich reduziert statt komplett deaktiviert.)
-    - cron: '0 4 * * 1'
+  # Legacy-Fallback. Keine geplanten Anthropic-Aufrufe neben dem
+  # OpenRouter-Autopiloten; bei Bedarf weiterhin manuell startbar.
   workflow_dispatch:
 
 jobs:

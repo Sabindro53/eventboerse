@@ -1,0 +1,165 @@
+name: OpenRouter Autopilot
+
+# Vier getrennte OpenRouter-Rollen setzen einmal pro Woche genau EINE kleine,
+# reversible Website-Verbesserung um. Der Lauf aendert nur eine feste Whitelist
+# risikoarmer Frontend-Dateien. Danach laufen Gate + komplette Playwright-Suite
+# und es entsteht ein normaler PR. Der separate Auto-Merge-Waechter reagiert
+# nur auf einen erfolgreichen Lauf, prueft den PR-Scope nochmals und startet
+# nach dem Merge den normalen IONOS-Deploy explizit.
+
+on:
+  schedule:
+    # Mittwoch 02:11 UTC, bewusst abseits der anderen Routinen.
+    - cron: '11 2 * * 3'
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: 'Verbesserungsfokus'
+        required: false
+        default: 'auto'
+        type: choice
+        options: [auto, performance, ux, accessibility, seo, code-quality]
+      release:
+        description: 'Nach gruenen Gates automatisch ausliefern oder als Draft stoppen'
+        required: true
+        default: 'auto'
+        type: choice
+        options: [auto, draft]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: openrouter-autopilot
+  cancel-in-progress: false
+
+jobs:
+  improve:
+    name: Vier-Augen-Agentenlauf
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EB_OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
+      EB_OPENROUTER_RUN_BUDGET_USD: '0.35'
+      EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
+      FOCUS: ${{ github.event.inputs.focus || 'auto' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: OpenRouter-Schluessel pruefen
+        run: |
+          if [ -z "$EB_OPENROUTER_API_KEY" ]; then
+            echo "::error title=EB_OPENROUTER_API_KEY fehlt::Secret in den Repository-Einstellungen hinterlegen."
+            exit 1
+          fi
+          echo "OpenRouter-Schluessel ist vorhanden; sein Wert wird nicht ausgegeben."
+
+      - name: Guardrails selbst pruefen
+        run: node scripts/openrouter-agents.mjs --self-test
+
+      - name: Scout, Architektur, Umsetzung und Review
+        run: node scripts/openrouter-agents.mjs --focus "$FOCUS"
+
+      - name: Ergebnis auswerten
+        id: result
+        run: |
+          if jq -e '.changed == true' .ai-run/result.json >/dev/null; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "title=$(jq -r '.scout.title' .ai-run/result.json)" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Die Agenten haben den Lauf sicher ohne Aenderung beendet." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          jq -r '"OpenRouter-Kosten dieses Laufs: $" + (.kosten|tostring)' .ai-run/result.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Abhaengigkeiten installieren
+        if: steps.result.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Syntax-Gates
+        if: steps.result.outputs.changed == 'true'
+        run: |
+          php -l functions.php
+          node --check app.js
+          node --check scripts/openrouter-agents.mjs
+
+      - name: Reproduzierbare Katalog- und Build-Gates
+        if: steps.result.outputs.changed == 'true'
+        run: npm run gate
+
+      - name: Playwright-Browser installieren
+        if: steps.result.outputs.changed == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Komplette Testsuite
+        if: steps.result.outputs.changed == 'true'
+        run: npm test
+
+      - name: Autopilot-Labels sicherstellen
+        if: steps.result.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              ['openrouter', '6366f1', 'Mit OpenRouter-Modellen erzeugt'],
+              ['openrouter-autonomous', '0e8a16', 'Darf nach allen Gates autonom gemerge\x27t werden'],
+            ];
+            for (const [name, color, description] of labels) {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name, color, description,
+              }).catch((error) => {
+                if (error.status !== 422) throw error;
+              });
+            }
+
+      - name: Autonomen PR erstellen
+        if: steps.result.outputs.changed == 'true'
+        id: pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          branch: openrouter/auto-${{ env.FOCUS }}
+          delete-branch: true
+          draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'draft' }}
+          commit-message: "feat(auto): sichere Website-Verbesserung durch OpenRouter-Agenten"
+          title: "🤖 OpenRouter: ${{ steps.result.outputs.title }}"
+          body-path: .ai-run/pr-body.md
+          labels: |
+            automated
+            openrouter
+            openrouter-autonomous
+
+      - name: Ergebnis melden
+        if: steps.result.outputs.changed == 'true'
+        run: |
+          if [ -n "${{ steps.pr.outputs.pull-request-number }}" ]; then
+            echo "PR #${{ steps.pr.outputs.pull-request-number }}: ${{ steps.pr.outputs.pull-request-url }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Der unabhaengige Auto-Merge-Waechter uebernimmt nur nach erfolgreichem Gesamtlauf und erneuter Scope-Pruefung." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Keine neue Diff gegen den bestehenden Autopilot-Branch." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Testreport bei Fehler hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openrouter-autopilot-diagnose
+          path: |
+            .ai-run/
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
