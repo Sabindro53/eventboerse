@@ -1,11 +1,12 @@
 name: HQ Operations Ensemble
 run-name: "⚡ HQ-Puls · Aufgabenstrom und Kontingent"
 
-# Alle fuenf Minuten bekommt genau eine OpenRouter-Rolle ihren naechsten Slot.
-# So gibt es keinen kuenstlichen Stundenstillstand und trotzdem keine parallele
-# Token-Spitze: elf Rollen sind in hoechstens 55 Minuten einmal durchgelaufen.
-# Ein manueller Dispatch bleibt der ausdrueckliche Voll-Ensemble-Lauf.
-# Kostenbremse und Rollenquoten werden vor JEDEM Aufruf erneut geprueft.
+# GitHub wird alle fuenf Minuten um einen Puls gebeten, garantiert den exakten
+# Startzeitpunkt geplanter Workflows aber nicht. Deshalb arbeitet bei JEDEM
+# tatsaechlich erreichten Puls das volle Ensemble: keine Rolle wird durch eine
+# Scheduler-Verzoegerung stundenlang uebersprungen. Der belegte Voll-Lauf vom
+# 2026-08-05 kostete $0.003646; das harte $0.60-Tagesbudget und jede Rollenquote
+# werden trotzdem vor JEDEM einzelnen Modellaufruf erneut geprueft.
 on:
   schedule:
     - cron: '4/5 * * * *'
@@ -60,7 +61,7 @@ jobs:
           mv "$tmp" assets/eb-arbeit.json
           echo "Bestehende Laufzeitspur mit $(jq '.eintraege | length' assets/eb-arbeit.json) Eintraegen geladen." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Naechste Rolle im Rundlauf bestimmen
+      - name: Voll-Ensemble-Puls bestimmen
         id: cadence
         shell: bash
         run: |
@@ -70,15 +71,12 @@ jobs:
             echo "Keine OpenRouter-Rolle im Katalog." >&2
             exit 1
           fi
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "rolle=alle" >> "$GITHUB_OUTPUT"
-            echo "Manueller Voll-Ensemble-Lauf fuer $anzahl Rollen." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          echo "rolle=alle" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Geplanter Voll-Ensemble-Puls: alle $anzahl Rollen arbeiten innerhalb ihrer Quote." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Manueller Voll-Ensemble-Puls: alle $anzahl Rollen arbeiten innerhalb ihrer Quote." >> "$GITHUB_STEP_SUMMARY"
           fi
-          slot=$(( (GITHUB_RUN_NUMBER - 1) % anzahl ))
-          rolle="${rollen[$slot]}"
-          echo "rolle=$rolle" >> "$GITHUB_OUTPUT"
-          echo "Rundlauf-Slot $((slot + 1))/$anzahl: $rolle arbeitet jetzt; die naechste Rolle folgt in etwa fuenf Minuten." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Belegten Arbeitskontext bauen
         shell: bash
@@ -95,7 +93,7 @@ jobs:
             sed -n '1,160p' audit/latest.json
           } > .ai-run/ensemble-context.txt
 
-      - name: Rolle taskweise arbeiten lassen
+      - name: Alle Rollen taskweise arbeiten lassen
         shell: bash
         run: |
           if [ "${{ steps.cadence.outputs.rolle }}" = "alle" ]; then

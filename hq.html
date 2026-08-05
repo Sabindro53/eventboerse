@@ -1268,7 +1268,7 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
-  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Gibt alle fünf Minuten genau einer der elf Rollen ihren echten Modellslot; jede Rolle kommt spätestens nach rund 55 Minuten wieder dran.', workflow: 'hq-operations.yml', schedule: '🟢 24/7 · 1 Rolle/5 Min. · $0,60/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
+  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Bei jedem tatsächlich erreichten Scheduler-Puls arbeitet das komplette Ensemble; so überspringt eine GitHub-Verzögerung keine einzelne Rolle.', workflow: 'hq-operations.yml', schedule: '🟢 24/7-Steuerung · Taktziel 5 Min. · 11 Rollen/Puls · $0,60/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
   { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Prüft alle 5 Minuten tokenfrei; im offenen Kostenfenster liefern Scout, Architekt, Implementierer und Reviewer genau eine kleine Verbesserung.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung · KI max. stündlich · $0,12/Lauf · $0,60/Tag', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
   { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
   { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
@@ -1474,7 +1474,7 @@ async function init() {
   if (!window.__ebOperationsTakt) {
     // Countdown und Transportbild laufen lokal und kosten keine Tokens.
     // Das echte Journal wird minütlich nachgezogen; der Workflow selbst gibt
-    // alle fünf Minuten genau einer Rolle einen neuen Modellslot.
+    // bei jedem tatsächlich erreichten Scheduler-Puls allen Rollen ihren Slot.
     window.__ebOperationsTakt = setInterval(renderNeuralOps, 1000);
     window.__ebJournalAbruf = setInterval(async () => {
       if (document.hidden || state.operationsJournalAbruf) return;
@@ -1989,19 +1989,6 @@ function nnOperationsLauf() {
   return (state.runs || []).find(r => /hq-operations\.yml$/.test(r.path || '')) || null;
 }
 
-/** Rolle eines Workflow-Laufs. Workflow und UI benutzen dieselbe Formel. */
-function nnRolleImSlot(lauf, versatz) {
-  const rollen = nnRollen();
-  if (!rollen.length) return null;
-  const nummer = Number(lauf && lauf.run_number);
-  if (Number.isFinite(nummer) && nummer > 0) {
-    return rollen[((nummer - 1 + (versatz || 0)) % rollen.length + rollen.length) % rollen.length];
-  }
-  const letzter = ((nnJournal && nnJournal.eintraege) || [])[0];
-  const i = Math.max(0, rollen.findIndex(m => letzter && m.id === letzter.rolle));
-  return rollen[(i + 1 + (versatz || 0)) % rollen.length];
-}
-
 function nnSekundenBisNaechsterSlot() {
   const d = new Date();
   const seitStunde = d.getMinutes() * 60 + d.getSeconds();
@@ -2023,7 +2010,9 @@ function nnRelativ(iso) {
 
 /**
  * Belegtes Betriebsbild. Der Transportstrom darf nur laufen, wenn ein frischer
- * Actions-Lauf oder ein frischer Journaleintrag den 5-Minuten-Takt bestätigt.
+ * Actions-Lauf oder ein frischer Journaleintrag einen realen Puls bestätigt.
+ * Der Cron hat ein 5-Minuten-Ziel; die Actions-Plattform kann den Start
+ * verzögern, weshalb die Gesundheit am beobachteten Realbetrieb hängt.
  */
 function nnBetriebsbild() {
   const lauf = nnOperationsLauf();
@@ -2035,28 +2024,17 @@ function nnBetriebsbild() {
   const signal = signalZeiten.length ? Math.max(...signalZeiten) : 0;
   const alterMin = signal ? (Date.now() - signal) / 60000 : Infinity;
   const fehlgeschlagen = !!(lauf && lauf.conclusion === 'failure');
-  const gesund = laufend || (!fehlgeschlagen && alterMin <= 18);
-  const warnung = !gesund && alterMin <= 70;
+  const gesund = laufend || (!fehlgeschlagen && alterMin <= 70);
+  const warnung = !gesund && alterMin <= 150;
   const manuell = laufend && lauf && lauf.event !== 'schedule';
-  const aktiv = laufend && !manuell ? nnRolleImSlot(lauf, 0) : null;
-  let naechste = nnRolleImSlot(lauf, laufend && !manuell ? 1 : 1);
-  if (!lauf && letzter) {
-    const rollen = nnRollen();
-    const i = rollen.findIndex(m => m.id === letzter.rolle);
-    if (i >= 0) naechste = rollen[(i + 1) % rollen.length];
-  }
-  return { lauf, laufend, manuell, aktiv, naechste, letzter, signal, alterMin, gesund, warnung };
+  const voll = laufend;
+  return { lauf, laufend, manuell, voll, aktiv: null, naechste: null, letzter, signal, alterMin, gesund, warnung };
 }
 
 function nnMinutenBisRolle(modell, bild) {
-  const rollen = nnRollen();
-  const naechste = bild.naechste;
-  if (!rollen.length || !naechste) return null;
-  const start = rollen.findIndex(m => m.id === naechste.id);
-  const ziel = rollen.findIndex(m => m.id === modell.id);
-  if (start < 0 || ziel < 0) return null;
-  const schritte = (ziel - start + rollen.length) % rollen.length;
-  return Math.max(1, Math.ceil((nnSekundenBisNaechsterSlot() + schritte * 300) / 60));
+  if (!modell || modell.weg !== 'openrouter') return null;
+  if (bild && bild.laufend) return 0;
+  return Math.max(1, Math.ceil(nnSekundenBisNaechsterSlot() / 60));
 }
 
 function nnSchichtStand(modell) {
@@ -2065,10 +2043,10 @@ function nnSchichtStand(modell) {
   }
   const bild = nnBetriebsbild();
   const lauf = bild.lauf;
-  if (bild.laufend && (bild.manuell || (bild.aktiv && bild.aktiv.id === modell.id))) {
+  if (bild.laufend) {
     return {
       stand: 'laeuft',
-      text: bild.manuell ? 'Voll-Ensemble arbeitet' : 'arbeitet jetzt · echter Modellslot',
+      text: bild.manuell ? 'manuelles Voll-Ensemble arbeitet' : 'geplanter Voll-Ensemble-Puls arbeitet',
       task: nnAktuelleAufgabe(modell),
       run: lauf,
     };
@@ -2164,7 +2142,7 @@ function nnZeichnen() {
   // werden erst im Teilnetz des Bereichs sichtbar.
   B.forEach((x, i) => {
     const d = `M ${NN_MITTE.x} ${NN_MITTE.y} L ${posB[x.id].x} ${posB[x.id].y}`;
-    const live = bild.aktiv && bild.aktiv.bereich === x.id;
+    const live = bild.voll || (bild.aktiv && bild.aktiv.bereich === x.id);
     const next = bild.naechste && bild.naechste.bereich === x.id;
     teile.push(`<path class="nn-bahn" id="bahn-${x.id}" d="${d}"/>`);
     teile.push(`<path class="nn-transport ${live ? 'nn-live' : next ? 'nn-next' : ''}" d="${d}" stroke="${x.farbe}" style="color:${x.farbe};animation-delay:-${(i * .13).toFixed(2)}s"/>`);
@@ -2259,7 +2237,7 @@ function nnBaum() {
 
     // Bereich → Rolle (gestrichelt, wie die Aufgabenlinien in der Vorlage)
     const d = `M ${bx} ${unten - 30} L ${x} ${mitteReihe + 20}`;
-    const live = bild.aktiv && bild.aktiv.id === m.id;
+    const live = bild.voll || (bild.aktiv && bild.aktiv.id === m.id);
     const next = bild.naechste && bild.naechste.id === m.id;
     teile.push(`<path class="nn-bahn" id="bahn-${m.id}" d="${d}"/>`);
     teile.push(`<path class="nn-transport ${live ? 'nn-live' : next ? 'nn-next' : ''}" d="${d}" stroke="${b.farbe}" style="color:${b.farbe};animation-delay:-${(i * .17).toFixed(2)}s"/>`);
@@ -2351,21 +2329,15 @@ function renderNeuralOps() {
     .map(x => x.rolle)).size;
   const healthClass = bild.gesund ? '' : bild.warnung ? 'warn' : 'down';
   const healthText = bild.gesund ? '24/7-Rundlauf belegt' : bild.warnung ? 'Puls verspätet' : 'Puls nicht belegt';
-  const aktivModell = bild.aktiv;
-  const naechstesModell = bild.naechste;
   const letzterModell = bild.letzter && rollen.find(m => m.id === bild.letzter.rolle);
-  const jetztTitel = bild.manuell
-    ? 'Manueller Voll-Ensemble-Lauf aktiv'
-    : aktivModell
-      ? `${aktivModell.person} · ${aktivModell.rolle}`
-      : bild.gesund
-        ? 'Steuerung hält Queue, Budget und Takt synchron'
-        : 'Steuerung wartet auf einen frischen Betriebsbeleg';
-  const jetztTask = aktivModell
-    ? nnAktuelleAufgabe(aktivModell)
-    : naechstesModell
-      ? `Vorbereitet: ${nnAktuelleAufgabe(naechstesModell)}`
-      : 'Der nächste Rollen-Slot konnte noch nicht bestimmt werden.';
+  const jetztTitel = bild.laufend
+    ? (bild.manuell ? 'Manueller Voll-Ensemble-Lauf aktiv' : 'Geplanter Voll-Ensemble-Puls aktiv')
+    : bild.gesund
+      ? 'Steuerung hält elf Rollen, Budget und Takt synchron'
+      : 'Steuerung wartet auf einen frischen Betriebsbeleg';
+  const jetztTask = bild.laufend
+    ? 'Alle elf Rollen bearbeiten gerade ihren aktuellen, abgegrenzten Auftrag.'
+    : 'Alle elf aktuellen Rollenaufträge sind vorbereitet; der nächste erreichte Puls arbeitet sie vollständig ab.';
   const zuletztText = bild.letzter
     ? `${bild.letzter.aufgabe || 'Schichtauftrag'} — ${String(bild.letzter.text || '').replace(/\s+/g, ' ').slice(0, 150)}`
     : 'Noch kein echter Modelllauf im geladenen Journal.';
@@ -2386,7 +2358,7 @@ function renderNeuralOps() {
   el.innerHTML = `
     <div class="neural-ops-head">
       <b>⚡ Live-Aufgabenstrom · <span class="neural-health ${healthClass}">${healthText}</span></b>
-      <span>echter Modellslot alle 5 Min. · kompletter Rundlauf ≤ 55 Min. · Anzeige sekündlich</span>
+      <span>Scheduler-Taktziel 5 Min. · alle 11 Rollen je erreichtem Puls · Anzeige sekündlich</span>
     </div>
     <div class="neural-now-grid">
       <div class="neural-now live">
@@ -2395,9 +2367,9 @@ function renderNeuralOps() {
         <small>${escHtml(jetztTask)}</small>
       </div>
       <div class="neural-now next">
-        <span class="eyebrow">Als Nächstes <i>in ${escHtml(countdown)}</i></span>
-        <b>${naechstesModell ? escHtml(`${naechstesModell.person} · ${naechstesModell.rolle}`) : 'Slot wird bestimmt'}</b>
-        <small>${naechstesModell ? escHtml(nnAktuelleAufgabe(naechstesModell)) : 'Katalog oder Laufdaten werden geladen.'}</small>
+        <span class="eyebrow">Nächste Prüfung <i>Taktziel ${escHtml(countdown)}</i></span>
+        <b>Voll-Ensemble · alle ${rollen.length} Rollen</b>
+        <small>GitHub darf den Start verzögern; sobald der Puls erreicht wird, arbeitet keine Rolle nur wegen der Verzögerung weiter veraltet.</small>
       </div>
       <div class="neural-now last">
         <span class="eyebrow">Zuletzt belegt <i>${bild.letzter ? escHtml(nnRelativ(bild.letzter.zeit)) : '–'}</i></span>
@@ -2408,7 +2380,7 @@ function renderNeuralOps() {
     <div class="neural-proof" aria-label="Echte Kennzahlen der letzten 24 Stunden">
       <div><b>${journal24.length}</b><small>echte Modellslots · 24 h</small></div>
       <div><b>${geliefert}</b><small>Antworten geliefert</small></div>
-      <div><b>${frischeRollen}/${rollen.length}</b><small>Rollen im letzten Rundlauf</small></div>
+      <div><b>${frischeRollen}/${rollen.length}</b><small>Rollen im letzten Vollpuls</small></div>
       <div><b>${tokens.toLocaleString('de-DE')}</b><small>belegte Token · 24 h</small></div>
       <div><b>$${kosten.toFixed(4).replace('.', ',')}</b><small>Kosten · ${gestoert} gestoppt/fehlerhaft</small></div>
     </div>
@@ -2416,8 +2388,7 @@ function renderNeuralOps() {
       ${rollen.map(m => {
         const b = nnKatalog.bereiche.find(x => x.id === m.bereich) || {};
         const frisch = letzteJeRolle.get(m.id);
-        const next = naechstesModell && naechstesModell.id === m.id;
-        return `<i class="${next ? 'next' : frisch ? 'done' : ''}" style="--cycle-color:${b.farbe || '#64748b'}" title="${escHtml(`${m.person}: ${next ? 'nächster Slot' : frisch ? nnRelativ(frisch.zeit) : 'noch kein 24h-Beleg'}`)}"></i>`;
+        return `<i class="${frisch ? 'done' : ''}" style="--cycle-color:${b.farbe || '#64748b'}" title="${escHtml(`${m.person}: ${frisch ? nnRelativ(frisch.zeit) : 'noch kein 24h-Beleg'}`)}"></i>`;
       }).join('')}
     </div>
     <div class="neural-budget">
@@ -2545,7 +2516,7 @@ function renderModelle() {
   const arbeiten = nnKatalog.modelle.filter(m => nnSchichtStand(m).stand === 'laeuft').length;
 
   $('modelle-badge').textContent =
-    `${besetzt.length} Rollen im 24/7-Rundlauf${arbeiten ? ` · ${arbeiten} arbeitet gerade` : ' · jede Rolle spätestens nach 55 Min.'}`;
+    `${besetzt.length} Rollen 24/7 vorbereitet${arbeiten ? ` · ${arbeiten} arbeiten gerade` : ' · alle bei jedem erreichten Puls'}`;
 
   $('modelle-summe').innerHTML =
     `<b>${summe.toLocaleString('de-DE')} €</b> wäre der Marktwert derselben Aufgaben als `
@@ -2611,9 +2582,9 @@ function renderJournal() {
   if (!el) return;
   const e = (nnJournal && nnJournal.eintraege) || [];
   if (!e.length) {
-    el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge stehen im 24/7-Rundlauf. '
-      + 'Alle fünf Minuten schreibt genau ein echter Modellslot hier eine Antwort, einen Kostenstopp oder einen Fehler hinein; '
-      + 'nach spätestens 55 Minuten war jede Rolle einmal dran.</p>';
+    el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge stehen in der 24/7-Steuerung. '
+      + 'GitHub prüft mit einem Taktziel von fünf Minuten; jeder tatsächlich erreichte Puls arbeitet das gesamte Ensemble ab '
+      + 'und schreibt Antworten, Kostenstopps oder Fehler hier hinein.</p>';
     return;
   }
   const farbe = { fertig: '#4ade80', uebersprungen: '#6b7280', fehler: '#f87171', abgebrochen: '#fbbf24' };
