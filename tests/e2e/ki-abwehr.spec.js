@@ -39,7 +39,15 @@ test.describe('Fremdtext erreicht das Modell nur eingezäunt', () => {
     expect(AGENT, 'roher Kontext als Nutzernachricht').not.toMatch(
       /role:\s*'user',\s*content:\s*kontext\b/);
     expect(AGENT, 'Kontext muss eingezäunt werden').toMatch(/const eingezaeunt\s*=/);
-    expect(AGENT).toMatch(/role:\s*'user',\s*content:\s*eingezaeunt/);
+
+    // Geprüft wird die EIGENSCHAFT, nicht die Schreibweise: die Nutzer-
+    // nachricht trägt den eingezäunten Kontext und nirgends den rohen. Die
+    // Zeile selbst darf sich ändern — sie hat es bereits, als die Auftrags-
+    // struktur dazukam. Ein Test auf die exakte Form wäre da zu Unrecht rot
+    // geworden, obwohl die Zusicherung hielt.
+    const nutzer = AGENT.slice(AGENT.indexOf("role: 'user'"), AGENT.indexOf("role: 'user'") + 260);
+    expect(nutzer, 'Nutzernachricht ohne eingezäunten Kontext').toMatch(/\beingezaeunt\b/);
+    expect(nutzer, 'roher Kontext in der Nutzernachricht').not.toMatch(/\$\{\s*kontext\b/);
   });
 
   test('die Zaunmarke ist pro Lauf verschieden', () => {

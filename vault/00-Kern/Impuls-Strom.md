@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **40** |
-| Commits (30 Tage) | 97 |
-| Letzter Commit | `8a90348 · /hq wies mit einer vier Monate alten SPA-Kopie ab` (2026-08-04) |
+| Commits (7 Tage) | **45** |
+| Commits (30 Tage) | 102 |
+| Letzter Commit | `a990085 · KI-Abwehr: Fremdtext einzäunen, Sammler aussperren` (2026-08-05) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
@@ -73,13 +73,13 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
      33 styles.css
      23 index.html
      23 app-shell.html
-     18 functions.php
+     20 functions.php
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.765 Zeilen
+- `functions.php` — 8.972 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt
