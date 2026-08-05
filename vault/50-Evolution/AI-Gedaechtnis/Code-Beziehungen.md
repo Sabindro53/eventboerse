@@ -82,6 +82,32 @@ tags: [layer/L5, domain/evolution, share/internal]
 | Google Fonts | Inter Font | CSS @import |
 | Material Icons | Icons | CSS @import |
 | SMTP (Hosting-Provider) | E-Mail | PHP mail() / WordPress wp_mail() |
+| OpenRouter | HQ Operations + Voice | Server-/Actions-seitig; Schlüssel nie im Browser |
+
+## HQ Operations- und Voice-Fluss
+
+```
+assets/eb-models.json ← scripts/models.mjs
+        │  Rollen · Bereiche · Taskrotation · 100-%-Quote
+        ↓
+hq-operations.yml (5-Min.-Puls, stündliches Kostenfenster)
+        ↓
+scripts/agent.mjs ──prüft──→ OpenRouter /key (Tagesbudget + Restlimit)
+        │            └──────→ Geheimnisfilter + Rollenquote + Providerpreis
+        ↓ echte Antwort / echter Stopp / echter Fehler
+assets/eb-arbeit.json ──liest──→ hq.html (Live-Aufgabenstrom + Journal)
+
+HQ-Orb → Web Speech Recognition → hq.html (Alternativen + Kontext-Retrieval)
+       → POST /wp-json/eventboerse/v1/hq/circle (Admin + Nonce)
+       → OpenRouter (Latency-Routing unter Preisdeckel, data_collection=deny)
+       → JSON: Antwort + Klärungsbedarf + Vorschläge
+       → zentrale, unterbrechbare Sprachausgabe
+```
+
+Der Operationsstrom erzeugt keine ungeprüften Außenwirkungen. Website-Patches
+laufen weiterhin ausschließlich über den separaten Autopilot mit Review,
+Tests, Pull Request und normalem Deploy. Finanzen, Recht, Community und Sales
+stoppen vor ihren irreversiblen letzten Schritten.
 
 ## Datenfluss bei Buchung
 

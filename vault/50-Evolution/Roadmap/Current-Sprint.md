@@ -9,6 +9,31 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Zuletzt abgeschlossen (2026-08-05) — HQ Operations-Ensemble & Voice v2
+
+- [x] **Vollständiges Betriebsbild:** zehn Hauptbereiche statt sechs — Produkt
+  & Strategie, Engineering, Betrieb & Zuverlässigkeit, Sicherheit & Datenschutz,
+  Intelligence & Daten, Community & Support, Sales & Wachstum, Finanzen & Risiko,
+  Recht & Governance sowie Voice & UX. Mitarbeiter bleiben im neuronalen
+  Gesamtbild verborgen und erscheinen erst im geöffneten Bereich.
+- [x] **Echter Aufgabenstrom statt „kein Lauf":** 11 offene OpenRouter-Modelle
+  haben je drei rotierende Tasks, eine feste Quote und eine kleine Antwortgrenze.
+  `.github/workflows/hq-operations.yml` pulst tokenfrei alle fünf Minuten und
+  lässt das Ensemble stündlich arbeiten. `scripts/agent.mjs` prüft vor jedem
+  Aufruf Tagesbudget, Restlimit, Rollenquote, Geheimnisse und Providerpreis;
+  nur echte Antworten/Stopps/Fehler gelangen ins Arbeitsjournal.
+- [x] **Kontingent hart verteilt:** 100 % von maximal **$0,60/Tag**, rollenweise
+  sichtbar. Preisrouting nutzt den günstigsten zulässigen Provider,
+  `data_collection: deny` und feste Maximalpreise. Der autonome Lieferstrom
+  (Scout → Architektur → Patch → Review → Gates → PR → Deploy) bleibt separat.
+- [x] **Voice v2:** schneller Qwen-Flash-First-Router unter Preisdeckel,
+  Gesprächsverlauf plus geöffneter Bereich/Tasks/letzte Lieferungen als Kontext,
+  Erkennungsalternativen und Konfidenz bei undeutlicher Sprache, gezielte
+  „Meinst du … oder …?"-Rückfragen, Vorschlags-Chips, Barge-in/Abbruch und
+  schnelleres erneutes Zuhören aus dem zentralen Orb.
+
+**Stand: HQ-Kern 32/32 Tests grün; Katalog-, Sicherheits- und Build-Gate grün.**
+
 ## Zuletzt abgeschlossen (2026-08-01) — Fable-5-Auftrag: Fundament gesichert
 
 - [x] **Testsuite von null** (Priorität 1): 68 Playwright-Tests in 7 Suiten,

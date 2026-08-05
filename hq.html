@@ -187,7 +187,7 @@
   .section-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .7rem; font-size: .72rem; color: var(--muted); }
 
   /* ══ Neuronaler Kern ══════════════════════════════════════════════
-     Das Zentrum des HQ. Sechs Bereiche im Ring, in der Mitte der Circle.
+     Das Zentrum des HQ. Zehn Bereiche im Ring, in der Mitte der Circle.
      Wichtig: die Impulse auf den Bahnen laufen NUR bei echten Ereignissen.
      Eine Dauer-Animation würde Arbeit zeigen, die nicht stattfindet — und
      genau dann täuschen, wenn man sich auf sie verlässt.                  */
@@ -286,6 +286,7 @@
     border: 1px solid; white-space: nowrap; }
   .stand-laeuft    { color: #22d3ee; border-color: #22d3ee66; background: #22d3ee14; }
   .stand-ok        { color: #4ade80; border-color: #4ade8055; background: #4ade8010; }
+  .stand-geplant   { color: #fbbf24; border-color: #fbbf2455; background: #fbbf2410; }
   .stand-fehler    { color: #f87171; border-color: #f8717155; background: #f8717110; }
   .stand-unbekannt { color: var(--muted); border-color: var(--border); }
   .stand-lokal     { color: #a855f7; border-color: #a855f755; background: #a855f710; }
@@ -603,6 +604,11 @@
 .ebc-msg.me{align-self:flex-end;background:#ff385c;color:#fff;border-bottom-right-radius:4px}
 .ebc-msg.ai{align-self:flex-start;background:rgba(255,255,255,.07);color:#e9ecf1;border-bottom-left-radius:4px}
 .ebc-src{display:block;margin-top:5px;font-size:.66rem;color:#8b93a1}
+.ebc-suggestions{display:none;gap:6px;flex-wrap:wrap;padding:0 12px 8px}
+.ebc-suggestions.has{display:flex}
+.ebc-suggestions button{border:1px solid rgba(34,211,238,.3);border-radius:999px;background:rgba(34,211,238,.07);color:#a5f3fc;
+  padding:5px 9px;font:inherit;font-size:.68rem;cursor:pointer;text-align:left}
+.ebc-suggestions button:hover{background:rgba(34,211,238,.15);border-color:#22d3ee}
 .ebc-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.08)}
 .ebc-row input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:11px;
   padding:9px 12px;color:#fff;font:inherit;font-size:.85rem;outline:none}
@@ -655,7 +661,7 @@
         <span id="neural-sub">Mitte antippen zum Sprechen · Mitarbeiter erscheinen im geöffneten Bereich</span>
       </div>
       <svg class="neural-canvas" id="nn" viewBox="0 0 900 540" role="img"
-           aria-label="Neuronaler Kern: sechs Bereiche um den zentralen KI-Kreis"></svg>
+           aria-label="Neuronaler Kern: zehn operative Bereiche um den zentralen KI-Kreis"></svg>
       <div class="neural-foot">
         <i style="color:#f0abfc">Wissenskern</i>
         <i style="color:#a855f7">Bereich</i>
@@ -997,7 +1003,7 @@ async function loadRuns() {
   catch { const c = cacheGet('runs'); if (c) state.runs = c.data; }
   state.deploySuccessCount = state.runs.filter(r => /ionos-deploy\.yml$/.test(r.path || '') && r.conclusion === 'success').length;
   state.openrouterJob = null;
-  const aktiv = state.runs.find(r => /openrouter-autopilot\.yml$/.test(r.path || '')
+  const aktiv = state.runs.find(r => /(openrouter-autopilot|hq-operations)\.yml$/.test(r.path || '')
     && (r.status === 'in_progress' || r.status === 'queued'));
   if (aktiv && aktiv.id) {
     try {
@@ -1441,7 +1447,7 @@ async function loadAll() {
   try {
     await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
     state.ausCache = false;   // ab hier sind die Daten nachweislich frisch
-    ebImpuls('architektur', 'gut');
+    ebImpuls('engineering', 'gut');
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
     renderQuests(); renderAchievements(); renderHud();
     if (nnKatalog) { nnZeichnen(); renderModelle(); }
@@ -1577,8 +1583,8 @@ const connZustand = {};   // id → { status, geprueft, fehler, details[] }
    antwortet. Ohne die Zuordnung liefe jeder Impuls auf denselben Knoten
    und die Anzeige wäre hübsch, aber ohne Aussage. */
 const CONN_BEREICH = {
-  github: 'architektur', copilot: 'architektur',
-  anthropic: 'architektur', openai: 'architektur', openrouter: 'intelligence',
+  github: 'engineering', copilot: 'engineering',
+  anthropic: 'produkt', openai: 'produkt', openrouter: 'intelligence',
   deployment: 'betrieb', monitoring: 'betrieb', eventboerse: 'betrieb',
   obsidian: 'intelligence', analytics: 'sales', 'mail-kalender': 'community',
 };
@@ -1915,7 +1921,7 @@ async function initConnections() {
 /* ══════════════════════════════════════════════════════════════════
    NEURONALER KERN
    ------------------------------------------------------------------
-   Sechs Bereiche im Ring, in der Mitte der KI-Kreis. Die eine Regel, die
+   Zehn Bereiche im Ring, in der Mitte der KI-Kreis. Die eine Regel, die
    alles trägt: **ein Impuls entspricht einem echten Ereignis**. Keine
    Dauer-Animation, keine dekorative Bewegung. Ein System, das nichts tut,
    sieht hier auch so aus — sonst wäre die Anzeige genau dann wertlos, wenn
@@ -1954,35 +1960,48 @@ function nnPos(i, n, weite, hoehe) {
  * die Rolle ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte. Ohne
  * Token gibt es keine Läufe — dann steht dort „unbekannt", nicht „bereit".
  */
-function nnSchichtStand(schicht) {
-  if (!schicht) return { stand: 'lokal', text: 'läuft auf diesem Rechner' };
-  const lauf = (state.runs || []).find(r => (r.path || '').endsWith('/' + schicht));
-  if (!lauf) {
-    return { stand: 'unbekannt', text: getPat() ? 'kein Lauf in den letzten 30' : 'unbekannt — kein Token' };
+function nnAktuelleAufgabe(modell) {
+  const journal = journalLetzter(modell.id);
+  if (journal && journal.aufgabe) return journal.aufgabe;
+  const strom = modell.aufgabenstrom || [modell.aufgabe];
+  const versatz = (nnKatalog && nnKatalog.modelle || []).findIndex(m => m.id === modell.id);
+  return strom[(Math.floor(Date.now() / 3600000) + Math.max(versatz, 0)) % strom.length];
+}
+
+function nnSchichtStand(modell) {
+  if (!modell.schicht) {
+    return { stand: 'lokal', text: modell.id === 'whisper' ? 'aktiv sobald du sprichst' : 'aktiv beim Antworten', task: modell.aufgabe };
   }
-  if (lauf.status === 'in_progress' || lauf.status === 'queued') {
-    const schritt = state.openrouterJob && (state.openrouterJob.steps || []).find(s => s.status === 'in_progress');
+  const lauf = (state.runs || []).find(r => (r.path || '').endsWith('/' + modell.schicht));
+  if (lauf && (lauf.status === 'in_progress' || lauf.status === 'queued')) {
     return {
       stand: 'laeuft',
-      text: 'arbeitet gerade',
-      task: schritt ? schritt.name : nnLaufAufgabe(lauf),
+      text: 'Ensemble-Lauf aktiv',
+      task: nnAktuelleAufgabe(modell),
       run: lauf,
     };
   }
-  const wann = new Date(lauf.created_at);
-  const std = Math.round((Date.now() - wann.getTime()) / 3600000);
-  const rel = std < 1 ? 'vor wenigen Minuten' : std < 24 ? `vor ${std} Std.` : `vor ${Math.round(std / 24)} Tg.`;
+  const journal = journalLetzter(modell.id);
+  if (!journal) return {
+    stand: 'geplant',
+    text: 'Auftrag eingetaktet · nächster Stundenpuls',
+    task: nnAktuelleAufgabe(modell),
+    run: lauf || null,
+  };
+  const wann = new Date(journal.zeit);
+  const min = Math.max(0, Math.round((Date.now() - wann.getTime()) / 60000));
+  const rel = min < 2 ? 'gerade eben' : min < 60 ? `vor ${min} Min.` : min < 1440 ? `vor ${Math.round(min / 60)} Std.` : `vor ${Math.round(min / 1440)} Tg.`;
   return {
-    stand: lauf.conclusion === 'success' ? 'ok' : 'fehler',
-    text: `${lauf.conclusion === 'success' ? 'zuletzt' : 'fehlgeschlagen'} ${rel}`,
-    task: nnLaufAufgabe(lauf),
-    run: lauf,
+    stand: journal.ergebnis === 'fertig' ? 'ok' : journal.ergebnis === 'fehler' || journal.ergebnis === 'abgebrochen' ? 'fehler' : 'geplant',
+    text: `${journal.ergebnis === 'fertig' ? 'geliefert' : journal.ergebnis === 'uebersprungen' ? 'Kostenfenster geschützt' : 'Lauf gestoppt'} ${rel}`,
+    task: journal.aufgabe || nnAktuelleAufgabe(modell),
+    run: lauf || null,
   };
 }
 
 const NN_STAND_FARBE = {
   laeuft: '#22d3ee', ok: '#4ade80', fehler: '#f87171',
-  unbekannt: '#6b7280', lokal: '#a855f7',
+  geplant: '#fbbf24', unbekannt: '#6b7280', lokal: '#a855f7',
 };
 
 function nnLaufAufgabe(lauf) {
@@ -2036,7 +2055,7 @@ function nnZeichnen() {
   const B = nnKatalog.bereiche, M = nnKatalog.modelle;
   const posB = {}, posW = {};
 
-  B.forEach((x, i) => { posB[x.id] = nnPos(i, B.length, 1.02, 0.52); });
+  B.forEach((x, i) => { posB[x.id] = nnPos(i, B.length, 2.02, 1.08); });
 
   // Werkzeuge im äußeren Ring — nur die, die eine Rolle tatsächlich nutzt.
   const werkzeuge = [...new Set(M.flatMap(m => m.werkzeuge || []))];
@@ -2079,7 +2098,7 @@ function nnZeichnen() {
   // Bereiche
   B.forEach(x => {
     const p = posB[x.id];
-    const arbeitet = M.some(m => m.bereich === x.id && nnSchichtStand(m.schicht).stand === 'laeuft');
+    const arbeitet = M.some(m => m.bereich === x.id && nnSchichtStand(m).stand === 'laeuft');
     teile.push(`
       <g class="nn-node nn-bereich ${arbeitet ? 'arbeitet' : ''}" id="node-${x.id}" data-bereich="${x.id}"
          role="button" tabindex="0" aria-label="${escHtml(x.label)} aufklappen">
@@ -2132,7 +2151,7 @@ function nnBaum() {
 
   rollen.forEach((m, i) => {
     const x = px(i);
-    const st = nnSchichtStand(m.schicht);
+    const st = nnSchichtStand(m);
     const farbe = NN_STAND_FARBE[st.stand];
 
     // Bereich → Rolle (gestrichelt, wie die Aufgabenlinien in der Vorlage)
@@ -2174,19 +2193,21 @@ function nnKopfzeile() {
   const b = nnEbene ? nnKatalog.bereiche.find(x => x.id === nnEbene) : null;
   $('neural-sub').textContent = b
     ? `${b.label} · ${nnKatalog.modelle.filter(m => m.bereich === b.id).length} Mitarbeiter · Mitte antippen für zurück`
-    : `${nnWissen} Wissens-Abschnitte · 6 operative Bereiche · Mitarbeiter erst nach dem Aufklappen`;
+    : `${nnWissen} Wissens-Abschnitte · ${nnKatalog.bereiche.length} operative Bereiche · Mitarbeiter erst nach dem Aufklappen`;
 }
 
 /** Sichtbarer Operationsstrom mit echten Workflow-Schritten. */
 function renderNeuralOps() {
   const el = $('neural-ops');
-  if (!el) return;
+  if (!el || !nnKatalog) return;
+  const operations = (state.runs || []).find(r => /hq-operations\.yml$/.test(r.path || ''));
+  const opsAktiv = operations && (operations.status === 'in_progress' || operations.status === 'queued');
   const run = (state.runs || []).find(r => /openrouter-autopilot\.yml$/.test(r.path || ''));
   const aktiv = run && (run.status === 'in_progress' || run.status === 'queued');
   const schritt = aktiv && state.openrouterJob
     ? (state.openrouterJob.steps || []).find(s => s.status === 'in_progress')
     : null;
-  const titel = schritt ? schritt.name : aktiv ? (run.display_title || run.name) : 'Wartet auf das nächste Kostenfenster';
+  const titel = schritt ? schritt.name : aktiv ? (run.display_title || run.name) : 'nächste sichere Verbesserung eingetaktet';
   const aktuell = !aktiv ? -1
     : /test|syntax|browser|katalog|abhäng/i.test(titel) ? 5
     : /pr|ergebnis|label/i.test(titel) ? 6
@@ -2204,11 +2225,47 @@ function renderNeuralOps() {
     ['07 Lieferung', 'PR → Deploy', 'reversibel ausrollen'],
   ];
   const jetzt = Date.now();
-  const bis = 5 - (new Date(jetzt).getMinutes() % 5) || 5;
+  const minute = new Date(jetzt).getMinutes();
+  const bis = 5 - (minute % 5) || 5;
+  const bisStunde = 60 - minute;
+  const rollen = nnKatalog.modelle.filter(m => m.weg === 'openrouter');
+  const sichtbare = nnEbene
+    ? nnKatalog.modelle.filter(m => m.bereich === nnEbene)
+    : nnKatalog.bereiche.map(b => ({
+        id: 'bereich-' + b.id,
+        bereich: b.id,
+        rolle: b.label,
+        person: '',
+        aufgabe: (nnKatalog.modelle.find(m => m.bereich === b.id) || {}).aufgabe || b.aufgabe,
+        aufgabenstrom: (nnKatalog.modelle.find(m => m.bereich === b.id) || {}).aufgabenstrom,
+        schicht: (nnKatalog.modelle.find(m => m.bereich === b.id) || {}).schicht,
+        weg: (nnKatalog.modelle.find(m => m.bereich === b.id) || {}).weg,
+      }));
   el.innerHTML = `
     <div class="neural-ops-head">
-      <b>⚡ Operativer Strom · ${escHtml(titel)}</b>
-      <span>HQ-Puls jede Minute · nächste kostenlose Prüfung in ≤ ${bis} Min.</span>
+      <b>⚡ Live-Aufgabenstrom · ${opsAktiv ? 'Ensemble-Lauf aktiv' : `${rollen.length} Rollen fest eingetaktet`}</b>
+      <span>Anzeige minütlich · Tokenprüfung in ≤ ${bis} Min. · Arbeitsfenster in ≤ ${bisStunde} Min.</span>
+    </div>
+    <div class="neural-budget">
+      <b>Kontingent $0,60/Tag</b>
+      <span>${rollen.map(m => `<i style="--q:${m.kontingentProzent || 0};--c:${(nnKatalog.bereiche.find(b => b.id === m.bereich) || {}).farbe || '#64748b'}" title="${escHtml(m.rolle)}: ${m.kontingentProzent || 0}%"></i>`).join('')}</span>
+      <small>rollenweise 100 % verteilt · günstigster zulässiger Provider · Datenschutz: keine Datensammlung</small>
+    </div>
+    <div class="neural-task-grid ${nnEbene ? 'detail' : ''}">
+      ${sichtbare.map(m => {
+        const b = nnKatalog.bereiche.find(x => x.id === m.bereich) || {};
+        const echt = nnKatalog.modelle.find(x => x.id === m.id);
+        const st = echt ? nnSchichtStand(echt) : { stand: opsAktiv ? 'laeuft' : 'geplant', text: opsAktiv ? 'Ensemble-Lauf aktiv' : 'Auftrag eingetaktet', task: nnAktuelleAufgabe(m) };
+        return `<div class="neural-task standkante-${st.stand}" style="--task-color:${b.farbe || '#64748b'}">
+          <span>${b.emoji || '•'} ${escHtml(m.rolle)}</span>
+          ${nnEbene && m.person ? `<b>${escHtml(m.person)} · ${escHtml(st.text)}</b>` : `<b>${escHtml(st.text)}</b>`}
+          <small>${escHtml(st.task || m.aufgabe)}</small>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="neural-ops-head neural-delivery-head">
+      <b>🚀 Lieferstrom · ${escHtml(titel)}</b>
+      <span>Autopilot separat · Änderung nur nach Review, Gates und Pull Request</span>
     </div>
     <div class="neural-flow">
       ${phasen.map((p, i) => `<div class="neural-step ${i === aktuell ? 'aktiv' : (aktiv && i < aktuell ? 'erledigt' : '')}">
@@ -2307,10 +2364,10 @@ function renderModelle() {
   const schichten = nnKatalog.schichten || {};
   const besetzt = nnKatalog.modelle.filter(m => m.schicht);
   const summe = nnKatalog.modelle.reduce((a, m) => a + (m.gehaltVergleich || 0), 0);
-  const arbeiten = nnKatalog.modelle.filter(m => nnSchichtStand(m.schicht).stand === 'laeuft').length;
+  const arbeiten = nnKatalog.modelle.filter(m => nnSchichtStand(m).stand === 'laeuft').length;
 
   $('modelle-badge').textContent =
-    `${besetzt.length} Stellen besetzt${arbeiten ? ` · ${arbeiten} arbeiten gerade` : ''}`;
+    `${besetzt.length} Rollen eingetaktet${arbeiten ? ` · Ensemble-Lauf für ${arbeiten} Rollen aktiv` : ' · nächster Stundenpuls'}`;
 
   $('modelle-summe').innerHTML =
     `<b>${summe.toLocaleString('de-DE')} €</b> wäre der Marktwert derselben Aufgaben als `
@@ -2319,7 +2376,7 @@ function renderModelle() {
 
   $('modelle-grid').innerHTML = nnKatalog.modelle.map(m => {
     const b = nnKatalog.bereiche.find(x => x.id === m.bereich);
-    const st = nnSchichtStand(m.schicht);
+    const st = nnSchichtStand(m);
     const sch = schichten[m.schicht];
     return `
       <div class="modell" id="modell-${escHtml(m.id)}" style="border-left:3px solid ${b ? b.farbe : 'var(--border)'}">
@@ -2329,6 +2386,8 @@ function renderModelle() {
         </div>
         <div class="modell-name">${escHtml(m.name)} · ${escHtml(m.anbieter)} · ${escHtml(m.lizenz)} · offen</div>
         <div class="modell-auf">${escHtml(m.aufgabe)}</div>
+        <div class="modell-zeile"><span class="k">Aktueller Task</span><span class="v"><b>${escHtml(st.task || nnAktuelleAufgabe(m))}</b></span></div>
+        ${m.weg === 'openrouter' ? `<div class="modell-zeile"><span class="k">Kontingent</span><span class="v">${m.kontingentProzent}% vom $0,60-Tagesbudget · max. ${m.maxTokens} Antwort-Token</span></div>` : ''}
         <div class="modell-zeile"><span class="k">Auslöser</span><span class="v">${escHtml(m.ausloeser)}</span></div>
         <div class="modell-zeile"><span class="k">Schicht</span><span class="v">${
           sch ? escHtml(sch.label + ' · ' + sch.takt) : '<i>lokal, kein Zeitplan</i>'}</span></div>
@@ -2363,9 +2422,8 @@ function renderJournal() {
   if (!el) return;
   const e = (nnJournal && nnJournal.eintraege) || [];
   if (!e.length) {
-    el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Noch kein Eintrag. Die Schichten laufen in der '
-      + 'Tagesroutine — sobald <code>EB_OPENROUTER_API_KEY</code> hinterlegt ist, steht hier, '
-      + 'wer was getan hat.</p>';
+    el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge sind eingetaktet. '
+      + 'Der nächste stündliche Ensemble-Lauf schreibt hier ausschließlich echte Antworten, Kostenstopps oder Fehler hinein.</p>';
     return;
   }
   const farbe = { fertig: '#4ade80', uebersprungen: '#6b7280', fehler: '#f87171', abgebrochen: '#fbbf24' };
@@ -2379,7 +2437,7 @@ function renderJournal() {
         <span class="j-punkt" style="background:${farbe[x.ergebnis] || '#6b7280'}"></span>
         <span class="j-zeit">${escHtml(x.zeit.slice(5, 16).replace('T', ' '))}</span>
         <span class="j-wer">${escHtml(x.person || x.rolle)}<small>${escHtml(x.rollenname || '')}</small></span>
-        <span class="j-text ${x.ergebnis === 'fertig' ? '' : 'aus'}">${
+        <span class="j-text ${x.ergebnis === 'fertig' ? '' : 'aus'}"><b>${escHtml(x.aufgabe || 'Schichtauftrag')}</b><br>${
           escHtml(String(x.text || '').replace(/\s+/g, ' ').slice(0, 260))}</span>
       </div>`).join('')}`;
 }
@@ -2534,6 +2592,7 @@ window.addEventListener('DOMContentLoaded', init);
       <button class="ebc-x" id="ebc-close" aria-label="Schließen">×</button>
     </div>
     <div class="ebc-log" id="ebc-log"></div>
+    <div class="ebc-suggestions" id="ebc-suggestions" aria-label="Vorgeschlagene Antworten"></div>
     <div class="ebc-row">
       <input id="ebc-input" placeholder="Frag mich etwas — oder sprich…" autocomplete="off">
       <button class="ebc-btn" id="ebc-mic" title="Sprechen (Mikrofon)" aria-label="Sprechen">🎙️</button>
@@ -2566,9 +2625,11 @@ window.addEventListener('DOMContentLoaded', init);
   var spkBtn = document.getElementById('ebc-speak');
   var stateEl = document.getElementById('ebc-state');
   var hintEl = document.getElementById('ebc-hint');
+  var suggestionsEl = document.getElementById('ebc-suggestions');
 
   var KB = null, speakOn = true, rec = null, listening = false;
   var voiceMode = false, asking = false, conversation = [], preferredVoice = null;
+  var askController = null, recognitionAlternatives = [], recognitionConfidence = null, endTimer = null, suppressVoiceRestart = false;
   var esc = function (t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; };
 
   // Das Transkript gehört zum neuronalen Kern, nicht in einen schwebenden
@@ -2697,6 +2758,28 @@ window.addEventListener('DOMContentLoaded', init);
     return bits.join('. ') + '.';
   }
 
+  function hqDialogContext() {
+    if (!nnKatalog) return '';
+    var bereich = nnEbene ? nnKatalog.bereiche.find(function (b) { return b.id === nnEbene; }) : null;
+    var modelle = bereich
+      ? nnKatalog.modelle.filter(function (m) { return m.bereich === bereich.id; })
+      : nnKatalog.modelle.filter(function (m) { return m.weg === 'openrouter'; }).slice(0, 4);
+    var zeilen = [
+      'Geöffneter HQ-Bereich: ' + (bereich ? bereich.label : 'Gesamtübersicht'),
+      'Aktuelle belegte oder eingetaktete Aufgaben:',
+    ];
+    modelle.forEach(function (m) {
+      var st = nnSchichtStand(m);
+      zeilen.push('- ' + m.rolle + ': ' + (st.task || m.aufgabe) + ' [' + st.text + ']');
+    });
+    var letzte = (nnJournal && nnJournal.eintraege || []).filter(function (e) { return e.ergebnis === 'fertig'; }).slice(0, 3);
+    if (letzte.length) {
+      zeilen.push('Letzte echte Lieferungen:');
+      letzte.forEach(function (e) { zeilen.push('- ' + (e.rollenname || e.rolle) + ': ' + String(e.text || '').slice(0, 180)); });
+    }
+    return zeilen.join('\n');
+  }
+
   function add(role, html, source) {
     var d = document.createElement('div');
     d.className = 'ebc-msg ' + (role === 'me' ? 'me' : 'ai');
@@ -2704,17 +2787,29 @@ window.addEventListener('DOMContentLoaded', init);
     log.appendChild(d); log.scrollTop = log.scrollHeight;
     return d;
   }
+  function renderSuggestions(items) {
+    suggestionsEl.innerHTML = '';
+    (items || []).slice(0, 3).forEach(function (item) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = item;
+      b.addEventListener('click', function () { renderSuggestions([]); ask(item); });
+      suggestionsEl.appendChild(b);
+    });
+    suggestionsEl.classList.toggle('has', !!suggestionsEl.childElementCount);
+  }
   function say(text) {
     if (!speakOn || !window.speechSynthesis) return;
     try {
       speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
-      u.lang = 'de-DE'; u.rate = 1.02; u.pitch = 1.0;
+      u.lang = 'de-DE'; u.rate = 1.08; u.pitch = .98;
       u.voice = preferredVoice || chooseVoice();
       u.onstart = function () { circle.classList.add('speaking'); voiceState('Antwortet · ' + (u.voice ? u.voice.name : 'deutsche Systemstimme'), 'spricht'); };
       u.onend = function () {
         circle.classList.remove('speaking'); voiceState('Bereit · OpenRouter preisoptimiert', null);
-        if (voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 260);
+        var darfNeuHoeren = !suppressVoiceRestart;
+        suppressVoiceRestart = false;
+        if (darfNeuHoeren && voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 120);
       };
       u.onerror = function () { circle.classList.remove('speaking'); voiceState('Sprachausgabe gestoppt', null); };
       speechSynthesis.speak(u);
@@ -2729,11 +2824,15 @@ window.addEventListener('DOMContentLoaded', init);
     } catch (e) {}
   }
 
-  async function askOpenRouter(q, context) {
+  async function askOpenRouter(q, context, controller) {
     var res = await fetch('/wp-json/eventboerse/v1/hq/circle', {
       method: 'POST', credentials: 'same-origin', cache: 'no-store',
       headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': HQ_REST_NONCE },
-      body: JSON.stringify({ message: q, context: context || '', history: conversation.slice(-6) })
+      signal: controller && controller.signal,
+      body: JSON.stringify({
+        message: q, context: context || '', history: conversation.slice(-8),
+        alternatives: recognitionAlternatives, confidence: recognitionConfidence
+      })
     });
     var data = await res.json().catch(function () { return {}; });
     if (!res.ok || !data.answer) throw new Error((data && data.message) || 'OpenRouter antwortet nicht.');
@@ -2742,8 +2841,11 @@ window.addEventListener('DOMContentLoaded', init);
 
   async function ask(q) {
     q = String(q || '').trim(); if (!q) return;
-    if (asking) return;
+    if (asking && askController) askController.abort();
+    var controller = new AbortController();
+    askController = controller;
     asking = true;
+    renderSuggestions([]);
     add('me', esc(q));
     var g = gaps(q);
     var status = hqStatus(q);
@@ -2765,23 +2867,28 @@ window.addEventListener('DOMContentLoaded', init);
         var wissen = treffer.map(function (t) {
           return (t.heading ? t.heading + ':\n' : '') + String(t.text || '').slice(0, 900);
         }).join('\n\n---\n\n');
-        var context = [status || '', wissen || localAnswer || '', hit && hit.title ? 'Quelle: ' + hit.title : ''].filter(Boolean).join('\n\n');
-        var data = await askOpenRouter(q, context);
+        var context = [hqDialogContext(), status || '', wissen || localAnswer || '', hit && hit.title ? 'Quelle: ' + hit.title : ''].filter(Boolean).join('\n\n');
+        var data = await askOpenRouter(q, context, controller);
         conversation.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
-        conversation = conversation.slice(-8);
+        conversation = conversation.slice(-10);
         var cost = data.usage && typeof data.usage.cost === 'number' ? ' · $' + data.usage.cost.toFixed(4) : '';
-        hintEl.textContent = (data.model || 'OpenRouter') + cost + ' · Antworten automatisch vorgelesen';
+        hintEl.textContent = (data.model || 'OpenRouter') + cost + (data.needs_clarification ? ' · fragt gezielt nach' : ' · unterbrechbarer Voice-Dialog');
         add('ai', esc(data.answer), data.model || 'OpenRouter');
+        renderSuggestions(data.suggestions || []);
         if (!hit && !g && !status) rememberGap(q);
         say(data.answer);
       }
     } catch (e) {
+      if (e && e.name === 'AbortError') return;
       var fb = localAnswer || 'OpenRouter ist gerade nicht erreichbar. Die Frage wurde als Wissenslücke vorgemerkt.';
       if (!localAnswer) rememberGap(q);
       add('ai', esc(fb).replace(/\n/g, '<br>'));
       voiceState('Fallback · freigegebenes Wissen', null);
       say(fb);
-    } finally { asking = false; }
+    } finally {
+      if (askController === controller) { asking = false; askController = null; }
+      recognitionAlternatives = []; recognitionConfidence = null;
+    }
   }
 
   /* ── Spracheingabe über die Web Speech API des Browsers ─────────── */
@@ -2790,13 +2897,23 @@ window.addEventListener('DOMContentLoaded', init);
   function toggleMic() {
     if (!SR) return;
     if (listening) { try { rec.stop(); } catch (e) {} return; }
-    rec = new SR(); rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false;
+    if (asking && askController) askController.abort();
+    try { if (window.speechSynthesis && speechSynthesis.speaking) { suppressVoiceRestart = true; speechSynthesis.cancel(); } } catch (e) {}
+    asking = false; askController = null;
+    rec = new SR(); rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 3;
     var finalText = '';
     rec.onstart = function () { listening = true; circle.classList.add('listening'); micBtn.classList.add('on'); voiceState('Hört zu…', 'hoert'); };
     rec.onresult = function (ev) {
       var interim = '';
       for (var i = ev.resultIndex; i < ev.results.length; i++) {
-        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) {
+          finalText += ev.results[i][0].transcript;
+          recognitionConfidence = typeof ev.results[i][0].confidence === 'number' ? ev.results[i][0].confidence : null;
+          recognitionAlternatives = [];
+          for (var a = 1; a < Math.min(ev.results[i].length, 3); a++) recognitionAlternatives.push(ev.results[i][a].transcript);
+          clearTimeout(endTimer);
+          endTimer = setTimeout(function () { try { rec.stop(); } catch (e) {} }, 90);
+        }
         else interim += ev.results[i][0].transcript;
       }
       input.value = (finalText + interim).trim();
@@ -2810,7 +2927,7 @@ window.addEventListener('DOMContentLoaded', init);
       voiceState('Bereit · OpenRouter preisoptimiert', null);
       var t = input.value.trim();
       if (t) { input.value = ''; ask(t); }
-      else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 350);
+      else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 180);
     };
     try { rec.start(); } catch (e) {}
   }
@@ -2819,7 +2936,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (asVoice) voiceMode = true;
     panel.classList.add('open');
     if (!log.childElementCount) {
-      var hi = 'Hi Commander. Ich bin der EB Circle. Ich beantworte Fragen zur Plattform aus dem freigegebenen Wissen, kenne den HQ-Status und zeige dir offene Wissenslücken („Wissenslücken"). Tippe oder drück auf das Mikrofon.';
+      var hi = 'Hi Commander. Sprich einfach los. Ich halte den Gesprächskontext, frage bei unklaren Stellen gezielt nach und schlage dir passende nächste Schritte im HQ vor.';
       add('ai', esc(hi));
     }
     if (!voiceMode) setTimeout(function () { input.focus(); }, 60);
@@ -2827,7 +2944,9 @@ window.addEventListener('DOMContentLoaded', init);
   function close() {
     voiceMode = false; panel.classList.remove('open');
     try { if (rec && listening) rec.stop(); } catch (e) {}
-    try { speechSynthesis.cancel(); } catch (e) {}
+    if (askController) askController.abort();
+    asking = false; askController = null; renderSuggestions([]);
+    try { suppressVoiceRestart = true; speechSynthesis.cancel(); } catch (e) {}
     voiceState('Bereit · OpenRouter preisoptimiert', null);
   }
 
@@ -2853,7 +2972,7 @@ window.addEventListener('DOMContentLoaded', init);
   spkBtn.addEventListener('click', function () {
     speakOn = !speakOn; spkBtn.classList.toggle('on', speakOn);
     spkBtn.title = speakOn ? 'Vorlesen ist an' : 'Vorlesen ist aus';
-    if (!speakOn) { try { speechSynthesis.cancel(); } catch (e) {} }
+    if (!speakOn) { try { suppressVoiceRestart = true; speechSynthesis.cancel(); } catch (e) {} }
   });
   /* Feedback-Loop schließen (Impuls 6).
      Die Wissenslücken liegen im localStorage DIESES Browsers — es wird nichts

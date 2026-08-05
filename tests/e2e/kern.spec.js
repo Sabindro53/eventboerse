@@ -79,6 +79,16 @@ test.describe('Ensemble-Katalog', () => {
     }
   });
 
+  test('OpenRouter-Kontingent ist vollständig, begrenzt und taskweise verteilt', () => {
+    const extern = KATALOG.modelle.filter((m) => m.weg === 'openrouter');
+    expect(extern).toHaveLength(11);
+    expect(extern.reduce((sum, m) => sum + m.kontingentProzent, 0)).toBe(100);
+    for (const m of extern) {
+      expect(m.aufgabenstrom, `${m.id} ohne Aufgabenstrom`).toHaveLength(3);
+      expect(m.maxTokens, `${m.id} ohne kleine Antwortgrenze`).toBeLessThanOrEqual(300);
+    }
+  });
+
   test('Katalog behauptet keinen Laufzeit-Zustand', () => {
     for (const m of KATALOG.modelle) {
       expect(m).not.toHaveProperty('status');
@@ -92,6 +102,8 @@ test.describe('OpenRouter-Autopilot', () => {
   const runner = fs.readFileSync(path.join(ROOT, 'scripts', 'openrouter-agents.mjs'), 'utf8');
   const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-autopilot.yml'), 'utf8');
   const merge = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-auto-merge.yml'), 'utf8');
+  const operations = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'hq-operations.yml'), 'utf8');
+  const agent = fs.readFileSync(path.join(ROOT, 'scripts', 'agent.mjs'), 'utf8');
 
   test('Guardrail-Selbsttest blockiert verbotene Seiteneffekte', () => {
     const out = execFileSync('node', ['scripts/openrouter-agents.mjs', '--self-test'], { cwd: ROOT, encoding: 'utf8' });
@@ -135,6 +147,20 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(merge).toMatch(/openrouter-autonomous/);
     expect(merge).toMatch(/merge_method: 'squash'/);
   });
+
+  test('Operations-Ensemble arbeitet stündlich ehrlich unter Kostenbremse', () => {
+    expect(operations).toMatch(/cron:\s*'4\/5 \* \* \* \*'/);
+    expect(operations).toMatch(/GITHUB_RUN_NUMBER % 12/);
+    expect(operations).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
+    expect(operations).toMatch(/select\(\.weg == "openrouter"\)/);
+    expect(operations).toMatch(/scripts\/agent\.mjs/);
+    expect(operations).toMatch(/assets\/eb-arbeit\.json/);
+    expect(agent).toMatch(/usage_daily/);
+    expect(agent).toMatch(/kontingentProzent/);
+    expect(agent).toMatch(/sort:\s*'price'/);
+    expect(agent).toMatch(/data_collection:\s*'deny'/);
+    expect(agent).toMatch(/max_price/);
+  });
 });
 
 test.describe('Neuronaler Kern', () => {
@@ -144,7 +170,7 @@ test.describe('Neuronaler Kern', () => {
     // initNeural() folgt bewusst auf die echten HQ-Lader. Auf langsameren
     // Rechnern ist eine feste Pause deshalb ein Zufallstest; der Bereichsring
     // ist das belastbare Signal, dass Kern, Karten und Grenzen fertig sind.
-    await expect(page.locator('[data-bereich]')).toHaveCount(6, { timeout: 12000 });
+    await expect(page.locator('[data-bereich]')).toHaveCount(10, { timeout: 12000 });
   });
 
   test('Übersicht zeigt Bereiche und Werkzeuge, Mitarbeiter erst im geöffneten Bereich', async ({ page }) => {
@@ -156,15 +182,15 @@ test.describe('Neuronaler Kern', () => {
       karten: document.querySelectorAll('.bereich').length,
       mitarbeiterkarten: document.querySelectorAll('.modell').length,
     }));
-    expect(r.bereiche, 'sechs Bereiche im inneren Ring').toBe(6);
+    expect(r.bereiche, 'zehn vollständige Hauptbereiche im Ring').toBe(10);
     expect(r.agenten, 'Mitarbeiter gehören nicht in die Gesamtübersicht').toBe(0);
     expect(r.werkzeuge, 'Werkzeuge im äußeren Ring').toBeGreaterThan(0);
     expect(r.orb).toBe(true);
-    expect(r.karten).toBe(6);
-    expect(r.mitarbeiterkarten).toBe(10);
+    expect(r.karten).toBe(10);
+    expect(r.mitarbeiterkarten).toBe(13);
 
     const detail = await page.evaluate(() => {
-      nnOeffne('architektur');
+      nnOeffne('engineering');
       return document.querySelectorAll('[data-modell]').length;
     });
     expect(detail, 'Mitarbeiter erscheinen nach Öffnen ihrer Hauptkategorie').toBe(2);
@@ -179,7 +205,8 @@ test.describe('Neuronaler Kern', () => {
     for (const heading of ['Eingang', 'Scout', 'Architektur', 'Umsetzung', 'Review', 'Gates', 'Lieferung']) {
       expect(r.text).toContain(heading);
     }
-    expect(r.text).toContain('HQ-Puls jede Minute');
+    expect(r.text).toContain('Anzeige minütlich');
+    expect(r.text).toContain('Kontingent $0,60/Tag');
   });
 
   test('die Dichte des Wissenskerns folgt der echten Wissensbasis', async ({ page }) => {
@@ -238,10 +265,13 @@ test.describe('Neuronaler Kern', () => {
     // gerade fertig wurde.
     const staende = await page.evaluate(() =>
       [...document.querySelectorAll('.modell .stand')].map((s) => s.textContent.trim()));
-    expect(staende.length).toBe(10);
-    const erfunden = staende.filter((t) => /bereit|aktiv|läuft$/i.test(t));
-    expect(erfunden, `kein Stand darf Bereitschaft behaupten: ${staende.join(' | ')}`).toEqual([]);
-    expect(staende.some((t) => /unbekannt|lokal|zuletzt|arbeitet/i.test(t))).toBe(true);
+    expect(staende.length).toBe(13);
+    expect(staende, 'der alte tote Zustand darf nicht mehr erscheinen').not.toContain('kein Lauf in den letzten 30');
+    const externIds = KATALOG.modelle.filter((m) => m.weg === 'openrouter').map((m) => m.id);
+    const extern = await page.evaluate((ids) => ids.map((id) =>
+      document.querySelector(`#modell-${id} .stand`).textContent.trim()), externIds);
+    expect(extern.length).toBe(11);
+    expect(extern.every((t) => /eingetaktet|geliefert|Ensemble|Kostenfenster|gestoppt/i.test(t))).toBe(true);
   });
 
   test('Klick auf die Mitte startet die Stimme, nicht nur ein Textfeld', async ({ page }) => {
@@ -279,8 +309,12 @@ test.describe('Neuronaler Kern', () => {
     expect(HQ).toMatch(/'X-WP-Nonce': HQ_REST_NONCE/);
     expect(FUNCTIONS).toMatch(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\/circle'/);
     expect(FUNCTIONS).toMatch(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/);
-    expect(FUNCTIONS).toMatch(/'partition'\s*=>\s*'none'/);
-    expect(FUNCTIONS).toMatch(/'max_tokens'\s*=>\s*320/);
+    expect(FUNCTIONS).toMatch(/'sort'\s*=>\s*'latency'/);
+    expect(FUNCTIONS).toMatch(/'max_tokens'\s*=>\s*220/);
+    expect(FUNCTIONS).toMatch(/'response_format'\s*=>\s*array/);
+    expect(FUNCTIONS).toMatch(/needs_clarification/);
+    expect(HQ).toMatch(/recognitionAlternatives/);
+    expect(HQ).toMatch(/askController\.abort\(\)/);
     expect(FUNCTIONS).toMatch(/'max_price'/);
     const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_circle_openrouter'), FUNCTIONS.indexOf("add_action( 'rest_api_init'", FUNCTIONS.indexOf('function eb_hq_circle_openrouter')));
     expect(fn, 'OpenRouter-Schlüssel darf nicht in der Antwort landen').not.toMatch(/'answer'\s*=>[^\n]*EB_OPENROUTER_API_KEY/);
@@ -310,7 +344,7 @@ test.describe('Neuronaler Kern', () => {
         orb: !!document.getElementById('nn-orb'),
       };
     });
-    expect(zu.bereiche).toBe(6);
+    expect(zu.bereiche).toBe(10);
     expect(zu.orb).toBe(true);
   });
 
@@ -416,7 +450,7 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     await page.waitForTimeout(2200);
     const text = await page.evaluate(() => document.getElementById('journal').textContent);
     if (!JOURNAL.eintraege.length) {
-      expect(text, 'ein leeres Journal sagt das, statt leer zu bleiben').toMatch(/Noch kein Eintrag/);
+      expect(text, 'ein leeres Journal zeigt die echte Taktung, statt leer zu bleiben').toMatch(/eingetaktet.*stündliche/i);
     } else {
       expect(text).toMatch(/Schichten gearbeitet/);
     }
