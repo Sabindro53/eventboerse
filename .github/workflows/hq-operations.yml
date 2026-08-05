@@ -1,11 +1,11 @@
 name: HQ Operations Ensemble
 run-name: "⚡ HQ-Puls · Aufgabenstrom und Kontingent"
 
-# Der Fuenf-Minuten-Puls selbst verbraucht keine Modell-Tokens. Einmal pro
-# Stunde arbeitet jede OpenRouter-Rolle an ihrem eigenen, rotierenden Auftrag.
-# Das Journal wird als echte Laufzeitspur auf main geschrieben und dadurch im
-# HQ ausgeliefert. Kostenbremse und Rollenquoten werden vor JEDEM Aufruf erneut
-# in scripts/agent.mjs geprueft.
+# Alle fuenf Minuten bekommt genau eine OpenRouter-Rolle ihren naechsten Slot.
+# So gibt es keinen kuenstlichen Stundenstillstand und trotzdem keine parallele
+# Token-Spitze: elf Rollen sind in hoechstens 55 Minuten einmal durchgelaufen.
+# Ein manueller Dispatch bleibt der ausdrueckliche Voll-Ensemble-Lauf.
+# Kostenbremse und Rollenquoten werden vor JEDEM Aufruf erneut geprueft.
 on:
   schedule:
     - cron: '4/5 * * * *'
@@ -32,43 +32,41 @@ jobs:
       SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
 
     steps:
-      - name: Kostenloses Pulsfenster bestimmen
-        id: cadence
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "work=true" >> "$GITHUB_OUTPUT"
-            echo "Manueller Ensemble-Lauf." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          slot=$(( GITHUB_RUN_NUMBER % 12 ))
-          if [ "$slot" -eq 0 ]; then
-            echo "work=true" >> "$GITHUB_OUTPUT"
-            echo "Stundenfenster offen: alle Rollen arbeiten innerhalb ihrer Quote." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "work=false" >> "$GITHUB_OUTPUT"
-            echo "Tokenfreier HQ-Puls $slot/11: Auftraege bleiben eingetaktet, naechstes Stundenfenster folgt." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
       - name: Repository laden
-        if: steps.cadence.outputs.work == 'true'
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 40
 
       - name: Node einrichten
-        if: steps.cadence.outputs.work == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Ensemble-Katalog pruefen
-        if: steps.cadence.outputs.work == 'true'
         run: node scripts/models.mjs --check
 
+      - name: Naechste Rolle im Rundlauf bestimmen
+        id: cadence
+        shell: bash
+        run: |
+          mapfile -t rollen < <(jq -r '.modelle[] | select(.weg == "openrouter") | .id' assets/eb-models.json)
+          anzahl="${#rollen[@]}"
+          if [ "$anzahl" -lt 1 ]; then
+            echo "Keine OpenRouter-Rolle im Katalog." >&2
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "rolle=alle" >> "$GITHUB_OUTPUT"
+            echo "Manueller Voll-Ensemble-Lauf fuer $anzahl Rollen." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          slot=$(( (GITHUB_RUN_NUMBER - 1) % anzahl ))
+          rolle="${rollen[$slot]}"
+          echo "rolle=$rolle" >> "$GITHUB_OUTPUT"
+          echo "Rundlauf-Slot $((slot + 1))/$anzahl: $rolle arbeitet jetzt; die naechste Rolle folgt in etwa fuenf Minuten." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Belegten Arbeitskontext bauen
-        if: steps.cadence.outputs.work == 'true'
         shell: bash
         run: |
           mkdir -p .ai-run
@@ -83,28 +81,29 @@ jobs:
             sed -n '1,160p' audit/latest.json
           } > .ai-run/ensemble-context.txt
 
-      - name: Alle Rollen taskweise arbeiten lassen
-        if: steps.cadence.outputs.work == 'true'
+      - name: Rolle taskweise arbeiten lassen
         shell: bash
         run: |
-          while IFS= read -r rolle; do
+          if [ "${{ steps.cadence.outputs.rolle }}" = "alle" ]; then
+            mapfile -t rollen < <(jq -r '.modelle[] | select(.weg == "openrouter") | .id' assets/eb-models.json)
+          else
+            rollen=("${{ steps.cadence.outputs.rolle }}")
+          fi
+          for rolle in "${rollen[@]}"; do
             echo "## $rolle" >> "$GITHUB_STEP_SUMMARY"
             node scripts/agent.mjs \
               --rolle "$rolle" \
               --kontext .ai-run/ensemble-context.txt \
-              --anlass "stuendlicher HQ-Operationspuls" | tee -a "$GITHUB_STEP_SUMMARY"
-          done < <(jq -r '.modelle[] | select(.weg == "openrouter") | .id' assets/eb-models.json)
+              --anlass "5-Minuten-HQ-Rundlauf" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
 
       - name: Journal validieren
-        if: steps.cadence.outputs.work == 'true'
         run: node scripts/agent.mjs --check
 
       - name: SFTP-Werkzeug einrichten
-        if: steps.cadence.outputs.work == 'true'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       - name: Echte Laufzeitspur veroeffentlichen
-        if: steps.cadence.outputs.work == 'true'
         shell: bash
         run: |
           if git diff --quiet -- assets/eb-arbeit.json; then

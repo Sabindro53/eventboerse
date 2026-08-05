@@ -148,10 +148,12 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(merge).toMatch(/merge_method: 'squash'/);
   });
 
-  test('Operations-Ensemble arbeitet stündlich ehrlich unter Kostenbremse', () => {
+  test('Operations-Ensemble arbeitet im 5-Minuten-Rundlauf ehrlich unter Kostenbremse', () => {
     expect(operations).toMatch(/cron:\s*'4\/5 \* \* \* \*'/);
-    expect(operations).toMatch(/GITHUB_RUN_NUMBER % 12/);
+    expect(operations).toMatch(/GITHUB_RUN_NUMBER - 1\) % anzahl/);
     expect(operations).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
+    expect(operations).toMatch(/rolle=\$rolle/);
+    expect(operations).toMatch(/5-Minuten-HQ-Rundlauf/);
     expect(operations).toMatch(/select\(\.weg == "openrouter"\)/);
     expect(operations).toMatch(/scripts\/agent\.mjs/);
     expect(operations).toMatch(/assets\/eb-arbeit\.json/);
@@ -199,13 +201,21 @@ test.describe('Neuronaler Kern', () => {
   test('operativer Strom benennt Aufgabe, Rollen und Lieferweg', async ({ page }) => {
     const r = await page.evaluate(() => ({
       schritte: document.querySelectorAll('.neural-step').length,
+      jetzt: document.querySelectorAll('.neural-now').length,
+      rollenlauf: document.querySelectorAll('.neural-cycle i').length,
       text: document.getElementById('neural-ops').textContent,
     }));
     expect(r.schritte).toBe(7);
+    expect(r.jetzt).toBe(3);
+    expect(r.rollenlauf).toBe(11);
     for (const heading of ['Eingang', 'Scout', 'Architektur', 'Umsetzung', 'Review', 'Gates', 'Lieferung']) {
       expect(r.text).toContain(heading);
     }
-    expect(r.text).toContain('Anzeige minütlich');
+    expect(r.text).toContain('Anzeige sekündlich');
+    expect(r.text).toContain('kompletter Rundlauf ≤ 55 Min.');
+    expect(r.text).toContain('Jetzt');
+    expect(r.text).toContain('Als Nächstes');
+    expect(r.text).toContain('Zuletzt belegt');
     expect(r.text).toContain('Kontingent $0,60/Tag');
   });
 
@@ -241,21 +251,27 @@ test.describe('Neuronaler Kern', () => {
     expect(nachher, 'ein Impuls darf nicht endlos weiterlaufen').toBe(0);
   });
 
-  test('nichts im Kern animiert dauerhaft ohne echten Anlass', async ({ page }) => {
-    // Bahnen und Impulse dürfen nie dauerschleifen.
-    const dauer = HQ.match(/\.nn-(bahn|impuls)[^}]*infinite/g) || [];
-    expect(dauer, 'Bahnen und Impulse dürfen nicht dauerschleifen').toEqual([]);
-
-    // Genau zwei Dauer-Animationen sind erlaubt, und beide hängen an einem
-    // echten Zustand: der Hör-Ring läuft nur bei offenem Mikrofon, der
-    // Arbeits-Puls nur, solange ein Workflow in_progress ist.
+  test('Transportstrom läuft nur bei frischem Betriebsbeleg', async ({ page }) => {
+    // Die Queue darf sich sichtbar bewegen, aber nur unter der Klasse, die
+    // nnBetriebsbild aus einem frischen Actions-Lauf oder Journal setzt.
+    expect(HQ_CSS).toMatch(/\.neural\.strom-gesund \.nn-transport/);
+    expect(HQ_CSS).toMatch(/animation:\s*nnTransport/);
     expect(HQ).toMatch(/\.neural\.hoert .nn-orb-ring\s*\{\s*animation/);
     expect(HQ).toMatch(/\.nn-node\.arbeitet .nn-ring\s*\{\s*animation/);
     expect(HQ_CSS).toMatch(/\.neural\.denkt .nn-orb-ring\s*\{\s*animation/);
     expect(HQ_CSS).toMatch(/\.neural\.spricht #nn-orb/);
 
-    // Ohne laufenden Workflow trägt kein Knoten die Arbeits-Klasse.
-    const arbeitend = await page.evaluate(() => document.querySelectorAll('.nn-node.arbeitet').length);
+    // Der Test hat API und Journal absichtlich ohne frischen Beleg geladen.
+    // Dann existieren die Transportpfade, laufen aber nicht und kein Knoten
+    // behauptet, dass gerade ein Modell arbeitet.
+    const stand = await page.evaluate(() => ({
+      arbeitend: document.querySelectorAll('.nn-node.arbeitet').length,
+      pfade: document.querySelectorAll('.nn-transport').length,
+      gesund: document.getElementById('neural').classList.contains('strom-gesund'),
+    }));
+    expect(stand.pfade).toBeGreaterThan(0);
+    expect(stand.gesund).toBe(false);
+    const arbeitend = stand.arbeitend;
     expect(arbeitend, 'ohne echten Lauf darf nichts „arbeitet gerade" zeigen').toBe(0);
   });
 
@@ -271,7 +287,7 @@ test.describe('Neuronaler Kern', () => {
     const extern = await page.evaluate((ids) => ids.map((id) =>
       document.querySelector(`#modell-${id} .stand`).textContent.trim()), externIds);
     expect(extern.length).toBe(11);
-    expect(extern.every((t) => /eingetaktet|geliefert|Ensemble|Kostenfenster|gestoppt/i.test(t))).toBe(true);
+    expect(extern.every((t) => /24\/7|geliefert|Ensemble|Kostenfenster|gestoppt/i.test(t))).toBe(true);
   });
 
   test('Klick auf die Mitte startet die Stimme, nicht nur ein Textfeld', async ({ page }) => {
@@ -450,7 +466,7 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     await page.waitForTimeout(2200);
     const text = await page.evaluate(() => document.getElementById('journal').textContent);
     if (!JOURNAL.eintraege.length) {
-      expect(text, 'ein leeres Journal zeigt die echte Taktung, statt leer zu bleiben').toMatch(/eingetaktet.*stündliche/i);
+      expect(text, 'ein leeres Journal zeigt die echte Taktung, statt leer zu bleiben').toMatch(/24\/7-Rundlauf.*Alle fünf Minuten/is);
     } else {
       expect(text).toMatch(/Schichten gearbeitet/);
     }
