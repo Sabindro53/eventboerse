@@ -30,7 +30,7 @@ jobs:
 
       - name: Run Claude audit
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.EB_ANTHROPIC_API_KEY }}
           APP_LINES: ${{ steps.stats.outputs.app_js }}
           FUNC_LINES: ${{ steps.stats.outputs.functions }}
           STYLE_LINES: ${{ steps.stats.outputs.styles }}
