@@ -612,6 +612,7 @@
 .ebc-btn.on{background:#ff385c;border-color:#ff385c;color:#fff}
 .ebc-hint{padding:0 14px 10px;font-size:.66rem;color:#7f8794}
 </style>
+<link rel="stylesheet" href="/eb-hq-evolution.css?v=1">
 </head>
 <body>
 <div id="bg-layer"></div>
@@ -651,7 +652,7 @@
     <div class="neural" id="neural">
       <div class="neural-head">
         <b>Neuronaler Kern</b>
-        <span id="neural-sub">Klick auf den Kreis zum Sprechen · Klick auf einen Knoten für den Bereich</span>
+        <span id="neural-sub">Mitte antippen zum Sprechen · Mitarbeiter erscheinen im geöffneten Bereich</span>
       </div>
       <svg class="neural-canvas" id="nn" viewBox="0 0 900 540" role="img"
            aria-label="Neuronaler Kern: sechs Bereiche um den zentralen KI-Kreis"></svg>
@@ -663,6 +664,7 @@
         <i style="color:#4ade80">arbeitet · geprüft</i>
         <i style="color:#6b7280">Impuls = ein echtes Ereignis</i>
       </div>
+      <div class="neural-ops" id="neural-ops" aria-live="polite"></div>
     </div>
 
     <!-- Bereiche & Autonomie -->
@@ -858,7 +860,7 @@ const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
 const HQ_REST_NONCE = '__EB_HQ_REST_NONCE__';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0, ausCache: false };
+const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0, ausCache: false, openrouterJob: null };
 const $ = id => document.getElementById(id);
 
 /* ─── Zugang ───────────────────────────────────────────────────────
@@ -994,6 +996,15 @@ async function loadRuns() {
   try { const d = await gh('/actions/runs?per_page=30'); state.runs = d.workflow_runs || []; cacheSet('runs', state.runs); }
   catch { const c = cacheGet('runs'); if (c) state.runs = c.data; }
   state.deploySuccessCount = state.runs.filter(r => /ionos-deploy\.yml$/.test(r.path || '') && r.conclusion === 'success').length;
+  state.openrouterJob = null;
+  const aktiv = state.runs.find(r => /openrouter-autopilot\.yml$/.test(r.path || '')
+    && (r.status === 'in_progress' || r.status === 'queued'));
+  if (aktiv && aktiv.id) {
+    try {
+      const d = await gh(`/actions/runs/${aktiv.id}/jobs?per_page=10`);
+      state.openrouterJob = (d.jobs || []).find(j => j.status === 'in_progress') || (d.jobs || [])[0] || null;
+    } catch { state.openrouterJob = null; }
+  }
 }
 async function loadIssues() {
   try {
@@ -1249,7 +1260,7 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
-  { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Scout, Architekt, Implementierer und Reviewer liefern eine kleine Verbesserung nach Kosten- und Scope-Gates autonom aus.', workflow: 'openrouter-autopilot.yml', schedule: '⏱️ Wöchentl. · Mi 02:11 · max. $0,35', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
+  { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Prüft alle 5 Minuten tokenfrei; im offenen Kostenfenster liefern Scout, Architekt, Implementierer und Reviewer genau eine kleine Verbesserung.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung · KI max. stündlich · $0,12/Lauf · $0,60/Tag', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
   { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
   { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
   { id: 'lighthouse', avatar: '📊', name: 'Lighthouse-Bot',   role: 'Misst Performance, SEO, Accessibility & Best-Practices der Live-Seite.', workflow: 'lighthouse-audit.yml', schedule: '⏱️ Wöchentl. · Mo 06:00', canTrigger: true, triggerLabel: '▶ Messen', logsLabel: '📋 Reports', logsUrl: `https://github.com/${REPO}/actions/workflows/lighthouse-audit.yml` },
@@ -1433,6 +1444,7 @@ async function loadAll() {
     ebImpuls('architektur', 'gut');
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
     renderQuests(); renderAchievements(); renderHud();
+    if (nnKatalog) { nnZeichnen(); renderModelle(); }
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
     else $('releases-list').innerHTML = `<div class="err">Fehler beim Laden: ${escHtml(e.message)}</div>`;
@@ -1450,6 +1462,20 @@ async function init() {
   await initNeural();                   // Kern zeichnen, bevor Impulse kommen
   await initConnections();              // Katalog + echte Verbindungsprüfungen
   renderHud();
+  if (!window.__ebOperationsTakt) {
+    // Der sichtbare Puls kostet keine Tokens: Texte und Relativzeiten werden
+    // jede Minute lokal erneuert. Echte GitHub-Läufe werden im technisch
+    // passenden Fünf-Minuten-Takt nachgezogen.
+    window.__ebOperationsTakt = setInterval(renderNeuralOps, 60000);
+    window.__ebOperationsAbruf = setInterval(async () => {
+      if (document.hidden || state.operationsAbruf) return;
+      state.operationsAbruf = true;
+      try {
+        await loadRuns();
+        nnZeichnen(); renderModelle(); renderBots(); renderRuns();
+      } finally { state.operationsAbruf = false; }
+    }, 300000);
+  }
 }
 
 async function refreshAll() {
@@ -1935,7 +1961,13 @@ function nnSchichtStand(schicht) {
     return { stand: 'unbekannt', text: getPat() ? 'kein Lauf in den letzten 30' : 'unbekannt — kein Token' };
   }
   if (lauf.status === 'in_progress' || lauf.status === 'queued') {
-    return { stand: 'laeuft', text: 'arbeitet gerade', run: lauf };
+    const schritt = state.openrouterJob && (state.openrouterJob.steps || []).find(s => s.status === 'in_progress');
+    return {
+      stand: 'laeuft',
+      text: 'arbeitet gerade',
+      task: schritt ? schritt.name : nnLaufAufgabe(lauf),
+      run: lauf,
+    };
   }
   const wann = new Date(lauf.created_at);
   const std = Math.round((Date.now() - wann.getTime()) / 3600000);
@@ -1943,6 +1975,7 @@ function nnSchichtStand(schicht) {
   return {
     stand: lauf.conclusion === 'success' ? 'ok' : 'fehler',
     text: `${lauf.conclusion === 'success' ? 'zuletzt' : 'fehlgeschlagen'} ${rel}`,
+    task: nnLaufAufgabe(lauf),
     run: lauf,
   };
 }
@@ -1951,6 +1984,14 @@ const NN_STAND_FARBE = {
   laeuft: '#22d3ee', ok: '#4ade80', fehler: '#f87171',
   unbekannt: '#6b7280', lokal: '#a855f7',
 };
+
+function nnLaufAufgabe(lauf) {
+  if (!lauf) return 'Workflow-Lauf';
+  const titel = String(lauf.display_title || '').trim();
+  if (titel && titel !== lauf.name && !/^openrouter autopilot$/i.test(titel)) return titel;
+  const commit = lauf.head_commit && String(lauf.head_commit.message || '').split('\n')[0].trim();
+  return commit || lauf.name || 'Workflow-Lauf';
+}
 
 /**
  * Wissenskern: viele kleine Punkte statt einer Scheibe.
@@ -1988,14 +2029,14 @@ function nnZeichnen() {
       </radialGradient>
     </defs>`;
 
-  if (nnEbene) { svg.innerHTML = defs + nnBaum(); nnKopfzeile(); return; }
+  if (nnEbene) { svg.innerHTML = defs + nnBaum(); nnKopfzeile(); renderNeuralOps(); return; }
 
-  // ── Übersicht: drei Ringe um den Wissenskern ────────────────────────
+  // ── Übersicht: Bereiche und Werkzeuge. Mitarbeiter bleiben verborgen,
+  //    bis ihr Bereich bewusst geöffnet wird. ─────────────────────────
   const B = nnKatalog.bereiche, M = nnKatalog.modelle;
-  const posB = {}, posM = {}, posW = {};
+  const posB = {}, posW = {};
 
   B.forEach((x, i) => { posB[x.id] = nnPos(i, B.length, 1.02, 0.52); });
-  M.forEach((m, i) => { posM[m.id] = nnPos(i + 0.5, M.length, 1.80, 1.02); });
 
   // Werkzeuge im äußeren Ring — nur die, die eine Rolle tatsächlich nutzt.
   const werkzeuge = [...new Set(M.flatMap(m => m.werkzeuge || []))];
@@ -2004,13 +2045,13 @@ function nnZeichnen() {
   const bahn = (p, q, farbe, op) =>
     `<path class="nn-bahn" stroke="${farbe}" style="opacity:${op}" d="M ${p.x} ${p.y} L ${q.x} ${q.y}"/>`;
 
-  // Kern → Bereich, Bereich → Rolle, Rolle → Werkzeug
+  // Kern → Bereich → tatsächlich verwendete Werkzeuge. Die Rollen selbst
+  // werden erst im Teilnetz des Bereichs sichtbar.
   B.forEach(x => teile.push(`<path class="nn-bahn" id="bahn-${x.id}" d="M ${NN_MITTE.x} ${NN_MITTE.y} L ${posB[x.id].x} ${posB[x.id].y}"/>`));
-  M.forEach(m => {
-    const b = B.find(x => x.id === m.bereich);
-    if (b) teile.push(bahn(posB[m.bereich], posM[m.id], b.farbe, .3));
-    (m.werkzeuge || []).forEach(w => {
-      if (posW[w]) teile.push(bahn(posM[m.id], posW[w], '#64748b', .18));
+  B.forEach(b => {
+    const genutzt = [...new Set(M.filter(m => m.bereich === b.id).flatMap(m => m.werkzeuge || []))];
+    genutzt.forEach(w => {
+      if (posW[w]) teile.push(bahn(posB[b.id], posW[w], b.farbe, .22));
     });
   });
 
@@ -2032,23 +2073,6 @@ function nnZeichnen() {
         <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="13" stroke="${farbe}"/>
         <text x="${p.x}" y="${p.y + 4}" style="font-size:11px;text-anchor:middle">${c ? c.logo : '🔌'}</text>
         <text x="${p.x}" y="${p.y + 26}" class="nn-sub">${escHtml(c ? c.anbieter : w)}</text>
-      </g>`);
-  });
-
-  // Rollen
-  M.forEach(m => {
-    const st = nnSchichtStand(m.schicht);
-    const farbe = NN_STAND_FARBE[st.stand];
-    const p = posM[m.id];
-    teile.push(`
-      <g class="nn-node nn-agent ${st.stand === 'laeuft' ? 'arbeitet' : ''}" id="node-${m.id}"
-         data-modell="${m.id}" role="button" tabindex="0"
-         aria-label="${escHtml(m.person)}, ${escHtml(m.rolle)}: ${escHtml(st.text)}">
-        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="17" stroke="${farbe}"/>
-        <circle class="nn-core" cx="${p.x}" cy="${p.y}" r="11" fill="${farbe}" opacity=".16"/>
-        <text x="${p.x}" y="${p.y + 4}" style="font-size:11px;text-anchor:middle">👤</text>
-        <text x="${p.x}" y="${p.y + 31}" class="nn-label" style="font-size:10px">${escHtml(m.person)}</text>
-        <text x="${p.x}" y="${p.y + 42}" class="nn-sub" style="font-size:8px">${escHtml(m.rolle)}</text>
       </g>`);
   });
 
@@ -2078,6 +2102,7 @@ function nnZeichnen() {
 
   svg.innerHTML = defs + teile.join('');
   nnKopfzeile();
+  renderNeuralOps();
 }
 
 /**
@@ -2139,6 +2164,7 @@ function nnBaum() {
         <text x="${x}" y="${mitteReihe + 36}" class="nn-label">${escHtml(m.person)}</text>
         <text x="${x}" y="${mitteReihe + 48}" class="nn-sub">${escHtml(m.rolle)}</text>
         <text x="${x}" y="${mitteReihe + 60}" class="nn-sub" fill="${farbe}">${escHtml(st.text)}</text>
+        <text x="${x}" y="${mitteReihe + 73}" class="nn-task">${escHtml((st.task || m.aufgabe).slice(0, 52))}</text>
       </g>`);
   });
   return teile.join('');
@@ -2148,7 +2174,47 @@ function nnKopfzeile() {
   const b = nnEbene ? nnKatalog.bereiche.find(x => x.id === nnEbene) : null;
   $('neural-sub').textContent = b
     ? `${b.label} · ${nnKatalog.modelle.filter(m => m.bereich === b.id).length} Mitarbeiter · Mitte antippen für zurück`
-    : `${nnWissen} Wissens-Abschnitte im Kern · Mitte antippen zum Sprechen · Bereich antippen zum Aufklappen`;
+    : `${nnWissen} Wissens-Abschnitte · 6 operative Bereiche · Mitarbeiter erst nach dem Aufklappen`;
+}
+
+/** Sichtbarer Operationsstrom mit echten Workflow-Schritten. */
+function renderNeuralOps() {
+  const el = $('neural-ops');
+  if (!el) return;
+  const run = (state.runs || []).find(r => /openrouter-autopilot\.yml$/.test(r.path || ''));
+  const aktiv = run && (run.status === 'in_progress' || run.status === 'queued');
+  const schritt = aktiv && state.openrouterJob
+    ? (state.openrouterJob.steps || []).find(s => s.status === 'in_progress')
+    : null;
+  const titel = schritt ? schritt.name : aktiv ? (run.display_title || run.name) : 'Wartet auf das nächste Kostenfenster';
+  const aktuell = !aktiv ? -1
+    : /test|syntax|browser|katalog|abhäng/i.test(titel) ? 5
+    : /pr|ergebnis|label/i.test(titel) ? 6
+    : /review|kito/i.test(titel) ? 4
+    : /umsetzung|implement|timo/i.test(titel) ? 3
+    : /architektur|ada/i.test(titel) ? 2
+    : /scout|ela|agent/i.test(titel) ? 1 : 0;
+  const phasen = [
+    ['01 Eingang', 'Neuer Stand', 'Commits · Wissen · Audit'],
+    ['02 Scout', 'Ela Voss', 'eine kleine Aufgabe wählen'],
+    ['03 Architektur', 'Ada Brenner', 'Grenzen und Folgen prüfen'],
+    ['04 Umsetzung', 'Timo Rast', 'kleinen Patch schreiben'],
+    ['05 Review', 'Kito Sarr', 'unabhängig gegenprüfen'],
+    ['06 Gates', 'Testsuite', 'Syntax · Katalog · Playwright'],
+    ['07 Lieferung', 'PR → Deploy', 'reversibel ausrollen'],
+  ];
+  const jetzt = Date.now();
+  const bis = 5 - (new Date(jetzt).getMinutes() % 5) || 5;
+  el.innerHTML = `
+    <div class="neural-ops-head">
+      <b>⚡ Operativer Strom · ${escHtml(titel)}</b>
+      <span>HQ-Puls jede Minute · nächste kostenlose Prüfung in ≤ ${bis} Min.</span>
+    </div>
+    <div class="neural-flow">
+      ${phasen.map((p, i) => `<div class="neural-step ${i === aktuell ? 'aktiv' : (aktiv && i < aktuell ? 'erledigt' : '')}">
+        <span class="n-num">${p[0]}</span><b>${p[1]}</b><small>${p[2]}</small>
+      </div>`).join('')}
+    </div>`;
 }
 
 /** Ebene wechseln — Übersicht ⇄ Bereich. */
@@ -2464,14 +2530,14 @@ window.addEventListener('DOMContentLoaded', init);
   <div id="eb-circle-panel" role="dialog" aria-label="EB Circle">
     <div class="ebc-head">
       <span class="ebc-dot"></span>
-      <div><b>EB Circle</b><small id="ebc-state">Bereit · lokal, ohne externe KI</small></div>
+      <div><b>EB Circle Voice</b><small id="ebc-state">Bereit · OpenRouter preisoptimiert</small></div>
       <button class="ebc-x" id="ebc-close" aria-label="Schließen">×</button>
     </div>
     <div class="ebc-log" id="ebc-log"></div>
     <div class="ebc-row">
       <input id="ebc-input" placeholder="Frag mich etwas — oder sprich…" autocomplete="off">
       <button class="ebc-btn" id="ebc-mic" title="Sprechen (Mikrofon)" aria-label="Sprechen">🎙️</button>
-      <button class="ebc-btn" id="ebc-speak" title="Antworten vorlesen" aria-label="Vorlesen">🔊</button>
+      <button class="ebc-btn on" id="ebc-speak" title="Antworten werden vorgelesen" aria-label="Vorlesen">🔊</button>
       <button class="ebc-btn" id="ebc-gaps" title="Wissenslücken als Datei sichern" aria-label="Wissenslücken exportieren">⬇︎</button>
     </div>
     <div class="ebc-hint" id="ebc-hint"></div>
@@ -2486,8 +2552,9 @@ window.addEventListener('DOMContentLoaded', init);
    Beantwortet Fragen aus derselben Wissensbasis wie die Website
    (assets/eb-knowledge.json, erzeugt aus dem Vault, nur share:public)
    und kennt zusätzlich den Live-Zustand des HQ.
-   Spracheingabe/-ausgabe laufen über die Web-Speech-API des Browsers —
-   kein externer Dienst, keine Tokens, nichts verlässt das Gerät.
+   Spracheingabe und Ausgabe laufen über die Web-Speech-API des Browsers.
+   Im Voice-Modus formuliert OpenRouter die Antwort serverseitig; Schlüssel,
+   Rollenbudget und Preisgrenzen bleiben außerhalb des Browsers.
    ══════════════════════════════════════════════════════════════════ */
 (function () {
   var circle = document.getElementById('eb-circle');
@@ -2500,13 +2567,37 @@ window.addEventListener('DOMContentLoaded', init);
   var stateEl = document.getElementById('ebc-state');
   var hintEl = document.getElementById('ebc-hint');
 
-  var KB = null, speakOn = false, rec = null, listening = false;
+  var KB = null, speakOn = true, rec = null, listening = false;
+  var voiceMode = false, asking = false, conversation = [], preferredVoice = null;
   var esc = function (t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; };
+
+  // Das Transkript gehört zum neuronalen Kern, nicht in einen schwebenden
+  // Chat-Knopf am unteren Seitenrand.
+  var neuralHost = document.getElementById('neural');
+  if (neuralHost && panel.parentNode !== neuralHost) neuralHost.appendChild(panel);
+
+  function voiceState(text, klasse) {
+    stateEl.textContent = text;
+    ['hoert', 'denkt', 'spricht'].forEach(function (k) { nnZustand(k, k === klasse); });
+    var orbText = document.getElementById('nn-orb-text');
+    if (orbText) orbText.textContent = klasse === 'hoert' ? 'ich höre' : klasse === 'denkt' ? 'denkt' : klasse === 'spricht' ? 'antwortet' : 'sprechen';
+  }
+
+  function chooseVoice() {
+    if (!window.speechSynthesis) return null;
+    var voices = speechSynthesis.getVoices() || [];
+    var deutsch = voices.filter(function (v) { return /^de([-_]|$)/i.test(v.lang || ''); });
+    preferredVoice = deutsch.find(function (v) { return /natural|premium|enhanced|google|microsoft/i.test(v.name || ''); })
+      || deutsch[0] || voices[0] || null;
+    return preferredVoice;
+  }
+  chooseVoice();
+  if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = chooseVoice;
 
   fetch(hqAsset('assets/eb-knowledge.json'), { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (k) { KB = (k && Array.isArray(k.entries)) ? k : null;
-      hintEl.textContent = KB ? (KB.entries.length + ' Wissens-Abschnitte geladen · Antworten nur aus freigegebenem Wissen')
+      hintEl.textContent = KB ? (KB.entries.length + ' Wissens-Abschnitte geladen · Voice ergänzt preisoptimiert über OpenRouter')
                               : 'Wissensbasis nicht erreichbar — HQ-Status funktioniert trotzdem.'; })
     .catch(function () { hintEl.textContent = 'Wissensbasis nicht erreichbar.'; });
 
@@ -2619,69 +2710,81 @@ window.addEventListener('DOMContentLoaded', init);
       speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
       u.lang = 'de-DE'; u.rate = 1.02; u.pitch = 1.0;
-      u.onstart = function () { circle.classList.add('speaking'); nnZustand('spricht', true); };
-      u.onend = function () { circle.classList.remove('speaking'); nnZustand('spricht', false); };
+      u.voice = preferredVoice || chooseVoice();
+      u.onstart = function () { circle.classList.add('speaking'); voiceState('Antwortet · ' + (u.voice ? u.voice.name : 'deutsche Systemstimme'), 'spricht'); };
+      u.onend = function () {
+        circle.classList.remove('speaking'); voiceState('Bereit · OpenRouter preisoptimiert', null);
+        if (voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 260);
+      };
+      u.onerror = function () { circle.classList.remove('speaking'); voiceState('Sprachausgabe gestoppt', null); };
       speechSynthesis.speak(u);
     } catch (e) {}
   }
 
-  /**
-   * Antworten.
-   *
-   * Reihenfolge mit Absicht: Wissenslücken und HQ-Status kennt nur der Browser,
-   * die beantwortet er selbst. Alles andere geht — falls ein Modell hinterlegt
-   * ist — als GESPRÄCH an den Serverseiten-Proxy, mit den lokal gefundenen
-   * Abschnitten als Kontext. Ohne Schlüssel bleibt es bei der Stichwortsuche.
-   *
-   * Die Auswahl des Wissens bleibt im Browser. Der Server bekommt nur, was
-   * ohnehin freigegeben ist — und nie die ganze Wissensbasis.
-   */
-  async function ask(q) {
-    q = String(q || '').trim(); if (!q) return;
-    add('me', esc(q));
-
-    var g = gaps(q);
-    if (g) { add('ai', esc(g).replace(/\n/g, '<br>')); say(g); return; }
-    var status = hqStatus(q);
-    if (status) { add('ai', esc(status)); say(status); return; }
-
-    var treffer = topTreffer(q, 4);
-    var warte = add('ai', '<span class="ebc-denkt">denkt nach …</span>');
-
+  function rememberGap(q) {
     try {
-      var res = await fetch('/wp-json/eventboerse/v1/hq/chat', {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frage: q, wissen: treffer.map(function (t) {
-          return { heading: t.heading, text: t.text };
-        }) }),
-      });
-      var j = await res.json();
-      if (j && j.verfuegbar && j.antwort) {
-        warte.innerHTML = esc(j.antwort).replace(/\n/g, '<br>') +
-          '<span class="ebc-src">' + esc(j.modell) + (treffer[0] ? ' · Quelle: ' + esc(treffer[0].title) : '') + '</span>';
-        say(j.antwort);
-        return;
-      }
-    } catch (e) { /* Serverseite nicht erreichbar — unten weiter */ }
-
-    // Rückfall: dieselbe Stichwortsuche wie vorher. Sie ist schwächer, aber
-    // sie erfindet nichts.
-    warte.remove();
-    var hit = treffer[0];
-    if (hit) {
-      var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
-      var head = hit.heading ? '<b>' + esc(hit.heading) + '</b><br>' : '';
-      add('ai', head + esc(txt).replace(/\n/g, '<br>'), hit.title);
-      say((hit.heading ? hit.heading + '. ' : '') + txt);
-      return;
-    }
-    var fb = 'Dazu habe ich nichts Belegtes. Ich antworte nur aus freigegebenem Wissen — ' +
-             'frag mich z. B. nach Provision, Auszahlung, Buchung, Sicherheit oder dem HQ-Status.';
-    add('ai', esc(fb)); say(fb);
+      var list = JSON.parse(localStorage.getItem('eb_kb_misses') || '[]');
+      list.push({ q: String(q).slice(0, 180), at: new Date().toISOString(), source: 'hq-voice' });
+      localStorage.setItem('eb_kb_misses', JSON.stringify(list.slice(-100)));
+    } catch (e) {}
   }
 
-  /* ── Spracheingabe (Web Speech API, lokal im Browser) ───────────── */
+  async function askOpenRouter(q, context) {
+    var res = await fetch('/wp-json/eventboerse/v1/hq/circle', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': HQ_REST_NONCE },
+      body: JSON.stringify({ message: q, context: context || '', history: conversation.slice(-6) })
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok || !data.answer) throw new Error((data && data.message) || 'OpenRouter antwortet nicht.');
+    return data;
+  }
+
+  async function ask(q) {
+    q = String(q || '').trim(); if (!q) return;
+    if (asking) return;
+    asking = true;
+    add('me', esc(q));
+    var g = gaps(q);
+    var status = hqStatus(q);
+    var treffer = topTreffer(q, 4);
+    var hit = treffer[0] || search(q);
+    var localAnswer = g || status || null;
+    if (hit) {
+      var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
+      localAnswer = (hit.heading ? hit.heading + '. ' : '') + txt;
+    }
+    try {
+      // Textfragen mit gutem lokalem Treffer bleiben tokenfrei. Voice und
+      // Wissenslücken bekommen eine kurze, kontextgestützte OpenRouter-Antwort.
+      if (!voiceMode && localAnswer) {
+        add('ai', esc(localAnswer).replace(/\n/g, '<br>'), hit && hit.title);
+        say(localAnswer);
+      } else {
+        voiceState('Denkt · günstigstes passendes Modell', 'denkt');
+        var wissen = treffer.map(function (t) {
+          return (t.heading ? t.heading + ':\n' : '') + String(t.text || '').slice(0, 900);
+        }).join('\n\n---\n\n');
+        var context = [status || '', wissen || localAnswer || '', hit && hit.title ? 'Quelle: ' + hit.title : ''].filter(Boolean).join('\n\n');
+        var data = await askOpenRouter(q, context);
+        conversation.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
+        conversation = conversation.slice(-8);
+        var cost = data.usage && typeof data.usage.cost === 'number' ? ' · $' + data.usage.cost.toFixed(4) : '';
+        hintEl.textContent = (data.model || 'OpenRouter') + cost + ' · Antworten automatisch vorgelesen';
+        add('ai', esc(data.answer), data.model || 'OpenRouter');
+        if (!hit && !g && !status) rememberGap(q);
+        say(data.answer);
+      }
+    } catch (e) {
+      var fb = localAnswer || 'OpenRouter ist gerade nicht erreichbar. Die Frage wurde als Wissenslücke vorgemerkt.';
+      if (!localAnswer) rememberGap(q);
+      add('ai', esc(fb).replace(/\n/g, '<br>'));
+      voiceState('Fallback · freigegebenes Wissen', null);
+      say(fb);
+    } finally { asking = false; }
+  }
+
+  /* ── Spracheingabe über die Web Speech API des Browsers ─────────── */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { micBtn.disabled = true; micBtn.title = 'Spracheingabe wird von diesem Browser nicht unterstützt'; micBtn.style.opacity = .4; }
   function toggleMic() {
@@ -2689,7 +2792,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (listening) { try { rec.stop(); } catch (e) {} return; }
     rec = new SR(); rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false;
     var finalText = '';
-    rec.onstart = function () { listening = true; circle.classList.add('listening'); nnZustand('hoert', true); micBtn.classList.add('on'); stateEl.textContent = 'Hört zu…'; };
+    rec.onstart = function () { listening = true; circle.classList.add('listening'); micBtn.classList.add('on'); voiceState('Hört zu…', 'hoert'); };
     rec.onresult = function (ev) {
       var interim = '';
       for (var i = ev.resultIndex; i < ev.results.length; i++) {
@@ -2698,37 +2801,47 @@ window.addEventListener('DOMContentLoaded', init);
       }
       input.value = (finalText + interim).trim();
     };
-    rec.onerror = function (e) { stateEl.textContent = e.error === 'not-allowed' ? 'Mikrofon nicht erlaubt' : 'Spracheingabe gestoppt'; };
+    rec.onerror = function (e) {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') voiceMode = false;
+      voiceState(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Mikrofon nicht erlaubt' : 'Spracheingabe gestoppt', null);
+    };
     rec.onend = function () {
-      listening = false; circle.classList.remove('listening'); nnZustand('hoert', false); micBtn.classList.remove('on');
-      stateEl.textContent = 'Bereit · lokal, ohne externe KI';
-      var t = input.value.trim(); if (t) { input.value = ''; ask(t); }
+      listening = false; circle.classList.remove('listening'); micBtn.classList.remove('on');
+      voiceState('Bereit · OpenRouter preisoptimiert', null);
+      var t = input.value.trim();
+      if (t) { input.value = ''; ask(t); }
+      else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 350);
     };
     try { rec.start(); } catch (e) {}
   }
 
-  function open() {
+  function open(asVoice) {
+    if (asVoice) voiceMode = true;
     panel.classList.add('open');
     if (!log.childElementCount) {
       var hi = 'Hi Commander. Ich bin der EB Circle. Ich beantworte Fragen zur Plattform aus dem freigegebenen Wissen, kenne den HQ-Status und zeige dir offene Wissenslücken („Wissenslücken"). Tippe oder drück auf das Mikrofon.';
       add('ai', esc(hi));
     }
-    setTimeout(function () { input.focus(); }, 60);
+    if (!voiceMode) setTimeout(function () { input.focus(); }, 60);
   }
-  function close() { panel.classList.remove('open'); try { speechSynthesis.cancel(); } catch (e) {} }
+  function close() {
+    voiceMode = false; panel.classList.remove('open');
+    try { if (rec && listening) rec.stop(); } catch (e) {}
+    try { speechSynthesis.cancel(); } catch (e) {}
+    voiceState('Bereit · OpenRouter preisoptimiert', null);
+  }
 
   circle.addEventListener('click', function () { panel.classList.contains('open') ? close() : open(); });
 
-  /* Der Kreis lebt jetzt im neuronalen Kern, nicht mehr nur unten rechts.
-     Beide Wege führen zur selben Oberfläche — der Knopf in der Ecke bleibt
-     für den schnellen Griff, das Zentrum ist der Ort, an dem man ihn sucht. */
+  /* Der Kreis lebt ausschließlich im neuronalen Kern. */
   window.ebCircleAPI = {
-    oeffnen: function () { panel.classList.contains('open') ? close() : open(); },
+    oeffnen: function () { panel.classList.contains('open') ? close() : open(false); },
     /* Ein Griff für den Kern: öffnen UND zuhören. Wer auf einen sprechenden
        Kreis tippt, will reden — nicht erst ein Textfeld sehen und dann noch
        ein Mikrofon suchen. */
     sprich: function () {
-      if (!panel.classList.contains('open')) open();
+      if (!panel.classList.contains('open')) open(true);
+      else voiceMode = true;
       if (!listening) toggleMic();
     },
     sprechen: toggleMic,

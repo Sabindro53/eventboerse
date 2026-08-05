@@ -164,7 +164,7 @@ const MODELLE = [
     warum: 'Klein und günstig, gut für Klassifikation und konsequente Scope-Begrenzung.',
     weg: 'openrouter',
     schicht: 'openrouter-autopilot.yml',
-    ausloeser: 'Startet jeden autonomen Wochenlauf.',
+    ausloeser: 'Startet im offenen Kostenfenster den nächsten kleinen Verbesserungs-Lauf.',
     gehaltVergleich: 48000,
     vergleichsstelle: 'Content-Redaktion',
   },
@@ -221,7 +221,7 @@ const MODELLE = [
     id: 'kokoro', werkzeuge: [], person: 'Lea Kimm', name: 'Kokoro TTS', anbieter: 'Community', offen: true,
     lizenz: 'Apache 2.0', bereich: 'betrieb',
     rolle: 'Stimme',
-    aufgabe: 'Spricht Lageberichte aus. Heute übernimmt das die Browser-Stimme.',
+    aufgabe: 'Spricht die OpenRouter-Antwort direkt aus dem Zentrum des neuronalen Kerns.',
     warum: 'Klein und natürlich klingend. Der Wechsel kostet genau eine Funktion — '
       + 'der sprechbare Text ist die Datenquelle, nicht die Oberfläche.',
     weg: 'lokal',
@@ -238,7 +238,7 @@ const MODELLE = [
  * Karte, wann sie ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte.
  */
 const SCHICHTEN = {
-  'openrouter-autopilot.yml': { takt: 'mittwochs 02:11 UTC', label: 'OpenRouter Autopilot' },
+  'openrouter-autopilot.yml': { takt: '5-Min.-Prüfung · KI max. stündlich · $0,60/Tag', label: 'OpenRouter Autopilot' },
   'tagesroutine.yml':      { takt: 'täglich 03:17 UTC', label: 'Tagesroutine' },
   'recherche.yml':         { takt: 'donnerstags 06:23 UTC', label: 'Recherche' },
   'claude-improve.yml':    { takt: 'montags 05:00 UTC', label: 'Verbesserungs-Routine' },

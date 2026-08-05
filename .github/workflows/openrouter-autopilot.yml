@@ -1,16 +1,19 @@
 name: OpenRouter Autopilot
+run-name: "🧠 Operationspuls · ${{ github.event.inputs.focus || 'auto' }}"
 
-# Vier getrennte OpenRouter-Rollen setzen einmal pro Woche genau EINE kleine,
-# reversible Website-Verbesserung um. Der Lauf aendert nur eine feste Whitelist
-# risikoarmer Frontend-Dateien. Danach laufen Gate + komplette Playwright-Suite
-# und es entsteht ein normaler PR. Der separate Auto-Merge-Waechter reagiert
-# nur auf einen erfolgreichen Lauf, prueft den PR-Scope nochmals und startet
-# nach dem Merge den normalen IONOS-Deploy explizit.
+# Alle fuenf Minuten prueft ein tokenfreier Takt, ob das naechste Kostenfenster
+# offen ist. Hoechstens einmal pro Stunde arbeiten vier OpenRouter-Rollen an
+# genau EINER kleinen, reversiblen Verbesserung. Lauf- und Tagesbudget stoppen
+# die Modelle zusaetzlich. Danach laufen Gate + komplette Playwright-Suite und
+# es entsteht ein normaler PR. Der separate Auto-Merge-Waechter reagiert nur
+# auf einen erfolgreichen Lauf, prueft den PR-Scope nochmals und startet nach
+# dem Merge den normalen IONOS-Deploy explizit.
 
 on:
   schedule:
-    # Mittwoch 02:11 UTC, bewusst abseits der anderen Routinen.
-    - cron: '11 2 * * 3'
+    # GitHub Actions erlaubt als kuerzesten Zeitplan fuenf Minuten. Der
+    # nachfolgende lokale Cooldown ist kostenlos und verhindert Token-Leerlauf.
+    - cron: '2/5 * * * *'
   workflow_dispatch:
     inputs:
       focus:
@@ -41,7 +44,8 @@ jobs:
     timeout-minutes: 45
     env:
       EB_OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
-      EB_OPENROUTER_RUN_BUDGET_USD: '0.35'
+      EB_OPENROUTER_RUN_BUDGET_USD: '0.12'
+      EB_OPENROUTER_DAILY_BUDGET_USD: '0.60'
       EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
       FOCUS: ${{ github.event.inputs.focus || 'auto' }}
 
@@ -49,15 +53,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 20
+          fetch-depth: 100
+
+      - name: Kostenloses 5-Minuten-Fenster pruefen
+        id: cadence
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Manueller Lauf: Kostenfenster sofort geoeffnet." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Jeder zwoelfte 5-Minuten-Puls darf Modelle aufrufen. Anders als
+          # ein Blick auf den vorherigen Workflow-Lauf kann sich dieses Raster
+          # nicht selbst blockieren, denn auch ausgelassene Pulse zaehlen mit.
+          slot=$(( GITHUB_RUN_NUMBER % 12 ))
+          if [ "$slot" -ne 0 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "5-Minuten-Puls tokenfrei: Kostenfenster $slot/11 noch geschlossen." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Kostenfenster offen: Rollen- und Tagesbudgets entscheiden den Modellaufruf." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Node einrichten
+        if: steps.cadence.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
       - name: OpenRouter-Schluessel pruefen
+        if: steps.cadence.outputs.run == 'true'
         run: |
           if [ -z "$EB_OPENROUTER_API_KEY" ]; then
             echo "::error title=EB_OPENROUTER_API_KEY fehlt::Secret in den Repository-Einstellungen hinterlegen."
@@ -66,12 +94,15 @@ jobs:
           echo "OpenRouter-Schluessel ist vorhanden; sein Wert wird nicht ausgegeben."
 
       - name: Guardrails selbst pruefen
+        if: steps.cadence.outputs.run == 'true'
         run: node scripts/openrouter-agents.mjs --self-test
 
       - name: Scout, Architektur, Umsetzung und Review
+        if: steps.cadence.outputs.run == 'true'
         run: node scripts/openrouter-agents.mjs --focus "$FOCUS"
 
       - name: Ergebnis auswerten
+        if: steps.cadence.outputs.run == 'true'
         id: result
         run: |
           if jq -e '.changed == true' .ai-run/result.json >/dev/null; then
@@ -81,33 +112,33 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Die Agenten haben den Lauf sicher ohne Aenderung beendet." >> "$GITHUB_STEP_SUMMARY"
           fi
-          jq -r '"OpenRouter-Kosten dieses Laufs: $" + (.kosten|tostring)' .ai-run/result.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '"OpenRouter-Kosten dieses Laufs: $" + (.kosten|tostring) + " · Laufbudget $0.12 · Tagesbudget $0.60"' .ai-run/result.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Abhaengigkeiten installieren
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         run: npm ci
 
       - name: Syntax-Gates
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         run: |
           php -l functions.php
           node --check app.js
           node --check scripts/openrouter-agents.mjs
 
       - name: Reproduzierbare Katalog- und Build-Gates
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         run: npm run gate
 
       - name: Playwright-Browser installieren
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Komplette Testsuite
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         run: npm test
 
       - name: Autopilot-Labels sicherstellen
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -125,7 +156,7 @@ jobs:
             }
 
       - name: Autonomen PR erstellen
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         id: pr
         uses: peter-evans/create-pull-request@v7
         with:
@@ -143,7 +174,7 @@ jobs:
             openrouter-autonomous
 
       - name: Ergebnis melden
-        if: steps.result.outputs.changed == 'true'
+        if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
         run: |
           if [ -n "${{ steps.pr.outputs.pull-request-number }}" ]; then
             echo "PR #${{ steps.pr.outputs.pull-request-number }}: ${{ steps.pr.outputs.pull-request-url }}" >> "$GITHUB_STEP_SUMMARY"

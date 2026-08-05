@@ -154,7 +154,7 @@ test.describe('Datendateien erreichbar', () => {
   });
 
   test('Serverseiten-Proxy hält den Schlüssel auf dem Server', () => {
-    // Beide Routen nur für Administratoren.
+    // Alle HQ-Routen nur für Administratoren.
     expect(FUNCTIONS).toMatch(/function eb_hq_proxy_darf/);
     const darf = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_proxy_darf'), FUNCTIONS.indexOf('function eb_hq_proxy_darf') + 260);
     expect(darf).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
@@ -298,6 +298,21 @@ test.describe('CSP: HQ darf mit GitHub sprechen', () => {
   test('die öffentliche Seite bekommt GitHub NICHT erlaubt', () => {
     // Was die Website nicht braucht, soll ihr auch nicht offenstehen.
     expect(csp.oeffentlichOhneGithub, `öffentliches connect-src: ${csp.vorher}`).toBe(true);
+  });
+
+  test('Mikrofon ist nur im admin-geschützten HQ freigegeben', () => {
+    expect(FUNCTIONS).toMatch(/function eb_hq_mikrofon_erlauben/);
+    const hq = FUNCTIONS.slice(
+      FUNCTIONS.indexOf('function eb_serve_hq'),
+      FUNCTIONS.indexOf("add_action( 'template_redirect'", FUNCTIONS.indexOf('function eb_serve_hq'))
+    );
+    expect(hq).toMatch(/eb_hq_mikrofon_erlauben\(\)/);
+    const erlaubnis = FUNCTIONS.slice(
+      FUNCTIONS.indexOf('function eb_hq_mikrofon_erlauben'),
+      FUNCTIONS.indexOf('function eb_serve_hq')
+    );
+    expect(erlaubnis).toMatch(/microphone=\(self\)/);
+    expect(FUNCTIONS).toMatch(/magnetometer=\(\), microphone=\(\)/);
   });
 
   test('Erweiterung hängt nur an der HQ-Auslieferung', () => {
