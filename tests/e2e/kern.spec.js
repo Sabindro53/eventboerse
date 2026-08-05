@@ -154,6 +154,9 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(operations).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
     expect(operations).toMatch(/rolle=\$rolle/);
     expect(operations).toMatch(/5-Minuten-HQ-Rundlauf/);
+    expect(operations).toMatch(/Bestehende Laufzeitspur vorladen/);
+    expect(operations).toMatch(/eb-arbeit\.json\?run=\$\{GITHUB_RUN_ID\}/);
+    expect(operations.indexOf('Bestehende Laufzeitspur vorladen')).toBeLessThan(operations.indexOf('Rolle taskweise arbeiten lassen'));
     expect(operations).toMatch(/select\(\.weg == "openrouter"\)/);
     expect(operations).toMatch(/scripts\/agent\.mjs/);
     expect(operations).toMatch(/assets\/eb-arbeit\.json/);

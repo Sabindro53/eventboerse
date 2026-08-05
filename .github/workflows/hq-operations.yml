@@ -46,6 +46,20 @@ jobs:
       - name: Ensemble-Katalog pruefen
         run: node scripts/models.mjs --check
 
+      - name: Bestehende Laufzeitspur vorladen
+        shell: bash
+        run: |
+          tmp="$(mktemp)"
+          curl --fail --silent --show-error --location --retry 3 --max-time 30 \
+            "https://xn--eventbrse-57a.de/wp-content/themes/eventboerse/assets/eb-arbeit.json?run=${GITHUB_RUN_ID}" \
+            --output "$tmp"
+          if ! jq -e '.version == 1 and (.eintraege | type == "array")' "$tmp" >/dev/null; then
+            echo "Live-Journal ist nicht valide; bestehende Laufzeitspur wird nicht ueberschrieben." >&2
+            exit 1
+          fi
+          mv "$tmp" assets/eb-arbeit.json
+          echo "Bestehende Laufzeitspur mit $(jq '.eintraege | length' assets/eb-arbeit.json) Eintraegen geladen." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Naechste Rolle im Rundlauf bestimmen
         id: cadence
         shell: bash
