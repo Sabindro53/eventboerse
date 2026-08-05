@@ -74,6 +74,7 @@ jobs:
               -x '^\.obsidian/' -x '^\.claude/' -x '^\.claude\.json$' \
               -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
               -x '^js/modules/' -x '^build-app-js\.sh$' \
+              -x '^assets/eb-arbeit\.json$' \
               -x '^package\.json$' -x '^package-lock\.json$' -x '^playwright\.config\.js$' \
               -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' -x '^AGENTS\.md$' \
               -x '^SECURITY\.md$' \
