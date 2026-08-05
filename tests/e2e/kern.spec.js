@@ -148,15 +148,17 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(merge).toMatch(/merge_method: 'squash'/);
   });
 
-  test('Operations-Ensemble arbeitet im 5-Minuten-Rundlauf ehrlich unter Kostenbremse', () => {
+  test('Operations-Ensemble arbeitet bei jedem erreichten Puls vollständig unter Kostenbremse', () => {
     expect(operations).toMatch(/cron:\s*'4\/5 \* \* \* \*'/);
-    expect(operations).toMatch(/GITHUB_RUN_NUMBER - 1\) % anzahl/);
     expect(operations).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
-    expect(operations).toMatch(/rolle=\$rolle/);
+    expect(operations).toMatch(/echo "rolle=alle"/);
+    expect(operations).not.toMatch(/GITHUB_RUN_NUMBER - 1\) % anzahl/);
+    expect(operations).toMatch(/tatsaechlich erreichten Puls das volle Ensemble/);
+    expect(operations).toMatch(/\$0\.003646/);
     expect(operations).toMatch(/5-Minuten-HQ-Rundlauf/);
     expect(operations).toMatch(/Bestehende Laufzeitspur vorladen/);
     expect(operations).toMatch(/eb-arbeit\.json\?run=\$\{GITHUB_RUN_ID\}/);
-    expect(operations.indexOf('Bestehende Laufzeitspur vorladen')).toBeLessThan(operations.indexOf('Rolle taskweise arbeiten lassen'));
+    expect(operations.indexOf('Bestehende Laufzeitspur vorladen')).toBeLessThan(operations.indexOf('Alle Rollen taskweise arbeiten lassen'));
     expect(operations).toMatch(/select\(\.weg == "openrouter"\)/);
     expect(operations).toMatch(/scripts\/agent\.mjs/);
     expect(operations).toMatch(/assets\/eb-arbeit\.json/);
@@ -215,11 +217,37 @@ test.describe('Neuronaler Kern', () => {
       expect(r.text).toContain(heading);
     }
     expect(r.text).toContain('Anzeige sekündlich');
-    expect(r.text).toContain('kompletter Rundlauf ≤ 55 Min.');
+    expect(r.text).toContain('Scheduler-Taktziel 5 Min.');
+    expect(r.text).toContain('alle 11 Rollen je erreichtem Puls');
     expect(r.text).toContain('Jetzt');
-    expect(r.text).toContain('Als Nächstes');
+    expect(r.text).toContain('Nächste Prüfung');
     expect(r.text).toContain('Zuletzt belegt');
     expect(r.text).toContain('Kontingent $0,60/Tag');
+  });
+
+  test('ein echter Operations-Puls aktiviert alle Rollen und Transportwege', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      state.runs = [{
+        path: '.github/workflows/hq-operations.yml',
+        status: 'in_progress',
+        conclusion: null,
+        event: 'schedule',
+        run_number: 99,
+        updated_at: new Date().toISOString(),
+      }];
+      nnZeichnen();
+      renderModelle();
+      return {
+        arbeitendeRollen: document.querySelectorAll('.modell .stand-laeuft').length,
+        transportwege: document.querySelectorAll('.nn-transport').length,
+        aktiveTransportwege: document.querySelectorAll('.nn-transport.nn-live').length,
+        badge: document.getElementById('modelle-badge').textContent,
+      };
+    });
+    expect(r.arbeitendeRollen, 'jeder OpenRouter-Auftrag muss im Vollpuls aktiv sein').toBe(11);
+    expect(r.transportwege).toBe(10);
+    expect(r.aktiveTransportwege, 'jede Hauptkategorie muss den echten Vollpuls zeigen').toBe(10);
+    expect(r.badge).toContain('11 arbeiten gerade');
   });
 
   test('die Dichte des Wissenskerns folgt der echten Wissensbasis', async ({ page }) => {
@@ -469,7 +497,7 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     await page.waitForTimeout(2200);
     const text = await page.evaluate(() => document.getElementById('journal').textContent);
     if (!JOURNAL.eintraege.length) {
-      expect(text, 'ein leeres Journal zeigt die echte Taktung, statt leer zu bleiben').toMatch(/24\/7-Rundlauf.*Alle fünf Minuten/is);
+      expect(text, 'ein leeres Journal zeigt Taktziel und Voll-Ensemble, statt leer zu bleiben').toMatch(/24\/7-Steuerung.*Taktziel von fünf Minuten.*gesamte Ensemble/is);
     } else {
       expect(text).toMatch(/Schichten gearbeitet/);
     }
