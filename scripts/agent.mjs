@@ -263,7 +263,7 @@ async function arbeiten() {
     process.exit(0);
   }
 
-  const text = ((antwort.choices || [])[0] || {}).message?.content || '';
+  const text = String(((antwort.choices || [])[0] || {}).message?.content || '').trim();
   const usage = antwort.usage || {};
   // OpenRouter liefert `cost` je nach Provider direkt. Fehlt es, rechnen wir
   // bewusst mit dem akzeptierten Maximalpreis: lieber Quote zu früh schließen
@@ -272,12 +272,19 @@ async function arbeiten() {
   const completionTokens = zahl(usage.completion_tokens) || 0;
   const kostenUsd = zahl(usage.cost)
     ?? ((promptTokens * 0.30 + completionTokens * 0.90) / 1_000_000);
+  // Manche Provider quittieren einen technisch erfolgreichen Request ohne
+  // Inhalt. Das ist echte Aktivitaet (und kann Kosten verursacht haben), aber
+  // keine fertige Arbeit. Sichtbar als Fehler protokollieren, damit das
+  // Journal valide bleibt und die anderen Rollen trotzdem live erscheinen.
+  const hatErgebnis = Boolean(text);
   const eintrag = await notieren({
     zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
     modell: rolle.name, modellId: antwort.model || rolle.modellId, bereich: rolle.bereich, anlass,
     aufgabe: aktuelleAufgabe, kontingentProzent: anteil,
-    ergebnis: 'fertig',
-    text: String(text).trim().slice(0, 1200),
+    ergebnis: hatErgebnis ? 'fertig' : 'fehler',
+    text: hatErgebnis
+      ? text.slice(0, 1200)
+      : 'Provider lieferte eine leere Antwort — Aufgabe bleibt fuer den naechsten freien Slot eingeplant.',
     dauerMs: Date.now() - begonnen,
     tokens: usage.total_tokens || null,
     promptTokens: promptTokens || null,
@@ -285,7 +292,7 @@ async function arbeiten() {
     kostenUsd: Number(kostenUsd.toFixed(6)),
   });
 
-  console.log(`✓ ${rolle.person} (${rolle.rolle}, ${rolle.name}) — ${eintrag.tokens || '?'} Token, `
+  console.log(`${hatErgebnis ? '✓' : '✗'} ${rolle.person} (${rolle.rolle}, ${rolle.name}) — ${eintrag.tokens || '?'} Token, `
     + `${Math.round(eintrag.dauerMs / 100) / 10}s`);
   console.log('─'.repeat(60));
   console.log(eintrag.text);
