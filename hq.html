@@ -263,6 +263,19 @@
   .wartet-item .w-t { flex: 1; }
   .wartet-item .w-t small { display: block; color: var(--muted); font-size: .7rem; margin-top: .15rem; line-height: 1.5; }
 
+  /* Arbeitsjournal */
+  .journal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: .8rem .9rem; margin-bottom: 1rem; }
+  .journal h5 { font-size: .82rem; margin-bottom: .1rem; }
+  .journal > p { font-size: .72rem; color: var(--muted); margin-bottom: .6rem; line-height: 1.5; }
+  .j-eintrag { display: flex; gap: .6rem; padding: .5rem 0; border-top: 1px solid var(--border); font-size: .75rem; }
+  .j-zeit { flex: 0 0 5.2rem; color: var(--muted); font-size: .68rem; }
+  .j-wer { flex: 0 0 7.5rem; font-weight: 600; }
+  .j-wer small { display: block; font-weight: 400; color: var(--muted); font-size: .66rem; }
+  .j-text { flex: 1; min-width: 0; line-height: 1.5; color: var(--text); }
+  .j-text.aus { color: var(--muted); font-style: italic; }
+  .j-punkt { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; margin-top: .35rem; }
+
   /* Mitarbeiter-Karten */
   .modelle-summe { font-size: .78rem; color: var(--text); line-height: 1.6; margin-bottom: 1rem;
     background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--cyan);
@@ -668,6 +681,7 @@
       <div class="section-badge" id="modelle-badge">–</div>
     </div>
     <div class="modelle-summe" id="modelle-summe"></div>
+    <div class="journal" id="journal"></div>
     <div class="modelle" id="modelle-grid"></div>
 
     <!-- Commander HUD -->
@@ -2254,10 +2268,60 @@ function renderModelle() {
           sch ? escHtml(sch.label + ' · ' + sch.takt) : '<i>lokal, kein Zeitplan</i>'}</span></div>
         <div class="modell-zeile"><span class="k">Vergleichsstelle</span><span class="v">${escHtml(m.vergleichsstelle)}${
           m.gehaltVergleich ? ` · <b>${m.gehaltVergleich.toLocaleString('de-DE')} €/Jahr</b>` : ''}</span></div>
+        ${(() => {
+          const j = journalLetzter(m.id);
+          if (!j) return '';
+          const gut = j.ergebnis === 'fertig';
+          return `<div class="modell-zeile"><span class="k">Zuletzt geliefert</span><span class="v"${
+            gut ? '' : ' style="color:var(--muted);font-style:italic"'}>${
+            escHtml(String(j.text || '').replace(/\s+/g, ' ').slice(0, 180))}</span></div>`;
+        })()}
         <div class="modell-warum">${escHtml(m.warum)}</div>
         <div class="modell-weg">${escHtml((wege[m.weg] || {}).label || m.weg)}</div>
       </div>`;
   }).join('');
+}
+
+let nnJournal = null;
+
+/**
+ * Das Arbeitsjournal — wer hat wann tatsächlich etwas getan.
+ *
+ * Einzige Quelle ist `assets/eb-arbeit.json`, geschrieben von
+ * scripts/agent.mjs bei echten Läufen. Ein ausgefallener Lauf steht als
+ * „übersprungen" drin: ein Journal, das nur Erfolge führt, sieht aus wie ein
+ * Betrieb ohne Ausfälle.
+ */
+function renderJournal() {
+  const el = $('journal');
+  if (!el) return;
+  const e = (nnJournal && nnJournal.eintraege) || [];
+  if (!e.length) {
+    el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Noch kein Eintrag. Die Schichten laufen in der '
+      + 'Tagesroutine — sobald <code>EB_OPENROUTER_API_KEY</code> hinterlegt ist, steht hier, '
+      + 'wer was getan hat.</p>';
+    return;
+  }
+  const farbe = { fertig: '#4ade80', uebersprungen: '#6b7280', fehler: '#f87171', abgebrochen: '#fbbf24' };
+  const gearbeitet = e.filter(x => x.ergebnis === 'fertig').length;
+  el.innerHTML = `
+    <h5>📋 Arbeitsjournal <span style="font-weight:400;color:var(--muted);font-size:.72rem">— ${gearbeitet} von ${e.length} Schichten gearbeitet</span></h5>
+    <p>Nur echte Läufe. Ein ausgefallener steht als „übersprungen" hier — ein Journal,
+       das nur Erfolge führt, sieht aus wie ein Betrieb ohne Ausfälle.</p>
+    ${e.slice(0, 12).map(x => `
+      <div class="j-eintrag">
+        <span class="j-punkt" style="background:${farbe[x.ergebnis] || '#6b7280'}"></span>
+        <span class="j-zeit">${escHtml(x.zeit.slice(5, 16).replace('T', ' '))}</span>
+        <span class="j-wer">${escHtml(x.person || x.rolle)}<small>${escHtml(x.rollenname || '')}</small></span>
+        <span class="j-text ${x.ergebnis === 'fertig' ? '' : 'aus'}">${
+          escHtml(String(x.text || '').replace(/\s+/g, ' ').slice(0, 260))}</span>
+      </div>`).join('')}`;
+}
+
+/** Letzter Journaleintrag einer Rolle — für ihre Karte. */
+function journalLetzter(rolleId) {
+  const e = (nnJournal && nnJournal.eintraege) || [];
+  return e.find(x => x.rolle === rolleId) || null;
 }
 
 async function initNeural() {
@@ -2274,9 +2338,14 @@ async function initNeural() {
     nnWissen = (kb.entries || []).length;
   } catch { nnWissen = 0; }
 
+  try {
+    nnJournal = await (await fetch(hqAsset('assets/eb-arbeit.json'), { cache: 'no-store' })).json();
+  } catch { nnJournal = null; }
+
   nnZeichnen();
   renderBereiche();
   renderWartet();
+  renderJournal();
   renderModelle();
 
   // Ohne SpeechRecognition (z. B. Firefox) sagt der Kreis das, statt beim
@@ -2477,6 +2546,34 @@ window.addEventListener('DOMContentLoaded', init);
     return (bestScore >= 5) ? best : null;
   }
 
+  /**
+   * Die besten N Abschnitte — der Kontext fürs Gespräch.
+   *
+   * Dieselbe Bewertung wie search(), nur ohne die Beschränkung auf den einen
+   * Treffer. Ein Modell antwortet besser aus drei passenden Abschnitten als
+   * aus dem einen, der zufällig oben lag.
+   */
+  function topTreffer(q, n) {
+    if (!KB) return [];
+    var qs = toks(q); if (!qs.length) return [];
+    var bewertet = [];
+    KB.entries.forEach(function (e) {
+      var hay = (e.title + ' ' + e.heading + ' ' + e.text).toLowerCase();
+      var sc = 0, hits = 0;
+      qs.forEach(function (w) {
+        if (inText((e.heading || '').toLowerCase(), w)) { sc += 6; hits++; }
+        else if ((e.keys || []).indexOf(w) !== -1) { sc += 4; hits++; }
+        else if (inText(hay, w)) { sc += 2; hits++; }
+        else if (w.length >= 8) { for (var L = w.length - 1; L >= 6; L--) { if (hay.indexOf(w.slice(0, L)) !== -1) { sc += 4; hits++; break; } } }
+      });
+      if (!hits) return;
+      bewertet.push({ e: e, sc: sc * (0.5 + hits / qs.length) });
+    });
+    return bewertet.sort(function (a, b) { return b.sc - a.sc; })
+      .filter(function (x) { return x.sc >= 4; })
+      .slice(0, n || 4).map(function (x) { return x.e; });
+  }
+
   /* Wissenslücken (Impuls 6): Fragen, auf die die Bots keine Antwort hatten.
      Sie liegen im localStorage DIESES Browsers — es wird nichts übertragen.
      Damit schliesst sich der Kreis: aus echten Fragen werden neue Notizen. */
@@ -2528,14 +2625,50 @@ window.addEventListener('DOMContentLoaded', init);
     } catch (e) {}
   }
 
-  function ask(q) {
+  /**
+   * Antworten.
+   *
+   * Reihenfolge mit Absicht: Wissenslücken und HQ-Status kennt nur der Browser,
+   * die beantwortet er selbst. Alles andere geht — falls ein Modell hinterlegt
+   * ist — als GESPRÄCH an den Serverseiten-Proxy, mit den lokal gefundenen
+   * Abschnitten als Kontext. Ohne Schlüssel bleibt es bei der Stichwortsuche.
+   *
+   * Die Auswahl des Wissens bleibt im Browser. Der Server bekommt nur, was
+   * ohnehin freigegeben ist — und nie die ganze Wissensbasis.
+   */
+  async function ask(q) {
     q = String(q || '').trim(); if (!q) return;
     add('me', esc(q));
+
     var g = gaps(q);
     if (g) { add('ai', esc(g).replace(/\n/g, '<br>')); say(g); return; }
     var status = hqStatus(q);
     if (status) { add('ai', esc(status)); say(status); return; }
-    var hit = search(q);
+
+    var treffer = topTreffer(q, 4);
+    var warte = add('ai', '<span class="ebc-denkt">denkt nach …</span>');
+
+    try {
+      var res = await fetch('/wp-json/eventboerse/v1/hq/chat', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frage: q, wissen: treffer.map(function (t) {
+          return { heading: t.heading, text: t.text };
+        }) }),
+      });
+      var j = await res.json();
+      if (j && j.verfuegbar && j.antwort) {
+        warte.innerHTML = esc(j.antwort).replace(/\n/g, '<br>') +
+          '<span class="ebc-src">' + esc(j.modell) + (treffer[0] ? ' · Quelle: ' + esc(treffer[0].title) : '') + '</span>';
+        say(j.antwort);
+        return;
+      }
+    } catch (e) { /* Serverseite nicht erreichbar — unten weiter */ }
+
+    // Rückfall: dieselbe Stichwortsuche wie vorher. Sie ist schwächer, aber
+    // sie erfindet nichts.
+    warte.remove();
+    var hit = treffer[0];
     if (hit) {
       var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
       var head = hit.heading ? '<b>' + esc(hit.heading) + '</b><br>' : '';
