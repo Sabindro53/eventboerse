@@ -29,6 +29,45 @@
 .neural-ops-head b { font-size: 0.78rem; }
 .neural-ops-head span { color: var(--muted); font-size: 0.66rem; }
 
+.neural-budget {
+  display: grid;
+  grid-template-columns: max-content minmax(160px, 1fr) max-content;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.035);
+}
+.neural-budget b { color: #fde68a; font-size: 0.66rem; }
+.neural-budget > span { display: flex; height: 7px; overflow: hidden; border-radius: 999px; background: #1e293b; }
+.neural-budget i { display: block; flex: var(--q) 0 0; background: var(--c); opacity: 0.8; }
+.neural-budget small { color: var(--muted); font-size: 0.58rem; }
+
+.neural-task-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.neural-task-grid.detail { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.neural-task {
+  min-width: 0;
+  min-height: 86px;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--task-color);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.neural-task > span { display: block; overflow: hidden; color: var(--task-color); font-size: 0.57rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.neural-task b { display: block; margin: 0.22rem 0; color: var(--text); font-size: 0.62rem; line-height: 1.3; }
+.neural-task small { display: -webkit-box; overflow: hidden; color: var(--muted); font-size: 0.57rem; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.neural-task.standkante-laeuft { box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 24px rgba(34, 211, 238, 0.08); }
+.neural-task.standkante-ok { border-color: rgba(74, 222, 128, 0.32); border-top-color: var(--task-color); }
+.neural-delivery-head { margin-top: 0.1rem; }
+
 .neural-flow {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -104,6 +143,8 @@
 
 @media (max-width: 760px) {
   .neural-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .neural-task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .neural-budget { grid-template-columns: 1fr; gap: 0.4rem; }
   .neural-step:not(:last-child)::after { display: none; }
   .neural #eb-circle-panel { top: 48%; max-height: 70%; }
 }

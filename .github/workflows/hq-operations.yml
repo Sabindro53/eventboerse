@@ -1,0 +1,113 @@
+name: HQ Operations Ensemble
+run-name: "⚡ HQ-Puls · Aufgabenstrom und Kontingent"
+
+# Der Fuenf-Minuten-Puls selbst verbraucht keine Modell-Tokens. Einmal pro
+# Stunde arbeitet jede OpenRouter-Rolle an ihrem eigenen, rotierenden Auftrag.
+# Das Journal wird als echte Laufzeitspur auf main geschrieben und dadurch im
+# HQ ausgeliefert. Kostenbremse und Rollenquoten werden vor JEDEM Aufruf erneut
+# in scripts/agent.mjs geprueft.
+on:
+  schedule:
+    - cron: '4/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hq-operations-ensemble
+  cancel-in-progress: false
+
+jobs:
+  pulse:
+    name: Ensemble-Puls
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EB_OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
+      EB_OPENROUTER_DAILY_BUDGET_USD: '0.60'
+      EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
+
+    steps:
+      - name: Kostenloses Pulsfenster bestimmen
+        id: cadence
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "work=true" >> "$GITHUB_OUTPUT"
+            echo "Manueller Ensemble-Lauf." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          slot=$(( GITHUB_RUN_NUMBER % 12 ))
+          if [ "$slot" -eq 0 ]; then
+            echo "work=true" >> "$GITHUB_OUTPUT"
+            echo "Stundenfenster offen: alle Rollen arbeiten innerhalb ihrer Quote." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "work=false" >> "$GITHUB_OUTPUT"
+            echo "Tokenfreier HQ-Puls $slot/11: Auftraege bleiben eingetaktet, naechstes Stundenfenster folgt." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Repository laden
+        if: steps.cadence.outputs.work == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 40
+
+      - name: Node einrichten
+        if: steps.cadence.outputs.work == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensemble-Katalog pruefen
+        if: steps.cadence.outputs.work == 'true'
+        run: node scripts/models.mjs --check
+
+      - name: Belegten Arbeitskontext bauen
+        if: steps.cadence.outputs.work == 'true'
+        shell: bash
+        run: |
+          mkdir -p .ai-run
+          {
+            echo "LETZTE COMMITS"
+            git log -8 --pretty=format:'%h %s'
+            echo
+            echo "AKTUELLER SPRINT"
+            sed -n '1,180p' vault/50-Evolution/Roadmap/Current-Sprint.md
+            echo
+            echo "LETZTER AUDIT"
+            sed -n '1,160p' audit/latest.json
+          } > .ai-run/ensemble-context.txt
+
+      - name: Alle Rollen taskweise arbeiten lassen
+        if: steps.cadence.outputs.work == 'true'
+        shell: bash
+        run: |
+          while IFS= read -r rolle; do
+            echo "## $rolle" >> "$GITHUB_STEP_SUMMARY"
+            node scripts/agent.mjs \
+              --rolle "$rolle" \
+              --kontext .ai-run/ensemble-context.txt \
+              --anlass "stuendlicher HQ-Operationspuls" | tee -a "$GITHUB_STEP_SUMMARY"
+          done < <(jq -r '.modelle[] | select(.weg == "openrouter") | .id' assets/eb-models.json)
+
+      - name: Journal validieren
+        if: steps.cadence.outputs.work == 'true'
+        run: node scripts/agent.mjs --check
+
+      - name: Echte Laufzeitspur veroeffentlichen
+        if: steps.cadence.outputs.work == 'true'
+        shell: bash
+        run: |
+          if git diff --quiet -- assets/eb-arbeit.json; then
+            echo "Journal unveraendert." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "eventboerse-hq-bot"
+          git config user.email "hq-bot@eventboerse.de"
+          git add assets/eb-arbeit.json
+          git commit -m "chore(hq): echten Operationspuls protokollieren"
+          git pull --rebase origin main
+          git push origin HEAD:main
+

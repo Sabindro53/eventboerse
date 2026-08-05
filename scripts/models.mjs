@@ -37,7 +37,7 @@ const OUT = join(ROOT, 'assets', 'eb-models.json');
 const CHECK = process.argv.includes('--check');
 
 /**
- * Die sechs Bereiche des HQ und ihre Autonomie.
+ * Die zehn Hauptbereiche des HQ und ihre Autonomie.
  *
  * Das Kriterium ist **Reversibilität**, nicht Vorsicht: ein falscher Deploy
  * ist in einer Minute zurückgerollt, eine Überweisung nicht, und ein Beitrag
@@ -49,46 +49,70 @@ const CHECK = process.argv.includes('--check');
  */
 const BEREICHE = [
   {
-    id: 'architektur', label: 'Architektur', emoji: '🧩', farbe: '#a855f7',
-    aufgabe: 'Code lesen, Abhängigkeiten prüfen, Umbauten vorschlagen.',
+    id: 'produkt', label: 'Produkt & Strategie', emoji: '🎯', farbe: '#a855f7',
+    aufgabe: 'Prioritäten, Nutzerwert, Roadmap und Geschäftsmodell zusammenführen.',
     autonomie: 'voll',
-    begruendung: 'Ein Vorschlag ist ein Draft-PR. Nichts davon erreicht die Seite, '
+    begruendung: 'Ein priorisierter Vorschlag ist reversibel. Nichts davon erreicht die Seite, '
       + 'bevor jemand mergt — und ein Merge ist rückholbar.',
   },
   {
-    id: 'betrieb', label: 'Betrieb', emoji: '⚙️', farbe: '#22d3ee',
+    id: 'engineering', label: 'Engineering', emoji: '🧩', farbe: '#8b5cf6',
+    aufgabe: 'Code lesen, Abhängigkeiten prüfen, kleine Umbauten sicher liefern.',
+    autonomie: 'voll',
+    begruendung: 'Codeänderungen laufen durch Review und Tests und werden als rückholbarer Pull Request geliefert.',
+  },
+  {
+    id: 'betrieb', label: 'Betrieb & Zuverlässigkeit', emoji: '⚙️', farbe: '#22d3ee',
     aufgabe: 'Deploys, Tests, Selbstcheck, Erreichbarkeit.',
     autonomie: 'voll',
     begruendung: 'Ein falscher Deploy ist in einer Minute zurückgerollt. '
       + 'Die Testsuite steht als Gate davor.',
   },
   {
-    id: 'intelligence', label: 'Intelligence', emoji: '🧠', farbe: '#f472b6',
-    aufgabe: 'Recherche, Wissensbasis, Wissenslücken, Event-Universum.',
+    id: 'sicherheit', label: 'Sicherheit & Datenschutz', emoji: '🛡️', farbe: '#ef4444',
+    aufgabe: 'Angriffsflächen, Geheimnisse, Rechte, Datenschutz und Missbrauch prüfen.',
+    autonomie: 'voll',
+    begruendung: 'Scans, Klassifikation und blockierende Gates sind reversibel; Sicherheitsgrenzen werden nie automatisch gelockert.',
+  },
+  {
+    id: 'intelligence', label: 'Intelligence & Daten', emoji: '🧠', farbe: '#f472b6',
+    aufgabe: 'Recherche, Wissensbasis, Datenqualität, Wissenslücken und Event-Universum.',
     autonomie: 'voll',
     begruendung: 'Externer Zufluss landet in Quarantäne und erreicht die Website '
       + 'nicht. Die Freigabe auf public bleibt ein menschlicher Commit.',
   },
   {
-    id: 'community', label: 'Community', emoji: '💬', farbe: '#4ade80',
-    aufgabe: 'Beiträge entwerfen, Antworten vorbereiten, Stimmung lesen.',
+    id: 'community', label: 'Community & Support', emoji: '💬', farbe: '#4ade80',
+    aufgabe: 'Fragen bündeln, Antworten vorbereiten, Stimmung und Supportlücken lesen.',
     autonomie: 'vorletzt',
     begruendung: 'Ein Beitrag unter unserem Namen steht im Netz, auch wenn wir ihn '
       + 'löschen. Der Entwurf ist automatisch, das Absenden nicht.',
   },
   {
-    id: 'sales', label: 'Sales', emoji: '📈', farbe: '#fbbf24',
-    aufgabe: 'Anfragen sichten, Angebote vorbereiten, Nachfassen planen.',
+    id: 'sales', label: 'Sales & Wachstum', emoji: '📈', farbe: '#fbbf24',
+    aufgabe: 'Anfragen sichten, Angebote vorbereiten, Funnel und Nachfassen planen.',
     autonomie: 'vorletzt',
     begruendung: 'Eine Zusage an einen Kunden bindet uns. Alles bis dahin läuft '
       + 'ohne Rückfrage.',
   },
   {
-    id: 'finance', label: 'Finance', emoji: '💶', farbe: '#f87171',
-    aufgabe: 'Gebühren rechnen, Auszahlungen vorbereiten, Abweichungen melden.',
+    id: 'finance', label: 'Finanzen & Risiko', emoji: '💶', farbe: '#fb7185',
+    aufgabe: 'Gebühren, Marge, Kontingente und Abweichungen nachvollziehbar prüfen.',
     autonomie: 'vorbereit',
     begruendung: 'Eine Überweisung ist nicht rückholbar. Hier bereitet die Automatik '
       + 'vor und legt vor — auslösen tut ein Mensch.',
+  },
+  {
+    id: 'governance', label: 'Recht & Governance', emoji: '⚖️', farbe: '#f59e0b',
+    aufgabe: 'Regeln, Einwilligungen, Freigaben und Nachweise auf Lücken prüfen.',
+    autonomie: 'vorbereit',
+    begruendung: 'Rechtliche Erklärungen und verbindliche Freigaben brauchen einen Menschen; die KI sammelt und markiert nur.',
+  },
+  {
+    id: 'experience', label: 'Voice & UX', emoji: '🎙️', farbe: '#06b6d4',
+    aufgabe: 'Dialog, Barrierefreiheit, Verständlichkeit und Reaktionszeit verbessern.',
+    autonomie: 'voll',
+    begruendung: 'Lokale Dialog- und Darstellungsverbesserungen sind testbar und über den normalen Releaseweg vollständig rückholbar.',
   },
 ];
 
@@ -106,28 +130,27 @@ const AUTONOMIE_TEXT = {
  * `offen: true` heißt: Gewichte sind frei verfügbar, das Modell ließe sich
  * selbst betreiben. Das ist der Grund, warum es hier steht.
  */
-const MODELLE = [
+const ROH_MODELLE = [
   {
     id: 'llama-arch', werkzeuge: ['github','openrouter'], person: 'Ada Brenner', name: 'Llama 3.3 70B', modellId: 'meta-llama/llama-3.3-70b-instruct', anbieter: 'Meta', offen: true,
-    lizenz: 'Llama Community License', bereich: 'architektur',
-    rolle: 'Architektur-Gegenleser',
-    aufgabe: 'Liest Diffs und benennt, was ein Umbau an anderer Stelle kaputt macht.',
-    warum: 'Großer Kontext, belastbar bei langen Dateien — hier zählt Überblick '
-      + 'mehr als Geschwindigkeit.',
+    lizenz: 'Llama Community License', bereich: 'produkt',
+    rolle: 'Produkt-Stratege',
+    aufgabe: 'Verdichtet Roadmap, Nutzerwert und Risiken zu einer nächsten wirksamen Produktentscheidung.',
+    warum: 'Großer Kontext, belastbar bei langen Roadmaps — hier zählt Überblick mehr als Geschwindigkeit.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
-    ausloeser: 'Plant jeden autonomen Verbesserungs-Lauf gegen.',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Priorisiert im stündlichen Ensemble-Puls den nächsten Produkthebel.',
     gehaltVergleich: 78000,
-    vergleichsstelle: 'Senior-Entwickler:in im Review',
+    vergleichsstelle: 'Senior Product Strategist',
   },
   {
     id: 'deepseek-code', werkzeuge: ['github','openrouter'], person: 'Kito Sarr', name: 'DeepSeek V4 Flash', modellId: 'deepseek/deepseek-v4-flash', anbieter: 'DeepSeek', offen: true,
-    lizenz: 'MIT (Gewichte)', bereich: 'architektur',
+    lizenz: 'MIT (Gewichte)', bereich: 'engineering',
     rolle: 'Unabhängiger Code-Prüfer',
     aufgabe: 'Gibt einen KI-Patch nur mit hoher Sicherheit für die Testsuite frei.',
     warum: 'Auf Code trainiert, findet Klassen von Fehlern, die generische Modelle übersehen.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
+    schicht: 'hq-operations.yml',
     ausloeser: 'Prüft jeden autonomen Patch vor dem Anwenden.',
     gehaltVergleich: 72000,
     vergleichsstelle: 'Code-Reviewer:in',
@@ -135,50 +158,50 @@ const MODELLE = [
   {
     id: 'mistral-ops', werkzeuge: ['deployment','github','openrouter'], person: 'Nils Falk', name: 'Mistral Small 3.2 24B', modellId: 'mistralai/mistral-small-3.2-24b-instruct', anbieter: 'Mistral AI', offen: true,
     lizenz: 'Apache 2.0', bereich: 'betrieb',
-    rolle: 'Architektur-Fallback',
-    aufgabe: 'Übernimmt die Planung, wenn das Primärmodell nicht erreichbar ist.',
-    warum: 'Schnell und günstig. Der Lauf bleibt verfügbar, ohne die Qualitätsgrenze aufzugeben.',
+    rolle: 'Reliability-Wächter',
+    aufgabe: 'Liest Deploy-, Monitor- und Testsignale und benennt den wichtigsten Betriebsengpass.',
+    warum: 'Schnell und günstig; gut für kurze, wiederkehrende Lagebilder ohne langen Denkpfad.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
-    ausloeser: 'Springt bei Modell- oder Provider-Ausfall automatisch ein.',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Prüft im stündlichen Ensemble-Puls Deploys, Tests und Erreichbarkeit.',
     gehaltVergleich: 55000,
     vergleichsstelle: 'DevOps-Bereitschaft',
   },
   {
     id: 'qwen-wissen', werkzeuge: ['openrouter'], person: 'Mira Yun', name: 'Qwen3 30B MoE Instruct', modellId: 'qwen/qwen3-30b-a3b-instruct-2507', anbieter: 'Alibaba', offen: true,
     lizenz: 'Apache 2.0', bereich: 'intelligence',
-    rolle: 'Plan-Gegenleser',
-    aufgabe: 'Übernimmt Architektur und Review, wenn ein Primärmodell ausfällt.',
-    warum: 'Großer Kontext und strukturierte Ausgaben eignen sich für Plan und Gegenprüfung.',
+    rolle: 'Wissens-Analystin',
+    aufgabe: 'Findet Wissenslücken und ordnet neue Signale nach Relevanz für den Event-Marktplatz.',
+    warum: 'Großer Kontext und strukturierte Ausgaben eignen sich für Recherche und Gegenprüfung.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
-    ausloeser: 'Springt bei Modell- oder Provider-Ausfall automatisch ein.',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Prüft im stündlichen Ensemble-Puls Wissen, Datenqualität und neue Signale.',
     gehaltVergleich: 62000,
     vergleichsstelle: 'Marktrecherche',
   },
   {
     id: 'gemma-sort', werkzeuge: ['obsidian','openrouter'], person: 'Ela Voss', name: 'Gemma 3 12B', modellId: 'google/gemma-3-12b-it', anbieter: 'Google', offen: true,
-    lizenz: 'Gemma Terms of Use', bereich: 'intelligence',
-    rolle: 'Verbesserungs-Scout',
-    aufgabe: 'Wählt genau eine kleine, risikoarme Website-Verbesserung aus.',
+    lizenz: 'Gemma Terms of Use', bereich: 'experience',
+    rolle: 'UX-Scout',
+    aufgabe: 'Wählt genau eine kleine, risikoarme Verbesserung für Dialog, Orientierung oder Barrierefreiheit.',
     warum: 'Klein und günstig, gut für Klassifikation und konsequente Scope-Begrenzung.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
-    ausloeser: 'Startet im offenen Kostenfenster den nächsten kleinen Verbesserungs-Lauf.',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Sichtet im stündlichen Puls die nächste klar messbare UX-Verbesserung.',
     gehaltVergleich: 48000,
     vergleichsstelle: 'Content-Redaktion',
   },
   {
     id: 'phi-kurz', werkzeuge: ['openrouter'], person: 'Timo Rast', name: 'Qwen3 Coder 30B', modellId: 'qwen/qwen3-coder-30b-a3b-instruct', anbieter: 'Alibaba', offen: true,
-    lizenz: 'Apache 2.0', bereich: 'community',
+    lizenz: 'Apache 2.0', bereich: 'engineering',
     rolle: 'Patch-Schreiber',
     aufgabe: 'Schreibt einen kleinen Unified-Diff innerhalb der freigegebenen Dateien.',
     warum: 'Auf Code spezialisiert; der Patch bleibt klein und wird nie ungeprüft angewendet.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
+    schicht: 'hq-operations.yml',
     ausloeser: 'Arbeitet erst nach freigegebenem Architekturplan.',
     gehaltVergleich: 44000,
-    vergleichsstelle: 'Community-Betreuung',
+    vergleichsstelle: 'Software-Entwickler:in',
   },
   {
     id: 'mixtral-sales', werkzeuge: ['openrouter'], person: 'Jana Krohn', name: 'Mistral Nemo', modellId: 'mistralai/mistral-nemo', anbieter: 'Mistral AI', offen: true,
@@ -187,8 +210,8 @@ const MODELLE = [
     aufgabe: 'Liest Anfragen und schlägt Kategorie, Dringlichkeit und Preisrahmen vor.',
     warum: 'Mixture-of-Experts: viel Leistung pro Aufruf, ohne ein 70B-Modell zu bezahlen.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
-    ausloeser: 'Springt als günstiger Scout-Fallback ein.',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Sichtet im stündlichen Ensemble-Puls Funnel, Anfragen und Angebotslücken.',
     gehaltVergleich: 58000,
     vergleichsstelle: 'Vertriebsinnendienst',
   },
@@ -200,14 +223,50 @@ const MODELLE = [
     warum: 'Klein und schnell. Die Rechnung selbst macht der Code centgenau — '
       + 'das Modell erklärt nur, was auffällt.',
     weg: 'openrouter',
-    schicht: 'openrouter-autopilot.yml',
-    ausloeser: 'Springt als konservativer Scout-Fallback ein.',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Prüft im stündlichen Ensemble-Puls Gebühren, Budget und Abweichungen.',
     gehaltVergleich: 65000,
     vergleichsstelle: 'Buchhaltung',
   },
   {
+    id: 'llama-guard', werkzeuge: ['github','openrouter'], person: 'Noah Stern', name: 'Llama Guard 4 12B', modellId: 'meta-llama/llama-guard-4-12b', anbieter: 'Meta', offen: true,
+    lizenz: 'Llama Community License', bereich: 'sicherheit',
+    rolle: 'Security-Triage',
+    aufgabe: 'Klassifiziert neue Angriffsflächen, Berechtigungsfehler und riskante Datenflüsse, ohne Grenzen zu lockern.',
+    warum: 'Ein spezialisiertes Guard-Modell ist für wiederholbare Sicherheitsklassifikation geeigneter als ein Generalist.',
+    weg: 'openrouter',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Prüft im stündlichen Ensemble-Puls die nächste offene Sicherheitsfläche.',
+    gehaltVergleich: 76000,
+    vergleichsstelle: 'Security Analyst',
+  },
+  {
+    id: 'nemotron-governance', werkzeuge: ['github','openrouter'], person: 'Rhea Malik', name: 'Nemotron 3 Nano 30B', modellId: 'nvidia/nemotron-3-nano-30b-a3b', anbieter: 'NVIDIA', offen: true,
+    lizenz: 'NVIDIA Open Model License', bereich: 'governance',
+    rolle: 'Governance-Prüferin',
+    aufgabe: 'Markiert fehlende Freigaben, Nachweise und unklare Verantwortlichkeiten zur menschlichen Entscheidung.',
+    warum: 'Strukturierte Ausgaben und großer Kontext passen zu Checklisten, Regeln und Nachweisketten.',
+    weg: 'openrouter',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Prüft im stündlichen Ensemble-Puls Regeln, Einwilligungen und Freigaben.',
+    gehaltVergleich: 70000,
+    vergleichsstelle: 'Governance & Compliance Manager:in',
+  },
+  {
+    id: 'ministral-community', werkzeuge: ['openrouter'], person: 'Lina Okafor', name: 'Ministral 3 8B', modellId: 'mistralai/ministral-8b-2512', anbieter: 'Mistral AI', offen: true,
+    lizenz: 'Apache 2.0', bereich: 'community',
+    rolle: 'Support-Redakteurin',
+    aufgabe: 'Bündelt wiederkehrende Fragen und bereitet eine hilfreiche, unverbindliche Antwort vor.',
+    warum: 'Das kleine Modell reagiert schnell und günstig auf kurze Support- und Community-Signale.',
+    weg: 'openrouter',
+    schicht: 'hq-operations.yml',
+    ausloeser: 'Sichtet im stündlichen Ensemble-Puls neue Fragen und wiederkehrende Unklarheiten.',
+    gehaltVergleich: 46000,
+    vergleichsstelle: 'Customer-Support-Redaktion',
+  },
+  {
     id: 'whisper', werkzeuge: [], person: 'Sena Ilk', name: 'Whisper large-v3', anbieter: 'OpenAI (offene Gewichte)', offen: true,
-    lizenz: 'MIT', bereich: 'intelligence',
+    lizenz: 'MIT', bereich: 'experience',
     rolle: 'Zuhörer',
     aufgabe: 'Wandelt Gesprochenes in Text, wenn die Browser-Erkennung nicht reicht.',
     warum: 'Offene Gewichte, selbst betreibbar. Sprache muss den Rechner nicht verlassen.',
@@ -219,7 +278,7 @@ const MODELLE = [
   },
   {
     id: 'kokoro', werkzeuge: [], person: 'Lea Kimm', name: 'Kokoro TTS', anbieter: 'Community', offen: true,
-    lizenz: 'Apache 2.0', bereich: 'betrieb',
+    lizenz: 'Apache 2.0', bereich: 'experience',
     rolle: 'Stimme',
     aufgabe: 'Spricht die OpenRouter-Antwort direkt aus dem Zentrum des neuronalen Kerns.',
     warum: 'Klein und natürlich klingend. Der Wechsel kostet genau eine Funktion — '
@@ -233,11 +292,80 @@ const MODELLE = [
 ];
 
 /**
+ * Jede externe Rolle hat einen festen Anteil am Tageskontingent und mehrere
+ * konkrete, rotierende Aufträge. Der Katalog enthält damit einen Arbeitsplan,
+ * aber weiterhin keinen erfundenen Laufzeit-Zustand.
+ */
+const ARBEITSPLAENE = {
+  'llama-arch': { anteil: 10, maxTokens: 260, aufgaben: [
+    'Roadmap gegen Nutzerwert prüfen und genau den nächsten Produkthebel benennen.',
+    'Aktuellen Sprint auf Zielkonflikte, fehlende Kennzahl und unnötigen Umfang prüfen.',
+    'Eventbörse und HQ als ein Produkt betrachten und die wichtigste Verbindung priorisieren.',
+  ] },
+  'deepseek-code': { anteil: 12, maxTokens: 260, aufgaben: [
+    'Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen.',
+    'HQ- und Website-Abhängigkeiten auf eine brüchige Schnittstelle prüfen.',
+    'Den nächsten kleinen Patch vor Umsetzung auf Seiteneffekte gegenlesen.',
+  ] },
+  'mistral-ops': { anteil: 8, maxTokens: 180, aufgaben: [
+    'Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten.',
+    'Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen.',
+    'Releaseweg auf den nächsten vermeidbaren Engpass prüfen.',
+  ] },
+  'qwen-wissen': { anteil: 10, maxTokens: 240, aufgaben: [
+    'Freigegebenes Wissen auf die wichtigste unbeantwortete Nutzerfrage prüfen.',
+    'Neue Signale nach Produktnähe und Belegbarkeit einordnen.',
+    'Daten- und Wissensbestand auf Widersprüche oder veraltete Annahmen prüfen.',
+  ] },
+  'gemma-sort': { anteil: 8, maxTokens: 200, aufgaben: [
+    'Eine messbare Voice- oder UX-Reibung für den nächsten kleinen Patch auswählen.',
+    'HQ-Orientierung auf unnötige Schritte und unklare Bezeichnungen prüfen.',
+    'Barrierefreiheit auf eine kleine, risikoarme Verbesserung prüfen.',
+  ] },
+  'phi-kurz': { anteil: 16, maxTokens: 300, aufgaben: [
+    'Den priorisierten, freigegebenen Kleinst-Patch innerhalb des erlaubten Scopes vorbereiten.',
+    'Eine klar eingegrenzte Regression mit minimaler Änderung beheben.',
+    'Eine getestete UX-Verbesserung als kleinen Unified-Diff vorbereiten.',
+  ] },
+  'mixtral-sales': { anteil: 8, maxTokens: 200, aufgaben: [
+    'Anfragen nach Kategorie, Dringlichkeit und nächstem unverbindlichen Schritt strukturieren.',
+    'Funnel auf die größte aktuelle Reibung vor einer Buchung prüfen.',
+    'Eine Angebotslücke mit nachvollziehbarem Geschäftswert benennen.',
+  ] },
+  'llama-finance': { anteil: 6, maxTokens: 180, aufgaben: [
+    'Gebühren- und Kostenannahmen auf eine konkrete Abweichung prüfen.',
+    'KI-Kontingent gegen Tagesbudget und Nutzen pro Aufgabe prüfen.',
+    'Finanzielle Risiken markieren, ohne Zahlungen oder Buchungen auszulösen.',
+  ] },
+  'llama-guard': { anteil: 10, maxTokens: 180, aufgaben: [
+    'Aktuelle Eingabe-, Rechte- und Geheimnisgrenzen auf die höchste Angriffsfläche prüfen.',
+    'Neue Datenflüsse auf Prompt-Injection, übermäßige Rechte und Datenschutzrisiken klassifizieren.',
+    'Die nächste Änderung auf Missbrauchs- und Exfiltrationsrisiken prüfen.',
+  ] },
+  'nemotron-governance': { anteil: 7, maxTokens: 220, aufgaben: [
+    'Freigaben, Einwilligungen und Nachweise auf eine konkrete Governance-Lücke prüfen.',
+    'Eine unklare Verantwortung oder nicht belegte Regel zur menschlichen Prüfung markieren.',
+    'Autonomiegrenzen auf Reversibilität und nachvollziehbare Zuständigkeit prüfen.',
+  ] },
+  'ministral-community': { anteil: 5, maxTokens: 180, aufgaben: [
+    'Wiederkehrende Nutzerfragen bündeln und einen unverbindlichen Antwortentwurf vorbereiten.',
+    'Supportsignale auf die größte Verständlichkeitslücke prüfen.',
+    'Eine hilfreiche Community-Antwort ohne Zusage oder Veröffentlichung vorbereiten.',
+  ] },
+};
+
+const MODELLE = ROH_MODELLE.map((modell) => {
+  const plan = ARBEITSPLAENE[modell.id];
+  return plan ? { ...modell, kontingentProzent: plan.anteil, maxTokens: plan.maxTokens, aufgabenstrom: plan.aufgaben } : modell;
+});
+
+/**
  * Schichten: welcher echte Workflow diese Rolle ausführt. Das HQ liest die
  * letzten Läufe über die Actions-API — dadurch steht auf jeder Mitarbeiter-
  * Karte, wann sie ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte.
  */
 const SCHICHTEN = {
+  'hq-operations.yml':      { takt: 'stündlich · 11 Rollen · hartes $0,60-Tagesbudget', label: 'HQ Operations-Ensemble' },
   'openrouter-autopilot.yml': { takt: '5-Min.-Prüfung · KI max. stündlich · $0,60/Tag', label: 'OpenRouter Autopilot' },
   'tagesroutine.yml':      { takt: 'täglich 03:17 UTC', label: 'Tagesroutine' },
   'recherche.yml':         { takt: 'donnerstags 06:23 UTC', label: 'Recherche' },
@@ -294,6 +422,11 @@ function pruefen() {
     if (!bereichIds.has(m.bereich)) melde(`unbekannter Bereich „${m.bereich}"`);
     if (!WEGE[m.weg]) melde(`unbekannter Weg „${m.weg}"`);
     if (m.weg === 'openrouter' && !m.modellId) melde('OpenRouter-Modell ohne modellId');
+    if (m.weg === 'openrouter') {
+      if (!Number.isFinite(m.kontingentProzent) || m.kontingentProzent <= 0) melde('OpenRouter-Rolle ohne Kontingentanteil');
+      if (!Number.isInteger(m.maxTokens) || m.maxTokens < 100 || m.maxTokens > 400) melde('unplausible Antwortgrenze');
+      if (!Array.isArray(m.aufgabenstrom) || m.aufgabenstrom.length < 3) melde('kein belastbarer Aufgabenstrom');
+    }
     if (typeof m.gehaltVergleich !== 'number') melde('gehaltVergleich fehlt (0 = keine Stelle)');
     // Ein Name macht die Rolle ansprechbar — er darf aber nie verdecken,
     // welches Modell dahintersteht. Beides steht immer zusammen auf der Karte.
@@ -317,6 +450,9 @@ function pruefen() {
   for (const b of BEREICHE) {
     if (!MODELLE.some((m) => m.bereich === b.id)) fehler.push(`${b.id}: kein Modell zugeordnet`);
   }
+  const quote = MODELLE.filter((m) => m.weg === 'openrouter')
+    .reduce((sum, m) => sum + m.kontingentProzent, 0);
+  if (quote !== 100) fehler.push(`OpenRouter-Kontingent ergibt ${quote}% statt 100%`);
   return fehler;
 }
 
