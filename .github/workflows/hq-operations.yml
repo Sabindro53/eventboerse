@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: hq-operations-ensemble
@@ -27,6 +27,9 @@ jobs:
       EB_OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
       EB_OPENROUTER_DAILY_BUDGET_USD: '0.60'
       EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
+      SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
+      SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+      SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
 
     steps:
       - name: Kostenloses Pulsfenster bestimmen
@@ -96,6 +99,10 @@ jobs:
         if: steps.cadence.outputs.work == 'true'
         run: node scripts/agent.mjs --check
 
+      - name: SFTP-Werkzeug einrichten
+        if: steps.cadence.outputs.work == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
       - name: Echte Laufzeitspur veroeffentlichen
         if: steps.cadence.outputs.work == 'true'
         shell: bash
@@ -104,10 +111,19 @@ jobs:
             echo "Journal unveraendert." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          git config user.name "eventboerse-hq-bot"
-          git config user.email "hq-bot@eventboerse.de"
-          git add assets/eb-arbeit.json
-          git commit -m "chore(hq): echten Operationspuls protokollieren"
-          git pull --rebase origin main
-          git push origin HEAD:main
-
+          if [ -z "$SFTP_HOST" ] || [ -z "$SFTP_USER" ] || [ -z "$SFTP_PASS" ]; then
+            echo "SFTP-Zugang fuer die Laufzeitspur fehlt." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          # Laufzeitdaten gehoeren nicht in die geschuetzte Code-Historie.
+          # Diese eine Datei wird atomar in den bereits deployten Theme-Ordner
+          # geladen; Code-Deploys lassen sie deshalb bewusst unangetastet.
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            set net:timeout 60;
+            set net:max-retries 3;
+            put assets/eb-arbeit.json -o /public/wp-content/themes/eventboerse/assets/eb-arbeit.json.neu;
+            mv /public/wp-content/themes/eventboerse/assets/eb-arbeit.json.neu /public/wp-content/themes/eventboerse/assets/eb-arbeit.json;
+            bye
+          "
+          echo "✅ Echte Laufzeitspur direkt im HQ veroeffentlicht." >> "$GITHUB_STEP_SUMMARY"

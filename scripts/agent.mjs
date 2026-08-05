@@ -76,6 +76,10 @@ const AUFTRAG = {
 };
 
 const zahl = (v) => {
+  // OpenRouter verwendet `null` fuer ein nicht gesetztes (also nicht fuer ein
+  // aufgebrauchtes) Schluessellimit. Number(null) waere 0 und wuerde einen
+  // Unlimited-Key faelschlich komplett sperren.
+  if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
