@@ -12,6 +12,8 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..', '..');
 const KATALOG = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-models.json'), 'utf8'));
 const HQ = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
+const HQ_CSS = fs.readFileSync(path.join(ROOT, 'eb-hq-evolution.css'), 'utf8');
+const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 
 test.describe('Ensemble-Katalog', () => {
   test('Prüfung läuft sauber durch', () => {
@@ -96,8 +98,12 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(out).toMatch(/Guardrail-Selbsttest OK/);
     expect(runner).toMatch(/Scout -> Architekt -> Implementierer -> Reviewer/);
     expect(runner).toMatch(/data_collection:\s*'deny'/);
-    expect(runner).toMatch(/runBudget.*0\.35/);
-    expect(runner).toMatch(/for \(const modell of \[spec\.model, \.\.\.spec\.fallbacks\]\)/);
+    expect(runner).toMatch(/runBudget.*0\.12/);
+    expect(runner).toMatch(/dailyBudget.*0\.60/);
+    expect(runner).toMatch(/modellKandidaten/);
+    expect(runner).toMatch(/sort:\s*'price'/);
+    expect(runner).toMatch(/max_price/);
+    expect(runner).toMatch(/for \(const modell of kandidaten\)/);
     expect(runner).toMatch(/ergebnis: 'unbrauchbar'/);
     expect(runner).toMatch(/validiereAgentenJson\(rolle, json\)/);
     expect(runner).toMatch(/nicht portable Validierungs-Schluesselwoerter/);
@@ -114,7 +120,11 @@ test.describe('OpenRouter-Autopilot', () => {
   });
 
   test('Auslieferung braucht erfolgreichen Gesamtlauf und prüft den Scope erneut', () => {
-    expect(workflow).toMatch(/EB_OPENROUTER_RUN_BUDGET_USD:\s*'0\.35'/);
+    expect(workflow).toMatch(/cron:\s*'2\/5 \* \* \* \*'/);
+    expect(workflow).toMatch(/EB_OPENROUTER_RUN_BUDGET_USD:\s*'0\.12'/);
+    expect(workflow).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
+    expect(workflow).toMatch(/steps\.cadence\.outputs\.run/);
+    expect(workflow).toMatch(/GITHUB_RUN_NUMBER % 12/);
     expect(workflow).toMatch(/npm run gate/);
     expect(workflow).toMatch(/npm test/);
     expect(merge).toMatch(/workflow_run:/);
@@ -131,10 +141,13 @@ test.describe('Neuronaler Kern', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2200);
+    // initNeural() folgt bewusst auf die echten HQ-Lader. Auf langsameren
+    // Rechnern ist eine feste Pause deshalb ein Zufallstest; der Bereichsring
+    // ist das belastbare Signal, dass Kern, Karten und Grenzen fertig sind.
+    await expect(page.locator('[data-bereich]')).toHaveCount(6, { timeout: 12000 });
   });
 
-  test('Kern zeichnet drei Ebenen: Bereiche, Mitarbeiter, Werkzeuge', async ({ page }) => {
+  test('Übersicht zeigt Bereiche und Werkzeuge, Mitarbeiter erst im geöffneten Bereich', async ({ page }) => {
     const r = await page.evaluate(() => ({
       bereiche: document.querySelectorAll('[data-bereich]').length,
       agenten: document.querySelectorAll('[data-modell]').length,
@@ -144,11 +157,29 @@ test.describe('Neuronaler Kern', () => {
       mitarbeiterkarten: document.querySelectorAll('.modell').length,
     }));
     expect(r.bereiche, 'sechs Bereiche im inneren Ring').toBe(6);
-    expect(r.agenten, 'zehn Mitarbeiter im mittleren Ring').toBe(10);
+    expect(r.agenten, 'Mitarbeiter gehören nicht in die Gesamtübersicht').toBe(0);
     expect(r.werkzeuge, 'Werkzeuge im äußeren Ring').toBeGreaterThan(0);
     expect(r.orb).toBe(true);
     expect(r.karten).toBe(6);
     expect(r.mitarbeiterkarten).toBe(10);
+
+    const detail = await page.evaluate(() => {
+      nnOeffne('architektur');
+      return document.querySelectorAll('[data-modell]').length;
+    });
+    expect(detail, 'Mitarbeiter erscheinen nach Öffnen ihrer Hauptkategorie').toBe(2);
+  });
+
+  test('operativer Strom benennt Aufgabe, Rollen und Lieferweg', async ({ page }) => {
+    const r = await page.evaluate(() => ({
+      schritte: document.querySelectorAll('.neural-step').length,
+      text: document.getElementById('neural-ops').textContent,
+    }));
+    expect(r.schritte).toBe(7);
+    for (const heading of ['Eingang', 'Scout', 'Architektur', 'Umsetzung', 'Review', 'Gates', 'Lieferung']) {
+      expect(r.text).toContain(heading);
+    }
+    expect(r.text).toContain('HQ-Puls jede Minute');
   });
 
   test('die Dichte des Wissenskerns folgt der echten Wissensbasis', async ({ page }) => {
@@ -193,6 +224,8 @@ test.describe('Neuronaler Kern', () => {
     // Arbeits-Puls nur, solange ein Workflow in_progress ist.
     expect(HQ).toMatch(/\.neural\.hoert .nn-orb-ring\s*\{\s*animation/);
     expect(HQ).toMatch(/\.nn-node\.arbeitet .nn-ring\s*\{\s*animation/);
+    expect(HQ_CSS).toMatch(/\.neural\.denkt .nn-orb-ring\s*\{\s*animation/);
+    expect(HQ_CSS).toMatch(/\.neural\.spricht #nn-orb/);
 
     // Ohne laufenden Workflow trägt kein Knoten die Arbeits-Klasse.
     const arbeitend = await page.evaluate(() => document.querySelectorAll('.nn-node.arbeitet').length);
@@ -226,12 +259,31 @@ test.describe('Neuronaler Kern', () => {
       window.ebCircleAPI.sprechen = echt;
       return { offen: !!document.querySelector('#eb-circle-panel.open') };
     });
-    expect(r.offen, 'die Sprachoberfläche muss aufgehen').toBe(true);
+    expect(r.offen, 'die zentrale Sprachoberfläche muss aufgehen').toBe(true);
     // Der Aufruf muss beides tun — im Test-Browser gibt es keine echte
     // Spracherkennung, deshalb wird die Verdrahtung im Quelltext geprüft.
     const sprich = HQ.slice(HQ.indexOf('sprich: function'), HQ.indexOf('sprich: function') + 260);
-    expect(sprich).toMatch(/open\(\)/);
+    expect(sprich).toMatch(/open\(true\)/);
     expect(sprich).toMatch(/toggleMic\(\)/);
+    const zentral = await page.evaluate(() => ({
+      parent: document.getElementById('eb-circle-panel').parentElement.id,
+      speakOn: document.getElementById('ebc-speak').classList.contains('on'),
+    }));
+    expect(zentral.parent).toBe('neural');
+    expect(zentral.speakOn, 'Antworten werden im Voice-Modus automatisch gesprochen').toBe(true);
+    expect(HQ_CSS).toMatch(/#eb-circle\s*\{\s*display:\s*none/);
+  });
+
+  test('Voice-Chat nutzt ausschließlich den admin-geschützten Preisrouter', () => {
+    expect(HQ).toMatch(/\/wp-json\/eventboerse\/v1\/hq\/circle/);
+    expect(HQ).toMatch(/'X-WP-Nonce': HQ_REST_NONCE/);
+    expect(FUNCTIONS).toMatch(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\/circle'/);
+    expect(FUNCTIONS).toMatch(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/);
+    expect(FUNCTIONS).toMatch(/'partition'\s*=>\s*'none'/);
+    expect(FUNCTIONS).toMatch(/'max_tokens'\s*=>\s*320/);
+    expect(FUNCTIONS).toMatch(/'max_price'/);
+    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_circle_openrouter'), FUNCTIONS.indexOf("add_action( 'rest_api_init'", FUNCTIONS.indexOf('function eb_hq_circle_openrouter')));
+    expect(fn, 'OpenRouter-Schlüssel darf nicht in der Antwort landen').not.toMatch(/'answer'\s*=>[^\n]*EB_OPENROUTER_API_KEY/);
   });
 
   test('Bereiche klappen in ihr eigenes Teilnetz auf und wieder zu', async ({ page }) => {

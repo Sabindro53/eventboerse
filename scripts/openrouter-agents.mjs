@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
- * OpenRouter-Agenten fuer die autonome, reversible Verbesserung der Website.
+ * OpenRouter-Agenten fuer die autonome, reversible Verbesserung von Website
+ * und HQ. Ein kostenloser Vorfilter im Workflow darf oft laufen; Modelle
+ * werden nur innerhalb harter Lauf- und Tagesbudgets aufgerufen.
  *
  * Vier getrennte Rollen arbeiten nacheinander:
  *   Scout -> Architekt -> Implementierer -> Reviewer.
@@ -40,6 +42,7 @@ const SICHERE_DATEIEN = Object.freeze({
   'js/modules/ui/51-inserat-maske-kalender.js': 'Kalenderdarstellung der Inseratmaske',
   'ui-enhancements.css': 'kleine additive UI-Verbesserungen',
   'mobile-overrides.css': 'mobile, additive Darstellungsregeln',
+  'eb-hq-evolution.css': 'additive, vom Zugang und den Datenpfaden getrennte HQ-Darstellung',
 });
 
 const AGENTEN = Object.freeze({
@@ -47,28 +50,28 @@ const AGENTEN = Object.freeze({
     name: 'Ela Voss · Scout',
     model: 'google/gemma-3-12b-it',
     fallbacks: ['mistralai/mistral-nemo', 'meta-llama/llama-3.1-8b-instruct'],
-    maxTokens: 900,
+    maxTokens: 650,
     temperature: 0.15,
   },
   architect: {
     name: 'Ada Brenner · Architektin',
     model: 'meta-llama/llama-3.3-70b-instruct',
     fallbacks: ['qwen/qwen3-30b-a3b-instruct-2507', 'mistralai/mistral-small-3.2-24b-instruct'],
-    maxTokens: 1500,
+    maxTokens: 1050,
     temperature: 0.1,
   },
   implementer: {
     name: 'Timo Rast · Implementierer',
     model: 'qwen/qwen3-coder-30b-a3b-instruct',
     fallbacks: ['deepseek/deepseek-v4-flash', 'mistralai/codestral-2508'],
-    maxTokens: 5600,
+    maxTokens: 3600,
     temperature: 0.05,
   },
   reviewer: {
     name: 'Kito Sarr · Reviewer',
     model: 'deepseek/deepseek-v4-flash',
     fallbacks: ['meta-llama/llama-3.3-70b-instruct', 'qwen/qwen3-30b-a3b-instruct-2507'],
-    maxTokens: 1400,
+    maxTokens: 900,
     temperature: 0,
   },
 });
@@ -250,6 +253,31 @@ function kostenSchaetzen(antwort, modellPreise) {
   return prompt * (zahl(p.prompt) || 0) + completion * (zahl(p.completion) || 0);
 }
 
+/**
+ * Waehlt innerhalb der fuer eine Rolle vorab geprueften Modelle den
+ * guenstigsten Kandidaten fuer genau diesen Aufruf. Die Rollenqualitaet bleibt
+ * damit eine Code-Entscheidung; der Preis entscheidet nur zwischen passenden
+ * Modellen. OpenRouter sortiert danach auch die Provider dieses Modells nach
+ * Preis. Bei fehlenden Preisen bleibt die deklarierte Reihenfolge erhalten.
+ */
+function modellKandidaten(spec, modellPreise, promptZeichen) {
+  const promptTokens = Math.max(1, Math.ceil(Number(promptZeichen || 0) / 4));
+  return [spec.model, ...spec.fallbacks]
+    .map((modell, index) => {
+      const p = modellPreise.get(modell) || {};
+      const prompt = zahl(p.prompt);
+      const completion = zahl(p.completion);
+      const bekannt = prompt !== null && completion !== null;
+      return {
+        modell,
+        index,
+        kosten: bekannt ? promptTokens * prompt + spec.maxTokens * completion : Number.POSITIVE_INFINITY,
+      };
+    })
+    .sort((a, b) => a.kosten - b.kosten || a.index - b.index)
+    .map((x) => x.modell);
+}
+
 async function apiJson(url, init, timeoutMs = 120000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -279,7 +307,8 @@ async function main(argv = []) {
   const key = process.env.EB_OPENROUTER_API_KEY || '';
   if (!key) throw new Error('EB_OPENROUTER_API_KEY fehlt.');
   const fokus = args.focus === 'auto' ? autoFokus() : args.focus;
-  const runBudget = zahl(process.env.EB_OPENROUTER_RUN_BUDGET_USD) ?? 0.35;
+  const runBudget = zahl(process.env.EB_OPENROUTER_RUN_BUDGET_USD) ?? 0.12;
+  const dailyBudget = zahl(process.env.EB_OPENROUTER_DAILY_BUDGET_USD) ?? 0.60;
   const minRemaining = zahl(process.env.EB_OPENROUTER_MIN_REMAINING_USD) ?? 1;
   const headers = {
     Authorization: `Bearer ${key}`,
@@ -300,6 +329,25 @@ async function main(argv = []) {
   }
   if (remaining === null) {
     console.log(`OpenRouter-Schluessel ohne eigenes Limit; Laufbudget bleibt bei $${runBudget.toFixed(2)}.`);
+  }
+
+  const heute = zahl(kd.usage_daily);
+  if (heute !== null && heute >= dailyBudget) {
+    return ergebnisSchreiben({
+      changed: false,
+      fokus,
+      stopp: 'tagesbudget',
+      scout: {
+        title: 'Tagesbudget erreicht',
+        goal: 'Der OpenRouter-Lauf bleibt tokenfrei, bis das taegliche Kostenfenster wieder frei ist.',
+        why_now: `Heute wurden bereits $${heute.toFixed(4)} des Tagesbudgets von $${dailyBudget.toFixed(2)} verbraucht.`,
+        target_files: [],
+        acceptance: ['Kein Modell wird aufgerufen.', 'Das HQ weist den kostenfreien Stopp aus.'],
+        risk: 'low',
+      },
+      laeufe: [],
+      kosten: 0,
+    });
   }
 
   const modellPreise = new Map((modelInfo.data || []).map((m) => [m.id, m.pricing || {}]));
@@ -323,7 +371,8 @@ async function main(argv = []) {
   async function agent(rolle, schema, system, user) {
     const spec = AGENTEN[rolle];
     const fehler = [];
-    for (const modell of [spec.model, ...spec.fallbacks]) {
+    const kandidaten = modellKandidaten(spec, modellPreise, system.length + user.length);
+    for (const modell of kandidaten) {
       if (ausgegeben >= runBudget) {
         throw new Error(`OpenRouter-Laufbudget von $${runBudget.toFixed(2)} erreicht.`);
       }
@@ -344,8 +393,9 @@ async function main(argv = []) {
           allow_fallbacks: true,
           require_parameters: true,
           data_collection: 'deny',
+          sort: 'price',
+          max_price: { prompt: 0.60, completion: 1.20 },
         },
-        usage: { include: true },
       };
       let antwort;
       try {
@@ -370,6 +420,7 @@ async function main(argv = []) {
         prompt_tokens: zahl(antwort?.usage?.prompt_tokens) || 0,
         completion_tokens: zahl(antwort?.usage?.completion_tokens) || 0,
         kosten_usd: Number(kosten.toFixed(6)),
+        routing: 'rollenfit -> modellpreis -> providerpreis',
         ergebnis: 'unbrauchbar',
       };
       laeufe.push(lauf);
@@ -574,7 +625,9 @@ function nachApplyPruefen(changedFiles, modellDateien) {
 function ergebnisSchreiben(result) {
   mkdirSync(OUT_DIR, { recursive: true });
   const kosten = Number((result.kosten || 0).toFixed(6));
-  const clean = { ...result, kosten };
+  const run_budget = zahl(process.env.EB_OPENROUTER_RUN_BUDGET_USD) ?? 0.12;
+  const daily_budget = zahl(process.env.EB_OPENROUTER_DAILY_BUDGET_USD) ?? 0.60;
+  const clean = { ...result, kosten, run_budget, daily_budget };
   writeFileSync(join(OUT_DIR, 'result.json'), `${JSON.stringify(clean, null, 2)}\n`, 'utf8');
   const body = prBody(clean);
   writeFileSync(join(OUT_DIR, 'pr-body.md'), body, 'utf8');
@@ -597,7 +650,8 @@ function prBody(r) {
     : '';
   return `## OpenRouter-Agentenlauf\n\n`
     + `**Fokus:** \`${r.fokus}\`  \n**Aufgabe:** ${r.scout?.title || '–'}  \n`
-    + `**Kosten dieses Laufs:** $${Number(r.kosten || 0).toFixed(4)} (hartes Limit im Workflow: $0.35)\n\n`
+    + `**Kosten dieses Laufs:** $${Number(r.kosten || 0).toFixed(4)} `
+    + `(Laufbudget: $${Number(r.run_budget || 0.12).toFixed(2)} · Tagesbudget: $${Number(r.daily_budget || 0.60).toFixed(2)})\n\n`
     + `${runUrl ? `**GitHub-Lauf:** ${runUrl}\n\n` : ''}`
     + `${r.scout?.goal || ''}\n\n### Geaenderte Dateien\n\n${files}\n\n`
     + `### Unabhaengiges Review\n\n${review}\n\n`
@@ -646,6 +700,14 @@ function selfTest() {
     patchPruefen(gut.replace('+const demo = 2;', "+fetch('https://example.com');"), ['js/modules/ui/43-showcase.js']);
   } catch { blockiert = true; }
   if (!blockiert) throw new Error('Guardrail-Selbsttest hat verbotenen Netzwerkpfad nicht blockiert.');
+  const preise = new Map([
+    ['teuer/modell', { prompt: '0.000002', completion: '0.000004' }],
+    ['guenstig/modell', { prompt: '0.0000002', completion: '0.0000004' }],
+  ]);
+  const sortiert = modellKandidaten({
+    model: 'teuer/modell', fallbacks: ['guenstig/modell'], maxTokens: 500,
+  }, preise, 4000);
+  if (sortiert[0] !== 'guenstig/modell') throw new Error('Preisrouting waehlt nicht das guenstigste passende Modell.');
   console.log('OpenRouter-Agenten: Guardrail-Selbsttest OK.');
   return { ok: true };
 }

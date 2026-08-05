@@ -71,6 +71,7 @@ jobs:
               'js/modules/ui/51-inserat-maske-kalender.js',
               'ui-enhancements.css',
               'mobile-overrides.css',
+              'eb-hq-evolution.css',
             ]);
             const generated = new Set(['app.js']);
             const files = await github.paginate(github.rest.pulls.listFiles, {
