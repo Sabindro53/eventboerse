@@ -330,6 +330,59 @@ Der Arbeits-Puls am Knoten ist neben dem Hör-Ring die **einzige** zweite
 Dauer-Animation im Kern — und er läuft nur, solange ein Workflow tatsächlich
 `in_progress` ist.
 
+### Die Mitarbeiter arbeiten wirklich
+
+Bis 2026-08-04 waren die Rollen beschrieben, aber niemand rief sie auf — der
+Unterschied zwischen einem Organigramm und einem Betrieb.
+
+`scripts/agent.mjs` lässt eine Rolle ihre Schicht arbeiten: Kontext einsammeln,
+das Modell über OpenRouter aufrufen, Ergebnis ins **Arbeitsjournal**
+(`assets/eb-arbeit.json`) schreiben.
+
+| Wo | Wer | Wann |
+|---|---|---|
+| `tagesroutine.yml` | Lagemelder (Nils Falk) | täglich, fasst den Betriebszustand zusammen |
+| `tagesroutine.yml` | Sortierer (Ela Voss) | täglich, ordnet die Wissenslücken |
+| `pr-check.yml` | Code-Prüfer (Kito Sarr) | bei jedem PR, kommentiert den Diff |
+
+Drei Eigenschaften, die das Ganze tragfähig machen:
+
+**Ohne Schlüssel fällt die Schicht aus, statt zu lügen.** Der Lauf endet mit 0 —
+eine Routine soll nicht rot werden, weil ein optionaler Schlüssel fehlt. Aber
+der Ausfall steht als `uebersprungen` im Journal. Ein Journal, das nur Erfolge
+führt, sieht aus wie ein Betrieb ohne Ausfälle.
+
+**Geheimnisse verlassen den Betrieb nicht.** Vor jedem Aufruf wird der Kontext
+gegen die Verbotsmuster gescannt. Ein Treffer bricht ab und wird notiert —
+lieber gar nicht arbeiten als einen Schlüssel an einen fremden Dienst schicken.
+
+**Die Grenze steht im Auftrag, nicht nur im Dashboard.** Der Entwurfsschreiber
+liest „wird NICHT gesendet", der Anfragen-Sichter „mache keine Zusage", der
+Abweichungs-Melder „löse nichts aus". Ein Modell, das seine Schranke erst
+nachgelagert erfährt, hat sie schon überschritten.
+
+Der Code-Prüfer **kommentiert nur** — der PR wird von ihm nie rot. Ein
+Hinweis, kein Gate.
+
+### Der Kreis führt ein Gespräch
+
+`/wp-json/eventboerse/v1/hq/chat` schickt die Frage zusammen mit den lokal
+gefundenen Abschnitten an ein offenes Modell (Mistral Small 3). Vorher
+beantwortete der Circle Fragen über Stichwort-Treffer — das reicht für „Wie
+hoch ist die Provision?" und scheitert an jeder anders formulierten Frage.
+
+Zwei Grenzen stehen im Systemauftrag selbst:
+
+- Es wird **ausschließlich** aus dem mitgelieferten Wissen geantwortet. Was
+  nicht dasteht, wird als „weiß ich nicht" beantwortet — ein erfundener
+  Provisionssatz wäre schlimmer als keine Antwort.
+- Die Route **liest nur**. Sie löst nichts aus, ändert nichts, deployt nichts.
+
+Die Auswahl des Wissens bleibt im Browser (`topTreffer()`); der Server bekommt
+nur, was ohnehin freigegeben ist, und nie die ganze Wissensbasis. Ohne
+Schlüssel fällt der Kreis auf die Stichwortsuche zurück — schwächer, aber sie
+erfindet nichts.
+
 ### Das Ensemble
 
 `assets/eb-models.json` (aus `scripts/models.mjs`) führt zehn Modelle mit je

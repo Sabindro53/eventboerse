@@ -53,15 +53,41 @@ jobs:
       - name: Selbstcheck erneuern
         run: node scripts/self-audit.mjs
 
+      # ── Die Schichten der KI-Mitarbeiter ───────────────────────────────
+      # Ohne OPENROUTER_API_KEY laufen sie durch, notieren den Ausfall im
+      # Journal und enden mit 0. Eine Routine soll nicht rot werden, weil ein
+      # optionaler Schluessel fehlt — aber auch nicht so tun, als haette
+      # jemand gearbeitet.
+      - name: Lagemelder — Betriebszustand zusammenfassen
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
+        run: |
+          node scripts/lage.mjs > /tmp/lage.txt
+          node scripts/agent.mjs --rolle mistral-ops --kontext /tmp/lage.txt --anlass "Tagesroutine"
+
+      - name: Sortierer — offene Wissensluecken ordnen
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
+        run: |
+          L=vault/50-Evolution/AI-Gedaechtnis/Wissensluecken.md
+          if [ -f "$L" ]; then
+            node scripts/agent.mjs --rolle gemma-sort --kontext "$L" --anlass "Tagesroutine"
+          else
+            echo "Keine Wissensluecken-Liste — der Sortierer hat heute nichts zu tun."
+          fi
+
+      - name: Arbeitsjournal pruefen
+        run: node scripts/agent.mjs --check
+
       - name: Committen, falls geaendert
         run: |
-          if git diff --quiet -- assets/eb-demo-feed.json audit/latest.json; then
-            echo "Keine Aenderung — Feed und Selbstcheck sind aktuell." >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json; then
+            echo "Keine Aenderung — Feed, Selbstcheck und Journal sind aktuell." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name  "Eventboerse Routine"
           git config user.email "noreply@users.noreply.github.com"
-          git add assets/eb-demo-feed.json audit/latest.json
+          git add assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json
           git commit -m "chore(routine): Demo-Feed und Selbstcheck fuer $(date -u +%Y-%m-%d)"
           for i in 1 2 3 4; do
             git push origin HEAD:main && break

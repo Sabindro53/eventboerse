@@ -125,8 +125,52 @@ jobs:
       - name: OpenRouter-Guardrails prüfen
         run: node scripts/openrouter-agents.mjs --self-test
 
+      # Arbeitsjournal: nur echte Läufe, keine Zukunftseinträge, keine
+      # Geheimnisse, kein "fertig" ohne Ergebnis.
+      - name: Arbeitsjournal prüfen
+        run: node scripts/agent.mjs --check
+
       - name: Testsuite ausführen
         run: npx playwright test
+
+      # Der Code-Prüfer (Kito Sarr, DeepSeek-V3) liest den Diff gegen. Er
+      # kommentiert nur — der PR wird davon nie rot. Ohne Schlüssel läuft der
+      # Schritt durch und notiert den Ausfall.
+      - name: Code-Prüfer liest den Diff
+        if: always()
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=50 || true
+          git diff origin/${{ github.base_ref }}...HEAD -- '*.js' '*.php' '*.mjs' > /tmp/diff.txt || true
+          if [ ! -s /tmp/diff.txt ]; then
+            echo "Kein Code-Diff — nichts gegenzulesen."
+            exit 0
+          fi
+          node scripts/agent.mjs --rolle deepseek-code --kontext /tmp/diff.txt \
+            --anlass "PR #${{ github.event.pull_request.number }}" > /tmp/pruefung.txt 2>&1 || true
+          cat /tmp/pruefung.txt
+
+      - name: Befund als Kommentar
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let text = '';
+            try { text = fs.readFileSync('/tmp/pruefung.txt', 'utf8'); } catch { return; }
+            // Ohne Schlüssel steht dort nur die Ausfallmeldung — die muss
+            // niemand als PR-Kommentar lesen.
+            if (!text.includes('─')) return;
+            const body = '## 🔍 Code-Prüfer\n\n' + text.split('─'.repeat(60))[1].trim()
+              + '\n\n---\n_Kito Sarr · DeepSeek-V3 · offene Gewichte. Ein Hinweis, kein Gate._';
+            const { data: c } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number });
+            const alt = c.find(x => x.user.type === 'Bot' && x.body.includes('🔍 Code-Prüfer'));
+            if (alt) await github.rest.issues.updateComment({
+              owner: context.repo.owner, repo: context.repo.repo, comment_id: alt.id, body });
+            else await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
 
       - name: Test-Report hochladen (bei Fehlern)
         if: failure()
