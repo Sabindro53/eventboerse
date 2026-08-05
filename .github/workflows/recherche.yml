@@ -43,10 +43,10 @@ jobs:
 
       - name: API-Key pruefen
         env:
-          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KEY: ${{ secrets.EB_ANTHROPIC_API_KEY }}
         run: |
           if [ -z "$KEY" ]; then
-            echo "::error title=ANTHROPIC_API_KEY fehlt::Bitte in Settings -> Secrets and variables -> Actions hinterlegen."
+            echo "::error title=EB_ANTHROPIC_API_KEY fehlt::Bitte in Settings -> Secrets and variables -> Actions hinterlegen."
             exit 1
           fi
 
@@ -68,7 +68,7 @@ jobs:
       - name: Claude recherchiert
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.EB_ANTHROPIC_API_KEY }}
           claude_args: '--model claude-opus-4-8 --max-turns 40'
           show_full_output: 'true'
           prompt: |
