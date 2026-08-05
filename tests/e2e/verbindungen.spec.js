@@ -19,13 +19,6 @@ const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 const HTACCESS = fs.readFileSync(path.join(ROOT, '.htaccess'), 'utf8');
 
 /**
- * Rumpf einer PHP-Funktion — bis zur nächsten Funktion oder add_action.
- *
- * Feste Zeichenfenster (`.slice(0, 900)`) haben hier schon dreimal gelogen:
- * wächst der Kommentar über der Prüfung, rutscht die Zusicherung aus dem
- * Fenster und der Test wird grün, ohne noch etwas zu prüfen.
- */
-/**
  * PHP-Kommentare entfernen.
  *
  * Eine Zusicherung gegen den Rohtext prüft auch die Kommentare — und ein
@@ -37,6 +30,13 @@ function ohneKommentare(php) {
   return php.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 }
 
+/**
+ * Rumpf einer PHP-Funktion — bis zur nächsten Funktion oder add_action.
+ *
+ * Feste Zeichenfenster (`.slice(0, 900)`) haben hier schon dreimal gelogen:
+ * wächst der Kommentar über der Prüfung, rutscht die Zusicherung aus dem
+ * Fenster und der Test wird grün, ohne noch etwas zu prüfen.
+ */
 function rumpfVon(quelle, name) {
   const von = quelle.indexOf(`function ${name}`);
   if (von === -1) return '';
