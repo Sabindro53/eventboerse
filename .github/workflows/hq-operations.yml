@@ -116,14 +116,15 @@ jobs:
             exit 1
           fi
           # Laufzeitdaten gehoeren nicht in die geschuetzte Code-Historie.
-          # Diese eine Datei wird atomar in den bereits deployten Theme-Ordner
+          # Diese eine Datei wird in den bereits deployten Theme-Ordner
           # geladen; Code-Deploys lassen sie deshalb bewusst unangetastet.
+          # IONOS erlaubt fuer diesen SFTP-Benutzer kein serverseitiges Rename,
+          # deshalb wird wie im bewaehrten Theme-Deploy direkt ueberschrieben.
           lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
             set sftp:auto-confirm yes;
             set net:timeout 60;
             set net:max-retries 3;
-            put assets/eb-arbeit.json -o /public/wp-content/themes/eventboerse/assets/eb-arbeit.json.neu;
-            mv /public/wp-content/themes/eventboerse/assets/eb-arbeit.json.neu /public/wp-content/themes/eventboerse/assets/eb-arbeit.json;
+            put assets/eb-arbeit.json -o /public/wp-content/themes/eventboerse/assets/eb-arbeit.json;
             bye
           "
           echo "✅ Echte Laufzeitspur direkt im HQ veroeffentlicht." >> "$GITHUB_STEP_SUMMARY"
