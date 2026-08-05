@@ -653,8 +653,9 @@
 
   <main>
     <!-- ══ Neuronaler Kern ══════════════════════════════════════════
-         Sechs Bereiche im Ring, in der Mitte der Circle. Die Impulse auf
-         den Bahnen laufen nur, wenn tatsächlich etwas passiert ist. -->
+         Zehn Bereiche im Ring, in der Mitte die Voice-KI. Der laufende
+         Transportstrom zeigt die belegte 24/7-Queue; helle Impulse bleiben
+         einzelnen echten Ereignissen vorbehalten. -->
     <div class="neural" id="neural">
       <div class="neural-head">
         <b>Neuronaler Kern</b>
@@ -667,8 +668,9 @@
         <i style="color:#a855f7">Bereich</i>
         <i style="color:#22d3ee">KI-Mitarbeiter</i>
         <i style="color:#64748b">Werkzeug</i>
-        <i style="color:#4ade80">arbeitet · geprüft</i>
-        <i style="color:#6b7280">Impuls = ein echtes Ereignis</i>
+        <i style="color:#22d3ee">Transport = eingetaktete Queue</i>
+        <i style="color:#4ade80">hell = Modell arbeitet</i>
+        <i style="color:#6b7280">Einzelimpuls = echtes Ergebnis</i>
       </div>
       <div class="neural-ops" id="neural-ops" aria-live="polite"></div>
     </div>
@@ -1266,6 +1268,7 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
+  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Gibt alle fünf Minuten genau einer der elf Rollen ihren echten Modellslot; jede Rolle kommt spätestens nach rund 55 Minuten wieder dran.', workflow: 'hq-operations.yml', schedule: '🟢 24/7 · 1 Rolle/5 Min. · $0,60/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
   { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Prüft alle 5 Minuten tokenfrei; im offenen Kostenfenster liefern Scout, Architekt, Implementierer und Reviewer genau eine kleine Verbesserung.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung · KI max. stündlich · $0,12/Lauf · $0,60/Tag', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
   { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
   { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
@@ -1469,16 +1472,28 @@ async function init() {
   await initConnections();              // Katalog + echte Verbindungsprüfungen
   renderHud();
   if (!window.__ebOperationsTakt) {
-    // Der sichtbare Puls kostet keine Tokens: Texte und Relativzeiten werden
-    // jede Minute lokal erneuert. Echte GitHub-Läufe werden im technisch
-    // passenden Fünf-Minuten-Takt nachgezogen.
-    window.__ebOperationsTakt = setInterval(renderNeuralOps, 60000);
+    // Countdown und Transportbild laufen lokal und kosten keine Tokens.
+    // Das echte Journal wird minütlich nachgezogen; der Workflow selbst gibt
+    // alle fünf Minuten genau einer Rolle einen neuen Modellslot.
+    window.__ebOperationsTakt = setInterval(renderNeuralOps, 1000);
+    window.__ebJournalAbruf = setInterval(async () => {
+      if (document.hidden || state.operationsJournalAbruf) return;
+      state.operationsJournalAbruf = true;
+      try {
+        const neu = await ladeNeuralJournal();
+        if (neu) {
+          nnZeichnen(); renderJournal(); renderModelle();
+          const letzter = nnJournal && nnJournal.eintraege && nnJournal.eintraege[0];
+          if (letzter && letzter.bereich) ebImpuls(letzter.bereich, letzter.ergebnis === 'fertig' ? 'gut' : 'schlecht');
+        }
+      } finally { state.operationsJournalAbruf = false; }
+    }, 60000);
     window.__ebOperationsAbruf = setInterval(async () => {
       if (document.hidden || state.operationsAbruf) return;
       state.operationsAbruf = true;
       try {
         await loadRuns();
-        nnZeichnen(); renderModelle(); renderBots(); renderRuns();
+        nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps();
       } finally { state.operationsAbruf = false; }
     }, 300000);
   }
@@ -1961,40 +1976,116 @@ function nnPos(i, n, weite, hoehe) {
  * Token gibt es keine Läufe — dann steht dort „unbekannt", nicht „bereit".
  */
 function nnAktuelleAufgabe(modell) {
-  const journal = journalLetzter(modell.id);
-  if (journal && journal.aufgabe) return journal.aufgabe;
   const strom = modell.aufgabenstrom || [modell.aufgabe];
   const versatz = (nnKatalog && nnKatalog.modelle || []).findIndex(m => m.id === modell.id);
   return strom[(Math.floor(Date.now() / 3600000) + Math.max(versatz, 0)) % strom.length];
+}
+
+function nnRollen() {
+  return (nnKatalog && nnKatalog.modelle || []).filter(m => m.weg === 'openrouter');
+}
+
+function nnOperationsLauf() {
+  return (state.runs || []).find(r => /hq-operations\.yml$/.test(r.path || '')) || null;
+}
+
+/** Rolle eines Workflow-Laufs. Workflow und UI benutzen dieselbe Formel. */
+function nnRolleImSlot(lauf, versatz) {
+  const rollen = nnRollen();
+  if (!rollen.length) return null;
+  const nummer = Number(lauf && lauf.run_number);
+  if (Number.isFinite(nummer) && nummer > 0) {
+    return rollen[((nummer - 1 + (versatz || 0)) % rollen.length + rollen.length) % rollen.length];
+  }
+  const letzter = ((nnJournal && nnJournal.eintraege) || [])[0];
+  const i = Math.max(0, rollen.findIndex(m => letzter && m.id === letzter.rolle));
+  return rollen[(i + 1 + (versatz || 0)) % rollen.length];
+}
+
+function nnSekundenBisNaechsterSlot() {
+  const d = new Date();
+  const seitStunde = d.getMinutes() * 60 + d.getSeconds();
+  const erster = 4 * 60; // Workflow-Cron: Minute 4, 9, 14, …
+  if (seitStunde < erster) return erster - seitStunde;
+  const vergangen = seitStunde - erster;
+  const rest = 300 - (vergangen % 300);
+  return rest === 0 ? 300 : rest;
+}
+
+function nnRelativ(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.max(0, Math.floor(ms / 60000));
+  if (min < 1) return 'gerade eben';
+  if (min < 60) return `vor ${min} Min.`;
+  if (min < 1440) return `vor ${Math.floor(min / 60)} Std.`;
+  return `vor ${Math.floor(min / 1440)} Tg.`;
+}
+
+/**
+ * Belegtes Betriebsbild. Der Transportstrom darf nur laufen, wenn ein frischer
+ * Actions-Lauf oder ein frischer Journaleintrag den 5-Minuten-Takt bestätigt.
+ */
+function nnBetriebsbild() {
+  const lauf = nnOperationsLauf();
+  const laufend = !!(lauf && (lauf.status === 'in_progress' || lauf.status === 'queued'));
+  const eintraege = (nnJournal && nnJournal.eintraege) || [];
+  const letzter = eintraege[0] || null;
+  const signalZeiten = [lauf && lauf.updated_at, letzter && letzter.zeit, nnJournal && nnJournal.aktualisiert]
+    .filter(Boolean).map(x => new Date(x).getTime()).filter(Number.isFinite);
+  const signal = signalZeiten.length ? Math.max(...signalZeiten) : 0;
+  const alterMin = signal ? (Date.now() - signal) / 60000 : Infinity;
+  const fehlgeschlagen = !!(lauf && lauf.conclusion === 'failure');
+  const gesund = laufend || (!fehlgeschlagen && alterMin <= 18);
+  const warnung = !gesund && alterMin <= 70;
+  const manuell = laufend && lauf && lauf.event !== 'schedule';
+  const aktiv = laufend && !manuell ? nnRolleImSlot(lauf, 0) : null;
+  let naechste = nnRolleImSlot(lauf, laufend && !manuell ? 1 : 1);
+  if (!lauf && letzter) {
+    const rollen = nnRollen();
+    const i = rollen.findIndex(m => m.id === letzter.rolle);
+    if (i >= 0) naechste = rollen[(i + 1) % rollen.length];
+  }
+  return { lauf, laufend, manuell, aktiv, naechste, letzter, signal, alterMin, gesund, warnung };
+}
+
+function nnMinutenBisRolle(modell, bild) {
+  const rollen = nnRollen();
+  const naechste = bild.naechste;
+  if (!rollen.length || !naechste) return null;
+  const start = rollen.findIndex(m => m.id === naechste.id);
+  const ziel = rollen.findIndex(m => m.id === modell.id);
+  if (start < 0 || ziel < 0) return null;
+  const schritte = (ziel - start + rollen.length) % rollen.length;
+  return Math.max(1, Math.ceil((nnSekundenBisNaechsterSlot() + schritte * 300) / 60));
 }
 
 function nnSchichtStand(modell) {
   if (!modell.schicht) {
     return { stand: 'lokal', text: modell.id === 'whisper' ? 'aktiv sobald du sprichst' : 'aktiv beim Antworten', task: modell.aufgabe };
   }
-  const lauf = (state.runs || []).find(r => (r.path || '').endsWith('/' + modell.schicht));
-  if (lauf && (lauf.status === 'in_progress' || lauf.status === 'queued')) {
+  const bild = nnBetriebsbild();
+  const lauf = bild.lauf;
+  if (bild.laufend && (bild.manuell || (bild.aktiv && bild.aktiv.id === modell.id))) {
     return {
       stand: 'laeuft',
-      text: 'Ensemble-Lauf aktiv',
+      text: bild.manuell ? 'Voll-Ensemble arbeitet' : 'arbeitet jetzt · echter Modellslot',
       task: nnAktuelleAufgabe(modell),
       run: lauf,
     };
   }
   const journal = journalLetzter(modell.id);
+  const bis = nnMinutenBisRolle(modell, bild);
   if (!journal) return {
     stand: 'geplant',
-    text: 'Auftrag eingetaktet · nächster Stundenpuls',
+    text: `24/7 eingetaktet${bis ? ` · Slot in ≤ ${bis} Min.` : ''}`,
     task: nnAktuelleAufgabe(modell),
     run: lauf || null,
   };
-  const wann = new Date(journal.zeit);
-  const min = Math.max(0, Math.round((Date.now() - wann.getTime()) / 60000));
-  const rel = min < 2 ? 'gerade eben' : min < 60 ? `vor ${min} Min.` : min < 1440 ? `vor ${Math.round(min / 60)} Std.` : `vor ${Math.round(min / 1440)} Tg.`;
+  const rel = nnRelativ(journal.zeit);
   return {
     stand: journal.ergebnis === 'fertig' ? 'ok' : journal.ergebnis === 'fehler' || journal.ergebnis === 'abgebrochen' ? 'fehler' : 'geplant',
-    text: `${journal.ergebnis === 'fertig' ? 'geliefert' : journal.ergebnis === 'uebersprungen' ? 'Kostenfenster geschützt' : 'Lauf gestoppt'} ${rel}`,
-    task: journal.aufgabe || nnAktuelleAufgabe(modell),
+    text: `${journal.ergebnis === 'fertig' ? 'geliefert' : journal.ergebnis === 'uebersprungen' ? 'Kostenfenster geschützt' : 'Lauf gestoppt'} ${rel}${bis ? ` · wieder ≤ ${bis} Min.` : ''}`,
+    task: nnAktuelleAufgabe(modell),
     run: lauf || null,
   };
 }
@@ -2035,6 +2126,11 @@ function nnKernPunkte(cx, cy, r, anzahl) {
 function nnZeichnen() {
   const svg = $('nn');
   if (!svg || !nnKatalog) return;
+  const bild = nnBetriebsbild();
+  const neural = $('neural');
+  neural.classList.toggle('strom-gesund', bild.gesund);
+  neural.classList.toggle('strom-warnung', !bild.gesund && bild.warnung);
+  neural.classList.toggle('strom-gestoert', !bild.gesund && !bild.warnung);
   const teile = [];
   const defs = `
     <defs>
@@ -2066,7 +2162,13 @@ function nnZeichnen() {
 
   // Kern → Bereich → tatsächlich verwendete Werkzeuge. Die Rollen selbst
   // werden erst im Teilnetz des Bereichs sichtbar.
-  B.forEach(x => teile.push(`<path class="nn-bahn" id="bahn-${x.id}" d="M ${NN_MITTE.x} ${NN_MITTE.y} L ${posB[x.id].x} ${posB[x.id].y}"/>`));
+  B.forEach((x, i) => {
+    const d = `M ${NN_MITTE.x} ${NN_MITTE.y} L ${posB[x.id].x} ${posB[x.id].y}`;
+    const live = bild.aktiv && bild.aktiv.bereich === x.id;
+    const next = bild.naechste && bild.naechste.bereich === x.id;
+    teile.push(`<path class="nn-bahn" id="bahn-${x.id}" d="${d}"/>`);
+    teile.push(`<path class="nn-transport ${live ? 'nn-live' : next ? 'nn-next' : ''}" d="${d}" stroke="${x.farbe}" style="color:${x.farbe};animation-delay:-${(i * .13).toFixed(2)}s"/>`);
+  });
   B.forEach(b => {
     const genutzt = [...new Set(M.filter(m => m.bereich === b.id).flatMap(m => m.werkzeuge || []))];
     genutzt.forEach(w => {
@@ -2132,6 +2234,7 @@ function nnZeichnen() {
 function nnBaum() {
   const b = nnKatalog.bereiche.find(x => x.id === nnEbene);
   const rollen = nnKatalog.modelle.filter(m => m.bereich === b.id);
+  const bild = nnBetriebsbild();
   const teile = [];
   const unten = 396, mitteReihe = 250, oben = 108;
   const bx = 450;
@@ -2155,7 +2258,11 @@ function nnBaum() {
     const farbe = NN_STAND_FARBE[st.stand];
 
     // Bereich → Rolle (gestrichelt, wie die Aufgabenlinien in der Vorlage)
-    teile.push(`<path class="nn-bahn" id="bahn-${m.id}" d="M ${bx} ${unten - 30} L ${x} ${mitteReihe + 20}"/>`);
+    const d = `M ${bx} ${unten - 30} L ${x} ${mitteReihe + 20}`;
+    const live = bild.aktiv && bild.aktiv.id === m.id;
+    const next = bild.naechste && bild.naechste.id === m.id;
+    teile.push(`<path class="nn-bahn" id="bahn-${m.id}" d="${d}"/>`);
+    teile.push(`<path class="nn-transport ${live ? 'nn-live' : next ? 'nn-next' : ''}" d="${d}" stroke="${b.farbe}" style="color:${b.farbe};animation-delay:-${(i * .17).toFixed(2)}s"/>`);
 
     // Rolle → Werkzeuge
     (m.werkzeuge || []).forEach((w, j) => {
@@ -2200,8 +2307,11 @@ function nnKopfzeile() {
 function renderNeuralOps() {
   const el = $('neural-ops');
   if (!el || !nnKatalog) return;
-  const operations = (state.runs || []).find(r => /hq-operations\.yml$/.test(r.path || ''));
-  const opsAktiv = operations && (operations.status === 'in_progress' || operations.status === 'queued');
+  const bild = nnBetriebsbild();
+  const neural = $('neural');
+  neural.classList.toggle('strom-gesund', bild.gesund);
+  neural.classList.toggle('strom-warnung', !bild.gesund && bild.warnung);
+  neural.classList.toggle('strom-gestoert', !bild.gesund && !bild.warnung);
   const run = (state.runs || []).find(r => /openrouter-autopilot\.yml$/.test(r.path || ''));
   const aktiv = run && (run.status === 'in_progress' || run.status === 'queued');
   const schritt = aktiv && state.openrouterJob
@@ -2224,11 +2334,43 @@ function renderNeuralOps() {
     ['06 Gates', 'Testsuite', 'Syntax · Katalog · Playwright'],
     ['07 Lieferung', 'PR → Deploy', 'reversibel ausrollen'],
   ];
-  const jetzt = Date.now();
-  const minute = new Date(jetzt).getMinutes();
-  const bis = 5 - (minute % 5) || 5;
-  const bisStunde = 60 - minute;
-  const rollen = nnKatalog.modelle.filter(m => m.weg === 'openrouter');
+  const rollen = nnRollen();
+  const sekunden = nnSekundenBisNaechsterSlot();
+  const countdown = sekunden >= 60
+    ? `${Math.floor(sekunden / 60)}:${String(sekunden % 60).padStart(2, '0')} Min.`
+    : `${sekunden} Sek.`;
+  const seit24 = Date.now() - 86400000;
+  const journal24 = ((nnJournal && nnJournal.eintraege) || [])
+    .filter(x => new Date(x.zeit).getTime() >= seit24);
+  const geliefert = journal24.filter(x => x.ergebnis === 'fertig').length;
+  const gestoert = journal24.filter(x => x.ergebnis === 'fehler' || x.ergebnis === 'abgebrochen').length;
+  const kosten = journal24.reduce((sum, x) => sum + (Number(x.kostenUsd) || 0), 0);
+  const tokens = journal24.reduce((sum, x) => sum + (Number(x.tokens) || 0), 0);
+  const frischeRollen = new Set(journal24
+    .filter(x => Date.now() - new Date(x.zeit).getTime() <= 70 * 60000)
+    .map(x => x.rolle)).size;
+  const healthClass = bild.gesund ? '' : bild.warnung ? 'warn' : 'down';
+  const healthText = bild.gesund ? '24/7-Rundlauf belegt' : bild.warnung ? 'Puls verspätet' : 'Puls nicht belegt';
+  const aktivModell = bild.aktiv;
+  const naechstesModell = bild.naechste;
+  const letzterModell = bild.letzter && rollen.find(m => m.id === bild.letzter.rolle);
+  const jetztTitel = bild.manuell
+    ? 'Manueller Voll-Ensemble-Lauf aktiv'
+    : aktivModell
+      ? `${aktivModell.person} · ${aktivModell.rolle}`
+      : bild.gesund
+        ? 'Steuerung hält Queue, Budget und Takt synchron'
+        : 'Steuerung wartet auf einen frischen Betriebsbeleg';
+  const jetztTask = aktivModell
+    ? nnAktuelleAufgabe(aktivModell)
+    : naechstesModell
+      ? `Vorbereitet: ${nnAktuelleAufgabe(naechstesModell)}`
+      : 'Der nächste Rollen-Slot konnte noch nicht bestimmt werden.';
+  const zuletztText = bild.letzter
+    ? `${bild.letzter.aufgabe || 'Schichtauftrag'} — ${String(bild.letzter.text || '').replace(/\s+/g, ' ').slice(0, 150)}`
+    : 'Noch kein echter Modelllauf im geladenen Journal.';
+  const letzteJeRolle = new Map();
+  for (const e of journal24) if (!letzteJeRolle.has(e.rolle)) letzteJeRolle.set(e.rolle, e);
   const sichtbare = nnEbene
     ? nnKatalog.modelle.filter(m => m.bereich === nnEbene)
     : nnKatalog.bereiche.map(b => ({
@@ -2243,8 +2385,40 @@ function renderNeuralOps() {
       }));
   el.innerHTML = `
     <div class="neural-ops-head">
-      <b>⚡ Live-Aufgabenstrom · ${opsAktiv ? 'Ensemble-Lauf aktiv' : `${rollen.length} Rollen fest eingetaktet`}</b>
-      <span>Anzeige minütlich · Tokenprüfung in ≤ ${bis} Min. · Arbeitsfenster in ≤ ${bisStunde} Min.</span>
+      <b>⚡ Live-Aufgabenstrom · <span class="neural-health ${healthClass}">${healthText}</span></b>
+      <span>echter Modellslot alle 5 Min. · kompletter Rundlauf ≤ 55 Min. · Anzeige sekündlich</span>
+    </div>
+    <div class="neural-now-grid">
+      <div class="neural-now live">
+        <span class="eyebrow">Jetzt <i>${bild.laufend ? 'Live-Modelllauf' : '24/7-Steuerung'}</i></span>
+        <b>${escHtml(jetztTitel)}</b>
+        <small>${escHtml(jetztTask)}</small>
+      </div>
+      <div class="neural-now next">
+        <span class="eyebrow">Als Nächstes <i>in ${escHtml(countdown)}</i></span>
+        <b>${naechstesModell ? escHtml(`${naechstesModell.person} · ${naechstesModell.rolle}`) : 'Slot wird bestimmt'}</b>
+        <small>${naechstesModell ? escHtml(nnAktuelleAufgabe(naechstesModell)) : 'Katalog oder Laufdaten werden geladen.'}</small>
+      </div>
+      <div class="neural-now last">
+        <span class="eyebrow">Zuletzt belegt <i>${bild.letzter ? escHtml(nnRelativ(bild.letzter.zeit)) : '–'}</i></span>
+        <b>${letzterModell ? escHtml(`${letzterModell.person} · ${bild.letzter.ergebnis}`) : 'Noch kein Journaleintrag'}</b>
+        <small>${escHtml(zuletztText)}</small>
+      </div>
+    </div>
+    <div class="neural-proof" aria-label="Echte Kennzahlen der letzten 24 Stunden">
+      <div><b>${journal24.length}</b><small>echte Modellslots · 24 h</small></div>
+      <div><b>${geliefert}</b><small>Antworten geliefert</small></div>
+      <div><b>${frischeRollen}/${rollen.length}</b><small>Rollen im letzten Rundlauf</small></div>
+      <div><b>${tokens.toLocaleString('de-DE')}</b><small>belegte Token · 24 h</small></div>
+      <div><b>$${kosten.toFixed(4).replace('.', ',')}</b><small>Kosten · ${gestoert} gestoppt/fehlerhaft</small></div>
+    </div>
+    <div class="neural-cycle" aria-label="Rollen-Rundlauf">
+      ${rollen.map(m => {
+        const b = nnKatalog.bereiche.find(x => x.id === m.bereich) || {};
+        const frisch = letzteJeRolle.get(m.id);
+        const next = naechstesModell && naechstesModell.id === m.id;
+        return `<i class="${next ? 'next' : frisch ? 'done' : ''}" style="--cycle-color:${b.farbe || '#64748b'}" title="${escHtml(`${m.person}: ${next ? 'nächster Slot' : frisch ? nnRelativ(frisch.zeit) : 'noch kein 24h-Beleg'}`)}"></i>`;
+      }).join('')}
     </div>
     <div class="neural-budget">
       <b>Kontingent $0,60/Tag</b>
@@ -2255,10 +2429,14 @@ function renderNeuralOps() {
       ${sichtbare.map(m => {
         const b = nnKatalog.bereiche.find(x => x.id === m.bereich) || {};
         const echt = nnKatalog.modelle.find(x => x.id === m.id);
-        const st = echt ? nnSchichtStand(echt) : { stand: opsAktiv ? 'laeuft' : 'geplant', text: opsAktiv ? 'Ensemble-Lauf aktiv' : 'Auftrag eingetaktet', task: nnAktuelleAufgabe(m) };
+        const kandidaten = echt ? [echt] : nnKatalog.modelle.filter(x => x.bereich === m.bereich && x.weg === 'openrouter');
+        const staende = kandidaten.map(x => ({ modell: x, stand: nnSchichtStand(x) }));
+        const fokus = staende.find(x => x.stand.stand === 'laeuft')
+          || staende.sort((a, z) => (nnMinutenBisRolle(a.modell, bild) || 999) - (nnMinutenBisRolle(z.modell, bild) || 999))[0];
+        const st = fokus ? fokus.stand : { stand: 'geplant', text: '24/7 eingetaktet', task: m.aufgabe };
         return `<div class="neural-task standkante-${st.stand}" style="--task-color:${b.farbe || '#64748b'}">
           <span>${b.emoji || '•'} ${escHtml(m.rolle)}</span>
-          ${nnEbene && m.person ? `<b>${escHtml(m.person)} · ${escHtml(st.text)}</b>` : `<b>${escHtml(st.text)}</b>`}
+          ${nnEbene && m.person ? `<b>${escHtml(m.person)} · ${escHtml(st.text)}</b>` : `<b>${fokus && fokus.stand.stand === 'laeuft' ? escHtml(`${fokus.modell.person} arbeitet jetzt`) : escHtml(st.text)}</b>`}
           <small>${escHtml(st.task || m.aufgabe)}</small>
         </div>`;
       }).join('')}
@@ -2367,7 +2545,7 @@ function renderModelle() {
   const arbeiten = nnKatalog.modelle.filter(m => nnSchichtStand(m).stand === 'laeuft').length;
 
   $('modelle-badge').textContent =
-    `${besetzt.length} Rollen eingetaktet${arbeiten ? ` · Ensemble-Lauf für ${arbeiten} Rollen aktiv` : ' · nächster Stundenpuls'}`;
+    `${besetzt.length} Rollen im 24/7-Rundlauf${arbeiten ? ` · ${arbeiten} arbeitet gerade` : ' · jede Rolle spätestens nach 55 Min.'}`;
 
   $('modelle-summe').innerHTML =
     `<b>${summe.toLocaleString('de-DE')} €</b> wäre der Marktwert derselben Aufgaben als `
@@ -2409,6 +2587,17 @@ function renderModelle() {
 
 let nnJournal = null;
 
+async function ladeNeuralJournal() {
+  const vorher = nnJournal && nnJournal.aktualisiert;
+  try {
+    const neu = await (await fetch(hqAsset('assets/eb-arbeit.json'), { cache: 'no-store' })).json();
+    nnJournal = neu;
+    return !!(neu && neu.aktualisiert && neu.aktualisiert !== vorher);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Das Arbeitsjournal — wer hat wann tatsächlich etwas getan.
  *
@@ -2422,8 +2611,9 @@ function renderJournal() {
   if (!el) return;
   const e = (nnJournal && nnJournal.eintraege) || [];
   if (!e.length) {
-    el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge sind eingetaktet. '
-      + 'Der nächste stündliche Ensemble-Lauf schreibt hier ausschließlich echte Antworten, Kostenstopps oder Fehler hinein.</p>';
+    el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge stehen im 24/7-Rundlauf. '
+      + 'Alle fünf Minuten schreibt genau ein echter Modellslot hier eine Antwort, einen Kostenstopp oder einen Fehler hinein; '
+      + 'nach spätestens 55 Minuten war jede Rolle einmal dran.</p>';
     return;
   }
   const farbe = { fertig: '#4ade80', uebersprungen: '#6b7280', fehler: '#f87171', abgebrochen: '#fbbf24' };
@@ -2462,9 +2652,7 @@ async function initNeural() {
     nnWissen = (kb.entries || []).length;
   } catch { nnWissen = 0; }
 
-  try {
-    nnJournal = await (await fetch(hqAsset('assets/eb-arbeit.json'), { cache: 'no-store' })).json();
-  } catch { nnJournal = null; }
+  await ladeNeuralJournal();
 
   nnZeichnen();
   renderBereiche();
