@@ -185,7 +185,7 @@ const CONNECTORS = [
     anbieter: 'OpenAI',
     dienst: 'ChatGPT / OpenAI API',
     logo: '⚡',
-    zweck: 'Operative Planung, Textarbeit — noch nicht angebunden.',
+    zweck: 'Operative Planung und Textarbeit über die OpenAI API.',
     methoden: ['api', 'schluessel'],
     methodeAktiv: 'api',
     hinweisMethode: 'Der Serverseiten-Proxy (/wp-json/eventboerse/v1/hq/probe/openai) prüft '
@@ -208,7 +208,7 @@ const CONNECTORS = [
         + 'jeder API-Antwort. Verbrauch und Guthaben brauchen einen Admin-Schlüssel '
         + 'und stehen weiterhin nur im Dashboard.',
     },
-    geheimnisAblage: 'Server-Konstante EB_OPENAI_API_KEY (opt-in) — noch nicht gesetzt',
+    geheimnisAblage: 'Server-Konstante EB_OPENAI_API_KEY (opt-in; Zustand wird live geprüft)',
     unterscheidung: {
       titel: 'Abonnement ist nicht gleich API-Guthaben',
       punkte: [
