@@ -46,10 +46,10 @@ jobs:
 
       - name: API-Key pruefen
         env:
-          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KEY: ${{ secrets.EB_ANTHROPIC_API_KEY }}
         run: |
           if [ -z "$KEY" ]; then
-            echo "::error title=ANTHROPIC_API_KEY fehlt::Bitte in Settings -> Secrets and variables -> Actions als 'ANTHROPIC_API_KEY' hinterlegen."
+            echo "::error title=EB_ANTHROPIC_API_KEY fehlt::Bitte in Settings -> Secrets and variables -> Actions als 'EB_ANTHROPIC_API_KEY' hinterlegen."
             exit 1
           fi
           echo "API-Key vorhanden."
@@ -73,7 +73,7 @@ jobs:
       - name: Claude setzt Verbesserung um
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.EB_ANTHROPIC_API_KEY }}
           # Pin the model: the action's default resolves to the 1M-context
           # variant (opus-4-8[1m]), which not every API tier can access and
           # then fails instantly. Plain opus-4-8 works on standard tiers.
