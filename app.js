@@ -19154,6 +19154,7 @@ function deleteBoardCard(cardId) {
   _saveBoardProjects();
   renderKanban(project);
   _updateBoardStats(project);
+  showToast('Dienstleister entfernt', 'delete');
 }
 
 function editBoardCard(cardId) {
@@ -19507,14 +19508,14 @@ function renderFeed(tab) {
   if (tab === 'events') {
     var eventPosts = visiblePosts.filter(function(p) { return p.type === 'event' || p.type === 'ankuendigung'; });
     list.innerHTML = eventPosts.length ? eventPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
-      '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Events oder Ankündigungen</div>';
+      _feedEmptyState('celebration', 'Noch keine Events', 'Hier erscheinen Events und Ankündigungen aus der Community.', 'Event teilen');
     return;
   }
 
   if (tab === 'gesuche') {
     var searchPosts = visiblePosts.filter(function(p) { return p.type === 'suche-dienstleister' || p.type === 'suche-events'; });
     list.innerHTML = searchPosts.length ? searchPosts.map(function(p) { return renderSocialPostCard(p); }).join('') :
-      '<div style="text-align:center;padding:40px;color:var(--text-light)">Noch keine Gesuche – erstelle das erste!</div>';
+      _feedEmptyState('person_search', 'Noch keine Gesuche', 'Suchst du einen Dienstleister oder ein Event? Erstelle das erste Gesuch.', 'Gesuch erstellen');
     return;
   }
 
@@ -19563,6 +19564,31 @@ function renderFeed(tab) {
     }
     list.innerHTML = mixed.join('');
   }
+
+  // Empty-State für Haupt-Tabs (foryou/newest/popular), falls weder Inserate
+  // noch Beiträge vorhanden sind (z. B. wenn Demo-Daten ausgeblendet sind).
+  if (!list.innerHTML.trim()) {
+    list.innerHTML = _feedEmptyState('dynamic_feed', 'Hier ist noch nichts los',
+      'Sei der Erste: Teile einen Beitrag, ein Gesuch oder dein Event mit der Community.',
+      'Beitrag erstellen', 'browse');
+  }
+}
+
+// Wiederverwendbarer Feed-Empty-State (Icon, Titel, Text, CTA-Label, optional
+// zweite "Entdecken"-CTA, wenn ein Browse-Ziel übergeben wird).
+function _feedEmptyState(icon, title, msg, ctaLabel, browseTarget) {
+  var secondary = browseTarget
+    ? '<button class="btn-outline" onclick="navigateTo(\'' + browseTarget + '\')"><span class="material-icons-round">search</span> Dienstleister entdecken</button>'
+    : '';
+  return '<div class="feed-empty-state">' +
+      '<span class="material-icons-round feed-empty-icon">' + icon + '</span>' +
+      '<h3>' + _escHtml(title) + '</h3>' +
+      '<p>' + _escHtml(msg) + '</p>' +
+      '<div class="feed-empty-actions">' +
+        '<button class="btn-primary" onclick="openCreatePostModal()"><span class="material-icons-round">add</span> ' + _escHtml(ctaLabel) + '</button>' +
+        secondary +
+      '</div>' +
+    '</div>';
 }
 
 function renderSocialPostCard(post) {

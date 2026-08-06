@@ -10135,6 +10135,37 @@ body.dark-mode .bpc-delete-btn:hover {
 }
 .board-empty-state h3 { font-size: 20px; color: var(--dark); margin-bottom: 8px; }
 
+/* ─── Feed Empty-State (alle Feed-Tabs) ─── */
+.feed-empty-state {
+  text-align: center;
+  padding: 56px 24px;
+  color: var(--text-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.feed-empty-state .feed-empty-icon {
+  font-size: 56px;
+  opacity: 0.18;
+  margin-bottom: 10px;
+}
+.feed-empty-state h3 { font-size: 19px; color: var(--dark); margin: 0; }
+.feed-empty-state p { max-width: 360px; margin: 0 0 6px; line-height: 1.5; }
+.feed-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.feed-empty-actions .btn-primary,
+.feed-empty-actions .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ─── Sectioned Board (Eigene Projekte + Auftragsboard) ─── */
 /* Hinweis: KEIN !important auf display, sonst kann openBoardProject() die
    Liste nicht per inline style="display:none" verstecken und das Eventboard
