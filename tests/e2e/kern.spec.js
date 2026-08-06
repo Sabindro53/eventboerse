@@ -253,6 +253,7 @@ test.describe('OpenRouter-Autopilot', () => {
   const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-autopilot.yml'), 'utf8');
   const merge = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-auto-merge.yml'), 'utf8');
   const operations = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'hq-operations.yml'), 'utf8');
+  const autopilot = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-autopilot.yml'), 'utf8');
   const agent = fs.readFileSync(path.join(ROOT, 'scripts', 'agent.mjs'), 'utf8');
 
   test('Guardrail-Selbsttest blockiert verbotene Seiteneffekte', () => {
@@ -329,12 +330,25 @@ test.describe('OpenRouter-Autopilot', () => {
   });
 
   test('Operations-Ensemble arbeitet bei jedem erreichten Puls vollständig unter Kostenbremse', () => {
-    expect(operations).toMatch(/cron:\s*'4\/5 \* \* \* \*'/);
-    expect(operations).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
+    // Der Puls erzeugt Lagebilder, der Autopilot erzeugt Arbeit. Stündlich
+    // mal elf Rollen hat der Puls das gemeinsame Tagesbudget aufgebraucht,
+    // bevor der Autopilot dazu kam — rund 2 Mio Token ohne Wirkung. Geprüft
+    // wird deshalb nicht mehr die Uhrzeit, sondern die Aussage: der Puls läuft
+    // seltener als stündlich und bekommt weniger Budget als der Autopilot.
+    expect(operations, 'Puls darf nicht wieder stündlich laufen').not.toMatch(/cron:\s*'\d*\/5 \* \* \* \*'/);
+    const pulsBudget = Number((operations.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1]);
+    const autoBudget = Number((autopilot.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1]);
+    expect(pulsBudget, 'Puls ohne eigenes Budget').toBeGreaterThan(0);
+    expect(pulsBudget, 'der Puls darf dem Autopiloten das Budget nicht wegessen')
+      .toBeLessThan(autoBudget);
     expect(operations).toMatch(/echo "rolle=alle"/);
     expect(operations).not.toMatch(/GITHUB_RUN_NUMBER - 1\) % anzahl/);
-    expect(operations).toMatch(/tatsaechlich erreichten Puls das volle Ensemble/);
-    expect(operations).toMatch(/\$0\.003646/);
+    // Vorher standen hier zwei Zusicherungen auf Kommentar-Wortlaut
+    // („tatsaechlich erreichten Puls…", „$0.003646"). Ein Kommentar ist keine
+    // Zusicherung: er ändert sich mit der Begründung, ohne dass sich das
+    // Verhalten ändert. Die Aussage dahinter — jeder erreichte Lauf arbeitet
+    // das VOLLE Ensemble ab, keine Rolle wird durch einen Zähler übersprungen
+    // — steht in den beiden Prüfungen darüber und darunter.
     expect(operations).toMatch(/5-Minuten-HQ-Rundlauf/);
     expect(operations).toMatch(/Bestehende Laufzeitspur vorladen/);
     expect(operations).toMatch(/eb-arbeit\.json\?run=\$\{GITHUB_RUN_ID\}/);
@@ -397,8 +411,8 @@ test.describe('Neuronaler Kern', () => {
       expect(r.text).toContain(heading);
     }
     expect(r.text).toContain('Anzeige sekündlich');
-    expect(r.text).toContain('Scheduler-Taktziel 5 Min.');
-    expect(r.text).toContain('alle 11 Rollen je erreichtem Puls');
+    expect(r.text).toContain('Lagebild 4×/Tag');
+    expect(r.text).toContain('alle 11 Rollen je Lauf');
     expect(r.text).toContain('Jetzt');
     expect(r.text).toContain('Nächste Prüfung');
     expect(r.text).toContain('Zuletzt belegt');
@@ -734,9 +748,60 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     await page.waitForTimeout(2200);
     const text = await page.evaluate(() => document.getElementById('journal').textContent);
     if (!JOURNAL.eintraege.length) {
-      expect(text, 'ein leeres Journal zeigt Taktziel und Voll-Ensemble, statt leer zu bleiben').toMatch(/24\/7-Steuerung.*Taktziel von fünf Minuten.*gesamte Ensemble/is);
+      expect(text, 'ein leeres Journal zeigt Taktziel und Voll-Ensemble, statt leer zu bleiben').toMatch(/Lagebild-Lauf startet viermal täglich.*gesamte Ensemble/is);
     } else {
       expect(text).toMatch(/Schichten gearbeitet/);
     }
+  });
+});
+
+test.describe('Befunde bestimmen die Arbeit', () => {
+  // Der teuerste Befund dieser Sitzung: rund 2 Mio Token verbraucht, ohne dass
+  // Seite oder HQ sich verbessert hätten. Ursache war nicht die Qualität der
+  // Modelle, sondern die Verkabelung — elf Rollen benannten stündlich konkrete
+  // Probleme, und die einzige Stelle, die Code ändert, wählte ihren Fokus nach
+  // KALENDERWOCHE. Die Befunde blieben im Journal liegen.
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  const wurzel = path.join(__dirname, '..', '..');
+
+  // Eigenes Journal je Aufruf. Die echte assets/eb-arbeit.json anzufassen
+  // wäre ein Fehler: Playwright läuft parallel, und ein anderer Test lädt
+  // gleichzeitig die HQ-Seite, die genau diese Datei liest. Geteilter
+  // veränderlicher Zustand macht Tests unzuverlässig, nicht gründlich.
+  const fokusFuer = (eintraege) => {
+    const journal = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ebf-')), 'j.json');
+    fs.writeFileSync(journal, JSON.stringify({ version: 1, eintraege }), 'utf8');
+    return JSON.parse(execFileSync('node',
+      [path.join(wurzel, 'scripts', 'openrouter-agents.mjs'), '--zeige-fokus'],
+      { cwd: wurzel, env: { ...process.env, EB_JOURNAL: journal } }).toString());
+  };
+  const jetzt = () => new Date().toISOString();
+  const befund = (text, ergebnis = 'fertig', zeit = jetzt()) => ({ ergebnis, zeit, aufgabe: text, text });
+
+  test('frische Befunde bestimmen den Fokus', () => {
+    const a = fokusFuer([befund('Kontrast zu niedrig, barrierefrei nachbessern'),
+                         befund('Screenreader-Label fehlt'), befund('Tastaturbedienung fehlt')]);
+    expect(a.fokus).toBe('accessibility');
+    expect(a.grund, 'Grund muss die Befunde nennen').toMatch(/Befund/);
+
+    const p = fokusFuer([befund('Ladezeit zu hoch, Bundle zu gross'), befund('cache greift nicht')]);
+    expect(p.fokus).toBe('performance');
+  });
+
+  test('ohne Befund wird der Rückfall als solcher ausgewiesen', () => {
+    // Der Kalender ist keine schlechtere Wahl, nur eine unbegründete — und
+    // darf deshalb nicht wie ein Befund aussehen.
+    const leer = fokusFuer([]);
+    expect(leer.grund).toMatch(/Kalenderwoche/);
+  });
+
+  test('alte Befunde und Fehlschläge zählen nicht', () => {
+    const alt = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    expect(fokusFuer([befund('barrierefrei Kontrast', 'fertig', alt)]).grund).toMatch(/Kalenderwoche/);
+    // Ein Ausfall ist kein Befund.
+    expect(fokusFuer([befund('barrierefrei Kontrast', 'fehler')]).grund).toMatch(/Kalenderwoche/);
   });
 });

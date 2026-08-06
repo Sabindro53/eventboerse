@@ -16,10 +16,14 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 175 Tests in 11 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 178 Tests in 11 Suiten**, blockierendes Gate in `pr-check.yml`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift
-- HQ-Puls stündlich, 11 Rollen je Lauf, Journal als echte Laufzeitspur per SFTP
+- **Lagebild-Lauf 4×/Tag** (02/08/14/20 UTC), 11 Rollen je Lauf, eigenes
+  Budget von $0,15 — Journal als echte Laufzeitspur per SFTP
+- **Autopilot** bekommt die übrigen $0,45: er liefert Patch, Tests und PR.
+  Sein Schwerpunkt kommt aus den Befunden der letzten 24 h, nicht mehr aus
+  der Kalenderwoche
 - Offen: Repo steht auf **public** mit dem Security-Vault darin (keine
   Zugangsdaten, aber eine Landkarte der Angriffsfläche)
 
