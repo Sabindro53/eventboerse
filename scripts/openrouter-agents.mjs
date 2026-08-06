@@ -84,6 +84,7 @@ const CODEFLOW_ROLLEN = Object.freeze([
 ]);
 const CODEFLOW_REIHENFOLGE = ['scout', 'architect', 'implementer', 'reviewer', 'gates', 'pull_request', 'merge', 'deploy'];
 let codeflow = null;
+let codeflowKosten = 0;
 
 function codeflowSchreiben(phase, daten = {}) {
   if (!codeflow) return;
@@ -120,6 +121,7 @@ function codeflowSchreiben(phase, daten = {}) {
 }
 
 function codeflowStart(fokus, runBudget, dailyBudget) {
+  codeflowKosten = 0;
   const runId = process.env.GITHUB_RUN_ID || null;
   const repo = process.env.GITHUB_REPOSITORY || 'Sabindro53/eventboerse';
   const server = process.env.GITHUB_SERVER_URL || 'https://github.com';
@@ -155,6 +157,7 @@ function codeflowStart(fokus, runBudget, dailyBudget) {
 
 function codeflowFehler(error) {
   if (!codeflow) return;
+  codeflow.budget.kosten_usd = Number(codeflowKosten.toFixed(6));
   codeflowSchreiben(codeflow.phase || 'scout', {
     status: 'fehler',
     fehler: String(error && error.message || error).slice(0, 700),
@@ -529,6 +532,7 @@ async function main(argv = []) {
 
       const kosten = kostenSchaetzen(antwort, modellPreise);
       ausgegeben += kosten;
+      codeflowKosten = ausgegeben;
       if (ausgegeben > runBudget) {
         throw new Error(`OpenRouter-Laufbudget ueberschritten ($${ausgegeben.toFixed(4)} > $${runBudget.toFixed(2)}).`);
       }
@@ -564,6 +568,7 @@ async function main(argv = []) {
   const scout = await agent('scout', scoutLaufSchema,
     `Du bist der konservative Scout fuer EventBoerse. ${fremdtextRegel} `
       + 'Waehle genau EINE kleine, sichtbare, risikoarme Verbesserung. Keine erfundene Dringlichkeit, kein Backend, kein Auth, kein Payment. '
+      + 'Bei einem Vorschlag muss target_files EXAKT EINE Datei enthalten, acceptance EXAKT ZWEI Kriterien und goal einen vollstaendigen Satz mit mindestens 30 Zeichen. '
       + 'Jede Zieldatei braucht mindestens eine Beleg-ID aus REPOSITORY-BELEGE. Gib in evidence nur IDs wie B001 zurueck; Datei, Zeile und Auszug setzt das System. '
       + 'Behaupte keine Selektoren, Tokens oder Funktionen, die nicht in den gewaehlten Belegen vorkommen. Wenn kein belastbarer Hebel sichtbar ist, gib leere target_files und evidence zurueck.',
     basisKontext(fokus, belegKatalog), { belege: belegKatalog });
