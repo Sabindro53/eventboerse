@@ -321,11 +321,12 @@ function repoBelege(fokus) {
     for (let index = 0; index < zeilen.length && proDatei < 5 && belege.length < 60; index += 1) {
       const auszug = zeilen[index].trim();
       if (!auszug || !muster.test(auszug)) continue;
+      const quellfenster = zeilen.slice(index, index + 3).map((zeile) => zeile.trim()).filter(Boolean).join(' ⏎ ');
       belege.push({
         id: `B${String(belege.length + 1).padStart(3, '0')}`,
         file: datei,
         line: index + 1,
-        excerpt: auszug.slice(0, 240),
+        excerpt: quellfenster.slice(0, 240),
       });
       proDatei += 1;
     }
@@ -569,7 +570,7 @@ async function main(argv = []) {
     `Du bist der konservative Scout fuer EventBoerse. ${fremdtextRegel} `
       + 'Waehle genau EINE kleine, sichtbare, risikoarme Verbesserung. Keine erfundene Dringlichkeit, kein Backend, kein Auth, kein Payment. '
       + 'Bei einem Vorschlag muss target_files EXAKT EINE Datei enthalten, acceptance EXAKT ZWEI Kriterien und goal einen vollstaendigen Satz mit mindestens 30 Zeichen. '
-      + 'Jede Zieldatei braucht mindestens eine Beleg-ID aus REPOSITORY-BELEGE. Gib in evidence nur IDs wie B001 zurueck; Datei, Zeile und Auszug setzt das System. '
+      + 'Jede Zieldatei braucht mindestens eine Beleg-ID aus REPOSITORY-BELEGE. Jeder Beleg zeigt ein dreizeiliges Quellfenster. Gib in evidence nur IDs wie B001 zurueck; Datei, Zeile und Auszug setzt das System. '
       + 'Behaupte keine Selektoren, Tokens oder Funktionen, die nicht in den gewaehlten Belegen vorkommen. Wenn kein belastbarer Hebel sichtbar ist, gib leere target_files und evidence zurueck.',
     basisKontext(fokus, belegKatalog), { belege: belegKatalog });
   scout.evidence = scout.evidence.map((id) => belegKatalog.find((beleg) => beleg.id === id));
