@@ -33,7 +33,7 @@ Nach jeder Modellphase schreibt `scripts/openrouter-agents.mjs` den aktuellen Zu
 ## Sicherheitsgrenzen
 
 - Die Telemetrie enthält Ziel, Dateinamen, Diff-Statistik, Review und Kosten, aber niemals Patchinhalt, Prompts oder Geheimnisse.
-- Der Scout bekommt fokusabhängige, nummerierte Zeilen aus der Whitelist. Jede gewählte Datei braucht einen wortgetreuen, anschließend deterministisch gegen die Datei geprüften Beleg.
+- Der Scout bekommt fokusabhängige, nummerierte Zeilen aus der Whitelist und wählt nur kurze Beleg-IDs. Datei, Zeile und wortgetreuer Auszug werden danach ausschließlich vom System aus dem geprüften Katalog gesetzt.
 - Der Autopilot darf höchstens zwei explizit freigegebene Frontend-Quelldateien ändern; generierte `app.js` ist nur als Buildfolge erlaubt.
 - Neue Dateien, Löschungen, Umbenennungen, Netzwerk-, Storage-, Auth- und Payment-Pfade sind blockiert.
 - Jede Änderung braucht strukturiertes Vier-Augen-Review, vollständige Gates und eine zweite Scope-Prüfung im Auto-Merge-Workflow.

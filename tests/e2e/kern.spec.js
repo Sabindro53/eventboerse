@@ -118,7 +118,7 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/max_price/);
     expect(runner).toMatch(/for \(const modell of kandidaten\)/);
     expect(runner).toMatch(/ergebnis: 'unbrauchbar'/);
-    expect(runner).toMatch(/validiereAgentenJson\(rolle, json\)/);
+    expect(runner).toMatch(/validiereAgentenJson\(rolle, json, validierungsKontext\)/);
     expect(runner).toMatch(/nicht portable Validierungs-Schluesselwoerter/);
     expect(runner).toMatch(/json\.decision === 'skip'/);
     expect(runner).toMatch(/if \(!scout\.target_files\.length\)/);
@@ -161,7 +161,7 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/codeflowSchreiben\('implementer'/);
     expect(runner).toMatch(/codeflowSchreiben\('reviewer'/);
     expect(runner).toMatch(/REPOSITORY-BELEGE/);
-    expect(runner).toMatch(/Scout-Beleg ist nicht wortgetreu/);
+    expect(runner).toMatch(/Scout-Beleg-ID ist nicht im aktuellen Repo-Katalog/);
     expect(workflow).toMatch(/Live-Codeflow vorbereiten/);
     expect(workflow).toMatch(/\.ai-run\/codeflow\.json/);
     expect(workflow).toMatch(/assets\/eb-codeflow\.json/);
