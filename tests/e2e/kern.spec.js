@@ -166,6 +166,7 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/REPOSITORY-BELEGE/);
     expect(runner).toMatch(/Scout-Beleg-ID ist nicht im aktuellen Repo-Katalog/);
     expect(runner).toMatch(/target_files EXAKT EINE Datei/);
+    expect(runner).toMatch(/zeilen\.slice\(index, index \+ 3\)/);
     expect(runner).toMatch(/codeflow\.budget\.kosten_usd = Number\(codeflowKosten/);
     expect(runner).toMatch(/bei approved=true muss findings exakt \[\] sein/);
     expect(workflow).toMatch(/Live-Codeflow vorbereiten/);

@@ -34,6 +34,7 @@ Nach jeder Modellphase schreibt `scripts/openrouter-agents.mjs` den aktuellen Zu
 
 - Die Telemetrie enthält Ziel, Dateinamen, Diff-Statistik, Review und Kosten, aber niemals Patchinhalt, Prompts oder Geheimnisse.
 - Der Scout bekommt fokusabhängige, nummerierte Zeilen aus der Whitelist und wählt nur kurze Beleg-IDs. Datei, Zeile und wortgetreuer Auszug werden danach ausschließlich vom System aus dem geprüften Katalog gesetzt.
+- Jeder Beleg enthält ab seiner Trefferzeile ein kompaktes dreizeiliges Quellfenster, damit der Scout keine fehlenden Implementierungsdetails aus einer isolierten Zeile erfinden muss.
 - Für die beleggebundene Scout-Aufgabe gilt eine 24B/30B-Qualitätsuntergrenze; 8B–12B-Modelle bleiben für kurze Operationssignale nutzbar, aber nicht für diese strukturierte Codeentscheidung.
 - Der Scout darf pro Lauf exakt eine Zieldatei und zwei Akzeptanzkriterien weiterreichen. Auch bei einem sicheren Fehlstopp zeigt die Telemetrie die bereits angefallenen Modellkosten.
 - Reviewer-`findings` sind ausschließlich offene, blockierende Mängel. Positive Prüfbestätigungen stehen in der Zusammenfassung; eine Freigabe hat eine leere Befundliste.
