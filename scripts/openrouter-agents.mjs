@@ -638,7 +638,8 @@ async function main(argv = []) {
   const review = await agent('reviewer', REVIEW_SCHEMA,
     `Du bist der unabhaengige Code-Reviewer. ${fremdtextRegel} `
       + 'Lehne bei jeder Scope-Ausweitung, Seiteneffekt-Gefahr, unklaren Annahme oder unvollstaendigen Akzeptanzabdeckung ab. '
-      + 'Eine Freigabe braucht confidence >= 0.86 und alle safety-Felder true.',
+      + 'Eine Freigabe braucht confidence >= 0.86 und alle safety-Felder true. '
+      + 'findings enthaelt AUSSCHLIESSLICH offene, blockierende Maengel; bei approved=true muss findings exakt [] sein. Positive Bestaetigungen gehoeren nur in summary.',
     `ANFORDERUNG UND PLAN:\n${JSON.stringify({ scout, architekt }, null, 2)}\n\nPATCH:\n${patch}\n\nAUSGANGSCODE:\n${quellen}`);
 
   const sicher = Object.values(review.safety || {}).every(Boolean);
