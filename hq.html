@@ -868,7 +868,11 @@ const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
 const HQ_REST_NONCE = '__EB_HQ_REST_NONCE__';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const state = { commits: [], runs: [], issues: [], pulls: [], totalCommits: 0, siteUp: null, deploySuccessCount: 0, ausCache: false, openrouterJob: null };
+const state = {
+  commits: [], runs: [], issues: [], pulls: [], totalCommits: 0,
+  siteUp: null, deploySuccessCount: 0, ausCache: false, openrouterJob: null,
+  codeflow: null, autopilotPull: null, autopilotFiles: [],
+};
 const $ = id => document.getElementById(id);
 
 /* ─── Zugang ───────────────────────────────────────────────────────
@@ -1021,6 +1025,26 @@ async function loadIssues() {
     state.issues = all.filter(i => !i.pull_request);
     cacheSet('issues', { issues: state.issues, pulls: state.pulls });
   } catch { const c = cacheGet('issues'); if (c) { state.issues = c.data.issues; state.pulls = c.data.pulls; } }
+}
+
+async function loadAutopilotPull() {
+  try {
+    const pulls = await gh('/pulls?state=all&sort=updated&direction=desc&per_page=20');
+    const runId = state.codeflow && state.codeflow.run && state.codeflow.run.id;
+    const marker = runId ? `/actions/runs/${runId}` : null;
+    const pr = marker
+      ? pulls.find(p => (p.body || '').includes(marker)) || null
+      : pulls.find(p => /^openrouter\/auto-/.test((p.head && p.head.ref) || '')) || null;
+    state.autopilotPull = pr;
+    state.autopilotFiles = pr ? await gh(`/pulls/${pr.number}/files?per_page=100`) : [];
+    cacheSet('autopilotPull', { pull: state.autopilotPull, files: state.autopilotFiles });
+  } catch {
+    const c = cacheGet('autopilotPull');
+    if (c) {
+      state.autopilotPull = c.data.pull || null;
+      state.autopilotFiles = c.data.files || [];
+    }
+  }
 }
 
 /* ─── XP / Level / Streak ──────────────────────────────────────── */
@@ -1448,7 +1472,8 @@ function renderFromCache() {
 
 async function loadAll() {
   try {
-    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits()]);
+    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits(), ladeCodeflow()]);
+    await loadAutopilotPull();
     state.ausCache = false;   // ab hier sind die Daten nachweislich frisch
     ebImpuls('engineering', 'gut');
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
@@ -1488,14 +1513,23 @@ async function init() {
         }
       } finally { state.operationsJournalAbruf = false; }
     }, 60000);
+    window.__ebCodeflowAbruf = setInterval(async () => {
+      if (document.hidden || state.codeflowAbruf) return;
+      state.codeflowAbruf = true;
+      try {
+        const neu = await ladeCodeflow();
+        if (neu) renderNeuralOps();
+      } finally { state.codeflowAbruf = false; }
+    }, 5000);
     window.__ebOperationsAbruf = setInterval(async () => {
       if (document.hidden || state.operationsAbruf) return;
       state.operationsAbruf = true;
       try {
         await loadRuns();
+        await loadAutopilotPull();
         nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps();
       } finally { state.operationsAbruf = false; }
-    }, 300000);
+    }, getPat() ? 30000 : 300000);
   }
 }
 
@@ -2281,6 +2315,97 @@ function nnKopfzeile() {
     : `${nnWissen} Wissens-Abschnitte · ${nnKatalog.bereiche.length} operative Bereiche · Mitarbeiter erst nach dem Aufklappen`;
 }
 
+function codeflowStatusText(status) {
+  return ({
+    arbeitet: 'arbeitet live', wartet: 'eingetaktet', ohne_aenderung: 'sicher ohne Änderung beendet',
+    budgetstopp: 'vom Budget gestoppt', fehler: 'sicher gestoppt', fertig: 'fertig',
+  })[status] || String(status || 'unbekannt').replace(/_/g, ' ');
+}
+
+function renderCodeflowLive(autopilotRun, autopilotAktiv, workflowSchritt) {
+  const flow = state.codeflow;
+  if (!flow) {
+    return `<div class="codeflow codeflow-empty"><b>🧩 Live-Repository-Arbeit</b><span>Noch kein belegter Codeflow geladen.</span></div>`;
+  }
+  const flowRunId = Number(flow.run && flow.run.id);
+  const runPasst = !!(autopilotRun && flowRunId && Number(autopilotRun.id) === flowRunId);
+  const live = autopilotAktiv && runPasst;
+  const pr = state.autopilotPull;
+  const prPasst = !!(pr && (!flowRunId || (pr.body || '').includes(`/actions/runs/${flowRunId}`)));
+  const pull = prPasst ? pr : null;
+  const prFiles = pull ? (state.autopilotFiles || []) : [];
+  const geaendert = (flow.dateien && flow.dateien.geaendert) || [];
+  const zieldateien = (flow.dateien && flow.dateien.zieldateien) || [];
+  const flowFiles = (geaendert.length ? geaendert : zieldateien).map(filename => ({ filename }));
+  const files = prFiles.length ? prFiles : flowFiles;
+  const branch = (pull && pull.head && pull.head.ref) || (flow.lieferung && flow.lieferung.branch) || '–';
+  const mergeSha = pull && pull.merge_commit_sha;
+  const deploy = mergeSha && (state.runs || []).find(r => /ionos-deploy\.yml$/.test(r.path || '') && r.head_sha === mergeSha);
+  const mergeRun = (state.runs || []).find(r => /openrouter-auto-merge\.yml$/.test(r.path || '')
+    && (!flow.aktualisiert || new Date(r.created_at).getTime() >= new Date(flow.aktualisiert).getTime() - 120000));
+  const phase = flow.phase || 'wartet';
+  const phaseIndex = ['scout', 'architect', 'implementer', 'reviewer', 'gates', 'pull_request', 'merge', 'deploy'].indexOf(phase);
+  const ziel = flow.ziel || {};
+  const dateiLink = pull ? `${pull.html_url}/files` : `https://github.com/${REPO}/tree/main`;
+  const rollen = (flow.mitarbeiter || []).map(m => {
+    let status = m.status || 'wartet';
+    if (!live && status === 'arbeitet' && phaseIndex < 4) status = flow.status === 'fehler' ? 'fehler' : 'fertig';
+    return `<div class="codeflow-person status-${escHtml(status)}">
+      <span class="codeflow-avatar">${status === 'arbeitet' ? '●' : status === 'fertig' ? '✓' : status === 'fehler' ? '!' : '○'}</span>
+      <div><b>${escHtml(m.person || m.rolle)}</b><small>${escHtml(m.rolle || '')} · ${escHtml(codeflowStatusText(status))}</small>
+      <p>${escHtml(m.auftrag || '')}</p></div>
+    </div>`;
+  }).join('');
+  const stufe = (label, status, detail, href) => `<${href ? `a href="${escHtml(href)}" target="_blank" rel="noopener"` : 'div'} class="codeflow-stage ${status}">
+    <i>${status === 'done' ? '✓' : status === 'live' ? '●' : status === 'stop' ? '!' : '○'}</i><b>${escHtml(label)}</b><small>${escHtml(detail)}</small>
+  </${href ? 'a' : 'div'}>`;
+  const gatesDone = !!pull || (runPasst && autopilotRun.conclusion === 'success');
+  const gatesLive = live && /test|syntax|browser|katalog|abhäng/i.test(workflowSchritt || '');
+  const mergeDone = !!(pull && pull.merged_at);
+  const mergeLive = !!(mergeRun && (mergeRun.status === 'queued' || mergeRun.status === 'in_progress'));
+  const deployDone = !!(deploy && deploy.conclusion === 'success');
+  const deployLive = !!(deploy && (deploy.status === 'queued' || deploy.status === 'in_progress'));
+  const diffStat = (flow.dateien && flow.dateien.diff_stat) || (prFiles.length
+    ? `${prFiles.reduce((n, f) => n + (f.additions || 0), 0)} Ergänzungen · ${prFiles.reduce((n, f) => n + (f.deletions || 0), 0)} Löschungen`
+    : 'Diff entsteht erst nach der Umsetzung');
+  const statusKlasse = live ? 'live' : flow.status === 'fehler' ? 'stop' : 'idle';
+  const statusText = live ? `${flow.aktuell && flow.aktuell.person || 'Autopilot'} arbeitet jetzt`
+    : `${codeflowStatusText(flow.status)} · ${flow.aktualisiert ? nnRelativ(flow.aktualisiert) : 'noch ohne Laufbeleg'}`;
+
+  return `<section class="codeflow" aria-label="Live-Repository-Arbeit">
+    <div class="codeflow-head">
+      <div><span class="eyebrow">🧩 Echte Repository-Arbeit</span><b>${escHtml(statusText)}</b></div>
+      <span class="codeflow-state ${statusKlasse}">${live ? 'LIVE' : 'LETZTER BELEG'}</span>
+    </div>
+    <p class="codeflow-truth">Die 11 Operationsrollen liefern Signale. Nur dieses Vier-Augen-Team darf innerhalb der Whitelist Dateien verändern; danach folgen Gates, Branch-Push, PR, Auto-Merge und Deploy.</p>
+    <div class="codeflow-main">
+      <div class="codeflow-goal">
+        <span>AKTUELLES ZIEL · ${escHtml((flow.run && flow.run.fokus) || 'auto')}</span>
+        <b>${escHtml(ziel.titel || 'Sichere Verbesserung bestimmen')}</b>
+        <p>${escHtml(ziel.beschreibung || '')}</p>
+        <small>Warum jetzt: ${escHtml(ziel.warum_jetzt || '–')}</small>
+        ${(ziel.akzeptanz || []).length ? `<ul>${ziel.akzeptanz.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>` : ''}
+      </div>
+      <div class="codeflow-files">
+        <span>DATEIEN · ${files.length ? 'EXAKTER SCOPE' : 'AUSWAHL LÄUFT'}</span>
+        <div>${files.length ? files.map(f => `<a href="${escHtml(dateiLink)}" target="_blank" rel="noopener"><code>${escHtml(f.filename)}</code>${Number.isFinite(f.additions) ? `<small>+${f.additions} −${f.deletions}</small>` : ''}</a>`).join('') : '<em>Ela Voss bestimmt gerade die Zieldateien.</em>'}</div>
+        <p>${escHtml(diffStat)}</p>
+        <small>Branch: <code>${escHtml(branch)}</code>${pull ? ` · <a href="${escHtml(pull.html_url)}" target="_blank" rel="noopener">PR #${pull.number}</a>` : ''}</small>
+      </div>
+    </div>
+    <div class="codeflow-team">${rollen}</div>
+    <div class="codeflow-delivery">
+      ${stufe('Dateiziel', files.length ? 'done' : live ? 'live' : 'wait', files.length ? `${files.length} Datei(en)` : 'Scout wählt')}
+      ${stufe('Live-Diff', (flow.dateien && flow.dateien.geaendert || []).length ? 'done' : live && phaseIndex >= 2 ? 'live' : 'wait', diffStat, dateiLink)}
+      ${stufe('Gates', gatesDone ? 'done' : gatesLive || (live && phaseIndex >= 4) ? 'live' : 'wait', gatesDone ? 'komplett grün' : workflowSchritt || 'wartet', flow.run && flow.run.url)}
+      ${stufe('Branch-Push', pull ? 'done' : 'wait', pull ? branch : 'nach grünen Gates', pull && pull.html_url)}
+      ${stufe('Pull Request', mergeDone ? 'done' : pull ? 'live' : 'wait', pull ? `#${pull.number} · ${pull.state}` : 'noch nicht erstellt', pull && pull.html_url)}
+      ${stufe('Auto-Merge', mergeDone ? 'done' : mergeLive ? 'live' : 'wait', mergeDone ? 'Squash-Merge auf main' : 'Scope-Wächter', mergeRun && mergeRun.html_url)}
+      ${stufe('Live-Deploy', deployDone ? 'done' : deployLive ? 'live' : 'wait', deployDone ? 'IONOS erfolgreich' : 'nach Merge', deploy && deploy.html_url)}
+    </div>
+  </section>`;
+}
+
 /** Sichtbarer Operationsstrom mit echten Workflow-Schritten. */
 function renderNeuralOps() {
   const el = $('neural-ops');
@@ -2420,7 +2545,8 @@ function renderNeuralOps() {
       ${phasen.map((p, i) => `<div class="neural-step ${i === aktuell ? 'aktiv' : (aktiv && i < aktuell ? 'erledigt' : '')}">
         <span class="n-num">${p[0]}</span><b>${p[1]}</b><small>${p[2]}</small>
       </div>`).join('')}
-    </div>`;
+    </div>
+    ${renderCodeflowLive(run, aktiv, titel)}`;
 }
 
 /** Ebene wechseln — Übersicht ⇄ Bereich. */
@@ -2558,6 +2684,23 @@ function renderModelle() {
 
 let nnJournal = null;
 
+async function ladeCodeflow() {
+  const vorher = state.codeflow && state.codeflow.aktualisiert;
+  try {
+    const res = await fetch(hqAsset('assets/eb-codeflow.json') + `?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Codeflow HTTP ${res.status}`);
+    const neu = await res.json();
+    if (!neu || neu.version !== 1) throw new Error('Codeflow-Version unbekannt');
+    state.codeflow = neu;
+    cacheSet('codeflow', neu);
+    return neu.aktualisiert !== vorher;
+  } catch {
+    const c = cacheGet('codeflow');
+    if (!state.codeflow && c) state.codeflow = c.data;
+    return false;
+  }
+}
+
 async function ladeNeuralJournal() {
   const vorher = nnJournal && nnJournal.aktualisiert;
   try {
@@ -2624,6 +2767,7 @@ async function initNeural() {
   } catch { nnWissen = 0; }
 
   await ladeNeuralJournal();
+  await ladeCodeflow();
 
   nnZeichnen();
   renderBereiche();

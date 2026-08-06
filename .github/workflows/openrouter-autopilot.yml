@@ -48,6 +48,9 @@ jobs:
       EB_OPENROUTER_DAILY_BUDGET_USD: '0.60'
       EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
       FOCUS: ${{ github.event.inputs.focus || 'auto' }}
+      SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
+      SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+      SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
 
     steps:
       - name: Checkout
@@ -97,9 +100,60 @@ jobs:
         if: steps.cadence.outputs.run == 'true'
         run: node scripts/openrouter-agents.mjs --self-test
 
-      - name: Scout, Architektur, Umsetzung und Review
+      - name: Live-Codeflow vorbereiten
         if: steps.cadence.outputs.run == 'true'
-        run: node scripts/openrouter-agents.mjs --focus "$FOCUS"
+        shell: bash
+        run: |
+          if [ -z "$SFTP_HOST" ] || [ -z "$SFTP_USER" ] || [ -z "$SFTP_PASS" ]; then
+            echo "::error title=Live-Codeflow nicht verbunden::IONOS-SFTP-Secrets fehlen."
+            exit 1
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Scout, Architektur, Umsetzung und Review live
+        if: steps.cadence.outputs.run == 'true'
+        shell: bash
+        run: |
+          veroeffentliche_codeflow() {
+            lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+              set sftp:auto-confirm yes;
+              set net:timeout 60;
+              set net:max-retries 3;
+              put .ai-run/codeflow.json -o /public/wp-content/themes/eventboerse/assets/eb-codeflow.json;
+              bye
+            "
+          }
+
+          node scripts/openrouter-agents.mjs --focus "$FOCUS" &
+          agent_pid=$!
+          letzter_hash=""
+          upload_fehler=0
+          while kill -0 "$agent_pid" 2>/dev/null; do
+            if [ -f .ai-run/codeflow.json ]; then
+              neuer_hash="$(sha256sum .ai-run/codeflow.json | cut -d' ' -f1)"
+              if [ "$neuer_hash" != "$letzter_hash" ]; then
+                if veroeffentliche_codeflow; then
+                  letzter_hash="$neuer_hash"
+                  echo "Live-Codeflow aktualisiert: $(jq -r '.phase + " · " + .aktuell.person' .ai-run/codeflow.json)" >> "$GITHUB_STEP_SUMMARY"
+                else
+                  upload_fehler=1
+                fi
+              fi
+            fi
+            sleep 2
+          done
+
+          agent_status=0
+          wait "$agent_pid" || agent_status=$?
+          if [ -f .ai-run/codeflow.json ]; then
+            veroeffentliche_codeflow || upload_fehler=1
+          fi
+          if [ "$agent_status" -ne 0 ]; then exit "$agent_status"; fi
+          if [ "$upload_fehler" -ne 0 ]; then
+            echo "::error title=Live-Codeflow nicht vollstaendig::Mindestens ein SFTP-Update ist fehlgeschlagen."
+            exit 1
+          fi
 
       - name: Ergebnis auswerten
         if: steps.cadence.outputs.run == 'true'
