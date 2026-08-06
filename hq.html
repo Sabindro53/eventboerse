@@ -2016,10 +2016,35 @@ function nnPos(i, n, weite, hoehe) {
  * die Rolle ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte. Ohne
  * Token gibt es keine Läufe — dann steht dort „unbekannt", nicht „bereit".
  */
+/**
+ * Die Aufgabe, die für diese Rolle als Nächstes ansteht.
+ *
+ * Muss dieselbe Regel benutzen wie `naechsteAufgabe()` in scripts/agent.mjs,
+ * sonst zeigt das Netz eine Aufgabe an, während real eine andere läuft — und
+ * das wäre schlimmer als gar keine Anzeige.
+ *
+ *   fertig               → nächste Aufgabe
+ *   uebersprungen        → dieselbe (Kontingent erschöpft, nichts verbraucht)
+ *   fehler/abgebrochen   → dieselbe, bis fünf Versuche erreicht sind
+ */
+const NN_MAX_VERSUCHE = 5;
+
 function nnAufgabeRoh(modell) {
   const strom = modell.aufgabenstrom || [modell.aufgabe];
-  const versatz = (nnKatalog && nnKatalog.modelle || []).findIndex(m => m.id === modell.id);
-  return strom[(Math.floor(Date.now() / 3600000) + Math.max(versatz, 0)) % strom.length];
+  const eigene = ((nnJournal && nnJournal.eintraege) || [])
+    .filter(e => e.rolle === modell.id && Number.isInteger(e.aufgabeIndex));
+  if (!eigene.length) return strom[0];
+
+  const index = eigene[0].aufgabeIndex % strom.length;
+  if (eigene[0].ergebnis === 'fertig') return strom[(index + 1) % strom.length];
+
+  let versuche = 0;
+  for (const e of eigene) {
+    if (e.aufgabeIndex % strom.length !== index) break;
+    if (e.ergebnis === 'fertig') break;
+    if (e.ergebnis === 'fehler' || e.ergebnis === 'abgebrochen') versuche += 1;
+  }
+  return strom[versuche >= NN_MAX_VERSUCHE ? (index + 1) % strom.length : index];
 }
 
 /**

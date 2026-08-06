@@ -27,7 +27,11 @@ import { fileURLToPath } from 'node:url';
 import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer } from './lib/verbotsmuster.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const JOURNAL = join(ROOT, 'assets', 'eb-arbeit.json');
+// Tests brauchen ein eigenes Journal — sonst prüften sie gegen die echte
+// Laufzeitspur und würden sie dabei überschreiben.
+const JOURNAL = process.env.EB_JOURNAL
+  ? resolve(process.env.EB_JOURNAL)
+  : join(ROOT, 'assets', 'eb-arbeit.json');
 const MODELLE = join(ROOT, 'assets', 'eb-models.json');
 const OPENROUTER_API = 'https://openrouter.ai/api/v1';
 
@@ -119,6 +123,57 @@ async function notieren(eintrag) {
   return eintrag;
 }
 
+/**
+ * Wie oft dieselbe Aufgabe nach einem echten Fehler erneut versucht wird.
+ *
+ * Ein Ausfall der Kostenbremse zählt NICHT mit — dort wurde nichts versucht.
+ * Ein dauerhaft kaputter Auftrag darf die Rolle aber nicht für immer
+ * blockieren, sonst kommt sie nie zu ihren übrigen Aufgaben.
+ */
+const MAX_VERSUCHE = 5;
+
+/**
+ * Welche Aufgabe diese Rolle als Nächstes bearbeitet.
+ *
+ * Vorher kam der Index aus der Uhr (`Date.now() / 3600000 % n`). Das hiess:
+ * greift die Kostenbremse bei Aufgabe 1, steht eine Stunde später Aufgabe 2
+ * an — Aufgabe 1 war übersprungen, nicht verschoben. Das Journal behauptete
+ * dabei „Auftrag bleibt im naechsten freien Slot eingeplant"; das stimmte
+ * schlicht nicht. Bei knappem Kontingent konnte dieselbe Aufgabe dauerhaft
+ * ausfallen, ohne dass es irgendwo auffiel.
+ *
+ * Jetzt rueckt der Zeiger NUR nach einer erledigten Aufgabe weiter:
+ *   fertig                    → naechste Aufgabe
+ *   uebersprungen             → dieselbe Aufgabe erneut (nichts verbraucht)
+ *   fehler / abgebrochen      → dieselbe Aufgabe, bis MAX_VERSUCHE erreicht
+ *
+ * Damit wird jede Aufgabe zu Ende gebracht, bevor die naechste beginnt —
+ * auch ueber ein erschoepftes Tageskontingent hinweg.
+ */
+async function naechsteAufgabe(rolleId, anzahl) {
+  if (!Number.isInteger(anzahl) || anzahl < 1) return 0;
+  const j = await journalLesen();
+  // Das Journal wird vorne angehaengt: der erste Treffer ist der juengste.
+  const eigene = j.eintraege.filter((e) => e.rolle === rolleId
+    && Number.isInteger(e.aufgabeIndex));
+  const letzter = eigene[0];
+  if (!letzter) return 0;
+
+  const index = letzter.aufgabeIndex % anzahl;
+  if (letzter.ergebnis === 'fertig') return (index + 1) % anzahl;
+
+  // Wie oft ist genau diese Aufgabe seit dem letzten Erfolg hart gescheitert?
+  let versuche = 0;
+  for (const e of eigene) {
+    if (e.aufgabeIndex % anzahl !== index) break;
+    if (e.ergebnis === 'fertig') break;
+    if (e.ergebnis === 'fehler' || e.ergebnis === 'abgebrochen') versuche += 1;
+  }
+  // Aufgeben ist hier die ehrlichere Wahl: sonst kaeme die Rolle nie zu ihren
+  // uebrigen Auftraegen, und das Journal fuellte sich mit demselben Fehler.
+  return versuche >= MAX_VERSUCHE ? (index + 1) % anzahl : index;
+}
+
 // ── Arbeiten ────────────────────────────────────────────────────────────────
 
 async function arbeiten() {
@@ -137,6 +192,10 @@ async function arbeiten() {
     process.exit(2);
   }
 
+  const aufgaben = Array.isArray(rolle.aufgabenstrom) ? rolle.aufgabenstrom : [rolle.aufgabe];
+  const aufgabeIndex = await naechsteAufgabe(rolleId, aufgaben.length);
+  const roh = aufgaben[aufgabeIndex];
+
   const schluessel = process.env.OPENROUTER_API_KEY || process.env.EB_OPENROUTER_API_KEY || '';
   if (!schluessel) {
     // Kein Schlüssel: sauber aussteigen, aber sichtbar machen, dass die
@@ -145,16 +204,15 @@ async function arbeiten() {
     await notieren({
       zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
       modell: rolle.name, bereich: rolle.bereich, anlass,
+      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex,
       ergebnis: 'uebersprungen',
-      text: 'Kein OPENROUTER_API_KEY hinterlegt — die Schicht ist ausgefallen.',
+      text: 'Kein OPENROUTER_API_KEY hinterlegt — die Schicht ist ausgefallen. '
+        + 'Dieselbe Aufgabe wird beim nächsten Lauf fortgesetzt.',
     });
     console.log(`ℹ ${rolle.person} (${rolle.rolle}): kein Schlüssel, Schicht übersprungen.`);
     process.exit(0);
   }
 
-  const aufgaben = Array.isArray(rolle.aufgabenstrom) ? rolle.aufgabenstrom : [rolle.aufgabe];
-  const aufgabeIndex = Math.floor(Date.now() / 3600000) % aufgaben.length;
-  const roh = aufgaben[aufgabeIndex];
   // Ältere Kataloge führten reine Zeichenketten. Beide Formen lesen, damit ein
   // Journal aus der Zeit davor nicht plötzlich „undefined" als Ziel zeigt.
   const aktuelleAufgabe = typeof roh === 'string' ? roh : roh.ziel;
@@ -229,8 +287,8 @@ async function arbeiten() {
       await notieren({
         zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
         modell: rolle.name, modellId: rolle.modellId, bereich: rolle.bereich, anlass,
-        aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, ergebnis: 'uebersprungen',
-        text: `Kostenbremse: ${stopp}. Auftrag bleibt im nächsten freien Slot eingeplant.`,
+        aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex, ergebnis: 'uebersprungen',
+        text: `Kostenbremse: ${stopp}. Dieselbe Aufgabe wird im nächsten freien Slot fortgesetzt.`,
         kontingentProzent: anteil,
       });
       console.log(`ℹ ${rolle.person}: ${stopp}; kein Token verbraucht.`);
@@ -240,7 +298,7 @@ async function arbeiten() {
     await notieren({
       zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
       modell: rolle.name, modellId: rolle.modellId, bereich: rolle.bereich, anlass,
-      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, ergebnis: 'fehler',
+      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex, ergebnis: 'fehler',
       text: `Kontingent konnte nicht sicher geprüft werden: ${String(e.message).slice(0, 180)}. Kein Modellaufruf.`,
     });
     console.error(`✗ ${rolle.person}: Kontingentprüfung fehlgeschlagen; sicher gestoppt.`);
@@ -308,7 +366,7 @@ async function arbeiten() {
     await notieren({
       zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
       modell: rolle.name, bereich: rolle.bereich, anlass,
-      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, ergebnis: 'fehler', text: String(e.message).slice(0, 300),
+      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex, ergebnis: 'fehler', text: String(e.message).slice(0, 300),
     });
     console.error(`✗ ${rolle.person}: ${e.message}`);
     // Eine ausgefallene Schicht bricht die Routine nicht — sie steht im Journal.
@@ -332,7 +390,7 @@ async function arbeiten() {
   const eintrag = await notieren({
     zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
     modell: rolle.name, modellId: antwort.model || rolle.modellId, bereich: rolle.bereich, anlass,
-    aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, kontingentProzent: anteil,
+    aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex, kontingentProzent: anteil,
     ergebnis: hatErgebnis ? 'fertig' : 'fehler',
     text: hatErgebnis
       ? text.slice(0, 1200)
@@ -404,11 +462,32 @@ async function pruefen() {
   console.log('─────────────────────────────────────────────────');
 }
 
+/**
+ * Zeigt, welche Aufgabe als Nächstes drankäme — ohne ein Modell zu rufen.
+ *
+ * Damit ist die Fortsetzung von außen messbar. Eine Zusicherung, die nur den
+ * Quelltext liest, prüft die Schreibweise; diese prüft das Verhalten.
+ */
+async function naechsteZeigen() {
+  const rolleId = wert('--naechste');
+  const katalog = JSON.parse(await readFile(MODELLE, 'utf8'));
+  const rolle = katalog.modelle.find((m) => m.id === rolleId);
+  if (!rolle) { console.error(`Unbekannte Rolle „${rolleId}".`); process.exit(2); }
+  const aufgaben = Array.isArray(rolle.aufgabenstrom) ? rolle.aufgabenstrom : [rolle.aufgabe];
+  const i = await naechsteAufgabe(rolleId, aufgaben.length);
+  const roh = aufgaben[i];
+  const ziel = typeof roh === 'string' ? roh : roh.ziel;
+  const dateien = (typeof roh === 'string' ? [] : roh.dateien) || [];
+  console.log(JSON.stringify({ rolle: rolleId, aufgabeIndex: i, ziel, dateien }));
+}
+
 if (hat('--check')) await pruefen();
 else if (hat('--bericht')) await bericht();
+else if (wert('--naechste')) await naechsteZeigen();
 else if (wert('--rolle')) await arbeiten();
 else {
   console.log('Nutzung: node scripts/agent.mjs --rolle <id> [--kontext datei] [--anlass text]');
+  console.log('         node scripts/agent.mjs --naechste <id>   # was käme als Nächstes?');
   console.log('         node scripts/agent.mjs --bericht | --check');
   process.exit(2);
 }

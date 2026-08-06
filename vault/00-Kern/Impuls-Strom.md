@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **56** |
-| Commits (30 Tage) | 113 |
-| Letzter Commit | `0f65a5e · Rebase auf 06de39c: Einzäunung und Kostenbremse zusammengeführt` (2026-08-05) |
+| Commits (7 Tage) | **57** |
+| Commits (30 Tage) | 114 |
+| Letzter Commit | `83aef81 · Jede Aufgabe nennt ihr Ziel und die Dateien, an denen sie arbeitet` (2026-08-06) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
@@ -73,7 +73,7 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
      33 styles.css
      23 index.html
      23 app-shell.html
-     20 tests/e2e/kern.spec.js
+     21 tests/e2e/kern.spec.js
 ```
 
 **Codegröße:**

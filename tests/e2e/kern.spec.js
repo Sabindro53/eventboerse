@@ -137,6 +137,65 @@ test.describe('Ensemble-Katalog', () => {
     expect(HQ, 'nn-task ohne Stilregel rendert schwarz und linksbündig').toMatch(/\.nn-task\s*\{/);
   });
 
+  test('eine Aufgabe wird fortgesetzt, nicht übersprungen', () => {
+    // Der konkrete Fehler: der Aufgabenindex kam aus der Uhr
+    // (`Date.now()/3600000 % n`). Greift die Kostenbremse bei Aufgabe 1, stand
+    // eine Stunde später Aufgabe 2 an — Aufgabe 1 fiel aus, während das
+    // Journal „bleibt eingeplant" behauptete. Bei knappem Kontingent konnte
+    // dieselbe Aufgabe dauerhaft ausfallen.
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { execFileSync } = require('node:child_process');
+    const wurzel = path.join(__dirname, '..', '..');
+    const journal = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ebj-')), 'j.json');
+
+    const setzen = (eintraege) => fs.writeFileSync(journal,
+      JSON.stringify({ version: 1, eintraege }), 'utf8');
+    const naechste = () => JSON.parse(execFileSync('node',
+      [path.join(wurzel, 'scripts', 'agent.mjs'), '--naechste', 'llama-arch'],
+      { cwd: wurzel, env: { ...process.env, EB_JOURNAL: journal } }).toString()).aufgabeIndex;
+    const eintrag = (aufgabeIndex, ergebnis) => ({
+      rolle: 'llama-arch', aufgabeIndex, ergebnis, zeit: '2026-08-06T10:00:00Z' });
+
+    setzen([]);
+    expect(naechste(), 'ohne Historie bei Aufgabe 0 beginnen').toBe(0);
+
+    // Kontingent erschöpft: dieselbe Aufgabe, beliebig oft. Hier wurde nichts
+    // verbraucht, also darf auch nichts verfallen.
+    setzen(Array.from({ length: 20 }, () => eintrag(0, 'uebersprungen')));
+    expect(naechste(), 'Kostenbremse darf die Aufgabe nicht verfallen lassen').toBe(0);
+
+    // Erst Erledigung rückt weiter.
+    setzen([eintrag(0, 'fertig')]);
+    expect(naechste(), 'nach „fertig" die nächste Aufgabe').toBe(1);
+
+    // Ein echter Fehler wird wiederholt — aber nicht endlos, sonst käme die
+    // Rolle nie zu ihren übrigen Aufträgen.
+    setzen(Array.from({ length: 4 }, () => eintrag(0, 'fehler')));
+    expect(naechste(), 'Fehler wird erneut versucht').toBe(0);
+    setzen(Array.from({ length: 5 }, () => eintrag(0, 'fehler')));
+    expect(naechste(), 'nach fünf Fehlversuchen weiterrücken').toBe(1);
+  });
+
+  test('HQ und Agent wählen die Aufgabe nach derselben Regel', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const wurzel = path.join(__dirname, '..', '..');
+    const HQ = fs.readFileSync(path.join(wurzel, 'hq.html'), 'utf8');
+    const AGENT = fs.readFileSync(path.join(wurzel, 'scripts', 'agent.mjs'), 'utf8');
+    // Zeigte das Netz eine andere Aufgabe als die laufende, wäre das
+    // schlimmer als gar keine Anzeige.
+    expect(HQ, 'HQ rechnet die Aufgabe noch aus der Uhr').not.toMatch(/aufgabenstrom[\s\S]{0,200}Date\.now\(\) \/ 3600000/);
+    expect(HQ, 'HQ liest den Fortschritt nicht aus dem Journal').toMatch(/Number\.isInteger\(e\.aufgabeIndex\)/);
+    expect(AGENT, 'Agent rechnet die Aufgabe noch aus der Uhr').not.toMatch(/aufgabeIndex = Math\.floor\(Date\.now\(\)/);
+    // Beide Seiten müssen dieselbe Obergrenze führen.
+    const hqMax = (HQ.match(/NN_MAX_VERSUCHE\s*=\s*(\d+)/) || [])[1];
+    const agMax = (AGENT.match(/MAX_VERSUCHE\s*=\s*(\d+)/) || [])[1];
+    expect(hqMax, 'HQ ohne Obergrenze').toBeTruthy();
+    expect(hqMax, 'HQ und Agent geben unterschiedlich schnell auf').toBe(agMax);
+  });
+
   test('Katalog behauptet keinen Laufzeit-Zustand', () => {
     for (const m of KATALOG.modelle) {
       expect(m).not.toHaveProperty('status');
