@@ -118,7 +118,10 @@ test.describe('Ensemble-Katalog', () => {
     // Ohne echtes Einlesen wäre `dateien` nur ein Etikett am Eintrag.
     expect(AGENT, 'Aufgaben-Dateien werden nicht gelesen').toMatch(/const aufgabenDateien\s*=/);
     expect(AGENT, 'Dateiinhalt landet nicht im Kontext').toMatch(/DATEIEN ZUR AUFGABE/);
-    expect(AGENT, 'Pfad-Ausbruch nicht abgewehrt').toMatch(/startsWith\('\/'\)\s*\|\|\s*d\.includes\('\.\.'\)/);
+    // Die Pfadprüfung sitzt inzwischen in darfNichtRaus() — sie deckt neben
+    // dem Ausbruch aus dem Repo auch gesperrte Ordner und share: secret ab.
+    // Geprüft wird, DASS sie aufgerufen wird, nicht wie sie geschrieben ist.
+    expect(AGENT, 'Pfad-/Vertraulichkeitsprüfung fehlt').toMatch(/darfNichtRaus\(d,\s*inhalt\)/);
     // Jeder Journaleintrag führt die Dateien mit — auch der ausgefallene,
     // sonst verschwindet beim Ausfall die Information, woran gearbeitet wurde.
     const eintraege = AGENT.match(/dateien: aufgabenDateien/g) || [];
@@ -194,6 +197,46 @@ test.describe('Ensemble-Katalog', () => {
     const agMax = (AGENT.match(/MAX_VERSUCHE\s*=\s*(\d+)/) || [])[1];
     expect(hqMax, 'HQ ohne Obergrenze').toBeTruthy();
     expect(hqMax, 'HQ und Agent geben unterschiedlich schnell auf').toBe(agMax);
+  });
+
+  test('kein Moderations-Klassifikator in einer Analyse-Rolle', () => {
+    // Noah Stern lief auf Llama Guard 4 — einem Modell, das ausschließlich
+    // „safe"/„unsafe" ausgibt. Im Journal stand deshalb bei jedem Lauf
+    // wörtlich `safe`, gebucht als „fertig". Eine Sicherheitsrolle, die immer
+    // „sicher" antwortet, sieht aus wie eine bestandene Prüfung und ist keine.
+    for (const m of KATALOG.modelle.filter((x) => x.weg === 'openrouter')) {
+      expect(m.modellId, `${m.person} nutzt einen Moderations-Klassifikator`)
+        .not.toMatch(/guard|moderation|shield/i);
+    }
+  });
+
+  test('Denk-Tokens sind abgeschaltet und der Abbruch ist nicht zu knapp', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const AGENT = fs.readFileSync(path.join(__dirname, '..', '..', 'scripts', 'agent.mjs'), 'utf8');
+    // Reasoning-Modelle verbrauchten das ganze max_tokens-Budget beim Denken
+    // und lieferten leere Antworten — bezahlt wurde trotzdem.
+    expect(AGENT, 'Reasoning frisst das Antwortbudget').toMatch(/reasoning:\s*\{\s*enabled:\s*false\s*\}/);
+    const timeout = Number((AGENT.match(/AbortSignal\.timeout\((\d+)\)[\s\S]{0,40}\}\);/) || [])[1]
+      || (AGENT.match(/signal: AbortSignal\.timeout\((\d+)\)/g) || []).length);
+    expect(AGENT, 'Abbruch nach 30 s war zu knapp').not.toMatch(/signal: AbortSignal\.timeout\(30000\)/);
+  });
+
+  test('der Sprint nennt den heutigen Stand vor der Historie', () => {
+    // Die Rollen bekommen die ersten 180 Zeilen dieser Datei als Kontext.
+    // Stand der Ist-Wert weiter unten, meldeten Modelle alte Zahlen als aktuell.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const sprint = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'vault', '50-Evolution', 'Roadmap', 'Current-Sprint.md'), 'utf8');
+    const kopf = sprint.split('\n').slice(0, 30).join('\n');
+    expect(kopf, 'kein Ist-Stand im Kopf der Datei').toMatch(/Stand heute/);
+    // Den HÖCHSTEN Wert prüfen, nicht den ersten: der Erklärtext nennt
+    // absichtlich eine alte Zahl als Beispiel, und ein Test auf den ersten
+    // Treffer findet genau die. Dieselbe Falle wie beim Quarantäne-Tor, das
+    // über die zitierte Injektion stolperte.
+    const zahlen = [...kopf.matchAll(/(\d+) Tests/g)].map((m) => Number(m[1]));
+    expect(Math.max(...zahlen, 0), 'Ist-Stand im Kopf ist veraltet').toBeGreaterThanOrEqual(160);
   });
 
   test('Katalog behauptet keinen Laufzeit-Zustand', () => {

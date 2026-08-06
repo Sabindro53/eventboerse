@@ -68,3 +68,51 @@ export function alleTreffer(text, muster) {
   const s = String(text || '');
   return muster.filter((m) => m.re.test(s));
 }
+
+/**
+ * Ordner, deren Inhalt das Repo nie in Richtung eines fremden Dienstes
+ * verlässt — unabhängig davon, was drinsteht.
+ *
+ * Der Grund steht in `vault/00-Kern/Sicherheits-Klassifikation.md`: der
+ * gesamte Security-Ordner ist `share: secret`. Ein Musterscan reicht dafür
+ * NICHT. Diese Notizen enthalten nachweislich keine Zugangsdaten, sondern
+ * Beschreibungen — sie würden jeden Geheimnis-Scan anstandslos passieren und
+ * wären trotzdem eine Landkarte der Angriffsfläche in fremder Hand.
+ *
+ * Deshalb wird hier am Pfad entschieden, nicht am Inhalt.
+ */
+export const GESPERRTE_PFADE = [
+  'vault/40-Governance/Security',
+  '.git',
+  'node_modules',
+];
+
+/**
+ * Darf diese Repo-Datei an ein externes Modell gehen?
+ *
+ * Prüft drei Dinge, jedes für sich ein K.-o.:
+ *   1. Pfad verlässt das Repo (`/…`, `..`)
+ *   2. Pfad liegt in einem gesperrten Ordner
+ *   3. Frontmatter der Datei führt `share: secret`
+ *
+ * Punkt 3 fängt den Fall ab, dass eine Notiz später als geheim eingestuft
+ * wird, ohne in den Security-Ordner zu wandern.
+ *
+ * @returns {null|{why: string}} null = darf raus.
+ */
+export function darfNichtRaus(pfad, inhalt) {
+  const p = String(pfad || '').replace(/\\/g, '/');
+  if (!p || p.startsWith('/') || p.split('/').includes('..')) {
+    return { why: `Pfad verlässt das Repo: ${p}` };
+  }
+  for (const g of GESPERRTE_PFADE) {
+    if (p === g || p.startsWith(`${g}/`)) return { why: `gesperrter Ordner: ${g}` };
+  }
+  // Nur den Frontmatter-Kopf ansehen — „share: secret" irgendwo im Fließtext
+  // ist eine Erwähnung, keine Einstufung.
+  const kopf = String(inhalt || '').slice(0, 400);
+  if (/^---[\s\S]*?^share:\s*secret\s*$/m.test(kopf)) {
+    return { why: `Notiz ist share: secret (${p})` };
+  }
+  return null;
+}

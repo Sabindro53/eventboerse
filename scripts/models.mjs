@@ -28,10 +28,10 @@
  */
 
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GEHEIMNISSE, ersterTreffer } from './lib/verbotsmuster.mjs';
+import { GEHEIMNISSE, ersterTreffer, darfNichtRaus } from './lib/verbotsmuster.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets', 'eb-models.json');
@@ -230,11 +230,16 @@ const ROH_MODELLE = [
     vergleichsstelle: 'Buchhaltung',
   },
   {
-    id: 'llama-guard', werkzeuge: ['github','openrouter'], person: 'Noah Stern', name: 'Llama Guard 4 12B', modellId: 'meta-llama/llama-guard-4-12b', anbieter: 'Meta', offen: true,
-    lizenz: 'Llama Community License', bereich: 'sicherheit',
+    id: 'llama-guard', werkzeuge: ['github','openrouter'], person: 'Noah Stern', name: 'Gemma 3 27B', modellId: 'google/gemma-3-27b-it', anbieter: 'Google', offen: true,
+    lizenz: 'Gemma Terms of Use', bereich: 'sicherheit',
     rolle: 'Security-Triage',
     aufgabe: 'Klassifiziert neue Angriffsflächen, Berechtigungsfehler und riskante Datenflüsse, ohne Grenzen zu lockern.',
-    warum: 'Ein spezialisiertes Guard-Modell ist für wiederholbare Sicherheitsklassifikation geeigneter als ein Generalist.',
+    // Vorher lief hier Llama Guard 4 — ein Moderations-Klassifikator, der
+    // ausschliesslich „safe"/„unsafe" ausgibt. Im Journal stand deshalb bei
+    // jedem Lauf wortwoertlich `safe`, gebucht als „fertig". Eine Rolle, die
+    // immer „sicher" antwortet, ist schlimmer als gar keine: sie sieht aus wie
+    // eine bestandene Sicherheitspruefung, ohne eine zu sein.
+    warum: 'Security-Triage verlangt eine begründete Einordnung, nicht ein Moderationsurteil — dafür braucht es ein Instruct-Modell.',
     weg: 'openrouter',
     schicht: 'hq-operations.yml',
     ausloeser: 'Prüft bei jedem tatsächlich erreichten Voll-Ensemble-Puls die nächste offene Sicherheitsfläche.',
@@ -474,8 +479,18 @@ function pruefen() {
           continue;
         }
         for (const d of a.dateien) {
-          if (d.startsWith('/') || d.includes('..')) melde(`Pfad verlässt das Repo: ${d}`);
-          else if (!existsSync(join(ROOT, d))) melde(`Aufgabe nennt eine Datei, die es nicht gibt: ${d}`);
+          if (!existsSync(join(ROOT, d))) {
+            melde(`Aufgabe nennt eine Datei, die es nicht gibt: ${d}`);
+            continue;
+          }
+          // Diese Dateien gehen an einen fremden Anbieter. Der Musterscan im
+          // Agenten sucht Zugangsdaten — der Security-Vault enthält aber
+          // Beschreibungen statt Werte und käme anstandslos durch. Deshalb
+          // hier am Pfad und an der Einstufung entscheiden, nicht am Inhalt.
+          let inhalt = '';
+          try { inhalt = readFileSync(join(ROOT, d), 'utf8'); } catch { /* Binärdatei o. Ä. */ }
+          const gesperrt = darfNichtRaus(d, inhalt);
+          if (gesperrt) melde(`Aufgabe würde Vertrauliches nach außen geben — ${gesperrt.why}`);
         }
       }
     }
