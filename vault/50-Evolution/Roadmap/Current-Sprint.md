@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 163 Tests in 11 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 175 Tests in 11 Suiten**, blockierendes Gate in `pr-check.yml`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift
 - HQ-Puls stündlich, 11 Rollen je Lauf, Journal als echte Laufzeitspur per SFTP

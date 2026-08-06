@@ -118,7 +118,10 @@ test.describe('Ensemble-Katalog', () => {
     // Ohne echtes Einlesen wäre `dateien` nur ein Etikett am Eintrag.
     expect(AGENT, 'Aufgaben-Dateien werden nicht gelesen').toMatch(/const aufgabenDateien\s*=/);
     expect(AGENT, 'Dateiinhalt landet nicht im Kontext').toMatch(/DATEIEN ZUR AUFGABE/);
-    expect(AGENT, 'Pfad-Ausbruch nicht abgewehrt').toMatch(/startsWith\('\/'\)\s*\|\|\s*d\.includes\('\.\.'\)/);
+    // Die Pfadprüfung sitzt inzwischen in darfNichtRaus() — sie deckt neben
+    // dem Ausbruch aus dem Repo auch gesperrte Ordner und share: secret ab.
+    // Geprüft wird, DASS sie aufgerufen wird, nicht wie sie geschrieben ist.
+    expect(AGENT, 'Pfad-/Vertraulichkeitsprüfung fehlt').toMatch(/darfNichtRaus\(d,\s*inhalt\)/);
     // Jeder Journaleintrag führt die Dateien mit — auch der ausgefallene,
     // sonst verschwindet beim Ausfall die Information, woran gearbeitet wurde.
     const eintraege = AGENT.match(/dateien: aufgabenDateien/g) || [];

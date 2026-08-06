@@ -33,6 +33,59 @@ function robotsRumpf() {
 // Liste, sonst prüft der Test nur seine eigene Kopie.
 const PFLICHT = ['GPTBot', 'ClaudeBot', 'CCBot', 'Google-Extended', 'PerplexityBot', 'Bytespider'];
 
+test.describe('Vertrauliches verlässt das Repo nicht', () => {
+  // Die Aufgaben-Dateien sind ein Datenabfluss nach außen: was dort steht,
+  // geht an einen fremden Anbieter. Der Geheimnis-Musterscan reicht dafür
+  // NICHT — der Security-Vault enthält nachweislich Beschreibungen statt
+  // Zugangsdaten und käme anstandslos durch. Entschieden wird am Pfad.
+  const { darfNichtRaus } = require('../../scripts/lib/verbotsmuster.mjs');
+
+  const GESPERRT = [
+    'vault/40-Governance/Security/Stripe-Webhook.md',
+    'vault/40-Governance/Security/CSP-Headers.md',
+    '.git/config',
+    'node_modules/x/index.js',
+    '/etc/passwd',
+    '../../../etc/passwd',
+    'vault/../vault/40-Governance/Security/EBSession.md',
+  ];
+  const ERLAUBT = ['hq.html', 'functions.php', 'vault/10-Produkt/Wissen/Gebuehren-und-Provision.md'];
+
+  for (const p of GESPERRT) {
+    test(`gesperrt: ${p}`, () => {
+      expect(darfNichtRaus(p, ''), `${p} dürfte nach außen`).toBeTruthy();
+    });
+  }
+  for (const p of ERLAUBT) {
+    test(`erlaubt: ${p}`, () => {
+      expect(darfNichtRaus(p, ''), `${p} wäre unnötig blockiert`).toBeNull();
+    });
+  }
+
+  test('share: secret zählt auch außerhalb des Security-Ordners', () => {
+    // Fängt den Fall ab, dass eine Notiz später als geheim eingestuft wird,
+    // ohne in den gesperrten Ordner zu wandern.
+    const geheim = '---\nlayer: L4\nshare: secret\n---\n\n# Test';
+    expect(darfNichtRaus('vault/10-Produkt/irgendwas.md', geheim)).toBeTruthy();
+    // Eine bloße Erwähnung im Fließtext ist keine Einstufung.
+    const erwaehnung = '---\nshare: internal\n---\n\nWir nutzen share: secret für den Vault.';
+    expect(darfNichtRaus('vault/10-Produkt/irgendwas.md', erwaehnung)).toBeNull();
+  });
+
+  test('beide Schichten rufen die Sperre auf', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const wurzel = path.join(__dirname, '..', '..');
+    const AGENT = fs.readFileSync(path.join(wurzel, 'scripts', 'agent.mjs'), 'utf8');
+    const MODELS = fs.readFileSync(path.join(wurzel, 'scripts', 'models.mjs'), 'utf8');
+    // Laufzeit: der Agent darf so eine Datei gar nicht erst mitschicken.
+    expect(AGENT, 'Agent prüft die Datei nicht').toMatch(/darfNichtRaus\(d,\s*inhalt\)/);
+    expect(AGENT, 'gesperrte Datei muss den Lauf abbrechen').toMatch(/ergebnis: 'abgebrochen'/);
+    // Katalog: so eine Aufgabe darf gar nicht erst entstehen.
+    expect(MODELS, 'Katalog-Tor prüft die Datei nicht').toMatch(/darfNichtRaus\(d,\s*inhalt\)/);
+  });
+});
+
 test.describe('Fremdtext erreicht das Modell nur eingezäunt', () => {
   test('der Kontext geht nicht blank an das Modell', () => {
     // Der konkrete Rückfall: `{ role: 'user', content: kontext }`.

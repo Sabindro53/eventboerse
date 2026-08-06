@@ -28,10 +28,10 @@
  */
 
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GEHEIMNISSE, ersterTreffer } from './lib/verbotsmuster.mjs';
+import { GEHEIMNISSE, ersterTreffer, darfNichtRaus } from './lib/verbotsmuster.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets', 'eb-models.json');
@@ -479,8 +479,18 @@ function pruefen() {
           continue;
         }
         for (const d of a.dateien) {
-          if (d.startsWith('/') || d.includes('..')) melde(`Pfad verlässt das Repo: ${d}`);
-          else if (!existsSync(join(ROOT, d))) melde(`Aufgabe nennt eine Datei, die es nicht gibt: ${d}`);
+          if (!existsSync(join(ROOT, d))) {
+            melde(`Aufgabe nennt eine Datei, die es nicht gibt: ${d}`);
+            continue;
+          }
+          // Diese Dateien gehen an einen fremden Anbieter. Der Musterscan im
+          // Agenten sucht Zugangsdaten — der Security-Vault enthält aber
+          // Beschreibungen statt Werte und käme anstandslos durch. Deshalb
+          // hier am Pfad und an der Einstufung entscheiden, nicht am Inhalt.
+          let inhalt = '';
+          try { inhalt = readFileSync(join(ROOT, d), 'utf8'); } catch { /* Binärdatei o. Ä. */ }
+          const gesperrt = darfNichtRaus(d, inhalt);
+          if (gesperrt) melde(`Aufgabe würde Vertrauliches nach außen geben — ${gesperrt.why}`);
         }
       }
     }

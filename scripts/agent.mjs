@@ -24,7 +24,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer } from './lib/verbotsmuster.mjs';
+import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer, darfNichtRaus } from './lib/verbotsmuster.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Tests brauchen ein eigenes Journal — sonst prüften sie gegen die echte
@@ -231,16 +231,39 @@ async function arbeiten() {
   //
   // Der Ausschnitt bleibt bewusst klein — 3000 Zeichen je Datei genügen, um
   // die Stelle zu erkennen, und ein voller Dateiinhalt kostet nur Tokens.
+  // WICHTIG: Diese Schleife ist ein Datenabfluss nach außen. Was hier gelesen
+  // wird, geht an einen fremden Anbieter. Der GEHEIMNISSE-Scan weiter unten
+  // reicht dafür allein NICHT — er sucht Zugangsdaten-Muster, und der
+  // Security-Vault enthält Beschreibungen statt Werte. Er würde den Scan
+  // passieren und wäre trotzdem eine Landkarte der Angriffsfläche.
+  // Deshalb wird hier am PFAD entschieden, bevor der Inhalt irgendwo landet.
   const gelesen = [];
   for (const d of aufgabenDateien) {
-    if (d.startsWith('/') || d.includes('..')) continue;   // nie aus dem Repo heraus
+    let inhalt = '';
     try {
-      const inhalt = await readFile(join(ROOT, d), 'utf8');
-      gelesen.push(`--- ${d} ---\n${inhalt.slice(0, 3000)}`);
+      inhalt = await readFile(join(ROOT, d), 'utf8');
     } catch {
       // Fehlt die Datei, wird sie NICHT als bearbeitet geführt.
       gelesen.push(`--- ${d} --- (nicht lesbar)`);
+      continue;
     }
+    const gesperrt = darfNichtRaus(d, inhalt);
+    if (gesperrt) {
+      // Hart abbrechen statt still auslassen: eine Aufgabe, die eine gesperrte
+      // Datei nennt, ist falsch konfiguriert. Sie leise zu überspringen würde
+      // den Fehler verstecken und die Rolle weiterlaufen lassen, als sei alles
+      // in Ordnung.
+      await notieren({
+        zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
+        modell: rolle.name, bereich: rolle.bereich, anlass,
+        aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex,
+        ergebnis: 'abgebrochen',
+        text: `Aufgabe nennt eine Datei, die das Repo nicht verlassen darf — ${gesperrt.why}. Nichts gesendet.`,
+      });
+      console.error(`⛔ Abbruch: ${gesperrt.why}.`);
+      process.exit(1);
+    }
+    gelesen.push(`--- ${d} ---\n${inhalt.slice(0, 3000)}`);
   }
   if (gelesen.length) {
     kontext = `${kontext}\n\nDATEIEN ZUR AUFGABE\n${gelesen.join('\n\n')}`;
