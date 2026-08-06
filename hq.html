@@ -222,6 +222,13 @@
   .nn-core { transition: r .25s ease, opacity .25s; }
   .nn-label { font-size: 11px; font-weight: 600; fill: var(--text); text-anchor: middle; }
   .nn-sub { font-size: 8.5px; fill: var(--muted); text-anchor: middle; }
+  /* Ziel der laufenden Aufgabe — die Überschrift unter dem Mitarbeiter.
+     War bislang ohne Regel und rendelte deshalb schwarz und linksbündig. */
+  .nn-task { font-size: 8px; fill: var(--muted); text-anchor: middle; opacity: .85; }
+  /* Die Datei, an der gerade gearbeitet wird. Monospace, damit ein Dateiname
+     als Dateiname lesbar ist und nicht als Fließtext. */
+  .nn-datei { font-size: 7.5px; fill: var(--cyan); text-anchor: middle;
+              font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .9; }
   .nn-bahn { fill: none; stroke: rgba(255,255,255,.16); stroke-width: 1; stroke-dasharray: 3 5; }
   /* Der Impuls: einmalig, dann weg. Kein Loop. */
   .nn-impuls { fill: none; stroke-width: 2.2; stroke-linecap: round; opacity: .95; }
@@ -2009,10 +2016,59 @@ function nnPos(i, n, weite, hoehe) {
  * die Rolle ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte. Ohne
  * Token gibt es keine Läufe — dann steht dort „unbekannt", nicht „bereit".
  */
-function nnAktuelleAufgabe(modell) {
+/**
+ * Die Aufgabe, die für diese Rolle als Nächstes ansteht.
+ *
+ * Muss dieselbe Regel benutzen wie `naechsteAufgabe()` in scripts/agent.mjs,
+ * sonst zeigt das Netz eine Aufgabe an, während real eine andere läuft — und
+ * das wäre schlimmer als gar keine Anzeige.
+ *
+ *   fertig               → nächste Aufgabe
+ *   uebersprungen        → dieselbe (Kontingent erschöpft, nichts verbraucht)
+ *   fehler/abgebrochen   → dieselbe, bis fünf Versuche erreicht sind
+ */
+const NN_MAX_VERSUCHE = 5;
+
+function nnAufgabeRoh(modell) {
   const strom = modell.aufgabenstrom || [modell.aufgabe];
-  const versatz = (nnKatalog && nnKatalog.modelle || []).findIndex(m => m.id === modell.id);
-  return strom[(Math.floor(Date.now() / 3600000) + Math.max(versatz, 0)) % strom.length];
+  const eigene = ((nnJournal && nnJournal.eintraege) || [])
+    .filter(e => e.rolle === modell.id && Number.isInteger(e.aufgabeIndex));
+  if (!eigene.length) return strom[0];
+
+  const index = eigene[0].aufgabeIndex % strom.length;
+  if (eigene[0].ergebnis === 'fertig') return strom[(index + 1) % strom.length];
+
+  let versuche = 0;
+  for (const e of eigene) {
+    if (e.aufgabeIndex % strom.length !== index) break;
+    if (e.ergebnis === 'fertig') break;
+    if (e.ergebnis === 'fehler' || e.ergebnis === 'abgebrochen') versuche += 1;
+  }
+  return strom[versuche >= NN_MAX_VERSUCHE ? (index + 1) % strom.length : index];
+}
+
+/**
+ * Das Ziel der laufenden Aufgabe — als Überschrift.
+ *
+ * Der Katalog führte früher reine Zeichenketten, heute `{ziel, dateien}`.
+ * Beide Formen lesen: sonst stünde nach einem Katalog-Wechsel „[object
+ * Object]" im neuronalen Netz, und zwar lautlos.
+ */
+function nnAktuelleAufgabe(modell) {
+  const roh = nnAufgabeRoh(modell);
+  return typeof roh === 'string' ? roh : (roh && roh.ziel) || '';
+}
+
+/** Die Repo-Dateien, an denen diese Aufgabe arbeitet. */
+function nnAufgabenDateien(modell) {
+  const roh = nnAufgabeRoh(modell);
+  return (roh && typeof roh === 'object' && Array.isArray(roh.dateien)) ? roh.dateien : [];
+}
+
+/** Nur der Dateiname — im Netz ist für einen ganzen Pfad kein Platz. */
+function nnDateiKurz(pfad) {
+  const teile = String(pfad).split('/');
+  return teile[teile.length - 1] || pfad;
 }
 
 function nnRollen() {
@@ -2268,6 +2324,8 @@ function nnBaum() {
     const x = px(i);
     const st = nnSchichtStand(m);
     const farbe = NN_STAND_FARBE[st.stand];
+    // Woran diese Rolle gerade arbeitet — aus dem Katalog, nicht geraten.
+    const dateien = nnAufgabenDateien(m);
 
     // Bereich → Rolle (gestrichelt, wie die Aufgabenlinien in der Vorlage)
     const d = `M ${bx} ${unten - 30} L ${x} ${mitteReihe + 20}`;
@@ -2302,7 +2360,8 @@ function nnBaum() {
         <text x="${x}" y="${mitteReihe + 36}" class="nn-label">${escHtml(m.person)}</text>
         <text x="${x}" y="${mitteReihe + 48}" class="nn-sub">${escHtml(m.rolle)}</text>
         <text x="${x}" y="${mitteReihe + 60}" class="nn-sub" fill="${farbe}">${escHtml(st.text)}</text>
-        <text x="${x}" y="${mitteReihe + 73}" class="nn-task">${escHtml((st.task || m.aufgabe).slice(0, 52))}</text>
+        <text x="${x}" y="${mitteReihe + 73}" class="nn-task">${escHtml(String(st.task || m.aufgabe || '').slice(0, 52))}</text>
+        ${dateien.length ? `<text x="${x}" y="${mitteReihe + 85}" class="nn-datei">${escHtml(dateien.map(nnDateiKurz).join(' · ').slice(0, 44))}</text>` : ''}
       </g>`);
   });
   return teile.join('');

@@ -8417,6 +8417,35 @@ function eb_seo_robots_txt( $output, $public ) {
         '',
         'Sitemap: ' . home_url( '/sitemap.xml' ),
     );
+
+    // KI-Sammler getrennt behandeln.
+    //
+    // Suchmaschinen schicken Besucher — davon leben Inserate. Trainings- und
+    // Antwort-Sammler nehmen die Inhalte und geben nichts zurück: die Anfrage
+    // eines Planers endet dann in einer fremden Antwort statt auf einem Profil.
+    // Deshalb Suche erlaubt, Ernte nicht.
+    //
+    // Das ist eine Bitte, kein Zaun — robots.txt bindet nur, wer sich daran
+    // hält. Es macht den Willen aber eindeutig, und mehrere Anbieter befolgen
+    // ihn. Wer ihn ignoriert, tut es nachweisbar gegen eine klare Ansage.
+    $ki_sammler = array(
+        'GPTBot', 'OAI-SearchBot', 'ChatGPT-User',        // OpenAI
+        'ClaudeBot', 'anthropic-ai', 'Claude-Web',         // Anthropic
+        'Google-Extended',                                 // Gemini-Training (Suche bleibt)
+        'Applebot-Extended',                               // Apple-Training (Suche bleibt)
+        'CCBot',                                           // Common Crawl — Rohstoff vieler Modelle
+        'PerplexityBot', 'Perplexity-User',
+        'Bytespider',                                      // ByteDance
+        'meta-externalagent', 'FacebookBot',
+        'Amazonbot', 'cohere-ai', 'Diffbot', 'Omgilibot', 'ImagesiftBot',
+        'YouBot', 'AI2Bot', 'Timpibot', 'Kangaroo Bot',
+    );
+    foreach ( $ki_sammler as $bot ) {
+        $lines[] = '';
+        $lines[] = 'User-agent: ' . $bot;
+        $lines[] = 'Disallow: /';
+    }
+
     return implode( "\n", $lines ) . "\n";
 }
 

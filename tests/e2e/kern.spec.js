@@ -90,6 +90,112 @@ test.describe('Ensemble-Katalog', () => {
     }
   });
 
+  test('jede Aufgabe nennt ihr Ziel und echte Dateien', () => {
+    // „Welcher Mitarbeiter ist an welcher Datei dran, mit welchem Ziel" lässt
+    // sich nur beantworten, wenn beides im Katalog steht. Und die Datei muss
+    // existieren — sonst zeigt das HQ Arbeit an einer Datei, die es nicht
+    // gibt, und das ist von echter Arbeit nicht zu unterscheiden.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const wurzel = path.join(__dirname, '..', '..');
+    for (const m of KATALOG.modelle.filter((x) => x.weg === 'openrouter')) {
+      for (const a of m.aufgabenstrom) {
+        expect(typeof a.ziel, `${m.id}: Aufgabe ohne Ziel`).toBe('string');
+        expect(a.ziel.length, `${m.id}: Ziel zu knapp für eine Überschrift`).toBeGreaterThan(19);
+        expect(Array.isArray(a.dateien) && a.dateien.length, `${m.id}: Aufgabe ohne Datei`).toBeTruthy();
+        for (const d of a.dateien) {
+          expect(d, `${m.id}: Pfad verlässt das Repo`).not.toMatch(/^\/|\.\./);
+          expect(fs.existsSync(path.join(wurzel, d)), `${m.id}: „${d}" gibt es nicht`).toBe(true);
+        }
+      }
+    }
+  });
+
+  test('der Agent liest die Dateien wirklich und schreibt sie ins Journal', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const AGENT = fs.readFileSync(path.join(__dirname, '..', '..', 'scripts', 'agent.mjs'), 'utf8');
+    // Ohne echtes Einlesen wäre `dateien` nur ein Etikett am Eintrag.
+    expect(AGENT, 'Aufgaben-Dateien werden nicht gelesen').toMatch(/const aufgabenDateien\s*=/);
+    expect(AGENT, 'Dateiinhalt landet nicht im Kontext').toMatch(/DATEIEN ZUR AUFGABE/);
+    expect(AGENT, 'Pfad-Ausbruch nicht abgewehrt').toMatch(/startsWith\('\/'\)\s*\|\|\s*d\.includes\('\.\.'\)/);
+    // Jeder Journaleintrag führt die Dateien mit — auch der ausgefallene,
+    // sonst verschwindet beim Ausfall die Information, woran gearbeitet wurde.
+    const eintraege = AGENT.match(/dateien: aufgabenDateien/g) || [];
+    expect(eintraege.length, 'nicht alle Journaleinträge führen die Dateien').toBeGreaterThanOrEqual(4);
+  });
+
+  test('das HQ verträgt beide Katalog-Formen', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const HQ = fs.readFileSync(path.join(__dirname, '..', '..', 'hq.html'), 'utf8');
+    // Der Katalog führte früher Zeichenketten, heute Objekte. Ohne diese
+    // Weiche stünde nach dem Wechsel lautlos „[object Object]" im Netz.
+    expect(HQ).toMatch(/typeof roh === 'string' \? roh : \(roh && roh\.ziel\)/);
+    expect(HQ, 'Dateien werden im Netz nicht gezeigt').toMatch(/function nnAufgabenDateien/);
+    expect(HQ, 'nn-datei ohne Stilregel bliebe unformatiert').toMatch(/\.nn-datei\s*\{/);
+    expect(HQ, 'nn-task ohne Stilregel rendert schwarz und linksbündig').toMatch(/\.nn-task\s*\{/);
+  });
+
+  test('eine Aufgabe wird fortgesetzt, nicht übersprungen', () => {
+    // Der konkrete Fehler: der Aufgabenindex kam aus der Uhr
+    // (`Date.now()/3600000 % n`). Greift die Kostenbremse bei Aufgabe 1, stand
+    // eine Stunde später Aufgabe 2 an — Aufgabe 1 fiel aus, während das
+    // Journal „bleibt eingeplant" behauptete. Bei knappem Kontingent konnte
+    // dieselbe Aufgabe dauerhaft ausfallen.
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { execFileSync } = require('node:child_process');
+    const wurzel = path.join(__dirname, '..', '..');
+    const journal = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ebj-')), 'j.json');
+
+    const setzen = (eintraege) => fs.writeFileSync(journal,
+      JSON.stringify({ version: 1, eintraege }), 'utf8');
+    const naechste = () => JSON.parse(execFileSync('node',
+      [path.join(wurzel, 'scripts', 'agent.mjs'), '--naechste', 'llama-arch'],
+      { cwd: wurzel, env: { ...process.env, EB_JOURNAL: journal } }).toString()).aufgabeIndex;
+    const eintrag = (aufgabeIndex, ergebnis) => ({
+      rolle: 'llama-arch', aufgabeIndex, ergebnis, zeit: '2026-08-06T10:00:00Z' });
+
+    setzen([]);
+    expect(naechste(), 'ohne Historie bei Aufgabe 0 beginnen').toBe(0);
+
+    // Kontingent erschöpft: dieselbe Aufgabe, beliebig oft. Hier wurde nichts
+    // verbraucht, also darf auch nichts verfallen.
+    setzen(Array.from({ length: 20 }, () => eintrag(0, 'uebersprungen')));
+    expect(naechste(), 'Kostenbremse darf die Aufgabe nicht verfallen lassen').toBe(0);
+
+    // Erst Erledigung rückt weiter.
+    setzen([eintrag(0, 'fertig')]);
+    expect(naechste(), 'nach „fertig" die nächste Aufgabe').toBe(1);
+
+    // Ein echter Fehler wird wiederholt — aber nicht endlos, sonst käme die
+    // Rolle nie zu ihren übrigen Aufträgen.
+    setzen(Array.from({ length: 4 }, () => eintrag(0, 'fehler')));
+    expect(naechste(), 'Fehler wird erneut versucht').toBe(0);
+    setzen(Array.from({ length: 5 }, () => eintrag(0, 'fehler')));
+    expect(naechste(), 'nach fünf Fehlversuchen weiterrücken').toBe(1);
+  });
+
+  test('HQ und Agent wählen die Aufgabe nach derselben Regel', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const wurzel = path.join(__dirname, '..', '..');
+    const HQ = fs.readFileSync(path.join(wurzel, 'hq.html'), 'utf8');
+    const AGENT = fs.readFileSync(path.join(wurzel, 'scripts', 'agent.mjs'), 'utf8');
+    // Zeigte das Netz eine andere Aufgabe als die laufende, wäre das
+    // schlimmer als gar keine Anzeige.
+    expect(HQ, 'HQ rechnet die Aufgabe noch aus der Uhr').not.toMatch(/aufgabenstrom[\s\S]{0,200}Date\.now\(\) \/ 3600000/);
+    expect(HQ, 'HQ liest den Fortschritt nicht aus dem Journal').toMatch(/Number\.isInteger\(e\.aufgabeIndex\)/);
+    expect(AGENT, 'Agent rechnet die Aufgabe noch aus der Uhr').not.toMatch(/aufgabeIndex = Math\.floor\(Date\.now\(\)/);
+    // Beide Seiten müssen dieselbe Obergrenze führen.
+    const hqMax = (HQ.match(/NN_MAX_VERSUCHE\s*=\s*(\d+)/) || [])[1];
+    const agMax = (AGENT.match(/MAX_VERSUCHE\s*=\s*(\d+)/) || [])[1];
+    expect(hqMax, 'HQ ohne Obergrenze').toBeTruthy();
+    expect(hqMax, 'HQ und Agent geben unterschiedlich schnell auf').toBe(agMax);
+  });
+
   test('Katalog behauptet keinen Laufzeit-Zustand', () => {
     for (const m of KATALOG.modelle) {
       expect(m).not.toHaveProperty('status');
