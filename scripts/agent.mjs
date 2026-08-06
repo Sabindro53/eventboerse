@@ -154,13 +154,40 @@ async function arbeiten() {
 
   const aufgaben = Array.isArray(rolle.aufgabenstrom) ? rolle.aufgabenstrom : [rolle.aufgabe];
   const aufgabeIndex = Math.floor(Date.now() / 3600000) % aufgaben.length;
-  const aktuelleAufgabe = aufgaben[aufgabeIndex];
+  const roh = aufgaben[aufgabeIndex];
+  // Ältere Kataloge führten reine Zeichenketten. Beide Formen lesen, damit ein
+  // Journal aus der Zeit davor nicht plötzlich „undefined" als Ziel zeigt.
+  const aktuelleAufgabe = typeof roh === 'string' ? roh : roh.ziel;
+  const aufgabenDateien = (typeof roh === 'string' ? [] : roh.dateien) || [];
 
   let kontext = '';
   if (kontextDatei) {
     try { kontext = await readFile(resolve(ROOT, kontextDatei), 'utf8'); }
     catch (e) { console.error(`Kontext nicht lesbar: ${e.message}`); process.exit(2); }
   }
+  // Die Dateien der Aufgabe wirklich lesen und mitgeben.
+  //
+  // Sonst wäre `dateien` im Journal nur ein Etikett: das HQ zeigte „Kito Sarr
+  // arbeitet an functions.php", während das Modell die Datei nie gesehen hat.
+  // Erst dadurch ist der Eintrag ein Protokoll statt einer Behauptung.
+  //
+  // Der Ausschnitt bleibt bewusst klein — 3000 Zeichen je Datei genügen, um
+  // die Stelle zu erkennen, und ein voller Dateiinhalt kostet nur Tokens.
+  const gelesen = [];
+  for (const d of aufgabenDateien) {
+    if (d.startsWith('/') || d.includes('..')) continue;   // nie aus dem Repo heraus
+    try {
+      const inhalt = await readFile(join(ROOT, d), 'utf8');
+      gelesen.push(`--- ${d} ---\n${inhalt.slice(0, 3000)}`);
+    } catch {
+      // Fehlt die Datei, wird sie NICHT als bearbeitet geführt.
+      gelesen.push(`--- ${d} --- (nicht lesbar)`);
+    }
+  }
+  if (gelesen.length) {
+    kontext = `${kontext}\n\nDATEIEN ZUR AUFGABE\n${gelesen.join('\n\n')}`;
+  }
+
   // Kontext begrenzen: ein Diff über tausende Zeilen kostet Geld und bringt
   // keine bessere Antwort.
   kontext = kontext.slice(0, 12000);
@@ -202,7 +229,7 @@ async function arbeiten() {
       await notieren({
         zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
         modell: rolle.name, modellId: rolle.modellId, bereich: rolle.bereich, anlass,
-        aufgabe: aktuelleAufgabe, ergebnis: 'uebersprungen',
+        aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, ergebnis: 'uebersprungen',
         text: `Kostenbremse: ${stopp}. Auftrag bleibt im nächsten freien Slot eingeplant.`,
         kontingentProzent: anteil,
       });
@@ -213,7 +240,7 @@ async function arbeiten() {
     await notieren({
       zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
       modell: rolle.name, modellId: rolle.modellId, bereich: rolle.bereich, anlass,
-      aufgabe: aktuelleAufgabe, ergebnis: 'fehler',
+      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, ergebnis: 'fehler',
       text: `Kontingent konnte nicht sicher geprüft werden: ${String(e.message).slice(0, 180)}. Kein Modellaufruf.`,
     });
     console.error(`✗ ${rolle.person}: Kontingentprüfung fehlgeschlagen; sicher gestoppt.`);
@@ -281,7 +308,7 @@ async function arbeiten() {
     await notieren({
       zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
       modell: rolle.name, bereich: rolle.bereich, anlass,
-      aufgabe: aktuelleAufgabe, ergebnis: 'fehler', text: String(e.message).slice(0, 300),
+      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, ergebnis: 'fehler', text: String(e.message).slice(0, 300),
     });
     console.error(`✗ ${rolle.person}: ${e.message}`);
     // Eine ausgefallene Schicht bricht die Routine nicht — sie steht im Journal.
@@ -305,7 +332,7 @@ async function arbeiten() {
   const eintrag = await notieren({
     zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
     modell: rolle.name, modellId: antwort.model || rolle.modellId, bereich: rolle.bereich, anlass,
-    aufgabe: aktuelleAufgabe, kontingentProzent: anteil,
+    aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, kontingentProzent: anteil,
     ergebnis: hatErgebnis ? 'fertig' : 'fehler',
     text: hatErgebnis
       ? text.slice(0, 1200)

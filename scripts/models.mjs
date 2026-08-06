@@ -28,6 +28,7 @@
  */
 
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GEHEIMNISSE, ersterTreffer } from './lib/verbotsmuster.mjs';
@@ -298,59 +299,92 @@ const ROH_MODELLE = [
  */
 const ARBEITSPLAENE = {
   'llama-arch': { anteil: 10, maxTokens: 260, aufgaben: [
-    'Roadmap gegen Nutzerwert prüfen und genau den nächsten Produkthebel benennen.',
-    'Aktuellen Sprint auf Zielkonflikte, fehlende Kennzahl und unnötigen Umfang prüfen.',
-    'Eventbörse und HQ als ein Produkt betrachten und die wichtigste Verbindung priorisieren.',
+    { ziel: 'Roadmap gegen Nutzerwert prüfen und genau den nächsten Produkthebel benennen.',
+      dateien: ['vault/50-Evolution/Roadmap/Current-Sprint.md', 'vault/50-Evolution/Roadmap/Feature-Ideen.md'] },
+    { ziel: 'Aktuellen Sprint auf Zielkonflikte, fehlende Kennzahl und unnötigen Umfang prüfen.',
+      dateien: ['vault/50-Evolution/Roadmap/Current-Sprint.md'] },
+    { ziel: 'Eventbörse und HQ als ein Produkt betrachten und die wichtigste Verbindung priorisieren.',
+      dateien: ['hq.html', 'app-shell.html'] },
   ] },
   'deepseek-code': { anteil: 12, maxTokens: 260, aufgaben: [
-    'Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen.',
-    'HQ- und Website-Abhängigkeiten auf eine brüchige Schnittstelle prüfen.',
-    'Den nächsten kleinen Patch vor Umsetzung auf Seiteneffekte gegenlesen.',
+    { ziel: 'Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen.',
+      dateien: ['functions.php'] },
+    { ziel: 'HQ- und Website-Abhängigkeiten auf eine brüchige Schnittstelle prüfen.',
+      dateien: ['hq.html', 'js/modules/core/02-router-navigation.js'] },
+    { ziel: 'Den nächsten kleinen Patch vor Umsetzung auf Seiteneffekte gegenlesen.',
+      dateien: ['js/modules/board/40-board-kanban.js'] },
   ] },
   'mistral-ops': { anteil: 8, maxTokens: 180, aufgaben: [
-    'Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten.',
-    'Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen.',
-    'Releaseweg auf den nächsten vermeidbaren Engpass prüfen.',
+    { ziel: 'Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten.',
+      dateien: ['.github/workflows/ionos-deploy.yml', 'audit/latest.json'] },
+    { ziel: 'Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen.',
+      dateien: ['audit/latest.json'] },
+    { ziel: 'Releaseweg auf den nächsten vermeidbaren Engpass prüfen.',
+      dateien: ['.github/workflows/pr-check.yml'] },
   ] },
   'qwen-wissen': { anteil: 10, maxTokens: 240, aufgaben: [
-    'Freigegebenes Wissen auf die wichtigste unbeantwortete Nutzerfrage prüfen.',
-    'Neue Signale nach Produktnähe und Belegbarkeit einordnen.',
-    'Daten- und Wissensbestand auf Widersprüche oder veraltete Annahmen prüfen.',
+    { ziel: 'Freigegebenes Wissen auf die wichtigste unbeantwortete Nutzerfrage prüfen.',
+      dateien: ['vault/10-Produkt/Wissen/Gebuehren-und-Provision.md', 'vault/10-Produkt/Wissen/Buchung-und-Zahlung.md'] },
+    { ziel: 'Neue Signale nach Produktnähe und Belegbarkeit einordnen.',
+      dateien: ['vault/10-Produkt/Wissen/Event-Planung-Praxis.md'] },
+    { ziel: 'Daten- und Wissensbestand auf Widersprüche oder veraltete Annahmen prüfen.',
+      dateien: ['vault/10-Produkt/Wissen/Inserate-erstellen.md', 'vault/10-Produkt/Wissen/Konto-und-Anmeldung.md'] },
   ] },
   'gemma-sort': { anteil: 8, maxTokens: 200, aufgaben: [
-    'Eine messbare Voice- oder UX-Reibung für den nächsten kleinen Patch auswählen.',
-    'HQ-Orientierung auf unnötige Schritte und unklare Bezeichnungen prüfen.',
-    'Barrierefreiheit auf eine kleine, risikoarme Verbesserung prüfen.',
+    { ziel: 'Eine messbare Voice- oder UX-Reibung für den nächsten kleinen Patch auswählen.',
+      dateien: ['hq.html'] },
+    { ziel: 'HQ-Orientierung auf unnötige Schritte und unklare Bezeichnungen prüfen.',
+      dateien: ['hq.html'] },
+    { ziel: 'Barrierefreiheit auf eine kleine, risikoarme Verbesserung prüfen.',
+      dateien: ['styles.css', 'tests/e2e/barrierefreiheit.spec.js'] },
   ] },
   'phi-kurz': { anteil: 16, maxTokens: 300, aufgaben: [
-    'Den priorisierten, freigegebenen Kleinst-Patch innerhalb des erlaubten Scopes vorbereiten.',
-    'Eine klar eingegrenzte Regression mit minimaler Änderung beheben.',
-    'Eine getestete UX-Verbesserung als kleinen Unified-Diff vorbereiten.',
+    { ziel: 'Den priorisierten, freigegebenen Kleinst-Patch innerhalb des erlaubten Scopes vorbereiten.',
+      dateien: ['js/modules/ui/31-modals-toast-qabot.js'] },
+    { ziel: 'Eine klar eingegrenzte Regression mit minimaler Änderung beheben.',
+      dateien: ['js/modules/search/11-suche-ki.js'] },
+    { ziel: 'Eine getestete UX-Verbesserung als kleinen Unified-Diff vorbereiten.',
+      dateien: ['styles.css'] },
   ] },
   'mixtral-sales': { anteil: 8, maxTokens: 200, aufgaben: [
-    'Anfragen nach Kategorie, Dringlichkeit und nächstem unverbindlichen Schritt strukturieren.',
-    'Funnel auf die größte aktuelle Reibung vor einer Buchung prüfen.',
-    'Eine Angebotslücke mit nachvollziehbarem Geschäftswert benennen.',
+    { ziel: 'Anfragen nach Kategorie, Dringlichkeit und nächstem unverbindlichen Schritt strukturieren.',
+      dateien: ['js/modules/chat/20-chat-nachrichten.js'] },
+    { ziel: 'Funnel auf die größte aktuelle Reibung vor einer Buchung prüfen.',
+      dateien: ['js/modules/board/41-flow-zahlung.js'] },
+    { ziel: 'Eine Angebotslücke mit nachvollziehbarem Geschäftswert benennen.',
+      dateien: ['vault/50-Evolution/Roadmap/Feature-Ideen.md'] },
   ] },
   'llama-finance': { anteil: 6, maxTokens: 180, aufgaben: [
-    'Gebühren- und Kostenannahmen auf eine konkrete Abweichung prüfen.',
-    'KI-Kontingent gegen Tagesbudget und Nutzen pro Aufgabe prüfen.',
-    'Finanzielle Risiken markieren, ohne Zahlungen oder Buchungen auszulösen.',
+    { ziel: 'Gebühren- und Kostenannahmen auf eine konkrete Abweichung prüfen.',
+      dateien: ['vault/10-Produkt/Wissen/Gebuehren-und-Provision.md'] },
+    { ziel: 'KI-Kontingent gegen Tagesbudget und Nutzen pro Aufgabe prüfen.',
+      dateien: ['assets/eb-models.json', 'assets/eb-arbeit.json'] },
+    { ziel: 'Finanzielle Risiken markieren, ohne Zahlungen oder Buchungen auszulösen.',
+      dateien: ['js/modules/board/41-flow-zahlung.js'] },
   ] },
   'llama-guard': { anteil: 10, maxTokens: 180, aufgaben: [
-    'Aktuelle Eingabe-, Rechte- und Geheimnisgrenzen auf die höchste Angriffsfläche prüfen.',
-    'Neue Datenflüsse auf Prompt-Injection, übermäßige Rechte und Datenschutzrisiken klassifizieren.',
-    'Die nächste Änderung auf Missbrauchs- und Exfiltrationsrisiken prüfen.',
+    { ziel: 'Aktuelle Eingabe-, Rechte- und Geheimnisgrenzen auf die höchste Angriffsfläche prüfen.',
+      dateien: ['functions.php', 'scripts/lib/verbotsmuster.mjs'] },
+    { ziel: 'Neue Datenflüsse auf Prompt-Injection, übermäßige Rechte und Datenschutzrisiken klassifizieren.',
+      dateien: ['scripts/agent.mjs', 'scripts/quarantine.mjs'] },
+    { ziel: 'Die nächste Änderung auf Missbrauchs- und Exfiltrationsrisiken prüfen.',
+      dateien: ['tests/e2e/ki-abwehr.spec.js'] },
   ] },
   'nemotron-governance': { anteil: 7, maxTokens: 220, aufgaben: [
-    'Freigaben, Einwilligungen und Nachweise auf eine konkrete Governance-Lücke prüfen.',
-    'Eine unklare Verantwortung oder nicht belegte Regel zur menschlichen Prüfung markieren.',
-    'Autonomiegrenzen auf Reversibilität und nachvollziehbare Zuständigkeit prüfen.',
+    { ziel: 'Freigaben, Einwilligungen und Nachweise auf eine konkrete Governance-Lücke prüfen.',
+      dateien: ['vault/00-Kern/Sicherheits-Klassifikation.md'] },
+    { ziel: 'Eine unklare Verantwortung oder nicht belegte Regel zur menschlichen Prüfung markieren.',
+      dateien: ['vault/00-Kern/Layer-Modell.md'] },
+    { ziel: 'Autonomiegrenzen auf Reversibilität und nachvollziehbare Zuständigkeit prüfen.',
+      dateien: ['scripts/models.mjs'] },
   ] },
   'ministral-community': { anteil: 5, maxTokens: 180, aufgaben: [
-    'Wiederkehrende Nutzerfragen bündeln und einen unverbindlichen Antwortentwurf vorbereiten.',
-    'Supportsignale auf die größte Verständlichkeitslücke prüfen.',
-    'Eine hilfreiche Community-Antwort ohne Zusage oder Veröffentlichung vorbereiten.',
+    { ziel: 'Wiederkehrende Nutzerfragen bündeln und einen unverbindlichen Antwortentwurf vorbereiten.',
+      dateien: ['vault/10-Produkt/Wissen/Nachrichten-und-Kontakt.md'] },
+    { ziel: 'Supportsignale auf die größte Verständlichkeitslücke prüfen.',
+      dateien: ['assets/eb-knowledge.json'] },
+    { ziel: 'Eine hilfreiche Community-Antwort ohne Zusage oder Veröffentlichung vorbereiten.',
+      dateien: ['vault/10-Produkt/Wissen/Konto-und-Anmeldung.md'] },
   ] },
 };
 
@@ -426,6 +460,24 @@ function pruefen() {
       if (!Number.isFinite(m.kontingentProzent) || m.kontingentProzent <= 0) melde('OpenRouter-Rolle ohne Kontingentanteil');
       if (!Number.isInteger(m.maxTokens) || m.maxTokens < 100 || m.maxTokens > 400) melde('unplausible Antwortgrenze');
       if (!Array.isArray(m.aufgabenstrom) || m.aufgabenstrom.length < 3) melde('kein belastbarer Aufgabenstrom');
+      // Jede Aufgabe nennt ihr Ziel und die Dateien, um die es geht — und
+      // diese Dateien müssen existieren. Eine Aufgabe, die eine erfundene
+      // Datei behauptet, wäre im HQ nicht von echter Arbeit zu unterscheiden;
+      // sie wäre eine Lüge in Dateiform, genau wie ein Katalog mit Status.
+      for (const a of (m.aufgabenstrom || [])) {
+        if (!a || typeof a.ziel !== 'string' || a.ziel.length < 20) {
+          melde('Aufgabe ohne aussagekräftiges Ziel');
+          continue;
+        }
+        if (!Array.isArray(a.dateien) || a.dateien.length < 1) {
+          melde(`Aufgabe ohne Datei: „${a.ziel.slice(0, 40)}…"`);
+          continue;
+        }
+        for (const d of a.dateien) {
+          if (d.startsWith('/') || d.includes('..')) melde(`Pfad verlässt das Repo: ${d}`);
+          else if (!existsSync(join(ROOT, d))) melde(`Aufgabe nennt eine Datei, die es nicht gibt: ${d}`);
+        }
+      }
     }
     if (typeof m.gehaltVergleich !== 'number') melde('gehaltVergleich fehlt (0 = keine Stelle)');
     // Ein Name macht die Rolle ansprechbar — er darf aber nie verdecken,
