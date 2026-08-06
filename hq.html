@@ -1299,7 +1299,7 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
-  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Bei jedem tatsächlich erreichten Scheduler-Puls arbeitet das komplette Ensemble; so überspringt eine GitHub-Verzögerung keine einzelne Rolle.', workflow: 'hq-operations.yml', schedule: '🟢 24/7-Steuerung · Taktziel 5 Min. · 11 Rollen/Puls · $0,60/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
+  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Viermal täglich arbeitet das komplette Ensemble ein Lagebild. Die Code-Arbeit macht der Autopilot — er bekommt deshalb den größeren Teil des Tagesbudgets.', workflow: 'hq-operations.yml', schedule: '🟢 Lagebild 4×/Tag (02/08/14/20 Uhr UTC) · 11 Rollen/Lauf · $0,15/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
   { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Prüft alle 5 Minuten tokenfrei; im offenen Kostenfenster liefern Scout, Architekt, Implementierer und Reviewer genau eine kleine Verbesserung.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung · KI max. stündlich · $0,12/Lauf · $0,60/Tag', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
   { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
   { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
@@ -2544,7 +2544,7 @@ function renderNeuralOps() {
   el.innerHTML = `
     <div class="neural-ops-head">
       <b>⚡ Live-Aufgabenstrom · <span class="neural-health ${healthClass}">${healthText}</span></b>
-      <span>Scheduler-Taktziel 5 Min. · alle 11 Rollen je erreichtem Puls · Anzeige sekündlich</span>
+      <span>Lagebild 4×/Tag · alle 11 Rollen je Lauf · Anzeige sekündlich</span>
     </div>
     <div class="neural-now-grid">
       <div class="neural-now live">
@@ -2787,7 +2787,7 @@ function renderJournal() {
   const e = (nnJournal && nnJournal.eintraege) || [];
   if (!e.length) {
     el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge stehen in der 24/7-Steuerung. '
-      + 'GitHub prüft mit einem Taktziel von fünf Minuten; jeder tatsächlich erreichte Puls arbeitet das gesamte Ensemble ab '
+      + 'Der Lagebild-Lauf startet viermal täglich; jeder Lauf arbeitet das gesamte Ensemble ab '
       + 'und schreibt Antworten, Kostenstopps oder Fehler hier hinein.</p>';
     return;
   }

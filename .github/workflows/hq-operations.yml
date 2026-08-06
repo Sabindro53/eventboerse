@@ -1,15 +1,21 @@
 name: HQ Operations Ensemble
 run-name: "⚡ HQ-Puls · Aufgabenstrom und Kontingent"
 
-# GitHub wird alle fuenf Minuten um einen Puls gebeten, garantiert den exakten
-# Startzeitpunkt geplanter Workflows aber nicht. Deshalb arbeitet bei JEDEM
-# tatsaechlich erreichten Puls das volle Ensemble: keine Rolle wird durch eine
-# Scheduler-Verzoegerung stundenlang uebersprungen. Der belegte Voll-Lauf vom
-# 2026-08-05 kostete $0.003646; das harte $0.60-Tagesbudget und jede Rollenquote
-# werden trotzdem vor JEDEM einzelnen Modellaufruf erneut geprueft.
+# Viermal taeglich, nicht stuendlich.
+#
+# Gemessen ueber einen Tag: rund 2 Mio Token verbraucht, praktisch ohne
+# Wirkung. Der Grund ist die Arbeitsteilung im Haus — dieser Puls erzeugt
+# LAGEBILDER, der Autopilot erzeugt ARBEIT (Patch, Tests, PR). Beide teilen
+# sich dasselbe $0.60-Tagesbudget. Bei 11 Rollen x 24 Laeufen hat der Puls es
+# aufgebraucht, bevor der Autopilot dazu kam: dessen Commits (#113-#119) liegen
+# alle zwischen 03:07 und 03:23 — genau solange das Budget frisch war, danach
+# nichts mehr.
+#
+# Ein Lagebild alle sechs Stunden ist so aktuell, wie ein Lagebild sein muss.
+# Was dadurch frei wird, geht an die Stelle, die die Seite wirklich verbessert.
 on:
   schedule:
-    - cron: '4/5 * * * *'
+    - cron: '17 2,8,14,20 * * *'
   workflow_dispatch:
 
 permissions:
@@ -26,7 +32,11 @@ jobs:
     timeout-minutes: 20
     env:
       EB_OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
-      EB_OPENROUTER_DAILY_BUDGET_USD: '0.60'
+      # Eigener, kleinerer Rahmen fuer den Puls: er kann das Tagesbudget des
+      # Autopiloten damit nicht mehr aufessen. $0.15 reichen fuer vier
+      # Voll-Laeufe (ein belegter Voll-Lauf kostete $0.0036), die uebrigen
+      # $0.45 bleiben der Stelle, die Code liefert.
+      EB_OPENROUTER_DAILY_BUDGET_USD: '0.15'
       EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
       SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
       SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
@@ -78,20 +88,37 @@ jobs:
             echo "Manueller Voll-Ensemble-Puls: alle $anzahl Rollen arbeiten innerhalb ihrer Quote." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Kontext klein halten — er ist der ganze Verbrauch.
+      #
+      # Vorher gingen 180 Zeilen aus einer 26-KB-Sprintdatei plus 160 Zeilen
+      # Audit an JEDE der 11 Rollen: rund 4200 Prompt-Token pro Rolle, elfmal
+      # pro Lauf, 24 Läufe am Tag — gut 1,1 Mio Token taeglich, bei etwa
+      # 150 Token Antwort je Rolle. Verhaeltnis 28:1, und das meiste davon war
+      # abgeschlossene Historie, die niemand mehr braucht.
+      #
+      # Jetzt nur der Ist-Stand: der Kopf des Sprints (Abschnitt „Stand heute"),
+      # die letzten Commits und die Kurzfassung des Audits. Die Datei-Auszuege
+      # zur konkreten Aufgabe kommen ohnehin aus scripts/agent.mjs dazu — DA
+      # liegt der Bezug zur Arbeit, nicht in alten Sprintprotokollen.
       - name: Belegten Arbeitskontext bauen
         shell: bash
         run: |
           mkdir -p .ai-run
           {
             echo "LETZTE COMMITS"
-            git log -8 --pretty=format:'%h %s'
+            git log -6 --pretty=format:'%h %s'
             echo
-            echo "AKTUELLER SPRINT"
-            sed -n '1,180p' vault/50-Evolution/Roadmap/Current-Sprint.md
+            echo "IST-STAND"
+            # Nur bis zum ersten abgeschlossenen Sprint — alles danach ist Historie.
+            sed -n '/^## Stand heute/,/^## Zuletzt abgeschlossen/p' \
+              vault/50-Evolution/Roadmap/Current-Sprint.md | head -n 24
             echo
-            echo "LETZTER AUDIT"
-            sed -n '1,160p' audit/latest.json
+            echo "SELBSTCHECK (Kurzfassung)"
+            jq -r '{erzeugt, befunde: (.befunde // [] | length),
+                    schwer: [(.befunde // [])[] | select(.schwere == "hoch") | .titel]}' \
+              audit/latest.json 2>/dev/null || head -c 600 audit/latest.json
           } > .ai-run/ensemble-context.txt
+          echo "Kontextgröße: $(wc -c < .ai-run/ensemble-context.txt) Bytes" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Alle Rollen taskweise arbeiten lassen
         shell: bash

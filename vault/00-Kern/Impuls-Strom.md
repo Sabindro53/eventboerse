@@ -63,17 +63,17 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **56** |
-| Commits (30 Tage) | 113 |
-| Letzter Commit | `cba4154 · Vier Ursachen für die 17,5 % Fehlerquote im Ensemble` (2026-08-06) |
+| Commits (7 Tage) | **57** |
+| Commits (30 Tage) | 114 |
+| Letzter Commit | `9904f4c · Befunde bestimmen die Arbeit — statt Kalenderwoche` (2026-08-06) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 40 app.js
      33 styles.css
+     23 tests/e2e/kern.spec.js
      23 index.html
      23 app-shell.html
-     22 tests/e2e/kern.spec.js
 ```
 
 **Codegröße:**
