@@ -118,7 +118,7 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/max_price/);
     expect(runner).toMatch(/for \(const modell of kandidaten\)/);
     expect(runner).toMatch(/ergebnis: 'unbrauchbar'/);
-    expect(runner).toMatch(/validiereAgentenJson\(rolle, json\)/);
+    expect(runner).toMatch(/validiereAgentenJson\(rolle, json, validierungsKontext\)/);
     expect(runner).toMatch(/nicht portable Validierungs-Schluesselwoerter/);
     expect(runner).toMatch(/json\.decision === 'skip'/);
     expect(runner).toMatch(/if \(!scout\.target_files\.length\)/);
