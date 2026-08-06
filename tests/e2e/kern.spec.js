@@ -114,6 +114,9 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/runBudget.*0\.12/);
     expect(runner).toMatch(/dailyBudget.*0\.60/);
     expect(runner).toMatch(/modellKandidaten/);
+    const scoutModelle = runner.slice(runner.indexOf('scout: {'), runner.indexOf('architect: {'));
+    expect(scoutModelle).toContain('qwen/qwen3-30b-a3b-instruct-2507');
+    expect(scoutModelle).not.toMatch(/gemma-3-12b|llama-3\.1-8b|mistral-nemo/);
     expect(runner).toMatch(/sort:\s*'price'/);
     expect(runner).toMatch(/max_price/);
     expect(runner).toMatch(/for \(const modell of kandidaten\)/);
