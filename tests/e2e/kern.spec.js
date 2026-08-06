@@ -160,6 +160,8 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/codeflowSchreiben\('architect'/);
     expect(runner).toMatch(/codeflowSchreiben\('implementer'/);
     expect(runner).toMatch(/codeflowSchreiben\('reviewer'/);
+    expect(runner).toMatch(/REPOSITORY-BELEGE/);
+    expect(runner).toMatch(/Scout-Beleg ist nicht wortgetreu/);
     expect(workflow).toMatch(/Live-Codeflow vorbereiten/);
     expect(workflow).toMatch(/\.ai-run\/codeflow\.json/);
     expect(workflow).toMatch(/assets\/eb-codeflow\.json/);
@@ -286,6 +288,7 @@ test.describe('Neuronaler Kern', () => {
           beschreibung: 'Ein klarer Rückweg soll die Orientierung verbessern.',
           warum_jetzt: 'Der UX-Scout hat eine belegte Reibung gefunden.',
           akzeptanz: ['Rückweg ist mit Tastatur erreichbar.', 'Bestehendes Routing bleibt unverändert.'],
+          belege: [{ file: 'js/modules/core/02-router-navigation.js', line: 59, excerpt: "document.addEventListener('click'" }],
         },
         dateien: {
           zieldateien: ['js/modules/core/02-router-navigation.js', 'mobile-overrides.css'],
@@ -320,6 +323,8 @@ test.describe('Neuronaler Kern', () => {
     expect(r.dateien).toEqual(['js/modules/core/02-router-navigation.js', 'mobile-overrides.css', 'openrouter/auto-ux']);
     expect(r.lieferstufen).toBe(7);
     expect(r.text).toContain('Navigation verständlicher machen');
+    expect(r.text).toContain('Repo-Beleg');
+    expect(r.text).toContain('js/modules/core/02-router-navigation.js:59');
     expect(r.text).toContain('Timo Rast');
     expect(r.text).toContain('Branch-Push');
     expect(r.text).toContain('Auto-Merge');

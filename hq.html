@@ -2346,6 +2346,7 @@ function renderCodeflowLive(autopilotRun, autopilotAktiv, workflowSchritt) {
   const phase = flow.phase || 'wartet';
   const phaseIndex = ['scout', 'architect', 'implementer', 'reviewer', 'gates', 'pull_request', 'merge', 'deploy'].indexOf(phase);
   const ziel = flow.ziel || {};
+  const belege = (ziel.belege || []).slice(0, 4);
   const dateiLink = pull ? `${pull.html_url}/files` : `https://github.com/${REPO}/tree/main`;
   const rollen = (flow.mitarbeiter || []).map(m => {
     let status = m.status || 'wartet';
@@ -2384,6 +2385,7 @@ function renderCodeflowLive(autopilotRun, autopilotAktiv, workflowSchritt) {
         <b>${escHtml(ziel.titel || 'Sichere Verbesserung bestimmen')}</b>
         <p>${escHtml(ziel.beschreibung || '')}</p>
         <small>Warum jetzt: ${escHtml(ziel.warum_jetzt || '–')}</small>
+        ${belege.length ? `<div class="codeflow-evidence"><strong>Repo-Beleg</strong>${belege.map(beleg => `<code>${escHtml(beleg.file)}:${escHtml(beleg.line)}</code><small>${escHtml(beleg.excerpt)}</small>`).join('')}</div>` : ''}
         ${(ziel.akzeptanz || []).length ? `<ul>${ziel.akzeptanz.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>` : ''}
       </div>
       <div class="codeflow-files">

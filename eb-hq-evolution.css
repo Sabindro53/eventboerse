@@ -266,6 +266,10 @@
 .codeflow-goal b { display: block; font-size: 0.72rem; line-height: 1.35; }
 .codeflow-goal p, .codeflow-files p { margin: 0.32rem 0; color: #cbd5e1; font-size: 0.61rem; line-height: 1.45; }
 .codeflow-goal small, .codeflow-files small { color: var(--muted); font-size: 0.56rem; line-height: 1.4; }
+.codeflow-evidence { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .18rem .4rem; margin-top: .45rem; padding: .42rem; border: 1px solid rgba(34,211,238,.16); border-radius: 7px; background: rgba(34,211,238,.035); }
+.codeflow-evidence strong { grid-column: 1 / -1; color: #67e8f9; font-size: .52rem; letter-spacing: .06em; text-transform: uppercase; }
+.codeflow-evidence code { overflow: hidden; color: #c4b5fd; font-size: .5rem; text-overflow: ellipsis; white-space: nowrap; }
+.codeflow-evidence small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .codeflow-goal ul { margin: 0.45rem 0 0; padding-left: 1rem; color: var(--muted); font-size: 0.56rem; line-height: 1.45; }
 .codeflow-files > div { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .codeflow-files > div > a { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; padding: .3rem .42rem; border: 1px solid rgba(168,85,247,.26); border-radius: 7px; color: #ddd6fe; background: rgba(168,85,247,.06); text-decoration: none; }
