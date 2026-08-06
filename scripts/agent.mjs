@@ -344,6 +344,18 @@ async function arbeiten() {
         model: rolle.modellId,
         max_tokens: rolle.maxTokens || 220,
         temperature: 0.2,
+        // Denk-Tokens abschalten.
+        //
+        // Gemessen im Puls-Lauf vom 06.08.: Kito Sarr 4312 Token → leere
+        // Antwort, Timo Rast 4253 → leer, Rhea Malik 4116 → leer. Genau die
+        // drei Reasoning-Modelle (DeepSeek Flash, Qwen3-Coder-A3B,
+        // Nemotron-Nano-A3B), waehrend die reinen Instruct-Modelle lieferten.
+        // Sie verbrauchen `max_tokens` beim Denken, bevor sichtbarer Inhalt
+        // entsteht — bezahlt wird trotzdem. Bei 180–300 Token Budget kann so
+        // nie eine Antwort herauskommen.
+        //
+        // OpenRouter ignoriert das Feld bei Modellen ohne Reasoning.
+        reasoning: { enabled: false },
         messages: [
           { role: 'system', content: AUFTRAG[rolleId] + ' Antworte auf Deutsch, konkret und in höchstens 90 Wörtern. Behaupte nichts ohne Beleg.' + regel },
           { role: 'user', content: `AKTUELLER AUFTRAG:\n${aktuelleAufgabe}\n\nBELEGTER KONTEXT:\n${eingezaeunt}` },
@@ -355,7 +367,10 @@ async function arbeiten() {
           max_price: { prompt: 0.30, completion: 0.90 },
         },
       }),
-      signal: AbortSignal.timeout(30000),
+      // 30 s waren zu knapp: Ada Brenner fiel im Lauf vom 06.08. mit
+      // „operation was aborted due to timeout" aus, obwohl nichts kaputt war.
+      // Ein Abbruch kostet den ganzen Prompt und liefert nichts.
+      signal: AbortSignal.timeout(60000),
     });
     if (!res.ok) {
       const txt = (await res.text()).slice(0, 200);

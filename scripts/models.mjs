@@ -230,11 +230,16 @@ const ROH_MODELLE = [
     vergleichsstelle: 'Buchhaltung',
   },
   {
-    id: 'llama-guard', werkzeuge: ['github','openrouter'], person: 'Noah Stern', name: 'Llama Guard 4 12B', modellId: 'meta-llama/llama-guard-4-12b', anbieter: 'Meta', offen: true,
-    lizenz: 'Llama Community License', bereich: 'sicherheit',
+    id: 'llama-guard', werkzeuge: ['github','openrouter'], person: 'Noah Stern', name: 'Gemma 3 27B', modellId: 'google/gemma-3-27b-it', anbieter: 'Google', offen: true,
+    lizenz: 'Gemma Terms of Use', bereich: 'sicherheit',
     rolle: 'Security-Triage',
     aufgabe: 'Klassifiziert neue Angriffsflächen, Berechtigungsfehler und riskante Datenflüsse, ohne Grenzen zu lockern.',
-    warum: 'Ein spezialisiertes Guard-Modell ist für wiederholbare Sicherheitsklassifikation geeigneter als ein Generalist.',
+    // Vorher lief hier Llama Guard 4 — ein Moderations-Klassifikator, der
+    // ausschliesslich „safe"/„unsafe" ausgibt. Im Journal stand deshalb bei
+    // jedem Lauf wortwoertlich `safe`, gebucht als „fertig". Eine Rolle, die
+    // immer „sicher" antwortet, ist schlimmer als gar keine: sie sieht aus wie
+    // eine bestandene Sicherheitspruefung, ohne eine zu sein.
+    warum: 'Security-Triage verlangt eine begründete Einordnung, nicht ein Moderationsurteil — dafür braucht es ein Instruct-Modell.',
     weg: 'openrouter',
     schicht: 'hq-operations.yml',
     ausloeser: 'Prüft bei jedem tatsächlich erreichten Voll-Ensemble-Puls die nächste offene Sicherheitsfläche.',

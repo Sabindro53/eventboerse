@@ -9,6 +9,20 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## Stand heute (2026-08-06)
+
+Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
+Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
+liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
+einen alten Abschnitt gelesen und nicht diesen.
+
+- **Playwright-Suite: 163 Tests in 11 Suiten**, blockierendes Gate in `pr-check.yml`
+- Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
+  Arbeitsjournal, app.js-Drift
+- HQ-Puls stündlich, 11 Rollen je Lauf, Journal als echte Laufzeitspur per SFTP
+- Offen: Repo steht auf **public** mit dem Security-Vault darin (keine
+  Zugangsdaten, aber eine Landkarte der Angriffsfläche)
+
 ## Zuletzt abgeschlossen (2026-08-05) — HQ Operations-Ensemble & Voice v2
 
 - [x] **Vollständiges Betriebsbild:** zehn Hauptbereiche statt sechs — Produkt

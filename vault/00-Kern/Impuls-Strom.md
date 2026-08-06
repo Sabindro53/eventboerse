@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **57** |
-| Commits (30 Tage) | 114 |
-| Letzter Commit | `83aef81 · Jede Aufgabe nennt ihr Ziel und die Dateien, an denen sie arbeitet` (2026-08-06) |
+| Commits (7 Tage) | **55** |
+| Commits (30 Tage) | 112 |
+| Letzter Commit | `395a68f · KI-Abwehr, Aufgaben-Dateien und Fortsetzung bei erschöpftem Kontingent (#105)` (2026-08-06) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
