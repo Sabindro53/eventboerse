@@ -11,6 +11,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const KATALOG = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-models.json'), 'utf8'));
+const CODEFLOW = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-codeflow.json'), 'utf8'));
 const HQ = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
 const HQ_CSS = fs.readFileSync(path.join(ROOT, 'eb-hq-evolution.css'), 'utf8');
 const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
@@ -148,6 +149,27 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(merge).toMatch(/merge_method: 'squash'/);
   });
 
+  test('Autopilot veröffentlicht echten Codeflow mit Ziel, Dateien und Lieferstatus', () => {
+    expect(CODEFLOW.version).toBe(1);
+    expect(CODEFLOW.mitarbeiter).toHaveLength(4);
+    expect(CODEFLOW.lieferung.automatisch).toBe(true);
+    expect(runner).toMatch(/\.ai-run.*codeflow\.json|join\(OUT_DIR, 'codeflow\.json'\)/);
+    expect(runner).toMatch(/zieldateien/);
+    expect(runner).toMatch(/geaendert/);
+    expect(runner).toMatch(/diff_stat/);
+    expect(runner).toMatch(/codeflowSchreiben\('architect'/);
+    expect(runner).toMatch(/codeflowSchreiben\('implementer'/);
+    expect(runner).toMatch(/codeflowSchreiben\('reviewer'/);
+    expect(workflow).toMatch(/Live-Codeflow vorbereiten/);
+    expect(workflow).toMatch(/\.ai-run\/codeflow\.json/);
+    expect(workflow).toMatch(/assets\/eb-codeflow\.json/);
+    expect(workflow).toMatch(/sha256sum/);
+    expect(HQ).toMatch(/loadAutopilotPull/);
+    expect(HQ).toMatch(/Branch-Push/);
+    expect(HQ).toMatch(/Auto-Merge/);
+    expect(HQ).toMatch(/Live-Deploy/);
+  });
+
   test('Operations-Ensemble arbeitet bei jedem erreichten Puls vollständig unter Kostenbremse', () => {
     expect(operations).toMatch(/cron:\s*'4\/5 \* \* \* \*'/);
     expect(operations).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
@@ -248,6 +270,60 @@ test.describe('Neuronaler Kern', () => {
     expect(r.transportwege).toBe(10);
     expect(r.aktiveTransportwege, 'jede Hauptkategorie muss den echten Vollpuls zeigen').toBe(10);
     expect(r.badge).toContain('11 arbeiten gerade');
+  });
+
+  test('Live-Codeflow zeigt Ziel, Mitarbeiter, Dateien und automatischen Lieferweg', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      state.codeflow = {
+        version: 1,
+        aktualisiert: new Date().toISOString(),
+        phase: 'implementer',
+        status: 'arbeitet',
+        run: { id: 4242, url: 'https://github.com/Sabindro53/eventboerse/actions/runs/4242', fokus: 'ux' },
+        aktuell: { person: 'Timo Rast', ziel: 'Kleinen Diff umsetzen.' },
+        ziel: {
+          titel: 'Navigation verständlicher machen',
+          beschreibung: 'Ein klarer Rückweg soll die Orientierung verbessern.',
+          warum_jetzt: 'Der UX-Scout hat eine belegte Reibung gefunden.',
+          akzeptanz: ['Rückweg ist mit Tastatur erreichbar.', 'Bestehendes Routing bleibt unverändert.'],
+        },
+        dateien: {
+          zieldateien: ['js/modules/core/02-router-navigation.js', 'mobile-overrides.css'],
+          geaendert: [], diff_stat: '',
+        },
+        mitarbeiter: [
+          { person: 'Ela Voss', rolle: 'Scout', auftrag: 'Wählt die Verbesserung.', status: 'fertig' },
+          { person: 'Ada Brenner', rolle: 'Architektin', auftrag: 'Begrenzt den Scope.', status: 'fertig' },
+          { person: 'Timo Rast', rolle: 'Implementierer', auftrag: 'Schreibt den Diff.', status: 'arbeitet' },
+          { person: 'Kito Sarr', rolle: 'Reviewer', auftrag: 'Prüft unabhängig.', status: 'wartet' },
+        ],
+        lieferung: { automatisch: true, branch: 'openrouter/auto-ux' },
+        budget: { lauf_usd: 0.12, tag_usd: 0.6, kosten_usd: 0.01 },
+      };
+      state.runs = [{
+        id: 4242, path: '.github/workflows/openrouter-autopilot.yml', status: 'in_progress',
+        conclusion: null, updated_at: new Date().toISOString(), display_title: 'UX-Puls',
+      }];
+      state.openrouterJob = { steps: [{ name: 'Scout, Architektur, Umsetzung und Review live', status: 'in_progress' }] };
+      renderNeuralOps();
+      const el = document.querySelector('.codeflow');
+      return {
+        text: el.textContent,
+        mitarbeiter: el.querySelectorAll('.codeflow-person').length,
+        dateien: [...el.querySelectorAll('.codeflow-files code')].map(x => x.textContent),
+        live: !!el.querySelector('.codeflow-state.live'),
+        lieferstufen: el.querySelectorAll('.codeflow-stage').length,
+      };
+    });
+    expect(r.live).toBe(true);
+    expect(r.mitarbeiter).toBe(4);
+    expect(r.dateien).toEqual(['js/modules/core/02-router-navigation.js', 'mobile-overrides.css', 'openrouter/auto-ux']);
+    expect(r.lieferstufen).toBe(7);
+    expect(r.text).toContain('Navigation verständlicher machen');
+    expect(r.text).toContain('Timo Rast');
+    expect(r.text).toContain('Branch-Push');
+    expect(r.text).toContain('Auto-Merge');
+    expect(r.text).toContain('Live-Deploy');
   });
 
   test('die Dichte des Wissenskerns folgt der echten Wissensbasis', async ({ page }) => {

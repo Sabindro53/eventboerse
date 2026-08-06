@@ -76,6 +76,92 @@ const AGENTEN = Object.freeze({
   },
 });
 
+const CODEFLOW_ROLLEN = Object.freeze([
+  { id: 'scout', person: 'Ela Voss', rolle: 'Scout', auftrag: 'Wählt genau eine kleine, belegbare Verbesserung.' },
+  { id: 'architect', person: 'Ada Brenner', rolle: 'Architektin', auftrag: 'Begrenzt Dateien, Invarianten und Prüfschritte.' },
+  { id: 'implementer', person: 'Timo Rast', rolle: 'Implementierer', auftrag: 'Erzeugt den kleinen, reversiblen Unified-Diff.' },
+  { id: 'reviewer', person: 'Kito Sarr', rolle: 'Reviewer', auftrag: 'Prüft Scope, Sicherheit und Akzeptanz unabhängig.' },
+]);
+const CODEFLOW_REIHENFOLGE = ['scout', 'architect', 'implementer', 'reviewer', 'gates', 'pull_request', 'merge', 'deploy'];
+let codeflow = null;
+
+function codeflowSchreiben(phase, daten = {}) {
+  if (!codeflow) return;
+  const jetzt = new Date().toISOString();
+  const index = CODEFLOW_REIHENFOLGE.indexOf(phase);
+  const {
+    status = 'arbeitet', person, aktuelles_ziel: aktuellesZiel,
+    zieldateien, ...persistenteDaten
+  } = daten;
+  codeflow = {
+    ...codeflow,
+    ...persistenteDaten,
+    version: 1,
+    aktualisiert: jetzt,
+    phase,
+    status,
+    aktuell: {
+      phase,
+      person: person || ({
+        scout: 'Ela Voss', architect: 'Ada Brenner', implementer: 'Timo Rast', reviewer: 'Kito Sarr',
+        gates: 'Testsuite', pull_request: 'GitHub', merge: 'Auto-Merge-Wächter', deploy: 'IONOS-Deploy',
+      }[phase] || '24/7-Steuerung'),
+      ziel: aktuellesZiel || codeflow.ziel?.beschreibung || 'Sicheren nächsten Schritt bestimmen.',
+      seit: jetzt,
+    },
+    mitarbeiter: CODEFLOW_ROLLEN.map((rolle, rollenIndex) => ({
+      ...rolle,
+      status: index < 0 ? 'wartet' : rollenIndex < index ? 'fertig' : rollenIndex === index ? status : 'wartet',
+      dateien: (zieldateien || codeflow.dateien?.zieldateien || []),
+    })),
+  };
+  mkdirSync(OUT_DIR, { recursive: true });
+  writeFileSync(join(OUT_DIR, 'codeflow.json'), `${JSON.stringify(codeflow, null, 2)}\n`, 'utf8');
+}
+
+function codeflowStart(fokus, runBudget, dailyBudget) {
+  const runId = process.env.GITHUB_RUN_ID || null;
+  const repo = process.env.GITHUB_REPOSITORY || 'Sabindro53/eventboerse';
+  const server = process.env.GITHUB_SERVER_URL || 'https://github.com';
+  codeflow = {
+    version: 1,
+    quelle: 'OpenRouter Autopilot',
+    run: {
+      id: runId ? Number(runId) : null,
+      url: runId ? `${server}/${repo}/actions/runs/${runId}` : null,
+      event: process.env.GITHUB_EVENT_NAME || 'local',
+      fokus,
+    },
+    ziel: {
+      titel: 'Nächste sichere Repository-Verbesserung bestimmen',
+      beschreibung: `Fokus ${fokus}: Signale, Roadmap und Audit auf einen kleinen reversiblen Hebel prüfen.`,
+      warum_jetzt: 'Der autonome Kosten- und Sicherheitsrahmen ist offen.',
+      akzeptanz: [],
+    },
+    dateien: { zieldateien: [], geaendert: [], diff_stat: '' },
+    lieferung: {
+      automatisch: true,
+      branch: `openrouter/auto-${fokus}`,
+      gates: 'wartet',
+      pull_request: 'wartet',
+      merge: 'wartet',
+      deploy: 'wartet',
+    },
+    budget: { lauf_usd: runBudget, tag_usd: dailyBudget, kosten_usd: 0 },
+    mitarbeiter: CODEFLOW_ROLLEN,
+  };
+  codeflowSchreiben('scout', { person: 'Ela Voss', aktuelles_ziel: codeflow.ziel.beschreibung });
+}
+
+function codeflowFehler(error) {
+  if (!codeflow) return;
+  codeflowSchreiben(codeflow.phase || 'scout', {
+    status: 'fehler',
+    fehler: String(error && error.message || error).slice(0, 700),
+    aktuelles_ziel: 'Lauf sicher gestoppt; Ursache im Workflow prüfen.',
+  });
+}
+
 const SCOUT_SCHEMA = objectSchema({
   title: { type: 'string' },
   goal: { type: 'string' },
@@ -310,6 +396,7 @@ async function main(argv = []) {
   const runBudget = zahl(process.env.EB_OPENROUTER_RUN_BUDGET_USD) ?? 0.12;
   const dailyBudget = zahl(process.env.EB_OPENROUTER_DAILY_BUDGET_USD) ?? 0.60;
   const minRemaining = zahl(process.env.EB_OPENROUTER_MIN_REMAINING_USD) ?? 1;
+  codeflowStart(fokus, runBudget, dailyBudget);
   const headers = {
     Authorization: `Bearer ${key}`,
     'Content-Type': 'application/json',
@@ -442,10 +529,21 @@ async function main(argv = []) {
     `Du bist der konservative Scout fuer EventBoerse. ${fremdtextRegel} `
       + 'Waehle genau EINE kleine, sichtbare, risikoarme Verbesserung. Keine erfundene Dringlichkeit, kein Backend, kein Auth, kein Payment.',
     basisKontext(fokus));
+  codeflow.ziel = {
+    titel: scout.title,
+    beschreibung: scout.goal,
+    warum_jetzt: scout.why_now,
+    akzeptanz: scout.acceptance,
+  };
+  codeflow.dateien.zieldateien = scout.target_files;
   if (!scout.target_files.length) {
     return ergebnisSchreiben({ changed: false, fokus, scout, laeufe, kosten: ausgegeben });
   }
   pruefeDateiliste(scout.target_files);
+  codeflowSchreiben('architect', {
+    person: 'Ada Brenner', zieldateien: scout.target_files,
+    aktuelles_ziel: `Dateirahmen und Folgen für „${scout.title}“ prüfen.`,
+  });
 
   const quellen = dateiKontext(scout.target_files);
   const architekt = await agent('architect', ARCHITECT_SCHEMA,
@@ -460,6 +558,16 @@ async function main(argv = []) {
   if (architekt.decision === 'skip') {
     return ergebnisSchreiben({ changed: false, fokus, scout, architekt, laeufe, kosten: ausgegeben });
   }
+  codeflow.architektur = {
+    schritte: architekt.steps,
+    invarianten: architekt.invariants,
+    verifikation: architekt.verification,
+  };
+  codeflow.dateien.zieldateien = architekt.target_files;
+  codeflowSchreiben('implementer', {
+    person: 'Timo Rast', zieldateien: architekt.target_files,
+    aktuelles_ziel: `Kleinen Diff in ${architekt.target_files.join(', ')} umsetzen.`,
+  });
 
   const implementierung = await agent('implementer', IMPLEMENTER_SCHEMA,
     `Du bist der Implementierer. ${fremdtextRegel} Gib ausschliesslich einen kleinen Unified-Diff zurueck. `
@@ -473,6 +581,14 @@ async function main(argv = []) {
     return ergebnisSchreiben({ changed: false, fokus, scout, architekt, implementierung, laeufe, kosten: ausgegeben });
   }
   patchPruefen(patch, architekt.target_files);
+  codeflow.implementierung = {
+    zusammenfassung: implementierung.summary,
+    vorgesehene_tests: implementierung.tests_considered,
+  };
+  codeflowSchreiben('reviewer', {
+    person: 'Kito Sarr', zieldateien: architekt.target_files,
+    aktuelles_ziel: 'Patch unabhängig gegen Scope, Sicherheit und Akzeptanz prüfen.',
+  });
 
   const review = await agent('reviewer', REVIEW_SCHEMA,
     `Du bist der unabhaengige Code-Reviewer. ${fremdtextRegel} `
@@ -628,6 +744,36 @@ function ergebnisSchreiben(result) {
   const run_budget = zahl(process.env.EB_OPENROUTER_RUN_BUDGET_USD) ?? 0.12;
   const daily_budget = zahl(process.env.EB_OPENROUTER_DAILY_BUDGET_USD) ?? 0.60;
   const clean = { ...result, kosten, run_budget, daily_budget };
+  if (codeflow) {
+    codeflow.budget.kosten_usd = kosten;
+    codeflow.dateien.geaendert = clean.changed_files || [];
+    codeflow.dateien.diff_stat = clean.diff_stat || '';
+    if (clean.review) {
+      codeflow.review = {
+        freigegeben: !!clean.review.approved,
+        konfidenz: clean.review.confidence,
+        zusammenfassung: clean.review.summary,
+        befunde: clean.review.findings,
+      };
+    }
+    if (clean.changed) {
+      codeflow.lieferung.gates = 'arbeitet';
+      codeflowSchreiben('gates', {
+        person: 'Testsuite', status: 'arbeitet',
+        zieldateien: clean.changed_files || [],
+        aktuelles_ziel: 'Syntax, Katalog, Build und komplette Browser-Suite prüfen.',
+      });
+    } else {
+      const grund = clean.stopp === 'tagesbudget' ? 'Tagesbudget erreicht.'
+        : clean.architekt?.decision === 'skip' ? clean.architekt.skip_reason
+          : clean.review && !clean.review.approved ? clean.review.summary
+            : 'Kein sicherer, wirksamer Patch wurde freigegeben.';
+      codeflowSchreiben(codeflow.phase || 'scout', {
+        status: clean.stopp ? 'budgetstopp' : 'ohne_aenderung',
+        aktuelles_ziel: grund,
+      });
+    }
+  }
   writeFileSync(join(OUT_DIR, 'result.json'), `${JSON.stringify(clean, null, 2)}\n`, 'utf8');
   const body = prBody(clean);
   writeFileSync(join(OUT_DIR, 'pr-body.md'), body, 'utf8');
@@ -717,6 +863,7 @@ export { main, selfTest, patchPruefen, pruefeDateiliste };
 if (typeof process !== 'undefined' && Array.isArray(process.argv)
     && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).catch((error) => {
+    codeflowFehler(error);
     console.error(`::error title=OpenRouter-Agentenlauf fehlgeschlagen::${error.message}`);
     process.exitCode = 1;
   });
