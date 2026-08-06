@@ -48,9 +48,9 @@ const SICHERE_DATEIEN = Object.freeze({
 const AGENTEN = Object.freeze({
   scout: {
     name: 'Ela Voss · Scout',
-    model: 'google/gemma-3-12b-it',
-    fallbacks: ['mistralai/mistral-nemo', 'meta-llama/llama-3.1-8b-instruct'],
-    maxTokens: 650,
+    model: 'qwen/qwen3-30b-a3b-instruct-2507',
+    fallbacks: ['mistralai/mistral-small-3.2-24b-instruct', 'meta-llama/llama-3.3-70b-instruct'],
+    maxTokens: 950,
     temperature: 0.15,
   },
   architect: {
@@ -375,7 +375,7 @@ function kostenSchaetzen(antwort, modellPreise) {
 /**
  * Waehlt innerhalb der fuer eine Rolle vorab geprueften Modelle den
  * guenstigsten Kandidaten fuer genau diesen Aufruf. Die Rollenqualitaet bleibt
- * damit eine Code-Entscheidung; der Preis entscheidet nur zwischen passenden
+ * mit einer pro Rolle gepflegten Modell-Whitelist eine Code-Entscheidung; der Preis entscheidet nur zwischen passenden
  * Modellen. OpenRouter sortiert danach auch die Provider dieses Modells nach
  * Preis. Bei fehlenden Preisen bleibt die deklarierte Reihenfolge erhalten.
  */
