@@ -16890,3 +16890,81 @@ body.dark-mode .ai-nightsky {
   font-weight: 700; cursor: pointer; padding: 0; font-size: 0.85rem;
 }
 .fc-login-hint button:hover { text-decoration: underline; }
+
+/* ══════════════════════════════════════════════════════════════════
+   EVENT-RADAR  ·  Umkreis-Leiste über der Karte
+
+   Nutzt ausschließlich vorhandene Tokens — eine eigene Farbwelt für ein
+   Panel wäre der Anfang genau der Token-Zersplitterung, gegen die das
+   Design-System-Gate ratscht.
+   ══════════════════════════════════════════════════════════════════ */
+.radar-leiste {
+  display: flex; flex-direction: column; gap: .6rem;
+  padding: .85rem 1rem; border-bottom: 1px solid var(--border-light);
+  background: var(--bg-alt);
+}
+.radar-ort { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.radar-btn {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .45rem .8rem; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: #fff; color: var(--text);
+  font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.radar-btn .material-icons-round { font-size: 17px; }
+.radar-btn:hover { border-color: var(--primary); }
+.radar-btn:disabled { opacity: .55; cursor: default; }
+.radar-btn-still {
+  background: transparent; border-color: transparent; font-weight: 500;
+  color: var(--text); text-decoration: underline;
+}
+.radar-stadt-label { font-size: .76rem; color: var(--text); opacity: .75; }
+.radar-stadt {
+  padding: .42rem .6rem; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: #fff; color: var(--text);
+  font-size: .8rem; max-width: 11rem;
+}
+.radar-radien { display: flex; flex-wrap: wrap; gap: .35rem; }
+.radar-chip {
+  padding: .3rem .7rem; border-radius: var(--radius-full);
+  border: 1px solid var(--border); background: #fff; color: var(--text);
+  font-size: .76rem; cursor: pointer;
+}
+.radar-chip.aktiv { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.radar-hinweis { font-size: .73rem; color: var(--text); opacity: .8; margin: 0; line-height: 1.45; }
+
+.radar-treffer {
+  display: flex; align-items: center; gap: .7rem; width: 100%;
+  padding: .6rem .75rem; margin-bottom: .3rem; text-align: left;
+  border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: #fff; cursor: pointer;
+}
+.radar-treffer:hover { border-color: var(--primary); }
+.radar-treffer-icon { font-size: 19px; color: var(--primary); flex-shrink: 0; }
+.radar-treffer-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.radar-treffer-titel {
+  font-size: .84rem; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.radar-treffer-ort { font-size: .74rem; color: var(--text); opacity: .7; }
+.radar-treffer-km {
+  font-size: .76rem; font-weight: 600; color: var(--text); opacity: .85;
+  flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.radar-leer { font-size: .82rem; color: var(--text); opacity: .85; padding: .8rem .2rem; line-height: 1.5; }
+.radar-link {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--primary); font-weight: 600; font-size: .82rem; text-decoration: underline;
+}
+
+/* Dunkelmodus: die Flächen kommen aus den Tokens, nur das harte Weiß
+   der Bedienelemente muss weichen. */
+body.dark-mode .radar-btn,
+body.dark-mode .radar-stadt,
+body.dark-mode .radar-chip,
+body.dark-mode .radar-treffer { background: var(--bg-alt); color: var(--text); }
+body.dark-mode .radar-chip.aktiv { background: var(--primary); color: #fff; }
+
+@media (max-width: 560px) {
+  .radar-stadt-label { display: none; }
+  .radar-stadt { max-width: 100%; flex: 1; }
+}

@@ -63,24 +63,24 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **43** |
+| Commits (7 Tage) | **44** |
 | Commits (30 Tage) | 110 |
-| Letzter Commit | `bcae79a · Codeabfrage an /hq und Freischaltung für Mitarbeiter` (2026-08-09) |
+| Letzter Commit | `f0fd62c · Event-Radar: Umkreis statt Stadtgrenze, Standort bleibt lokal` (2026-08-09) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-37 app.js
+38 app.js
      29 styles.css
+     26 CLAUDE.md
      25 tests/e2e/kern.spec.js
-     25 CLAUDE.md
-     21 index.html
+     21 functions.php
 ```
 
 **Codegröße:**
-- `app.js` — 25.199 Zeilen
-- `styles.css` — 16.892 Zeilen
+- `app.js` — 25.389 Zeilen
+- `styles.css` — 16.970 Zeilen
 - `functions.php` — 9.408 Zeilen
-- `app-shell.html` — 3.974 Zeilen
+- `app-shell.html` — 3.994 Zeilen
 
 ## Verwandt
 - [[00-Kern/Wissensstroeme]] — die sechs Impulse

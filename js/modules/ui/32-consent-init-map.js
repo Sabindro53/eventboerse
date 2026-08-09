@@ -329,10 +329,17 @@ function toggleMapOverlay() {
     setTimeout(() => initLeafletMap(), 350);
     mapInitialized = true;
   } else {
-    setTimeout(() => leafletMap.invalidateSize(), 350);
+    setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 350);
   }
 
   renderLocationsList(filterDemos(LISTINGS));
+
+  // Event-Radar: gemerkten groben Ort übernehmen und zeichnen. Es wird
+  // NICHT neu nach dem Standort gefragt — das passiert nur, wenn der
+  // Nutzer den Knopf drückt.
+  if (typeof radarBeimOeffnen === 'function') {
+    setTimeout(radarBeimOeffnen, 400);   // nach initLeafletMap
+  }
 }
 
 function closeMapOverlay() {
@@ -342,6 +349,18 @@ function closeMapOverlay() {
 }
 
 function initLeafletMap() {
+  // Leaflet kommt von einem CDN. Fällt das aus oder blockiert es ein
+  // Adblocker, warf diese Zeile bisher einen unbehandelten Fehler und riss
+  // die restliche Kartenansicht mit — obwohl Trefferliste und Radar auch
+  // ohne Karte vollständig arbeiten. Lieber ohne Karte als gar nichts.
+  if (typeof L === 'undefined') {
+    var behaelter = document.getElementById('mapContainer');
+    if (behaelter && !behaelter.childElementCount) {
+      behaelter.innerHTML = '<p class="radar-leer">Die Kartenansicht ist gerade nicht'
+        + ' erreichbar. Die Liste unten funktioniert trotzdem.</p>';
+    }
+    return;
+  }
   leafletMap = L.map('mapContainer', {
     zoomControl: false,
     attributionControl: false
@@ -377,6 +396,10 @@ function createPriceIcon(listing) {
 }
 
 function addListingMarkers(listings) {
+  // Ohne geladenes Leaflet gibt es keine Karte — die Liste bleibt
+  // trotzdem bedienbar. Siehe initLeafletMap().
+  if (!leafletMap) return;
+
   // Clear existing markers
   mapMarkers.forEach(m => leafletMap.removeLayer(m));
   mapMarkers = [];
@@ -461,6 +484,10 @@ function focusMapMarker(listingId) {
 }
 
 function filterMapMarkers() {
+  // Ohne geladenes Leaflet gibt es keine Karte — die Liste bleibt
+  // trotzdem bedienbar. Siehe initLeafletMap().
+  if (!leafletMap) return;
+
   const inp = document.getElementById('mapSearchInput');
   const query = inp ? inp.value.toLowerCase().trim() : '';
 

@@ -185,3 +185,166 @@ function radarVergessen() {
   _radarQuelle = null;
   try { localStorage.removeItem(RADAR_SPEICHER); } catch (e) { /* egal */ }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   OBERFLÄCHE
+
+   Bewusst an die bestehende Karte gehängt statt daneben gestellt: zwei
+   Karten mit unterschiedlichen Trefferbegriffen wären für den Nutzer
+   nicht auseinanderzuhalten.
+   ══════════════════════════════════════════════════════════════════ */
+
+var _radarKreis = null;
+var _radarIchMarker = null;
+
+function _radarEl(id) { return document.getElementById(id); }
+
+/** Radius-Knöpfe und Stadtliste einmalig aufbauen. */
+function radarLeisteAufbauen() {
+  var radien = _radarEl('radarRadien');
+  if (radien && !radien.childElementCount) {
+    RADAR_RADIEN.forEach(function (km) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'radar-chip' + (km === _radarRadius ? ' aktiv' : '');
+      b.textContent = km + ' km';
+      b.setAttribute('aria-pressed', km === _radarRadius ? 'true' : 'false');
+      b.onclick = function () { radarRadiusKlick(km); };
+      radien.appendChild(b);
+    });
+  }
+  var sel = _radarEl('radarStadt');
+  if (sel && sel.options.length <= 1) {
+    Object.keys(RADAR_ORTE).sort(function (a, b) { return a.localeCompare(b, 'de'); })
+      .forEach(function (name) {
+        var o = document.createElement('option');
+        o.value = name; o.textContent = name;
+        sel.appendChild(o);
+      });
+  }
+}
+
+function radarRadiusKlick(km) {
+  radarRadiusSetzen(km);
+  var radien = _radarEl('radarRadien');
+  if (radien) {
+    Array.prototype.forEach.call(radien.children, function (b) {
+      var an = b.textContent === km + ' km';
+      b.classList.toggle('aktiv', an);
+      b.setAttribute('aria-pressed', an ? 'true' : 'false');
+    });
+  }
+  radarAnzeigen();
+}
+
+function radarStandortKlick() {
+  var btn = _radarEl('radarStandortBtn');
+  if (btn) { btn.disabled = true; }
+  radarStandortErfragen(function () {
+    if (btn) { btn.disabled = false; }
+    radarAnzeigen();
+  });
+}
+
+function radarStadtKlick(name) {
+  if (!name) return;
+  radarStadtWaehlen(name);
+  radarAnzeigen();
+}
+
+function radarVergessenKlick() {
+  radarVergessen();
+  var sel = _radarEl('radarStadt');
+  if (sel) sel.value = '';
+  radarAnzeigen();
+}
+
+/** Eigene Position und Umkreis auf der Karte zeichnen. */
+function _radarKarteZeichnen(pos, radiusKm) {
+  if (typeof leafletMap === 'undefined' || !leafletMap || typeof L === 'undefined') return;
+  if (_radarKreis) { leafletMap.removeLayer(_radarKreis); _radarKreis = null; }
+  if (_radarIchMarker) { leafletMap.removeLayer(_radarIchMarker); _radarIchMarker = null; }
+  if (!pos) return;
+
+  _radarKreis = L.circle([pos.lat, pos.lng], {
+    radius: radiusKm * 1000,
+    color: '#22d3ee', weight: 1.5, fillColor: '#22d3ee', fillOpacity: 0.07,
+  }).addTo(leafletMap);
+  _radarIchMarker = L.circleMarker([pos.lat, pos.lng], {
+    radius: 7, color: '#0b1117', weight: 2, fillColor: '#22d3ee', fillOpacity: 1,
+  }).addTo(leafletMap).bindPopup('Dein ungefährer Standort');
+
+  leafletMap.fitBounds(_radarKreis.getBounds(), { padding: [24, 24] });
+}
+
+/**
+ * Trefferliste zeichnen.
+ *
+ * Der leere Fall bekommt einen eigenen Text: „keine Treffer" ist eine
+ * Aussage über die Gegend, nicht über einen Fehler — und der nächste
+ * größere Radius ist der offensichtliche nächste Schritt.
+ */
+function _radarListe(treffer, radiusKm) {
+  var liste = _radarEl('mapLocationsList');
+  if (!liste) return;
+
+  if (!treffer.length) {
+    var groesser = RADAR_RADIEN.filter(function (r) { return r > radiusKm; })[0];
+    liste.innerHTML = '<p class="radar-leer">Im Umkreis von ' + radiusKm + ' km ist nichts eingetragen.'
+      + (groesser ? ' <button type="button" class="radar-link" onclick="radarRadiusKlick(' + groesser
+        + ')">Auf ' + groesser + ' km erweitern</button>' : '') + '</p>';
+    return;
+  }
+
+  liste.innerHTML = treffer.slice(0, 40).map(function (t) {
+    var d = t.daten;
+    var titel = d.title || d.name || 'Ohne Titel';
+    var symbol = t.art === 'event' ? 'celebration' : 'storefront';
+    // Die ID geht durch JSON UND durch die HTML-Maskierung: das Attribut ist
+    // mit " begrenzt, und ein " in der ID bräche sonst aus dem onclick aus.
+    // Beides zusammen, nicht nur eines — der XSS-Scanner sucht genau danach.
+    var ruf = t.art === 'event' ? ''
+      : 'navigateTo(&quot;detail&quot;,' + _escHtml(JSON.stringify(String(d.id))) + ')';
+    return '<button type="button" class="radar-treffer" onclick="' + ruf + '">'
+      + '<span class="material-icons-round radar-treffer-icon">' + symbol + '</span>'
+      + '<span class="radar-treffer-text">'
+      + '<span class="radar-treffer-titel">' + _escHtml(titel) + '</span>'
+      + '<span class="radar-treffer-ort">' + _escHtml(t.ort) + '</span></span>'
+      + '<span class="radar-treffer-km">' + radarEntfernung(t.km) + '</span></button>';
+  }).join('');
+}
+
+/** Alles neu zeichnen — Leiste, Karte, Liste. */
+function radarAnzeigen() {
+  radarLeisteAufbauen();
+  var stand = radarStand();
+  var text = _radarEl('radarOrtText');
+  var vergessen = _radarEl('radarVergessenBtn');
+  var hinweis = _radarEl('radarHinweis');
+
+  if (!stand.pos) {
+    if (text) text.textContent = 'Standort freigeben';
+    if (vergessen) vergessen.hidden = true;
+    if (hinweis) hinweis.textContent = 'Dein Standort bleibt im Browser — die Entfernungen werden hier gerechnet.';
+    _radarKarteZeichnen(null, 0);
+    return;
+  }
+
+  var name = radarOrtsname(stand.pos.lat, stand.pos.lng);
+  if (text) text.textContent = name ? ('Nähe ' + name) : 'Standort gesetzt';
+  if (vergessen) vergessen.hidden = false;
+
+  var treffer = radarUmkreis(stand.pos, stand.radius);
+  if (hinweis) {
+    hinweis.textContent = treffer.length + ' im Umkreis von ' + stand.radius + ' km'
+      + (stand.quelle === 'geo' ? ' · Standort auf ~1 km gerundet gespeichert' : '');
+  }
+  _radarKarteZeichnen(stand.pos, stand.radius);
+  _radarListe(treffer, stand.radius);
+}
+
+/** Beim Öffnen der Karte: gemerkten Ort übernehmen, nichts neu erfragen. */
+function radarBeimOeffnen() {
+  if (!radarStand().pos) radarWiederherstellen();
+  radarAnzeigen();
+}

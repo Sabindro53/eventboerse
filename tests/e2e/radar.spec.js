@@ -149,3 +149,115 @@ test.describe('Der Standort bleibt im Browser', () => {
     expectNoPageErrors(errors, 'Stadtwahl');
   });
 });
+
+test.describe('Radar-Oberfläche', () => {
+  /** Karte öffnen — der Radar hängt an der bestehenden Kartenansicht. */
+  async function karteOeffnen(page) {
+    await page.evaluate(() => { if (typeof toggleMapOverlay === 'function') toggleMapOverlay(); });
+    await page.waitForTimeout(700);
+  }
+
+  test('beim Laden wird NICHT nach dem Standort gefragt', async ({ page }) => {
+    // Eine Seite, die ungefragt den Standortdialog öffnet, verbrennt das
+    // Vertrauen genau einmal. Gefragt wird nur auf Knopfdruck.
+    let gefragt = false;
+    await page.addInitScript(() => {
+      window.__geoGefragt = false;
+      const echt = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
+      navigator.geolocation.getCurrentPosition = function (...a) {
+        window.__geoGefragt = true; return echt(...a);
+      };
+    });
+    const errors = await openApp(page);
+    await karteOeffnen(page);
+    gefragt = await page.evaluate(() => window.__geoGefragt);
+    expect(gefragt, 'Standort darf nicht ungefragt erfragt werden').toBe(false);
+    expectNoPageErrors(errors, 'Kein Auto-Standort');
+  });
+
+  test('Leiste zeigt Radien und DACH-Städte', async ({ page }) => {
+    const errors = await openApp(page);
+    await karteOeffnen(page);
+    const ui = await page.evaluate(() => ({
+      chips: [...document.querySelectorAll('#radarRadien .radar-chip')].map((b) => b.textContent),
+      aktiv: document.querySelectorAll('#radarRadien .radar-chip.aktiv').length,
+      staedte: document.getElementById('radarStadt').options.length,
+      hatWien: [...document.getElementById('radarStadt').options].some((o) => o.value === 'Wien'),
+    }));
+    expect(ui.chips).toEqual(['10 km', '25 km', '50 km', '100 km', '250 km']);
+    expect(ui.aktiv, 'genau ein Radius muss aktiv sein').toBe(1);
+    expect(ui.staedte, 'Städte müssen befüllt sein').toBeGreaterThan(20);
+    expect(ui.hatWien).toBe(true);
+    expectNoPageErrors(errors, 'Radar-Leiste');
+  });
+
+  test('Stadtwahl füllt die Trefferliste, Radiuswechsel ändert sie', async ({ page }) => {
+    const errors = await openApp(page);
+    await karteOeffnen(page);
+    const r = await page.evaluate(() => {
+      radarStadtKlick('Potsdam');
+      radarRadiusKlick(10);
+      const eng = document.querySelectorAll('#mapLocationsList .radar-treffer').length;
+      const engLeer = !!document.querySelector('#mapLocationsList .radar-leer');
+      radarRadiusKlick(100);
+      const weit = document.querySelectorAll('#mapLocationsList .radar-treffer').length;
+      return { eng, engLeer, weit, hinweis: document.getElementById('radarHinweis').textContent };
+    });
+    // Potsdam→Berlin sind 27 km: bei 10 km leer, bei 100 km Treffer.
+    expect(r.engLeer, 'bei 10 km um Potsdam darf nichts stehen').toBe(true);
+    expect(r.weit, 'bei 100 km müssen Treffer erscheinen').toBeGreaterThan(0);
+    expect(r.hinweis).toMatch(/im Umkreis von 100 km/);
+    expectNoPageErrors(errors, 'Radiuswechsel');
+  });
+
+  test('der leere Fall bietet den nächstgrößeren Radius an', async ({ page }) => {
+    // „Keine Treffer" ist eine Aussage über die Gegend, kein Fehler — und
+    // der nächste Schritt soll nicht erraten werden müssen.
+    const errors = await openApp(page);
+    await karteOeffnen(page);
+    const angebot = await page.evaluate(() => {
+      radarStadtKlick('Potsdam');
+      radarRadiusKlick(10);
+      const b = document.querySelector('#mapLocationsList .radar-link');
+      return b ? b.textContent : null;
+    });
+    expect(angebot, 'Erweiterung muss angeboten werden').toMatch(/25 km/);
+    expectNoPageErrors(errors, 'Leerer Fall');
+  });
+
+  test('Standort entfernen räumt Liste und Karte', async ({ page }) => {
+    const errors = await openApp(page);
+    await karteOeffnen(page);
+    const nachher = await page.evaluate(() => {
+      radarStadtKlick('Berlin');
+      radarVergessenKlick();
+      return {
+        text: document.getElementById('radarOrtText').textContent,
+        entfernenVersteckt: document.getElementById('radarVergessenBtn').hidden,
+        gemerkt: localStorage.getItem('eb_radar_ort'),
+      };
+    });
+    expect(nachher.text).toBe('Standort freigeben');
+    expect(nachher.entfernenVersteckt).toBe(true);
+    expect(nachher.gemerkt).toBeNull();
+    expectNoPageErrors(errors, 'Standort entfernen');
+  });
+
+  test('Treffer-IDs landen maskiert im Markup', async ({ page }) => {
+    // Das onclick-Attribut ist mit " begrenzt; eine ID mit " bräche sonst aus.
+    const errors = await openApp(page);
+    await karteOeffnen(page);
+    const roh = await page.evaluate(() => {
+      radarStadtKlick('Berlin');
+      radarRadiusKlick(250);
+      return document.getElementById('mapLocationsList').innerHTML;
+    });
+    // Kein unmaskiertes Anführungszeichen innerhalb eines onclick-Werts.
+    const onclicks = [...roh.matchAll(/onclick="([^"]*)"/g)].map((m) => m[1]);
+    expect(onclicks.length, 'es müssen Treffer da sein').toBeGreaterThan(0);
+    for (const c of onclicks) {
+      expect(c, 'roher Anführungsstrich im onclick').not.toMatch(/(?<!&quot;)"/);
+    }
+    expectNoPageErrors(errors, 'ID-Maskierung');
+  });
+});
