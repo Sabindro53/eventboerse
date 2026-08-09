@@ -240,10 +240,11 @@ function objectSchema(properties) {
 }
 
 function argsLesen(argv) {
-  const out = { focus: 'auto', selfTest: false };
+  const out = { focus: 'auto', selfTest: false, zeigeFokus: false };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--focus') out.focus = argv[++i] || 'auto';
     else if (argv[i] === '--self-test') out.selfTest = true;
+    else if (argv[i] === '--zeige-fokus') out.zeigeFokus = true;
     else throw new Error(`Unbekanntes Argument: ${argv[i]}`);
   }
   if (out.focus !== 'auto' && !FOKUSSE.includes(out.focus)) {
@@ -252,10 +253,59 @@ function argsLesen(argv) {
   return out;
 }
 
+/**
+ * Woran das Ensemble zuletzt tatsaechlich etwas gefunden hat.
+ *
+ * Vorher waehlte diese Funktion nach Kalenderwoche. Das war die eigentliche
+ * Luecke im Betrieb: elf Rollen benennen stuendlich konkrete Probleme, und die
+ * einzige Stelle, die Code aendert, fragte stattdessen den Kalender. Die
+ * Befunde landeten im Journal und blieben dort liegen — viel Verbrauch, keine
+ * Wirkung.
+ *
+ * Gewertet werden nur `fertig`-Eintraege der letzten 24 Stunden: ein Ausfall
+ * ist kein Befund, und ein drei Tage alter Hinweis ist keine Lage mehr.
+ * Findet sich nichts Eindeutiges, bleibt es beim Kalender — das ist keine
+ * schlechtere Wahl, nur eine unbegruendete, und sie darf nicht als Befund
+ * ausgegeben werden.
+ *
+ * @returns {{fokus: string, grund: string}}
+ */
 function autoFokus() {
   const start = Date.UTC(new Date().getUTCFullYear(), 0, 1);
   const week = Math.floor((Date.now() - start) / (7 * 86400000));
-  return FOKUSSE[week % FOKUSSE.length];
+  const kalender = FOKUSSE[week % FOKUSSE.length];
+
+  let journal;
+  try {
+    // Tests brauchen ein eigenes Journal — sonst schreiben sie die echte
+    // Laufzeitspur um, waehrend andere Tests sie parallel lesen.
+    const pfad = process.env.EB_JOURNAL || join(ROOT, 'assets', 'eb-arbeit.json');
+    journal = JSON.parse(readFileSync(pfad, 'utf8'));
+  } catch {
+    return { fokus: kalender, grund: 'kein Arbeitsjournal lesbar — Kalenderwoche' };
+  }
+
+  const grenze = Date.now() - 24 * 3600 * 1000;
+  const frisch = (journal.eintraege || []).filter((e) => e.ergebnis === 'fertig'
+    && Date.parse(e.zeit || '') >= grenze);
+  if (!frisch.length) return { fokus: kalender, grund: 'keine frischen Befunde — Kalenderwoche' };
+
+  // Welcher Fokus wird in den Befunden am haeufigsten benannt?
+  const SIGNAL = {
+    performance:   /\bperformance|ladezeit|langsam|latenz|bundle|cache\b/i,
+    ux:            /\bux\b|bedien|verständlich|verstaendlich|orientier|reibung|nutzerführung|nutzerfuehrung/i,
+    accessibility: /barrierefrei|accessibility|\ba11y\b|kontrast|screenreader|tastatur/i,
+    seo:           /\bseo\b|sichtbarkeit|suchmaschine|meta-?description|indexier/i,
+    'code-quality': /\bcode\b|refactor|duplikat|testabdeckung|wartbar|seiteneffekt/i,
+  };
+  const punkte = Object.fromEntries(FOKUSSE.map((f) => [f, 0]));
+  for (const e of frisch) {
+    const text = `${e.aufgabe || ''} ${e.text || ''}`;
+    for (const [f, re] of Object.entries(SIGNAL)) if (re.test(text)) punkte[f] += 1;
+  }
+  const beste = FOKUSSE.reduce((a, b) => (punkte[b] > punkte[a] ? b : a), FOKUSSE[0]);
+  if (!punkte[beste]) return { fokus: kalender, grund: 'Befunde ohne klaren Schwerpunkt — Kalenderwoche' };
+  return { fokus: beste, grund: `${punkte[beste]} Befund(e) der letzten 24 h nennen „${beste}"` };
 }
 
 function lesen(rel, limit = 80000) {
@@ -423,13 +473,27 @@ async function apiJson(url, init, timeoutMs = 120000) {
 async function main(argv = []) {
   const args = argsLesen(argv);
   if (args.selfTest) return selfTest();
+  // Zeigt die Fokuswahl, ohne ein Modell zu rufen — damit laesst sich von
+  // aussen pruefen, DASS die Befunde den Fokus bestimmen, statt es nur im
+  // Quelltext zu behaupten.
+  if (args.zeigeFokus) { const w = autoFokus(); console.log(JSON.stringify(w)); return; }
 
   repoSauber();
   mkdirSync(OUT_DIR, { recursive: true });
 
   const key = process.env.EB_OPENROUTER_API_KEY || '';
   if (!key) throw new Error('EB_OPENROUTER_API_KEY fehlt.');
-  const fokus = args.focus === 'auto' ? autoFokus() : args.focus;
+  // Der Fokus kommt jetzt aus den Befunden des Ensembles, nicht aus dem
+  // Kalender. Der Grund wird mitgeschrieben — sonst waere im Nachhinein nicht
+  // zu unterscheiden, ob eine Wahl belegt war oder nur der Rueckfall griff.
+  let fokusGrund = 'ausdruecklich vorgegeben';
+  let fokus = args.focus;
+  if (args.focus === 'auto') {
+    const wahl = autoFokus();
+    fokus = wahl.fokus;
+    fokusGrund = wahl.grund;
+  }
+  console.log(`Fokus: ${fokus} — ${fokusGrund}`);
   const runBudget = zahl(process.env.EB_OPENROUTER_RUN_BUDGET_USD) ?? 0.12;
   const dailyBudget = zahl(process.env.EB_OPENROUTER_DAILY_BUDGET_USD) ?? 0.60;
   const minRemaining = zahl(process.env.EB_OPENROUTER_MIN_REMAINING_USD) ?? 1;
@@ -927,7 +991,7 @@ function selfTest() {
   return { ok: true };
 }
 
-export { main, selfTest, patchPruefen, pruefeDateiliste };
+export { main, selfTest, patchPruefen, pruefeDateiliste, autoFokus };
 
 if (typeof process !== 'undefined' && Array.isArray(process.argv)
     && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

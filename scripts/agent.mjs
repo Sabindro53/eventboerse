@@ -361,7 +361,12 @@ async function arbeiten() {
       headers: {
         'Authorization': `Bearer ${schluessel}`,
         'Content-Type': 'application/json',
-        'X-Title': 'Eventboerse HQ',
+        // OpenRouter ordnet Verbrauch ueber HTTP-Referer einer App zu. Ohne
+        // ihn lief der Puls als „Unknown App" — rund 90 % des Verbrauchs war
+        // damit nicht zuzuordnen, und genau das macht eine Kostenprüfung
+        // wertlos. Der Autopilot sendet ihn laengst; hier fehlte er.
+        'HTTP-Referer': 'https://xn--eventbrse-57a.de',
+        'X-Title': 'Eventboerse HQ · Lagebild',
       },
       body: JSON.stringify({
         model: rolle.modellId,
@@ -424,7 +429,14 @@ async function arbeiten() {
   // Inhalt. Das ist echte Aktivitaet (und kann Kosten verursacht haben), aber
   // keine fertige Arbeit. Sichtbar als Fehler protokollieren, damit das
   // Journal valide bleibt und die anderen Rollen trotzdem live erscheinen.
-  const hatErgebnis = Boolean(text);
+  //
+  // Ebenso zaehlt eine ABGESCHNITTENE Antwort nicht als erledigt. Vorher
+  // genuegte `Boolean(text)`: ein am Tokenlimit abgebrochener Halbsatz wurde
+  // als „fertig" gebucht, die Aufgabe galt als erledigt und der Zeiger rueckte
+  // weiter. Genau die Sorte Eintrag, die eine Bilanz schoenrechnet.
+  const abbruchGrund = ((antwort.choices || [])[0] || {}).finish_reason || '';
+  const abgeschnitten = abbruchGrund === 'length';
+  const hatErgebnis = Boolean(text) && !abgeschnitten;
   const eintrag = await notieren({
     zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
     modell: rolle.name, modellId: antwort.model || rolle.modellId, bereich: rolle.bereich, anlass,
@@ -432,7 +444,14 @@ async function arbeiten() {
     ergebnis: hatErgebnis ? 'fertig' : 'fehler',
     text: hatErgebnis
       ? text.slice(0, 1200)
-      : 'Provider lieferte eine leere Antwort — Aufgabe bleibt fuer den naechsten freien Slot eingeplant.',
+      : abgeschnitten
+        ? `Antwort am Tokenlimit abgeschnitten (${completionTokens} Token) — kein verwertbares Ergebnis, `
+          + 'dieselbe Aufgabe wird fortgesetzt.'
+        : 'Provider lieferte eine leere Antwort — Aufgabe bleibt fuer den naechsten freien Slot eingeplant.',
+    // Fuer die naechste Kostenprüfung nachvollziehbar machen, WARUM ein Lauf
+    // nichts geliefert hat, und wie viel davon der Cache getragen hat.
+    abbruchGrund: abbruchGrund || null,
+    cacheTokens: zahl((usage.prompt_tokens_details || {}).cached_tokens) || 0,
     dauerMs: Date.now() - begonnen,
     tokens: usage.total_tokens || null,
     promptTokens: promptTokens || null,

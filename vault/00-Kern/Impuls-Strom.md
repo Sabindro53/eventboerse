@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-06**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-09**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -63,17 +63,17 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **56** |
-| Commits (30 Tage) | 113 |
-| Letzter Commit | `cba4154 · Vier Ursachen für die 17,5 % Fehlerquote im Ensemble` (2026-08-06) |
+| Commits (7 Tage) | **39** |
+| Commits (30 Tage) | 106 |
+| Letzter Commit | `22399d7 · Befunde bestimmen die Arbeit — statt Kalenderwoche` (2026-08-06) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-40 app.js
-     33 styles.css
-     23 index.html
-     23 app-shell.html
-     22 tests/e2e/kern.spec.js
+37 app.js
+     29 styles.css
+     23 tests/e2e/kern.spec.js
+     21 index.html
+     21 app-shell.html
 ```
 
 **Codegröße:**
