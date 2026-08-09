@@ -805,3 +805,32 @@ test.describe('Befunde bestimmen die Arbeit', () => {
     expect(fokusFuer([befund('barrierefrei Kontrast', 'fehler')]).grund).toMatch(/Kalenderwoche/);
   });
 });
+
+test.describe('Der Verbrauch muss nachvollziehbar sein', () => {
+  // Aus der Kostenprüfung über 12,1 Mio Token: 0 % Cache, ~90 % als
+  // „Unknown App" nicht zuzuordnen, mehrere am Tokenlimit abgeschnittene
+  // Antworten — und die zählten als erledigte Arbeit.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const AGENT = fs.readFileSync(path.join(__dirname, '..', '..', 'scripts', 'agent.mjs'), 'utf8');
+
+  test('jeder Aufruf ist einer App zuzuordnen', () => {
+    // Ohne HTTP-Referer bucht OpenRouter auf „Unknown App"; eine
+    // Kostenprüfung, die 90 % nicht zuordnen kann, ist keine Prüfung.
+    expect(AGENT, 'Puls ohne App-Zuordnung').toMatch(/'HTTP-Referer':/);
+  });
+
+  test('eine abgeschnittene Antwort gilt nicht als erledigt', () => {
+    // Vorher genügte Boolean(text): ein am Limit abgebrochener Halbsatz wurde
+    // „fertig" gebucht und der Aufgabenzeiger rückte weiter.
+    expect(AGENT, 'finish_reason wird nicht ausgewertet').toMatch(/finish_reason/);
+    expect(AGENT, 'Abschneiden muss das Ergebnis entwerten')
+      .toMatch(/const hatErgebnis = Boolean\(text\) && !abgeschnitten/);
+  });
+
+  test('Cache-Anteil und Abbruchgrund landen im Journal', () => {
+    // Ohne Messung bleibt „0 % Cache" eine Vermutung statt eines Befunds.
+    expect(AGENT, 'Cache-Anteil wird nicht erfasst').toMatch(/cacheTokens:/);
+    expect(AGENT, 'Abbruchgrund wird nicht erfasst').toMatch(/abbruchGrund:/);
+  });
+});
