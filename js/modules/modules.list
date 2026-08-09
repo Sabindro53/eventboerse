@@ -6,6 +6,7 @@ core/02-router-navigation.js
 search/10-karten-home-feed.js
 search/11-suche-ki.js
 search/12-detail-provider.js
+search/13-event-radar.js
 chat/20-chat-nachrichten.js
 payments/21-buchung-verhandlung.js
 ui/22-inserat-settings-uploads.js

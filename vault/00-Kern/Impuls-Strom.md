@@ -63,21 +63,21 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **42** |
-| Commits (30 Tage) | 109 |
-| Letzter Commit | `a209544 · TOTP als zweiter Faktor und HQ-Zugang ohne WordPress-Admin` (2026-08-09) |
+| Commits (7 Tage) | **43** |
+| Commits (30 Tage) | 110 |
+| Letzter Commit | `bcae79a · Codeabfrage an /hq und Freischaltung für Mitarbeiter` (2026-08-09) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 37 app.js
      29 styles.css
      25 tests/e2e/kern.spec.js
-     24 CLAUDE.md
+     25 CLAUDE.md
      21 index.html
 ```
 
 **Codegröße:**
-- `app.js` — 25.012 Zeilen
+- `app.js` — 25.199 Zeilen
 - `styles.css` — 16.892 Zeilen
 - `functions.php` — 9.408 Zeilen
 - `app-shell.html` — 3.974 Zeilen
