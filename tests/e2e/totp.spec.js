@@ -133,3 +133,52 @@ test.describe('Einrichtung und Zugang', () => {
     expect(tor, 'ohne TOTP darf nur der Admin durch').toMatch(/return \$admin;/);
   });
 });
+
+test.describe('Codeabfrage und Freischaltung', () => {
+  test('Berechtigte bekommen eine Codeabfrage, Unberechtigte eine 404', () => {
+    // Ohne diese Trennung wäre der zweite Faktor eine Sackgasse: wer
+    // berechtigt ist, aber noch keinen Code vorgelegt hat, bekäme 404 und
+    // hätte nirgends die Möglichkeit, sich auszuweisen.
+    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_serve_hq'),
+      FUNCTIONS.indexOf("add_action( 'template_redirect'", FUNCTIONS.indexOf('function eb_serve_hq')));
+    expect(fn, 'Codeabfrage-Zweig fehlt').toMatch(/eb_hq_grundrecht\(\)/);
+    expect(fn, 'Codeabfrage wird nicht ausgeliefert').toMatch(/eb_hq_zweiter_faktor_ausliefern\(\)/);
+    // Und der Zweig muss VOR der 404 stehen, sonst greift er nie.
+    expect(fn.indexOf('eb_hq_zweiter_faktor_ausliefern'))
+      .toBeLessThan(fn.indexOf('404.php'));
+  });
+
+  test('vor dem zweiten Faktor fließen keine Betriebsdaten', () => {
+    // Die Codeabfrage ist eine eigene, kleine Seite — nicht das HQ mit
+    // Overlay. Sonst lägen Katalog, Journal und Kennzahlen im Browser von
+    // jemandem, der sich noch gar nicht ausgewiesen hat.
+    const seite = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_zweiter_faktor_ausliefern'),
+      FUNCTIONS.indexOf('function eb_hq_mitarbeiter'));
+    for (const verraeter of ['eb-connectors.json', 'eb-arbeit.json', 'eb-models.json', 'hq.html']) {
+      expect(seite, `Codeabfrage lädt ${verraeter}`).not.toContain(verraeter);
+    }
+    // Sie darf auch nicht indexiert werden.
+    expect(seite).toMatch(/X-Robots-Tag.*noindex/);
+  });
+
+  test('das Geheimnis steht nur bei der Ersteinrichtung auf der Seite', () => {
+    const seite = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_zweiter_faktor_ausliefern'),
+      FUNCTIONS.indexOf('function eb_hq_mitarbeiter'));
+    // Es wird per Route geholt, nicht ins HTML gerendert — sonst stünde es
+    // auch im Verlauf und im Cache jedes Zwischenspeichers.
+    expect(seite, 'Geheimnis darf nicht serverseitig ins HTML').not.toMatch(/eb_totp_secret/);
+    expect(seite).toMatch(/totp\/einrichten/);
+  });
+
+  test('Zugang entziehen beendet die laufende Sitzung sofort', () => {
+    // Ohne das bliebe der Zugang bis zu zwölf Stunden bestehen, obwohl er
+    // entzogen wurde — genau dann, wenn Eile geboten ist.
+    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_mitarbeiter'));
+    expect(fn.slice(0, 2000)).toMatch(/delete_transient\(\s*eb_hq_sitzung_key\(/);
+  });
+
+  test('nur Administratoren vergeben den Zugang', () => {
+    const block = FUNCTIONS.slice(FUNCTIONS.indexOf("'/hq/mitarbeiter'"));
+    expect(block.slice(0, 400)).toMatch(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/);
+  });
+});

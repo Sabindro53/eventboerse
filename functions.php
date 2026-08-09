@@ -440,9 +440,17 @@ function eb_hq_mikrofon_erlauben() {
 }
 
 function eb_serve_hq() {
-    // Zugang haben Administratoren und Mitarbeiter mit `eb_hq_access` — beide
-    // erst nach geprüftem zweitem Faktor, sobald einer eingerichtet ist.
-    // Details und Begründung: eb_hq_darf_sehen().
+    // Drei Zustände, nicht zwei.
+    //
+    // Wer BERECHTIGT ist, aber den zweiten Faktor noch nicht vorgelegt hat,
+    // darf keine 404 bekommen — er hätte sonst gar keine Stelle, seinen Code
+    // einzugeben, und der TOTP-Zwang würde genau die Leute aussperren, für
+    // die er gebaut wurde. Die 404 bleibt ausschließlich für Besucher ohne
+    // jedes Recht; nur dort verbirgt sie etwas.
+    if ( is_user_logged_in() && ! eb_hq_darf_sehen() && eb_hq_grundrecht() ) {
+        eb_hq_zweiter_faktor_ausliefern();
+        return;
+    }
     if ( ! is_user_logged_in() || ! eb_hq_darf_sehen() ) {
         // 404 statt 403: eine Seite, deren Existenz man nicht bestätigt, wird
         // auch nicht gezielt angegriffen.
@@ -9232,4 +9240,169 @@ add_action( 'rest_api_init', function () {
             'permission_callback' => $angemeldet,
         ) );
     }
+} );
+
+/**
+ * Hat dieser Nutzer grundsaetzlich HQ-Rechte — unabhaengig vom zweiten Faktor?
+ *
+ * Trennt „darf hier gar nicht sein" (404) von „muss sich noch ausweisen"
+ * (Codeabfrage). Ohne diese Trennung waere der zweite Faktor eine Sackgasse.
+ */
+function eb_hq_grundrecht( $user_id = 0 ) {
+    if ( ! $user_id ) $user_id = get_current_user_id();
+    if ( ! $user_id ) return false;
+    return user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'eb_hq_access' );
+}
+
+/**
+ * Die Codeabfrage bzw. Ersteinrichtung — eine eigenstaendige, kleine Seite.
+ *
+ * Bewusst NICHT das HQ mit einem Overlay: das HQ laedt Betriebsdaten, und die
+ * haben vor dem zweiten Faktor nichts im Browser verloren. Wer den Code nicht
+ * hat, bekommt hier auch keinen Katalog, kein Journal und keine Kennzahlen.
+ */
+function eb_hq_zweiter_faktor_ausliefern() {
+    $uid    = get_current_user_id();
+    $eingerichtet = eb_totp_aktiv( $uid );
+    $nonce  = wp_create_nonce( 'wp_rest' );
+    $rest   = esc_url_raw( rest_url( 'eventboerse/v1/' ) );
+
+    status_header( 200 );
+    nocache_headers();
+    header( 'Content-Type: text/html; charset=UTF-8' );
+    header( 'X-Robots-Tag: noindex, nofollow, noarchive', true );
+
+    $titel = $eingerichtet ? 'Bestätigung' : 'Authenticator einrichten';
+    ?><!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?php echo esc_html( $titel ); ?> · Eventbörse</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center;
+         background:#0b0f14; color:#e6edf3;
+         font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .karte { width:min(94vw,26rem); background:#111820; border:1px solid #1f2933;
+           border-radius:14px; padding:1.6rem 1.5rem; }
+  h1 { font-size:1.05rem; margin:0 0 .3rem; }
+  p  { font-size:.82rem; line-height:1.55; color:#9fb0c0; margin:.3rem 0 1rem; }
+  label { display:block; font-size:.74rem; color:#9fb0c0; margin-bottom:.35rem; }
+  input { width:100%; box-sizing:border-box; padding:.7rem .8rem; font-size:1.35rem;
+          letter-spacing:.3em; text-align:center; border-radius:9px;
+          border:1px solid #24313d; background:#0b1117; color:#e6edf3;
+          font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  input:focus { outline:2px solid #22d3ee; outline-offset:1px; }
+  button { width:100%; margin-top:.9rem; padding:.72rem; font-size:.86rem; font-weight:600;
+           border:0; border-radius:9px; background:#22d3ee; color:#04222a; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .schluessel { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9rem;
+                background:#0b1117; border:1px solid #24313d; border-radius:9px;
+                padding:.7rem; word-break:break-all; letter-spacing:.08em; margin-bottom:1rem; }
+  .fehler { color:#fca5a5; font-size:.78rem; min-height:1.1rem; margin-top:.6rem; }
+  .fuss { font-size:.7rem; color:#6b7f92; margin-top:1.1rem; line-height:1.5; }
+</style></head><body>
+<main class="karte">
+<?php if ( $eingerichtet ) : ?>
+  <h1>Code aus deiner Authenticator-App</h1>
+  <p>Sechs Ziffern. Der Code wechselt alle 30 Sekunden.</p>
+  <form id="f"><label for="c">Bestätigungscode</label>
+    <input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+           pattern="[0-9]{6}" required autofocus>
+    <button type="submit">Weiter zum HQ</button></form>
+<?php else : ?>
+  <h1>Authenticator einrichten</h1>
+  <p>Öffne deine Authenticator-App, wähle <strong>Schlüssel eingeben</strong> und
+     trage diesen Schlüssel ein. Danach bestätige mit dem angezeigten Code.</p>
+  <div class="schluessel" id="key">…</div>
+  <form id="f"><label for="c">Code aus der App</label>
+    <input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+           pattern="[0-9]{6}" required>
+    <button type="submit">Einrichtung abschließen</button></form>
+<?php endif; ?>
+  <div class="fehler" id="e" role="alert" aria-live="polite"></div>
+  <p class="fuss">Ohne diesen zweiten Faktor bleibt das HQ geschlossen — auch mit
+     gültigem Passwort. Stimmt der Code nie, prüfe die Uhrzeit deines Geräts.</p>
+</main>
+<script>
+const REST = <?php echo wp_json_encode( $rest ); ?>;
+const NONCE = <?php echo wp_json_encode( $nonce ); ?>;
+const EINGERICHTET = <?php echo $eingerichtet ? 'true' : 'false'; ?>;
+const e = document.getElementById('e'), f = document.getElementById('f'), c = document.getElementById('c');
+const ruf = (pfad, daten) => fetch(REST + pfad, {
+  method: 'POST', credentials: 'same-origin',
+  headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+  body: JSON.stringify(daten || {}),
+}).then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => ({})) }));
+
+if (!EINGERICHTET) {
+  ruf('totp/einrichten').then(({ ok, d }) => {
+    // In Vierergruppen — ein 32-Zeichen-Block am Stück wird beim Abtippen falsch.
+    document.getElementById('key').textContent =
+      ok && d.secret ? d.secret.replace(/(.{4})/g, '$1 ').trim() : 'Einrichtung nicht möglich.';
+  });
+}
+f.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  e.textContent = '';
+  f.querySelector('button').disabled = true;
+  const { ok, d } = await ruf(EINGERICHTET ? 'totp/anmelden' : 'totp/bestaetigen', { code: c.value });
+  if (ok) { location.href = '/hq'; return; }
+  e.textContent = d.message || 'Das hat nicht geklappt.';
+  f.querySelector('button').disabled = false;
+  c.select();
+});
+</script></body></html>
+<?php
+    exit;
+}
+
+/**
+ * Einem bestehenden Konto HQ-Zugang geben oder nehmen — nur durch Admins.
+ *
+ * Bewusst kein Anlegen neuer Konten: ein Zugang, der aus einer API heraus
+ * entsteht, ist schwerer nachzuvollziehen als einer, den ein Mensch in
+ * WordPress angelegt hat. Hier wird nur eine vorhandene Identitaet
+ * freigeschaltet — und das ist die Entscheidung, die dokumentiert gehoert.
+ */
+function eb_hq_mitarbeiter( WP_REST_Request $request ) {
+    $params = $request->get_json_params();
+    $email  = sanitize_email( $params['email'] ?? '' );
+    $geben  = ! empty( $params['zugang'] );
+
+    $user = $email ? get_user_by( 'email', $email ) : null;
+    if ( ! $user ) {
+        return new WP_REST_Response( array( 'message' => 'Kein Konto mit dieser E-Mail.' ), 404 );
+    }
+    if ( user_can( $user->ID, 'manage_options' ) ) {
+        return new WP_REST_Response( array(
+            'message' => 'Dieses Konto ist Administrator und hat den Zugang bereits.' ), 400 );
+    }
+
+    if ( $geben ) {
+        $user->add_cap( 'eb_hq_access' );
+    } else {
+        $user->remove_cap( 'eb_hq_access' );
+        // Laufende Sitzung sofort schliessen — sonst bliebe der Zugang bis zu
+        // zwoelf Stunden bestehen, obwohl er entzogen wurde.
+        delete_transient( eb_hq_sitzung_key( $user->ID ) );
+    }
+
+    return new WP_REST_Response( array(
+        'email'   => $user->user_email,
+        'zugang'  => $geben,
+        // Ehrlich benennen, was noch fehlt: ohne zweiten Faktor kommt der
+        // Mitarbeiter nicht rein, und das soll er vorher wissen.
+        'totp'    => eb_totp_aktiv( $user->ID ),
+        'hinweis' => $geben && ! eb_totp_aktiv( $user->ID )
+            ? 'Zugang erteilt. Beim ersten Aufruf von /hq richtet das Konto seinen Authenticator ein.'
+            : null,
+    ), 200 );
+}
+
+add_action( 'rest_api_init', function () {
+    register_rest_route( 'eventboerse/v1', '/hq/mitarbeiter', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_hq_mitarbeiter',
+        'permission_callback' => 'eb_hq_proxy_darf',
+    ) );
 } );
