@@ -45,6 +45,26 @@ const SICHERE_DATEIEN = Object.freeze({
   'eb-hq-evolution.css': 'additive, vom Zugang und den Datenpfaden getrennte HQ-Darstellung',
 });
 
+/**
+ * Die beiden Urteilsrollen duerfen ein Frontier-Modell benutzen.
+ *
+ * NICHT alle: der Scout laeuft haeufig und der Implementierer erzeugt lange
+ * Diffs — beides waere mit einem Frontier-Modell um Groessenordnungen teurer,
+ * ohne dass die Qualitaet dort den Ausschlag gibt. Architektur und Review sind
+ * die Stellen, an denen ein Fehlurteil teuer wird und ein besseres Modell sich
+ * wirklich auszahlt.
+ *
+ * Der Modellbezeichner kommt aus der Umgebung, nicht aus dem Code: die genauen
+ * OpenRouter-Slugs der neuesten Modelle aendern sich, und ein geratener Slug
+ * fiele still auf das offene Modell zurueck, ohne dass irgendwo stuende warum.
+ * Ist die Variable nicht gesetzt, laeuft alles wie bisher auf offenen Gewichten.
+ *
+ *   EB_FRONTIER_ARCHITEKT=openai/gpt-5.6
+ *   EB_FRONTIER_REVIEWER=anthropic/claude-opus-4.5
+ */
+const FRONTIER_ROLLEN = new Set(['architect', 'reviewer']);
+const frontier = (variable, offenesModell) => (process.env[variable] || '').trim() || offenesModell;
+
 const AGENTEN = Object.freeze({
   scout: {
     name: 'Ela Voss · Scout',
@@ -55,8 +75,10 @@ const AGENTEN = Object.freeze({
   },
   architect: {
     name: 'Ada Brenner · Architektin',
-    model: 'meta-llama/llama-3.3-70b-instruct',
-    fallbacks: ['qwen/qwen3-30b-a3b-instruct-2507', 'mistralai/mistral-small-3.2-24b-instruct'],
+    model: frontier('EB_FRONTIER_ARCHITEKT', 'meta-llama/llama-3.3-70b-instruct'),
+    // Faellt das Frontier-Modell aus oder gibt es den Slug nicht, uebernimmt
+    // das bisherige offene Modell. Der Lauf bricht dadurch nie ab.
+    fallbacks: ['meta-llama/llama-3.3-70b-instruct', 'qwen/qwen3-30b-a3b-instruct-2507', 'mistralai/mistral-small-3.2-24b-instruct'],
     maxTokens: 1050,
     temperature: 0.1,
   },
@@ -69,8 +91,8 @@ const AGENTEN = Object.freeze({
   },
   reviewer: {
     name: 'Kito Sarr · Reviewer',
-    model: 'deepseek/deepseek-v4-flash',
-    fallbacks: ['meta-llama/llama-3.3-70b-instruct', 'qwen/qwen3-30b-a3b-instruct-2507'],
+    model: frontier('EB_FRONTIER_REVIEWER', 'deepseek/deepseek-v4-flash'),
+    fallbacks: ['deepseek/deepseek-v4-flash', 'meta-llama/llama-3.3-70b-instruct', 'qwen/qwen3-30b-a3b-instruct-2507'],
     maxTokens: 900,
     temperature: 0,
   },
@@ -582,7 +604,14 @@ async function main(argv = []) {
           require_parameters: true,
           data_collection: 'deny',
           sort: 'price',
-          max_price: { prompt: 0.60, completion: 1.20 },
+          // Der Preisdeckel gilt je Mio Token. Frontier-Modelle liegen darueber
+          // — mit dem alten festen Deckel haette OpenRouter sie stillschweigend
+          // abgelehnt, und der Lauf waere auf ein offenes Modell gefallen, ohne
+          // dass irgendwo stuende warum. Deshalb haengt der Deckel jetzt an der
+          // Rolle: nur die beiden Urteilsrollen duerfen teurer einkaufen.
+          max_price: FRONTIER_ROLLEN.has(rolle)
+            ? { prompt: 4.00, completion: 16.00 }
+            : { prompt: 0.60, completion: 1.20 },
         },
       };
       let antwort;

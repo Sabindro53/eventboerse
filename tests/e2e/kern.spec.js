@@ -834,3 +834,42 @@ test.describe('Der Verbrauch muss nachvollziehbar sein', () => {
     expect(AGENT, 'Abbruchgrund wird nicht erfasst').toMatch(/abbruchGrund:/);
   });
 });
+
+test.describe('Frontier-Modelle nur dort, wo Urteil zählt', () => {
+  // Der Nutzer will die stärksten Modelle. Sie kosten aber ein Vielfaches —
+  // im stündlichen Elf-Rollen-Puls wäre das Tagesbudget in einem Lauf weg.
+  // Deshalb: nur die beiden Urteilsrollen des Autopiloten, und nur dort ein
+  // höherer Preisdeckel.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const wurzel = path.join(__dirname, '..', '..');
+  const AUTO = fs.readFileSync(path.join(wurzel, 'scripts', 'openrouter-agents.mjs'), 'utf8');
+  const AGENT = fs.readFileSync(path.join(wurzel, 'scripts', 'agent.mjs'), 'utf8');
+
+  test('nur Architekt und Reviewer dürfen teurer einkaufen', () => {
+    expect(AUTO).toMatch(/FRONTIER_ROLLEN = new Set\(\['architect', 'reviewer'\]\)/);
+    // Der Preisdeckel muss an der Rolle hängen, nicht global gelockert sein.
+    expect(AUTO, 'Preisdeckel pauschal angehoben').toMatch(
+      /FRONTIER_ROLLEN\.has\(rolle\)\s*\?\s*\{ prompt: [\d.]+, completion: [\d.]+ \}\s*:\s*\{ prompt: 0\.60, completion: 1\.20 \}/);
+  });
+
+  test('der häufige Lagebild-Puls bleibt auf offenen Gewichten', () => {
+    // agent.mjs fährt 11 Rollen je Lauf. Ein Frontier-Modell dort wäre der
+    // teuerste denkbare Ort dafür.
+    expect(AGENT, 'Puls darf keine Frontier-Weiche haben').not.toMatch(/EB_FRONTIER_/);
+    for (const m of KATALOG.modelle.filter((x) => x.weg === 'openrouter')) {
+      expect(m.offen, `${m.person} im Puls ist kein offenes Modell`).toBe(true);
+    }
+  });
+
+  test('ohne Konfiguration bleibt alles auf offenen Gewichten', () => {
+    // Ein geratener Slug fiele still zurück; deshalb kommt der Bezeichner aus
+    // der Umgebung und der Standard ist ausdrücklich das offene Modell.
+    expect(AUTO).toMatch(/frontier\('EB_FRONTIER_ARCHITEKT', 'meta-llama\/llama-3\.3-70b-instruct'\)/);
+    expect(AUTO).toMatch(/frontier\('EB_FRONTIER_REVIEWER', 'deepseek\/deepseek-v4-flash'\)/);
+    // Und das offene Modell muss zusätzlich als Rückfall dastehen, sonst
+    // bricht der Lauf ab, wenn der Slug nicht existiert.
+    const arch = AUTO.slice(AUTO.indexOf('architect: {'), AUTO.indexOf('implementer: {'));
+    expect(arch, 'kein offener Rückfall für den Architekten').toMatch(/fallbacks: \['meta-llama\/llama-3\.3-70b-instruct'/);
+  });
+});
