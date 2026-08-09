@@ -440,7 +440,10 @@ function eb_hq_mikrofon_erlauben() {
 }
 
 function eb_serve_hq() {
-    if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+    // Zugang haben Administratoren und Mitarbeiter mit `eb_hq_access` — beide
+    // erst nach geprüftem zweitem Faktor, sobald einer eingerichtet ist.
+    // Details und Begründung: eb_hq_darf_sehen().
+    if ( ! is_user_logged_in() || ! eb_hq_darf_sehen() ) {
         // 404 statt 403: eine Seite, deren Existenz man nicht bestätigt, wird
         // auch nicht gezielt angegriffen.
         //
@@ -8969,4 +8972,264 @@ add_action( 'rest_api_init', function () {
         'callback'            => 'eb_hq_chat',
         'permission_callback' => 'eb_hq_proxy_darf',
     ) );
+} );
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * TOTP (RFC 6238) — zweiter Faktor per Authenticator-App.
+ *
+ * Das bestehende „2FA" der Seite ist ein per E-Mail verschickter Code. Das
+ * schuetzt gegen ein geknacktes Passwort nur so gut wie das Postfach; wer die
+ * Mail liest, ist drin. Ein Authenticator-Geheimnis verlaesst das Geraet nie.
+ *
+ * Bewusst ohne Composer, wie webauthn.php: hash_hmac und pack reichen.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Wie lange ein Schritt gilt und wie viele Nachbarschritte toleriert werden. */
+const EB_TOTP_STEP    = 30;
+const EB_TOTP_FENSTER = 1;   // ±30 s gegen Uhrendrift. Mehr waere fahrlaessig.
+const EB_TOTP_STELLEN = 6;
+
+/** Base32 (RFC 4648) ohne Padding — das Format, das Authenticator-Apps lesen. */
+function eb_totp_base32_encode( $bytes ) {
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $bits = '';
+    for ( $i = 0; $i < strlen( $bytes ); $i++ ) {
+        $bits .= str_pad( decbin( ord( $bytes[ $i ] ) ), 8, '0', STR_PAD_LEFT );
+    }
+    $out = '';
+    foreach ( str_split( $bits, 5 ) as $chunk ) {
+        $out .= $alphabet[ bindec( str_pad( $chunk, 5, '0', STR_PAD_RIGHT ) ) ];
+    }
+    return $out;
+}
+
+function eb_totp_base32_decode( $b32 ) {
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $b32 = strtoupper( preg_replace( '/[^A-Z2-7]/i', '', (string) $b32 ) );
+    $bits = '';
+    for ( $i = 0; $i < strlen( $b32 ); $i++ ) {
+        $pos = strpos( $alphabet, $b32[ $i ] );
+        if ( $pos === false ) return '';
+        $bits .= str_pad( decbin( $pos ), 5, '0', STR_PAD_LEFT );
+    }
+    $out = '';
+    foreach ( str_split( $bits, 8 ) as $byte ) {
+        if ( strlen( $byte ) === 8 ) $out .= chr( bindec( $byte ) );
+    }
+    return $out;
+}
+
+/** Der Code fuer einen bestimmten Zeitschritt. */
+function eb_totp_code( $secret_b32, $schritt ) {
+    $key = eb_totp_base32_decode( $secret_b32 );
+    if ( $key === '' ) return '';
+    // 64-Bit-Big-Endian-Zaehler. pack('J') gibt es erst ab PHP 5.6.3 — die
+    // Handarbeit hier laeuft ueberall und ist genauso schnell.
+    $bin = '';
+    for ( $i = 7; $i >= 0; $i-- ) {
+        $bin = chr( $schritt & 0xFF ) . $bin;
+        $schritt >>= 8;
+    }
+    $hash   = hash_hmac( 'sha1', $bin, $key, true );
+    $offset = ord( substr( $hash, -1 ) ) & 0x0F;
+    $teil   = ( ( ord( $hash[ $offset ] ) & 0x7F ) << 24 )
+            | ( ( ord( $hash[ $offset + 1 ] ) & 0xFF ) << 16 )
+            | ( ( ord( $hash[ $offset + 2 ] ) & 0xFF ) << 8 )
+            | ( ord( $hash[ $offset + 3 ] ) & 0xFF );
+    return str_pad( (string) ( $teil % ( 10 ** EB_TOTP_STELLEN ) ), EB_TOTP_STELLEN, '0', STR_PAD_LEFT );
+}
+
+/**
+ * Prueft einen Code und gibt den verbrauchten Schritt zurueck (oder 0).
+ *
+ * Der Vergleich laeuft ueber hash_equals: ein zeichenweiser Vergleich verraet
+ * ueber die Laufzeit, wie viele Stellen stimmten.
+ */
+function eb_totp_pruefen( $secret_b32, $eingabe ) {
+    $eingabe = preg_replace( '/\D/', '', (string) $eingabe );
+    if ( strlen( $eingabe ) !== EB_TOTP_STELLEN ) return 0;
+    $jetzt = (int) floor( time() / EB_TOTP_STEP );
+    for ( $d = -EB_TOTP_FENSTER; $d <= EB_TOTP_FENSTER; $d++ ) {
+        $schritt = $jetzt + $d;
+        if ( hash_equals( eb_totp_code( $secret_b32, $schritt ), $eingabe ) ) return $schritt;
+    }
+    return 0;
+}
+
+/**
+ * Verbraucht einen Schritt genau einmal.
+ *
+ * Ohne das bleibt ein abgelesener Code bis zu 90 Sekunden lang gueltig und
+ * laesst sich mehrfach einloesen — der haeufigste Fehler in selbstgebauten
+ * TOTP-Implementierungen.
+ */
+function eb_totp_schritt_verbrauchen( $user_id, $schritt ) {
+    $letzter = (int) get_user_meta( $user_id, 'eb_totp_letzter_schritt', true );
+    if ( $schritt <= $letzter ) return false;
+    update_user_meta( $user_id, 'eb_totp_letzter_schritt', $schritt );
+    return true;
+}
+
+function eb_totp_aktiv( $user_id ) {
+    return get_user_meta( $user_id, 'eb_totp_aktiv', true ) === '1'
+        && (string) get_user_meta( $user_id, 'eb_totp_secret', true ) !== '';
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * HQ-Zugang fuer Mitarbeiter ohne WordPress-Admin.
+ *
+ * Bisher kam nur an /hq, wer `manage_options` hatte — also volle Kontrolle
+ * ueber die WordPress-Installation. Fuer einen Kollegen, der Fragen stellen
+ * und Ideen einbringen soll, waere das eine absurd grosse Berechtigung.
+ *
+ * Deshalb eine eigene Faehigkeit `eb_hq_access` UND ein zweiter Faktor: das
+ * Passwort allein oeffnet nichts. Die Sitzung traegt erst nach geprueftem
+ * TOTP eine Marke; ohne die bleibt /hq zu, auch bei gueltigem Login.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Wie lange eine TOTP-Bestaetigung eine Sitzung oeffnet. */
+const EB_HQ_SITZUNG = 12 * HOUR_IN_SECONDS;
+
+function eb_hq_sitzung_key( $user_id ) {
+    return 'eb_hq_sitzung_' . (int) $user_id;
+}
+
+/** Nach geprueftem zweitem Faktor die Sitzung oeffnen. */
+function eb_hq_sitzung_oeffnen( $user_id ) {
+    set_transient( eb_hq_sitzung_key( $user_id ), time(), EB_HQ_SITZUNG );
+}
+
+function eb_hq_sitzung_offen( $user_id ) {
+    return (bool) get_transient( eb_hq_sitzung_key( $user_id ) );
+}
+
+/**
+ * Darf dieser Nutzer das HQ sehen?
+ *
+ * Zwei Wege, beide mit zweitem Faktor:
+ *   - Administrator (manage_options)
+ *   - Mitarbeiter mit `eb_hq_access`
+ *
+ * Ein Administrator OHNE eingerichtetes TOTP kommt weiterhin durch — sonst
+ * haette diese Aenderung den Eigentuemer ausgesperrt. Sobald er TOTP
+ * einrichtet, gilt die Pflicht auch fuer ihn.
+ */
+function eb_hq_darf_sehen( $user_id = 0 ) {
+    if ( ! $user_id ) $user_id = get_current_user_id();
+    if ( ! $user_id ) return false;
+
+    $admin      = user_can( $user_id, 'manage_options' );
+    $mitarbeiter = user_can( $user_id, 'eb_hq_access' );
+    if ( ! $admin && ! $mitarbeiter ) return false;
+
+    // Wer TOTP eingerichtet hat, muss es auch benutzt haben.
+    if ( eb_totp_aktiv( $user_id ) ) return eb_hq_sitzung_offen( $user_id );
+
+    // Ein Mitarbeiter OHNE zweiten Faktor kommt nicht rein. Sonst waere die
+    // ganze Faehigkeit ein Passwort-Zugang mit Extraschritten.
+    return $admin;
+}
+
+/**
+ * Einrichtung starten: Geheimnis erzeugen und als otpauth-URI zurueckgeben.
+ *
+ * Das Geheimnis wird noch NICHT scharf geschaltet. Erst wenn der Nutzer einen
+ * daraus erzeugten Code vorweist, ist bewiesen, dass die App es wirklich
+ * gespeichert hat — sonst sperrt man jemanden aus, dessen Scan fehlschlug.
+ */
+function eb_totp_einrichten( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $secret = eb_totp_base32_encode( random_bytes( 20 ) );   // 160 Bit, wie RFC 4226 empfiehlt
+    update_user_meta( $uid, 'eb_totp_secret_vorlaeufig', $secret );
+
+    $user  = get_userdata( $uid );
+    $label = rawurlencode( 'Eventbörse:' . $user->user_email );
+    $uri   = "otpauth://totp/{$label}?secret={$secret}&issuer=Eventb%C3%B6rse&digits="
+           . EB_TOTP_STELLEN . '&period=' . EB_TOTP_STEP;
+
+    return new WP_REST_Response( array(
+        'secret' => $secret,      // zum Abtippen, falls die Kamera streikt
+        'uri'    => $uri,         // fuer den QR-Code
+        'aktiv'  => false,
+    ), 200 );
+}
+
+/** Einrichtung abschliessen — nur gegen einen gueltigen Code. */
+function eb_totp_bestaetigen( WP_REST_Request $request ) {
+    $uid  = get_current_user_id();
+    $rl   = eventboerse_check_rate_limit( 'totp_setup', 10, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
+
+    $secret = (string) get_user_meta( $uid, 'eb_totp_secret_vorlaeufig', true );
+    if ( $secret === '' ) {
+        return new WP_REST_Response( array( 'message' => 'Keine Einrichtung offen. Bitte neu starten.' ), 400 );
+    }
+    $params  = $request->get_json_params();
+    $schritt = eb_totp_pruefen( $secret, $params['code'] ?? '' );
+    if ( ! $schritt ) {
+        return new WP_REST_Response( array( 'message' => 'Code stimmt nicht. Uhrzeit des Geräts prüfen.' ), 401 );
+    }
+
+    update_user_meta( $uid, 'eb_totp_secret', $secret );
+    update_user_meta( $uid, 'eb_totp_aktiv', '1' );
+    delete_user_meta( $uid, 'eb_totp_secret_vorlaeufig' );
+    eb_totp_schritt_verbrauchen( $uid, $schritt );
+    eb_hq_sitzung_oeffnen( $uid );
+
+    return new WP_REST_Response( array( 'aktiv' => true ), 200 );
+}
+
+/**
+ * Zweiten Faktor vorlegen und die HQ-Sitzung oeffnen.
+ *
+ * Streng begrenzt: sechs Stellen sind eine Million Moeglichkeiten, aber ein
+ * Angreifer hat pro Schritt nur 30 Sekunden. Ohne Bremse waeren das ueber
+ * einen Tag genug Versuche, um zu treffen.
+ */
+function eb_totp_anmelden( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $rl  = eventboerse_check_rate_limit( 'totp_login', 8, 15 * MINUTE_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
+
+    if ( ! eb_totp_aktiv( $uid ) ) {
+        return new WP_REST_Response( array( 'message' => 'Für dieses Konto ist kein Authenticator eingerichtet.' ), 400 );
+    }
+    $params  = $request->get_json_params();
+    $secret  = (string) get_user_meta( $uid, 'eb_totp_secret', true );
+    $schritt = eb_totp_pruefen( $secret, $params['code'] ?? '' );
+    if ( ! $schritt || ! eb_totp_schritt_verbrauchen( $uid, $schritt ) ) {
+        // Derselbe Text fuer „falsch" und „schon benutzt": welcher Fall
+        // vorliegt, geht einen Angreifer nichts an.
+        return new WP_REST_Response( array( 'message' => 'Code ungültig oder bereits verbraucht.' ), 401 );
+    }
+    eventboerse_reset_rate_limit( 'totp_login' );
+    eb_hq_sitzung_oeffnen( $uid );
+
+    return new WP_REST_Response( array( 'offen' => true, 'gueltigBis' => time() + EB_HQ_SITZUNG ), 200 );
+}
+
+/** Status fuer die Oberflaeche — nie das Geheimnis selbst. */
+function eb_totp_status( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    return new WP_REST_Response( array(
+        'aktiv'      => eb_totp_aktiv( $uid ),
+        'hqOffen'    => eb_hq_sitzung_offen( $uid ),
+        'darfHq'     => eb_hq_darf_sehen( $uid ),
+    ), 200 );
+}
+
+add_action( 'rest_api_init', function () {
+    $angemeldet = function () { return is_user_logged_in(); };
+    foreach ( array(
+        '/totp/einrichten'  => array( 'POST', 'eb_totp_einrichten' ),
+        '/totp/bestaetigen' => array( 'POST', 'eb_totp_bestaetigen' ),
+        '/totp/anmelden'    => array( 'POST', 'eb_totp_anmelden' ),
+        '/totp/status'      => array( 'GET',  'eb_totp_status' ),
+    ) as $pfad => $def ) {
+        register_rest_route( 'eventboerse/v1', $pfad, array(
+            'methods'             => $def[0],
+            'callback'            => $def[1],
+            'permission_callback' => $angemeldet,
+        ) );
+    }
 } );

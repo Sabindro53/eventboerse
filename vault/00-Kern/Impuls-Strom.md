@@ -63,23 +63,23 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **40** |
-| Commits (30 Tage) | 107 |
-| Letzter Commit | `57d9677 · Verbrauch nachvollziehbar machen: Zuordnung, Abbruch, Cache` (2026-08-09) |
+| Commits (7 Tage) | **41** |
+| Commits (30 Tage) | 108 |
+| Letzter Commit | `9badc76 · Frontier-Modelle für Architektur und Review, offene Gewichte sonst` (2026-08-09) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 37 app.js
      29 styles.css
-     24 tests/e2e/kern.spec.js
-     22 CLAUDE.md
+     25 tests/e2e/kern.spec.js
+     23 CLAUDE.md
      21 index.html
 ```
 
 **Codegröße:**
 - `app.js` — 25.012 Zeilen
 - `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.972 Zeilen
+- `functions.php` — 9.235 Zeilen
 - `app-shell.html` — 3.974 Zeilen
 
 ## Verwandt
