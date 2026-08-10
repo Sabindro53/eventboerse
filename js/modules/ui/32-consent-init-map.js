@@ -329,10 +329,17 @@ function toggleMapOverlay() {
     setTimeout(() => initLeafletMap(), 350);
     mapInitialized = true;
   } else {
-    setTimeout(() => leafletMap.invalidateSize(), 350);
+    setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 350);
   }
 
   renderLocationsList(filterDemos(LISTINGS));
+
+  // Event-Radar: gemerkten groben Ort übernehmen und zeichnen. Es wird
+  // NICHT neu nach dem Standort gefragt — das passiert nur, wenn der
+  // Nutzer den Knopf drückt.
+  if (typeof radarBeimOeffnen === 'function') {
+    setTimeout(radarBeimOeffnen, 400);   // nach initLeafletMap
+  }
 }
 
 function closeMapOverlay() {
@@ -342,6 +349,18 @@ function closeMapOverlay() {
 }
 
 function initLeafletMap() {
+  // Leaflet kommt von einem CDN. Fällt das aus oder blockiert es ein
+  // Adblocker, warf diese Zeile bisher einen unbehandelten Fehler und riss
+  // die restliche Kartenansicht mit — obwohl Trefferliste und Radar auch
+  // ohne Karte vollständig arbeiten. Lieber ohne Karte als gar nichts.
+  if (typeof L === 'undefined') {
+    var behaelter = document.getElementById('mapContainer');
+    if (behaelter && !behaelter.childElementCount) {
+      behaelter.innerHTML = '<p class="radar-leer">Die Kartenansicht ist gerade nicht'
+        + ' erreichbar. Die Liste unten funktioniert trotzdem.</p>';
+    }
+    return;
+  }
   leafletMap = L.map('mapContainer', {
     zoomControl: false,
     attributionControl: false
@@ -377,17 +396,29 @@ function createPriceIcon(listing) {
 }
 
 function addListingMarkers(listings) {
+  // Ohne geladenes Leaflet gibt es keine Karte — die Liste bleibt
+  // trotzdem bedienbar. Siehe initLeafletMap().
+  if (!leafletMap) return;
+
   // Clear existing markers
   mapMarkers.forEach(m => leafletMap.removeLayer(m));
   mapMarkers = [];
 
   listings.forEach(listing => {
-    const coords = CITY_COORDS[listing.location];
+    // Echte Koordinaten, wenn das Inserat welche hat.
+    //
+    // Vorher stand hier eine Zufallsstreuung von ±0,8 km, NEU GEWÜRFELT bei
+    // jedem Neuzeichnen. Dasselbe Inserat lag bei jedem Öffnen der Karte
+    // woanders — eine erfundene Position, die aussah wie eine echte. Wer
+    // danach seine Anfahrt einschätzt, tut das auf Basis von Zufall.
+    //
+    // Ohne Koordinaten sitzt der Marker jetzt exakt auf dem Stadtmittelpunkt.
+    // Das ist sichtbar ungenau und damit ehrlicher als ein Punkt, der
+    // Genauigkeit vortäuscht, die es nicht gibt.
+    const genau = Array.isArray(listing.koordinaten) && listing.koordinaten.length === 2;
+    const coords = genau ? listing.koordinaten : CITY_COORDS[listing.location];
     if (!coords) return;
-
-    // Slight random offset so overlapping markers spread
-    const jitter = () => (Math.random() - 0.5) * 0.015;
-    const pos = [coords[0] + jitter(), coords[1] + jitter()];
+    const pos = [coords[0], coords[1]];
 
     const marker = L.marker(pos, { icon: createPriceIcon(listing) })
       .addTo(leafletMap);
@@ -398,8 +429,9 @@ function addListingMarkers(listings) {
         <h4>${_escHtml(listing.title)}</h4>
         <div class="popup-meta">
           <span class="material-icons-round" style="font-size:14px;vertical-align:middle">location_on</span>
-          ${_escHtml(listing.location)} · ${_escHtml(listing.categoryLabel)}
+          ${_escHtml(listing.stadtteil ? listing.location + ' · ' + listing.stadtteil : listing.location)} · ${_escHtml(listing.categoryLabel)}
         </div>
+        ${genau ? '' : '<div class="popup-meta popup-ungenau">Nur die Stadt bekannt — der Punkt zeigt die Stadtmitte.</div>'}
         <div class="popup-meta">★ ${_escHtml(listing.rating)} (${_escHtml(listing.reviews)} Bewertungen)</div>
         <div class="popup-price">${_escHtml(listing.priceLabel)}</div>
         <button class="popup-btn" onclick="closeMapOverlay(); navigateTo('detail', ${listing.id});">
@@ -461,6 +493,10 @@ function focusMapMarker(listingId) {
 }
 
 function filterMapMarkers() {
+  // Ohne geladenes Leaflet gibt es keine Karte — die Liste bleibt
+  // trotzdem bedienbar. Siehe initLeafletMap().
+  if (!leafletMap) return;
+
   const inp = document.getElementById('mapSearchInput');
   const query = inp ? inp.value.toLowerCase().trim() : '';
 

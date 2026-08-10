@@ -7,8 +7,8 @@ share: internal
 
 # Testing
 
-> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 181 Tests
-> in 11 Suiten) als blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die
+> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 244 Tests
+> in 13 Suiten) als blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die
 > letzten Produktionsfehler (Verlaufsschrift nach Minify, Suche ohne Treffer,
 > doppelte CSS-Regeln) waren alle Regressionen, die diese Suite gefangen hätte.
 > Manueller Smoke-Test bleibt für Backend-Flows (Login, Stripe live).
@@ -20,7 +20,7 @@ share: internal
        │ Manual E2E  │   ← Backend-Flows bei Release (Login, Stripe live)
        └──────┬──────┘
        ┌──────┴───────┐
-       │  Playwright  │   ← 181 Tests, blockierend in pr-check.yml (NEU 2026-08)
+       │  Playwright  │   ← 244 Tests, blockierend in pr-check.yml (NEU 2026-08)
        └──────┬───────┘
        ┌──────┴───────────────┐
        │ Auto-Audit (KI)      │   ← claude-auto-audit.yml
@@ -43,6 +43,8 @@ Keine Unit-Tests aktuell — Codebase ist hauptsächlich UI-Glue + REST-Wrapper,
 | `verbindungen.spec.js` | **HQ-Zugang** (keine Schlüssel im HTML, serverseitige `manage_options`-Prüfung, Theme-Pfad gesperrt, noindex) + **Connector-Katalog** (kein Zustand, alle 15 Fähigkeiten deklariert, Copilot-Kontingent ehrlich, keine Geheimnisse) + **Oberfläche** (ohne API-Antwort darf nichts „verbunden" zeigen) + **CSP** (`csp-hq.php` rechnet den Header in PHP durch — die JS-Tests blockieren GitHub selbst und sehen einen CSP-Verstoß als dasselbe Bild) | Das HQ war faktisch offen; ein Katalog mit Status wäre eine Lüge in Dateiform |
 | `kern.spec.js` | **Impuls-Ehrlichkeit** (nach dem Ereignis ist die Bahn leer, keine `infinite`-Animation) + **Autonomie** (jede Grenze begründet, Finance löst nie aus) + **Ensemble** (nur offene Gewichte, Rollen eindeutig) + Tastaturzugang | Eine Dauer-Animation zeigt Arbeit, die nicht stattfindet |
 | `ki-abwehr.spec.js` | **Fremdtext am Modell** (Kontext nur eingezäunt, Zaunmarke pro Lauf zufällig, Regel in der Systemnachricht, Injektionsfunde gezählt statt zitiert, Geheimnisse brechen weiter ab) + **KI-Sammler** (jeder Pflicht-Sammler ausgeschlossen, Googlebot/Bingbot ausdrücklich NICHT, Referenzdatei ohne Drift, kein `/hq` in robots.txt) | Der Code-Prüfer liest PR-Diffs — einen PR darf jeder öffnen. Die Verbotsmuster existierten längst, wurden aber nur im Quarantäne-Tor angewandt |
+| `totp.spec.js` | **RFC-6238-Testvektoren** (inkl. 64-Bit-Schritt), Zeitschritt genau einmal verbrauchbar, `hash_equals` statt `==`, Versuchsbegrenzung, Base32 hin und zurück; die Codeabfrage lädt **keine** HQ-Daten | Selbstgebautes TOTP bricht fast immer an genau drei Stellen — „erzeugt sechs Ziffern" erfüllt auch ein Zufallsgenerator |
+| `radar.spec.js` | **Umkreis** (Haversine, Stadtgrenzen überschritten), **Position bleibt lokal** (nie im Netzverkehr, nur 2 Nachkommastellen gespeichert), **Geocoding** (1 Anfrage/s, Cache, `fetch` gestubbt statt Nominatim wirklich befragt), **Migration** — die echte Funktion läuft gegen eine erfundene Datenbank, der man Spalten wegnehmen kann | Marker wurden mit `Math.random()` gestreut und logen bei jedem Neuzeichnen anders. Der erste Migrations-Test prüfte nur die Form und ließ ein `if ( true )` durch |
 | `zufluss.spec.js` | **Quarantäne-Tor** (5 Regeln einzeln, Injection innen erlaubt/außen verboten, Geheimnis-Import verweigert) + **Demo-Feed** (nichts wirkt frisch, reproduzierbar, Event-Vielfalt, gerenderte Zeitangaben) | Externer Zufluss ist die einzige Stelle, an der ungeprüfter Text ins System kommt |
 
 ```bash

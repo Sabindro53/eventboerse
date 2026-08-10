@@ -203,6 +203,26 @@
         <span class="material-icons-round" onclick="submitMapSearch();" style="cursor:pointer;" role="button" aria-label="Suchen">search</span>
         <input type="text" id="mapSearchInput" placeholder="Stadt oder Region suchen..." oninput="filterMapMarkers()" onkeydown="if(event.key==='Enter'){event.preventDefault();submitMapSearch();this.blur();}" />
       </div>
+      <!-- Event-Radar: Umkreis statt Stadtgrenze. Der Standort wird nur auf
+           ausdrückliche Handlung erfragt und verlässt den Browser nie. -->
+      <div class="radar-leiste" id="radarLeiste">
+        <div class="radar-ort">
+          <button type="button" class="radar-btn" id="radarStandortBtn" onclick="radarStandortKlick()">
+            <span class="material-icons-round">my_location</span>
+            <span id="radarOrtText">Standort freigeben</span>
+          </button>
+          <label class="radar-stadt-label" for="radarStadt">oder Stadt</label>
+          <select id="radarStadt" class="radar-stadt" onchange="radarStadtKlick(this.value)">
+            <option value="">Stadt wählen …</option>
+          </select>
+          <button type="button" class="radar-btn radar-btn-still" id="radarVergessenBtn"
+                  onclick="radarVergessenKlick()" hidden>Standort entfernen</button>
+        </div>
+        <div class="radar-radien" role="group" aria-label="Umkreis wählen" id="radarRadien"></div>
+        <p class="radar-hinweis" id="radarHinweis" aria-live="polite">
+          Dein Standort bleibt im Browser — die Entfernungen werden hier gerechnet.
+        </p>
+      </div>
       <div class="map-container" id="mapContainer"></div>
       <div class="map-locations-list" id="mapLocationsList">
         <!-- Populated by JS -->
@@ -2184,6 +2204,23 @@
                 <input type="hidden" id="createRegionValue" />
                 <ul class="city-autocomplete-list" id="cityAutocompleteList"></ul>
               </div>
+            </div>
+            <!-- Adresse ist freiwillig. Ohne sie landet das Inserat auf dem
+                 Stadtmittelpunkt — sichtbar gekennzeichnet, nicht getarnt. -->
+            <div class="form-group">
+              <label for="createAdresse">Adresse <span class="form-optional">(optional)</span></label>
+              <small class="form-hint">Mit Adresse erscheinst du bei „in meiner Nähe" an der richtigen
+                Stelle statt in der Stadtmitte. Sie wird für die Suche an OpenStreetMap übermittelt.</small>
+              <div class="geo-zeile">
+                <input type="text" id="createAdresse" placeholder="Straße, Hausnummer, Ort" autocomplete="off"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();geoSuchenKlick();}" />
+                <button type="button" class="radar-btn" id="geoSuchenBtn" onclick="geoSuchenKlick()">
+                  <span class="material-icons-round">search</span> Adresse prüfen
+                </button>
+              </div>
+              <ul class="geo-treffer" id="geoTreffer"></ul>
+              <p class="geo-status" id="geoStatus" aria-live="polite"></p>
+              <input type="hidden" id="createKoordinaten" />
             </div>
             <div class="form-row">
               <div class="form-group">

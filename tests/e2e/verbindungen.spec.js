@@ -56,7 +56,15 @@ test.describe('HQ-Zugang', () => {
   test('Auslieferung prüft serverseitig auf Administrator', () => {
     expect(FUNCTIONS).toMatch(/function eb_serve_hq/);
     const fn = rumpfVon(FUNCTIONS, 'eb_serve_hq');
-    expect(fn, 'ohne Rechteprüfung wäre /hq offen').toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+    // Die Rechteprüfung sitzt in eb_hq_darf_sehen() — sie deckt neben
+    // manage_options auch die Mitarbeiter-Fähigkeit UND den zweiten Faktor ab.
+    expect(fn, 'ohne Rechteprüfung wäre /hq offen').toMatch(/eb_hq_darf_sehen\(\)/);
+    const tor = rumpfVon(FUNCTIONS, 'eb_hq_darf_sehen');
+    expect(tor, 'Admin-Weg fehlt').toMatch(/'manage_options'/);
+    expect(tor, 'Mitarbeiter-Weg fehlt').toMatch(/'eb_hq_access'/);
+    // Der entscheidende Punkt: eingerichtetes TOTP muss auch benutzt werden.
+    expect(tor, 'zweiter Faktor wird nicht erzwungen')
+      .toMatch(/eb_totp_aktiv\([^)]*\)\s*\)\s*return eb_hq_sitzung_offen/);
     // 404 statt 403: eine Seite, deren Existenz man nicht bestätigt, wird
     // auch nicht gezielt angegriffen.
     const abweisung = fn.slice(0, fn.indexOf('$file'));

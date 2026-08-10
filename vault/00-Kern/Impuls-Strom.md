@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-09**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-10**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -63,24 +63,24 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **39** |
-| Commits (30 Tage) | 106 |
-| Letzter Commit | `22399d7 · Befunde bestimmen die Arbeit — statt Kalenderwoche` (2026-08-06) |
+| Commits (7 Tage) | **43** |
+| Commits (30 Tage) | 117 |
+| Letzter Commit | `f0c2bef · Vault nachgezogen: Radar, HQ-Zugang, Migration 2.5` (2026-08-10) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-37 app.js
-     29 styles.css
-     23 tests/e2e/kern.spec.js
-     21 index.html
-     21 app-shell.html
+41 app.js
+     32 styles.css
+     31 CLAUDE.md
+     26 vault/00-Kern/Impuls-Strom.md
+     25 vault/30-Betrieb/Testing.md
 ```
 
 **Codegröße:**
-- `app.js` — 25.012 Zeilen
-- `styles.css` — 16.892 Zeilen
-- `functions.php` — 8.972 Zeilen
-- `app-shell.html` — 3.974 Zeilen
+- `app.js` — 25.586 Zeilen
+- `styles.css` — 16.991 Zeilen
+- `functions.php` — 9.560 Zeilen
+- `app-shell.html` — 4.011 Zeilen
 
 ## Verwandt
 - [[00-Kern/Wissensstroeme]] — die sechs Impulse
