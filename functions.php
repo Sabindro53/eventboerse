@@ -2872,6 +2872,18 @@ add_filter( 'rest_post_dispatch', function( $response ) {
 /* =====================================================================
    CUSTOM DATABASE TABLES
    ===================================================================== */
+/**
+ * Schema-Stand, gegen den `eb_db_version` in der Datenbank geprueft wird.
+ *
+ * 2.5 statt 2.4, obwohl fachlich nichts dazukommt: bis hierher wurde die
+ * Version unbedingt hochgesetzt, auch wenn ein ALTER scheiterte. Eine
+ * Datenbank koennte also '2.4' melden und die Spalten trotzdem nicht haben.
+ * Die Erhoehung erzwingt genau einen gepruefen Durchlauf ueberall.
+ */
+if ( ! defined( 'EB_DB_VERSION' ) ) {
+    define( 'EB_DB_VERSION', '2.5' );
+}
+
 function eb_create_tables() {
     global $wpdb;
     $charset = $wpdb->get_charset_collate();
@@ -2921,7 +2933,8 @@ function eb_create_tables() {
         KEY idx_user (user_id),
         KEY idx_category (category),
         KEY idx_status (status),
-        KEY idx_created (created_at)
+        KEY idx_created (created_at),
+        KEY idx_geo (lat, lng)
     ) $charset;";
 
     $sql_reviews = "CREATE TABLE {$wpdb->prefix}eb_reviews (
@@ -3004,7 +3017,16 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '2.4' ) {
+    if ( get_option( 'eb_db_version' ) !== EB_DB_VERSION ) {
+        // Ein fehlgeschlagener Versuch darf nicht bei jedem Seitenaufruf sechs
+        // dbDelta-Laeufe ausloesen — ein Schemafehler wuerde sonst jede Anfrage
+        // verteuern. Alle fuenf Minuten neu ansetzen genuegt zum Selbstheilen.
+        $letzter = (int) get_option( 'eb_db_migration_versuch', 0 );
+        if ( $letzter && ( time() - $letzter ) < 300 ) {
+            return;
+        }
+        update_option( 'eb_db_migration_versuch', time() );
+
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
@@ -3047,11 +3069,43 @@ function eb_maybe_create_tables() {
                 ADD COLUMN stadtteil varchar(120) NOT NULL DEFAULT '' AFTER region,
                 ADD COLUMN lat decimal(10,7) DEFAULT NULL AFTER stadtteil,
                 ADD COLUMN lng decimal(10,7) DEFAULT NULL AFTER lat" );
-            // Der Radar fragt „alles im Umkreis" — ohne Index waere das ein
-            // voller Tabellenscan, sobald es mehr als eine Handvoll Inserate gibt.
+        }
+        // Der Radar fragt „alles im Umkreis" — ohne Index waere das ein
+        // voller Tabellenscan, sobald es mehr als eine Handvoll Inserate gibt.
+        //
+        // Eigener Waechter, nicht im Block oben: haetten die Spalten geklappt
+        // und der Index nicht, wuerde die Pruefung auf 'lat' den Index fuer
+        // immer ueberspringen — die Suche liefe dann dauerhaft ohne ihn.
+        $geo_idx = $wpdb->get_var( "SHOW INDEX FROM {$wpdb->prefix}eb_listings WHERE Key_name = 'idx_geo'" );
+        if ( ! $geo_idx ) {
             $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD KEY idx_geo (lat, lng)" );
         }
-        update_option( 'eb_db_version', '2.4' );
+
+        // Erst melden, wenn es wirklich steht.
+        //
+        // Vorher wurde die Version unbedingt hochgesetzt. Damit galt die
+        // Migration auch dann als erledigt, wenn ein ALTER scheiterte — und
+        // lief nie wieder an. Die Datenbank waere kaputt und die Anzeige
+        // gruen; genau die Kombination, die man am spaetesten bemerkt.
+        $soll = array( 'blocked_dates', 'listing_type', 'stadtteil', 'lat', 'lng' );
+        $ist  = $wpdb->get_col( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings" );
+        $fehlt = array_values( array_diff( $soll, is_array( $ist ) ? $ist : array() ) );
+        if ( ! $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_messages LIKE 'updated_at'" ) ) {
+            $fehlt[] = 'eb_messages.updated_at';
+        }
+        if ( ! $geo_idx && ! $wpdb->get_var( "SHOW INDEX FROM {$wpdb->prefix}eb_listings WHERE Key_name = 'idx_geo'" ) ) {
+            $fehlt[] = 'idx_geo';
+        }
+
+        if ( empty( $fehlt ) ) {
+            update_option( 'eb_db_version', EB_DB_VERSION );
+            delete_option( 'eb_db_migration_fehlt' );
+            delete_option( 'eb_db_migration_versuch' );
+        } else {
+            // Sichtbar machen statt still scheitern — die Diagnose-Route zeigt
+            // das an, damit „ist die Migration durch?" eine Antwort hat.
+            update_option( 'eb_db_migration_fehlt', $fehlt );
+        }
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -3991,8 +4045,15 @@ function eb_admin_smtp_set( WP_REST_Request $request ) {
 function eb_diagnostics() {
     global $wpdb;
     $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations' );
+    // „Ist die Migration durch?" soll man sehen, nicht erschliessen muessen:
+    // Sollstand, Iststand, was fehlt, und ob der Geo-Index wirklich steht.
+    $fehlt = get_option( 'eb_db_migration_fehlt', array() );
     $result = array(
         'db_version'       => get_option( 'eb_db_version' ),
+        'db_version_soll'  => EB_DB_VERSION,
+        'migration_ok'     => get_option( 'eb_db_version' ) === EB_DB_VERSION && empty( $fehlt ),
+        'migration_fehlt'  => is_array( $fehlt ) ? $fehlt : array(),
+        'geo_index'        => (bool) $wpdb->get_var( "SHOW INDEX FROM {$wpdb->prefix}eb_listings WHERE Key_name = 'idx_geo'" ),
         'smtp_configured'  => eb_smtp_is_configured(),
         'smtp_user'        => eb_get_smtp_user() ?: '(nicht konfiguriert)',
         'smtp_source'      => defined('EB_SMTP_USER') && EB_SMTP_USER ? 'wp-config.php' : ( get_option('eb_smtp_user','') ? 'wp_options' : 'fallback' ),

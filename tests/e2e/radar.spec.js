@@ -478,6 +478,106 @@ test.describe('Koordinaten in der Datenbank', () => {
   const { execFileSync } = require('node:child_process');
   const os = require('node:os');
 
+  /** Rumpf von eb_maybe_create_tables() — die Migration, ohne den Rest der Datei. */
+  const MIGRATION = (() => {
+    const von = FUNCTIONS.indexOf('function eb_maybe_create_tables');
+    const bis = FUNCTIONS.indexOf("add_action( 'init', 'eb_maybe_create_tables' )", von);
+    if (von < 0 || bis < 0) throw new Error('eb_maybe_create_tables nicht gefunden');
+    return FUNCTIONS.slice(von, bis);
+  })();
+
+  /**
+   * eb_maybe_create_tables() echt ausführen — gegen eine erfundene Datenbank.
+   *
+   * Der erste Versuch prüfte nur die Form des Codes: „steht der Sprung in
+   * einer Bedingung?" Ein hingeschriebenes `if ( true )` erfüllt das und
+   * bricht die Migration trotzdem. Deshalb hier das Verhalten: Spalten
+   * wegnehmen und nachsehen, ob die Version dann stehen bleibt.
+   *
+   * `alterWirkt: false` ahmt genau den Fall nach, der die Sache gefährlich
+   * macht — ALTER läuft ins Leere, MySQL meldet nichts, das Schema bleibt alt.
+   *
+   * @param {{alterWirkt?: boolean, laeufe?: number, vorbelegung?: object,
+   *          spalten?: string[]}} lage
+   */
+  function migrieren(lage = {}) {
+    const { alterWirkt = true, laeufe = 1, vorbelegung = {},
+      spalten = ['id', 'title', 'region', 'category_label', 'available_weekdays'] } = lage;
+    const defVon = FUNCTIONS.indexOf("if ( ! defined( 'EB_DB_VERSION' ) )");
+    const defBis = FUNCTIONS.indexOf('function eb_create_tables', defVon);
+    expect(defVon, 'EB_DB_VERSION-Definition nicht gefunden').toBeGreaterThan(0);
+
+    const skript = path.join(os.tmpdir(), `mig-${Date.now()}-${Math.random()}.php`);
+    fs.writeFileSync(skript, `<?php
+$OPT = ${phpWert(vorbelegung)};
+$CREATE = 0;
+function get_option($k, $d = false) { global $OPT; return array_key_exists($k, $OPT) ? $OPT[$k] : $d; }
+function update_option($k, $v) { global $OPT; $OPT[$k] = $v; return true; }
+function delete_option($k) { global $OPT; unset($OPT[$k]); return true; }
+function eb_create_tables() { global $CREATE; $CREATE++; }
+
+class FakeWpdb {
+    public $prefix = 'wp_';
+    public $spalten = array(${spalten.map((s) => JSON.stringify(s)).join(', ')});
+    public $nachrichten = array('id', 'created_at');
+    public $indizes = array();
+    public $wirkt = ${alterWirkt ? 'true' : 'false'};
+
+    function query($sql) {
+        if ( ! $this->wirkt ) { return false; }
+        if ( strpos($sql, 'ADD COLUMN blocked_dates') !== false ) { $this->spalten[] = 'blocked_dates'; }
+        if ( strpos($sql, 'ADD COLUMN listing_type') !== false ) { $this->spalten[] = 'listing_type'; }
+        if ( strpos($sql, 'ADD COLUMN lat') !== false ) {
+            $this->spalten = array_merge($this->spalten, array('stadtteil', 'lat', 'lng'));
+        }
+        if ( strpos($sql, 'ADD COLUMN updated_at') !== false ) { $this->nachrichten[] = 'updated_at'; }
+        if ( strpos($sql, 'ADD KEY idx_geo') !== false ) { $this->indizes[] = 'idx_geo'; }
+        return true;
+    }
+    function get_var($sql) {
+        if ( preg_match("/SHOW COLUMNS FROM wp_eb_listings LIKE '([a-z_]+)'/", $sql, $m) ) {
+            return in_array($m[1], $this->spalten, true) ? $m[1] : null;
+        }
+        if ( preg_match("/SHOW COLUMNS FROM wp_eb_messages LIKE '([a-z_]+)'/", $sql, $m) ) {
+            return in_array($m[1], $this->nachrichten, true) ? $m[1] : null;
+        }
+        if ( strpos($sql, 'SHOW INDEX') !== false ) {
+            return in_array('idx_geo', $this->indizes, true) ? 'wp_eb_listings' : null;
+        }
+        return null;
+    }
+    function get_col($sql) {
+        return strpos($sql, 'wp_eb_messages') !== false ? $this->nachrichten : $this->spalten;
+    }
+}
+$wpdb = new FakeWpdb();
+
+${FUNCTIONS.slice(defVon, defBis)}
+${MIGRATION}
+
+for ( $i = 0; $i < ${laeufe}; $i++ ) { eb_maybe_create_tables(); }
+
+echo json_encode(array(
+    'version'   => get_option('eb_db_version'),
+    'soll'      => EB_DB_VERSION,
+    'fehlt'     => get_option('eb_db_migration_fehlt', array()),
+    'versuch'   => (bool) get_option('eb_db_migration_versuch', 0),
+    'spalten'   => $wpdb->spalten,
+    'indizes'   => $wpdb->indizes,
+    'aufrufe'   => $CREATE,
+));
+`, 'utf8');
+    try { return JSON.parse(execFileSync('php', [skript], { encoding: 'utf8' })); }
+    finally { fs.unlinkSync(skript); }
+  }
+
+  /** JS-Wert als PHP-Literal — kleiner Helfer für die Vorbelegung der Optionen. */
+  function phpWert(o) {
+    const teile = Object.entries(o).map(([k, v]) => `${JSON.stringify(k)} => ${
+      typeof v === 'number' ? v : JSON.stringify(String(v))}`);
+    return `array(${teile.join(', ')})`;
+  }
+
   /**
    * eb_geo_pruefen() aus functions.php echt ausführen.
    *
@@ -534,13 +634,91 @@ test.describe('Koordinaten in der Datenbank', () => {
     // Auf einer laufenden Seite ist das Theme längst aktiv — neue Spalten in
     // der CREATE TABLE kämen dort NIE an. Ohne Versionssprung wäre das
     // Adressfeld wirkungslos und sähe trotzdem fertig aus.
-    expect(FUNCTIONS, 'Version nicht hochgezogen').toMatch(/eb_db_version' \) !== '2\.4'/);
-    expect(FUNCTIONS, 'Version wird nicht gesetzt').toMatch(/update_option\( 'eb_db_version', '2\.4' \)/);
+    expect(MIGRATION, 'Version wird nicht gegen den Sollstand geprüft')
+      .toMatch(/get_option\( 'eb_db_version' \) !== EB_DB_VERSION/);
     // Explizites ALTER mit Wache — das Haus-Muster, weil dbDelta Spalten an
     // bestehenden Tabellen nicht zuverlässig ergänzt.
-    expect(FUNCTIONS).toMatch(/SHOW COLUMNS FROM \{\$wpdb->prefix\}eb_listings LIKE 'lat'/);
-    expect(FUNCTIONS).toMatch(/ADD COLUMN lat decimal\(10,7\) DEFAULT NULL/);
-    expect(FUNCTIONS, 'Umkreissuche ohne Index wäre ein Tabellenscan').toMatch(/ADD KEY idx_geo \(lat, lng\)/);
+    expect(MIGRATION).toMatch(/SHOW COLUMNS FROM \{\$wpdb->prefix\}eb_listings LIKE 'lat'/);
+    expect(MIGRATION).toMatch(/ADD COLUMN lat decimal\(10,7\) DEFAULT NULL/);
+    expect(MIGRATION, 'Umkreissuche ohne Index wäre ein Tabellenscan')
+      .toMatch(/ADD KEY idx_geo \(lat, lng\)/);
+  });
+
+  test('Sollstand steht an genau einer Stelle', () => {
+    // Zwei Literale — eins in der Abfrage, eins beim Setzen — driften
+    // irgendwann auseinander. Dann prüft die Migration gegen die eine Zahl
+    // und meldet die andere, und läuft ab da bei jedem Aufruf neu.
+    expect(FUNCTIONS, 'EB_DB_VERSION nicht definiert')
+      .toMatch(/define\( 'EB_DB_VERSION', '\d+\.\d+' \)/);
+    const literale = MIGRATION.match(/'\d+\.\d+'/g) || [];
+    expect(literale, `Versionsliteral in der Migration: ${literale.join(', ')}`).toHaveLength(0);
+  });
+
+  test('auf einer gesunden Datenbank läuft die Migration einmal durch', () => {
+    const r = migrieren();
+    expect(r.version, 'Version nicht auf den Sollstand gesetzt').toBe(r.soll);
+    expect(r.fehlt, 'nichts darf fehlen').toEqual([]);
+    expect(r.spalten, 'Radar-Spalten fehlen').toEqual(expect.arrayContaining(['stadtteil', 'lat', 'lng']));
+    expect(r.indizes, 'Geo-Index fehlt').toContain('idx_geo');
+    expect(r.versuch, 'die Versuchsmarke muss danach weg sein').toBe(false);
+  });
+
+  test('scheitert das ALTER, bleibt die Version stehen', () => {
+    // Der eigentliche Grund für diesen Test. Vorher wurde unbedingt
+    // hochgezählt: die Migration galt als erledigt, obwohl das ALTER ins
+    // Leere lief. Sie wäre nie wieder angelaufen — Datenbank kaputt,
+    // Anzeige grün. Das ist der Fehler, den man am spätesten bemerkt.
+    const r = migrieren({ alterWirkt: false });
+    expect(r.version, 'Version trotz fehlender Spalten hochgesetzt').not.toBe(r.soll);
+    expect(r.fehlt, 'der Fehlschlag wird nicht benannt')
+      .toEqual(expect.arrayContaining(['stadtteil', 'lat', 'lng']));
+  });
+
+  test('nach einem Fehlschlag wird es später erneut versucht', () => {
+    // Selbstheilung: sobald die Ursache weg ist, zieht der nächste Lauf nach.
+    // Ohne das bliebe eine einmal gescheiterte Migration für immer liegen.
+    const kaputt = migrieren({ alterWirkt: false });
+    expect(kaputt.versuch, 'ohne Marke gäbe es keinen zweiten Anlauf').toBe(true);
+
+    const heilt = migrieren({ alterWirkt: true, vorbelegung: { eb_db_migration_fehlt: 'lat' } });
+    expect(heilt.version, 'der nächste Lauf muss nachziehen').toBe(heilt.soll);
+    expect(heilt.fehlt, 'die alte Fehlmeldung muss verschwinden').toEqual([]);
+  });
+
+  test('ein Fehlschlag belastet nicht jede einzelne Anfrage', () => {
+    // Sechs dbDelta-Läufe pro Seitenaufruf wären ein Schemafehler, den man an
+    // der Antwortzeit merkt statt in der Diagnose.
+    const r = migrieren({ alterWirkt: false, laeufe: 5 });
+    expect(r.aufrufe, 'die Migration läuft bei jedem Aufruf erneut komplett durch').toBe(1);
+  });
+
+  test('ist die Version erreicht, passiert gar nichts mehr', () => {
+    const soll = migrieren().soll;
+    const r = migrieren({ vorbelegung: { eb_db_version: soll }, laeufe: 3 });
+    expect(r.aufrufe, 'eine erledigte Migration darf nicht wieder anlaufen').toBe(0);
+  });
+
+  test('der Geo-Index wird nachgeholt, wenn nur er fehlt', () => {
+    // Wäre die Index-Anlage im Spalten-Block eingesperrt, käme sie hier nie
+    // dran: die Wache fragt nach 'lat', und die gäbe es ja. Eine geglückte
+    // Spalten- aber missglückte Index-Anlage bliebe für immer ohne Index,
+    // und die Umkreissuche wäre dauerhaft ein voller Tabellenscan.
+    const r = migrieren({
+      spalten: ['id', 'title', 'region', 'blocked_dates', 'listing_type', 'stadtteil', 'lat', 'lng'],
+    });
+    expect(r.indizes, 'der Index wird nicht nachgeholt').toContain('idx_geo');
+    expect(r.version, 'und danach ist die Migration durch').toBe(r.soll);
+  });
+
+  test('die Diagnose beantwortet „ist die Migration durch?“ direkt', () => {
+    // Ohne das müsste man aus einer Spaltenliste schließen — und der Index
+    // käme darin gar nicht vor.
+    const diag = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_diagnostics'));
+    const rumpf = diag.slice(0, 2500);
+    expect(rumpf, 'kein Sollstand in der Diagnose').toMatch(/'db_version_soll'\s*=>\s*EB_DB_VERSION/);
+    expect(rumpf, 'kein klares Ja/Nein').toMatch(/'migration_ok'/);
+    expect(rumpf, 'Fehlendes wird nicht ausgewiesen').toMatch(/'migration_fehlt'/);
+    expect(rumpf, 'Index-Zustand fehlt').toMatch(/'geo_index'/);
   });
 
   test('unbekannte Position ist NULL, nicht 0', () => {
