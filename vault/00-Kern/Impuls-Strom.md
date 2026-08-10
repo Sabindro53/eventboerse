@@ -63,23 +63,23 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **43** |
-| Commits (30 Tage) | 113 |
-| Letzter Commit | `96f2d90 · Adresseingabe mit Geocoding — die Quelle für echte Koordinaten` (2026-08-10) |
+| Commits (7 Tage) | **42** |
+| Commits (30 Tage) | 114 |
+| Letzter Commit | `0a16f40 · Koordinaten in der Datenbank — Migration, Prüfung, Leseweg` (2026-08-10) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 41 app.js
      32 styles.css
-     29 CLAUDE.md
+     30 CLAUDE.md
      25 tests/e2e/kern.spec.js
-     23 vault/30-Betrieb/Testing.md
+     24 vault/30-Betrieb/Testing.md
 ```
 
 **Codegröße:**
 - `app.js` — 25.586 Zeilen
 - `styles.css` — 16.991 Zeilen
-- `functions.php` — 9.483 Zeilen
+- `functions.php` — 9.499 Zeilen
 - `app-shell.html` — 4.011 Zeilen
 
 ## Verwandt

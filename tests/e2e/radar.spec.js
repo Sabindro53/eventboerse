@@ -560,3 +560,52 @@ test.describe('Koordinaten in der Datenbank', () => {
     expect(map).toMatch(/!== null && \$row\['lng'\] !== null/);
   });
 });
+
+test.describe('Adresse bleibt änderbar', () => {
+  const FUNCTIONS = fs.readFileSync(path.join(__dirname, '..', '..', 'functions.php'), 'utf8');
+  const update = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_listings_update'),
+    FUNCTIONS.indexOf('function eb_listings_update') + 4000);
+
+  test('Koordinaten lassen sich beim Bearbeiten ändern', () => {
+    // Ohne diesen Weg wären sie beim Anlegen setzbar und danach für immer
+    // festgenagelt: das Adressfeld erschiene in der Bearbeitung und täte
+    // nichts. Wer umzieht oder die Adresse nachträgt, käme nicht weiter.
+    expect(update, 'Update-Route kennt die Koordinaten nicht').toMatch(/'koordinaten'/);
+    expect(update, 'Stadtteil fehlt in der Whitelist').toMatch(/'stadtteil' => 'stadtteil'/);
+  });
+
+  test('array_key_exists statt isset — sonst wäre Löschen unmöglich', () => {
+    // Der feine Unterschied: isset(null) ist false. Mit isset() käme
+    // „Adresse entfernen" nie an, und eine Angabe, die man nicht
+    // zurücknehmen kann, ist keine freiwillige.
+    expect(update, 'isset() würde das Löschen verschlucken')
+      .toMatch(/array_key_exists\( 'koordinaten', \$params \)/);
+    expect(update, 'null muss die Koordinaten leeren').toMatch(/\$update\['lat'\] = \$geo \? \$geo\[0\] : null/);
+  });
+
+  test('beim Bearbeiten gilt dieselbe Prüfung wie beim Anlegen', () => {
+    // Die Route darf dem Browser auch beim zweiten Mal nicht trauen.
+    expect(update, 'Update prüft die Koordinaten nicht').toMatch(/eb_geo_pruefen\( \$params\['koordinaten'\] \)/);
+  });
+
+  test('DB-Inserate erreichen den Radar mit ihren Koordinaten', async ({ page }) => {
+    // _mergeDbListingsIntoCache übernimmt alle Felder der API-Antwort in
+    // LISTINGS — der Radar sieht echte Inserate damit automatisch. Ohne das
+    // hätte er nur die Demo-Daten gekannt.
+    const errors = await openApp(page);
+    const r = await page.evaluate(() => {
+      _mergeDbListingsIntoCache([{
+        id: 4242, title: 'Testfloristik', location: 'Berlin', stadtteil: 'Wedding',
+        koordinaten: [52.5500, 13.3500], category: 'florist', categoryLabel: 'Florist',
+      }]);
+      const treffer = radarUmkreis({ lat: 52.55, lng: 13.35 }, 10)
+        .filter((t) => t.daten && t.daten.title === 'Testfloristik');
+      return treffer.length ? { km: treffer[0].km, genau: treffer[0].genau, teil: treffer[0].stadtteil } : null;
+    });
+    expect(r, 'DB-Inserat muss im Radar auftauchen').not.toBeNull();
+    expect(r.genau, 'mit Koordinaten muss es als genau gelten').toBe(true);
+    expect(r.teil).toBe('Wedding');
+    expect(r.km, 'am eigenen Standort ist die Entfernung ~0').toBeLessThan(0.5);
+    expectNoPageErrors(errors, 'DB-Inserat im Radar');
+  });
+});

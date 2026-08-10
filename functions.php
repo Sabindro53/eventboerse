@@ -4530,6 +4530,7 @@ function eb_listings_update( WP_REST_Request $request ) {
         'title' => 'title', 'category' => 'category', 'category_label' => 'categoryLabel',
         'description' => 'description', 'price_label' => 'priceLabel', 'price_model' => 'priceModel',
         'location' => 'location', 'region' => 'region', 'badge' => 'badge',
+        'stadtteil' => 'stadtteil',
         'time_from' => 'timeFrom', 'time_to' => 'timeTo',
     );
     foreach ( $text_fields as $col => $key ) {
@@ -4541,6 +4542,21 @@ function eb_listings_update( WP_REST_Request $request ) {
     }
     if ( isset( $params['listingType'] ) ) {
         $update['listing_type'] = ( $params['listingType'] === 'search' ) ? 'search' : 'offer';
+    }
+    // Koordinaten aendern oder loeschen.
+    //
+    // Ohne diesen Block waeren sie beim Anlegen setzbar und danach fuer immer
+    // festgenagelt: das Adressfeld erschiene in der Bearbeitung und taete
+    // nichts. Wer umzieht oder die Adresse nachtraegt, kaeme nicht weiter.
+    //
+    // `null` ist ausdruecklich erlaubt und bedeutet „Adresse entfernen" — eine
+    // Angabe, die man nicht zuruecknehmen kann, ist keine freiwillige.
+    // Dieselbe Pruefung wie beim Anlegen; die Route vertraut dem Browser auch
+    // beim zweiten Mal nicht.
+    if ( array_key_exists( 'koordinaten', $params ) ) {
+        $geo = eb_geo_pruefen( $params['koordinaten'] );
+        $update['lat'] = $geo ? $geo[0] : null;
+        $update['lng'] = $geo ? $geo[1] : null;
     }
     if ( isset( $params['price'] ) )    $update['price']    = absint( $params['price'] );
     if ( isset( $params['duration'] ) ) $update['duration'] = floatval( $params['duration'] );
