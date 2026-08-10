@@ -63,17 +63,17 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **42** |
-| Commits (30 Tage) | 116 |
-| Letzter Commit | `30a055e · Die Migration meldet erst Vollzug, wenn die Spalten wirklich stehen` (2026-08-10) |
+| Commits (7 Tage) | **43** |
+| Commits (30 Tage) | 117 |
+| Letzter Commit | `f0c2bef · Vault nachgezogen: Radar, HQ-Zugang, Migration 2.5` (2026-08-10) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 41 app.js
      32 styles.css
-     30 CLAUDE.md
-     25 vault/00-Kern/Impuls-Strom.md
-     24 vault/30-Betrieb/Testing.md
+     31 CLAUDE.md
+     26 vault/00-Kern/Impuls-Strom.md
+     25 vault/30-Betrieb/Testing.md
 ```
 
 **Codegröße:**
