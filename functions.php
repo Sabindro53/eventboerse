@@ -2878,7 +2878,7 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * 2.5 statt 2.4, obwohl fachlich nichts dazukommt: bis hierher wurde die
  * Version unbedingt hochgesetzt, auch wenn ein ALTER scheiterte. Eine
  * Datenbank koennte also '2.4' melden und die Spalten trotzdem nicht haben.
- * Die Erhoehung erzwingt genau einen gepruefen Durchlauf ueberall.
+ * Die Erhoehung erzwingt genau einen geprueften Durchlauf ueberall.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
     define( 'EB_DB_VERSION', '2.5' );
