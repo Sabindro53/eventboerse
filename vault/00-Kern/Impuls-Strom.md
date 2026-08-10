@@ -65,15 +65,15 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 |----------|------|
 | Commits (7 Tage) | **42** |
 | Commits (30 Tage) | 114 |
-| Letzter Commit | `0a16f40 · Koordinaten in der Datenbank — Migration, Prüfung, Leseweg` (2026-08-10) |
+| Letzter Commit | `ce2d42e · Adresse bleibt änderbar — sonst wäre sie beim Anlegen festgenagelt` (2026-08-10) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 41 app.js
      32 styles.css
      30 CLAUDE.md
-     25 tests/e2e/kern.spec.js
      24 vault/30-Betrieb/Testing.md
+     24 vault/00-Kern/Impuls-Strom.md
 ```
 
 **Codegröße:**
