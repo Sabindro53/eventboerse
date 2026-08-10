@@ -405,12 +405,20 @@ function addListingMarkers(listings) {
   mapMarkers = [];
 
   listings.forEach(listing => {
-    const coords = CITY_COORDS[listing.location];
+    // Echte Koordinaten, wenn das Inserat welche hat.
+    //
+    // Vorher stand hier eine Zufallsstreuung von ±0,8 km, NEU GEWÜRFELT bei
+    // jedem Neuzeichnen. Dasselbe Inserat lag bei jedem Öffnen der Karte
+    // woanders — eine erfundene Position, die aussah wie eine echte. Wer
+    // danach seine Anfahrt einschätzt, tut das auf Basis von Zufall.
+    //
+    // Ohne Koordinaten sitzt der Marker jetzt exakt auf dem Stadtmittelpunkt.
+    // Das ist sichtbar ungenau und damit ehrlicher als ein Punkt, der
+    // Genauigkeit vortäuscht, die es nicht gibt.
+    const genau = Array.isArray(listing.koordinaten) && listing.koordinaten.length === 2;
+    const coords = genau ? listing.koordinaten : CITY_COORDS[listing.location];
     if (!coords) return;
-
-    // Slight random offset so overlapping markers spread
-    const jitter = () => (Math.random() - 0.5) * 0.015;
-    const pos = [coords[0] + jitter(), coords[1] + jitter()];
+    const pos = [coords[0], coords[1]];
 
     const marker = L.marker(pos, { icon: createPriceIcon(listing) })
       .addTo(leafletMap);
@@ -421,8 +429,9 @@ function addListingMarkers(listings) {
         <h4>${_escHtml(listing.title)}</h4>
         <div class="popup-meta">
           <span class="material-icons-round" style="font-size:14px;vertical-align:middle">location_on</span>
-          ${_escHtml(listing.location)} · ${_escHtml(listing.categoryLabel)}
+          ${_escHtml(listing.stadtteil ? listing.location + ' · ' + listing.stadtteil : listing.location)} · ${_escHtml(listing.categoryLabel)}
         </div>
+        ${genau ? '' : '<div class="popup-meta popup-ungenau">Nur die Stadt bekannt — der Punkt zeigt die Stadtmitte.</div>'}
         <div class="popup-meta">★ ${_escHtml(listing.rating)} (${_escHtml(listing.reviews)} Bewertungen)</div>
         <div class="popup-price">${_escHtml(listing.priceLabel)}</div>
         <button class="popup-btn" onclick="closeMapOverlay(); navigateTo('detail', ${listing.id});">

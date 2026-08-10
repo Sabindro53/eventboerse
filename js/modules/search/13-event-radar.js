@@ -99,25 +99,44 @@ function radarOrtsname(lat, lng) {
  * Gemeinsam ist Absicht: wer ein Fest plant, denkt nicht in „Inserate"
  * und „Veranstaltungen", sondern in „was gibt es hier".
  */
+/**
+ * Wo liegt dieser Eintrag — und wie genau wissen wir das?
+ *
+ * `genau: false` heißt: wir kennen nur die Stadt und rechnen ab deren
+ * Mittelpunkt. Das ist eine brauchbare Näherung, aber der Unterschied
+ * gehört sichtbar gemacht. Ein Eintrag ohne Koordinaten so darzustellen
+ * wie einer mit wäre dieselbe Sorte Behauptung wie ein Katalog, der
+ * Verbindungszustand vortäuscht.
+ */
+function radarPosition(eintrag) {
+  var k = eintrag && eintrag.koordinaten;
+  if (Array.isArray(k) && k.length === 2 && isFinite(k[0]) && isFinite(k[1])) {
+    return { lat: k[0], lng: k[1], genau: true };
+  }
+  var c = RADAR_ORTE[eintrag && eintrag.location];
+  if (!c) return null;
+  return { lat: c[0], lng: c[1], genau: false };
+}
+
 function radarUmkreis(pos, radiusKm) {
   if (!pos) return [];
   var treffer = [];
 
-  (typeof LISTINGS !== 'undefined' ? LISTINGS : []).forEach(function (l) {
-    var c = RADAR_ORTE[l.location];
-    if (!c) return;
-    var d = haversineKm(pos.lat, pos.lng, c[0], c[1]);
-    if (d > radiusKm) return;
-    treffer.push({ art: 'dienstleister', km: d, ort: l.location, daten: l });
-  });
+  function sammeln(liste, art) {
+    (liste || []).forEach(function (x) {
+      var p = radarPosition(x);
+      if (!p) return;
+      var d = haversineKm(pos.lat, pos.lng, p.lat, p.lng);
+      if (d > radiusKm) return;
+      treffer.push({
+        art: art, km: d, ort: x.location, daten: x,
+        genau: p.genau, stadtteil: x.stadtteil || null,
+      });
+    });
+  }
 
-  (typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : []).forEach(function (e) {
-    var c = RADAR_ORTE[e.location];
-    if (!c) return;
-    var d = haversineKm(pos.lat, pos.lng, c[0], c[1]);
-    if (d > radiusKm) return;
-    treffer.push({ art: 'event', km: d, ort: e.location, daten: e });
-  });
+  sammeln(typeof LISTINGS !== 'undefined' ? LISTINGS : [], 'dienstleister');
+  sammeln(typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : [], 'event');
 
   return treffer.sort(function (a, b) { return a.km - b.km; });
 }
@@ -309,7 +328,13 @@ function _radarListe(treffer, radiusKm) {
       + '<span class="material-icons-round radar-treffer-icon">' + symbol + '</span>'
       + '<span class="radar-treffer-text">'
       + '<span class="radar-treffer-titel">' + _escHtml(titel) + '</span>'
-      + '<span class="radar-treffer-ort">' + _escHtml(t.ort) + '</span></span>'
+      // „Berlin · Kreuzberg" statt nur „Berlin". Wo wir nur die Stadt kennen,
+      // steht das auch da — eine Entfernung ab Stadtmitte ist eine Schätzung
+      // und soll nicht wie eine Messung aussehen.
+      + '<span class="radar-treffer-ort">'
+      + _escHtml(t.stadtteil ? t.ort + ' · ' + t.stadtteil : t.ort)
+      + (t.genau ? '' : ' <span class="radar-ungenau">ab Stadtmitte</span>')
+      + '</span></span>'
       + '<span class="radar-treffer-km">' + radarEntfernung(t.km) + '</span></button>';
   }).join('');
 }

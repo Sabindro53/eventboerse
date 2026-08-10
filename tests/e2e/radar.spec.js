@@ -151,10 +151,19 @@ test.describe('Der Standort bleibt im Browser', () => {
 });
 
 test.describe('Radar-Oberfläche', () => {
-  /** Karte öffnen — der Radar hängt an der bestehenden Kartenansicht. */
+  /**
+   * Karte öffnen und warten, BIS der Radar da ist — nicht 700 ms lang.
+   *
+   * radarBeimOeffnen() läuft 400 ms nach dem Öffnen (nach initLeafletMap).
+   * Eine feste Wartezeit reicht unter Last nicht und macht den Test
+   * launisch; genau das ist hier einmal passiert. Gewartet wird deshalb
+   * auf den Zustand, nicht auf die Uhr.
+   */
   async function karteOeffnen(page) {
     await page.evaluate(() => { if (typeof toggleMapOverlay === 'function') toggleMapOverlay(); });
-    await page.waitForTimeout(700);
+    await page.waitForFunction(
+      () => document.querySelectorAll('#radarRadien .radar-chip').length > 0,
+      null, { timeout: 10000 });
   }
 
   test('beim Laden wird NICHT nach dem Standort gefragt', async ({ page }) => {
@@ -259,5 +268,71 @@ test.describe('Radar-Oberfläche', () => {
       expect(c, 'roher Anführungsstrich im onclick').not.toMatch(/(?<!&quot;)"/);
     }
     expectNoPageErrors(errors, 'ID-Maskierung');
+  });
+});
+
+test.describe('Positionen sind echt, nicht gewürfelt', () => {
+  const KARTE = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'js', 'modules', 'ui', '32-consent-init-map.js'), 'utf8');
+
+  test('Marker werden nicht zufällig gestreut', () => {
+    // Vorher: (Math.random() - 0.5) * 0.015 — ±0,8 km, NEU GEWÜRFELT bei
+    // jedem Neuzeichnen. Dasselbe Inserat lag bei jedem Öffnen woanders.
+    // Wer danach seine Anfahrt einschätzt, tut das auf Basis von Zufall.
+    const block = KARTE.slice(KARTE.indexOf('function addListingMarkers'),
+      KARTE.indexOf('function renderLocationsList'));
+    expect(block, 'Zufallsstreuung darf nicht zurückkommen').not.toMatch(/Math\.random/);
+    expect(block, 'echte Koordinaten werden nicht genutzt').toMatch(/listing\.koordinaten/);
+  });
+
+  test('dieselbe Position bei jedem Neuzeichnen', async ({ page }) => {
+    // Die Eigenschaft, nicht die Schreibweise: zweimal rechnen muss
+    // zweimal dasselbe ergeben.
+    const errors = await openApp(page);
+    const [a, b] = await page.evaluate(() => {
+      const p = { lat: 52.52, lng: 13.405 };
+      const km = () => radarUmkreis(p, 250).map((t) => t.km.toFixed(6)).join(',');
+      return [km(), km()];
+    });
+    expect(a, 'Entfernungen müssen stabil sein').toBe(b);
+    expect(a.length, 'es müssen Treffer da sein').toBeGreaterThan(0);
+    expectNoPageErrors(errors, 'Stabile Positionen');
+  });
+
+  test('Stadtteil-Koordinaten schlagen den Stadtmittelpunkt', async ({ page }) => {
+    // Ein Kreuzberger DJ ist von Potsdam näher als einer aus Prenzlauer Berg.
+    // Mit Stadtmittelpunkten wären beide exakt gleich weit — genau die
+    // Ungenauigkeit, die dieser Ausbau behebt.
+    const errors = await openApp(page);
+    const r = await page.evaluate(() => {
+      const potsdam = { lat: 52.3906, lng: 13.0645 };
+      const berliner = radarUmkreis(potsdam, 250).filter((t) => t.ort === 'Berlin');
+      return {
+        anzahl: berliner.length,
+        verschieden: new Set(berliner.map((t) => t.km.toFixed(3))).size,
+        alleGenau: berliner.every((t) => t.genau === true),
+        stadtteile: berliner.map((t) => t.stadtteil).filter(Boolean).length,
+      };
+    });
+    expect(r.anzahl, 'es müssen mehrere Berliner Einträge da sein').toBeGreaterThan(1);
+    expect(r.verschieden, 'Einträge derselben Stadt müssen unterschiedlich weit sein')
+      .toBeGreaterThan(1);
+    expect(r.stadtteile, 'Stadtteile fehlen').toBeGreaterThan(0);
+    expectNoPageErrors(errors, 'Stadtteil-Genauigkeit');
+  });
+
+  test('ohne Koordinaten wird die Ungenauigkeit benannt', async ({ page }) => {
+    // Eine Entfernung ab Stadtmitte ist eine Schätzung. Sie darf nicht
+    // aussehen wie eine Messung.
+    const errors = await openApp(page);
+    const r = await page.evaluate(() => {
+      const ohne = radarPosition({ location: 'Bremen' });        // nur Stadt bekannt
+      const mit  = radarPosition({ location: 'Berlin', koordinaten: [52.4987, 13.418] });
+      return { ohneGenau: ohne.genau, mitGenau: mit.genau, unbekannt: radarPosition({ location: 'Atlantis' }) };
+    });
+    expect(r.ohneGenau, 'Stadtmitte ist nicht genau').toBe(false);
+    expect(r.mitGenau, 'echte Koordinaten sind genau').toBe(true);
+    expect(r.unbekannt, 'unbekannter Ort liefert keine Position').toBeNull();
+    expectNoPageErrors(errors, 'Genauigkeitskennzeichnung');
   });
 });

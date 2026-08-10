@@ -16968,3 +16968,9 @@ body.dark-mode .radar-chip.aktiv { background: var(--primary); color: #fff; }
   .radar-stadt-label { display: none; }
   .radar-stadt { max-width: 100%; flex: 1; }
 }
+
+/* Ungenaue Ortsangabe kenntlich machen — eine Entfernung ab Stadtmitte
+   ist eine Schätzung und darf nicht wie eine Messung aussehen. */
+.radar-ungenau, .popup-ungenau {
+  font-size: .68rem; color: var(--text-light); font-style: italic;
+}

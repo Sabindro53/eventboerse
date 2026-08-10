@@ -420,7 +420,7 @@ const LISTINGS = [
     id: 1, providerId: 90001,
     title: 'DJ SoundMaster Berlin',
     category: 'dj', categoryLabel: 'DJ & Musik',
-    location: 'Berlin', region: 'Berlin & Brandenburg',
+    location: 'Berlin', stadtteil: 'Kreuzberg', koordinaten: [52.4987, 13.418], region: 'Berlin & Brandenburg',
     price: 450, priceLabel: 'ab 450€ / Event',
     rating: 4.9, reviews: 127,
     image: 'https://images.pexels.com/photos/2111015/pexels-photo-2111015.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -446,7 +446,7 @@ const LISTINGS = [
     id: 2, providerId: 90002,
     title: 'Gourmet Catering Hamburg',
     category: 'catering', categoryLabel: 'Catering',
-    location: 'Hamburg', region: 'Hamburg & Norddeutschland',
+    location: 'Hamburg', stadtteil: 'St. Pauli', koordinaten: [53.557, 9.964], region: 'Hamburg & Norddeutschland',
     price: 35, priceLabel: 'ab 35€ / Person',
     rating: 4.8, reviews: 89,
     image: 'https://images.pexels.com/photos/587741/pexels-photo-587741.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -473,7 +473,7 @@ const LISTINGS = [
     id: 12, providerId: 90012,
     title: 'RheinGourmet Catering Düsseldorf',
     category: 'catering', categoryLabel: 'Catering',
-    location: 'Düsseldorf', region: 'NRW',
+    location: 'Düsseldorf', stadtteil: 'Altstadt', koordinaten: [51.226, 6.7724], region: 'NRW',
     price: 42, priceLabel: 'ab 42€ / Person',
     rating: 4.9, reviews: 61,
     image: 'https://images.pexels.com/photos/461382/pexels-photo-461382.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -499,7 +499,7 @@ const LISTINGS = [
     id: 3, providerId: 90003,
     title: 'Blumenträume München',
     category: 'florist', categoryLabel: 'Floristik',
-    location: 'München', region: 'München & Oberbayern',
+    location: 'München', stadtteil: 'Schwabing', koordinaten: [48.165, 11.586], region: 'München & Oberbayern',
     price: 800, priceLabel: 'ab 800€ / Event',
     rating: 5.0, reviews: 64,
     image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&h=400&q=80',
@@ -525,7 +525,7 @@ const LISTINGS = [
     id: 4, providerId: 90004,
     title: 'LightFX Eventtechnik',
     category: 'licht', categoryLabel: 'Licht & Technik',
-    location: 'Frankfurt', region: 'Rhein-Main',
+    location: 'Frankfurt', stadtteil: 'Sachsenhausen', koordinaten: [50.1, 8.685], region: 'Rhein-Main',
     price: 1200, priceLabel: 'ab 1.200€ / Event',
     rating: 4.7, reviews: 53,
     image: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -549,7 +549,7 @@ const LISTINGS = [
     id: 5, providerId: 90005,
     title: 'Pyroshock Feuerwerk',
     category: 'pyro', categoryLabel: 'Pyrotechnik',
-    location: 'Düsseldorf', region: 'NRW',
+    location: 'Düsseldorf', stadtteil: 'Oberkassel', koordinaten: [51.233, 6.753], region: 'NRW',
     price: 2500, priceLabel: 'ab 2.500€ / Show',
     rating: 4.9, reviews: 41,
     image: 'https://images.unsplash.com/photo-1467810563316-b5476525c0f9?auto=format&fit=crop&w=600&h=400&q=80',
@@ -573,7 +573,7 @@ const LISTINGS = [
     id: 6, providerId: 90006,
     title: 'Fotokunst Berlin',
     category: 'foto', categoryLabel: 'Fotografie',
-    location: 'Berlin', region: 'Berlin & Brandenburg',
+    location: 'Berlin', stadtteil: 'Prenzlauer Berg', koordinaten: [52.5389, 13.4244], region: 'Berlin & Brandenburg',
     price: 950, priceLabel: 'ab 950€ / Event',
     rating: 4.8, reviews: 92,
     image: 'https://images.pexels.com/photos/1983037/pexels-photo-1983037.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -597,7 +597,7 @@ const LISTINGS = [
     id: 7, providerId: 90007,
     title: 'EventLocation Schloss am See',
     category: 'location', categoryLabel: 'Location',
-    location: 'Starnberg', region: 'München & Oberbayern',
+    location: 'Starnberg', stadtteil: 'Zentrum', koordinaten: [47.9983, 11.3408], region: 'München & Oberbayern',
     price: 3500, priceLabel: 'ab 3.500€ / Event',
     rating: 4.9, reviews: 38,
     image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&h=400&q=80',
@@ -621,7 +621,7 @@ const LISTINGS = [
     id: 8, providerId: 90008,
     title: 'DekoTraum Eventdesign',
     category: 'deko', categoryLabel: 'Dekoration',
-    location: 'Köln', region: 'NRW',
+    location: 'Köln', stadtteil: 'Ehrenfeld', koordinaten: [50.952, 6.918], region: 'NRW',
     price: 600, priceLabel: 'ab 600€ / Event',
     rating: 4.6, reviews: 47,
     image: 'https://images.pexels.com/photos/1729797/pexels-photo-1729797.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -645,7 +645,7 @@ const LISTINGS = [
     id: 9, providerId: 90009,
     title: 'Eventplanung Meier & Co.',
     category: 'planung', categoryLabel: 'Eventplanung',
-    location: 'Stuttgart', region: 'Baden-Württemberg',
+    location: 'Stuttgart', stadtteil: 'Bad Cannstatt', koordinaten: [48.806, 9.217], region: 'Baden-Württemberg',
     price: 1500, priceLabel: 'ab 1.500€ / Event',
     rating: 4.8, reviews: 73,
     image: 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -669,7 +669,7 @@ const LISTINGS = [
     id: 10, providerId: 90010,
     title: 'MC Stefan – Moderation',
     category: 'moderation', categoryLabel: 'Moderation',
-    location: 'München', region: 'Bayern',
+    location: 'München', stadtteil: 'Haidhausen', koordinaten: [48.13, 11.596], region: 'Bayern',
     price: 700, priceLabel: 'ab 700€ / Event',
     rating: 4.7, reviews: 56,
     image: 'https://images.pexels.com/photos/29708277/pexels-photo-29708277.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -693,7 +693,7 @@ const LISTINGS = [
     id: 11, providerId: 90011,
     title: 'Pärchen Spa Abend',
     category: 'wellness', categoryLabel: 'Wellness & Spa',
-    location: 'Düsseldorf', region: 'Nordrhein-Westfalen',
+    location: 'Düsseldorf', stadtteil: 'Flingern', koordinaten: [51.229, 6.806], region: 'Nordrhein-Westfalen',
     price: 189, priceLabel: 'ab 189€ / Paar',
     rating: 4.9, reviews: 74,
     image: 'https://images.pexels.com/photos/3757942/pexels-photo-3757942.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -719,7 +719,7 @@ const LISTINGS = [
     id: 13, providerId: 90013,
     title: 'SoundVibes Live Band',
     category: 'dj', categoryLabel: 'DJ & Musik',
-    location: 'Köln', region: 'NRW',
+    location: 'Köln', stadtteil: 'Südstadt', koordinaten: [50.923, 6.954], region: 'NRW',
     price: 1800, priceLabel: 'ab 1.800€ / Event',
     rating: 4.9, reviews: 45,
     image: 'https://images.pexels.com/photos/7803632/pexels-photo-7803632.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -745,7 +745,7 @@ const LISTINGS = [
     id: 14, providerId: 90014,
     title: 'FilmMomente Videoproduktion',
     category: 'foto', categoryLabel: 'Fotografie',
-    location: 'Frankfurt', region: 'Rhein-Main',
+    location: 'Frankfurt', stadtteil: 'Bockenheim', koordinaten: [50.123, 8.642], region: 'Rhein-Main',
     price: 1200, priceLabel: 'ab 1.200€ / Event',
     rating: 4.8, reviews: 38,
     image: 'https://images.pexels.com/photos/2883160/pexels-photo-2883160.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&dpr=1',
@@ -771,7 +771,7 @@ const LISTINGS = [
     id: 15, providerId: 90015,
     title: 'Gartenfest Location Leipzig',
     category: 'location', categoryLabel: 'Location',
-    location: 'Leipzig', region: 'Sachsen',
+    location: 'Leipzig', stadtteil: 'Plagwitz', koordinaten: [51.328, 12.33], region: 'Sachsen',
     price: 2200, priceLabel: 'ab 2.200€ / Event',
     rating: 4.7, reviews: 29,
     image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=600&h=400&fit=crop&auto=format',
@@ -919,7 +919,7 @@ const DEMO_EVENTS = [
     title: 'Hochzeit von Anna & Tom',
     type: 'Hochzeit',
     date: '15. Juni 2026',
-    location: 'Berlin',
+    location: 'Berlin', stadtteil: 'Mitte', koordinaten: [52.52, 13.405],
     guests: 120,
     budget: '8.500€',
     status: 'In Planung',
@@ -936,7 +936,7 @@ const DEMO_EVENTS = [
     title: 'Firmen-Sommerfest 2026',
     type: 'Firmen-Event',
     date: '20. Juli 2026',
-    location: 'München',
+    location: 'München', stadtteil: 'Sendling', koordinaten: [48.118, 11.542],
     guests: 200,
     budget: '15.000€',
     status: 'In Planung',
@@ -952,7 +952,7 @@ const DEMO_EVENTS = [
     title: 'Lauras 30. Geburtstag',
     type: 'Geburtstag',
     date: '10. August 2026',
-    location: 'Köln',
+    location: 'Köln', stadtteil: 'Deutz', koordinaten: [50.938, 6.974],
     guests: 50,
     budget: '3.000€',
     status: 'Offen',
@@ -5781,25 +5781,44 @@ function radarOrtsname(lat, lng) {
  * Gemeinsam ist Absicht: wer ein Fest plant, denkt nicht in „Inserate"
  * und „Veranstaltungen", sondern in „was gibt es hier".
  */
+/**
+ * Wo liegt dieser Eintrag — und wie genau wissen wir das?
+ *
+ * `genau: false` heißt: wir kennen nur die Stadt und rechnen ab deren
+ * Mittelpunkt. Das ist eine brauchbare Näherung, aber der Unterschied
+ * gehört sichtbar gemacht. Ein Eintrag ohne Koordinaten so darzustellen
+ * wie einer mit wäre dieselbe Sorte Behauptung wie ein Katalog, der
+ * Verbindungszustand vortäuscht.
+ */
+function radarPosition(eintrag) {
+  var k = eintrag && eintrag.koordinaten;
+  if (Array.isArray(k) && k.length === 2 && isFinite(k[0]) && isFinite(k[1])) {
+    return { lat: k[0], lng: k[1], genau: true };
+  }
+  var c = RADAR_ORTE[eintrag && eintrag.location];
+  if (!c) return null;
+  return { lat: c[0], lng: c[1], genau: false };
+}
+
 function radarUmkreis(pos, radiusKm) {
   if (!pos) return [];
   var treffer = [];
 
-  (typeof LISTINGS !== 'undefined' ? LISTINGS : []).forEach(function (l) {
-    var c = RADAR_ORTE[l.location];
-    if (!c) return;
-    var d = haversineKm(pos.lat, pos.lng, c[0], c[1]);
-    if (d > radiusKm) return;
-    treffer.push({ art: 'dienstleister', km: d, ort: l.location, daten: l });
-  });
+  function sammeln(liste, art) {
+    (liste || []).forEach(function (x) {
+      var p = radarPosition(x);
+      if (!p) return;
+      var d = haversineKm(pos.lat, pos.lng, p.lat, p.lng);
+      if (d > radiusKm) return;
+      treffer.push({
+        art: art, km: d, ort: x.location, daten: x,
+        genau: p.genau, stadtteil: x.stadtteil || null,
+      });
+    });
+  }
 
-  (typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : []).forEach(function (e) {
-    var c = RADAR_ORTE[e.location];
-    if (!c) return;
-    var d = haversineKm(pos.lat, pos.lng, c[0], c[1]);
-    if (d > radiusKm) return;
-    treffer.push({ art: 'event', km: d, ort: e.location, daten: e });
-  });
+  sammeln(typeof LISTINGS !== 'undefined' ? LISTINGS : [], 'dienstleister');
+  sammeln(typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : [], 'event');
 
   return treffer.sort(function (a, b) { return a.km - b.km; });
 }
@@ -5991,7 +6010,13 @@ function _radarListe(treffer, radiusKm) {
       + '<span class="material-icons-round radar-treffer-icon">' + symbol + '</span>'
       + '<span class="radar-treffer-text">'
       + '<span class="radar-treffer-titel">' + _escHtml(titel) + '</span>'
-      + '<span class="radar-treffer-ort">' + _escHtml(t.ort) + '</span></span>'
+      // „Berlin · Kreuzberg" statt nur „Berlin". Wo wir nur die Stadt kennen,
+      // steht das auch da — eine Entfernung ab Stadtmitte ist eine Schätzung
+      // und soll nicht wie eine Messung aussehen.
+      + '<span class="radar-treffer-ort">'
+      + _escHtml(t.stadtteil ? t.ort + ' · ' + t.stadtteil : t.ort)
+      + (t.genau ? '' : ' <span class="radar-ungenau">ab Stadtmitte</span>')
+      + '</span></span>'
       + '<span class="radar-treffer-km">' + radarEntfernung(t.km) + '</span></button>';
   }).join('');
 }
@@ -14476,12 +14501,20 @@ function addListingMarkers(listings) {
   mapMarkers = [];
 
   listings.forEach(listing => {
-    const coords = CITY_COORDS[listing.location];
+    // Echte Koordinaten, wenn das Inserat welche hat.
+    //
+    // Vorher stand hier eine Zufallsstreuung von ±0,8 km, NEU GEWÜRFELT bei
+    // jedem Neuzeichnen. Dasselbe Inserat lag bei jedem Öffnen der Karte
+    // woanders — eine erfundene Position, die aussah wie eine echte. Wer
+    // danach seine Anfahrt einschätzt, tut das auf Basis von Zufall.
+    //
+    // Ohne Koordinaten sitzt der Marker jetzt exakt auf dem Stadtmittelpunkt.
+    // Das ist sichtbar ungenau und damit ehrlicher als ein Punkt, der
+    // Genauigkeit vortäuscht, die es nicht gibt.
+    const genau = Array.isArray(listing.koordinaten) && listing.koordinaten.length === 2;
+    const coords = genau ? listing.koordinaten : CITY_COORDS[listing.location];
     if (!coords) return;
-
-    // Slight random offset so overlapping markers spread
-    const jitter = () => (Math.random() - 0.5) * 0.015;
-    const pos = [coords[0] + jitter(), coords[1] + jitter()];
+    const pos = [coords[0], coords[1]];
 
     const marker = L.marker(pos, { icon: createPriceIcon(listing) })
       .addTo(leafletMap);
@@ -14492,8 +14525,9 @@ function addListingMarkers(listings) {
         <h4>${_escHtml(listing.title)}</h4>
         <div class="popup-meta">
           <span class="material-icons-round" style="font-size:14px;vertical-align:middle">location_on</span>
-          ${_escHtml(listing.location)} · ${_escHtml(listing.categoryLabel)}
+          ${_escHtml(listing.stadtteil ? listing.location + ' · ' + listing.stadtteil : listing.location)} · ${_escHtml(listing.categoryLabel)}
         </div>
+        ${genau ? '' : '<div class="popup-meta popup-ungenau">Nur die Stadt bekannt — der Punkt zeigt die Stadtmitte.</div>'}
         <div class="popup-meta">★ ${_escHtml(listing.rating)} (${_escHtml(listing.reviews)} Bewertungen)</div>
         <div class="popup-price">${_escHtml(listing.priceLabel)}</div>
         <button class="popup-btn" onclick="closeMapOverlay(); navigateTo('detail', ${listing.id});">
