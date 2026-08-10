@@ -9,14 +9,14 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-06)
+## Stand heute (2026-08-10)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 236 Tests in 13 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 244 Tests in 13 Suiten**, blockierendes Gate in `pr-check.yml`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift
 - **Lagebild-Lauf 4×/Tag** (02/08/14/20 UTC), 11 Rollen je Lauf, eigenes
@@ -24,8 +24,43 @@ einen alten Abschnitt gelesen und nicht diesen.
 - **Autopilot** bekommt die übrigen $0,45: er liefert Patch, Tests und PR.
   Sein Schwerpunkt kommt aus den Befunden der letzten 24 h, nicht mehr aus
   der Kalenderwoche
-- Offen: Repo steht auf **public** mit dem Security-Vault darin (keine
-  Zugangsdaten, aber eine Landkarte der Angriffsfläche)
+- Repo bleibt **bewusst public** (Entscheidung des Inhabers, Open Source als
+  Ziel). Geprüft und belegt: die zehn `share: secret`-Notizen enthalten
+  **Beschreibungen von Maßnahmen, keine Werte** — 0 Treffer für die
+  `GEHEIMNISSE`-Muster, 0 Treffer für Zugangsdaten-Formate, auch über die
+  gesamte Historie (`git log --all -p`). Keine Rotationspflicht. Was offenliegt,
+  ist eine Landkarte der Angriffsfläche, kein Schlüsselbund — beim Schreiben
+  neuer Security-Notizen bleibt genau das die Grenze.
+
+## Zuletzt ausgeliefert (August 2026)
+
+- [x] **HQ-Zugang ohne WordPress-Admin:** TOTP nach RFC 6238 (gegen die offiziellen
+  Testvektoren geprüft, inkl. 64-Bit-Schritt), Zeitschritt wird genau einmal
+  verbraucht, `hash_equals`, 8 Versuche / 15 Min. `eb_serve_hq()` kennt jetzt drei
+  Zustände: kein Recht → 404 wie bisher, Recht ohne Faktor → eigene Codeabfrage,
+  Recht mit Faktor → HQ. Die Codeabfrage ist bewusst **keine** HQ-Seite mit Overlay —
+  Connector-Katalog, Journal und Modellkatalog haben im Browser eines noch nicht
+  Ausgewiesenen nichts verloren. `POST /hq/mitarbeiter` schaltet ein bestehendes
+  Konto frei (kein Anlegen über API); Entzug schließt die laufende Sitzung sofort.
+- [x] **Event-Radar:** Umkreis (10/25/50/100/250 km, Haversine) statt Stadtgrenze —
+  vorher war ein Fotograf zwei Straßen hinter der Stadtgrenze unauffindbar. Position
+  bleibt **lokal**, wird nie an den Server gesendet und nur auf 2 Nachkommastellen
+  (≈ 1,1 km) gespeichert; 25 DACH-Städte zur Auswahl, damit GPS freiwillig bleibt.
+- [x] **Echte Marker:** Die Karte streute vorher mit `Math.random()` um das Zentrum —
+  die Marker logen bei jedem Neuzeichnen *anders*. Jetzt echte Koordinaten, und wo
+  keine hinterlegt sind, sagt der Marker das, statt Genauigkeit vorzutäuschen.
+- [x] **Adresseingabe mit Geocoding** (Nominatim) auf Knopfdruck, nicht pro
+  Tastendruck — 1 Anfrage/s ist die Auflage, Suche-während-des-Tippens hätte sie um
+  Größenordnungen gerissen. Harte Sperre 1100 ms + Cache. Der Test dafür stubbt
+  `fetch`; ein Ratenbegrenzungs-Test, der selbst echte Anfragen feuert, wäre genau
+  der Missbrauch, den er verhindern soll.
+- [x] **Migration 2.5:** `stadtteil`, `lat`, `lng`, `idx_geo` auf `eb_listings`.
+  Wichtiger als die Spalten ist die Korrektur am Verfahren: der Versionssprung lief
+  bis dahin **unbedingt**. Scheiterte ein ALTER, galt die Migration trotzdem als
+  erledigt und lief nie wieder an — Datenbank kaputt, Anzeige grün. Jetzt wird nach
+  dem ALTER nachgelesen, die Version steigt nur bei vollständigem Ergebnis, und
+  `/diagnostics` zeigt Soll, Ist, Fehlendes und Index-Zustand. `EB_DB_VERSION` ist
+  die einzige Quelle des Sollstands.
 
 ## Zuletzt abgeschlossen (2026-08-05) — HQ Operations-Ensemble & Voice v2
 

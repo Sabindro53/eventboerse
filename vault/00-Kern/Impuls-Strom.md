@@ -64,22 +64,22 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 | Kennzahl | Wert |
 |----------|------|
 | Commits (7 Tage) | **42** |
-| Commits (30 Tage) | 114 |
-| Letzter Commit | `ce2d42e · Adresse bleibt änderbar — sonst wäre sie beim Anlegen festgenagelt` (2026-08-10) |
+| Commits (30 Tage) | 116 |
+| Letzter Commit | `30a055e · Die Migration meldet erst Vollzug, wenn die Spalten wirklich stehen` (2026-08-10) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 41 app.js
      32 styles.css
      30 CLAUDE.md
+     25 vault/00-Kern/Impuls-Strom.md
      24 vault/30-Betrieb/Testing.md
-     24 vault/00-Kern/Impuls-Strom.md
 ```
 
 **Codegröße:**
 - `app.js` — 25.586 Zeilen
 - `styles.css` — 16.991 Zeilen
-- `functions.php` — 9.499 Zeilen
+- `functions.php` — 9.560 Zeilen
 - `app-shell.html` — 4.011 Zeilen
 
 ## Verwandt
