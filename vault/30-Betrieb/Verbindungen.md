@@ -236,7 +236,7 @@ Zwischenspeicher sie für einen anderen Abrufer aufhebt.
 
 | Ablage | Was | Erreichbar für |
 |---|---|---|
-| GitHub Secrets | `ANTHROPIC_API_KEY`, `IONOS_FTP_*`, `EB_SMTP_*`, `EB_STRIPE_*` | nur Actions-Läufe |
+| GitHub Secrets | `EB_ANTHROPIC_API_KEY`, `EB_OPENAI_API_KEY`, `EB_OPENROUTER_API_KEY`, `IONOS_FTP_*`, `EB_SMTP_*`, `EB_STRIPE_*` | nur Actions-Läufe |
 | `wp-config.php` | zur Laufzeit injizierte Konstanten | nur der Server |
 | `sessionStorage` | GitHub-Token, von Hand eingegeben | nur dieser Tab, dieser Rechner |
 | Server-Konstanten | `EB_ANTHROPIC_API_KEY`, `EB_OPENAI_API_KEY` (opt-in) | nur der Server, nie die Antwort |
