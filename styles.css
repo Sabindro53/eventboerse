@@ -16974,3 +16974,18 @@ body.dark-mode .radar-chip.aktiv { background: var(--primary); color: #fff; }
 .radar-ungenau, .popup-ungenau {
   font-size: .68rem; color: var(--text-light); font-style: italic;
 }
+
+/* Adresssuche in der Inseratsmaske */
+.geo-zeile { display: flex; gap: .5rem; align-items: stretch; flex-wrap: wrap; }
+.geo-zeile input { flex: 1; min-width: 12rem; }
+.geo-treffer { list-style: none; margin: .5rem 0 0; padding: 0; }
+.geo-treffer li { margin-bottom: .25rem; }
+.geo-treffer-btn {
+  width: 100%; text-align: left; padding: .5rem .65rem; cursor: pointer;
+  border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: #fff; color: var(--text); font-size: .8rem; line-height: 1.4;
+}
+.geo-treffer-btn:hover { border-color: var(--primary); }
+.geo-status { font-size: .76rem; color: var(--text-light); margin: .45rem 0 0; min-height: 1.1rem; }
+.form-optional { font-weight: 400; color: var(--text-light); font-size: .8em; }
+body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text); }

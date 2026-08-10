@@ -94,12 +94,6 @@ function radarOrtsname(lat, lng) {
 }
 
 /**
- * Alles im Umkreis — Dienstleister UND Events, gemeinsam sortiert.
- *
- * Gemeinsam ist Absicht: wer ein Fest plant, denkt nicht in „Inserate"
- * und „Veranstaltungen", sondern in „was gibt es hier".
- */
-/**
  * Wo liegt dieser Eintrag — und wie genau wissen wir das?
  *
  * `genau: false` heißt: wir kennen nur die Stadt und rechnen ab deren
@@ -118,6 +112,12 @@ function radarPosition(eintrag) {
   return { lat: c[0], lng: c[1], genau: false };
 }
 
+/**
+ * Alles im Umkreis — Dienstleister UND Events, gemeinsam sortiert.
+ *
+ * Gemeinsam ist Absicht: wer ein Fest plant, denkt nicht in „Inserate"
+ * und „Veranstaltungen", sondern in „was gibt es hier".
+ */
 function radarUmkreis(pos, radiusKm) {
   if (!pos) return [];
   var treffer = [];
@@ -372,4 +372,167 @@ function radarAnzeigen() {
 function radarBeimOeffnen() {
   if (!radarStand().pos) radarWiederherstellen();
   radarAnzeigen();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ADRESSE → KOORDINATEN (Geocoding)
+
+   Der Mechanismus im Radar ist richtig, aber die Quelle fehlte: neue
+   Inserate bekamen keine Koordinaten, weil die Maske nur „Stadt"
+   abfragte. Damit landete jedes echte Inserat auf dem Stadtmittelpunkt,
+   und nur die Demo-Einträge trugen Stadtteile.
+
+   ── Nominatims Regeln sind bindend ────────────────────────────────
+   Der Dienst ist ein Spendenprojekt, keine Infrastruktur zum
+   Verbrauchen. Seine Bedingungen: höchstens eine Anfrage pro Sekunde,
+   keine Abfrage bei jedem Tastendruck, erkennbarer Absender.
+
+   Deshalb:
+   · gesucht wird nur auf Knopfdruck, nie beim Tippen
+   · eine harte Sperre von 1,1 s zwischen zwei Anfragen
+   · identische Anfragen werden aus dem Zwischenspeicher bedient
+   Wer diese Regeln bricht, wird gesperrt — und dann funktioniert die
+   Adresssuche für alle Inserate nicht mehr.
+
+   ── Was hier hinausgeht ───────────────────────────────────────────
+   Die Geschäftsadresse des Anbieters, die ohnehin im Inserat steht.
+   Das ist etwas anderes als der Standort eines Besuchers: der bleibt
+   weiterhin im Browser. Wer keine Adresse angeben will, lässt das Feld
+   leer — dann bleibt es beim Stadtmittelpunkt, sichtbar gekennzeichnet.
+   ══════════════════════════════════════════════════════════════════ */
+
+var GEO_DIENST = 'https://nominatim.openstreetmap.org/search';
+var GEO_SPERRE_MS = 1100;          // Nominatim: max. 1 Anfrage/Sekunde
+var _geoLetzteAnfrage = 0;
+var _geoCache = {};
+
+/** Wie lange noch gewartet werden muss, bevor gefragt werden darf. */
+function geoWartezeit() {
+  var seit = Date.now() - _geoLetzteAnfrage;
+  return seit >= GEO_SPERRE_MS ? 0 : GEO_SPERRE_MS - seit;
+}
+
+/**
+ * Adresse zu Koordinaten. Liefert bis zu fünf Vorschläge zur Auswahl.
+ *
+ * Bewusst mit Auswahl statt „erster Treffer gewinnt": „Hauptstraße 5"
+ * gibt es in Deutschland hundertfach, und ein stillschweigend falsch
+ * gesetzter Punkt ist schlimmer als eine Rückfrage.
+ */
+function geoSuchen(adresse, fertig) {
+  var q = String(adresse || '').trim();
+  if (q.length < 4) { fertig({ fehler: 'Bitte Straße und Ort angeben.' }); return; }
+
+  if (Object.prototype.hasOwnProperty.call(_geoCache, q)) {
+    fertig({ treffer: _geoCache[q] });
+    return;
+  }
+  var warten = geoWartezeit();
+  if (warten > 0) {
+    fertig({ fehler: 'Einen Moment — die Adresssuche darf nur einmal pro Sekunde anfragen.' });
+    return;
+  }
+  _geoLetzteAnfrage = Date.now();
+
+  // DACH, nicht nur Deutschland — dasselbe Gebiet wie das Radar.
+  var url = GEO_DIENST + '?format=jsonv2&addressdetails=1&limit=5'
+    + '&countrycodes=de,at,ch&q=' + encodeURIComponent(q);
+
+  fetch(url, { headers: { 'Accept': 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (arr) {
+      var treffer = (Array.isArray(arr) ? arr : []).map(function (t) {
+        var a = t.address || {};
+        return {
+          anzeige: String(t.display_name || '').slice(0, 160),
+          lat: parseFloat(t.lat), lng: parseFloat(t.lon),
+          ort: a.city || a.town || a.village || a.municipality || '',
+          stadtteil: a.suburb || a.city_district || a.borough || a.neighbourhood || '',
+        };
+      }).filter(function (t) { return isFinite(t.lat) && isFinite(t.lng); });
+      _geoCache[q] = treffer;
+      fertig({ treffer: treffer });
+    })
+    .catch(function () {
+      // Ein Ausfall des Dienstes darf das Inserat nicht blockieren.
+      fertig({ fehler: 'Adresssuche gerade nicht erreichbar. Du kannst ohne Adresse fortfahren.' });
+    });
+}
+
+/** Die gewählte Adresse für das Inserat — grob genug, präzise genug. */
+function geoUebernehmen(treffer) {
+  if (!treffer) return null;
+  // Fünf Nachkommastellen sind gut ein Meter — mehr als eine Hausadresse
+  // hergibt, und unnötig. Vier sind ~11 m und völlig ausreichend.
+  return {
+    koordinaten: [Math.round(treffer.lat * 10000) / 10000, Math.round(treffer.lng * 10000) / 10000],
+    ort: treffer.ort || '',
+    stadtteil: treffer.stadtteil || '',
+  };
+}
+
+/* ── Adressfeld in der Inseratsmaske ──────────────────────────────── */
+
+function _geoEl(id) { return document.getElementById(id); }
+
+function geoSuchenKlick() {
+  var feld = _geoEl('createAdresse');
+  var status = _geoEl('geoStatus');
+  var liste = _geoEl('geoTreffer');
+  var btn = _geoEl('geoSuchenBtn');
+  if (!feld || !status || !liste) return;
+
+  liste.innerHTML = '';
+  status.textContent = 'Suche …';
+  if (btn) btn.disabled = true;
+
+  geoSuchen(feld.value, function (ergebnis) {
+    if (btn) btn.disabled = false;
+    if (ergebnis.fehler) { status.textContent = ergebnis.fehler; return; }
+    if (!ergebnis.treffer.length) {
+      status.textContent = 'Keine Adresse gefunden. Ohne Adresse geht es auch — dann zählt die Stadtmitte.';
+      return;
+    }
+    status.textContent = ergebnis.treffer.length === 1
+      ? 'Eine Adresse gefunden — bitte bestätigen:'
+      : ergebnis.treffer.length + ' Adressen gefunden — welche ist es?';
+
+    // Auswahl statt „erster Treffer gewinnt": „Hauptstraße 5" gibt es
+    // hundertfach, und ein still falsch gesetzter Punkt ist schlimmer
+    // als eine Rückfrage.
+    liste.innerHTML = ergebnis.treffer.map(function (t, i) {
+      return '<li><button type="button" class="geo-treffer-btn" data-i="' + i + '">'
+        + _escHtml(t.anzeige) + '</button></li>';
+    }).join('');
+    Array.prototype.forEach.call(liste.querySelectorAll('.geo-treffer-btn'), function (b) {
+      b.onclick = function () { geoTrefferWaehlen(ergebnis.treffer[Number(b.dataset.i)]); };
+    });
+  });
+}
+
+function geoTrefferWaehlen(treffer) {
+  var uebernahme = geoUebernehmen(treffer);
+  if (!uebernahme) return;
+  var feld = _geoEl('createKoordinaten');
+  if (feld) feld.value = JSON.stringify(uebernahme);
+
+  var liste = _geoEl('geoTreffer');
+  if (liste) liste.innerHTML = '';
+  var status = _geoEl('geoStatus');
+  if (status) {
+    status.textContent = 'Übernommen: ' + (uebernahme.stadtteil
+      ? uebernahme.ort + ' · ' + uebernahme.stadtteil
+      : (uebernahme.ort || 'Position gesetzt'));
+  }
+  // Die Stadt gleich mitfüllen, wenn sie noch leer ist — sonst müsste der
+  // Anbieter dieselbe Information zweimal eintragen.
+  var stadt = _geoEl('createRegion');
+  if (stadt && !stadt.value && uebernahme.ort) stadt.value = uebernahme.ort;
+}
+
+/** Was die Maske ans Inserat weitergibt. Ohne Adresse: nichts. */
+function geoInseratDaten() {
+  var feld = _geoEl('createKoordinaten');
+  if (!feld || !feld.value) return null;
+  try { return JSON.parse(feld.value); } catch (e) { return null; }
 }

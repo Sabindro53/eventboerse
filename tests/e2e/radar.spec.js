@@ -336,3 +336,139 @@ test.describe('Positionen sind echt, nicht gewürfelt', () => {
     expectNoPageErrors(errors, 'Genauigkeitskennzeichnung');
   });
 });
+
+test.describe('Adresse zu Koordinaten', () => {
+  test('Nominatims Regeln werden eingehalten', () => {
+    // Der Dienst ist ein Spendenprojekt, keine Infrastruktur zum
+    // Verbrauchen. Wer die Regeln bricht, wird gesperrt — und dann
+    // funktioniert die Adresssuche für JEDES Inserat nicht mehr.
+    expect(MODUL, 'keine Sperre zwischen Anfragen').toMatch(/GEO_SPERRE_MS\s*=\s*1[1-9]\d{2}/);
+    expect(MODUL, 'Zwischenspeicher fehlt').toMatch(/_geoCache/);
+    // Keine Abfrage beim Tippen — nur auf Knopfdruck oder Enter.
+    expect(MODUL, 'Geocoding darf nicht an oninput hängen').not.toMatch(/oninput[\s\S]{0,80}geoSuchen/);
+    // DACH, wie das Radar auch.
+    expect(MODUL).toMatch(/countrycodes=de,at,ch/);
+  });
+
+  test('die Sperre greift wirklich', async ({ page }) => {
+    // Eine Sperre, die ich nicht habe greifen sehen, ist keine Sperre.
+    //
+    // fetch wird dabei ersetzt: ein Test, der bei jedem CI-Lauf echte
+    // Anfragen an Nominatim schickt, wäre genau der Missbrauch, gegen den
+    // diese Sperre schützt — und außerdem netzabhängig und launisch.
+    const errors = await openApp(page);
+    const r = await page.evaluate(async () => {
+      let anfragen = 0;
+      const echt = window.fetch;
+      window.fetch = function (url) {
+        if (String(url).indexOf('nominatim') !== -1) {
+          anfragen += 1;
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+        }
+        return echt.apply(window, arguments);
+      };
+      try {
+        // Zwei Anfragen unmittelbar nacheinander, unterschiedliche Texte
+        // (damit der Zwischenspeicher nicht greift).
+        await new Promise((ok) => geoSuchen('Teststraße 1 Berlin', ok));
+        const zwei = await new Promise((ok) => geoSuchen('Andere Straße 2 Hamburg', ok));
+        return { anfragen, zweiteGesperrt: !!(zwei.fehler && /Moment/.test(zwei.fehler)) };
+      } finally { window.fetch = echt; }
+    });
+    expect(r.zweiteGesperrt, 'zweite Anfrage muss abgewiesen werden').toBe(true);
+    expect(r.anfragen, 'nur die erste Anfrage darf hinausgehen').toBe(1);
+    expectNoPageErrors(errors, 'Geo-Sperre');
+  });
+
+  test('gleiche Anfrage kostet den Dienst nichts', async ({ page }) => {
+    // Der Zwischenspeicher ist kein Komfort, sondern Teil der Regeln:
+    // dieselbe Adresse zweimal zu erfragen wäre vermeidbare Last.
+    const errors = await openApp(page);
+    const anfragen = await page.evaluate(async () => {
+      let n = 0;
+      const echt = window.fetch;
+      window.fetch = function (url) {
+        if (String(url).indexOf('nominatim') !== -1) {
+          n += 1;
+          return Promise.resolve({ ok: true, json: () => Promise.resolve(
+            [{ display_name: 'Teststr. 9, Mitte, Berlin', lat: '52.52', lon: '13.40', address: {} }]) });
+        }
+        return echt.apply(window, arguments);
+      };
+      try {
+        await new Promise((ok) => geoSuchen('Teststr. 9 Berlin', ok));
+        await new Promise((ok) => geoSuchen('Teststr. 9 Berlin', ok));   // identisch
+        return n;
+      } finally { window.fetch = echt; }
+    });
+    expect(anfragen, 'identische Anfrage darf den Dienst nicht erneut belasten').toBe(1);
+    expectNoPageErrors(errors, 'Geo-Cache');
+  });
+
+  test('zu kurze Eingaben fragen gar nicht erst an', async ({ page }) => {
+    const errors = await openApp(page);
+    const r = await page.evaluate(async () => {
+      const a = await new Promise((ok) => geoSuchen('ab', ok));
+      return a.fehler || '';
+    });
+    expect(r).toMatch(/Straße und Ort/);
+    expectNoPageErrors(errors, 'Kurze Eingabe');
+  });
+
+  test('Adresse ist freiwillig und nicht der Standort des Besuchers', () => {
+    // Was hier hinausgeht, ist die Geschäftsadresse des Anbieters — die
+    // steht ohnehin im Inserat. Der Besucherstandort bleibt lokal.
+    const SHELL = fs.readFileSync(path.join(__dirname, '..', '..', 'app-shell.html'), 'utf8');
+    const block = SHELL.slice(SHELL.indexOf('createAdresse') - 900, SHELL.indexOf('createKoordinaten'));
+    expect(block, 'Feld muss als optional gekennzeichnet sein').toMatch(/optional/i);
+    expect(block, 'Übermittlung muss benannt sein').toMatch(/OpenStreetMap/);
+    // Der Besucher-Standort geht weiterhin nirgends hin.
+    expect(MODUL).toMatch(/Die Position wird NIE an den Server geschickt/);
+  });
+
+  test('Koordinaten werden auf ein sinnvolles Maß gerundet', async ({ page }) => {
+    // Fünf Nachkommastellen wären gut ein Meter — mehr als eine Adresse
+    // hergibt. Vier sind ~11 m und völlig ausreichend.
+    const errors = await openApp(page);
+    const k = await page.evaluate(() => geoUebernehmen(
+      { lat: 52.51234567, lng: 13.40987654, ort: 'Berlin', stadtteil: 'Mitte' }).koordinaten);
+    expect(String(k[0])).toMatch(/^\d+\.\d{1,4}$/);
+    expect(String(k[1])).toMatch(/^\d+\.\d{1,4}$/);
+    expectNoPageErrors(errors, 'Rundung');
+  });
+
+  test('gewählte Adresse landet im Formular und füllt die Stadt', async ({ page }) => {
+    const errors = await openApp(page);
+    const r = await page.evaluate(() => {
+      document.getElementById('createRegion').value = '';
+      geoTrefferWaehlen({ anzeige: 'Musterweg 3, Schwabing, München',
+        lat: 48.165, lng: 11.586, ort: 'München', stadtteil: 'Schwabing' });
+      return {
+        gespeichert: JSON.parse(document.getElementById('createKoordinaten').value),
+        stadt: document.getElementById('createRegion').value,
+        status: document.getElementById('geoStatus').textContent,
+        weitergabe: geoInseratDaten(),
+      };
+    });
+    expect(r.gespeichert.koordinaten).toEqual([48.165, 11.586]);
+    expect(r.stadt, 'Stadt soll nicht zweimal eingetippt werden müssen').toBe('München');
+    expect(r.status).toMatch(/Schwabing/);
+    expect(r.weitergabe.stadtteil).toBe('Schwabing');
+    expectNoPageErrors(errors, 'Adressübernahme');
+  });
+
+  test('Trefferliste maskiert die Antwort des Dienstes', async ({ page }) => {
+    // Der Text kommt von einem fremden Server. Ungeprüft ins Markup wäre
+    // er ein Einfallstor.
+    const errors = await openApp(page);
+    const roh = await page.evaluate(() => {
+      const liste = document.getElementById('geoTreffer');
+      liste.innerHTML = '<li><button type="button" class="geo-treffer-btn">'
+        + _escHtml('<img src=x onerror=alert(1)>') + '</button></li>';
+      return liste.innerHTML;
+    });
+    expect(roh, 'Fremdtext darf nicht als Markup landen').not.toMatch(/<img/);
+    expect(roh).toMatch(/&lt;img/);
+    expectNoPageErrors(errors, 'Maskierung');
+  });
+});

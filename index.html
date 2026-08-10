@@ -2205,6 +2205,23 @@
                 <ul class="city-autocomplete-list" id="cityAutocompleteList"></ul>
               </div>
             </div>
+            <!-- Adresse ist freiwillig. Ohne sie landet das Inserat auf dem
+                 Stadtmittelpunkt — sichtbar gekennzeichnet, nicht getarnt. -->
+            <div class="form-group">
+              <label for="createAdresse">Adresse <span class="form-optional">(optional)</span></label>
+              <small class="form-hint">Mit Adresse erscheinst du bei „in meiner Nähe" an der richtigen
+                Stelle statt in der Stadtmitte. Sie wird für die Suche an OpenStreetMap übermittelt.</small>
+              <div class="geo-zeile">
+                <input type="text" id="createAdresse" placeholder="Straße, Hausnummer, Ort" autocomplete="off"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();geoSuchenKlick();}" />
+                <button type="button" class="radar-btn" id="geoSuchenBtn" onclick="geoSuchenKlick()">
+                  <span class="material-icons-round">search</span> Adresse prüfen
+                </button>
+              </div>
+              <ul class="geo-treffer" id="geoTreffer"></ul>
+              <p class="geo-status" id="geoStatus" aria-live="polite"></p>
+              <input type="hidden" id="createKoordinaten" />
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label>Verfügbar ab</label>
