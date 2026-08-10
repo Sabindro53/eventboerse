@@ -2889,6 +2889,15 @@ function eb_create_tables() {
         price_label varchar(100) NOT NULL DEFAULT '',
         location varchar(255) NOT NULL DEFAULT '',
         region varchar(255) NOT NULL DEFAULT '',
+        stadtteil varchar(120) NOT NULL DEFAULT '',
+        -- Koordinaten fuer den Umkreis-Radar. NULL heisst unbekannt und ist
+        -- ausdruecklich erlaubt: 0/0 waere der Golf von Guinea, also ein Ort,
+        -- und ein Inserat ohne Adresse gehoert nicht an einen Ort, sondern an
+        -- keinen. decimal statt float, weil float Koordinaten unmerklich
+        -- verschiebt; 7 Nachkommastellen sind gut ein Zentimeter, 4 nutzen
+        -- wir davon.
+        lat decimal(10,7) DEFAULT NULL,
+        lng decimal(10,7) DEFAULT NULL,
         features longtext,
         tags text,
         images longtext,
@@ -2995,7 +3004,7 @@ function eb_create_tables() {
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
 function eb_maybe_create_tables() {
-    if ( get_option( 'eb_db_version' ) !== '2.3' ) {
+    if ( get_option( 'eb_db_version' ) !== '2.4' ) {
         eb_create_tables();
         // Fix any existing listings that have empty status
         global $wpdb;
@@ -3022,7 +3031,27 @@ function eb_maybe_create_tables() {
             // Bestands-Gesuche anhand der bisherigen Titel-Heuristik markieren
             $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET listing_type = 'search' WHERE title REGEXP 'gesucht' OR title REGEXP '^[[:space:]]*[Ss]uche[[:space:]]'" );
         }
-        update_option( 'eb_db_version', '2.3' );
+        // 2.4: Koordinaten und Stadtteil fuer den Umkreis-Radar.
+        //
+        // Ohne diese Migration bliebe das Adressfeld in der Maske wirkungslos:
+        // die Koordinaten kaemen an und faenden keine Spalte. Genau die Sorte
+        // Funktion, die fertig aussieht und nichts tut.
+        //
+        // Explizites ALTER wie oben — dbDelta ergaenzt Spalten an bestehenden
+        // Tabellen nicht zuverlaessig, das steht seit 2.1 so im Code.
+        $lat_col = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings LIKE 'lat'" );
+        if ( ! $lat_col ) {
+            // NULL statt 0: 0/0 waere der Golf von Guinea, also ein Ort. Ein
+            // Inserat ohne Adresse gehoert an keinen Ort, nicht an diesen.
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings
+                ADD COLUMN stadtteil varchar(120) NOT NULL DEFAULT '' AFTER region,
+                ADD COLUMN lat decimal(10,7) DEFAULT NULL AFTER stadtteil,
+                ADD COLUMN lng decimal(10,7) DEFAULT NULL AFTER lat" );
+            // Der Radar fragt „alles im Umkreis" — ohne Index waere das ein
+            // voller Tabellenscan, sobald es mehr als eine Handvoll Inserate gibt.
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD KEY idx_geo (lat, lng)" );
+        }
+        update_option( 'eb_db_version', '2.4' );
     }
 }
 add_action( 'init', 'eb_maybe_create_tables' );
@@ -4270,6 +4299,13 @@ function eb_format_listing( $row ) {
         'listingType'   => ( isset( $row['listing_type'] ) && $row['listing_type'] === 'search' ) ? 'search' : 'offer',
         'location'      => $row['location'],
         'region'        => $row['region'],
+        'stadtteil'     => isset( $row['stadtteil'] ) ? $row['stadtteil'] : '',
+        // Nur mitgeben, wenn beide Werte da sind. Ein halbes Koordinatenpaar
+        // waere im Radar schlimmer als gar keins: radarPosition() haelte es
+        // fuer genau und rechnete mit einem Nullmeridian-Wert.
+        'koordinaten'   => ( isset( $row['lat'], $row['lng'] ) && $row['lat'] !== null && $row['lng'] !== null )
+            ? array( (float) $row['lat'], (float) $row['lng'] )
+            : null,
         'price'         => (int) $row['price'],
         'priceModel'    => $row['price_model'],
         'priceLabel'    => $row['price_label'],
@@ -4340,6 +4376,40 @@ function eb_listings_get( WP_REST_Request $request ) {
 }
 
 /** Create listing */
+/**
+ * Koordinaten aus einer Client-Anfrage pruefen.
+ *
+ * Was der Browser schickt, ist ein Vorschlag, keine Tatsache. Ein Inserat
+ * mit Koordinaten irgendwo auf der Welt wuerde im Umkreis-Radar an
+ * beliebiger Stelle auftauchen; ein Wert wie 1e308 oder "abc" wuerde die
+ * Entfernungsrechnung im Browser jedes Besuchers vergiften.
+ *
+ * Geprueft wird deshalb dreifach: Typ, Zahlenbereich und Gebiet. Das
+ * Gebiet ist DACH mit Rand — die Plattform bedient diese Region, und ein
+ * Inserat in Neuseeland ist kein Grenzfall, sondern ein Fehler oder ein
+ * Versuch.
+ *
+ * @return array{0: float, 1: float}|null  null = keine Angabe (erlaubt)
+ */
+function eb_geo_pruefen( $roh ) {
+    if ( ! is_array( $roh ) || count( $roh ) !== 2 ) return null;
+    if ( ! is_numeric( $roh[0] ) || ! is_numeric( $roh[1] ) ) return null;
+
+    $lat = (float) $roh[0];
+    $lng = (float) $roh[1];
+    if ( ! is_finite( $lat ) || ! is_finite( $lng ) ) return null;
+
+    // DACH grosszuegig umschlossen. Lieber ein Grad zu viel als ein
+    // Grenzort faelschlich abgewiesen.
+    if ( $lat < 45.0 || $lat > 56.0 ) return null;
+    if ( $lng <  5.0 || $lng > 18.0 ) return null;
+
+    // Serverseitig runden. Der Browser rundet schon, aber darauf darf sich
+    // die Speicherung nicht verlassen: vier Stellen sind ~11 m und genau
+    // die Genauigkeit, die eine Hausadresse hergibt.
+    return array( round( $lat, 4 ), round( $lng, 4 ) );
+}
+
 function eb_listings_create( WP_REST_Request $request ) {
     global $wpdb;
     $uid    = get_current_user_id();
@@ -4359,6 +4429,8 @@ function eb_listings_create( WP_REST_Request $request ) {
     $price_label    = sanitize_text_field( $params['priceLabel'] ?? '' );
     $location_val   = sanitize_text_field( $params['location'] ?? '' );
     $region         = sanitize_text_field( $params['region'] ?? '' );
+    $stadtteil      = sanitize_text_field( $params['stadtteil'] ?? '' );
+    $geo            = eb_geo_pruefen( $params['koordinaten'] ?? null );
     $features       = isset( $params['features'] ) && is_array( $params['features'] )
         ? wp_json_encode( array_map( 'sanitize_text_field', $params['features'] ) )
         : '[]';
@@ -4397,6 +4469,9 @@ function eb_listings_create( WP_REST_Request $request ) {
         'price_model'    => $price_model,
         'price_label'    => $price_label,
         'location'       => $location_val,
+        'stadtteil'      => $stadtteil,
+        'lat'            => $geo ? $geo[0] : null,
+        'lng'            => $geo ? $geo[1] : null,
         'region'         => $region,
         'features'       => $features,
         'tags'           => $tags,

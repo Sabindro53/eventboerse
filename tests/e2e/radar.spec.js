@@ -472,3 +472,91 @@ test.describe('Adresse zu Koordinaten', () => {
     expectNoPageErrors(errors, 'Maskierung');
   });
 });
+
+test.describe('Koordinaten in der Datenbank', () => {
+  const FUNCTIONS = fs.readFileSync(path.join(__dirname, '..', '..', 'functions.php'), 'utf8');
+  const { execFileSync } = require('node:child_process');
+  const os = require('node:os');
+
+  /**
+   * eb_geo_pruefen() aus functions.php echt ausführen.
+   *
+   * Die Werte gehen über eine eigene JSON-Datei hinein, statt in den
+   * PHP-Quelltext hineingeschrieben zu werden: Testdaten in Code zu
+   * verweben bricht beim ersten Anführungszeichen — genau das ist hier
+   * beim ersten Versuch passiert.
+   */
+  function pruefe(werte) {
+    const von = FUNCTIONS.indexOf('function eb_geo_pruefen');
+    const bis = FUNCTIONS.indexOf('function eb_listings_create');
+    const stamm = path.join(os.tmpdir(), `geo-${Date.now()}-${Math.random()}`);
+    const daten = `${stamm}.json`;
+    const skript = `${stamm}.php`;
+    fs.writeFileSync(daten, JSON.stringify(werte), 'utf8');
+    fs.writeFileSync(skript, `<?php\n${FUNCTIONS.slice(von, bis)}\n`
+      + `$werte = json_decode(file_get_contents(${JSON.stringify(daten)}), true);\n`
+      + `echo json_encode(array_map('eb_geo_pruefen', $werte));\n`, 'utf8');
+    try { return JSON.parse(execFileSync('php', [skript], { encoding: 'utf8' })); }
+    finally { fs.unlinkSync(daten); fs.unlinkSync(skript); }
+  }
+
+  test('nur plausible DACH-Koordinaten werden gespeichert', () => {
+    // Was der Browser schickt, ist ein Vorschlag, keine Tatsache. Ein
+    // Inserat mit Koordinaten irgendwo auf der Welt tauchte im Radar an
+    // beliebiger Stelle auf.
+    const r = pruefe([
+      [52.52, 13.405],        // Berlin
+      [47.3769, 8.5417],      // Zürich
+      [48.2082, 16.3738],     // Wien
+      [-36.85, 174.76],       // Auckland — kein Grenzfall, ein Fehler
+      [0, 0],                 // Golf von Guinea
+      [91, 13],               // unmöglicher Breitengrad
+      ['abc', 13.4],          // keine Zahl
+      [52.52],                // halbes Paar
+    ]);
+    expect(r[0], 'Berlin muss durch').not.toBeNull();
+    expect(r[1], 'Zürich muss durch').not.toBeNull();
+    expect(r[2], 'Wien muss durch').not.toBeNull();
+    expect(r[3], 'Auckland darf nicht durch').toBeNull();
+    expect(r[4], '0/0 darf nicht durch').toBeNull();
+    expect(r[5], 'Breitengrad 91 darf nicht durch').toBeNull();
+    expect(r[6], 'Text darf nicht durch').toBeNull();
+    expect(r[7], 'halbes Paar darf nicht durch').toBeNull();
+  });
+
+  test('der Server rundet selbst, statt dem Browser zu glauben', () => {
+    const r = pruefe([[52.512345678, 13.409876543]]);
+    expect(r[0]).toEqual([52.5123, 13.4099]);
+  });
+
+  test('die Migration läuft auf einer bestehenden Installation', () => {
+    // Der Knackpunkt: eb_create_tables() hängt nur an after_switch_theme.
+    // Auf einer laufenden Seite ist das Theme längst aktiv — neue Spalten in
+    // der CREATE TABLE kämen dort NIE an. Ohne Versionssprung wäre das
+    // Adressfeld wirkungslos und sähe trotzdem fertig aus.
+    expect(FUNCTIONS, 'Version nicht hochgezogen').toMatch(/eb_db_version' \) !== '2\.4'/);
+    expect(FUNCTIONS, 'Version wird nicht gesetzt').toMatch(/update_option\( 'eb_db_version', '2\.4' \)/);
+    // Explizites ALTER mit Wache — das Haus-Muster, weil dbDelta Spalten an
+    // bestehenden Tabellen nicht zuverlässig ergänzt.
+    expect(FUNCTIONS).toMatch(/SHOW COLUMNS FROM \{\$wpdb->prefix\}eb_listings LIKE 'lat'/);
+    expect(FUNCTIONS).toMatch(/ADD COLUMN lat decimal\(10,7\) DEFAULT NULL/);
+    expect(FUNCTIONS, 'Umkreissuche ohne Index wäre ein Tabellenscan').toMatch(/ADD KEY idx_geo \(lat, lng\)/);
+  });
+
+  test('unbekannte Position ist NULL, nicht 0', () => {
+    // 0/0 wäre der Golf von Guinea, also ein Ort. Ein Inserat ohne Adresse
+    // gehört an keinen Ort, nicht an diesen.
+    expect(FUNCTIONS).toMatch(/lat decimal\(10,7\) DEFAULT NULL/);
+    const create = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_listings_create'));
+    expect(create.slice(0, 4000)).toMatch(/'lat'\s*=>\s*\$geo \? \$geo\[0\] : null/);
+  });
+
+  test('ein halbes Koordinatenpaar erreicht das Frontend nicht', () => {
+    // radarPosition() hielte es für genau und rechnete mit einem
+    // Nullmeridian-Wert — schlimmer als gar keine Koordinate.
+    const map = FUNCTIONS.slice(FUNCTIONS.indexOf("'koordinaten'   =>") - 400,
+      FUNCTIONS.indexOf("'koordinaten'   =>") + 400);
+    expect(map).toMatch(/isset\( \$row\['lat'\], \$row\['lng'\] \)/);
+    expect(map).toMatch(/!== null && \$row\['lng'\] !== null/);
+  });
+});
