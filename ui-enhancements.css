@@ -1,8 +1,17 @@
+/* ===== MODAL FOCUS VISUALISIERUNG ===== */
 /*
   ui-enhancements.css
   Loads AFTER styles.css. Use this file for all visual improvements, overrides, and new UI components.
   Always adhere to the Eventbörse Design System and use CSS variables where appropriate.
 */
+
+/* Konsistenter Fokus-Stil für alle interaktiven Elemente in Modals */
+.modal *:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--eb-radius-sm);
+  transition: outline-color var(--eb-transition-fast);
+}
 
 /* --- Global Enhancements --- */
 
@@ -51,6 +60,7 @@ a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
+.modal *:focus-visible,
 select:focus-visible {
   outline: 2px solid var(--brand-primary);
   outline-offset: 2px;
