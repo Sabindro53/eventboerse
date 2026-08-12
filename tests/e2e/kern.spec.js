@@ -1060,6 +1060,36 @@ test.describe('Der Arbeitskontext überlebt lange Notizen', () => {
 test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
   const TAGES = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'tagesroutine.yml'), 'utf8');
 
+  test('die Routine liefert über einen Pull Request, nicht direkt auf main', () => {
+    // Der direkte Push war nie moeglich — ein Repository-Ruleset verlangt
+    // „Changes must be made through a pull request". Die Regel wird nicht
+    // umgangen, sondern eingehalten.
+    const block = TAGES.slice(
+      TAGES.indexOf('- name: Committen, falls geaendert'),
+      TAGES.indexOf('- name: Ausfall melden'));
+    expect(block, 'die Routine pusht weiter direkt auf main')
+      .not.toMatch(/git push[^\n]*HEAD:main/);
+    expect(block, 'kein eigener Zweig').toMatch(/git checkout -b "\$zweig"/);
+    expect(block, 'kein Pull Request').toMatch(/gh pr create --base main/);
+    expect(TAGES, 'ohne pull-requests: write kann sie keinen PR anlegen')
+      .toMatch(/pull-requests: write/);
+  });
+
+  test('das Routine-Token ist optional, sein Fehlen aber nicht still', () => {
+    // Mit GITHUB_TOKEN loest ein angelegter PR keine Workflow-Laeufe aus, also
+    // laeuft die im Ruleset geforderte Pruefung nie an und der PR bliebe ewig
+    // offen. Ohne das PAT muss die Routine das SAGEN — sonst waere es wieder
+    // ein Ausfall, der wie Erfolg aussieht.
+    expect(TAGES, 'kein Rückfall auf GITHUB_TOKEN')
+      .toMatch(/secrets\.EB_ROUTINE_TOKEN \|\| secrets\.GITHUB_TOKEN/);
+    expect(TAGES, 'der Push läuft nicht unter dem Routine-Token')
+      .toMatch(/token: \$\{\{ secrets\.EB_ROUTINE_TOKEN/);
+    expect(TAGES, 'das fehlende Token wird nicht benannt')
+      .toMatch(/EB_ROUTINE_TOKEN fehlt/);
+    // Und mit Token soll er von selbst zufallen, sobald die Prüfungen grün sind.
+    expect(TAGES, 'kein Auto-Merge').toMatch(/gh pr merge --squash --auto/);
+  });
+
   test('scheitert der Push, scheitert der Lauf', () => {
     const block = TAGES.slice(
       TAGES.indexOf('- name: Committen, falls geaendert'),
@@ -1078,7 +1108,8 @@ test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
     // vergeblich versucht" von „beim ersten Mal geklappt" nicht zu
     // unterscheiden — und genau das ist hier monatelang passiert.
     for (const [name, quelle] of [['tagesroutine', TAGES]]) {
-      const schleifen = quelle.split('\n').filter((z) => /git push/.test(z));
+      const schleifen = quelle.split('\n')
+        .filter((z) => /git push/.test(z) && !/^\s*#/.test(z));
       expect(schleifen.length, `${name}: kein Push gefunden`).toBeGreaterThan(0);
       for (const z of schleifen) {
         expect(z, `${name}: Push ohne Erfolgsmerker — ${z.trim().slice(0, 50)}`)
