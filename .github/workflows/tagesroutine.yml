@@ -11,10 +11,10 @@ name: Tagesroutine
 # stand. Ein Befund ueber einen alten Code-Stand ist schlimmer als keiner —
 # man handelt danach.
 #
-# Warum direkt nach main statt ueber einen PR: die Aenderung betrifft
-# ausschliesslich die erzeugte Datei assets/eb-demo-feed.json, der Generator
-# ist deterministisch, und die Ehrlichkeitsregel (nichts wirkt frisch) wird
-# vor dem Commit geprueft. Ein taeglicher PR waere reines Rauschen.
+# Geliefert wird ueber einen Pull Request, nicht direkt auf main: ein
+# Repository-Ruleset verlangt "Changes must be made through a pull request".
+# Der Zweig gehoert genau einem Lauf (Datum + Lauf-ID + Versuch), damit sich
+# zwei Laeufe desselben Tages nicht gegenseitig blockieren.
 #
 # Sicherheitsnetz: Schlaegt die Pruefung fehl, wird NICHT committet.
 
@@ -142,15 +142,25 @@ jobs:
           # gesamten Laufzeit kein einziges Mal geliefert und trotzdem jedes
           # Mal Erfolg gemeldet.
           #
-          # Die Regel wird NICHT umgangen. Ein Branch pro Tag, ein PR, und die
+          # Die Regel wird NICHT umgangen. Ein Zweig pro Lauf, ein PR, und die
           # Pruefungen laufen wie bei jeder anderen Aenderung.
-          zweig="routine/tagesstand-$(date -u +%Y-%m-%d)"
+          #
+          # Der Zweigname traegt Lauf-ID und Versuch, nicht nur das Datum.
+          # Ein Zweig pro Tag klang aufgeraeumter und war der naechste stille
+          # Ausfall: der Zweig vom 11:23-Lauf lag noch da (ein Squash-Merge
+          # loescht ihn nicht), der 12:26-Lauf traf auf denselben Namen und
+          # `--force-with-lease` verweigerte mit "stale info" — der flache
+          # Checkout kennt zu diesem Zweig gar keinen Remote-Stand, gegen den
+          # er die Zusicherung pruefen koennte. Vier Versuche, 32 Sekunden,
+          # Lauf rot. Ein laufeigener Name kann nicht kollidieren, deshalb
+          # braucht der Push auch keinen Zwang mehr.
+          zweig="routine/tagesstand-$(date -u +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
           git checkout -b "$zweig"
           git commit -m "chore(routine): Demo-Feed und Selbstcheck fuer $(date -u +%Y-%m-%d)"
 
           gepusht=0
           for i in 1 2 3 4; do
-            if git push --force-with-lease origin "$zweig"; then gepusht=1; break; fi
+            if git push -u origin "$zweig"; then gepusht=1; break; fi
             echo "Push-Versuch $i fehlgeschlagen." >> "$GITHUB_STEP_SUMMARY"
             sleep $((2 ** i))
           done
@@ -163,19 +173,21 @@ jobs:
             exit 1
           fi
 
-          # PR anlegen, falls noch keiner offen ist. `|| true` ist hier richtig:
-          # ein bereits offener PR fuer denselben Zweig ist kein Fehler.
-          vorhanden="$(gh pr list --head "$zweig" --state open --json number --jq 'length')"
-          if [ "$vorhanden" = "0" ]; then
-            gh pr create --base main --head "$zweig" \
-              --title "chore(routine): Demo-Feed und Selbstcheck fuer $(date -u +%Y-%m-%d)" \
-              --body "Erzeugt von der Tagesroutine. Enthaelt ausschliesslich die drei generierten Dateien; beide Generatoren sind reproduzierbar und werden im Lauf geprueft."
-          fi
+          # Der Zweig gehoert diesem Lauf allein, also kann es zu ihm auch noch
+          # keinen PR geben. Scheitert das Anlegen, scheitert der Schritt —
+          # ein gepushter Zweig ohne PR waere wieder gespeicherte Arbeit, die
+          # niemanden erreicht.
+          gh pr create --base main --head "$zweig" \
+            --title "chore(routine): Demo-Feed und Selbstcheck fuer $(date -u +%Y-%m-%d)" \
+            --body "Erzeugt von der Tagesroutine. Enthaelt ausschliesslich die drei generierten Dateien; beide Generatoren sind reproduzierbar und werden im Lauf geprueft."
+
           if [ "$HAT_ROUTINE_TOKEN" = "true" ]; then
-            # Auto-Merge: der PR faellt zu, sobald die Pruefungen gruen sind.
+            # Auto-Merge: der PR faellt zu, sobald die Pruefungen gruen sind,
+            # und nimmt seinen Zweig mit — sonst waechst mit jedem Tag ein
+            # weiterer toter Zweig nach.
             # Schlaegt es fehl (Auto-Merge im Repo nicht aktiviert), ist das
             # kein roter Lauf — der PR steht dann eben offen und sichtbar da.
-            if gh pr merge --squash --auto "$zweig"; then
+            if gh pr merge --squash --auto --delete-branch "$zweig"; then
               echo "PR fuer \`$zweig\` angelegt, Auto-Merge aktiv." >> "$GITHUB_STEP_SUMMARY"
             else
               echo "PR fuer \`$zweig\` angelegt. Auto-Merge nicht moeglich — bitte von Hand mergen." >> "$GITHUB_STEP_SUMMARY"

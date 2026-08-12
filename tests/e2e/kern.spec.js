@@ -1169,6 +1169,45 @@ test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
       .toMatch(/if \[ "\$gepusht" -ne 1 \][\s\S]{0,400}exit 1/);
   });
 
+  test('zwei Läufe am selben Tag bekommen verschiedene Zweige', () => {
+    // Der Zweig des 11:23-Laufs lag noch da — ein Squash-Merge löscht den
+    // Kopf-Zweig nicht —, der 12:26-Lauf traf auf denselben Namen und wurde
+    // vier Mal abgewiesen (Lauf 31596389869). „Ein Zweig pro Tag" trägt
+    // nicht: ein Tag darf mehr als einen Lauf haben.
+    //
+    // Geprüft wird die Zuweisung, wie die Shell sie wirklich auswertet, nicht
+    // wie sie aussieht.
+    const zeile = TAGES.split('\n').map((z) => z.trim()).find((z) => z.startsWith('zweig='));
+    expect(zeile, 'keine Zweig-Zuweisung im Workflow gefunden').toBeTruthy();
+    const benennen = (lauf, versuch) => execFileSync('bash', ['-c',
+      `${zeile.replace(/\$\{\{ github\.run_id \}\}/g, lauf)
+        .replace(/\$\{\{ github\.run_attempt \}\}/g, versuch)}\nprintf '%s' "$zweig"`,
+    ], { encoding: 'utf8' });
+
+    const erster = benennen('111', '1');
+    expect(erster, 'der Zweigname bleibt leer').toMatch(/^routine\/.+/);
+    expect(benennen('222', '1'), 'zwei Läufe am selben Tag treffen denselben Zweig')
+      .not.toBe(erster);
+    expect(benennen('111', '2'), 'eine Wiederholung desselben Laufs trifft denselben Zweig')
+      .not.toBe(erster);
+  });
+
+  test('der Routine-Zweig wird ohne Zwang gepusht', () => {
+    // `--force-with-lease` prüft gegen den bekannten Remote-Stand. Der flache
+    // Checkout kennt zum Routine-Zweig gar keinen, also lehnt Git mit
+    // „stale info" ab — dauerhaft, nicht vorübergehend, weshalb die vier
+    // Wiederholungen nichts als 32 Sekunden gekostet haben.
+    //
+    // Zu einem laufeigenen Zweig ist Zwang nie nötig. Steht er wieder da,
+    // heißt das: entweder kann der Name doch kollidieren, oder genau dieser
+    // Fehler ist zurück.
+    const pushes = TAGES.split('\n').filter((z) => /git push/.test(z) && !/^\s*#/.test(z));
+    expect(pushes.length, 'kein Push gefunden').toBeGreaterThan(0);
+    for (const z of pushes) {
+      expect(z, `erzwungener Push — ${z.trim()}`).not.toMatch(/--force/);
+    }
+  });
+
   test('kein Liefer-Schritt endet still nach der letzten Wiederholung', () => {
     // Dasselbe Muster wie oben, aber allgemein: jede `for … done`-Schleife um
     // einen Push herum braucht danach eine Auswertung. Sonst ist „vier Mal
