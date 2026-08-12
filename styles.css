@@ -7533,7 +7533,7 @@ body.dark-mode .stripe-connect-diagnostics-perms code {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-light);
-  background: var(--light);
+  background: var(--bg-alt);
 }
 .stripe-onboarding-steps > div > .material-icons-round {
   color: #635BFF;
@@ -15419,7 +15419,7 @@ button:disabled {
   display: flex; align-items: center; justify-content: center;
   border-radius: 8px;
   border: 1px solid var(--border-light);
-  background: var(--bg-card);
+  background: var(--bg);
   cursor: pointer;
   color: var(--text);
   transition: background 0.15s ease, border-color 0.15s ease;
