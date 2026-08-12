@@ -7,7 +7,7 @@ share: internal
 
 # Testing
 
-> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 250 Tests
+> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 252 Tests
 > in 13 Suiten) als blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die
 > letzten Produktionsfehler (Verlaufsschrift nach Minify, Suche ohne Treffer,
 > doppelte CSS-Regeln) waren alle Regressionen, die diese Suite gefangen hätte.
@@ -20,7 +20,7 @@ share: internal
        │ Manual E2E  │   ← Backend-Flows bei Release (Login, Stripe live)
        └──────┬──────┘
        ┌──────┴───────┐
-       │  Playwright  │   ← 250 Tests, blockierend in pr-check.yml (NEU 2026-08)
+       │  Playwright  │   ← 252 Tests, blockierend in pr-check.yml (NEU 2026-08)
        └──────┬───────┘
        ┌──────┴───────────────┐
        │ Auto-Audit (KI)      │   ← claude-auto-audit.yml

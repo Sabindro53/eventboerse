@@ -110,9 +110,19 @@ jobs:
             git log -6 --pretty=format:'%h %s'
             echo
             echo "IST-STAND"
-            # Nur bis zum ersten abgeschlossenen Sprint — alles danach ist Historie.
-            sed -n '/^## Stand heute/,/^## Zuletzt abgeschlossen/p' \
-              vault/50-Evolution/Roadmap/Current-Sprint.md | head -n 24
+            # Nur bis zur naechsten Abschnittsueberschrift — alles danach ist
+            # Historie, und ein Modell, das sie als Ist-Stand liest, meldet
+            # Zahlen von vorgestern.
+            #
+            # Bewusst awk statt `sed | head`: GitHub faehrt bash mit
+            # `-o pipefail`. Wird der Abschnitt laenger als das Limit, schliesst
+            # head die Pipe, sed stirbt an SIGPIPE (141), und der Schritt reisst
+            # den Lauf mit. Genau so hat eine gewachsene Sprint-Notiz den Puls
+            # lahmgelegt — der Workflow hing still an der Laenge eines Textes.
+            awk '/^## Stand heute/ { drin = 1 }
+                 drin && /^## Zuletzt/ { exit }
+                 drin { print; if (++n >= 24) exit }' \
+              vault/50-Evolution/Roadmap/Current-Sprint.md
             echo
             echo "SELBSTCHECK (Kurzfassung)"
             jq -r '{erzeugt, befunde: (.befunde // [] | length),

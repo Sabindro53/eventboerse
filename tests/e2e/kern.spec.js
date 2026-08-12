@@ -976,3 +976,76 @@ test.describe('Der Ausfall muss sichtbar sein', () => {
     }
   });
 });
+
+// ── Der Kontext-Schritt darf nicht an einer Textlänge hängen ──────────────
+//
+// Nach der ersten Reparatur lief der Puls weiter rot — an einer ganz anderen
+// Stelle. Der Schritt „Belegten Arbeitskontext bauen" schnitt den Ist-Stand
+// mit `sed … | head -n 24` zu. GitHub fährt bash mit `-o pipefail`: sobald der
+// Abschnitt länger wird als das Limit, schließt `head` die Pipe, `sed` stirbt
+// an SIGPIPE (Exit 141), und der Schritt reißt den ganzen Lauf mit.
+//
+// Ausgelöst hat es meine eigene Sprint-Notiz — der Abschnitt wuchs von 22 auf
+// 84 Zeilen. Ein Workflow, den man durch Schreiben umwerfen kann, ist eine
+// Falle mit Zeitzünder.
+test.describe('Der Arbeitskontext überlebt lange Notizen', () => {
+  const { execFileSync } = require('node:child_process');
+  const os = require('node:os');
+  const HQ_OPS = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'hq-operations.yml'), 'utf8');
+
+  /** Den `run:`-Block eines Schritts aus dem Workflow holen, ohne YAML-Parser. */
+  function schrittBlock(name) {
+    const von = HQ_OPS.indexOf(`- name: ${name}`);
+    expect(von, `Schritt nicht gefunden: ${name}`).toBeGreaterThan(0);
+    const rest = HQ_OPS.slice(von);
+    const naechster = rest.indexOf('\n      - name:', 1);
+    const block = naechster > 0 ? rest.slice(0, naechster) : rest;
+    const r = block.indexOf('run: |');
+    expect(r, `kein run-Block in: ${name}`).toBeGreaterThan(0);
+    // Einrückung der Schritt-Ebene (10 Leerzeichen) entfernen.
+    return block.slice(r + 'run: |'.length)
+      .split('\n').map((z) => z.replace(/^ {10}/, '')).join('\n');
+  }
+
+  test('der Schritt läuft auch bei sehr langem Ist-Stand durch', () => {
+    // Ausgeführt wird der echte Block aus dem Workflow, mit genau den
+    // Shell-Optionen, die GitHub setzt — nicht ein Nachbau davon.
+    let skript = schrittBlock('Belegten Arbeitskontext bauen');
+    const ziel = path.join(os.tmpdir(), `ctx-${Date.now()}-${Math.random()}.txt`);
+    skript = skript
+      .replace(/\.ai-run\/ensemble-context\.txt/g, ziel)
+      .replace(/mkdir -p \.ai-run/, 'true')
+      .replace(/>> "\$GITHUB_STEP_SUMMARY"/g, '>/dev/null');
+
+    // Die Sprint-Notiz künstlich aufblähen: genau der Fall, der es gerissen hat.
+    const sprint = path.join(ROOT, 'vault', '50-Evolution', 'Roadmap', 'Current-Sprint.md');
+    const original = fs.readFileSync(sprint, 'utf8');
+    // Bewusst über 64 KB: SIGPIPE tritt nur auf, wenn der Schreiber nach dem
+    // Ende des Lesers noch schreibt. Bei 300 Zeilen passt alles in den Puffer
+    // der Pipe, `sed` ist fertig bevor `head` schließt — der Test lief dann
+    // grün, obwohl der Fehler wieder drin war. Erst oberhalb der Puffergröße
+    // ist der Fall sicher reproduzierbar.
+    const fuellung = Array.from({ length: 5000 },
+      (_, i) => `- Zeile ${i} des Ist-Stands, absichtlich lang genug, um den Pipe-Puffer zu fuellen`).join('\n');
+    const aufgeblaeht = original.replace(/^## Stand heute.*$/m, (kopf) => `${kopf}\n${fuellung}`);
+    try {
+      fs.writeFileSync(sprint, aufgeblaeht, 'utf8');
+      execFileSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', skript],
+        { cwd: ROOT, encoding: 'utf8' });
+      // Und der Ausschnitt bleibt trotzdem klein — der Kontext ist der Verbrauch.
+      const zeilen = fs.readFileSync(ziel, 'utf8').split('\n');
+      expect(zeilen.length, 'der Kontext läuft ungebremst voll').toBeLessThan(60);
+    } finally {
+      fs.writeFileSync(sprint, original, 'utf8');
+      try { fs.unlinkSync(ziel); } catch { /* nie geschrieben */ }
+    }
+  });
+
+  test('kein Schritt schneidet mit einer Pipe nach head zu', () => {
+    // Dieselbe Falle steckt in jedem `… | head`, sobald pipefail gilt.
+    // `|| head` ist ein Rückfall und keine Pipe — nur ein einzelnes `|` zählt.
+    const treffer = HQ_OPS.split('\n')
+      .filter((z) => /(^|[^|])\|\s*head\b/.test(z) && !/^\s*#/.test(z));
+    expect(treffer, `SIGPIPE-Falle: ${treffer.join(' / ')}`).toHaveLength(0);
+  });
+});
