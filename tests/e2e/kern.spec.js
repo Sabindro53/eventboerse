@@ -543,9 +543,22 @@ test.describe('Neuronaler Kern', () => {
     expect(HQ_CSS).toMatch(/\.neural\.denkt .nn-orb-ring\s*\{\s*animation/);
     expect(HQ_CSS).toMatch(/\.neural\.spricht #nn-orb/);
 
-    // Der Test hat API und Journal absichtlich ohne frischen Beleg geladen.
-    // Dann existieren die Transportpfade, laufen aber nicht und kein Knoten
-    // behauptet, dass gerade ein Modell arbeitet.
+    // Das Journal wird hier bewusst LEER untergeschoben, statt sich auf die
+    // committete Datei zu verlassen.
+    //
+    // Vorher tat der Test genau das — und war grün, solange die Belegschaft
+    // stillstand. Mit dem ersten echten Lauf (12.08.) wurde das Journal frisch
+    // und der Test rot, ohne dass sich an der geprüften Regel etwas geändert
+    // hätte. Ein Test, der von der Datenlage im Repo abhängt, misst den
+    // Zufall mit.
+    await page.route('**/eb-arbeit.json*', (r) => r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ version: 1, hinweis: 'Testvorgabe', eintraege: [] }),
+    }));
+    await page.reload();
+    await expect(page.locator('[data-bereich]')).toHaveCount(10, { timeout: 12000 });
+
     const stand = await page.evaluate(() => ({
       arbeitend: document.querySelectorAll('.nn-node.arbeitet').length,
       pfade: document.querySelectorAll('.nn-transport').length,
@@ -555,6 +568,40 @@ test.describe('Neuronaler Kern', () => {
     expect(stand.gesund).toBe(false);
     const arbeitend = stand.arbeitend;
     expect(arbeitend, 'ohne echten Lauf darf nichts „arbeitet gerade" zeigen').toBe(0);
+  });
+
+  test('mit frischem Betriebsbeleg läuft der Strom wirklich', async ({ page }) => {
+    // Die Gegenprobe zum Test darüber, und erst seit dem 12.08. überhaupt
+    // sinnvoll: vorher gab es nie einen frischen Beleg, mit dem sich die
+    // andere Hälfte der Regel prüfen ließe. Ein Impuls entspricht einem
+    // echten Ereignis — also muss ein echtes Ereignis auch ankommen, sonst
+    // wäre die Anzeige nur vorsichtig statt ehrlich.
+    await page.route('**/eb-arbeit.json*', (r) => r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        version: 1,
+        hinweis: 'Testvorgabe',
+        eintraege: [{
+          zeit: new Date().toISOString(),
+          rolle: 'mistral-ops', person: 'Nils Falk', rollenname: 'Reliability-Wächter',
+          modell: 'Mistral Small 3.2 24B', bereich: 'betrieb', anlass: 'Test',
+          aufgabe: 'Lagebild verdichten.', dateien: ['audit/latest.json'],
+          ergebnis: 'fertig', text: 'Betriebszustand unauffällig.',
+          tokens: 2073, kostenUsd: 0.00017,
+        }],
+        aktualisiert: new Date().toISOString(),
+      }),
+    }));
+    await page.reload();
+    await expect(page.locator('[data-bereich]')).toHaveCount(10, { timeout: 12000 });
+
+    const stand = await page.evaluate(() => ({
+      gesund: document.getElementById('neural').classList.contains('strom-gesund'),
+      pfade: document.querySelectorAll('.nn-transport').length,
+    }));
+    expect(stand.pfade, 'die Transportpfade fehlen').toBeGreaterThan(0);
+    expect(stand.gesund, 'ein frischer Lauf muss den Strom als gesund zeigen').toBe(true);
   });
 
   test('Arbeitsstand kommt aus echten Workflow-Läufen', async ({ page }) => {
@@ -1075,17 +1122,37 @@ test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
       .toMatch(/pull-requests: write/);
   });
 
+  test('beide Liefer-Workflows nutzen die App, nicht GITHUB_TOKEN', () => {
+    // Ein PR, den GITHUB_TOKEN anlegt, loest keine Workflow-Laeufe aus. Die im
+    // Ruleset geforderte PR-Validierung laeuft dann nie an, und der PR kann
+    // grundsaetzlich nicht mergen — bei der Tagesroutine wie beim Autopiloten
+    // (PR #123 stand deshalb seit dem 11.08. offen).
+    const AUTOPILOT = fs.readFileSync(
+      path.join(ROOT, '.github', 'workflows', 'openrouter-autopilot.yml'), 'utf8');
+    for (const [name, quelle] of [['tagesroutine', TAGES], ['autopilot', AUTOPILOT]]) {
+      expect(quelle, `${name}: holt kein App-Token`)
+        .toMatch(/uses: actions\/create-github-app-token@v\d/);
+      expect(quelle, `${name}: der Merker fehlt (secrets ist in steps.*.if nicht verfügbar)`)
+        .toMatch(/HAT_APP: \$\{\{ secrets\.EB_ROUTINE_APP_ID != '' \}\}/);
+      // Kein Liefer-Token darf mehr fest auf GITHUB_TOKEN stehen — nur als
+      // ausdruecklicher Rueckfall hinter dem App-Token.
+      const feste = quelle.split('\n').filter((z) =>
+        /^\s*token: \$\{\{ secrets\.GITHUB_TOKEN \}\}\s*$/.test(z));
+      expect(feste, `${name}: Token fest auf GITHUB_TOKEN — ${feste.join(' / ')}`).toHaveLength(0);
+    }
+  });
+
   test('das Routine-Token ist optional, sein Fehlen aber nicht still', () => {
     // Mit GITHUB_TOKEN loest ein angelegter PR keine Workflow-Laeufe aus, also
     // laeuft die im Ruleset geforderte Pruefung nie an und der PR bliebe ewig
     // offen. Ohne das PAT muss die Routine das SAGEN — sonst waere es wieder
     // ein Ausfall, der wie Erfolg aussieht.
     expect(TAGES, 'kein Rückfall auf GITHUB_TOKEN')
-      .toMatch(/secrets\.EB_ROUTINE_TOKEN \|\| secrets\.GITHUB_TOKEN/);
-    expect(TAGES, 'der Push läuft nicht unter dem Routine-Token')
-      .toMatch(/token: \$\{\{ secrets\.EB_ROUTINE_TOKEN/);
-    expect(TAGES, 'das fehlende Token wird nicht benannt')
-      .toMatch(/EB_ROUTINE_TOKEN fehlt/);
+      .toMatch(/steps\.apptoken\.outputs\.token \|\| secrets\.GITHUB_TOKEN/);
+    expect(TAGES, 'der Push läuft nicht unter dem App-Token')
+      .toMatch(/token: \$\{\{ steps\.apptoken\.outputs\.token/);
+    expect(TAGES, 'die fehlende App wird nicht benannt')
+      .toMatch(/Routine-App nicht eingerichtet/);
     // Und mit Token soll er von selbst zufallen, sobald die Prüfungen grün sind.
     expect(TAGES, 'kein Auto-Merge').toMatch(/gh pr merge --squash --auto/);
   });

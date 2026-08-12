@@ -232,6 +232,62 @@ Landkarte, die man Angreifern nicht mitgibt. Nicht-öffentliche Dateien gehen
 mit `Cache-Control: private, no-store` raus, damit kein geteilter
 Zwischenspeicher sie für einen anderen Abrufer aufhebt.
 
+## Die Routine-App — warum kein GITHUB_TOKEN reicht
+
+Ein Repository-Ruleset auf `main` verlangt: *„Changes must be made through a
+pull request"* plus den erforderlichen Check `PR Check / PR-Validierung`. Ein
+direkter Push wird abgelehnt (`GH013`), auch aus einem Workflow heraus.
+
+Der naheliegende Ausweg — der Workflow legt einen PR an — trägt aber nicht,
+solange er `GITHUB_TOKEN` benutzt:
+
+> Ein Pull Request, den `GITHUB_TOKEN` anlegt, löst **keine** Workflow-Läufe
+> aus. Der erforderliche Check läuft damit nie an, und der PR kann
+> grundsätzlich nicht mergen.
+
+Das hat zwei Lieferwege lahmgelegt, ohne dass es auffiel: die **Tagesroutine**
+hat in ihrer gesamten Laufzeit kein einziges Mal committet (kein einziger
+`chore(routine)`-Commit existiert), und der **Autopilot** hat mit PR #123 am
+11.08. geliefert — der PR stand danach offen und war nicht mergefähig.
+
+Beide nutzen deshalb ein **Installations-Token einer GitHub App**. Ein Token
+daraus löst Workflows normal aus.
+
+### Warum App statt PAT
+
+| | GitHub App | Fine-grained PAT |
+|---|---|---|
+| Ablauf | keiner | max. 1 Jahr, muss erneuert werden |
+| Identität | eigene (`…[bot]`) | hängt an einem persönlichen Konto |
+| Rechte | an die Installation gebunden | an den Menschen gebunden |
+
+Beide lösen Workflows aus. Die App gewinnt bei Lebensdauer und daran, dass die
+täglichen PRs nicht so aussehen, als hätte sie ein Mensch geöffnet.
+
+### Einrichtung
+
+1. **App anlegen** → <https://github.com/settings/apps/new>
+   - Name z. B. `Eventbörse Routine`, Homepage-URL beliebig
+   - **Webhook: aktiv → abwählen** (die App empfängt nichts)
+   - Repository permissions: **Contents: Read and write**, **Pull requests:
+     Read and write** — sonst nichts. Kein `Workflows`, kein `Administration`.
+2. **Private Key erzeugen** (Abschnitt *Private keys* → *Generate a private
+   key*). Die `.pem`-Datei wird genau einmal heruntergeladen.
+3. **Installieren** → *Install App* → nur `Sabindro53/eventboerse`.
+4. **Zwei Secrets hinterlegen**
+   (<https://github.com/Sabindro53/eventboerse/settings/secrets/actions>):
+   - `EB_ROUTINE_APP_ID` — die App-ID von der Einstellungsseite
+   - `EB_ROUTINE_APP_KEY` — der **komplette** Inhalt der `.pem`, inklusive der
+     `-----BEGIN`- und `-----END`-Zeilen
+
+### Fail-Safe
+
+Fehlt die App, laufen beide Workflows weiter und fallen auf `GITHUB_TOKEN`
+zurück — aber **nicht stillschweigend**: die Tagesroutine schreibt in ihre
+Zusammenfassung, dass der PR so nicht mergen kann und was zu tun ist. Ein
+stiller Rückfall wäre derselbe Fehler wie die verschluckte Push-Ablehnung,
+nur eine Ebene höher.
+
 ## Wo Geheimnisse liegen
 
 | Ablage | Was | Erreichbar für |
