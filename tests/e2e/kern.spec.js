@@ -1060,6 +1060,21 @@ test.describe('Der Arbeitskontext überlebt lange Notizen', () => {
 test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
   const TAGES = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'tagesroutine.yml'), 'utf8');
 
+  test('die Routine liefert über einen Pull Request, nicht direkt auf main', () => {
+    // Der direkte Push war nie moeglich — ein Repository-Ruleset verlangt
+    // „Changes must be made through a pull request". Die Regel wird nicht
+    // umgangen, sondern eingehalten.
+    const block = TAGES.slice(
+      TAGES.indexOf('- name: Committen, falls geaendert'),
+      TAGES.indexOf('- name: Ausfall melden'));
+    expect(block, 'die Routine pusht weiter direkt auf main')
+      .not.toMatch(/git push[^\n]*HEAD:main/);
+    expect(block, 'kein eigener Zweig').toMatch(/git checkout -b "\$zweig"/);
+    expect(block, 'kein Pull Request').toMatch(/gh pr create --base main/);
+    expect(TAGES, 'ohne pull-requests: write kann sie keinen PR anlegen')
+      .toMatch(/pull-requests: write/);
+  });
+
   test('scheitert der Push, scheitert der Lauf', () => {
     const block = TAGES.slice(
       TAGES.indexOf('- name: Committen, falls geaendert'),
@@ -1078,7 +1093,8 @@ test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
     // vergeblich versucht" von „beim ersten Mal geklappt" nicht zu
     // unterscheiden — und genau das ist hier monatelang passiert.
     for (const [name, quelle] of [['tagesroutine', TAGES]]) {
-      const schleifen = quelle.split('\n').filter((z) => /git push/.test(z));
+      const schleifen = quelle.split('\n')
+        .filter((z) => /git push/.test(z) && !/^\s*#/.test(z));
       expect(schleifen.length, `${name}: kein Push gefunden`).toBeGreaterThan(0);
       for (const z of schleifen) {
         expect(z, `${name}: Push ohne Erfolgsmerker — ${z.trim().slice(0, 50)}`)
