@@ -9,14 +9,14 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-10)
+## Stand heute (2026-08-11)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 244 Tests in 13 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 250 Tests in 13 Suiten**, blockierendes Gate in `pr-check.yml`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift
 - **Lagebild-Lauf 4×/Tag** (02/08/14/20 UTC), 11 Rollen je Lauf, eigenes
@@ -33,6 +33,36 @@ einen alten Abschnitt gelesen und nicht diesen.
   neuer Security-Notizen bleibt genau das die Grenze.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Die Belegschaft läuft wieder — und ihr Ausfall ist jetzt sichtbar.**
+  Zwischen dem 07. und 11.08. sind **elf Läufe hintereinander fehlgeschlagen**
+  (5× Tagesroutine, 6× Ensemble-Puls), ohne dass es jemand bemerkt hat. Vier
+  Eigenschaften wirkten zusammen:
+  1. **Falsche Aufgabenzuweisung.** `mistral-ops` bekam `ionos-deploy.yml` zu
+     lesen; darin steht `sftp://$SFTP_HOST`, und das Verbotsmuster
+     „Infrastruktur-Zugang" greift zu Recht. Der Filter hatte recht — die
+     Zuweisung war falsch. Dieselbe Falle steckte in
+     `nemotron-governance` (Sicherheits-Klassifikation.md fällt an der Regel
+     durch, die sie beschreibt).
+  2. **Kein Schutz um die Rollenschleife.** GitHub führt Schritte mit `bash -e`
+     aus; `mistral-ops` steht an Stelle 3 von 11, also haben **acht Rollen seit
+     dem 10.08. kein einziges Mal gearbeitet**.
+  3. **Das Journal verlor genau die Fehler.** `agent.mjs` schreibt den Abbruch
+     korrekt hinein, aber ohne `if: always()` lief der Upload danach nie —
+     das HQ zeigte Leere statt elf Abbrüchen.
+  4. **Keine Meldung.** Der Site-Monitor legt bei nicht erreichbarer Seite ein
+     Issue an; für die Belegschaft gab es nichts Vergleichbares.
+  Behoben: Zuweisungen korrigiert, Schleife rollenweise bewertet (nur ein
+  Totalausfall macht rot), `if: always()` auf allen Journal-Schritten, Issue mit
+  Selbstschließung in beiden Routinen, und in der Tagesroutine nimmt eine
+  abgebrochene Schicht den Commit von Demo-Feed und Selbstcheck nicht mehr mit.
+  **Die Sicherheitsregel wurde nicht angefasst.**
+- [x] **Das Tor prüft jetzt, was die Laufzeit prüft.** `models.mjs --check` las
+  bisher nur Pfad und Einstufung einer Aufgaben-Datei, `agent.mjs` zur Laufzeit
+  aber zusätzlich den Inhalt gegen `GEHEIMNISSE`. Eine Aufgabe konnte damit das
+  Tor passieren und nachts in der Schicht sterben. Beide benutzen jetzt
+  dieselbe Prüfung auf demselben Ausschnitt (`AUFGABEN_AUSSCHNITT`), damit die
+  Zahlen nicht wieder auseinanderlaufen.
 
 - [x] **HQ-Zugang ohne WordPress-Admin:** TOTP nach RFC 6238 (gegen die offiziellen
   Testvektoren geprüft, inkl. 64-Bit-Schritt), Zeitschritt wird genau einmal

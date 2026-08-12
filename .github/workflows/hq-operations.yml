@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  issues: write   # Fehlschlag sichtbar machen (siehe „Ausfall melden" unten)
 
 concurrency:
   group: hq-operations-ensemble
@@ -128,21 +129,49 @@ jobs:
           else
             rollen=("${{ steps.cadence.outputs.rolle }}")
           fi
+          # Jede Rolle einzeln bewerten. Vorher lief die Schleife unter `bash -e`:
+          # der erste Exit-Code 1 beendete den ganzen Schritt, und weil
+          # mistral-ops an dritter Stelle steht, haben acht Rollen ab dem
+          # 10.08. kein einziges Mal gearbeitet. Ein Ausfall im Betrieb darf
+          # die Governance-Rolle nicht mit stilllegen.
+          gearbeitet=0; gescheitert=0
           for rolle in "${rollen[@]}"; do
             echo "## $rolle" >> "$GITHUB_STEP_SUMMARY"
-            node scripts/agent.mjs \
-              --rolle "$rolle" \
-              --kontext .ai-run/ensemble-context.txt \
-              --anlass "5-Minuten-HQ-Rundlauf" | tee -a "$GITHUB_STEP_SUMMARY"
+            if node scripts/agent.mjs \
+                 --rolle "$rolle" \
+                 --kontext .ai-run/ensemble-context.txt \
+                 --anlass "5-Minuten-HQ-Rundlauf" | tee -a "$GITHUB_STEP_SUMMARY"; then
+              gearbeitet=$((gearbeitet + 1))
+            else
+              gescheitert=$((gescheitert + 1))
+              echo "⚠️ Rolle \`$rolle\` abgebrochen — Lauf geht weiter." >> "$GITHUB_STEP_SUMMARY"
+            fi
           done
+          echo "ROLLEN_OK=$gearbeitet"   >> "$GITHUB_ENV"
+          echo "ROLLEN_FEHL=$gescheitert" >> "$GITHUB_ENV"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Bilanz:** $gearbeitet gearbeitet, $gescheitert abgebrochen." >> "$GITHUB_STEP_SUMMARY"
+          # Erst am Ende entscheiden: nur ein Totalausfall ist ein roter Lauf.
+          # Einzelne Abbrueche stehen im Journal und muessen dort auffallen,
+          # nicht als geloeschter Schritt.
+          if [ "$gearbeitet" -eq 0 ]; then
+            echo "Keine einzige Rolle hat gearbeitet."; exit 1
+          fi
 
+      # Ab hier: `if: always()`. Der Fehlerpfad ist genau der Pfad, der
+      # bisher geloescht wurde — agent.mjs schreibt den Abbruch korrekt ins
+      # Journal, aber ohne diese Zeile lief der Upload nach einem
+      # fehlgeschlagenen Schritt nie. Das HQ zeigte darum Ruhe statt Stillstand.
       - name: Journal validieren
+        if: always()
         run: node scripts/agent.mjs --check
 
       - name: SFTP-Werkzeug einrichten
+        if: always()
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       - name: Echte Laufzeitspur veroeffentlichen
+        if: always()
         shell: bash
         run: |
           if git diff --quiet -- assets/eb-arbeit.json; then
@@ -166,3 +195,76 @@ jobs:
             bye
           "
           echo "✅ Echte Laufzeitspur direkt im HQ veroeffentlicht." >> "$GITHUB_STEP_SUMMARY"
+
+      # Ohne diesen Schritt bleibt ein Ausfall unsichtbar. Der Site-Monitor legt
+      # bei nicht erreichbarer Seite ein Issue an — deshalb wusstest du sofort,
+      # wenn eventbörse.de weg war. Fuer die Belegschaft gab es nichts
+      # Vergleichbares: elf fehlgeschlagene Laeufe zwischen dem 07. und 11.08.
+      # sind niemandem aufgefallen. Eine Automatik, deren Ausfall keiner
+      # bemerkt, ist keine Automatik, sondern eine Annahme.
+      - name: Ausfall melden
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const marke = 'belegschaft-steht';
+            const { data: offen } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: marke, per_page: 5,
+            });
+            const zeile = `⏰ Erneut fehlgeschlagen: ${new Date().toISOString()} — [Lauf](${process.env.RUN_URL})`;
+            if (offen.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: offen[0].number, body: zeile,
+              });
+              return;
+            }
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: marke, color: 'b45309',
+                description: 'Automatischer Hinweis: eine KI-Schicht laeuft nicht mehr',
+              });
+            } catch (e) { /* Marke existiert bereits */ }
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: '⚠️ KI-Schicht faellt aus — Ensemble-Puls fehlgeschlagen',
+              labels: [marke],
+              body: [
+                'Der Ensemble-Puls ist fehlgeschlagen. Bis das behoben ist, arbeitet die Belegschaft nicht.',
+                '',
+                `**Lauf:** ${process.env.RUN_URL}`,
+                '',
+                'Haeufigste Ursachen, in der Reihenfolge, in der sie sich pruefen lassen:',
+                '1. Eine Aufgaben-Datei enthaelt ein Verbotsmuster → `node scripts/models.mjs --check` zeigt es beim Bauen.',
+                '2. `EB_OPENROUTER_API_KEY` fehlt oder das Kontingent ist erschoepft → steht als `uebersprungen` im Journal.',
+                '3. Ein Anbieter antwortet nicht → einzelne Rolle `abgebrochen`, der Lauf laeuft weiter.',
+                '',
+                'Dieses Issue schliesst sich selbst, sobald ein Lauf wieder durchlaeuft.',
+              ].join('\n'),
+            });
+
+      - name: Ausfall als behoben markieren
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marke = 'belegschaft-steht';
+            const { data: offen } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: marke, per_page: 5,
+            });
+            for (const i of offen) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: i.number,
+                body: `✅ Wieder durchgelaufen: ${new Date().toISOString()}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: i.number, state: 'closed', state_reason: 'completed',
+              });
+            }

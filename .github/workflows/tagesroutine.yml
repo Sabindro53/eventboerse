@@ -26,6 +26,7 @@ on:
 
 permissions:
   contents: write
+  issues: write   # Fehlschlag sichtbar machen (siehe „Ausfall melden" unten)
 
 concurrency:
   group: tagesroutine
@@ -58,12 +59,22 @@ jobs:
       # Journal und enden mit 0. Eine Routine soll nicht rot werden, weil ein
       # optionaler Schluessel fehlt — aber auch nicht so tun, als haette
       # jemand gearbeitet.
+      # Der Abbruchpfad war nicht abgedeckt: bricht eine Schicht ab (Exit 1),
+      # riss sie bis hierher den ganzen Lauf mit — und weil der Commit erst
+      # DANACH kommt, blieben Demo-Feed und Selbstcheck ungespeichert. Genau so
+      # sind die Dateien sieben bis zehn Tage alt geworden, obwohl beide
+      # Generatoren jede Nacht sauber durchliefen.
+      #
+      # Der Abbruch verschwindet dadurch nicht: agent.mjs schreibt ihn ins
+      # Journal, und das Journal wird mitcommittet. Sichtbar bleibt er also —
+      # nur nimmt er die Arbeit der Routine nicht mehr mit runter.
       - name: Lagemelder — Betriebszustand zusammenfassen
         env:
           OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
         run: |
           node scripts/lage.mjs > /tmp/lage.txt
-          node scripts/agent.mjs --rolle mistral-ops --kontext /tmp/lage.txt --anlass "Tagesroutine"
+          node scripts/agent.mjs --rolle mistral-ops --kontext /tmp/lage.txt --anlass "Tagesroutine" \
+            || echo "⚠️ Lagemelder abgebrochen — steht im Journal, Routine laeuft weiter." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Sortierer — offene Wissensluecken ordnen
         env:
@@ -71,7 +82,8 @@ jobs:
         run: |
           L=vault/50-Evolution/AI-Gedaechtnis/Wissensluecken.md
           if [ -f "$L" ]; then
-            node scripts/agent.mjs --rolle gemma-sort --kontext "$L" --anlass "Tagesroutine"
+            node scripts/agent.mjs --rolle gemma-sort --kontext "$L" --anlass "Tagesroutine" \
+              || echo "⚠️ Sortierer abgebrochen — steht im Journal, Routine laeuft weiter." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Keine Wissensluecken-Liste — der Sortierer hat heute nichts zu tun."
           fi
@@ -102,3 +114,67 @@ jobs:
             node -e "const a=require('./audit/latest.json'); const c=a.counts||{};
               console.log('- Selbstcheck: '+(a.findings||[]).length+' Befunde (err '+(c.error||0)+', warn '+(c.warn||0)+')');"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Fuenf Fehlschlaege in Folge (07.–11.08.) blieben unbemerkt, weil hier
+      # nichts meldete. Gleiches Muster wie beim Site-Monitor, andere Marke.
+      - name: Ausfall melden
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const marke = 'tagesroutine-steht';
+            const { data: offen } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: marke, per_page: 5,
+            });
+            const zeile = `⏰ Erneut fehlgeschlagen: ${new Date().toISOString()} — [Lauf](${process.env.RUN_URL})`;
+            if (offen.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: offen[0].number, body: zeile,
+              });
+              return;
+            }
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: marke, color: 'b45309',
+                description: 'Automatischer Hinweis: die Tagesroutine laeuft nicht mehr',
+              });
+            } catch (e) { /* Marke existiert bereits */ }
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: '⚠️ Tagesroutine faellt aus — Demo-Feed und Selbstcheck veralten',
+              labels: [marke],
+              body: [
+                'Die Tagesroutine ist fehlgeschlagen. Solange das anhaelt, altern `assets/eb-demo-feed.json` und `audit/latest.json` still vor sich hin — das HQ zeigt dann Zahlen von gestern als waeren sie von heute.',
+                '',
+                `**Lauf:** ${process.env.RUN_URL}`,
+                '',
+                'Dieses Issue schliesst sich selbst, sobald ein Lauf wieder durchlaeuft.',
+              ].join('\n'),
+            });
+
+      - name: Ausfall als behoben markieren
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marke = 'tagesroutine-steht';
+            const { data: offen } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: marke, per_page: 5,
+            });
+            for (const i of offen) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: i.number,
+                body: `✅ Wieder durchgelaufen: ${new Date().toISOString()}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: i.number, state: 'closed', state_reason: 'completed',
+              });
+            }
