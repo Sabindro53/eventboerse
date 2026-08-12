@@ -40,6 +40,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Der Push laeuft unter diesem Token. Mit GITHUB_TOKEN loest ein
+          # angelegter PR keine Workflow-Laeufe aus — die im Ruleset geforderte
+          # PR-Validierung liefe dann nie an, und der PR bliebe fuer immer
+          # offen stehen. Ein eng geschnittenes PAT (contents: write,
+          # pull requests: write) loest die Pruefungen normal aus.
+          token: ${{ secrets.EB_ROUTINE_TOKEN || secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: Node einrichten
         uses: actions/setup-node@v4
@@ -94,7 +102,8 @@ jobs:
 
       - name: Committen, falls geaendert
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.EB_ROUTINE_TOKEN || secrets.GITHUB_TOKEN }}
+          HAT_ROUTINE_TOKEN: ${{ secrets.EB_ROUTINE_TOKEN != '' }}
         run: |
           if git diff --quiet -- assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json; then
             echo "Keine Aenderung — Feed, Selbstcheck und Journal sind aktuell." >> "$GITHUB_STEP_SUMMARY"
@@ -141,7 +150,25 @@ jobs:
               --title "chore(routine): Demo-Feed und Selbstcheck fuer $(date -u +%Y-%m-%d)" \
               --body "Erzeugt von der Tagesroutine. Enthaelt ausschliesslich die drei generierten Dateien; beide Generatoren sind reproduzierbar und werden im Lauf geprueft."
           fi
-          echo "PR fuer \`$zweig\` steht bereit." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$HAT_ROUTINE_TOKEN" = "true" ]; then
+            # Auto-Merge: der PR faellt zu, sobald die Pruefungen gruen sind.
+            # Schlaegt es fehl (Auto-Merge im Repo nicht aktiviert), ist das
+            # kein roter Lauf — der PR steht dann eben offen und sichtbar da.
+            if gh pr merge --squash --auto "$zweig"; then
+              echo "PR fuer \`$zweig\` angelegt, Auto-Merge aktiv." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "PR fuer \`$zweig\` angelegt. Auto-Merge nicht moeglich — bitte von Hand mergen." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            {
+              echo "PR fuer \`$zweig\` angelegt."
+              echo ""
+              echo "⚠️ **EB_ROUTINE_TOKEN fehlt.** Der PR wurde mit GITHUB_TOKEN angelegt;"
+              echo "damit laufen keine Pruefungen an und er kann nicht mergen."
+              echo "Abhilfe: fine-grained PAT (contents: write, pull requests: write)"
+              echo "als Secret \`EB_ROUTINE_TOKEN\` hinterlegen."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           {
             echo "### Tagesroutine gelaufen"

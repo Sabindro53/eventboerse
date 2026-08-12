@@ -1075,6 +1075,21 @@ test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
       .toMatch(/pull-requests: write/);
   });
 
+  test('das Routine-Token ist optional, sein Fehlen aber nicht still', () => {
+    // Mit GITHUB_TOKEN loest ein angelegter PR keine Workflow-Laeufe aus, also
+    // laeuft die im Ruleset geforderte Pruefung nie an und der PR bliebe ewig
+    // offen. Ohne das PAT muss die Routine das SAGEN — sonst waere es wieder
+    // ein Ausfall, der wie Erfolg aussieht.
+    expect(TAGES, 'kein Rückfall auf GITHUB_TOKEN')
+      .toMatch(/secrets\.EB_ROUTINE_TOKEN \|\| secrets\.GITHUB_TOKEN/);
+    expect(TAGES, 'der Push läuft nicht unter dem Routine-Token')
+      .toMatch(/token: \$\{\{ secrets\.EB_ROUTINE_TOKEN/);
+    expect(TAGES, 'das fehlende Token wird nicht benannt')
+      .toMatch(/EB_ROUTINE_TOKEN fehlt/);
+    // Und mit Token soll er von selbst zufallen, sobald die Prüfungen grün sind.
+    expect(TAGES, 'kein Auto-Merge').toMatch(/gh pr merge --squash --auto/);
+  });
+
   test('scheitert der Push, scheitert der Lauf', () => {
     const block = TAGES.slice(
       TAGES.indexOf('- name: Committen, falls geaendert'),
