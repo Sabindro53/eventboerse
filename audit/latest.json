@@ -1,7 +1,7 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-08-04T05:13:44Z",
-  "commit": "7c7298b",
+  "generatedAt": "2026-08-12T11:23:18Z",
+  "commit": "7d196e7",
   "counts": {
     "total": 5,
     "error": 0,
@@ -22,40 +22,40 @@
     },
     {
       "id": "size-app.js-watch",
-      "title": "app.js wächst (25013 Zeilen)",
+      "title": "app.js wächst (25587 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 25013,
+        "lines": 25587,
         "threshold": 20000
       }
     },
     {
       "id": "size-functions.php-watch",
-      "title": "functions.php wächst (8654 Zeilen)",
+      "title": "functions.php wächst (9561 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 8654,
+        "lines": 9561,
         "threshold": 6000
       }
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (16893 Zeilen)",
+      "title": "styles.css wächst (16992 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 16893,
+        "lines": 16992,
         "threshold": 12000
       }
     },
