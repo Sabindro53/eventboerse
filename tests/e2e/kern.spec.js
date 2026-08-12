@@ -888,7 +888,7 @@ test.describe('Der Ausfall muss sichtbar sein', () => {
 
   test('keine Aufgabe nennt eine Datei, die die Schicht abbrechen lässt', () => {
     // Der eigentliche Auslöser. `mistral-ops` sollte den Releaseweg beurteilen
-    // und bekam dafür ionos-deploy.yml — darin steht sftp://$SFTP_HOST, und
+    // und bekam dafür ionos-deploy.yml — darin steht das SFTP-Deployziel, und
     // das Verbotsmuster „Infrastruktur-Zugang" greift zu Recht. Falsch war
     // nicht die Regel, sondern die Zuweisung.
     //

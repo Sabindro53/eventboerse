@@ -39,7 +39,7 @@ einen alten Abschnitt gelesen und nicht diesen.
   (5× Tagesroutine, 6× Ensemble-Puls), ohne dass es jemand bemerkt hat. Vier
   Eigenschaften wirkten zusammen:
   1. **Falsche Aufgabenzuweisung.** `mistral-ops` bekam `ionos-deploy.yml` zu
-     lesen; darin steht `sftp://$SFTP_HOST`, und das Verbotsmuster
+     lesen; darin steht das SFTP-Ziel des Deploys, und das Verbotsmuster
      „Infrastruktur-Zugang" greift zu Recht. Der Filter hatte recht — die
      Zuweisung war falsch. Dieselbe Falle steckte in
      `nemotron-governance` (Sicherheits-Klassifikation.md fällt an der Regel

@@ -320,7 +320,7 @@ const ARBEITSPLAENE = {
       dateien: ['js/modules/board/40-board-kanban.js'] },
   ] },
   'mistral-ops': { anteil: 8, maxTokens: 180, aufgaben: [
-    // Bewusst NICHT ionos-deploy.yml: die Datei enthaelt sftp://$SFTP_HOST und
+    // Bewusst NICHT ionos-deploy.yml: die Datei nennt das SFTP-Deployziel und
     // faellt damit unter GEHEIMNISSE („Infrastruktur-Zugang"). Der Filter hat
     // recht — ein Deploy-Ziel gehoert nicht in einen Prompt an einen fremden
     // Anbieter. Fuer ein Lagebild braucht die Rolle den Selbstcheck und den
@@ -502,7 +502,7 @@ function pruefen() {
           //
           // Punkt 2 fehlte. Damit konnte eine Aufgabe das Tor passieren und in
           // der Schicht am Filter sterben: die Rolle „Reliability-Wächter" las
-          // ionos-deploy.yml, darin steht sftp://$SFTP_HOST, und der Lauf brach
+          // ionos-deploy.yml, darin steht das SFTP-Deployziel, und der Lauf brach
           // ab — fünf Tage lang, ohne dass es jemand sah. Ein Tor, das lockerer
           // prüft als die Laufzeit, verschiebt den Fehler nur nach hinten.
           let inhalt = '';
