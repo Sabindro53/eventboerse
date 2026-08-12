@@ -1049,3 +1049,41 @@ test.describe('Der Arbeitskontext überlebt lange Notizen', () => {
     expect(treffer, `SIGPIPE-Falle: ${treffer.join(' / ')}`).toHaveLength(0);
   });
 });
+
+// ── Ein gescheiterter Push ist kein gruener Lauf ──────────────────────────
+//
+// Die Tagesroutine hat in ihrer gesamten Laufzeit kein einziges Mal
+// committet — es gibt keinen einzigen `chore(routine)`-Commit. Sie meldete
+// trotzdem jedes Mal Erfolg: die Push-Schleife brach nach vier Versuchen
+// einfach ab, und der Schritt lief gruen weiter. Demo-Feed und Selbstcheck
+// sahen dadurch aktuell aus und waren sieben bis zehn Tage alt.
+test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
+  const TAGES = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'tagesroutine.yml'), 'utf8');
+
+  test('scheitert der Push, scheitert der Lauf', () => {
+    const block = TAGES.slice(
+      TAGES.indexOf('- name: Committen, falls geaendert'),
+      TAGES.indexOf('- name: Ausfall melden'));
+    expect(block, 'Commit-Schritt nicht gefunden').toContain('git push');
+    // Der Erfolg muss festgehalten und danach geprüft werden — eine Schleife,
+    // die nur `&& break` kennt, endet bei Totalausfall genauso wie bei Erfolg.
+    expect(block, 'der Push-Erfolg wird nicht festgehalten').toMatch(/gepusht=1/);
+    expect(block, 'ein gescheiterter Push beendet den Lauf nicht')
+      .toMatch(/if \[ "\$gepusht" -ne 1 \][\s\S]{0,400}exit 1/);
+  });
+
+  test('kein Liefer-Schritt endet still nach der letzten Wiederholung', () => {
+    // Dasselbe Muster wie oben, aber allgemein: jede `for … done`-Schleife um
+    // einen Push herum braucht danach eine Auswertung. Sonst ist „vier Mal
+    // vergeblich versucht" von „beim ersten Mal geklappt" nicht zu
+    // unterscheiden — und genau das ist hier monatelang passiert.
+    for (const [name, quelle] of [['tagesroutine', TAGES]]) {
+      const schleifen = quelle.split('\n').filter((z) => /git push/.test(z));
+      expect(schleifen.length, `${name}: kein Push gefunden`).toBeGreaterThan(0);
+      for (const z of schleifen) {
+        expect(z, `${name}: Push ohne Erfolgsmerker — ${z.trim().slice(0, 50)}`)
+          .toMatch(/if git push|gepusht/);
+      }
+    }
+  });
+});
