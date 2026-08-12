@@ -752,6 +752,77 @@ test.describe('Neuronaler Kern', () => {
     expect(zu.orb).toBe(true);
   });
 
+  test('der Lagebericht nennt Betriebsdaten und trennt „nicht geladen" von „null"', async ({ page }) => {
+    // Der Kreis antwortete auf „wie steht es?" mit HQ-SHA und Commander-Level.
+    // Das war keine Antwort, sondern eine Ausweichbewegung.
+    const bericht = await page.evaluate(() => window.ebCircleAPI.statusAntwort('wie steht es?'));
+    expect(bericht, 'auf eine Lage-Frage kommt kein Bericht').toBeTruthy();
+    // Er benennt die Quellen, die es gibt — nicht bloß eine Versionsnummer.
+    for (const feld of ['Deploy', 'Puls', 'Arbeitsjournal', 'Selbstcheck', 'Wissensbasis']) {
+      expect(bericht, `der Bericht sagt nichts über ${feld}`).toContain(feld);
+    }
+
+    // Die tragende Regel: eine NICHT geladene Quelle wird als „nicht geladen"
+    // gemeldet, nicht als Null. „0 Schichten gearbeitet" heißt „der Betrieb
+    // lief und tat nichts"; „nicht geladen" heißt „ich weiß es nicht". Wer
+    // beides zusammenfallen lässt, handelt nach einer Lage, die es nicht gibt.
+    const ohne = await page.evaluate(() => {
+      const journalVorher = nnJournal, auditVorher = state.audit, laeufeVorher = state.runs;
+      nnJournal = null; state.audit = null; state.runs = [];
+      const t = window.ebCircleAPI.statusAntwort('lagebericht');
+      nnJournal = journalVorher; state.audit = auditVorher; state.runs = laeufeVorher;
+      return t;
+    });
+    expect(ohne, 'ein fehlendes Journal wird nicht als solches gemeldet')
+      .toMatch(/Arbeitsjournal: nicht geladen/);
+    expect(ohne, 'ein fehlender Selbstcheck wird nicht als solcher gemeldet')
+      .toMatch(/Selbstcheck: nicht geladen/);
+    expect(ohne, 'fehlende Läufe werden nicht als solche gemeldet')
+      .toMatch(/Workflow-Läufe: nicht geladen/);
+    // Und genau NICHT als Zahl: keine Null-Aussage über etwas Unbekanntes.
+    expect(ohne, 'fehlende Daten erscheinen als Null-Aussage')
+      .not.toMatch(/0 Einträge|0 Befunde|Journal: 0|keine? (Schicht|Befund) /i);
+
+    // Umgekehrt: ein GELADENES, aber leeres Journal darf das sagen — leer ist
+    // eine Aussage über den Betrieb, fehlend ist keine.
+    const leer = await page.evaluate(() => {
+      const v = nnJournal;
+      nnJournal = { version: 1, eintraege: [] };
+      const t = window.ebCircleAPI.statusAntwort('lagebericht');
+      nnJournal = v;
+      return t;
+    });
+    expect(leer, 'ein leeres Journal wird mit einem fehlenden verwechselt')
+      .toMatch(/geladen, aber leer/);
+  });
+
+  test('eine Lage-Frage wird als Lagebericht beantwortet, nicht als Wissensabschnitt', async ({ page }) => {
+    // Nicht hqStatus() allein prüfen, sondern was der Kreis wirklich sagt:
+    // in ask() setzte ein Wissenstreffer die lokale Antwort bedingungslos neu,
+    // die Lage kam also nie beim Fragenden an. Ohne diesen Test wäre die
+    // Rückkehr zu `if (hit)` unbemerkt geblieben.
+    await page.evaluate(() => window.ebCircleAPI.oeffnen());
+    await page.fill('#ebc-input', 'wie steht es?');
+    await page.press('#ebc-input', 'Enter');
+    // Textmodus mit lokaler Antwort bleibt tokenfrei — kein Netz im Spiel.
+    await expect(page.locator('#ebc-log')).toContainText('Lagebericht', { timeout: 8000 });
+    await expect(page.locator('#ebc-log')).toContainText('Arbeitsjournal');
+  });
+
+  test('eine Produktfrage bekommt Wissen, keinen Lagebericht', async ({ page }) => {
+    // Das alte Muster fing „seite", „hq", „system", „live" — damit hätte
+    // jede Produktfrage einen Betriebsbericht ausgelöst.
+    for (const frage of ['Wie läuft eine Buchung ab?', 'Was kostet die Plattform?', 'Wie bezahle ich?']) {
+      const s = await page.evaluate((f) => window.ebCircleAPI.statusAntwort(f), frage);
+      expect(s, `„${frage}" löst einen Lagebericht aus`).toBeNull();
+    }
+    // Und die Lage-Fragen greifen weiterhin.
+    for (const frage of ['wie steht es?', 'Lagebericht', 'status', 'letzter Deploy?']) {
+      const s = await page.evaluate((f) => window.ebCircleAPI.statusAntwort(f), frage);
+      expect(s, `„${frage}" löst keinen Lagebericht aus`).toBeTruthy();
+    }
+  });
+
   test('der geöffnete Bereich nennt je Mitarbeiter Ziel und Datei — ungekürzt', async ({ page }) => {
     // Im SVG ist das Ziel auf 52 Zeichen und die Dateiliste auf 44 gekappt.
     // Ein halbes Ziel beantwortet „woran arbeitet der gerade" nicht, deshalb

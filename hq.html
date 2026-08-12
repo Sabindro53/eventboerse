@@ -1652,6 +1652,9 @@ async function loadSelfAudit() {
     return;
   }
   const c = data.counts || {};
+  // Auch fuer den Lagebericht der Mitte behalten: bisher wurde der Selbstcheck
+  // gerendert und weggeworfen, der Kreis konnte ihn deshalb nicht benennen.
+  state.audit = data;
   ebImpuls('betrieb', (c.error || 0) ? 'schlecht' : 'gut');
   $('audit-chip-err').textContent  = `❌ ${c.error || 0}`;
   $('audit-chip-warn').textContent = `⚠️ ${c.warn  || 0}`;
@@ -3270,14 +3273,103 @@ window.addEventListener('DOMContentLoaded', init);
   }
 
   /* HQ-Livezustand: der Circle kennt den Betrieb, nicht nur das Handbuch. */
+  /**
+   * Der Lagebericht — was der Betrieb JETZT tut, aus geladenen Quellen.
+   *
+   * Die tragende Regel: **eine nicht geladene Quelle wird als „nicht geladen"
+   * gemeldet, nie als Null.** „0 Schichten gearbeitet" heisst „der Betrieb
+   * lief und tat nichts". „Journal nicht geladen" heisst „ich weiss es
+   * nicht". Das sind zwei verschiedene Lagen, und man handelt unterschiedlich
+   * danach — sie zusammenfallen zu lassen ist genau die Art Fehler, die den
+   * Selbstcheck zwei Wochen lang über einen alten Code-Stand berichten liess.
+   */
+  function hqLagebericht() {
+    var z = [];
+    var rel = function (iso) {
+      if (!iso) return 'ohne Zeit';
+      var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+      if (!isFinite(min)) return 'ohne Zeit';
+      if (min < 2) return 'gerade eben';
+      if (min < 60) return 'vor ' + min + ' Min.';
+      if (min < 1440) return 'vor ' + Math.round(min / 60) + ' Std.';
+      return 'vor ' + Math.round(min / 1440) + ' Tagen';
+    };
+    var laeufe = state.runs || [];
+    var vonPfad = function (re) { return laeufe.filter(function (r) { return re.test(r.path || ''); }); };
+
+    if (!laeufe.length) {
+      z.push('Workflow-Läufe: nicht geladen — ohne sie kann ich zu Deploy und Puls nichts sagen.');
+    } else {
+      var dep = vonPfad(/ionos-deploy\.yml$/)[0];
+      z.push(dep
+        ? 'Letzter Deploy: ' + (dep.conclusion || 'läuft noch') + ' · ' + String(dep.head_sha || '').slice(0, 7) + ' · ' + rel(dep.created_at)
+        : 'Deploy: in den geladenen Läufen keiner.');
+      var puls = vonPfad(/hq-operations\.yml$/)[0];
+      z.push(puls
+        ? 'Letzter Ensemble-Puls: ' + (puls.conclusion || 'läuft noch') + ' · ' + rel(puls.created_at) + ' (Takt: alle 30 Min.)'
+        : 'Ensemble-Puls: in den geladenen Läufen keiner.');
+      var kaputt = laeufe.filter(function (r) { return r.conclusion === 'failure'; });
+      z.push(kaputt.length
+        ? 'Fehlgeschlagene Läufe unter den geladenen: ' + kaputt.length + ' — zuletzt ' + (kaputt[0].name || kaputt[0].path) + ' ' + rel(kaputt[0].created_at)
+        : 'Kein fehlgeschlagener Lauf unter den geladenen.');
+    }
+
+    if (!nnJournal) {
+      z.push('Arbeitsjournal: nicht geladen — ich kann nicht sagen, wer gearbeitet hat.');
+    } else {
+      var e = nnJournal.eintraege || [];
+      if (!e.length) {
+        z.push('Arbeitsjournal: geladen, aber leer — es hat noch keine Schicht gearbeitet.');
+      } else {
+        var nach = {};
+        e.forEach(function (x) { nach[x.ergebnis] = (nach[x.ergebnis] || 0) + 1; });
+        z.push('Arbeitsjournal: ' + e.length + ' Einträge (' + Object.keys(nach).map(function (k) { return nach[k] + '× ' + k; }).join(', ') + ').');
+        var letzte = e.filter(function (x) { return x.ergebnis === 'fertig'; })[0];
+        if (letzte) {
+          z.push('Zuletzt echt geliefert: ' + (letzte.person || letzte.rolle) + ' (' + (letzte.rollenname || '–') + ') ' + rel(letzte.zeit)
+            + ' — ' + String(letzte.text || '').replace(/\s+/g, ' ').slice(0, 200));
+        } else {
+          z.push('Keine einzige fertige Schicht im Journal — alle Einträge sind Ausfälle oder Kostenstopps.');
+        }
+        var kosten = e.reduce(function (a, x) { return a + (typeof x.kostenUsd === 'number' ? x.kostenUsd : 0); }, 0);
+        var tok = e.reduce(function (a, x) { return a + (x.tokens || 0); }, 0);
+        if (tok) z.push('Verbrauch im Journal: ' + tok + ' Token, $' + kosten.toFixed(5) + '.');
+      }
+    }
+
+    if (!state.audit) {
+      z.push('Selbstcheck: nicht geladen.');
+    } else {
+      var c = state.audit.counts || {};
+      z.push('Selbstcheck vom ' + (String(state.audit.erzeugt || state.audit.generated || '').slice(0, 10) || 'ohne Datum')
+        + ': ' + ((state.audit.findings || []).length) + ' Befunde (' + (c.error || 0) + ' Fehler, ' + (c.warn || 0) + ' Warnungen).');
+    }
+
+    if (state.pulls && state.pulls.length) {
+      z.push('Offene Pull Requests: ' + state.pulls.length + ' — ältester „' + String(state.pulls[state.pulls.length - 1].title || '').slice(0, 70) + '".');
+    } else if (laeufe.length) {
+      z.push('Keine offenen Pull Requests in den geladenen Daten.');
+    }
+
+    z.push(nnWissen
+      ? 'Wissensbasis: ' + nnWissen + ' freigegebene Abschnitte.'
+      : 'Wissensbasis: nicht geladen.');
+    if (state.siteUp !== null && state.siteUp !== undefined) {
+      z.push('Seite erreichbar: ' + (state.siteUp ? 'ja' : 'NEIN'));
+    }
+    return z.join('\n');
+  }
+
   function hqStatus(q) {
     var t = String(q || '').toLowerCase();
-    if (!/(status|deploy|live|version|sha|build|läuft|laeuft|seite|hq|system)/.test(t)) return null;
-    var sha = (document.getElementById('header-sha') || {}).textContent || 'unbekannt';
-    var bits = ['Aktueller HQ-Stand: ' + sha.trim()];
-    var lvl = document.getElementById('lvl-chip');
-    if (lvl && lvl.textContent.trim()) bits.push('Commander-Level: ' + lvl.textContent.trim());
-    return bits.join('. ') + '.';
+    // „wie laeuft" allein reicht nicht: „Wie laeuft eine Buchung ab?" ist eine
+    // Produktfrage. Eine Lage-Frage nennt ihren Gegenstand — den Betrieb.
+    if (!/lagebericht|betriebszustand|(ü|ue)berblick|\bstatus\b|\bdeploys?\b|wie steht (es|der betrieb|alles|die lage)|l(ä|ae)uft (alles|es)\b|aktueller stand|welcher stand|letzter (deploy|puls|lauf)/.test(t)) return null;
+    // Vorher standen hier zwei Zeilen: HQ-SHA und Commander-Level. Auf „wie
+    // steht es?" war das keine Antwort, sondern eine Ausweichbewegung.
+    var sha = ((document.getElementById('header-sha') || {}).textContent || '').trim();
+    var kopf = 'Lagebericht' + (sha ? ' (HQ-Stand ' + sha + ')' : '') + ':';
+    return kopf + '\n' + hqLagebericht();
   }
 
   function hqDialogContext() {
@@ -3374,7 +3466,10 @@ window.addEventListener('DOMContentLoaded', init);
     var treffer = topTreffer(q, 4);
     var hit = treffer[0] || search(q);
     var localAnswer = g || status || null;
-    if (hit) {
+    // Eine Status-Frage gewinnt gegen einen Wissenstreffer: auf „wie steht es?"
+    // ist ein Abschnitt ueber Buchungsablaeufe keine Antwort. Umgekehrt bleibt
+    // eine Produktfrage beim Wissen, weil hqStatus dann gar nicht anspringt.
+    if (hit && !status && !g) {
       var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
       localAnswer = (hit.heading ? hit.heading + '. ' : '') + txt;
     }
@@ -3487,7 +3582,11 @@ window.addEventListener('DOMContentLoaded', init);
     },
     sprechen: toggleMic,
     istOffen: function () { return panel.classList.contains('open'); },
-    kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+    kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); },
+    /* Der Lagebericht auch ausserhalb des Gespraechs — er ist eine Aussage
+       ueber den Betrieb, nicht bloss eine Chat-Antwort. */
+    lage: function () { return hqLagebericht(); },
+    statusAntwort: function (frage) { return hqStatus(frage); }
   };
   document.getElementById('ebc-close').addEventListener('click', close);
   micBtn.addEventListener('click', toggleMic);
