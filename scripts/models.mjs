@@ -31,7 +31,7 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GEHEIMNISSE, ersterTreffer, darfNichtRaus } from './lib/verbotsmuster.mjs';
+import { GEHEIMNISSE, ersterTreffer, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets', 'eb-models.json');
@@ -320,8 +320,13 @@ const ARBEITSPLAENE = {
       dateien: ['js/modules/board/40-board-kanban.js'] },
   ] },
   'mistral-ops': { anteil: 8, maxTokens: 180, aufgaben: [
+    // Bewusst NICHT ionos-deploy.yml: die Datei nennt das SFTP-Deployziel und
+    // faellt damit unter GEHEIMNISSE („Infrastruktur-Zugang"). Der Filter hat
+    // recht — ein Deploy-Ziel gehoert nicht in einen Prompt an einen fremden
+    // Anbieter. Fuer ein Lagebild braucht die Rolle den Selbstcheck und den
+    // Erreichbarkeits-Waechter, nicht den Zugangsweg.
     { ziel: 'Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten.',
-      dateien: ['.github/workflows/ionos-deploy.yml', 'audit/latest.json'] },
+      dateien: ['audit/latest.json', '.github/workflows/site-monitor.yml'] },
     { ziel: 'Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen.',
       dateien: ['audit/latest.json'] },
     { ziel: 'Releaseweg auf den nächsten vermeidbaren Engpass prüfen.',
@@ -376,8 +381,12 @@ const ARBEITSPLAENE = {
       dateien: ['tests/e2e/ki-abwehr.spec.js'] },
   ] },
   'nemotron-governance': { anteil: 7, maxTokens: 220, aufgaben: [
+    // Nicht Sicherheits-Klassifikation.md: die Notiz erklaert Verbotsmuster und
+    // enthaelt dafuer Beispiele der Form „secret: …" — sie faellt an der
+    // eigenen Regel durch, die sie beschreibt. Das Compliance-Bild steht
+    // ohnehin praeziser in 40-Governance.
     { ziel: 'Freigaben, Einwilligungen und Nachweise auf eine konkrete Governance-Lücke prüfen.',
-      dateien: ['vault/00-Kern/Sicherheits-Klassifikation.md'] },
+      dateien: ['vault/40-Governance/Legal/Compliance-Overview.md'] },
     { ziel: 'Eine unklare Verantwortung oder nicht belegte Regel zur menschlichen Prüfung markieren.',
       dateien: ['vault/00-Kern/Layer-Modell.md'] },
     { ziel: 'Autonomiegrenzen auf Reversibilität und nachvollziehbare Zuständigkeit prüfen.',
@@ -483,14 +492,27 @@ function pruefen() {
             melde(`Aufgabe nennt eine Datei, die es nicht gibt: ${d}`);
             continue;
           }
-          // Diese Dateien gehen an einen fremden Anbieter. Der Musterscan im
-          // Agenten sucht Zugangsdaten — der Security-Vault enthält aber
-          // Beschreibungen statt Werte und käme anstandslos durch. Deshalb
-          // hier am Pfad und an der Einstufung entscheiden, nicht am Inhalt.
+          // Diese Dateien gehen an einen fremden Anbieter. Zwei Prüfungen, weil
+          // sie Verschiedenes fangen:
+          //
+          // 1. Pfad und Einstufung — der Security-Vault enthält Beschreibungen
+          //    statt Werte und käme an einem reinen Musterscan vorbei.
+          // 2. Der Inhalt gegen GEHEIMNISSE — GENAU das, was `agent.mjs` zur
+          //    Laufzeit tut, auf demselben Ausschnitt.
+          //
+          // Punkt 2 fehlte. Damit konnte eine Aufgabe das Tor passieren und in
+          // der Schicht am Filter sterben: die Rolle „Reliability-Wächter" las
+          // ionos-deploy.yml, darin steht das SFTP-Deployziel, und der Lauf brach
+          // ab — fünf Tage lang, ohne dass es jemand sah. Ein Tor, das lockerer
+          // prüft als die Laufzeit, verschiebt den Fehler nur nach hinten.
           let inhalt = '';
           try { inhalt = readFileSync(join(ROOT, d), 'utf8'); } catch { /* Binärdatei o. Ä. */ }
           const gesperrt = darfNichtRaus(d, inhalt);
           if (gesperrt) melde(`Aufgabe würde Vertrauliches nach außen geben — ${gesperrt.why}`);
+          const geheim = ersterTreffer(inhalt.slice(0, AUFGABEN_AUSSCHNITT), GEHEIMNISSE);
+          if (geheim) {
+            melde(`Aufgabe nennt ${d} — der Inhalt enthält ${geheim.why}, die Schicht würde abbrechen`);
+          }
         }
       }
     }

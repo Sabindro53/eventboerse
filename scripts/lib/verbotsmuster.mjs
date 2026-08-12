@@ -17,6 +17,16 @@
  * Regeln dazu: vault/00-Kern/Sicherheits-Klassifikation.md
  */
 
+/**
+ * Wie viel einer Aufgaben-Datei tatsächlich an den Anbieter geht.
+ *
+ * Steht hier, weil zwei Stellen dieselbe Zahl brauchen: `agent.mjs` schneidet
+ * beim Bauen des Kontexts zu, `models.mjs --check` muss beim Prüfen denselben
+ * Ausschnitt ansehen. Liefen die auseinander, ginge eine Aufgabe durchs Tor
+ * und stürbe nachts in der Schicht — genau das ist am 07.08. passiert.
+ */
+export const AUFGABEN_AUSSCHNITT = 3000;
+
 /** Gilt überall im Vault — auch für `internal` und `secret`. */
 export const GEHEIMNISSE = [
   { re: /\bsk_(live|test)_[A-Za-z0-9]/i,        why: 'Stripe-Secret-Key-Muster' },

@@ -24,7 +24,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer, darfNichtRaus } from './lib/verbotsmuster.mjs';
+import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Tests brauchen ein eigenes Journal — sonst prüften sie gegen die echte
@@ -263,7 +263,7 @@ async function arbeiten() {
       console.error(`⛔ Abbruch: ${gesperrt.why}.`);
       process.exit(1);
     }
-    gelesen.push(`--- ${d} ---\n${inhalt.slice(0, 3000)}`);
+    gelesen.push(`--- ${d} ---\n${inhalt.slice(0, AUFGABEN_AUSSCHNITT)}`);
   }
   if (gelesen.length) {
     kontext = `${kontext}\n\nDATEIEN ZUR AUFGABE\n${gelesen.join('\n\n')}`;

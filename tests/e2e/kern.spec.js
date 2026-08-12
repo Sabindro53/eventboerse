@@ -873,3 +873,106 @@ test.describe('Frontier-Modelle nur dort, wo Urteil zählt', () => {
     expect(arch, 'kein offener Rückfall für den Architekten').toMatch(/fallbacks: \['meta-llama\/llama-3\.3-70b-instruct'/);
   });
 });
+
+// ── Die Schicht darf nicht still stehenbleiben ────────────────────────────
+//
+// Am 07.08. brach die Tagesroutine ab, am 10.08. der Ensemble-Puls. Elf Läufe
+// in Folge, fünf Tage lang, und niemand hat es bemerkt. Der Grund war nicht
+// ein Fehler, sondern vier Eigenschaften, die zusammen dafür sorgten, dass
+// ein Ausfall wie Ruhe aussieht. Diese vier hält der Block hier fest.
+test.describe('Der Ausfall muss sichtbar sein', () => {
+  const HQ_OPS = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'hq-operations.yml'), 'utf8');
+  const TAGES  = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'tagesroutine.yml'), 'utf8');
+  const MODELS = fs.readFileSync(path.join(ROOT, 'scripts', 'models.mjs'), 'utf8');
+  const AGENT  = fs.readFileSync(path.join(ROOT, 'scripts', 'agent.mjs'), 'utf8');
+
+  test('keine Aufgabe nennt eine Datei, die die Schicht abbrechen lässt', () => {
+    // Der eigentliche Auslöser. `mistral-ops` sollte den Releaseweg beurteilen
+    // und bekam dafür ionos-deploy.yml — darin steht das SFTP-Deployziel, und
+    // das Verbotsmuster „Infrastruktur-Zugang" greift zu Recht. Falsch war
+    // nicht die Regel, sondern die Zuweisung.
+    //
+    // Geprüft wird über das echte Tor: models.mjs --check liest jede
+    // Aufgaben-Datei und wendet dieselbe Prüfung an, die zur Laufzeit greift.
+    const out = execFileSync('node', ['scripts/models.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
+    expect(out, 'das Tor meldet eine blockierende Aufgaben-Datei').not.toMatch(/⛔/);
+    expect(MODELS, 'das Tor prüft den Inhalt nicht gegen GEHEIMNISSE')
+      .toMatch(/ersterTreffer\(inhalt\.slice\(0, AUFGABEN_AUSSCHNITT\), GEHEIMNISSE\)/);
+  });
+
+  test('Tor und Laufzeit sehen denselben Ausschnitt', () => {
+    // Zwei Zahlen, die auseinanderlaufen können, sind zwei Zahlen zu viel:
+    // prüfte das Tor 2000 Zeichen und die Laufzeit 3000, käme eine Aufgabe
+    // durch und stürbe nachts. Deshalb eine Konstante, von beiden benutzt.
+    expect(MODELS).toMatch(/AUFGABEN_AUSSCHNITT/);
+    expect(AGENT, 'agent.mjs schneidet mit einer eigenen Zahl zu')
+      .toMatch(/inhalt\.slice\(0, AUFGABEN_AUSSCHNITT\)/);
+    expect(AGENT, 'die Zahl steht wieder hart im Code').not.toMatch(/slice\(0, 3000\)/);
+  });
+
+  test('ein Rollen-Abbruch beendet nicht den ganzen Lauf', () => {
+    // GitHub führt Schritte mit `bash -e` aus: der erste Exit-Code 1 in der
+    // Schleife beendete den Schritt. mistral-ops steht an dritter Stelle von
+    // elf — acht Rollen kamen dadurch nie an die Reihe.
+    const schleife = HQ_OPS.slice(
+      HQ_OPS.indexOf('for rolle in'), HQ_OPS.indexOf('ROLLEN_OK='));
+    expect(schleife, 'der Aufruf hängt nicht an einer Bedingung').toMatch(/if node scripts\/agent\.mjs/);
+    expect(schleife, 'ein Fehlschlag wird nicht aufgefangen').toMatch(/else/);
+    expect(HQ_OPS, 'nur ein Totalausfall darf den Lauf rot machen')
+      .toMatch(/if \[ "\$gearbeitet" -eq 0 \]/);
+  });
+
+  test('das Journal überlebt den Fehlschlag, den es festhalten soll', () => {
+    // agent.mjs schreibt den Abbruch korrekt hinein — aber ohne `if: always()`
+    // liefen die Schritte danach nie, und der Eintrag verschwand mit dem
+    // Runner. Das HQ zeigte deshalb Leere statt elf Abbrüchen: genau das,
+    // wovor CLAUDE.md warnt („ein Journal, das nur Erfolge führt …").
+    const ab = HQ_OPS.indexOf('- name: Journal validieren');
+    expect(ab, 'Journal-Schritt nicht gefunden').toBeGreaterThan(0);
+    const rest = HQ_OPS.slice(ab);
+    for (const schritt of ['Journal validieren', 'SFTP-Werkzeug einrichten', 'Echte Laufzeitspur veroeffentlichen']) {
+      const i = rest.indexOf(`- name: ${schritt}`);
+      expect(i, `Schritt fehlt: ${schritt}`).toBeGreaterThanOrEqual(0);
+      expect(rest.slice(i, i + 220), `${schritt} läuft nach einem Fehlschlag nicht`)
+        .toMatch(/if: always\(\)/);
+    }
+  });
+
+  test('beide Routinen melden ihren eigenen Ausfall', () => {
+    // Der Site-Monitor legt bei nicht erreichbarer Seite ein Issue an —
+    // deshalb wüsstest du sofort, wenn die Seite weg wäre. Für die Belegschaft
+    // gab es nichts Vergleichbares. Eine Automatik, deren Ausfall niemand
+    // bemerkt, ist keine Automatik, sondern eine Annahme.
+    for (const [name, quelle] of [['hq-operations', HQ_OPS], ['tagesroutine', TAGES]]) {
+      expect(quelle, `${name}: keine Meldung bei Fehlschlag`).toMatch(/if: failure\(\)/);
+      expect(quelle, `${name}: darf keine Issues anlegen`).toMatch(/issues: write/);
+      expect(quelle, `${name}: legt kein Issue an`).toMatch(/issues\.create\(/);
+      // Und es muss sich wieder schließen — ein Alarm, der stehen bleibt,
+      // wird nach dem zweiten Mal ignoriert.
+      expect(quelle, `${name}: schließt das Issue nie wieder`).toMatch(/state: 'closed'/);
+    }
+  });
+
+  test('eine abgebrochene Schicht nimmt die Tagesarbeit nicht mit', () => {
+    // Demo-Feed und Selbstcheck liefen jede Nacht sauber durch — sie wurden
+    // nur nie committet, weil der Agent-Aufruf davor den Lauf beendete. Die
+    // Dateien sahen dadurch sieben bis zehn Tage lang aktuell aus.
+    // Geprüft wird jeder Schicht-Aufruf einzeln, ohne sich auf Abschnitts-
+    // überschriften zu verlassen — die ändern sich, die Eigenschaft nicht.
+    // `--check` ist ausgenommen: das ist die Journal-Prüfung, kein Modellaufruf,
+    // und die SOLL den Lauf rot machen, wenn das Journal kaputt ist.
+    const zeilen = TAGES.split('\n');
+    const schichten = zeilen
+      .map((z, i) => ({ z, i }))
+      .filter(({ z }) => /node scripts\/agent\.mjs/.test(z) && !/--check/.test(z));
+    expect(schichten.length, 'keine Schicht-Aufrufe gefunden').toBeGreaterThan(1);
+
+    for (const { z, i } of schichten) {
+      // Entweder steht das Auffangen auf derselben Zeile, oder der Aufruf
+      // wird per Backslash fortgesetzt und fängt in der nächsten Zeile auf.
+      const zusammen = /\\\s*$/.test(z) ? `${z}\n${zeilen[i + 1] ?? ''}` : z;
+      expect(zusammen, `Schicht bricht den Lauf ab: ${z.trim().slice(0, 55)}`)
+        .toMatch(/\|\|/);
+    }
+  });
+});
