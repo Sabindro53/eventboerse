@@ -543,9 +543,22 @@ test.describe('Neuronaler Kern', () => {
     expect(HQ_CSS).toMatch(/\.neural\.denkt .nn-orb-ring\s*\{\s*animation/);
     expect(HQ_CSS).toMatch(/\.neural\.spricht #nn-orb/);
 
-    // Der Test hat API und Journal absichtlich ohne frischen Beleg geladen.
-    // Dann existieren die Transportpfade, laufen aber nicht und kein Knoten
-    // behauptet, dass gerade ein Modell arbeitet.
+    // Das Journal wird hier bewusst LEER untergeschoben, statt sich auf die
+    // committete Datei zu verlassen.
+    //
+    // Vorher tat der Test genau das — und war grün, solange die Belegschaft
+    // stillstand. Mit dem ersten echten Lauf (12.08.) wurde das Journal frisch
+    // und der Test rot, ohne dass sich an der geprüften Regel etwas geändert
+    // hätte. Ein Test, der von der Datenlage im Repo abhängt, misst den
+    // Zufall mit.
+    await page.route('**/eb-arbeit.json*', (r) => r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ version: 1, hinweis: 'Testvorgabe', eintraege: [] }),
+    }));
+    await page.reload();
+    await expect(page.locator('[data-bereich]')).toHaveCount(10, { timeout: 12000 });
+
     const stand = await page.evaluate(() => ({
       arbeitend: document.querySelectorAll('.nn-node.arbeitet').length,
       pfade: document.querySelectorAll('.nn-transport').length,
@@ -555,6 +568,40 @@ test.describe('Neuronaler Kern', () => {
     expect(stand.gesund).toBe(false);
     const arbeitend = stand.arbeitend;
     expect(arbeitend, 'ohne echten Lauf darf nichts „arbeitet gerade" zeigen').toBe(0);
+  });
+
+  test('mit frischem Betriebsbeleg läuft der Strom wirklich', async ({ page }) => {
+    // Die Gegenprobe zum Test darüber, und erst seit dem 12.08. überhaupt
+    // sinnvoll: vorher gab es nie einen frischen Beleg, mit dem sich die
+    // andere Hälfte der Regel prüfen ließe. Ein Impuls entspricht einem
+    // echten Ereignis — also muss ein echtes Ereignis auch ankommen, sonst
+    // wäre die Anzeige nur vorsichtig statt ehrlich.
+    await page.route('**/eb-arbeit.json*', (r) => r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        version: 1,
+        hinweis: 'Testvorgabe',
+        eintraege: [{
+          zeit: new Date().toISOString(),
+          rolle: 'mistral-ops', person: 'Nils Falk', rollenname: 'Reliability-Wächter',
+          modell: 'Mistral Small 3.2 24B', bereich: 'betrieb', anlass: 'Test',
+          aufgabe: 'Lagebild verdichten.', dateien: ['audit/latest.json'],
+          ergebnis: 'fertig', text: 'Betriebszustand unauffällig.',
+          tokens: 2073, kostenUsd: 0.00017,
+        }],
+        aktualisiert: new Date().toISOString(),
+      }),
+    }));
+    await page.reload();
+    await expect(page.locator('[data-bereich]')).toHaveCount(10, { timeout: 12000 });
+
+    const stand = await page.evaluate(() => ({
+      gesund: document.getElementById('neural').classList.contains('strom-gesund'),
+      pfade: document.querySelectorAll('.nn-transport').length,
+    }));
+    expect(stand.pfade, 'die Transportpfade fehlen').toBeGreaterThan(0);
+    expect(stand.gesund, 'ein frischer Lauf muss den Strom als gesund zeigen').toBe(true);
   });
 
   test('Arbeitsstand kommt aus echten Workflow-Läufen', async ({ page }) => {

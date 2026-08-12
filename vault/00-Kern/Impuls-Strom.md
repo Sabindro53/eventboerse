@@ -63,9 +63,9 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **25** |
-| Commits (30 Tage) | 106 |
-| Letzter Commit | `6a39166 · Routine-Token verdrahtet, sein Fehlen bleibt sichtbar` (2026-08-12) |
+| Commits (7 Tage) | **26** |
+| Commits (30 Tage) | 107 |
+| Letzter Commit | `79cee61 · GitHub App statt Token — fuer Routine UND Autopilot` (2026-08-12) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
