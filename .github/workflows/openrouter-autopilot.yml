@@ -45,7 +45,7 @@ jobs:
     env:
       EB_OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
       EB_OPENROUTER_RUN_BUDGET_USD: '0.12'
-      EB_OPENROUTER_DAILY_BUDGET_USD: '0.60'
+      EB_OPENROUTER_DAILY_BUDGET_USD: '1.50'
       EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
       FOCUS: ${{ github.event.inputs.focus || 'auto' }}
       SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
