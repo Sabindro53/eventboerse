@@ -288,6 +288,27 @@ Zusammenfassung, dass der PR so nicht mergen kann und was zu tun ist. Ein
 stiller Rückfall wäre derselbe Fehler wie die verschluckte Push-Ablehnung,
 nur eine Ebene höher.
 
+### Ein Zweig pro Lauf, nicht pro Tag
+
+Der Lieferzweig heißt `routine/tagesstand-<Datum>-<Lauf-ID>-<Versuch>`, nicht
+nur `…-<Datum>`. Der Name pro Tag sah aufgeräumter aus und war der nächste
+stille Ausfall:
+
+- Ein Squash-Merge **löscht den Kopf-Zweig nicht**. Der Zweig des 11:23-Laufs
+  lag am 12.08. noch am Remote.
+- Der 12:26-Lauf traf auf denselben Namen. `git push --force-with-lease`
+  verlangt einen bekannten Remote-Stand, gegen den es die Zusicherung prüft —
+  der flache Actions-Checkout kennt zu diesem Zweig keinen. Git lehnt mit
+  `stale info` ab.
+- Das ist **dauerhaft, nicht vorübergehend**: die vier Wiederholungen haben
+  nur 32 Sekunden verbrannt und den Lauf dann rot beendet. Feed und Selbstcheck
+  waren erzeugt, aber nicht gespeichert.
+
+Ein laufeigener Zweig kann nicht kollidieren, deshalb genügt ein Push ohne
+Zwang. Auto-Merge räumt mit `--delete-branch` hinter sich auf; Zweige
+gescheiterter Läufe bleiben absichtlich stehen — mit dem zugehörigen
+Alarm-Issue sind sie ein Befund, kein Müll.
+
 ## Wo Geheimnisse liegen
 
 | Ablage | Was | Erreichbar für |
