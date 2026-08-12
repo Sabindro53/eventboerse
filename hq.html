@@ -220,8 +220,17 @@
   .nn-ring { fill: none; stroke-width: 1.5; opacity: .55; transition: opacity .3s, stroke-width .3s; }
   .nn-node:hover .nn-ring, .nn-node.aktiv .nn-ring { opacity: 1; stroke-width: 2.5; }
   .nn-core { transition: r .25s ease, opacity .25s; }
-  .nn-label { font-size: 11px; font-weight: 600; fill: var(--text); text-anchor: middle; }
-  .nn-sub { font-size: 8.5px; fill: var(--muted); text-anchor: middle; }
+  .nn-label { font-size: 12px; font-weight: 600; fill: var(--text); text-anchor: middle; }
+  .nn-sub { font-size: 9px; fill: var(--muted); text-anchor: middle; }
+  /* Der Hof hinter einem Knoten gibt ihm Tiefe. Er ist Kontur, kein Zustand —
+     ob gearbeitet wird, sagt weiterhin allein .arbeitet. */
+  /* Wie viele Mitarbeiter im Bereich sitzen — am Knoten, nicht als
+     Textzeile darunter: die stiess in die Labels des Werkzeugrings. */
+  .nn-zahl-hg { opacity: .9; }
+  .nn-zahl { font-size: 9.5px; font-weight: 700; fill: #0b0b12; text-anchor: middle; }
+  .nn-hof { opacity: .07; transition: opacity .3s; pointer-events: none; }
+  .nn-node:hover .nn-hof { opacity: .16; }
+  .nn-node.arbeitet .nn-hof { opacity: .2; }
   /* Ziel der laufenden Aufgabe — die Überschrift unter dem Mitarbeiter.
      War bislang ohne Regel und rendelte deshalb schwarz und linksbündig. */
   .nn-task { font-size: 8px; fill: var(--muted); text-anchor: middle; opacity: .85; }
@@ -240,6 +249,70 @@
   @keyframes nnHoer { 0% { r: 40; opacity: .8; } 100% { r: 62; opacity: 0; } }
   .nn-welle { stroke: #fff; stroke-width: 2; fill: none; stroke-linecap: round; opacity: .0; transition: opacity .2s; }
   .neural.spricht .nn-welle { opacity: .85; }
+
+  /* ── Der geöffnete Bereich: wer, welches Ziel, welche Datei ──────────
+     Im SVG stand das bislang als abgeschnittener Text unter dem Knoten —
+     52 Zeichen fürs Ziel, 44 für die Dateien. Ein Ziel, das man nicht zu
+     Ende lesen kann, ist keine Überschrift, sondern ein Hinweis darauf,
+     dass es eine gibt. Deshalb hier als lesbares Panel neben dem Netz.   */
+  .nn-detail {
+    position: relative; z-index: 2;
+    border-top: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,.025), transparent 40%);
+    padding: 1rem 1.2rem 1.2rem;
+  }
+  /* Die Legende hängt absolut am Boden von .neural. Steht darunter das
+     Panel, läge sie über den Karten — deshalb wandert sie dann in den
+     Fluss zurück, statt sie einfach auszublenden: sie erklärt den Baum
+     genauso wie den Ring. */
+  .neural.hat-detail .neural-foot { position: static; padding: 0 0 .2rem; }
+  .nn-detail[hidden] { display: none; }
+  .nnd-kopf {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding-bottom: .8rem; margin-bottom: .9rem; border-bottom: 1px solid var(--border);
+  }
+  .nnd-kopf .e { font-size: 1.35rem; line-height: 1; }
+  .nnd-kopf b { font-size: 1rem; letter-spacing: -.01em; }
+  .nnd-kopf .nnd-zahl { font-size: .72rem; color: var(--muted); }
+  .nnd-kopf .nnd-zu {
+    margin-left: auto; font-size: .7rem; color: var(--muted); cursor: pointer;
+    border: 1px solid var(--border); background: transparent; border-radius: 999px;
+    padding: .25rem .7rem; transition: border-color .2s, color .2s;
+  }
+  .nnd-kopf .nnd-zu:hover { color: var(--text); border-color: var(--cyan); }
+  .nnd-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: .8rem; }
+  .nnd-karte {
+    position: relative; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: .85rem .95rem; overflow: hidden;
+    display: flex; flex-direction: column; gap: .5rem;
+  }
+  /* Farbkante = Bereichsfarbe, Deckkraft = arbeitet gerade oder nicht. */
+  .nnd-karte::before {
+    content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
+    background: var(--nnd-farbe, var(--cyan)); opacity: .5;
+  }
+  .nnd-karte.arbeitet::before { opacity: 1; }
+  .nnd-karte.arbeitet { border-color: color-mix(in srgb, var(--nnd-farbe, var(--cyan)) 45%, var(--border)); }
+  .nnd-wer { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .nnd-wer b { font-size: .84rem; }
+  .nnd-wer small { color: var(--muted); font-size: .68rem; }
+  /* Das Ziel ist die Überschrift der Karte — es steht groß und ungekürzt. */
+  .nnd-ziel { font-size: .82rem; font-weight: 600; line-height: 1.45; color: var(--text); margin: 0; }
+  .nnd-dateien { display: flex; flex-wrap: wrap; gap: .3rem; }
+  .nnd-datei {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .66rem;
+    padding: .16rem .45rem; border-radius: 6px; color: var(--cyan);
+    background: color-mix(in srgb, var(--cyan) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cyan) 28%, transparent);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .nnd-ergebnis {
+    font-size: .72rem; line-height: 1.55; color: var(--muted); margin: 0;
+    border-left: 2px solid var(--border); padding-left: .55rem;
+  }
+  .nnd-meta { display: flex; flex-wrap: wrap; gap: .5rem; font-size: .64rem; color: var(--muted); }
+  .nnd-meta span { display: inline-flex; align-items: center; gap: .25rem; }
+  .nnd-leer { font-size: .76rem; color: var(--muted); line-height: 1.55; }
 
   /* Bereichskarten */
   .bereiche { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .9rem; margin-bottom: 2rem; }
@@ -680,6 +753,9 @@
         <i style="color:#6b7280">Einzelimpuls = echtes Ergebnis</i>
       </div>
       <div class="neural-ops" id="neural-ops" aria-live="polite"></div>
+      <!-- Der geöffnete Bereich in lesbar: ein Mitarbeiter je Karte, mit
+           seinem Ziel als Überschrift und den Dateien, die er anfasst. -->
+      <div class="nn-detail" id="nn-detail" hidden aria-live="polite"></div>
     </div>
 
     <!-- Bereiche & Autonomie -->
@@ -2178,14 +2254,14 @@ function nnLaufAufgabe(lauf) {
  * der Wissensbasis (Abschnitte in eb-knowledge.json). Ein dichter Kern bei
  * leerem Vault wäre Dekoration.
  */
-function nnKernPunkte(cx, cy, r, anzahl) {
+function nnKernPunkte(cx, cy, r, anzahl, innen = 0) {
   const out = [];
   // Fester Startwert: derselbe Kern bei jedem Laden, kein Flimmern.
   let z = 20260804;
   const zuf = () => { z = (z * 1103515245 + 12345) & 0x7fffffff; return z / 0x7fffffff; };
   for (let i = 0; i < anzahl; i++) {
     const w = zuf() * Math.PI * 2;
-    const d = Math.sqrt(zuf()) * r;
+    const d = innen + Math.sqrt(zuf()) * (r - innen);
     out.push(`<circle cx="${(cx + Math.cos(w) * d).toFixed(1)}" cy="${(cy + Math.sin(w) * d * .92).toFixed(1)}" r="${(zuf() * 1.5 + .6).toFixed(1)}" fill="#f0abfc" opacity="${(zuf() * .5 + .25).toFixed(2)}"/>`);
   }
   return out.join('');
@@ -2206,13 +2282,18 @@ function nnZeichnen() {
         <stop offset="0%" stop-color="#f0abfc"/><stop offset="55%" stop-color="#a855f7"/>
         <stop offset="100%" stop-color="#e91e8c"/>
       </radialGradient>
+      <radialGradient id="nnHalo">
+        <stop offset="0%" stop-color="#e879f9" stop-opacity=".18"/>
+        <stop offset="60%" stop-color="#7c3aed" stop-opacity=".07"/>
+        <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+      </radialGradient>
       <radialGradient id="nnKern">
         <stop offset="0%" stop-color="#a855f7" stop-opacity=".35"/>
         <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
       </radialGradient>
     </defs>`;
 
-  if (nnEbene) { svg.innerHTML = defs + nnBaum(); nnKopfzeile(); renderNeuralOps(); return; }
+  if (nnEbene) { svg.innerHTML = defs + nnBaum(); nnKopfzeile(); renderNeuralOps(); renderNnDetail(); return; }
 
   // ── Übersicht: Bereiche und Werkzeuge. Mitarbeiter bleiben verborgen,
   //    bis ihr Bereich bewusst geöffnet wird. ─────────────────────────
@@ -2246,8 +2327,9 @@ function nnZeichnen() {
 
   // Wissenskern
   const abschnitte = nnWissen;
-  teile.push(`<circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="52" fill="url(#nnKern)"/>`);
-  teile.push(nnKernPunkte(NN_MITTE.x, NN_MITTE.y, 44, Math.min(abschnitte, 120)));
+  teile.push(`<circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="86" fill="url(#nnHalo)"/>`);
+  teile.push(`<circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="62" fill="url(#nnKern)"/>`);
+  teile.push(nnKernPunkte(NN_MITTE.x, NN_MITTE.y, 80, Math.min(abschnitte, 200), 38));
 
   // Werkzeuge
   werkzeuge.forEach(w => {
@@ -2261,7 +2343,7 @@ function nnZeichnen() {
          aria-label="Werkzeug ${escHtml(c ? c.dienst : w)}">
         <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="13" stroke="${farbe}"/>
         <text x="${p.x}" y="${p.y + 4}" style="font-size:11px;text-anchor:middle">${c ? c.logo : '🔌'}</text>
-        <text x="${p.x}" y="${p.y + 26}" class="nn-sub">${escHtml(c ? c.anbieter : w)}</text>
+        <text x="${p.x}" y="${p.y < NN_MITTE.y ? p.y + 26 : p.y - 19}" class="nn-sub">${escHtml(c ? c.anbieter : w)}</text>
       </g>`);
   });
 
@@ -2272,18 +2354,21 @@ function nnZeichnen() {
     teile.push(`
       <g class="nn-node nn-bereich ${arbeitet ? 'arbeitet' : ''}" id="node-${x.id}" data-bereich="${x.id}"
          role="button" tabindex="0" aria-label="${escHtml(x.label)} aufklappen">
-        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="22" stroke="${x.farbe}" style="opacity:.9"/>
-        <circle class="nn-core" cx="${p.x}" cy="${p.y}" r="15" fill="${x.farbe}" opacity=".22"/>
-        <text x="${p.x}" y="${p.y + 5}" style="font-size:14px;text-anchor:middle">${x.emoji}</text>
-        <text x="${p.x}" y="${p.y + 36}" class="nn-label">${escHtml(x.label)}</text>
+        <circle class="nn-hof" cx="${p.x}" cy="${p.y}" r="34" fill="${x.farbe}"/>
+        <circle class="nn-ring" cx="${p.x}" cy="${p.y}" r="25" stroke="${x.farbe}" style="opacity:.9"/>
+        <circle class="nn-core" cx="${p.x}" cy="${p.y}" r="18" fill="${x.farbe}" opacity=".26"/>
+        <text x="${p.x}" y="${p.y + 6}" style="font-size:17px;text-anchor:middle">${x.emoji}</text>
+        <circle class="nn-zahl-hg" cx="${p.x + 19}" cy="${p.y - 19}" r="9" fill="${x.farbe}"/>
+        <text x="${p.x + 19}" y="${p.y - 15.5}" class="nn-zahl">${M.filter(m => m.bereich === x.id).length}</text>
+        <text x="${p.x}" y="${p.y + 41}" class="nn-label">${escHtml(x.label)}</text>
       </g>`);
   });
 
   // Sprech-Kreis am Kern
   teile.push(`
     <g class="nn-orb-hit" id="nn-orb" role="button" tabindex="0" aria-label="Sprechen — KI-Kreis starten">
-      <circle class="nn-orb-ring" cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="30"/>
-      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="21" fill="url(#nnOrb)"/>
+      <circle class="nn-orb-ring" cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="36"/>
+      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="26" fill="url(#nnOrb)"/>
       <path class="nn-welle" id="nn-welle" d="M ${NN_MITTE.x - 11} ${NN_MITTE.y} q 3.5 -7 5.5 0 t 5.5 0 t 5.5 0"/>
       <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 5}" style="font-size:14px;text-anchor:middle;fill:#fff">🎙</text>
       <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 40}" class="nn-sub" id="nn-orb-text">sprechen</text>
@@ -2292,6 +2377,7 @@ function nnZeichnen() {
   svg.innerHTML = defs + teile.join('');
   nnKopfzeile();
   renderNeuralOps();
+  renderNnDetail();
 }
 
 /**
@@ -2365,6 +2451,78 @@ function nnBaum() {
       </g>`);
   });
   return teile.join('');
+}
+
+/**
+ * Der geöffnete Bereich als lesbares Panel.
+ *
+ * Warum zusätzlich zum SVG: dort ist das Ziel auf 52 Zeichen und die
+ * Dateiliste auf 44 abgeschnitten, weil ein Knotenlabel nun mal schmal ist.
+ * Ein halbes Ziel beantwortet die Frage „woran arbeitet der gerade" nicht.
+ *
+ * Jedes Feld hat eine Quelle. Ziel und Dateien kommen aus dem Aufgabenstrom
+ * des Katalogs, Zustand und Ergebnis aus dem Arbeitsjournal. Steht dort für
+ * eine Rolle nichts, sagt die Karte das — sie erfindet keinen Zwischenstand.
+ */
+function renderNnDetail() {
+  const el = $('nn-detail');
+  if (!el || !nnKatalog) return;
+  const wrap = $('neural');
+  if (!nnEbene) {
+    el.hidden = true; el.innerHTML = '';
+    if (wrap) wrap.classList.remove('hat-detail');
+    return;
+  }
+
+  const b = nnKatalog.bereiche.find(x => x.id === nnEbene);
+  if (!b) { el.hidden = true; el.innerHTML = ''; return; }
+  const rollen = nnKatalog.modelle.filter(m => m.bereich === b.id);
+  const autText = { voll: 'entscheidet selbst', vorletzt: 'letzter Schritt bei dir', vorbereit: 'bereitet nur vor' };
+
+  const karten = rollen.map(m => {
+    const st = nnSchichtStand(m);
+    const dateien = nnAufgabenDateien(m);
+    const roh = nnAufgabeRoh(m);
+    const ziel = (roh && typeof roh === 'object' && roh.ziel) || st.task || m.aufgabe || 'Kein Auftrag hinterlegt.';
+    const j = journalLetzter(m.id);
+    const arbeitet = st.stand === 'laeuft';
+    return `
+      <article class="nnd-karte ${arbeitet ? 'arbeitet' : ''}" style="--nnd-farbe:${b.farbe}">
+        <div class="nnd-wer">
+          <b>${escHtml(m.person)}</b><small>${escHtml(m.rolle)}</small>
+          <span class="stand stand-${st.stand}" style="margin-left:auto">${escHtml(st.text)}</span>
+        </div>
+        <h6 class="nnd-ziel">${escHtml(ziel)}</h6>
+        ${dateien.length
+          ? `<div class="nnd-dateien">${dateien.map(d => `<span class="nnd-datei" title="${escHtml(d)}">${escHtml(d)}</span>`).join('')}</div>`
+          : '<div class="nnd-meta"><span>keine Datei im Auftrag benannt</span></div>'}
+        ${j && j.text
+          ? `<p class="nnd-ergebnis">${escHtml(String(j.text).replace(/\s+/g, ' ').slice(0, 240))}</p>`
+          : '<p class="nnd-ergebnis">Noch kein Ergebnis im Journal — diese Rolle hat in der geladenen Spur nicht gearbeitet.</p>'}
+        <div class="nnd-meta">
+          <span>🧬 ${escHtml(m.name || m.modellId || '–')}</span>
+          ${j ? `<span>⏱ ${escHtml(nnRelativ(j.zeit))}</span>` : ''}
+          ${j && j.tokens ? `<span>◇ ${j.tokens} Token</span>` : ''}
+          ${j && typeof j.kostenUsd === 'number' ? `<span>$${j.kostenUsd.toFixed(5)}</span>` : ''}
+        </div>
+      </article>`;
+  }).join('');
+
+  el.hidden = false;
+  if (wrap) wrap.classList.add('hat-detail');
+  el.innerHTML = `
+    <div class="nnd-kopf">
+      <span class="e">${b.emoji}</span>
+      <b>${escHtml(b.label)}</b>
+      <span class="aut aut-${b.autonomie}">${autText[b.autonomie] || b.autonomie}</span>
+      <span class="nnd-zahl">${rollen.length} ${rollen.length === 1 ? 'Mitarbeiter' : 'Mitarbeiter'}</span>
+      <button type="button" class="nnd-zu" id="nnd-zu">← Übersicht</button>
+    </div>
+    ${rollen.length ? `<div class="nnd-liste">${karten}</div>`
+      : '<p class="nnd-leer">Für diesen Bereich ist noch keine Rolle besetzt.</p>'}`;
+
+  const zu = $('nnd-zu');
+  if (zu) zu.addEventListener('click', () => { nnOeffne(null); sfx('click'); });
 }
 
 function nnKopfzeile() {

@@ -522,9 +522,15 @@ test.describe('Neuronaler Kern', () => {
   });
 
   test('Impulse sind einmalig und verschwinden wieder', async ({ page }) => {
-    const vorher = await page.evaluate(() => document.querySelectorAll('.nn-impuls').length);
-    await page.evaluate(() => ebImpuls('betrieb', 'gut'));
-    const waehrend = await page.evaluate(() => document.querySelectorAll('.nn-impuls').length);
+    // Auslösen und Nachsehen im SELBEN Tick. Über zwei page.evaluate hinweg
+    // war das ein Wettlauf gegen die 900-ms-Animation: unter Last kam der
+    // zweite Aufruf erst an, als onfinish den Impuls schon entfernt hatte —
+    // der Test wurde dann rot, obwohl der Impuls korrekt gelaufen war.
+    const { vorher, waehrend } = await page.evaluate(() => {
+      const v = document.querySelectorAll('.nn-impuls').length;
+      ebImpuls('betrieb', 'gut');
+      return { vorher: v, waehrend: document.querySelectorAll('.nn-impuls').length };
+    });
     await page.waitForTimeout(1400);
     const nachher = await page.evaluate(() => document.querySelectorAll('.nn-impuls').length);
 
@@ -691,6 +697,54 @@ test.describe('Neuronaler Kern', () => {
     });
     expect(zu.bereiche).toBe(10);
     expect(zu.orb).toBe(true);
+  });
+
+  test('der geöffnete Bereich nennt je Mitarbeiter Ziel und Datei — ungekürzt', async ({ page }) => {
+    // Im SVG ist das Ziel auf 52 Zeichen und die Dateiliste auf 44 gekappt.
+    // Ein halbes Ziel beantwortet „woran arbeitet der gerade" nicht, deshalb
+    // muss das Panel den vollen Text tragen.
+    for (const bid of ['engineering', 'betrieb', 'experience']) {
+      const rollen = KATALOG.modelle.filter((m) => m.bereich === bid);
+      const gesehen = await page.evaluate((id) => {
+        nnOeffne(id);
+        const p = document.getElementById('nn-detail');
+        return {
+          sichtbar: !!p && !p.hidden,
+          karten: document.querySelectorAll('#nn-detail .nnd-karte').length,
+          ziele: [...document.querySelectorAll('#nn-detail .nnd-ziel')].map((n) => n.textContent.trim()),
+          dateien: [...document.querySelectorAll('#nn-detail .nnd-datei')].map((n) => n.textContent.trim()),
+        };
+      }, bid);
+
+      expect(gesehen.sichtbar, `${bid}: Panel bleibt zu`).toBe(true);
+      expect(gesehen.karten, `${bid}: eine Karte je Mitarbeiter`).toBe(rollen.length);
+
+      for (const m of rollen) {
+        const strom = m.aufgabenstrom || [];
+        if (!strom.length) continue;
+        // Irgendeine Aufgabe des Stroms ist die aktuelle — welche, entscheidet
+        // dieselbe Regel wie beim Agenten. Geprüft wird: das angezeigte Ziel
+        // ist eines davon und steht VOLLSTÄNDIG da, nicht angeschnitten.
+        const treffer = gesehen.ziele.find((z) => strom.some((a) => a.ziel === z));
+        expect(treffer, `${m.person}: kein vollständiges Ziel im Panel — gesehen: ${gesehen.ziele.join(' | ')}`)
+          .toBeTruthy();
+        const aufgabe = strom.find((a) => a.ziel === treffer);
+        for (const d of aufgabe.dateien || []) {
+          expect(gesehen.dateien, `${m.person}: Datei ${d} fehlt oder ist gekürzt`).toContain(d);
+        }
+      }
+    }
+  });
+
+  test('zurück zur Übersicht schließt das Panel wieder', async ({ page }) => {
+    const zu = await page.evaluate(() => {
+      nnOeffne('betrieb');
+      document.getElementById('nnd-zu').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const p = document.getElementById('nn-detail');
+      return { versteckt: !!p && p.hidden, bereiche: document.querySelectorAll('[data-bereich]').length };
+    });
+    expect(zu.versteckt, 'das Panel bleibt über der Übersicht stehen').toBe(true);
+    expect(zu.bereiche, 'die Übersicht kommt nicht zurück').toBe(10);
   });
 
   test('jeder Bereich lässt sich aufklappen', async ({ page }) => {
