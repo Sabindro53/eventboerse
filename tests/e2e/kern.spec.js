@@ -288,7 +288,12 @@ test.describe('OpenRouter-Autopilot', () => {
   test('Auslieferung braucht erfolgreichen Gesamtlauf und prüft den Scope erneut', () => {
     expect(workflow).toMatch(/cron:\s*'2\/5 \* \* \* \*'/);
     expect(workflow).toMatch(/EB_OPENROUTER_RUN_BUDGET_USD:\s*'0\.12'/);
-    expect(workflow).toMatch(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'0\.60'/);
+    // Nicht mehr auf den Literalwert festgenagelt: $0.60 war eine Einstellung,
+    // keine Zusicherung — sie zu ändern ist eine erlaubte Entscheidung, sie
+    // wegzulassen nicht. Geprüft wird deshalb, DASS ein hartes Tagesbudget
+    // steht; die vereinbarte Obergrenze über beide Töpfe prüft der Takt-Test.
+    expect(Number((workflow.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1]),
+      'kein hartes Tagesbudget im Autopiloten').toBeGreaterThan(0);
     expect(workflow).toMatch(/steps\.cadence\.outputs\.run/);
     expect(workflow).toMatch(/GITHUB_RUN_NUMBER % 12/);
     expect(workflow).toMatch(/npm run gate/);
@@ -330,12 +335,13 @@ test.describe('OpenRouter-Autopilot', () => {
   });
 
   test('Operations-Ensemble arbeitet bei jedem erreichten Puls vollständig unter Kostenbremse', () => {
-    // Der Puls erzeugt Lagebilder, der Autopilot erzeugt Arbeit. Stündlich
-    // mal elf Rollen hat der Puls das gemeinsame Tagesbudget aufgebraucht,
-    // bevor der Autopilot dazu kam — rund 2 Mio Token ohne Wirkung. Geprüft
-    // wird deshalb nicht mehr die Uhrzeit, sondern die Aussage: der Puls läuft
-    // seltener als stündlich und bekommt weniger Budget als der Autopilot.
-    expect(operations, 'Puls darf nicht wieder stündlich laufen').not.toMatch(/cron:\s*'\d*\/5 \* \* \* \*'/);
+    // Der Puls erzeugt Lagebilder, der Autopilot erzeugt Arbeit. Als beide
+    // sich EIN Budget teilten, hatte der Puls es aufgebraucht, bevor der
+    // Autopilot dazu kam — rund 2 Mio Token ohne Wirkung. Der Konflikt lag
+    // nie am Takt, sondern an zwei Stellen an einem Topf. Geprüft wird
+    // deshalb die Aussage, nicht die Uhrzeit: der Puls fährt nicht auf den
+    // 5-Minuten-Takt des Autopiloten hoch und bekommt den kleineren Topf.
+    expect(operations, 'Puls darf nicht auf den Autopilot-Takt hoch').not.toMatch(/cron:\s*'\d*\/5 \* \* \* \*'/);
     const pulsBudget = Number((operations.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1]);
     const autoBudget = Number((autopilot.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1]);
     expect(pulsBudget, 'Puls ohne eigenes Budget').toBeGreaterThan(0);
@@ -361,6 +367,53 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(agent).toMatch(/sort:\s*'price'/);
     expect(agent).toMatch(/data_collection:\s*'deny'/);
     expect(agent).toMatch(/max_price/);
+  });
+
+  test('der Katalog nennt den Takt, der wirklich läuft', () => {
+    // Der Katalog behauptete „Scheduler-Taktziel 5 Min.", während der Cron
+    // `17 2,8,14,20` stand — viermal am Tag. Wer aufs HQ schaut, sieht dann
+    // einen Betrieb, den es nicht gibt, und hält den Stillstand für eine
+    // Anzeigeverzögerung. Eine Takt-Angabe ist eine Zusicherung.
+    const cronMinuten = (cron) => {
+      const [min, std] = cron.trim().split(/\s+/);
+      const schritt = min.match(/^(?:\*|\d+)\/(\d+)$/);
+      if (schritt) return Number(schritt[1]);
+      if (/^\d+$/.test(min) && /,/.test(std)) return (24 / std.split(',').length) * 60;
+      if (/^\d+$/.test(min) && std === '*') return 60;
+      return null;
+    };
+    const taktMinuten = (t) => {
+      const m = t.match(/(\d+)\s*[-\s]?Min\./);
+      return m ? Number(m[1]) : null;
+    };
+    const budgetAus = (yml) => Number((yml.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1]);
+    const budgetTakt = (t) => {
+      const m = t.match(/\$(\d+),(\d+)/);
+      return m ? Number(`${m[1]}.${m[2]}`) : null;
+    };
+
+    for (const [datei, yml] of [['hq-operations.yml', operations], ['openrouter-autopilot.yml', autopilot]]) {
+      const takt = KATALOG.schichten[datei].takt;
+      const cron = (yml.match(/cron:\s*'([^']+)'/) || [])[1];
+      expect(cron, `${datei}: kein Cron gefunden`).toBeTruthy();
+
+      const echt = cronMinuten(cron);
+      const behauptet = taktMinuten(takt);
+      expect(echt, `${datei}: Cron "${cron}" nicht auswertbar`).toBeTruthy();
+      expect(behauptet, `${datei}: der Katalog nennt keinen Takt in Minuten — "${takt}"`).toBeTruthy();
+      expect(behauptet, `${datei}: Katalog sagt ${behauptet} Min., Cron läuft alle ${echt} Min.`).toBe(echt);
+
+      expect(budgetTakt(takt), `${datei}: Katalog sagt $${budgetTakt(takt)}, Workflow setzt $${budgetAus(yml)}`)
+        .toBe(budgetAus(yml));
+    }
+
+    // Die vereinbarte Obergrenze über BEIDE Töpfe. Einzeln darf jede Stelle
+    // ihren Rahmen verschieben, zusammen nicht über das, was freigegeben ist —
+    // sonst wächst die Tagesrechnung in zwei kleinen Schritten, von denen
+    // jeder für sich harmlos aussieht.
+    const summe = budgetAus(operations) + budgetAus(autopilot);
+    expect(summe, `Puls $${budgetAus(operations)} + Autopilot $${budgetAus(autopilot)} = $${summe.toFixed(2)} über der Freigabe`)
+      .toBeLessThanOrEqual(2.0);
   });
 });
 
@@ -522,9 +575,15 @@ test.describe('Neuronaler Kern', () => {
   });
 
   test('Impulse sind einmalig und verschwinden wieder', async ({ page }) => {
-    const vorher = await page.evaluate(() => document.querySelectorAll('.nn-impuls').length);
-    await page.evaluate(() => ebImpuls('betrieb', 'gut'));
-    const waehrend = await page.evaluate(() => document.querySelectorAll('.nn-impuls').length);
+    // Auslösen und Nachsehen im SELBEN Tick. Über zwei page.evaluate hinweg
+    // war das ein Wettlauf gegen die 900-ms-Animation: unter Last kam der
+    // zweite Aufruf erst an, als onfinish den Impuls schon entfernt hatte —
+    // der Test wurde dann rot, obwohl der Impuls korrekt gelaufen war.
+    const { vorher, waehrend } = await page.evaluate(() => {
+      const v = document.querySelectorAll('.nn-impuls').length;
+      ebImpuls('betrieb', 'gut');
+      return { vorher: v, waehrend: document.querySelectorAll('.nn-impuls').length };
+    });
     await page.waitForTimeout(1400);
     const nachher = await page.evaluate(() => document.querySelectorAll('.nn-impuls').length);
 
@@ -691,6 +750,54 @@ test.describe('Neuronaler Kern', () => {
     });
     expect(zu.bereiche).toBe(10);
     expect(zu.orb).toBe(true);
+  });
+
+  test('der geöffnete Bereich nennt je Mitarbeiter Ziel und Datei — ungekürzt', async ({ page }) => {
+    // Im SVG ist das Ziel auf 52 Zeichen und die Dateiliste auf 44 gekappt.
+    // Ein halbes Ziel beantwortet „woran arbeitet der gerade" nicht, deshalb
+    // muss das Panel den vollen Text tragen.
+    for (const bid of ['engineering', 'betrieb', 'experience']) {
+      const rollen = KATALOG.modelle.filter((m) => m.bereich === bid);
+      const gesehen = await page.evaluate((id) => {
+        nnOeffne(id);
+        const p = document.getElementById('nn-detail');
+        return {
+          sichtbar: !!p && !p.hidden,
+          karten: document.querySelectorAll('#nn-detail .nnd-karte').length,
+          ziele: [...document.querySelectorAll('#nn-detail .nnd-ziel')].map((n) => n.textContent.trim()),
+          dateien: [...document.querySelectorAll('#nn-detail .nnd-datei')].map((n) => n.textContent.trim()),
+        };
+      }, bid);
+
+      expect(gesehen.sichtbar, `${bid}: Panel bleibt zu`).toBe(true);
+      expect(gesehen.karten, `${bid}: eine Karte je Mitarbeiter`).toBe(rollen.length);
+
+      for (const m of rollen) {
+        const strom = m.aufgabenstrom || [];
+        if (!strom.length) continue;
+        // Irgendeine Aufgabe des Stroms ist die aktuelle — welche, entscheidet
+        // dieselbe Regel wie beim Agenten. Geprüft wird: das angezeigte Ziel
+        // ist eines davon und steht VOLLSTÄNDIG da, nicht angeschnitten.
+        const treffer = gesehen.ziele.find((z) => strom.some((a) => a.ziel === z));
+        expect(treffer, `${m.person}: kein vollständiges Ziel im Panel — gesehen: ${gesehen.ziele.join(' | ')}`)
+          .toBeTruthy();
+        const aufgabe = strom.find((a) => a.ziel === treffer);
+        for (const d of aufgabe.dateien || []) {
+          expect(gesehen.dateien, `${m.person}: Datei ${d} fehlt oder ist gekürzt`).toContain(d);
+        }
+      }
+    }
+  });
+
+  test('zurück zur Übersicht schließt das Panel wieder', async ({ page }) => {
+    const zu = await page.evaluate(() => {
+      nnOeffne('betrieb');
+      document.getElementById('nnd-zu').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const p = document.getElementById('nn-detail');
+      return { versteckt: !!p && p.hidden, bereiche: document.querySelectorAll('[data-bereich]').length };
+    });
+    expect(zu.versteckt, 'das Panel bleibt über der Übersicht stehen').toBe(true);
+    expect(zu.bereiche, 'die Übersicht kommt nicht zurück').toBe(10);
   });
 
   test('jeder Bereich lässt sich aufklappen', async ({ page }) => {

@@ -1,21 +1,27 @@
 name: HQ Operations Ensemble
 run-name: "⚡ HQ-Puls · Aufgabenstrom und Kontingent"
 
-# Viermal taeglich, nicht stuendlich.
+# Alle 30 Minuten.
 #
-# Gemessen ueber einen Tag: rund 2 Mio Token verbraucht, praktisch ohne
-# Wirkung. Der Grund ist die Arbeitsteilung im Haus — dieser Puls erzeugt
-# LAGEBILDER, der Autopilot erzeugt ARBEIT (Patch, Tests, PR). Beide teilen
-# sich dasselbe $0.60-Tagesbudget. Bei 11 Rollen x 24 Laeufen hat der Puls es
-# aufgebraucht, bevor der Autopilot dazu kam: dessen Commits (#113-#119) liegen
-# alle zwischen 03:07 und 03:23 — genau solange das Budget frisch war, danach
-# nichts mehr.
+# Vorher viermal taeglich, und das aus gutem Grund: Puls und Autopilot teilten
+# sich EIN $0.60-Budget. Der Puls erzeugt LAGEBILDER, der Autopilot erzeugt
+# ARBEIT (Patch, Tests, PR) — bei 11 Rollen x 24 Laeufen hatte der Puls das
+# Budget aufgebraucht, bevor der Autopilot dazu kam. Dessen Commits (#113-#119)
+# liegen alle zwischen 03:07 und 03:23, genau solange das Budget frisch war.
 #
-# Ein Lagebild alle sechs Stunden ist so aktuell, wie ein Lagebild sein muss.
-# Was dadurch frei wird, geht an die Stelle, die die Seite wirklich verbessert.
+# Der Konflikt bestand also nie zwischen Takt und Kosten, sondern zwischen zwei
+# Stellen an einem Topf. Getrennte Toepfe loesen ihn: der Puls bekommt $0.50,
+# der Autopilot $1.50. Ein belegter Voll-Lauf kostet $0.0036, macht bei 48
+# Laeufen rund $0.17 am Tag — knapp ein Drittel des eigenen Topfes. Der
+# Autopilot kann davon nichts mehr verlieren.
+#
+# Warum ueberhaupt haeufiger: ein Lagebild alle sechs Stunden ist aktuell
+# genug, aber das HQ zeigt damit die meiste Zeit einen stillstehenden Betrieb —
+# und ein Netz, das steht, ist von einem Netz, das ausgefallen ist, nicht zu
+# unterscheiden.
 on:
   schedule:
-    - cron: '17 2,8,14,20 * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -33,11 +39,11 @@ jobs:
     timeout-minutes: 20
     env:
       EB_OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
-      # Eigener, kleinerer Rahmen fuer den Puls: er kann das Tagesbudget des
-      # Autopiloten damit nicht mehr aufessen. $0.15 reichen fuer vier
-      # Voll-Laeufe (ein belegter Voll-Lauf kostete $0.0036), die uebrigen
-      # $0.45 bleiben der Stelle, die Code liefert.
-      EB_OPENROUTER_DAILY_BUDGET_USD: '0.15'
+      # Eigener Topf fuer den Puls, getrennt vom Autopiloten. $0.50 tragen
+      # 48 Voll-Laeufe mit dreifachem Spielraum (ein belegter Voll-Lauf
+      # kostete $0.0036 -> rund $0.17/Tag). Der Autopilot behaelt $1.50 und
+      # kann davon nichts mehr an den Puls verlieren.
+      EB_OPENROUTER_DAILY_BUDGET_USD: '0.50'
       EB_OPENROUTER_MIN_REMAINING_USD: '1.00'
       SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
       SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
