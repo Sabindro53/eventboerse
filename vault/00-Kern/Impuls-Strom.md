@@ -63,17 +63,17 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **20** |
-| Commits (30 Tage) | 101 |
-| Letzter Commit | `cea1c5f · HQ-Zugang für Mitarbeiter (TOTP) und Event-Radar mit echten Koordinaten (#122)` (2026-08-10) |
+| Commits (7 Tage) | **25** |
+| Commits (30 Tage) | 106 |
+| Letzter Commit | `6a39166 · Routine-Token verdrahtet, sein Fehlen bleibt sichtbar` (2026-08-12) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 34 app.js
+     29 tests/e2e/kern.spec.js
+     27 CLAUDE.md
      26 styles.css
-     24 tests/e2e/kern.spec.js
-     22 CLAUDE.md
-     20 hq.html
+     21 vault/30-Betrieb/Testing.md
 ```
 
 **Codegröße:**

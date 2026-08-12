@@ -1075,17 +1075,37 @@ test.describe('Die Routine darf Erfolg nicht vortäuschen', () => {
       .toMatch(/pull-requests: write/);
   });
 
+  test('beide Liefer-Workflows nutzen die App, nicht GITHUB_TOKEN', () => {
+    // Ein PR, den GITHUB_TOKEN anlegt, loest keine Workflow-Laeufe aus. Die im
+    // Ruleset geforderte PR-Validierung laeuft dann nie an, und der PR kann
+    // grundsaetzlich nicht mergen — bei der Tagesroutine wie beim Autopiloten
+    // (PR #123 stand deshalb seit dem 11.08. offen).
+    const AUTOPILOT = fs.readFileSync(
+      path.join(ROOT, '.github', 'workflows', 'openrouter-autopilot.yml'), 'utf8');
+    for (const [name, quelle] of [['tagesroutine', TAGES], ['autopilot', AUTOPILOT]]) {
+      expect(quelle, `${name}: holt kein App-Token`)
+        .toMatch(/uses: actions\/create-github-app-token@v\d/);
+      expect(quelle, `${name}: der Merker fehlt (secrets ist in steps.*.if nicht verfügbar)`)
+        .toMatch(/HAT_APP: \$\{\{ secrets\.EB_ROUTINE_APP_ID != '' \}\}/);
+      // Kein Liefer-Token darf mehr fest auf GITHUB_TOKEN stehen — nur als
+      // ausdruecklicher Rueckfall hinter dem App-Token.
+      const feste = quelle.split('\n').filter((z) =>
+        /^\s*token: \$\{\{ secrets\.GITHUB_TOKEN \}\}\s*$/.test(z));
+      expect(feste, `${name}: Token fest auf GITHUB_TOKEN — ${feste.join(' / ')}`).toHaveLength(0);
+    }
+  });
+
   test('das Routine-Token ist optional, sein Fehlen aber nicht still', () => {
     // Mit GITHUB_TOKEN loest ein angelegter PR keine Workflow-Laeufe aus, also
     // laeuft die im Ruleset geforderte Pruefung nie an und der PR bliebe ewig
     // offen. Ohne das PAT muss die Routine das SAGEN — sonst waere es wieder
     // ein Ausfall, der wie Erfolg aussieht.
     expect(TAGES, 'kein Rückfall auf GITHUB_TOKEN')
-      .toMatch(/secrets\.EB_ROUTINE_TOKEN \|\| secrets\.GITHUB_TOKEN/);
-    expect(TAGES, 'der Push läuft nicht unter dem Routine-Token')
-      .toMatch(/token: \$\{\{ secrets\.EB_ROUTINE_TOKEN/);
-    expect(TAGES, 'das fehlende Token wird nicht benannt')
-      .toMatch(/EB_ROUTINE_TOKEN fehlt/);
+      .toMatch(/steps\.apptoken\.outputs\.token \|\| secrets\.GITHUB_TOKEN/);
+    expect(TAGES, 'der Push läuft nicht unter dem App-Token')
+      .toMatch(/token: \$\{\{ steps\.apptoken\.outputs\.token/);
+    expect(TAGES, 'die fehlende App wird nicht benannt')
+      .toMatch(/Routine-App nicht eingerichtet/);
     // Und mit Token soll er von selbst zufallen, sobald die Prüfungen grün sind.
     expect(TAGES, 'kein Auto-Merge').toMatch(/gh pr merge --squash --auto/);
   });

@@ -27,7 +27,7 @@ on:
 permissions:
   contents: write
   issues: write
-  pull-requests: write   # die Routine liefert ueber einen PR, nicht direkt auf main   # Fehlschlag sichtbar machen (siehe „Ausfall melden" unten)
+  pull-requests: write   # die Routine liefert ueber einen PR, nicht direkt auf main
 
 concurrency:
   group: tagesroutine
@@ -37,16 +37,37 @@ jobs:
   feed:
     name: Demo-Feed und Selbstcheck erneuern
     runs-on: ubuntu-latest
+    env:
+      # Der `secrets`-Kontext ist in `steps.*.if` nicht verfuegbar, in
+      # `jobs.<id>.env` aber schon — deshalb der Umweg ueber einen Merker.
+      HAT_APP: ${{ secrets.EB_ROUTINE_APP_ID != '' }}
     steps:
+      # Token der GitHub App holen.
+      #
+      # Warum nicht GITHUB_TOKEN: ein damit angelegter PR loest keine
+      # Workflow-Laeufe aus. Die im Ruleset geforderte PR-Validierung liefe
+      # nie an, und der PR bliebe fuer immer offen stehen. Ein
+      # Installations-Token einer App loest die Pruefungen dagegen normal aus.
+      #
+      # Warum eine App statt eines PAT: kein Ablaufdatum, eigene Identitaet
+      # (die PRs haengen nicht an einem persoenlichen Konto), und die Rechte
+      # sind an die Installation gebunden statt an einen Menschen.
+      - name: Routine-Token beschaffen
+        id: apptoken
+        if: env.HAT_APP == 'true'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.EB_ROUTINE_APP_ID }}
+          private-key: ${{ secrets.EB_ROUTINE_APP_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Der Push laeuft unter diesem Token. Mit GITHUB_TOKEN loest ein
-          # angelegter PR keine Workflow-Laeufe aus — die im Ruleset geforderte
-          # PR-Validierung liefe dann nie an, und der PR bliebe fuer immer
-          # offen stehen. Ein eng geschnittenes PAT (contents: write,
-          # pull requests: write) loest die Pruefungen normal aus.
-          token: ${{ secrets.EB_ROUTINE_TOKEN || secrets.GITHUB_TOKEN }}
+          # Der Push laeuft unter diesem Token. Ohne eingerichtete App faellt
+          # es auf GITHUB_TOKEN zurueck — dann wird der PR zwar angelegt, kann
+          # aber nicht mergen. Das steht dann ausdruecklich in der
+          # Zusammenfassung, statt still zu passieren.
+          token: ${{ steps.apptoken.outputs.token || secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
       - name: Node einrichten
@@ -102,8 +123,8 @@ jobs:
 
       - name: Committen, falls geaendert
         env:
-          GH_TOKEN: ${{ secrets.EB_ROUTINE_TOKEN || secrets.GITHUB_TOKEN }}
-          HAT_ROUTINE_TOKEN: ${{ secrets.EB_ROUTINE_TOKEN != '' }}
+          GH_TOKEN: ${{ steps.apptoken.outputs.token || secrets.GITHUB_TOKEN }}
+          HAT_ROUTINE_TOKEN: ${{ steps.apptoken.outputs.token != '' }}
         run: |
           if git diff --quiet -- assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json; then
             echo "Keine Aenderung — Feed, Selbstcheck und Journal sind aktuell." >> "$GITHUB_STEP_SUMMARY"
@@ -163,10 +184,11 @@ jobs:
             {
               echo "PR fuer \`$zweig\` angelegt."
               echo ""
-              echo "⚠️ **EB_ROUTINE_TOKEN fehlt.** Der PR wurde mit GITHUB_TOKEN angelegt;"
-              echo "damit laufen keine Pruefungen an und er kann nicht mergen."
-              echo "Abhilfe: fine-grained PAT (contents: write, pull requests: write)"
-              echo "als Secret \`EB_ROUTINE_TOKEN\` hinterlegen."
+              echo "⚠️ **Routine-App nicht eingerichtet.** Der PR wurde mit GITHUB_TOKEN"
+              echo "angelegt; damit laufen keine Pruefungen an und er kann nicht mergen."
+              echo "Abhilfe: GitHub App anlegen (Contents + Pull requests: Read and write),"
+              echo "im Repo installieren und \`EB_ROUTINE_APP_ID\` sowie"
+              echo "\`EB_ROUTINE_APP_KEY\` als Secrets hinterlegen."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 

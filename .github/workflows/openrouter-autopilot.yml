@@ -51,8 +51,22 @@ jobs:
       SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
       SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
       SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
+      HAT_APP: ${{ secrets.EB_ROUTINE_APP_ID != '' }}
 
     steps:
+      # Dieselbe Falle wie in der Tagesroutine: ein PR, den GITHUB_TOKEN
+      # anlegt, loest keine Workflow-Laeufe aus. Die im Ruleset geforderte
+      # PR-Validierung lief daher nie an — PR #123 steht seit dem 11.08. offen
+      # und kann grundsaetzlich nicht mergen. Der Autopilot hat also gearbeitet
+      # und geliefert, und das Ergebnis blieb trotzdem liegen.
+      - name: Routine-Token beschaffen
+        id: apptoken
+        if: env.HAT_APP == 'true'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.EB_ROUTINE_APP_ID }}
+          private-key: ${{ secrets.EB_ROUTINE_APP_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -214,7 +228,7 @@ jobs:
         id: pr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.apptoken.outputs.token || secrets.GITHUB_TOKEN }}
           base: main
           branch: openrouter/auto-${{ env.FOCUS }}
           delete-branch: true
