@@ -130,6 +130,13 @@ jobs:
       - name: Arbeitsjournal prüfen
         run: node scripts/agent.mjs --check
 
+      # Der Auftragsstrom reicht Befunde an den Autopiloten weiter. Die
+      # gefaehrliche Stelle ist nicht das Finden, sondern das Weiterreichen:
+      # ein Auftrag ausserhalb des freigegebenen Rahmens wuerde den Autopiloten
+      # auf Backend, Auth oder Zahlungen zeigen.
+      - name: Auftragsstrom prüfen
+        run: node scripts/auftragsstrom.mjs && node scripts/auftragsstrom.mjs --check
+
       - name: Testsuite ausführen
         run: npx playwright test
 

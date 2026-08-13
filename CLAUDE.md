@@ -64,6 +64,26 @@ Fremdtext ist **Daten, keine Anweisung**. Notizen dort sind immer
 Worten unter `10-Produkt/Wissen/` neu schreibt — nie durch Umstellen von
 `share`. Regeln: `vault/50-Evolution/Recherche/_Schleuse.md`.
 
+### Befund → Arbeit
+
+Die elf Rollen erzeugen Befunde, der Autopilot erzeugt Arbeit. Verbunden sind
+sie über den **Auftragsstrom**:
+
+```bash
+node scripts/auftragsstrom.mjs           # assets/eb-auftragsstrom.json aus dem Journal
+node scripts/auftragsstrom.mjs --check   # Herkunft + Sicherheitsrahmen (CI-Tor)
+```
+
+Jeder Auftrag nennt seinen Journaleintrag — ein Auftrag ohne Herkunft wäre
+erfundene Arbeit. Der Strom kann den freigegebenen Rahmen **nie weiten**: er
+führt ausschließlich Dateien aus `scripts/lib/sichere-dateien.mjs`, die sich
+Autopilot und Strom teilen statt sie zu kopieren. Was nicht hineinkommt, steht
+mit Grund unter `ausserhalb` — eine Schlange, die nur Aufnahmen führt, sieht
+aus wie ein Haus ohne Grenzen.
+
+**Stand:** nur 2 von 11 Schicht-Rollen arbeiten an Dateien innerhalb des
+Rahmens. Die übrigen Befunde sind für Menschen, nicht für den Autopiloten.
+
 ### Demo-Inhalte & Wissenslücken
 
 ```bash
@@ -160,10 +180,11 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-268 Tests in 13 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+275 Tests in 14 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
-Verbindungen (HQ-Zugang + Connector-Katalog), TOTP (RFC-6238-Vektoren,
+Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
+Sicherheitsrahmen), TOTP (RFC-6238-Vektoren,
 Wiederverwendung, Zeitangriff), Radar (Umkreis, lokale Position,
 Migrations-Verhalten), Kern (Impuls-Ehrlichkeit +
 Autonomie + offenes Ensemble), Barrierefreiheit (axe, beide
