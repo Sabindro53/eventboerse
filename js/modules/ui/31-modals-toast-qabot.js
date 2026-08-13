@@ -158,6 +158,72 @@ var QA_TOPICS = [
     ]
   },
   {
+    id: 'radar',
+    icon: 'radar',
+    triggers: ['radar', 'radius', 'umkreis', 'umgebung', 'unterwegs', 'reise', 'berlin fahren', 'in der nähe', 'in der naehe'],
+    replies: [
+      'Im Radar wählst du eine Stadt oder gibst freiwillig deinen Standort frei. Danach siehst du Events und Dienstleister nach Entfernung und kannst den Radius bis 250 km erweitern.',
+      'Für eine Reise in eine andere Stadt: Öffne Aktuelles, wähle Radar, stelle die Zielstadt ein und passe den Radius an. Der genaue Standort bleibt im Browser.'
+    ],
+    actions: [
+      { label: 'Radar öffnen', icon: 'radar', kind: 'page', target: 'aktuelles' },
+      { label: 'Suche öffnen', icon: 'search', kind: 'page', target: 'browse' }
+    ]
+  },
+  {
+    id: 'business',
+    icon: 'insights',
+    triggers: ['business', 'cockpit', 'umsatz', 'einnahmen', 'statistik', 'steuer', 'steuern', 'pdf', 'rechnung', 'rechnungen', 'auftrag'],
+    replies: [
+      'Im Business-Cockpit siehst du Auftragsvolumen, Auszahlungen, offene Aufträge und Rechnungs-PDFs. Dort pflegst du auch Kleinunternehmerstatus, Steuersatz und Rechnungspräfix.',
+      'Deine Plattformbuchungen werden im Business-Cockpit zu Umsatz, Pipeline und PDF-Abrechnungen zusammengeführt. Steuerangaben kannst du direkt dort speichern.'
+    ],
+    actions: [
+      { label: 'Business-Cockpit', icon: 'insights', kind: 'page', target: 'business' },
+      { label: 'Auftragsboard', icon: 'assignment', kind: 'page', target: 'auftraege' },
+      { label: 'Auszahlungen', icon: 'account_balance', kind: 'page', target: 'settings' }
+    ]
+  },
+  {
+    id: 'collaboration',
+    icon: 'handshake',
+    triggers: ['partnerschaft', 'partner', 'zusammenarbeit', 'arbeitet zusammen', 'referenz', 'empfehlung', 'connection'],
+    replies: [
+      'Unter „Arbeitet zusammen mit“ kannst du eine echte Zusammenarbeit anfragen. Sie wird erst öffentlich, wenn der andere Dienstleister bestätigt – so bleibt die Referenz glaubwürdig.',
+      'Bestätigte Partner schaffen Vertrauen und werden bei passenden Angeboten als Netzwerk vorgeschlagen. Offene Anfragen findest du im eigenen Profil.'
+    ],
+    actions: [
+      { label: 'Mein Profil', icon: 'person', kind: 'page', target: 'profile' },
+      { label: 'Benachrichtigungen', icon: 'notifications', kind: 'page', target: 'notifications' }
+    ]
+  },
+  {
+    id: 'media',
+    icon: 'auto_awesome',
+    triggers: ['bild', 'bilder', 'foto', 'fotos', 'galerie', 'portfolio', 'motiv', 'ki bild', 'profilbild'],
+    replies: [
+      'Eigene Uploads und neue Motive werden deinem Account zugeordnet. Im Business-Cockpit kannst du ein einzigartiges Markenmotiv entwerfen und direkt ins Portfolio oder als Profilbild übernehmen.',
+      'Deine Bilder pflegst du im Profil. Für einen schnellen individuellen Entwurf gibt es zusätzlich das Smart Media Studio im Business-Cockpit.'
+    ],
+    actions: [
+      { label: 'Media Studio', icon: 'auto_awesome', kind: 'page', target: 'business' },
+      { label: 'Profil bearbeiten', icon: 'photo_library', kind: 'page', target: 'profile' }
+    ]
+  },
+  {
+    id: 'safechat',
+    icon: 'shield',
+    triggers: ['telefonnummer', 'adresse teilen', 'mailadresse', 'außerhalb', 'ausserhalb', 'kontaktdaten', 'whatsapp'],
+    replies: [
+      'Zum Schutz beider Seiten blockiert Eventbörse Telefonnummern, E-Mail-Adressen, Anschriften, externe Links und Messenger im Chat. Nutzt Nachrichten, Angebot und Buchung vollständig auf der Plattform.',
+      'Kontaktdaten außerhalb der Plattform sind im Nutzerchat nicht erlaubt. So bleiben Absprachen, Zahlungen und Nachweise geschützt und nachvollziehbar.'
+    ],
+    actions: [
+      { label: 'Nachrichten', icon: 'forum', kind: 'page', target: 'messages' },
+      { label: 'Sicherheitsinfos', icon: 'policy', kind: 'page', target: 'community' }
+    ]
+  },
+  {
     id: 'legal',
     icon: 'policy',
     triggers: ['agb', 'datenschutz', 'recht', 'impressum', 'widerruf', 'cookie', 'cookies', 'melden', 'dsa', 'sicherheit'],
@@ -411,9 +477,9 @@ function _qaAddMessage(role, text, actions) {
 function _qaWelcomeText() {
   var role = currentUser ? (currentUser.role || currentUser.baseRole || 'Mitglied') : 'Gast';
   return _qaPick([
-    'Hi, ich bin dein QA-Support. Ich arbeite tokenfrei mit Eventbörse-Mustern und bringe dich direkt zum richtigen Bereich.',
-    'Willkommen im Eventbörse-Support. Sag kurz, ob es um Login, Board, Inserat, Zahlung oder Suche geht.',
-    'Ich helfe dir als QA-Bot: schnell prüfen, passende Abkürzung wählen, direkt weiterleiten. Aktueller Modus: ' + role + '.'
+    'Hi, ich bin dein Eventbörse-Assistent. Frag mich zu Planung, Radar, Buchung, Partnerschaften, Rechnungen oder deinem Profil.',
+    'Willkommen! Beschreibe kurz, was du vorhast – ich erkläre den passenden Ablauf und bringe dich direkt dorthin.',
+    'Ich helfe dir bei deinem nächsten Schritt auf Eventbörse. Du bist gerade als ' + role + ' unterwegs.'
   ], role + Date.now());
 }
 
@@ -504,7 +570,7 @@ function handleQaAsk(e) {
   var input = document.getElementById('qaInput');
   var value = input ? input.value.trim() : '';
   if (!value) {
-    _qaAddMessage('bot', 'Schreib ein Stichwort wie Login, Board, Inserat, Zahlung oder Suche. Dann leite ich dich sauber weiter.', QA_FALLBACK.actions);
+    _qaAddMessage('bot', 'Frag mich zum Beispiel nach Radar, Hochzeit planen, Partnerschaften, Rechnungen, Bildern oder sicheren Nachrichten.', QA_FALLBACK.actions);
     return;
   }
   if (input) input.value = '';
@@ -529,4 +595,3 @@ function runQaAction(kind, target) {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeQaBot();
 });
-

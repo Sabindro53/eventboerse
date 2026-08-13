@@ -87,6 +87,10 @@
           <span class="material-icons-round">chat_bubble_outline</span>
           <span class="badge" id="msgBadge" style="display:none"></span>
         </button>
+        <button class="nav-icon-btn" onclick="navigateTo('notifications')" title="Benachrichtigungen" aria-label="Benachrichtigungen">
+          <span class="material-icons-round">notifications_none</span>
+          <span class="badge" id="notificationBadge" style="display:none"></span>
+        </button>
         <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()">
           <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2250%22%20dominant-baseline%3D%22central%22%20text-anchor%3D%22middle%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22sans-serif%22%3EU%3C%2Ftext%3E%3C%2Fsvg%3E" alt="User" loading="lazy" decoding="async" />
           <span class="nav-admin-label" id="navAdminLabel">Admin</span>
@@ -119,6 +123,8 @@
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
         <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')" style="display:none"><span class="material-icons-round">assignment</span> Auftragsboard</button>
+        <button id="businessMenuBtn" onclick="navigateTo('business')" style="display:none"><span class="material-icons-round">insights</span> Business-Cockpit</button>
+        <button onclick="navigateTo('notifications')"><span class="material-icons-round">notifications</span> Benachrichtigungen</button>
         <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
         <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
         <button onclick="navigateTo('contact')"><span class="material-icons-round">help_outline</span> Kontakt & Support</button>
@@ -196,7 +202,7 @@
 
   <!-- ============ QA SUPPORT BOT ============ -->
   <div class="eb-qa-bot" id="qaBot">
-    <section class="eb-qa-panel" id="qaPanel" aria-label="Eventbörse QA-Support" hidden>
+    <section class="eb-qa-panel" id="qaPanel" aria-label="Eventbörse Assistent" hidden>
       <div class="eb-qa-head">
         <div class="eb-qa-head-avatar" aria-hidden="true">
           <svg class="eb-qa-icon-svg eb-qa-icon-svg--mini" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
@@ -242,7 +248,7 @@
           </svg>
         </div>
         <div>
-          <strong>Eventbörse QA</strong>
+          <strong>Eventbörse Assistent</strong>
         </div>
         <button type="button" class="eb-qa-close" onclick="closeQaBot()" aria-label="QA-Support schließen">
           <span class="material-icons-round">close</span>
@@ -254,6 +260,7 @@
         <button type="button" onclick="askQaPreset('Ich brauche Hilfe beim Planungsboard')">Board</button>
         <button type="button" onclick="askQaPreset('Ich will ein Inserat erstellen')">Inserat</button>
         <button type="button" onclick="askQaPreset('Stripe Auszahlung Konto')">Zahlung</button>
+        <button type="button" onclick="askQaPreset('Wie funktionieren Radar und Partnerschaften?')">Radar &amp; Partner</button>
       </div>
       <form class="eb-qa-form" onsubmit="handleQaAsk(event)">
         <input type="text" id="qaInput" placeholder="Was brauchst du gerade?" autocomplete="off" />
@@ -262,7 +269,7 @@
         </button>
       </form>
     </section>
-    <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse QA-Support">
+    <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse Assistent">
       <span class="eb-qa-launcher-icon" aria-hidden="true">
         <svg class="eb-qa-icon-svg" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
           <!-- Funkeln um Hut -->
@@ -643,6 +650,7 @@
               <button class="feed-tab" data-feed="events" onclick="switchFeedTab(this)">Events</button>
               <button class="feed-tab" data-feed="newest" onclick="switchFeedTab(this)">Neueste</button>
               <button class="feed-tab" data-feed="popular" onclick="switchFeedTab(this)">Beliebt</button>
+              <button class="feed-tab feed-tab-radar" data-feed="radar" onclick="switchFeedTab(this)"><span class="material-icons-round">radar</span>Radar</button>
             </div>
           </div>
           <!-- Two-column body: posts + sidebar -->
@@ -1337,6 +1345,7 @@
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
           <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
         </div>
+        <div id="detailCollaborationSuggestions" class="detail-collaboration-suggestions" aria-live="polite"></div>
         <div class="detail-layout">
           <div class="detail-main">
             <div class="detail-divider"></div>
@@ -1519,13 +1528,16 @@
           </div>
         </div>
 
-        <!-- Tabs: Inserate + Bewertungen -->
+        <!-- Tabs: Inserate + Bewertungen + bestaetigte Partnerschaften -->
         <div class="provider-tabs">
           <button class="tab active" onclick="switchProviderTab(this, 'inserate')">
             <span class="material-icons-round">grid_on</span> Inserate
           </button>
           <button class="tab" onclick="switchProviderTab(this, 'bewertungen')">
             <span class="material-icons-round">star</span> Bewertungen
+          </button>
+          <button class="tab" onclick="switchProviderTab(this, 'partnerschaften')">
+            <span class="material-icons-round">handshake</span> Arbeitet zusammen mit
           </button>
         </div>
         <div class="provider-content">
@@ -1534,6 +1546,9 @@
           </div>
           <div id="provider-tab-bewertungen" class="provider-tab-content">
             <div id="providerReviewsList"></div>
+          </div>
+          <div id="provider-tab-partnerschaften" class="provider-tab-content">
+            <div id="providerCollaborations"></div>
           </div>
         </div>
       </div>
@@ -2903,6 +2918,20 @@ Datum: ___________________________________________________
       </div>
     </section>
 
+    <!-- ============ PAGE: BUSINESS-COCKPIT ============ -->
+    <section id="page-business" class="page">
+      <div class="release-page container">
+        <div id="businessCockpit" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: BENACHRICHTIGUNGEN ============ -->
+    <section id="page-notifications" class="page">
+      <div class="release-page container">
+        <div id="notificationHistory" aria-live="polite"></div>
+      </div>
+    </section>
+
     <!-- Datenschutz -->
     <!-- ============ PAGE: EVENT-PLANER BOARD ============ -->
     <section id="page-board" class="page">
@@ -2915,6 +2944,9 @@ Datum: ___________________________________________________
             <p id="boardPageSubtitle">Plane dein Event im Chat mit deinem Assistenten — Projekte, Dienstleister, Budget &amp; Termine</p>
           </div>
           <div class="board-page-header-actions">
+            <button class="btn-outline wedding-express-btn" onclick="openWeddingExpress()">
+              <span class="material-icons-round">favorite</span> Hochzeit Express
+            </button>
             <button class="btn-outline" onclick="showBoardProjects()" id="btnAllBoards" style="display:none">
               <span class="material-icons-round">arrow_back</span> Alle Projekte
             </button>
@@ -4008,4 +4040,3 @@ Datum: ___________________________________________________
       </div>
     </div>
   </div>
-

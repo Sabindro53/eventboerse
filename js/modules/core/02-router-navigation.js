@@ -48,6 +48,8 @@ function _setPageMeta(page, data) {
     case 'messages': title = 'Nachrichten – ' + base; break;
     case 'profile':  title = 'Profil – ' + base; break;
     case 'settings': title = 'Einstellungen – ' + base; break;
+    case 'business': title = 'Business-Cockpit – ' + base; break;
+    case 'notifications': title = 'Benachrichtigungen – ' + base; break;
     case 'admin':    title = 'Admin – ' + base; break;
   }
   document.title = title;
@@ -244,10 +246,12 @@ async function loadFavorites() {
 
 // ========== BLOCKED DATA PATTERNS ==========
 const BLOCKED_PATTERNS = [
-  /(\+?\d{1,4}[\s-]?\(?\d{1,4}\)?[\s-]?\d{2,4}[\s-]?\d{2,4}[\s-]?\d{0,4})/,   // phone
-  /[\w._%+-]+@[\w.-]+\.[a-zA-Z]{2,}/,                                              // email
-  /\b\d{5}\b\s+\w+/,                                                                // zip+city
-  /(whatsapp|telegram|signal|viber|facebook|instagram\s*@|snapchat)/i,              // social
+  /\b[A-Z0-9._%+\-]+\s*(?:@|\(at\)|\[at\]| at )\s*[A-Z0-9.\-]+\s*(?:\.| punkt | dot )\s*[A-Z]{2,}\b/i,
+  /(?:\+|00)?(?=(?:[\d\s().\/-]*\d){9})\d[\d\s().\/-]{7,}\d/,
+  /\b(?:https?:\/\/|www\.)\S+/i,
+  /\b(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/i,
+  /\b\d{5}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}\b/,
+  /\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}(?:straße|strasse|str\.|weg|allee|platz|gasse)\s+\d+[a-z]?\b/i,
 ];
 
 // ========== VISIBLE LISTINGS ==========
@@ -298,7 +302,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Pages that require login — redirect to login modal immediately
-  var loginRequired = ['create-listing', 'messages', 'profile', 'edit-profile', 'settings', 'admin'];
+  var loginRequired = ['create-listing', 'messages', 'profile', 'edit-profile', 'settings', 'admin', 'business', 'notifications'];
   if (!isLoggedIn && loginRequired.indexOf(page) !== -1) {
     openModal('loginModal');
     showToast('Bitte melde dich an, um diese Funktion zu nutzen.', 'info');
@@ -449,6 +453,17 @@ function navigateTo(page, data, skipHistory) {
     case 'settings':
       loadSettings();
       break;
+    case 'business':
+      if (!isDienstleister() && !(currentUser && currentUser.isAdmin)) {
+        showToast('Das Business-Cockpit ist für Dienstleister verfügbar.', 'info');
+        navigateTo('profile');
+        return;
+      }
+      renderBusinessCockpit();
+      break;
+    case 'notifications':
+      renderNotificationCenter();
+      break;
     case 'agb':
     case 'agb-b2b':
     case 'agb-dienstleister':
@@ -567,4 +582,3 @@ function _boardStatusBadgeForProvider(userId, extraClass) {
   });
   return bestHtml;
 }
-
