@@ -388,6 +388,67 @@
   .j-text.aus { color: var(--muted); font-style: italic; }
   .j-punkt { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; margin-top: .35rem; }
 
+  /* ── Änderungen: zustimmen / ablehnen ─────────────────────────── */
+  .approvals { background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--pink); border-radius: 12px;
+    padding: .85rem .95rem; margin-bottom: 1rem; }
+  .approvals h5 { font-size: .88rem; margin-bottom: .15rem; display:flex; align-items:center; gap:.4rem; }
+  .approvals > p { font-size: .74rem; color: var(--muted); margin-bottom: .8rem; line-height: 1.55; }
+  .ap-empty { font-size: .78rem; color: var(--muted); font-style: italic; padding: .5rem 0; }
+  .ap-card { border-top: 1px solid var(--border); padding: .7rem 0; display: grid;
+    grid-template-columns: 1fr auto; gap: .5rem .8rem; align-items: start; }
+  .ap-card:first-of-type { border-top: 1px solid var(--border); }
+  .ap-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
+  .ap-num { font-family: monospace; color: var(--muted); font-size: .72rem; }
+  .ap-title { font-weight: 600; font-size: .82rem; color: var(--text); }
+  .ap-badge { font-size: .62rem; font-weight: 700; padding: .12rem .5rem; border-radius: 999px;
+    border: 1px solid; white-space: nowrap; }
+  .ap-badge.ok    { color: #4ade80; border-color: #4ade8055; background: #4ade8010; }
+  .ap-badge.fail  { color: #f87171; border-color: #f8717155; background: #f8717110; }
+  .ap-badge.wait  { color: #fbbf24; border-color: #fbbf2455; background: #fbbf2410; }
+  .ap-badge.info  { color: var(--muted); border-color: var(--border); }
+  .ap-badge.draft { color: #a855f7; border-color: #a855f755; background: #a855f710; }
+  .ap-meta { grid-column: 1 / -1; font-size: .7rem; color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .4rem .8rem; }
+  .ap-meta code { font-size: .68rem; background: var(--bg2); padding: .05rem .35rem; border-radius: 4px; }
+  .ap-body { grid-column: 1 / -1; font-size: .74rem; color: var(--text); line-height: 1.55;
+    background: var(--bg2); border-radius: 6px; padding: .5rem .6rem; }
+  .ap-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .2rem; }
+  .ap-btn { font-size: .74rem; font-weight: 700; padding: .38rem .7rem; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+    cursor: pointer; transition: transform .12s, box-shadow .15s, background .15s; }
+  .ap-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .ap-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .ap-btn.ok    { background: #14321f; color: #86efac; border-color: rgba(34,197,94,.5); }
+  .ap-btn.ok:hover:not(:disabled)   { box-shadow: 0 0 12px rgba(34,197,94,.35); background:#1b4d31; }
+  .ap-btn.no    { background: #3a1414; color: #fca5a5; border-color: rgba(239,68,68,.5); }
+  .ap-btn.no:hover:not(:disabled)   { box-shadow: 0 0 12px rgba(239,68,68,.35); background:#552020; }
+  .ap-btn.link  { text-decoration: none; display: inline-block; }
+  .ap-hint { grid-column: 1 / -1; font-size: .68rem; color: var(--muted); margin-top: .15rem; font-style: italic; }
+
+  /* ── Was gerade nicht läuft: Workflow-Streifen ────────────────── */
+  .wf-strip { background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--yellow); border-radius: 12px;
+    padding: .8rem .9rem; margin-bottom: 1rem; }
+  .wf-strip h5 { font-size: .82rem; margin-bottom: .1rem; display:flex; align-items:center; gap:.4rem; }
+  .wf-strip > p { font-size: .72rem; color: var(--muted); margin-bottom: .6rem; line-height: 1.5; }
+  .wf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: .5rem; }
+  .wf-item { display: flex; align-items: center; gap: .5rem; padding: .5rem .6rem;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    font-size: .72rem; }
+  .wf-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; }
+  .wf-dot.ok    { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,.6); }
+  .wf-dot.fail  { background: var(--red);   box-shadow: 0 0 6px rgba(239,68,68,.6); }
+  .wf-dot.wait  { background: var(--yellow); animation: pulse 1.8s infinite; }
+  .wf-dot.idle  { background: var(--muted); }
+  .wf-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .wf-when { color: var(--muted); font-size: .66rem; white-space: nowrap; }
+  .wf-retry { border: none; background: transparent; color: var(--cyan); cursor: pointer;
+    font-size: .78rem; padding: .1rem .3rem; border-radius: 4px; }
+  .wf-retry:hover:not(:disabled) { background: var(--surface3); }
+  .wf-retry:disabled { opacity: .35; cursor: not-allowed; }
+
   /* Mitarbeiter-Karten */
   .modelle-summe { font-size: .78rem; color: var(--text); line-height: 1.6; margin-bottom: 1rem;
     background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--cyan);
@@ -810,6 +871,13 @@
     <!-- Was aus den Befunden wird. Ohne diese Ansicht ist die Kette
          Befund -> Arbeit unsichtbar, und unsichtbare Ketten reissen unbemerkt. -->
     <div class="journal" id="auftragsstrom"></div>
+    <!-- Offene Änderungen: was der Autopilot (oder ein Mensch) vorschlägt.
+         Ohne diesen Panel muss man das HQ verlassen, um zuzustimmen oder
+         abzulehnen — genau der Reibungspunkt, der die Vision verwässert. -->
+    <div class="approvals" id="approvals"></div>
+    <!-- Betriebs-Streifen: wo läuft der Rundlauf, wo nicht.
+         Ein roter Punkt hier ersetzt das Suchen in der Actions-Übersicht. -->
+    <div class="wf-strip" id="wf-strip"></div>
     <div class="modelle" id="modelle-grid"></div>
 
     <!-- Commander HUD -->
@@ -1516,7 +1584,7 @@ async function triggerBot(workflow, botId) {
   } catch (e) { showToast(`❌ Fehler: ${e.message}`, 'error'); sfx('error'); }
   finally { const b = document.querySelector(`[data-trigger="${workflow}"]`); if (b) { b.disabled = false; b.textContent = BOTS.find(x => x.id === botId)?.triggerLabel || '▶ Start'; } }
 }
-async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); }
+async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); renderWfStrip(); }
 
 /* ─── Toast / SFX / FX ─────────────────────────────────────────── */
 let toastTimer;
@@ -1673,6 +1741,8 @@ async function refreshAll() {
   await loadAll();
   await connPruefeAlle();
   renderHud();
+  renderApprovals();
+  renderWfStrip();
   showToast('✅ Aktualisiert', 'success'); sfx('click');
 }
 
@@ -3178,6 +3248,258 @@ function journalLetzter(rolleId) {
   return e.find(x => x.rolle === rolleId) || null;
 }
 
+/**
+ * Zustimmen / Ablehnen im HQ.
+ *
+ * Vorher: jede Änderung, die der Autopilot vorschlug, hieß Kontextwechsel
+ * nach github.com. Der Grund, warum Zustimmung schwer fiel, war meistens die
+ * Reibung — nicht das Urteil. Dieser Panel bringt Titel, Text, Ziel und die
+ * beiden einzigen Aktionen (Zustimmen, Ablehnen) an die Stelle, an der man
+ * eh schon steht. Ein Diff-Link bleibt für Zweifelsfälle sichtbar.
+ *
+ * Sicherheit: mutierende Aktionen brauchen den PAT. Ohne Token stehen die
+ * Knöpfe abgeblendet mit erklärter Aufforderung dort — sonst sähe es aus, als
+ * wäre das HQ kaputt.
+ */
+const APPROVAL_WORKFLOWS = [
+  'openrouter-autopilot.yml', 'openrouter-auto-merge.yml',
+  'pr-check.yml', 'security.yml',
+];
+
+function ciAmpel(pr) {
+  const runs = (state.runs || []).filter(r =>
+    r.head_sha === (pr.head && pr.head.sha) &&
+    APPROVAL_WORKFLOWS.includes((r.path || '').split('/').pop() || ''));
+  if (!runs.length) return { klasse: 'info', text: 'noch keine Prüfung' };
+  const laeuft = runs.some(r => r.status === 'in_progress' || r.status === 'queued');
+  if (laeuft) return { klasse: 'wait', text: 'Prüfung läuft' };
+  const rot = runs.some(r => r.conclusion && r.conclusion !== 'success' && r.conclusion !== 'neutral' && r.conclusion !== 'skipped');
+  if (rot) return { klasse: 'fail', text: 'Prüfung rot' };
+  const alle = runs.every(r => r.conclusion === 'success' || r.conclusion === 'neutral' || r.conclusion === 'skipped');
+  return alle ? { klasse: 'ok', text: 'Prüfung grün' } : { klasse: 'info', text: 'Prüfung unklar' };
+}
+
+function prBodyKurz(text) {
+  let t = String(text || '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^#+\s*/gm, '')
+    .replace(/^\s*[-*]\s*/gm, '• ')
+    .replace(/`/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (t.length > 320) t = t.slice(0, 320).replace(/\s+\S*$/, '') + '…';
+  return t;
+}
+
+function renderApprovals() {
+  const el = document.getElementById('approvals');
+  if (!el) return;
+  const pat = getPat();
+  const pulls = (state.pulls || []).slice().sort((a, b) =>
+    new Date(b.updated_at) - new Date(a.updated_at));
+  const kopf = `<h5>✅ Änderungen <span style="font-weight:400;color:var(--muted);font-size:.72rem">— zustimmen oder ablehnen, ohne das HQ zu verlassen</span></h5>
+    <p>Was der Autopilot oder ein Mensch als Verbesserung vorschlägt, steht hier komplett — Titel, Erklärung, Ziel-Dateien, Prüfstatus. Ein Klick genügt.
+       ${pat ? '' : '<b>GitHub-Token oben verbinden</b>, damit Zustimmen/Ablehnen freigeschaltet werden.'}</p>`;
+  if (!pulls.length) {
+    el.innerHTML = kopf + '<div class="ap-empty">Aktuell wartet nichts auf deine Entscheidung. Sobald der Autopilot einen Vorschlag liefert, steht er hier.</div>';
+    return;
+  }
+  el.innerHTML = kopf + pulls.slice(0, 6).map(pr => {
+    const ampel = ciAmpel(pr);
+    const branch = (pr.head && pr.head.ref) || '–';
+    const wer = (pr.user && pr.user.login) || '–';
+    const wann = nnRelativ ? nnRelativ(pr.updated_at) : new Date(pr.updated_at).toLocaleString('de-DE');
+    const body = prBodyKurz(pr.body);
+    const draft = !!pr.draft;
+    const zuKlein = ampel.klasse === 'wait' || ampel.klasse === 'fail' || ampel.klasse === 'info';
+    const zustimmenAus = !pat || draft || ampel.klasse === 'fail' || ampel.klasse === 'wait';
+    const zustimmenGrund = !pat ? 'GitHub-Token fehlt'
+      : draft ? 'Entwurf — erst nach „Ready for review"'
+      : ampel.klasse === 'fail' ? 'Prüfung ist rot — erst reparieren'
+      : ampel.klasse === 'wait' ? 'Prüfung läuft noch' : '';
+    return `<div class="ap-card">
+      <div class="ap-head">
+        <span class="ap-num">#${pr.number}</span>
+        <span class="ap-title">${escHtml(pr.title || 'Ohne Titel')}</span>
+        ${draft ? '<span class="ap-badge draft">Entwurf</span>' : ''}
+        <span class="ap-badge ${ampel.klasse}">${escHtml(ampel.text)}</span>
+      </div>
+      <div class="ap-meta">
+        <span>von <b>${escHtml(wer)}</b></span>
+        <span>Branch <code>${escHtml(branch)}</code></span>
+        <span>${escHtml(wann)}</span>
+      </div>
+      ${body ? `<div class="ap-body">${escHtml(body)}</div>` : ''}
+      <div class="ap-actions">
+        <button class="ap-btn ok" data-approve="${pr.number}" ${zustimmenAus ? 'disabled' : ''}
+          title="${escHtml(zustimmenGrund || 'Zustimmen: PR wird als Squash gemerged und ausgerollt.')}"
+        >✓ Zustimmen</button>
+        <button class="ap-btn no" data-reject="${pr.number}" ${!pat ? 'disabled' : ''}
+          title="${escHtml(!pat ? 'GitHub-Token fehlt' : 'Ablehnen: PR wird geschlossen, Branch bleibt bestehen.')}"
+        >✕ Ablehnen</button>
+        <a class="ap-btn link" href="${escHtml(pr.html_url)}" target="_blank" rel="noopener"
+          >Diff ansehen ↗</a>
+      </div>
+      ${zuKlein && pat && !zustimmenAus === false ? `<div class="ap-hint">Zustimmen ist gesperrt: ${escHtml(zustimmenGrund)}. Diff bleibt einsehbar.</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function pruefePrDann(prNr) {
+  try { const pr = await gh(`/pulls/${prNr}`); return pr; } catch { return null; }
+}
+
+async function zustimmen(prNr) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  const btn = document.querySelector(`[data-approve="${prNr}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ merge…'; }
+  try {
+    const pr = await pruefePrDann(prNr);
+    if (!pr) throw new Error('PR nicht ladbar');
+    if (pr.state !== 'open') throw new Error(`PR ist ${pr.state}`);
+    if (pr.mergeable === false) throw new Error('PR ist nicht mergefähig (Konflikte)');
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${prNr}/merge`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${getPat()}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ merge_method: 'squash' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    showToast(`✅ #${prNr} gemerged — Deploy läuft`, 'success'); sfx('success');
+    setTimeout(async () => { await loadIssues(); await loadRuns(); renderApprovals(); renderWfStrip(); renderRuns && renderRuns(); }, 3000);
+  } catch (e) {
+    showToast(`❌ Zustimmen fehlgeschlagen: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Zustimmen'; }
+  }
+}
+
+async function ablehnen(prNr) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  if (!window.confirm(`PR #${prNr} wirklich schliessen? Der Branch bleibt bestehen und kann später wieder geöffnet werden.`)) return;
+  const btn = document.querySelector(`[data-reject="${prNr}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ schließe…'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/pulls/${prNr}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${getPat()}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ state: 'closed' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    showToast(`✕ #${prNr} abgelehnt`, 'success'); sfx('click');
+    setTimeout(async () => { await loadIssues(); renderApprovals(); }, 1500);
+  } catch (e) {
+    showToast(`❌ Ablehnen fehlgeschlagen: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '✕ Ablehnen'; }
+  }
+}
+
+/**
+ * Was läuft / was nicht — auf einen Blick.
+ *
+ * Nimmt pro Workflow den jüngsten Lauf und färbt einen Punkt. Ein roter Punkt
+ * hier ersetzt den Weg über Actions -> Workflow -> Log. Retry ist nur für
+ * dispatchable Workflows sichtbar; für die anderen führt der Klick auf den
+ * Namen zum Actions-Log.
+ */
+const WF_KATALOG = [
+  { file: 'ionos-deploy.yml',        label: '🚀 Deploy (IONOS)',        dispatch: true  },
+  { file: 'openrouter-autopilot.yml', label: '🧬 OpenRouter Autopilot',  dispatch: true  },
+  { file: 'hq-operations.yml',       label: '🎯 HQ Operations',         dispatch: true  },
+  { file: 'tagesroutine.yml',        label: '📅 Tagesroutine',          dispatch: true  },
+  { file: 'pr-check.yml',            label: '🧪 PR-Prüfung',            dispatch: false },
+  { file: 'security.yml',            label: '🔒 Security-Scan',         dispatch: false },
+  { file: 'site-monitor.yml',        label: '🩺 Site-Monitor',          dispatch: true  },
+  { file: 'lighthouse-audit.yml',    label: '📊 Lighthouse',            dispatch: true  },
+  { file: 'recherche.yml',           label: '🔎 Web-Recherche',         dispatch: true  },
+  { file: 'openrouter-auto-merge.yml', label: '🤝 Auto-Merge',          dispatch: false },
+];
+
+function wfLetzter(fileName) {
+  return (state.runs || []).find(r => (r.path || '').endsWith('/' + fileName));
+}
+
+function renderWfStrip() {
+  const el = document.getElementById('wf-strip');
+  if (!el) return;
+  const items = WF_KATALOG.map(w => ({ ...w, run: wfLetzter(w.file) }))
+    .filter(w => w.run || w.dispatch);
+  const kaputt = items.filter(w => w.run && w.run.conclusion && w.run.conclusion !== 'success' && w.run.conclusion !== 'skipped' && w.run.conclusion !== 'neutral').length;
+  const laufend = items.filter(w => w.run && (w.run.status === 'in_progress' || w.run.status === 'queued')).length;
+  const kopf = `<h5>🚦 Was gerade läuft <span style="font-weight:400;color:var(--muted);font-size:.72rem">— und wo es klemmt${kaputt ? ` · <b style="color:var(--red)">${kaputt} rot</b>` : ''}${laufend ? ` · ${laufend} laufen` : ''}</span></h5>
+    <p>Jeder Punkt ist die jüngste Ausführung dieses Workflows. Rot heißt: der letzte Lauf schlug fehl.
+       Ein Klick auf ↻ startet ihn erneut (nur wo GitHub das erlaubt).</p>`;
+  if (!items.length) {
+    el.innerHTML = kopf + '<div class="ap-empty">Noch keine Läufe geladen.</div>';
+    return;
+  }
+  const sort = (a, b) => {
+    const rank = w => {
+      if (!w.run) return 2;
+      if (w.run.status === 'in_progress' || w.run.status === 'queued') return 1;
+      const c = w.run.conclusion;
+      if (c && c !== 'success' && c !== 'skipped' && c !== 'neutral') return 0;
+      return 3;
+    };
+    return rank(a) - rank(b);
+  };
+  el.innerHTML = kopf + `<div class="wf-grid">${items.slice().sort(sort).map(w => {
+    let kl = 'idle', text = 'noch nie gelaufen';
+    if (w.run) {
+      if (w.run.status === 'in_progress' || w.run.status === 'queued') { kl = 'wait'; text = 'läuft'; }
+      else if (w.run.conclusion === 'success') { kl = 'ok'; text = nnRelativ ? nnRelativ(w.run.updated_at || w.run.created_at) : 'ok'; }
+      else if (w.run.conclusion === 'skipped' || w.run.conclusion === 'neutral') { kl = 'ok'; text = 'übersprungen'; }
+      else if (w.run.conclusion) { kl = 'fail'; text = w.run.conclusion; }
+    }
+    const url = w.run ? w.run.html_url : `https://github.com/${REPO}/actions/workflows/${w.file}`;
+    const retry = w.dispatch
+      ? `<button class="wf-retry" data-wf-retry="${escHtml(w.file)}" title="${getPat() ? 'Erneut starten' : 'Token nötig'}" ${getPat() ? '' : 'disabled'}>↻</button>`
+      : '';
+    return `<div class="wf-item">
+      <span class="wf-dot ${kl}"></span>
+      <a class="wf-name" href="${escHtml(url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${escHtml(w.label)}</a>
+      <span class="wf-when">${escHtml(text)}</span>
+      ${retry}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function wfRetry(fileName) {
+  if (!getPat()) { requirePat(); showToast('⚠️ GitHub Token erforderlich', 'error'); sfx('error'); return; }
+  const btn = document.querySelector(`[data-wf-retry="${fileName}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${fileName}/dispatches`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    if (res.status !== 204 && !res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    showToast(`✅ ${fileName} neu gestartet`, 'success'); sfx('success');
+    setTimeout(async () => { await loadRuns(); renderWfStrip(); }, 8000);
+  } catch (e) {
+    showToast(`❌ ${fileName}: ${e.message}`, 'error'); sfx('error');
+    if (btn) { btn.disabled = false; btn.textContent = '↻'; }
+  }
+}
+
 async function initNeural() {
   try {
     const res = await fetch(hqAsset('assets/eb-models.json'), { cache: 'no-store' });
@@ -3201,6 +3523,8 @@ async function initNeural() {
   renderWartet();
   renderJournal();
   renderAuftragsstrom();
+  renderApprovals();
+  renderWfStrip();
   renderModelle();
 
   // Ohne SpeechRecognition (z. B. Firefox) sagt der Kreis das, statt beim
@@ -3275,6 +3599,9 @@ document.addEventListener('click', e => {
   const q = e.target.closest('[data-quest]'); if (q) { toggleQuest(q.dataset.quest); return; }
   const rb = e.target.closest('[data-rollback]'); if (rb) { openRollback(rb.dataset.rollback, rb.dataset.msg); return; }
   const tb = e.target.closest('[data-trigger]'); if (tb) { triggerBot(tb.dataset.trigger, tb.dataset.bot); return; }
+  const ap = e.target.closest('[data-approve]'); if (ap) { zustimmen(ap.dataset.approve); return; }
+  const rj = e.target.closest('[data-reject]');  if (rj) { ablehnen(rj.dataset.reject);  return; }
+  const wr = e.target.closest('[data-wf-retry]'); if (wr) { wfRetry(wr.dataset.wfRetry); return; }
 
   const ct = e.target.closest('[data-conn-test]');
   if (ct) { connPruefe(ct.dataset.connTest); sfx('click'); return; }
