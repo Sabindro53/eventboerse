@@ -284,6 +284,44 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(runner).toMatch(/if \(!scout\.target_files\.length\)/);
   });
 
+  test('ein Patch darf Schutzkonstrukte nicht wegnehmen', async () => {
+    // Die Musterprüfung sah nur hinzugefügte Zeilen. Der gefährlichste Fall
+    // rutschte damit durch:
+    //
+    //     -  `<b>${escHtml(name)}</b>`
+    //     +  `<b>${name}</b>`
+    //
+    // Die neue Zeile trifft kein verbotenes Muster — weder `.innerHTML =`
+    // noch `eval`. Die entfernte enthält die Maskierung. Ergebnis: eine
+    // XSS-Lücke, mechanisch nicht erkannt.
+    const { patchPruefen } = await import(
+      require('node:url').pathToFileURL(path.join(ROOT, 'scripts', 'openrouter-agents.mjs')).href);
+    const ziel = 'js/modules/ui/43-showcase.js';
+    const diff = (minus, plus) => [
+      `diff --git a/${ziel} b/${ziel}`, `--- a/${ziel}`, `+++ b/${ziel}`,
+      '@@ -1,1 +1,1 @@', `-${minus}`, `+${plus}`,
+    ].join('\n');
+
+    const gefaehrlich = [
+      ['HTML-Maskierung', 'h += `<b>${escHtml(n)}</b>`;', 'h += `<b>${n}</b>`;'],
+      ['Fehlerbehandlung', '} catch (e) { melde(e); }', '}'],
+      ['Aufräumen von Standortdaten', 'localStorage.removeItem(RADAR_SPEICHER);', '// spaeter'],
+      ['noopener-Schutz', 'a.rel = "noopener noreferrer";', 'a.rel = "";'],
+      ['Identitätsprüfung', 'if (!currentUser) return;', '// jeder darf'],
+    ];
+    for (const [was, minus, plus] of gefaehrlich) {
+      expect(() => patchPruefen(diff(minus, plus), [ziel]),
+        `entferntes Schutzkonstrukt bleibt unbemerkt: ${was}`).toThrow();
+    }
+
+    // Verschieben bleibt erlaubt — sonst wäre jede Umformatierung blockiert,
+    // die eine solche Zeile berührt, und der Autopilot in diesen Dateien
+    // praktisch handlungsunfähig.
+    expect(() => patchPruefen(
+      diff('const s = escHtml(n);', 'const sicher = escHtml(n);'), [ziel]))
+      .not.toThrow();
+  });
+
   test('autonomer Scope schließt sensible Dateien und Seiteneffekte aus', () => {
     const whitelist = runner.slice(runner.indexOf('const SICHERE_DATEIEN'), runner.indexOf('const AGENTEN'));
     expect(whitelist).not.toMatch(/functions\.php|payments\/|core\/30-auth|chat\/20-/);

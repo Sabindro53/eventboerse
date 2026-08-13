@@ -180,7 +180,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-278 Tests in 14 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+279 Tests in 14 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -202,6 +202,12 @@ OpenRouter „kein Key-Limit", nicht „kein Guthaben".
 Eine leere oder nicht parsebare Antwort wird nie angewendet: dieselbe Rolle
 wechselt kontrolliert zum nächsten freigegebenen Modell und bucht auch den
 fehlgeschlagenen Versuch gegen dasselbe Laufbudget.
+Ein Patch darf Schutzkonstrukte nicht **wegnehmen**: entfernte Maskierungen
+(`escHtml`), Fehlerbehandlungen, Speicher-Aufräumzeilen, `noopener` oder
+Identitätsprüfungen werden gezählt und müssen mindestens genauso oft
+zurückkommen. Verschieben ist erlaubt, wegnehmen nicht — die alte Prüfung sah
+nur hinzugefügte Zeilen, und `${escHtml(n)}` → `${n}` trifft dort kein
+verbotenes Muster.
 Das an Provider gesendete JSON-Schema nutzt nur den gemeinsamen Structured-
 Output-Kern; feinere Längen-, Mengen- und Risikogrenzen werden danach lokal
 deterministisch validiert und lösen bei Verstoß ebenfalls den Rollen-Fallback aus.
