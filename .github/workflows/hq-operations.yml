@@ -186,6 +186,18 @@ jobs:
         if: always()
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
+      # Aus den frischen Befunden die Warteschlange bauen, aus welcher der
+      # Autopilot zieht. Ohne diesen Schritt haetten die Rollen weiter
+      # gefunden, ohne dass jemand daran arbeitet.
+      - name: Auftragsstrom aus den Befunden bauen
+        if: always()
+        run: |
+          node scripts/auftragsstrom.mjs
+          node scripts/auftragsstrom.mjs --check
+          node -e "const s=require('./assets/eb-auftragsstrom.json');
+            console.log('- Auftragsstrom: '+s.lage);
+            console.log('- Ausserhalb des Rahmens: '+s.ausserhalb.length);" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Echte Laufzeitspur veroeffentlichen
         if: always()
         shell: bash
@@ -208,6 +220,7 @@ jobs:
             set net:timeout 60;
             set net:max-retries 3;
             put assets/eb-arbeit.json -o /public/wp-content/themes/eventboerse/assets/eb-arbeit.json;
+            put assets/eb-auftragsstrom.json -o /public/wp-content/themes/eventboerse/assets/eb-auftragsstrom.json;
             bye
           "
           echo "✅ Echte Laufzeitspur direkt im HQ veroeffentlicht." >> "$GITHUB_STEP_SUMMARY"
