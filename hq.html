@@ -1389,7 +1389,7 @@ function renderLog() {
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
   { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Alle 30 Minuten angefordert — GitHub plant geplante Läufe best-effort, gemessen sind es eher 50. Jeder erreichte Puls arbeitet das komplette Ensemble ab. Die Code-Arbeit macht der Autopilot — er bekommt deshalb den größeren Teil des Tagesbudgets.', workflow: 'hq-operations.yml', schedule: '🟢 Lagebild alle 30 Min. · 11 Rollen/Lauf · $0,50/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
-  { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Prüft alle 5 Minuten tokenfrei; im offenen Kostenfenster liefern Scout, Architekt, Implementierer und Reviewer genau eine kleine Verbesserung.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung · KI max. stündlich · $0,12/Lauf · $0,60/Tag', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
+  { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Jeder erreichte Lauf darf arbeiten; Scout, Architekt, Implementierer und Reviewer liefern genau eine kleine Verbesserung. Gebremst wird über das Tagesbudget, nicht über ein Zählwerk.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung angefordert · KI bei jedem erreichten Lauf · $0,12/Lauf · $1,50/Tag hart', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
   { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
   { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
   { id: 'lighthouse', avatar: '📊', name: 'Lighthouse-Bot',   role: 'Misst Performance, SEO, Accessibility & Best-Practices der Live-Seite.', workflow: 'lighthouse-audit.yml', schedule: '⏱️ Wöchentl. · Mo 06:00', canTrigger: true, triggerLabel: '▶ Messen', logsLabel: '📋 Reports', logsUrl: `https://github.com/${REPO}/actions/workflows/lighthouse-audit.yml` },
@@ -2856,7 +2856,7 @@ function renderNeuralOps() {
       }).join('')}
     </div>
     <div class="neural-budget">
-      <b>Kontingent $0,60/Tag</b>
+      <b>Kontingent $${((nnKatalog.schichten || {})['hq-operations.yml'] || {}).budgetUsd?.toFixed(2).replace('.', ',') ?? '?'}/Tag</b>
       <span>${rollen.map(m => `<i style="--q:${m.kontingentProzent || 0};--c:${(nnKatalog.bereiche.find(b => b.id === m.bereich) || {}).farbe || '#64748b'}" title="${escHtml(m.rolle)}: ${m.kontingentProzent || 0}%"></i>`).join('')}</span>
       <small>rollenweise 100 % verteilt · günstigster zulässiger Provider · Datenschutz: keine Datensammlung</small>
     </div>
@@ -3001,7 +3001,7 @@ function renderModelle() {
         <div class="modell-name">${escHtml(m.name)} · ${escHtml(m.anbieter)} · ${escHtml(m.lizenz)} · offen</div>
         <div class="modell-auf">${escHtml(m.aufgabe)}</div>
         <div class="modell-zeile"><span class="k">Aktueller Task</span><span class="v"><b>${escHtml(st.task || nnAktuelleAufgabe(m))}</b></span></div>
-        ${m.weg === 'openrouter' ? `<div class="modell-zeile"><span class="k">Kontingent</span><span class="v">${m.kontingentProzent}% vom $0,60-Tagesbudget · max. ${m.maxTokens} Antwort-Token</span></div>` : ''}
+        ${m.weg === 'openrouter' ? `<div class="modell-zeile"><span class="k">Kontingent</span><span class="v">${m.kontingentProzent}% vom $${(((nnKatalog.schichten || {})[m.schicht] || {}).budgetUsd ?? 0).toFixed(2).replace('.', ',')}-Tagesbudget · max. ${m.maxTokens} Antwort-Token</span></div>` : ''}
         <div class="modell-zeile"><span class="k">Auslöser</span><span class="v">${escHtml(m.ausloeser)}</span></div>
         <div class="modell-zeile"><span class="k">Schicht</span><span class="v">${
           sch ? escHtml(sch.label + ' · ' + sch.takt) : '<i>lokal, kein Zeitplan</i>'}</span></div>

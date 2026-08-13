@@ -447,10 +447,27 @@ test.describe('OpenRouter-Autopilot', () => {
       const behauptet = m[1] ? Number(m[1]) : (24 * 60) / Number(m[2]);
       expect(behauptet, `hq.html sagt „${m[0]}", der Cron läuft alle ${pulsMin} Min.`).toBe(pulsMin);
     }
-    for (const m of hq.matchAll(/\$(\d+),(\d+)\/Tag hart/g)) {
-      expect(Number(`${m[1]}.${m[2]}`), `hq.html sagt „${m[0]}", der Workflow setzt $${budgetAus(operations)}`)
-        .toBe(budgetAus(operations));
+    // Jede Budgetangabe im HQ muss zu IHREM Workflow passen. Die alte Regel
+    // verlangte das Wort „hart" dahinter — und übersah damit die Bot-Karte des
+    // Autopiloten, die „$0,60/Tag" behauptete, nachdem der Topf auf $1,50
+    // gestiegen war. Eine Zusicherung, die nur eine Schreibweise kennt, ist
+    // ein Loch mit Zaun drumherum.
+    const budgets = { 'hq-operations.yml': budgetAus(operations), 'openrouter-autopilot.yml': budgetAus(autopilot) };
+    for (const zeile of hq.split('\n')) {
+      const geld = zeile.match(/\$(\d+),(\d+)\s*(?:\/Tag|-Tagesbudget)/);
+      if (!geld) continue;
+      const datei = Object.keys(budgets).find((f) => zeile.includes(f));
+      // Zeilen ohne erkennbaren Workflow-Bezug prüfen wir nicht — sie könnten
+      // ein Laufbudget oder einen Beispielwert nennen.
+      if (!datei) continue;
+      expect(Number(`${geld[1]}.${geld[2]}`),
+        `hq.html sagt „${geld[0]}" bei ${datei}, der Workflow setzt $${budgets[datei]}`)
+        .toBe(budgets[datei]);
     }
+    // Und kein fest eingetippter Tagesbudget-Betrag mehr in der Oberfläche:
+    // die Werte kommen aus dem Katalogfeld budgetUsd.
+    expect(hq, 'das Kontingent steht wieder als fester Text').not.toMatch(/Kontingent \$\d+,\d+\/Tag/);
+    expect(hq, 'das Rollen-Kontingent nennt einen festen Betrag').not.toMatch(/vom \$\d+,\d+-Tagesbudget/);
     expect(hq, 'hq.html behauptet weiter „viermal täglich"').not.toMatch(/viermal täglich/);
   });
 });
@@ -511,7 +528,14 @@ test.describe('Neuronaler Kern', () => {
     expect(r.text).toContain('Jetzt');
     expect(r.text).toContain('Nächste Prüfung');
     expect(r.text).toContain('Zuletzt belegt');
-    expect(r.text).toContain('Kontingent $0,60/Tag');
+    // Kein Literal: „Kontingent $0,60/Tag" hat den veralteten Betrag
+    // konserviert, nachdem Puls und Autopilot getrennte Töpfe bekamen.
+    // Geprüft wird, DASS der Strom sein Kontingent nennt — und dass die Zahl
+    // die des Katalogs ist, nicht irgendeine.
+    const budgetPuls = KATALOG.schichten['hq-operations.yml'].budgetUsd;
+    expect(budgetPuls, 'der Katalog nennt kein Puls-Budget').toBeGreaterThan(0);
+    expect(r.text, 'der Strom nennt sein Kontingent nicht')
+      .toContain(`Kontingent $${budgetPuls.toFixed(2).replace('.', ',')}/Tag`);
   });
 
   test('ein echter Operations-Puls aktiviert alle Rollen und Transportwege', async ({ page }) => {
