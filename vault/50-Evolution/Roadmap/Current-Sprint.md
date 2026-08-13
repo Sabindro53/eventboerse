@@ -400,6 +400,9 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
 - [ ] **Listings-/Board-Regressionen ausschließen**
   - Ziel: Keine verschwundenen Listings mehr in Board/Startseite/Map/Browse.
   - Pflicht-Checks nach Deploy: Listings API, Board Picker, Demo-Toggle, Selbstbuchungsschutz.
+  - [x] Provider ohne Inserate bleiben reine Profile: Profil-Fallbacks landen
+    nicht mehr in `LISTINGS`, zählen als 0 und erzeugen keine Inseratkarte.
+    Ein Smoke-Test bildet den konkreten Fall „Maria Heilig, `listings: []`“ ab.
 - [x] **KI-Änderungs-Guardrails operationalisieren** *(2026-08-04, OpenRouter-Autopilot)*
   - Vier getrennte Rollen: Scout → Architektur → Implementierung → unabhängiges Review.
   - Feste Whitelist kleiner Frontend-Dateien; max. 2 Dateien/260 Diff-Zeilen;
