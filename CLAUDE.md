@@ -84,6 +84,12 @@ aus wie ein Haus ohne Grenzen.
 **Stand:** 6 von 11 Schicht-Rollen arbeiten an Dateien innerhalb des
 Rahmens. Die übrigen Befunde sind für Menschen, nicht für den Autopiloten.
 
+Der Rahmen umfasst **15 Dateien** (`scripts/lib/sichere-dateien.mjs`). Die
+Aufnahmekriterien stehen als Test, nicht als Absatz: höchstens 1200 Zeilen,
+8 Auth-, 20 Geld- und 12 Upload-Vorkommen — **im Code gemessen, nicht im
+Fließtext**. Eine Erweiterung ist eine Sicherheitsentscheidung des Inhabers.
+Nie aufnehmen: `board/`, `core/30-auth.js`, `payments/`.
+
 ### Demo-Inhalte & Wissenslücken
 
 ```bash
@@ -180,7 +186,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-286 Tests in 15 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+287 Tests in 15 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

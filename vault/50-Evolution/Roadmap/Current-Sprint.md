@@ -46,6 +46,28 @@ einen alten Abschnitt gelesen und nicht diesen.
   ist eine Landkarte der Angriffsfläche, kein Schlüsselbund — beim Schreiben
   neuer Security-Notizen bleibt genau das die Grenze.
 
+<<<<<<< HEAD
+=======
+### Vision Release (13.08., #144–#147) — nicht von mir, hier festgehalten
+
+Zwischen 12:27 und 13:46 sind vier PRs eingegangen, die den Ist-Stand oben
+mitbestimmen. Sie stehen hier, damit der Ensemble-Kontext sie kennt:
+
+- **#144 Vision Release** — Business-Cockpit für Dienstleister (KPIs, Steuern,
+  PDF, Media Studio), Radar als eigener Feed-Kanal mit Stadt und Radius,
+  Vertrauensnetzwerk, HQ Voice. Neu: `js/modules/ui/52-release-vision.js`,
+  `release-vision.css`, `tests/e2e/vision-release.spec.js`.
+- **#145 Hotfix** — HQ statisch abgeschottet, Release-Styles laden.
+  Neu: `scripts/build-protected-hq.mjs` erzeugt `hq-protected.php` mit
+  vorgeschaltetem PHP-Wächter.
+- **#146 Hotfix** — interne Wissens- und Markdown-Pfade werden aus
+  Agententexten redigiert, bevor sie im HQ erscheinen.
+- **#147** — der HQ-Kreis beendet sein Gespräch logisch, operative Antworten
+  sind abgesichert.
+
+Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
+noch `assets/eb-knowledge.json` angefasst.
+
 ## Zuletzt ausgeliefert (August 2026)
 
 - [x] **Kein Beitrag ohne Account:** Der Tages-Demo-Feed liefert nun 25 feste,
