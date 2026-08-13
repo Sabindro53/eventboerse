@@ -181,10 +181,29 @@
   .qa-btn.accent { background:linear-gradient(135deg,var(--pink),var(--violet)); border-color:transparent; color:#fff; }
   .qa-btn.accent:hover { opacity:.92; }
 
-  /* ── Section ── */
-  .section-header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 1rem; }
-  .section-title { font-size: 1.02rem; font-weight: 700; display:flex; align-items:center; gap:.5rem; }
-  .section-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .7rem; font-size: .72rem; color: var(--muted); }
+  /* ── Section ──────────────────────────────────────────────────────
+     Rhythmus statt gleichmaessiger Dichte: zwischen zwei Abschnitten ist
+     mehr Luft als innerhalb eines. Vorher hatte jede Karte dieselbe
+     Randstaerke wie jede Ueberschrift — das Auge fand keinen Halt und las
+     die Seite als eine einzige Flaeche. */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; margin: 2.6rem 0 1.1rem;
+    padding-bottom: .7rem; border-bottom: 1px solid var(--border);
+  }
+  .section-header:first-of-type { margin-top: 0; }
+  .section-title {
+    font-size: 1.14rem; font-weight: 700; letter-spacing: -.015em;
+    display: flex; align-items: center; gap: .55rem; min-width: 0;
+  }
+  /* Die Erlaeuterung hinter dem Titel ist eine Beischrift, kein Titel. */
+  .section-title span { font-weight: 400; color: var(--muted); font-size: .8rem; }
+  .section-badge {
+    flex: 0 0 auto;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 999px;
+    padding: .26rem .75rem; font-size: .72rem; color: var(--muted);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
 
   /* ══ Neuronaler Kern ══════════════════════════════════════════════
      Das Zentrum des HQ. Zehn Bereiche im Ring, in der Mitte der Circle.
