@@ -147,6 +147,49 @@ test.describe('Auftragsstrom: aus Befunden wird Arbeit', () => {
     }
   });
 
+  test('das HQ zeigt die Kette Befund → Arbeit, und die drei Lagen sehen verschieden aus', async ({ page }) => {
+    // Ohne Ansicht ist die Kette unsichtbar, und unsichtbare Ketten reißen
+    // unbemerkt. Die drei Lagen dürfen NICHT gleich aussehen:
+    //   Aufträge da       → das Haus arbeitet an dem, was es selbst fand
+    //   im Rahmen leer    → es gab nichts Verwertbares, der Scout wählt selbst
+    //   nicht ladbar      → ich weiß es nicht
+    await page.route('https://api.github.com/**', (r) => r.abort());
+
+    const laden = async (koerper) => {
+      await page.route('**/eb-auftragsstrom.json*', (r) => (koerper === null
+        ? r.fulfill({ status: 404, body: '' })
+        : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(koerper) })));
+      await page.goto('/hq.html');
+      await page.locator('[data-bereich]').first().waitFor({ timeout: 12000 });
+      return page.evaluate(() => document.getElementById('auftragsstrom').textContent.replace(/\s+/g, ' '));
+    };
+
+    const mit = await laden({
+      version: 1, lage: '1 verwertbarer Befund im Rahmen', auftraege: [{
+        id: 'A001', befund: 'Der Fokusring fehlt im Modal.',
+        dateien: ['js/modules/ui/31-modals-toast-qabot.js'], warum: 'nennt Barrierefreiheit',
+        quelle: { person: 'Kito Sarr', rollenname: 'Code-Prüfer', rolle: 'deepseek-code', zeit: '2026-08-13T11:00:00.000Z' },
+      }], ausserhalb: [], verworfen: [],
+    });
+    expect(mit, 'der Auftrag steht nicht da').toContain('Der Fokusring fehlt im Modal.');
+    expect(mit, 'die Herkunft fehlt').toContain('Kito Sarr');
+    expect(mit, 'die Datei fehlt').toContain('31-modals-toast-qabot.js');
+
+    const leer = await laden({
+      version: 1, lage: 'Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.',
+      auftraege: [], verworfen: [],
+      ausserhalb: [{ herkunft: { person: 'Noah Stern' }, grund: 'nennt functions.php — außerhalb des freigegebenen Rahmens' }],
+    });
+    expect(leer, 'die leere Lage wird nicht benannt').toContain('Kein Befund im freigegebenen Rahmen');
+    expect(leer, 'Befunde für Menschen werden verschwiegen').toContain('außerhalb des Rahmens');
+    expect(leer, 'ausgeschlossene Befunde nennen keine Herkunft').toContain('Noah Stern');
+
+    const weg = await laden(null);
+    expect(weg, 'eine fehlende Datei wird wie „keine Befunde" dargestellt').toContain('Nicht ladbar');
+    expect(weg).toContain('etwas anderes als „keine"');
+    expect(weg).not.toContain('Kein Befund im freigegebenen Rahmen');
+  });
+
   test('Prüfung läuft sauber durch', () => {
     const { execFileSync } = require('node:child_process');
     execFileSync('node', ['scripts/auftragsstrom.mjs'], { cwd: ROOT });

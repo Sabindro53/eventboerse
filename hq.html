@@ -785,6 +785,9 @@
     </div>
     <div class="modelle-summe" id="modelle-summe"></div>
     <div class="journal" id="journal"></div>
+    <!-- Was aus den Befunden wird. Ohne diese Ansicht ist die Kette
+         Befund -> Arbeit unsichtbar, und unsichtbare Ketten reissen unbemerkt. -->
+    <div class="journal" id="auftragsstrom"></div>
     <div class="modelle" id="modelle-grid"></div>
 
     <!-- Commander HUD -->
@@ -3082,6 +3085,59 @@ function renderJournal() {
       </div>`).join('')}`;
 }
 
+/**
+ * Der Auftragsstrom: was aus den Befunden geworden ist.
+ *
+ * Drei Zustaende, drei verschiedene Aussagen — und keiner davon darf wie ein
+ * anderer aussehen:
+ *   - Auftraege da        -> das Haus arbeitet an dem, was es selbst fand
+ *   - im Rahmen leer      -> es gab nichts Verwertbares, der Scout waehlt selbst
+ *   - Datei nicht ladbar  -> ich weiss es nicht
+ */
+let nnStrom = null;
+
+async function ladeAuftragsstrom() {
+  try {
+    const r = await fetch(hqAsset('assets/eb-auftragsstrom.json'), { cache: 'no-store' });
+    if (!r.ok) throw new Error(String(r.status));
+    nnStrom = await r.json();
+  } catch { nnStrom = null; }
+}
+
+function renderAuftragsstrom() {
+  const el = $('auftragsstrom');
+  if (!el) return;
+  if (!nnStrom) {
+    el.innerHTML = '<h5>🎯 Auftragsstrom</h5><p>Nicht ladbar — ich kann nicht sagen, ob Befunde anliegen. '
+      + 'Das ist etwas anderes als „keine".</p>';
+    return;
+  }
+  const a = nnStrom.auftraege || [], aus = nnStrom.ausserhalb || [];
+  el.innerHTML = `
+    <h5>🎯 Auftragsstrom <span style="font-weight:400;color:var(--muted);font-size:.72rem">— woran der Autopilot als Nächstes zieht</span></h5>
+    <p>${escHtml(nnStrom.lage || '')} Jeder Auftrag nennt den Befund, aus dem er stammt —
+       ein Auftrag ohne Herkunft wäre erfundene Arbeit.</p>
+    ${a.map(x => `
+      <div class="j-eintrag">
+        <span class="j-punkt" style="background:var(--cyan)"></span>
+        <span class="j-zeit">${escHtml(x.id)}</span>
+        <span class="j-wer">${escHtml(x.quelle.person || x.quelle.rolle)}<small>${escHtml(x.quelle.rollenname || '')}</small></span>
+        <span class="j-text"><b>${escHtml(x.befund.slice(0, 180))}</b><br>
+          ${x.dateien.map(d => `<code class="nnd-datei">${escHtml(d)}</code>`).join(' ')}
+          <small style="color:var(--muted)"> · ${escHtml(x.warum || '')}</small></span>
+      </div>`).join('')}
+    ${aus.length ? `
+      <div style="margin-top:.7rem;padding-top:.6rem;border-top:1px solid var(--border)">
+        <b style="font-size:.76rem">${aus.length} Befund${aus.length === 1 ? '' : 'e'} außerhalb des Rahmens — für dich, nicht für den Autopiloten</b>
+        ${aus.slice(0, 6).map(x => `
+          <div class="j-eintrag">
+            <span class="j-punkt" style="background:#6b7280"></span>
+            <span class="j-wer">${escHtml(x.herkunft.person || x.herkunft.rolle)}</span>
+            <span class="j-text aus">${escHtml(x.grund)}</span>
+          </div>`).join('')}
+      </div>` : ''}`;
+}
+
 /** Letzter Journaleintrag einer Rolle — für ihre Karte. */
 function journalLetzter(rolleId) {
   const e = (nnJournal && nnJournal.eintraege) || [];
@@ -3103,12 +3159,14 @@ async function initNeural() {
   } catch { nnWissen = 0; }
 
   await ladeNeuralJournal();
+  await ladeAuftragsstrom();
   await ladeCodeflow();
 
   nnZeichnen();
   renderBereiche();
   renderWartet();
   renderJournal();
+  renderAuftragsstrom();
   renderModelle();
 
   // Ohne SpeechRecognition (z. B. Firefox) sagt der Kreis das, statt beim
