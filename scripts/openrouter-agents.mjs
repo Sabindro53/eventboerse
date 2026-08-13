@@ -725,17 +725,35 @@ async function main(argv = []) {
     aktuelles_ziel: `Kleinen Diff in ${architekt.target_files.join(', ')} umsetzen.`,
   });
 
-  const implementierung = await agent('implementer', IMPLEMENTER_SCHEMA,
+  let implementierung;
+  try {
+    implementierung = await agent('implementer', IMPLEMENTER_SCHEMA,
     `Du bist der Implementierer. ${fremdtextRegel} Gib ausschliesslich einen kleinen Unified-Diff zurueck. `
       + 'Aendere nur die freigegebenen Dateien. Keine neuen Dateien, keine Umbenennung, keine Loeschung. '
       + 'Verboten: Netzwerkaufrufe, Storage/Cookies, Auth, Zahlungen, personenbezogene Daten, innerHTML, eval, externe URLs, neue Abhaengigkeiten. '
       + 'UI-Texte Deutsch, Code-Kommentare Englisch. Bewahre bestehende globale Funktionsnamen und Verhalten.',
-    `PLAN:\n${JSON.stringify({ scout, architekt }, null, 2)}\n\nEXAKTER QUELLCODE:\n${quellen}`);
+    `PLAN:\n${JSON.stringify({ scout, architekt }, null, 2)}\n\nEXAKTER QUELLCODE:\n${quellen}`,
+      { zieldateien: architekt.target_files, patchPruefer: patchPruefen });
+  } catch (fehler) {
+    // Kein Modell hat einen brauchbaren Diff geliefert. Das ist derselbe Fall
+    // wie ein Scout ohne belastbaren Fund: ein Lauf ohne Aenderung, nicht ein
+    // kaputter Betrieb. Der Grund wird festgehalten — ein stiller Abbruch
+    // waere schlimmer als ein roter Lauf, ein stuendlich roter Lauf aber
+    // schlimmer als ein festgehaltener Grund.
+    return ergebnisSchreiben({
+      changed: false, fokus, scout, architekt, laeufe, kosten: ausgegeben,
+      abbruch: `Implementierer ohne verwertbaren Diff: ${fehler.message}`,
+    });
+  }
 
   const patch = implementierung.patch.trim();
   if (!patch) {
     return ergebnisSchreiben({ changed: false, fokus, scout, architekt, implementierung, laeufe, kosten: ausgegeben });
   }
+  // Zweiter Durchlauf mit demselben Pruefer: die Pruefung in der
+  // Fallback-Schleife entscheidet ueber die Modellwahl, diese hier ist das
+  // Tor vor dem Anwenden. Ein Pruefer, der nur einmal laeuft, waere eine
+  // Einladung, ihn spaeter versehentlich zu umgehen.
   patchPruefen(patch, architekt.target_files);
   codeflow.implementierung = {
     zusammenfassung: implementierung.summary,
@@ -836,6 +854,22 @@ function validiereAgentenJson(rolle, json, kontext = {}) {
     textLaenge(json, 'patch', 0, 48000);
     textLaenge(json, 'summary', 20, 700);
     arrayLaenge(json, 'tests_considered', 2, 6);
+    // Der Patch wird HIER geprueft, nicht erst nach der Modellwahl.
+    //
+    // Vorher lief patchPruefen() ausserhalb der Fallback-Schleife: ein Modell,
+    // das statt eines Diffs Prosa lieferte, riss den ganzen Lauf mit
+    // („Kein gueltiger Unified-Diff.", exit 1) — kein PR, keine Arbeit, und
+    // stuendlich ein roter Lauf. Dabei gilt im Haus laengst: eine nicht
+    // verwertbare Antwort laesst dieselbe Rolle kontrolliert zum naechsten
+    // freigegebenen Modell wechseln. Ein kaputter Diff IST eine nicht
+    // verwertbare Antwort.
+    //
+    // Die Pruefung selbst wird dadurch nicht schwaecher — sie laeuft nur
+    // frueher und an der Stelle, an der ein Fehlschlag noch behebbar ist.
+    const patch = String(json.patch || '').trim();
+    if (patch && Array.isArray(kontext.zieldateien)) {
+      kontext.patchPruefer(patch, kontext.zieldateien);
+    }
   } else if (rolle === 'reviewer') {
     textLaenge(json, 'summary', 20, 700);
     arrayLaenge(json, 'findings', 0, 8);
@@ -1010,6 +1044,18 @@ function selfTest() {
     acceptance: ['Die Änderung bleibt auf die belegte Datei begrenzt.', 'Der vorhandene Funktionspfad bleibt erhalten.'],
     evidence: [testBeleg.id], risk: 'low',
   }, { belege: testBelegKatalog });
+  // Ein kaputter Diff muss SCHON IN DER VALIDIERUNG scheitern. Nur dort loest
+  // er den Wechsel auf das naechste freigegebene Modell aus; weiter hinten
+  // reisst er den ganzen Lauf mit (so geschehen am 13.08., Lauf 31682161606:
+  // „Kein gueltiger Unified-Diff.", exit 1, kein PR).
+  const implKontext = { zieldateien: ['js/modules/ui/43-showcase.js'], patchPruefer: patchPruefen };
+  const implRumpf = { summary: 'Eine kleine, reversible Anpassung im Showcase.', tests_considered: ['a', 'b'] };
+  let diffAbgewiesen = false;
+  try {
+    validiereAgentenJson('implementer', { ...implRumpf, patch: 'Hier ist mein Vorschlag: ...' }, implKontext);
+  } catch { diffAbgewiesen = true; }
+  if (!diffAbgewiesen) throw new Error('Ein kaputter Diff loest keinen Modellwechsel aus.');
+
   pruefeDateiliste(['js/modules/ui/43-showcase.js']);
   const gut = [
     'diff --git a/js/modules/ui/43-showcase.js b/js/modules/ui/43-showcase.js',
