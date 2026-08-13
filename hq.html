@@ -3366,6 +3366,7 @@ window.addEventListener('DOMContentLoaded', init);
   var voiceMode = false, asking = false, conversation = [], preferredVoice = null;
   var askController = null, recognitionAlternatives = [], recognitionConfidence = null, endTimer = null, suppressVoiceRestart = false;
   var providerFailures = 0, providerCooldownUntil = 0;
+  var dialogSession = 0, recognitionSession = 0;
   var esc = function (t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; };
 
   // Das Transkript gehört zum neuronalen Kern, nicht in einen schwebenden
@@ -3756,17 +3757,26 @@ window.addEventListener('DOMContentLoaded', init);
     if (!speakOn || !window.speechSynthesis) return;
     try {
       speechSynthesis.cancel();
+      var session = dialogSession;
       var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
       u.lang = 'de-DE'; u.rate = .98; u.pitch = .94;
       u.voice = preferredVoice || chooseVoice();
-      u.onstart = function () { circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht'); };
+      u.onstart = function () {
+        if (session !== dialogSession || !panel.classList.contains('open')) return;
+        circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht');
+      };
       u.onend = function () {
-        circle.classList.remove('speaking'); voiceState('Bereit für dein Gespräch', null);
+        circle.classList.remove('speaking');
+        if (session !== dialogSession || !panel.classList.contains('open')) return;
+        voiceState('Bereit für dein Gespräch', null);
         var darfNeuHoeren = !suppressVoiceRestart;
         suppressVoiceRestart = false;
         if (darfNeuHoeren && voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 120);
       };
-      u.onerror = function () { circle.classList.remove('speaking'); voiceState('Sprachausgabe gestoppt', null); };
+      u.onerror = function () {
+        circle.classList.remove('speaking');
+        if (session === dialogSession && panel.classList.contains('open')) voiceState('Sprachausgabe gestoppt', null);
+      };
       speechSynthesis.speak(u);
     } catch (e) {}
   }
@@ -3820,6 +3830,7 @@ window.addEventListener('DOMContentLoaded', init);
     q = String(q || '').trim(); if (!q) return;
     if (asking && askController) askController.abort();
     var controller = new AbortController();
+    var session = dialogSession;
     askController = controller;
     asking = true;
     renderSuggestions([]);
@@ -3858,6 +3869,7 @@ window.addEventListener('DOMContentLoaded', init);
         }).join('\n\n---\n\n');
         var context = [hqDialogContext(), status || '', wissen || localAnswer || '', hit && hit.title ? 'Quelle: ' + hit.title : ''].filter(Boolean).join('\n\n');
         var data = await askOpenRouter(q, context, controller);
+        if (session !== dialogSession || !panel.classList.contains('open')) return;
         conversation.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
         conversation = conversation.slice(-10);
         hintEl.textContent = data.needs_clarification ? 'Der Assistent fragt gezielt nach.' : 'Gespräch bleibt jederzeit unterbrechbar.';
@@ -3876,7 +3888,7 @@ window.addEventListener('DOMContentLoaded', init);
       say(fb);
     } finally {
       if (askController === controller) { asking = false; askController = null; }
-      recognitionAlternatives = []; recognitionConfidence = null;
+      if (session === dialogSession) { recognitionAlternatives = []; recognitionConfidence = null; }
     }
   }
 
@@ -3916,7 +3928,7 @@ window.addEventListener('DOMContentLoaded', init);
       // Ein zweiter Klick auf den Kern beendet die Sitzung. Das nachlaufende
       // onend-Ereignis darf dann weder einen Teiltext absenden noch das
       // Mikrofon wieder starten.
-      if (!panel.classList.contains('open')) {
+      if (recognitionSession !== dialogSession || !panel.classList.contains('open')) {
         input.value = '';
         voiceState('Gespräch beendet', null);
         syncDialogControls();
@@ -3927,11 +3939,13 @@ window.addEventListener('DOMContentLoaded', init);
       if (t) { input.value = ''; ask(t); }
       else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 180);
     };
+    recognitionSession = dialogSession;
     try { rec.start(); } catch (e) {}
   }
 
   function open(asVoice) {
     if (panel.classList.contains('open')) { syncDialogControls(); return; }
+    dialogSession += 1; suppressVoiceRestart = false;
     if (asVoice) voiceMode = true;
     panel.classList.add('open');
     syncDialogControls();
@@ -3942,6 +3956,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (!voiceMode) setTimeout(function () { input.focus(); }, 60);
   }
   function close() {
+    dialogSession += 1;
     voiceMode = false; panel.classList.remove('open');
     try { if (rec && listening) rec.stop(); } catch (e) {}
     if (askController) askController.abort();
