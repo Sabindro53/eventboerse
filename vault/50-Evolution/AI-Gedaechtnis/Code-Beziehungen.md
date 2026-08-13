@@ -122,15 +122,13 @@ Dienstleister sendet Angebot (offer message)
     ↓
 Event-Planer akzeptiert (PUT /messages/{id}/offer-status)
     ↓
-Dienstleister sendet Rechnung (POST /send-invoice)
+Event stattgefunden → Board: "Erfüllt"
     ↓
 Event-Planer bezahlt (Stripe Checkout)
     ↓
 Webhook empfangen (POST /stripe/webhook)
     ↓
 Status Update → Board: "Bezahlt"
-    ↓
-Event stattgefunden → Board: "Erfüllt"
     ↓
 Event-Planer schreibt Bewertung (POST /reviews/{id})
 ```

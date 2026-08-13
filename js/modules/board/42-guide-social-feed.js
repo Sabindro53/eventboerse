@@ -91,7 +91,7 @@ function _guideSteps(project) {
     // Ein Step gilt als erledigt, wenn abgehakt ODER der Dienstleister
     // dafür bereits fest gebucht/abgeschlossen ist.
     var done = doneMap[text.toLowerCase()] === true ||
-      cardStage === 'bestaetigt' || cardStage === 'abgeschlossen';
+      cardStage === 'angebot' || cardStage === 'bestaetigt' || cardStage === 'abgeschlossen';
     // Empfohlene Deadline: Eventdatum minus Vorlaufzeit (nur mit Datum).
     var deadline = null, overdue = false;
     if (eventDate) {

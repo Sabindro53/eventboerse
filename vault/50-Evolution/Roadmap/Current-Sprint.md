@@ -403,6 +403,10 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
   - [x] Provider ohne Inserate bleiben reine Profile: Profil-Fallbacks landen
     nicht mehr in `LISTINGS`, zählen als 0 und erzeugen keine Inseratkarte.
     Ein Smoke-Test bildet den konkreten Fall „Maria Heilig, `listings: []`“ ab.
+  - [x] Flow-Struktur ist unverrückbar: Prozessspalten ignorieren alte manuelle
+    Koordinaten und können nicht mehr versehentlich auseinandergezogen werden;
+    nur Dienstleisterkarten wechseln weiterhin die Stage. Die fachliche Abfolge
+    endet jetzt mit „Erfüllt → Bezahlt“ und migriert bestehende Karten defensiv.
 - [x] **KI-Änderungs-Guardrails operationalisieren** *(2026-08-04, OpenRouter-Autopilot)*
   - Vier getrennte Rollen: Scout → Architektur → Implementierung → unabhängiges Review.
   - Feste Whitelist kleiner Frontend-Dateien; max. 2 Dateien/260 Diff-Zeilen;

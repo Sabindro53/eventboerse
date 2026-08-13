@@ -1789,18 +1789,57 @@ function eb_board_bookings_update_card( WP_REST_Request $request ) {
                     return new WP_REST_Response( array( 'error' => 'not_your_listing' ), 403 );
                 }
             }
+            // Alte Board-Karten vor der Aktion serverseitig in das neue
+            // Modell (Gebucht → Erfüllt → Bezahlt) überführen. So bleibt die
+            // Dienstleister-Aktion auch dann möglich, wenn der Kunde sein
+            // Board seit dem Deploy noch nicht geöffnet hat.
+            if ( (int) ( $card['_stageModel'] ?? 0 ) < 2 ) {
+                $acceptance_only_payment = empty( $card['paymentIntentId'] )
+                    && empty( $card['paymentReference'] )
+                    && ! empty( $card['providerAcceptedAt'] )
+                    && ! empty( $card['paidAt'] )
+                    && (string) $card['providerAcceptedAt'] === (string) $card['paidAt'];
+                if ( $acceptance_only_payment ) {
+                    $card['paidAt'] = '';
+                    $card['paidAmount'] = 0;
+                    $card['paymentStatus'] = '';
+                    $card['paymentMethod'] = '';
+                }
+                $has_old_payment = ! empty( $card['paymentIntentId'] )
+                    || ! empty( $card['paymentReference'] )
+                    || preg_match( '/paid|bezahlt/i', (string) ( $card['paymentStatus'] ?? '' ) );
+                $was_fulfilled = ! empty( $card['fulfilledAt'] )
+                    || ( ! empty( $card['userConfirmedAt'] )
+                        && ! empty( $card['providerConfirmedAt'] )
+                        && ( $card['stage'] ?? '' ) === 'abgeschlossen' );
+                if ( $was_fulfilled ) {
+                    $card['fulfilledAt'] = ! empty( $card['fulfilledAt'] )
+                        ? $card['fulfilledAt']
+                        : ( $card['providerConfirmedAt'] ?? $card['userConfirmedAt'] );
+                    $card['stage'] = $has_old_payment ? 'abgeschlossen' : 'bestaetigt';
+                } elseif ( $has_old_payment
+                    || in_array( ( $card['stage'] ?? '' ), array( 'bestaetigt', 'abgeschlossen' ), true ) ) {
+                    $card['stage'] = 'angebot';
+                }
+                $card['_stageModel'] = 2;
+            }
             if ( $action === 'accept' ) {
                 $card['providerAcceptedAt'] = $now;
-                $card['stage']              = 'bestaetigt';
-                if ( empty( $card['paidAt'] ) ) $card['paidAt'] = $now;
-                if ( empty( $card['paymentStatus'] ) ) $card['paymentStatus'] = 'Bezahlt';
+                // Die Annahme ist eine Buchungsbestätigung, keine Zahlung.
+                // Die Karte bleibt „Gebucht“, bis beide Seiten die Erbringung
+                // bestätigen; bezahlt wird anschließend.
+                $card['stage'] = 'angebot';
             } elseif ( $action === 'confirm' ) {
                 $card['providerConfirmedAt'] = $now;
-                if ( ! empty( $card['userConfirmedAt'] ) && ( $card['stage'] ?? '' ) === 'bestaetigt' ) {
-                    $card['stage']       = 'abgeschlossen';
+                if ( ! empty( $card['userConfirmedAt'] ) && ( $card['stage'] ?? '' ) === 'angebot' ) {
                     $card['fulfilledAt'] = $now;
+                    $has_payment = ! empty( $card['paymentIntentId'] )
+                        || ! empty( $card['paymentReference'] )
+                        || preg_match( '/paid|bezahlt/i', (string) ( $card['paymentStatus'] ?? '' ) );
+                    $card['stage'] = $has_payment ? 'abgeschlossen' : 'bestaetigt';
                 }
             }
+            $card['_stageModel'] = 2;
             $found = true;
             break 2;
         }

@@ -69,6 +69,77 @@ function _isTombstoned(id) {
   return 0;
 }
 
+var EB_BOARD_STAGE_MODEL_VERSION = 2;
+
+function _cardHasConfirmedPayment(card) {
+  if (!card) return false;
+  return !!(
+    card.paymentIntentId ||
+    card.paymentReference ||
+    (card.paymentStatus && /paid|bezahlt/i.test(String(card.paymentStatus)))
+  );
+}
+
+// Stage-Modell v2:
+// geplant → kontaktiert → gebucht → erfüllt → bezahlt.
+// Frühere Karten verwendeten bestaetigt=Bezahlt und abgeschlossen=Erfüllt.
+// Außerdem schrieb die alte Provider-Annahme ohne echte Stripe-Referenz
+// fälschlich einen Bezahlt-Marker. Beides wird einmalig und verlustarm
+// normalisiert. Manuelle Flow-Koordinaten entfallen, weil die Prozessstruktur
+// ab v2 fest ist.
+function _migrateBoardStageModel(projects) {
+  var changed = false;
+  (projects || []).forEach(function(project) {
+    if (!project) return;
+    if (project.flowLayout) {
+      delete project.flowLayout;
+      changed = true;
+    }
+    if (project.flowLayouts && Object.keys(project.flowLayouts).length) {
+      project.flowLayouts = {};
+      changed = true;
+    }
+    (project.cards || []).forEach(function(card) {
+      if (!card || card._stageModel === EB_BOARD_STAGE_MODEL_VERSION) return;
+
+      // Alte Provider-Annahme war keine Zahlung: ohne Stripe-Referenz und mit
+      // identischem Annahme-/Zahlzeitpunkt den künstlichen Marker entfernen.
+      var acceptanceOnlyPayment = !!(
+        !card.paymentIntentId &&
+        !card.paymentReference &&
+        card.providerAcceptedAt &&
+        card.paidAt &&
+        String(card.providerAcceptedAt) === String(card.paidAt)
+      );
+      if (acceptanceOnlyPayment) {
+        card.paidAt = '';
+        card.paidAmount = 0;
+        card.paymentStatus = '';
+        card.paymentMethod = '';
+      }
+
+      var paid = _cardHasConfirmedPayment(card);
+      var fulfilled = !!(
+        card.fulfilledAt ||
+        (card.userConfirmedAt && card.providerConfirmedAt && card.stage === 'abgeschlossen')
+      );
+      if (fulfilled) {
+        card.fulfilledAt = card.fulfilledAt || card.providerConfirmedAt || card.userConfirmedAt;
+        card.stage = paid ? 'abgeschlossen' : 'bestaetigt';
+      } else if (paid) {
+        // Bereits vorab bezahlt, aber noch nicht erbracht: bleibt gebucht,
+        // bis beide Seiten die Erbringung bestätigen.
+        card.stage = 'angebot';
+      } else if (card.stage === 'bestaetigt' || card.stage === 'abgeschlossen') {
+        card.stage = 'angebot';
+      }
+      card._stageModel = EB_BOARD_STAGE_MODEL_VERSION;
+      changed = true;
+    });
+  });
+  return changed;
+}
+
 function _migrateBoardProjects() {
   if (!currentUser) return;
   var newKey = 'eb_board_projects_' + currentUser.id;
@@ -88,6 +159,9 @@ function _loadBoardProjects() {
   _loadBoardTombstones();
   // 1) Schneller Cache: lokal geladene Projekte sofort anzeigen
   _boardProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+  if (_migrateBoardStageModel(_boardProjects) && key) {
+    try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch (e) {}
+  }
   // Lokal bereits getombstoned? Raus damit.
   if (_boardTombstones.length) {
     _boardProjects = _boardProjects.filter(function(p){ return !p || !p.id || !_isTombstoned(p.id); });
@@ -104,6 +178,9 @@ function _loadBoardProjects() {
 // Lokale Projekte, die auf dem Server fehlen, werden hochgeladen (Migration / Offline-Sync).
 function _mergeBoardProjects(serverArr, localArr) {
   var byId = {};
+  var serverMigrated = _migrateBoardStageModel(serverArr);
+  var localMigrated = _migrateBoardStageModel(localArr);
+  var uploadNeeded = serverMigrated || localMigrated;
   function ts(p) {
     if (!p) return 0;
     var v = p.updatedAt || p.createdAt || 0;
@@ -113,7 +190,6 @@ function _mergeBoardProjects(serverArr, localArr) {
   (serverArr || []).forEach(function(p) {
     if (p && p.id) byId[p.id] = { project: p, source: 'server' };
   });
-  var uploadNeeded = false;
   (localArr || []).forEach(function(p) {
     if (!p || !p.id) return;
     var existing = byId[p.id];
@@ -174,9 +250,9 @@ function _snapshotBoardCardStates(projects) {
 /**
  * Vergleicht alten Snapshot mit neuem Board-Stand und sendet Toasts
  * für relevante Server-getriebene Übergänge:
- *  – Anbieter hat Auftrag angenommen (angebot/kontaktiert → bestaetigt)
+ *  – Anbieter hat Auftrag angenommen (providerAcceptedAt)
  *  – Anbieter hat Erbringung bestätigt (providerConfirmedAt neu)
- *  – Projekt erfüllt (→ abgeschlossen)
+ *  – Projekt erfüllt (fulfilledAt neu)
  */
 function _notifyBoardTransitions(prevSnap, newProjects) {
   if (!prevSnap || !newProjects) return;
@@ -194,10 +270,6 @@ function _notifyBoardTransitions(prevSnap, newProjects) {
 
       // 1) Anbieter hat Auftrag angenommen
       if (!prev.providerAcceptedAt && c.providerAcceptedAt) {
-        showToast(who + ' hat deine Anfrage für ' + what + when + ' angenommen!', 'verified');
-      } else if (prev.stage !== 'bestaetigt' && prev.stage !== 'abgeschlossen' &&
-                 (c.stage === 'bestaetigt' || c.stage === 'abgeschlossen')) {
-        // Fallback, falls providerAcceptedAt nicht gesetzt wird
         showToast(who + ' hat deine Anfrage für ' + what + when + ' angenommen!', 'verified');
       }
 
@@ -660,7 +732,8 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
       '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen 3% Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
-      '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.' +
+      '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.<br>' +
+      '4. Anschlie&szlig;end bezahlt der Kunde sicher &uuml;ber Stripe &ndash; danach steht der Auftrag auf <em>&bdquo;Bezahlt&ldquo;</em>.' +
     '</div>' +
   '</details>';
 
@@ -685,8 +758,8 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   }
 
   var esc = _escHtml;
-  var stageLabels = { angebot:'Gebucht', bestaetigt:'Bezahlt', abgeschlossen:'Erf\u00fcllt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
-  var stageColors = { angebot:'#AB47BC', bestaetigt:'#00A699', abgeschlossen:'#FF385C', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
+  var stageLabels = { angebot:'Gebucht', bestaetigt:'Erf\u00fcllt', abgeschlossen:'Bezahlt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
+  var stageColors = { angebot:'#AB47BC', bestaetigt:'#FF385C', abgeschlossen:'#00A699', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
 
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">';
   jobs.forEach(function(j){
@@ -695,8 +768,8 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     var color = stageColors[stage] || '#9E9E9E';
     var priceStr = c.price ? (parseFloat(c.price).toFixed(2).replace(/\.00$/, '') + ' €') : '—';
     var dateStr = p.date ? _formatDateDe(p.date) : '—';
-    var canConfirm = stage === 'bestaetigt' && !c.providerConfirmedAt;
-    var alreadyConfirmed = !!c.providerConfirmedAt;
+    var canConfirm = stage === 'angebot' && !!c.providerAcceptedAt && !c.providerConfirmedAt;
+    var alreadyConfirmed = !!c.providerConfirmedAt && stage === 'angebot';
     var canAccept = stage === 'angebot' && !c.providerAcceptedAt;
     var priceNum = parseFloat(c.price) || 0;
     var isRemote = !!j.remote;
@@ -718,7 +791,10 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     } else if (alreadyConfirmed) {
       actionHtml = '<div style="padding:10px;background:rgba(102,187,106,0.1);border-radius:8px;color:#388e3c;font-size:13px;text-align:center"><span class="material-icons-round" style="vertical-align:middle;font-size:16px">check_circle</span> Deinerseits best&auml;tigt</div>';
     } else {
-      actionHtml = '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + (stage === 'abgeschlossen' ? 'Auftrag erf&uuml;llt' : 'Warten auf n&auml;chsten Schritt') + '</div>';
+      var waitingText = stage === 'abgeschlossen'
+        ? 'Auftrag bezahlt'
+        : (stage === 'bestaetigt' ? 'Leistung erf&uuml;llt &ndash; Zahlung ausstehend' : 'Warten auf n&auml;chsten Schritt');
+      actionHtml = '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + waitingText + '</div>';
     }
 
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
@@ -750,13 +826,14 @@ function confirmAuftragProvider(projectId, cardId) {
   var card = (proj.cards || []).find(function(c){ return c.id === cardId; });
   if (!card) return;
   card.providerConfirmedAt = new Date().toISOString();
-  if (card.userConfirmedAt && card.stage === 'bestaetigt') {
-    card.stage = 'abgeschlossen';
+  if (card.userConfirmedAt && card.stage === 'angebot') {
     card.fulfilledAt = new Date().toISOString();
+    card.stage = _cardHasConfirmedPayment(card) ? 'abgeschlossen' : 'bestaetigt';
     showToast('Auftrag beidseitig best\u00e4tigt – erf\u00fcllt!', 'verified');
   } else {
     showToast('Best\u00e4tigung gespeichert. Wartet auf Kunden-Best\u00e4tigung.', 'hourglass_top');
   }
+  card._stageModel = EB_BOARD_STAGE_MODEL_VERSION;
   _saveBoardProjects();
   renderAuftraegePage();
   _refreshBoardPageIfActive();
@@ -816,9 +893,8 @@ function _refreshBoardPageIfActive() {
 }
 
 /**
- * Provider nimmt einen gebuchten Auftrag an → Zahlung wird freigegeben.
- * Setzt die Karte auf „Bezahlt" (bestaetigt) und erfasst die
- * Plattformprovision plus voraussichtliche Auszahlung.
+ * Provider nimmt einen gebuchten Auftrag an. Die Karte bleibt „Gebucht",
+ * bis beide Seiten die Erbringung bestätigen. Zahlung folgt danach.
  * Der Kunde sieht die Statusänderung beim nächsten Sync automatisch.
  */
 function acceptAuftragProvider(projectId, cardId) {
@@ -841,11 +917,8 @@ function acceptAuftragProvider(projectId, cardId) {
 
   var nowIso = new Date().toISOString();
   card.providerAcceptedAt = nowIso;
-  card.stage = 'bestaetigt';
-  card.paidAt = nowIso;
-  card.paymentStatus = 'Bezahlt';
-  if (!card.paymentMethod) card.paymentMethod = 'Stripe';
-  card.paidAmount = priceNum;
+  card.stage = 'angebot';
+  card._stageModel = EB_BOARD_STAGE_MODEL_VERSION;
   card.grossAmount = payout.grossAmount;
   card.stripeFeeAmount = payout.stripeFeeAmount;
   card.stripeFeePaidBy = payout.stripeFeePaidBy;
@@ -1142,8 +1215,8 @@ function _renderAuftragsboardSectionHtml(state) {
   });
 
   var pendingCount = jobs.filter(function(j){ return (j.card.stage === 'angebot') && !j.card.providerAcceptedAt; }).length;
-  var openCount    = jobs.filter(function(j){ return j.card.stage === 'bestaetigt' && !j.card.providerConfirmedAt; }).length;
-  var doneCount    = jobs.filter(function(j){ return j.card.stage === 'abgeschlossen'; }).length;
+  var openCount    = jobs.filter(function(j){ return j.card.stage === 'angebot' && !!j.card.providerAcceptedAt && !j.card.providerConfirmedAt; }).length;
+  var doneCount    = jobs.filter(function(j){ return j.card.stage === 'bestaetigt' || j.card.stage === 'abgeschlossen'; }).length;
 
   var headerHtml =
     '<div class="board-section-header">' +
@@ -1174,8 +1247,8 @@ function _renderAuftragsboardSectionHtml(state) {
       headerHtml +
       '<div class="board-section-empty">' +
         '<span class="material-icons-round">inbox</span>' +
-        '<p><strong>Noch keine bezahlten Auftr&auml;ge.</strong></p>' +
-        '<p style="font-size:13px;margin-top:-4px">Sobald ein Kunde eines deiner Angebote verbindlich bucht und bezahlt, erscheint sein Event-Board hier &ndash; mit allen Infos, die du f&uuml;r die Erbringung brauchst.</p>' +
+        '<p><strong>Noch keine gebuchten Auftr&auml;ge.</strong></p>' +
+        '<p style="font-size:13px;margin-top:-4px">Sobald ein Kunde eines deiner Angebote verbindlich bucht, erscheint sein Event-Board hier &ndash; mit allen Infos, die du f&uuml;r die Erbringung brauchst.</p>' +
         '<div class="board-section-empty-hints">' +
           '<div class="board-section-hint"><span class="material-icons-round">sync</span>Gerade gebucht worden? Tippe auf <strong>&bdquo;Aktualisieren&ldquo;</strong> &ndash; der Kunde synchronisiert sein Board ggf. erst nach wenigen Sekunden.</div>' +
           '<div class="board-section-hint"><span class="material-icons-round">storefront</span>Keine Auftr&auml;ge erhalten? Pr&uuml;fe, ob deine Angebote sichtbar sind und dein <strong>Stripe-Auszahlungskonto</strong> aktiv ist.</div>' +
@@ -1233,16 +1306,16 @@ function _renderAuftragsboardCardHtml(j) {
   var esc = _escHtml;
   var c = j.card, p = j.project, l = j.listing;
   var stage = c.stage || 'geplant';
-  var stageLabels = { angebot:'Gebucht', bestaetigt:'Bezahlt', abgeschlossen:'Erf\u00fcllt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
-  var stageColors = { angebot:'#AB47BC', bestaetigt:'#00A699', abgeschlossen:'#FF385C', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
+  var stageLabels = { angebot:'Gebucht', bestaetigt:'Erf\u00fcllt', abgeschlossen:'Bezahlt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
+  var stageColors = { angebot:'#AB47BC', bestaetigt:'#FF385C', abgeschlossen:'#00A699', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
   var color = stageColors[stage] || '#9E9E9E';
   var priceNum = parseFloat(c.price) || 0;
   var priceStr = priceNum ? priceNum.toFixed(2).replace(/\.00$/, '') + ' \u20ac' : '\u2014';
   var serviceTitle = (l && l.title) || c.listingTitle || c.name || 'Auftrag';
   var category = (l && (l.categoryLabel || l.category)) || c.category || '';
   var canAccept = stage === 'angebot' && !c.providerAcceptedAt;
-  var canConfirm = stage === 'bestaetigt' && !c.providerConfirmedAt;
-  var alreadyConfirmed = !!c.providerConfirmedAt && stage !== 'abgeschlossen';
+  var canConfirm = stage === 'angebot' && !!c.providerAcceptedAt && !c.providerConfirmedAt;
+  var alreadyConfirmed = !!c.providerConfirmedAt && stage === 'angebot';
   var isRemote = !!j.remote;
 
   var actionHtml = '';
@@ -1265,9 +1338,13 @@ function _renderAuftragsboardCardHtml(j) {
     actionHtml = '<div class="board-auftrag-status board-auftrag-status--waiting">' +
       '<span class="material-icons-round">hourglass_top</span> Wartet auf Kunden-Best&auml;tigung' +
     '</div>';
+  } else if (stage === 'bestaetigt') {
+    actionHtml = '<div class="board-auftrag-status board-auftrag-status--done">' +
+      '<span class="material-icons-round">verified</span> Leistung erf&uuml;llt &ndash; Zahlung ausstehend' +
+    '</div>';
   } else if (stage === 'abgeschlossen') {
     actionHtml = '<div class="board-auftrag-status board-auftrag-status--done">' +
-      '<span class="material-icons-round">verified</span> Auftrag erf&uuml;llt' +
+      '<span class="material-icons-round">paid</span> Auftrag bezahlt' +
     '</div>';
   } else {
     actionHtml = '<div class="board-auftrag-status">Warten auf n&auml;chsten Schritt</div>';
@@ -1558,7 +1635,9 @@ function renderKanbanCard(card) {
   if (card.stage === 'kontaktiert') {
     stageBadge = '<div class="kc-waiting"><span class="material-icons-round">hourglass_top</span> Warten auf Antwort</div>';
   } else if (card.stage === 'angebot') {
-    stageBadge = '<button class="kc-book-now" onclick="event.stopPropagation();openStageAdvanceModal(\''+card.id+'\',\'angebot\')"><span class="material-icons-round">receipt_long</span> Jetzt buchen</button>';
+    stageBadge = '<button class="kc-book-now" onclick="event.stopPropagation();openStageAdvanceModal(\''+card.id+'\',\'angebot\')"><span class="material-icons-round">verified</span> Erbringung bestätigen</button>';
+  } else if (card.stage === 'bestaetigt') {
+    stageBadge = '<button class="kc-book-now" onclick="event.stopPropagation();openStageAdvanceModal(\''+card.id+'\',\'bestaetigt\')"><span class="material-icons-round">paid</span> Jetzt bezahlen</button>';
   }
   var _listImg = _cardListingImage(card);
   var _listTitle = _cardListingTitle(card);
@@ -1663,9 +1742,9 @@ function allowDrop(event) {
 // Protected stages: nur über Aktions-/Payment-Flow erreichbar, nicht per Drag&Drop.
 var _PROTECTED_STAGES = ['angebot','bestaetigt','abgeschlossen'];
 function _protectedStageMessage(stage) {
-  if (stage === 'angebot') return 'Diese Spalte wird nur über „Jetzt buchen“ befüllt – so bleibt die Buchung verbindlich.';
-  if (stage === 'bestaetigt') return 'Status „Bezahlt“ wird automatisch gesetzt, sobald der Dienstleister den Auftrag annimmt.';
-  if (stage === 'abgeschlossen') return 'Status „Erfüllt“ wird vom System gesetzt, wenn beide Seiten die Erbringung bestätigen.';
+  if (stage === 'angebot') return 'Status „Gebucht“ wird durch die Annahme des Dienstleisters gesetzt.';
+  if (stage === 'bestaetigt') return 'Status „Erfüllt“ wird gesetzt, wenn beide Seiten die Erbringung bestätigen.';
+  if (stage === 'abgeschlossen') return 'Status „Bezahlt“ wird ausschließlich nach bestätigter Zahlung gesetzt.';
   return 'Dieser Status wird vom System gesetzt.';
 }
 function dropCard(event, toStage) {
@@ -1769,18 +1848,10 @@ function _currentFlowBp() {
   return 'desktop';
 }
 
-// Liefert das gespeicherte Layout für den aktuellen Breakpoint.
-// Migriert die alte Einzel-Struktur `project.flowLayout` nach Desktop.
+// Die Prozessstruktur ist fachlich fest und darf nicht durch versehentliches
+// Ziehen dauerhaft zerlegt werden. Alte gespeicherte Koordinaten werden daher
+// bewusst ignoriert; Karten bleiben weiterhin zwischen Stages verschiebbar.
 function _getFlowLayoutForBp(project, bp) {
-  if (!project) return {};
-  if (project.flowLayouts && project.flowLayouts[bp] && typeof project.flowLayouts[bp] === 'object') {
-    return project.flowLayouts[bp];
-  }
-  // Legacy: alte Variante war ein einzelnes Layout ohne Breakpoint-Zuordnung.
-  // Wir nehmen an, dass diese für Desktop gedacht war.
-  if (!project.flowLayouts && project.flowLayout && bp === 'desktop' && typeof project.flowLayout === 'object') {
-    return project.flowLayout;
-  }
   return {};
 }
 
@@ -1845,8 +1916,8 @@ function _renderBoardFlowImpl() {
     { id: 'geplant',       label: 'Geplant',        color: '#9E9E9E', icon: 'schedule'     },
     { id: 'kontaktiert',   label: 'Kontaktiert',     color: '#FF9800', icon: 'mail'         },
     { id: 'angebot',       label: 'Gebucht',         color: '#AB47BC', icon: 'receipt_long' },
-    { id: 'bestaetigt',    label: 'Bezahlt',         color: '#00A699', icon: 'paid'         },
-    { id: 'abgeschlossen', label: 'Erfüllt',         color: '#FF385C', icon: 'verified'     }
+    { id: 'bestaetigt',    label: 'Erfüllt',         color: '#FF385C', icon: 'verified'     },
+    { id: 'abgeschlossen', label: 'Bezahlt',         color: '#00A699', icon: 'paid'         }
   ];
 
   var cards = project.cards || [];
@@ -1924,12 +1995,8 @@ function _renderBoardFlowImpl() {
   html += '<span class="flow-zoom-pct" id="flowZoomPct" role="button" tabindex="0" title="Zoom-Prozent eingeben" onclick="flowZoomPrompt()">100%</span>';
   html += '<button class="flow-tbtn" onclick="flowZoom(0.10)" title="Vergrößern (Ctrl + +)" aria-label="Vergrößern (Ctrl + +)"><span class="material-icons-round">add</span></button>';
   html += '<div class="flow-tb-divider"></div>';
-  html += '<button class="flow-tbtn" id="flowUndoBtn" onclick="flowUndo()" title="Rückgängig (Ctrl+Z)" aria-label="Rückgängig (Ctrl+Z)" disabled><span class="material-icons-round">undo</span></button>';
-  html += '<button class="flow-tbtn" id="flowRedoBtn" onclick="flowRedo()" title="Wiederherstellen (Ctrl+Y)" aria-label="Wiederherstellen (Ctrl+Y)" disabled><span class="material-icons-round">redo</span></button>';
-  html += '<div class="flow-tb-divider"></div>';
   html += '<button class="flow-tbtn" onclick="flowFitToScreen()" title="An Bildschirm anpassen" aria-label="An Bildschirm anpassen"><span class="material-icons-round">fit_screen</span></button>';
   html += '<button class="flow-tbtn" onclick="flowResetView()" title="Ansicht zurücksetzen" aria-label="Ansicht zurücksetzen"><span class="material-icons-round">center_focus_strong</span></button>';
-  html += '<button class="flow-tbtn" onclick="flowAutoLayout()" title="Struktur neu anordnen" aria-label="Struktur neu anordnen"><span class="material-icons-round">auto_awesome_motion</span></button>';
   html += '<button class="flow-tbtn" id="flowFullscreenBtn" onclick="toggleFlowFullscreen()" title="Vollbild"><span class="material-icons-round" id="flowFullscreenIcon">fullscreen</span></button>';
   html += '<div class="flow-tb-divider"></div>';
   // Progress ring
@@ -1978,12 +2045,12 @@ function _renderBoardFlowImpl() {
   html += '<svg class="flow-svg" id="flowSvg" xmlns="http://www.w3.org/2000/svg"></svg>';
 
   // Trigger node
-  html += '<div class="flow-col flow-drag-handle" data-col-id="start" style="' + colStyle('start') + '">';
-  html += '<div class="flow-node flow-node-trigger" data-nid="start" onclick="if(!_flowDragJustEnded)openFlowProjectModal();_flowDragJustEnded=false">';
+  html += '<div class="flow-col" data-col-id="start" style="' + colStyle('start') + '">';
+  html += '<div class="flow-node flow-node-trigger" data-nid="start" onclick="openFlowProjectModal()">';
   html += '<span class="material-icons-round" style="color:#FF385C;font-size:32px">celebration</span>';
   html += '<strong>' + esc(project.name || 'Event') + '</strong>';
   if (project.date) html += '<small>' + esc(project.date) + '</small>';
-  html += '<span class="flow-node-edit-hint"><span class="material-icons-round" style="font-size:10px;vertical-align:middle">drag_indicator</span> Ziehen &nbsp;<span class="material-icons-round" style="font-size:10px;vertical-align:middle">edit</span> Klicken</span>';
+  html += '<span class="flow-node-edit-hint"><span class="material-icons-round" style="font-size:10px;vertical-align:middle">edit</span> Klicken zum Bearbeiten</span>';
   html += '</div>';
   html += '</div>';
 
@@ -2000,11 +2067,10 @@ function _renderBoardFlowImpl() {
 
     // Stage header node
     html += '<div class="flow-node flow-node-stage" data-nid="stage-' + stage.id + '">';
-    html += '<div class="flow-node-hdr flow-drag-handle" style="background:' + stage.color + ';border-radius:12px 12px 0 0">';
+    html += '<div class="flow-node-hdr" style="background:' + stage.color + ';border-radius:12px 12px 0 0">';
     html += '<span class="material-icons-round">' + stage.icon + '</span>';
     html += '<span>' + stage.label + '</span>';
     if (stageCards.length) html += '<span class="flow-node-badge">' + stageCards.length + '</span>';
-    html += '<span class="material-icons-round flow-drag-icon">drag_indicator</span>';
     html += '</div>';
     html += '<div class="flow-node-body">';
     if (stageCards.length) {
@@ -2059,9 +2125,9 @@ function _renderBoardFlowImpl() {
       if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
       html += '</div>';
       html += '<div class="flow-prov-actions">';
-      var _saLabels = {geplant:'Kontaktieren',angebot:'Jetzt buchen',bestaetigt:'Erbringung bestätigen'};
-      var _saIcons  = {geplant:'forum',angebot:'receipt_long',bestaetigt:'verified'};
-      var _saColors = {geplant:'#42a5f5',angebot:'#66bb6a',bestaetigt:'#FF385C'};
+      var _saLabels = {geplant:'Kontaktieren',angebot:'Erbringung bestätigen',bestaetigt:'Jetzt bezahlen'};
+      var _saIcons  = {geplant:'forum',angebot:'verified',bestaetigt:'paid'};
+      var _saColors = {geplant:'#42a5f5',angebot:'#FF385C',bestaetigt:'#00A699'};
       if (stage.id === 'kontaktiert') {
         // Locked: waiting for provider response
         html += '<button class="flow-prov-action-btn flow-prov-waiting" style="--sa-clr:#FF9800;opacity:0.85;cursor:default" onclick="event.stopPropagation();openStageAdvanceModal(\'' + card.id + '\',\'' + stage.id + '\')">';
@@ -2085,7 +2151,7 @@ function _renderBoardFlowImpl() {
   });
 
   // End node
-  html += '<div class="flow-col flow-drag-handle" data-col-id="end" style="' + colStyle('end') + '">';
+  html += '<div class="flow-col" data-col-id="end" style="' + colStyle('end') + '">';
   html += '<div class="flow-node flow-node-end" data-nid="end">';
   html += '<span class="material-icons-round" style="color:#4CAF50;font-size:32px">check_circle</span>';
   html += '<strong>Event fertig!</strong>';
@@ -2201,9 +2267,7 @@ function _renderBoardFlowImpl() {
       // haengen und man kann auf Handy nicht bis ganz nach unten scrollen.
       try { _flowApplyZoom(_flowZoom, true); } catch(_) {}
     }
-    _drawFlowConnections(); _initFlowDrag(); _initFlowZoomPan();
-    // Initialer History-Eintrag (idempotent), Buttons aktualisieren
-    try { _flowPushHistory(); _flowUpdateUndoButtons(); } catch(_) {}
+    _drawFlowConnections(); _initFlowZoomPan();
     // Auf Mobile IMMER neu fitten + zum Start scrollen, damit der Nutzer
     // den Start-Node sofort im Fokus hat (und nicht im leeren Raum landet).
     if (_isMobile) {
@@ -2251,7 +2315,6 @@ function _renderBoardFlowImpl() {
 
 /* ─── Flow view extra modals ─────────────────────────────── */
 function openFlowProjectModal() {
-  if (_flowDragJustEnded) { _flowDragJustEnded = false; return; }
   if (!_activeBoardId) return;
   var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
   if (!project) return;
@@ -2311,8 +2374,8 @@ function openFlowBudgetModal() {
     { id: 'geplant', label: 'Geplant', color: '#9E9E9E' },
     { id: 'kontaktiert', label: 'Kontaktiert', color: '#FF9800' },
     { id: 'angebot', label: 'Gebucht', color: '#AB47BC' },
-    { id: 'bestaetigt', label: 'Bezahlt', color: '#00A699' },
-    { id: 'abgeschlossen', label: 'Erfüllt', color: '#FF385C' }
+    { id: 'bestaetigt', label: 'Erfüllt', color: '#FF385C' },
+    { id: 'abgeschlossen', label: 'Bezahlt', color: '#00A699' }
   ];
 
   var breakdown = stagesMeta.map(function(s) {
@@ -2564,8 +2627,8 @@ function openFlowCardModal(cardId) {
 
   var stageOptions = [
     { id: 'geplant', label: 'Geplant' }, { id: 'kontaktiert', label: 'Kontaktiert' },
-    { id: 'angebot', label: 'Gebucht' }, { id: 'bestaetigt', label: 'Bezahlt' },
-    { id: 'abgeschlossen', label: 'Erfüllt' }
+    { id: 'angebot', label: 'Gebucht' }, { id: 'bestaetigt', label: 'Erfüllt' },
+    { id: 'abgeschlossen', label: 'Bezahlt' }
   ].map(function(s) {
     return '<option value="' + s.id + '"' + (s.id === card.stage ? ' selected' : '') + '>' + s.label + '</option>';
   }).join('');
@@ -2577,17 +2640,14 @@ function openFlowCardModal(cardId) {
         '<input type="number" id="fcPrice" value="' + _paidAmount + '" readonly /></div>'
     : '<div class="form-group"><label>Preis (€)</label><input type="number" id="fcPrice" value="' + (card.price || '') + '" min="0" step="1" /></div>';
 
-  // Stage nach Zahlung nur noch vorwärts auf "abgeschlossen" erlaubt
+  // Nach einer Zahlung ist die Stage unveränderlich. Vorab bezahlte Karten
+  // bleiben bis zur beidseitigen Erfüllungsbestätigung unter „Gebucht“.
   var _stageField = _isPaid
     ? (function() {
-        var allowed = ['bestaetigt', 'abgeschlossen'];
         return '<div class="form-group"><label>Status / Stage <span class="fc-locked-hint"><span class="material-icons-round">lock</span> Zahlung abgeschlossen</span></label>' +
-          '<select id="fcStage">' +
-            allowed.map(function(s) {
-              var label = s === 'bestaetigt' ? 'Bezahlt' : 'Erfüllt';
-              return '<option value="' + s + '"' + (s === card.stage ? ' selected' : '') + '>' + label + '</option>';
-            }).join('') +
-          '</select></div>';
+          '<select id="fcStage" disabled><option value="' + _escHtml(card.stage) + '">' +
+            _escHtml((FLOW_STAGE_LABELS && FLOW_STAGE_LABELS[card.stage]) || card.stage) +
+          '</option></select></div>';
       })()
     : '<div class="form-group"><label>Status / Stage</label><select id="fcStage">' + stageOptions + '</select></div>';
 
@@ -2635,12 +2695,8 @@ function _saveFlowCard(event, cardId) {
   card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
   var _newStage = document.getElementById('fcStage').value;
   if (_isPaid) {
-    // Nach Zahlung: Stage darf nur noch auf 'abgeschlossen' gehen
-    if (_newStage !== card.stage && !(['bestaetigt','abgeschlossen'].includes(_newStage) && ['bestaetigt','abgeschlossen'].includes(card.stage))) {
-      showToast('Nach Zahlung ist nur noch "Erfüllt" als nächste Stage erlaubt.', 'warning');
-      return;
-    }
-    card.stage = _newStage;
+    // Zahlungsstatus und Prozessstand dürfen nicht manuell verfälscht werden.
+    card.stage = card.stage;
   } else if (typeof _PROTECTED_STAGES !== 'undefined' && _PROTECTED_STAGES.indexOf(_newStage) !== -1 && card.stage !== _newStage) {
     showToast(_protectedStageMessage(_newStage), 'warning');
   } else {
@@ -2721,4 +2777,3 @@ function _sendInvoiceNotification(card, project, listing) {
     return Promise.reject(e);
   }
 }
-
