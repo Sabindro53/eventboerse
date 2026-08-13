@@ -194,9 +194,13 @@ jobs:
         run: |
           node scripts/auftragsstrom.mjs
           node scripts/auftragsstrom.mjs --check
+          # Auch nach stdout, nicht nur in die Zusammenfassung: die Summary
+          # steht nur im Browser, das Log auch in jeder API und in jedem
+          # Werkzeug, das den Lauf spaeter untersucht. Eine Lage, die man nur
+          # an einer Stelle sehen kann, sieht man meistens gar nicht.
           node -e "const s=require('./assets/eb-auftragsstrom.json');
             console.log('- Auftragsstrom: '+s.lage);
-            console.log('- Ausserhalb des Rahmens: '+s.ausserhalb.length);" >> "$GITHUB_STEP_SUMMARY"
+            console.log('- Ausserhalb des Rahmens: '+s.ausserhalb.length);" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Echte Laufzeitspur veroeffentlichen
         if: always()
