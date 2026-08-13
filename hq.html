@@ -2181,10 +2181,9 @@ function nnAufgabenDateien(modell) {
     ? roh.dateien.filter(p => !/(^|\/)vault\//i.test(String(p))) : [];
 }
 
-/** Nur der Dateiname — im Netz ist für einen ganzen Pfad kein Platz. */
+/** Vollständiger Repo-Pfad; private Vault-Pfade wurden vorher bereits entfernt. */
 function nnDateiKurz(pfad) {
-  const teile = String(pfad).split('/');
-  return teile[teile.length - 1] || pfad;
+  return String(pfad || '');
 }
 
 function nnRollen() {
@@ -2668,7 +2667,7 @@ function nnKopfzeile() {
   const b = nnEbene ? nnKatalog.bereiche.find(x => x.id === nnEbene) : null;
   $('neural-sub').textContent = b
     ? `${b.label} · ${nnKatalog.modelle.filter(m => m.bereich === b.id).length} Mitarbeiter · Mitte antippen für zurück`
-    : `${nnKatalog.bereiche.length} operative Bereiche · Aufgaben, Stand und echte Lieferungen live nachvollziehbar`;
+    : `${nnWissen} Wissens-Abschnitte · ${nnKatalog.bereiche.length} operative Bereiche · Aufgaben, Stand und echte Lieferungen live nachvollziehbar`;
 }
 
 function codeflowStatusText(status) {

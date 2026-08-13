@@ -14,7 +14,7 @@ test.describe('Vision Release', () => {
     await page.getByRole('link', { name: 'Social Feed' }).click();
     await page.getByRole('button', { name: /Radar/ }).click();
     await expect(page.getByRole('heading', { name: 'Event-Radar' })).toBeVisible();
-    await expect(page.getByLabel('Stadt')).toHaveValue('Köln');
+    await expect(page.locator('#feedRadarCity')).toHaveValue('Köln');
     await page.getByRole('button', { name: '100 km' }).click();
     await expect(page.locator('.radar-chip.aktiv')).toHaveText('100 km');
     await expect(page.locator('.feed-radar-result').first()).toBeVisible();
@@ -31,7 +31,7 @@ test.describe('Vision Release', () => {
       navigateTo('business');
     });
     await expect(page.getByRole('heading', { name: 'Dein Business auf einen Blick' })).toBeVisible();
-    await expect(page.getByText('Auftragsvolumen')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Auftragsvolumen' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Rechnungsangaben' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Einzigartige Profil- und Inseratsmotive' })).toBeVisible();
     await expect(page.locator('#mediaStudioCanvas')).toBeVisible();
