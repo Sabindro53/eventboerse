@@ -9259,42 +9259,69 @@ function eb_hq_circle_openrouter( WP_REST_Request $request ) {
     if ( $alternativen ) $sprachhinweis .= "\nAlternative Transkripte: " . implode( ' | ', $alternativen );
     $messages[] = array( 'role' => 'user', 'content' => $frage . $sprachhinweis );
 
-    $res = wp_remote_post( 'https://openrouter.ai/api/v1/chat/completions', array(
-        'timeout' => 22,
-        'headers' => array(
-            'Authorization'      => 'Bearer ' . EB_OPENROUTER_API_KEY,
-            'Content-Type'       => 'application/json',
-            'HTTP-Referer'       => home_url( '/hq' ),
-            'X-OpenRouter-Title' => 'EventBoerse HQ Voice',
-        ),
-        'body' => wp_json_encode( array(
-            // Nur fuer kurze deutsche Unterhaltung vorab geeignete, offene
-            // Modelle. OpenRouter waehlt global das guenstigste verfuegbare.
-            'models' => array(
-                'qwen/qwen3.7-flash',
-                'mistralai/mistral-nemo',
-                'meta-llama/llama-3.1-8b-instruct',
+    $openrouter_call = static function( array $payload ) {
+        return wp_remote_post( 'https://openrouter.ai/api/v1/chat/completions', array(
+            'timeout' => 22,
+            'headers' => array(
+                'Authorization'      => 'Bearer ' . EB_OPENROUTER_API_KEY,
+                'Content-Type'       => 'application/json',
+                'HTTP-Referer'       => home_url( '/hq' ),
+                'X-OpenRouter-Title' => 'EventBoerse HQ Voice',
             ),
-            'messages'    => $messages,
-            'temperature' => 0.3,
-            'max_tokens'  => 220,
-            'response_format' => array( 'type' => 'json_object' ),
-            'provider'    => array(
-                'allow_fallbacks'    => true,
-                'require_parameters' => true,
-                'data_collection'    => 'deny',
-                'sort'               => 'latency',
-                'max_price'          => array( 'prompt' => 0.30, 'completion' => 0.60 ),
-            ),
-        ) ),
-    ) );
+            'body' => wp_json_encode( $payload ),
+        ) );
+    };
 
-    if ( is_wp_error( $res ) ) {
-        return new WP_Error( 'eb_circle_network', 'OpenRouter ist gerade nicht erreichbar.', array( 'status' => 502 ) );
+    $primary_payload = array(
+        // Nur fuer kurze deutsche Unterhaltung vorab geeignete, offene
+        // Modelle. OpenRouter waehlt global das guenstigste verfuegbare.
+        'models' => array(
+            'qwen/qwen3.7-flash',
+            'mistralai/mistral-nemo',
+            'meta-llama/llama-3.1-8b-instruct',
+        ),
+        'messages'    => $messages,
+        'temperature' => 0.3,
+        'max_tokens'  => 220,
+        'response_format' => array( 'type' => 'json_object' ),
+        'provider'    => array(
+            'allow_fallbacks'    => true,
+            'require_parameters' => true,
+            'data_collection'    => 'deny',
+            'sort'               => 'latency',
+            'max_price'          => array( 'prompt' => 0.30, 'completion' => 0.60 ),
+        ),
+    );
+
+    $res = $openrouter_call( $primary_payload );
+    $code = is_wp_error( $res ) ? 0 : (int) wp_remote_retrieve_response_code( $res );
+    $body = is_wp_error( $res ) ? null : json_decode( wp_remote_retrieve_body( $res ), true );
+
+    // Manche Modell-Endpunkte fallen aus oder unterstützen das erzwungene
+    // JSON-Format zeitweise nicht. Dann genau EIN konservativer Zweitversuch
+    // ohne response_format/require_parameters, weiterhin mit offenem Modell,
+    // Preisgrenze und ausgeschlossener Datensammlung. So wird aus einem
+    // einzelnen Provider-/Parameterproblem kein kompletter Gesprächsausfall.
+    $provider_mode = 'primary';
+    if ( is_wp_error( $res ) || $code < 200 || $code >= 300 || ! is_array( $body ) ) {
+        $provider_mode = 'compatibility-fallback';
+        $res = $openrouter_call( array(
+            'model'       => 'mistralai/mistral-nemo',
+            'messages'    => $messages,
+            'temperature' => 0.25,
+            'max_tokens'  => 220,
+            'provider'    => array(
+                'allow_fallbacks' => true,
+                'data_collection' => 'deny',
+                'sort'            => 'latency',
+                'max_price'       => array( 'prompt' => 0.30, 'completion' => 0.60 ),
+            ),
+        ) );
+        $code = is_wp_error( $res ) ? 0 : (int) wp_remote_retrieve_response_code( $res );
+        $body = is_wp_error( $res ) ? null : json_decode( wp_remote_retrieve_body( $res ), true );
     }
-    $code = (int) wp_remote_retrieve_response_code( $res );
-    $body = json_decode( wp_remote_retrieve_body( $res ), true );
-    if ( $code < 200 || $code >= 300 || ! is_array( $body ) ) {
+
+    if ( is_wp_error( $res ) || $code < 200 || $code >= 300 || ! is_array( $body ) ) {
         return new WP_Error( 'eb_circle_provider', 'OpenRouter konnte gerade nicht antworten.', array( 'status' => 502 ) );
     }
 
@@ -9311,7 +9338,11 @@ function eb_hq_circle_openrouter( WP_REST_Request $request ) {
         return new WP_Error( 'eb_circle_empty_provider', 'Das Sprachmodell lieferte keine nutzbare Antwort.', array( 'status' => 502 ) );
     }
 
-    $dialog = json_decode( $content, true );
+    // Kompatibilitätsmodelle setzen JSON gelegentlich in einen Markdown-Zaun,
+    // obwohl das System ausschließlich JSON verlangt. Den Zaun entfernen,
+    // nicht den Inhalt umdeuten.
+    $json_content = preg_replace( '/^```(?:json)?\s*|\s*```$/i', '', $content );
+    $dialog = json_decode( $json_content, true );
     if ( ! is_array( $dialog ) || empty( $dialog['answer'] ) ) {
         $dialog = array(
             'answer'              => wp_strip_all_tags( $content ),
@@ -9337,6 +9368,7 @@ function eb_hq_circle_openrouter( WP_REST_Request $request ) {
         'needs_clarification' => ! empty( $dialog['needs_clarification'] ),
         'suggestions' => $suggestions,
         'model'  => isset( $body['model'] ) ? sanitize_text_field( $body['model'] ) : 'OpenRouter',
+        'provider_mode' => $provider_mode,
         'usage'  => array(
             'prompt_tokens'     => isset( $usage['prompt_tokens'] ) ? (int) $usage['prompt_tokens'] : 0,
             'completion_tokens' => isset( $usage['completion_tokens'] ) ? (int) $usage['completion_tokens'] : 0,

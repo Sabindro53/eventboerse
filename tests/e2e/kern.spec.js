@@ -800,7 +800,7 @@ test.describe('Neuronaler Kern', () => {
     expect(r.offen, 'die zentrale Sprachoberfläche muss aufgehen').toBe(true);
     // Der Aufruf muss beides tun — im Test-Browser gibt es keine echte
     // Spracherkennung, deshalb wird die Verdrahtung im Quelltext geprüft.
-    const sprich = HQ.slice(HQ.indexOf('sprich: function'), HQ.indexOf('sprich: function') + 260);
+    const sprich = HQ.slice(HQ.indexOf('sprich: function'), HQ.indexOf('sprich: function') + 360);
     expect(sprich).toMatch(/open\(true\)/);
     expect(sprich).toMatch(/toggleMic\(\)/);
     const zentral = await page.evaluate(() => ({
@@ -810,6 +810,58 @@ test.describe('Neuronaler Kern', () => {
     expect(zentral.parent).toBe('neural');
     expect(zentral.speakOn, 'Antworten werden im Voice-Modus automatisch gesprochen').toBe(true);
     expect(HQ_CSS).toMatch(/#eb-circle\s*\{\s*display:\s*none/);
+  });
+
+  test('ein zweiter Klick auf die Mitte beendet das Gespräch vollständig', async ({ page }) => {
+    const r = await page.evaluate(() => {
+      const orb = document.getElementById('nn-orb');
+      const panel = document.getElementById('eb-circle-panel');
+      orb.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const nachStart = {
+        offen: panel.classList.contains('open'),
+        label: orb.getAttribute('aria-label'),
+        gedrueckt: orb.getAttribute('aria-pressed'),
+      };
+      document.getElementById('ebc-input').value = 'nicht mehr absenden';
+      orb.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return {
+        nachStart,
+        offen: panel.classList.contains('open'),
+        label: orb.getAttribute('aria-label'),
+        gedrueckt: orb.getAttribute('aria-pressed'),
+        entwurf: document.getElementById('ebc-input').value,
+        zustand: document.getElementById('ebc-state').textContent,
+      };
+    });
+    expect(r.nachStart).toEqual({ offen: true, label: 'Gespräch beenden', gedrueckt: 'true' });
+    expect(r.offen).toBe(false);
+    expect(r.label).toBe('Sprechen — KI-Kreis starten');
+    expect(r.gedrueckt).toBe('false');
+    expect(r.entwurf, 'ein abgebrochener Sprachentwurf darf nicht nachgesendet werden').toBe('');
+    expect(r.zustand).toBe('Gespräch beendet');
+  });
+
+  test('operative Fragen bleiben ohne OpenRouter vollständig beantwortbar', async ({ page }) => {
+    let providerAufrufe = 0;
+    await page.route('**/wp-json/eventboerse/v1/hq/circle', (route) => {
+      providerAufrufe += 1;
+      return route.abort();
+    });
+    await page.evaluate(() => window.ebCircleAPI.oeffnen());
+    await page.locator('#ebc-input').fill('Woran arbeiten die Agents gerade?');
+    await page.locator('#ebc-input').press('Enter');
+    await expect(page.locator('#ebc-log .ebc-msg.ai').last()).toContainText('Rolle');
+    await expect(page.locator('#ebc-log .ebc-msg.ai').last()).not.toContainText('OpenRouter');
+    expect(providerAufrufe, 'Betriebsdaten dürfen nicht vom Sprachdienst abhängen').toBe(0);
+
+    const lieferung = await page.evaluate(() =>
+      window.ebCircleAPI.operativeAntwort('Was wurde in der neuen PR gemacht?'));
+    expect(lieferung.answer).toMatch(/main|Commits sind nicht geladen/);
+    expect(lieferung.answer).toMatch(/Deploy|Release-Stand/);
+    expect(lieferung.source).toBe('Live-Betriebsdaten');
+    const produktfrage = await page.evaluate(() =>
+      window.ebCircleAPI.operativeAntwort('Was macht ein gutes Inserat aus?'));
+    expect(produktfrage, 'Produktfragen dürfen nicht als Betriebsfrage umgedeutet werden').toBeNull();
   });
 
   test('Voice-Chat nutzt ausschließlich den admin-geschützten Preisrouter', () => {
@@ -824,6 +876,9 @@ test.describe('Neuronaler Kern', () => {
     expect(HQ).toMatch(/recognitionAlternatives/);
     expect(HQ).toMatch(/askController\.abort\(\)/);
     expect(FUNCTIONS).toMatch(/'max_price'/);
+    expect(FUNCTIONS).toMatch(/compatibility-fallback/);
+    expect(FUNCTIONS).toMatch(/mistralai\/mistral-nemo/);
+    expect(FUNCTIONS).toMatch(/'data_collection'\s*=>\s*'deny'/);
     const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_circle_openrouter'), FUNCTIONS.indexOf("add_action( 'rest_api_init'", FUNCTIONS.indexOf('function eb_hq_circle_openrouter')));
     expect(fn, 'OpenRouter-Schlüssel darf nicht in der Antwort landen').not.toMatch(/'answer'\s*=>[^\n]*EB_OPENROUTER_API_KEY/);
   });
@@ -1106,7 +1161,8 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     expect(voice, 'Gespräch über die Serverseite').toMatch(/hq\/circle/);
     expect(voice, 'Cookie-Auth braucht den WordPress-Nonce').toMatch(/X-WP-Nonce/);
     expect(voice, 'lokaler Rückfall bleibt erhalten').toMatch(/localAnswer/);
-    expect(voice).toMatch(/Fallback · freigegebenes Wissen/);
+    expect(voice).toMatch(/Lokaler, belegter Rückfall/);
+    expect(voice, 'Betriebsfragen bleiben im Sprachmodus lokal').toMatch(/if \(localAnswer\)/);
   });
 
   test('HQ zeigt das Journal ehrlich, auch wenn es leer ist', async ({ page }) => {

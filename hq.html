@@ -2432,6 +2432,7 @@ function nnZeichnen() {
   nnKopfzeile();
   renderNeuralOps();
   renderNnDetail();
+  if (window.ebCircleAPI && window.ebCircleAPI.sync) window.ebCircleAPI.sync();
 }
 
 /**
@@ -3343,8 +3344,10 @@ window.addEventListener('DOMContentLoaded', init);
    (assets/eb-knowledge.json, erzeugt aus dem Vault, nur share:public)
    und kennt zusätzlich den Live-Zustand des HQ.
    Spracheingabe und Ausgabe laufen über die Web-Speech-API des Browsers.
-   Im Voice-Modus formuliert OpenRouter die Antwort serverseitig; Schlüssel,
-   Rollenbudget und Preisgrenzen bleiben außerhalb des Browsers.
+   Belegte Betriebs- und Wissensfragen werden lokal aus dem geladenen Stand
+   beantwortet. OpenRouter formuliert nur freie Fragen, für die kein lokaler
+   Beleg reicht; Schlüssel, Rollenbudget und Preisgrenzen bleiben außerhalb
+   des Browsers.
    ══════════════════════════════════════════════════════════════════ */
 (function () {
   var circle = document.getElementById('eb-circle');
@@ -3362,6 +3365,8 @@ window.addEventListener('DOMContentLoaded', init);
   var KB = null, speakOn = true, rec = null, listening = false;
   var voiceMode = false, asking = false, conversation = [], preferredVoice = null;
   var askController = null, recognitionAlternatives = [], recognitionConfidence = null, endTimer = null, suppressVoiceRestart = false;
+  var providerFailures = 0, providerCooldownUntil = 0;
+  var dialogSession = 0, recognitionSession = 0;
   var esc = function (t) { var d = document.createElement('div'); d.textContent = String(t == null ? '' : t); return d.innerHTML; };
 
   // Das Transkript gehört zum neuronalen Kern, nicht in einen schwebenden
@@ -3373,7 +3378,20 @@ window.addEventListener('DOMContentLoaded', init);
     stateEl.textContent = text;
     ['hoert', 'denkt', 'spricht'].forEach(function (k) { nnZustand(k, k === klasse); });
     var orbText = document.getElementById('nn-orb-text');
-    if (orbText) orbText.textContent = klasse === 'hoert' ? 'ich höre' : klasse === 'denkt' ? 'denkt' : klasse === 'spricht' ? 'antwortet' : 'sprechen';
+    if (orbText) orbText.textContent = klasse === 'hoert' ? 'ich höre' : klasse === 'denkt' ? 'denkt' : klasse === 'spricht' ? 'antwortet' : panel.classList.contains('open') ? 'beenden' : 'sprechen';
+  }
+
+  function syncDialogControls() {
+    var offen = panel.classList.contains('open');
+    var orb = document.getElementById('nn-orb');
+    if (orb) {
+      orb.setAttribute('aria-label', offen ? 'Gespräch beenden' : 'Sprechen — KI-Kreis starten');
+      orb.setAttribute('aria-pressed', offen ? 'true' : 'false');
+    }
+    circle.setAttribute('aria-label', offen ? 'Gespräch beenden' : 'Eventbörse Assistent öffnen');
+    circle.setAttribute('aria-pressed', offen ? 'true' : 'false');
+    var orbText = document.getElementById('nn-orb-text');
+    if (orbText && !listening && !asking) orbText.textContent = offen ? 'beenden' : 'sprechen';
   }
 
   function chooseVoice() {
@@ -3593,6 +3611,109 @@ window.addEventListener('DOMContentLoaded', init);
     return kopf + '\n' + hqLagebericht();
   }
 
+  /**
+   * Beantwortet operative Fragen direkt aus dem sichtbaren Live-Zustand.
+   *
+   * Diese Antworten dürfen nicht von einem Sprachmodell abhängen: Aufgaben,
+   * Commits, Gates und Ausfälle sind bereits strukturierte Daten. Ein Modell
+   * könnte sie höchstens umformulieren, aber auch verwechseln. Der lokale
+   * Pfad bleibt deshalb selbst dann vollständig nutzbar, wenn OpenRouter
+   * gedrosselt, gestört oder gar nicht konfiguriert ist.
+   */
+  function hqOperativeAntwort(q) {
+    var t = String(q || '').toLowerCase();
+    var operativ = /operative? zentrale|operativ|agents?|agenten|mitarbeiter|rollen|arbeitsstand|pull request|\bpr\b|release|deploy|workflow|puls|gates?|blockiert|gestoppt|ausfall|fehlgeschlagen|was .*gemacht|was .*erledigt|was .*geliefert|n(ä|ae)chste[rn]? (operative[rn]?|sichere[rn]?) schritt/.test(t)
+      || /woran (arbeiten|sind) (die|sie|ihr)|woran .*dran|wer arbeitet|was (macht|machen|arbeitet) (gerade )?(das team|ihr|die agents?|die agenten|die mitarbeiter|die zentrale)/.test(t);
+    if (!operativ) return null;
+
+    var willAufgaben = /operative? zentrale|agents?|agenten|mitarbeiter|rollen|arbeitsstand|woran|was (macht|machen|arbeitet)|wer arbeitet/.test(t);
+    var willLieferung = /pull request|\bpr\b|release|deploy|gemacht|erledigt|fertig|geliefert|ge(ä|ae)ndert|umgesetzt/.test(t);
+    var willProbleme = /blockiert|gestoppt|ausfall|fehler|fehlgeschlagen|problem|risik|h(ä|ae)ngt|wartet/.test(t);
+    var willNaechstes = /n(ä|ae)chste|danach|als n(ä|ae)chstes|was kommt|plan|offen/.test(t);
+    var allgemein = /operative? zentrale|operativ.*(stand|macht|tut)|was (macht|machen) gerade/.test(t)
+      && !willLieferung && !willProbleme && !willNaechstes;
+    if (allgemein) { willAufgaben = true; willLieferung = true; willProbleme = true; }
+
+    var teile = [];
+    var vorschlaege = [];
+    var laeufe = state.runs || [];
+    var modelle = (nnKatalog && nnKatalog.modelle || []).filter(function (m) { return !!m.schicht; });
+
+    if (willAufgaben) {
+      var fokus = nnEbene ? modelle.filter(function (m) { return m.bereich === nnEbene; }) : modelle;
+      var zeilen = fokus.map(function (m) {
+        var st = nnSchichtStand(m);
+        return { m: m, st: st, text: m.person + ' (' + m.rolle + '): ' + (st.task || nnAktuelleAufgabe(m) || m.aufgabe) + ' — ' + st.text };
+      });
+      var aktiv = zeilen.filter(function (x) { return x.st.stand === 'laeuft'; });
+      var kopf = aktiv.length
+        ? aktiv.length + ' Rolle(n) arbeiten gerade in einem belegten Lauf.'
+        : 'Gerade läuft kein Modellaufruf. ' + zeilen.length + ' Rollen sind für den nächsten erreichten Puls eingetaktet; ihre Aufgaben sind trotzdem konkret festgelegt.';
+      var limit = nnEbene ? zeilen.length : 6;
+      teile.push(kopf + '\n• ' + zeilen.slice(0, limit).map(function (x) { return x.text; }).join('\n• ')
+        + (zeilen.length > limit ? '\n• Plus ' + (zeilen.length - limit) + ' weitere Rollen; öffne einen Bereich oder frage nach einer Rolle.' : ''));
+      vorschlaege.push('Was wurde zuletzt geliefert?', 'Welche Rollen sind gestoppt?', 'Was ist der nächste operative Schritt?');
+    }
+
+    if (willLieferung) {
+      var commit = (state.commits || [])[0];
+      var deploy = commit && laeufe.find(function (r) { return /ionos-deploy\.yml$/.test(r.path || '') && r.head_sha === commit.sha; });
+      if (!deploy) deploy = laeufe.find(function (r) { return /ionos-deploy\.yml$/.test(r.path || ''); });
+      var security = commit && laeufe.find(function (r) { return /security\.yml$/.test(r.path || '') && r.head_sha === commit.sha; });
+      if (!security) security = laeufe.find(function (r) { return /security\.yml$/.test(r.path || ''); });
+      if (commit) {
+        var nachricht = String(commit.commit && commit.commit.message || '').split('\n');
+        var detail = nachricht.slice(1).join(' ').replace(/\s+/g, ' ').trim().slice(0, 260);
+        teile.push('Letzter Stand auf main: ' + commit.sha.slice(0, 7) + ' — ' + (nachricht[0] || 'Commit ohne Titel') + '.'
+          + (detail ? '\nUmfang: ' + detail + (detail.length >= 260 ? ' …' : '') : '')
+          + '\nDeploy: ' + (deploy ? (deploy.conclusion || deploy.status || 'unbekannt') : 'nicht geladen')
+          + ' · Security: ' + (security ? (security.conclusion || security.status || 'unbekannt') : 'nicht geladen') + '.');
+      } else {
+        teile.push('Commits sind nicht geladen; ich behaupte deshalb keinen aktuellen Release-Stand.');
+      }
+      var fertig = ((nnJournal && nnJournal.eintraege) || []).filter(function (e) { return e.ergebnis === 'fertig'; }).slice(0, 3);
+      if (fertig.length) teile.push('Letzte belegte Agenten-Lieferungen:\n• ' + fertig.map(function (e) {
+        return (e.person || e.rollenname || e.rolle) + ': ' + String(e.aufgabe || e.text || '').replace(/\s+/g, ' ').slice(0, 180);
+      }).join('\n• '));
+      vorschlaege.push('Woran arbeiten die Agents?', 'Sind Deploy und Tests grün?', 'Was ist noch offen?');
+    }
+
+    if (willProbleme) {
+      var seit24 = Date.now() - 86400000;
+      var journal24 = ((nnJournal && nnJournal.eintraege) || []).filter(function (e) { return new Date(e.zeit).getTime() >= seit24; });
+      var fehler = journal24.filter(function (e) { return e.ergebnis === 'fehler' || e.ergebnis === 'abgebrochen'; });
+      var geschuetzt = journal24.filter(function (e) { return e.ergebnis === 'uebersprungen' || e.ergebnis === 'budgetstopp'; });
+      var runFehler = laeufe.filter(function (r) { return r.conclusion === 'failure'; });
+      teile.push('Störungen in den geladenen letzten 24 Stunden: ' + fehler.length + ' Agentenfehler/-abbrüche, '
+        + geschuetzt.length + ' Budget-/Schutzstopps und ' + runFehler.length + ' fehlgeschlagene Workflow-Läufe.'
+        + (runFehler[0] ? '\nJüngster fehlgeschlagener Lauf: ' + (runFehler[0].name || runFehler[0].path || 'unbenannt') + ' · ' + nnRelativ(runFehler[0].created_at) + '.' : '')
+        + (!nnJournal ? '\nDas Arbeitsjournal ist nicht geladen; Agentenzahlen sind daher unbekannt.' : ''));
+      vorschlaege.push('Zeig mir den vollständigen Lagebericht', 'Was ist der nächste sichere Schritt?');
+    }
+
+    if (willNaechstes) {
+      var flow = state.codeflow;
+      if (flow) {
+        var ziel = flow.ziel || {};
+        var aktuell = flow.aktuell || {};
+        teile.push('Nächster sicherer Schritt: ' + (ziel.titel || aktuell.ziel || 'noch nicht bestimmt') + '.'
+          + (ziel.beschreibung ? '\n' + ziel.beschreibung : '')
+          + '\nPhase: ' + (flow.phase || flow.status || 'unbekannt')
+          + ' · Verantwortlich: ' + (aktuell.person || '24/7-Steuerung') + '.');
+      } else {
+        teile.push('Der Live-Lieferstrom ist nicht geladen; ich kann den nächsten Schritt nicht belastbar benennen.');
+      }
+      vorschlaege.push('Woran arbeiten die Agents?', 'Was wurde zuletzt geliefert?', 'Was ist blockiert?');
+    }
+
+    if (!teile.length) teile.push(hqLagebericht());
+    return {
+      answer: teile.join('\n\n'),
+      source: 'Live-Betriebsdaten',
+      suggestions: vorschlaege.filter(function (x, i, a) { return a.indexOf(x) === i; }).slice(0, 3),
+    };
+  }
+
   function hqDialogContext() {
     if (!nnKatalog) return '';
     var bereich = nnEbene ? nnKatalog.bereiche.find(function (b) { return b.id === nnEbene; }) : null;
@@ -3636,17 +3757,26 @@ window.addEventListener('DOMContentLoaded', init);
     if (!speakOn || !window.speechSynthesis) return;
     try {
       speechSynthesis.cancel();
+      var session = dialogSession;
       var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
       u.lang = 'de-DE'; u.rate = .98; u.pitch = .94;
       u.voice = preferredVoice || chooseVoice();
-      u.onstart = function () { circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht'); };
+      u.onstart = function () {
+        if (session !== dialogSession || !panel.classList.contains('open')) return;
+        circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht');
+      };
       u.onend = function () {
-        circle.classList.remove('speaking'); voiceState('Bereit für dein Gespräch', null);
+        circle.classList.remove('speaking');
+        if (session !== dialogSession || !panel.classList.contains('open')) return;
+        voiceState('Bereit für dein Gespräch', null);
         var darfNeuHoeren = !suppressVoiceRestart;
         suppressVoiceRestart = false;
         if (darfNeuHoeren && voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 120);
       };
-      u.onerror = function () { circle.classList.remove('speaking'); voiceState('Sprachausgabe gestoppt', null); };
+      u.onerror = function () {
+        circle.classList.remove('speaking');
+        if (session === dialogSession && panel.classList.contains('open')) voiceState('Sprachausgabe gestoppt', null);
+      };
       speechSynthesis.speak(u);
     } catch (e) {}
   }
@@ -3660,45 +3790,77 @@ window.addEventListener('DOMContentLoaded', init);
   }
 
   async function askOpenRouter(q, context, controller) {
-    var res = await fetch('/wp-json/eventboerse/v1/hq/circle', {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': HQ_REST_NONCE },
-      signal: controller && controller.signal,
-      body: JSON.stringify({
-        message: q, context: context || '', history: conversation.slice(-8),
-        alternatives: recognitionAlternatives, confidence: recognitionConfidence
-      })
-    });
-    var data = await res.json().catch(function () { return {}; });
-    if (!res.ok || !data.answer) throw new Error((data && data.message) || 'OpenRouter antwortet nicht.');
-    return data;
+    if (Date.now() < providerCooldownUntil) {
+      var pause = new Error('Sprachdienst wird nach einem Fehler kurz nicht erneut belastet.');
+      pause.name = 'ProviderCooldown';
+      throw pause;
+    }
+    var letzterFehler = null;
+    for (var versuch = 0; versuch < 2; versuch++) {
+      try {
+        var res = await fetch('/wp-json/eventboerse/v1/hq/circle', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': HQ_REST_NONCE },
+          signal: controller && controller.signal,
+          body: JSON.stringify({
+            message: q, context: context || '', history: conversation.slice(-8),
+            alternatives: recognitionAlternatives, confidence: recognitionConfidence
+          })
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (res.ok && data.answer) {
+          providerFailures = 0; providerCooldownUntil = 0;
+          return data;
+        }
+        letzterFehler = new Error((data && data.message) || 'Sprachdienst antwortet nicht.');
+        // Rechte- und Ratenfehler werden nicht durch blindes Wiederholen besser.
+        if (res.status === 401 || res.status === 403 || res.status === 429 || res.status < 500) break;
+      } catch (e) {
+        if (e && e.name === 'AbortError') throw e;
+        letzterFehler = e;
+      }
+      if (versuch === 0) await new Promise(function (resolve) { setTimeout(resolve, 350); });
+    }
+    providerFailures += 1;
+    providerCooldownUntil = Date.now() + Math.min(120000, providerFailures * 15000);
+    throw letzterFehler || new Error('Sprachdienst antwortet nicht.');
   }
 
   async function ask(q) {
     q = String(q || '').trim(); if (!q) return;
     if (asking && askController) askController.abort();
     var controller = new AbortController();
+    var session = dialogSession;
     askController = controller;
     asking = true;
     renderSuggestions([]);
     add('me', esc(q));
     var g = gaps(q);
     var status = hqStatus(q);
+    var operative = status ? null : hqOperativeAntwort(q);
     var treffer = topTreffer(q, 4);
     var hit = treffer[0] || search(q);
-    var localAnswer = g || status || null;
+    var localAnswer = g || status || (operative && operative.answer) || null;
     // Eine Status-Frage gewinnt gegen einen Wissenstreffer: auf „wie steht es?"
     // ist ein Abschnitt ueber Buchungsablaeufe keine Antwort. Umgekehrt bleibt
     // eine Produktfrage beim Wissen, weil hqStatus dann gar nicht anspringt.
-    if (hit && !status && !g) {
+    if (hit && !status && !g && !operative) {
       var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
       localAnswer = (hit.heading ? hit.heading + '. ' : '') + txt;
     }
     try {
-      // Textfragen mit gutem lokalem Treffer bleiben tokenfrei. Voice und
-      // Wissenslücken bekommen eine kurze, kontextgestützte OpenRouter-Antwort.
-      if (!voiceMode && localAnswer) {
-        add('ai', esc(localAnswer).replace(/\n/g, '<br>'), hit && hit.title);
+      // Belegte Antworten bleiben in Text UND Voice lokal. Ein Sprachmodell
+      // darf den Betriebsstand nicht zum Single Point of Failure machen.
+      if (localAnswer) {
+        var quelle = operative ? operative.source : status ? 'Live-Betriebsdaten' : hit && hit.title;
+        add('ai', esc(localAnswer).replace(/\n/g, '<br>'), quelle);
+        conversation.push({ role: 'user', content: q }, { role: 'assistant', content: localAnswer });
+        conversation = conversation.slice(-10);
+        renderSuggestions(operative ? operative.suggestions : status
+          ? ['Woran arbeiten die Agents?', 'Was wurde zuletzt geliefert?', 'Was ist blockiert?'] : []);
+        hintEl.textContent = operative || status
+          ? 'Direkt aus geladenen Live-Betriebsdaten · unabhängig vom Sprachdienst.'
+          : 'Direkt aus freigegebenem Plattformwissen.';
         say(localAnswer);
       } else {
         voiceState('Prüft Wissen und Betriebsdaten', 'denkt');
@@ -3707,6 +3869,7 @@ window.addEventListener('DOMContentLoaded', init);
         }).join('\n\n---\n\n');
         var context = [hqDialogContext(), status || '', wissen || localAnswer || '', hit && hit.title ? 'Quelle: ' + hit.title : ''].filter(Boolean).join('\n\n');
         var data = await askOpenRouter(q, context, controller);
+        if (session !== dialogSession || !panel.classList.contains('open')) return;
         conversation.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
         conversation = conversation.slice(-10);
         hintEl.textContent = data.needs_clarification ? 'Der Assistent fragt gezielt nach.' : 'Gespräch bleibt jederzeit unterbrechbar.';
@@ -3717,14 +3880,15 @@ window.addEventListener('DOMContentLoaded', init);
       }
     } catch (e) {
       if (e && e.name === 'AbortError') return;
-      var fb = localAnswer || 'OpenRouter ist gerade nicht erreichbar. Die Frage wurde als Wissenslücke vorgemerkt.';
+      var fb = localAnswer || 'Dazu habe ich im geladenen Betriebs- und Plattformwissen keinen belastbaren Beleg. Der externe Sprachdienst antwortet vorübergehend nicht; ich habe die Frage als Wissenslücke gespeichert, statt etwas zu erfinden.';
       if (!localAnswer) rememberGap(q);
       add('ai', esc(fb).replace(/\n/g, '<br>'));
-      voiceState('Fallback · freigegebenes Wissen', null);
+      hintEl.textContent = 'Live-Betriebsfragen bleiben verfügbar; freie Formulierungen werden nach der kurzen Provider-Pause erneut versucht.';
+      voiceState('Lokaler, belegter Rückfall', null);
       say(fb);
     } finally {
       if (askController === controller) { asking = false; askController = null; }
-      recognitionAlternatives = []; recognitionConfidence = null;
+      if (session === dialogSession) { recognitionAlternatives = []; recognitionConfidence = null; }
     }
   }
 
@@ -3761,17 +3925,30 @@ window.addEventListener('DOMContentLoaded', init);
     };
     rec.onend = function () {
       listening = false; circle.classList.remove('listening'); micBtn.classList.remove('on');
+      // Ein zweiter Klick auf den Kern beendet die Sitzung. Das nachlaufende
+      // onend-Ereignis darf dann weder einen Teiltext absenden noch das
+      // Mikrofon wieder starten.
+      if (recognitionSession !== dialogSession || !panel.classList.contains('open')) {
+        input.value = '';
+        voiceState('Gespräch beendet', null);
+        syncDialogControls();
+        return;
+      }
       voiceState('Bereit für dein Gespräch', null);
       var t = input.value.trim();
       if (t) { input.value = ''; ask(t); }
       else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 180);
     };
+    recognitionSession = dialogSession;
     try { rec.start(); } catch (e) {}
   }
 
   function open(asVoice) {
+    if (panel.classList.contains('open')) { syncDialogControls(); return; }
+    dialogSession += 1; suppressVoiceRestart = false;
     if (asVoice) voiceMode = true;
     panel.classList.add('open');
+    syncDialogControls();
     if (!log.childElementCount) {
       var hi = 'Hallo. Du kannst mit mir sprechen oder schreiben. Frag mich nach dem ehrlichen Betriebsstand, laufenden Aufgaben, Ergebnissen, Risiken oder den nächsten sinnvollen Verbesserungen.';
       add('ai', esc(hi));
@@ -3779,12 +3956,16 @@ window.addEventListener('DOMContentLoaded', init);
     if (!voiceMode) setTimeout(function () { input.focus(); }, 60);
   }
   function close() {
+    dialogSession += 1;
     voiceMode = false; panel.classList.remove('open');
     try { if (rec && listening) rec.stop(); } catch (e) {}
     if (askController) askController.abort();
     asking = false; askController = null; renderSuggestions([]);
+    input.value = ''; recognitionAlternatives = []; recognitionConfidence = null;
+    conversation = []; log.innerHTML = '';
     try { suppressVoiceRestart = true; speechSynthesis.cancel(); } catch (e) {}
     voiceState('Gespräch beendet', null);
+    syncDialogControls();
   }
 
   circle.addEventListener('click', function () { panel.classList.contains('open') ? close() : open(); });
@@ -3796,14 +3977,18 @@ window.addEventListener('DOMContentLoaded', init);
        Kreis tippt, will reden — nicht erst ein Textfeld sehen und dann noch
        ein Mikrofon suchen. */
     sprich: function () {
-      if (!panel.classList.contains('open')) open(true);
-      else voiceMode = true;
+      // Derselbe zentrale Kreis ist ein echter Ein/Aus-Schalter: einmal
+      // öffnet und hört zu, ein zweites Mal beendet sofort alles.
+      if (panel.classList.contains('open')) { close(); return; }
+      open(true);
       if (!listening) toggleMic();
     },
     sprechen: toggleMic,
     beenden: close,
     istOffen: function () { return panel.classList.contains('open'); },
     kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); },
+    operativeAntwort: function (frage) { return hqOperativeAntwort(frage); },
+    sync: syncDialogControls,
     /* Der Lagebericht auch ausserhalb des Gespraechs — er ist eine Aussage
        ueber den Betrieb, nicht bloss eine Chat-Antwort. */
     lage: function () { return hqLagebericht(); },
@@ -3853,6 +4038,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (e.key === 'Enter') { e.preventDefault(); var v = input.value.trim(); input.value = ''; ask(v); }
     if (e.key === 'Escape') close();
   });
+  syncDialogControls();
 })();
 </script>
 </body>
