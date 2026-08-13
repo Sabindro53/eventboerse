@@ -207,6 +207,17 @@ test.describe('Auftragsstrom: aus Befunden wird Arbeit', () => {
     expect(workflow, 'der Abbruchgrund wird nicht ausgelesen').toMatch(/\.abbruch \/\/ empty/);
     expect(workflow, 'ein technischer Abbruch ist nicht als solcher markiert')
       .toMatch(/technisch, nicht inhaltlich/);
+    // Der Grund muss auch im LOG stehen, nicht nur in der Step-Summary. Die
+    // Summary sieht nur, wer sie im Browser aufmacht; das Log steht in jeder
+    // API und jedem Werkzeug, das den Lauf spaeter untersucht. Genau daran
+    // bin ich am 13.08. gescheitert: der Lauf 31691382880 endete ohne
+    // Aenderung, und ich konnte den Grund nicht lesen.
+    for (const zeile of workflow.split('\n')) {
+      if (!/GITHUB_STEP_SUMMARY/.test(zeile)) continue;
+      if (!/(Aenderung|Abbruch|verworfen|Hebel|Kosten dieses Laufs)/.test(zeile)) continue;
+      expect(zeile, `nur in die Summary, nicht ins Log: ${zeile.trim().slice(0, 70)}`)
+        .toMatch(/tee -a/);
+    }
     expect(workflow, 'die skip-Entscheidung der Architektin wird verschwiegen')
       .toMatch(/architekt\.decision \/\/ empty/);
     expect(workflow, 'ein Scout ohne Fund wird nicht benannt')
