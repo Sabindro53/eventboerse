@@ -23,6 +23,7 @@ jobs:
 
       - name: Minify assets (#6 Part 2)
         run: |
+          node scripts/build-protected-hq.mjs
           # WICHTIG: Versionen GEPINNT. 'npx --yes terser' (ohne Pin) zog bei
           # jedem Deploy die neueste Version — ein Minifier-Update kann aus
           # identischem Quellcode plötzlich kaputtes JS erzeugen und die Seite
@@ -73,6 +74,7 @@ jobs:
               -x '^\.git' -x '^\.github/' -x '^\.vscode/' -x '^\.idea/' \
               -x '^\.obsidian/' -x '^\.claude/' -x '^\.claude\.json$' \
               -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
+              -x '^scripts/' -x '^hq\.html$' \
               -x '^js/modules/' -x '^build-app-js\.sh$' \
               -x '^assets/eb-arbeit\.json$' -x '^assets/eb-codeflow\.json$' \
               -x '^assets/eb-auftragsstrom\.json$' \
@@ -85,6 +87,7 @@ jobs:
               -x '\.bak$' -x '\.log$' -x '\.swp$' -x '\.DS_Store$' \
               -x '^Attached Element Context' \
               . $DEPLOY_DIR;
+            rm -f ${DEPLOY_DIR}hq.html;
             echo '--- Deploy complete ---';
             bye
           "

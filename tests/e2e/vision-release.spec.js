@@ -1,6 +1,15 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = path.join(__dirname, '..', '..');
 
 test.describe('Vision Release', () => {
+  test('WordPress lädt die Release-Oberfläche mit ihren Styles', () => {
+    const wordpressShell = fs.readFileSync(path.join(ROOT, 'index.php'), 'utf8');
+    expect(wordpressShell).toContain('/release-vision.css?v=');
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/index.html');
     await page.evaluate(() => {

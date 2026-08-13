@@ -373,9 +373,9 @@ function eb_serve_theme_root_file() {
  * das Haus verlässt.
  *
  * Wer nicht berechtigt ist, bekommt 404 statt 403: eine Seite, deren Existenz
- * man nicht bestätigt, wird auch nicht angegriffen. Der direkte Theme-Pfad
- * (/wp-content/themes/…/hq.html) ist zusätzlich in .htaccess gesperrt — dort
- * liefert Apache aus, ohne PHP je zu fragen.
+ * man nicht bestätigt, wird auch nicht angegriffen. Das Deployment entfernt
+ * die statische hq.html vom Server und erzeugt ein PHP-Template, das einen
+ * Direktaufruf zusätzlich abweist.
  */
 /**
  * connect-src für die HQ-Antwort um GitHub erweitern.
@@ -476,7 +476,14 @@ function eb_serve_hq() {
         exit;
     }
 
-    $file = get_template_directory() . '/hq.html';
+    // Produktion nutzt ein PHP-Template mit Direktaufruf-Sperre. Die
+    // statische HTML-Datei bleibt nur als lokale Testquelle im Repository;
+    // der Deploy schließt sie aus und entfernt ältere Serverkopien. Damit
+    // kann ein Static-File-Proxy die WordPress-Rechteprüfung nicht umgehen.
+    $protected_file = get_template_directory() . '/hq-protected.php';
+    $file = is_readable( $protected_file )
+        ? $protected_file
+        : get_template_directory() . '/hq.html';
     if ( ! is_readable( $file ) ) {
         status_header( 404 );
         exit;
@@ -494,7 +501,14 @@ function eb_serve_hq() {
     // den REST-Aufruf auf 0; die geschuetzten KI-Proxies antworten dann trotz
     // gueltiger Admin-Sitzung mit 401/403. Der Nonce wird nur in die bereits
     // admin-geschuetzte, nicht cachebare HQ-Antwort eingesetzt.
-    $html = file_get_contents( $file );
+    if ( $file === $protected_file ) {
+        ob_start();
+        include $file;
+        $html = ob_get_clean();
+    } else {
+        // Lokaler/Test-Fallback; hq.html wird nicht in Produktion deployed.
+        $html = file_get_contents( $file );
+    }
     if ( $html === false ) {
         status_header( 500 );
         exit;

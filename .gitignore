@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# Generated from hq.html during the guarded deploy.
+hq-protected.php
 vendor/
 
 # IDE
