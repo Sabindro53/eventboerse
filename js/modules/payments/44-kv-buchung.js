@@ -228,7 +228,7 @@ function _startOfferPayment(msgId, amount) {
 
   // Doppelzahlungs-Schutz: dieses Listing ist bereits verbindlich gebucht
   // und bezahlt → keine zweite Zahlung starten.
-  if (rec.card.paymentStatus === 'paid' || rec.card.stage === 'bestaetigt' || rec.card.stage === 'abgeschlossen') {
+  if (_cardHasConfirmedPayment(rec.card)) {
     showToast('Bereits verbindlich gebucht & bezahlt — siehe Planungsboard.', 'info');
     try { navigateTo('board'); } catch (e) {}
     return;
@@ -325,4 +325,3 @@ function _recordBookingToBoard(opts) {
   _saveBoardProjects({ immediate: true });
   return { projectId: project.id, card: card };
 }
-

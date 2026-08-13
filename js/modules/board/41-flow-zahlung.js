@@ -58,7 +58,7 @@ function _applyInstantBookingSuccess(info, res) {
     id: 'bc_' + Date.now(),
     name: info.title || 'Direktbuchung',
     category: info.category || '',
-    stage: 'bestaetigt',
+    stage: 'angebot',
     price: info.amount,
     listingId: info.listingId,
     listingImage: info.image || '',
@@ -70,7 +70,8 @@ function _applyInstantBookingSuccess(info, res) {
     bookedAt: nowIso, invoiceSentAt: nowIso, paidAt: nowIso,
     paidAmount: info.amount, paymentMethod: 'Stripe',
     paymentIntentId: piId, paymentReference: piId,
-    paymentStatus: 'paid', createdAt: nowIso
+    paymentStatus: 'paid', providerAcceptedAt: nowIso, createdAt: nowIso,
+    _stageModel: EB_BOARD_STAGE_MODEL_VERSION
   };
   proj.cards = proj.cards || [];
   proj.cards.push(card);
@@ -106,7 +107,10 @@ function _applyCardPaymentSuccess(cardId, projectId, amount, res) {
   card.paymentIntentId = piId;
   card.paymentReference = piId;
   card.paymentStatus = 'paid';
-  card.stage = 'bestaetigt';
+  // Bezahlt ist die letzte Prozessstufe. Wurde vorab bezahlt, bleibt die
+  // Karte bis zur beidseitigen Erfüllungsbestätigung unter „Gebucht“.
+  card.stage = card.fulfilledAt ? 'abgeschlossen' : 'angebot';
+  card._stageModel = EB_BOARD_STAGE_MODEL_VERSION;
   var listing = (typeof LISTINGS !== 'undefined' ? LISTINGS : []).find(function(l) { return l.id === card.listingId; });
   try { _sendInvoiceNotification(card, project, listing).catch(function() {}); } catch (e) {}
   try { _saveBoardProjects && _saveBoardProjects({ immediate: true }); } catch (e) {}
@@ -263,7 +267,8 @@ function _handleStripeReturn() {
     card.paymentMethod = 'Stripe';
     card.paymentReference = sessionId || card.paymentReference || '';
     card.stripePending = false;
-    if (card.stage === 'angebot') card.stage = 'bestaetigt';
+    if (card.fulfilledAt) card.stage = 'abgeschlossen';
+    card._stageModel = EB_BOARD_STAGE_MODEL_VERSION;
     try { _saveBoardProjects && _saveBoardProjects(); } catch(e) {}
     showToast('Zahlung via Stripe erfolgreich – Status: Bezahlt.', 'paid');
   } else if (status === 'cancel' && card) {
@@ -314,7 +319,8 @@ function _reconcileStripePayments() {
             card.paidAt           = card.paidAt || new Date((it.paid_at || 0) * 1000).toISOString();
             card.paidAmount       = card.paidAmount || ((it.amount || 0) / 100);
             card.stripePending    = false;
-            if (card.stage === 'angebot') card.stage = 'bestaetigt';
+            if (card.fulfilledAt) card.stage = 'abgeschlossen';
+            card._stageModel = EB_BOARD_STAGE_MODEL_VERSION;
             matched++;
           }
           acked.push(it.pi);
@@ -1255,7 +1261,7 @@ function _formatEuro(n) {
 
 /* ── Flow-Board Stage-Verschieben (Sheet + Drag&Drop) ──────────────────
  * Stages laufen strikt sequenziell:
- *   geplant → kontaktiert → angebot (Gebucht) → bestaetigt (Bezahlt) → abgeschlossen (Erfüllt)
+ *   geplant → kontaktiert → angebot (Gebucht) → bestaetigt (Erfüllt) → abgeschlossen (Bezahlt)
  * Logik:
  *   • Gleiche Stage  → ignorieren
  *   • +1 Schritt     → den vorhandenen Aktions-Flow für die AKTUELLE Stage öffnen
@@ -1264,9 +1270,9 @@ function _formatEuro(n) {
  *   • Rückwärts      → mit Bestätigung erlaubt; setzt nachgelagerte Marker zurück
  */
 var FLOW_STAGE_ORDER  = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
-var FLOW_STAGE_LABELS = { geplant:'Geplant', kontaktiert:'Kontaktiert', angebot:'Gebucht', bestaetigt:'Bezahlt', abgeschlossen:'Erfüllt' };
-var FLOW_STAGE_ICONS  = { geplant:'schedule', kontaktiert:'mail', angebot:'receipt_long', bestaetigt:'paid', abgeschlossen:'verified' };
-var FLOW_STAGE_COLORS = { geplant:'#9E9E9E', kontaktiert:'#FF9800', angebot:'#AB47BC', bestaetigt:'#00A699', abgeschlossen:'#FF385C' };
+var FLOW_STAGE_LABELS = { geplant:'Geplant', kontaktiert:'Kontaktiert', angebot:'Gebucht', bestaetigt:'Erfüllt', abgeschlossen:'Bezahlt' };
+var FLOW_STAGE_ICONS  = { geplant:'schedule', kontaktiert:'mail', angebot:'receipt_long', bestaetigt:'verified', abgeschlossen:'paid' };
+var FLOW_STAGE_COLORS = { geplant:'#9E9E9E', kontaktiert:'#FF9800', angebot:'#AB47BC', bestaetigt:'#FF385C', abgeschlossen:'#00A699' };
 
 function openStageMoveSheet(cardId) {
   var project = _boardProjects.find(function(p){ return p.id === _activeBoardId; });
@@ -1340,6 +1346,10 @@ function _attemptMoveCardStage(cardId, targetStage) {
   }
   // 3) Rückwärts → mit Bestätigung erlauben (Korrektur)
   if (tgtIdx < curIdx) {
+    if (_cardHasConfirmedPayment(card)) {
+      showToast('Eine bestätigte Zahlung kann nicht auf eine frühere Stage zurückgesetzt werden.', 'lock');
+      return;
+    }
     var ok = window.confirm('Karte von „' + FLOW_STAGE_LABELS[current] + '" zurück auf „' + FLOW_STAGE_LABELS[targetStage] + '" setzen?\n\nBereits gesetzte Bestätigungen ab dieser Stage werden zurückgesetzt.');
     if (!ok) return;
     card.stage = targetStage;
@@ -1410,8 +1420,8 @@ function openStageAdvanceModal(cardId, currentStage) {
   var card = (project.cards || []).find(function(c) { return c.id === cardId; });
   if (!card) return;
 
-  var titles = {geplant:'Kontaktieren',kontaktiert:'Warten auf Antwort',angebot:'Jetzt buchen',bestaetigt:'Erbringung bestätigen'};
-  var icons  = {geplant:'forum',kontaktiert:'hourglass_top',angebot:'receipt_long',bestaetigt:'verified'};
+  var titles = {geplant:'Kontaktieren',kontaktiert:'Warten auf Antwort',angebot:'Erbringung bestätigen',bestaetigt:'Jetzt bezahlen'};
+  var icons  = {geplant:'forum',kontaktiert:'hourglass_top',angebot:'verified',bestaetigt:'paid'};
   var title  = titles[currentStage] || 'Weiter';
   var icon   = icons[currentStage] || 'arrow_forward';
 
@@ -1532,19 +1542,18 @@ function openStageAdvanceModal(cardId, currentStage) {
         'onclick="this.closest(\'.sa-overlay\').remove();navigateTo(\'messages\');' +
         (card.conversationId ? 'setTimeout(function(){try{openChat(' + parseInt(card.conversationId, 10) + ')}catch(e){}},300)' : '') +
         '"><span class="material-icons-round">forum</span> Chat öffnen</button>';
-  } else if (currentStage === 'angebot') {
-    // Stage "Angebot erhalten" → Anbieter hat Ja gesagt → jetzt verbindlich buchen.
-    // Rechnung wird angestoßen (E-Mail an User, Anbieter, kontakt@eventbörse.de).
+  } else if (currentStage === 'bestaetigt') {
+    // Stage „Erfüllt“ → nach beidseitiger Bestätigung sicher bezahlen.
     var _bookPrice = (_listing && _listing.price) || card.price || '';
     var _bookEventDate = (project && project.date) ? _formatDateDe(project.date) : '—';
     fieldsHtml = '' +
       '<div class="sa-info-card" style="background:linear-gradient(135deg,rgba(102,187,106,0.14),rgba(102,187,106,0.04));border:1px solid rgba(102,187,106,0.35);border-radius:12px;padding:14px;margin-bottom:12px">' +
         '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">' +
           '<span class="material-icons-round" style="color:#66bb6a">check_circle</span>' +
-          '<strong>Angebot erhalten – jetzt buchen!</strong>' +
+          '<strong>Leistung erfüllt – jetzt bezahlen</strong>' +
         '</div>' +
         '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
-          'Der Anbieter hat deine Anfrage angenommen. Mit dem Buchen wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
+          'Beide Seiten haben die Erbringung bestätigt. Mit der Zahlung wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
           'und <strong>eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
         '</div>' +
       '</div>' +
@@ -1556,8 +1565,8 @@ function openStageAdvanceModal(cardId, currentStage) {
       '<input id="saBookPrice" type="number" class="sa-input" step="1" min="0" value="' + _escHtml(String(_bookPrice)) + '">' +
       '<label class="sa-label">Anmerkung f&uuml;r Rechnung <small>(optional)</small></label>' +
       '<textarea id="saBookNote" class="sa-input" rows="2" placeholder="Uhrzeit, Adresse, Besonderheiten…"></textarea>';
-  } else if (currentStage === 'bestaetigt') {
-    // Stage "Bezahlt" → "Erfüllt": Dual-Confirmation am Event-Tag.
+  } else if (currentStage === 'angebot') {
+    // Stage „Gebucht“ → „Erfüllt“: Dual-Confirmation am Event-Tag.
     var _hasProvConfirm = !!card.providerConfirmedAt;
     var _hasUserConfirm = !!card.userConfirmedAt;
     fieldsHtml = '' +
@@ -1787,8 +1796,8 @@ function openStageAdvanceModal(cardId, currentStage) {
     });
   }
 
-  // ── Review-Widget (bestaetigt stage) ──
-  if (currentStage === 'bestaetigt') {
+  // ── Review-Widget (Gebucht → Erfüllt) ──
+  if (currentStage === 'angebot') {
     var _saStarsEl = document.getElementById('saStars');
     var _saRatingInput = document.getElementById('saRating');
     var _saRatingLabel = document.getElementById('saRatingLabel');
@@ -1872,8 +1881,8 @@ function openStageAdvanceModal(cardId, currentStage) {
       // Warten auf Antwort – kein Submit-Action nötig, einfach schließen.
       overlay.remove();
       return;
-    } else if (currentStage === 'angebot') {
-      // Angebot erhalten → echte Stripe-Zahlung starten.
+    } else if (currentStage === 'bestaetigt') {
+      // Leistung erfüllt → echte Stripe-Zahlung starten.
       var _bp = parseFloat((document.getElementById('saBookPrice') || {}).value);
       if (!isNaN(_bp) && _bp > 0) card.price = _bp;
       card.bookingNote = (document.getElementById('saBookNote') || {}).value || '';
@@ -1918,8 +1927,8 @@ function openStageAdvanceModal(cardId, currentStage) {
       });
       });
       return; // Submit-Handler hier beenden – Rest übernimmt onSuccess.
-    } else if (currentStage === 'bestaetigt') {
-      // Stage "Bezahlt" → "Erfuellt": Dual-Confirm (User + Dienstleister)
+    } else if (currentStage === 'angebot') {
+      // Stage „Gebucht“ → „Erfüllt“: Dual-Confirm (User + Dienstleister)
       var _userOk = !!(document.getElementById('saUserConfirm') || {}).checked;
       var _ratingVal = parseInt((document.getElementById('saRating') || {}).value) || 0;
       var _commentVal = ((document.getElementById('saComment') || {}).value || '').trim();
@@ -1981,7 +1990,7 @@ function openStageAdvanceModal(cardId, currentStage) {
               showToast('Bewertung konnte nicht gesendet werden (Netzwerk).', 'error');
             });
         }
-        showToast('Leistung beidseitig best\u00e4tigt – Projekt abgeschlossen!', 'verified');
+        showToast('Leistung beidseitig best\u00e4tigt – jetzt kann bezahlt werden.', 'verified');
       }
     }
 
@@ -1989,7 +1998,12 @@ function openStageAdvanceModal(cardId, currentStage) {
     if (_advance) {
       var stagesOrder = ['geplant','kontaktiert','angebot','bestaetigt','abgeschlossen'];
       var idx = stagesOrder.indexOf(currentStage);
-      if (idx >= 0 && idx < stagesOrder.length - 1) card.stage = stagesOrder[idx + 1];
+      if (idx >= 0 && idx < stagesOrder.length - 1) {
+        card.stage = (currentStage === 'angebot' && card.fulfilledAt && _cardHasConfirmedPayment(card))
+          ? 'abgeschlossen'
+          : stagesOrder[idx + 1];
+      }
+      card._stageModel = EB_BOARD_STAGE_MODEL_VERSION;
     }
 
     _saveBoardProjects();
@@ -3675,4 +3689,3 @@ function _getProjectChecklist(project) {
   var saved = Array.isArray(project.checklist) ? project.checklist : [];
   return saved.filter(function(it){ return it && it.text; });
 }
-

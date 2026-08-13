@@ -2685,7 +2685,7 @@
         <h2>1. Plattform-, Kunden- und Dienstleisterverhältnis</h2>
         <p>Die Plattform ist ausschließlich Vermittler im Sinne der §§ 652 ff. BGB analog. Der Vertrag über die Eventleistung wird ausschließlich zwischen Kunde und Dienstleister abgeschlossen. Die Plattform ist nicht Erfüllungsgehilfe und nicht Vertreter (§§ 164 ff. BGB).</p>
         <h2>2. Zustandekommen des Eventvertrages</h2>
-        <p>Verbindliches Angebot des Dienstleisters → Annahme durch den Kunden („Buchung verbindlich annehmen") → Auslösung der Stripe-Zahlung → mit erfolgreicher Zahlungsbestätigung ist der Eventvertrag verbindlich abgeschlossen. Beide Parteien erhalten Buchungsbestätigung mit Buchungsnummer, Daten der Gegenseite, Leistungsbeschreibung und Stripe-Transaktions-ID.</p>
+        <p>Verbindliches Angebot des Dienstleisters → Annahme durch den Kunden („Buchung verbindlich annehmen“) → der Eventvertrag ist verbindlich abgeschlossen → nach beidseitiger Bestätigung der erbrachten Leistung wird die Stripe-Zahlung ausgelöst. Beide Parteien erhalten Buchungs- und Zahlungsbestätigungen mit Buchungsnummer, Daten der Gegenseite, Leistungsbeschreibung und Stripe-Transaktions-ID.</p>
         <h2>3. Inhalt der Vermittlungsleistung</h2>
         <ul><li>Bereitstellung Plattformfunktionen (Profile, Suche, Messaging, Angebots-/Annahmeworkflow, Bewertungssystem).</li><li>Technische Vermittlung der Zahlung über Stripe Connect Express.</li><li>Bereitstellung von DSA- und P2B-Beschwerde- und Notice-Mechaniken.</li></ul>
         <h2>4. Was die Plattform nicht leistet</h2>
@@ -3129,7 +3129,7 @@ Datum: ___________________________________________________
             <div class="kanban-column" data-stage="bestaetigt">
               <div class="kanban-col-header">
                 <span class="kanban-col-dot dot-bestaetigt"></span>
-                <h4>Bezahlt</h4>
+                <h4>Erfüllt</h4>
                 <span class="kanban-col-count" id="cntBestaetigt">0</span>
               </div>
               <div class="kanban-cards" id="cardsBestaetigt" ondragover="allowDrop(event)" ondrop="dropCard(event,'bestaetigt')"></div>
@@ -3140,7 +3140,7 @@ Datum: ___________________________________________________
             <div class="kanban-column" data-stage="abgeschlossen">
               <div class="kanban-col-header">
                 <span class="kanban-col-dot dot-abgeschlossen"></span>
-                <h4>Erfüllt</h4>
+                <h4>Bezahlt</h4>
                 <span class="kanban-col-count" id="cntAbgeschlossen">0</span>
               </div>
               <div class="kanban-cards" id="cardsAbgeschlossen" ondragover="allowDrop(event)" ondrop="dropCard(event,'abgeschlossen')"></div>

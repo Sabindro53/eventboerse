@@ -18,7 +18,7 @@ function _rvPrice(job) {
 }
 function _rvStatus(job) {
   var c = job && job.card || {};
-  return c.stage || (c.providerConfirmedAt ? 'abgeschlossen' : (c.paidAt || c.paymentIntentId ? 'bestaetigt' : 'angebot'));
+  return c.stage || ((c.paidAt || c.paymentIntentId) ? 'abgeschlossen' : (c.fulfilledAt ? 'bestaetigt' : 'angebot'));
 }
 function _rvDate(job) {
   var raw = (job.project && job.project.date) || (job.card && (job.card.bookedAt || job.card.createdAt)) || '';
@@ -51,9 +51,10 @@ function _renderBusinessCockpitData(jobs, offline) {
   var root = document.getElementById('businessCockpit');
   if (!root) return;
   _businessJobs = jobs || [];
-  var paidStages = { bestaetigt:1, abgeschlossen:1 };
   var booked = _businessJobs.reduce(function(sum,j){ return sum + _rvPrice(j); }, 0);
-  var paid = _businessJobs.reduce(function(sum,j){ return sum + (paidStages[_rvStatus(j)] ? _rvPrice(j) : 0); }, 0);
+  var paid = _businessJobs.reduce(function(sum,j){
+    return sum + (_cardHasConfirmedPayment(j && j.card) ? _rvPrice(j) : 0);
+  }, 0);
   var open = _businessJobs.filter(function(j){ return _rvStatus(j) !== 'abgeschlossen'; }).length;
   var fee = paid * 0.03;
   var paidOut = Math.max(0, paid - fee);
@@ -128,7 +129,7 @@ function _businessInvoiceTable(jobs) {
     return '<div class="business-invoice-row"><span><strong>' + _escHtml(id) + '</strong><small>' + _rvDate(j).toLocaleDateString('de-DE') + '</small></span><span>' + _escHtml(project) + '</span><span><i class="invoice-status ' + _escHtml(status) + '">' + _escHtml(_rvStageLabel(status)) + '</i></span><span>' + _rvMoney(_rvPrice(j)) + '</span><span><button class="btn-outline btn-sm" onclick="downloadBusinessInvoice(' + i + ')"><span class="material-icons-round">picture_as_pdf</span> Vorschau/PDF</button></span></div>';
   }).join('') + '</div>';
 }
-function _rvStageLabel(s){ return ({angebot:'Gebucht',bestaetigt:'Bezahlt',abgeschlossen:'Erfüllt',kontaktiert:'Kontaktiert',geplant:'Geplant'})[s] || s; }
+function _rvStageLabel(s){ return ({angebot:'Gebucht',bestaetigt:'Erfüllt',abgeschlossen:'Bezahlt',kontaktiert:'Kontaktiert',geplant:'Geplant'})[s] || s; }
 function _businessInvoiceNo(job,index){
   var prefix = currentUser && currentUser.taxProfile && currentUser.taxProfile.invoicePrefix || 'EB';
   var stable = String(job && job.card && job.card.id || job && job.project && job.project.id || index+1);

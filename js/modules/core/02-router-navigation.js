@@ -535,9 +535,9 @@ function navigateTo(page, data, skipHistory) {
 var EB_BOARD_STAGE_INFO = {
   geplant:       { label: 'Im Plan',      icon: 'assignment',      cls: 'geplant' },
   kontaktiert:   { label: 'Kontaktiert',  icon: 'forum',           cls: 'kontaktiert' },
-  angebot:       { label: 'Angebot',      icon: 'request_quote',   cls: 'angebot' },
-  bestaetigt:    { label: 'Gebucht',      icon: 'event_available', cls: 'gebucht' },
-  abgeschlossen: { label: 'Abgeschlossen',icon: 'task_alt',        cls: 'abgeschlossen' }
+  angebot:       { label: 'Gebucht',      icon: 'event_available', cls: 'angebot' },
+  bestaetigt:    { label: 'Erfüllt',      icon: 'verified',        cls: 'erfuellt' },
+  abgeschlossen: { label: 'Bezahlt',      icon: 'paid',            cls: 'bezahlt' }
 };
 var EB_BOARD_STAGE_ORDER = ['geplant', 'kontaktiert', 'angebot', 'bestaetigt', 'abgeschlossen'];
 

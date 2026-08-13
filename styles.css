@@ -3287,6 +3287,8 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .board-status-badge.bsb-angebot       { background: #8b5cf6; }
 .board-status-badge.bsb-gebucht       { background: #16a34a; }
 .board-status-badge.bsb-abgeschlossen { background: #64748b; }
+.board-status-badge.bsb-erfuellt      { background: #FF385C; }
+.board-status-badge.bsb-bezahlt       { background: #00A699; }
 /* Auf der Browse-Karte: unten links im Bild (Badge oben links bleibt frei) */
 .board-status-badge.bsb-on-card {
   position: absolute;
@@ -10456,8 +10458,8 @@ body.dark-mode .bpc-delete-btn:hover {
 .bpp-stage.filled.stage-geplant       { background: #9E9E9E; }
 .bpp-stage.filled.stage-kontaktiert   { background: #FF9800; }
 .bpp-stage.filled.stage-angebot       { background: #AB47BC; }
-.bpp-stage.filled.stage-bestaetigt    { background: #00A699; }
-.bpp-stage.filled.stage-abgeschlossen { background: #FF385C; }
+.bpp-stage.filled.stage-bestaetigt    { background: #FF385C; }
+.bpp-stage.filled.stage-abgeschlossen { background: #00A699; }
 .board-project-footer {
   display: flex;
   justify-content: space-between;
@@ -11056,6 +11058,8 @@ body.dark-mode .bpc-edit-btn:hover { background: var(--primary); border-color: v
 .bguide-stage.bsb-angebot       { background: #8b5cf6; }
 .bguide-stage.bsb-gebucht       { background: #16a34a; }
 .bguide-stage.bsb-abgeschlossen { background: #64748b; }
+.bguide-stage.bsb-erfuellt      { background: #FF385C; }
+.bguide-stage.bsb-bezahlt       { background: #00A699; }
 .bguide-find {
   display: inline-flex;
   align-items: center;
@@ -11246,8 +11250,8 @@ body.dark-mode .bcl-add-form input { background: #1c1c1c; border-color: #2e2e2e;
 .dot-geplant      { background: #9E9E9E; }
 .dot-kontaktiert  { background: #FF9800; }
 .dot-angebot      { background: #AB47BC; }
-.dot-bestaetigt   { background: var(--accent); }
-.dot-abgeschlossen{ background: var(--primary); }
+.dot-bestaetigt   { background: var(--primary); }
+.dot-abgeschlossen{ background: var(--accent); }
 
 .kanban-col-count {
   margin-left: auto;
