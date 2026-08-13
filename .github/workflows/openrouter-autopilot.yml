@@ -178,9 +178,32 @@ jobs:
             echo "title=$(jq -r '.scout.title' .ai-run/result.json)" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Die Agenten haben den Lauf sicher ohne Aenderung beendet." >> "$GITHUB_STEP_SUMMARY"
+            # WARUM ohne Aenderung — das sind vier verschiedene Lagen, und sie
+            # duerfen nicht gleich aussehen:
+            #   Scout ohne Fund      nichts Belastbares gefunden, alles in Ordnung
+            #   Architekt: skip      Vorschlag geprueft und bewusst verworfen
+            #   Implementierer leer  kein Patch noetig
+            #   Abbruch              KEIN Modell lieferte einen brauchbaren Diff
+            # Nur die letzte ist ein Betriebsproblem. Ohne diesen Grund sah ein
+            # stiller Dauerausfall aus wie ein ruhiger Tag.
+            grund="$(jq -r '.abbruch // empty' .ai-run/result.json)"
+            if [ -n "$grund" ]; then
+              echo "### ⚠️ Lauf ohne Aenderung — technisch, nicht inhaltlich" >> "$GITHUB_STEP_SUMMARY"
+              echo "$grund" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$(jq -r '.architekt.decision // empty' .ai-run/result.json)" = "skip" ]; then
+              echo "Architektin hat den Vorschlag bewusst verworfen: $(jq -r '.architekt.skip_reason // "ohne Begruendung"' .ai-run/result.json)" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$(jq -r '(.scout.target_files // []) | length' .ai-run/result.json)" = "0" ]; then
+              echo "Scout hat keinen belastbaren, risikoarmen Hebel gefunden — Lauf sauber beendet." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Die Agenten haben den Lauf sicher ohne Aenderung beendet." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
-          jq -r '"OpenRouter-Kosten dieses Laufs: $" + (.kosten|tostring) + " · Laufbudget $0.12 · Tagesbudget $0.60"' .ai-run/result.json >> "$GITHUB_STEP_SUMMARY"
+          # Die Budgets kommen aus der Umgebung, nicht aus einem festen Text:
+          # der alte Satz behauptete weiter "$0.60", nachdem der Topf auf $1.50
+          # gestiegen war.
+          jq -r --arg lauf "$EB_OPENROUTER_RUN_BUDGET_USD" --arg tag "$EB_OPENROUTER_DAILY_BUDGET_USD" \
+            '"OpenRouter-Kosten dieses Laufs: $" + (.kosten|tostring) + " · Laufbudget $" + $lauf + " · Tagesbudget $" + $tag' \
+            .ai-run/result.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Abhaengigkeiten installieren
         if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'
