@@ -323,12 +323,15 @@
   left: 50%;
   top: 50%;
   z-index: 30;
-  width: min(460px, calc(100% - 32px));
-  max-height: min(58%, 360px);
+  width: min(560px, calc(100% - 32px));
+  max-height: min(78%, 520px);
   transform: translate(-50%, -42%);
   border-color: rgba(168, 85, 247, 0.45);
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65), 0 0 50px rgba(168, 85, 247, 0.16);
 }
+.ebc-quick { display:flex; gap:8px; padding:0 12px 10px; }
+.ebc-quick button { flex:1; border:1px solid rgba(34,211,238,.26); border-radius:10px; background:rgba(34,211,238,.07); color:#a5f3fc; padding:8px 10px; cursor:pointer; font:inherit; font-size:.72rem; font-weight:700; }
+.ebc-quick .ebc-stop { border-color:rgba(248,113,113,.38); background:rgba(248,113,113,.09); color:#fecaca; }
 
 .neural.denkt .nn-orb-ring { animation: nnDenkt 0.82s ease-in-out infinite; }
 .neural.spricht #nn-orb {

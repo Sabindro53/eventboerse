@@ -1222,6 +1222,11 @@ function renderFeed(tab) {
   _ebDemoFeedLoad();
   renderSidebarUpcoming();
 
+  if (tab === 'radar') {
+    renderFeedRadar(list);
+    return;
+  }
+
   // Bot-/Demo-Beiträge automatisch ausblenden, wenn EB_HIDE_DEMO aktiv ist.
   var visiblePosts = _visibleSocialPosts();
   var nearby = _feedNearby && !!_feedUserCoords;
@@ -2924,4 +2929,3 @@ document.addEventListener('DOMContentLoaded', function() {
   try { localStorage.removeItem('eb_nav_search'); } catch(e) {}
   _initNavAiTyping();
 });
-

@@ -1128,6 +1128,8 @@ function _applyRoleNav() {
   // Auftragsboard nur für Dienstleister; Planungs-Board für alle sichtbar.
   var auftraegeBtn = document.getElementById('auftraegeMenuBtn');
   if (auftraegeBtn) auftraegeBtn.style.display = provider ? '' : 'none';
+  var businessBtn = document.getElementById('businessMenuBtn');
+  if (businessBtn) businessBtn.style.display = provider ? '' : 'none';
   var boardBtn = document.getElementById('boardMenuBtn');
   if (boardBtn) boardBtn.style.display = '';
 
@@ -2060,4 +2062,3 @@ function selectSubRole(btn, subRole) {
   var providerFields = document.getElementById('regProviderFields');
   if (providerFields) { providerFields.classList.toggle('reg-collapsed', subRole !== 'unternehmen'); }
 }
-

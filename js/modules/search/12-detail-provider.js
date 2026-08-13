@@ -128,6 +128,7 @@ function loadDetail(listingId) {
 
   // Negotiation price
   document.getElementById('negOriginalPrice').value = listing.priceLabel;
+  renderDetailCollaborationSuggestions(listing.providerId);
 }
 
 // ========== PROVIDER PROFILE ==========
@@ -190,6 +191,7 @@ function _resetProviderPageDom() {
   setHtml('providerSpecTags', '');
   setHtml('providerListings', '');
   setHtml('providerReviewsList', '');
+  setHtml('providerCollaborations', '');
 
   // Provider-User-ID-Hidden-Input zurücksetzen
   var puidEl = document.getElementById('providerUserId');
@@ -232,6 +234,7 @@ function _showProviderNotFound(pid) {
   setHtml('providerSpecTags', '');
   setHtml('providerListings', '');
   setHtml('providerReviewsList', '');
+  setHtml('providerCollaborations', '');
   if (typeof console !== 'undefined' && console.warn) {
     console.warn('[eventboerse] loadProvider: keine Daten für Provider', pid);
   }
@@ -545,6 +548,7 @@ function loadProvider(providerId) {
 
   // Reset to first tab
   switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
+  loadProviderCollaborations(pid, isOwnProviderProfile);
 }
 
 function switchProviderTab(btn, tab) {
@@ -1449,4 +1453,3 @@ function shareProvider() {
     showToast('Link kopiert!', 'content_copy');
   }
 }
-

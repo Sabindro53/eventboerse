@@ -536,3 +536,65 @@ function geoInseratDaten() {
   if (!feld || !feld.value) return null;
   try { return JSON.parse(feld.value); } catch (e) { return null; }
 }
+
+/* ── Radar als eigener Feed-Kanal ─────────────────────────────────── */
+function renderFeedRadar(container) {
+  if (!container) return;
+  if (!_radarPos) radarWiederherstellen();
+  if (!_radarPos) radarStadtWaehlen('Köln');
+  var city = radarOrtsname(_radarPos.lat, _radarPos.lng) || 'gewähltem Ort';
+  var options = Object.keys(RADAR_ORTE).sort(function(a,b){ return a.localeCompare(b, 'de'); }).map(function(name){
+    return '<option value="' + _escHtml(name) + '"' + (name === city ? ' selected' : '') + '>' + _escHtml(name) + '</option>';
+  }).join('');
+  var chips = RADAR_RADIEN.map(function(km){
+    return '<button type="button" class="radar-chip' + (km === _radarRadius ? ' aktiv' : '') + '" onclick="feedRadarRadius(' + km + ')">' + km + ' km</button>';
+  }).join('');
+  container.innerHTML = '<section class="feed-radar-card">' +
+    '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
+    '<p>Events und Dienstleister rund um ' + _escHtml(city) + ' – ideal, wenn du gerade in eine andere Stadt fährst.</p></div>' +
+    '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
+    '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
+    '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
+    '<div class="release-privacy"><span class="material-icons-round">shield</span><span>Dein genauer Standort bleibt im Browser. Gespeichert wird nur eine grobe Position; du kannst sie jederzeit <button type="button" onclick="feedRadarForget()">vergessen</button>.</span></div>' +
+    '<div id="feedRadarResults"></div></section>';
+  _drawFeedRadar();
+}
+
+function feedRadarCity(name) {
+  if (radarStadtWaehlen(name)) _drawFeedRadar();
+}
+function feedRadarRadius(km) {
+  radarRadiusSetzen(km);
+  renderFeedRadar(document.getElementById('feedList'));
+}
+function feedRadarGeo() {
+  radarStandortErfragen(function(pos){ if (pos) renderFeedRadar(document.getElementById('feedList')); });
+}
+function feedRadarForget() {
+  radarVergessen();
+  radarStadtWaehlen('Köln');
+  renderFeedRadar(document.getElementById('feedList'));
+  showToast('Standortdaten wurden vergessen.', 'delete_outline');
+}
+
+function _drawFeedRadar() {
+  var root = document.getElementById('feedRadarResults');
+  if (!root || !_radarPos) return;
+  var hits = radarUmkreis(_radarPos, _radarRadius);
+  if (!hits.length) {
+    var next = RADAR_RADIEN.filter(function(r){ return r > _radarRadius; })[0];
+    root.innerHTML = '<div class="release-empty"><span class="material-icons-round">travel_explore</span><h3>Noch keine Treffer in ' + _radarRadius + ' km</h3><p>Wähle eine andere Stadt oder erweitere den Radius.</p>' +
+      (next ? '<button class="btn-primary" onclick="feedRadarRadius(' + next + ')">Auf ' + next + ' km erweitern</button>' : '') + '</div>';
+    return;
+  }
+  root.innerHTML = '<div class="feed-radar-summary"><strong>' + hits.length + ' Möglichkeiten</strong><span>nach Entfernung sortiert · Stadtmittelpunkt ist als Näherung markiert</span></div>' +
+    '<div class="feed-radar-results">' + hits.slice(0, 24).map(function(hit){
+      var d = hit.daten || {};
+      var title = d.title || d.name || 'Event';
+      var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
+      var action = hit.art === 'dienstleister' ? "navigateTo('detail'," + JSON.stringify(d.id) + ")" : "showToast('Event-Details werden im Feed geöffnet','event')";
+      return '<article class="feed-radar-result" onclick="' + action.replace(/"/g, '&quot;') + '">' +
+        '<img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '><div><div class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></div>' +
+        '<h3>' + _escHtml(title) + '</h3><p><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</p></div></article>';
+    }).join('') + '</div>';
+}

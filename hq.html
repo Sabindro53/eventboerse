@@ -111,7 +111,10 @@
     border: 1px solid var(--border); background: var(--surface2); color: var(--text);
     cursor: pointer; font-size: .95rem; transition: all .15s;
   }
+  .icon-btn.with-label { width:auto; padding:0 .72rem; display:flex; gap:.38rem; font-size:.76rem; font-weight:700; white-space:nowrap; }
+  #modelle, #modelle-summe, #modelle-grid { display:none !important; }
   .icon-btn:hover { border-color: var(--violet); background: var(--surface3); }
+  .bereich-modelle { display:none !important; }
 
   main { max-width: 1000px; margin: 0 auto; padding: 1.25rem; }
 
@@ -754,26 +757,26 @@
         <div class="status-dot checking" id="status-dot"></div>
         <span id="status-text">Prüfe…</span>
       </div>
-      <button class="icon-btn" id="sound-btn" title="Sound an/aus">🔇</button>
-      <button class="icon-btn" id="refresh-btn" title="Alles neu laden (R)">🔄</button>
-      <button class="icon-btn" id="logout-btn" title="Logout" style="color:#fca5a5;">⏻</button>
+      <button class="icon-btn with-label" id="sound-btn" title="Audio an/aus">🔇 Audio aus</button>
+      <button class="icon-btn with-label" id="refresh-btn" title="Alles neu laden (R)">🔄 Aktualisieren</button>
+      <button class="icon-btn with-label" id="logout-btn" title="HQ sicher beenden" style="color:#fca5a5;">⏻ HQ beenden</button>
     </div>
   </header>
 
   <main>
-    <!-- ══ Neuronaler Kern ══════════════════════════════════════════
+    <!-- ══ Operative Zentrale ═══════════════════════════════════════
          Zehn Bereiche im Ring, in der Mitte die Voice-KI. Der laufende
          Transportstrom zeigt die belegte 24/7-Queue; helle Impulse bleiben
          einzelnen echten Ereignissen vorbehalten. -->
     <div class="neural" id="neural">
       <div class="neural-head">
-        <b>Neuronaler Kern</b>
-        <span id="neural-sub">Mitte antippen zum Sprechen · Mitarbeiter erscheinen im geöffneten Bereich</span>
+        <b>Operative Zentrale</b>
+        <span id="neural-sub">Mitte antippen und sprechen · Live-Aufgaben und Ergebnisse darunter</span>
       </div>
       <svg class="neural-canvas" id="nn" viewBox="0 0 900 540" role="img"
-           aria-label="Neuronaler Kern: zehn operative Bereiche um den zentralen KI-Kreis"></svg>
+           aria-label="Operative Zentrale: Bereiche und Mitarbeiter rund um den Sprachassistenten"></svg>
       <div class="neural-foot">
-        <i style="color:#f0abfc">Wissenskern</i>
+        <i style="color:#f0abfc">Plattformwissen</i>
         <i style="color:#a855f7">Bereich</i>
         <i style="color:#22d3ee">KI-Mitarbeiter</i>
         <i style="color:#64748b">Werkzeug</i>
@@ -1205,7 +1208,7 @@ const QUESTS = [
   { id: 'q-regress',  prio: 'p0', xp: 500, title: 'Listings/Board-Regressionen ausschließen', desc: 'Smoke-Checks gegen Selbstbuchung, verschwundene Listings & Demo-Visibility.' },
   { id: 'q-guard',    prio: 'p0', xp: 500, title: 'KI-Änderungs-Guardrails', desc: 'Safe Defaults für Auto-Worker — kein destruktives Verhalten bei Unsicherheit.' },
   { id: 'q-stripe',   prio: 'p0', xp: 500, title: 'Stripe Connect E2E (Testmodus)', desc: 'Onboarding, Payment Intent, Webhook, Reconcile, Refund-Pfad durchtesten.' },
-  { id: 'q-mod',      prio: 'p0', xp: 500, title: 'Admin-Moderation abgleichen', desc: 'Vault-Moderationsrouten gegen aktuellen functions.php prüfen.' },
+  { id: 'q-mod',      prio: 'p0', xp: 500, title: 'Admin-Moderation abgleichen', desc: 'Moderationsrouten gegen die aktuelle Serverlogik prüfen.' },
   { id: 'q-realtime', prio: 'p1', xp: 300, title: 'Echtzeit-Messaging', desc: 'Polling (3s) → SSE/WebSocket umstellen.' },
   { id: 'q-search',   prio: 'p1', xp: 300, title: 'Volltextsuche (MySQL FULLTEXT)', desc: 'Client-Filter durch echte DB-Volltextsuche ersetzen.' },
   { id: 'q-harden',   prio: 'p1', xp: 300, title: 'Stripe-Flow härten', desc: 'Reconcile/Return-Flow absichern, E2E-Prüfpfade automatisieren.' },
@@ -1530,7 +1533,7 @@ function sfx(name) {
 }
 function toggleSound() {
   soundOn = !soundOn; localStorage.setItem('hq_sound', soundOn ? '1' : '0');
-  $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+  $('sound-btn').textContent = soundOn ? '🔊 Audio an' : '🔇 Audio aus';
   if (soundOn) { ensureCtx(); sfx('success'); showToast('🔊 Sound an', 'success'); } else showToast('🔇 Sound aus');
 }
 
@@ -1602,7 +1605,7 @@ async function loadAll() {
 
 async function init() {
   if (!getPat()) $('pat-notice').style.display = 'flex';
-  $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+  $('sound-btn').textContent = soundOn ? '🔊 Audio an' : '🔇 Audio aus';
   renderQuests(); renderAchievements(); // instant, local
   renderFromCache();                    // instant, cached GitHub data
   loadSelfAudit();                      // local audit/latest.json
@@ -1982,8 +1985,9 @@ function renderConnections() {
   const grid = $('conns-grid');
   if (!grid || !connKatalog) return;
 
+  const sichtbareConnectors = connKatalog.connectors.filter(c => c.id !== 'obsidian');
   const gezaehlt = { verbunden: 0, eingeschraenkt: 0, getrennt: 0, fehler: 0 };
-  for (const c of connKatalog.connectors) {
+  for (const c of sichtbareConnectors) {
     const s = (connZustand[c.id] || {}).status || 'getrennt';
     if (gezaehlt[s] !== undefined) gezaehlt[s]++;
   }
@@ -1995,7 +1999,7 @@ function renderConnections() {
     + '<span style="color:#fbbf24">Gelb</span> heißt: der Dienst kann es, das HQ von hier '
     + 'aus aber nicht — dafür bräuchte es eine Serverseite, die es noch nicht gibt.';
 
-  grid.innerHTML = connKatalog.connectors.map(c => {
+  grid.innerHTML = sichtbareConnectors.map(c => {
     const z = connZustand[c.id] || { status: 'getrennt', details: [] };
     const caps = (connKatalog.funktionen || []).map(fn => {
       const v = (c.faehigkeiten || {})[fn] || 'nein';
@@ -2173,7 +2177,8 @@ function nnAktuelleAufgabe(modell) {
 /** Die Repo-Dateien, an denen diese Aufgabe arbeitet. */
 function nnAufgabenDateien(modell) {
   const roh = nnAufgabeRoh(modell);
-  return (roh && typeof roh === 'object' && Array.isArray(roh.dateien)) ? roh.dateien : [];
+  return (roh && typeof roh === 'object' && Array.isArray(roh.dateien))
+    ? roh.dateien.filter(p => !/(^|\/)vault\//i.test(String(p))) : [];
 }
 
 /** Nur der Dateiname — im Netz ist für einen ganzen Pfad kein Platz. */
@@ -2338,7 +2343,7 @@ function nnZeichnen() {
   B.forEach((x, i) => { posB[x.id] = nnPos(i, B.length, 2.02, 1.08); });
 
   // Werkzeuge im äußeren Ring — nur die, die eine Rolle tatsächlich nutzt.
-  const werkzeuge = [...new Set(M.flatMap(m => m.werkzeuge || []))];
+  const werkzeuge = [...new Set(M.flatMap(m => m.werkzeuge || []).filter(w => w !== 'obsidian'))];
   werkzeuge.forEach((w, i) => { posW[w] = nnPos(i + 0.5, werkzeuge.length, 2.32, 1.42); });
 
   const bahn = (p, q, farbe, op) =>
@@ -2354,7 +2359,7 @@ function nnZeichnen() {
     teile.push(`<path class="nn-transport ${live ? 'nn-live' : next ? 'nn-next' : ''}" d="${d}" stroke="${x.farbe}" style="color:${x.farbe};animation-delay:-${(i * .13).toFixed(2)}s"/>`);
   });
   B.forEach(b => {
-    const genutzt = [...new Set(M.filter(m => m.bereich === b.id).flatMap(m => m.werkzeuge || []))];
+    const genutzt = [...new Set(M.filter(m => m.bereich === b.id).flatMap(m => m.werkzeuge || []).filter(w => w !== 'obsidian'))];
     genutzt.forEach(w => {
       if (posW[w]) teile.push(bahn(posB[b.id], posW[w], b.farbe, .22));
     });
@@ -2479,7 +2484,7 @@ function nnBaum() {
   //    einem Knoten — genau das macht das Bild zu einem Netz statt zu
   //    einem Baum. ────────────────────────────────────────────────────
   const alleDateien = [...new Set(rollen.flatMap(m =>
-    (m.aufgabenstrom || []).flatMap(a => a.dateien || [])))].slice(0, 9);
+    (m.aufgabenstrom || []).flatMap(a => (a.dateien || []).filter(p => !/(^|\/)vault\//i.test(String(p))))))].slice(0, 9);
   const dateiX = {};
   alleDateien.forEach((d, i) => { dateiX[d] = verteile(alleDateien.length, i, 90, 810); });
 
@@ -2558,7 +2563,7 @@ function nnBaum() {
     });
 
     // ── Werkzeuge seitlich am Mitarbeiter, nicht mehr oben ───────────
-    (m.werkzeuge || []).forEach((w, k) => {
+    (m.werkzeuge || []).filter(w => w !== 'obsidian').forEach((w, k) => {
       // Seitlich auf Augenhoehe des Mitarbeiters. Darunter stiessen sie in
       // den Bereichsnamen, und ein Werkzeug ist keine eigene Ebene.
       const seite = k % 2 ? 1 : -1;
@@ -2633,17 +2638,12 @@ function renderNnDetail() {
         </div>
         <h6 class="nnd-ziel">${escHtml(ziel)}</h6>
         ${dateien.length
-          ? `<div class="nnd-dateien">${dateien.map(d => `<span class="nnd-datei" title="${escHtml(d)}">${escHtml(d)}</span>`).join('')}</div>`
-          : '<div class="nnd-meta"><span>keine Datei im Auftrag benannt</span></div>'}
+          ? `<div class="nnd-dateien">${dateien.map(d => `<span class="nnd-datei">${escHtml(nnDateiKurz(d))}</span>`).join('')}</div>`
+          : ''}
         ${j && j.text
           ? `<p class="nnd-ergebnis">${escHtml(String(j.text).replace(/\s+/g, ' ').slice(0, 240))}</p>`
           : '<p class="nnd-ergebnis">Noch kein Ergebnis im Journal — diese Rolle hat in der geladenen Spur nicht gearbeitet.</p>'}
-        <div class="nnd-meta">
-          <span>🧬 ${escHtml(m.name || m.modellId || '–')}</span>
-          ${j ? `<span>⏱ ${escHtml(nnRelativ(j.zeit))}</span>` : ''}
-          ${j && j.tokens ? `<span>◇ ${j.tokens} Token</span>` : ''}
-          ${j && typeof j.kostenUsd === 'number' ? `<span>$${j.kostenUsd.toFixed(5)}</span>` : ''}
-        </div>
+        <div class="nnd-meta">${j ? `<span>Zuletzt aktiv: ${escHtml(nnRelativ(j.zeit))}</span>` : '<span>Noch kein Lauf belegt</span>'}</div>
       </article>`;
   }).join('');
 
@@ -2668,7 +2668,7 @@ function nnKopfzeile() {
   const b = nnEbene ? nnKatalog.bereiche.find(x => x.id === nnEbene) : null;
   $('neural-sub').textContent = b
     ? `${b.label} · ${nnKatalog.modelle.filter(m => m.bereich === b.id).length} Mitarbeiter · Mitte antippen für zurück`
-    : `${nnWissen} Wissens-Abschnitte · ${nnKatalog.bereiche.length} operative Bereiche · Mitarbeiter erst nach dem Aufklappen`;
+    : `${nnKatalog.bereiche.length} operative Bereiche · Aufgaben, Stand und echte Lieferungen live nachvollziehbar`;
 }
 
 function codeflowStatusText(status) {
@@ -3301,20 +3301,21 @@ window.addEventListener('DOMContentLoaded', init);
 
 <!-- ══ EB CIRCLE — sprechender KI-Kreis (Voice + Wissensbasis) ══ -->
 <div id="eb-circle-dock">
-  <div id="eb-circle-panel" role="dialog" aria-label="EB Circle">
+  <div id="eb-circle-panel" role="dialog" aria-label="Eventbörse Assistent">
     <div class="ebc-head">
       <span class="ebc-dot"></span>
-      <div><b>EB Circle Voice</b><small id="ebc-state">Bereit · OpenRouter preisoptimiert</small></div>
+      <div><b>Eventbörse Assistent</b><small id="ebc-state">Bereit für dein Gespräch</small></div>
       <button class="ebc-x" id="ebc-close" aria-label="Schließen">×</button>
     </div>
     <div class="ebc-log" id="ebc-log"></div>
     <div class="ebc-suggestions" id="ebc-suggestions" aria-label="Vorgeschlagene Antworten"></div>
     <div class="ebc-row">
       <input id="ebc-input" placeholder="Frag mich etwas — oder sprich…" autocomplete="off">
+      <button class="ebc-btn" id="ebc-send" title="Nachricht senden" aria-label="Senden">➤</button>
       <button class="ebc-btn" id="ebc-mic" title="Sprechen (Mikrofon)" aria-label="Sprechen">🎙️</button>
       <button class="ebc-btn on" id="ebc-speak" title="Antworten werden vorgelesen" aria-label="Vorlesen">🔊</button>
-      <button class="ebc-btn" id="ebc-gaps" title="Wissenslücken als Datei sichern" aria-label="Wissenslücken exportieren">⬇︎</button>
     </div>
+    <div class="ebc-quick"><button type="button" id="ebc-report">📋 Ehrlicher Betriebsbericht</button><button type="button" class="ebc-stop" id="ebc-stop">■ Gespräch beenden</button></div>
     <div class="ebc-hint" id="ebc-hint"></div>
   </div>
   <button id="eb-circle" aria-label="EB Circle öffnen"><span class="eb-c-ico">◍</span></button>
@@ -3338,6 +3339,7 @@ window.addEventListener('DOMContentLoaded', init);
   var log   = document.getElementById('ebc-log');
   var input = document.getElementById('ebc-input');
   var micBtn = document.getElementById('ebc-mic');
+  var sendBtn = document.getElementById('ebc-send');
   var spkBtn = document.getElementById('ebc-speak');
   var stateEl = document.getElementById('ebc-state');
   var hintEl = document.getElementById('ebc-hint');
@@ -3364,7 +3366,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (!window.speechSynthesis) return null;
     var voices = speechSynthesis.getVoices() || [];
     var deutsch = voices.filter(function (v) { return /^de([-_]|$)/i.test(v.lang || ''); });
-    preferredVoice = deutsch.find(function (v) { return /natural|premium|enhanced|google|microsoft/i.test(v.name || ''); })
+    preferredVoice = deutsch.find(function (v) { return /natural|premium|enhanced|siri|apple|google|microsoft|neural/i.test(v.name || ''); })
       || deutsch[0] || voices[0] || null;
     return preferredVoice;
   }
@@ -3374,9 +3376,9 @@ window.addEventListener('DOMContentLoaded', init);
   fetch(hqAsset('assets/eb-knowledge.json'), { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (k) { KB = (k && Array.isArray(k.entries)) ? k : null;
-      hintEl.textContent = KB ? (KB.entries.length + ' Wissens-Abschnitte geladen · Voice ergänzt preisoptimiert über OpenRouter')
-                              : 'Wissensbasis nicht erreichbar — HQ-Status funktioniert trotzdem.'; })
-    .catch(function () { hintEl.textContent = 'Wissensbasis nicht erreichbar.'; });
+      hintEl.textContent = KB ? 'Plattformwissen und Live-Betriebsdaten sind bereit.'
+                              : 'Live-Betriebsstatus ist bereit; Plattformwissen eingeschränkt.'; })
+    .catch(function () { hintEl.textContent = 'Live-Betriebsstatus ist bereit; Plattformwissen eingeschränkt.'; });
 
   var STOP = ['und','oder','der','die','das','ein','eine','ist','wie','was','wer','wo','wann','warum','kann',
     'ich','mir','mich','mein','meine','für','mit','von','auf','aus','bei','man','sich','nicht','nur','wir',
@@ -3621,11 +3623,11 @@ window.addEventListener('DOMContentLoaded', init);
     try {
       speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
-      u.lang = 'de-DE'; u.rate = 1.08; u.pitch = .98;
+      u.lang = 'de-DE'; u.rate = .98; u.pitch = .94;
       u.voice = preferredVoice || chooseVoice();
-      u.onstart = function () { circle.classList.add('speaking'); voiceState('Antwortet · ' + (u.voice ? u.voice.name : 'deutsche Systemstimme'), 'spricht'); };
+      u.onstart = function () { circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht'); };
       u.onend = function () {
-        circle.classList.remove('speaking'); voiceState('Bereit · OpenRouter preisoptimiert', null);
+        circle.classList.remove('speaking'); voiceState('Bereit für dein Gespräch', null);
         var darfNeuHoeren = !suppressVoiceRestart;
         suppressVoiceRestart = false;
         if (darfNeuHoeren && voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 120);
@@ -3685,7 +3687,7 @@ window.addEventListener('DOMContentLoaded', init);
         add('ai', esc(localAnswer).replace(/\n/g, '<br>'), hit && hit.title);
         say(localAnswer);
       } else {
-        voiceState('Denkt · günstigstes passendes Modell', 'denkt');
+        voiceState('Prüft Wissen und Betriebsdaten', 'denkt');
         var wissen = treffer.map(function (t) {
           return (t.heading ? t.heading + ':\n' : '') + String(t.text || '').slice(0, 900);
         }).join('\n\n---\n\n');
@@ -3693,9 +3695,8 @@ window.addEventListener('DOMContentLoaded', init);
         var data = await askOpenRouter(q, context, controller);
         conversation.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
         conversation = conversation.slice(-10);
-        var cost = data.usage && typeof data.usage.cost === 'number' ? ' · $' + data.usage.cost.toFixed(4) : '';
-        hintEl.textContent = (data.model || 'OpenRouter') + cost + (data.needs_clarification ? ' · fragt gezielt nach' : ' · unterbrechbarer Voice-Dialog');
-        add('ai', esc(data.answer), data.model || 'OpenRouter');
+        hintEl.textContent = data.needs_clarification ? 'Der Assistent fragt gezielt nach.' : 'Gespräch bleibt jederzeit unterbrechbar.';
+        add('ai', esc(data.answer), status ? 'Live-Betriebsdaten' : 'Eventbörse');
         renderSuggestions(data.suggestions || []);
         if (!hit && !g && !status) rememberGap(q);
         say(data.answer);
@@ -3746,7 +3747,7 @@ window.addEventListener('DOMContentLoaded', init);
     };
     rec.onend = function () {
       listening = false; circle.classList.remove('listening'); micBtn.classList.remove('on');
-      voiceState('Bereit · OpenRouter preisoptimiert', null);
+      voiceState('Bereit für dein Gespräch', null);
       var t = input.value.trim();
       if (t) { input.value = ''; ask(t); }
       else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 180);
@@ -3758,7 +3759,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (asVoice) voiceMode = true;
     panel.classList.add('open');
     if (!log.childElementCount) {
-      var hi = 'Hi Commander. Sprich einfach los. Ich halte den Gesprächskontext, frage bei unklaren Stellen gezielt nach und schlage dir passende nächste Schritte im HQ vor.';
+      var hi = 'Hallo. Du kannst mit mir sprechen oder schreiben. Frag mich nach dem ehrlichen Betriebsstand, laufenden Aufgaben, Ergebnissen, Risiken oder den nächsten sinnvollen Verbesserungen.';
       add('ai', esc(hi));
     }
     if (!voiceMode) setTimeout(function () { input.focus(); }, 60);
@@ -3769,7 +3770,7 @@ window.addEventListener('DOMContentLoaded', init);
     if (askController) askController.abort();
     asking = false; askController = null; renderSuggestions([]);
     try { suppressVoiceRestart = true; speechSynthesis.cancel(); } catch (e) {}
-    voiceState('Bereit · OpenRouter preisoptimiert', null);
+    voiceState('Gespräch beendet', null);
   }
 
   circle.addEventListener('click', function () { panel.classList.contains('open') ? close() : open(); });
@@ -3786,6 +3787,7 @@ window.addEventListener('DOMContentLoaded', init);
       if (!listening) toggleMic();
     },
     sprechen: toggleMic,
+    beenden: close,
     istOffen: function () { return panel.classList.contains('open'); },
     kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); },
     /* Der Lagebericht auch ausserhalb des Gespraechs — er ist eine Aussage
@@ -3794,6 +3796,9 @@ window.addEventListener('DOMContentLoaded', init);
     statusAntwort: function (frage) { return hqStatus(frage); }
   };
   document.getElementById('ebc-close').addEventListener('click', close);
+  document.getElementById('ebc-stop').addEventListener('click', close);
+  document.getElementById('ebc-report').addEventListener('click', function () { open(false); ask('Gib mir einen ehrlichen Betriebsbericht: Was läuft, woran arbeiten die Mitarbeiter, was ist fertig, was ist blockiert und was ist nur geplant?'); });
+  sendBtn.addEventListener('click', function () { var v=input.value.trim(); if(!v)return; input.value=''; ask(v); });
   micBtn.addEventListener('click', toggleMic);
   spkBtn.addEventListener('click', function () {
     speakOn = !speakOn; spkBtn.classList.toggle('on', speakOn);
@@ -3807,7 +3812,8 @@ window.addEventListener('DOMContentLoaded', init);
      `node scripts/wissensluecken.mjs --datei <datei>` in den Vault einspeisen.
      Der Kreis schließt sich also über einen Menschen, nicht über eine
      stille Übertragung. */
-  document.getElementById('ebc-gaps').addEventListener('click', function () {
+  var gapsBtn = document.getElementById('ebc-gaps');
+  if (gapsBtn) gapsBtn.addEventListener('click', function () {
     var list = [];
     try { list = JSON.parse(localStorage.getItem('eb_kb_misses') || '[]'); } catch (e) {}
     if (!list.length) {

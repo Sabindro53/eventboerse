@@ -1053,6 +1053,8 @@ add_action( 'wp_head', function() {
  */
 function eb_user_profile_meta( $uid ) {
     $gallery = get_user_meta( $uid, 'eb_gallery', true );
+    $social  = get_user_meta( $uid, 'eb_social_links', true );
+    $tax     = get_user_meta( $uid, 'eb_tax_profile', true );
     return array(
         'company'  => get_user_meta( $uid, 'eb_company',   true ) ?: '',
         'tagline'  => get_user_meta( $uid, 'eb_tagline',   true ) ?: '',
@@ -1063,7 +1065,199 @@ function eb_user_profile_meta( $uid ) {
         'coverUrl'  => get_user_meta( $uid, 'eb_cover_url', true ) ?: '',
         'coverPosY' => (float) ( get_user_meta( $uid, 'eb_cover_pos_y', true ) ?: 50 ),
         'photoUrl'  => get_user_meta( $uid, 'eb_photo_url', true ) ?: '',
+        'socialLinks' => is_array( $social ) ? $social : array(),
+        'taxProfile'  => is_array( $tax ) ? $tax : array(
+            'smallBusiness' => true,
+            'vatRate'       => 19,
+            'businessName'  => '',
+            'address'       => '',
+            'city'          => '',
+            'taxNumber'     => '',
+            'invoicePrefix' => 'EB',
+        ),
     );
+}
+
+/**
+ * Bilder gehoeren immer zu genau einem WordPress-Account.
+ *
+ * Neue Uploads tragen den Nutzer als post_author. Fuer Altbestand ohne Autor
+ * ist eine einmalige Uebernahme nur erlaubt, wenn die URL bereits im eigenen
+ * Profil bzw. Inserat gespeichert war. Damit kann niemand eine beliebige
+ * oeffentliche Medien-URL einem fremden Account zuschreiben.
+ */
+function eb_account_image_urls( $urls, $uid, $legacy_urls = array() ) {
+    $uid = absint( $uid );
+    if ( ! $uid || ! is_array( $urls ) ) return array();
+    $uploads = wp_upload_dir();
+    $baseurl = trailingslashit( $uploads['baseurl'] );
+    $legacy  = array_flip( array_map( 'esc_url_raw', is_array( $legacy_urls ) ? $legacy_urls : array() ) );
+    $clean   = array();
+
+    foreach ( array_slice( $urls, 0, 50 ) as $raw_url ) {
+        $url = esc_url_raw( $raw_url );
+        if ( ! $url || strpos( $url, $baseurl ) !== 0 ) continue;
+        $attachment_id = attachment_url_to_postid( $url );
+        if ( ! $attachment_id || get_post_type( $attachment_id ) !== 'attachment' ) continue;
+        $owner_id = (int) get_post_field( 'post_author', $attachment_id );
+        if ( $owner_id === 0 && isset( $legacy[ $url ] ) ) {
+            wp_update_post( array( 'ID' => $attachment_id, 'post_author' => $uid ) );
+            $owner_id = $uid;
+        }
+        if ( $owner_id !== $uid ) continue;
+        $clean[] = $url;
+    }
+    return array_values( array_unique( $clean ) );
+}
+
+function eb_account_image_url( $url, $uid, $legacy_url = '' ) {
+    $urls = eb_account_image_urls( array( $url ), $uid, $legacy_url ? array( $legacy_url ) : array() );
+    return $urls ? $urls[0] : '';
+}
+
+/* ---------- IN-APP-BENACHRICHTIGUNGEN ----------------------------------- */
+function eb_notification_add( $user_id, $type, $title, $body = '', $url = '' ) {
+    $user_id = absint( $user_id );
+    if ( ! $user_id || ! get_userdata( $user_id ) ) return false;
+    $items = get_user_meta( $user_id, 'eb_notifications_v1', true );
+    $items = is_array( $items ) ? $items : array();
+    array_unshift( $items, array(
+        'id'      => wp_generate_uuid4(),
+        'type'    => sanitize_key( $type ?: 'info' ),
+        'title'   => sanitize_text_field( $title ),
+        'body'    => sanitize_text_field( $body ),
+        'url'     => esc_url_raw( $url ),
+        'read'    => false,
+        'created' => gmdate( 'c' ),
+    ) );
+    update_user_meta( $user_id, 'eb_notifications_v1', array_slice( $items, 0, 100 ) );
+    return true;
+}
+
+function eb_notifications_get() {
+    $items = get_user_meta( get_current_user_id(), 'eb_notifications_v1', true );
+    $items = is_array( $items ) ? $items : array();
+    return new WP_REST_Response( array(
+        'items'  => $items,
+        'unread' => count( array_filter( $items, function( $item ) { return empty( $item['read'] ); } ) ),
+    ), 200 );
+}
+
+function eb_notifications_read( WP_REST_Request $request ) {
+    $uid   = get_current_user_id();
+    $p     = (array) $request->get_json_params();
+    $id    = isset( $p['id'] ) ? sanitize_text_field( $p['id'] ) : '';
+    $items = get_user_meta( $uid, 'eb_notifications_v1', true );
+    $items = is_array( $items ) ? $items : array();
+    foreach ( $items as &$item ) {
+        if ( $id === '' || ( isset( $item['id'] ) && hash_equals( (string) $item['id'], $id ) ) ) $item['read'] = true;
+    }
+    unset( $item );
+    update_user_meta( $uid, 'eb_notifications_v1', $items );
+    return new WP_REST_Response( array( 'saved' => true ), 200 );
+}
+
+/* ---------- BESTAETIGTE DIENSTLEISTER-NETZWERKE ------------------------- */
+function eb_collaborations_for( $user_id ) {
+    $items = get_user_meta( absint( $user_id ), 'eb_collaborations_v1', true );
+    return is_array( $items ) ? $items : array();
+}
+
+function eb_collaborations_save( $user_id, $items ) {
+    update_user_meta( absint( $user_id ), 'eb_collaborations_v1', array_values( array_slice( $items, 0, 100 ) ) );
+}
+
+function eb_collaboration_partner( $partner_id ) {
+    $partner_id = absint( $partner_id );
+    $user = get_userdata( $partner_id );
+    if ( ! $user ) return null;
+    $name = trim( $user->first_name . ' ' . $user->last_name );
+    $meta = eb_user_profile_meta( $partner_id );
+    return array(
+        'id'       => $partner_id,
+        'name'     => $name ?: $user->display_name,
+        'role'     => eventboerse_map_role( $user ),
+        'tagline'  => $meta['tagline'],
+        'location' => $meta['location'],
+        'photoUrl' => $meta['photoUrl'] ?: eb_avatar_url( $name ?: $user->display_name, $name ?: $user->display_name ),
+    );
+}
+
+function eb_collaborations_enriched( $user_id, $public_only = false ) {
+    $out = array();
+    foreach ( eb_collaborations_for( $user_id ) as $item ) {
+        if ( ! is_array( $item ) ) continue;
+        if ( $public_only && ( $item['status'] ?? '' ) !== 'confirmed' ) continue;
+        $partner = eb_collaboration_partner( $item['partner_id'] ?? 0 );
+        if ( ! $partner ) continue;
+        $out[] = array_merge( $item, array( 'partner' => $partner ) );
+    }
+    return $out;
+}
+
+function eb_collaborations_get() {
+    return new WP_REST_Response( array( 'items' => eb_collaborations_enriched( get_current_user_id(), false ) ), 200 );
+}
+
+function eb_collaborations_create( WP_REST_Request $request ) {
+    $uid = get_current_user_id();
+    $u   = get_userdata( $uid );
+    if ( ! $u || ( eventboerse_base_role( $u ) !== 'Dienstleister' && ! eb_is_admin_user( $uid ) ) ) {
+        return new WP_REST_Response( array( 'message' => 'Nur Dienstleister koennen Partnerschaften anfragen.' ), 403 );
+    }
+    $rl = eventboerse_check_rate_limit( 'collaboration', 20, HOUR_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
+    $p          = (array) $request->get_json_params();
+    $partner_id = absint( $p['partner_id'] ?? 0 );
+    $event      = sanitize_text_field( $p['event'] ?? '' );
+    $partner    = eb_collaboration_partner( $partner_id );
+    if ( ! $partner_id || $partner_id === $uid || ! $partner || $partner['role'] !== 'Dienstleister' ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte waehle einen anderen Dienstleister.' ), 400 );
+    }
+    $mine = eb_collaborations_for( $uid );
+    foreach ( $mine as $existing ) {
+        if ( (int) ( $existing['partner_id'] ?? 0 ) === $partner_id && ( $existing['status'] ?? '' ) !== 'removed' ) {
+            return new WP_REST_Response( array( 'message' => 'Diese Verbindung ist bereits angefragt oder bestaetigt.' ), 409 );
+        }
+    }
+
+    $id      = wp_generate_uuid4();
+    $created = gmdate( 'c' );
+    $mine[]  = array( 'id' => $id, 'partner_id' => $partner_id, 'event' => $event, 'status' => 'pending', 'direction' => 'outgoing', 'created' => $created );
+    $theirs  = eb_collaborations_for( $partner_id );
+    $theirs[] = array( 'id' => $id, 'partner_id' => $uid, 'event' => $event, 'status' => 'pending', 'direction' => 'incoming', 'created' => $created );
+    eb_collaborations_save( $uid, $mine );
+    eb_collaborations_save( $partner_id, $theirs );
+    eb_notification_add( $partner_id, 'collaboration', 'Neue Partnerschaftsanfrage',
+        ( $u->display_name ?: 'Ein Dienstleister' ) . ' moechte eine Zusammenarbeit bestaetigen.', home_url( '/profil' ) );
+    return new WP_REST_Response( array( 'created' => true, 'id' => $id ), 201 );
+}
+
+function eb_collaborations_confirm( WP_REST_Request $request ) {
+    $uid   = get_current_user_id();
+    $id    = sanitize_text_field( $request['id'] );
+    $mine  = eb_collaborations_for( $uid );
+    $found = null;
+    foreach ( $mine as &$item ) {
+        if ( isset( $item['id'] ) && hash_equals( (string) $item['id'], $id ) && ( $item['direction'] ?? '' ) === 'incoming' ) {
+            $item['status'] = 'confirmed'; $item['confirmed'] = gmdate( 'c' ); $found = $item; break;
+        }
+    }
+    unset( $item );
+    if ( ! $found ) return new WP_REST_Response( array( 'message' => 'Anfrage nicht gefunden.' ), 404 );
+    eb_collaborations_save( $uid, $mine );
+    $partner_id = absint( $found['partner_id'] ?? 0 );
+    $theirs = eb_collaborations_for( $partner_id );
+    foreach ( $theirs as &$item ) {
+        if ( isset( $item['id'] ) && hash_equals( (string) $item['id'], $id ) ) {
+            $item['status'] = 'confirmed'; $item['confirmed'] = gmdate( 'c' );
+        }
+    }
+    unset( $item );
+    eb_collaborations_save( $partner_id, $theirs );
+    eb_notification_add( $partner_id, 'collaboration', 'Partnerschaft bestaetigt',
+        'Die Zusammenarbeit ist jetzt auf beiden Profilen sichtbar.', home_url( '/profil' ) );
+    return new WP_REST_Response( array( 'confirmed' => true ), 200 );
 }
 
 function eb_user_security_meta( $uid ) {
@@ -2114,6 +2308,7 @@ function eventboerse_handle_profile_get() {
     $cover    = get_user_meta( $uid, 'eb_cover_url', true );
     $coverPosY = (float) ( get_user_meta( $uid, 'eb_cover_pos_y', true ) ?: 50 );
     $photo    = get_user_meta( $uid, 'eb_photo_url', true );
+    $profile_meta = eb_user_profile_meta( $uid );
 
     if ( ! is_array( $gallery ) ) {
         $gallery = array();
@@ -2178,6 +2373,10 @@ function eventboerse_handle_profile_get() {
         'coverUrl'  => $cover    ?: '',
         'coverPosY' => $coverPosY,
         'photoUrl'  => $photo    ?: '',
+        'company'   => $profile_meta['company'],
+        'socialLinks' => $profile_meta['socialLinks'],
+        'taxProfile'  => $profile_meta['taxProfile'],
+        'collaborations' => eb_collaborations_enriched( $uid, false ),
         'stats'     => array(
             'views'    => $views,
             'listings' => $listings_count,
@@ -2199,8 +2398,7 @@ function eventboerse_handle_profile_save( WP_REST_Request $request ) {
         'tagline'  => 'eb_tagline',
         'location' => 'eb_location',
         'bio'      => 'eb_bio',
-        'coverUrl' => 'eb_cover_url',
-        'photoUrl' => 'eb_photo_url',
+        'company'  => 'eb_company',
     );
 
     foreach ( $text_fields as $key => $meta_key ) {
@@ -2218,6 +2416,17 @@ function eventboerse_handle_profile_save( WP_REST_Request $request ) {
         }
     }
 
+    // Profilbilder muessen als WordPress-Medien dem angemeldeten Account
+    // gehoeren. Bereits gespeicherte Altbilder duerfen einmalig uebernommen
+    // werden; beliebige fremde URLs werden verworfen.
+    foreach ( array( 'coverUrl' => 'eb_cover_url', 'photoUrl' => 'eb_photo_url' ) as $key => $meta_key ) {
+        if ( array_key_exists( $key, $params ) ) {
+            $legacy = (string) get_user_meta( $uid, $meta_key, true );
+            $clean  = eb_account_image_url( $params[ $key ], $uid, $legacy );
+            update_user_meta( $uid, $meta_key, $clean );
+        }
+    }
+
     // Name (first_name + last_name)
     if ( isset( $params['name'] ) ) {
         $parts      = explode( ' ', sanitize_text_field( $params['name'] ), 2 );
@@ -2232,8 +2441,31 @@ function eventboerse_handle_profile_save( WP_REST_Request $request ) {
 
     // Galerie (Array von URLs)
     if ( isset( $params['gallery'] ) && is_array( $params['gallery'] ) ) {
-        $clean = array_map( 'esc_url_raw', $params['gallery'] );
+        $legacy = get_user_meta( $uid, 'eb_gallery', true );
+        $clean  = eb_account_image_urls( $params['gallery'], $uid, is_array( $legacy ) ? $legacy : array() );
         update_user_meta( $uid, 'eb_gallery', $clean );
+    }
+
+    if ( isset( $params['socialLinks'] ) && is_array( $params['socialLinks'] ) ) {
+        $social = array();
+        foreach ( array( 'website', 'instagram', 'linkedin' ) as $network ) {
+            $url = esc_url_raw( $params['socialLinks'][ $network ] ?? '', array( 'https' ) );
+            if ( $url ) $social[ $network ] = $url;
+        }
+        update_user_meta( $uid, 'eb_social_links', $social );
+    }
+
+    if ( isset( $params['taxProfile'] ) && is_array( $params['taxProfile'] ) ) {
+        $tax = array(
+            'smallBusiness' => ! empty( $params['taxProfile']['smallBusiness'] ),
+            'vatRate'       => max( 0, min( 30, floatval( $params['taxProfile']['vatRate'] ?? 19 ) ) ),
+            'businessName'  => sanitize_text_field( $params['taxProfile']['businessName'] ?? '' ),
+            'address'       => sanitize_text_field( $params['taxProfile']['address'] ?? '' ),
+            'city'          => sanitize_text_field( $params['taxProfile']['city'] ?? '' ),
+            'taxNumber'     => sanitize_text_field( $params['taxProfile']['taxNumber'] ?? '' ),
+            'invoicePrefix' => strtoupper( substr( sanitize_key( $params['taxProfile']['invoicePrefix'] ?? 'EB' ), 0, 8 ) ),
+        );
+        update_user_meta( $uid, 'eb_tax_profile', $tax );
     }
 
     // Cover Position Y
@@ -3157,6 +3389,35 @@ function eb_register_extra_routes() {
     register_rest_route( 'eventboerse/v1', '/my-listings', array(
         'methods'             => 'GET',
         'callback'            => 'eb_my_listings',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+
+    /* ---------- BENACHRICHTIGUNGEN & PARTNERSCHAFTEN ---------- */
+    register_rest_route( 'eventboerse/v1', '/notifications', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_notifications_get',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/notifications/read', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_notifications_read',
+        'permission_callback' => 'is_user_logged_in',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/collaborations', array(
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_collaborations_get',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_collaborations_create',
+            'permission_callback' => 'is_user_logged_in',
+        ),
+    ) );
+    register_rest_route( 'eventboerse/v1', '/collaborations/(?P<id>[a-f0-9-]+)/confirm', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_collaborations_confirm',
         'permission_callback' => 'is_user_logged_in',
     ) );
 
@@ -4197,14 +4458,21 @@ function eb_handle_upload( WP_REST_Request $request ) {
         'post_title'     => sanitize_file_name( $file['name'] ),
         'post_content'   => '',
         'post_status'    => 'inherit',
+        'post_author'    => get_current_user_id(),
     );
     $attach_id = wp_insert_attachment( $attachment, $upload['file'] );
+    if ( is_wp_error( $attach_id ) ) {
+        @unlink( $upload['file'] );
+        return new WP_REST_Response( array( 'message' => 'Bild konnte nicht dem Account zugeordnet werden.' ), 500 );
+    }
+    update_post_meta( $attach_id, '_eb_owner_id', get_current_user_id() );
     $meta = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
     wp_update_attachment_metadata( $attach_id, $meta );
 
     return new WP_REST_Response( array(
         'id'  => $attach_id,
         'url' => $upload['url'],
+        'ownerId' => get_current_user_id(),
     ), 200 );
 }
 
@@ -4499,7 +4767,7 @@ function eb_listings_create( WP_REST_Request $request ) {
         ? wp_json_encode( array_map( 'sanitize_text_field', $params['tags'] ) )
         : '[]';
     $images         = isset( $params['images'] ) && is_array( $params['images'] )
-        ? wp_json_encode( array_map( 'esc_url_raw', $params['images'] ) )
+        ? wp_json_encode( eb_account_image_urls( $params['images'], $uid ) )
         : '[]';
     $date_from  = ! empty( $params['dateFrom'] ) ? sanitize_text_field( $params['dateFrom'] ) : null;
     $date_to    = ! empty( $params['dateTo'] )   ? sanitize_text_field( $params['dateTo'] )   : null;
@@ -4631,7 +4899,10 @@ function eb_listings_update( WP_REST_Request $request ) {
         $update['tags'] = wp_json_encode( array_map( 'sanitize_text_field', $params['tags'] ) );
     }
     if ( isset( $params['images'] ) && is_array( $params['images'] ) ) {
-        $update['images'] = wp_json_encode( array_map( 'esc_url_raw', $params['images'] ) );
+        $legacy_images = json_decode( (string) $row['images'], true );
+        $update['images'] = wp_json_encode( eb_account_image_urls(
+            $params['images'], $uid, is_array( $legacy_images ) ? $legacy_images : array()
+        ) );
     }
     if ( isset( $params['availableWeekdays'] ) && is_array( $params['availableWeekdays'] ) ) {
         $wd = array_unique( array_filter( array_map( 'intval', $params['availableWeekdays'] ), function( $d ) { return $d >= 0 && $d <= 6; } ) );
@@ -5158,6 +5429,25 @@ function eb_messages_list( WP_REST_Request $request ) {
     return $resp;
 }
 
+function eb_message_contains_off_platform_contact( $text ) {
+    $text = html_entity_decode( wp_strip_all_tags( (string) $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+    if ( $text === '' ) return false;
+    $patterns = array(
+        '/\b[A-Z0-9._%+\-]+\s*(?:@|\(at\)|\[at\]| at )\s*[A-Z0-9.\-]+\s*(?:\.| punkt | dot )\s*[A-Z]{2,}\b/iu',
+        '/\b(?:https?:\/\/|www\.)\S+/iu',
+        '/\b(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/iu',
+        '/\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}(?:straße|strasse|str\.|weg|allee|platz|gasse)\s+\d+[a-z]?\b/u',
+        '/\b\d{5}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}\b/u',
+    );
+    foreach ( $patterns as $pattern ) if ( preg_match( $pattern, $text ) ) return true;
+    if ( preg_match_all( '/(?<!\d)(?:\+|00)?\d[\d\s().\/-]{7,}\d(?!\d)/u', $text, $phone_candidates ) ) {
+        foreach ( $phone_candidates[0] as $candidate ) {
+            if ( strlen( preg_replace( '/\D+/', '', $candidate ) ) >= 9 ) return true;
+        }
+    }
+    return false;
+}
+
 function eb_messages_send( WP_REST_Request $request ) {
     global $wpdb;
     $conv_id = absint( $request['id'] );
@@ -5176,10 +5466,25 @@ function eb_messages_send( WP_REST_Request $request ) {
     $body     = sanitize_textarea_field( $params['content'] ?? ( $params['text'] ?? '' ) );
     $msg_type = sanitize_text_field( $params['type'] ?? 'text' );
 
+    $contact_scan_body = $body;
+    if ( $body && $body[0] === '{' ) {
+        $structured = json_decode( $body, true );
+        if ( is_array( $structured ) && ( $structured['kind'] ?? '' ) === 'inquiry' ) {
+            // Systemfelder wie Inseratbild/URL gehoeren zur Plattform. Nur die
+            // frei eingegebene Nachricht wird auf Umgehungskontakte geprueft.
+            $contact_scan_body = (string) ( $structured['message'] ?? '' );
+        }
+    }
+    if ( in_array( $msg_type, array( 'text', 'message', 'offer' ), true ) && eb_message_contains_off_platform_contact( $contact_scan_body ) ) {
+        return new WP_REST_Response( array(
+            'code'    => 'off_platform_contact',
+            'message' => 'Bitte teile keine E-Mail-Adresse, Telefonnummer, Anschrift oder externen Messenger. Nutzt den geschuetzten Eventboerse-Chat und die Plattform-Buchung.',
+        ), 422 );
+    }
+
     // Bild-Anhang: body muss eine URL aus dem eigenen Upload-Origin sein (kein Fremd-Hotlinking).
     if ( $msg_type === 'image' ) {
-        $up_base = wp_upload_dir()['baseurl'];
-        if ( ! $body || strpos( $body, $up_base ) !== 0 ) {
+        if ( ! $body || ! eb_account_image_url( $body, $uid ) ) {
             return new WP_REST_Response( array( 'message' => 'Ungültiger Bild-Anhang.' ), 400 );
         }
     }
@@ -5240,6 +5545,8 @@ function eb_messages_send( WP_REST_Request $request ) {
     $recipient_id = ((int)$conv->user_a === $uid) ? (int)$conv->user_b : (int)$conv->user_a;
     $recipient = get_userdata( $recipient_id );
     $sender = get_userdata( $uid );
+    eb_notification_add( $recipient_id, 'message', 'Neue Nachricht',
+        ( $sender ? $sender->display_name : 'Jemand' ) . ' hat dir im geschuetzten Chat geschrieben.', home_url( '/nachrichten' ) );
     $is_demo_recipient = ! $recipient && eb_user_is_demo( $recipient_id );
     if ( ( ( $recipient && $recipient->user_email ) || $is_demo_recipient ) && $recipient_id !== $uid ) {
         $chat_url = home_url( '/#chat/' . $conv_id );
@@ -5609,6 +5916,8 @@ function eb_provider_profile( WP_REST_Request $request ) {
         'coverPosY'=> $meta['coverPosY'],
         'photoUrl' => $meta['photoUrl'],
         'gallery'  => $meta['gallery'],
+        'socialLinks' => $meta['socialLinks'],
+        'collaborations' => eb_collaborations_enriched( $provider_id, true ),
         'listings' => array_map( 'eb_format_listing', $listings ),
         'reviews'  => $formatted_reviews,
     ), 200 );
@@ -6213,6 +6522,13 @@ function eb_send_invoice( WP_REST_Request $request ) {
     $sent = 0;
     foreach ( $recipients as $to ) {
         if ( wp_mail( $to, $subject, $body, $headers ) ) $sent++;
+    }
+
+    eb_notification_add( $uid, 'invoice', 'Buchung ' . $invoice_no,
+        $listing_title . ' wurde gebucht. Die Rechnung ist im Business-Cockpit verfuegbar.', home_url( '/business' ) );
+    if ( $provider_uid && $provider_uid !== $uid ) {
+        eb_notification_add( $provider_uid, 'booking', 'Neue Buchung ' . $invoice_no,
+            $listing_title . ' wurde ueber Eventboerse gebucht.', home_url( '/business' ) );
     }
 
     return new WP_REST_Response( array(
