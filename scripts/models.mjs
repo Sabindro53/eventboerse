@@ -310,6 +310,7 @@ const ARBEITSPLAENE = {
       dateien: ['vault/50-Evolution/Roadmap/Current-Sprint.md'] },
     { ziel: 'Eventbörse und HQ als ein Produkt betrachten und die wichtigste Verbindung priorisieren.',
       dateien: ['hq.html', 'app-shell.html'] },
+        { ziel: 'Die Startseite auf den einen Schritt prüfen, der Suchende am häufigsten aufhält.', dateien: ['js/modules/search/10-karten-home-feed.js'] },
   ] },
   'deepseek-code': { anteil: 12, maxTokens: 260, aufgaben: [
     { ziel: 'Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen.',
@@ -339,6 +340,7 @@ const ARBEITSPLAENE = {
       dateien: ['vault/10-Produkt/Wissen/Event-Planung-Praxis.md'] },
     { ziel: 'Daten- und Wissensbestand auf Widersprüche oder veraltete Annahmen prüfen.',
       dateien: ['vault/10-Produkt/Wissen/Inserate-erstellen.md', 'vault/10-Produkt/Wissen/Konto-und-Anmeldung.md'] },
+        { ziel: 'Den lokalen Planungsassistenten auf eine Frage prüfen, die er heute unbeantwortet lässt.', dateien: ['js/modules/ai/50-planungs-assistent.js'] },
   ] },
   'gemma-sort': { anteil: 8, maxTokens: 200, aufgaben: [
     { ziel: 'Eine messbare Voice- oder UX-Reibung für den nächsten kleinen Patch auswählen.',
@@ -347,6 +349,7 @@ const ARBEITSPLAENE = {
       dateien: ['hq.html'] },
     { ziel: 'Barrierefreiheit auf eine kleine, risikoarme Verbesserung prüfen.',
       dateien: ['styles.css', 'tests/e2e/barrierefreiheit.spec.js'] },
+        { ziel: 'Eine konkrete Reibung in Modals, Toasts oder Hilfe benennen, die sich klein und additiv beheben lässt.', dateien: ['js/modules/ui/31-modals-toast-qabot.js', 'ui-enhancements.css'] },
   ] },
   'phi-kurz': { anteil: 16, maxTokens: 300, aufgaben: [
     { ziel: 'Den priorisierten, freigegebenen Kleinst-Patch innerhalb des erlaubten Scopes vorbereiten.',
@@ -399,6 +402,7 @@ const ARBEITSPLAENE = {
       dateien: ['assets/eb-knowledge.json'] },
     { ziel: 'Eine hilfreiche Community-Antwort ohne Zusage oder Veröffentlichung vorbereiten.',
       dateien: ['vault/10-Produkt/Wissen/Konto-und-Anmeldung.md'] },
+        { ziel: 'Die öffentliche Bewertungsdarstellung auf eine Stelle prüfen, die Nutzer regelmäßig missverstehen.', dateien: ['js/modules/ui/25-reviews.js'] },
   ] },
 };
 

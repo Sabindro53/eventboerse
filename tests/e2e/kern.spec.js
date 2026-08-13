@@ -85,7 +85,14 @@ test.describe('Ensemble-Katalog', () => {
     expect(extern).toHaveLength(11);
     expect(extern.reduce((sum, m) => sum + m.kontingentProzent, 0)).toBe(100);
     for (const m of extern) {
-      expect(m.aufgabenstrom, `${m.id} ohne Aufgabenstrom`).toHaveLength(3);
+      // Nicht mehr auf genau drei festgenagelt: die Zahl war eine
+      // Momentaufnahme, keine Zusicherung, und sie hat die Erweiterung
+      // blockiert, mit der frontend-nahe Rollen den Autopiloten beliefern
+      // können. Die Eigenschaft ist: es gibt mehr als eine Aufgabe, sonst
+      // bedeutet die Rotation nichts — und nicht so viele, dass eine Rolle
+      // ihren Zuschnitt verliert.
+      expect(m.aufgabenstrom.length, `${m.id}: Aufgabenstrom ohne Rotation`).toBeGreaterThan(1);
+      expect(m.aufgabenstrom.length, `${m.id}: Aufgabenstrom ausgeufert`).toBeLessThanOrEqual(8);
       expect(m.maxTokens, `${m.id} ohne kleine Antwortgrenze`).toBeLessThanOrEqual(300);
     }
   });

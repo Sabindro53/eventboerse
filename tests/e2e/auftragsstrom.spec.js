@@ -125,6 +125,28 @@ test.describe('Auftragsstrom: aus Befunden wird Arbeit', () => {
     expect(AGENTEN, 'die Dateiprüfung wurde entfernt').toMatch(/pruefeDateiliste\(scout\.target_files\)/);
   });
 
+  test('die frontend-nahen Bereiche können den Autopiloten wirklich beliefern', async () => {
+    // Die Brücke allein reichte nicht: beim Bauen arbeiteten nur 2 von 11
+    // Schicht-Rollen überhaupt an Dateien im freigegebenen Rahmen. Neun wären
+    // ins Leere gelaufen — sie hätten weiter gefunden, ohne dass daraus je
+    // Arbeit werden kann.
+    //
+    // Geprüft werden NICHT alle Rollen: Sicherheit gehört ans Backend,
+    // Governance an Rechtstexte, Finanzen an Gebühren. Deren Befunde sind für
+    // Menschen. Geprüft werden die Bereiche, deren Ergebnis Frontend IST.
+    const erlaubt = await whitelist();
+    const katalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-models.json'), 'utf8'));
+    const frontendNah = ['experience', 'produkt', 'engineering', 'intelligence', 'community'];
+
+    for (const rolle of katalog.modelle.filter((m) => m.schicht && frontendNah.includes(m.bereich))) {
+      const dateien = [...new Set((rolle.aufgabenstrom || []).flatMap((a) => a.dateien || []))];
+      const imRahmen = dateien.filter((d) => Object.hasOwn(erlaubt, d));
+      expect(imRahmen.length,
+        `${rolle.person} (${rolle.bereich}) arbeitet an ${dateien.join(', ')} — nichts davon darf der Autopilot anfassen, ihre Befunde können nie zu Arbeit werden`)
+        .toBeGreaterThan(0);
+    }
+  });
+
   test('Prüfung läuft sauber durch', () => {
     const { execFileSync } = require('node:child_process');
     execFileSync('node', ['scripts/auftragsstrom.mjs'], { cwd: ROOT });

@@ -81,7 +81,7 @@ Autopilot und Strom teilen statt sie zu kopieren. Was nicht hineinkommt, steht
 mit Grund unter `ausserhalb` — eine Schlange, die nur Aufnahmen führt, sieht
 aus wie ein Haus ohne Grenzen.
 
-**Stand:** nur 2 von 11 Schicht-Rollen arbeiten an Dateien innerhalb des
+**Stand:** 6 von 11 Schicht-Rollen arbeiten an Dateien innerhalb des
 Rahmens. Die übrigen Befunde sind für Menschen, nicht für den Autopiloten.
 
 ### Demo-Inhalte & Wissenslücken
@@ -180,7 +180,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-275 Tests in 14 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+276 Tests in 14 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
