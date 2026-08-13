@@ -19,11 +19,25 @@ einen alten Abschnitt gelesen und nicht diesen.
 - **Playwright-Suite: 305 Tests in 17 Suiten**, blockierendes Gate in `pr-check.yml`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift
-- **Lagebild-Lauf 4×/Tag** (02/08/14/20 UTC), 11 Rollen je Lauf, eigenes
-  Budget von $0,15 — Journal als echte Laufzeitspur per SFTP
-- **Autopilot** bekommt die übrigen $0,45: er liefert Patch, Tests und PR.
-  Sein Schwerpunkt kommt aus den Befunden der letzten 24 h, nicht mehr aus
-  der Kalenderwoche
+- **Ensemble-Puls: alle 30 Min. angefordert** (`*/30`). GitHub plant geplante
+  Läufe best-effort; gemessen lagen 31–82 Min. dazwischen (Median 41). Eigener
+  Topf **$0,50/Tag** — Journal als echte Laufzeitspur per SFTP
+- **Autopilot: eigener Topf $1,50/Tag**, zusammen mit dem Puls die freigegebene
+  Obergrenze von $2,00. Er arbeitet bei **jedem erreichten Lauf**; das Zählwerk
+  `GITHUB_RUN_NUMBER % 12` ist weg — es sollte „stündlich" heißen und hieß rund
+  achtstündlich, weil der 5-Minuten-Cron real alle ~41 Min. feuert. Gebremst
+  wird über das Tagesbudget, das OpenRouters `usage_daily` liest und **vor** dem
+  ersten Modellaufruf greift
+- **Befund → Arbeit steht.** `scripts/auftragsstrom.mjs` macht aus
+  Journal-Befunden eine Warteschlange mit Herkunft, aus der der Scout zieht
+- **Freigegebener Rahmen: 15 Dateien** (`scripts/lib/sichere-dateien.mjs`,
+  geteilt von Autopilot und Auftragsstrom). Die Aufnahmekriterien stehen als
+  Test: höchstens 1200 Zeilen, 8 Auth-, 20 Geld-, 12 Upload-Vorkommen — **im
+  Code gemessen, nicht im Fließtext**. Nie aufnehmen: `board/`,
+  `core/30-auth.js`, `payments/`
+- **Ein Patch darf Schutzkonstrukte nicht wegnehmen.** Die Musterprüfung sah
+  nur hinzugefügte Zeilen; `${escHtml(n)}` → `${n}` trifft dort nichts. Geprüft
+  wird die Bilanz von acht schützenden Konstrukten
 - Repo bleibt **bewusst public** (Entscheidung des Inhabers, Open Source als
   Ziel). Geprüft und belegt: die zehn `share: secret`-Notizen enthalten
   **Beschreibungen von Maßnahmen, keine Werte** — 0 Treffer für die

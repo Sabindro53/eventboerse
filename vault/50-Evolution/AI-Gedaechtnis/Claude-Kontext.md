@@ -9,6 +9,66 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-08-13 — Befund → Arbeit ist geschlossen
+
+- **Die Kette steht und ist Glied für Glied belegt:** elf Rollen finden (Puls,
+  `ROLLEN_OK: 11`), `scripts/auftragsstrom.mjs` macht daraus eine
+  Warteschlange mit Herkunft, der Scout zieht daraus, der Autopilot liefert
+  Patch → Gates → PR → Deploy. Vorher fand das Haus Dinge, an denen niemand
+  arbeitete.
+- **Der Strom kann den Sicherheitsrahmen nie weiten.** Whitelist liegt in
+  `scripts/lib/sichere-dateien.mjs` und wird von Autopilot UND Strom geteilt,
+  nicht kopiert. Was draußen bleibt, steht mit Grund unter `ausserhalb` —
+  Arbeit für Menschen, nicht für den Autopiloten.
+- **Ein Patch darf Schutzkonstrukte nicht wegnehmen.** `patchPruefen()` sah nur
+  hinzugefügte Zeilen; `${escHtml(n)}` → `${n}` war damit eine unerkannte
+  XSS-Lücke. Geprüft wird jetzt die Bilanz von acht Konstrukten (Maskierung,
+  Fehlerbehandlung, Speicher-Aufräumen, `nonce`, `currentUser`, `noopener`).
+  Verschieben erlaubt, wegnehmen nicht.
+- **Der Autopilot stirbt nicht mehr an einem kaputten Diff.** Die Patch-Prüfung
+  läuft jetzt INNERHALB der Modell-Fallback-Schleife; scheitern alle Modelle,
+  endet der Lauf wie ein Scout ohne Fund — ohne Änderung, mit festgehaltenem
+  Grund. Vier Lagen ohne Änderung werden unterschieden und stehen im Log,
+  nicht nur in der Step-Summary.
+
+### Die Lektion des Tages: eine Momentaufnahme ist keine Eigenschaft
+
+Vier festgeschriebene Werte haben entweder eine Unwahrheit am Leben gehalten
+oder eine Korrektur blockiert:
+
+| Literal | Folge |
+|---|---|
+| `'Lagebild 4×/Tag'` im Test | hielt die Behauptung fest, als der Cron längst 30 Min. war |
+| `'0.60'` im Autopilot-Test | blockierte die Trennung der Budget-Töpfe |
+| `GITHUB_RUN_NUMBER % 12` | behauptete „stündlich", lieferte achtstündlich |
+| `'Kontingent $0,60/Tag'` | konservierte den alten Topf an drei Stellen im HQ |
+
+Alle vier sind durch die Eigenschaft dahinter ersetzt. **Beim Schreiben eines
+Tests immer fragen: sichere ich eine Eigenschaft zu oder eine Einstellung?**
+Eine Einstellung zu ändern ist eine erlaubte Entscheidung; sie wegzulassen
+nicht. Der Takt-Test vergleicht deshalb Katalog-Angabe gegen echten Cron,
+statt eine Zahl festzuschreiben.
+
+### Zweite Lektion: gemessen schlägt behauptet
+
+- Geplante Workflows sind bei GitHub **best-effort**. `*/30` und `2/5` sind
+  Anforderungen, keine Zusagen — gemessen kamen sie alle 31–82 Min. Das HQ
+  nennt jetzt beides.
+- Eine Behauptung über Wirkung braucht eine **Grundlinie**. Ich hatte
+  `ui-enhancements.css` für schädlich erklärt; mit sauberer Messung (ohne /
+  vorher / nachher, HTTP-200 verifiziert) war sie wirkungslos. Die erste
+  Messung hatte keine Grundlinie.
+- Eine Lage, die man **nur an einer Stelle** sehen kann, sieht man meistens gar
+  nicht. Gründe und Kosten gehen deshalb per `tee -a` ins Log UND in die
+  Step-Summary.
+
+### Offen, bewusst beim Inhaber
+
+Rahmen-Erweiterung auf `core/01-demo-daten.js` und `search/13-event-radar.js`
+(13 → 15 Dateien). Gemessen und vorgeschlagen, **nicht entschieden** — das ist
+eine Sicherheitsentscheidung. Nie empfohlen: `board/`, `core/30-auth.js`,
+`payments/`.
+
 ## Stand 2026-08-04 — OpenRouter-Autopilot ist die primäre KI-Automation
 
 - **Vier echte Rollen statt Modell-Dekoration:** Ela/Gemma scoutet, Ada/Llama
