@@ -58,4 +58,14 @@ test.describe('Vision Release', () => {
     await expect(page.locator('#modelle-grid')).toBeHidden();
     await expect(page.locator('#conn-obsidian')).toHaveCount(0);
   });
+
+  test('HQ redigiert interne Wissens- und Markdown-Pfade aus Agententexten', async ({ page }) => {
+    await page.goto('/hq.html');
+    const redigiert = await page.evaluate(() => ebSichtbarerText(
+      'Quelle vault/10-Produkt/Wissen/Strategie.md und docs/Geheimer-Plan.md'
+    ));
+    expect(redigiert).not.toMatch(/vault|\.md/i);
+    expect(redigiert).toContain('interne Wissensquelle');
+    expect(redigiert).toContain('interne Notiz');
+  });
 });

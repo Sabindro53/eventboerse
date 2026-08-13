@@ -1101,7 +1101,22 @@ function humanDate(iso) {
   if (diff < 604800) return `vor ${Math.floor(diff/86400)} Tagen`;
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/**
+ * Interne Wissenspfade gehören nicht in die Bedienoberfläche.
+ *
+ * Betriebsdaten und Agentenergebnisse kommen aus mehreren Quellen. Ein
+ * einzelner Bericht kann deshalb trotz gefilterter Dateilisten noch einen
+ * privaten Ordner- oder Markdown-Pfad im Fließtext tragen. Vor jeder
+ * Darstellung werden solche Hinweise auf eine neutrale Bezeichnung reduziert.
+ */
+function ebSichtbarerText(s) {
+  return String(s == null ? '' : s)
+    .replace(/(?:[A-Za-z0-9._-]+\/)*vault(?:\/[^\s,;:)"'<>]+)+/gi, 'interne Wissensquelle')
+    .replace(/\b(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.md\b/gi, 'interne Notiz')
+    .replace(/\bVault\b/gi, 'interner Wissensbereich');
+}
+
+function escHtml(s) { return ebSichtbarerText(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ─── Data loaders ─────────────────────────────────────────────── */
 function parseLastPage(link) {
