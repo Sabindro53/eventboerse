@@ -72,26 +72,38 @@ jobs:
         with:
           fetch-depth: 100
 
-      - name: Kostenloses 5-Minuten-Fenster pruefen
+      - name: Kostenfenster pruefen
         id: cadence
         shell: bash
         run: |
+          # Jeder erreichte Lauf darf Modelle aufrufen. Die Bremse ist das
+          # Tagesbudget, nicht ein Zaehlwerk.
+          #
+          # Vorher stand hier `GITHUB_RUN_NUMBER % 12` — gedacht als "jeder
+          # zwoelfte 5-Minuten-Puls, also stuendlich". Die Rechnung stimmte
+          # nur, solange der Cron wirklich alle 5 Minuten feuert. Gemessen am
+          # 13.08. lagen zwischen den geplanten Laeufen 30 bis 65 Minuten
+          # (Median 41): geplante Workflows oeffentlicher Repos sind bei
+          # GitHub best-effort. Damit war das Kostenfenster nicht stuendlich
+          # offen, sondern rund alle ACHT Stunden — und wenn dann ein Lauf am
+          # Diff scheiterte, lag ein ganzer Tag brach. Genau so ist der
+          # 08:27-Fehlschlag unbemerkt zum Tagesausfall geworden.
+          #
+          # Ein Zaehlwerk, das "stuendlich" behauptet und achtstuendlich
+          # liefert, ist schlechter als gar keines: es sieht nach Steuerung
+          # aus. Das Tagesbudget bremst dagegen nachweislich — der Lauf bricht
+          # VOR dem ersten Modellaufruf ab, sobald OpenRouters usage_daily es
+          # erreicht, und das gilt ueber alle Laeufe des Tages hinweg.
+          #
+          # Kosten zur Einordnung: ein belegter Vier-Augen-Lauf kostet
+          # $0.0036. Bei gemessenen ~41 Minuten Abstand sind das rund
+          # $0.13/Tag; selbst wenn GitHub den 5-Minuten-Takt wirklich
+          # einhielte, waeren es ~$1.04 — unter dem harten Deckel.
+          echo "run=true" >> "$GITHUB_OUTPUT"
           if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "Manueller Lauf: Kostenfenster sofort geoeffnet." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          # Jeder zwoelfte 5-Minuten-Puls darf Modelle aufrufen. Anders als
-          # ein Blick auf den vorherigen Workflow-Lauf kann sich dieses Raster
-          # nicht selbst blockieren, denn auch ausgelassene Pulse zaehlen mit.
-          slot=$(( GITHUB_RUN_NUMBER % 12 ))
-          if [ "$slot" -ne 0 ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "5-Minuten-Puls tokenfrei: Kostenfenster $slot/11 noch geschlossen." >> "$GITHUB_STEP_SUMMARY"
+            echo "Manueller Lauf: Kostenfenster offen." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "Kostenfenster offen: Rollen- und Tagesbudgets entscheiden den Modellaufruf." >> "$GITHUB_STEP_SUMMARY"
+            echo "Kostenfenster offen: Lauf- und Tagesbudget entscheiden den Modellaufruf." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Node einrichten
