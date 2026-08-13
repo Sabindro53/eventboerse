@@ -119,6 +119,9 @@ $site_name_esc  = esc_attr( $site_name );
 
 // Cache-version string for assets (increment manually on deploy)
 $asset_ver = '2.5.1'; // cache-bust;
+$release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
+    ? filemtime( __DIR__ . '/release-vision.css' )
+    : $asset_ver;
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -177,6 +180,8 @@ $asset_ver = '2.5.1'; // cache-bust;
           href="<?php echo get_template_directory_uri(); ?>/styles.css?v=<?php echo $asset_ver; ?>">
     <link rel="stylesheet"
           href="<?php echo get_template_directory_uri(); ?>/ui-enhancements.css?v=<?php echo $asset_ver; ?>">
+    <link rel="stylesheet"
+          href="<?php echo get_template_directory_uri(); ?>/release-vision.css?v=<?php echo esc_attr( $release_css_ver ); ?>">
 
     <!-- ── WordPress Nonce (passed to app.js via inline script) ── -->
     <script>

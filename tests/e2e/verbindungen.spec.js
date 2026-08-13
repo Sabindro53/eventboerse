@@ -95,6 +95,13 @@ test.describe('HQ-Zugang', () => {
     // Apache liefert Theme-Dateien direkt aus, PHP läuft dabei nie — ohne
     // diese Sperre wäre die Rechteprüfung schlicht umgehbar.
     expect(HTACCESS).toMatch(/wp-content\/themes\/\[\^\/\]\+\/hq\\\.html/);
+    const deploy = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'ionos-deploy.yml'), 'utf8');
+    const builder = fs.readFileSync(path.join(ROOT, 'scripts', 'build-protected-hq.mjs'), 'utf8');
+    expect(deploy, 'statisches HQ darf nicht auf den Server gespiegelt werden').toMatch(/-x '\^hq\\\.html\$'/);
+    expect(deploy, 'alte statische HQ-Kopie muss beim Deploy entfernt werden').toContain('rm -f ${DEPLOY_DIR}hq.html');
+    expect(deploy, 'geschütztes HQ-Template wird nicht erzeugt').toContain('node scripts/build-protected-hq.mjs');
+    expect(builder, 'Direktaufruf des PHP-Templates ist nicht gesperrt').toMatch(/! defined\( 'ABSPATH' \)/);
+    expect(FUNCTIONS, 'HQ-Auslieferung bevorzugt nicht das geschützte Template').toContain("'/hq-protected.php'");
   });
 
   test('HQ wird nicht indexiert', () => {

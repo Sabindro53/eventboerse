@@ -96,6 +96,12 @@ jobs:
       - name: app.js ↔ Module Drift-Check
         run: ./build-app-js.sh --check
 
+      - name: Geschütztes HQ-Template prüfen
+        run: |
+          node scripts/build-protected-hq.mjs
+          node scripts/build-protected-hq.mjs --check
+          php -l hq-protected.php
+
       - name: Playwright-Browser installieren
         run: npx playwright install --with-deps chromium
 
