@@ -930,6 +930,42 @@ function patchPruefen(patch, erlaubteDateien) {
   for (const muster of verboten) {
     if (muster.test(neu)) throw new Error(`Patch trifft verbotenes Muster ${muster}.`);
   }
+
+  // Was ENTFERNT wird, kann genauso gefaehrlich sein wie was hinzukommt.
+  //
+  // Die Pruefung oben sieht nur additions. Der gefaehrlichste Fall rutscht
+  // damit durch:
+  //
+  //     -  `<div>${escHtml(name)}</div>`
+  //     +  `<div>${name}</div>`
+  //
+  // Die hinzugefuegte Zeile trifft kein verbotenes Muster — sie enthaelt
+  // weder `.innerHTML =` noch `eval`. Die entfernte enthaelt die Maskierung.
+  // Ergebnis: eine XSS-Luecke, mechanisch nicht erkannt. Dasselbe gilt fuer
+  // eine geloeschte Fehlerbehandlung oder ein entferntes Aufraeumen von
+  // Standortdaten.
+  //
+  // Geprueft wird nicht "kommt das Muster in Loeschungen vor" — das wuerde
+  // jede Umformatierung blockieren, die eine Zeile verschiebt. Geprueft wird,
+  // ob es WENIGER wird: verschieben ist erlaubt, wegnehmen nicht.
+  const entfernt = deletions.map((z) => z.slice(1)).join('\n');
+  const schuetzend = [
+    [/\bescHtml\s*\(/g, 'eine HTML-Maskierung'],
+    [/\bencodeURIComponent\s*\(/g, 'eine URL-Maskierung'],
+    [/\.textContent\s*=/g, 'eine textContent-Zuweisung'],
+    [/\b(localStorage|sessionStorage|indexedDB)\b/g, 'einen Speicherzugriff'],
+    [/\bcatch\s*[({]/g, 'eine Fehlerbehandlung'],
+    [/\bnonce\b/gi, 'eine Nonce-Pruefung'],
+    [/\bcurrentUser\b/g, 'eine Identitaetspruefung'],
+    [/\brel\s*=\s*["'][^"']*noopener/gi, 'einen noopener-Schutz'],
+  ];
+  for (const [muster, was] of schuetzend) {
+    const weg = (entfernt.match(muster) || []).length;
+    const zurueck = (neu.match(muster) || []).length;
+    if (weg > zurueck) {
+      throw new Error(`Patch entfernt ${was} (${weg}x weg, nur ${zurueck}x zurueck).`);
+    }
+  }
 }
 
 function nachApplyPruefen(changedFiles, modellDateien) {
@@ -1055,6 +1091,36 @@ function selfTest() {
     validiereAgentenJson('implementer', { ...implRumpf, patch: 'Hier ist mein Vorschlag: ...' }, implKontext);
   } catch { diffAbgewiesen = true; }
   if (!diffAbgewiesen) throw new Error('Ein kaputter Diff loest keinen Modellwechsel aus.');
+
+  // Entfernte Schutzkonstrukte: der Fall, den die additions-Pruefung nicht
+  // sehen kann. Eine weggenommene Maskierung ist eine XSS-Luecke, und die
+  // hinzugefuegte Zeile sieht dabei voellig harmlos aus.
+  const diffMit = (minus, plus) => [
+    'diff --git a/js/modules/ui/43-showcase.js b/js/modules/ui/43-showcase.js',
+    '--- a/js/modules/ui/43-showcase.js',
+    '+++ b/js/modules/ui/43-showcase.js',
+    '@@ -1,1 +1,1 @@',
+    `-${minus}`,
+    `+${plus}`,
+  ].join('\n');
+
+  const mussFallen = [
+    ['Maskierung', 'el.insertAdjacentHTML("beforeend", `<b>${escHtml(name)}</b>`);', 'el.insertAdjacentHTML("beforeend", `<b>${name}</b>`);'],
+    ['Fehlerbehandlung', '} catch (e) { melde(e); }', '}'],
+    ['Aufraeumen', 'localStorage.removeItem(RADAR_SPEICHER);', '// aufgeraeumt wird spaeter'],
+    ['noopener', 'a.rel = "noopener noreferrer";', 'a.rel = "";'],
+  ];
+  for (const [was, minus, plus] of mussFallen) {
+    let gefallen = false;
+    try { patchPruefen(diffMit(minus, plus), ['js/modules/ui/43-showcase.js']); }
+    catch { gefallen = true; }
+    if (!gefallen) throw new Error(`Entfernte ${was} wird nicht erkannt.`);
+  }
+
+  // Verschieben ist erlaubt: dieselbe Maskierung geht weg UND kommt zurueck.
+  patchPruefen(
+    diffMit('const s = escHtml(name);', 'const sicher = escHtml(name);'),
+    ['js/modules/ui/43-showcase.js']);
 
   pruefeDateiliste(['js/modules/ui/43-showcase.js']);
   const gut = [
