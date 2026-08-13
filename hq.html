@@ -1388,7 +1388,7 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
-  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Alle 30 Minuten arbeitet das komplette Ensemble ein Lagebild. Die Code-Arbeit macht der Autopilot — er bekommt deshalb den größeren Teil des Tagesbudgets.', workflow: 'hq-operations.yml', schedule: '🟢 Lagebild alle 30 Min. · 11 Rollen/Lauf · $0,50/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
+  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Alle 30 Minuten angefordert — GitHub plant geplante Läufe best-effort, gemessen sind es eher 50. Jeder erreichte Puls arbeitet das komplette Ensemble ab. Die Code-Arbeit macht der Autopilot — er bekommt deshalb den größeren Teil des Tagesbudgets.', workflow: 'hq-operations.yml', schedule: '🟢 Lagebild alle 30 Min. · 11 Rollen/Lauf · $0,50/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
   { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Prüft alle 5 Minuten tokenfrei; im offenen Kostenfenster liefern Scout, Architekt, Implementierer und Reviewer genau eine kleine Verbesserung.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung · KI max. stündlich · $0,12/Lauf · $0,60/Tag', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
   { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
   { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
@@ -2822,7 +2822,7 @@ function renderNeuralOps() {
   el.innerHTML = `
     <div class="neural-ops-head">
       <b>⚡ Live-Aufgabenstrom · <span class="neural-health ${healthClass}">${healthText}</span></b>
-      <span>Lagebild alle 30 Min. · alle 11 Rollen je Lauf · Anzeige sekündlich</span>
+      <span>Lagebild alle 30 Min. angefordert · alle 11 Rollen je Lauf · Anzeige sekündlich</span>
     </div>
     <div class="neural-now-grid">
       <div class="neural-now live">
@@ -3065,7 +3065,7 @@ function renderJournal() {
   const e = (nnJournal && nnJournal.eintraege) || [];
   if (!e.length) {
     el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge stehen in der 24/7-Steuerung. '
-      + 'Der Lagebild-Lauf startet alle 30 Minuten; jeder Lauf arbeitet das gesamte Ensemble ab '
+      + 'Der Lagebild-Lauf ist alle 30 Minuten angefordert; jeder erreichte Lauf arbeitet das gesamte Ensemble ab '
       + 'und schreibt Antworten, Kostenstopps oder Fehler hier hinein.</p>';
     return;
   }
@@ -3477,8 +3477,22 @@ window.addEventListener('DOMContentLoaded', init);
         ? 'Letzter Deploy: ' + (dep.conclusion || 'läuft noch') + ' · ' + String(dep.head_sha || '').slice(0, 7) + ' · ' + rel(dep.created_at)
         : 'Deploy: in den geladenen Läufen keiner.');
       var puls = vonPfad(/hq-operations\.yml$/)[0];
+      // Den Takt MESSEN, nicht behaupten. `*/30` ist bei GitHub eine
+      // Anforderung, keine Zusage: geplante Laeufe oeffentlicher Repos werden
+      // unter Last verschoben. Gemessen liegen die Abstaende bei 31 bis 82
+      // Minuten. Wer „alle 30 Min." liest und 60 bekommt, haelt ein normales
+      // Verhalten fuer einen Ausfall — oder einen Ausfall fuer normal.
+      const pulseAlle = vonPfad(/hq-operations\.yml$/).filter((r) => r.event === 'schedule');
+      let taktText = 'alle 30 Min. angefordert';
+      if (pulseAlle.length > 2) {
+        const abstaende = pulseAlle.slice(0, 8).map((r) => new Date(r.created_at).getTime())
+          .map((t, i, a) => (i ? (a[i - 1] - t) / 60000 : null)).filter((x) => x !== null && x > 0)
+          .sort((a, b) => a - b);
+        const median = Math.round(abstaende[Math.floor(abstaende.length / 2)]);
+        taktText += `, gemessen alle ~${median} Min.`;
+      }
       z.push(puls
-        ? 'Letzter Ensemble-Puls: ' + (puls.conclusion || 'läuft noch') + ' · ' + rel(puls.created_at) + ' (Takt: alle 30 Min.)'
+        ? 'Letzter Ensemble-Puls: ' + (puls.conclusion || 'läuft noch') + ' · ' + rel(puls.created_at) + ' (' + taktText + ')'
         : 'Ensemble-Puls: in den geladenen Läufen keiner.');
       var kaputt = laeufe.filter(function (r) { return r.conclusion === 'failure'; });
       z.push(kaputt.length
