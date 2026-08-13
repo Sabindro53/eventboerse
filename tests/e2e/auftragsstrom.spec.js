@@ -190,6 +190,39 @@ test.describe('Auftragsstrom: aus Befunden wird Arbeit', () => {
     expect(weg).not.toContain('Kein Befund im freigegebenen Rahmen');
   });
 
+  test('ein Lauf ohne Änderung nennt seinen Grund — vier Lagen, vier Aussagen', () => {
+    // Der Autopilot meldete jeden folgenlosen Lauf mit demselben Satz: „Die
+    // Agenten haben den Lauf sicher ohne Aenderung beendet." Dahinter stecken
+    // aber vier verschiedene Lagen, und nur EINE davon ist ein Betriebsproblem:
+    //
+    //   Scout ohne Fund      nichts Belastbares gefunden — alles in Ordnung
+    //   Architekt: skip      Vorschlag geprüft und bewusst verworfen
+    //   Implementierer leer  kein Patch nötig
+    //   Abbruch              KEIN Modell lieferte einen brauchbaren Diff
+    //
+    // Ohne die Unterscheidung sieht ein stiller Dauerausfall aus wie ein
+    // ruhiger Tag — genau das Muster, das den Autopiloten am 13.08. um 08:27
+    // hat sterben lassen, ohne dass es jemandem auffiel.
+    const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'openrouter-autopilot.yml'), 'utf8');
+    expect(workflow, 'der Abbruchgrund wird nicht ausgelesen').toMatch(/\.abbruch \/\/ empty/);
+    expect(workflow, 'ein technischer Abbruch ist nicht als solcher markiert')
+      .toMatch(/technisch, nicht inhaltlich/);
+    expect(workflow, 'die skip-Entscheidung der Architektin wird verschwiegen')
+      .toMatch(/architekt\.decision \/\/ empty/);
+    expect(workflow, 'ein Scout ohne Fund wird nicht benannt')
+      .toMatch(/scout\.target_files \/\/ \[\]/);
+
+    // Und die Budgets im Bericht kommen aus der Umgebung, nicht aus Text:
+    // der alte Satz behauptete „$0.60", nachdem der Topf auf $1.50 stand.
+    const tagesbudget = (workflow.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1];
+    const berichtsZeile = workflow.slice(workflow.indexOf('OpenRouter-Kosten dieses Laufs'));
+    expect(berichtsZeile.slice(0, 200), 'das Tagesbudget steht als fester Text im Bericht')
+      .not.toMatch(/Tagesbudget \$\d/);
+    expect(workflow, 'das Budget wird nicht aus der Umgebung gelesen')
+      .toMatch(/--arg tag "\$EB_OPENROUTER_DAILY_BUDGET_USD"/);
+    expect(tagesbudget, 'kein Tagesbudget gesetzt').toBeTruthy();
+  });
+
   test('Prüfung läuft sauber durch', () => {
     const { execFileSync } = require('node:child_process');
     execFileSync('node', ['scripts/auftragsstrom.mjs'], { cwd: ROOT });

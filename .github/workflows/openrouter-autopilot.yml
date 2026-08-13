@@ -72,26 +72,38 @@ jobs:
         with:
           fetch-depth: 100
 
-      - name: Kostenloses 5-Minuten-Fenster pruefen
+      - name: Kostenfenster pruefen
         id: cadence
         shell: bash
         run: |
+          # Jeder erreichte Lauf darf Modelle aufrufen. Die Bremse ist das
+          # Tagesbudget, nicht ein Zaehlwerk.
+          #
+          # Vorher stand hier `GITHUB_RUN_NUMBER % 12` — gedacht als "jeder
+          # zwoelfte 5-Minuten-Puls, also stuendlich". Die Rechnung stimmte
+          # nur, solange der Cron wirklich alle 5 Minuten feuert. Gemessen am
+          # 13.08. lagen zwischen den geplanten Laeufen 30 bis 65 Minuten
+          # (Median 41): geplante Workflows oeffentlicher Repos sind bei
+          # GitHub best-effort. Damit war das Kostenfenster nicht stuendlich
+          # offen, sondern rund alle ACHT Stunden — und wenn dann ein Lauf am
+          # Diff scheiterte, lag ein ganzer Tag brach. Genau so ist der
+          # 08:27-Fehlschlag unbemerkt zum Tagesausfall geworden.
+          #
+          # Ein Zaehlwerk, das "stuendlich" behauptet und achtstuendlich
+          # liefert, ist schlechter als gar keines: es sieht nach Steuerung
+          # aus. Das Tagesbudget bremst dagegen nachweislich — der Lauf bricht
+          # VOR dem ersten Modellaufruf ab, sobald OpenRouters usage_daily es
+          # erreicht, und das gilt ueber alle Laeufe des Tages hinweg.
+          #
+          # Kosten zur Einordnung: ein belegter Vier-Augen-Lauf kostet
+          # $0.0036. Bei gemessenen ~41 Minuten Abstand sind das rund
+          # $0.13/Tag; selbst wenn GitHub den 5-Minuten-Takt wirklich
+          # einhielte, waeren es ~$1.04 — unter dem harten Deckel.
+          echo "run=true" >> "$GITHUB_OUTPUT"
           if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "Manueller Lauf: Kostenfenster sofort geoeffnet." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          # Jeder zwoelfte 5-Minuten-Puls darf Modelle aufrufen. Anders als
-          # ein Blick auf den vorherigen Workflow-Lauf kann sich dieses Raster
-          # nicht selbst blockieren, denn auch ausgelassene Pulse zaehlen mit.
-          slot=$(( GITHUB_RUN_NUMBER % 12 ))
-          if [ "$slot" -ne 0 ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "5-Minuten-Puls tokenfrei: Kostenfenster $slot/11 noch geschlossen." >> "$GITHUB_STEP_SUMMARY"
+            echo "Manueller Lauf: Kostenfenster offen." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "Kostenfenster offen: Rollen- und Tagesbudgets entscheiden den Modellaufruf." >> "$GITHUB_STEP_SUMMARY"
+            echo "Kostenfenster offen: Lauf- und Tagesbudget entscheiden den Modellaufruf." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Node einrichten
@@ -178,9 +190,32 @@ jobs:
             echo "title=$(jq -r '.scout.title' .ai-run/result.json)" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Die Agenten haben den Lauf sicher ohne Aenderung beendet." >> "$GITHUB_STEP_SUMMARY"
+            # WARUM ohne Aenderung — das sind vier verschiedene Lagen, und sie
+            # duerfen nicht gleich aussehen:
+            #   Scout ohne Fund      nichts Belastbares gefunden, alles in Ordnung
+            #   Architekt: skip      Vorschlag geprueft und bewusst verworfen
+            #   Implementierer leer  kein Patch noetig
+            #   Abbruch              KEIN Modell lieferte einen brauchbaren Diff
+            # Nur die letzte ist ein Betriebsproblem. Ohne diesen Grund sah ein
+            # stiller Dauerausfall aus wie ein ruhiger Tag.
+            grund="$(jq -r '.abbruch // empty' .ai-run/result.json)"
+            if [ -n "$grund" ]; then
+              echo "### ⚠️ Lauf ohne Aenderung — technisch, nicht inhaltlich" >> "$GITHUB_STEP_SUMMARY"
+              echo "$grund" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$(jq -r '.architekt.decision // empty' .ai-run/result.json)" = "skip" ]; then
+              echo "Architektin hat den Vorschlag bewusst verworfen: $(jq -r '.architekt.skip_reason // "ohne Begruendung"' .ai-run/result.json)" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$(jq -r '(.scout.target_files // []) | length' .ai-run/result.json)" = "0" ]; then
+              echo "Scout hat keinen belastbaren, risikoarmen Hebel gefunden — Lauf sauber beendet." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Die Agenten haben den Lauf sicher ohne Aenderung beendet." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
-          jq -r '"OpenRouter-Kosten dieses Laufs: $" + (.kosten|tostring) + " · Laufbudget $0.12 · Tagesbudget $0.60"' .ai-run/result.json >> "$GITHUB_STEP_SUMMARY"
+          # Die Budgets kommen aus der Umgebung, nicht aus einem festen Text:
+          # der alte Satz behauptete weiter "$0.60", nachdem der Topf auf $1.50
+          # gestiegen war.
+          jq -r --arg lauf "$EB_OPENROUTER_RUN_BUDGET_USD" --arg tag "$EB_OPENROUTER_DAILY_BUDGET_USD" \
+            '"OpenRouter-Kosten dieses Laufs: $" + (.kosten|tostring) + " · Laufbudget $" + $lauf + " · Tagesbudget $" + $tag' \
+            .ai-run/result.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Abhaengigkeiten installieren
         if: steps.cadence.outputs.run == 'true' && steps.result.outputs.changed == 'true'

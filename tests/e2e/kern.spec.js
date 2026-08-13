@@ -302,7 +302,22 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(Number((workflow.match(/EB_OPENROUTER_DAILY_BUDGET_USD:\s*'([\d.]+)'/) || [])[1]),
       'kein hartes Tagesbudget im Autopiloten').toBeGreaterThan(0);
     expect(workflow).toMatch(/steps\.cadence\.outputs\.run/);
-    expect(workflow).toMatch(/GITHUB_RUN_NUMBER % 12/);
+    // Kein Zaehlwerk mehr: `GITHUB_RUN_NUMBER % 12` sollte "stuendlich"
+    // bedeuten und bedeutete rund ACHTSTUENDLICH, weil GitHub geplante Laeufe
+    // best-effort feuert (gemessen 30–65 Min. statt 5). Ein Zaehlwerk, das
+    // steuert, was es nicht steuern kann, ist schlechter als keines.
+    //
+    // Geprueft wird jetzt die Bremse, die nachweislich greift: das
+    // Tagesbudget stoppt VOR dem ersten Modellaufruf und gilt ueber alle
+    // Laeufe des Tages, weil es OpenRouters usage_daily liest.
+    // Nur ausgefuehrte Zeilen, keine Kommentare: der Workflow ERKLAERT das
+    // entfernte Zaehlwerk und wuerde sich sonst an der eigenen Begruendung
+    // stossen. Eine Zusicherung, die Kommentare mitliest, zwingt dazu, die
+    // Geschichte zu loeschen statt sie aufzuschreiben.
+    const wirksam = workflow.split('\n').filter((z) => !/^\s*#/.test(z)).join('\n');
+    expect(wirksam, 'das Zählwerk ist zurück').not.toMatch(/GITHUB_RUN_NUMBER % \d+/);
+    expect(agent, 'kein Tagesbudget vor dem ersten Modellaufruf')
+      .toMatch(/usage_daily[\s\S]{0,400}>= dailyBudget/);
     expect(workflow).toMatch(/npm run gate/);
     expect(workflow).toMatch(/npm test/);
     expect(merge).toMatch(/workflow_run:/);
