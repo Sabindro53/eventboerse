@@ -65,6 +65,43 @@ test.describe('Smoke: SPA-Routen', () => {
     expectNoPageErrors(errors, 'Provider-Profil');
   });
 
+  test('Profil ohne Inserate erzeugt keine kuenstliche Inseratkarte', async ({ page }) => {
+    await page.route('**/wp-json/eventboerse/v1/provider/11?**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 11,
+          name: 'Maria Heilig',
+          role: 'Admin',
+          since: '2026',
+          tagline: 'Admin',
+          location: '',
+          bio: '',
+          photoUrl: '',
+          gallery: [],
+          listings: [],
+          reviews: [],
+          collaborations: [],
+        }),
+      });
+    });
+
+    const errors = await openApp(page);
+    await spaNavigate(page, 'provider', 11);
+
+    await expect(page.locator('#providerName')).toHaveText('Maria Heilig');
+    await expect(page.locator('#providerListingCount')).toHaveText('0');
+    await expect(page.locator('#providerListings')).toContainText('Noch keine Inserate');
+    await expect(page.locator('#providerListings .listing-card')).toHaveCount(0);
+
+    const pollutedListings = await page.evaluate(() => LISTINGS.filter((l) =>
+      String(l && l.providerId) === '11' || String(l && l.id) === 'profile-11'
+    ).length);
+    expect(pollutedListings, 'Profil-Fallback darf LISTINGS nicht veraendern').toBe(0);
+    expectNoPageErrors(errors, 'Profil ohne Inserate');
+  });
+
   for (const route of LOGIN_REQUIRED) {
     test(`Geschützte Route "${route}" leitet unangemeldet zum Login um (kein Crash)`, async ({ page }) => {
       const errors = await openApp(page);

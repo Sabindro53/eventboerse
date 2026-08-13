@@ -4382,6 +4382,19 @@ let lightboxIndex = 0;
 // (für Admin-Moderation von Bildern auf fremden Profilen).
 let _currentProviderId = 0;
 let _currentProviderIsOwn = false;
+// Profile ohne Inserate brauchen Profildaten fuer Kopf, Bio und Portfolio.
+// Diese Daten duerfen jedoch niemals in LISTINGS landen: Dort wuerden sie
+// als echtes Inserat gezaehlt und gerendert (z. B. "Admin" bei Maria Heilig).
+let _providerProfileCache = Object.create(null);
+
+function _isProfileOnlyRecord(item) {
+  if (!item) return false;
+  return !!(
+    item._profileOnly ||
+    item._ownProfile ||
+    (typeof item.id === 'string' && item.id.indexOf('profile-') === 0)
+  );
+}
 
 /**
  * Setzt das Provider-Page-DOM in einen sauberen, leeren Zustand zurück.
@@ -4492,7 +4505,7 @@ function loadProvider(providerId) {
   }
   // DB listings always take priority over demo data
   var dbListings = LISTINGS.filter(function(l) {
-    return l && l._fromDb && _sameUserId(_listingOwnerId(l), pid);
+    return l && l._fromDb && !_isProfileOnlyRecord(l) && _sameUserId(_listingOwnerId(l), pid);
   });
   var providerListings;
   if (dbListings.length > 0) {
@@ -4505,6 +4518,10 @@ function loadProvider(providerId) {
     });
     if (demoListings.length > 0) {
       providerListings = demoListings;
+    } else if (_providerProfileCache[pid]) {
+      // Separater Profil-Fallback: nutzbar fuer die Profilansicht, aber kein
+      // Inserat und deshalb bewusst nie Teil der globalen LISTINGS-Liste.
+      providerListings = [_providerProfileCache[pid]];
     } else {
       providerListings = [];
     }
@@ -4518,6 +4535,7 @@ function loadProvider(providerId) {
       providerListings = [{
         id: 'profile-' + pid,
         _ownProfile: true,
+        _profileOnly: true,
         providerId: pid,
         providerName: currentUser.name || 'Mein Profil',
         providerImg: currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name),
@@ -4541,9 +4559,10 @@ function loadProvider(providerId) {
           if (data.listings && data.listings.length > 0) {
             _mergeDbListingsIntoCache(data.listings);
           } else {
-            LISTINGS.push({
+            _providerProfileCache[pid] = {
               id: 'profile-' + pid,
               _fromDb: true,
+              _profileOnly: true,
               providerId: pid,
               providerName: data.name || 'Anbieter',
               providerImg: data.photoUrl || ebAvatar(data.name || 'user', data.name),
@@ -4558,7 +4577,7 @@ function loadProvider(providerId) {
               rating: 0,
               reviews: 0,
               badge: ''
-            });
+            };
           }
           loadProvider(pid);
         })
@@ -4575,6 +4594,11 @@ function loadProvider(providerId) {
     _showProviderNotFound(pid);
     return;
   }
+  // Ausschliesslich diese Datensaetze duerfen als Inserate erscheinen. Das
+  // Profilobjekt bleibt nur die Datenquelle fuer den Profilkopf.
+  var actualProviderListings = providerListings.filter(function(l) {
+    return !_isProfileOnlyRecord(l);
+  });
   providerImages = providerListings.flatMap(l => l.images || []);
   // Aktuell betrachtetes Profil merken (für Admin-Bildmoderation)
   _currentProviderId = pid;
@@ -4594,7 +4618,7 @@ function loadProvider(providerId) {
   document.getElementById('providerAvatar').src = _resolveAvatar(mainListing.providerImg, mainListing.providerName);
   document.getElementById('providerName').textContent = mainListing.providerName;
   document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
-  document.getElementById('providerListingCount').textContent = (providerListings.length === 1 && providerListings[0]._ownProfile) ? 0 : providerListings.length;
+  document.getElementById('providerListingCount').textContent = actualProviderListings.length;
   // Provider rating/reviews from aggregated DB data — filled after API call below
   var providerRating = mainListing.rating;
   var providerReviewCount = mainListing.reviews;
@@ -4632,7 +4656,7 @@ function loadProvider(providerId) {
   (function() {
     var bestBadge = '';
     var bestIdx = -1;
-    providerListings.forEach(function(l) {
+    actualProviderListings.forEach(function(l) {
       var st = l && _boardStatusForListing(l.id);
       if (st) {
         var idx = EB_BOARD_STAGE_ORDER.indexOf(st.stage);
@@ -4689,8 +4713,7 @@ function loadProvider(providerId) {
   ).join('');
 
   // Listings tab
-  var hasOnlySynthetic = providerListings.length === 1 && providerListings[0]._ownProfile;
-  if (hasOnlySynthetic) {
+  if (actualProviderListings.length === 0 && _currentProviderIsOwn) {
     document.getElementById('providerListings').innerHTML =
       '<div class="provider-add-listing" onclick="navigateTo(\'create-listing\')" style="' +
         'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
@@ -4701,9 +4724,18 @@ function loadProvider(providerId) {
         '<span style="font-size:1.05rem;font-weight:600;color:var(--dark);">Erstes Inserat erstellen</span>' +
         '<span style="font-size:0.85rem;margin-top:4px;">Zeig der Community was du anbietest</span>' +
       '</div>';
+  } else if (actualProviderListings.length === 0) {
+    document.getElementById('providerListings').innerHTML =
+      '<div class="no-results-box" style="margin-top:12px">' +
+        '<span class="material-icons-round no-results-icon">inventory_2</span>' +
+        '<div class="no-results-box-text">' +
+          '<h3>Noch keine Inserate</h3>' +
+          '<p>Dieses Profil hat aktuell keine Inserate veröffentlicht.</p>' +
+        '</div>' +
+      '</div>';
   } else {
     var plGrid = document.getElementById('providerListings');
-    plGrid.innerHTML = providerListings.map(renderListingCard).join('');
+    plGrid.innerHTML = actualProviderListings.map(renderListingCard).join('');
     _initGridCards(plGrid);
   }
 
