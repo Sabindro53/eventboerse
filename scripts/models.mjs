@@ -417,7 +417,7 @@ const MODELLE = ROH_MODELLE.map((modell) => {
  * Karte, wann sie ZULETZT TATSÄCHLICH gearbeitet hat, nicht wann sie sollte.
  */
 const SCHICHTEN = {
-  'hq-operations.yml':      { takt: 'alle 30 Min. · alle 11 Rollen je erreichtem Puls · eigener Topf, hart $0,50/Tag', label: 'HQ Operations-Ensemble' },
+  'hq-operations.yml':      { takt: 'alle 30 Min. angefordert (GitHub plant best-effort) · alle 11 Rollen je erreichtem Puls · eigener Topf, hart $0,50/Tag', label: 'HQ Operations-Ensemble' },
   'openrouter-autopilot.yml': { takt: '5-Min.-Prüfung · KI max. stündlich · eigener Topf, hart $1,50/Tag', label: 'OpenRouter Autopilot' },
   'tagesroutine.yml':      { takt: 'täglich 03:17 UTC', label: 'Tagesroutine' },
   'recherche.yml':         { takt: 'donnerstags 06:23 UTC', label: 'Recherche' },
