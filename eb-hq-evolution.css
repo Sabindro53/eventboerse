@@ -148,13 +148,27 @@
   margin-bottom: 0.7rem;
 }
 .neural-proof div {
-  padding: 0.48rem 0.55rem;
+  padding: 0.7rem 0.75rem 0.62rem;
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: 9px;
-  background: rgba(0,0,0,.14);
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18));
+  transition: border-color .25s;
 }
-.neural-proof b { display: block; color: var(--text); font-size: 0.75rem; }
-.neural-proof small { display: block; margin-top: 0.12rem; color: var(--muted); font-size: 0.55rem; line-height: 1.35; }
+.neural-proof div:hover { border-color: rgba(255,255,255,.16); }
+/* Die Zahl ist die Aussage, das Etikett nur ihr Name. Vorher stand die Zahl
+   auf 0.75rem — kleiner als Fliesstext. Wer aufs Dashboard schaut, sucht
+   zuerst die Zahlen; sie muessen die groessten Zeichen der Zeile sein. */
+.neural-proof b {
+  display: block; color: var(--text);
+  font-size: 1.35rem; font-weight: 650; line-height: 1.1;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.neural-proof small {
+  display: block; margin-top: 0.3rem; color: var(--muted);
+  font-size: 0.62rem; line-height: 1.4;
+  text-transform: uppercase; letter-spacing: .04em;
+}
 
 .neural-cycle {
   display: grid;
