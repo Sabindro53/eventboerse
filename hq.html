@@ -238,6 +238,16 @@
      als Dateiname lesbar ist und nicht als Fließtext. */
   .nn-datei { font-size: 7.5px; fill: var(--cyan); text-anchor: middle;
               font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .9; }
+  /* Aufgabenknoten im geöffneten Bereich. Das Ziel wird umgebrochen, nicht
+     abgeschnitten — ein Satz, der mitten im Wort endet, liest sich wie ein
+     Fehler und nicht wie eine Kürzung. */
+  .nn-ziel { font-size: 8px; fill: var(--muted); text-anchor: middle; opacity: .8; }
+  .nn-ziel-jetzt { font-size: 8.5px; fill: var(--text); text-anchor: middle; font-weight: 600; }
+  .nn-aufgabe circle { transition: r .25s ease, opacity .25s; }
+  .nn-aufgabe:hover circle { opacity: 1; }
+  .nn-aufgabe:hover .nn-ziel { fill: var(--text); opacity: 1; }
+  .nn-dateiknoten rect { transition: opacity .25s; }
+  .nn-dateiknoten:hover rect { opacity: 1; }
   .nn-bahn { fill: none; stroke: rgba(255,255,255,.16); stroke-width: 1; stroke-dasharray: 3 5; }
   /* Der Impuls: einmalig, dann weg. Kein Loop. */
   .nn-impuls { fill: none; stroke-width: 2.2; stroke-linecap: round; opacity: .95; }
@@ -1375,7 +1385,7 @@ function renderLog() {
 
 /* ─── Bot Team ─────────────────────────────────────────────────── */
 const BOTS = [
-  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Viermal täglich arbeitet das komplette Ensemble ein Lagebild. Die Code-Arbeit macht der Autopilot — er bekommt deshalb den größeren Teil des Tagesbudgets.', workflow: 'hq-operations.yml', schedule: '🟢 Lagebild 4×/Tag (02/08/14/20 Uhr UTC) · 11 Rollen/Lauf · $0,15/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
+  { id: 'operations', avatar: '⚡', name: 'HQ-Operations-Rundlauf', role: 'Alle 30 Minuten arbeitet das komplette Ensemble ein Lagebild. Die Code-Arbeit macht der Autopilot — er bekommt deshalb den größeren Teil des Tagesbudgets.', workflow: 'hq-operations.yml', schedule: '🟢 Lagebild alle 30 Min. · 11 Rollen/Lauf · $0,50/Tag hart', canTrigger: true, triggerLabel: '▶ Voll-Ensemble', logsLabel: '📋 Live-Läufe', logsUrl: `https://github.com/${REPO}/actions/workflows/hq-operations.yml` },
   { id: 'openrouter', avatar: '🧬', name: 'OpenRouter-Autopilot', role: 'Prüft alle 5 Minuten tokenfrei; im offenen Kostenfenster liefern Scout, Architekt, Implementierer und Reviewer genau eine kleine Verbesserung.', workflow: 'openrouter-autopilot.yml', schedule: '⚡ 5-Min.-Prüfung · KI max. stündlich · $0,12/Lauf · $0,60/Tag', canTrigger: true, triggerLabel: '▶ Autopilot', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aopenrouter` },
   { id: 'improve',    avatar: '✨', name: 'Claude-Verbesserung (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-improve.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 PRs', logsUrl: `https://github.com/${REPO}/pulls?q=is%3Apr+label%3Aclaude-routine` },
   { id: 'claude-dev', avatar: '🤖', name: 'Claude-Audit (Legacy)', role: 'Manuelles Fallback für bestehende Anthropic-Konfiguration; kein Zeitplan mehr.', workflow: 'claude-auto-audit.yml', schedule: '🕹️ Manuell · Legacy', canTrigger: true, triggerLabel: '▶ Legacy', logsLabel: '📋 Issues', logsUrl: `https://github.com/${REPO}/issues?q=label%3Aaudit` },
@@ -1652,6 +1662,9 @@ async function loadSelfAudit() {
     return;
   }
   const c = data.counts || {};
+  // Auch fuer den Lagebericht der Mitte behalten: bisher wurde der Selbstcheck
+  // gerendert und weggeworfen, der Kreis konnte ihn deshalb nicht benennen.
+  state.audit = data;
   ebImpuls('betrieb', (c.error || 0) ? 'schlecht' : 'gut');
   $('audit-chip-err').textContent  = `❌ ${c.error || 0}`;
   $('audit-chip-warn').textContent = `⚠️ ${c.warn  || 0}`;
@@ -2390,49 +2403,154 @@ function nnBaum() {
   const rollen = nnKatalog.modelle.filter(m => m.bereich === b.id);
   const bild = nnBetriebsbild();
   const teile = [];
-  const unten = 396, mitteReihe = 250, oben = 108;
-  const bx = 450;
 
-  const spalten = rollen.length;
-  const px = i => 450 + (i - (spalten - 1) / 2) * Math.min(230, 780 / Math.max(spalten, 1));
+  // Vier Ebenen, von unten nach oben gelesen: Bereich, Mitarbeiter, seine
+  // Aufgaben, deren Dateien. Vorher waren es drei, und die mittlere trug
+  // genau EINE Aufgabe — bei einem Bereich mit einem Mitarbeiter stand damit
+  // ein einzelner Punkt auf einer leeren Fläche. Der Aufgabenstrom ist echt
+  // und steht im Katalog; ihn nicht zu zeigen war eine verschenkte Ebene.
+  const yBereich = 452, yRolle = 336, yAufgabe = 176, yDatei = 58;
+  const bx = 450, LINKS = 60, RECHTS = 840;
 
-  // Bereich unten
+  // Gleichmäßig über die Breite verteilen — auch bei einem einzigen Knoten,
+  // der dann mittig steht statt am Rand zu kleben.
+  const verteile = (n, i, links = LINKS, rechts = RECHTS) =>
+    n <= 1 ? (links + rechts) / 2 : links + (i * (rechts - links)) / (n - 1);
+
+  // Wortsicherer Umbruch. Vorher wurde hart nach 52 Zeichen geschnitten,
+  // mitten im Wort: „…als ein Produkt betrachten und die". Ein Satz, der
+  // mitten im Wort endet, liest sich wie ein Fehler, nicht wie eine Kürzung.
+  const zeilen = (text, proZeile, maxZeilen) => {
+    const worte = String(text || '').trim().split(/\s+/).filter(Boolean);
+    const out = [];
+    let z = '';
+    for (const w of worte) {
+      if (!z.length) { z = w; continue; }
+      if ((z + ' ' + w).length <= proZeile) { z += ' ' + w; continue; }
+      out.push(z); z = w;
+      if (out.length === maxZeilen) break;
+    }
+    if (out.length < maxZeilen && z) out.push(z);
+    // Gekürzt wird an einer Wortgrenze und sichtbar, nicht heimlich.
+    const rest = worte.join(' ').length > out.join(' ').length;
+    if (rest && out.length) out[out.length - 1] += ' …';
+    return out;
+  };
+  const text = (x, y, inhalt, klasse, proZeile, maxZeilen, extra = '') => {
+    const zs = zeilen(inhalt, proZeile, maxZeilen);
+    return zs.map((z, i) =>
+      `<text x="${x}" y="${(y + i * 11).toFixed(1)}" class="${klasse}" ${extra}>${escHtml(z)}</text>`).join('');
+  };
+
+  // ── Bereich unten: der Rückweg ──────────────────────────────────────
   teile.push(`
     <g id="nn-zurueck" class="nn-orb-hit" role="button" tabindex="0" aria-label="Zurück zur Übersicht">
-      <circle cx="${bx}" cy="${unten}" r="30" fill="${b.farbe}" opacity=".2"/>
-      <circle cx="${bx}" cy="${unten}" r="30" fill="none" stroke="${b.farbe}" stroke-width="1.5"/>
-      <text x="${bx}" y="${unten + 5}" style="font-size:17px;text-anchor:middle">${b.emoji}</text>
-      <text x="${bx}" y="${unten + 46}" class="nn-label">${escHtml(b.label)}</text>
-      <text x="${bx}" y="${unten + 58}" class="nn-sub">← zurück</text>
+      <circle cx="${bx}" cy="${yBereich}" r="30" fill="${b.farbe}" opacity=".2"/>
+      <circle cx="${bx}" cy="${yBereich}" r="30" fill="none" stroke="${b.farbe}" stroke-width="1.5"/>
+      <text x="${bx}" y="${yBereich + 6}" style="font-size:18px;text-anchor:middle">${b.emoji}</text>
+      <text x="${bx}" y="${yBereich + 48}" class="nn-label">${escHtml(b.label)}</text>
+      <text x="${bx}" y="${yBereich + 60}" class="nn-sub">← zurück</text>
     </g>`);
 
+  // ── Dateien der ganzen Ebene einsammeln, damit jede nur EINMAL als
+  //    Knoten steht. Zwei Aufgaben an derselben Datei sind zwei Bahnen zu
+  //    einem Knoten — genau das macht das Bild zu einem Netz statt zu
+  //    einem Baum. ────────────────────────────────────────────────────
+  const alleDateien = [...new Set(rollen.flatMap(m =>
+    (m.aufgabenstrom || []).flatMap(a => a.dateien || [])))].slice(0, 9);
+  const dateiX = {};
+  alleDateien.forEach((d, i) => { dateiX[d] = verteile(alleDateien.length, i, 90, 810); });
+
+  alleDateien.forEach(d => {
+    const x = dateiX[d];
+    teile.push(`
+      <g class="nn-node nn-dateiknoten" role="img" tabindex="0" aria-label="Datei ${escHtml(d)}">
+        <rect x="${x - 5}" y="${yDatei - 5}" width="10" height="10" rx="2"
+              fill="none" stroke="var(--cyan)" stroke-width="1.3" opacity=".75"/>
+        ${text(x, yDatei + 22, nnDateiKurz(d), 'nn-datei', 20, 2)}
+      </g>`);
+  });
+
+  // Die Staffelung laeuft ueber ALLE Aufgaben, nicht je Mitarbeiter. Sonst
+  // treffen sich die letzte Aufgabe des einen und die erste des naechsten
+  // genau auf derselben Hoehe — an der Nahtstelle zwischen zwei Faechern.
+  let aufgabeNr = 0;
+
   rollen.forEach((m, i) => {
-    const x = px(i);
+    const rx = verteile(rollen.length, i, rollen.length > 2 ? 130 : 300, rollen.length > 2 ? 770 : 600);
     const st = nnSchichtStand(m);
     const farbe = NN_STAND_FARBE[st.stand];
-    // Woran diese Rolle gerade arbeitet — aus dem Katalog, nicht geraten.
-    const dateien = nnAufgabenDateien(m);
+    const aktuell = nnAufgabeRoh(m);
 
-    // Bereich → Rolle (gestrichelt, wie die Aufgabenlinien in der Vorlage)
-    const d = `M ${bx} ${unten - 30} L ${x} ${mitteReihe + 20}`;
+    // Bereich → Mitarbeiter
+    const d0 = `M ${bx} ${yBereich - 30} L ${rx} ${yRolle + 22}`;
     const live = bild.voll || (bild.aktiv && bild.aktiv.id === m.id);
     const next = bild.naechste && bild.naechste.id === m.id;
-    teile.push(`<path class="nn-bahn" id="bahn-${m.id}" d="${d}"/>`);
-    teile.push(`<path class="nn-transport ${live ? 'nn-live' : next ? 'nn-next' : ''}" d="${d}" stroke="${b.farbe}" style="color:${b.farbe};animation-delay:-${(i * .17).toFixed(2)}s"/>`);
+    teile.push(`<path class="nn-bahn" id="bahn-${m.id}" d="${d0}"/>`);
+    teile.push(`<path class="nn-transport ${live ? 'nn-live' : next ? 'nn-next' : ''}" d="${d0}" stroke="${b.farbe}" style="color:${b.farbe};animation-delay:-${(i * .17).toFixed(2)}s"/>`);
 
-    // Rolle → Werkzeuge
-    (m.werkzeuge || []).forEach((w, j) => {
-      const wx = x + (j - ((m.werkzeuge.length - 1) / 2)) * 74;
+    // ── Aufgaben dieses Mitarbeiters ─────────────────────────────────
+    const strom = (m.aufgabenstrom || []).slice(0, 4);
+    // Das Faecher eines Mitarbeiters muss schmaler sein als der Abstand zum
+    // naechsten, sonst treffen sich die aeusseren Aufgaben genau in der Mitte
+    // und die Beschriftungen liegen uebereinander.
+    const breite = Math.min(250, (700 / Math.max(rollen.length, 1)) * 0.8);
+    // Die Zeilenbreite folgt dem PLATZ, nicht einer festen Zahl. Bei drei
+    // Mitarbeitern ist das Faecher schmal; 30 Zeichen sind dort rund 126 px
+    // breit und liegen bei 93 px Abstand zwangslaeufig uebereinander.
+    const abstand = strom.length > 1 ? breite / (strom.length - 1) : 260;
+    const proZeile = Math.max(13, Math.min(32, Math.round(abstand / 5.0)));
+    const maxZeilen = proZeile < 20 ? 7 : 5;
+
+    // Das ganze Faecher verschieben statt einzelne Knoten zu klemmen. Klemmen
+    // schiebt den aeussersten Knoten auf seinen Nachbarn und erzeugt genau die
+    // Ueberlappung, die es verhindern soll.
+    const halb = breite / 2;
+    let versatz = 0;
+    if (rx - halb < 78) versatz = 78 - (rx - halb);
+    else if (rx + halb > 822) versatz = 822 - (rx + halb);
+
+    strom.forEach((a, j) => {
+      const ax = (strom.length <= 1 ? rx
+        : rx + (j - (strom.length - 1) / 2) * (breite / Math.max(strom.length - 1, 1))) + versatz;
+      // Benachbarte Ziele auf zwei Hoehen staffeln — bei schmalen Faechern
+      // stehen sonst zwei mehrzeilige Texte Schulter an Schulter.
+      const ay = yAufgabe + (aufgabeNr++ % 2 ? 34 : 0);
+      const istAktuell = aktuell && aktuell.ziel === a.ziel;
+
+      teile.push(`<path class="nn-bahn" style="opacity:${istAktuell ? .5 : .22}" d="M ${rx} ${yRolle - 22} L ${ax} ${ay + 14}"/>`);
+      (a.dateien || []).forEach(d => {
+        if (dateiX[d] === undefined) return;
+        teile.push(`<path class="nn-bahn" style="opacity:${istAktuell ? .4 : .16}" d="M ${ax} ${ay - 12} L ${dateiX[d]} ${yDatei + 8}"/>`);
+      });
+
+      teile.push(`
+        <g class="nn-node nn-aufgabe ${istAktuell ? 'jetzt' : ''}" role="img" tabindex="0"
+           aria-label="Aufgabe von ${escHtml(m.person)}: ${escHtml(a.ziel)}">
+          <circle cx="${ax}" cy="${ay}" r="${istAktuell ? 8 : 5.5}"
+                  fill="${istAktuell ? b.farbe : 'none'}" stroke="${b.farbe}" stroke-width="1.3"
+                  opacity="${istAktuell ? .95 : .6}"/>
+          ${istAktuell ? `<circle cx="${ax}" cy="${ay}" r="14" fill="${b.farbe}" opacity=".12"/>` : ''}
+          ${text(ax, ay + 26, a.ziel, istAktuell ? 'nn-ziel-jetzt' : 'nn-ziel', proZeile, maxZeilen)}
+        </g>`);
+    });
+
+    // ── Werkzeuge seitlich am Mitarbeiter, nicht mehr oben ───────────
+    (m.werkzeuge || []).forEach((w, k) => {
+      // Seitlich auf Augenhoehe des Mitarbeiters. Darunter stiessen sie in
+      // den Bereichsnamen, und ein Werkzeug ist keine eigene Ebene.
+      const seite = k % 2 ? 1 : -1;
+      const wx = rx + seite * (52 + Math.floor(k / 2) * 26);
+      const wy = yRolle;
       const c = (connKatalog && connKatalog.connectors || []).find(y => y.id === w);
       const z = (connZustand[w] || {}).status || 'getrennt';
       const wf = z === 'verbunden' ? '#4ade80' : z === 'eingeschraenkt' ? '#fbbf24' : '#475569';
-      teile.push(`<path class="nn-bahn" style="opacity:.3" d="M ${x} ${mitteReihe - 20} L ${wx} ${oben + 14}"/>`);
+      teile.push(`<path class="nn-bahn" style="opacity:.25" d="M ${rx + seite * 22} ${yRolle} L ${wx - seite * 11} ${wy}"/>`);
       teile.push(`
         <g class="nn-node nn-wz" data-werkzeug="${escHtml(w)}" role="button" tabindex="0"
            aria-label="Werkzeug ${escHtml(c ? c.dienst : w)}">
-          <circle class="nn-ring" cx="${wx}" cy="${oben}" r="13" stroke="${wf}"/>
-          <text x="${wx}" y="${oben + 4}" style="font-size:11px;text-anchor:middle">${c ? c.logo : '🔌'}</text>
-          <text x="${wx}" y="${oben - 20}" class="nn-sub">${escHtml(c ? c.anbieter : w)}</text>
+          <circle class="nn-ring" cx="${wx}" cy="${wy}" r="11" stroke="${wf}"/>
+          <text x="${wx}" y="${wy + 4}" style="font-size:10px;text-anchor:middle">${c ? c.logo : '🔌'}</text>
         </g>`);
     });
 
@@ -2440,14 +2558,13 @@ function nnBaum() {
       <g class="nn-node nn-agent ${st.stand === 'laeuft' ? 'arbeitet' : ''}" id="node-${m.id}"
          data-modell="${m.id}" role="button" tabindex="0"
          aria-label="${escHtml(m.person)}, ${escHtml(m.rolle)}: ${escHtml(st.text)}">
-        <circle class="nn-ring" cx="${x}" cy="${mitteReihe}" r="20" stroke="${farbe}"/>
-        <circle class="nn-core" cx="${x}" cy="${mitteReihe}" r="13" fill="${farbe}" opacity=".16"/>
-        <text x="${x}" y="${mitteReihe + 5}" style="font-size:13px;text-anchor:middle">👤</text>
-        <text x="${x}" y="${mitteReihe + 36}" class="nn-label">${escHtml(m.person)}</text>
-        <text x="${x}" y="${mitteReihe + 48}" class="nn-sub">${escHtml(m.rolle)}</text>
-        <text x="${x}" y="${mitteReihe + 60}" class="nn-sub" fill="${farbe}">${escHtml(st.text)}</text>
-        <text x="${x}" y="${mitteReihe + 73}" class="nn-task">${escHtml(String(st.task || m.aufgabe || '').slice(0, 52))}</text>
-        ${dateien.length ? `<text x="${x}" y="${mitteReihe + 85}" class="nn-datei">${escHtml(dateien.map(nnDateiKurz).join(' · ').slice(0, 44))}</text>` : ''}
+        <circle class="nn-hof" cx="${rx}" cy="${yRolle}" r="34" fill="${farbe}"/>
+        <circle class="nn-ring" cx="${rx}" cy="${yRolle}" r="22" stroke="${farbe}"/>
+        <circle class="nn-core" cx="${rx}" cy="${yRolle}" r="14" fill="${farbe}" opacity=".18"/>
+        <text x="${rx}" y="${yRolle + 6}" style="font-size:15px;text-anchor:middle">👤</text>
+        <text x="${rx}" y="${yRolle - 50}" class="nn-label">${escHtml(m.person)}</text>
+        <text x="${rx}" y="${yRolle - 38}" class="nn-sub">${escHtml(m.rolle)}</text>
+        <text x="${rx}" y="${yRolle + 52}" class="nn-sub" fill="${farbe}">${escHtml(st.text)}</text>
       </g>`);
   });
   return teile.join('');
@@ -2702,7 +2819,7 @@ function renderNeuralOps() {
   el.innerHTML = `
     <div class="neural-ops-head">
       <b>⚡ Live-Aufgabenstrom · <span class="neural-health ${healthClass}">${healthText}</span></b>
-      <span>Lagebild 4×/Tag · alle 11 Rollen je Lauf · Anzeige sekündlich</span>
+      <span>Lagebild alle 30 Min. · alle 11 Rollen je Lauf · Anzeige sekündlich</span>
     </div>
     <div class="neural-now-grid">
       <div class="neural-now live">
@@ -2945,7 +3062,7 @@ function renderJournal() {
   const e = (nnJournal && nnJournal.eintraege) || [];
   if (!e.length) {
     el.innerHTML = '<h5>📋 Arbeitsjournal</h5><p>Die 11 OpenRouter-Aufträge stehen in der 24/7-Steuerung. '
-      + 'Der Lagebild-Lauf startet viermal täglich; jeder Lauf arbeitet das gesamte Ensemble ab '
+      + 'Der Lagebild-Lauf startet alle 30 Minuten; jeder Lauf arbeitet das gesamte Ensemble ab '
       + 'und schreibt Antworten, Kostenstopps oder Fehler hier hinein.</p>';
     return;
   }
@@ -3270,14 +3387,103 @@ window.addEventListener('DOMContentLoaded', init);
   }
 
   /* HQ-Livezustand: der Circle kennt den Betrieb, nicht nur das Handbuch. */
+  /**
+   * Der Lagebericht — was der Betrieb JETZT tut, aus geladenen Quellen.
+   *
+   * Die tragende Regel: **eine nicht geladene Quelle wird als „nicht geladen"
+   * gemeldet, nie als Null.** „0 Schichten gearbeitet" heisst „der Betrieb
+   * lief und tat nichts". „Journal nicht geladen" heisst „ich weiss es
+   * nicht". Das sind zwei verschiedene Lagen, und man handelt unterschiedlich
+   * danach — sie zusammenfallen zu lassen ist genau die Art Fehler, die den
+   * Selbstcheck zwei Wochen lang über einen alten Code-Stand berichten liess.
+   */
+  function hqLagebericht() {
+    var z = [];
+    var rel = function (iso) {
+      if (!iso) return 'ohne Zeit';
+      var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+      if (!isFinite(min)) return 'ohne Zeit';
+      if (min < 2) return 'gerade eben';
+      if (min < 60) return 'vor ' + min + ' Min.';
+      if (min < 1440) return 'vor ' + Math.round(min / 60) + ' Std.';
+      return 'vor ' + Math.round(min / 1440) + ' Tagen';
+    };
+    var laeufe = state.runs || [];
+    var vonPfad = function (re) { return laeufe.filter(function (r) { return re.test(r.path || ''); }); };
+
+    if (!laeufe.length) {
+      z.push('Workflow-Läufe: nicht geladen — ohne sie kann ich zu Deploy und Puls nichts sagen.');
+    } else {
+      var dep = vonPfad(/ionos-deploy\.yml$/)[0];
+      z.push(dep
+        ? 'Letzter Deploy: ' + (dep.conclusion || 'läuft noch') + ' · ' + String(dep.head_sha || '').slice(0, 7) + ' · ' + rel(dep.created_at)
+        : 'Deploy: in den geladenen Läufen keiner.');
+      var puls = vonPfad(/hq-operations\.yml$/)[0];
+      z.push(puls
+        ? 'Letzter Ensemble-Puls: ' + (puls.conclusion || 'läuft noch') + ' · ' + rel(puls.created_at) + ' (Takt: alle 30 Min.)'
+        : 'Ensemble-Puls: in den geladenen Läufen keiner.');
+      var kaputt = laeufe.filter(function (r) { return r.conclusion === 'failure'; });
+      z.push(kaputt.length
+        ? 'Fehlgeschlagene Läufe unter den geladenen: ' + kaputt.length + ' — zuletzt ' + (kaputt[0].name || kaputt[0].path) + ' ' + rel(kaputt[0].created_at)
+        : 'Kein fehlgeschlagener Lauf unter den geladenen.');
+    }
+
+    if (!nnJournal) {
+      z.push('Arbeitsjournal: nicht geladen — ich kann nicht sagen, wer gearbeitet hat.');
+    } else {
+      var e = nnJournal.eintraege || [];
+      if (!e.length) {
+        z.push('Arbeitsjournal: geladen, aber leer — es hat noch keine Schicht gearbeitet.');
+      } else {
+        var nach = {};
+        e.forEach(function (x) { nach[x.ergebnis] = (nach[x.ergebnis] || 0) + 1; });
+        z.push('Arbeitsjournal: ' + e.length + ' Einträge (' + Object.keys(nach).map(function (k) { return nach[k] + '× ' + k; }).join(', ') + ').');
+        var letzte = e.filter(function (x) { return x.ergebnis === 'fertig'; })[0];
+        if (letzte) {
+          z.push('Zuletzt echt geliefert: ' + (letzte.person || letzte.rolle) + ' (' + (letzte.rollenname || '–') + ') ' + rel(letzte.zeit)
+            + ' — ' + String(letzte.text || '').replace(/\s+/g, ' ').slice(0, 200));
+        } else {
+          z.push('Keine einzige fertige Schicht im Journal — alle Einträge sind Ausfälle oder Kostenstopps.');
+        }
+        var kosten = e.reduce(function (a, x) { return a + (typeof x.kostenUsd === 'number' ? x.kostenUsd : 0); }, 0);
+        var tok = e.reduce(function (a, x) { return a + (x.tokens || 0); }, 0);
+        if (tok) z.push('Verbrauch im Journal: ' + tok + ' Token, $' + kosten.toFixed(5) + '.');
+      }
+    }
+
+    if (!state.audit) {
+      z.push('Selbstcheck: nicht geladen.');
+    } else {
+      var c = state.audit.counts || {};
+      z.push('Selbstcheck vom ' + (String(state.audit.erzeugt || state.audit.generated || '').slice(0, 10) || 'ohne Datum')
+        + ': ' + ((state.audit.findings || []).length) + ' Befunde (' + (c.error || 0) + ' Fehler, ' + (c.warn || 0) + ' Warnungen).');
+    }
+
+    if (state.pulls && state.pulls.length) {
+      z.push('Offene Pull Requests: ' + state.pulls.length + ' — ältester „' + String(state.pulls[state.pulls.length - 1].title || '').slice(0, 70) + '".');
+    } else if (laeufe.length) {
+      z.push('Keine offenen Pull Requests in den geladenen Daten.');
+    }
+
+    z.push(nnWissen
+      ? 'Wissensbasis: ' + nnWissen + ' freigegebene Abschnitte.'
+      : 'Wissensbasis: nicht geladen.');
+    if (state.siteUp !== null && state.siteUp !== undefined) {
+      z.push('Seite erreichbar: ' + (state.siteUp ? 'ja' : 'NEIN'));
+    }
+    return z.join('\n');
+  }
+
   function hqStatus(q) {
     var t = String(q || '').toLowerCase();
-    if (!/(status|deploy|live|version|sha|build|läuft|laeuft|seite|hq|system)/.test(t)) return null;
-    var sha = (document.getElementById('header-sha') || {}).textContent || 'unbekannt';
-    var bits = ['Aktueller HQ-Stand: ' + sha.trim()];
-    var lvl = document.getElementById('lvl-chip');
-    if (lvl && lvl.textContent.trim()) bits.push('Commander-Level: ' + lvl.textContent.trim());
-    return bits.join('. ') + '.';
+    // „wie laeuft" allein reicht nicht: „Wie laeuft eine Buchung ab?" ist eine
+    // Produktfrage. Eine Lage-Frage nennt ihren Gegenstand — den Betrieb.
+    if (!/lagebericht|betriebszustand|(ü|ue)berblick|\bstatus\b|\bdeploys?\b|wie steht (es|der betrieb|alles|die lage)|l(ä|ae)uft (alles|es)\b|aktueller stand|welcher stand|letzter (deploy|puls|lauf)/.test(t)) return null;
+    // Vorher standen hier zwei Zeilen: HQ-SHA und Commander-Level. Auf „wie
+    // steht es?" war das keine Antwort, sondern eine Ausweichbewegung.
+    var sha = ((document.getElementById('header-sha') || {}).textContent || '').trim();
+    var kopf = 'Lagebericht' + (sha ? ' (HQ-Stand ' + sha + ')' : '') + ':';
+    return kopf + '\n' + hqLagebericht();
   }
 
   function hqDialogContext() {
@@ -3374,7 +3580,10 @@ window.addEventListener('DOMContentLoaded', init);
     var treffer = topTreffer(q, 4);
     var hit = treffer[0] || search(q);
     var localAnswer = g || status || null;
-    if (hit) {
+    // Eine Status-Frage gewinnt gegen einen Wissenstreffer: auf „wie steht es?"
+    // ist ein Abschnitt ueber Buchungsablaeufe keine Antwort. Umgekehrt bleibt
+    // eine Produktfrage beim Wissen, weil hqStatus dann gar nicht anspringt.
+    if (hit && !status && !g) {
       var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
       localAnswer = (hit.heading ? hit.heading + '. ' : '') + txt;
     }
@@ -3487,7 +3696,11 @@ window.addEventListener('DOMContentLoaded', init);
     },
     sprechen: toggleMic,
     istOffen: function () { return panel.classList.contains('open'); },
-    kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+    kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); },
+    /* Der Lagebericht auch ausserhalb des Gespraechs — er ist eine Aussage
+       ueber den Betrieb, nicht bloss eine Chat-Antwort. */
+    lage: function () { return hqLagebericht(); },
+    statusAntwort: function (frage) { return hqStatus(frage); }
   };
   document.getElementById('ebc-close').addEventListener('click', close);
   micBtn.addEventListener('click', toggleMic);

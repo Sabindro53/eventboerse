@@ -414,6 +414,22 @@ test.describe('OpenRouter-Autopilot', () => {
     const summe = budgetAus(operations) + budgetAus(autopilot);
     expect(summe, `Puls $${budgetAus(operations)} + Autopilot $${budgetAus(autopilot)} = $${summe.toFixed(2)} über der Freigabe`)
       .toBeLessThanOrEqual(2.0);
+
+    // Und die Oberflaeche selbst. Der Katalog-Test allein hat nicht gereicht:
+    // hq.html trug an DREI Stellen hartkodiert „Lagebild 4×/Tag" und
+    // „$0,15/Tag hart" weiter, nachdem der Cron längst auf 30 Minuten stand.
+    // Wer aufs HQ schaut, liest den Text — nicht die JSON.
+    const hq = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
+    const pulsMin = cronMinuten((operations.match(/cron:\s*'([^']+)'/) || [])[1]);
+    for (const m of hq.matchAll(/Lagebild\s+(?:alle\s+(\d+)\s*Min\.|(\d+)×\/Tag)/g)) {
+      const behauptet = m[1] ? Number(m[1]) : (24 * 60) / Number(m[2]);
+      expect(behauptet, `hq.html sagt „${m[0]}", der Cron läuft alle ${pulsMin} Min.`).toBe(pulsMin);
+    }
+    for (const m of hq.matchAll(/\$(\d+),(\d+)\/Tag hart/g)) {
+      expect(Number(`${m[1]}.${m[2]}`), `hq.html sagt „${m[0]}", der Workflow setzt $${budgetAus(operations)}`)
+        .toBe(budgetAus(operations));
+    }
+    expect(hq, 'hq.html behauptet weiter „viermal täglich"').not.toMatch(/viermal täglich/);
   });
 });
 
@@ -464,7 +480,11 @@ test.describe('Neuronaler Kern', () => {
       expect(r.text).toContain(heading);
     }
     expect(r.text).toContain('Anzeige sekündlich');
-    expect(r.text).toContain('Lagebild 4×/Tag');
+    // Kein Literal: „Lagebild 4×/Tag" war eine Wort-Zusicherung und hat die
+    // veraltete Behauptung mitkonserviert, als der Cron auf 30 Min. wechselte.
+    // Geprüft wird die Eigenschaft — der Strom nennt SEINEN Takt. Ob die Zahl
+    // stimmt, prüft „der Katalog nennt den Takt, der wirklich läuft".
+    expect(r.text, 'der Strom nennt keinen Takt').toMatch(/Lagebild (alle \d+ Min\.|\d+×\/Tag)/);
     expect(r.text).toContain('alle 11 Rollen je Lauf');
     expect(r.text).toContain('Jetzt');
     expect(r.text).toContain('Nächste Prüfung');
@@ -752,6 +772,77 @@ test.describe('Neuronaler Kern', () => {
     expect(zu.orb).toBe(true);
   });
 
+  test('der Lagebericht nennt Betriebsdaten und trennt „nicht geladen" von „null"', async ({ page }) => {
+    // Der Kreis antwortete auf „wie steht es?" mit HQ-SHA und Commander-Level.
+    // Das war keine Antwort, sondern eine Ausweichbewegung.
+    const bericht = await page.evaluate(() => window.ebCircleAPI.statusAntwort('wie steht es?'));
+    expect(bericht, 'auf eine Lage-Frage kommt kein Bericht').toBeTruthy();
+    // Er benennt die Quellen, die es gibt — nicht bloß eine Versionsnummer.
+    for (const feld of ['Deploy', 'Puls', 'Arbeitsjournal', 'Selbstcheck', 'Wissensbasis']) {
+      expect(bericht, `der Bericht sagt nichts über ${feld}`).toContain(feld);
+    }
+
+    // Die tragende Regel: eine NICHT geladene Quelle wird als „nicht geladen"
+    // gemeldet, nicht als Null. „0 Schichten gearbeitet" heißt „der Betrieb
+    // lief und tat nichts"; „nicht geladen" heißt „ich weiß es nicht". Wer
+    // beides zusammenfallen lässt, handelt nach einer Lage, die es nicht gibt.
+    const ohne = await page.evaluate(() => {
+      const journalVorher = nnJournal, auditVorher = state.audit, laeufeVorher = state.runs;
+      nnJournal = null; state.audit = null; state.runs = [];
+      const t = window.ebCircleAPI.statusAntwort('lagebericht');
+      nnJournal = journalVorher; state.audit = auditVorher; state.runs = laeufeVorher;
+      return t;
+    });
+    expect(ohne, 'ein fehlendes Journal wird nicht als solches gemeldet')
+      .toMatch(/Arbeitsjournal: nicht geladen/);
+    expect(ohne, 'ein fehlender Selbstcheck wird nicht als solcher gemeldet')
+      .toMatch(/Selbstcheck: nicht geladen/);
+    expect(ohne, 'fehlende Läufe werden nicht als solche gemeldet')
+      .toMatch(/Workflow-Läufe: nicht geladen/);
+    // Und genau NICHT als Zahl: keine Null-Aussage über etwas Unbekanntes.
+    expect(ohne, 'fehlende Daten erscheinen als Null-Aussage')
+      .not.toMatch(/0 Einträge|0 Befunde|Journal: 0|keine? (Schicht|Befund) /i);
+
+    // Umgekehrt: ein GELADENES, aber leeres Journal darf das sagen — leer ist
+    // eine Aussage über den Betrieb, fehlend ist keine.
+    const leer = await page.evaluate(() => {
+      const v = nnJournal;
+      nnJournal = { version: 1, eintraege: [] };
+      const t = window.ebCircleAPI.statusAntwort('lagebericht');
+      nnJournal = v;
+      return t;
+    });
+    expect(leer, 'ein leeres Journal wird mit einem fehlenden verwechselt')
+      .toMatch(/geladen, aber leer/);
+  });
+
+  test('eine Lage-Frage wird als Lagebericht beantwortet, nicht als Wissensabschnitt', async ({ page }) => {
+    // Nicht hqStatus() allein prüfen, sondern was der Kreis wirklich sagt:
+    // in ask() setzte ein Wissenstreffer die lokale Antwort bedingungslos neu,
+    // die Lage kam also nie beim Fragenden an. Ohne diesen Test wäre die
+    // Rückkehr zu `if (hit)` unbemerkt geblieben.
+    await page.evaluate(() => window.ebCircleAPI.oeffnen());
+    await page.fill('#ebc-input', 'wie steht es?');
+    await page.press('#ebc-input', 'Enter');
+    // Textmodus mit lokaler Antwort bleibt tokenfrei — kein Netz im Spiel.
+    await expect(page.locator('#ebc-log')).toContainText('Lagebericht', { timeout: 8000 });
+    await expect(page.locator('#ebc-log')).toContainText('Arbeitsjournal');
+  });
+
+  test('eine Produktfrage bekommt Wissen, keinen Lagebericht', async ({ page }) => {
+    // Das alte Muster fing „seite", „hq", „system", „live" — damit hätte
+    // jede Produktfrage einen Betriebsbericht ausgelöst.
+    for (const frage of ['Wie läuft eine Buchung ab?', 'Was kostet die Plattform?', 'Wie bezahle ich?']) {
+      const s = await page.evaluate((f) => window.ebCircleAPI.statusAntwort(f), frage);
+      expect(s, `„${frage}" löst einen Lagebericht aus`).toBeNull();
+    }
+    // Und die Lage-Fragen greifen weiterhin.
+    for (const frage of ['wie steht es?', 'Lagebericht', 'status', 'letzter Deploy?']) {
+      const s = await page.evaluate((f) => window.ebCircleAPI.statusAntwort(f), frage);
+      expect(s, `„${frage}" löst keinen Lagebericht aus`).toBeTruthy();
+    }
+  });
+
   test('der geöffnete Bereich nennt je Mitarbeiter Ziel und Datei — ungekürzt', async ({ page }) => {
     // Im SVG ist das Ziel auf 52 Zeichen und die Dateiliste auf 44 gekappt.
     // Ein halbes Ziel beantwortet „woran arbeitet der gerade" nicht, deshalb
@@ -785,6 +876,44 @@ test.describe('Neuronaler Kern', () => {
         for (const d of aufgabe.dateien || []) {
           expect(gesehen.dateien, `${m.person}: Datei ${d} fehlt oder ist gekürzt`).toContain(d);
         }
+      }
+    }
+  });
+
+  test('der geöffnete Bereich zeigt alle Aufgaben — und kein Ziel endet mitten im Wort', async ({ page }) => {
+    // Vorher trug die mittlere Ebene EINE Aufgabe je Mitarbeiter, hart nach
+    // 52 Zeichen geschnitten: „…als ein Produkt betrachten und die". Ein Satz,
+    // der mitten im Wort endet, liest sich wie ein Fehler, nicht wie eine
+    // Kürzung — und ein Bereich mit einem Mitarbeiter war ein einzelner Punkt
+    // auf leerer Fläche, obwohl sein Aufgabenstrom im Katalog steht.
+    for (const bid of ['produkt', 'engineering', 'experience']) {
+      const gesehen = await page.evaluate((id) => {
+        nnOeffne(id);
+        return {
+          aufgaben: [...document.querySelectorAll('#nn .nn-aufgabe')].map((g) =>
+            [...g.querySelectorAll('text')].map((t) => t.textContent).join(' ').trim()),
+          dateien: document.querySelectorAll('#nn .nn-dateiknoten').length,
+        };
+      }, bid);
+
+      const ziele = KATALOG.modelle.filter((m) => m.bereich === bid)
+        .flatMap((m) => (m.aufgabenstrom || []).map((a) => a.ziel));
+      expect(gesehen.aufgaben.length, `${bid}: nicht jede Aufgabe hat einen Knoten`)
+        .toBe(Math.min(ziele.length, 4 * KATALOG.modelle.filter((m) => m.bereich === bid).length));
+
+      for (const beschriftung of gesehen.aufgaben) {
+        const sichtbar = beschriftung.replace(/\s*…\s*$/, '').trim();
+        const echtesZiel = ziele.find((t) => t.startsWith(sichtbar));
+        expect(echtesZiel, `${bid}: „${sichtbar}" ist kein Wort-Präfix eines echten Ziels`).toBeTruthy();
+        // Falls gekürzt wurde: an einer Wortgrenze, nie mitten im Wort.
+        if (sichtbar !== echtesZiel) {
+          expect(echtesZiel[sichtbar.length], `${bid}: „…${sichtbar.slice(-24)}" endet mitten im Wort`)
+            .toBe(' ');
+        }
+      }
+      if (ziele.length) {
+        expect(gesehen.dateien, `${bid}: keine Datei-Knoten trotz Aufgaben mit Dateien`)
+          .toBeGreaterThan(0);
       }
     }
   });

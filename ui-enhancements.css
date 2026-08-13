@@ -2,7 +2,41 @@
   ui-enhancements.css
   Loads AFTER styles.css. Use this file for all visual improvements, overrides, and new UI components.
   Always adhere to the Eventbörse Design System and use CSS variables where appropriate.
+
+  ── Warum hier Variablen stehen ──────────────────────────────────────────
+  Diese Datei benutzte 13 Variablen, die in KEINER CSS-Datei des Projekts
+  definiert waren. Ein var() ohne Definition macht die Deklaration „invalid
+  at computed-value time": die Eigenschaft faellt auf `unset` zurueck. Weil
+  diese Datei NACH styles.css laedt und bei gleicher Spezifitaet gewinnt,
+  hat sie damit live geloescht, was styles.css absichtlich setzt:
+
+    .listing-card / .review-card / .kanban-card
+      box-shadow: var(--eb-shadow-2)   -> unset -> gar kein Schatten,
+      obwohl styles.css den Karten mit --eb-depth-1 Tiefe gibt.
+
+    button/a/input:focus-visible
+      border-radius: var(--eb-radius-sm) -> unset -> 0,
+      also sprangen runde Elemente bei Tastatur-Fokus auf eckig.
+
+  Die Namen werden deshalb hier auf die echten Tokens aus styles.css
+  abgebildet, statt sie in styles.css zu erfinden — das Design-System hat
+  bereits Namen, diese Datei benutzte nur andere.
 */
+:root {
+  --brand-primary: var(--primary);
+  --brand-primary-rgb: 255, 56, 92;   /* = --primary #FF385C, fuer rgba() */
+  --surface: var(--bg);
+  --surface-2: var(--bg-alt);
+  --eb-shadow-2: var(--shadow-md);
+  --eb-transition-fast: .18s ease;
+  --eb-radius-sm: var(--radius-sm);
+  --eb-radius-md: var(--radius-md);
+  --eb-spacing-xs: .35rem;
+  --eb-spacing-sm: .6rem;
+  --eb-spacing-md: 1rem;
+  --eb-spacing-lg: 1.5rem;
+  --eb-spacing-xl: 2.25rem;
+}
 
 /* --- Global Enhancements --- */
 
@@ -46,16 +80,11 @@
   background: linear-gradient(to bottom, rgba(var(--brand-primary-rgb), 0.08), transparent); /* Slightly more prominent in dark mode */
 }
 
-/* Example: Better focus styles for accessibility */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--brand-primary);
-  outline-offset: 2px;
-  border-radius: var(--eb-radius-sm);
-}
+/* Fokus-Ringe stehen bewusst NICHT hier.
+   styles.css setzt sie als `outline: none` + `box-shadow: var(--eb-ring)` —
+   eine bewusste Entscheidung, kein Versehen. Ein zweiter Ring als Outline
+   waere ein konkurrierender Indikator; und der `border-radius` in diesem
+   Block war es, der fokussierte Elemente eckig machte. */
 
 /* ===== MODAL BACKDROP BLUR ===== */
 .modal-backdrop {
