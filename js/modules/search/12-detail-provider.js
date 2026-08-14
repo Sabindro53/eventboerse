@@ -21,7 +21,8 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (imgs.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />`;
+    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />${_aiMediaWatermarkHtml(listing)}`;
+    heroImg.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }
 
   // Swipeable gallery carousel
@@ -33,7 +34,7 @@ function loadDetail(listingId) {
       var delBtn = _detailCanModerate && img !== window.EB_IMG_FALLBACK
         ? '<button type="button" class="detail-gallery-admin-del" title="Bild als Admin löschen" aria-label="Bild als Admin löschen" onclick="adminDeleteListingImage(' + i + ', event)"><span class="material-icons-round">delete</span> Löschen</button>'
         : '';
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + delBtn + '</div>';
+      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + _aiMediaWatermarkHtml(listing) + delBtn + '</div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -42,6 +43,8 @@ function loadDetail(listingId) {
     imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') +
     '</div>' +
     '<div class="detail-gallery-counter" id="detailGalleryCounter">1 / ' + imgs.length + '</div>' : '');
+  gallery.setAttribute('data-ai-text', _aiDisclosureValue(listing, 'text'));
+  gallery.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   _initDetailGallerySwipe();
   // Detect wide banners for hero + gallery
   detectWideBannerImg(heroImg.querySelector('img'));
@@ -62,6 +65,17 @@ function loadDetail(listingId) {
   document.getElementById('detailRating').textContent = listing.rating || '0';
   document.getElementById('detailReviewCount').textContent = '(' + (listing.reviews || 0) + ' Bewertungen)';
   document.getElementById('detailLocation').textContent = listing.region;
+  var aiDisclosure = document.getElementById('detailAiDisclosure');
+  if (aiDisclosure) {
+    var aiLabels = _aiDisclosureLabelsHtml(listing, 'ai-disclosure-detail');
+    var hasOpenStatus = _aiDisclosureValue(listing, 'text') === 'undeclared' || _aiDisclosureValue(listing, 'media') === 'undeclared';
+    var aiNote = hasOpenStatus
+      ? 'Altbestand: Die ausdrückliche Nachdeklaration steht noch aus.'
+      : 'Vom Anbieter bei Veröffentlichung deklariert.';
+    aiDisclosure.innerHTML = aiLabels ? aiLabels + '<small>' + aiNote + '</small>' : '';
+    aiDisclosure.setAttribute('data-ai-text', _aiDisclosureValue(listing, 'text'));
+    aiDisclosure.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
+  }
   document.getElementById('detailProviderImg').src = _resolveAvatar(listing.providerImg, listing.providerName);
   document.getElementById('detailProviderName').textContent = listing.providerName;
   document.getElementById('detailProviderTag').textContent = `Superhost · Seit ${listing.providerSince} auf Eventbörse`;
@@ -69,6 +83,8 @@ function loadDetail(listingId) {
   // Show edit button only for own listings
   var editBtn = document.getElementById('detailEditBtn');
   if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
+  var reportBtn = document.getElementById('detailReportBtn');
+  if (reportBtn) reportBtn.style.display = listing._fromDb ? '' : 'none';
 
   // Board-Status-Chip: zeigt, ob dieses Inserat schon im Planungsboard steckt
   // (Im Plan / Kontaktiert / Angebot / Gebucht) — Verknüpfung Detail ↔ Board.
@@ -129,6 +145,70 @@ function loadDetail(listingId) {
   // Negotiation price
   document.getElementById('negOriginalPrice').value = listing.priceLabel;
   renderDetailCollaborationSuggestions(listing.providerId);
+}
+
+var _contentReportListing = null;
+
+function openListingReport(listingArg) {
+  var listing = listingArg && listingArg.id ? listingArg : currentListing;
+  if (!listing || !listing._fromDb || !listing._dbId) {
+    showToast('Dieses Demo-Inserat ist nicht öffentlich meldbar.', 'info');
+    return;
+  }
+  _contentReportListing = listing;
+  var form = document.getElementById('contentReportForm');
+  if (form) form.reset();
+  var target = document.getElementById('contentReportTarget');
+  if (target) target.value = listing.title + ' · /detail/' + listing.id;
+  var name = document.getElementById('contentReportName');
+  var email = document.getElementById('contentReportEmail');
+  if (name && currentUser) name.value = currentUser.name || '';
+  if (email && currentUser) email.value = currentUser.email || '';
+  toggleReportContactRequirement();
+  openModal('contentReportModal');
+}
+
+function toggleReportContactRequirement() {
+  var reason = (document.getElementById('contentReportReason') || {}).value || '';
+  var optional = reason === 'sexual_abuse_minors';
+  var name = document.getElementById('contentReportName');
+  var email = document.getElementById('contentReportEmail');
+  var note = document.getElementById('contentReportException');
+  if (name) name.required = !optional;
+  if (email) email.required = !optional;
+  if (note) note.hidden = !optional;
+}
+
+async function submitListingReport(event) {
+  event.preventDefault();
+  var listing = _contentReportListing;
+  if (!listing || !listing._dbId) return;
+  var btn = document.getElementById('contentReportSubmit');
+  _setBtnLoading(btn, true);
+  try {
+    var response = await fetch(_apiUrl('listings/' + listing._dbId + '/report'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        reason: (document.getElementById('contentReportReason') || {}).value || '',
+        explanation: (document.getElementById('contentReportExplanation') || {}).value || '',
+        reporterName: (document.getElementById('contentReportName') || {}).value || '',
+        reporterEmail: (document.getElementById('contentReportEmail') || {}).value || '',
+        goodFaith: !!(document.getElementById('contentReportGoodFaith') || {}).checked
+      })
+    });
+    var data = {};
+    try { data = await response.json(); } catch (e) {}
+    if (!response.ok) throw new Error(data.message || 'Meldung konnte nicht gesendet werden.');
+    closeModal('contentReportModal');
+    _contentReportListing = null;
+    showToast('Meldung erhalten · Vorgang ' + (data.caseId || ''), 'verified_user');
+  } catch (err) {
+    showToast(err.message || 'Meldung konnte nicht gesendet werden.', 'error');
+  } finally {
+    _setBtnLoading(btn, false);
+  }
 }
 
 // ========== PROVIDER PROFILE ==========

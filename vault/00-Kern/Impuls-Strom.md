@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-12**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-14**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -63,24 +63,24 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **26** |
-| Commits (30 Tage) | 107 |
-| Letzter Commit | `79cee61 · GitHub App statt Token — fuer Routine UND Autopilot` (2026-08-12) |
+| Commits (7 Tage) | **28** |
+| Commits (30 Tage) | 127 |
+| Letzter Commit | `3e530dc · Merge pull request #154 from Sabindro53/agent/fix-radar-popup-contrast` (2026-08-14) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-34 app.js
-     29 tests/e2e/kern.spec.js
-     27 CLAUDE.md
-     26 styles.css
-     21 vault/30-Betrieb/Testing.md
+38 app.js
+  37 tests/e2e/kern.spec.js
+  33 CLAUDE.md
+  29 vault/50-Evolution/Roadmap/Current-Sprint.md
+  28 styles.css
 ```
 
 **Codegröße:**
-- `app.js` — 25.586 Zeilen
-- `styles.css` — 16.991 Zeilen
-- `functions.php` — 9.560 Zeilen
-- `app-shell.html` — 4.011 Zeilen
+- `app.js` — 26.599 Zeilen
+- `styles.css` — 17.105 Zeilen
+- `functions.php` — 10.198 Zeilen
+- `app-shell.html` — 4.122 Zeilen
 
 ## Verwandt
 - [[00-Kern/Wissensstroeme]] — die sechs Impulse

@@ -416,6 +416,7 @@ function navigateTo(page, data, skipHistory) {
       if (!window._isEditNavigation) {
         window._editingListingId = null;
         document.getElementById('createListingForm').reset();
+        try { _setAiDisclosureForm('', ''); } catch (e) {}
         document.getElementById('uploadPreview').innerHTML = '';
         document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
         document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });

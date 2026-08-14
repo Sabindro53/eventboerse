@@ -13,7 +13,9 @@
  * Audit-Issue: #13 (P0.4 — Fehlende Rate-Limiting auf Auth-Endpoints).
  *
  * Implementierung: WordPress-Transients als Sliding-Window-Counter.
- * Key besteht aus aktion + IP-Hash, sodass mehrere Endpoints unabhaengige Buckets haben.
+ * Key besteht aus Aktion + serverseitig geschuetztem IP-HMAC, sodass mehrere
+ * Endpoints unabhaengige Buckets haben und die IP nicht aus einem einfachen
+ * Hash-Woerterbuch zurueckgewonnen werden kann.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -54,7 +56,7 @@ function eventboerse_get_client_ip() {
 function eventboerse_check_rate_limit( $action, $limit = 5, $window_secs = 900, $identifier_override = null ) {
     $ip       = eventboerse_get_client_ip();
     $ident    = $identifier_override !== null ? (string) $identifier_override : $ip;
-    $bucket   = 'eb_rl_' . md5( $action . '|' . $ident );
+    $bucket   = 'eb_rl_' . hash_hmac( 'sha256', $action . '|' . $ident, wp_salt( 'auth' ) );
 
     $entry = get_transient( $bucket );
     $now   = time();
@@ -92,6 +94,6 @@ function eventboerse_check_rate_limit( $action, $limit = 5, $window_secs = 900, 
  */
 function eventboerse_reset_rate_limit( $action, $identifier_override = null ) {
     $ident  = $identifier_override !== null ? (string) $identifier_override : eventboerse_get_client_ip();
-    $bucket = 'eb_rl_' . md5( $action . '|' . $ident );
+    $bucket = 'eb_rl_' . hash_hmac( 'sha256', $action . '|' . $ident, wp_salt( 'auth' ) );
     delete_transient( $bucket );
 }

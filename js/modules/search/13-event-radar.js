@@ -572,7 +572,7 @@ function _feedRadarPopupHtml(gruppe) {
       + '<span class="material-icons-round">' + (hit.art === 'event' ? 'celebration' : 'storefront') + '</span>'
       + '<span><strong>' + _escHtml(title) + '</strong><small>'
       + _escHtml(hit.ort || '') + ' · ' + _escHtml(radarEntfernung(hit.km))
-      + (hit.genau ? '' : ' · ca.') + '</small></span>'
+      + (hit.genau ? '' : ' · ca.') + '</small>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-popup') + '</span>'
       + '<span class="material-icons-round">arrow_forward</span></button>';
   }).join('');
   return '<div class="feed-radar-popup"><div class="feed-radar-popup-head">'
@@ -780,9 +780,9 @@ function _drawFeedRadar() {
       var d = hit.daten || {};
       var title = d.title || d.name || 'Event';
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
-      return '<article class="feed-radar-result" data-radar-index="' + index + '">' +
+      return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
-        '<img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
+        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '>' + _aiMediaWatermarkHtml(d) + _aiTextDisclosureHtml(d) + '</span><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
         '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong><small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
         '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
     }).join('') + '</div>';

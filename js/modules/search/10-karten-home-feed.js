@@ -4,7 +4,7 @@ function renderListingCard(listing) {
   var imgs = Array.isArray(listing.images) && listing.images.length ? listing.images : [listing.image];
   var galleryId = 'gridGallery_' + listing.id;
   return `
-    <div class="listing-card" data-listing-id="${listing.id}">
+    <div class="listing-card" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bilder: ${_escHtml(listing.title)}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
@@ -15,6 +15,8 @@ function renderListingCard(listing) {
         </button>
         ${listing.badge ? '<span class="listing-badge">' + _escHtml(listing.badge) + '</span>' : ''}
         ${_boardStatusBadgeHtml(listing.id, 'bsb-on-card')}
+        ${_aiMediaWatermarkHtml(listing)}
+        ${_aiTextDisclosureHtml(listing)}
       </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
@@ -76,8 +78,9 @@ function renderHeroMarquees() {
   }
 
   function cardHTML(l) {
-    return '<a class="hero-marquee-card" href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
+    return '<a class="hero-marquee-card"' + _aiDisclosureAttrs(l) + ' href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
       '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager"' + window.EB_IMG_ERR_ATTR + ' />' +
+      _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
         '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
@@ -234,11 +237,11 @@ function renderExploreGrid(filter) {
   let items = [];
   filterDemos(LISTINGS).forEach(l => {
     // Main image
-    items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+    items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, aiTextDisclosure: l.aiTextDisclosure, aiMediaDisclosure: l.aiMediaDisclosure });
     // Additional images
     if (l.images) {
       l.images.slice(1).forEach(img => {
-        items.push({ image: img, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+        items.push({ image: img, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, aiTextDisclosure: l.aiTextDisclosure, aiMediaDisclosure: l.aiMediaDisclosure });
       });
     }
   });
@@ -247,8 +250,9 @@ function renderExploreGrid(filter) {
   }
   grid.innerHTML = items.map((it, i) => {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
-    return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
+    return `<a href="#" class="explore-item ${sizeClass}"${_aiDisclosureAttrs(it)} onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
       <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+      ${_aiMediaWatermarkHtml(it)}${_aiTextDisclosureHtml(it)}
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
         <span class="explore-item-price">${_escHtml(it.price)}</span>
@@ -320,7 +324,7 @@ function renderFeed(tab) {
     const isFav = favorites.has(l.id);
     const desc = l.description || l.title;
     const tags = l.features ? l.features.slice(0, 3) : [];
-    return `<div class="feed-card">
+    return `<div class="feed-card"${_aiDisclosureAttrs(l)}>
       <div class="feed-card-header">
         <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
         <div class="feed-card-meta">
@@ -329,7 +333,7 @@ function renderFeed(tab) {
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+      <div class="feed-card-media"><img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}</div>
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
         <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
@@ -727,4 +731,3 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-

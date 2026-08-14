@@ -9,14 +9,14 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-11)
+## Stand heute (2026-08-14)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 279 Tests in 14 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 303 Tests in 17 Suiten**, blockierendes Gate in `pr-check.yml`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift
 - **Lagebild-Lauf 4×/Tag** (02/08/14/20 UTC), 11 Rollen je Lauf, eigenes
@@ -34,6 +34,18 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 ## Zuletzt ausgeliefert (August 2026)
 
+- [x] **KI-Transparenz fuer Inserate:** Beim Veröffentlichen sind Text und
+  Medien getrennt und ohne Vorbelegung als ohne generative KI, wesentlich
+  KI-unterstützt oder KI-generiert zu deklarieren. KI-Medien tragen auf allen
+  Inseratflächen ein sichtbares Wasserzeichen; neue lokale Uploads bekommen
+  die Kennzeichnung zusätzlich in die Bildpixel. API und Markup führen den
+  Status maschinenlesbar. Altinhalte werden nicht zu „menschlich" umgedeutet,
+  sondern bleiben sichtbar „KI-Status offen", bis der Anbieter nachdeklariert.
+  Direkt am Inserat nimmt ein begründeter DSA-Meldeweg falsche Kennzeichnung
+  und Irreführung entgegen, speichert vor E-Mail-Versand, vergibt eine
+  Vorgangsnummer und löscht Meldedaten nach drei Jahren (außer Legal Hold).
+  Community-, Upload-, DSA- und Datenschutzhinweise sind auf Stand 14.08.2026.
+  Absicherung: 10 neue KI-Transparenztests, Gesamtsuite 303/303 grün.
 - [x] **Die Belegschaft läuft wieder — und ihr Ausfall ist jetzt sichtbar.**
   Zwischen dem 07. und 11.08. sind **elf Läufe hintereinander fehlgeschlagen**
   (5× Tagesroutine, 6× Ensemble-Puls), ohne dass es jemand bemerkt hat. Vier

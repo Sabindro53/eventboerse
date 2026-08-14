@@ -47,6 +47,8 @@ function renderMyListings() {
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
+              aiTextDisclosure: l.aiTextDisclosure,
+              aiMediaDisclosure: l.aiMediaDisclosure,
               image: (l.images && l.images[0]) || '',
               images: l.images || [],
               location: l.location,
@@ -89,8 +91,9 @@ function renderMyListings() {
           // DB events from API
           if (evt._fromDb) {
             return '<div class="my-listing-card">' +
-              '<div class="my-listing-img">' +
+              '<div class="my-listing-img"' + _aiDisclosureAttrs(evt) + '>' +
                 '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
+                _aiMediaWatermarkHtml(evt) + _aiTextDisclosureHtml(evt) +
                 '<span class="status-badge status-active">Aktiv</span>' +
               '</div>' +
               '<div class="my-listing-info">' +
@@ -170,8 +173,9 @@ function renderMyListings() {
           var rating = l.rating || 0;
           var reviewCount = l.reviewCount || 0;
           return '<div class="my-listing-card">' +
-            '<div class="my-listing-img">' +
+            '<div class="my-listing-img"' + _aiDisclosureAttrs(l) + '>' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
+              _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
               '<span class="status-badge status-active">Aktiv</span>' +
             '</div>' +
             '<div class="my-listing-info">' +
@@ -231,6 +235,8 @@ function renderMyListings() {
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
+              aiTextDisclosure: l.aiTextDisclosure,
+              aiMediaDisclosure: l.aiMediaDisclosure,
               image: (l.images && l.images[0]) || '',
               images: l.images || [],
               location: l.location,
@@ -292,6 +298,9 @@ function editListing(listingId) {
 
   // Typ (Biete/Suche) aus dem Inserat übernehmen
   try { _clSetType(listing.listingType === 'search' ? 'search' : 'offer'); } catch (e) {}
+  // Legacy records remain unselected and require an explicit declaration on
+  // the next save; do not silently turn "undeclared" into "without AI".
+  try { _setAiDisclosureForm(listing.aiTextDisclosure, listing.aiMediaDisclosure); } catch (e) {}
   // Verfügbarkeitskalender mit bestehenden Block-Tagen vorbefüllen
   try { _clAvailPrefill(listing); } catch (e) {}
 
@@ -914,4 +923,3 @@ function adminChangeRole(userId, role) {
     loadAdminUsers();
   }).catch(function(e) { showToast(e.message || 'Rollenwechsel fehlgeschlagen', 'error'); });
 }
-
