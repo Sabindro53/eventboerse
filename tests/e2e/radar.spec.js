@@ -271,6 +271,72 @@ test.describe('Radar-Oberfläche', () => {
   });
 });
 
+test.describe('Radar als echte Feed-Karte', () => {
+  async function feedRadarOeffnen(page) {
+    const errors = await openApp(page);
+    await page.evaluate(() => navigateTo('aktuelles'));
+    await page.waitForFunction(() => !!document.querySelector('.feed-tab-radar'));
+    await page.evaluate(() => switchFeedTab(document.querySelector('.feed-tab-radar')));
+    await page.waitForFunction(() => !!window._feedRadarMap
+      && !!document.querySelector('#feedRadarMap.leaflet-container'), null, { timeout: 10000 });
+    return errors;
+  }
+
+  test('zeigt den gewählten Kilometerkreis und wirklich alle Treffer', async ({ page }) => {
+    const errors = await feedRadarOeffnen(page);
+    const r = await page.evaluate(() => ({
+      hits: _feedRadarHits.length,
+      karten: document.querySelectorAll('.feed-radar-result').length,
+      markerTreffer: _feedRadarMarkers.reduce((sum, gruppe) => sum + gruppe.indexes.length, 0),
+      radiusMeter: Math.round(_feedRadarRange.getRadius()),
+      hatOsm: !!document.querySelector('#feedRadarMap .leaflet-tile-pane'),
+      beschriftung: document.getElementById('feedRadarMap').getAttribute('aria-label'),
+    }));
+    expect(r.hits, 'im Standardradius müssen Beispieldaten liegen').toBeGreaterThan(0);
+    expect(r.karten, 'die Liste darf keinen künstlichen 24er-Deckel haben').toBe(r.hits);
+    expect(r.markerTreffer, 'jeder Treffer muss mindestens einem Marker zugeordnet sein').toBe(r.hits);
+    expect(r.radiusMeter, '50 km müssen als echter Kartenkreis gezeichnet werden').toBe(50000);
+    expect(r.hatOsm, 'es muss eine echte OpenStreetMap-Karte sein').toBe(true);
+    expect(r.beschriftung).toMatch(/50 Kilometern/);
+    expectNoPageErrors(errors, 'Radar-Feed-Karte');
+  });
+
+  test('der Scan-Kreis läuft einmal vom Standort bis zum Radius nach außen', async ({ page }) => {
+    const errors = await feedRadarOeffnen(page);
+    await page.evaluate(() => feedRadarRadius(25));
+    await page.waitForFunction(() => !!window._feedRadarPulse
+      && _feedRadarPulse.getRadius() > 500, null, { timeout: 2500 });
+    const waehrend = await page.evaluate(() => ({
+      pulse: _feedRadarPulse.getRadius(),
+      ziel: _feedRadarRange.getRadius(),
+      status: document.getElementById('feedRadarScanStatus').textContent,
+    }));
+    expect(waehrend.pulse).toBeGreaterThan(500);
+    expect(waehrend.pulse).toBeLessThanOrEqual(waehrend.ziel);
+    expect(waehrend.ziel).toBe(25000);
+    expect(waehrend.status).toMatch(/Radar scannt/);
+    await page.waitForFunction(() => window._feedRadarPulse === null
+      && /Treffer entdeckt/.test(document.getElementById('feedRadarScanStatus').textContent),
+    null, { timeout: 4000 });
+    expectNoPageErrors(errors, 'Radar-Scan-Kreis');
+  });
+
+  test('gleiche Stadtmittelpunkte werden ehrlich gebündelt statt zufällig verteilt', async ({ page }) => {
+    const errors = await feedRadarOeffnen(page);
+    const groessen = await page.evaluate(() => _feedRadarGruppen([
+      { daten: { location: 'Bremen' } },
+      { daten: { location: 'Bremen' } },
+      { daten: { location: 'Berlin' } },
+    ]).map((gruppe) => gruppe.items.length).sort());
+    const feedMapBlock = MODUL.slice(MODUL.indexOf('function _feedRadarGruppen'),
+      MODUL.indexOf('function renderFeedRadar'));
+    expect(groessen).toEqual([1, 2]);
+    expect(feedMapBlock, 'ungefähre Marker dürfen nicht zufällig verschoben werden')
+      .not.toMatch(/Math\.random/);
+    expectNoPageErrors(errors, 'Radar-Marker-Bündelung');
+  });
+});
+
 test.describe('Positionen sind echt, nicht gewürfelt', () => {
   const KARTE = fs.readFileSync(
     path.join(__dirname, '..', '..', 'js', 'modules', 'ui', '32-consent-init-map.js'), 'utf8');

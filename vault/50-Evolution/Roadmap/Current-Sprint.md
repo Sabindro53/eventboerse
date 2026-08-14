@@ -76,6 +76,11 @@ einen alten Abschnitt gelesen und nicht diesen.
   vorher war ein Fotograf zwei Straßen hinter der Stadtgrenze unauffindbar. Position
   bleibt **lokal**, wird nie an den Server gesendet und nur auf 2 Nachkommastellen
   (≈ 1,1 km) gespeichert; 25 DACH-Städte zur Auswahl, damit GPS freiwillig bleibt.
+- [x] **Radar ist jetzt wirklich eine Karte:** Der Radar-Kanal unter „Aktuelles“
+  zeichnet den gewählten Kilometerkreis auf OpenStreetMap, lässt beim Öffnen einmal
+  eine Scan-Welle vom Standort nach außen laufen und zeigt **alle** Treffer als
+  verknüpfte Marker und Entfernungsliste. Identische Stadtmittelpunkte werden ehrlich
+  gebündelt statt künstlich verteilt; schnelle Radiuswechsel brechen die Karte nicht.
 - [x] **Echte Marker:** Die Karte streute vorher mit `Math.random()` um das Zentrum —
   die Marker logen bei jedem Neuzeichnen *anders*. Jetzt echte Koordinaten, und wo
   keine hinterlegt sind, sagt der Marker das, statt Genauigkeit vorzutäuschen.
