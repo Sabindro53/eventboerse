@@ -6269,8 +6269,184 @@ function geoInseratDaten() {
 }
 
 /* ── Radar als eigener Feed-Kanal ─────────────────────────────────── */
+
+/* Eigene Leaflet-Instanz für den Feed. Die große Karten-Overlay-Instanz
+   (`leafletMap`) bleibt davon unabhängig, damit beide Oberflächen ihre
+   Marker und ihren Zoom nicht gegenseitig überschreiben. */
+var _feedRadarMap = null;
+var _feedRadarRange = null;
+var _feedRadarPulse = null;
+var _feedRadarPulseRaf = 0;
+var _feedRadarMarkers = [];
+var _feedRadarHits = [];
+
+function _destroyFeedRadarMap() {
+  if (_feedRadarPulseRaf) {
+    cancelAnimationFrame(_feedRadarPulseRaf);
+    _feedRadarPulseRaf = 0;
+  }
+  if (_feedRadarMap) {
+    try { _feedRadarMap.remove(); } catch (e) { /* DOM kann schon ersetzt sein. */ }
+  }
+  _feedRadarMap = null;
+  _feedRadarRange = null;
+  _feedRadarPulse = null;
+  _feedRadarMarkers = [];
+}
+
+function _feedRadarPopupHtml(gruppe) {
+  var eintraege = gruppe.map(function(item) {
+    var hit = item.hit;
+    var d = hit.daten || {};
+    var title = d.title || d.name || 'Event';
+    return '<button type="button" class="feed-radar-popup-row" onclick="feedRadarOpen(' + item.index + ')">'
+      + '<span class="material-icons-round">' + (hit.art === 'event' ? 'celebration' : 'storefront') + '</span>'
+      + '<span><strong>' + _escHtml(title) + '</strong><small>'
+      + _escHtml(hit.ort || '') + ' · ' + _escHtml(radarEntfernung(hit.km))
+      + (hit.genau ? '' : ' · ca.') + '</small></span>'
+      + '<span class="material-icons-round">arrow_forward</span></button>';
+  }).join('');
+  return '<div class="feed-radar-popup"><div class="feed-radar-popup-head">'
+    + '<span>IM RADAR</span><strong>' + gruppe.length + ' Treffer</strong></div>'
+    + eintraege + '</div>';
+}
+
+/** Identische echte Positionen und Stadtmittelpunkte werden gebündelt.
+    Eine künstliche Streuung würde Genauigkeit vortäuschen; ein Marker mit
+    Zähler sagt dagegen ehrlich, dass mehrere Inserate am selben bekannten
+    Punkt liegen. */
+function _feedRadarGruppen(hits) {
+  var gruppen = {};
+  hits.forEach(function(hit, index) {
+    var pos = radarPosition(hit.daten);
+    if (!pos) return;
+    var key = pos.lat.toFixed(5) + ':' + pos.lng.toFixed(5);
+    if (!gruppen[key]) gruppen[key] = { pos: pos, items: [] };
+    gruppen[key].items.push({ hit: hit, index: index });
+  });
+  return Object.keys(gruppen).map(function(key) { return gruppen[key]; });
+}
+
+function _feedRadarScanStart(pos, radiusKm, trefferzahl) {
+  if (!_feedRadarMap || typeof L === 'undefined') return;
+  var status = document.getElementById('feedRadarScanStatus');
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var maxRadius = radiusKm * 1000;
+
+  _feedRadarPulse = L.circle([pos.lat, pos.lng], {
+    radius: reduced ? maxRadius : 1,
+    color: '#27e6d2', weight: 2, opacity: reduced ? 0 : .9,
+    fillColor: '#27e6d2', fillOpacity: reduced ? 0 : .18,
+    interactive: false, className: 'feed-radar-scan-wave',
+  }).addTo(_feedRadarMap);
+
+  if (reduced) {
+    if (status) status.innerHTML = '<span class="feed-radar-live-dot"></span>'
+      + trefferzahl + ' Treffer im Umkreis';
+    return;
+  }
+
+  var start = 0;
+  var dauer = 1800;
+  if (status) status.innerHTML = '<span class="feed-radar-live-dot scannt"></span>Radar scannt …';
+
+  function frame(now) {
+    if (!_feedRadarMap || !_feedRadarPulse) return;
+    if (!start) start = now;
+    var fortschritt = Math.min(1, (now - start) / dauer);
+    var weich = 1 - Math.pow(1 - fortschritt, 3);
+    _feedRadarPulse.setRadius(Math.max(1, maxRadius * weich));
+    _feedRadarPulse.setStyle({
+      opacity: .92 * (1 - fortschritt),
+      fillOpacity: .18 * (1 - fortschritt),
+    });
+    if (fortschritt < 1) {
+      _feedRadarPulseRaf = requestAnimationFrame(frame);
+      return;
+    }
+    _feedRadarPulseRaf = 0;
+    try { _feedRadarMap.removeLayer(_feedRadarPulse); } catch (e) {}
+    _feedRadarPulse = null;
+    if (status) status.innerHTML = '<span class="feed-radar-live-dot"></span>'
+      + trefferzahl + ' Treffer entdeckt';
+  }
+  _feedRadarPulseRaf = requestAnimationFrame(frame);
+}
+
+function _initFeedRadarMap(hits) {
+  var container = document.getElementById('feedRadarMap');
+  if (!container || !_radarPos) return;
+  if (typeof L === 'undefined') {
+    container.innerHTML = '<div class="feed-radar-map-fallback"><span class="material-icons-round">map</span>'
+      + '<strong>Karte gerade nicht erreichbar</strong><span>Alle Treffer stehen weiterhin darunter.</span></div>';
+    return;
+  }
+
+  _feedRadarMap = L.map(container, {
+    zoomControl: false,
+    attributionControl: true,
+    scrollWheelZoom: false,
+    // Radiuswechsel ersetzen die Karte sofort. Leaflets eigene
+    // Zoomtransition dürfte sonst noch auf den alten DOM-Knoten zugreifen.
+    zoomAnimation: false,
+    fadeAnimation: false,
+    markerZoomAnimation: false,
+  }).setView([_radarPos.lat, _radarPos.lng], 10);
+  L.control.zoom({ position: 'bottomright' }).addTo(_feedRadarMap);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(_feedRadarMap);
+
+  _feedRadarRange = L.circle([_radarPos.lat, _radarPos.lng], {
+    radius: _radarRadius * 1000,
+    color: '#00a699', weight: 2, opacity: .9,
+    fillColor: '#00a699', fillOpacity: .08,
+    interactive: false, className: 'feed-radar-range-circle',
+  }).addTo(_feedRadarMap);
+
+  L.marker([_radarPos.lat, _radarPos.lng], {
+    interactive: false,
+    icon: L.divIcon({
+      className: 'feed-radar-origin-wrap',
+      html: '<span class="feed-radar-origin"><span></span></span>',
+      iconSize: [30, 30], iconAnchor: [15, 15],
+    }),
+  }).addTo(_feedRadarMap);
+
+  _feedRadarGruppen(hits).forEach(function(gruppe) {
+    var anzahl = gruppe.items.length;
+    var nurEvents = gruppe.items.every(function(item) { return item.hit.art === 'event'; });
+    var icon = L.divIcon({
+      className: 'feed-radar-marker-wrap',
+      html: '<span class="feed-radar-marker ' + (anzahl > 1 ? 'cluster' : (nurEvents ? 'event' : 'listing')) + '">'
+        + '<span class="material-icons-round">' + (anzahl > 1 ? 'layers' : (nurEvents ? 'celebration' : 'storefront')) + '</span>'
+        + (anzahl > 1 ? '<b>' + anzahl + '</b>' : '') + '</span>',
+      iconSize: [42, 48], iconAnchor: [21, 44], popupAnchor: [0, -42],
+    });
+    var marker = L.marker([gruppe.pos.lat, gruppe.pos.lng], {
+      icon: icon,
+      title: anzahl + ' Treffer an dieser Position',
+      alt: anzahl + ' Radar-Treffer',
+    }).addTo(_feedRadarMap).bindPopup(_feedRadarPopupHtml(gruppe.items), {
+      maxWidth: 330, minWidth: 250, closeButton: true,
+    });
+    _feedRadarMarkers.push({ marker: marker, indexes: gruppe.items.map(function(item) { return item.index; }) });
+  });
+
+  var bounds = _feedRadarRange.getBounds();
+  _feedRadarMap.fitBounds(bounds, { padding: [24, 24], animate: false });
+  setTimeout(function() {
+    if (!_feedRadarMap) return;
+    _feedRadarMap.invalidateSize();
+    _feedRadarMap.fitBounds(bounds, { padding: [24, 24], animate: false });
+  }, 80);
+  _feedRadarScanStart(_radarPos, _radarRadius, hits.length);
+}
+
 function renderFeedRadar(container) {
   if (!container) return;
+  _destroyFeedRadarMap();
   if (!_radarPos) radarWiederherstellen();
   if (!_radarPos) radarStadtWaehlen('Köln');
   var city = radarOrtsname(_radarPos.lat, _radarPos.lng) || 'gewähltem Ort';
@@ -6282,7 +6458,7 @@ function renderFeedRadar(container) {
   }).join('');
   container.innerHTML = '<section class="feed-radar-card">' +
     '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
-    '<p>Events und Dienstleister rund um ' + _escHtml(city) + ' – ideal, wenn du gerade in eine andere Stadt fährst.</p></div>' +
+    '<p>Alle Inserate und Events im echten Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
     '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
     '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
@@ -6292,7 +6468,7 @@ function renderFeedRadar(container) {
 }
 
 function feedRadarCity(name) {
-  if (radarStadtWaehlen(name)) _drawFeedRadar();
+  if (radarStadtWaehlen(name)) renderFeedRadar(document.getElementById('feedList'));
 }
 function feedRadarRadius(km) {
   radarRadiusSetzen(km);
@@ -6312,22 +6488,60 @@ function _drawFeedRadar() {
   var root = document.getElementById('feedRadarResults');
   if (!root || !_radarPos) return;
   var hits = radarUmkreis(_radarPos, _radarRadius);
+  _feedRadarHits = hits;
+  var dienstleister = hits.filter(function(hit){ return hit.art === 'dienstleister'; }).length;
+  var events = hits.length - dienstleister;
+  var mapHtml = '<div class="feed-radar-map-shell">'
+    + '<div id="feedRadarMap" class="feed-radar-map" role="region" aria-label="Radar-Karte mit Treffern im Umkreis von '
+    + _radarRadius + ' Kilometern"></div>'
+    + '<div class="feed-radar-map-top"><span id="feedRadarScanStatus"><span class="feed-radar-live-dot scannt"></span>Radar startet …</span>'
+    + '<span class="feed-radar-map-radius"><span class="material-icons-round">radio_button_checked</span>' + _radarRadius + ' km</span></div>'
+    + '<div class="feed-radar-legend"><span><i class="listing"></i>' + dienstleister + ' Dienstleister</span>'
+    + '<span><i class="event"></i>' + events + ' Events</span><span><i class="approx"></i>ca. = Stadtmitte</span></div></div>';
+
   if (!hits.length) {
     var next = RADAR_RADIEN.filter(function(r){ return r > _radarRadius; })[0];
-    root.innerHTML = '<div class="release-empty"><span class="material-icons-round">travel_explore</span><h3>Noch keine Treffer in ' + _radarRadius + ' km</h3><p>Wähle eine andere Stadt oder erweitere den Radius.</p>' +
+    root.innerHTML = mapHtml + '<div class="release-empty feed-radar-empty"><span class="material-icons-round">travel_explore</span><h3>Noch keine Treffer in ' + _radarRadius + ' km</h3><p>Der Scan ist leer. Wähle eine andere Stadt oder erweitere den Radius.</p>' +
       (next ? '<button class="btn-primary" onclick="feedRadarRadius(' + next + ')">Auf ' + next + ' km erweitern</button>' : '') + '</div>';
+    _initFeedRadarMap(hits);
     return;
   }
-  root.innerHTML = '<div class="feed-radar-summary"><strong>' + hits.length + ' Möglichkeiten</strong><span>nach Entfernung sortiert · Stadtmittelpunkt ist als Näherung markiert</span></div>' +
-    '<div class="feed-radar-results">' + hits.slice(0, 24).map(function(hit){
+  root.innerHTML = mapHtml + '<div class="feed-radar-summary"><strong>' + hits.length + ' Möglichkeiten im Radar</strong><span>Tippe einen Marker oder Treffer an · nach Entfernung sortiert</span></div>' +
+    '<div class="feed-radar-results">' + hits.map(function(hit, index){
       var d = hit.daten || {};
       var title = d.title || d.name || 'Event';
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
-      var action = hit.art === 'dienstleister' ? "navigateTo('detail'," + JSON.stringify(d.id) + ")" : "showToast('Event-Details werden im Feed geöffnet','event')";
-      return '<article class="feed-radar-result" onclick="' + action.replace(/"/g, '&quot;') + '">' +
-        '<img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '><div><div class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></div>' +
-        '<h3>' + _escHtml(title) + '</h3><p><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</p></div></article>';
+      return '<article class="feed-radar-result" data-radar-index="' + index + '">' +
+        '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
+        '<img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
+        '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong><small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
+        '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
     }).join('') + '</div>';
+  _initFeedRadarMap(hits);
+}
+
+function feedRadarFocus(index) {
+  if (!_feedRadarMap) return;
+  var gruppe = _feedRadarMarkers.find(function(item) { return item.indexes.indexOf(index) !== -1; });
+  if (!gruppe) return;
+  var pos = gruppe.marker.getLatLng();
+  _feedRadarMap.flyTo(pos, Math.max(_feedRadarMap.getZoom(), 12), { duration: .55 });
+  gruppe.marker.openPopup();
+  Array.prototype.forEach.call(document.querySelectorAll('.feed-radar-result'), function(card) {
+    card.classList.toggle('active', Number(card.dataset.radarIndex) === index);
+  });
+  var map = document.getElementById('feedRadarMap');
+  if (map) map.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function feedRadarOpen(index) {
+  var hit = _feedRadarHits[index];
+  if (!hit) return;
+  if (hit.art === 'dienstleister') {
+    navigateTo('detail', hit.daten.id);
+    return;
+  }
+  showToast('Event-Details werden im Feed geöffnet', 'event');
 }
 // ========== CHAT / MESSAGES ==========
 function updateMsgBadge(count) {
