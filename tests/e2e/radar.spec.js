@@ -335,6 +335,40 @@ test.describe('Radar als echte Feed-Karte', () => {
       .not.toMatch(/Math\.random/);
     expectNoPageErrors(errors, 'Radar-Marker-Bündelung');
   });
+
+  test('Marker-Popups bleiben im Dark Mode deutlich lesbar', async ({ page }) => {
+    const errors = await feedRadarOeffnen(page);
+    await page.evaluate(() => {
+      document.body.classList.add('dark-mode');
+      feedRadarFocus(0);
+    });
+    await page.locator('.feed-radar-popup-row').waitFor({ state: 'visible' });
+    const kontrast = await page.evaluate(() => {
+      function rgb(farbe) {
+        return (farbe.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+      }
+      function luminanz(farbe) {
+        return rgb(farbe).map((wert) => {
+          const kanal = wert / 255;
+          return kanal <= 0.03928 ? kanal / 12.92 : Math.pow((kanal + 0.055) / 1.055, 2.4);
+        }).reduce((sum, wert, index) => sum + wert * [0.2126, 0.7152, 0.0722][index], 0);
+      }
+      function ratio(vorn, hinten) {
+        const a = luminanz(vorn); const b = luminanz(hinten);
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      }
+      const popup = getComputedStyle(document.querySelector('.leaflet-popup-content-wrapper'));
+      const titel = getComputedStyle(document.querySelector('.feed-radar-popup-row strong'));
+      const meta = getComputedStyle(document.querySelector('.feed-radar-popup-row small'));
+      return {
+        titel: ratio(titel.color, popup.backgroundColor),
+        meta: ratio(meta.color, popup.backgroundColor),
+      };
+    });
+    expect(kontrast.titel, 'Inseratstitel braucht WCAG-AA-Kontrast').toBeGreaterThanOrEqual(4.5);
+    expect(kontrast.meta, 'Ort und Entfernung brauchen WCAG-AA-Kontrast').toBeGreaterThanOrEqual(4.5);
+    expectNoPageErrors(errors, 'Radar-Popup-Kontrast');
+  });
 });
 
 test.describe('Positionen sind echt, nicht gewürfelt', () => {
