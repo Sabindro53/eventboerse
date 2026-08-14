@@ -483,14 +483,15 @@ function _buildListingPickerCardsHtml(baseList, isSearchListingFn, showSearchLis
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
     return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
-      '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
+      '"' + _aiDisclosureAttrs(l) +
+      ' data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
       ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
       ' data-price="' + (l.price || '') + '"' +
       ' data-avatar="' + _escHtml(img) + '"' +
       ' data-image="' + _escHtml(l.image || img) + '"' +
       ' data-title="' + _escHtml(l.title || '') + '"' +
       ' onclick="_selectListingCard(this)">' +
-      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
+      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')">' + _aiMediaWatermarkHtml(l, 'ai-media-watermark-picker') + _aiTextDisclosureHtml(l, 'ai-text-watermark-picker') + '</span>' +
       '<span class="eb-lpick-body">' +
         '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
         '<span class="eb-lpick-meta">' +
@@ -798,6 +799,12 @@ function ignoreUser(authorName) {
 
 function reportPost(postId) {
   closePostMenu();
+  if (String(postId).indexOf('listing-') === 0) {
+    var listingId = parseInt(String(postId).slice(8), 10);
+    var listing = (typeof LISTINGS !== 'undefined' ? LISTINGS : []).find(function(item) { return item.id === listingId; });
+    if (listing && typeof openListingReport === 'function') openListingReport(listing);
+    return;
+  }
   // Simple reason selection sheet
   var overlay = document.createElement('div');
   overlay.className = 'post-options-overlay';
@@ -1405,7 +1412,7 @@ function renderSocialPostCard(post) {
 function renderListingFeedCard(l) {
   var avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
   var isFav = favorites.has(l.id);
-  return '<div class="feed-post-card" data-post-id="listing-' + l.id + '">' +
+  return '<div class="feed-post-card" data-post-id="listing-' + l.id + '"' + _aiDisclosureAttrs(l) + '>' +
     '<div class="feed-post-header">' +
       '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
       '<div class="feed-post-author">' +
@@ -1414,7 +1421,7 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
+    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' + _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) + '</div>' +
     '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +

@@ -1891,13 +1891,14 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
         ? `<span class="alt-distance-badge"><span class="material-icons-round">near_me</span> ~${l._distKm} km</span>`
         : '';
       return `
-        <div class="listing-card" onclick="navigateTo('detail', ${l.id})">
+        <div class="listing-card"${_aiDisclosureAttrs(l)} onclick="navigateTo('detail', ${l.id})">
           <div class="listing-card-img">
             <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" />
             <button class="listing-fav" aria-label="Zu Favoriten hinzufügen" aria-pressed="false" onclick="event.stopPropagation(); toggleFavorite(${l.id}, this)">
               <span class="material-icons-round">favorite_border</span>
             </button>
             ${l.badge ? `<span class="listing-badge">${_escHtml(l.badge)}</span>` : ''}
+            ${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}
           </div>
           <div class="listing-card-body">
             <div class="listing-card-top">
@@ -1961,4 +1962,3 @@ function setView(view) {
     grid.style.gridTemplateColumns = '';
   }
 }
-

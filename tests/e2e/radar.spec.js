@@ -627,6 +627,8 @@ class FakeWpdb {
         if ( ! $this->wirkt ) { return false; }
         if ( strpos($sql, 'ADD COLUMN blocked_dates') !== false ) { $this->spalten[] = 'blocked_dates'; }
         if ( strpos($sql, 'ADD COLUMN listing_type') !== false ) { $this->spalten[] = 'listing_type'; }
+        if ( strpos($sql, 'ADD COLUMN ai_text_disclosure') !== false ) { $this->spalten[] = 'ai_text_disclosure'; }
+        if ( strpos($sql, 'ADD COLUMN ai_media_disclosure') !== false ) { $this->spalten[] = 'ai_media_disclosure'; }
         if ( strpos($sql, 'ADD COLUMN lat') !== false ) {
             $this->spalten = array_merge($this->spalten, array('stadtteil', 'lat', 'lng'));
         }
@@ -643,6 +645,12 @@ class FakeWpdb {
         }
         if ( strpos($sql, 'SHOW INDEX') !== false ) {
             return in_array('idx_geo', $this->indizes, true) ? 'wp_eb_listings' : null;
+        }
+        // eb_create_tables() ist in diesem isolierten Migrationstest ein
+        // Stub. Sein dbDelta-Ergebnis wird deshalb hier als vorhanden
+        // modelliert; die Tests dieser Suite variieren nur Spalten/Index.
+        if ( strpos($sql, "SHOW TABLES LIKE 'wp_eb_content_reports'") !== false ) {
+            return 'wp_eb_content_reports';
         }
         return null;
     }

@@ -579,6 +579,82 @@ const CATEGORY_LABELS = {
   moderation: 'Moderation'
 };
 
+function _selectedAiDisclosure(kind) {
+  var name = kind === 'media' ? 'createAiMediaDisclosure' : 'createAiTextDisclosure';
+  var selected = document.querySelector('input[name="' + name + '"]:checked');
+  return selected ? selected.value : '';
+}
+
+function _setAiDisclosureForm(textStatus, mediaStatus) {
+  ['text', 'media'].forEach(function(kind) {
+    var status = kind === 'media' ? mediaStatus : textStatus;
+    var name = kind === 'media' ? 'createAiMediaDisclosure' : 'createAiTextDisclosure';
+    document.querySelectorAll('input[name="' + name + '"]').forEach(function(input) {
+      input.checked = ['none', 'assisted', 'generated'].indexOf(status) !== -1 && input.value === status;
+    });
+  });
+  _aiDisclosureFormChanged();
+}
+
+function _aiDisclosureFormChanged() {
+  var section = document.getElementById('aiDisclosureSection');
+  if (section) section.classList.remove('has-error');
+  _updateListingPreviewAiLabels();
+  _updateListingLivePreview();
+}
+
+function _updateListingPreviewAiLabels() {
+  var mediaStatus = _selectedAiDisclosure('media');
+  document.querySelectorAll('#uploadPreview .upload-preview-item').forEach(function(item) {
+    var old = item.querySelector('.ai-media-watermark');
+    if (old) old.remove();
+    var html = _aiMediaWatermarkHtml({ aiMediaDisclosure: mediaStatus }, 'ai-media-watermark-preview');
+    if (html) item.insertAdjacentHTML('beforeend', html);
+  });
+}
+
+// Burn the declaration into every newly uploaded AI image. The UI overlay is
+// still rendered separately because it must remain visible on all surfaces;
+// this pixel watermark additionally survives opening or sharing the file.
+function _aiWatermarkBlob(blob, mediaStatus) {
+  if (!blob || (mediaStatus !== 'assisted' && mediaStatus !== 'generated')) return Promise.resolve(blob);
+  return new Promise(function(resolve) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        var label = mediaStatus === 'generated' ? 'KI-GENERIERT · EVENTBÖRSE' : 'KI-BEARBEITET · EVENTBÖRSE';
+        var fontSize = Math.max(20, Math.round(canvas.width * 0.027));
+        var padX = Math.round(fontSize * 0.65);
+        var padY = Math.round(fontSize * 0.42);
+        ctx.font = '700 ' + fontSize + 'px Arial, sans-serif';
+        var textWidth = ctx.measureText(label).width;
+        var boxW = textWidth + padX * 2;
+        var boxH = fontSize + padY * 2;
+        var x = Math.max(12, canvas.width - boxW - Math.round(fontSize * 0.6));
+        var y = Math.max(12, canvas.height - boxH - Math.round(fontSize * 0.6));
+        ctx.fillStyle = 'rgba(12, 15, 24, 0.84)';
+        ctx.fillRect(x, y, boxW, boxH);
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x + padX, y + boxH / 2);
+        canvas.toBlob(function(marked) { resolve(marked || blob); }, 'image/jpeg', 0.92);
+      } catch (e) {
+        resolve(blob);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); resolve(blob); };
+    img.src = url;
+  });
+}
+
 async function submitListing(e) {
   if (e && e.preventDefault) e.preventDefault();
 
@@ -632,12 +708,24 @@ async function submitListing(e) {
   const priceMaxRaw = parseInt((document.getElementById('createPriceMax')||{}).value) || 0;
   const priceMax = (priceMaxRaw > 0 && priceMaxRaw > price) ? priceMaxRaw : 0;
   const priceModel = requiredEl('createPriceModel', 'Preismodell').value;
+  const aiTextDisclosure = _selectedAiDisclosure('text');
+  const aiMediaDisclosure = _selectedAiDisclosure('media');
 
   // Basic validation
   if (!title)       { _releaseGuard(); showToast('Bitte gib einen Titel ein', 'warning'); nextStep(1); return; }
   if (!category)    { _releaseGuard(); showToast('Bitte wähle eine Kategorie', 'warning'); nextStep(1); return; }
   if (!description) { _releaseGuard(); showToast('Bitte gib eine Beschreibung ein', 'warning'); nextStep(1); return; }
   if (!price)       { _releaseGuard(); showToast(isSearch ? 'Bitte gib dein Budget ein' : 'Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
+  if (!aiTextDisclosure || !aiMediaDisclosure) {
+    _releaseGuard();
+    var aiSection = document.getElementById('aiDisclosureSection');
+    if (aiSection) {
+      aiSection.classList.add('has-error');
+      aiSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    showToast('Bitte die KI-Nutzung für Text und Medien ausdrücklich angeben.', 'warning');
+    return;
+  }
   const region = document.getElementById('createRegionValue').value.trim()
     || document.getElementById('createRegion').value.trim() || 'Deutschland';
   const dateFrom = document.getElementById('createDateFrom').value;
@@ -701,15 +789,20 @@ async function submitListing(e) {
   // Upload images: cropped blobs first, then data URLs, keep existing URLs
   var uploadPromises = imgEntries.map(function(entry) {
     if (entry.blob) {
-      var file = new File([entry.blob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.jpg', { type: 'image/jpeg' });
-      return uploadFile(file).then(function(r) { return r.url; });
+      return _aiWatermarkBlob(entry.blob, aiMediaDisclosure).then(function(markedBlob) {
+        var file = new File([markedBlob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.jpg', { type: 'image/jpeg' });
+        return uploadFile(file).then(function(r) { return r.url; });
+      });
     }
     if (entry.src.startsWith('data:')) {
       var arr = entry.src.split(','), mime = arr[0].match(/:(.*?);/)[1];
       var bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
       while (n--) u8arr[n] = bstr.charCodeAt(n);
-      var file = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
-      return uploadFile(file).then(function(r) { return r.url; });
+      var sourceFile = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
+      return _aiWatermarkBlob(sourceFile, aiMediaDisclosure).then(function(markedBlob) {
+        var file = new File([markedBlob], 'listing-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+        return uploadFile(file).then(function(r) { return r.url; });
+      });
     }
     return Promise.resolve(entry.src);
   });
@@ -725,6 +818,8 @@ async function submitListing(e) {
     var payload = {
       title: title,
       listingType: listingType,
+      aiTextDisclosure: aiTextDisclosure,
+      aiMediaDisclosure: aiMediaDisclosure,
       category: category,
       categoryLabel: CATEGORY_LABELS[category] || category,
       description: '<p>' + description.replace(/\n/g, '</p><p>') + '</p>',
@@ -803,6 +898,7 @@ async function submitListing(e) {
 
       // Reset the form
       document.getElementById('createListingForm').reset();
+      try { _setAiDisclosureForm('', ''); } catch (e) {}
       document.getElementById('uploadPreview').innerHTML = '';
       document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
       document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
@@ -1152,6 +1248,12 @@ function _updateListingLivePreview() {
     return;
   }
   container.style.display = '';
+  var previewDisclosure = {
+    aiTextDisclosure: _selectedAiDisclosure('text') || 'undeclared',
+    aiMediaDisclosure: _selectedAiDisclosure('media') || 'undeclared'
+  };
+  container.setAttribute('data-ai-text', _aiDisclosureValue(previewDisclosure, 'text'));
+  container.setAttribute('data-ai-media', _aiDisclosureValue(previewDisclosure, 'media'));
 
   // Build slides
   track.innerHTML = '';
@@ -1162,6 +1264,8 @@ function _updateListingLivePreview() {
     slideImg.src = img.src;
     slideImg.alt = 'Vorschau';
     slide.appendChild(slideImg);
+    var watermark = _aiMediaWatermarkHtml(previewDisclosure, 'ai-media-watermark-live');
+    if (watermark) slide.insertAdjacentHTML('beforeend', watermark);
     track.appendChild(slide);
   });
 
@@ -1717,4 +1821,3 @@ function initDragScroll() {
     document.querySelectorAll(sel).forEach(_makeDraggable);
   });
 }
-

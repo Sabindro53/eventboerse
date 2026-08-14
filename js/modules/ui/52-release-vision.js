@@ -213,7 +213,7 @@ function _drawBusinessMediaPreview(seedExtra) {
   ctx.fillStyle=style==='minimal'?'#18181b':'#fff';ctx.font='700 '+Math.round(c.width/20)+'px Inter, sans-serif';ctx.textAlign='left';
   var words=prompt.trim().split(/\s+/), lines=[],line=''; words.forEach(function(w){ if((line+' '+w).length>28){lines.push(line);line=w;}else line+=(line?' ':'')+w;});if(line)lines.push(line);
   lines.slice(0,3).forEach(function(l,i){ctx.fillText(l,70,c.height-170+(i-lines.length+1)*62);});
-  ctx.font='600 20px Inter, sans-serif';ctx.fillText('EVENTBÖRSE · EINZIGARTIGER ACCOUNT-ENTWURF',72,c.height-62);
+  ctx.font='600 20px Inter, sans-serif';ctx.fillText('DIGITAL ERSTELLT · EVENTBÖRSE · KEIN KI-FOTOMODELL',72,c.height-62);
 }
 function createAccountMedia() {
   var c=document.getElementById('mediaStudioCanvas'); if(!c) return;
@@ -223,7 +223,7 @@ function createAccountMedia() {
     var file=new File([blob],'eventboerse-motiv-'+Date.now()+'.png',{type:'image/png'});
     uploadFile(file).then(function(data){
       var result=document.getElementById('mediaStudioResult');
-      if(result) result.innerHTML='<span><span class="material-icons-round">verified_user</span> Account #' + _escHtml(String(data.ownerId||currentUser.id)) + ' zugeordnet</span><button class="btn-outline btn-sm" onclick="useMediaInPortfolio(\'' + _escHtml(data.url) + '\')">Ins Portfolio</button><button class="btn-outline btn-sm" onclick="useMediaAsProfilePhoto(\'' + _escHtml(data.url) + '\')">Als Profilbild</button>';
+      if(result) result.innerHTML='<span><span class="material-icons-round">verified_user</span> Digital erstellt · kein KI-Fotomodell · Account #' + _escHtml(String(data.ownerId||currentUser.id)) + '</span><button class="btn-outline btn-sm" onclick="useMediaInPortfolio(\'' + _escHtml(data.url) + '\')">Ins Portfolio</button><button class="btn-outline btn-sm" onclick="useMediaAsProfilePhoto(\'' + _escHtml(data.url) + '\')">Als Profilbild</button>';
       showToast('Motiv sicher in deinem Account gespeichert.','verified_user');
     }).catch(function(err){ showToast(err.message||'Upload fehlgeschlagen.','error'); });
   },'image/png',0.92);

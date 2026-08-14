@@ -3160,13 +3160,12 @@ add_filter( 'rest_post_dispatch', function( $response ) {
 /**
  * Schema-Stand, gegen den `eb_db_version` in der Datenbank geprueft wird.
  *
- * 2.5 statt 2.4, obwohl fachlich nichts dazukommt: bis hierher wurde die
- * Version unbedingt hochgesetzt, auch wenn ein ALTER scheiterte. Eine
- * Datenbank koennte also '2.4' melden und die Spalten trotzdem nicht haben.
- * Die Erhoehung erzwingt genau einen geprueften Durchlauf ueberall.
+ * 2.6: getrennte, persistente KI-Erklaerungen fuer Text und Medien sowie ein
+ * revisionsfaehiger Inhalt-Meldeeingang. Bestandsinhalte bleiben bewusst
+ * "undeclared"; die Migration erfindet keine menschliche Urheberschaft.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '2.5' );
+    define( 'EB_DB_VERSION', '2.6' );
 }
 
 function eb_create_tables() {
@@ -3180,6 +3179,8 @@ function eb_create_tables() {
         category varchar(100) NOT NULL DEFAULT '',
         category_label varchar(100) NOT NULL DEFAULT '',
         listing_type varchar(20) NOT NULL DEFAULT 'offer',
+        ai_text_disclosure varchar(20) NOT NULL DEFAULT 'undeclared',
+        ai_media_disclosure varchar(20) NOT NULL DEFAULT 'undeclared',
         description longtext,
         price int(10) unsigned NOT NULL DEFAULT 0,
         price_model varchar(50) NOT NULL DEFAULT '',
@@ -3291,6 +3292,24 @@ function eb_create_tables() {
         KEY idx_status (status)
     ) $charset;";
 
+    $sql_content_reports = "CREATE TABLE {$wpdb->prefix}eb_content_reports (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        content_type varchar(30) NOT NULL DEFAULT 'listing',
+        content_id bigint(20) unsigned NOT NULL,
+        content_url text NOT NULL,
+        reason varchar(50) NOT NULL DEFAULT '',
+        explanation text NOT NULL,
+        reporter_name varchar(200) NOT NULL DEFAULT '',
+        reporter_email varchar(200) NOT NULL DEFAULT '',
+        good_faith tinyint(1) NOT NULL DEFAULT 0,
+        status varchar(20) NOT NULL DEFAULT 'received',
+        created_at datetime DEFAULT '0000-00-00 00:00:00',
+        PRIMARY KEY  (id),
+        KEY idx_content (content_type, content_id),
+        KEY idx_status (status),
+        KEY idx_created (created_at)
+    ) $charset;";
+
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta( $sql_listings );
     dbDelta( $sql_reviews );
@@ -3298,6 +3317,7 @@ function eb_create_tables() {
     dbDelta( $sql_messages );
     dbDelta( $sql_favorites );
     dbDelta( $sql_registrations );
+    dbDelta( $sql_content_reports );
 }
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
@@ -3338,6 +3358,17 @@ function eb_maybe_create_tables() {
             // Bestands-Gesuche anhand der bisherigen Titel-Heuristik markieren
             $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET listing_type = 'search' WHERE title REGEXP 'gesucht' OR title REGEXP '^[[:space:]]*[Ss]uche[[:space:]]'" );
         }
+        // 2.6: Art.-50-Kennzeichnung getrennt nach Text und Medien. Der
+        // Default "undeclared" ist absichtlich kein "none": Bei alten
+        // Inseraten wissen wir nicht, wie sie entstanden sind.
+        $ai_text_col = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings LIKE 'ai_text_disclosure'" );
+        if ( ! $ai_text_col ) {
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD COLUMN ai_text_disclosure varchar(20) NOT NULL DEFAULT 'undeclared' AFTER listing_type" );
+        }
+        $ai_media_col = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings LIKE 'ai_media_disclosure'" );
+        if ( ! $ai_media_col ) {
+            $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD COLUMN ai_media_disclosure varchar(20) NOT NULL DEFAULT 'undeclared' AFTER ai_text_disclosure" );
+        }
         // 2.4: Koordinaten und Stadtteil fuer den Umkreis-Radar.
         //
         // Ohne diese Migration bliebe das Adressfeld in der Maske wirkungslos:
@@ -3372,7 +3403,7 @@ function eb_maybe_create_tables() {
         // Migration auch dann als erledigt, wenn ein ALTER scheiterte — und
         // lief nie wieder an. Die Datenbank waere kaputt und die Anzeige
         // gruen; genau die Kombination, die man am spaetesten bemerkt.
-        $soll = array( 'blocked_dates', 'listing_type', 'stadtteil', 'lat', 'lng' );
+        $soll = array( 'blocked_dates', 'listing_type', 'ai_text_disclosure', 'ai_media_disclosure', 'stadtteil', 'lat', 'lng' );
         $ist  = $wpdb->get_col( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings" );
         $fehlt = array_values( array_diff( $soll, is_array( $ist ) ? $ist : array() ) );
         if ( ! $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_messages LIKE 'updated_at'" ) ) {
@@ -3380,6 +3411,14 @@ function eb_maybe_create_tables() {
         }
         if ( ! $geo_idx && ! $wpdb->get_var( "SHOW INDEX FROM {$wpdb->prefix}eb_listings WHERE Key_name = 'idx_geo'" ) ) {
             $fehlt[] = 'idx_geo';
+        }
+        $reports_table = $wpdb->prefix . 'eb_content_reports';
+        // Der Tabellenname besteht ausschliesslich aus dem von WordPress
+        // kontrollierten Prefix und unserem festen Suffix; kein Nutzwert.
+        // Ohne prepare() bleibt die Migrationspruefung auch in der isolierten
+        // Installations-/Recovery-Umgebung lauffaehig.
+        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$reports_table}'" ) !== $reports_table ) {
+            $fehlt[] = 'eb_content_reports';
         }
 
         if ( empty( $fehlt ) ) {
@@ -3437,6 +3476,15 @@ function eb_register_extra_routes() {
             'callback'            => 'eb_listings_delete',
             'permission_callback' => 'is_user_logged_in',
         ),
+    ) );
+
+    // DSA Art. 16: leicht zugaenglicher elektronischer Meldeweg direkt am
+    // konkreten Inserat. Oeffentlich, weil auch Dritte ohne Konto melden
+    // duerfen; Validierung und Rate-Limit liegen im Handler.
+    register_rest_route( 'eventboerse/v1', '/listings/(?P<id>\d+)/report', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_listing_report_create',
+        'permission_callback' => '__return_true',
     ) );
 
     register_rest_route( 'eventboerse/v1', '/my-listings', array(
@@ -4025,6 +4073,11 @@ function eb_admin_seed_test_listing() {
             'title'          => $title,
             'category'       => 'location',
             'category_label' => 'Location',
+            // Plattformgeschriebener Demo-Text + unveraendertes Stockfoto;
+            // deshalb hier bewusst und nachvollziehbar "none" statt Legacy-
+            // Default "undeclared".
+            'ai_text_disclosure'  => 'none',
+            'ai_media_disclosure' => 'none',
             'description'    => $description,
             'price'          => 1,
             'price_model'    => 'pro_stunde',
@@ -4054,6 +4107,8 @@ function eb_admin_seed_test_listing() {
         'title'          => $title,
         'category'       => 'location',
         'category_label' => 'Location',
+        'ai_text_disclosure'  => 'none',
+        'ai_media_disclosure' => 'none',
         'description'    => $description,
         'price'          => 1,
         'price_model'    => 'pro_stunde',
@@ -4358,7 +4413,7 @@ function eb_admin_smtp_set( WP_REST_Request $request ) {
 
 function eb_diagnostics() {
     global $wpdb;
-    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations' );
+    $tables = array( 'eb_listings', 'eb_reviews', 'eb_conversations', 'eb_messages', 'eb_favorites', 'eb_registrations', 'eb_content_reports' );
     // „Ist die Migration durch?" soll man sehen, nicht erschliessen muessen:
     // Sollstand, Iststand, was fehlt, und ob der Geo-Index wirklich steht.
     $fehlt = get_option( 'eb_db_migration_fehlt', array() );
@@ -4679,6 +4734,11 @@ function eb_format_listing( $row ) {
         'category'      => $row['category'],
         'categoryLabel' => $row['category_label'],
         'listingType'   => ( isset( $row['listing_type'] ) && $row['listing_type'] === 'search' ) ? 'search' : 'offer',
+        // Maschinenlesbare Kennzeichnung plus sichtbare UI-Wasserzeichen im
+        // Frontend. "undeclared" kennzeichnet nur migrierte Altinhalte und
+        // wird niemals als menschliche Erstellung ausgegeben.
+        'aiTextDisclosure'  => isset( $row['ai_text_disclosure'] ) ? $row['ai_text_disclosure'] : 'undeclared',
+        'aiMediaDisclosure' => isset( $row['ai_media_disclosure'] ) ? $row['ai_media_disclosure'] : 'undeclared',
         'location'      => $row['location'],
         'region'        => $row['region'],
         'stadtteil'     => isset( $row['stadtteil'] ) ? $row['stadtteil'] : '',
@@ -4792,6 +4852,27 @@ function eb_geo_pruefen( $roh ) {
     return array( round( $lat, 4 ), round( $lng, 4 ) );
 }
 
+/**
+ * Explizite KI-Erklaerung fuer einen Inhaltsbereich validieren.
+ *
+ * "undeclared" ist ausschliesslich der Migrationszustand alter Datensaetze
+ * und darf vom Client nicht neu gesetzt werden. So kann niemand eine
+ * verpflichtende Auswahl umgehen oder Altinhalte faelschlich freisprechen.
+ *
+ * @return string|WP_Error
+ */
+function eb_ai_disclosure_pruefen( $roh, $feldname ) {
+    $wert = sanitize_key( (string) $roh );
+    if ( ! in_array( $wert, array( 'none', 'assisted', 'generated' ), true ) ) {
+        return new WP_Error(
+            'ai_disclosure_required',
+            sprintf( 'Bitte die KI-Nutzung für %s ausdrücklich angeben.', $feldname ),
+            array( 'status' => 400 )
+        );
+    }
+    return $wert;
+}
+
 function eb_listings_create( WP_REST_Request $request ) {
     global $wpdb;
     $uid    = get_current_user_id();
@@ -4805,6 +4886,10 @@ function eb_listings_create( WP_REST_Request $request ) {
     $category       = sanitize_text_field( $params['category'] ?? '' );
     $category_label = sanitize_text_field( $params['categoryLabel'] ?? $category );
     $listing_type   = ( ( $params['listingType'] ?? '' ) === 'search' ) ? 'search' : 'offer';
+    $ai_text        = eb_ai_disclosure_pruefen( $params['aiTextDisclosure'] ?? '', 'Text und Angaben' );
+    $ai_media       = eb_ai_disclosure_pruefen( $params['aiMediaDisclosure'] ?? '', 'Bilder und Medien' );
+    if ( is_wp_error( $ai_text ) ) return $ai_text;
+    if ( is_wp_error( $ai_media ) ) return $ai_media;
     $description    = wp_kses_post( $params['description'] ?? '' );
     $price          = absint( $params['price'] ?? 0 );
     $price_model    = sanitize_text_field( $params['priceModel'] ?? '' );
@@ -4846,6 +4931,8 @@ function eb_listings_create( WP_REST_Request $request ) {
         'category'       => $category,
         'category_label' => $category_label,
         'listing_type'   => $listing_type,
+        'ai_text_disclosure'  => $ai_text,
+        'ai_media_disclosure' => $ai_media,
         'description'    => $description,
         'price'          => $price,
         'price_model'    => $price_model,
@@ -4925,6 +5012,15 @@ function eb_listings_update( WP_REST_Request $request ) {
     if ( isset( $params['listingType'] ) ) {
         $update['listing_type'] = ( $params['listingType'] === 'search' ) ? 'search' : 'offer';
     }
+    // Auch direkte API-Aenderungen muessen nachdeklarieren. Waeren die Felder
+    // hier optional, koennte ein alter oder absichtlich manipulierter Client
+    // den Pflichtschritt der Oberflaeche umgehen und "undeclared" behalten.
+    $ai_text = eb_ai_disclosure_pruefen( $params['aiTextDisclosure'] ?? '', 'Text und Angaben' );
+    $ai_media = eb_ai_disclosure_pruefen( $params['aiMediaDisclosure'] ?? '', 'Bilder und Medien' );
+    if ( is_wp_error( $ai_text ) ) return $ai_text;
+    if ( is_wp_error( $ai_media ) ) return $ai_media;
+    $update['ai_text_disclosure'] = $ai_text;
+    $update['ai_media_disclosure'] = $ai_media;
     // Koordinaten aendern oder loeschen.
     //
     // Ohne diesen Block waeren sie beim Anlegen setzbar und danach fuer immer
@@ -4965,9 +5061,13 @@ function eb_listings_update( WP_REST_Request $request ) {
     if ( isset( $params['instantBook'] ) ) {
         $update['instant_book'] = ! empty( $params['instantBook'] ) ? 1 : 0;
     }
+    $update['updated_at'] = current_time( 'mysql' );
 
     if ( ! empty( $update ) ) {
-        $wpdb->update( $wpdb->prefix . 'eb_listings', $update, array( 'id' => $id ) );
+        $updated = $wpdb->update( $wpdb->prefix . 'eb_listings', $update, array( 'id' => $id ) );
+        if ( $updated === false ) {
+            return new WP_REST_Response( array( 'message' => 'Änderungen konnten nicht gespeichert werden.' ), 500 );
+        }
     }
 
     $row = $wpdb->get_row( $wpdb->prepare(
@@ -5000,6 +5100,143 @@ function eb_listings_delete( WP_REST_Request $request ) {
 
     return new WP_REST_Response( array( 'deleted' => true ), 200 );
 }
+
+/**
+ * DSA-Art.-16-Meldung zu einem konkreten Inserat annehmen.
+ *
+ * Die Meldung wird zuerst dauerhaft gespeichert und erst danach per E-Mail
+ * signalisiert. Ein Mail-Ausfall darf keinen bereits bestaetigten Eingang
+ * vernichten. IP-Adressen werden nicht gespeichert; sie dienen nur dem
+ * kurzlebigen Rate-Limit-Bucket.
+ */
+function eb_listing_report_create( WP_REST_Request $request ) {
+    global $wpdb;
+
+    // Genug Spielraum fuer mehrere betroffene Inhalte, aber Schutz gegen
+    // automatisierten Missbrauch. Der Bucket enthaelt nur einen IP-Hash und
+    // verfällt nach einer Stunde.
+    $rl = eventboerse_check_rate_limit( 'content_report', 20, HOUR_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
+
+    $listing_id = absint( $request['id'] );
+    $listing = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, title, ai_text_disclosure, ai_media_disclosure FROM {$wpdb->prefix}eb_listings WHERE id = %d",
+        $listing_id
+    ), ARRAY_A );
+    if ( ! $listing ) {
+        return new WP_REST_Response( array( 'message' => 'Inserat nicht gefunden.' ), 404 );
+    }
+
+    $params = $request->get_json_params();
+    $reason = sanitize_key( $params['reason'] ?? '' );
+    $reasons = array(
+        'ai_undeclared'          => 'Nicht gekennzeichneter KI-Inhalt',
+        'misleading'             => 'Irreführende oder falsche Darstellung',
+        'rights'                 => 'Urheber-, Marken- oder Persönlichkeitsrecht',
+        'illegal'                => 'Sonstiger mutmaßlich rechtswidriger Inhalt',
+        'sexual_abuse_minors'    => 'Sexuelle Ausbeutung Minderjähriger',
+        'other'                  => 'Anderer Grund',
+    );
+    if ( ! isset( $reasons[ $reason ] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte einen Meldegrund auswählen.' ), 400 );
+    }
+
+    $explanation = sanitize_textarea_field( $params['explanation'] ?? '' );
+    if ( strlen( trim( $explanation ) ) < 20 || strlen( $explanation ) > 4000 ) {
+        return new WP_REST_Response( array( 'message' => 'Bitte die Rechtswidrigkeit in 20 bis 4.000 Zeichen begründen.' ), 400 );
+    }
+    if ( empty( $params['goodFaith'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Die Erklärung nach bestem Wissen ist erforderlich.' ), 400 );
+    }
+
+    $reporter_name  = sanitize_text_field( $params['reporterName'] ?? '' );
+    $reporter_email = eb_normalize_email( (string) ( $params['reporterEmail'] ?? '' ) );
+    // Art. 16 Abs. 2 lit. c DSA: Bei mutmaßlicher sexueller Ausbeutung
+    // Minderjähriger darf die Meldung ohne Name/E-Mail erfolgen.
+    if ( $reason !== 'sexual_abuse_minors' ) {
+        if ( $reporter_name === '' || ! is_email( $reporter_email ) ) {
+            return new WP_REST_Response( array( 'message' => 'Name und gültige E-Mail-Adresse sind für diese Meldung erforderlich.' ), 400 );
+        }
+    }
+
+    $content_url = home_url( '/detail/' . ( $listing_id + 10000 ) );
+    $now = current_time( 'mysql' );
+    $ok = $wpdb->insert( $wpdb->prefix . 'eb_content_reports', array(
+        'content_type'   => 'listing',
+        'content_id'     => $listing_id,
+        'content_url'    => $content_url,
+        'reason'         => $reason,
+        'explanation'    => $explanation,
+        'reporter_name'  => $reporter_name,
+        'reporter_email' => $reporter_email,
+        'good_faith'     => 1,
+        'status'         => 'received',
+        'created_at'     => $now,
+    ) );
+    if ( ! $ok || ! $wpdb->insert_id ) {
+        return new WP_REST_Response( array( 'message' => 'Meldung konnte nicht gespeichert werden.' ), 500 );
+    }
+
+    $report_id = (int) $wpdb->insert_id;
+    $case_id = 'EB-' . wp_date( 'Ymd' ) . '-' . str_pad( (string) $report_id, 6, '0', STR_PAD_LEFT );
+    $headers = array( 'Content-Type: text/html; charset=UTF-8' );
+    $body = '<h2>Neue DSA-Inhaltsmeldung ' . esc_html( $case_id ) . '</h2>'
+        . '<p><strong>Inserat:</strong> ' . esc_html( $listing['title'] ) . ' (#' . $listing_id . ')</p>'
+        . '<p><strong>URL:</strong> <a href="' . esc_url( $content_url ) . '">' . esc_html( $content_url ) . '</a></p>'
+        . '<p><strong>Grund:</strong> ' . esc_html( $reasons[ $reason ] ) . '</p>'
+        . '<p><strong>Begründung:</strong><br>' . nl2br( esc_html( $explanation ) ) . '</p>'
+        . '<p><strong>KI-Status:</strong> Text ' . esc_html( $listing['ai_text_disclosure'] )
+        . ' · Medien ' . esc_html( $listing['ai_media_disclosure'] ) . '</p>'
+        . '<p><strong>Meldende Person:</strong> ' . esc_html( $reporter_name ?: 'nicht angegeben' )
+        . ' · ' . esc_html( $reporter_email ?: 'nicht angegeben' ) . '</p>';
+    // Interne Zustellung ueber das bereits ueberwachte Betreiberpostfach.
+    // Damit geht keine Datenbankmeldung verloren, falls der oeffentliche
+    // dsa-meldung-Alias noch nicht im IONOS-Postfach eingerichtet ist.
+    $mail_sent = wp_mail(
+        eb_ops_notify_address(),
+        'DSA-Meldung ' . $case_id . ': ' . $reasons[ $reason ],
+        $body,
+        $headers
+    );
+
+    if ( $reporter_email && is_email( $reporter_email ) ) {
+        wp_mail(
+            $reporter_email,
+            'Eingangsbestätigung ' . $case_id,
+            '<p>Wir haben deine Meldung zum Inserat <strong>' . esc_html( $listing['title'] ) . '</strong> erhalten.</p>'
+            . '<p>Vorgangsnummer: <strong>' . esc_html( $case_id ) . '</strong></p>'
+            . '<p>Wir prüfen die Meldung sorgfältig und informieren dich über die Entscheidung.</p>',
+            $headers
+        );
+    }
+
+    return new WP_REST_Response( array(
+        'received' => true,
+        'caseId'   => $case_id,
+        'mailSent' => (bool) $mail_sent,
+    ), 201 );
+}
+
+/**
+ * Meldedaten nach der veroeffentlichten Regelfrist entfernen.
+ * Ein ausdruecklicher legal_hold bleibt fuer laufende Verfahren bestehen.
+ */
+function eb_content_reports_cleanup() {
+    global $wpdb;
+    $cutoff = wp_date( 'Y-m-d H:i:s', time() - ( 3 * YEAR_IN_SECONDS ) );
+    $wpdb->query( $wpdb->prepare(
+        "DELETE FROM {$wpdb->prefix}eb_content_reports WHERE created_at < %s AND status <> 'legal_hold'",
+        $cutoff
+    ) );
+}
+add_action( 'eb_content_reports_cleanup', 'eb_content_reports_cleanup' );
+
+function eb_content_reports_schedule_cleanup() {
+    if ( ! wp_next_scheduled( 'eb_content_reports_cleanup' ) ) {
+        wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'eb_content_reports_cleanup' );
+    }
+}
+add_action( 'init', 'eb_content_reports_schedule_cleanup' );
 
 /** My listings */
 function eb_my_listings() {

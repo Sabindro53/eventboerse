@@ -1393,6 +1393,7 @@
               <span id="detailLocation">Berlin, Deutschland</span>
             </span>
           </div>
+          <div id="detailAiDisclosure" class="detail-ai-disclosure" aria-live="polite"></div>
         </div>
         <div class="detail-gallery" id="detailGallery">
           <!-- Images loaded by JS -->
@@ -1405,6 +1406,7 @@
           </div>
           <button id="detailEditBtn" class="btn-primary btn-sm" style="display:none" onclick="editListing(currentListing?.id)"><span class="material-icons-round">edit</span> Bearbeiten</button>
           <button class="btn-outline" onclick="navigateTo('provider', currentListing?.providerId)">Profil ansehen</button>
+          <button id="detailReportBtn" class="btn-outline btn-sm" onclick="openListingReport()"><span class="material-icons-round">flag</span> Inhalt melden</button>
         </div>
         <div id="detailCollaborationSuggestions" class="detail-collaboration-suggestions" aria-live="polite"></div>
         <div class="detail-layout">
@@ -2409,6 +2411,28 @@
           <div class="form-section" id="step3">
             <h2><span class="fs-num">3</span> Fotos &amp; Galerie</h2>
             <p class="step-intro" id="clPhotosIntro">Inserate mit hochwertigen Fotos werden bis zu <strong>3&times; h&auml;ufiger</strong> angefragt. Lade mind. 3 Bilder hoch.</p>
+            <section class="ai-declaration" id="aiDisclosureSection" aria-labelledby="aiDisclosureHeading">
+              <div class="ai-declaration-head">
+                <span class="material-icons-round" aria-hidden="true">verified_user</span>
+                <div>
+                  <h3 id="aiDisclosureHeading">KI-Transparenz <span>Pflichtangabe</span></h3>
+                  <p>Gib getrennt an, ob generative KI für Text oder Medien genutzt wurde. Bei KI-Medien setzt Eventbörse zusätzlich ein sichtbares Wasserzeichen.</p>
+                </div>
+              </div>
+              <fieldset class="ai-declaration-group">
+                <legend>Text und Angaben</legend>
+                <label><input type="radio" name="createAiTextDisclosure" value="none" required onchange="_aiDisclosureFormChanged()"><span><strong>Ohne generative KI</strong><small>Text und Angaben selbst erstellt.</small></span></label>
+                <label><input type="radio" name="createAiTextDisclosure" value="assisted" onchange="_aiDisclosureFormChanged()"><span><strong>Mit KI unterstützt</strong><small>KI hat wesentliche Formulierungen bearbeitet.</small></span></label>
+                <label><input type="radio" name="createAiTextDisclosure" value="generated" onchange="_aiDisclosureFormChanged()"><span><strong>KI-generiert</strong><small>Text wurde ganz oder überwiegend mit KI erzeugt.</small></span></label>
+              </fieldset>
+              <fieldset class="ai-declaration-group">
+                <legend>Bilder und Medien</legend>
+                <label><input type="radio" name="createAiMediaDisclosure" value="none" required onchange="_aiDisclosureFormChanged()"><span><strong>Ohne generative KI</strong><small>Keine wesentliche KI-Erzeugung oder -Manipulation.</small></span></label>
+                <label><input type="radio" name="createAiMediaDisclosure" value="assisted" onchange="_aiDisclosureFormChanged()"><span><strong>KI-bearbeitet</strong><small>Medien wurden wesentlich mit KI verändert.</small></span></label>
+                <label><input type="radio" name="createAiMediaDisclosure" value="generated" onchange="_aiDisclosureFormChanged()"><span><strong>KI-generiert</strong><small>Medien wurden ganz oder überwiegend mit KI erzeugt.</small></span></label>
+              </fieldset>
+              <p class="ai-declaration-legal">Normale Farb-, Größen- oder Zuschnittkorrekturen gelten nicht als generative KI. Falsche Angaben können zur Entfernung führen. Details: <a href="#" onclick="navigateTo('upload');return false;">Upload-Richtlinie</a>.</p>
+            </section>
             <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
               <span class="material-icons-round">cloud_upload</span>
               <h3>Bilder hochladen</h3>
@@ -2777,13 +2801,13 @@ Datum: ___________________________________________________
     <section id="page-community" class="page">
       <div class="container legal-page">
         <h1>Nutzungs- und Community-Richtlinien</h1>
-        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
-        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Richtlinien sind als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p class="legal-date">Stand: 14. August 2026 · Versionsentwurf 1.1</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Richtlinien sind als Versionsentwurf 1.1 (Stand 14.08.2026) veröffentlicht und werden mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
         <p>Diese Richtlinien gelten verbindlich für alle Nutzer und erfüllen die AGB-Pflichtinhalte gemäß <strong>Art. 14 DSA</strong> (VO (EU) 2022/2065).</p>
         <h2>1. Grundsätze</h2>
         <ul><li>Respektvoller, sachlicher und professioneller Umgang.</li><li>Wahrhaftige Profil- und Leistungsangaben.</li><li>Keine Diskriminierung.</li><li>Beachtung des deutschen und europäischen Rechts.</li></ul>
         <h2>2. Verbotene Inhalte und Verhaltensweisen</h2>
-        <ul><li>Beleidigung, Verleumdung, Hassrede, Volksverhetzung.</li><li>Sexuell explizite oder pornografische Inhalte; Inhalte zum Nachteil Minderjähriger.</li><li>Verstoß gegen Urheber-, Marken-, Persönlichkeits- oder Datenschutzrechte.</li><li>Manipulation des Bewertungs- oder Rankingsystems (Fake-Bewertungen, Sockenpuppen).</li><li>Spam, Phishing, Malware, Identitätsdiebstahl.</li><li>Umgehung der Plattformfunktionen.</li><li>Scraping/Bots ohne Erlaubnis.</li></ul>
+        <ul><li>Beleidigung, Verleumdung, Hassrede, Volksverhetzung.</li><li>Sexuell explizite oder pornografische Inhalte; Inhalte zum Nachteil Minderjähriger.</li><li>Verstoß gegen Urheber-, Marken-, Persönlichkeits- oder Datenschutzrechte.</li><li>Manipulation des Bewertungs- oder Rankingsystems (Fake-Bewertungen, Sockenpuppen).</li><li>Nicht oder falsch deklarierte KI-generierte bzw. wesentlich KI-bearbeitete Texte, Bilder, Audio- oder Videoinhalte.</li><li>Spam, Phishing, Malware, Identitätsdiebstahl.</li><li>Umgehung der Plattformfunktionen.</li><li>Scraping/Bots ohne Erlaubnis.</li></ul>
         <h2>3. Profil- und Account-Regeln</h2>
         <p>Nur ein Account pro Person bzw. rechtlich eigenständigem Träger. Profilangaben müssen wahrhaftig, aktuell und vollständig sein. Demo-/Test-Profile (Beta-Betrieb) sind als solche zu kennzeichnen.</p>
         <h2>4. Kommunikationsregeln</h2>
@@ -2838,21 +2862,24 @@ Datum: ___________________________________________________
     <section id="page-upload" class="page">
       <div class="container legal-page">
         <h1>Upload- und Inhaltsrichtlinie / UGC-Lizenz</h1>
-        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
-        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Richtlinie ist als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p class="legal-date">Stand: 14. August 2026 · Versionsentwurf 1.1</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Richtlinie ist als Versionsentwurf 1.1 (Stand 14.08.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
         <h2>1. Was sind Inhalte?</h2>
         <p>Profilbilder, Profilbeschreibungen, Logos, Texte, Bilder, Videos (z.&nbsp;B. Portfolio-Fotos, Eventfotos in Bewertungen), Audio (z.&nbsp;B. DJ-Mixe), sonstige hochgeladene Dateien.</p>
         <h2>2. Pflichten des Hochladenden</h2>
         <ul><li>Du verfügst über alle erforderlichen Rechte (Urheberrechte, Nutzungsrechte, Persönlichkeitsrechte, Markenrechte).</li><li>Einwilligung aller abgebildeten Personen (Art. 6, 9 DSGVO; KUG).</li><li>Bei Minderjährigen Einwilligung der Erziehungsberechtigten; im Zweifel keine Veröffentlichung.</li><li>Beachtung der Community-Richtlinien.</li></ul>
-        <h2>3. Lizenzeinräumung an die Plattform</h2>
+        <h2>3. KI-generierte und KI-bearbeitete Inhalte</h2>
+        <p>Beim Veröffentlichen ist getrennt für Text und Medien anzugeben, ob generative KI nicht genutzt, wesentlich unterstützend eingesetzt oder der Inhalt ganz bzw. überwiegend KI-generiert wurde. Normale Farb-, Größen- und Zuschnittkorrekturen zählen nicht als generative KI-Nutzung.</p>
+        <ul><li>KI-generierte und wesentlich KI-bearbeitete Medien erhalten auf Eventbörse ein dauerhaft sichtbares Wasserzeichen; neue lokale Bild-Uploads werden zusätzlich in den Bildpixeln gekennzeichnet.</li><li>Die Erklärung wird maschinenlesbar am Inserat und in der Schnittstelle gespeichert. Die Kennzeichnung muss beim Teilen oder Exportieren erhalten bleiben.</li><li>Deepfakes müssen klar als künstlich erzeugt oder manipuliert erkennbar sein. Das gilt grundsätzlich auch für KI-erzeugte oder manipulierte Texte, die die Öffentlichkeit über Angelegenheiten von öffentlichem Interesse informieren sollen, soweit keine gesetzliche Ausnahme greift (Art. 50 VO (EU) 2024/1689).</li><li>Eine KI-Kennzeichnung macht irreführende, rechtswidrige oder rechtsverletzende Inhalte nicht zulässig. Falsche Erklärungen können zur Entfernung, Verwarnung oder Sperre führen.</li></ul>
+        <h2>4. Lizenzeinräumung an die Plattform</h2>
         <p>Mit dem Upload räumst du der Eventbörse UG (haftungsbeschränkt) ein einfaches, weltweites, zeitlich auf die Dauer der Profil-/Inhaltsverfügbarkeit auf der Plattform begrenztes, unentgeltliches und übertragbares Nutzungsrecht ein, deine Inhalte auf der Plattform öffentlich zugänglich zu machen, zu speichern, zu skalieren, zu transcodieren, in Vorschauen darzustellen und in Profilen, Suchergebnissen, Kommunikation und Bewertungen anzuzeigen. Eine Übertragung von Urheberrechten findet nicht statt; alle Rechte verbleiben beim Hochladenden.</p>
-        <h2>4. Recht zur Entfernung und Sperrung</h2>
+        <h2>5. Recht zur Entfernung und Sperrung</h2>
         <p>Inhalte können bei begründetem Verdacht eines Rechtsverstoßes oder Eingang einer Beschwerde nach DSA Art. 16 entfernt oder gesperrt werden; jeweils mit Statement of Reasons. Beschwerde nach DSA Art. 20 möglich.</p>
-        <h2>5. Verantwortung für Inhalte</h2>
-        <p>Die Plattform haftet als Diensteanbieter für fremde Inhalte erst ab Kenntnis (§§ 7–10 DDG). Der Hochladende stellt die Plattform von Ansprüchen Dritter frei, soweit er die Rechtsverletzung zu vertreten hat.</p>
-        <h2>6. Datenformate und Größenlimits</h2>
+        <h2>6. Verantwortung für Inhalte</h2>
+        <p>Der Hochladende bleibt für die Rechtmäßigkeit und Richtigkeit seiner Inhalte verantwortlich. Für fremde gespeicherte Inhalte gelten die Voraussetzungen des Art. 6 DSA; erhält die Plattform hinreichende Kenntnis von rechtswidrigen Inhalten, prüft sie die Meldung und sperrt oder entfernt rechtswidrige Inhalte zügig. Der Hochladende stellt die Plattform von Ansprüchen Dritter frei, soweit er die Rechtsverletzung zu vertreten hat.</p>
+        <h2>7. Datenformate und Größenlimits</h2>
         <ul><li>Bilder: JPG, PNG, WEBP — max. 10 MB pro Datei.</li><li>Videos: MP4, WEBM — max. 50 MB pro Datei.</li><li>Audio: MP3, OGG — max. 25 MB pro Datei.</li><li>Dokumente: PDF — max. 5 MB pro Datei.</li></ul>
-        <h2>7. Speicherort und Datenschutz</h2>
+        <h2>8. Speicherort und Datenschutz</h2>
         <p>Speicherung auf den IONOS-Servern in Deutschland. Verarbeitung gemäß Datenschutzerklärung. Bei Löschung des Accounts werden Inhalte gemäß Löschkonzept entfernt.</p>
       </div>
     </section>
@@ -2861,14 +2888,14 @@ Datum: ___________________________________________________
     <section id="page-dsa" class="page">
       <div class="container legal-page">
         <h1>DSA — Notice-and-Action-Verfahren</h1>
-        <p class="legal-date">Art. 16, 17, 22 VO (EU) 2022/2065 · Stand: 04. Mai 2026</p>
-        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Dieses Verfahren ist als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
+        <p class="legal-date">Art. 16, 17, 22 VO (EU) 2022/2065 · Stand: 14. August 2026</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Dieses Verfahren ist als Versionsentwurf 1.1 (Stand 14.08.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich.</p>
         <h2>1. Wer kann melden?</h2>
         <p>Jede natürliche oder juristische Person; Trusted Flagger (Art. 22 DSA); Behörden im Rahmen ihrer Zuständigkeit.</p>
         <h2>2. Was kann gemeldet werden?</h2>
         <p>Profile, Inhalte, Bewertungen, Nachrichten, Bilder, Videos. Mutmaßlich rechtswidrige Inhalte: Beleidigung, Verleumdung, Hassrede, Volksverhetzung, Urheber-/Marken-/Persönlichkeitsrechtsverletzung, Betrug, Phishing, Malware, jugendgefährdende Inhalte, Verstoß gegen JuSchG/JMStV, Schwarzarbeit, unzulässige Werbung.</p>
         <h2>3. Wie melden?</h2>
-        <ul><li>In-Product-Meldebutton „Inhalt melden" auf jedem Profil/Bewertung/Nachricht.</li><li>E-Mail an <strong>dsa-meldung@eventbörse.de</strong>.</li><li>Postalisch: Eventbörse UG (haftungsbeschränkt) i.&nbsp;G., Nonnenberger Str. 95a, 53639 Königswinter.</li></ul>
+        <ul><li>In-Product-Meldebutton „Inhalt melden" direkt an jedem Inserat; die genaue URL und Inserat-ID werden automatisch übernommen.</li><li>E-Mail an <strong>dsa-meldung@eventbörse.de</strong> für andere Inhalte oder ergänzende Unterlagen.</li><li>Postalisch: Eventbörse UG (haftungsbeschränkt) i.&nbsp;G., Nonnenberger Str. 95a, 53639 Königswinter.</li></ul>
         <h2>4. Pflichtangaben (Art. 16 Abs. 2 DSA)</h2>
         <ul><li>Begründung der Rechtswidrigkeit (Norm).</li><li>Eindeutige URL/Bezeichnung des Inhalts (Profil-, Bewertungs-, Nachrichten-ID).</li><li>Name und E-Mail des Meldenden (außer bei sexueller Ausbeutung Minderjähriger).</li><li>Erklärung in gutem Glauben.</li></ul>
         <h2>5. Bestätigung</h2>
@@ -3244,8 +3271,8 @@ Datum: ___________________________________________________
     <section id="page-datenschutz" class="page">
       <div class="container legal-page">
         <h1>Datenschutzerklärung</h1>
-        <p class="legal-date">Stand: 04. Mai 2026 · Versionsentwurf 1.0</p>
-        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Datenschutzerklärung ist als Versionsentwurf 1.0 (Stand 04.05.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich. In der Beta-Phase werden ausschließlich technisch notwendige Daten verarbeitet.</p>
+        <p class="legal-date">Stand: 14. August 2026 · Versionsentwurf 1.1</p>
+        <p class="legal-beta-note"><strong>Hinweis:</strong> Die Plattform befindet sich in einer Vorgründungs- und Beta-Phase. Diese Datenschutzerklärung ist als Versionsentwurf 1.1 (Stand 14.08.2026) veröffentlicht und wird mit Eintragung der Eventbörse UG (haftungsbeschränkt) im Handelsregister verbindlich. In der Beta-Phase werden nur Daten verarbeitet, die für die bereitgestellten Plattformfunktionen, Sicherheit und Rechtsbefolgung erforderlich sind.</p>
         <p>Information gemäß Art. 13, 14 DSGVO über Art, Umfang und Zweck der Verarbeitung personenbezogener Daten auf der Plattform <strong>eventbörse.de</strong>.</p>
 
         <h2>1. Verantwortlicher und Datenschutzkontakt</h2>
@@ -3280,7 +3307,10 @@ Datum: ___________________________________________________
         <h2>10. Messaging, Bewertungen und Profile</h2>
         <p>Internes Messaging mit Dienstleistern; nach Buchung Bewertung möglich. Bewertungen werden öffentlich auf dem Profil des bewerteten Dienstleisters angezeigt; nur nach tatsächlich erfolgter und durchgeführter Buchung (Authentizität nach § 5b UWG). Inhalte des internen Messagings werden nicht öffentlich angezeigt.</p>
 
-        <h2>11. Drittlandtransfer</h2>
+        <h2>11. Inhaltsmeldungen und Moderation</h2>
+        <p>Bei einer Inhaltsmeldung verarbeiten wir die betroffene Inserat-ID und URL, Meldegrund, Begründung, Erklärung nach bestem Wissen sowie grundsätzlich Name und E-Mail-Adresse der meldenden Person. Bei Meldungen zur mutmaßlichen sexuellen Ausbeutung Minderjähriger sind Name und E-Mail nicht erforderlich. Zur Missbrauchsabwehr wird aus der IP-Adresse ein nicht rückrechenbarer Rate-Limit-Schlüssel gebildet, der nach spätestens einer Stunde verfällt; die IP-Adresse wird nicht im Meldedatensatz gespeichert. Zweck ist die Entgegennahme, Prüfung, Dokumentation und Beantwortung von Meldungen nach Art. 16 DSA sowie die Abwehr von Rechtsverstößen. Rechtsgrundlagen sind Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit dem DSA und Art. 6 Abs. 1 lit. f DSGVO. Berechtigtes Interesse ist der sichere, rechtskonforme Plattformbetrieb. Beschwerde- und Moderationsvorgänge werden grundsätzlich drei Jahre gespeichert; zwingende Aufbewahrungs- oder Rechtsverteidigungsinteressen können eine längere Speicherung erfordern.</p>
+
+        <h2>12. Drittlandtransfer</h2>
         <table class="legal-table">
           <thead><tr><th>Dienst</th><th>Sitz</th><th>Absicherung</th></tr></thead>
           <tbody>
@@ -3292,23 +3322,23 @@ Datum: ___________________________________________________
           </tbody>
         </table>
 
-        <h2>12. Empfänger und Auftragsverarbeiter</h2>
+        <h2>13. Empfänger und Auftragsverarbeiter</h2>
         <ul><li>IONOS SE — Hosting (DE).</li><li>Stripe Payments Europe Ltd. — Zahlungsdienstleister.</li><li>GitHub Inc. — Source-Code-Verwaltung; keine personenbezogenen Endkundendaten in Repositories.</li></ul>
 
-        <h2>13. Speicher- und Löschfristen</h2>
+        <h2>14. Speicher- und Löschfristen</h2>
         <ul><li>Vertragsdaten: max. 6 Jahre (§ 257 HGB) bzw. 10 Jahre (§ 147 AO).</li><li>Bewertungen: dauerhaft, solange das bewertete Profil besteht.</li><li>Server-Logs: max. 14 Tage.</li><li>Beschwerde- und Moderations-Tickets: 3 Jahre.</li></ul>
 
-        <h2>14. Ihre Rechte als betroffene Person</h2>
+        <h2>15. Ihre Rechte als betroffene Person</h2>
         <ul><li>Auskunft (Art. 15 DSGVO)</li><li>Berichtigung (Art. 16 DSGVO)</li><li>Löschung (Art. 17 DSGVO)</li><li>Einschränkung (Art. 18 DSGVO)</li><li>Datenübertragbarkeit (Art. 20 DSGVO)</li><li>Widerspruch (Art. 21 DSGVO)</li><li>Widerruf einer Einwilligung (Art. 7 Abs. 3 DSGVO)</li><li>Beschwerde bei einer Aufsichtsbehörde (Art. 77 DSGVO): <strong>LDI NRW</strong>, Kavalleriestr. 2-4, 40213 Düsseldorf.</li></ul>
         <p>Anfragen an <strong>datenschutz@eventbörse.de</strong>.</p>
 
-        <h2>15. Bereitstellungspflicht</h2>
+        <h2>16. Bereitstellungspflicht</h2>
         <p>Stammdaten zur Vertragserfüllung sind erforderlich; ohne diese keine Buchung. Andere Daten (Profilbild) sind freiwillig.</p>
 
-        <h2>16. Automatisierte Entscheidungsfindung und Profiling</h2>
+        <h2>17. Automatisierte Entscheidungsfindung und Profiling</h2>
         <p>Unser Ranking-/Empfehlungssystem sortiert nach Relevanz, Bewertung, Premium-Status, Verfügbarkeit, Antwortgeschwindigkeit. Eine vollautomatisierte Entscheidung mit rechtlicher Wirkung im Sinne des Art. 22 DSGVO findet nicht statt; jede Sperrung oder Maßnahme mit erheblichen Folgen unterliegt menschlicher Überprüfung.</p>
 
-        <h2>17. Änderungen dieser Erklärung</h2>
+        <h2>18. Änderungen dieser Erklärung</h2>
         <p>Aktualisierung bei wesentlichen Änderungen. Wesentliche Änderungen kündigen wir Nutzern per E-Mail oder beim nächsten Login an.</p>
       </div>
     </section>
@@ -3966,6 +3996,56 @@ Datum: ___________________________________________________
         <button type="submit" class="btn-primary btn-block">
           <span class="material-icons-round">send</span> Bewertung abschicken
         </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- DSA Art. 16: report the exact listing, including a reasoned notice. -->
+  <div class="modal-overlay" id="contentReportModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-md">
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('contentReportModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">flag</span>
+        <h2>Inhalt melden</h2>
+        <p>Rechtswidrige, irreführende oder nicht gekennzeichnete KI-Inhalte direkt melden.</p>
+      </div>
+      <form class="modal-form" id="contentReportForm" onsubmit="submitListingReport(event)">
+        <div class="form-group">
+          <label for="contentReportTarget">Betroffener Inhalt</label>
+          <input type="text" id="contentReportTarget" readonly />
+        </div>
+        <div class="form-group">
+          <label for="contentReportReason">Meldegrund</label>
+          <select id="contentReportReason" required onchange="toggleReportContactRequirement()">
+            <option value="">Bitte auswählen</option>
+            <option value="ai_undeclared">Nicht gekennzeichneter KI-Inhalt</option>
+            <option value="misleading">Irreführende oder falsche Darstellung</option>
+            <option value="rights">Urheber-, Marken- oder Persönlichkeitsrecht</option>
+            <option value="illegal">Sonstiger mutmaßlich rechtswidriger Inhalt</option>
+            <option value="sexual_abuse_minors">Sexuelle Ausbeutung Minderjähriger</option>
+            <option value="other">Anderer Grund</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="contentReportExplanation">Warum ist der Inhalt rechtswidrig oder irreführend?</label>
+          <textarea id="contentReportExplanation" rows="5" minlength="20" maxlength="4000" required placeholder="Bitte möglichst konkret begründen, bei Rechtsverstößen wenn möglich mit betroffener Norm oder betroffenem Recht."></textarea>
+          <small class="form-hint">20–4.000 Zeichen. Die genaue Inserat-URL wird automatisch mitgesendet.</small>
+        </div>
+        <div class="form-row" id="contentReportContactFields">
+          <div class="form-group">
+            <label for="contentReportName">Name</label>
+            <input type="text" id="contentReportName" maxlength="200" autocomplete="name" required />
+          </div>
+          <div class="form-group">
+            <label for="contentReportEmail">E-Mail</label>
+            <input type="email" id="contentReportEmail" maxlength="200" autocomplete="email" required />
+          </div>
+        </div>
+        <p class="report-contact-exception" id="contentReportException" hidden>Bei Meldungen zur sexuellen Ausbeutung Minderjähriger sind Name und E-Mail gemäß Art. 16 Abs. 2 lit. c DSA nicht erforderlich.</p>
+        <label class="report-good-faith"><input type="checkbox" id="contentReportGoodFaith" required /> <span>Ich bin nach bestem Wissen überzeugt, dass meine Angaben richtig und vollständig sind.</span></label>
+        <button type="submit" class="btn-primary btn-block" id="contentReportSubmit"><span class="material-icons-round">send</span> Meldung absenden</button>
       </form>
     </div>
   </div>

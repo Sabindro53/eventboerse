@@ -86,3 +86,9 @@ body.dark-mode .feed-radar-map .leaflet-tile-pane,[data-theme="dark"] .feed-rada
 @media(max-width:700px){.feed-radar-map{height:390px}.feed-radar-map-top{top:10px;left:10px;right:10px}.feed-radar-map-top>span{padding:7px 9px;font-size:.66rem}.feed-radar-legend{left:10px;right:58px;bottom:11px}.feed-radar-result{grid-template-columns:minmax(0,1fr) 40px}.feed-radar-result-map{grid-template-columns:84px minmax(0,1fr);gap:10px}.feed-radar-result-map>img{width:84px;height:84px}.feed-radar-result-title{font-size:.86rem}.feed-radar-map .leaflet-control-attribution{max-width:180px;white-space:normal;line-height:1.1}}
 @media(max-width:420px){.feed-radar-map{height:350px}.feed-radar-map-radius{display:none!important}.feed-radar-legend{font-size:.6rem}.feed-radar-result{grid-template-columns:minmax(0,1fr) 38px}.feed-radar-result-map{grid-template-columns:72px minmax(0,1fr);padding:7px}.feed-radar-result-map>img{width:72px;height:78px}.feed-radar-result-map small{font-size:.66rem}}
 @media(prefers-reduced-motion:reduce){.feed-radar-live-dot.scannt{animation:none}.feed-radar-marker{transition:none}}
+
+/* AI labels need an image wrapper so the declaration stays attached to the
+   exact Radar thumbnail rather than floating over the distance copy. */
+.feed-radar-result-image{position:relative;display:block;width:104px;height:92px;overflow:hidden;border-radius:11px}.feed-radar-result-image>img{display:block;width:100%;height:100%;object-fit:cover}.feed-radar-result-image .ai-media-watermark,.feed-radar-result-image .ai-text-watermark{left:4px;max-width:calc(100% - 8px);padding:3px 4px;font-size:6px}.feed-radar-result-image .ai-media-watermark{bottom:4px}.feed-radar-result-image .ai-text-watermark{bottom:20px}
+@media(max-width:700px){.feed-radar-result-image{width:84px;height:84px}}
+@media(max-width:420px){.feed-radar-result-image{width:72px;height:78px}}

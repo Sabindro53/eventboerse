@@ -156,6 +156,65 @@ function _surfaceVisibleListings(arr) {
   );
   return adminWantsDemo ? rows : filterDemos(rows);
 }
+
+// AI transparency is stored separately for copy and media so a human photo
+// is never falsely watermarked merely because the description used AI.
+// "undeclared" is reserved for migrated legacy records and is not shown as
+// proof of human authorship.
+function _aiDisclosureValue(item, kind) {
+  var key = kind === 'media' ? 'aiMediaDisclosure' : 'aiTextDisclosure';
+  var nested = item && item.aiDisclosure && item.aiDisclosure[kind];
+  var raw = item && (item[key] != null ? item[key] : nested);
+  raw = String(raw || 'undeclared').toLowerCase();
+  return ['none', 'assisted', 'generated', 'undeclared'].indexOf(raw) !== -1 ? raw : 'undeclared';
+}
+
+function _aiDisclosureAttrs(item) {
+  return ' data-ai-text="' + _aiDisclosureValue(item, 'text') + '"' +
+    ' data-ai-media="' + _aiDisclosureValue(item, 'media') + '"';
+}
+
+function _aiDisclosureLabels(item) {
+  var labels = [];
+  var textStatus = _aiDisclosureValue(item, 'text');
+  var mediaStatus = _aiDisclosureValue(item, 'media');
+  if (mediaStatus === 'generated') labels.push({ kind: 'media', label: 'KI-generiertes Bild', short: 'KI-generiert' });
+  if (mediaStatus === 'assisted') labels.push({ kind: 'media', label: 'KI-bearbeitetes Bild', short: 'KI-bearbeitet' });
+  if (textStatus === 'generated') labels.push({ kind: 'text', label: 'KI-generierter Text', short: 'KI-Text' });
+  if (textStatus === 'assisted') labels.push({ kind: 'text', label: 'KI-unterstützter Text', short: 'KI-Text bearbeitet' });
+  if (mediaStatus === 'undeclared') labels.push({ kind: 'media', label: 'KI-Status der Medien noch nicht deklariert', short: 'Medien: KI-Status offen', legacy: true });
+  if (textStatus === 'undeclared') labels.push({ kind: 'text', label: 'KI-Status des Textes noch nicht deklariert', short: 'Text: KI-Status offen', legacy: true });
+  return labels;
+}
+
+function _aiDisclosureLabelsHtml(item, extraClass) {
+  var labels = _aiDisclosureLabels(item);
+  if (!labels.length) return '';
+  return '<span class="ai-disclosure-stack' + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="KI-Transparenz">' +
+    labels.map(function(info) {
+      return '<span class="ai-content-label ai-content-label-' + info.kind + (info.legacy ? ' ai-content-label-open' : '') + '" title="' +
+        (info.legacy ? 'Altbestand: noch nicht nachdeklariert' : 'Von der einstellenden Person deklariert') + '">' +
+        '<span class="material-icons-round" aria-hidden="true">auto_awesome</span>' + _escHtml(info.short) + '</span>';
+    }).join('') + '</span>';
+}
+
+function _aiMediaWatermarkHtml(item, extraClass) {
+  var mediaStatus = _aiDisclosureValue(item, 'media');
+  if (mediaStatus === 'none') return '';
+  var label = mediaStatus === 'generated' ? 'KI-GENERIERT' : (mediaStatus === 'assisted' ? 'KI-BEARBEITET' : 'KI-STATUS OFFEN');
+  var aria = mediaStatus === 'generated' ? 'KI-generiertes Bild' : (mediaStatus === 'assisted' ? 'KI-bearbeitetes Bild' : 'KI-Status der Medien noch nicht deklariert');
+  return '<span class="ai-media-watermark' + (mediaStatus === 'undeclared' ? ' ai-watermark-open' : '') + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="' + aria + '">' + label + '</span>';
+}
+
+function _aiTextDisclosureHtml(item, extraClass) {
+  var textStatus = _aiDisclosureValue(item, 'text');
+  if (textStatus === 'none') return '';
+  var label = textStatus === 'generated' ? 'KI-Text' : (textStatus === 'assisted' ? 'KI-Text bearbeitet' : 'Text-KI offen');
+  var aria = textStatus === 'generated' ? 'KI-generierter Text' : (textStatus === 'assisted' ? 'KI-unterstützter Text' : 'KI-Status des Textes noch nicht deklariert');
+  return '<span class="ai-text-watermark' + (textStatus === 'undeclared' ? ' ai-watermark-open' : '') + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="' + aria + '">' +
+    '<span class="material-icons-round" aria-hidden="true">auto_awesome</span>' + label + '</span>';
+}
+
 function _safeRun(label, fn) {
   try {
     if (typeof fn === 'function') fn();
@@ -413,7 +472,6 @@ window._fitExploreImg = function(img) {
     img.classList.add('explore-item-img-contain');
   }
 };
-
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -1382,6 +1440,7 @@ function navigateTo(page, data, skipHistory) {
       if (!window._isEditNavigation) {
         window._editingListingId = null;
         document.getElementById('createListingForm').reset();
+        try { _setAiDisclosureForm('', ''); } catch (e) {}
         document.getElementById('uploadPreview').innerHTML = '';
         document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
         document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
@@ -1554,7 +1613,7 @@ function renderListingCard(listing) {
   var imgs = Array.isArray(listing.images) && listing.images.length ? listing.images : [listing.image];
   var galleryId = 'gridGallery_' + listing.id;
   return `
-    <div class="listing-card" data-listing-id="${listing.id}">
+    <div class="listing-card" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bilder: ${_escHtml(listing.title)}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
@@ -1565,6 +1624,8 @@ function renderListingCard(listing) {
         </button>
         ${listing.badge ? '<span class="listing-badge">' + _escHtml(listing.badge) + '</span>' : ''}
         ${_boardStatusBadgeHtml(listing.id, 'bsb-on-card')}
+        ${_aiMediaWatermarkHtml(listing)}
+        ${_aiTextDisclosureHtml(listing)}
       </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
@@ -1626,8 +1687,9 @@ function renderHeroMarquees() {
   }
 
   function cardHTML(l) {
-    return '<a class="hero-marquee-card" href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
+    return '<a class="hero-marquee-card"' + _aiDisclosureAttrs(l) + ' href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
       '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager"' + window.EB_IMG_ERR_ATTR + ' />' +
+      _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
         '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
@@ -1784,11 +1846,11 @@ function renderExploreGrid(filter) {
   let items = [];
   filterDemos(LISTINGS).forEach(l => {
     // Main image
-    items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+    items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, aiTextDisclosure: l.aiTextDisclosure, aiMediaDisclosure: l.aiMediaDisclosure });
     // Additional images
     if (l.images) {
       l.images.slice(1).forEach(img => {
-        items.push({ image: img, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel });
+        items.push({ image: img, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, aiTextDisclosure: l.aiTextDisclosure, aiMediaDisclosure: l.aiMediaDisclosure });
       });
     }
   });
@@ -1797,8 +1859,9 @@ function renderExploreGrid(filter) {
   }
   grid.innerHTML = items.map((it, i) => {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
-    return `<a href="#" class="explore-item ${sizeClass}" onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
+    return `<a href="#" class="explore-item ${sizeClass}"${_aiDisclosureAttrs(it)} onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
       <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+      ${_aiMediaWatermarkHtml(it)}${_aiTextDisclosureHtml(it)}
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
         <span class="explore-item-price">${_escHtml(it.price)}</span>
@@ -1870,7 +1933,7 @@ function renderFeed(tab) {
     const isFav = favorites.has(l.id);
     const desc = l.description || l.title;
     const tags = l.features ? l.features.slice(0, 3) : [];
-    return `<div class="feed-card">
+    return `<div class="feed-card"${_aiDisclosureAttrs(l)}>
       <div class="feed-card-header">
         <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
         <div class="feed-card-meta">
@@ -1879,7 +1942,7 @@ function renderFeed(tab) {
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
+      <div class="feed-card-media"><img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}</div>
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
         <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
@@ -2277,7 +2340,6 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-
 /* ══════════════════════════════════════════════════════════════════════
    EB INTELLIGENCE — Geschmacks-Gedächtnis & Satz-Vervollständigung
    ----------------------------------------------------------------------
@@ -4171,13 +4233,14 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
         ? `<span class="alt-distance-badge"><span class="material-icons-round">near_me</span> ~${l._distKm} km</span>`
         : '';
       return `
-        <div class="listing-card" onclick="navigateTo('detail', ${l.id})">
+        <div class="listing-card"${_aiDisclosureAttrs(l)} onclick="navigateTo('detail', ${l.id})">
           <div class="listing-card-img">
             <img src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" />
             <button class="listing-fav" aria-label="Zu Favoriten hinzufügen" aria-pressed="false" onclick="event.stopPropagation(); toggleFavorite(${l.id}, this)">
               <span class="material-icons-round">favorite_border</span>
             </button>
             ${l.badge ? `<span class="listing-badge">${_escHtml(l.badge)}</span>` : ''}
+            ${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}
           </div>
           <div class="listing-card-body">
             <div class="listing-card-top">
@@ -4241,7 +4304,6 @@ function setView(view) {
     grid.style.gridTemplateColumns = '';
   }
 }
-
 // ========== DETAIL PAGE ==========
 function loadDetail(listingId) {
   const listing = LISTINGS.find(l => l.id === listingId);
@@ -4265,7 +4327,8 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (imgs.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />`;
+    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />${_aiMediaWatermarkHtml(listing)}`;
+    heroImg.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }
 
   // Swipeable gallery carousel
@@ -4277,7 +4340,7 @@ function loadDetail(listingId) {
       var delBtn = _detailCanModerate && img !== window.EB_IMG_FALLBACK
         ? '<button type="button" class="detail-gallery-admin-del" title="Bild als Admin löschen" aria-label="Bild als Admin löschen" onclick="adminDeleteListingImage(' + i + ', event)"><span class="material-icons-round">delete</span> Löschen</button>'
         : '';
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + delBtn + '</div>';
+      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + _aiMediaWatermarkHtml(listing) + delBtn + '</div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -4286,6 +4349,8 @@ function loadDetail(listingId) {
     imgs.map(function(_, i) { return '<button class="detail-gallery-dot' + (i === 0 ? ' active' : '') + '" onclick="detailGalleryGoTo(' + i + ')" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') +
     '</div>' +
     '<div class="detail-gallery-counter" id="detailGalleryCounter">1 / ' + imgs.length + '</div>' : '');
+  gallery.setAttribute('data-ai-text', _aiDisclosureValue(listing, 'text'));
+  gallery.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   _initDetailGallerySwipe();
   // Detect wide banners for hero + gallery
   detectWideBannerImg(heroImg.querySelector('img'));
@@ -4306,6 +4371,17 @@ function loadDetail(listingId) {
   document.getElementById('detailRating').textContent = listing.rating || '0';
   document.getElementById('detailReviewCount').textContent = '(' + (listing.reviews || 0) + ' Bewertungen)';
   document.getElementById('detailLocation').textContent = listing.region;
+  var aiDisclosure = document.getElementById('detailAiDisclosure');
+  if (aiDisclosure) {
+    var aiLabels = _aiDisclosureLabelsHtml(listing, 'ai-disclosure-detail');
+    var hasOpenStatus = _aiDisclosureValue(listing, 'text') === 'undeclared' || _aiDisclosureValue(listing, 'media') === 'undeclared';
+    var aiNote = hasOpenStatus
+      ? 'Altbestand: Die ausdrückliche Nachdeklaration steht noch aus.'
+      : 'Vom Anbieter bei Veröffentlichung deklariert.';
+    aiDisclosure.innerHTML = aiLabels ? aiLabels + '<small>' + aiNote + '</small>' : '';
+    aiDisclosure.setAttribute('data-ai-text', _aiDisclosureValue(listing, 'text'));
+    aiDisclosure.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
+  }
   document.getElementById('detailProviderImg').src = _resolveAvatar(listing.providerImg, listing.providerName);
   document.getElementById('detailProviderName').textContent = listing.providerName;
   document.getElementById('detailProviderTag').textContent = `Superhost · Seit ${listing.providerSince} auf Eventbörse`;
@@ -4313,6 +4389,8 @@ function loadDetail(listingId) {
   // Show edit button only for own listings
   var editBtn = document.getElementById('detailEditBtn');
   if (editBtn) editBtn.style.display = (currentUser && listing.providerId === currentUser.id) ? '' : 'none';
+  var reportBtn = document.getElementById('detailReportBtn');
+  if (reportBtn) reportBtn.style.display = listing._fromDb ? '' : 'none';
 
   // Board-Status-Chip: zeigt, ob dieses Inserat schon im Planungsboard steckt
   // (Im Plan / Kontaktiert / Angebot / Gebucht) — Verknüpfung Detail ↔ Board.
@@ -4373,6 +4451,70 @@ function loadDetail(listingId) {
   // Negotiation price
   document.getElementById('negOriginalPrice').value = listing.priceLabel;
   renderDetailCollaborationSuggestions(listing.providerId);
+}
+
+var _contentReportListing = null;
+
+function openListingReport(listingArg) {
+  var listing = listingArg && listingArg.id ? listingArg : currentListing;
+  if (!listing || !listing._fromDb || !listing._dbId) {
+    showToast('Dieses Demo-Inserat ist nicht öffentlich meldbar.', 'info');
+    return;
+  }
+  _contentReportListing = listing;
+  var form = document.getElementById('contentReportForm');
+  if (form) form.reset();
+  var target = document.getElementById('contentReportTarget');
+  if (target) target.value = listing.title + ' · /detail/' + listing.id;
+  var name = document.getElementById('contentReportName');
+  var email = document.getElementById('contentReportEmail');
+  if (name && currentUser) name.value = currentUser.name || '';
+  if (email && currentUser) email.value = currentUser.email || '';
+  toggleReportContactRequirement();
+  openModal('contentReportModal');
+}
+
+function toggleReportContactRequirement() {
+  var reason = (document.getElementById('contentReportReason') || {}).value || '';
+  var optional = reason === 'sexual_abuse_minors';
+  var name = document.getElementById('contentReportName');
+  var email = document.getElementById('contentReportEmail');
+  var note = document.getElementById('contentReportException');
+  if (name) name.required = !optional;
+  if (email) email.required = !optional;
+  if (note) note.hidden = !optional;
+}
+
+async function submitListingReport(event) {
+  event.preventDefault();
+  var listing = _contentReportListing;
+  if (!listing || !listing._dbId) return;
+  var btn = document.getElementById('contentReportSubmit');
+  _setBtnLoading(btn, true);
+  try {
+    var response = await fetch(_apiUrl('listings/' + listing._dbId + '/report'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: _apiHeaders(),
+      body: JSON.stringify({
+        reason: (document.getElementById('contentReportReason') || {}).value || '',
+        explanation: (document.getElementById('contentReportExplanation') || {}).value || '',
+        reporterName: (document.getElementById('contentReportName') || {}).value || '',
+        reporterEmail: (document.getElementById('contentReportEmail') || {}).value || '',
+        goodFaith: !!(document.getElementById('contentReportGoodFaith') || {}).checked
+      })
+    });
+    var data = {};
+    try { data = await response.json(); } catch (e) {}
+    if (!response.ok) throw new Error(data.message || 'Meldung konnte nicht gesendet werden.');
+    closeModal('contentReportModal');
+    _contentReportListing = null;
+    showToast('Meldung erhalten · Vorgang ' + (data.caseId || ''), 'verified_user');
+  } catch (err) {
+    showToast(err.message || 'Meldung konnte nicht gesendet werden.', 'error');
+  } finally {
+    _setBtnLoading(btn, false);
+  }
 }
 
 // ========== PROVIDER PROFILE ==========
@@ -6303,7 +6445,7 @@ function _feedRadarPopupHtml(gruppe) {
       + '<span class="material-icons-round">' + (hit.art === 'event' ? 'celebration' : 'storefront') + '</span>'
       + '<span><strong>' + _escHtml(title) + '</strong><small>'
       + _escHtml(hit.ort || '') + ' · ' + _escHtml(radarEntfernung(hit.km))
-      + (hit.genau ? '' : ' · ca.') + '</small></span>'
+      + (hit.genau ? '' : ' · ca.') + '</small>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-popup') + '</span>'
       + '<span class="material-icons-round">arrow_forward</span></button>';
   }).join('');
   return '<div class="feed-radar-popup"><div class="feed-radar-popup-head">'
@@ -6511,9 +6653,9 @@ function _drawFeedRadar() {
       var d = hit.daten || {};
       var title = d.title || d.name || 'Event';
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
-      return '<article class="feed-radar-result" data-radar-index="' + index + '">' +
+      return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
-        '<img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
+        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '>' + _aiMediaWatermarkHtml(d) + _aiTextDisclosureHtml(d) + '</span><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
         '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong><small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
         '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
     }).join('') + '</div>';
@@ -9088,6 +9230,82 @@ const CATEGORY_LABELS = {
   moderation: 'Moderation'
 };
 
+function _selectedAiDisclosure(kind) {
+  var name = kind === 'media' ? 'createAiMediaDisclosure' : 'createAiTextDisclosure';
+  var selected = document.querySelector('input[name="' + name + '"]:checked');
+  return selected ? selected.value : '';
+}
+
+function _setAiDisclosureForm(textStatus, mediaStatus) {
+  ['text', 'media'].forEach(function(kind) {
+    var status = kind === 'media' ? mediaStatus : textStatus;
+    var name = kind === 'media' ? 'createAiMediaDisclosure' : 'createAiTextDisclosure';
+    document.querySelectorAll('input[name="' + name + '"]').forEach(function(input) {
+      input.checked = ['none', 'assisted', 'generated'].indexOf(status) !== -1 && input.value === status;
+    });
+  });
+  _aiDisclosureFormChanged();
+}
+
+function _aiDisclosureFormChanged() {
+  var section = document.getElementById('aiDisclosureSection');
+  if (section) section.classList.remove('has-error');
+  _updateListingPreviewAiLabels();
+  _updateListingLivePreview();
+}
+
+function _updateListingPreviewAiLabels() {
+  var mediaStatus = _selectedAiDisclosure('media');
+  document.querySelectorAll('#uploadPreview .upload-preview-item').forEach(function(item) {
+    var old = item.querySelector('.ai-media-watermark');
+    if (old) old.remove();
+    var html = _aiMediaWatermarkHtml({ aiMediaDisclosure: mediaStatus }, 'ai-media-watermark-preview');
+    if (html) item.insertAdjacentHTML('beforeend', html);
+  });
+}
+
+// Burn the declaration into every newly uploaded AI image. The UI overlay is
+// still rendered separately because it must remain visible on all surfaces;
+// this pixel watermark additionally survives opening or sharing the file.
+function _aiWatermarkBlob(blob, mediaStatus) {
+  if (!blob || (mediaStatus !== 'assisted' && mediaStatus !== 'generated')) return Promise.resolve(blob);
+  return new Promise(function(resolve) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        var label = mediaStatus === 'generated' ? 'KI-GENERIERT · EVENTBÖRSE' : 'KI-BEARBEITET · EVENTBÖRSE';
+        var fontSize = Math.max(20, Math.round(canvas.width * 0.027));
+        var padX = Math.round(fontSize * 0.65);
+        var padY = Math.round(fontSize * 0.42);
+        ctx.font = '700 ' + fontSize + 'px Arial, sans-serif';
+        var textWidth = ctx.measureText(label).width;
+        var boxW = textWidth + padX * 2;
+        var boxH = fontSize + padY * 2;
+        var x = Math.max(12, canvas.width - boxW - Math.round(fontSize * 0.6));
+        var y = Math.max(12, canvas.height - boxH - Math.round(fontSize * 0.6));
+        ctx.fillStyle = 'rgba(12, 15, 24, 0.84)';
+        ctx.fillRect(x, y, boxW, boxH);
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x + padX, y + boxH / 2);
+        canvas.toBlob(function(marked) { resolve(marked || blob); }, 'image/jpeg', 0.92);
+      } catch (e) {
+        resolve(blob);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); resolve(blob); };
+    img.src = url;
+  });
+}
+
 async function submitListing(e) {
   if (e && e.preventDefault) e.preventDefault();
 
@@ -9141,12 +9359,24 @@ async function submitListing(e) {
   const priceMaxRaw = parseInt((document.getElementById('createPriceMax')||{}).value) || 0;
   const priceMax = (priceMaxRaw > 0 && priceMaxRaw > price) ? priceMaxRaw : 0;
   const priceModel = requiredEl('createPriceModel', 'Preismodell').value;
+  const aiTextDisclosure = _selectedAiDisclosure('text');
+  const aiMediaDisclosure = _selectedAiDisclosure('media');
 
   // Basic validation
   if (!title)       { _releaseGuard(); showToast('Bitte gib einen Titel ein', 'warning'); nextStep(1); return; }
   if (!category)    { _releaseGuard(); showToast('Bitte wähle eine Kategorie', 'warning'); nextStep(1); return; }
   if (!description) { _releaseGuard(); showToast('Bitte gib eine Beschreibung ein', 'warning'); nextStep(1); return; }
   if (!price)       { _releaseGuard(); showToast(isSearch ? 'Bitte gib dein Budget ein' : 'Bitte gib einen Preis ein', 'warning'); nextStep(1); return; }
+  if (!aiTextDisclosure || !aiMediaDisclosure) {
+    _releaseGuard();
+    var aiSection = document.getElementById('aiDisclosureSection');
+    if (aiSection) {
+      aiSection.classList.add('has-error');
+      aiSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    showToast('Bitte die KI-Nutzung für Text und Medien ausdrücklich angeben.', 'warning');
+    return;
+  }
   const region = document.getElementById('createRegionValue').value.trim()
     || document.getElementById('createRegion').value.trim() || 'Deutschland';
   const dateFrom = document.getElementById('createDateFrom').value;
@@ -9210,15 +9440,20 @@ async function submitListing(e) {
   // Upload images: cropped blobs first, then data URLs, keep existing URLs
   var uploadPromises = imgEntries.map(function(entry) {
     if (entry.blob) {
-      var file = new File([entry.blob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.jpg', { type: 'image/jpeg' });
-      return uploadFile(file).then(function(r) { return r.url; });
+      return _aiWatermarkBlob(entry.blob, aiMediaDisclosure).then(function(markedBlob) {
+        var file = new File([markedBlob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.jpg', { type: 'image/jpeg' });
+        return uploadFile(file).then(function(r) { return r.url; });
+      });
     }
     if (entry.src.startsWith('data:')) {
       var arr = entry.src.split(','), mime = arr[0].match(/:(.*?);/)[1];
       var bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
       while (n--) u8arr[n] = bstr.charCodeAt(n);
-      var file = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
-      return uploadFile(file).then(function(r) { return r.url; });
+      var sourceFile = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
+      return _aiWatermarkBlob(sourceFile, aiMediaDisclosure).then(function(markedBlob) {
+        var file = new File([markedBlob], 'listing-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+        return uploadFile(file).then(function(r) { return r.url; });
+      });
     }
     return Promise.resolve(entry.src);
   });
@@ -9234,6 +9469,8 @@ async function submitListing(e) {
     var payload = {
       title: title,
       listingType: listingType,
+      aiTextDisclosure: aiTextDisclosure,
+      aiMediaDisclosure: aiMediaDisclosure,
       category: category,
       categoryLabel: CATEGORY_LABELS[category] || category,
       description: '<p>' + description.replace(/\n/g, '</p><p>') + '</p>',
@@ -9312,6 +9549,7 @@ async function submitListing(e) {
 
       // Reset the form
       document.getElementById('createListingForm').reset();
+      try { _setAiDisclosureForm('', ''); } catch (e) {}
       document.getElementById('uploadPreview').innerHTML = '';
       document.querySelectorAll('#createFeatureTags .feature-tag').forEach(function(t) { t.classList.remove('selected'); });
       document.querySelectorAll('#createFeatureTags .feature-tag-custom-item').forEach(function(t) { t.remove(); });
@@ -9661,6 +9899,12 @@ function _updateListingLivePreview() {
     return;
   }
   container.style.display = '';
+  var previewDisclosure = {
+    aiTextDisclosure: _selectedAiDisclosure('text') || 'undeclared',
+    aiMediaDisclosure: _selectedAiDisclosure('media') || 'undeclared'
+  };
+  container.setAttribute('data-ai-text', _aiDisclosureValue(previewDisclosure, 'text'));
+  container.setAttribute('data-ai-media', _aiDisclosureValue(previewDisclosure, 'media'));
 
   // Build slides
   track.innerHTML = '';
@@ -9671,6 +9915,8 @@ function _updateListingLivePreview() {
     slideImg.src = img.src;
     slideImg.alt = 'Vorschau';
     slide.appendChild(slideImg);
+    var watermark = _aiMediaWatermarkHtml(previewDisclosure, 'ai-media-watermark-live');
+    if (watermark) slide.insertAdjacentHTML('beforeend', watermark);
     track.appendChild(slide);
   });
 
@@ -10226,7 +10472,6 @@ function initDragScroll() {
     document.querySelectorAll(sel).forEach(_makeDraggable);
   });
 }
-
 // ========== DARK MODE ==========
 function initDarkMode() {
   var isDark = localStorage.getItem('eb_dark_mode') !== '0';
@@ -10869,6 +11114,8 @@ function renderMyListings() {
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
+              aiTextDisclosure: l.aiTextDisclosure,
+              aiMediaDisclosure: l.aiMediaDisclosure,
               image: (l.images && l.images[0]) || '',
               images: l.images || [],
               location: l.location,
@@ -10911,8 +11158,9 @@ function renderMyListings() {
           // DB events from API
           if (evt._fromDb) {
             return '<div class="my-listing-card">' +
-              '<div class="my-listing-img">' +
+              '<div class="my-listing-img"' + _aiDisclosureAttrs(evt) + '>' +
                 '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
+                _aiMediaWatermarkHtml(evt) + _aiTextDisclosureHtml(evt) +
                 '<span class="status-badge status-active">Aktiv</span>' +
               '</div>' +
               '<div class="my-listing-info">' +
@@ -10992,8 +11240,9 @@ function renderMyListings() {
           var rating = l.rating || 0;
           var reviewCount = l.reviewCount || 0;
           return '<div class="my-listing-card">' +
-            '<div class="my-listing-img">' +
+            '<div class="my-listing-img"' + _aiDisclosureAttrs(l) + '>' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
+              _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
               '<span class="status-badge status-active">Aktiv</span>' +
             '</div>' +
             '<div class="my-listing-info">' +
@@ -11053,6 +11302,8 @@ function renderMyListings() {
               title: l.title,
               category: l.category,
               categoryLabel: l.categoryLabel || l.category,
+              aiTextDisclosure: l.aiTextDisclosure,
+              aiMediaDisclosure: l.aiMediaDisclosure,
               image: (l.images && l.images[0]) || '',
               images: l.images || [],
               location: l.location,
@@ -11114,6 +11365,9 @@ function editListing(listingId) {
 
   // Typ (Biete/Suche) aus dem Inserat übernehmen
   try { _clSetType(listing.listingType === 'search' ? 'search' : 'offer'); } catch (e) {}
+  // Legacy records remain unselected and require an explicit declaration on
+  // the next save; do not silently turn "undeclared" into "without AI".
+  try { _setAiDisclosureForm(listing.aiTextDisclosure, listing.aiMediaDisclosure); } catch (e) {}
   // Verfügbarkeitskalender mit bestehenden Block-Tagen vorbefüllen
   try { _clAvailPrefill(listing); } catch (e) {}
 
@@ -11736,7 +11990,6 @@ function adminChangeRole(userId, role) {
     loadAdminUsers();
   }).catch(function(e) { showToast(e.message || 'Rollenwechsel fehlgeschlagen', 'error'); });
 }
-
 // ========== REVIEW SYSTEM ==========
 var selectedRating = 0;
 // Store user reviews per listing (listingId → array of reviews)
@@ -22193,14 +22446,15 @@ function _buildListingPickerCardsHtml(baseList, isSearchListingFn, showSearchLis
     var img = l.image || l.providerImg || '';
     var price = l.priceLabel || (l.price ? ('ab ' + l.price + ' €') : '');
     return '<button type="button" class="eb-lpick-card" data-id="' + l.id +
-      '" data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
+      '"' + _aiDisclosureAttrs(l) +
+      ' data-name="' + _escHtml(l.providerName || l.title || '') + '"' +
       ' data-category="' + _escHtml(l.categoryLabel || l.category || '') + '"' +
       ' data-price="' + (l.price || '') + '"' +
       ' data-avatar="' + _escHtml(img) + '"' +
       ' data-image="' + _escHtml(l.image || img) + '"' +
       ' data-title="' + _escHtml(l.title || '') + '"' +
       ' onclick="_selectListingCard(this)">' +
-      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
+      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')">' + _aiMediaWatermarkHtml(l, 'ai-media-watermark-picker') + _aiTextDisclosureHtml(l, 'ai-text-watermark-picker') + '</span>' +
       '<span class="eb-lpick-body">' +
         '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
         '<span class="eb-lpick-meta">' +
@@ -22508,6 +22762,12 @@ function ignoreUser(authorName) {
 
 function reportPost(postId) {
   closePostMenu();
+  if (String(postId).indexOf('listing-') === 0) {
+    var listingId = parseInt(String(postId).slice(8), 10);
+    var listing = (typeof LISTINGS !== 'undefined' ? LISTINGS : []).find(function(item) { return item.id === listingId; });
+    if (listing && typeof openListingReport === 'function') openListingReport(listing);
+    return;
+  }
   // Simple reason selection sheet
   var overlay = document.createElement('div');
   overlay.className = 'post-options-overlay';
@@ -23115,7 +23375,7 @@ function renderSocialPostCard(post) {
 function renderListingFeedCard(l) {
   var avatar = l.providerImg || l.providerAvatar || ebAvatar(l.providerName || 'user', l.providerName);
   var isFav = favorites.has(l.id);
-  return '<div class="feed-post-card" data-post-id="listing-' + l.id + '">' +
+  return '<div class="feed-post-card" data-post-id="listing-' + l.id + '"' + _aiDisclosureAttrs(l) + '>' +
     '<div class="feed-post-header">' +
       '<img class="feed-post-avatar" src="' + _escHtml(avatar) + '" alt="' + _escHtml(l.providerName) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" onclick="navigateTo(\'provider\',' + (l.providerId || l.id) + ')" />' +
       '<div class="feed-post-author">' +
@@ -23124,7 +23384,7 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
+    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' + _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) + '</div>' +
     '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +
@@ -26261,7 +26521,7 @@ function _drawBusinessMediaPreview(seedExtra) {
   ctx.fillStyle=style==='minimal'?'#18181b':'#fff';ctx.font='700 '+Math.round(c.width/20)+'px Inter, sans-serif';ctx.textAlign='left';
   var words=prompt.trim().split(/\s+/), lines=[],line=''; words.forEach(function(w){ if((line+' '+w).length>28){lines.push(line);line=w;}else line+=(line?' ':'')+w;});if(line)lines.push(line);
   lines.slice(0,3).forEach(function(l,i){ctx.fillText(l,70,c.height-170+(i-lines.length+1)*62);});
-  ctx.font='600 20px Inter, sans-serif';ctx.fillText('EVENTBÖRSE · EINZIGARTIGER ACCOUNT-ENTWURF',72,c.height-62);
+  ctx.font='600 20px Inter, sans-serif';ctx.fillText('DIGITAL ERSTELLT · EVENTBÖRSE · KEIN KI-FOTOMODELL',72,c.height-62);
 }
 function createAccountMedia() {
   var c=document.getElementById('mediaStudioCanvas'); if(!c) return;
@@ -26271,7 +26531,7 @@ function createAccountMedia() {
     var file=new File([blob],'eventboerse-motiv-'+Date.now()+'.png',{type:'image/png'});
     uploadFile(file).then(function(data){
       var result=document.getElementById('mediaStudioResult');
-      if(result) result.innerHTML='<span><span class="material-icons-round">verified_user</span> Account #' + _escHtml(String(data.ownerId||currentUser.id)) + ' zugeordnet</span><button class="btn-outline btn-sm" onclick="useMediaInPortfolio(\'' + _escHtml(data.url) + '\')">Ins Portfolio</button><button class="btn-outline btn-sm" onclick="useMediaAsProfilePhoto(\'' + _escHtml(data.url) + '\')">Als Profilbild</button>';
+      if(result) result.innerHTML='<span><span class="material-icons-round">verified_user</span> Digital erstellt · kein KI-Fotomodell · Account #' + _escHtml(String(data.ownerId||currentUser.id)) + '</span><button class="btn-outline btn-sm" onclick="useMediaInPortfolio(\'' + _escHtml(data.url) + '\')">Ins Portfolio</button><button class="btn-outline btn-sm" onclick="useMediaAsProfilePhoto(\'' + _escHtml(data.url) + '\')">Als Profilbild</button>';
       showToast('Motiv sicher in deinem Account gespeichert.','verified_user');
     }).catch(function(err){ showToast(err.message||'Upload fehlgeschlagen.','error'); });
   },'image/png',0.92);
