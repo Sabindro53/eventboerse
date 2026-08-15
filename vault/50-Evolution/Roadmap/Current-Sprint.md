@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 303 Tests in 17 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 305 Tests in 17 Suiten**, blockierendes Gate in `pr-check.yml`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift
 - **Lagebild-Lauf 4×/Tag** (02/08/14/20 UTC), 11 Rollen je Lauf, eigenes
@@ -34,6 +34,16 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 ## Zuletzt ausgeliefert (August 2026)
 
+- [x] **Kein Beitrag ohne Account:** Der Tages-Demo-Feed liefert nun 25 feste,
+  klar gekennzeichnete Demo-Account-Profile mit stabilen IDs und Avataren.
+  Autorname und Avatar öffnen das zugehörige Profil; derselbe Autor kann nicht
+  mehr durch seine Feed-Position mehrere IDs erhalten (wie zuvor „Konfetti &
+  Co."). Profil-Datensätze bleiben strikt außerhalb von `LISTINGS`, zeigen bei
+  reinen Beitragsaccounts also 0 Inserate und können den früheren
+  Profil-als-Inserat-Fehler nicht wiederholen. Eigene Beiträge werden nur noch
+  mit gültiger Account-ID angelegt; verwaiste Datensätze rendert der Feed nicht.
+  Zwei neue Regressionstests prüfen die Zuordnung und den vollständigen Weg
+  „Team Nordlicht“ → Demo-Profil → 0 Inserate. Gesamtsuite 305/305 grün.
 - [x] **KI-Transparenz fuer Inserate:** Beim Veröffentlichen sind Text und
   Medien getrennt und ohne Vorbelegung als ohne generative KI, wesentlich
   KI-unterstützt oder KI-generiert zu deklarieren. Die Oberfläche zeigt dafür

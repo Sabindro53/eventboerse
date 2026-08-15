@@ -223,6 +223,51 @@ let _currentProviderIsOwn = false;
 // als echtes Inserat gezaehlt und gerendert (z. B. "Admin" bei Maria Heilig).
 let _providerProfileCache = Object.create(null);
 
+/**
+ * Registriert Profil-Datensätze für redaktionelle Demo-Accounts, ohne sie als
+ * Inserate in LISTINGS einzuschleusen. Genau diese Trennung verhindert, dass
+ * ein Account-Profil fälschlich als veröffentlichtes Inserat gezählt wird.
+ */
+function _registerDemoAccountProfiles(accounts) {
+  if (!Array.isArray(accounts)) return 0;
+  var registered = 0;
+  var demoIds = Array.isArray(window.EB_DEMO_PROVIDER_IDS)
+    ? window.EB_DEMO_PROVIDER_IDS.slice() : [];
+
+  accounts.forEach(function(account) {
+    var pid = _toPositiveInt(account && account.id);
+    var name = account && String(account.name || '').trim();
+    if (!pid || !name) return;
+
+    var avatar = account.avatar || ((typeof ebAvatar === 'function')
+      ? ebAvatar(account.avatarSeed || ('demo-account-' + pid), name) : '');
+    _providerProfileCache[pid] = {
+      id: 'profile-' + pid,
+      _profileOnly: true,
+      _isDemoProfile: true,
+      providerId: pid,
+      providerName: name,
+      providerImg: avatar,
+      providerSince: account.since || '2026',
+      description: account.description || (name + ' ist ein Demo-Account für Beispielbeiträge im Eventbörse-Feed.'),
+      location: account.location || 'Deutschland',
+      categoryLabel: account.role || 'Community-Mitglied',
+      priceLabel: '',
+      images: Array.isArray(account.images) ? account.images : [],
+      features: Array.isArray(account.features) ? account.features : [],
+      tags: Array.isArray(account.tags) ? account.tags : ['Demo-Account'],
+      rating: 0,
+      reviews: 0,
+      badge: 'Demo-Profil'
+    };
+    if (demoIds.indexOf(pid) === -1) demoIds.push(pid);
+    registered++;
+  });
+
+  window.EB_DEMO_PROVIDER_IDS = demoIds;
+  return registered;
+}
+
 function _isProfileOnlyRecord(item) {
   if (!item) return false;
   return !!(
@@ -430,6 +475,7 @@ function loadProvider(providerId) {
     _showProviderNotFound(pid);
     return;
   }
+  var isDemoAccountProfile = mainListing._isDemoProfile === true;
   // Ausschliesslich diese Datensaetze duerfen als Inserate erscheinen. Das
   // Profilobjekt bleibt nur die Datenquelle fuer den Profilkopf.
   var actualProviderListings = providerListings.filter(function(l) {
@@ -480,14 +526,19 @@ function loadProvider(providerId) {
   // Badges
   const badgesEl = document.getElementById('providerBadges');
   let badgesHtml = '';
+  if (isDemoAccountProfile) {
+    badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">person</span> Demo-Profil</span>';
+  }
   if (mainListing.categoryLabel === 'Admin') {
     badgesHtml += '<span class="ppc-badge admin-badge"><span class="material-icons-round">shield</span> Admin</span>';
   }
   if (mainListing.badge === 'Superhost') {
     badgesHtml += '<span class="ppc-badge ppc-badge-super"><span class="material-icons-round">workspace_premium</span> Superhost</span>';
   }
-  badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${_escHtml(mainListing.providerSince)}</span>`;
-  badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
+  if (!isDemoAccountProfile) {
+    badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${_escHtml(mainListing.providerSince)}</span>`;
+    badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
+  }
   // Board-Verknüpfung: höchste Phase über alle Inserate dieses Anbieters
   (function() {
     var bestBadge = '';
@@ -535,7 +586,11 @@ function loadProvider(providerId) {
   _renderProviderPortfolio();
 
   // Sidebar Facts
-  document.getElementById('providerFacts').innerHTML = `
+  document.getElementById('providerFacts').innerHTML = isDemoAccountProfile ? `
+    <li><span class="material-icons-round">location_on</span> <span>${_escHtml(mainListing.location)}, Deutschland</span></li>
+    <li><span class="material-icons-round">category</span> <span>${_escHtml(mainListing.categoryLabel)}</span></li>
+    <li><span class="material-icons-round">info</span> <span>Beispielaccount für Demo-Beiträge</span></li>
+  ` : `
     <li><span class="material-icons-round">location_on</span> <span>${_escHtml(mainListing.location)}, Deutschland</span></li>
     <li><span class="material-icons-round">category</span> <span>${_escHtml(mainListing.categoryLabel)}</span></li>
     <li><span class="material-icons-round">euro</span> <span>${_escHtml(mainListing.priceLabel)}</span></li>
@@ -635,6 +690,11 @@ function loadProvider(providerId) {
         '<button class="btn-primary" onclick="toggleProviderEditMode()">' +
           '<span class="material-icons-round">edit</span> Profil bearbeiten' +
         '</button>' +
+        '<button class="btn-outline" onclick="shareProvider()">' +
+          '<span class="material-icons-round">share</span> Teilen' +
+        '</button>';
+    } else if (isDemoAccountProfile) {
+      actionBar.innerHTML =
         '<button class="btn-outline" onclick="shareProvider()">' +
           '<span class="material-icons-round">share</span> Teilen' +
         '</button>';

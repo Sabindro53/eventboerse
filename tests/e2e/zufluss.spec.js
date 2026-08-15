@@ -155,6 +155,23 @@ test.describe('Tages-Demo-Feed', () => {
       .toBeGreaterThanOrEqual(4);
   });
 
+  test('jeder Beitrag gehört zu genau einem stabilen Demo-Account', () => {
+    const accounts = new Map(feed.accounts.map((account) => [account.id, account]));
+    const idsByName = new Map();
+
+    for (const post of feed.posts) {
+      const account = accounts.get(post.authorId);
+      expect(account, `${post.id} braucht ein vorhandenes Profil`).toBeTruthy();
+      expect(post.author).toBe(account.name);
+      expect(post.avatarSeed).toBe(account.avatarSeed);
+      if (idsByName.has(post.author)) {
+        expect(post.authorId, `${post.author} darf nicht mehrere Account-IDs haben`)
+          .toBe(idsByName.get(post.author));
+      }
+      idsByName.set(post.author, post.authorId);
+    }
+  });
+
   test('Feed-Seite zeigt keine frischen Zeitangaben', async ({ page }) => {
     await openApp(page);
     await spaNavigate(page, 'aktuelles');
@@ -175,5 +192,26 @@ test.describe('Tages-Demo-Feed', () => {
 
     const frisch = zustand.zeiten.filter((t) => /gerade eben|vor \d+ (Sekunden?|Min\.?|Minuten?|Std\.?|Stunden?)|gestern/i.test(t));
     expect(frisch, `Demo-Inhalte dürfen keine frische Uhrzeit behaupten: ${zustand.zeiten.join(' | ')}`).toEqual([]);
+  });
+
+  test('Team Nordlicht öffnet ein Demo-Profil ohne erfundenes Inserat', async ({ page }) => {
+    const teamPost = feed.posts.find((post) => post.author === 'Team Nordlicht');
+    expect(teamPost, 'der ausgewählte Beispielbeitrag muss im Fixture stehen').toBeTruthy();
+
+    await openApp(page);
+    await spaNavigate(page, 'aktuelles');
+    await expect.poll(() => page.evaluate(() => _ebDemoFeedState)).toBe('ready');
+
+    const authorLink = page.locator(`[data-post-id="${teamPost.id}"] .feed-post-author-link`);
+    await expect(authorLink).toHaveText('Team Nordlicht');
+    await authorLink.click();
+
+    await expect(page.locator('#providerName')).toHaveText('Team Nordlicht');
+    await expect(page.locator('#providerBadges')).toContainText('Demo-Profil');
+    await expect(page.locator('#providerListingCount')).toHaveText('0');
+    await expect(page.locator('#providerListings')).toContainText('Noch keine Inserate');
+    await expect.poll(() => page.evaluate((providerId) =>
+      LISTINGS.some((listing) => Number(listing.providerId) === providerId), teamPost.authorId))
+      .toBe(false);
   });
 });
