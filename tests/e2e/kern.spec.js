@@ -382,6 +382,28 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(merge).toMatch(/merge_method: 'squash'/);
   });
 
+  test('der Auto-Merge liest den Rahmen, statt ihn abzuschreiben', async () => {
+    // Bis zum 15.08. stand die Dateiliste im Auto-Merge ein zweites Mal. Beim
+    // Weiten auf 15 Dateien blieb die Kopie bei 13 — der Auto-Merge haette
+    // einen regelkonformen Autopilot-PR abgewiesen, sein Label entfernt und
+    // den Lauf rot gemacht. Eine Kopie einer Sicherheitsliste driftet immer.
+    const wirksam = merge.split('\n').filter((z) => !/^\s*#/.test(z)).join('\n');
+    expect(wirksam, 'die Liste darf nur an einer Stelle stehen')
+      .toMatch(/sichere-dateien\.mjs/);
+
+    // Kein zweiter Satz Modulpfade im Workflow — das waere die Kopie zurück.
+    const pfadeImYml = [...wirksam.matchAll(/'(js\/modules\/[^']+)'/g)].map((m) => m[1]);
+    expect(pfadeImYml, `abgeschriebene Pfade: ${pfadeImYml.join(', ')}`).toHaveLength(0);
+
+    // Die Liste muss aus main kommen, nie aus dem PR: sonst könnte ein Patch
+    // seinen eigenen Rahmen weiten.
+    expect(wirksam, 'der Rahmen muss aus main geladen werden').toMatch(/ref:\s*main/);
+
+    // Und eine leer geladene Liste darf nicht alles durchwinken: `forbidden`
+    // wäre dann trivial leer. Genau diese Falle hatte der Scope-Wächter schon.
+    expect(wirksam).toMatch(/safeSources\.size\s*<\s*\d+[\s\S]{0,200}setFailed/);
+  });
+
   test('Autopilot veröffentlicht echten Codeflow mit Ziel, Dateien und Lieferstatus', () => {
     expect(CODEFLOW.version).toBe(1);
     expect(CODEFLOW.mitarbeiter).toHaveLength(4);
