@@ -85,17 +85,51 @@ const STAEDTE = [
   'Leipzig', 'Dresden', 'Hannover', 'Nürnberg', 'Bremen', 'Münster', 'Freiburg',
 ];
 
+// Jeder Demo-Beitrag gehört zu genau einem stabilen Demo-Account. Die IDs und
+// Avatar-Seeds dürfen sich weder mit der Position im Feed noch mit dem Datum
+// ändern: Sonst würde derselbe Name morgen auf ein anderes Profil zeigen oder
+// sogar zweimal am selben Tag zwei verschiedene Accounts erhalten.
 const PLANER = [
-  'Julia & Mark', 'Familie Weber', 'Sarah L.', 'Tobias R.', 'Anne & Jonas',
-  'Kulturverein Nordstadt', 'Mira P.', 'Team Nordlicht', 'Daniel H.', 'Lena & Ben',
-  'Elternbeirat Grundschule Ost', 'Jasmin K.', 'Studio Hellwach', 'Familie Öztürk',
+  { id: 91101, name: 'Julia & Mark',                  role: 'Private Eventplanung', location: 'Berlin' },
+  { id: 91102, name: 'Familie Weber',                 role: 'Private Eventplanung', location: 'Hamburg' },
+  { id: 91103, name: 'Sarah L.',                      role: 'Eventplanerin',         location: 'München' },
+  { id: 91104, name: 'Tobias R.',                     role: 'Eventplaner',           location: 'Köln' },
+  { id: 91105, name: 'Anne & Jonas',                  role: 'Private Eventplanung', location: 'Hamburg' },
+  { id: 91106, name: 'Kulturverein Nordstadt',        role: 'Kulturveranstalter',    location: 'Hannover' },
+  { id: 91107, name: 'Mira P.',                       role: 'Eventplanerin',         location: 'Stuttgart' },
+  { id: 91108, name: 'Team Nordlicht',                role: 'Eventteam',             location: 'Hamburg' },
+  { id: 91109, name: 'Daniel H.',                     role: 'Eventplaner',           location: 'Frankfurt' },
+  { id: 91110, name: 'Lena & Ben',                    role: 'Private Eventplanung', location: 'Leipzig' },
+  { id: 91111, name: 'Elternbeirat Grundschule Ost',  role: 'Schulveranstalter',     location: 'Dresden' },
+  { id: 91112, name: 'Jasmin K.',                     role: 'Eventplanerin',         location: 'Düsseldorf' },
+  { id: 91113, name: 'Studio Hellwach',               role: 'Kreativteam',           location: 'Frankfurt' },
+  { id: 91114, name: 'Familie Öztürk',                role: 'Private Eventplanung', location: 'Bremen' },
 ];
 
 const ANBIETER = [
-  'Beat Republic', 'Tafelrunde Catering', 'Lichtwerk Events', 'Studio Nordlicht',
-  'Salon Blütenzeit', 'Pixelherz Fotografie', 'Bühne frei Moderation',
-  'Halle 7 Eventräume', 'Konfetti & Co.', 'Nordstern Technik', 'Feuerlinie Pyro',
+  { id: 91201, name: 'Beat Republic',             role: 'DJ & Musik',          location: 'Berlin' },
+  { id: 91202, name: 'Tafelrunde Catering',        role: 'Catering',            location: 'Nürnberg' },
+  { id: 91203, name: 'Lichtwerk Events',           role: 'Licht & Technik',     location: 'Köln' },
+  { id: 91204, name: 'Studio Nordlicht',           role: 'Foto & Video',        location: 'Münster' },
+  { id: 91205, name: 'Salon Blütenzeit',           role: 'Floristik',           location: 'Freiburg' },
+  { id: 91206, name: 'Pixelherz Fotografie',       role: 'Fotografie',          location: 'München' },
+  { id: 91207, name: 'Bühne frei Moderation',      role: 'Moderation',          location: 'Düsseldorf' },
+  { id: 91208, name: 'Halle 7 Eventräume',         role: 'Eventlocation',       location: 'Leipzig' },
+  { id: 91209, name: 'Konfetti & Co.',             role: 'Dekoration',          location: 'Frankfurt' },
+  { id: 91210, name: 'Nordstern Technik',          role: 'Eventtechnik',        location: 'Hamburg' },
+  { id: 91211, name: 'Feuerlinie Pyro',            role: 'Pyrotechnik',         location: 'Dresden' },
 ];
+
+const DEMO_ACCOUNTS = [...PLANER, ...ANBIETER].map((account) => ({
+  ...account,
+  avatarSeed: `demo-account-${account.id}`,
+  since: '2026',
+  description: `${account.name} ist ein Demo-Account für Beispielbeiträge im `
+    + 'Eventbörse-Community-Feed. Das Profil zeigt die Zuordnung des Beitrags '
+    + 'und stellt keine echte Person oder Firma dar.',
+  tags: ['Demo-Account', 'Community'],
+  _isDemo: true,
+}));
 
 /** Sucht-Beiträge: Planer beschreibt ein Vorhaben. */
 const SUCHE_VORLAGEN = [
@@ -254,9 +288,9 @@ function baue(datum, universum) {
     return {
       id: `df-${datum}-${i + 1}`,
       type: z.type,
-      author: z.autor,
-      authorId: 1100 + i,
-      avatarSeed: `${datum}-${i}-${z.autor}`,
+      author: z.autor.name,
+      authorId: z.autor.id,
+      avatarSeed: `demo-account-${z.autor.id}`,
       title: z.type === 'met' ? null
         : z.type === 'suche-dienstleister'
           ? `${z.dienst.label} für ${z.ev.label} gesucht`
@@ -283,13 +317,16 @@ function baue(datum, universum) {
   });
 
   return {
-    version: 1,
+    version: 2,
     generated: datum,
     anchor: anker.toISOString(),
     minTageZurueck: MIN_TAGE_ZURUECK,
     note: 'Automatisch erzeugt von scripts/demo-feed.mjs. Demo-Inhalte, keine echten '
       + 'Beiträge — deshalb liegt jede Erstellzeit mindestens '
       + MIN_TAGE_ZURUECK + ' Tage zurück. Nicht von Hand bearbeiten.',
+    // Die Profile reisen zusammen mit dem Feed. So kann jeder Beitrag auch
+    // ohne echten WordPress-Testnutzer zuverlässig sein Demo-Profil öffnen.
+    accounts: DEMO_ACCOUNTS,
     posts,
   };
 }
@@ -305,12 +342,38 @@ async function pruefen() {
     process.exit(1);
   }
   const fehler = [];
-  if (feed.version !== 1) fehler.push(`unbekannte version: ${feed.version}`);
+  if (feed.version !== 2) fehler.push(`unbekannte version: ${feed.version}`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(feed.generated || '')) fehler.push('generated ist kein ISO-Datum');
   if (!Array.isArray(feed.posts) || !feed.posts.length) fehler.push('keine Beiträge enthalten');
+  if (!Array.isArray(feed.accounts) || !feed.accounts.length) fehler.push('keine Demo-Accounts enthalten');
+
+  const accountsById = new Map();
+  const accountIdsByName = new Map();
+  for (const account of feed.accounts || []) {
+    if (!Number.isInteger(account.id) || account.id <= 0) {
+      fehler.push(`Demo-Account ohne gültige ID: ${account.name || '(ohne Namen)'}`);
+      continue;
+    }
+    if (!account.name || !account.avatarSeed || !account.description) {
+      fehler.push(`Demo-Account ${account.id}: Profil ist unvollständig.`);
+    }
+    if (accountsById.has(account.id)) fehler.push(`Demo-Account-ID ${account.id} ist doppelt.`);
+    if (accountIdsByName.has(account.name) && accountIdsByName.get(account.name) !== account.id) {
+      fehler.push(`${account.name}: derselbe Autor hat mehrere Account-IDs.`);
+    }
+    accountsById.set(account.id, account);
+    accountIdsByName.set(account.name, account.id);
+  }
 
   const anker = Date.parse(feed.anchor);
   for (const p of feed.posts || []) {
+    const account = accountsById.get(p.authorId);
+    if (!account) {
+      fehler.push(`${p.id}: authorId ${p.authorId} hat kein Demo-Profil.`);
+    } else {
+      if (p.author !== account.name) fehler.push(`${p.id}: Autorname passt nicht zum Demo-Account.`);
+      if (p.avatarSeed !== account.avatarSeed) fehler.push(`${p.id}: Avatar passt nicht zum Demo-Account.`);
+    }
     const t = Date.parse(p.time);
     if (isNaN(t)) { fehler.push(`${p.id}: time ist kein Zeitstempel`); continue; }
     const tage = (anker - t) / 86400000;

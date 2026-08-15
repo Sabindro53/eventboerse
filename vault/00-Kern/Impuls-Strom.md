@@ -63,22 +63,22 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **30** |
-| Commits (30 Tage) | 128 |
-| Letzter Commit | `71a6ebd · Merge pull request #155 from Sabindro53/agent/add-ai-transparency` (2026-08-14) |
+| Commits (7 Tage) | **32** |
+| Commits (30 Tage) | 130 |
+| Letzter Commit | `436cd6f · Merge pull request #158 from Sabindro53/agent/refine-ai-labels` (2026-08-15) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-38 app.js
+39 app.js
   37 tests/e2e/kern.spec.js
   33 CLAUDE.md
-  30 vault/50-Evolution/Roadmap/Current-Sprint.md
-  28 styles.css
+  31 vault/50-Evolution/Roadmap/Current-Sprint.md
+  29 styles.css
 ```
 
 **Codegröße:**
-- `app.js` — 26.532 Zeilen
-- `styles.css` — 17.065 Zeilen
+- `app.js` — 26.642 Zeilen
+- `styles.css` — 17.086 Zeilen
 - `functions.php` — 10.209 Zeilen
 - `app-shell.html` — 4.122 Zeilen
 

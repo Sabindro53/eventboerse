@@ -908,10 +908,41 @@ var _socialPosts = (function() {
   } catch (e) {}
 })();
 
+// Auch der fest verdrahtete Offline-Fallback besitzt echte Profilziele. Der
+// Tagesfeed liefert reichere Profildaten nach; bis dahin entsteht aus jedem
+// Demo-Beitrag ein klar gekennzeichnetes, inseratsfreies Demo-Profil.
+function _registerSocialPostAccounts(posts) {
+  if (typeof _registerDemoAccountProfiles !== 'function' || !Array.isArray(posts)) return;
+  _registerDemoAccountProfiles(posts.filter(function(p) {
+    return p && p._isDemo === true && _toPositiveInt(p.authorId) && p.author;
+  }).map(function(p) {
+    return {
+      id: _toPositiveInt(p.authorId),
+      name: p.author,
+      avatar: p.avatar || '',
+      avatarSeed: p.avatarSeed || ('demo-account-' + p.authorId),
+      role: p.category || (p.type === 'suche-events' ? 'Dienstleister' : 'Eventplanung'),
+      location: p.location || 'Deutschland',
+      since: '2026',
+      description: p.author + ' ist ein Demo-Account für Beispielbeiträge im Eventbörse-Community-Feed. ' +
+        'Das Profil stellt keine echte Person oder Firma dar.',
+      tags: ['Demo-Account', 'Community'],
+      _isDemo: true
+    };
+  }));
+}
+
+function _socialPostHasAccount(post) {
+  return !!(post && _toPositiveInt(post.authorId) && String(post.author || '').trim());
+}
+
+_registerSocialPostAccounts(_socialPosts);
+
 // Filter Bot-/Demo-Beiträge aus dem Feed, wenn EB_HIDE_DEMO aktiv ist.
 function _visibleSocialPosts() {
-  if (!window.EB_HIDE_DEMO) return _socialPosts;
-  return _socialPosts.filter(function(p) { return !p || p._isDemo !== true; });
+  var assigned = _socialPosts.filter(_socialPostHasAccount);
+  if (!window.EB_HIDE_DEMO) return assigned;
+  return assigned.filter(function(p) { return p._isDemo !== true; });
 }
 var _likedPosts = new Set(JSON.parse(localStorage.getItem('eb_liked_posts') || '[]'));
 
@@ -928,7 +959,7 @@ function _generateDemoSocialPosts() {
       id: 'sp1',
       type: 'suche-dienstleister',
       author: 'Julia & Mark',
-      authorId: 1001,
+      authorId: 91101,
       avatar: ebAvatar('julia', 'Julia'),
       title: 'DJ für Hochzeit gesucht',
       category: 'DJ',
@@ -946,7 +977,7 @@ function _generateDemoSocialPosts() {
       id: 'sp2',
       type: 'suche-events',
       author: 'DJ Max Beat',
-      authorId: 1002,
+      authorId: 91212,
       avatar: ebAvatar('djmax', 'DJ Max'),
       title: 'Erfahrener DJ sucht Aufträge in Hamburg',
       category: 'DJ',
@@ -964,7 +995,7 @@ function _generateDemoSocialPosts() {
       id: 'sp3',
       type: 'met',
       author: 'Sophia K.',
-      authorId: 1003,
+      authorId: 91115,
       avatar: ebAvatar('sophia', 'Sophia'),
       content: 'Durch die Firmenfeier mit Top Catering wirklich tolle Menschen kennengelernt. Das Essen war phantastisch! #Catering #Firmenevent',
       image: 'https://images.pexels.com/photos/2291367/pexels-photo-2291367.jpeg?auto=compress&cs=tinysrgb&w=600',
@@ -977,7 +1008,7 @@ function _generateDemoSocialPosts() {
       id: 'sp4',
       type: 'suche-dienstleister',
       author: 'Anna Berger',
-      authorId: 1004,
+      authorId: 91116,
       avatar: ebAvatar('anna', 'Anna'),
       title: 'Fotograf für Firmen-Sommerfest',
       category: 'Fotograf',
@@ -995,7 +1026,7 @@ function _generateDemoSocialPosts() {
       id: 'sp5',
       type: 'ankuendigung',
       author: 'BlumenZauber GmbH',
-      authorId: 1005,
+      authorId: 91213,
       avatar: ebAvatar('blumen', 'Blumen'),
       content: 'Neue Kollektion Frühjahr/Sommer! Exklusive Tischdekoration und Brautsträuße für euren unvergesslichen Tag. Jetzt anfragen! #Floristik #Hochzeit #Dekoration',
       image: 'https://images.pexels.com/photos/1045541/pexels-photo-1045541.jpeg?auto=compress&cs=tinysrgb&w=600',
@@ -1008,7 +1039,7 @@ function _generateDemoSocialPosts() {
       id: 'sp6',
       type: 'suche-events',
       author: 'Catering Deluxe',
-      authorId: 1006,
+      authorId: 91214,
       avatar: ebAvatar('catering', 'Catering'),
       title: 'Catering-Service sucht Sommer-Events',
       category: 'Catering',
@@ -1160,27 +1191,37 @@ function _ebDemoFeedLoad() {
     .then(function(r) { if (!r.ok) throw new Error('feed'); return r.json(); })
     .then(function(feed) {
       if (!feed || !Array.isArray(feed.posts) || !feed.posts.length) throw new Error('leer');
+      if (feed.version !== 2 || !Array.isArray(feed.accounts) || !feed.accounts.length) throw new Error('accounts');
       var anker = Date.parse(feed.anchor);
       if (isNaN(anker)) throw new Error('anker');
+
+      var accountIds = Object.create(null);
+      feed.accounts.forEach(function(account) {
+        var aid = _toPositiveInt(account && account.id);
+        if (aid && account.name) accountIds[aid] = String(account.name);
+      });
 
       // Ehrlichkeitsprüfung im Browser — der Generator garantiert es, aber
       // eine ausgelieferte Datei kann veraltet oder verfälscht sein.
       var minTage = typeof feed.minTageZurueck === 'number' ? feed.minTageZurueck : 10;
       var sauber = feed.posts.filter(function(p) {
         var t = Date.parse(p.time);
-        return !isNaN(t) && t <= anker && (anker - t) / 86400000 >= minTage;
+        var aid = _toPositiveInt(p.authorId);
+        return !isNaN(t) && t <= anker && (anker - t) / 86400000 >= minTage &&
+          aid && accountIds[aid] === String(p.author || '');
       });
-      if (!sauber.length) throw new Error('unehrlich');
+      if (!sauber.length || sauber.length !== feed.posts.length) throw new Error('unehrlich-oder-verwaist');
 
       EB_DEMO_ANCHOR_MS = anker;
-      _applyDemoFeed(sauber);
+      _applyDemoFeed(sauber, feed.accounts);
       _ebDemoFeedState = 'ready';
     })
     .catch(function() { _ebDemoFeedState = 'failed'; });  // fest verdrahtete Beiträge bleiben
 }
 
 /** Tages-Beiträge an die Stelle der fest verdrahteten Demo-Beiträge setzen. */
-function _applyDemoFeed(posts) {
+function _applyDemoFeed(posts, accounts) {
+  _registerDemoAccountProfiles(accounts);
   var eigene = _socialPosts.filter(function(p) { return p && !p._isDemo; });
   var neue = posts.map(function(p) {
     return {
@@ -1316,6 +1357,8 @@ function renderFeed(tab) {
 }
 
 function renderSocialPostCard(post) {
+  var authorAccountId = _toPositiveInt(post && post.authorId);
+  if (!authorAccountId || !String(post.author || '').trim()) return '';
   var isLiked = _likedPosts.has(post.id);
   var typeBadge = '';
   var isSearch = (post.type === 'suche-dienstleister' || post.type === 'suche-events');
@@ -1380,9 +1423,11 @@ function renderSocialPostCard(post) {
 
   return '<div class="feed-post-card' + (isSearch && !post.image ? ' feed-search-card' : '') + '" data-post-id="' + post.id + '">' +
     '<div class="feed-post-header">' +
-      '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || ebAvatar(post.author || 'user', post.author)) + '" alt="' + _escHtml(post.author) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" />' +
+      '<button type="button" class="feed-post-avatar-link" onclick="navigateTo(\'provider\',' + authorAccountId + ')" aria-label="Profil von ' + _escHtml(post.author) + ' öffnen">' +
+        '<img class="feed-post-avatar" src="' + _escHtml(post.avatar || ebAvatar(post.author || 'user', post.author)) + '" alt="" data-seed="' + authorAccountId + '" data-name="' + _escHtml(post.author) + '" onerror="this.onerror=null;this.src=ebAvatar(this.dataset.seed||\'user\',this.dataset.name||\'user\')" />' +
+      '</button>' +
       '<div class="feed-post-author">' +
-        '<strong>' + _escHtml(post.author) + '</strong>' +
+        '<button type="button" class="feed-post-author-link" onclick="navigateTo(\'provider\',' + authorAccountId + ')" aria-label="Profil von ' + _escHtml(post.author) + ' öffnen"><strong>' + _escHtml(post.author) + '</strong></button>' +
         '<div class="feed-post-meta">' + typeBadge + ' <span title="' + _escHtml(_absTime(post.time)) + '">' + timeAgo(post.time) + '</span></div>' +
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'' + post.id + '\',\'' + (post.author || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
@@ -1997,6 +2042,11 @@ function _removePostImage() {
 
 function _createSocialPost(event) {
   event.preventDefault();
+  var authorAccountId = _toPositiveInt(currentUser && currentUser.id);
+  if (!authorAccountId) {
+    showToast('Der Beitrag braucht einen gültigen Account. Bitte melde dich erneut an.', 'account_circle');
+    return;
+  }
   var type = document.getElementById('postType').value;
   var content = document.getElementById('postContent').value.trim();
   if (!content) { showToast('Bitte Beschreibung eingeben', 'warning'); return; }
@@ -2005,7 +2055,7 @@ function _createSocialPost(event) {
     id: 'sp_' + Date.now(),
     type: type,
     author: currentUser ? (currentUser.name || 'Du') : 'Du',
-    authorId: currentUser ? currentUser.id : 0,
+    authorId: authorAccountId,
     avatar: currentUser ? (currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name)) : ebAvatar('newuser', 'Neu'),
     content: content,
     image: _postImageData || null,
