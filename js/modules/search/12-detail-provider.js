@@ -21,7 +21,7 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (imgs.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />${_aiMediaWatermarkHtml(listing)}`;
+    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />`;
     heroImg.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }
 
@@ -34,7 +34,7 @@ function loadDetail(listingId) {
       var delBtn = _detailCanModerate && img !== window.EB_IMG_FALLBACK
         ? '<button type="button" class="detail-gallery-admin-del" title="Bild als Admin löschen" aria-label="Bild als Admin löschen" onclick="adminDeleteListingImage(' + i + ', event)"><span class="material-icons-round">delete</span> Löschen</button>'
         : '';
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + _aiMediaWatermarkHtml(listing) + delBtn + '</div>';
+      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + delBtn + '</div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -71,8 +71,8 @@ function loadDetail(listingId) {
     var hasOpenStatus = _aiDisclosureValue(listing, 'text') === 'undeclared' || _aiDisclosureValue(listing, 'media') === 'undeclared';
     var aiNote = hasOpenStatus
       ? 'Altbestand: Die ausdrückliche Nachdeklaration steht noch aus.'
-      : 'Vom Anbieter bei Veröffentlichung deklariert.';
-    aiDisclosure.innerHTML = aiLabels ? aiLabels + '<small>' + aiNote + '</small>' : '';
+      : '';
+    aiDisclosure.innerHTML = aiLabels ? aiLabels + (aiNote ? '<small>' + aiNote + '</small>' : '') : '';
     aiDisclosure.setAttribute('data-ai-text', _aiDisclosureValue(listing, 'text'));
     aiDisclosure.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }

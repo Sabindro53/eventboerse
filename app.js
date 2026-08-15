@@ -158,7 +158,7 @@ function _surfaceVisibleListings(arr) {
 }
 
 // AI transparency is stored separately for copy and media so a human photo
-// is never falsely watermarked merely because the description used AI.
+// is never falsely classified merely because the description used AI.
 // "undeclared" is reserved for migrated legacy records and is not shown as
 // proof of human authorship.
 function _aiDisclosureValue(item, kind) {
@@ -175,16 +175,18 @@ function _aiDisclosureAttrs(item) {
 }
 
 function _aiDisclosureLabels(item) {
-  var labels = [];
   var textStatus = _aiDisclosureValue(item, 'text');
   var mediaStatus = _aiDisclosureValue(item, 'media');
-  if (mediaStatus === 'generated') labels.push({ kind: 'media', label: 'KI-generiertes Bild', short: 'KI-generiert' });
-  if (mediaStatus === 'assisted') labels.push({ kind: 'media', label: 'KI-bearbeitetes Bild', short: 'KI-bearbeitet' });
-  if (textStatus === 'generated') labels.push({ kind: 'text', label: 'KI-generierter Text', short: 'KI-Text' });
-  if (textStatus === 'assisted') labels.push({ kind: 'text', label: 'KI-unterstützter Text', short: 'KI-Text bearbeitet' });
-  if (mediaStatus === 'undeclared') labels.push({ kind: 'media', label: 'KI-Status der Medien noch nicht deklariert', short: 'Medien: KI-Status offen', legacy: true });
-  if (textStatus === 'undeclared') labels.push({ kind: 'text', label: 'KI-Status des Textes noch nicht deklariert', short: 'Text: KI-Status offen', legacy: true });
-  return labels;
+  if (textStatus === 'generated' || mediaStatus === 'generated') {
+    return [{ state: 'generated', label: 'KI-generierter Inhalt' }];
+  }
+  if (textStatus === 'assisted' || mediaStatus === 'assisted') {
+    return [{ state: 'assisted', label: 'KI-unterstützter Inhalt' }];
+  }
+  if (textStatus === 'undeclared' || mediaStatus === 'undeclared') {
+    return [{ state: 'open', label: 'KI-Status offen', legacy: true }];
+  }
+  return [];
 }
 
 function _aiDisclosureLabelsHtml(item, extraClass) {
@@ -192,27 +194,10 @@ function _aiDisclosureLabelsHtml(item, extraClass) {
   if (!labels.length) return '';
   return '<span class="ai-disclosure-stack' + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="KI-Transparenz">' +
     labels.map(function(info) {
-      return '<span class="ai-content-label ai-content-label-' + info.kind + (info.legacy ? ' ai-content-label-open' : '') + '" title="' +
+      return '<span class="ai-content-label ai-content-label-' + info.state + (info.legacy ? ' ai-content-label-open' : '') + '" title="' +
         (info.legacy ? 'Altbestand: noch nicht nachdeklariert' : 'Von der einstellenden Person deklariert') + '">' +
-        '<span class="material-icons-round" aria-hidden="true">auto_awesome</span>' + _escHtml(info.short) + '</span>';
+        _escHtml(info.label) + '</span>';
     }).join('') + '</span>';
-}
-
-function _aiMediaWatermarkHtml(item, extraClass) {
-  var mediaStatus = _aiDisclosureValue(item, 'media');
-  if (mediaStatus === 'none') return '';
-  var label = mediaStatus === 'generated' ? 'KI-GENERIERT' : (mediaStatus === 'assisted' ? 'KI-BEARBEITET' : 'KI-STATUS OFFEN');
-  var aria = mediaStatus === 'generated' ? 'KI-generiertes Bild' : (mediaStatus === 'assisted' ? 'KI-bearbeitetes Bild' : 'KI-Status der Medien noch nicht deklariert');
-  return '<span class="ai-media-watermark' + (mediaStatus === 'undeclared' ? ' ai-watermark-open' : '') + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="' + aria + '">' + label + '</span>';
-}
-
-function _aiTextDisclosureHtml(item, extraClass) {
-  var textStatus = _aiDisclosureValue(item, 'text');
-  if (textStatus === 'none') return '';
-  var label = textStatus === 'generated' ? 'KI-Text' : (textStatus === 'assisted' ? 'KI-Text bearbeitet' : 'Text-KI offen');
-  var aria = textStatus === 'generated' ? 'KI-generierter Text' : (textStatus === 'assisted' ? 'KI-unterstützter Text' : 'KI-Status des Textes noch nicht deklariert');
-  return '<span class="ai-text-watermark' + (textStatus === 'undeclared' ? ' ai-watermark-open' : '') + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="' + aria + '">' +
-    '<span class="material-icons-round" aria-hidden="true">auto_awesome</span>' + label + '</span>';
 }
 
 function _safeRun(label, fn) {
@@ -853,6 +838,13 @@ const LISTINGS = [
   }
 ];
 
+// Die redaktionellen Demo-Inserate wurden mit generativer KI erstellt. Die
+// Angabe sitzt als dezenter Text am Inserat; die Bilder selbst bleiben frei.
+LISTINGS.forEach(function(listing) {
+  listing.aiTextDisclosure = 'generated';
+  listing.aiMediaDisclosure = 'generated';
+});
+
 // Auto-Inject logical price ranges (priceMax) for demo listings + rebuild priceLabel as range.
 // Multiplikator pro Preismodell: realistische Spannen für DE-Eventmarkt.
 (function injectDemoPriceRanges(){
@@ -1021,7 +1013,6 @@ const DEMO_EVENTS = [
     ]
   }
 ];
-
 // ========== SPA PATH HELPERS ==========
 var _spaBase = (typeof eventboerseApi !== 'undefined' && eventboerseApi.siteUrl)
   ? new URL(eventboerseApi.siteUrl).pathname.replace(/\/+$/, '')
@@ -1624,8 +1615,6 @@ function renderListingCard(listing) {
         </button>
         ${listing.badge ? '<span class="listing-badge">' + _escHtml(listing.badge) + '</span>' : ''}
         ${_boardStatusBadgeHtml(listing.id, 'bsb-on-card')}
-        ${_aiMediaWatermarkHtml(listing)}
-        ${_aiTextDisclosureHtml(listing)}
       </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
@@ -1634,6 +1623,7 @@ function renderListingCard(listing) {
             <span class="material-icons-round">star</span> ${listing.rating || 0}
           </span>
         </div>
+        ${_aiDisclosureLabelsHtml(listing, 'ai-disclosure-card')}
         <div class="listing-card-category">${_escHtml(listing.categoryLabel)}</div>
         <div class="listing-card-location">
           <span class="material-icons-round">location_on</span> ${_escHtml(listing.location)}
@@ -1689,10 +1679,10 @@ function renderHeroMarquees() {
   function cardHTML(l) {
     return '<a class="hero-marquee-card"' + _aiDisclosureAttrs(l) + ' href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
       '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager"' + window.EB_IMG_ERR_ATTR + ' />' +
-      _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
         '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
+        _aiDisclosureLabelsHtml(l, 'ai-disclosure-marquee') +
       '</div></a>';
   }
 
@@ -1861,7 +1851,6 @@ function renderExploreGrid(filter) {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
     return `<a href="#" class="explore-item ${sizeClass}"${_aiDisclosureAttrs(it)} onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
       <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
-      ${_aiMediaWatermarkHtml(it)}${_aiTextDisclosureHtml(it)}
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
         <span class="explore-item-price">${_escHtml(it.price)}</span>
@@ -1942,9 +1931,10 @@ function renderFeed(tab) {
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <div class="feed-card-media"><img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}</div>
+      <div class="feed-card-media"><img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
+        ${_aiDisclosureLabelsHtml(l, 'ai-disclosure-feed')}
         <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
       </div>
       ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + _escHtml(l.location) + '</div>' : ''}
@@ -4240,7 +4230,6 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
               <span class="material-icons-round">favorite_border</span>
             </button>
             ${l.badge ? `<span class="listing-badge">${_escHtml(l.badge)}</span>` : ''}
-            ${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}
           </div>
           <div class="listing-card-body">
             <div class="listing-card-top">
@@ -4249,6 +4238,7 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
                 <span class="material-icons-round">star</span> ${l.rating}
               </span>
             </div>
+            ${_aiDisclosureLabelsHtml(l, 'ai-disclosure-card')}
             <div class="listing-card-category">${_escHtml(l.categoryLabel)}</div>
             <div class="listing-card-location">
               <span class="material-icons-round">location_on</span> ${_escHtml(l.location)} ${distBadge}
@@ -4327,7 +4317,7 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (imgs.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />${_aiMediaWatermarkHtml(listing)}`;
+    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />`;
     heroImg.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }
 
@@ -4340,7 +4330,7 @@ function loadDetail(listingId) {
       var delBtn = _detailCanModerate && img !== window.EB_IMG_FALLBACK
         ? '<button type="button" class="detail-gallery-admin-del" title="Bild als Admin löschen" aria-label="Bild als Admin löschen" onclick="adminDeleteListingImage(' + i + ', event)"><span class="material-icons-round">delete</span> Löschen</button>'
         : '';
-      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + _aiMediaWatermarkHtml(listing) + delBtn + '</div>';
+      return '<div class="detail-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_ERR_ATTR + ' />' + delBtn + '</div>';
     }).join('') +
     '</div>' +
     (imgs.length > 1 ? '<button class="detail-gallery-arrow prev" aria-label="Vorheriges Bild" onclick="detailGalleryNav(-1)"><span class="material-icons-round">chevron_left</span></button>' +
@@ -4377,8 +4367,8 @@ function loadDetail(listingId) {
     var hasOpenStatus = _aiDisclosureValue(listing, 'text') === 'undeclared' || _aiDisclosureValue(listing, 'media') === 'undeclared';
     var aiNote = hasOpenStatus
       ? 'Altbestand: Die ausdrückliche Nachdeklaration steht noch aus.'
-      : 'Vom Anbieter bei Veröffentlichung deklariert.';
-    aiDisclosure.innerHTML = aiLabels ? aiLabels + '<small>' + aiNote + '</small>' : '';
+      : '';
+    aiDisclosure.innerHTML = aiLabels ? aiLabels + (aiNote ? '<small>' + aiNote + '</small>' : '') : '';
     aiDisclosure.setAttribute('data-ai-text', _aiDisclosureValue(listing, 'text'));
     aiDisclosure.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }
@@ -6655,8 +6645,8 @@ function _drawFeedRadar() {
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
       return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
-        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '>' + _aiMediaWatermarkHtml(d) + _aiTextDisclosureHtml(d) + '</span><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
-        '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong><small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
+        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '></span><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
+        '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-result') + '<small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
         '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
     }).join('') + '</div>';
   _initFeedRadarMap(hits);
@@ -9250,60 +9240,7 @@ function _setAiDisclosureForm(textStatus, mediaStatus) {
 function _aiDisclosureFormChanged() {
   var section = document.getElementById('aiDisclosureSection');
   if (section) section.classList.remove('has-error');
-  _updateListingPreviewAiLabels();
   _updateListingLivePreview();
-}
-
-function _updateListingPreviewAiLabels() {
-  var mediaStatus = _selectedAiDisclosure('media');
-  document.querySelectorAll('#uploadPreview .upload-preview-item').forEach(function(item) {
-    var old = item.querySelector('.ai-media-watermark');
-    if (old) old.remove();
-    var html = _aiMediaWatermarkHtml({ aiMediaDisclosure: mediaStatus }, 'ai-media-watermark-preview');
-    if (html) item.insertAdjacentHTML('beforeend', html);
-  });
-}
-
-// Burn the declaration into every newly uploaded AI image. The UI overlay is
-// still rendered separately because it must remain visible on all surfaces;
-// this pixel watermark additionally survives opening or sharing the file.
-function _aiWatermarkBlob(blob, mediaStatus) {
-  if (!blob || (mediaStatus !== 'assisted' && mediaStatus !== 'generated')) return Promise.resolve(blob);
-  return new Promise(function(resolve) {
-    var url = URL.createObjectURL(blob);
-    var img = new Image();
-    img.onload = function() {
-      try {
-        var canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        var ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        var label = mediaStatus === 'generated' ? 'KI-GENERIERT · EVENTBÖRSE' : 'KI-BEARBEITET · EVENTBÖRSE';
-        var fontSize = Math.max(20, Math.round(canvas.width * 0.027));
-        var padX = Math.round(fontSize * 0.65);
-        var padY = Math.round(fontSize * 0.42);
-        ctx.font = '700 ' + fontSize + 'px Arial, sans-serif';
-        var textWidth = ctx.measureText(label).width;
-        var boxW = textWidth + padX * 2;
-        var boxH = fontSize + padY * 2;
-        var x = Math.max(12, canvas.width - boxW - Math.round(fontSize * 0.6));
-        var y = Math.max(12, canvas.height - boxH - Math.round(fontSize * 0.6));
-        ctx.fillStyle = 'rgba(12, 15, 24, 0.84)';
-        ctx.fillRect(x, y, boxW, boxH);
-        ctx.fillStyle = '#ffffff';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(label, x + padX, y + boxH / 2);
-        canvas.toBlob(function(marked) { resolve(marked || blob); }, 'image/jpeg', 0.92);
-      } catch (e) {
-        resolve(blob);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    };
-    img.onerror = function() { URL.revokeObjectURL(url); resolve(blob); };
-    img.src = url;
-  });
 }
 
 async function submitListing(e) {
@@ -9440,20 +9377,17 @@ async function submitListing(e) {
   // Upload images: cropped blobs first, then data URLs, keep existing URLs
   var uploadPromises = imgEntries.map(function(entry) {
     if (entry.blob) {
-      return _aiWatermarkBlob(entry.blob, aiMediaDisclosure).then(function(markedBlob) {
-        var file = new File([markedBlob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.jpg', { type: 'image/jpeg' });
-        return uploadFile(file).then(function(r) { return r.url; });
-      });
+      var blobType = entry.blob.type || 'image/jpeg';
+      var blobExt = (blobType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      var croppedFile = new File([entry.blob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.' + blobExt, { type: blobType });
+      return uploadFile(croppedFile).then(function(r) { return r.url; });
     }
     if (entry.src.startsWith('data:')) {
       var arr = entry.src.split(','), mime = arr[0].match(/:(.*?);/)[1];
       var bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
       while (n--) u8arr[n] = bstr.charCodeAt(n);
       var sourceFile = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
-      return _aiWatermarkBlob(sourceFile, aiMediaDisclosure).then(function(markedBlob) {
-        var file = new File([markedBlob], 'listing-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-        return uploadFile(file).then(function(r) { return r.url; });
-      });
+      return uploadFile(sourceFile).then(function(r) { return r.url; });
     }
     return Promise.resolve(entry.src);
   });
@@ -9915,8 +9849,6 @@ function _updateListingLivePreview() {
     slideImg.src = img.src;
     slideImg.alt = 'Vorschau';
     slide.appendChild(slideImg);
-    var watermark = _aiMediaWatermarkHtml(previewDisclosure, 'ai-media-watermark-live');
-    if (watermark) slide.insertAdjacentHTML('beforeend', watermark);
     track.appendChild(slide);
   });
 
@@ -11160,11 +11092,11 @@ function renderMyListings() {
             return '<div class="my-listing-card">' +
               '<div class="my-listing-img"' + _aiDisclosureAttrs(evt) + '>' +
                 '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
-                _aiMediaWatermarkHtml(evt) + _aiTextDisclosureHtml(evt) +
                 '<span class="status-badge status-active">Aktiv</span>' +
               '</div>' +
               '<div class="my-listing-info">' +
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
+                _aiDisclosureLabelsHtml(evt, 'ai-disclosure-admin') +
                 '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
                 '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
                 '<div class="my-listing-stats">' +
@@ -11242,11 +11174,11 @@ function renderMyListings() {
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img"' + _aiDisclosureAttrs(l) + '>' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
-              _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
               '<span class="status-badge status-active">Aktiv</span>' +
             '</div>' +
             '<div class="my-listing-info">' +
               '<h3>' + _escHtml(l.title) + '</h3>' +
+              _aiDisclosureLabelsHtml(l, 'ai-disclosure-admin') +
               '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
               '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
               '<div class="my-listing-stats">' +
@@ -22454,9 +22386,10 @@ function _buildListingPickerCardsHtml(baseList, isSearchListingFn, showSearchLis
       ' data-image="' + _escHtml(l.image || img) + '"' +
       ' data-title="' + _escHtml(l.title || '') + '"' +
       ' onclick="_selectListingCard(this)">' +
-      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')">' + _aiMediaWatermarkHtml(l, 'ai-media-watermark-picker') + _aiTextDisclosureHtml(l, 'ai-text-watermark-picker') + '</span>' +
+      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
       '<span class="eb-lpick-body">' +
         '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
+        _aiDisclosureLabelsHtml(l, 'ai-disclosure-picker') +
         '<span class="eb-lpick-meta">' +
           '<span class="eb-lpick-cat">' + _escHtml(l.categoryLabel || l.category || '') + '</span>' +
           (price ? '<span class="eb-lpick-price">' + _escHtml(price) + '</span>' : '') +
@@ -23384,8 +23317,8 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' + _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) + '</div>' +
-    '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
+    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
+    '<div class="feed-post-content">' + _escHtml(l.title) + _aiDisclosureLabelsHtml(l, 'ai-disclosure-social') + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +
         '<button class="feed-action-btn' + (isFav ? ' liked' : '') + '" onclick="toggleFeedFav(this,' + l.id + ')">' +

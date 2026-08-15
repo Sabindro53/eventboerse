@@ -158,7 +158,7 @@ function _surfaceVisibleListings(arr) {
 }
 
 // AI transparency is stored separately for copy and media so a human photo
-// is never falsely watermarked merely because the description used AI.
+// is never falsely classified merely because the description used AI.
 // "undeclared" is reserved for migrated legacy records and is not shown as
 // proof of human authorship.
 function _aiDisclosureValue(item, kind) {
@@ -175,16 +175,18 @@ function _aiDisclosureAttrs(item) {
 }
 
 function _aiDisclosureLabels(item) {
-  var labels = [];
   var textStatus = _aiDisclosureValue(item, 'text');
   var mediaStatus = _aiDisclosureValue(item, 'media');
-  if (mediaStatus === 'generated') labels.push({ kind: 'media', label: 'KI-generiertes Bild', short: 'KI-generiert' });
-  if (mediaStatus === 'assisted') labels.push({ kind: 'media', label: 'KI-bearbeitetes Bild', short: 'KI-bearbeitet' });
-  if (textStatus === 'generated') labels.push({ kind: 'text', label: 'KI-generierter Text', short: 'KI-Text' });
-  if (textStatus === 'assisted') labels.push({ kind: 'text', label: 'KI-unterstützter Text', short: 'KI-Text bearbeitet' });
-  if (mediaStatus === 'undeclared') labels.push({ kind: 'media', label: 'KI-Status der Medien noch nicht deklariert', short: 'Medien: KI-Status offen', legacy: true });
-  if (textStatus === 'undeclared') labels.push({ kind: 'text', label: 'KI-Status des Textes noch nicht deklariert', short: 'Text: KI-Status offen', legacy: true });
-  return labels;
+  if (textStatus === 'generated' || mediaStatus === 'generated') {
+    return [{ state: 'generated', label: 'KI-generierter Inhalt' }];
+  }
+  if (textStatus === 'assisted' || mediaStatus === 'assisted') {
+    return [{ state: 'assisted', label: 'KI-unterstützter Inhalt' }];
+  }
+  if (textStatus === 'undeclared' || mediaStatus === 'undeclared') {
+    return [{ state: 'open', label: 'KI-Status offen', legacy: true }];
+  }
+  return [];
 }
 
 function _aiDisclosureLabelsHtml(item, extraClass) {
@@ -192,27 +194,10 @@ function _aiDisclosureLabelsHtml(item, extraClass) {
   if (!labels.length) return '';
   return '<span class="ai-disclosure-stack' + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="KI-Transparenz">' +
     labels.map(function(info) {
-      return '<span class="ai-content-label ai-content-label-' + info.kind + (info.legacy ? ' ai-content-label-open' : '') + '" title="' +
+      return '<span class="ai-content-label ai-content-label-' + info.state + (info.legacy ? ' ai-content-label-open' : '') + '" title="' +
         (info.legacy ? 'Altbestand: noch nicht nachdeklariert' : 'Von der einstellenden Person deklariert') + '">' +
-        '<span class="material-icons-round" aria-hidden="true">auto_awesome</span>' + _escHtml(info.short) + '</span>';
+        _escHtml(info.label) + '</span>';
     }).join('') + '</span>';
-}
-
-function _aiMediaWatermarkHtml(item, extraClass) {
-  var mediaStatus = _aiDisclosureValue(item, 'media');
-  if (mediaStatus === 'none') return '';
-  var label = mediaStatus === 'generated' ? 'KI-GENERIERT' : (mediaStatus === 'assisted' ? 'KI-BEARBEITET' : 'KI-STATUS OFFEN');
-  var aria = mediaStatus === 'generated' ? 'KI-generiertes Bild' : (mediaStatus === 'assisted' ? 'KI-bearbeitetes Bild' : 'KI-Status der Medien noch nicht deklariert');
-  return '<span class="ai-media-watermark' + (mediaStatus === 'undeclared' ? ' ai-watermark-open' : '') + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="' + aria + '">' + label + '</span>';
-}
-
-function _aiTextDisclosureHtml(item, extraClass) {
-  var textStatus = _aiDisclosureValue(item, 'text');
-  if (textStatus === 'none') return '';
-  var label = textStatus === 'generated' ? 'KI-Text' : (textStatus === 'assisted' ? 'KI-Text bearbeitet' : 'Text-KI offen');
-  var aria = textStatus === 'generated' ? 'KI-generierter Text' : (textStatus === 'assisted' ? 'KI-unterstützter Text' : 'KI-Status des Textes noch nicht deklariert');
-  return '<span class="ai-text-watermark' + (textStatus === 'undeclared' ? ' ai-watermark-open' : '') + (extraClass ? ' ' + _escHtml(extraClass) : '') + '" aria-label="' + aria + '">' +
-    '<span class="material-icons-round" aria-hidden="true">auto_awesome</span>' + label + '</span>';
 }
 
 function _safeRun(label, fn) {

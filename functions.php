@@ -3161,11 +3161,12 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * Schema-Stand, gegen den `eb_db_version` in der Datenbank geprueft wird.
  *
  * 2.6: getrennte, persistente KI-Erklaerungen fuer Text und Medien sowie ein
- * revisionsfaehiger Inhalt-Meldeeingang. Bestandsinhalte bleiben bewusst
- * "undeclared"; die Migration erfindet keine menschliche Urheberschaft.
+ * revisionsfaehiger Inhalt-Meldeeingang.
+ * 2.7: vom Betreiber bestaetigte Nachdeklaration der sieben aktuellen
+ * Bestandsinserate; DJ Julian und Sandros Inserate sind menschlich erstellt.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '2.6' );
+    define( 'EB_DB_VERSION', '2.7' );
 }
 
 function eb_create_tables() {
@@ -3368,6 +3369,16 @@ function eb_maybe_create_tables() {
         $ai_media_col = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}eb_listings LIKE 'ai_media_disclosure'" );
         if ( ! $ai_media_col ) {
             $wpdb->query( "ALTER TABLE {$wpdb->prefix}eb_listings ADD COLUMN ai_media_disclosure varchar(20) NOT NULL DEFAULT 'undeclared' AFTER ai_text_disclosure" );
+        }
+        // 2.7: Der Betreiber hat den konkreten Live-Bestand nachdeklariert.
+        // IDs 5 und 8 gehoeren Sandro, ID 7 ist DJ Julian. Alle uebrigen
+        // derzeitigen Inserate (9, 10, 12, 13) wurden mit KI erstellt.
+        if ( ! get_option( 'eb_ai_disclosure_backfill_27', false ) ) {
+            $human_update = $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET ai_text_disclosure = 'none', ai_media_disclosure = 'none' WHERE id IN (5, 7, 8)" );
+            $ai_update    = $wpdb->query( "UPDATE {$wpdb->prefix}eb_listings SET ai_text_disclosure = 'generated', ai_media_disclosure = 'generated' WHERE id IN (9, 10, 12, 13)" );
+            if ( false !== $human_update && false !== $ai_update ) {
+                update_option( 'eb_ai_disclosure_backfill_27', 1 );
+            }
         }
         // 2.4: Koordinaten und Stadtteil fuer den Umkreis-Radar.
         //

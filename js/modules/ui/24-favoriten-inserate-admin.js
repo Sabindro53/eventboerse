@@ -93,11 +93,11 @@ function renderMyListings() {
             return '<div class="my-listing-card">' +
               '<div class="my-listing-img"' + _aiDisclosureAttrs(evt) + '>' +
                 '<img src="' + _escHtml(evt.image) + '" alt="' + _escHtml(evt.title) + '" />' +
-                _aiMediaWatermarkHtml(evt) + _aiTextDisclosureHtml(evt) +
                 '<span class="status-badge status-active">Aktiv</span>' +
               '</div>' +
               '<div class="my-listing-info">' +
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
+                _aiDisclosureLabelsHtml(evt, 'ai-disclosure-admin') +
                 '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
                 '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
                 '<div class="my-listing-stats">' +
@@ -175,11 +175,11 @@ function renderMyListings() {
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img"' + _aiDisclosureAttrs(l) + '>' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
-              _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
               '<span class="status-badge status-active">Aktiv</span>' +
             '</div>' +
             '<div class="my-listing-info">' +
               '<h3>' + _escHtml(l.title) + '</h3>' +
+              _aiDisclosureLabelsHtml(l, 'ai-disclosure-admin') +
               '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
               '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
               '<div class="my-listing-stats">' +

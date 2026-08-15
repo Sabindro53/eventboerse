@@ -491,9 +491,10 @@ function _buildListingPickerCardsHtml(baseList, isSearchListingFn, showSearchLis
       ' data-image="' + _escHtml(l.image || img) + '"' +
       ' data-title="' + _escHtml(l.title || '') + '"' +
       ' onclick="_selectListingCard(this)">' +
-      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')">' + _aiMediaWatermarkHtml(l, 'ai-media-watermark-picker') + _aiTextDisclosureHtml(l, 'ai-text-watermark-picker') + '</span>' +
+      '<span class="eb-lpick-thumb" style="background-image:url(\'' + _escHtml(img) + '\')"></span>' +
       '<span class="eb-lpick-body">' +
         '<span class="eb-lpick-title">' + _escHtml(l.title || '') + '</span>' +
+        _aiDisclosureLabelsHtml(l, 'ai-disclosure-picker') +
         '<span class="eb-lpick-meta">' +
           '<span class="eb-lpick-cat">' + _escHtml(l.categoryLabel || l.category || '') + '</span>' +
           (price ? '<span class="eb-lpick-price">' + _escHtml(price) + '</span>' : '') +
@@ -1421,8 +1422,8 @@ function renderListingFeedCard(l) {
       '</div>' +
       '<button class="feed-more-btn" onclick="openPostMenu(event,\'listing-' + l.id + '\',\'' + (l.providerName || '').replace(/'/g, '') + '\')" aria-label="Optionen"><span class="material-icons-round">more_horiz</span></button>' +
     '</div>' +
-    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />' + _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) + '</div>' +
-    '<div class="feed-post-content">' + _escHtml(l.title) + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
+    '<div class="feed-post-media" style="background-image:url(&quot;' + _escHtml(l.image) + '&quot;)"><img class="feed-post-image" src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="lazy" onclick="navigateTo(\'detail\',' + l.id + ')" onload="_fitFeedImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>' +
+    '<div class="feed-post-content">' + _escHtml(l.title) + _aiDisclosureLabelsHtml(l, 'ai-disclosure-social') + (l.location ? '<br><small style="color:var(--text-light)"><span class=\"material-icons-round\" style=\"font-size:12px;vertical-align:middle\">location_on</span>' + _escHtml(l.location) + '</small>' : '') + '</div>' +
     '<div class="feed-action-bar">' +
       '<div class="feed-actions">' +
         '<button class="feed-action-btn' + (isFav ? ' liked' : '') + '" onclick="toggleFeedFav(this,' + l.id + ')">' +

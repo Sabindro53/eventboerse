@@ -1,5 +1,5 @@
-// KI-Transparenz: keine stillen Defaults, sichtbare Kennzeichnung auf jeder
-// Inseratflaeche und ein belastbarer Meldeweg fuer falsche Deklarationen.
+// KI-Transparenz: keine stillen Defaults, dezente Kennzeichnung ausserhalb
+// der Bilder und ein belastbarer Meldeweg fuer falsche Deklarationen.
 const { test, expect } = require('@playwright/test');
 const { openApp, expectNoPageErrors } = require('./helpers');
 const fs = require('node:fs');
@@ -9,6 +9,8 @@ const ROOT = path.join(__dirname, '..', '..');
 const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 const SHELL = fs.readFileSync(path.join(ROOT, 'app-shell.html'), 'utf8');
 const BASIS = fs.readFileSync(path.join(ROOT, 'js/modules/core/00-basis.js'), 'utf8');
+const DEMOS = fs.readFileSync(path.join(ROOT, 'js/modules/core/01-demo-daten.js'), 'utf8');
+const CARDS = fs.readFileSync(path.join(ROOT, 'js/modules/search/10-karten-home-feed.js'), 'utf8');
 const UPLOADS = fs.readFileSync(path.join(ROOT, 'js/modules/ui/22-inserat-settings-uploads.js'), 'utf8');
 const DETAIL = fs.readFileSync(path.join(ROOT, 'js/modules/search/12-detail-provider.js'), 'utf8');
 const VISION = fs.readFileSync(path.join(ROOT, 'js/modules/ui/52-release-vision.js'), 'utf8');
@@ -35,17 +37,19 @@ test.describe('Deklaration ist ausdruecklich und dauerhaft', () => {
     expect(update).toMatch(/\$params\['aiMediaDisclosure'\] \?\? ''/);
   });
 
-  test('Migration erfindet fuer Altinhalte keine menschliche Urheberschaft', () => {
-    expect(FUNCTIONS).toMatch(/define\( 'EB_DB_VERSION', '2\.6' \)/);
+  test('bestaetigter Live-Bestand und Demo-Inserate sind korrekt nachdeklariert', () => {
+    expect(FUNCTIONS).toMatch(/define\( 'EB_DB_VERSION', '2\.7' \)/);
     expect(FUNCTIONS).toMatch(/ai_text_disclosure varchar\(20\) NOT NULL DEFAULT 'undeclared'/);
     expect(FUNCTIONS).toMatch(/ai_media_disclosure varchar\(20\) NOT NULL DEFAULT 'undeclared'/);
-    expect(BASIS).toContain('Medien: KI-Status offen');
-    expect(BASIS).toContain('Text: KI-Status offen');
+    expect(FUNCTIONS).toMatch(/ai_text_disclosure = 'none', ai_media_disclosure = 'none' WHERE id IN \(5, 7, 8\)/);
+    expect(FUNCTIONS).toMatch(/ai_text_disclosure = 'generated', ai_media_disclosure = 'generated' WHERE id IN \(9, 10, 12, 13\)/);
+    expect(DEMOS).toContain("listing.aiTextDisclosure = 'generated'");
+    expect(DEMOS).toContain("listing.aiMediaDisclosure = 'generated'");
   });
 });
 
-test.describe('Kennzeichnung bleibt an jedem Inhalt', () => {
-  test('Helfer liefern sichtbare und maschinenlesbare Kennzeichnung', async ({ page }) => {
+test.describe('Kennzeichnung bleibt dezent am Inhalt', () => {
+  test('Helfer liefern eine kleine Textzeile und maschinenlesbare Werte', async ({ page }) => {
     const errors = await openApp(page);
     const result = await page.evaluate(() => {
       const ai = { aiTextDisclosure: 'assisted', aiMediaDisclosure: 'generated' };
@@ -53,78 +57,65 @@ test.describe('Kennzeichnung bleibt an jedem Inhalt', () => {
       const legacy = {};
       return {
         attrs: _aiDisclosureAttrs(ai),
-        media: _aiMediaWatermarkHtml(ai),
-        text: _aiTextDisclosureHtml(ai),
         labels: _aiDisclosureLabelsHtml(ai),
-        humanMedia: _aiMediaWatermarkHtml(human),
-        humanText: _aiTextDisclosureHtml(human),
-        legacyMedia: _aiMediaWatermarkHtml(legacy),
-        legacyText: _aiTextDisclosureHtml(legacy),
+        humanLabels: _aiDisclosureLabelsHtml(human),
+        legacyLabels: _aiDisclosureLabelsHtml(legacy),
       };
     });
     expect(result.attrs).toContain('data-ai-text="assisted"');
     expect(result.attrs).toContain('data-ai-media="generated"');
-    expect(result.media).toContain('KI-GENERIERT');
-    expect(result.text).toContain('KI-Text bearbeitet');
-    expect(result.labels).toContain('KI-generiert');
-    expect(result.humanMedia).toBe('');
-    expect(result.humanText).toBe('');
-    expect(result.legacyMedia).toContain('KI-STATUS OFFEN');
-    expect(result.legacyText).toContain('Text-KI offen');
+    expect(result.labels).toContain('KI-generierter Inhalt');
+    expect(result.labels).not.toContain('material-icons-round');
+    expect(result.humanLabels).toBe('');
+    expect(result.legacyLabels).toContain('KI-Status offen');
     expectNoPageErrors(errors, 'KI-Kennzeichnungshelfer');
   });
 
-  test('Inseratkarte traegt Datenattribute und beide sichtbaren Hinweise', async ({ page }) => {
+  test('Inseratkarte zeigt den Text im Inhaltsteil und nie auf dem Bild', async ({ page }) => {
     const errors = await openApp(page);
-    const html = await page.evaluate(() => renderListingCard({
-      id: 991,
-      title: 'Deklarierter Testinhalt',
-      image: window.EB_IMG_FALLBACK,
-      images: [window.EB_IMG_FALLBACK],
-      providerName: 'Transparenz-Test',
-      providerImg: window.EB_IMG_FALLBACK,
-      providerId: 1,
-      priceLabel: '100 €',
-      rating: 5,
-      reviews: 1,
-      region: 'Berlin',
-      aiTextDisclosure: 'generated',
-      aiMediaDisclosure: 'assisted',
-    }));
-    expect(html).toContain('data-ai-text="generated"');
-    expect(html).toContain('data-ai-media="assisted"');
-    expect(html).toContain('KI-BEARBEITET');
-    expect(html).toContain('KI-Text');
+    const result = await page.evaluate(() => {
+      const host = document.createElement('div');
+      host.innerHTML = renderListingCard({
+        id: 991,
+        title: 'Deklarierter Testinhalt',
+        categoryLabel: 'Dekoration',
+        location: 'Berlin',
+        image: window.EB_IMG_FALLBACK,
+        images: [window.EB_IMG_FALLBACK],
+        providerName: 'Transparenz-Test',
+        providerImg: window.EB_IMG_FALLBACK,
+        providerId: 1,
+        priceLabel: '100 €',
+        rating: 5,
+        reviews: 1,
+        region: 'Berlin',
+        aiTextDisclosure: 'generated',
+        aiMediaDisclosure: 'assisted',
+      });
+      const card = host.firstElementChild;
+      return {
+        text: card.textContent,
+        imageText: card.querySelector('.listing-card-img').textContent,
+        bodyText: card.querySelector('.listing-card-body').textContent,
+        aiText: card.getAttribute('data-ai-text'),
+        aiMedia: card.getAttribute('data-ai-media'),
+      };
+    });
+    expect(result.aiText).toBe('generated');
+    expect(result.aiMedia).toBe('assisted');
+    expect(result.text).toContain('KI-generierter Inhalt');
+    expect(result.imageText).not.toContain('KI');
+    expect(result.bodyText).toContain('KI-generierter Inhalt');
     expectNoPageErrors(errors, 'KI-Inseratkarte');
   });
 
-  test('neue KI-Bilder bekommen das Wasserzeichen in die Pixel', async ({ page }) => {
-    const errors = await openApp(page);
-    const marked = await page.evaluate(async () => {
-      const source = document.createElement('canvas');
-      source.width = 900;
-      source.height = 600;
-      const sourceCtx = source.getContext('2d');
-      sourceCtx.fillStyle = '#ffffff';
-      sourceCtx.fillRect(0, 0, source.width, source.height);
-      const original = await new Promise((resolve) => source.toBlob(resolve, 'image/png'));
-      const result = await _aiWatermarkBlob(original, 'generated');
-      const bitmap = await createImageBitmap(result);
-      const out = document.createElement('canvas');
-      out.width = bitmap.width;
-      out.height = bitmap.height;
-      const ctx = out.getContext('2d');
-      ctx.drawImage(bitmap, 0, 0);
-      const pixels = ctx.getImageData(0, Math.floor(out.height * .78), out.width, Math.ceil(out.height * .22)).data;
-      let dark = 0;
-      for (let i = 0; i < pixels.length; i += 4) {
-        if (pixels[i] < 100 && pixels[i + 1] < 100 && pixels[i + 2] < 100) dark++;
-      }
-      return { type: result.type, dark };
-    });
-    expect(marked.type).toBe('image/jpeg');
-    expect(marked.dark, 'eingebrannte dunkle Wasserzeichenflaeche fehlt').toBeGreaterThan(1000);
-    expectNoPageErrors(errors, 'Pixel-Wasserzeichen');
+  test('Bilddateien und Bildflaechen bleiben frei von Wasserzeichen', () => {
+    expect(BASIS).not.toContain('_aiMediaWatermarkHtml');
+    expect(BASIS).not.toContain('_aiTextDisclosureHtml');
+    expect(UPLOADS).not.toContain('_aiWatermarkBlob');
+    expect(CARDS).not.toContain('_aiMediaWatermarkHtml');
+    expect(CARDS).not.toContain('_aiTextDisclosureHtml');
+    expect(UPLOADS).toMatch(/new File\(\[entry\.blob\]/);
   });
 });
 
