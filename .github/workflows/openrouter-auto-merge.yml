@@ -22,6 +22,28 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
+      # Der Rahmen wird GELESEN, nicht abgeschrieben.
+      #
+      # Bis zum 15.08. stand die Dateiliste hier ein zweites Mal, von Hand
+      # gepflegt. Beim Weiten des Rahmens auf 15 Dateien (Schritt 2) wurde nur
+      # scripts/lib/sichere-dateien.mjs erweitert — diese Kopie blieb bei 13.
+      # Folge waere gewesen: haette der Autopilot den Radar oder die Demo-Daten
+      # angefasst, haette der Auto-Merge den eigenen, regelkonformen PR als
+      # "nicht freigegeben" abgewiesen, das Label entfernt und den Lauf rot
+      # gemacht. Eine Kopie einer Sicherheitsliste driftet immer; die Frage ist
+      # nur, in welche Richtung sie beim naechsten Mal driftet.
+      #
+      # Ausdruecklich `ref: main`: die Liste muss aus dem vertrauenswuerdigen
+      # Branch kommen, niemals aus dem PR — sonst koennte ein Patch seinen
+      # eigenen Rahmen weiten. Dass der ausloesende Lauf von main stammt, wird
+      # unten zusaetzlich geprueft.
+      - name: Rahmen aus main laden
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: scripts/lib/sichere-dateien.mjs
+          sparse-checkout-cone-mode: false
+
       - name: Sicheren Autopilot-PR ausliefern
         uses: actions/github-script@v7
         with:
@@ -58,21 +80,19 @@ jobs:
               return;
             }
 
-            const safeSources = new Set([
-              'js/modules/core/00-basis.js',
-              'js/modules/core/02-router-navigation.js',
-              'js/modules/search/10-karten-home-feed.js',
-              'js/modules/ui/23-darkmode-staedte-picker.js',
-              'js/modules/ui/25-reviews.js',
-              'js/modules/ui/31-modals-toast-qabot.js',
-              'js/modules/ui/32-consent-init-map.js',
-              'js/modules/ui/43-showcase.js',
-              'js/modules/ai/50-planungs-assistent.js',
-              'js/modules/ui/51-inserat-maske-kalender.js',
-              'ui-enhancements.css',
-              'mobile-overrides.css',
-              'eb-hq-evolution.css',
-            ]);
+            // Einzige Quelle des Rahmens — dieselbe Datei, die Autopilot und
+            // Auftragsstrom benutzen.
+            const { SICHERE_DATEIEN } = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/lib/sichere-dateien.mjs`);
+            const safeSources = new Set(Object.keys(SICHERE_DATEIEN));
+            // Eine leere Liste wuerde jeden PR durchwinken, weil `forbidden`
+            // dann trivial leer ist. Lieber laut scheitern als still oeffnen —
+            // dieses Projekt hatte schon einen Waechter, der wegen einer
+            // leeren Quelle immer gruen war.
+            if (safeSources.size < 5) {
+              core.setFailed(`Rahmen nicht geladen (${safeSources.size} Dateien) — kein Merge.`);
+              return;
+            }
             const generated = new Set(['app.js']);
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number, per_page: 100,

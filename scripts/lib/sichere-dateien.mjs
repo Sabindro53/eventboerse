@@ -11,6 +11,19 @@ export const SICHERE_DATEIEN = Object.freeze({
   'js/modules/core/00-basis.js': 'kleine gemeinsame Browser-Helfer und UI-Grundlagen',
   'js/modules/core/02-router-navigation.js': 'SPA-Routing und reversible Navigation',
   'js/modules/search/10-karten-home-feed.js': 'oeffentliche Karten, Startseite und Feed-Rendering',
+  // Aufgenommen am 13.08. nach Messung und ausdruecklicher Freigabe des
+  // Inhabers. 601 Zeilen, 47 eigene Tests in radar.spec.js — die beste
+  // Abdeckung im Projekt. Ein Netzaufruf, kein Auth, kein Geld, kein Upload.
+  //
+  // Er verarbeitet allerdings Standortdaten und legt Koordinaten in
+  // localStorage ab. Das ist genau der Grund, warum die Loeschpruefung in
+  // patchPruefen() VOR dieser Aufnahme kam: ein Patch, der die Aufraeumzeile
+  // `localStorage.removeItem(RADAR_SPEICHER)` entfernt, wird jetzt erkannt.
+  'js/modules/search/13-event-radar.js': 'Umkreissuche und Radar-Feed; Standortdaten bleiben lokal',
+  // Reine Demo-Daten, kein Sicherheitsbezug. Von 14 Spec-Dateien beruehrt.
+  // Vorbehalt: der Inhalt steht sichtbar auf der Seite — ein unsinniges
+  // Demo-Inserat waere peinlich, nicht gefaehrlich, und faellt im Review auf.
+  'js/modules/core/01-demo-daten.js': 'Demo-Inserate und Beispieldaten der Startseite',
   'js/modules/ui/23-darkmode-staedte-picker.js': 'Darkmode und Ortsauswahl',
   'js/modules/ui/25-reviews.js': 'oeffentliche Bewertungsdarstellung',
   'js/modules/ui/31-modals-toast-qabot.js': 'Modals, Toasts und tokenfreie Hilfe',

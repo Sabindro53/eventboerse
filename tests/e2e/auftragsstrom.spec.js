@@ -234,6 +234,53 @@ test.describe('Auftragsstrom: aus Befunden wird Arbeit', () => {
     expect(tagesbudget, 'kein Tagesbudget gesetzt').toBeTruthy();
   });
 
+  test('jede Datei im Rahmen erfüllt die Aufnahmekriterien', async () => {
+    // Der Rahmen wurde am 13.08. von 13 auf 15 Dateien erweitert. Damit die
+    // nächste Erweiterung nicht nach Bauchgefühl passiert, stehen die
+    // Kriterien hier als Prüfung — nicht als Absatz in einer Notiz, den
+    // niemand liest.
+    //
+    // Die Grenzen sind bewusst großzügig: sie sollen offensichtliche
+    // Fehlgriffe fangen (Auth-Modul, Zahlungsfluss, Board), nicht jede
+    // Aufnahme zur Diskussion machen. Wer sie reißt, muss es begründen —
+    // und das heißt hier: diesen Test bewusst ändern.
+    const erlaubt = await whitelist();
+    const grenzen = { zeilen: 1200, auth: 8, geld: 20, upload: 12 };
+    const muster = {
+      auth: /\b(nonce|passkey|webauthn|totp|login|logout|passwort|password)\b/gi,
+      geld: /\b(stripe|payment|zahlung|betrag|provision|gebühr|gebuehr|iban|payout)\b/gi,
+      upload: /\b(FileReader|FormData|\.files\b|upload)\b/gi,
+    };
+
+    // Gemessen wird CODE, nicht Prosa. `31-modals-toast-qabot.js` enthält
+    // 14 Auth-Wörter — allesamt Hilfetexte des QA-Bots („Bei Login-Problemen
+    // ist der schnellste Weg…"), keine Auth-Logik. Ein Maß, das Fließtext
+    // zählt, misst die falsche Sache; und die Grenze danach passend zu
+    // machen, hieße den Wächter an das anzupassen, was zufällig da ist.
+    const nurCode = (t) => t
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+      .replace(/`(?:\\.|[^`\\])*`/g, ' ')
+      .replace(/'(?:\\.|[^'\\\n])*'/g, ' ')
+      .replace(/"(?:\\.|[^"\\\n])*"/g, ' ');
+
+    for (const datei of Object.keys(erlaubt)) {
+      const abs = path.join(ROOT, datei);
+      expect(fs.existsSync(abs), `${datei} steht im Rahmen, existiert aber nicht`).toBe(true);
+      if (!datei.endsWith('.js')) continue;
+      const roh = fs.readFileSync(abs, 'utf8');
+      const text = nurCode(roh);
+      const zeilen = roh.split('\n').length;
+      expect(zeilen, `${datei}: ${zeilen} Zeilen — über der Grenze von ${grenzen.zeilen}`)
+        .toBeLessThanOrEqual(grenzen.zeilen);
+      for (const [name, re] of Object.entries(muster)) {
+        const treffer = (text.match(re) || []).length;
+        expect(treffer, `${datei}: ${treffer}× ${name} — über der Grenze von ${grenzen[name]}`)
+          .toBeLessThanOrEqual(grenzen[name]);
+      }
+    }
+  });
+
   test('Prüfung läuft sauber durch', () => {
     const { execFileSync } = require('node:child_process');
     execFileSync('node', ['scripts/auftragsstrom.mjs'], { cwd: ROOT });

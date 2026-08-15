@@ -84,6 +84,17 @@ jobs:
       - name: Selbstcheck erneuern
         run: node scripts/self-audit.mjs
 
+      # Rechtliche Lage: taeglich messen, nicht nur bei einem PR. Ein Befund
+      # wie "die Einwilligung wird erhoben und von niemandem gelesen" aendert
+      # sich auch dann, wenn niemand einen PR aufmacht — etwa weil ein Modul
+      # umgebaut wurde. Die Notiz wird mitcommittet, damit im HQ der gemessene
+      # Stand steht und nicht der von Mai.
+      #
+      # Bewusst OHNE --check: die Routine soll den Zustand festhalten, nicht
+      # nachts rot werden. Blockiert wird im PR-Check, wo jemand zusieht.
+      - name: Rechtliche Lage messen
+        run: node scripts/recht.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       # ── Die Schichten der KI-Mitarbeiter ───────────────────────────────
       # Ohne OPENROUTER_API_KEY laufen sie durch, notieren den Ausfall im
       # Journal und enden mit 0. Eine Routine soll nicht rot werden, weil ein
@@ -126,13 +137,18 @@ jobs:
           GH_TOKEN: ${{ steps.apptoken.outputs.token || secrets.GITHUB_TOKEN }}
           HAT_ROUTINE_TOKEN: ${{ steps.apptoken.outputs.token != '' }}
         run: |
-          if git diff --quiet -- assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json; then
-            echo "Keine Aenderung — Feed, Selbstcheck und Journal sind aktuell." >> "$GITHUB_STEP_SUMMARY"
+          # Eine Liste, zwei Verwendungen. Standen sie doppelt da, erzeugte
+          # jede neue Datei eine stille Luecke: gemessen, geschrieben, nie
+          # committet — die Routine haette gearbeitet und nichts hinterlassen.
+          ERGEBNISSE="assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md"
+
+          if git diff --quiet -- $ERGEBNISSE; then
+            echo "Keine Aenderung — Feed, Selbstcheck, Journal und Rechtslage sind aktuell." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name  "Eventboerse Routine"
           git config user.email "noreply@users.noreply.github.com"
-          git add assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json
+          git add $ERGEBNISSE
 
           # Ueber einen Pull Request, nicht direkt auf main.
           #

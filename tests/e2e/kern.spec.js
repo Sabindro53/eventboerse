@@ -323,8 +323,23 @@ test.describe('OpenRouter-Autopilot', () => {
   });
 
   test('autonomer Scope schließt sensible Dateien und Seiteneffekte aus', () => {
-    const whitelist = runner.slice(runner.indexOf('const SICHERE_DATEIEN'), runner.indexOf('const AGENTEN'));
+    // Die Liste liegt seit der Auslagerung in scripts/lib/sichere-dateien.mjs.
+    // Vorher las dieser Test sie per indexOf aus dem Runner — nach dem Umzug
+    // lieferte indexOf -1, der Slice wurde LEER, und die Zusicherung lief
+    // gegen einen leeren String. Sie hat also monatelang nichts mehr
+    // verboten, ohne je rot zu werden.
+    //
+    // Deshalb hier zwei Dinge: die richtige Quelle UND ein Nachweis, dass
+    // überhaupt etwas geprüft wird. Eine Zusicherung, die leer laufen kann,
+    // ist schlimmer als keine — sie beruhigt.
+    const whitelist = fs.readFileSync(path.join(ROOT, 'scripts', 'lib', 'sichere-dateien.mjs'), 'utf8');
+    expect(whitelist.length, 'die Whitelist-Quelle ist leer — die Prüfung liefe ins Nichts')
+      .toBeGreaterThan(200);
+    expect(whitelist, 'die Whitelist enthält keine einzige Datei').toMatch(/js\/modules\//);
     expect(whitelist).not.toMatch(/functions\.php|payments\/|core\/30-auth|chat\/20-/);
+    // Der Runner darf keine zweite, eigene Liste mehr führen.
+    expect(runner, 'der Runner hält wieder eine eigene Whitelist')
+      .not.toMatch(/const SICHERE_DATEIEN\s*=\s*Object\.freeze/);
     expect(runner).toMatch(/git', \['apply', '--check', '--whitespace=error-all'/);
     expect(runner).toMatch(/localStorage\|sessionStorage\|indexedDB/);
     expect(runner).toMatch(/additions\.length \+ deletions\.length > 260/);
@@ -365,6 +380,28 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(merge).toMatch(/workflow_id: 'ionos-deploy\.yml'/);
     expect(merge).toMatch(/openrouter-autonomous/);
     expect(merge).toMatch(/merge_method: 'squash'/);
+  });
+
+  test('der Auto-Merge liest den Rahmen, statt ihn abzuschreiben', async () => {
+    // Bis zum 15.08. stand die Dateiliste im Auto-Merge ein zweites Mal. Beim
+    // Weiten auf 15 Dateien blieb die Kopie bei 13 — der Auto-Merge haette
+    // einen regelkonformen Autopilot-PR abgewiesen, sein Label entfernt und
+    // den Lauf rot gemacht. Eine Kopie einer Sicherheitsliste driftet immer.
+    const wirksam = merge.split('\n').filter((z) => !/^\s*#/.test(z)).join('\n');
+    expect(wirksam, 'die Liste darf nur an einer Stelle stehen')
+      .toMatch(/sichere-dateien\.mjs/);
+
+    // Kein zweiter Satz Modulpfade im Workflow — das waere die Kopie zurück.
+    const pfadeImYml = [...wirksam.matchAll(/'(js\/modules\/[^']+)'/g)].map((m) => m[1]);
+    expect(pfadeImYml, `abgeschriebene Pfade: ${pfadeImYml.join(', ')}`).toHaveLength(0);
+
+    // Die Liste muss aus main kommen, nie aus dem PR: sonst könnte ein Patch
+    // seinen eigenen Rahmen weiten.
+    expect(wirksam, 'der Rahmen muss aus main geladen werden').toMatch(/ref:\s*main/);
+
+    // Und eine leer geladene Liste darf nicht alles durchwinken: `forbidden`
+    // wäre dann trivial leer. Genau diese Falle hatte der Scope-Wächter schon.
+    expect(wirksam).toMatch(/safeSources\.size\s*<\s*\d+[\s\S]{0,200}setFailed/);
   });
 
   test('Autopilot veröffentlicht echten Codeflow mit Ziel, Dateien und Lieferstatus', () => {

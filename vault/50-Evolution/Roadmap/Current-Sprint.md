@@ -16,14 +16,45 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 305 Tests in 17 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 332 Tests in 18 Suiten**, blockierendes Gate in `pr-check.yml`.
+  Vier Radar-Tests brauchen Leaflet vom CDN und schlagen ohne Netzzugang fehl —
+  Umgebung, nicht Code
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
-  Arbeitsjournal, app.js-Drift
-- **Lagebild-Lauf 4×/Tag** (02/08/14/20 UTC), 11 Rollen je Lauf, eigenes
-  Budget von $0,15 — Journal als echte Laufzeitspur per SFTP
-- **Autopilot** bekommt die übrigen $0,45: er liefert Patch, Tests und PR.
-  Sein Schwerpunkt kommt aus den Befunden der letzten 24 h, nicht mehr aus
-  der Kalenderwoche
+  Arbeitsjournal, app.js-Drift, **Recht**
+- **Ensemble-Puls: alle 30 Min. angefordert** (`*/30`). GitHub plant geplante
+  Läufe best-effort; gemessen lagen 31–82 Min. dazwischen (Median 41). Eigener
+  Topf **$0,50/Tag** — Journal als echte Laufzeitspur per SFTP
+- **Autopilot: eigener Topf $1,50/Tag**, zusammen mit dem Puls die freigegebene
+  Obergrenze von $2,00. Er arbeitet bei **jedem erreichten Lauf**; das Zählwerk
+  `GITHUB_RUN_NUMBER % 12` ist weg — es sollte „stündlich" heißen und hieß rund
+  achtstündlich, weil der 5-Minuten-Cron real alle ~41 Min. feuert. Gebremst
+  wird über das Tagesbudget, das OpenRouters `usage_daily` liest und **vor** dem
+  ersten Modellaufruf greift
+- **Befund → Arbeit steht.** `scripts/auftragsstrom.mjs` macht aus
+  Journal-Befunden eine Warteschlange mit Herkunft, aus der der Scout zieht
+- **Freigegebener Rahmen: 15 Dateien** (`scripts/lib/sichere-dateien.mjs`,
+  geteilt von Autopilot und Auftragsstrom). Die Aufnahmekriterien stehen als
+  Test: höchstens 1200 Zeilen, 8 Auth-, 20 Geld-, 12 Upload-Vorkommen — **im
+  Code gemessen, nicht im Fließtext**. Nie aufnehmen: `board/`,
+  `core/30-auth.js`, `payments/`
+- **Ein Patch darf Schutzkonstrukte nicht wegnehmen.** Die Musterprüfung sah
+  nur hinzugefügte Zeilen; `${escHtml(n)}` → `${n}` trifft dort nichts. Geprüft
+  wird die Bilanz von acht schützenden Konstrukten
+- **Rechtliches wird gemessen** (`scripts/recht.mjs`, Tor in `pr-check.yml`,
+  täglich in der Tagesroutine). Vier Aussagen des Vaults werden gegen den Code
+  geprüft: Speicherschlüssel ↔ Cookie-Liste, Wirksamkeit der Einwilligung,
+  Pflichtseiten ↔ Routen, KI-Transparenz.
+  **Erste Messung am 15.08.:** Die Cookie-Liste beschrieb 12 Schlüssel, von
+  denen **11 nicht existierten**, und übersah **23 echte** — darunter
+  `eb_radar_ort` (Standort) und `eb_taste_v1` (Präferenzprofil). Sie stammte aus
+  Mai und war nie nachgeführt worden. Jetzt: 24 zu 24.
+- **Offen und wichtig: die Einwilligung bewirkt nichts.** `eb_cookie_consent`
+  wird gesetzt und von **keiner** der 11 schreibenden Dateien gelesen. Das ist
+  rechtlich ungünstiger als kein Banner — es belegt die erkannte Pflicht bei
+  gleichzeitiger Nichterfüllung. Die Behebung ändert sichtbares Verhalten
+  (abgelehnt = kein gemerkter Farbmodus, keine Suchhistorie, kein Profil) und
+  ist deshalb eine **Entscheidung des Inhabers**, kein automatischer Patch.
+  Das Tor meldet, blockiert aber nicht
 - Repo bleibt **bewusst public** (Entscheidung des Inhabers, Open Source als
   Ziel). Geprüft und belegt: die zehn `share: secret`-Notizen enthalten
   **Beschreibungen von Maßnahmen, keine Werte** — 0 Treffer für die
@@ -31,6 +62,26 @@ einen alten Abschnitt gelesen und nicht diesen.
   gesamte Historie (`git log --all -p`). Keine Rotationspflicht. Was offenliegt,
   ist eine Landkarte der Angriffsfläche, kein Schlüsselbund — beim Schreiben
   neuer Security-Notizen bleibt genau das die Grenze.
+
+### Vision Release (13.08., #144–#147) — nicht von mir, hier festgehalten
+
+Zwischen 12:27 und 13:46 sind vier PRs eingegangen, die den Ist-Stand oben
+mitbestimmen. Sie stehen hier, damit der Ensemble-Kontext sie kennt:
+
+- **#144 Vision Release** — Business-Cockpit für Dienstleister (KPIs, Steuern,
+  PDF, Media Studio), Radar als eigener Feed-Kanal mit Stadt und Radius,
+  Vertrauensnetzwerk, HQ Voice. Neu: `js/modules/ui/52-release-vision.js`,
+  `release-vision.css`, `tests/e2e/vision-release.spec.js`.
+- **#145 Hotfix** — HQ statisch abgeschottet, Release-Styles laden.
+  Neu: `scripts/build-protected-hq.mjs` erzeugt `hq-protected.php` mit
+  vorgeschaltetem PHP-Wächter.
+- **#146 Hotfix** — interne Wissens- und Markdown-Pfade werden aus
+  Agententexten redigiert, bevor sie im HQ erscheinen.
+- **#147** — der HQ-Kreis beendet sein Gespräch logisch, operative Antworten
+  sind abgesichert.
+
+Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
+noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
 
