@@ -7,7 +7,17 @@ tags: [layer/L4, domain/governance, share/internal]
 
 # Legal & Compliance — Übersicht
 
-> Stand: V11 (Mai 2026). Alle 14 Pflichtseiten sind als SPA-Sektionen + serverseitige Slugs verfügbar.
+> Stand: V11 (Mai 2026), geprüft am 15.08.2026.
+>
+> **Was hier steht, wird gemessen.** `node scripts/recht.mjs --check` vergleicht die
+> Pflichtseiten-Tabelle unten mit den Routen in `functions.php` und die Cookie-Liste mit
+> dem Quelltext. Der PR-Check bricht ab, sobald beides auseinanderläuft. Die gemessene
+> Fassung: [[40-Governance/Legal/Rechtliche-Lage]].
+>
+> Am 15.08.2026 ergab die erste Messung: alle 15 Pflichtseiten haben eine Route, aber die
+> Cookie-Liste beschrieb 11 Schlüssel, die es nicht gab, und übersah 23, die gesetzt
+> werden. Der Satz „alle Pflichtseiten sind verfügbar" stimmte — er stand nur neben
+> Angaben, die niemand nachgerechnet hatte.
 
 ## Geltende Rechtsrahmen
 
@@ -86,8 +96,21 @@ Aktiv minimiert:
 - Maps: OSM-Tiles (EU-basiert)
 - Stripe: USA mit DPF + SCC abgedeckt
 
+## KI-Einsatz
+
+Die Kennzeichnungspflicht für KI-Inhalte (**EU AI Act Art. 50**, seit 02.08.2026) ist seit
+dem 14.08.2026 umgesetzt. Was die Etiketten bedeuten, wer sie setzt und was sie **nicht**
+behaupten: [[40-Governance/Legal/KI-Transparenz]].
+
 ## Roadmap
 
+- [ ] **Einwilligung wirksam machen** — heute wird sie erhoben und von keiner Schreibstelle
+      gelesen (gemessen; siehe [[40-Governance/Legal/Cookie-Liste]]). Rechtlich der
+      dringendste offene Punkt, weil das Banner die erkannte Pflicht belegt.
+- [ ] Standort (`eb_radar_ort`) und Präferenzprofil (`eb_taste_v1`) in die
+      Datenschutzerklärung aufnehmen — sie stehen seit dem 15.08.2026 in der Cookie-Liste,
+      aber noch nicht im Text für Nutzer
+- [ ] Löschweg für den Gesprächsverlauf des Planungs-Assistenten (`eb_ai_chat_v1_*`)
 - [ ] Google Fonts → self-hosted via `@font-face`
 - [ ] Cookie-Banner: Mehrsprachigkeit (DE/EN)
 - [ ] DSGVO-Selfservice-Export im User-Profil (`/profile/data-export`)

@@ -16,9 +16,11 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 305 Tests in 17 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 332 Tests in 18 Suiten**, blockierendes Gate in `pr-check.yml`.
+  Vier Radar-Tests brauchen Leaflet vom CDN und schlagen ohne Netzzugang fehl —
+  Umgebung, nicht Code
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
-  Arbeitsjournal, app.js-Drift
+  Arbeitsjournal, app.js-Drift, **Recht**
 - **Ensemble-Puls: alle 30 Min. angefordert** (`*/30`). GitHub plant geplante
   Läufe best-effort; gemessen lagen 31–82 Min. dazwischen (Median 41). Eigener
   Topf **$0,50/Tag** — Journal als echte Laufzeitspur per SFTP
@@ -38,6 +40,21 @@ einen alten Abschnitt gelesen und nicht diesen.
 - **Ein Patch darf Schutzkonstrukte nicht wegnehmen.** Die Musterprüfung sah
   nur hinzugefügte Zeilen; `${escHtml(n)}` → `${n}` trifft dort nichts. Geprüft
   wird die Bilanz von acht schützenden Konstrukten
+- **Rechtliches wird gemessen** (`scripts/recht.mjs`, Tor in `pr-check.yml`,
+  täglich in der Tagesroutine). Vier Aussagen des Vaults werden gegen den Code
+  geprüft: Speicherschlüssel ↔ Cookie-Liste, Wirksamkeit der Einwilligung,
+  Pflichtseiten ↔ Routen, KI-Transparenz.
+  **Erste Messung am 15.08.:** Die Cookie-Liste beschrieb 12 Schlüssel, von
+  denen **11 nicht existierten**, und übersah **23 echte** — darunter
+  `eb_radar_ort` (Standort) und `eb_taste_v1` (Präferenzprofil). Sie stammte aus
+  Mai und war nie nachgeführt worden. Jetzt: 24 zu 24.
+- **Offen und wichtig: die Einwilligung bewirkt nichts.** `eb_cookie_consent`
+  wird gesetzt und von **keiner** der 11 schreibenden Dateien gelesen. Das ist
+  rechtlich ungünstiger als kein Banner — es belegt die erkannte Pflicht bei
+  gleichzeitiger Nichterfüllung. Die Behebung ändert sichtbares Verhalten
+  (abgelehnt = kein gemerkter Farbmodus, keine Suchhistorie, kein Profil) und
+  ist deshalb eine **Entscheidung des Inhabers**, kein automatischer Patch.
+  Das Tor meldet, blockiert aber nicht
 - Repo bleibt **bewusst public** (Entscheidung des Inhabers, Open Source als
   Ziel). Geprüft und belegt: die zehn `share: secret`-Notizen enthalten
   **Beschreibungen von Maßnahmen, keine Werte** — 0 Treffer für die

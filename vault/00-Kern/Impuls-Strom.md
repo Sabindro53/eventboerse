@@ -20,24 +20,24 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 | **L1** | 21 | `█████████████████·····` |
 | **L2** | 28 | `██████████████████████` |
 | **L3** | 13 | `██████████············` |
-| **L4** | 14 | `███████████···········` |
+| **L4** | 16 | `█████████████·········` |
 | **L5** | 13 | `██████████············` |
 
-**Gesamt: 99 Notizen**
+**Gesamt: 101 Notizen**
 
 ## 🔒 Freigabe-Bilanz (Impuls 5 + L4-Veto)
 
 | Klasse | Notizen | Bedeutung |
 |--------|---------|-----------|
 | 🟢 `public` | **10** | fließt zur Website-KI |
-| 🟡 `internal` | 79 | bleibt im Vault |
+| 🟡 `internal` | 81 | bleibt im Vault |
 | 🔴 `secret` | 10 | verlässt den Vault nie |
 | ⚠️ fehlt | 0 | keine — sauber |
 
 ```mermaid
 graph LR
-  V["🗄️ Vault<br/>99 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
-  V -->|"89 intern/secret"| X["🔒 bleibt drin"]
+  V["🗄️ Vault<br/>101 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
+  V -->|"91 intern/secret"| X["🔒 bleibt drin"]
   K --> W["🌐 KI-Bot · Board · EB Circle"]
   W -.->|"Wissenslücke"| V
   classDef ok fill:#22c55e,stroke:#16a34a,color:#fff
@@ -63,16 +63,16 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **36** |
-| Commits (30 Tage) | 134 |
-| Letzter Commit | `863616b · Schritt 2: der Rahmen umfasst 15 Dateien` (2026-08-13) |
+| Commits (7 Tage) | **37** |
+| Commits (30 Tage) | 135 |
+| Letzter Commit | `4b0e0cf · Der Sprint-Stand traegt keine Konfliktmarke mehr` (2026-08-15) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 40 app.js
      38 tests/e2e/kern.spec.js
+     35 vault/50-Evolution/Roadmap/Current-Sprint.md
      35 CLAUDE.md
-     34 vault/50-Evolution/Roadmap/Current-Sprint.md
      30 styles.css
 ```
 

@@ -90,6 +90,32 @@ Aufnahmekriterien stehen als Test, nicht als Absatz: höchstens 1200 Zeilen,
 Fließtext**. Eine Erweiterung ist eine Sicherheitsentscheidung des Inhabers.
 Nie aufnehmen: `board/`, `core/30-auth.js`, `payments/`.
 
+### Rechtliches — gemessen, nicht behauptet
+
+```bash
+node scripts/recht.mjs           # vault/40-Governance/Legal/Rechtliche-Lage.md
+node scripts/recht.mjs --check   # CI-Tor (pr-check.yml), täglich in der Tagesroutine
+```
+
+Vergleicht vier Aussagen des Vaults mit dem Code: **Speicherschlüssel** (jeder
+localStorage-/sessionStorage-Key muss in `Cookie-Liste.md` stehen — TDDDG § 25,
+DSGVO Art. 13), **Einwilligung** (liest überhaupt eine Schreibstelle die
+Antwort?), **Pflichtseiten** (jeder Slug der Compliance-Übersicht braucht eine
+Route in `functions.php`) und **KI-Transparenz** (EU AI Act Art. 50).
+
+Blockierend ist nur, was derselbe Commit beheben kann. Die **wirkungslose
+Einwilligung** wird gemeldet, nicht gesperrt: ihre Behebung ändert sichtbares
+Verhalten und ist eine Entscheidung des Inhabers. Ein Tor, das jeden PR sperrt,
+bis eine Produktentscheidung fällt, wird abgeschaltet — und prüft danach nichts.
+
+**Neuer Speicherschlüssel = neue Zeile in `Cookie-Liste.md`,** sonst bricht der
+PR-Check ab. Der Prüfer löst Konstanten, Hilfsfunktionen (auch über
+Modulgrenzen — `app.js` ist eine Verkettung) und `'prefix' + id` auf; was er
+nicht auflösen kann, meldet er, statt es als sauber zu verbuchen.
+
+**Ein Modell schreibt bei Eventbörse keine Rechtstexte.** `vault/40-Governance/`
+liegt außerhalb des Autopilot-Rahmens — gewollt, nicht technisch bedingt.
+
 ### Demo-Inhalte & Wissenslücken
 
 ```bash
@@ -186,15 +212,22 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-287 Tests in 15 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+332 Tests in 18 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
-Sicherheitsrahmen), TOTP (RFC-6238-Vektoren,
-Wiederverwendung, Zeitangriff), Radar (Umkreis, lokale Position,
-Migrations-Verhalten), Kern (Impuls-Ehrlichkeit +
-Autonomie + offenes Ensemble), Barrierefreiheit (axe, beide
-Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei Fehlern.
+Sicherheitsrahmen), **Recht** (Speicherschlüssel ↔ Cookie-Liste, Einwilligung,
+Pflichtseiten, KI-Transparenz), KI-Transparenz (Kennzeichnung in jeder
+Ansicht), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), Radar
+(Umkreis, lokale Position, Migrations-Verhalten), Vision-Release, Kern
+(Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), Barrierefreiheit (axe,
+beide Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei
+Fehlern.
+
+**Vier Radar-Tests brauchen Leaflet vom CDN** (`unpkg.com`) und schlagen in
+Umgebungen ohne Netzzugang fehl — das ist die Umgebung, nicht der Code. In CI
+laufen sie durch. Wer lokal ohne Netz testet: `npx playwright test
+--grep-invert "Radar als echte Feed-Karte"`.
 
 ### OpenRouter-Autopilot
 

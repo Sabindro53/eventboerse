@@ -143,6 +143,14 @@ jobs:
       - name: Auftragsstrom prüfen
         run: node scripts/auftragsstrom.mjs && node scripts/auftragsstrom.mjs --check
 
+      # Recht: die Cookie-Liste ist eine Aussage gegenueber Nutzern. Ein neuer
+      # Speicherschluessel ohne Eintrag ist eine Informationsluecke nach
+      # TDDDG 25 / DSGVO Art. 13 — und faellt sonst erst auf, wenn jemand
+      # fragt. Blockierend ist nur, was derselbe Commit beheben kann; die
+      # wirkungslose Einwilligung wird gemeldet, nicht gesperrt.
+      - name: Rechtliche Lage prüfen
+        run: node scripts/recht.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Testsuite ausführen
         run: npx playwright test
 
