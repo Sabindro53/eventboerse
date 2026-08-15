@@ -404,6 +404,34 @@ test.describe('OpenRouter-Autopilot', () => {
     expect(wirksam).toMatch(/safeSources\.size\s*<\s*\d+[\s\S]{0,200}setFailed/);
   });
 
+  test('der Auto-Merge kennt jede Datei, die der Autopilot zwangsläufig mitliefert', () => {
+    // Fünfmal zwischen dem 14. und 15.08. brach der Auto-Merge an derselben
+    // Stelle ab: „nicht freigegeben: assets/eb-auftragsstrom.json". Der PR war
+    // grün und lag trotzdem tagelang offen — die Autonomie hielt einen Schritt
+    // vor dem Ziel an, und der Grund stand nur in einem PR-Kommentar.
+    //
+    // Ursache: `create-pull-request` committet alles, was gegen `base`
+    // abweicht. Jede erzeugte Datei, die dabei mitkommt, MUSS der Auto-Merge
+    // kennen — sonst weist er den eigenen, regelkonformen PR ab.
+    const wirksam = merge.split('\n').filter((z) => !/^\s*#/.test(z)).join('\n');
+    const gen = wirksam.match(/const generated = new Set\(\[([^\]]*)\]\)/);
+    expect(gen, 'die Liste erzeugter Dateien muss auffindbar sein').not.toBeNull();
+    const erzeugt = new Set([...gen[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
+
+    for (const pflicht of ['app.js', 'assets/eb-auftragsstrom.json']) {
+      expect([...erzeugt], `${pflicht} wird bei jedem Lauf neu geschrieben`).toContain(pflicht);
+    }
+
+    // Aber erzeugte Dateien allein reichen nie: ein PR ohne freigegebene
+    // Quelldatei ist kein Autopilot-Ergebnis, sondern nur ein Artefakt.
+    expect(wirksam).toMatch(/!sourceFiles\.length/);
+
+    // Und der Autopilot darf nicht deshalb ins Größenlimit laufen, weil eine
+    // erzeugte Datei unbemerkt wächst. app.js ist mit ~26 600 Zeilen schon
+    // groß; das Limit zählt nur den Diff, nicht die Datei.
+    expect(wirksam).toMatch(/additions \+ f\.deletions/);
+  });
+
   test('Autopilot veröffentlicht echten Codeflow mit Ziel, Dateien und Lieferstatus', () => {
     expect(CODEFLOW.version).toBe(1);
     expect(CODEFLOW.mitarbeiter).toHaveLength(4);
