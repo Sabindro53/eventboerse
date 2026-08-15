@@ -46,8 +46,6 @@ einen alten Abschnitt gelesen und nicht diesen.
   ist eine Landkarte der Angriffsfläche, kein Schlüsselbund — beim Schreiben
   neuer Security-Notizen bleibt genau das die Grenze.
 
-<<<<<<< HEAD
-=======
 ### Vision Release (13.08., #144–#147) — nicht von mir, hier festgehalten
 
 Zwischen 12:27 und 13:46 sind vier PRs eingegangen, die den Ist-Stand oben

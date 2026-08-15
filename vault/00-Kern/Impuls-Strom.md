@@ -63,17 +63,17 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **32** |
-| Commits (30 Tage) | 130 |
-| Letzter Commit | `436cd6f · Merge pull request #158 from Sabindro53/agent/refine-ai-labels` (2026-08-15) |
+| Commits (7 Tage) | **36** |
+| Commits (30 Tage) | 134 |
+| Letzter Commit | `863616b · Schritt 2: der Rahmen umfasst 15 Dateien` (2026-08-13) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-39 app.js
-  37 tests/e2e/kern.spec.js
-  33 CLAUDE.md
-  31 vault/50-Evolution/Roadmap/Current-Sprint.md
-  29 styles.css
+40 app.js
+     38 tests/e2e/kern.spec.js
+     35 CLAUDE.md
+     34 vault/50-Evolution/Roadmap/Current-Sprint.md
+     30 styles.css
 ```
 
 **Codegröße:**
