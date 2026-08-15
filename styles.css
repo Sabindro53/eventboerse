@@ -16995,77 +16995,38 @@ body.dark-mode .radar-chip.aktiv { background: var(--primary); color: #fff; }
 .form-optional { font-weight: 400; color: var(--text-light); font-size: .8em; }
 body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text); }
 
-/* ===== AI TRANSPARENCY / ART. 50 AI ACT ===== */
-.ai-media-watermark,
-.ai-text-watermark {
-  position: absolute;
-  left: 10px;
-  z-index: 30;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: calc(100% - 20px);
-  padding: 5px 8px;
-  border: 1px solid rgba(255,255,255,.72);
-  border-radius: 7px;
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(0,0,0,.28);
-  font-size: 10px;
-  font-weight: 850;
-  line-height: 1;
-  letter-spacing: .055em;
-  text-transform: uppercase;
-  pointer-events: none;
-  white-space: nowrap;
-}
-.ai-media-watermark { bottom: 10px; background: rgba(12,15,24,.88); }
-.ai-text-watermark { bottom: 40px; background: rgba(70,24,114,.93); }
-.ai-watermark-open { border-style: dashed; background: rgba(55,65,81,.9); color: #f9fafb; }
-.ai-text-watermark .material-icons-round { font-size: 12px; }
-.hero-marquee-card { position: relative; }
-.hero-marquee-card .ai-media-watermark { top: 101px; bottom: auto; left: 8px; padding: 4px 6px; font-size: 8px; }
-.hero-marquee-card .ai-text-watermark { top: 74px; bottom: auto; left: 8px; padding: 4px 6px; font-size: 8px; }
-.explore-item .ai-media-watermark { top: 10px; bottom: auto; }
-.explore-item .ai-text-watermark { top: 40px; bottom: auto; }
+/* ===== Dezente KI-Transparenz ===== */
 .detail-hero-img,
 .feed-card-media,
 .my-listing-img,
 .eb-lpick-thumb { position: relative; }
 .feed-card-media .feed-card-image { display: block; width: 100%; }
-.detail-hero-img .ai-media-watermark { bottom: 14px; }
-.ai-media-watermark-picker,
-.ai-text-watermark-picker { left: 3px; right: 3px; max-width: none; padding: 3px; font-size: 6px; overflow: hidden; }
-.ai-media-watermark-picker { bottom: 3px; }
-.ai-text-watermark-picker { bottom: 17px; }
-.ai-media-watermark-preview,
-.ai-media-watermark-live { bottom: 8px; }
 
 .ai-disclosure-stack {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: block;
+  margin-top: 3px;
+  line-height: 1.2;
 }
 .ai-content-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-alt);
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1.15;
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-light);
+  font-size: 10px;
+  font-weight: 450;
+  line-height: 1.2;
 }
-.ai-content-label .material-icons-round { color: #6d28d9; font-size: 14px; }
-.ai-content-label-open { border-style: dashed; color: var(--text-light); }
-.ai-content-label-open .material-icons-round { color: #6b7280; }
-.detail-ai-disclosure { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ai-content-label-open { font-style: italic; }
+.detail-ai-disclosure { display: block; margin-top: 7px; }
 .detail-ai-disclosure:empty { display: none; }
-.detail-ai-disclosure small { color: var(--text-light); font-size: 11px; }
-.ai-disclosure-radar-popup { margin-top: 4px; }
-.ai-disclosure-radar-popup .ai-content-label { padding: 3px 5px; font-size: 8px; }
+.detail-ai-disclosure small { display: block; margin-top: 2px; color: var(--text-light); font-size: 9px; }
+.ai-disclosure-radar-popup,
+.ai-disclosure-radar-result { margin: 2px 0 3px; }
+.ai-disclosure-radar-popup .ai-content-label,
+.ai-disclosure-radar-result .ai-content-label { font-size: 9px; }
+.ai-disclosure-picker { margin-top: 0; }
+.ai-disclosure-picker .ai-content-label { font-size: 9px; }
 
 .ai-declaration {
   display: grid;
@@ -17101,5 +17062,4 @@ body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text);
 @media (max-width: 720px) {
   .ai-declaration-group { grid-template-columns: 1fr; }
   .ai-declaration { padding: 15px; }
-  .ai-media-watermark, .ai-text-watermark { font-size: 9px; }
 }

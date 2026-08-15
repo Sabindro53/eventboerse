@@ -1898,7 +1898,6 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
               <span class="material-icons-round">favorite_border</span>
             </button>
             ${l.badge ? `<span class="listing-badge">${_escHtml(l.badge)}</span>` : ''}
-            ${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}
           </div>
           <div class="listing-card-body">
             <div class="listing-card-top">
@@ -1907,6 +1906,7 @@ function showNoResultsWithAlternatives(search, category, eventType, location) {
                 <span class="material-icons-round">star</span> ${l.rating}
               </span>
             </div>
+            ${_aiDisclosureLabelsHtml(l, 'ai-disclosure-card')}
             <div class="listing-card-category">${_escHtml(l.categoryLabel)}</div>
             <div class="listing-card-location">
               <span class="material-icons-round">location_on</span> ${_escHtml(l.location)} ${distBadge}

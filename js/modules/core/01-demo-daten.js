@@ -379,6 +379,13 @@ const LISTINGS = [
   }
 ];
 
+// Die redaktionellen Demo-Inserate wurden mit generativer KI erstellt. Die
+// Angabe sitzt als dezenter Text am Inserat; die Bilder selbst bleiben frei.
+LISTINGS.forEach(function(listing) {
+  listing.aiTextDisclosure = 'generated';
+  listing.aiMediaDisclosure = 'generated';
+});
+
 // Auto-Inject logical price ranges (priceMax) for demo listings + rebuild priceLabel as range.
 // Multiplikator pro Preismodell: realistische Spannen für DE-Eventmarkt.
 (function injectDemoPriceRanges(){
@@ -547,4 +554,3 @@ const DEMO_EVENTS = [
     ]
   }
 ];
-

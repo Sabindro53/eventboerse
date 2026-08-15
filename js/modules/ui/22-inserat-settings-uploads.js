@@ -599,60 +599,7 @@ function _setAiDisclosureForm(textStatus, mediaStatus) {
 function _aiDisclosureFormChanged() {
   var section = document.getElementById('aiDisclosureSection');
   if (section) section.classList.remove('has-error');
-  _updateListingPreviewAiLabels();
   _updateListingLivePreview();
-}
-
-function _updateListingPreviewAiLabels() {
-  var mediaStatus = _selectedAiDisclosure('media');
-  document.querySelectorAll('#uploadPreview .upload-preview-item').forEach(function(item) {
-    var old = item.querySelector('.ai-media-watermark');
-    if (old) old.remove();
-    var html = _aiMediaWatermarkHtml({ aiMediaDisclosure: mediaStatus }, 'ai-media-watermark-preview');
-    if (html) item.insertAdjacentHTML('beforeend', html);
-  });
-}
-
-// Burn the declaration into every newly uploaded AI image. The UI overlay is
-// still rendered separately because it must remain visible on all surfaces;
-// this pixel watermark additionally survives opening or sharing the file.
-function _aiWatermarkBlob(blob, mediaStatus) {
-  if (!blob || (mediaStatus !== 'assisted' && mediaStatus !== 'generated')) return Promise.resolve(blob);
-  return new Promise(function(resolve) {
-    var url = URL.createObjectURL(blob);
-    var img = new Image();
-    img.onload = function() {
-      try {
-        var canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        var ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        var label = mediaStatus === 'generated' ? 'KI-GENERIERT · EVENTBÖRSE' : 'KI-BEARBEITET · EVENTBÖRSE';
-        var fontSize = Math.max(20, Math.round(canvas.width * 0.027));
-        var padX = Math.round(fontSize * 0.65);
-        var padY = Math.round(fontSize * 0.42);
-        ctx.font = '700 ' + fontSize + 'px Arial, sans-serif';
-        var textWidth = ctx.measureText(label).width;
-        var boxW = textWidth + padX * 2;
-        var boxH = fontSize + padY * 2;
-        var x = Math.max(12, canvas.width - boxW - Math.round(fontSize * 0.6));
-        var y = Math.max(12, canvas.height - boxH - Math.round(fontSize * 0.6));
-        ctx.fillStyle = 'rgba(12, 15, 24, 0.84)';
-        ctx.fillRect(x, y, boxW, boxH);
-        ctx.fillStyle = '#ffffff';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(label, x + padX, y + boxH / 2);
-        canvas.toBlob(function(marked) { resolve(marked || blob); }, 'image/jpeg', 0.92);
-      } catch (e) {
-        resolve(blob);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    };
-    img.onerror = function() { URL.revokeObjectURL(url); resolve(blob); };
-    img.src = url;
-  });
 }
 
 async function submitListing(e) {
@@ -789,20 +736,17 @@ async function submitListing(e) {
   // Upload images: cropped blobs first, then data URLs, keep existing URLs
   var uploadPromises = imgEntries.map(function(entry) {
     if (entry.blob) {
-      return _aiWatermarkBlob(entry.blob, aiMediaDisclosure).then(function(markedBlob) {
-        var file = new File([markedBlob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.jpg', { type: 'image/jpeg' });
-        return uploadFile(file).then(function(r) { return r.url; });
-      });
+      var blobType = entry.blob.type || 'image/jpeg';
+      var blobExt = (blobType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      var croppedFile = new File([entry.blob], 'listing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6) + '.' + blobExt, { type: blobType });
+      return uploadFile(croppedFile).then(function(r) { return r.url; });
     }
     if (entry.src.startsWith('data:')) {
       var arr = entry.src.split(','), mime = arr[0].match(/:(.*?);/)[1];
       var bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
       while (n--) u8arr[n] = bstr.charCodeAt(n);
       var sourceFile = new File([u8arr], 'listing-' + Date.now() + '.' + mime.split('/')[1], { type: mime });
-      return _aiWatermarkBlob(sourceFile, aiMediaDisclosure).then(function(markedBlob) {
-        var file = new File([markedBlob], 'listing-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-        return uploadFile(file).then(function(r) { return r.url; });
-      });
+      return uploadFile(sourceFile).then(function(r) { return r.url; });
     }
     return Promise.resolve(entry.src);
   });
@@ -1264,8 +1208,6 @@ function _updateListingLivePreview() {
     slideImg.src = img.src;
     slideImg.alt = 'Vorschau';
     slide.appendChild(slideImg);
-    var watermark = _aiMediaWatermarkHtml(previewDisclosure, 'ai-media-watermark-live');
-    if (watermark) slide.insertAdjacentHTML('beforeend', watermark);
     track.appendChild(slide);
   });
 

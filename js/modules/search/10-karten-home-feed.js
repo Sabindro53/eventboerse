@@ -15,8 +15,6 @@ function renderListingCard(listing) {
         </button>
         ${listing.badge ? '<span class="listing-badge">' + _escHtml(listing.badge) + '</span>' : ''}
         ${_boardStatusBadgeHtml(listing.id, 'bsb-on-card')}
-        ${_aiMediaWatermarkHtml(listing)}
-        ${_aiTextDisclosureHtml(listing)}
       </div>
       <div class="listing-card-body">
         <div class="listing-card-top">
@@ -25,6 +23,7 @@ function renderListingCard(listing) {
             <span class="material-icons-round">star</span> ${listing.rating || 0}
           </span>
         </div>
+        ${_aiDisclosureLabelsHtml(listing, 'ai-disclosure-card')}
         <div class="listing-card-category">${_escHtml(listing.categoryLabel)}</div>
         <div class="listing-card-location">
           <span class="material-icons-round">location_on</span> ${_escHtml(listing.location)}
@@ -80,10 +79,10 @@ function renderHeroMarquees() {
   function cardHTML(l) {
     return '<a class="hero-marquee-card"' + _aiDisclosureAttrs(l) + ' href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
       '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager"' + window.EB_IMG_ERR_ATTR + ' />' +
-      _aiMediaWatermarkHtml(l) + _aiTextDisclosureHtml(l) +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
         '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
+        _aiDisclosureLabelsHtml(l, 'ai-disclosure-marquee') +
       '</div></a>';
   }
 
@@ -252,7 +251,6 @@ function renderExploreGrid(filter) {
     const sizeClass = (i % 7 === 0) ? 'explore-item-large' : '';
     return `<a href="#" class="explore-item ${sizeClass}"${_aiDisclosureAttrs(it)} onclick="navigateTo('detail',${it.listingId});return false;" style="background-image:url('${_escHtml(it.image)}')">
       <img src="${_escHtml(it.image)}" alt="${_escHtml(it.title)}" loading="lazy" onload="_fitExploreImg(this)" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
-      ${_aiMediaWatermarkHtml(it)}${_aiTextDisclosureHtml(it)}
       <div class="explore-item-overlay">
         <span class="explore-item-title">${_escHtml(it.title)}</span>
         <span class="explore-item-price">${_escHtml(it.price)}</span>
@@ -333,9 +331,10 @@ function renderFeed(tab) {
         </div>
         <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
       </div>
-      <div class="feed-card-media"><img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />${_aiMediaWatermarkHtml(l)}${_aiTextDisclosureHtml(l)}</div>
+      <div class="feed-card-media"><img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>
       <div class="feed-card-body">
         <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
+        ${_aiDisclosureLabelsHtml(l, 'ai-disclosure-feed')}
         <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
       </div>
       ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + _escHtml(l.location) + '</div>' : ''}

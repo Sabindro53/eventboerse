@@ -9,7 +9,7 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-14)
+## Stand heute (2026-08-15)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
@@ -36,15 +36,16 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 - [x] **KI-Transparenz fuer Inserate:** Beim Veröffentlichen sind Text und
   Medien getrennt und ohne Vorbelegung als ohne generative KI, wesentlich
-  KI-unterstützt oder KI-generiert zu deklarieren. KI-Medien tragen auf allen
-  Inseratflächen ein sichtbares Wasserzeichen; neue lokale Uploads bekommen
-  die Kennzeichnung zusätzlich in die Bildpixel. API und Markup führen den
-  Status maschinenlesbar. Altinhalte werden nicht zu „menschlich" umgedeutet,
-  sondern bleiben sichtbar „KI-Status offen", bis der Anbieter nachdeklariert.
+  KI-unterstützt oder KI-generiert zu deklarieren. Die Oberfläche zeigt dafür
+  nur eine kleine Textzeile „KI-generierter Inhalt" bei den Inseratdaten;
+  Bilder und Bilddateien bleiben frei von Wasserzeichen. API und Markup führen
+  den getrennten Status weiterhin maschinenlesbar. Der bestätigte Live-Bestand
+  ist nachdeklariert: DJ Julian und Sandros Inserate sind ohne KI, die übrigen
+  aktuellen Inserate sowie die redaktionellen Demo-Inserate KI-generiert.
   Direkt am Inserat nimmt ein begründeter DSA-Meldeweg falsche Kennzeichnung
   und Irreführung entgegen, speichert vor E-Mail-Versand, vergibt eine
   Vorgangsnummer und löscht Meldedaten nach drei Jahren (außer Legal Hold).
-  Community-, Upload-, DSA- und Datenschutzhinweise sind auf Stand 14.08.2026.
+  Die Upload-Richtlinie bildet die dezente Darstellung auf Stand 15.08.2026 ab.
   Absicherung: 10 neue KI-Transparenztests, Gesamtsuite 303/303 grün.
 - [x] **Die Belegschaft läuft wieder — und ihr Ausfall ist jetzt sichtbar.**
   Zwischen dem 07. und 11.08. sind **elf Läufe hintereinander fehlgeschlagen**
@@ -486,7 +487,7 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
   - [x] `Paket` (Mehrfachpositionen mit je eigener Zeit/Preis/Notiz)
 
 ---
-*Zuletzt aktualisiert: 2026-07-16*
+*Zuletzt aktualisiert: 2026-08-15*
 
 ## Verknüpfte Notizen
 - [[50-Evolution/Roadmap/Feature-Ideen]] — Ideen-Sammlung
