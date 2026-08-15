@@ -93,7 +93,23 @@ jobs:
               core.setFailed(`Rahmen nicht geladen (${safeSources.size} Dateien) — kein Merge.`);
               return;
             }
-            const generated = new Set(['app.js']);
+            // Erzeugte Dateien: nicht vom Modell geschrieben, sondern von
+            // einem Skript aus geprueften Quellen abgeleitet.
+            //
+            // `assets/eb-auftragsstrom.json` kam am 14.08. dazu und hat den
+            // Autopiloten seitdem lahmgelegt: `create-pull-request` committet
+            // alles, was gegen `base` abweicht, und der Auto-Merge kannte die
+            // Datei nicht. Ergebnis war fuenfmal derselbe Abbruch am selben
+            // PR — "nicht freigegeben: assets/eb-auftragsstrom.json" — und ein
+            // gruener PR, der tagelang offen lag. Die Autonomie hielt einen
+            // Schritt vor dem Ziel an, und der Grund stand nur in einem
+            // Kommentar auf dem PR.
+            //
+            // Ein Modell kann diese Datei nicht faelschen: sie faellt nicht
+            // unter die Dateien, die ein Patch anfassen darf, und
+            // `auftragsstrom.mjs --check` prueft im PR-Check Herkunft und
+            // Rahmen jedes Eintrags.
+            const generated = new Set(['app.js', 'assets/eb-auftragsstrom.json']);
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number, per_page: 100,
             });
