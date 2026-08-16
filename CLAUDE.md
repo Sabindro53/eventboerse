@@ -132,9 +132,33 @@ EB Circle im HQ (⬇︎-Knopf).
 ### HQ & Verbindungen
 
 Das HQ (`hq.html`) liegt unter **eventbörse.de/hq** und wird von
-`eb_serve_hq()` in `functions.php` nur an angemeldete Administratoren
-ausgeliefert (`manage_options`, sonst 404). Der direkte Theme-Pfad ist in
-`.htaccess` gesperrt — dort läuft PHP nie.
+`eb_serve_hq()` in `functions.php` nur an Berechtigte ausgeliefert (sonst 404).
+Der direkte Theme-Pfad ist in `.htaccess` gesperrt — dort läuft PHP nie.
+
+Seite, Datendateien (`/assets/*.json`, `/audit/*.json`) und **alle** HQ-REST-Routen
+fragen dieselbe Funktion **`eb_hq_zugang_offen()`**. Drei Wege führen hinein:
+
+| Weg | Bedingung |
+|---|---|
+| Administrator | `manage_options` (+ TOTP, sobald eingerichtet) |
+| Mitarbeiter | `eb_hq_access` **und** TOTP — ohne zweiten Faktor nie |
+| Generalzugang | geteiltes Passwort, `EB_HQ_PASSWORT_HASH` in `wp-config.php` |
+
+Der **Generalzugang** ist eine ausdrückliche Entscheidung des Inhabers
+(15.08.2026). Ohne die Konstante verhält sich `/hq` unverändert wie vorher —
+das Tor entsteht erst, wenn er es aufmacht. Es vergibt **keine** weiteren
+Zugänge: `/hq/mitarbeiter` bleibt bei `eb_hq_verwaltung_darf` (angemeldeter
+Administrator). Passwort nie ins Repository — nur der bcrypt-Hash, nur in
+`wp-config.php`. Details und Preis der Entscheidung:
+`vault/40-Governance/Legal/HQ-Generalzugang.md`.
+
+```bash
+php tests/php/hq-tor-pruefstand.php   # 42 Prüfungen am echten Code, nicht am Text
+```
+
+Der Prüfstand schneidet die tatsächlichen Funktionen aus `functions.php` heraus
+und ruft sie auf. Ob dort `password_verify` **steht**, sagt nichts darüber, ob
+ein falsches Passwort abgewiesen **wird**. Er läuft in `verbindungen.spec.js` mit.
 
 ```bash
 node scripts/connectors.mjs            # assets/eb-connectors.json (Katalog)
@@ -212,7 +236,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-332 Tests in 18 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+341 Tests in 18 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

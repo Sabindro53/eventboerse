@@ -88,6 +88,12 @@ Die gemessene Lage steht in [[40-Governance/Legal/Rechtliche-Lage]].
 | `wordpress_logged_in_*` | essenziell | Session | ✓ | ✓ | Lax | WP-Auth |
 | `wordpress_sec_*` | essenziell | Session | ✓ | ✓ | Lax | WP-Auth-Hash |
 | `wp-settings-*` | funktional | 1 Jahr | – | ✓ | Lax | WP-Admin-UI-State |
+| `eb_hq_tor` | essenziell | 12 h | ✓ | ✓ | Strict | Sitzung des HQ-Generalzugangs |
+
+> `eb_hq_tor` wird **nur im HQ** gesetzt, nie bei einem normalen Seitenbesuch. Es enthält
+> einen Zufallswert ohne Personenbezug; serverseitig liegt nur dessen SHA-256. Das HQ ist
+> keine öffentliche Ansicht — für Besucher der Website entsteht dieses Cookie nie. Details:
+> [[40-Governance/Legal/HQ-Generalzugang]].
 
 > **Keine Tracking-Cookies, kein Google Analytics, kein Facebook-Pixel.**
 >

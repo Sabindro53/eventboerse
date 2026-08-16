@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-15**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-16**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -20,24 +20,24 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 | **L1** | 21 | `█████████████████·····` |
 | **L2** | 28 | `██████████████████████` |
 | **L3** | 13 | `██████████············` |
-| **L4** | 16 | `█████████████·········` |
+| **L4** | 17 | `█████████████·········` |
 | **L5** | 13 | `██████████············` |
 
-**Gesamt: 101 Notizen**
+**Gesamt: 102 Notizen**
 
 ## 🔒 Freigabe-Bilanz (Impuls 5 + L4-Veto)
 
 | Klasse | Notizen | Bedeutung |
 |--------|---------|-----------|
 | 🟢 `public` | **10** | fließt zur Website-KI |
-| 🟡 `internal` | 81 | bleibt im Vault |
+| 🟡 `internal` | 82 | bleibt im Vault |
 | 🔴 `secret` | 10 | verlässt den Vault nie |
 | ⚠️ fehlt | 0 | keine — sauber |
 
 ```mermaid
 graph LR
-  V["🗄️ Vault<br/>101 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
-  V -->|"91 intern/secret"| X["🔒 bleibt drin"]
+  V["🗄️ Vault<br/>102 Notizen"] -->|"10 public"| K["📦 Wissensbasis<br/>89 Abschnitte"]
+  V -->|"92 intern/secret"| X["🔒 bleibt drin"]
   K --> W["🌐 KI-Bot · Board · EB Circle"]
   W -.->|"Wissenslücke"| V
   classDef ok fill:#22c55e,stroke:#16a34a,color:#fff
@@ -63,23 +63,23 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **37** |
-| Commits (30 Tage) | 135 |
-| Letzter Commit | `4b0e0cf · Der Sprint-Stand traegt keine Konfliktmarke mehr` (2026-08-15) |
+| Commits (7 Tage) | **35** |
+| Commits (30 Tage) | 133 |
+| Letzter Commit | `4120ece · Der Auto-Merge kennt die Datei, die der Autopilot mitliefert (#160)` (2026-08-15) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 40 app.js
-     38 tests/e2e/kern.spec.js
-     35 vault/50-Evolution/Roadmap/Current-Sprint.md
-     35 CLAUDE.md
+     39 tests/e2e/kern.spec.js
+     34 CLAUDE.md
+     33 vault/50-Evolution/Roadmap/Current-Sprint.md
      30 styles.css
 ```
 
 **Codegröße:**
 - `app.js` — 26.642 Zeilen
 - `styles.css` — 17.086 Zeilen
-- `functions.php` — 10.209 Zeilen
+- `functions.php` — 10.448 Zeilen
 - `app-shell.html` — 4.122 Zeilen
 
 ## Verwandt

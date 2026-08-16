@@ -178,7 +178,24 @@ test.describe('Codeabfrage und Freischaltung', () => {
   });
 
   test('nur Administratoren vergeben den Zugang', () => {
+    // Geprüft wird die Eigenschaft, nicht der Name der Funktion.
+    //
+    // Hier stand `eb_hq_proxy_darf` — damals gleichbedeutend mit „angemeldeter
+    // Administrator". Seit der Generalzugang existiert, lässt dieselbe Funktion
+    // auch ein geteiltes Passwort durch. Der Test wäre grün geblieben, während
+    // genau das, was sein Name verspricht, nicht mehr stimmte.
     const block = FUNCTIONS.slice(FUNCTIONS.indexOf("'/hq/mitarbeiter'"));
-    expect(block.slice(0, 400)).toMatch(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/);
+    const cb = (block.slice(0, 400).match(/'permission_callback'\s*=>\s*'([a-z_]+)'/) || [, ''])[1];
+    expect(cb, 'Route ohne Rechteprüfung').toBeTruthy();
+
+    const rumpf = FUNCTIONS.slice(FUNCTIONS.indexOf(`function ${cb}(`));
+    const koerper = rumpf.slice(0, rumpf.indexOf('\n}') + 2);
+    expect(koerper, 'Zugänge vergeben verlangt eine Anmeldung').toMatch(/is_user_logged_in\(\)/);
+    expect(koerper, 'Zugänge vergeben verlangt Administratorrechte')
+      .toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+    // Der Kern: ein geteiltes Passwort darf hier nichts öffnen. Sonst könnte
+    // man damit weitere Zugänge erteilen — und die wären nicht mehr einzufangen.
+    expect(koerper, 'der Generalzugang darf keine Zugänge vergeben')
+      .not.toMatch(/eb_hq_tor_offen|eb_hq_zugang_offen/);
   });
 });
