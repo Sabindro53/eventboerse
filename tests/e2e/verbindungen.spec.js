@@ -72,6 +72,92 @@ test.describe('HQ-Zugang', () => {
     expect(abweisung, 'nie 403 — das bestätigt die Existenz').not.toMatch(/status_header\(\s*40[13]\s*\)/);
   });
 
+  test('der Generalzugang wird am echten Code geprüft, nicht am Text', () => {
+    // Ob in functions.php `password_verify` STEHT, sagt nichts darüber, ob ein
+    // falsches Passwort abgewiesen WIRD. Bei einem Zugangstor ist das die
+    // falsche Art von Sicherheit. Der Prüfstand schneidet die tatsächlichen
+    // Funktionen heraus und ruft sie auf.
+    const out = execFileSync('php', [path.join(ROOT, 'tests', 'php', 'hq-tor-pruefstand.php')],
+      { cwd: ROOT, encoding: 'utf8' });
+    expect(out).toMatch(/Alle \d+ Prüfungen bestanden/);
+    // Ein Prüfstand, der nichts findet und trotzdem grün meldet, wäre
+    // schlimmer als keiner.
+    const anzahl = Number((out.match(/Alle (\d+) Prüfungen/) || [, 0])[1]);
+    expect(anzahl, 'der Prüfstand darf nicht leer laufen').toBeGreaterThan(30);
+  });
+
+  test('das Passwort steht nirgends im Repository', () => {
+    // Das Repository ist öffentlich. Ein Klartextpasswort darin wäre am Tag
+    // des Commits verbrannt — auch nach dem Löschen, denn die Historie bleibt.
+    expect(FUNCTIONS, 'nur der Hash darf gelesen werden, nie ein Klartext')
+      .not.toMatch(/EB_HQ_PASSWORT\s*[,)]/);
+    expect(FUNCTIONS).toMatch(/EB_HQ_PASSWORT_HASH/);
+    // Kein define() des Hashes im Repo — der gehört in wp-config.php.
+    const wirksam = FUNCTIONS.split('\n').filter((z) => !/^\s*(\*|\/\/|\/\*)/.test(z)).join('\n');
+    expect(wirksam, 'der Hash darf nicht im Theme definiert werden')
+      .not.toMatch(/define\(\s*'EB_HQ_PASSWORT_HASH'/);
+    // Und der Vergleich läuft über password_verify, nie über == oder ===.
+    const versuch = rumpfVon(FUNCTIONS, 'eb_hq_tor_versuch');
+    expect(versuch).toMatch(/password_verify\(/);
+    expect(versuch, 'ein Zeichenkettenvergleich wäre zeitabhängig und unsicher')
+      .not.toMatch(/EB_HQ_PASSWORT_HASH\s*[=!]==?/);
+  });
+
+  test('ohne gesetzte Konstante bleibt /hq unverändert eine 404', () => {
+    // Dieses Deployment darf das Tor nicht aufmachen. Es entsteht erst, wenn
+    // der Inhaber die Konstante setzt.
+    const fn = rumpfVon(FUNCTIONS, 'eb_serve_hq');
+    // Die Torseite darf nur innerhalb eines Zweiges stehen, der
+    // eb_hq_tor_konfiguriert() verlangt — sonst erschiene sie auch ohne
+    // gesetzte Konstante und dieses Deployment hätte /hq geöffnet.
+    const torStelle = fn.indexOf('eb_hq_torseite_ausliefern');
+    expect(torStelle, 'die Torseite wird nirgends ausgeliefert').toBeGreaterThan(-1);
+    const davor = fn.slice(0, torStelle);
+    expect(davor, 'die Torseite hängt an keiner Konstanten-Prüfung')
+      .toMatch(/eb_hq_tor_konfiguriert\(\)/);
+    // Und sie darf nur greifen, wenn niemand regulär berechtigt ist.
+    expect(davor).toMatch(/!\s*eb_hq_zugang_offen\(\)/);
+    const konf = rumpfVon(FUNCTIONS, 'eb_hq_tor_konfiguriert');
+    expect(konf, 'ohne defined() wäre ein fehlender Wert ein Fehler statt ein Nein')
+      .toMatch(/defined\(\s*'EB_HQ_PASSWORT_HASH'\s*\)/);
+    expect(konf, 'ein versehentlicher Klartext muss als "nicht eingerichtet" gelten')
+      .toMatch(/preg_match/);
+  });
+
+  test('Seite, Datendateien und REST-Routen fragen dieselbe Funktion', () => {
+    // Stünden die Bedingungen an drei Stellen, würde die nächste Änderung zwei
+    // davon treffen — und die dritte wäre dann das Loch. Genau das war hier:
+    // die Datendateien prüften manage_options von Hand und ließen damit einen
+    // Administrator durch, der den zweiten Faktor noch nicht vorgelegt hatte.
+    expect(rumpfVon(FUNCTIONS, 'eb_hq_proxy_darf')).toMatch(/eb_hq_zugang_offen\(\)/);
+    const wurzel = rumpfVon(FUNCTIONS, 'eb_serve_theme_root_file');
+    expect(wurzel, 'die Datendateien müssen dieselbe Frage stellen')
+      .toMatch(/eb_hq_zugang_offen\(\)/);
+    expect(wurzel, 'kein von Hand nachgebauter Zweitcheck')
+      .not.toMatch(/\$oeffentlich[\s\S]{0,200}current_user_can\(\s*'manage_options'\s*\)/);
+  });
+
+  test('der Generalzugang darf keine weiteren Zugänge vergeben', () => {
+    // Ein geteiltes Passwort, mit dem man Zugänge erteilen kann, ist nicht
+    // mehr einzufangen.
+    const reg = FUNCTIONS.slice(FUNCTIONS.indexOf("'/hq/mitarbeiter'"));
+    expect(reg.slice(0, reg.indexOf(') );') + 4))
+      .toMatch(/'permission_callback'\s*=>\s*'eb_hq_verwaltung_darf'/);
+    const verwaltung = rumpfVon(FUNCTIONS, 'eb_hq_verwaltung_darf');
+    expect(verwaltung).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+    expect(verwaltung, 'die Verwaltung darf das Tor nicht akzeptieren')
+      .not.toMatch(/eb_hq_tor_offen|eb_hq_zugang_offen/);
+  });
+
+  test('nach erfolgreicher Anmeldung wird umgeleitet', () => {
+    // Sonst liegt das Passwort im POST-Verlauf des Browsers und ein Neuladen
+    // schickt es erneut.
+    const fn = rumpfVon(FUNCTIONS, 'eb_serve_hq');
+    expect(fn).toMatch(/eb_hq_tor_versuch\(\)[\s\S]{0,400}wp_safe_redirect/);
+    expect(fn, 'ohne Abmeldeweg käme ein Zugang ohne WordPress nie wieder heraus')
+      .toMatch(/eb_hq_tor_schliessen\(\)/);
+  });
+
   test('Abweisung sieht aus wie jede andere unbekannte Adresse', () => {
     // Der Fehler, der das ausgelöst hat: die Abweisung lieferte 404.html —
     // eine eingefrorene SPA-Kopie mit relativen Pfaden. Unter /hq zeigten
@@ -163,16 +249,26 @@ test.describe('Datendateien erreichbar', () => {
     expect(liste).toContain('eb-demo-feed.json');   // Demo-Inhalte für jeden
     expect(liste, 'der Connector-Katalog darf nicht öffentlich sein').not.toContain('eb-connectors.json');
     expect(liste, 'der Selbstcheck darf nicht öffentlich sein').not.toContain('latest.json');
-    // Alles außerhalb der Liste verlangt Administratorrechte.
+    // Alles außerhalb der Liste verlangt einen geprüften HQ-Zugang.
+    //
+    // Geprüft wird die Eigenschaft, nicht die Formulierung: hier stand früher
+    // `current_user_can('manage_options')` von Hand nachgebaut. Das ließ einen
+    // Administrator durch, der den zweiten Faktor noch gar nicht vorgelegt
+    // hatte — die Seite war zu, die Daten dahinter nicht.
     expect(block).toMatch(/in_array\(\s*\$m\[2\],\s*\$oeffentlich/);
-    expect(block).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+    expect(block, 'die Datendateien müssen dieselbe Frage stellen wie die Seite')
+      .toMatch(/eb_hq_zugang_offen\(\)/);
+    const gate = rumpfVon(FUNCTIONS, 'eb_hq_zugang_offen');
+    expect(gate, 'der Zugang muss den geprüften Nutzerweg enthalten').toMatch(/eb_hq_darf_sehen\(\)/);
   });
 
   test('Serverseiten-Proxy hält den Schlüssel auf dem Server', () => {
-    // Alle HQ-Routen nur für Administratoren.
+    // Alle HQ-Routen hinter einer geprüften Schwelle.
     expect(FUNCTIONS).toMatch(/function eb_hq_proxy_darf/);
-    const darf = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_proxy_darf'), FUNCTIONS.indexOf('function eb_hq_proxy_darf') + 260);
-    expect(darf).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
+    // Die Schwelle darf sich verschieben (Mitarbeiter-Fähigkeit, zweiter
+    // Faktor, Generalzugang) — sie muss aber über die gemeinsame Funktion
+    // laufen, damit es nur eine Stelle gibt, die man ändern kann.
+    expect(rumpfVon(FUNCTIONS, 'eb_hq_proxy_darf')).toMatch(/eb_hq_zugang_offen\(\)/);
     // Jede EINZELNE /hq-Route prüfen, statt Anzahlen zu vergleichen. Eine
     // weitere Route ist erwünscht — sie muss nur dieselbe Schwelle tragen,
     // und genau das ist die Aussage. Zweimal hat eine Zählung hier zu Unrecht
@@ -180,9 +276,19 @@ test.describe('Datendateien erreichbar', () => {
     const routen = [...FUNCTIONS.matchAll(
       /register_rest_route\(\s*'eventboerse\/v1',\s*'(\/hq\/[a-z\/]+)',\s*array\(([\s\S]*?)\)\s*\);/g)];
     expect(routen.length, 'es muss HQ-Routen geben').toBeGreaterThanOrEqual(3);
+    // Zwei zugelassene Schwellen, keine dritte: die gemeinsame HQ-Prüfung und
+    // die strengere Verwaltungsprüfung. `__return_true` oder eine eigene
+    // Bedingung pro Route fällt hier durch.
+    const erlaubt = ['eb_hq_proxy_darf', 'eb_hq_verwaltung_darf'];
     for (const [, pfad, rumpf] of routen) {
-      expect(rumpf, `${pfad} ohne Rechteprüfung`).toMatch(/'permission_callback'\s*=>\s*'eb_hq_proxy_darf'/);
+      const cb = (rumpf.match(/'permission_callback'\s*=>\s*'([a-z_]+)'/) || [, ''])[1];
+      expect(erlaubt, `${pfad} trägt eine unbekannte Rechteprüfung: ${cb || '(keine)'}`).toContain(cb);
     }
+    // Und die Route, die Zugänge vergibt, trägt die strengere von beiden.
+    const verwaltung = routen.find(([, p]) => p === '/hq/mitarbeiter');
+    expect(verwaltung, '/hq/mitarbeiter muss erfasst sein').toBeTruthy();
+    expect(verwaltung[2], 'Zugänge vergeben darf nur ein angemeldeter Administrator')
+      .toMatch(/'permission_callback'\s*=>\s*'eb_hq_verwaltung_darf'/);
     // Umgekehrt: keine HQ-Route darf an der Prüfung vorbei registriert werden.
     const alleHq = FUNCTIONS.match(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\//g) || [];
     expect(alleHq.length, 'jede /hq-Route muss oben erfasst sein').toBe(routen.length);

@@ -315,7 +315,22 @@ export function schluesselImCode(dateien) {
  */
 export function schluesselInNotiz(markdown) {
   const keys = new Map();
+  // Nur die Abschnitte, die WIRKLICH Browser-Speicher beschreiben.
+  //
+  // Die Notiz führt daneben HTTP-Cookies und Drittanbieter. Ein früherer
+  // Entwurf las jede Tabelle und meldete daraufhin `eb_hq_tor` — ein Cookie,
+  // das PHP setzt — als „steht in der Liste, kommt im Frontend nicht vor".
+  // Das ist keine Abweichung, sondern eine andere Speicherart. Ein Prüfer,
+  // der Kategorien verwechselt, erzeugt Meldungen, die man abgewöhnt zu
+  // lesen — und dann übersieht man die echte.
+  let drin = false;
   for (const zeile of markdown.split('\n')) {
+    const ueberschrift = zeile.match(/^#{2,3}\s+(.+?)\s*$/);
+    if (ueberschrift) {
+      drin = /^(localStorage|sessionStorage)$/i.test(ueberschrift[1].trim());
+      continue;
+    }
+    if (!drin) continue;
     const m = zeile.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]*)\|/);
     if (!m) continue;
     const key = normalisiere(m[1].trim());

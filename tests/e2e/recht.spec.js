@@ -162,6 +162,20 @@ test.describe('Abgleich mit der Cookie-Liste', () => {
       .not.toBe(normalisiere('eb_board_projects_<userId>'));
   });
 
+  test('HTTP-Cookies werden nicht mit Browser-Speicher verwechselt', async () => {
+    // `eb_hq_tor` setzt PHP, nicht das Frontend. Ein früherer Entwurf las jede
+    // Tabelle der Notiz und meldete es als „steht in der Liste, kommt im Code
+    // nicht vor". Ein Prüfer, der Kategorien verwechselt, erzeugt Meldungen,
+    // die man abgewöhnt zu lesen — und dann übersieht man die echte.
+    const { schluesselInNotiz } = await recht();
+    const keys = schluesselInNotiz([
+      '## HTTP-Cookies', '| Name | Klasse |', '|---|---|', '| `eb_nur_cookie` | essenziell |',
+      '## localStorage', '| Key | Klasse |', '|---|---|', '| `eb_echt` | funktional |',
+      '## Drittanbieter', '| Anbieter | X |', '|---|---|', '| `eb_fremd` | y |',
+    ].join('\n'));
+    expect([...keys.keys()]).toEqual(['eb_echt']);
+  });
+
   test('jeder Schlüssel im echten Frontend steht in der echten Cookie-Liste', async () => {
     const { lageErheben } = await recht();
     const lage = lageErheben();

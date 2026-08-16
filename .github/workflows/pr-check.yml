@@ -102,6 +102,13 @@ jobs:
           node scripts/build-protected-hq.mjs --check
           php -l hq-protected.php
 
+      # Das HQ-Zugangstor am ausgefuehrten Code pruefen, nicht am Text.
+      # Eigener Schritt, obwohl die Playwright-Suite ihn ohnehin startet: ein
+      # Fehlschlag am Zugangstor soll oben in der Liste stehen und nicht in
+      # 341 Testzeilen untergehen.
+      - name: HQ-Zugangstor prüfen
+        run: php tests/php/hq-tor-pruefstand.php
+
       - name: Playwright-Browser installieren
         run: npx playwright install --with-deps chromium
 
