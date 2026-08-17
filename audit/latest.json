@@ -1,12 +1,12 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-08-12T12:44:57Z",
-  "commit": "a550be9",
+  "generatedAt": "2026-08-17T03:33:59Z",
+  "commit": "215a19f",
   "counts": {
     "total": 5,
     "error": 0,
-    "warn": 0,
-    "info": 4,
+    "warn": 1,
+    "info": 3,
     "ok": 1
   },
   "findings": [
@@ -22,40 +22,40 @@
     },
     {
       "id": "size-app.js-watch",
-      "title": "app.js wächst (25587 Zeilen)",
+      "title": "app.js wächst (26643 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 25587,
+        "lines": 26643,
         "threshold": 20000
       }
     },
     {
-      "id": "size-functions.php-watch",
-      "title": "functions.php wächst (9561 Zeilen)",
+      "id": "size-functions.php",
+      "title": "functions.php ist mit 10449 Zeilen sehr gross",
       "area": "maintainability",
-      "severity": "info",
+      "severity": "warn",
       "status": "open",
-      "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
-      "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
+      "detail": "Monolith — Splitting in Module würde Lesbarkeit und Hot-Reload deutlich verbessern.",
+      "suggestion": "Inkrementell Module rausziehen (z. B. router, api, board, chat). Nicht in einem Schritt.",
       "evidence": {
-        "lines": 9561,
-        "threshold": 6000
+        "lines": 10449,
+        "threshold": 10000
       }
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (16992 Zeilen)",
+      "title": "styles.css wächst (17087 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 16992,
+        "lines": 17087,
         "threshold": 12000
       }
     },
