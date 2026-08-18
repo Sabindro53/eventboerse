@@ -8,7 +8,7 @@ tags: [layer/L4, domain/governance, share/internal]
 # Rechtliche Lage — gemessen
 
 > **Erzeugt von `scripts/recht.mjs`. Nicht von Hand bearbeiten.**
-> Stand: 2026-08-16 00:39 UTC · 24 Frontend-Module geprüft.
+> Stand: 2026-08-18 03:31 UTC · 24 Frontend-Module geprüft.
 
 Diese Notiz vergleicht, was der Vault über die Plattform behauptet, mit dem,
 was der Code tut. Sie ersetzt keine Rechtsberatung: sie prüft nur, ob
