@@ -136,29 +136,22 @@ Das HQ (`hq.html`) liegt unter **eventbörse.de/hq** und wird von
 Der direkte Theme-Pfad ist in `.htaccess` gesperrt — dort läuft PHP nie.
 
 Seite, Datendateien (`/assets/*.json`, `/audit/*.json`) und **alle** HQ-REST-Routen
-fragen dieselbe Funktion **`eb_hq_zugang_offen()`**. Drei Wege führen hinein:
+fragen dieselbe Funktion **`eb_hq_zugang_offen()`**. Zwei Wege führen hinein:
 
-| Weg | Bedingung |
-|---|---|
-| Administrator | `manage_options` (+ TOTP, sobald eingerichtet) |
-| Mitarbeiter | `eb_hq_access` **und** TOTP — ohne zweiten Faktor nie |
-| Generalzugang | geteiltes Passwort, `EB_HQ_PASSWORT_HASH` in `wp-config.php` |
+| Weg | Bedingung | Zweiter Faktor |
+|---|---|---|
+| Administrator | `manage_options` | nur wenn selbst eingerichtet — dann Pflicht |
+| Mitarbeiter | `eb_hq_access` | **immer** — ohne ihn nie |
 
-Der **Generalzugang** ist eine ausdrückliche Entscheidung des Inhabers
-(15.08.2026). Ohne die Konstante verhält sich `/hq` unverändert wie vorher —
-das Tor entsteht erst, wenn er es aufmacht. Es vergibt **keine** weiteren
-Zugänge: `/hq/mitarbeiter` bleibt bei `eb_hq_verwaltung_darf` (angemeldeter
-Administrator). Passwort nie ins Repository — nur der bcrypt-Hash, nur in
-`wp-config.php`. Details und Preis der Entscheidung:
-`vault/40-Governance/Legal/HQ-Generalzugang.md`.
+**Kein zweites Geheimnis.** Wer angemeldet ist, ist ausgewiesen; die WordPress-Sitzung
+läuft ohnehin. Vom 15.–20.08. gab es hier einen Generalzugang mit geteiltem Passwort —
+wieder entfernt, weil nicht die Anmeldung fehlte, sondern der *Weg* dorthin. Den gibt es
+jetzt: Admin-Leiste und Admin-Menü, beide hinter `eb_hq_grundrecht()`. Ein Menüpunkt, der
+auf eine 404 führt, verrät nur, dass es `/hq` gibt.
 
-```bash
-php tests/php/hq-tor-pruefstand.php   # 42 Prüfungen am echten Code, nicht am Text
-```
-
-Der Prüfstand schneidet die tatsächlichen Funktionen aus `functions.php` heraus
-und ruft sie auf. Ob dort `password_verify` **steht**, sagt nichts darüber, ob
-ein falsches Passwort abgewiesen **wird**. Er läuft in `verbindungen.spec.js` mit.
+`/hq/mitarbeiter` vergibt Zugänge und bleibt bei `eb_hq_verwaltung_darf` (angemeldeter
+Administrator) — strenger als das HQ selbst. Details und die Begründung der Rücknahme:
+`vault/40-Governance/Legal/HQ-Zugangswege.md`.
 
 ```bash
 node scripts/connectors.mjs            # assets/eb-connectors.json (Katalog)
@@ -236,7 +229,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-341 Tests in 18 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+345 Tests in 19 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

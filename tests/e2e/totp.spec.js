@@ -181,9 +181,11 @@ test.describe('Codeabfrage und Freischaltung', () => {
     // Geprüft wird die Eigenschaft, nicht der Name der Funktion.
     //
     // Hier stand `eb_hq_proxy_darf` — damals gleichbedeutend mit „angemeldeter
-    // Administrator". Seit der Generalzugang existiert, lässt dieselbe Funktion
-    // auch ein geteiltes Passwort durch. Der Test wäre grün geblieben, während
-    // genau das, was sein Name verspricht, nicht mehr stimmte.
+    // Administrator". Als der Generalzugang dazukam, ließ dieselbe Funktion
+    // plötzlich ein geteiltes Passwort durch: der Test wäre grün geblieben,
+    // während genau das, was sein Name verspricht, nicht mehr stimmte. Der
+    // Generalzugang ist wieder weg, aber `eb_hq_zugang_offen()` lässt weiterhin
+    // Mitarbeiter mit `eb_hq_access` durch — Zugänge vergeben dürfen die nicht.
     const block = FUNCTIONS.slice(FUNCTIONS.indexOf("'/hq/mitarbeiter'"));
     const cb = (block.slice(0, 400).match(/'permission_callback'\s*=>\s*'([a-z_]+)'/) || [, ''])[1];
     expect(cb, 'Route ohne Rechteprüfung').toBeTruthy();

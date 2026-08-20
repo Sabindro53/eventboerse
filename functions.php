@@ -456,29 +456,6 @@ function eb_serve_hq() {
         return;
     }
 
-    // Abmelden muss ohne WordPress gehen — sonst haette ein Zugang, der
-    // bewusst ohne WordPress-Konto auskommt, keinen Weg wieder hinaus.
-    if ( isset( $_GET['abmelden'] ) && eb_hq_tor_offen() ) {
-        eb_hq_tor_schliessen();
-        wp_safe_redirect( home_url( '/hq' ) );
-        exit;
-    }
-
-    // Der Generalzugang. Nur wirksam, wenn der Inhaber die Konstante gesetzt
-    // hat; sonst faellt der Ablauf unveraendert in die 404 darunter.
-    if ( ! eb_hq_zugang_offen() && eb_hq_tor_konfiguriert() && ! is_user_logged_in() ) {
-        $fehler = eb_hq_tor_versuch();
-        if ( $fehler || ! eb_hq_tor_offen() ) {
-            eb_hq_torseite_ausliefern( $fehler );
-            return;
-        }
-        // Nach erfolgreicher Anmeldung einmal umleiten: sonst liegt das
-        // Passwort im POST-Verlauf des Browsers und ein Neuladen schickt es
-        // erneut.
-        wp_safe_redirect( home_url( '/hq' ) );
-        exit;
-    }
-
     if ( ! eb_hq_zugang_offen() ) {
         // 404 statt 403: eine Seite, deren Existenz man nicht bestätigt, wird
         // auch nicht gezielt angegriffen.
@@ -10019,103 +9996,26 @@ function eb_hq_sitzung_offen( $user_id ) {
     return (bool) get_transient( eb_hq_sitzung_key( $user_id ) );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
- * Generalzugang: ein geteiltes Passwort fuer das HQ.
- *
- * Ausdrueckliche Entscheidung des Inhabers. Er und ein zweiter Kollege
- * sollen an /hq, ohne dass jeder ein WordPress-Konto mit zweitem Faktor
- * fuehrt. Ein geteiltes Passwort ist schwaecher als der Weg darueber — es
- * gibt keine Person hinter einer Anmeldung, kein gezieltes Entziehen und
- * keinen zweiten Faktor. Es steht hier trotzdem, weil es eine bewusste
- * Abwaegung war und nicht ein Versehen.
- *
- * Was daraus folgt und im Code durchgehalten wird:
- *
- * 1. DAS PASSWORT LIEGT NIE IM REPOSITORY. Es steht als bcrypt-Hash in
- *    wp-config.php (`EB_HQ_PASSWORT_HASH`). Das Repository ist oeffentlich;
- *    ein Klartextpasswort darin waere am Tag des Commits verbrannt — auch
- *    nach dem Loeschen, denn die Historie bleibt.
- *
- * 2. OHNE KONSTANTE AENDERT SICH NICHTS. Ist sie nicht gesetzt, verhaelt
- *    sich /hq exakt wie bisher: 404 fuer alle ohne Recht. Das Tor entsteht
- *    erst, wenn der Inhaber es aufmacht — nicht durch dieses Deployment.
- *
- * 3. DAS TOR VERGIBT KEINE WEITEREN ZUGAENGE. `/hq/mitarbeiter` bleibt
- *    Administratoren vorbehalten. Ein geteiltes Passwort, mit dem man
- *    weitere Zugaenge erteilen kann, waere nicht mehr einzufangen.
- *
- * 4. ES IST KEIN WORDPRESS-LOGIN. Die Sitzung haengt an einem eigenen
- *    Cookie und oeffnet ausschliesslich das HQ. Kein wp-admin, keine
- *    Inhalte, keine Nutzerverwaltung, keine WordPress-Faehigkeit.
- * ────────────────────────────────────────────────────────────────────────── */
-
-const EB_HQ_TOR_COOKIE = 'eb_hq_tor';
-const EB_HQ_TOR_DAUER  = 12 * HOUR_IN_SECONDS;
-
-/**
- * Ist der Generalzugang ueberhaupt eingerichtet?
- *
- * Die Laengenpruefung ist kein Schoenheitsfehler: ein leerer oder
- * abgeschnittener Hash wuerde `password_verify()` fuer JEDE Eingabe
- * fehlschlagen lassen — das waere harmlos — aber ein versehentlich als
- * Klartext hinterlegtes Passwort waere ein stiller Totalausfall. Ein Wert,
- * der nicht wie ein Hash aussieht, gilt darum als nicht eingerichtet.
- */
-function eb_hq_tor_konfiguriert() {
-    if ( ! defined( 'EB_HQ_PASSWORT_HASH' ) ) return false;
-    $hash = EB_HQ_PASSWORT_HASH;
-    return is_string( $hash ) && (bool) preg_match( '/^\$(2[aby]|argon2i?d?)[y$]/', $hash );
-}
-
-function eb_hq_tor_key( $token ) {
-    // Der Token selbst wird NICHT gespeichert. Wer die Datenbank liest,
-    // bekommt damit keine gueltige Sitzung in die Hand.
-    return 'eb_hq_tor_' . hash( 'sha256', $token );
-}
-
-function eb_hq_tor_oeffnen() {
-    $token = bin2hex( random_bytes( 32 ) );
-    set_transient( eb_hq_tor_key( $token ), time(), EB_HQ_TOR_DAUER );
-    setcookie( EB_HQ_TOR_COOKIE, $token, array(
-        'expires'  => time() + EB_HQ_TOR_DAUER,
-        'path'     => '/',
-        'secure'   => is_ssl(),
-        'httponly' => true,   // kein Zugriff aus JavaScript
-        'samesite' => 'Strict',
-    ) );
-    $_COOKIE[ EB_HQ_TOR_COOKIE ] = $token;
-}
-
-function eb_hq_tor_schliessen() {
-    $token = isset( $_COOKIE[ EB_HQ_TOR_COOKIE ] ) ? (string) $_COOKIE[ EB_HQ_TOR_COOKIE ] : '';
-    if ( preg_match( '/^[a-f0-9]{64}$/', $token ) ) {
-        delete_transient( eb_hq_tor_key( $token ) );
-    }
-    setcookie( EB_HQ_TOR_COOKIE, '', array(
-        'expires' => time() - 3600, 'path' => '/', 'secure' => is_ssl(),
-        'httponly' => true, 'samesite' => 'Strict',
-    ) );
-    unset( $_COOKIE[ EB_HQ_TOR_COOKIE ] );
-}
-
-function eb_hq_tor_offen() {
-    if ( ! eb_hq_tor_konfiguriert() ) return false;
-    $token = isset( $_COOKIE[ EB_HQ_TOR_COOKIE ] ) ? (string) $_COOKIE[ EB_HQ_TOR_COOKIE ] : '';
-    // Form pruefen, bevor irgendetwas damit gemacht wird: der Wert kommt vom
-    // Besucher und geht sonst ungefiltert in einen Transient-Schluessel.
-    if ( ! preg_match( '/^[a-f0-9]{64}$/', $token ) ) return false;
-    return (bool) get_transient( eb_hq_tor_key( $token ) );
-}
-
 /**
  * Die eine Frage, die ueberall gilt: darf dieser Aufruf HQ-Daten sehen?
  *
  * Bewusst EINE Funktion fuer Seite, Datendateien und REST-Routen. Stuenden
  * die Bedingungen an drei Stellen, wuerde die naechste Aenderung zwei davon
- * treffen — und die dritte waere dann das Loch.
+ * treffen — und die dritte waere dann das Loch. Genau so war es: die
+ * Datendateien unter /assets und /audit bauten `manage_options` von Hand
+ * nach und liessen dadurch einen Administrator durch, der den zweiten
+ * Faktor noch gar nicht vorgelegt hatte.
+ *
+ * Vom 15. bis 20.08. lief hier zusaetzlich ein Generalzugang mit geteiltem
+ * Passwort. Er ist wieder entfernt: wer ins HQ soll, bekommt ein Konto mit
+ * Adminrecht und ist durch die WordPress-Anmeldung bereits ausgewiesen. Ein
+ * zweites Geheimnis daneben waere ein zweiter Weg hinein, den man pflegen,
+ * wechseln und widerrufen muesste — fuer nichts, das die Anmeldung nicht
+ * schon leistet.
  */
 function eb_hq_zugang_offen() {
-    return eb_hq_darf_sehen() || eb_hq_tor_offen();
+
+    return eb_hq_darf_sehen();
 }
 
 /**
@@ -10261,6 +10161,50 @@ function eb_hq_grundrecht( $user_id = 0 ) {
     return user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'eb_hq_access' );
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Der Weg ins HQ, ohne ihn zu kennen.
+ *
+ * /hq stand nirgends verlinkt — man musste die Adresse wissen. Genau das
+ * war der eigentliche Grund fuer den Wunsch nach einem Passwortzugang: nicht
+ * die Anmeldung fehlte, sondern der Weg. Wer als Administrator angemeldet
+ * ist, ist bereits ausgewiesen; ein zweites Geheimnis daneben leistet
+ * nichts, das die Anmeldung nicht schon leistet — es waere nur ein zweiter
+ * Weg hinein, den man pflegen, wechseln und widerrufen muesste.
+ *
+ * Beides zeigt sich nur, wer /hq ohnehin oeffnen darf. Ein Menuepunkt, der
+ * auf eine 404 fuehrt, waere schlimmer als keiner: er behauptet ein Recht,
+ * das nicht existiert — und verraet nebenbei, dass es /hq gibt.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Oben in der Admin-Leiste — sichtbar im Backend UND auf der Website. */
+add_action( 'admin_bar_menu', function( $bar ) {
+    if ( ! eb_hq_grundrecht() ) return;
+    $bar->add_node( array(
+        'id'    => 'eb-hq',
+        'title' => '⌘ HQ',
+        'href'  => home_url( '/hq' ),
+        'meta'  => array( 'title' => 'Eventbörse HQ öffnen' ),
+    ) );
+}, 80 );
+
+/** Und als eigener Punkt im Admin-Menue, gleich unter dem Dashboard. */
+add_action( 'admin_menu', function() {
+    if ( ! eb_hq_grundrecht() ) return;
+    // Ein Slug mit Protokoll rendert WordPress als direkten Link statt als
+    // Unterseite. Die Rechtepruefung steht oben, nicht in der Faehigkeit:
+    // 'read' hat jeder Angemeldete, und ein Mitarbeiter mit `eb_hq_access`
+    // soll den Punkt ebenfalls sehen.
+    add_menu_page(
+        'Eventbörse HQ',
+        'Eventbörse HQ',
+        'read',
+        home_url( '/hq' ),
+        '',
+        'dashicons-networking',
+        3
+    );
+} );
+
 /**
  * Die Codeabfrage bzw. Ersteinrichtung — eine eigenstaendige, kleine Seite.
  *
@@ -10268,104 +10212,6 @@ function eb_hq_grundrecht( $user_id = 0 ) {
  * haben vor dem zweiten Faktor nichts im Browser verloren. Wer den Code nicht
  * hat, bekommt hier auch keinen Katalog, kein Journal und keine Kennzahlen.
  */
-/**
- * Die Passwortabfrage des Generalzugangs.
- *
- * Bewusst eine eigene, winzige Seite und NICHT das HQ mit einem Overlay:
- * das HQ laedt Betriebsdaten, und die haben vor der Anmeldung nichts im
- * Browser verloren.
- *
- * Diese Seite gibt zu, dass es /hq gibt — das ist der Preis der
- * Entscheidung. Solange die Konstante fehlt, erscheint sie nie und /hq
- * bleibt eine gewoehnliche 404. Ist sie gesetzt, schuetzen Rate-Limit und
- * die Laenge des Passworts, nicht mehr die Unauffindbarkeit.
- */
-function eb_hq_torseite_ausliefern( $fehler = '' ) {
-    $nonce = wp_create_nonce( 'eb_hq_tor' );
-
-    status_header( $fehler ? 401 : 200 );
-    nocache_headers();
-    header( 'Content-Type: text/html; charset=UTF-8' );
-    header( 'X-Robots-Tag: noindex, nofollow, noarchive', true );
-    ?><!doctype html>
-<html lang="de"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>Zugang</title>
-<style>
-  :root { color-scheme: dark; }
-  body { margin:0; min-height:100vh; display:grid; place-items:center;
-         background:#0b0f14; color:#e8eef5;
-         font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
-  form { width:min(92vw,340px); padding:28px; border-radius:16px;
-         background:#131a22; border:1px solid #223041; }
-  h1 { margin:0 0 4px; font-size:19px; }
-  p  { margin:0 0 18px; color:#8ba0b6; font-size:13px; }
-  label { display:block; font-size:13px; color:#8ba0b6; margin-bottom:6px; }
-  input { width:100%; box-sizing:border-box; padding:11px 12px; font-size:16px;
-          border-radius:9px; border:1px solid #2b3a4d; background:#0b0f14;
-          color:#e8eef5; }
-  input:focus { outline:2px solid #3b82f6; outline-offset:1px; }
-  button { width:100%; margin-top:14px; padding:11px; font-size:15px; font-weight:600;
-           border:0; border-radius:9px; background:#2563eb; color:#fff; cursor:pointer; }
-  button:hover { background:#1d4ed8; }
-  .fehler { margin:14px 0 0; padding:9px 11px; border-radius:9px;
-            background:#3b1418; border:1px solid #7f1d1d; color:#fecaca; font-size:13px; }
-</style>
-</head><body>
-<form method="post" action="/hq">
-  <h1>Eventbörse HQ</h1>
-  <p>Zugang nur für das Team.</p>
-  <label for="pw">Passwort</label>
-  <input id="pw" name="eb_hq_passwort" type="password" autocomplete="current-password"
-         autofocus required>
-  <input type="hidden" name="eb_hq_tor_nonce" value="<?php echo esc_attr( $nonce ); ?>">
-  <button type="submit">Anmelden</button>
-  <?php if ( $fehler ) : ?>
-    <p class="fehler"><?php echo esc_html( $fehler ); ?></p>
-  <?php endif; ?>
-</form>
-</body></html><?php
-    exit;
-}
-
-/**
- * Eine abgeschickte Passworteingabe pruefen.
- *
- * Rueckgabe: '' bei Erfolg (Sitzung ist dann offen), sonst der anzuzeigende
- * Fehlertext. Die Meldung unterscheidet bewusst NICHT zwischen "falsches
- * Passwort" und "kein Passwort gesetzt" — beides waere eine Auskunft ueber
- * den Zustand der Installation.
- */
-function eb_hq_tor_versuch() {
-    if ( ! isset( $_POST['eb_hq_passwort'] ) ) return '';
-
-    $nonce = isset( $_POST['eb_hq_tor_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['eb_hq_tor_nonce'] ) ) : '';
-    if ( ! wp_verify_nonce( $nonce, 'eb_hq_tor' ) ) {
-        return 'Das Formular war abgelaufen. Bitte noch einmal.';
-    }
-
-    // Vor der Pruefung, nicht danach: sonst waere das Rate-Limit ein Zaehler,
-    // der erst nach dem Erraten greift.
-    $limit = eventboerse_check_rate_limit( 'hq_tor', 5, 15 * MINUTE_IN_SECONDS );
-    if ( is_wp_error( $limit ) ) {
-        return $limit->get_error_message();
-    }
-
-    // wp_unslash, nicht sanitize_text_field: ein Passwort darf jedes Zeichen
-    // enthalten, und ein "bereinigtes" Passwort waere ein anderes Passwort.
-    $eingabe = (string) wp_unslash( $_POST['eb_hq_passwort'] );
-
-    if ( ! eb_hq_tor_konfiguriert() || ! password_verify( $eingabe, EB_HQ_PASSWORT_HASH ) ) {
-        return 'Falsches Passwort.';
-    }
-
-    eventboerse_reset_rate_limit( 'hq_tor' );
-    eb_hq_tor_oeffnen();
-    return '';
-}
-
 function eb_hq_zweiter_faktor_ausliefern() {
     $uid    = get_current_user_id();
     $eingerichtet = eb_totp_aktiv( $uid );

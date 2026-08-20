@@ -72,90 +72,48 @@ test.describe('HQ-Zugang', () => {
     expect(abweisung, 'nie 403 — das bestätigt die Existenz').not.toMatch(/status_header\(\s*40[13]\s*\)/);
   });
 
-  test('der Generalzugang wird am echten Code geprüft, nicht am Text', () => {
-    // Ob in functions.php `password_verify` STEHT, sagt nichts darüber, ob ein
-    // falsches Passwort abgewiesen WIRD. Bei einem Zugangstor ist das die
-    // falsche Art von Sicherheit. Der Prüfstand schneidet die tatsächlichen
-    // Funktionen heraus und ruft sie auf.
-    const out = execFileSync('php', [path.join(ROOT, 'tests', 'php', 'hq-tor-pruefstand.php')],
-      { cwd: ROOT, encoding: 'utf8' });
-    expect(out).toMatch(/Alle \d+ Prüfungen bestanden/);
-    // Ein Prüfstand, der nichts findet und trotzdem grün meldet, wäre
-    // schlimmer als keiner.
-    const anzahl = Number((out.match(/Alle (\d+) Prüfungen/) || [, 0])[1]);
-    expect(anzahl, 'der Prüfstand darf nicht leer laufen').toBeGreaterThan(30);
+  test('Administratoren kommen ohne zweites Geheimnis hinein', () => {
+    // Der Wunsch war: wer als Administrator angemeldet ist, soll ins HQ,
+    // ohne noch ein Passwort einzugeben. Genau das leistet die
+    // WordPress-Sitzung schon — es fehlte nur der Weg dorthin.
+    //
+    // Vom 15. bis 20.08. lief hier ein Generalzugang mit geteiltem Passwort.
+    // Dieser Test haelt fest, dass er weg ist und nicht zurueckkehrt: ein
+    // zweiter Weg hinein waere ein zweites Geheimnis, das gepflegt,
+    // gewechselt und widerrufen werden muesste.
+    const wirksam = FUNCTIONS.split('\n').filter((z) => !/^\s*(\*|\/\/)/.test(z)).join('\n');
+    for (const rest of ['EB_HQ_PASSWORT_HASH', 'eb_hq_tor_offen', 'eb_hq_torseite_ausliefern',
+                        'eb_hq_tor_versuch', 'EB_HQ_TOR_COOKIE']) {
+      expect(wirksam, `${rest} ist zurueck — kein zweiter Weg ins HQ`).not.toContain(rest);
+    }
+    // Und der Zugang haengt allein an der geprueften Nutzeridentitaet.
+    const gate = rumpfVon(FUNCTIONS, 'eb_hq_zugang_offen');
+    expect(gate).toMatch(/eb_hq_darf_sehen\(\)/);
+    expect(gate, 'kein Passwort, kein Cookie, kein Token').not.toMatch(/passwort|cookie|token/i);
   });
 
-  test('das Passwort steht nirgends im Repository', () => {
-    // Das Repository ist öffentlich. Ein Klartextpasswort darin wäre am Tag
-    // des Commits verbrannt — auch nach dem Löschen, denn die Historie bleibt.
-    expect(FUNCTIONS, 'nur der Hash darf gelesen werden, nie ein Klartext')
-      .not.toMatch(/EB_HQ_PASSWORT\s*[,)]/);
-    expect(FUNCTIONS).toMatch(/EB_HQ_PASSWORT_HASH/);
-    // Kein define() des Hashes im Repo — der gehört in wp-config.php.
-    const wirksam = FUNCTIONS.split('\n').filter((z) => !/^\s*(\*|\/\/|\/\*)/.test(z)).join('\n');
-    expect(wirksam, 'der Hash darf nicht im Theme definiert werden')
-      .not.toMatch(/define\(\s*'EB_HQ_PASSWORT_HASH'/);
-    // Und der Vergleich läuft über password_verify, nie über == oder ===.
-    const versuch = rumpfVon(FUNCTIONS, 'eb_hq_tor_versuch');
-    expect(versuch).toMatch(/password_verify\(/);
-    expect(versuch, 'ein Zeichenkettenvergleich wäre zeitabhängig und unsicher')
-      .not.toMatch(/EB_HQ_PASSWORT_HASH\s*[=!]==?/);
-  });
+  test('das HQ ist aus dem Admin-Bereich erreichbar', () => {
+    // /hq stand nirgends verlinkt — man musste die Adresse kennen. Das war
+    // der eigentliche Grund fuer den Wunsch nach einem Passwortzugang: nicht
+    // die Anmeldung fehlte, sondern der Weg.
+    expect(FUNCTIONS, 'kein Eintrag in der Admin-Leiste').toMatch(/admin_bar_menu/);
+    expect(FUNCTIONS, 'kein Eintrag im Admin-Menue').toMatch(/add_menu_page\(/);
 
-  test('ohne gesetzte Konstante bleibt /hq unverändert eine 404', () => {
-    // Dieses Deployment darf das Tor nicht aufmachen. Es entsteht erst, wenn
-    // der Inhaber die Konstante setzt.
-    const fn = rumpfVon(FUNCTIONS, 'eb_serve_hq');
-    // Die Torseite darf nur innerhalb eines Zweiges stehen, der
-    // eb_hq_tor_konfiguriert() verlangt — sonst erschiene sie auch ohne
-    // gesetzte Konstante und dieses Deployment hätte /hq geöffnet.
-    const torStelle = fn.indexOf('eb_hq_torseite_ausliefern');
-    expect(torStelle, 'die Torseite wird nirgends ausgeliefert').toBeGreaterThan(-1);
-    const davor = fn.slice(0, torStelle);
-    expect(davor, 'die Torseite hängt an keiner Konstanten-Prüfung')
-      .toMatch(/eb_hq_tor_konfiguriert\(\)/);
-    // Und sie darf nur greifen, wenn niemand regulär berechtigt ist.
-    expect(davor).toMatch(/!\s*eb_hq_zugang_offen\(\)/);
-    const konf = rumpfVon(FUNCTIONS, 'eb_hq_tor_konfiguriert');
-    expect(konf, 'ohne defined() wäre ein fehlender Wert ein Fehler statt ein Nein')
-      .toMatch(/defined\(\s*'EB_HQ_PASSWORT_HASH'\s*\)/);
-    expect(konf, 'ein versehentlicher Klartext muss als "nicht eingerichtet" gelten')
-      .toMatch(/preg_match/);
-  });
-
-  test('Seite, Datendateien und REST-Routen fragen dieselbe Funktion', () => {
-    // Stünden die Bedingungen an drei Stellen, würde die nächste Änderung zwei
-    // davon treffen — und die dritte wäre dann das Loch. Genau das war hier:
-    // die Datendateien prüften manage_options von Hand und ließen damit einen
-    // Administrator durch, der den zweiten Faktor noch nicht vorgelegt hatte.
-    expect(rumpfVon(FUNCTIONS, 'eb_hq_proxy_darf')).toMatch(/eb_hq_zugang_offen\(\)/);
-    const wurzel = rumpfVon(FUNCTIONS, 'eb_serve_theme_root_file');
-    expect(wurzel, 'die Datendateien müssen dieselbe Frage stellen')
-      .toMatch(/eb_hq_zugang_offen\(\)/);
-    expect(wurzel, 'kein von Hand nachgebauter Zweitcheck')
-      .not.toMatch(/\$oeffentlich[\s\S]{0,200}current_user_can\(\s*'manage_options'\s*\)/);
-  });
-
-  test('der Generalzugang darf keine weiteren Zugänge vergeben', () => {
-    // Ein geteiltes Passwort, mit dem man Zugänge erteilen kann, ist nicht
-    // mehr einzufangen.
-    const reg = FUNCTIONS.slice(FUNCTIONS.indexOf("'/hq/mitarbeiter'"));
-    expect(reg.slice(0, reg.indexOf(') );') + 4))
-      .toMatch(/'permission_callback'\s*=>\s*'eb_hq_verwaltung_darf'/);
-    const verwaltung = rumpfVon(FUNCTIONS, 'eb_hq_verwaltung_darf');
-    expect(verwaltung).toMatch(/current_user_can\(\s*'manage_options'\s*\)/);
-    expect(verwaltung, 'die Verwaltung darf das Tor nicht akzeptieren')
-      .not.toMatch(/eb_hq_tor_offen|eb_hq_zugang_offen/);
-  });
-
-  test('nach erfolgreicher Anmeldung wird umgeleitet', () => {
-    // Sonst liegt das Passwort im POST-Verlauf des Browsers und ein Neuladen
-    // schickt es erneut.
-    const fn = rumpfVon(FUNCTIONS, 'eb_serve_hq');
-    expect(fn).toMatch(/eb_hq_tor_versuch\(\)[\s\S]{0,400}wp_safe_redirect/);
-    expect(fn, 'ohne Abmeldeweg käme ein Zugang ohne WordPress nie wieder heraus')
-      .toMatch(/eb_hq_tor_schliessen\(\)/);
+    // Jede Stelle, die auf /hq verlinkt, muss hinter der Rechtepruefung
+    // stehen. Ein Menuepunkt, der auf eine 404 fuehrt, behauptet ein Recht,
+    // das nicht existiert — und verraet nebenbei, dass es /hq gibt.
+    //
+    // Bewusst ueber ALLE add_action-Bloecke, nicht ueber den ersten: das Theme
+    // haengt sich mehrfach an `admin_menu` (unter anderem, um die Kommentare
+    // auszublenden). Ein Test, der den ersten Treffer nimmt, prueft dann den
+    // falschen Block — und faellt entweder zu Unrecht durch oder, schlimmer,
+    // zu Unrecht durch die Maschen.
+    const bloecke = [...FUNCTIONS.matchAll(/add_action\(\s*'(admin_bar_menu|admin_menu)'[\s\S]*?\n\}\s*(?:,\s*\d+\s*)?\);/g)];
+    const mitHq = bloecke.filter((m) => /home_url\(\s*'\/hq'\s*\)/.test(m[0]));
+    expect(mitHq.length, 'kein Admin-Einstieg, der auf /hq zeigt').toBeGreaterThanOrEqual(2);
+    for (const m of mitHq) {
+      expect(m[0], `${m[1]} verlinkt /hq ohne Rechtepruefung`).toMatch(/eb_hq_grundrecht\(\)/);
+    }
   });
 
   test('Abweisung sieht aus wie jede andere unbekannte Adresse', () => {
