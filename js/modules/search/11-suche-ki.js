@@ -68,7 +68,7 @@ function _ebTasteSave() {
             .slice(max).forEach(function(k) { delete t[bucket][k]; });
       }
     });
-    localStorage.setItem(EB_TASTE_KEY, JSON.stringify(t));
+    ebSpeichern(EB_TASTE_KEY, JSON.stringify(t));
   } catch (e) {}
 }
 

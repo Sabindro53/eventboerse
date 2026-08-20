@@ -125,9 +125,25 @@ Nicht eingesetzt (bewusste Entscheidung — siehe [[20-System/Architecture/Perfo
 5. Im Footer "Cookie-Einstellungen" jederzeit widerrufbar
 ```
 
-**Ist (gemessen, 15.08.2026):** Schritt 1 und 4 laufen. Schritte 2, 3 und 5 nicht —
-`eb_cookie_consent` wird gesetzt und danach von **keiner** schreibenden Stelle gelesen.
-Das Banner erhebt eine Einwilligung, die nichts bewirkt.
+**Ist (gemessen, 20.08.2026): alle fünf Schritte laufen.**
+
+Bis zum 20.08. liefen nur 1 und 4. `eb_cookie_consent` wurde gesetzt und danach von
+**keiner** schreibenden Stelle gelesen — und der Banner hatte überhaupt nur einen Knopf
+(„Verstanden"), also gar keine Wahl. Dazu behaupteten Banner, Cookie-Richtlinie und
+Datenschutzerklärung übereinstimmend „ausschließlich technisch notwendige Cookies",
+während `eb_taste_v1` ein Präferenzprofil und `eb_radar_ort` den Standort ablegte. Das
+war nicht nur eine wirkungslose Einwilligung, sondern eine **Falschaussage in drei
+Rechtstexten**.
+
+Seitdem entscheidet die Antwort wirklich: `ebSpeichern()` in
+`js/modules/core/00-basis.js` prüft vor jedem nicht-essenziellen Schreibvorgang, alle 20
+betroffenen Schreibstellen laufen darüber, und ein Widerruf löscht das bereits
+Gespeicherte (`ebSpeicherAufraeumen()`, Art. 7 Abs. 3 DSGVO). Die Klassentabelle
+`EB_SPEICHER_KLASSEN` ist die Codeseite dieser Notiz; `recht.mjs --check` vergleicht
+beide und bricht bei Abweichung ab.
+
+**Weiterhin anwaltlich zu prüfen:** die Einordnung einzelner Zeilen als „funktional"
+statt „profilbildend" — besonders `eb_ai_chat_v1_*` und `eb_radar_ort`.
 
 Das ist rechtlich ungünstiger als gar kein Banner: das Banner belegt, dass die
 Einwilligungspflicht erkannt wurde, und die Software hält sie nicht ein. Die Behebung

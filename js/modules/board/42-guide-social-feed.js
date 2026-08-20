@@ -904,7 +904,7 @@ var _socialPosts = (function() {
     _socialPosts.forEach(function(p) {
       if (p && p._isDemo && tpl[p.id] && p.time !== tpl[p.id]) { p.time = tpl[p.id]; changed = true; }
     });
-    if (changed) { try { localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {} }
+    if (changed) { try { ebSpeichern('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {} }
   } catch (e) {}
 })();
 
@@ -947,8 +947,8 @@ function _visibleSocialPosts() {
 var _likedPosts = new Set(JSON.parse(localStorage.getItem('eb_liked_posts') || '[]'));
 
 function _saveSocialData() {
-  localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts));
-  localStorage.setItem('eb_liked_posts', JSON.stringify([..._likedPosts]));
+  ebSpeichern('eb_social_posts', JSON.stringify(_socialPosts));
+  ebSpeichern('eb_liked_posts', JSON.stringify([..._likedPosts]));
 }
 
 function _generateDemoSocialPosts() {
@@ -1245,7 +1245,7 @@ function _applyDemoFeed(posts, accounts) {
     };
   });
   _socialPosts = eigene.concat(neue);
-  try { localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {}
+  try { ebSpeichern('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {}
 
   // Inserats-Zeiten hängen am selben Anker — sonst driften Feed und Karten.
   try {
@@ -1525,7 +1525,7 @@ function _demoCommentSeed() {
 }
 function _seedDemoComments() {
   var seed = _demoCommentSeed();
-  try { localStorage.setItem('eb_post_comments', JSON.stringify(seed)); } catch (e) {}
+  try { ebSpeichern('eb_post_comments', JSON.stringify(seed)); } catch (e) {}
   return seed;
 }
 // Bestehende (evtl. veraltete) Demo-Kommentar-Zeiten auf die festen Anker-Zeiten
@@ -1544,7 +1544,7 @@ function _seedDemoComments() {
   } catch (e) {}
 })();
 function _savePostComments() {
-  try { localStorage.setItem('eb_post_comments', JSON.stringify(_postComments)); } catch (e) {}
+  try { ebSpeichern('eb_post_comments', JSON.stringify(_postComments)); } catch (e) {}
 }
 function _postCommentCount(postId) {
   var arr = _postComments[postId];

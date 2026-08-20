@@ -8696,6 +8696,15 @@ html { scrollbar-color: var(--primary) transparent; }
   margin: 0 auto;
   padding: 12px 20px;
 }
+.cookie-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+/* Beide Knoepfe gleich gross: eine Ablehnung, die kleiner oder blasser ist
+   als die Zustimmung, ist keine echte Wahl (EDSA-Leitlinien 03/2022). */
+.cookie-banner-actions .btn-sm { min-width: 132px; justify-content: center; }
+
 .cookie-banner-row {
   display: flex;
   align-items: center;
@@ -8763,6 +8772,7 @@ html { scrollbar-color: var(--primary) transparent; }
 @media (max-width: 600px) {
   .cookie-banner-inner { padding: 12px 14px; }
   .cookie-banner-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .cookie-banner-actions { flex-direction: column; }
   .cookie-banner #cookieAcceptAll { width: 100%; justify-content: center; }
   .cookie-banner-table { font-size: 0.72rem; }
 }

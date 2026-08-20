@@ -24,33 +24,74 @@ function toggleCookieDetails() {
   }
 }
 
-function _saveCookieConsent() {
+/**
+ * Die Antwort festhalten — und sie sofort wirksam machen.
+ *
+ * Vorher schrieb diese Funktion immer dasselbe (`analytics:false,
+ * marketing:false`), weil der Banner nur einen Knopf hatte. Die Antwort war
+ * damit keine Wahl, und gelesen hat sie ohnehin niemand: `eb_taste_v1`
+ * (Präferenzprofil) und `eb_radar_ort` (Standort) wurden unabhängig davon
+ * gesetzt. Der Banner behauptete gleichzeitig „ausschließlich technisch
+ * notwendige Cookies".
+ *
+ * @param {boolean} erlaubt  true = Komfort und Vorschläge zugelassen
+ */
+function _saveCookieConsent(erlaubt) {
   localStorage.setItem('eb_cookie_consent', JSON.stringify({
+    v: 2,
     necessary: true,
+    funktional: !!erlaubt,
+    profil: !!erlaubt,
+    // Wir setzen weiterhin weder Analyse- noch Marketing-Cookies. Die Felder
+    // bleiben, damit eine aeltere Antwort lesbar bleibt.
     analytics: false,
     marketing: false,
     timestamp: new Date().toISOString()
   }));
+  // Art. 7 Abs. 3 DSGVO: Widerruf so einfach wie Erteilung. Ohne das
+  // Aufraeumen bliebe alles liegen, was VOR dem Widerruf gespeichert wurde —
+  // und der Widerruf waere fuer genau die Daten wirkungslos, um die es geht.
+  if (typeof ebSpeicherAufraeumen === 'function') ebSpeicherAufraeumen();
   var banner = document.getElementById('cookieBanner');
   if (banner) banner.classList.remove('show');
 }
 
-function initCookieConsent() {
-  var consent = _getCookieConsent();
-  if (consent) return; // already answered
-
+/** Aus dem Fußbereich erneut aufrufbar — Schritt 5 der Bannerlogik. */
+function openCookieSettings() {
   var banner = document.getElementById('cookieBanner');
   if (!banner) return;
+  banner.classList.add('show');
+  _bindCookieButtons();
+  var erster = document.getElementById('cookieRejectAll');
+  if (erster) erster.focus();
+}
 
-  // Show banner with slight delay for smooth entry
-  setTimeout(function() { banner.classList.add('show'); }, 400);
+function _bindCookieButtons() {
+  [['cookieAcceptAll', true], ['cookieRejectAll', false]].forEach(function(paar) {
+    var btn = document.getElementById(paar[0]);
+    // Ohne diese Marke haengt bei jedem Oeffnen der Einstellungen ein
+    // weiterer Handler am selben Knopf.
+    if (!btn || btn.dataset.ebGebunden === '1') return;
+    btn.dataset.ebGebunden = '1';
+    btn.addEventListener('click', function() { _saveCookieConsent(paar[1]); });
+  });
+}
 
-  var acceptBtn = document.getElementById('cookieAcceptAll');
-  if (acceptBtn) {
-    acceptBtn.addEventListener('click', function() {
-      _saveCookieConsent();
-    });
+function initCookieConsent() {
+  var banner = document.getElementById('cookieBanner');
+  if (!banner) return;
+  _bindCookieButtons();
+
+  var consent = _getCookieConsent();
+  if (consent) {
+    // Schon beantwortet. Trotzdem aufraeumen: die Antwort kann aus einer Zeit
+    // stammen, in der noch niemand sie gelesen hat — dann liegt hier Zeug,
+    // das sie nie gedeckt hat.
+    if (typeof ebSpeicherAufraeumen === 'function') ebSpeicherAufraeumen();
+    return;
   }
+
+  setTimeout(function() { banner.classList.add('show'); }, 400);
 }
 
 // ========== UPDATE NOTIFICATION ==========

@@ -103,10 +103,19 @@ DSGVO Art. 13), **Einwilligung** (liest überhaupt eine Schreibstelle die
 Antwort?), **Pflichtseiten** (jeder Slug der Compliance-Übersicht braucht eine
 Route in `functions.php`) und **KI-Transparenz** (EU AI Act Art. 50).
 
-Blockierend ist nur, was derselbe Commit beheben kann. Die **wirkungslose
-Einwilligung** wird gemeldet, nicht gesperrt: ihre Behebung ändert sichtbares
-Verhalten und ist eine Entscheidung des Inhabers. Ein Tor, das jeden PR sperrt,
-bis eine Produktentscheidung fällt, wird abgeschaltet — und prüft danach nichts.
+Blockierend ist nur, was derselbe Commit beheben kann.
+
+**Die Einwilligung wirkt seit dem 20.08.** `ebSpeichern()` in
+`js/modules/core/00-basis.js` prüft vor jedem nicht-essenziellen Schreibvorgang;
+alle 20 betroffenen Schreibstellen laufen darüber. Die Klassentabelle
+`EB_SPEICHER_KLASSEN` ist die Codeseite der Cookie-Liste — `recht.mjs` prüft,
+dass **jeder** Schlüssel eine Klasse hat und beide Seiten dieselbe nennen.
+Essenzielles (Anmeldung, laufende Zahlung, die Antwort selbst) schreibt weiter
+direkt; ein unbekannter Schlüssel gilt als profilbildend, nicht als essenziell.
+
+**Neue nicht-essenzielle Schreibstelle → `ebSpeichern()`, nicht
+`localStorage.setItem()`.** Sonst ist die Einwilligung dort wirkungslos, und
+`recht.spec.js` bricht ab.
 
 **Neuer Speicherschlüssel = neue Zeile in `Cookie-Liste.md`,** sonst bricht der
 PR-Check ab. Der Prüfer löst Konstanten, Hilfsfunktionen (auch über
@@ -229,7 +238,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-345 Tests in 19 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+356 Tests in 19 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

@@ -522,7 +522,7 @@ function _stripeOnboardingPromptRecentlyShown(context) {
 
 function _markStripeOnboardingPromptShown(context) {
   var key = _stripeOnboardingPromptStorageKey(context);
-  if (key) localStorage.setItem(key, String(Date.now()));
+  if (key) ebSpeichern(key, String(Date.now()));
 }
 
 function _stripeOnboardingModalVisible() {
@@ -601,7 +601,7 @@ function dismissStripeOnboardingPrompt() {
 
 function dismissPasskeySetupPrompt() {
   var storageKey = _passkeyPromptStorageKey();
-  if (storageKey) localStorage.setItem(storageKey, '1');
+  if (storageKey) ebSpeichern(storageKey, '1');
   closeModal('passkeySetupModal');
 }
 

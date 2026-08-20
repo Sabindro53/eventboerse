@@ -349,3 +349,146 @@ test.describe('Das Tor greift wirklich', () => {
     expect(zeilen.join('\n')).toMatch(/node scripts\/recht\.mjs --check/);
   });
 });
+
+test.describe('Einwilligung wirkt wirklich', () => {
+  const BASIS = fs.readFileSync(path.join(ROOT, 'js', 'modules', 'core', '00-basis.js'), 'utf8');
+  const CONSENT = fs.readFileSync(
+    path.join(ROOT, 'js', 'modules', 'ui', '32-consent-init-map.js'), 'utf8');
+  const SHELL = fs.readFileSync(path.join(ROOT, 'app-shell.html'), 'utf8');
+
+  test('vor der Antwort wird nichts Nicht-Essenzielles gespeichert', async ({ page }) => {
+    // Schritt 2 der dokumentierten Bannerlogik — der Schritt, der fehlte.
+    await page.goto('/');
+    await page.waitForFunction(() => typeof ebDarfSpeichern === 'function');
+    const r = await page.evaluate(() => {
+      localStorage.removeItem('eb_cookie_consent');
+      return {
+        essenziell: ebDarfSpeichern('eb_user'),
+        zahlung:    ebDarfSpeichern('eb_pending_payment'),
+        komfort:    ebDarfSpeichern('eb_dark_mode'),
+        standort:   ebDarfSpeichern('eb_radar_ort'),
+        profil:     ebDarfSpeichern('eb_taste_v1'),
+      };
+    });
+    expect(r.essenziell, 'Anmeldung muss immer gehen').toBe(true);
+    expect(r.zahlung, 'laufende Zahlung muss immer gehen').toBe(true);
+    expect(r.komfort, 'Komfort ohne Antwort').toBe(false);
+    expect(r.standort, 'Standort ohne Antwort').toBe(false);
+    expect(r.profil, 'Profil ohne Antwort').toBe(false);
+  });
+
+  test('eine Ablehnung hält, eine Zustimmung öffnet', async ({ page }) => {
+    // Die Mutation im Test selbst: beide Richtungen, sonst bewiese ein
+    // „immer false" dasselbe wie eine echte Prüfung.
+    await page.goto('/');
+    await page.waitForFunction(() => typeof ebDarfSpeichern === 'function');
+    const r = await page.evaluate(() => {
+      const setze = (f, p) => localStorage.setItem('eb_cookie_consent',
+        JSON.stringify({ v: 2, necessary: true, funktional: f, profil: p }));
+      setze(false, false);
+      const nein = { komfort: ebDarfSpeichern('eb_dark_mode'), profil: ebDarfSpeichern('eb_taste_v1') };
+      setze(true, true);
+      const ja = { komfort: ebDarfSpeichern('eb_dark_mode'), profil: ebDarfSpeichern('eb_taste_v1') };
+      localStorage.removeItem('eb_cookie_consent');
+      return { nein, ja };
+    });
+    expect(r.nein).toEqual({ komfort: false, profil: false });
+    expect(r.ja).toEqual({ komfort: true, profil: true });
+  });
+
+  test('ein Widerruf löscht, was vorher schon dalag', async ({ page }) => {
+    // Art. 7 Abs. 3 DSGVO. Ohne das Aufräumen wäre der Widerruf für genau
+    // die Daten wirkungslos, um die es geht.
+    await page.goto('/');
+    await page.waitForFunction(() => typeof ebSpeicherAufraeumen === 'function');
+    const r = await page.evaluate(() => {
+      localStorage.setItem('eb_cookie_consent',
+        JSON.stringify({ v: 2, necessary: true, funktional: true, profil: true }));
+      localStorage.setItem('eb_dark_mode', '1');
+      localStorage.setItem('eb_taste_v1', '{}');
+      localStorage.setItem('eb_user', '{"id":1}');
+      localStorage.setItem('eb_cookie_consent',
+        JSON.stringify({ v: 2, necessary: true, funktional: false, profil: false }));
+      ebSpeicherAufraeumen();
+      const da = (k) => localStorage.getItem(k) !== null;
+      const out = { komfort: da('eb_dark_mode'), profil: da('eb_taste_v1'),
+                    essenziell: da('eb_user'), antwort: da('eb_cookie_consent') };
+      ['eb_dark_mode', 'eb_taste_v1', 'eb_user', 'eb_cookie_consent'].forEach((k) => localStorage.removeItem(k));
+      return out;
+    });
+    expect(r.komfort, 'Komfort muss weg sein').toBe(false);
+    expect(r.profil, 'Profil muss weg sein').toBe(false);
+    expect(r.essenziell, 'die Anmeldung darf ein Widerruf nicht kippen').toBe(true);
+    expect(r.antwort, 'die Antwort selbst muss bleiben — sonst fragt es ewig').toBe(true);
+  });
+
+  test('ein unbekannter Schlüssel gilt als profilbildend, nicht als essenziell', async ({ page }) => {
+    // Fail-Safe: ein neuer Schlüssel, den niemand eingeordnet hat, wird
+    // zurückhaltend behandelt statt großzügig.
+    await page.goto('/');
+    await page.waitForFunction(() => typeof ebSpeicherKlasse === 'function');
+    const k = await page.evaluate(() => ebSpeicherKlasse('eb_voellig_neu_' + Date.now()));
+    expect(k).toBe('profil');
+  });
+
+  test('der längste Präfix gewinnt', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof ebSpeicherKlasse === 'function');
+    const r = await page.evaluate(() => ({
+      guest: ebSpeicherKlasse('eb_favs_guest'),
+      user:  ebSpeicherKlasse('eb_favs_17'),
+      board: ebSpeicherKlasse('eb_board_projects_17'),
+      taste: ebSpeicherKlasse('eb_taste_v1'),
+    }));
+    expect(r).toEqual({ guest: 'funktional', user: 'funktional', board: 'funktional', taste: 'profil' });
+  });
+
+  test('nicht-essenzielle Schreibstellen laufen über die Prüfung', () => {
+    // Die eigentliche Wirkung: würde eine dieser Stellen direkt schreiben,
+    // wäre die Einwilligung dort wirkungslos — und niemand sähe es.
+    const module = ['board/40-board-kanban.js', 'board/42-guide-social-feed.js',
+      'ai/50-planungs-assistent.js', 'ui/23-darkmode-staedte-picker.js',
+      'ui/31-modals-toast-qabot.js', 'search/13-event-radar.js',
+      'search/11-suche-ki.js', 'chat/20-chat-nachrichten.js',
+      'core/02-router-navigation.js'];
+    const essenziell = /'(eb_user|eb_demo_\w+|eb_cookie_consent)'|EB_PENDING_PAYMENT_KEY/;
+    for (const m of module) {
+      const src = fs.readFileSync(path.join(ROOT, 'js', 'modules', m), 'utf8');
+      for (const zeile of src.split('\n')) {
+        if (!/localStorage\.setItem\(/.test(zeile)) continue;
+        if (/^\s*(\/\/|\*)/.test(zeile)) continue;
+        expect(essenziell.test(zeile),
+          `${m}: schreibt an der Einwilligung vorbei → ${zeile.trim().slice(0, 70)}`).toBe(true);
+      }
+    }
+  });
+
+  test('der Banner behauptet nicht mehr, es gäbe nur Notwendiges', () => {
+    // Die Aussage war schlicht falsch, solange eb_taste_v1 ein Profil und
+    // eb_radar_ort den Standort speicherte. Das ist gravierender als eine
+    // wirkungslose Einwilligung: eine aktive Falschaussage gegenüber Nutzern.
+    expect(SHELL, 'die alte Behauptung ist zurück')
+      .not.toMatch(/ausschließlich technisch notwendige Cookies/);
+    // Erfundene Cookies in der Detailtabelle: die gab es nie.
+    expect(SHELL).not.toMatch(/PHPSESSID|XSRF-Token/);
+    // Und es muss eine echte Wahl geben, nicht nur „Verstanden".
+    expect(SHELL, 'ohne Ablehnen ist es keine Einwilligung').toMatch(/id="cookieRejectAll"/);
+    expect(SHELL).toMatch(/id="cookieAcceptAll"/);
+    expect(CONSENT, 'beide Antworten müssen dieselbe Funktion mit anderem Wert rufen')
+      .toMatch(/_saveCookieConsent\(paar\[1\]\)/);
+  });
+
+  test('die Klassifizierung steht im Code und in der Notiz — gleich', async () => {
+    const { klassenImCode, klassenInNotiz, klasseFuer, lageErheben } = await recht();
+    const code = klassenImCode(BASIS);
+    const notiz = klassenInNotiz(fs.readFileSync(
+      path.join(ROOT, 'vault', '40-Governance', 'Legal', 'Cookie-Liste.md'), 'utf8'));
+    expect(code.size, 'die Klassentabelle darf nicht leer sein').toBeGreaterThan(15);
+    for (const e of lageErheben().speicher.imCode) {
+      const c = klasseFuer(e.key, code);
+      expect(c, `${e.key} ohne Klasse`).toBeTruthy();
+      const n = klasseFuer(e.key, notiz);
+      if (n) expect(c, `${e.key}: Code ≠ Notiz`).toBe(n);
+    }
+  });
+});

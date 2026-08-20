@@ -472,7 +472,7 @@ function _markBookingAccepted(msgId) {
   try {
     var s = JSON.parse(localStorage.getItem('eb_accepted_bookings') || '[]');
     var k = _acceptedBookingKey(msgId);
-    if (s.indexOf(k) === -1) { s.push(k); localStorage.setItem('eb_accepted_bookings', JSON.stringify(s)); }
+    if (s.indexOf(k) === -1) { s.push(k); ebSpeichern('eb_accepted_bookings', JSON.stringify(s)); }
   } catch (e) {}
 }
 function _isBookingAccepted(msgId) {

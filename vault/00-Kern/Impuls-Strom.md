@@ -63,24 +63,24 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **15** |
-| Commits (30 Tage) | 55 |
-| Letzter Commit | `7a3d021 · Bild-Upload: 15 MB, Auto-Verkleinerung und verlässliches Drag & Drop (#168)` (2026-08-20) |
+| Commits (7 Tage) | **16** |
+| Commits (30 Tage) | 56 |
+| Letzter Commit | `53f81d8 · HQ über die Anmeldung statt über ein zweites Geheimnis (#169)` (2026-08-20) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
 32 tests/e2e/kern.spec.js
-     25 vault/50-Evolution/Roadmap/Current-Sprint.md
-     18 CLAUDE.md
+     26 vault/50-Evolution/Roadmap/Current-Sprint.md
+     19 CLAUDE.md
      17 vault/30-Betrieb/Testing.md
      17 hq.html
 ```
 
 **Codegröße:**
-- `app.js` — 26.877 Zeilen
-- `styles.css` — 17.089 Zeilen
-- `functions.php` — 10.361 Zeilen
-- `app-shell.html` — 4.122 Zeilen
+- `app.js` — 27.026 Zeilen
+- `styles.css` — 17.099 Zeilen
+- `functions.php` — 10.366 Zeilen
+- `app-shell.html` — 4.137 Zeilen
 
 ## Verwandt
 - [[00-Kern/Wissensstroeme]] — die sechs Impulse

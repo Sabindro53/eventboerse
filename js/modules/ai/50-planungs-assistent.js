@@ -40,7 +40,7 @@ function _aiLoad() {
   return _aiMsgs;
 }
 function _aiSave() {
-  try { localStorage.setItem(_aiKey(), JSON.stringify((_aiMsgs || []).slice(-60))); } catch (e) {}
+  try { ebSpeichern(_aiKey(), JSON.stringify((_aiMsgs || []).slice(-60))); } catch (e) {}
 }
 function _aiCtxProject() {
   if (_aiCtxProjectId) {

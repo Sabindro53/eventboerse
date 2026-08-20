@@ -116,6 +116,39 @@ test.describe('HQ-Zugang', () => {
     }
   });
 
+  test('Zugänge vergibt nur, wer wirklich Administrator ist', () => {
+    // Die Maske im HQ ist Höflichkeit, keine Sicherheit: die Route prüft
+    // ohnehin. Aber ein Knopf, der einem Mitarbeiter 403 antwortet, sieht aus
+    // wie ein Fehler — und ein Knopf, den ein Mitarbeiter bedienen KANN, wäre
+    // einer.
+    expect(FUNCTIONS, 'das Admin-Flag wird nicht eingesetzt')
+      .toMatch(/__EB_HQ_IST_ADMIN__/);
+    const ersetzung = FUNCTIONS.slice(FUNCTIONS.indexOf("'__EB_HQ_IST_ADMIN__'"));
+    expect(ersetzung.slice(0, 200), 'das Flag muss aus der strengen Prüfung kommen')
+      .toMatch(/eb_hq_verwaltung_darf\(\)/);
+
+    // Und die Oberfläche verlässt sich darauf.
+    expect(HQ).toMatch(/const HQ_IST_ADMIN = '__EB_HQ_IST_ADMIN__' === '1'/);
+    expect(HQ, 'ohne Adminrecht muss der Block verschwinden')
+      .toMatch(/if \(!HQ_IST_ADMIN\)[\s\S]{0,80}remove\(\)/);
+    // Lokal ist der Platzhalter roher Text — dann gilt "kein Admin".
+    expect('__EB_HQ_IST_ADMIN__' === '1', 'unersetzt darf er nicht wahr sein').toBe(false);
+  });
+
+  test('die Zugangsmaske legt keine Konten an', () => {
+    // Ein Zugang, der aus einer Maske heraus entsteht, ist schwerer
+    // nachzuvollziehen als einer, den ein Mensch in WordPress angelegt hat.
+    const rumpf = rumpfVon(FUNCTIONS, 'eb_hq_mitarbeiter');
+    expect(rumpf, 'schaltet nur bestehende Konten frei').toMatch(/get_user_by\(\s*'email'/);
+    expect(rumpf, 'kein Anlegen neuer Konten')
+      .not.toMatch(/wp_insert_user|wp_create_user/);
+    // Und der Hinweis auf den fehlenden zweiten Faktor muss durchgereicht
+    // werden — ohne ihn kommt der Mitarbeiter nicht hinein.
+    expect(rumpf).toMatch(/'totp'/);
+    expect(HQ, 'die Maske verschweigt den fehlenden zweiten Faktor')
+      .toMatch(/d\.totp === false|d\.hinweis/);
+  });
+
   test('Abweisung sieht aus wie jede andere unbekannte Adresse', () => {
     // Der Fehler, der das ausgelöst hat: die Abweisung lieferte 404.html —
     // eine eingefrorene SPA-Kopie mit relativen Pfaden. Unter /hq zeigten

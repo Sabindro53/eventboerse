@@ -7,7 +7,7 @@ function initDarkMode() {
 }
 
 function toggleDarkMode(on) {
-  localStorage.setItem('eb_dark_mode', on ? '1' : '0');
+  ebSpeichern('eb_dark_mode', on ? '1' : '0');
   _applyDarkMode(on);
   var icon = document.getElementById('darkModeIcon');
   var label = document.getElementById('darkModeLabel');

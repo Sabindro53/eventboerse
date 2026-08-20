@@ -8,7 +8,7 @@ tags: [layer/L4, domain/governance, share/internal]
 # Rechtliche Lage — gemessen
 
 > **Erzeugt von `scripts/recht.mjs`. Nicht von Hand bearbeiten.**
-> Stand: 2026-08-20 16:56 UTC · 24 Frontend-Module geprüft.
+> Stand: 2026-08-20 17:26 UTC · 24 Frontend-Module geprüft.
 
 Diese Notiz vergleicht, was der Vault über die Plattform behauptet, mit dem,
 was der Code tut. Sie ersetzt keine Rechtsberatung: sie prüft nur, ob
@@ -16,12 +16,9 @@ Beschreibung und Software dasselbe sagen.
 
 ## Lage in einem Satz
 
-Keine Abweichung, die ein PR beheben kann — aber **1 Befund zur Kenntnis**.
+Beschreibung und Code sagen dasselbe.
 
 
-### Zur Kenntnis
-
-- Die Einwilligung wird erhoben (js/modules/ui/32-consent-init-map.js), aber von keiner der 11 schreibenden Dateien gelesen — sie bewirkt derzeit nichts (TDDDG § 25 Abs. 1).
 
 ## Speicherschlüssel im Frontend (TDDDG § 25)
 
@@ -61,10 +58,10 @@ Keine Abweichung, die ein PR beheben kann — aber **1 Befund zur Kenntnis**.
 | Frage | Messung |
 |---|---|
 | Wo wird die Antwort gesetzt? | js/modules/ui/32-consent-init-map.js |
-| Dateien, die Speicher schreiben | 11 |
-| davon prüfen die Antwort | **0** |
+| Dateien, die Speicher schreiben | 4 |
+| davon prüfen die Antwort | **1** |
 
-Die Einwilligung wird erhoben und von keiner Schreibstelle gelesen. Rechtlich ist das der ungünstigste Zustand: das Banner belegt, dass die Einwilligungspflicht erkannt wurde, und die Software hält sie nicht ein. Die Behebung ändert sichtbares Verhalten (abgelehnte Einwilligung = kein gespeichertes Theme, keine gemerkte Suche) und ist deshalb eine Entscheidung des Inhabers, kein automatischer Patch.
+Mindestens eine Schreibstelle richtet sich nach der Antwort.
 
 ## Pflichtseiten
 

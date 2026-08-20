@@ -598,3 +598,111 @@ function ebPrepareImageFiles(files, opts) {
     });
   }, Promise.resolve()).then(function() { return out; });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SPEICHER UND EINWILLIGUNG (TDDDG § 25)
+
+   Bis zum 20.08.2026 wurde die Einwilligung erhoben und von KEINER
+   schreibenden Stelle gelesen. Der Banner sagte zusätzlich „ausschließlich
+   technisch notwendige Cookies" — während `eb_taste_v1` ein Präferenzprofil
+   aus dem Klickverhalten ablegte und `eb_radar_ort` den Standort. Das war
+   nicht nur eine wirkungslose Einwilligung, sondern eine falsche Aussage
+   gegenüber Nutzern.
+
+   Seitdem entscheidet die Antwort wirklich. Drei Klassen, eine Quelle:
+
+     essenziell   Anmeldung, laufende Zahlung, die Einwilligung selbst.
+                  Ohne sie funktioniert die Plattform nicht — keine
+                  Einwilligung nötig (§ 25 Abs. 2 Nr. 2 TDDDG).
+     funktional   Komfort und selbst angelegte Inhalte.
+     profil       leitet aus Verhalten Vorlieben ab. Immer einwilligungspflichtig.
+
+   Diese Tabelle ist die Codeseite von vault/40-Governance/Legal/Cookie-Liste.md.
+   `node scripts/recht.mjs --check` vergleicht beide und bricht ab, sobald ein
+   Schlüssel hier oder dort fehlt — eine Klassifizierung, die nur in einer
+   Prosa-Notiz steht, wird beim nächsten Feature vergessen.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+var EB_SPEICHER_KLASSEN = {
+  eb_cookie_consent: 'essenziell',
+  eb_user: 'essenziell',
+  eb_demo_session: 'essenziell',
+  eb_demo_users: 'essenziell',
+  eb_demo_passkeys: 'essenziell',
+  eb_pending_payment: 'essenziell',
+  eventboerse_pending_login_otp: 'essenziell',
+
+  eb_dark_mode: 'funktional',
+  eb_favs_: 'funktional',
+  eb_board_projects: 'funktional',
+  eb_board_projects_: 'funktional',
+  eb_board_tombstones_: 'funktional',
+  eb_accepted_bookings: 'funktional',
+  eb_social_posts: 'funktional',
+  eb_post_comments: 'funktional',
+  eb_liked_posts: 'funktional',
+  eb_nav_search: 'funktional',
+  eb_passkey_prompt_dismissed_: 'funktional',
+  eb_stripe_onboarding_prompt_: 'funktional',
+  eb_ai_chat_v1_: 'funktional',
+  eb_radar_ort: 'funktional',
+
+  eb_kb_misses: 'profil',
+  eb_taste_v1: 'profil'
+};
+
+/**
+ * Klasse eines Schlüssels. Längster passender Eintrag gewinnt, damit
+ * `eb_board_projects_17` nicht am kürzeren `eb_board_projects` hängen bleibt.
+ *
+ * Unbekannt heißt 'profil', nicht 'essenziell': ein neuer Schlüssel, den
+ * niemand eingeordnet hat, wird zurückhaltend behandelt statt großzügig.
+ * Der Fehler faellt dann in der Oberflaeche auf — und nicht erst, wenn
+ * jemand fragt, warum ohne Einwilligung Daten liegen.
+ */
+function ebSpeicherKlasse(key) {
+  var k = String(key || '');
+  var treffer = '';
+  for (var muster in EB_SPEICHER_KLASSEN) {
+    if (!Object.prototype.hasOwnProperty.call(EB_SPEICHER_KLASSEN, muster)) continue;
+    if (k === muster || k.indexOf(muster) === 0) {
+      if (muster.length > treffer.length) treffer = muster;
+    }
+  }
+  return treffer ? EB_SPEICHER_KLASSEN[treffer] : 'profil';
+}
+
+/** Darf dieser Schlüssel gerade geschrieben werden? */
+function ebDarfSpeichern(key) {
+  if (ebSpeicherKlasse(key) === 'essenziell') return true;
+  var c = (typeof _getCookieConsent === 'function') ? _getCookieConsent() : null;
+  // Vor der Antwort wird nichts Nicht-Essenzielles gesetzt. Das ist Schritt 2
+  // der dokumentierten Bannerlogik, der vorher fehlte.
+  if (!c) return false;
+  return ebSpeicherKlasse(key) === 'profil' ? !!c.profil : !!c.funktional;
+}
+
+/** Schreiben, wenn erlaubt. Gibt zurück, ob wirklich geschrieben wurde. */
+function ebSpeichern(key, wert) {
+  if (!ebDarfSpeichern(key)) return false;
+  try { localStorage.setItem(key, wert); return true; } catch (e) { return false; }
+}
+
+/**
+ * Alles wegräumen, was die aktuelle Antwort nicht mehr deckt.
+ *
+ * Ohne diesen Schritt wäre ein Widerruf wirkungslos für alles, was vor dem
+ * Widerruf schon dalag — und genau das ist der Punkt an Art. 7 Abs. 3 DSGVO:
+ * Widerruf so einfach wie Erteilung.
+ */
+function ebSpeicherAufraeumen() {
+  var weg = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && !ebDarfSpeichern(k)) weg.push(k);
+    }
+    weg.forEach(function(k) { try { localStorage.removeItem(k); } catch (e) {} });
+  } catch (e) { /* privater Modus o. Ä. — dann liegt ohnehin nichts */ }
+  return weg;
+}
