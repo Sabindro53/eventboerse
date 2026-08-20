@@ -519,6 +519,11 @@ function eb_serve_hq() {
         exit;
     }
     $html = str_replace( '__EB_HQ_REST_NONCE__', esc_js( wp_create_nonce( 'wp_rest' ) ), $html );
+    // Wer das HQ sieht, darf nicht automatisch Zugaenge vergeben: Mitarbeiter
+    // mit `eb_hq_access` sehen dieselbe Seite. Das Flag blendet die Maske aus.
+    // Die Sperre bleibt eb_hq_verwaltung_darf() auf der Route — dies hier ist
+    // Oberflaeche, keine Sicherheit.
+    $html = str_replace( '__EB_HQ_IST_ADMIN__', eb_hq_verwaltung_darf() ? '1' : '0', $html );
     echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- statische Datei + gezielt escapeter Nonce
     exit;
 }

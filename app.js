@@ -598,6 +598,114 @@ function ebPrepareImageFiles(files, opts) {
     });
   }, Promise.resolve()).then(function() { return out; });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SPEICHER UND EINWILLIGUNG (TDDDG § 25)
+
+   Bis zum 20.08.2026 wurde die Einwilligung erhoben und von KEINER
+   schreibenden Stelle gelesen. Der Banner sagte zusätzlich „ausschließlich
+   technisch notwendige Cookies" — während `eb_taste_v1` ein Präferenzprofil
+   aus dem Klickverhalten ablegte und `eb_radar_ort` den Standort. Das war
+   nicht nur eine wirkungslose Einwilligung, sondern eine falsche Aussage
+   gegenüber Nutzern.
+
+   Seitdem entscheidet die Antwort wirklich. Drei Klassen, eine Quelle:
+
+     essenziell   Anmeldung, laufende Zahlung, die Einwilligung selbst.
+                  Ohne sie funktioniert die Plattform nicht — keine
+                  Einwilligung nötig (§ 25 Abs. 2 Nr. 2 TDDDG).
+     funktional   Komfort und selbst angelegte Inhalte.
+     profil       leitet aus Verhalten Vorlieben ab. Immer einwilligungspflichtig.
+
+   Diese Tabelle ist die Codeseite von vault/40-Governance/Legal/Cookie-Liste.md.
+   `node scripts/recht.mjs --check` vergleicht beide und bricht ab, sobald ein
+   Schlüssel hier oder dort fehlt — eine Klassifizierung, die nur in einer
+   Prosa-Notiz steht, wird beim nächsten Feature vergessen.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+var EB_SPEICHER_KLASSEN = {
+  eb_cookie_consent: 'essenziell',
+  eb_user: 'essenziell',
+  eb_demo_session: 'essenziell',
+  eb_demo_users: 'essenziell',
+  eb_demo_passkeys: 'essenziell',
+  eb_pending_payment: 'essenziell',
+  eventboerse_pending_login_otp: 'essenziell',
+
+  eb_dark_mode: 'funktional',
+  eb_favs_: 'funktional',
+  eb_board_projects: 'funktional',
+  eb_board_projects_: 'funktional',
+  eb_board_tombstones_: 'funktional',
+  eb_accepted_bookings: 'funktional',
+  eb_social_posts: 'funktional',
+  eb_post_comments: 'funktional',
+  eb_liked_posts: 'funktional',
+  eb_nav_search: 'funktional',
+  eb_passkey_prompt_dismissed_: 'funktional',
+  eb_stripe_onboarding_prompt_: 'funktional',
+  eb_ai_chat_v1_: 'funktional',
+  eb_radar_ort: 'funktional',
+
+  eb_kb_misses: 'profil',
+  eb_taste_v1: 'profil'
+};
+
+/**
+ * Klasse eines Schlüssels. Längster passender Eintrag gewinnt, damit
+ * `eb_board_projects_17` nicht am kürzeren `eb_board_projects` hängen bleibt.
+ *
+ * Unbekannt heißt 'profil', nicht 'essenziell': ein neuer Schlüssel, den
+ * niemand eingeordnet hat, wird zurückhaltend behandelt statt großzügig.
+ * Der Fehler faellt dann in der Oberflaeche auf — und nicht erst, wenn
+ * jemand fragt, warum ohne Einwilligung Daten liegen.
+ */
+function ebSpeicherKlasse(key) {
+  var k = String(key || '');
+  var treffer = '';
+  for (var muster in EB_SPEICHER_KLASSEN) {
+    if (!Object.prototype.hasOwnProperty.call(EB_SPEICHER_KLASSEN, muster)) continue;
+    if (k === muster || k.indexOf(muster) === 0) {
+      if (muster.length > treffer.length) treffer = muster;
+    }
+  }
+  return treffer ? EB_SPEICHER_KLASSEN[treffer] : 'profil';
+}
+
+/** Darf dieser Schlüssel gerade geschrieben werden? */
+function ebDarfSpeichern(key) {
+  if (ebSpeicherKlasse(key) === 'essenziell') return true;
+  var c = (typeof _getCookieConsent === 'function') ? _getCookieConsent() : null;
+  // Vor der Antwort wird nichts Nicht-Essenzielles gesetzt. Das ist Schritt 2
+  // der dokumentierten Bannerlogik, der vorher fehlte.
+  if (!c) return false;
+  return ebSpeicherKlasse(key) === 'profil' ? !!c.profil : !!c.funktional;
+}
+
+/** Schreiben, wenn erlaubt. Gibt zurück, ob wirklich geschrieben wurde. */
+function ebSpeichern(key, wert) {
+  if (!ebDarfSpeichern(key)) return false;
+  try { localStorage.setItem(key, wert); return true; } catch (e) { return false; }
+}
+
+/**
+ * Alles wegräumen, was die aktuelle Antwort nicht mehr deckt.
+ *
+ * Ohne diesen Schritt wäre ein Widerruf wirkungslos für alles, was vor dem
+ * Widerruf schon dalag — und genau das ist der Punkt an Art. 7 Abs. 3 DSGVO:
+ * Widerruf so einfach wie Erteilung.
+ */
+function ebSpeicherAufraeumen() {
+  var weg = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && !ebDarfSpeichern(k)) weg.push(k);
+    }
+    weg.forEach(function(k) { try { localStorage.removeItem(k); } catch (e) {} });
+  } catch (e) { /* privater Modus o. Ä. — dann liegt ohnehin nichts */ }
+  return weg;
+}
 // ========== DEMO DATA ==========
 const LISTINGS = [
   {
@@ -1268,7 +1376,7 @@ function forceBrowsePage() {
 
 function _saveFavoritesToStorage() {
   var key = currentUser ? 'eb_favs_' + currentUser.id : 'eb_favs_guest';
-  try { localStorage.setItem(key, JSON.stringify([...favorites])); } catch(e) {}
+  try { ebSpeichern(key, JSON.stringify([...favorites])); } catch(e) {}
 }
 
 function _loadFavoritesFromStorage() {
@@ -1747,7 +1855,7 @@ function renderListingCard(listing) {
   return `
     <div class="listing-card" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
       <div class="listing-card-img">
-        <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bilder: ${_escHtml(listing.title)}">
+        <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bildergalerie: ${_escHtml(listing.title)}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
         </div>
         ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" aria-label="Vorheriges Bild" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" aria-label="Nächstes Bild" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '" role="group" aria-label="Bildauswahl">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') + '</div>' : ''}
@@ -2541,7 +2649,7 @@ function _ebTasteSave() {
             .slice(max).forEach(function(k) { delete t[bucket][k]; });
       }
     });
-    localStorage.setItem(EB_TASTE_KEY, JSON.stringify(t));
+    ebSpeichern(EB_TASTE_KEY, JSON.stringify(t));
   } catch (e) {}
 }
 
@@ -6135,7 +6243,7 @@ function _radarGrob(lat, lng) {
 function _radarMerken(pos, quelle) {
   try {
     var g = _radarGrob(pos.lat, pos.lng);
-    localStorage.setItem(RADAR_SPEICHER, JSON.stringify({ lat: g.lat, lng: g.lng, quelle: quelle }));
+    ebSpeichern(RADAR_SPEICHER, JSON.stringify({ lat: g.lat, lng: g.lng, quelle: quelle }));
   } catch (e) { /* Privater Modus: dann eben nur diese Sitzung. */ }
 }
 
@@ -7352,7 +7460,7 @@ function _markBookingAccepted(msgId) {
   try {
     var s = JSON.parse(localStorage.getItem('eb_accepted_bookings') || '[]');
     var k = _acceptedBookingKey(msgId);
-    if (s.indexOf(k) === -1) { s.push(k); localStorage.setItem('eb_accepted_bookings', JSON.stringify(s)); }
+    if (s.indexOf(k) === -1) { s.push(k); ebSpeichern('eb_accepted_bookings', JSON.stringify(s)); }
   } catch (e) {}
 }
 function _isBookingAccepted(msgId) {
@@ -10706,7 +10814,7 @@ function initDarkMode() {
 }
 
 function toggleDarkMode(on) {
-  localStorage.setItem('eb_dark_mode', on ? '1' : '0');
+  ebSpeichern('eb_dark_mode', on ? '1' : '0');
   _applyDarkMode(on);
   var icon = document.getElementById('darkModeIcon');
   var label = document.getElementById('darkModeLabel');
@@ -12989,7 +13097,7 @@ function _stripeOnboardingPromptRecentlyShown(context) {
 
 function _markStripeOnboardingPromptShown(context) {
   var key = _stripeOnboardingPromptStorageKey(context);
-  if (key) localStorage.setItem(key, String(Date.now()));
+  if (key) ebSpeichern(key, String(Date.now()));
 }
 
 function _stripeOnboardingModalVisible() {
@@ -13068,7 +13176,7 @@ function dismissStripeOnboardingPrompt() {
 
 function dismissPasskeySetupPrompt() {
   var storageKey = _passkeyPromptStorageKey();
-  if (storageKey) localStorage.setItem(storageKey, '1');
+  if (storageKey) ebSpeichern(storageKey, '1');
   closeModal('passkeySetupModal');
 }
 
@@ -14925,7 +15033,7 @@ function _ebKbNoteMiss(q) {
     if (!q) return;
     _ebKbMiss.push({ q: String(q).slice(0, 140), t: Date.now() });
     if (_ebKbMiss.length > 50) _ebKbMiss.shift();
-    localStorage.setItem('eb_kb_misses', JSON.stringify(_ebKbMiss));
+    ebSpeichern('eb_kb_misses', JSON.stringify(_ebKbMiss));
   } catch (e) {}
 }
 
@@ -15152,33 +15260,74 @@ function toggleCookieDetails() {
   }
 }
 
-function _saveCookieConsent() {
+/**
+ * Die Antwort festhalten — und sie sofort wirksam machen.
+ *
+ * Vorher schrieb diese Funktion immer dasselbe (`analytics:false,
+ * marketing:false`), weil der Banner nur einen Knopf hatte. Die Antwort war
+ * damit keine Wahl, und gelesen hat sie ohnehin niemand: `eb_taste_v1`
+ * (Präferenzprofil) und `eb_radar_ort` (Standort) wurden unabhängig davon
+ * gesetzt. Der Banner behauptete gleichzeitig „ausschließlich technisch
+ * notwendige Cookies".
+ *
+ * @param {boolean} erlaubt  true = Komfort und Vorschläge zugelassen
+ */
+function _saveCookieConsent(erlaubt) {
   localStorage.setItem('eb_cookie_consent', JSON.stringify({
+    v: 2,
     necessary: true,
+    funktional: !!erlaubt,
+    profil: !!erlaubt,
+    // Wir setzen weiterhin weder Analyse- noch Marketing-Cookies. Die Felder
+    // bleiben, damit eine aeltere Antwort lesbar bleibt.
     analytics: false,
     marketing: false,
     timestamp: new Date().toISOString()
   }));
+  // Art. 7 Abs. 3 DSGVO: Widerruf so einfach wie Erteilung. Ohne das
+  // Aufraeumen bliebe alles liegen, was VOR dem Widerruf gespeichert wurde —
+  // und der Widerruf waere fuer genau die Daten wirkungslos, um die es geht.
+  if (typeof ebSpeicherAufraeumen === 'function') ebSpeicherAufraeumen();
   var banner = document.getElementById('cookieBanner');
   if (banner) banner.classList.remove('show');
 }
 
-function initCookieConsent() {
-  var consent = _getCookieConsent();
-  if (consent) return; // already answered
-
+/** Aus dem Fußbereich erneut aufrufbar — Schritt 5 der Bannerlogik. */
+function openCookieSettings() {
   var banner = document.getElementById('cookieBanner');
   if (!banner) return;
+  banner.classList.add('show');
+  _bindCookieButtons();
+  var erster = document.getElementById('cookieRejectAll');
+  if (erster) erster.focus();
+}
 
-  // Show banner with slight delay for smooth entry
-  setTimeout(function() { banner.classList.add('show'); }, 400);
+function _bindCookieButtons() {
+  [['cookieAcceptAll', true], ['cookieRejectAll', false]].forEach(function(paar) {
+    var btn = document.getElementById(paar[0]);
+    // Ohne diese Marke haengt bei jedem Oeffnen der Einstellungen ein
+    // weiterer Handler am selben Knopf.
+    if (!btn || btn.dataset.ebGebunden === '1') return;
+    btn.dataset.ebGebunden = '1';
+    btn.addEventListener('click', function() { _saveCookieConsent(paar[1]); });
+  });
+}
 
-  var acceptBtn = document.getElementById('cookieAcceptAll');
-  if (acceptBtn) {
-    acceptBtn.addEventListener('click', function() {
-      _saveCookieConsent();
-    });
+function initCookieConsent() {
+  var banner = document.getElementById('cookieBanner');
+  if (!banner) return;
+  _bindCookieButtons();
+
+  var consent = _getCookieConsent();
+  if (consent) {
+    // Schon beantwortet. Trotzdem aufraeumen: die Antwort kann aus einer Zeit
+    // stammen, in der noch niemand sie gelesen hat — dann liegt hier Zeug,
+    // das sie nie gedeckt hat.
+    if (typeof ebSpeicherAufraeumen === 'function') ebSpeicherAufraeumen();
+    return;
   }
+
+  setTimeout(function() { banner.classList.add('show'); }, 400);
 }
 
 // ========== UPDATE NOTIFICATION ==========
@@ -15749,7 +15898,7 @@ function _loadBoardTombstones() {
 function _saveBoardTombstones() {
   var k = _boardTombstoneStorageKey();
   if (!k) return;
-  try { localStorage.setItem(k, JSON.stringify(_boardTombstones)); } catch(e) {}
+  try { ebSpeichern(k, JSON.stringify(_boardTombstones)); } catch(e) {}
 }
 
 function _addBoardTombstone(id) {
@@ -15865,7 +16014,7 @@ function _migrateBoardProjects() {
   if (!localStorage.getItem(newKey)) {
     var old = localStorage.getItem('eb_board_projects');
     if (old && old !== '[]') {
-      localStorage.setItem(newKey, old);
+      ebSpeichern(newKey, old);
     }
   }
   // Clean up old global key
@@ -15878,7 +16027,7 @@ function _loadBoardProjects() {
   // 1) Schneller Cache: lokal geladene Projekte sofort anzeigen
   _boardProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
   if (_migrateBoardStageModel(_boardProjects) && key) {
-    try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch (e) {}
+    try { ebSpeichern(key, JSON.stringify(_boardProjects)); } catch (e) {}
   }
   // Lokal bereits getombstoned? Raus damit.
   if (_boardTombstones.length) {
@@ -16050,7 +16199,7 @@ function _syncBoardFromServer(opts) {
         _notifyBoardTransitions(_preSyncSnapshot, _boardProjects);
       }
       if (key) {
-        try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
+        try { ebSpeichern(key, JSON.stringify(_boardProjects)); } catch(e) {}
       }
       if (res.uploadNeeded) {
         console.info('[Board] Lokale Änderungen werden zum Server synchronisiert.');
@@ -16263,7 +16412,7 @@ function _saveBoardProjects(opts) {
   }
   var key = _boardStorageKey();
   if (key) {
-    try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
+    try { ebSpeichern(key, JSON.stringify(_boardProjects)); } catch(e) {}
   }
   if (!currentUser) return;
   _boardDirty = true;
@@ -23092,7 +23241,7 @@ var _socialPosts = (function() {
     _socialPosts.forEach(function(p) {
       if (p && p._isDemo && tpl[p.id] && p.time !== tpl[p.id]) { p.time = tpl[p.id]; changed = true; }
     });
-    if (changed) { try { localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {} }
+    if (changed) { try { ebSpeichern('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {} }
   } catch (e) {}
 })();
 
@@ -23135,8 +23284,8 @@ function _visibleSocialPosts() {
 var _likedPosts = new Set(JSON.parse(localStorage.getItem('eb_liked_posts') || '[]'));
 
 function _saveSocialData() {
-  localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts));
-  localStorage.setItem('eb_liked_posts', JSON.stringify([..._likedPosts]));
+  ebSpeichern('eb_social_posts', JSON.stringify(_socialPosts));
+  ebSpeichern('eb_liked_posts', JSON.stringify([..._likedPosts]));
 }
 
 function _generateDemoSocialPosts() {
@@ -23433,7 +23582,7 @@ function _applyDemoFeed(posts, accounts) {
     };
   });
   _socialPosts = eigene.concat(neue);
-  try { localStorage.setItem('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {}
+  try { ebSpeichern('eb_social_posts', JSON.stringify(_socialPosts)); } catch (e) {}
 
   // Inserats-Zeiten hängen am selben Anker — sonst driften Feed und Karten.
   try {
@@ -23713,7 +23862,7 @@ function _demoCommentSeed() {
 }
 function _seedDemoComments() {
   var seed = _demoCommentSeed();
-  try { localStorage.setItem('eb_post_comments', JSON.stringify(seed)); } catch (e) {}
+  try { ebSpeichern('eb_post_comments', JSON.stringify(seed)); } catch (e) {}
   return seed;
 }
 // Bestehende (evtl. veraltete) Demo-Kommentar-Zeiten auf die festen Anker-Zeiten
@@ -23732,7 +23881,7 @@ function _seedDemoComments() {
   } catch (e) {}
 })();
 function _savePostComments() {
-  try { localStorage.setItem('eb_post_comments', JSON.stringify(_postComments)); } catch (e) {}
+  try { ebSpeichern('eb_post_comments', JSON.stringify(_postComments)); } catch (e) {}
 }
 function _postCommentCount(postId) {
   var arr = _postComments[postId];
@@ -25692,7 +25841,7 @@ function _aiLoad() {
   return _aiMsgs;
 }
 function _aiSave() {
-  try { localStorage.setItem(_aiKey(), JSON.stringify((_aiMsgs || []).slice(-60))); } catch (e) {}
+  try { ebSpeichern(_aiKey(), JSON.stringify((_aiMsgs || []).slice(-60))); } catch (e) {}
 }
 function _aiCtxProject() {
   if (_aiCtxProjectId) {

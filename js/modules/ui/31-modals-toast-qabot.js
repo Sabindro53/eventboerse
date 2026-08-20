@@ -394,7 +394,7 @@ function _ebKbNoteMiss(q) {
     if (!q) return;
     _ebKbMiss.push({ q: String(q).slice(0, 140), t: Date.now() });
     if (_ebKbMiss.length > 50) _ebKbMiss.shift();
-    localStorage.setItem('eb_kb_misses', JSON.stringify(_ebKbMiss));
+    ebSpeichern('eb_kb_misses', JSON.stringify(_ebKbMiss));
   } catch (e) {}
 }
 

@@ -107,6 +107,11 @@ test.describe('Der Standort bleibt im Browser', () => {
     // Gerät soll nicht die Hausnummer des letzten Nutzers verraten.
     const errors = await openApp(page);
     const gespeichert = await page.evaluate(() => {
+      // Der Standort ist seit dem 20.08. einwilligungspflichtig — ohne
+      // Zustimmung wird er gar nicht erst abgelegt. Diese Prüfung gilt der
+      // GENAUIGKEIT des Gespeicherten, also muss hier zugestimmt sein.
+      localStorage.setItem('eb_cookie_consent',
+        JSON.stringify({ v: 2, necessary: true, funktional: true, profil: true }));
       // Eine absichtlich sehr genaue Position setzen.
       _radarPos = { lat: 52.5200123, lng: 13.4050987 };
       _radarMerken(_radarPos, 'geo');
@@ -893,5 +898,30 @@ test.describe('Adresse bleibt änderbar', () => {
     expect(r.teil).toBe('Wedding');
     expect(r.km, 'am eigenen Standort ist die Entfernung ~0').toBeLessThan(0.5);
     expectNoPageErrors(errors, 'DB-Inserat im Radar');
+  });
+});
+
+test.describe('Standort und Einwilligung', () => {
+  test('ohne Zustimmung wird der Standort gar nicht erst gemerkt', async ({ page }) => {
+    // Der Standort ist ein personenbezogenes Datum. Vor dem 20.08. wurde er
+    // unabhängig von der Antwort auf den Cookie-Hinweis abgelegt — der Radar
+    // funktionierte, und die Einwilligung war Zierrat.
+    const errors = await openApp(page);
+    const r = await page.evaluate(() => {
+      localStorage.removeItem('eb_radar_ort');
+      localStorage.setItem('eb_cookie_consent',
+        JSON.stringify({ v: 2, necessary: true, funktional: false, profil: false }));
+      _radarPos = { lat: 52.52, lng: 13.40 };
+      _radarMerken(_radarPos, 'geo');
+      const gemerkt = localStorage.getItem('eb_radar_ort');
+      // Der Radar selbst muss trotzdem arbeiten — die Ablehnung darf die
+      // Umkreissuche nicht kaputtmachen, nur ihr Gedächtnis.
+      const arbeitet = !!(radarStand() && radarStand().pos);
+      localStorage.removeItem('eb_cookie_consent');
+      return { gemerkt: gemerkt, arbeitet: arbeitet };
+    });
+    expect(r.gemerkt, 'ohne Zustimmung darf nichts liegen bleiben').toBeNull();
+    expect(r.arbeitet, 'die Ablehnung darf den Radar nicht abschalten').toBe(true);
+    expectNoPageErrors(errors, 'Standort ohne Einwilligung');
   });
 });

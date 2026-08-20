@@ -250,9 +250,32 @@ export function schluesselFinden(quelle, datei = '', funktionen = null) {
   const fn = funktionen || funktionenAufloesen(funktionenSammeln(text));
   const leer = new Map();
 
-  const aufruf = /\b(localStorage|sessionStorage)\s*\.\s*(?:setItem|getItem|removeItem)\s*\(/g;
+  // Die Huellen selbst benennen keinen Schluessel — sie nehmen einen entgegen.
+  //
+  // `ebSpeichern(key, wert)` enthaelt `localStorage.setItem(key, wert)`, und
+  // `key` ist dort ein Parameter. Der Aufloeser suchte die naechstgelegene
+  // Zuweisung an `key` und fand `var key = kind === 'media' ? 'aiMedia…'`
+  // aus einer voellig anderen Funktion weiter oben in derselben Datei — und
+  // meldete `aiMediaDisclosure` als Speicherschluessel. Wer die Huellen
+  // mitliest, bekommt Schluessel, die es nicht gibt.
+  const huellen = ['ebSpeichern', 'ebDarfSpeichern', 'ebSpeicherKlasse', 'ebSpeicherAufraeumen'];
+  const gesperrt = [];
+  for (const name of huellen) {
+    const von = text.indexOf(`function ${name}(`);
+    if (von === -1) continue;
+    const rumpf = text.slice(von);
+    const bis = rumpf.indexOf('\n}');
+    gesperrt.push([von, von + (bis === -1 ? rumpf.length : bis + 2)]);
+  }
+  const inHuelle = (i) => gesperrt.some(([a, b]) => i >= a && i < b);
+
+  // `ebSpeichern(` zaehlt als Schreibstelle: seit der Einwilligung laufen die
+  // nicht-essenziellen Schluessel darueber, und ein Pruefer, der nur
+  // localStorage.setItem kennt, saehe sie ab sofort gar nicht mehr.
+  const aufruf = /\b(?:(localStorage|sessionStorage)\s*\.\s*(?:setItem|getItem|removeItem)|(ebSpeichern))\s*\(/g;
   for (const m of text.matchAll(aufruf)) {
-    const speicher = m[1];
+    if (inHuelle(m.index)) continue;
+    const speicher = m[1] || 'localStorage';
     const arg = erstesArgument(text, m.index + m[0].length);
     let keys = arg === null ? null : aufloesen(arg, leer, fn);
 
@@ -357,6 +380,79 @@ export function normalisiere(key) {
 
 /* ── Die vier Prüfungen ──────────────────────────────────────────────── */
 
+/**
+ * Klassen aus `EB_SPEICHER_KLASSEN` in js/modules/core/00-basis.js lesen.
+ *
+ * Diese Tabelle entscheidet zur Laufzeit, ob ein Schluessel ohne Einwilligung
+ * geschrieben werden darf. Sie muss mit der Cookie-Liste uebereinstimmen —
+ * sonst sagt die Notiz „profilbildend, einwilligungspflichtig", waehrend der
+ * Code den Schluessel als essenziell durchwinkt. Das waere die schlimmste
+ * Sorte Abweichung: eine, die genau dort auseinanderlaeuft, wo es rechtlich
+ * zaehlt, und die niemand sieht.
+ */
+export function klassenImCode(quelle) {
+  const block = quelle.match(/var EB_SPEICHER_KLASSEN\s*=\s*\{([\s\S]*?)\n\};/);
+  const map = new Map();
+  if (!block) return map;
+  for (const m of block[1].matchAll(/^\s*([A-Za-z_][\w]*)\s*:\s*'(essenziell|funktional|profil)'/gm)) {
+    map.set(m[1], m[2]);   // roh — die Praefix-Logik steckt in klasseFuer()
+  }
+  return map;
+}
+
+/** Klassen aus der Cookie-Liste — zweite Spalte der Speicher-Tabellen. */
+export function klassenInNotiz(markdown) {
+  const map = new Map();
+  let drin = false;
+  for (const zeile of markdown.split('\n')) {
+    const u = zeile.match(/^#{2,3}\s+(.+?)\s*$/);
+    if (u) { drin = /^(localStorage|sessionStorage)$/i.test(u[1].trim()); continue; }
+    if (!drin) continue;
+    const m = zeile.match(/^\|\s*`([^`]+)`\s*\|\s*([^|]*)\|/);
+    if (!m) continue;
+    const key = m[1].trim().replace(/<[^>]*>.*$/, '');
+    if (!/^(eb_|eventboerse_)/.test(key)) continue;
+    const roh = m[2].trim().toLowerCase();
+    map.set(key, roh.startsWith('essenziell') ? 'essenziell'
+      : roh.startsWith('profil') ? 'profil'
+      : roh.startsWith('funktional') ? 'funktional' : roh);
+  }
+  return map;
+}
+
+/**
+ * Dieselbe Zuordnung wie `ebSpeicherKlasse()` im Browser: laengster
+ * passender Eintrag gewinnt.
+ *
+ * Ein erster Entwurf verglich exakt und meldete daraufhin `eb_favs_guest`
+ * als „ohne Klasse" — obwohl der Praefix `eb_favs_` ihn zur Laufzeit
+ * einwandfrei als funktional einordnet. Ein Pruefer, der die Laufzeit
+ * vereinfacht statt sie abzubilden, meldet Luecken, die es nicht gibt; und
+ * wer solche Meldungen wegzudruecken lernt, uebersieht die echte.
+ */
+export function klasseFuer(key, klassen) {
+  const k = String(key).replace(/<[^>]*>/g, '');
+  let treffer = '';
+  for (const muster of klassen.keys()) {
+    if ((k === muster || k.startsWith(muster)) && muster.length > treffer.length) treffer = muster;
+  }
+  return treffer ? klassen.get(treffer) : null;
+}
+
+export function klassenPruefen(imCode, codeKlassen, notizKlassen) {
+  const ohneKlasse = [];
+  const uneinig = [];
+  for (const e of imCode) {
+    const c = klasseFuer(e.key, codeKlassen);
+    const n = klasseFuer(e.key, notizKlassen);
+    // Ohne Eintrag behandelt ebSpeicherKlasse() den Schluessel als 'profil'
+    // — zurueckhaltend, aber unbeabsichtigt. Das gehoert gemeldet.
+    if (!c) { ohneKlasse.push(e.key); continue; }
+    if (n && n !== c) uneinig.push({ key: e.key, code: c, notiz: n });
+  }
+  return { ohneKlasse, uneinig };
+}
+
 export function speicherPruefen(imCode, inNotiz) {
   const undokumentiert = [];
   const ohneCode = [];
@@ -450,7 +546,15 @@ export function lageErheben() {
   return {
     erzeugt: new Date().toISOString(),
     dateienGeprueft: dateien.length,
-    speicher: { imCode: schluessel, dokumentiert, unaufloesbar, ...speicherPruefen(schluessel, dokumentiert) },
+    speicher: {
+      imCode: schluessel, dokumentiert, unaufloesbar,
+      ...speicherPruefen(schluessel, dokumentiert),
+      ...klassenPruefen(
+        schluessel,
+        klassenImCode(readFileSync(join(MODULE_DIR, 'core', '00-basis.js'), 'utf8')),
+        klassenInNotiz(readFileSync(COOKIE_LISTE, 'utf8')),
+      ),
+    },
     einwilligung: einwilligungPruefen(dateien),
     pflichtseiten: pflichtseitenPruefen(readFileSync(COMPLIANCE, 'utf8'), readFileSync(FUNCTIONS, 'utf8')),
     ki: kiTransparenzPruefen(dateien, existsSync(KI_NOTIZ)),
@@ -479,6 +583,12 @@ export function befunde(lage) {
   }
   for (const k of lage.speicher.ohneCode) {
     meldend.push(`\`${k}\` steht in der Cookie-Liste, wird im Frontend aber nirgends benutzt — die Notiz beschreibt eine ältere Website.`);
+  }
+  for (const k of lage.speicher.ohneKlasse || []) {
+    blockierend.push(`\`${k}\` hat keine Klasse in EB_SPEICHER_KLASSEN — ohne Eintrag gilt er als profilbildend, und das war vermutlich nicht gemeint.`);
+  }
+  for (const u of lage.speicher.uneinig || []) {
+    blockierend.push(`\`${u.key}\`: Code sagt „${u.code}", die Cookie-Liste sagt „${u.notiz}" — genau hier darf nichts auseinanderlaufen.`);
   }
   for (const u of lage.speicher.unaufloesbar) {
     meldend.push(`Schlüssel in ${u.datei} nicht auflösbar: \`${u.ausdruck}\` — von Hand prüfen.`);

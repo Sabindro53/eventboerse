@@ -797,6 +797,32 @@
     </div>
     <div class="bereiche" id="bereiche-grid"></div>
 
+    <!-- Zugänge — nur für Administratoren.
+         Der Abschnitt wird per JS entfernt, wenn der Betrachter kein
+         Administrator ist. Serverseitig entscheidet ohnehin
+         eb_hq_verwaltung_darf(); das hier ist Oberfläche, keine Sperre. -->
+    <div id="zugang-block" hidden>
+      <div class="section-header" id="zugaenge">
+        <div class="section-title">🔑 Zugänge <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— wer ins HQ darf</span></div>
+      </div>
+      <div class="journal">
+        <p style="margin:0 0 14px;color:var(--muted);font-size:.86rem;line-height:1.55;">
+          Gibt einem <strong>bestehenden</strong> WordPress-Konto Zugang zum HQ — ohne Adminrechte,
+          also ohne Zugriff auf Inhalte, Nutzer oder Einstellungen. Beim ersten Aufruf von
+          <code>/hq</code> richtet die Person ihren Authenticator ein; ohne zweiten Faktor kommt
+          sie nicht hinein. Neue Konten legt bewusst ein Mensch in WordPress an, nicht diese Maske.
+        </p>
+        <form id="zugang-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input id="zugang-mail" type="email" required placeholder="E-Mail des Kontos"
+                 autocomplete="off" aria-label="E-Mail des Kontos"
+                 style="flex:1 1 260px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-size:.9rem;">
+          <button type="submit" class="icon-btn with-label" id="zugang-geben">✓ Zugang geben</button>
+          <button type="button" class="icon-btn with-label" id="zugang-nehmen" style="color:#fca5a5;">✕ Zugang entziehen</button>
+        </form>
+        <div id="zugang-antwort" role="status" aria-live="polite" style="margin-top:12px;font-size:.87rem;"></div>
+      </div>
+    </div>
+
     <!-- Wartet auf dich -->
     <div class="wartet" id="wartet"></div>
 
@@ -984,6 +1010,10 @@ const ROLLBACK_WORKFLOW = 'hq-rollback.yml';
 // functions.php ersetzt den Platzhalter nur in der admin-geschuetzten,
 // nicht cachebaren /hq-Antwort. Lokal bleibt er harmloser Text.
 const HQ_REST_NONCE = '__EB_HQ_REST_NONCE__';
+// Wer das HQ sieht, darf nicht automatisch Zugaenge vergeben: Mitarbeiter mit
+// `eb_hq_access` sehen dieselbe Seite. functions.php ersetzt den Platzhalter
+// durch '1' oder '0'. Lokal bleibt er Text und faellt damit auf 'kein Admin'.
+const HQ_IST_ADMIN = '__EB_HQ_IST_ADMIN__' === '1';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const state = {
@@ -4039,6 +4069,61 @@ window.addEventListener('DOMContentLoaded', init);
     if (e.key === 'Escape') close();
   });
   syncDialogControls();
+})();
+
+/* ═══ Zugänge vergeben ═════════════════════════════════════════════════
+   Bis hierher ging das nur per API-Aufruf von Hand. Eine Fähigkeit, die
+   niemand bedienen kann, wird nicht benutzt — und dann bekommt der Kollege
+   eben doch Adminrechte, weil das der einzige Knopf war.
+
+   Die Sperre sitzt auf dem Server (eb_hq_verwaltung_darf). Das Ausblenden
+   hier ist Höflichkeit, keine Sicherheit: ein Mitarbeiter mit eb_hq_access
+   sieht dieselbe Seite und soll keinen Knopf sehen, der ihm 403 antwortet.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const block = document.getElementById('zugang-block');
+  if (!block) return;
+  if (!HQ_IST_ADMIN) { block.remove(); return; }
+  block.hidden = false;
+
+  const form = document.getElementById('zugang-form');
+  const mail = document.getElementById('zugang-mail');
+  const antwort = document.getElementById('zugang-antwort');
+
+  function melde(text, ok) {
+    antwort.textContent = text;
+    antwort.style.color = ok ? '#4ade80' : '#fca5a5';
+  }
+
+  async function senden(zugang) {
+    const email = (mail.value || '').trim();
+    if (!email) { melde('Bitte eine E-Mail eingeben.', false); return; }
+    melde('Wird gesendet…', true);
+    try {
+      const r = await fetch('/wp-json/eventboerse/v1/hq/mitarbeiter', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': HQ_REST_NONCE },
+        body: JSON.stringify({ email: email, zugang: zugang }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { melde(d.message || ('Fehlgeschlagen (' + r.status + ').'), false); return; }
+      // Den Hinweis des Servers durchreichen statt einen eigenen zu erfinden:
+      // ohne zweiten Faktor kommt der Mitarbeiter nicht hinein, und das soll
+      // er vorher wissen.
+      melde(
+        (zugang ? '✓ Zugang erteilt an ' : '✕ Zugang entzogen für ') + d.email +
+        (d.hinweis ? ' — ' + d.hinweis : (zugang && d.totp === false ? ' — Authenticator noch nicht eingerichtet.' : '')),
+        true,
+      );
+      if (!zugang) mail.value = '';
+    } catch (e) {
+      melde('Netzwerkfehler — nichts geändert.', false);
+    }
+  }
+
+  form.addEventListener('submit', function (e) { e.preventDefault(); senden(true); });
+  document.getElementById('zugang-nehmen').addEventListener('click', function () { senden(false); });
 })();
 </script>
 </body>

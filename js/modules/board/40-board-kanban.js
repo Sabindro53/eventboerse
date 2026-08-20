@@ -31,7 +31,7 @@ function _loadBoardTombstones() {
 function _saveBoardTombstones() {
   var k = _boardTombstoneStorageKey();
   if (!k) return;
-  try { localStorage.setItem(k, JSON.stringify(_boardTombstones)); } catch(e) {}
+  try { ebSpeichern(k, JSON.stringify(_boardTombstones)); } catch(e) {}
 }
 
 function _addBoardTombstone(id) {
@@ -147,7 +147,7 @@ function _migrateBoardProjects() {
   if (!localStorage.getItem(newKey)) {
     var old = localStorage.getItem('eb_board_projects');
     if (old && old !== '[]') {
-      localStorage.setItem(newKey, old);
+      ebSpeichern(newKey, old);
     }
   }
   // Clean up old global key
@@ -160,7 +160,7 @@ function _loadBoardProjects() {
   // 1) Schneller Cache: lokal geladene Projekte sofort anzeigen
   _boardProjects = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
   if (_migrateBoardStageModel(_boardProjects) && key) {
-    try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch (e) {}
+    try { ebSpeichern(key, JSON.stringify(_boardProjects)); } catch (e) {}
   }
   // Lokal bereits getombstoned? Raus damit.
   if (_boardTombstones.length) {
@@ -332,7 +332,7 @@ function _syncBoardFromServer(opts) {
         _notifyBoardTransitions(_preSyncSnapshot, _boardProjects);
       }
       if (key) {
-        try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
+        try { ebSpeichern(key, JSON.stringify(_boardProjects)); } catch(e) {}
       }
       if (res.uploadNeeded) {
         console.info('[Board] Lokale Änderungen werden zum Server synchronisiert.');
@@ -545,7 +545,7 @@ function _saveBoardProjects(opts) {
   }
   var key = _boardStorageKey();
   if (key) {
-    try { localStorage.setItem(key, JSON.stringify(_boardProjects)); } catch(e) {}
+    try { ebSpeichern(key, JSON.stringify(_boardProjects)); } catch(e) {}
   }
   if (!currentUser) return;
   _boardDirty = true;

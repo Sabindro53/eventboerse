@@ -69,7 +69,7 @@ function _radarGrob(lat, lng) {
 function _radarMerken(pos, quelle) {
   try {
     var g = _radarGrob(pos.lat, pos.lng);
-    localStorage.setItem(RADAR_SPEICHER, JSON.stringify({ lat: g.lat, lng: g.lng, quelle: quelle }));
+    ebSpeichern(RADAR_SPEICHER, JSON.stringify({ lat: g.lat, lng: g.lng, quelle: quelle }));
   } catch (e) { /* Privater Modus: dann eben nur diese Sitzung. */ }
 }
 

@@ -112,7 +112,7 @@ function forceBrowsePage() {
 
 function _saveFavoritesToStorage() {
   var key = currentUser ? 'eb_favs_' + currentUser.id : 'eb_favs_guest';
-  try { localStorage.setItem(key, JSON.stringify([...favorites])); } catch(e) {}
+  try { ebSpeichern(key, JSON.stringify([...favorites])); } catch(e) {}
 }
 
 function _loadFavoritesFromStorage() {

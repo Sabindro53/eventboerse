@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 345 Tests in 19 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 356 Tests in 19 Suiten**, blockierendes Gate in `pr-check.yml`.
   Vier Radar-Tests brauchen Leaflet vom CDN und schlagen ohne Netzzugang fehl —
   Umgebung, nicht Code
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
@@ -48,13 +48,19 @@ einen alten Abschnitt gelesen und nicht diesen.
   denen **11 nicht existierten**, und übersah **23 echte** — darunter
   `eb_radar_ort` (Standort) und `eb_taste_v1` (Präferenzprofil). Sie stammte aus
   Mai und war nie nachgeführt worden. Jetzt: 24 zu 24.
-- **Offen und wichtig: die Einwilligung bewirkt nichts.** `eb_cookie_consent`
-  wird gesetzt und von **keiner** der 11 schreibenden Dateien gelesen. Das ist
-  rechtlich ungünstiger als kein Banner — es belegt die erkannte Pflicht bei
-  gleichzeitiger Nichterfüllung. Die Behebung ändert sichtbares Verhalten
-  (abgelehnt = kein gemerkter Farbmodus, keine Suchhistorie, kein Profil) und
-  ist deshalb eine **Entscheidung des Inhabers**, kein automatischer Patch.
-  Das Tor meldet, blockiert aber nicht
+- **Die Einwilligung wirkt (20.08.).** Vorher wurde `eb_cookie_consent` gesetzt
+  und von **keiner** der 11 schreibenden Dateien gelesen — und der Banner hatte
+  nur einen Knopf, also gar keine Wahl. Dazu behaupteten Banner,
+  Cookie-Richtlinie **und** Datenschutzerklärung „ausschließlich technisch
+  notwendige Cookies", während `eb_taste_v1` ein Präferenzprofil und
+  `eb_radar_ort` den Standort ablegte: eine Falschaussage in drei Rechtstexten.
+  Jetzt: `ebSpeichern()` prüft vor jedem nicht-essenziellen Schreibvorgang,
+  20 Schreibstellen laufen darüber, ein Widerruf löscht das bereits Gespeicherte,
+  und `EB_SPEICHER_KLASSEN` wird gegen die Cookie-Liste geprüft
+- **Zugänge vergibt man im HQ** (🔑-Abschnitt, nur für Administratoren sichtbar).
+  Vorher ging das nur per API-Aufruf von Hand — eine Fähigkeit, die niemand
+  bedienen kann, wird nicht benutzt, und dann bekommt der Kollege eben doch
+  Adminrechte, weil das der einzige Knopf war
 - Repo bleibt **bewusst public** (Entscheidung des Inhabers, Open Source als
   Ziel). Geprüft und belegt: die zehn `share: secret`-Notizen enthalten
   **Beschreibungen von Maßnahmen, keine Werte** — 0 Treffer für die
