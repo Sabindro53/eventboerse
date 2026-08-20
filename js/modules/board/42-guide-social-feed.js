@@ -2016,18 +2016,20 @@ var _postImageData = null;
 
 function _handlePostImage(input) {
   if (!input.files || !input.files[0]) return;
-  var file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) { showToast('Bild max. 5 MB', 'error'); return; }
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    _postImageData = e.target.result;
-    var preview = document.getElementById('postImgPreview');
-    var upload = document.getElementById('postImgUpload');
-    document.getElementById('postImgThumb').src = _postImageData;
-    if (preview) preview.style.display = '';
-    if (upload) upload.style.display = 'none';
-  };
-  reader.readAsDataURL(file);
+  var raw = input.files[0];
+  ebPrepareImageFile(raw).then(function(file) {
+    if (!file) return;   // Grund wurde bereits als Toast gezeigt
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      _postImageData = e.target.result;
+      var preview = document.getElementById('postImgPreview');
+      var upload = document.getElementById('postImgUpload');
+      document.getElementById('postImgThumb').src = _postImageData;
+      if (preview) preview.style.display = '';
+      if (upload) upload.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function _removePostImage() {

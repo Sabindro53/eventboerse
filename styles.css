@@ -17084,3 +17084,6 @@ body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text);
   .ai-declaration-group { grid-template-columns: 1fr; }
   .ai-declaration { padding: 15px; }
 }
+
+/* Zweite Zeile im Upload-Hinweis: leiser als die harte Limit-Angabe */
+.upload-hint-soft { opacity: .75; font-size: .92em; }
