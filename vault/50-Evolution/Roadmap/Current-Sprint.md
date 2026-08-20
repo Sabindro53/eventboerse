@@ -85,6 +85,29 @@ noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
 
+- [x] **Bild-Upload: 15 MB, Auto-Verkleinerung, verlässliches Drag & Drop.**
+  Anlass war ein Nutzer, der ein Foto auf die Fläche zog und keine erkennbare
+  Rückmeldung bekam. Das Limit stand vorher an neun Code-Stellen und in zwei
+  Hinweistexten je einzeln als „5 MB"; jetzt gibt es eine Quelle der Wahrheit
+  (`EB_MAX_IMAGE_BYTES` in `js/modules/core/00-basis.js`, gespiegelt als
+  PHP-Konstante in `functions.php`) mit 15 MB. Größere JPG/PNG/WebP rechnet
+  der Browser auf 2560 px herunter, statt sie abzulehnen — mit Toast, der
+  Vorher/Nachher nennt. GIFs werden ehrlich abgelehnt, weil das Umzeichnen
+  die Animation verlöre. Jeder Ausgang meldet sich; stiller Abbruch gilt als
+  Bug. Am Drag & Drop drei Korrekturen: ein Zähler gegen das Flackern beim
+  Wechsel auf Kind-Elemente, idempotente Bindung (`setupDragDrop()` läuft aus
+  zwei Modulen — jedes Bild wurde bisher doppelt eingefügt) und ein globaler
+  Fang für Drops neben die Fläche, die den Browser sonst zur Bilddatei
+  navigieren ließen und das halb ausgefüllte Formular verwarfen. Serverseitig
+  antwortet `eb_handle_upload()` jetzt mit 413 und nennt das tatsächliche
+  Hosting-Limit, wenn PHP den Request schon vor dem Handler verwirft.
+  Acht neue Regressionstests in `tests/e2e/bild-upload.spec.js`.
+
+  **Offen (Hosting, nicht Code):** greift `upload_max_filesize` /
+  `post_max_size` unter 16M/20M, bleibt das echte Limit darunter. Der
+  `.htaccess`-Block wirkt nur unter mod_php; bei IONOS-FastCGI muss der Wert
+  ins PHP-Panel oder nach `/public/.user.ini`.
+
 - [x] **Kein Beitrag ohne Account:** Der Tages-Demo-Feed liefert nun 25 feste,
   klar gekennzeichnete Demo-Account-Profile mit stabilen IDs und Avataren.
   Autorname und Avatar öffnen das zugehörige Profil; derselbe Autor kann nicht

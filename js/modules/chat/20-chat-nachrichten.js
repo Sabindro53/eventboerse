@@ -900,7 +900,13 @@ function _sendChatImage(input) {
   var file = input && input.files && input.files[0];
   if (input) input.value = '';
   if (!file || !currentChat || !currentChat.id) return;
-  if (file.size > 5 * 1024 * 1024) { showToast('Bild zu groß! Max. 5 MB', 'error'); return; }
+  ebPrepareImageFile(file, { quiet: true }).then(function(ready) {
+    if (!ready) return;   // Grund wurde bereits als Toast gezeigt
+    _sendChatImageFile(ready);
+  });
+}
+
+function _sendChatImageFile(file) {
   showToast('Bild wird gesendet…', 'image');
   uploadFile(file).then(function(r) {
     var url = r && r.url;

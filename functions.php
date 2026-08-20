@@ -4518,11 +4518,75 @@ function eb_test_mail( WP_REST_Request $request ) {
 }
 
 /* =====================================================================
+   UPLOAD-LIMIT — eine Quelle der Wahrheit
+
+   Muss mit EB_MAX_IMAGE_BYTES im Frontend (js/modules/core/00-basis.js)
+   übereinstimmen. Das Frontend rechnet größere Bilder vorher herunter;
+   dieser Wert ist die Grenze, die der Server wirklich durchsetzt.
+
+   Achtung Hosting: PHP muss mitspielen. Sind upload_max_filesize oder
+   post_max_size kleiner, bricht der Upload ab, bevor PHP diesen Code
+   überhaupt sieht ($_FILES ist dann leer). Siehe .htaccess.
+   ===================================================================== */
+if ( ! defined( 'EB_MAX_IMAGE_BYTES' ) ) {
+    define( 'EB_MAX_IMAGE_BYTES', 15 * 1024 * 1024 ); // 15 MB
+}
+if ( ! defined( 'EB_MAX_IMAGE_LABEL' ) ) {
+    define( 'EB_MAX_IMAGE_LABEL', '15 MB' );
+}
+
+/**
+ * "16M" / "20K" / "1G" aus der php.ini in Bytes umrechnen.
+ */
+function eb_ini_bytes( $value ) {
+    $value = trim( (string) $value );
+    if ( $value === '' ) {
+        return 0;
+    }
+    $unit   = strtolower( substr( $value, -1 ) );
+    $number = (int) $value;
+    switch ( $unit ) {
+        case 'g': return $number * 1024 * 1024 * 1024;
+        case 'm': return $number * 1024 * 1024;
+        case 'k': return $number * 1024;
+    }
+    return $number;
+}
+
+/**
+ * Kleinstes tatsächlich wirksames Upload-Limit: unser eigenes gegen das,
+ * was PHP durchlässt. Nützlich für Diagnose und Fehlertexte.
+ */
+function eb_effective_upload_limit() {
+    $candidates = array_filter( array(
+        EB_MAX_IMAGE_BYTES,
+        eb_ini_bytes( ini_get( 'upload_max_filesize' ) ),
+        eb_ini_bytes( ini_get( 'post_max_size' ) ),
+    ) );
+    return $candidates ? min( $candidates ) : EB_MAX_IMAGE_BYTES;
+}
+
+/* =====================================================================
    UPLOAD HANDLER
    ===================================================================== */
 function eb_handle_upload( WP_REST_Request $request ) {
     $files = $request->get_file_params();
     if ( empty( $files['file'] ) ) {
+        // Überschreitet der Request post_max_size, verwirft PHP den ganzen Body,
+        // bevor dieser Code läuft: $_FILES und $_POST sind leer, Content-Length
+        // aber gesetzt. Ohne diesen Zweig sähe der Nutzer nur "Keine Datei
+        // hochgeladen" und wüsste nicht, dass das Hosting-Limit zu klein ist.
+        $content_length = isset( $_SERVER['CONTENT_LENGTH'] ) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+        if ( $content_length > 0 && empty( $_POST ) ) {
+            $post_max = eb_ini_bytes( ini_get( 'post_max_size' ) );
+            return new WP_REST_Response( array(
+                'message' => sprintf(
+                    'Bild zu groß für den Server (%s). Aktuell nimmt das Hosting nur %s pro Anfrage an.',
+                    size_format( $content_length ),
+                    $post_max ? size_format( $post_max ) : ini_get( 'post_max_size' )
+                ),
+            ), 413 );
+        }
         return new WP_REST_Response( array( 'message' => 'Keine Datei hochgeladen.' ), 400 );
     }
 
@@ -4533,9 +4597,12 @@ function eb_handle_upload( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Upload-Fehler. Bitte erneut versuchen.' ), 400 );
     }
 
-    // 2) Größenlimit (5 MB) – früh prüfen, bevor wir Datei lesen.
-    if ( empty( $file['size'] ) || $file['size'] > 5 * 1024 * 1024 ) {
-        return new WP_REST_Response( array( 'message' => 'Datei zu groß. Max. 5MB.' ), 400 );
+    // 2) Größenlimit – früh prüfen, bevor wir Datei lesen.
+    //    Muss mit EB_MAX_IMAGE_BYTES im Frontend übereinstimmen (js/modules/core/00-basis.js).
+    if ( empty( $file['size'] ) || $file['size'] > EB_MAX_IMAGE_BYTES ) {
+        return new WP_REST_Response( array(
+            'message' => sprintf( 'Datei zu groß (%s). Max. %s.', size_format( (int) $file['size'] ), EB_MAX_IMAGE_LABEL ),
+        ), 400 );
     }
 
     // 3) Tatsächlichen MIME-Type aus den Magic-Bytes der Datei lesen,
@@ -6259,7 +6326,7 @@ function eb_provider_profile( WP_REST_Request $request ) {
    ALLOW BIGGER UPLOADS
    ===================================================================== */
 add_filter( 'upload_size_limit', function() {
-    return 5 * 1024 * 1024; // 5 MB
+    return EB_MAX_IMAGE_BYTES;
 } );
 
 /* =====================================================================

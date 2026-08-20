@@ -108,3 +108,28 @@ DirectoryIndex index.php index.html
 
 # Custom Error Page
 ErrorDocument 404 /index.html
+
+# ── Upload-Limit: 15 MB pro Bild ────────────────────────────────────────
+# Reicht PHP nicht so viel durch, bricht der Upload ab, bevor functions.php
+# ihn sieht — $_FILES ist dann leer und der Nutzer bekommt nur "Upload-Fehler".
+# post_max_size etwas größer als upload_max_filesize, weil neben der Datei
+# noch Formularfelder mitkommen.
+# ACHTUNG: Diese Datei wird ins Theme-Verzeichnis deployt
+# (/public/wp-content/themes/eventboerse/). Bei mod_php greift der Block dort
+# noch; unter FastCGI/PHP-FPM — dem IONOS-Standard — wird er ignoriert. Dann
+# muss das Limit im IONOS-PHP-Panel oder in /public/.user.ini stehen:
+#   upload_max_filesize = 16M
+#   post_max_size = 20M
+# Ist es zu klein, antwortet eb_handle_upload() mit 413 und nennt den Wert.
+<IfModule mod_php.c>
+  php_value upload_max_filesize 16M
+  php_value post_max_size 20M
+</IfModule>
+<IfModule mod_php7.c>
+  php_value upload_max_filesize 16M
+  php_value post_max_size 20M
+</IfModule>
+<IfModule mod_php8.c>
+  php_value upload_max_filesize 16M
+  php_value post_max_size 20M
+</IfModule>

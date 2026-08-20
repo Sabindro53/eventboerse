@@ -457,3 +457,144 @@ window._fitExploreImg = function(img) {
     img.classList.add('explore-item-img-contain');
   }
 };
+
+/* ============================================================================
+ * BILD-UPLOAD — gemeinsames Limit, klare Rückmeldung, Auto-Verkleinerung
+ *
+ * Eine Quelle der Wahrheit für alle Upload-Pfade (Inserat, Galerie, Avatar,
+ * Cover, Chat, Feed). Vorher stand "5 MB" an neun Stellen im Code und in zwei
+ * Hinweistexten — jede Änderung musste alle finden.
+ *
+ * ebPrepareImageFile(file) liefert ein Promise auf eine hochladbare Datei
+ * oder auf null, wenn die Datei abgelehnt wurde. Abgelehnt wird nur noch,
+ * was sich nicht retten lässt; zu große JPG/PNG/WebP werden im Browser
+ * heruntergerechnet, statt den Nutzer mit einer Fehlermeldung wegzuschicken.
+ * Jeder Ausgang gibt Rückmeldung — stiller Abbruch ist immer ein Bug.
+ * ========================================================================== */
+
+var EB_MAX_IMAGE_BYTES   = 15 * 1024 * 1024;   // 15 MB — Client wie Server
+var EB_MAX_IMAGE_LABEL   = '15 MB';
+var EB_IMAGE_TYPES       = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+var EB_IMAGE_TYPES_LABEL = 'JPG, PNG, WebP oder GIF';
+var EB_DOWNSCALE_EDGE    = 2560;               // längste Kante nach dem Verkleinern
+var EB_DOWNSCALE_QUALITY = 0.85;
+
+function ebFormatBytes(bytes) {
+  var n = Number(bytes) || 0;
+  if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB';
+  if (n >= 1024) return Math.round(n / 1024) + ' KB';
+  return n + ' B';
+}
+
+function _ebShortName(name) {
+  var s = String(name || 'Bild');
+  return s.length > 32 ? s.slice(0, 29) + '…' : s;
+}
+
+function _ebToast(msg, icon) {
+  if (typeof showToast === 'function') showToast(msg, icon || 'error');
+  else if (icon === 'error') console.warn(msg);
+}
+
+/**
+ * Zeichnet die Datei auf ein Canvas und gibt sie kleiner zurück.
+ * Reduziert notfalls mehrfach, bis das Limit unterschritten ist.
+ * @returns {Promise<File>}
+ */
+function _ebDownscaleImage(file) {
+  return new Promise(function(resolve, reject) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function() {
+      URL.revokeObjectURL(url);
+      var edge = EB_DOWNSCALE_EDGE;
+      var quality = EB_DOWNSCALE_QUALITY;
+
+      function attempt(round) {
+        var scale = Math.min(1, edge / Math.max(img.naturalWidth, img.naturalHeight));
+        var w = Math.max(1, Math.round(img.naturalWidth * scale));
+        var h = Math.max(1, Math.round(img.naturalHeight * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas nicht verfügbar')); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob) {
+          if (!blob) { reject(new Error('Verkleinern fehlgeschlagen')); return; }
+          if (blob.size <= EB_MAX_IMAGE_BYTES || round >= 4) {
+            if (blob.size > EB_MAX_IMAGE_BYTES) { reject(new Error('Bild bleibt zu groß')); return; }
+            var base = String(file.name || 'bild').replace(/\.[^.]+$/, '');
+            resolve(new File([blob], base + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
+          } else {
+            // Noch zu groß: Kante und Qualität weiter zurücknehmen.
+            edge = Math.round(edge * 0.75);
+            quality = Math.max(0.6, quality - 0.08);
+            attempt(round + 1);
+          }
+        }, 'image/jpeg', quality);
+      }
+      attempt(0);
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      reject(new Error('Bild nicht lesbar'));
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * Prüft Typ und Größe einer Datei und macht sie hochladbar.
+ * Gibt in jedem Fall Rückmeldung an den Nutzer.
+ * @param {File} file
+ * @param {{quiet?: boolean}} [opts] quiet unterdrückt nur den Erfolgs-Hinweis
+ * @returns {Promise<File|null>} null = abgelehnt, Grund wurde bereits angezeigt
+ */
+function ebPrepareImageFile(file, opts) {
+  opts = opts || {};
+  var name = _ebShortName(file && file.name);
+
+  if (!file) {
+    _ebToast('Keine Datei erkannt. Bitte erneut versuchen.', 'error');
+    return Promise.resolve(null);
+  }
+  if (EB_IMAGE_TYPES.indexOf(file.type) === -1) {
+    _ebToast(name + ': nicht unterstützt. Erlaubt sind ' + EB_IMAGE_TYPES_LABEL + '.', 'error');
+    return Promise.resolve(null);
+  }
+  if (file.size <= EB_MAX_IMAGE_BYTES) {
+    return Promise.resolve(file);
+  }
+  // GIFs würden beim Umzeichnen ihre Animation verlieren — lieber ehrlich ablehnen.
+  if (file.type === 'image/gif') {
+    _ebToast(name + ' ist ' + ebFormatBytes(file.size) + ' groß — max. ' + EB_MAX_IMAGE_LABEL + ' für GIFs.', 'error');
+    return Promise.resolve(null);
+  }
+
+  _ebToast('Bild wird verkleinert…', 'image');
+  var originalSize = file.size;
+  return _ebDownscaleImage(file).then(function(smaller) {
+    if (!opts.quiet) {
+      _ebToast('Bild automatisch verkleinert: ' + ebFormatBytes(originalSize) + ' → ' + ebFormatBytes(smaller.size), 'check_circle');
+    }
+    return smaller;
+  }).catch(function() {
+    _ebToast(name + ' ist ' + ebFormatBytes(originalSize) + ' groß und ließ sich nicht verkleinern (max. ' + EB_MAX_IMAGE_LABEL + ').', 'error');
+    return null;
+  });
+}
+
+/**
+ * Mehrere Dateien nacheinander prüfen/verkleinern (nacheinander, damit ein
+ * 20-MB-Stapel den Hauptthread nicht blockiert).
+ * @returns {Promise<File[]>} nur die Dateien, die durchgekommen sind
+ */
+function ebPrepareImageFiles(files, opts) {
+  var list = Array.prototype.slice.call(files || []);
+  var out = [];
+  return list.reduce(function(chain, f) {
+    return chain.then(function() {
+      return ebPrepareImageFile(f, opts).then(function(ok) { if (ok) out.push(ok); });
+    });
+  }, Promise.resolve()).then(function() { return out; });
+}

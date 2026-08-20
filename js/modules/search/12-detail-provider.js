@@ -977,22 +977,24 @@ function _exitProviderEdit() {
 
 function _provEditAvatar(input) {
   if (!input.files || !input.files[0]) return;
-  var file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) { showToast('Bild zu groß! Max. 5MB', 'error'); input.value = ''; return; }
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var img = new Image();
-    img.onload = function() {
-      _cropImg = img;
-      _cropX = 0; _cropY = 0;
-      document.getElementById('cropZoom').value = 1;
-      openModal('avatarCropModal');
-      setTimeout(function() { cropDraw(); cropBindEvents(); }, 50);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  var raw = input.files[0];
   input.value = '';
+  ebPrepareImageFile(raw).then(function(file) {
+    if (!file) return;   // Grund wurde bereits als Toast gezeigt
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        _cropImg = img;
+        _cropX = 0; _cropY = 0;
+        document.getElementById('cropZoom').value = 1;
+        openModal('avatarCropModal');
+        setTimeout(function() { cropDraw(); cropBindEvents(); }, 50);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function _provSaveName() {

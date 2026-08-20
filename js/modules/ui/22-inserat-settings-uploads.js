@@ -867,26 +867,32 @@ async function submitListing(e) {
 
 function handleUpload(input) {
   const preview = document.getElementById('uploadPreview');
-  const files = input.files;
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  const maxSize = 5 * 1024 * 1024; // 5 MB
   const maxImages = 10;
   const existing = preview.querySelectorAll('.upload-preview-item').length;
 
-  let queue = [];
-  for (let file of files) {
-    if (!allowedTypes.includes(file.type)) { showToast('Nur JPG, PNG, WebP oder GIF erlaubt', 'error'); continue; }
-    if (file.size > maxSize) { showToast('Bild zu groß! Max. 5 MB', 'error'); continue; }
-    if (existing + queue.length >= maxImages) { showToast('Max. ' + maxImages + ' Bilder erlaubt', 'warning'); break; }
-    queue.push(file);
-  }
+  // Erst nach Platz filtern, dann prüfen/verkleinern — sonst rechnen wir
+  // Bilder klein, die ohnehin nicht mehr hineinpassen.
+  const dropped = Array.prototype.slice.call(input.files || []);
   input.value = '';
+  if (!dropped.length) return;
 
-  // Open crop modal for each image sequentially
-  _lcropMode = 'listing';
-  _lcropQueue = queue;
-  _lcropQueueIdx = 0;
-  if (queue.length > 0) _lcropProcessNext();
+  const free = Math.max(0, maxImages - existing);
+  if (free === 0) {
+    showToast('Max. ' + maxImages + ' Bilder erlaubt — bitte erst eines entfernen.', 'warning');
+    return;
+  }
+  if (dropped.length > free) {
+    showToast('Nur noch Platz für ' + free + ' Bild' + (free > 1 ? 'er' : '') + ' — der Rest wurde übersprungen.', 'warning');
+  }
+
+  ebPrepareImageFiles(dropped.slice(0, free)).then(function(queue) {
+    if (!queue.length) return;   // Grund wurde bereits als Toast gezeigt
+    // Open crop modal for each image sequentially
+    _lcropMode = 'listing';
+    _lcropQueue = queue;
+    _lcropQueueIdx = 0;
+    _lcropProcessNext();
+  });
 }
 
 // ---- Listing Crop State ----
@@ -1270,25 +1276,23 @@ var _cropX = 0, _cropY = 0, _cropDragStart = null;
 function handleProfilePhoto(input) {
   if (!input.files || !input.files[0]) return;
   var file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('Bild zu groß! Max. 5MB', 'error');
-    input.value = '';
-    return;
-  }
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var img = new Image();
-    img.onload = function() {
-      _cropImg = img;
-      _cropX = 0; _cropY = 0;
-      document.getElementById('cropZoom').value = 1;
-      openModal('avatarCropModal');
-      setTimeout(function() { cropDraw(); cropBindEvents(); }, 50);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
   input.value = '';
+  ebPrepareImageFile(file).then(function(ready) {
+    if (!ready) return;   // Grund wurde bereits als Toast gezeigt
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        _cropImg = img;
+        _cropX = 0; _cropY = 0;
+        document.getElementById('cropZoom').value = 1;
+        openModal('avatarCropModal');
+        setTimeout(function() { cropDraw(); cropBindEvents(); }, 50);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(ready);
+  });
 }
 
 function cropDraw() {
@@ -1424,11 +1428,15 @@ function cropConfirm() {
 
 function handleCoverUpload(input) {
   if (!input.files || !input.files[0]) return;
-  var file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('Bild zu groß! Max. 5MB', 'error');
-    return;
-  }
+  var rawCover = input.files[0];
+  input.value = '';
+  ebPrepareImageFile(rawCover).then(function(file) {
+    if (!file) return;   // Grund wurde bereits als Toast gezeigt
+    _applyCoverUpload(file);
+  });
+}
+
+function _applyCoverUpload(file) {
   // Show preview immediately
   var reader = new FileReader();
   reader.onload = function(e) {
@@ -1557,22 +1565,18 @@ function handleGalleryUpload(input) {
     return;
   }
 
-  var queue = [];
-  for (var i = 0; i < files.length; i++) {
-    var file = files[i];
-    if (file.size > 5 * 1024 * 1024) {
-      showToast(file.name + ' ist zu groß (max. 5MB)', 'error');
-      continue;
-    }
-    queue.push(file);
-  }
+  var dropped = Array.prototype.slice.call(files || []);
   input.value = '';
+  if (!dropped.length) return;
 
-  // Open crop modal for each image sequentially
-  _lcropMode = 'gallery';
-  _lcropQueue = queue;
-  _lcropQueueIdx = 0;
-  if (queue.length > 0) _lcropProcessNext();
+  ebPrepareImageFiles(dropped).then(function(queue) {
+    if (!queue.length) return;   // Grund wurde bereits als Toast gezeigt
+    // Open crop modal for each image sequentially
+    _lcropMode = 'gallery';
+    _lcropQueue = queue;
+    _lcropQueueIdx = 0;
+    _lcropProcessNext();
+  });
 }
 
 function _addGalleryPreviewItem(src, blob) {
@@ -1643,27 +1647,107 @@ function updateGalleryCount() {
   }
 }
 
-// Drag & Drop support
+// ======== DRAG & DROP für alle Upload-Zonen ========
+//
+// Drei Dinge, die vorher fehlten:
+//  1. dragleave feuert auch beim Wechsel auf ein Kind-Element — die Zone
+//     flackerte. Ein Zähler pro Zone hält den Hover-Zustand stabil.
+//  2. Ein Drop neben die Zone ließ den Browser das Bild als Seite öffnen und
+//     das halb ausgefüllte Formular verwerfen. Wird jetzt global abgefangen.
+//  3. Zonen, die erst später ins DOM kommen, waren nie gebunden. Idempotente
+//     Bindung + erneuter Aufruf sind jetzt gefahrlos.
 function setupDragDrop() {
-  var zones = document.querySelectorAll('.upload-zone');
-  zones.forEach(function(zone) {
-    zone.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      zone.classList.add('dragover');
-    });
-    zone.addEventListener('dragleave', function(e) {
-      e.preventDefault();
-      zone.classList.remove('dragover');
-    });
-    zone.addEventListener('drop', function(e) {
-      e.preventDefault();
-      zone.classList.remove('dragover');
-      var fileInput = zone.querySelector('input[type="file"]');
-      if (fileInput && e.dataTransfer.files.length > 0) {
-        fileInput.files = e.dataTransfer.files;
-        fileInput.dispatchEvent(new Event('change'));
+  document.querySelectorAll('.upload-zone').forEach(_ebBindDropZone);
+  _ebBlockStrayDrops();
+}
+
+function _ebBindDropZone(zone) {
+  if (!zone || zone._ebDropBound) return;
+  zone._ebDropBound = true;
+  var depth = 0;
+
+  function hasFiles(e) {
+    var dt = e.dataTransfer;
+    if (!dt) return false;
+    if (dt.types && dt.types.length) return Array.prototype.indexOf.call(dt.types, 'Files') !== -1;
+    return true;
+  }
+  function leave() { depth = 0; zone.classList.remove('dragover'); }
+
+  zone.addEventListener('dragenter', function(e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    depth++;
+    zone.classList.add('dragover');
+  });
+  zone.addEventListener('dragover', function(e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (_) {}
+    zone.classList.add('dragover');
+  });
+  zone.addEventListener('dragleave', function(e) {
+    if (!hasFiles(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (depth === 0) zone.classList.remove('dragover');
+  });
+  zone.addEventListener('drop', function(e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    leave();
+
+    var fileInput = zone.querySelector('input[type="file"]');
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (!fileInput) return;
+    if (!files || !files.length) {
+      showToast('Da kam keine Datei an. Bitte aus dem Dateimanager ziehen.', 'error');
+      return;
+    }
+    // Direkte Zuweisung schlägt in manchen Browsern still fehl — dann
+    // bekäme der Nutzer gar keine Rückmeldung. Deshalb prüfen und notfalls
+    // den Handler direkt mit einem Stellvertreter-Input aufrufen.
+    var assigned = false;
+    try {
+      fileInput.files = files;
+      assigned = fileInput.files && fileInput.files.length > 0;
+    } catch (_) { assigned = false; }
+
+    if (assigned) {
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+      var handler = fileInput.getAttribute('onchange') || '';
+      var fnName = (handler.match(/^\s*([A-Za-z_$][\w$]*)\s*\(/) || [])[1];
+      var fn = fnName && window[fnName];
+      if (typeof fn === 'function') {
+        fn({ files: files, value: '' });
+      } else {
+        showToast('Ablegen hat nicht geklappt — bitte auf die Fläche klicken und das Bild auswählen.', 'error');
       }
-    });
+    }
+  });
+}
+
+// Drop irgendwo sonst im Fenster: verhindern, dass der Browser wegnavigiert
+// und dabei ein halb ausgefülltes Formular verwirft.
+function _ebBlockStrayDrops() {
+  if (window._ebStrayDropsBlocked) return;
+  window._ebStrayDropsBlocked = true;
+  ['dragover', 'drop'].forEach(function(type) {
+    window.addEventListener(type, function(e) {
+      var dt = e.dataTransfer;
+      var isFileDrag = dt && dt.types && Array.prototype.indexOf.call(dt.types, 'Files') !== -1;
+      if (!isFileDrag) return;
+      if (e.target && e.target.closest && e.target.closest('.upload-zone')) return;
+      e.preventDefault();
+      if (type === 'drop') {
+        var zone = document.querySelector('.upload-zone');
+        var visible = zone && zone.offsetParent !== null;
+        showToast(visible
+          ? 'Bitte direkt auf das Upload-Feld ziehen.'
+          : 'Hier lassen sich keine Bilder ablegen.', 'error');
+      }
+    }, false);
   });
 }
 
