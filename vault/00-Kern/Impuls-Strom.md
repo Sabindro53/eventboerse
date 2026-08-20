@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-16**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-20**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -63,23 +63,23 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **35** |
-| Commits (30 Tage) | 133 |
-| Letzter Commit | `4120ece · Der Auto-Merge kennt die Datei, die der Autopilot mitliefert (#160)` (2026-08-15) |
+| Commits (7 Tage) | **15** |
+| Commits (30 Tage) | 55 |
+| Letzter Commit | `7a3d021 · Bild-Upload: 15 MB, Auto-Verkleinerung und verlässliches Drag & Drop (#168)` (2026-08-20) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-40 app.js
-     39 tests/e2e/kern.spec.js
-     34 CLAUDE.md
-     33 vault/50-Evolution/Roadmap/Current-Sprint.md
-     30 styles.css
+32 tests/e2e/kern.spec.js
+     25 vault/50-Evolution/Roadmap/Current-Sprint.md
+     18 CLAUDE.md
+     17 vault/30-Betrieb/Testing.md
+     17 hq.html
 ```
 
 **Codegröße:**
-- `app.js` — 26.642 Zeilen
-- `styles.css` — 17.086 Zeilen
-- `functions.php` — 10.448 Zeilen
+- `app.js` — 26.877 Zeilen
+- `styles.css` — 17.089 Zeilen
+- `functions.php` — 10.361 Zeilen
 - `app-shell.html` — 4.122 Zeilen
 
 ## Verwandt
