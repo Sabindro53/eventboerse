@@ -44,6 +44,32 @@ test.describe('Bild-Upload', () => {
     expect(hinweis).toContain('15 MB');
   });
 
+  test('Vorschau und veroeffentlichte Detailansicht nutzen dasselbe Bildformat', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 640 });
+    await openApp(page);
+
+    const desktop = await page.evaluate(() => {
+      const preview = getComputedStyle(document.querySelector('.listing-live-preview-gallery'));
+      const detail = getComputedStyle(document.querySelector('.detail-gallery'));
+      return {
+        previewRatio: preview.aspectRatio,
+        detailRatio: detail.aspectRatio,
+        detailMaxHeight: detail.maxHeight,
+      };
+    });
+    expect(desktop.previewRatio).toBe('4 / 3');
+    expect(desktop.detailRatio).toBe(desktop.previewRatio);
+    expect(desktop.detailMaxHeight).toBe('none');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobile = await page.evaluate(() => ({
+      previewRatio: getComputedStyle(document.querySelector('.listing-live-preview-gallery')).aspectRatio,
+      detailRatio: getComputedStyle(document.querySelector('.detail-gallery')).aspectRatio,
+    }));
+    expect(mobile.detailRatio).toBe(mobile.previewRatio);
+    expect(mobile.detailRatio).toBe('4 / 3');
+  });
+
   test('Falscher Dateityp wird abgelehnt und begründet', async ({ page }) => {
     const errors = await openApp(page);
     const meldung = await page.evaluate(async () => {
