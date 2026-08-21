@@ -539,56 +539,74 @@ function eventboerse_enqueue_assets() {
     $styles_ver = file_exists( $theme_dir . '/styles.css' ) ? filemtime( $theme_dir . '/styles.css' ) : '1.1.0';
     $app_ver    = file_exists( $theme_dir . '/app.js' )     ? filemtime( $theme_dir . '/app.js' )     : '1.1.0';
 
-    // Google Fonts
+    /* ── Schriften und Bibliotheken: alles aus dem eigenen Haus ──────────
+     *
+     * Bis zum 21.08.2026 kamen Inter und die Material Icons von
+     * fonts.googleapis.com, Leaflet von unpkg.com und Flatpickr von
+     * cdn.jsdelivr.net. Jeder dieser Hosts erfuhr bei jedem Seitenaufruf die
+     * IP-Adresse des Besuchers — drei Drittlandtransfers, von denen zwei in
+     * keiner Datenschutzerklaerung standen und der dritte dort ausdruecklich
+     * als "lokal" bezeichnet wurde.
+     *
+     * Jetzt liegen alle Dateien im Theme. Das beseitigt nicht nur die
+     * Transfers, sondern auch eine Abhaengigkeit: faellt ein CDN aus oder
+     * wird es blockiert, blieb die Karte vorher leer. Die Versionen sind
+     * durch die abgelegte Datei fixiert, nicht durch eine URL — ein
+     * Supply-Chain-Wechsel unter derselben Adresse ist damit ausgeschlossen.
+     *
+     * Cache-Busting ueber filemtime wie beim uebrigen Theme: eine feste
+     * Versionsnummer wuerde nach einem Austausch der Datei alte Staende
+     * ausliefern. */
+    $vendor = get_template_directory_uri() . '/assets/lib';
+    $fonts  = get_template_directory_uri() . '/assets/fonts';
+    $ver    = function ( $rel ) use ( $theme_dir ) {
+        $p = $theme_dir . '/' . ltrim( $rel, '/' );
+        return file_exists( $p ) ? (string) filemtime( $p ) : '1';
+    };
+
+    // Inter (variabel, alle Gewichte in einer Datei) + Material Icons Round
     wp_enqueue_style(
-        'google-fonts-inter',
-        'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap',
+        'eb-fonts',
+        $fonts . '/fonts.css',
         array(),
-        null
-    );
-    wp_enqueue_style(
-        'google-material-icons',
-        'https://fonts.googleapis.com/icon?family=Material+Icons+Round',
-        array(),
-        null
+        $ver( 'assets/fonts/fonts.css' )
     );
 
-    // Leaflet
+    // Leaflet 1.9.4 — leaflet.css erwartet images/ daneben, deshalb der
+    // gemeinsame Ordner.
     wp_enqueue_style(
         'leaflet',
-        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+        $vendor . '/leaflet/leaflet.css',
         array(),
-        '1.9.4'
+        $ver( 'assets/lib/leaflet/leaflet.css' )
     );
     wp_enqueue_script(
         'leaflet',
-        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+        $vendor . '/leaflet/leaflet.js',
         array(),
-        '1.9.4',
+        $ver( 'assets/lib/leaflet/leaflet.js' ),
         true
     );
 
-    // Flatpickr — Pfad auf exakte Version gepinnt (jsdelivr ist pro Version
-    // immutable). 'npm/flatpickr' ohne @Version würde sonst bei jedem Build
-    // die jeweils neueste Version ausliefern (Supply-Chain-Risiko).
+    // Flatpickr 4.6.13 samt deutscher Lokalisierung.
     wp_enqueue_style(
         'flatpickr',
-        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css',
+        $vendor . '/flatpickr/flatpickr.min.css',
         array(),
-        '4.6.13'
+        $ver( 'assets/lib/flatpickr/flatpickr.min.css' )
     );
     wp_enqueue_script(
         'flatpickr',
-        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js',
+        $vendor . '/flatpickr/flatpickr.min.js',
         array(),
-        '4.6.13',
+        $ver( 'assets/lib/flatpickr/flatpickr.min.js' ),
         true
     );
     wp_enqueue_script(
         'flatpickr-de',
-        'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/de.js',
+        $vendor . '/flatpickr/flatpickr-de.js',
         array( 'flatpickr' ),
-        '4.6.13',
+        $ver( 'assets/lib/flatpickr/flatpickr-de.js' ),
         true
     );
 
@@ -596,7 +614,7 @@ function eventboerse_enqueue_assets() {
     wp_enqueue_style(
         'eventboerse-style',
         get_stylesheet_uri(),
-        array( 'google-fonts-inter', 'google-material-icons', 'leaflet' ),
+        array( 'eb-fonts', 'leaflet' ),
         '1.1.0'
     );
 
@@ -756,19 +774,27 @@ add_action( 'send_headers', function() {
         "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
         "frame-ancestors 'none'",
         "object-src 'none'",
-        // Skripte: eigene + Stripe + Leaflet + Flatpickr (\u00dcbergangsweise inline erlaubt).
-        // 'unsafe-eval' entfernt: weder eigener Code noch Stripe/Leaflet/Flatpickr
-        // benötigen eval()/new Function(). Reduziert die XSS-Exploit-Fläche.
-        "script-src 'self' 'unsafe-inline' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
-        "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://unpkg.com https://cdn.jsdelivr.net",
-        // Styles: eigene + Google Fonts + Leaflet + Flatpickr.
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
-        "font-src 'self' https://fonts.gstatic.com data:",
+        // Skripte: eigene + Stripe (\u00dcbergangsweise inline erlaubt).
+        // 'unsafe-eval' entfernt: weder eigener Code noch Stripe benötigen
+        // eval()/new Function(). Reduziert die XSS-Exploit-Fläche.
+        //
+        // unpkg und jsdelivr sind seit dem Self-Hosting am 21.08.2026
+        // gestrichen. Das ist der eigentliche Gewinn: solange sie hier
+        // standen, durfte ein fremder Host beliebiges Skript in unsere Seite
+        // liefern — eine Kompromittierung dort wäre eine Kompromittierung
+        // hier gewesen. Wer eine Bibliothek wieder von aussen holt, muss
+        // diese Zeile bewusst aufmachen.
+        "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+        "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com",
+        // Styles: nur noch eigene. Google Fonts, Leaflet und Flatpickr liegen im Theme.
+        "style-src 'self' 'unsafe-inline'",
+        // Schriften ausschliesslich aus dem eigenen Haus.
+        "font-src 'self' data:",
         // Bilder: eigene + IONOS-Uploads + OpenStreetMap-Tiles + Leaflet-Marker. Avatare sind Self-Hosted (data:).
         // WICHTIG: Domains in CSP MÜSSEN Punycode (ASCII) sein. Umlaute (eventbörse.de)
         // führen dazu, dass Chrome die gesamte Direktive verwirft → Fallback auf default-src 'self'
         // → alle externen Bilder werden blockiert. Daher nur xn--eventbrse-57a.de hier.
-        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://images.pexels.com https://images.unsplash.com https://xn--eventbrse-57a.de",
+        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://images.pexels.com https://images.unsplash.com https://xn--eventbrse-57a.de",
         // XHR/Fetch: eigene REST + Stripe + Nominatim (Geocoding).
         "connect-src 'self' https://api.stripe.com https://m.stripe.network https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
         // Stripe-Frames (Checkout, 3DS).

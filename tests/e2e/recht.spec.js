@@ -239,10 +239,55 @@ test.describe('Drittanbieter im Auslieferungspfad', () => {
     expect(drittanbieterPruefen(php, '<p>unpkg</p>').hosts).toEqual(['unpkg.com']);
   });
 
+  test('Schriften und Bibliotheken kommen aus dem eigenen Haus', async () => {
+    // Bis zum 21.08.2026 kamen Inter und die Material Icons von Google,
+    // Leaflet von unpkg und Flatpickr von jsDelivr — drei Drittlandtransfers
+    // bei jedem Seitenaufruf. Geprüft wird die Eigenschaft „lädt nicht von
+    // dort", nicht die Anwesenheit einer Datei.
+    const php = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+    const nurCode = php.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com', 'unpkg.com', 'cdn.jsdelivr.net']) {
+      expect(nurCode, `${host} wird wieder von aussen geladen`).not.toContain(host);
+    }
+    // Und die Dateien liegen wirklich da — sonst wäre die Seite bloss kaputt
+    // statt datensparsam.
+    for (const p of ['assets/fonts/fonts.css',
+                     'assets/fonts/inter-latin-wght-normal.woff2',
+                     'assets/fonts/material-icons-round.woff2',
+                     'assets/lib/leaflet/leaflet.js',
+                     'assets/lib/leaflet/images/marker-icon.png',
+                     'assets/lib/flatpickr/flatpickr.min.js',
+                     'assets/lib/flatpickr/flatpickr-de.js']) {
+      expect(fs.existsSync(path.join(ROOT, p)), `${p} fehlt`).toBe(true);
+    }
+  });
+
+  test('die CSP erlaubt keinen fremden Skript-Host mehr ausser Stripe', async () => {
+    // Der eigentliche Sicherheitsgewinn: solange unpkg und jsdelivr in
+    // script-src standen, durfte ein fremder Host beliebiges Skript in unsere
+    // Seite liefern.
+    const php = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+    const zeilen = php.split('\n').filter((z) => /"script-src/.test(z) && !/^\s*\/\//.test(z));
+    expect(zeilen.length, 'script-src nicht gefunden').toBeGreaterThan(0);
+    for (const z of zeilen) {
+      const hosts = [...z.matchAll(/https:\/\/([a-z0-9.*-]+)/g)].map((m) => m[1]);
+      expect(hosts, `fremder Skript-Host in der CSP: ${hosts.join(', ')}`).toEqual(['js.stripe.com']);
+    }
+    // Schriften nur noch von uns.
+    const font = php.split('\n').find((z) => /"font-src/.test(z));
+    expect(font, 'font-src nicht gefunden').toBeTruthy();
+    expect(font, 'font-src erlaubt wieder einen fremden Host').not.toMatch(/https:\/\//);
+  });
+
   test('die echte Website nennt jeden Host, den sie lädt', async () => {
     const { lageErheben } = await recht();
     const lage = lageErheben();
-    expect(lage.drittanbieter.hosts.length, 'die Messung darf nicht leer laufen').toBeGreaterThan(2);
+    // Die Schranke soll verhindern, dass der Extraktor still nichts findet —
+    // sie schreibt KEINE Anzahl fest. Sie stand auf „mehr als 2", kalibriert
+    // auf den Stand vor dem Self-Hosting; nach dem Streichen von Google,
+    // unpkg und jsDelivr blieb nur Stripe übrig und der Test schlug fehl,
+    // obwohl die Lage besser geworden war.
+    expect(lage.drittanbieter.hosts.length, 'die Messung läuft leer').toBeGreaterThan(0);
     expect(lage.drittanbieter.fehlend.map((f) => f.host)).toEqual([]);
     expect(lage.drittanbieter.unbekannt).toEqual([]);
   });

@@ -1,0 +1,64 @@
+/*
+ * Schriften aus dem eigenen Haus.
+ *
+ * Bis zum 21.08.2026 kamen Inter und die Material Icons von
+ * fonts.googleapis.com. Bei jedem Seitenaufruf erfuhr Google damit die
+ * IP-Adresse des Besuchers — ein Drittlandtransfer, der weder nötig war noch
+ * in der Datenschutzerklärung stand (dort hieß es sogar, die Schriften lägen
+ * lokal). Jetzt stimmt die Aussage.
+ *
+ * Inter liegt als VARIABLE Schrift vor: eine Datei (48 KB) deckt alle
+ * Gewichte von 100 bis 900 ab. Die sieben statischen Schnitte, die vorher
+ * geladen wurden, waren zusammen 168 KB und sieben Anfragen.
+ *
+ * `font-display` ist bewusst unterschiedlich:
+ *   swap  für Inter — Text muss sofort lesbar sein, notfalls in der
+ *         Systemschrift. Ein unsichtbarer Absatz ist schlimmer als ein
+ *         kurzer Schriftwechsel.
+ *   block für die Icons — hier wäre der Ersatz der Ligaturname selbst
+ *         („chevron_left" als Wort mitten im Knopf), und das ist deutlich
+ *         störender als ein kurzer Moment ohne Symbol.
+ */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  /* Der ganze Bereich, den die variable Achse trägt. Ohne diese Angabe
+     nimmt der Browser 400 an und rechnet die übrigen Gewichte künstlich
+     fett — genau das, was eine variable Schrift vermeiden soll. */
+  font-weight: 100 900;
+  src: url('./inter-latin-wght-normal.woff2') format('woff2-variations');
+  /* Latin. Fällt ein Zeichen heraus (kyrillisch, griechisch), greift die
+     Ersatzschrift der Stack-Angabe in styles.css. */
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Material Icons Round';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./material-icons-round.woff2') format('woff2');
+}
+
+.material-icons-round {
+  font-family: 'Material Icons Round';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Ohne Ligaturen stünde in jedem Knopf der Iconname als Text. */
+  font-feature-settings: 'liga';
+}

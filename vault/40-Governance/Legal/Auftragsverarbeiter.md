@@ -22,10 +22,11 @@ share: internal
 | **Hosting-Provider** | Webhosting, DB, SMTP-Versand | alle Plattform-Daten | EU (DE) | EU-intern, kein Drittland | ✓ |
 | **Stripe Payments Europe Ltd.** | Zahlungsabwicklung | Name, E-Mail, Beträge, Karten-Token | IE / US (Stripe Inc.) | SCC + ergänzende Maßnahmen | ✓ |
 | **GitHub Inc.** | Quellcode-Hosting, CI | Quellcode (keine Plattform-User-Daten), Workflow-Logs | US | SCC | ✓ |
-| **Google LLC (Fonts)** | Webfonts (geplant: self-host) | IP-Adresse beim Font-Abruf | US | SCC | offen — Roadmap: self-hosting |
 | **OpenStreetMap Foundation** | Karten-Tiles | IP-Adresse beim Tile-Abruf | UK / EU | Angemessenheit (UK), EU-intern | nicht erforderlich (kein AV-Verhältnis) |
-| **unpkg / Cloudflare** | Leaflet-Bibliothek (Karten) | IP-Adresse beim Abruf | US | SCC (Cloudflare) | offen — Roadmap: self-hosting |
-| **jsDelivr** | Flatpickr (Datumsauswahl) | IP-Adresse beim Abruf | US / global | SCC | offen — Roadmap: self-hosting |
+
+**Seit dem 21.08.2026 gestrichen, weil selbst gehostet:** Google (Schriften und
+Symbole), unpkg/Cloudflare (Leaflet), jsDelivr (Flatpickr). Alle drei Dateien
+liegen im Theme; beim Seitenaufruf entsteht keine Verbindung mehr zu ihnen.
 
 ### Nur im HQ — keine Besucherdaten
 
@@ -112,22 +113,36 @@ Bleibt es dabei, ist das eine bewusste Eigenschaft und keine Zufälligkeit —
 sobald ein besucherseitiges Feature ein Modell anspräche, änderte sich die
 Rechtslage grundlegend, weil dann Kundendaten an einen US-Dienst gingen.
 
-### Google Fonts (US)
-- IP-Übertragung beim Font-Abruf
-- **Mitigation auf Roadmap**: Self-Hosting der drei Schriften (`Inter`, `Plus Jakarta Sans`) im Theme
-- Bis dahin in Datenschutzerklärung explizit ausgewiesen
+### Erledigt am 21.08.2026: Schriften und Bibliotheken aus dem eigenen Haus
 
-### unpkg und jsDelivr (US)
+Google Fonts, unpkg (Leaflet) und jsDelivr (Flatpickr) sind **keine Empfänger
+mehr**. Alle Dateien liegen im Theme:
 
-Beim ersten Aufruf einer Seite mit Karte lädt der Browser Leaflet von
-`unpkg.com`, die Datumsauswahl kommt von `cdn.jsdelivr.net`. In beiden Fällen
-erfährt der CDN-Betreiber die **IP-Adresse des Besuchers** — dieselbe Kategorie
-wie Google Fonts, mit denselben Folgen und derselben Lösung: Self-Hosting.
+| | |
+|---|---|
+| `assets/fonts/inter-latin-wght-normal.woff2` | Inter als **variable** Schrift — 48 KB für alle Gewichte statt 168 KB in sieben Dateien |
+| `assets/fonts/material-icons-round.woff2` | Material Icons Round |
+| `assets/lib/leaflet/` | Leaflet 1.9.4 samt `images/` für die Marker |
+| `assets/lib/flatpickr/` | Flatpickr 4.6.13 mit deutscher Lokalisierung |
 
-Bis dahin gehören beide in die Datenschutzerklärung. Sie standen bis zum
-21.08.2026 in keiner der beiden Listen; gefunden wurden sie beim Nachtragen von
-OpenAI, indem die tatsächlichen `wp_enqueue`-Aufrufe ausgelesen wurden statt der
-Erinnerung zu folgen.
+Drei Wirkungen über den Datenschutz hinaus:
+
+1. **Die CSP wurde enger.** `unpkg.com` und `cdn.jsdelivr.net` sind aus
+   `script-src` gestrichen. Solange sie dort standen, durfte ein fremder Host
+   beliebiges Skript in die Seite liefern — eine Kompromittierung dort wäre
+   eine Kompromittierung hier gewesen.
+2. **Die Version steckt in der Datei, nicht in einer URL.** Ein Austausch unter
+   derselben Adresse ist ausgeschlossen. Die lokale Entwicklungs-Shell zog
+   Flatpickr sogar **ohne Versionsangabe** (`npm/flatpickr`) — also jeweils die
+   neueste Fassung.
+3. **Die Seite hängt nicht mehr an fremder Erreichbarkeit.** Vorher blieb die
+   Karte leer, wenn ein CDN ausfiel oder blockiert war. Konkret messbar: vier
+   Radar-Tests schlugen in Umgebungen ohne Netzzugang wochenlang fehl. Seit dem
+   Self-Hosting laufen alle 50 durch.
+
+Nachgehalten wird das von `scripts/recht.mjs`: jeder Host, den `wp_enqueue_*`
+wirklich einbindet, muss in der Datenschutzerklärung stehen. Stand jetzt ist
+`js.stripe.com` der einzige.
 
 ## Pflichten
 

@@ -3263,17 +3263,15 @@ Datum: ___________________________________________________
             <tr><td>GitHub (Microsoft)</td><td>USA</td><td>EU-US DPF + SCC</td></tr>
             <tr><td>DiceBear (Avatare)</td><td>EU oder Self-Hosted</td><td>Bevorzugt Self-Hosting/EU; kein US-Transfer</td></tr>
             <tr><td>OpenStreetMap-Tileserver</td><td>EU</td><td>Kein US-Transfer</td></tr>
-            <tr><td>Google Fonts / Material Icons</td><td>USA</td><td>EU-US DPF + SCC; IP-Übertragung beim Abruf. Umstellung auf Self-Hosting geplant</td></tr>
-            <tr><td>unpkg / Cloudflare (Kartenbibliothek)</td><td>USA</td><td>SCC; IP-Übertragung beim Abruf. Umstellung auf Self-Hosting geplant</td></tr>
-            <tr><td>jsDelivr (Datumsauswahl)</td><td>USA</td><td>SCC; IP-Übertragung beim Abruf. Umstellung auf Self-Hosting geplant</td></tr>
+            <tr><td>Schriften, Symbole, Karten- und Kalenderbibliothek</td><td>eigener Server</td><td>Kein Drittlandtransfer — seit 21. August 2026 selbst gehostet</td></tr>
             <tr><td>OpenAI, L.L.C.</td><td>USA</td><td>EU-US DPF + SCC; <strong>nur im internen Verwaltungsbereich</strong>, nicht beim Websitebesuch</td></tr>
             <tr><td>OpenRouter, Inc.</td><td>USA</td><td>SCC; <strong>nur im internen Verwaltungsbereich</strong>, nicht beim Websitebesuch</td></tr>
           </tbody>
         </table>
-        <p>Die zuvor an dieser Stelle genannte lokale Bereitstellung der Schriften und Symbole traf nicht zu: beide werden derzeit von Google geladen. Die Angabe wurde am 21. August 2026 nach einer Prüfung des ausgelieferten Codes berichtigt.</p>
+        <p>Bis zum 21. August 2026 wurden Schriften und Symbole von Google, die Kartenbibliothek von unpkg und die Kalenderbibliothek von jsDelivr geladen; dabei wurde jeweils Ihre IP-Adresse an diese Anbieter übertragen. Seit dem 21. August 2026 liegen alle diese Dateien auf unserem eigenen Server, sodass beim Aufruf der Website keine Verbindung zu ihnen mehr entsteht. Beim Besuch der Website findet damit nur noch beim Bezahlvorgang (Stripe) und beim Laden von Kartenkacheln (OpenStreetMap) eine Übermittlung an Dritte statt.</p>
 
         <h2>13. Empfänger und Auftragsverarbeiter</h2>
-        <ul><li>IONOS SE — Hosting (DE).</li><li>Stripe Payments Europe Ltd. — Zahlungsdienstleister.</li><li>GitHub Inc. — Source-Code-Verwaltung; keine personenbezogenen Endkundendaten in Repositories.</li><li>Google Ireland Ltd. / Google LLC — Schriften und Symbole; übertragen wird die IP-Adresse beim Abruf.</li><li>Cloudflare, Inc. (unpkg) und jsDelivr — Auslieferung der Karten- und Kalenderbibliothek; übertragen wird die IP-Adresse beim Abruf.</li></ul>
+        <ul><li>IONOS SE — Hosting (DE).</li><li>Stripe Payments Europe Ltd. — Zahlungsdienstleister.</li><li>GitHub Inc. — Source-Code-Verwaltung; keine personenbezogenen Endkundendaten in Repositories.</li></ul>
 
         <h3>Sprachfunktionen im internen Verwaltungsbereich</h3>
         <p>Der interne Verwaltungsbereich der Eventbörse verfügt über eine Sprachbedienung. Wird sie genutzt, übermitteln wir die Sprachaufnahme der sprechenden Person zur Texterkennung sowie den auszugebenden Antworttext zur Sprachsynthese an <strong>OpenAI, L.L.C.</strong> (USA), und die eingegebene Frage nebst technischem Betriebskontext an <strong>OpenRouter, Inc.</strong> (USA). Die Tonaufnahme wird zu keinem Zeitpunkt bei uns gespeichert; sie besteht nur für die Dauer des Aufrufs im Arbeitsspeicher.</p>
