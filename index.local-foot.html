@@ -1,7 +1,10 @@
-  <!-- Drittanbieter-Skripte deferred am Ende, um Render-Blocking zu vermeiden -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js" defer></script>
+  <!-- Bibliotheken deferred am Ende, um Render-Blocking zu vermeiden.
+       Aus dem Theme, nicht vom CDN: die Adresse ohne Version
+       (npm/flatpickr) lieferte hier jeweils die neueste Fassung aus — genau
+       das Supply-Chain-Risiko, vor dem der Kommentar in functions.php warnte. -->
+  <script src="assets/lib/leaflet/leaflet.js" defer></script>
+  <script src="assets/lib/flatpickr/flatpickr.min.js" defer></script>
+  <script src="assets/lib/flatpickr/flatpickr-de.js" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
   <script src="app.js?v=159" defer></script>
 </body>

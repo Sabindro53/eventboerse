@@ -280,7 +280,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-386 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+388 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -292,10 +292,24 @@ Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe), TOTP (RFC-6
 beide Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei
 Fehlern.
 
-**Vier Radar-Tests brauchen Leaflet vom CDN** (`unpkg.com`) und schlagen in
-Umgebungen ohne Netzzugang fehl — das ist die Umgebung, nicht der Code. In CI
-laufen sie durch. Wer lokal ohne Netz testet: `npx playwright test
---grep-invert "Radar als echte Feed-Karte"`.
+**Die Suite läuft ohne Netzzugang vollständig durch.** Bis zum 21.08.2026
+schlugen vier Radar-Tests fehl, weil Leaflet von `unpkg.com` kam; seit dem
+Self-Hosting liegen alle Bibliotheken im Theme.
+
+### Schriften und Bibliotheken liegen im Theme
+
+`assets/fonts/` (Inter als **variable** Schrift, 48 KB für alle Gewichte;
+Material Icons Round) und `assets/lib/` (Leaflet 1.9.4 mit `images/`,
+Flatpickr 4.6.13 + `de`). Google, unpkg und jsDelivr sind **keine Empfänger
+mehr** — weder in `functions.php`, noch in `index.php`, noch in der Dev-Shell.
+
+Die CSP ist entsprechend eng: `script-src` erlaubt nur noch `js.stripe.com`,
+`font-src` gar keinen fremden Host. **Wer eine Bibliothek wieder von außen
+holt, muss beides bewusst aufmachen** — und `recht.mjs` verlangt dann einen
+Eintrag in der Datenschutzerklärung.
+
+Achtung beim Ablegen neuer Dateien: `.gitignore` enthält ein nicht verankertes
+`vendor/`, das auch `assets/vendor/` verschluckt. Deshalb `assets/lib/`.
 
 ### OpenRouter-Autopilot
 

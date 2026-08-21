@@ -164,16 +164,15 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     <meta name="format-detection" content="telephone=no">
     <meta name="theme-color" content="#6C63FF">
 
-    <!-- ── Preconnect für externe Ressourcen ── -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- ── Preconnect ── nur noch Stripe; alles andere liegt im Theme. -->
     <link rel="preconnect" href="https://js.stripe.com">
 
-    <!-- ── Fonts (display:swap, kein Flash) ── -->
+    <!-- ── Schriften aus dem eigenen Haus ──
+         Standen hier bis zum 21.08.2026 ZUSAETZLICH zur wp_enqueue-Einbindung,
+         also doppelt — und mit "Material Icons" statt "Material Icons Round",
+         einer Familie, die das Theme gar nicht benutzt. -->
     <link rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
-    <link rel="stylesheet"
-          href="https://fonts.googleapis.com/icon?family=Material+Icons">
+          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/fonts.css?v=<?php echo $asset_ver; ?>">
 
     <!-- ── App CSS ── -->
     <link rel="stylesheet"

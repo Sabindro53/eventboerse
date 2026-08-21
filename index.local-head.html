@@ -34,11 +34,7 @@
   <link rel="manifest" href="/manifest.json" />
   <link rel="canonical" href="https://eventbörse.de" />
 
-  <!-- Performance: Preconnect zu kritischen Drittanbietern -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://unpkg.com" crossorigin />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <!-- Performance: Preconnect — nur noch Stripe kommt von aussen. -->
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
 
   <!-- Critical CSS first (render-blocking, but small) -->
@@ -46,16 +42,11 @@
   <link rel="stylesheet" href="styles.css?v=164" />
   <link rel="stylesheet" href="release-vision.css?v=1" />
 
-  <!-- Fonts: async laden, vermeidet Render-Block (FOUT statt FOIT) -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
-  </noscript>
+  <!-- Schriften: liegen im Theme, also kein async-Kniff noetig. -->
+  <link rel="stylesheet" href="assets/fonts/fonts.css" />
 
   <!-- Leaflet & Flatpickr: nur CSS im Head, JS am Ende deferred -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <link rel="stylesheet" href="assets/lib/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="assets/lib/flatpickr/flatpickr.min.css" />
 </head>
 <body>
