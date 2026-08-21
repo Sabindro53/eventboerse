@@ -1230,6 +1230,47 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     expect(voice, 'Betriebsfragen bleiben im Sprachmodus lokal').toMatch(/if \(localAnswer\)/);
   });
 
+  test('der Betriebsbericht steht sichtbar im HQ, nicht erst auf Nachfrage', async ({ page }) => {
+    // Er lag hinter einem Knopf im Gespräch. Eine Lage, die man erfragen muss,
+    // sieht man meistens gar nicht — und das ist genau die Lage, die man
+    // sehen müsste.
+    const fehler = [];
+    page.on('pageerror', (e) => fehler.push(String(e)));
+    await page.route('https://api.github.com/**', (r) => r.abort());
+    await page.goto('/hq.html');
+    await page.waitForTimeout(2400);
+    expect(fehler, 'HQ wirft Seitenfehler').toEqual([]);
+
+    const zeilen = await page.locator('#lage-liste .lage-zeile').count();
+    expect(zeilen, 'das Panel bleibt leer').toBeGreaterThan(2);
+
+    // Der Kern: „nicht geladen" darf NICHT aussehen wie „in Ordnung".
+    // GitHub ist hier abgeschnitten, also muss mindestens eine Zeile als
+    // unbekannt geführt sein — und nicht als grünes Null.
+    const unbekannt = await page.locator('#lage-liste .lage-unbekannt').count();
+    expect(unbekannt, 'ohne Workflow-Läufe muss etwas als unbekannt gelten').toBeGreaterThan(0);
+    const text = await page.locator('#lage-liste').innerText();
+    expect(text, 'eine fehlende Quelle darf nicht als 0 erscheinen').toMatch(/nicht geladen/);
+    expect(text, 'ein Nullwert wäre hier eine Falschaussage').not.toMatch(/0 Workflow-Läufe|0 Läufe/);
+
+    // Die Zusammenfassung nennt Unbekanntes, statt es wegzumitteln.
+    expect(await page.locator('#lage-badge').innerText()).toMatch(/unbekannt|auffällig|geprüft/);
+  });
+
+  test('Panel und Gespräch berichten aus derselben Quelle', async ({ page }) => {
+    // Zwei Erhebungen nebeneinander würden auseinanderlaufen, und dann sagt
+    // das HQ etwas anderes als der Circle auf Nachfrage.
+    await page.route('https://api.github.com/**', (r) => r.abort());
+    await page.goto('/hq.html');
+    await page.waitForTimeout(2400);
+    const gleich = await page.evaluate(() => {
+      const api = window.ebCircleAPI;
+      const ausZeilen = api.lageZeilen().map((z) => z.text).join('\n');
+      return ausZeilen === api.lage();
+    });
+    expect(gleich, 'Panel-Zeilen und Chat-Text stammen nicht aus derselben Erhebung').toBe(true);
+  });
+
   test('HQ zeigt das Journal ehrlich, auch wenn es leer ist', async ({ page }) => {
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
