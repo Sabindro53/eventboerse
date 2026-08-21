@@ -378,6 +378,25 @@
   /* Arbeitsjournal */
   .journal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: .8rem .9rem; margin-bottom: 1rem; }
+  /* Betriebsbericht. Die drei Zustaende muessen sich OHNE Farbe unterscheiden
+     lassen — Farbe allein waere WCAG 1.4.1, und ein Betriebsbericht, den man
+     bei Rotschwaeche falsch liest, ist schlimmer als keiner. Darum traegt der
+     Punkt zusaetzlich Form und Fuellung. */
+  .lage-liste { display: flex; flex-direction: column; }
+  .lage-zeile { display: flex; gap: .6rem; align-items: flex-start;
+    padding: .5rem 0; border-top: 1px solid var(--border); font-size: .78rem; line-height: 1.5; }
+  .lage-zeile:first-child { border-top: 0; }
+  .lage-dot { flex: 0 0 auto; width: .62rem; height: .62rem; margin-top: .38rem;
+    border-radius: 50%; border: 1.5px solid currentColor; }
+  .lage-ok        { color: var(--fg); }
+  .lage-ok        .lage-dot { border-color: #4ade80; background: #4ade80; }
+  /* Unbekannt: hohl. „Ich weiss es nicht" darf nicht wie „ist in Ordnung"
+     aussehen — das ist der Fehler, gegen den der Bericht gebaut wurde. */
+  .lage-unbekannt { color: var(--muted); }
+  .lage-unbekannt .lage-dot { border-color: var(--muted); background: transparent; }
+  /* Auffaellig: eckig statt rund, damit es auch ohne Farbe heraussticht. */
+  .lage-problem   { color: #fca5a5; }
+  .lage-problem   .lage-dot { border-color: #f87171; background: #f87171; border-radius: 2px; }
   .journal h5 { font-size: .82rem; margin-bottom: .1rem; }
   .journal > p { font-size: .72rem; color: var(--muted); margin-bottom: .6rem; line-height: 1.5; }
   .j-eintrag { display: flex; gap: .6rem; padding: .5rem 0; border-top: 1px solid var(--border); font-size: .75rem; }
@@ -789,6 +808,16 @@
            seinem Ziel als Überschrift und den Dateien, die er anfasst. -->
       <div class="nn-detail" id="nn-detail" hidden aria-live="polite"></div>
     </div>
+
+    <!-- Betriebsbericht — sichtbar, nicht auf Nachfrage.
+         Er stand bisher nur im Gespräch hinter einem Knopf. Eine Lage, die
+         man erst erfragen muss, sieht man meistens gar nicht — und das ist
+         genau die Lage, die man sehen müsste. -->
+    <div class="section-header" id="lage">
+      <div class="section-title">📋 Betriebsbericht <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— was gerade wirklich läuft</span></div>
+      <div class="section-badge" id="lage-badge">–</div>
+    </div>
+    <div class="journal lage-liste" id="lage-liste" aria-live="polite"></div>
 
     <!-- Bereiche & Autonomie -->
     <div class="section-header" id="bereiche">
@@ -1546,7 +1575,7 @@ async function triggerBot(workflow, botId) {
   } catch (e) { showToast(`❌ Fehler: ${e.message}`, 'error'); sfx('error'); }
   finally { const b = document.querySelector(`[data-trigger="${workflow}"]`); if (b) { b.disabled = false; b.textContent = BOTS.find(x => x.id === botId)?.triggerLabel || '▶ Start'; } }
 }
-async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); }
+async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); renderLage(); }
 
 /* ─── Toast / SFX / FX ─────────────────────────────────────────── */
 let toastTimer;
@@ -1630,7 +1659,7 @@ function renderFromCache() {
   // Alles hier stammt aus dem Zwischenspeicher — bis loadAll() frische
   // Daten bringt, wird das auch so ausgewiesen.
   state.ausCache = true;
-  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); }
+  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); renderLage(); }
 }
 
 async function loadAll() {
@@ -1639,7 +1668,7 @@ async function loadAll() {
     await loadAutopilotPull();
     state.ausCache = false;   // ab hier sind die Daten nachweislich frisch
     ebImpuls('engineering', 'gut');
-    renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots();
+    renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderLage();
     renderQuests(); renderAchievements(); renderHud();
     if (nnKatalog) { nnZeichnen(); renderModelle(); }
   } catch (e) {
@@ -1690,7 +1719,7 @@ async function init() {
       try {
         await loadRuns();
         await loadAutopilotPull();
-        nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps();
+        nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps(); renderLage();
       } finally { state.operationsAbruf = false; }
     }, getPat() ? 30000 : 300000);
   }
@@ -3017,6 +3046,65 @@ function renderBereiche() {
   }).join('');
 }
 
+/**
+ * Der Betriebsbericht als Panel.
+ *
+ * Die Zeilen kommen aus derselben Erhebung wie im Gespräch. Der Unterschied
+ * zwischen „nicht geladen" und „null" wird hier FARBLICH getragen: grau heisst
+ * „ich weiss es nicht", rot heisst „ich weiss es und es ist schlecht". Sie
+ * gleich aussehen zu lassen wäre dieselbe Verwechslung, gegen die der Bericht
+ * ursprünglich gebaut wurde.
+ *
+ * Die Zusammenfassung oben nennt Probleme ZUERST und Unbekanntes danach: eine
+ * Kennzahl, die „12 ok" meldet, während drei Quellen fehlen, beruhigt falsch.
+ */
+function renderLage() {
+  const liste = document.getElementById('lage-liste');
+  const badge = document.getElementById('lage-badge');
+  if (!liste) return;
+
+  const api = window.ebCircleAPI;
+  if (!api || typeof api.lageZeilen !== 'function') {
+    // Ehrlich bleiben: der Bericht ist noch nicht bereit, also steht das da
+    // — und nicht eine leere Liste, die wie „alles in Ordnung" aussieht.
+    liste.innerHTML = '<div class="empty">Betriebsbericht noch nicht bereit.</div>';
+    if (badge) badge.textContent = '–';
+    return;
+  }
+
+  let zeilen = [];
+  try { zeilen = api.lageZeilen() || []; }
+  catch (e) {
+    liste.innerHTML = '<div class="empty">Betriebsbericht nicht erzeugbar.</div>';
+    if (badge) badge.textContent = 'Fehler';
+    return;
+  }
+
+  liste.innerHTML = '';
+  zeilen.forEach((z) => {
+    const row = document.createElement('div');
+    row.className = 'lage-zeile lage-' + (z.stand || 'ok');
+    const dot = document.createElement('span');
+    dot.className = 'lage-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    const txt = document.createElement('span');
+    // textContent, nicht innerHTML: der Text trägt Commit-Titel und
+    // Journaleinträge, also Fremdtext.
+    txt.textContent = z.text;
+    row.append(dot, txt);
+    liste.appendChild(row);
+  });
+
+  const probleme = zeilen.filter((z) => z.stand === 'problem').length;
+  const offen    = zeilen.filter((z) => z.stand === 'unbekannt').length;
+  if (badge) {
+    badge.textContent = probleme ? probleme + '× auffällig'
+      : offen ? offen + '× unbekannt'
+      : zeilen.length + ' geprüft';
+    badge.style.color = probleme ? '#fca5a5' : offen ? 'var(--muted)' : '';
+  }
+}
+
 function renderWartet() {
   if (!nnKatalog) return;
   // Nur die Bereiche mit Grenze — und die Grenze steht mit Begründung da,
@@ -3229,6 +3317,7 @@ async function initNeural() {
   nnZeichnen();
   renderBereiche();
   renderWartet();
+  renderLage();
   renderJournal();
   renderAuftragsstrom();
   renderModelle();
@@ -3538,8 +3627,31 @@ window.addEventListener('DOMContentLoaded', init);
    * danach — sie zusammenfallen zu lassen ist genau die Art Fehler, die den
    * Selbstcheck zwei Wochen lang über einen alten Code-Stand berichten liess.
    */
-  function hqLagebericht() {
+  /**
+   * Dieselbe Erhebung, aber mit Zustand je Zeile.
+   *
+   * Der Bericht war bisher reiner Text und wurde nur im Gespräch gezeigt.
+   * Für ein sichtbares Panel braucht es den Zustand — und den aus dem
+   * deutschen Satz zurückzuraten („enthält 'nicht geladen'") wäre genau der
+   * Fehler, den dieses Projekt schon zweimal hatte: eine Zusicherung, die an
+   * der Formulierung hängt statt an der Sache. Also entsteht der Zustand
+   * dort, wo die Aussage entsteht.
+   *
+   *   ok         gemessen, unauffällig
+   *   unbekannt  Quelle nicht geladen — das ist NICHT dasselbe wie Null
+   *   problem    gemessen und auffällig
+   *
+   * hqLagebericht() setzt daraus weiterhin den Text für das Gespräch
+   * zusammen. Eine Quelle, zwei Darstellungen.
+   */
+  function hqLageZeilen() {
     var z = [];
+    // Rückwärtskompatible Hülle: z.push('…') bleibt möglich und gilt als 'ok'.
+    z.push = function (text, stand) {
+      Array.prototype.push.call(this, typeof text === 'object'
+        ? text : { text: String(text), stand: stand || 'ok' });
+      return this.length;
+    };
     var rel = function (iso) {
       if (!iso) return 'ohne Zeit';
       var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -3553,12 +3665,13 @@ window.addEventListener('DOMContentLoaded', init);
     var vonPfad = function (re) { return laeufe.filter(function (r) { return re.test(r.path || ''); }); };
 
     if (!laeufe.length) {
-      z.push('Workflow-Läufe: nicht geladen — ohne sie kann ich zu Deploy und Puls nichts sagen.');
+      z.push('Workflow-Läufe: nicht geladen — ohne sie kann ich zu Deploy und Puls nichts sagen.', 'unbekannt');
     } else {
       var dep = vonPfad(/ionos-deploy\.yml$/)[0];
       z.push(dep
         ? 'Letzter Deploy: ' + (dep.conclusion || 'läuft noch') + ' · ' + String(dep.head_sha || '').slice(0, 7) + ' · ' + rel(dep.created_at)
-        : 'Deploy: in den geladenen Läufen keiner.');
+        : 'Deploy: in den geladenen Läufen keiner.',
+        dep ? (dep.conclusion === 'failure' ? 'problem' : 'ok') : 'unbekannt');
       var puls = vonPfad(/hq-operations\.yml$/)[0];
       // Den Takt MESSEN, nicht behaupten. `*/30` ist bei GitHub eine
       // Anforderung, keine Zusage: geplante Laeufe oeffentlicher Repos werden
@@ -3576,19 +3689,21 @@ window.addEventListener('DOMContentLoaded', init);
       }
       z.push(puls
         ? 'Letzter Ensemble-Puls: ' + (puls.conclusion || 'läuft noch') + ' · ' + rel(puls.created_at) + ' (' + taktText + ')'
-        : 'Ensemble-Puls: in den geladenen Läufen keiner.');
+        : 'Ensemble-Puls: in den geladenen Läufen keiner.',
+        puls ? (puls.conclusion === 'failure' ? 'problem' : 'ok') : 'unbekannt');
       var kaputt = laeufe.filter(function (r) { return r.conclusion === 'failure'; });
       z.push(kaputt.length
         ? 'Fehlgeschlagene Läufe unter den geladenen: ' + kaputt.length + ' — zuletzt ' + (kaputt[0].name || kaputt[0].path) + ' ' + rel(kaputt[0].created_at)
-        : 'Kein fehlgeschlagener Lauf unter den geladenen.');
+        : 'Kein fehlgeschlagener Lauf unter den geladenen.',
+        kaputt.length ? 'problem' : 'ok');
     }
 
     if (!nnJournal) {
-      z.push('Arbeitsjournal: nicht geladen — ich kann nicht sagen, wer gearbeitet hat.');
+      z.push('Arbeitsjournal: nicht geladen — ich kann nicht sagen, wer gearbeitet hat.', 'unbekannt');
     } else {
       var e = nnJournal.eintraege || [];
       if (!e.length) {
-        z.push('Arbeitsjournal: geladen, aber leer — es hat noch keine Schicht gearbeitet.');
+        z.push('Arbeitsjournal: geladen, aber leer — es hat noch keine Schicht gearbeitet.', 'problem');
       } else {
         var nach = {};
         e.forEach(function (x) { nach[x.ergebnis] = (nach[x.ergebnis] || 0) + 1; });
@@ -3598,7 +3713,7 @@ window.addEventListener('DOMContentLoaded', init);
           z.push('Zuletzt echt geliefert: ' + (letzte.person || letzte.rolle) + ' (' + (letzte.rollenname || '–') + ') ' + rel(letzte.zeit)
             + ' — ' + String(letzte.text || '').replace(/\s+/g, ' ').slice(0, 200));
         } else {
-          z.push('Keine einzige fertige Schicht im Journal — alle Einträge sind Ausfälle oder Kostenstopps.');
+          z.push('Keine einzige fertige Schicht im Journal — alle Einträge sind Ausfälle oder Kostenstopps.', 'problem');
         }
         var kosten = e.reduce(function (a, x) { return a + (typeof x.kostenUsd === 'number' ? x.kostenUsd : 0); }, 0);
         var tok = e.reduce(function (a, x) { return a + (x.tokens || 0); }, 0);
@@ -3607,11 +3722,12 @@ window.addEventListener('DOMContentLoaded', init);
     }
 
     if (!state.audit) {
-      z.push('Selbstcheck: nicht geladen.');
+      z.push('Selbstcheck: nicht geladen.', 'unbekannt');
     } else {
       var c = state.audit.counts || {};
       z.push('Selbstcheck vom ' + (String(state.audit.erzeugt || state.audit.generated || '').slice(0, 10) || 'ohne Datum')
-        + ': ' + ((state.audit.findings || []).length) + ' Befunde (' + (c.error || 0) + ' Fehler, ' + (c.warn || 0) + ' Warnungen).');
+        + ': ' + ((state.audit.findings || []).length) + ' Befunde (' + (c.error || 0) + ' Fehler, ' + (c.warn || 0) + ' Warnungen).',
+        (c.error || 0) > 0 ? 'problem' : 'ok');
     }
 
     if (state.pulls && state.pulls.length) {
@@ -3622,11 +3738,15 @@ window.addEventListener('DOMContentLoaded', init);
 
     z.push(nnWissen
       ? 'Wissensbasis: ' + nnWissen + ' freigegebene Abschnitte.'
-      : 'Wissensbasis: nicht geladen.');
+      : 'Wissensbasis: nicht geladen.', nnWissen ? 'ok' : 'unbekannt');
     if (state.siteUp !== null && state.siteUp !== undefined) {
-      z.push('Seite erreichbar: ' + (state.siteUp ? 'ja' : 'NEIN'));
+      z.push('Seite erreichbar: ' + (state.siteUp ? 'ja' : 'NEIN'), state.siteUp ? 'ok' : 'problem');
     }
-    return z.join('\n');
+    return z;
+  }
+
+  function hqLagebericht() {
+    return hqLageZeilen().map(function (x) { return x.text; }).join('\n');
   }
 
   function hqStatus(q) {
@@ -4022,6 +4142,10 @@ window.addEventListener('DOMContentLoaded', init);
     /* Der Lagebericht auch ausserhalb des Gespraechs — er ist eine Aussage
        ueber den Betrieb, nicht bloss eine Chat-Antwort. */
     lage: function () { return hqLagebericht(); },
+    /* Dieselbe Erhebung als Zeilen mit Zustand — fuer das sichtbare Panel.
+       Eine Quelle, zwei Darstellungen: sonst driftet das, was im HQ steht,
+       von dem weg, was der Circle auf Nachfrage sagt. */
+    lageZeilen: function () { return hqLageZeilen(); },
     statusAntwort: function (frage) { return hqStatus(frage); }
   };
   document.getElementById('ebc-close').addEventListener('click', close);
