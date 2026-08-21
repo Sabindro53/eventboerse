@@ -9774,7 +9774,105 @@ add_action( 'rest_api_init', function () {
         'callback'            => 'eb_hq_probe_openai',
         'permission_callback' => 'eb_hq_proxy_darf',
     ) );
+
+    register_rest_route( 'eventboerse/v1', '/hq/stimme', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_hq_stimme',
+        'permission_callback' => 'eb_hq_proxy_darf',
+        'args'                => array(
+            'text' => array( 'required' => true, 'type' => 'string' ),
+        ),
+    ) );
 } );
+
+/**
+ * Sprachausgabe fuer das HQ — serverseitig, damit der Schluessel bleibt, wo er hingehoert.
+ *
+ * Warum ueberhaupt: das HQ sprach bisher ausschliesslich ueber
+ * `window.speechSynthesis`, also die Stimme des Betriebssystems. Die klingt
+ * auf Windows und Android blechern, in manchen Browsern fehlt sie ganz. Das
+ * ist keine Modellfrage gewesen, sondern gar kein Modell.
+ *
+ * Drei Eigenschaften, die diese Route durchhaelt:
+ *
+ * 1. DER SCHLUESSEL ERREICHT DEN BROWSER NIE. Der Text geht hin, die fertigen
+ *    Audiodaten kommen zurueck. Genau wie bei den Probe-Routen.
+ *
+ * 2. OHNE SCHLUESSEL EIN EHRLICHES NEIN. Kein Fehler, kein leerer Klang: die
+ *    Route sagt „nicht hinterlegt", und der Browser faellt sichtbar auf seine
+ *    eigene Stimme zurueck. Eine Sprachausgabe, die still bleibt, waere fuer
+ *    den Nutzer nicht von einem Absturz zu unterscheiden.
+ *
+ * 3. LAENGE BEGRENZT. Sprachausgabe kostet pro Zeichen. 1200 Zeichen sind
+ *    rund zwei Minuten — laenger hoert ohnehin niemand zu, und ein
+ *    unbegrenztes Feld waere eine offene Rechnung.
+ */
+function eb_hq_stimme( WP_REST_Request $request ) {
+    if ( ! defined( 'EB_OPENAI_API_KEY' ) || ! EB_OPENAI_API_KEY ) {
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => 'EB_OPENAI_API_KEY ist auf dem Server nicht hinterlegt.',
+        ), 200 );
+    }
+
+    $text = trim( (string) $request->get_param( 'text' ) );
+    if ( $text === '' ) {
+        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Kein Text.' ), 400 );
+    }
+    // mb_substr, nicht substr: ein Schnitt mitten durch ein Mehrbyte-Zeichen
+    // erzeugt ungueltiges UTF-8, und die Gegenstelle antwortet dann mit 400.
+    $text = function_exists( 'mb_substr' ) ? mb_substr( $text, 0, 1200 ) : substr( $text, 0, 1200 );
+
+    // Ein sprechender Kreis, den man in Dauerschleife anwerfen kann, ist eine
+    // offene Rechnung. 30 Ausgaben je Minute reichen fuer ein Gespraech.
+    $limit = eventboerse_check_rate_limit( 'hq_stimme', 30, MINUTE_IN_SECONDS );
+    if ( is_wp_error( $limit ) ) {
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => $limit->get_error_message(),
+        ), 429 );
+    }
+
+    $res = wp_remote_post( 'https://api.openai.com/v1/audio/speech', array(
+        'timeout' => 25,
+        'headers' => array(
+            'Authorization' => 'Bearer ' . EB_OPENAI_API_KEY,
+            'Content-Type'  => 'application/json',
+        ),
+        'body' => wp_json_encode( array(
+            'model'           => 'gpt-4o-mini-tts',
+            'voice'           => 'onyx',
+            'input'           => $text,
+            'response_format' => 'mp3',
+        ) ),
+    ) );
+
+    if ( is_wp_error( $res ) ) {
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => 'Sprachdienst nicht erreichbar: ' . $res->get_error_message(),
+        ), 200 );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $res );
+    if ( $code !== 200 ) {
+        // Den Text der Gegenstelle NICHT durchreichen: er kann den
+        // Organisationsnamen und Kontodetails enthalten.
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => 'Sprachdienst antwortete mit HTTP ' . $code . '.',
+        ), 200 );
+    }
+
+    $audio = wp_remote_retrieve_body( $res );
+    if ( $audio === '' ) {
+        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Leere Antwort.' ), 200 );
+    }
+    return new WP_REST_Response( array(
+        'verfuegbar' => true,
+        'format'     => 'mp3',
+        'audio'      => base64_encode( $audio ),
+    ), 200 );
+}
 
 /**
  * HQ-Gespräch: der Kreis spricht mit einem echten Modell.
