@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 371 Tests in 20 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 381 Tests in 20 Suiten**, blockierendes Gate in `pr-check.yml`.
   Vier Radar-Tests brauchen Leaflet vom CDN und schlagen ohne Netzzugang fehl —
   Umgebung, nicht Code
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,

@@ -9783,7 +9783,133 @@ add_action( 'rest_api_init', function () {
             'text' => array( 'required' => true, 'type' => 'string' ),
         ),
     ) );
+
+    register_rest_route( 'eventboerse/v1', '/hq/gehoer', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_hq_gehoer',
+        'permission_callback' => 'eb_hq_proxy_darf',
+        'args'                => array(
+            'audio' => array( 'required' => true, 'type' => 'string' ),
+        ),
+    ) );
 } );
+
+/**
+ * Groesstes entgegengenommenes Tonstueck. Opus bei 24 kbit/s: rund 20 Minuten.
+ *
+ * Bewusst ausgeschrieben statt MB_IN_BYTES: eine `const` wird beim Einlesen
+ * dieser Datei ausgewertet, und eine Konstante aus dem Core an dieser Stelle
+ * vorauszusetzen macht das Theme von einer Ladereihenfolge abhaengig, die es
+ * nicht selbst kontrolliert.
+ */
+const EB_HQ_GEHOER_MAX = 4 * 1024 * 1024;
+
+/**
+ * Spracheingabe fuer das HQ — Whisper, serverseitig.
+ *
+ * Das Gegenstueck zu eb_hq_stimme(). Bisher lief die Erkennung ueber
+ * `SpeechRecognition` im Browser: in Chrome brauchbar, in Firefox und Safari
+ * gar nicht vorhanden. Wer dort auf das Mikrofon drueckte, bekam nichts —
+ * keine Fehlermeldung, keine Eingabe.
+ *
+ * Dieselben drei Eigenschaften wie bei der Ausgabe:
+ *
+ * 1. DER SCHLUESSEL ERREICHT DEN BROWSER NIE. Ton hin, Text zurueck.
+ *
+ * 2. OHNE SCHLUESSEL EIN EHRLICHES NEIN, damit der Browser sichtbar auf
+ *    seine eigene Erkennung zurueckfallen kann. Ein Mikrofon, das nichts
+ *    tut und nichts sagt, ist von einem Defekt nicht zu unterscheiden.
+ *
+ * 3. GROESSE BEGRENZT. Sprache kostet pro Minute, und ein unbegrenztes
+ *    Feld waere zugleich eine offene Rechnung und ein Speicherproblem:
+ *    base64 wird im Arbeitsspeicher dekodiert.
+ *
+ * Der Ton wird NICHT auf die Platte geschrieben. Eine Sprachaufnahme, die
+ * als Datei liegen bleibt, ist ein personenbezogenes Datum mit unklarer
+ * Loeschfrist — sie existiert hier nur fuer die Dauer des Aufrufs.
+ */
+function eb_hq_gehoer( WP_REST_Request $request ) {
+    if ( ! defined( 'EB_OPENAI_API_KEY' ) || ! EB_OPENAI_API_KEY ) {
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => 'EB_OPENAI_API_KEY ist auf dem Server nicht hinterlegt.',
+        ), 200 );
+    }
+
+    $roh = (string) $request->get_param( 'audio' );
+    // Vor dem Dekodieren messen, nicht danach: base64 ist rund ein Drittel
+    // groesser als der Inhalt, und erst decodieren, dann pruefen hiesse, den
+    // Speicher schon belegt zu haben.
+    if ( strlen( $roh ) > (int) ceil( EB_HQ_GEHOER_MAX * 4 / 3 ) + 1024 ) {
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => 'Aufnahme zu lang.',
+        ), 413 );
+    }
+    // strict: sonst schluckt PHP Muell und liefert Bytes, die kein Ton sind.
+    $audio = base64_decode( $roh, true );
+    if ( $audio === false || $audio === '' ) {
+        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Keine gültige Aufnahme.' ), 400 );
+    }
+    if ( strlen( $audio ) > EB_HQ_GEHOER_MAX ) {
+        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Aufnahme zu lang.' ), 413 );
+    }
+
+    $limit = eventboerse_check_rate_limit( 'hq_gehoer', 30, MINUTE_IN_SECONDS );
+    if ( is_wp_error( $limit ) ) {
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => $limit->get_error_message(),
+        ), 429 );
+    }
+
+    // multipart von Hand: wp_remote_post kennt keinen Datei-Upload.
+    $grenze = 'eb' . wp_generate_password( 24, false );
+    $teil   = function ( $name, $wert ) use ( $grenze ) {
+        return "--{$grenze}\r\nContent-Disposition: form-data; name=\"{$name}\"\r\n\r\n{$wert}\r\n";
+    };
+    $body  = $teil( 'model', 'whisper-1' );
+    // Sprache fest auf Deutsch: ohne Angabe raet Whisper mit, und bei kurzen
+    // Aeusserungen ("ja", "stopp") raet es regelmaessig auf Englisch.
+    $body .= $teil( 'language', 'de' );
+    $body .= "--{$grenze}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"ton.webm\"\r\n"
+           . "Content-Type: audio/webm\r\n\r\n" . $audio . "\r\n";
+    $body .= "--{$grenze}--\r\n";
+
+    $res = wp_remote_post( 'https://api.openai.com/v1/audio/transcriptions', array(
+        'timeout' => 30,
+        'headers' => array(
+            'Authorization' => 'Bearer ' . EB_OPENAI_API_KEY,
+            'Content-Type'  => 'multipart/form-data; boundary=' . $grenze,
+        ),
+        'body' => $body,
+    ) );
+
+    if ( is_wp_error( $res ) ) {
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => 'Erkennung nicht erreichbar: ' . $res->get_error_message(),
+        ), 200 );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $res );
+    if ( $code !== 200 ) {
+        // Wie bei der Ausgabe: der Text der Gegenstelle nennt Organisation
+        // und Kontodetails und wird darum nicht durchgereicht.
+        return new WP_REST_Response( array(
+            'verfuegbar' => false,
+            'grund'      => 'Erkennung antwortete mit HTTP ' . $code . '.',
+        ), 200 );
+    }
+
+    $d    = json_decode( wp_remote_retrieve_body( $res ), true );
+    $text = is_array( $d ) && isset( $d['text'] ) ? trim( (string) $d['text'] ) : '';
+    return new WP_REST_Response( array(
+        'verfuegbar' => true,
+        // Leer ist eine gueltige Antwort: es wurde nichts gesagt. Das ist
+        // etwas anderes als ein Fehler, und der Browser behandelt es anders.
+        'text'       => $text,
+    ), 200 );
+}
 
 /**
  * Sprachausgabe fuer das HQ — serverseitig, damit der Schluessel bleibt, wo er hingehoert.
