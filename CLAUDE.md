@@ -191,6 +191,28 @@ in der Mitte der KI-Kreis mit Sprache. Ein Impuls auf einer Bahn entspricht
 **einem echten Ereignis** — keine Dauer-Animation, sonst sieht ein
 stillstehendes System aus wie ein arbeitendes.
 
+### Die Stimme des HQ
+
+`/wp-json/eventboerse/v1/hq/stimme` erzeugt die Sprachausgabe **serverseitig**
+(OpenAI TTS, `gpt-4o-mini-tts`) — der Schlüssel erreicht den Browser nie, es
+gehen nur Text hin und fertiges Audio zurück. Opt-in über `EB_OPENAI_API_KEY`.
+
+**Ohne Schlüssel fällt das HQ hörbar auf `speechSynthesis` zurück**, die Stimme
+des Betriebssystems. Der Rückfall ist Absicht und muss hörbar bleiben: eine
+Sprachausgabe, die still bleibt, ist für den Nutzer nicht von einem Absturz zu
+unterscheiden. Das Ergebnis wird einmal gemerkt (`stimmeServer`), sonst kostet
+jede Antwort einen Aufruf für einen Schlüssel, den es nicht gibt.
+
+**Neue Stopp-Stelle → `stimmeStoppen()`, nicht `speechSynthesis.cancel()`.**
+Sonst spricht die Serverstimme weiter, während das Mikrofon schon wieder zuhört.
+
+Die **HUD-Ringe** am Sprech-Kreis (`.nn-hud-*`) stehen im Ruhezustand **still**
+und drehen nur bei `.hoert`. Dieselbe Regel wie für die Impulse auf den Bahnen:
+eine Dauer-Animation lässt ein stillstehendes System wie ein arbeitendes
+aussehen. Unter `prefers-reduced-motion` werden sie ganz abgeschaltet — der
+globale Block setzt nur die Dauer auf ~0, und eine Endlosrotation steht damit
+nicht still, sie flimmert.
+
 `/wp-json/eventboerse/v1/hq/probe/{anthropic|openai|openrouter}` prüft die KI-Schlüssel
 **serverseitig** — Gültigkeit und Rate-Limit-Kontingent, ohne dass der Schlüssel
 den Browser erreicht. Opt-in: nur aktiv, wenn die Server-Konstante gesetzt ist.
@@ -238,13 +260,13 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-356 Tests in 19 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+371 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
 Sicherheitsrahmen), **Recht** (Speicherschlüssel ↔ Cookie-Liste, Einwilligung,
 Pflichtseiten, KI-Transparenz), KI-Transparenz (Kennzeichnung in jeder
-Ansicht), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), Radar
+Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), Radar
 (Umkreis, lokale Position, Migrations-Verhalten), Vision-Release, Kern
 (Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), Barrierefreiheit (axe,
 beide Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei

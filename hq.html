@@ -276,6 +276,48 @@
 
   /* Der Circle in der Mitte */
   .nn-orb-hit { cursor: pointer; }
+
+  /* ── HUD-Ringe am Sprech-Kreis ──────────────────────────────────────
+     Vier Lagen aus reiner Geometrie. Im Ruhezustand STEHEN sie still:
+     eine Dauerrotation liesse ein stillstehendes System wie ein
+     arbeitendes aussehen — dieselbe Regel, die auch fuer die Impulse auf
+     den Bahnen gilt. Bewegung heisst hier: es hoert gerade zu oder
+     spricht gerade. */
+    /* Dunkles Feld hinter den Ringen. Ohne das geht das Cyan im violetten
+     Grund der Zentrale unter — der HUD-Eindruck lebt vom Kontrast, nicht
+     von der Anzahl der Ringe. */
+  .nn-hud-feld { fill: rgba(6,14,26,.72); stroke: rgba(34,211,238,.16); stroke-width: 1; }
+  /* Beschriftung UNTER die Scheibe: im dunklen Feld war sie kaum lesbar. */
+  .nn-hud-text { fill: rgba(165,243,252,.92); }
+  .nn-hud circle:not(.nn-hud-feld) { fill: none; }
+  .nn-hud-aussen,
+  .nn-hud-teilung,
+  .nn-hud-klammer,
+  .nn-hud-innen {
+    transform-origin: var(--nn-o-x) var(--nn-o-y);
+    transition: stroke .35s ease, opacity .35s ease;
+  }
+  /* Aussenring: lange Boegen mit Luecken. */
+  .nn-hud-aussen  { stroke: rgba(34,211,238,.45); stroke-width: 1; stroke-dasharray: 54 26 14 26; }
+  /* Teilung: viele kurze Striche — die Skala. */
+  .nn-hud-teilung { stroke: rgba(34,211,238,.52); stroke-width: 3; stroke-dasharray: 1.5 7.5; }
+  /* Klammern: vier Viertelboegen. */
+  .nn-hud-klammer { stroke: rgba(34,211,238,.58); stroke-width: 1.5; stroke-dasharray: 40 26; }
+  .nn-hud-innen   { stroke: rgba(103,232,249,.62); stroke-width: 1; }
+
+  /* Zuhoeren: die Skala dreht, der Innenring atmet. Gegenlaeufig, damit die
+     Bewegung als Mechanik lesbar ist und nicht als Ladebalken. */
+  .neural.hoert .nn-hud-aussen  { stroke: rgba(34,211,238,.55); animation: nnHudDreh 24s linear infinite; }
+  .neural.hoert .nn-hud-teilung { stroke: rgba(34,211,238,.70); animation: nnHudDreh 14s linear infinite reverse; }
+  .neural.hoert .nn-hud-klammer { stroke: rgba(34,211,238,.60); animation: nnHudDreh 9s linear infinite; }
+  .neural.hoert .nn-hud-innen   { stroke: rgba(34,211,238,.85); }
+  /* Sprechen: keine Drehung, nur Helligkeit — sonst sieht Antworten aus
+     wie Arbeiten. */
+  .neural.spricht .nn-hud-klammer,
+  .neural.spricht .nn-hud-innen { stroke: rgba(103,232,249,.9); }
+  .neural.spricht .nn-hud-teilung { stroke: rgba(103,232,249,.6); }
+  @keyframes nnHudDreh { to { transform: rotate(360deg); } }
+
   .nn-orb-ring { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 1; }
   .neural.hoert .nn-orb-ring { animation: nnHoer 1.4s ease-out infinite; }
   @keyframes nnHoer { 0% { r: 40; opacity: .8; } 100% { r: 62; opacity: 0; } }
@@ -704,6 +746,11 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
     #bg-grid { animation: none; }
+    /* Eine Endlosrotation mit .001ms Dauer steht nicht still, sie flimmert —
+       fuer genau die Leute, die um weniger Bewegung gebeten haben. Die
+       HUD-Ringe werden deshalb ganz abgeschaltet; die Zustaende bleiben
+       ueber die Farbe lesbar. */
+    .nn-hud-aussen, .nn-hud-teilung, .nn-hud-klammer, .nn-hud-innen { animation: none !important; }
   }
 
 /* ══ EB CIRCLE — sprechender KI-Kreis ══════════════════════════════ */
@@ -2477,14 +2524,30 @@ function nnZeichnen() {
       </g>`);
   });
 
-  // Sprech-Kreis am Kern
+  // Sprech-Kreis am Kern — HUD-Ringe im Jarvis-Stil.
+  //
+  // Die Ringe stehen im Ruhezustand STILL. Das ist keine Sparsamkeit, sondern
+  // dieselbe Regel wie beim Transportstrom: eine Dauer-Animation laesst ein
+  // stillstehendes System wie ein arbeitendes aussehen. Bewegung gibt es,
+  // wenn wirklich etwas passiert — beim Zuhoeren und beim Sprechen, gesteuert
+  // ueber .hoert und .spricht am Container.
+  //
+  // Der Aufbau ist bewusst nur Geometrie, keine Bilddatei: er skaliert mit dem
+  // viewBox, faerbt sich ueber CSS-Variablen und kostet keinen Netzaufruf.
+  const O = NN_MITTE;
   teile.push(`
-    <g class="nn-orb-hit" id="nn-orb" role="button" tabindex="0" aria-label="Sprechen — KI-Kreis starten">
-      <circle class="nn-orb-ring" cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="36"/>
-      <circle cx="${NN_MITTE.x}" cy="${NN_MITTE.y}" r="26" fill="url(#nnOrb)"/>
-      <path class="nn-welle" id="nn-welle" d="M ${NN_MITTE.x - 11} ${NN_MITTE.y} q 3.5 -7 5.5 0 t 5.5 0 t 5.5 0"/>
-      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 5}" style="font-size:14px;text-anchor:middle;fill:#fff">🎙</text>
-      <text x="${NN_MITTE.x}" y="${NN_MITTE.y + 40}" class="nn-sub" id="nn-orb-text">sprechen</text>
+    <g class="nn-orb-hit nn-hud" id="nn-orb" role="button" tabindex="0" aria-label="Sprechen — KI-Kreis starten"
+       style="--nn-o-x:${O.x}px; --nn-o-y:${O.y}px">
+      <circle class="nn-hud-feld" cx="${O.x}" cy="${O.y}" r="62"/>
+      <circle class="nn-hud-aussen" cx="${O.x}" cy="${O.y}" r="58"/>
+      <circle class="nn-hud-teilung" cx="${O.x}" cy="${O.y}" r="50"/>
+      <circle class="nn-hud-klammer" cx="${O.x}" cy="${O.y}" r="42"/>
+      <circle class="nn-hud-innen" cx="${O.x}" cy="${O.y}" r="33"/>
+      <circle class="nn-orb-ring" cx="${O.x}" cy="${O.y}" r="36"/>
+      <circle cx="${O.x}" cy="${O.y}" r="26" fill="url(#nnOrb)"/>
+      <path class="nn-welle" id="nn-welle" d="M ${O.x - 11} ${O.y} q 3.5 -7 5.5 0 t 5.5 0 t 5.5 0"/>
+      <text x="${O.x}" y="${O.y + 5}" style="font-size:14px;text-anchor:middle;fill:#fff">🎙</text>
+      <text x="${O.x}" y="${O.y + 78}" class="nn-sub nn-hud-text" id="nn-orb-text">sprechen</text>
     </g>`);
 
   svg.innerHTML = defs + teile.join('');
@@ -3903,26 +3966,101 @@ window.addEventListener('DOMContentLoaded', init);
     });
     suggestionsEl.classList.toggle('has', !!suggestionsEl.childElementCount);
   }
+  /* ── Stimme ────────────────────────────────────────────────────────────
+     Das HQ sprach ausschliesslich ueber window.speechSynthesis, also die
+     Stimme des Betriebssystems. Die klingt auf Windows und Android blechern
+     und fehlt in manchen Browsern ganz — es war nie ein schlechtes Modell,
+     es war gar keins.
+
+     Jetzt zuerst die Serverstimme (/hq/stimme, Schluessel bleibt am Server),
+     und wenn die nicht da ist, die des Browsers. Der Rueckfall ist SICHTBAR:
+     eine Sprachausgabe, die einfach still bleibt, ist fuer den Nutzer nicht
+     von einem Absturz zu unterscheiden.
+
+     `stimmeServer` merkt sich das Ergebnis der ersten Anfrage: null = noch
+     nicht geprueft, true/false = geprueft. Ohne das fragte jede Antwort
+     erneut nach einem Schluessel, den es nicht gibt. */
+  var stimmeServer = null;
+  var laufendesAudio = null;
+
+  function stimmeStoppen() {
+    try { if (laufendesAudio) { laufendesAudio.pause(); laufendesAudio = null; } } catch (e) {}
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  /* Die Zustandswechsel gelten fuer beide Stimmen — sonst bliebe der Kreis
+     bei der Serverstimme im „hoert zu"-Zustand haengen. */
+  function sprechBeginn(session) {
+    if (session !== dialogSession || !panel.classList.contains('open')) return;
+    circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht');
+  }
+  function sprechEnde(session) {
+    circle.classList.remove('speaking');
+    if (session !== dialogSession || !panel.classList.contains('open')) return;
+    voiceState('Bereit für dein Gespräch', null);
+    var darfNeuHoeren = !suppressVoiceRestart;
+    suppressVoiceRestart = false;
+    if (darfNeuHoeren && voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 120);
+  }
+
+  async function sayServer(text, session) {
+    var res = await fetch('/wp-json/eventboerse/v1/hq/stimme', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': HQ_REST_NONCE },
+      body: JSON.stringify({ text: String(text).slice(0, 1200) })
+    });
+    if (!res.ok) return false;
+    var d = await res.json();
+    if (!d || !d.verfuegbar || !d.audio) return false;
+    // Inzwischen ein neues Gespraech? Dann nicht mehr abspielen.
+    if (session !== dialogSession || !panel.classList.contains('open')) return true;
+
+    var audio = new Audio('data:audio/mpeg;base64,' + d.audio);
+    laufendesAudio = audio;
+    audio.addEventListener('play',  function () { sprechBeginn(session); });
+    audio.addEventListener('ended', function () { laufendesAudio = null; sprechEnde(session); });
+    audio.addEventListener('error', function () { laufendesAudio = null; sprechEnde(session); });
+    try { await audio.play(); }
+    catch (e) {
+      // Autoplay verweigert — das ist kein Grund, stumm zu bleiben.
+      laufendesAudio = null;
+      return false;
+    }
+    return true;
+  }
+
   function say(text) {
-    if (!speakOn || !window.speechSynthesis) return;
+    if (!speakOn) return;
+    var session = dialogSession;
+    stimmeStoppen();
+
+    if (stimmeServer !== false) {
+      sayServer(text, session).then(function (ok) {
+        if (ok) { stimmeServer = true; return; }
+        // Einmal merken, dann nicht mehr fragen — und hoerbar weitermachen.
+        stimmeServer = false;
+        sayBrowser(text, session);
+      }).catch(function () {
+        stimmeServer = false;
+        sayBrowser(text, session);
+      });
+      return;
+    }
+    sayBrowser(text, session);
+  }
+
+  function sayBrowser(text, session) {
+    if (!window.speechSynthesis) return;
     try {
       speechSynthesis.cancel();
-      var session = dialogSession;
+      if (session === undefined) session = dialogSession;
       var u = new SpeechSynthesisUtterance(String(text).slice(0, 600));
       u.lang = 'de-DE'; u.rate = .98; u.pitch = .94;
       u.voice = preferredVoice || chooseVoice();
-      u.onstart = function () {
-        if (session !== dialogSession || !panel.classList.contains('open')) return;
-        circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht');
-      };
-      u.onend = function () {
-        circle.classList.remove('speaking');
-        if (session !== dialogSession || !panel.classList.contains('open')) return;
-        voiceState('Bereit für dein Gespräch', null);
-        var darfNeuHoeren = !suppressVoiceRestart;
-        suppressVoiceRestart = false;
-        if (darfNeuHoeren && voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 120);
-      };
+      // Dieselben Zustandswechsel wie bei der Serverstimme — eine Stelle,
+      // nicht zwei, sonst haengt der Kreis je nach Stimme anders fest.
+      u.onstart = function () { sprechBeginn(session); };
+      u.onend   = function () { sprechEnde(session); };
       u.onerror = function () {
         circle.classList.remove('speaking');
         if (session === dialogSession && panel.classList.contains('open')) voiceState('Sprachausgabe gestoppt', null);
@@ -4049,7 +4187,9 @@ window.addEventListener('DOMContentLoaded', init);
     if (!SR) return;
     if (listening) { try { rec.stop(); } catch (e) {} return; }
     if (asking && askController) askController.abort();
-    try { if (window.speechSynthesis && speechSynthesis.speaking) { suppressVoiceRestart = true; speechSynthesis.cancel(); } } catch (e) {}
+    // stimmeStoppen() statt nur speechSynthesis: sonst laeuft die
+    // Serverstimme weiter, waehrend das Mikrofon schon wieder zuhoert.
+    if ((window.speechSynthesis && speechSynthesis.speaking) || laufendesAudio) { suppressVoiceRestart = true; stimmeStoppen(); }
     asking = false; askController = null;
     rec = new SR(); rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 3;
     var finalText = '';
@@ -4113,7 +4253,7 @@ window.addEventListener('DOMContentLoaded', init);
     asking = false; askController = null; renderSuggestions([]);
     input.value = ''; recognitionAlternatives = []; recognitionConfidence = null;
     conversation = []; log.innerHTML = '';
-    try { suppressVoiceRestart = true; speechSynthesis.cancel(); } catch (e) {}
+    try { suppressVoiceRestart = true; stimmeStoppen(); } catch (e) {}
     voiceState('Gespräch beendet', null);
     syncDialogControls();
   }
@@ -4156,7 +4296,7 @@ window.addEventListener('DOMContentLoaded', init);
   spkBtn.addEventListener('click', function () {
     speakOn = !speakOn; spkBtn.classList.toggle('on', speakOn);
     spkBtn.title = speakOn ? 'Vorlesen ist an' : 'Vorlesen ist aus';
-    if (!speakOn) { try { suppressVoiceRestart = true; speechSynthesis.cancel(); } catch (e) {} }
+    if (!speakOn) { try { suppressVoiceRestart = true; stimmeStoppen(); } catch (e) {} }
   });
   /* Feedback-Loop schließen (Impuls 6).
      Die Wissenslücken liegen im localStorage DIESES Browsers — es wird nichts
