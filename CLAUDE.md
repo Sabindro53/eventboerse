@@ -213,6 +213,20 @@ aussehen. Unter `prefers-reduced-motion` werden sie ganz abgeschaltet — der
 globale Block setzt nur die Dauer auf ~0, und eine Endlosrotation steht damit
 nicht still, sie flimmert.
 
+**Spracheingabe**: `/wp-json/eventboerse/v1/hq/gehoer` erkennt über Whisper —
+ebenfalls serverseitig, ebenfalls Opt-in über denselben Schlüssel. Ohne ihn
+greift wieder `SpeechRecognition` des Browsers, die es in Firefox und Safari
+**gar nicht gibt**; dort war das Mikrofon vorher wirkungslos. Der Ton wird nie
+auf die Platte geschrieben, `base64_decode` läuft `strict`, und die Länge wird
+**vor** dem Dekodieren geprüft — base64 ist ein Drittel größer als der Inhalt.
+
+Aufgenommen wird bis zur Stille (900 ms), höchstens 30 s. Wer gar nichts sagt,
+bricht nach 6 s ab: 30 Sekunden Stille zu erkennen kostet und liefert nichts.
+
+**Neue Stelle, die das Gespräch beendet → `aufnahmeBeenden()` mit aufrufen.**
+Ein Mikrofon, das nach dem Beenden weiterläuft, ist ein Datenschutzproblem und
+kein Schönheitsfehler.
+
 `/wp-json/eventboerse/v1/hq/probe/{anthropic|openai|openrouter}` prüft die KI-Schlüssel
 **serverseitig** — Gültigkeit und Rate-Limit-Kontingent, ohne dass der Schlüssel
 den Browser erreicht. Opt-in: nur aktiv, wenn die Server-Konstante gesetzt ist.
@@ -260,7 +274,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-371 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+381 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

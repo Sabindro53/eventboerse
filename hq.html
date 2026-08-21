@@ -4183,7 +4183,179 @@ window.addEventListener('DOMContentLoaded', init);
   /* ── Spracheingabe über die Web Speech API des Browsers ─────────── */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { micBtn.disabled = true; micBtn.title = 'Spracheingabe wird von diesem Browser nicht unterstützt'; micBtn.style.opacity = .4; }
+  /* ── Spracheingabe ─────────────────────────────────────────────────────
+     Bisher ausschliesslich `SpeechRecognition`: in Chrome brauchbar, in
+     Firefox und Safari gar nicht vorhanden. Wer dort auf das Mikrofon
+     drueckte, bekam nichts — keine Eingabe und keine Fehlermeldung.
+
+     Jetzt zuerst Whisper ueber /hq/gehoer (Schluessel bleibt am Server),
+     sonst die Erkennung des Browsers. Wie bei der Ausgabe wird das Ergebnis
+     einmal gemerkt.
+
+     Der Unterschied zur Browsererkennung ist ehrlich zu benennen: Whisper
+     hoert erst zu und versteht dann. Es gibt also keinen mitlaufenden Text
+     waehrend des Sprechens, dafuer ein deutlich besseres Ergebnis. Damit die
+     Pause nicht wie ein Absturz wirkt, sagt der Kreis waehrenddessen
+     „…verstehe". */
+  var gehoerServer = null;
+  var aufnahme = null, aufnahmeStrom = null, aufnahmeCtx = null;
+
+  function aufnahmeBeenden() {
+    try { if (aufnahme && aufnahme.state === 'recording') aufnahme.stop(); } catch (e) {}
+    try { if (aufnahmeStrom) aufnahmeStrom.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    try { if (aufnahmeCtx) aufnahmeCtx.close(); } catch (e) {}
+    aufnahme = null; aufnahmeStrom = null; aufnahmeCtx = null;
+  }
+
+  function kannAufnehmen() {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  }
+
+  /**
+   * Nimmt auf, bis es still wird — oder bis das harte Limit greift.
+   *
+   * Ohne Stille-Erkennung muesste man zum Beenden erneut klicken, und der
+   * Kreis waere kein Sprachassistent mehr, sondern ein Diktiergeraet. Die
+   * Obergrenze ist trotzdem noetig: ein offenes Mikrofon in einem lauten
+   * Raum wird sonst nie still und nimmt bis zum Groessenlimit auf.
+   */
+  function tonAufnehmen(session) {
+    return new Promise(function (fertig) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (strom) {
+        aufnahmeStrom = strom;
+        var stuecke = [];
+        var mr;
+        try { mr = new MediaRecorder(strom, { mimeType: 'audio/webm' }); }
+        catch (e) { try { mr = new MediaRecorder(strom); } catch (e2) { aufnahmeBeenden(); fertig(null); return; } }
+        aufnahme = mr;
+        mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) stuecke.push(ev.data); };
+        mr.onstop = function () {
+          var strm = aufnahmeStrom;
+          aufnahmeBeenden();
+          if (session !== dialogSession) { fertig(null); return; }
+          fertig(stuecke.length ? new Blob(stuecke, { type: mr.mimeType || 'audio/webm' }) : null);
+          void strm;
+        };
+
+        listening = true;
+        circle.classList.add('listening'); micBtn.classList.add('on');
+        voiceState('Hört zu…', 'hoert');
+        mr.start();
+
+        // Stille messen statt raten.
+        var AC = window.AudioContext || window.webkitAudioContext;
+        var hartesEnde = setTimeout(function () { try { mr.stop(); } catch (e) {} }, 30000);
+        if (!AC) return;
+        aufnahmeCtx = new AC();
+        var quelle = aufnahmeCtx.createMediaStreamSource(strom);
+        var analyse = aufnahmeCtx.createAnalyser();
+        analyse.fftSize = 512;
+        quelle.connect(analyse);
+        var daten = new Uint8Array(analyse.frequencyBinCount);
+        var stillSeit = null, hatGesprochen = false;
+        // Wer gar nichts sagt, soll nicht 30 Sekunden Stille aufnehmen und
+        // sie dann zur Erkennung schicken: das kostet, dauert und liefert
+        // garantiert nichts. Nach 6 Sekunden ohne einen einzigen lauten
+        // Abschnitt ist die Aufnahme vorbei — stumm ist eine Antwort.
+        var nieGesprochen = setTimeout(function () {
+          if (!hatGesprochen) { clearTimeout(hartesEnde); try { mr.stop(); } catch (e) {} }
+        }, 6000);
+        (function pruefe() {
+          if (!aufnahme || aufnahme.state !== 'recording') { clearTimeout(hartesEnde); clearTimeout(nieGesprochen); return; }
+          analyse.getByteTimeDomainData(daten);
+          var abweichung = 0;
+          for (var i = 0; i < daten.length; i++) abweichung += Math.abs(daten[i] - 128);
+          var laut = (abweichung / daten.length) > 2.2;
+          if (laut) { hatGesprochen = true; stillSeit = null; }
+          else if (hatGesprochen) {
+            if (stillSeit === null) stillSeit = Date.now();
+            // 900 ms: kuerzer schneidet mitten im Satz ab, laenger fuehlt
+            // sich an, als haette das Mikrofon nicht zugehoert.
+            else if (Date.now() - stillSeit > 900) { clearTimeout(hartesEnde); clearTimeout(nieGesprochen); try { mr.stop(); } catch (e) {} return; }
+          }
+          requestAnimationFrame(pruefe);
+        })();
+      }).catch(function () {
+        aufnahmeBeenden();
+        voiceMode = false;
+        voiceState('Mikrofon nicht erlaubt', null);
+        fertig(null);
+      });
+    });
+  }
+
+  function alsBase64(blob) {
+    return new Promise(function (fertig) {
+      var fr = new FileReader();
+      fr.onload = function () { fertig(String(fr.result).split(',')[1] || ''); };
+      fr.onerror = function () { fertig(''); };
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  async function hoerenServer(session) {
+    var blob = await tonAufnehmen(session);
+    listening = false; circle.classList.remove('listening'); micBtn.classList.remove('on');
+    if (!blob || session !== dialogSession || !panel.classList.contains('open')) return false;
+
+    // Sehr kurze Aufnahmen sind Stille oder ein Fehlklick. Sie zu senden
+    // kostet einen Aufruf fuer ein garantiert leeres Ergebnis.
+    if (blob.size < 1200) {
+      voiceState('Nichts gehört', null);
+      if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 400);
+      return true;
+    }
+
+    voiceState('…verstehe', 'hoert');
+    var b64 = await alsBase64(blob);
+    if (!b64) return false;
+
+    var res = await fetch('/wp-json/eventboerse/v1/hq/gehoer', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': HQ_REST_NONCE },
+      body: JSON.stringify({ audio: b64 })
+    });
+    if (!res.ok) return false;
+    var d = await res.json();
+    if (!d || !d.verfuegbar) return false;
+    if (session !== dialogSession || !panel.classList.contains('open')) return true;
+
+    voiceState('Bereit für dein Gespräch', null);
+    var t = String(d.text || '').trim();
+    // Leer heisst: es wurde nichts gesagt. Kein Fehler — aber auch keine
+    // Frage, die man absenden koennte.
+    if (t) { input.value = ''; ask(t); }
+    else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 200);
+    return true;
+  }
+
   function toggleMic() {
+    // Laeuft eine Aufnahme, beendet ein zweiter Druck sie — genau wie beim
+    // Stoppen der Browsererkennung.
+    if (aufnahme) { try { aufnahme.stop(); } catch (e) {} return; }
+
+    if (gehoerServer !== false && kannAufnehmen()) {
+      var session = dialogSession;
+      if ((window.speechSynthesis && speechSynthesis.speaking) || laufendesAudio) { suppressVoiceRestart = true; stimmeStoppen(); }
+      recognitionSession = session;
+      hoerenServer(session).then(function (ok) {
+        if (ok) { gehoerServer = true; return; }
+        gehoerServer = false;
+        // Sichtbar weitermachen statt stumm bleiben.
+        if (SR) micBrowser();
+        else voiceState('Spracheingabe hier nicht verfügbar', null);
+      }).catch(function () {
+        gehoerServer = false;
+        listening = false; circle.classList.remove('listening'); micBtn.classList.remove('on');
+        if (SR) micBrowser();
+        else voiceState('Spracheingabe hier nicht verfügbar', null);
+      });
+      return;
+    }
+    micBrowser();
+  }
+
+  function micBrowser() {
     if (!SR) return;
     if (listening) { try { rec.stop(); } catch (e) {} return; }
     if (asking && askController) askController.abort();
@@ -4254,6 +4426,9 @@ window.addEventListener('DOMContentLoaded', init);
     input.value = ''; recognitionAlternatives = []; recognitionConfidence = null;
     conversation = []; log.innerHTML = '';
     try { suppressVoiceRestart = true; stimmeStoppen(); } catch (e) {}
+    // Auch die Aufnahme: ein Mikrofon, das nach dem Beenden weiterlaeuft,
+    // ist ein Datenschutzproblem und kein Schoenheitsfehler.
+    aufnahmeBeenden();
     voiceState('Gespräch beendet', null);
     syncDialogControls();
   }
@@ -4276,7 +4451,13 @@ window.addEventListener('DOMContentLoaded', init);
     sprechen: toggleMic,
     beenden: close,
     istOffen: function () { return panel.classList.contains('open'); },
-    kannHoeren: function () { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); },
+    /* Seit Whisper reicht ein aufnahmefaehiger Browser — die
+       SpeechRecognition-Frage allein haette Firefox und Safari weiter als
+       taub gemeldet, obwohl sie es nicht mehr sind. */
+    kannHoeren: function () {
+      return !!(window.SpeechRecognition || window.webkitSpeechRecognition
+        || (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder));
+    },
     operativeAntwort: function (frage) { return hqOperativeAntwort(frage); },
     sync: syncDialogControls,
     /* Der Lagebericht auch ausserhalb des Gespraechs — er ist eine Aussage
