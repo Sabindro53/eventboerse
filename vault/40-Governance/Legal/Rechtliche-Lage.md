@@ -8,7 +8,7 @@ tags: [layer/L4, domain/governance, share/internal]
 # Rechtliche Lage — gemessen
 
 > **Erzeugt von `scripts/recht.mjs`. Nicht von Hand bearbeiten.**
-> Stand: 2026-08-20 17:26 UTC · 24 Frontend-Module geprüft.
+> Stand: 2026-08-21 19:31 UTC · 24 Frontend-Module geprüft.
 
 Diese Notiz vergleicht, was der Vault über die Plattform behauptet, mit dem,
 was der Code tut. Sie ersetzt keine Rechtsberatung: sie prüft nur, ob
@@ -93,8 +93,21 @@ Mindestens eine Schreibstelle richtet sich nach der Antwort.
 | Deklarationszustände | `assisted`, `generated`, `open` |
 | Beschreibt der Vault sie? | ja → [[40-Governance/Legal/KI-Transparenz]] |
 
+## Drittanbieter im Auslieferungspfad (DSGVO Art. 13 Abs. 1 lit. f)
+
+Jeder Host, den `wp_enqueue_*` wirklich einbindet — nicht der, an den man sich
+erinnert. Beim Abruf erfährt der Betreiber die IP des Besuchers.
+
+| Host | In der Datenschutzerklärung |
+|---|---|
+| `cdn.jsdelivr.net` | genannt |
+| `fonts.googleapis.com` | genannt |
+| `js.stripe.com` | genannt |
+| `unpkg.com` | genannt |
+
 ## Verknüpft
 
 - [[40-Governance/Legal/Compliance-Overview]]
 - [[40-Governance/Legal/Cookie-Liste]]
 - [[40-Governance/Legal/KI-Transparenz]]
+- [[40-Governance/Legal/Auftragsverarbeiter]]

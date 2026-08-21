@@ -97,11 +97,17 @@ node scripts/recht.mjs           # vault/40-Governance/Legal/Rechtliche-Lage.md
 node scripts/recht.mjs --check   # CI-Tor (pr-check.yml), täglich in der Tagesroutine
 ```
 
-Vergleicht vier Aussagen des Vaults mit dem Code: **Speicherschlüssel** (jeder
+Vergleicht fünf Aussagen des Vaults mit dem Code: **Speicherschlüssel** (jeder
 localStorage-/sessionStorage-Key muss in `Cookie-Liste.md` stehen — TDDDG § 25,
 DSGVO Art. 13), **Einwilligung** (liest überhaupt eine Schreibstelle die
 Antwort?), **Pflichtseiten** (jeder Slug der Compliance-Übersicht braucht eine
-Route in `functions.php`) und **KI-Transparenz** (EU AI Act Art. 50).
+Route in `functions.php`), **KI-Transparenz** (EU AI Act Art. 50) und
+**Drittanbieter** (jeder Host, den `wp_enqueue_*` wirklich einbindet, muss in
+der Datenschutzerklärung stehen — DSGVO Art. 13 Abs. 1 lit. f).
+
+Ein **unbekannter** Host blockiert ebenfalls: er ist ein neuer Datenfluss an
+einen Dritten, also der gefährlichste Fall, nicht der harmloseste. Neuer CDN →
+Eintrag in `DRITTANBIETER_NAMEN` **und** in die Datenschutzerklärung.
 
 Blockierend ist nur, was derselbe Commit beheben kann.
 
@@ -274,7 +280,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-381 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+386 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

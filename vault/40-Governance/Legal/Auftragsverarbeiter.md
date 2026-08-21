@@ -24,6 +24,19 @@ share: internal
 | **GitHub Inc.** | Quellcode-Hosting, CI | Quellcode (keine Plattform-User-Daten), Workflow-Logs | US | SCC | ✓ |
 | **Google LLC (Fonts)** | Webfonts (geplant: self-host) | IP-Adresse beim Font-Abruf | US | SCC | offen — Roadmap: self-hosting |
 | **OpenStreetMap Foundation** | Karten-Tiles | IP-Adresse beim Tile-Abruf | UK / EU | Angemessenheit (UK), EU-intern | nicht erforderlich (kein AV-Verhältnis) |
+| **unpkg / Cloudflare** | Leaflet-Bibliothek (Karten) | IP-Adresse beim Abruf | US | SCC (Cloudflare) | offen — Roadmap: self-hosting |
+| **jsDelivr** | Flatpickr (Datumsauswahl) | IP-Adresse beim Abruf | US / global | SCC | offen — Roadmap: self-hosting |
+
+### Nur im HQ — keine Besucherdaten
+
+Diese drei berühren **ausschließlich** angemeldete Betreiber und Mitarbeiter im HQ.
+Ein Besucher der Website löst hier nie einen Aufruf aus (belegt unten).
+
+| Anbieter | Zweck | Datenkategorien | Standort | Mechanismus | AVV |
+|---|---|---|---|---|---|
+| **OpenAI, L.L.C.** | Sprachausgabe des HQ (`gpt-4o-mini-tts`) | Antworttext des HQ (Betriebsdaten, keine Kundendaten) | US | SCC / DPF | **offen — erforderlich** |
+| **OpenAI, L.L.C.** | Spracherkennung des HQ (Whisper) | **Sprachaufnahme** des Sprechers | US | SCC / DPF | **offen — erforderlich** |
+| **OpenRouter, Inc.** | Gespräch des HQ-Circle, Modell-Ensemble | Frage des Mitarbeiters + Betriebskontext (Commits, Journal, Selbstcheck) | US | SCC | **offen — erforderlich** |
 
 ## Geplante / in Prüfung
 
@@ -51,10 +64,70 @@ share: internal
 - Secrets verschlüsselt at-rest in GitHub Actions
 - SCC abgeschlossen via GitHub Customer DPA
 
+### OpenAI (US) — Stimme und Gehör des HQ
+
+Seit dem 21.08.2026 spricht und hört das HQ serverseitig über OpenAI. Beides ist
+**Opt-in**: ohne `EB_OPENAI_API_KEY` findet keine Übermittlung statt, und die
+Oberfläche fällt hörbar auf die Stimmen des Browsers zurück.
+
+**Was übermittelt wird:**
+
+- **Ausgabe** (`/hq/stimme`): der Antworttext des HQ, auf 1200 Zeichen begrenzt.
+  Das sind Betriebsdaten — Lagebericht, Journal, Kennzahlen. Kundendaten der
+  Plattform gehören nicht hinein und kommen dort auch nicht vor.
+- **Eingabe** (`/hq/gehoer`): die **Sprachaufnahme** der sprechenden Person,
+  höchstens 4 MB. Eine Stimmaufnahme ist ein personenbezogenes Datum; sie lässt
+  Rückschlüsse auf die Person zu, auch wenn kein Name fällt.
+
+**Was nicht passiert:** Der Ton wird zu keinem Zeitpunkt auf eine Platte
+geschrieben — weder als Datei noch im Upload-Verzeichnis. Er existiert im
+Arbeitsspeicher für die Dauer des Aufrufs. Der API-Schlüssel erreicht den
+Browser nie.
+
+**Betroffene:** ausschließlich der Betreiber und Mitarbeiter mit `eb_hq_access`.
+Derzeit zwei Personen.
+
+**Offen:** Der AVV mit OpenAI ist **nicht abgeschlossen**. Er gehört vor die
+weitere Nutzung — nach Anbieterangabe werden API-Daten nicht zum Training
+verwendet und nur befristet zur Missbrauchserkennung vorgehalten, aber eine
+Anbieterangabe ersetzt keinen Vertrag nach Art. 28.
+
+### OpenRouter (US) — Gespräch und Modell-Ensemble
+
+Das HQ-Gespräch (`/hq/circle`) und die Schichten der KI-Mitarbeiter laufen über
+OpenRouter. Übermittelt werden die Frage des Mitarbeiters und ein
+Betriebskontext aus Commits, Arbeitsjournal und Selbstcheck.
+
+**Betroffene:** dieselben zwei Personen. Auch hier ist der **AVV offen**.
+
+### Warum Besucher davon nicht betroffen sind — gemessen, nicht behauptet
+
+Der QA-Bot und der Board-Assistent der Website beantworten Fragen **lokal** aus
+`assets/eb-knowledge.json`, die vom eigenen Server geladen wird
+(`fetch(url, { credentials: 'same-origin' })` in `js/modules/ui/31-modals-toast-qabot.js`).
+Es gibt in den besucherseitigen KI-Modulen **keinen** Aufruf an einen
+Sprachdienst. Eine Besucherfrage verlässt die Plattform nicht.
+
+Bleibt es dabei, ist das eine bewusste Eigenschaft und keine Zufälligkeit —
+sobald ein besucherseitiges Feature ein Modell anspräche, änderte sich die
+Rechtslage grundlegend, weil dann Kundendaten an einen US-Dienst gingen.
+
 ### Google Fonts (US)
 - IP-Übertragung beim Font-Abruf
 - **Mitigation auf Roadmap**: Self-Hosting der drei Schriften (`Inter`, `Plus Jakarta Sans`) im Theme
 - Bis dahin in Datenschutzerklärung explizit ausgewiesen
+
+### unpkg und jsDelivr (US)
+
+Beim ersten Aufruf einer Seite mit Karte lädt der Browser Leaflet von
+`unpkg.com`, die Datumsauswahl kommt von `cdn.jsdelivr.net`. In beiden Fällen
+erfährt der CDN-Betreiber die **IP-Adresse des Besuchers** — dieselbe Kategorie
+wie Google Fonts, mit denselben Folgen und derselben Lösung: Self-Hosting.
+
+Bis dahin gehören beide in die Datenschutzerklärung. Sie standen bis zum
+21.08.2026 in keiner der beiden Listen; gefunden wurden sie beim Nachtragen von
+OpenAI, indem die tatsächlichen `wp_enqueue`-Aufrufe ausgelesen wurden statt der
+Erinnerung zu folgen.
 
 ## Pflichten
 

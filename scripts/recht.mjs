@@ -49,6 +49,7 @@ const COOKIE_LISTE = join(ROOT, 'vault', '40-Governance', 'Legal', 'Cookie-Liste
 const COMPLIANCE = join(ROOT, 'vault', '40-Governance', 'Legal', 'Compliance-Overview.md');
 const KI_NOTIZ = join(ROOT, 'vault', '40-Governance', 'Legal', 'KI-Transparenz.md');
 const FUNCTIONS = join(ROOT, 'functions.php');
+const SHELL = join(ROOT, 'app-shell.html');
 const ZIEL = join(ROOT, 'vault', '40-Governance', 'Legal', 'Rechtliche-Lage.md');
 
 /** Platzhalter für einen Schlüssel, dessen Ende erst zur Laufzeit feststeht. */
@@ -516,6 +517,60 @@ export function pflichtseitenPruefen(complianceMd, functionsPhp) {
   };
 }
 
+/**
+ * Wie ein fremder Host in der Datenschutzerklärung heißen darf.
+ *
+ * Der reine Hostname taugt nicht als Suchbegriff: kein Mensch schreibt
+ * „fonts.googleapis.com" in einen Rechtstext, sondern „Google Fonts". Jeder
+ * Eintrag ordnet dem Host darum die Bezeichnungen zu, die dort tatsächlich
+ * stehen dürfen — eine davon muss vorkommen.
+ *
+ * Ein Host, der hier NICHT steht, gilt als unbekannt und wird gemeldet. Ihn
+ * stillschweigend durchzulassen wäre genau die Lücke, die diese Prüfung
+ * schließen soll.
+ */
+export const DRITTANBIETER_NAMEN = {
+  'fonts.googleapis.com': ['Google Fonts', 'Google Ireland', 'Google LLC'],
+  'fonts.gstatic.com':    ['Google Fonts', 'Google Ireland', 'Google LLC'],
+  'js.stripe.com':        ['Stripe'],
+  'unpkg.com':            ['unpkg'],
+  'cdn.jsdelivr.net':     ['jsDelivr'],
+  'api.dicebear.com':     ['DiceBear'],
+};
+
+/**
+ * Jeder Host, den die Website WIRKLICH lädt, muss in der
+ * Datenschutzerklärung stehen.
+ *
+ * Gelesen werden die `wp_enqueue_*`- und `wp_register_*`-Aufrufe in
+ * functions.php — also das, was ausgeliefert wird, nicht das, woran sich
+ * jemand erinnert. Am 21.08.2026 fehlten so `unpkg.com` und
+ * `cdn.jsdelivr.net` in beiden Listen, und die Erklärung behauptete
+ * zusätzlich, Schriften und Symbole lägen lokal, während sie von Google
+ * kamen. Das ist keine Formalie: eine Falschangabe über einen
+ * Drittlandtransfer ist ein Verstoß gegen Art. 13 Abs. 1 lit. f DSGVO.
+ */
+export function drittanbieterPruefen(functionsPhp, datenschutzHtml) {
+  const ohneKommentar = functionsPhp
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
+  const hosts = new Set();
+  // Nur URLs, die wirklich eingebunden werden — nicht jede erwähnte Adresse.
+  for (const m of ohneKommentar.matchAll(/wp_(?:enqueue|register)_(?:script|style)\s*\(([\s\S]{0,400}?)\)\s*;/g)) {
+    for (const u of m[1].matchAll(/https:\/\/([a-z0-9.-]+)\//g)) hosts.add(u[1]);
+  }
+
+  const fehlend = [];
+  const unbekannt = [];
+  for (const host of [...hosts].sort()) {
+    const namen = DRITTANBIETER_NAMEN[host];
+    if (!namen) { unbekannt.push(host); continue; }
+    if (!namen.some((n) => datenschutzHtml.includes(n))) fehlend.push({ host, namen });
+  }
+  return { hosts: [...hosts].sort(), fehlend, unbekannt };
+}
+
 export function kiTransparenzPruefen(dateien, notizVorhanden) {
   const zustaende = new Set();
   let kennzeichnung = false;
@@ -558,6 +613,7 @@ export function lageErheben() {
     einwilligung: einwilligungPruefen(dateien),
     pflichtseiten: pflichtseitenPruefen(readFileSync(COMPLIANCE, 'utf8'), readFileSync(FUNCTIONS, 'utf8')),
     ki: kiTransparenzPruefen(dateien, existsSync(KI_NOTIZ)),
+    drittanbieter: drittanbieterPruefen(readFileSync(FUNCTIONS, 'utf8'), readFileSync(SHELL, 'utf8')),
   };
 }
 
@@ -598,6 +654,18 @@ export function befunde(lage) {
   }
   for (const f of lage.pflichtseiten.fehlend) {
     blockierend.push(`Pflichtseite \`/${f.slug}\` (${f.basis}) hat keine Route in functions.php.`);
+  }
+  for (const f of lage.drittanbieter?.fehlend || []) {
+    blockierend.push(`\`${f.host}\` wird ausgeliefert, steht aber in keiner Datenschutzerklärung (DSGVO Art. 13 Abs. 1 lit. f) — erwartet als „${f.namen[0]}".`);
+  }
+  for (const h of lage.drittanbieter?.unbekannt || []) {
+    // BLOCKIEREND, nicht bloss gemeldet. Ein unbekannter Host im
+    // Auslieferungspfad ist ein NEUER Datenfluss an einen Dritten — der
+    // gefaehrlichste Fall, nicht der harmloseste. Ein erster Entwurf hat ihn
+    // nur gemeldet, mit der Begruendung, der Pruefer koenne den richtigen
+    // Namen nicht kennen. Das ist wahr und trotzdem kein Grund
+    // durchzuwinken: derselbe Commit kann ihn eintragen.
+    blockierend.push(`\`${h}\` wird ausgeliefert und ist dem Prüfer unbekannt — in DRITTANBIETER_NAMEN eintragen und in der Datenschutzerklärung nennen (DSGVO Art. 13 Abs. 1 lit. f).`);
   }
   if (lage.ki.luecke) {
     blockierend.push('Der Code kennzeichnet KI-Inhalte, der Vault beschreibt die Kennzeichnung nicht (EU AI Act Art. 50).');
@@ -683,11 +751,23 @@ ${tabelle(lage.pflichtseiten.gefordert.map((g) => `| \`/${g.slug}\` | ${g.basis}
 | Deklarationszustände | ${lage.ki.zustaende.length ? lage.ki.zustaende.map((z) => `\`${z}\``).join(', ') : '—'} |
 | Beschreibt der Vault sie? | ${lage.ki.notizVorhanden ? 'ja → [[40-Governance/Legal/KI-Transparenz]]' : '**nein**'} |
 
+## Drittanbieter im Auslieferungspfad (DSGVO Art. 13 Abs. 1 lit. f)
+
+Jeder Host, den \`wp_enqueue_*\` wirklich einbindet — nicht der, an den man sich
+erinnert. Beim Abruf erfährt der Betreiber die IP des Besuchers.
+
+| Host | In der Datenschutzerklärung |
+|---|---|
+${(lage.drittanbieter?.hosts || []).length
+  ? tabelle(lage.drittanbieter.hosts.map((h) => `| \`${h}\` | ${lage.drittanbieter.fehlend.some((f) => f.host === h) ? '**fehlt**' : lage.drittanbieter.unbekannt.includes(h) ? '⚠︎ Prüfer kennt ihn nicht' : 'genannt'} |`))
+  : '| — | nicht erhoben |'}
+
 ## Verknüpft
 
 - [[40-Governance/Legal/Compliance-Overview]]
 - [[40-Governance/Legal/Cookie-Liste]]
 - [[40-Governance/Legal/KI-Transparenz]]
+- [[40-Governance/Legal/Auftragsverarbeiter]]
 `;
 }
 
@@ -704,6 +784,7 @@ function main() {
     console.log(`Speicherschlüssel    : ${lage.speicher.imCode.length} im Code, ${lage.speicher.dokumentiert.size} beschrieben`);
     console.log(`Pflichtseiten        : ${lage.pflichtseiten.gefordert.length} gefordert, ${lage.pflichtseiten.fehlend.length} ohne Route`);
     console.log(`Einwilligung wirksam : ${lage.einwilligung.wirkungslos ? 'nein' : 'ja'}`);
+    console.log(`Fremde Hosts         : ${lage.drittanbieter.hosts.length} geladen, ${lage.drittanbieter.fehlend.length} ohne Eintrag`);
     for (const m of b.meldend) console.log(`   ℹ ${m}`);
     if (b.blockierend.length) {
       console.error('⛔ Recht:\n' + b.blockierend.map((f) => `   - ${f}`).join('\n'));
