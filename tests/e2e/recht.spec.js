@@ -184,6 +184,70 @@ test.describe('Abgleich mit der Cookie-Liste', () => {
   });
 });
 
+test.describe('Drittanbieter im Auslieferungspfad', () => {
+  test('ein geladener Host ohne Eintrag in der Datenschutzerklärung blockiert', async () => {
+    const { drittanbieterPruefen, befunde } = await recht();
+    const php = `wp_enqueue_style( 'x', 'https://unpkg.com/leaflet/leaflet.css' );`;
+    const r = drittanbieterPruefen(php, '<p>Wir nutzen Stripe.</p>');
+    expect(r.hosts).toEqual(['unpkg.com']);
+    expect(r.fehlend.map((f) => f.host)).toEqual(['unpkg.com']);
+
+    const b = befunde({
+      speicher: { undokumentiert: [], ohneCode: [], unaufloesbar: [] },
+      pflichtseiten: { routenGefunden: true, gefordert: [], fehlend: [] },
+      ki: { luecke: false }, einwilligung: { wirkungslos: false }, drittanbieter: r,
+    });
+    expect(b.blockierend.join(' ')).toContain('unpkg.com');
+  });
+
+  test('ein UNBEKANNTER Host blockiert ebenfalls', async () => {
+    // Ein erster Entwurf hat ihn nur gemeldet, weil der Prüfer den richtigen
+    // Namen nicht kennen kann. Das ist wahr und trotzdem kein Grund
+    // durchzuwinken: ein unbekannter Host im Auslieferungspfad ist ein NEUER
+    // Datenfluss an einen Dritten — der gefährlichste Fall, nicht der
+    // harmloseste.
+    const { drittanbieterPruefen, befunde } = await recht();
+    const r = drittanbieterPruefen(
+      `wp_enqueue_script( 'x', 'https://cdn.fremd-tracker.net/x.js' );`, '<p></p>');
+    expect(r.unbekannt).toEqual(['cdn.fremd-tracker.net']);
+    const b = befunde({
+      speicher: { undokumentiert: [], ohneCode: [], unaufloesbar: [] },
+      pflichtseiten: { routenGefunden: true, gefordert: [], fehlend: [] },
+      ki: { luecke: false }, einwilligung: { wirkungslos: false }, drittanbieter: r,
+    });
+    expect(b.blockierend.join(' '), 'ein unbekannter CDN darf nicht durchrutschen')
+      .toContain('cdn.fremd-tracker.net');
+    expect(b.meldend.join(' ')).not.toContain('cdn.fremd-tracker.net');
+  });
+
+  test('der Name zählt, nicht der Hostname', async () => {
+    // Niemand schreibt „fonts.googleapis.com" in einen Rechtstext.
+    const { drittanbieterPruefen } = await recht();
+    const php = `wp_enqueue_style( 'f', 'https://fonts.googleapis.com/css2?x' );`;
+    expect(drittanbieterPruefen(php, '<p>Google Fonts</p>').fehlend).toHaveLength(0);
+    expect(drittanbieterPruefen(php, '<p>fonts.googleapis.com</p>').fehlend,
+      'der nackte Hostname ist keine Nennung für Nutzer').toHaveLength(1);
+  });
+
+  test('nur wirklich eingebundene URLs zählen, keine erwähnten', async () => {
+    // Sonst würde ein Kommentar oder eine CSP-Zeile als Datenfluss gelten.
+    const { drittanbieterPruefen } = await recht();
+    const php = `
+      // siehe https://cdn.beispiel.net/doku
+      $csp = "script-src https://cdn.beispiel.net";
+      wp_enqueue_script( 'echt', 'https://unpkg.com/a.js' );`;
+    expect(drittanbieterPruefen(php, '<p>unpkg</p>').hosts).toEqual(['unpkg.com']);
+  });
+
+  test('die echte Website nennt jeden Host, den sie lädt', async () => {
+    const { lageErheben } = await recht();
+    const lage = lageErheben();
+    expect(lage.drittanbieter.hosts.length, 'die Messung darf nicht leer laufen').toBeGreaterThan(2);
+    expect(lage.drittanbieter.fehlend.map((f) => f.host)).toEqual([]);
+    expect(lage.drittanbieter.unbekannt).toEqual([]);
+  });
+});
+
 test.describe('Einwilligung: fragt das Haus etwas, das niemand liest?', () => {
   test('eine erhobene, aber nirgends gelesene Einwilligung heißt wirkungslos', async () => {
     const { einwilligungPruefen } = await recht();
@@ -326,6 +390,7 @@ test.describe('Das Tor greift wirklich', () => {
       einwilligung: { wirkungslos: false, schreiberGesamt: 1, schreiberMitPruefung: 1, bannerDatei: 'b.js' },
       pflichtseiten: { routenGefunden: true, gefordert: [], fehlend: [] },
       ki: { kennzeichnungImCode: true, zustaende: [], notizVorhanden: true, luecke: false },
+      drittanbieter: { hosts: [], fehlend: [], unbekannt: [] },
     };
     const mit = notizBauen(lage, befunde(lage));
     expect(mit, 'die Lücke muss in der Notiz stehen').toMatch(/unvollständig/);
