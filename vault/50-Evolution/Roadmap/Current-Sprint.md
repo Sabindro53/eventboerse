@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 447 Tests in 25 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 452 Tests in 25 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -101,7 +101,19 @@ noch `assets/eb-knowledge.json` angefasst.
   eine Bearbeitung **nach** dem Löschen aber schon, sonst liesse sich eine ID nie
   wieder verwenden. Dazu die Grabsteine: das spätere Löschdatum gewinnt, alte
   verfallen nach 60 Tagen, und ein kaputter Speicherstand legt das Board nicht lahm.
-  Zehn Mutationen einzeln geprüft. **447 Tests in 25 Suiten.**
+  Zehn Mutationen einzeln geprüft.
+
+- [x] **Die Stage-Migration darf keine Zahlung löschen.** Sie läuft bei jedem
+  Laden über alle Karten und leert Zahlungsfelder — sie räumt einen alten,
+  künstlichen „Bezahlt"-Marker weg, den die frühere Provider-Annahme ohne echte
+  Stripe-Referenz gesetzt hatte. Geprüft war nur, dass sie ihn **wegräumt**;
+  dass sie eine echte Zahlung **stehen lässt**, nicht. Eine Mutation, die
+  `!card.paymentIntentId` aus der Bedingung nimmt, löscht jeden Zahlungsbeleg
+  bei jedem Laden — und kam durch die gesamte Suite. Fünf Tests: echte Zahlung
+  überlebt (Intent und Referenz), der künstliche Marker verschwindet, eine
+  später erfasste Zahlung bleibt, der zweite Lauf ändert nichts, eine bereits
+  migrierte Karte wird nicht erneut angefasst. Sechs Mutationen geprüft.
+  **452 Tests in 25 Suiten.**
 
 - [x] **Die Icon-Schrift ist zugeschnitten: 170 KB → 32 KB.** Material Icons
   Round trug 2200 Symbole aus, benutzt werden 384 — jeder Besucher lud den Rest

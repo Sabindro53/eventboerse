@@ -94,6 +94,107 @@ test.describe('Board-Sync: lokaler Stand gegen Server', () => {
   });
 });
 
+/* Die Stage-Migration läuft bei JEDEM Laden über alle Karten und darf dabei
+   Zahlungsfelder leeren — sie räumt einen alten, künstlichen „Bezahlt"-Marker
+   weg, den die frühere Provider-Annahme ohne echte Stripe-Referenz gesetzt
+   hat. Geprüft war bisher nur, dass sie diesen Marker WEGRÄUMT. Dass sie eine
+   echte Zahlung STEHEN LÄSST, war es nicht: eine Mutation, die
+   `!card.paymentIntentId` aus der Bedingung nimmt, löscht jeden Zahlungsbeleg
+   bei jedem Laden und kam durch die gesamte Suite. */
+test.describe('Board-Migration: Zahlungsdaten', () => {
+  const migriere = (page, cards) => page.evaluate((cards) => {
+    const projects = [{ id: 'p', cards: JSON.parse(JSON.stringify(cards)) }];
+    const changed = _migrateBoardStageModel(projects);
+    return { changed, cards: projects[0].cards };
+  }, cards);
+
+  test('eine echte Stripe-Zahlung wird nie geleert', async ({ page }) => {
+    // Gleiche Zeitstempel sind kein Beweis für einen künstlichen Marker —
+    // eine Sofortzahlung bei Annahme sieht genau so aus. Was den Unterschied
+    // macht, ist die Referenz.
+    const errors = await openApp(page);
+    const zeit = '2026-08-10T10:00:00Z';
+    const r = await migriere(page, [
+      { id: 'intent', stage: 'bestaetigt', providerAcceptedAt: zeit, paidAt: zeit,
+        paidAmount: 4500, paymentStatus: 'paid', paymentIntentId: 'pi_echt' },
+      { id: 'referenz', stage: 'bestaetigt', providerAcceptedAt: zeit, paidAt: zeit,
+        paidAmount: 9900, paymentStatus: 'Bezahlt', paymentReference: 'ref_echt' },
+    ]);
+    expect(r.cards[0].paidAt, 'Zahlungsdatum gelöscht').toBe(zeit);
+    expect(r.cards[0].paidAmount, 'Betrag gelöscht').toBe(4500);
+    expect(r.cards[0].paymentStatus).toBe('paid');
+    expect(r.cards[1].paidAt).toBe(zeit);
+    expect(r.cards[1].paidAmount).toBe(9900);
+    expectNoPageErrors(errors);
+  });
+
+  test('der künstliche Marker ohne Referenz verschwindet', async ({ page }) => {
+    // Die Gegenrichtung. Ohne sie wäre der Test oben mit „nie etwas löschen"
+    // erfüllbar — und der alte Falschbeleg bliebe für immer stehen.
+    const errors = await openApp(page);
+    const zeit = '2026-08-10T10:00:00Z';
+    const r = await migriere(page, [
+      { id: 'kuenstlich', stage: 'bestaetigt', providerAcceptedAt: zeit, paidAt: zeit,
+        paidAmount: 4500, paymentStatus: 'Bezahlt', paymentMethod: 'Stripe' },
+    ]);
+    expect(r.cards[0].paidAt).toBe('');
+    expect(r.cards[0].paidAmount).toBe(0);
+    expect(r.cards[0].paymentStatus).toBe('');
+    expectNoPageErrors(errors);
+  });
+
+  test('eine später erfasste Zahlung bleibt stehen', async ({ page }) => {
+    // Ohne Referenz, aber Annahme und Zahlung zu verschiedenen Zeiten: das ist
+    // eine nachträglich vermerkte Zahlung, kein Artefakt der alten Annahme.
+    const errors = await openApp(page);
+    const r = await migriere(page, [
+      { id: 'spaeter', stage: 'bestaetigt', providerAcceptedAt: '2026-08-10T10:00:00Z',
+        paidAt: '2026-08-14T09:30:00Z', paidAmount: 12000, paymentStatus: 'Bezahlt' },
+    ]);
+    expect(r.cards[0].paidAt).toBe('2026-08-14T09:30:00Z');
+    expect(r.cards[0].paidAmount).toBe(12000);
+    expectNoPageErrors(errors);
+  });
+
+  test('der zweite Lauf ändert nichts mehr', async ({ page }) => {
+    // Die Migration läuft bei jedem Laden. Ohne die Versionsmarke liefe sie
+    // immer wieder — und was sie einmal richtig geräumt hat, träfe sie beim
+    // nächsten Mal in einem anderen Zustand an.
+    const errors = await openApp(page);
+    const r = await page.evaluate(() => {
+      const zeit = '2026-08-10T10:00:00Z';
+      const projects = [{ id: 'p', flowLayout: { a: 1 }, cards: [
+        { id: 'a', stage: 'bestaetigt', providerAcceptedAt: zeit, paidAt: zeit, paymentStatus: 'Bezahlt' },
+        { id: 'b', stage: 'abgeschlossen', fulfilledAt: zeit, paymentIntentId: 'pi', paymentStatus: 'paid' },
+      ] }];
+      const erst = _migrateBoardStageModel(projects);
+      const nachErstem = JSON.stringify(projects);
+      const zweit = _migrateBoardStageModel(projects);
+      return { erst, zweit, unveraendert: JSON.stringify(projects) === nachErstem };
+    });
+    expect(r.erst).toBe(true);
+    expect(r.zweit, 'die Migration meldet beim zweiten Lauf erneut Änderungen').toBe(false);
+    expect(r.unveraendert, 'der zweite Lauf verändert die Karten').toBe(true);
+    expectNoPageErrors(errors);
+  });
+
+  test('eine bereits migrierte Karte wird nicht erneut angefasst', async ({ page }) => {
+    // Sie sieht aus wie ein Altfall — gleiche Zeitstempel, keine Referenz —
+    // trägt aber die Versionsmarke. Fasste die Migration sie trotzdem an,
+    // verlöre eine echte Zahlung ihre Felder beim nächsten Laden.
+    const errors = await openApp(page);
+    const zeit = '2026-08-10T10:00:00Z';
+    const r = await migriere(page, [
+      { id: 'fertig', stage: 'abgeschlossen', providerAcceptedAt: zeit, paidAt: zeit,
+        paidAmount: 7700, paymentStatus: 'Bezahlt', _stageModel: 2 },
+    ]);
+    expect(r.changed, 'eine v2-Karte löst eine Änderung aus').toBe(false);
+    expect(r.cards[0].paidAmount).toBe(7700);
+    expect(r.cards[0].stage, 'die Stufe wurde neu berechnet').toBe('abgeschlossen');
+    expectNoPageErrors(errors);
+  });
+});
+
 test.describe('Board-Sync: Grabsteine', () => {
   test('vom Server kommt das spätere Löschdatum, nicht das erste', async ({ page }) => {
     // Ein Gerät löscht, legt neu an, löscht wieder. Nähme die Zusammenführung
