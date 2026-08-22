@@ -969,7 +969,8 @@
           Lädt die Bilder der Demo-Daten einmalig herunter und legt sie in
           <code>wp-content/uploads</code> ab — mit Datenbankeintrag, wie jedes hochgeladene Bild.
           Solange <strong>offen</strong> über 0 steht, holt der Browser jedes Besuchers diese
-          Bilder noch bei einem Dritten. Der Lauf ist wiederholbar und holt je Runde 15 Bilder.
+          Bilder noch bei einem Dritten. Pro Klick wird genau ein Bild versucht, damit der
+          Import die Website nicht blockieren kann.
         </p>
         <div id="demo-bilder-stand" role="status" aria-live="polite"
              style="margin:0 0 12px;font-size:.9rem;"></div>
@@ -4849,10 +4850,9 @@ window.addEventListener('DOMContentLoaded', init);
    1. NACHSEHEN OHNE ANFASSEN. Beim Laden fragt die Seite den Stand per GET.
       Ein Blick, der etwas verändert, wird seltener geworfen.
 
-   2. DER LAUF HÖRT AUF. Abgebrochen wird bei offen = 0 UND bei einer Runde
-      ohne Fortschritt. Ohne die zweite Bedingung würde ein dauerhaft nicht
-      erreichbarer Fremdhost den Server endlos anstoßen — eine Schleife, die
-      nur ein Ziel kennt und keinen Ausstieg, ist ein Fehler mit Anlauf.
+   2. EIN KLICK, EIN VERSUCH. Der Webserver teilt seinen kleinen PHP-Pool mit
+      der öffentlichen Website. Mehrere automatische Runden würden Besucher
+      aussperren, sobald der Fremdhost langsam oder nicht erreichbar ist.
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
   const block = document.getElementById('demo-bilder-block');
@@ -4864,11 +4864,6 @@ window.addEventListener('DOMContentLoaded', init);
   const badge   = document.getElementById('demo-bilder-badge');
   const knopf   = document.getElementById('demo-bilder-start');
   const liste   = document.getElementById('demo-bilder-fehler');
-
-  // Höchstens so viele Runden. 15 Bilder je Runde — das reicht für ein
-  // Vielfaches des heutigen Bestands und deckelt trotzdem den Schaden,
-  // falls die Abbruchbedingung eines Tages danebengeht.
-  const MAX_RUNDEN = 10;
 
   function zeigeStand(d, zusatz) {
     const offen = Number(d.offen);
@@ -4904,23 +4899,13 @@ window.addEventListener('DOMContentLoaded', init);
   async function holen() {
     knopf.disabled = true;
     liste.textContent = '';
-    let letzte = null;
     try {
-      for (let runde = 1; runde <= MAX_RUNDEN; runde++) {
-        standEl.textContent = 'Runde ' + runde + ' läuft…';
-        const d = await ruf('POST');
-        letzte = d;
-        zeigeStand(d, 'Runde ' + runde + ': ' + d.geholt + ' geholt');
-        zeigeFehler(d.fehler);
-        if (Number(d.offen) === 0) { zeigeStand(d, 'fertig'); return; }
-        // Kein Fortschritt heißt: die verbleibenden Adressen gehen nicht.
-        // Weiterzulaufen würde denselben Fehlschlag zehnmal wiederholen.
-        if (Number(d.geholt) === 0) {
-          zeigeStand(d, 'keine Fortschritte mehr — siehe Gründe unten');
-          return;
-        }
-      }
-      if (letzte) zeigeStand(letzte, 'Rundenlimit erreicht — nochmal drücken');
+      standEl.textContent = 'Ein Bild wird versucht…';
+      const d = await ruf('POST');
+      zeigeFehler(d.fehler);
+      if (Number(d.offen) === 0) zeigeStand(d, 'fertig');
+      else if (Number(d.geholt) === 0) zeigeStand(d, 'kein Fortschritt — siehe Grund unten');
+      else zeigeStand(d, '1 geholt — für das nächste Bild erneut drücken');
     } catch (e) {
       standEl.textContent = String(e.message || e);
       standEl.style.color = '#fca5a5';

@@ -9840,6 +9840,8 @@ add_action( 'rest_api_init', function () {
 
 /** Wo die Zuordnung Fremd-URL -> Mediathek-URL liegt. */
 const EB_DEMO_BILDER_OPTION = 'eb_demo_bilder_map';
+const EB_DEMO_BILDER_LOCK_OPTION = 'eb_demo_bilder_import_lock';
+const EB_DEMO_BILDER_LOCK_TTL = 30;
 
 /**
  * Aus welchen ausgelieferten Dateien die Demo-Bildadressen stammen.
@@ -9890,6 +9892,23 @@ function eb_demo_bilder_stand( array $map, array $adressen ) {
 }
 
 /**
+ * Verhindert parallele Importlaeufe auf dem kleinen Hosting-PHP-Pool.
+ * add_option() ist durch den eindeutigen Optionsnamen atomar; ein abgestuerzter
+ * Lauf entsperrt sich nach kurzer Zeit selbst.
+ */
+function eb_demo_bilder_lock_holen() {
+    $jetzt = time();
+    $seit  = (int) get_option( EB_DEMO_BILDER_LOCK_OPTION, 0 );
+    if ( $seit > 0 && ( $jetzt - $seit ) < EB_DEMO_BILDER_LOCK_TTL ) return false;
+    if ( $seit > 0 ) delete_option( EB_DEMO_BILDER_LOCK_OPTION );
+    return add_option( EB_DEMO_BILDER_LOCK_OPTION, $jetzt, '', 'no' );
+}
+
+function eb_demo_bilder_lock_freigeben() {
+    delete_option( EB_DEMO_BILDER_LOCK_OPTION );
+}
+
+/**
  * Holt die Demo-Bilder von ihrem Fremdhost in die eigene Mediathek.
  *
  * Warum das hier laeuft und nicht beim Entwickeln: der Webserver hat
@@ -9917,74 +9936,91 @@ function eb_hq_demo_bilder_holen( WP_REST_Request $request ) {
     if ( strtoupper( $request->get_method() ) === 'GET' ) {
         return new WP_REST_Response( array_merge(
             eb_demo_bilder_stand( $map, $adressen ),
-            array( 'geholt' => 0, 'schon_da' => 0, 'fehler' => array() )
+            array( 'geholt' => 0, 'versuche' => 0, 'schon_da' => 0, 'fehler' => array() )
         ), 200 );
     }
 
-    $neu = 0; $schon = 0; $fehler = array();
-    // Obergrenze je Aufruf: ein Request, der 69 Bilder laedt, laeuft in das
-    // PHP-Zeitlimit und hinterlaesst einen halben Zustand. Lieber mehrfach
-    // aufrufen — deshalb ist er wiederholbar.
-    $limit = 15;
-
-    foreach ( $adressen as $url ) {
-        if ( isset( $map[ $url ] ) ) { $schon++; continue; }
-        if ( $neu >= $limit ) break;
-
-        $res = wp_remote_get( $url, array( 'timeout' => 20 ) );
-        if ( is_wp_error( $res ) ) { $fehler[] = array( 'url' => $url, 'grund' => $res->get_error_message() ); continue; }
-        if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) {
-            $fehler[] = array( 'url' => $url, 'grund' => 'HTTP ' . wp_remote_retrieve_response_code( $res ) );
-            continue;
-        }
-        $daten = wp_remote_retrieve_body( $res );
-        if ( strlen( $daten ) > EB_MAX_IMAGE_BYTES ) {
-            $fehler[] = array( 'url' => $url, 'grund' => 'zu gross' ); continue;
-        }
-
-        // Denselben Massstab wie beim Nutzer-Upload anlegen: der Inhalt
-        // entscheidet, nicht die Adresse. Ein Fremdhost, der etwas anderes
-        // als ein Bild liefert, darf hier so wenig durch wie ein Besucher.
-        $typ = function_exists( 'finfo_open' ) ? finfo_buffer( finfo_open( FILEINFO_MIME_TYPE ), $daten ) : '';
-        $erlaubt = array( 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif' );
-        if ( ! isset( $erlaubt[ $typ ] ) ) {
-            $fehler[] = array( 'url' => $url, 'grund' => 'kein erlaubtes Bildformat (' . $typ . ')' ); continue;
-        }
-
-        $name = 'demo-' . substr( md5( $url ), 0, 12 ) . '.' . $erlaubt[ $typ ];
-        $abgelegt = wp_upload_bits( $name, null, $daten );
-        if ( ! empty( $abgelegt['error'] ) ) {
-            $fehler[] = array( 'url' => $url, 'grund' => $abgelegt['error'] ); continue;
-        }
-        if ( @getimagesize( $abgelegt['file'] ) === false ) {
-            @unlink( $abgelegt['file'] );
-            $fehler[] = array( 'url' => $url, 'grund' => 'Datei ist kein gueltiges Bild' ); continue;
-        }
-
-        $attach_id = wp_insert_attachment( array(
-            'post_mime_type' => $typ,
-            'post_title'     => 'Demo-Bild',
-            'post_status'    => 'inherit',
-        ), $abgelegt['file'] );
-        if ( is_wp_error( $attach_id ) ) {
-            @unlink( $abgelegt['file'] );
-            $fehler[] = array( 'url' => $url, 'grund' => 'Mediathek-Eintrag fehlgeschlagen' ); continue;
-        }
-        update_post_meta( $attach_id, '_eb_demo_quelle', esc_url_raw( $url ) );
-        wp_update_attachment_metadata( $attach_id, wp_generate_attachment_metadata( $attach_id, $abgelegt['file'] ) );
-
-        $map[ $url ] = $abgelegt['url'];
-        $neu++;
+    if ( ! eb_demo_bilder_lock_holen() ) {
+        return new WP_Error(
+            'eb_demo_bilder_laeuft',
+            'Ein Bildimport laeuft bereits. Bitte kurz warten.',
+            array( 'status' => 409 )
+        );
     }
 
-    update_option( EB_DEMO_BILDER_OPTION, $map, false );
+    try {
+        $neu = 0; $versuche = 0; $schon = 0; $fehler = array();
+        // Ein Klick verarbeitet genau eine fremde Adresse. Entscheidend ist
+        // die Zahl der VERSUCHE, nicht die Zahl der Erfolge: sonst kann ein
+        // unerreichbarer Host alle Adressen je 20 Sekunden lang blockieren.
+        $limit = 1;
 
-    // Offen ist die ehrliche Restzahl: erst wenn sie 0 ist, geht nichts
-    // mehr an Pexels.
-    return new WP_REST_Response( array_merge(
-        eb_demo_bilder_stand( $map, $adressen ),
-        array( 'geholt' => $neu, 'schon_da' => $schon, 'fehler' => $fehler )
-    ), 200 );
+        foreach ( $adressen as $url ) {
+            if ( isset( $map[ $url ] ) ) { $schon++; continue; }
+            if ( $versuche >= $limit ) break;
+            $versuche++;
+
+            $res = wp_safe_remote_get( $url, array(
+                'timeout'             => 5,
+                'redirection'         => 2,
+                'limit_response_size' => EB_MAX_IMAGE_BYTES + 1,
+            ) );
+            if ( is_wp_error( $res ) ) { $fehler[] = array( 'url' => $url, 'grund' => $res->get_error_message() ); continue; }
+            if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) {
+                $fehler[] = array( 'url' => $url, 'grund' => 'HTTP ' . wp_remote_retrieve_response_code( $res ) );
+                continue;
+            }
+            $daten = wp_remote_retrieve_body( $res );
+            if ( strlen( $daten ) > EB_MAX_IMAGE_BYTES ) {
+                $fehler[] = array( 'url' => $url, 'grund' => 'zu gross' ); continue;
+            }
+
+            // Denselben Massstab wie beim Nutzer-Upload anlegen: der Inhalt
+            // entscheidet, nicht die Adresse. Ein Fremdhost, der etwas anderes
+            // als ein Bild liefert, darf hier so wenig durch wie ein Besucher.
+            $typ = function_exists( 'finfo_open' ) ? finfo_buffer( finfo_open( FILEINFO_MIME_TYPE ), $daten ) : '';
+            $erlaubt = array( 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif' );
+            if ( ! isset( $erlaubt[ $typ ] ) ) {
+                $fehler[] = array( 'url' => $url, 'grund' => 'kein erlaubtes Bildformat (' . $typ . ')' ); continue;
+            }
+
+            $name = 'demo-' . substr( md5( $url ), 0, 12 ) . '.' . $erlaubt[ $typ ];
+            $abgelegt = wp_upload_bits( $name, null, $daten );
+            if ( ! empty( $abgelegt['error'] ) ) {
+                $fehler[] = array( 'url' => $url, 'grund' => $abgelegt['error'] ); continue;
+            }
+            if ( @getimagesize( $abgelegt['file'] ) === false ) {
+                @unlink( $abgelegt['file'] );
+                $fehler[] = array( 'url' => $url, 'grund' => 'Datei ist kein gueltiges Bild' ); continue;
+            }
+
+            $attach_id = wp_insert_attachment( array(
+                'post_mime_type' => $typ,
+                'post_title'     => 'Demo-Bild',
+                'post_status'    => 'inherit',
+            ), $abgelegt['file'] );
+            if ( is_wp_error( $attach_id ) ) {
+                @unlink( $abgelegt['file'] );
+                $fehler[] = array( 'url' => $url, 'grund' => 'Mediathek-Eintrag fehlgeschlagen' ); continue;
+            }
+            update_post_meta( $attach_id, '_eb_demo_quelle', esc_url_raw( $url ) );
+            wp_update_attachment_metadata( $attach_id, wp_generate_attachment_metadata( $attach_id, $abgelegt['file'] ) );
+
+            $map[ $url ] = $abgelegt['url'];
+            $neu++;
+        }
+
+        update_option( EB_DEMO_BILDER_OPTION, $map, false );
+
+        // Offen ist die ehrliche Restzahl: erst wenn sie 0 ist, geht nichts
+        // mehr an Pexels.
+        return new WP_REST_Response( array_merge(
+            eb_demo_bilder_stand( $map, $adressen ),
+            array( 'geholt' => $neu, 'versuche' => $versuche, 'schon_da' => $schon, 'fehler' => $fehler )
+        ), 200 );
+    } finally {
+        eb_demo_bilder_lock_freigeben();
+    }
 }
 
 /**

@@ -157,8 +157,13 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
     // Ein Import, den man nicht zweimal starten darf, wird beim ersten
     // Fehlschlag zur Sackgasse.
     expect(IMPORT, 'bereits Geholtes wird erneut geladen').toMatch(/isset\(\s*\$map\[\s*\$url\s*\]\s*\)[\s\S]{0,60}continue/);
-    expect(IMPORT, 'keine Obergrenze je Aufruf').toMatch(/\$limit\s*=\s*\d+/);
-    expect(IMPORT).toMatch(/\$neu\s*>=\s*\$limit[\s\S]{0,40}break/);
+    expect(IMPORT, 'keine Obergrenze je Aufruf').toMatch(/\$limit\s*=\s*1/);
+    expect(IMPORT).toMatch(/\$versuche\s*>=\s*\$limit[\s\S]{0,40}break/);
+    expect(IMPORT, 'Fehlschlaege zaehlen nicht zur Grenze').toMatch(/\$versuche\+\+/);
+    expect(IMPORT, 'Fremdhost darf zu lange blockieren').toMatch(/'timeout'\s*=>\s*5/);
+    expect(IMPORT, 'Antwort wird unbegrenzt in den Speicher geladen').toMatch(/limit_response_size/);
+    expect(IMPORT, 'unsichere Weiterleitung moeglich').toMatch(/wp_safe_remote_get/);
+    expect(FUNCTIONS, 'parallele Importe sind nicht gesperrt').toMatch(/eb_demo_bilder_lock_holen/);
   });
 
   test('die Restzahl wird ehrlich gemeldet', () => {
@@ -305,17 +310,18 @@ test.describe('Demo-Bilder: der Knopf im HQ', () => {
     await expect(page.locator('#demo-bilder-stand')).toContainText('3 offen');
   });
 
-  test('geholt wird, bis nichts mehr offen ist', async ({ page }) => {
+  test('ein Klick startet genau einen Serverlauf', async ({ page }) => {
     await baueSeite(page, [
       { gefunden: 3, in_mediathek: 1, offen: 2, geholt: 1, fehler: [] },
       { gefunden: 3, in_mediathek: 2, offen: 1, geholt: 1, fehler: [] },
       { gefunden: 3, in_mediathek: 3, offen: 0, geholt: 1, fehler: [] },
     ]);
     await page.click('#demo-bilder-start');
-    await expect(page.locator('#demo-bilder-badge')).toHaveText('vollständig');
+    await expect(page.locator('#demo-bilder-badge')).toHaveText('2 offen');
+    await expect(page.locator('#demo-bilder-stand')).toContainText('erneut drücken');
     const rufe = await page.evaluate(() => window.__rufe);
-    // Ein GET beim Laden, drei POST — und danach keiner mehr.
-    expect(rufe.filter(r => r.startsWith('POST')).length).toBe(3);
+    // Ein GET beim Laden und genau ein POST pro bewusstem Klick.
+    expect(rufe.filter(r => r.startsWith('POST')).length).toBe(1);
   });
 
   test('eine Runde ohne Fortschritt beendet den Lauf', async ({ page }) => {
@@ -327,7 +333,7 @@ test.describe('Demo-Bilder: der Knopf im HQ', () => {
         fehler: [{ url: 'https://images.pexels.com/x.jpg', grund: 'HTTP 429' }] },
     ]);
     await page.click('#demo-bilder-start');
-    await expect(page.locator('#demo-bilder-stand')).toContainText('keine Fortschritte');
+    await expect(page.locator('#demo-bilder-stand')).toContainText('kein Fortschritt');
     const rufe = await page.evaluate(() => window.__rufe);
     expect(rufe.filter(r => r.startsWith('POST')).length,
       'die Schleife laeuft trotz Stillstand weiter').toBe(1);
