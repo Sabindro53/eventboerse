@@ -212,12 +212,29 @@ jede Antwort einen Aufruf für einen Schlüssel, den es nicht gibt.
 **Neue Stopp-Stelle → `stimmeStoppen()`, nicht `speechSynthesis.cancel()`.**
 Sonst spricht die Serverstimme weiter, während das Mikrofon schon wieder zuhört.
 
-Die **HUD-Ringe** am Sprech-Kreis (`.nn-hud-*`) stehen im Ruhezustand **still**
-und drehen nur bei `.hoert`. Dieselbe Regel wie für die Impulse auf den Bahnen:
-eine Dauer-Animation lässt ein stillstehendes System wie ein arbeitendes
-aussehen. Unter `prefers-reduced-motion` werden sie ganz abgeschaltet — der
-globale Block setzt nur die Dauer auf ~0, und eine Endlosrotation steht damit
-nicht still, sie flimmert.
+Die **HUD-Ringe** am Sprech-Kreis (`.nn-hud-*`) drehen sich **dauerhaft**, im
+Ruhezustand aber sehr langsam (34–90 s pro Umdrehung) und gedämpft; bei
+`.hoert` drei- bis fünfmal schneller und hell. Das ist eine bewusste Abkehr von
+der Regel für die Bahnen — sie trägt hier, weil der Kreis ein **Bedienelement**
+ist und kein Zustandsanzeiger. Er behauptet nichts über laufende Arbeit; das
+tun die Impulse und der Betriebsbericht.
+
+**Der Unterschied zwischen Ruhe und Zuhören muss groß bleiben** (Faktor > 3) —
+sonst wäre die Bewegung wieder das, was sie bei den Bahnen wäre: ein Signal,
+das nichts bedeutet. Ein Test prüft genau dieses Verhältnis.
+
+**Kein Mikrofon-Piktogramm in der Mitte** — es saß im Zielbereich, verdeckte
+den Kern und doppelte den Knopf in der Kopfzeile.
+
+**Neuer Ring → auch in die `prefers-reduced-motion`-Ausnahme eintragen.** Der
+globale Block setzt nur die Dauer auf ~0; eine Endlosrotation steht damit nicht
+still, sie flimmert. Genau das passierte den zwei Ringen, die beim Überarbeiten
+dazukamen.
+
+Der Fokus ist **rund** (`.nn-hud-fokus` bei `:focus-visible`), nicht der
+rechteckige Standardrahmen des Browsers — der lag als blauer Block über der
+ganzen SVG-Gruppe. `outline: none` allein wäre falsch: Tastaturnutzer müssen
+sehen, wo sie stehen.
 
 **Spracheingabe**: `/wp-json/eventboerse/v1/hq/gehoer` erkennt über Whisper —
 ebenfalls serverseitig, ebenfalls Opt-in über denselben Schlüssel. Ohne ihn

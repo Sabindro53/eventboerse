@@ -278,45 +278,66 @@
   .nn-orb-hit { cursor: pointer; }
 
   /* ── HUD-Ringe am Sprech-Kreis ──────────────────────────────────────
-     Vier Lagen aus reiner Geometrie. Im Ruhezustand STEHEN sie still:
-     eine Dauerrotation liesse ein stillstehendes System wie ein
-     arbeitendes aussehen — dieselbe Regel, die auch fuer die Impulse auf
-     den Bahnen gilt. Bewegung heisst hier: es hoert gerade zu oder
-     spricht gerade. */
-    /* Dunkles Feld hinter den Ringen. Ohne das geht das Cyan im violetten
-     Grund der Zentrale unter — der HUD-Eindruck lebt vom Kontrast, nicht
-     von der Anzahl der Ringe. */
-  .nn-hud-feld { fill: rgba(6,14,26,.72); stroke: rgba(34,211,238,.16); stroke-width: 1; }
-  /* Beschriftung UNTER die Scheibe: im dunklen Feld war sie kaum lesbar. */
-  .nn-hud-text { fill: rgba(165,243,252,.92); }
-  .nn-hud circle:not(.nn-hud-feld) { fill: none; }
+     Sechs Lagen aus reiner Geometrie. Sie drehen sich dauerhaft, aber der
+     Unterschied zwischen Ruhe und Zuhoeren ist gross: im Ruhezustand sehr
+     langsam und gedaempft, beim Zuhoeren schnell und hell. Das ist der
+     Grund, warum eine Dauerbewegung hier vertretbar ist — der Kreis ist ein
+     Bedienelement, kein Zustandsanzeiger, und die Zustaende bleiben
+     unterscheidbar. Was arbeitet, sagen die Bahnen und der Betriebsbericht. */
+  .nn-hud-feld { fill: rgba(6,14,26,.78); stroke: rgba(34,211,238,.18); stroke-width: 1; }
+  .nn-hud circle:not(.nn-hud-feld):not(.nn-hud-kern):not(.nn-hud-halo) { fill: none; }
   .nn-hud-aussen,
   .nn-hud-teilung,
+  .nn-hud-fein,
   .nn-hud-klammer,
   .nn-hud-innen {
     transform-origin: var(--nn-o-x) var(--nn-o-y);
-    transition: stroke .35s ease, opacity .35s ease;
+    transition: stroke .5s ease, opacity .5s ease;
   }
-  /* Aussenring: lange Boegen mit Luecken. */
-  .nn-hud-aussen  { stroke: rgba(34,211,238,.45); stroke-width: 1; stroke-dasharray: 54 26 14 26; }
-  /* Teilung: viele kurze Striche — die Skala. */
-  .nn-hud-teilung { stroke: rgba(34,211,238,.52); stroke-width: 3; stroke-dasharray: 1.5 7.5; }
-  /* Klammern: vier Viertelboegen. */
-  .nn-hud-klammer { stroke: rgba(34,211,238,.58); stroke-width: 1.5; stroke-dasharray: 40 26; }
-  .nn-hud-innen   { stroke: rgba(103,232,249,.62); stroke-width: 1; }
 
-  /* Zuhoeren: die Skala dreht, der Innenring atmet. Gegenlaeufig, damit die
-     Bewegung als Mechanik lesbar ist und nicht als Ladebalken. */
-  .neural.hoert .nn-hud-aussen  { stroke: rgba(34,211,238,.55); animation: nnHudDreh 24s linear infinite; }
-  .neural.hoert .nn-hud-teilung { stroke: rgba(34,211,238,.70); animation: nnHudDreh 14s linear infinite reverse; }
-  .neural.hoert .nn-hud-klammer { stroke: rgba(34,211,238,.60); animation: nnHudDreh 9s linear infinite; }
-  .neural.hoert .nn-hud-innen   { stroke: rgba(34,211,238,.85); }
-  /* Sprechen: keine Drehung, nur Helligkeit — sonst sieht Antworten aus
-     wie Arbeiten. */
+  /* Aussenring: zwei lange Boegen, gegenueberliegend. */
+  .nn-hud-aussen  { stroke: rgba(34,211,238,.34); stroke-width: 1;
+                    stroke-dasharray: 118 68; animation: nnHudDreh 90s linear infinite; }
+  /* Grobe Skala. */
+  .nn-hud-teilung { stroke: rgba(34,211,238,.42); stroke-width: 4; stroke-dasharray: 2 12;
+                    animation: nnHudDreh 60s linear infinite reverse; }
+  /* Feine Skala dazwischen — erst die zweite Teilung macht den HUD-Eindruck. */
+  .nn-hud-fein    { stroke: rgba(103,232,249,.30); stroke-width: 2; stroke-dasharray: 1 5;
+                    animation: nnHudDreh 45s linear infinite; }
+  /* Vier Klammern. */
+  .nn-hud-klammer { stroke: rgba(34,211,238,.52); stroke-width: 1.5; stroke-dasharray: 38 25;
+                    animation: nnHudDreh 34s linear infinite reverse; }
+  .nn-hud-innen   { stroke: rgba(103,232,249,.55); stroke-width: 1; }
+  /* Ruhender Kern statt Mikrofon-Piktogramm: ein kleiner heller Punkt mit
+     weichem Hof. Eine grosse gefuellte Scheibe wirkte wie ein Platzhalter. */
+  .nn-hud-saum    { stroke: rgba(103,232,249,.22); stroke-width: 1;
+                    transform-origin: var(--nn-o-x) var(--nn-o-y);
+                    stroke-dasharray: 3 7; animation: nnHudDreh 26s linear infinite reverse; }
+  .nn-hud-halo    { fill: rgba(103,232,249,.14); }
+  .nn-hud-kern    { fill: rgba(224,252,255,.95); transition: fill .5s ease; }
+
+  /* Zuhoeren: dieselbe Bewegung, nur deutlich schneller und heller. */
+  .neural.hoert .nn-hud-aussen  { stroke: rgba(34,211,238,.75);  animation-duration: 16s; }
+  .neural.hoert .nn-hud-teilung { stroke: rgba(34,211,238,.85);  animation-duration: 11s; }
+  .neural.hoert .nn-hud-fein    { stroke: rgba(103,232,249,.65); animation-duration: 8s; }
+  .neural.hoert .nn-hud-klammer { stroke: rgba(34,211,238,.9);   animation-duration: 6s; }
+  .neural.hoert .nn-hud-innen   { stroke: rgba(103,232,249,.95); }
+  .neural.hoert .nn-hud-kern    { fill: #a5f3fc; }
+  /* Sprechen: keine Beschleunigung, nur Helligkeit — sonst sieht Antworten
+     aus wie Arbeiten. */
   .neural.spricht .nn-hud-klammer,
-  .neural.spricht .nn-hud-innen { stroke: rgba(103,232,249,.9); }
-  .neural.spricht .nn-hud-teilung { stroke: rgba(103,232,249,.6); }
+  .neural.spricht .nn-hud-innen { stroke: rgba(103,232,249,.95); }
+  .neural.spricht .nn-hud-kern,
+  .neural.spricht .nn-hud-halo  { fill: transparent; }
   @keyframes nnHudDreh { to { transform: rotate(360deg); } }
+
+  /* Fokus: rund statt rechteckig. Der Standardrahmen des Browsers legte
+     einen blauen Block ueber die ganze Gruppe. `:focus-visible` statt
+     `:focus`, damit ein Mausklick keinen Rahmen stehen laesst — die
+     Tastaturbedienung behaelt ihre Markierung. */
+  .nn-orb-hit:focus { outline: none; }
+  .nn-hud-fokus { fill: none; stroke: none; stroke-width: 2; }
+  .nn-orb-hit:focus-visible .nn-hud-fokus { stroke: #7dd3fc; }
 
   .nn-orb-ring { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 1; }
   .neural.hoert .nn-orb-ring { animation: nnHoer 1.4s ease-out infinite; }
@@ -750,7 +771,8 @@
        fuer genau die Leute, die um weniger Bewegung gebeten haben. Die
        HUD-Ringe werden deshalb ganz abgeschaltet; die Zustaende bleiben
        ueber die Farbe lesbar. */
-    .nn-hud-aussen, .nn-hud-teilung, .nn-hud-klammer, .nn-hud-innen { animation: none !important; }
+    .nn-hud-aussen, .nn-hud-teilung, .nn-hud-fein, .nn-hud-klammer,
+    .nn-hud-innen, .nn-hud-saum { animation: none !important; }
   }
 
 /* ══ EB CIRCLE — sprechender KI-Kreis ══════════════════════════════ */
@@ -2524,29 +2546,45 @@ function nnZeichnen() {
       </g>`);
   });
 
-  // Sprech-Kreis am Kern — HUD-Ringe im Jarvis-Stil.
+  // Sprech-Kreis am Kern — HUD-Ringe.
   //
-  // Die Ringe stehen im Ruhezustand STILL. Das ist keine Sparsamkeit, sondern
-  // dieselbe Regel wie beim Transportstrom: eine Dauer-Animation laesst ein
-  // stillstehendes System wie ein arbeitendes aussehen. Bewegung gibt es,
-  // wenn wirklich etwas passiert — beim Zuhoeren und beim Sprechen, gesteuert
-  // ueber .hoert und .spricht am Container.
+  // Die Ringe drehen sich dauerhaft, langsam. Das ist eine bewusste Abkehr
+  // von der Regel, die fuer die Bahnen gilt ("keine Dauer-Animation") —
+  // und sie traegt hier, weil der Kreis ein BEDIENELEMENT ist und kein
+  // Zustandsanzeiger. Er behauptet nichts ueber laufende Arbeit; das tun die
+  // Impulse auf den Bahnen und der Betriebsbericht. Damit die Zustaende
+  // trotzdem unterscheidbar bleiben, ist der Unterschied gross: im
+  // Ruhezustand sehr langsam und gedaempft, beim Zuhoeren deutlich schneller
+  // und hell.
   //
-  // Der Aufbau ist bewusst nur Geometrie, keine Bilddatei: er skaliert mit dem
-  // viewBox, faerbt sich ueber CSS-Variablen und kostet keinen Netzaufruf.
+  // Kein Mikrofon-Symbol in der Mitte: das Piktogramm sass mitten im
+  // Zielbereich, verdeckte den Kern und doppelte den Knopf in der Kopfzeile.
+  // Was der Kreis tut, sagt die Beschriftung darunter.
+  //
+  // Nur Geometrie, keine Bilddatei: skaliert mit dem viewBox und kostet
+  // keinen Netzaufruf.
   const O = NN_MITTE;
   teile.push(`
     <g class="nn-orb-hit nn-hud" id="nn-orb" role="button" tabindex="0" aria-label="Sprechen — KI-Kreis starten"
        style="--nn-o-x:${O.x}px; --nn-o-y:${O.y}px">
-      <circle class="nn-hud-feld" cx="${O.x}" cy="${O.y}" r="62"/>
-      <circle class="nn-hud-aussen" cx="${O.x}" cy="${O.y}" r="58"/>
-      <circle class="nn-hud-teilung" cx="${O.x}" cy="${O.y}" r="50"/>
-      <circle class="nn-hud-klammer" cx="${O.x}" cy="${O.y}" r="42"/>
-      <circle class="nn-hud-innen" cx="${O.x}" cy="${O.y}" r="33"/>
-      <circle class="nn-orb-ring" cx="${O.x}" cy="${O.y}" r="36"/>
-      <circle cx="${O.x}" cy="${O.y}" r="26" fill="url(#nnOrb)"/>
-      <path class="nn-welle" id="nn-welle" d="M ${O.x - 11} ${O.y} q 3.5 -7 5.5 0 t 5.5 0 t 5.5 0"/>
-      <text x="${O.x}" y="${O.y + 5}" style="font-size:14px;text-anchor:middle;fill:#fff">🎙</text>
+      <circle class="nn-hud-feld" cx="${O.x}" cy="${O.y}" r="63"/>
+      <circle class="nn-hud-aussen" cx="${O.x}" cy="${O.y}" r="59"/>
+      <circle class="nn-hud-teilung" cx="${O.x}" cy="${O.y}" r="52"/>
+      <circle class="nn-hud-fein" cx="${O.x}" cy="${O.y}" r="46"/>
+      <circle class="nn-hud-klammer" cx="${O.x}" cy="${O.y}" r="40"/>
+      <circle class="nn-hud-innen" cx="${O.x}" cy="${O.y}" r="32"/>
+      <circle class="nn-orb-ring" cx="${O.x}" cy="${O.y}" r="35"/>
+      <circle cx="${O.x}" cy="${O.y}" r="25" fill="url(#nnOrb)"/>
+      <!-- Feiner Innenkreis: fuellt die Mitte, ohne sie zu belegen — beim
+           Sprechen erscheint dort die Welle. -->
+      <circle class="nn-hud-saum" cx="${O.x}" cy="${O.y}" r="17"/>
+      <circle class="nn-hud-halo" cx="${O.x}" cy="${O.y}" r="9"/>
+      <circle class="nn-hud-kern" cx="${O.x}" cy="${O.y}" r="3.6"/>
+      <path class="nn-welle" id="nn-welle" d="M ${O.x - 12} ${O.y} q 4 -8 6 0 t 6 0 t 6 0"/>
+      <!-- Rundes Fokusbild statt des rechteckigen Browser-Rahmens. Der lag
+           als blauer Block ueber der ganzen Gruppe. Entfernen allein waere
+           falsch — Tastaturnutzer muessen sehen, wo sie stehen. -->
+      <circle class="nn-hud-fokus" cx="${O.x}" cy="${O.y}" r="67"/>
       <text x="${O.x}" y="${O.y + 78}" class="nn-sub nn-hud-text" id="nn-orb-text">sprechen</text>
     </g>`);
 
