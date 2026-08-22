@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 438 Tests in 24 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 447 Tests in 25 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,19 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Board-Sync: die Zusammenführung ist jetzt abgesichert.** Das Board liegt
+  in `localStorage` UND auf dem Server; `_mergeBoardProjects()` entscheidet, welche
+  Fassung überlebt. Ein Fehler dort verliert die Planung eines Nutzers oder lässt
+  gelöschte Projekte wieder auftauchen — beides bemerkt man erst, wenn es passiert
+  ist, und beides war ungeprüft. Neun Tests an der echten Funktion im Browser, nicht
+  an einer Nachbildung: nur-lokale Projekte überleben, die neuere Fassung gewinnt in
+  **beide** Richtungen (eine Richtung allein bestünde auch mit „immer Server"),
+  `createdAt` springt ein, wenn `updatedAt` fehlt, Gelöschtes kehrt nicht zurück —
+  eine Bearbeitung **nach** dem Löschen aber schon, sonst liesse sich eine ID nie
+  wieder verwenden. Dazu die Grabsteine: das spätere Löschdatum gewinnt, alte
+  verfallen nach 60 Tagen, und ein kaputter Speicherstand legt das Board nicht lahm.
+  Zehn Mutationen einzeln geprüft. **447 Tests in 25 Suiten.**
 
 - [x] **Die Icon-Schrift ist zugeschnitten: 170 KB → 32 KB.** Material Icons
   Round trug 2200 Symbole aus, benutzt werden 384 — jeder Besucher lud den Rest
@@ -572,6 +585,9 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
 - [ ] **Echtzeit-Messaging** (Polling → SSE/WebSocket).
 - [ ] **Suche auf DB-Volltext** umstellen (MySQL FULLTEXT).
 - [ ] **Stripe-Flow weiter härten** (Reconcile, Return, Regression-Szenarien).
+- [x] **Board-Sync-Tests** *(2026-08-22)* — die Zusammenführung von lokalem
+  Stand und Server war ungeprüft: 50 Zeilen, die entscheiden, welche Fassung
+  eines Projekts überlebt. Neun Tests, zehn Mutationen einzeln geprüft.
 - [ ] **Board-Paket-Tests** (Mehrfachzeiten pro Paketposition, Edit/Reload-Szenarien).
 - [ ] **QA-Bot Wissensmuster erweitern**
   - Tokenfrei bleiben.
