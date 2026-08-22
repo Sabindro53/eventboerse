@@ -318,7 +318,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-483 Tests in 28 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+492 Tests in 28 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -540,6 +540,41 @@ Globaler State in modul-weiten `var`s in `app.js` (`currentUser`, `currentChat` 
 ### Event-Planer Board
 
 Kanban/Flow-Planer (`renderBoardPage`, `renderKanban`, `renderBoardFlow`) mit `localStorage` + Server-Sync. Stripe-Zahlung teilweise integriert (`_handleStripeReturn`, `_reconcileStripePayments`).
+
+## Mehrfachzeiten je Paketposition
+
+Eine Position kann am Eventtag mehrfach stattfinden — Fotograf zur Trauung und
+zur Party, Catering mittags und abends. **`card.times`** (`[{start, end}, …]`)
+ist die Wahrheit; `card.startTime`/`card.endTime` bleiben als **Spiegel der
+ersten Zeit** erhalten, damit Server und jede ungelesene Codestelle weiter eine
+gültige Zeit sehen.
+
+**Es gibt bewusst keine Migration.** Bestehende Karten tragen weiter nur
+`startTime`; `ebKartenZeiten()` leitet beim Lesen ab. Ein Durchlauf über alle
+Karten ist genau die Sorte Eingriff, die am 22.08. Zahlungsdaten hätte löschen
+können.
+
+**Zeit lesen → `ebKartenZeiten(card)`. Zeit setzen → `ebKartenZeitenSetzen()`.**
+Wer `card.startTime` direkt schreibt, lässt Liste und Spiegel auseinanderlaufen,
+und dann zeigt die eine Ansicht etwas anderes als die andere.
+
+Ungültige Einträge fallen beim Lesen weg, statt die Ansicht zu zerlegen; die
+Liste ist sortiert, entdoppelt und bei `EB_MAX_ZEITEN` (8) gedeckelt. Im Ablauf
+erscheint eine Position **je Zeit einmal** mit Zähler „2/3" — ein Ablauf, der
+die zweite Zeit verschweigt, ist keiner.
+
+`ebZeitUeberschneidungen()` warnt bei sich überlappenden Zeiten — **live im
+Formular und als Markierung auf der Karte, aber nie blockierend**: Aufbau und
+Service dürfen sich überlappen. Zwei Regeln halten die Warnung glaubwürdig:
+ein **offenes Ende warnt nicht** (sonst kollidierte fast jedes Paar), und
+**Berührung ist kein Konflikt** (14–16 und 16–18 ist ein Ablauf). Über
+Mitternacht wird gerechnet — die Nacht-Vorauswahl erzeugt „22:00 – 02:00", und
+ein Textvergleich hielte 02:00 für früher als 23:00.
+
+**Ein `[hidden]`-Element mit eigener `display`-Angabe braucht
+`[hidden] { display: none }`** — sonst steht der leere Warnkasten sichtbar da.
+Genau das passierte beim Bauen und fiel nur auf, weil ein Test auf
+`toBeHidden()` prüfte.
 
 ## Bekannte Schwächen (nicht neu einführen)
 

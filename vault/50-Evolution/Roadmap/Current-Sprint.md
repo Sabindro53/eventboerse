@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 483 Tests in 28 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 492 Tests in 28 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -103,7 +103,18 @@ noch `assets/eb-knowledge.json` angefasst.
   17 Mutationen einzeln geprüft — eine davon deckte auf, dass der **Anlege-Pfad**
   gar nicht getestet war: `times: []` dort kam durch alle anderen Tests, und
   der Nutzer hätte beim Hinzufügen Zeiten gesetzt und keine bekommen.
-  **483 Tests in 28 Suiten.**
+
+- [x] **Überschneidungswarnung.** Live im Formular, als Markierung auf der
+  Karte, **nie blockierend** — Aufbau und Service dürfen sich überlappen. Zwei
+  Regeln halten sie glaubwürdig: ein offenes Ende warnt nicht (sonst
+  kollidierte fast jedes Paar mit offenem Ende), und Berührung ist kein
+  Konflikt (14–16 und 16–18 ist ein Ablauf). Über Mitternacht wird gerechnet,
+  weil die Nacht-Vorauswahl selbst „22:00 – 02:00" erzeugt und ein
+  Textvergleich 02:00 für früher als 23:00 hielte. Beim Bauen einen echten
+  Fehler gefangen: `display: flex` schlägt das eingebaute `[hidden]`, also
+  stand ein leerer bernsteinfarbener Kasten unter jeder Zeitliste — gefunden
+  nur, weil ein Test auf `toBeHidden()` prüfte. Zehn Mutationen; eine überlebt
+  und ist als äquivalent vermerkt. **492 Tests in 28 Suiten.**
 
 - [x] **Der QA-Bot trifft jetzt das richtige Thema.** Die Zuordnung entscheidet,
   welche Knöpfe der Nutzer bekommt — und war nie gegen echte Sätze gemessen.
