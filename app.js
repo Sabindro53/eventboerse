@@ -14914,7 +14914,14 @@ var QA_TOPICS = [
   {
     id: 'messages',
     icon: 'forum',
-    triggers: ['nachricht', 'chat', 'kontakt', 'anfrage', 'antwort', 'kommunikation', 'support'],
+    // „anschreiben" und „kontaktieren" fehlten. Gemessen an echten Sätzen
+    // landete „Wie schreibe ich einen Anbieter an?" deshalb bei `listing` —
+    // `anbieter` ist dort ein Auslöser und traf als einziger. Wer jemanden
+    // anschreiben will, bekam „Inserat erstellen" angeboten.
+    triggers: ['nachricht', 'chat', 'kontakt', 'anfrage', 'antwort', 'kommunikation', 'support',
+      // Wortstämme, nicht Vollformen: geprüft wird, ob der Auslöser IM Satz
+      // vorkommt — „kontaktieren" steht nicht in „kontaktiere".
+      'anschreib', 'kontaktier', 'schreibe ich', 'erreiche ich'],
     replies: [
       'Für laufende Abstimmungen ist der Nachrichtenbereich richtig. Für Plattform-Support gehe zu Kontakt & Support.',
       'Wenn du mit einem Dienstleister sprechen willst, öffne Nachrichten. Wenn Eventbörse helfen soll, nimm Kontakt & Support.',
@@ -15204,14 +15211,25 @@ function _qaFindTopic(text) {
   if (!q) return QA_FALLBACK;
   var best = null;
   var bestScore = 0;
+  var bestLaengster = 0;
   QA_TOPICS.forEach(function(topic) {
     var score = 0;
+    var laengster = 0;
     topic.triggers.forEach(function(t) {
       var key = _qaNormalize(t);
-      if (q.indexOf(key) !== -1) score += key.length > 5 ? 3 : 2;
+      if (q.indexOf(key) !== -1) {
+        score += key.length > 5 ? 3 : 2;
+        if (key.length > laengster) laengster = key.length;
+      }
     });
-    if (score > bestScore) {
+    // Bei Gleichstand gewinnt der LAENGSTE wirklich getroffene Ausloeser.
+    // Vorher entschied die Reihenfolge im Array, also der Zufall der
+    // Sortierung: „Wie schreibe ich einen Anbieter an?" traf `anbieter`
+    // (listing) und `schreibe ich` (messages) mit je 3 Punkten und landete
+    // beim Inserat — der Fragende bekam „Inserat erstellen" angeboten.
+    if (score > bestScore || (score === bestScore && score > 0 && laengster > bestLaengster)) {
       bestScore = score;
+      bestLaengster = laengster;
       best = topic;
     }
   });

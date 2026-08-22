@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 458 Tests in 26 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 463 Tests in 27 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,20 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Der QA-Bot trifft jetzt das richtige Thema.** Die Zuordnung entscheidet,
+  welche Knöpfe der Nutzer bekommt — und war nie gegen echte Sätze gemessen.
+  Von 16 realistischen Fragen landete eine falsch: „Wie schreibe ich einen
+  Anbieter an?" ging an `listing`, also bekam der Fragende **„Inserat
+  erstellen"** angeboten. Ursache war nicht ein fehlender Auslöser allein,
+  sondern der **Stichentscheid**: bei Gleichstand gewann das Thema, das im
+  Array weiter oben steht — also der Zufall der Sortierung. Jetzt gewinnt der
+  längste wirklich getroffene Auslöser, das spezifischere Indiz. Dazu fehlende
+  Stämme (`anschreib`, `kontaktier`) — Vollformen greifen nicht, weil der
+  Auslöser IM Satz vorkommen muss. Fünf Tests: die Fragetabelle, eine
+  Gegenprobe mit Kauderwelsch (sonst wäre „trifft immer" erfüllend), kein Thema
+  ohne Aktion, kein neuer doppelter Auslöser. Vier Mutationen; eine überlebt
+  und ist als verhaltensgleich vermerkt. **463 Tests in 27 Suiten.**
 
 - [x] **Der Kontext wird nachgemessen.** `CLAUDE.md` ist das erste, was jede
   Sitzung liest — und war die einzige Datei, die niemand nachmisst. Vier
@@ -616,9 +630,9 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
   Stand und Server war ungeprüft: 50 Zeilen, die entscheiden, welche Fassung
   eines Projekts überlebt. Neun Tests, zehn Mutationen einzeln geprüft.
 - [ ] **Board-Paket-Tests** (Mehrfachzeiten pro Paketposition, Edit/Reload-Szenarien).
-- [ ] **QA-Bot Wissensmuster erweitern**
-  - Tokenfrei bleiben.
-  - Mehr direkte Navigations-/Hilfsaktionen für Login, Board, Inserat, Zahlung.
+- [x] **QA-Bot Wissensmuster erweitert** *(2026-08-22)* — an echten Sätzen
+  gemessen statt an Auslöserlisten geraten. Ein Fehlgriff behoben, der
+  Stichentscheid entschied vorher nach Array-Reihenfolge. Tokenfrei geblieben.
 
 ## Nice-to-Have (P2)
 
