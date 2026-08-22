@@ -285,6 +285,7 @@ function getHeroListings() {
 
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
+  var pageReady = Promise.resolve();
   // Make home an alias for browse, so es nur eine Suchseite zu pflegen gibt.
   if (page === 'home') {
     page = 'browse';
@@ -372,26 +373,26 @@ function navigateTo(page, data, skipHistory) {
       _initAiPlaceholder();
       try { _ebFillEventTypeSelect(); } catch (err) { console.warn('Event-Typen konnten nicht geladen werden', err); }
       try { _initHeroShots(); } catch (err) { console.warn('Hero-Montage konnte nicht starten', err); }
-      loadDbListings().then(function() {
+      pageReady = loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
         _initCategoryScrollHint();
       });
       break;
     case 'explore':
-      loadDbListings().then(function() { renderExploreGrid(); });
+      pageReady = loadDbListings().then(function() { renderExploreGrid(); });
       break;
     case 'aktuelles':
-      loadDbListings().then(function() { renderFeed('foryou'); });
+      pageReady = loadDbListings().then(function() { renderFeed('foryou'); });
       break;
     case 'detail':
-      loadDbListings().then(function() { loadDetail(data); });
+      pageReady = loadDbListings().then(function() { loadDetail(data); });
       break;
     case 'provider':
       // FIX 2026-05: DOM SOFORT leeren, damit kein vorheriges Profil
       // "durchblitzt", während loadDbListings() async läuft.
       _resetProviderPageDom();
-      loadDbListings().then(function() { loadProvider(data); });
+      pageReady = loadDbListings().then(function() { loadProvider(data); });
       break;
     case 'messages':
       renderChatList();
@@ -405,7 +406,7 @@ function navigateTo(page, data, skipHistory) {
         // FIX 2026-05: DOM zuerst leeren – sonst zeigt das eigene Profil
         // kurz die Daten eines vorher angesehenen Anbieters oder Demo-Daten.
         _resetProviderPageDom();
-        loadDbListings().then(function() { loadProvider(currentUser.id); });
+        pageReady = loadDbListings().then(function() { loadProvider(currentUser.id); });
         // Highlight mobile nav profile button
         document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
         var profBtn = document.querySelector('.mobile-nav button[data-page="profile"]');
@@ -528,6 +529,7 @@ function navigateTo(page, data, skipHistory) {
   var gf = document.getElementById('globalFooter');
   if (gf) gf.style.display = (page === 'messages') ? 'none' : '';
   try { _setPageMeta(page, data); } catch (e) { /* Meta optional */ }
+  return pageReady;
 }
 
 // ========== BOARD-STATUS-VERKNÜPFUNG ==========

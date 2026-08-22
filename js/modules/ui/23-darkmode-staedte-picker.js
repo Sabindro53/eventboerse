@@ -76,18 +76,19 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
   }
+  var initialPageReady;
   if (initPage && initPage !== 'browse') {
-    navigateTo(initPage, initData, true);
+    initialPageReady = navigateTo(initPage, initData, true);
   } else {
-    navigateTo('browse', null, true);
+    initialPageReady = navigateTo('browse', null, true);
   }
 
-  // App-Loading-Overlay ausblenden (siehe index.html / styles.css)
-  if (typeof window.__hideAppLoader === 'function') {
-    // Doppelter requestAnimationFrame, damit der Browser den ersten Frame mit
-    // gerendertem Content malen kann, bevor wir das Overlay wegblenden.
-    requestAnimationFrame(function(){ requestAnimationFrame(window.__hideAppLoader); });
-  }
+  // Erst Daten rendern, dann die wichtigen sichtbaren Bilder dekodieren.
+  // Der Loader selbst besitzt einen 15-s-Failsafe für langsame Verbindungen.
+  Promise.resolve(initialPageReady).catch(function(){}).then(function(){
+    if (typeof window.__finishAppLoading === 'function') return window.__finishAppLoading();
+    if (typeof window.__hideAppLoader === 'function') window.__hideAppLoader();
+  });
 
   // Performance: alle dynamisch eingefügten <img>-Tags automatisch lazy-loaden.
   // Spart bei langen Listen (Browse, Gallery, Chat-Avatare) massiv Bandbreite.
@@ -590,4 +591,3 @@ function renderFavorites() {
     doRender();
   }
 }
-

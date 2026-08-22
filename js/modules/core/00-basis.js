@@ -421,7 +421,7 @@ window.ebDemoBilderUmschreiben = function (wurzel) {
 
 window.EB_IMG_LAZY_ATTR  = ' loading="lazy" decoding="async"';
 /** Für das grosse Bild oben: früh holen, mit Vorrang. */
-window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="high"';
+window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="high" data-eb-critical="true"';
 
 // Globaler Bild-Fehler-Auffang (Capture-Phase, da error-Events nicht bubblen).
 // Stellt sicher, dass JEDES <img> ein Fallback bekommt – auch Render-Stellen ohne

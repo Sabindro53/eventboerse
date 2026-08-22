@@ -6,20 +6,92 @@
         <span class="emoji emoji-1">🎉</span>
       </div>
       <div class="app-loading-text">Event<span class="app-loading-accent">börse</span> wird geladen…</div>
+      <div class="app-loading-status" id="appLoadingStatus" role="status" aria-live="polite">Inhalte werden vorbereitet…</div>
       <div class="app-loading-bar"><span></span></div>
     </div>
   </div>
-  <!-- Failsafe: Overlay spätestens nach 8 s ausblenden, falls JS nicht meldet -->
+  <!-- Der Loader wartet auf Daten + sichtbare Bilder; nach 15 s greift der Failsafe. -->
   <script>
     (function(){
-      var FAILSAFE_MS = 8000;
+      var STARTED_AT = Date.now();
+      var MIN_VISIBLE_MS = 450;
+      var FAILSAFE_MS = 15000;
+      var IMAGE_WAIT_MS = 12000;
+      var fallbackTimer = null;
+
+      function setStatus(text){
+        var status = document.getElementById('appLoadingStatus');
+        if (status) status.textContent = text;
+      }
+
       window.__hideAppLoader = function(){
         var el = document.getElementById('appLoadingOverlay');
         if (!el || el.classList.contains('is-hidden')) return;
-        el.classList.add('is-hidden');
-        setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 450);
+        var rest = Math.max(0, MIN_VISIBLE_MS - (Date.now() - STARTED_AT));
+        setTimeout(function(){
+          if (!el || el.classList.contains('is-hidden')) return;
+          clearTimeout(fallbackTimer);
+          el.classList.add('is-hidden');
+          setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 450);
+        }, rest);
       };
-      setTimeout(window.__hideAppLoader, FAILSAFE_MS);
+
+      function waitForImage(img, onReady){
+        return new Promise(function(resolve){
+          var settled = false;
+          var timer = null;
+          function done(){
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            img.removeEventListener('load', done);
+            img.removeEventListener('error', done);
+            onReady();
+            resolve();
+          }
+          timer = setTimeout(done, IMAGE_WAIT_MS);
+          if (img.complete) {
+            if (img.naturalWidth && typeof img.decode === 'function') img.decode().catch(function(){}).then(done);
+            else done();
+            return;
+          }
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+        });
+      }
+
+      window.__finishAppLoading = function(){
+        return new Promise(function(resolve){
+          requestAnimationFrame(function(){ requestAnimationFrame(resolve); });
+        }).then(function(){
+          var seen = Object.create(null);
+          var images = Array.prototype.filter.call(
+            document.querySelectorAll('.page.active img[data-eb-critical="true"]'),
+            function(img){
+              var src = img.currentSrc || img.src || '';
+              if (!src || seen[src]) return false;
+              seen[src] = true;
+              return true;
+            }
+          ).slice(0, 8);
+          var ready = 0;
+          function update(){
+            ready++;
+            setStatus(images.length ? 'Bilder werden geladen… ' + ready + '/' + images.length : 'Fast geschafft…');
+          }
+          if (images.length) setStatus('Bilder werden geladen… 0/' + images.length);
+
+          var fontReady = document.fonts && document.fonts.ready
+            ? Promise.race([document.fonts.ready.catch(function(){}), new Promise(function(r){ setTimeout(r, 2500); })])
+            : Promise.resolve();
+          return Promise.all([Promise.all(images.map(function(img){ return waitForImage(img, update); })), fontReady]);
+        }).catch(function(){}).then(window.__hideAppLoader);
+      };
+
+      fallbackTimer = setTimeout(function(){
+        setStatus('Die Seite wird geöffnet…');
+        window.__hideAppLoader();
+      }, FAILSAFE_MS);
     })();
   </script>
   <!-- ============ NAVIGATION ============ -->

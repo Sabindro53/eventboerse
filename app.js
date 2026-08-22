@@ -421,7 +421,7 @@ window.ebDemoBilderUmschreiben = function (wurzel) {
 
 window.EB_IMG_LAZY_ATTR  = ' loading="lazy" decoding="async"';
 /** Für das grosse Bild oben: früh holen, mit Vorrang. */
-window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="high"';
+window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="high" data-eb-critical="true"';
 
 // Globaler Bild-Fehler-Auffang (Capture-Phase, da error-Events nicht bubblen).
 // Stellt sicher, dass JEDES <img> ein Fallback bekommt – auch Render-Stellen ohne
@@ -1604,6 +1604,7 @@ function getHeroListings() {
 
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
+  var pageReady = Promise.resolve();
   // Make home an alias for browse, so es nur eine Suchseite zu pflegen gibt.
   if (page === 'home') {
     page = 'browse';
@@ -1691,26 +1692,26 @@ function navigateTo(page, data, skipHistory) {
       _initAiPlaceholder();
       try { _ebFillEventTypeSelect(); } catch (err) { console.warn('Event-Typen konnten nicht geladen werden', err); }
       try { _initHeroShots(); } catch (err) { console.warn('Hero-Montage konnte nicht starten', err); }
-      loadDbListings().then(function() {
+      pageReady = loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
         _initCategoryScrollHint();
       });
       break;
     case 'explore':
-      loadDbListings().then(function() { renderExploreGrid(); });
+      pageReady = loadDbListings().then(function() { renderExploreGrid(); });
       break;
     case 'aktuelles':
-      loadDbListings().then(function() { renderFeed('foryou'); });
+      pageReady = loadDbListings().then(function() { renderFeed('foryou'); });
       break;
     case 'detail':
-      loadDbListings().then(function() { loadDetail(data); });
+      pageReady = loadDbListings().then(function() { loadDetail(data); });
       break;
     case 'provider':
       // FIX 2026-05: DOM SOFORT leeren, damit kein vorheriges Profil
       // "durchblitzt", während loadDbListings() async läuft.
       _resetProviderPageDom();
-      loadDbListings().then(function() { loadProvider(data); });
+      pageReady = loadDbListings().then(function() { loadProvider(data); });
       break;
     case 'messages':
       renderChatList();
@@ -1724,7 +1725,7 @@ function navigateTo(page, data, skipHistory) {
         // FIX 2026-05: DOM zuerst leeren – sonst zeigt das eigene Profil
         // kurz die Daten eines vorher angesehenen Anbieters oder Demo-Daten.
         _resetProviderPageDom();
-        loadDbListings().then(function() { loadProvider(currentUser.id); });
+        pageReady = loadDbListings().then(function() { loadProvider(currentUser.id); });
         // Highlight mobile nav profile button
         document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
         var profBtn = document.querySelector('.mobile-nav button[data-page="profile"]');
@@ -1847,6 +1848,7 @@ function navigateTo(page, data, skipHistory) {
   var gf = document.getElementById('globalFooter');
   if (gf) gf.style.display = (page === 'messages') ? 'none' : '';
   try { _setPageMeta(page, data); } catch (e) { /* Meta optional */ }
+  return pageReady;
 }
 
 // ========== BOARD-STATUS-VERKNÜPFUNG ==========
@@ -1944,7 +1946,7 @@ function renderListingCard(listing) {
 var _marqueeRAFs = [];
 
 function _stopAllMarquees() {
-  _marqueeRAFs.forEach(function(id) { cancelAnimationFrame(id); });
+  _marqueeRAFs.forEach(function(stop) { if (typeof stop === 'function') stop(); });
   _marqueeRAFs = [];
 }
 
@@ -1980,9 +1982,9 @@ function renderHeroMarquees() {
     return;
   }
 
-  function cardHTML(l) {
+  function cardHTML(l, priority) {
     return '<a class="hero-marquee-card"' + _aiDisclosureAttrs(l) + ' href="#" onclick="navigateTo(\'detail\',' + l.id + ');return false;">' +
-      '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" loading="eager"' + window.EB_IMG_ERR_ATTR + ' />' +
+      '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '"' + (priority ? window.EB_IMG_EAGER_ATTR : window.EB_IMG_LAZY_ATTR) + window.EB_IMG_ERR_ATTR + ' />' +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
         '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
@@ -1990,9 +1992,12 @@ function renderHeroMarquees() {
       '</div></a>';
   }
 
-  var cardsHtml = visible.map(cardHTML).join('');
-  // Duplicate 3× to guarantee seamless wrap on wide screens
-  var tripleHtml = cardsHtml + cardsHtml + cardsHtml;
+  // Nur die ersten sichtbaren Motive bekommen hohe Priorität. Die beiden
+  // Kopien für die Endlosschleife werden lazy geladen — gleiche Optik,
+  // deutlich weniger Decode- und Layout-Arbeit beim Start.
+  var firstHtml = visible.map(function(l, i) { return cardHTML(l, i < 6); }).join('');
+  var repeatedHtml = visible.map(function(l) { return cardHTML(l, false); }).join('');
+  var tripleHtml = firstHtml + repeatedHtml + repeatedHtml;
 
   topTracks.concat(bottomTracks).forEach(function(track) {
     track.innerHTML = tripleHtml;
@@ -2007,11 +2012,30 @@ function renderHeroMarquees() {
     var offset = 0;
     var paused = false;
     var half = 0;
+    var lastTime = 0;
+    var rafId = 0;
+    var inView = true;
+    var observer = null;
+    var stopped = false;
+    var parent = track.parentElement;
+    var measureTimer = 0;
+
+    function stopFrame() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = 0;
+      lastTime = 0;
+    }
+
+    function scheduleFrame() {
+      if (rafId || stopped || paused || !inView || document.hidden || half < 10 || !document.body.contains(track)) return;
+      rafId = requestAnimationFrame(tick);
+    }
 
     function measureHalf() {
       // half = width of one set of cards (total / 3)
       half = track.scrollWidth / 3;
       if (half < 10) half = track.scrollWidth / 2; // fallback
+      scheduleFrame();
     }
 
     measureHalf();
@@ -2029,52 +2053,57 @@ function renderHeroMarquees() {
       else { img.addEventListener('load', onImgReady); img.addEventListener('error', onImgReady); }
     });
     // Fallback re-measure
-    setTimeout(measureHalf, 1200);
+    measureTimer = setTimeout(measureHalf, 1200);
 
-    var lastTime = 0;
     function tick(now) {
-      if (!document.body.contains(track)) return; // track removed from DOM
-      var id = requestAnimationFrame(tick);
-      _marqueeRAFs.push(id);
-      if (paused || half < 10) { lastTime = now; return; }
-      if (!lastTime) { lastTime = now; return; }
+      rafId = 0;
+      if (stopped || !document.body.contains(track)) return;
+      if (paused || !inView || document.hidden || half < 10) { lastTime = 0; return; }
+      if (!lastTime) { lastTime = now; scheduleFrame(); return; }
       var dt = Math.min(now - lastTime, 50); // cap to avoid big jumps
       lastTime = now;
       offset -= speed * dt / 1000;
       if (offset <= -half) offset += half;
       if (offset > 0) offset -= half;
       track.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
+      scheduleFrame();
     }
 
-    var rafId = requestAnimationFrame(tick);
-    _marqueeRAFs.push(rafId);
+    scheduleFrame();
 
     // ── Pause on hover (desktop) ──
-    track.parentElement.addEventListener('mouseenter', function() { paused = true; });
-    track.parentElement.addEventListener('mouseleave', function() { paused = false; });
+    function onMouseEnter() { paused = true; stopFrame(); }
+    function onMouseLeave() { paused = false; scheduleFrame(); }
+    if (parent) {
+      parent.addEventListener('mouseenter', onMouseEnter);
+      parent.addEventListener('mouseleave', onMouseLeave);
+    }
 
     // ── Prevent click after drag/swipe (threshold 8px) ──
     var wasDragged = false;
-    track.addEventListener('click', function(e) {
+    function onClick(e) {
       if (wasDragged) {
         e.preventDefault();
         e.stopPropagation();
         wasDragged = false;
       }
-    }, true);
+    }
+    track.addEventListener('click', onClick, true);
 
     // ── Touch: pause while touching, allow drag ──
     var touchStartX = 0, touchStartY = 0, touchStartOffset = 0, touching = false;
-    track.addEventListener('touchstart', function(e) {
+    function onTouchStart(e) {
       paused = true;
+      stopFrame();
       touching = true;
       wasDragged = false;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       touchStartOffset = offset;
-    }, { passive: true });
+    }
+    track.addEventListener('touchstart', onTouchStart, { passive: true });
 
-    track.addEventListener('touchmove', function(e) {
+    function onTouchMove(e) {
       if (!touching) return;
       var dx = e.touches[0].clientX - touchStartX;
       if (Math.abs(dx) > 8) wasDragged = true;
@@ -2084,29 +2113,33 @@ function renderHeroMarquees() {
         while (offset <= -half) offset += half;
       }
       track.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
-    }, { passive: true });
+    }
+    track.addEventListener('touchmove', onTouchMove, { passive: true });
 
-    track.addEventListener('touchend', function() {
+    function onTouchEnd() {
       touching = false;
       paused = false;
-      lastTime = 0;
-    }, { passive: true });
+      scheduleFrame();
+    }
+    track.addEventListener('touchend', onTouchEnd, { passive: true });
 
     // ── Desktop mouse drag ──
     var dragging = false, dragStartX = 0, dragStartOffset = 0;
     track.style.cursor = 'grab';
 
-    track.addEventListener('mousedown', function(e) {
+    function onMouseDown(e) {
       if (e.button !== 0) return;
       dragging = true;
       wasDragged = false;
       paused = true;
+      stopFrame();
       dragStartX = e.clientX;
       dragStartOffset = offset;
       track.style.cursor = 'grabbing';
       e.preventDefault();
-    });
-    document.addEventListener('mousemove', function(e) {
+    }
+    track.addEventListener('mousedown', onMouseDown);
+    function onMouseMove(e) {
       if (!dragging) return;
       var dx = e.clientX - dragStartX;
       if (Math.abs(dx) > 8) wasDragged = true;
@@ -2116,13 +2149,53 @@ function renderHeroMarquees() {
         while (offset <= -half) offset += half;
       }
       track.style.transform = 'translateX(' + offset.toFixed(1) + 'px)';
-    });
-    document.addEventListener('mouseup', function() {
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    function onMouseUp() {
       if (!dragging) return;
       dragging = false;
       paused = false;
-      lastTime = 0;
       track.style.cursor = 'grab';
+      scheduleFrame();
+    }
+    document.addEventListener('mouseup', onMouseUp);
+
+    if (typeof IntersectionObserver === 'function') {
+      observer = new IntersectionObserver(function(entries) {
+        inView = !!(entries[0] && entries[0].isIntersecting);
+        if (inView) scheduleFrame();
+        else stopFrame();
+      }, { rootMargin: '120px 0px' });
+      observer.observe(track);
+    }
+
+    function onVisibilityChange() {
+      if (document.hidden) stopFrame();
+      else scheduleFrame();
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    _marqueeRAFs.push(function(){
+      stopped = true;
+      stopFrame();
+      clearTimeout(measureTimer);
+      if (observer) observer.disconnect();
+      if (parent) {
+        parent.removeEventListener('mouseenter', onMouseEnter);
+        parent.removeEventListener('mouseleave', onMouseLeave);
+      }
+      imgs.forEach(function(img) {
+        img.removeEventListener('load', onImgReady);
+        img.removeEventListener('error', onImgReady);
+      });
+      track.removeEventListener('click', onClick, true);
+      track.removeEventListener('touchstart', onTouchStart);
+      track.removeEventListener('touchmove', onTouchMove);
+      track.removeEventListener('touchend', onTouchEnd);
+      track.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     });
   }
 
@@ -10939,18 +11012,19 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     window.history.replaceState({ page: initPage, data: initData }, '', _spaPath(initPage, initData));
   }
+  var initialPageReady;
   if (initPage && initPage !== 'browse') {
-    navigateTo(initPage, initData, true);
+    initialPageReady = navigateTo(initPage, initData, true);
   } else {
-    navigateTo('browse', null, true);
+    initialPageReady = navigateTo('browse', null, true);
   }
 
-  // App-Loading-Overlay ausblenden (siehe index.html / styles.css)
-  if (typeof window.__hideAppLoader === 'function') {
-    // Doppelter requestAnimationFrame, damit der Browser den ersten Frame mit
-    // gerendertem Content malen kann, bevor wir das Overlay wegblenden.
-    requestAnimationFrame(function(){ requestAnimationFrame(window.__hideAppLoader); });
-  }
+  // Erst Daten rendern, dann die wichtigen sichtbaren Bilder dekodieren.
+  // Der Loader selbst besitzt einen 15-s-Failsafe für langsame Verbindungen.
+  Promise.resolve(initialPageReady).catch(function(){}).then(function(){
+    if (typeof window.__finishAppLoading === 'function') return window.__finishAppLoading();
+    if (typeof window.__hideAppLoader === 'function') window.__hideAppLoader();
+  });
 
   // Performance: alle dynamisch eingefügten <img>-Tags automatisch lazy-loaden.
   // Spart bei langen Listen (Browse, Gallery, Chat-Avatare) massiv Bandbreite.
@@ -11453,7 +11527,6 @@ function renderFavorites() {
     doRender();
   }
 }
-
 // ========== MY LISTINGS ==========
 function renderMyListings() {
   var grid = document.getElementById('myListingsGrid');
