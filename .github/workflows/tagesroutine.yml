@@ -95,6 +95,15 @@ jobs:
       - name: Rechtliche Lage messen
         run: node scripts/recht.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Acht amtliche Quellen werden auf Inhaltsaenderungen beobachtet. Eine
+      # Aenderung erzeugt nur einen HQ-Pruefauftrag; Vertrage werden niemals
+      # nachts und ohne fachliche Freigabe umgeschrieben.
+      - name: Amtliche Rechtsquellen beobachten
+        run: node scripts/rechtsquellen.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Rechtsunterlagen-Katalog aktualisieren
+        run: node scripts/rechtsunterlagen.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       # ── Die Schichten der KI-Mitarbeiter ───────────────────────────────
       # Ohne OPENROUTER_API_KEY laufen sie durch, notieren den Ausfall im
       # Journal und enden mit 0. Eine Routine soll nicht rot werden, weil ein
@@ -140,10 +149,10 @@ jobs:
           # Eine Liste, zwei Verwendungen. Standen sie doppelt da, erzeugte
           # jede neue Datei eine stille Luecke: gemessen, geschrieben, nie
           # committet — die Routine haette gearbeitet und nichts hinterlassen.
-          ERGEBNISSE="assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md"
+          ERGEBNISSE="assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md assets/eb-rechtsquellen.json assets/eb-rechtsunterlagen.json"
 
           if git diff --quiet -- $ERGEBNISSE; then
-            echo "Keine Aenderung — Feed, Selbstcheck, Journal und Rechtslage sind aktuell." >> "$GITHUB_STEP_SUMMARY"
+            echo "Keine Aenderung — Feed, Selbstcheck, Journal, Rechtslage und amtliche Quellen sind aktuell." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name  "Eventboerse Routine"

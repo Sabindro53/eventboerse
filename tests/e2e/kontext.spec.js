@@ -54,7 +54,10 @@ test.describe('Kontext: CLAUDE.md gegen den Code', () => {
     // Der gefährlichste Fall: der Sucher greift ins Leere und das Tor sieht
     // grün aus, obwohl es nichts mehr prüft. Deshalb ist „nicht gefunden"
     // ein Fehler und kein Durchwinken.
-    const r = mitGeaenderterNotiz('REST API (101 Routen)', 'REST API (viele Routen)', tor);
+    const md = fs.readFileSync(CLAUDE_MD, 'utf8');
+    const jetzt = (md.match(/REST API \(\d+ Routen\)/) || [])[0];
+    expect(jetzt, 'die Routenzahl steht nicht mehr in CLAUDE.md').toBeTruthy();
+    const r = mitGeaenderterNotiz(jetzt, 'REST API (viele Routen)', tor);
     expect(r.ok, 'eine verschwundene Aussage wird stillschweigend übergangen').toBe(false);
     expect(r.aus).toMatch(/nicht mehr gefunden/);
   });

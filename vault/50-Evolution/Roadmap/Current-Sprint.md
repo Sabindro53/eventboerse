@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 502 Tests in 29 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 510 Tests in 30 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -127,7 +127,7 @@ noch `assets/eb-knowledge.json` angefasst.
   Fehler gefangen: `display: flex` schlägt das eingebaute `[hidden]`, also
   stand ein leerer bernsteinfarbener Kasten unter jeder Zeitliste — gefunden
   nur, weil ein Test auf `toBeHidden()` prüfte. Zehn Mutationen; eine überlebt
-  und ist als äquivalent vermerkt. **492 Tests in 28 Suiten.**
+  und ist als äquivalent vermerkt. **500 Tests in 29 Suiten.**
 
 - [x] **Der QA-Bot trifft jetzt das richtige Thema.** Die Zuordnung entscheidet,
   welche Knöpfe der Nutzer bekommt — und war nie gegen echte Sätze gemessen.

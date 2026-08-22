@@ -97,6 +97,11 @@ RedirectMatch 404 ^/(vault|\.github)(/|$)
 # indem man den Theme-Pfad direkt aufruft.
 RedirectMatch 404 ^/wp-content/themes/[^/]+/hq\.html$
 
+# Interne Rechtskataloge duerfen ebenfalls nur ueber die kurze /assets-Route
+# laufen; dort prueft WordPress den HQ-Zugang inklusive zweitem Faktor. Der
+# direkte Theme-Pfad wuerde PHP und damit diese Rechtepruefung umgehen.
+RedirectMatch 404 ^/wp-content/themes/[^/]+/assets/eb-rechts(unterlagen|unterlagen-katalog|quellen)\.json$
+
 # Verzeichnis-Listing aus
 Options -Indexes
 <IfModule mod_autoindex.c>

@@ -318,7 +318,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-502 Tests in 29 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+510 Tests in 30 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -333,7 +333,8 @@ schutz, Demo-Toggle, Board-Picker, Listings), Radar (Umkreis, lokale Position,
 Migrations-Verhalten), Vision-Release, Kern
 (Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), Barrierefreiheit (axe,
 beide Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei
-Fehlern.
+Fehlern. Die Rechtsablage-Suite prüft zusätzlich private Speicherung,
+Versionshistorie, Aufgabenstatus und den amtlichen Quellenmonitor.
 
 **Die Suite läuft ohne Netzzugang vollständig durch.** Bis zum 21.08.2026
 schlugen vier Radar-Tests fehl, weil Leaflet von `unpkg.com` kam; seit dem
@@ -511,7 +512,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (101 Routen), Asset-Registrierung |
+| `functions.php` | WordPress-Theme: REST API (104 Routen), Asset-Registrierung |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -532,7 +533,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-101 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Utilities.
+104 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, Utilities.
 
 ### State
 

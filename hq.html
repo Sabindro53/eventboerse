@@ -982,6 +982,52 @@
     <!-- Wartet auf dich -->
     <div class="wartet" id="wartet"></div>
 
+    <!-- Rechts- und Gründungsunterlagen -->
+    <section class="recht-hq" id="rechtsablage" aria-labelledby="rechtsablage-titel">
+      <div class="section-header recht-hq-kopf">
+        <div class="section-title" id="rechtsablage-titel">⚖️ Rechts- &amp; Gründungsablage <span>— geschützt, versioniert und mit klaren Zuständigkeiten</span></div>
+        <div class="section-badge" id="recht-badge">wird geladen…</div>
+      </div>
+      <div class="recht-kpis" id="recht-kpis" aria-label="Übersicht der Rechtsunterlagen"></div>
+      <div class="recht-sicherheit" id="recht-sicherheit" role="status" aria-live="polite">
+        <b>🔒 Nur im HQ:</b> Originaldateien werden außerhalb des öffentlichen Web-Verzeichnisses gespeichert. Änderungen an Gesetzen erzeugen einen Prüfauftrag; Verträge werden nie automatisch und ungeprüft umgeschrieben.
+      </div>
+
+      <div class="recht-upload journal">
+        <div>
+          <b>Desktop-Paket sicher ablegen</b>
+          <p>Wähle den Ordner mit den DOCX-/PDF-Dateien. Bekannte Dateinamen werden automatisch zugeordnet, unveränderte Fassungen nicht doppelt gespeichert.</p>
+        </div>
+        <label class="recht-dateiwahl" for="recht-ordner">Ordner auswählen</label>
+        <input id="recht-ordner" type="file" multiple webkitdirectory directory aria-describedby="recht-upload-stand">
+        <div id="recht-upload-stand" class="recht-upload-stand" aria-live="polite"></div>
+      </div>
+
+      <div class="recht-teilkopf">
+        <div>
+          <h3>Handlungsbedarf</h3>
+          <p>Gemeinsame Aufgaben für Sandro und Julian – mit Reihenfolge, Frist und betroffenen Unterlagen.</p>
+        </div>
+        <div class="recht-teilstand" id="recht-aufgaben-stand">–</div>
+      </div>
+      <div class="recht-aufgaben" id="recht-aufgaben"></div>
+
+      <div class="recht-teilkopf recht-dokumente-kopf">
+        <div>
+          <h3>Dokumentenablage</h3>
+          <p>Aktuelle Fassungen, zugehörige Anlagen und unveränderbare Historie.</p>
+        </div>
+      </div>
+      <div class="recht-filter" aria-label="Dokumente filtern">
+        <label><span>Suche</span><input id="recht-suche" type="search" placeholder="Titel, ID oder Aufgabe"></label>
+        <label><span>Zuständigkeit</span><select id="recht-person"><option value="">Alle</option><option>Sandro</option><option>Julian</option></select></label>
+        <label><span>Bereich</span><select id="recht-gruppe"><option value="">Alle Bereiche</option></select></label>
+        <label><span>Ansicht</span><select id="recht-bedarf"><option value="handlungsbedarf">Handlungsbedarf</option><option value="alle">Alle Dokumente</option><option value="anlage">Nur Anlagen</option><option value="archiv">Nur Archiv</option></select></label>
+      </div>
+      <div class="recht-liste" id="recht-liste" aria-live="polite"></div>
+      <div class="recht-quellen" id="recht-quellen"></div>
+    </section>
+
     <!-- Modell-Ensemble -->
     <div class="section-header" id="modelle">
       <div class="section-title">🧬 Modell-Ensemble <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— offene Gewichte, je eine Rolle</span></div>
@@ -4921,6 +4967,364 @@ window.addEventListener('DOMContentLoaded', init);
     badge.textContent = 'unbekannt';
     standEl.textContent = 'Stand nicht abrufbar: ' + String(e.message || e);
     standEl.style.color = 'var(--muted)';
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Rechts- und Gründungsablage
+
+   Der Katalog ist nur die Arbeitsordnung. Originaldateien laufen getrennt
+   über eine geschützte REST-Route in einen Ordner außerhalb des Webroots.
+   Keine automatisch erkannte Gesetzesänderung setzt eine Aufgabe eigenmächtig
+   auf erledigt oder ersetzt eine freigegebene Vertragsfassung.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const wurzel = document.getElementById('rechtsablage');
+  if (!wurzel) return;
+
+  const recht = { katalog: null, privat: { dateien: {}, aufgaben: {}, speicher: 'unbekannt' }, apiBereit: false, laedt: false };
+  const bedarfText = { jetzt: 'Jetzt prüfen', vor_freigabe: 'Vor Freigabe', anlage: 'Anlage', archiv: 'Archiv' };
+  const prioRang = { kritisch: 0, hoch: 1, mittel: 2, niedrig: 3 };
+
+  function element(tag, klasse, text) {
+    const node = document.createElement(tag);
+    if (klasse) node.className = klasse;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function normDatei(name) {
+    return String(name || '')
+      .split(/[\\/]/).pop()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '_').toLowerCase();
+  }
+
+  function fingerprint(aufgabe) {
+    const text = [aufgabe.id, aufgabe.titel, aufgabe.beschreibung, aufgabe.quellenStand || '', ...(aufgabe.dokumente || [])].join('|');
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+  }
+
+  function taskZustand(aufgabe) {
+    const gespeichert = recht.privat.aufgaben?.[aufgabe.id] || {};
+    const aktuell = gespeichert.fingerprint === fingerprint(aufgabe);
+    return { ...gespeichert, erledigt: Boolean(aktuell && gespeichert.erledigt), aktuell };
+  }
+
+  async function api(pfad, optionen = {}) {
+    const antwort = await fetch('/wp-json/eventboerse/v1/hq/rechtsablage' + pfad, {
+      credentials: 'same-origin',
+      ...optionen,
+      headers: { 'X-WP-Nonce': HQ_REST_NONCE, ...(optionen.headers || {}) },
+    });
+    const daten = await antwort.json().catch(() => ({}));
+    if (!antwort.ok) throw new Error(daten.message || 'HQ-Ablage antwortet nicht (' + antwort.status + ').');
+    return daten;
+  }
+
+  function zahlKarten() {
+    const ziel = document.getElementById('recht-kpis');
+    ziel.textContent = '';
+    const aufgaben = recht.katalog?.aufgaben || [];
+    const erledigt = aufgaben.filter((a) => taskZustand(a).erledigt).length;
+    const abgelegt = (recht.katalog?.dokumente || []).filter((d) => (recht.privat.dateien?.[d.id] || []).length).length;
+    const werte = [
+      [recht.katalog?.zusammenfassung?.gesamt || 0, 'Dokumente erfasst', ''],
+      [recht.katalog?.zusammenfassung?.jetzt || 0, 'brauchen jetzt Prüfung', 'warn'],
+      [Math.max(0, aufgaben.length - erledigt), 'Aufgaben offen', erledigt === aufgaben.length ? 'ok' : 'warn'],
+      [abgelegt, 'Originale sicher abgelegt', abgelegt ? 'ok' : ''],
+    ];
+    werte.forEach(([wert, label, klasse]) => {
+      const karte = element('div', 'recht-kpi ' + klasse);
+      karte.append(element('b', '', String(wert)), element('span', '', label));
+      ziel.appendChild(karte);
+    });
+    const badge = document.getElementById('recht-badge');
+    badge.textContent = erledigt + ' / ' + aufgaben.length + ' Aufgaben erledigt';
+  }
+
+  function metaChip(text, klasse) {
+    return element('span', 'recht-chip ' + (klasse || ''), text);
+  }
+
+  async function aufgabeSpeichern(aufgabe, erledigt, notiz) {
+    if (!recht.apiBereit) throw new Error('Aufgaben können nur im angemeldeten Live-HQ gespeichert werden.');
+    const daten = await api('/aufgabe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: aufgabe.id, fingerprint: fingerprint(aufgabe), erledigt, notiz }),
+    });
+    recht.privat.aufgaben[aufgabe.id] = daten;
+  }
+
+  function aufgabenZeigen() {
+    const ziel = document.getElementById('recht-aufgaben');
+    ziel.textContent = '';
+    const aufgaben = [...(recht.katalog?.aufgaben || [])].sort((a, b) => {
+      const fertig = Number(taskZustand(a).erledigt) - Number(taskZustand(b).erledigt);
+      return fertig || (prioRang[a.prioritaet] ?? 9) - (prioRang[b.prioritaet] ?? 9);
+    });
+    const offen = aufgaben.filter((a) => !taskZustand(a).erledigt).length;
+    document.getElementById('recht-aufgaben-stand').textContent = offen + ' offen · ' + (aufgaben.length - offen) + ' erledigt';
+
+    aufgaben.forEach((aufgabe) => {
+      const status = taskZustand(aufgabe);
+      const karte = element('article', 'recht-aufgabe prio-' + aufgabe.prioritaet + (status.erledigt ? ' erledigt' : ''));
+      const checkbox = element('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = status.erledigt;
+      checkbox.setAttribute('aria-label', 'Aufgabe erledigt: ' + aufgabe.titel);
+      const inhalt = element('div');
+      inhalt.appendChild(element('h4', '', aufgabe.titel));
+      inhalt.appendChild(element('p', '', aufgabe.beschreibung));
+      const meta = element('div', 'recht-meta');
+      meta.appendChild(metaChip((aufgabe.verantwortlich || []).join(' & ') || 'ohne Zuordnung'));
+      meta.appendChild(metaChip('Frist: ' + (aufgabe.frist || 'offen'), 'frist'));
+      if (aufgabe.automatisch) meta.appendChild(metaChip('automatisch erkannt'));
+      (aufgabe.dokumente || []).forEach((id) => meta.appendChild(metaChip(id)));
+      inhalt.appendChild(meta);
+      const notizZeile = element('div', 'recht-task-notiz');
+      const notiz = element('input');
+      notiz.type = 'text';
+      notiz.maxLength = 500;
+      notiz.placeholder = 'Notiz, Termin oder nächster Schritt';
+      notiz.value = status.notiz || '';
+      notiz.setAttribute('aria-label', 'Notiz zu ' + aufgabe.titel);
+      const speichern = element('button', '', 'Notiz speichern');
+      speichern.type = 'button';
+      notizZeile.append(notiz, speichern);
+      inhalt.appendChild(notizZeile);
+      karte.append(checkbox, inhalt);
+      ziel.appendChild(karte);
+
+      checkbox.addEventListener('change', async () => {
+        checkbox.disabled = true;
+        try {
+          await aufgabeSpeichern(aufgabe, checkbox.checked, notiz.value);
+          aufgabenZeigen(); zahlKarten();
+          showToast(checkbox.checked ? '✅ Aufgabe als erledigt gespeichert' : '↩ Aufgabe wieder geöffnet', 'success');
+        } catch (error) {
+          checkbox.checked = !checkbox.checked;
+          showToast(String(error.message || error), 'error');
+        } finally { checkbox.disabled = false; }
+      });
+      speichern.addEventListener('click', async () => {
+        speichern.disabled = true;
+        try {
+          await aufgabeSpeichern(aufgabe, checkbox.checked, notiz.value);
+          showToast('✅ Notiz gespeichert', 'success');
+        } catch (error) { showToast(String(error.message || error), 'error'); }
+        finally { speichern.disabled = false; }
+      });
+    });
+  }
+
+  function formatGroesse(bytes) {
+    const kb = Number(bytes || 0) / 1024;
+    return kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : Math.max(1, Math.round(kb)) + ' KB';
+  }
+
+  function formatDatum(wert) {
+    const datum = new Date(wert);
+    return Number.isNaN(datum.getTime()) ? String(wert || '') : datum.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  async function dateiHochladen(id, file) {
+    if (!recht.apiBereit) throw new Error('Dateien können nur im angemeldeten Live-HQ gespeichert werden.');
+    if (file.size > 10 * 1024 * 1024) throw new Error(file.name + ' ist größer als 10 MB.');
+    const formular = new FormData();
+    formular.append('id', id);
+    formular.append('file', file, file.name);
+    return api('/upload', { method: 'POST', body: formular });
+  }
+
+  function einzelneDateiWaehlen(dokument) {
+    const input = element('input');
+    input.type = 'file';
+    input.accept = '.docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    input.hidden = true;
+    document.body.appendChild(input);
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) { input.remove(); return; }
+      try {
+        showToast('⬆️ ' + dokument.id + ' wird sicher abgelegt…');
+        const antwort = await dateiHochladen(dokument.id, file);
+        await privatenStandLaden();
+        showToast(antwort.duplikat ? 'ℹ️ Diese Fassung war bereits abgelegt' : '✅ Neue Version sicher abgelegt', 'success');
+      } catch (error) { showToast(String(error.message || error), 'error'); }
+      finally { input.remove(); }
+    }, { once: true });
+    input.click();
+  }
+
+  function dokumenteZeigen() {
+    const ziel = document.getElementById('recht-liste');
+    ziel.textContent = '';
+    const suche = document.getElementById('recht-suche').value.trim().toLocaleLowerCase('de');
+    const person = document.getElementById('recht-person').value;
+    const gruppe = document.getElementById('recht-gruppe').value;
+    const bedarf = document.getElementById('recht-bedarf').value;
+    const dokumente = (recht.katalog?.dokumente || []).filter((d) => {
+      const text = [d.id, d.titel, d.datei, d.rolle, d.gruppe, d.aktion, ...(d.verantwortlich || [])].join(' ').toLocaleLowerCase('de');
+      if (suche && !text.includes(suche)) return false;
+      if (person && !(d.verantwortlich || []).includes(person)) return false;
+      if (gruppe && d.gruppe !== gruppe) return false;
+      if (bedarf === 'handlungsbedarf' && !['jetzt', 'vor_freigabe'].includes(d.bedarf)) return false;
+      if (['anlage', 'archiv'].includes(bedarf) && d.bedarf !== bedarf) return false;
+      return true;
+    });
+
+    if (!dokumente.length) {
+      ziel.appendChild(element('div', 'recht-leer', 'Für diese Filter gibt es keine Unterlagen.'));
+      return;
+    }
+
+    dokumente.forEach((d) => {
+      const versionen = recht.privat.dateien?.[d.id] || [];
+      const neueste = versionen[0];
+      const karte = element('article', 'recht-dokument');
+      karte.dataset.bedarf = d.bedarf;
+      const kopf = element('div', 'recht-dokument-kopf');
+      kopf.appendChild(element('span', 'recht-id', d.id));
+      const titel = element('div', 'recht-dokument-titel');
+      titel.append(element('h4', '', d.titel), element('small', '', d.gruppe + ' · ' + d.rolle));
+      kopf.appendChild(titel);
+      kopf.appendChild(element('span', 'recht-bedarf ' + d.bedarf, bedarfText[d.bedarf] || d.bedarf));
+      karte.appendChild(kopf);
+      karte.appendChild(element('p', 'recht-dokument-aktion', d.aktion));
+      const meta = element('div', 'recht-meta');
+      (d.verantwortlich || []).forEach((p) => meta.appendChild(metaChip(p)));
+      if (!(d.verantwortlich || []).length) meta.appendChild(metaChip('Nur Historie'));
+      karte.appendChild(meta);
+      const stand = element('div', 'recht-dateistand');
+      const status = element('span', neueste ? 'vorhanden' : '', neueste
+        ? '✓ ' + versionen.length + ' Version' + (versionen.length === 1 ? '' : 'en') + ' · zuletzt ' + formatDatum(neueste.hochgeladen)
+        : 'Noch kein Original im privaten Speicher');
+      stand.appendChild(status);
+      if (neueste) {
+        const link = element('a', 'recht-download', 'Aktuelle Fassung ↓');
+        link.href = neueste.download;
+        stand.appendChild(link);
+      }
+      const upload = element('button', 'recht-datei-knopf', neueste ? 'Neue Version' : 'Datei ablegen');
+      upload.type = 'button';
+      upload.disabled = !recht.apiBereit || recht.privat.speicher === 'nicht_bereit';
+      upload.addEventListener('click', () => einzelneDateiWaehlen(d));
+      stand.appendChild(upload);
+      if (versionen.length > 1) {
+        const details = element('details', 'recht-versionen');
+        details.appendChild(element('summary', '', 'Versionshistorie (' + versionen.length + ')'));
+        const liste = element('ul');
+        versionen.forEach((v) => {
+          const li = element('li');
+          const a = element('a', '', formatDatum(v.hochgeladen) + ' · ' + formatGroesse(v.groesse));
+          a.href = v.download;
+          li.appendChild(a);
+          liste.appendChild(li);
+        });
+        details.appendChild(liste);
+        stand.appendChild(details);
+      }
+      karte.appendChild(stand);
+      ziel.appendChild(karte);
+    });
+  }
+
+  function quellenZeigen() {
+    const ziel = document.getElementById('recht-quellen');
+    ziel.textContent = '';
+    const quellen = recht.katalog?.quellen || [];
+    const auffaellig = quellen.filter((q) => q.status !== 'aktuell');
+    const text = element('span', '', 'Amtliche Quellenprüfung: ' + (quellen.length - auffaellig.length) + ' von ' + quellen.length + ' unverändert. ');
+    ziel.appendChild(text);
+    quellen.forEach((q, index) => {
+      const link = element('a', '', q.titel);
+      link.href = q.url; link.target = '_blank'; link.rel = 'noopener';
+      ziel.appendChild(link);
+      if (index < quellen.length - 1) ziel.appendChild(document.createTextNode(' · '));
+    });
+    if (auffaellig.length) ziel.prepend(document.createTextNode('⚠️ ' + auffaellig.length + ' Quellen brauchen Prüfung. '));
+  }
+
+  function sicherheitZeigen() {
+    const ziel = document.getElementById('recht-sicherheit');
+    if (recht.privat.speicher === 'nicht_bereit') {
+      ziel.classList.add('fehler');
+      ziel.textContent = '⚠️ Privater Speicher noch nicht bereit: ' + (recht.privat.speicherHinweis || 'Server-Konfiguration prüfen.') + ' Es wurde nichts öffentlich gespeichert.';
+    } else if (!recht.apiBereit) {
+      ziel.classList.remove('fehler');
+      ziel.textContent = '🔒 Vorschau: Der Katalog ist sichtbar. Hochladen und Aufgabenstatus funktionieren ausschließlich im angemeldeten Live-HQ.';
+    } else {
+      ziel.classList.remove('fehler');
+      ziel.textContent = '🔒 Privater Speicher bereit. Originaldateien liegen außerhalb des öffentlichen Web-Verzeichnisses; alle älteren Versionen bleiben nachvollziehbar erhalten.';
+    }
+  }
+
+  function allesZeigen() {
+    zahlKarten(); aufgabenZeigen(); dokumenteZeigen(); quellenZeigen(); sicherheitZeigen();
+  }
+
+  async function privatenStandLaden() {
+    try {
+      recht.privat = await api('');
+      recht.apiBereit = true;
+    } catch {
+      recht.apiBereit = false;
+      recht.privat = { dateien: {}, aufgaben: {}, speicher: 'unbekannt' };
+    }
+    allesZeigen();
+  }
+
+  async function katalogLaden() {
+    const antwort = await fetch(hqAsset('assets/eb-rechtsunterlagen.json') + '?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' });
+    if (!antwort.ok) throw new Error('Rechtsunterlagen-Katalog fehlt (' + antwort.status + ').');
+    recht.katalog = await antwort.json();
+    const gruppen = [...new Set(recht.katalog.dokumente.map((d) => d.gruppe))].sort((a, b) => a.localeCompare(b, 'de'));
+    const auswahl = document.getElementById('recht-gruppe');
+    gruppen.forEach((g) => {
+      const option = element('option', '', g); option.value = g; auswahl.appendChild(option);
+    });
+    ['recht-suche', 'recht-person', 'recht-gruppe', 'recht-bedarf'].forEach((id) => {
+      document.getElementById(id).addEventListener(id === 'recht-suche' ? 'input' : 'change', dokumenteZeigen);
+    });
+    await privatenStandLaden();
+  }
+
+  document.getElementById('recht-ordner').addEventListener('change', async (event) => {
+    const stand = document.getElementById('recht-upload-stand');
+    const dateien = [...(event.target.files || [])];
+    if (!dateien.length) return;
+    if (!recht.apiBereit || recht.privat.speicher === 'nicht_bereit') {
+      stand.textContent = 'Der private Speicher ist im Live-HQ noch nicht bereit.';
+      return;
+    }
+    const nachName = new Map((recht.katalog?.dokumente || []).map((d) => [normDatei(d.datei), d]));
+    const zugeordnet = dateien.map((file) => ({ file, dokument: nachName.get(normDatei(file.name)) })).filter((x) => x.dokument);
+    const unbekannt = dateien.length - zugeordnet.length;
+    let fertig = 0, fehler = 0, duplikate = 0;
+    for (const eintrag of zugeordnet) {
+      stand.textContent = 'Sicheres Ablegen: ' + fertig + ' von ' + zugeordnet.length + ' · aktuell ' + eintrag.dokument.id;
+      try {
+        const antwort = await dateiHochladen(eintrag.dokument.id, eintrag.file);
+        if (antwort.duplikat) duplikate++;
+      } catch { fehler++; }
+      fertig++;
+    }
+    await privatenStandLaden();
+    stand.textContent = fertig + ' zugeordnet · ' + (fertig - fehler - duplikate) + ' neu gespeichert · ' + duplikate + ' schon vorhanden · ' + fehler + ' Fehler' + (unbekannt ? ' · ' + unbekannt + ' unbekannte Datei(en) übersprungen' : '');
+    event.target.value = '';
+  });
+
+  katalogLaden().catch((error) => {
+    document.getElementById('recht-badge').textContent = 'nicht verfügbar';
+    document.getElementById('recht-liste').appendChild(element('div', 'recht-leer', String(error.message || error)));
+    document.getElementById('recht-sicherheit').classList.add('fehler');
   });
 })();
 </script>

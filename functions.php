@@ -9430,6 +9430,248 @@ function eb_hq_verwaltung_darf() {
     return is_user_logged_in() && current_user_can( 'manage_options' );
 }
 
+/* ============================================================================
+ * HQ-Rechtsablage: private, versionierte Originaldateien
+ * ----------------------------------------------------------------------------
+ * Das Repository und das Theme sind oeffentlich. Gesellschaftsvertraege,
+ * Unterschriften und personenbezogene Daten duerfen dort niemals als DOCX/PDF
+ * landen. Die Ablage liegt deshalb absichtlich NEBEN dem WordPress-Webroot.
+ * Ausgeliefert wird eine Datei nur ueber den HQ-Zugang inklusive zweitem
+ * Faktor. Kann der Server keinen privaten Ordner anlegen, wird der Upload
+ * abgelehnt statt auf einen oeffentlichen Ersatzpfad auszuweichen.
+ * ============================================================================ */
+
+const EB_HQ_RECHT_OPTION = 'eb_hq_rechtsablage_v1';
+const EB_HQ_RECHT_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Privater Ordner ausserhalb von ABSPATH oder ein klarer Fehler. */
+function eb_hq_rechtsablage_ordner() {
+    $wp_root  = realpath( ABSPATH );
+    $doc_root = isset( $_SERVER['DOCUMENT_ROOT'] ) ? realpath( wp_unslash( $_SERVER['DOCUMENT_ROOT'] ) ) : false;
+    if ( ! $doc_root ) $doc_root = $wp_root;
+    $ordner = defined( 'EB_HQ_RECHT_DIR' )
+        ? (string) EB_HQ_RECHT_DIR
+        : dirname( (string) $doc_root ) . DIRECTORY_SEPARATOR . 'eventboerse-private' . DIRECTORY_SEPARATOR . 'rechtsunterlagen';
+
+    if ( ! is_dir( $ordner ) && ! wp_mkdir_p( $ordner ) ) {
+        return new WP_Error( 'eb_recht_storage', 'Der private Dokumentenspeicher konnte nicht angelegt werden.', array( 'status' => 503 ) );
+    }
+    @chmod( dirname( $ordner ), 0700 );
+    @chmod( $ordner, 0700 );
+
+    $real = realpath( $ordner );
+    $liegt_im_web = $doc_root && strpos( $real . DIRECTORY_SEPARATOR, $doc_root . DIRECTORY_SEPARATOR ) === 0;
+    $liegt_in_wp  = $wp_root && strpos( $real . DIRECTORY_SEPARATOR, $wp_root . DIRECTORY_SEPARATOR ) === 0;
+    if ( ! $real || ! $wp_root || $liegt_im_web || $liegt_in_wp ) {
+        return new WP_Error( 'eb_recht_storage_public', 'Der Server bietet keinen sicheren Speicher außerhalb des öffentlichen Web-Verzeichnisses.', array( 'status' => 503 ) );
+    }
+    if ( ! is_writable( $real ) ) {
+        return new WP_Error( 'eb_recht_storage_readonly', 'Der private Dokumentenspeicher ist nicht beschreibbar.', array( 'status' => 503 ) );
+    }
+    return $real;
+}
+
+function eb_hq_rechtsablage_zustand() {
+    $state = get_option( EB_HQ_RECHT_OPTION, array() );
+    if ( ! is_array( $state ) ) $state = array();
+    if ( ! isset( $state['dateien'] ) || ! is_array( $state['dateien'] ) ) $state['dateien'] = array();
+    if ( ! isset( $state['aufgaben'] ) || ! is_array( $state['aufgaben'] ) ) $state['aufgaben'] = array();
+    return $state;
+}
+
+/** Nur IDs akzeptieren, die der ausgelieferte Katalog wirklich kennt. */
+function eb_hq_rechtsablage_dokument( $id ) {
+    if ( ! preg_match( '/^[A-Z0-9-]{1,16}$/', $id ) ) return null;
+    $pfad = get_template_directory() . '/assets/eb-rechtsunterlagen.json';
+    if ( ! is_readable( $pfad ) ) return null;
+    $katalog = json_decode( file_get_contents( $pfad ), true );
+    foreach ( (array) ( $katalog['dokumente'] ?? array() ) as $dokument ) {
+        if ( isset( $dokument['id'] ) && hash_equals( (string) $dokument['id'], $id ) ) return $dokument;
+    }
+    return null;
+}
+
+/** Auch Aufgabenstatus darf nur fuer eine aktuell angezeigte Aufgabe entstehen. */
+function eb_hq_rechtsablage_aufgabe_bekannt( $id ) {
+    $pfad = get_template_directory() . '/assets/eb-rechtsunterlagen.json';
+    if ( ! is_readable( $pfad ) ) return false;
+    $katalog = json_decode( file_get_contents( $pfad ), true );
+    foreach ( (array) ( $katalog['aufgaben'] ?? array() ) as $aufgabe ) {
+        if ( isset( $aufgabe['id'] ) && hash_equals( (string) $aufgabe['id'], $id ) ) return true;
+    }
+    return false;
+}
+
+/** DOCX anhand seines ZIP-Inhalts pruefen, nicht nur anhand der Endung. */
+function eb_hq_ist_docx( $pfad ) {
+    if ( ! class_exists( 'ZipArchive' ) ) return false;
+    $zip = new ZipArchive();
+    if ( $zip->open( $pfad ) !== true ) return false;
+    $ok = $zip->locateName( '[Content_Types].xml' ) !== false
+       && $zip->locateName( 'word/document.xml' ) !== false;
+    $zip->close();
+    return $ok;
+}
+
+function eb_hq_rechtsablage_liste( WP_REST_Request $request ) {
+    $state = eb_hq_rechtsablage_zustand();
+    $ausgabe = array();
+    foreach ( $state['dateien'] as $id => $versionen ) {
+        if ( ! is_array( $versionen ) ) continue;
+        $sauber = array();
+        foreach ( $versionen as $v ) {
+            if ( ! is_array( $v ) || empty( $v['version'] ) ) continue;
+            $sauber[] = array(
+                'version'     => sanitize_text_field( $v['version'] ),
+                'name'        => sanitize_text_field( $v['name'] ?? '' ),
+                'typ'         => sanitize_text_field( $v['typ'] ?? '' ),
+                'groesse'     => (int) ( $v['groesse'] ?? 0 ),
+                'hochgeladen' => sanitize_text_field( $v['hochgeladen'] ?? '' ),
+                'von'         => sanitize_text_field( $v['von'] ?? '' ),
+                'sha256'      => sanitize_text_field( $v['sha256'] ?? '' ),
+                'download'    => home_url( '/hq/rechtsunterlagen/' . rawurlencode( $id ) . '/' . rawurlencode( $v['version'] ) ),
+            );
+        }
+        // Neueste Fassung zuerst; das Original bleibt als Historie erhalten.
+        usort( $sauber, function( $a, $b ) { return strcmp( $b['hochgeladen'], $a['hochgeladen'] ); } );
+        $ausgabe[ $id ] = $sauber;
+    }
+    $speicher = eb_hq_rechtsablage_ordner();
+    return new WP_REST_Response( array(
+        'dateien' => $ausgabe,
+        'aufgaben' => $state['aufgaben'],
+        'speicher' => is_wp_error( $speicher ) ? 'nicht_bereit' : 'bereit',
+        'speicherHinweis' => is_wp_error( $speicher ) ? $speicher->get_error_message() : '',
+    ), 200 );
+}
+
+function eb_hq_rechtsablage_upload( WP_REST_Request $request ) {
+    $rl = eventboerse_check_rate_limit( 'hq_recht_upload', 80, HOUR_IN_SECONDS );
+    if ( is_wp_error( $rl ) ) return $rl;
+
+    $id = strtoupper( sanitize_text_field( $request->get_param( 'id' ) ) );
+    $dokument = eb_hq_rechtsablage_dokument( $id );
+    if ( ! $dokument ) return new WP_REST_Response( array( 'message' => 'Unbekannte Dokument-ID.' ), 400 );
+
+    $files = $request->get_file_params();
+    $file = $files['file'] ?? null;
+    if ( ! is_array( $file ) || empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+        return new WP_REST_Response( array( 'message' => 'Keine gültige Datei hochgeladen.' ), 400 );
+    }
+    if ( ! empty( $file['error'] ) ) return new WP_REST_Response( array( 'message' => 'Upload fehlgeschlagen.' ), 400 );
+    $groesse = (int) ( $file['size'] ?? 0 );
+    if ( $groesse < 1 || $groesse > EB_HQ_RECHT_MAX_BYTES ) {
+        return new WP_REST_Response( array( 'message' => 'Dokument ist leer oder größer als 10 MB.' ), 413 );
+    }
+
+    $kopf = file_get_contents( $file['tmp_name'], false, null, 0, 5 );
+    $ist_pdf  = is_string( $kopf ) && strncmp( $kopf, '%PDF-', 5 ) === 0;
+    $ist_docx = ! $ist_pdf && eb_hq_ist_docx( $file['tmp_name'] );
+    if ( ! $ist_pdf && ! $ist_docx ) {
+        return new WP_REST_Response( array( 'message' => 'Erlaubt sind echte DOCX- und PDF-Dateien.' ), 400 );
+    }
+
+    $ordner = eb_hq_rechtsablage_ordner();
+    if ( is_wp_error( $ordner ) ) return $ordner;
+    $hash = hash_file( 'sha256', $file['tmp_name'] );
+    $version = gmdate( 'Ymd\THis\Z' ) . '-' . substr( $hash, 0, 12 );
+    $endung = $ist_pdf ? 'pdf' : 'docx';
+    $basisname = strtolower( $id ) . '--' . $version . '.' . $endung;
+    $ziel = $ordner . DIRECTORY_SEPARATOR . $basisname;
+
+    if ( ! move_uploaded_file( $file['tmp_name'], $ziel ) ) {
+        return new WP_REST_Response( array( 'message' => 'Dokument konnte nicht privat abgelegt werden.' ), 500 );
+    }
+    @chmod( $ziel, 0600 );
+
+    $user = wp_get_current_user();
+    $eintrag = array(
+        'version'     => $version,
+        'datei'       => $basisname,
+        'name'        => sanitize_text_field( wp_basename( $file['name'] ) ),
+        'typ'         => $endung,
+        'groesse'     => $groesse,
+        'hochgeladen' => gmdate( 'c' ),
+        'von'         => $user && $user->exists() ? $user->display_name : 'HQ',
+        'sha256'      => $hash,
+    );
+    $state = eb_hq_rechtsablage_zustand();
+    if ( ! isset( $state['dateien'][ $id ] ) || ! is_array( $state['dateien'][ $id ] ) ) {
+        $state['dateien'][ $id ] = array();
+    }
+    // Gleiche Datei nicht als scheinbar neue Version doppelt fuehren.
+    foreach ( $state['dateien'][ $id ] as $vorhanden ) {
+        if ( isset( $vorhanden['sha256'] ) && hash_equals( $vorhanden['sha256'], $hash ) ) {
+            @unlink( $ziel );
+            return new WP_REST_Response( array( 'message' => 'Diese Fassung ist bereits abgelegt.', 'duplikat' => true ), 200 );
+        }
+    }
+    $state['dateien'][ $id ][] = $eintrag;
+    update_option( EB_HQ_RECHT_OPTION, $state, false );
+
+    return new WP_REST_Response( array( 'gespeichert' => true, 'id' => $id, 'version' => $version ), 201 );
+}
+
+function eb_hq_rechtsablage_aufgabe( WP_REST_Request $request ) {
+    $params = $request->get_json_params();
+    $id = sanitize_key( $params['id'] ?? '' );
+    $fingerprint = sanitize_text_field( $params['fingerprint'] ?? '' );
+    if ( ! $id || ! preg_match( '/^[a-z0-9-]{2,80}$/', $id ) || ! preg_match( '/^[a-f0-9]{8,64}$/', $fingerprint ) || ! eb_hq_rechtsablage_aufgabe_bekannt( $id ) ) {
+        return new WP_REST_Response( array( 'message' => 'Ungültige Aufgabe.' ), 400 );
+    }
+    $notiz = (string) ( $params['notiz'] ?? '' );
+    $notiz = function_exists( 'mb_substr' ) ? mb_substr( $notiz, 0, 500 ) : substr( $notiz, 0, 500 );
+    $user = wp_get_current_user();
+    $state = eb_hq_rechtsablage_zustand();
+    $state['aufgaben'][ $id ] = array(
+        'erledigt'    => ! empty( $params['erledigt'] ),
+        'fingerprint' => $fingerprint,
+        'notiz'       => sanitize_textarea_field( $notiz ),
+        'geaendert'   => gmdate( 'c' ),
+        'von'         => $user && $user->exists() ? $user->display_name : 'HQ',
+    );
+    update_option( EB_HQ_RECHT_OPTION, $state, false );
+    return new WP_REST_Response( $state['aufgaben'][ $id ], 200 );
+}
+
+/** Originaldateien nur durch das bereits geoeffnete HQ ausliefern. */
+function eb_hq_rechtsablage_download() {
+    $path = parse_url( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '', PHP_URL_PATH );
+    if ( ! preg_match( '#^/hq/rechtsunterlagen/([A-Z0-9-]{1,16})/([A-Za-z0-9T-]{12,40})/?$#i', (string) $path, $m ) ) return;
+    if ( ! eb_hq_zugang_offen() ) {
+        status_header( 404 ); nocache_headers(); exit;
+    }
+    $id = strtoupper( $m[1] );
+    $version = $m[2];
+    $state = eb_hq_rechtsablage_zustand();
+    $eintrag = null;
+    foreach ( (array) ( $state['dateien'][ $id ] ?? array() ) as $v ) {
+        if ( isset( $v['version'] ) && hash_equals( (string) $v['version'], $version ) ) { $eintrag = $v; break; }
+    }
+    $ordner = eb_hq_rechtsablage_ordner();
+    if ( ! $eintrag || is_wp_error( $ordner ) || empty( $eintrag['datei'] ) ) {
+        status_header( 404 ); nocache_headers(); exit;
+    }
+    $datei = realpath( $ordner . DIRECTORY_SEPARATOR . wp_basename( $eintrag['datei'] ) );
+    if ( ! $datei || strpos( $datei, $ordner . DIRECTORY_SEPARATOR ) !== 0 || ! is_readable( $datei ) ) {
+        status_header( 404 ); nocache_headers(); exit;
+    }
+    $name = sanitize_file_name( $eintrag['name'] ?? ( $id . '.' . ( $eintrag['typ'] ?? 'docx' ) ) );
+    $mime = ( $eintrag['typ'] ?? '' ) === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    status_header( 200 );
+    nocache_headers();
+    header( 'Content-Type: ' . $mime );
+    header( 'X-Content-Type-Options: nosniff' );
+    header( 'Content-Length: ' . filesize( $datei ) );
+    header( 'Content-Disposition: attachment; filename="' . str_replace( '"', '', $name ) . '"; filename*=UTF-8\'\'' . rawurlencode( $eintrag['name'] ?? $name ) );
+    readfile( $datei );
+    exit;
+}
+
+add_action( 'template_redirect', 'eb_hq_rechtsablage_download', -5 );
+
 /**
  * Rate-Limit-Kopfzeilen einsammeln.
  *
@@ -9822,6 +10064,25 @@ add_action( 'rest_api_init', function () {
         'args'                => array(
             'audio' => array( 'required' => true, 'type' => 'string' ),
         ),
+    ) );
+
+    // Private Rechts- und Gruendungsablage fuer Sandro und Julian. Die
+    // Originale verlassen den Server nur ueber denselben 2FA-geschuetzten
+    // Zugang wie das HQ; es gibt absichtlich keinen oeffentlichen Datei-URL.
+    register_rest_route( 'eventboerse/v1', '/hq/rechtsablage', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_hq_rechtsablage_liste',
+        'permission_callback' => 'eb_hq_proxy_darf',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/hq/rechtsablage/upload', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_hq_rechtsablage_upload',
+        'permission_callback' => 'eb_hq_proxy_darf',
+    ) );
+    register_rest_route( 'eventboerse/v1', '/hq/rechtsablage/aufgabe', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_hq_rechtsablage_aufgabe',
+        'permission_callback' => 'eb_hq_proxy_darf',
     ) );
 
     // Demo-Bilder in die Mediathek holen. Bewusst die STRENGERE Pruefung:
