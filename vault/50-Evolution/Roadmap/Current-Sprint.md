@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 463 Tests in 27 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 483 Tests in 28 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,21 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Mehrfachzeiten je Paketposition.** Eine Position kann am Eventtag
+  mehrfach stattfinden — Fotograf zur Trauung und zur Party, Catering mittags
+  und abends. Bisher trug eine Karte genau eine Zeit, also legte man dieselbe
+  Position zweimal an und buchte, bezahlte und bestätigte sie dann auch
+  zweimal. `card.times` ist jetzt die Wahrheit, `startTime`/`endTime` bleiben
+  **Spiegel der ersten Zeit**: der Server und jede ungelesene Codestelle sehen
+  weiter eine gültige Zeit. **Keine Migration** — bestehende Karten werden beim
+  Lesen abgeleitet, nicht umgeschrieben; ein Durchlauf über alle Karten ist
+  genau die Sorte Eingriff, die heute Zahlungsdaten hätte löschen können. Im
+  Ablauf erscheint eine Position je Zeit einmal, mit Zähler „2/3". 20 Tests,
+  17 Mutationen einzeln geprüft — eine davon deckte auf, dass der **Anlege-Pfad**
+  gar nicht getestet war: `times: []` dort kam durch alle anderen Tests, und
+  der Nutzer hätte beim Hinzufügen Zeiten gesetzt und keine bekommen.
+  **483 Tests in 28 Suiten.**
 
 - [x] **Der QA-Bot trifft jetzt das richtige Thema.** Die Zuordnung entscheidet,
   welche Knöpfe der Nutzer bekommt — und war nie gegen echte Sätze gemessen.
@@ -629,7 +644,9 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
 - [x] **Board-Sync-Tests** *(2026-08-22)* — die Zusammenführung von lokalem
   Stand und Server war ungeprüft: 50 Zeilen, die entscheiden, welche Fassung
   eines Projekts überlebt. Neun Tests, zehn Mutationen einzeln geprüft.
-- [ ] **Board-Paket-Tests** (Mehrfachzeiten pro Paketposition, Edit/Reload-Szenarien).
+- [x] **Mehrfachzeiten pro Paketposition** *(2026-08-22)* — gebaut und
+  abgesichert, 20 Tests, 17 Mutationen. Edit/Reload läuft über die
+  Board-Sync-Tests.
 - [x] **QA-Bot Wissensmuster erweitert** *(2026-08-22)* — an echten Sätzen
   gemessen statt an Auslöserlisten geraten. Ein Fehlgriff behoben, der
   Stichentscheid entschied vorher nach Array-Reihenfolge. Tokenfrei geblieben.

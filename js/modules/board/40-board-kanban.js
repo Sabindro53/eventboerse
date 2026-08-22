@@ -1823,12 +1823,32 @@ function renderBoardTimeline() {
     chain.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light)"><span class="material-icons-round" style="font-size:40px;opacity:0.3;display:block;margin-bottom:12px">timeline</span>Noch keine bestätigten Dienstleister im Ablauf</div>';
     return;
   }
-  chain.innerHTML = confirmed.map(function(card, i) {
+  // Eine Position mit mehreren Zeiten erscheint im Ablauf MEHRFACH — genau
+  // das ist der Sinn eines Ablaufs. Die Reihenfolge der Karten bleibt, wie
+  // sie ist; nur innerhalb einer Karte stehen ihre Zeiten nacheinander. Ein
+  // globales Umsortieren nach Uhrzeit würde Karten ohne Zeit (die hier eine
+  // erfundene bekommen) mit echten mischen.
+  var punkte = [];
+  confirmed.forEach(function(card, i) {
+    var zeiten = ebKartenZeiten(card);
+    if (!zeiten.length) {
+      punkte.push({ card: card, text: ('0' + (8 + i * 2) + ':00').slice(-5), nr: 0, von: 1 });
+      return;
+    }
+    zeiten.forEach(function(z, k) {
+      punkte.push({ card: card, text: ebZeitText(z), nr: k + 1, von: zeiten.length });
+    });
+  });
+
+  chain.innerHTML = punkte.map(function(p, i) {
+    var card = p.card;
     var avatar = card.avatar || ebAvatar(card.name || 'user', card.name);
-    var timeStr = card.startTime || ('0' + (8 + i * 2) + ':00').slice(-5);
-    var connector = i < confirmed.length - 1 ? '<div class="tl-connector"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 10h10M12 7l3 3-3 3"/></svg></div>' : '';
+    var connector = i < punkte.length - 1 ? '<div class="tl-connector"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 10h10M12 7l3 3-3 3"/></svg></div>' : '';
+    // „2 von 3" nur, wenn es wirklich mehrere sind — sonst stünde an jeder
+    // Karte eine Eins, die nichts bedeutet.
+    var teil = p.von > 1 ? '<span class="tl-teil">' + p.nr + '/' + p.von + '</span>' : '';
     return '<div class="tl-card animated-entry">' +
-      '<div class="tl-time">' + _escHtml(timeStr) + '</div>' +
+      '<div class="tl-time">' + _escHtml(p.text) + teil + '</div>' +
       '<img src="' + _escHtml(avatar) + '" alt="' + _escHtml(card.name) + '" onerror="this.onerror=null;this.src=ebAvatar(this.alt||\'user\',this.alt)" />' +
       '<h4>' + _escHtml(card.name) + '</h4>' +
       '<small>' + _escHtml(card.category || '') + '</small>' +
@@ -2122,7 +2142,18 @@ function _renderBoardFlowImpl() {
       html += '<strong>' + esc(card.name) + '</strong>';
       html += '<small>' + esc(card.category || '') + '</small>';
       if (card.price) html += '<span class="flow-prov-price">' + parseFloat(card.price).toLocaleString('de-DE') + ' €</span>';
-      if (card.startTime) html += '<span class="flow-prov-time"><span class="material-icons-round" style="font-size:11px">schedule</span>' + esc(card.startTime) + (card.endTime ? ' – ' + esc(card.endTime) : '') + '</span>';
+      var _zeiten = ebKartenZeiten(card);
+      if (_zeiten.length) {
+        // Auf der Karte steht die erste Zeit; die übrigen als Zähler, weil
+        // vier Zeiten untereinander die Karte sprengen. Vollständig steht
+        // es im title und im Ablauf.
+        var _alle = _zeiten.map(ebZeitText).join(' · ');
+        html += '<span class="flow-prov-time" title="' + esc(_alle) + '">' +
+          '<span class="material-icons-round" style="font-size:11px">schedule</span>' +
+          esc(ebZeitText(_zeiten[0])) +
+          (_zeiten.length > 1 ? '<em class="flow-prov-time-mehr">+' + (_zeiten.length - 1) + '</em>' : '') +
+          '</span>';
+      }
       html += '</div>';
       html += '<div class="flow-prov-actions">';
       var _saLabels = {geplant:'Kontaktieren',angebot:'Erbringung bestätigen',bestaetigt:'Jetzt bezahlen'};
@@ -2463,6 +2494,84 @@ function _saveBudgetModal() {
   showToast('Budget gespeichert!', 'check_circle');
 }
 
+/* ============= Mehrfachzeiten je Paketposition =======================
+   Eine Position kann am Eventtag mehrfach stattfinden: der Fotograf zur
+   Trauung und noch einmal zur Party, das Catering mittags und abends.
+   Bisher trug eine Karte GENAU EINE Zeit, also legte man dieselbe Position
+   zweimal an — und zahlte, buchte und bestätigte sie dann auch zweimal.
+
+   `card.times` ist ab jetzt die Wahrheit: [{ start, end }, …].
+   `card.startTime` / `card.endTime` bleiben als SPIEGEL der ersten Zeit
+   erhalten. Das ist Absicht und kein Ballast:
+
+   - Es gibt KEINE Migration. Bestehende Karten tragen weiter nur
+     startTime, `ebKartenZeiten()` leitet daraus ab. Eine Migration, die
+     über alle Karten läuft, ist genau die Sorte Eingriff, die am 22.08.
+     Zahlungsdaten hätte löschen können.
+   - Der Server speichert die Karte unverändert; ein älterer Client oder
+     eine ungelesene Stelle im Code sieht weiterhin eine gültige Zeit.
+
+   Wer eine Zeit liest, nimmt `ebKartenZeiten()`. Wer eine setzt, nimmt
+   `ebKartenZeitenSetzen()` — sonst laufen Liste und Spiegel auseinander,
+   und dann zeigt die eine Ansicht etwas anderes als die andere.
+   ===================================================================== */
+
+/** Mehr wäre keine Planung mehr, sondern ein Kalender in einer Karte. */
+var EB_MAX_ZEITEN = 8;
+
+/** `true`, wenn der Text eine Uhrzeit HH:MM ist. */
+function ebIstUhrzeit(wert) {
+  return typeof wert === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(wert);
+}
+
+/**
+ * Alle Zeiten einer Karte, normalisiert.
+ *
+ * Reihenfolge der Quellen: `times`, sonst der Spiegel, sonst leer. Ungültige
+ * Einträge fallen weg statt die Ansicht zu zerlegen — eine Karte mit einer
+ * kaputten Zeit soll trotzdem erscheinen.
+ */
+function ebKartenZeiten(card) {
+  if (!card) return [];
+  var roh = Array.isArray(card.times) && card.times.length
+    ? card.times
+    : (ebIstUhrzeit(card.startTime) ? [{ start: card.startTime, end: card.endTime }] : []);
+  var raus = [];
+  var gesehen = {};
+  roh.forEach(function(z) {
+    if (!z || !ebIstUhrzeit(z.start)) return;      // ohne Start ist ein Ende bedeutungslos
+    var ende = ebIstUhrzeit(z.end) ? z.end : '';   // offenes Ende bleibt erlaubt
+    var key = z.start + '-' + ende;
+    if (gesehen[key]) return;
+    gesehen[key] = true;
+    raus.push({ start: z.start, end: ende });
+  });
+  raus.sort(function(a, b) { return a.start < b.start ? -1 : (a.start > b.start ? 1 : 0); });
+  return raus.slice(0, EB_MAX_ZEITEN);
+}
+
+/**
+ * Setzt die Zeiten einer Karte — Liste UND Spiegel in einem Zug.
+ *
+ * Gibt die tatsächlich gespeicherten Zeiten zurück, damit der Aufrufer
+ * merkt, wenn etwas weggefallen ist.
+ */
+function ebKartenZeitenSetzen(card, zeiten) {
+  if (!card) return [];
+  var sauber = ebKartenZeiten({ times: zeiten || [] });
+  card.times = sauber;
+  // Der Spiegel: erste Zeit, oder leer. Nie stehen lassen, was nicht mehr gilt.
+  card.startTime = sauber.length ? sauber[0].start : '';
+  card.endTime = sauber.length ? sauber[0].end : '';
+  return sauber;
+}
+
+/** Eine Zeit als Text: „14:00 – 16:00" oder „14:00" bei offenem Ende. */
+function ebZeitText(z) {
+  if (!z || !z.start) return '';
+  return z.end ? z.start + ' – ' + z.end : z.start;
+}
+
 // ============= Zeit-Picker (Zeitraum + Presets + Stepper) =============
 window._buildTimePicker = function(startId, endId, startVal, endVal) {
   var sv = startVal || '10:00';
@@ -2504,6 +2613,80 @@ window._buildTimePicker = function(startId, endId, startVal, endVal) {
     '</div>' +
     '<div class="eb-tp-dur" id="'+startId+'_dur"><span class="material-icons-round">hourglass_empty</span><span>Kein Endzeitpunkt</span></div>' +
   '</div>';
+};
+
+/* ---- Mehrere Zeitfelder in einem Formular --------------------------- */
+
+/**
+ * Rendert die Zeitliste in `hostId`. `praefix` macht die Feld-IDs eindeutig,
+ * damit zwei Formulare (Anlegen und Bearbeiten) nebeneinander bestehen können.
+ *
+ * Bewusst vollständig neu gezeichnet statt einzelne Zeilen einzuhängen: die
+ * Werte werden vorher aus dem DOM gelesen, also geht nichts verloren, und es
+ * gibt nur EINEN Weg, wie die Liste aussieht.
+ */
+window._ebZeitenRendern = function(hostId, praefix, zeiten) {
+  var host = document.getElementById(hostId);
+  if (!host) return;
+  var liste = (zeiten || []).slice(0, EB_MAX_ZEITEN);
+  if (!liste.length) liste = [{ start: '10:00', end: '' }];
+
+  var html = liste.map(function(z, i) {
+    var kopf = '<div class="eb-zeit-kopf">' +
+      '<span class="eb-zeit-nr">' + (i + 1) + '. Zeit</span>' +
+      (liste.length > 1
+        ? '<button type="button" class="eb-zeit-weg" aria-label="Diese Zeit entfernen" ' +
+          'onclick="_ebZeitWeg(\'' + hostId + '\',\'' + praefix + '\',' + i + ')">' +
+          '<span class="material-icons-round">close</span></button>'
+        : '') +
+      '</div>';
+    return '<div class="eb-zeit-block" data-zeit="' + i + '">' + kopf +
+      window._buildTimePicker(praefix + '_s' + i, praefix + '_e' + i, z.start || '10:00', z.end || '') +
+      '</div>';
+  }).join('');
+
+  // Der Knopf verschwindet am Limit, statt eine Aktion anzubieten, die
+  // nichts tut. Ein Knopf ohne Wirkung ist schlimmer als keiner.
+  if (liste.length < EB_MAX_ZEITEN) {
+    html += '<button type="button" class="eb-zeit-plus" ' +
+      'onclick="_ebZeitDazu(\'' + hostId + '\',\'' + praefix + '\')">' +
+      '<span class="material-icons-round">add</span> Weitere Zeit hinzufügen</button>';
+  } else {
+    html += '<p class="eb-zeit-limit">Mehr als ' + EB_MAX_ZEITEN +
+      ' Zeiten je Position sind kein Ablauf mehr, sondern ein eigener Kalender.</p>';
+  }
+  host.innerHTML = html;
+  host.dataset.praefix = praefix;
+};
+
+/** Liest die Zeitliste aus dem Formular zurück — roh, ohne Normalisierung. */
+window._ebZeitenLesen = function(hostId, praefix) {
+  var host = document.getElementById(hostId);
+  if (!host) return [];
+  var raus = [];
+  host.querySelectorAll('.eb-zeit-block').forEach(function(block) {
+    var i = block.dataset.zeit;
+    var s = document.getElementById(praefix + '_s' + i);
+    var e = document.getElementById(praefix + '_e' + i);
+    if (s && s.value) raus.push({ start: s.value, end: (e && e.value) || '' });
+  });
+  return raus;
+};
+
+window._ebZeitDazu = function(hostId, praefix) {
+  var jetzt = window._ebZeitenLesen(hostId, praefix);
+  // An die letzte Zeit anschliessen, wenn sie ein Ende hat — das ist fast
+  // immer gemeint, und ein zweites Feld auf 10:00 wäre nur Tipparbeit.
+  var letzte = jetzt[jetzt.length - 1];
+  var start = (letzte && letzte.end) ? letzte.end : '';
+  jetzt.push({ start: start || '18:00', end: '' });
+  window._ebZeitenRendern(hostId, praefix, jetzt);
+};
+
+window._ebZeitWeg = function(hostId, praefix, i) {
+  var jetzt = window._ebZeitenLesen(hostId, praefix);
+  jetzt.splice(i, 1);
+  window._ebZeitenRendern(hostId, praefix, jetzt);
 };
 
 window._tpApplyPreset = function(sId, eId, s, e, btn) {
@@ -2666,13 +2849,15 @@ function openFlowCardModal(cardId) {
     '<div class="form-group"><label>Name</label><input type="text" id="fcName" value="' + _escHtml(card.name) + '" required /></div>' +
     '<div class="form-group"><label>Kategorie</label><input type="text" id="fcCat" value="' + _escHtml(card.category || '') + '" /></div>' +
     _priceField +
-    '<div class="form-group"><label>Uhrzeit am Eventtag</label>' + window._buildTimePicker('fcTime','fcTimeEnd', card.startTime || '10:00', card.endTime || '') + '</div>' +
+    '<div class="form-group"><label>Zeiten am Eventtag</label><div id="fcZeiten"></div></div>' +
     _stageField +
     '<div class="form-group"><label>Notiz</label><textarea id="fcNote" rows="3">' + _escHtml(card.note || '') + '</textarea></div>' +
     '<button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>' +
     _deleteBtn +
     '</form></div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
+  // Nach dem Einhängen: der Renderer braucht das Ziel im Dokument.
+  window._ebZeitenRendern('fcZeiten', 'fcZ', ebKartenZeiten(card));
 }
 
 function _saveFlowCard(event, cardId) {
@@ -2691,8 +2876,13 @@ function _saveFlowCard(event, cardId) {
     card.price = parseFloat(document.getElementById('fcPrice').value) || 0;
   }
 
-  card.startTime = document.getElementById('fcTime').value;
-  card.endTime   = document.getElementById('fcTimeEnd') ? document.getElementById('fcTimeEnd').value : '';
+  var _gewollt = window._ebZeitenLesen('fcZeiten', 'fcZ');
+  var _gesetzt = ebKartenZeitenSetzen(card, _gewollt);
+  // Ehrlich sagen, wenn etwas wegfiel — sonst glaubt der Nutzer, seine
+  // doppelte Zeit sei gespeichert.
+  if (_gewollt.length > _gesetzt.length) {
+    showToast((_gewollt.length - _gesetzt.length) + ' doppelte oder ungültige Zeit verworfen.', 'schedule');
+  }
   var _newStage = document.getElementById('fcStage').value;
   if (_isPaid) {
     // Zahlungsstatus und Prozessstand dürfen nicht manuell verfälscht werden.
