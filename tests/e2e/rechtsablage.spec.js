@@ -63,6 +63,8 @@ test.describe('Rechtsablage – Bestand und Schutz', () => {
 
     const htaccess = lesen('.htaccess');
     expect(htaccess).toMatch(/assets\/eb-rechts\(unterlagen\|unterlagen-katalog\|quellen\)\\\.json/);
+    expect(htaccess).toMatch(/RewriteRule \^assets\/eb-rechts/);
+    expect(htaccess).toMatch(/FilesMatch "\^eb-rechts/);
     const deploy = lesen('.github/workflows/ionos-deploy.yml');
     expect(deploy).toMatch(/eb-rechtsunterlagen-katalog\\\.json/);
     expect(deploy).toMatch(/eb-rechtsquellen\\\.json/);

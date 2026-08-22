@@ -102,6 +102,17 @@ RedirectMatch 404 ^/wp-content/themes/[^/]+/hq\.html$
 # direkte Theme-Pfad wuerde PHP und damit diese Rechtepruefung umgehen.
 RedirectMatch 404 ^/wp-content/themes/[^/]+/assets/eb-rechts(unterlagen|unterlagen-katalog|quellen)\.json$
 
+# RedirectMatch wird von manchen IONOS-Apache-Konfigurationen in einer
+# Theme-.htaccess nicht auf statische Unterordner angewandt. Die per-directory
+# RewriteRule trifft den tatsaechlichen Pfad relativ zu diesem Theme. Der
+# FilesMatch ist das zweite Netz, falls mod_rewrite dort deaktiviert ist.
+<IfModule mod_rewrite.c>
+  RewriteRule ^assets/eb-rechts(unterlagen|unterlagen-katalog|quellen)\.json$ - [R=404,L,NC]
+</IfModule>
+<FilesMatch "^eb-rechts(unterlagen|unterlagen-katalog|quellen)\.json$">
+  Require all denied
+</FilesMatch>
+
 # Verzeichnis-Listing aus
 Options -Indexes
 <IfModule mod_autoindex.c>
