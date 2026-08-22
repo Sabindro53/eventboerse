@@ -307,6 +307,7 @@ img { display: block; max-width: 100%; height: auto; -webkit-object-fit: cover; 
   white-space: nowrap;
 }
 .logo-icon { font-size: 1.8rem; color: var(--primary); }
+.logo .accent { color: var(--primary); }
 .nav-search {
   display: flex; align-items: center;
   background: var(--bg);
