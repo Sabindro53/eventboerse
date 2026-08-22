@@ -458,8 +458,8 @@ function openAddProviderModal(defaultStage) {
           <input type="number" id="cardPrice" placeholder="0" min="0" step="1" />
         </div>
         <div class="form-group">
-          <label>Uhrzeit am Eventtag</label>
-          <div id="cardTimePickerHost">${window._buildTimePicker('cardStartTime','cardEndTime','10:00','')}</div>
+          <label>Zeiten am Eventtag</label>
+          <div id="cardZeiten"></div>
         </div>
         <div class="form-group">
           <label>Notiz</label>
@@ -472,6 +472,7 @@ function openAddProviderModal(defaultStage) {
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  window._ebZeitenRendern('cardZeiten', 'nkZ', []);
 }
 
 /** Baut die Karten-Buttons für den Inserat-Picker (Board "Dienstleister hinzufügen"). */
@@ -576,8 +577,7 @@ function _addProviderCard(event, stage) {
   var category = document.getElementById('cardCategory').value.trim();
   var price = parseFloat(document.getElementById('cardPrice').value) || 0;
   var note = document.getElementById('cardNote').value.trim();
-  var startTime = document.getElementById('cardStartTime').value || '';
-  var endTime = (document.getElementById('cardEndTime') || {}).value || '';
+  var zeiten = ebKartenZeiten({ times: window._ebZeitenLesen('cardZeiten', 'nkZ') });
 
   var listing = listingId ? (LISTINGS || []).find(function(l) { return l.id === listingId; }) : null;
   var avatar = listing ? (listing.providerImg || listing.providerAvatar || null) : null;
@@ -590,8 +590,10 @@ function _addProviderCard(event, stage) {
     category: category,
     price: price,
     note: note,
-    startTime: startTime,
-    endTime: endTime,
+    times: zeiten,
+    // Spiegel der ersten Zeit — siehe ebKartenZeitenSetzen().
+    startTime: zeiten.length ? zeiten[0].start : '',
+    endTime: zeiten.length ? zeiten[0].end : '',
     stage: stage,
     listingId: listingId,
     providerId: listing ? (listing.providerId || null) : null,
@@ -645,15 +647,14 @@ function editBoardCard(cardId) {
         <div class="form-group"><label>Name</label><input type="text" id="editCardName" value="${_escHtml(card.name)}" required /></div>
         <div class="form-group"><label>Kategorie</label><input type="text" id="editCardCategory" value="${_escHtml(card.category || '')}" /></div>
         <div class="form-group"><label>Preis (€)</label><input type="number" id="editCardPrice" value="${card.price || ''}" min="0" step="1" /></div>
-        <div class="form-group"><label>Uhrzeit</label><div id="editCardTimeHost"></div></div>
+        <div class="form-group"><label>Zeiten</label><div id="editCardZeiten"></div></div>
         <div class="form-group"><label>Notiz</label><textarea id="editCardNote" rows="2">${_escHtml(card.note || '')}</textarea></div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">save</span> Speichern</button>
       </form>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
-  var ecHost = document.getElementById('editCardTimeHost');
-  if (ecHost) ecHost.innerHTML = window._buildTimePicker('editCardTime','editCardTimeEnd', card.startTime || '10:00', card.endTime || '');
+  window._ebZeitenRendern('editCardZeiten', 'ecZ', ebKartenZeiten(card));
 }
 
 function _saveCardEdit(event, cardId) {
@@ -666,8 +667,11 @@ function _saveCardEdit(event, cardId) {
   card.name = document.getElementById('editCardName').value.trim();
   card.category = document.getElementById('editCardCategory').value.trim();
   card.price = parseFloat(document.getElementById('editCardPrice').value) || 0;
-  card.startTime = document.getElementById('editCardTime').value || '';
-  card.endTime = (document.getElementById('editCardTimeEnd') || {}).value || '';
+  var _gewollt = window._ebZeitenLesen('editCardZeiten', 'ecZ');
+  var _gesetzt = ebKartenZeitenSetzen(card, _gewollt);
+  if (_gewollt.length > _gesetzt.length) {
+    showToast((_gewollt.length - _gesetzt.length) + ' doppelte oder ungültige Zeit verworfen.', 'schedule');
+  }
   card.note = document.getElementById('editCardNote').value.trim();
   _saveBoardProjects();
   document.getElementById('editCardModal') && document.getElementById('editCardModal').remove();
