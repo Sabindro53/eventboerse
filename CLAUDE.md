@@ -318,7 +318,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-492 Tests in 28 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+502 Tests in 29 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -328,7 +328,8 @@ Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten
-je Position, Anlegen/Bearbeiten/Ablauf), Radar (Umkreis, lokale Position,
+je Position, Anlegen/Bearbeiten/Ablauf), **Pflichtchecks** (Selbstbuchungs-
+schutz, Demo-Toggle, Board-Picker, Listings), Radar (Umkreis, lokale Position,
 Migrations-Verhalten), Vision-Release, Kern
 (Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), Barrierefreiheit (axe,
 beide Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei

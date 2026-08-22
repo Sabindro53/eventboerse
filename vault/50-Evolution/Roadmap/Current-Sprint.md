@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 492 Tests in 28 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 502 Tests in 29 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,19 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Die vier Pflicht-Checks laufen jetzt als Tests.** Der Sprint führte sie
+  seit Langem als P0-Merkzettel „nach jedem Deploy" — und ein Merkzettel wird
+  beim dritten Deploy nicht mehr abgearbeitet. Vorn steht der
+  **Selbstbuchungsschutz**, eine Geld-Regel: wer sein eigenes Inserat bucht,
+  schleust Geld im Kreis, erzeugt eine Provision auf sich selbst und
+  verfälscht jede Kennzahl. Geschützt war er an vier Stellen, getestet an
+  keiner. Zehn Tests, zehn Mutationen — zwei davon deckten **hohle Tests von
+  mir** auf: der Buchungstest bestand, weil `bookListing()` mangels
+  ausgefülltem Formular ohnehin abbrach (mein injiziertes Feld hatte dieselbe
+  ID wie das echte aus `app-shell.html`, und `getElementById` nimmt den
+  ersten), und der Demo-Toggle wurde an einer Ableitung statt an
+  `filterDemos()` gemessen. **502 Tests in 29 Suiten.**
 
 - [x] **Mehrfachzeiten je Paketposition.** Eine Position kann am Eventtag
   mehrfach stattfinden — Fotograf zur Trauung und zur Party, Catering mittags
@@ -618,9 +631,12 @@ YouTube-Transkripte (das Tor steht, es fehlt nur der Abholer).
 
 ## Aktiver Fokus (P0)
 
-- [ ] **Listings-/Board-Regressionen ausschließen**
+- [x] **Listings-/Board-Regressionen ausschließen** *(2026-08-22)*
   - Ziel: Keine verschwundenen Listings mehr in Board/Startseite/Map/Browse.
-  - Pflicht-Checks nach Deploy: Listings API, Board Picker, Demo-Toggle, Selbstbuchungsschutz.
+  - [x] Die vier Pflicht-Checks laufen als Tests statt als Merkzettel
+    (`tests/e2e/pflichtchecks.spec.js`): Listings, Board-Picker, Demo-Toggle,
+    Selbstbuchungsschutz. Eine Liste, die ein Mensch nach jedem Deploy
+    abarbeiten soll, wird beim dritten Deploy nicht mehr abgearbeitet.
   - [x] Provider ohne Inserate bleiben reine Profile: Profil-Fallbacks landen
     nicht mehr in `LISTINGS`, zählen als 0 und erzeugen keine Inseratkarte.
     Ein Smoke-Test bildet den konkreten Fall „Maria Heilig, `listings: []`“ ab.
