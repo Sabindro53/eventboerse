@@ -259,6 +259,27 @@ WordPress trotz Admin-Cookie die Identität und die Route antwortet 401/403.
 nur `eb-knowledge.json` und `eb-demo-feed.json`.
 Details: `vault/30-Betrieb/Verbindungen.md`.
 
+### Der Kontext wird nachgemessen
+
+```bash
+node scripts/kontext.mjs           # Behauptung und Messung nebeneinander
+node scripts/kontext.mjs --check   # CI-Tor (pr-check.yml)
+```
+
+Diese Datei ist das erste, was jede Sitzung liest — und war die einzige, die
+niemand nachmisst. Am 22.08.2026 waren vier Angaben veraltet: 22 statt 24
+Module, 86 statt 101 Routen, „~16 300 Zeilen CSS" statt 17 100, und beim
+Messaging „alle 3s" für ein Polling, das längst bei 5 s beginnt.
+
+Die letzte war die teuerste: sie beschrieb eine **Schwäche, die es nicht mehr
+gibt**. Wer sie liest, sucht ein behobenes Problem. Ein veraltetes
+Steuerungsdokument kostet mehr als gar keins, weil es Vertrauen genießt.
+
+**Findet der Prüfer eine Aussage nicht mehr, ist das ein Fehler — kein
+bestandener Test.** Ein Tor, das bei umformuliertem Text stillschweigend
+durchwinkt, prüft nichts mehr und sieht dabei grün aus. Wer eine geprüfte
+Angabe umformuliert, passt das Muster in `scripts/kontext.mjs` mit an.
+
 ### Impuls-Strom messen
 
 ```bash
@@ -297,7 +318,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-452 Tests in 25 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+458 Tests in 26 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -483,12 +504,12 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 22 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~16 300 Zeilen CSS, mobile-first |
+| `js/modules/` | Quelle des Frontends: 24 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/` (Reihenfolge: `modules.list`) |
+| `styles.css` | ~17 100 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (86 Routen), Asset-Registrierung |
+| `functions.php` | WordPress-Theme: REST API (101 Routen), Asset-Registrierung |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -509,7 +530,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-~81 Route-Registrierungen (`register_rest_route`, Stand 2026-06), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Utilities.
+101 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Utilities.
 
 ### State
 
@@ -522,4 +543,9 @@ Kanban/Flow-Planer (`renderBoardPage`, `renderKanban`, `renderBoardFlow`) mit `l
 ## Bekannte Schwächen (nicht neu einführen)
 
 - Demo-Daten (`LISTINGS`/`REVIEWS`/`CHATS`) noch hardcoded — werden schrittweise durch DB-Calls ersetzt
-- Messaging nutzt Polling (alle 3s), kein WebSocket/SSE
+- Messaging nutzt Polling statt WebSocket/SSE. **Nicht mehr „alle 3s":** der
+  Takt beginnt bei 5 s, faellt ohne neue Nachricht um Faktor 1,6 bis auf 20 s
+  zurueck und pausiert bei verstecktem Tab ganz. Auf dem kleinen PHP-Pool von
+  IONOS ist echtes SSE die schlechtere Wahl — eine offene Verbindung haelt
+  einen Worker dauerhaft belegt, und genau daran ist am 22.08. die Website
+  gehangen (Demo-Bildimport)

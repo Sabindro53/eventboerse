@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 452 Tests in 25 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 458 Tests in 26 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,21 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Der Kontext wird nachgemessen.** `CLAUDE.md` ist das erste, was jede
+  Sitzung liest — und war die einzige Datei, die niemand nachmisst. Vier
+  Angaben waren veraltet: 22 statt 24 Module, 86 statt 101 Routen, „~16 300
+  Zeilen CSS" statt 17 100, und beim Messaging „alle 3s" für ein Polling, das
+  längst bei 5 s beginnt, bis 20 s zurückfällt und bei verstecktem Tab
+  pausiert. Die letzte war die teuerste: sie beschrieb eine **Schwäche, die es
+  nicht mehr gibt**. `scripts/kontext.mjs` prüft das jetzt im PR. Zwei Fallen
+  beim Bauen selbst gefunden: mein erstes Muster für den Autopilot-Rahmen
+  übersah die drei CSS-Dateien und hätte beinahe eine korrekte
+  Sicherheitsgrenze kleiner geschrieben, als sie ist; und der eigene
+  Dokumentationstext zitierte die alte CSS-Zahl, worauf das Muster zwei
+  Stellen traf — seitdem ist **mehrdeutig** ebenso ein Fehler wie **nicht
+  gefunden**. Sechs Tests, fünf Mutationen gegen den Prüfer selbst.
+  **458 Tests in 26 Suiten.**
 
 - [x] **Board-Sync: die Zusammenführung ist jetzt abgesichert.** Das Board liegt
   in `localStorage` UND auf dem Server; `_mergeBoardProjects()` entscheidet, welche
