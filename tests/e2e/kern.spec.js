@@ -1230,6 +1230,58 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     expect(voice, 'Betriebsfragen bleiben im Sprachmodus lokal').toMatch(/if \(localAnswer\)/);
   });
 
+  test('der Wertbeitrag steht oben und trennt Deckel von Verbrauch', async ({ page }) => {
+    // Die 674.000 € standen bisher nur weit unten im Ensemble-Abschnitt. Sie
+    // beantworten die Frage, die den Betrieb rechtfertigt.
+    const fehler = [];
+    page.on('pageerror', (e) => fehler.push(String(e)));
+    await page.route('https://api.github.com/**', (r) => r.abort());
+    await page.goto('/hq.html');
+    await page.waitForTimeout(2400);
+    expect(fehler).toEqual([]);
+
+    const text = await page.locator('#wert-block').innerText();
+    expect(text, 'das Panel bleibt leer').toMatch(/Marktwert/);
+
+    // Der Kern: ein DECKEL ist kein Verbrauch. Beides muss getrennt dastehen,
+    // sonst liest sich die Obergrenze wie eine Rechnung.
+    expect(text).toMatch(/Kostendeckel/);
+    expect(text).toMatch(/nicht der Verbrauch/);
+    expect(text).toMatch(/Bisher gemessen/);
+
+    // Kein erfundener Wechselkurs: Euro und Dollar werden nicht verrechnet.
+    expect(text, 'Euro und Dollar wurden zu einer Zahl verrechnet')
+      .toMatch(/nicht umgerechnet/);
+
+    // Und kein Ersatz-Versprechen.
+    expect(text).toMatch(/keine Behauptung, dass ein Modell jemanden ersetzt/);
+  });
+
+  test('Marktwert und Deckel kommen aus dem Katalog, nicht aus dem Code', async ({ page }) => {
+    // Eine eingetippte Zahl wäre am Tag der nächsten Rollenänderung falsch.
+    const katalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-models.json'), 'utf8'));
+    const markt = (katalog.modelle || []).reduce((a, m) => a + (m.gehaltVergleich || 0), 0);
+    const deckel = Object.values(katalog.schichten || {})
+      .filter((s) => typeof s.budgetUsd === 'number')
+      .reduce((a, s) => a + s.budgetUsd, 0);
+    expect(markt, 'ohne Vergleichswerte misst der Test nichts').toBeGreaterThan(0);
+    expect(deckel, 'ohne Töpfe misst der Test nichts').toBeGreaterThan(0);
+
+    await page.route('https://api.github.com/**', (r) => r.abort());
+    await page.goto('/hq.html');
+    await page.waitForTimeout(2400);
+    const badge = await page.locator('#wert-badge').innerText();
+    expect(badge).toContain(markt.toLocaleString('de-DE'));
+    expect(badge).toContain(deckel.toFixed(2).replace('.', ','));
+
+    // Gegenprobe: die Zahlen dürfen nicht im Quelltext stehen.
+    const hq = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
+    const wirksam = hq.split('\n').filter((z) => !/^\s*(\/\/|\*)/.test(z)).join('\n');
+    const fn = wirksam.slice(wirksam.indexOf('function renderWert'), wirksam.indexOf('function renderModelle'));
+    expect(fn, 'der Marktwert ist fest eingetippt').not.toContain(String(markt));
+    expect(fn, 'der Deckel ist fest eingetippt').not.toMatch(/\b2\.0+\b|\b730\b/);
+  });
+
   test('der Betriebsbericht steht sichtbar im HQ, nicht erst auf Nachfrage', async ({ page }) => {
     // Er lag hinter einem Knopf im Gespräch. Eine Lage, die man erfragen muss,
     // sieht man meistens gar nicht — und das ist genau die Lage, die man

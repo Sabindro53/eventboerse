@@ -460,6 +460,20 @@
   /* Auffaellig: eckig statt rund, damit es auch ohne Farbe heraussticht. */
   .lage-problem   { color: #fca5a5; }
   .lage-problem   .lage-dot { border-color: #f87171; background: #f87171; border-radius: 2px; }
+  /* Wertbeitrag */
+  .wert-zeile { display:grid; grid-template-columns: minmax(9rem,auto) minmax(7rem,auto) 1fr;
+    gap:.2rem .9rem; align-items:baseline; padding:.55rem 0; border-top:1px solid var(--border); }
+  .wert-zeile:first-child { border-top:0; }
+  .wert-was  { font-size:.8rem; color:var(--muted); }
+  .wert-zahl { font-size:.95rem; white-space:nowrap; }
+  .wert-hinweis { font-size:.72rem; color:var(--muted); line-height:1.45; }
+  .wert-fazit { margin-top:.7rem; padding-top:.6rem; border-top:1px solid var(--border);
+    font-size:.78rem; line-height:1.55; }
+  .wert-stellen { display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.7rem; }
+  .wert-stelle { font-size:.68rem; color:var(--muted); background:var(--surface2);
+    border:1px solid var(--border); border-radius:999px; padding:.14rem .5rem; }
+  .wert-stelle b { color:var(--fg); }
+  @media (max-width:560px) { .wert-zeile { grid-template-columns:1fr; } }
   .journal h5 { font-size: .82rem; margin-bottom: .1rem; }
   .journal > p { font-size: .72rem; color: var(--muted); margin-bottom: .6rem; line-height: 1.5; }
   .j-eintrag { display: flex; gap: .6rem; padding: .5rem 0; border-top: 1px solid var(--border); font-size: .75rem; }
@@ -887,6 +901,13 @@
       <div class="section-badge" id="lage-badge">–</div>
     </div>
     <div class="journal lage-liste" id="lage-liste" aria-live="polite"></div>
+
+    <!-- Wertbeitrag — was die Belegschaft kostet und was sie wert ist. -->
+    <div class="section-header" id="wert">
+      <div class="section-title">💶 Wertbeitrag <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— Marktwert gegen Modellkosten</span></div>
+      <div class="section-badge" id="wert-badge">–</div>
+    </div>
+    <div class="journal wert-block" id="wert-block"></div>
 
     <!-- Bereiche & Autonomie -->
     <div class="section-header" id="bereiche">
@@ -1739,7 +1760,7 @@ async function loadAll() {
     ebImpuls('engineering', 'gut');
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderLage();
     renderQuests(); renderAchievements(); renderHud();
-    if (nnKatalog) { nnZeichnen(); renderModelle(); }
+    if (nnKatalog) { nnZeichnen(); renderModelle(); renderWert(); }
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
     else $('releases-list').innerHTML = `<div class="err">Fehler beim Laden: ${escHtml(e.message)}</div>`;
@@ -1768,7 +1789,7 @@ async function init() {
       try {
         const neu = await ladeNeuralJournal();
         if (neu) {
-          nnZeichnen(); renderJournal(); renderModelle();
+          nnZeichnen(); renderJournal(); renderModelle(); renderWert();
           const letzter = nnJournal && nnJournal.eintraege && nnJournal.eintraege[0];
           if (letzter && letzter.bereich) ebImpuls(letzter.bereich, letzter.ergebnis === 'fertig' ? 'gut' : 'schlecht');
         }
@@ -1788,7 +1809,7 @@ async function init() {
       try {
         await loadRuns();
         await loadAutopilotPull();
-        nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps(); renderLage();
+        nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps(); renderLage(); renderWert();
       } finally { state.operationsAbruf = false; }
     }, getPat() ? 30000 : 300000);
   }
@@ -3225,6 +3246,78 @@ function renderWartet() {
       </div>`).join('')}`;
 }
 
+/**
+ * Wertbeitrag: was die Belegschaft an Marktwert vertritt, was sie kostet.
+ *
+ * Die Zahl 674.000 € stand bisher nur weit unten im Ensemble-Abschnitt. Sie
+ * beantwortet aber die Frage, die den Betrieb rechtfertigt, und gehört
+ * darum nach oben.
+ *
+ * Drei Ehrlichkeitsgrenzen, die hier eingebaut sind:
+ *
+ * 1. DER DECKEL IST KEIN VERBRAUCH. $2,00/Tag ist die harte Obergrenze der
+ *    beiden Töpfe, nicht das, was ausgegeben wurde. Beides steht getrennt
+ *    da — der gemessene Verbrauch kommt aus dem Arbeitsjournal.
+ *
+ * 2. KEIN ERFUNDENER WECHSELKURS. Marktwert in Euro, Kosten in Dollar. Sie
+ *    zu subtrahieren hiesse, einen Kurs zu behaupten, den niemand gemessen
+ *    hat. Das Verhältnis ist mit rund 1:900 so deutlich, dass es auf den
+ *    Kurs nicht ankommt — und genau so steht es da.
+ *
+ * 3. KEIN ERSATZ-VERSPRECHEN. Der Marktwert sagt, welcher Umfang an Arbeit
+ *    hier ohne Rückfrage läuft. Er sagt nicht, dass ein Modell eine Person
+ *    ersetzt.
+ */
+function renderWert() {
+  const block = document.getElementById('wert-block');
+  const badge = document.getElementById('wert-badge');
+  if (!block) return;
+  if (!nnKatalog) {
+    block.innerHTML = '<div class="empty">Modell-Katalog nicht geladen — ohne ihn kann ich zum Wert nichts sagen.</div>';
+    if (badge) badge.textContent = '–';
+    return;
+  }
+
+  const modelle = nnKatalog.modelle || [];
+  const bezahlt = modelle.filter((m) => (m.gehaltVergleich || 0) > 0);
+  const markt = modelle.reduce((a, m) => a + (m.gehaltVergleich || 0), 0);
+
+  // Deckel aus den Töpfen — nie hart hineingeschrieben.
+  const toepfe = Object.values(nnKatalog.schichten || {})
+    .filter((s) => typeof s.budgetUsd === 'number');
+  const deckelTag = toepfe.reduce((a, s) => a + s.budgetUsd, 0);
+  const deckelJahr = Math.round(deckelTag * 365);
+
+  // Gemessener Verbrauch: nur was wirklich im Journal steht.
+  const eintraege = (nnJournal && nnJournal.eintraege) || [];
+  const gemessen = eintraege.reduce((a, e) => a + (typeof e.kostenUsd === 'number' ? e.kostenUsd : 0), 0);
+
+  const eur = (n) => n.toLocaleString('de-DE') + ' €';
+  const zeile = (was, wert, hinweis) =>
+    `<div class="wert-zeile"><span class="wert-was">${was}</span>`
+    + `<span class="wert-zahl">${wert}</span>`
+    + `<span class="wert-hinweis">${hinweis}</span></div>`;
+
+  block.innerHTML =
+    zeile('Marktwert derselben Stellen', `<b>${eur(markt)}</b> / Jahr`,
+      `${bezahlt.length} Rollen mit Vergleichsstelle — Vergleichswert, keine Behauptung, dass ein Modell jemanden ersetzt`)
+    + zeile('Kostendeckel der Modelle', `$${deckelTag.toFixed(2).replace('.', ',')} / Tag`,
+      `harte Obergrenze beider Töpfe, rund $${deckelJahr.toLocaleString('de-DE')} im Jahr — nicht der Verbrauch`)
+    + zeile('Bisher gemessen', gemessen > 0 ? `$${gemessen.toFixed(4).replace('.', ',')}` : 'noch nichts im Journal',
+      gemessen > 0 ? `aus ${eintraege.length} Journaleinträgen — echte Läufe, keine Hochrechnung`
+                   : 'ohne Journaleinträge lässt sich der Verbrauch nicht beziffern')
+    + `<div class="wert-fazit">Der Marktwert übersteigt den Kostendeckel um rund das `
+    + `<b>${Math.round(markt / Math.max(deckelJahr, 1) / 10) * 10}-fache</b>. `
+    + `Euro gegen Dollar sind hier bewusst nicht umgerechnet: bei diesem Abstand `
+    + `ändert kein Wechselkurs die Aussage, und ein erfundener Kurs wäre eine Zahl, `
+    + `die niemand gemessen hat.</div>`
+    + `<div class="wert-stellen">${bezahlt.map((m) =>
+        `<span class="wert-stelle" title="${escHtml(m.person || m.id)}">${escHtml(m.vergleichsstelle || '—')}`
+        + ` <b>${(m.gehaltVergleich / 1000)}k</b></span>`).join('')}</div>`;
+
+  if (badge) badge.textContent = `${eur(markt)} vs. $${deckelTag.toFixed(2).replace('.', ',')}/Tag`;
+}
+
 function renderModelle() {
   if (!nnKatalog) return;
   const wege = nnKatalog.wege || {};
@@ -3422,6 +3515,7 @@ async function initNeural() {
   renderJournal();
   renderAuftragsstrom();
   renderModelle();
+  renderWert();
 
   // Ohne SpeechRecognition (z. B. Firefox) sagt der Kreis das, statt beim
   // Tippen stumm zu bleiben.
