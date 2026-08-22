@@ -151,6 +151,13 @@ jobs:
       - name: Rechtliche Lage prüfen
         run: node scripts/recht.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Die Icon-Schrift ist auf die benutzten Symbole zugeschnitten. Ein neu
+      # eingebautes Icon, das nicht mitgeschnitten wurde, erscheint im Betrieb
+      # als leerer Kasten — sichtbar fuer jeden Besucher, unsichtbar fuer
+      # jeden anderen Test. Dieses Tor faengt es im PR.
+      - name: Icon-Schrift deckt alle benutzten Symbole
+        run: node scripts/icons.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Testsuite ausführen
         run: npx playwright test
 

@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 430 Tests in 23 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 434 Tests in 24 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,24 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Die Icon-Schrift ist zugeschnitten: 170 KB → 32 KB.** Material Icons
+  Round trug 2200 Symbole aus, benutzt werden 384 — jeder Besucher lud den Rest
+  mit. Gesammelt wird **rückwärts**: von allen möglichen Namen bleibt jeder, der
+  im Code als eigenständiges Wort vorkommt. Nur `>name<` zu lesen hätte alle
+  Icons verloren, die aus einer Variablen kommen (`'…>' + stage.icon + '<…'`) —
+  und das wäre erst im Betrieb aufgefallen. Zu viel mitzunehmen kostet Bytes, zu
+  wenig einen leeren Kasten. Zwei stille Fallen dabei gefunden: die Ligaturen
+  liegen unter `rlig`, nicht `liga` (die Angabe in `fonts.css` war falsch und
+  fiel nie auf, weil Browser `rlig` ohnehin immer einschalten — beim Zuschneiden
+  wäre daraus eine Schrift geworden, die in jedem Knopf den Iconnamen als Wort
+  zeigt), und ohne `layout_closure = False` holt der Subsetter über die
+  Ligaturregeln fast alles zurück: 157 KB statt 32 KB, technisch korrekt und
+  nutzlos. Der Wächter misst nicht Text, sondern das **gerenderte Ergebnis** im
+  echten Browser: ein Symbol ist quadratisch, ein unaufgelöster Name breit. Dazu
+  ein CI-Tor, das ein neu eingebautes Icon fängt, bevor es leer erscheint. Vier
+  Mutationen einzeln geprüft — eine deckte einen hohlen Test von mir auf, der zu
+  früh maß und die Ersatzschrift erwischte. **434 Tests in 24 Suiten.**
 
 - [x] **Demo-Bilder: der Knopf, der den Import wirklich startet.** Die Route
   `POST /hq/demo-bilder` stand seit #182, bedienen konnte sie niemand — eine

@@ -59,6 +59,11 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  /* Ohne Ligaturen stünde in jedem Knopf der Iconname als Text. */
-  font-feature-settings: 'liga';
+  /* Ohne Ligaturen stünde in jedem Knopf der Iconname als Text.
+     Diese Schrift führt sie als 'rlig' (required ligatures), nicht als
+     'liga' — Browser schalten rlig ohnehin immer ein, deshalb fiel die
+     falsche Angabe nie auf. Beim Zuschneiden der Schrift fiel sie auf:
+     wer nur 'liga' behält, bekommt eine Schrift ohne jede Ligatur.
+     Jetzt steht hier, was wirklich wirkt. */
+  font-feature-settings: 'liga', 'rlig';
 }
