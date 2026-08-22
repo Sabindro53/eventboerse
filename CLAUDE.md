@@ -297,13 +297,15 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-430 Tests in 23 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+438 Tests in 24 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
 Sicherheitsrahmen), **Recht** (Speicherschlüssel ↔ Cookie-Liste, Einwilligung,
 Pflichtseiten, KI-Transparenz), KI-Transparenz (Kennzeichnung in jeder
-Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), Radar
+Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe),
+**Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
+auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), Radar
 (Umkreis, lokale Position, Migrations-Verhalten), Vision-Release, Kern
 (Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), Barrierefreiheit (axe,
 beide Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei
@@ -384,10 +386,39 @@ schlimmer als eines, das weiter von außen kommt.
 
 ### Bilder und Ladezeit
 
-Die Demo-Bilder kommen weiterhin von **Pexels**. `scripts/localize-demo-images.mjs`
-lädt sie herunter und schreibt die URLs auf lokale Pfade um — das Skript
-existiert, ist aber nie gelaufen. **Es braucht Netzzugang zu Pexels**, den die
-Agent-Umgebung nicht hat; ausführen muss es jemand auf einem normalen Rechner.
+Die Demo-Bilder kommen von **Pexels**, bis der Import im HQ gelaufen ist (siehe
+oben). `scripts/localize-demo-images.mjs` ist der **überholte** Weg dorthin: es
+schreibt die URLs auf lokale Theme-Pfade um, braucht Netzzugang zu Pexels — den
+die Agent-Umgebung nicht hat — und ist nie gelaufen. Der Weg über die
+WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
+bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
+
+**Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
+und 170 KB; benutzt werden 384. Die ausgelieferte Datei ist **32 KB**, die
+Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
+Deploy ausgeschlossen).
+
+```bash
+node scripts/icons.mjs           # Auswahl aus dem Code sammeln
+python3 scripts/icons-subset.py  # zuschneiden (pip install fonttools brotli)
+node scripts/icons.mjs --check   # CI-Tor: benutzt der Code ein fehlendes Icon?
+```
+
+Gesammelt wird **rückwärts**: von den 2200 möglichen Namen bleibt jeder, der im
+Code als eigenständiges Wort vorkommt. Ein guter Teil der Icons steht nämlich
+nicht im Markup, sondern in einer Variablen (`'…>' + stage.icon + '<…'`) — eine
+Sammlung, die nur `>name<` liest, verlöre genau diese. Zu viel mitzunehmen
+kostet Bytes, zu wenig einen leeren Kasten in der Oberfläche.
+
+**Neues Icon → `node scripts/icons.mjs && python3 scripts/icons-subset.py`.**
+Sonst bricht der PR-Check ab, und ohne ihn wäre das Symbol im Betrieb leer.
+
+Zwei Fallen, beide still, beide durch `tests/e2e/icons.spec.js` am gerenderten
+Ergebnis abgesichert: die Ligaturen liegen unter **`rlig`**, nicht `liga` (wer
+nur `liga` behält, bekommt eine Schrift, die in jedem Knopf den Iconnamen als
+Wort zeigt), und ohne **`layout_closure = False`** zieht der Subsetter über die
+Ligaturregeln fast alle 2200 Symbole zurück — 157 KB statt 32 KB, technisch
+korrekt und nutzlos.
 
 **Anfragen zählen, nicht Elemente.** Die Startseite trägt 191 Bild-Elemente,
 löst aber nur ~11 eindeutige Anfragen aus: die 180 Marquee-Karten teilen sich

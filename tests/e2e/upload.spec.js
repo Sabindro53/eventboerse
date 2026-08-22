@@ -174,6 +174,53 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
     expect(IMPORT).toMatch(/'fehler'\s*=>/);
   });
 
+  test('die Sperre laesst wirklich nur einen Lauf zu', () => {
+    // Sie ist der Fix eines echten Ausfalls: parallele Importe haben den
+    // kleinen PHP-Pool des Hostings belegt und die oeffentliche Website
+    // ausgesperrt. Bis hierher war nur geprueft, dass die Funktion
+    // AUFGERUFEN wird — die Sperre auszuhebeln liess die Suite gruen.
+    // Deshalb wird sie hier wirklich ausgefuehrt.
+    const von = FUNCTIONS.indexOf('function eb_demo_bilder_lock_holen');
+    expect(von, 'die Sperre fehlt').toBeGreaterThan(-1);
+    const bis = FUNCTIONS.indexOf('function eb_hq_demo_bilder_holen', von);
+    const quelle = FUNCTIONS.slice(von, bis)
+      + `\nconst EB_DEMO_BILDER_LOCK_OPTION = 'lock';\nconst EB_DEMO_BILDER_LOCK_TTL = `
+      + (FUNCTIONS.match(/EB_DEMO_BILDER_LOCK_TTL\s*=\s*(\d+)/) || [, '30'])[1] + ';';
+
+    const datei = path.join(os.tmpdir(), 'eb-lock-' + process.pid + '.php');
+    fs.writeFileSync(datei, '<?php\n' + `
+      // Optionen wie WordPress: add_option legt NUR an, wenn es den
+      // Schluessel noch nicht gibt — daher ist es die atomare Stelle.
+      $GLOBALS['o'] = array();
+      function get_option( $k, $d = false ) { return $GLOBALS['o'][ $k ] ?? $d; }
+      function add_option( $k, $v, $x = '', $y = '' ) {
+        if ( array_key_exists( $k, $GLOBALS['o'] ) ) return false;
+        $GLOBALS['o'][ $k ] = $v; return true;
+      }
+      function delete_option( $k ) { unset( $GLOBALS['o'][ $k ] ); return true; }
+      ` + quelle + `
+      $r = array();
+      $r['erster']  = eb_demo_bilder_lock_holen();
+      $r['zweiter'] = eb_demo_bilder_lock_holen();
+      eb_demo_bilder_lock_freigeben();
+      $r['nach_freigabe'] = eb_demo_bilder_lock_holen();
+      // Ein abgestuerzter Lauf darf den Import nicht dauerhaft blockieren.
+      $GLOBALS['o']['lock'] = time() - ( EB_DEMO_BILDER_LOCK_TTL + 5 );
+      $r['veraltet_uebernommen'] = eb_demo_bilder_lock_holen();
+      $r['frisch'] = ( time() - (int) $GLOBALS['o']['lock'] ) < 3;
+      echo json_encode( $r );`);
+    let roh;
+    try { roh = execFileSync('php', [datei], { encoding: 'utf8' }); }
+    finally { fs.unlinkSync(datei); }
+    const d = JSON.parse(roh);
+
+    expect(d.erster, 'der erste Lauf bekommt die Sperre nicht').toBe(true);
+    expect(d.zweiter, 'ein zweiter Lauf laeuft parallel los').toBe(false);
+    expect(d.nach_freigabe, 'nach der Freigabe kommt niemand mehr durch').toBe(true);
+    expect(d.veraltet_uebernommen, 'eine alte Sperre blockiert für immer').toBe(true);
+    expect(d.frisch, 'die uebernommene Sperre traegt einen alten Zeitstempel').toBe(true);
+  });
+
   test('die Restzahl zaehlt die Schnittmenge, nicht die Eintraege', () => {
     // Gemessen am AUSGEFUEHRTEN Code, nicht am Text: die Funktion wird aus
     // functions.php geschnitten und mit PHP wirklich aufgerufen.

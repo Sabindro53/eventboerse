@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Icon-Probe</title>
+<!-- Nackte Seite fuer tests/e2e/icons.spec.js: laedt nur die Schrift, damit
+     gemessen wird, was ausgeliefert wird, und nicht, was das Theme drumherum
+     an Groessen ueberschreibt. -->
+<link rel="stylesheet" href="/assets/fonts/fonts.css">
+<style>
+  body { margin: 0; }
+  /* Nebeneinander, damit keine Zeilenumbrueche die Breitenmessung stoeren. */
+  #probe { display: flex; flex-wrap: nowrap; white-space: nowrap; }
+</style>
+<div id="probe"></div>
