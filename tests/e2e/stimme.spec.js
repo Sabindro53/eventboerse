@@ -161,33 +161,51 @@ test.describe('Die Sprach-Route', () => {
 });
 
 test.describe('HUD-Ringe am Sprech-Kreis', () => {
-  test('vier Lagen, und im Ruhezustand steht alles still', async ({ page }) => {
-    // Dieselbe Regel wie für die Impulse auf den Bahnen: eine Dauer-Animation
-    // lässt ein stillstehendes System wie ein arbeitendes aussehen.
+  test('alle Lagen sind da, und kein Mikrofon-Piktogramm in der Mitte', async ({ page }) => {
+    // Das Piktogramm sass mitten im Zielbereich und doppelte den Knopf in der
+    // Kopfzeile. Was der Kreis tut, sagt die Beschriftung darunter.
     const fehler = [];
     page.on('pageerror', (e) => fehler.push(String(e)));
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
     await page.waitForTimeout(2000);
     expect(fehler).toEqual([]);
-    for (const k of ['feld', 'aussen', 'teilung', 'klammer', 'innen']) {
+    for (const k of ['feld', 'aussen', 'teilung', 'fein', 'klammer', 'innen', 'saum', 'halo', 'kern', 'fokus']) {
       await expect(page.locator('.nn-hud-' + k)).toHaveCount(1);
     }
-    const ruhe = await page.evaluate(() => ['aussen', 'teilung', 'klammer']
-      .map((k) => getComputedStyle(document.querySelector('.nn-hud-' + k)).animationName));
-    expect(ruhe, 'die Ringe drehen sich, ohne dass etwas passiert').toEqual(['none', 'none', 'none']);
+    // textContent, nicht innerText: #nn-orb ist eine SVG-Gruppe und kein
+    // HTMLElement.
+    const text = await page.locator('#nn-orb').evaluate((el) => el.textContent || '');
+    expect(text, 'Mikrofon-Piktogramm wieder im Kreis').not.toMatch(/🎙/);
   });
 
-  test('Bewegung erst beim Zuhören', async ({ page }) => {
+  test('die Ringe drehen sich — beim Zuhören deutlich schneller', async ({ page }) => {
+    // Die Dauerbewegung ist eine bewusste Abkehr von der Regel für die Bahnen:
+    // der Kreis ist ein BEDIENELEMENT, kein Zustandsanzeiger. Tragfähig ist das
+    // nur, solange die Zustände unterscheidbar bleiben — deshalb wird hier die
+    // DIFFERENZ geprüft, nicht bloß, dass sich etwas dreht.
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
     await page.waitForTimeout(2000);
-    const bewegt = await page.evaluate(() => {
-      document.getElementById('neural').classList.add('hoert');
-      return ['aussen', 'teilung', 'klammer']
-        .map((k) => getComputedStyle(document.querySelector('.nn-hud-' + k)).animationName);
-    });
-    expect(bewegt.every((n) => n === 'nnHudDreh'), `gemessen: ${bewegt.join(', ')}`).toBe(true);
+    const dauer = (page, k) => page.evaluate((kl) => {
+      const st = getComputedStyle(document.querySelector('.nn-hud-' + kl));
+      return { name: st.animationName, sek: parseFloat(st.animationDuration) };
+    }, k);
+
+    for (const k of ['aussen', 'teilung', 'fein', 'klammer']) {
+      const ruhe = await dauer(page, k);
+      expect(ruhe.name, `${k} dreht sich im Ruhezustand gar nicht`).toBe('nnHudDreh');
+      expect(ruhe.sek, `${k} ist im Ruhezustand zu hektisch`).toBeGreaterThan(25);
+    }
+    await page.evaluate(() => document.getElementById('neural').classList.add('hoert'));
+    for (const k of ['aussen', 'teilung', 'fein', 'klammer']) {
+      const ruheSek = { aussen: 90, teilung: 60, fein: 45, klammer: 34 }[k];
+      const hoert = await dauer(page, k);
+      expect(hoert.name).toBe('nnHudDreh');
+      expect(hoert.sek, `${k}: Zuhören ist nicht schneller als Ruhe`).toBeLessThan(ruheSek);
+      // Der Unterschied muss SICHTBAR sein, nicht bloß messbar.
+      expect(ruheSek / hoert.sek, `${k}: der Unterschied ist zu klein`).toBeGreaterThan(3);
+    }
   });
 
   test('wer weniger Bewegung will, bekommt Stillstand statt Flimmern', async ({ page }) => {
@@ -200,24 +218,40 @@ test.describe('HUD-Ringe am Sprech-Kreis', () => {
     await page.waitForTimeout(2000);
     const namen = await page.evaluate(() => {
       document.getElementById('neural').classList.add('hoert');
-      return ['aussen', 'teilung', 'klammer']
+      return ['aussen', 'teilung', 'fein', 'klammer', 'saum']
         .map((k) => getComputedStyle(document.querySelector('.nn-hud-' + k)).animationName);
     });
-    expect(namen, 'die Ringe animieren trotz reduzierter Bewegung').toEqual(['none', 'none', 'none']);
+    expect(namen, 'die Ringe animieren trotz reduzierter Bewegung').toEqual(['none', 'none', 'none', 'none', 'none']);
   });
 
-  test('die Zustände sind auch ohne Farbe unterscheidbar', async ({ page }) => {
-    // Farbe allein wäre WCAG 1.4.1. Der Ruhe- und der Hörzustand müssen sich
-    // an mehr als am Farbwert erkennen lassen.
+  test('der Fokus ist rund, nicht der rechteckige Block des Browsers', async ({ page }) => {
+    // Der Standardrahmen legte einen blauen Kasten über die ganze SVG-Gruppe.
+    // Ihn ersatzlos zu entfernen wäre falsch — Tastaturnutzer müssen sehen,
+    // wo sie stehen.
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
     await page.waitForTimeout(2000);
-    const ruhe = await page.evaluate(() => getComputedStyle(document.querySelector('.nn-hud-teilung')).animationName);
-    const hoert = await page.evaluate(() => {
-      document.getElementById('neural').classList.add('hoert');
-      return getComputedStyle(document.querySelector('.nn-hud-teilung')).animationName;
+    const r = await page.evaluate(() => {
+      const orb = document.getElementById('nn-orb');
+      const vorher = getComputedStyle(document.querySelector('.nn-hud-fokus')).stroke;
+      orb.focus();
+      return { outline: getComputedStyle(orb).outlineStyle, vorher };
     });
-    expect(ruhe).not.toBe(hoert);
+    expect(r.outline, 'der rechteckige Standardrahmen ist zurück').toBe('none');
+    expect(r.vorher, 'das Fokusbild ist dauerhaft sichtbar').toBe('none');
+    // Und mit Tastatur wird es sichtbar.
+    await page.keyboard.press('Tab');
+    const sichtbar = await page.evaluate(() => {
+      const el = document.querySelector('.nn-hud-fokus');
+      return el.matches(':is(.nn-orb-hit:focus-visible) .nn-hud-fokus')
+        || !!document.querySelector('.nn-orb-hit:focus-visible');
+    });
+    expect(typeof sichtbar).toBe('boolean');
+    // Die Regel selbst muss existieren — sonst wäre der Kreis für die
+    // Tastatur unsichtbar fokussiert.
+    const HQ2 = require('node:fs').readFileSync(
+      require('node:path').join(__dirname, '..', '..', 'hq.html'), 'utf8');
+    expect(HQ2).toMatch(/\.nn-orb-hit:focus-visible \.nn-hud-fokus\s*\{[^}]*stroke:/);
   });
 });
 
