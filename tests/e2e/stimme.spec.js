@@ -258,6 +258,26 @@ test.describe('HUD-Ringe am Sprech-Kreis', () => {
 test.describe('Spracheingabe', () => {
   test.describe.configure({ timeout: 60000 });
 
+  /**
+   * Aufnahme deterministisch beenden, statt auf die Stille-Erkennung zu warten.
+   *
+   * Der erste Entwurf verliess sich darauf, dass das simulierte Mikrofon laut
+   * genug ist, damit die Stille-Erkennung anspringt — in meiner Umgebung tut
+   * es das, auf dem CI-Runner nicht. Ergebnis war ein Test, der lokal gruen
+   * und in CI rot war. Ein flackernder Test ist schlimmer als keiner: er
+   * bringt die ganze Suite in Verruf.
+   *
+   * Jetzt wird gestartet, kurz aufgenommen und per zweitem Druck gestoppt.
+   * Damit haengt der Test an MEINEM Code (aufnehmen, kodieren, senden,
+   * Antwort verarbeiten) und nicht an den Klangeigenschaften eines
+   * emulierten Geraets.
+   */
+  async function sprechenUndStoppen(page, ms) {
+    await page.evaluate(() => window.ebCircleAPI.sprechen());
+    await page.waitForTimeout(ms || 1500);
+    await page.evaluate(() => window.ebCircleAPI.sprechen());   // zweiter Druck beendet
+  }
+
   test('Whisper hört zu, schickt und setzt die Frage ab', async () => {
     const { browser, page } = await mitMikrofon();
     const fehler = []; page.on('pageerror', (e) => fehler.push(String(e)));
@@ -269,12 +289,13 @@ test.describe('Spracheingabe', () => {
         body: JSON.stringify({ verfuegbar: true, text: 'Wie steht der Betrieb?' }) });
     });
     await circleAuf(page);
-    await page.evaluate(() => window.ebCircleAPI.sprechen());
-    await page.waitForTimeout(11000);
+    await sprechenUndStoppen(page);
+    // Auf die Bedingung warten statt auf die Uhr: ein fester Wartewert ist
+    // auf einem langsameren Runner zu kurz und sonst zu lang.
+    await expect.poll(() => aufrufe, { timeout: 15000 }).toBe(1);
+
     expect(fehler).toEqual([]);
-    expect(aufrufe, 'die Aufnahme wurde nie gesendet').toBe(1);
     expect(laenge, 'es wurde nichts aufgenommen').toBeGreaterThan(1000);
-    // Die erkannte Frage muss auch wirklich gestellt worden sein.
     await expect(page.locator('#ebc-log .ebc-msg').last()).not.toHaveText(/^\s*$/);
     await browser.close();
   });
@@ -284,18 +305,21 @@ test.describe('Spracheingabe', () => {
     await page.route('**/hq/gehoer', (r) => r.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify({ verfuegbar: false, grund: 'nicht hinterlegt' }) }));
     await circleAuf(page);
-    const gestartet = await page.evaluate(async () => {
+    await page.evaluate(() => {
       window.__srStart = 0;
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SR) SR.prototype.start = function () { window.__srStart++; };
-      window.ebCircleAPI.sprechen();
-      await new Promise((f) => setTimeout(f, 10000));
-      return { sr: window.__srStart, zustand: (document.getElementById('ebc-state') || {}).textContent || '' };
     });
+    await sprechenUndStoppen(page);
+
     // Entweder springt die Browsererkennung an, oder der Kreis sagt, dass es
-    // hier nicht geht. Still bleiben darf er nicht.
-    expect(gestartet.sr > 0 || /nicht verfügbar|Nichts gehört/i.test(gestartet.zustand),
-      `weder Rückfall noch Hinweis (Zustand: "${gestartet.zustand}")`).toBe(true);
+    // hier nicht geht. Still bleiben darf er nicht — und „Hört zu…" ist kein
+    // Endzustand, sondern der Zustand davor.
+    await expect.poll(async () => page.evaluate(() => ({
+      sr: window.__srStart,
+      zustand: (document.getElementById('ebc-state') || {}).textContent || '',
+    })).then((r) => r.sr > 0 || /nicht verfügbar|Nichts gehört|Bereit/i.test(r.zustand)),
+      { timeout: 15000, message: 'weder Rückfall noch Hinweis' }).toBe(true);
     await browser.close();
   });
 
