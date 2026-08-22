@@ -9826,8 +9826,13 @@ add_action( 'rest_api_init', function () {
 
     // Demo-Bilder in die Mediathek holen. Bewusst die STRENGERE Pruefung:
     // das schreibt dauerhaft in die Datenbank und laedt von fremden Hosts.
+    //
+    // GET beantwortet dieselbe Frage OHNE zu laden: wie viele Adressen gibt
+    // es, wie viele liegen schon hier, wie viele fehlen. Ohne diesen Weg
+    // muesste man etwas veraendern, um den Stand zu sehen — und ein Blick,
+    // der Nebenwirkungen hat, wird seltener geworfen, als er sollte.
     register_rest_route( 'eventboerse/v1', '/hq/demo-bilder', array(
-        'methods'             => 'POST',
+        'methods'             => 'GET, POST',
         'callback'            => 'eb_hq_demo_bilder_holen',
         'permission_callback' => 'eb_hq_verwaltung_darf',
     ) );
@@ -9863,6 +9868,28 @@ function eb_demo_bilder_adressen() {
 }
 
 /**
+ * Wie viele Demo-Adressen es gibt und wie viele davon schon hier liegen.
+ *
+ * Gezaehlt wird die SCHNITTMENGE, nicht die Groesse der Zuordnung. Der
+ * Unterschied ist kein Detail: nach einem neuen Demo-Feed stehen alte
+ * Adressen weiter in der Zuordnung, ohne dass es sie noch gibt. Wer die
+ * Eintraege zaehlt, bekommt dann zu wenig Offene gemeldet — im schlimmsten
+ * Fall eine 0, waehrend noch Bilder an Pexels gehen. Eine Zahl, die
+ * "fertig" sagt, obwohl es weitergeht, ist schlimmer als gar keine.
+ */
+function eb_demo_bilder_stand( array $map, array $adressen ) {
+    $da = 0;
+    foreach ( $adressen as $url ) {
+        if ( isset( $map[ $url ] ) ) $da++;
+    }
+    return array(
+        'gefunden'     => count( $adressen ),
+        'in_mediathek' => $da,
+        'offen'        => count( $adressen ) - $da,
+    );
+}
+
+/**
  * Holt die Demo-Bilder von ihrem Fremdhost in die eigene Mediathek.
  *
  * Warum das hier laeuft und nicht beim Entwickeln: der Webserver hat
@@ -9885,6 +9912,14 @@ function eb_hq_demo_bilder_holen( WP_REST_Request $request ) {
     $map      = get_option( EB_DEMO_BILDER_OPTION, array() );
     if ( ! is_array( $map ) ) $map = array();
     $adressen = eb_demo_bilder_adressen();
+
+    // Nur nachsehen: keine Verbindung nach draussen, kein Schreiben.
+    if ( strtoupper( $request->get_method() ) === 'GET' ) {
+        return new WP_REST_Response( array_merge(
+            eb_demo_bilder_stand( $map, $adressen ),
+            array( 'geholt' => 0, 'schon_da' => 0, 'fehler' => array() )
+        ), 200 );
+    }
 
     $neu = 0; $schon = 0; $fehler = array();
     // Obergrenze je Aufruf: ein Request, der 69 Bilder laedt, laeuft in das
@@ -9944,14 +9979,11 @@ function eb_hq_demo_bilder_holen( WP_REST_Request $request ) {
 
     update_option( EB_DEMO_BILDER_OPTION, $map, false );
 
-    return new WP_REST_Response( array(
-        'gefunden'  => count( $adressen ),
-        'geholt'    => $neu,
-        'schon_da'  => $schon,
-        // Offen ist die ehrliche Restzahl: erst wenn sie 0 ist, geht nichts
-        // mehr an Pexels.
-        'offen'     => max( 0, count( $adressen ) - count( $map ) ),
-        'fehler'    => $fehler,
+    // Offen ist die ehrliche Restzahl: erst wenn sie 0 ist, geht nichts
+    // mehr an Pexels.
+    return new WP_REST_Response( array_merge(
+        eb_demo_bilder_stand( $map, $adressen ),
+        array( 'geholt' => $neu, 'schon_da' => $schon, 'fehler' => $fehler )
     ), 200 );
 }
 

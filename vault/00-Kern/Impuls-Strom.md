@@ -7,7 +7,7 @@ tags: [layer/L0, domain/kern, share/internal, typ/messung]
 
 # ⚡ Impuls-Strom — der lebende Zustand
 
-> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-20**
+> **Automatisch erzeugt** von `scripts/pulse.mjs` · Stand: **2026-08-22**
 > Nicht von Hand bearbeiten — jeder Lauf überschreibt die Datei.
 > Diese Notiz misst, was im Netz tatsächlich fließt. Die Ströme selbst
 > sind in [[00-Kern/Wissensstroeme]] beschrieben.
@@ -63,24 +63,24 @@ bis zum Tabletop-Abend. Die Vision „jede Art von Event" misst sich hier.
 
 | Kennzahl | Wert |
 |----------|------|
-| Commits (7 Tage) | **16** |
-| Commits (30 Tage) | 56 |
-| Letzter Commit | `53f81d8 · HQ über die Anmeldung statt über ein zweites Geheimnis (#169)` (2026-08-20) |
+| Commits (7 Tage) | **20** |
+| Commits (30 Tage) | 68 |
+| Letzter Commit | `1d2427c · Die Whisper-Tests haengen nicht mehr am simulierten Mikrofon` (2026-08-22) |
 
 **Meistbewegte Dateien (30 Tage):**
 ```
-32 tests/e2e/kern.spec.js
-     26 vault/50-Evolution/Roadmap/Current-Sprint.md
-     19 CLAUDE.md
-     17 vault/30-Betrieb/Testing.md
-     17 hq.html
+34 vault/50-Evolution/Roadmap/Current-Sprint.md
+     34 tests/e2e/kern.spec.js
+     28 CLAUDE.md
+     23 hq.html
+     23 assets/eb-auftragsstrom.json
 ```
 
 **Codegröße:**
-- `app.js` — 27.026 Zeilen
-- `styles.css` — 17.099 Zeilen
-- `functions.php` — 10.366 Zeilen
-- `app-shell.html` — 4.137 Zeilen
+- `app.js` — 27.096 Zeilen
+- `styles.css` — 17.098 Zeilen
+- `functions.php` — 10.783 Zeilen
+- `app-shell.html` — 4.145 Zeilen
 
 ## Verwandt
 - [[00-Kern/Wissensstroeme]] — die sechs Impulse
