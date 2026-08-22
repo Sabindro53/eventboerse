@@ -297,7 +297,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-405 Tests in 22 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+424 Tests in 23 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -344,6 +344,30 @@ Drei Grenzen, alle mutationsgeprüft:
   Kopieren da, mit Grund. Das Schreiben nutzt den PAT aus `sessionStorage`
   (`hq_pat`), den das HQ ohnehin für GitHub führt — keine neue Server-Route,
   kein neues Geheimnis.
+
+### Bilder: Upload und Demo-Bestand
+
+**Nutzer-Uploads liegen bereits richtig.** `POST /upload` → `wp_handle_upload()`
+→ `wp_insert_attachment()`: die Datei landet in `wp-content/uploads` auf IONOS
+und bekommt einen Mediathek-Eintrag mit Besitzer (`_eb_owner_id`). Sieben
+Prüfschichten davor, unter anderem MIME aus den **Magic Bytes** (nie aus
+`$file['type']` — das schickt der Browser) und eine Gegenprobe mit
+`getimagesize()`; was durchfällt, wird gelöscht. Festgehalten in
+`tests/e2e/upload.spec.js`.
+
+**Die hardcodierten Demo-Daten hotlinken dagegen auf Pexels.** Sie holt
+`POST /hq/demo-bilder` (nur angemeldeter Administrator) in dieselbe Mediathek —
+**auf dem Server**, weil nur der Netzzugang zu Pexels hat. Der Aufruf ist
+wiederholbar und holt höchstens 15 Bilder je Lauf; ein Import, der ins
+PHP-Zeitlimit läuft, hinterließe sonst einen halben Zustand. Die Antwort nennt
+`offen` — erst bei 0 geht nichts mehr an den Fremdhost.
+
+Die Zuordnung liegt in der Option `eb_demo_bilder_map`, wird über
+`eventboerseApi.demoBilder` ausgeliefert und **einmal beim Start** angewandt
+(`ebDemoBilderUmschreiben`, aufgerufen am Ende von `ui/52-release-vision.js`).
+Nicht bei jedem Rendern: das wären 191-mal dieselbe Arbeit. **Was nicht in der
+Zuordnung steht, bleibt unverändert** — ein stillschweigend ersetztes Bild wäre
+schlimmer als eines, das weiter von außen kommt.
 
 ### Bilder und Ladezeit
 

@@ -289,3 +289,17 @@ document.addEventListener('DOMContentLoaded',function(){
   if(_notificationPoll)clearInterval(_notificationPoll);
   _notificationPoll=setInterval(refreshNotificationBadge,60000);
 });
+
+/* Demo-Bilder auf die eigene Mediathek umbiegen — einmal, nachdem alle
+   Module geladen sind und LISTINGS existiert. Steht hier ganz am Ende, weil
+   die Verkettung in modules.list die Reihenfolge bestimmt: früher aufgerufen
+   gäbe es die Daten noch nicht. */
+(function () {
+  if (typeof window.ebDemoBilderUmschreiben !== 'function') return;
+  try {
+    var n = 0;
+    if (typeof LISTINGS !== 'undefined') n += window.ebDemoBilderUmschreiben(LISTINGS);
+    if (typeof EVENTS !== 'undefined') n += window.ebDemoBilderUmschreiben(EVENTS);
+    void n;
+  } catch (e) { /* Ein fehlgeschlagenes Umbiegen darf die Seite nicht aufhalten. */ }
+})();
