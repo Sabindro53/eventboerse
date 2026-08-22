@@ -293,6 +293,79 @@ test.describe('Drittanbieter im Auslieferungspfad', () => {
   });
 });
 
+test.describe('Auftragsverarbeiter', () => {
+  const AVV = fs.readFileSync(
+    path.join(ROOT, 'vault', '40-Governance', 'Legal', 'Auftragsverarbeiter.md'), 'utf8');
+
+  /** Zeilen der Verarbeiter-Tabellen: [Anbieter, …, AVV-Status]. */
+  function verarbeiter(md) {
+    const zeilen = [];
+    for (const z of md.split('\n')) {
+      const m = z.match(/^\|\s*\*\*([^*]+)\*\*\s*\|(.+)\|\s*$/);
+      if (!m) continue;
+      const spalten = m[2].split('|').map((x) => x.trim());
+      zeilen.push({ name: m[1].trim(), avv: spalten[spalten.length - 1] });
+    }
+    return zeilen;
+  }
+
+  test('ein offener AVV steht sichtbar oben, nicht nur in einer Tabellenzelle', () => {
+    // Das eigene Prinzip der Notiz lautet: der Vertrag muss VOR der
+    // Übermittlung stehen. Läuft eine Übermittlung ohne, ist das kein
+    // Formfehler — und es darf sich nicht in einer Spalte verstecken.
+    const offen = verarbeiter(AVV).filter((v) => /offen/i.test(v.avv));
+    if (!offen.length) {
+      // Alles geschlossen: dann darf der Warnblock weg sein.
+      return;
+    }
+    const kopf = AVV.slice(0, AVV.indexOf('## Prinzipien'));
+    expect(kopf, `offene AVVs (${offen.map((o) => o.name).join(', ')}) ohne sichtbaren Hinweis oben`)
+      .toMatch(/Offener Punkt/);
+    // Und der Hinweis muss sagen, wie man es abstellt — ein Befund ohne
+    // Handlungsweg wird zur Tapete.
+    expect(kopf, 'kein Weg genannt, die Übermittlung anzuhalten').toMatch(/EB_OPENAI_API_KEY|pausiert|Anhalten/);
+  });
+
+  test('kein Haken ohne eingetragenes Datum', () => {
+    // Ein AVV-Haken, hinter dem kein geschlossener Vertrag steht, ist
+    // schlimmer als eine leere Zeile: er beendet das Nachfragen.
+    //
+    // Der erste Entwurf dieser Zusicherung prüfte nur, ob der Anbietername
+    // irgendwo in der Datei vorkommt — das ist immer wahr, und ein Haken
+    // ohne Vertrag rutschte durch. Jetzt wird das Eintragsfeld gelesen.
+    const eintrag = AVV.slice(AVV.indexOf('## Wenn der AVV geschlossen ist'),
+      AVV.indexOf('## Prinzipien'));
+    expect(eintrag, 'kein Platz, den Abschluss festzuhalten').toMatch(/AVV geschlossen am/);
+
+    // Spaltenzuordnung aus der Kopfzeile der Eintragstabelle lesen, statt
+    // eine Reihenfolge anzunehmen.
+    const kopf = (eintrag.match(/^\|\s*Feld\s*\|(.+)\|\s*$/m) || [, ''])[1]
+      .split('|').map((x) => x.trim());
+    const datumZeile = (eintrag.match(/^\|\s*AVV geschlossen am\s*\|(.+)\|\s*$/m) || [, ''])[1]
+      .split('|').map((x) => x.trim());
+    expect(kopf.length, 'Eintragstabelle ohne Anbieterspalten').toBeGreaterThan(0);
+    expect(datumZeile.length, 'Datumszeile passt nicht zur Kopfzeile').toBe(kopf.length);
+
+    for (const v of verarbeiter(AVV)) {
+      if (!/✓/.test(v.avv)) continue;
+      const spalte = kopf.findIndex((k) => k && v.name.toLowerCase().includes(k.toLowerCase()));
+      if (spalte === -1) continue;   // Altbestand ohne Eintragsspalte
+      expect(datumZeile[spalte], `${v.name} trägt einen Haken, aber kein Abschlussdatum`)
+        .not.toMatch(/offen/i);
+    }
+  });
+
+  test('die Prüfliste nennt alle acht Punkte aus Art. 28 Abs. 3', () => {
+    // Wer ein fremdes DPA akzeptiert, muss wissen, wogegen er es prüft.
+    const block = AVV.slice(AVV.indexOf('Art. 28 Abs. 3 lit. a–h'));
+    for (const [buchstabe, wort] of [['a', 'Weisung'], ['b', 'Vertraulichkeit'],
+      ['c', 'Art. 32'], ['d', 'Unterauftragnehmer'], ['e', 'Betroffenenrechte'],
+      ['f', 'Folgenabschätzung'], ['g', 'Löschung'], ['h', 'Audit']]) {
+      expect(block, `Punkt ${buchstabe} (${wort}) fehlt in der Prüfliste`).toMatch(new RegExp(wort, 'i'));
+    }
+  });
+});
+
 test.describe('Einwilligung: fragt das Haus etwas, das niemand liest?', () => {
   test('eine erhobene, aber nirgends gelesene Einwilligung heißt wirkungslos', async () => {
     const { einwilligungPruefen } = await recht();
