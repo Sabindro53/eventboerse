@@ -149,7 +149,7 @@ jobs:
           # Eine Liste, zwei Verwendungen. Standen sie doppelt da, erzeugte
           # jede neue Datei eine stille Luecke: gemessen, geschrieben, nie
           # committet — die Routine haette gearbeitet und nichts hinterlassen.
-          ERGEBNISSE="assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md assets/eb-rechtsquellen.json assets/eb-rechtsunterlagen.json"
+          ERGEBNISSE="assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md assets/eb-rechtsquellen.json assets/eb-rechtsunterlagen.json assets/eb-rechtsunterlagen-data.php"
 
           if git diff --quiet -- $ERGEBNISSE; then
             echo "Keine Aenderung — Feed, Selbstcheck, Journal, Rechtslage und amtliche Quellen sind aktuell." >> "$GITHUB_STEP_SUMMARY"

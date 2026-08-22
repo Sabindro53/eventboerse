@@ -68,7 +68,11 @@ test.describe('Rechtsablage – Bestand und Schutz', () => {
     const deploy = lesen('.github/workflows/ionos-deploy.yml');
     expect(deploy).toMatch(/eb-rechtsunterlagen-katalog\\\.json/);
     expect(deploy).toMatch(/eb-rechtsquellen\\\.json/);
-    expect(deploy, 'der geschuetzte Laufzeitkatalog muss auf den Server').not.toMatch(/-x '\^assets\/eb-rechtsunterlagen\\\.json\$'/);
+    expect(deploy, 'statische JSON darf nicht auf den Server').toMatch(/-x '\^assets\/eb-rechtsunterlagen\\\.json\$'/);
+    const phpDaten = lesen('assets/eb-rechtsunterlagen-data.php');
+    expect(phpDaten, 'direkter Aufruf der PHP-Datendatei muss 404 liefern').toMatch(/! defined\( 'ABSPATH' \)/);
+    expect(FUNCTIONS, 'Katalog muss aus der serverinternen PHP-Datei kommen').toMatch(/eb-rechtsunterlagen-data\.php/);
+    expect(FUNCTIONS, 'Katalog wird nicht ueber die geschuetzte API geliefert').toMatch(/'katalog'\s*=>\s*eb_hq_rechtsablage_katalog\(\)/);
   });
 
   test('taegliche Routine beobachtet Quellen, schreibt aber keine Vertraege um', () => {
@@ -91,6 +95,7 @@ test.describe('Rechtsablage – HQ-Oberflaeche', () => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
+        katalog: KATALOG,
         speicher: 'bereit',
         aufgaben: {},
         dateien: {

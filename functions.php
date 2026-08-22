@@ -9479,12 +9479,25 @@ function eb_hq_rechtsablage_zustand() {
     return $state;
 }
 
+/** Katalog als PHP-Datendatei: direkt nicht auslieferbar, nur serverintern. */
+function eb_hq_rechtsablage_katalog() {
+    $php_pfad = get_template_directory() . '/assets/eb-rechtsunterlagen-data.php';
+    if ( is_readable( $php_pfad ) ) {
+        $katalog = include $php_pfad;
+        if ( is_array( $katalog ) ) return $katalog;
+    }
+    // Lokaler Entwicklungsfall vor dem Build; Produktion deployt die JSON
+    // ausdruecklich nicht.
+    $json_pfad = get_template_directory() . '/assets/eb-rechtsunterlagen.json';
+    if ( ! is_readable( $json_pfad ) ) return array();
+    $katalog = json_decode( file_get_contents( $json_pfad ), true );
+    return is_array( $katalog ) ? $katalog : array();
+}
+
 /** Nur IDs akzeptieren, die der ausgelieferte Katalog wirklich kennt. */
 function eb_hq_rechtsablage_dokument( $id ) {
     if ( ! preg_match( '/^[A-Z0-9-]{1,16}$/', $id ) ) return null;
-    $pfad = get_template_directory() . '/assets/eb-rechtsunterlagen.json';
-    if ( ! is_readable( $pfad ) ) return null;
-    $katalog = json_decode( file_get_contents( $pfad ), true );
+    $katalog = eb_hq_rechtsablage_katalog();
     foreach ( (array) ( $katalog['dokumente'] ?? array() ) as $dokument ) {
         if ( isset( $dokument['id'] ) && hash_equals( (string) $dokument['id'], $id ) ) return $dokument;
     }
@@ -9493,9 +9506,7 @@ function eb_hq_rechtsablage_dokument( $id ) {
 
 /** Auch Aufgabenstatus darf nur fuer eine aktuell angezeigte Aufgabe entstehen. */
 function eb_hq_rechtsablage_aufgabe_bekannt( $id ) {
-    $pfad = get_template_directory() . '/assets/eb-rechtsunterlagen.json';
-    if ( ! is_readable( $pfad ) ) return false;
-    $katalog = json_decode( file_get_contents( $pfad ), true );
+    $katalog = eb_hq_rechtsablage_katalog();
     foreach ( (array) ( $katalog['aufgaben'] ?? array() ) as $aufgabe ) {
         if ( isset( $aufgabe['id'] ) && hash_equals( (string) $aufgabe['id'], $id ) ) return true;
     }
@@ -9538,6 +9549,7 @@ function eb_hq_rechtsablage_liste( WP_REST_Request $request ) {
     }
     $speicher = eb_hq_rechtsablage_ordner();
     return new WP_REST_Response( array(
+        'katalog' => eb_hq_rechtsablage_katalog(),
         'dateien' => $ausgabe,
         'aufgaben' => $state['aufgaben'],
         'speicher' => is_wp_error( $speicher ) ? 'nicht_bereit' : 'bereit',

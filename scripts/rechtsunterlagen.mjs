@@ -12,6 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KATALOG_PFAD = join(ROOT, 'assets', 'eb-rechtsunterlagen-katalog.json');
 const QUELLEN_PFAD = join(ROOT, 'assets', 'eb-rechtsquellen.json');
 const ZIEL = join(ROOT, 'assets', 'eb-rechtsunterlagen.json');
+const PHP_ZIEL = join(ROOT, 'assets', 'eb-rechtsunterlagen-data.php');
 const ERLAUBTE_PERSONEN = new Set(['Sandro', 'Julian']);
 const ERLAUBTER_BEDARF = new Set(['jetzt', 'vor_freigabe', 'anlage', 'archiv']);
 
@@ -104,17 +105,28 @@ function main() {
     process.exit(1);
   }
   const inhalt = JSON.stringify(bauen(katalog, quellen), null, 2) + '\n';
+  const phpInhalt = `<?php
+// Erzeugt von scripts/rechtsunterlagen.mjs. Nicht von Hand bearbeiten.
+if ( ! defined( 'ABSPATH' ) ) {
+    http_response_code( 404 );
+    header( 'Cache-Control: no-store, private' );
+    exit;
+}
+return json_decode( base64_decode( '${Buffer.from(inhalt).toString('base64')}' ), true );
+`;
   if (process.argv.includes('--check')) {
     const ist = readFileSync(ZIEL, 'utf8');
-    if (ist !== inhalt) {
-      console.error('⛔ assets/eb-rechtsunterlagen.json ist nicht aktuell.');
+    const phpIst = readFileSync(PHP_ZIEL, 'utf8');
+    if (ist !== inhalt || phpIst !== phpInhalt) {
+      console.error('⛔ Rechtsunterlagen-Katalog oder geschuetzte PHP-Datendatei ist nicht aktuell.');
       process.exit(1);
     }
     console.log(`✓ ${katalog.dokumente.length} Rechtsunterlagen und ${katalog.aufgaben.length} Aufgaben konsistent.`);
     return;
   }
   writeFileSync(ZIEL, inhalt);
-  console.log(`✓ assets/eb-rechtsunterlagen.json — ${katalog.dokumente.length} Dokumente.`);
+  writeFileSync(PHP_ZIEL, phpInhalt);
+  console.log(`✓ Rechtsunterlagen-Katalog — ${katalog.dokumente.length} Dokumente.`);
 }
 
 if (process.argv[1] && process.argv[1].endsWith('rechtsunterlagen.mjs')) main();

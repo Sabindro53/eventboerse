@@ -5273,6 +5273,7 @@ window.addEventListener('DOMContentLoaded', init);
   async function privatenStandLaden() {
     try {
       recht.privat = await api('');
+      if (recht.privat.katalog?.dokumente) recht.katalog = recht.privat.katalog;
       recht.apiBereit = true;
     } catch {
       recht.apiBereit = false;
@@ -5282,9 +5283,21 @@ window.addEventListener('DOMContentLoaded', init);
   }
 
   async function katalogLaden() {
-    const antwort = await fetch(hqAsset('assets/eb-rechtsunterlagen.json') + '?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' });
-    if (!antwort.ok) throw new Error('Rechtsunterlagen-Katalog fehlt (' + antwort.status + ').');
-    recht.katalog = await antwort.json();
+    // Produktion liefert Katalog und privaten Stand gemeinsam aus derselben
+    // 2FA-geschuetzten Route. Die JSON-Datei bleibt nur fuer die lokale
+    // Vorschau im Repository und wird nicht auf den Webserver deployt.
+    try {
+      recht.privat = await api('');
+      if (!recht.privat.katalog?.dokumente) throw new Error('HQ-API liefert noch keinen Katalog.');
+      recht.apiBereit = true;
+      recht.katalog = recht.privat.katalog;
+    } catch {
+      const antwort = await fetch(hqAsset('assets/eb-rechtsunterlagen.json') + '?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' });
+      if (!antwort.ok) throw new Error('Rechtsunterlagen-Katalog fehlt (' + antwort.status + ').');
+      recht.katalog = await antwort.json();
+      recht.apiBereit = false;
+    }
+    if (!recht.katalog?.dokumente) throw new Error('Rechtsunterlagen-Katalog ist leer.');
     const gruppen = [...new Set(recht.katalog.dokumente.map((d) => d.gruppe))].sort((a, b) => a.localeCompare(b, 'de'));
     const auswahl = document.getElementById('recht-gruppe');
     gruppen.forEach((g) => {
@@ -5293,7 +5306,7 @@ window.addEventListener('DOMContentLoaded', init);
     ['recht-suche', 'recht-person', 'recht-gruppe', 'recht-bedarf'].forEach((id) => {
       document.getElementById(id).addEventListener(id === 'recht-suche' ? 'input' : 'change', dokumenteZeigen);
     });
-    await privatenStandLaden();
+    allesZeigen();
   }
 
   document.getElementById('recht-ordner').addEventListener('change', async (event) => {

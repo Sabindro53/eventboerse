@@ -78,7 +78,7 @@ jobs:
               -x '^js/modules/' -x '^build-app-js\.sh$' \
               -x '^assets/eb-arbeit\.json$' -x '^assets/eb-codeflow\.json$' \
               -x '^assets/eb-auftragsstrom\.json$' \
-              -x '^assets/eb-rechtsunterlagen-katalog\.json$' -x '^assets/eb-rechtsquellen\.json$' \
+              -x '^assets/eb-rechtsunterlagen\.json$' -x '^assets/eb-rechtsunterlagen-katalog\.json$' -x '^assets/eb-rechtsquellen\.json$' \
               -x '^package\.json$' -x '^package-lock\.json$' -x '^playwright\.config\.js$' \
               -x '^LICENSE$' -x '^README\.md$' -x '^CNAME$' -x '^AGENTS\.md$' \
               -x '^SECURITY\.md$' \
@@ -89,6 +89,9 @@ jobs:
               -x '^Attached Element Context' \
               . $DEPLOY_DIR;
             rm -f ${DEPLOY_DIR}hq.html;
+            rm -f ${DEPLOY_DIR}assets/eb-rechtsunterlagen.json;
+            rm -f ${DEPLOY_DIR}assets/eb-rechtsunterlagen-katalog.json;
+            rm -f ${DEPLOY_DIR}assets/eb-rechtsquellen.json;
             echo '--- Deploy complete ---';
             bye
           "
