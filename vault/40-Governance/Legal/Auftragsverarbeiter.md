@@ -9,6 +9,72 @@ share: internal
 
 > Liste aller Subdienstleister mit Datenfluss, AVV-Status, Drittlandtransfer-Mechanismus. Spiegelbild zu Dokument **C06** (Word-Vorlage).
 
+## ⚠️ Offener Punkt seit dem 21.08.2026 — bewusst hier oben
+
+**Für OpenAI und OpenRouter liegt kein AVV vor, und die Übermittlung läuft
+bereits.** Das verstößt gegen das erste Prinzip dieser Notiz und gegen
+Art. 28 Abs. 3 DSGVO, der den Vertrag **vor** der Verarbeitung verlangt.
+
+Betroffen sind ausschließlich Betreiber und HQ-Mitarbeiter (derzeit zwei
+Personen), keine Plattformnutzer. Übermittelt werden Sprachaufnahmen, der
+Antworttext des HQ und der Betriebskontext des Circle.
+
+**Anhalten ist eine Handlung, kein Umbau.** Beide Funktionen sind Opt-in über
+Server-Konstanten. Wird das GitHub-Secret `EB_OPENAI_API_KEY` bzw.
+`EB_OPENROUTER_API_KEY` entfernt und einmal deployt, endet die Übermittlung
+sofort; das HQ fällt hörbar auf die Browserstimme zurück und der Circle
+antwortet weiter aus lokalem Wissen. Es geht keine Funktion verloren, die
+nicht vorher schon so gearbeitet hätte.
+
+Entweder der AVV wird geschlossen oder die Übermittlung pausiert. Beides ist
+vertretbar; der jetzige Zwischenzustand ist es nicht — und er steht hier,
+damit er nicht in einer Tabellenzelle verschwindet.
+
+## Was ein AVV enthalten muss (Art. 28 Abs. 3 lit. a–h)
+
+Beim Akzeptieren des Anbieter-DPA ist das die Prüfliste. Fehlt ein Punkt,
+genügt der Vertrag nicht:
+
+| | Anforderung |
+|---|---|
+| a | Verarbeitung **nur auf dokumentierte Weisung**, einschließlich Drittlandtransfers |
+| b | **Vertraulichkeitsverpflichtung** der eingesetzten Personen |
+| c | **Sicherheitsmaßnahmen** nach Art. 32 |
+| d | **Unterauftragnehmer** nur unter den Bedingungen des Art. 28 Abs. 2 und 4 — mit Liste und Widerspruchsrecht |
+| e | **Unterstützung bei Betroffenenrechten** (Kapitel III) |
+| f | **Unterstützung bei Art. 32–36**: Sicherheit, Meldung von Verletzungen, Folgenabschätzung |
+| g | **Löschung oder Rückgabe** aller Daten nach Ende der Verarbeitung |
+| h | **Nachweise und Audits** ermöglichen |
+
+Für beide Anbieter (USA) kommt hinzu: **Standardvertragsklauseln, Modul 2**
+(Verantwortlicher → Auftragsverarbeiter), oder Berufung auf das EU-US Data
+Privacy Framework, sofern der Anbieter dort zertifiziert ist — das ist im
+Zertifizierungsregister zu prüfen und nicht der Anbieterangabe zu glauben.
+
+Besonders nachsehen: **Wie lange werden Eingaben vorgehalten?** Beide Anbieter
+werben damit, API-Daten nicht zum Training zu verwenden und sie nur befristet
+zur Missbrauchserkennung zu speichern. Eine Anbieterangabe auf einer
+Webseite ist keine vertragliche Zusage — sie muss im DPA stehen. Wo ein
+Zero-Retention-Modus angeboten wird, gehört er aktiviert: bei Sprachaufnahmen
+ist die kürzeste Speicherdauer die einzige, die sich verteidigen lässt.
+
+## Wenn der AVV geschlossen ist — hier eintragen
+
+Damit der Nachweis auffindbar bleibt und nicht in einem Postfach liegt:
+
+| Feld | OpenAI | OpenRouter |
+|---|---|---|
+| AVV geschlossen am | _offen_ | _offen_ |
+| Fassung / Version | _offen_ | _offen_ |
+| Transfermechanismus | _offen (SCC Modul 2 oder DPF)_ | _offen (SCC Modul 2)_ |
+| Unterauftragnehmer-Liste geprüft | _offen_ | _offen_ |
+| Aufbewahrung der Eingaben | _offen_ | _offen_ |
+| Zero-Retention aktiviert | _offen_ | _offen_ |
+| Abgelegt wo | _offen_ | _offen_ |
+
+Sobald hier Daten stehen, gehört die AVV-Spalte in der Tabelle unten von
+**offen** auf **✓** — und erst dann.
+
 ## Prinzipien
 
 - AVV-Vertrag muss **vor** Datenübermittlung unterschrieben sein.
