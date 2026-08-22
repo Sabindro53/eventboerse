@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 434 Tests in 24 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 438 Tests in 24 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -106,7 +106,7 @@ noch `assets/eb-knowledge.json` angefasst.
   echten Browser: ein Symbol ist quadratisch, ein unaufgelöster Name breit. Dazu
   ein CI-Tor, das ein neu eingebautes Icon fängt, bevor es leer erscheint. Vier
   Mutationen einzeln geprüft — eine deckte einen hohlen Test von mir auf, der zu
-  früh maß und die Ersatzschrift erwischte. **434 Tests in 24 Suiten.**
+  früh maß und die Ersatzschrift erwischte. **438 Tests in 24 Suiten.**
 
 - [x] **Demo-Bilder: der Knopf, der den Import wirklich startet.** Die Route
   `POST /hq/demo-bilder` stand seit #182, bedienen konnte sie niemand — eine
