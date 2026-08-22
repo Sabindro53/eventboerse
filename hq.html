@@ -460,6 +460,20 @@
   /* Auffaellig: eckig statt rund, damit es auch ohne Farbe heraussticht. */
   .lage-problem   { color: #fca5a5; }
   .lage-problem   .lage-dot { border-color: #f87171; background: #f87171; border-radius: 2px; }
+  /* Wertbeitrag */
+  .wert-zeile { display:grid; grid-template-columns: minmax(9rem,auto) minmax(7rem,auto) 1fr;
+    gap:.2rem .9rem; align-items:baseline; padding:.55rem 0; border-top:1px solid var(--border); }
+  .wert-zeile:first-child { border-top:0; }
+  .wert-was  { font-size:.8rem; color:var(--muted); }
+  .wert-zahl { font-size:.95rem; white-space:nowrap; }
+  .wert-hinweis { font-size:.72rem; color:var(--muted); line-height:1.45; }
+  .wert-fazit { margin-top:.7rem; padding-top:.6rem; border-top:1px solid var(--border);
+    font-size:.78rem; line-height:1.55; }
+  .wert-stellen { display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.7rem; }
+  .wert-stelle { font-size:.68rem; color:var(--muted); background:var(--surface2);
+    border:1px solid var(--border); border-radius:999px; padding:.14rem .5rem; }
+  .wert-stelle b { color:var(--fg); }
+  @media (max-width:560px) { .wert-zeile { grid-template-columns:1fr; } }
   .journal h5 { font-size: .82rem; margin-bottom: .1rem; }
   .journal > p { font-size: .72rem; color: var(--muted); margin-bottom: .6rem; line-height: 1.5; }
   .j-eintrag { display: flex; gap: .6rem; padding: .5rem 0; border-top: 1px solid var(--border); font-size: .75rem; }
@@ -775,6 +789,20 @@
     .nn-hud-innen, .nn-hud-saum { animation: none !important; }
   }
 
+/* Auftragskarte im Gespraech */
+.ebc-auftrag{border:1px solid rgba(34,211,238,.35);border-radius:12px;padding:.7rem .8rem}
+.ebc-auftrag-titel{font-weight:700;margin:.35rem 0 .2rem;font-size:.9rem;line-height:1.4}
+.ebc-auftrag-text{font-size:.78rem;color:var(--muted);line-height:1.5;white-space:pre-wrap}
+.ebc-auftrag-tasten{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem;align-items:center}
+.ebc-auftrag-tasten button{font:inherit;font-size:.76rem;padding:.32rem .7rem;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface2);color:var(--fg);cursor:pointer}
+.ebc-auftrag-tasten button:hover:not(:disabled){border-color:rgba(34,211,238,.6)}
+.ebc-auftrag-tasten button:disabled{opacity:.55;cursor:default}
+.ebc-auftrag-tasten a{font-size:.78rem;color:#7dd3fc}
+.ebc-auftrag-hinweis{font-size:.74rem;color:var(--muted);margin-top:.5rem;line-height:1.5}
+.ebc-auftrag-kopie{width:100%;margin-top:.4rem;font:inherit;font-size:.74rem;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:.4rem .5rem;resize:vertical}
+
 /* ══ EB CIRCLE — sprechender KI-Kreis ══════════════════════════════ */
 #eb-circle-dock{position:fixed;right:20px;bottom:20px;opacity:.82;z-index:9000;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
 #eb-circle{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;position:relative;
@@ -887,6 +915,13 @@
       <div class="section-badge" id="lage-badge">–</div>
     </div>
     <div class="journal lage-liste" id="lage-liste" aria-live="polite"></div>
+
+    <!-- Wertbeitrag — was die Belegschaft kostet und was sie wert ist. -->
+    <div class="section-header" id="wert">
+      <div class="section-title">💶 Wertbeitrag <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— Marktwert gegen Modellkosten</span></div>
+      <div class="section-badge" id="wert-badge">–</div>
+    </div>
+    <div class="journal wert-block" id="wert-block"></div>
 
     <!-- Bereiche & Autonomie -->
     <div class="section-header" id="bereiche">
@@ -1739,7 +1774,7 @@ async function loadAll() {
     ebImpuls('engineering', 'gut');
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderLage();
     renderQuests(); renderAchievements(); renderHud();
-    if (nnKatalog) { nnZeichnen(); renderModelle(); }
+    if (nnKatalog) { nnZeichnen(); renderModelle(); renderWert(); }
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
     else $('releases-list').innerHTML = `<div class="err">Fehler beim Laden: ${escHtml(e.message)}</div>`;
@@ -1768,7 +1803,7 @@ async function init() {
       try {
         const neu = await ladeNeuralJournal();
         if (neu) {
-          nnZeichnen(); renderJournal(); renderModelle();
+          nnZeichnen(); renderJournal(); renderModelle(); renderWert();
           const letzter = nnJournal && nnJournal.eintraege && nnJournal.eintraege[0];
           if (letzter && letzter.bereich) ebImpuls(letzter.bereich, letzter.ergebnis === 'fertig' ? 'gut' : 'schlecht');
         }
@@ -1788,7 +1823,7 @@ async function init() {
       try {
         await loadRuns();
         await loadAutopilotPull();
-        nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps(); renderLage();
+        nnZeichnen(); renderModelle(); renderBots(); renderRuns(); renderNeuralOps(); renderLage(); renderWert();
       } finally { state.operationsAbruf = false; }
     }, getPat() ? 30000 : 300000);
   }
@@ -3225,6 +3260,78 @@ function renderWartet() {
       </div>`).join('')}`;
 }
 
+/**
+ * Wertbeitrag: was die Belegschaft an Marktwert vertritt, was sie kostet.
+ *
+ * Die Zahl 674.000 € stand bisher nur weit unten im Ensemble-Abschnitt. Sie
+ * beantwortet aber die Frage, die den Betrieb rechtfertigt, und gehört
+ * darum nach oben.
+ *
+ * Drei Ehrlichkeitsgrenzen, die hier eingebaut sind:
+ *
+ * 1. DER DECKEL IST KEIN VERBRAUCH. $2,00/Tag ist die harte Obergrenze der
+ *    beiden Töpfe, nicht das, was ausgegeben wurde. Beides steht getrennt
+ *    da — der gemessene Verbrauch kommt aus dem Arbeitsjournal.
+ *
+ * 2. KEIN ERFUNDENER WECHSELKURS. Marktwert in Euro, Kosten in Dollar. Sie
+ *    zu subtrahieren hiesse, einen Kurs zu behaupten, den niemand gemessen
+ *    hat. Das Verhältnis ist mit rund 1:900 so deutlich, dass es auf den
+ *    Kurs nicht ankommt — und genau so steht es da.
+ *
+ * 3. KEIN ERSATZ-VERSPRECHEN. Der Marktwert sagt, welcher Umfang an Arbeit
+ *    hier ohne Rückfrage läuft. Er sagt nicht, dass ein Modell eine Person
+ *    ersetzt.
+ */
+function renderWert() {
+  const block = document.getElementById('wert-block');
+  const badge = document.getElementById('wert-badge');
+  if (!block) return;
+  if (!nnKatalog) {
+    block.innerHTML = '<div class="empty">Modell-Katalog nicht geladen — ohne ihn kann ich zum Wert nichts sagen.</div>';
+    if (badge) badge.textContent = '–';
+    return;
+  }
+
+  const modelle = nnKatalog.modelle || [];
+  const bezahlt = modelle.filter((m) => (m.gehaltVergleich || 0) > 0);
+  const markt = modelle.reduce((a, m) => a + (m.gehaltVergleich || 0), 0);
+
+  // Deckel aus den Töpfen — nie hart hineingeschrieben.
+  const toepfe = Object.values(nnKatalog.schichten || {})
+    .filter((s) => typeof s.budgetUsd === 'number');
+  const deckelTag = toepfe.reduce((a, s) => a + s.budgetUsd, 0);
+  const deckelJahr = Math.round(deckelTag * 365);
+
+  // Gemessener Verbrauch: nur was wirklich im Journal steht.
+  const eintraege = (nnJournal && nnJournal.eintraege) || [];
+  const gemessen = eintraege.reduce((a, e) => a + (typeof e.kostenUsd === 'number' ? e.kostenUsd : 0), 0);
+
+  const eur = (n) => n.toLocaleString('de-DE') + ' €';
+  const zeile = (was, wert, hinweis) =>
+    `<div class="wert-zeile"><span class="wert-was">${was}</span>`
+    + `<span class="wert-zahl">${wert}</span>`
+    + `<span class="wert-hinweis">${hinweis}</span></div>`;
+
+  block.innerHTML =
+    zeile('Marktwert derselben Stellen', `<b>${eur(markt)}</b> / Jahr`,
+      `${bezahlt.length} Rollen mit Vergleichsstelle — Vergleichswert, keine Behauptung, dass ein Modell jemanden ersetzt`)
+    + zeile('Kostendeckel der Modelle', `$${deckelTag.toFixed(2).replace('.', ',')} / Tag`,
+      `harte Obergrenze beider Töpfe, rund $${deckelJahr.toLocaleString('de-DE')} im Jahr — nicht der Verbrauch`)
+    + zeile('Bisher gemessen', gemessen > 0 ? `$${gemessen.toFixed(4).replace('.', ',')}` : 'noch nichts im Journal',
+      gemessen > 0 ? `aus ${eintraege.length} Journaleinträgen — echte Läufe, keine Hochrechnung`
+                   : 'ohne Journaleinträge lässt sich der Verbrauch nicht beziffern')
+    + `<div class="wert-fazit">Der Marktwert übersteigt den Kostendeckel um rund das `
+    + `<b>${Math.round(markt / Math.max(deckelJahr, 1) / 10) * 10}-fache</b>. `
+    + `Euro gegen Dollar sind hier bewusst nicht umgerechnet: bei diesem Abstand `
+    + `ändert kein Wechselkurs die Aussage, und ein erfundener Kurs wäre eine Zahl, `
+    + `die niemand gemessen hat.</div>`
+    + `<div class="wert-stellen">${bezahlt.map((m) =>
+        `<span class="wert-stelle" title="${escHtml(m.person || m.id)}">${escHtml(m.vergleichsstelle || '—')}`
+        + ` <b>${(m.gehaltVergleich / 1000)}k</b></span>`).join('')}</div>`;
+
+  if (badge) badge.textContent = `${eur(markt)} vs. $${deckelTag.toFixed(2).replace('.', ',')}/Tag`;
+}
+
 function renderModelle() {
   if (!nnKatalog) return;
   const wege = nnKatalog.wege || {};
@@ -3422,6 +3529,7 @@ async function initNeural() {
   renderJournal();
   renderAuftragsstrom();
   renderModelle();
+  renderWert();
 
   // Ohne SpeechRecognition (z. B. Firefox) sagt der Kreis das, statt beim
   // Tippen stumm zu bleiben.
@@ -4152,6 +4260,97 @@ window.addEventListener('DOMContentLoaded', init);
     throw letzterFehler || new Error('Sprachdienst antwortet nicht.');
   }
 
+  /* ── Aufträge aus dem Gespräch ─────────────────────────────────────────
+     Ein gesprochener Auftrag soll im Repository ankommen, nicht im Nichts.
+
+     Drei Entscheidungen, die den Ausschlag geben:
+
+     1. NIE OHNE RÜCKFRAGE. Spracherkennung verhört sich, und ein verhörter
+        Satz darf kein Ticket anlegen. Der Auftrag wird gezeigt, und erst ein
+        Klick legt ihn an. Das ist der Unterschied zwischen einem Assistenten
+        und einem Automaten, der Müll produziert.
+
+     2. NUR ISSUES. Kein Commit, kein Pull Request, kein Merge, kein Start
+        eines Workflows. Ein Sprachbefehl, der Code ändern kann, ist eine
+        Angriffsfläche mit Mikrofon.
+
+     3. OHNE TOKEN GEHT DER AUFTRAG NICHT VERLOREN. Er steht dann als Text
+        zum Kopieren da, mit dem Grund. Ein Auftrag, der still verschwindet,
+        ist schlimmer als einer, der gar nicht erst angenommen wurde. */
+  var AUFTRAG_MUSTER = /^\s*(?:auftrag|aufgabe|todo|to-?do|notiere|notier|merk dir|vermerke|trag ein|erstelle? (?:eine? )?(?:aufgabe|auftrag|ticket|issue))\b[:,]?\s*(.+)$/i;
+
+  function auftragErkennen(text) {
+    var m = String(text || '').match(AUFTRAG_MUSTER);
+    if (!m) return null;
+    var inhalt = m[1].trim().replace(/\s+/g, ' ');
+    if (inhalt.length < 8) return null;   // „Auftrag: ja" ist keiner
+    // Titel: erster Satz, höchstens 90 Zeichen — der Rest wird Beschreibung.
+    var titel = inhalt.split(/(?<=[.!?])\s/)[0] || inhalt;
+    if (titel.length > 90) titel = titel.slice(0, 87).replace(/\s+\S*$/, '') + '…';
+    return { titel: titel, inhalt: inhalt.slice(0, 4000) };
+  }
+
+  function auftragKarte(a) {
+    var box = document.createElement('div');
+    box.className = 'ebc-msg ai ebc-auftrag';
+    var hatToken = typeof getPat === 'function' && !!getPat();
+    box.innerHTML =
+      '<b>Auftrag verstanden</b>'
+      + '<div class="ebc-auftrag-titel"></div>'
+      + '<div class="ebc-auftrag-text"></div>'
+      + (hatToken
+        ? '<div class="ebc-auftrag-tasten">'
+          + '<button type="button" class="ebc-ja">✓ Ins Repository eintragen</button>'
+          + '<button type="button" class="ebc-nein">Verwerfen</button></div>'
+        : '<div class="ebc-auftrag-hinweis">Kein GitHub-Token in dieser Sitzung — '
+          + 'ich kann den Auftrag nicht selbst eintragen. Text zum Kopieren:</div>'
+          + '<textarea class="ebc-auftrag-kopie" readonly rows="3"></textarea>');
+    // textContent, nicht innerHTML: der Auftrag ist Fremdtext, und beim
+    // Diktieren landet darin, was gerade gesagt wurde.
+    box.querySelector('.ebc-auftrag-titel').textContent = a.titel;
+    box.querySelector('.ebc-auftrag-text').textContent = a.inhalt;
+    var kopie = box.querySelector('.ebc-auftrag-kopie');
+    if (kopie) kopie.value = a.titel + '\n\n' + a.inhalt;
+    log.appendChild(box); log.scrollTop = log.scrollHeight;
+
+    var ja = box.querySelector('.ebc-ja');
+    var nein = box.querySelector('.ebc-nein');
+    if (nein) nein.addEventListener('click', function () {
+      box.querySelector('.ebc-auftrag-tasten').textContent = 'Verworfen.';
+    });
+    if (ja) ja.addEventListener('click', async function () {
+      ja.disabled = true; nein.disabled = true; ja.textContent = 'Trage ein…';
+      try {
+        var res = await ghRes('/issues', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: a.titel,
+            body: a.inhalt
+              + '\n\n---\n_Aufgegeben über den EB Circle im HQ am '
+              + new Date().toLocaleString('de-DE') + '._',
+            labels: ['aus-dem-hq'],
+          }),
+        });
+        var d = await res.json();
+        var fertig = document.createElement('div');
+        fertig.className = 'ebc-auftrag-tasten';
+        var a2 = document.createElement('a');
+        a2.href = d.html_url; a2.target = '_blank'; a2.rel = 'noopener';
+        a2.textContent = '✓ Eingetragen als #' + d.number;
+        fertig.appendChild(a2);
+        box.querySelector('.ebc-auftrag-tasten').replaceWith(fertig);
+      } catch (e) {
+        // Den Grund nennen, nicht bloss scheitern.
+        var fehler = document.createElement('div');
+        fehler.className = 'ebc-auftrag-hinweis';
+        fehler.textContent = 'Konnte nicht eingetragen werden: ' + (e && e.message ? e.message : 'unbekannter Fehler')
+          + ' — der Auftrag steht oben und ist nicht verloren.';
+        box.querySelector('.ebc-auftrag-tasten').replaceWith(fehler);
+      }
+    });
+  }
+
   async function ask(q) {
     q = String(q || '').trim(); if (!q) return;
     if (asking && askController) askController.abort();
@@ -4161,6 +4360,15 @@ window.addEventListener('DOMContentLoaded', init);
     asking = true;
     renderSuggestions([]);
     add('me', esc(q));
+    // Ein Auftrag ist keine Frage: er geht nicht an den Sprachdienst und
+    // kostet nichts. Er wird gezeigt und wartet auf Bestaetigung.
+    var auftrag = auftragErkennen(q);
+    if (auftrag) {
+      auftragKarte(auftrag);
+      asking = false; askController = null;
+      syncDialogControls();
+      return;
+    }
     var g = gaps(q);
     var status = hqStatus(q);
     var operative = status ? null : hqOperativeAntwort(q);

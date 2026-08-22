@@ -34,8 +34,11 @@
   <link rel="manifest" href="/manifest.json" />
   <link rel="canonical" href="https://eventbörse.de" />
 
-  <!-- Performance: Preconnect — nur noch Stripe kommt von aussen. -->
+  <!-- Performance: Preconnect. Schriften und Bibliotheken liegen im Theme;
+       die Demo-Bilder kommen weiterhin von Pexels, und dort spart die
+       vorgezogene Verbindung den DNS- und TLS-Aufbau vor dem ersten Bild. -->
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
+  <link rel="preconnect" href="https://images.pexels.com" crossorigin />
 
   <!-- Critical CSS first (render-blocking, but small) -->
   <link rel="preload" href="styles.css?v=164" as="style" fetchpriority="high" />

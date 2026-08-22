@@ -21,7 +21,8 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (imgs.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />`;
+    // Das grosse Bild oben ist das LCP-Element: eifrig und mit Vorrang.
+    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_EAGER_ATTR}${window.EB_IMG_ERR_ATTR} />`;
     heroImg.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }
 
