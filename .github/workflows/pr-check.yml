@@ -158,6 +158,13 @@ jobs:
       - name: Icon-Schrift deckt alle benutzten Symbole
         run: node scripts/icons.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # CLAUDE.md ist das erste, was jede Sitzung liest. Eine falsche Zahl
+      # dort kostet mehr als keine, weil sie Vertrauen geniesst — am 22.08.
+      # waren vier Angaben veraltet, darunter eine "bekannte Schwaeche", die
+      # es laengst nicht mehr gibt.
+      - name: Kontext stimmt mit dem Code überein
+        run: node scripts/kontext.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Testsuite ausführen
         run: npx playwright test
 
