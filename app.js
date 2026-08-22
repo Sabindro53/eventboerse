@@ -18162,10 +18162,15 @@ function _renderBoardFlowImpl() {
         // vier Zeiten untereinander die Karte sprengen. Vollständig steht
         // es im title und im Ablauf.
         var _alle = _zeiten.map(ebZeitText).join(' · ');
-        html += '<span class="flow-prov-time" title="' + esc(_alle) + '">' +
+        // Die Warnung gehört auch auf die Karte. Stünde sie nur im Formular,
+        // sähe man sie genau so lange, wie man sie nicht mehr braucht.
+        var _konflikt = ebUeberschneidungText(_zeiten);
+        html += '<span class="flow-prov-time' + (_konflikt ? ' hat-konflikt' : '') + '"' +
+          ' title="' + esc(_alle + (_konflikt ? ' — ' + _konflikt : '')) + '">' +
           '<span class="material-icons-round" style="font-size:11px">schedule</span>' +
           esc(ebZeitText(_zeiten[0])) +
           (_zeiten.length > 1 ? '<em class="flow-prov-time-mehr">+' + (_zeiten.length - 1) + '</em>' : '') +
+          (_konflikt ? '<span class="material-icons-round flow-prov-time-warn" aria-label="Zeiten überschneiden sich">warning</span>' : '') +
           '</span>';
       }
       html += '</div>';
@@ -18586,6 +18591,70 @@ function ebZeitText(z) {
   return z.end ? z.start + ' – ' + z.end : z.start;
 }
 
+/** „14:30" → 870. Nur für gültige Uhrzeiten. */
+function ebZeitMinuten(hhmm) {
+  var t = String(hhmm).split(':');
+  return parseInt(t[0], 10) * 60 + parseInt(t[1], 10);
+}
+
+/**
+ * Welche Zeiten einer Position sich überschneiden — als Indexpaare.
+ *
+ * Zwei Entscheidungen, die den Unterschied machen zwischen einer Warnung,
+ * die man liest, und einer, die man wegklickt:
+ *
+ * 1. EIN OFFENES ENDE WARNT NICHT. „Ab 19:00" hat keine messbare Dauer.
+ *    Würde man es bis Mitternacht rechnen, überschnitte sich fast jedes
+ *    Paar mit offenem Ende — eine Warnung, die immer kommt, sagt nichts.
+ *    Gewarnt wird nur, wenn die FRÜHERE Zeit ein Ende hat und die spätere
+ *    davor beginnt.
+ *
+ * 2. ÜBER MITTERNACHT WIRD GERECHNET. „22:00 – 02:00" ist ein gültiger
+ *    Zeitraum (die Nacht-Vorauswahl erzeugt genau den). Ein Textvergleich
+ *    hielte 02:00 für früher als 23:00 und übersähe die Überschneidung mit
+ *    „23:00 – 01:00" — also genau den Fall, für den es die Warnung gibt.
+ *
+ * Berührung zählt nicht: 14:00–16:00 und 16:00–18:00 gehen nahtlos
+ * ineinander über, das ist ein Ablauf und kein Konflikt.
+ */
+function ebZeitUeberschneidungen(zeiten) {
+  var liste = zeiten || [];
+  var paare = [];
+  for (var i = 0; i < liste.length; i++) {
+    var a = liste[i];
+    // Offenes Ende: keine Aussage möglich. Der Wächter ist bewusst
+    // ausdrücklich, obwohl ein fehlendes Ende weiter unten ohnehin zu NaN
+    // führte und jeder Vergleich damit falsch ist — auf NaN zu bauen ist
+    // eine Falle für den Nächsten, der hier `|| 0` ergänzt.
+    if (!a || !a.end) continue;
+    var aStart = ebZeitMinuten(a.start);
+    var aEnde = ebZeitMinuten(a.end);
+    if (aEnde < aStart) aEnde += 1440;        // läuft über Mitternacht
+    for (var k = i + 1; k < liste.length; k++) {
+      var b = liste[k];
+      if (!b) continue;
+      var bStart = ebZeitMinuten(b.start);
+      // Die Liste ist chronologisch: b beginnt nie vor a. Beginnt b am
+      // Folgetag (weil a über Mitternacht läuft), gilt derselbe Vergleich.
+      if (bStart < aStart) bStart += 1440;
+      if (bStart < aEnde) paare.push([i, k]);
+    }
+  }
+  return paare;
+}
+
+/** Die Überschneidungen einer Position als Satz — leer, wenn es keine gibt. */
+function ebUeberschneidungText(zeiten) {
+  var paare = ebZeitUeberschneidungen(zeiten);
+  if (!paare.length) return '';
+  var teile = paare.slice(0, 3).map(function(p) {
+    return (p[0] + 1) + '. und ' + (p[1] + 1) + '. Zeit (' +
+      ebZeitText(zeiten[p[0]]) + ' / ' + ebZeitText(zeiten[p[1]]) + ')';
+  });
+  var rest = paare.length > 3 ? ' und ' + (paare.length - 3) + ' weitere' : '';
+  return 'Diese Zeiten überschneiden sich: ' + teile.join(', ') + rest + '.';
+}
+
 // ============= Zeit-Picker (Zeitraum + Presets + Stepper) =============
 window._buildTimePicker = function(startId, endId, startVal, endVal) {
   var sv = startVal || '10:00';
@@ -18669,8 +18738,31 @@ window._ebZeitenRendern = function(hostId, praefix, zeiten) {
     html += '<p class="eb-zeit-limit">Mehr als ' + EB_MAX_ZEITEN +
       ' Zeiten je Position sind kein Ablauf mehr, sondern ein eigener Kalender.</p>';
   }
+  html += '<p class="eb-zeit-warnung" id="' + hostId + '_warn" role="status" aria-live="polite" hidden></p>';
   host.innerHTML = html;
   host.dataset.praefix = praefix;
+
+  // Einmal pro Host: die Warnung folgt der Eingabe, statt erst beim
+  // Speichern aufzutauchen. Wer den Tippfehler sofort sieht, korrigiert ihn;
+  // wer ihn erst nach dem Speichern erfährt, muss das Formular neu öffnen.
+  // Delegiert am Host, weil die Zeilen bei jedem Neuzeichnen neu entstehen.
+  if (!host.dataset.warnGebunden) {
+    host.addEventListener('input', function() {
+      window._ebZeitWarnung(hostId, host.dataset.praefix || praefix);
+    });
+    host.dataset.warnGebunden = '1';
+  }
+  window._ebZeitWarnung(hostId, praefix);
+};
+
+/** Schreibt die Überschneidungswarnung unter die Liste (oder blendet sie aus). */
+window._ebZeitWarnung = function(hostId, praefix) {
+  var feld = document.getElementById(hostId + '_warn');
+  if (!feld) return;
+  var text = ebUeberschneidungText(ebKartenZeiten({ times: window._ebZeitenLesen(hostId, praefix) }));
+  // textContent, nicht innerHTML: der Satz enthält Nutzereingaben.
+  feld.textContent = text;
+  feld.hidden = !text;
 };
 
 /** Liest die Zeitliste aus dem Formular zurück — roh, ohne Normalisierung. */

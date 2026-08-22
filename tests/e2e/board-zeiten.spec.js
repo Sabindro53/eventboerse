@@ -155,6 +155,175 @@ test.describe('Board: Mehrfachzeiten setzen', () => {
   });
 });
 
+/* Eine Warnung, die zu oft kommt, wird weggeklickt und ist dann schlimmer
+   als keine. Die Hälfte dieser Tests prüft deshalb, wann sie SCHWEIGT. */
+test.describe('Board: Überschneidungswarnung', () => {
+  const paare = (page, zeiten) => page.evaluate((z) => ebZeitUeberschneidungen(z), zeiten);
+  const satz = (page, zeiten) => page.evaluate((z) => ebUeberschneidungText(z), zeiten);
+
+  test('eine echte Überschneidung wird erkannt', async ({ page }) => {
+    const errors = await openApp(page);
+    expect(await paare(page, [
+      { start: '14:00', end: '16:00' },
+      { start: '15:00', end: '17:00' },
+    ])).toEqual([[0, 1]]);
+    expect(await satz(page, [
+      { start: '14:00', end: '16:00' },
+      { start: '15:00', end: '17:00' },
+    ])).toContain('1. und 2. Zeit');
+    expectNoPageErrors(errors);
+  });
+
+  test('nahtlos aneinander ist kein Konflikt', async ({ page }) => {
+    // 14–16 und 16–18 ist ein Ablauf. Wer hier warnt, warnt bei jeder
+    // sauber geplanten Kette.
+    const errors = await openApp(page);
+    expect(await paare(page, [
+      { start: '14:00', end: '16:00' },
+      { start: '16:00', end: '18:00' },
+    ])).toEqual([]);
+    expect(await satz(page, [
+      { start: '14:00', end: '16:00' },
+      { start: '16:00', end: '18:00' },
+    ])).toBe('');
+    expectNoPageErrors(errors);
+  });
+
+  test('ein offenes Ende warnt nicht', async ({ page }) => {
+    // „Ab 14:00" hat keine messbare Dauer. Bis Mitternacht zu rechnen
+    // würde fast jedes Paar zum Konflikt machen.
+    const errors = await openApp(page);
+    expect(await paare(page, [
+      { start: '14:00', end: '' },
+      { start: '15:00', end: '17:00' },
+    ])).toEqual([]);
+    // Umgekehrt aber schon: die frühere Zeit hat ein Ende, die spätere
+    // beginnt davor — das ist messbar, egal ob SIE offen endet.
+    expect(await paare(page, [
+      { start: '14:00', end: '16:00' },
+      { start: '15:00', end: '' },
+    ])).toEqual([[0, 1]]);
+    expectNoPageErrors(errors);
+  });
+
+  test('über Mitternacht wird richtig gerechnet', async ({ page }) => {
+    // „22:00 – 02:00" erzeugt die Nacht-Vorauswahl selbst. Ein reiner
+    // Textvergleich hielte 02:00 für früher als 23:00 und übersähe genau
+    // den Fall, für den es die Warnung gibt.
+    const errors = await openApp(page);
+    expect(await paare(page, [
+      { start: '20:00', end: '02:00' },
+      { start: '23:00', end: '01:00' },
+    ]), 'die Überschneidung nach Mitternacht wird übersehen').toEqual([[0, 1]]);
+    // Und die Gegenprobe: Abend endet, Nacht beginnt — kein Konflikt.
+    expect(await paare(page, [
+      { start: '18:00', end: '22:00' },
+      { start: '22:00', end: '02:00' },
+    ])).toEqual([]);
+    expectNoPageErrors(errors);
+  });
+
+  test('drei Zeiten melden jedes betroffene Paar', async ({ page }) => {
+    const errors = await openApp(page);
+    expect(await paare(page, [
+      { start: '10:00', end: '14:00' },
+      { start: '11:00', end: '12:00' },
+      { start: '13:00', end: '15:00' },
+    ])).toEqual([[0, 1], [0, 2]]);
+    expectNoPageErrors(errors);
+  });
+
+  test('eine einzelne Zeit und eine leere Liste schweigen', async ({ page }) => {
+    const errors = await openApp(page);
+    expect(await satz(page, [{ start: '14:00', end: '16:00' }])).toBe('');
+    expect(await satz(page, [])).toBe('');
+    expectNoPageErrors(errors);
+  });
+
+  test('die Warnung steht live im Formular und blockiert nicht', async ({ page }) => {
+    const errors = await openApp(page);
+    await page.evaluate(() => {
+      isLoggedIn = true;
+      currentUser = { id: 80, name: 'Zeit Test', role: 'Eventplaner', baseRole: 'Eventplaner' };
+      _activeBoardId = 'bp_warn';
+      _boardProjects = [{
+        id: 'bp_warn', name: 'Warnboard', date: '2026-09-12', budget: 0,
+        cards: [{ id: 'c1', name: 'Fotograf', stage: 'geplant', _stageModel: 2,
+          times: [{ start: '14:00', end: '16:00' }], startTime: '14:00', endTime: '16:00' }],
+      }];
+      openFlowCardModal('c1');
+    });
+    await page.waitForSelector('#fcZeiten .eb-zeit-block');
+    await expect(page.locator('#fcZeiten_warn')).toBeHidden();
+
+    await page.click('#fcZeiten .eb-zeit-plus');
+    await page.fill('#fcZ_s1', '15:00');
+    await page.fill('#fcZ_e1', '17:00');
+    // Ohne Speichern, ohne Klick: die Warnung folgt der Eingabe.
+    await expect(page.locator('#fcZeiten_warn')).toBeVisible();
+    await expect(page.locator('#fcZeiten_warn')).toContainText('überschneiden');
+
+    // Sie blockiert nicht — Aufbau und Service dürfen sich überlappen.
+    await page.click('#flowCardModal button[type="submit"]');
+    expect(await page.evaluate(() => _boardProjects[0].cards[0].times)).toEqual([
+      { start: '14:00', end: '16:00' },
+      { start: '15:00', end: '17:00' },
+    ]);
+    expectNoPageErrors(errors);
+  });
+
+  test('die Warnung verschwindet wieder, wenn der Konflikt weg ist', async ({ page }) => {
+    // Ohne diese Gegenprobe wäre der Test oben auch mit „immer sichtbar"
+    // erfüllt — und eine Warnung, die stehen bleibt, verliert ihre Bedeutung.
+    const errors = await openApp(page);
+    await page.evaluate(() => {
+      isLoggedIn = true;
+      currentUser = { id: 81, name: 'Zeit Test', role: 'Eventplaner', baseRole: 'Eventplaner' };
+      _activeBoardId = 'bp_warn2';
+      _boardProjects = [{
+        id: 'bp_warn2', name: 'Warnboard', date: '2026-09-12', budget: 0,
+        cards: [{ id: 'c1', name: 'Fotograf', stage: 'geplant', _stageModel: 2,
+          times: [{ start: '14:00', end: '16:00' }, { start: '15:00', end: '17:00' }],
+          startTime: '14:00', endTime: '16:00' }],
+      }];
+      openFlowCardModal('c1');
+    });
+    await page.waitForSelector('#fcZeiten .eb-zeit-block');
+    await expect(page.locator('#fcZeiten_warn')).toBeVisible();
+    await page.fill('#fcZ_s1', '17:00');
+    await page.fill('#fcZ_e1', '19:00');
+    await expect(page.locator('#fcZeiten_warn')).toBeHidden();
+    expectNoPageErrors(errors);
+  });
+
+  test('die Karte im Flow zeigt den Konflikt an', async ({ page }) => {
+    // Im Formular sieht man die Warnung nur, solange es offen ist.
+    const errors = await openApp(page);
+    const treffer = await page.evaluate(() => {
+      isLoggedIn = true;
+      currentUser = { id: 82, name: 'Zeit Test', role: 'Eventplaner', baseRole: 'Eventplaner' };
+      _activeBoardId = 'bp_flow';
+      _boardProjects = [{
+        id: 'bp_flow', name: 'Flowboard', date: '2026-09-12', budget: 0,
+        cards: [
+          { id: 'ok', name: 'Sauber', stage: 'geplant', _stageModel: 2,
+            times: [{ start: '10:00', end: '11:00' }, { start: '12:00', end: '13:00' }] },
+          { id: 'bad', name: 'Konflikt', stage: 'geplant', _stageModel: 2,
+            times: [{ start: '14:00', end: '16:00' }, { start: '15:00', end: '17:00' }] },
+        ],
+      }];
+      renderBoardFlow();
+      return {
+        mitKonflikt: document.querySelectorAll('.flow-prov-time.hat-konflikt').length,
+        gesamt: document.querySelectorAll('.flow-prov-time').length,
+      };
+    });
+    expect(treffer.gesamt, 'beide Karten müssen eine Zeit zeigen').toBe(2);
+    expect(treffer.mitKonflikt, 'genau die konfliktbehaftete Karte wird markiert').toBe(1);
+    expectNoPageErrors(errors);
+  });
+});
+
 test.describe('Board: Zeiten bearbeiten', () => {
   /** Öffnet die Flow-Karte einer Testkarte mit den angegebenen Zeiten. */
   async function modalOeffnen(page, cardZeiten) {

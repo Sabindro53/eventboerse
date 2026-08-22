@@ -11955,6 +11955,35 @@ body.has-pseudo-fullscreen { overflow: hidden; }
   font-size: .78rem;
   color: var(--text-light);
 }
+/* Die Überschneidungswarnung. Bernstein statt Rot: es ist ein Hinweis, kein
+   Fehler — Aufbau und Service dürfen sich überlappen, und gespeichert wird
+   trotzdem. Rot würde behaupten, hier sei etwas gesperrt. */
+.eb-zeit-warnung {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #f59e0b;
+  border-radius: 9px;
+  background: rgba(245, 158, 11, .08);
+  color: var(--text);
+  font-size: .8rem;
+  line-height: 1.45;
+}
+/* PFLICHT neben `display: flex`: die eigene display-Angabe schlaegt das
+   eingebaute [hidden] { display: none } des Browsers. Ohne diese Zeile stand
+   ein leerer bernsteinfarbener Kasten unter jeder Zeitliste. */
+.eb-zeit-warnung[hidden] { display: none; }
+.eb-zeit-warnung::before {
+  content: 'warning';
+  font-family: 'Material Icons Round';
+  font-size: 16px;
+  line-height: 1.2;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+.flow-prov-time.hat-konflikt { color: #f59e0b; }
+.flow-prov-time-warn { font-size: 12px !important; margin-left: 3px; vertical-align: -2px; }
 /* Der Zähler auf der Flow-Karte: „+2" hinter der ersten Zeit. */
 .flow-prov-time-mehr {
   margin-left: 5px;
