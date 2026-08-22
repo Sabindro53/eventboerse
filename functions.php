@@ -674,6 +674,11 @@ function eventboerse_enqueue_assets() {
         // Vom Admin entfernte Bilder (normalisierte Pfade) — der Client blendet
         // sie aus, auch bei hardcodierten Demo-Listings (siehe eb_admin_moderate_image).
         'imageBlocklist' => array_values( (array) get_option( 'eb_demo_image_blocklist', array() ) ),
+        // Demo-Bilder, die bereits in der eigenen Mediathek liegen. Der Client
+        // schreibt die Adressen einmal beim Laden um, statt bei jedem Rendern
+        // — und was hier fehlt, geht unveraendert weiter an seinen Ursprung.
+        // Leer heisst: der Import lief noch nicht, nicht "es gibt keine".
+        'demoBilder' => (object) ( (array) get_option( EB_DEMO_BILDER_OPTION, array() ) ),
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
@@ -9818,7 +9823,137 @@ add_action( 'rest_api_init', function () {
             'audio' => array( 'required' => true, 'type' => 'string' ),
         ),
     ) );
+
+    // Demo-Bilder in die Mediathek holen. Bewusst die STRENGERE Pruefung:
+    // das schreibt dauerhaft in die Datenbank und laedt von fremden Hosts.
+    register_rest_route( 'eventboerse/v1', '/hq/demo-bilder', array(
+        'methods'             => 'POST',
+        'callback'            => 'eb_hq_demo_bilder_holen',
+        'permission_callback' => 'eb_hq_verwaltung_darf',
+    ) );
 } );
+
+/** Wo die Zuordnung Fremd-URL -> Mediathek-URL liegt. */
+const EB_DEMO_BILDER_OPTION = 'eb_demo_bilder_map';
+
+/**
+ * Aus welchen ausgelieferten Dateien die Demo-Bildadressen stammen.
+ *
+ * Bewusst der ausgelieferte Stand und keine Liste von Hand: eine gepflegte
+ * Liste waere am Tag des naechsten Demo-Feeds unvollstaendig, und uebersehene
+ * Adressen sind genau die, die weiter zu Pexels gehen.
+ */
+function eb_demo_bilder_quellen() {
+    $dir = get_template_directory();
+    return array( $dir . '/assets/eb-demo-feed.json', $dir . '/app.js' );
+}
+
+/** Alle fremden Bildadressen, die die Demo-Daten wirklich enthalten. */
+function eb_demo_bilder_adressen() {
+    $gefunden = array();
+    foreach ( eb_demo_bilder_quellen() as $pfad ) {
+        if ( ! is_readable( $pfad ) ) continue;
+        $inhalt = file_get_contents( $pfad );
+        if ( $inhalt === false ) continue;
+        if ( preg_match_all( '#https://images\.pexels\.com/[^"\'\s\\)]+#', $inhalt, $m ) ) {
+            foreach ( $m[0] as $u ) $gefunden[ $u ] = true;
+        }
+    }
+    return array_keys( $gefunden );
+}
+
+/**
+ * Holt die Demo-Bilder von ihrem Fremdhost in die eigene Mediathek.
+ *
+ * Warum das hier laeuft und nicht beim Entwickeln: der Webserver hat
+ * Netzzugang zu Pexels, die Agent-Umgebung nicht. Wer die Bilder lokal
+ * haben will, muss sie dort holen, wo sie erreichbar sind.
+ *
+ * Danach liegen sie in wp-content/uploads auf IONOS und haben einen
+ * Datenbankeintrag wie jedes hochgeladene Bild — sie verhalten sich also
+ * genauso wie ein Bild, das ein Nutzer selbst hochgeladen hat.
+ *
+ * Der Aufruf ist wiederholbar: bereits geholte Adressen werden uebersprungen,
+ * nicht doppelt geladen. Ein Import, den man nicht zweimal starten darf, wird
+ * beim ersten Fehlschlag zur Sackgasse.
+ */
+function eb_hq_demo_bilder_holen( WP_REST_Request $request ) {
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+
+    $map      = get_option( EB_DEMO_BILDER_OPTION, array() );
+    if ( ! is_array( $map ) ) $map = array();
+    $adressen = eb_demo_bilder_adressen();
+
+    $neu = 0; $schon = 0; $fehler = array();
+    // Obergrenze je Aufruf: ein Request, der 69 Bilder laedt, laeuft in das
+    // PHP-Zeitlimit und hinterlaesst einen halben Zustand. Lieber mehrfach
+    // aufrufen — deshalb ist er wiederholbar.
+    $limit = 15;
+
+    foreach ( $adressen as $url ) {
+        if ( isset( $map[ $url ] ) ) { $schon++; continue; }
+        if ( $neu >= $limit ) break;
+
+        $res = wp_remote_get( $url, array( 'timeout' => 20 ) );
+        if ( is_wp_error( $res ) ) { $fehler[] = array( 'url' => $url, 'grund' => $res->get_error_message() ); continue; }
+        if ( (int) wp_remote_retrieve_response_code( $res ) !== 200 ) {
+            $fehler[] = array( 'url' => $url, 'grund' => 'HTTP ' . wp_remote_retrieve_response_code( $res ) );
+            continue;
+        }
+        $daten = wp_remote_retrieve_body( $res );
+        if ( strlen( $daten ) > EB_MAX_IMAGE_BYTES ) {
+            $fehler[] = array( 'url' => $url, 'grund' => 'zu gross' ); continue;
+        }
+
+        // Denselben Massstab wie beim Nutzer-Upload anlegen: der Inhalt
+        // entscheidet, nicht die Adresse. Ein Fremdhost, der etwas anderes
+        // als ein Bild liefert, darf hier so wenig durch wie ein Besucher.
+        $typ = function_exists( 'finfo_open' ) ? finfo_buffer( finfo_open( FILEINFO_MIME_TYPE ), $daten ) : '';
+        $erlaubt = array( 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif' );
+        if ( ! isset( $erlaubt[ $typ ] ) ) {
+            $fehler[] = array( 'url' => $url, 'grund' => 'kein erlaubtes Bildformat (' . $typ . ')' ); continue;
+        }
+
+        $name = 'demo-' . substr( md5( $url ), 0, 12 ) . '.' . $erlaubt[ $typ ];
+        $abgelegt = wp_upload_bits( $name, null, $daten );
+        if ( ! empty( $abgelegt['error'] ) ) {
+            $fehler[] = array( 'url' => $url, 'grund' => $abgelegt['error'] ); continue;
+        }
+        if ( @getimagesize( $abgelegt['file'] ) === false ) {
+            @unlink( $abgelegt['file'] );
+            $fehler[] = array( 'url' => $url, 'grund' => 'Datei ist kein gueltiges Bild' ); continue;
+        }
+
+        $attach_id = wp_insert_attachment( array(
+            'post_mime_type' => $typ,
+            'post_title'     => 'Demo-Bild',
+            'post_status'    => 'inherit',
+        ), $abgelegt['file'] );
+        if ( is_wp_error( $attach_id ) ) {
+            @unlink( $abgelegt['file'] );
+            $fehler[] = array( 'url' => $url, 'grund' => 'Mediathek-Eintrag fehlgeschlagen' ); continue;
+        }
+        update_post_meta( $attach_id, '_eb_demo_quelle', esc_url_raw( $url ) );
+        wp_update_attachment_metadata( $attach_id, wp_generate_attachment_metadata( $attach_id, $abgelegt['file'] ) );
+
+        $map[ $url ] = $abgelegt['url'];
+        $neu++;
+    }
+
+    update_option( EB_DEMO_BILDER_OPTION, $map, false );
+
+    return new WP_REST_Response( array(
+        'gefunden'  => count( $adressen ),
+        'geholt'    => $neu,
+        'schon_da'  => $schon,
+        // Offen ist die ehrliche Restzahl: erst wenn sie 0 ist, geht nichts
+        // mehr an Pexels.
+        'offen'     => max( 0, count( $adressen ) - count( $map ) ),
+        'fehler'    => $fehler,
+    ), 200 );
+}
 
 /**
  * Groesstes entgegengenommenes Tonstueck. Opus bei 24 kbit/s: rund 20 Minuten.

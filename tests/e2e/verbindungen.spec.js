@@ -264,8 +264,12 @@ test.describe('Datendateien erreichbar', () => {
     // weitere Route ist erwünscht — sie muss nur dieselbe Schwelle tragen,
     // und genau das ist die Aussage. Zweimal hat eine Zählung hier zu Unrecht
     // Alarm geschlagen, weil eine neue Route dazugekommen war.
+    // Bindestriche und Ziffern gehoeren ins Muster: `/hq/demo-bilder` lief
+    // sonst an dieser Schleife vorbei — erfasst wurden 8 von 9 Routen, und
+    // die neunte waere ungeprueft geblieben. Genau dafuer gibt es die
+    // Gegenprobe unten, die beide Zaehlungen vergleicht.
     const routen = [...FUNCTIONS.matchAll(
-      /register_rest_route\(\s*'eventboerse\/v1',\s*'(\/hq\/[a-z\/]+)',\s*array\(([\s\S]*?)\)\s*\);/g)];
+      /register_rest_route\(\s*'eventboerse\/v1',\s*'(\/hq\/[a-z0-9\/-]+)',\s*array\(([\s\S]*?)\)\s*\);/g)];
     expect(routen.length, 'es muss HQ-Routen geben').toBeGreaterThanOrEqual(3);
     // Zwei zugelassene Schwellen, keine dritte: die gemeinsame HQ-Prüfung und
     // die strengere Verwaltungsprüfung. `__return_true` oder eine eigene

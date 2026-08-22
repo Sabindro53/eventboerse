@@ -384,6 +384,41 @@ window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FAL
  * LCP-Element macht die Seite langsamer, nicht schneller. Dort gehört
  * `EB_IMG_EAGER_ATTR` hin.
  */
+/**
+ * Demo-Bilder auf die eigene Mediathek umbiegen.
+ *
+ * Die hardcodierten Demo-Daten tragen Pexels-Adressen. Sobald der Import im
+ * HQ gelaufen ist, liegen dieselben Bilder in wp-content/uploads auf unserem
+ * Server, und `eventboerseApi.demoBilder` bringt die Zuordnung mit.
+ *
+ * Umgeschrieben wird EINMAL beim Start, nicht bei jedem Rendern: eine
+ * Ersetzung pro Bildausgabe wäre 191-mal dieselbe Arbeit und würde bei jedem
+ * neuen Render-Ort vergessen.
+ *
+ * Was nicht in der Zuordnung steht, bleibt unverändert. Eine fehlende Adresse
+ * ist ein noch nicht geholtes Bild, kein Fehler — und ein stillschweigend
+ * verändertes Bild wäre schlimmer als eines, das weiterhin von aussen kommt.
+ */
+window.ebDemoBilderUmschreiben = function (wurzel) {
+  var map = (window.eventboerseApi && window.eventboerseApi.demoBilder) || null;
+  if (!map || typeof map !== 'object') return 0;
+  var ersetzt = 0;
+  var biegen = function (v) {
+    if (typeof v === 'string') {
+      if (Object.prototype.hasOwnProperty.call(map, v)) { ersetzt++; return map[v]; }
+      return v;
+    }
+    if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) v[i] = biegen(v[i]); return v; }
+    if (v && typeof v === 'object') {
+      for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k)) v[k] = biegen(v[k]);
+      return v;
+    }
+    return v;
+  };
+  biegen(wurzel);
+  return ersetzt;
+};
+
 window.EB_IMG_LAZY_ATTR  = ' loading="lazy" decoding="async"';
 /** Für das grosse Bild oben: früh holen, mit Vorrang. */
 window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="high"';
@@ -27045,3 +27080,17 @@ document.addEventListener('DOMContentLoaded',function(){
   if(_notificationPoll)clearInterval(_notificationPoll);
   _notificationPoll=setInterval(refreshNotificationBadge,60000);
 });
+
+/* Demo-Bilder auf die eigene Mediathek umbiegen — einmal, nachdem alle
+   Module geladen sind und LISTINGS existiert. Steht hier ganz am Ende, weil
+   die Verkettung in modules.list die Reihenfolge bestimmt: früher aufgerufen
+   gäbe es die Daten noch nicht. */
+(function () {
+  if (typeof window.ebDemoBilderUmschreiben !== 'function') return;
+  try {
+    var n = 0;
+    if (typeof LISTINGS !== 'undefined') n += window.ebDemoBilderUmschreiben(LISTINGS);
+    if (typeof EVENTS !== 'undefined') n += window.ebDemoBilderUmschreiben(EVENTS);
+    void n;
+  } catch (e) { /* Ein fehlgeschlagenes Umbiegen darf die Seite nicht aufhalten. */ }
+})();
