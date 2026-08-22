@@ -297,7 +297,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-388 Tests in 20 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+393 Tests in 21 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -327,6 +327,25 @@ Eintrag in der Datenschutzerklärung.
 
 Achtung beim Ablegen neuer Dateien: `.gitignore` enthält ein nicht verankertes
 `vendor/`, das auch `assets/vendor/` verschluckt. Deshalb `assets/lib/`.
+
+### Bilder und Ladezeit
+
+Die Demo-Bilder kommen weiterhin von **Pexels**. `scripts/localize-demo-images.mjs`
+lädt sie herunter und schreibt die URLs auf lokale Pfade um — das Skript
+existiert, ist aber nie gelaufen. **Es braucht Netzzugang zu Pexels**, den die
+Agent-Umgebung nicht hat; ausführen muss es jemand auf einem normalen Rechner.
+
+**Anfragen zählen, nicht Elemente.** Die Startseite trägt 191 Bild-Elemente,
+löst aber nur ~11 eindeutige Anfragen aus: die 180 Marquee-Karten teilen sich
+dieselbe Adresse, und der Browser fasst gleiche URLs zusammen. Eine Optimierung,
+die Elemente zählt, optimiert hier das Falsche — der Test in
+`tests/e2e/bild-laden.spec.js` prüft deshalb das Verhältnis von Elementen zu
+Anfragen.
+
+`EB_IMG_LAZY_ATTR` und `EB_IMG_EAGER_ATTR` in `core/00-basis.js` stehen an einer
+Stelle. **Das grosse Bild oben nie verzögern** — ein verzögertes LCP-Element
+macht die Seite langsamer. `loading` muss im Markup stehen, bevor das Bild ins
+Dokument kommt; nachträglich gesetzt ist es wirkungslos.
 
 ### OpenRouter-Autopilot
 

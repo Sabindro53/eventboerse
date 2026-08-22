@@ -164,8 +164,11 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     <meta name="format-detection" content="telephone=no">
     <meta name="theme-color" content="#6C63FF">
 
-    <!-- ── Preconnect ── nur noch Stripe; alles andere liegt im Theme. -->
+    <!-- ── Preconnect ── Schriften und Bibliotheken liegen im Theme. Die
+         Demo-Bilder kommen weiterhin von Pexels; dort spart die vorgezogene
+         Verbindung den DNS- und TLS-Aufbau vor dem ersten Bild. -->
     <link rel="preconnect" href="https://js.stripe.com">
+    <link rel="preconnect" href="https://images.pexels.com" crossorigin>
 
     <!-- ── Schriften aus dem eigenen Haus ──
          Standen hier bis zum 21.08.2026 ZUSAETZLICH zur wp_enqueue-Einbindung,

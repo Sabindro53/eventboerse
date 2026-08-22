@@ -368,6 +368,26 @@ window.EB_IMG_FALLBACK = window.EB_IMG_FALLBACK || (
 // HTML-Attribut, das Card-Images verwenden – "this.onerror=null" verhindert Endlosschleife.
 window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"';
 
+/**
+ * Bilder, die nicht im Sichtfenster stehen, gar nicht erst holen.
+ *
+ * Gemessen am 22.08.2026 auf der Startseite: 191 Bilder, davon 180 eifrig.
+ * Jedes davon war eine eigene Verbindung zu einem fremden Host, bevor der
+ * Nutzer auch nur gescrollt hatte.
+ *
+ * `loading` muss IM MARKUP stehen, bevor das Bild im Dokument landet — es
+ * nachträglich zu setzen ist wirkungslos, weil der Abruf dann schon läuft.
+ * Deshalb eine Konstante wie beim Fehler-Fallback daneben und keine
+ * nachgelagerte Reparatur über einen Observer.
+ *
+ * NICHT für das erste sichtbare Bild verwenden: ein verzögertes
+ * LCP-Element macht die Seite langsamer, nicht schneller. Dort gehört
+ * `EB_IMG_EAGER_ATTR` hin.
+ */
+window.EB_IMG_LAZY_ATTR  = ' loading="lazy" decoding="async"';
+/** Für das grosse Bild oben: früh holen, mit Vorrang. */
+window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="high"';
+
 // Globaler Bild-Fehler-Auffang (Capture-Phase, da error-Events nicht bubblen).
 // Stellt sicher, dass JEDES <img> ein Fallback bekommt – auch Render-Stellen ohne
 // eigenes inline-onerror. Bilder mit eigenem onerror-Handler werden übersprungen.
@@ -1856,7 +1876,7 @@ function renderListingCard(listing) {
     <div class="listing-card" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bildergalerie: ${_escHtml(listing.title)}">
-          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '" decoding="async"' + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
+          ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_LAZY_ATTR + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
         </div>
         ${imgs.length > 1 ? '<button class="grid-gallery-arrow prev" aria-label="Vorheriges Bild" data-gallery-id="' + listing.id + '" data-dir="-1"><span class="material-icons-round">chevron_left</span></button><button class="grid-gallery-arrow next" aria-label="Nächstes Bild" data-gallery-id="' + listing.id + '" data-dir="1"><span class="material-icons-round">chevron_right</span></button><div class="grid-gallery-dots" id="gridGalleryDots_' + listing.id + '" role="group" aria-label="Bildauswahl">' + imgs.map(function(_, i) { return '<button class="grid-gallery-dot' + (i === 0 ? ' active' : '') + '" data-gallery-id="' + listing.id + '" data-idx="' + i + '" aria-label="Bild ' + (i + 1) + ' von ' + imgs.length + ' anzeigen"></button>'; }).join('') + '</div>' : ''}
         <button class="listing-fav ${isFav ? 'liked' : ''}" aria-label="Zu Favoriten hinzufügen" aria-pressed="${isFav ? 'true' : 'false'}" onclick="event.stopPropagation(); toggleFavorite(${listing.id}, this)">
@@ -2173,7 +2193,7 @@ function renderFeed(tab) {
     const tags = l.features ? l.features.slice(0, 3) : [];
     return `<div class="feed-card"${_aiDisclosureAttrs(l)}>
       <div class="feed-card-header">
-        <img class="feed-card-avatar" src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
+        <img class="feed-card-avatar"${window.EB_IMG_LAZY_ATTR} src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
         <div class="feed-card-meta">
           <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${_escHtml(l.providerName)}</span>
           <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(l.createdAt)}</span>
@@ -4566,7 +4586,8 @@ function loadDetail(listingId) {
 
   // Hero image for mobile (first image, shown prominently)
   if (imgs.length > 0) {
-    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_ERR_ATTR} />`;
+    // Das grosse Bild oben ist das LCP-Element: eifrig und mit Vorrang.
+    heroImg.innerHTML = `<img src="${_escHtml(imgs[0])}" alt="${_escHtml(listing.title)}" class="detail-hero-photo"${window.EB_IMG_EAGER_ATTR}${window.EB_IMG_ERR_ATTR} />`;
     heroImg.setAttribute('data-ai-media', _aiDisclosureValue(listing, 'media'));
   }
 

@@ -368,6 +368,26 @@ window.EB_IMG_FALLBACK = window.EB_IMG_FALLBACK || (
 // HTML-Attribut, das Card-Images verwenden – "this.onerror=null" verhindert Endlosschleife.
 window.EB_IMG_ERR_ATTR = ' onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK"';
 
+/**
+ * Bilder, die nicht im Sichtfenster stehen, gar nicht erst holen.
+ *
+ * Gemessen am 22.08.2026 auf der Startseite: 191 Bilder, davon 180 eifrig.
+ * Jedes davon war eine eigene Verbindung zu einem fremden Host, bevor der
+ * Nutzer auch nur gescrollt hatte.
+ *
+ * `loading` muss IM MARKUP stehen, bevor das Bild im Dokument landet — es
+ * nachträglich zu setzen ist wirkungslos, weil der Abruf dann schon läuft.
+ * Deshalb eine Konstante wie beim Fehler-Fallback daneben und keine
+ * nachgelagerte Reparatur über einen Observer.
+ *
+ * NICHT für das erste sichtbare Bild verwenden: ein verzögertes
+ * LCP-Element macht die Seite langsamer, nicht schneller. Dort gehört
+ * `EB_IMG_EAGER_ATTR` hin.
+ */
+window.EB_IMG_LAZY_ATTR  = ' loading="lazy" decoding="async"';
+/** Für das grosse Bild oben: früh holen, mit Vorrang. */
+window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="high"';
+
 // Globaler Bild-Fehler-Auffang (Capture-Phase, da error-Events nicht bubblen).
 // Stellt sicher, dass JEDES <img> ein Fallback bekommt – auch Render-Stellen ohne
 // eigenes inline-onerror. Bilder mit eigenem onerror-Handler werden übersprungen.
