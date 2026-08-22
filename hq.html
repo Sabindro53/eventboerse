@@ -789,6 +789,20 @@
     .nn-hud-innen, .nn-hud-saum { animation: none !important; }
   }
 
+/* Auftragskarte im Gespraech */
+.ebc-auftrag{border:1px solid rgba(34,211,238,.35);border-radius:12px;padding:.7rem .8rem}
+.ebc-auftrag-titel{font-weight:700;margin:.35rem 0 .2rem;font-size:.9rem;line-height:1.4}
+.ebc-auftrag-text{font-size:.78rem;color:var(--muted);line-height:1.5;white-space:pre-wrap}
+.ebc-auftrag-tasten{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem;align-items:center}
+.ebc-auftrag-tasten button{font:inherit;font-size:.76rem;padding:.32rem .7rem;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface2);color:var(--fg);cursor:pointer}
+.ebc-auftrag-tasten button:hover:not(:disabled){border-color:rgba(34,211,238,.6)}
+.ebc-auftrag-tasten button:disabled{opacity:.55;cursor:default}
+.ebc-auftrag-tasten a{font-size:.78rem;color:#7dd3fc}
+.ebc-auftrag-hinweis{font-size:.74rem;color:var(--muted);margin-top:.5rem;line-height:1.5}
+.ebc-auftrag-kopie{width:100%;margin-top:.4rem;font:inherit;font-size:.74rem;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:.4rem .5rem;resize:vertical}
+
 /* ══ EB CIRCLE — sprechender KI-Kreis ══════════════════════════════ */
 #eb-circle-dock{position:fixed;right:20px;bottom:20px;opacity:.82;z-index:9000;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
 #eb-circle{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;position:relative;
@@ -4246,6 +4260,97 @@ window.addEventListener('DOMContentLoaded', init);
     throw letzterFehler || new Error('Sprachdienst antwortet nicht.');
   }
 
+  /* ── Aufträge aus dem Gespräch ─────────────────────────────────────────
+     Ein gesprochener Auftrag soll im Repository ankommen, nicht im Nichts.
+
+     Drei Entscheidungen, die den Ausschlag geben:
+
+     1. NIE OHNE RÜCKFRAGE. Spracherkennung verhört sich, und ein verhörter
+        Satz darf kein Ticket anlegen. Der Auftrag wird gezeigt, und erst ein
+        Klick legt ihn an. Das ist der Unterschied zwischen einem Assistenten
+        und einem Automaten, der Müll produziert.
+
+     2. NUR ISSUES. Kein Commit, kein Pull Request, kein Merge, kein Start
+        eines Workflows. Ein Sprachbefehl, der Code ändern kann, ist eine
+        Angriffsfläche mit Mikrofon.
+
+     3. OHNE TOKEN GEHT DER AUFTRAG NICHT VERLOREN. Er steht dann als Text
+        zum Kopieren da, mit dem Grund. Ein Auftrag, der still verschwindet,
+        ist schlimmer als einer, der gar nicht erst angenommen wurde. */
+  var AUFTRAG_MUSTER = /^\s*(?:auftrag|aufgabe|todo|to-?do|notiere|notier|merk dir|vermerke|trag ein|erstelle? (?:eine? )?(?:aufgabe|auftrag|ticket|issue))\b[:,]?\s*(.+)$/i;
+
+  function auftragErkennen(text) {
+    var m = String(text || '').match(AUFTRAG_MUSTER);
+    if (!m) return null;
+    var inhalt = m[1].trim().replace(/\s+/g, ' ');
+    if (inhalt.length < 8) return null;   // „Auftrag: ja" ist keiner
+    // Titel: erster Satz, höchstens 90 Zeichen — der Rest wird Beschreibung.
+    var titel = inhalt.split(/(?<=[.!?])\s/)[0] || inhalt;
+    if (titel.length > 90) titel = titel.slice(0, 87).replace(/\s+\S*$/, '') + '…';
+    return { titel: titel, inhalt: inhalt.slice(0, 4000) };
+  }
+
+  function auftragKarte(a) {
+    var box = document.createElement('div');
+    box.className = 'ebc-msg ai ebc-auftrag';
+    var hatToken = typeof getPat === 'function' && !!getPat();
+    box.innerHTML =
+      '<b>Auftrag verstanden</b>'
+      + '<div class="ebc-auftrag-titel"></div>'
+      + '<div class="ebc-auftrag-text"></div>'
+      + (hatToken
+        ? '<div class="ebc-auftrag-tasten">'
+          + '<button type="button" class="ebc-ja">✓ Ins Repository eintragen</button>'
+          + '<button type="button" class="ebc-nein">Verwerfen</button></div>'
+        : '<div class="ebc-auftrag-hinweis">Kein GitHub-Token in dieser Sitzung — '
+          + 'ich kann den Auftrag nicht selbst eintragen. Text zum Kopieren:</div>'
+          + '<textarea class="ebc-auftrag-kopie" readonly rows="3"></textarea>');
+    // textContent, nicht innerHTML: der Auftrag ist Fremdtext, und beim
+    // Diktieren landet darin, was gerade gesagt wurde.
+    box.querySelector('.ebc-auftrag-titel').textContent = a.titel;
+    box.querySelector('.ebc-auftrag-text').textContent = a.inhalt;
+    var kopie = box.querySelector('.ebc-auftrag-kopie');
+    if (kopie) kopie.value = a.titel + '\n\n' + a.inhalt;
+    log.appendChild(box); log.scrollTop = log.scrollHeight;
+
+    var ja = box.querySelector('.ebc-ja');
+    var nein = box.querySelector('.ebc-nein');
+    if (nein) nein.addEventListener('click', function () {
+      box.querySelector('.ebc-auftrag-tasten').textContent = 'Verworfen.';
+    });
+    if (ja) ja.addEventListener('click', async function () {
+      ja.disabled = true; nein.disabled = true; ja.textContent = 'Trage ein…';
+      try {
+        var res = await ghRes('/issues', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: a.titel,
+            body: a.inhalt
+              + '\n\n---\n_Aufgegeben über den EB Circle im HQ am '
+              + new Date().toLocaleString('de-DE') + '._',
+            labels: ['aus-dem-hq'],
+          }),
+        });
+        var d = await res.json();
+        var fertig = document.createElement('div');
+        fertig.className = 'ebc-auftrag-tasten';
+        var a2 = document.createElement('a');
+        a2.href = d.html_url; a2.target = '_blank'; a2.rel = 'noopener';
+        a2.textContent = '✓ Eingetragen als #' + d.number;
+        fertig.appendChild(a2);
+        box.querySelector('.ebc-auftrag-tasten').replaceWith(fertig);
+      } catch (e) {
+        // Den Grund nennen, nicht bloss scheitern.
+        var fehler = document.createElement('div');
+        fehler.className = 'ebc-auftrag-hinweis';
+        fehler.textContent = 'Konnte nicht eingetragen werden: ' + (e && e.message ? e.message : 'unbekannter Fehler')
+          + ' — der Auftrag steht oben und ist nicht verloren.';
+        box.querySelector('.ebc-auftrag-tasten').replaceWith(fehler);
+      }
+    });
+  }
+
   async function ask(q) {
     q = String(q || '').trim(); if (!q) return;
     if (asking && askController) askController.abort();
@@ -4255,6 +4360,15 @@ window.addEventListener('DOMContentLoaded', init);
     asking = true;
     renderSuggestions([]);
     add('me', esc(q));
+    // Ein Auftrag ist keine Frage: er geht nicht an den Sprachdienst und
+    // kostet nichts. Er wird gezeigt und wartet auf Bestaetigung.
+    var auftrag = auftragErkennen(q);
+    if (auftrag) {
+      auftragKarte(auftrag);
+      asking = false; askController = null;
+      syncDialogControls();
+      return;
+    }
     var g = gaps(q);
     var status = hqStatus(q);
     var operative = status ? null : hqOperativeAntwort(q);

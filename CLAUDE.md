@@ -297,7 +297,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-395 Tests in 21 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+402 Tests in 22 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -327,6 +327,23 @@ Eintrag in der Datenschutzerklärung.
 
 Achtung beim Ablegen neuer Dateien: `.gitignore` enthält ein nicht verankertes
 `vendor/`, das auch `assets/vendor/` verschluckt. Deshalb `assets/lib/`.
+
+### Aufträge aus dem Gespräch
+
+Ein gesprochener oder getippter Satz, der mit **„Auftrag:", „Aufgabe:",
+„notiere", „trag ein"** o. ä. beginnt, wird im EB Circle als Auftrag erkannt
+und als **GitHub-Issue** angelegt (Label `aus-dem-hq`, mit Herkunftsvermerk).
+
+Drei Grenzen, alle mutationsgeprüft:
+
+- **Nie ohne Rückfrage.** Spracherkennung verhört sich; ein verhörter Satz darf
+  kein Ticket anlegen. Der Auftrag wird gezeigt, erst ein Klick legt ihn an.
+- **Nur Issues.** Kein Commit, kein PR, kein Merge, kein Workflow-Start. Ein
+  Sprachbefehl, der Code ändern kann, ist eine Angriffsfläche mit Mikrofon.
+- **Ohne Token geht nichts verloren.** Der Auftrag steht dann als Text zum
+  Kopieren da, mit Grund. Das Schreiben nutzt den PAT aus `sessionStorage`
+  (`hq_pat`), den das HQ ohnehin für GitHub führt — keine neue Server-Route,
+  kein neues Geheimnis.
 
 ### Bilder und Ladezeit
 
