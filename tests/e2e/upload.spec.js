@@ -6,7 +6,9 @@
 // nicht die Formulierung, sondern die Eigenschaft.
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
 const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
@@ -163,8 +165,59 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
     // Erst wenn "offen" null ist, geht nichts mehr an den Fremdhost. Eine
     // Erfolgsmeldung ohne diese Zahl liesse einen halben Import wie einen
     // fertigen aussehen.
-    expect(IMPORT).toMatch(/'offen'\s*=>/);
+    expect(IMPORT).toMatch(/eb_demo_bilder_stand\(/);
     expect(IMPORT).toMatch(/'fehler'\s*=>/);
+  });
+
+  test('die Restzahl zaehlt die Schnittmenge, nicht die Eintraege', () => {
+    // Gemessen am AUSGEFUEHRTEN Code, nicht am Text: die Funktion wird aus
+    // functions.php geschnitten und mit PHP wirklich aufgerufen.
+    //
+    // Der Fall, der es braucht: nach einem neuen Demo-Feed stehen alte
+    // Adressen weiter in der Zuordnung. Wer die Eintraege zaehlt, meldet
+    // dann zu wenig Offene — im schlimmsten Fall eine 0, waehrend noch
+    // Bilder an Pexels gehen.
+    const von = FUNCTIONS.indexOf('function eb_demo_bilder_stand');
+    expect(von, 'eb_demo_bilder_stand fehlt').toBeGreaterThan(-1);
+    const quelle = FUNCTIONS.slice(von, FUNCTIONS.indexOf('\n}\n', von) + 2);
+
+    const datei = path.join(os.tmpdir(), 'eb-stand-' + process.pid + '.php');
+    fs.writeFileSync(datei, '<?php\n' + quelle + '\n' + `
+      $adressen = array( 'a', 'b', 'c' );
+      echo json_encode( array(
+        'leer'   => eb_demo_bilder_stand( array(), $adressen ),
+        'halb'   => eb_demo_bilder_stand( array( 'a' => 'x' ), $adressen ),
+        // Zwei Eintraege, aber nur einer davon ist noch eine Adresse.
+        'veraltet' => eb_demo_bilder_stand( array( 'a' => 'x', 'weg' => 'y' ), $adressen ),
+        'fertig' => eb_demo_bilder_stand( array( 'a' => 'x', 'b' => 'y', 'c' => 'z' ), $adressen ),
+      ) );`);
+    let roh;
+    try {
+      roh = execFileSync('php', [datei], { encoding: 'utf8' });
+    } finally {
+      fs.unlinkSync(datei);
+    }
+    const d = JSON.parse(roh);
+
+    expect(d.leer.offen, 'nichts geholt heisst alles offen').toBe(3);
+    expect(d.halb.offen).toBe(2);
+    expect(d.halb.in_mediathek).toBe(1);
+    // Der eigentliche Punkt: der veraltete Eintrag darf die Restzahl nicht
+    // druecken. Mit count($map) staende hier 1.
+    expect(d.veraltet.offen, 'ein veralteter Eintrag zaehlt als geholt').toBe(2);
+    expect(d.fertig.offen).toBe(0);
+    expect(d.fertig.gefunden).toBe(3);
+  });
+
+  test('nachsehen laedt nichts und schreibt nichts', () => {
+    // Ein Blick, der Nebenwirkungen hat, wird seltener geworfen als er
+    // sollte — und ein GET, der von einem Fremdhost laedt, ist ausserdem
+    // eine Route, die jeder Neuladen-Reflex teuer macht.
+    const getZweig = IMPORT.slice(IMPORT.indexOf("get_method()"));
+    const bisReturn = getZweig.slice(0, getZweig.indexOf('$neu = 0'));
+    expect(bisReturn, 'der GET-Zweig kehrt nicht zurueck').toMatch(/return new WP_REST_Response/);
+    expect(bisReturn, 'GET laedt von aussen').not.toMatch(/wp_remote_get/);
+    expect(bisReturn, 'GET schreibt in die Datenbank').not.toMatch(/update_option/);
   });
 
   test('die Adressen kommen aus dem ausgelieferten Stand, nicht aus einer Liste', () => {
@@ -199,5 +252,93 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
     // Und ein Fehlschlag darf die Seite nicht aufhalten.
     expect(letzte.slice(letzte.indexOf('ebDemoBilderUmschreiben')), 'ohne Absicherung')
       .toMatch(/catch\s*\(/);
+  });
+});
+
+/* ── Der Knopf im HQ ───────────────────────────────────────────────────
+   Die Route gab es seit #182, den Weg sie zu bedienen nicht. Geprueft wird
+   der ausgefuehrte Code: der Block wird aus hq.html geschnitten und in
+   einer leeren Seite mit gefaelschtem fetch wirklich laufen gelassen.
+   Ein Textabgleich wuerde hier genau das verfehlen, worauf es ankommt —
+   wann die Schleife aufhoert. */
+const HQ = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
+const KNOPF_CODE = (() => {
+  const marke = "const block = document.getElementById('demo-bilder-block');";
+  const von = HQ.lastIndexOf('(function () {', HQ.indexOf(marke));
+  const bis = HQ.indexOf('\n})();', von);
+  return HQ.slice(von, bis + 6);
+})();
+
+const GERUEST = `
+  <div id="demo-bilder-block" hidden>
+    <div id="demo-bilder-badge">–</div>
+    <div id="demo-bilder-stand"></div>
+    <button id="demo-bilder-start">holen</button>
+    <ul id="demo-bilder-fehler"></ul>
+  </div>`;
+
+/** Legt eine Seite mit gefaelschtem fetch an; `runden` sind die POST-Antworten. */
+async function baueSeite(page, runden, admin = true) {
+  await page.setContent('<!doctype html><meta charset="utf-8">' + GERUEST);
+  await page.evaluate(([runden, admin]) => {
+    window.HQ_IST_ADMIN = admin;
+    window.HQ_REST_NONCE = 'test';
+    window.__rufe = [];
+    let i = 0;
+    window.fetch = function (url, opt) {
+      const methode = (opt && opt.method) || 'GET';
+      window.__rufe.push(methode + ' ' + url);
+      const d = methode === 'GET'
+        ? { gefunden: 3, in_mediathek: 0, offen: 3, geholt: 0, fehler: [] }
+        : runden[Math.min(i++, runden.length - 1)];
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(d) });
+    };
+  }, [runden, admin]);
+  await page.addScriptTag({ content: KNOPF_CODE });
+}
+
+test.describe('Demo-Bilder: der Knopf im HQ', () => {
+  test('der Stand steht da, ohne dass man etwas anfasst', async ({ page }) => {
+    await baueSeite(page, []);
+    await expect.poll(() => page.evaluate(() => window.__rufe))
+      .toEqual(['GET /wp-json/eventboerse/v1/hq/demo-bilder']);
+    await expect(page.locator('#demo-bilder-stand')).toContainText('3 offen');
+  });
+
+  test('geholt wird, bis nichts mehr offen ist', async ({ page }) => {
+    await baueSeite(page, [
+      { gefunden: 3, in_mediathek: 1, offen: 2, geholt: 1, fehler: [] },
+      { gefunden: 3, in_mediathek: 2, offen: 1, geholt: 1, fehler: [] },
+      { gefunden: 3, in_mediathek: 3, offen: 0, geholt: 1, fehler: [] },
+    ]);
+    await page.click('#demo-bilder-start');
+    await expect(page.locator('#demo-bilder-badge')).toHaveText('vollständig');
+    const rufe = await page.evaluate(() => window.__rufe);
+    // Ein GET beim Laden, drei POST — und danach keiner mehr.
+    expect(rufe.filter(r => r.startsWith('POST')).length).toBe(3);
+  });
+
+  test('eine Runde ohne Fortschritt beendet den Lauf', async ({ page }) => {
+    // Ohne diese Bedingung stoesst ein dauerhaft nicht erreichbarer
+    // Fremdhost den Server zehnmal umsonst an — und die Oberflaeche
+    // sieht dabei aus, als arbeite sie.
+    await baueSeite(page, [
+      { gefunden: 3, in_mediathek: 0, offen: 3, geholt: 0,
+        fehler: [{ url: 'https://images.pexels.com/x.jpg', grund: 'HTTP 429' }] },
+    ]);
+    await page.click('#demo-bilder-start');
+    await expect(page.locator('#demo-bilder-stand')).toContainText('keine Fortschritte');
+    const rufe = await page.evaluate(() => window.__rufe);
+    expect(rufe.filter(r => r.startsWith('POST')).length,
+      'die Schleife laeuft trotz Stillstand weiter').toBe(1);
+    // Und der Grund steht da, statt still verschluckt zu werden.
+    await expect(page.locator('#demo-bilder-fehler')).toContainText('HTTP 429');
+  });
+
+  test('wer kein Administrator ist, sieht den Knopf nicht', async ({ page }) => {
+    await baueSeite(page, [], false);
+    expect(await page.locator('#demo-bilder-block').count()).toBe(0);
+    // Und es wird auch nichts abgefragt.
+    expect(await page.evaluate(() => window.__rufe)).toEqual([]);
   });
 });

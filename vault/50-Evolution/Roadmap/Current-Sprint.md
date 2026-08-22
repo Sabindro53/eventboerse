@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 424 Tests in 23 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 430 Tests in 23 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,22 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Demo-Bilder: der Knopf, der den Import wirklich startet.** Die Route
+  `POST /hq/demo-bilder` stand seit #182, bedienen konnte sie niemand — eine
+  Fähigkeit, die nur per Hand-Request erreichbar ist, wird nicht ausgeführt,
+  und die Demo-Daten hotlinken solange weiter auf Pexels. Jetzt ein Abschnitt
+  **🖼️ Demo-Bilder** im HQ (nur für Administratoren sichtbar; die Sperre bleibt
+  `eb_hq_verwaltung_darf`). Zwei Eigenschaften tragen ihn: `GET` zeigt den Stand
+  **ohne** zu laden oder zu schreiben, und der Lauf hört bei `offen = 0` **und**
+  bei einer Runde ohne Fortschritt auf. Ohne die zweite Bedingung stößt ein
+  nicht erreichbarer Fremdhost den Server zehnmal umsonst an, während die
+  Oberfläche aussieht, als arbeite sie. Dabei gefunden: `offen` zählte die
+  Einträge der Zuordnung statt der Schnittmenge — nach einem neuen Demo-Feed
+  hätte das zu wenig Offene gemeldet, im Grenzfall eine 0, während noch Bilder
+  von außen kommen. Sechs Tests, fünf Mutationen einzeln geprüft; die
+  PHP-Funktion wird dafür aus `functions.php` geschnitten und wirklich
+  ausgeführt. **430 Tests in 23 Suiten.**
 
 - [x] **Bild-Upload: 15 MB, Auto-Verkleinerung, verlässliches Drag & Drop.**
   Anlass war ein Nutzer, der ein Foto auf die Fläche zog und keine erkennbare

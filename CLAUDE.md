@@ -297,7 +297,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-424 Tests in 23 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+430 Tests in 23 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -361,6 +361,19 @@ Prüfschichten davor, unter anderem MIME aus den **Magic Bytes** (nie aus
 wiederholbar und holt höchstens 15 Bilder je Lauf; ein Import, der ins
 PHP-Zeitlimit läuft, hinterließe sonst einen halben Zustand. Die Antwort nennt
 `offen` — erst bei 0 geht nichts mehr an den Fremdhost.
+
+Bedient wird das im HQ unter **🖼️ Demo-Bilder** (nur für Administratoren
+sichtbar; die Sperre bleibt die Route). `GET` auf denselben Pfad zeigt den
+Stand, **ohne** zu laden oder zu schreiben — ein Blick mit Nebenwirkungen wird
+seltener geworfen, als er sollte. Der Knopf ruft in Runden auf und hört bei
+`offen = 0` **und** bei einer Runde ohne Fortschritt auf: eine Schleife, die nur
+ein Ziel kennt und keinen Ausstieg, stößt bei einem nicht erreichbaren
+Fremdhost zehnmal umsonst an.
+
+`offen` zählt die **Schnittmenge** aus Adressen und Zuordnung, nie die Einträge
+der Zuordnung. Nach einem neuen Demo-Feed stehen alte Adressen weiter darin;
+wer Einträge zählt, meldet dann zu wenig Offene — im schlimmsten Fall eine 0,
+während noch Bilder an Pexels gehen.
 
 Die Zuordnung liegt in der Option `eb_demo_bilder_map`, wird über
 `eventboerseApi.demoBilder` ausgeliefert und **einmal beim Start** angewandt
