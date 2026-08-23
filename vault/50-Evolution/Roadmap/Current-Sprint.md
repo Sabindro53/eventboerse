@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 510 Tests in 30 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 525 Tests in 31 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,22 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Der EB Circle redet nicht mehr mit sich selbst.** Gemeldet vom Inhaber:
+  „redet einfach so, ohne dass ich was frage" — und dabei andauernd „Wie füge
+  ich einen Dienstleister hinzu?". Beide Symptome hatten **eine** Ursache: das
+  Mikrofon ging 120 ms nach der Sprachausgabe wieder auf, hörte den Nachhall
+  der eigenen Antwort, und ein einzelnes Wort daraus („Dienstleister") trifft
+  die Überschrift der Board-Notiz — also las er sie erneut vor. Bei Stille
+  öffnete es sich **endlos** neu, was auch ein Datenschutzproblem ist. Jetzt
+  führt ein Weg vom Mikrofon zur Frage, mit Echo-Erkennung, Füllwortfilter,
+  700 ms Abstand und einer Runden-Grenze. Zwei eigene Fehler beim Bauen
+  gefunden: der Rundenzähler wurde in `toggleMic()` zurückgesetzt (also auch
+  beim automatischen Nachhören — die Grenze wäre wirkungslos gewesen), und die
+  Echo-Prüfung las einen Merker, den ich eine Zeile vorher gelöscht hatte.
+  15 Mutationen; zwei überlebten zunächst, weil ich nur die Einzelregeln
+  testete und nicht die Funktion, die sie verdrahtet.
+  **525 Tests in 31 Suiten.**
 
 - [x] **Die vier Pflicht-Checks laufen jetzt als Tests.** Der Sprint führte sie
   seit Langem als P0-Merkzettel „nach jedem Deploy" — und ein Merkzettel wird

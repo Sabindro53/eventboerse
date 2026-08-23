@@ -4203,6 +4203,133 @@ window.addEventListener('DOMContentLoaded', init);
     try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
   }
 
+  /* ══ Der Kreis darf nicht mit sich selbst reden ══════════════════════
+     Gemeldet am 22.08.: „redet einfach so, ohne dass ich was frage" — und
+     dabei immer wieder „Wie füge ich einen Dienstleister hinzu?".
+
+     Eine Ursache, drei Verstärker:
+
+     1. Das Mikrofon ging 120 ms nach dem Ende der Sprachausgabe wieder auf.
+        Das reicht nicht für Nachhall und Lautsprecher-Rückkopplung — der
+        Kreis hörte den Schwanz seiner EIGENEN Antwort.
+     2. Bei Stille öffnete es sich ENDLOS neu. Ein Mikrofon, das von selbst
+        immer wieder aufgeht, ist nicht nur nervig, es ist ein
+        Datenschutzproblem.
+     3. Ein einzelnes erkanntes Wort genügt der Wissensbasis für einen
+        Treffer. „Dienstleister" aus dem eigenen Nachhall trifft die
+        Überschrift der Board-Notiz — also las er sie wieder vor. Und wieder.
+
+     Deshalb: eine gemeinsame Stelle, die entscheidet, ob eine Äußerung
+     überhaupt eine Frage ist, und eine Runden-Grenze fürs Nachhören. */
+
+  /** Was zuletzt gesagt wurde — Vergleichsmaterial gegen das Selbstgehör. */
+  var letzteAntwort = '';
+  /** Aufeinanderfolgende Runden ohne brauchbare Äußerung. */
+  var leerRunden = 0;
+  /** Wurde diese Runde automatisch geöffnet oder vom Menschen gedrückt? */
+  var autoGeoeffnet = false;
+  /** Danach wartet der Kreis auf einen Druck, statt weiter zuzuhören. */
+  var MAX_LEERRUNDEN = 1;
+  /** Pause vor dem Nachhören. 120 ms waren zu kurz für den eigenen Nachhall. */
+  var NACHHOER_PAUSE = 700;
+
+  function normWorte(t) {
+    return String(t || '').toLowerCase().replace(/[^a-zäöüß0-9\s]/g, ' ')
+      .split(/\s+/).filter(Boolean);
+  }
+
+  /**
+   * Hat der Kreis sich selbst gehört?
+   *
+   * Ohne Echo-Unterdrückung am Gerät landet der Nachhall der eigenen Antwort
+   * im Mikrofon. Verglichen wird die Wortüberlappung mit dem zuletzt
+   * Gesagten — nicht der ganze Text, denn erkannt wird immer nur ein
+   * Bruchstück.
+   */
+  function istSelbstgehoert(text) {
+    var t = normWorte(text);
+    var a = normWorte(letzteAntwort);
+    // Ein EINZELNES Wort aus der eigenen Antwort in einer automatisch
+    // geöffneten Runde ist Nachhall, kein Mensch. Genau so kam „Dienstleister"
+    // immer wieder zurück und traf die Überschrift der Board-Notiz.
+    // Nach einem Druck gilt das nicht: dort darf „Lagebericht" ein Befehl
+    // sein, auch wenn das Wort gerade gefallen ist.
+    if (autoGeoeffnet && t.length === 1 && t[0].length > 4 &&
+        a.indexOf(t[0]) !== -1) return true;
+    if (t.length < 2) return false;                 // sonst zu kurz für eine Aussage
+    if (a.length < 3) return false;
+    var imLetzten = {};
+    a.forEach(function (w) { imLetzten[w] = true; });
+    var treffer = t.filter(function (w) { return w.length > 3 && imLetzten[w]; }).length;
+    var lang = t.filter(function (w) { return w.length > 3; }).length;
+    // Zwei Drittel der tragenden Wörter aus der eigenen Antwort: das sagt
+    // niemand zufällig nach.
+    return lang >= 2 && treffer / lang >= 0.66;
+  }
+
+  /** Ist das eine Äußerung, auf die geantwortet werden darf? */
+  function brauchbareAeusserung(text) {
+    var t = String(text || '').trim();
+    if (t.length < 3) return false;
+    // Reine Füllwörter sind keine Frage. „Lagebericht" bleibt ausdrücklich
+    // erlaubt — ein einzelnes Wort kann sehr wohl ein Befehl sein.
+    if (/^(ähm+|ähh+|hm+|mhm+|äh+|ja|nein|ok|okay|so|und|also)[.!?]?$/i.test(t)) return false;
+    return true;
+  }
+
+  /**
+   * Der einzige Weg vom Mikrofon zur Frage.
+   *
+   * Vorher entschieden das die Browser-Erkennung und der Whisper-Pfad je
+   * für sich — zweimal dieselbe Schleife, zweimal endlos.
+   */
+  function aeusserungVerarbeiten(text) {
+    var t = String(text || '').trim();
+    // Die Echo-Pruefung liest autoGeoeffnet — deshalb ERST pruefen, dann
+    // zuruecksetzen. Andersherum waere die schaerfere Regel fuer automatische
+    // Runden nie wirksam gewesen.
+    var echo = !!t && istSelbstgehoert(t);
+    autoGeoeffnet = false;
+    if (echo) {
+      // Nicht beantworten und NICHT nachhören: sonst hört er sich beim
+      // nächsten Mal wieder selbst. Hier wird ausdrücklich zurückgekehrt
+      // statt durchzufallen — nachhoeren() würde zwar nicht öffnen, aber
+      // seine eigene Meldung darüberschreiben, und dann erführe niemand,
+      // warum der Kreis gerade nichts sagt.
+      leerRunden = MAX_LEERRUNDEN;
+      input.value = '';
+      voiceState('Eigene Ausgabe gehört — zum Sprechen drücken', null);
+      return;
+    }
+    if (t && brauchbareAeusserung(t)) {
+      leerRunden = 0;
+      input.value = '';
+      ask(t);
+      return;
+    }
+    if (t) voiceState('Nicht verstanden — zum Sprechen drücken', null);
+    input.value = '';
+    nachhoeren();
+  }
+
+  /** Ein Mensch hat gedrückt: Grenze zurücksetzen, Runde als gewollt merken. */
+  function vonHand() { leerRunden = 0; autoGeoeffnet = false; }
+
+  /** Hört nur nach, solange eine Runde noch etwas ergeben hat. */
+  function nachhoeren() {
+    if (!voiceMode || !panel.classList.contains('open') || asking || listening) return;
+    if (leerRunden >= MAX_LEERRUNDEN) {
+      voiceState('Zum Sprechen drücken', null);
+      return;
+    }
+    leerRunden += 1;
+    setTimeout(function () {
+      if (!voiceMode || !panel.classList.contains('open') || asking || listening) return;
+      autoGeoeffnet = true;
+      toggleMic();
+    }, NACHHOER_PAUSE);
+  }
+
   /* Die Zustandswechsel gelten fuer beide Stimmen — sonst bliebe der Kreis
      bei der Serverstimme im „hoert zu"-Zustand haengen. */
   function sprechBeginn(session) {
@@ -4215,7 +4342,9 @@ window.addEventListener('DOMContentLoaded', init);
     voiceState('Bereit für dein Gespräch', null);
     var darfNeuHoeren = !suppressVoiceRestart;
     suppressVoiceRestart = false;
-    if (darfNeuHoeren && voiceMode && panel.classList.contains('open') && !listening) setTimeout(toggleMic, 120);
+    // Ueber nachhoeren(), nicht direkt: dieselbe Runden-Grenze wie ueberall,
+    // und genug Abstand, dass der eigene Nachhall verklungen ist.
+    if (darfNeuHoeren) nachhoeren();
   }
 
   async function sayServer(text, session) {
@@ -4246,6 +4375,9 @@ window.addEventListener('DOMContentLoaded', init);
 
   function say(text) {
     if (!speakOn) return;
+    // Fuer die Echo-Erkennung: was gesagt wurde, darf nicht als Frage
+    // zurueckkommen.
+    letzteAntwort = String(text || '');
     var session = dialogSession;
     stimmeStoppen();
 
@@ -4617,7 +4749,7 @@ window.addEventListener('DOMContentLoaded', init);
     // kostet einen Aufruf fuer ein garantiert leeres Ergebnis.
     if (blob.size < 1200) {
       voiceState('Nichts gehört', null);
-      if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 400);
+      nachhoeren();
       return true;
     }
 
@@ -4636,11 +4768,9 @@ window.addEventListener('DOMContentLoaded', init);
     if (session !== dialogSession || !panel.classList.contains('open')) return true;
 
     voiceState('Bereit für dein Gespräch', null);
-    var t = String(d.text || '').trim();
     // Leer heisst: es wurde nichts gesagt. Kein Fehler — aber auch keine
-    // Frage, die man absenden koennte.
-    if (t) { input.value = ''; ask(t); }
-    else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 200);
+    // Frage. Die Entscheidung faellt an EINER Stelle, fuer beide Sprachwege.
+    aeusserungVerarbeiten(String(d.text || ''));
     return true;
   }
 
@@ -4712,9 +4842,7 @@ window.addEventListener('DOMContentLoaded', init);
         return;
       }
       voiceState('Bereit für dein Gespräch', null);
-      var t = input.value.trim();
-      if (t) { input.value = ''; ask(t); }
-      else if (voiceMode && panel.classList.contains('open') && !asking) setTimeout(toggleMic, 180);
+      aeusserungVerarbeiten(input.value);
     };
     recognitionSession = dialogSession;
     try { rec.start(); } catch (e) {}
@@ -4761,9 +4889,9 @@ window.addEventListener('DOMContentLoaded', init);
       // öffnet und hört zu, ein zweites Mal beendet sofort alles.
       if (panel.classList.contains('open')) { close(); return; }
       open(true);
-      if (!listening) toggleMic();
+      if (!listening) { vonHand(); toggleMic(); }
     },
-    sprechen: toggleMic,
+    sprechen: function () { vonHand(); toggleMic(); },
     beenden: close,
     istOffen: function () { return panel.classList.contains('open'); },
     /* Seit Whisper reicht ein aufnahmefaehiger Browser — die
@@ -4788,7 +4916,10 @@ window.addEventListener('DOMContentLoaded', init);
   document.getElementById('ebc-stop').addEventListener('click', close);
   document.getElementById('ebc-report').addEventListener('click', function () { open(false); ask('Gib mir einen ehrlichen Betriebsbericht: Was läuft, woran arbeiten die Mitarbeiter, was ist fertig, was ist blockiert und was ist nur geplant?'); });
   sendBtn.addEventListener('click', function () { var v=input.value.trim(); if(!v)return; input.value=''; ask(v); });
-  micBtn.addEventListener('click', toggleMic);
+  // Nur ein Druck ist eine Absicht: dort faengt die Runden-Grenze von vorn
+  // an. In toggleMic() zurueckzusetzen waere falsch — das automatische
+  // Nachhoeren ruft dieselbe Funktion und haette die Grenze aufgehoben.
+  micBtn.addEventListener('click', function () { vonHand(); toggleMic(); });
   spkBtn.addEventListener('click', function () {
     speakOn = !speakOn; spkBtn.classList.toggle('on', speakOn);
     spkBtn.title = speakOn ? 'Vorlesen ist an' : 'Vorlesen ist aus';
