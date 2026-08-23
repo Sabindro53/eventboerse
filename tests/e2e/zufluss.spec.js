@@ -194,19 +194,30 @@ test.describe('Tages-Demo-Feed', () => {
     expect(frisch, `Demo-Inhalte dürfen keine frische Uhrzeit behaupten: ${zustand.zeiten.join(' | ')}`).toEqual([]);
   });
 
-  test('Team Nordlicht öffnet ein Demo-Profil ohne erfundenes Inserat', async ({ page }) => {
-    const teamPost = feed.posts.find((post) => post.author === 'Team Nordlicht');
-    expect(teamPost, 'der ausgewählte Beispielbeitrag muss im Fixture stehen').toBeTruthy();
+  test('ein Feed-Autor öffnet ein Demo-Profil ohne erfundenes Inserat', async ({ page }) => {
+    // Der Autor wird AUS DEM FEED gewählt, nicht hier hineingeschrieben.
+    //
+    // Vorher stand „Team Nordlicht" fest im Test. Der Demo-Feed rotiert aber
+    // täglich: am 12.08. war dieser Autor dabei, am 23.08. nicht mehr. Seit
+    // dem 13.08. fiel deshalb jeder Lauf der Tagesroutine durch — zwölf
+    // gestapelte Pull Requests, und der ausgelieferte Selbstcheck blieb elf
+    // Tage auf dem Stand vom 12.08. stehen, während der Lagebericht ihn als
+    // aktuell meldete.
+    //
+    // Ein Test, der an einem rotierenden Inhalt festhält, prüft das Datum
+    // und nicht die Eigenschaft.
+    const teamPost = feed.posts.find((post) => post.author && post.authorId);
+    expect(teamPost, 'der Feed enthält keinen Beitrag mit Autor').toBeTruthy();
 
     await openApp(page);
     await spaNavigate(page, 'aktuelles');
     await expect.poll(() => page.evaluate(() => _ebDemoFeedState)).toBe('ready');
 
     const authorLink = page.locator(`[data-post-id="${teamPost.id}"] .feed-post-author-link`);
-    await expect(authorLink).toHaveText('Team Nordlicht');
+    await expect(authorLink).toHaveText(teamPost.author);
     await authorLink.click();
 
-    await expect(page.locator('#providerName')).toHaveText('Team Nordlicht');
+    await expect(page.locator('#providerName')).toHaveText(teamPost.author);
     await expect(page.locator('#providerBadges')).toContainText('Demo-Profil');
     await expect(page.locator('#providerListingCount')).toHaveText('0');
     await expect(page.locator('#providerListings')).toContainText('Noch keine Inserate');
