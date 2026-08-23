@@ -44,6 +44,7 @@ function fn(name) {
  * unbemerkt. */
 const LOGIK = () => [
   'var letzteAntwort = "", autoGeoeffnet = false, leerRunden = 0;',
+  'var freihaendig = true, fehlalarme = 0, ausUebernahme = false, MAX_FEHLALARME = 2;',
   'var MAX_LEERRUNDEN = ' + (HQ.match(/MAX_LEERRUNDEN\s*=\s*(\d+)/) || [, 1])[1] + ';',
   'var input = { value: "" };',
   'var __gefragt = [], __nachgehoert = 0, __zustand = [];',
@@ -278,6 +279,170 @@ test.describe('EB Circle: die Nachfrage ist auch verdrahtet', () => {
     // Ohne diesen Kontext beantwortet das Modell die Rückfrage im Leeren.
     expect(ASK).toMatch(/nachfrage && letzteAntwort/);
     expect(ASK).toMatch(/bezieht sich auf deine letzte Antwort/);
+  });
+});
+
+/* Freihändiges Dazwischenreden: während der Kreis spricht, misst ein
+   Mithörer den Pegel. Das ist dieselbe Anordnung, die am 22.08. das
+   Selbstgespräch erzeugt hat — offenes Mikrofon während der Ausgabe. Die
+   Sicherungen sind deshalb der eigentliche Prüfgegenstand. */
+test.describe('EB Circle: freihändig übernehmen', () => {
+  /** Baut mithoerenStarten() mit gefälschtem Audio-Stack und Pegelverlauf. */
+  const MITHOER = (pegel) => [
+    'var mithoerStrom = null, mithoerCtx = null, mithoerLauf = false;',
+    'var freihaendig = true, fehlalarme = 0, ausUebernahme = false;',
+    'var MAX_FEHLALARME = 2, voiceMode = true;',
+    'var EICHDAUER = ' + (HQ.match(/EICHDAUER = (\d+)/) || [, 600])[1] + ';',
+    'var HALTEDAUER = ' + (HQ.match(/HALTEDAUER = (\d+)/) || [, 350])[1] + ';',
+    'var UEBERNAHME_FAKTOR = ' + (HQ.match(/UEBERNAHME_FAKTOR = ([\d.]+)/) || [, 3.5])[1] + ';',
+    'var UEBERNAHME_MIN = ' + (HQ.match(/UEBERNAHME_MIN = (\d+)/) || [, 4])[1] + ';',
+    'window.__uebernommen = 0;',
+    'var suppressVoiceRestart = false, askController = null, asking = false;',
+    'var leerRunden = 0;',
+    'function stimmeStoppen() {}',
+    'function voiceState() {}',
+    'function toggleMic() { window.__uebernommen += 1; }',
+    fn('mithoerenBeenden'),
+    fn('freihaendigUebernehmen'),
+    fn('mithoerenStarten'),
+    // Gefälschter Audio-Stack: der Pegelverlauf kommt aus dem Test.
+    'var __pegel = ' + JSON.stringify(pegel) + ', __i = 0;',
+    'navigator.mediaDevices = { getUserMedia: function () {',
+    '  return Promise.resolve({ getTracks: function () { return [{ stop: function () {} }]; } });',
+    '} };',
+    'window.AudioContext = function () {',
+    '  this.createMediaStreamSource = function () { return { connect: function () {} }; };',
+    '  this.createAnalyser = function () { return { fftSize: 0, frequencyBinCount: 8,',
+    '    getByteTimeDomainData: function (a) {',
+    '      var p = __pegel[Math.min(__i++, __pegel.length - 1)];',
+    '      for (var k = 0; k < a.length; k++) a[k] = 128 + p;',
+    '    } }; };',
+    '  this.close = function () {};',
+    '};',
+    'window.__start = function () { mithoerenStarten(); };',
+    'window.__stand = function () { return { uebernommen: window.__uebernommen,',
+    '  laeuft: mithoerLauf, freihaendig: freihaendig }; };',
+  ].join('\n');
+
+  async function mithoer(page, pegel) {
+    await page.setContent('<!doctype html><meta charset="utf-8"><div></div>');
+    await page.addScriptTag({ content: MITHOER(pegel) });
+    await page.evaluate(() => window.__start());
+  }
+  const stand = (page) => page.evaluate(() => window.__stand());
+
+  test('anhaltendes Sprechen übernimmt', async ({ page }) => {
+    // Erst leise (Eichung: Raum plus Rest der eigenen Stimme), dann laut
+    // und laut bleibend.
+    await mithoer(page, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 30]);
+    await expect.poll(async () => (await stand(page)).uebernommen,
+      { timeout: 6000 }).toBe(1);
+    expect((await stand(page)).laeuft, 'der Mithörer läuft nach der Übernahme weiter').toBe(false);
+  });
+
+  test('ein kurzer Knall übernimmt nicht', async ({ page }) => {
+    // Türknall, Tastenanschlag: laut, aber nicht gehalten. Ohne diese
+    // Bedingung unterbricht jedes Geräusch die Antwort.
+    const leise = new Array(12).fill(1);
+    await mithoer(page, leise.concat([40, 40, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]));
+    await page.waitForTimeout(2200);
+    expect((await stand(page)).uebernommen, 'ein kurzer Knall hat übernommen').toBe(0);
+  });
+
+  test('der eigene Nachhall übernimmt nicht', async ({ page }) => {
+    // Der Pegel bleibt durchgehend auf Eichhöhe — genau die eigene Stimme,
+    // die die Echo-Unterdrückung übrig lässt.
+    //
+    // Der Wert liegt bewusst ÜBER der absoluten Untergrenze: bei 3 hätte
+    // auch eine feste Schwelle geschwiegen, und der Test hätte die Eichung
+    // gar nicht geprüft. Bei 8 löst eine feste Schwelle aus, die geeichte
+    // nicht — das ist der Unterschied, um den es geht.
+    await mithoer(page, new Array(40).fill(8));
+    await page.waitForTimeout(2200);
+    expect((await stand(page)).uebernommen, 'der eigene Nachhall hat übernommen').toBe(0);
+  });
+
+  test('zwei getrennte Knalle übernehmen nicht', async ({ page }) => {
+    // Ohne Zurücksetzen der lauten Phase merkt sich der Messer den ersten
+    // Knall, und der zweite löst sofort aus — obwohl dazwischen Ruhe war.
+    const leise = new Array(12).fill(1);
+    await mithoer(page, leise
+      .concat([40, 40])                      // erster Knall, zu kurz
+      .concat(new Array(14).fill(1))         // Ruhe
+      .concat([40, 40])                      // zweiter Knall, ebenfalls kurz
+      .concat(new Array(14).fill(1)));
+    await page.waitForTimeout(3000);
+    expect((await stand(page)).uebernommen,
+      'der zweite Knall hat die alte laute Phase geerbt').toBe(0);
+  });
+
+  test('die Schwelle liegt deutlich über dem Ruhepegel', () => {
+    // Der Prüfstand oben liest den Faktor aus der Quelle — er ändert sich
+    // also mit. Deshalb wird die Eigenschaft hier direkt behauptet: ein
+    // Faktor um 1 hiesse „alles, was auch nur minimal lauter ist als der
+    // eigene Nachhall, gilt als Sprechen". Dann wäre die Eichung Zierde.
+    const faktor = Number((HQ.match(/UEBERNAHME_FAKTOR = ([\d.]+)/) || [, 0])[1]);
+    expect(faktor, 'kein Eichfaktor gefunden').toBeGreaterThan(0);
+    expect(faktor, 'der Abstand zum Ruhepegel ist zu klein').toBeGreaterThanOrEqual(2);
+    const halte = Number((HQ.match(/HALTEDAUER = (\d+)/) || [, 0])[1]);
+    expect(halte, 'zu kurz — dann unterbricht jedes Geräusch').toBeGreaterThanOrEqual(200);
+  });
+
+  test('ohne Mikrofon-Freigabe schaltet es sich ab, statt still zu scheitern', async ({ page }) => {
+    await page.setContent('<!doctype html><meta charset="utf-8"><div></div>');
+    await page.addScriptTag({ content: MITHOER([1]).replace(
+      'return Promise.resolve({ getTracks: function () { return [{ stop: function () {} }]; } });',
+      'return Promise.reject(new Error("verweigert"));') });
+    await page.evaluate(() => window.__start());
+    await expect.poll(async () => (await stand(page)).freihaendig, { timeout: 3000 }).toBe(false);
+  });
+});
+
+test.describe('EB Circle: die Übernahme begrenzt sich selbst', () => {
+  test('zwei Fehlalarme schalten das freihändige Zuhören ab', async ({ page }) => {
+    // Eine Automatik, die sich irrt, muss aufhören können — und sichtbar,
+    // nicht still.
+    await seite(page);
+    const r = await page.evaluate(() => {
+      const raus = [];
+      for (let i = 0; i < 3; i++) {
+        ausUebernahme = true;
+        aeusserungVerarbeiten('ähm');
+        raus.push({ freihaendig: freihaendig, fehlalarme: fehlalarme });
+      }
+      return raus;
+    });
+    expect(r[0].freihaendig, 'schon der erste Fehlalarm schaltet ab').toBe(true);
+    expect(r[1].freihaendig, 'nach zwei Fehlalarmen läuft es weiter').toBe(false);
+  });
+
+  test('eine berechtigte Übernahme setzt den Zähler zurück', async ({ page }) => {
+    // Ohne das Zurücksetzen summieren sich Fehlalarme über ein langes
+    // Gespräch, und irgendwann schaltet es grundlos ab.
+    await seite(page);
+    const r = await page.evaluate(() => {
+      ausUebernahme = true; aeusserungVerarbeiten('ähm');
+      const nachFehl = fehlalarme;
+      ausUebernahme = true; aeusserungVerarbeiten('Was kostet die Provision?');
+      return { nachFehl: nachFehl, nachEcht: fehlalarme, freihaendig: freihaendig };
+    });
+    expect(r.nachFehl).toBe(1);
+    expect(r.nachEcht, 'eine berechtigte Übernahme setzt nicht zurück').toBe(0);
+    expect(r.freihaendig).toBe(true);
+  });
+
+  test('ein Druck zählt nicht als Fehlalarm', async ({ page }) => {
+    // Sonst schaltete sich das freihändige Zuhören ab, weil jemand den
+    // Knopf gedrückt und sich verhaspelt hat.
+    await seite(page);
+    const r = await page.evaluate(() => {
+      ausUebernahme = false;
+      aeusserungVerarbeiten('ähm');
+      aeusserungVerarbeiten('hm');
+      return { fehlalarme: fehlalarme, freihaendig: freihaendig };
+    });
+    expect(r.fehlalarme).toBe(0);
+    expect(r.freihaendig).toBe(true);
   });
 });
 

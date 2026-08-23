@@ -273,6 +273,19 @@ das?" trägt kein Stichwort; die Suche fände irgendetwas Schwaches, und die
 Antwort passte nicht zur Frage. `istNachfrage()` erkennt solche Sätze — nur
 wenn es einen Verlauf gibt — und gibt die letzte Antwort als Bezug mit.
 
+**Freihändiges Dazwischenreden.** Während der Kreis spricht, misst
+`mithoerenStarten()` den Pegel; anhaltendes Sprechen übernimmt ohne
+Knopfdruck. Das ist dieselbe Anordnung, die am 22.08. das Selbstgespräch
+erzeugt hat — offenes Mikrofon während der Ausgabe. Sie ist nur vertretbar
+wegen drei Sicherungen: **geeicht** (die ersten 600 ms messen den Ruhepegel,
+die Schwelle liegt das 3,5-fache darüber — eine feste Zahl wäre auf dem einen
+Gerät taub und auf dem anderen ein Dauerauslöser), **gehalten** (350 ms über
+der Schwelle, sonst unterbricht jeder Türknall) und **selbstbegrenzend** (zwei
+Übernahmen ohne brauchbare Äußerung schalten es für die Sitzung ab, sichtbar).
+
+Eine Übernahme ruft **nicht** `vonHand()` — das würde die schärfere Echo-Regel
+abschalten, und genau dort ist die Echo-Gefahr am größten.
+
 **Ein Druck während der Antwort unterbricht, er beendet nicht.** Vorher schloss
 derselbe Druck das ganze Gespräch: man konnte nur warten oder wegwerfen. Der
 Kreis heißt währenddessen „unterbrechen", und das Mikrofon läuft mit
@@ -353,7 +366,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-538 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+547 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
