@@ -50,8 +50,13 @@ const LOGIK = () => [
   'function ask(q) { __gefragt.push(q); }',
   'function voiceState(t) { __zustand.push(t); }',
   'function nachhoeren() { __nachgehoert += 1; }',
+  'var PHANTOM = ' + (HQ.match(/var PHANTOM = \[[\s\S]*?\n  \];/) || [''])[0].replace(/^var PHANTOM = /, '') ,
+  fn('istPhantom'), fn('istNachfrage'), fn('kurzfassung'),
   fn('normWorte'), fn('istSelbstgehoert'), fn('brauchbareAeusserung'),
   fn('aeusserungVerarbeiten'),
+  'window.__phantom = function (x) { return istPhantom(x); };',
+  'window.__nachfrage = function (x) { return istNachfrage(x); };',
+  'window.__kurz = function (x, n) { return kurzfassung(x, n); };',
   'window.__pruefe = function (s) {',
   '  letzteAntwort = s.letzteAntwort || ""; autoGeoeffnet = !!s.auto;',
   '  return { echo: istSelbstgehoert(s.text), brauchbar: brauchbareAeusserung(s.text) };',
@@ -151,6 +156,167 @@ test.describe('EB Circle: die Entscheidung selbst', () => {
     const r = await verarbeite(page, { text: 'ähm', letzteAntwort: '', auto: true });
     expect(r.gefragt).toEqual([]);
     expect(r.zustand.join(' ')).toMatch(/Nicht verstanden/);
+  });
+});
+
+/* Whisper erfindet bei Stille Text: es hat mit Untertiteldateien gelernt und
+   füllt eine leere Aufnahme mit deren Abspann. Am 23.08. kam so „Untertitel
+   der Amara.org-Community" als angebliche Frage des Inhabers an — und wurde
+   beantwortet. Das sah aus wie eine Gegenfrage des Kreises. */
+test.describe('EB Circle: Whisper-Phantome', () => {
+  const phantom = (page, x) => page.evaluate((s) => window.__phantom(s), x);
+  const brauchbar = (page, x) => page.evaluate((s) => window.__pruefe({ text: s }).brauchbar, x);
+
+  const ERFUNDEN = [
+    'Untertitel der Amara.org-Community',
+    'Untertitelung des ZDF für funk, 2017',
+    'Untertitel im Auftrag des ZDF, 2020',
+    'Vielen Dank fürs Zuschauen!',
+    'Vielen Dank.',
+    'Copyright WDR 2021',
+    'Bis zum nächsten Mal.',
+    'Abonniert den Kanal',
+    // Die englische Fassung desselben Abspanns — Whisper gibt beide aus.
+    // Nur das Amara-Muster fängt sie; ohne diesen Fall wäre es tote Zeile.
+    'Subtitles by the Amara.org community',
+    'Amara.org',
+  ];
+
+  test('kein Phantomtext wird zur Frage', async ({ page }) => {
+    await seite(page);
+    for (const s of ERFUNDEN) {
+      expect(await phantom(page, s), `„${s}" wird nicht erkannt`).toBe(true);
+      expect(await brauchbar(page, s), `„${s}" wird beantwortet`).toBe(false);
+    }
+  });
+
+  test('echte Fragen zu denselben Wörtern bleiben erlaubt', async ({ page }) => {
+    // Die Gegenprobe, und sie ist der Grund für die enge Liste: „Untertitel"
+    // pauschal zu sperren nähme eine echte Frage nach Untertiteln mit, und
+    // „Vielen Dank für die Auskunft" ist ein normaler Satz.
+    await seite(page);
+    for (const s of [
+      'Können wir Untertitel für die Videos anbieten?',
+      'Vielen Dank für die Auskunft, was steht als nächstes an?',
+      'Wie ist das Copyright bei hochgeladenen Bildern geregelt?',
+    ]) {
+      expect(await phantom(page, s), `„${s}" wird faelschlich als Phantom verworfen`).toBe(false);
+      expect(await brauchbar(page, s)).toBe(true);
+    }
+  });
+});
+
+test.describe('EB Circle: Nachfragen beziehen sich auf das Gesagte', () => {
+  const nachfrage = (page, x) => page.evaluate((s) => window.__nachfrage(s), x);
+
+  test('kurze Rückfragen werden als Bezug erkannt', async ({ page }) => {
+    await seite(page);
+    for (const s of ['Und was heißt das?', 'Wieso denn?', 'Erklär das genauer',
+                     'Was heißt das für uns?', 'Und weiter?']) {
+      expect(await nachfrage(page, s), `„${s}" gilt nicht als Rückfrage`).toBe(true);
+    }
+  });
+
+  test('eine eigenständige Frage ist keine Rückfrage', async ({ page }) => {
+    // Ohne diese Gegenprobe würde jede Frage am Verlauf hängen, und die
+    // Wissensbasis käme nie mehr zum Zug.
+    await seite(page);
+    for (const s of ['Wie hoch ist die Provision?',
+                     'Wie funktioniert die Registrierung für Dienstleister genau?',
+                     'Lagebericht']) {
+      expect(await nachfrage(page, s), `„${s}" wird faelschlich als Rückfrage gewertet`).toBe(false);
+    }
+  });
+});
+
+test.describe('EB Circle: der Lagebericht ist lesbar', () => {
+  test('nur der erste Satz, nie mitten im Wort', async ({ page }) => {
+    // Im Bericht stand ein 200-Zeichen-Schnipsel eines Frage-Antwort-Blocks,
+    // abgebrochen bei „über dein Profi". Vorgelesen ist das unbrauchbar.
+    await seite(page);
+    const lang = 'Registriere dich kostenlos mit E-Mail und Passwort über dein Profil. '
+      + 'Danach wählst du deine Rolle aus und ergänzt dein Profil.';
+    const kurz = await page.evaluate((s) => window.__kurz(s, 140), lang);
+    expect(kurz).toBe('Registriere dich kostenlos mit E-Mail und Passwort über dein Profil.');
+    expect(kurz, 'der Satz endet mitten im Wort').not.toMatch(/\S…$/);
+  });
+
+  test('das Datum des Selbstchecks kommt aus dem echten Feld', async () => {
+    // Die Audit-Datei nennt das Feld generatedAt. Der Bericht las `erzeugt`
+    // und `generated` — beides gibt es nicht, also stand dort monatelang
+    // „Selbstcheck vom ohne Datum".
+    const audit = JSON.parse(fs.readFileSync(path.join(ROOT, 'audit', 'latest.json'), 'utf8'));
+    expect(audit.generatedAt, 'die Audit-Datei hat kein generatedAt mehr').toBeTruthy();
+    const von = HQ.indexOf("'Selbstcheck vom '");
+    expect(HQ.slice(von, von + 200)).toMatch(/state\.audit\.generatedAt/);
+  });
+});
+
+test.describe('EB Circle: die Nachfrage ist auch verdrahtet', () => {
+  /* Die Regel allein nützt nichts, wenn ask() sie nicht benutzt. Genau diese
+     Lücke liess gestern zwei Mutationen überleben: geprüft war die Regel,
+     nicht ihre Wirkung. ask() ist zu gross zum Ausschneiden — geprüft werden
+     deshalb die vier Tatsachen, die zusammen die Wirkung ausmachen. */
+  const ASK = HQ.slice(HQ.indexOf('  async function ask(q'),
+    HQ.indexOf('  function aufnahmeBeenden'));
+
+  test('ask() fragt istNachfrage und nur mit Verlauf', () => {
+    expect(ASK, 'ask() kennt die Rückfrage nicht').toMatch(/istNachfrage\(q\)/);
+    expect(ASK, 'eine Rückfrage ohne Verlauf hätte keinen Bezug')
+      .toMatch(/conversation\.length\s*>\s*0[\s\S]{0,40}istNachfrage/);
+  });
+
+  test('eine Rückfrage geht nicht an die Wissensbasis', () => {
+    // Sonst findet die Suche auf „und was heisst das?" irgendetwas
+    // Schwaches — und die Antwort passt nicht zur Frage.
+    expect(ASK).toMatch(/if \(nachfrage\) hit = null;/);
+    expect(ASK, 'der Wissenszweig greift trotzdem')
+      .toMatch(/if \(hit && !status && !g && !operative && !nachfrage\)/);
+  });
+
+  test('das zuletzt Gesagte wird als Bezug mitgegeben', () => {
+    // Ohne diesen Kontext beantwortet das Modell die Rückfrage im Leeren.
+    expect(ASK).toMatch(/nachfrage && letzteAntwort/);
+    expect(ASK).toMatch(/bezieht sich auf deine letzte Antwort/);
+  });
+});
+
+test.describe('EB Circle: dazwischenreden', () => {
+  /* Der Inhaber: „ich will zwischendurch auch was anderes fragen können".
+     Vorher beendete ein Druck während der Antwort das GANZE Gespräch — man
+     konnte also nur warten oder wegwerfen. */
+  const sprich = HQ.slice(HQ.indexOf('sprich: function () {'),
+    HQ.indexOf('sprechen: function'));
+
+  test('ein Druck während der Antwort beendet das Gespräch nicht', () => {
+    expect(sprich, 'der Unterbrechungsfall fehlt').toMatch(/spricht\(\)\s*\|\|\s*asking/);
+    // Der Abbruchzweig muss VOR dem close() stehen, sonst greift er nie.
+    const iUnterbrechen = sprich.indexOf('spricht()');
+    const iSchliessen = sprich.indexOf('close()');
+    expect(iUnterbrechen, 'close() kommt vor der Unterbrechung').toBeLessThan(iSchliessen);
+    // Und er hört danach zu, statt nur still zu werden.
+    expect(sprich.slice(iUnterbrechen, iSchliessen)).toMatch(/stimmeStoppen\(\)/);
+    expect(sprich.slice(iUnterbrechen, iSchliessen)).toMatch(/toggleMic\(\)/);
+  });
+
+  test('im Ruhezustand beendet derselbe Druck weiterhin', () => {
+    // Die Gegenprobe: ohne sie liesse sich das Gespräch nicht mehr schliessen.
+    expect(sprich).toMatch(/close\(\);\s*return;/);
+  });
+
+  test('der Kreis lädt zum Unterbrechen ein', () => {
+    // Ein Label, das nur den Zustand nennt („antwortet"), sieht aus wie eine
+    // Anzeige. Es muss dranstehen, dass man drücken darf.
+    const von = HQ.indexOf("orbText.textContent = klasse ===");
+    expect(HQ.slice(von, von + 300)).toMatch(/'spricht' \? 'unterbrechen'/);
+  });
+
+  test('das Mikrofon unterdrückt das eigene Echo', () => {
+    // Ohne echoCancellation hört das Mikrofon die eigene Ausgabe aus den
+    // Lautsprechern mit — die Grundlage jedes Selbstgesprächs.
+    const von = HQ.indexOf('getUserMedia({ audio:');
+    expect(von, 'die Aufnahme fordert keine Einstellungen an').toBeGreaterThan(-1);
+    expect(HQ.slice(von, von + 260)).toMatch(/echoCancellation:\s*true/);
   });
 });
 

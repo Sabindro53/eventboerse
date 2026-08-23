@@ -3775,7 +3775,15 @@ window.addEventListener('DOMContentLoaded', init);
     stateEl.textContent = text;
     ['hoert', 'denkt', 'spricht'].forEach(function (k) { nnZustand(k, k === klasse); });
     var orbText = document.getElementById('nn-orb-text');
-    if (orbText) orbText.textContent = klasse === 'hoert' ? 'ich höre' : klasse === 'denkt' ? 'denkt' : klasse === 'spricht' ? 'antwortet' : panel.classList.contains('open') ? 'beenden' : 'sprechen';
+    // „unterbrechen" statt „antwortet": der Kreis ist waehrend der Ausgabe
+    // ein Knopf zum Dazwischenreden, und das muss dranstehen. Ein Label, das
+    // nur den Zustand nennt, sieht aus wie eine Anzeige und lädt nicht ein.
+    if (orbText) orbText.textContent = klasse === 'hoert' ? 'ich höre' : klasse === 'denkt' ? 'unterbrechen' : klasse === 'spricht' ? 'unterbrechen' : panel.classList.contains('open') ? 'beenden' : 'sprechen';
+  }
+
+  /** Läuft gerade eine Sprachausgabe — egal ob Server- oder Browserstimme? */
+  function spricht() {
+    return !!((window.speechSynthesis && speechSynthesis.speaking) || laufendesAudio);
   }
 
   function syncDialogControls() {
@@ -3988,8 +3996,11 @@ window.addEventListener('DOMContentLoaded', init);
         z.push('Arbeitsjournal: ' + e.length + ' Einträge (' + Object.keys(nach).map(function (k) { return nach[k] + '× ' + k; }).join(', ') + ').');
         var letzte = e.filter(function (x) { return x.ergebnis === 'fertig'; })[0];
         if (letzte) {
+          // Nur den ERSTEN Satz, und nie mitten im Wort abschneiden. Vorher
+          // landeten 200 Zeichen eines Frage-Antwort-Blocks im Bericht und
+          // brachen bei „über dein Profi" ab — im Vorlesen ist das unbrauchbar.
           z.push('Zuletzt echt geliefert: ' + (letzte.person || letzte.rolle) + ' (' + (letzte.rollenname || '–') + ') ' + rel(letzte.zeit)
-            + ' — ' + String(letzte.text || '').replace(/\s+/g, ' ').slice(0, 200));
+            + ' — ' + kurzfassung(letzte.text, 140));
         } else {
           z.push('Keine einzige fertige Schicht im Journal — alle Einträge sind Ausfälle oder Kostenstopps.', 'problem');
         }
@@ -4003,7 +4014,9 @@ window.addEventListener('DOMContentLoaded', init);
       z.push('Selbstcheck: nicht geladen.', 'unbekannt');
     } else {
       var c = state.audit.counts || {};
-      z.push('Selbstcheck vom ' + (String(state.audit.erzeugt || state.audit.generated || '').slice(0, 10) || 'ohne Datum')
+      // Das Feld heisst generatedAt. `erzeugt`/`generated` gibt es nicht —
+      // deshalb stand im Bericht monatelang „Selbstcheck vom ohne Datum".
+      z.push('Selbstcheck vom ' + (String(state.audit.generatedAt || state.audit.erzeugt || '').slice(0, 10) || 'ohne Datum')
         + ': ' + ((state.audit.findings || []).length) + ' Befunde (' + (c.error || 0) + ' Fehler, ' + (c.warn || 0) + ' Warnungen).',
         (c.error || 0) > 0 ? 'problem' : 'ok');
     }
@@ -4267,6 +4280,36 @@ window.addEventListener('DOMContentLoaded', init);
     return lang >= 2 && treffer / lang >= 0.66;
   }
 
+  /**
+   * Whisper erfindet bei Stille Text.
+   *
+   * Das Modell hat mit Untertiteldateien gelernt und füllt eine leere
+   * Aufnahme mit deren Abspann: „Untertitel der Amara.org-Community",
+   * „Untertitelung des ZDF", „Vielen Dank fürs Zuschauen". Genau das kam am
+   * 23.08. als angebliche Frage des Inhabers an und wurde beantwortet — es
+   * sah aus wie eine Gegenfrage des Kreises, war aber ein Phantom.
+   *
+   * Kein Echo, also greift istSelbstgehoert() hier nicht. Es braucht eine
+   * eigene Liste, und sie muss ENG sein: „Untertitel" allein zu sperren
+   * würde eine echte Frage nach Untertiteln mitnehmen.
+   */
+  var PHANTOM = [
+    /amara\.?org/i,
+    /untertitel(ung)?\s+(der|des|im auftrag|von)/i,
+    /vielen dank[.!]?\s*(f(ü|ue)rs? (zuschauen|zusehen|anschauen))?[.!]?$/i,
+    /^(so|und)?\s*bis zum n(ä|ae)chsten mal/i,
+    /^copyright\b/i,
+    /^\s*(swr|zdf|ard|wdr|ndr|br|mdr)\b.{0,40}(20\d\d)?\s*$/i,
+    /untertitel im auftrag/i,
+    /^\s*das war'?s?( f(ü|ue)r heute)?\.?\s*$/i,
+    /^\s*abonniert?( den kanal)?\b/i,
+  ];
+  function istPhantom(text) {
+    var t = String(text || '').trim();
+    if (!t) return false;
+    return PHANTOM.some(function (r) { return r.test(t); });
+  }
+
   /** Ist das eine Äußerung, auf die geantwortet werden darf? */
   function brauchbareAeusserung(text) {
     var t = String(text || '').trim();
@@ -4274,7 +4317,37 @@ window.addEventListener('DOMContentLoaded', init);
     // Reine Füllwörter sind keine Frage. „Lagebericht" bleibt ausdrücklich
     // erlaubt — ein einzelnes Wort kann sehr wohl ein Befehl sein.
     if (/^(ähm+|ähh+|hm+|mhm+|äh+|ja|nein|ok|okay|so|und|also)[.!?]?$/i.test(t)) return false;
+    if (istPhantom(t)) return false;
     return true;
+  }
+
+  /**
+   * Bezieht sich die Äußerung auf das gerade Gesagte?
+   *
+   * „Und was heißt das?", „Wieso denn?", „Erklär das genauer" — solche Sätze
+   * enthalten für sich genommen kein Stichwort. Die Wissensbasis findet
+   * darauf irgendetwas Schwaches, und dann kommt eine Antwort, die mit der
+   * Frage nichts zu tun hat. Genau das wirkt unmenschlich.
+   *
+   * Solche Nachfragen gehören ans Sprachmodell — MIT dem Gesprächsverlauf.
+   */
+  function istNachfrage(text) {
+    var t = String(text || '').trim().toLowerCase();
+    if (!t) return false;
+    if (t.split(/\s+/).length > 12) return false;   // eine lange Frage steht für sich
+    return /^(und|aber|also|okay|ok)\b/.test(t)
+      || /^(wieso|warum|weshalb|wozu)\b/.test(t)
+      || /\b(das|dazu|davon|darüber|dabei|daran|damit|die letzte|vorhin|eben|gerade)\b/.test(t)
+      || /^(erkl(ä|ae)r|genauer|mehr davon|und weiter|wie meinst du|was heißt das)/.test(t);
+  }
+
+  /** Erster Satz, nie mitten im Wort abgeschnitten. */
+  function kurzfassung(text, max) {
+    var t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!t) return '–';
+    var satz = t.split(/(?<=[.!?])\s/)[0] || t;
+    if (satz.length <= (max || 140)) return satz;
+    return satz.slice(0, (max || 140)).replace(/\s+\S*$/, '') + ' …';
   }
 
   /**
@@ -4576,10 +4649,16 @@ window.addEventListener('DOMContentLoaded', init);
     var treffer = topTreffer(q, 4);
     var hit = treffer[0] || search(q);
     var localAnswer = g || status || (operative && operative.answer) || null;
+    // Eine Nachfrage („und was heisst das?") hat fuer sich kein Stichwort.
+    // Die Wissensbasis faende darauf irgendetwas Schwaches — und genau das
+    // wirkt, als hoere der Kreis nicht zu. Solche Saetze gehen ans
+    // Sprachmodell, MIT dem Verlauf, und nur wenn es einen Verlauf gibt.
+    var nachfrage = !localAnswer && conversation.length > 0 && istNachfrage(q);
+    if (nachfrage) hit = null;
     // Eine Status-Frage gewinnt gegen einen Wissenstreffer: auf „wie steht es?"
     // ist ein Abschnitt ueber Buchungsablaeufe keine Antwort. Umgekehrt bleibt
     // eine Produktfrage beim Wissen, weil hqStatus dann gar nicht anspringt.
-    if (hit && !status && !g && !operative) {
+    if (hit && !status && !g && !operative && !nachfrage) {
       var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
       localAnswer = (hit.heading ? hit.heading + '. ' : '') + txt;
     }
@@ -4602,7 +4681,12 @@ window.addEventListener('DOMContentLoaded', init);
         var wissen = treffer.map(function (t) {
           return (t.heading ? t.heading + ':\n' : '') + String(t.text || '').slice(0, 900);
         }).join('\n\n---\n\n');
-        var context = [hqDialogContext(), status || '', wissen || localAnswer || '', hit && hit.title ? 'Quelle: ' + hit.title : ''].filter(Boolean).join('\n\n');
+        // Bei einer Nachfrage ist das zuletzt Gesagte der Kontext, nicht ein
+        // frisch gesuchter Abschnitt.
+        var bezug = nachfrage && letzteAntwort
+          ? 'Der Nutzer bezieht sich auf deine letzte Antwort:\n' + String(letzteAntwort).slice(0, 900)
+          : '';
+        var context = [hqDialogContext(), bezug, status || '', wissen || localAnswer || '', hit && hit.title ? 'Quelle: ' + hit.title : ''].filter(Boolean).join('\n\n');
         var data = await askOpenRouter(q, context, controller);
         if (session !== dialogSession || !panel.classList.contains('open')) return;
         conversation.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
@@ -4668,7 +4752,11 @@ window.addEventListener('DOMContentLoaded', init);
    */
   function tonAufnehmen(session) {
     return new Promise(function (fertig) {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (strom) {
+      // echoCancellation ist hier kein Komfort: ohne sie hoert das Mikrofon
+      // die eigene Sprachausgabe aus den Lautsprechern mit.
+      navigator.mediaDevices.getUserMedia({ audio: {
+        echoCancellation: true, noiseSuppression: true, autoGainControl: true
+      } }).then(function (strom) {
         aufnahmeStrom = strom;
         var stuecke = [];
         var mr;
@@ -4885,9 +4973,21 @@ window.addEventListener('DOMContentLoaded', init);
        Kreis tippt, will reden — nicht erst ein Textfeld sehen und dann noch
        ein Mikrofon suchen. */
     sprich: function () {
-      // Derselbe zentrale Kreis ist ein echter Ein/Aus-Schalter: einmal
-      // öffnet und hört zu, ein zweites Mal beendet sofort alles.
-      if (panel.classList.contains('open')) { close(); return; }
+      if (panel.classList.contains('open')) {
+        // DAZWISCHENREDEN. Spricht oder denkt er gerade, ist ein Druck kein
+        // Abbruch des Gespraechs, sondern eine Unterbrechung: Ausgabe
+        // stoppen, sofort zuhoeren. Vorher beendete derselbe Druck alles —
+        // man konnte also nur warten oder das Gespraech wegwerfen.
+        if (spricht() || asking) {
+          suppressVoiceRestart = true;
+          stimmeStoppen();
+          if (askController) { try { askController.abort(); } catch (e) {} }
+          asking = false; askController = null;
+          vonHand(); toggleMic();
+          return;
+        }
+        close(); return;
+      }
       open(true);
       if (!listening) { vonHand(); toggleMic(); }
     },
@@ -4919,7 +5019,16 @@ window.addEventListener('DOMContentLoaded', init);
   // Nur ein Druck ist eine Absicht: dort faengt die Runden-Grenze von vorn
   // an. In toggleMic() zurueckzusetzen waere falsch — das automatische
   // Nachhoeren ruft dieselbe Funktion und haette die Grenze aufgehoben.
-  micBtn.addEventListener('click', function () { vonHand(); toggleMic(); });
+  micBtn.addEventListener('click', function () {
+    // Dasselbe Dazwischenreden wie am Kreis.
+    if (spricht() || asking) {
+      suppressVoiceRestart = true;
+      stimmeStoppen();
+      if (askController) { try { askController.abort(); } catch (e) {} }
+      asking = false; askController = null;
+    }
+    vonHand(); toggleMic();
+  });
   spkBtn.addEventListener('click', function () {
     speakOn = !speakOn; spkBtn.classList.toggle('on', speakOn);
     spkBtn.title = speakOn ? 'Vorlesen ist an' : 'Vorlesen ist aus';
