@@ -4214,6 +4214,115 @@ window.addEventListener('DOMContentLoaded', init);
   function stimmeStoppen() {
     try { if (laufendesAudio) { laufendesAudio.pause(); laufendesAudio = null; } } catch (e) {}
     try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+    // Der Mithoerer gehoert zur Ausgabe: hoert sie auf, hoert er auch auf.
+    // Ein Mikrofon, das nach dem Verstummen offen bleibt, ist genau das
+    // Datenschutzproblem, das wir gestern geschlossen haben.
+    mithoerenBeenden();
+  }
+
+  /* ══ Freihändiges Dazwischenreden ═════════════════════════════════════
+     Während der Kreis spricht, misst ein Mithörer den Pegel. Fängt der
+     Mensch an zu reden, verstummt die Ausgabe und das Mikrofon übernimmt —
+     ohne Knopfdruck.
+
+     Das ist bewusst dieselbe Anordnung, die am 22.08. das Selbstgespräch
+     erzeugt hat: offenes Mikrofon während der Ausgabe. Deshalb drei
+     Sicherungen, und jede hat einen eigenen Grund:
+
+     1. GEEICHT, NICHT GERATEN. Die ersten 600 ms messen den Ruhepegel —
+        Raumgeräusch plus den Rest der eigenen Stimme, den die
+        Echo-Unterdrückung übrig lässt. Die Schwelle liegt ein Vielfaches
+        darüber. Eine feste Zahl wäre auf dem einen Gerät taub und auf dem
+        anderen ein Dauerauslöser.
+     2. GEHALTEN, NICHT GEZUCKT. Der Pegel muss durchgehend über der
+        Schwelle bleiben. Ein Türknall oder ein Tastenanschlag unterbricht
+        nicht.
+     3. SELBSTBEGRENZEND. Zwei Übernahmen ohne brauchbare Äußerung, und das
+        freihändige Zuhören schaltet sich für diese Sitzung ab — sichtbar.
+        Eine Automatik, die sich irrt, muss aufhören können.
+     ═══════════════════════════════════════════════════════════════════ */
+  var mithoerStrom = null, mithoerCtx = null, mithoerLauf = false;
+  var freihaendig = true, fehlalarme = 0, ausUebernahme = false;
+  var MAX_FEHLALARME = 2;
+  /** Wie lange geeicht wird, bevor überhaupt ausgelöst werden kann. */
+  var EICHDAUER = 600;
+  /** So lange muss es laut bleiben, damit es als Sprechen zählt. */
+  var HALTEDAUER = 350;
+  /** Vielfaches des Ruhepegels — darunter ist es der eigene Nachhall. */
+  var UEBERNAHME_FAKTOR = 3.5;
+  /** Absolute Untergrenze: unter diesem Pegel ist nichts wirklich laut. */
+  var UEBERNAHME_MIN = 4;
+
+  function mithoerenBeenden() {
+    mithoerLauf = false;
+    try { if (mithoerStrom) mithoerStrom.getTracks().forEach(function (s) { s.stop(); }); } catch (e) {}
+    try { if (mithoerCtx) mithoerCtx.close(); } catch (e) {}
+    mithoerStrom = null; mithoerCtx = null;
+  }
+
+  /** Der Mensch hat dazwischengeredet: Ausgabe aus, Mikrofon an. */
+  function freihaendigUebernehmen() {
+    mithoerenBeenden();
+    suppressVoiceRestart = true;
+    stimmeStoppen();
+    if (askController) { try { askController.abort(); } catch (e) {} }
+    asking = false; askController = null;
+    // Runden-Grenze zurücksetzen — es hat ja jemand geredet. Aber NICHT
+    // `vonHand()`: das würde die schärfere Echo-Regel abschalten, und genau
+    // hier ist die Gefahr eines Echos am größten.
+    leerRunden = 0;
+    ausUebernahme = true;
+    voiceState('Ich höre…', 'hoert');
+    toggleMic();
+  }
+
+  function mithoerenStarten() {
+    if (!freihaendig || !voiceMode || mithoerLauf) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    mithoerLauf = true;
+    navigator.mediaDevices.getUserMedia({ audio: {
+      echoCancellation: true, noiseSuppression: true, autoGainControl: true
+    } }).then(function (strom) {
+      // Inzwischen fertig gesprochen? Dann gar nicht erst aufmachen.
+      if (!mithoerLauf) { try { strom.getTracks().forEach(function (s) { s.stop(); }); } catch (e) {} return; }
+      mithoerStrom = strom;
+      mithoerCtx = new AC();
+      var quelle = mithoerCtx.createMediaStreamSource(strom);
+      var analyse = mithoerCtx.createAnalyser();
+      analyse.fftSize = 512;
+      quelle.connect(analyse);
+      var daten = new Uint8Array(analyse.frequencyBinCount);
+      var start = Date.now(), summe = 0, proben = 0, schwelle = null, lautSeit = null;
+
+      (function messen() {
+        if (!mithoerLauf) return;
+        analyse.getByteTimeDomainData(daten);
+        var abweichung = 0;
+        for (var i = 0; i < daten.length; i++) abweichung += Math.abs(daten[i] - 128);
+        var pegel = abweichung / daten.length;
+
+        if (Date.now() - start < EICHDAUER) {
+          summe += pegel; proben++;
+          return void setTimeout(messen, 60);
+        }
+        if (schwelle === null) {
+          var ruhe = proben ? summe / proben : 0;
+          schwelle = Math.max(ruhe * UEBERNAHME_FAKTOR, UEBERNAHME_MIN);
+        }
+        if (pegel > schwelle) {
+          if (lautSeit === null) lautSeit = Date.now();
+          if (Date.now() - lautSeit >= HALTEDAUER) { freihaendigUebernehmen(); return; }
+        } else lautSeit = null;
+        setTimeout(messen, 60);
+      })();
+    }).catch(function () {
+      // Kein Mikrofon freigegeben: freihändig geht dann nicht, der Knopf
+      // aber schon. Still scheitern wäre hier falsch.
+      mithoerLauf = false;
+      freihaendig = false;
+    });
   }
 
   /* ══ Der Kreis darf nicht mit sich selbst reden ══════════════════════
@@ -4358,11 +4467,16 @@ window.addEventListener('DOMContentLoaded', init);
    */
   function aeusserungVerarbeiten(text) {
     var t = String(text || '').trim();
+    // Kam diese Runde aus einer freihändigen Übernahme? Dann entscheidet
+    // ihr Ergebnis darüber, ob das freihändige Zuhören weiterlaufen darf.
+    var warUebernahme = ausUebernahme;
+    ausUebernahme = false;
     // Die Echo-Pruefung liest autoGeoeffnet — deshalb ERST pruefen, dann
     // zuruecksetzen. Andersherum waere die schaerfere Regel fuer automatische
     // Runden nie wirksam gewesen.
     var echo = !!t && istSelbstgehoert(t);
     autoGeoeffnet = false;
+    if (echo && warUebernahme) fehlalarme += 1;
     if (echo) {
       // Nicht beantworten und NICHT nachhören: sonst hört er sich beim
       // nächsten Mal wieder selbst. Hier wird ausdrücklich zurückgekehrt
@@ -4376,8 +4490,18 @@ window.addEventListener('DOMContentLoaded', init);
     }
     if (t && brauchbareAeusserung(t)) {
       leerRunden = 0;
+      if (warUebernahme) fehlalarme = 0;   // sie war berechtigt
       input.value = '';
       ask(t);
+      return;
+    }
+    // Eine Übernahme, die nichts Brauchbares ergab, war ein Fehlalarm.
+    // Nach zweien schaltet sich das freihändige Zuhören ab — sichtbar,
+    // nicht still. Eine Automatik, die sich irrt, muss aufhören können.
+    if (warUebernahme && ++fehlalarme >= MAX_FEHLALARME) {
+      freihaendig = false;
+      voiceState('Freihändiges Zuhören aus — zum Sprechen drücken', null);
+      input.value = '';
       return;
     }
     if (t) voiceState('Nicht verstanden — zum Sprechen drücken', null);
@@ -4408,9 +4532,12 @@ window.addEventListener('DOMContentLoaded', init);
   function sprechBeginn(session) {
     if (session !== dialogSession || !panel.classList.contains('open')) return;
     circle.classList.add('speaking'); voiceState('Antwortet mit Stimme', 'spricht');
+    // Ab jetzt darf man dazwischenreden.
+    mithoerenStarten();
   }
   function sprechEnde(session) {
     circle.classList.remove('speaking');
+    mithoerenBeenden();
     if (session !== dialogSession || !panel.classList.contains('open')) return;
     voiceState('Bereit für dein Gespräch', null);
     var darfNeuHoeren = !suppressVoiceRestart;
@@ -4939,6 +5066,8 @@ window.addEventListener('DOMContentLoaded', init);
   function open(asVoice) {
     if (panel.classList.contains('open')) { syncDialogControls(); return; }
     dialogSession += 1; suppressVoiceRestart = false;
+    // Neues Gespräch: das freihändige Zuhören bekommt eine neue Chance.
+    freihaendig = true; fehlalarme = 0; ausUebernahme = false;
     if (asVoice) voiceMode = true;
     panel.classList.add('open');
     syncDialogControls();
@@ -4957,9 +5086,13 @@ window.addEventListener('DOMContentLoaded', init);
     input.value = ''; recognitionAlternatives = []; recognitionConfidence = null;
     conversation = []; log.innerHTML = '';
     try { suppressVoiceRestart = true; stimmeStoppen(); } catch (e) {}
-    // Auch die Aufnahme: ein Mikrofon, das nach dem Beenden weiterlaeuft,
-    // ist ein Datenschutzproblem und kein Schoenheitsfehler.
+    // Auch die Aufnahme UND der Mithoerer: ein Mikrofon, das nach dem
+    // Beenden weiterlaeuft, ist ein Datenschutzproblem und kein
+    // Schoenheitsfehler. Ausdruecklich hier, nicht nur ueber
+    // stimmeStoppen() — das steht in einem try, und ein Fehler davor
+    // wuerde den Mithoerer offen lassen.
     aufnahmeBeenden();
+    mithoerenBeenden();
     voiceState('Gespräch beendet', null);
     syncDialogControls();
   }

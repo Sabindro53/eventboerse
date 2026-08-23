@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 538 Tests in 31 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 547 Tests in 31 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,20 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Freihändiges Dazwischenreden.** Während der Kreis spricht, misst ein
+  Mithörer den Pegel; wer anfängt zu reden, übernimmt ohne Knopfdruck. Das ist
+  bewusst dieselbe Anordnung, die am 22.08. das Selbstgespräch erzeugt hat —
+  ein offenes Mikrofon während der Ausgabe. Vertretbar nur durch drei
+  Sicherungen: **geeicht** statt geraten (die ersten 600 ms messen Raumgeräusch
+  plus Echo-Rest, die Schwelle liegt das 3,5-fache darüber), **gehalten** statt
+  gezuckt (350 ms, sonst unterbricht jeder Türknall) und **selbstbegrenzend**
+  (zwei Fehlalarme schalten es für die Sitzung ab, mit sichtbarem Hinweis).
+  15 Mutationen; vier überlebten zunächst und deckten dabei zwei Schwächen in
+  meinen eigenen Tests auf: der geprüfte Nachhall-Pegel lag unter der absoluten
+  Untergrenze, sodass die Eichung gar nicht den Unterschied machte, und der
+  Prüfstand las den Eichfaktor aus der Quelle — er änderte sich also mit der
+  Mutation. **547 Tests in 31 Suiten.**
 
 - [x] **Der EB Circle führt ein Gespräch statt eine Ansage.** Gemeldet: eine
   „komische Gegennachfrage" nach dem Lagebericht — *„Untertitel der
