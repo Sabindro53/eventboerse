@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 525 Tests in 31 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 538 Tests in 31 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,20 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Der EB Circle führt ein Gespräch statt eine Ansage.** Gemeldet: eine
+  „komische Gegennachfrage" nach dem Lagebericht — *„Untertitel der
+  Amara.org-Community"*. Das war keine Frage des Kreises, sondern eine
+  **Whisper-Halluzination**: das Modell hat mit Untertiteldateien gelernt und
+  füllt Stille mit deren Abspann. Der Kreis hielt das für eine Frage des
+  Inhabers und beantwortete sie. Dazu drei weitere Punkte: ein Druck während
+  der Antwort **beendete das ganze Gespräch**, statt zu unterbrechen — man
+  konnte also nicht dazwischenreden; eine Rückfrage wie „und was heißt das?"
+  ging an die Wissensbasis, die darauf irgendetwas Schwaches findet; und der
+  Lagebericht meldete „Selbstcheck vom **ohne Datum**", weil er `erzeugt` las,
+  während das Feld `generatedAt` heißt. 16 Mutationen; zwei überlebten
+  zunächst — wieder, weil die Verdrahtung ungetestet war und nicht die Regel.
+  **538 Tests in 31 Suiten.**
 
 - [x] **Der EB Circle redet nicht mehr mit sich selbst.** Gemeldet vom Inhaber:
   „redet einfach so, ohne dass ich was frage" — und dabei andauernd „Wie füge

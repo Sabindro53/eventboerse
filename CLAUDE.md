@@ -261,6 +261,23 @@ nach `MAX_LEERRUNDEN` wartet der Kreis auf einen Druck. **Nur ein Druck setzt
 die Grenze zurück** (`vonHand()`); das in `toggleMic()` zu tun hebt sie auf,
 weil das Nachhören dieselbe Funktion ruft.
 
+**Whisper erfindet bei Stille Text.** Es hat mit Untertiteldateien gelernt und
+füllt eine leere Aufnahme mit deren Abspann — „Untertitel der
+Amara.org-Community", „Vielen Dank fürs Zuschauen". Am 23.08. kam so ein
+Phantom als angebliche Frage des Inhabers an und wurde beantwortet; es sah aus
+wie eine Gegenfrage des Kreises. `istPhantom()` verwirft sie. Die Liste ist
+bewusst **eng**: „Untertitel" pauschal zu sperren nähme eine echte Frage mit.
+
+**Eine Rückfrage geht ans Modell, nicht an die Wissensbasis.** „Und was heißt
+das?" trägt kein Stichwort; die Suche fände irgendetwas Schwaches, und die
+Antwort passte nicht zur Frage. `istNachfrage()` erkennt solche Sätze — nur
+wenn es einen Verlauf gibt — und gibt die letzte Antwort als Bezug mit.
+
+**Ein Druck während der Antwort unterbricht, er beendet nicht.** Vorher schloss
+derselbe Druck das ganze Gespräch: man konnte nur warten oder wegwerfen. Der
+Kreis heißt währenddessen „unterbrechen", und das Mikrofon läuft mit
+`echoCancellation`.
+
 **Neuer Sprachweg → über `aeusserungVerarbeiten()`, nie `setTimeout(toggleMic)`.**
 Ein Test prüft, dass es keinen direkten Neustart mehr gibt.
 
@@ -336,7 +353,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-525 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+538 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

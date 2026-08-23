@@ -865,7 +865,11 @@ test.describe('Neuronaler Kern', () => {
     expect(r.offen, 'die zentrale Sprachoberfläche muss aufgehen').toBe(true);
     // Der Aufruf muss beides tun — im Test-Browser gibt es keine echte
     // Spracherkennung, deshalb wird die Verdrahtung im Quelltext geprüft.
-    const sprich = HQ.slice(HQ.indexOf('sprich: function'), HQ.indexOf('sprich: function') + 360);
+    // Bis zum Ende der Funktion, nicht 360 Zeichen weit: eine feste Länge
+    // bricht bei jedem zusätzlichen Kommentar, ohne dass sich die geprüfte
+    // Eigenschaft geändert hätte. Genau das passierte, als der
+    // Unterbrechungszweig dazukam.
+    const sprich = HQ.slice(HQ.indexOf('sprich: function'), HQ.indexOf('sprechen: function'));
     expect(sprich).toMatch(/open\(true\)/);
     expect(sprich).toMatch(/toggleMic\(\)/);
     const zentral = await page.evaluate(() => ({
