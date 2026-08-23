@@ -484,6 +484,55 @@
   .j-text.aus { color: var(--muted); font-style: italic; }
   .j-punkt { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; margin-top: .35rem; }
 
+  /* Freigaben: der Nutzer sagt ja oder nein, ohne github.com zu oeffnen.
+     Farbe traegt hier eine Zusatzinformation (Ampel), Form differenziert
+     zusaetzlich — rot ist eckig, unbekannt hohl. So bleibt es auch bei
+     Rotschwaeche lesbar. Ein deaktivierter Knopf traegt seinen Grund im
+     title-Attribut; ein toter Knopf ohne Grund liest sich als kaputt. */
+  .fg-eintrag { display: grid; grid-template-columns: auto 1fr auto; gap: .55rem .8rem;
+    padding: .65rem 0; border-top: 1px solid var(--border); align-items: start; }
+  .fg-eintrag:first-of-type { border-top: 0; }
+  .fg-ampel { width: .8rem; height: .8rem; margin-top: .3rem; border-radius: 50%;
+    border: 1.5px solid currentColor; flex-shrink: 0; }
+  .fg-gruen { color: #4ade80; } .fg-gruen .fg-ampel { background: #4ade80; }
+  .fg-gelb  { color: #facc15; } .fg-gelb  .fg-ampel { background: transparent; }
+  .fg-rot   { color: #f87171; } .fg-rot   .fg-ampel { background: #f87171; border-radius: 2px; }
+  .fg-grau  { color: var(--muted); } .fg-grau .fg-ampel { background: transparent; }
+  .fg-kopf { font-weight: 600; font-size: .86rem; line-height: 1.3; color: var(--fg); }
+  .fg-kopf a { color: inherit; text-decoration: none; }
+  .fg-kopf a:hover { text-decoration: underline; }
+  .fg-draft { font-size: .58rem; padding: .08rem .38rem; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted); margin-left: .35rem; vertical-align: middle; }
+  .fg-meta { font-size: .68rem; color: var(--muted); margin-top: .15rem; }
+  .fg-body { font-size: .72rem; color: var(--text); line-height: 1.5; margin-top: .3rem;
+    max-height: 4.5rem; overflow: hidden; }
+  .fg-akt { display: flex; flex-direction: column; gap: .3rem; flex-shrink: 0; }
+  .fg-akt button { font-size: .7rem; padding: .32rem .6rem; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--fg); cursor: pointer;
+    white-space: nowrap; }
+  .fg-akt button:hover:not(:disabled) { border-color: var(--pink); }
+  .fg-akt button:disabled { opacity: .4; cursor: not-allowed; }
+  .fg-akt .fg-ja { border-color: #4ade80; color: #4ade80; }
+  .fg-akt .fg-nein { border-color: #f87171; color: #f87171; }
+  .fg-leer { font-size: .75rem; color: var(--muted); padding: .5rem 0; }
+  @media (max-width: 560px) {
+    .fg-eintrag { grid-template-columns: auto 1fr; }
+    .fg-akt { grid-column: 1 / -1; flex-direction: row; }
+  }
+
+  /* Workflow-Streifen: was gerade laeuft, was gebrochen ist. Rote nach oben. */
+  .wf-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: .45rem; }
+  .wf-kachel { display: flex; align-items: center; gap: .5rem; padding: .45rem .55rem;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: .72rem; }
+  .wf-punkt { width: .55rem; height: .55rem; border-radius: 50%; flex-shrink: 0; }
+  .wf-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wf-name a { color: inherit; text-decoration: none; }
+  .wf-name a:hover { color: var(--pink); }
+  .wf-zeit { color: var(--muted); font-size: .66rem; }
+  .wf-retry { background: transparent; border: 0; color: var(--muted); cursor: pointer;
+    font-size: .85rem; padding: 0 .25rem; line-height: 1; }
+  .wf-retry:hover { color: var(--pink); }
+
   /* Mitarbeiter-Karten */
   .modelle-summe { font-size: .78rem; color: var(--text); line-height: 1.6; margin-bottom: 1rem;
     background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--cyan);
@@ -1038,6 +1087,13 @@
     <!-- Was aus den Befunden wird. Ohne diese Ansicht ist die Kette
          Befund -> Arbeit unsichtbar, und unsichtbare Ketten reissen unbemerkt. -->
     <div class="journal" id="auftragsstrom"></div>
+    <!-- Freigaben: jeder offene Vorschlag mit einem Klick zustimmen oder ablehnen.
+         Der Auftrag aus dem Vault — "der Code verbessert sich selbst, ich sage nur
+         ja oder nein" — scheiterte praktisch daran, dass jeder Vorschlag nach
+         github.com fuehrte. Beide Panels bringen die zwei Aktionen dorthin, wo man
+         ohnehin schon steht. -->
+    <div class="journal" id="freigaben"></div>
+    <div class="journal" id="wfstrip"></div>
     <div class="modelle" id="modelle-grid"></div>
 
     <!-- Commander HUD -->
@@ -1390,6 +1446,17 @@ async function loadIssues() {
     state.issues = all.filter(i => !i.pull_request);
     cacheSet('issues', { issues: state.issues, pulls: state.pulls });
   } catch { const c = cacheGet('issues'); if (c) { state.issues = c.data.issues; state.pulls = c.data.pulls; } }
+}
+
+// Der /issues-Endpoint liefert PR-Objekte ohne head.sha oder draft. Fuer den
+// Ampel-Check gegen die CI-Laeufe und die Draft-Anzeige braucht das Freigaben-
+// Panel die volle PR-Form aus /pulls. Getrennt gehalten, damit ein Ausfall des
+// einen Aufrufs den anderen nicht mitreisst.
+async function loadFreigaben() {
+  try {
+    state.freigaben = await gh('/pulls?state=open&per_page=30&sort=updated&direction=desc');
+    cacheSet('freigaben', state.freigaben);
+  } catch { const c = cacheGet('freigaben'); if (c) state.freigaben = c.data; }
 }
 
 async function loadAutopilotPull() {
@@ -1748,7 +1815,7 @@ async function triggerBot(workflow, botId) {
   } catch (e) { showToast(`❌ Fehler: ${e.message}`, 'error'); sfx('error'); }
   finally { const b = document.querySelector(`[data-trigger="${workflow}"]`); if (b) { b.disabled = false; b.textContent = BOTS.find(x => x.id === botId)?.triggerLabel || '▶ Start'; } }
 }
-async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); renderLage(); }
+async function refreshRuns() { await loadRuns(); renderRuns(); renderBots(); renderLog(); renderLage(); renderWfStrip(); renderFreigaben(); }
 
 /* ─── Toast / SFX / FX ─────────────────────────────────────────── */
 let toastTimer;
@@ -1824,25 +1891,27 @@ function celebrateLevelUp(lvl, rank) {
 
 /* ─── Init / refresh ───────────────────────────────────────────── */
 function renderFromCache() {
-  const c = cacheGet('commits'), r = cacheGet('runs'), i = cacheGet('issues'), tc = cacheGet('totalCommits');
+  const c = cacheGet('commits'), r = cacheGet('runs'), i = cacheGet('issues'), tc = cacheGet('totalCommits'), f = cacheGet('freigaben');
   if (c) state.commits = c.data; if (r) state.runs = r.data;
   if (i) { state.issues = i.data.issues || []; state.pulls = i.data.pulls || []; }
   if (tc) state.totalCommits = tc.data;
+  if (f) state.freigaben = f.data;
   if (r) state.deploySuccessCount = state.runs.filter(x => /ionos-deploy\.yml$/.test(x.path || '') && x.conclusion === 'success').length;
   // Alles hier stammt aus dem Zwischenspeicher — bis loadAll() frische
   // Daten bringt, wird das auch so ausgewiesen.
   state.ausCache = true;
-  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); renderLage(); }
+  if (c || r) { renderHud(); renderQuests(); renderAchievements(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderQuickActions(); renderLage(); renderFreigaben(); renderWfStrip(); }
 }
 
 async function loadAll() {
   try {
-    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits(), ladeCodeflow()]);
+    await Promise.all([loadCommits(), loadRuns(), loadIssues(), loadTotalCommits(), ladeCodeflow(), loadFreigaben()]);
     await loadAutopilotPull();
     state.ausCache = false;   // ab hier sind die Daten nachweislich frisch
     ebImpuls('engineering', 'gut');
     renderQuickActions(); renderCommits(); renderRuns(); renderLog(); renderBots(); renderLage();
     renderQuests(); renderAchievements(); renderHud();
+    renderFreigaben(); renderWfStrip();
     if (nnKatalog) { nnZeichnen(); renderModelle(); renderWert(); }
   } catch (e) {
     if (state.rateLimited) { $('releases-list').innerHTML = `<div class="err">⏳ ${escHtml(e.message)}</div>`; requirePat(); }
@@ -1854,6 +1923,9 @@ async function init() {
   if (!getPat()) $('pat-notice').style.display = 'flex';
   $('sound-btn').textContent = soundOn ? '🔊 Audio an' : '🔇 Audio aus';
   renderQuests(); renderAchievements(); // instant, local
+  renderFreigaben(); renderWfStrip();   // Kopfzeile sofort — sonst wirkt ein
+                                        // leerer Container beim ersten Laden
+                                        // wie eine fehlende Sektion.
   renderFromCache();                    // instant, cached GitHub data
   loadSelfAudit();                      // local audit/latest.json
   await checkSiteStatus();
@@ -1898,6 +1970,195 @@ async function init() {
   }
 }
 
+/* ─── Freigaben und Workflow-Streifen ─────────────────────────────
+   Der Kern der Vision aus dem Vault: der Autopilot liefert, der Nutzer
+   sagt ja oder nein — ohne github.com. Beides mutiert nur mit gueltigem
+   PAT; ohne bleibt der Diff-Link aktiv, die Knoepfe abgeblendet mit
+   Begruendung im Tooltip. Ein abgeblendeter Knopf ohne Grund liest sich
+   als kaputt. */
+
+function ciAmpel(pr) {
+  if (!pr || !state.runs) return { klasse: 'fg-grau', label: 'unbekannt' };
+  const sha = pr.head && pr.head.sha;
+  if (!sha) return { klasse: 'fg-grau', label: 'unbekannt' };
+  const relevant = state.runs.filter(r => r.head_sha === sha
+    && /(pr-check|security|openrouter-autopilot|openrouter-auto-merge)\.yml$/.test(r.path || ''));
+  if (!relevant.length) return { klasse: 'fg-grau', label: 'keine Pruefung' };
+  if (relevant.some(r => r.status !== 'completed')) return { klasse: 'fg-gelb', label: 'laeuft' };
+  if (relevant.some(r => r.conclusion === 'failure' || r.conclusion === 'timed_out'))
+    return { klasse: 'fg-rot', label: 'rot' };
+  if (relevant.every(r => r.conclusion === 'success')) return { klasse: 'fg-gruen', label: 'gruen' };
+  return { klasse: 'fg-gelb', label: 'gemischt' };
+}
+
+function prBodyKurz(body) {
+  if (!body) return '';
+  const t = String(body)
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[#*_>`|]/g, '')
+    .replace(/\r?\n{2,}/g, ' · ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t.length > 260 ? t.slice(0, 260).trimEnd() + '…' : t;
+}
+
+function fgZeit(iso) {
+  if (!iso) return '';
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'gerade';
+  if (s < 3600) return Math.round(s / 60) + ' min';
+  if (s < 86400) return Math.round(s / 3600) + ' h';
+  return Math.round(s / 86400) + ' d';
+}
+
+function renderFreigaben() {
+  const el = $('freigaben'); if (!el) return;
+  // Bevorzugt volle PR-Form (aus /pulls), Fallback auf die Issue-Liste. Ohne
+  // die volle Form fehlt der Ampel-Check gegen head_sha und die Draft-Marke.
+  const pulls = (state.freigaben && state.freigaben.length ? state.freigaben : (state.pulls || []))
+    .slice().sort((a, b) => {
+    // Rote CI zuerst, dann nach juengster Aenderung — was kaputt ist, faellt auf.
+    const aA = ciAmpel(a), bA = ciAmpel(b);
+    const rang = { 'fg-rot': 0, 'fg-gelb': 1, 'fg-gruen': 2, 'fg-grau': 3 };
+    if (rang[aA.klasse] !== rang[bA.klasse]) return rang[aA.klasse] - rang[bA.klasse];
+    return new Date(b.updated_at) - new Date(a.updated_at);
+  });
+  const hasPat = !!getPat();
+  const kopf = `<h5>✅ Freigaben <span style="font-weight:400;color:var(--muted);font-size:.72rem;">— zustimmen oder ablehnen, ohne GitHub zu oeffnen</span></h5>
+    <p>Offene Aenderungsvorschlaege des Autopiloten und der Mitwirkenden. Gruen = alle Pruefungen bestanden.${hasPat ? '' : ' <em>GitHub-Token oben verbinden, um Knoepfe zu aktivieren.</em>'}</p>`;
+  if (!pulls.length) {
+    el.innerHTML = kopf + '<div class="fg-leer">Kein offener Vorschlag.</div>';
+    return;
+  }
+  const rows = pulls.map(pr => {
+    const ampel = ciAmpel(pr);
+    const draft = !!pr.draft;
+    const kannJa = hasPat && !draft && ampel.klasse !== 'fg-rot' && ampel.klasse !== 'fg-gelb';
+    const grundNein = !hasPat ? 'Token verbinden'
+      : draft ? 'Draft — im PR auf Ready setzen'
+      : ampel.klasse === 'fg-rot' ? 'Pruefungen rot — erst gruen werden lassen'
+      : ampel.klasse === 'fg-gelb' ? 'Pruefungen laufen noch' : '';
+    const autor = pr.user && pr.user.login ? pr.user.login : '—';
+    const branch = pr.head && pr.head.ref ? pr.head.ref : '';
+    const body = prBodyKurz(pr.body);
+    return `<div class="fg-eintrag ${ampel.klasse}">
+      <span class="fg-ampel" title="Pruefungen: ${escHtml(ampel.label)}"></span>
+      <div>
+        <div class="fg-kopf">#${pr.number} · <a href="${escHtml(pr.html_url)}" target="_blank" rel="noopener">${escHtml(pr.title)}</a>${draft ? '<span class="fg-draft">DRAFT</span>' : ''}</div>
+        <div class="fg-meta">${escHtml(autor)} · ${escHtml(branch)} · ${fgZeit(pr.updated_at)} · ${escHtml(ampel.label)}</div>
+        ${body ? `<div class="fg-body">${escHtml(body)}</div>` : ''}
+      </div>
+      <div class="fg-akt">
+        <button class="fg-ja" data-fg-ja="${pr.number}" ${kannJa ? '' : 'disabled'} title="${escHtml(kannJa ? 'Squash-mergen' : grundNein)}">✅ Zustimmen</button>
+        <button class="fg-nein" data-fg-nein="${pr.number}" ${hasPat ? '' : 'disabled'} title="${escHtml(hasPat ? 'PR schliessen (Branch bleibt)' : 'Token verbinden')}">❌ Ablehnen</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = kopf + rows;
+}
+
+async function zustimmen(nr) {
+  if (!getPat()) { requirePat(); return; }
+  if (!confirm(`PR #${nr} zustimmen und squash-mergen?`)) return;
+  try {
+    const res = await ghRes(`/pulls/${nr}/merge`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merge_method: 'squash' }),
+    });
+    if (res.ok) { showToast(`✅ PR #${nr} gemergt`, 'success'); sfx('success'); refreshAll(); }
+    else showToast(`❌ Merge #${nr} fehlgeschlagen (${res.status})`, 'error');
+  } catch (e) { showToast(`❌ Merge fehlgeschlagen: ${e.message}`, 'error'); }
+}
+
+async function ablehnen(nr) {
+  if (!getPat()) { requirePat(); return; }
+  if (!confirm(`PR #${nr} ablehnen und schliessen? Der Branch bleibt bestehen.`)) return;
+  try {
+    const res = await ghRes(`/pulls/${nr}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: 'closed' }),
+    });
+    if (res.ok) { showToast(`❌ PR #${nr} geschlossen`, 'success'); sfx('click'); refreshAll(); }
+    else showToast(`Schliessen #${nr} fehlgeschlagen (${res.status})`, 'error');
+  } catch (e) { showToast(`Schliessen fehlgeschlagen: ${e.message}`, 'error'); }
+}
+
+// Nicht jeder Workflow ist per workflow_dispatch startbar (pr-check, security,
+// openrouter-auto-merge reagieren auf Ereignisse). Fuer nicht-dispatchable
+// Workflows wird der Retry-Knopf gar nicht gezeigt — ein toter Knopf waere
+// eine Luege ueber die Faehigkeiten des Panels.
+const WF_DISPATCHABLE = new Set(['ionos-deploy.yml', 'openrouter-autopilot.yml',
+  'hq-operations.yml', 'tagesroutine.yml', 'site-monitor.yml', 'lighthouse-audit.yml',
+  'recherche.yml', 'hq-rollback.yml', 'demo-feed.yml']);
+
+function renderWfStrip() {
+  const el = $('wfstrip'); if (!el) return;
+  const runs = state.runs || [];
+  const perWorkflow = new Map();
+  for (const r of runs) {
+    const p = r.path || ''; const m = p.match(/([^/]+\.yml)$/);
+    if (!m) continue;
+    const key = m[1];
+    const cur = perWorkflow.get(key);
+    if (!cur || new Date(r.created_at) > new Date(cur.created_at)) perWorkflow.set(key, r);
+  }
+  const list = [...perWorkflow.values()].map(r => {
+    let farbe = '#a1a1aa', label = 'unbekannt', rang = 3;
+    if (r.status !== 'completed') { farbe = '#facc15'; label = 'laeuft'; rang = 1; }
+    else if (r.conclusion === 'success') { farbe = '#4ade80'; label = 'gruen'; rang = 2; }
+    else if (r.conclusion === 'failure' || r.conclusion === 'timed_out') { farbe = '#f87171'; label = 'rot'; rang = 0; }
+    else if (r.conclusion === 'cancelled') { farbe = '#a1a1aa'; label = 'abgebrochen'; rang = 3; }
+    const wfKey = (r.path || '').split('/').pop();
+    return { r, farbe, label, rang, wfKey };
+  }).sort((a, b) => a.rang - b.rang || a.wfKey.localeCompare(b.wfKey));
+
+  const kopf = `<h5>🚦 Was gerade laeuft</h5>
+    <p>Der juengste Lauf jedes Workflows. Rote nach oben. ↻ startet einen neuen Lauf, wo moeglich.</p>`;
+  if (!list.length) { el.innerHTML = kopf + '<div class="fg-leer">Noch keine Laeufe geladen.</div>'; return; }
+  const kacheln = list.map(({ r, farbe, label, wfKey }) => {
+    const name = (r.name || wfKey).replace(/\.yml$/, '');
+    const retry = WF_DISPATCHABLE.has(wfKey) && !!getPat()
+      ? `<button class="wf-retry" data-wf-retry="${escHtml(wfKey)}" title="Neu starten">↻</button>` : '';
+    return `<div class="wf-kachel" title="${escHtml(label)}">
+      <span class="wf-punkt" style="background:${farbe}"></span>
+      <span class="wf-name"><a href="${escHtml(r.html_url)}" target="_blank" rel="noopener">${escHtml(name)}</a></span>
+      <span class="wf-zeit">${fgZeit(r.created_at)}</span>
+      ${retry}
+    </div>`;
+  }).join('');
+  el.innerHTML = kopf + '<div class="wf-liste">' + kacheln + '</div>';
+}
+
+async function wfRetry(workflow) {
+  if (!getPat()) { requirePat(); return; }
+  if (!WF_DISPATCHABLE.has(workflow)) return;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${getPat()}`, 'Content-Type': 'application/json',
+                 'Accept': 'application/vnd.github+json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    if (res.status === 204 || res.ok) {
+      showToast(`▶ ${workflow.replace('.yml', '')} gestartet`, 'success'); sfx('success');
+      setTimeout(refreshRuns, 8000);
+    } else showToast(`❌ Start fehlgeschlagen (${res.status})`, 'error');
+  } catch (e) { showToast(`❌ Start fehlgeschlagen: ${e.message}`, 'error'); }
+}
+
+document.addEventListener('click', e => {
+  const ja = e.target.closest('[data-fg-ja]');
+  if (ja) { e.preventDefault(); zustimmen(Number(ja.dataset.fgJa)); return; }
+  const nein = e.target.closest('[data-fg-nein]');
+  if (nein) { e.preventDefault(); ablehnen(Number(nein.dataset.fgNein)); return; }
+  const retry = e.target.closest('[data-wf-retry]');
+  if (retry) { e.preventDefault(); wfRetry(retry.dataset.wfRetry); return; }
+});
+
 async function refreshAll() {
   showToast('🔄 Aktualisiere…');
   loadSelfAudit();
@@ -1905,6 +2166,7 @@ async function refreshAll() {
   await loadAll();
   await connPruefeAlle();
   renderHud();
+  renderFreigaben(); renderWfStrip();
   showToast('✅ Aktualisiert', 'success'); sfx('click');
 }
 
