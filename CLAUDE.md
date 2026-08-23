@@ -246,6 +246,24 @@ auf die Platte geschrieben, `base64_decode` läuft `strict`, und die Länge wird
 Aufgenommen wird bis zur Stille (900 ms), höchstens 30 s. Wer gar nichts sagt,
 bricht nach 6 s ab: 30 Sekunden Stille zu erkennen kostet und liefert nichts.
 
+**Der Kreis darf nicht mit sich selbst reden.** Gemeldet am 22.08.: „redet
+einfach so, ohne dass ich was frage" — und dabei immer wieder dieselbe
+Board-Notiz. Eine Ursache, drei Verstärker: das Mikrofon ging 120 ms nach der
+Sprachausgabe wieder auf (zu kurz für den eigenen Nachhall), es öffnete sich
+bei Stille **endlos** neu, und ein einzelnes erkanntes Wort genügt der
+Wissensbasis für einen Treffer.
+
+Deshalb führt jetzt **ein** Weg vom Mikrofon zur Frage:
+`aeusserungVerarbeiten()`. Sie verwirft den eigenen Nachhall
+(`istSelbstgehoert()`, in automatisch geöffneten Runden schon bei einem
+einzelnen Wort) und Füllwörter, und `nachhoeren()` hält die Runden-Grenze —
+nach `MAX_LEERRUNDEN` wartet der Kreis auf einen Druck. **Nur ein Druck setzt
+die Grenze zurück** (`vonHand()`); das in `toggleMic()` zu tun hebt sie auf,
+weil das Nachhören dieselbe Funktion ruft.
+
+**Neuer Sprachweg → über `aeusserungVerarbeiten()`, nie `setTimeout(toggleMic)`.**
+Ein Test prüft, dass es keinen direkten Neustart mehr gibt.
+
 **Neue Stelle, die das Gespräch beendet → `aufnahmeBeenden()` mit aufrufen.**
 Ein Mikrofon, das nach dem Beenden weiterläuft, ist ein Datenschutzproblem und
 kein Schönheitsfehler.
@@ -318,7 +336,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-510 Tests in 30 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+525 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
