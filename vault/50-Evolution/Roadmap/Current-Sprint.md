@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 547 Tests in 31 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 558 Tests in 31 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
@@ -89,6 +89,20 @@ Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
 
 ## Zuletzt ausgeliefert (August 2026)
+
+- [x] **Die Antworten des EB Circle passen jetzt zur Frage.** Mit Beleg
+  gemeldet: „Was sind denn die nächsten konkreten Verbesserungen?" → eine Notiz
+  über Planungsfehler, allein wegen **„sind"** in deren Überschrift. „Kann ich
+  eine Aufgabe an dir geben?" → Suchvorschläge, wegen **„an"** und **„dir"**.
+  Kein inhaltstragendes Wort war beteiligt. Vier Ursachen: `ask()` nahm den
+  Kontexttreffer (Schwelle 4) als Antwort statt den Antworttreffer (Schwelle 5);
+  ein einzelnes Allerweltswort genügte; ein Präfix im Fließtext zählte wie ein
+  Stichwort; und die deutsche Beugung verhinderte den richtigen Treffer
+  („Registrierung" ↛ „Wie registriere ich mich?"), weshalb eine Notiz gewann,
+  die das Wort zufällig als Stichwort führte. Dazu: die Antwort **greift die
+  Frage auf**, und Fragen über den Kreis selbst werden endlich beantwortet.
+  17 Mutationen; vier überlebten zunächst, drei davon wieder wegen ungetesteter
+  Verdrahtung. **558 Tests in 31 Suiten.**
 
 - [x] **Freihändiges Dazwischenreden.** Während der Kreis spricht, misst ein
   Mithörer den Pegel; wer anfängt zu reden, übernimmt ohne Knopfdruck. Das ist
