@@ -53,6 +53,12 @@ const LOGIK = () => [
   'function nachhoeren() { __nachgehoert += 1; }',
   'var PHANTOM = ' + (HQ.match(/var PHANTOM = \[[\s\S]*?\n  \];/) || [''])[0].replace(/^var PHANTOM = /, '') ,
   fn('istPhantom'), fn('istNachfrage'), fn('kurzfassung'),
+  'var KB = ' + JSON.stringify(JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'assets', 'eb-knowledge.json'), 'utf8'))) + ';',
+  (HQ.match(/var STOP = \[[\s\S]*?\];/) || [''])[0],
+  fn('toks'), fn('inText'), fn('stammImKopf'), fn('search'),
+  'window.__antwort = function (q) { var h = search(q); return h ? h.heading : null; };',
+  fn('hqOperativeAntwort').replace(/^function/, 'function'),
   fn('normWorte'), fn('istSelbstgehoert'), fn('brauchbareAeusserung'),
   fn('aeusserungVerarbeiten'),
   'window.__phantom = function (x) { return istPhantom(x); };',
@@ -164,6 +170,140 @@ test.describe('EB Circle: die Entscheidung selbst', () => {
    füllt eine leere Aufnahme mit deren Abspann. Am 23.08. kam so „Untertitel
    der Amara.org-Community" als angebliche Frage des Inhabers an — und wurde
    beantwortet. Das sah aus wie eine Gegenfrage des Kreises. */
+/* Die Antwort muss zur Frage passen.
+   Gemeldet am 23.08. mit Beleg: „Was sind denn die nächsten konkreten
+   Verbesserungen?" wurde mit einer Notiz über Planungsfehler beantwortet —
+   allein wegen des Wortes „sind" in deren Überschrift. „Kann ich eine
+   Aufgabe an dir geben?" traf die Suchvorschläge über „an" und „dir".
+   Kein einziges inhaltstragendes Wort war beteiligt. */
+test.describe('EB Circle: die Antwort passt zur Frage', () => {
+  const antwort = (page, q) => page.evaluate((s) => window.__antwort(s), q);
+
+  test('ein einzelnes Allerweltswort trägt keine Antwort', async ({ page }) => {
+    await seite(page);
+    for (const q of [
+      'Was sind denn die nächsten konkreten Verbesserungen?',
+      'Kann ich eine Aufgabe an dir geben?',
+      'Was macht das HQ?',
+    ]) {
+      expect(await antwort(page, q),
+        `„${q}" bekommt weiterhin eine unpassende Antwort`).toBeNull();
+    }
+  });
+
+  test('ein einzelnes kurzes Wort trägt keine Antwort', async ({ page }) => {
+    // „Chat?" allein ist zu dünn für eine selbstbewusste Auskunft. Ohne die
+    // Substanzregel liefert es eine — und dieselbe Regel hält auch
+    // „sind"/„macht" aus fremden Überschriften heraus.
+    await seite(page);
+    for (const q of ['Chat?', 'Board?', 'Wie melde ich?']) {
+      expect(await antwort(page, q), `„${q}" wird selbstbewusst beantwortet`).toBeNull();
+    }
+    // Ein langes Wort allein reicht sehr wohl.
+    expect(await antwort(page, 'Stornieren?'), 'ein tragendes Wort wird abgelehnt').toBeTruthy();
+  });
+
+  test('echte Fragen bekommen weiterhin ihre Antwort', async ({ page }) => {
+    // Die Gegenprobe. Ohne sie wäre die Schwelle auch mit „nie antworten"
+    // erfüllt — und die Wissensbasis damit nutzlos.
+    await seite(page);
+    const erwartet = [
+      ['Wie hoch ist die Provision?', /Provision/i],
+      ['Wie erstelle ich ein Inserat?', /Inserat/i],
+      ['Wie plane ich eine Hochzeit?', /Hochzeit/i],
+      ['Was sind typische Fehler bei der Planung?', /Fehler/i],
+    ];
+    for (const [q, muster] of erwartet) {
+      const h = await antwort(page, q);
+      expect(h, `„${q}" bekommt gar keine Antwort mehr`).toBeTruthy();
+      expect(h, `„${q}" landet bei „${h}"`).toMatch(muster);
+    }
+  });
+
+  test('deutsche Beugung findet die richtige Notiz', async ({ page }) => {
+    // „Registrierung" steht nicht in „Wie registriere ich mich?" — vorher
+    // gewann deshalb eine Notiz, die das Wort zufällig als Stichwort führte.
+    await seite(page);
+    expect(await antwort(page, 'Wie funktioniert die Registrierung?'))
+      .toMatch(/registriere/i);
+  });
+
+  test('ein zu kurzer Wortstamm zählt nicht', async ({ page }) => {
+    // „event-radar" traf „Event-Planer" über den Stamm „event-". Der Stamm
+    // muss den Großteil des Wortes ausmachen, sonst passt er überallhin.
+    await seite(page);
+    const h = await antwort(page, 'Was ist der Event-Radar?');
+    expect(h === null || /radar/i.test(h),
+      `„Event-Radar" landet bei „${h}"`).toBe(true);
+  });
+});
+
+test.describe('EB Circle: die Antwort ist auch verdrahtet', () => {
+  /* Dieselbe Lücke wie zweimal zuvor: die Regel zu prüfen genügt nicht,
+     wenn ask() sie nicht benutzt. ask() ist zu gross zum Ausschneiden. */
+  const ASK = HQ.slice(HQ.indexOf('  async function ask(q'),
+    HQ.indexOf('  function aufnahmeBeenden'));
+
+  test('nur search() trägt eine Antwort, nicht der Kontexttreffer', () => {
+    // topTreffer() sammelt Kontext fürs Modell und hat dafür eine
+    // niedrigere Schwelle. Sie als Antwort zu nehmen hiess: was zum
+    // Nachschlagen reicht, gilt auch als Auskunft.
+    expect(ASK, 'der Kontexttreffer wird wieder zur Antwort')
+      .not.toMatch(/var hit = treffer\[0\]/);
+    expect(ASK).toMatch(/var hit = search\(q\);/);
+  });
+
+  test('die Antwort greift die Frage auf', () => {
+    // Vorher begann sie wörtlich mit einer fremden Überschrift — das las
+    // sich, als höre der Kreis gar nicht zu.
+    expect(ASK).toMatch(/Ich verstehe das als/);
+  });
+
+  test('ein schwacher Wortstamm wiegt weniger als ein Stichwort', () => {
+    // Mit gleicher Punktzahl stand „naechste" aus dem Fliesstext gleichauf
+    // mit einem echten Stichwort. Zwei solche Zufälle ergaben eine
+    // selbstbewusste Antwort auf eine Frage, die niemand gestellt hat.
+    const suche = HQ.slice(HQ.indexOf('  function search(q)'),
+      HQ.indexOf('  function topTreffer'));
+    const schwach = Number((suche.match(/sc \+= (\d+); schwach\+\+/) || [, 99])[1]);
+    const stichwort = Number((suche.match(/keys \|\| \[\]\)\.indexOf\(w\) !== -1\) \{ sc \+= (\d+)/) || [, 0])[1]);
+    expect(schwach, 'kein schwacher Treffer mehr').toBeLessThan(stichwort);
+    // Und er zählt nicht als vollwertiger Treffer für die Substanzregel.
+    expect(suche).toMatch(/schwach\+\+/);
+  });
+});
+
+test.describe('EB Circle: Fragen über den Kreis selbst', () => {
+  const op = (page, q) => page.evaluate((s) => {
+    try { var r = hqOperativeAntwort(s); return r ? r.answer : null; } catch (e) { return 'FEHLER:' + e.message; }
+  }, q);
+
+  test('er kann sagen, was das HQ ist', async ({ page }) => {
+    // Stand in keiner Notiz — deshalb suchte die Wissensbasis irgendetwas.
+    // Ein Assistent, der nicht sagen kann, was er ist, wirkt zu Recht
+    // unbrauchbar.
+    await seite(page);
+    const a = await op(page, 'Was macht das HQ?');
+    expect(a, 'keine Antwort auf die Frage nach dem HQ').toBeTruthy();
+    expect(a).toMatch(/Betriebszentrale|Betriebsfragen/);
+  });
+
+  test('er erklärt, wie man ihm einen Auftrag gibt', async ({ page }) => {
+    await seite(page);
+    const a = await op(page, 'Kann ich eine Aufgabe an dir geben?');
+    expect(a, 'keine Antwort auf die Auftragsfrage').toBeTruthy();
+    expect(a, 'die Rückfrage vor dem Anlegen wird nicht genannt').toMatch(/Klick|Rückfrage|zeige/);
+    expect(a, 'die Grenze auf Issues wird nicht genannt').toMatch(/Issue/);
+  });
+
+  test('eine gewöhnliche Produktfrage bleibt bei der Wissensbasis', async ({ page }) => {
+    // Gegenprobe: die Muster dürfen nicht alles einsammeln, was „macht"
+    // enthält — sonst verliert die Wissensbasis ihre Fragen.
+    await seite(page);
+    expect(await op(page, 'Was macht ein gutes Inserat aus?')).toBeNull();
+  });
+});
+
 test.describe('EB Circle: Whisper-Phantome', () => {
   const phantom = (page, x) => page.evaluate((s) => window.__phantom(s), x);
   const brauchbar = (page, x) => page.evaluate((s) => window.__pruefe({ text: s }).brauchbar, x);

@@ -3820,6 +3820,16 @@ window.addEventListener('DOMContentLoaded', init);
   var STOP = ['und','oder','der','die','das','ein','eine','ist','wie','was','wer','wo','wann','warum','kann',
     'ich','mir','mich','mein','meine','für','mit','von','auf','aus','bei','man','sich','nicht','nur','wir',
     'funktioniert','erklär','erkläre','bitte','mal','denn','doch',
+    // Diese Liste war zu kurz. Gemessen am 23.08.: „Was sind denn die
+    // nächsten konkreten Verbesserungen?" traf eine Notiz ueber
+    // Planungsfehler — allein wegen „sind" in deren Ueberschrift. „Kann ich
+    // eine Aufgabe geben?" traf die Suchvorschlaege wegen „an" und „dir".
+    // Kein einziges inhaltstragendes Wort war beteiligt.
+    'sind','bin','bist','seid','war','waren','hat','habe','haben','hast',
+    'macht','machen','machst','tun','tut','geben','gibt','gib','an','auf','in','im',
+    'zu','zum','zur','dem','den','des','du','dir','dich','dein','deine','es','sie','ihr',
+    'soll','sollen','muss','muessen','müssen','will','willst','wollen','koennen','können',
+    'gerade','jetzt','denn','etwa','vielleicht','einfach','schon','noch','also','mehr',
     // Frage-Modifikatoren: „Wie HOCH ist …", „Wie VIEL …" — sie tragen keinen
     // Inhalt und würden sonst über Wortstämme falsche Treffer erzeugen.
     'hoch','viel','viele','lange','oft','weit','groß','gross','genau','eigentlich'];
@@ -3833,21 +3843,52 @@ window.addEventListener('DOMContentLoaded', init);
     if (w.length >= 6) return hay.indexOf(w) !== -1;
     return new RegExp('(^|[^a-zäöüß])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-zäöüß]|$)').test(hay);
   }
+  /** Steckt der Wortstamm (ab 6 Zeichen) in der Ueberschrift? */
+  function stammImKopf(heading, w) {
+    var k = String(heading || '').toLowerCase();
+    if (!k) return false;
+    // Der Stamm muss den GROSSTEIL des Wortes ausmachen. Sechs Zeichen
+    // allein reichen nicht: „event-radar" traf so „Event-Planer" ueber
+    // „event-" und beantwortete die Radar-Frage mit dem Rollenunterschied.
+    var min = Math.max(6, Math.ceil(w.length * 0.6));
+    for (var L = w.length - 1; L >= min; L--) { if (k.indexOf(w.slice(0, L)) !== -1) return true; }
+    return false;
+  }
+
   function search(q) {
     if (!KB) return null;
     var qs = toks(q); if (!qs.length) return null;
     var best = null, bestScore = 0;
     KB.entries.forEach(function (e) {
       var hay = (e.title + ' ' + e.heading + ' ' + e.text).toLowerCase();
-      var sc = 0, hits = 0;
+      var sc = 0, hits = 0, schwach = 0, langerTreffer = false;
       qs.forEach(function (w) {
-        if (inText((e.heading || '').toLowerCase(), w)) { sc += 6; hits++; }
-        else if ((e.keys || []).indexOf(w) !== -1) { sc += 4; hits++; }
-        else if (inText(hay, w)) { sc += 2; hits++; }
-        else if (w.length >= 8) { for (var L = w.length - 1; L >= 6; L--) { if (hay.indexOf(w.slice(0, L)) !== -1) { sc += 4; hits++; break; } } }
+        // „Lang" heisst: das Wort traegt fuer sich Bedeutung. Ein einzelnes
+        // solches Wort darf antworten („Provision"), ein kurzes nicht.
+        var traegt = w.length >= 6;
+        if (inText((e.heading || '').toLowerCase(), w)) { sc += 6; hits++; if (traegt) langerTreffer = true; }
+        else if ((e.keys || []).indexOf(w) !== -1) { sc += 4; hits++; if (traegt) langerTreffer = true; }
+        // Deutsche Beugung: „Registrierung" steht nicht in „Wie registriere
+        // ich mich?", obwohl genau das gemeint ist. Ein Wortstamm in der
+        // UEBERSCHRIFT zaehlt deshalb fast wie ein Volltreffer — sonst
+        // gewinnt eine Notiz, die das Wort nur zufaellig als Schluesselwort
+        // fuehrt. Genau so landete „Wie funktioniert die Registrierung?"
+        // bei der Provision.
+        else if (w.length >= 8 && stammImKopf(e.heading, w)) { sc += 5; hits++; if (traegt) langerTreffer = true; }
+        else if (inText(hay, w)) { sc += 2; hits++; if (traegt) langerTreffer = true; }
+        // Ein Praefixtreffer ist ein SCHWACHES Indiz, kein Schluesselwort.
+        // Mit 4 Punkten stand „naechste" aus dem Fliesstext gleichauf mit
+        // einem echten Stichwort — zwei solche Zufaelle ergaben eine
+        // selbstbewusste Antwort auf eine Frage, die niemand gestellt hat.
+        else if (w.length >= 8) { for (var L = w.length - 1; L >= 6; L--) { if (hay.indexOf(w.slice(0, L)) !== -1) { sc += 1; schwach++; break; } } }
       });
       if (!hits) return;
-      sc *= (0.5 + hits / qs.length);
+      sc *= (0.5 + (hits + schwach) / qs.length);
+      // Eine Antwort braucht SUBSTANZ: entweder zwei eigenstaendige Treffer
+      // oder einen langen. Ein einzelnes kurzes Allerweltswort — „sind",
+      // „macht" — darf nie eine Antwort tragen, auch nicht aus einer
+      // Ueberschrift.
+      if (hits < 2 && !langerTreffer) return;
       if (sc > bestScore) { bestScore = sc; best = e; }
     });
     return (bestScore >= 5) ? best : null;
@@ -4063,6 +4104,44 @@ window.addEventListener('DOMContentLoaded', init);
    */
   function hqOperativeAntwort(q) {
     var t = String(q || '').toLowerCase();
+
+    // Fragen ÜBER den Kreis selbst. Sie standen in keiner Notiz, also
+    // suchte die Wissensbasis irgendetwas — „Was macht das HQ?" traf „Was
+    // macht ein gutes Inserat aus?", allein wegen des Wortes „macht".
+    // Ein Assistent, der nicht sagen kann, was er ist, wirkt zu Recht
+    // unbrauchbar.
+    if (/(was (ist|macht|kann|tut)|wozu|wofür|wofuer|erkl(ä|ae)r).{0,20}(das )?(hq|headquarter|diese seite|dieses fenster|du)\b/.test(t)
+        || /^(was kannst du|wer bist du|was bist du)/.test(t)) {
+      return {
+        answer: 'Das HQ ist die Betriebszentrale der Eventbörse — nicht die '
+          + 'Website, sondern die Sicht darauf. Es zeigt den echten Stand: '
+          + 'letzter Deploy, Ensemble-Puls, Arbeitsjournal der elf Rollen, '
+          + 'Selbstcheck, offene Pull Requests und Kosten. Ich beantworte '
+          + 'daraus Betriebsfragen, gebe Auskunft aus dem freigegebenen '
+          + 'Plattformwissen — und nehme Aufträge entgegen, die als '
+          + 'GitHub-Issue landen.',
+        source: 'Live-Betriebsdaten',
+        suggestions: ['Gib mir den Lagebericht', 'Woran arbeiten die Agenten?', 'Was ist blockiert?'],
+      };
+    }
+
+    // Wie man einen Auftrag gibt. Auch das stand nirgends — gefragt wurde
+    // „Kann ich eine Aufgabe an dir geben?", geantwortet wurde etwas über
+    // Suchvorschläge, weil „an" und „dir" zufällig trafen.
+    if (/(auftrag|aufgabe|task|ticket|issue).{0,30}(geben|erteilen|stellen|anlegen|rausgeben|zuspielen)/.test(t)
+        || /kann ich (dir|ihnen)? ?(eine|einen)? ?(auftrag|aufgabe)/.test(t)) {
+      return {
+        answer: 'Ja. Sag oder schreib einen Satz, der mit „Auftrag:", '
+          + '„Aufgabe:", „notiere" oder „trag ein" beginnt — zum Beispiel '
+          + '„Auftrag: Ladezeit der Startseite messen". Ich zeige dir den '
+          + 'erkannten Auftrag zuerst; erst dein Klick legt daraus ein '
+          + 'GitHub-Issue an. Nie ungefragt, denn Spracherkennung verhört '
+          + 'sich, und ich lege ausschließlich Issues an — keinen Code, '
+          + 'keinen Merge, keinen Deploy.',
+        source: 'Live-Betriebsdaten',
+        suggestions: ['Auftrag: ', 'Gib mir den Lagebericht', 'Was ist blockiert?'],
+      };
+    }
     var operativ = /operative? zentrale|operativ|agents?|agenten|mitarbeiter|rollen|arbeitsstand|pull request|\bpr\b|release|deploy|workflow|puls|gates?|blockiert|gestoppt|ausfall|fehlgeschlagen|was .*gemacht|was .*erledigt|was .*geliefert|n(ä|ae)chste[rn]? (operative[rn]?|sichere[rn]?) schritt/.test(t)
       || /woran (arbeiten|sind) (die|sie|ihr)|woran .*dran|wer arbeitet|was (macht|machen|arbeitet) (gerade )?(das team|ihr|die agents?|die agenten|die mitarbeiter|die zentrale)/.test(t);
     if (!operativ) return null;
@@ -4774,7 +4853,13 @@ window.addEventListener('DOMContentLoaded', init);
     var status = hqStatus(q);
     var operative = status ? null : hqOperativeAntwort(q);
     var treffer = topTreffer(q, 4);
-    var hit = treffer[0] || search(q);
+    // NUR search() darf eine Antwort tragen. topTreffer() sammelt Kontext
+    // fuers Modell und hat dafuer eine niedrigere Schwelle (4 statt 5) —
+    // sie hier als Antwort zu nehmen hiess: was zum Nachschlagen reicht,
+    // gilt auch als Auskunft. Genau so wurde „Was sind denn die naechsten
+    // konkreten Verbesserungen?" mit einer Notiz ueber Planungsfehler
+    // beantwortet, allein wegen des Wortes „sind".
+    var hit = search(q);
     var localAnswer = g || status || (operative && operative.answer) || null;
     // Eine Nachfrage („und was heisst das?") hat fuer sich kein Stichwort.
     // Die Wissensbasis faende darauf irgendetwas Schwaches — und genau das
@@ -4787,7 +4872,12 @@ window.addEventListener('DOMContentLoaded', init);
     // eine Produktfrage beim Wissen, weil hqStatus dann gar nicht anspringt.
     if (hit && !status && !g && !operative && !nachfrage) {
       var txt = hit.text.length > 700 ? hit.text.slice(0, 690).replace(/\s+\S*$/, '') + ' …' : hit.text;
-      localAnswer = (hit.heading ? hit.heading + '. ' : '') + txt;
+      // Die Frage AUFGREIFEN, statt mit einer fremden Ueberschrift zu
+      // beginnen. Vorher fing die Antwort woertlich mit einer anderen Frage
+      // an — das las sich, als hoere der Kreis gar nicht zu. Jetzt sagt er,
+      // wie er die Frage verstanden hat; liegt er daneben, sieht man es
+      // sofort, statt es zu ueberlesen.
+      localAnswer = (hit.heading ? 'Ich verstehe das als „' + hit.heading + '" — ' : '') + txt;
     }
     try {
       // Belegte Antworten bleiben in Text UND Voice lokal. Ein Sprachmodell

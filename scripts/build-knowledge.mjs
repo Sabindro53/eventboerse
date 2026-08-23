@@ -89,7 +89,15 @@ function toSections(body) {
 const STOP = new Set(['und','oder','der','die','das','den','dem','des','ein','eine','einen','einem','einer',
   'ist','sind','war','wird','werden','kann','können','soll','sollen','muss','müssen','für','mit','von','vom',
   'auf','aus','bei','nach','über','unter','zum','zur','zu','im','in','an','als','auch','nicht','nur','man',
-  'sich','dich','dein','deine','du','wir','ihr','sie','es','wenn','dann','beim','durch','wie','was','wer','wo'
+  'sich','dich','dein','deine','du','wir','ihr','sie','es','wenn','dann','beim','durch','wie','was','wer','wo',
+  // Nachgetragen am 23.08.: „dir" war als Schluesselwort einer Notiz
+  // gelandet und beantwortete damit „Kann ich eine Aufgabe an dir geben?"
+  // mit einem Abschnitt ueber Suchvorschlaege. Ein Schluesselwort, das in
+  // jedem zweiten Satz vorkommt, ist keins.
+  'dir','ihm','ihnen','uns','mir','mich','mein','meine','sein','seine','ihre','ihren',
+  'hat','haben','hast','habe','macht','machen','tun','tut','geben','gibt','gib',
+  'noch','schon','mehr','sehr','etwa','also','damit','dafuer','dafür','dabei','daran',
+  'jede','jeder','jedes','alle','allen','keine','kein','einfach','gerade','jetzt','dass'
 ]);
 
 function keywords(...texts) {

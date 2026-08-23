@@ -261,6 +261,31 @@ nach `MAX_LEERRUNDEN` wartet der Kreis auf einen Druck. **Nur ein Druck setzt
 die Grenze zurück** (`vonHand()`); das in `toggleMic()` zu tun hebt sie auf,
 weil das Nachhören dieselbe Funktion ruft.
 
+**Die Antwort muss zur Frage passen.** Am 23.08. beantwortete der Kreis „Was
+sind denn die nächsten konkreten Verbesserungen?" mit einer Notiz über
+Planungsfehler — allein wegen des Wortes **„sind"** in deren Überschrift.
+„Kann ich eine Aufgabe an dir geben?" traf die Suchvorschläge über „an" und
+„dir". Vier Ursachen, alle behoben:
+
+1. `ask()` nahm den Treffer aus `topTreffer()` (Schwelle 4, für **Kontext**)
+   statt aus `search()` (Schwelle 5, für **Antworten**). Was zum Nachschlagen
+   reicht, galt damit als Auskunft.
+2. Ein einzelnes Allerweltswort trug eine Antwort. Jetzt braucht es zwei
+   Treffer **oder** einen mit mindestens sechs Zeichen.
+3. Ein Präfixtreffer im Fließtext zählte wie ein Stichwort (4 Punkte). Jetzt 1,
+   und er zählt nicht als vollwertiger Treffer.
+4. Deutsche Beugung: „Registrierung" steht nicht in „Wie registriere ich
+   mich?". `stammImKopf()` fängt das — aber nur, wenn der Stamm **60 % des
+   Wortes** ausmacht, sonst trifft „event-" die „Event-Planer".
+
+**Die Antwort greift die Frage auf** („Ich verstehe das als …"). Vorher begann
+sie wörtlich mit einer fremden Überschrift; liegt der Treffer daneben, sieht
+man es jetzt sofort, statt es zu überlesen.
+
+**Fragen über den Kreis selbst** („Was macht das HQ?", „Kann ich dir einen
+Auftrag geben?") beantwortet `hqOperativeAntwort()`. Sie stehen in keiner
+Notiz — die Wissensbasis suchte deshalb irgendetwas.
+
 **Whisper erfindet bei Stille Text.** Es hat mit Untertiteldateien gelernt und
 füllt eine leere Aufnahme mit deren Abspann — „Untertitel der
 Amara.org-Community", „Vielen Dank fürs Zuschauen". Am 23.08. kam so ein
@@ -366,7 +391,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-547 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+558 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
