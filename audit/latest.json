@@ -1,12 +1,12 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-08-23T10:42:08Z",
-  "commit": "0cca34e",
+  "generatedAt": "2026-08-24T03:36:47Z",
+  "commit": "a8301c2",
   "counts": {
-    "total": 6,
+    "total": 5,
     "error": 0,
     "warn": 1,
-    "info": 4,
+    "info": 3,
     "ok": 1
   },
   "findings": [
@@ -69,18 +69,6 @@
       "suggestion": "Kosmetik: console-Aufrufe hinter einen `EB_DEBUG`-Flag stellen oder in production strippen.",
       "evidence": {
         "count": 20
-      }
-    },
-    {
-      "id": "open-todos",
-      "title": "74 offene TODO/FIXME-Marker im Code",
-      "area": "cleanup",
-      "severity": "info",
-      "status": "open",
-      "detail": "Sammlung an Notizen, die noch nicht in Bekannte-Bugs.md überführt wurden.",
-      "suggestion": "Beim nächsten Sweep abklären: erledigt → entfernen, sonst in vault/Roadmap/Bekannte-Bugs.md überführen.",
-      "evidence": {
-        "count": 74
       }
     }
   ]
