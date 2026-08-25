@@ -1350,7 +1350,7 @@ function _readSpaRoute() {
 function _setPageMeta(page, data) {
   var base = 'EventBörse';
   var title = base + ' – Dein Event-Marktplatz';
-  var desc  = 'Eventplanung leicht gemacht: Dienstleister finden auf dem Event-Marktplatz für DJs, Catering, Locations & mehr.';
+  var desc  = 'Eventplanung leicht gemacht: Finde Dienstleister für Hochzeit, DJ, Catering & Locations. Jetzt dein Event planen und passende Anbieter entdecken.';
   switch (page) {
     case 'browse': title = 'Dienstleister entdecken – ' + base; break;
     case 'detail':
