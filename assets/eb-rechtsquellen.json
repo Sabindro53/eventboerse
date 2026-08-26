@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "geprueftAm": "2026-08-22",
+  "geprueftAm": "2026-08-26",
   "quellen": [
     {
       "id": "bgb-356a",
@@ -31,7 +31,8 @@
       ],
       "akzeptierterHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
       "aktuellerHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "bfsg-3",
@@ -72,7 +73,8 @@
       ],
       "akzeptierterHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
       "aktuellerHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "p2b",
@@ -87,7 +89,8 @@
       ],
       "akzeptierterHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
       "aktuellerHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "gmbhg-5a",

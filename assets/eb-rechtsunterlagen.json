@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "stand": "2026-08-22",
+  "stand": "2026-08-26",
   "paket": "Eventboerse_UG_Rechtsunterlagen_v11_Entwurf",
   "paketStand": "2026-05-04",
   "rechtshinweis": "Arbeits- und Organisationshilfe, keine Rechtsberatung. Verbindliche Fassungen benötigen die dokumentierte Freigabe qualifizierter Fachleute.",
@@ -11,7 +11,7 @@
     "vorFreigabe": 7,
     "anlagen": 5,
     "archiv": 1,
-    "aufgaben": 10
+    "aufgaben": 13
   },
   "technischerAbgleich": {
     "module": 24,
@@ -49,7 +49,8 @@
       ],
       "akzeptierterHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
       "aktuellerHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "bfsg-3",
@@ -90,7 +91,8 @@
       ],
       "akzeptierterHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
       "aktuellerHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "p2b",
@@ -105,7 +107,8 @@
       ],
       "akzeptierterHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
       "aktuellerHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "gmbhg-5a",
@@ -354,6 +357,73 @@
         "B18",
         "B19"
       ]
+    },
+    {
+      "id": "quelle-ai-2026-1744",
+      "prioritaet": "mittel",
+      "verantwortlich": [
+        "Sandro",
+        "Julian"
+      ],
+      "titel": "Amtliche Quelle nicht erreichbar: VO (EU) 2026/1744 – AI-Act-Übergangsregeln",
+      "beschreibung": "Abruf erneut prüfen. Solange die Quelle nicht erreichbar ist, wird Aktualität nicht behauptet.",
+      "frist": "vor der nächsten Freigabe",
+      "dokumente": [
+        "09",
+        "13",
+        "14",
+        "B02",
+        "B11",
+        "B13",
+        "C01",
+        "C07"
+      ],
+      "automatisch": true,
+      "quelle": "https://eur-lex.europa.eu/eli/reg/2026/1744/oj?locale=de",
+      "quellenStand": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2"
+    },
+    {
+      "id": "quelle-dsa",
+      "prioritaet": "mittel",
+      "verantwortlich": [
+        "Sandro",
+        "Julian"
+      ],
+      "titel": "Amtliche Quelle nicht erreichbar: VO (EU) 2022/2065 – Digital Services Act",
+      "beschreibung": "Abruf erneut prüfen. Solange die Quelle nicht erreichbar ist, wird Aktualität nicht behauptet.",
+      "frist": "vor der nächsten Freigabe",
+      "dokumente": [
+        "13",
+        "14",
+        "B11",
+        "B14",
+        "B15",
+        "B16"
+      ],
+      "automatisch": true,
+      "quelle": "https://eur-lex.europa.eu/eli/reg/2022/2065/oj?locale=de",
+      "quellenStand": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b"
+    },
+    {
+      "id": "quelle-p2b",
+      "prioritaet": "mittel",
+      "verantwortlich": [
+        "Sandro",
+        "Julian"
+      ],
+      "titel": "Amtliche Quelle nicht erreichbar: VO (EU) 2019/1150 – P2B-Verordnung",
+      "beschreibung": "Abruf erneut prüfen. Solange die Quelle nicht erreichbar ist, wird Aktualität nicht behauptet.",
+      "frist": "vor der nächsten Freigabe",
+      "dokumente": [
+        "13",
+        "14",
+        "B06",
+        "B08",
+        "B17"
+      ],
+      "automatisch": true,
+      "quelle": "https://eur-lex.europa.eu/eli/reg/2019/1150/oj?locale=de",
+      "quellenStand": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8"
     }
   ],
   "dokumente": [
