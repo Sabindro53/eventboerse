@@ -30,7 +30,7 @@ async function mitMikrofon() {
 }
 async function circleAuf(page) {
   await page.goto('/hq.html');
-  await page.waitForTimeout(1600);
+  await page.waitForFunction(() => !!window.ebCircleAPI, null, { timeout: 20000 });
   await page.evaluate(() => { window.speechSynthesis.speak = (u) => { if (u.onend) setTimeout(u.onend, 5); }; });
   await page.evaluate(() => window.ebCircleAPI.oeffnen());
 }
@@ -42,7 +42,7 @@ const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 async function hqAuf(page) {
   await page.route('https://api.github.com/**', (r) => r.abort());
   await page.goto('/hq.html');
-  await page.waitForTimeout(1600);
+  await page.waitForFunction(() => !!window.ebCircleAPI, null, { timeout: 20000 });
   await page.evaluate(() => {
     window.__gesprochen = [];
     window.speechSynthesis.speak = (u) => {
