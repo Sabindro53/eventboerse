@@ -32,7 +32,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GEHEIMNISSE, ersterTreffer, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
-import { MIN_ANTWORT_TOKENS, WORTGRENZE } from './lib/antwortgrenze.mjs';
+import { MIN_ANTWORT_TOKENS, MAX_ANTWORT_TOKENS, WORTGRENZE } from './lib/antwortgrenze.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets', 'eb-models.json');
@@ -488,9 +488,9 @@ function pruefen() {
       if (!Number.isFinite(m.kontingentProzent) || m.kontingentProzent <= 0) melde('OpenRouter-Rolle ohne Kontingentanteil');
       // Die Untergrenze ist nicht mehr geraten, sondern abgeleitet: was
       // der Auftrag an Woertern erlaubt, muss das Budget tragen koennen.
-      if (!Number.isInteger(m.maxTokens) || m.maxTokens < MIN_ANTWORT_TOKENS || m.maxTokens > 400) {
+      if (!Number.isInteger(m.maxTokens) || m.maxTokens < MIN_ANTWORT_TOKENS || m.maxTokens > MAX_ANTWORT_TOKENS) {
         melde(`Antwortgrenze ${m.maxTokens} traegt die ${WORTGRENZE} Woerter des Auftrags nicht`
-          + ` (mindestens ${MIN_ANTWORT_TOKENS}, hoechstens 400)`);
+          + ` (mindestens ${MIN_ANTWORT_TOKENS}, hoechstens ${MAX_ANTWORT_TOKENS})`);
       }
       if (!Array.isArray(m.aufgabenstrom) || m.aufgabenstrom.length < 3) melde('kein belastbarer Aufgabenstrom');
       // Jede Aufgabe nennt ihr Ziel und die Dateien, um die es geht — und

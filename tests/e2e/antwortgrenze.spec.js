@@ -76,6 +76,26 @@ test.describe('Antwortgrenze: Auftrag und Budget kommen aus einer Zahl', () => {
       .toBeGreaterThan(alt);
   });
 
+  test('die Obergrenze ist ebenfalls abgeleitet, nicht geraten', async () => {
+    const { MIN_ANTWORT_TOKENS, MAX_ANTWORT_TOKENS } = await grenze();
+    expect(MAX_ANTWORT_TOKENS, 'die Obergrenze liegt unter dem Bedarf')
+      .toBeGreaterThan(MIN_ANTWORT_TOKENS);
+    // Ein Budget ist auch nach oben eine Aussage: wer 4000 Token vergibt,
+    // hat keine Grenze mehr, sondern nur noch eine Rechnung.
+    expect(MAX_ANTWORT_TOKENS, 'die Obergrenze ist keine Grenze mehr')
+      .toBeLessThanOrEqual(MIN_ANTWORT_TOKENS * 2);
+    // Und sie steht nur noch an EINER Stelle. Vorher verlangte
+    // kern.spec.js höchstens 300 und models.mjs höchstens 400 — zwei
+    // unbegründete Zahlen, von denen die kleinere unter dem lag, was der
+    // Auftrag selbst kostet.
+    expect(MODELS, 'die geratene Obergrenze 400 ist zurück')
+      .not.toMatch(/m\.maxTokens > 400/);
+    const kern = fs.readFileSync(
+      path.join(ROOT, 'tests', 'e2e', 'kern.spec.js'), 'utf8');
+    expect(kern, 'die geratene Obergrenze 300 ist zurück')
+      .not.toMatch(/maxTokens[^\n]*toBeLessThanOrEqual\(300\)/);
+  });
+
   test('jede Rolle kann die erlaubte Länge wirklich schreiben', async () => {
     const { MIN_ANTWORT_TOKENS, WORTGRENZE } = await grenze();
     const katalog = JSON.parse(fs.readFileSync(KATALOG, 'utf8'));

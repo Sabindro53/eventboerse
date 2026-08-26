@@ -43,6 +43,22 @@ export const TOKEN_JE_WORT = 3.5;
 export const MIN_ANTWORT_TOKENS = Math.ceil(WORTGRENZE * TOKEN_JE_WORT);
 
 /**
+ * Und was sie höchstens kosten darf.
+ *
+ * Ein Budget ist auch nach oben eine Aussage: wer 4000 Token vergibt, hat
+ * keine Grenze mehr, sondern nur noch eine Rechnung. Ein Viertel Luft über
+ * dem Bedarf trägt Markdown, ein langes Kompositum und eine Belegzeile —
+ * darüber hinaus hört es auf, eine Grenze zu sein.
+ *
+ * Vorher standen hier ZWEI unbegründete Zahlen an zwei Orten: `kern.spec.js`
+ * verlangte höchstens 300, `models.mjs` höchstens 400. Die 300 lagen dabei
+ * UNTER dem, was die 90 Wörter des Auftrags kosten — die Zusicherung „kleine
+ * Antwortgrenze" und die Anweisung widersprachen sich also schon, bevor
+ * jemand etwas änderte. Sichtbar wurde es erst, als das Budget stieg.
+ */
+export const MAX_ANTWORT_TOKENS = Math.ceil(MIN_ANTWORT_TOKENS * 1.25);
+
+/**
  * Der Satz, der die Wortgrenze in den Auftrag trägt. Er kommt aus derselben
  * Konstante wie das Budget — sonst driften Anweisung und Spielraum wieder
  * auseinander, und der Bruch fällt erst im Betrieb auf.

@@ -252,6 +252,15 @@ die Abhängigkeit, nicht die Zahl — eine größere Wortgrenze muss ein größe
 Budget ergeben. Sonst überlebt die Ableitung als festgeschriebene Zahl, und
 beim nächsten Verschieben zieht das Budget nicht mit.
 
+**Auch die Obergrenze ist abgeleitet.** Vorher standen zwei unbegründete
+Zahlen an zwei Orten: `kern.spec.js` verlangte höchstens 300, `models.mjs`
+höchstens 400 — und die 300 lagen **unter** dem, was die 90 Wörter desselben
+Auftrags kosten. Die Zusicherung „kleine Antwortgrenze" widersprach der
+Anweisung also schon, bevor jemand etwas änderte; sichtbar wurde es erst, als
+das Budget stieg. Jetzt gilt ein Viertel Luft über dem Bedarf
+(`MAX_ANTWORT_TOKENS`, derzeit 394) — genug für Markdown, ein langes
+Kompositum und eine Belegzeile, und wenig genug, dass es eine Grenze bleibt.
+
 Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
 verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.
 
@@ -459,7 +468,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-576 Tests in 33 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+578 Tests in 33 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
