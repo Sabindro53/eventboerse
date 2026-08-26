@@ -25,6 +25,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
+import { MIN_ANTWORT_TOKENS, WORTGRENZE_SATZ } from './lib/antwortgrenze.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Tests brauchen ein eigenes Journal — sonst prüften sie gegen die echte
@@ -380,7 +381,11 @@ async function arbeiten() {
       },
       body: JSON.stringify({
         model: rolle.modellId,
-        max_tokens: rolle.maxTokens || 220,
+        // Nie unter das, was die Wortgrenze im Auftrag kostet. Der Katalog
+        // darf mehr geben, aber nicht weniger: sonst verlangt der Auftrag
+        // eine Laenge, die das Budget nicht hergibt, und die Rolle wird
+        // fuer das Befolgen der Anweisung abgeschnitten.
+        max_tokens: Math.max(rolle.maxTokens || 0, MIN_ANTWORT_TOKENS),
         temperature: 0.2,
         // Denk-Tokens abschalten.
         //
@@ -395,7 +400,7 @@ async function arbeiten() {
         // OpenRouter ignoriert das Feld bei Modellen ohne Reasoning.
         reasoning: { enabled: false },
         messages: [
-          { role: 'system', content: AUFTRAG[rolleId] + ' Antworte auf Deutsch, konkret und in höchstens 90 Wörtern. Behaupte nichts ohne Beleg.' + regel },
+          { role: 'system', content: AUFTRAG[rolleId] + WORTGRENZE_SATZ + ' Behaupte nichts ohne Beleg.' + regel },
           { role: 'user', content: `AKTUELLER AUFTRAG:\n${aktuelleAufgabe}\n\nBELEGTER KONTEXT:\n${eingezaeunt}` },
         ],
         provider: {

@@ -32,6 +32,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GEHEIMNISSE, ersterTreffer, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
+import { MIN_ANTWORT_TOKENS, WORTGRENZE } from './lib/antwortgrenze.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets', 'eb-models.json');
@@ -303,7 +304,7 @@ const ROH_MODELLE = [
  * aber weiterhin keinen erfundenen Laufzeit-Zustand.
  */
 const ARBEITSPLAENE = {
-  'llama-arch': { anteil: 10, maxTokens: 260, aufgaben: [
+  'llama-arch': { anteil: 10, aufgaben: [
     { ziel: 'Roadmap gegen Nutzerwert prüfen und genau den nächsten Produkthebel benennen.',
       dateien: ['vault/50-Evolution/Roadmap/Current-Sprint.md', 'vault/50-Evolution/Roadmap/Feature-Ideen.md'] },
     { ziel: 'Aktuellen Sprint auf Zielkonflikte, fehlende Kennzahl und unnötigen Umfang prüfen.',
@@ -312,7 +313,7 @@ const ARBEITSPLAENE = {
       dateien: ['hq.html', 'app-shell.html'] },
         { ziel: 'Die Startseite auf den einen Schritt prüfen, der Suchende am häufigsten aufhält.', dateien: ['js/modules/search/10-karten-home-feed.js'] },
   ] },
-  'deepseek-code': { anteil: 12, maxTokens: 260, aufgaben: [
+  'deepseek-code': { anteil: 12, aufgaben: [
     { ziel: 'Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen.',
       dateien: ['functions.php'] },
     { ziel: 'HQ- und Website-Abhängigkeiten auf eine brüchige Schnittstelle prüfen.',
@@ -320,7 +321,7 @@ const ARBEITSPLAENE = {
     { ziel: 'Den nächsten kleinen Patch vor Umsetzung auf Seiteneffekte gegenlesen.',
       dateien: ['js/modules/board/40-board-kanban.js'] },
   ] },
-  'mistral-ops': { anteil: 8, maxTokens: 180, aufgaben: [
+  'mistral-ops': { anteil: 8, aufgaben: [
     // Bewusst NICHT ionos-deploy.yml: die Datei nennt das SFTP-Deployziel und
     // faellt damit unter GEHEIMNISSE („Infrastruktur-Zugang"). Der Filter hat
     // recht — ein Deploy-Ziel gehoert nicht in einen Prompt an einen fremden
@@ -333,7 +334,7 @@ const ARBEITSPLAENE = {
     { ziel: 'Releaseweg auf den nächsten vermeidbaren Engpass prüfen.',
       dateien: ['.github/workflows/pr-check.yml'] },
   ] },
-  'qwen-wissen': { anteil: 10, maxTokens: 240, aufgaben: [
+  'qwen-wissen': { anteil: 10, aufgaben: [
     { ziel: 'Freigegebenes Wissen auf die wichtigste unbeantwortete Nutzerfrage prüfen.',
       dateien: ['vault/10-Produkt/Wissen/Gebuehren-und-Provision.md', 'vault/10-Produkt/Wissen/Buchung-und-Zahlung.md'] },
     { ziel: 'Neue Signale nach Produktnähe und Belegbarkeit einordnen.',
@@ -342,7 +343,7 @@ const ARBEITSPLAENE = {
       dateien: ['vault/10-Produkt/Wissen/Inserate-erstellen.md', 'vault/10-Produkt/Wissen/Konto-und-Anmeldung.md'] },
         { ziel: 'Den lokalen Planungsassistenten auf eine Frage prüfen, die er heute unbeantwortet lässt.', dateien: ['js/modules/ai/50-planungs-assistent.js'] },
   ] },
-  'gemma-sort': { anteil: 8, maxTokens: 200, aufgaben: [
+  'gemma-sort': { anteil: 8, aufgaben: [
     { ziel: 'Eine messbare Voice- oder UX-Reibung für den nächsten kleinen Patch auswählen.',
       dateien: ['hq.html'] },
     { ziel: 'HQ-Orientierung auf unnötige Schritte und unklare Bezeichnungen prüfen.',
@@ -351,7 +352,7 @@ const ARBEITSPLAENE = {
       dateien: ['styles.css', 'tests/e2e/barrierefreiheit.spec.js'] },
         { ziel: 'Eine konkrete Reibung in Modals, Toasts oder Hilfe benennen, die sich klein und additiv beheben lässt.', dateien: ['js/modules/ui/31-modals-toast-qabot.js', 'ui-enhancements.css'] },
   ] },
-  'phi-kurz': { anteil: 16, maxTokens: 300, aufgaben: [
+  'phi-kurz': { anteil: 16, aufgaben: [
     { ziel: 'Den priorisierten, freigegebenen Kleinst-Patch innerhalb des erlaubten Scopes vorbereiten.',
       dateien: ['js/modules/ui/31-modals-toast-qabot.js'] },
     { ziel: 'Eine klar eingegrenzte Regression mit minimaler Änderung beheben.',
@@ -359,7 +360,7 @@ const ARBEITSPLAENE = {
     { ziel: 'Eine getestete UX-Verbesserung als kleinen Unified-Diff vorbereiten.',
       dateien: ['styles.css'] },
   ] },
-  'mixtral-sales': { anteil: 8, maxTokens: 200, aufgaben: [
+  'mixtral-sales': { anteil: 8, aufgaben: [
     { ziel: 'Anfragen nach Kategorie, Dringlichkeit und nächstem unverbindlichen Schritt strukturieren.',
       dateien: ['js/modules/chat/20-chat-nachrichten.js'] },
     { ziel: 'Funnel auf die größte aktuelle Reibung vor einer Buchung prüfen.',
@@ -367,7 +368,7 @@ const ARBEITSPLAENE = {
     { ziel: 'Eine Angebotslücke mit nachvollziehbarem Geschäftswert benennen.',
       dateien: ['vault/50-Evolution/Roadmap/Feature-Ideen.md'] },
   ] },
-  'llama-finance': { anteil: 6, maxTokens: 180, aufgaben: [
+  'llama-finance': { anteil: 6, aufgaben: [
     { ziel: 'Gebühren- und Kostenannahmen auf eine konkrete Abweichung prüfen.',
       dateien: ['vault/10-Produkt/Wissen/Gebuehren-und-Provision.md'] },
     { ziel: 'KI-Kontingent gegen Tagesbudget und Nutzen pro Aufgabe prüfen.',
@@ -375,7 +376,7 @@ const ARBEITSPLAENE = {
     { ziel: 'Finanzielle Risiken markieren, ohne Zahlungen oder Buchungen auszulösen.',
       dateien: ['js/modules/board/41-flow-zahlung.js'] },
   ] },
-  'llama-guard': { anteil: 10, maxTokens: 180, aufgaben: [
+  'llama-guard': { anteil: 10, aufgaben: [
     { ziel: 'Aktuelle Eingabe-, Rechte- und Geheimnisgrenzen auf die höchste Angriffsfläche prüfen.',
       dateien: ['functions.php', 'scripts/lib/verbotsmuster.mjs'] },
     { ziel: 'Neue Datenflüsse auf Prompt-Injection, übermäßige Rechte und Datenschutzrisiken klassifizieren.',
@@ -383,7 +384,7 @@ const ARBEITSPLAENE = {
     { ziel: 'Die nächste Änderung auf Missbrauchs- und Exfiltrationsrisiken prüfen.',
       dateien: ['tests/e2e/ki-abwehr.spec.js'] },
   ] },
-  'nemotron-governance': { anteil: 7, maxTokens: 220, aufgaben: [
+  'nemotron-governance': { anteil: 7, aufgaben: [
     // Nicht Sicherheits-Klassifikation.md: die Notiz erklaert Verbotsmuster und
     // enthaelt dafuer Beispiele der Form „secret: …" — sie faellt an der
     // eigenen Regel durch, die sie beschreibt. Das Compliance-Bild steht
@@ -395,7 +396,7 @@ const ARBEITSPLAENE = {
     { ziel: 'Autonomiegrenzen auf Reversibilität und nachvollziehbare Zuständigkeit prüfen.',
       dateien: ['scripts/models.mjs'] },
   ] },
-  'ministral-community': { anteil: 5, maxTokens: 180, aufgaben: [
+  'ministral-community': { anteil: 5, aufgaben: [
     { ziel: 'Wiederkehrende Nutzerfragen bündeln und einen unverbindlichen Antwortentwurf vorbereiten.',
       dateien: ['vault/10-Produkt/Wissen/Nachrichten-und-Kontakt.md'] },
     { ziel: 'Supportsignale auf die größte Verständlichkeitslücke prüfen.',
@@ -408,7 +409,16 @@ const ARBEITSPLAENE = {
 
 const MODELLE = ROH_MODELLE.map((modell) => {
   const plan = ARBEITSPLAENE[modell.id];
-  return plan ? { ...modell, kontingentProzent: plan.anteil, maxTokens: plan.maxTokens, aufgabenstrom: plan.aufgaben } : modell;
+  // Ein Auftrag, eine Wortgrenze, ein Budget. Vorher trug jede Rolle ihr
+  // eigenes `maxTokens` (180–300) — nichts an ihrem Zuschnitt begruendete
+  // den Unterschied, und sechs davon lagen UNTER dem, was die gemeinsame
+  // Wortgrenze kostet. Eine Rolle darf mehr bekommen, wenn es einen Grund
+  // gibt; weniger nie.
+  return plan
+    ? { ...modell, kontingentProzent: plan.anteil,
+        maxTokens: Math.max(plan.maxTokens || 0, MIN_ANTWORT_TOKENS),
+        aufgabenstrom: plan.aufgaben }
+    : modell;
 });
 
 /**
@@ -476,7 +486,12 @@ function pruefen() {
     if (m.weg === 'openrouter' && !m.modellId) melde('OpenRouter-Modell ohne modellId');
     if (m.weg === 'openrouter') {
       if (!Number.isFinite(m.kontingentProzent) || m.kontingentProzent <= 0) melde('OpenRouter-Rolle ohne Kontingentanteil');
-      if (!Number.isInteger(m.maxTokens) || m.maxTokens < 100 || m.maxTokens > 400) melde('unplausible Antwortgrenze');
+      // Die Untergrenze ist nicht mehr geraten, sondern abgeleitet: was
+      // der Auftrag an Woertern erlaubt, muss das Budget tragen koennen.
+      if (!Number.isInteger(m.maxTokens) || m.maxTokens < MIN_ANTWORT_TOKENS || m.maxTokens > 400) {
+        melde(`Antwortgrenze ${m.maxTokens} traegt die ${WORTGRENZE} Woerter des Auftrags nicht`
+          + ` (mindestens ${MIN_ANTWORT_TOKENS}, hoechstens 400)`);
+      }
       if (!Array.isArray(m.aufgabenstrom) || m.aufgabenstrom.length < 3) melde('kein belastbarer Aufgabenstrom');
       // Jede Aufgabe nennt ihr Ziel und die Dateien, um die es geht — und
       // diese Dateien müssen existieren. Eine Aufgabe, die eine erfundene

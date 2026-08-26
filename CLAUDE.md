@@ -232,6 +232,26 @@ schlicht falsch.
 **Ein Exit-Code 0 heißt hier „sauber ausgestiegen", nicht „hat etwas
 geliefert".** Wer das verwechselt, baut einen Bericht, der nur Erfolge führt.
 
+**Der Auftrag darf nicht mehr verlangen, als das Budget hergibt.** Vier von elf
+Rollen lieferten in jedem Lauf nichts: der Systemauftrag endet für **alle** mit
+„in höchstens 90 Wörtern“, die Budgets lagen aber bei 180–300 Token — in zwei
+Dateien gepflegt, ohne dass irgendetwas am Zuschnitt einer Rolle den
+Unterschied begründete. Sechs konnten die Anweisung physisch nicht befolgen;
+wer es versuchte, wurde abgeschnitten, und der Lauf bezahlte die vollen Token
+für nichts.
+
+Beide Zahlen kommen jetzt aus `scripts/lib/antwortgrenze.mjs`: Wortgrenze,
+Faktor und abgeleitetes Mindestbudget (derzeit **315**). Der Faktor 3,5 ist der
+**obere** Rand des Gemessenen — vier durchgekommene Antworten der Läufe
+905/908/910 ergaben 2,61–3,45 Token je deutschem Wort, und **keine** kam über
+77 Wörter. Eine knappe Schätzung erzeugte den Fehler unsichtbar neu:
+abgeschnitten wird erst im Betrieb.
+
+**Wortgrenze ändern heißt: nur diese eine Konstante ändern.** Ein Test prüft
+die Abhängigkeit, nicht die Zahl — eine größere Wortgrenze muss ein größeres
+Budget ergeben. Sonst überlebt die Ableitung als festgeschriebene Zahl, und
+beim nächsten Verschieben zieht das Budget nicht mit.
+
 Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
 verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.
 
@@ -439,7 +459,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-569 Tests in 32 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+576 Tests in 33 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -448,6 +468,7 @@ Pflichtseiten, KI-Transparenz), KI-Transparenz (Kennzeichnung in jeder
 Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe),
 **HQ-Puls** (der Ensemble-Lauf überlebt eine unlesbare Laufzeitspur; ein
 Schicht-Ausfall landet wirklich im Journal),
+**Antwortgrenze** (Auftrag und Token-Budget aus einer Zahl),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten
