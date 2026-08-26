@@ -261,6 +261,30 @@ das Budget stieg. Jetzt gilt ein Viertel Luft über dem Bedarf
 (`MAX_ANTWORT_TOKENS`, derzeit 394) — genug für Markdown, ein langes
 Kompositum und eine Belegzeile, und wenig genug, dass es eine Grenze bleibt.
 
+**Eine Schicht hat zwei Anläufe, nicht einen.** `agent.mjs` rief genau ein
+Modell; bei leerer Antwort oder HTTP-Fehler war die Schicht verloren. Gemessen
+an den Läufen 905/910/912 traf das **immer dieselben zwei Rollen**, aus
+modellspezifischen Gründen: Timo Rast bekam 3 von 3 Mal eine leere Antwort,
+Ben Oduya wurde 3 von 3 Mal abgeschnitten — auch noch bei 315 Token, also
+nicht mehr am Budget. Rund 90 bezahlte Aufrufe am Tag ohne Ergebnis.
+
+Der Autopilot wechselt in genau diesem Fall längst das Modell. Der Puls tut
+es jetzt auch: eine Schleife über `[eigenes, …ersatzModelle]`, gedeckelt bei
+`MAX_MODELLVERSUCHE` (2). Die **Ersatzkette ist eine Liste, nicht elf** — die
+Rollen unterscheiden sich in der Aufgabe, nicht darin, wer einspringt.
+
+**Die Kette greift nur in die eigene Belegschaft.** Beide Einträge stehen
+ohnehin im Katalog und sind dort `offen` mit Lizenz; `models.mjs` weigert
+sich zu schreiben, wenn ein Ersatzmodell fehlt, nicht im Katalog steht, nicht
+offen ist oder auf das eigene Modell zeigt. Ein Ausweichweg, der nur im
+Fehlerfall benutzt wird, wäre sonst die unauffälligste Hintertür an der
+Governance vorbei.
+
+**Ein Ausweichen ist nie unsichtbar.** Der Journaleintrag nennt das Modell,
+das wirklich geantwortet hat, führt jeden Fehlversuch unter `versuche` und
+bucht die Kosten **aller** Anläufe. Ein Eintrag, der nur den erfolgreichen
+Aufruf zeigt, verschweigt, dass eine Rolle ihr Modell verloren hat.
+
 Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
 verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.
 
@@ -468,7 +492,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-578 Tests in 33 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+586 Tests in 34 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -478,6 +502,7 @@ Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe),
 **HQ-Puls** (der Ensemble-Lauf überlebt eine unlesbare Laufzeitspur; ein
 Schicht-Ausfall landet wirklich im Journal),
 **Antwortgrenze** (Auftrag und Token-Budget aus einer Zahl),
+**Ersatzkette** (eine schweigende Rolle verliert ihre Schicht nicht),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten
