@@ -115,6 +115,7 @@ jobs:
                  set sftp:auto-confirm yes;
                  set net:timeout 30;
                  set net:max-retries 2;
+                 set xfer:clobber on;
                  get $spur -o $tmp;
                  bye
                " >"$protokoll" 2>&1; then

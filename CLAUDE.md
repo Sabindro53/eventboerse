@@ -202,6 +202,15 @@ vermerkt (`tee`, also Log **und** Summary), nicht still.
 sie geschrieben wird** — hier SFTP mit denselben Zugangsdaten. Ein zweiter,
 offener Weg hinein wäre die eigentliche Gefahr.
 
+**`mktemp` legt die Zieldatei an — lftps `get` überschreibt sie nicht.** Genau
+daran scheiterte der Abruf in den Läufen 905, 906 und 908: alle drei endeten
+bei 14 Journaleinträgen (3 aus dem Repo + 11 der Schicht), statt auf 25 zu
+wachsen. Nicht Pfad, nicht Rechte, nicht Netz — dem Abruf lag ein Ziel im Weg,
+das er nicht anfassen durfte. Behoben mit **`set xfer:clobber on`**; der
+eindeutige Name von `mktemp` bleibt. Ein Test bildet die Clobber-Regel eines
+echten lftp nach — eine Zeichenketten-Prüfung hätte den Fehler nie gefunden,
+denn der Wortlaut war ja korrekt.
+
 **Der Ausfall nennt seinen Grund, nicht nur sich selbst.** Die erste Fassung
 meldete „nicht lesbar" und sonst nichts. In den Läufen 905 und 906 blieb das
 Journal deshalb beide Male bei 14 Einträgen, statt auf 25 zu wachsen — der
@@ -430,7 +439,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-567 Tests in 32 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+569 Tests in 32 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
