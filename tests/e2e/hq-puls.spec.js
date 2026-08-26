@@ -38,6 +38,94 @@ function schritt(name) {
   return WF.slice(von, bis > von ? bis : WF.length);
 }
 
+/** Der `run:`-Rumpf eines Schritts, ausführbar (Einrückung entfernt). */
+function rumpf(name) {
+  const s = schritt(name);
+  const ab = s.indexOf('run: |') + 'run: |'.length;
+  return s.slice(ab).split('\n')
+    .map((z) => (z.startsWith(' '.repeat(10)) ? z.slice(10) : z))
+    .join('\n');
+}
+
+test.describe('HQ-Puls: die Spur kommt wirklich vom Server', () => {
+  // Läufe 905, 906 und 908 endeten alle bei genau 14 Journaleinträgen —
+  // 3 aus dem Repository plus 11 der Schicht. Bei funktionierendem Abruf
+  // wären es beim zweiten Mal 25 gewesen. Die Spur verlor also bei jedem
+  // Lauf ihre Geschichte, und der Grund stand erst da, als der Schritt
+  // ihn nannte:
+  //
+  //   lftp: get: /public/.../eb-arbeit.json: /tmp/tmp.lU6IP2p7EC: File exists
+  //
+  // `mktemp` LEGT die Zieldatei an, und lftps `get` überschreibt eine
+  // vorhandene lokale Datei nicht. Nicht Pfad, nicht Rechte, nicht Netz:
+  // der Abruf bekam ein Ziel hingelegt, das er nicht anfassen durfte.
+  //
+  // Geprüft wird das am VERHALTEN, nicht am Wortlaut: ein gestelltes lftp
+  // bildet genau diese Clobber-Regel nach. Eine Zeichenketten-Zusicherung
+  // hätte den Fehler nie gefunden — der Wortlaut war ja korrekt.
+  function vorladenMitLftp({ clobberRespektieren = true } = {}) {
+    const heim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-vorlade-'));
+    fs.mkdirSync(path.join(heim, 'assets'));
+    fs.writeFileSync(path.join(heim, 'assets', 'eb-arbeit.json'),
+      '{"version":1,"eintraege":[]}');
+    fs.mkdirSync(path.join(heim, 'bin'));
+
+    // Ein lftp, das sich wie das echte verhält: `get -o ZIEL` scheitert
+    // an einem vorhandenen ZIEL, solange `xfer:clobber on` fehlt.
+    fs.writeFileSync(path.join(heim, 'bin', 'lftp'), `#!/bin/bash
+befehl=""
+for a in "$@"; do case "$a" in *"get "*) befehl="$a";; esac; done
+ziel="$(sed -n 's/.*-o \\([^;]*\\).*/\\1/p' <<<"$befehl" | tr -d ' ')"
+if ${clobberRespektieren ? 'true' : 'false'} \\
+   && [ -e "$ziel" ] && ! grep -q 'xfer:clobber on' <<<"$befehl"; then
+  echo "get: /public/.../eb-arbeit.json: $ziel: File exists" >&2
+  exit 1
+fi
+printf '{"version":1,"eintraege":[{"zeit":"a"},{"zeit":"b"},{"zeit":"c"}]}' > "$ziel"
+exit 0
+`);
+    fs.chmodSync(path.join(heim, 'bin', 'lftp'), 0o755);
+
+    const skript = path.join(heim, 'vorladen.sh');
+    fs.writeFileSync(skript, rumpf('Bestehende Laufzeitspur vorladen'));
+    let aus = '';
+    try {
+      aus = execFileSync('bash', [skript], {
+        cwd: heim, encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: `${path.join(heim, 'bin')}:${process.env.PATH}`,
+          GITHUB_STEP_SUMMARY: path.join(heim, 'summary.txt'),
+          SFTP_HOST: 'h', SFTP_USER: 'u', SFTP_PASS: 'p',
+        },
+      });
+    } catch (e) {
+      aus = `EXIT ${e.status}\n${e.stdout || ''}${e.stderr || ''}`;
+    }
+    const journal = fs.readFileSync(
+      path.join(heim, 'assets', 'eb-arbeit.json'), 'utf8');
+    fs.rmSync(heim, { recursive: true, force: true });
+    return { aus, journal };
+  }
+
+  test('ein vorhandenes Ziel verhindert den Abruf nicht mehr', () => {
+    const r = vorladenMitLftp();
+    expect(r.aus, `der Abruf scheitert weiterhin:\n${r.aus}`)
+      .not.toMatch(/nicht lesbar/);
+    expect(r.aus).toMatch(/Laufzeitspur vom Server: 3 Eintraege/);
+    // Und die Spur ist wirklich übernommen, nicht nur gemeldet.
+    expect(JSON.parse(r.journal).eintraege).toHaveLength(3);
+  });
+
+  test('der gestellte lftp bildet den echten Fehler nach', () => {
+    // Gegenprobe am Prüfmittel selbst: nimmt man ihm die Clobber-Regel,
+    // gälte der Test auch für die kaputte Fassung — er prüfte dann nichts.
+    const ohneRegel = vorladenMitLftp({ clobberRespektieren: false });
+    expect(ohneRegel.aus, 'ohne Clobber-Regel misst der Test nichts')
+      .toMatch(/Laufzeitspur vom Server/);
+  });
+});
+
 test.describe('HQ-Puls: der Lauf überlebt eine unlesbare Laufzeitspur', () => {
   test('die Spur wird nicht mehr aus dem offenen Netz geholt', () => {
     // eb-arbeit.json steht hinter der HQ-Zugangssperre. Ein anonymer Abruf
