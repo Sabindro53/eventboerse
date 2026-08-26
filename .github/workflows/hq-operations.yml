@@ -64,19 +64,57 @@ jobs:
       - name: Ensemble-Katalog pruefen
         run: node scripts/models.mjs --check
 
+      # Das Werkzeug wird HIER gebraucht, nicht erst beim Hochladen: die
+      # Laufzeitspur wird ueber denselben Weg gelesen, ueber den sie
+      # geschrieben wird.
+      - name: SFTP-Werkzeug einrichten
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      # Die Laufzeitspur kommt per SFTP, nicht ueber das offene Netz.
+      #
+      # Vorher holte dieser Schritt sie per curl von
+      # /wp-content/themes/.../assets/eb-arbeit.json — einer Datei, die
+      # `eb_hq_zugang_offen()` bewusst NICHT herausgibt: oeffentlich sind nur
+      # eb-knowledge.json und eb-demo-feed.json. Der anonyme Abruf konnte
+      # also nie eine gueltige Spur liefern, der Schritt brach ab, und weil
+      # der Rollen-Schritt kein `if: always()` traegt, wurde er UEBERSPRUNGEN.
+      # Ergebnis: seit dem 23.08. hat keine einzige Schicht mehr gearbeitet,
+      # bei rund 50 roten Laeufen am Tag.
+      #
+      # Und der Zustand konnte sich nicht selbst heilen: der Schritt, der
+      # eine gueltige Spur hochlaedt, laeuft nur, wenn sich das Journal
+      # geaendert hat — was ohne Rollen nie geschieht. Eine Automatik, die
+      # ihre eigene Vorbedingung erzeugt und daran scheitert, steht fuer
+      # immer.
+      #
+      # Deshalb ist dieser Schritt jetzt NICHT MEHR TOEDLICH. Ist die Spur
+      # nicht lesbar, gilt der Stand aus dem Repository und der Lauf geht
+      # weiter — sichtbar vermerkt, nicht still.
       - name: Bestehende Laufzeitspur vorladen
         shell: bash
         run: |
+          spur="/public/wp-content/themes/eventboerse/assets/eb-arbeit.json"
           tmp="$(mktemp)"
-          curl --fail --silent --show-error --location --retry 3 --max-time 30 \
-            "https://xn--eventbrse-57a.de/wp-content/themes/eventboerse/assets/eb-arbeit.json?run=${GITHUB_RUN_ID}" \
-            --output "$tmp"
-          if ! jq -e '.version == 1 and (.eintraege | type == "array")' "$tmp" >/dev/null; then
-            echo "Live-Journal ist nicht valide; bestehende Laufzeitspur wird nicht ueberschrieben." >&2
-            exit 1
+          geladen=0
+          if [ -n "$SFTP_HOST" ] && [ -n "$SFTP_USER" ] && [ -n "$SFTP_PASS" ]; then
+            if lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+                 set sftp:auto-confirm yes;
+                 set net:timeout 30;
+                 set net:max-retries 2;
+                 get $spur -o $tmp;
+                 bye
+               " >/dev/null 2>&1 \
+               && jq -e '.version == 1 and (.eintraege | type == "array")' "$tmp" >/dev/null 2>&1; then
+              mv "$tmp" assets/eb-arbeit.json
+              geladen=1
+            fi
           fi
-          mv "$tmp" assets/eb-arbeit.json
-          echo "Bestehende Laufzeitspur mit $(jq '.eintraege | length' assets/eb-arbeit.json) Eintraegen geladen." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$geladen" -eq 1 ]; then
+            echo "Laufzeitspur vom Server: $(jq '.eintraege | length' assets/eb-arbeit.json) Eintraege." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            # Der Lauf geht weiter — aber nie stillschweigend.
+            echo "⚠️ Laufzeitspur nicht lesbar. Es gilt der Stand aus dem Repository; die Schichten arbeiten weiter." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Voll-Ensemble-Puls bestimmen
         id: cadence
@@ -181,10 +219,6 @@ jobs:
       - name: Journal validieren
         if: always()
         run: node scripts/agent.mjs --check
-
-      - name: SFTP-Werkzeug einrichten
-        if: always()
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       # Aus den frischen Befunden die Warteschlange bauen, aus welcher der
       # Autopilot zieht. Ohne diesen Schritt haetten die Rollen weiter

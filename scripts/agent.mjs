@@ -196,6 +196,21 @@ async function arbeiten() {
   const aufgabeIndex = await naechsteAufgabe(rolleId, aufgaben.length);
   const roh = aufgaben[aufgabeIndex];
 
+  // Aufgabe und Dateien VOR der Schluesselpruefung aufloesen.
+  //
+  // Sie standen darunter, wurden aber schon im Zweig „kein Schluessel"
+  // benutzt: `const` in der temporalen Totzone. Der Ausfall, der als
+  // `uebersprungen` im Journal stehen sollte, endete damit in einem
+  // ReferenceError — und weil der VOR dem ersten Journaleintrag knallt,
+  // blieb genau der Ausfall unsichtbar, den dieser Zweig sichtbar machen
+  // soll.
+  //
+  // Aeltere Kataloge fuehrten reine Zeichenketten. Beide Formen lesen, damit
+  // ein Journal aus der Zeit davor nicht ploetzlich „undefined" als Ziel
+  // zeigt.
+  const aktuelleAufgabe = typeof roh === 'string' ? roh : roh.ziel;
+  const aufgabenDateien = (typeof roh === 'string' ? [] : roh.dateien) || [];
+
   const schluessel = process.env.OPENROUTER_API_KEY || process.env.EB_OPENROUTER_API_KEY || '';
   if (!schluessel) {
     // Kein Schlüssel: sauber aussteigen, aber sichtbar machen, dass die
@@ -212,11 +227,6 @@ async function arbeiten() {
     console.log(`ℹ ${rolle.person} (${rolle.rolle}): kein Schlüssel, Schicht übersprungen.`);
     process.exit(0);
   }
-
-  // Ältere Kataloge führten reine Zeichenketten. Beide Formen lesen, damit ein
-  // Journal aus der Zeit davor nicht plötzlich „undefined" als Ziel zeigt.
-  const aktuelleAufgabe = typeof roh === 'string' ? roh : roh.ziel;
-  const aufgabenDateien = (typeof roh === 'string' ? [] : roh.dateien) || [];
 
   let kontext = '';
   if (kontextDatei) {
