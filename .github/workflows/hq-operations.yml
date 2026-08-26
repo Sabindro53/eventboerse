@@ -95,25 +95,48 @@ jobs:
         run: |
           spur="/public/wp-content/themes/eventboerse/assets/eb-arbeit.json"
           tmp="$(mktemp)"
+          protokoll="$(mktemp)"
           geladen=0
+          grund="kein SFTP-Zugang gesetzt"
           if [ -n "$SFTP_HOST" ] && [ -n "$SFTP_USER" ] && [ -n "$SFTP_PASS" ]; then
+            # Die Ausgabe wird MITGESCHRIEBEN, nicht weggeworfen.
+            #
+            # Vorher stand hier `>/dev/null 2>&1`. Der Schritt meldete dann
+            # zwar „nicht lesbar", aber nicht warum — und in den Laeufen 905
+            # und 906 blieb das Journal deshalb beide Male bei 14 Eintraegen
+            # statt auf 25 zu wachsen, ohne dass die Ursache irgendwo stand.
+            # Eine Meldung, die den Ausfall nennt und den Grund verschweigt,
+            # ist nur die halbe Sichtbarkeit.
+            #
+            # Geheimnisse sind kein Problem: GitHub maskiert registrierte
+            # Secrets im Log, und das Passwort steht ohnehin nur in der
+            # Kommandozeile, nie in lftps Meldungen.
             if lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
                  set sftp:auto-confirm yes;
                  set net:timeout 30;
                  set net:max-retries 2;
                  get $spur -o $tmp;
                  bye
-               " >/dev/null 2>&1 \
-               && jq -e '.version == 1 and (.eintraege | type == "array")' "$tmp" >/dev/null 2>&1; then
-              mv "$tmp" assets/eb-arbeit.json
-              geladen=1
+               " >"$protokoll" 2>&1; then
+              # Getrennt bewerten: ein fehlgeschlagener Abruf und eine
+              # abgerufene, aber unbrauchbare Datei sind verschiedene
+              # Diagnosen und brauchen verschiedene Handgriffe.
+              if jq -e '.version == 1 and (.eintraege | type == "array")' "$tmp" >/dev/null 2>&1; then
+                mv "$tmp" assets/eb-arbeit.json
+                geladen=1
+              else
+                grund="Datei geladen, aber kein gueltiges Journal ($(wc -c <"$tmp") Bytes)"
+              fi
+            else
+              grund="SFTP-Abruf fehlgeschlagen"
             fi
           fi
           if [ "$geladen" -eq 1 ]; then
             echo "Laufzeitspur vom Server: $(jq '.eintraege | length' assets/eb-arbeit.json) Eintraege." | tee -a "$GITHUB_STEP_SUMMARY"
           else
-            # Der Lauf geht weiter — aber nie stillschweigend.
-            echo "⚠️ Laufzeitspur nicht lesbar. Es gilt der Stand aus dem Repository; die Schichten arbeiten weiter." | tee -a "$GITHUB_STEP_SUMMARY"
+            # Der Lauf geht weiter — aber nie stillschweigend, und nie ohne Grund.
+            echo "⚠️ Laufzeitspur nicht lesbar ($grund). Es gilt der Stand aus dem Repository; die Schichten arbeiten weiter." | tee -a "$GITHUB_STEP_SUMMARY"
+            sed -e 's/^/    lftp: /' "$protokoll" | tail -n 12 | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Voll-Ensemble-Puls bestimmen
@@ -188,6 +211,12 @@ jobs:
           # mistral-ops an dritter Stelle steht, haben acht Rollen ab dem
           # 10.08. kein einziges Mal gearbeitet. Ein Ausfall im Betrieb darf
           # die Governance-Rolle nicht mit stilllegen.
+          # Stand VOR der Schicht merken, um danach nur die eigenen
+          # Eintraege auszuwerten. Ueber die Zeit statt ueber die Anzahl:
+          # das Journal ist bei MAX_EINTRAEGE gedeckelt, und sobald es dort
+          # anschlaegt, waere eine Differenz von Laengen schlicht falsch.
+          seit="$(jq -r '.eintraege[0].zeit // "1970-01-01T00:00:00.000Z"' \
+                    assets/eb-arbeit.json)"
           gearbeitet=0; gescheitert=0
           for rolle in "${rollen[@]}"; do
             echo "## $rolle" >> "$GITHUB_STEP_SUMMARY"
@@ -203,8 +232,36 @@ jobs:
           done
           echo "ROLLEN_OK=$gearbeitet"   >> "$GITHUB_ENV"
           echo "ROLLEN_FEHL=$gescheitert" >> "$GITHUB_ENV"
+
+          # Die Bilanz kommt aus dem JOURNAL, nicht aus dem Exit-Code.
+          #
+          # agent.mjs steigt bewusst mit 0 aus, wenn ein Anbieter nichts
+          # Brauchbares liefert — sonst risse ein einzelner Ausfall die
+          # ganze Schicht mit. Die Schleife hat das als „gearbeitet"
+          # gezaehlt: Lauf 905 meldete „11 gearbeitet, 0 abgebrochen",
+          # waehrend fuenf Rollen am Tokenlimit abgeschnitten waren oder
+          # eine leere Antwort bekamen. Das Journal wusste es richtig
+          # (9 fertig, 5 fehler) — die Zusammenfassung log.
+          #
+          # Genau die Sorte Zahl, vor der CLAUDE.md warnt: ein Bericht,
+          # der nur Erfolge fuehrt, sieht aus wie ein Betrieb ohne
+          # Ausfaelle.
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Bilanz:** $gearbeitet gearbeitet, $gescheitert abgebrochen." >> "$GITHUB_STEP_SUMMARY"
+          jq -r --arg seit "$seit" '
+              [.eintraege[] | select(.zeit > $seit)]
+              | { fertig:       [.[] | select(.ergebnis == "fertig")]        | length,
+                  fehler:       [.[] | select(.ergebnis == "fehler")]        | length,
+                  uebersprungen:[.[] | select(.ergebnis == "uebersprungen")] | length,
+                  gesamt: length }
+              | "**Bilanz:** \(.fertig) von \(.gesamt) Rollen mit Ergebnis"
+                + (if .fehler        > 0 then ", \(.fehler) ohne verwertbare Antwort" else "" end)
+                + (if .uebersprungen > 0 then ", \(.uebersprungen) uebersprungen"     else "" end)
+                + "."
+            ' assets/eb-arbeit.json | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$gescheitert" -gt 0 ]; then
+            echo "($gescheitert Schicht(en) mit Prozessfehler abgebrochen.)" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
           # Erst am Ende entscheiden: nur ein Totalausfall ist ein roter Lauf.
           # Einzelne Abbrueche stehen im Journal und muessen dort auffallen,
           # nicht als geloeschter Schritt.

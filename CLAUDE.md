@@ -202,6 +202,27 @@ vermerkt (`tee`, also Log **und** Summary), nicht still.
 sie geschrieben wird** — hier SFTP mit denselben Zugangsdaten. Ein zweiter,
 offener Weg hinein wäre die eigentliche Gefahr.
 
+**Der Ausfall nennt seinen Grund, nicht nur sich selbst.** Die erste Fassung
+meldete „nicht lesbar" und sonst nichts. In den Läufen 905 und 906 blieb das
+Journal deshalb beide Male bei 14 Einträgen, statt auf 25 zu wachsen — der
+Abruf scheiterte weiter, nur ohne Ursache. Der Schritt schreibt die
+lftp-Ausgabe jetzt mit und trennt die zwei Diagnosen: **Abruf fehlgeschlagen**
+gegen **geladen, aber kein gültiges Journal**. Das sind verschiedene
+Handgriffe; ein gemeinsamer Text verwischt sie.
+
+**Die Bilanz kommt aus dem Journal, nicht aus dem Exit-Code.** `agent.mjs`
+steigt bei einer unbrauchbaren Antwort bewusst mit 0 aus, damit ein einzelner
+Anbieter nicht die ganze Schicht mitreißt — die Schleife zählte das als
+„gearbeitet". Lauf 905 meldete darum **„11 gearbeitet, 0 abgebrochen"**,
+während fünf Rollen am Tokenlimit abgeschnitten waren; das Journal wusste es
+richtig (9 fertig, 5 fehler). Gezählt wird über die **Zeit** des letzten
+Eintrags vor der Schicht, nicht über eine Längendifferenz: das Journal ist bei
+`MAX_EINTRAEGE` gedeckelt, und sobald der Deckel greift, wäre eine Differenz
+schlicht falsch.
+
+**Ein Exit-Code 0 heißt hier „sauber ausgestiegen", nicht „hat etwas
+geliefert".** Wer das verwechselt, baut einen Bericht, der nur Erfolge führt.
+
 Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
 verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.
 
@@ -409,7 +430,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-563 Tests in 32 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+567 Tests in 32 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
