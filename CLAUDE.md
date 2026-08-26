@@ -184,6 +184,24 @@ nie). Ohne `EB_OPENROUTER_API_KEY` fällt die Schicht aus **und steht als
 wie ein Betrieb ohne Ausfälle. `/hq/chat` lässt den Circle ein echtes Gespräch
 führen, ausschließlich aus freigegebenem Wissen.
 
+**Die Laufzeitspur kommt per SFTP, nie aus dem offenen Netz.** `hq-operations.yml`
+holte `assets/eb-arbeit.json` per anonymem `curl` — eine Datei, die
+`eb_hq_zugang_offen()` bewusst **nicht** herausgibt. Der Abruf konnte nie
+gelingen, der Schritt brach hart ab, und weil der Rollen-Schritt kein
+`if: always()` trägt, wurde er übersprungen. Vom 23. bis 26.08. hat deshalb
+**keine einzige Schicht gearbeitet**, bei rund 50 roten Läufen am Tag.
+
+Der Zustand konnte sich **nicht selbst heilen**: der Schritt, der eine gültige
+Spur hochlädt, läuft nur bei geändertem Journal — was ohne Rollen nie geschieht.
+Eine Automatik, die ihre eigene Vorbedingung erzeugt und daran scheitert, steht
+für immer. Deshalb ist das Vorladen jetzt **nicht mehr tödlich**: ist die Spur
+unlesbar, gilt der Stand aus dem Repository und der Lauf geht weiter — sichtbar
+vermerkt (`tee`, also Log **und** Summary), nicht still.
+
+**Wer eine geschützte Datei in einem Workflow braucht, nimmt den Weg, über den
+sie geschrieben wird** — hier SFTP mit denselben Zugangsdaten. Ein zweiter,
+offener Weg hinein wäre die eigentliche Gefahr.
+
 Der Katalog beschreibt **Möglichkeiten**, nie den Verbindungszustand — ob etwas
 verbunden ist, entscheidet ausschließlich eine echte Prüfung zur Laufzeit.
 
@@ -391,13 +409,15 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-558 Tests in 31 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+563 Tests in 32 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
 Sicherheitsrahmen), **Recht** (Speicherschlüssel ↔ Cookie-Liste, Einwilligung,
 Pflichtseiten, KI-Transparenz), KI-Transparenz (Kennzeichnung in jeder
 Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe),
+**HQ-Puls** (der Ensemble-Lauf überlebt eine unlesbare Laufzeitspur; ein
+Schicht-Ausfall landet wirklich im Journal),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten

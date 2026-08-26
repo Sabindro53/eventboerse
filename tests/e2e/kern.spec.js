@@ -482,7 +482,23 @@ test.describe('OpenRouter-Autopilot', () => {
     // — steht in den beiden Prüfungen darüber und darunter.
     expect(operations).toMatch(/5-Minuten-HQ-Rundlauf/);
     expect(operations).toMatch(/Bestehende Laufzeitspur vorladen/);
-    expect(operations).toMatch(/eb-arbeit\.json\?run=\$\{GITHUB_RUN_ID\}/);
+    const vorladen = operations.slice(
+      operations.indexOf('- name: Bestehende Laufzeitspur vorladen'),
+      operations.indexOf('- name: Voll-Ensemble-Puls bestimmen'));
+    // Und er darf den Lauf nicht mehr toeten: genau daran hing der Puls vom
+    // 23. bis zum 26.08. fest, weil der Rollen-Schritt danach uebersprungen
+    // wurde und die Spur so nie wieder gueltig werden konnte.
+    expect(vorladen, 'ein unlesbarer Vorlauf stoppt wieder das ganze Ensemble')
+      .not.toMatch(/exit 1/);
+    // Die Spur kommt ueber SFTP, nicht ueber das offene Netz. Frueher stand
+    // hier ein curl mit `?run=${GITHUB_RUN_ID}` gegen den Cache — auf eine
+    // Datei, die `eb_hq_zugang_offen()` gar nicht herausgibt. Der Abruf
+    // konnte nie gelingen; geprueft wurde die Cache-Umgehung eines Aufrufs,
+    // der immer scheiterte. Jetzt zaehlt der Weg, nicht der Query-Parameter.
+    expect(operations, 'die Spur wird wieder aus dem offenen Netz geholt')
+      .not.toMatch(/curl[^\n]*eb-arbeit\.json/);
+    expect(vorladen, 'die Spur wird nicht vom Server gelesen')
+      .toMatch(/lftp[\s\S]*get \$spur/);
     expect(operations.indexOf('Bestehende Laufzeitspur vorladen')).toBeLessThan(operations.indexOf('Alle Rollen taskweise arbeiten lassen'));
     expect(operations).toMatch(/select\(\.weg == "openrouter"\)/);
     expect(operations).toMatch(/scripts\/agent\.mjs/);
@@ -1515,12 +1531,26 @@ test.describe('Der Ausfall muss sichtbar sein', () => {
     const ab = HQ_OPS.indexOf('- name: Journal validieren');
     expect(ab, 'Journal-Schritt nicht gefunden').toBeGreaterThan(0);
     const rest = HQ_OPS.slice(ab);
-    for (const schritt of ['Journal validieren', 'SFTP-Werkzeug einrichten', 'Echte Laufzeitspur veroeffentlichen']) {
+    for (const schritt of ['Journal validieren', 'Echte Laufzeitspur veroeffentlichen']) {
       const i = rest.indexOf(`- name: ${schritt}`);
       expect(i, `Schritt fehlt: ${schritt}`).toBeGreaterThanOrEqual(0);
       expect(rest.slice(i, i + 220), `${schritt} läuft nach einem Fehlschlag nicht`)
         .toMatch(/if: always\(\)/);
     }
+    // Das SFTP-Werkzeug braucht kein `if: always()` mehr — es wird jetzt
+    // ganz vorne installiert, weil schon das Vorladen ueber SFTP liest.
+    // Damit ist es auf JEDEM Pfad da, auch auf dem Fehlerpfad. Geprueft wird
+    // die Eigenschaft, nicht die Stelle: entweder steht der Schritt vor
+    // allem, was scheitern kann, oder er traegt `if: always()`.
+    const iLftp = HQ_OPS.indexOf('- name: SFTP-Werkzeug einrichten');
+    expect(iLftp, 'lftp wird nirgends mehr installiert').toBeGreaterThan(0);
+    const vorErsterArbeit = iLftp < HQ_OPS.indexOf('- name: Alle Rollen taskweise arbeiten lassen');
+    const traegtAlways = /if: always\(\)/.test(HQ_OPS.slice(iLftp, iLftp + 220));
+    expect(vorErsterArbeit || traegtAlways,
+      'das Hochladen der Spur faellt aus, wenn eine Rolle scheitert').toBe(true);
+    // Und nur einmal: ein zweiter Install kostet in jedem der ~50 Laeufe.
+    expect((HQ_OPS.match(/apt-get install -y -qq lftp/g) || []).length,
+      'lftp wird mehrfach installiert').toBe(1);
   });
 
   test('beide Routinen melden ihren eigenen Ausfall', () => {
