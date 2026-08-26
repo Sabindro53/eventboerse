@@ -26,6 +26,36 @@ module.exports = defineConfig({
   testDir: './tests/e2e',
   timeout: 45000,
   fullyParallel: true,
+  // In CI arbeitet EIN Worker.
+  //
+  // Am 26.08. wurde die Suite in vier aufeinanderfolgenden Läufen immer
+  // langsamer und fiel immer weiter aus — 4,7 min / 2 Fehlschläge, dann
+  // 4,6 / 4, dann 5,1 / 5, dann 9,1 min / 19. Lokal blieb sie in jedem
+  // Anlauf grün. Betroffen war immer dieselbe Sorte Test: die, die
+  // `hq.html` laden.
+  //
+  // GEMESSEN, nicht vermutet. Der Aufbau des Bereichsrings dauert:
+  //
+  //   ohne Bremse      1,0 s
+  //   4-fache Bremse   2,6 s
+  //   10-fache Bremse  6,6 s
+  //
+  // Das HQ ist also nicht pathologisch langsam, und die 12 s, die der
+  // Bereichsring zugestanden bekommt, sind kein knapper Wert — sie tragen
+  // rund 18-fache Verlangsamung. Unter Kontention auf dem Runner wird
+  // selbst das überschritten: mit `--workers=12` auf vier Kernen fallen
+  // lokal exakt dieselben Tests wie in CI.
+  //
+  // Weniger Worker half messbar (bei 1 und 2 blieb es sauber), aber der
+  // Effekt ist verrauscht: einmal lief auch 12 durch, einmal fiel 4. Ein
+  // Schalter, der nur meistens hilft, waere keine Loesung — deshalb hier
+  // die Grenze, die Kontention ganz beseitigt.
+  //
+  // DER PREIS ist gemessen, nicht geschaetzt: lokal 6,1 min mit den
+  // Vorgabe-Workern gegen 7,5 min mit einem, also rund ein Viertel mehr.
+  // Der rote Lauf brauchte 9,1 min und lieferte 19 Fehlschlaege. Ein Tor,
+  // das verlaesslich ist, ist mehr wert als eines, das schneller wuerfelt.
+  workers: process.env.CI ? 1 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['github']] : [['list']],

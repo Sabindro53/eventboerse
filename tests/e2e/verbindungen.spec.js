@@ -511,7 +511,7 @@ test.describe('Verbindungs-Oberfläche', () => {
     // keine Karte „verbunden" zeigen.
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2500);
+    await page.locator('.conn').first().waitFor({ state: 'attached', timeout: 20000 });
 
     const zustand = await page.evaluate(() => ({
       geladen: !!window.connKatalog || typeof connKatalog !== 'undefined' && !!connKatalog,
@@ -531,7 +531,7 @@ test.describe('Verbindungs-Oberfläche', () => {
   test('jede Karte nennt Berechtigungen, Kontingent und Schlüssel-Ablage', async ({ page }) => {
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2000);
+    await page.locator('.conn').first().waitFor({ state: 'attached', timeout: 20000 });
     const fehlend = await page.evaluate(() =>
       [...document.querySelectorAll('.conn')].filter((el) => {
         const t = el.textContent;

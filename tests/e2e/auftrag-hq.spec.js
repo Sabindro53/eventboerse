@@ -25,7 +25,7 @@ async function hqMitGithub(page, aufPost) {
       body: JSON.stringify({ number: 42, html_url: 'https://github.com/x/y/issues/42' }) });
   });
   await page.goto('/hq.html');
-  await page.waitForTimeout(1700);
+  await page.waitForFunction(() => !!window.ebCircleAPI, null, { timeout: 20000 });
   await page.evaluate(() => sessionStorage.setItem('hq_pat', 'test-token'));
   await page.evaluate(() => window.ebCircleAPI.oeffnen());
 }
@@ -83,7 +83,7 @@ test.describe('Aufträge aus dem Gespräch', () => {
     // nicht erst angenommen wurde.
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(1700);
+    await page.waitForFunction(() => !!window.ebCircleAPI, null, { timeout: 20000 });
     await page.evaluate(() => sessionStorage.removeItem('hq_pat'));
     await page.evaluate(() => window.ebCircleAPI.oeffnen());
     await sagen(page, 'Auftrag: Die Bilder der Startseite lokal hosten, damit sie schneller laden.');

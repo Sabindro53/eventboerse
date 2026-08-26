@@ -5,6 +5,36 @@
 // und wäre genau dann wertlos, wenn man sich auf die Anzeige verlässt, weil
 // ein stillstehendes System dann aussieht wie ein arbeitendes.
 const { test, expect } = require('@playwright/test');
+
+/**
+ * Warten auf das, worum es im Test geht — nicht auf eine Zahl.
+ *
+ * Am 26.08. fiel CI zweimal an dieser Stelle: die Tests riefen
+ * `waitForTimeout(N)` und fassten danach an, was die Seite erst bauen muss.
+ * Lokal reichte die Zahl immer, unter Parallellast in CI nicht. Gemeldet
+ * wurde dann ein TypeError aus `getComputedStyle` oder ein leeres Panel —
+ * beides sagt nichts ueber die gepruefte Eigenschaft.
+ *
+ * `#wert-block` und Geschwister stehen schon im statischen Markup; auf ihre
+ * EXISTENZ zu warten waere wirkungslos. Gewartet wird deshalb auf INHALT.
+ *
+ * Und INHALT heisst nicht „irgendein Zeichen": `#wert-badge` traegt bis zum
+ * Fuellen ein „–". Die erste Fassung dieses Helfers pruefte nur auf
+ * nicht-leer und kehrte deshalb sofort zurueck — der Test fiel danach mit
+ * `Expected "674.000", Received "–"`. Wer wartet, muss sagen, WORAUF.
+ */
+async function hqGefuellt(page, wahl, muster = /\S/) {
+  await page.waitForFunction(([s, q]) => {
+    const el = document.querySelector(s);
+    return !!el && new RegExp(q).test(el.textContent || '');
+  }, [wahl, muster.source], { timeout: 20000 });
+}
+
+/** Wartet, bis die HQ-Oberflaeche ihre JS-Schnittstelle bereitstellt. */
+async function hqBereit(page) {
+  await page.waitForFunction(() => !!window.ebCircleAPI, null, { timeout: 20000 });
+}
+
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -1269,7 +1299,7 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     page.on('pageerror', (e) => fehler.push(String(e)));
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2400);
+    await hqGefuellt(page, '#wert-block', /\d/);
     expect(fehler).toEqual([]);
 
     const text = await page.locator('#wert-block').innerText();
@@ -1301,7 +1331,7 @@ test.describe('Arbeitsjournal & Gespräch', () => {
 
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2400);
+    await hqGefuellt(page, '#wert-badge', /\d/);
     const badge = await page.locator('#wert-badge').innerText();
     expect(badge).toContain(markt.toLocaleString('de-DE'));
     expect(badge).toContain(deckel.toFixed(2).replace('.', ','));
@@ -1322,7 +1352,8 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     page.on('pageerror', (e) => fehler.push(String(e)));
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2400);
+    await page.locator('#lage-liste .lage-zeile').first()
+      .waitFor({ state: 'attached', timeout: 20000 });
     expect(fehler, 'HQ wirft Seitenfehler').toEqual([]);
 
     const zeilen = await page.locator('#lage-liste .lage-zeile').count();
@@ -1346,7 +1377,7 @@ test.describe('Arbeitsjournal & Gespräch', () => {
     // das HQ etwas anderes als der Circle auf Nachfrage.
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2400);
+    await hqBereit(page);
     const gleich = await page.evaluate(() => {
       const api = window.ebCircleAPI;
       const ausZeilen = api.lageZeilen().map((z) => z.text).join('\n');
@@ -1358,7 +1389,7 @@ test.describe('Arbeitsjournal & Gespräch', () => {
   test('HQ zeigt das Journal ehrlich, auch wenn es leer ist', async ({ page }) => {
     await page.route('https://api.github.com/**', (r) => r.abort());
     await page.goto('/hq.html');
-    await page.waitForTimeout(2200);
+    await hqGefuellt(page, '#journal');
     const text = await page.evaluate(() => document.getElementById('journal').textContent);
     if (!JOURNAL.eintraege.length) {
       expect(text, 'ein leeres Journal zeigt Taktziel und Voll-Ensemble, statt leer zu bleiben').toMatch(/Lagebild-Lauf startet viermal täglich.*gesamte Ensemble/is);

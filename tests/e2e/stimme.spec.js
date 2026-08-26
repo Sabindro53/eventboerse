@@ -30,7 +30,7 @@ async function mitMikrofon() {
 }
 async function circleAuf(page) {
   await page.goto('/hq.html');
-  await page.waitForTimeout(1600);
+  await page.waitForFunction(() => !!window.ebCircleAPI, null, { timeout: 20000 });
   await page.evaluate(() => { window.speechSynthesis.speak = (u) => { if (u.onend) setTimeout(u.onend, 5); }; });
   await page.evaluate(() => window.ebCircleAPI.oeffnen());
 }
@@ -42,7 +42,7 @@ const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 async function hqAuf(page) {
   await page.route('https://api.github.com/**', (r) => r.abort());
   await page.goto('/hq.html');
-  await page.waitForTimeout(1600);
+  await page.waitForFunction(() => !!window.ebCircleAPI, null, { timeout: 20000 });
   await page.evaluate(() => {
     window.__gesprochen = [];
     window.speechSynthesis.speak = (u) => {
@@ -160,15 +160,41 @@ test.describe('Die Sprach-Route', () => {
   });
 });
 
+/**
+ * Öffnet das HQ und wartet, bis der neuronale Kern wirklich da ist.
+ *
+ * Vorher stand in jedem dieser Tests `waitForTimeout(2000)` — eine UHR statt
+ * einer Bedingung. Lokal reichten zwei Sekunden immer; in CI unter voller
+ * Parallellast nicht. Am 26.08. fielen deshalb alle vier Tests dieser Gruppe,
+ * und zwar mit einem Fehler, der von der geprüften Eigenschaft gar nichts
+ * sagt:
+ *
+ *   TypeError: Failed to execute 'getComputedStyle' on 'Window':
+ *   parameter 1 is not of type 'Element'
+ *
+ * `querySelector('.nn-hud-…')` gab null zurück. Der Test prüfte nicht die
+ * Rotation, sondern die Rendergeschwindigkeit des Runners — und meldete beim
+ * Scheitern etwas anderes, als er wissen wollte.
+ *
+ * Gewartet wird auf `.nn-hud-fokus`: der Ring, der als letzter der Gruppe
+ * gezeichnet wird. Ist er da, sind die anderen es auch.
+ */
+async function hqMitKern(page, { reducedMotion } = {}) {
+  if (reducedMotion) await page.emulateMedia({ reducedMotion });
+  await page.route('https://api.github.com/**', (r) => r.abort());
+  await page.goto('/hq.html');
+  // `attached`, nicht `visible`: die Ringe sind SVG-Elemente, und geprüft
+  // wird ihr berechneter Stil, nicht ihre Sichtbarkeit.
+  await page.locator('.nn-hud-fokus').waitFor({ state: 'attached', timeout: 20000 });
+}
+
 test.describe('HUD-Ringe am Sprech-Kreis', () => {
   test('alle Lagen sind da, und kein Mikrofon-Piktogramm in der Mitte', async ({ page }) => {
     // Das Piktogramm sass mitten im Zielbereich und doppelte den Knopf in der
     // Kopfzeile. Was der Kreis tut, sagt die Beschriftung darunter.
     const fehler = [];
     page.on('pageerror', (e) => fehler.push(String(e)));
-    await page.route('https://api.github.com/**', (r) => r.abort());
-    await page.goto('/hq.html');
-    await page.waitForTimeout(2000);
+    await hqMitKern(page);
     expect(fehler).toEqual([]);
     for (const k of ['feld', 'aussen', 'teilung', 'fein', 'klammer', 'innen', 'saum', 'halo', 'kern', 'fokus']) {
       await expect(page.locator('.nn-hud-' + k)).toHaveCount(1);
@@ -184,9 +210,7 @@ test.describe('HUD-Ringe am Sprech-Kreis', () => {
     // der Kreis ist ein BEDIENELEMENT, kein Zustandsanzeiger. Tragfähig ist das
     // nur, solange die Zustände unterscheidbar bleiben — deshalb wird hier die
     // DIFFERENZ geprüft, nicht bloß, dass sich etwas dreht.
-    await page.route('https://api.github.com/**', (r) => r.abort());
-    await page.goto('/hq.html');
-    await page.waitForTimeout(2000);
+    await hqMitKern(page);
     const dauer = (page, k) => page.evaluate((kl) => {
       const st = getComputedStyle(document.querySelector('.nn-hud-' + kl));
       return { name: st.animationName, sek: parseFloat(st.animationDuration) };
@@ -212,10 +236,7 @@ test.describe('HUD-Ringe am Sprech-Kreis', () => {
     // Der globale Block setzt nur die Dauer auf ~0. Eine Endlosrotation steht
     // damit nicht still, sie flimmert — ausgerechnet für die Leute, die um
     // weniger Bewegung gebeten haben.
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.route('https://api.github.com/**', (r) => r.abort());
-    await page.goto('/hq.html');
-    await page.waitForTimeout(2000);
+    await hqMitKern(page, { reducedMotion: 'reduce' });
     const namen = await page.evaluate(() => {
       document.getElementById('neural').classList.add('hoert');
       return ['aussen', 'teilung', 'fein', 'klammer', 'saum']
@@ -228,9 +249,7 @@ test.describe('HUD-Ringe am Sprech-Kreis', () => {
     // Der Standardrahmen legte einen blauen Kasten über die ganze SVG-Gruppe.
     // Ihn ersatzlos zu entfernen wäre falsch — Tastaturnutzer müssen sehen,
     // wo sie stehen.
-    await page.route('https://api.github.com/**', (r) => r.abort());
-    await page.goto('/hq.html');
-    await page.waitForTimeout(2000);
+    await hqMitKern(page);
     const r = await page.evaluate(() => {
       const orb = document.getElementById('nn-orb');
       const vorher = getComputedStyle(document.querySelector('.nn-hud-fokus')).stroke;

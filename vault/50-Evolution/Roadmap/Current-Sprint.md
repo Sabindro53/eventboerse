@@ -9,7 +9,7 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-15)
+## Stand heute (2026-08-26)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
@@ -20,6 +20,13 @@ einen alten Abschnitt gelesen und nicht diesen.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
+- **Belegschaft: 11 von 11 Rollen liefern** (Lauf 919, planmäßig). Vom 23.–26.08.
+  arbeitete keine einzige — der Puls starb an seiner eigenen Vorbedingung. Seither
+  vier Reparaturen: Laufzeitspur per SFTP statt aus dem offenen Netz, Bilanz aus
+  dem Journal statt aus Exit-Codes, `xfer:clobber` gegen das von `mktemp` gesetzte
+  Ziel, Wortgrenze und Token-Budget aus einer Zahl, Ersatzmodell bei schweigendem
+  Anbieter. Journal wächst wieder (124 Einträge), Auftragsstrom trägt 13 Befunde
+  im Rahmen
 - **Ensemble-Puls: alle 30 Min. angefordert** (`*/30`). GitHub plant geplante
   Läufe best-effort; gemessen lagen 31–82 Min. dazwischen (Median 41). Eigener
   Topf **$0,50/Tag** — Journal als echte Laufzeitspur per SFTP
