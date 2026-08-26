@@ -64,9 +64,41 @@ test.describe('HQ-Puls: der Lauf überlebt eine unlesbare Laufzeitspur', () => {
     // Und zwar DIE AUSFALLZEILE selbst, nicht irgendeine im Schritt: die
     // Summary sieht nur, wer sie im Browser aufmacht; das Log steht in
     // jeder API und in jedem Werkzeug, das den Lauf spaeter untersucht.
-    const ausfallzeile = (s.match(/^.*nicht lesbar.*$/m) || [''])[0];
-    expect(ausfallzeile, 'der Ausfall geht nicht ins Log, nur in die Summary')
+    //
+    // Gesucht ist die AUSGABEZEILE, nicht jede Zeile mit dem Wortlaut: seit
+    // der Schritt seinen Grund nennt, steht „nicht lesbar" auch in seinem
+    // Kommentar, und ein Muster über den ganzen Rumpf traf beim Bauen
+    // prompt den Kommentar statt des `echo`. Genau die Mehrdeutigkeit, die
+    // `kontext.mjs` als Fehler wertet statt als bestanden.
+    const ausgaben = s.split('\n')
+      .filter((z) => /nicht lesbar/.test(z) && /^\s*echo /.test(z));
+    expect(ausgaben, 'die Ausfallmeldung ist nicht eindeutig auffindbar')
+      .toHaveLength(1);
+    expect(ausgaben[0], 'der Ausfall geht nicht ins Log, nur in die Summary')
       .toMatch(/tee -a/);
+  });
+
+  test('der Ausfall nennt seinen Grund', () => {
+    // Erste Fassung meldete „nicht lesbar" und sonst nichts — und genau
+    // so blieb in den Läufen 905 und 906 unsichtbar, WARUM das Journal
+    // beide Male bei 14 Einträgen stehen blieb, statt auf 25 zu wachsen.
+    // Eine Meldung, die den Ausfall nennt und den Grund verschweigt, ist
+    // nur die halbe Sichtbarkeit; sie kostet eine weitere Runde, um
+    // überhaupt eine Vermutung zu haben.
+    const s = schritt('Bestehende Laufzeitspur vorladen');
+    expect(s, 'die lftp-Ausgabe wird wieder weggeworfen')
+      .not.toMatch(/lftp[\s\S]{0,400}?>\/dev\/null 2>&1/);
+    expect(s, 'kein Grund in der Ausfallmeldung').toMatch(/\$grund/);
+    expect(s, 'das lftp-Protokoll wird nicht ausgegeben')
+      .toMatch(/lftp: /);
+
+    // Und die beiden Diagnosen bleiben getrennt: ein fehlgeschlagener
+    // Abruf braucht einen anderen Handgriff als eine abgerufene, aber
+    // unbrauchbare Datei. Ein gemeinsamer Text verwischt genau das.
+    expect(s, 'ein fehlgeschlagener Abruf wird nicht als solcher benannt')
+      .toMatch(/SFTP-Abruf fehlgeschlagen/);
+    expect(s, 'eine unbrauchbare Datei wird nicht als solche benannt')
+      .toMatch(/kein gueltiges Journal/);
   });
 
   test('das Werkzeug steht bereit, bevor es gebraucht wird', () => {
@@ -80,6 +112,57 @@ test.describe('HQ-Puls: der Lauf überlebt eine unlesbare Laufzeitspur', () => {
       .toBeLessThan(iVorladen);
     // Und nur einmal — ein zweiter Install-Schritt kostet in jedem Lauf.
     expect((WF.match(/apt-get install -y -qq lftp/g) || []).length).toBe(1);
+  });
+});
+
+test.describe('HQ-Puls: die Bilanz zählt, was wirklich herauskam', () => {
+  // Lauf 905 meldete „11 gearbeitet, 0 abgebrochen" — und im selben Log
+  // standen fünf Rollen mit ✗ („Antwort am Tokenlimit abgeschnitten",
+  // „Provider lieferte eine leere Antwort"). Das Journal wusste es richtig:
+  // 9 fertig, 5 fehler. Gelogen hat die Zusammenfassung.
+  //
+  // Die Ursache ist kein Zählfehler, sondern eine Verwechslung: agent.mjs
+  // steigt bei einer unbrauchbaren Antwort bewusst mit 0 aus, damit ein
+  // einzelner Anbieter nicht die ganze Schicht mitreißt. Ein Exit-Code 0
+  // heißt hier also „sauber ausgestiegen", nicht „hat etwas geliefert".
+  const schleife = (() => {
+    const von = WF.indexOf('- name: Alle Rollen taskweise arbeiten lassen');
+    return WF.slice(von, WF.indexOf('\n      - name:', von + 10));
+  })();
+
+  test('die Bilanz kommt aus dem Journal, nicht aus dem Exit-Code', () => {
+    expect(schleife, 'die Bilanz zählt wieder Exit-Codes')
+      .not.toMatch(/\*\*Bilanz:\*\* \$gearbeitet/);
+    expect(schleife, 'das Journal wird für die Bilanz nicht gelesen')
+      .toMatch(/eintraege\[\][\s\S]*ergebnis == "fertig"/);
+    // Und sie unterscheidet die drei Ausgänge, die agent.mjs kennt.
+    for (const ergebnis of ['fertig', 'fehler', 'uebersprungen']) {
+      expect(schleife, `die Bilanz kennt „${ergebnis}" nicht`)
+        .toMatch(new RegExp(`ergebnis == "${ergebnis}"`));
+    }
+  });
+
+  test('gezählt werden nur die Einträge dieser Schicht', () => {
+    // Ohne Grenze zählte die Bilanz das ganze Journal — bis zu 400 alte
+    // Einträge, und der Bericht beschriebe die Woche statt den Lauf.
+    expect(schleife, 'kein Stand vor der Schicht gemerkt')
+      .toMatch(/seit="\$\(jq -r '\.eintraege\[0\]\.zeit/);
+    expect(schleife, 'der gemerkte Stand grenzt die Zählung nicht ein')
+      .toMatch(/select\(\.zeit > \$seit\)/);
+    // Über die ZEIT, nicht über die Anzahl: das Journal ist gedeckelt,
+    // und sobald der Deckel greift, wäre eine Längendifferenz falsch.
+    expect(schleife, 'die Bilanz rechnet wieder mit Längen')
+      .not.toMatch(/nachher - vorher|length\) - \$vorher/);
+  });
+
+  test('ein Prozessabbruch verschwindet nicht hinter der Bilanz', () => {
+    // Ein Abbruch VOR dem Journaleintrag (Absturz, Timeout) taucht dort
+    // nie auf. Die Journal-Bilanz allein würde ihn also verschlucken —
+    // deshalb bleibt der Exit-Code-Zähler als zweite Zeile bestehen.
+    expect(schleife, 'Prozessabbrüche werden nicht mehr gemeldet')
+      .toMatch(/gescheitert" -gt 0/);
+    expect(schleife, 'der Totalausfall macht den Lauf nicht mehr rot')
+      .toMatch(/gearbeitet" -eq 0/);
   });
 });
 
