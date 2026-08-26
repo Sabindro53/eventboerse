@@ -134,6 +134,17 @@ async function notieren(eintrag) {
 const MAX_VERSUCHE = 5;
 
 /**
+ * Wie viele Modelle eine Schicht hoechstens anfaesst.
+ *
+ * Zwei, nicht mehr: die beobachteten Ausfaelle sind je Modell
+ * deterministisch (Timo Rast 3 von 3 leer, Ben Oduya 3 von 3 abgeschnitten),
+ * nicht zufaellig — ein zweiter Anlauf mit einem anderen Modell genuegt
+ * also. Jeder weitere waere Kosten ohne belegten Nutzen, und ein Deckel,
+ * den niemand begruenden kann, ist kein Deckel.
+ */
+const MAX_MODELLVERSUCHE = 2;
+
+/**
  * Welche Aufgabe diese Rolle als Nächstes bearbeitet.
  *
  * Vorher kam der Index aus der Uhr (`Date.now() / 3600000 % n`). Das hiess:
@@ -365,81 +376,145 @@ async function arbeiten() {
   const eingezaeunt = `<<<${zaun}>>>\n${kontext || 'Kein Kontext übergeben.'}\n<<<${zaun}-ENDE>>>`;
 
   const begonnen = Date.now();
-  let antwort;
-  try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${schluessel}`,
-        'Content-Type': 'application/json',
-        // OpenRouter ordnet Verbrauch ueber HTTP-Referer einer App zu. Ohne
-        // ihn lief der Puls als „Unknown App" — rund 90 % des Verbrauchs war
-        // damit nicht zuzuordnen, und genau das macht eine Kostenprüfung
-        // wertlos. Der Autopilot sendet ihn laengst; hier fehlte er.
-        'HTTP-Referer': 'https://xn--eventbrse-57a.de',
-        'X-Title': 'Eventboerse HQ · Lagebild',
-      },
-      body: JSON.stringify({
-        model: rolle.modellId,
-        // Nie unter das, was die Wortgrenze im Auftrag kostet. Der Katalog
-        // darf mehr geben, aber nicht weniger: sonst verlangt der Auftrag
-        // eine Laenge, die das Budget nicht hergibt, und die Rolle wird
-        // fuer das Befolgen der Anweisung abgeschnitten.
-        max_tokens: Math.max(rolle.maxTokens || 0, MIN_ANTWORT_TOKENS),
-        temperature: 0.2,
-        // Denk-Tokens abschalten.
-        //
-        // Gemessen im Puls-Lauf vom 06.08.: Kito Sarr 4312 Token → leere
-        // Antwort, Timo Rast 4253 → leer, Rhea Malik 4116 → leer. Genau die
-        // drei Reasoning-Modelle (DeepSeek Flash, Qwen3-Coder-A3B,
-        // Nemotron-Nano-A3B), waehrend die reinen Instruct-Modelle lieferten.
-        // Sie verbrauchen `max_tokens` beim Denken, bevor sichtbarer Inhalt
-        // entsteht — bezahlt wird trotzdem. Bei 180–300 Token Budget kann so
-        // nie eine Antwort herauskommen.
-        //
-        // OpenRouter ignoriert das Feld bei Modellen ohne Reasoning.
-        reasoning: { enabled: false },
-        messages: [
-          { role: 'system', content: AUFTRAG[rolleId] + WORTGRENZE_SATZ + ' Behaupte nichts ohne Beleg.' + regel },
-          { role: 'user', content: `AKTUELLER AUFTRAG:\n${aktuelleAufgabe}\n\nBELEGTER KONTEXT:\n${eingezaeunt}` },
-        ],
-        provider: {
-          allow_fallbacks: true,
-          data_collection: 'deny',
-          sort: 'price',
-          max_price: { prompt: 0.30, completion: 0.90 },
+
+  // Eine Schicht hat mehr als einen Anlauf.
+  //
+  // Vorher: ein Request, und bei leerer Antwort oder HTTP-Fehler war die
+  // Schicht verloren. Gemessen an den Laeufen 905, 910 und 912 traf das
+  // IMMER dieselben zwei Rollen, aus modellspezifischen Gruenden:
+  // Timo Rast bekam 3 von 3 Mal eine leere Antwort, Ben Oduya wurde 3 von
+  // 3 Mal abgeschnitten — auch noch bei 315 Token, also nicht mehr am
+  // Budget. Zwei von elf Schichten fielen so in jedem Lauf aus, bezahlt
+  // und ohne Ergebnis.
+  //
+  // Der Autopilot wechselt in genau diesem Fall laengst das Modell. Hier
+  // dieselbe Bauform: eine lokale Schleife ueber [eigenes, ...Ersatz],
+  // gedeckelt bei MAX_MODELLVERSUCHE. Der Deckel ist Kostendisziplin —
+  // die beobachteten Ausfaelle sind je Modell deterministisch, nicht
+  // zufaellig, ein zweiter Anlauf genuegt also.
+  const kandidaten = [rolle.modellId, ...(rolle.ersatzModelle || [])]
+    .slice(0, MAX_MODELLVERSUCHE);
+  let antwort = null;
+  let usage = {};
+  let text = '';
+  let abbruchGrund = '';
+  let abgeschnitten = false;
+  let benutztesModell = rolle.modellId;
+  // Jeder Versuch kostet, auch der erfolglose. Wer nur den letzten bucht,
+  // rechnet die Schicht billiger, als sie war.
+  let kostenUsd = 0;
+  let promptTokens = 0;
+  let completionTokens = 0;
+  const versuche = [];
+
+  for (const modellId of kandidaten) {
+    let dieseAntwort;
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${schluessel}`,
+          'Content-Type': 'application/json',
+          // OpenRouter ordnet Verbrauch ueber HTTP-Referer einer App zu. Ohne
+          // ihn lief der Puls als „Unknown App" — rund 90 % des Verbrauchs war
+          // damit nicht zuzuordnen, und genau das macht eine Kostenprüfung
+          // wertlos. Der Autopilot sendet ihn laengst; hier fehlte er.
+          'HTTP-Referer': 'https://xn--eventbrse-57a.de',
+          'X-Title': 'Eventboerse HQ · Lagebild',
         },
-      }),
-      // 30 s waren zu knapp: Ada Brenner fiel im Lauf vom 06.08. mit
-      // „operation was aborted due to timeout" aus, obwohl nichts kaputt war.
-      // Ein Abbruch kostet den ganzen Prompt und liefert nichts.
-      signal: AbortSignal.timeout(60000),
-    });
-    if (!res.ok) {
-      const txt = (await res.text()).slice(0, 200);
-      throw new Error(`HTTP ${res.status} — ${txt}`);
+        body: JSON.stringify({
+          model: modellId,
+          // Nie unter das, was die Wortgrenze im Auftrag kostet. Der Katalog
+          // darf mehr geben, aber nicht weniger: sonst verlangt der Auftrag
+          // eine Laenge, die das Budget nicht hergibt, und die Rolle wird
+          // fuer das Befolgen der Anweisung abgeschnitten.
+          max_tokens: Math.max(rolle.maxTokens || 0, MIN_ANTWORT_TOKENS),
+          temperature: 0.2,
+          // Denk-Tokens abschalten.
+          //
+          // Gemessen im Puls-Lauf vom 06.08.: Kito Sarr 4312 Token → leere
+          // Antwort, Timo Rast 4253 → leer, Rhea Malik 4116 → leer. Genau die
+          // drei Reasoning-Modelle (DeepSeek Flash, Qwen3-Coder-A3B,
+          // Nemotron-Nano-A3B), waehrend die reinen Instruct-Modelle lieferten.
+          // Sie verbrauchen `max_tokens` beim Denken, bevor sichtbarer Inhalt
+          // entsteht — bezahlt wird trotzdem. Bei 180–300 Token Budget kann so
+          // nie eine Antwort herauskommen.
+          //
+          // OpenRouter ignoriert das Feld bei Modellen ohne Reasoning.
+          reasoning: { enabled: false },
+          messages: [
+            { role: 'system', content: AUFTRAG[rolleId] + WORTGRENZE_SATZ + ' Behaupte nichts ohne Beleg.' + regel },
+            { role: 'user', content: `AKTUELLER AUFTRAG:\n${aktuelleAufgabe}\n\nBELEGTER KONTEXT:\n${eingezaeunt}` },
+          ],
+          provider: {
+            allow_fallbacks: true,
+            data_collection: 'deny',
+            sort: 'price',
+            max_price: { prompt: 0.30, completion: 0.90 },
+          },
+        }),
+        // 30 s waren zu knapp: Ada Brenner fiel im Lauf vom 06.08. mit
+        // „operation was aborted due to timeout" aus, obwohl nichts kaputt war.
+        // Ein Abbruch kostet den ganzen Prompt und liefert nichts.
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) {
+        const txt = (await res.text()).slice(0, 200);
+        throw new Error(`HTTP ${res.status} — ${txt}`);
+      }
+      dieseAntwort = await res.json();
+    } catch (e) {
+      versuche.push({ modell: modellId, grund: String(e.message).slice(0, 160) });
+      console.error(`  ↯ ${modellId}: ${String(e.message).slice(0, 120)}`);
+      continue;
     }
-    antwort = await res.json();
-  } catch (e) {
+
+    const u = dieseAntwort.usage || {};
+    const pt = zahl(u.prompt_tokens) || 0;
+    const ct = zahl(u.completion_tokens) || 0;
+    promptTokens += pt;
+    completionTokens += ct;
+    // OpenRouter liefert `cost` je nach Provider direkt. Fehlt es, rechnen wir
+    // bewusst mit dem akzeptierten Maximalpreis: lieber Quote zu früh schließen
+    // als einen unbekannten Betrag als null zu verbuchen.
+    kostenUsd += zahl(u.cost) ?? ((pt * 0.30 + ct * 0.90) / 1_000_000);
+
+    const dieserText = String(((dieseAntwort.choices || [])[0] || {}).message?.content || '').trim();
+    const grund = ((dieseAntwort.choices || [])[0] || {}).finish_reason || '';
+    const gekuerzt = grund === 'length';
+
+    antwort = dieseAntwort;
+    usage = u;
+    benutztesModell = dieseAntwort.model || modellId;
+    text = dieserText;
+    abbruchGrund = grund;
+    abgeschnitten = gekuerzt;
+
+    // Brauchbar? Dann ist die Schicht fertig.
+    if (dieserText && !gekuerzt) break;
+
+    versuche.push({
+      modell: modellId,
+      grund: gekuerzt ? `am Tokenlimit abgeschnitten (${ct} Token)` : 'leere Antwort',
+    });
+    console.error(`  ↯ ${modellId}: ${gekuerzt ? 'abgeschnitten' : 'leere Antwort'}`);
+  }
+
+  if (!antwort) {
+    // Kein einziger Kandidat hat geantwortet — das ist ein Ausfall, kein
+    // Ergebnis, und er steht mit ALLEN Gruenden im Journal.
     await notieren({
       zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
       modell: rolle.name, bereich: rolle.bereich, anlass,
-      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex, ergebnis: 'fehler', text: String(e.message).slice(0, 300),
+      aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex, ergebnis: 'fehler',
+      text: `Kein Modell hat geantwortet: ${versuche.map((v) => `${v.modell} (${v.grund})`).join('; ')}`.slice(0, 300),
+      versuche,
     });
-    console.error(`✗ ${rolle.person}: ${e.message}`);
+    console.error(`✗ ${rolle.person}: kein Modell hat geantwortet.`);
     // Eine ausgefallene Schicht bricht die Routine nicht — sie steht im Journal.
     process.exit(0);
   }
 
-  const text = String(((antwort.choices || [])[0] || {}).message?.content || '').trim();
-  const usage = antwort.usage || {};
-  // OpenRouter liefert `cost` je nach Provider direkt. Fehlt es, rechnen wir
-  // bewusst mit dem akzeptierten Maximalpreis: lieber Quote zu früh schließen
-  // als einen unbekannten Betrag als null zu verbuchen.
-  const promptTokens = zahl(usage.prompt_tokens) || 0;
-  const completionTokens = zahl(usage.completion_tokens) || 0;
-  const kostenUsd = zahl(usage.cost)
-    ?? ((promptTokens * 0.30 + completionTokens * 0.90) / 1_000_000);
   // Manche Provider quittieren einen technisch erfolgreichen Request ohne
   // Inhalt. Das ist echte Aktivitaet (und kann Kosten verursacht haben), aber
   // keine fertige Arbeit. Sichtbar als Fehler protokollieren, damit das
@@ -449,20 +524,24 @@ async function arbeiten() {
   // genuegte `Boolean(text)`: ein am Tokenlimit abgebrochener Halbsatz wurde
   // als „fertig" gebucht, die Aufgabe galt als erledigt und der Zeiger rueckte
   // weiter. Genau die Sorte Eintrag, die eine Bilanz schoenrechnet.
-  const abbruchGrund = ((antwort.choices || [])[0] || {}).finish_reason || '';
-  const abgeschnitten = abbruchGrund === 'length';
   const hatErgebnis = Boolean(text) && !abgeschnitten;
   const eintrag = await notieren({
     zeit: heute(), rolle: rolleId, person: rolle.person, rollenname: rolle.rolle,
-    modell: rolle.name, modellId: antwort.model || rolle.modellId, bereich: rolle.bereich, anlass,
+    modell: rolle.name, modellId: benutztesModell, bereich: rolle.bereich, anlass,
     aufgabe: aktuelleAufgabe, dateien: aufgabenDateien, aufgabeIndex, kontingentProzent: anteil,
     ergebnis: hatErgebnis ? 'fertig' : 'fehler',
+    // Ein Ausfall nennt ALLE Versuche, nicht nur den letzten.
+    //
+    // Vorher stand hier bei zwei leeren Antworten derselbe Text wie bei
+    // einer: „Provider lieferte eine leere Antwort". Wer das liest, denkt,
+    // es sei ein Modell versucht worden — und haelt eine erschoepfte
+    // Ersatzkette fuer einen einzelnen Aussetzer. Genau die Sorte Meldung,
+    // die einen wiederkehrenden Ausfall wie Pech aussehen laesst.
     text: hatErgebnis
       ? text.slice(0, 1200)
-      : abgeschnitten
-        ? `Antwort am Tokenlimit abgeschnitten (${completionTokens} Token) — kein verwertbares Ergebnis, `
-          + 'dieselbe Aufgabe wird fortgesetzt.'
-        : 'Provider lieferte eine leere Antwort — Aufgabe bleibt fuer den naechsten freien Slot eingeplant.',
+      : `Kein verwertbares Ergebnis aus ${versuche.length} Modell(en): `
+        + `${versuche.map((v) => `${v.modell} (${v.grund})`).join('; ')}`
+        + ' — dieselbe Aufgabe wird fortgesetzt.',
     // Fuer die naechste Kostenprüfung nachvollziehbar machen, WARUM ein Lauf
     // nichts geliefert hat, und wie viel davon der Cache getragen hat.
     abbruchGrund: abbruchGrund || null,
@@ -477,6 +556,11 @@ async function arbeiten() {
     // genau daran ist das Quarantäne-Tor schon einmal über sich selbst
     // gestolpert.
     injektionsfunde: injektionen.length,
+    // Ein Ausweichen darf nicht unsichtbar sein: ein Journal, das nur das
+    // Modell nennt, das geantwortet hat, verschweigt, dass das eigene
+    // schweigt — und genau daran wuerde niemand mehr merken, dass eine
+    // Rolle ihr Modell verloren hat.
+    versuche: versuche.length ? versuche : undefined,
   });
 
   console.log(`${hatErgebnis ? '✓' : '✗'} ${rolle.person} (${rolle.rolle}, ${rolle.name}) — ${eintrag.tokens || '?'} Token, `

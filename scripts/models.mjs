@@ -407,6 +407,39 @@ const ARBEITSPLAENE = {
   ] },
 };
 
+/**
+ * Die Ersatzkette: worauf eine Rolle ausweicht, wenn ihr Modell nichts liefert.
+ *
+ * Gemessen an den Läufen 905, 910 und 912 — dieselben zwei Rollen fielen in
+ * JEDEM Lauf aus, und zwar aus modellspezifischen Gründen, nicht sporadisch:
+ *
+ *   Timo Rast  (Qwen3 Coder 30B)  3 von 3: „Provider lieferte eine leere Antwort"
+ *   Ben Oduya  (Llama 3.1 8B)     3 von 3: am Tokenlimit abgeschnitten — auch
+ *                                 noch bei 315 Token, also nicht mehr eine
+ *                                 Frage des Budgets, sondern der Länge, die
+ *                                 ein 8B-Modell einzuhalten schafft.
+ *
+ * Der Autopilot kann das seit Langem („dieselbe Rolle wechselt kontrolliert
+ * zum nächsten freigegebenen Modell"); dem Puls fehlte es. Zwei von elf
+ * Schichten gingen deshalb in jedem Lauf verloren — bei 48 Läufen am Tag rund
+ * 90 bezahlte Aufrufe ohne Ergebnis.
+ *
+ * EINE Liste, nicht elf. Für jede Rolle ein eigenes Ersatzmodell zu wählen
+ * wäre genau der Fehler, der bei `maxTokens` schon einmal gemacht wurde: elf
+ * Zahlen, von denen keine begründet war. Die Rollen unterscheiden sich in der
+ * AUFGABE, nicht darin, welches Modell einspringt, wenn das eigene schweigt.
+ *
+ * Beide Einträge sind Modelle, die ohnehin im Katalog stehen und dort als
+ * `offen` mit Lizenz geführt werden — die Ersatzkette weitet die Zusicherung
+ * „nur offene Modelle" also nicht, sie greift in dieselbe Belegschaft. Es sind
+ * die zwei kräftigsten Generalisten der Aufstellung; wer einspringt, muss
+ * einen fremden Auftrag auf Anhieb verstehen und die Wortgrenze halten.
+ */
+const ERSATZ_KETTE = [
+  'meta-llama/llama-3.3-70b-instruct',      // Ada Brenner
+  'mistralai/mistral-small-3.2-24b-instruct', // Nils Falk
+];
+
 const MODELLE = ROH_MODELLE.map((modell) => {
   const plan = ARBEITSPLAENE[modell.id];
   // Ein Auftrag, eine Wortgrenze, ein Budget. Vorher trug jede Rolle ihr
@@ -417,6 +450,9 @@ const MODELLE = ROH_MODELLE.map((modell) => {
   return plan
     ? { ...modell, kontingentProzent: plan.anteil,
         maxTokens: Math.max(plan.maxTokens || 0, MIN_ANTWORT_TOKENS),
+        // Das eigene Modell faellt aus der Kette: es hat gerade nichts
+        // geliefert, ein zweiter Anlauf damit waere derselbe Versuch.
+        ersatzModelle: ERSATZ_KETTE.filter((m) => m !== modell.modellId),
         aufgabenstrom: plan.aufgaben }
     : modell;
 });
@@ -491,6 +527,21 @@ function pruefen() {
       if (!Number.isInteger(m.maxTokens) || m.maxTokens < MIN_ANTWORT_TOKENS || m.maxTokens > MAX_ANTWORT_TOKENS) {
         melde(`Antwortgrenze ${m.maxTokens} traegt die ${WORTGRENZE} Woerter des Auftrags nicht`
           + ` (mindestens ${MIN_ANTWORT_TOKENS}, hoechstens ${MAX_ANTWORT_TOKENS})`);
+      }
+      // Die Ersatzkette darf die Zusicherung "nur offene Modelle" nicht
+      // weiten. Jeder Eintrag muss ein Modell sein, das ohnehin im Katalog
+      // steht und dort als offen gefuehrt wird — sonst waere der Ausweichweg
+      // eine Hintertuer an der Governance vorbei, und zwar eine, die nur im
+      // Fehlerfall benutzt wird und deshalb selten auffaellt.
+      if (!Array.isArray(m.ersatzModelle) || m.ersatzModelle.length < 1) {
+        melde('keine Ersatzkette — ein Ausfall kostet die ganze Schicht');
+      } else {
+        for (const ersatz of m.ersatzModelle) {
+          const dahinter = MODELLE.find((x) => x.modellId === ersatz);
+          if (!dahinter) melde(`Ersatzmodell "${ersatz}" steht nicht im Katalog`);
+          else if (!dahinter.offen) melde(`Ersatzmodell "${ersatz}" ist nicht offen`);
+          if (ersatz === m.modellId) melde('Ersatzkette zeigt auf das eigene Modell');
+        }
       }
       if (!Array.isArray(m.aufgabenstrom) || m.aufgabenstrom.length < 3) melde('kein belastbarer Aufgabenstrom');
       // Jede Aufgabe nennt ihr Ziel und die Dateien, um die es geht — und
