@@ -492,7 +492,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-586 Tests in 34 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+592 Tests in 35 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -503,6 +503,7 @@ Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe),
 Schicht-Ausfall landet wirklich im Journal),
 **Antwortgrenze** (Auftrag und Token-Budget aus einer Zahl),
 **Ersatzkette** (eine schweigende Rolle verliert ihre Schicht nicht),
+**Auto-Merge** (erst die Prüfungen des PRs, dann der Merge),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten
@@ -662,6 +663,22 @@ Invarianten und Verifikation in voller Mindestmenge.
 Findet bereits der Scout keinen klaren, risikoarmen Vorschlag, darf er eine
 leere Dateiliste liefern. Das beendet den Lauf erfolgreich ohne Patch/PR;
 sobald er Dateien nennt, gelten weiter exakt 1–2 Einträge der festen Whitelist.
+
+**Der Auto-Merge wartet auf die Prüfungen des PRs.** Er startete drei
+Sekunden nach dem Autopiloten und rief den Merge neun Sekunden später — die
+Suite des PRs lief da noch, und GitHubs Branch-Schutz lehnte ab: *„Required
+status check … is expected."* Es gab keinen zweiten Versuch, und der Grund
+stand nur im Log. #204 lag deshalb **zehn Stunden grün und ungemergt** da.
+
+**GitHubs eingebautes Auto-Merge wäre die falsche Antwort gewesen.** Dann
+führt GitHub den Merge aus — und der löst keinen Push-Workflow aus. Der
+Deploy, den dieser Workflow am Ende ausdrücklich anstößt, liefe nie: die
+Änderung wäre gemergt und nie live. Stattdessen wartet der Workflow selbst,
+höchstens 15 Minuten, und meldet den Grund **am PR**, nicht nur im Log.
+
+**Strenger als der Branch-Schutz, mit Absicht:** eine rote Prüfung stoppt den
+Merge auch dann, wenn die Regel sie nicht verlangt. Hier wird Code ohne
+menschliche Durchsicht gemergt.
 
 Der Autopilot führt Syntax-Gates, Reproduzierbarkeits-Gate und die komplette
 Playwright-Suite aus und erstellt erst dann einen PR. `openrouter-auto-merge.yml`

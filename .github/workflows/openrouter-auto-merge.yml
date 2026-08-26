@@ -21,6 +21,9 @@ jobs:
     name: Scope und Gates verifizieren
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    # Der Job wartet jetzt auf die Pruefungen des PRs. Ohne Deckel wuerde er
+    # im Fehlerfall bis zur GitHub-Vorgabe von sechs Stunden stehen.
+    timeout-minutes: 25
     steps:
       # Der Rahmen wird GELESEN, nicht abgeschrieben.
       #
@@ -132,6 +135,68 @@ jobs:
                 owner, repo, issue_number: pull_number, name: 'openrouter-autonomous',
               }).catch(() => {});
               core.setFailed(`Autopilot-Scope verletzt: ${reason}`);
+              return;
+            }
+
+            // ── Erst die Pruefungen des PRs, dann der Merge ─────────────
+            //
+            // Genau hier lag der Fehler. Der Auto-Merge startet drei Sekunden
+            // nach dem Autopiloten und rief `pulls.merge` neun Sekunden
+            // spaeter. Die Pruefungen des PRs liefen da noch, und GitHubs
+            // Branch-Schutz lehnte ab:
+            //
+            //   HttpError: Repository rule violations found
+            //   Required status check "PR Check / PR-Validierung
+            //   (pull_request)" is expected.
+            //
+            // Bei #204 am 25.08.: Autopilot fertig 20:26:12, Merge-Versuch
+            // 20:26:24, E2E-Suite fertig erst 20:30:56. Der Versuch konnte
+            // nicht gelingen, es gab keinen zweiten, und der Grund stand nur
+            // im Log eines Workflows, den niemand ansieht. Der PR lag danach
+            // zehn Stunden gruen und ungemerged da.
+            //
+            // NICHT genommen: GitHubs eingebautes Auto-Merge. Es waere
+            // eleganter, aber dann fuehrt GITHUB den Merge aus — und der
+            // loest wiederum keinen Push-Workflow aus. Der Deploy unten
+            // wuerde nie starten, und der PR waere zwar drin, die Aenderung
+            // aber nie live. Ein Fortschritt, der eine neue stille Luecke
+            // aufmacht, ist keiner.
+            const sha = pr.head.sha;
+            const schlafen = (ms) => new Promise((r) => setTimeout(r, ms));
+            const FRIST = Date.now() + 15 * 60 * 1000;
+            let laufend = [];
+            let rot = [];
+            let gesehen = 0;
+            while (Date.now() < FRIST) {
+              const { data: cr } = await github.rest.checks.listForRef({
+                owner, repo, ref: sha, per_page: 100,
+              });
+              gesehen = cr.check_runs.length;
+              laufend = cr.check_runs.filter((c) => c.status !== 'completed');
+              // Strenger als der Branch-Schutz, und das mit Absicht: hier
+              // wird Code ohne menschliche Durchsicht gemerged. Ein roter
+              // Check, den die Regel nicht verlangt, ist trotzdem ein Grund
+              // stehenzubleiben.
+              rot = cr.check_runs.filter((c) => c.status === 'completed'
+                && !['success', 'neutral', 'skipped'].includes(c.conclusion));
+              if (gesehen && !laufend.length) break;
+              await schlafen(15000);
+            }
+
+            if (!gesehen || laufend.length || rot.length) {
+              const grund = !gesehen
+                ? 'keine einzige Pruefung am PR gefunden'
+                : laufend.length
+                  ? `Pruefungen noch nicht fertig: ${laufend.map((c) => c.name).join(', ')}`
+                  : `Pruefung rot: ${rot.map((c) => `${c.name} (${c.conclusion})`).join(', ')}`;
+              // Sichtbar am PR, nicht nur im Log. Dass der Grund nur im Log
+              // stand, ist der Teil dieses Fehlers, der zehn Stunden gekostet
+              // hat.
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pull_number,
+                body: `⛔ **Auto-Merge gestoppt:** ${grund}.`,
+              });
+              core.setFailed(`Kein Merge — ${grund}.`);
               return;
             }
 
