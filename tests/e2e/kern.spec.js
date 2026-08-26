@@ -80,7 +80,10 @@ test.describe('Ensemble-Katalog', () => {
     }
   });
 
-  test('OpenRouter-Kontingent ist vollständig, begrenzt und taskweise verteilt', () => {
+  test('OpenRouter-Kontingent ist vollständig, begrenzt und taskweise verteilt', async () => {
+    const { MIN_ANTWORT_TOKENS, MAX_ANTWORT_TOKENS } = await import(
+      'file://' + require('node:path').join(__dirname, '..', '..',
+        'scripts', 'lib', 'antwortgrenze.mjs'));
     const extern = KATALOG.modelle.filter((m) => m.weg === 'openrouter');
     expect(extern).toHaveLength(11);
     expect(extern.reduce((sum, m) => sum + m.kontingentProzent, 0)).toBe(100);
@@ -93,7 +96,16 @@ test.describe('Ensemble-Katalog', () => {
       // ihren Zuschnitt verliert.
       expect(m.aufgabenstrom.length, `${m.id}: Aufgabenstrom ohne Rotation`).toBeGreaterThan(1);
       expect(m.aufgabenstrom.length, `${m.id}: Aufgabenstrom ausgeufert`).toBeLessThanOrEqual(8);
-      expect(m.maxTokens, `${m.id} ohne kleine Antwortgrenze`).toBeLessThanOrEqual(300);
+      // Die Antwortgrenze bleibt klein — aber gemessen am Auftrag, nicht an
+      // einer Zahl. Hier stand 300, und das lag UNTER dem, was die 90
+      // Wörter kosten, die derselbe Auftrag verlangt. Die Zusicherung
+      // „kleine Antwortgrenze" widersprach also der Anweisung, und sechs
+      // Rollen wurden dafür im Betrieb jedes Mal abgeschnitten. Sichtbar
+      // wurde der Widerspruch erst, als das Budget stieg.
+      expect(m.maxTokens, `${m.id}: Antwortgrenze trägt den Auftrag nicht`)
+        .toBeGreaterThanOrEqual(MIN_ANTWORT_TOKENS);
+      expect(m.maxTokens, `${m.id}: Antwortgrenze ausgeufert`)
+        .toBeLessThanOrEqual(MAX_ANTWORT_TOKENS);
     }
   });
 
