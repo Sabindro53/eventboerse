@@ -1,7 +1,7 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-08-26T03:37:03Z",
-  "commit": "a8301c2",
+  "generatedAt": "2026-08-27T05:03:58Z",
+  "commit": "a653909",
   "counts": {
     "total": 5,
     "error": 0,
