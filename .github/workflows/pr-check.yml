@@ -160,6 +160,13 @@ jobs:
       # eingebautes Icon, das nicht mitgeschnitten wurde, erscheint im Betrieb
       # als leerer Kasten — sichtbar fuer jeden Besucher, unsichtbar fuer
       # jeden anderen Test. Dieses Tor faengt es im PR.
+      # Das Repository ist OEFFENTLICH. Der Gitleaks-Workflow, den GitHub als
+      # "active" fuehrt, wurde auf einem nie gemergten Zweig eingefuehrt und
+      # ist seit dem 05.05.2026 kein einziges Mal gelaufen -- vier Monate
+      # scheinbarer Schutz. Dieses Tor laeuft wirklich.
+      - name: Keine Zugangsdaten im Quelltext
+        run: node scripts/geheimnisse.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Icon-Schrift deckt alle benutzten Symbole
         run: node scripts/icons.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
 

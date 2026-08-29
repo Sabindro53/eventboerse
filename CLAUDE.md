@@ -90,6 +90,44 @@ Aufnahmekriterien stehen als Test, nicht als Absatz: höchstens 1200 Zeilen,
 Fließtext**. Eine Erweiterung ist eine Sicherheitsentscheidung des Inhabers.
 Nie aufnehmen: `board/`, `core/30-auth.js`, `payments/`.
 
+### Zugangsdaten — im Baum und in der Historie
+
+```bash
+node scripts/geheimnisse.mjs             # Bericht über den Arbeitsbaum
+node scripts/geheimnisse.mjs --historie  # zusätzlich jeden je committeten Blob
+node scripts/geheimnisse.mjs --check     # CI-Tor (pr-check.yml)
+```
+
+Das Repository ist **öffentlich**. Der Gitleaks-Workflow, den GitHub bis heute
+als `active` führt, ist **seit dem 05.05.2026 kein einziges Mal gelaufen**: er
+wurde auf `copilot/add-security-automation-system` eingeführt, der nie gemergt
+wurde. GitHub registriert Workflows von **jedem** Zweig und prüft nie, ob ihre
+Datei auf main liegt — vier Monate scheinbarer Schutz, mit grünem Haken daneben.
+
+**Auch die Historie, nicht nur der Baum.** Ein Geheimnis, das committet und im
+nächsten Commit gelöscht wurde, ist nicht weg — es steht in einem Blob, den
+jeder mit `git clone` bekommt. Ein Scanner, der nur `ls-files` ansieht, gibt für
+ein öffentliches Repository eine Entwarnung, die er nicht decken kann. Der
+PR-Check prüft den Baum (schnell), die Tagesroutine die volle Historie.
+
+Die Muster stehen bei den anderen Verbotsmustern in
+`scripts/lib/verbotsmuster.mjs` (`QUELLTEXT_GEHEIMNISSE`) — eine Kopie einer
+Sicherheitsliste driftet immer, die Frage ist nur, in welche Richtung.
+
+**Ein Verweis ist kein Geheimnis.** `process.env.X`, `getenv(…)` und
+`${{ secrets.… }}` nennen einen Schlüssel, sie enthalten ihn nicht. Ebenso eine
+Zeile, die ihren Wert **erzeugt** (`bin2hex(random_bytes(8))`) — genau die stand
+im HQ-Prüfstand und hätte den Bericht bei jedem Lauf mit demselben Fehlalarm
+gefüllt. Ein Scanner, der dreimal grundlos anschlägt, wird abgeschaltet.
+
+**Der Bericht zitiert nie den Fund.** Ausgegeben werden sechs Zeichen und die
+Länge — ein Bericht, der den Schlüssel im Klartext nennt, trägt ihn in das
+nächste Log, und Logs sind bei einem öffentlichen Repo öffentlich.
+
+**Ein Fund ist mit einem Commit nicht behoben.** Zuerst beim Anbieter
+zurückziehen, dann über die Historie reden — in dieser Reihenfolge.
+**Stand:** 304 Dateien, 97 Commits, 899 Blobs, **0 Funde**.
+
 ### Rechtliches — gemessen, nicht behauptet
 
 ```bash
@@ -492,7 +530,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-592 Tests in 35 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+599 Tests in 36 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -504,6 +542,8 @@ Schicht-Ausfall landet wirklich im Journal),
 **Antwortgrenze** (Auftrag und Token-Budget aus einer Zahl),
 **Ersatzkette** (eine schweigende Rolle verliert ihre Schicht nicht),
 **Auto-Merge** (erst die Prüfungen des PRs, dann der Merge),
+**Geheimnisse** (ein gepflanzter Schlüssel fällt auf — im Baum und in der
+Historie; ein Verweis auf eine Umgebungsvariable nicht),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten

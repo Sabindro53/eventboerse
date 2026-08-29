@@ -92,6 +92,16 @@ jobs:
       #
       # Bewusst OHNE --check: die Routine soll den Zustand festhalten, nicht
       # nachts rot werden. Blockiert wird im PR-Check, wo jemand zusieht.
+      # Die HISTORIE, nicht nur der Arbeitsbaum. Ein Geheimnis, das committet
+      # und im naechsten Commit geloescht wurde, ist nicht weg -- es steht in
+      # einem Blob, den jeder mit `git clone` bekommt. Im PR-Check laeuft nur
+      # der Baum (schnell); der volle Durchgang gehoert hierher.
+      #
+      # Wie beim Recht bewusst OHNE --check: die Routine haelt den Zustand
+      # fest und wird nicht nachts rot. Blockiert wird im PR-Check.
+      - name: Zugangsdaten in der gesamten Historie suchen
+        run: node scripts/geheimnisse.mjs --historie | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Rechtliche Lage messen
         run: node scripts/recht.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
