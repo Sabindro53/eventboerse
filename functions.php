@@ -747,6 +747,239 @@ add_action( 'send_headers', function() {
     }
 } );
 
+/* =====================================================================
+   CSP-NONCE — der Weg weg von 'unsafe-inline'
+   =====================================================================
+
+   WARUM DAS DER WICHTIGSTE HEBEL IST. Solange `script-src` ein
+   'unsafe-inline' trägt, ist die CSP als XSS-Schutz praktisch
+   abgeschaltet: gelingt irgendwo eine HTML-Injektion, darf das
+   eingeschleuste <script> laufen. Alle übrigen Direktiven — der enge
+   Host-Katalog, 'object-src none', der Wegfall von unpkg — schützen
+   dann nur noch gegen den Angreifer, der von aussen kommt, nicht gegen
+   den, der schon Text in unsere Seite bekommen hat.
+
+   EIN NONCE JE ANTWORT. Der Wert wird einmal pro Request gezogen und
+   gemerkt: alle Inline-Skripte derselben Seite tragen dasselbe Nonce,
+   die nächste Seite ein anderes. Ein Nonce, das sich über Antworten
+   hinweg wiederholt, ist keins — ein Angreifer, der es einmal liest,
+   könnte es in seine Injektion schreiben.
+
+   16 Byte aus `random_bytes()`, nicht aus `wp_create_nonce()`: das
+   WordPress-Nonce ist aus Nutzer, Aktion und Tageszeit ABGELEITET und
+   damit vorhersagbar, sobald man die Eingänge kennt. Für CSRF ist das
+   richtig, für die CSP wäre es eine Tür.
+*/
+function eb_csp_nonce() {
+    static $nonce = null;
+    if ( $nonce === null ) {
+        $nonce = base64_encode( random_bytes( 16 ) );
+    }
+    return $nonce;
+}
+
+/**
+ * Setzt das Nonce in jedes AUSFÜHRBARE Inline-Skript eines HTML-Blocks.
+ *
+ * Gebraucht für `app-shell.html`: die Datei ist per Vertrag PHP-frei
+ * (einzige Quelle des SPA-Bodys, von `index.php` per readfile gelesen),
+ * kann sich das Nonce also nicht selbst setzen. Statt PHP in die Shell
+ * zu tragen — was den Vertrag bräche und die lokale Dev-Shell zerstörte
+ * — bekommt sie es beim Ausliefern.
+ *
+ * `<script src=…>` bleibt unangetastet: dort greift der Host-Katalog
+ * der CSP, ein Nonce wäre wirkungslose Kosmetik. Ein bereits gesetztes
+ * Nonce wird nicht überschrieben.
+ */
+function eb_inline_nonce_setzen( $html, $nonce ) {
+    return preg_replace_callback(
+        '/<script(?![^>]*\ssrc\s*=)([^>]*)>/i',
+        function ( $treffer ) use ( $nonce ) {
+            if ( preg_match( '/\snonce\s*=/i', $treffer[1] ) ) {
+                return $treffer[0];
+            }
+            return '<script nonce="' . esc_attr( $nonce ) . '"' . $treffer[1] . '>';
+        },
+        $html
+    );
+}
+
+/**
+ * Liefert den SPA-Body aus — mit Nonce an jedem Inline-Skript.
+ *
+ * Ersetzt das frühere `readfile()`. Ohne diesen Schritt hätten die
+ * beiden Inline-Skripte der Shell (Theme-Vorwahl, Beta-Banner) kein
+ * Nonce, und in einer nonce-basierten CSP liefe genau der Code nicht
+ * mehr, der VOR dem ersten Rendern den Farbmodus setzt — sichtbar als
+ * weisses Aufblitzen bei jedem Seitenaufruf im Dunkelmodus.
+ */
+function eb_shell_ausgeben() {
+    $pfad = __DIR__ . '/app-shell.html';
+    $html = file_get_contents( $pfad );
+    if ( $html === false ) {
+        return;
+    }
+    echo eb_inline_nonce_setzen( $html, eb_csp_nonce() );
+}
+
+/*
+   Inline-Skripte, die WORDPRESS erzeugt, bekommen das Nonce ebenfalls:
+   `wp_localize_script()` schreibt das `eventboerseApi`-Objekt als
+   <script id="…-js-extra">, und der Footer trägt weitere. Ohne diese
+   beiden Filter fiele genau das aus, was die App zum Start braucht —
+   und zwar erst auf dem Live-Server, weil die Dev-Shell kein WordPress
+   hat. Beide Filter gibt es seit WP 5.7.
+*/
+add_filter( 'wp_inline_script_attributes', function ( $attributes ) {
+    $attributes['nonce'] = eb_csp_nonce();
+    return $attributes;
+} );
+add_filter( 'wp_script_attributes', function ( $attributes ) {
+    $attributes['nonce'] = eb_csp_nonce();
+    return $attributes;
+} );
+
+/* =====================================================================
+   CSP-VERSTOSSMELDUNGEN — offen schreibbar, deshalb eng geführt
+   =====================================================================
+
+   Der Browser schickt die Meldung ohne Anmeldung, ohne Cookie, ohne
+   Nonce. Die Route MUSS also offen sein — und ist damit der einzige
+   unauthentifizierte Schreibpunkt der Anwendung. Fünf Grenzen halten
+   sie klein:
+
+   1. GEDECKELTE ABLAGE. Höchstens EB_CSP_MAX_MELDUNGEN verschiedene
+      Verstöße, danach wird nur noch mitgezählt. Ein Angreifer, der die
+      Route flutet, füllt keinen Speicher — er erhöht einen Zähler.
+   2. TRANSIENT STATT OPTION. Läuft von selbst ab. Eine Option müsste
+      jemand aufräumen, und niemand räumt auf.
+   3. GRÖSSENDECKEL. Ein Bericht über 8 KB wird verworfen, bevor er
+      dekodiert wird.
+   4. NIE DIE VOLLE ADRESSE. Gespeichert wird Schema und Host, sonst
+      nichts. Eine blockierte URL kann einen Token im Querystring
+      tragen; wer sie vollständig ablegt, baut sich ein Leck in die
+      eigene Diagnose. Dieselbe Regel wie beim Geheimnis-Scanner, der
+      nie den Fund zitiert.
+   5. NUR EIGENE DIREKTIVEN. Was keine bekannte CSP-Direktive nennt,
+      ist keine Browsermeldung, sondern jemand, der die Route testet.
+*/
+const EB_CSP_MAX_MELDUNGEN = 25;
+const EB_CSP_MAX_BERICHT    = 8192;
+const EB_CSP_ABLAGE         = 'eb_csp_verstoesse';
+
+/** Reduziert eine blockierte Adresse auf das, was zur Behebung reicht. */
+function eb_csp_quelle_kuerzen( $wert ) {
+    $wert = (string) $wert;
+    // Schlüsselwörter des Standards ('inline', 'eval', 'data') stehen für
+    // sich — genau sie erwarten wir hier.
+    if ( $wert === '' || strpos( $wert, '://' ) === false ) {
+        return substr( preg_replace( '/[^a-z0-9:_-]/i', '', $wert ), 0, 32 );
+    }
+    $teile = wp_parse_url( $wert );
+    if ( empty( $teile['host'] ) ) {
+        return 'unbekannt';
+    }
+    return ( isset( $teile['scheme'] ) ? $teile['scheme'] . '://' : '' ) . $teile['host'];
+}
+
+function eb_csp_report_empfangen( WP_REST_Request $request ) {
+    // Antwort ist IMMER 204: der Browser kann mit nichts anderem etwas
+    // anfangen, und eine sprechende Fehlermeldung wäre nur ein Hinweis
+    // für den, der die Route abklopft.
+    $leer = new WP_REST_Response( null, 204 );
+
+    $roh = $request->get_body();
+    if ( $roh === '' || strlen( $roh ) > EB_CSP_MAX_BERICHT ) {
+        return $leer;
+    }
+
+    $daten = json_decode( $roh, true );
+    if ( ! is_array( $daten ) ) {
+        return $leer;
+    }
+
+    // Zwei Formate: das alte report-uri ({"csp-report": {…}}) und das
+    // neue report-to (eine Liste von {type, body}). Beide kommen im
+    // Betrieb vor, weil Firefox und Chrome sich nicht einig sind.
+    $meldungen = array();
+    if ( isset( $daten['csp-report'] ) && is_array( $daten['csp-report'] ) ) {
+        $meldungen[] = $daten['csp-report'];
+    } else {
+        foreach ( $daten as $eintrag ) {
+            if ( is_array( $eintrag ) && isset( $eintrag['body'] ) && is_array( $eintrag['body'] ) ) {
+                $meldungen[] = $eintrag['body'];
+            }
+        }
+    }
+    if ( ! $meldungen ) {
+        return $leer;
+    }
+
+    $ablage = get_transient( EB_CSP_ABLAGE );
+    if ( ! is_array( $ablage ) ) {
+        $ablage = array();
+    }
+
+    foreach ( $meldungen as $m ) {
+        $direktive = '';
+        foreach ( array( 'effectiveDirective', 'effective-directive', 'violatedDirective', 'violated-directive' ) as $k ) {
+            if ( ! empty( $m[ $k ] ) ) { $direktive = (string) $m[ $k ]; break; }
+        }
+        // Keine erkennbare Direktive → keine Browsermeldung.
+        if ( ! preg_match( '/^[a-z-]+(-src)?[a-z-]*/', $direktive ) ) {
+            continue;
+        }
+        $direktive = substr( preg_replace( '/[^a-z-]/', '', $direktive ), 0, 32 );
+        if ( $direktive === '' ) {
+            continue;
+        }
+
+        $quelle = '';
+        foreach ( array( 'blockedURL', 'blocked-uri' ) as $k ) {
+            if ( isset( $m[ $k ] ) ) { $quelle = $m[ $k ]; break; }
+        }
+        $quelle = eb_csp_quelle_kuerzen( $quelle );
+
+        $schluessel = $direktive . '|' . $quelle;
+        if ( isset( $ablage[ $schluessel ] ) ) {
+            $ablage[ $schluessel ]['anzahl']++;
+            $ablage[ $schluessel ]['zuletzt'] = time();
+        } elseif ( count( $ablage ) < EB_CSP_MAX_MELDUNGEN ) {
+            $ablage[ $schluessel ] = array(
+                'direktive' => $direktive,
+                'quelle'    => $quelle,
+                'anzahl'    => 1,
+                'zuerst'    => time(),
+                'zuletzt'   => time(),
+            );
+        }
+        // Ist der Deckel erreicht, wird ein NEUER Verstoß verworfen.
+        // Bewusst so herum: die bereits bekannten Verstöße sind die,
+        // die man beheben muss, und sie dürfen nicht von einer Flut
+        // erfundener Meldungen aus der Ablage gedrängt werden.
+    }
+
+    set_transient( EB_CSP_ABLAGE, $ablage, 7 * DAY_IN_SECONDS );
+    return $leer;
+}
+
+function eb_csp_report_lesen() {
+    $ablage = get_transient( EB_CSP_ABLAGE );
+    if ( ! is_array( $ablage ) ) {
+        $ablage = array();
+    }
+    $liste = array_values( $ablage );
+    usort( $liste, function ( $a, $b ) { return $b['anzahl'] - $a['anzahl']; } );
+    return new WP_REST_Response( array(
+        'verstoesse' => $liste,
+        'deckel'     => EB_CSP_MAX_MELDUNGEN,
+        'voll'       => count( $liste ) >= EB_CSP_MAX_MELDUNGEN,
+        // Solange hier etwas steht, darf das Nonce NICHT in die
+        // durchgesetzte CSP wandern.
+        'bereit'     => count( $liste ) === 0,
+    ), 200 );
+}
+
 /**
  * Security-Headers (OWASP Secure Headers + DSGVO/DSA-Hardening).
  *
@@ -810,6 +1043,44 @@ add_action( 'send_headers', function() {
         "upgrade-insecure-requests",
     );
     header( 'Content-Security-Policy: ' . implode( '; ', $csp_directives ) );
+
+    /* ── Die strenge Fassung, vorerst NUR beobachtend ──────────────────
+     *
+     * Sie ist identisch mit der durchgesetzten, bis auf einen Punkt:
+     * `script-src` trägt statt 'unsafe-inline' das Nonce dieser Antwort.
+     * Damit meldet der Browser jedes Inline-Skript, das noch kein Nonce
+     * hat — ohne es zu blockieren.
+     *
+     * WARUM ERST BEOBACHTEND. Ein übersehenes Inline-Skript fällt in
+     * einer durchgesetzten Fassung nicht auf, es fällt AUS: die Seite
+     * lädt, sieht heil aus, und ein Stück Verhalten fehlt. Diese Sorte
+     * Schaden ist teurer als eine Fehlermeldung, weil niemand sie sucht.
+     * Erst wenn der Bericht über echten Verkehr leer bleibt, wandert
+     * das Nonce in die durchgesetzte Fassung — eine Zeile.
+     *
+     * ABGELEITET, NICHT ABGESCHRIEBEN. Die Liste entsteht aus
+     * $csp_directives. Zwei gepflegte Fassungen einer Sicherheitsregel
+     * driften immer, und die beobachtende driftet unbemerkt: sie
+     * blockiert ja nichts, was auffallen könnte.
+     */
+    $streng = array();
+    foreach ( $csp_directives as $direktive ) {
+        if ( preg_match( "/^script-src(-elem)?\s/", $direktive ) ) {
+            $direktive = str_replace(
+                " 'unsafe-inline'",
+                " 'nonce-" . eb_csp_nonce() . "'",
+                $direktive
+            );
+        }
+        $streng[] = $direktive;
+    }
+    // Firefox kennt nur report-uri, Chrome bevorzugt report-to. Beide
+    // mitgeben: eine Meldung, die nirgends ankommt, ist keine.
+    $melde = rest_url( 'eventboerse/v1/csp-report' );
+    $streng[] = 'report-uri ' . $melde;
+    $streng[] = 'report-to csp';
+    header( 'Reporting-Endpoints: csp="' . esc_url_raw( $melde ) . '"' );
+    header( 'Content-Security-Policy-Report-Only: ' . implode( '; ', $streng ) );
 
     header( 'X-Frame-Options: DENY' );
     header( 'X-Content-Type-Options: nosniff' );
@@ -3672,6 +3943,22 @@ function eb_register_extra_routes() {
      * nur create-payment-intent), hatte KEINE Server-Validierung des Betrags
      * und KEINE Connect-Weiterleitung an den Dienstleister. Handler-Code
      * bleibt vorerst erhalten; Route bewusst nicht registriert. */
+    /* CSP-Verstoßmeldungen. Der Browser sendet sie OHNE Anmeldung und
+     * ohne Nonce — die Route muss offen sein, sonst käme nie eine an.
+     * Deshalb ist sie schmal gebaut: siehe eb_csp_report_empfangen(). */
+    register_rest_route( 'eventboerse/v1', '/csp-report', array(
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_csp_report_empfangen',
+            'permission_callback' => '__return_true',
+        ),
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_csp_report_lesen',
+            'permission_callback' => function() { return eb_is_admin_user(); },
+        ),
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/stripe/public-key', array(
         'methods'             => 'GET',
         'callback'            => 'eb_stripe_public_key',

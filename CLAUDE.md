@@ -174,6 +174,77 @@ kann der Schritt trotzdem.
 ist nichts geprüft, und das muss anders aussehen als „in Ordnung". Genau diese
 Verwechslung ließ den toten Scan vier Monate wie Schutz aussehen.
 
+### Der Ausstieg aus `unsafe-inline`
+
+Die CSP trug `script-src 'unsafe-inline'` — damit ist sie als XSS-Schutz
+praktisch abgeschaltet: gelingt irgendwo eine HTML-Injektion, darf das
+eingeschleuste `<script>` laufen. Der enge Host-Katalog schützt dann nur noch
+gegen den Angreifer von außen, nicht gegen den, der schon Text in die Seite
+bekommen hat.
+
+**Umgestellt wird in zwei Schritten.** Schritt 1 ist gemacht: jedes
+Inline-Skript trägt ein Nonce, und eine **beobachtende** Fassung
+(`Content-Security-Policy-Report-Only`) meldet jedes, das keins hat — ohne es
+zu blockieren. Schritt 2 — das Nonce in die durchgesetzte Fassung — ist **eine
+Zeile** und wartet darauf, dass `GET /hq`-Admin auf
+`/wp-json/eventboerse/v1/csp-report` eine leere Liste sieht (`bereit: true`).
+
+**Warum nicht sofort durchsetzen.** Ein übersehenes Inline-Skript fällt in
+einer durchgesetzten CSP nicht auf, es fällt **aus**: die Seite lädt, sieht
+heil aus, und ein Stück Verhalten fehlt. Diese Sorte Schaden ist teurer als
+eine Fehlermeldung, weil niemand sie sucht.
+
+Drei Wege setzen das Nonce: `index.php` direkt, `eb_shell_ausgeben()` für die
+PHP-freie `app-shell.html` (deshalb kein `readfile` mehr), und die Filter
+`wp_inline_script_attributes` / `wp_script_attributes` für alles, was
+WordPress selbst schreibt — darunter das `eventboerseApi`-Objekt, ohne das die
+App nicht startet.
+
+**Das Nonce kommt aus `random_bytes()`, nicht aus `wp_create_nonce()`.**
+Letzteres ist aus Nutzer, Aktion und Tageszeit **abgeleitet** und damit
+vorhersagbar, sobald man die Eingänge kennt. Für CSRF richtig, für die CSP
+eine Tür.
+
+**Die beobachtende Fassung ist abgeleitet, nicht abgeschrieben** — sie
+entsteht aus `$csp_directives`. Zwei gepflegte Fassungen einer
+Sicherheitsregel driften immer, und diese driftet unbemerkt: sie blockiert ja
+nichts, was auffallen könnte.
+
+**Der Meldesammler ist der einzige unauthentifizierte Schreibpunkt** der
+Anwendung — er muss offen sein, der Browser meldet ohne Anmeldung. Fünf
+Grenzen halten ihn klein: höchstens 25 verschiedene Verstöße (danach wird nur
+gezählt), Transient statt Option (läuft von selbst ab), 8 KB Größendeckel,
+**nie die volle Adresse** (nur Schema und Host — eine blockierte URL kann
+einen Token im Querystring tragen), und nur erkennbare CSP-Direktiven.
+
+### Was der Besucher wirklich lädt
+
+Gemessen am 29.08.2026, minifiziert wie im Deploy:
+
+| | roh | minifiziert | gzip | brotli |
+|---|---|---|---|---|
+| `app.js` | 1234 KB | 791 KB | 212 KB | **163 KB** |
+| `styles.css` | 521 KB | 408 KB | 71 KB | **56 KB** |
+
+**Brotli spart 64 KB je Erstbesuch**, ohne dass sich am Code etwas ändert. Es
+steht **neben** `mod_deflate`, nicht an seiner Stelle: `<IfModule>` entscheidet
+beim Start, nicht zur Laufzeit — fehlt das Modul auf dem IONOS-Pool, muss gzip
+weiter greifen. Dazu `Vary: Accept-Encoding`, sonst darf ein Zwischenspeicher
+eine Brotli-Antwort an einen Browser geben, der nur gzip kann.
+
+**Beide Schriften werden vorgezogen.** Ohne Preload ist die Kette drei Runden
+lang (HTML → `fonts.css` → parsen → Schriftdatei). Bei Material Icons ist das
+mehr als Verzögerung: die Familie steht auf `font-display: block`, ihre
+Glyphen sind bis zum Laden **unsichtbar** — jeder Knopf mit Symbol bleibt leer.
+`crossorigin` ist Pflicht, auch bei eigener Herkunft; ohne das Attribut lädt
+der Browser die Schrift ein zweites Mal, statt den Preload zu benutzen.
+
+**Der größte offene Posten ist nicht gemacht:** die drei Board-Module sind
+**455 KB von 1234 KB (37 %)** und werden jedem Besucher ausgeliefert, auch wem,
+der nie das Board öffnet. Sie nachzuladen wäre der größte Einzelgewinn — aber
+die Module teilen sich globalen Zustand über `var`, das ist ein Umbau und keine
+Einstellung.
+
 ### Rechtliches — gemessen, nicht behauptet
 
 ```bash
@@ -576,7 +647,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-606 Tests in 37 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+628 Tests in 39 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -591,6 +662,9 @@ Schicht-Ausfall landet wirklich im Journal),
 **Geheimnisse** (ein gepflanzter Schlüssel fällt auf — im Baum und in der
 Historie; ein Verweis auf eine Umgebungsvariable nicht),
 **Phantom-Workflows** (was GitHub als aktiv führt, hat auch eine Datei),
+**CSP-Nonce** (jedes Inline-Skript trägt eins; die beobachtende Fassung ist
+abgeleitet, nicht abgeschrieben), **Auslieferung** (Brotli ergänzt gzip, jede
+vorgezogene Schrift wird auch geladen),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten
@@ -794,7 +868,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (104 Routen), Asset-Registrierung |
+| `functions.php` | WordPress-Theme: REST API (105 Routen), Asset-Registrierung |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -815,7 +889,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-104 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, Utilities.
+105 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, Utilities.
 
 ### State
 

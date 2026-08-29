@@ -154,7 +154,7 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
 
     <!-- ── Structured Data ── -->
     <?php if ( $schema_json ) : ?>
-    <script type="application/ld+json"><?php echo $schema_json; ?></script>
+    <script type="application/ld+json" nonce="<?php echo esc_attr( eb_csp_nonce() ); ?>"><?php echo $schema_json; ?></script>
     <?php endif; ?>
 
     <!-- ── Favicons ── -->
@@ -169,6 +169,23 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
          Verbindung den DNS- und TLS-Aufbau vor dem ersten Bild. -->
     <link rel="preconnect" href="https://js.stripe.com">
     <link rel="preconnect" href="https://images.pexels.com" crossorigin>
+
+    <!-- ── Schriften vorziehen ──
+         Ohne Preload ist die Kette drei Runden lang: HTML → fonts.css →
+         parsen → Schriftdatei. Der Browser erfährt erst nach dem Parsen des
+         Stylesheets, dass er sie überhaupt braucht.
+
+         Für Material Icons ist das mehr als eine Verzögerung: die Familie
+         steht auf `font-display: block`, ihre Glyphen sind bis zum Laden
+         also UNSICHTBAR. Jeder Knopf mit Symbol ist so lange leer.
+
+         `crossorigin` ist Pflicht, auch bei eigener Herkunft — Schriften
+         werden im CORS-Modus geholt, und ohne das Attribut lädt der Browser
+         sie ein zweites Mal statt den Preload zu benutzen. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/inter-latin-wght-normal.woff2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/material-icons-round.woff2">
 
     <!-- ── Schriften aus dem eigenen Haus ──
          Standen hier bis zum 21.08.2026 ZUSAETZLICH zur wp_enqueue-Einbindung,
@@ -186,7 +203,7 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
           href="<?php echo get_template_directory_uri(); ?>/release-vision.css?v=<?php echo esc_attr( $release_css_ver ); ?>">
 
     <!-- ── WordPress Nonce (passed to app.js via inline script) ── -->
-    <script>
+    <script nonce="<?php echo esc_attr( eb_csp_nonce() ); ?>">
     window.eventboerseApi = {
         restUrl : <?php echo json_encode( esc_url_raw( rest_url('eventboerse/v1/') ) ); ?>,
         nonce   : <?php echo json_encode( wp_create_nonce('wp_rest') ); ?>,
@@ -209,7 +226,7 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
 <?php wp_head(); ?>
 </head>
 <body>
-<?php readfile( __DIR__ . "/app-shell.html" ); ?>
+<?php eb_shell_ausgeben(); // wie readfile, setzt aber das CSP-Nonce ?>
 <?php wp_footer(); ?>
 </body>
 </html>

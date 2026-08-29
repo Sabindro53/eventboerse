@@ -8,9 +8,31 @@ RewriteCond %{HTTPS} off [OR]
 RewriteCond %{HTTP:X-Forwarded-Proto} =http
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Kompression. Brotli ZUERST: wo es da ist, gewinnt es gegen gzip um rund
+# 15–20 % auf Text — bei app.js sind das ~35 KB je Erstbesuch. Der Browser
+# wählt über Accept-Encoding, es gibt also keine falsche Antwort.
+#
+# Beide Blöcke stehen bewusst nebeneinander: <IfModule> ist keine Fallunter-
+# scheidung zur Laufzeit, sondern beim Start. Fehlt mod_brotli auf dem
+# IONOS-Pool, greift der deflate-Block unverändert weiter — deshalb darf er
+# NICHT durch Brotli ersetzt werden.
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/css text/javascript application/javascript application/json image/svg+xml application/manifest+json
+</IfModule>
+
 # Enable Gzip Compression
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml application/manifest+json
+</IfModule>
+
+# Antworten unterscheiden sich je nach Accept-Encoding. Ohne diesen Kopf
+# darf ein Zwischenspeicher eine brotli-komprimierte Antwort an einen
+# Browser ausliefern, der nur gzip kann — dann ist die Seite kaputt, und
+# zwar nur für manche.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|css|js|json|svg)$">
+    Header append Vary Accept-Encoding
+  </FilesMatch>
 </IfModule>
 
 # Browser Caching
