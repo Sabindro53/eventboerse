@@ -1,0 +1,21 @@
+name: "Eventbörse — CodeQL"
+
+# WAS NICHT ANALYSIERT WIRD, und warum jede Zeile hier steht.
+#
+# Ein Sicherheitsbericht wird nicht dadurch besser, dass er länger ist. Er
+# wird dadurch schlechter: wer im Security-Tab dreimal denselben Befund an
+# zwei Orten sieht, hört auf hineinzusehen. Das ist derselbe Mechanismus, der
+# den Fehlalarm-Filter im Geheimnis-Scanner nötig macht.
+paths-ignore:
+  # app.js ist ERZEUGT — eine reine Verkettung von js/modules/** durch
+  # ./build-app-js.sh. Ohne diese Zeile fände CodeQL jeden Befund zweimal:
+  # einmal in der Quelle, einmal in der Kopie. Gemeldet werden soll die
+  # Stelle, an der man ihn behebt, und das ist nie app.js.
+  - app.js
+  # index.html wird aus app-shell.html erzeugt (./build-index-html.sh).
+  - index.html
+  # Selbst gehostete Fremdbibliotheken: Leaflet, Flatpickr. Ein Befund dort
+  # ist nicht unser Befund — wir können ihn nicht beheben, nur die Version
+  # wechseln. Dafür ist die Abhängigkeitsprüfung zuständig, nicht CodeQL.
+  - assets/lib/**
+  - node_modules/**

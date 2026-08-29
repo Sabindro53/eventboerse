@@ -128,6 +128,52 @@ nächste Log, und Logs sind bei einem öffentlichen Repo öffentlich.
 zurückziehen, dann über die Historie reden — in dieser Reihenfolge.
 **Stand:** 304 Dateien, 97 Commits, 899 Blobs, **0 Funde**.
 
+### Workflows, die es nur scheinbar gibt
+
+```bash
+node scripts/workflows.mjs           # Bericht (Tagesroutine, braucht Token)
+node scripts/workflows.mjs --check   # Tor: Exit 1 bei einem Phantom
+```
+
+GitHub registriert einen Workflow, sobald seine Datei auf **irgendeinem** Zweig
+einmal gepusht wurde. Wird der Zweig nie gemergt, bleibt der Eintrag stehen:
+`state: active`, ein Link auf `blob/main/…`, der ins Leere zeigt, und keine
+einzige Ausführung. Nichts an der Oberfläche sagt, dass er tot ist.
+
+Vier Einträge waren so, zwei davon **Sicherheits**-Workflows:
+
+| Eintrag | registriert | Entscheidung |
+|---|---|---|
+| Security – CodeQL Analyse | 05.05.2026 | **zurückgeholt** |
+| Security – Secret Scan (Gitleaks) | 05.05.2026 | stillgelegt → `geheimnisse.mjs` |
+| E2E Smoke (Playwright) | 22.07.2026 | stillgelegt → `pr-check.yml` |
+| Smoke-Tests (Playwright) | 30.07.2026 | stillgelegt → `pr-check.yml` |
+
+**Ein abgeschalteter Schutz ist gefährlicher als ein fehlender** — den
+fehlenden vermisst man. Der Gitleaks-Scanner stand vier Monate im Repository
+und hat nie gesucht, mit grünem Eintrag daneben.
+
+Gitleaks kam nicht zurück: die Fassung hing an `gitleaks/gitleaks-action@v2` —
+eine fremde Action im Sicherheits-Workflow, was `security.yml` aus
+Lieferkettengründen ausdrücklich meidet. `geheimnisse.mjs` braucht keine.
+
+**Stilllegen heißt eintragen, nicht löschen.** GitHub bietet keinen Weg, einen
+registrierten Workflow ohne Datei zu entfernen. Also steht er mit Grund in
+`STILLGELEGT` — der Unterschied zwischen „vergessen" und „abgeschafft" ist
+genau diese Zeile. Ein leerer Grund fällt im Test durch.
+
+**CodeQL analysiert die Quelle, nicht `app.js`.** Die Datei ist eine
+Verkettung von `js/modules/**`; ohne den Ausschluss in
+`.github/codeql/codeql-config.yml` stünde jeder Befund zweimal im Security-Tab,
+an der Kopie und am Original. Ein Bericht mit doppelten Befunden wird nicht
+gelesen — dieselbe Mechanik wie beim Fehlalarm-Filter des Geheimnis-Scanners.
+Kein `autobuild`: für JavaScript gibt es nichts zu bauen, aber fehlschlagen
+kann der Schritt trotzdem.
+
+**Ohne Token wird nicht durchgewunken.** Die Liste liegt bei GitHub; ohne sie
+ist nichts geprüft, und das muss anders aussehen als „in Ordnung". Genau diese
+Verwechslung ließ den toten Scan vier Monate wie Schutz aussehen.
+
 ### Rechtliches — gemessen, nicht behauptet
 
 ```bash
@@ -530,7 +576,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-599 Tests in 36 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+606 Tests in 37 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -544,6 +590,7 @@ Schicht-Ausfall landet wirklich im Journal),
 **Auto-Merge** (erst die Prüfungen des PRs, dann der Merge),
 **Geheimnisse** (ein gepflanzter Schlüssel fällt auf — im Baum und in der
 Historie; ein Verweis auf eine Umgebungsvariable nicht),
+**Phantom-Workflows** (was GitHub als aktiv führt, hat auch eine Datei),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten

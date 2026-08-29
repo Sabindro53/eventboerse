@@ -102,6 +102,15 @@ jobs:
       - name: Zugangsdaten in der gesamten Historie suchen
         run: node scripts/geheimnisse.mjs --historie | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Fuehrt GitHub etwas als "active", das es gar nicht mehr gibt? Der
+      # Gitleaks-Scan stand so vier Monate im Repo, ohne je zu suchen.
+      # Gehoert hierher und nicht in den PR-Check: die Liste liegt bei
+      # GitHub, das braucht Netz und Token.
+      - name: Registrierte Workflows gegen Dateien
+        env:
+          GH_TOKEN: ${{ steps.apptoken.outputs.token || secrets.GITHUB_TOKEN }}
+        run: node scripts/workflows.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Rechtliche Lage messen
         run: node scripts/recht.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
