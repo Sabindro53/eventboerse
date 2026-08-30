@@ -231,10 +231,21 @@ jobs:
             # weiterer toter Zweig nach.
             # Schlaegt es fehl (Auto-Merge im Repo nicht aktiviert), ist das
             # kein roter Lauf — der PR steht dann eben offen und sichtbar da.
-            if gh pr merge --squash --auto --delete-branch "$zweig"; then
-              echo "PR fuer \`$zweig\` angelegt, Auto-Merge aktiv." >> "$GITHUB_STEP_SUMMARY"
+            # Der Ausgang geht ins LOG und in die Zusammenfassung. Bis zum
+            # 30.08. stand er nur in der Step-Summary — und dort sieht ihn
+            # niemand. Sichtbar wurde der Ausfall erst daran, dass sich vier
+            # gruene Routine-PRs (#217, #218, #219, #222) stapelten, der
+            # aelteste seit dem 27.08. Ein Fehlschlag, der nur an einer
+            # Stelle steht, die niemand oeffnet, ist ein stiller Fehlschlag.
+            if gh pr merge --squash --auto --delete-branch "$zweig" 2>&1; then
+              echo "PR fuer \`$zweig\` angelegt, Auto-Merge aktiv." | tee -a "$GITHUB_STEP_SUMMARY"
             else
-              echo "PR fuer \`$zweig\` angelegt. Auto-Merge nicht moeglich — bitte von Hand mergen." >> "$GITHUB_STEP_SUMMARY"
+              {
+                echo "⚠️ **Auto-Merge abgelehnt** fuer \`$zweig\`."
+                echo "Der PR bleibt offen und muss von Hand gemergt werden."
+                echo "Haeufigste Ursache: \"Allow auto-merge\" ist in den"
+                echo "Repository-Einstellungen nicht aktiviert."
+              } | tee -a "$GITHUB_STEP_SUMMARY"
             fi
           else
             {

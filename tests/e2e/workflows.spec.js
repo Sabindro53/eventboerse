@@ -131,6 +131,18 @@ test.describe('Phantom-Workflows: aktiv gemeldet, Datei nirgends', () => {
       .toMatch(/is-shallow-repository[\s\S]{0,200}fetch --unshallow/);
   });
 
+  test('die Tagesroutine meldet einen abgelehnten Auto-Merge sichtbar', () => {
+    // Bis zum 30.08. ging der Ausgang nur in die Step-Summary. Dort sieht
+    // ihn niemand — sichtbar wurde der Ausfall erst daran, dass sich vier
+    // grüne Routine-PRs stapelten, der älteste seit dem 27.08.
+    const wf = fs.readFileSync(path.join(WF_DIR, 'tagesroutine.yml'), 'utf8');
+    const block = wf.slice(wf.indexOf('gh pr merge'));
+    expect(block, 'der Ausgang geht wieder nur in die Step-Summary')
+      .toMatch(/tee -a "\$GITHUB_STEP_SUMMARY"/);
+    expect(block, 'ein abgelehnter Auto-Merge nennt keine Ursache')
+      .toMatch(/Allow auto-merge/);
+  });
+
   test('jeder Workflow im Repo hat eine gültige YAML-Struktur und Berechtigungen', () => {
     // Ein Workflow ohne `permissions` bekommt die Repo-Vorgabe — bei einem
     // oeffentlichen Repo mit Deploy-Rechten ist das zu viel.
