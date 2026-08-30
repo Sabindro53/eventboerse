@@ -186,7 +186,19 @@ $melden( json_encode( array( 'csp-report' => array( 'effective-directive' => '##
 $melden( json_encode( array( 'csp-report' => array(
     'effective-directive' => '9fake-src', 'blocked-uri' => 'inline',
 ) ) ) );
+// Fuehrender Bindestrich: keine echte CSP-Direktive faengt so an.
+$melden( json_encode( array( 'csp-report' => array(
+    'effective-directive' => '-src', 'blocked-uri' => 'inline',
+) ) ) );
 $nachMuell = \EBTest\eb_csp_report_lesen()->data;
+
+// Echte Direktiven, die NICHT auf -src enden, muessen durchkommen —
+// sonst waere die Pruefung eine Whitelist, die sie nicht sein soll.
+$GLOBALS['transient'] = array();
+foreach ( array( 'frame-ancestors', 'upgrade-insecure-requests', 'base-uri' ) as $d ) {
+    $melden( $bericht( $d, 'inline' ) );
+}
+$echteDirektiven = count( \EBTest\eb_csp_report_lesen()->data['verstoesse'] );
 
 // Das neue report-to-Format (Chrome).
 $GLOBALS['transient'] = array();
@@ -218,6 +230,7 @@ echo json_encode( array(
     'nachFlutAnzahl'     => count( $nachFlut['verstoesse'] ),
     'nachFlutVoll'       => $nachFlut['voll'],
     'nachMuellAnzahl'    => count( $nachMuell['verstoesse'] ),
+    'echteDirektiven'    => $echteDirektiven,
     'nachReportTo'       => $nachReportTo['verstoesse'],
     'maxMeldungen'       => $maxMeldungen,
 ), JSON_UNESCAPED_SLASHES );

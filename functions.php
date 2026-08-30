@@ -926,8 +926,23 @@ function eb_csp_report_empfangen( WP_REST_Request $request ) {
         foreach ( array( 'effectiveDirective', 'effective-directive', 'violatedDirective', 'violated-directive' ) as $k ) {
             if ( ! empty( $m[ $k ] ) ) { $direktive = (string) $m[ $k ]; break; }
         }
-        // Keine erkennbare Direktive → keine Browsermeldung.
-        if ( ! preg_match( '/^[a-z-]+(-src)?[a-z-]*/', $direktive ) ) {
+        /* Keine erkennbare Direktive → keine Browsermeldung.
+         *
+         * Das ist eine PLAUSIBILITÄTSPRÜFUNG, keine Whitelist: jede echte
+         * CSP-Direktive beginnt mit einem Kleinbuchstaben und besteht aus
+         * Buchstaben und Bindestrichen. Was damit anfängt, wird aufgezeichnet
+         * — auch `frame-src` oder `child-src`, denn beide stehen in der
+         * beobachtenden Fassung und ihre Verstöße gehören gemeldet.
+         *
+         * Vorher stand hier `^[a-z-]+(-src)?[a-z-]*`. Das tat exakt dasselbe:
+         * `[a-z-]+` deckt bereits alles ab, was `(-src)?[a-z-]*` noch matchen
+         * könnte — beide Gruppen waren tot. Der Ausdruck LAS sich aber, als
+         * verlange er ein `-src`-Suffix, und genau so hat ihn der Code-Prüfer
+         * am 30.08. gelesen und einen Fehler gemeldet, den es nicht gab. Ein
+         * Muster, das strenger aussieht, als es ist, wird wieder falsch
+         * gelesen — vom nächsten Menschen wie vom nächsten Modell.
+         */
+        if ( ! preg_match( '/^[a-z][a-z-]*/', $direktive ) ) {
             continue;
         }
         $direktive = substr( preg_replace( '/[^a-z-]/', '', $direktive ), 0, 32 );

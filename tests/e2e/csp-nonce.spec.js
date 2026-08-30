@@ -165,6 +165,16 @@ test.describe('CSP-Meldungen: der einzige offene Schreibpunkt', () => {
     expect(r.nachMuellAnzahl, 'Müll landete in der Ablage').toBe(0);
   });
 
+  test('die Direktivenprüfung ist ein Filter, keine Whitelist', () => {
+    // Der Code-Prüfer las den alten Ausdruck `^[a-z-]+(-src)?[a-z-]*` als
+    // Forderung nach einem `-src`-Suffix und meldete, `frame-src` werde
+    // fälschlich akzeptiert. Es gibt gar keine erwartete Liste: jede echte
+    // CSP-Direktive gehört aufgezeichnet, auch die ohne `-src`.
+    const r = pruefstand();
+    expect(r.echteDirektiven,
+      'echte Direktiven ohne -src-Endung werden verworfen').toBe(3);
+  });
+
   test('beide Meldeformate kommen an — Firefox und Chrome sind sich uneinig', () => {
     const r = pruefstand();
     expect(r.nachReportTo, 'das report-to-Format von Chrome kommt nicht an')
