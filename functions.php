@@ -16,7 +16,8 @@ add_action('init', function() {
 
 require_once get_template_directory() . '/webauthn.php';
 
-// Brute-Force-Schutz (Transient-basiertes Rate-Limit, per REMOTE_ADDR).
+// Brute-Force-Schutz (Transient-basiertes Rate-Limit, per REMOTE_ADDR —
+// hinter einem Proxy geweitet, siehe eventboerse_ip_identifiziert()).
 // War zuvor vorhanden, aber nirgends eingebunden → jetzt aktiv verdrahtet
 // (siehe eventboerse_check_rate_limit-Aufrufe in den Auth-Handlern).
 require_once get_template_directory() . '/includes/security/rate-limit.php';
@@ -2215,7 +2216,9 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     if ( $ip ) {
         $ip_key   = 'eb_reg_ip_' . md5( $ip );
         $ip_count = (int) get_transient( $ip_key );
-        if ( $ip_count >= 3 ) {
+        // Hinter einem Proxy traegt jede Anfrage dieselbe Adresse — dann
+        // waeren das 3 Registrierungen pro Stunde fuer die GANZE Seite.
+        if ( $ip_count >= eventboerse_rl_limit( 3 ) ) {
             return new WP_REST_Response( array( 'message' => 'Zu viele Registrierungs-Versuche von dieser IP. Bitte warte 1 Stunde.' ), 429 );
         }
         set_transient( $ip_key, $ip_count + 1, HOUR_IN_SECONDS );
@@ -2398,7 +2401,7 @@ function eb_login_is_throttled( $email ) {
     if ( (int) get_transient( $k['pair'] ) >= 5 ) {
         return 'Zu viele fehlgeschlagene Anmeldeversuche. Bitte warte 15 Minuten oder setze dein Passwort zurück.';
     }
-    if ( (int) get_transient( $k['ip'] ) >= 20 ) {
+    if ( (int) get_transient( $k['ip'] ) >= eventboerse_rl_limit( 20 ) ) {
         return 'Zu viele fehlgeschlagene Anmeldeversuche von dieser IP. Bitte warte 1 Stunde.';
     }
     return false;

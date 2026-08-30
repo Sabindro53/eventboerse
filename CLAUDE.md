@@ -245,6 +245,55 @@ der nie das Board öffnet. Sie nachzuladen wäre der größte Einzelgewinn — a
 die Module teilen sich globalen Zustand über `var`, das ist ein Umbau und keine
 Einstellung.
 
+### Wenn `REMOTE_ADDR` alle meint
+
+Jedes IP-Limit setzt still voraus, dass `REMOTE_ADDR` den einzelnen Besucher
+bezeichnet. Steht ein Reverse-Proxy davor, stimmt das nicht — dann trägt jede
+Anfrage dieselbe Adresse, und aus **„3 Registrierungen pro IP und Stunde"** wird
+**„3 Registrierungen pro Stunde für die ganze Website"**. Am Starttag sähe das
+aus wie eine kaputte Seite: die vierte Person der Stunde bekommt eine
+Fehlermeldung über ein Limit, das sie nie erreicht hat.
+
+Ob bei IONOS ein Proxy davorsteht, ist offen — und muss es bleiben dürfen. Eine
+**private oder reservierte Adresse kann kein Internet-Client sein**; steht sie
+in `REMOTE_ADDR`, sitzt etwas dazwischen. Das genügt als Erkennung, und
+`eventboerse_ip_identifiziert()` richtet die Limits selbst danach aus.
+
+**Geweitet, nicht abgeschaltet** (`EB_RL_PROXY_FAKTOR`, 25): ganz ohne Bremse
+wäre die Anmeldemaske ungeschützt. Registrierung 3 → 75/h, Login 20 → 500/h für
+die ganze Seite. Wer 500 Fehlanmeldungen in einer Viertelstunde macht, ist kein
+Besucher.
+
+**Kontogebundene Eimer werden nie geweitet.** Die 5 Fehlversuche je E-Mail je
+15 Minuten hängen am Konto, nicht an der Leitung — genau sie schützen wirklich.
+Ein Proxy darf sie nicht anfassen, sonst hätte der Angreifer plötzlich 125
+Versuche.
+
+**`X-Forwarded-For` wird weiterhin nicht geglaubt.** Der Header ist frei
+wählbar, solange nicht feststeht, welcher Proxy ihn setzt und ob er ihn
+überschreibt. Wer ihn selbst füllt, hätte beliebig viele Identitäten — das wäre
+schlechter als der Zustand vorher, nicht besser.
+
+### Der Auto-Merge wartet — und reicht nach
+
+Zwei getrennte Fehler, beide mit demselben sichtbaren Schaden: ein grüner PR,
+der ungemergt liegenbleibt.
+
+**#204 (25.08.):** der Merge lief drei Sekunden nach dem Autopiloten los und
+rief `pulls.merge` neun Sekunden später — die Suite lief noch. Behoben durch
+die Warteschleife auf `checks.listForRef`.
+
+**#221 (30.08.):** die Schleife wartete korrekt und brach **elf Sekunden** nach
+der letzten Prüfung aus. Der Merge wurde trotzdem abgelehnt — GitHub hatte den
+Check-Run als fertig gemeldet, ihn im Branch-Schutz aber noch nicht **verbucht**.
+
+*Auf fertige Prüfungen zu warten ist nicht dasselbe wie zu warten, bis GitHub
+sie anerkennt.* Deshalb hat der Merge jetzt eigene Anläufe
+(`MERGE_ANLAEUFE`, 5, je 20 s). **Nur diese eine Ursache wird wiederholt** —
+ein Konflikt oder eine fehlende Berechtigung ist endgültig und darf nicht
+weggeschliffen werden, sonst merged die Automatik irgendwann etwas, das nicht
+gemergt gehört.
+
 ### Rechtliches — gemessen, nicht behauptet
 
 ```bash
@@ -647,7 +696,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-628 Tests in 39 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+640 Tests in 40 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -665,6 +714,8 @@ Historie; ein Verweis auf eine Umgebungsvariable nicht),
 **CSP-Nonce** (jedes Inline-Skript trägt eins; die beobachtende Fassung ist
 abgeleitet, nicht abgeschrieben), **Auslieferung** (Brotli ergänzt gzip, jede
 vorgezogene Schrift wird auch geladen),
+**Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
+niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten

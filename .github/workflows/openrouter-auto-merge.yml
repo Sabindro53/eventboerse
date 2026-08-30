@@ -200,14 +200,63 @@ jobs:
               return;
             }
 
-            const merged = await github.rest.pulls.merge({
-              owner, repo, pull_number,
-              merge_method: 'squash',
-              commit_title: `${pr.title} (#${pull_number})`,
-              commit_message: `Vier OpenRouter-Rollen, Syntax-Gates, Katalog-Gates und die komplette Playwright-Suite waren in Lauf ${run.id} gruen.`,
-            });
-            if (!merged.data.merged) {
-              core.setFailed(`GitHub hat den Merge abgelehnt: ${merged.data.message}`);
+            // ── Der Merge braucht eigene Anlaeufe ──────────────────────
+            //
+            // Die Warteschleife oben genuegt NICHT. Am 30.08. bei #221:
+            //
+            //   15:45:03  PR-Validierung fertig, gruen
+            //   15:49:58  E2E-Testsuite fertig, gruen
+            //   15:50:09  Merge -> "Required status check ... is expected"
+            //
+            // Die Schleife hatte korrekt gewartet und brach elf Sekunden
+            // nach der letzten Pruefung aus. Der Fehler war, was danach
+            // kam: GitHub hatte die Pruefung als Check-Run zwar fertig
+            // gemeldet, sie im Branch-Schutz aber noch nicht verbucht.
+            //
+            // Auf fertige Checks zu warten ist also nicht dasselbe wie zu
+            // warten, bis GitHub sie ANERKENNT. Zwischen beidem liegen ein
+            // paar Sekunden, und genau in die faellt ein Merge, der sofort
+            // nach dem Ausbrechen kommt. Der PR lag danach wieder gruen und
+            // ungemerged da — derselbe sichtbare Schaden wie bei #204, aus
+            // einem anderen Grund.
+            //
+            // Deshalb hier Anlaeufe statt eines Versuchs. Nur die Ablehnung
+            // wegen NOCH NICHT VERBUCHTER Pruefungen wird wiederholt; eine
+            // rote Pruefung, ein Konflikt oder eine fehlende Berechtigung
+            // sind endgueltig und duerfen nicht weggeschliffen werden.
+            const MERGE_ANLAEUFE = 5;
+            const nachreichbar = (e) => {
+              const t = `${e && e.message}`;
+              return /is expected|required status check|not mergeable|Base branch was modified/i.test(t);
+            };
+            let merged = null;
+            let letzterFehler = null;
+            for (let i = 0; i < MERGE_ANLAEUFE; i += 1) {
+              try {
+                merged = await github.rest.pulls.merge({
+                  owner, repo, pull_number,
+                  merge_method: 'squash',
+                  commit_title: `${pr.title} (#${pull_number})`,
+                  commit_message: `Vier OpenRouter-Rollen, Syntax-Gates, Katalog-Gates und die komplette Playwright-Suite waren in Lauf ${run.id} gruen.`,
+                });
+                break;
+              } catch (e) {
+                letzterFehler = e;
+                if (!nachreichbar(e) || i === MERGE_ANLAEUFE - 1) break;
+                core.notice(`Merge-Anlauf ${i + 1} abgelehnt (${e.message.split('\n')[0]}) — neuer Versuch.`);
+                await schlafen(20000);
+              }
+            }
+            if (!merged || !merged.data.merged) {
+              const grund = merged
+                ? merged.data.message
+                : `${letzterFehler && letzterFehler.message}`.split('\n').slice(0, 2).join(' ');
+              // Wieder: am PR, nicht nur im Log.
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pull_number,
+                body: `⛔ **Auto-Merge gestoppt:** GitHub hat den Merge nach ${MERGE_ANLAEUFE} Anlaeufen abgelehnt — ${grund}`,
+              });
+              core.setFailed(`GitHub hat den Merge abgelehnt: ${grund}`);
               return;
             }
             // Ein Merge mit GITHUB_TOKEN loest aus Absicht keinen push-Workflow
