@@ -1,12 +1,34 @@
 {
   "version": 1,
-  "erzeugt": "2026-08-30T16:19:29.188Z",
+  "erzeugt": "2026-08-30T16:42:36.061Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-08-26T03:37:07.592Z",
+  "journalStand": "2026-08-30T16:33:37.836Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [],
   "verworfen": [
+    {
+      "herkunft": {
+        "rolle": "deepseek-code",
+        "person": "Kito Sarr",
+        "rollenname": "Unabhängiger Code-Prüfer",
+        "bereich": "engineering",
+        "zeit": "2026-08-30T16:33:37.835Z",
+        "aufgabe": "Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen."
+      },
+      "grund": "Schicht endete als „uebersprungen\" — kein Befund entstanden"
+    },
+    {
+      "herkunft": {
+        "rolle": "deepseek-code",
+        "person": "Kito Sarr",
+        "rollenname": "Unabhängiger Code-Prüfer",
+        "bereich": "engineering",
+        "zeit": "2026-08-30T16:33:37.673Z",
+        "aufgabe": "Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen."
+      },
+      "grund": "Schicht endete als „uebersprungen\" — kein Befund entstanden"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",

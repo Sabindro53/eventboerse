@@ -219,7 +219,13 @@ jobs:
             } | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          git diff "$basis" HEAD -- '*.js' '*.php' '*.mjs' > /tmp/diff.txt || true
+          # app.js und index.html sind ERZEUGT (Verkettung von js/modules/**
+          # bzw. app-shell.html). Aendert sich ein Modul, aendert sich app.js
+          # mit — und der Pruefer bekaeme jede Zeile zweimal, einmal als
+          # Quelle und einmal als Kopie. Dieselbe Begruendung wie beim
+          # CodeQL-Ausschluss; hier kommt hinzu, dass der Platz knapp ist.
+          git diff "$basis" HEAD -- '*.js' '*.php' '*.mjs' \
+            ':(exclude)app.js' ':(exclude)index.html' > /tmp/diff.txt || true
           if [ ! -s /tmp/diff.txt ]; then
             echo "Kein Code-Diff — nichts gegenzulesen." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0

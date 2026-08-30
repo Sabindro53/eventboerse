@@ -26,6 +26,7 @@ import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
 import { MIN_ANTWORT_TOKENS, WORTGRENZE_SATZ } from './lib/antwortgrenze.mjs';
+import { kontextKuerzen } from './lib/kontextgrenze.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Tests brauchen ein eigenes Journal — sonst prüften sie gegen die echte
@@ -291,9 +292,10 @@ async function arbeiten() {
     kontext = `${kontext}\n\nDATEIEN ZUR AUFGABE\n${gelesen.join('\n\n')}`;
   }
 
-  // Kontext begrenzen: ein Diff über tausende Zeilen kostet Geld und bringt
-  // keine bessere Antwort.
-  kontext = kontext.slice(0, 12000);
+  // Kontext begrenzen — und das Kürzen SAGEN. Still abzuschneiden hat den
+  // Code-Prüfer am 30.08. zwei erfundene Befunde melden lassen; die Regel
+  // und ihre Begründung stehen in scripts/lib/kontextgrenze.mjs.
+  kontext = kontextKuerzen(kontext);
 
   // Nichts Geheimes an einen fremden Dienst schicken. Das ist der eine Punkt,
   // an dem die Routine lieber gar nicht arbeitet.
