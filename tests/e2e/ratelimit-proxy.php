@@ -58,8 +58,18 @@ $pruefe = function ( $addr ) {
 
 $faelle = array(
     // Echte Internet-Adressen — bezeichnen einen Client.
-    'oeffentlich_v4'  => '203.0.113.7',
-    'oeffentlich_v6'  => '2001:db8::1',
+    //
+    // BEWUSST KEINE Dokumentations-Praefixe. Der erste Entwurf nahm
+    // 203.0.113.7 (TEST-NET-3) und 2001:db8::1 (RFC 3849) — Adressen, die
+    // es per Definition nie im echten Verkehr gibt. Lokal (PHP 8.4) galten
+    // beide als oeffentlich, in CI zaehlte PHP 2001:db8::/32 zu den
+    // reservierten Bereichen: derselbe Test, zwei Ergebnisse, und der
+    // Unterschied lag in der PHP-Version, nicht im Code.
+    //
+    // Genommen wird deshalb global geroutetes Unicast, das keine
+    // PHP-Fassung als Sonderfall fuehrt.
+    'oeffentlich_v4'  => '93.184.216.34',
+    'oeffentlich_v6'  => '2606:4700:4700::1111',
     // Privat/reserviert — es sitzt ein Proxy dazwischen.
     'privat_10'       => '10.0.0.5',
     'privat_172'      => '172.16.4.9',
@@ -75,6 +85,9 @@ $faelle = array(
 $ergebnis = array();
 foreach ( $faelle as $name => $addr ) {
     $ergebnis[ $name ] = $pruefe( $addr );
+    // Die Adresse mitgeben: nur so kann der Test pruefen, dass als
+    // "oeffentlich" auch etwas gewaehlt wurde, das oeffentlich SEIN kann.
+    $ergebnis[ $name ]['adresse'] = (string) $addr;
 }
 $ergebnis['fehlt'] = $pruefe( null );
 

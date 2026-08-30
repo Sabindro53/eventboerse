@@ -105,6 +105,32 @@ test.describe('Phantom-Workflows: aktiv gemeldet, Datei nirgends', () => {
     expect(wf, 'autobuild ist wieder drin').not.toMatch(/codeql-action\/autobuild/);
   });
 
+  test('der Code-Prüfer trennt "nichts gefunden" von "nicht nachgesehen"', () => {
+    // Bei #220 am 30.08. brach `git diff origin/main...HEAD` im flachen
+    // Checkout ab ("fatal: no merge base"), und der Schritt meldete
+    // „Kein Code-Diff — nichts gegenzulesen". Der Prüfer hatte sein
+    // Subjekt NICHT GEFUNDEN und sah aus, als hätte er nichts gefunden —
+    // dieselbe Verwechslung, die den toten Gitleaks-Scan vier Monate wie
+    // Schutz aussehen liess.
+    const wf = fs.readFileSync(path.join(WF_DIR, 'pr-check.yml'), 'utf8');
+    expect(wf, 'es gibt keinen eigenen Zweig für den fehlenden Vergleichspunkt')
+      .toMatch(/Code-Pruefer uebersprungen/);
+    expect(wf, 'der Vergleichspunkt wird nicht explizit bestimmt')
+      .toMatch(/git merge-base/);
+    // Und die naive Form, die genau daran scheiterte, darf nicht zurück.
+    expect(wf, 'die Drei-Punkt-Form ohne merge-base-Prüfung ist zurück')
+      .not.toMatch(/git diff origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD/);
+  });
+
+  test('für den Vergleichspunkt werden BEIDE Seiten vertieft', () => {
+    // Nur die Basis zu vertiefen genügt nicht — der PR-Zweig bleibt dann
+    // bei Tiefe 1 und es gibt weiterhin keinen gemeinsamen Vorfahren.
+    // Das war der erste, wirkungslose Versuch dieser Reparatur.
+    const wf = fs.readFileSync(path.join(WF_DIR, 'pr-check.yml'), 'utf8');
+    expect(wf, 'der flache Checkout wird nicht aufgelöst')
+      .toMatch(/is-shallow-repository[\s\S]{0,200}fetch --unshallow/);
+  });
+
   test('jeder Workflow im Repo hat eine gültige YAML-Struktur und Berechtigungen', () => {
     // Ein Workflow ohne `permissions` bekommt die Repo-Vorgabe — bei einem
     // oeffentlichen Repo mit Deploy-Rechten ist das zu viel.

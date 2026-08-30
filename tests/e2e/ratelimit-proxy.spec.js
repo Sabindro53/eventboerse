@@ -36,6 +36,31 @@ test.describe('Rate-Limits hinter einem Proxy', () => {
     }
   });
 
+  test('die „öffentlichen" Beispiele sind auch wirklich welche', () => {
+    // Der erste Entwurf nahm 203.0.113.7 (TEST-NET-3) und 2001:db8::1
+    // (RFC 3849) — Adressen, die es per Definition nie im echten Verkehr
+    // gibt. Lokal galten beide als öffentlich, in CI zählte PHP
+    // 2001:db8::/32 zu den reservierten: derselbe Test, zwei Ergebnisse,
+    // und der Unterschied lag in der PHP-Version.
+    //
+    // Diese Prüfung hängt an keiner PHP-Fassung: sie sagt, dass als
+    // Beispiel für „echter Client" nichts genommen wird, was per Norm
+    // für Dokumentation oder Messungen reserviert ist.
+    const RESERVIERT = [
+      /^192\.0\.2\./, /^198\.51\.100\./, /^203\.0\.113\./,  // TEST-NET 1–3
+      /^198\.1[89]\./,                                        // Benchmark
+      /^2001:0?db8:/i, /^3fff:/i, /^100::/i,                    // IPv6-Doku
+    ];
+    const r = pruefstand();
+    for (const fall of ['oeffentlich_v4', 'oeffentlich_v6']) {
+      const a = r.faelle[fall].adresse;
+      for (const re of RESERVIERT) {
+        expect(a, `${fall} benutzt einen reservierten Bereich: ${a}`)
+          .not.toMatch(re);
+      }
+    }
+  });
+
   test('private, reservierte und kaputte Adressen bezeichnen niemanden', () => {
     const r = pruefstand();
     const proxy = ['privat_10', 'privat_172', 'privat_192', 'loopback',
