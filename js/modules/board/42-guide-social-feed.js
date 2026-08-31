@@ -1648,10 +1648,48 @@ function sharePost(postId) {
   }
 }
 
+/**
+ * Öffnet einen Feed-Kanal und markiert seinen Reiter — der EINE Weg dorthin.
+ *
+ * WARUM ES DIESE FUNKTION GIBT. Die Reiter auf „Entdecken" führen auf eine
+ * andere Seite und riefen dafür:
+ *
+ *   navigateTo('aktuelles');
+ *   setTimeout(() => switchFeedTab(knopf), 80);
+ *
+ * Das ist ein Wettlauf. `navigateTo('aktuelles')` rendert nämlich ERST nach
+ * `loadDbListings()` — asynchron. Dauert das Laden länger als 80 ms, was am
+ * Netz hängt und nicht an uns, kommt die Reihenfolge:
+ *
+ *   80 ms   switchFeedTab('gesuche')  → Liste zeigt Gesuche
+ *   300 ms  renderFeed('foryou')      → Liste zeigt „Für dich"
+ *
+ * Der Reiter bleibt auf „Gesuche" markiert, darunter steht etwas anderes.
+ * Niemand sieht dabei einen Fehler; es sieht nur falsch aus.
+ *
+ * Jetzt trägt `navigateTo('aktuelles', kanal)` den Kanal mit, der Router
+ * rendert ihn NACH dem Laden, und der Reiter folgt. Als Zugabe funktioniert
+ * `/aktuelles/radar` als Deep-Link: `_spaPath` und `_readSpaRoute` reichen
+ * das zweite Segment ohnehin in beide Richtungen durch.
+ *
+ * Der Reset der Markierung ist auf DIE Leiste beschränkt, in der der Reiter
+ * steht. Vorher traf `querySelectorAll('.feed-tab')` auch die Leiste auf
+ * „Entdecken" — deren „Entdecken"-Reiter verlor dabei still seine Markierung.
+ */
+function feedTabAktivieren(kanal) {
+  var feed = kanal || 'foryou';
+  var btn = document.querySelector('#page-aktuelles .feed-tab[data-feed="' + feed + '"]');
+  if (btn && btn.parentNode) {
+    btn.parentNode.querySelectorAll('.feed-tab').forEach(function(t) {
+      t.classList.remove('active');
+    });
+    btn.classList.add('active');
+  }
+  renderFeed(feed);
+}
+
 function switchFeedTab(btn) {
-  document.querySelectorAll('.feed-tab').forEach(function(t) { t.classList.remove('active'); });
-  btn.classList.add('active');
-  renderFeed(btn.dataset.feed);
+  if (btn) feedTabAktivieren(btn.dataset.feed);
 }
 
 function renderSidebarUpcoming() {

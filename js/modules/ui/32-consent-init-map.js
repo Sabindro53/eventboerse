@@ -342,11 +342,12 @@ var CITY_COORDS = {
   'Stuttgart':   [48.7758,  9.1829],
 };
 
-const CATEGORY_EMOJI = {
-  dj: '🎧', catering: '🍽️', florist: '🌸', licht: '💡',
-  pyro: '🎆', foto: '📷', location: '🏰', deko: '🎈',
-  planung: '📋', moderation: '🎤'
-};
+/* `CATEGORY_EMOJI` stand hier — eine dritte Liste derselben Kategorien mit
+ * eigenen Emojis. Floristik war hier 🌸 und im Suchvokabular 💐: dieselbe
+ * Kategorie, zwei Zeichen, je nachdem welche Liste gerade dran war.
+ *
+ * Ersetzt durch `ebKategorieIcon()` aus search/11-suche-ki.js — eine
+ * Zuordnung fuer alle Ausgabestellen. */
 
 let leafletMap = null;
 let mapMarkers = [];
@@ -490,13 +491,13 @@ function addListingMarkers(listings) {
 function renderLocationsList(listings) {
   const list = document.getElementById('mapLocationsList');
   list.innerHTML = listings.map(l => {
-    const emoji = CATEGORY_EMOJI[l.category] || '📌';
+    const icon = ebKategorieIcon(l.category);
     return `
       <div class="map-loc-item" data-id="${l.id}" onclick="focusMapMarker(${l.id})">
         <img class="map-loc-img" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" />
         <div class="map-loc-info">
           <span class="map-loc-city">${_escHtml(l.location)}</span>
-          <span class="map-loc-cat">${emoji} ${_escHtml(l.categoryLabel)}</span>
+          <span class="map-loc-cat">${ebIconHtml(icon)} ${_escHtml(l.categoryLabel)}</span>
         </div>
         <div class="map-loc-price">${l.priceLabel}</div>
       </div>`;

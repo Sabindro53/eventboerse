@@ -383,7 +383,10 @@ function navigateTo(page, data, skipHistory) {
       pageReady = loadDbListings().then(function() { renderExploreGrid(); });
       break;
     case 'aktuelles':
-      pageReady = loadDbListings().then(function() { renderFeed('foryou'); });
+      // `data` traegt den Feed-Kanal ('radar', 'gesuche', …). Gerendert wird
+      // erst NACH loadDbListings() — deshalb darf niemand von aussen mit
+      // einem setTimeout dagegen anrennen; siehe feedTabAktivieren().
+      pageReady = loadDbListings().then(function() { feedTabAktivieren(data); });
       break;
     case 'detail':
       pageReady = loadDbListings().then(function() { loadDetail(data); });

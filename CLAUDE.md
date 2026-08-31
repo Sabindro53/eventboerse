@@ -696,7 +696,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-653 Tests in 41 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+670 Tests in 43 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -716,6 +716,9 @@ abgeleitet, nicht abgeschrieben), **Auslieferung** (Brotli ergänzt gzip, jede
 vorgezogene Schrift wird auch geladen),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
+**Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und
+Inhalt laufen nicht mehr um die Wette), **Such-Icons** (keine Emojis mehr,
+wo Markup möglich ist),
 **Icons** (jedes benutzte Symbol löst sich im echten Browser zu einem Glyph
 auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 (Zusammenführung lokal ↔ Server, Grabsteine), **Board-Zeiten** (Mehrfachzeiten
@@ -810,7 +813,7 @@ WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
 bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
 
 **Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
-und 170 KB; benutzt werden 384. Die ausgelieferte Datei ist **32 KB**, die
+und 170 KB; benutzt werden 386. Die ausgelieferte Datei ist **32 KB**, die
 Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
 Deploy ausgeschlossen).
 
@@ -984,6 +987,56 @@ ein Textvergleich hielte 02:00 für früher als 23:00.
 `[hidden] { display: none }`** — sonst steht der leere Warnkasten sichtbar da.
 Genau das passierte beim Bauen und fiel nur auf, weil ein Test auf
 `toBeHidden()` prüfte.
+
+### Der Radar auf „Entdecken“ — und ein Wettlauf
+
+Gemeldet am 31.08.2026: „bei Entdecken verschwindet der Radar“. Er war nicht
+kaputt, er hatte dort **keinen Einstieg** — die Reiterleiste auf
+`#page-aktuelles` trug einen Radar-Knopf, die auf `#page-explore` nicht.
+
+Beim Nachsehen kam ein älterer Fehler mit heraus. Die Entdecken-Reiter führen
+auf eine andere Seite und taten das mit
+`navigateTo('aktuelles'); setTimeout(() => switchFeedTab(k), 80)`. Aber
+`navigateTo('aktuelles')` rendert erst **nach** `loadDbListings()` — dauert
+das länger als 80 ms, überschreibt `foryou` den gewählten Kanal, während der
+Reiter markiert bleibt. Der Inhalt passt dann nicht zur Markierung, und das
+sieht nicht nach einem Fehler aus, sondern nach einer Seite, die einen nicht
+versteht.
+
+**Kanal → `navigateTo('aktuelles', kanal)`.** Der Router rendert ihn nach dem
+Laden, `feedTabAktivieren()` markiert den Reiter. Als Zugabe funktioniert
+`/aktuelles/radar` als Deep-Link — `_spaPath` und `_readSpaRoute` reichen das
+zweite Segment ohnehin durch.
+
+**Zwei tote Doppelgänger entfernt.** `renderFeed()` und `switchFeedTab()`
+standen je **zweimal** im Projekt: in `search/10-karten-home-feed.js` und in
+`board/42-guide-social-feed.js`. `app.js` ist eine Verkettung — bei zwei
+gleichnamigen Funktionsdeklarationen gewinnt die spätere. Die Fassung in
+Modul 10, die man zuerst sucht, war seit jeher wirkungslos und kannte
+ausserdem weder `radar` noch `gesuche` noch `events`.
+
+**Noch offen:** `_fetchWithTimeout()` steht ebenfalls doppelt
+(`core/00-basis.js` → `core/30-auth.js`). Nicht angefasst, weil es Auth-Code
+berührt.
+
+### Icons statt Emojis in der Suche
+
+Ein Emoji zeichnet die Schrift des **Systems**: auf Android anders als auf
+iOS, auf Windows anders als auf beiden, in mancher Linux-Umgebung gar nicht.
+Es lässt sich nicht einfärben und im Dunkelmodus nicht abdunkeln.
+
+`EB_KATEGORIE_ICON` in `search/11-suche-ki.js` ist **eine** Zuordnung für vier
+Ausgabestellen. Vorher trug jede Liste ihre eigenen Emojis — Floristik hatte
+in `CATEGORY_EMOJI` ein anderes Zeichen als im Suchvokabular, dieselbe
+Kategorie mit zwei Symbolen. `CATEGORY_EMOJI` ist ersatzlos entfallen.
+
+**Die Event-Auswahl behält ihre Emojis, mit Absicht:** sie rendert in ein
+`<option>`, und dort erlaubt kein Browser Markup — ein `<span>` erschiene als
+Text oder verschwände. Ein Test, der dort Icons verlangte, erzwänge einen
+kaputten Zustand.
+
+**Neues Icon → `node scripts/icons.mjs && python3 scripts/icons-subset.py`.**
+Sonst fehlt der Glyph im Zuschnitt und der Knopf bleibt leer.
 
 ## Bekannte Schwächen (nicht neu einführen)
 
