@@ -187,16 +187,30 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="<?php echo get_template_directory_uri(); ?>/assets/fonts/material-icons-round.woff2">
 
-    <!-- ── Schriften aus dem eigenen Haus ──
-         Standen hier bis zum 21.08.2026 ZUSAETZLICH zur wp_enqueue-Einbindung,
-         also doppelt — und mit "Material Icons" statt "Material Icons Round",
-         einer Familie, die das Theme gar nicht benutzt. -->
-    <link rel="stylesheet"
-          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/fonts.css?v=<?php echo $asset_ver; ?>">
+    <!-- ── fonts.css und styles.css stehen NICHT hier ──
+         Sie werden in eventboerse_enqueue_assets() eingebunden und landen ueber
+         wp_head() weiter unten in diesem Kopf. Bis zum 01.09.2026 standen sie
+         ZUSAETZLICH hier, und beide Fassungen wurden wirklich uebertragen: der
+         Lighthouse-Lauf vom 31.08. zeigt styles.css?v=2.5.1 und
+         styles.css?ver=1787748136 als zwei Anfragen zu je 68 KB, fonts.css
+         ebenso. 70 KB doppelt, beide den Aufbau blockierend.
 
-    <!-- ── App CSS ── -->
-    <link rel="stylesheet"
-          href="<?php echo get_template_directory_uri(); ?>/styles.css?v=<?php echo $asset_ver; ?>">
+         Fuer die Schriften wurde genau dieser Fehler am 21.08.2026 schon einmal
+         behoben — der Kommentar stand danach ueber der Zeile, die er beschrieb.
+         Der zweite Weg blieb offen.
+
+         Die feste Kopie war ausserdem die schlechtere: $asset_ver ist eine von
+         Hand gepflegte Nummer, die seit 2.5.1 niemand hochgezaehlt hat. Nach
+         einem Deploy liefert sie den alten Stand aus dem Zwischenspeicher,
+         waehrend die eingebundene Fassung ueber filemtime frisch kommt.
+
+         An der Kaskade aendert das Entfernen nichts: die eingebundene Fassung
+         kam schon vorher zuletzt und hat damit ohnehin entschieden.
+
+         Wer hier wieder ein <link> auf eine bereits eingebundene Datei setzt,
+         laedt sie doppelt — pruefstand: tests/e2e/auslieferung.spec.js. -->
+
+    <!-- ── App CSS: nur was NICHT ueber wp_enqueue_style laeuft ── -->
     <link rel="stylesheet"
           href="<?php echo get_template_directory_uri(); ?>/ui-enhancements.css?v=<?php echo $asset_ver; ?>">
     <link rel="stylesheet"

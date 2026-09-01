@@ -239,11 +239,112 @@ Glyphen sind bis zum Laden **unsichtbar** — jeder Knopf mit Symbol bleibt leer
 `crossorigin` ist Pflicht, auch bei eigener Herkunft; ohne das Attribut lädt
 der Browser die Schrift ein zweites Mal, statt den Preload zu benutzen.
 
-**Der größte offene Posten ist nicht gemacht:** die drei Board-Module sind
-**455 KB von 1234 KB (37 %)** und werden jedem Besucher ausgeliefert, auch wem,
-der nie das Board öffnet. Sie nachzuladen wäre der größte Einzelgewinn — aber
-die Module teilen sich globalen Zustand über `var`, das ist ein Umbau und keine
-Einstellung.
+**Die Board-Module sind 148 KB, nicht 455 KB.** Die frühere Angabe („455 KB von
+1234 KB, 37 %") war nach *Verzeichnis* gruppiert und zählte Module mit, die auch
+außerhalb des Boards laufen. Nach Funktion gemessen bleiben 148 KB roh und
+**16 KB brotli** — der Aufwand eines Nachlade-Umbaus steht dazu in keinem
+Verhältnis, denn die Module teilen globalen Zustand über `var`. Zurückgestellt,
+ausdrückliche Entscheidung des Inhabers am 31.08.2026.
+
+### Was der Besucher wirklich erlebt — am 31.08.2026 live gemessen
+
+Die Tabelle oben zählt Bytes. Sie sagt nicht, wie lange jemand auf eine leere
+Fläche sieht. Der Lighthouse-Lauf gegen **die Live-Seite** sagt es:
+
+| | gemessen | Bedeutung |
+|---|---:|---|
+| First Contentful Paint | 2,8 s | erstes Pixel |
+| **Largest Contentful Paint** | **8,5 s** | die Seite sieht fertig aus |
+| Speed Index | 10,0 s | |
+| **Time to Interactive** | **10,4 s** | ein Druck bewirkt etwas |
+| Total Blocking Time | 1760 ms | Hauptthread blockiert |
+| Server-Antwortzeit | 1260 ms | IONOS, vor jedem Byte |
+
+Barrierefreiheit 95, SEO 85, Performance **35**. Gedrosseltes Mobilprofil —
+der Regelfall, nicht der ungünstigste.
+
+**Das ist der „Ausfall" vom 01.09.2026.** Gemeldet wurde „die Seite ist down".
+Der Monitor stand auf 200, Lighthouse zeigt eine vollständig gerenderte
+Startseite. Beides stimmt: wer auf dem Telefon zehn Sekunden lang auf etwas
+drückt, das nicht reagiert, hat eine kaputte Seite vor sich — und liegt damit
+richtig. Ein Statuscode kann diese Sorte Ausfall nicht sehen.
+
+Die Zusammensetzung, gemessen statt geschätzt: **2189 KB in 64 Anfragen**,
+davon **1285 KB Bilder** (59 %). Die vier größten Inseratsbilder tragen allein
+994 KB — Originalgrößen aus der Mediathek, ohne `srcset`, ohne WebP.
+
+**Der Hauptthread ist nicht durch JavaScript belegt.** Script Evaluation 1501 ms,
+aber Style & Layout **3655 ms** und „Other" 5451 ms. Bei 17 200 Zeilen CSS und
+191 Bild-Elementen auf der Startseite ist das Layout die teure Arbeit, nicht der
+Code. **Wer hier zuerst am JavaScript spart, spart an der falschen Stelle.**
+
+Offene Posten in der Reihenfolge ihres Gewichts: Bildgrößen (`srcset`/WebP,
+~900 KB), Server-Antwortzeit (1260 ms, IONOS-seitig), Stripe.js (250 KB auf
+**jeder** Seite), Elementor- und Gutenberg-CSS (aufbaublockierend, vom Theme
+nicht gebraucht).
+
+**Ein 404 steht noch drin:** `/assets/showcase/dj-hero.jpg`.
+
+**Stripe.js ist nicht nur ein Performance-Posten.** `functions.php` bindet
+`https://js.stripe.com/v3/` unbedingt ein — auf der Startseite, im Impressum,
+überall. Das Skript ist mit 250 KB die drittgrößte Übertragung, und es sendet
+bei **jedem** Seitenaufruf die IP-Adresse des Besuchers an Stripe, auch wenn nie
+jemand zahlt; Stripe.js setzt zur Betrugserkennung eigene Kennungen. Das ist ein
+Drittanbieter-Datenfluss ohne Bezug zur aufgerufenen Seite.
+
+Bedarfsgesteuert zu laden ist der richtige Weg, aber ein Eingriff in den
+Zahlungspfad — dem heikelsten Code, den wir haben. **Nicht nebenbei, nicht
+zusammen mit anderem.** Eigener PR, eigene Prüfung; bis dahin steht es hier als
+offener Posten und nicht als erledigt.
+
+### Lighthouse war neunmal rot — und hat neunmal gemessen
+
+Vom 09.07. bis 01.09.2026 scheiterte jeder Lauf. Nicht an der Messung, die lag
+jedes Mal fertig vor: am Upload-Schritt, der `git rev-parse HEAD` ruft. Dem Job
+fehlte `actions/checkout`, also gab es kein Git-Verzeichnis.
+
+**Ein Prüfer, der aus einem Nebengrund rot meldet, ist so wertlos wie einer, der
+grundlos grün meldet** — nach dem dritten Mal sieht niemand mehr hin. Vier
+Monate lang lag hinter diesem roten Haken die einzige echte Messung der
+ausgelieferten Seite, samt öffentlichem Bericht und Schnappschuss.
+
+Behoben durch den Checkout. Der Lauf ist jetzt **täglich** (vorher montags),
+schreibt die Punkte in die Job-Zusammenfassung statt nur ins Log, und fällt
+unter 25 Performance-Punkten durch. Die Schranke ist ein Rücklaufschutz, **kein
+Ziel**: gemessen sind 35. Eine Schranke auf dem heutigen Wert löste bei jeder
+Schwankung aus und wäre in zwei Wochen abgeschaltet.
+
+**Kein Messwert im Manifest ist ebenfalls Exit 1.** Nicht messen ist kein
+Bestehen — derselbe Fehler wie beim toten Gitleaks-Scan.
+
+### Ein Stylesheet auf zwei Wegen
+
+Derselbe Lauf zeigte vier Anfragen, die zwei hätten sein sollen:
+
+```
+styles.css?v=2.5.1          68 KB      fonts.css?v=2.5.1          1 KB
+styles.css?ver=1787748136   68 KB      fonts.css?ver=1787748126   1 KB
+```
+
+`index.php` band beide Dateien fest per `<link>` ein, `functions.php` zusätzlich
+per `wp_enqueue_style()`. Verschiedene Query-Strings sind für den Browser
+verschiedene Adressen: er lädt beide, und beide blockieren den Aufbau. **70 KB
+je Erstbesuch** — mehr, als Brotli einspart.
+
+Für die Schriften war genau das am 21.08.2026 schon einmal behoben worden. Der
+erklärende Kommentar blieb stehen, die Zeile darunter auch.
+
+Die feste Kopie war zudem die schlechtere: `$asset_ver` ist eine von Hand
+gepflegte Nummer, die seit `2.5.1` niemand hochgezählt hat — nach einem Deploy
+liefert sie den alten Stand aus dem Zwischenspeicher, während die eingebundene
+Fassung über `filemtime` frisch kommt. An der Kaskade ändert das Entfernen
+nichts: die eingebundene Fassung kam schon vorher zuletzt.
+
+**Neues Stylesheet → entweder `<link>` in `index.php` oder `wp_enqueue_style()`,
+nie beides.** `ui-enhancements.css` und `release-vision.css` laufen bewusst nur
+über den festen Weg. Geprüft wird die Bedingung, nicht der Einzelfall
+(`tests/e2e/auslieferung.spec.js`): ein Test auf „styles.css steht nicht mehr in
+index.php" wäre beim nächsten Doppelgänger wieder blind.
 
 ### Wenn `REMOTE_ADDR` alle meint
 
@@ -696,7 +797,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-679 Tests in 44 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+690 Tests in 45 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -713,7 +814,8 @@ Historie; ein Verweis auf eine Umgebungsvariable nicht),
 **Phantom-Workflows** (was GitHub als aktiv führt, hat auch eine Datei),
 **CSP-Nonce** (jedes Inline-Skript trägt eins; die beobachtende Fassung ist
 abgeleitet, nicht abgeschrieben), **Auslieferung** (Brotli ergänzt gzip, jede
-vorgezogene Schrift wird auch geladen),
+vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen),
+**Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und

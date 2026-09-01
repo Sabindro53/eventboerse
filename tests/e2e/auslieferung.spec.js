@@ -122,3 +122,93 @@ test.describe('Auslieferung: Schriften vorziehen', () => {
       .toMatch(/material-icons-round\.woff2/);
   });
 });
+
+// ── Kein Stylesheet auf zwei Wegen ───────────────────────────────────────
+//
+// Der Lighthouse-Lauf vom 31.08.2026 gegen die LIVE-Seite zeigte 64 Anfragen,
+// darunter diese vier:
+//
+//   styles.css?v=2.5.1          68 KB
+//   styles.css?ver=1787748136   68 KB
+//   fonts.css?v=2.5.1            1 KB
+//   fonts.css?ver=1787748126     1 KB
+//
+// Zwei Wege banden dieselben Dateien ein: ein festes <link> in `index.php`
+// und `wp_enqueue_style()` in `functions.php`. Verschiedene Query-Strings
+// sind fuer den Browser verschiedene Adressen — er laedt beide, und beide
+// blockieren den Aufbau.
+//
+// Fuer die Schriften war genau das am 21.08.2026 schon einmal behoben
+// worden. Der erklaerende Kommentar blieb stehen, die Zeile darunter auch.
+//
+// Geprueft wird die Bedingung, nicht der Einzelfall: KEINE Datei darf auf
+// beiden Wegen kommen. Ein Test auf "styles.css steht nicht mehr in
+// index.php" waere beim naechsten Doppelgaenger wieder blind.
+test.describe('Kein Stylesheet wird auf zwei Wegen eingebunden', () => {
+  /** Loest die PHP-Ausdruecke zu einem Pfad relativ zum Theme-Wurzelverzeichnis. */
+  const normieren = (s) => '/' + String(s)
+    .replace(/\?.*$/, '')
+    .replace(/^\/+/, '')
+    .trim();
+
+  function ausFunctions() {
+    const php = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+    const treffer = [];
+    for (const m of php.matchAll(/wp_enqueue_style\(\s*'[^']*'\s*,\s*([^,]+),/g)) {
+      let q = m[1].trim();
+      if (/get_stylesheet_uri\(\)/.test(q)) { treffer.push('/style.css'); continue; }
+      q = q.replace(/\$fonts\b/, "'assets/fonts'")
+           .replace(/\$vendor\b/, "'assets/lib'")
+           .replace(/get_template_directory_uri\(\)/, "''");
+      const teile = [...q.matchAll(/'([^']*)'/g)].map((x) => x[1]).filter(Boolean);
+      if (teile.length) treffer.push(normieren(teile.join('/').replace(/\/+/g, '/')));
+    }
+    return treffer;
+  }
+
+  function ausIndexPhp() {
+    const php = fs.readFileSync(path.join(ROOT, 'index.php'), 'utf8');
+    // Reihenfolge ist wesentlich: erst Kommentare, dann PHP.
+    //
+    // Die PHP-Bloecke MUESSEN vor dem Suchen weg. `<?php … ?>` enthaelt ein
+    // `>`, und daran endet jedes `[^>]*` mitten im <link>-Tag — die erste
+    // Fassung dieses Tests fand deshalb null Treffer und haette jede
+    // Doppel-Einbindung durchgewunken. Gefangen hat das die Subjekt-Pruefung
+    // darunter, nicht der Blick auf den Code.
+    const roh = php
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<\?php[\s\S]*?\?>/g, '');
+    const treffer = [];
+    for (const m of roh.matchAll(/<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi)) {
+      const href = m[0].match(/href=["']([^"']*)["']/i);
+      if (href && href[1].trim()) treffer.push(normieren(href[1]));
+    }
+    return treffer;
+  }
+
+  test('die Erhebung findet ihre Subjekte überhaupt', () => {
+    // Ohne diese Prüfung wäre ein kaputtes Muster ein bestandener Test:
+    // zwei leere Listen überschneiden sich nie.
+    expect(ausFunctions().length, 'kein wp_enqueue_style gefunden — Test prüft nichts')
+      .toBeGreaterThanOrEqual(4);
+    expect(ausIndexPhp().length, 'kein <link rel=stylesheet> in index.php — Test prüft nichts')
+      .toBeGreaterThan(0);
+  });
+
+  test('keine Datei kommt über <link> UND wp_enqueue_style', () => {
+    const eingebunden = new Set(ausFunctions());
+    const doppelt = ausIndexPhp().filter((p) => eingebunden.has(p));
+    expect(doppelt, `doppelt eingebunden (fest in index.php und per wp_enqueue_style): `
+      + `${doppelt.join(', ')}`).toHaveLength(0);
+  });
+
+  test('styles.css und fonts.css laufen über wp_enqueue_style', () => {
+    // Die Gegenrichtung: sie dürfen nicht einfach VERSCHWINDEN. Ein Test, der
+    // nur "nicht doppelt" prüft, wäre auch dann grün, wenn beide fehlen —
+    // und die Seite käme ohne jedes Design.
+    const e = ausFunctions();
+    expect(e, 'styles.css wird nirgends mehr eingebunden').toContain('/styles.css');
+    expect(e, 'fonts.css wird nirgends mehr eingebunden')
+      .toContain('/assets/fonts/fonts.css');
+  });
+});
