@@ -168,19 +168,35 @@ test.describe('Kein Stylesheet wird auf zwei Wegen eingebunden', () => {
 
   function ausIndexPhp() {
     const php = fs.readFileSync(path.join(ROOT, 'index.php'), 'utf8');
-    // Reihenfolge ist wesentlich: erst Kommentare, dann PHP.
+
+    // Kommentarbereiche werden BESTIMMT, nicht herausgeschnitten.
     //
-    // Die PHP-Bloecke MUESSEN vor dem Suchen weg. `<?php … ?>` enthaelt ein
-    // `>`, und daran endet jedes `[^>]*` mitten im <link>-Tag — die erste
-    // Fassung dieses Tests fand deshalb null Treffer und haette jede
+    // Die erste Fassung schnitt sie mit `.replace(/<!--[\s\S]*?-->/g, '')`
+    // heraus. CodeQL hat das am 01.09.2026 als „Incomplete multi-character
+    // sanitization" gemeldet, und der Form nach zu Recht: ein einmaliger
+    // Schnitt an einem mehrzeichigen Konstrukt kann bei Verschachtelung einen
+    // Rest stehen lassen. Eine Sicherheitsluecke war es hier nicht — der Text
+    // kommt aus unserem eigenen Repository und wird nie gerendert.
+    //
+    // Trotzdem geaendert statt weggeklickt: ein Scanner, der grundlos
+    // anschlaegt, wird nach dem dritten Mal abgeschaltet. Wer Bereiche nur
+    // MISST, statt am Text zu schneiden, hat das Problem nicht.
+    const kommentare = [...php.matchAll(/<!--[\s\S]*?-->/g)]
+      .map((m) => [m.index, m.index + m[0].length]);
+    const imKommentar = (i) => kommentare.some(([a, b]) => i >= a && i < b);
+
+    // Ein <link>-Tag darf PHP-Bloecke enthalten, und die tragen selbst ein
+    // `>`. Ein schlichtes [^>]* endet daran mitten im Tag — genau daran fand
+    // die erste Fassung dieses Tests null Treffer und haette jede
     // Doppel-Einbindung durchgewunken. Gefangen hat das die Subjekt-Pruefung
-    // darunter, nicht der Blick auf den Code.
-    const roh = php
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/<\?php[\s\S]*?\?>/g, '');
+    // darunter, nicht der Blick auf den Code. Die Alternative im Muster
+    // erlaubt den PHP-Block ausdruecklich, statt ihn vorher zu entfernen.
     const treffer = [];
-    for (const m of roh.matchAll(/<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi)) {
-      const href = m[0].match(/href=["']([^"']*)["']/i);
+    for (const m of php.matchAll(/<link\b(?:<\?php[\s\S]*?\?>|[^>])*>/gi)) {
+      if (imKommentar(m.index)) continue;
+      const tag = m[0].replace(/<\?php[\s\S]*?\?>/g, '');
+      if (!/rel=["']stylesheet["']/i.test(tag)) continue;
+      const href = tag.match(/href=["']([^"']*)["']/i);
       if (href && href[1].trim()) treffer.push(normieren(href[1]));
     }
     return treffer;
@@ -191,8 +207,15 @@ test.describe('Kein Stylesheet wird auf zwei Wegen eingebunden', () => {
     // zwei leere Listen überschneiden sich nie.
     expect(ausFunctions().length, 'kein wp_enqueue_style gefunden — Test prüft nichts')
       .toBeGreaterThanOrEqual(4);
-    expect(ausIndexPhp().length, 'kein <link rel=stylesheet> in index.php — Test prüft nichts')
+    const ausPhp = ausIndexPhp();
+    expect(ausPhp.length, 'kein <link rel=stylesheet> in index.php — Test prüft nichts')
       .toBeGreaterThan(0);
+    // Der erklärende Kommentar in index.php enthält selbst die Zeichenfolge
+    // `<link>`. Ein Sammler, der Kommentare mitzählt, meldete daran einen
+    // Treffer ohne href — und ein leerer Pfad überschneidet sich mit nichts,
+    // also fiele es nie auf. Deshalb hier festgehalten.
+    expect(ausPhp.every((p) => p !== '/'), `leerer Pfad gesammelt: ${ausPhp.join(', ')}`)
+      .toBe(true);
   });
 
   test('keine Datei kommt über <link> UND wp_enqueue_style', () => {
