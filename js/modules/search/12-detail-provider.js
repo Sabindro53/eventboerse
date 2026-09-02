@@ -1621,6 +1621,10 @@ function toggleFollow() {
 }
 
 function shareProvider() {
+  if (typeof window.eventboerseShare === 'function') {
+    window.eventboerseShare({ title: document.getElementById('providerName').textContent, url: window.location.href });
+    return;
+  }
   if (navigator.share) {
     navigator.share({ title: document.getElementById('providerName').textContent, url: window.location.href });
   } else {

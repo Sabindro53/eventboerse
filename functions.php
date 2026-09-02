@@ -1910,6 +1910,7 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     $role_input = isset( $params['role'] )         ? sanitize_text_field( $params['role'] )       : 'user';
     $company    = isset( $params['company'] )      ? sanitize_text_field( $params['company'] )    : '';
     $vat_id     = isset( $params['vat_id'] )       ? sanitize_text_field( $params['vat_id'] )     : '';
+    $age_confirmed = ! empty( $params['age_confirmed'] );
 
     // Validierung
     if ( empty( $email ) || ! is_email( $email ) ) {
@@ -1920,6 +1921,9 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     }
     if ( empty( $first_name ) ) {
         return new WP_REST_Response( array( 'message' => 'Bitte gib deinen Vornamen ein.' ), 400 );
+    }
+    if ( ! $age_confirmed ) {
+        return new WP_REST_Response( array( 'message' => 'Die Registrierung ist erst ab 18 Jahren möglich.' ), 400 );
     }
     if ( eb_email_exists( $email, $email_raw ) ) {
         return new WP_REST_Response( array( 'message' => 'Diese E-Mail-Adresse ist bereits registriert.' ), 400 );
@@ -1972,6 +1976,7 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
         'role'          => $role_input,
         'company'       => $company,
         'vat_id'        => $vat_id,
+        'age_confirmed' => true,
     ), 10 * MINUTE_IN_SECONDS );
     set_transient( eb_reg_otp_cooldown_key( $email ), 1, MINUTE_IN_SECONDS );
 
@@ -2049,6 +2054,7 @@ function eb_register_verify( WP_REST_Request $request ) {
 
     // E-Mail direkt als verifiziert markieren (OTP bestätigt)
     update_user_meta( $user_id, 'eb_email_verified', '1' );
+    update_user_meta( $user_id, 'eb_age_confirmed_at', gmdate( 'c' ) );
     if ( ! empty( $payload['company'] ) ) {
         update_user_meta( $user_id, 'eb_company', sanitize_text_field( $payload['company'] ) );
     }

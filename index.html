@@ -3365,7 +3365,7 @@ Datum: ___________________________________________________
         <p>Diese Angaben liegen ausschließlich im Speicher Ihres Browsers und werden nicht an Dritte übertragen. <strong>Analyse- und Marketing-Cookies setzen wir nicht ein.</strong> Ihre Auswahl ändern Sie jederzeit über „Cookie-Einstellungen“ im Fußbereich. Details: <a href="#" onclick="navigateTo('cookies');return false;">Cookie-Richtlinie</a>.</p>
 
         <h2>6. Registrierung und Nutzerkonto</h2>
-        <p>Verarbeitete Daten: Name, E-Mail, Passwort (gespeichert als Hash), Geburtsdatum (Altersnachweis), Postleitzahl/Ort, optional Telefonnummer und Profilbild. Zweck: Vertragsanbahnung/-durchführung, Authentifizierung. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO. Speicherdauer: für die Dauer des Kontos; nach Löschung gemäß Löschkonzept (steuerrechtlich relevante Daten 6/10 Jahre).</p>
+        <p>Verarbeitete Daten: Name, E-Mail, Passwort (gespeichert als Hash), Bestätigung der Volljährigkeit (ohne Geburtsdatum), Postleitzahl/Ort, optional Telefonnummer und Profilbild. Zweck: Vertragsanbahnung/-durchführung, Authentifizierung und Durchsetzung des Mindestalters. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO. Speicherdauer: für die Dauer des Kontos; nach Löschung gemäß Löschkonzept (steuerrechtlich relevante Daten 6/10 Jahre).</p>
 
         <h2>7. Authentifizierung mit WebAuthn / FIDO2</h2>
         <p>Optional: Passkey nach WebAuthn/FIDO2. Auf Ihrem Endgerät wird ein Schlüsselpaar erzeugt; der private Schlüssel verlässt Ihr Gerät nicht. Wir speichern lediglich den öffentlichen Schlüssel und eine Geräte-Kennung. Eine biometrische Verarbeitung findet ausschließlich lokal auf Ihrem Endgerät statt; an uns werden keine biometrischen Daten übermittelt.</p>
@@ -3726,6 +3726,10 @@ Datum: ___________________________________________________
             </div>
           </div>
         </div>
+        <label class="check-label age-confirm">
+          <input type="checkbox" id="regAgeConfirmed" required />
+          Ich bestätige, dass ich mindestens 18 Jahre alt bin.
+        </label>
         <label class="check-label terms">
           <input type="checkbox" required />
           Ich akzeptiere die <a href="#" onclick="event.preventDefault(); closeModal('registerModal'); navigateTo('agb')">AGB</a> und <a href="#" onclick="event.preventDefault(); closeModal('registerModal'); navigateTo('datenschutz')">Datenschutzrichtlinie</a>

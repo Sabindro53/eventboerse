@@ -1,0 +1,35 @@
+{
+  "appId": "de.eventboerse.app",
+  "appName": "Eventbörse",
+  "webDir": "ios-web",
+  "server": {
+    "url": "https://xn--eventbrse-57a.de/",
+    "cleartext": false,
+    "allowNavigation": [
+      "xn--eventbrse-57a.de",
+      "www.xn--eventbrse-57a.de",
+      "checkout.stripe.com",
+      "billing.stripe.com"
+    ],
+    "errorPath": "offline.html"
+  },
+  "ios": {
+    "preferredContentMode": "mobile",
+    "contentInset": "always",
+    "backgroundColor": "#1A1A1A",
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#1A1A1A",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#1A1A1A",
+      "overlaysWebView": false
+    }
+  }
+}

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Eventbörse iOS Logo</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: max-content;
+      height: max-content;
+      overflow: hidden;
+      background: #1a1a1a;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas aria-label="Eventbörse Logo"></canvas>
+  <script>
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      const size = Number(params.get('size') || 1024);
+      const inkRatio = Number(params.get('ink') || 0.5);
+      const canvas = document.querySelector('canvas');
+      canvas.width = size;
+      canvas.height = size;
+
+      const font = new FontFace(
+        'Eventboerse Material Icons',
+        'url(../../assets/fonts/material-icons-round.woff2) format("woff2")'
+      );
+      await font.load();
+      document.fonts.add(font);
+
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#1A1A1A';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#FF385C';
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left';
+
+      const glyph = 'celebration';
+      const fontFamily = '"Eventboerse Material Icons"';
+      ctx.font = `${size}px ${fontFamily}`;
+      let metrics = ctx.measureText(glyph);
+      const initialInkWidth = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
+      const fontSize = size * inkRatio * size / initialInkWidth;
+
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      metrics = ctx.measureText(glyph);
+      const inkWidth = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
+      const inkHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      const x = (size - inkWidth) / 2 + metrics.actualBoundingBoxLeft;
+      const y = (size - inkHeight) / 2 + metrics.actualBoundingBoxAscent;
+      ctx.fillText(glyph, x, y);
+
+      window.__logoReady = {
+        size,
+        inkRatio,
+        inkWidth,
+        inkHeight
+      };
+    })();
+  </script>
+</body>
+</html>

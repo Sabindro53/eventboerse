@@ -7,6 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
+    "assets:ios-logo": "node scripts/generate-ios-brand-assets.mjs",
     "test": "playwright test",
     "test:smoke": "playwright test tests/e2e/smoke.spec.js",
     "test:suche": "playwright test tests/e2e/suche.spec.js",
@@ -34,7 +35,19 @@
   "homepage": "https://github.com/Sabindro53/eventboerse#readme",
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
+    "@capacitor/cli": "8.5.1",
     "@playwright/test": "^1.62.1",
     "csso-cli": "^4.0.2"
+  },
+  "dependencies": {
+    "@capacitor/app": "8.1.1",
+    "@capacitor/browser": "8.0.4",
+    "@capacitor/core": "8.5.1",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/ios": "8.5.1",
+    "@capacitor/network": "8.0.1",
+    "@capacitor/share": "8.0.1",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.3"
   }
 }

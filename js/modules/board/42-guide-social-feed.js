@@ -1639,6 +1639,10 @@ function submitPostComment(ev, postId) {
 }
 
 function sharePost(postId) {
+  if (typeof window.eventboerseShare === 'function') {
+    window.eventboerseShare({ title: 'Eventbörse Post', url: window.location.href });
+    return;
+  }
   if (navigator.share) {
     navigator.share({ title: 'Eventbörse Post', url: window.location.href })
       .catch(function() {});

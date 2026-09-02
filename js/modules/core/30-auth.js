@@ -1500,6 +1500,7 @@ async function handleRegister(e) {
     vatId = (document.getElementById('regVatId') || {}).value || '';
     vatId = vatId.trim();
   }
+  var ageBox = document.getElementById('regAgeConfirmed');
   var termsBox = form.querySelector('.terms input[type="checkbox"]');
   var submitBtn = form.querySelector('button[type="submit"]');
 
@@ -1510,6 +1511,11 @@ async function handleRegister(e) {
   if (!email) { _setFieldError('regEmail', 'E-Mail ist erforderlich'); hasError = true; }
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { _setFieldError('regEmail', 'Ungültige E-Mail-Adresse'); hasError = true; }
   if (!password || password.length < 8) { _setFieldError('regPassword', 'Min. 8 Zeichen erforderlich'); hasError = true; }
+  if (!ageBox || !ageBox.checked) {
+    var ageLabel = form.querySelector('.age-confirm');
+    if (ageLabel) { ageLabel.classList.add('has-error'); }
+    hasError = true;
+  }
   if (termsBox && !termsBox.checked) {
     var termsLabel = form.querySelector('.terms');
     if (termsLabel) { termsLabel.classList.add('has-error'); }
@@ -1560,6 +1566,7 @@ async function handleRegister(e) {
         last_name: lastName,
         company: company || '',
         vat_id: vatId || '',
+        age_confirmed: Boolean(ageBox && ageBox.checked),
         // Honeypot 2026-05-29: leeres Feld ist OK; Bot füllt es → Backend silent-rejects
         website: (document.getElementById('regWebsite') || {}).value || ''
       })
