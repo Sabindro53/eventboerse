@@ -239,6 +239,51 @@ test.describe('Drittanbieter im Auslieferungspfad', () => {
     expect(drittanbieterPruefen(php, '<p>unpkg</p>').hosts).toEqual(['unpkg.com']);
   });
 
+  test('ein NACHGELADENES Skript zählt genauso', async () => {
+    // Am 02.09.2026 wurde Stripe.js von wp_enqueue_script auf einen
+    // bedarfsgesteuerten Lader umgestellt — richtig für den Datenschutz,
+    // denn vorher ging die IP jedes Besuchers an Stripe, auch auf Seiten
+    // ohne Zahlung.
+    //
+    // Nur sah dieser Prüfer den Host danach nicht mehr und meldete „0
+    // geladen" für eine Seite, die bei jeder Zahlung Stripe kontaktiert.
+    // Eine Verbesserung, die einem Tor sein Subjekt wegnimmt, macht das Tor
+    // still wertlos — dieselbe Mechanik wie beim toten Gitleaks-Scan.
+    //
+    // Wer den LADEWEG ändert, ändert nicht die MELDEPFLICHT.
+    const { drittanbieterPruefen } = await recht();
+    const js = `
+      var s = document.createElement('script');
+      s.src = 'https://js.stripe.com/v3/';
+      document.head.appendChild(s);`;
+    const r = drittanbieterPruefen('', '<p>Wir nutzen Stripe.</p>', js);
+    expect(r.hosts, 'ein nachgeladener Host bleibt unsichtbar')
+      .toContain('js.stripe.com');
+    expect(r.fehlend, 'Stripe steht in der Erklärung und gilt trotzdem als fehlend')
+      .toHaveLength(0);
+  });
+
+  test('ein nachgeladener Host ohne Eintrag fällt auf', async () => {
+    const { drittanbieterPruefen } = await recht();
+    const js = `var s = document.createElement('script');
+      s.src = 'https://tracker.beispiel.net/t.js';`;
+    const r = drittanbieterPruefen('', '<p>nichts dazu</p>', js);
+    expect(r.unbekannt, 'ein unbekannter nachgeladener Host blockiert nicht')
+      .toContain('tracker.beispiel.net');
+  });
+
+  test('eine im JS nur erwähnte Adresse zählt nicht', async () => {
+    // Sonst gälte jeder Kommentar und jede Fehlermeldung als Datenfluss —
+    // ein Prüfer, der dreimal grundlos anschlägt, wird abgeschaltet.
+    const { drittanbieterPruefen } = await recht();
+    const js = `
+      // Doku: https://cdn.beispiel.net/x.js
+      showErr('js.stripe.com nicht erreichbar');
+      var url = 'https://api.beispiel.org/v1/status';`;
+    expect(drittanbieterPruefen('', '<p>x</p>', js).hosts,
+      'eine bloss erwähnte Adresse gilt als Datenfluss').toHaveLength(0);
+  });
+
   test('Schriften und Bibliotheken kommen aus dem eigenen Haus', async () => {
     // Bis zum 21.08.2026 kamen Inter und die Material Icons von Google,
     // Leaflet von unpkg und Flatpickr von jsDelivr — drei Drittlandtransfers

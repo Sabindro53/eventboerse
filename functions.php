@@ -738,20 +738,37 @@ function eventboerse_enqueue_assets() {
         $styles_ver
     );
 
-    // Stripe.js (embedded Payment Element)
-    wp_enqueue_script(
-        'stripe-js',
-        'https://js.stripe.com/v3/',
-        array(),
-        null,
-        true
-    );
+    /* Stripe.js steht hier BEWUSST NICHT MEHR.
+     *
+     * Bis zum 02.09.2026 wurde js.stripe.com/v3 unbedingt eingebunden — auf
+     * der Startseite, im Impressum, ueberall. Gemessen am 31.08.: 250 KB, die
+     * drittgroesste Uebertragung der Startseite.
+     *
+     * Schwerer wiegt der Datenschutz. Stripe.js setzt zur Betrugserkennung
+     * eigene Kennungen und sah die IP-Adresse JEDES Besuchers, auch auf
+     * Seiten, auf denen nie jemand zahlt. Das ist ein
+     * Drittanbieter-Datenfluss ohne Bezug zur aufgerufenen Seite.
+     *
+     * `scripts/recht.mjs` faellt darauf nicht herein und deckt es auch nicht
+     * auf: es prueft, ob ein Drittanbieter in der Datenschutzerklaerung STEHT
+     * — nicht, WANN er laedt. Die Luecke schliesst kein Tor, sondern nur
+     * diese Umstellung.
+     *
+     * Geladen wird jetzt in `ebStripeJsLaden()` (board/41-flow-zahlung.js),
+     * und zwar erst, wenn der Zahlungsdialog wirklich aufgeht. Die CSP
+     * erlaubt den Host weiterhin; ein nachtraeglich eingehaengtes Skript von
+     * js.stripe.com faellt unter dieselbe script-src-Regel.
+     *
+     * WER ES HIER WIEDER EINTRAEGT, macht die Umstellung lautlos rueckgaengig
+     * — die Zahlung funktioniert dann ja weiterhin. `zahlung-laden.spec.js`
+     * haelt genau das fest.
+     */
 
     // App JS
     wp_enqueue_script(
         'eventboerse-app',
         get_template_directory_uri() . '/app.js',
-        array( 'eb-leaflet', 'eb-flatpickr', 'eb-flatpickr-de', 'stripe-js' ),
+        array( 'eb-leaflet', 'eb-flatpickr', 'eb-flatpickr-de' ),
         $app_ver,
         true
     );

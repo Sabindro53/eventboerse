@@ -204,7 +204,11 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     <!-- ── Preconnect ── Schriften und Bibliotheken liegen im Theme. Die
          Demo-Bilder kommen weiterhin von Pexels; dort spart die vorgezogene
          Verbindung den DNS- und TLS-Aufbau vor dem ersten Bild. -->
-    <link rel="preconnect" href="https://js.stripe.com">
+    <!-- Kein preconnect auf js.stripe.com mehr. Seit dem 02.09.2026 wird die
+         Bibliothek erst beim Oeffnen des Zahlungsdialogs geholt; eine
+         vorgezogene Verbindung auf jeder Seite waere genau der
+         Drittanbieter-Kontakt, den die Umstellung beseitigt — nur ohne den
+         Nutzen, den sie frueher hatte. -->
     <link rel="preconnect" href="https://images.pexels.com" crossorigin>
 
     <!-- ── Schriften vorziehen ──

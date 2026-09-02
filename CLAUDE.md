@@ -496,17 +496,52 @@ Regel.
 
 **Ein 404 steht noch drin:** `/assets/showcase/dj-hero.jpg`.
 
-**Stripe.js ist nicht nur ein Performance-Posten.** `functions.php` bindet
-`https://js.stripe.com/v3/` unbedingt ein — auf der Startseite, im Impressum,
-überall. Das Skript ist mit 250 KB die drittgrößte Übertragung, und es sendet
-bei **jedem** Seitenaufruf die IP-Adresse des Besuchers an Stripe, auch wenn nie
-jemand zahlt; Stripe.js setzt zur Betrugserkennung eigene Kennungen. Das ist ein
+### Stripe.js lädt erst an der Kasse
+
+Bis zum 02.09.2026 band `functions.php` `https://js.stripe.com/v3/` **unbedingt**
+ein — auf der Startseite, im Impressum, überall. 250 KB, die drittgrößte
+Übertragung der Startseite; und schwerer wiegend: bei **jedem** Seitenaufruf
+ging die IP-Adresse des Besuchers an Stripe, auch wenn nie jemand zahlt.
+Stripe.js setzt zur Betrugserkennung eigene Kennungen. Ein
 Drittanbieter-Datenfluss ohne Bezug zur aufgerufenen Seite.
 
-Bedarfsgesteuert zu laden ist der richtige Weg, aber ein Eingriff in den
-Zahlungspfad — dem heikelsten Code, den wir haben. **Nicht nebenbei, nicht
-zusammen mit anderem.** Eigener PR, eigene Prüfung; bis dahin steht es hier als
-offener Posten und nicht als erledigt.
+`ebStripeJsLaden()` in `board/41-flow-zahlung.js` holt die Bibliothek jetzt,
+wenn der Zahlungsdialog aufgeht. Der Umbau war klein, weil `Stripe(…)` an
+**einer** Stelle aufgerufen wird.
+
+Drei Eigenschaften, jede mutationsgeprüft:
+
+- **Das Versprechen wird gemerkt** — sonst hängt jeder Zahlungsversuch ein
+  weiteres Skript ein.
+- **Im Fehlerfall wird es geleert** — ein gemerktes *abgelehntes* Versprechen
+  sperrte die Kasse für die ganze Sitzung; eine Netzstörung von zwei Sekunden
+  kostete dann den Kauf.
+- **Geladen ist nicht brauchbar.** Ein Zwischenspeicher kann eine leere 200
+  liefern, `onload` feuert trotzdem. Ohne die Gegenprobe auf `window.Stripe`
+  gäbe es `Stripe is not a function` mitten im Zahlungsdialog.
+
+Der Fehlerfall ist **sichtbar**: schlägt das Laden fehl, steht es im Dialog.
+Ein Zahlungsfenster, in dem nichts passiert und nichts dasteht, ist die
+schlechteste Sorte Fehler an der Kasse.
+
+Auch der `preconnect` ist weg — er wäre genau der Drittanbieter-Kontakt, den
+die Umstellung beseitigt, nur ohne den Nutzen, den er vorher hatte. Und die
+Dev-Shell lädt Stripe ebenfalls bedarfsgesteuert: liefe es lokal anders,
+wäre der Unterschied genau dort unsichtbar, wo man ihn testet.
+
+**Die CSP behält `js.stripe.com`.** Wer den Host herausnimmt, weil „wir laden
+Stripe ja nicht mehr", legt die Zahlung still lahm.
+
+**`recht.mjs` musste mitwachsen.** Es las nur `wp_enqueue_*` und meldete nach
+der Umstellung **„0 geladen"** für eine Seite, die bei jeder Zahlung Stripe
+kontaktiert. Eine Verbesserung, die einem Tor sein Subjekt wegnimmt, macht das
+Tor still wertlos — dieselbe Mechanik wie beim toten Gitleaks-Scan. Der Prüfer
+sieht jetzt auch `\.src = 'https://…'` in den Modulen: **wer den Ladeweg
+ändert, ändert nicht die Meldepflicht.**
+
+```bash
+npx playwright test tests/e2e/zahlung-laden.spec.js   # 10 Tests, echter Browser
+```
 
 ### Lighthouse war neunmal rot — und hat neunmal gemessen
 
@@ -1008,7 +1043,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-758 Tests in 49 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+771 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1039,6 +1074,9 @@ nach 5.1.1(v) ist noch da),
 überspringt sich),
 **Apple-Zuordnung** (ohne gültige Team-ID wird nichts ausgeliefert; das HQ ist
 vor dem Auffangmuster ausgeschlossen; die Bundle-ID stimmt mit Capacitor),
+**Zahlung laden** (beim blossen Besuch geht nichts an Stripe — im echten
+Browser gemessen; der Lader hängt genau ein Skript ein und sperrt die Kasse
+nach einem Fehler nicht),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und

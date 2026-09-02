@@ -550,7 +550,7 @@ export const DRITTANBIETER_NAMEN = {
  * kamen. Das ist keine Formalie: eine Falschangabe über einen
  * Drittlandtransfer ist ein Verstoß gegen Art. 13 Abs. 1 lit. f DSGVO.
  */
-export function drittanbieterPruefen(functionsPhp, datenschutzHtml) {
+export function drittanbieterPruefen(functionsPhp, datenschutzHtml, jsQuelle = '') {
   const ohneKommentar = functionsPhp
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
@@ -559,6 +559,28 @@ export function drittanbieterPruefen(functionsPhp, datenschutzHtml) {
   // Nur URLs, die wirklich eingebunden werden — nicht jede erwähnte Adresse.
   for (const m of ohneKommentar.matchAll(/wp_(?:enqueue|register)_(?:script|style)\s*\(([\s\S]{0,400}?)\)\s*;/g)) {
     for (const u of m[1].matchAll(/https:\/\/([a-z0-9.-]+)\//g)) hosts.add(u[1]);
+  }
+
+  /* Auch nachgeladene Skripte zählen.
+   *
+   * Am 02.09.2026 wurde Stripe.js von `wp_enqueue_script` auf einen
+   * bedarfsgesteuerten Lader umgestellt — richtig für den Datenschutz, denn
+   * vorher ging die IP jedes Besuchers an Stripe. Nur sah dieser Prüfer den
+   * Host danach nicht mehr und meldete **„0 geladen"** für eine Seite, die
+   * bei jeder Zahlung Stripe kontaktiert.
+   *
+   * Eine Verbesserung, die einem Tor sein Subjekt wegnimmt, macht das Tor
+   * still wertlos — dieselbe Mechanik wie beim toten Gitleaks-Scan. Wer den
+   * Ladeweg ändert, ändert nicht die Meldepflicht.
+   *
+   * Gesucht wird die Zuweisung an `.src`, also das, was wirklich eine
+   * Anfrage auslöst — nicht jede im Code erwähnte Adresse. */
+  const jsOhneKommentar = String(jsQuelle)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  for (const m of jsOhneKommentar.matchAll(
+    /\.src\s*=\s*['"`]https:\/\/([a-z0-9.-]+)\//g)) {
+    hosts.add(m[1]);
   }
 
   const fehlend = [];
@@ -613,7 +635,15 @@ export function lageErheben() {
     einwilligung: einwilligungPruefen(dateien),
     pflichtseiten: pflichtseitenPruefen(readFileSync(COMPLIANCE, 'utf8'), readFileSync(FUNCTIONS, 'utf8')),
     ki: kiTransparenzPruefen(dateien, existsSync(KI_NOTIZ)),
-    drittanbieter: drittanbieterPruefen(readFileSync(FUNCTIONS, 'utf8'), readFileSync(SHELL, 'utf8')),
+    // Die Module kommen mit: seit dem 02.09.2026 wird Stripe.js dort
+    // nachgeladen statt in functions.php eingebunden. Ohne diese Quelle
+    // meldete der Prüfer „0 geladen" für eine Seite, die bei jeder Zahlung
+    // Stripe kontaktiert.
+    drittanbieter: drittanbieterPruefen(
+      readFileSync(FUNCTIONS, 'utf8'),
+      readFileSync(SHELL, 'utf8'),
+      dateien.map((d) => d.quelle).join('\n'),
+    ),
   };
 }
 
