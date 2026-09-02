@@ -347,6 +347,71 @@ abgeschnitten. Gemessen am Prüfstand: 227 KB → 86 KB, **62 %**.
 npx playwright test tests/e2e/webp.spec.js   # 24 Tests, echte Bilddateien
 ```
 
+### Die App für den App Store
+
+Alles, was ohne macOS entstehen kann, liegt in **`native/`**. Das Xcode-Projekt
+erzeugt `npx cap add ios` und läuft nur auf einem Mac.
+
+**Apple will hier keine Provision.** Guideline **3.1.3(e)**: eine Leistung, die
+*außerhalb* der App erbracht wird — DJ, Catering, Location — **darf nicht**
+über In-App-Kauf abgerechnet werden. Apple nimmt **0 %**. Der ursprüngliche
+Plan, die Zahlung in den Browser umzuleiten, war deshalb unnötig **und** der
+riskantere Weg: **3.1.1(a)** verbietet außerhalb des US-Storefronts gerade
+solche Verweise auf externe Zahlwege. Stripe läuft in der App wie im Web.
+PR #46 baut auf der widerlegten Annahme auf.
+
+**Die App lädt die Website, sie bringt sie nicht mit** (`server.url`). Der
+Grund ist die Anmeldung: die REST-API authentifiziert über das
+WordPress-Cookie plus `X-WP-Nonce`. Ein gebündeltes Capacitor-App liefe unter
+`capacitor://localhost` — jede Anfrage wäre **cross-site**, ohne Cookie und
+ohne Nonce. Ein Bundle bräuchte ein **zweites Authentifizierungsverfahren für
+alle 106 Routen**, parallel zum bestehenden. Zwei Wege in dieselbe Anwendung
+hinein sind genau die Angriffsfläche, die man sich nicht ohne Not baut.
+
+Der Preis, ehrlich benannt: kein Offline-Betrieb, und **Guideline 4.2** —
+eine reine Website-Hülle wird abgelehnt. Das ist der wahrscheinlichste
+Ablehnungsgrund und wird nicht durch Argumente ausgeräumt, sondern durch
+Funktionen: **Push** (eine Buchungsanfrage muss ankommen, wenn die App zu
+ist), **Kamera**, **Passkeys/Face ID** (`webauthn.php` ist da), **Standort**
+(Radar). Ohne diese vier gar nicht erst einreichen.
+
+**Das Privacy-Manifest ist Pflicht** (`native/PrivacyInfo.xcprivacy`, seit
+2024). Jede Datenart darin ist am Code belegt, und
+`vault/40-Governance/Legal/App-Store.md` führt dieselbe Liste mit der
+Apple-Kennung als eigener Spalte. **`app-store.spec.js` vergleicht beide
+Seiten und bricht bei Drift ab** — zwei gepflegte Listen derselben Sache
+driften immer, und diese driftet unbemerkt bis zur Ablehnung.
+
+`eb_taste_v1` läuft unter **Personalisierung**, nicht unter Funktion: es wird
+aus Such- und Klickverhalten *abgeleitet* und ist in `Cookie-Liste.md` als
+profilbildend geführt. Abrunden erzeugte einen Widerspruch zur eigenen
+Datenschutzerklärung, den Apple findet.
+
+**Neue erhobene Datenart → drei Orte, alle oder keiner:** Vault-Tabelle,
+Privacy-Manifest, App Store Connect. Dazu die Datenschutzerklärung und bei
+einem neuen Speicherschlüssel `Cookie-Liste.md`.
+
+**`viewport-fit=cover` war die fehlende Zeile.** `styles.css` rechnet an sechs
+Stellen mit `env(safe-area-inset-*)` — untere Navigation, Buchungsleiste,
+Panels. Ohne das Attribut liefert **jede** dieser Abfragen 0, und zwar still:
+das Layout sieht auf dem Schreibtisch richtig aus und liegt auf einem iPhone
+mit Home-Indikator darunter. Die Behandlung war da und war wirkungslos.
+`viewport-fit`, `apple-mobile-web-app-status-bar-style: black-translucent` und
+die safe-area-Abstände gehören zusammen; einzeln ist jedes davon ein Fehler.
+
+Nebenbei behoben: die Statusleisten-Farbe stand auf `#6C63FF` — eine Farbe,
+die im ganzen Projekt sonst nur in `generate-icons.html` vorkommt, einem
+Werkzeug, das nichts ausliefert. Die Marke ist `#FF385C` (62 Fundstellen).
+Jetzt zwei Werte nach Farbmodus, wie in der Dev-Shell.
+
+**Schon erfüllt:** **5.1.1(v)** Kontolöschung in der App
+(`/settings/delete-account` plus Knopf in den Einstellungen — ohne das gibt es
+keine Freigabe, und es ist leicht wegzurefaktorisieren) und die 15
+Pflichtseiten.
+
+**Noch offen:** `/.well-known/apple-app-site-association` ausliefern (sonst
+keine Passkeys in der App), Zwecktexte in `Info.plist`, APNs-Schlüssel.
+
 **Ein 404 steht noch drin:** `/assets/showcase/dj-hero.jpg`.
 
 **Stripe.js ist nicht nur ein Performance-Posten.** `functions.php` bindet
@@ -861,7 +926,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-714 Tests in 46 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+732 Tests in 47 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -883,6 +948,9 @@ vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
 Apache liefert nur bei passendem `Accept` und vorhandener Datei um),
+**App Store** (Privacy-Manifest und Vault-Tabelle nennen dieselben Datenarten;
+`viewport-fit` und die safe-area-Abstände sind gekoppelt; die Kontolöschung
+nach 5.1.1(v) ist noch da),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und

@@ -127,7 +127,18 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover schaltet env(safe-area-inset-*) ueberhaupt erst
+         ein. styles.css rechnet an SECHS Stellen damit — untere Navigation,
+         Buchungsleiste, Panels. Ohne dieses Attribut liefert jede dieser
+         Abfragen 0, und zwar still: das Layout sieht auf dem Schreibtisch
+         richtig aus und liegt auf einem iPhone mit Home-Indikator darunter.
+         Die Behandlung war also da und war wirkungslos.
+
+         Nachgetragen am 02.09.2026 im Zuge der App: in einem nativen
+         Container ist das kein Schoenheitsfehler mehr, sondern der
+         Unterschied zwischen bedienbar und nicht bedienbar. -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
     <!-- ── Primary SEO ── -->
     <title><?php echo $meta_title_esc; ?></title>
@@ -162,7 +173,33 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     <link rel="apple-touch-icon" href="<?php echo get_template_directory_uri(); ?>/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="format-detection" content="telephone=no">
-    <meta name="theme-color" content="#6C63FF">
+
+    <!-- ── Statusleisten-Farbe ──
+         Hier stand bis zum 02.09.2026 ein einzelnes #6C63FF. Diese Farbe kommt
+         im ganzen Projekt sonst nur noch in generate-icons.html vor, einem
+         Werkzeug, das nichts ausliefert; die Marke ist #FF385C (62 Fundstellen
+         in styles.css). Das Lila war also weder Marke noch Hintergrund, und im
+         installierten oder nativen Betrieb faerbt genau dieser Wert den
+         Bereich um die Statusleiste.
+
+         Zwei Werte statt einem, wie in der Dev-Shell: der Kopf soll die Farbe
+         des Seitenhintergrunds tragen, und der wechselt mit dem Farbmodus. Ein
+         fester Wert ist in einem der beiden Modi immer falsch.
+
+         Die theme_color der manifest.json (#FF385C) bleibt davon unberuehrt —
+         sie faerbt den Splash und die App-Uebersicht, nicht den Seitenkopf. -->
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+
+    <!-- ── Nativer Vollbildbetrieb (iOS) ──
+         Ohne diese beiden zeigt iOS im Homescreen-Betrieb weiter die
+         Safari-Leisten. `black-translucent` legt den Inhalt UNTER die
+         Statusleiste — was nur zusammen mit viewport-fit=cover oben und den
+         safe-area-Abstaenden in styles.css bedienbar bleibt. Die drei
+         gehoeren zusammen; einzeln ist jedes davon ein Fehler. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Eventbörse">
 
     <!-- ── Preconnect ── Schriften und Bibliotheken liegen im Theme. Die
          Demo-Bilder kommen weiterhin von Pexels; dort spart die vorgezogene
