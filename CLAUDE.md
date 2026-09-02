@@ -482,7 +482,11 @@ eine brauchbare Fehlermeldung.
 
 - **keine schneidet HTML-Kommentare selbst heraus** (der gemeinsame Griff ist da),
 - **keine überspringt sich** (`test.skip`/`test.fixme`) — ein übersprungener
-  Test zählt in keiner Bilanz als Fehler.
+  Test zählt in keiner Bilanz als Fehler,
+- **keine fragt einen Host per Teilstring ab** — `lib/url-host.js` vergleicht
+  den Hostnamen. `https://boese.example/?ref=js.stripe.com` enthält die
+  Zeichenfolge und geht nicht an Stripe; `https://js.stripe.com.boese.example/`
+  erst recht nicht.
 
 Geprüft wird **nach Abzug der JS-Kommentare**, zeichenweise statt per
 Ausdruck: ein regulärer Ausdruck über Kommentargrenzen wäre genau der Griff,
@@ -1043,7 +1047,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-771 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+773 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

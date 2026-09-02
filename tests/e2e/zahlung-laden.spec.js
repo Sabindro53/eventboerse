@@ -16,6 +16,7 @@ const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { trefferAusserhalbKommentaren } = require('./lib/html-kommentare');
+const { istHost } = require('./lib/url-host');
 
 const ROOT = path.join(__dirname, '..', '..');
 const lies = (...p) => fs.readFileSync(path.join(ROOT, ...p), 'utf8');
@@ -29,7 +30,7 @@ test.describe('Beim normalen Besuch geht nichts an Stripe', () => {
     // auf, ein Quelltext-Test nicht.
     const anStripe = [];
     page.on('request', (r) => {
-      if (r.url().includes(STRIPE_HOST)) anStripe.push(r.url());
+      if (istHost(r.url(), STRIPE_HOST)) anStripe.push(r.url());
     });
     await page.goto('/index.html');
     await page.waitForFunction(() => typeof window.navigateTo === 'function');
@@ -83,7 +84,9 @@ test.describe('Der Lader holt die Bibliothek, wenn sie gebraucht wird', () => {
     await page.waitForFunction(() => typeof window.ebStripeJsLaden === 'function');
     const anzahl = await page.evaluate(() => Promise.all([
       window.ebStripeJsLaden(), window.ebStripeJsLaden(), window.ebStripeJsLaden(),
-    ]).then(() => document.querySelectorAll('script[src*="js.stripe.com"]').length));
+    ]).then(() => [...document.querySelectorAll('script[src]')]
+      .filter((el) => { try { return new URL(el.src).hostname === 'js.stripe.com'; }
+                        catch { return false; } }).length));
     expect(anzahl, `drei Aufrufe hängten ${anzahl} Skripte ein`).toBe(1);
   });
 

@@ -130,6 +130,40 @@ test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
       + `lib/html-kommentare.js zu benutzen: ${treffer.join(', ')}`).toHaveLength(0);
   });
 
+  test('keine Prüfung fragt einen Host per Teilstring ab', () => {
+    // CodeQL meldete am 02.09.2026 „Incomplete URL substring sanitization" an
+    // `r.url().includes('js.stripe.com')`. Der Melder hat sachlich recht: die
+    // Zeichenfolge kann überall in der Adresse stehen —
+    // `https://boese.example/?ref=js.stripe.com` enthält sie, geht aber nicht
+    // an Stripe, und `https://js.stripe.com.boese.example/` erst recht nicht.
+    //
+    // Dritter Befund derselben Sorte an eigenem Testcode: eine schnelle
+    // Zeichenketten-Prüfung, wo eine strukturierte gehört. Dafür gibt es
+    // lib/url-host.js.
+    const treffer = [];
+    for (const datei of pruefdateien()) {
+      if (path.basename(datei) === SELBST) continue;
+      const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
+      if (/\.url\(\)\s*\.includes\(/.test(code)) treffer.push(path.basename(datei));
+    }
+    expect(treffer, `fragt einen Host per Teilstring ab statt über `
+      + `lib/url-host.js: ${treffer.join(', ')}`).toHaveLength(0);
+  });
+
+  test('der Host-Vergleich trifft genau den Host', () => {
+    // Der Griff ist selbst das Werkzeug der Regel darüber. Zwei Fälle, die
+    // ein Teilstring beide falsch beantwortet.
+    const { istHost } = require('./lib/url-host');
+    expect(istHost('https://js.stripe.com/v3/', 'js.stripe.com'),
+      'die echte Adresse wird nicht erkannt').toBe(true);
+    expect(istHost('https://boese.example/?ref=js.stripe.com', 'js.stripe.com'),
+      'eine Adresse mit dem Host im Querystring gilt als Treffer').toBe(false);
+    expect(istHost('https://js.stripe.com.boese.example/x', 'js.stripe.com'),
+      'eine Subdomain-Attrappe gilt als Treffer').toBe(false);
+    expect(istHost('data:text/plain,x', 'js.stripe.com'),
+      'eine data-URL wirft statt false zu liefern').toBe(false);
+  });
+
   test('keine Prüfung überspringt sich selbst', () => {
     // Ein übersprungener Test zählt in keiner Bilanz als Fehler. Findet ein
     // Test sein Subjekt nicht, gehört das eine harte Zusicherung — „nicht
