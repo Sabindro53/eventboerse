@@ -13330,14 +13330,26 @@ async function handlePromptPasskeySetup(btn) {
   }
 }
 
-// Kleines Hilfsmittel: fetch mit Hard-Timeout, damit kein Aufruf endlos hängt
-function _fetchWithTimeout(url, options, timeoutMs) {
-  options = options || {};
-  var ctrl = new AbortController();
-  var timer = setTimeout(function() { ctrl.abort(); }, timeoutMs || 15000);
-  options.signal = ctrl.signal;
-  return fetch(url, options).finally(function() { clearTimeout(timer); });
-}
+/* `_fetchWithTimeout` stand hier ein ZWEITES Mal.
+ *
+ * app.js ist eine Verkettung, und bei zwei gleichnamigen
+ * Funktionsdeklarationen gewinnt die spätere. Modul 30 kommt nach Modul 00 —
+ * also galt diese Fassung für ALLE Aufrufer, auch für die in 00-basis.js, und
+ * sie unterschied sich in drei Punkten:
+ *
+ *   Standard-Zeitlimit   15 s   statt 30 s
+ *   ohne AbortController wirft  statt auf fetch zurückzufallen
+ *   options              wird VERÄNDERT statt kopiert
+ *
+ * Aktiv kaputt war davon nichts: alle vier Aufrufer geben ihr Zeitlimit
+ * ausdrücklich an (12 s, 15 s, 30 s, 35 s) und übergeben ein frisches
+ * Objektliteral. Es waren zwei geladene Fallen für den nächsten Aufrufer —
+ * wer das Zeitlimit wegliesse, bekäme die Hälfte der dokumentierten Zeit, und
+ * wer ein options-Objekt wiederverwendete, schickte beim zweiten Aufruf ein
+ * bereits abgebrochenes Signal mit.
+ *
+ * Die Fassung in core/00-basis.js bleibt: sie kopiert und hat den Rückfall.
+ */
 
 async function getPasskeyRegisterOptions() {
   var response = await _fetchWithTimeout(_apiUrl('webauthn/register-options'), {

@@ -185,9 +185,39 @@ bekommen hat.
 **Umgestellt wird in zwei Schritten.** Schritt 1 ist gemacht: jedes
 Inline-Skript trägt ein Nonce, und eine **beobachtende** Fassung
 (`Content-Security-Policy-Report-Only`) meldet jedes, das keins hat — ohne es
-zu blockieren. Schritt 2 — das Nonce in die durchgesetzte Fassung — ist **eine
-Zeile** und wartet darauf, dass `GET /hq`-Admin auf
-`/wp-json/eventboerse/v1/csp-report` eine leere Liste sieht (`bereit: true`).
+zu blockieren.
+
+**Schritt 2 ist NICHT eine Zeile.** Hier stand das bis zum 02.09.2026, und es
+war eine Falle. Sobald `script-src` ein Nonce trägt, **ignorieren Browser
+`'unsafe-inline'`** — so ist CSP Level 2 definiert. Ein Inline-Event-Handler
+kann aber kein Nonce tragen: Nonces gelten für `<script>`-**Elemente**, nicht
+für Attribute. Ohne ausdrückliches `script-src-attr` fällt die Prüfung der
+Handler auf `script-src` zurück, und dort steht dann das Nonce.
+
+**`app-shell.html` trägt 459 Inline-Handler**, davon 390 `onclick`. Die „eine
+Zeile" legte also mit einem Schlag **jeden Knopf der Anwendung** still — und
+zwar ohne Fehlermeldung: die Seite lädt, sieht heil aus, nichts reagiert.
+Genau die Schadensart, die weiter unten als teuerste benannt ist.
+
+Deshalb tritt `bereit: true` heute **nie** ein, und das ist richtig so: die
+beobachtende Fassung trägt das Nonce bereits, also verstößt jeder der 459
+Handler bei jedem Seitenaufruf und wird gemeldet. Wer auf die leere Liste
+wartet, wartet ewig — nicht weil der Sammler kaputt ist, sondern weil die
+Meldungen echt sind.
+
+**Zwei gangbare Wege**, beide bewusst zu wählen:
+
+1. **`script-src-attr 'unsafe-inline'` ausdrücklich setzen.** Dann schützt das
+   Nonce gegen eingeschleuste `<script>`-Elemente — den Hauptweg für XSS —
+   während die Handler weiterlaufen. Deutlich besser als heute, in einem
+   Schritt machbar.
+2. Die 459 Handler auf `addEventListener` umstellen. Vollständig, aber ein
+   Umbau der ganzen Shell.
+
+`csp-nonce.spec.js` **verhindert den naiven Griff**, statt vor ihm zu warnen:
+trägt die durchgesetzte Fassung ein Nonce, während noch Handler existieren und
+kein `script-src-attr` gesetzt ist, bricht der Test ab — mit der Zahl der
+betroffenen Handler in der Meldung.
 
 **Warum nicht sofort durchsetzen.** Ein übersehenes Inline-Skript fällt in
 einer durchgesetzten CSP nicht auf, es fällt **aus**: die Seite lädt, sieht
@@ -1047,7 +1077,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-773 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+777 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1430,9 +1460,22 @@ gleichnamigen Funktionsdeklarationen gewinnt die spätere. Die Fassung in
 Modul 10, die man zuerst sucht, war seit jeher wirkungslos und kannte
 ausserdem weder `radar` noch `gesuche` noch `events`.
 
-**Noch offen:** `_fetchWithTimeout()` steht ebenfalls doppelt
-(`core/00-basis.js` → `core/30-auth.js`). Nicht angefasst, weil es Auth-Code
-berührt.
+**`_fetchWithTimeout()` stand ebenfalls doppelt** — behoben am 02.09.2026. Die
+beiden Fassungen waren **nicht identisch**, und die spätere (Auth) gewann für
+alle Aufrufer: Standard-Zeitlimit 15 s statt 30 s, kein Rückfall ohne
+`AbortController`, und sie **veränderte das `options`-Objekt des Aufrufers**
+statt es zu kopieren.
+
+Aktiv kaputt war nichts: alle vier Aufrufer geben ihr Zeitlimit ausdrücklich
+an (12/15/30/35 s) und übergeben ein frisches Objektliteral. Es waren zwei
+geladene Fallen — wer das Zeitlimit wegliesse, bekäme die Hälfte der
+dokumentierten Zeit; wer ein `options`-Objekt wiederverwendete, schickte beim
+zweiten Aufruf ein bereits abgebrochenes Signal mit.
+
+**Der Test zählt jetzt nicht mehr Namen auf.** Er prüft *jede* Funktion auf
+oberster Ebene über alle 24 Module — 932 Stück, und `_fetchWithTimeout` war
+der letzte Doppelgänger. Ein Test, der die bekannten Fälle aufzählt, findet
+nie einen neuen.
 
 ### Icons statt Emojis in der Suche
 

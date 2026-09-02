@@ -135,24 +135,47 @@ test.describe('Ein Deep-Link auf einen Kanal funktioniert', () => {
 });
 
 test.describe('Keine toten Doppelgänger im Feed-Code', () => {
-  test('renderFeed und switchFeedTab stehen nur noch einmal', () => {
-    // app.js ist eine VERKETTUNG: bei zwei gleichnamigen Funktions-
-    // deklarationen gewinnt die spätere. Beide standen doppelt, und die
-    // frühere — im Feed-Modul, wo man zuerst sucht — war wirkungslos.
-    // Sie kannte ausserdem weder `radar` noch `gesuche` noch `events`.
+  /** Jede Funktionsdeklaration auf oberster Ebene, mit ihren Fundorten. */
+  function funktionsorte() {
     const liste = fs.readFileSync(path.join(ROOT, 'js', 'modules', 'modules.list'), 'utf8')
       .split('\n').map((s) => s.trim()).filter((s) => s && !s.startsWith('#'));
     const wo = new Map();
     for (const p of liste) {
       const t = fs.readFileSync(path.join(ROOT, 'js', 'modules', p), 'utf8');
-      for (const m of t.matchAll(/^function\s+([A-Za-z_$][\w$]*)/gm)) {
+      // `async function` gehört dazu — die erste Fassung dieses Tests las nur
+      // `function` und hätte eine doppelte async-Funktion nicht gesehen.
+      for (const m of t.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm)) {
         if (!wo.has(m[1])) wo.set(m[1], []);
         wo.get(m[1]).push(p);
       }
     }
-    for (const name of ['renderFeed', 'switchFeedTab']) {
-      const orte = wo.get(name) || [];
-      expect(orte, `${name} ist wieder doppelt: ${orte.join(', ')}`).toHaveLength(1);
-    }
+    return wo;
+  }
+
+  test('die Erhebung findet die Module und ihre Funktionen', () => {
+    const wo = funktionsorte();
+    expect(wo.size, 'keine Funktionen gefunden — der Test prüft nichts')
+      .toBeGreaterThan(500);
+  });
+
+  test('KEINE Funktion ist zweimal deklariert', () => {
+    // Verallgemeinert am 02.09.2026. Vorher standen hier zwei Namen —
+    // renderFeed und switchFeedTab, die beiden, die schon aufgefallen waren.
+    // Ein Test, der die bekannten Fälle aufzählt, findet nie einen neuen.
+    //
+    // Er fand sofort einen: `_fetchWithTimeout` stand in core/00-basis.js UND
+    // core/30-auth.js, und die Auth-Fassung gewann für alle Aufrufer — mit
+    // halbem Standard-Zeitlimit (15 s statt 30 s), ohne den
+    // AbortController-Rückfall, und sie VERÄNDERTE das options-Objekt des
+    // Aufrufers statt es zu kopieren.
+    //
+    // app.js ist eine VERKETTUNG: bei zwei gleichnamigen Deklarationen gewinnt
+    // die spätere, lautlos. Die frühere — die, die man zuerst findet — ist
+    // wirkungslos, und ihr Verhalten steht trotzdem im Code und in jedem
+    // Kommentar darüber.
+    const doppelt = [...funktionsorte()]
+      .filter(([, orte]) => orte.length > 1)
+      .map(([name, orte]) => `${name} (${orte.join(' + ')}, es gewinnt ${orte[orte.length - 1]})`);
+    expect(doppelt, `doppelt deklariert: ${doppelt.join('; ')}`).toHaveLength(0);
   });
 });

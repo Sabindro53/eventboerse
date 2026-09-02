@@ -192,3 +192,82 @@ test.describe('CSP-Meldungen: der einzige offene Schreibpunkt', () => {
       .toMatch(/'methods'\s*=>\s*'GET'[\s\S]*?eb_is_admin_user/);
   });
 });
+
+// ── Schritt 2 ist NICHT eine Zeile ───────────────────────────────────────
+//
+// In CLAUDE.md stand bis zum 02.09.2026, das Nonce in die durchgesetzte
+// Fassung zu tragen sei „eine Zeile". Das ist eine Falle.
+//
+// Sobald `script-src` ein Nonce trägt, IGNORIEREN Browser `'unsafe-inline'` —
+// so ist CSP Level 2 definiert. Ein Inline-Event-Handler (`onclick=`) kann
+// aber kein Nonce tragen: Nonces gelten für <script>-ELEMENTE, nicht für
+// Attribute. Ohne ein ausdrückliches `script-src-attr` fällt die Prüfung der
+// Handler auf `script-src` zurück — und dort steht dann das Nonce.
+//
+// app-shell.html trägt 459 solcher Handler (390 davon `onclick`). Die eine
+// Zeile legte also mit einem Schlag jeden Knopf der Anwendung still, und
+// zwar OHNE Fehlermeldung im Betrieb: die Seite lädt, sieht heil aus, und
+// nichts reagiert. Genau die Schadensart, die CLAUDE.md beim Nonce-Umstieg
+// selbst als teuerste benennt.
+//
+// Diese Suite macht den Griff unmöglich, statt vor ihm zu warnen.
+test.describe('Der Nonce-Umstieg legt nicht die ganze Oberfläche still', () => {
+  const FUNKTIONEN = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+  const SHELL = fs.readFileSync(path.join(ROOT, 'app-shell.html'), 'utf8');
+
+  /** Die DURCHGESETZTE Fassung — das Array, aus dem der Header entsteht. */
+  function durchgesetzt() {
+    const m = FUNKTIONEN.match(/\$csp_directives\s*=\s*array\(([\s\S]*?)\n\s*\);/);
+    expect(m, '$csp_directives ist nicht auffindbar — der Test prüft nichts')
+      .toBeTruthy();
+    return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+  }
+
+  /** Inline-Event-Handler in der Shell (onclick=, onchange=, …). */
+  function inlineHandler() {
+    return (SHELL.match(/ on[a-z]+=/g) || []).length;
+  }
+
+  test('die Erhebung findet beide Subjekte', () => {
+    expect(durchgesetzt().length, 'keine Direktiven gefunden')
+      .toBeGreaterThan(5);
+    expect(inlineHandler(), 'keine Inline-Handler gefunden — dann prüft der '
+      + 'Test darunter nichts').toBeGreaterThan(50);
+  });
+
+  test('solange Inline-Handler existieren, trägt die durchgesetzte CSP kein Nonce', () => {
+    // Das ist die Sperre. Wer das Nonce einträgt, ohne die Handler zu
+    // entfernen ODER `script-src-attr 'unsafe-inline'` ausdrücklich zu
+    // setzen, bricht hier ab — nicht erst im Betrieb bei jedem Besucher.
+    const skriptRegeln = durchgesetzt().filter((d) => /^script-src(-elem)?\s/.test(d));
+    expect(skriptRegeln.length, 'es gibt keine script-src-Regel').toBeGreaterThan(0);
+
+    const mitNonce = skriptRegeln.some((d) => d.includes('nonce-'));
+    if (!mitNonce) return;   // Schritt 2 ist noch nicht gemacht — in Ordnung.
+
+    // Schritt 2 IST gemacht. Dann muss einer der beiden Wege gegangen sein.
+    const handlerFrei = inlineHandler() === 0;
+    const attrErlaubt = durchgesetzt().some(
+      (d) => /^script-src-attr\s/.test(d) && d.includes("'unsafe-inline'"));
+    expect(handlerFrei || attrErlaubt,
+      `die durchgesetzte CSP trägt ein Nonce, aber app-shell.html hat noch `
+      + `${inlineHandler()} Inline-Handler und es gibt kein `
+      + `script-src-attr 'unsafe-inline'. In diesem Zustand reagiert kein `
+      + `einziger Knopf mehr, ohne dass irgendwo ein Fehler steht.`).toBe(true);
+  });
+
+  test('die beobachtende Fassung meldet genau diesen Zustand — sie ist die Probe', () => {
+    // Der Grund, warum `bereit: true` heute nie eintritt, und das ist richtig
+    // so: die Report-Only-Fassung trägt das Nonce bereits, also verstösst
+    // jeder der 459 Handler bei jedem Seitenaufruf dagegen und wird gemeldet.
+    //
+    // Wer die leere Liste abwartet, wartet ewig — nicht weil der Sammler
+    // kaputt ist, sondern weil die Meldungen echt sind.
+    const ableitung = FUNKTIONEN.match(/\$streng = array\(\);[\s\S]*?\$streng\[\] = 'report-to csp';/);
+    expect(ableitung, 'die Ableitung der beobachtenden Fassung ist verschwunden')
+      .toBeTruthy();
+    expect(ableitung[0], 'die beobachtende Fassung ersetzt unsafe-inline nicht '
+      + 'mehr durch das Nonce — dann meldet sie den Ernstfall nicht mehr')
+      .toMatch(/'unsafe-inline'[\s\S]{0,120}nonce-/);
+  });
+});
