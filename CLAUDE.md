@@ -573,8 +573,36 @@ Tor still wertlos — dieselbe Mechanik wie beim toten Gitleaks-Scan. Der Prüfe
 sieht jetzt auch `\.src = 'https://…'` in den Modulen: **wer den Ladeweg
 ändert, ändert nicht die Meldepflicht.**
 
+**Ein Riegel aus der alten Welt hatte die Kasse zugesperrt.**
+`_openStripePaymentModal()` begann mit
+
+```js
+if (typeof Stripe === 'undefined') { showToast('… Bitte Seite neu laden.'); return; }
+```
+
+Solange js.stripe.com unbedingt eingebunden war, feuerte das **nie**. Seit die
+Bibliothek bedarfsgesteuert lädt, ist `window.Stripe` vor dem **ersten**
+Zahlungsversuch per Definition undefiniert — der Riegel wies also jeden Kunden
+ab, hundert Zeilen bevor `ebStripeJsLaden()` überhaupt erreicht wurde. Alle
+drei Einstiege: Board-Stage, Sofortbuchung, Chat-Buchung.
+
+Schlimmer als „ein Klick tut nichts": alle drei rufen vorher
+`_setPendingPayment()`, es blieb also ein Zahlungsvorgang im `localStorage`
+stehen. Und „Bitte Seite neu laden" führte in die Irre — nach dem Neuladen ist
+erst recht nichts vorgeladen.
+
+Der Riegel war auch überflüssig: der Dialog erreicht auf **jedem** Weg
+entweder `_initStripe()` oder zeigt den Fehler im offenen Fenster.
+
+**Warum 777 grüne Tests das durchgelassen haben:** `zahlung-laden.spec.js`
+prüfte den **Lader für sich allein**. Alles richtig, alles grün, und der Weg
+**hinein** war zu. Ein Test, der einen Baustein prüft, sagt nichts über seine
+Erreichbarkeit — dieselbe Lücke wie beim toten Gitleaks-Scan, nur eine Ebene
+höher. Der neue Test öffnet den Dialog bei undefiniertem `window.Stripe` und
+prüft, dass er **aufgeht**.
+
 ```bash
-npx playwright test tests/e2e/zahlung-laden.spec.js   # 10 Tests, echter Browser
+npx playwright test tests/e2e/zahlung-laden.spec.js   # 12 Tests, echter Browser
 ```
 
 ### Lighthouse war neunmal rot — und hat neunmal gemessen
@@ -1077,7 +1105,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-777 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+779 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

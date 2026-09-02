@@ -20053,10 +20053,36 @@ function ebStripeJsLaden() {
 
 function _openStripePaymentModal(opts) {
   opts = opts || {};
-  if (typeof Stripe === 'undefined') {
-    showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.', 'error');
-    return;
-  }
+
+  /* HIER STAND EIN RIEGEL, DER DIE KASSE ZUGESPERRT HAT.
+   *
+   *   if (typeof Stripe === 'undefined') {
+   *     showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.');
+   *     return;
+   *   }
+   *
+   * Solange js.stripe.com unbedingt eingebunden war, feuerte das nie. Seit die
+   * Bibliothek bedarfsgesteuert laedt (02.09.2026), ist `window.Stripe` vor
+   * dem ERSTEN Zahlungsversuch per Definition undefiniert — der Riegel wies
+   * also jeden Kunden ab, bevor `ebStripeJsLaden()` hundert Zeilen weiter
+   * unten ueberhaupt erreicht wurde. Alle drei Einstiege: Board-Stage,
+   * Sofortbuchung, Chat-Buchung.
+   *
+   * Schlimmer als "ein Klick tut nichts": alle drei rufen vorher
+   * _setPendingPayment(), es blieb also ein Zahlungsvorgang im localStorage
+   * stehen. Und "Bitte Seite neu laden" fuehrte in die Irre — nach dem
+   * Neuladen ist erst recht nichts vorgeladen.
+   *
+   * Der Riegel ist auch nicht bloss schaedlich, er ist ueberfluessig: der
+   * Dialog erreicht auf JEDEM Weg entweder _initStripe() oder zeigt den
+   * Fehler im offenen Fenster. Ein Ladefehler wird dort behandelt, mit einer
+   * Meldung, die der Nutzer sieht und die stimmt.
+   *
+   * Meine 777 gruenen Tests haben das durchgelassen: zahlung-laden.spec.js
+   * prueft den LADER fuer sich allein. Alles richtig, alles gruen, und der
+   * Weg HINEIN war zu. Deshalb prueft der neue Test das Verhalten des
+   * Dialogs bei undefiniertem window.Stripe, nicht den Lader.
+   */
 
   // Overlay + Modal-Markup
   var ov = document.createElement('div');

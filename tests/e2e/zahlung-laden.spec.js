@@ -168,3 +168,67 @@ test.describe('Die unbedingte Einbindung kommt nicht zurück', () => {
       .toMatch(/script-src[^"]*https:\/\/js\.stripe\.com/);
   });
 });
+
+// ── Der Weg IN den Lader hinein ──────────────────────────────────────────
+//
+// Die Tests oben prüfen `ebStripeJsLaden()` für sich allein — und waren alle
+// grün, während die Kasse zu war.
+//
+// `_openStripePaymentModal()` begann mit einem Riegel aus der alten Welt:
+//
+//     if (typeof Stripe === 'undefined') { showToast(…); return; }
+//
+// Solange js.stripe.com unbedingt eingebunden war, feuerte er nie. Seit die
+// Bibliothek bedarfsgesteuert lädt, ist `window.Stripe` vor dem ERSTEN
+// Zahlungsversuch per Definition undefiniert — der Riegel wies also jeden
+// Kunden ab, hundert Zeilen bevor der Lader überhaupt erreicht wurde.
+//
+// Schlimmer als „ein Klick tut nichts": alle drei Einstiege rufen vorher
+// `_setPendingPayment()`, es blieb also ein Zahlungsvorgang im localStorage
+// stehen. Und „Bitte Seite neu laden" führte in die Irre.
+//
+// Ein Test, der nur den Lader prüft, findet so etwas nie. Dieser hier prüft
+// das VERHALTEN des Dialogs bei undefiniertem window.Stripe.
+test.describe('Die Kasse geht auf, auch wenn Stripe noch nicht geladen ist', () => {
+  test('der Zahlungsdialog öffnet bei undefiniertem window.Stripe', async ({ page }) => {
+    await page.goto('/index.html');
+    await page.waitForFunction(() => typeof window._openStripePaymentModal === 'function');
+
+    const zustand = await page.evaluate(() => {
+      // Genau die Ausgangslage jedes ersten Zahlungsversuchs.
+      delete window.Stripe;
+      try {
+        window._openStripePaymentModal({
+          amount: 4500, title: 'Prüfbuchung', listingId: 1,
+          cardId: 'c1', projectId: 'p1',
+        });
+      } catch (e) {
+        return { fehler: String(e && e.message || e) };
+      }
+      return {
+        stripeDa: typeof window.Stripe,
+        modal: !!document.querySelector('.stripe-modal-overlay'),
+      };
+    });
+
+    expect(zustand.fehler, `_openStripePaymentModal warf: ${zustand.fehler}`)
+      .toBeUndefined();
+    expect(zustand.stripeDa, 'Stripe war schon geladen — der Test prüft nicht '
+      + 'den ersten Zahlungsversuch').toBe('undefined');
+    expect(zustand.modal, 'der Zahlungsdialog geht nicht auf: der Kunde klickt, '
+      + 'nichts passiert, und ein Zahlungsvorgang bleibt im localStorage stehen')
+      .toBe(true);
+  });
+
+  test('kein Riegel weist ab, bevor der Lader an der Reihe ist', () => {
+    // Die Quelltext-Seite derselben Zusicherung. Sie nennt die Bedingung, die
+    // zurückkommen könnte, und nicht bloss den einen Wortlaut von damals.
+    const modul = lies('js', 'modules', 'board', '41-flow-zahlung.js');
+    const anfang = modul.slice(modul.indexOf('function _openStripePaymentModal'),
+      modul.indexOf('function _openStripePaymentModal') + 3000);
+    const code = anfang.split('\n')
+      .filter((z) => !/^\s*(\/\/|\*|\/\*)/.test(z)).join('\n');
+    expect(code, 'ein typeof-Stripe-Riegel steht wieder vor dem Lader')
+      .not.toMatch(/typeof\s+Stripe\s*===?\s*['"]undefined['"]/);
+  });
+});
