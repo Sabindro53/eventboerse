@@ -278,10 +278,74 @@ aber Style & Layout **3655 ms** und „Other" 5451 ms. Bei 17 200 Zeilen CSS und
 191 Bild-Elementen auf der Startseite ist das Layout die teure Arbeit, nicht der
 Code. **Wer hier zuerst am JavaScript spart, spart an der falschen Stelle.**
 
-Offene Posten in der Reihenfolge ihres Gewichts: Bildgrößen (`srcset`/WebP,
-~900 KB), Server-Antwortzeit (1260 ms, IONOS-seitig), Stripe.js (250 KB auf
-**jeder** Seite), Elementor- und Gutenberg-CSS (aufbaublockierend, vom Theme
-nicht gebraucht).
+**Das LCP-Element ist kein Foto.** Es ist `<div class="ai-hero-shot">` mit
+einem Inline-SVG als Hintergrund — ein Element ohne Netzanfrage. Die 8,5 s
+hängen also an TTFB, aufbaublockierendem CSS und der Ausführung von `app.js`,
+nicht am Bilddownload. Wer die Bilder optimiert, um das LCP zu senken,
+optimiert am Ziel vorbei; Bilder sind ein Bandbreiten-, kein LCP-Posten.
+
+Offene Posten in der Reihenfolge ihres Gewichts: Server-Antwortzeit (1260 ms,
+IONOS-seitig), Stripe.js (250 KB auf **jeder** Seite), Elementor- und
+Gutenberg-CSS (aufbaublockierend, vom Theme nicht gebraucht).
+
+### Bilder: das Format, nicht die Größe
+
+**`srcset` bringt hier nichts, und das ist gemessen.**
+`uses-responsive-images` meldet **0 Bytes** Einsparung — die Bilder werden
+ungefähr so ausgeliefert, wie sie angezeigt werden. `modern-image-formats`
+meldet dagegen **675 KB**. Eine frühere Notiz in dieser Datei empfahl
+„Bildgrößen (`srcset`/WebP)"; die `srcset`-Hälfte war falsch und hätte viel
+Mechanik für keinen Gewinn erzeugt.
+
+**Der Weg geht über Apache, nicht über die Datenbank.** `eb_listings.images`
+hält blanke URLs als JSON, ohne Attachment-ID. Diese URLs umzuschreiben wäre
+ein Durchlauf über echte Nutzerdaten — genau die Sorte Eingriff, die hier
+schon einmal Zahlungsdaten hätte löschen können. Stattdessen liegt
+`foo.jpg.webp` **neben** `foo.jpg`, und `.htaccess` entscheidet je Anfrage.
+
+Ausfallsicher in jede Richtung: fehlt die `.webp`-Datei (`-f` schlägt fehl),
+fehlt `mod_rewrite`, oder schickt der Browser kein `Accept: image/webp`, kommt
+unverändert das Original. **Es gibt keinen Zustand, in dem ein Bild fehlt** —
+deshalb ist dieser Weg vertretbar und ein Umschreiben der Datenbank nicht.
+
+**`Vary: Accept` ist Pflicht, nicht Kür.** Ohne den Kopf darf ein
+Zwischenspeicher die WebP-Antwort an einen Client weitergeben, der kein WebP
+annimmt; der bekäme unter einer `.jpg`-Adresse Bytes, die er nicht dekodieren
+kann. Dieselbe Mechanik wie bei `Accept-Encoding` und Brotli.
+
+**Der angehängte Name ist Absicht.** `foo.jpg.webp`, nicht `foo.webp` — ein
+Nutzer darf `foo.webp` hochladen, ohne die Umsetzung von `foo.jpg` zu
+überschreiben.
+
+**Der Merkzettel ist der Ausstieg, kein Schönheitsfehler.** Ein Bild, dessen
+WebP größer ausfällt, bekommt keine `.webp`-Datei — es bliebe damit Kandidat
+und stünde bei jedem Lauf wieder vorn. Nach ein paar solchen Dateien käme die
+Nachrüstung nie an den Rest. Deshalb hinterlässt **jeder** Ausgang außer
+`erzeugt` und `vorhanden` eine leere `foo.jpg.webp.aus`, und `offen` rechnet
+schlicht `vorher − geprüft`. Wer erneut versuchen will, löscht die Marker.
+
+**Ausnahme: fehlendes `imagewebp()` schreibt keinen Marker.** Das liegt an der
+Installation, nicht an der Datei — sonst wären nach einem GD-Nachbau alle
+Bilder dauerhaft ausgeschlossen, und niemand wüsste, warum die Nachrüstung
+nichts mehr findet.
+
+**`imagepalettetotruecolor()` ist nicht kosmetisch.** Bei einem 8-Bit-PNG mit
+transparentem Farbindex — dem verbreitetsten PNG aus Grafikprogrammen —
+schreibt GD ohne die Zeile eine Datei, die `imagecreatefromwebp` **nicht mehr
+öffnen kann**. Sie ist da, sie ist kleiner, der Rückgabewert lautet `erzeugt`,
+und Apache lieferte sie aus: im Browser bliebe das Bild leer. Ein truecolor-PNG
+kommt auch ohne die Zeile durch — daran überlebte die erste Mutationsprobe,
+und der Test sah dabei grün aus.
+
+Bedient wird das im HQ unter **🗜️ Bilder als WebP** (nur Administratoren; die
+Sperre bleibt die Route `/hq/webp`). `GET` zeigt den Stand ohne zu schreiben,
+`POST` setzt eine Runde um — gedeckelt bei 40 Bildern **und** 20 Sekunden,
+denn ein Durchlauf, der ins PHP-Zeitlimit läuft, wird mitten in der Arbeit
+abgeschnitten. Gemessen am Prüfstand: 227 KB → 86 KB, **62 %**.
+
+```bash
+npx playwright test tests/e2e/webp.spec.js   # 24 Tests, echte Bilddateien
+```
 
 **Ein 404 steht noch drin:** `/assets/showcase/dj-hero.jpg`.
 
@@ -797,7 +861,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-690 Tests in 45 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+714 Tests in 46 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -816,6 +880,9 @@ Historie; ein Verweis auf eine Umgebungsvariable nicht),
 abgeleitet, nicht abgeschrieben), **Auslieferung** (Brotli ergänzt gzip, jede
 vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen),
 **Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
+**WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
+auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
+Apache liefert nur bei passendem `Accept` und vorhandener Datei um),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und
@@ -1024,7 +1091,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (105 Routen), Asset-Registrierung |
+| `functions.php` | WordPress-Theme: REST API (106 Routen), Asset-Registrierung |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -1045,7 +1112,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-105 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, Utilities.
+106 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, Utilities.
 
 ### State
 

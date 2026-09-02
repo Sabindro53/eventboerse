@@ -4885,6 +4885,228 @@ function eb_effective_upload_limit() {
 }
 
 /* =====================================================================
+   WEBP NEBEN DAS ORIGINAL
+
+   Gemessen am 31.08.2026 gegen die Live-Seite: 1285 KB der 2189 KB einer
+   Startseite sind Bilder, und Lighthouse beziffert allein den FORMAT-Gewinn
+   auf 675 KB. Die vier groessten Inseratsbilder tragen 994 KB.
+
+   NICHT die Groesse. `uses-responsive-images` meldet 0 Bytes Einsparung --
+   die Bilder werden ungefaehr so ausgeliefert, wie sie angezeigt werden. Ein
+   srcset braechte hier nichts; wer es trotzdem baut, hat viel Mechanik fuer
+   keinen Gewinn. Es ist das Format, nicht die Dimension.
+
+   DER WEG GEHT UEBER APACHE, NICHT UEBER DIE DATENBANK. eb_listings.images
+   haelt blanke URLs als JSON. Diese URLs umzuschreiben waere ein Durchlauf
+   ueber echte Nutzerdaten -- genau die Sorte Eingriff, die hier schon einmal
+   Zahlungsdaten haette loeschen koennen. Stattdessen legen wir `foo.jpg.webp`
+   NEBEN `foo.jpg`, und .htaccess liefert es aus, wenn der Browser es annimmt.
+
+   Das ist in jede Richtung ausfallsicher: fehlt die .webp-Datei, fehlt
+   mod_rewrite, oder schickt der Browser kein `Accept: image/webp`, kommt
+   unveraendert das Original. Es gibt keinen Zustand, in dem ein Bild fehlt.
+
+   Der angehaengte Name (`foo.jpg.webp`, nicht `foo.webp`) ist Absicht: ein
+   Nutzer darf `foo.webp` hochladen, ohne die Umsetzung von `foo.jpg` zu
+   ueberschreiben.
+   ===================================================================== */
+
+/** Pfad der WebP-Begleitdatei zu einem Bild. */
+function eb_webp_pfad( $pfad ) {
+    return $pfad . '.webp';
+}
+
+/**
+ * Merkzettel fuer ein Bild, das NICHT umgesetzt wird.
+ *
+ * Ohne ihn haette die Nachruestung keinen Ausstieg: ein Bild, dessen WebP
+ * groesser ausfaellt, bekommt keine .webp-Datei, bliebe damit Kandidat und
+ * stuende beim naechsten Lauf wieder an derselben Stelle vorn. Nach ein paar
+ * solchen Dateien kaeme die Schlange nie an den Rest -- eine Schleife, die
+ * nur ein Ziel kennt und keinen Ausstieg.
+ *
+ * Leere Datei, kein Datenbankeintrag: sie liegt neben dem Bild, ueberlebt
+ * jeden Deploy, und wer erneut versuchen will, loescht sie einfach.
+ */
+function eb_webp_marker_pfad( $pfad ) {
+    return $pfad . '.webp.aus';
+}
+
+/**
+ * Schaetzt, ob GD das Bild ohne Speicherabsturz laden kann.
+ *
+ * Ein truecolor-Bild belegt rund 4 Byte je Pixel, dazu Overhead. Ein
+ * 6000x4000-Foto sind knapp 100 MB -- mehr, als der PHP-Pool bei IONOS
+ * typischerweise hat. Ein fataler Fehler waehrend eines Uploads wuerde die
+ * ganze Anfrage abbrechen, und der Nutzer verloere sein Bild.
+ */
+function eb_webp_passt_in_speicher( $breite, $hoehe ) {
+    $grenze = eb_ini_bytes( ini_get( 'memory_limit' ) );
+    if ( $grenze <= 0 ) { return true; }          // unbegrenzt
+    $noetig = (int) $breite * (int) $hoehe * 4 * 1.8;
+    return ( memory_get_usage( true ) + $noetig ) < $grenze;
+}
+
+/**
+ * Legt die WebP-Begleitdatei an. Aendert das Original nie.
+ *
+ * Rueckgabe: 'erzeugt' | 'vorhanden' | 'uebersprungen' | 'groesser' | 'fehler'
+ *
+ * `groesser` ist ein ECHTES Ergebnis, kein Fehler: bei bereits stark
+ * komprimierten oder sehr kleinen Bildern faellt WebP groesser aus als das
+ * JPEG. Dann wird die Datei wieder geloescht -- eine Umsetzung, die mehr
+ * Bytes kostet, ist eine Verschlechterung mit gutem Gewissen.
+ */
+function eb_webp_erzeugen( $pfad, $qualitaet = 82 ) {
+    if ( ! is_string( $pfad ) || $pfad === '' || ! is_readable( $pfad ) ) {
+        return 'fehler';
+    }
+
+    // Jeder Ausgang ausser 'erzeugt' und 'vorhanden' hinterlaesst den
+    // Merkzettel. Damit verlaesst JEDE bearbeitete Datei die Kandidatenliste,
+    // und die Nachruestung kommt garantiert voran.
+    $aufgeben = function ( $stand ) use ( $pfad ) {
+        @file_put_contents( eb_webp_marker_pfad( $pfad ), '' );
+        return $stand;
+    };
+
+    if ( ! function_exists( 'imagewebp' ) ) {
+        // KEIN Merkzettel: das liegt an der Installation, nicht an der Datei.
+        // Wird GD spaeter nachgeruestet, sollen alle Bilder wieder drankommen.
+        return 'uebersprungen';
+    }
+    $ziel = eb_webp_pfad( $pfad );
+    if ( file_exists( $ziel ) ) { return 'vorhanden'; }
+
+    // Typ aus dem Dateiinhalt, nie aus der Endung.
+    $info = @getimagesize( $pfad );
+    if ( ! $info || empty( $info[2] ) ) { return $aufgeben( 'fehler' ); }
+    $typ = (int) $info[2];
+    if ( $typ !== IMAGETYPE_JPEG && $typ !== IMAGETYPE_PNG ) {
+        return $aufgeben( 'uebersprungen' );        // GIF/WebP/AVIF ruehren wir nicht an
+    }
+    if ( ! eb_webp_passt_in_speicher( $info[0], $info[1] ) ) {
+        return $aufgeben( 'uebersprungen' );
+    }
+
+    $bild = ( $typ === IMAGETYPE_JPEG )
+        ? @imagecreatefromjpeg( $pfad )
+        : @imagecreatefrompng( $pfad );
+    if ( ! $bild ) { return $aufgeben( 'fehler' ); }
+
+    if ( $typ === IMAGETYPE_PNG ) {
+        // Ohne das wird jede Transparenz schwarz.
+        imagepalettetotruecolor( $bild );
+        imagealphablending( $bild, false );
+        imagesavealpha( $bild, true );
+    }
+
+    $ok = @imagewebp( $bild, $ziel, $qualitaet );
+    imagedestroy( $bild );
+    if ( ! $ok || ! file_exists( $ziel ) ) {
+        if ( file_exists( $ziel ) ) { @unlink( $ziel ); }
+        return $aufgeben( 'fehler' );
+    }
+
+    if ( filesize( $ziel ) >= filesize( $pfad ) ) {
+        @unlink( $ziel );
+        return $aufgeben( 'groesser' );
+    }
+    return 'erzeugt';
+}
+
+/**
+ * Sammelt Bilder in der Mediathek, die noch keine WebP-Begleitdatei haben.
+ *
+ * Der volle Durchlauf ist Absicht: `offen` muss die WIRKLICH verbleibende
+ * Menge nennen. Eine Zahl, die nur die Treffer dieses Laufs zaehlt, meldet
+ * frueh eine 0 und die Nachruestung sieht fertig aus, waehrend sie es nicht
+ * ist -- derselbe Fehler, der beim Demo-Bild-Import schon einmal drohte.
+ */
+function eb_webp_kandidaten() {
+    $basis = wp_get_upload_dir();
+    $wurzel = isset( $basis['basedir'] ) ? $basis['basedir'] : '';
+    if ( ! $wurzel || ! is_dir( $wurzel ) ) { return array(); }
+
+    $treffer = array();
+    $lauf = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator( $wurzel, FilesystemIterator::SKIP_DOTS ),
+        RecursiveIteratorIterator::LEAVES_ONLY
+    );
+    foreach ( $lauf as $datei ) {
+        if ( ! $datei->isFile() ) { continue; }
+        $pfad = $datei->getPathname();
+        if ( ! preg_match( '/\.(jpe?g|png)$/i', $pfad ) ) { continue; }
+        if ( file_exists( eb_webp_pfad( $pfad ) ) ) { continue; }
+        if ( file_exists( eb_webp_marker_pfad( $pfad ) ) ) { continue; }
+        $treffer[] = $pfad;
+    }
+    return $treffer;
+}
+
+/**
+ * GET  /hq/webp  — Stand zeigen, ohne etwas zu tun.
+ * POST /hq/webp  — eine Runde umsetzen.
+ *
+ * Wiederholbar aufrufen. Gedeckelt nach ANZAHL und nach ZEIT: ein Durchlauf,
+ * der ins PHP-Zeitlimit laeuft, wird vom Server mitten in der Arbeit
+ * abgeschnitten, und dann weiss niemand, wie weit er kam.
+ */
+function eb_hq_webp_nachruesten( WP_REST_Request $request ) {
+    $kandidaten = eb_webp_kandidaten();
+    $offen_vorher = count( $kandidaten );
+
+    if ( strtoupper( $request->get_method() ) !== 'POST' ) {
+        return new WP_REST_Response( array(
+            'offen'      => $offen_vorher,
+            'moeglich'   => function_exists( 'imagewebp' ),
+            'hinweis'    => 'GET zeigt nur den Stand. POST setzt eine Runde um.',
+        ), 200 );
+    }
+    if ( ! function_exists( 'imagewebp' ) ) {
+        return new WP_REST_Response( array(
+            'offen'    => $offen_vorher,
+            'moeglich' => false,
+            'grund'    => 'Diese PHP-Installation hat kein imagewebp(). '
+                        . 'Ohne GD-WebP kann der Server nicht umsetzen.',
+        ), 200 );
+    }
+
+    $max_anzahl  = 40;
+    $max_sekunden = 20;
+    $start = microtime( true );
+
+    $zaehler = array( 'erzeugt' => 0, 'vorhanden' => 0, 'groesser' => 0,
+                      'uebersprungen' => 0, 'fehler' => 0 );
+    $gespart = 0;
+    $geprueft = 0;
+
+    foreach ( $kandidaten as $pfad ) {
+        if ( $geprueft >= $max_anzahl ) { break; }
+        if ( ( microtime( true ) - $start ) > $max_sekunden ) { break; }
+        $geprueft++;
+        $vorher = @filesize( $pfad );
+        $stand = eb_webp_erzeugen( $pfad );
+        if ( isset( $zaehler[ $stand ] ) ) { $zaehler[ $stand ]++; }
+        if ( $stand === 'erzeugt' && $vorher ) {
+            $nachher = @filesize( eb_webp_pfad( $pfad ) );
+            if ( $nachher ) { $gespart += max( 0, $vorher - $nachher ); }
+        }
+    }
+
+    return new WP_REST_Response( array_merge( $zaehler, array(
+        'geprueft'    => $geprueft,
+        'gespartByte' => $gespart,
+        // Jede bearbeitete Datei verlaesst die Kandidatenliste -- entweder mit
+        // einer .webp-Datei oder mit dem Merkzettel. Deshalb genuegt hier die
+        // Zahl der geprueften; eine Rechnung ueber einzelne Ausgaenge waere
+        // schon beim naechsten neuen Ausgang wieder falsch.
+        'offen'       => max( 0, $offen_vorher - $geprueft ),
+        'moeglich'    => true,
+    ) ), 200 );
+}
+
+/* =====================================================================
    UPLOAD HANDLER
    ===================================================================== */
 function eb_handle_upload( WP_REST_Request $request ) {
@@ -5001,10 +5223,18 @@ function eb_handle_upload( WP_REST_Request $request ) {
     $meta = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
     wp_update_attachment_metadata( $attach_id, $meta );
 
+    // WebP daneben legen. Der Rueckgabewert wird bewusst NICHT geprueft: das
+    // Bild ist zu diesem Zeitpunkt hochgeladen, geprueft und dem Konto
+    // zugeordnet. Schlaegt die Umsetzung fehl, liefert Apache weiter das
+    // Original aus -- ein Upload an einer Formatoptimierung scheitern zu
+    // lassen waere die schlechtere Antwort.
+    $webp = eb_webp_erzeugen( $upload['file'] );
+
     return new WP_REST_Response( array(
         'id'  => $attach_id,
         'url' => $upload['url'],
         'ownerId' => get_current_user_id(),
+        'webp' => $webp,
     ), 200 );
 }
 
@@ -10412,6 +10642,15 @@ add_action( 'rest_api_init', function () {
     register_rest_route( 'eventboerse/v1', '/hq/demo-bilder', array(
         'methods'             => 'GET, POST',
         'callback'            => 'eb_hq_demo_bilder_holen',
+        'permission_callback' => 'eb_hq_verwaltung_darf',
+    ) );
+
+    // Nachruestung der WebP-Begleitdateien. Dieselbe Schranke wie beim
+    // Demo-Import: angemeldeter Administrator, nicht blosser HQ-Zugang. Die
+    // Route schreibt in wp-content/uploads.
+    register_rest_route( 'eventboerse/v1', '/hq/webp', array(
+        'methods'             => 'GET, POST',
+        'callback'            => 'eb_hq_webp_nachruesten',
         'permission_callback' => 'eb_hq_verwaltung_darf',
     ) );
 } );

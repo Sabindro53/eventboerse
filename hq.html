@@ -1028,6 +1028,30 @@
       </div>
     </div>
 
+    <!-- WebP nachrüsten — nur für Administratoren, schreibt in uploads.
+         Auch dieser Knopf muss hier sitzen: umsetzen kann nur der Server,
+         auf dem die Bilder liegen. -->
+    <div id="webp-block" hidden>
+      <div class="section-header" id="webp">
+        <div class="section-title">🗜️ Bilder als WebP <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— dasselbe Bild, rund 60 % weniger Bytes</span></div>
+        <div class="section-badge" id="webp-badge">–</div>
+      </div>
+      <div class="journal">
+        <p style="margin:0 0 14px;color:var(--muted);font-size:.86rem;line-height:1.55;">
+          Legt neben jedes Bild in <code>wp-content/uploads</code> eine WebP-Fassung.
+          <strong>Keine gespeicherte Adresse ändert sich</strong> — Apache liefert die
+          WebP-Datei nur aus, wenn der Browser sie annimmt, sonst unverändert das Original.
+          Gemessen am 31.08.: 1285 KB der 2189 KB einer Startseite sind Bilder, davon
+          lassen sich rund 675 KB allein durch das Format einsparen.
+          Pro Klick höchstens 40 Bilder und 20 Sekunden, damit nichts ins PHP-Zeitlimit läuft.
+          Mehrfach klicken, bis <strong>offen</strong> auf 0 steht.
+        </p>
+        <div id="webp-stand" role="status" aria-live="polite"
+             style="margin:0 0 12px;font-size:.9rem;"></div>
+        <button type="button" class="icon-btn with-label" id="webp-start">🗜️ Eine Runde umsetzen</button>
+      </div>
+    </div>
+
     <!-- Wartet auf dich -->
     <div class="wartet" id="wartet"></div>
 
@@ -5688,6 +5712,93 @@ window.addEventListener('DOMContentLoaded', init);
   knopf.addEventListener('click', holen);
 
   // Stand beim Laden, ohne etwas zu holen.
+  ruf('GET').then(zeigeStand).catch(function (e) {
+    badge.textContent = 'unbekannt';
+    standEl.textContent = 'Stand nicht abrufbar: ' + String(e.message || e);
+    standEl.style.color = 'var(--muted)';
+  });
+})();
+
+/* ═══ Bilder als WebP nachrüsten ════════════════════════════════════════
+   Dieselbe Anordnung wie oben, aus denselben Gründen: nachsehen ohne
+   anzufassen, und eine Runde je Klick statt einer Schleife, die den kleinen
+   PHP-Pool von IONOS mit der öffentlichen Website teilt.
+
+   Ein Unterschied: hier gibt es eine ECHTE Abbruchbedingung neben `offen`.
+   Meldet der Server `moeglich: false`, fehlt der Installation imagewebp() —
+   dann bringt kein weiterer Klick etwas, und das muss dastehen statt als
+   „0 umgesetzt" durchzulaufen.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const block = document.getElementById('webp-block');
+  if (!block) return;
+  if (!HQ_IST_ADMIN) { block.remove(); return; }
+  block.hidden = false;
+
+  const standEl = document.getElementById('webp-stand');
+  const badge   = document.getElementById('webp-badge');
+  const knopf   = document.getElementById('webp-start');
+
+  function kb(bytes) {
+    const n = Number(bytes) || 0;
+    return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
+  }
+
+  function zeigeStand(d, zusatz) {
+    const offen = Number(d.offen) || 0;
+    if (d.moeglich === false) {
+      badge.textContent = 'nicht möglich';
+      standEl.textContent = d.grund || 'Diese PHP-Installation kann kein WebP erzeugen.';
+      standEl.style.color = '#fca5a5';
+      // Die Sperre wird HIER gesetzt, nicht beim Aufrufer: sonst greift sie
+      // nur auf dem GET-Weg, und ein POST, der `moeglich: false` meldet,
+      // gäbe den Knopf im finally sofort wieder frei — er sähe gesperrt aus
+      // und wäre es nicht.
+      knopf.dataset.gesperrt = '1';
+      knopf.disabled = true;
+      return;
+    }
+    badge.textContent = offen === 0 ? 'vollständig' : offen + ' offen';
+    const teile = [offen + ' offen'];
+    if (d.erzeugt !== undefined) {
+      teile.push(d.erzeugt + ' umgesetzt');
+      if (Number(d.gespartByte) > 0) teile.push(kb(d.gespartByte) + ' gespart');
+      if (Number(d.groesser) > 0) teile.push(d.groesser + '× kein Gewinn');
+      if (Number(d.fehler) > 0) teile.push(d.fehler + ' Fehler');
+    }
+    standEl.textContent = teile.join(' · ') + (zusatz ? ' — ' + zusatz : '');
+    standEl.style.color = offen === 0 ? '#4ade80' : 'var(--fg)';
+  }
+
+  async function ruf(methode) {
+    const r = await fetch('/wp-json/eventboerse/v1/hq/webp', {
+      method: methode,
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': HQ_REST_NONCE },
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.message || ('Fehlgeschlagen (' + r.status + ').'));
+    return d;
+  }
+
+  async function umsetzen() {
+    knopf.disabled = true;
+    try {
+      standEl.textContent = 'Eine Runde läuft…';
+      const d = await ruf('POST');
+      if (Number(d.offen) === 0) zeigeStand(d, 'fertig');
+      else if (Number(d.geprueft) === 0) zeigeStand(d, 'kein Fortschritt');
+      else zeigeStand(d, 'für die nächste Runde erneut drücken');
+    } catch (e) {
+      standEl.textContent = String(e.message || e);
+      standEl.style.color = '#fca5a5';
+    } finally {
+      if (!knopf.dataset.gesperrt) knopf.disabled = false;
+    }
+  }
+
+  knopf.addEventListener('click', umsetzen);
+
   ruf('GET').then(zeigeStand).catch(function (e) {
     badge.textContent = 'unbekannt';
     standEl.textContent = 'Stand nicht abrufbar: ' + String(e.message || e);
