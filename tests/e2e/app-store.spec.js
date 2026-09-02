@@ -181,6 +181,18 @@ test.describe('Capacitor: die Entscheidung ist bewusst und begründet', () => {
       .toBe(false);
   });
 
+  test('native/ wird nicht auf den Webserver gespiegelt', () => {
+    // `mirror --delete` haelt das Deploy-Ziel deckungsgleich mit dem Repo.
+    // Ohne Ausschluss laegen capacitor.config.json, das Privacy-Manifest und
+    // das README unter /wp-content/themes/eventboerse/native/ oeffentlich im
+    // Netz. Kein Geheimnisleck bei einem offenen Repo, aber Baumaterial, das
+    // auf dem Server nichts zu suchen hat — dieselbe Kategorie wie scripts/,
+    // tests/ und js/modules/.
+    const deploy = lies('.github', 'workflows', 'ionos-deploy.yml');
+    expect(deploy, "native/ fehlt in der Ausschlussliste des Deploys")
+      .toMatch(/-x '\^native\/'/);
+  });
+
   test('die App-Kennung ist gesetzt und stabil', () => {
     // Sie lässt sich nach der ersten Einreichung nie wieder ändern.
     expect(CAPACITOR.appId).toBe('de.eventboerse.app');

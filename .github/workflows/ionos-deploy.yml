@@ -76,6 +76,7 @@ jobs:
               -x '^vault/' -x '^docs/' -x '^tests/' -x '^node_modules/' \
               -x '^scripts/' -x '^hq\.html$' \
               -x '^js/modules/' -x '^build-app-js\.sh$' \
+              -x '^native/' \
               -x '^assets/eb-arbeit\.json$' -x '^assets/eb-codeflow\.json$' \
               -x '^assets/eb-auftragsstrom\.json$' \
               -x '^assets/eb-rechtsunterlagen\.json$' -x '^assets/eb-rechtsunterlagen-katalog\.json$' -x '^assets/eb-rechtsquellen\.json$' \
