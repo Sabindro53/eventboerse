@@ -228,3 +228,94 @@ test.describe('Kein Stylesheet wird auf zwei Wegen eingebunden', () => {
       .toContain('/assets/fonts/fonts.css');
   });
 });
+
+// ── Ein Handle ist ein globaler Name ─────────────────────────────────────
+//
+// Der Lighthouse-Lauf vom 31.08.2026 gegen die LIVE-Seite zeigte:
+//
+//   /wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.css?ver=4.6.13
+//   /wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.js?ver=4.6.13
+//
+// Unsere eigenen, im Theme liegenden Dateien kamen NICHT vor. Elementor
+// registriert den Handle `flatpickr` frueher, und `wp_enqueue_style()` mit
+// einem bereits registrierten Handle verwirft `src` und `version`
+// stillschweigend — erkennbar allein am `?ver=4.6.13` statt unseres filemtime.
+//
+// Der Datumswaehler der Buchung lief also ueber die Kopie eines Plugins, das
+// dieses Theme nirgends anfordert, und `flatpickr-de.js` band sich an dessen
+// Build. Das ging gut, weil dort zufaellig dieselbe Version liegt.
+test.describe('Eigene Bibliotheken tragen eigene Handles', () => {
+  const FUNCTIONS_PHP = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+
+  /** Alle Handles, mit denen das Theme etwas aus assets/lib/ einbindet. */
+  function eigeneBibliotheken() {
+    const treffer = [];
+    for (const m of FUNCTIONS_PHP.matchAll(
+      /wp_enqueue_(?:style|script)\(\s*'([^']+)'\s*,\s*\$vendor\b/g)) {
+      treffer.push(m[1]);
+    }
+    return treffer;
+  }
+
+  test('die Erhebung findet ihre Subjekte', () => {
+    expect(eigeneBibliotheken().length,
+      'keine Einbindung aus $vendor gefunden — der Test prüft nichts')
+      .toBeGreaterThanOrEqual(4);
+  });
+
+  test('jeder Handle für eine eigene Datei trägt das eb-Präfix', () => {
+    // Ohne Präfix entscheidet das erste Plugin, welche Datei ausgeliefert
+    // wird — und zwar lautlos.
+    const ohne = eigeneBibliotheken().filter((h) => !h.startsWith('eb-'));
+    expect(ohne, `Handle ohne eb-Präfix, damit für jedes Plugin greifbar: `
+      + `${ohne.join(', ')}`).toHaveLength(0);
+  });
+
+  test('keine Abhängigkeit zeigt mehr auf einen nackten Namen', () => {
+    // Bliebe `array( 'flatpickr' )` stehen, haenge unsere Lokalisierung
+    // weiterhin an Elementors Build — die Umbenennung waere wirkungslos.
+    for (const alt of ['leaflet', 'flatpickr', 'flatpickr-de']) {
+      expect(FUNCTIONS_PHP, `die Abhängigkeit '${alt}' zeigt auf einen Handle, `
+        + `den jedes Plugin belegen kann`)
+        .not.toMatch(new RegExp(`array\\([^)]*'${alt}'`));
+    }
+  });
+});
+
+// ── Abbestellen nur, wo nachweislich nichts gestaltet wird ───────────────
+test.describe('Fremde Stilvorlagen ohne Wirkung werden abbestellt', () => {
+  const FUNCTIONS_PHP = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+  const INDEX = fs.readFileSync(path.join(ROOT, 'index.php'), 'utf8');
+
+  test('die Voraussetzung gilt: index.php rendert nie den Seiteninhalt', () => {
+    // Das ist die BEDINGUNG, unter der das Abbestellen zulässig ist — nicht
+    // „wird vermutlich nicht gebraucht", sondern „das Markup entsteht nie".
+    // Wer the_content() wieder einbaut, muss das Abbestellen mit anfassen,
+    // und dieser Test sagt es ihm.
+    expect(INDEX, 'index.php rendert wieder Seiteninhalt — dann gestaltet die '
+      + 'Block-Bibliothek sehr wohl etwas, und das Abbestellen ist falsch')
+      .not.toMatch(/\bthe_content\s*\(/);
+  });
+
+  test('die Block-Bibliothek wird abbestellt', () => {
+    const fn = FUNCTIONS_PHP.match(/function eb_fremde_stile_abbestellen\([\s\S]*?\n\}/);
+    expect(fn, 'die Funktion ist verschwunden').toBeTruthy();
+    expect(fn[0], 'wp-block-library bleibt geladen').toContain("'wp-block-library'");
+    expect(fn[0], 'es wird gar nichts abbestellt').toMatch(/wp_dequeue_style/);
+  });
+
+  test('nur im Frontend — der Blockeditor braucht die Vorlage', () => {
+    const fn = FUNCTIONS_PHP.match(/function eb_fremde_stile_abbestellen\([\s\S]*?\n\}/)[0];
+    expect(fn, 'ohne is_admin()-Schranke bricht der Blockeditor')
+      .toMatch(/if \(\s*is_admin\(\)\s*\)\s*\{\s*return;/);
+  });
+
+  test('spät genug, sonst ist noch nichts registriert', () => {
+    // Bei der Standardpriorität liefe das Abbestellen vor den Registrierungen
+    // von WordPress und griffe ins Leere — grün und wirkungslos.
+    const zeile = FUNCTIONS_PHP.match(
+      /add_action\(\s*'wp_enqueue_scripts',\s*'eb_fremde_stile_abbestellen',\s*(\d+)\s*\)/);
+    expect(zeile, 'die Funktion ist nicht eingehängt').toBeTruthy();
+    expect(Number(zeile[1]), 'die Priorität ist zu früh').toBeGreaterThanOrEqual(20);
+  });
+});

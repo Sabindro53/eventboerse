@@ -660,16 +660,40 @@ function eventboerse_enqueue_assets() {
         $ver( 'assets/fonts/fonts.css' )
     );
 
+    /* ── Eigene Handles, mit eb- davor ───────────────────────────────────
+     *
+     * Hier standen bis zum 02.09.2026 die nackten Namen `leaflet` und
+     * `flatpickr`. Das war nicht bloss unsauber, es war KAPUTT, und der
+     * Lighthouse-Lauf gegen die Live-Seite hat es gezeigt:
+     *
+     *   /wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.css?ver=4.6.13
+     *   /wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.js?ver=4.6.13
+     *
+     * Unsere eigenen Dateien kamen NICHT vor. Elementor registriert den
+     * Handle `flatpickr` frueher, und `wp_enqueue_style()` mit einem bereits
+     * registrierten Handle verwirft `src` und `version` stillschweigend --
+     * erkennbar allein am `?ver=4.6.13` statt unseres filemtime.
+     *
+     * Die Folge: der Datumswaehler der Buchung lief ueber die Kopie eines
+     * Plugins, das dieses Theme nirgends anfordert, und unsere deutsche
+     * Lokalisierung band sich an dessen Build. Das ging gut, weil dort
+     * zufaellig dieselbe Version liegt. Zieht Elementor auf Flatpickr 5,
+     * bricht die Buchung -- ohne dass hier eine Zeile geaendert wurde.
+     *
+     * Ein Handle ist ein GLOBALER Name. Wer ihn ohne Praefix belegt, laesst
+     * jedes Plugin entscheiden, welche Datei ausgeliefert wird.
+     */
+
     // Leaflet 1.9.4 — leaflet.css erwartet images/ daneben, deshalb der
     // gemeinsame Ordner.
     wp_enqueue_style(
-        'leaflet',
+        'eb-leaflet',
         $vendor . '/leaflet/leaflet.css',
         array(),
         $ver( 'assets/lib/leaflet/leaflet.css' )
     );
     wp_enqueue_script(
-        'leaflet',
+        'eb-leaflet',
         $vendor . '/leaflet/leaflet.js',
         array(),
         $ver( 'assets/lib/leaflet/leaflet.js' ),
@@ -678,22 +702,22 @@ function eventboerse_enqueue_assets() {
 
     // Flatpickr 4.6.13 samt deutscher Lokalisierung.
     wp_enqueue_style(
-        'flatpickr',
+        'eb-flatpickr',
         $vendor . '/flatpickr/flatpickr.min.css',
         array(),
         $ver( 'assets/lib/flatpickr/flatpickr.min.css' )
     );
     wp_enqueue_script(
-        'flatpickr',
+        'eb-flatpickr',
         $vendor . '/flatpickr/flatpickr.min.js',
         array(),
         $ver( 'assets/lib/flatpickr/flatpickr.min.js' ),
         true
     );
     wp_enqueue_script(
-        'flatpickr-de',
+        'eb-flatpickr-de',
         $vendor . '/flatpickr/flatpickr-de.js',
-        array( 'flatpickr' ),
+        array( 'eb-flatpickr' ),
         $ver( 'assets/lib/flatpickr/flatpickr-de.js' ),
         true
     );
@@ -702,7 +726,7 @@ function eventboerse_enqueue_assets() {
     wp_enqueue_style(
         'eventboerse-style',
         get_stylesheet_uri(),
-        array( 'eb-fonts', 'leaflet' ),
+        array( 'eb-fonts', 'eb-leaflet' ),
         '1.1.0'
     );
 
@@ -727,7 +751,7 @@ function eventboerse_enqueue_assets() {
     wp_enqueue_script(
         'eventboerse-app',
         get_template_directory_uri() . '/app.js',
-        array( 'leaflet', 'flatpickr', 'flatpickr-de', 'stripe-js' ),
+        array( 'eb-leaflet', 'eb-flatpickr', 'eb-flatpickr-de', 'stripe-js' ),
         $app_ver,
         true
     );
@@ -770,6 +794,43 @@ function eventboerse_enqueue_assets() {
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
+
+/**
+ * Stilvorlagen abbestellen, die Markup gestalten, das nie entsteht.
+ *
+ * `index.php` ruft NIE `the_content()` — es gibt die SPA-Huelle aus. Der
+ * Inhalt einer WordPress-Seite wird im Frontend also nirgends gerendert, und
+ * damit gestaltet die Block-Bibliothek von Gutenberg garantiert nichts.
+ * Gemessen am 31.08.2026 waren das 18 KB, und sie blockierten den Aufbau.
+ *
+ * Das ist der Unterschied zu einer Optimierung auf Verdacht: hier steht
+ * nicht "wird vermutlich nicht gebraucht", sondern "das Markup existiert
+ * nicht". Wer `the_content()` wieder einbaut, muss diese Funktion mit
+ * anfassen — deshalb prueft ein Test genau diese Bedingung.
+ *
+ * NUR im Frontend. Im Admin-Bereich und im Blockeditor wird dieselbe
+ * Stilvorlage sehr wohl gebraucht.
+ *
+ * Bewusst NICHT abbestellt:
+ *   · Elementors flatpickr — ein Skript, an dem Fremdcode haengen koennte.
+ *     Seit die eigenen Handles `eb-` tragen, laedt unsere Fassung ohnehin;
+ *     die Kopie ist Ballast, aber Ballast ohne Risiko.
+ *   · jQuery — welches Plugin es braucht, ist von hier nicht feststellbar.
+ */
+function eb_fremde_stile_abbestellen() {
+    if ( is_admin() ) { return; }
+
+    foreach ( array(
+        'wp-block-library',        // Gutenberg, 18 KB, aufbaublockierend
+        'wp-block-library-theme',
+        'global-styles',           // aus theme.json abgeleitet
+        'classic-theme-styles',
+    ) as $handle ) {
+        wp_dequeue_style( $handle );
+    }
+}
+// Spaet, damit alles registriert ist, was abbestellt werden soll.
+add_action( 'wp_enqueue_scripts', 'eb_fremde_stile_abbestellen', 100 );
 
 /**
  * SPA-Routing: Alle Front-End-Pfade auf index.php weiterleiten,

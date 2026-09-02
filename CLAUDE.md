@@ -1008,7 +1008,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-751 Tests in 49 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+758 Tests in 49 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1025,7 +1025,9 @@ Historie; ein Verweis auf eine Umgebungsvariable nicht),
 **Phantom-Workflows** (was GitHub als aktiv führt, hat auch eine Datei),
 **CSP-Nonce** (jedes Inline-Skript trägt eins; die beobachtende Fassung ist
 abgeleitet, nicht abgeschrieben), **Auslieferung** (Brotli ergänzt gzip, jede
-vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen),
+vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen,
+eigene Bibliotheken tragen eigene Handles, abbestellt wird nur was nichts
+gestaltet),
 **Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
@@ -1071,6 +1073,54 @@ Eintrag in der Datenschutzerklärung.
 
 Achtung beim Ablegen neuer Dateien: `.gitignore` enthält ein nicht verankertes
 `vendor/`, das auch `assets/vendor/` verschluckt. Deshalb `assets/lib/`.
+
+**Ein Handle ist ein globaler Name — deshalb `eb-`.** Bis zum 02.09.2026
+hießen die Einbindungen schlicht `leaflet` und `flatpickr`. Das war nicht bloß
+unsauber, es war **kaputt**, und der Lighthouse-Lauf gegen die Live-Seite hat
+es gezeigt:
+
+```
+/wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.css?ver=4.6.13
+/wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.js?ver=4.6.13
+```
+
+Die eigenen Dateien kamen **nicht vor**. Elementor registriert den Handle
+`flatpickr` früher, und `wp_enqueue_style()` mit einem bereits registrierten
+Handle verwirft `src` und `version` stillschweigend — erkennbar allein am
+`?ver=4.6.13` statt des `filemtime`.
+
+Die Folge: der **Datumswähler der Buchung** lief über die Kopie eines Plugins,
+das dieses Theme nirgends anfordert, und `flatpickr-de.js` band sich an dessen
+Build. Das ging gut, weil dort zufällig dieselbe Version liegt. Zieht Elementor
+auf Flatpickr 5, bricht die Buchung — ohne dass hier eine Zeile geändert wurde.
+
+Die Aussage „liegt im Theme" war für die Datei richtig und für die
+**Auslieferung** falsch. Das ist der Unterschied zwischen einer Ablage und
+einer Einbindung, und er fällt nur in einer Messung am Live-System auf.
+
+**Neue Bibliothek → Handle mit `eb-` davor.** `auslieferung.spec.js` prüft das
+für jede Einbindung aus `$vendor`, nicht für die drei bekannten Namen.
+
+### Was nichts gestaltet, wird abbestellt
+
+`index.php` ruft **nie `the_content()`** — es gibt die SPA-Hülle aus. Der
+Inhalt einer WordPress-Seite wird im Frontend also nirgends gerendert, und
+damit gestaltet Gutenbergs Block-Bibliothek garantiert nichts: 18 KB,
+aufbaublockierend, für Markup das nicht existiert.
+
+`eb_fremde_stile_abbestellen()` nimmt sie heraus, **nur im Frontend** (im
+Blockeditor wird dieselbe Vorlage gebraucht) und bei **Priorität 100** — bei
+der Standardpriorität liefe das Abbestellen vor den Registrierungen von
+WordPress und griffe ins Leere, grün und wirkungslos.
+
+**Die Bedingung ist getestet, nicht die Maßnahme.** Wer `the_content()` wieder
+einbaut, macht das Abbestellen falsch — und genau darauf prüft der Test. Das
+ist der Unterschied zu einer Optimierung auf Verdacht.
+
+**Bewusst nicht angefasst:** Elementors Flatpickr (ein Skript, an dem
+Fremdcode hängen könnte — seit den `eb-`-Handles lädt unsere Fassung ohnehin,
+die Kopie ist Ballast ohne Risiko) und jQuery (welches Plugin es braucht, ist
+von hier nicht feststellbar).
 
 ### Aufträge aus dem Gespräch
 
