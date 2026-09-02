@@ -412,6 +412,36 @@ Pflichtseiten.
 **Noch offen:** `/.well-known/apple-app-site-association` ausliefern (sonst
 keine Passkeys in der App), Zwecktexte in `Info.plist`, APNs-Schlüssel.
 
+### Ein Griff, den jede Suite nachbaute
+
+CodeQL meldete `.replace(/<!--…-->/g, '')` am 01.09.2026 in
+`auslieferung.spec.js` — ein einmaliger Schnitt an einem mehrzeichigen
+Konstrukt, der bei Verschachtelung einen Rest stehen lässt. Am 02.09. meldete
+es dieselbe Zeile erneut, in `app-store.spec.js`: **in der Datei, die den
+ersten Befund beheben sollte.**
+
+Eine Fundstelle zu beheben verhindert die nächste nicht, solange jede Suite den
+Griff von Hand nachbaut. Er steht deshalb **einmal** in
+`tests/e2e/lib/html-kommentare.js` und misst Bereiche, statt am Text zu
+schneiden — wer nur misst, hat das Problem nicht und behält die Positionen für
+eine brauchbare Fehlermeldung.
+
+`pruefhygiene.spec.js` hält zwei Regeln über alle Suiten:
+
+- **keine schneidet HTML-Kommentare selbst heraus** (der gemeinsame Griff ist da),
+- **keine überspringt sich** (`test.skip`/`test.fixme`) — ein übersprungener
+  Test zählt in keiner Bilanz als Fehler.
+
+Geprüft wird **nach Abzug der JS-Kommentare**, zeichenweise statt per
+Ausdruck: ein regulärer Ausdruck über Kommentargrenzen wäre genau der Griff,
+den die Datei verbietet. Genau daran fielen an einem Tag **vier** Prüfungen —
+sie trafen das erklärende Wort im Kommentar statt die Zeile im Code.
+
+Die Wächterdatei ist von ihren eigenen Regeln ausgenommen: ihre Suchmuster
+*sind* Code und fänden sich sonst selbst. Die Ausnahme gilt für genau diese
+eine Datei; eine Ausnahmeliste, die wachsen kann, wäre der Anfang vom Ende der
+Regel.
+
 **Ein 404 steht noch drin:** `/assets/showcase/dj-hero.jpg`.
 
 **Stripe.js ist nicht nur ein Performance-Posten.** `functions.php` bindet
@@ -926,7 +956,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-733 Tests in 47 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+737 Tests in 48 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -951,6 +981,8 @@ Apache liefert nur bei passendem `Accept` und vorhandener Datei um),
 **App Store** (Privacy-Manifest und Vault-Tabelle nennen dieselben Datenarten;
 `viewport-fit` und die safe-area-Abstände sind gekoppelt; die Kontolöschung
 nach 5.1.1(v) ist noch da),
+**Prüfhygiene** (keine Suite schneidet HTML-Kommentare selbst heraus, keine
+überspringt sich),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und

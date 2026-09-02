@@ -14,6 +14,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { trefferAusserhalbKommentaren } = require('./lib/html-kommentare');
 
 const ROOT = path.join(__dirname, '..', '..');
 const lies = (...p) => fs.readFileSync(path.join(ROOT, ...p), 'utf8');
@@ -149,12 +150,16 @@ test.describe('Safe Areas: viewport-fit und CSS gehören zusammen', () => {
     // #6C63FF kam im ganzen Projekt sonst nur in generate-icons.html vor,
     // einem Werkzeug, das nichts ausliefert. Die Marke ist #FF385C.
     //
-    // Kommentare raus, BEVOR gesucht wird: der erklärende Kommentar in
-    // index.php zitiert den entfernten Wert, und die erste Fassung dieses
-    // Tests fiel daran. Dritter Fall desselben Musters an einem Tag —
-    // eine Prüfung, die Prosa trifft, prüft keinen Code.
-    const ohneKommentare = INDEX_PHP.replace(/<!--[\s\S]*?-->/g, '');
-    expect(ohneKommentare, 'das tote #6C63FF ist zurück').not.toMatch(/#6C63FF/i);
+    // Der erklärende Kommentar in index.php zitiert den entfernten Wert, und
+    // die erste Fassung dieses Tests fiel daran — eine Prüfung, die Prosa
+    // trifft, prüft keinen Code.
+    //
+    // Der Griff steht in lib/html-kommentare.js und wird NICHT hier
+    // nachgebaut: die von Hand geschriebene Fassung war es, die CodeQL zweimal
+    // gemeldet hat.
+    const treffer = trefferAusserhalbKommentaren(INDEX_PHP, /#6C63FF/gi);
+    expect(treffer, `das tote #6C63FF ist zurück, an Position `
+      + `${treffer.map((t) => t.index).join(', ')}`).toHaveLength(0);
     expect(INDEX_PHP, 'theme-color folgt dem Farbmodus nicht')
       .toMatch(/theme-color"[^>]*media="\(prefers-color-scheme: dark\)"/);
   });

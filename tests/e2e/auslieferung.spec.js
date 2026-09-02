@@ -12,6 +12,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { kommentarBereiche, imKommentar } = require('./lib/html-kommentare');
 
 const ROOT = path.join(__dirname, '..', '..');
 const HTACCESS = fs.readFileSync(path.join(ROOT, '.htaccess'), 'utf8');
@@ -169,21 +170,13 @@ test.describe('Kein Stylesheet wird auf zwei Wegen eingebunden', () => {
   function ausIndexPhp() {
     const php = fs.readFileSync(path.join(ROOT, 'index.php'), 'utf8');
 
-    // Kommentarbereiche werden BESTIMMT, nicht herausgeschnitten.
-    //
-    // Die erste Fassung schnitt sie mit `.replace(/<!--[\s\S]*?-->/g, '')`
-    // heraus. CodeQL hat das am 01.09.2026 als „Incomplete multi-character
-    // sanitization" gemeldet, und der Form nach zu Recht: ein einmaliger
-    // Schnitt an einem mehrzeichigen Konstrukt kann bei Verschachtelung einen
-    // Rest stehen lassen. Eine Sicherheitsluecke war es hier nicht — der Text
-    // kommt aus unserem eigenen Repository und wird nie gerendert.
-    //
-    // Trotzdem geaendert statt weggeklickt: ein Scanner, der grundlos
-    // anschlaegt, wird nach dem dritten Mal abgeschaltet. Wer Bereiche nur
-    // MISST, statt am Text zu schneiden, hat das Problem nicht.
-    const kommentare = [...php.matchAll(/<!--[\s\S]*?-->/g)]
-      .map((m) => [m.index, m.index + m[0].length]);
-    const imKommentar = (i) => kommentare.some(([a, b]) => i >= a && i < b);
+    // Kommentarbereiche werden BESTIMMT, nicht herausgeschnitten. Der Griff
+    // steht seit dem 02.09.2026 in lib/html-kommentare.js — dort ist auch
+    // aufgeschrieben, warum: die von Hand geschriebene Fassung hat CodeQL
+    // zweimal gemeldet, das zweite Mal in der Datei, die den ersten Befund
+    // beheben sollte.
+    const bereiche = kommentarBereiche(php);
+    const drin = (i) => imKommentar(bereiche, i);
 
     // Ein <link>-Tag darf PHP-Bloecke enthalten, und die tragen selbst ein
     // `>`. Ein schlichtes [^>]* endet daran mitten im Tag — genau daran fand
@@ -193,7 +186,7 @@ test.describe('Kein Stylesheet wird auf zwei Wegen eingebunden', () => {
     // erlaubt den PHP-Block ausdruecklich, statt ihn vorher zu entfernen.
     const treffer = [];
     for (const m of php.matchAll(/<link\b(?:<\?php[\s\S]*?\?>|[^>])*>/gi)) {
-      if (imKommentar(m.index)) continue;
+      if (drin(m.index)) continue;
       const tag = m[0].replace(/<\?php[\s\S]*?\?>/g, '');
       if (!/rel=["']stylesheet["']/i.test(tag)) continue;
       const href = tag.match(/href=["']([^"']*)["']/i);
