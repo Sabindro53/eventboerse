@@ -97,13 +97,25 @@ App-Tracking-Transparency-Dialog.
 
 ## Offen
 
-- **`/.well-known/apple-app-site-association`** ausliefern — ohne diese Datei
-  funktionieren Passkeys in der nativen App nicht. Serverseitig, noch nicht
-  gemacht.
-- **Zwecktexte in `Info.plist`** (Standort, Kamera, Fotos). Apple lehnt leere
-  oder nichtssagende Begründungen ab; sie müssen den konkreten Zweck nennen.
+Nur noch, was ein Apple-Entwicklerkonto oder einen Mac braucht:
+
+- **`EB_APPLE_TEAM_ID`** in `wp-config.php` eintragen. Die Auslieferung von
+  `/.well-known/apple-app-site-association` steht seit dem 02.09.2026
+  (`eb_apple_zuordnung_ausliefern`); ohne die Konstante liefert die Route
+  bewusst 404. Eine Zuordnung mit Platzhalter wäre schlimmer als keine —
+  Apple holt sie einmal beim Installieren ab und merkt sich das Ergebnis.
 - **APNs-Schlüssel** für Push.
-- **PR #46** — enthält eine Browser-Umleitung auf der widerlegten Annahme.
+- **Xcode-Projekt** erzeugen (`npx cap add ios`) und die Zwecktexte aus
+  `native/Info.plist-zwecktexte.md` übernehmen.
+
+Erledigt und nicht mehr offen:
+
+- Zuordnungsdatei ausgeliefert (14 Tests, `aasa.spec.js`).
+- Zwecktexte formuliert, inklusive der vier, die **nicht** eingetragen werden
+  dürfen — eine erbetene und nie genutzte Berechtigung ist kein neutraler
+  Zustand.
+- **PR #46** ist gegenstandslos: er baut auf der Annahme auf, Apple wolle bei
+  realen Leistungen mitverdienen. Schließen.
 
 ## Bei jeder neuen erhobenen Datenart
 

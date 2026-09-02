@@ -244,6 +244,84 @@ add_filter( 'rest_authentication_errors', function( $result ) {
  * Das Deployment legt Theme-Dateien unter /wp-content/themes/eventboerse/ ab,
  * Browser erwarten PWA-Dateien aber am Origin-Root: /manifest.json und /sw.js.
  */
+/* =====================================================================
+   APPLE-ZUORDNUNG (/.well-known/apple-app-site-association)
+
+   Ohne diese Datei funktionieren in der iOS-App WEDER Passkeys NOCH
+   Universal Links. Das ist kein Komfortverlust: `webauthn.php` ist die
+   Anmeldung, und in der App liefe sie ohne die Zuordnung schlicht nicht.
+
+   Drei Bedingungen, in denen Apple unnachgiebig ist:
+     · genau dieser Pfad, OHNE Dateiendung
+     · Content-Type application/json
+     · keine Weiterleitung, kein 301 davor
+
+   OHNE TEAM-ID WIRD NICHTS AUSGELIEFERT. Die Team-ID vergibt Apple erst
+   mit dem Entwicklerkonto; sie steht in wp-config.php als
+   EB_APPLE_TEAM_ID, nicht im Repo. Eine Datei mit Platzhalter waere
+   schlimmer als keine: Apple holt sie einmal beim Installieren ab und
+   merkt sich das Ergebnis — eine ungueltige Zuordnung faellt also erst
+   beim Nutzer auf, und dann ist sie schon zwischengespeichert.
+
+   Fehlt die Konstante, bleibt es beim bisherigen Verhalten (404). Das ist
+   ehrlich: nicht eingerichtet sieht dann anders aus als eingerichtet.
+   ===================================================================== */
+
+/** Die vollstaendige App-Kennung, oder '' wenn nicht eingerichtet. */
+function eb_apple_app_id() {
+    if ( ! defined( 'EB_APPLE_TEAM_ID' ) ) { return ''; }
+    $team = trim( (string) EB_APPLE_TEAM_ID );
+    // Apple vergibt zehn alphanumerische Zeichen. Die Pruefung haelt einen
+    // Tippfehler oder einen vergessenen Platzhalter aus der Datei heraus.
+    if ( ! preg_match( '/^[A-Z0-9]{10}$/i', $team ) ) { return ''; }
+    $bundle = defined( 'EB_APPLE_BUNDLE_ID' ) ? (string) EB_APPLE_BUNDLE_ID : 'de.eventboerse.app';
+    if ( ! preg_match( '/^[a-z0-9.\-]+$/i', $bundle ) ) { return ''; }
+    return $team . '.' . $bundle;
+}
+
+function eb_apple_zuordnung_ausliefern() {
+    $app_id = eb_apple_app_id();
+    if ( '' === $app_id ) { return; }          // nicht eingerichtet -> 404 wie bisher
+
+    $zuordnung = array(
+        // Passkeys. Ohne diesen Block bietet iOS in der App keinen
+        // gespeicherten Passkey der Domain an.
+        'webcredentials' => array(
+            'apps' => array( $app_id ),
+        ),
+        // Universal Links: ein Link auf eventbörse.de oeffnet die App.
+        'applinks' => array(
+            'details' => array(
+                array(
+                    'appIDs'     => array( $app_id ),
+                    'components' => array(
+                        // Ausgenommen, in dieser Reihenfolge — Apple wertet
+                        // von oben nach unten aus, und der erste Treffer
+                        // gewinnt. Ein Ausschluss NACH dem Einschluss waere
+                        // wirkungslos.
+                        array( '/' => '/hq/*',      'exclude' => true,
+                               'comment' => 'HQ bleibt im Browser' ),
+                        array( '/' => '/wp-admin/*', 'exclude' => true ),
+                        array( '/' => '/wp-json/*',  'exclude' => true ),
+                        array( '/' => '/wp-login.php', 'exclude' => true ),
+                        array( '/' => '/*' ),
+                    ),
+                ),
+            ),
+        ),
+    );
+
+    status_header( 200 );
+    // OHNE Dateiendung, deshalb setzt der Server den Typ nicht selbst.
+    header( 'Content-Type: application/json' );
+    // Apple holt die Datei selten, aber ein Wechsel der Team-ID soll nicht
+    // einen Tag lang haengenbleiben.
+    header( 'Cache-Control: public, max-age=3600, must-revalidate' );
+    header( 'X-Content-Type-Options: nosniff' );
+    echo wp_json_encode( $zuordnung );
+    exit;
+}
+
 function eb_serve_theme_root_file() {
     $path = parse_url( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '', PHP_URL_PATH );
     $path = '/' . ltrim( (string) $path, '/' );
@@ -270,6 +348,15 @@ function eb_serve_theme_root_file() {
             'cache' => 'private, max-age=300, must-revalidate',
         ),
     );
+
+    // Apples Zuordnungsdatei. Muss GENAU unter diesem Pfad liegen, ohne
+    // Endung, ohne Weiterleitung, mit Content-Type application/json — Apple
+    // holt sie beim Installieren der App über ein eigenes CDN ab und ist in
+    // allen drei Punkten unnachgiebig.
+    if ( '/.well-known/apple-app-site-association' === $path ) {
+        eb_apple_zuordnung_ausliefern();
+        return;
+    }
 
     // HQ-Dashboard unter /hq — inklusive Unterpfaden wie /hq/today oder
     // /hq/connections/github. Die Seite selbst entscheidet anhand des Pfads,

@@ -119,14 +119,34 @@ cp native/PrivacyInfo.xcprivacy ios/App/App/PrivacyInfo.xcprivacy
 
 Danach in Xcode:
 
-- `Info.plist`: `NSLocationWhenInUseUsageDescription`,
-  `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription` — jeweils mit
-  einem Satz, der den Zweck nennt. Apple lehnt leere oder nichtssagende
-  Begründungen ab.
+- `Info.plist`: die Zwecktexte. Fertig formuliert in
+  [`Info.plist-zwecktexte.md`](Info.plist-zwecktexte.md) — übernehmen, nicht
+  neu erfinden. Apple lehnt leere oder nichtssagende Begründungen ab.
 - Push-Capability + APNs-Schlüssel.
-- Associated Domains für Passkeys: `webcredentials:xn--eventbrse-57a.de`.
-  Dazu muss `/.well-known/apple-app-site-association` ausgeliefert werden —
-  **das ist eine Server-Aufgabe und noch offen.**
+- Associated Domains: `webcredentials:xn--eventbrse-57a.de` und
+  `applinks:xn--eventbrse-57a.de`.
+
+## Die Serverseite der Passkeys ist fertig
+
+`/.well-known/apple-app-site-association` wird ausgeliefert (`functions.php`,
+`eb_apple_zuordnung_ausliefern`). **Es fehlt nur noch die Team-ID.**
+
+Sobald das Entwicklerkonto steht, in `wp-config.php`:
+
+```php
+define( 'EB_APPLE_TEAM_ID', 'XXXXXXXXXX' );   // 10 Zeichen, aus App Store Connect
+```
+
+Vorher liefert die Route bewusst **404**. Eine Zuordnung mit Platzhalter wäre
+schlimmer als keine: Apple holt die Datei einmal beim Installieren ab und merkt
+sich das Ergebnis — der Fehler fiele erst beim Nutzer auf, und dann ist er
+schon zwischengespeichert.
+
+Danach prüfen (muss `application/json` liefern, ohne Weiterleitung):
+
+```bash
+curl -sSI https://xn--eventbrse-57a.de/.well-known/apple-app-site-association
+```
 
 ---
 

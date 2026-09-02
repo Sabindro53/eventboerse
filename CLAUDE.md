@@ -424,8 +424,45 @@ Jetzt zwei Werte nach Farbmodus, wie in der Dev-Shell.
 keine Freigabe, und es ist leicht wegzurefaktorisieren) und die 15
 Pflichtseiten.
 
-**Noch offen:** `/.well-known/apple-app-site-association` ausliefern (sonst
-keine Passkeys in der App), Zwecktexte in `Info.plist`, APNs-Schlüssel.
+### Die Apple-Zuordnung wird ausgeliefert
+
+`/.well-known/apple-app-site-association` läuft über `eb_serve_theme_root_file()`,
+denselben Weg wie `manifest.json` und `sw.js`. Ohne diese Datei bietet iOS in
+der App **keinen gespeicherten Passkey der Domain an** — und `webauthn.php`
+*ist* die Anmeldung. Das wäre keine Einschränkung, sondern eine App, in der man
+sich nicht anmelden kann.
+
+Apple ist in drei Punkten unnachgiebig: genau dieser Pfad **ohne Endung**
+(`.json` anzuhängen ist der verbreitetste Fehler, und Apple meldet ihn nicht),
+`Content-Type: application/json` **ohne Zusatz**, und keine Weiterleitung davor.
+
+**Ohne gültige Team-ID wird nichts ausgeliefert.** `EB_APPLE_TEAM_ID` steht in
+`wp-config.php`, nicht im Repo — sie gehört zur Bereitstellung wie
+`EB_OPENAI_API_KEY`. Geprüft wird auf Apples Format (zehn alphanumerische
+Zeichen); ein kopierter Platzhalter fällt damit durch.
+
+Der Grund für diese Strenge: **Apple holt die Datei einmal beim Installieren ab
+und merkt sich das Ergebnis.** Eine Zuordnung mit Platzhalter fällt deshalb
+erst beim Nutzer auf, und dann ist sie schon zwischengespeichert. Fehlt die
+Konstante, bleibt es beim 404 — nicht eingerichtet sieht dann anders aus als
+eingerichtet.
+
+**Die Reihenfolge der `components` ist die ganze Logik.** Apple wertet von oben
+nach unten aus, der erste Treffer gewinnt. `/hq/*`, `/wp-admin/*`, `/wp-json/*`
+und `/wp-login.php` stehen deshalb **vor** dem Auffangmuster `/*`; ein
+Ausschluss danach wäre wirkungslos, und die Datei sähe trotzdem richtig aus.
+
+**Die Bundle-ID steht an zwei Orten** — hier und in
+`native/capacitor.config.json`. Driften sie, meldet Apple die Zuordnung als
+ungültig, und beide Dateien sehen für sich weiterhin korrekt aus.
+`aasa.spec.js` vergleicht sie.
+
+```bash
+npx playwright test tests/e2e/aasa.spec.js   # 14 Tests, jeder Fall ein eigener Prozess
+```
+
+**Noch offen:** Zwecktexte in `Info.plist`, APNs-Schlüssel — beides nur in
+Xcode bzw. im Entwicklerkonto zu machen.
 
 ### Ein Griff, den jede Suite nachbaute
 
@@ -971,7 +1008,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-737 Tests in 48 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+751 Tests in 49 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -998,6 +1035,8 @@ Apache liefert nur bei passendem `Accept` und vorhandener Datei um),
 nach 5.1.1(v) ist noch da),
 **Prüfhygiene** (keine Suite schneidet HTML-Kommentare selbst heraus, keine
 überspringt sich),
+**Apple-Zuordnung** (ohne gültige Team-ID wird nichts ausgeliefert; das HQ ist
+vor dem Auffangmuster ausgeschlossen; die Bundle-ID stimmt mit Capacitor),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und
