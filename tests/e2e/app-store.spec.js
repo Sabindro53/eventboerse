@@ -218,9 +218,16 @@ test.describe('Freigabe-Hürden, die im Code liegen', () => {
 
   test('3.1.3(e): kein In-App-Kauf, und der Grund steht dabei', () => {
     // Eine Leistung, die ausserhalb der App erbracht wird, DARF nicht über
-    // IAP laufen. Apple nimmt 0 %. Die Sorge vor der Provision war der Grund
-    // für einen Browser-Umweg, den 3.1.1(a) ausserhalb der USA gerade
-    // einschränkt — der riskantere Weg.
+    // IAP laufen. Apple nimmt 0 %.
+    //
+    // Hier stand bis zum 02.09.2026, der Browser-Umweg sei „der riskantere
+    // Weg", weil 3.1.1(a) ihn ausserhalb der USA einschränke. Das war zu
+    // stark: die Verbote in 3.1.1 gelten Apps mit DIGITALEN Inhalten, die IAP
+    // benutzen müssen. Wir fallen unter 3.1.3(e) und liegen ausserhalb davon.
+    //
+    // Der Umweg wäre also erlaubt — er brächte nur nichts. Die Provision ist
+    // eine application_fee_amount auf einer Stripe-Destination-Charge, in der
+    // App identisch mit dem Browser. Apple sieht dieses Geld nie.
     expect(lies('native', 'README.md'), 'die Begründung zu 3.1.3(e) fehlt')
       .toMatch(/3\.1\.3\(e\)/);
     const paket = JSON.parse(lies('package.json'));

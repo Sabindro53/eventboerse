@@ -26,9 +26,21 @@ Eine gebuchte Leistung — DJ, Catering, Location — wird außerhalb der App
 erbracht. In-App-Kauf ist hier **verboten**, nicht bloß entbehrlich. Apple
 nimmt **0 %**. Stripe läuft in der App genauso wie im Web.
 
-Der ursprüngliche Plan, die Zahlung in den Browser umzuleiten, war der
-riskantere Weg: Guideline **3.1.1(a)** verbietet außerhalb des US-Storefronts
-gerade solche Verweise auf externe Zahlwege.
+**Die Browser-Umleitung ist erlaubt und trotzdem falsch.** Hier stand bis zum
+02.09.2026, Guideline **3.1.1(a)** verbiete sie außerhalb des US-Storefronts.
+Das war zu stark: die Verbote in 3.1.1 gelten Apps mit **digitalen Inhalten**,
+die IAP benutzen müssen. Wir fallen unter 3.1.3(e) und liegen außerhalb dieses
+Regelwerks.
+
+Der Einwand ist also kein regulatorischer, sondern ein geschäftlicher. **Es
+gibt nichts, worum herumzuleiten wäre:** Apple nimmt bei realen Leistungen 0 %,
+auf beiden Wegen. Und die Plattformprovision hängt nicht an Apple, sondern an
+Stripe — `application_fee_amount` auf einer Destination-Charge, die Stripe vom
+Zahlbetrag abzieht und weiterleitet (`functions.php`, `eb_stripe_fee_quote`).
+In der App identisch mit dem Browser; Apple sieht dieses Geld nie.
+
+Was die Umleitung kostet: den Kunden mitten in der Buchung aus der App zu
+werfen, an genau der Stelle, an der Geld fließt.
 
 ## Erhobene Daten — Zuordnung zum Code
 

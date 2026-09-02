@@ -354,11 +354,26 @@ erzeugt `npx cap add ios` und läuft nur auf einem Mac.
 
 **Apple will hier keine Provision.** Guideline **3.1.3(e)**: eine Leistung, die
 *außerhalb* der App erbracht wird — DJ, Catering, Location — **darf nicht**
-über In-App-Kauf abgerechnet werden. Apple nimmt **0 %**. Der ursprüngliche
-Plan, die Zahlung in den Browser umzuleiten, war deshalb unnötig **und** der
-riskantere Weg: **3.1.1(a)** verbietet außerhalb des US-Storefronts gerade
-solche Verweise auf externe Zahlwege. Stripe läuft in der App wie im Web.
-PR #46 baut auf der widerlegten Annahme auf.
+über In-App-Kauf abgerechnet werden. Apple nennt die Kartenzahlung in der App
+ausdrücklich als den vorgesehenen Weg und nimmt **0 %**. Stripe läuft in der
+App wie im Web.
+
+**Die Browser-Umleitung ist nicht verboten, sondern zwecklos.** Hier stand bis
+zum 02.09.2026, **3.1.1(a)** verbiete sie außerhalb des US-Storefronts. Das war
+zu stark: die Verbote in 3.1.1 gelten Apps mit **digitalen Inhalten**, die IAP
+benutzen müssen. Ein Marktplatz für reale Leistungen fällt unter 3.1.3(e) und
+liegt damit vollständig außerhalb dieses Regelwerks — es gibt nichts, worum
+herumzuleiten wäre.
+
+Der Grund gegen die Umleitung ist also kein regulatorischer, sondern ein
+geschäftlicher: sie wirft den Kunden mitten in der Buchung aus der App in den
+Browser und spart dabei **nichts**. Die Plattformprovision ist eine
+`application_fee_amount` auf einer Stripe-Destination-Charge — Stripe zieht sie
+vom Zahlbetrag ab und leitet sie weiter, in der App wie im Browser identisch.
+**Apple sieht dieses Geld nie.**
+
+PR #46 baut auf der Annahme auf, Apple wolle hier mitverdienen. Er ist damit
+gegenstandslos, nicht gefährlich.
 
 **Die App lädt die Website, sie bringt sie nicht mit** (`server.url`). Der
 Grund ist die Anmeldung: die REST-API authentifiziert über das

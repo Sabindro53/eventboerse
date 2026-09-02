@@ -9,8 +9,8 @@ auf einem Mac — deshalb liegt es nicht im Repo.
 ## Die wichtigste Korrektur zuerst: Apple will hier keine Provision
 
 Der Ausgangsgedanke war, die Zahlung in den Browser umzuleiten, damit Apple
-keine 30 % auf In-App-Käufe nimmt. **Das ist bei diesem Geschäft nicht nötig
-und der riskantere Weg.** Guideline 3.1.3(e), im Wortlaut:
+keine 30 % auf In-App-Käufe nimmt. **Bei diesem Geschäft ist das gegenstandslos:
+Apple nimmt ohnehin nichts.** Guideline 3.1.3(e), im Wortlaut:
 
 > *„If your app enables people to purchase physical goods or services that
 > will be consumed **outside of the app**, you must use purchase methods
@@ -21,15 +21,36 @@ Einen DJ, ein Catering oder eine Location zu buchen ist genau das: eine
 Leistung, die außerhalb der App erbracht wird. Für solche Apps ist In-App-Kauf
 nicht bloß unnötig, sondern **verboten**. Apple nimmt **0 %**.
 
-Umgekehrt verbietet Guideline 3.1.1(a) außerhalb des US-Storefronts Knöpfe und
-Links, die auf externe Zahlwege führen — das gilt für Apps, die IAP benutzen
-*müssen*, und ist genau der Bereich, in dem eine Browser-Umleitung Ärger macht.
+### Die Browser-Umleitung ist nicht verboten — sie ist zwecklos
+
+Hier stand bis zum 02.09.2026, Guideline 3.1.1(a) verbiete außerhalb des
+US-Storefronts Verweise auf externe Zahlwege, und die Umleitung sei deshalb der
+riskantere Weg. **Das war zu stark.** Die Verbote in 3.1.1 gelten Apps mit
+**digitalen Inhalten**, die IAP benutzen müssen:
+
+> *„In all other storefronts, except for the United States storefront, …
+> apps and their metadata may not include buttons, external links, or other
+> calls to action that direct customers to purchasing mechanisms other than
+> in-app purchase."*
+
+Ein Marktplatz für reale Leistungen fällt unter 3.1.3(e) und liegt damit
+vollständig außerhalb dieses Regelwerks. Eine Umleitung wäre erlaubt.
+
+Sie brächte nur nichts. **Es gibt nichts, worum herumzuleiten wäre:** Apple ist
+schon draußen, in der App wie im Browser. Und die Plattformprovision hängt
+nicht an Apple, sondern an Stripe — sie ist eine `application_fee_amount` auf
+einer Destination-Charge, die Stripe vom Zahlbetrag abzieht und weiterleitet.
+Auf beiden Wegen identisch. Apple sieht dieses Geld nie.
+
+Was die Umleitung sehr wohl kostet: den Kunden mitten in der Buchung aus der
+App in Safari zu werfen, an genau der Stelle, an der Geld fließt.
 
 **Also: Stripe direkt in der App, so wie im Web.** Keine Sonderbehandlung,
-kein zweiter Zahlungspfad, keine Provision.
+kein zweiter Zahlungspfad.
 
-> PR #46 enthält eine ausgebaute Browser-Umleitung auf der alten Annahme. Sie
-> gehört auf diesen Stand gebracht oder geschlossen, bevor sie gemergt wird.
+> PR #46 enthält eine ausgebaute Browser-Umleitung auf der Annahme, Apple wolle
+> hier mitverdienen. Er ist damit gegenstandslos — nicht gefährlich, nur ohne
+> Nutzen. Schließen oder auf diesen Stand bringen.
 
 ---
 
