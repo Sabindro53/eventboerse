@@ -220,6 +220,63 @@ jobs:
           echo "✅ Stripe constants written to wp-config.php"
           rm -f /tmp/wp-config.php
 
+      - name: Inject Apple Team-ID into wp-config.php (optional)
+        env:
+          SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
+          SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+          SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
+          APPLE_TEAM_ID: ${{ secrets.EB_APPLE_TEAM_ID }}
+        run: |
+          # Die Team-ID ist KEIN Geheimnis -- sie steht auf jeder ausgelieferten
+          # apple-app-site-association und ist damit oeffentlich. Sie liegt hier
+          # trotzdem als Secret, weil sie zur BEREITSTELLUNG gehoert und nicht
+          # in den Quelltext: beim naechsten Entwicklerkonto waere ein fest
+          # eingetragener Wert falsch, und niemand faende die Stelle.
+          #
+          # Opt-in wie bei den AI-Schluesseln. Ohne das Secret bleibt
+          # wp-config.php unveraendert, und die Route liefert weiterhin 404 --
+          # der bewusste Zustand "nicht eingerichtet".
+          #
+          # WARUM DAS WICHTIG IST: Apple holt die Zuordnungsdatei EINMAL beim
+          # Installieren ab und merkt sich das Ergebnis. Eine Datei mit einem
+          # falschen oder halben Wert faellt deshalb erst beim Nutzer auf, und
+          # dann ist sie schon zwischengespeichert.
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            echo "ℹ️ EB_APPLE_TEAM_ID nicht gesetzt — wp-config bleibt unveraendert." >> "$GITHUB_STEP_SUMMARY"
+            echo "   /.well-known/apple-app-site-association liefert weiterhin 404 (Absicht)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Apples Format: genau zehn alphanumerische Zeichen. Dieselbe Pruefung
+          # wie in eb_apple_app_id(); ein Tippfehler soll hier scheitern und
+          # nicht in einer zwischengespeicherten Zuordnung landen.
+          if ! printf "%s" "$APPLE_TEAM_ID" | grep -qE '^[A-Za-z0-9]{10}$'; then
+            echo "::error::EB_APPLE_TEAM_ID hat nicht Apples Format (10 alphanumerische Zeichen)."
+            exit 1
+          fi
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            get /public/wp-config.php -o /tmp/wp-config.php;
+            bye
+          "
+          sed -i '/EB_APPLE_TEAM_ID/d' /tmp/wp-config.php
+          LINENUM=$(grep -n '<?php' /tmp/wp-config.php | head -1 | cut -d: -f1)
+          if [ -z "$LINENUM" ]; then
+            echo "ERROR: <?php not found in wp-config.php!"
+            exit 1
+          fi
+          sed -i "${LINENUM}a\\
+          define('EB_APPLE_TEAM_ID', '${APPLE_TEAM_ID}');" /tmp/wp-config.php
+          echo "--- verify ---"
+          grep -n 'EB_APPLE_TEAM_ID' /tmp/wp-config.php
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            put /tmp/wp-config.php -o /public/wp-config.php;
+            bye
+          "
+          rm -f /tmp/wp-config.php
+          echo "✅ EB_APPLE_TEAM_ID in wp-config.php geschrieben" >> "$GITHUB_STEP_SUMMARY"
+          echo "   Danach pruefen: curl -sSI https://xn--eventbrse-57a.de/.well-known/apple-app-site-association" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Inject AI keys into wp-config.php (optional)
         env:
           SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}

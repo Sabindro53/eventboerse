@@ -491,8 +491,29 @@ ungültig, und beide Dateien sehen für sich weiterhin korrekt aus.
 npx playwright test tests/e2e/aasa.spec.js   # 14 Tests, jeder Fall ein eigener Prozess
 ```
 
+**Die Team-ID kommt über den Deploy**, nicht von Hand. `ionos-deploy.yml` hat
+dafür einen eigenen Schritt — dasselbe Muster wie bei SMTP, Stripe und den
+KI-Schlüsseln: Secret setzen, nächster Deploy schreibt `define()` nach
+`wp-config.php`. Sie von Hand einzutragen hiesse, sich per SFTP anzumelden und
+eine Datei mit allen Datenbank-Zugangsdaten zu öffnen.
+
+**Opt-in und formatgeprüft.** Ohne Secret bleibt `wp-config.php` unangetastet
+und die Route bei 404 — der ehrliche Zustand „nicht eingerichtet". Ein Wert,
+der nicht Apples Format hat (zehn alphanumerische Zeichen), bricht den Schritt
+ab, statt geschrieben zu werden. Der Grund ist derselbe wie bei der Route
+selbst: Apple holt die Zuordnung einmal beim Installieren ab und merkt sich das
+Ergebnis, ein Tippfehler fiele also erst beim Nutzer auf.
+
+Die Prüfung steht damit an **zwei** Stellen — im Deploy und in
+`eb_apple_app_id()`. `aasa.spec.js` hält fest, dass beide dasselbe verlangen;
+driften sie, schriebe der Deploy einen Wert, den PHP anschliessend verwirft,
+und meldete dabei Erfolg.
+
 **Noch offen:** Zwecktexte in `Info.plist`, APNs-Schlüssel — beides nur in
-Xcode bzw. im Entwicklerkonto zu machen.
+Xcode bzw. im Entwicklerkonto zu machen. Dazu der **Händlerstatus** nach DSA
+Art. 30/31: Pflicht für jede App im EU-App-Store, erfüllbar als natürliche
+Person (Adresse **oder Postfach**, Telefon, E-Mail) — eine Kapitalgesellschaft
+verlangt Apple dafür nicht.
 
 ### Ein Griff, den jede Suite nachbaute
 
@@ -1105,7 +1126,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-779 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+783 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

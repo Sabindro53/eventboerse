@@ -159,3 +159,56 @@ test.describe('Die Route sitzt richtig', () => {
       .not.toMatch(/EB_APPLE_TEAM_ID['"\s]*[,=]\s*['"][A-Z0-9]{10}['"]/);
   });
 });
+
+// ── Die Team-ID kommt über den Deploy, nicht über die Hand ───────────────
+//
+// wp-config.php liegt auf IONOS, nicht im Repo. Sie von Hand zu bearbeiten
+// heisst: per SFTP anmelden, eine Datei mit allen Datenbank-Zugangsdaten
+// öffnen und hoffen. Für SMTP, Stripe und die KI-Schlüssel gibt es dafür
+// längst einen Schritt im Deploy — die Team-ID folgt demselben Muster.
+test.describe('Der Deploy trägt die Team-ID ein', () => {
+  const DEPLOY = lies('.github', 'workflows', 'ionos-deploy.yml');
+
+  /** Der Schritt, der die Team-ID schreibt. */
+  function schritt() {
+    const i = DEPLOY.indexOf('Inject Apple Team-ID into wp-config.php');
+    if (i < 0) return null;
+    const j = DEPLOY.indexOf('\n      - name:', i + 10);
+    return DEPLOY.slice(i, j < 0 ? DEPLOY.length : j);
+  }
+
+  test('es gibt einen Schritt dafür', () => {
+    expect(schritt(), 'der Deploy trägt die Team-ID nicht ein').toBeTruthy();
+    expect(schritt(), 'das Secret wird nicht gelesen')
+      .toMatch(/secrets\.EB_APPLE_TEAM_ID/);
+  });
+
+  test('ohne Secret bleibt wp-config.php unangetastet', () => {
+    // Opt-in wie bei den KI-Schlüsseln. Wer die Team-ID noch nicht hat, soll
+    // keinen halb geschriebenen Zustand bekommen — die Route liefert dann
+    // weiterhin 404, und das ist der ehrliche Zustand „nicht eingerichtet".
+    expect(schritt(), 'der Schritt läuft auch ohne Secret weiter')
+      .toMatch(/if \[ -z "\$APPLE_TEAM_ID" \][\s\S]{0,400}exit 0/);
+  });
+
+  test('das Format wird VOR dem Schreiben geprüft', () => {
+    // Apple holt die Zuordnungsdatei einmal beim Installieren ab und merkt
+    // sich das Ergebnis. Ein Tippfehler fiele deshalb erst beim Nutzer auf —
+    // und wäre dann schon zwischengespeichert. Dieselbe Prüfung wie in
+    // eb_apple_app_id(), nur eine Stufe früher.
+    const s = schritt();
+    expect(s, 'die Formatprüfung fehlt').toMatch(/\[A-Za-z0-9\]\{10\}/);
+    expect(s, 'ein falsches Format bricht den Schritt nicht ab')
+      .toMatch(/::error::[\s\S]{0,200}exit 1/);
+  });
+
+  test('die Prüfung im Deploy und die in PHP verlangen dasselbe', () => {
+    // Zwei Stellen, dieselbe Regel. Driften sie, schreibt der Deploy einen
+    // Wert, den PHP anschliessend verwirft — die Route bliebe bei 404, und
+    // der Deploy meldete Erfolg.
+    expect(schritt(), 'der Deploy prüft ein anderes Format als PHP')
+      .toMatch(/\{10\}/);
+    expect(FUNCTIONS, 'eb_apple_app_id prüft nicht mehr auf zehn Zeichen')
+      .toMatch(/\[A-Z0-9\]\{10\}/i);
+  });
+});
