@@ -169,7 +169,7 @@ Falls die Seite den Fehler `NET::ERR_CERT_COMMON_NAME_INVALID` zeigt (siehe Scre
 1. Öffne [login.ionos.de](https://login.ionos.de)
 2. Gehe zu **Hosting** → dein Vertrag
 3. Klicke links auf **SSL-Zertifikate**
-4. Stelle sicher, dass ein gültiges SSL-Zertifikat für `eventboerse.de` **und** `www.eventboerse.de` aktiviert ist
+4. Stelle sicher, dass ein gültiges SSL-Zertifikat für `eventbörse.de` **und** `www.eventbörse.de` aktiviert ist — bei IONOS steht die Domain als Punycode `xn--eventbrse-57a.de`. (`eventboerse.de` ohne Umlaut ist **nicht** die Domain dieser Seite; ein Zertifikat darauf behebt den Fehler nicht.)
 5. Falls kein Zertifikat vorhanden ist: Aktiviere das kostenlose **SSL Starter (Let's Encrypt)** Wildcard-Zertifikat
 6. Warte 10–30 Minuten, bis das Zertifikat aktiv ist
 

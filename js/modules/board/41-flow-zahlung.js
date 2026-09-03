@@ -1641,8 +1641,12 @@ function openStageAdvanceModal(cardId, currentStage) {
           '<strong>Leistung erfüllt – jetzt bezahlen</strong>' +
         '</div>' +
         '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
-          'Beide Seiten haben die Erbringung bestätigt. Mit der Zahlung wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
-          'und <strong>eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
+          // Kein dritter Empfänger. Der Mitschnitt an kontakt@ ist seit dem
+          // 29.05.2026 aus; hier stand er bis zum 03.09.2026 trotzdem noch —
+          // ein Versprechen über den Verbleib der Buchungsdaten, im Moment
+          // der Zahlung, das der Server nicht einlöst.
+          'Beide Seiten haben die Erbringung bestätigt. Mit der Zahlung wird eine Rechnung erstellt und automatisch an <strong>dich</strong> ' +
+          'und den <strong>Anbieter</strong> gesendet.' +
         '</div>' +
       '</div>' +
       '<label class="sa-label">Leistung</label>' +

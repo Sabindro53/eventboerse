@@ -19063,10 +19063,16 @@ function moveBoardCardStage(cardId, currentStage) {
 }
 
 /* ── Rechnungs-/Buchungs-Benachrichtigung senden ──
- * Schickt eine HTML-Mail mit allen Details an User, Anbieter und
- * kontakt@eventbörse.de – für volle Transparenz der Transaktion.
- * Stripe-Integration folgt; diese Mail fungiert bis dahin als
- * "Buchungs-Bestätigung / Rechnungs-Anforderung".
+ * Schickt eine HTML-Mail mit allen Details an Kunde und Anbieter.
+ *
+ * NICHT an kontakt@ — der Mitschnitt wurde am 29.05.2026 entfernt
+ * (Anti-Spam Patch C), Buchungen stehen im Admin-Dashboard. Wer diese
+ * Zeile als Vorlage für einen Mailtext nimmt, verspricht dem Kunden
+ * sonst einen Empfänger, den es nicht gibt — genau so ist der Satz in
+ * die Buchungsbestätigung geraten und dort bis zum 03.09.2026 gestanden.
+ *
+ * Stripe ist live: die Zahlung ist im Moment dieser Mail bereits
+ * abgewickelt, sie ist Bestätigung und nicht Zahlungsaufforderung.
  */
 function _sendInvoiceNotification(card, project, listing) {
   try {
@@ -20735,8 +20741,12 @@ function openStageAdvanceModal(cardId, currentStage) {
           '<strong>Leistung erfüllt – jetzt bezahlen</strong>' +
         '</div>' +
         '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
-          'Beide Seiten haben die Erbringung bestätigt. Mit der Zahlung wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
-          'und <strong>eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
+          // Kein dritter Empfänger. Der Mitschnitt an kontakt@ ist seit dem
+          // 29.05.2026 aus; hier stand er bis zum 03.09.2026 trotzdem noch —
+          // ein Versprechen über den Verbleib der Buchungsdaten, im Moment
+          // der Zahlung, das der Server nicht einlöst.
+          'Beide Seiten haben die Erbringung bestätigt. Mit der Zahlung wird eine Rechnung erstellt und automatisch an <strong>dich</strong> ' +
+          'und den <strong>Anbieter</strong> gesendet.' +
         '</div>' +
       '</div>' +
       '<label class="sa-label">Leistung</label>' +

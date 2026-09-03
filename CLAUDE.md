@@ -626,6 +626,49 @@ prüft, dass er **aufgeht**.
 npx playwright test tests/e2e/zahlung-laden.spec.js   # 12 Tests, echter Browser
 ```
 
+### Ein Empfänger, der seit drei Monaten nicht mehr mitliest
+
+Am 29.05.2026 wurde der Mitschnitt an `kontakt@` aus `eb_send_invoice`
+genommen (Anti-Spam Patch C, „Buchungen sind im Admin-Dashboard sichtbar").
+Die Zeile steht seither auskommentiert im Code. **Der Text blieb stehen** —
+an zwei Stellen, beide vor dem Kunden:
+
+- die **Buchungsbestätigung**: „sie geht zur vollen Transparenz an Kunde,
+  Anbieter und **kontakt@eventbörse.de**";
+- die **Zahlungs-Vorschau** im Board, also der Satz **vor** dem Bezahlen:
+  „…automatisch an dich, den Anbieter und **eventbörse.de** gesendet".
+
+Das ist keine Formulierungsfrage. Es ist eine Aussage darüber, wohin die
+Buchungsdaten gehen, abgegeben im Moment der Zahlung — und sie stimmte drei
+Monate lang nicht. Solche Sätze fallen nie auf: sie stehen in einer Mail, die
+niemand gegen den Code liest, und Code wie Text sehen für sich richtig aus.
+
+**Der Text folgt dem Code, nicht umgekehrt.** Den Mitschnitt wieder
+einzuschalten wäre die bequemere Reparatur und würde eine bewusste
+Entscheidung des Inhabers rückgängig machen.
+
+`rechnung-empfaenger.spec.js` hält zwei Regeln, beide mutationsgeprüft:
+
+1. **Jede im Mailtext zugesagte Adresse muss wirklich in `$recipients`
+   landen** — das fängt einen neu erfundenen Empfänger.
+2. **Ein auskommentierter Empfänger darf nirgends mehr zugesagt werden** —
+   auch nicht als blosse Domain, denn genau so stand er in der Vorschau.
+
+Gemessen wird **satzweise**, nicht am HTML-Block: „Bei Fragen:
+kontakt@eventbörse.de" in der Fusszeile ist eine Kontaktadresse und völlig in
+Ordnung, „sie geht an kontakt@…" ist eine Zusage. Wer am ganzen Block misst,
+hält jede Adresse für eine Zusage und muss die Regel danach mit Ausnahmen
+aufweichen.
+
+**Verschwindet die auskommentierte Zeile, fällt der Test durch.** Sie ist das
+Protokoll der Entscheidung; ohne sie hätte Regel 2 kein Subjekt mehr und
+müsste still durchwinken — dieselbe Mechanik wie beim toten Gitleaks-Scan.
+
+**Nicht betroffen: der Nachrichten-Weg.** `eb_messages_send` leitet Kontakte
+zu Demo-Konten wirklich an `eb_ops_notify_address()` um, und sagt das auch.
+Dort ist die Aussage richtig, und der Test misst deshalb nur den Rumpf von
+`eb_send_invoice`.
+
 ### Lighthouse war neunmal rot — und hat neunmal gemessen
 
 Vom 09.07. bis 01.09.2026 scheiterte jeder Lauf. Nicht an der Messung, die lag
@@ -1126,7 +1169,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-783 Tests in 50 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+787 Tests in 51 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1160,6 +1203,9 @@ vor dem Auffangmuster ausgeschlossen; die Bundle-ID stimmt mit Capacitor),
 **Zahlung laden** (beim blossen Besuch geht nichts an Stripe — im echten
 Browser gemessen; der Lader hängt genau ein Skript ein und sperrt die Kasse
 nach einem Fehler nicht),
+**Rechnungs-Empfänger** (der Mailtext verspricht keinen Empfänger, den
+`$recipients` nicht enthält; ein abbestellter Empfänger wird nirgends mehr
+zugesagt — auch nicht in der Zahlungs-Vorschau),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und

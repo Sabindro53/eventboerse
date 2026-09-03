@@ -7522,10 +7522,16 @@ function eb_format_registration( $row ) {
 
 /* =====================================================================
    BOOKING / INVOICE NOTIFICATION
-   Sendet eine Buchungs-/Rechnungs-Benachrichtigung an User, Anbieter
-   und kontakt@eventboerse.de -- fuer volle Transparenz.
-   Stripe-Integration folgt; diese Mail fungiert als verbindliche
-   Buchungsbestaetigung / Rechnungsanforderung.
+   Sendet eine Buchungs-/Rechnungs-Benachrichtigung an Kunde und Anbieter.
+
+   NICHT an kontakt@ -- der Mitschnitt ist seit dem 29.05.2026 aus
+   (Anti-Spam Patch C), Buchungen stehen im Admin-Dashboard. Dieser
+   Docblock behauptete es bis zum 03.09.2026 weiter, und genau dieser
+   Satz stand auch im Mailtext: der Kunde las einen Empfaenger, an den
+   nichts ging. Wer den Empfaengerkreis aendert, aendert beides.
+
+   Stripe ist live: die Zahlung ist im Moment dieser Mail bereits
+   abgewickelt. Die Mail bestaetigt, sie fordert nicht auf.
    ===================================================================== */
 function eb_send_invoice( WP_REST_Request $request ) {
     $uid = get_current_user_id();
@@ -7596,7 +7602,11 @@ function eb_send_invoice( WP_REST_Request $request ) {
               . '<div style="font-size:13px;opacity:0.9">Eventboerse &middot; ' . esc_html( date_i18n( 'd.m.Y' ) ) . '</div>'
             . '</div>'
             . '<div style="padding:24px">'
-              . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht zur vollen Transparenz an <strong>Kunde</strong>, <strong>Anbieter</strong> und <strong>kontakt@eventb&ouml;rse.de</strong>.</p>'
+              // Der Satz nennt nur Empfaenger, die $recipients unten wirklich
+              // enthaelt. Bis zum 03.09.2026 stand hier zusaetzlich
+              // kontakt@eventboerse.de -- entfernt am 29.05.2026, im Text
+              // stehengeblieben.
+              . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht an <strong>Kunde</strong> und <strong>Anbieter</strong>.</p>'
               . '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:14px">' . $rows . '</table>'
               . $note_html
               . '<div style="margin-top:20px;padding:14px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;font-size:13px;color:#1b5e20;line-height:1.5">'
