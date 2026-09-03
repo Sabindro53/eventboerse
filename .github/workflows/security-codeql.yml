@@ -1,0 +1,59 @@
+# CodeQL — statische Sicherheitsanalyse des JavaScripts.
+#
+# WARUM DIESE DATEI NEU IST, obwohl GitHub den Workflow seit dem 05.05.2026
+# als "active" führt: sie lag nur auf `copilot/add-security-automation-system`
+# und wurde nie nach main gemergt. GitHub registriert Workflows von JEDEM
+# Zweig und prüft nie, ob ihre Datei auf main liegt — der Eintrag blieb
+# sichtbar, verlinkt auf blob/main und lief kein einziges Mal.
+#
+# Vier Monate scheinbarer Schutz. Genau davor warnt jetzt
+# `scripts/workflows.mjs --check` in der Tagesroutine.
+#
+# CodeQL deckt nur JavaScript ab — PHP kann CodeQL nicht. Die PHP-Seite
+# prüfen `security.yml` (Muster-Scan) und die Playwright-Suite.
+name: "Security – CodeQL Analyse"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Wöchentlich, Montag 06:00 UTC. Häufiger bringt nichts: CodeQL findet
+    # Muster im Code, und der Code ändert sich nicht stündlich.
+    - cron: "0 6 * * 1"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: JavaScript analysieren
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: CodeQL initialisieren
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-extended
+          # Die Ausschlüsse stehen in einer eigenen Datei, mit Begründung je
+          # Zeile — allen voran das erzeugte app.js, das sonst jeden Befund
+          # ein zweites Mal meldete.
+          config-file: ./.github/codeql/codeql-config.yml
+
+      # KEIN autobuild. Für JavaScript gibt es nichts zu bauen; der Schritt
+      # stand nur in der alten Fassung, weil er "nicht schadet". Ein Schritt,
+      # der nichts tut, kann trotzdem fehlschlagen — und dann steht ein
+      # roter Sicherheits-Workflow da, der nie eine Analyse gemacht hat.
+
+      - name: CodeQL-Analyse durchführen
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"

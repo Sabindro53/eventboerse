@@ -8,9 +8,68 @@ RewriteCond %{HTTPS} off [OR]
 RewriteCond %{HTTP:X-Forwarded-Proto} =http
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Kompression. Brotli ZUERST: wo es da ist, gewinnt es gegen gzip um rund
+# 15–20 % auf Text — bei app.js sind das ~35 KB je Erstbesuch. Der Browser
+# wählt über Accept-Encoding, es gibt also keine falsche Antwort.
+#
+# Beide Blöcke stehen bewusst nebeneinander: <IfModule> ist keine Fallunter-
+# scheidung zur Laufzeit, sondern beim Start. Fehlt mod_brotli auf dem
+# IONOS-Pool, greift der deflate-Block unverändert weiter — deshalb darf er
+# NICHT durch Brotli ersetzt werden.
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/css text/javascript application/javascript application/json image/svg+xml application/manifest+json
+</IfModule>
+
 # Enable Gzip Compression
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml application/manifest+json
+</IfModule>
+
+# Antworten unterscheiden sich je nach Accept-Encoding. Ohne diesen Kopf
+# darf ein Zwischenspeicher eine brotli-komprimierte Antwort an einen
+# Browser ausliefern, der nur gzip kann — dann ist die Seite kaputt, und
+# zwar nur für manche.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|css|js|json|svg)$">
+    Header append Vary Accept-Encoding
+  </FilesMatch>
+</IfModule>
+
+# ── WebP ausliefern, ohne eine gespeicherte Adresse anzufassen ──
+#
+# Gemessen am 31.08.2026 gegen die Live-Seite: 1285 KB der 2189 KB einer
+# Startseite sind Bilder, und Lighthouse beziffert allein den FORMAT-Gewinn
+# auf 675 KB. Nicht die Dimension — `uses-responsive-images` meldet 0 Bytes;
+# die Bilder werden ungefähr so ausgeliefert, wie sie angezeigt werden. Ein
+# srcset brächte hier nichts.
+#
+# eb_listings.images hält blanke URLs als JSON. Diese umzuschreiben wäre ein
+# Durchlauf über echte Nutzerdaten. Stattdessen liegt `foo.jpg.webp` NEBEN
+# `foo.jpg`, und der Server entscheidet pro Anfrage.
+#
+# Ausfallsicher in jede Richtung: fehlt die .webp-Datei (-f schlägt fehl),
+# fehlt mod_rewrite, oder schickt der Browser kein `Accept: image/webp`,
+# kommt unverändert das Original. Es gibt keinen Zustand, in dem ein Bild
+# fehlt — deshalb ist das hier vertretbar und ein Umschreiben der Datenbank
+# nicht.
+<IfModule mod_rewrite.c>
+  RewriteCond %{HTTP_ACCEPT} image/webp
+  RewriteCond %{REQUEST_FILENAME} \.(jpe?g|png)$ [NC]
+  RewriteCond %{REQUEST_FILENAME}\.webp -f
+  RewriteRule ^(.+)$ $1.webp [T=image/webp,E=EB_WEBP:1,L]
+</IfModule>
+
+# Vary: Accept ist hier PFLICHT, nicht Kür. Ohne diesen Kopf darf ein
+# Zwischenspeicher — Browser-Cache, Proxy, CDN — die WebP-Antwort an einen
+# Client weitergeben, der kein WebP annimmt. Der bekäme dann unter einer
+# .jpg-Adresse Bytes, die er nicht dekodieren kann: ein kaputtes Bild, und
+# zwar nur für manche. Dieselbe Mechanik wie bei Accept-Encoding oben.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(jpe?g|png)$">
+    Header append Vary Accept
+  </FilesMatch>
+  # Der ausgelieferte Inhalt ist WebP, auch wenn die Adresse auf .jpg endet.
+  Header set Content-Type "image/webp" env=EB_WEBP
 </IfModule>
 
 # Browser Caching

@@ -1,0 +1,33 @@
+{
+  "appId": "de.eventboerse.app",
+  "appName": "Eventbörse",
+  "webDir": "../",
+  "loggingBehavior": "none",
+  "server": {
+    "url": "https://xn--eventbrse-57a.de",
+    "hostname": "xn--eventbrse-57a.de",
+    "androidScheme": "https",
+    "iosScheme": "https",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false,
+    "backgroundColor": "#ffffff"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#ffffff"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "Keyboard": {
+      "resize": "native"
+    }
+  }
+}

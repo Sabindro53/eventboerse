@@ -2,12 +2,33 @@ name: Lighthouse Audit
 
 # Deterministische Qualitaetsmessung der Live-Seite: Performance, SEO,
 # Accessibility & Best-Practices. Braucht KEINEN API-Key.
-# Der oeffentliche Report-Link erscheint in der Job-Zusammenfassung.
+#
+# Dieser Lauf ist mehr als eine Kennzahl: er ist der EINZIGE Weg, die
+# ausgelieferte Seite in einem echten Browser zu sehen. Der Site-Monitor
+# fragt nur, ob etwas antwortet; hier wird geladen, ausgefuehrt und gemessen.
+#
+# Er war vom 09.07. bis zum 01.09.2026 in neun von neun Laeufen rot — und
+# hat in allen neun trotzdem gemessen. Gescheitert ist erst der Upload:
+#
+#   Error: Unable to determine current hash with `git rev-parse HEAD`
+#       at getCurrentHash (…/build-context.js:78)
+#       at runGithubStatusCheck (…/upload.js:229)
+#
+# Der Job hatte keinen Checkout, also kein Git-Verzeichnis. Die Messung lag
+# jedes Mal fertig vor, der oeffentliche Bericht war erreichbar, und das
+# Ergebnis war ein roter Haken, den niemand mehr aufmachte.
+#
+# Ein Pruefer, der aus einem NEBENGRUND rot meldet, ist so wertlos wie einer,
+# der grundlos gruen meldet — nach dem dritten Mal sieht keiner mehr hin.
 
 on:
   schedule:
-    # Montags 06:00 UTC
-    - cron: '0 6 * * 1'
+    # Taeglich 06:00 UTC. Vor dem Start woechentlich; seit dem 01.09.2026
+    # taeglich, weil der gemeldete "Ausfall" vom 01.09. keiner war: die Seite
+    # lieferte 200 und rendert, brauchte auf dem Mobilprofil aber 8,5 s bis
+    # zum groessten Inhalt und 10,4 s bis zur Bedienbarkeit. So etwas faellt
+    # keinem Statuscode auf, nur einer Messung.
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -18,10 +39,86 @@ jobs:
     name: Live-Site messen
     runs-on: ubuntu-latest
     steps:
+      # Ohne dies scheitert der Upload-Schritt der Action an `git rev-parse
+      # HEAD` — sie leitet den Build-Kontext aus dem Arbeitsverzeichnis ab.
+      # Kein Verlauf noetig, nur ein gueltiges Git-Verzeichnis.
+      - name: Quelltext holen (fuer den Build-Kontext der Action)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
       - name: Lighthouse ausfuehren
+        id: lh
         uses: treosh/lighthouse-ci-action@v12
         with:
           urls: |
             https://xn--eventbrse-57a.de/
           uploadArtifacts: true
           temporaryPublicStorage: true
+
+      # Die Zahlen gehoeren in die Zusammenfassung, nicht ins Log. Ein Wert,
+      # den man nur durch Aufklappen von vier Gruppen findet, wird nicht
+      # gelesen — und dann misst man umsonst.
+      - name: Ergebnis auswerten und melden
+        if: always() && steps.lh.outputs.manifest != ''
+        env:
+          MANIFEST: ${{ steps.lh.outputs.manifest }}
+          LINKS: ${{ steps.lh.outputs.links }}
+        run: |
+          node --input-type=module <<'NODE' | tee -a "$GITHUB_STEP_SUMMARY"
+          const manifest = JSON.parse(process.env.MANIFEST || '[]');
+          const links = JSON.parse(process.env.LINKS || '{}');
+          const lauf = manifest.find((m) => m.isRepresentativeRun) || manifest[0];
+          if (!lauf) {
+            console.log('## Lighthouse\n\nKeine Messung im Manifest.');
+            process.exit(0);
+          }
+          const s = lauf.summary || {};
+          const p = (x) => (typeof x === 'number' ? Math.round(x * 100) : null);
+          console.log('## Lighthouse — ' + (lauf.url || ''));
+          console.log('');
+          console.log('| Bereich | Punkte |');
+          console.log('|---|---:|');
+          for (const [k, label] of [
+            ['performance', 'Performance'],
+            ['accessibility', 'Barrierefreiheit'],
+            ['best-practices', 'Best Practices'],
+            ['seo', 'SEO'],
+          ]) {
+            const v = p(s[k]);
+            console.log('| ' + label + ' | ' + (v === null ? 'n/a' : v) + ' |');
+          }
+          const bericht = Object.values(links)[0];
+          if (bericht) console.log('\n[Vollstaendiger Bericht](' + bericht + ')');
+          console.log('\nGemessen wird das gedrosselte MOBILPROFIL — das ist der');
+          console.log('Regelfall unserer Besucher, nicht der guenstigste.');
+          NODE
+
+      # Ein Rueckschritt soll auffallen, ohne dass jemand hinsieht.
+      #
+      # Die Schwelle ist bewusst NIEDRIG angesetzt und kein Ziel: gemessen
+      # wurden am 31.08.2026 nur 35 Punkte. Sie faengt den Rueckschritt, nicht
+      # den Zustand. Eine Schranke auf dem heutigen Wert wuerde bei jeder
+      # normalen Schwankung ausloesen und waere nach zwei Wochen abgeschaltet.
+      - name: Rueckschritt melden
+        if: always() && steps.lh.outputs.manifest != ''
+        env:
+          MANIFEST: ${{ steps.lh.outputs.manifest }}
+          UNTERGRENZE: '25'
+        run: |
+          node --input-type=module <<'NODE'
+          const manifest = JSON.parse(process.env.MANIFEST || '[]');
+          const lauf = manifest.find((m) => m.isRepresentativeRun) || manifest[0];
+          const wert = lauf && lauf.summary && lauf.summary.performance;
+          if (typeof wert !== 'number') {
+            console.error('Kein Performance-Wert im Manifest — nicht geprueft.');
+            process.exit(1);   // Nicht messen ist kein Bestehen.
+          }
+          const punkte = Math.round(wert * 100);
+          const grenze = Number(process.env.UNTERGRENZE);
+          console.log('Performance: ' + punkte + ' (Untergrenze ' + grenze + ')');
+          if (punkte < grenze) {
+            console.error('Rueckschritt: ' + punkte + ' liegt unter ' + grenze + '.');
+            process.exit(1);
+          }
+          NODE

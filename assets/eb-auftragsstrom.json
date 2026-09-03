@@ -1,12 +1,45 @@
 {
   "version": 1,
-  "erzeugt": "2026-08-25T20:21:58.158Z",
+  "erzeugt": "2026-09-03T11:29:58.882Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-08-12T12:44:59.525Z",
+  "journalStand": "2026-08-30T16:33:37.836Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [],
   "verworfen": [
+    {
+      "herkunft": {
+        "rolle": "deepseek-code",
+        "person": "Kito Sarr",
+        "rollenname": "Unabhängiger Code-Prüfer",
+        "bereich": "engineering",
+        "zeit": "2026-08-30T16:33:37.835Z",
+        "aufgabe": "Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen."
+      },
+      "grund": "Schicht endete als „uebersprungen\" — kein Befund entstanden"
+    },
+    {
+      "herkunft": {
+        "rolle": "deepseek-code",
+        "person": "Kito Sarr",
+        "rollenname": "Unabhängiger Code-Prüfer",
+        "bereich": "engineering",
+        "zeit": "2026-08-30T16:33:37.673Z",
+        "aufgabe": "Letzte Änderungen auf einen konkreten Funktions- oder Sicherheitsfehler prüfen."
+      },
+      "grund": "Schicht endete als „uebersprungen\" — kein Befund entstanden"
+    },
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-08-26T03:37:07.592Z",
+        "aufgabe": "Releaseweg auf den nächsten vermeidbaren Engpass prüfen."
+      },
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",

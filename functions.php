@@ -16,7 +16,8 @@ add_action('init', function() {
 
 require_once get_template_directory() . '/webauthn.php';
 
-// Brute-Force-Schutz (Transient-basiertes Rate-Limit, per REMOTE_ADDR).
+// Brute-Force-Schutz (Transient-basiertes Rate-Limit, per REMOTE_ADDR —
+// hinter einem Proxy geweitet, siehe eventboerse_ip_identifiziert()).
 // War zuvor vorhanden, aber nirgends eingebunden → jetzt aktiv verdrahtet
 // (siehe eventboerse_check_rate_limit-Aufrufe in den Auth-Handlern).
 require_once get_template_directory() . '/includes/security/rate-limit.php';
@@ -243,6 +244,84 @@ add_filter( 'rest_authentication_errors', function( $result ) {
  * Das Deployment legt Theme-Dateien unter /wp-content/themes/eventboerse/ ab,
  * Browser erwarten PWA-Dateien aber am Origin-Root: /manifest.json und /sw.js.
  */
+/* =====================================================================
+   APPLE-ZUORDNUNG (/.well-known/apple-app-site-association)
+
+   Ohne diese Datei funktionieren in der iOS-App WEDER Passkeys NOCH
+   Universal Links. Das ist kein Komfortverlust: `webauthn.php` ist die
+   Anmeldung, und in der App liefe sie ohne die Zuordnung schlicht nicht.
+
+   Drei Bedingungen, in denen Apple unnachgiebig ist:
+     · genau dieser Pfad, OHNE Dateiendung
+     · Content-Type application/json
+     · keine Weiterleitung, kein 301 davor
+
+   OHNE TEAM-ID WIRD NICHTS AUSGELIEFERT. Die Team-ID vergibt Apple erst
+   mit dem Entwicklerkonto; sie steht in wp-config.php als
+   EB_APPLE_TEAM_ID, nicht im Repo. Eine Datei mit Platzhalter waere
+   schlimmer als keine: Apple holt sie einmal beim Installieren ab und
+   merkt sich das Ergebnis — eine ungueltige Zuordnung faellt also erst
+   beim Nutzer auf, und dann ist sie schon zwischengespeichert.
+
+   Fehlt die Konstante, bleibt es beim bisherigen Verhalten (404). Das ist
+   ehrlich: nicht eingerichtet sieht dann anders aus als eingerichtet.
+   ===================================================================== */
+
+/** Die vollstaendige App-Kennung, oder '' wenn nicht eingerichtet. */
+function eb_apple_app_id() {
+    if ( ! defined( 'EB_APPLE_TEAM_ID' ) ) { return ''; }
+    $team = trim( (string) EB_APPLE_TEAM_ID );
+    // Apple vergibt zehn alphanumerische Zeichen. Die Pruefung haelt einen
+    // Tippfehler oder einen vergessenen Platzhalter aus der Datei heraus.
+    if ( ! preg_match( '/^[A-Z0-9]{10}$/i', $team ) ) { return ''; }
+    $bundle = defined( 'EB_APPLE_BUNDLE_ID' ) ? (string) EB_APPLE_BUNDLE_ID : 'de.eventboerse.app';
+    if ( ! preg_match( '/^[a-z0-9.\-]+$/i', $bundle ) ) { return ''; }
+    return $team . '.' . $bundle;
+}
+
+function eb_apple_zuordnung_ausliefern() {
+    $app_id = eb_apple_app_id();
+    if ( '' === $app_id ) { return; }          // nicht eingerichtet -> 404 wie bisher
+
+    $zuordnung = array(
+        // Passkeys. Ohne diesen Block bietet iOS in der App keinen
+        // gespeicherten Passkey der Domain an.
+        'webcredentials' => array(
+            'apps' => array( $app_id ),
+        ),
+        // Universal Links: ein Link auf eventbörse.de oeffnet die App.
+        'applinks' => array(
+            'details' => array(
+                array(
+                    'appIDs'     => array( $app_id ),
+                    'components' => array(
+                        // Ausgenommen, in dieser Reihenfolge — Apple wertet
+                        // von oben nach unten aus, und der erste Treffer
+                        // gewinnt. Ein Ausschluss NACH dem Einschluss waere
+                        // wirkungslos.
+                        array( '/' => '/hq/*',      'exclude' => true,
+                               'comment' => 'HQ bleibt im Browser' ),
+                        array( '/' => '/wp-admin/*', 'exclude' => true ),
+                        array( '/' => '/wp-json/*',  'exclude' => true ),
+                        array( '/' => '/wp-login.php', 'exclude' => true ),
+                        array( '/' => '/*' ),
+                    ),
+                ),
+            ),
+        ),
+    );
+
+    status_header( 200 );
+    // OHNE Dateiendung, deshalb setzt der Server den Typ nicht selbst.
+    header( 'Content-Type: application/json' );
+    // Apple holt die Datei selten, aber ein Wechsel der Team-ID soll nicht
+    // einen Tag lang haengenbleiben.
+    header( 'Cache-Control: public, max-age=3600, must-revalidate' );
+    header( 'X-Content-Type-Options: nosniff' );
+    echo wp_json_encode( $zuordnung );
+    exit;
+}
+
 function eb_serve_theme_root_file() {
     $path = parse_url( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '', PHP_URL_PATH );
     $path = '/' . ltrim( (string) $path, '/' );
@@ -269,6 +348,15 @@ function eb_serve_theme_root_file() {
             'cache' => 'private, max-age=300, must-revalidate',
         ),
     );
+
+    // Apples Zuordnungsdatei. Muss GENAU unter diesem Pfad liegen, ohne
+    // Endung, ohne Weiterleitung, mit Content-Type application/json — Apple
+    // holt sie beim Installieren der App über ein eigenes CDN ab und ist in
+    // allen drei Punkten unnachgiebig.
+    if ( '/.well-known/apple-app-site-association' === $path ) {
+        eb_apple_zuordnung_ausliefern();
+        return;
+    }
 
     // HQ-Dashboard unter /hq — inklusive Unterpfaden wie /hq/today oder
     // /hq/connections/github. Die Seite selbst entscheidet anhand des Pfads,
@@ -572,16 +660,40 @@ function eventboerse_enqueue_assets() {
         $ver( 'assets/fonts/fonts.css' )
     );
 
+    /* ── Eigene Handles, mit eb- davor ───────────────────────────────────
+     *
+     * Hier standen bis zum 02.09.2026 die nackten Namen `leaflet` und
+     * `flatpickr`. Das war nicht bloss unsauber, es war KAPUTT, und der
+     * Lighthouse-Lauf gegen die Live-Seite hat es gezeigt:
+     *
+     *   /wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.css?ver=4.6.13
+     *   /wp-content/plugins/elementor/assets/lib/flatpickr/flatpickr.min.js?ver=4.6.13
+     *
+     * Unsere eigenen Dateien kamen NICHT vor. Elementor registriert den
+     * Handle `flatpickr` frueher, und `wp_enqueue_style()` mit einem bereits
+     * registrierten Handle verwirft `src` und `version` stillschweigend --
+     * erkennbar allein am `?ver=4.6.13` statt unseres filemtime.
+     *
+     * Die Folge: der Datumswaehler der Buchung lief ueber die Kopie eines
+     * Plugins, das dieses Theme nirgends anfordert, und unsere deutsche
+     * Lokalisierung band sich an dessen Build. Das ging gut, weil dort
+     * zufaellig dieselbe Version liegt. Zieht Elementor auf Flatpickr 5,
+     * bricht die Buchung -- ohne dass hier eine Zeile geaendert wurde.
+     *
+     * Ein Handle ist ein GLOBALER Name. Wer ihn ohne Praefix belegt, laesst
+     * jedes Plugin entscheiden, welche Datei ausgeliefert wird.
+     */
+
     // Leaflet 1.9.4 — leaflet.css erwartet images/ daneben, deshalb der
     // gemeinsame Ordner.
     wp_enqueue_style(
-        'leaflet',
+        'eb-leaflet',
         $vendor . '/leaflet/leaflet.css',
         array(),
         $ver( 'assets/lib/leaflet/leaflet.css' )
     );
     wp_enqueue_script(
-        'leaflet',
+        'eb-leaflet',
         $vendor . '/leaflet/leaflet.js',
         array(),
         $ver( 'assets/lib/leaflet/leaflet.js' ),
@@ -590,22 +702,22 @@ function eventboerse_enqueue_assets() {
 
     // Flatpickr 4.6.13 samt deutscher Lokalisierung.
     wp_enqueue_style(
-        'flatpickr',
+        'eb-flatpickr',
         $vendor . '/flatpickr/flatpickr.min.css',
         array(),
         $ver( 'assets/lib/flatpickr/flatpickr.min.css' )
     );
     wp_enqueue_script(
-        'flatpickr',
+        'eb-flatpickr',
         $vendor . '/flatpickr/flatpickr.min.js',
         array(),
         $ver( 'assets/lib/flatpickr/flatpickr.min.js' ),
         true
     );
     wp_enqueue_script(
-        'flatpickr-de',
+        'eb-flatpickr-de',
         $vendor . '/flatpickr/flatpickr-de.js',
-        array( 'flatpickr' ),
+        array( 'eb-flatpickr' ),
         $ver( 'assets/lib/flatpickr/flatpickr-de.js' ),
         true
     );
@@ -614,7 +726,7 @@ function eventboerse_enqueue_assets() {
     wp_enqueue_style(
         'eventboerse-style',
         get_stylesheet_uri(),
-        array( 'eb-fonts', 'leaflet' ),
+        array( 'eb-fonts', 'eb-leaflet' ),
         '1.1.0'
     );
 
@@ -626,20 +738,37 @@ function eventboerse_enqueue_assets() {
         $styles_ver
     );
 
-    // Stripe.js (embedded Payment Element)
-    wp_enqueue_script(
-        'stripe-js',
-        'https://js.stripe.com/v3/',
-        array(),
-        null,
-        true
-    );
+    /* Stripe.js steht hier BEWUSST NICHT MEHR.
+     *
+     * Bis zum 02.09.2026 wurde js.stripe.com/v3 unbedingt eingebunden — auf
+     * der Startseite, im Impressum, ueberall. Gemessen am 31.08.: 250 KB, die
+     * drittgroesste Uebertragung der Startseite.
+     *
+     * Schwerer wiegt der Datenschutz. Stripe.js setzt zur Betrugserkennung
+     * eigene Kennungen und sah die IP-Adresse JEDES Besuchers, auch auf
+     * Seiten, auf denen nie jemand zahlt. Das ist ein
+     * Drittanbieter-Datenfluss ohne Bezug zur aufgerufenen Seite.
+     *
+     * `scripts/recht.mjs` faellt darauf nicht herein und deckt es auch nicht
+     * auf: es prueft, ob ein Drittanbieter in der Datenschutzerklaerung STEHT
+     * — nicht, WANN er laedt. Die Luecke schliesst kein Tor, sondern nur
+     * diese Umstellung.
+     *
+     * Geladen wird jetzt in `ebStripeJsLaden()` (board/41-flow-zahlung.js),
+     * und zwar erst, wenn der Zahlungsdialog wirklich aufgeht. Die CSP
+     * erlaubt den Host weiterhin; ein nachtraeglich eingehaengtes Skript von
+     * js.stripe.com faellt unter dieselbe script-src-Regel.
+     *
+     * WER ES HIER WIEDER EINTRAEGT, macht die Umstellung lautlos rueckgaengig
+     * — die Zahlung funktioniert dann ja weiterhin. `zahlung-laden.spec.js`
+     * haelt genau das fest.
+     */
 
     // App JS
     wp_enqueue_script(
         'eventboerse-app',
         get_template_directory_uri() . '/app.js',
-        array( 'leaflet', 'flatpickr', 'flatpickr-de', 'stripe-js' ),
+        array( 'eb-leaflet', 'eb-flatpickr', 'eb-flatpickr-de' ),
         $app_ver,
         true
     );
@@ -682,6 +811,43 @@ function eventboerse_enqueue_assets() {
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );
+
+/**
+ * Stilvorlagen abbestellen, die Markup gestalten, das nie entsteht.
+ *
+ * `index.php` ruft NIE `the_content()` — es gibt die SPA-Huelle aus. Der
+ * Inhalt einer WordPress-Seite wird im Frontend also nirgends gerendert, und
+ * damit gestaltet die Block-Bibliothek von Gutenberg garantiert nichts.
+ * Gemessen am 31.08.2026 waren das 18 KB, und sie blockierten den Aufbau.
+ *
+ * Das ist der Unterschied zu einer Optimierung auf Verdacht: hier steht
+ * nicht "wird vermutlich nicht gebraucht", sondern "das Markup existiert
+ * nicht". Wer `the_content()` wieder einbaut, muss diese Funktion mit
+ * anfassen — deshalb prueft ein Test genau diese Bedingung.
+ *
+ * NUR im Frontend. Im Admin-Bereich und im Blockeditor wird dieselbe
+ * Stilvorlage sehr wohl gebraucht.
+ *
+ * Bewusst NICHT abbestellt:
+ *   · Elementors flatpickr — ein Skript, an dem Fremdcode haengen koennte.
+ *     Seit die eigenen Handles `eb-` tragen, laedt unsere Fassung ohnehin;
+ *     die Kopie ist Ballast, aber Ballast ohne Risiko.
+ *   · jQuery — welches Plugin es braucht, ist von hier nicht feststellbar.
+ */
+function eb_fremde_stile_abbestellen() {
+    if ( is_admin() ) { return; }
+
+    foreach ( array(
+        'wp-block-library',        // Gutenberg, 18 KB, aufbaublockierend
+        'wp-block-library-theme',
+        'global-styles',           // aus theme.json abgeleitet
+        'classic-theme-styles',
+    ) as $handle ) {
+        wp_dequeue_style( $handle );
+    }
+}
+// Spaet, damit alles registriert ist, was abbestellt werden soll.
+add_action( 'wp_enqueue_scripts', 'eb_fremde_stile_abbestellen', 100 );
 
 /**
  * SPA-Routing: Alle Front-End-Pfade auf index.php weiterleiten,
@@ -747,6 +913,254 @@ add_action( 'send_headers', function() {
     }
 } );
 
+/* =====================================================================
+   CSP-NONCE — der Weg weg von 'unsafe-inline'
+   =====================================================================
+
+   WARUM DAS DER WICHTIGSTE HEBEL IST. Solange `script-src` ein
+   'unsafe-inline' trägt, ist die CSP als XSS-Schutz praktisch
+   abgeschaltet: gelingt irgendwo eine HTML-Injektion, darf das
+   eingeschleuste <script> laufen. Alle übrigen Direktiven — der enge
+   Host-Katalog, 'object-src none', der Wegfall von unpkg — schützen
+   dann nur noch gegen den Angreifer, der von aussen kommt, nicht gegen
+   den, der schon Text in unsere Seite bekommen hat.
+
+   EIN NONCE JE ANTWORT. Der Wert wird einmal pro Request gezogen und
+   gemerkt: alle Inline-Skripte derselben Seite tragen dasselbe Nonce,
+   die nächste Seite ein anderes. Ein Nonce, das sich über Antworten
+   hinweg wiederholt, ist keins — ein Angreifer, der es einmal liest,
+   könnte es in seine Injektion schreiben.
+
+   16 Byte aus `random_bytes()`, nicht aus `wp_create_nonce()`: das
+   WordPress-Nonce ist aus Nutzer, Aktion und Tageszeit ABGELEITET und
+   damit vorhersagbar, sobald man die Eingänge kennt. Für CSRF ist das
+   richtig, für die CSP wäre es eine Tür.
+*/
+function eb_csp_nonce() {
+    static $nonce = null;
+    if ( $nonce === null ) {
+        $nonce = base64_encode( random_bytes( 16 ) );
+    }
+    return $nonce;
+}
+
+/**
+ * Setzt das Nonce in jedes AUSFÜHRBARE Inline-Skript eines HTML-Blocks.
+ *
+ * Gebraucht für `app-shell.html`: die Datei ist per Vertrag PHP-frei
+ * (einzige Quelle des SPA-Bodys, von `index.php` per readfile gelesen),
+ * kann sich das Nonce also nicht selbst setzen. Statt PHP in die Shell
+ * zu tragen — was den Vertrag bräche und die lokale Dev-Shell zerstörte
+ * — bekommt sie es beim Ausliefern.
+ *
+ * `<script src=…>` bleibt unangetastet: dort greift der Host-Katalog
+ * der CSP, ein Nonce wäre wirkungslose Kosmetik. Ein bereits gesetztes
+ * Nonce wird nicht überschrieben.
+ */
+function eb_inline_nonce_setzen( $html, $nonce ) {
+    return preg_replace_callback(
+        '/<script(?![^>]*\ssrc\s*=)([^>]*)>/i',
+        function ( $treffer ) use ( $nonce ) {
+            if ( preg_match( '/\snonce\s*=/i', $treffer[1] ) ) {
+                return $treffer[0];
+            }
+            return '<script nonce="' . esc_attr( $nonce ) . '"' . $treffer[1] . '>';
+        },
+        $html
+    );
+}
+
+/**
+ * Liefert den SPA-Body aus — mit Nonce an jedem Inline-Skript.
+ *
+ * Ersetzt das frühere `readfile()`. Ohne diesen Schritt hätten die
+ * beiden Inline-Skripte der Shell (Theme-Vorwahl, Beta-Banner) kein
+ * Nonce, und in einer nonce-basierten CSP liefe genau der Code nicht
+ * mehr, der VOR dem ersten Rendern den Farbmodus setzt — sichtbar als
+ * weisses Aufblitzen bei jedem Seitenaufruf im Dunkelmodus.
+ */
+function eb_shell_ausgeben() {
+    $pfad = __DIR__ . '/app-shell.html';
+    $html = file_get_contents( $pfad );
+    if ( $html === false ) {
+        return;
+    }
+    echo eb_inline_nonce_setzen( $html, eb_csp_nonce() );
+}
+
+/*
+   Inline-Skripte, die WORDPRESS erzeugt, bekommen das Nonce ebenfalls:
+   `wp_localize_script()` schreibt das `eventboerseApi`-Objekt als
+   <script id="…-js-extra">, und der Footer trägt weitere. Ohne diese
+   beiden Filter fiele genau das aus, was die App zum Start braucht —
+   und zwar erst auf dem Live-Server, weil die Dev-Shell kein WordPress
+   hat. Beide Filter gibt es seit WP 5.7.
+*/
+add_filter( 'wp_inline_script_attributes', function ( $attributes ) {
+    $attributes['nonce'] = eb_csp_nonce();
+    return $attributes;
+} );
+add_filter( 'wp_script_attributes', function ( $attributes ) {
+    $attributes['nonce'] = eb_csp_nonce();
+    return $attributes;
+} );
+
+/* =====================================================================
+   CSP-VERSTOSSMELDUNGEN — offen schreibbar, deshalb eng geführt
+   =====================================================================
+
+   Der Browser schickt die Meldung ohne Anmeldung, ohne Cookie, ohne
+   Nonce. Die Route MUSS also offen sein — und ist damit der einzige
+   unauthentifizierte Schreibpunkt der Anwendung. Fünf Grenzen halten
+   sie klein:
+
+   1. GEDECKELTE ABLAGE. Höchstens EB_CSP_MAX_MELDUNGEN verschiedene
+      Verstöße, danach wird nur noch mitgezählt. Ein Angreifer, der die
+      Route flutet, füllt keinen Speicher — er erhöht einen Zähler.
+   2. TRANSIENT STATT OPTION. Läuft von selbst ab. Eine Option müsste
+      jemand aufräumen, und niemand räumt auf.
+   3. GRÖSSENDECKEL. Ein Bericht über 8 KB wird verworfen, bevor er
+      dekodiert wird.
+   4. NIE DIE VOLLE ADRESSE. Gespeichert wird Schema und Host, sonst
+      nichts. Eine blockierte URL kann einen Token im Querystring
+      tragen; wer sie vollständig ablegt, baut sich ein Leck in die
+      eigene Diagnose. Dieselbe Regel wie beim Geheimnis-Scanner, der
+      nie den Fund zitiert.
+   5. NUR EIGENE DIREKTIVEN. Was keine bekannte CSP-Direktive nennt,
+      ist keine Browsermeldung, sondern jemand, der die Route testet.
+*/
+const EB_CSP_MAX_MELDUNGEN = 25;
+const EB_CSP_MAX_BERICHT    = 8192;
+const EB_CSP_ABLAGE         = 'eb_csp_verstoesse';
+
+/** Reduziert eine blockierte Adresse auf das, was zur Behebung reicht. */
+function eb_csp_quelle_kuerzen( $wert ) {
+    $wert = (string) $wert;
+    // Schlüsselwörter des Standards ('inline', 'eval', 'data') stehen für
+    // sich — genau sie erwarten wir hier.
+    if ( $wert === '' || strpos( $wert, '://' ) === false ) {
+        return substr( preg_replace( '/[^a-z0-9:_-]/i', '', $wert ), 0, 32 );
+    }
+    $teile = wp_parse_url( $wert );
+    if ( empty( $teile['host'] ) ) {
+        return 'unbekannt';
+    }
+    return ( isset( $teile['scheme'] ) ? $teile['scheme'] . '://' : '' ) . $teile['host'];
+}
+
+function eb_csp_report_empfangen( WP_REST_Request $request ) {
+    // Antwort ist IMMER 204: der Browser kann mit nichts anderem etwas
+    // anfangen, und eine sprechende Fehlermeldung wäre nur ein Hinweis
+    // für den, der die Route abklopft.
+    $leer = new WP_REST_Response( null, 204 );
+
+    $roh = $request->get_body();
+    if ( $roh === '' || strlen( $roh ) > EB_CSP_MAX_BERICHT ) {
+        return $leer;
+    }
+
+    $daten = json_decode( $roh, true );
+    if ( ! is_array( $daten ) ) {
+        return $leer;
+    }
+
+    // Zwei Formate: das alte report-uri ({"csp-report": {…}}) und das
+    // neue report-to (eine Liste von {type, body}). Beide kommen im
+    // Betrieb vor, weil Firefox und Chrome sich nicht einig sind.
+    $meldungen = array();
+    if ( isset( $daten['csp-report'] ) && is_array( $daten['csp-report'] ) ) {
+        $meldungen[] = $daten['csp-report'];
+    } else {
+        foreach ( $daten as $eintrag ) {
+            if ( is_array( $eintrag ) && isset( $eintrag['body'] ) && is_array( $eintrag['body'] ) ) {
+                $meldungen[] = $eintrag['body'];
+            }
+        }
+    }
+    if ( ! $meldungen ) {
+        return $leer;
+    }
+
+    $ablage = get_transient( EB_CSP_ABLAGE );
+    if ( ! is_array( $ablage ) ) {
+        $ablage = array();
+    }
+
+    foreach ( $meldungen as $m ) {
+        $direktive = '';
+        foreach ( array( 'effectiveDirective', 'effective-directive', 'violatedDirective', 'violated-directive' ) as $k ) {
+            if ( ! empty( $m[ $k ] ) ) { $direktive = (string) $m[ $k ]; break; }
+        }
+        /* Keine erkennbare Direktive → keine Browsermeldung.
+         *
+         * Das ist eine PLAUSIBILITÄTSPRÜFUNG, keine Whitelist: jede echte
+         * CSP-Direktive beginnt mit einem Kleinbuchstaben und besteht aus
+         * Buchstaben und Bindestrichen. Was damit anfängt, wird aufgezeichnet
+         * — auch `frame-src` oder `child-src`, denn beide stehen in der
+         * beobachtenden Fassung und ihre Verstöße gehören gemeldet.
+         *
+         * Vorher stand hier `^[a-z-]+(-src)?[a-z-]*`. Das tat exakt dasselbe:
+         * `[a-z-]+` deckt bereits alles ab, was `(-src)?[a-z-]*` noch matchen
+         * könnte — beide Gruppen waren tot. Der Ausdruck LAS sich aber, als
+         * verlange er ein `-src`-Suffix, und genau so hat ihn der Code-Prüfer
+         * am 30.08. gelesen und einen Fehler gemeldet, den es nicht gab. Ein
+         * Muster, das strenger aussieht, als es ist, wird wieder falsch
+         * gelesen — vom nächsten Menschen wie vom nächsten Modell.
+         */
+        if ( ! preg_match( '/^[a-z][a-z-]*/', $direktive ) ) {
+            continue;
+        }
+        $direktive = substr( preg_replace( '/[^a-z-]/', '', $direktive ), 0, 32 );
+        if ( $direktive === '' ) {
+            continue;
+        }
+
+        $quelle = '';
+        foreach ( array( 'blockedURL', 'blocked-uri' ) as $k ) {
+            if ( isset( $m[ $k ] ) ) { $quelle = $m[ $k ]; break; }
+        }
+        $quelle = eb_csp_quelle_kuerzen( $quelle );
+
+        $schluessel = $direktive . '|' . $quelle;
+        if ( isset( $ablage[ $schluessel ] ) ) {
+            $ablage[ $schluessel ]['anzahl']++;
+            $ablage[ $schluessel ]['zuletzt'] = time();
+        } elseif ( count( $ablage ) < EB_CSP_MAX_MELDUNGEN ) {
+            $ablage[ $schluessel ] = array(
+                'direktive' => $direktive,
+                'quelle'    => $quelle,
+                'anzahl'    => 1,
+                'zuerst'    => time(),
+                'zuletzt'   => time(),
+            );
+        }
+        // Ist der Deckel erreicht, wird ein NEUER Verstoß verworfen.
+        // Bewusst so herum: die bereits bekannten Verstöße sind die,
+        // die man beheben muss, und sie dürfen nicht von einer Flut
+        // erfundener Meldungen aus der Ablage gedrängt werden.
+    }
+
+    set_transient( EB_CSP_ABLAGE, $ablage, 7 * DAY_IN_SECONDS );
+    return $leer;
+}
+
+function eb_csp_report_lesen() {
+    $ablage = get_transient( EB_CSP_ABLAGE );
+    if ( ! is_array( $ablage ) ) {
+        $ablage = array();
+    }
+    $liste = array_values( $ablage );
+    usort( $liste, function ( $a, $b ) { return $b['anzahl'] - $a['anzahl']; } );
+    return new WP_REST_Response( array(
+        'verstoesse' => $liste,
+        'deckel'     => EB_CSP_MAX_MELDUNGEN,
+        'voll'       => count( $liste ) >= EB_CSP_MAX_MELDUNGEN,
+        // Solange hier etwas steht, darf das Nonce NICHT in die
+        // durchgesetzte CSP wandern.
+        'bereit'     => count( $liste ) === 0,
+    ), 200 );
+}
+
 /**
  * Security-Headers (OWASP Secure Headers + DSGVO/DSA-Hardening).
  *
@@ -810,6 +1224,44 @@ add_action( 'send_headers', function() {
         "upgrade-insecure-requests",
     );
     header( 'Content-Security-Policy: ' . implode( '; ', $csp_directives ) );
+
+    /* ── Die strenge Fassung, vorerst NUR beobachtend ──────────────────
+     *
+     * Sie ist identisch mit der durchgesetzten, bis auf einen Punkt:
+     * `script-src` trägt statt 'unsafe-inline' das Nonce dieser Antwort.
+     * Damit meldet der Browser jedes Inline-Skript, das noch kein Nonce
+     * hat — ohne es zu blockieren.
+     *
+     * WARUM ERST BEOBACHTEND. Ein übersehenes Inline-Skript fällt in
+     * einer durchgesetzten Fassung nicht auf, es fällt AUS: die Seite
+     * lädt, sieht heil aus, und ein Stück Verhalten fehlt. Diese Sorte
+     * Schaden ist teurer als eine Fehlermeldung, weil niemand sie sucht.
+     * Erst wenn der Bericht über echten Verkehr leer bleibt, wandert
+     * das Nonce in die durchgesetzte Fassung — eine Zeile.
+     *
+     * ABGELEITET, NICHT ABGESCHRIEBEN. Die Liste entsteht aus
+     * $csp_directives. Zwei gepflegte Fassungen einer Sicherheitsregel
+     * driften immer, und die beobachtende driftet unbemerkt: sie
+     * blockiert ja nichts, was auffallen könnte.
+     */
+    $streng = array();
+    foreach ( $csp_directives as $direktive ) {
+        if ( preg_match( "/^script-src(-elem)?\s/", $direktive ) ) {
+            $direktive = str_replace(
+                " 'unsafe-inline'",
+                " 'nonce-" . eb_csp_nonce() . "'",
+                $direktive
+            );
+        }
+        $streng[] = $direktive;
+    }
+    // Firefox kennt nur report-uri, Chrome bevorzugt report-to. Beide
+    // mitgeben: eine Meldung, die nirgends ankommt, ist keine.
+    $melde = rest_url( 'eventboerse/v1/csp-report' );
+    $streng[] = 'report-uri ' . $melde;
+    $streng[] = 'report-to csp';
+    header( 'Reporting-Endpoints: csp="' . esc_url_raw( $melde ) . '"' );
+    header( 'Content-Security-Policy-Report-Only: ' . implode( '; ', $streng ) );
 
     header( 'X-Frame-Options: DENY' );
     header( 'X-Content-Type-Options: nosniff' );
@@ -1944,7 +2396,9 @@ function eventboerse_handle_register( WP_REST_Request $request ) {
     if ( $ip ) {
         $ip_key   = 'eb_reg_ip_' . md5( $ip );
         $ip_count = (int) get_transient( $ip_key );
-        if ( $ip_count >= 3 ) {
+        // Hinter einem Proxy traegt jede Anfrage dieselbe Adresse — dann
+        // waeren das 3 Registrierungen pro Stunde fuer die GANZE Seite.
+        if ( $ip_count >= eventboerse_rl_limit( 3 ) ) {
             return new WP_REST_Response( array( 'message' => 'Zu viele Registrierungs-Versuche von dieser IP. Bitte warte 1 Stunde.' ), 429 );
         }
         set_transient( $ip_key, $ip_count + 1, HOUR_IN_SECONDS );
@@ -2127,7 +2581,7 @@ function eb_login_is_throttled( $email ) {
     if ( (int) get_transient( $k['pair'] ) >= 5 ) {
         return 'Zu viele fehlgeschlagene Anmeldeversuche. Bitte warte 15 Minuten oder setze dein Passwort zurück.';
     }
-    if ( (int) get_transient( $k['ip'] ) >= 20 ) {
+    if ( (int) get_transient( $k['ip'] ) >= eventboerse_rl_limit( 20 ) ) {
         return 'Zu viele fehlgeschlagene Anmeldeversuche von dieser IP. Bitte warte 1 Stunde.';
     }
     return false;
@@ -3672,6 +4126,22 @@ function eb_register_extra_routes() {
      * nur create-payment-intent), hatte KEINE Server-Validierung des Betrags
      * und KEINE Connect-Weiterleitung an den Dienstleister. Handler-Code
      * bleibt vorerst erhalten; Route bewusst nicht registriert. */
+    /* CSP-Verstoßmeldungen. Der Browser sendet sie OHNE Anmeldung und
+     * ohne Nonce — die Route muss offen sein, sonst käme nie eine an.
+     * Deshalb ist sie schmal gebaut: siehe eb_csp_report_empfangen(). */
+    register_rest_route( 'eventboerse/v1', '/csp-report', array(
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'eb_csp_report_empfangen',
+            'permission_callback' => '__return_true',
+        ),
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'eb_csp_report_lesen',
+            'permission_callback' => function() { return eb_is_admin_user(); },
+        ),
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/stripe/public-key', array(
         'methods'             => 'GET',
         'callback'            => 'eb_stripe_public_key',
@@ -4580,6 +5050,228 @@ function eb_effective_upload_limit() {
 }
 
 /* =====================================================================
+   WEBP NEBEN DAS ORIGINAL
+
+   Gemessen am 31.08.2026 gegen die Live-Seite: 1285 KB der 2189 KB einer
+   Startseite sind Bilder, und Lighthouse beziffert allein den FORMAT-Gewinn
+   auf 675 KB. Die vier groessten Inseratsbilder tragen 994 KB.
+
+   NICHT die Groesse. `uses-responsive-images` meldet 0 Bytes Einsparung --
+   die Bilder werden ungefaehr so ausgeliefert, wie sie angezeigt werden. Ein
+   srcset braechte hier nichts; wer es trotzdem baut, hat viel Mechanik fuer
+   keinen Gewinn. Es ist das Format, nicht die Dimension.
+
+   DER WEG GEHT UEBER APACHE, NICHT UEBER DIE DATENBANK. eb_listings.images
+   haelt blanke URLs als JSON. Diese URLs umzuschreiben waere ein Durchlauf
+   ueber echte Nutzerdaten -- genau die Sorte Eingriff, die hier schon einmal
+   Zahlungsdaten haette loeschen koennen. Stattdessen legen wir `foo.jpg.webp`
+   NEBEN `foo.jpg`, und .htaccess liefert es aus, wenn der Browser es annimmt.
+
+   Das ist in jede Richtung ausfallsicher: fehlt die .webp-Datei, fehlt
+   mod_rewrite, oder schickt der Browser kein `Accept: image/webp`, kommt
+   unveraendert das Original. Es gibt keinen Zustand, in dem ein Bild fehlt.
+
+   Der angehaengte Name (`foo.jpg.webp`, nicht `foo.webp`) ist Absicht: ein
+   Nutzer darf `foo.webp` hochladen, ohne die Umsetzung von `foo.jpg` zu
+   ueberschreiben.
+   ===================================================================== */
+
+/** Pfad der WebP-Begleitdatei zu einem Bild. */
+function eb_webp_pfad( $pfad ) {
+    return $pfad . '.webp';
+}
+
+/**
+ * Merkzettel fuer ein Bild, das NICHT umgesetzt wird.
+ *
+ * Ohne ihn haette die Nachruestung keinen Ausstieg: ein Bild, dessen WebP
+ * groesser ausfaellt, bekommt keine .webp-Datei, bliebe damit Kandidat und
+ * stuende beim naechsten Lauf wieder an derselben Stelle vorn. Nach ein paar
+ * solchen Dateien kaeme die Schlange nie an den Rest -- eine Schleife, die
+ * nur ein Ziel kennt und keinen Ausstieg.
+ *
+ * Leere Datei, kein Datenbankeintrag: sie liegt neben dem Bild, ueberlebt
+ * jeden Deploy, und wer erneut versuchen will, loescht sie einfach.
+ */
+function eb_webp_marker_pfad( $pfad ) {
+    return $pfad . '.webp.aus';
+}
+
+/**
+ * Schaetzt, ob GD das Bild ohne Speicherabsturz laden kann.
+ *
+ * Ein truecolor-Bild belegt rund 4 Byte je Pixel, dazu Overhead. Ein
+ * 6000x4000-Foto sind knapp 100 MB -- mehr, als der PHP-Pool bei IONOS
+ * typischerweise hat. Ein fataler Fehler waehrend eines Uploads wuerde die
+ * ganze Anfrage abbrechen, und der Nutzer verloere sein Bild.
+ */
+function eb_webp_passt_in_speicher( $breite, $hoehe ) {
+    $grenze = eb_ini_bytes( ini_get( 'memory_limit' ) );
+    if ( $grenze <= 0 ) { return true; }          // unbegrenzt
+    $noetig = (int) $breite * (int) $hoehe * 4 * 1.8;
+    return ( memory_get_usage( true ) + $noetig ) < $grenze;
+}
+
+/**
+ * Legt die WebP-Begleitdatei an. Aendert das Original nie.
+ *
+ * Rueckgabe: 'erzeugt' | 'vorhanden' | 'uebersprungen' | 'groesser' | 'fehler'
+ *
+ * `groesser` ist ein ECHTES Ergebnis, kein Fehler: bei bereits stark
+ * komprimierten oder sehr kleinen Bildern faellt WebP groesser aus als das
+ * JPEG. Dann wird die Datei wieder geloescht -- eine Umsetzung, die mehr
+ * Bytes kostet, ist eine Verschlechterung mit gutem Gewissen.
+ */
+function eb_webp_erzeugen( $pfad, $qualitaet = 82 ) {
+    if ( ! is_string( $pfad ) || $pfad === '' || ! is_readable( $pfad ) ) {
+        return 'fehler';
+    }
+
+    // Jeder Ausgang ausser 'erzeugt' und 'vorhanden' hinterlaesst den
+    // Merkzettel. Damit verlaesst JEDE bearbeitete Datei die Kandidatenliste,
+    // und die Nachruestung kommt garantiert voran.
+    $aufgeben = function ( $stand ) use ( $pfad ) {
+        @file_put_contents( eb_webp_marker_pfad( $pfad ), '' );
+        return $stand;
+    };
+
+    if ( ! function_exists( 'imagewebp' ) ) {
+        // KEIN Merkzettel: das liegt an der Installation, nicht an der Datei.
+        // Wird GD spaeter nachgeruestet, sollen alle Bilder wieder drankommen.
+        return 'uebersprungen';
+    }
+    $ziel = eb_webp_pfad( $pfad );
+    if ( file_exists( $ziel ) ) { return 'vorhanden'; }
+
+    // Typ aus dem Dateiinhalt, nie aus der Endung.
+    $info = @getimagesize( $pfad );
+    if ( ! $info || empty( $info[2] ) ) { return $aufgeben( 'fehler' ); }
+    $typ = (int) $info[2];
+    if ( $typ !== IMAGETYPE_JPEG && $typ !== IMAGETYPE_PNG ) {
+        return $aufgeben( 'uebersprungen' );        // GIF/WebP/AVIF ruehren wir nicht an
+    }
+    if ( ! eb_webp_passt_in_speicher( $info[0], $info[1] ) ) {
+        return $aufgeben( 'uebersprungen' );
+    }
+
+    $bild = ( $typ === IMAGETYPE_JPEG )
+        ? @imagecreatefromjpeg( $pfad )
+        : @imagecreatefrompng( $pfad );
+    if ( ! $bild ) { return $aufgeben( 'fehler' ); }
+
+    if ( $typ === IMAGETYPE_PNG ) {
+        // Ohne das wird jede Transparenz schwarz.
+        imagepalettetotruecolor( $bild );
+        imagealphablending( $bild, false );
+        imagesavealpha( $bild, true );
+    }
+
+    $ok = @imagewebp( $bild, $ziel, $qualitaet );
+    imagedestroy( $bild );
+    if ( ! $ok || ! file_exists( $ziel ) ) {
+        if ( file_exists( $ziel ) ) { @unlink( $ziel ); }
+        return $aufgeben( 'fehler' );
+    }
+
+    if ( filesize( $ziel ) >= filesize( $pfad ) ) {
+        @unlink( $ziel );
+        return $aufgeben( 'groesser' );
+    }
+    return 'erzeugt';
+}
+
+/**
+ * Sammelt Bilder in der Mediathek, die noch keine WebP-Begleitdatei haben.
+ *
+ * Der volle Durchlauf ist Absicht: `offen` muss die WIRKLICH verbleibende
+ * Menge nennen. Eine Zahl, die nur die Treffer dieses Laufs zaehlt, meldet
+ * frueh eine 0 und die Nachruestung sieht fertig aus, waehrend sie es nicht
+ * ist -- derselbe Fehler, der beim Demo-Bild-Import schon einmal drohte.
+ */
+function eb_webp_kandidaten() {
+    $basis = wp_get_upload_dir();
+    $wurzel = isset( $basis['basedir'] ) ? $basis['basedir'] : '';
+    if ( ! $wurzel || ! is_dir( $wurzel ) ) { return array(); }
+
+    $treffer = array();
+    $lauf = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator( $wurzel, FilesystemIterator::SKIP_DOTS ),
+        RecursiveIteratorIterator::LEAVES_ONLY
+    );
+    foreach ( $lauf as $datei ) {
+        if ( ! $datei->isFile() ) { continue; }
+        $pfad = $datei->getPathname();
+        if ( ! preg_match( '/\.(jpe?g|png)$/i', $pfad ) ) { continue; }
+        if ( file_exists( eb_webp_pfad( $pfad ) ) ) { continue; }
+        if ( file_exists( eb_webp_marker_pfad( $pfad ) ) ) { continue; }
+        $treffer[] = $pfad;
+    }
+    return $treffer;
+}
+
+/**
+ * GET  /hq/webp  — Stand zeigen, ohne etwas zu tun.
+ * POST /hq/webp  — eine Runde umsetzen.
+ *
+ * Wiederholbar aufrufen. Gedeckelt nach ANZAHL und nach ZEIT: ein Durchlauf,
+ * der ins PHP-Zeitlimit laeuft, wird vom Server mitten in der Arbeit
+ * abgeschnitten, und dann weiss niemand, wie weit er kam.
+ */
+function eb_hq_webp_nachruesten( WP_REST_Request $request ) {
+    $kandidaten = eb_webp_kandidaten();
+    $offen_vorher = count( $kandidaten );
+
+    if ( strtoupper( $request->get_method() ) !== 'POST' ) {
+        return new WP_REST_Response( array(
+            'offen'      => $offen_vorher,
+            'moeglich'   => function_exists( 'imagewebp' ),
+            'hinweis'    => 'GET zeigt nur den Stand. POST setzt eine Runde um.',
+        ), 200 );
+    }
+    if ( ! function_exists( 'imagewebp' ) ) {
+        return new WP_REST_Response( array(
+            'offen'    => $offen_vorher,
+            'moeglich' => false,
+            'grund'    => 'Diese PHP-Installation hat kein imagewebp(). '
+                        . 'Ohne GD-WebP kann der Server nicht umsetzen.',
+        ), 200 );
+    }
+
+    $max_anzahl  = 40;
+    $max_sekunden = 20;
+    $start = microtime( true );
+
+    $zaehler = array( 'erzeugt' => 0, 'vorhanden' => 0, 'groesser' => 0,
+                      'uebersprungen' => 0, 'fehler' => 0 );
+    $gespart = 0;
+    $geprueft = 0;
+
+    foreach ( $kandidaten as $pfad ) {
+        if ( $geprueft >= $max_anzahl ) { break; }
+        if ( ( microtime( true ) - $start ) > $max_sekunden ) { break; }
+        $geprueft++;
+        $vorher = @filesize( $pfad );
+        $stand = eb_webp_erzeugen( $pfad );
+        if ( isset( $zaehler[ $stand ] ) ) { $zaehler[ $stand ]++; }
+        if ( $stand === 'erzeugt' && $vorher ) {
+            $nachher = @filesize( eb_webp_pfad( $pfad ) );
+            if ( $nachher ) { $gespart += max( 0, $vorher - $nachher ); }
+        }
+    }
+
+    return new WP_REST_Response( array_merge( $zaehler, array(
+        'geprueft'    => $geprueft,
+        'gespartByte' => $gespart,
+        // Jede bearbeitete Datei verlaesst die Kandidatenliste -- entweder mit
+        // einer .webp-Datei oder mit dem Merkzettel. Deshalb genuegt hier die
+        // Zahl der geprueften; eine Rechnung ueber einzelne Ausgaenge waere
+        // schon beim naechsten neuen Ausgang wieder falsch.
+        'offen'       => max( 0, $offen_vorher - $geprueft ),
+        'moeglich'    => true,
+    ) ), 200 );
+}
+
+/* =====================================================================
    UPLOAD HANDLER
    ===================================================================== */
 function eb_handle_upload( WP_REST_Request $request ) {
@@ -4696,10 +5388,18 @@ function eb_handle_upload( WP_REST_Request $request ) {
     $meta = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
     wp_update_attachment_metadata( $attach_id, $meta );
 
+    // WebP daneben legen. Der Rueckgabewert wird bewusst NICHT geprueft: das
+    // Bild ist zu diesem Zeitpunkt hochgeladen, geprueft und dem Konto
+    // zugeordnet. Schlaegt die Umsetzung fehl, liefert Apache weiter das
+    // Original aus -- ein Upload an einer Formatoptimierung scheitern zu
+    // lassen waere die schlechtere Antwort.
+    $webp = eb_webp_erzeugen( $upload['file'] );
+
     return new WP_REST_Response( array(
         'id'  => $attach_id,
         'url' => $upload['url'],
         'ownerId' => get_current_user_id(),
+        'webp' => $webp,
     ), 200 );
 }
 
@@ -6822,10 +7522,16 @@ function eb_format_registration( $row ) {
 
 /* =====================================================================
    BOOKING / INVOICE NOTIFICATION
-   Sendet eine Buchungs-/Rechnungs-Benachrichtigung an User, Anbieter
-   und kontakt@eventboerse.de -- fuer volle Transparenz.
-   Stripe-Integration folgt; diese Mail fungiert als verbindliche
-   Buchungsbestaetigung / Rechnungsanforderung.
+   Sendet eine Buchungs-/Rechnungs-Benachrichtigung an Kunde und Anbieter.
+
+   NICHT an kontakt@ -- der Mitschnitt ist seit dem 29.05.2026 aus
+   (Anti-Spam Patch C), Buchungen stehen im Admin-Dashboard. Dieser
+   Docblock behauptete es bis zum 03.09.2026 weiter, und genau dieser
+   Satz stand auch im Mailtext: der Kunde las einen Empfaenger, an den
+   nichts ging. Wer den Empfaengerkreis aendert, aendert beides.
+
+   Stripe ist live: die Zahlung ist im Moment dieser Mail bereits
+   abgewickelt. Die Mail bestaetigt, sie fordert nicht auf.
    ===================================================================== */
 function eb_send_invoice( WP_REST_Request $request ) {
     $uid = get_current_user_id();
@@ -6896,7 +7602,11 @@ function eb_send_invoice( WP_REST_Request $request ) {
               . '<div style="font-size:13px;opacity:0.9">Eventboerse &middot; ' . esc_html( date_i18n( 'd.m.Y' ) ) . '</div>'
             . '</div>'
             . '<div style="padding:24px">'
-              . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht zur vollen Transparenz an <strong>Kunde</strong>, <strong>Anbieter</strong> und <strong>kontakt@eventb&ouml;rse.de</strong>.</p>'
+              // Der Satz nennt nur Empfaenger, die $recipients unten wirklich
+              // enthaelt. Bis zum 03.09.2026 stand hier zusaetzlich
+              // kontakt@eventboerse.de -- entfernt am 29.05.2026, im Text
+              // stehengeblieben.
+              . '<p style="margin:0 0 14px;font-size:15px;line-height:1.6">Die Buchung wurde auf <strong>Eventboerse</strong> verbindlich ausgeloest. Dies ist die offizielle Buchungsbestaetigung &ndash; sie geht an <strong>Kunde</strong> und <strong>Anbieter</strong>.</p>'
               . '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:14px">' . $rows . '</table>'
               . $note_html
               . '<div style="margin-top:20px;padding:14px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;font-size:13px;color:#1b5e20;line-height:1.5">'
@@ -10107,6 +10817,15 @@ add_action( 'rest_api_init', function () {
     register_rest_route( 'eventboerse/v1', '/hq/demo-bilder', array(
         'methods'             => 'GET, POST',
         'callback'            => 'eb_hq_demo_bilder_holen',
+        'permission_callback' => 'eb_hq_verwaltung_darf',
+    ) );
+
+    // Nachruestung der WebP-Begleitdateien. Dieselbe Schranke wie beim
+    // Demo-Import: angemeldeter Administrator, nicht blosser HQ-Zugang. Die
+    // Route schreibt in wp-content/uploads.
+    register_rest_route( 'eventboerse/v1', '/hq/webp', array(
+        'methods'             => 'GET, POST',
+        'callback'            => 'eb_hq_webp_nachruesten',
         'permission_callback' => 'eb_hq_verwaltung_darf',
     ) );
 } );

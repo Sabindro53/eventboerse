@@ -914,12 +914,81 @@ function disconnectStripeAccount() {
  *   4) /stripe/verify-payment → server-seitig bestaetigen (authoritativ)
  *   5) onSuccess(result) aufrufen
  */
+/* ─── Stripe.js bedarfsgesteuert ──────────────────────────────────────────
+ *
+ * Bis zum 02.09.2026 band `functions.php` js.stripe.com/v3 unbedingt ein —
+ * auf der Startseite, im Impressum, ueberall. Das waren 250 KB (die
+ * drittgroesste Uebertragung der Startseite) und, schwerer wiegend, ein
+ * Drittanbieter-Datenfluss ohne Bezug zur aufgerufenen Seite: Stripe.js setzt
+ * zur Betrugserkennung eigene Kennungen und sah die IP jedes Besuchers, auch
+ * wenn nie jemand zahlte.
+ *
+ * `scripts/recht.mjs` prueft, ob ein Drittanbieter in der
+ * Datenschutzerklaerung STEHT — nicht, WANN er laedt. Diese Luecke schliesst
+ * kein Tor, sondern nur diese Umstellung.
+ *
+ * Das Versprechen wird gemerkt, damit zwei Zahlungsversuche nicht zwei
+ * Skripte einhaengen. Bei einem FEHLER wird es wieder geleert: eine kurze
+ * Netzstoerung darf die Kasse nicht fuer die ganze Sitzung sperren.
+ */
+var _ebStripeJsVersprechen = null;
+
+function ebStripeJsLaden() {
+  if (window.Stripe) return Promise.resolve();
+  if (_ebStripeJsVersprechen) return _ebStripeJsVersprechen;
+
+  _ebStripeJsVersprechen = new Promise(function (erfuellen, ablehnen) {
+    var s = document.createElement('script');
+    s.src = 'https://js.stripe.com/v3/';
+    s.async = true;
+    s.onload = function () {
+      // Geladen ist nicht dasselbe wie brauchbar: ein Zwischenspeicher oder
+      // ein Filter kann eine leere 200 liefern.
+      if (window.Stripe) { erfuellen(); return; }
+      _ebStripeJsVersprechen = null;
+      ablehnen(new Error('Stripe.js geladen, aber window.Stripe fehlt'));
+    };
+    s.onerror = function () {
+      _ebStripeJsVersprechen = null;
+      ablehnen(new Error('js.stripe.com nicht erreichbar'));
+    };
+    document.head.appendChild(s);
+  });
+  return _ebStripeJsVersprechen;
+}
+
 function _openStripePaymentModal(opts) {
   opts = opts || {};
-  if (typeof Stripe === 'undefined') {
-    showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.', 'error');
-    return;
-  }
+
+  /* HIER STAND EIN RIEGEL, DER DIE KASSE ZUGESPERRT HAT.
+   *
+   *   if (typeof Stripe === 'undefined') {
+   *     showToast('Stripe.js konnte nicht geladen werden. Bitte Seite neu laden.');
+   *     return;
+   *   }
+   *
+   * Solange js.stripe.com unbedingt eingebunden war, feuerte das nie. Seit die
+   * Bibliothek bedarfsgesteuert laedt (02.09.2026), ist `window.Stripe` vor
+   * dem ERSTEN Zahlungsversuch per Definition undefiniert — der Riegel wies
+   * also jeden Kunden ab, bevor `ebStripeJsLaden()` hundert Zeilen weiter
+   * unten ueberhaupt erreicht wurde. Alle drei Einstiege: Board-Stage,
+   * Sofortbuchung, Chat-Buchung.
+   *
+   * Schlimmer als "ein Klick tut nichts": alle drei rufen vorher
+   * _setPendingPayment(), es blieb also ein Zahlungsvorgang im localStorage
+   * stehen. Und "Bitte Seite neu laden" fuehrte in die Irre — nach dem
+   * Neuladen ist erst recht nichts vorgeladen.
+   *
+   * Der Riegel ist auch nicht bloss schaedlich, er ist ueberfluessig: der
+   * Dialog erreicht auf JEDEM Weg entweder _initStripe() oder zeigt den
+   * Fehler im offenen Fenster. Ein Ladefehler wird dort behandelt, mit einer
+   * Meldung, die der Nutzer sieht und die stimmt.
+   *
+   * Meine 777 gruenen Tests haben das durchgelassen: zahlung-laden.spec.js
+   * prueft den LADER fuer sich allein. Alles richtig, alles gruen, und der
+   * Weg HINEIN war zu. Deshalb prueft der neue Test das Verhalten des
+   * Dialogs bei undefiniertem window.Stripe, nicht den Lader.
+   */
 
   // Overlay + Modal-Markup
   var ov = document.createElement('div');
@@ -1010,7 +1079,26 @@ function _openStripePaymentModal(opts) {
   };
 
   // Stripe-Element initialisieren und Pay-Button binden (wird aus 2 Pfaden gerufen)
+  //
+  // Die Bibliothek wird ERST HIER geholt. Bis zum 02.09.2026 hing
+  // js.stripe.com/v3 an jeder Seite: 250 KB auf der Startseite, im Impressum,
+  // überall — und bei jedem Aufruf ging die IP-Adresse des Besuchers an
+  // Stripe, auch wenn nie jemand zahlt.
+  //
+  // Der Fehlerfall gehört sichtbar behandelt: schlägt das Laden fehl, bliebe
+  // sonst ein Zahlungsdialog stehen, in dem nichts passiert und nichts
+  // dasteht. Das ist die schlechteste Sorte Fehler an der Kasse.
   function _initStripe(stripeData) {
+    ebStripeJsLaden().then(function () {
+      _initStripeMitBibliothek(stripeData);
+    }).catch(function () {
+      spinnerOn(false);
+      showErr('Die Zahlungsbibliothek konnte nicht geladen werden. '
+        + 'Bitte Verbindung prüfen und erneut versuchen.');
+    });
+  }
+
+  function _initStripeMitBibliothek(stripeData) {
     var payEl = ov.querySelector('#stripePaymentElement');
     if (payEl) payEl.innerHTML = '';
     if (stripeData.mode === 'test') {
@@ -1553,8 +1641,12 @@ function openStageAdvanceModal(cardId, currentStage) {
           '<strong>Leistung erfüllt – jetzt bezahlen</strong>' +
         '</div>' +
         '<div style="font-size:13px;color:var(--text-light);line-height:1.5">' +
-          'Beide Seiten haben die Erbringung bestätigt. Mit der Zahlung wird eine Rechnung erstellt und automatisch an <strong>dich</strong>, den <strong>Anbieter</strong> ' +
-          'und <strong>eventb&ouml;rse.de</strong> gesendet — f&uuml;r volle Transparenz.' +
+          // Kein dritter Empfänger. Der Mitschnitt an kontakt@ ist seit dem
+          // 29.05.2026 aus; hier stand er bis zum 03.09.2026 trotzdem noch —
+          // ein Versprechen über den Verbleib der Buchungsdaten, im Moment
+          // der Zahlung, das der Server nicht einlöst.
+          'Beide Seiten haben die Erbringung bestätigt. Mit der Zahlung wird eine Rechnung erstellt und automatisch an <strong>dich</strong> ' +
+          'und den <strong>Anbieter</strong> gesendet.' +
         '</div>' +
       '</div>' +
       '<label class="sa-label">Leistung</label>' +

@@ -43,6 +43,7 @@ call
 camera_alt
 campaign
 cancel
+castle
 category
 celebration
 center_focus_strong
@@ -140,6 +141,7 @@ grid_view
 group
 groups
 handshake
+headphones
 health_and_safety
 height
 help
@@ -177,6 +179,7 @@ lightbulb
 link
 link_off
 list
+local_fire_department
 local_florist
 location_on
 lock
@@ -312,7 +315,6 @@ send
 settings
 share
 shield
-shuffle
 smartphone
 snapchat
 sort

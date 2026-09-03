@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PrivacyInfo.xcprivacy — Apples Privacy-Manifest.
+
+  Seit Frühjahr 2024 Pflicht für jede App-Store-Einreichung. Fehlt es oder
+  widerspricht es den Angaben in App Store Connect, wird die Einreichung
+  abgelehnt.
+
+  JEDER Eintrag hier ist am Code belegt, nicht geschätzt. Die Quelle ist
+  vault/40-Governance/Legal/App-Store.md, das die Zuordnung Feld → Datenart
+  einzeln nachweist. Ein Manifest, das mehr angibt als erhoben wird, ist so
+  falsch wie eines, das weniger angibt: Apple prüft beide Richtungen, und die
+  Angaben in App Store Connect müssen dazu passen.
+
+  Bei jeder neuen erhobenen Datenart: erst App-Store.md, dann diese Datei,
+  dann App Store Connect. Alle drei oder keine.
+-->
+<plist version="1.0">
+<dict>
+  <!-- Kein Tracking über fremde Apps und Websites hinweg. Das ist keine
+       Absichtserklärung, sondern eine Tatsache über den Code: es gibt keinen
+       Werbe-SDK, keinen Identifier for Advertisers, kein Fremd-Analytics.
+       Die einzigen Drittempfänger sind Stripe (Zahlung) und der Kartendienst.
+       Stünde hier `true`, verlangte iOS den App-Tracking-Transparency-Dialog. -->
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array>
+    <!-- Registrierung und Profil: Name, E-Mail, Telefon, Adresse.
+         Beleg: functions.php, Profilfelder 'phone', 'address', 'company',
+         'company_name', 'vat_id'. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeName</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypePhoneNumber</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypePhysicalAddress</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+
+    <!-- Der Radar. Beleg: js/modules/search/13-event-radar.js ruft
+         navigator.geolocation.getCurrentPosition; die Koordinaten liegen unter
+         dem Speicherschlüssel `eb_radar_ort` (Cookie-Liste.md, funktional).
+         GENAU, nicht grob: getCurrentPosition liefert die volle Auflösung. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypePreciseLocation</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+
+    <!-- Inseratsbilder. Beleg: POST /upload, wp_handle_upload. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+
+    <!-- Nachrichten, Beiträge, Kommentare, Bewertungen. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+
+    <!-- Buchungen. Die KARTENDATEN erhebt Stripe, nicht wir — sie berühren
+         unseren Server nie. Der Kaufverlauf (was wann gebucht wurde) liegt
+         dagegen sehr wohl bei uns, und der ist hier gemeint. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeUserID</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+    </dict>
+
+    <!-- Das abgeleitete Präferenzprofil. Beleg: Speicherschlüssel
+         `eb_taste_v1`, in Cookie-Liste.md als PROFILBILDEND eingestuft — aus
+         Such- und Klickverhalten abgeleitet. Es wäre bequem, das unter
+         „App-Funktionalität" zu führen; richtig ist Personalisierung, und
+         genau diese Einstufung entscheidet, ob die Angabe zur eigenen
+         Datenschutzerklärung passt. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key><true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key><false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeProductPersonalization</string>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+  </array>
+
+  <!-- APIs mit Begründungspflicht. Capacitor legt seinen Zustand in
+       UserDefaults ab; ohne diesen Eintrag lehnt App Store Connect die
+       Einreichung mit ITMS-91053 ab. CA92.1 = Zugriff nur auf die eigenen
+       Daten der App. -->
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array><string>CA92.1</string></array>
+    </dict>
+  </array>
+</dict>
+</plist>

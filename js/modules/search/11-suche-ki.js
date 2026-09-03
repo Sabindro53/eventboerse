@@ -141,6 +141,46 @@ function _ebTasteReset() {
   if (typeof showToast === 'function') showToast('Deine Such-Personalisierung wurde gelöscht.', 'lock_reset');
 }
 
+/* ─── Kategorie → Icon ─────────────────────────────────────────────────
+   Eine Zuordnung, vier Ausgabestellen. Vorher trug jede Liste ihr eigenes
+   Emoji — dieselbe Kategorie war mal 🌸 und mal 💐, je nachdem, welche
+   Liste gerade dran war.
+
+   WARUM ICONS STATT EMOJIS. Ein Emoji wird von der Schrift des Systems
+   gezeichnet: auf Android anders als auf iOS, auf Windows anders als auf
+   beiden, und in manchen Linux-Umgebungen gar nicht — dort steht dann ein
+   leeres Rechteck. Es lässt sich nicht einfärben, nicht an die Textfarbe
+   koppeln und im Dunkelmodus nicht abdunkeln. Die Icon-Schrift liegt im
+   Theme, ist zugeschnitten und verhält sich überall gleich.
+
+   NEUES ICON HIER → `node scripts/icons.mjs && python3 scripts/icons-subset.py`,
+   sonst fehlt der Glyph im Zuschnitt und der Knopf bleibt leer. Der
+   PR-Check bricht sonst ab. */
+var EB_KATEGORIE_ICON = {
+  dj:         'headphones',
+  catering:   'restaurant',
+  foto:       'photo_camera',
+  location:   'castle',
+  licht:      'lightbulb',
+  florist:    'local_florist',
+  deko:       'celebration',
+  moderation: 'mic',
+  planung:    'event_note',
+  pyro:       'local_fire_department',
+  wellness:   'spa'
+};
+
+/** Fällt auf ein neutrales Zeichen zurück, nie auf einen leeren Kasten. */
+function ebKategorieIcon(key) {
+  return EB_KATEGORIE_ICON[key] || 'push_pin';
+}
+
+/** Ein Icon als Markup. `aria-hidden`, weil daneben immer der Text steht. */
+function ebIconHtml(name) {
+  return '<span class="material-icons-round" aria-hidden="true">'
+    + String(name || '').replace(/[^a-z_]/g, '') + '</span>';
+}
+
 /* ─── Vokabular für Vervollständigung ──────────────────────────────── */
 
 var _EB_STOPWORDS_SUGGEST = ['ich','für','und','der','die','das','ein','eine','einen','mit','von','auf',
@@ -148,17 +188,17 @@ var _EB_STOPWORDS_SUGGEST = ['ich','für','und','der','die','das','ein','eine','
 
 // Kategorien mit korrektem Artikel — damit die Vorschläge grammatisch sauber sind.
 var _EB_CAT_GRAMMAR = {
-  dj:         { akk: 'einen DJ',              label: 'DJ & Musik',      emoji: '🎧', re: /\bdjs?\b|musik|band|beats|auflegen/ },
-  catering:   { akk: 'ein Catering',          label: 'Catering',        emoji: '🍽️', re: /catering|essen|buffet|men[üu]|koch|foodtruck/ },
-  foto:       { akk: 'einen Fotografen',      label: 'Fotografie',      emoji: '📷', re: /fotograf|foto|kamera|video|film/ },
-  location:   { akk: 'eine Location',         label: 'Location',        emoji: '🏰', re: /location|saal|halle|r[äa]um|schloss|scheune|hof/ },
-  licht:      { akk: 'Licht & Technik',       label: 'Licht & Technik', emoji: '💡', re: /licht|technik|ton|b[üu]hne|sound|beschallung/ },
-  florist:    { akk: 'einen Floristen',       label: 'Floristik',       emoji: '💐', re: /blume|florist|strau[ßs]|blumendeko/ },
-  deko:       { akk: 'eine Dekoration',       label: 'Dekoration',      emoji: '🎈', re: /deko|ballon|tischdeko|ausstattung/ },
-  moderation: { akk: 'einen Moderator',       label: 'Moderation',      emoji: '🎤', re: /moderat|sprecher|redner|host/ },
-  planung:    { akk: 'eine Eventplanung',     label: 'Eventplanung',    emoji: '📋', re: /planer|planung|organisation|wedding ?planner/ },
-  pyro:       { akk: 'ein Feuerwerk',         label: 'Pyrotechnik',     emoji: '🎆', re: /feuerwerk|pyro|funken/ },
-  wellness:   { akk: 'ein Wellness-Angebot',  label: 'Wellness & Spa',  emoji: '💆', re: /wellness|spa|massage/ }
+  dj:         { akk: 'einen DJ',              label: 'DJ & Musik',      icon: 'headphones', re: /\bdjs?\b|musik|band|beats|auflegen/ },
+  catering:   { akk: 'ein Catering',          label: 'Catering',        icon: 'restaurant', re: /catering|essen|buffet|men[üu]|koch|foodtruck/ },
+  foto:       { akk: 'einen Fotografen',      label: 'Fotografie',      icon: 'photo_camera', re: /fotograf|foto|kamera|video|film/ },
+  location:   { akk: 'eine Location',         label: 'Location',        icon: 'castle', re: /location|saal|halle|r[äa]um|schloss|scheune|hof/ },
+  licht:      { akk: 'Licht & Technik',       label: 'Licht & Technik', icon: 'lightbulb', re: /licht|technik|ton|b[üu]hne|sound|beschallung/ },
+  florist:    { akk: 'einen Floristen',       label: 'Floristik',       icon: 'local_florist', re: /blume|florist|strau[ßs]|blumendeko/ },
+  deko:       { akk: 'eine Dekoration',       label: 'Dekoration',      icon: 'celebration', re: /deko|ballon|tischdeko|ausstattung/ },
+  moderation: { akk: 'einen Moderator',       label: 'Moderation',      icon: 'mic', re: /moderat|sprecher|redner|host/ },
+  planung:    { akk: 'eine Eventplanung',     label: 'Eventplanung',    icon: 'event_note', re: /planer|planung|organisation|wedding ?planner/ },
+  pyro:       { akk: 'ein Feuerwerk',         label: 'Pyrotechnik',     icon: 'local_fire_department', re: /feuerwerk|pyro|funken/ },
+  wellness:   { akk: 'ein Wellness-Angebot',  label: 'Wellness & Spa',  icon: 'spa', re: /wellness|spa|massage/ }
 };
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -238,6 +278,10 @@ function _ebEventTypeOptionsHtml(selected) {
   return Object.keys(groups).map(function(g) {
     return '<optgroup label="' + _escHtml(g) + '">' + groups[g].map(function(ev) {
       return '<option value="' + _escHtml(ev.label) + '"' + (selected === ev.label ? ' selected' : '') + '>' +
+        // BLEIBT EIN EMOJI, mit Absicht: das hier ist ein <option>, und
+        // dort erlaubt kein Browser Markup. Ein <span> wuerde als Text
+        // erscheinen oder verschwinden — ein Icon-Font geht in einer
+        // nativen Auswahlliste schlicht nicht.
         ev.emoji + ' ' + _escHtml(ev.label) + '</option>';
     }).join('') + '</optgroup>';
   }).join('');
@@ -369,12 +413,12 @@ function _ebSuggest(raw) {
     return (stem + joinFragment(frag)).replace(/\s{2,}/g, ' ');
   }
 
-  function addAlt(text, label, emoji, why) {
+  function addAlt(text, label, icon, why) {
     if (!text) return;
     var clean = text.replace(/\s{2,}/g, ' ').trim();
     if (alts.some(function(a) { return a.text.toLowerCase() === clean.toLowerCase(); })) return;
     if (clean.toLowerCase() === out.full.trim().toLowerCase()) return;
-    alts.push({ text: clean, label: label || '', emoji: emoji || '✨', why: why || '' });
+    alts.push({ text: clean, label: label || '', icon: icon || 'auto_awesome', why: why || '' });
   }
 
   // a) Gleiche Kategorie, anderer Anlass — aber nur, wenn der Anlass nicht
@@ -388,7 +432,7 @@ function _ebSuggest(raw) {
       var c = _EB_CAT_GRAMMAR[baseCat];
       if (!g || !c) return;
       var sentence = cat ? appendToStem(g.dat) : 'Ich suche ' + c.akk + ' ' + g.dat;
-      addAlt(sentence, g.label, g.emoji, 'Anderer Anlass');
+      addAlt(sentence, g.label, g.icon, 'Anderer Anlass');
     });
   }
 
@@ -409,7 +453,7 @@ function _ebSuggest(raw) {
     var g = _EB_CAT_GRAMMAR[ck];
     if (!g) return;
     var tg = _EB_TYPE_GRAMMAR[type || topTypes[0] || 'wedding'];
-    addAlt('Ich suche ' + g.akk + (tg ? ' ' + tg.dat : ''), g.label, g.emoji, 'Passt dazu');
+    addAlt('Ich suche ' + g.akk + (tg ? ' ' + tg.dat : ''), g.label, g.icon, 'Passt dazu');
   });
 
   // c) Konkretisierung mit Ort/Größe, wenn noch nichts angegeben ist
@@ -524,11 +568,11 @@ function aiMatchKeyword(input) {
   }).slice(0, 2);
 
   listingMatches.forEach(l => {
-    const emoji = CATEGORY_EMOJI[l.category] || '📌';
+    const icon = ebKategorieIcon(l.category);
     matches.set('listing_' + l.id, {
       term: l.title,
       category: l.category,
-      emoji: emoji,
+      icon: icon,
       hint: `${l.categoryLabel} · ${l.location}`,
       listingId: l.id,
       score: 1
@@ -541,16 +585,16 @@ function aiMatchKeyword(input) {
 }
 
 const AI_CATEGORIES = [
-  { key: 'dj', label: 'DJ & Musik', emoji: '🎧' },
-  { key: 'catering', label: 'Catering', emoji: '🍽️' },
-  { key: 'foto', label: 'Fotografie', emoji: '📷' },
-  { key: 'florist', label: 'Floristik', emoji: '🌸' },
-  { key: 'deko', label: 'Dekoration', emoji: '🎈' },
-  { key: 'licht', label: 'Licht & Technik', emoji: '💡' },
-  { key: 'planung', label: 'Planung', emoji: '📋' },
-  { key: 'moderation', label: 'Moderation', emoji: '🎤' },
-  { key: 'pyro', label: 'Pyrotechnik', emoji: '🎆' },
-  { key: 'location', label: 'Location', emoji: '🏰' },
+  { key: 'dj', label: 'DJ & Musik', icon: 'headphones' },
+  { key: 'catering', label: 'Catering', icon: 'restaurant' },
+  { key: 'foto', label: 'Fotografie', icon: 'photo_camera' },
+  { key: 'florist', label: 'Floristik', icon: 'local_florist' },
+  { key: 'deko', label: 'Dekoration', icon: 'celebration' },
+  { key: 'licht', label: 'Licht & Technik', icon: 'lightbulb' },
+  { key: 'planung', label: 'Planung', icon: 'event_note' },
+  { key: 'moderation', label: 'Moderation', icon: 'mic' },
+  { key: 'pyro', label: 'Pyrotechnik', icon: 'local_fire_department' },
+  { key: 'location', label: 'Location', icon: 'castle' },
 ];
 let selectedCategories = new Set();
 let aiDebounce = null;
@@ -559,7 +603,7 @@ function renderCategoryPicker() {
   const list = document.getElementById('aiSuggestionsList');
   list.innerHTML = AI_CATEGORIES.map(c => `
     <div class="ai-cat-chip${selectedCategories.has(c.key) ? ' selected' : ''}" onclick="toggleCategory('${c.key}')">
-      <span class="ai-cat-emoji">${c.emoji}</span>
+      <span class="ai-cat-ico material-icons-round" aria-hidden="true">${c.icon}</span>
       <span class="ai-cat-label">${c.label}</span>
     </div>
   `).join('');
@@ -584,7 +628,7 @@ function renderSelectedTags() {
   container.innerHTML = Array.from(selectedCategories).map(key => {
     const cat = AI_CATEGORIES.find(c => c.key === key);
     return `<span class="ai-tag" onclick="toggleCategory('${key}')">
-      ${cat.emoji} ${cat.label}
+      ${ebIconHtml(cat.icon)} ${cat.label}
       <span class="material-icons-round">close</span>
     </span>`;
   }).join('');
@@ -1162,7 +1206,8 @@ function _ebSearchSuggestRender(input) {
   }
   s.alternatives.forEach(function(a, i) {
     rows += '<button type="button" class="eb-sug-row" role="option" onclick="_ebSuggestPick(' + i + ')">' +
-      '<span class="eb-sug-emoji">' + _escHtml(a.emoji) + '</span>' +
+      '<span class="eb-sug-ico material-icons-round" aria-hidden="true">'
+        + String(a.icon || 'auto_awesome').replace(/[^a-z_]/g, '') + '</span>' +
       '<span class="eb-sug-text">' + _escHtml(a.text) + '</span>' +
       (a.why ? '<span class="eb-sug-why">' + _escHtml(a.why) + '</span>' : '') +
       '</button>';

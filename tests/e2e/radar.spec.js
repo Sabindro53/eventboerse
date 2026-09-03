@@ -280,8 +280,13 @@ test.describe('Radar als echte Feed-Karte', () => {
   async function feedRadarOeffnen(page) {
     const errors = await openApp(page);
     await page.evaluate(() => navigateTo('aktuelles'));
-    await page.waitForFunction(() => !!document.querySelector('.feed-tab-radar'));
-    await page.evaluate(() => switchFeedTab(document.querySelector('.feed-tab-radar')));
+    // Die Klasse `feed-tab-radar` tragen ZWEI Knoepfe: der Reiter auf
+    // „Aktuelles" und seit dem 31.08.2026 der Einstieg auf „Entdecken".
+    // Ein unqualifiziertes querySelector traefe den auf „Entdecken", weil
+    // dessen Sektion frueher im Dokument steht — und der schaltet nicht um,
+    // er navigiert. Der Selektor muss also sagen, welchen er meint.
+    await page.waitForFunction(() => !!document.querySelector('#page-aktuelles .feed-tab-radar'));
+    await page.evaluate(() => switchFeedTab(document.querySelector('#page-aktuelles .feed-tab-radar')));
     await page.waitForFunction(() => !!window._feedRadarMap
       && !!document.querySelector('#feedRadarMap.leaflet-container'), null, { timeout: 10000 });
     return errors;

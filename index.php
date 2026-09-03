@@ -127,7 +127,18 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover schaltet env(safe-area-inset-*) ueberhaupt erst
+         ein. styles.css rechnet an SECHS Stellen damit — untere Navigation,
+         Buchungsleiste, Panels. Ohne dieses Attribut liefert jede dieser
+         Abfragen 0, und zwar still: das Layout sieht auf dem Schreibtisch
+         richtig aus und liegt auf einem iPhone mit Home-Indikator darunter.
+         Die Behandlung war also da und war wirkungslos.
+
+         Nachgetragen am 02.09.2026 im Zuge der App: in einem nativen
+         Container ist das kein Schoenheitsfehler mehr, sondern der
+         Unterschied zwischen bedienbar und nicht bedienbar. -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
     <!-- ── Primary SEO ── -->
     <title><?php echo $meta_title_esc; ?></title>
@@ -154,7 +165,7 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
 
     <!-- ── Structured Data ── -->
     <?php if ( $schema_json ) : ?>
-    <script type="application/ld+json"><?php echo $schema_json; ?></script>
+    <script type="application/ld+json" nonce="<?php echo esc_attr( eb_csp_nonce() ); ?>"><?php echo $schema_json; ?></script>
     <?php endif; ?>
 
     <!-- ── Favicons ── -->
@@ -162,31 +173,92 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     <link rel="apple-touch-icon" href="<?php echo get_template_directory_uri(); ?>/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="format-detection" content="telephone=no">
-    <meta name="theme-color" content="#6C63FF">
+
+    <!-- ── Statusleisten-Farbe ──
+         Hier stand bis zum 02.09.2026 ein einzelnes #6C63FF. Diese Farbe kommt
+         im ganzen Projekt sonst nur noch in generate-icons.html vor, einem
+         Werkzeug, das nichts ausliefert; die Marke ist #FF385C (62 Fundstellen
+         in styles.css). Das Lila war also weder Marke noch Hintergrund, und im
+         installierten oder nativen Betrieb faerbt genau dieser Wert den
+         Bereich um die Statusleiste.
+
+         Zwei Werte statt einem, wie in der Dev-Shell: der Kopf soll die Farbe
+         des Seitenhintergrunds tragen, und der wechselt mit dem Farbmodus. Ein
+         fester Wert ist in einem der beiden Modi immer falsch.
+
+         Die theme_color der manifest.json (#FF385C) bleibt davon unberuehrt —
+         sie faerbt den Splash und die App-Uebersicht, nicht den Seitenkopf. -->
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+
+    <!-- ── Nativer Vollbildbetrieb (iOS) ──
+         Ohne diese beiden zeigt iOS im Homescreen-Betrieb weiter die
+         Safari-Leisten. `black-translucent` legt den Inhalt UNTER die
+         Statusleiste — was nur zusammen mit viewport-fit=cover oben und den
+         safe-area-Abstaenden in styles.css bedienbar bleibt. Die drei
+         gehoeren zusammen; einzeln ist jedes davon ein Fehler. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Eventbörse">
 
     <!-- ── Preconnect ── Schriften und Bibliotheken liegen im Theme. Die
          Demo-Bilder kommen weiterhin von Pexels; dort spart die vorgezogene
          Verbindung den DNS- und TLS-Aufbau vor dem ersten Bild. -->
-    <link rel="preconnect" href="https://js.stripe.com">
+    <!-- Kein preconnect auf js.stripe.com mehr. Seit dem 02.09.2026 wird die
+         Bibliothek erst beim Oeffnen des Zahlungsdialogs geholt; eine
+         vorgezogene Verbindung auf jeder Seite waere genau der
+         Drittanbieter-Kontakt, den die Umstellung beseitigt — nur ohne den
+         Nutzen, den sie frueher hatte. -->
     <link rel="preconnect" href="https://images.pexels.com" crossorigin>
 
-    <!-- ── Schriften aus dem eigenen Haus ──
-         Standen hier bis zum 21.08.2026 ZUSAETZLICH zur wp_enqueue-Einbindung,
-         also doppelt — und mit "Material Icons" statt "Material Icons Round",
-         einer Familie, die das Theme gar nicht benutzt. -->
-    <link rel="stylesheet"
-          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/fonts.css?v=<?php echo $asset_ver; ?>">
+    <!-- ── Schriften vorziehen ──
+         Ohne Preload ist die Kette drei Runden lang: HTML → fonts.css →
+         parsen → Schriftdatei. Der Browser erfährt erst nach dem Parsen des
+         Stylesheets, dass er sie überhaupt braucht.
 
-    <!-- ── App CSS ── -->
-    <link rel="stylesheet"
-          href="<?php echo get_template_directory_uri(); ?>/styles.css?v=<?php echo $asset_ver; ?>">
+         Für Material Icons ist das mehr als eine Verzögerung: die Familie
+         steht auf `font-display: block`, ihre Glyphen sind bis zum Laden
+         also UNSICHTBAR. Jeder Knopf mit Symbol ist so lange leer.
+
+         `crossorigin` ist Pflicht, auch bei eigener Herkunft — Schriften
+         werden im CORS-Modus geholt, und ohne das Attribut lädt der Browser
+         sie ein zweites Mal statt den Preload zu benutzen. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/inter-latin-wght-normal.woff2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/material-icons-round.woff2">
+
+    <!-- ── fonts.css und styles.css stehen NICHT hier ──
+         Sie werden in eventboerse_enqueue_assets() eingebunden und landen ueber
+         wp_head() weiter unten in diesem Kopf. Bis zum 01.09.2026 standen sie
+         ZUSAETZLICH hier, und beide Fassungen wurden wirklich uebertragen: der
+         Lighthouse-Lauf vom 31.08. zeigt styles.css?v=2.5.1 und
+         styles.css?ver=1787748136 als zwei Anfragen zu je 68 KB, fonts.css
+         ebenso. 70 KB doppelt, beide den Aufbau blockierend.
+
+         Fuer die Schriften wurde genau dieser Fehler am 21.08.2026 schon einmal
+         behoben — der Kommentar stand danach ueber der Zeile, die er beschrieb.
+         Der zweite Weg blieb offen.
+
+         Die feste Kopie war ausserdem die schlechtere: $asset_ver ist eine von
+         Hand gepflegte Nummer, die seit 2.5.1 niemand hochgezaehlt hat. Nach
+         einem Deploy liefert sie den alten Stand aus dem Zwischenspeicher,
+         waehrend die eingebundene Fassung ueber filemtime frisch kommt.
+
+         An der Kaskade aendert das Entfernen nichts: die eingebundene Fassung
+         kam schon vorher zuletzt und hat damit ohnehin entschieden.
+
+         Wer hier wieder ein <link> auf eine bereits eingebundene Datei setzt,
+         laedt sie doppelt — pruefstand: tests/e2e/auslieferung.spec.js. -->
+
+    <!-- ── App CSS: nur was NICHT ueber wp_enqueue_style laeuft ── -->
     <link rel="stylesheet"
           href="<?php echo get_template_directory_uri(); ?>/ui-enhancements.css?v=<?php echo $asset_ver; ?>">
     <link rel="stylesheet"
           href="<?php echo get_template_directory_uri(); ?>/release-vision.css?v=<?php echo esc_attr( $release_css_ver ); ?>">
 
     <!-- ── WordPress Nonce (passed to app.js via inline script) ── -->
-    <script>
+    <script nonce="<?php echo esc_attr( eb_csp_nonce() ); ?>">
     window.eventboerseApi = {
         restUrl : <?php echo json_encode( esc_url_raw( rest_url('eventboerse/v1/') ) ); ?>,
         nonce   : <?php echo json_encode( wp_create_nonce('wp_rest') ); ?>,
@@ -209,7 +281,7 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
 <?php wp_head(); ?>
 </head>
 <body>
-<?php readfile( __DIR__ . "/app-shell.html" ); ?>
+<?php eb_shell_ausgeben(); // wie readfile, setzt aber das CSP-Nonce ?>
 <?php wp_footer(); ?>
 </body>
 </html>

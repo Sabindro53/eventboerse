@@ -160,6 +160,13 @@ jobs:
       # eingebautes Icon, das nicht mitgeschnitten wurde, erscheint im Betrieb
       # als leerer Kasten — sichtbar fuer jeden Besucher, unsichtbar fuer
       # jeden anderen Test. Dieses Tor faengt es im PR.
+      # Das Repository ist OEFFENTLICH. Der Gitleaks-Workflow, den GitHub als
+      # "active" fuehrt, wurde auf einem nie gemergten Zweig eingefuehrt und
+      # ist seit dem 05.05.2026 kein einziges Mal gelaufen -- vier Monate
+      # scheinbarer Schutz. Dieses Tor laeuft wirklich.
+      - name: Keine Zugangsdaten im Quelltext
+        run: node scripts/geheimnisse.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Icon-Schrift deckt alle benutzten Symbole
         run: node scripts/icons.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -181,10 +188,46 @@ jobs:
         env:
           OPENROUTER_API_KEY: ${{ secrets.EB_OPENROUTER_API_KEY }}
         run: |
-          git fetch origin ${{ github.base_ref }} --depth=50 || true
-          git diff origin/${{ github.base_ref }}...HEAD -- '*.js' '*.php' '*.mjs' > /tmp/diff.txt || true
+          # Der Checkout ist flach. `--depth=50` holt 50 Commits der Basis,
+          # aber der PR-Zweig bleibt bei Tiefe 1 — dann gibt es keinen
+          # gemeinsamen Vorfahren, und `git diff A...B` bricht ab mit
+          # "fatal: no merge base".
+          #
+          # Genau das geschah bei #220 am 30.08. Der Schritt meldete danach
+          # "Kein Code-Diff — nichts gegenzulesen" und stieg mit 0 aus: der
+          # Pruefer hatte sein Subjekt NICHT GEFUNDEN und sah aus, als haette
+          # er nichts gefunden. Dieselbe Verwechslung liess den toten
+          # Gitleaks-Scan vier Monate wie Schutz aussehen.
+          #
+          # Deshalb wird die Basis jetzt tief genug geholt, und die zwei
+          # Faelle werden getrennt: kein Diff (in Ordnung) gegen keinen
+          # Vergleichspunkt (Ausfall, sichtbar vermerkt).
+          # BEIDE Seiten brauchen Historie. Nur die Basis zu vertiefen
+          # genuegt nicht — der PR-Zweig bleibt dann bei Tiefe 1, und einen
+          # gemeinsamen Vorfahren gibt es weiterhin nicht. (Genau das war
+          # der erste Versuch dieser Reparatur, und er half nichts.)
+          # Das Repository hat rund 100 Commits; --unshallow kostet nichts.
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            git fetch --unshallow >/dev/null 2>&1 || true
+          fi
+          git fetch origin ${{ github.base_ref }} >/dev/null 2>&1 || true
+          if ! basis="$(git merge-base origin/${{ github.base_ref }} HEAD 2>/dev/null)"; then
+            {
+              echo "⚠️ **Code-Pruefer uebersprungen:** kein gemeinsamer Vorfahre mit"
+              echo "\`${{ github.base_ref }}\` — der flache Checkout reicht nicht."
+              echo "Das ist NICHT dasselbe wie \"nichts zu pruefen\"."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # app.js und index.html sind ERZEUGT (Verkettung von js/modules/**
+          # bzw. app-shell.html). Aendert sich ein Modul, aendert sich app.js
+          # mit — und der Pruefer bekaeme jede Zeile zweimal, einmal als
+          # Quelle und einmal als Kopie. Dieselbe Begruendung wie beim
+          # CodeQL-Ausschluss; hier kommt hinzu, dass der Platz knapp ist.
+          git diff "$basis" HEAD -- '*.js' '*.php' '*.mjs' \
+            ':(exclude)app.js' ':(exclude)index.html' > /tmp/diff.txt || true
           if [ ! -s /tmp/diff.txt ]; then
-            echo "Kein Code-Diff — nichts gegenzulesen."
+            echo "Kein Code-Diff — nichts gegenzulesen." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           node scripts/agent.mjs --rolle deepseek-code --kontext /tmp/diff.txt \

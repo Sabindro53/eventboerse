@@ -3030,10 +3030,16 @@ function moveBoardCardStage(cardId, currentStage) {
 }
 
 /* ── Rechnungs-/Buchungs-Benachrichtigung senden ──
- * Schickt eine HTML-Mail mit allen Details an User, Anbieter und
- * kontakt@eventbörse.de – für volle Transparenz der Transaktion.
- * Stripe-Integration folgt; diese Mail fungiert bis dahin als
- * "Buchungs-Bestätigung / Rechnungs-Anforderung".
+ * Schickt eine HTML-Mail mit allen Details an Kunde und Anbieter.
+ *
+ * NICHT an kontakt@ — der Mitschnitt wurde am 29.05.2026 entfernt
+ * (Anti-Spam Patch C), Buchungen stehen im Admin-Dashboard. Wer diese
+ * Zeile als Vorlage für einen Mailtext nimmt, verspricht dem Kunden
+ * sonst einen Empfänger, den es nicht gibt — genau so ist der Satz in
+ * die Buchungsbestätigung geraten und dort bis zum 03.09.2026 gestanden.
+ *
+ * Stripe ist live: die Zahlung ist im Moment dieser Mail bereits
+ * abgewickelt, sie ist Bestätigung und nicht Zahlungsaufforderung.
  */
 function _sendInvoiceNotification(card, project, listing) {
   try {

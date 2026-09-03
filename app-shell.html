@@ -685,10 +685,13 @@
         <div class="feed-tabs explore-tabs">
           <button class="feed-tab feed-tab-discover active"><span class="material-icons-round">explore</span>Entdecken<span class="feed-tab-badge">NEU</span></button>
           <button class="feed-tab" onclick="navigateTo('aktuelles')">Für dich</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'gesuche\']'); if(b) switchFeedTab(b);},80)">Gesuche</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'events\']'); if(b) switchFeedTab(b);},80)">Events</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'newest\']'); if(b) switchFeedTab(b);},80)">Neueste</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'popular\']'); if(b) switchFeedTab(b);},80)">Beliebt</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','gesuche')">Gesuche</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','events')">Events</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','newest')">Neueste</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','popular')">Beliebt</button>
+          <!-- Der Radar fehlte hier: auf „Aktuelles" gibt es ihn, auf
+               „Entdecken" verschwand er. Gemeldet am 31.08.2026. -->
+          <button class="feed-tab feed-tab-radar" onclick="navigateTo('aktuelles','radar')"><span class="material-icons-round">radar</span>Radar</button>
         </div>
         <div class="explore-grid" id="exploreGrid"></div>
       </div>

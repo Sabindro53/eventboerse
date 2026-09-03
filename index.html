@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Eventbörse – Dein Event-Marktplatz für Dienstleister</title>
   <meta name="description" content="Eventbörse.de – Finde DJs, Caterer, Fotografen, Floristen und mehr für dein Event. Der Marktplatz für Event-Dienstleister in Deutschland." />
   <meta name="keywords" content="Event, Marktplatz, DJ, Catering, Fotograf, Florist, Hochzeit, Party, Firmen-Event, Dienstleister" />
@@ -37,7 +37,6 @@
   <!-- Performance: Preconnect. Schriften und Bibliotheken liegen im Theme;
        die Demo-Bilder kommen weiterhin von Pexels, und dort spart die
        vorgezogene Verbindung den DNS- und TLS-Aufbau vor dem ersten Bild. -->
-  <link rel="preconnect" href="https://js.stripe.com" crossorigin />
   <link rel="preconnect" href="https://images.pexels.com" crossorigin />
 
   <!-- Critical CSS first (render-blocking, but small) -->
@@ -740,10 +739,13 @@
         <div class="feed-tabs explore-tabs">
           <button class="feed-tab feed-tab-discover active"><span class="material-icons-round">explore</span>Entdecken<span class="feed-tab-badge">NEU</span></button>
           <button class="feed-tab" onclick="navigateTo('aktuelles')">Für dich</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'gesuche\']'); if(b) switchFeedTab(b);},80)">Gesuche</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'events\']'); if(b) switchFeedTab(b);},80)">Events</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'newest\']'); if(b) switchFeedTab(b);},80)">Neueste</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles'); setTimeout(()=>{var b=document.querySelector('.feed-tab[data-feed=\'popular\']'); if(b) switchFeedTab(b);},80)">Beliebt</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','gesuche')">Gesuche</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','events')">Events</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','newest')">Neueste</button>
+          <button class="feed-tab" onclick="navigateTo('aktuelles','popular')">Beliebt</button>
+          <!-- Der Radar fehlte hier: auf „Aktuelles" gibt es ihn, auf
+               „Entdecken" verschwand er. Gemeldet am 31.08.2026. -->
+          <button class="feed-tab feed-tab-radar" onclick="navigateTo('aktuelles','radar')"><span class="material-icons-round">radar</span>Radar</button>
         </div>
         <div class="explore-grid" id="exploreGrid"></div>
       </div>
@@ -4277,7 +4279,7 @@ Datum: ___________________________________________________
   <script src="assets/lib/leaflet/leaflet.js" defer></script>
   <script src="assets/lib/flatpickr/flatpickr.min.js" defer></script>
   <script src="assets/lib/flatpickr/flatpickr-de.js" defer></script>
-  <script src="https://js.stripe.com/v3/" defer></script>
+  <!-- Stripe.js laedt ebStripeJsLaden() bei Bedarf — wie in der Produktion. -->
   <script src="app.js?v=159" defer></script>
 </body>
 </html>

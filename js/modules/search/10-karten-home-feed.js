@@ -367,69 +367,27 @@ function _absTime(dateStr) {
   }
 }
 
-function renderFeed(tab) {
-  const list = document.getElementById('feedList');
-  if (!list) return;
-  // Deduplicate LISTINGS by id (keep first occurrence)
-  const seen = new Set();
-  let items = getHeroListings().filter(function(l) {
-    if (seen.has(l.id)) return false;
-    seen.add(l.id);
-    return true;
-  });
-  items = [...items];
-  if (tab === 'newest') {
-    items = items.sort((a, b) => b.id - a.id);
-  } else if (tab === 'popular') {
-    items = items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  } else {
-    // "Für dich" — mix: shuffle with slight preference for higher rated
-    items = items.sort(() => Math.random() - 0.5);
-  }
+/* `renderFeed()` stand hier zweimal im Projekt — auch in
+ * board/42-guide-social-feed.js. app.js ist eine VERKETTUNG, und bei
+ * zwei gleichnamigen Funktionsdeklarationen gewinnt die spaetere:
+ * diese hier war seit jeher wirkungslos. Wer sie bearbeitete — und
+ * man sucht sie zuerst hier, im Feed-Modul — aenderte nichts.
+ *
+ * Die Fassung in Modul 42 ist ausserdem die vollstaendigere: sie kennt
+ * die Kanaele gesuche, events und radar, diese kannte nur newest und
+ * popular. Entfernt am 31.08.2026 beim Radar-Fehler, der genau daran
+ * schwer zu finden war. */
 
-  list.innerHTML = items.map((l, i) => {
-    const avatar = _resolveAvatar(l.providerImg || l.providerAvatar, l.providerName);
-    const categoryLabel = l.category ? l.category.charAt(0).toUpperCase() + l.category.slice(1) : 'Service';
-    const isFav = favorites.has(l.id);
-    const desc = l.description || l.title;
-    const tags = l.features ? l.features.slice(0, 3) : [];
-    return `<div class="feed-card"${_aiDisclosureAttrs(l)}>
-      <div class="feed-card-header">
-        <img class="feed-card-avatar"${window.EB_IMG_LAZY_ATTR} src="${_escHtml(avatar)}" alt="${_escHtml(l.providerName)}" onclick="navigateTo('provider',${l.providerId || l.id})" />
-        <div class="feed-card-meta">
-          <span class="feed-card-provider" onclick="navigateTo('provider',${l.providerId || l.id})">${_escHtml(l.providerName)}</span>
-          <span class="feed-card-time"><span class="material-icons-round">schedule</span> ${timeAgo(l.createdAt)}</span>
-        </div>
-        <span class="feed-card-category">${_escHtml(categoryLabel)}</span>
-      </div>
-      <div class="feed-card-media"><img class="feed-card-image" src="${_escHtml(l.image)}" alt="${_escHtml(l.title)}" onclick="navigateTo('detail',${l.id})" loading="lazy" onerror="this.onerror=null;this.src=window.EB_IMG_FALLBACK" /></div>
-      <div class="feed-card-body">
-        <div class="feed-card-title" onclick="navigateTo('detail',${l.id})">${_escHtml(l.title)}</div>
-        ${_aiDisclosureLabelsHtml(l, 'ai-disclosure-feed')}
-        <div class="feed-card-desc">${_escHtml(_stripHtml(desc))}</div>
-      </div>
-      ${l.location ? '<div class="feed-card-location"><span class="material-icons-round">location_on</span> ' + _escHtml(l.location) + '</div>' : ''}
-      ${tags.length ? '<div class="feed-card-tags">' + tags.map(t => '<span class="feed-card-tag">' + _escHtml(t) + '</span>').join('') + '</div>' : ''}
-      <div class="feed-card-footer">
-        <span class="feed-card-price">${_escHtml(l.priceLabel)}</span>
-        <div class="feed-card-actions">
-          <button class="feed-card-action ${isFav ? 'active' : ''}" aria-label="Zu Favoriten hinzufügen" aria-pressed="${isFav ? 'true' : 'false'}" onclick="toggleFeedFav(this,${l.id})">
-            <span class="material-icons-round">${isFav ? 'favorite' : 'favorite_border'}</span>
-          </button>
-          <button class="feed-card-action" aria-label="Details ansehen" onclick="navigateTo('detail',${l.id})">
-            <span class="material-icons-round">arrow_forward</span>
-          </button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function switchFeedTab(btn) {
-  document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  renderFeed(btn.dataset.feed);
-}
+/* `switchFeedTab()` stand hier zweimal im Projekt — auch in
+ * board/42-guide-social-feed.js. app.js ist eine VERKETTUNG, und bei
+ * zwei gleichnamigen Funktionsdeklarationen gewinnt die spaetere:
+ * diese hier war seit jeher wirkungslos. Wer sie bearbeitete — und
+ * man sucht sie zuerst hier, im Feed-Modul — aenderte nichts.
+ *
+ * Die Fassung in Modul 42 ist ausserdem die vollstaendigere: sie kennt
+ * die Kanaele gesuche, events und radar, diese kannte nur newest und
+ * popular. Entfernt am 31.08.2026 beim Radar-Fehler, der genau daran
+ * schwer zu finden war. */
 
 function toggleFeedFav(btn, id) {
   if (favorites.has(id)) {

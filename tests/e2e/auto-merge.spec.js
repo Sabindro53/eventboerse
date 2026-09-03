@@ -57,9 +57,10 @@ const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
  * so lässt sich „läuft noch, läuft noch, fertig" nachbilden und zeigen, dass
  * wirklich gewartet wird.
  */
-async function lauf({ pruefungen, dateien }) {
+async function lauf({ pruefungen, dateien, mergeFehler = [] }) {
   const protokoll = [];
   let runde = 0;
+  let mergeVersuch = 0;
 
   // Pause UND Uhr stellen. Die Pause allein genuegt nicht: die 15-Minuten-
   // Frist des Skripts laeuft in echter Zeit, und eine Schleife mit
@@ -88,6 +89,11 @@ async function lauf({ pruefungen, dateien }) {
         listFiles: () => {},
         merge: async () => {
           protokoll.push('MERGE');
+          // `mergeFehler` bildet nach, was GitHub bei #221 geantwortet hat:
+          // die ersten Anlaeufe scheitern, ein spaeterer geht durch.
+          const f = mergeFehler[mergeVersuch];
+          mergeVersuch += 1;
+          if (f) throw Object.assign(new Error(f), { status: 405 });
           return { data: { merged: true, sha: 'neu' } };
         },
       },
@@ -200,6 +206,56 @@ test.describe('Auto-Merge: erst die Prüfungen, dann der Merge', () => {
     const r = await lauf({ dateien: ERLAUBT, pruefungen: [[]] });
     expect(r.protokoll, 'ohne eine einzige Prüfung gemerged').not.toContain('MERGE');
     expect(r.gescheitert).toMatch(/keine einzige Pruefung/);
+  });
+
+  test('eine noch nicht verbuchte Prüfung wird nachgereicht, nicht aufgegeben', async () => {
+    // Der Fall von #221 am 30.08.: alle Prüfungen fertig und grün, der
+    // Merge elf Sekunden später abgelehnt mit
+    //   Required status check "PR Check / PR-Validierung" is expected.
+    // GitHub hatte den Check-Run als fertig gemeldet, ihn im Branch-Schutz
+    // aber noch nicht verbucht. Auf fertige Prüfungen zu warten ist nicht
+    // dasselbe wie zu warten, bis GitHub sie anerkennt.
+    const r = await lauf({
+      dateien: ERLAUBT,
+      pruefungen: [[GRUEN]],
+      mergeFehler: [
+        'Repository rule violations found\nRequired status check "PR Check / PR-Validierung (pull_request)" is expected.',
+        'Repository rule violations found\nRequired status check "PR Check / PR-Validierung (pull_request)" is expected.',
+      ],
+    });
+    const versuche = r.protokoll.filter((z) => z === 'MERGE').length;
+    expect(versuche, 'es gab nur einen Merge-Versuch — genau das war der Fehler')
+      .toBeGreaterThan(1);
+    expect(r.gescheitert, `trotz erfolgreichem Nachreichen gescheitert: ${r.gescheitert}`)
+      .toBeNull();
+    expect(r.protokoll, 'nach dem Merge lief der Deploy nicht').toContain('DEPLOY');
+  });
+
+  test('eine endgültige Ablehnung wird NICHT weggeschliffen', async () => {
+    // Anlaeufe duerfen nur die eine Ursache abfangen. Ein Konflikt oder
+    // eine fehlende Berechtigung wiederholt sich nicht von selbst — wer
+    // darauf pocht, merged irgendwann etwas, das nicht gemerged gehoert.
+    const r = await lauf({
+      dateien: ERLAUBT,
+      pruefungen: [[GRUEN]],
+      mergeFehler: Array(9).fill('Resource not accessible by integration'),
+    });
+    const versuche = r.protokoll.filter((z) => z === 'MERGE').length;
+    expect(versuche, 'eine endgültige Ablehnung wurde wiederholt').toBe(1);
+    expect(r.gescheitert).toMatch(/abgelehnt/i);
+    expect(r.protokoll).not.toContain('DEPLOY');
+  });
+
+  test('gibt GitHub dauerhaft nicht nach, steht der Grund am PR', async () => {
+    const r = await lauf({
+      dateien: ERLAUBT,
+      pruefungen: [[GRUEN]],
+      mergeFehler: Array(9).fill('Required status check is expected.'),
+    });
+    expect(r.protokoll).not.toContain('DEPLOY');
+    expect(r.protokoll.some((z) => z.startsWith('KOMMENTAR:')),
+      'der Grund steht wieder nur im Log').toBe(true);
+    expect(r.gescheitert).toBeTruthy();
   });
 
   test('der Rahmen wird weiterhin vor dem Warten geprüft', async () => {

@@ -18,13 +18,58 @@ jobs:
       - name: Check HTTP response
         id: health
         run: |
-          # Try HTTPS first (primary URL)
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          # ── Erreichbar ist nicht dasselbe wie brauchbar ────────────────
+          #
+          # Bis zum 01.09.2026 stand hier `curl -o /dev/null` — der Rumpf
+          # wurde weggeworfen und nur der Statuscode geprueft. Damit gilt
+          # eine voellig leere Seite als "up": ein WordPress-Fatal, ein
+          # halb hochgeladenes Theme oder eine abgestuerzte App liefern
+          # alle brav 200 mit nichts darin.
+          #
+          # Genau das ist passiert: der Inhaber meldete "die Seite ist
+          # down", waehrend der Monitor seit dem 26.08. durchgehend gruen
+          # war und HTTP 200 protokollierte.
+          #
+          # Geprueft werden jetzt DREI Dinge, und ein Ausfall wird
+          # unterschieden statt zusammengeworfen:
+          #   nicht erreichbar   -> down    (DNS, Server, TLS)
+          #   200 ohne Inhalt    -> leer    (PHP-Fatal, halber Deploy)
+          #   200, aber app.js   -> defekt  (Theme unvollstaendig)
+          #      fehlt/winzig
+          RUMPF=$(mktemp)
+          HTTP_CODE=$(curl -s -o "$RUMPF" -w "%{http_code}" \
             --max-time 30 --retry 3 --retry-delay 10 \
             -L "https://xn--eventbrse-57a.de" 2>/dev/null) || true
+          GROESSE=$(wc -c < "$RUMPF" | tr -d ' ')
 
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "✅ HTTPS reachable – HTTP $HTTP_CODE"
+          # Der Marker steht in app-shell.html und damit in jeder
+          # ausgelieferten Seite. Fehlt er, wurde zwar etwas geantwortet,
+          # aber nicht die Anwendung.
+          if grep -q 'id="page-home"' "$RUMPF" 2>/dev/null; then HAT_SHELL=ja; else HAT_SHELL=nein; fi
+
+          # Das Theme-Skript muss ebenfalls da sein. Ein Deploy, der
+          # abbricht, hinterlaesst gern ein gueltiges HTML und eine
+          # fehlende app.js — die Seite laedt dann und tut nichts.
+          JS_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
+            -L "https://xn--eventbrse-57a.de/wp-content/themes/eventboerse/app.js" 2>/dev/null) || true
+
+          echo "HTTP $HTTP_CODE · Rumpf ${GROESSE} Bytes · Shell-Marker $HAT_SHELL · app.js HTTP $JS_CODE"
+          echo "groesse=$GROESSE" >> "$GITHUB_OUTPUT"
+          echo "jscode=$JS_CODE" >> "$GITHUB_OUTPUT"
+          rm -f "$RUMPF"
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ] && [ "$HAT_SHELL" = "nein" ]; then
+            echo "❌ Antwortet mit $HTTP_CODE, aber ohne die Anwendung ($GROESSE Bytes)"
+            echo "status=leer" >> "$GITHUB_OUTPUT"
+            echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+            echo "protocol=https" >> "$GITHUB_OUTPUT"
+          elif [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ] && [ "$JS_CODE" != "200" ]; then
+            echo "❌ Seite da, aber app.js antwortet mit $JS_CODE — Theme unvollstaendig"
+            echo "status=defekt" >> "$GITHUB_OUTPUT"
+            echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+            echo "protocol=https" >> "$GITHUB_OUTPUT"
+          elif [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ HTTPS reachable – HTTP $HTTP_CODE ($GROESSE Bytes, Shell + app.js da)"
             echo "status=up" >> "$GITHUB_OUTPUT"
             echo "code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
             echo "protocol=https" >> "$GITHUB_OUTPUT"
@@ -48,11 +93,17 @@ jobs:
           fi
 
       - name: Create issue if site is down
-        if: steps.health.outputs.status == 'down'
+        if: steps.health.outputs.status == 'down' || steps.health.outputs.status == 'leer' || steps.health.outputs.status == 'defekt'
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `🚨 Site Down – eventbörse.de unreachable (HTTP ${process.env.HTTP_CODE})`;
+            const lage = process.env.LAGE || 'down';
+            const ueberschrift = {
+              down:   'nicht erreichbar',
+              leer:   'antwortet, liefert aber nicht die Anwendung',
+              defekt: 'Seite da, Theme unvollstaendig (app.js fehlt)',
+            }[lage] || 'nicht erreichbar';
+            const title = `🚨 Site Down – eventbörse.de ${ueberschrift} (HTTP ${process.env.HTTP_CODE})`;
             const body = [
               `## Site Monitor Alert`,
               ``,
@@ -63,11 +114,28 @@ jobs:
               `| **Detected** | ${new Date().toISOString()} |`,
               `| **Workflow Run** | [View logs](${process.env.RUN_URL}) |`,
               ``,
-              `### Recommended Actions`,
-              `1. Check IONOS hosting control panel for server status`,
-              `2. Verify FTP deployment completed successfully`,
-              `3. Check DNS settings for eventbörse.de (xn--eventbrse-57a.de)`,
-              `4. Review SSL certificate configuration`,
+              `| **Rumpf** | ${process.env.GROESSE} Bytes |`,
+              `| **app.js** | HTTP ${process.env.JSCODE} |`,
+              ``,
+              `### Was zu tun ist — je nach Lage`,
+              ...(lage === 'leer' ? [
+                `Die Seite ANTWORTET, liefert aber nicht die Anwendung. Das ist`,
+                `kein Netz- und kein DNS-Problem.`,
+                `1. PHP-Fehlerprotokoll bei IONOS ansehen — ein Fatal in`,
+                `   functions.php liefert 200 mit leerem Rumpf`,
+                `2. Wurde der letzte Deploy vollstaendig uebertragen?`,
+                `3. hq-rollback.yml auf den letzten gruenen Stand`,
+              ] : lage === 'defekt' ? [
+                `Das HTML kommt an, app.js nicht. Der Deploy ist zur Haelfte`,
+                `durchgelaufen.`,
+                `1. ionos-deploy.yml erneut starten`,
+                `2. Per SFTP pruefen, ob app.js im Theme-Ordner liegt`,
+              ] : [
+                `1. Check IONOS hosting control panel for server status`,
+                `2. Verify FTP deployment completed successfully`,
+                `3. Check DNS settings for eventbörse.de (xn--eventbrse-57a.de)`,
+                `4. Review SSL certificate configuration`,
+              ]),
             ].join('\n');
 
             // Avoid duplicate issues
@@ -113,6 +181,9 @@ jobs:
             }
         env:
           HTTP_CODE: ${{ steps.health.outputs.code }}
+          LAGE: ${{ steps.health.outputs.status }}
+          GROESSE: ${{ steps.health.outputs.groesse }}
+          JSCODE: ${{ steps.health.outputs.jscode }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Close issue if site is back up
