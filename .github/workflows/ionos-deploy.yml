@@ -22,34 +22,122 @@ jobs:
           node-version: '20'
 
       - name: Minify assets (#6 Part 2)
+        # Ein Schritt ohne Zeitlimit haengt sechs Stunden. Genau das war am
+        # 03.09.2026 der Fall: zweimal hintereinander, auf zwei Runnern.
+        # Gemessen braucht der Schritt rund 10 Sekunden.
+        timeout-minutes: 10
         run: |
+          set -uo pipefail
+
+          # ── Was hier am 03.09.2026 passiert ist ──────────────────────────
+          # Der Deploy stand still, ohne Fehlermeldung, ohne Ende. Das Log des
+          # abgebrochenen Laufs nannte den Grund erst beim Aufraeumen:
+          #
+          #   Terminate orphan process: pid (2208)
+          #     (npm exec csso-cli@4.0.2 --no-restructure styles.css ...)
+          #
+          # `npx --yes csso-cli@4.0.2` hing. Nicht terser -- und der
+          # Unterschied zwischen beiden ist der Schluessel: bei `terser` heisst
+          # das Paket wie sein Programm, bei `csso-cli` heisst das Programm
+          # `csso`. Genau bei dieser Nichtuebereinstimmung fragt npx nach, und
+          # auf einem Runner beantwortet das niemand. Am 26.08. lief derselbe
+          # Schritt in 6 Sekunden; dazwischen hat sich das Runner-Image
+          # geaendert (im Log: "Node 20 is being deprecated ... running with
+          # Node 24 by default").
+          #
+          # Drei Aenderungen, jede gegen eine eigene Fehlerklasse:
+          #   1. Werkzeuge EINMAL fest installieren statt zweimal per npx
+          #      aufloesen -- npx faellt damit ganz aus dem Deploy heraus.
+          #   2. Jeder Aufruf unter `timeout`, dazu `timeout-minutes` am
+          #      Schritt. Ein Haenger endet als Fehler, nicht als Dauerlauf.
+          #   3. In eine ANDERE Datei schreiben und erst bei Erfolg
+          #      verschieben. Vorher stand `-o app.js` -- dieselbe Datei, aus
+          #      der gelesen wird. Bricht der Minifier beim Schreiben ab,
+          #      liegt eine halbe app.js auf der Platte, und der naechste
+          #      Schritt laedt sie zu IONOS hoch.
+          # ────────────────────────────────────────────────────────────────
+          takt () { echo "--- $(date -u +%H:%M:%S) $* ---"; }
+
+          mit_geduld () {
+            local grenze=$1; shift
+            local versuch
+            for versuch in 1 2 3; do
+              if timeout "$grenze" "$@"; then return 0; fi
+              echo "::warning::Versuch $versuch erfolglos oder Zeitlimit (${grenze}s): $*"
+              sleep $(( versuch * 10 ))
+            done
+            return 1
+          }
+
+          takt "hq-protected.php erzeugen"
           node scripts/build-protected-hq.mjs
-          # WICHTIG: Versionen GEPINNT. 'npx --yes terser' (ohne Pin) zog bei
-          # jedem Deploy die neueste Version — ein Minifier-Update kann aus
-          # identischem Quellcode plötzlich kaputtes JS erzeugen und die Seite
-          # lahmlegen (passiert am 2026-06-24). Bei Updates: Version hier
-          # bewusst anheben und vorher testen.
+
+          # WICHTIG: Versionen GEPINNT. 'terser' ohne Pin zog bei jedem Deploy
+          # die neueste Version — ein Minifier-Update kann aus identischem
+          # Quellcode plötzlich kaputtes JS erzeugen und die Seite lahmlegen
+          # (passiert am 2026-06-24). Bei Updates: Version hier bewusst
+          # anheben und vorher testen.
+          #
+          # csso-cli (CLI-Paket) max. 4.0.2 — "5.0.5" war die Version der
+          # csso-LIB, die das CLI ausgibt. Pin auf 5.0.5 existierte nicht →
+          # CSS lief unminifiziert.
+          takt "Minifier installieren (terser 5.48.0, csso-cli 4.0.2)"
+          WERKZEUG=$(mktemp -d)
+          trap 'rm -rf "$WERKZEUG"' EXIT
+          mit_geduld 180 npm install --prefix "$WERKZEUG" \
+              --no-audit --no-fund --loglevel=error \
+              terser@5.48.0 csso-cli@4.0.2 \
+            || { echo "::error::Minifier nicht installierbar — Abbruch, damit nichts Unminifiziertes hochgeht."; exit 1; }
+          # Die Namen sind NICHT symmetrisch: das Paket heisst `csso-cli`,
+          # sein Programm `csso`. Genau daran hing npx.
+          TERSER="$WERKZEUG/node_modules/.bin/terser"
+          CSSO="$WERKZEUG/node_modules/.bin/csso"
+          # Nur terser wird hier hart geprueft. Fuer csso waere ein Abbruch ein
+          # Widerspruch zu der Zusage weiter unten, dass ein CSS-Ausfall den
+          # Deploy nicht abbricht -- ein fehlendes Programm ist dort nichts
+          # anderes als ein fehlgeschlagener Lauf und faellt in denselben Zweig.
+          [ -x "$TERSER" ] || { echo "::error::terser fehlt nach der Installation."; exit 1; }
+
           echo "Vorher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
-          npx --yes terser@5.48.0 app.js --compress --mangle -o app.js
+
+          takt "app.js minifizieren"
+          mit_geduld 300 "$TERSER" app.js --compress --mangle -o "$WERKZEUG/app.min.js" \
+            || { echo "::error::terser erfolglos — app.js bleibt unveraendert, Deploy abgebrochen."; exit 1; }
+          mv "$WERKZEUG/app.min.js" app.js
+
           # Gate 1: gültiges JS?
           node --check app.js
           # Gate 2: Inline-Handler-Globals noch da? (mangle.toplevel=false -> ja)
           for fn in navigateTo toggleFavorite sendMessage filterListings _startChatPoll; do
             grep -q "function $fn" app.js || { echo "FATAL: $fn fehlt nach Minify - Abbruch"; exit 1; }
           done
-          # CSS (csso-cli, gepinnt). Fehler ist NICHT fatal — unminifiziertes
-          # CSS bricht die Seite nicht, deshalb Deploy nicht abbrechen.
-          # csso-cli (CLI-Paket) max. 4.0.2 — "5.0.5" war die Version der csso-LIB,
-          # die das CLI ausgibt. Pin auf 5.0.5 existierte nicht → CSS lief unminifiziert.
+
+          # CSS. Fehler ist NICHT fatal — unminifiziertes CSS bricht die Seite
+          # nicht, deshalb Deploy nicht abbrechen.
           #
-          # --no-restructure ist PFLICHT: csso zieht sonst Deklarationen zwischen
-          # Regeln um und schiebt dabei die `background`-Kurzform HINTER
-          # `background-clip: text`. Die Kurzform setzt background-clip zurück →
-          # Verlaufsschrift (Hero-Headline, KI-Funken) wird als massiver Farbblock
-          # gerendert. Lokal unauffällig, nur in Produktion sichtbar.
-          npx --yes csso-cli@4.0.2 --no-restructure styles.css -o styles.css || echo "⚠️ csso-cli fehlgeschlagen — deploye unminifiziertes styles.css"
+          # --no-restructure ist PFLICHT: csso zieht sonst Deklarationen
+          # zwischen Regeln um und schiebt dabei die `background`-Kurzform
+          # HINTER `background-clip: text`. Die Kurzform setzt background-clip
+          # zurück → Verlaufsschrift (Hero-Headline, KI-Funken) wird als
+          # massiver Farbblock gerendert. Lokal unauffällig, nur in Produktion
+          # sichtbar.
+          takt "styles.css minifizieren"
+          if mit_geduld 180 "$CSSO" --no-restructure styles.css -o "$WERKZEUG/styles.min.css"; then
+            mv "$WERKZEUG/styles.min.css" styles.css
+          else
+            echo "⚠️ csso erfolglos — deploye unminifiziertes styles.css"
+          fi
+
           # Gate: Verlaufsschrift muss nach dem Minify intakt sein.
-          if ! grep -q 'background-clip:text' styles.css; then
+          #
+          # BEIDE Schreibweisen. Vorher stand hier nur `background-clip:text`
+          # ohne Leerzeichen — die Form, die erst csso erzeugt. Gemessen am
+          # 03.09.2026: unminifiziert 0 Treffer (14-mal MIT Leerzeichen), nach
+          # csso 1 Treffer. Ein csso-Ausfall brach den Deploy also doch ab,
+          # obwohl drei Zeilen darueber steht, dass er das nicht soll — und
+          # zwar mit der Meldung, die Verlaufsschrift sei verloren, waehrend
+          # sie unversehrt war.
+          if ! grep -qE 'background-clip: ?text' styles.css; then
             echo "FATAL: background-clip:text nach Minify verloren - Abbruch"; exit 1;
           fi
           echo "Nachher: app.js $(wc -c < app.js) B, styles.css $(wc -c < styles.css) B"
