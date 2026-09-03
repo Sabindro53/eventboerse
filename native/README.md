@@ -163,3 +163,66 @@ Bereits erfüllt, ohne dass etwas zu tun wäre:
   den Einstellungen. Ohne das gibt es keine Freigabe.
 - **Datenschutzerklärung, Impressum, AGB** — 15 Pflichtseiten, alle erreichbar
   (`node scripts/recht.mjs --check`).
+
+---
+
+## Der Prüfzugang — Guideline 2.1
+
+**Ohne Zugangsdaten wird nicht geprüft, sondern abgelehnt.** Wer die App
+öffnet, sieht Startseite und Suche; Board, Nachrichten und Buchung liegen
+hinter der Anmeldung — und das ist praktisch die ganze Anwendung. Apple
+verlangt für alles hinter einem Login einen funktionierenden Demo-Zugang im
+Feld **App Review Information → Sign-In Information**.
+
+**Zwei Konten, nicht eines.** Die Rolle wird bei der Registrierung vergeben und
+steht danach fest (`functions.php`: `$wp_role = ( $payload['role'] === 'provider' ) ? 'dienstleister' : 'event_planer'`).
+Ein Konto kann also nicht beides. Der Prüfer sieht sonst nur die Hälfte:
+
+| Rolle | Was der Prüfer damit sieht |
+|---|---|
+| `event_planer` | Board, Suche, Anfrage, Buchungsstrecke, Chat |
+| `dienstleister` | Inserat anlegen und verwalten, eingehende Anfragen, Cockpit |
+
+App Store Connect nimmt **ein** Paar Zugangsdaten. Das Planer-Konto gehört in
+die Felder, das Anbieter-Konto in **Notes** — dort ist Platz für Fliesstext.
+
+**Beide Konten brauchen Inhalt.** Ein leerer Bildschirm wird als unfertige App
+gelesen und nach 2.1 abgelehnt; das ist der häufigste Ablehnungsgrund
+überhaupt. Vor der Einreichung also im Planer-Konto ein Projekt mit ein paar
+Positionen anlegen und im Anbieter-Konto ein vollständiges Inserat mit Bildern.
+
+**Die Adresse muss auf der echten Domain liegen.** Die Domain ist
+`eventbörse.de` (Punycode `xn--eventbrse-57a.de`) — `eventboerse.de` ohne
+Umlaut ist **nicht** unsere Domain, eine Adresse dort existiert nicht, und der
+Prüfer bekäme bei einem Passwort-Zurücksetzen nichts. Als Weiterleitung steht
+`testaccount@eventbörse.de` bereits bei IONOS.
+
+### Die Zahlung kann der Prüfer nicht abschliessen — und das ist in Ordnung
+
+`EB_STRIPE_MODE` schaltet Test- und Live-Schlüssel **global** um, nicht je
+Konto. Läuft die Seite live, verlangt der letzte Schritt eine echte Karte.
+
+Das ist kein Hindernis, sondern die Folge von **3.1.3(e)**: vermittelt werden
+reale Leistungen — DJ, Catering, Location. Ein Prüfer bucht so wenig einen
+echten DJ, wie er ein echtes Hotelzimmer bucht. Er muss die Strecke **sehen**
+können, nicht abschliessen.
+
+In die Review-Notes gehört deshalb ein Satz, der genau das sagt: dass die
+Buchung eine reale Dienstleistung auslöst, die Zahlung über Stripe an den
+Anbieter geht und die Plattform nur eine Vermittlungsgebühr einbehält — kein
+digitaler Inhalt, also kein Fall für In-App-Kauf.
+
+**Wer den Prüfer die Strecke durchspielen lassen will**, stellt vor der
+Einreichung `EB_STRIPE_MODE` auf `test` und gibt in den Notes Stripes Testkarte
+`4242 4242 4242 4242` an. Das ist die gründlichere Variante — sie schaltet aber
+die Kasse für **alle** Besucher auf Testschlüssel, taugt also nur, solange
+noch keine echten Buchungen laufen. **Nach der Freigabe zurückstellen**, sonst
+nimmt die Seite kein Geld mehr ein.
+
+### Was in App Store Connect einzutragen ist
+
+- **Sign-In required**: ja
+- **Username / Password**: das Planer-Konto
+- **Notes**: das Anbieter-Konto mit Zugangsdaten, der Satz zu 3.1.3(e) oben,
+  und — falls Testmodus — die Testkarte
+- **Contact Information**: eine Person, die Apple wirklich erreicht
