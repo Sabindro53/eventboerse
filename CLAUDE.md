@@ -276,47 +276,74 @@ außerhalb des Boards laufen. Nach Funktion gemessen bleiben 148 KB roh und
 Verhältnis, denn die Module teilen globalen Zustand über `var`. Zurückgestellt,
 ausdrückliche Entscheidung des Inhabers am 31.08.2026.
 
-### Was der Besucher wirklich erlebt — am 31.08.2026 live gemessen
+### Was der Besucher wirklich erlebt — am 04.09.2026 live gemessen
 
 Die Tabelle oben zählt Bytes. Sie sagt nicht, wie lange jemand auf eine leere
 Fläche sieht. Der Lighthouse-Lauf gegen **die Live-Seite** sagt es:
 
-| | gemessen | Bedeutung |
-|---|---:|---|
-| First Contentful Paint | 2,8 s | erstes Pixel |
-| **Largest Contentful Paint** | **8,5 s** | die Seite sieht fertig aus |
-| Speed Index | 10,0 s | |
-| **Time to Interactive** | **10,4 s** | ein Druck bewirkt etwas |
-| Total Blocking Time | 1760 ms | Hauptthread blockiert |
-| Server-Antwortzeit | 1260 ms | IONOS, vor jedem Byte |
+| | 31.08. | **04.09.** | Bedeutung |
+|---|---:|---:|---|
+| First Contentful Paint | 2,8 s | **2,2 s** | erstes Pixel |
+| **Largest Contentful Paint** | 8,5 s | **5,9 s** | die Seite sieht fertig aus |
+| Speed Index | 10,0 s | **6,0 s** | |
+| **Time to Interactive** | 10,4 s | **6,1 s** | ein Druck bewirkt etwas |
+| Total Blocking Time | 1760 ms | **460 ms** | Hauptthread blockiert |
+| Server-Antwortzeit | 1260 ms | **150 ms** | IONOS, vor jedem Byte |
+| **Performance** | **35** | **60** | |
 
-Barrierefreiheit 95, SEO 85, Performance **35**. Gedrosseltes Mobilprofil —
-der Regelfall, nicht der ungünstigste.
+Barrierefreiheit 95, SEO 85, Best Practices 75 — unverändert. Gedrosseltes
+Mobilprofil, der Regelfall unserer Besucher, nicht der günstigste.
+
+**Eine Messung unmittelbar nach dem Deploy misst den Deploy, nicht die Seite.**
+Der erste Lauf am 04.09. startete **80 Sekunden** nach dem SFTP-Upload und
+meldete Performance **35** bei einer Server-Antwortzeit von **4140 ms** — also
+scheinbar dreimal schlechter als vorher. Fünf Minuten später, am selben
+Commit: **60** und **150 ms**. Ein SFTP-Deploy ersetzt jede PHP-Datei und macht
+damit den Opcode-Zwischenspeicher für alle ungültig; `functions.php` allein
+sind über 7000 Zeilen, die PHP beim ersten Treffer neu übersetzt. Wer den
+ersten Lauf für bare Münze nimmt, sucht einen Fehler, den es nicht gibt — und
+wer ihn für den neuen Normalzustand hält, meldet einen Rückschritt, den es
+auch nicht gibt.
+
+**Deshalb bleibt die Lighthouse-Schranke bei 25.** Der gemessene Abstand
+zwischen kalt und warm beträgt am selben Commit **25 Punkte**; eine Schranke
+nahe dem Bestwert löste bei jedem Deploy aus und wäre in zwei Wochen
+abgeschaltet.
+
+**Was davon nachweislich uns gehört**, weil es Zählwerte sind und nicht
+schwankt: **1795 KB statt 2189 KB** und **54 statt 64 Anfragen**, `styles.css`
+und `fonts.css` je **einmal** statt zweimal, **keine** Anfrage mehr an
+`js.stripe.com` beim blossen Besuch, keine Gutenberg-Stile. Alle vier am
+Bericht des Laufs nachgeprüft, nicht angenommen.
+
+**Was vermutlich nicht uns gehört:** die Server-Antwortzeit. 1260 ms → 150 ms
+ist zu viel für Änderungen, die den Server nicht anfassen — plausibler ist,
+dass schon die 1260 ms vom 31.08. ein ungünstiger Moment waren. TBT
+1760 ms → 460 ms dagegen hat einen sauberen Weg: 250 KB Stripe.js, 70 KB
+doppelte Stylesheets und 18 KB Gutenberg-CSS weniger zu parsen.
 
 **Das ist der „Ausfall" vom 01.09.2026.** Gemeldet wurde „die Seite ist down".
 Der Monitor stand auf 200, Lighthouse zeigt eine vollständig gerenderte
 Startseite. Beides stimmt: wer auf dem Telefon zehn Sekunden lang auf etwas
 drückt, das nicht reagiert, hat eine kaputte Seite vor sich — und liegt damit
-richtig. Ein Statuscode kann diese Sorte Ausfall nicht sehen.
+richtig. Ein Statuscode kann diese Sorte Ausfall nicht sehen. Mit 6,1 s bis
+zur Bedienbarkeit ist das nicht behoben, aber halbiert.
 
-Die Zusammensetzung, gemessen statt geschätzt: **2189 KB in 64 Anfragen**,
-davon **1285 KB Bilder** (59 %). Die vier größten Inseratsbilder tragen allein
-994 KB — Originalgrößen aus der Mediathek, ohne `srcset`, ohne WebP.
-
-**Der Hauptthread ist nicht durch JavaScript belegt.** Script Evaluation 1501 ms,
-aber Style & Layout **3655 ms** und „Other" 5451 ms. Bei 17 200 Zeilen CSS und
-191 Bild-Elementen auf der Startseite ist das Layout die teure Arbeit, nicht der
-Code. **Wer hier zuerst am JavaScript spart, spart an der falschen Stelle.**
+**Der Hauptthread ist nicht durch JavaScript belegt.** Am 31.08. gemessen:
+Script Evaluation 1501 ms, aber Style & Layout **3655 ms** und „Other"
+5451 ms. Bei 17 200 Zeilen CSS und 191 Bild-Elementen auf der Startseite ist
+das Layout die teure Arbeit, nicht der Code. **Wer hier zuerst am JavaScript
+spart, spart an der falschen Stelle.**
 
 **Das LCP-Element ist kein Foto.** Es ist `<div class="ai-hero-shot">` mit
-einem Inline-SVG als Hintergrund — ein Element ohne Netzanfrage. Die 8,5 s
-hängen also an TTFB, aufbaublockierendem CSS und der Ausführung von `app.js`,
-nicht am Bilddownload. Wer die Bilder optimiert, um das LCP zu senken,
-optimiert am Ziel vorbei; Bilder sind ein Bandbreiten-, kein LCP-Posten.
+einem Inline-SVG als Hintergrund — ein Element ohne Netzanfrage. Das LCP hängt
+also an TTFB, aufbaublockierendem CSS und der Ausführung von `app.js`, nicht am
+Bilddownload. Wer die Bilder optimiert, um das LCP zu senken, optimiert am Ziel
+vorbei; Bilder sind ein Bandbreiten-, kein LCP-Posten.
 
-Offene Posten in der Reihenfolge ihres Gewichts: Server-Antwortzeit (1260 ms,
-IONOS-seitig), Stripe.js (250 KB auf **jeder** Seite), Elementor- und
-Gutenberg-CSS (aufbaublockierend, vom Theme nicht gebraucht).
+**Der grösste verbliebene Einzelposten ist WebP: 660 KB.** Die Route dafür ist
+seit dem 04.09. live, die Nachrüstung läuft im HQ über den 🗜️-Knopf. Erledigt
+sind dagegen Stripe.js, die doppelten Stylesheets und das Gutenberg-CSS.
 
 ### Bilder: das Format, nicht die Größe
 
