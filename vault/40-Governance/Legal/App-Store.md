@@ -97,16 +97,30 @@ App-Tracking-Transparency-Dialog.
 
 ## Offen
 
-Nur noch, was ein Apple-Entwicklerkonto oder einen Mac braucht:
+Nur noch, was ein Apple-Entwicklerkonto, einen Mac oder eine Entscheidung des
+Inhabers braucht:
 
-- **`EB_APPLE_TEAM_ID`** in `wp-config.php` eintragen. Die Auslieferung von
-  `/.well-known/apple-app-site-association` steht seit dem 02.09.2026
-  (`eb_apple_zuordnung_ausliefern`); ohne die Konstante liefert die Route
-  bewusst 404. Eine Zuordnung mit Platzhalter wäre schlimmer als keine —
-  Apple holt sie einmal beim Installieren ab und merkt sich das Ergebnis.
+- **Händlerstatus nach DSA Art. 30/31.** Pflicht für **jede** App im
+  EU-App-Store, ohne ihn keine Listung. Als **natürliche Person** erfüllbar —
+  Adresse **oder Postfach**, Telefon, E-Mail; eine UG oder GmbH verlangt Apple
+  dafür ausdrücklich nicht. Apple veröffentlicht die verifizierten Angaben auf
+  der Produktseite, das Postfach ist deshalb die überlegtere Wahl. Ein späterer
+  Wechsel von Individual auf Organization ist kein Schalter: er braucht eine
+  D-U-N-S-Nummer und einen App-Transfer.
+- **Zwei Prüfkonten mit Inhalt** (Guideline 2.1). Die Rolle steht bei der
+  Registrierung fest, ein Konto kann nicht Planer **und** Anbieter sein — der
+  Prüfer sähe sonst die Hälfte. Ein leerer Bildschirm gilt als unfertige App
+  und ist der häufigste Ablehnungsgrund überhaupt. Adressen auf
+  `eventbörse.de`, nicht auf `eventboerse.de`. Einzelheiten und der Wortlaut
+  für die Review-Notes: `native/README.md`.
 - **APNs-Schlüssel** für Push.
 - **Xcode-Projekt** erzeugen (`npx cap add ios`) und die Zwecktexte aus
   `native/Info.plist-zwecktexte.md` übernehmen.
+- **Entscheidung `EB_STRIPE_MODE`** für die Prüfung. Der Schalter gilt global,
+  nicht je Konto: entweder der Prüfer sieht die Buchungsstrecke, ohne sie
+  abzuschliessen (richtig nach 3.1.3(e) — vermittelt werden reale Leistungen),
+  oder die Seite steht kurzzeitig auf Testschlüsseln und nimmt so lange von
+  **niemandem** Geld an.
 
 Erledigt und nicht mehr offen:
 

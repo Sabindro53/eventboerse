@@ -669,6 +669,64 @@ zu Demo-Konten wirklich an `eb_ops_notify_address()` um, und sagt das auch.
 Dort ist die Aussage richtig, und der Test misst deshalb nur den Rumpf von
 `eb_send_invoice`.
 
+### Der Deploy hing an einem Fragezeichen
+
+Am 03.09.2026 blieb der Deploy zweimal hintereinander stehen, auf zwei
+verschiedenen Runnern, jeweils über sechs Minuten — bei einer Referenz von
+**6 Sekunden** (Lauf #1044 am 26.08.). Keine Fehlermeldung, kein Ende: ohne
+Zeitlimit hätte GitHub den Job sechs Stunden laufen lassen.
+
+Das Log nannte den Grund erst beim Aufräumen des abgebrochenen Laufs:
+
+```
+Terminate orphan process: pid (2208)
+  (npm exec csso-cli@4.0.2 --no-restructure styles.css -o styles.css)
+```
+
+**Nicht terser — csso.** Und der Unterschied zwischen beiden ist die ganze
+Ursache: bei `terser` heißt das Paket wie sein Programm, bei **`csso-cli`
+heißt das Programm `csso`**. Bei dieser Nichtübereinstimmung fragt `npx` nach,
+und auf einem Runner beantwortet das niemand. Dass es am 26.08. noch lief,
+liegt an der Umgebung, nicht an uns — im selben Log steht *„Node 20 is being
+deprecated … running with Node 24 by default"*.
+
+**Der Gegentest hat die naheliegende Erklärung widerlegt.** „npm ist gerade
+langsam" wäre plausibel gewesen — bis die E2E-Suite von #230 im selben
+Zeitfenster durchlief, mit `npm ci` und Playwright-Installation auf derselben
+Infrastruktur. Eine Vermutung, die ein paralleler Lauf widerlegt, ist billiger
+zu prüfen als zu glauben.
+
+Drei Änderungen, jede gegen eine eigene Fehlerklasse:
+
+1. **Die Werkzeuge werden einmal fest installiert** (`npm install --prefix`,
+   gemessen 2 s) und über ihren Pfad aufgerufen. `npx` fällt damit ganz aus
+   dem Deploy heraus — mit ihm die Auflösung, die zur Laufzeit nachfragt.
+2. **Jeder Aufruf unter `timeout`, der Schritt unter `timeout-minutes`.** Ein
+   Hänger endet als Fehler, nicht als Dauerlauf.
+3. **Geschrieben wird in eine andere Datei, verschoben erst bei Erfolg.**
+   Vorher stand `-o app.js` — dieselbe Datei, aus der gelesen wird. Bricht der
+   Minifier beim Schreiben ab, liegt eine halbe `app.js` auf der Platte, und
+   der nächste Schritt lädt sie zu IONOS hoch.
+
+**Dabei fiel ein zweiter, älterer Fehler auf.** Der CSS-Schritt ist
+ausdrücklich als nicht-fatal gebaut („unminifiziertes CSS bricht die Seite
+nicht"). Das Tor unmittelbar danach suchte aber `background-clip:text`
+**ohne Leerzeichen** — die Schreibweise, die erst csso erzeugt. Gemessen:
+unminifiziert **0 Treffer** (14-mal *mit* Leerzeichen), nach csso **1**. Ein
+csso-Ausfall brach den Deploy also doch ab, und zwar mit der Meldung, die
+Verlaufsschrift sei verloren, während sie unversehrt war. Das Tor prüft jetzt
+beide Schreibweisen.
+
+**Ein Prüfer, der aus dem falschen Grund rot meldet, kostet mehr als keiner** —
+man sucht dann am falschen Ende. Dieselbe Mechanik wie bei Lighthouse, nur im
+Deploy.
+
+Vier Verhalten sind mutationsgeprüft, der Schritt wird dafür aus dem Workflow
+herausgeschnitten und wirklich ausgeführt: Normalfall (4,5 s, gültiges JS),
+fehlendes csso (**Exit 0**, Rückfall gemeldet, `app.js` trotzdem minifiziert),
+dieselbe Lage mit dem alten Tor (**Exit 1** — der Fehler), fehlendes terser
+(Exit 1, `app.js` byte-identisch).
+
 ### Lighthouse war neunmal rot — und hat neunmal gemessen
 
 Vom 09.07. bis 01.09.2026 scheiterte jeder Lauf. Nicht an der Messung, die lag
