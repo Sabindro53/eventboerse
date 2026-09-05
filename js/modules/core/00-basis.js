@@ -65,7 +65,7 @@
   if (typeof Image !== 'undefined') {
     document.addEventListener('error', function(e){
       var t = e.target;
-      if (!t || t.tagName !== 'IMG' || !t.src) return;
+      if (!t || t.tagName !== 'IMG') return;
       if (t.src.indexOf('api.dicebear.com') === -1) return;
       // Fallback auf lokalen Avatar
       var m = t.src.match(/seed=([^&]+)/);
@@ -433,7 +433,7 @@ window.EB_IMG_EAGER_ATTR = ' loading="eager" decoding="async" fetchpriority="hig
   document.addEventListener('error', function(e) {
     var el = e && e.target;
     if (!el || el.tagName !== 'IMG') return;
-    // Schon ein Fallback gesetzt? -> nichts tun (keine Endlosschleife).
+    // Already has fallback? -> skip (no infinite loop).
     if (el.dataset.ebFallback === 'done') return;
     // Render-Stelle hat einen eigenen inline-onerror -> der kümmert sich selbst.
     if (el.getAttribute('onerror')) return;
