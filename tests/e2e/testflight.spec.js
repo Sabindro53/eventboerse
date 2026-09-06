@@ -185,3 +185,32 @@ test.describe('Der Haendlerstatus blockiert TestFlight nicht', () => {
     expect(tf).toMatch(/Beta App Review/);
   });
 });
+
+test.describe('Altersfreigabe: die Stufe haengt an einer Konfigurationszeile', () => {
+  test('„unrestricted web access" ist unsere Konfiguration, nicht eine Meinung', () => {
+    // Apple ordnet „unrestricted web access" der Stufe 16+ zu. Bei uns trifft
+    // das zu, weil die Navigation NICHT auf die eigene Domain begrenzt ist.
+    // Wer das umstellt, aendert die Grundlage der Einstufung — und der Vault
+    // behauptete sie danach weiter, ohne dass jemand es merkt.
+    const cap = JSON.parse(lies('native', 'capacitor.config.json'));
+    expect(cap.ios.limitsNavigationsToAppBoundDomains,
+      'limitsNavigationsToAppBoundDomains ist nicht mehr false. Damit faellt '
+      + '„unrestricted web access" weg und die dokumentierte Stufe 16+ stimmt '
+      + 'womoeglich nicht mehr — App-Store.md nachziehen, bevor eingereicht wird.')
+      .toBe(false);
+
+    const vault = lies('vault', '40-Governance', 'Legal', 'App-Store.md');
+    expect(vault, 'die Stufe 16+ ist nicht dokumentiert').toMatch(/\b16\+/);
+    expect(vault, 'die Begruendung nennt die Konfigurationszeile nicht')
+      .toContain('limitsNavigationsToAppBoundDomains');
+  });
+
+  test('die Unterlagen wissen, dass 17+ abgeschafft ist', () => {
+    // Positiv geprueft, nicht negativ: ein `not.toContain('17+')` faende den
+    // eigenen Erklaertext, der die alte Stufe ja nennen MUSS, um sie zu
+    // korrigieren. Dieselbe Falle wie beim Umlaut in den Entitlements.
+    const vault = lies('vault', '40-Governance', 'Legal', 'App-Store.md');
+    expect(vault, 'die Umstellung des Rasters ist nicht vermerkt')
+      .toMatch(/4\+[^\n]*9\+[^\n]*13\+[^\n]*16\+[^\n]*18\+/);
+  });
+});
