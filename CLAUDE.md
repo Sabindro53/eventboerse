@@ -276,47 +276,74 @@ außerhalb des Boards laufen. Nach Funktion gemessen bleiben 148 KB roh und
 Verhältnis, denn die Module teilen globalen Zustand über `var`. Zurückgestellt,
 ausdrückliche Entscheidung des Inhabers am 31.08.2026.
 
-### Was der Besucher wirklich erlebt — am 31.08.2026 live gemessen
+### Was der Besucher wirklich erlebt — am 04.09.2026 live gemessen
 
 Die Tabelle oben zählt Bytes. Sie sagt nicht, wie lange jemand auf eine leere
 Fläche sieht. Der Lighthouse-Lauf gegen **die Live-Seite** sagt es:
 
-| | gemessen | Bedeutung |
-|---|---:|---|
-| First Contentful Paint | 2,8 s | erstes Pixel |
-| **Largest Contentful Paint** | **8,5 s** | die Seite sieht fertig aus |
-| Speed Index | 10,0 s | |
-| **Time to Interactive** | **10,4 s** | ein Druck bewirkt etwas |
-| Total Blocking Time | 1760 ms | Hauptthread blockiert |
-| Server-Antwortzeit | 1260 ms | IONOS, vor jedem Byte |
+| | 31.08. | **04.09.** | Bedeutung |
+|---|---:|---:|---|
+| First Contentful Paint | 2,8 s | **2,2 s** | erstes Pixel |
+| **Largest Contentful Paint** | 8,5 s | **5,9 s** | die Seite sieht fertig aus |
+| Speed Index | 10,0 s | **6,0 s** | |
+| **Time to Interactive** | 10,4 s | **6,1 s** | ein Druck bewirkt etwas |
+| Total Blocking Time | 1760 ms | **460 ms** | Hauptthread blockiert |
+| Server-Antwortzeit | 1260 ms | **150 ms** | IONOS, vor jedem Byte |
+| **Performance** | **35** | **60** | |
 
-Barrierefreiheit 95, SEO 85, Performance **35**. Gedrosseltes Mobilprofil —
-der Regelfall, nicht der ungünstigste.
+Barrierefreiheit 95, SEO 85, Best Practices 75 — unverändert. Gedrosseltes
+Mobilprofil, der Regelfall unserer Besucher, nicht der günstigste.
+
+**Eine Messung unmittelbar nach dem Deploy misst den Deploy, nicht die Seite.**
+Der erste Lauf am 04.09. startete **80 Sekunden** nach dem SFTP-Upload und
+meldete Performance **35** bei einer Server-Antwortzeit von **4140 ms** — also
+scheinbar dreimal schlechter als vorher. Fünf Minuten später, am selben
+Commit: **60** und **150 ms**. Ein SFTP-Deploy ersetzt jede PHP-Datei und macht
+damit den Opcode-Zwischenspeicher für alle ungültig; `functions.php` allein
+sind über 7000 Zeilen, die PHP beim ersten Treffer neu übersetzt. Wer den
+ersten Lauf für bare Münze nimmt, sucht einen Fehler, den es nicht gibt — und
+wer ihn für den neuen Normalzustand hält, meldet einen Rückschritt, den es
+auch nicht gibt.
+
+**Deshalb bleibt die Lighthouse-Schranke bei 25.** Der gemessene Abstand
+zwischen kalt und warm beträgt am selben Commit **25 Punkte**; eine Schranke
+nahe dem Bestwert löste bei jedem Deploy aus und wäre in zwei Wochen
+abgeschaltet.
+
+**Was davon nachweislich uns gehört**, weil es Zählwerte sind und nicht
+schwankt: **1795 KB statt 2189 KB** und **54 statt 64 Anfragen**, `styles.css`
+und `fonts.css` je **einmal** statt zweimal, **keine** Anfrage mehr an
+`js.stripe.com` beim blossen Besuch, keine Gutenberg-Stile. Alle vier am
+Bericht des Laufs nachgeprüft, nicht angenommen.
+
+**Was vermutlich nicht uns gehört:** die Server-Antwortzeit. 1260 ms → 150 ms
+ist zu viel für Änderungen, die den Server nicht anfassen — plausibler ist,
+dass schon die 1260 ms vom 31.08. ein ungünstiger Moment waren. TBT
+1760 ms → 460 ms dagegen hat einen sauberen Weg: 250 KB Stripe.js, 70 KB
+doppelte Stylesheets und 18 KB Gutenberg-CSS weniger zu parsen.
 
 **Das ist der „Ausfall" vom 01.09.2026.** Gemeldet wurde „die Seite ist down".
 Der Monitor stand auf 200, Lighthouse zeigt eine vollständig gerenderte
 Startseite. Beides stimmt: wer auf dem Telefon zehn Sekunden lang auf etwas
 drückt, das nicht reagiert, hat eine kaputte Seite vor sich — und liegt damit
-richtig. Ein Statuscode kann diese Sorte Ausfall nicht sehen.
+richtig. Ein Statuscode kann diese Sorte Ausfall nicht sehen. Mit 6,1 s bis
+zur Bedienbarkeit ist das nicht behoben, aber halbiert.
 
-Die Zusammensetzung, gemessen statt geschätzt: **2189 KB in 64 Anfragen**,
-davon **1285 KB Bilder** (59 %). Die vier größten Inseratsbilder tragen allein
-994 KB — Originalgrößen aus der Mediathek, ohne `srcset`, ohne WebP.
-
-**Der Hauptthread ist nicht durch JavaScript belegt.** Script Evaluation 1501 ms,
-aber Style & Layout **3655 ms** und „Other" 5451 ms. Bei 17 200 Zeilen CSS und
-191 Bild-Elementen auf der Startseite ist das Layout die teure Arbeit, nicht der
-Code. **Wer hier zuerst am JavaScript spart, spart an der falschen Stelle.**
+**Der Hauptthread ist nicht durch JavaScript belegt.** Am 31.08. gemessen:
+Script Evaluation 1501 ms, aber Style & Layout **3655 ms** und „Other"
+5451 ms. Bei 17 200 Zeilen CSS und 191 Bild-Elementen auf der Startseite ist
+das Layout die teure Arbeit, nicht der Code. **Wer hier zuerst am JavaScript
+spart, spart an der falschen Stelle.**
 
 **Das LCP-Element ist kein Foto.** Es ist `<div class="ai-hero-shot">` mit
-einem Inline-SVG als Hintergrund — ein Element ohne Netzanfrage. Die 8,5 s
-hängen also an TTFB, aufbaublockierendem CSS und der Ausführung von `app.js`,
-nicht am Bilddownload. Wer die Bilder optimiert, um das LCP zu senken,
-optimiert am Ziel vorbei; Bilder sind ein Bandbreiten-, kein LCP-Posten.
+einem Inline-SVG als Hintergrund — ein Element ohne Netzanfrage. Das LCP hängt
+also an TTFB, aufbaublockierendem CSS und der Ausführung von `app.js`, nicht am
+Bilddownload. Wer die Bilder optimiert, um das LCP zu senken, optimiert am Ziel
+vorbei; Bilder sind ein Bandbreiten-, kein LCP-Posten.
 
-Offene Posten in der Reihenfolge ihres Gewichts: Server-Antwortzeit (1260 ms,
-IONOS-seitig), Stripe.js (250 KB auf **jeder** Seite), Elementor- und
-Gutenberg-CSS (aufbaublockierend, vom Theme nicht gebraucht).
+**Der grösste verbliebene Einzelposten ist WebP: 660 KB.** Die Route dafür ist
+seit dem 04.09. live, die Nachrüstung läuft im HQ über den 🗜️-Knopf. Erledigt
+sind dagegen Stripe.js, die doppelten Stylesheets und das Gutenberg-CSS.
 
 ### Bilder: das Format, nicht die Größe
 
@@ -510,10 +537,31 @@ driften sie, schriebe der Deploy einen Wert, den PHP anschliessend verwirft,
 und meldete dabei Erfolg.
 
 **Noch offen:** Zwecktexte in `Info.plist`, APNs-Schlüssel — beides nur in
-Xcode bzw. im Entwicklerkonto zu machen. Dazu der **Händlerstatus** nach DSA
-Art. 30/31: Pflicht für jede App im EU-App-Store, erfüllbar als natürliche
-Person (Adresse **oder Postfach**, Telefon, E-Mail) — eine Kapitalgesellschaft
-verlangt Apple dafür nicht.
+Xcode bzw. im Entwicklerkonto zu machen.
+
+**Der Händlerstatus blockiert TestFlight nicht.** Hier stand bis zum
+06.09.2026, er sei „Pflicht für jede App im EU-App-Store" — als Vorbedingung
+gelesen, und so war er auch als erster Punkt der Startreihenfolge geführt.
+Apples eigene Hilfe sagt für genau diesen Fall das Gegenteil:
+
+> *„If you don't distribute apps on the App Store in the EU (for example you
+> only distribute apps through alternative distribution, or TestFlight, or on
+> the App Store only outside the EU), you're not acting as a trader on the
+> App Store."*
+
+**Erklären** muss man den Status trotzdem immer („Even if you don't distribute
+apps in the EU, you'll still need to declare a trader status"), **verifizieren**
+nur für die öffentliche EU-Listung. Der Unterschied ist der ganze Punkt: die
+Verifikation (Postfach, Telefon, E-Mail, je mit zweitem Faktor) läuft parallel
+zum Bauen, Hochladen und Verteilen an Tester.
+
+Für die Listung bleibt alles Bisherige richtig: erfüllbar als **natürliche
+Person** (Adresse **oder Postfach**), eine Kapitalgesellschaft verlangt Apple
+dafür nicht, und Apple veröffentlicht die verifizierten Angaben auf der
+Produktseite — deshalb das Postfach.
+
+**Eine stillschweigend behobene Vorbedingung sieht aus, als hätte sie nie
+anders gelautet.** Deshalb steht hier, was vorher dastand.
 
 ### Ein Griff, den jede Suite nachbaute
 
@@ -668,6 +716,48 @@ müsste still durchwinken — dieselbe Mechanik wie beim toten Gitleaks-Scan.
 zu Demo-Konten wirklich an `eb_ops_notify_address()` um, und sagt das auch.
 Dort ist die Aussage richtig, und der Test misst deshalb nur den Rumpf von
 `eb_send_invoice`.
+
+### Die Leiste war nicht kaputt, sie war verdeckt
+
+Gemeldet am 06.09.2026: „die obere topbar ist nicht fixiert und da war ein
+Rand". Beides stimmte, und beides kam aus **einer** Ursache. Gemessen auf
+393×852, vor der Reparatur:
+
+| | Lage | Stapel |
+|---|---|---|
+| `#navbar` | `fixed`, 0–104 | z-index **1000** |
+| `#betaBanner` | `sticky; top: 0`, 0–**135** | z-index **9999** |
+| `#page-browse` | ab 135, dazu `padding-top: 104px` | |
+
+Der Banner lag **exakt über** der Leiste und war höher als sie. Am
+Seitenanfang sah man von der Navigation also nichts; sie „erschien" erst beim
+Scrollen, wenn der Banner weglief. Das liest sich wie „nicht fixiert", war
+aber eine Überdeckung — `position: fixed` hat nie ausgesetzt.
+
+Der zweite Teil der Meldung war eine **Lücke von 104 px**: `.page` reserviert
+`padding-top: var(--nav-height)` für die Leiste, stand hier aber schon unter
+dem Banner. Der Platz wurde zweimal genommen und einmal nicht gebraucht.
+
+**Der Banner klebt nicht mehr.** Ein einmaliger Hinweis mit Schließknopf muss
+das nicht: `position: static` plus `margin-top: var(--nav-height)` setzt ihn
+in den Fluss unter die Leiste, und er scrollt mit. Die doppelte Reservierung
+nimmt `body:has(#betaBanner:not([hidden])) .page { padding-top: 0 }` heraus.
+
+**Das Schließen setzt `hidden`, nicht `style.display`.** Daran hängt die
+`:has()`-Regel. Wer auf `display` zurückstellt, lässt die Seite ihre
+Reservierung verlieren — und zwar **genau für die Besucher, die den Hinweis
+weggeklickt haben**, also mit der Zeit für alle. Dieser Fall überlebte den
+ersten Mutationsdurchgang und hat einen eigenen Test bekommen.
+
+**Der erste Mutationsdurchgang war selbst fehlerhaft**, und das gehört zur
+Lehre: die Suite misst `index.html`, und die wird aus `app-shell.html`
+**erzeugt**. Eine Mutation an der Quelle ohne `./build-index-html.sh` erreicht
+die geprüfte Seite nie und sieht aus wie ein überlebender Mutant. Wer hier
+mutiert, baut vorher.
+
+**Gemessen wird, was der Nutzer anfasst** — `document.elementFromPoint(20, 3)`
+muss die Leiste treffen. Eine Prüfung auf `position: fixed` hätte diesen
+Fehler nicht gefunden: die Angabe stimmte ja.
 
 ### Der Deploy hing an einem Fragezeichen
 
@@ -1227,7 +1317,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-787 Tests in 51 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+809 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1261,6 +1351,13 @@ vor dem Auffangmuster ausgeschlossen; die Bundle-ID stimmt mit Capacitor),
 **Zahlung laden** (beim blossen Besuch geht nichts an Stripe — im echten
 Browser gemessen; der Lader hängt genau ein Skript ein und sperrt die Kasse
 nach einem Fehler nicht),
+**TestFlight** (die Zwecktexte kommen aus einer Quelle und das Mikrofon
+nicht mit; beide Associated Domains, Punycode statt Umlaut; das
+Einrichtungsskript liest die erzeugte Info.plist zurueck, statt Erfolg zu
+behaupten),
+**Topbar** (was auch immer oben steht, die Navigationsleiste liegt darüber —
+gemessen an `elementFromPoint`, nicht an `position: fixed`; kein Loch
+darunter, auch nicht beim Wiederkommen nach dem Schliessen),
 **Rechnungs-Empfänger** (der Mailtext verspricht keinen Empfänger, den
 `$recipients` nicht enthält; ein abbestellter Empfänger wird nirgends mehr
 zugesagt — auch nicht in der Zahlungs-Vorschau),

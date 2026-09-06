@@ -8958,16 +8958,29 @@ html { scrollbar-color: var(--primary) transparent; }
 }
 
 /* ============ BETA / VORGRÜNDUNGS-BANNER ============ */
+/* Der Banner lag bis zum 06.09.2026 auf `sticky; top: 0; z-index: 9999` und
+   damit EXAKT ueber der fixierten Navigationsleiste (z-index 1000). Gemessen
+   auf 393x852: Banner 0-135, Navbar 0-104 -- die Leiste war am Seitenanfang
+   also vollstaendig verdeckt und tauchte erst beim Scrollen auf. Dazu klaffte
+   darunter eine Luecke von 104 px, weil `.page` Platz fuer eine Leiste
+   reserviert, die dort niemand sah.
+   Jetzt: im Fluss UNTER der Leiste (margin-top), ohne eigenen Stapelwert. Er
+   scrollt mit -- ein einmaliger Hinweis mit Schliessknopf muss nicht kleben. */
 .beta-banner {
-  position: sticky;
-  top: 0;
-  z-index: 9999;
+  position: static;
+  margin-top: var(--nav-height);
   background: linear-gradient(90deg, #fff3cd 0%, #ffe69c 100%);
   border-bottom: 1px solid #f39c12;
   color: #5a4416;
   font-size: 0.85rem;
   line-height: 1.4;
 }
+.beta-banner[hidden] { display: none; }
+/* Solange der Banner steht, uebernimmt SEIN margin-top den Abstand zur
+   Leiste. Die Seite darf ihn dann nicht ein zweites Mal reservieren -- genau
+   diese Doppelung war die Luecke. Ist der Banner geschlossen, greift die
+   Reservierung der Seite wieder, sonst laege der Inhalt unter der Leiste. */
+body:has(#betaBanner:not([hidden])) .page { padding-top: 0 !important; }
 .beta-banner-inner {
   max-width: 1280px;
   margin: 0 auto;
