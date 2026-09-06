@@ -450,12 +450,16 @@
         <strong>Beta- und Vorgründungsphase.</strong>
         Diese Plattform wird derzeit von <em>Sandro Salvaggio</em> als Betreiber betrieben; die <strong>Eventbörse UG (haftungsbeschränkt)</strong> befindet sich in Eintragung. Verbindliche Buchungen und Live-Zahlungen sind erst nach Eintragung möglich. Stripe läuft im Testmodus.
       </p>
-      <button type="button" class="beta-banner-close" aria-label="Hinweis schließen" onclick="(function(b){b.style.display='none';try{localStorage.setItem('eb_beta_banner_dismissed','1');}catch(e){}})(document.getElementById('betaBanner'))">
+      <button type="button" class="beta-banner-close" aria-label="Hinweis schließen" onclick="(function(b){b.hidden=true;try{localStorage.setItem('eb_beta_banner_dismissed','1');}catch(e){}})(document.getElementById('betaBanner'))">
         <span class="material-icons-round" aria-hidden="true">close</span>
       </button>
     </div>
   </div>
-  <script>(function(){try{if(localStorage.getItem('eb_beta_banner_dismissed')==='1'){var b=document.getElementById('betaBanner');if(b)b.style.display='none';}}catch(e){}})();</script>
+  <!-- `hidden` statt style.display: die Regel
+       `body:has(#betaBanner:not([hidden])) .page { padding-top: 0 }` in
+       styles.css haengt daran. Wer hier auf display umstellt, laesst die
+       Seite ihren Abstand zur Leiste verlieren, ohne dass es auffaellt. -->
+  <script>(function(){try{if(localStorage.getItem('eb_beta_banner_dismissed')==='1'){var b=document.getElementById('betaBanner');if(b)b.hidden=true;}}catch(e){}})();</script>
 
   <!-- ============ PAGE: HOME ============ -->
   <main>

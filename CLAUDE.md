@@ -696,6 +696,48 @@ zu Demo-Konten wirklich an `eb_ops_notify_address()` um, und sagt das auch.
 Dort ist die Aussage richtig, und der Test misst deshalb nur den Rumpf von
 `eb_send_invoice`.
 
+### Die Leiste war nicht kaputt, sie war verdeckt
+
+Gemeldet am 06.09.2026: „die obere topbar ist nicht fixiert und da war ein
+Rand". Beides stimmte, und beides kam aus **einer** Ursache. Gemessen auf
+393×852, vor der Reparatur:
+
+| | Lage | Stapel |
+|---|---|---|
+| `#navbar` | `fixed`, 0–104 | z-index **1000** |
+| `#betaBanner` | `sticky; top: 0`, 0–**135** | z-index **9999** |
+| `#page-browse` | ab 135, dazu `padding-top: 104px` | |
+
+Der Banner lag **exakt über** der Leiste und war höher als sie. Am
+Seitenanfang sah man von der Navigation also nichts; sie „erschien" erst beim
+Scrollen, wenn der Banner weglief. Das liest sich wie „nicht fixiert", war
+aber eine Überdeckung — `position: fixed` hat nie ausgesetzt.
+
+Der zweite Teil der Meldung war eine **Lücke von 104 px**: `.page` reserviert
+`padding-top: var(--nav-height)` für die Leiste, stand hier aber schon unter
+dem Banner. Der Platz wurde zweimal genommen und einmal nicht gebraucht.
+
+**Der Banner klebt nicht mehr.** Ein einmaliger Hinweis mit Schließknopf muss
+das nicht: `position: static` plus `margin-top: var(--nav-height)` setzt ihn
+in den Fluss unter die Leiste, und er scrollt mit. Die doppelte Reservierung
+nimmt `body:has(#betaBanner:not([hidden])) .page { padding-top: 0 }` heraus.
+
+**Das Schließen setzt `hidden`, nicht `style.display`.** Daran hängt die
+`:has()`-Regel. Wer auf `display` zurückstellt, lässt die Seite ihre
+Reservierung verlieren — und zwar **genau für die Besucher, die den Hinweis
+weggeklickt haben**, also mit der Zeit für alle. Dieser Fall überlebte den
+ersten Mutationsdurchgang und hat einen eigenen Test bekommen.
+
+**Der erste Mutationsdurchgang war selbst fehlerhaft**, und das gehört zur
+Lehre: die Suite misst `index.html`, und die wird aus `app-shell.html`
+**erzeugt**. Eine Mutation an der Quelle ohne `./build-index-html.sh` erreicht
+die geprüfte Seite nie und sieht aus wie ein überlebender Mutant. Wer hier
+mutiert, baut vorher.
+
+**Gemessen wird, was der Nutzer anfasst** — `document.elementFromPoint(20, 3)`
+muss die Leiste treffen. Eine Prüfung auf `position: fixed` hätte diesen
+Fehler nicht gefunden: die Angabe stimmte ja.
+
 ### Der Deploy hing an einem Fragezeichen
 
 Am 03.09.2026 blieb der Deploy zweimal hintereinander stehen, auf zwei
@@ -1254,7 +1296,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-787 Tests in 51 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+795 Tests in 52 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1288,6 +1330,9 @@ vor dem Auffangmuster ausgeschlossen; die Bundle-ID stimmt mit Capacitor),
 **Zahlung laden** (beim blossen Besuch geht nichts an Stripe — im echten
 Browser gemessen; der Lader hängt genau ein Skript ein und sperrt die Kasse
 nach einem Fehler nicht),
+**Topbar** (was auch immer oben steht, die Navigationsleiste liegt darüber —
+gemessen an `elementFromPoint`, nicht an `position: fixed`; kein Loch
+darunter, auch nicht beim Wiederkommen nach dem Schliessen),
 **Rechnungs-Empfänger** (der Mailtext verspricht keinen Empfänger, den
 `$recipients` nicht enthält; ein abbestellter Empfänger wird nirgends mehr
 zugesagt — auch nicht in der Zahlungs-Vorschau),
