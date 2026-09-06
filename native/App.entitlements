@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Entitlements für das iOS-Ziel. Nach `npx cap add ios` nach
+  ios/App/App/App.entitlements kopieren und in Xcode unter
+  „Signing & Capabilities" verknüpfen (Code Signing Entitlements).
+
+  ── webcredentials fehlt am schnellsten ────────────────────────────────
+  Von den beiden Associated Domains hat nur `applinks:` eine sichtbare
+  Wirkung: Links öffnen die App. `webcredentials:` merkt niemand — bis
+  sich jemand anmelden will. Dann bietet iOS den gespeicherten Passkey der
+  Domain nicht an, und `webauthn.php` IST die Anmeldung. Wer die Zeile
+  streicht, weil „die Links ja gehen", baut eine App ohne Login.
+
+  ── Punycode, nicht Umlaut ─────────────────────────────────────────────
+  Apple gleicht die Domain zeichenweise gegen den Host der
+  Zuordnungsdatei ab. Die wird unter xn--eventbrse-57a.de ausgeliefert;
+  „eventbörse.de" hier einzutragen ergibt einen stillen Fehlschlag.
+
+  ── aps-environment: development ───────────────────────────────────────
+  Bewusst nicht `production`. Xcode ersetzt den Wert beim Archivieren
+  selbst; ein hier fest eingetragenes `production` bricht dagegen jeden
+  Lauf auf dem Gerät, weil das Entwickler-Profil dazu nicht passt.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>webcredentials:xn--eventbrse-57a.de</string>
+        <string>applinks:xn--eventbrse-57a.de</string>
+    </array>
+    <key>aps-environment</key>
+    <string>development</string>
+</dict>
+</plist>

@@ -537,10 +537,31 @@ driften sie, schriebe der Deploy einen Wert, den PHP anschliessend verwirft,
 und meldete dabei Erfolg.
 
 **Noch offen:** Zwecktexte in `Info.plist`, APNs-Schlüssel — beides nur in
-Xcode bzw. im Entwicklerkonto zu machen. Dazu der **Händlerstatus** nach DSA
-Art. 30/31: Pflicht für jede App im EU-App-Store, erfüllbar als natürliche
-Person (Adresse **oder Postfach**, Telefon, E-Mail) — eine Kapitalgesellschaft
-verlangt Apple dafür nicht.
+Xcode bzw. im Entwicklerkonto zu machen.
+
+**Der Händlerstatus blockiert TestFlight nicht.** Hier stand bis zum
+06.09.2026, er sei „Pflicht für jede App im EU-App-Store" — als Vorbedingung
+gelesen, und so war er auch als erster Punkt der Startreihenfolge geführt.
+Apples eigene Hilfe sagt für genau diesen Fall das Gegenteil:
+
+> *„If you don't distribute apps on the App Store in the EU (for example you
+> only distribute apps through alternative distribution, or TestFlight, or on
+> the App Store only outside the EU), you're not acting as a trader on the
+> App Store."*
+
+**Erklären** muss man den Status trotzdem immer („Even if you don't distribute
+apps in the EU, you'll still need to declare a trader status"), **verifizieren**
+nur für die öffentliche EU-Listung. Der Unterschied ist der ganze Punkt: die
+Verifikation (Postfach, Telefon, E-Mail, je mit zweitem Faktor) läuft parallel
+zum Bauen, Hochladen und Verteilen an Tester.
+
+Für die Listung bleibt alles Bisherige richtig: erfüllbar als **natürliche
+Person** (Adresse **oder Postfach**), eine Kapitalgesellschaft verlangt Apple
+dafür nicht, und Apple veröffentlicht die verifizierten Angaben auf der
+Produktseite — deshalb das Postfach.
+
+**Eine stillschweigend behobene Vorbedingung sieht aus, als hätte sie nie
+anders gelautet.** Deshalb steht hier, was vorher dastand.
 
 ### Ein Griff, den jede Suite nachbaute
 
@@ -1296,7 +1317,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-795 Tests in 52 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+809 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1330,6 +1351,10 @@ vor dem Auffangmuster ausgeschlossen; die Bundle-ID stimmt mit Capacitor),
 **Zahlung laden** (beim blossen Besuch geht nichts an Stripe — im echten
 Browser gemessen; der Lader hängt genau ein Skript ein und sperrt die Kasse
 nach einem Fehler nicht),
+**TestFlight** (die Zwecktexte kommen aus einer Quelle und das Mikrofon
+nicht mit; beide Associated Domains, Punycode statt Umlaut; das
+Einrichtungsskript liest die erzeugte Info.plist zurueck, statt Erfolg zu
+behaupten),
 **Topbar** (was auch immer oben steht, die Navigationsleiste liegt darüber —
 gemessen an `elementFromPoint`, nicht an `position: fixed`; kein Loch
 darunter, auch nicht beim Wiederkommen nach dem Schliessen),

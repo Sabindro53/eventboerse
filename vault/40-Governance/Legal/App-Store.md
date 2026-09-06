@@ -100,13 +100,32 @@ App-Tracking-Transparency-Dialog.
 Nur noch, was ein Apple-Entwicklerkonto, einen Mac oder eine Entscheidung des
 Inhabers braucht:
 
-- **Händlerstatus nach DSA Art. 30/31.** Pflicht für **jede** App im
-  EU-App-Store, ohne ihn keine Listung. Als **natürliche Person** erfüllbar —
-  Adresse **oder Postfach**, Telefon, E-Mail; eine UG oder GmbH verlangt Apple
-  dafür ausdrücklich nicht. Apple veröffentlicht die verifizierten Angaben auf
-  der Produktseite, das Postfach ist deshalb die überlegtere Wahl. Ein späterer
-  Wechsel von Individual auf Organization ist kein Schalter: er braucht eine
+- **Händlerstatus nach DSA Art. 30/31** — für die **öffentliche Listung**,
+  nicht für TestFlight.
+
+  Hier stand bis zum 06.09.2026 „Pflicht für **jede** App im EU-App-Store,
+  ohne ihn keine Listung", und der Punkt führte die Startreihenfolge an. Für
+  die Listung stimmt der Satz; als Vorbedingung für alles davor stimmt er
+  nicht. Apple:
+
+  > *„If you don't distribute apps on the App Store in the EU (for example you
+  > only distribute apps through alternative distribution, or TestFlight, or
+  > on the App Store only outside the EU), you're not acting as a trader on
+  > the App Store."*
+
+  **Erklären** muss man ihn immer, **verifizieren** nur für die EU-Listung.
+  Bauen, hochladen und an Tester verteilen geht ohne; die Verifikation
+  (Postfach, Telefon, E-Mail, je mit zweitem Faktor) läuft parallel.
+
+  Für die Listung selbst bleibt es dabei: als **natürliche Person** erfüllbar
+  (Adresse **oder Postfach**), eine UG oder GmbH verlangt Apple dafür nicht.
+  Apple veröffentlicht die verifizierten Angaben auf der Produktseite — das
+  Postfach ist deshalb die überlegtere Wahl. Ein späterer Wechsel von
+  Individual auf Organization ist kein Schalter: er braucht eine
   D-U-N-S-Nummer und einen App-Transfer.
+
+  Quelle: [App Store Connect Help, EU DSA trader
+  requirements](https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements/)
 - **Zwei Prüfkonten mit Inhalt** (Guideline 2.1). Die Rolle steht bei der
   Registrierung fest, ein Konto kann nicht Planer **und** Anbieter sein — der
   Prüfer sähe sonst die Hälfte. Ein leerer Bildschirm gilt als unfertige App
