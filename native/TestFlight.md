@@ -55,17 +55,31 @@ Quelle: [App Store Connect Help — EU DSA trader requirements](https://develope
 
 ### Vorher, im Entwicklerkonto (kein Mac nötig)
 
-1. **Program License Agreement** annehmen — ohne das ist alles andere gesperrt.
-2. **App-ID** anlegen, Bundle-ID `de.eventboerse.app` (muss zu
-   `native/capacitor.config.json` und zur ausgelieferten Zuordnungsdatei
-   passen — `aasa.spec.js` hält die beiden Seiten zusammen).
-   Capabilities: **Push Notifications** und **Associated Domains**.
-3. **APNs-Schlüssel** erzeugen (.p8, lädt sich genau einmal herunter).
-4. **App-Eintrag** in App Store Connect anlegen.
-5. **Händlerstatus erklären** — Angabe genügt, Verifikation kann warten.
-6. **Den Kollegen einladen**: App Store Connect → Users and Access →
+**Am 06.09.2026 erledigt** — Kennungen stehen in
+[`vault/40-Governance/Legal/App-Store.md`](../vault/40-Governance/Legal/App-Store.md):
+
+- ~~Program License Agreement~~
+- ~~**App-ID** `de.eventboerse.app`, Capabilities **Push Notifications** und
+  **Associated Domains**~~ (In-App Purchase setzt Apple bei jeder neuen App-ID
+  selbst dazu — ausgegraut, nicht abwählbar, ungenutzt und unschädlich)
+- ~~**App-Eintrag** in App Store Connect~~ — Apple-ID **6809211333**
+- ~~Store-Metadaten~~ — Support-URL `…/contact`, **nicht** `/kontakt`; die
+  deutsche Schreibweise gibt es im Router nicht, und eine Support-URL auf eine
+  404 ist ein Ablehnungsgrund
+
+**Noch offen:**
+
+1. **APNs-Schlüssel** erzeugen (.p8, lädt sich **genau einmal** herunter).
+2. **Händlerstatus erklären** — Angabe genügt, Verifikation kann warten.
+3. **Den Kollegen einladen**: App Store Connect → Users and Access →
    Einladung mit Rolle *Developer* oder *App Manager*. Er muss sie annehmen,
    sonst taucht er unter „Internal Testing" nicht auf.
+
+**Die Altersfreigabe ist 16+, nicht 17+.** Die Stufe 17+ gibt es seit Apples
+Umstellung 2025 nicht mehr; das Raster lautet 4+, 9+, 13+, 16+, 18+. Für uns
+greift **16+**, weil `limitsNavigationsToAppBoundDomains: false` in
+`capacitor.config.json` steht und Apple das als *unrestricted web access*
+führt. Begründung und Quellen: derselbe Vault-Abschnitt.
 
 ### Auf dem Mac
 

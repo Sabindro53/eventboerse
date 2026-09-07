@@ -14,6 +14,35 @@ sie gegeneinander, und ein Widerspruch führt zur Ablehnung.
 Jede Zeile hier ist am Code belegt. Eine Datenart anzugeben, die nicht erhoben
 wird, ist so falsch wie eine wegzulassen.
 
+## Registrierte Kennungen
+
+Angelegt am 06.09.2026. Hier, damit niemand sie erneut herleitet oder rät —
+eine Kennung, die man sucht statt nachschlägt, wird irgendwann falsch geraten.
+
+| | |
+|---|---|
+| Team-ID | `8FSV5273YG` (auch als GitHub-Secret `EB_APPLE_TEAM_ID`) |
+| Bundle-ID | `de.eventboerse.app` |
+| **Apple-ID der App** | **6809211333** |
+| SKU | `eventboerse-ios-001` |
+| Name im Store | Eventbörse (war frei) |
+| Primärsprache | Deutsch |
+| Kategorien | Wirtschaft / Lifestyle |
+| Support-URL | `…/contact` |
+| Copyright | 2026 Sandro Salvaggio |
+
+**Capabilities auf der App-ID:** Associated Domains, Push Notifications.
+
+**In-App Purchase steht ebenfalls aktiv** — das setzt Apple bei **jeder** neuen
+App-ID selbst, ausgegraut und nicht abwählbar. Benutzt wird es nicht (3.1.3(e),
+siehe unten), und eine aktivierte, ungenutzte Fähigkeit ist unschädlich. Wer
+das später sieht und für einen Fehler hält, sucht an der falschen Stelle.
+
+**Die Support-URL heißt `/contact`, nicht `/kontakt`.** Die deutsche
+Schreibweise gibt es im Router nicht (`functions.php`, Slug-Liste). Eine
+Support-URL auf eine 404 ist ein Ablehnungsgrund — und sie fällt niemandem
+auf, weil sie im Store steht und nicht in der App.
+
 ## Provision: keine
 
 Guideline **3.1.3(e)**, im Wortlaut:
@@ -95,10 +124,70 @@ App-Tracking-Transparency-Dialog.
 | Privacy-Manifest | seit 2024 Pflicht | ✅ `native/PrivacyInfo.xcprivacy` |
 | **ITMS-91053** | Begründung für UserDefaults | ✅ `CA92.1` im Manifest |
 
+## Altersfreigabe: 16+, und der Grund steht in einer Konfigurationszeile
+
+**Die Stufe 17+ gibt es nicht mehr.** Apple hat das Raster 2025 umgestellt;
+heute gilt **4+, 9+, 13+, 16+, 18+**. Eine Einschätzung „17+" rechnet nach dem
+alten System — die Zahl lässt sich im Fragebogen gar nicht mehr auswählen.
+
+Nach Apples eigenen Definitionen:
+
+> **Unrestricted Web Access:** Users can navigate to any webpage within the app
+> or freely browse the web. *May include: embedded browser functionality or
+> browser app.*
+
+Das steht **nur in der Stufe 16+**. Und es trifft auf uns zu, aus einem Grund,
+der in `native/capacitor.config.json` steht:
+
+```json
+"limitsNavigationsToAppBoundDomains": false
+```
+
+Die App lädt die Website in einem WebView und beschränkt die Navigation
+**nicht** auf die eigene Domain. Damit ist „unrestricted web access" keine
+Auslegungsfrage, sondern die Beschreibung unserer Konfiguration.
+
+**Das ist eine bewusste Einstellung, keine Nachlässigkeit.** Auf `true`
+gesetzt würde WKWebView die Navigation auf die in `WKAppBoundDomains`
+gelisteten Hosts begrenzen — und damit die Stripe-Weiterleitung und jeden
+externen Link brechen. Der Preis dafür ist die Stufe 16+.
+
+Der Feed („Aktuelles") erfüllt zusätzlich **Social Media** — „redistribution,
+amplification, or interaction with user-generated content through a social
+feed" — was für sich genommen 13+ ergäbe. 16+ ist die höhere und damit die
+maßgebliche Stufe.
+
+**16+ ist die ehrliche Einstufung, keine Panne.** Wer sie drücken will, muss
+die Konfiguration ändern, nicht den Fragebogen.
+
+Quelle: [Age ratings values and
+definitions](https://developer.apple.com/help/app-store-connect/reference/age-ratings-values-and-definitions/)
+· [Updated age ratings in App Store
+Connect](https://developer.apple.com/news/?id=ks775ehf)
+
 ## Offen
 
-Nur noch, was ein Apple-Entwicklerkonto, einen Mac oder eine Entscheidung des
-Inhabers braucht:
+Erledigt am 06.09.2026 und deshalb **nicht** mehr hier: App-ID mit beiden
+Capabilities, App-Eintrag (Apple-ID 6809211333), Store-Metadaten. Siehe
+„Registrierte Kennungen" oben.
+
+### Für TestFlight mit einem Kollegen — nur diese drei
+
+Alles andere in diesem Abschnitt betrifft die **öffentliche Listung** und
+blockiert das Testen nicht. Interne Tester brauchen keine Beta App Review,
+keine Prüfkonten und keine 4.2-Begründung (Einzelheiten:
+`native/TestFlight.md`).
+
+1. **APNs-Schlüssel** (.p8) erzeugen — lädt sich **genau einmal** herunter.
+2. **Kollege als App-Store-Connect-Benutzer** einladen (Rolle *Developer* oder
+   *App Manager*). Er muss die Einladung **annehmen**, sonst erscheint er
+   unter „Internal Testing" nicht.
+3. **Build vom Mac** — `./native/ios-einrichten.sh`, dann Xcode →
+   Product → Archive → Distribute App → TestFlight.
+
+**Der Händlerstatus muss dafür nur *erklärt*, nicht verifiziert sein.**
+
+### Für die öffentliche Listung
 
 - **Händlerstatus nach DSA Art. 30/31** — für die **öffentliche Listung**,
   nicht für TestFlight.
