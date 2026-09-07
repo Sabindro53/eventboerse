@@ -75,6 +75,11 @@ Quelle: [App Store Connect Help — EU DSA trader requirements](https://develope
    Einladung mit Rolle *Developer* oder *App Manager*. Er muss sie annehmen,
    sonst taucht er unter „Internal Testing" nicht auf.
 
+**Alle drei sind Browser-Arbeit im Apple-Konto** und damit Cowork-Aufträge —
+ausformuliert samt Grenzen (kein Geheimnis durch den Chat, keine erfundenen
+Rechtsangaben, nichts Unwiderrufliches ohne Rückfrage) in
+[`vault/30-Betrieb/Cowork-Auftraege.md`](../vault/30-Betrieb/Cowork-Auftraege.md).
+
 **Die Altersfreigabe ist 16+, nicht 17+.** Die Stufe 17+ gibt es seit Apples
 Umstellung 2025 nicht mehr; das Raster lautet 4+, 9+, 13+, 16+, 18+. Für uns
 greift **16+**, weil `limitsNavigationsToAppBoundDomains: false` in
