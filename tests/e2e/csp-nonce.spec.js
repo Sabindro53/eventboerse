@@ -257,17 +257,145 @@ test.describe('Der Nonce-Umstieg legt nicht die ganze Oberfläche still', () => 
   });
 
   test('die beobachtende Fassung meldet genau diesen Zustand — sie ist die Probe', () => {
-    // Der Grund, warum `bereit: true` heute nie eintritt, und das ist richtig
-    // so: die Report-Only-Fassung trägt das Nonce bereits, also verstösst
-    // jeder der 459 Handler bei jedem Seitenaufruf dagegen und wird gemeldet.
-    //
-    // Wer die leere Liste abwartet, wartet ewig — nicht weil der Sammler
-    // kaputt ist, sondern weil die Meldungen echt sind.
+    // Sie ersetzt 'unsafe-inline' durch das Nonce. Fällt das weg, meldet sie
+    // den Ernstfall nicht mehr und blockiert dabei weiterhin nichts — ein
+    // Melder, der still zusieht, ist von einem kaputten nicht zu unterscheiden.
     const ableitung = FUNKTIONEN.match(/\$streng = array\(\);[\s\S]*?\$streng\[\] = 'report-to csp';/);
     expect(ableitung, 'die Ableitung der beobachtenden Fassung ist verschwunden')
       .toBeTruthy();
     expect(ableitung[0], 'die beobachtende Fassung ersetzt unsafe-inline nicht '
       + 'mehr durch das Nonce — dann meldet sie den Ernstfall nicht mehr')
       .toMatch(/'unsafe-inline'[\s\S]{0,120}nonce-/);
+  });
+});
+
+// ── Der Melder hatte sein Subjekt verloren ───────────────────────────────
+//
+// `bereit` in eb_csp_report_lesen() ist die Freigabe für Schritt 2: es wird
+// true, sobald über echten Verkehr KEIN Verstoß mehr gemeldet wird. Bis zum
+// 07.09.2026 konnte es das nicht werden — und zwar strukturell, nicht
+// vorübergehend.
+//
+// Die beobachtende Fassung ersetzt 'unsafe-inline' durch das Nonce, auch in
+// `script-src`. Inline-Handler fallen mangels `script-src-attr` genau dorthin
+// zurück. Also verstieß jeder der 459 Handler bei jedem Seitenaufruf gegen
+// die beobachtende Fassung — gegen einen Zustand, den wir BEWUSST behalten.
+//
+// Das ist dieselbe Mechanik wie beim toten Gitleaks-Scan, nur andersherum:
+// dort meldete ein Prüfer nie etwas und sah aus wie Schutz; hier meldet er
+// dauerhaft etwas und sieht aus wie ein offener Posten. Beides führt dazu,
+// dass niemand mehr hinsieht — und die eine Meldung, auf die es ankommt
+// (`script-src-elem|inline`: ein Inline-<script> OHNE Nonce), geht darin unter.
+//
+// Behoben mit einer Direktive, die an der Durchsetzung nichts ändert.
+test.describe('script-src-attr: die Durchsetzung bleibt, der Melder wird brauchbar', () => {
+  const SEITE = `<!doctype html><html><body>
+    <button id="k" onclick="window.__gedrueckt = true">x</button>
+    <script nonce="ABC">window.__mitNonce = true;<\/script>
+    <script>window.__ohneNonce = true;<\/script>
+  </body></html>`;
+
+  /** Fährt eine echte CSP gegen echtes Chromium. Prosa beweist hier nichts. */
+  async function messen(page, csp) {
+    await page.route('https://csp-probe.invalid/**', (route) => route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/html', 'content-security-policy': csp },
+      body: SEITE,
+    }));
+    await page.goto('https://csp-probe.invalid/x');
+    await page.click('#k');
+    return page.evaluate(() => ({
+      handler: !!window.__gedrueckt,
+      mitNonce: !!window.__mitNonce,
+      ohneNonce: !!window.__ohneNonce,
+    }));
+  }
+
+  test('ein Nonce ohne script-src-attr legt jeden Knopf still', async ({ page }) => {
+    // Die Falle, im Browser gemessen statt behauptet. Kein Fehler im Log der
+    // Seite, kein sichtbarer Schaden: die Seite lädt, sieht heil aus, und
+    // nichts reagiert.
+    const r = await messen(page,
+      "default-src 'self'; script-src 'self' 'nonce-ABC'; "
+      + "script-src-elem 'self' 'nonce-ABC'");
+    expect(r.handler, 'der Handler lief trotz Nonce ohne script-src-attr — '
+      + 'dann misst dieser Test die Falle nicht mehr').toBe(false);
+    expect(r.mitNonce, 'das genonc\'te Skript wurde blockiert').toBe(true);
+    expect(r.ohneNonce, 'ein Skript ohne Nonce lief trotzdem').toBe(false);
+  });
+
+  test('mit script-src-attr laufen Knöpfe, eingeschleuste Skripte nicht', async ({ page }) => {
+    // Das Ziel von Schritt 2: der Hauptweg für XSS (ein eingeschleustes
+    // <script>) ist zu, die Oberfläche lebt.
+    const r = await messen(page,
+      "default-src 'self'; script-src 'self' 'nonce-ABC'; "
+      + "script-src-elem 'self' 'nonce-ABC'; script-src-attr 'unsafe-inline'");
+    expect(r.handler, 'script-src-attr rettet die Handler nicht').toBe(true);
+    expect(r.ohneNonce, 'script-src-attr macht auch <script> wieder frei — '
+      + 'dann wäre der ganze Umstieg wertlos').toBe(false);
+  });
+
+  test('die Direktive ändert an der heutigen Durchsetzung NICHTS', async ({ page }) => {
+    // Der eigentliche Beleg dieser Änderung. Beide Fassungen müssen sich im
+    // Browser identisch verhalten — sonst ist sie kein reiner Messfix,
+    // sondern ein Eingriff in die laufende Seite.
+    const ohne = await messen(page,
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+      + "script-src-elem 'self' 'unsafe-inline'");
+    const mit = await messen(page,
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+      + "script-src-elem 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'");
+    expect(ohne.handler, 'die heutige Fassung lässt keine Handler zu — '
+      + 'dann vergleicht dieser Test nichts').toBe(true);
+    expect(mit, 'script-src-attr verändert das Verhalten der durchgesetzten '
+      + 'Fassung — die Änderung ist dann kein reiner Messfix').toEqual(ohne);
+  });
+
+  test('die durchgesetzte Fassung erlaubt Handler ausdrücklich', () => {
+    const r = pruefstand();
+    expect(r.cspDurchgesetztAttr, "script-src-attr 'unsafe-inline' fehlt in der "
+      + 'durchgesetzten Fassung — dann nonc\'t die beobachtende wieder den '
+      + 'Rückfallweg der Handler, und `bereit` ist erneut unerreichbar')
+      .toBe("script-src-attr 'unsafe-inline'");
+  });
+
+  test('die beobachtende Fassung erbt sie unverändert — kein Nonce für Attribute', () => {
+    // Die Ableitung trifft `script-src` und `script-src-elem`, nicht
+    // `script-src-attr`. Wer das Muster auf /^script-src/ verkürzt, setzt das
+    // Nonce auch hier — und der Melder ist wieder taub. In der durchgesetzten
+    // Fassung wäre dieselbe Verkürzung der Totalausfall der Oberfläche.
+    const r = pruefstand();
+    expect(r.cspStrengAttr, 'die beobachtende Fassung hat script-src-attr verloren')
+      .toBe("script-src-attr 'unsafe-inline'");
+    expect(r.cspStrengAttr, 'das Nonce steht jetzt auch bei den Attributen')
+      .not.toContain('nonce-');
+  });
+
+  test('so gemeldet wird nur noch der Ernstfall — und `bereit` ist erreichbar', () => {
+    // Nach der Änderung verstößt ein Inline-Handler nicht mehr gegen die
+    // beobachtende Fassung. Was bleibt, ist genau ein Fall: ein
+    // Inline-<script> ohne Nonce. Bleibt der Bericht leer, heißt das jetzt
+    // etwas — vorher hieß es nur, dass die Handler noch da sind.
+    const r = pruefstand();
+    // Attribute: erlaubt. Elemente: nur mit Nonce.
+    expect(r.cspStrengAttr).toContain("'unsafe-inline'");
+    expect(r.cspStrengElem, 'Elemente sind in der beobachtenden Fassung nicht '
+      + 'genonc\'t — dann meldet sie den Ernstfall nicht').toMatch(/'nonce-[^']+'/);
+    expect(r.cspStrengElem).not.toContain("'unsafe-inline'");
+  });
+
+  test('Schritt 2 ist noch NICHT gemacht — das Element trägt kein Nonce', () => {
+    // Die Sperre oben lässt das Nonce zu, sobald script-src-attr steht; das
+    // ist richtig, denn dann brechen die Knöpfe nicht mehr. Die zweite
+    // Vorbedingung kann kein Test sehen: dass über ECHTEN Verkehr kein
+    // `script-src-elem|inline` mehr gemeldet wird. Sie steht im HQ unter
+    // `bereit`. Bis dahin bleibt die durchgesetzte Fassung, wie sie ist.
+    const r = pruefstand();
+    expect(r.cspDurchgesetztElem, 'die durchgesetzte Fassung trägt ein Nonce. '
+      + 'Das ist Schritt 2 — er ist erst zulässig, wenn `bereit` im HQ true '
+      + 'ist, und das ist eine Beobachtung über echten Verkehr, keine '
+      + 'Code-Eigenschaft').not.toContain('nonce-');
+    expect(r.cspDurchgesetztElem, 'die Element-Direktive ist verschwunden')
+      .toContain("'unsafe-inline'");
   });
 });
