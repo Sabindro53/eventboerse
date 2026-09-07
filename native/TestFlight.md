@@ -154,5 +154,9 @@ Nichts davon blockiert TestFlight-Tests mit dem Kollegen:
 
 - Zwei Prüfkonten mit Inhalt (Guideline 2.1) — siehe `README.md`
 - Guideline-4.2-Funktionen: Push, Kamera, Passkeys, Standort
-- Händlerstatus **verifiziert**, nicht nur erklärt
+- **Händlerstatus von *kein Händler* auf *Händler* umstellen** — und dann
+  verifizieren. Für die TestFlight-Phase ist *kein Händler* die zutreffende
+  Angabe (Apple nimmt TestFlight ausdrücklich aus). Sie wird **durch Nichtstun
+  falsch**, sobald die App öffentlich im EU-App-Store steht, und niemand warnt
+  davor. Umstellen **und** verifizieren, nicht nur verifizieren.
 - Verifizierte Angaben erscheinen öffentlich auf der Produktseite → Postfach

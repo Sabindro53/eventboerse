@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 824 Tests in 53 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 827 Tests in 53 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **App Store Connect: beide Fragebögen sind beantwortet, nicht nur die Stufe.**
   „16+" ist das Ergebnis von rund zwanzig Einzelfragen; wer nur die Stufe kennt,
@@ -38,6 +38,18 @@ einen alten Abschnitt gelesen und nicht diesen.
   im echten Chromium gegen vier CSP-Fassungen gemessen. Schritt 2 bleibt
   ungemacht und hängt jetzt an einer echten Beobachtung statt an einem
   unerreichbaren Schalter. Sieben Tests, acht Mutationen
+- **Händlerstatus: die Erklärung, die durch Nichtstun falsch wird.** Für die
+  TestFlight-Phase ist *„kein Händler auf dem App Store"* die **zutreffende**
+  Angabe — Apples eigener Satz deckt genau diesen Fall, es ist keine Wahl. Sie
+  wird unwahr, sobald die App öffentlich im EU-App-Store steht, **ohne dass
+  jemand etwas ändert**. Eine fehlende Erklärung blockiert und fällt auf, eine
+  stillschweigend falsch gewordene nicht. Vor der Listung: umstellen **und**
+  verifizieren. Drei Tests halten den Vermerk in Vault und `TestFlight.md`
+  fest, fünf Mutationen
+- **Cowork erledigt APNs-Schlüssel und Händlerstatus** (Inhaber-Entscheidung
+  07.09.2026). Grenzen im Auftrag: Ablageort **vor** dem Erzeugen klären (die
+  `.p8` lädt genau einmal), Inhalt nie in Chat oder Repo, und beim
+  Händler-Zweig anhalten, sobald ein persönliches Datum verlangt wird
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
 - **Belegschaft: 11 von 11 Rollen liefern** (Lauf 919, planmäßig). Vom 23.–26.08.

@@ -382,3 +382,85 @@ test.describe('Altersfreigabe: der Fragebogen hängt am Code', () => {
       .toMatch(/Unrestricted Web Access\*{0,2}\s*\|\s*\*\*ja\*\*/);
   });
 });
+
+// ── Eine Erklärung, die durch Nichtstun falsch wird ──────────────────────
+//
+// Für die TestFlight-Phase ist „kein Händler auf dem App Store" die
+// ZUTREFFENDE Angabe — Apple nimmt TestFlight ausdrücklich aus. Sie wird in
+// dem Moment unwahr, in dem die App öffentlich im EU-App-Store steht, ohne
+// dass jemand etwas ändert und ohne dass irgendwo eine Warnung erscheint.
+//
+// Das ist die gefährlichere Sorte: eine fehlende Erklärung blockiert und
+// fällt auf, eine stillschweigend falsch gewordene nicht. Der einzige Schutz
+// ist der Vermerk im Vault — deshalb hält ihn ein Test fest. Wer ihn löscht,
+// löscht die einzige Warnung, die es dafür gibt.
+test.describe('Händlerstatus: die Umstellung darf nicht vergessen werden', () => {
+  const TESTFLIGHT = lies('native', 'TestFlight.md');
+
+  /**
+   * Markdown bricht Zeilen um, wo es der Umbruch will. Ein Muster mit festen
+   * Leerzeichen prüft deshalb die Formatierung mit — und fällt beim nächsten
+   * Umformatieren, ohne dass sich die Aussage geändert hätte. Genau daran
+   * scheiterte der erste Anlauf dieses Tests: „Händlerstatus von" stand am
+   * Zeilenende, „*kein Händler*" am nächsten Zeilenanfang.
+   */
+  const satz = (s) => new RegExp(s.trim().split(/\s+/)
+    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+'));
+
+  test('der Vault nennt die heute zutreffende Angabe UND ihre Umstellung', () => {
+    // Beide Hälften. Nur die erste wäre eine Anleitung zur falschen Angabe,
+    // nur die zweite liesse offen, was heute gilt.
+    expect(VAULT, 'der Vault sagt nicht mehr, welche Angabe heute zutrifft')
+      .toMatch(satz('kein Händler auf dem App Store'));
+    expect(VAULT, 'der Vermerk fehlt, dass die Angabe durch NICHTSTUN falsch wird')
+      .toMatch(satz('durch Nichtstun falsch'));
+    expect(VAULT, 'die Umstellung auf „Händler" ist als Vorbedingung der '
+      + 'öffentlichen EU-Listung nicht mehr benannt')
+      .toMatch(satz('von *kein Händler* auf **Händler** umstellen'));
+  });
+
+  test('auch die TestFlight-Anleitung verlangt Umstellen, nicht nur Verifizieren', () => {
+    // Dort stand nur „verifiziert, nicht nur erklärt". Wer das liest, prüft
+    // den Haken an der Verifikation und übersieht, dass die Erklärung selbst
+    // die falsche ist.
+    expect(TESTFLIGHT, 'die Umstellung fehlt in der Liste vor der Listung')
+      .toMatch(satz('auf *Händler* umstellen'));
+    expect(TESTFLIGHT, 'die Anleitung verlangt wieder nur die Verifikation')
+      .toMatch(satz('nicht nur verifizieren'));
+  });
+
+  test('der Cowork-Auftrag lässt bei persönlichen Daten anhalten', () => {
+    // Die Grenze der Übertragung: die Auswahl darf Cowork treffen, den
+    // Händler-Zweig mit Anschrift und Telefonnummer nicht. Fällt die
+    // Abbruchregel weg, füllt ein fleissiger Agent das Formular fertig aus.
+    const auftrag = lies('vault', '30-Betrieb', 'Cowork-Auftraege.md');
+
+    // Gemessen wird die REGELLISTE, nicht die Datei und nicht ein
+    // Zeichenabstand. Beide Abkürzungen waren schon falsch:
+    //
+    //   · `Anschrift…[\s\S]{0,160}…anhalten` prüft, wie weit zwei Wörter
+    //     auseinanderstehen — also die Formatierung. Ein umgebrochener
+    //     Absatz hätte den Test gebrochen, ohne dass sich etwas ändert.
+    //   · Der ganze Abschnitt B2 war zu weit: „Postfach" steht dort ZWEIMAL,
+    //     einmal in der Abbruchregel und einmal im Absatz „Anschrift auch als
+    //     Postfach". Eine Mutation, die es aus der REGEL nahm, blieb deshalb
+    //     grün — der Treffer kam aus der Erklärung. Dieselbe Mechanik wie
+    //     „Alkoholfreie Cocktails" bei der Alkoholfrage.
+    const von = auftrag.indexOf('#### Die Regel');
+    const bis = auftrag.indexOf('#### Was du dazu melden musst');
+    expect(von, 'die Regelliste in B2 ist nicht auffindbar — dann prüft '
+      + 'dieser Test nichts').toBeGreaterThan(-1);
+    expect(bis, 'das Ende der Regelliste ist nicht auffindbar').toBeGreaterThan(von);
+    const regeln = auftrag.slice(von, bis);
+
+    for (const feld of ['Anschrift', 'Postfach', 'Telefonnummer']) {
+      expect(regeln, `„${feld}" ist aus der Abbruchregel verschwunden — dann `
+        + 'füllt ein fleissiger Agent den Händler-Zweig fertig aus')
+        .toContain(feld);
+    }
+    expect(regeln, 'die Regeln sagen nicht mehr, dass bei persönlichen Daten '
+      + 'anzuhalten ist').toContain('anhalten');
+    expect(regeln, 'das Verbot, EU-Verteilung anzukreuzen, ist weg')
+      .toMatch(satz('niemals an, die App werde im EU-App-Store verteilt'));
+  });
+});

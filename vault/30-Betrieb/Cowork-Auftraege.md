@@ -52,17 +52,29 @@ Ausfüllen und speichern: ja. **„Submit for Review", „Release", „Publish",
 Löschen von Buildern, Ändern von Preisen oder Verfügbarkeit: nein**, auch
 wenn es der nächste logische Knopf ist.
 
+*Eine benannte Ausnahme:* der **Händlerstatus** (B2). Er berührt die
+EU-Verfügbarkeit, ist aber jederzeit änderbar, und der Inhaber hat ihn
+ausdrücklich übertragen. Dort gilt die Regel in B2, nicht diese hier — und
+auch dort nur, solange keine persönlichen Daten verlangt werden.
+
 ---
 
 ## Was blockiert was
 
-Die drei Punkte unter **A** brauchen niemanden ausser dir und sind sofort
-machbar. **B** braucht je eine Angabe vom Inhaber. **C** ist Fleissarbeit auf
-der Live-Seite und verbessert die Ladezeit.
+**Stand 07.09.2026:** der Inhaber hat B1 und B2 ausdrücklich übertragen. Damit
+brauchst du für **alles ausser B3** niemanden.
 
-Keiner dieser Punkte blockiert den internen TestFlight-Test mit dem Kollegen —
-ausser der Einladung selbst (B3). Die beiden Fragebögen blockieren die
-**Einreichung**, nicht den Test.
+| | | wartet auf |
+|---|---|---|
+| **A** | App Privacy, Altersfreigabe | — |
+| **B1** | APNs-Schlüssel erzeugen und sichern | — *(übertragen)* |
+| **B2** | Händlerstatus erklären | — *(übertragen, mit Abbruchregel)* |
+| **B3** | Kollegen einladen | **E-Mail-Adresse des Kollegen** |
+| **C** | CSP-Bericht, WebP, Demo-Bilder | — |
+
+Nur **B3** blockiert den internen TestFlight-Test wirklich. Die beiden
+Fragebögen blockieren die **Einreichung**, nicht den Test. **C** verbessert
+Ladezeit und Datenschutz der Live-Seite und hängt an gar nichts.
 
 ---
 
@@ -136,52 +148,116 @@ konntest). Nicht absenden — nur speichern.
 
 ---
 
-## B — Braucht je eine Angabe vom Inhaber
+## B — Im Apple-Konto
 
-### B1. APNs-Schlüssel erzeugen
+B1 und B2 hat der Inhaber übertragen; nur B3 wartet auf eine Angabe.
 
-**Wo:** developer.apple.com → Certificates, Identifiers & Profiles → **Keys**
-→ **+** → Name vergeben → **Apple Push Notifications service (APNs)**
-ankreuzen → Continue → Register → **Download**.
+### B1. APNs-Schlüssel erzeugen und sichern
 
-**Die Datei lädt sich genau einmal herunter.** Danach ist sie bei Apple nicht
-mehr abrufbar; ein verlorener Schlüssel wird widerrufen und neu erzeugt, das
-ist kein Drama, aber unnötig.
+**Der Inhaber hat das am 07.09.2026 ausdrücklich an dich übertragen.** Du
+erzeugst den Schlüssel und sicherst ihn — keine Rückfrage mehr nötig.
 
-Handhabung, ohne Ausnahme:
+#### Erst den Ablageort klären, dann erst erzeugen
 
-- Datei liegen lassen, wo der Browser sie ablegt. Nicht umbenennen, nicht
-  verschieben, nicht öffnen.
-- **Inhalt nie anzeigen, nie zitieren, nie in eine Antwort schreiben.**
-- Nicht ins Repository legen. Das Repository ist **öffentlich**.
-- Melden: **Key-ID**, **Team-ID**, **Dateiname und Ablageort**. Mehr nicht.
+**Das ist die Reihenfolge, und sie ist der ganze Punkt.** Die `.p8`-Datei lädt
+sich bei Apple **genau einmal** herunter; danach ist sie dort nicht mehr
+abrufbar. Landet sie in einem Ordner, der beim Beenden deiner Sitzung
+verschwindet, ist der Schlüssel weg — und der einzige Weg zurück ist:
+widerrufen und neu erzeugen.
 
-**Frag den Inhaber vorher**, ob du diesen Schritt gehen sollst oder ob er ihn
-selbst macht. Es ist ein Zugangsschlüssel; wer ihn erzeugt, gehört zur
-Entscheidung.
+Vergewissere dich **vor** dem Klick auf *Register*, dass du einen Ort hast,
+der deine Sitzung überlebt und dem Inhaber gehört. Findest du keinen: **nicht
+erzeugen**, sondern das melden. Ein nicht erzeugter Schlüssel ist ein offener
+Punkt; ein erzeugter und verlorener ist Aufräumarbeit.
+
+#### Der Weg
+
+developer.apple.com → Certificates, Identifiers & Profiles → **Keys** → **+**
+→ Namen vergeben (Vorschlag: `Eventboerse APNs`) → **Apple Push Notifications
+service (APNs)** ankreuzen → Continue → Register → **Download**.
+
+Sofort danach: Datei an den vorbereiteten Ort legen. Nicht in einen
+temporären Ordner „für später".
+
+#### Handhabung, ohne Ausnahme
+
+- **Inhalt nie öffnen, nie anzeigen, nie zitieren, nie in eine Antwort
+  schreiben** — auch nicht ausschnittsweise, auch nicht „zur Kontrolle".
+- **Nicht ins Repository.** Das Repository ist **öffentlich**. Auch nicht in
+  einen Zweig, auch nicht kurz.
+- Nicht per E-Mail oder Chat verschicken.
+- Empfiehl dem Inhaber, sie zusätzlich in seinen Passwortmanager zu legen.
+  Ein Schlüssel, der nur an einer Stelle liegt, ist einen Festplattendefekt
+  vom Widerruf entfernt.
+
+#### Was du meldest
+
+**Key-ID**, **Team-ID**, **Dateiname** und **Ablageort** — mehr nicht. Diese
+drei Angaben sind keine Geheimnisse, die Datei ist es.
+
+#### Was du nicht tust
+
+**Den Schlüssel nirgends eintragen oder „einrichten".** Push ist serverseitig
+noch nicht verdrahtet; die Capability steht, es passiert nur nichts. Der
+Schlüssel wird später gebraucht — jetzt wird er nur erzeugt und verwahrt.
 
 ### B2. Händlerstatus erklären
 
 **Wo:** App Store Connect → Business / Agreements → **Trader Status**.
 
-**Erklären** muss man ihn immer. **Verifizieren** nur für die öffentliche
-EU-Listung — für TestFlight nimmt Apple uns ausdrücklich aus (Zitat und Quelle
-im Vault-Abschnitt *Offen*).
+**Stand:** der Inhaber hat den Status noch **nicht** abgegeben und möchte, dass
+du ihn abgibst. Das ist eine Erklärung gegenüber Apple nach DSA Art. 30/31 —
+also arbeitest du hier nach einer **Regel**, nicht nach Einschätzung.
 
-**Du füllst hier nichts selbst aus.** Öffne das Formular und berichte:
+#### Welche Angabe heute zutrifft — und warum das keine Wahl ist
 
-1. Welche Felder verlangt werden (genau, wörtlich).
-2. Welche Auswahl bei „Are you acting as a trader?" zur Wahl steht.
-3. Ob und wo Apple ankündigt, welche Angaben **öffentlich auf der
-   Produktseite** erscheinen.
+Verteilt wird ausschließlich über **TestFlight**. Es gibt **keine** Listung im
+EU-App-Store. Apple selbst sagt für genau diesen Fall:
 
-Dann warte auf die Werte. Das ist eine rechtliche Erklärung mit den
-persönlichen Daten des Inhabers — Punkt 3 der Regeln oben.
+> *„If you don't distribute apps on the App Store in the EU (for example you
+> only distribute apps through alternative distribution, or TestFlight, or on
+> the App Store only outside the EU), you're not acting as a trader on the
+> App Store."*
 
-*Hintergrund, falls die Frage kommt:* erfüllbar ist das als **natürliche
-Person**, eine Gesellschaft verlangt Apple nicht, und als Anschrift genügt ein
-**Postfach** — deshalb das Postfach, denn die verifizierten Angaben stehen
-später öffentlich im Store.
+Zutreffend ist damit **„kein Händler auf dem App Store"**. Das folgt aus der
+Tatsachenlage, es ist keine Vorliebe. Diese Angabe verlangt keine
+persönlichen Daten und keine Verifikation.
+
+#### Die Regel
+
+1. Gibt es eine Auswahl, die *„nicht als Händler tätig"* bzw. *„keine
+   Verteilung im EU-App-Store"* bedeutet → **die ist richtig**. Auswählen,
+   speichern.
+2. Verlangt das Formular dafür **irgendein persönliches Datum** — Name,
+   Anschrift, Postfach, Telefonnummer, E-Mail, Handelsregister- oder
+   Steuernummer → **anhalten.** Das ist der Händler-Zweig; er gehört dem
+   Inhaber. Felder wörtlich melden, nichts eintragen, **nichts aus dem
+   Impressum ableiten**.
+3. Gibt es **nur** den Händler-Zweig ohne Alternative → **anhalten und
+   melden.** Dann hat die Auswahl eine Folge, die der Inhaber treffen muss.
+4. **Kreuze niemals an, die App werde im EU-App-Store verteilt.** Sie wird es
+   nicht. Das wäre eine falsche Angabe zugunsten eines schnelleren Formulars.
+
+#### Was du dazu melden musst
+
+- Die gewählte Option **wörtlich**, wie sie im Formular steht.
+- Was Apple als Folge nennt — üblicherweise, dass die App **nicht** im
+  EU-App-Store gelistet werden kann. Das ist heute richtig so und muss dem
+  Inhaber trotzdem gesagt werden.
+- Ob und wo Apple ankündigt, welche Angaben später **öffentlich auf der
+  Produktseite** erscheinen.
+
+#### Der Punkt, der später beißt
+
+Diese Erklärung ist heute wahr und wird **durch Nichtstun falsch**: in dem
+Moment, in dem die App öffentlich im EU-App-Store steht. Niemand wird dann
+gewarnt. Vor jeder öffentlichen EU-Listung muss der Status deshalb auf
+**Händler** umgestellt und verifiziert werden (natürliche Person genügt,
+Anschrift auch als **Postfach**, weil Apple die verifizierten Angaben auf der
+Produktseite veröffentlicht).
+
+Das steht als Vorbedingung im Vault unter *Für die öffentliche Listung* — dort
+nachlesen, bevor jemand auf „Submit for Review" drückt.
 
 ### B3. Den Kollegen einladen
 
