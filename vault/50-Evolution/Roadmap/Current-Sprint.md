@@ -16,8 +16,18 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 811 Tests in 53 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 817 Tests in 53 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+- **App Store Connect: beide Fragebögen sind beantwortet, nicht nur die Stufe.**
+  „16+" ist das Ergebnis von rund zwanzig Einzelfragen; wer nur die Stufe kennt,
+  rät zwanzigmal. `vault/40-Governance/Legal/App-Store.md` führt jede Frage mit
+  Antwort und Grund, und die Datentabelle nennt jetzt Apples Klickpfad wörtlich
+  (*User Content › Photos or Videos*) statt der deutschen Übersetzung. Zwei
+  Antworten waren nicht offensichtlich: **Alkoholbezüge gibt es** (Cocktail-Bar,
+  Bier-Zapfanlage, Wein-Verkostung in der Merkmalsliste — „selten", nicht
+  „keine"), und **eine AGB-Klausel ist keine Alterskontrolle** (§ 3 nennt 18
+  Jahre, die Registrierung fragt kein Alter ab → „Age Assurance" nein). Sechs
+  Tests, neun Mutationen
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
 - **Belegschaft: 11 von 11 Rollen liefern** (Lauf 919, planmäßig). Vom 23.–26.08.

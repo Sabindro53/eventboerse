@@ -563,6 +563,48 @@ Produktseite — deshalb das Postfach.
 **Eine stillschweigend behobene Vorbedingung sieht aus, als hätte sie nie
 anders gelautet.** Deshalb steht hier, was vorher dastand.
 
+### Die Stufe ist das Ergebnis, nicht die Eingabe
+
+„Altersfreigabe: 16+" ist die **Ausgabe** eines Fragebogens mit rund zwanzig
+Einzelfragen in sieben Gruppen. Wer nur die Stufe kennt und vor dem Formular
+sitzt, rät zwanzigmal. Deshalb steht in
+`vault/40-Governance/Legal/App-Store.md` jetzt jede Frage mit ihrer Antwort
+und ihrem Grund — und zwei davon sind nicht offensichtlich:
+
+**Alkoholbezüge gibt es.** Die Merkmalsliste für Inserate führt *Cocktail-Bar*,
+*Bier-Zapfanlage* und *Wein-Verkostung*, das Suchvokabular kennt *barkeeper*.
+Die richtige Antwort ist **selten**, nicht „keine". Sie ergibt für sich
+genommen 9+ und liegt damit weit unter unseren 16+ — **das Ergebnis ändert
+sich also nicht, und genau deshalb ist die Versuchung gross, „keine"
+anzukreuzen.** Geprüft wird später aber die Angabe, nicht das Ergebnis; eine
+unwahre Angabe kann die App noch Monate danach aus dem Store nehmen.
+
+Die Falle daneben: **„Alkoholfreie Cocktails"** steht in derselben Liste. Ein
+Ausdruck auf „Alkohol" trifft ausgerechnet den Eintrag, der das Gegenteil
+belegt — dieselbe Mechanik wie ein Muster, das den erklärenden Kommentar
+trifft.
+
+**Eine AGB-Klausel ist keine Alterskontrolle.** § 3 nennt 18 Jahre. Im Code
+gibt es dafür **kein Feld und keine Prüfung** — die Registrierung fragt weder
+Alter noch Geburtsdatum ab. Apples Fragen „Age Assurance" und „Social Media
+Disabled for Users Under 13" zielen auf die Kontrolle, nicht auf die Zusage;
+beide sind **nein**. Wer hier „ja" ankreuzt, erklärt eine Sperre, die es nicht
+gibt. Kommt eine Altersabfrage dazu, bricht `app-store.spec.js` ab und nennt
+die zwei Antworten, die nachzuziehen sind.
+
+**Die Vault-Tabelle ist jetzt der Klickpfad, nicht die Übersetzung.** Die
+erste Spalte nennt Apples Beschriftung wörtlich (*User Content › Photos or
+Videos*), nicht mehr „Fotos". Eine übersetzte Zeile ist im Formular nicht
+auffindbar, und wer sucht, klickt irgendwann daneben — dann widerspricht die
+Angabe in App Store Connect dem Privacy-Manifest, und Apple vergleicht beide.
+Der Test prüft jeden Pfad gegen Apples echte Kategorien und Datenarten, nicht
+gegen unsere zehn Zeilen: eine erfundene Beschriftung in einer *gültigen*
+Kategorie fällt damit auch auf.
+
+**Beide Fragebögen blockieren den internen TestFlight-Test nicht** — aber die
+Einreichung, und die Antworten stehen fertig da. Es gibt keinen Grund, damit
+auf den Mac zu warten.
+
 ### Ein Griff, den jede Suite nachbaute
 
 CodeQL meldete `.replace(/<!--…-->/g, '')` am 01.09.2026 in
@@ -1317,7 +1359,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-811 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+817 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1342,8 +1384,11 @@ gestaltet),
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
 Apache liefert nur bei passendem `Accept` und vorhandener Datei um),
 **App Store** (Privacy-Manifest und Vault-Tabelle nennen dieselben Datenarten;
-`viewport-fit` und die safe-area-Abstände sind gekoppelt; die Kontolöschung
-nach 5.1.1(v) ist noch da),
+jeder Klickpfad für App Store Connect gibt es bei Apple wirklich; die
+Alkoholfrage ist nicht mit „keine" beantwortet, solange die Merkmalsliste
+Cocktail-Bar und Bier-Zapfanlage führt; „Age Assurance" bleibt nein, solange
+die Registrierung kein Altersfeld hat; `viewport-fit` und die safe-area-
+Abstände sind gekoppelt; die Kontolöschung nach 5.1.1(v) ist noch da),
 **Prüfhygiene** (keine Suite schneidet HTML-Kommentare selbst heraus, keine
 überspringt sich),
 **Apple-Zuordnung** (ohne gültige Team-ID wird nichts ausgeliefert; das HQ ist
