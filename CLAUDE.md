@@ -594,6 +594,20 @@ Produktseite — deshalb das Postfach.
 **Eine stillschweigend behobene Vorbedingung sieht aus, als hätte sie nie
 anders gelautet.** Deshalb steht hier, was vorher dastand.
 
+**Die Erklärung, die durch Nichtstun falsch wird.** Für die TestFlight-Phase
+ist *„kein Händler auf dem App Store"* die **zutreffende** Angabe — das folgt
+aus Apples eigenem Satz, es ist keine Wahl. Sie verlangt weder persönliche
+Daten noch Verifikation. Und sie wird **unwahr in dem Moment, in dem die App
+öffentlich im EU-App-Store steht** — ohne dass jemand etwas ändert und ohne
+dass irgendwo eine Warnung erscheint.
+
+Das ist die gefährlichere Sorte: eine **fehlende** Erklärung blockiert und
+fällt auf, eine stillschweigend falsch gewordene nicht. Vor jeder öffentlichen
+EU-Listung ist der Status deshalb von *kein Händler* auf **Händler**
+umzustellen **und** zu verifizieren — umstellen, nicht nur verifizieren.
+`app-store.spec.js` hält den Vermerk in Vault und `native/TestFlight.md` fest;
+wer ihn löscht, löscht die einzige Warnung, die es dafür gibt.
+
 ### Die Stufe ist das Ergebnis, nicht die Eingabe
 
 „Altersfreigabe: 16+" ist die **Ausgabe** eines Fragebogens mit rund zwanzig
@@ -1390,7 +1404,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-824 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+827 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1420,8 +1434,10 @@ Apache liefert nur bei passendem `Accept` und vorhandener Datei um),
 jeder Klickpfad für App Store Connect gibt es bei Apple wirklich; die
 Alkoholfrage ist nicht mit „keine" beantwortet, solange die Merkmalsliste
 Cocktail-Bar und Bier-Zapfanlage führt; „Age Assurance" bleibt nein, solange
-die Registrierung kein Altersfeld hat; `viewport-fit` und die safe-area-
-Abstände sind gekoppelt; die Kontolöschung nach 5.1.1(v) ist noch da),
+die Registrierung kein Altersfeld hat; die Umstellung des Händlerstatus vor
+der EU-Listung bleibt vermerkt, und der Cowork-Auftrag hält bei persönlichen
+Daten an; `viewport-fit` und die safe-area-Abstände sind gekoppelt; die
+Kontolöschung nach 5.1.1(v) ist noch da),
 **Prüfhygiene** (keine Suite schneidet HTML-Kommentare selbst heraus, keine
 überspringt sich),
 **Apple-Zuordnung** (ohne gültige Team-ID wird nichts ausgeliefert; das HQ ist

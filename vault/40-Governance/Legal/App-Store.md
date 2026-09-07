@@ -298,6 +298,26 @@ Datei, nicht am Formular.
   Bauen, hochladen und an Tester verteilen geht ohne; die Verifikation
   (Postfach, Telefon, E-Mail, je mit zweitem Faktor) läuft parallel.
 
+  **Welche Erklärung heute zutrifft.** Der Inhaber hat den Status am
+  07.09.2026 noch nicht abgegeben. Solange ausschließlich über TestFlight
+  verteilt wird und **keine** Listung im EU-App-Store besteht, ist
+  *„kein Händler auf dem App Store"* die zutreffende Angabe — das ist keine
+  Wahl, sondern folgt aus Apples eigenem Satz oben. Sie verlangt keine
+  persönlichen Daten und keine Verifikation.
+
+  **Und genau darin liegt die Falle.** Diese Angabe ist heute wahr und wird
+  in dem Moment unwahr, in dem die App öffentlich im EU-App-Store steht —
+  ohne dass jemand etwas ändert und ohne dass irgendwo eine Warnung
+  erscheint. Eine Erklärung, die durch Nichtstun falsch wird, ist gefährlicher
+  als eine fehlende: die fehlende blockiert und fällt auf.
+
+  **Vor der öffentlichen EU-Listung deshalb zwingend:** Händlerstatus von
+  *kein Händler* auf **Händler** umstellen und verifizieren. Erfüllbar als
+  **natürliche Person**, Anschrift auch als **Postfach** — Apple
+  veröffentlicht die verifizierten Angaben auf der Produktseite, deshalb das
+  Postfach. Ohne diesen Schritt ist die Listung entweder gesperrt oder die
+  Angabe falsch; beides fällt erst spät auf.
+
   Für die Listung selbst bleibt es dabei: als **natürliche Person** erfüllbar
   (Adresse **oder Postfach**), eine UG oder GmbH verlangt Apple dafür nicht.
   Apple veröffentlicht die verifizierten Angaben auf der Produktseite — das
