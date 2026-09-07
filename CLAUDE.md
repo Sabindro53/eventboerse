@@ -199,18 +199,49 @@ Zeile" legte also mit einem Schlag **jeden Knopf der Anwendung** still — und
 zwar ohne Fehlermeldung: die Seite lädt, sieht heil aus, nichts reagiert.
 Genau die Schadensart, die weiter unten als teuerste benannt ist.
 
-Deshalb tritt `bereit: true` heute **nie** ein, und das ist richtig so: die
-beobachtende Fassung trägt das Nonce bereits, also verstößt jeder der 459
-Handler bei jedem Seitenaufruf und wird gemeldet. Wer auf die leere Liste
-wartet, wartet ewig — nicht weil der Sammler kaputt ist, sondern weil die
-Meldungen echt sind.
+**Der Freigabeschalter war tot, nicht geduldig.** Hier stand bis zum
+07.09.2026, `bereit: true` trete „nie ein, und das ist richtig so". Der erste
+Teil stimmte, der zweite nicht. `bereit` verlangt eine **leere** Verstoßliste
+und ist die einzige Freigabe für Schritt 2. Die beobachtende Fassung ersetzte
+`'unsafe-inline'` durch das Nonce auch in `script-src` — und genau dorthin
+fallen Inline-Handler mangels `script-src-attr` zurück. Also meldete jeder der
+459 Handler bei jedem Seitenaufruf einen Zustand, den wir **bewusst behalten**.
+
+Dieselbe Mechanik wie beim toten Gitleaks-Scan, nur andersherum: dort meldete
+ein Prüfer nie etwas und sah aus wie Schutz, hier meldet er dauerhaft etwas
+und sieht aus wie ein offener Posten. **Beides führt dazu, dass niemand mehr
+hinsieht** — und die eine Meldung, auf die es ankommt, ging darin unter:
+`script-src-elem|inline`, ein Inline-`<script>` **ohne** Nonce. Genau der Fall,
+der bei Schritt 2 still ausfiele.
+
+Behoben mit einer Direktive, die an der Durchsetzung **nichts** ändert:
+`script-src-attr 'unsafe-inline'` steht jetzt in `$csp_directives`. Ohne sie
+fielen Handler auf `script-src` zurück, wo `'unsafe-inline'` steht — sie liefen
+also schon. Die Ableitung trifft `script-src` und `script-src-elem`, nicht
+`script-src-attr`; die beobachtende Fassung erbt sie unverändert und meldet
+Handler nicht mehr.
+
+**Im echten Chromium gemessen, nicht behauptet** (`csp-nonce.spec.js` fährt
+vier CSP-Fassungen gegen eine echte Seite):
+
+| Fassung | Knopf `onclick` | `<script nonce>` | `<script>` ohne Nonce |
+|---|:--:|:--:|:--:|
+| heute (`unsafe-inline`) | ✅ | ✅ | **läuft** |
+| Nonce **ohne** `script-src-attr` | **tot** | ✅ | blockiert |
+| Nonce **mit** `script-src-attr` | ✅ | ✅ | blockiert |
+| heute **+** `script-src-attr` | ✅ | ✅ | läuft |
+
+Die letzte Zeile ist der Beleg: verhaltensgleich mit heute. Die zweite ist die
+Falle — **kein Knopf reagiert, und nirgends steht ein Fehler.**
 
 **Zwei gangbare Wege**, beide bewusst zu wählen:
 
-1. **`script-src-attr 'unsafe-inline'` ausdrücklich setzen.** Dann schützt das
-   Nonce gegen eingeschleuste `<script>`-Elemente — den Hauptweg für XSS —
-   während die Handler weiterlaufen. Deutlich besser als heute, in einem
-   Schritt machbar.
+1. **Das Nonce in die durchgesetzte `script-src-elem` tragen.** Die
+   Vorbedingung `script-src-attr` ist seit dem 07.09.2026 erfüllt, die Knöpfe
+   überleben es also. Dann schützt das Nonce gegen eingeschleuste
+   `<script>`-Elemente — den Hauptweg für XSS. **Erst wenn `bereit` im HQ true
+   ist:** das ist eine Beobachtung über echten Verkehr und keine
+   Code-Eigenschaft, kein Test kann sie ersetzen.
 2. Die 459 Handler auf `addEventListener` umstellen. Vollständig, aber ein
    Umbau der ganzen Shell.
 
@@ -1359,7 +1390,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-817 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+824 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1375,7 +1406,9 @@ Schicht-Ausfall landet wirklich im Journal),
 Historie; ein Verweis auf eine Umgebungsvariable nicht),
 **Phantom-Workflows** (was GitHub als aktiv führt, hat auch eine Datei),
 **CSP-Nonce** (jedes Inline-Skript trägt eins; die beobachtende Fassung ist
-abgeleitet, nicht abgeschrieben), **Auslieferung** (Brotli ergänzt gzip, jede
+abgeleitet, nicht abgeschrieben; im echten Browser gemessen: ein Nonce ohne
+`script-src-attr` legt jeden Knopf still, und die neue Direktive ändert an der
+durchgesetzten Fassung nichts), **Auslieferung** (Brotli ergänzt gzip, jede
 vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen,
 eigene Bibliotheken tragen eigene Handles, abbestellt wird nur was nichts
 gestaltet),

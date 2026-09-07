@@ -220,8 +220,11 @@ echo json_encode( array(
     'probeAltTraegtNeu'  => $altTraegtNeu,
     'probeSrcUnberuehrt' => (bool) preg_match( '/<script src="a\.js">/', $probeAus ),
     'cspDurchgesetzt'    => $holen( $durchgesetzt, 'script-src' ),
+    'cspDurchgesetztElem' => $holen( $durchgesetzt, 'script-src-elem' ),
+    'cspDurchgesetztAttr' => $holen( $durchgesetzt, 'script-src-attr' ),
     'cspStreng'          => $holen( $streng, 'script-src' ),
     'cspStrengElem'      => $holen( $streng, 'script-src-elem' ),
+    'cspStrengAttr'      => $holen( $streng, 'script-src-attr' ),
     'strengHatBericht'   => (bool) $holen( $streng, 'report-uri' ),
     'gleicheAnzahl'      => count( $streng ) === count( $durchgesetzt ) + 2,
     // Alles ausser script-src muss Zeichen fuer Zeichen gleich sein.

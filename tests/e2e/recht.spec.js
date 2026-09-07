@@ -314,10 +314,22 @@ test.describe('Drittanbieter im Auslieferungspfad', () => {
     const php = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
     const zeilen = php.split('\n').filter((z) => /"script-src/.test(z) && !/^\s*\/\//.test(z));
     expect(zeilen.length, 'script-src nicht gefunden').toBeGreaterThan(0);
-    for (const z of zeilen) {
-      const hosts = [...z.matchAll(/https:\/\/([a-z0-9.*-]+)/g)].map((m) => m[1]);
-      expect(hosts, `fremder Skript-Host in der CSP: ${hosts.join(', ')}`).toEqual(['js.stripe.com']);
-    }
+
+    // Gemessen wird „kein fremder Host AUSSER Stripe", nicht „überall Stripe".
+    // Bis zum 07.09.2026 verlangte jede Zeile die Liste ['js.stripe.com'] —
+    // und fiel damit über `script-src-attr 'unsafe-inline'`, eine Direktive
+    // ganz OHNE Host. Sie ist die sicherste Form, die es gibt: Attribute
+    // laden nichts nach, ein Host dort wäre bedeutungslos. Eine Prüfung, die
+    // an der strengeren Fassung scheitert, misst nicht die Gefahr.
+    const alleHosts = zeilen.flatMap(
+      (z) => [...z.matchAll(/https:\/\/([a-z0-9.*-]+)/g)].map((m) => m[1]));
+    const fremde = alleHosts.filter((h) => h !== 'js.stripe.com');
+    expect(fremde, `fremder Skript-Host in der CSP: ${fremde.join(', ')}`).toEqual([]);
+    // Gegenprobe: findet die Host-Erhebung überhaupt etwas? Ohne sie wäre
+    // ein kaputtes Muster eine Entwarnung — dieselbe Falle wie beim toten
+    // Gitleaks-Scan.
+    expect(alleHosts, 'die Host-Erhebung findet nichts — dann prüft dieser '
+      + 'Test nichts').toContain('js.stripe.com');
     // Schriften nur noch von uns.
     const font = php.split('\n').find((z) => /"font-src/.test(z));
     expect(font, 'font-src nicht gefunden').toBeTruthy();

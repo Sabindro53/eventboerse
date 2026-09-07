@@ -1205,6 +1205,29 @@ add_action( 'send_headers', function() {
         // diese Zeile bewusst aufmachen.
         "script-src 'self' 'unsafe-inline' https://js.stripe.com",
         "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com",
+        // Inline-Event-Handler (onclick=, onchange=, …) ausdruecklich.
+        //
+        // AN DER DURCHSETZUNG AENDERT DAS NICHTS. Ohne diese Zeile fallen
+        // Handler auf `script-src` zurueck, und dort steht 'unsafe-inline' —
+        // sie liefen also schon. Im echten Browser gemessen (csp-nonce.spec.js
+        // faehrt beide Fassungen gegen Chromium): identisches Ergebnis.
+        //
+        // GEAENDERT WIRD DIE BEOBACHTENDE FASSUNG, und das ist der Zweck.
+        // Sie ersetzt 'unsafe-inline' durch das Nonce — aber nur in
+        // `script-src` und `script-src-elem`, nicht hier. Vorher nonc'te sie
+        // damit auch den Rueckfallweg der Handler, also verstiess jeder der
+        // 459 Handler bei jedem Seitenaufruf und wurde gemeldet.
+        //
+        // Die Folge war ein toter Schalter: `bereit` in eb_csp_report_lesen()
+        // verlangt eine LEERE Verstossliste und konnte sie nie bekommen. Der
+        // Melder meldete dauerhaft einen Zustand, den wir bewusst behalten,
+        // und verdeckte damit die einzige Meldung, auf die es ankommt —
+        // `script-src-elem|inline`, also ein Inline-<script> OHNE Nonce.
+        // Genau das ist der Fall, der bei Schritt 2 still ausfallen wuerde.
+        //
+        // Ein Melder, der immer meldet, wird nicht gelesen. Jetzt meldet er
+        // nur noch, was wirklich brechen wuerde.
+        "script-src-attr 'unsafe-inline'",
         // Styles: nur noch eigene. Google Fonts, Leaflet und Flatpickr liegen im Theme.
         "style-src 'self' 'unsafe-inline'",
         // Schriften ausschliesslich aus dem eigenen Haus.
@@ -1236,8 +1259,19 @@ add_action( 'send_headers', function() {
      * einer durchgesetzten Fassung nicht auf, es fällt AUS: die Seite
      * lädt, sieht heil aus, und ein Stück Verhalten fehlt. Diese Sorte
      * Schaden ist teurer als eine Fehlermeldung, weil niemand sie sucht.
-     * Erst wenn der Bericht über echten Verkehr leer bleibt, wandert
-     * das Nonce in die durchgesetzte Fassung — eine Zeile.
+     *
+     * SCHRITT 2 IST NICHT „EINE ZEILE". Hier stand das bis zum 07.09.2026.
+     * Sobald `script-src` ein Nonce trägt, ignorieren Browser
+     * 'unsafe-inline' — und ein Inline-Handler kann kein Nonce tragen.
+     * Ohne `script-src-attr` legte die eine Zeile jeden Knopf still, ohne
+     * Fehlermeldung. Die Direktive steht deshalb jetzt oben; im echten
+     * Browser gemessen, nicht angenommen.
+     *
+     * WAS JETZT NOCH GEMELDET WIRD, ist genau der Ernstfall: ein
+     * Inline-<script> ohne Nonce (`script-src-elem|inline`). Bleibt der
+     * Bericht über echten Verkehr leer, ist `bereit` true — und dann,
+     * und erst dann, wandert das Nonce in die durchgesetzte Fassung.
+     * Vorher war `bereit` unerreichbar und damit wertlos.
      *
      * ABGELEITET, NICHT ABGESCHRIEBEN. Die Liste entsteht aus
      * $csp_directives. Zwei gepflegte Fassungen einer Sicherheitsregel

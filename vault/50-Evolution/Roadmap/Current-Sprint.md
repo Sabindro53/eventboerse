@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 817 Tests in 53 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 824 Tests in 53 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **App Store Connect: beide Fragebögen sind beantwortet, nicht nur die Stufe.**
   „16+" ist das Ergebnis von rund zwanzig Einzelfragen; wer nur die Stufe kennt,
@@ -28,6 +28,16 @@ einen alten Abschnitt gelesen und nicht diesen.
   „keine"), und **eine AGB-Klausel ist keine Alterskontrolle** (§ 3 nennt 18
   Jahre, die Registrierung fragt kein Alter ab → „Age Assurance" nein). Sechs
   Tests, neun Mutationen
+- **CSP: der Freigabeschalter für Schritt 2 war tot, nicht geduldig.** `bereit`
+  verlangt eine leere Verstoßliste; die beobachtende Fassung nonc'te aber auch
+  `script-src`, worauf Inline-Handler mangels `script-src-attr` zurückfallen —
+  also meldeten alle 459 Handler bei jedem Seitenaufruf einen Zustand, den wir
+  bewusst behalten, und verdeckten die einzige Meldung, die zählt
+  (`script-src-elem|inline`: ein Inline-`<script>` **ohne** Nonce). Behoben mit
+  `script-src-attr 'unsafe-inline'` — an der **Durchsetzung ändert das nichts**,
+  im echten Chromium gegen vier CSP-Fassungen gemessen. Schritt 2 bleibt
+  ungemacht und hängt jetzt an einer echten Beobachtung statt an einem
+  unerreichbaren Schalter. Sieben Tests, acht Mutationen
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
 - **Belegschaft: 11 von 11 Rollen liefern** (Lauf 919, planmäßig). Vom 23.–26.08.
