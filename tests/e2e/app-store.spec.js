@@ -248,3 +248,137 @@ test.describe('Freigabe-Hürden, die im Code liegen', () => {
     }
   });
 });
+
+// ── Die Fragebögen in App Store Connect ───────────────────────────────────
+//
+// Beide sind Formulare, die jemand einmal ausfüllt — und danach nie wieder
+// ansieht. Genau deshalb müssen die Antworten am Code hängen und nicht am
+// Gedächtnis: eine Angabe, die stimmte, als sie eingetragen wurde, wird still
+// falsch, sobald sich der Code darunter bewegt. Apple prüft sie später gegen
+// die App, nicht gegen das Datum ihrer Eingabe.
+
+/** Apples Beschriftungen im App-Privacy-Fragebogen, wörtlich. */
+const ASC_DATENARTEN = {
+  'Contact Info': ['Name', 'Email Address', 'Phone Number', 'Physical Address',
+    'Other User Contact Info'],
+  'Health & Fitness': ['Health', 'Fitness'],
+  'Financial Info': ['Payment Info', 'Credit Info', 'Other Financial Info'],
+  Location: ['Precise Location', 'Coarse Location'],
+  'Sensitive Info': ['Sensitive Info'],
+  Contacts: ['Contacts'],
+  'User Content': ['Emails or Text Messages', 'Photos or Videos', 'Audio Data',
+    'Gameplay Content', 'Customer Support', 'Other User Content'],
+  'Browsing History': ['Browsing History', 'Search History'],
+  Identifiers: ['User ID', 'Device ID'],
+  Purchases: ['Purchase History'],
+  'Usage Data': ['Product Interaction', 'Advertising Data', 'Other Usage Data'],
+  Diagnostics: ['Crash Data', 'Performance Data', 'Other Diagnostic Data'],
+  'Other Data': ['Other Data Types'],
+};
+
+/**
+ * Die Zeilen der Vault-Tabelle als Paare {pfad, kennung}.
+ *
+ * Gelesen wird die Tabelle, nicht die Datei: ein Ausdruck über den ganzen Text
+ * fände den Klickpfad auch im Fliesstext darunter und zählte ihn mit.
+ */
+function tabellenZeilen() {
+  return [...VAULT.matchAll(
+    /^\|\s*\*{0,2}([^|*]+?)\*{0,2}\s*\|\s*`(NSPrivacyCollectedDataType\w+)`\s*\|/gm)]
+    .map((m) => ({ pfad: m[1].trim(), kennung: m[2] }));
+}
+
+test.describe('App Privacy: die Tabelle ist der Klickpfad', () => {
+  test('jede Datenart des Manifests hat eine Zeile mit Klickpfad', () => {
+    // Ohne diese Prüfung wäre ein kaputtes Muster ein bestandener Test — die
+    // Fehlerklasse, die dieses Projekt am häufigsten erwischt hat.
+    const zeilen = tabellenZeilen();
+    expect(zeilen.length, 'die Tabelle liefert keine Zeilen — Muster kaputt?')
+      .toBe(ausManifest().length);
+    const inTabelle = new Set(zeilen.map((z) => z.kennung));
+    for (const k of ausManifest()) {
+      expect(inTabelle.has(k), `${k} steht im Manifest, aber in keiner `
+        + 'Tabellenzeile mit Klickpfad').toBe(true);
+    }
+  });
+
+  test('jeder Klickpfad gibt es bei Apple wirklich', () => {
+    // Eine übersetzte oder erfundene Beschriftung ist im Formular nicht
+    // auffindbar. Wer sucht, klickt irgendwann daneben — und eine falsche
+    // Datenart in App Store Connect widerspricht dann dem Manifest.
+    for (const { pfad, kennung } of tabellenZeilen()) {
+      const teile = pfad.split('›').map((s) => s.trim());
+      expect(teile.length, `${kennung}: „${pfad}" ist kein Pfad `
+        + '„Kategorie › Datenart"').toBe(2);
+      const [kategorie, datenart] = teile;
+      expect(Object.keys(ASC_DATENARTEN), `${kennung}: „${kategorie}" ist `
+        + 'keine Kategorie des App-Privacy-Fragebogens').toContain(kategorie);
+      expect(ASC_DATENARTEN[kategorie], `${kennung}: „${datenart}" steht bei `
+        + `Apple nicht unter „${kategorie}"`).toContain(datenart);
+    }
+  });
+
+  test('der Standort ist auch im Klickpfad der genaue', () => {
+    // Coarse Location anzuklicken wäre die bequemere Angabe und widerspräche
+    // dem Manifest, das PreciseLocation deklariert — Apple vergleicht beides.
+    const zeile = tabellenZeilen()
+      .find((z) => z.kennung === 'NSPrivacyCollectedDataTypePreciseLocation');
+    expect(zeile, 'die Zeile zum Standort fehlt').toBeTruthy();
+    expect(zeile.pfad).toBe('Location › Precise Location');
+  });
+});
+
+test.describe('Altersfreigabe: der Fragebogen hängt am Code', () => {
+  test('Alkoholbezüge gibt es — „keine" wäre eine unwahre Angabe', () => {
+    // Die Versuchung ist gross, hier „keine" anzukreuzen: „selten" ergibt 9+
+    // und liegt weit unter unseren 16+, das Ergebnis ändert sich also nicht.
+    // Geprüft wird später aber die Angabe, nicht das Ergebnis.
+    const merkmale = lies('js', 'modules', 'ui', '22-inserat-settings-uploads.js');
+    for (const m of ['Cocktail-Bar', 'Bier-Zapfanlage', 'Wein-Verkostung']) {
+      expect(merkmale, `„${m}" ist aus der Merkmalsliste verschwunden — dann `
+        + 'ist die Antwort „selten" zur Alkoholfrage neu zu prüfen').toContain(m);
+    }
+    // „Alkoholfreie Cocktails" steht ebenfalls in der Liste. Ein Ausdruck auf
+    // „Alkohol" träfe genau den Eintrag, der das Gegenteil belegt — dieselbe
+    // Falle wie ein Muster, das den erklärenden Kommentar trifft.
+    expect(merkmale, 'Annahme veraltet: der alkoholfreie Eintrag ist weg')
+      .toContain('Alkoholfreie Cocktails');
+    // Gemessen wird die TABELLENZEILE, nicht die Datei: der Absatz darunter
+    // erklärt die Antwort und nennt dabei „keine" als das, was falsch wäre.
+    // Ein Ausdruck über den ganzen Text träfe die Erklärung statt der Angabe.
+    const zeile = VAULT.split('\n')
+      .find((l) => l.startsWith('|') && l.includes('Alkohol'));
+    expect(zeile, 'die Alkoholzeile fehlt im Fragebogen-Abschnitt').toBeTruthy();
+    const zellen = zeile.split('|').map((z) => z.trim());
+    const antwort = zellen[zellen.findIndex((z) => z.includes('Alkohol')) + 1];
+    expect(antwort, 'die Alkoholfrage ist mit „keine" beantwortet, obwohl die '
+      + 'Merkmalsliste Cocktail-Bar, Bier-Zapfanlage und Wein-Verkostung führt')
+      .toMatch(/selten/);
+  });
+
+  test('es gibt keine Alterskontrolle — und der Fragebogen sagt das auch', () => {
+    // § 3 der AGB nennt 18 Jahre. Das ist eine Klausel, keine Kontrolle: die
+    // Registrierung fragt weder Alter noch Geburtsdatum ab. Apple fragt nach
+    // der Kontrolle. Kommt eine dazu, müssen zwei Antworten nachgezogen
+    // werden — dieser Test bricht dann ab und sagt welche.
+    const auth = lies('js', 'modules', 'core', '30-auth.js');
+    expect(auth, 'in der Registrierung steht jetzt ein Alters-/Geburtsfeld — '
+      + '„Age Assurance" und „Social Media Disabled for Users Under 13" im '
+      + 'Fragebogen sind damit neu zu beantworten')
+      .not.toMatch(/geburt|birthdate|birth_date|date_of_birth|age_(check|gate|verif)/i);
+    expect(VAULT, 'die Antwort zu „Age Assurance" fehlt')
+      .toMatch(/\|\s*Age Assurance\s*\|\s*\*\*nein\*\*/);
+    expect(VAULT, 'die Antwort zu „Social Media Disabled for Users Under 13" fehlt')
+      .toMatch(/\|\s*Social Media Disabled for Users Under 13\s*\|\s*\*\*nein\*\*/);
+    expect(VAULT, 'die AGB-Klausel ist als Begründung nicht mehr benannt')
+      .toMatch(/Klausel ist eine vertragliche Zusage, keine technische Kontrolle/);
+  });
+
+  test('unrestricted web access bleibt der Grund für 16+', () => {
+    // Die Kopplung, die #235 gebaut hat — hier noch einmal aus Sicht des
+    // Fragebogens: die Zeile muss „ja" sagen, solange die Konfiguration es tut.
+    expect(CAPACITOR.ios.limitsNavigationsToAppBoundDomains).toBe(false);
+    expect(VAULT, 'die Zeile „Unrestricted Web Access" antwortet nicht mehr „ja"')
+      .toMatch(/Unrestricted Web Access\*{0,2}\s*\|\s*\*\*ja\*\*/);
+  });
+});

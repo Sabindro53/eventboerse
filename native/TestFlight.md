@@ -81,6 +81,20 @@ greift **16+**, weil `limitsNavigationsToAppBoundDomains: false` in
 `capacitor.config.json` steht und Apple das als *unrestricted web access*
 führt. Begründung und Quellen: derselbe Vault-Abschnitt.
 
+**Parallel ausfüllbar, blockiert hier nichts:** die beiden Fragebögen in App
+Store Connect — **App Privacy** (zehn Datenarten, je drei Fragen) und
+**Altersfreigabe** (rund zwanzig Fragen). Beide Antwortsätze stehen fertig im
+Vault, jeder am Code belegt:
+[`App-Store.md`](../vault/40-Governance/Legal/App-Store.md) — Abschnitte
+„Erhobene Daten" und „Der Fragebogen, Zeile für Zeile".
+
+**Die Stufe ist das Ergebnis, nicht die Eingabe.** Wer nur „16+" weiß und die
+zwanzig Einzelfragen aus dem Kopf beantwortet, rät zwanzigmal. Zwei Antworten
+sind dabei nicht offensichtlich: Alkoholbezüge gibt es (*Cocktail-Bar*,
+*Bier-Zapfanlage* in der Merkmalsliste), und eine Alterskontrolle gibt es
+**nicht** — die 18 Jahre aus den AGB sind eine Klausel, kein Feld im
+Registrierungsformular.
+
 ### Auf dem Mac
 
 ```bash
