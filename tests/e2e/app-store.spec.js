@@ -434,9 +434,33 @@ test.describe('Händlerstatus: die Umstellung darf nicht vergessen werden', () =
     // Händler-Zweig mit Anschrift und Telefonnummer nicht. Fällt die
     // Abbruchregel weg, füllt ein fleissiger Agent das Formular fertig aus.
     const auftrag = lies('vault', '30-Betrieb', 'Cowork-Auftraege.md');
-    expect(auftrag, 'die Abbruchregel bei persönlichen Daten ist weg')
-      .toMatch(/Anschrift, Postfach, Telefonnummer[\s\S]{0,160}anhalten/);
-    expect(auftrag, 'das Verbot, EU-Verteilung anzukreuzen, ist weg')
+
+    // Gemessen wird die REGELLISTE, nicht die Datei und nicht ein
+    // Zeichenabstand. Beide Abkürzungen waren schon falsch:
+    //
+    //   · `Anschrift…[\s\S]{0,160}…anhalten` prüft, wie weit zwei Wörter
+    //     auseinanderstehen — also die Formatierung. Ein umgebrochener
+    //     Absatz hätte den Test gebrochen, ohne dass sich etwas ändert.
+    //   · Der ganze Abschnitt B2 war zu weit: „Postfach" steht dort ZWEIMAL,
+    //     einmal in der Abbruchregel und einmal im Absatz „Anschrift auch als
+    //     Postfach". Eine Mutation, die es aus der REGEL nahm, blieb deshalb
+    //     grün — der Treffer kam aus der Erklärung. Dieselbe Mechanik wie
+    //     „Alkoholfreie Cocktails" bei der Alkoholfrage.
+    const von = auftrag.indexOf('#### Die Regel');
+    const bis = auftrag.indexOf('#### Was du dazu melden musst');
+    expect(von, 'die Regelliste in B2 ist nicht auffindbar — dann prüft '
+      + 'dieser Test nichts').toBeGreaterThan(-1);
+    expect(bis, 'das Ende der Regelliste ist nicht auffindbar').toBeGreaterThan(von);
+    const regeln = auftrag.slice(von, bis);
+
+    for (const feld of ['Anschrift', 'Postfach', 'Telefonnummer']) {
+      expect(regeln, `„${feld}" ist aus der Abbruchregel verschwunden — dann `
+        + 'füllt ein fleissiger Agent den Händler-Zweig fertig aus')
+        .toContain(feld);
+    }
+    expect(regeln, 'die Regeln sagen nicht mehr, dass bei persönlichen Daten '
+      + 'anzuhalten ist').toContain('anhalten');
+    expect(regeln, 'das Verbot, EU-Verteilung anzukreuzen, ist weg')
       .toMatch(satz('niemals an, die App werde im EU-App-Store verteilt'));
   });
 });
