@@ -380,12 +380,26 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .nav-ai-overlay.show { opacity: 1; pointer-events: all; }
 .nav-ai-overlay-inner { background: var(--bg); border-radius: 20px; width: 95%; max-width: 540px; padding: 0; box-shadow: 0 25px 80px rgba(124,58,237,.18), 0 0 0 1px rgba(168,85,247,.08); transform: translateY(-12px) scale(.98); transition: transform .25s cubic-bezier(.4,0,.2,1); position: relative; overflow: hidden; }
 .nav-ai-overlay.show .nav-ai-overlay-inner { transform: translateY(0) scale(1); }
-.nav-ai-overlay-inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #7c3aed, #a855f7, #ec4899, #a855f7, #7c3aed); background-size: 200% 100%; animation: navAiGradient 3s linear infinite; }
+.nav-ai-overlay-inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #7c3aed, #a855f7, #ec4899, #a855f7, #7c3aed); background-size: 200% 100%; }
+/* Die Animation laeuft NUR im geoeffneten Overlay.
+ *
+ * `opacity: 0` heisst fuer den Browser nicht "weg", sondern "gerendert und
+ * durchsichtig" -- eine Animation darin laeuft weiter. Bis zum 08.09.2026
+ * stand `animation` in der Regel darueber, also unbedingt. Im echten
+ * Chromium gemessen: 240 Stil-Neuberechnungen in 4 Sekunden (60 pro
+ * Sekunde, jeden Frame) und 221 ms Hauptthread-Arbeit -- fuer einen
+ * Verlauf in einem geschlossenen Dropdown, den niemand sieht.
+ *
+ * Nur `display: none` nimmt eine Animation wirklich aus dem Lauf. Das
+ * Overlay braucht aber `opacity` fuer seine Ein-/Ausblendung. */
+.nav-ai-overlay.show .nav-ai-overlay-inner::before { animation: navAiGradient 3s linear infinite; }
 @keyframes navAiGradient { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
 
 /* AI Overlay Header */
 .nav-ai-header { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 700; color: var(--dark); padding: 20px 24px 0; }
-.ai-spark-lg { font-size: 22px !important; background-image: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: navAiSparkle 2s ease-in-out infinite; }
+.ai-spark-lg { font-size: 22px !important; background-image: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+/* Ebenfalls nur im geoeffneten Overlay — sie sitzt in dessen Kopfzeile. */
+.nav-ai-overlay.show .ai-spark-lg { animation: navAiSparkle 2s ease-in-out infinite; }
 .nav-ai-close { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--text-light); padding: 6px; border-radius: 50%; transition: background .2s; }
 .nav-ai-close:hover { background: var(--bg-alt); }
 

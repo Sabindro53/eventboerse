@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 827 Tests in 53 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 830 Tests in 54 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **App Store Connect: beide Fragebögen sind beantwortet, nicht nur die Stufe.**
   „16+" ist das Ergebnis von rund zwanzig Einzelfragen; wer nur die Stufe kennt,
@@ -50,6 +50,16 @@ einen alten Abschnitt gelesen und nicht diesen.
   07.09.2026). Grenzen im Auftrag: Ablageort **vor** dem Erzeugen klären (die
   `.p8` lädt genau einmal), Inhalt nie in Chat oder Repo, und beim
   Händler-Zweig anhalten, sobald ein persönliches Datum verlangt wird
+- **„Fühlt sich nicht liquid an": der Hauptthread kam nie zur Ruhe.** Kein
+  Ladezeit-Befund — im Leerlauf, ohne jede Interaktion, **492 ms
+  Hauptthread-Arbeit und 237 Stil-Neuberechnungen je vier Sekunden** (60 pro
+  Sekunde, als würde jemand scrollen). Ursache: `animation: … infinite` auf
+  dem `::before` eines Dropdowns, das auf `opacity: 0` steht — für den
+  Browser *gerendert und durchsichtig*, nicht *weg*. Jetzt hinter `.show`:
+  **73 ms / 37**, optisch identisch. Jede der vier Animationen einzeln
+  gemessen; `will-change` machte es **schlechter** (97 ms) und ist deshalb
+  nicht eingebaut. `prefers-reduced-motion` senkt diese Kosten übrigens gar
+  nicht (240 vs. 241) — es kürzt nur die Dauer. Neue Suite `leerlauf.spec.js`
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
 - **Belegschaft: 11 von 11 Rollen liefern** (Lauf 919, planmäßig). Vom 23.–26.08.

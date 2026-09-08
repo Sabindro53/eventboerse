@@ -376,6 +376,62 @@ vorbei; Bilder sind ein Bandbreiten-, kein LCP-Posten.
 seit dem 04.09. live, die Nachrüstung läuft im HQ über den 🗜️-Knopf. Erledigt
 sind dagegen Stripe.js, die doppelten Stylesheets und das Gutenberg-CSS.
 
+### „Fühlt sich nicht liquid an" — der Hauptthread kam nie zur Ruhe
+
+Gemeldet am 08.09.2026. Das ist **kein Ladezeit-Befund**: die Seite war
+fertig geladen und fühlte sich trotzdem zäh an. Gemessen im echten Chromium,
+**vier Sekunden Leerlauf** auf der Startseite, ohne jede Interaktion:
+
+| | Hauptthread | Stil-Neuberechnungen |
+|---|---:|---:|
+| vorher | **492 ms** | **237** |
+| nachher | **73 ms** | **37** |
+
+237 Neuberechnungen in vier Sekunden sind **60 pro Sekunde** — die Seite
+rechnete durch, als würde jemand scrollen. Beim echten Scrollen verdreifachte
+sich die Arbeit dadurch (60 ms statt 21 ms für dieselbe Geste). Genau das
+fühlt man: jede Berührung konkurriert mit einer Dauerlast.
+
+**Die Ursache lief in einem geschlossenen Dropdown.** `.nav-ai-overlay` steht
+auf `opacity: 0`, sein `::before` trug `animation: navAiGradient 3s linear
+infinite` — unbedingt. **`opacity: 0` heisst für den Browser nicht „weg",
+sondern „gerendert und durchsichtig"**: die Animation lief weiter, für einen
+Farbverlauf, den niemand sieht. Nur `display: none` nimmt eine Animation
+wirklich aus dem Lauf, und das kann das Overlay nicht benutzen — es braucht
+`opacity` für sein Ein- und Ausblenden.
+
+Behoben, indem die Regel hinter `.nav-ai-overlay.show` wandert. **Optisch
+ändert sich nichts**: beim Öffnen laufen wieder alle vier Animationen.
+
+**Jede Animation wurde einzeln gemessen**, bevor etwas angefasst wurde
+(4 s Leerlauf, Grundrauschen 66 ms): `navAiSparkle` 84 ms, `navGlowPulse`
+177 ms, **`navAiGradient` 287 ms** — und nur letztere erzeugte die
+frameweisen Neuberechnungen. Ein pauschales „alle Animationen raus" hätte
+Gestaltung gekostet und den Hauptteil des Gewinns nicht gebracht.
+
+**`will-change` machte es schlechter, nicht besser.** Die naheliegende
+Ebenen-Beförderung für die zwei verbliebenen, sichtbaren Animationen ergab
+97 ms statt 73 ms. Sie ist nicht eingebaut — eine Optimierung auf Verdacht
+wäre hier eine Verschlechterung gewesen.
+
+**`prefers-reduced-motion` senkt diese Kosten nicht.** Am kaputten Zustand
+gemessen: 240 Neuberechnungen mit `reduce`, 241 ohne. Der globale Block setzt
+nur die **Dauer** auf ~0; die Animation läuft weiter und rechnet weiter jeden
+Frame neu. Wer Bewegungsreduktion einschaltet, zahlt denselben Preis und
+sieht die Bewegung bloss nicht.
+
+**Warum 827 grüne Tests das durchgelassen haben:** keiner hat je den Leerlauf
+gemessen. Jeder prüfte, was nach einer Handlung passiert — und die Kosten
+entstehen, wenn nichts passiert. `leerlauf.spec.js` schliesst die Lücke und
+prüft die **Klasse**, nicht den Einzelfall: keine endlos laufende Animation
+darf auf einem unsichtbaren Element laufen. Dazu eine Gegenprobe, dass das
+geöffnete Overlay wieder animiert — sonst wäre „einfach löschen" der
+bequemste Weg zu einem grünen Test.
+
+```bash
+npx playwright test tests/e2e/leerlauf.spec.js   # 3 Tests, echter Browser
+```
+
 ### Bilder: das Format, nicht die Größe
 
 **`srcset` bringt hier nichts, und das ist gemessen.**
@@ -1404,7 +1460,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-827 Tests in 53 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+830 Tests in 54 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1426,6 +1482,9 @@ durchgesetzten Fassung nichts), **Auslieferung** (Brotli ergänzt gzip, jede
 vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen,
 eigene Bibliotheken tragen eigene Handles, abbestellt wird nur was nichts
 gestaltet),
+**Leerlauf** (keine Dauer-Animation läuft auf einem unsichtbaren Element;
+das geöffnete Overlay animiert wieder — gedrosselt, nicht gelöscht; der
+Hauptthread kommt zur Ruhe, wenn niemand etwas tut),
 **Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
