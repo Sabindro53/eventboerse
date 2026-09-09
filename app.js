@@ -1647,6 +1647,27 @@ function getHeroListings() {
   return all;
 }
 
+/**
+ * Der Einstieg für Anbieter — von der Landeseite aus.
+ *
+ * `navigateTo('create-listing')` schickt Abgemeldete in die ANMELDUNG, mit
+ * „Bitte melde dich an, um diese Funktion zu nutzen." Das ist richtig für
+ * jemanden, der ein Konto hat, und die falsche Auskunft für den, der gerade
+ * zum ersten Mal überlegt, hier etwas anzubieten: der hat kein Konto, das
+ * er vergessen haben könnte, und liest den Satz als Absage.
+ *
+ * Die Registrierung ist von der Anmeldung aus erreichbar („Noch kein
+ * Konto? Registrieren") — aber ein Weg, den man erst suchen muss, ist an
+ * einem Einstieg genau der Weg zu viel.
+ *
+ * Angemeldet bleibt alles wie bisher: direkt zum Inserat.
+ */
+function ebAnbieterEinstieg() {
+  if (isLoggedIn) { navigateTo('create-listing'); return; }
+  openModal('registerModal');
+  showToast('Lege ein Konto an — danach stellst du dein erstes Inserat ein.', 'info');
+}
+
 // ========== NAVIGATION ==========
 function navigateTo(page, data, skipHistory) {
   var pageReady = Promise.resolve();

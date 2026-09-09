@@ -1378,6 +1378,45 @@ der Fehler vom 31.08.2026 eine Ebene höher.
 npx playwright test tests/e2e/jetzt-ansicht.spec.js   # 20 Tests, echter Browser
 ```
 
+### Die Landeseite bediente eine Absicht von dreien
+
+Beim Durchgehen der Nutzerpfade am 09.09.2026 gemessen: die Landeseite ist
+`#page-browse` — eine **Suchmaske**. Sie bedient genau einen Nutzer, den, der
+schon weiss, wonach er sucht.
+
+Zwei andere Absichten hatten von dort aus **keinen sichtbaren Weg**:
+
+| Absicht | Ziel | Warum unerreichbar |
+|---|---|---|
+| „Ich weiss nicht *was*, nur *dass*" | Reiter „⚡ Jetzt" | existiert nur auf `#page-aktuelles` und `#page-explore` |
+| „Ich biete etwas an" | Inserat erstellen | „Inserieren" stand allein in der oberen Leiste |
+
+**Beide Ziele gab es, beide waren erreichbar** — nur nicht von dort, wo der
+Besucher steht. Derselbe Unterschied wie zwischen einem vorhandenen Prüfer
+und einem, der wirklich läuft.
+
+Behoben mit `.ai-hero-wege` unter der Suchleiste: drei Knöpfe, drei
+Absichten. **Gemessen wird der Klick, nicht das Markup** — ein Knopf, der auf
+eine Seite führt, die nicht aktiv wird, sieht im Markup vollständig richtig
+aus.
+
+**Der Anbieter-Einstieg endet in der REGISTRIERUNG, nicht in der Anmeldung.**
+`navigateTo('create-listing')` schickt Abgemeldete in die Anmeldung, mit
+*„Bitte melde dich an, um diese Funktion zu nutzen."* Richtig für jemanden
+mit Konto — und die falsche Auskunft für den, der gerade zum ersten Mal
+überlegt, hier etwas anzubieten: der liest den Satz als Absage. Die
+Registrierung ist von der Anmeldung aus erreichbar, aber ein Weg, den man
+erst suchen muss, ist an einem Einstieg genau der Weg zu viel.
+`ebAnbieterEinstieg()` hält die Weiche; angemeldet bleibt alles wie bisher.
+
+**Ein Test hält den Befund fest, nicht nur die Behebung.** Er misst, dass die
+Landeseite **keinen** eigenen Jetzt-Reiter trägt — verschwindet er, ist die
+einzige Stelle weg, an der steht, warum die Reihe existiert.
+
+```bash
+npx playwright test tests/e2e/einstiege.spec.js   # 5 Tests, echte Klicks
+```
+
 ### Eine Adresse, die mit der Route wanderte
 
 Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
@@ -1794,7 +1833,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-889 Tests in 57 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+894 Tests in 58 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1853,6 +1892,9 @@ darunter, auch nicht beim Wiederkommen nach dem Schliessen),
 zugesagt — auch nicht in der Zahlungs-Vorschau),
 **Proxy-Rate-Limits** (eine private Adresse in `REMOTE_ADDR` bezeichnet
 niemanden — IP-Eimer werden geweitet, kontogebundene nie),
+**Einstiege** (die Landeseite bedient mehr als eine Absicht — jeder Weg
+wird geklickt, nicht im Markup gesucht; der Anbieter-Einstieg endet in der
+Registrierung, nicht in der Anmeldung),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und
 Inhalt laufen nicht mehr um die Wette), **Such-Icons** (keine Emojis mehr,
 wo Markup möglich ist),

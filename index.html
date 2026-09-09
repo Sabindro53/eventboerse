@@ -1039,6 +1039,35 @@
               <button class="ai-sug-chip" onclick="setQuickSearch('Party')">🎉 Party</button>
             </div>
           </div>
+          <!-- ── Drei Wege für die, die nicht suchen ──────────────────────
+               Die Suchmaske bedient nur, wer schon weiss, wonach er sucht.
+               Wer bloss WEISS, DASS er etwas machen will, stand hier vor
+               einem leeren Feld; und ein Dienstleister fand ausser
+               „Inserieren" in der oberen Leiste gar keinen Einstieg. Beide
+               Wege gab es, beide waren von der Landeseite aus unsichtbar. -->
+          <div class="ai-hero-wege">
+            <button type="button" class="ai-weg" onclick="navigateTo('aktuelles', 'jetzt')">
+              <span class="material-icons-round">bolt</span>
+              <span class="ai-weg-text">
+                <strong>Was geht hier gerade?</strong>
+                <small>Termine und Orte in deiner Nähe</small>
+              </span>
+            </button>
+            <button type="button" class="ai-weg" onclick="navigateTo('board')">
+              <span class="material-icons-round">dashboard</span>
+              <span class="ai-weg-text">
+                <strong>Vorhaben planen</strong>
+                <small>Leistungen zusammenstellen</small>
+              </span>
+            </button>
+            <button type="button" class="ai-weg" onclick="ebAnbieterEinstieg()">
+              <span class="material-icons-round">add_circle</span>
+              <span class="ai-weg-text">
+                <strong>Ich biete etwas an</strong>
+                <small>Inserat erstellen</small>
+              </span>
+            </button>
+          </div>
           <div class="ai-hero-stats">
             <span><strong id="statProviders">150+</strong> Dienstleister</span>
             <span class="ai-stat-dot">·</span>

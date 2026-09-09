@@ -1987,6 +1987,38 @@ body.dark-mode .ai-live-feedback { background: var(--bg-alt); border-color: var(
   transform: translateY(-2px);
   box-shadow: 0 4px 14px rgba(255,56,92,0.15);
 }
+/* Drei Wege fuer die, die nicht suchen. Die Suchmaske bedient nur, wer
+   schon weiss, wonach er sucht — hier stehen die anderen beiden Absichten
+   („ich will etwas erleben", „ich biete etwas an") gleichberechtigt daneben. */
+.ai-hero-wege {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 10px; margin-top: 22px;
+}
+.ai-weg {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 16px 10px 13px;
+  border: 1px solid rgba(255,255,255,.35); border-radius: 999px;
+  background: rgba(255,255,255,.14);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: #fff; text-align: left; cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.ai-weg:hover, .ai-weg:focus-visible {
+  background: rgba(255,255,255,.24);
+  border-color: rgba(255,255,255,.6);
+  transform: translateY(-2px);
+}
+.ai-weg .material-icons-round { font-size: 22px; flex-shrink: 0; }
+.ai-weg-text { display: flex; flex-direction: column; line-height: 1.25; }
+.ai-weg-text strong { font-size: .88rem; font-weight: 700; }
+.ai-weg-text small { font-size: .72rem; opacity: .8; }
+@media (max-width: 560px) {
+  /* Auf dem Telefon untereinander und volle Breite — drei Pillen
+     nebeneinander werden dort zu drei Zeilen mit gebrochenen Woertern. */
+  .ai-hero-wege { flex-direction: column; align-items: stretch; }
+  .ai-weg { justify-content: flex-start; border-radius: var(--radius-sm); }
+}
+
 /* AI Stats */
 .ai-hero-stats {
   display: flex;
