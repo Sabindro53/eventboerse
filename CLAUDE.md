@@ -607,7 +607,7 @@ Grund ist die Anmeldung: die REST-API authentifiziert über das
 WordPress-Cookie plus `X-WP-Nonce`. Ein gebündeltes Capacitor-App liefe unter
 `capacitor://localhost` — jede Anfrage wäre **cross-site**, ohne Cookie und
 ohne Nonce. Ein Bundle bräuchte ein **zweites Authentifizierungsverfahren für
-alle 106 Routen**, parallel zum bestehenden. Zwei Wege in dieselbe Anwendung
+alle 124 Routen**, parallel zum bestehenden. Zwei Wege in dieselbe Anwendung
 hinein sind genau die Angriffsfläche, die man sich nicht ohne Not baut.
 
 Der Preis, ehrlich benannt: kein Offline-Betrieb, und **Guideline 4.2** —
@@ -984,6 +984,39 @@ mutiert, baut vorher.
 **Gemessen wird, was der Nutzer anfasst** — `document.elementFromPoint(20, 3)`
 muss die Leiste treffen. Eine Prüfung auf `position: fixed` hätte diesen
 Fehler nicht gefunden: die Angabe stimmte ja.
+
+### Ein Test, der ein Rennen fuhr — und die Lücke dahinter
+
+PR #250 fiel in CI durch: `topbar.spec.js` meldete *„am oberen Rand liegt
+`appLoadingOverlay` statt der Navigationsleiste"*. Lokal waren dieselben
+955 Tests grün.
+
+**Der Test war seit jeher ein Rennen.** `page.goto()` wartet auf `load`;
+`#appLoadingOverlay` liegt auf `z-index: 99999` und verschwindet erst, wenn
+Daten und sichtbare Bilder da sind — plus 450 ms Mindestdauer. Lokal war er
+zum Messzeitpunkt schon `is-hidden` (gemessen: 2009 ms bis `load`), auf dem
+langsameren Runner nicht. Gewonnen hat der Test das Rennen immer, bis ein
+weiteres Modul `app.js` etwas länger machte.
+
+**Ein Prüfer, der einen Zwischenzustand misst, prüft die Seite nicht** —
+dieselbe Lehre wie bei `leerlauf.spec.js`, nur beim Start statt im Leerlauf.
+`warteAufAppBereit()` in `tests/e2e/helpers.js` ist der gemeinsame Griff;
+wer misst, was der Nutzer *anfasst*, ruft ihn vorher.
+
+**Die eigentliche Lücke lag daneben.** Beim Nachsehen fiel auf: dass der
+Ladeschleier auf der **echten** Seite je verschwindet, prüfte niemand.
+`bild-laden.spec.js` misst seine Logik an einer **nachgebauten** Seite —
+richtig für die Logik, blind für den Start.
+
+Bleibt er stehen, sieht der Besucher dauerhaft „Eventbörse wird geladen…":
+kein Statuscode, kein Page-Error, keine leere Liste. **955 Tests hätten es
+nicht bemerkt.** Genau die Schadensart, die hier schon dreimal teuer war —
+die Seite sieht heil aus und tut nichts.
+
+Der neue Test misst deshalb am echten Start, mit Gegenprobe (*der Schleier
+ist überhaupt da*) und ohne sich mit `opacity` abspeisen zu lassen: was am
+oberen Rand liegt, muss danach die Leiste sein. Mutation `__hideAppLoader`
+auf „tut nichts" → **8 von 10 Tests rot**.
 
 ### Der Deploy hing an einem Fragezeichen
 
@@ -1377,6 +1410,169 @@ der Fehler vom 31.08.2026 eine Ebene höher.
 ```bash
 npx playwright test tests/e2e/jetzt-ansicht.spec.js   # 20 Tests, echter Browser
 ```
+
+### Freunde und Gruppen — gemeinsame Vorhaben
+
+Gebaut am 09.09.2026, nachdem das Durchgehen der Nutzerpfade ergab: **es gab
+davon nichts.** Was danach aussah, war es nicht — `'musikgruppe'` ist eine
+Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
+(`eb_collaborations_v1` im `user_meta`) ist eine Referenzliste
+Dienstleister→Dienstleister, keine gemeinsame Planung.
+
+```bash
+npx playwright test tests/e2e/social.spec.js           # 44 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/freunde-ansicht.spec.js  # 14 Tests, echter Browser
+```
+
+**Eigene Tabellen, nicht das Board.** `eb_board_projects` ist EIN JSON-Blob je
+Nutzer, den der Besitzer als Ganzes zurückschreibt (`update_user_meta`). Zwei
+Personen am selben Projekt überschreiben sich gegenseitig — der letzte
+Schreibvorgang gewinnt, die Arbeit des anderen ist weg, und niemand bekommt
+eine Meldung. Ein „geteiltes" Projekt in diesem Speicher wäre keine
+Zusammenarbeit, sondern ein Datenverlust mit Einladung.
+
+Drei Tabellen (`EB_DB_VERSION` 2.8): `eb_friendships`, `eb_groups`,
+`eb_group_members`. Das SQL steht **bei der Logik** in
+`includes/social/freunde-gruppen.php`, nicht im Installer — eine
+Tabellendefinition, die getrennt von ihrem Code gepflegt wird, driftet, und
+diese driftet unbemerkt bis zum ersten Schreibversuch im Betrieb.
+
+**`user_low`/`user_high` statt `requester`/`addressee`.** Eine Freundschaft ist
+symmetrisch; mit zwei Spalten in beliebiger Reihenfolge stünde dasselbe Paar
+zweimal da, mit womöglich widersprüchlichem Status. Wer angefragt hat, steht
+in `requester_id`.
+
+#### Vier Entscheidungen, an denen die Sicherheit hängt
+
+**1 · Keine Nutzer-Aufzählung.** Gesucht wird ausschliesslich nach einem
+selbstgewählten **Handle**, und nur wer einen gesetzt hat, ist auffindbar. Das
+Setzen IST die Einwilligung, und sie ist zurücknehmbar (leerer Handle →
+wieder unauffindbar). Eine Suche nach E-Mail wäre ein Orakel: *„gibt es hier
+ein Konto zu dieser Adresse"* ist genau die Frage, die ein Angreifer stellt,
+und bei einem Marktplatz ist die Antwort besonders wertvoll. Eine Suche nach
+Anzeigenamen wäre dasselbe eine Stufe unschärfer — jeder hat einen, und
+niemand hat ihm zugestimmt, gefunden zu werden.
+
+**2 · Nie ohne Zustimmung.** Eine Freundschaft entsteht durch Annehmen, nie
+durch Anfragen; eine Gruppenmitgliedschaft ebenso. **Die eigene Anfrage kann
+man nicht annehmen** — sonst schriebe sich der Anfragende selbst in fremde
+Freundeslisten. Die **Gegenanfrage ist die Zustimmung**: wer angefragt wird
+und selbst anfragt, hat zugestimmt.
+
+**3 · Eine Sperre ist eine Grenze, keine Bitte.** Sie wirkt in beide
+Richtungen, überlebt eine erneute Anfrage, blendet den Sperrenden aus der
+Suche des Gesperrten aus — und **der Gesperrte erfährt nichts**. Die Anfrage
+sieht für ihn aus wie gesendet; eine sichtbare Sperre wäre eine Nachricht, und
+genau die wollte der Sperrende nicht senden. Nur wer gesperrt hat, kann
+entsperren.
+
+**4 · Gedeckelt am KONTO, nicht an der IP.** Anfragen sind ein Spam-Weg.
+Hinter einem Proxy meint `REMOTE_ADDR` alle Besucher gemeinsam — ein
+IP-gebundener Deckel wäre dort entweder wirkungslos oder er sperrte
+Unbeteiligte. Alle vier Eimer (`social_suche`, `social_anfrage`,
+`social_gruppe`, `social_beitritt`) hängen an `'u' . $user_id`.
+
+#### Die Rollen und was sie sehen
+
+| Rolle | Sieht | Darf |
+|---|---|---|
+| `invited` | Name, Anlass, Datum, **Personenzahl** | annehmen, ablehnen |
+| `member` | zusätzlich die Mitgliederliste | verlassen |
+| `admin` | zusätzlich den **Einladungscode** | einladen, umbenennen, entfernen |
+| `owner` | dasselbe | zusätzlich Rollen vergeben |
+
+**`invited` ist die heikle Stufe.** Ein Eingeladener bekommt die
+Mitgliederliste **nicht**. Sonst wäre eine Einladung ein Weg, die Freundesliste
+eines Fremden auszulesen: einladen, Liste abholen, wieder ausladen — und
+niemand hat je zugestimmt. Die Personenzahl bekommt er trotzdem, sonst kann er
+nicht entscheiden.
+
+**Einladen geht nur an Freunde.** Ohne diese Grenze wäre eine Gruppe der Weg
+um die Freundschaftsanfrage herum: Fremde einladen, bis einer aus Versehen
+zustimmt. Der Beitritt über den **Code** ist der zweite Weg, und dort ist der
+Code die Zustimmung — wer ihn eintippt, hat sich selbst entschieden.
+
+**`owner` ist nicht vergebbar.** Sonst gäbe es einen Weg, sich selbst zum
+Eigentümer zu machen, und der müsste dann seinerseits bewacht werden. Die
+Eigentümerschaft wechselt nur durch Verlassen: sie geht an das dienstälteste
+verbliebene Mitglied über (Verwaltung zuerst). **Eine Gruppe ohne Leitung
+liesse sich nie wieder verwalten** und stünde für immer in den Listen aller
+Beteiligten. Geht der Letzte, wird sie samt Mitgliederzeilen gelöscht.
+
+**Ein Nein sagt nicht, warum.** „Gruppe nicht gefunden" gilt auch für eine
+Gruppe, die es gibt und die den Fragenden nichts angeht — wer 404 von 403
+unterscheiden kann, kann Gruppen zählen. Ebenso beim Einladungscode: falsch
+und abgelaufen sagen dasselbe.
+
+**Der Code kommt aus `random_bytes()`, nicht aus `wp_create_nonce()`.**
+Letzteres ist aus Nutzer, Aktion und Tageszeit **abgeleitet** und damit
+vorhersagbar, sobald man die Eingänge kennt. Dieselbe Begründung wie beim
+CSP-Nonce. Er gilt 14 Tage und lässt sich jederzeit neu ziehen — der alte gilt
+dann nicht mehr.
+
+#### Der Prüfstand führt PHP wirklich aus
+
+`tests/e2e/social.php` bindet den echten Quelltext ein, stellt WordPress und
+`$wpdb`, und lässt die Handler laufen — dieselbe Anordnung wie
+`ratelimit-proxy.php`, `csp-nonce.php` und `aasa.php`.
+
+**Eine Rechteprüfung, die nur GELESEN wird, ist nicht geprüft.** Der teure
+Fehler ist nicht der Syntaxfehler, sondern der Handler, der eine Prüfung
+vergisst — und der sieht im Diff genauso aus wie einer, der sie hat.
+15 Mutationen sind geprüft; jede macht die Suite rot.
+
+**Die gestellte Datenbank bricht bei einer unbekannten Abfrage ab.** Ein
+Prüfstand, der eine unverstandene Abfrage mit `null` beantwortet, gibt
+Entwarnung für Code, den er nie ausgeführt hat.
+
+**Drei Fehler hat der Prüfstand an sich selbst gefunden**, und alle drei sind
+die hier bekannte Klasse:
+
+1. `get_var()` gab für `SELECT role FROM …` das **erste Feld der Zeile**
+   zurück, nicht `role`. Die Rolle des Eigentümers lautete „1", die
+   Mitgliederliste kam leer, und beim Verlassen hielt sich die Gruppe für
+   verwaist und löschte sich. Vier erfundene Fehler — und ein Test auf
+   „members ist leer" wäre grün gewesen und hätte das für die Regel gehalten.
+2. Der Handle-Konflikt-Fall kam durch, weil ein Fall darüber den Handle
+   stillschweigend geändert hatte: der geprüfte Name war frei, und der Test
+   belegte das Gegenteil dessen, was er behauptete.
+3. Der Fremde lud beim „ein Fremder kann nicht einladen"-Fall **sich selbst**
+   ein — das scheitert schon eine Zeile vor der Rechteprüfung. Die Mutation
+   „Rechteprüfung entfernt" überlebte, und die Zusicherung war unbelegt.
+
+#### Die Oberfläche entscheidet nichts
+
+`js/modules/social/60-freunde-gruppen.js`, Seite `/freunde`. Sie blendet aus,
+was der Server ohnehin ablehnen würde — das ist **Höflichkeit, kein Schutz**,
+und der Unterschied steht im Modulkopf, damit ihn niemand verwechselt.
+
+**Den Einladungscode erfindet sie nicht.** Er wird gezeigt, wenn der Server ihn
+schickt, und sonst nicht. Wer ihn aus der Rolle ableitete, zeigte ihn
+irgendwann jemandem, dem der Server ihn bewusst vorenthalten hat.
+
+**Drei Zustände, drei Meldungen** — dieselbe Regel wie bei der Jetzt-Ansicht:
+*nicht angemeldet* (es gibt niemanden, dem Freunde gehören könnten), *Störung*
+(der Abruf schlug fehl) und *leer* (abgerufen, und es sind wirklich keine da).
+„Du hast keine Freunde" bei einem Netzfehler wäre eine Falschaussage.
+
+**Der Zähler am Reiter ist kein Schmuck.** Eine Einladung, die man erst nach
+dem Umschalten sieht, wird übersehen — und dann wartet jemand vergeblich auf
+eine Antwort.
+
+**Noch nicht gebaut: der geteilte Plan.** Der Knopf „Vorhaben planen" führt ins
+Board und behauptet nicht, dass dort schon gemeinsam geplant würde. Das
+ehrlich zu benennen ist billiger, als es später zurückzunehmen. Der Weg dahin
+ist optimistisches Sperren (Revision mitschicken, bei Abweichung ablehnen und
+den aktuellen Stand zurückgeben) — nicht der Board-Blob.
+
+**Datenschutz: keine neue Apple-Datenart, aber ein neuer Abschnitt.** Der
+soziale Graph fällt unter *Identifiers › User ID* (der Handle) und *User
+Content › Other User Content* (Gruppen und Mitgliedschaften); beide Zeilen in
+`vault/40-Governance/Legal/App-Store.md` nennen die neue Quelle jetzt.
+**„Contacts" bleibt NEIN** — das ist Apples Adressbuch des Geräts, und genau
+deshalb geht die Suche nur über den Handle. Die Datenschutzerklärung hat
+Abschnitt **10a**. Kein neuer Speicherschlüssel, also keine Änderung an
+`Cookie-Liste.md`.
 
 ### Die Landeseite bediente eine Absicht von dreien
 
@@ -1833,7 +2029,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-894 Tests in 58 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+955 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1895,6 +2091,13 @@ niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Einstiege** (die Landeseite bedient mehr als eine Absicht — jeder Weg
 wird geklickt, nicht im Markup gesucht; der Anbieter-Einstieg endet in der
 Registrierung, nicht in der Anmeldung),
+**Freunde & Gruppen** (die Rechteprüfungen werden im echten PHP ausgeführt,
+nicht gelesen: ein Fremder erfährt nicht einmal, dass es die Gruppe gibt; ein
+Eingeladener bekommt die Mitgliederliste nicht; der Gesperrte erfährt nichts
+und kommt nicht zurück; „owner" ist nicht vergebbar; die Deckel hängen am
+Konto, nicht an der Leitung),
+**Freunde-Ansicht** (Störung, leer und „nicht angemeldet" sagen drei
+verschiedene Sätze; die Oberfläche erfindet keinen Einladungscode),
 **Feed-Reiter** (der Radar ist von „Entdecken“ aus erreichbar; Reiter und
 Inhalt laufen nicht mehr um die Wette), **Such-Icons** (keine Emojis mehr,
 wo Markup möglich ist),
@@ -2040,7 +2243,7 @@ WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
 bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
 
 **Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
-und 170 KB; benutzt werden 394. Die ausgelieferte Datei ist **33 KB**, die
+und 170 KB; benutzt werden 398. Die ausgelieferte Datei ist **33 KB**, die
 Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
 Deploy ausgeschlossen).
 
@@ -2167,12 +2370,12 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 25 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~17 400 Zeilen CSS, mobile-first |
+| `js/modules/` | Quelle des Frontends: 26 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `styles.css` | ~17 500 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (106 Routen), Asset-Registrierung |
+| `functions.php` | WordPress-Theme: REST API (124 Routen), Asset-Registrierung — 16 davon in `includes/social/routen.php` |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -2193,7 +2396,9 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-106 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, Utilities.
+124 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), Utilities.
+
+**Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 
 ### State
 

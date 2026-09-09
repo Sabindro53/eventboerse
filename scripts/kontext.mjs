@@ -28,6 +28,28 @@ const WURZEL = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const lies = (p) => fs.readFileSync(path.join(WURZEL, p), 'utf8');
 const zeilen = (p) => lies(p).split('\n').filter((z) => z.trim() && !z.trim().startsWith('#')).length;
 
+/**
+ * Jede PHP-Datei des Themes — ohne `node_modules`, `vendor` und Tests.
+ *
+ * Die Prüfstände unter `tests/` bilden WordPress nach und enthalten
+ * dieselben Aufrufe als Attrappe; sie mitzuzählen ergäbe eine Zahl, die
+ * nirgends im Betrieb ankommt.
+ */
+function phpDateien(ordner = '') {
+  const voll = path.join(WURZEL, ordner);
+  const raus = [];
+  for (const e of fs.readdirSync(voll, { withFileTypes: true })) {
+    const rel = ordner ? `${ordner}/${e.name}` : e.name;
+    if (e.isDirectory()) {
+      if (['node_modules', 'vendor', '.git', 'tests', 'test-results'].includes(e.name)) continue;
+      raus.push(...phpDateien(rel));
+    } else if (e.name.endsWith('.php')) {
+      raus.push(rel);
+    }
+  }
+  return raus;
+}
+
 const CLAUDE = lies('CLAUDE.md');
 const SPRINT = lies('vault/50-Evolution/Roadmap/Current-Sprint.md');
 
@@ -58,10 +80,23 @@ export const AUSSAGEN = [
     gemessen: () => zeilen('js/modules/modules.list'),
   },
   {
-    name: 'REST-Routen (functions.php)',
+    name: 'REST-Routen (alle PHP-Dateien)',
     wo: 'CLAUDE.md · Dateitabelle',
     behauptet: () => behauptet(CLAUDE, /REST API \((\d+)\s+Routen\)/),
-    gemessen: () => (lies('functions.php').match(/register_rest_route/g) || []).length,
+    // ── WARUM NICHT NUR functions.php ───────────────────────────────────
+    //
+    // Bis zum 09.09.2026 stand hier `lies('functions.php')`. Das war
+    // richtig, solange alle Routen dort standen — und wurde still falsch,
+    // als `includes/social/routen.php` sechzehn weitere brachte: der
+    // Prüfer meldete „106 behauptet, 106 gemessen" für eine Anwendung mit
+    // 122 Routen.
+    //
+    // Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine
+    // Entwarnung, die er nicht decken kann. Gezählt wird deshalb über
+    // JEDE PHP-Datei des Themes — wer Routen auslagert, ändert damit
+    // nicht die Zählpflicht.
+    gemessen: () => phpDateien()
+      .reduce((n, d) => n + (lies(d).match(/register_rest_route/g) || []).length, 0),
   },
   {
     name: 'Test-Suiten',

@@ -356,6 +356,8 @@ function ebAktivitaetenStarthilfe() {
     + '<div class="akt-start-knoepfe">'
     + '<button type="button" class="btn-primary" onclick="navigateTo(\'board\')">'
     + '<span class="material-icons-round">dashboard</span> Vorhaben planen</button>'
+    + '<button type="button" class="btn-outline" onclick="navigateTo(\'freunde\')">'
+    + '<span class="material-icons-round">diversity_3</span> Mit Freunden</button>'
     + '<button type="button" class="btn-outline" onclick="navigateTo(\'browse\')">'
     + '<span class="material-icons-round">search</span> Dienstleister finden</button>'
     + '</div></div>';

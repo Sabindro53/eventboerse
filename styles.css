@@ -17409,3 +17409,116 @@ body.dark-mode .akt-karte { background: var(--bg-alt); }
   .akt-karte { align-items: flex-start; }
   .akt-icon { margin-top: .15rem; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   FREUNDE & GRUPPEN — gemeinsame Vorhaben
+   ══════════════════════════════════════════════════════════════════ */
+
+.soz-titel {
+  display: flex; align-items: center; gap: .55rem;
+  margin: 0 0 .3rem; font-size: 1.45rem;
+}
+.soz-titel .material-icons-round { font-size: 30px; color: var(--primary); }
+.soz-untertitel { margin: 0 0 1.4rem; color: var(--text-light); font-size: .9rem; }
+
+/* Die Reiter tragen einen Zaehler, wenn etwas auf eine Antwort wartet —
+   eine Einladung, die man erst nach dem Umschalten sieht, wird uebersehen. */
+.soz-reiter { display: flex; gap: .5rem; margin-bottom: 1.2rem; }
+.soz-reiter-knopf {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .55rem 1rem; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--bg); color: var(--text-light);
+  font-size: .88rem; font-weight: 600; cursor: pointer;
+  transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+.soz-reiter-knopf .material-icons-round { font-size: 18px; }
+.soz-reiter-knopf.aktiv { background: var(--primary); border-color: var(--primary); color: #fff; }
+.soz-punkt {
+  min-width: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--primary); color: #fff; font-size: .72rem; line-height: 20px; text-align: center;
+}
+.soz-reiter-knopf.aktiv .soz-punkt { background: rgba(255,255,255,.28); }
+
+.soz-karte {
+  margin-bottom: 1.1rem; padding: 1.1rem 1.2rem;
+  border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.soz-karte h3 {
+  display: flex; align-items: center; gap: .45rem;
+  margin: 0 0 .5rem; font-size: 1rem;
+}
+.soz-karte h3 .material-icons-round { font-size: 20px; color: var(--primary); }
+.soz-karte > p { margin: 0 0 .8rem; font-size: .84rem; color: var(--text-light); line-height: 1.55; }
+.soz-hinweis { display: block; font-size: .74rem; color: var(--text-light); line-height: 1.5; }
+.soz-leer { margin: 0; padding: .8rem 0; font-size: .84rem; color: var(--text-light); }
+.soz-laedt { padding: 2rem 0; text-align: center; color: var(--text-light); }
+
+.soz-leer-karte { text-align: center; padding: 2.2rem 1.2rem; }
+.soz-leer-karte .material-icons-round { font-size: 34px; color: var(--text-light); opacity: .6; }
+.soz-leer-karte h3 { justify-content: center; margin-top: .6rem; }
+.soz-leer-karte p { margin: 0 auto 1rem; max-width: 30rem; }
+
+.soz-handle-zeile, .soz-suche-zeile, .soz-beitritt {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-bottom: .5rem;
+}
+.soz-at { font-weight: 700; color: var(--text-light); }
+.soz-handle-zeile input, .soz-suche-zeile input, .soz-beitritt input {
+  flex: 1 1 12rem; min-width: 0;
+  padding: .55rem .7rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg); color: var(--text);
+  font-size: .88rem;
+}
+.soz-formular { display: flex; flex-wrap: wrap; gap: .45rem; }
+.soz-formular input {
+  flex: 1 1 11rem; min-width: 0;
+  padding: .55rem .7rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: .88rem;
+}
+
+.soz-liste { display: flex; flex-direction: column; gap: .1rem; }
+.soz-person {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .55rem 0; border-bottom: 1px solid var(--border-light);
+}
+.soz-person:last-child { border-bottom: 0; }
+.soz-avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+.soz-person-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.soz-person-text strong { font-size: .88rem; }
+.soz-person-text small { font-size: .74rem; color: var(--text-light); }
+.soz-rolle { font-weight: 600; }
+.soz-person-aktion { display: flex; flex-wrap: wrap; gap: .35rem; flex-shrink: 0; }
+.soz-person-aktion button { font-size: .76rem; padding: .35rem .7rem; }
+.soz-status { font-size: .76rem; color: var(--text-light); }
+.soz-sperr { color: var(--danger, #d33); border-color: var(--danger, #d33); }
+
+.soz-gruppe {
+  margin-top: .8rem; padding: .9rem 1rem;
+  border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+}
+.soz-gruppe-einladung { border-color: var(--primary); }
+.soz-gruppe-kopf { display: flex; flex-direction: column; margin-bottom: .5rem; }
+.soz-gruppe-kopf strong { font-size: .96rem; }
+.soz-gruppe-kopf small { font-size: .76rem; color: var(--text-light); }
+.soz-mitglieder { margin-bottom: .6rem; }
+.soz-gruppe-verwalten { padding-top: .5rem; border-top: 1px solid var(--border-light); }
+.soz-einladen { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .8rem; }
+.soz-einladen select {
+  padding: .4rem .5rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: .82rem;
+}
+.soz-code { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: .5rem; }
+.soz-code code {
+  padding: .3rem .55rem; border-radius: var(--radius-sm);
+  background: var(--border-light); font-size: .8rem; letter-spacing: .04em;
+}
+.soz-gruppe-fuss {
+  display: flex; flex-wrap: wrap; gap: .45rem;
+  padding-top: .6rem; border-top: 1px solid var(--border-light);
+}
+.soz-gruppe-fuss button { font-size: .8rem; display: inline-flex; align-items: center; gap: .3rem; }
+.soz-gruppe-fuss .material-icons-round { font-size: 16px; }
+
+body.dark-mode .soz-karte { background: var(--bg-alt); }
+body.dark-mode .soz-gruppe { background: var(--bg); }

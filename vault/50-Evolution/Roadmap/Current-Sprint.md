@@ -16,8 +16,26 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 894 Tests in 58 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 955 Tests in 60 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+- **Freunde und Gruppen gibt es jetzt** (09.09.2026). Vorher gab es davon
+  *nichts* — `'musikgruppe'` ist eine Kategorie, `_feedRadarGruppen` ist
+  Karten-Clustering, `/collaborations` eine Referenzliste
+  Dienstleister→Dienstleister. Drei eigene Tabellen (`EB_DB_VERSION` 2.8),
+  **nicht** der Board-Blob: zwei Personen am selben `eb_board_projects`
+  überschreiben sich gegenseitig, ohne Meldung. Gefunden wird nur über einen
+  **selbstgesetzten Handle** — eine Suche nach E-Mail wäre das Orakel „gibt es
+  hier ein Konto zu dieser Adresse". Der Prüfstand führt PHP wirklich aus und
+  hat dabei drei eigene blinde Stellen gefunden. 44 + 14 Tests, 15 Mutationen
+- **Der Berlin-Fall ist behoben** (09.09.2026). Der Aktivitäten-Bestand kannte
+  einen Punkt — Köln — und die Ansicht meldete jedem ausserhalb „im Umkreis von
+  50 km ist gerade nichts eingetragen": eine Aussage über eine Gegend, in die
+  wir nie gesehen hatten. Jetzt acht Städte, und die Datei führt in `gebiete`,
+  wofür wirklich abgerufen wurde. Vierter leerer Zustand: „noch nicht erfasst"
+- **Die Landeseite bedient jetzt drei Absichten statt einer.** „Jetzt" war von
+  dort aus unerreichbar, der Anbieter-Einstieg stand allein in der oberen
+  Leiste — beide Ziele gab es, beide waren erreichbar, nur nicht von dort, wo
+  der Besucher steht
 - **App Store Connect: beide Fragebögen sind beantwortet, nicht nur die Stufe.**
   „16+" ist das Ergebnis von rund zwanzig Einzelfragen; wer nur die Stufe kennt,
   rät zwanzigmal. `vault/40-Governance/Legal/App-Store.md` führt jede Frage mit

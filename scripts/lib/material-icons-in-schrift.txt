@@ -11,6 +11,7 @@ add_photo_alternate
 adjust
 admin_panel_settings
 air
+alternate_email
 analytics
 anchor
 animation
@@ -142,6 +143,7 @@ gradient
 grid_on
 grid_view
 group
+group_work
 groups
 handshake
 headphones
@@ -315,6 +317,7 @@ save
 savings
 scale
 schedule
+schedule_send
 schema
 science
 score
@@ -334,6 +337,7 @@ sort
 source
 spa
 speed
+spellcheck
 sports_soccer
 square
 star
