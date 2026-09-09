@@ -170,14 +170,28 @@ function radarStandortErfragen(fertig) {
   }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
 }
 
+/**
+ * Position aus Koordinaten setzen.
+ *
+ * Der Weg für alles, was KEIN Name aus `RADAR_ORTE` ist — etwa ein Gebiet
+ * aus `assets/eb-aktivitaeten.json`. Die Alternative wäre gewesen, dass
+ * jede solche Stelle `_radarPos` selbst beschreibt und dabei `_radarMerken`
+ * vergisst; dann bleibt die Wahl bis zum Neuladen und ist danach weg.
+ */
+function radarPositionSetzen(lat, lng, quelle) {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  _radarPos = { lat: lat, lng: lng };
+  _radarQuelle = quelle === 'geo' ? 'geo' : 'stadt';
+  _radarMerken(_radarPos, _radarQuelle);
+  return _radarPos;
+}
+
 /** Ohne Standortfreigabe: Stadt wählen. Gleichwertig, nicht zweite Wahl. */
 function radarStadtWaehlen(name) {
   var c = RADAR_ORTE[name];
   if (!c) return null;
-  _radarPos = { lat: c[0], lng: c[1] };
-  _radarQuelle = 'stadt';
-  _radarMerken(_radarPos, 'stadt');
-  return _radarPos;
+  return radarPositionSetzen(c[0], c[1], 'stadt');
 }
 
 function radarRadiusSetzen(km) {

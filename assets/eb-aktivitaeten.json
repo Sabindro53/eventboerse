@@ -1,7 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
   "stand": null,
+  "gebiete": [],
   "mitte": {
     "stadt": "Köln",
     "lat": 50.9413,

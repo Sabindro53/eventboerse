@@ -269,16 +269,40 @@ Gebaut wird nach **Risiko**, nicht nach Reiz. Jede Stufe ist für sich nützlich
 ### 6.1 Schritt 3, gebaut am 09.09.2026
 
 `scripts/aktivitaeten.mjs` → `assets/eb-aktivitaeten.json`, zwei Quellen für
-50 km um Köln: **OpenLigaDB** (Heimspiele 1. FC Köln) und
+50 km um **acht Städte** (Köln, Düsseldorf, Dortmund, Berlin, Hamburg,
+München, Frankfurt, Stuttgart): **OpenLigaDB** (Heimspiele der ersten und
+zweiten Liga, je Stadt über ihren Verein zugeordnet) und
 **OpenStreetMap/Overpass** (Kino, Escape-Room, Kletterhalle, Erlebnisbad,
 Museum, Zoo, Theater). Beide frei, beide ohne Vertrag, beide ohne Schlüssel.
-21 Tests, zehn Mutationen rot. Die Datei ist öffentlich ausgeliefert.
+32 Tests, fünf Generator-Mutationen rot. Die Datei ist öffentlich ausgeliefert.
 
-**Was der Schritt ausdrücklich noch nicht ist:** eine Ansicht. Der Bestand
-liegt als Datei vor und ist abrufbar; die Oberfläche „was ist gerade in
-meiner Nähe los" baut darauf auf und ist der nächste Schritt. Diese Trennung
-ist Absicht — eine Ansicht über einem Bestand, der sich noch ändert, wird
-zweimal gebaut.
+**Die Ansicht kam am selben Tag** (Reiter „⚡ Jetzt", `/aktuelles/jetzt`),
+20 Tests, sechs Ansichts-Mutationen rot.
+
+### 6.1.1 Der Berlin-Fall — nachgezogen am 09.09.2026
+
+Die erste Fassung erfasste **einen** Punkt: Köln. Die Ansicht meldete jedem
+Besucher ausserhalb dieses Kreises *„im Umkreis von 50 km ist gerade nichts
+eingetragen"* — eine Aussage über eine Gegend, in die wir nie gesehen hatten.
+Wer in Berlin stand, bekam die Auskunft, in Berlin sei nichts los.
+
+Aufgefallen ist das beim Durchgehen der Nutzerpfade, am Beispiel des Inhabers:
+*„wenn ich in Berlin bin, will ich in meinem Umkreis direkt sehen, was
+abgeht."* Der Fall war **strukturell unbedienbar**, nicht bloss leer.
+
+Zwei Änderungen, die zusammengehören:
+
+1. **Die Datei sagt, worüber sie etwas sagt.** `gebiete` führt die Städte,
+   für die wirklich eine Antwort vorlag — nicht die geplanten. Ein Gebiet
+   ohne Overpass-Antwort ist *nicht erfasst*, und seine Heimspiele fallen mit
+   heraus. Eine Absichtserklärung wäre eine Entwarnung ohne Deckung.
+2. **Die Ansicht hat einen vierten leeren Zustand.** Ausserhalb aller
+   Gebiete: *„Diese Gegend ist noch nicht erfasst"*, mit der Liste der
+   erfassten Städte und einem Knopf in die nächstgelegene.
+
+Dazu: eine ausgefallene Stadt darf die Abdeckung nicht schrumpfen (ein
+Quellenausfall ist keine unerfasste Gegend), und der Weg zum **eigenen
+Vorhaben** steht in der Ansicht immer da — auch unter einer vollen Liste.
 
 **Der erste echte Abruf steht noch aus.** Die ausgelieferte Datei trägt
 `stand: null` — *nie abgerufen*, nicht *nichts gefunden*. Gefüllt wird sie
@@ -287,7 +311,8 @@ den beiden APIs besteht. Bis dahin ist der Bestand leer, und das steht auch
 so darin.
 
 **Zwei Eigenschaften der Quellen, die den Ausbau bestimmen:** OpenLigaDB
-liefert **17 Heimspiele pro Saison** — verlässlich, aber dünn. Der Bestand
+liefert je Verein **17 Heimspiele pro Saison** — bei acht Städten und zwei
+Ligen also einige hundert, aber immer noch nur Fußball. Der Bestand
 lebt von den OSM-Orten, und die haben *keinen Termin*. Für „was ist **jetzt**
 los" fehlt damit weiter eine Quelle mit Veranstaltungsterminen; die
 Kandidaten stehen in Abschnitt 2 (städtische Open-Data-Portale, iCal/RSS der

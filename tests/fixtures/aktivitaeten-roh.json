@@ -6,7 +6,11 @@
     "",
     "Jeder Eintrag ist ein Grenzfall, keine Füllung. Der Bezugszeitpunkt ist",
     "2026-09-09T12:00:00Z; die Tests geben ihn ausdrücklich mit, damit das",
-    "Prüfstück nicht mit der Zeit verdirbt."
+    "Prüfstück nicht mit der Zeit verdirbt.",
+    "",
+    "`overpass` ist seit der Mehrstadt-Umstellung nach GEBIET geschlüsselt.",
+    "Erfasst ist nur, wofür hier eine Antwort steht — Frankfurt und Berlin",
+    "stehen bewusst mit, München und Stuttgart bewusst NICHT."
   ],
 
   "openligadb": [
@@ -18,7 +22,7 @@
       "team2": { "teamId": 40, "teamName": "FC Bayern München" },
       "location": { "locationCity": "Köln", "locationStadium": "RheinEnergieSTADION" },
       "matchIsFinished": false,
-      "_erwartung": "HEIMSPIEL, künftig — kommt in den Bestand"
+      "_erwartung": "HEIMSPIEL in einem erfassten Gebiet — kommt in den Bestand"
     },
     {
       "matchID": 71002,
@@ -28,7 +32,7 @@
       "team2": { "teamId": 65, "teamName": "1. FC Köln" },
       "location": { "locationCity": "München", "locationStadium": "Allianz Arena" },
       "matchIsFinished": false,
-      "_erwartung": "AUSWÄRTS — München liegt nicht im Umkreis von Köln"
+      "_erwartung": "HEIMSPIEL in München — München ist GEPLANT, aber ohne Overpass-Antwort und damit NICHT erfasst. Faellt raus."
     },
     {
       "matchID": 71003,
@@ -48,7 +52,7 @@
       "team2": { "teamId": 87, "teamName": "Borussia Mönchengladbach" },
       "location": { "locationCity": "Stuttgart", "locationStadium": "MHPArena" },
       "matchIsFinished": false,
-      "_erwartung": "OHNE KÖLN — die Liga hat 306 Spiele, uns gehen 17 an"
+      "_erwartung": "Stuttgart ist geplant, hat aber keine Antwort — nicht erfasst, faellt raus"
     },
     {
       "matchID": 71005,
@@ -57,80 +61,171 @@
       "team1": { "teamId": 65, "teamName": "1. FC Köln" },
       "team2": { "teamId": 91, "teamName": "SC Freiburg" },
       "location": null,
-      "_erwartung": "OHNE ORTSANGABE — Heimspiel bleibt Heimspiel, Ort fällt zurück"
+      "_erwartung": "OHNE ORTSANGABE — Heimspiel bleibt Heimspiel, Ort faellt auf die Gebietsmitte zurueck"
+    },
+    {
+      "matchID": 71006,
+      "matchDateTime": "2026-09-27T15:30:00",
+      "matchDateTimeUTC": "2026-09-27T13:30:00Z",
+      "team1": { "teamId": 134, "teamName": "1. FC Union Berlin" },
+      "team2": { "teamId": 65, "teamName": "1. FC Köln" },
+      "location": { "locationCity": "Berlin", "locationStadium": "Stadion An der Alten Foersterei" },
+      "matchIsFinished": false,
+      "_erwartung": "HEIMSPIEL in BERLIN — der Fall, um den es bei der Mehrstadt-Umstellung geht"
+    },
+    {
+      "matchID": 71007,
+      "matchDateTime": "2026-09-25T18:30:00",
+      "matchDateTimeUTC": "2026-09-25T16:30:00Z",
+      "team1": { "teamId": 134, "teamName": "SV Werder Bremen" },
+      "team2": { "teamId": 65, "teamName": "1. FC Köln" },
+      "location": { "locationCity": "Bremen", "locationStadium": "Weserstadion" },
+      "matchIsFinished": false,
+      "_erwartung": "KEIN GEBIET — Bremen steht in keiner Staedteliste. Ohne Zuordnung kein Eintrag."
     }
   ],
 
   "overpass": {
-    "version": 0.6,
-    "generator": "Overpass API 0.7.62",
-    "elements": [
-      {
-        "type": "node",
-        "id": 240100001,
-        "lat": 50.9489,
-        "lon": 6.9331,
-        "tags": { "amenity": "cinema", "name": "Cinedom", "addr:city": "Köln" },
-        "_erwartung": "Kino in Köln — kommt in den Bestand"
-      },
-      {
-        "type": "way",
-        "id": 240100002,
-        "center": { "lat": 50.9375, "lon": 6.9603 },
-        "tags": { "leisure": "escape_game", "name": "Exit Game Köln" },
-        "_erwartung": "WEG statt Knoten — Koordinate steht in center, nicht oben"
-      },
-      {
-        "type": "node",
-        "id": 240100003,
-        "lat": 51.2277,
-        "lon": 6.7735,
-        "tags": { "tourism": "museum", "name": "Kunstpalast", "addr:city": "Düsseldorf" },
-        "_erwartung": "~35 km — noch im Umkreis von 50 km"
-      },
-      {
-        "type": "node",
-        "id": 240100004,
-        "lat": 50.1109,
-        "lon": 8.6821,
-        "tags": { "tourism": "museum", "name": "Städel Museum", "addr:city": "Frankfurt" },
-        "_erwartung": "~152 km — Overpass kann grosszügig antworten, wir nicht"
-      },
-      {
-        "type": "node",
-        "id": 240100005,
-        "lat": 50.9412,
-        "lon": 6.9600,
-        "tags": { "amenity": "cinema" },
-        "_erwartung": "OHNE NAMEN — ein Vorschlag ohne Namen ist keiner"
-      },
-      {
-        "type": "node",
-        "id": 240100006,
-        "lat": 50.9400,
-        "lon": 6.9500,
-        "tags": { "amenity": "pharmacy", "name": "Dom-Apotheke" },
-        "_erwartung": "FALSCHE ART — eine Apotheke ist kein Erlebnis"
-      },
-      {
-        "type": "node",
-        "id": 240100007,
-        "lat": 50.9450,
-        "lon": 6.9700,
-        "tags": {
-          "leisure": "climbing",
-          "name": "Kletterhalle <script>alert(1)</script> Nord"
+    "Köln": {
+      "version": 0.6,
+      "generator": "Overpass API 0.7.62",
+      "elements": [
+        {
+          "type": "node",
+          "id": 240100001,
+          "lat": 50.9489,
+          "lon": 6.9331,
+          "tags": { "amenity": "cinema", "name": "Cinedom", "addr:city": "Köln" },
+          "_erwartung": "Kino in Köln — kommt in den Bestand"
         },
-        "_erwartung": "MARKUP IM NAMEN — fremder Text ist Daten, nie Markup"
-      },
-      {
-        "type": "node",
-        "id": 240100008,
-        "lat": 50.9583,
-        "lon": 6.9700,
-        "tags": { "tourism": "zoo", "name": "Kölner Zoo", "addr:city": "Köln" },
-        "_erwartung": "Zoo — zweite Art, damit die Zuordnung nicht nur einen Fall kennt"
-      }
-    ]
+        {
+          "type": "way",
+          "id": 240100002,
+          "center": { "lat": 50.9375, "lon": 6.9603 },
+          "tags": { "leisure": "escape_game", "name": "Exit Game Köln" },
+          "_erwartung": "WEG statt Knoten — Koordinate steht in center, nicht oben"
+        },
+        {
+          "type": "node",
+          "id": 240100003,
+          "lat": 51.2277,
+          "lon": 6.7735,
+          "tags": { "tourism": "museum", "name": "Kunstpalast", "addr:city": "Düsseldorf" },
+          "_erwartung": "~35 km von Köln — im Umkreis. Steht AUCH in der Duesseldorfer Antwort: der Entdoppelungsfall."
+        },
+        {
+          "type": "node",
+          "id": 240100004,
+          "lat": 50.1109,
+          "lon": 8.6821,
+          "tags": { "tourism": "museum", "name": "Städel Museum", "addr:city": "Frankfurt" },
+          "_erwartung": "~152 km — Overpass kann grosszuegig antworten, wir nicht. Faellt aus KOELNS Antwort."
+        },
+        {
+          "type": "node",
+          "id": 240100005,
+          "lat": 50.9412,
+          "lon": 6.9600,
+          "tags": { "amenity": "cinema" },
+          "_erwartung": "OHNE NAMEN — ein Vorschlag ohne Namen ist keiner"
+        },
+        {
+          "type": "node",
+          "id": 240100006,
+          "lat": 50.9400,
+          "lon": 6.9500,
+          "tags": { "amenity": "pharmacy", "name": "Dom-Apotheke" },
+          "_erwartung": "FALSCHE ART — eine Apotheke ist kein Erlebnis"
+        },
+        {
+          "type": "node",
+          "id": 240100007,
+          "lat": 50.9450,
+          "lon": 6.9700,
+          "tags": {
+            "leisure": "climbing",
+            "name": "Kletterhalle <script>alert(1)</script> Nord"
+          },
+          "_erwartung": "MARKUP IM NAMEN — fremder Text ist Daten, nie Markup"
+        },
+        {
+          "type": "node",
+          "id": 240100008,
+          "lat": 50.9583,
+          "lon": 6.9700,
+          "tags": { "tourism": "zoo", "name": "Kölner Zoo", "addr:city": "Köln" },
+          "_erwartung": "Zoo — zweite Art, damit die Zuordnung nicht nur einen Fall kennt"
+        }
+      ]
+    },
+
+    "Düsseldorf": {
+      "version": 0.6,
+      "generator": "Overpass API 0.7.62",
+      "elements": [
+        {
+          "type": "node",
+          "id": 240100003,
+          "lat": 51.2277,
+          "lon": 6.7735,
+          "tags": { "tourism": "museum", "name": "Kunstpalast", "addr:city": "Düsseldorf" },
+          "_erwartung": "DERSELBE Ort wie in Koelns Antwort. 0 km von Duesseldorf, 35 km von Koeln — das naehere Gebiet gewinnt."
+        },
+        {
+          "type": "node",
+          "id": 240100009,
+          "lat": 51.2350,
+          "lon": 6.7800,
+          "tags": { "amenity": "theatre", "name": "Schauspielhaus", "addr:city": "Düsseldorf" },
+          "_erwartung": "Nur in Duesseldorf — beweist, dass ein zweites Gebiet wirklich eigene Eintraege bringt"
+        }
+      ]
+    },
+
+    "Berlin": {
+      "version": 0.6,
+      "generator": "Overpass API 0.7.62",
+      "elements": [
+        {
+          "type": "node",
+          "id": 240100010,
+          "lat": 52.5145,
+          "lon": 13.3780,
+          "tags": { "amenity": "cinema", "name": "Kino International", "addr:city": "Berlin" },
+          "_erwartung": "DER BERLIN-FALL — vor der Umstellung gab es hier nichts zu finden"
+        },
+        {
+          "type": "node",
+          "id": 240100011,
+          "lat": 52.5063,
+          "lon": 13.3300,
+          "tags": { "tourism": "zoo", "name": "Zoologischer Garten", "addr:city": "Berlin" },
+          "_erwartung": "Zweiter Berliner Eintrag"
+        },
+        {
+          "type": "node",
+          "id": 240100012,
+          "lat": 50.9489,
+          "lon": 6.9331,
+          "tags": { "amenity": "cinema", "name": "Falsch zugeordnet", "addr:city": "Köln" },
+          "_erwartung": "IN DER FALSCHEN ANTWORT — 480 km von Berlin. Der Umkreisfilter greift je Gebiet, nicht global."
+        }
+      ]
+    },
+
+    "Frankfurt": {
+      "version": 0.6,
+      "generator": "Overpass API 0.7.62",
+      "elements": [
+        {
+          "type": "node",
+          "id": 240100004,
+          "lat": 50.1109,
+          "lon": 8.6821,
+          "tags": { "tourism": "museum", "name": "Städel Museum", "addr:city": "Frankfurt" },
+          "_erwartung": "Derselbe Ort, der aus KOELNS Antwort faellt — hier ist er 0 km entfernt und gehoert dazu"
+        }
+      ]
+    }
   }
 }
