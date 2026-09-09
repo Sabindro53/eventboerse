@@ -17273,3 +17273,85 @@ body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text);
 .animated-entry:not(.visible) *::before,
 .animated-entry:not(.visible) *::after,
 .browse-categories-bar .scroll-hint-arrow.hidden{ animation-play-state: paused !important; }
+
+/* ══════════════════════════════════════════════════════════════════
+   JETZT IN DEINER NÄHE — Ansicht zum Aktivitäten-Bestand
+
+   Die Klassen setzen auf `.feed-radar-card` auf, damit „Jetzt" und
+   „Radar" wie zwei Ansichten derselben Sache aussehen und nicht wie
+   zwei Produkte. Farben kommen ausschliesslich aus den Tokens; ein
+   fest verdrahtetes Weiss faellt im Dunkelmodus auf.
+   ══════════════════════════════════════════════════════════════════ */
+
+.akt-liste { display: flex; flex-direction: column; gap: .45rem; margin-top: .9rem; }
+
+.akt-gruppe {
+  display: flex; align-items: center; gap: .4rem;
+  margin: .9rem 0 .25rem; font-size: .8rem; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--text-light);
+}
+.akt-gruppe:first-child { margin-top: 0; }
+.akt-gruppe .material-icons-round { font-size: 17px; color: var(--primary); }
+
+.akt-karte {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .65rem .8rem;
+  border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: var(--bg-card, #fff);
+}
+.akt-icon { font-size: 21px; color: var(--primary); flex-shrink: 0; }
+.akt-text { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: .1rem; }
+.akt-text h4 {
+  margin: 0; font-size: .92rem; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.akt-meta { margin: 0; font-size: .76rem; color: var(--text-light); line-height: 1.35; }
+.akt-meta b { color: var(--primary); font-weight: 700; }
+.akt-herkunft { margin: 0; font-size: .68rem; }
+.akt-quelle { color: var(--text-light); text-decoration: none; opacity: .85; }
+a.akt-quelle:hover { text-decoration: underline; opacity: 1; }
+
+.akt-km {
+  flex-shrink: 0; text-align: right; font-size: .78rem;
+  font-weight: 600; color: var(--text-light);
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+/* Eine Entfernung ab Stadtmitte ist eine Schaetzung und darf nicht wie
+   eine Messung aussehen — dieselbe Regel wie im Radar. */
+.akt-km small { font-size: .62rem; font-weight: 400; font-style: italic; opacity: .8; }
+
+.akt-laedt { padding: 1.4rem .2rem; font-size: .85rem; color: var(--text-light); margin: 0; }
+
+/* Der leere Fall traegt Gewicht: er ist eine Aussage, keine Panne.
+   Deshalb bekommt er Flaeche statt einer grauen Zeile. */
+.akt-leer {
+  text-align: center; padding: 2rem 1rem;
+  border: 1px dashed var(--border); border-radius: var(--radius-sm);
+}
+.akt-leer .material-icons-round { font-size: 34px; color: var(--text-light); opacity: .6; }
+.akt-leer h4 { margin: .55rem 0 .3rem; font-size: .95rem; color: var(--text); }
+.akt-leer p { margin: 0 auto 1rem; max-width: 34rem; font-size: .82rem; color: var(--text-light); line-height: 1.5; }
+.akt-leer .btn-outline { font-size: .8rem; }
+/* Eine Stoerung sieht anders aus als eine stille Gegend. */
+.akt-leer-fehler { border-color: var(--danger, #d33); }
+.akt-leer-fehler .material-icons-round { color: var(--danger, #d33); opacity: .85; }
+
+/* Die Quellenangabe ist bei ODbL Lizenzbedingung, nicht Fussnote —
+   sie steht deshalb immer da, auch wenn die Liste leer ist. */
+.akt-fuss {
+  display: flex; align-items: flex-start; gap: .4rem;
+  margin: 1rem 0 0; padding-top: .7rem;
+  border-top: 1px solid var(--border-light);
+  font-size: .7rem; color: var(--text-light); line-height: 1.45;
+}
+.akt-fuss .material-icons-round { font-size: 14px; flex-shrink: 0; margin-top: .1rem; }
+
+.feed-tab-jetzt .material-icons-round { font-size: 16px; vertical-align: -3px; margin-right: .2rem; }
+
+body.dark-mode .akt-karte { background: var(--bg-alt); }
+
+@media (max-width: 560px) {
+  .akt-text h4 { white-space: normal; }
+  .akt-karte { align-items: flex-start; }
+  .akt-icon { margin-top: .15rem; }
+}

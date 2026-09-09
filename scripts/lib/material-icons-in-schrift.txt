@@ -69,6 +69,7 @@ comment
 commit
 compress
 content_copy
+content_cut
 contrast
 cookie
 copy
@@ -118,6 +119,7 @@ face
 facebook
 favorite
 favorite_border
+favorite_outline
 feed
 feedback
 festival
@@ -168,6 +170,7 @@ iso
 javascript
 key
 keyboard
+keyboard_control
 label
 lan
 landscape
@@ -207,6 +210,8 @@ memory
 menu
 merge
 message
+messenger
+messenger_outline
 mic
 mode
 money
@@ -229,6 +234,7 @@ notifications
 notifications_active
 notifications_none
 notifications_off
+notifications_on
 numbers
 offline_bolt
 opacity
@@ -284,6 +290,8 @@ quiz
 radar
 radio
 radio_button_checked
+radio_button_off
+radio_button_on
 radio_button_unchecked
 rate_review
 receipt_long

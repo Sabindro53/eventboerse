@@ -1255,6 +1255,53 @@ Schutz davor, dass ein Eintrag ohne Herkunft erfunden aussieht.
 npx playwright test tests/e2e/aktivitaeten.spec.js   # 21 Tests, an Prüfstücken
 ```
 
+#### Die Ansicht: Reiter „⚡ Jetzt"
+
+`js/modules/search/14-aktivitaeten.js` zeigt den Bestand unter
+`/aktuelles/jetzt` — **Demnächst** (Termine, nach Zeit) und **Jederzeit**
+(Orte, nach Entfernung). Standort, Umkreis und Stadtwahl kommen aus dem
+Radar (`13-event-radar.js`); sie dort ein zweites Mal nachzubauen hiesse,
+zwei Fassungen derselben Sache zu pflegen.
+
+**Drei leere Zustände, drei Aussagen.** Das ist der ganze Punkt der
+Ansicht — die Sorgfalt des Bestands ist wertlos, wenn hier alles als
+leere Liste erscheint:
+
+| Zustand | Was dasteht |
+|---|---|
+| Abruf fehlgeschlagen | „Die Liste konnte nicht geladen werden" — **Störung**, mit Knopf zum Erneutversuchen |
+| `stand: null` | „Noch nichts abgerufen" — kein Fehler, aber auch keine Aussage über die Gegend |
+| abgerufen, nichts im Umkreis | „Im Umkreis von N km ist gerade nichts eingetragen" — **das** ist die Aussage über die Gegend, plus Angebot, den Umkreis zu weiten |
+
+Ein Test misst die **Verschiedenheit** der drei Texte, nicht nur ihr
+Vorhandensein: wer sie zusammenlegt, besteht sonst die Einzeltests
+weiter, sobald einer den anderen enthält.
+
+**Vergangenes filtert die Ansicht, nicht das Tor.** Das Tor lässt einen
+alten Abruf durch (er entsteht durch eine ausgefallene Tagesroutine,
+nicht durch einen Commit). Ein Spiel von gestern als „was ist jetzt los"
+anzubieten wäre trotzdem schlimmer als eine kurze Liste.
+
+**Ein Spiel hat keine Koordinaten** — OpenLigaDB liefert Stadion und
+Stadt, nicht Lat/Lon. Gerechnet wird ab Stadtmitte, und genau das steht
+dann dran (`ab Stadtmitte`), wie im Radar. Weglassen wäre falsch, als
+Messung ausgeben auch.
+
+**Fremder Text wird zweimal entschärft.** Der Generator maskiert, die
+Ansicht maskiert erneut — eine ausgelieferte Datei kann veraltet oder
+verfälscht sein. Eine Quell-Adresse wird **nur bei `https://`** verlinkt;
+ein `javascript:`-href wäre genau die Stelle, an der aus Daten Code wird.
+
+**Markierung und Inhalt müssen übereinstimmen.** Der erste Entwurf des
+Deep-Link-Tests prüfte nur URL und Reiter — beide setzt der Router. Nimmt
+man `renderFeed()` die Weiche, bleibt der Reiter markiert und darunter
+stehen die Inserate von „Für dich": grüner Test, falsche Seite. Das ist
+der Fehler vom 31.08.2026 eine Ebene höher.
+
+```bash
+npx playwright test tests/e2e/jetzt-ansicht.spec.js   # 14 Tests, echter Browser
+```
+
 ### Demo-Inhalte & Wissenslücken
 
 ```bash
@@ -1616,7 +1663,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-854 Tests in 55 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+868 Tests in 56 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1820,7 +1867,7 @@ WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
 bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
 
 **Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
-und 170 KB; benutzt werden 386. Die ausgelieferte Datei ist **32 KB**, die
+und 170 KB; benutzt werden 394. Die ausgelieferte Datei ist **33 KB**, die
 Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
 Deploy ausgeschlossen).
 
@@ -1838,6 +1885,29 @@ kostet Bytes, zu wenig einen leeren Kasten in der Oberfläche.
 
 **Neues Icon → `node scripts/icons.mjs && python3 scripts/icons-subset.py`.**
 Sonst bricht der PR-Check ab, und ohne ihn wäre das Symbol im Betrieb leer.
+
+**Das Tor mass bis zum 09.09.2026 die falsche Datei.** `--check` verglich
+die benutzten Icons gegen `material-icons-benutzt.txt` — eine Liste, die
+`icons.mjs` **selbst schreibt**. Wer die Liste erneuerte und den Zuschnitt
+vergass, bekam ein grünes Tor bei veralteter Schrift; die neuen Symbole
+wären im Betrieb leere Kästen gewesen. Die Meldung sagte „in der
+ausgelieferten Schrift" und meinte „in der Wunschliste".
+
+Aufgefallen beim Bauen der Jetzt-Ansicht: acht neue Icons, `icons.mjs`
+gelaufen, `--check` **grün** — und die Schrift unverändert bei 386
+Symbolen. Der Prüfer hatte sich mit sich selbst verglichen.
+
+Behoben: `icons-subset.py` liest die fertige Schrift ohnehin zurück
+(die Ligatur-Gegenprobe) und schreibt das Ergebnis jetzt nach
+`material-icons-in-schrift.txt`. Diese Datei entsteht **nur beim
+Zuschneiden** und kann der Schrift deshalb nicht vorauseilen; `--check`
+misst gegen sie. Fehlt sie, ist das Exit 1 — nicht messen ist kein
+Bestehen.
+
+Mutationsgeprüft: ein Symbol aus dem Verzeichnis entfernt → rot;
+Verzeichnis gelöscht → rot; heiler Zustand → grün. Und die Gegenprobe,
+die den Befund belegt: dasselbe Symbol steht weiterhin in der
+**Auswahlliste** — der alte Weg wäre also grün geblieben.
 
 Zwei Fallen, beide still, beide durch `tests/e2e/icons.spec.js` am gerenderten
 Ergebnis abgesichert: die Ligaturen liegen unter **`rlig`**, nicht `liga` (wer
@@ -1924,7 +1994,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 24 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/` (Reihenfolge: `modules.list`) |
+| `js/modules/` | Quelle des Frontends: 25 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/` (Reihenfolge: `modules.list`) |
 | `styles.css` | ~17 100 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
