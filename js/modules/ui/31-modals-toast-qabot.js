@@ -267,17 +267,15 @@ var _ebKbMiss = [];        // Impuls 6: Fragen ohne Treffer (Wissenslücken)
 function _ebKbLoad() {
   if (_ebKbState === 'loading' || _ebKbState === 'ready') return;
   _ebKbState = 'loading';
-  // Basis-URL robust bestimmen: bevorzugt themeUrl vom Server, sonst aus dem
-  // <script src=".../app.js"> ableiten (funktioniert auch auf Unterrouten wie
-  // /detail/10010, wo ein relativer Pfad ins Leere liefe).
-  var base = '';
-  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
-    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
-  } else {
-    var tag = document.querySelector('script[src*="app.js"]');
-    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
-  }
-  var url = (base ? base + '/' : '') + 'assets/eb-knowledge.json';
+  // Basis-URL über `ebAssetUrl()` — EINMAL beim Laden bestimmt.
+  //
+  // Hier stand die Auflösung selbst, mit dem Kommentar, sie funktioniere
+  // „auch auf Unterrouten wie /detail/10010". Die Absicht war richtig, die
+  // Umsetzung nicht: `tag.src` wird gegen `document.baseURI` gerechnet, und
+  // `pushState` verschiebt den. Auf /detail/10010 ging die Anfrage an
+  // /detail/assets/eb-knowledge.json — der KI-Bot stand ohne Wissen da.
+  // Begründung und Messung: `EB_THEME_BASIS` in `core/00-basis.js`.
+  var url = ebAssetUrl('assets/eb-knowledge.json');
   fetch(url, { credentials: 'same-origin' })
     .then(function(r) { if (!r.ok) throw new Error('kb'); return r.json(); })
     .then(function(kb) {

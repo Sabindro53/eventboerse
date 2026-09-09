@@ -1302,6 +1302,61 @@ der Fehler vom 31.08.2026 eine Ebene höher.
 npx playwright test tests/e2e/jetzt-ansicht.spec.js   # 14 Tests, echter Browser
 ```
 
+### Eine Adresse, die mit der Route wanderte
+
+Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
+meldete in der Dev-Shell „Die Liste konnte nicht geladen werden" — auf genau
+der Route, auf der sie lebt.
+
+**Drei Module rechneten ihre Asset-Adresse selbst aus**, jedes mit derselben
+Kopie:
+
+```js
+var tag = document.querySelector('script[src*="app.js"]');
+if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
+```
+
+**`tag.src` ist eine aufgelöste Adresse.** Der Browser rechnet das Attribut
+bei **jedem Zugriff** gegen `document.baseURI` — und `history.pushState`
+verschiebt den. Derselbe Script-Tag liefert deshalb je nach Route etwas
+anderes:
+
+| Route | errechnete Adresse |
+|---|---|
+| `/` | `…/assets/eb-aktivitaeten.json` ✅ |
+| `/aktuelles/jetzt` | `…/aktuelles/assets/eb-aktivitaeten.json` **404** |
+
+Betroffen waren die **Wissensbasis des KI-Bots**, der **Demo-Feed** und der
+**Aktivitäten-Bestand**. Der Kommentar an der ältesten Fundstelle behauptete
+dabei das Gegenteil — „funktioniert auch auf Unterrouten wie /detail/10010".
+Die Absicht war richtig, die Umsetzung nicht, und auf `/detail/10010` stand
+der Bot ohne Wissen da.
+
+**Live griff der Fehler nicht.** WordPress setzt `eventboerseApi.themeUrl`
+(`functions.php:811`), und die wird zuerst gefragt. Getroffen war der
+**Rückfall** — also die Dev-Shell, in der entwickelt und geprüft wird. Ein
+Fehler, der sich genau dort versteckt, wo man ihn suchen würde.
+
+Behoben mit `EB_THEME_BASIS` in `core/00-basis.js`: **einmal beim Laden**
+aufgelöst, bevor der Router die erste Adresse verschieben kann (`app.js`
+läuft mit `defer`, das DOM steht, `pushState` war noch nicht). Alle drei
+Stellen holen ihre Adresse jetzt über `ebAssetUrl()`.
+
+**Der eigene Prüfstand hatte den Fehler verdeckt.** `jetzt-ansicht.spec.js`
+stellt die Antwort mit `page.route()` und dem Muster `**/assets/…` — und das
+trifft die **falsche** Adresse genauso. Vierzehn Tests waren grün, während
+die echte Anfrage im 404 landete. Ein gestellter Prüfstand kann eine kaputte
+Adresse nicht finden.
+
+`asset-adressen.spec.js` misst deshalb den **echten** Abruf, ohne Route und
+ohne Prüfstück, und hält zusätzlich die Regel: **kein Modul rechnet die Basis
+mehr selbst aus.** Ausgenommen ist genau `core/00-basis.js`, wo sie definiert
+wird — plus eine Gegenprobe, dass sie dort wirklich steht.
+
+```bash
+npx playwright test tests/e2e/asset-adressen.spec.js   # 4 Tests, echter Abruf
+```
+
 ### Demo-Inhalte & Wissenslücken
 
 ```bash
@@ -1663,7 +1718,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-868 Tests in 56 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+872 Tests in 57 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

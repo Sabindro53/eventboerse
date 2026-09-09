@@ -10,6 +10,51 @@
    ============================================ */
 
 /* ============================================================================
+ * THEME-BASIS — EINMAL beim Laden bestimmt, danach unveränderlich
+ *
+ * Drei Stellen bauten ihre Asset-Adresse selbst zusammen (Wissensbasis,
+ * Demo-Feed, Aktivitäten-Bestand), jede mit derselben Kopie:
+ *
+ *     var tag = document.querySelector('script[src*="app.js"]');
+ *     if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
+ *
+ * DAS IST AUF UNTERROUTEN FALSCH, und zwar still. `tag.src` ist eine
+ * *aufgelöste* Adresse: der Browser rechnet das Attribut bei JEDEM Zugriff
+ * gegen `document.baseURI`. Und `history.pushState` ändert `baseURI`.
+ * Derselbe Script-Tag liefert deshalb je nach Route etwas anderes:
+ *
+ *     auf „/"                → …/assets/eb-aktivitaeten.json
+ *     auf „/aktuelles/jetzt" → …/aktuelles/assets/eb-aktivitaeten.json  → 404
+ *
+ * Der Kommentar an der ältesten Fundstelle behauptete das Gegenteil
+ * („funktioniert auch auf Unterrouten wie /detail/10010") — die Absicht war
+ * richtig, die Umsetzung nicht.
+ *
+ * LIVE FIEL ES NICHT AUF: WordPress setzt `eventboerseApi.themeUrl`
+ * (functions.php), und die wird zuerst gefragt. Getroffen war der
+ * RÜCKFALL — also die Dev-Shell, in der entwickelt und geprüft wird. Ein
+ * Fehler, der sich genau dort versteckt, wo man ihn suchen würde.
+ *
+ * Deshalb: einmal beim Laden von app.js auflösen, bevor der Router die
+ * erste Adresse verschieben kann. `app.js` läuft mit `defer` — das DOM
+ * steht, `pushState` hat noch nicht stattgefunden.
+ * ========================================================================= */
+
+var EB_THEME_BASIS = (function () {
+  if (typeof window !== 'undefined' && window.eventboerseApi && window.eventboerseApi.themeUrl) {
+    return String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
+  }
+  var tag = typeof document !== 'undefined'
+    ? document.querySelector('script[src*="app.js"]') : null;
+  return tag ? String(tag.src).replace(/\/app\.js.*$/, '') : '';
+})();
+
+/** Adresse einer mitgelieferten Datei — routenfest. */
+function ebAssetUrl(datei) {
+  return (EB_THEME_BASIS ? EB_THEME_BASIS + '/' : '') + String(datei).replace(/^\//, '');
+}
+
+/* ============================================================================
  * AVATAR-GENERATOR (Self-Hosted, deterministisch, kein externer Roundtrip)
  *
  * Erzeugt deterministisch eine Initial-Avatar-SVG-Data-URI aus einem Seed.
