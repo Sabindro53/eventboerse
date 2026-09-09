@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 830 Tests in 54 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 832 Tests in 54 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **App Store Connect: beide Fragebögen sind beantwortet, nicht nur die Stufe.**
   „16+" ist das Ergebnis von rund zwanzig Einzelfragen; wer nur die Stufe kennt,
@@ -60,6 +60,24 @@ einen alten Abschnitt gelesen und nicht diesen.
   gemessen; `will-change` machte es **schlechter** (97 ms) und ist deshalb
   nicht eingebaut. `prefers-reduced-motion` senkt diese Kosten übrigens gar
   nicht (240 vs. 241) — es kürzt nur die Dauer. Neue Suite `leerlauf.spec.js`
+- **Leerlauf, zweiter Teil (09.09.).** Der erste Befund mass den Zustand
+  direkt nach dem Laden — nach `navigateTo('home')` sind es aber **58**
+  Dauer-Animationen statt 4. Zwei weitere Ursachen: die **Schreibmaschine**
+  der Leiste schrieb alle 35–60 ms `textContent` neu, endlos, auf jeder
+  Seite (hört jetzt nach einer Runde auf), und der Browser **hält Deko
+  ausserhalb des Sichtfelds nicht an** — weit unten waren 56 von 58 nicht im
+  Bild. Jetzt `.eb-deko-ruht` per IntersectionObserver: **58 → 4** laufende
+  Animationen, Stil-Neuberechnung **137 → 54 ms** je 3 s. `paused`, nicht
+  `animation: none` — sonst begänne alles beim Hochscrollen von vorn; der
+  Test misst dafür die Laufzeit, nicht die Anzahl. Der Selektor braucht
+  `*::before, *::after`, sonst pausieren ausgerechnet die Feuerwerke nicht.
+  **Offen:** ~400 ms Grundlast je 3 s, die auch ohne Animationen bleibt
+- **Vision ausformuliert** (`vault/10-Produkt/Vision-Plattform.md`):
+  Entdecken → Entscheiden → Buchen → Absichern. Mit drei Korrekturen an der
+  Ausgangsidee: Facebook-Events haben **keine** nutzbare Schnittstelle mehr
+  (seit 2018), Treuhand ist **erlaubnispflichtig** (ZAG → Stripe Connect
+  statt eigenem Konto), und „3 % App Fee" stimmt so nicht — der Code zieht
+  Provision **plus** Zahlungsgebühr ab
 - Tore grün: Wissensbasis, Quarantäne, Demo-Feed, Connectors, Modell-Ensemble,
   Arbeitsjournal, app.js-Drift, **Recht**
 - **Belegschaft: 11 von 11 Rollen liefern** (Lauf 919, planmäßig). Vom 23.–26.08.

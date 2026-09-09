@@ -428,8 +428,51 @@ darf auf einem unsichtbaren Element laufen. Dazu eine Gegenprobe, dass das
 geöffnete Overlay wieder animiert — sonst wäre „einfach löschen" der
 bequemste Weg zu einem grünen Test.
 
+**Am 09.09.2026 kam der zweite Teil.** Der erste Befund betraf die Leiste;
+gemessen wurde damals aber der Zustand **direkt nach dem Laden**. Nach einem
+`navigateTo('home')` sind es nicht 4 Dauer-Animationen, sondern **58** — der
+Hero rendert sie selbst. Ein Prüfer, der einen Zwischenzustand misst, prüft
+die Seite nicht.
+
+Zwei weitere Ursachen, beide gemessen:
+
+**Die Schreibmaschine in der Leiste lief endlos.** `_initNavAiTyping()`
+schrieb alle 35–60 ms `el.textContent` neu — jeder Schreibvorgang zieht Stil-
+Neuberechnung und Layout nach sich, und die Leiste steht auf **jeder** Seite.
+Nach allen fünf Beispielsätzen ist gesagt, was der Effekt sagen soll; jetzt
+bleibt der letzte Satz stehen und die Zeitgeber hören auf.
+
+**Der Browser hält Animationen ausserhalb des Sichtfelds nicht an.** Weit
+unten auf der Startseite waren **56 von 58** nicht im Bild und kosteten
+trotzdem rund 250 ms Hauptthread je drei Sekunden. `ebDekoRuhenLassen()`
+setzt über einen IntersectionObserver `.eb-deko-ruht`; die CSS-Regel hält mit
+`animation-play-state: paused` an. Gemessen, weit unten:
+
+| | vorher | jetzt |
+|---|---:|---:|
+| laufende Dauer-Animationen | 58 | **4** |
+| Stil-Neuberechnung / 3 s | 137 ms | **54 ms** |
+
+**`paused`, nicht `animation: none`.** Letzteres beendet und setzt zurück —
+das Feuerwerk liefe bei jedem Hochscrollen von vorn los. Der Test misst
+deshalb die **Laufzeit** einer Probe-Animation, nicht nur ihre Anzahl: nach
+dem Zurückscrollen muss die Uhr weiterlaufen, wo sie stehengeblieben ist.
+Ohne diese Prüfung überlebte die Mutation `paused → none`.
+
+**Der Selektor braucht die Pseudo-Elemente.** `.eb-deko-ruht *` trifft
+**keine** `::before`/`::after` — und genau dort sitzen die Feuerwerke
+(`.hero-fw::after`). Ohne `*::before, *::after` pausierten nur 45 von 58, und
+die teuersten liefen weiter. Fiel erst auf, weil die Probe-Animation trotz
+gesetzter Klasse `running` blieb.
+
+**Was NICHT behoben ist:** eine Grundlast von rund 400 ms je drei Sekunden,
+die auch mit allen Animationen abgeschaltet bleibt. Sie kommt nicht von der
+Deko. Kandidaten: `_initHeroShots()` (200-ms-Zeitgeber), die rund 26
+`requestAnimationFrame`-Aufrufe pro Sekunde, Bilddekodierung. **Offen, und
+hier benannt, damit niemand den Posten für erledigt hält.**
+
 ```bash
-npx playwright test tests/e2e/leerlauf.spec.js   # 3 Tests, echter Browser
+npx playwright test tests/e2e/leerlauf.spec.js   # 5 Tests, echter Browser
 ```
 
 ### Bilder: das Format, nicht die Größe
@@ -1460,7 +1503,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-830 Tests in 54 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+832 Tests in 54 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -1482,9 +1525,12 @@ durchgesetzten Fassung nichts), **Auslieferung** (Brotli ergänzt gzip, jede
 vorgezogene Schrift wird auch geladen, kein Stylesheet kommt auf zwei Wegen,
 eigene Bibliotheken tragen eigene Handles, abbestellt wird nur was nichts
 gestaltet),
-**Leerlauf** (keine Dauer-Animation läuft auf einem unsichtbaren Element;
-das geöffnete Overlay animiert wieder — gedrosselt, nicht gelöscht; der
-Hauptthread kommt zur Ruhe, wenn niemand etwas tut),
+**Leerlauf** (keine Dauer-Animation läuft auf einem unsichtbaren Element —
+gemessen an der gerenderten Startseite, nicht am Zustand nach dem Laden; das
+geöffnete Overlay animiert wieder — gedrosselt, nicht gelöscht; die
+Schreibmaschine hört nach einer Runde auf; Deko ausserhalb des Bildes hält
+an und läuft danach **weiter**, statt von vorn zu beginnen; der Hauptthread
+kommt zur Ruhe, wenn niemand etwas tut),
 **Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,

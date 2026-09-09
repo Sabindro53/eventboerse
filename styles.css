@@ -17235,3 +17235,41 @@ body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text);
 
 /* Zweite Zeile im Upload-Hinweis: leiser als die harte Limit-Angabe */
 .upload-hint-soft { opacity: .75; font-size: .92em; }
+
+/* ── Dekoration ausserhalb des Sichtfelds haelt an ─────────────────────
+ *
+ * Gesetzt von ebDekoRuhenLassen() ueber einen IntersectionObserver.
+ * Der Browser laesst Animationen ausserhalb des Bildes weiterlaufen --
+ * im echten Chromium gemessen kosteten sie weit unten auf der Startseite
+ * rund 250 ms Hauptthread je drei Sekunden, fuer ein Feuerwerk, das
+ * niemand sieht.
+ *
+ * `paused` haelt an und merkt sich die Stelle; beim Zurueckscrollen laeuft
+ * es weiter. `animation: none` waere falsch -- das setzt zurueck und liesse
+ * die Deko bei jedem Hochscrollen neu anspringen.
+ *
+ * Der Nachfahren-Selektor ist Absicht: die Animationen sitzen auf den
+ * Kindern (.hero-fw, .ai-popper, .ai-spark), nicht auf dem Behaelter. */
+.eb-deko-ruht,
+.eb-deko-ruht *,
+.eb-deko-ruht::before, .eb-deko-ruht::after,
+.eb-deko-ruht *::before, .eb-deko-ruht *::after{ animation-play-state: paused !important; }
+
+/* Noch nicht eingeblendete Abschnitte animieren nicht.
+ *
+ * `.animated-entry` steht auf `opacity: 0`, bis der Scroll-Beobachter
+ * `.visible` setzt -- fuer den Browser heisst das "gerendert und
+ * durchsichtig", nicht "weg". Animationen darin liefen also schon, waehrend
+ * der Abschnitt noch zwei Bildschirme tiefer lag. Gemessen betraf das
+ * `eb-cta-breathe` und `ebscCaret`.
+ *
+ * Gefahrlos, weil `.animated-entry` sich per TRANSITION einblendet, nicht
+ * per Animation: das Anhalten kann das Einblenden nicht treffen. Und der
+ * Nachfahren-Selektor laesst den Behaelter selbst bewusst aus.
+ *
+ * Der Scroll-Pfeil der Kategorienleiste traegt `hidden`, wenn nichts mehr
+ * zu scrollen ist -- er wippte trotzdem weiter. */
+.animated-entry:not(.visible) *,
+.animated-entry:not(.visible) *::before,
+.animated-entry:not(.visible) *::after,
+.browse-categories-bar .scroll-hint-arrow.hidden{ animation-play-state: paused !important; }

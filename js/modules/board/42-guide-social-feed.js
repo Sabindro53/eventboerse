@@ -2684,12 +2684,32 @@ function _initNavAiTyping() {
   var phraseIdx = 0, charIdx = 0, isDeleting = false;
   if (_navAiTypingTimer) clearInterval(_navAiTypingTimer);
 
+  // EINE RUNDE, dann Ruhe.
+  //
+  // Der Effekt sagt "hier darfst du einen ganzen Satz tippen". Nach allen
+  // fuenf Beispielen ist das gesagt; jede weitere Runde wiederholt nur.
+  //
+  // Er lief vorher endlos, alle 35-60 ms ein Schreibvorgang auf
+  // el.textContent -- und der zieht jedes Mal Stil-Neuberechnung und Layout
+  // nach sich. Die Leiste steht auf JEDER Seite, also lief das dauerhaft,
+  // auch beim Lesen eines Inserats. Im echten Chromium gemessen: das war der
+  // groesste Einzelposten der Dauerlast (siehe leerlauf.spec.js).
+  //
+  // Stehen bleibt der letzte Satz, nicht ein leeres Feld: ein Platzhalter,
+  // der nach dem Tippen verschwindet, nimmt dem Suchfeld seine Erklaerung.
   function tick() {
     var phrase = phrases[phraseIdx];
     if (!isDeleting) {
       charIdx++;
       el.textContent = phrase.substring(0, charIdx);
       if (charIdx >= phrase.length) {
+        // Letzter Satz getippt: stehenlassen und aufhoeren.
+        if (phraseIdx >= phrases.length - 1) {
+          clearInterval(_navAiTypingTimer);
+          _navAiTypingTimer = null;
+          el.classList.add('fertig');
+          return;
+        }
         isDeleting = true;
         clearInterval(_navAiTypingTimer);
         _navAiTypingTimer = setTimeout(function() {
@@ -2702,7 +2722,7 @@ function _initNavAiTyping() {
       el.textContent = phrase.substring(0, charIdx) || '\u00A0';
       if (charIdx <= 0) {
         isDeleting = false;
-        phraseIdx = (phraseIdx + 1) % phrases.length;
+        phraseIdx++;
         clearInterval(_navAiTypingTimer);
         _navAiTypingTimer = setTimeout(function() {
           _navAiTypingTimer = setInterval(tick, 60);
@@ -3030,4 +3050,38 @@ function clearNavAiSearch() {
 document.addEventListener('DOMContentLoaded', function() {
   try { localStorage.removeItem('eb_nav_search'); } catch(e) {}
   _initNavAiTyping();
+  try { ebDekoRuhenLassen(); } catch(e) { /* Deko ist Kuer, nie Pflicht */ }
 });
+
+/**
+ * Dekoration ausserhalb des Sichtfelds haelt an.
+ *
+ * DER BROWSER TUT DAS NICHT VON SELBST. Im echten Chromium gemessen: weit
+ * unten auf der Startseite sind 56 der 58 Dauer-Animationen ausserhalb des
+ * Bildes -- und kosten trotzdem rund 250 ms Hauptthread je drei Sekunden.
+ * Wer einen Beitrag liest, bezahlt die ganze Zeit fuer ein Feuerwerk, das
+ * zwei Bildschirmhoehen weiter oben stattfindet.
+ *
+ * `animation-play-state: paused` haelt sie wirklich an, statt sie nur
+ * unsichtbar zu machen. Beim Zurueckscrollen laufen sie weiter -- die
+ * Gestaltung bleibt vollstaendig.
+ *
+ * Ohne IntersectionObserver passiert nichts: kein Fehler, nur der Zustand
+ * von vorher. Eine Verzierung darf nie der Grund sein, dass eine Seite
+ * nicht startet.
+ */
+function ebDekoRuhenLassen() {
+  if (ebDekoRuhenLassen._an || typeof IntersectionObserver !== 'function') return;
+  var ziele = document.querySelectorAll('.hero-fx, .ai-hero, [data-eb-deko]');
+  if (!ziele.length) return;
+  ebDekoRuhenLassen._an = true;
+
+  var beobachter = new IntersectionObserver(function(eintraege) {
+    for (var i = 0; i < eintraege.length; i++) {
+      // `ruht` heisst: nicht im Bild. Der Beobachter meldet beide Richtungen.
+      eintraege[i].target.classList.toggle('eb-deko-ruht', !eintraege[i].isIntersecting);
+    }
+  }, { rootMargin: '120px' });   // etwas Vorlauf, damit nichts sichtbar anspringt
+
+  for (var k = 0; k < ziele.length; k++) beobachter.observe(ziele[k]);
+}
