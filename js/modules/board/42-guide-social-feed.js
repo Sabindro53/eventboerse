@@ -1177,15 +1177,9 @@ function toggleFeedNearby() {
    ══════════════════════════════════════════════════════════════════ */
 var _ebDemoFeedState = 'idle';   // idle | loading | ready | failed
 
+/** Siehe `EB_THEME_BASIS` in `core/00-basis.js` — auf Unterrouten war das falsch. */
 function _ebDemoFeedUrl() {
-  var base = '';
-  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
-    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
-  } else {
-    var tag = document.querySelector('script[src*="app.js"]');
-    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
-  }
-  return (base ? base + '/' : '') + 'assets/eb-demo-feed.json';
+  return ebAssetUrl('assets/eb-demo-feed.json');
 }
 
 function _ebDemoFeedLoad() {

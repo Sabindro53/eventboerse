@@ -10,6 +10,51 @@
    ============================================ */
 
 /* ============================================================================
+ * THEME-BASIS — EINMAL beim Laden bestimmt, danach unveränderlich
+ *
+ * Drei Stellen bauten ihre Asset-Adresse selbst zusammen (Wissensbasis,
+ * Demo-Feed, Aktivitäten-Bestand), jede mit derselben Kopie:
+ *
+ *     var tag = document.querySelector('script[src*="app.js"]');
+ *     if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
+ *
+ * DAS IST AUF UNTERROUTEN FALSCH, und zwar still. `tag.src` ist eine
+ * *aufgelöste* Adresse: der Browser rechnet das Attribut bei JEDEM Zugriff
+ * gegen `document.baseURI`. Und `history.pushState` ändert `baseURI`.
+ * Derselbe Script-Tag liefert deshalb je nach Route etwas anderes:
+ *
+ *     auf „/"                → …/assets/eb-aktivitaeten.json
+ *     auf „/aktuelles/jetzt" → …/aktuelles/assets/eb-aktivitaeten.json  → 404
+ *
+ * Der Kommentar an der ältesten Fundstelle behauptete das Gegenteil
+ * („funktioniert auch auf Unterrouten wie /detail/10010") — die Absicht war
+ * richtig, die Umsetzung nicht.
+ *
+ * LIVE FIEL ES NICHT AUF: WordPress setzt `eventboerseApi.themeUrl`
+ * (functions.php), und die wird zuerst gefragt. Getroffen war der
+ * RÜCKFALL — also die Dev-Shell, in der entwickelt und geprüft wird. Ein
+ * Fehler, der sich genau dort versteckt, wo man ihn suchen würde.
+ *
+ * Deshalb: einmal beim Laden von app.js auflösen, bevor der Router die
+ * erste Adresse verschieben kann. `app.js` läuft mit `defer` — das DOM
+ * steht, `pushState` hat noch nicht stattgefunden.
+ * ========================================================================= */
+
+var EB_THEME_BASIS = (function () {
+  if (typeof window !== 'undefined' && window.eventboerseApi && window.eventboerseApi.themeUrl) {
+    return String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
+  }
+  var tag = typeof document !== 'undefined'
+    ? document.querySelector('script[src*="app.js"]') : null;
+  return tag ? String(tag.src).replace(/\/app\.js.*$/, '') : '';
+})();
+
+/** Adresse einer mitgelieferten Datei — routenfest. */
+function ebAssetUrl(datei) {
+  return (EB_THEME_BASIS ? EB_THEME_BASIS + '/' : '') + String(datei).replace(/^\//, '');
+}
+
+/* ============================================================================
  * AVATAR-GENERATOR (Self-Hosted, deterministisch, kein externer Roundtrip)
  *
  * Erzeugt deterministisch eine Initial-Avatar-SVG-Data-URI aus einem Seed.
@@ -7169,15 +7214,18 @@ var _aktZustand = 'kalt';        // 'kalt' | 'laedt' | 'da' | 'fehler'
 /** Wie viele Einträge je Abschnitt gezeigt werden. */
 var EB_AKT_MAX = 24;
 
+/**
+ * Die Basis kommt aus `ebAssetUrl()` — EINMAL beim Laden bestimmt.
+ *
+ * Hier stand die Auflösung selbst, aus zwei anderen Modulen abgeschrieben.
+ * Sie war auf Unterrouten falsch: `tag.src` wird bei jedem Zugriff gegen
+ * `document.baseURI` gerechnet, und `pushState` verschiebt den. Auf
+ * `/aktuelles/jetzt` — also genau dort, wo diese Ansicht lebt — landete die
+ * Anfrage bei `/aktuelles/assets/…` und damit im 404. Begründung und Messung
+ * stehen bei `EB_THEME_BASIS` in `core/00-basis.js`.
+ */
 function ebAktivitaetenUrl() {
-  var base = '';
-  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
-    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
-  } else {
-    var tag = document.querySelector('script[src*="app.js"]');
-    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
-  }
-  return (base ? base + '/' : '') + EB_AKT_DATEI;
+  return ebAssetUrl(EB_AKT_DATEI);
 }
 
 /**
@@ -15377,17 +15425,15 @@ var _ebKbMiss = [];        // Impuls 6: Fragen ohne Treffer (Wissenslücken)
 function _ebKbLoad() {
   if (_ebKbState === 'loading' || _ebKbState === 'ready') return;
   _ebKbState = 'loading';
-  // Basis-URL robust bestimmen: bevorzugt themeUrl vom Server, sonst aus dem
-  // <script src=".../app.js"> ableiten (funktioniert auch auf Unterrouten wie
-  // /detail/10010, wo ein relativer Pfad ins Leere liefe).
-  var base = '';
-  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
-    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
-  } else {
-    var tag = document.querySelector('script[src*="app.js"]');
-    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
-  }
-  var url = (base ? base + '/' : '') + 'assets/eb-knowledge.json';
+  // Basis-URL über `ebAssetUrl()` — EINMAL beim Laden bestimmt.
+  //
+  // Hier stand die Auflösung selbst, mit dem Kommentar, sie funktioniere
+  // „auch auf Unterrouten wie /detail/10010". Die Absicht war richtig, die
+  // Umsetzung nicht: `tag.src` wird gegen `document.baseURI` gerechnet, und
+  // `pushState` verschiebt den. Auf /detail/10010 ging die Anfrage an
+  // /detail/assets/eb-knowledge.json — der KI-Bot stand ohne Wissen da.
+  // Begründung und Messung: `EB_THEME_BASIS` in `core/00-basis.js`.
+  var url = ebAssetUrl('assets/eb-knowledge.json');
   fetch(url, { credentials: 'same-origin' })
     .then(function(r) { if (!r.ok) throw new Error('kb'); return r.json(); })
     .then(function(kb) {
@@ -24384,15 +24430,9 @@ function toggleFeedNearby() {
    ══════════════════════════════════════════════════════════════════ */
 var _ebDemoFeedState = 'idle';   // idle | loading | ready | failed
 
+/** Siehe `EB_THEME_BASIS` in `core/00-basis.js` — auf Unterrouten war das falsch. */
 function _ebDemoFeedUrl() {
-  var base = '';
-  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
-    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
-  } else {
-    var tag = document.querySelector('script[src*="app.js"]');
-    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
-  }
-  return (base ? base + '/' : '') + 'assets/eb-demo-feed.json';
+  return ebAssetUrl('assets/eb-demo-feed.json');
 }
 
 function _ebDemoFeedLoad() {

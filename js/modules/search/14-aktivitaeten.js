@@ -46,15 +46,18 @@ var _aktZustand = 'kalt';        // 'kalt' | 'laedt' | 'da' | 'fehler'
 /** Wie viele Einträge je Abschnitt gezeigt werden. */
 var EB_AKT_MAX = 24;
 
+/**
+ * Die Basis kommt aus `ebAssetUrl()` — EINMAL beim Laden bestimmt.
+ *
+ * Hier stand die Auflösung selbst, aus zwei anderen Modulen abgeschrieben.
+ * Sie war auf Unterrouten falsch: `tag.src` wird bei jedem Zugriff gegen
+ * `document.baseURI` gerechnet, und `pushState` verschiebt den. Auf
+ * `/aktuelles/jetzt` — also genau dort, wo diese Ansicht lebt — landete die
+ * Anfrage bei `/aktuelles/assets/…` und damit im 404. Begründung und Messung
+ * stehen bei `EB_THEME_BASIS` in `core/00-basis.js`.
+ */
 function ebAktivitaetenUrl() {
-  var base = '';
-  if (window.eventboerseApi && window.eventboerseApi.themeUrl) {
-    base = String(window.eventboerseApi.themeUrl).replace(/\/$/, '');
-  } else {
-    var tag = document.querySelector('script[src*="app.js"]');
-    if (tag) base = String(tag.src).replace(/\/app\.js.*$/, '');
-  }
-  return (base ? base + '/' : '') + EB_AKT_DATEI;
+  return ebAssetUrl(EB_AKT_DATEI);
 }
 
 /**
