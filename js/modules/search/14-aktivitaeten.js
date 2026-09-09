@@ -4,7 +4,7 @@
    `scripts/aktivitaeten.mjs` beantwortet die Frage in Daten und schreibt
    sie nach `assets/eb-aktivitaeten.json`. Hier wird sie sichtbar.
 
-   ── DREI LEERE ZUSTÄNDE, DIE NICHT DASSELBE SIND ──────────────────
+   ── VIER LEERE ZUSTÄNDE, DIE NICHT DASSELBE SIND ──────────────────
 
    Der Bestand unterscheidet sorgfältig zwischen „nie abgerufen" und
    „abgerufen und nichts gefunden". Diese Unterscheidung ist wertlos,
@@ -14,13 +14,18 @@
 
    Deshalb hat jeder Zustand hier seinen eigenen Text:
 
-     FEHLER   Die Datei kam nicht an. Das ist ein Defekt, und er wird
-              als Defekt benannt.
-     KALT     `stand: null` — der Abruf lief nie. Kein Fehler, aber
-              auch keine Aussage über die Gegend.
-     LEER     Abgerufen, aber im gewählten Umkreis liegt nichts. DAS
-              ist eine Aussage über die Gegend, und der nächstgrößere
-              Umkreis ist der offensichtliche nächste Schritt.
+     FEHLER      Die Datei kam nicht an. Das ist ein Defekt, und er
+                 wird als Defekt benannt.
+     KALT        `stand: null` — der Abruf lief nie. Kein Fehler, aber
+                 auch keine Aussage über die Gegend.
+     UNERFASST   Der Ort liegt ausserhalb aller `gebiete`. Wir haben
+                 hier nie nachgesehen — und sagen genau das. Bis zum
+                 09.09.2026 kam hier der Satz darunter, also eine
+                 Auskunft über eine Gegend ohne einen einzigen Abruf.
+     LEER        Abgerufen, IM erfassten Gebiet, und im gewählten
+                 Umkreis liegt nichts. DAS ist eine Aussage über die
+                 Gegend, und der nächstgrößere Umkreis ist der
+                 offensichtliche nächste Schritt.
 
    ── FREMDER TEXT BLEIBT TEXT ──────────────────────────────────────
 
@@ -94,12 +99,86 @@ function ebAktivitaetenLaden(fertig) {
 function ebAktivitaetPosition(eintrag, mitte) {
   var o = eintrag && eintrag.ort;
   if (o && typeof o.lat === 'number' && typeof o.lon === 'number') {
-    return { lat: o.lat, lng: o.lon, genau: true };
+    // `ungefaehr` ist die Kennzeichnung des Generators für eine Koordinate,
+    // die die Mitte eines Gebiets ist und nicht die des Ortes — bei den
+    // Fußballspielen der Fall. Ohne sie sähe eine Stadtmitte aus wie eine
+    // Messung. Der Rückfall darunter gilt Dateien von vor der
+    // Mehrstadt-Umstellung, die dort schlicht `null` stehen hatten.
+    return { lat: o.lat, lng: o.lon, genau: o.ungefaehr !== true };
   }
   if (mitte && typeof mitte.lat === 'number' && typeof mitte.lon === 'number') {
     return { lat: mitte.lat, lng: mitte.lon, genau: false };
   }
   return null;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ABDECKUNG — worüber diese Datei überhaupt etwas aussagt
+
+   Bis zum 09.09.2026 kannte die Ansicht nur einen Punkt: die Mitte des
+   Bestands. Wer in Berlin stand, bekam „im Umkreis von 50 km ist gerade
+   nichts eingetragen" — eine Aussage ÜBER BERLIN, abgegeben über eine
+   Gegend, in die wir nie gesehen hatten.
+
+   Das ist dieselbe Fehlerklasse wie der tote Gitleaks-Scan: eine
+   Entwarnung, die der Prüfer nicht decken kann. Sie ist hier sogar
+   teurer, weil sie beim Besucher landet und nicht im Log.
+
+   `gebiete` in der Datei nennt die Städte, für die wirklich abgerufen
+   wurde. Alles ausserhalb heisst **nicht erfasst** — und genau das
+   steht dann da.
+   ══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Die erfassten Gebiete eines Bestands.
+ *
+ * Der Rückfall auf `mitte`/`umkreisKm` gilt Dateien von vor der
+ * Umstellung. Er ist keine Bequemlichkeit: ohne ihn hielte die Ansicht
+ * eine ältere, vollständig gültige Datei für „nichts erfasst" und
+ * verweigerte die Auskunft, die sie geben könnte.
+ */
+function ebAktivitaetenGebiete(bestand) {
+  if (!bestand || typeof bestand !== 'object') return [];
+  var roh = Array.isArray(bestand.gebiete) ? bestand.gebiete : null;
+  if (roh) {
+    return roh.filter(function (g) {
+      return g && typeof g.lat === 'number' && typeof g.lon === 'number'
+        && typeof g.umkreisKm === 'number' && g.umkreisKm > 0;
+    });
+  }
+  var m = bestand.mitte;
+  if (m && typeof m.lat === 'number' && typeof m.lon === 'number') {
+    return [{
+      stadt: m.stadt,
+      lat: m.lat,
+      lon: m.lon,
+      umkreisKm: typeof bestand.umkreisKm === 'number' ? bestand.umkreisKm : 50,
+    }];
+  }
+  return [];
+}
+
+/** Liegt dieser Ort in einem erfassten Gebiet? Sonst null. */
+function ebAktivitaetGebietVon(gebiete, pos) {
+  if (!pos) return null;
+  var treffer = null;
+  var kuerzeste = Infinity;
+  (gebiete || []).forEach(function (g) {
+    var d = haversineKm(pos.lat, pos.lng, g.lat, g.lon);
+    if (d <= g.umkreisKm && d < kuerzeste) { kuerzeste = d; treffer = g; }
+  });
+  return treffer;
+}
+
+/** Das nächstgelegene erfasste Gebiet — auch wenn der Ort ausserhalb liegt. */
+function ebAktivitaetNaechstesGebiet(gebiete, pos) {
+  var beste = -1;
+  var kuerzeste = Infinity;
+  (gebiete || []).forEach(function (g, i) {
+    var d = pos ? haversineKm(pos.lat, pos.lng, g.lat, g.lon) : i;
+    if (d < kuerzeste) { kuerzeste = d; beste = i; }
+  });
+  return beste;
 }
 
 /**
@@ -209,7 +288,7 @@ function ebAktivitaetKarte(t, mitZeit, jetzt) {
  * Meldung zusammenfasst, macht die Ehrlichkeit des Bestands wieder
  * unsichtbar.
  */
-function ebAktivitaetenLeermeldung(radiusKm) {
+function ebAktivitaetenLeermeldung(radiusKm, pos) {
   if (_aktZustand === 'fehler') {
     return '<div class="akt-leer akt-leer-fehler">'
       + '<span class="material-icons-round">cloud_off</span>'
@@ -226,6 +305,31 @@ function ebAktivitaetenLeermeldung(radiusKm) {
       + 'Der erste Abruf steht noch aus — das heißt nicht, dass hier nichts los ist.</p>'
       + '</div>';
   }
+
+  // ── NICHT ERFASST ist keine Aussage über die Gegend ──────────────────
+  //
+  // Der Satz darunter („hier ist gerade nichts eingetragen") behauptet,
+  // wir hätten nachgesehen. Ausserhalb der erfassten Gebiete stimmt das
+  // nicht, und die Verwechslung ist der ganze Grund für diesen Zweig.
+  var gebiete = ebAktivitaetenGebiete(_aktBestand);
+  if (gebiete.length && !ebAktivitaetGebietVon(gebiete, pos)) {
+    var i = ebAktivitaetNaechstesGebiet(gebiete, pos);
+    var naechstes = gebiete[i];
+    return '<div class="akt-leer akt-leer-unerfasst">'
+      + '<span class="material-icons-round">travel_explore</span>'
+      + '<h4>Diese Gegend ist noch nicht erfasst.</h4>'
+      + '<p>Wir stellen die Liste bisher für '
+      + gebiete.map(function (g) { return _escHtml(String(g.stadt || '?')); }).join(', ')
+      + ' zusammen. Dass hier nichts steht, heißt <strong>nicht</strong>, dass hier '
+      + 'nichts los ist — wir haben hier noch nicht nachgesehen.</p>'
+      + (naechstes
+        ? '<button type="button" class="btn-outline" onclick="feedJetztGebiet(' + i + ')">'
+          + '<span class="material-icons-round">place</span> In '
+          + _escHtml(String(naechstes.stadt || 'einem erfassten Gebiet')) + ' umsehen</button>'
+        : '')
+      + '</div>';
+  }
+
   var groesser = RADAR_RADIEN.filter(function (r) { return r > radiusKm; })[0];
   return '<div class="akt-leer">'
     + '<span class="material-icons-round">explore_off</span>'
@@ -234,6 +338,27 @@ function ebAktivitaetenLeermeldung(radiusKm) {
     + (groesser ? '<button type="button" class="btn-outline" onclick="feedJetztRadius('
       + groesser + ')">Auf ' + groesser + ' km erweitern</button>' : '')
     + '</div>';
+}
+
+/**
+ * „Du weißt nicht, was — nur DASS."
+ *
+ * Der Wunsch, der hinter dieser Ansicht steht, endet nicht bei einer
+ * Liste: wer nichts Passendes findet, will trotzdem etwas unternehmen.
+ * Deshalb steht der Weg dorthin IMMER da — auch unter einer vollen
+ * Liste, nicht nur im leeren Fall. Eine Ansicht, die nur im Scheitern
+ * einen Ausweg anbietet, hat den Ausweg als Trostpflaster gebaut.
+ */
+function ebAktivitaetenStarthilfe() {
+  return '<div class="akt-start">'
+    + '<h4><span class="material-icons-round">rocket_launch</span> Selbst etwas starten</h4>'
+    + '<p>Nichts dabei? Dann plane dein eigenes Vorhaben — allein oder mit anderen.</p>'
+    + '<div class="akt-start-knoepfe">'
+    + '<button type="button" class="btn-primary" onclick="navigateTo(\'board\')">'
+    + '<span class="material-icons-round">dashboard</span> Vorhaben planen</button>'
+    + '<button type="button" class="btn-outline" onclick="navigateTo(\'browse\')">'
+    + '<span class="material-icons-round">search</span> Dienstleister finden</button>'
+    + '</div></div>';
 }
 
 /** Die ganze Ansicht zeichnen. */
@@ -249,9 +374,29 @@ function renderFeedJetzt(container) {
     return;
   }
 
+  // Ohne bekannte Position: das erste erfasste Gebiet. „Köln" fest
+  // hineinzuschreiben wäre nach der Mehrstadt-Umstellung eine zweite
+  // Wahrheit über die Abdeckung — und die driftet.
   if (!radarStand().pos) radarWiederherstellen();
+  if (!radarStand().pos) {
+    var erstes = ebAktivitaetenGebiete(_aktBestand)[0];
+    if (erstes) radarPositionSetzen(erstes.lat, erstes.lon, 'stadt');
+  }
   if (!radarStand().pos) radarStadtWaehlen('Köln');
   var stand = radarStand();
+  if (!stand.pos) {
+    // Kein Ort, keine Aussage. Vorher wäre hier auf `stand.pos.lat`
+    // zugegriffen worden — ein leerer Reiter mit einem Fehler in der
+    // Konsole statt einer Auskunft.
+    container.innerHTML = '<section class="akt-karte-huelle"><div class="akt-leer">'
+      + '<span class="material-icons-round">my_location</span>'
+      + '<h4>Wo bist du gerade?</h4>'
+      + '<p>Ohne Ort lässt sich nicht sagen, was in deiner Nähe los ist.</p>'
+      + '<button type="button" class="btn-primary" onclick="feedJetztGeo()">'
+      + '<span class="material-icons-round">my_location</span> Standort verwenden</button>'
+      + '</div></section>';
+    return;
+  }
   var ortName = radarOrtsname(stand.pos.lat, stand.pos.lng) || 'deinem Ort';
 
   var gefunden = ebAktivitaetenImUmkreis(_aktBestand, stand.pos, stand.radius, new Date());
@@ -274,7 +419,7 @@ function renderFeedJetzt(container) {
 
   var koerper;
   if (!gefunden.termine.length && !gefunden.orte.length) {
-    koerper = ebAktivitaetenLeermeldung(stand.radius);
+    koerper = ebAktivitaetenLeermeldung(stand.radius, stand.pos);
   } else {
     koerper = '';
     if (gefunden.termine.length) {
@@ -306,11 +451,27 @@ function renderFeedJetzt(container) {
     + '</p>';
 
   container.innerHTML = '<section class="feed-radar-card akt-karte-huelle">'
-    + kopf + '<div class="akt-liste">' + koerper + '</div>' + fuss + '</section>';
+    + kopf + '<div class="akt-liste">' + koerper + '</div>'
+    + ebAktivitaetenStarthilfe() + fuss + '</section>';
 }
 
 function feedJetztRadius(km) {
   radarRadiusSetzen(km);
+  renderFeedJetzt(document.getElementById('feedList'));
+}
+
+/**
+ * In ein erfasstes Gebiet wechseln.
+ *
+ * Angesprochen wird über den INDEX, nicht über den Namen: der Name kommt
+ * aus einer geladenen Datei und stünde sonst in einem `onclick`-Attribut.
+ * Eine verfälschte Datei hätte dort ihren Code untergebracht — dieselbe
+ * Begründung, aus der eine Quell-Adresse nur bei `https://` verlinkt wird.
+ */
+function feedJetztGebiet(i) {
+  var g = ebAktivitaetenGebiete(_aktBestand)[i];
+  if (!g) return;
+  radarPositionSetzen(g.lat, g.lon, 'stadt');
   renderFeedJetzt(document.getElementById('feedList'));
 }
 

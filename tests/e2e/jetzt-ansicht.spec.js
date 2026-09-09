@@ -6,9 +6,15 @@
 // Besucher wieder vor einem leeren Bildschirm und kann nicht erkennen, ob die
 // Seite kaputt ist oder die Gegend still.
 //
-// Deshalb ist der Kern dieser Suite: DREI leere Zustände, DREI verschiedene
+// Deshalb ist der Kern dieser Suite: VIER leere Zustände, VIER verschiedene
 // Meldungen. Ein Test, der nur „irgendein Text erscheint" prüft, ginge an
 // genau der Eigenschaft vorbei, die hier Arbeit gekostet hat.
+//
+// Der vierte kam am 09.09.2026 dazu und ist der teuerste: NICHT ERFASST.
+// Wer ausserhalb der abgerufenen Gebiete stand, bekam „im Umkreis von 50 km
+// ist gerade nichts eingetragen" — eine Aussage über eine Gegend, in die
+// nie jemand gesehen hatte. Dieselbe Fehlerklasse wie ein Prüfer, der
+// Entwarnung gibt, ohne sein Subjekt gefunden zu haben.
 //
 // Gemessen wird an gestellten Antworten (`page.route`), nicht an der
 // ausgelieferten Datei: die ist heute leer, und ein Test, der nur den einen
@@ -61,6 +67,25 @@ const SPIEL_KUENFTIG = {
   partner: false,
 };
 
+/** Ein Bestand mit ausdrücklicher Abdeckung — die Form seit der Umstellung. */
+function bestandMitGebieten(eintraege, gebiete) {
+  const d = bestand(eintraege);
+  d.version = 2;
+  d.gebiete = gebiete;
+  return d;
+}
+
+const GEBIET_KOELN = { stadt: 'Köln', lat: 50.9413, lon: 6.9583, umkreisKm: 50 };
+const GEBIET_BERLIN = { stadt: 'Berlin', lat: 52.5200, lon: 13.4050, umkreisKm: 50 };
+
+/** Den Ort wechseln und neu zeichnen — wie ein Druck auf einen Stadt-Knopf. */
+async function ortWaehlen(page, stadt) {
+  await page.evaluate((s) => {
+    radarStadtWaehlen(s);
+    renderFeedJetzt(document.getElementById('feedList'));
+  }, stadt);
+}
+
 /** Die Seite öffnen, den Bestand stellen und den Reiter „Jetzt" wählen. */
 async function jetztOeffnen(page, antwort) {
   await page.route(MUSTER, (route) => {
@@ -90,7 +115,7 @@ async function jetztOeffnen(page, antwort) {
   return page.locator('#feedList');
 }
 
-test.describe('Jetzt-Ansicht: drei leere Zustände, drei Aussagen', () => {
+test.describe('Jetzt-Ansicht: vier leere Zustände, vier Aussagen', () => {
   test('nie abgerufen ist nicht dasselbe wie nichts gefunden', async ({ page }) => {
     const liste = await jetztOeffnen(page, bestand([], null));
     await expect(liste).toContainText('Noch nichts abgerufen');
@@ -119,18 +144,104 @@ test.describe('Jetzt-Ansicht: drei leere Zustände, drei Aussagen', () => {
     await expect(liste).not.toContainText('ist gerade nichts eingetragen');
   });
 
-  test('die drei Meldungen sind wirklich verschieden', async ({ page }) => {
-    // Die Gegenprobe zur ganzen Suite: wer die drei Texte zusammenlegt,
+  test('ausserhalb der erfassten Gebiete wird nichts über die Gegend behauptet', async ({ page }) => {
+    // DER BERLIN-FALL. Bis zum 09.09.2026 stand hier „im Umkreis von 50 km
+    // ist gerade nichts eingetragen" — eine Aussage über Berlin, abgegeben
+    // über eine Gegend, in die nie jemand gesehen hatte. Dieselbe
+    // Fehlerklasse wie ein Prüfer, der Entwarnung gibt, ohne sein Subjekt
+    // gefunden zu haben, nur beim Besucher statt im Log.
+    const liste = await jetztOeffnen(page, bestandMitGebieten([ORT_NAH], [GEBIET_KOELN]));
+    await ortWaehlen(page, 'Berlin');
+
+    await expect(liste).toContainText('noch nicht erfasst');
+    await expect(liste, 'die Ansicht behauptet etwas über eine Gegend ohne Abruf')
+      .not.toContainText('ist gerade nichts eingetragen');
+    // Sie sagt auch, WOFÜR die Liste gilt — sonst bleibt der Besucher ratlos.
+    await expect(liste).toContainText('Köln');
+  });
+
+  test('innerhalb eines erfassten Gebiets ist die Leere eine Aussage', async ({ page }) => {
+    // Die Gegenprobe: ohne sie wäre „immer ,nicht erfasst' sagen" der
+    // bequemste Weg zu einem grünen Test — und die Ansicht verlöre die
+    // Auskunft, die sie geben kann.
+    const fern = Object.assign({}, ORT_NAH, {
+      id: 'osm:node/9', titel: 'Elbphilharmonie',
+      ort: { name: 'Elbphilharmonie', stadt: 'Hamburg', lat: 53.5413, lon: 9.9843 },
+    });
+    const liste = await jetztOeffnen(page, bestandMitGebieten([fern], [GEBIET_KOELN]));
+    await expect(liste).toContainText('ist gerade nichts eingetragen');
+    await expect(liste).not.toContainText('noch nicht erfasst');
+  });
+
+  test('der Knopf führt wirklich in ein erfasstes Gebiet', async ({ page }) => {
+    // Ein Hinweis ohne Weg hinaus ist eine Sackgasse mit Erklärung.
+    const berlinOrt = Object.assign({}, ORT_NAH, {
+      id: 'osm:node/20', titel: 'Kino International', gebiet: 'Berlin',
+      ort: { name: 'Kino International', stadt: 'Berlin', lat: 52.5145, lon: 13.3780 },
+    });
+    const liste = await jetztOeffnen(page,
+      bestandMitGebieten([berlinOrt], [GEBIET_KOELN, GEBIET_BERLIN]));
+    await ortWaehlen(page, 'Hamburg');
+    await expect(liste).toContainText('noch nicht erfasst');
+
+    const knopf = liste.locator('.akt-leer-unerfasst button');
+    await expect(knopf).toHaveCount(1);
+    await knopf.click();
+    await expect(liste, 'der Knopf hat den Ort nicht gewechselt')
+      .not.toContainText('noch nicht erfasst');
+    await expect(liste).toContainText('Kino International');
+  });
+
+  test('die vier Meldungen sind wirklich verschieden', async ({ page }) => {
+    // Die Gegenprobe zur ganzen Suite: wer die Texte zusammenlegt,
     // besteht die Einzeltests oben weiterhin, sobald einer den anderen
     // enthält. Hier wird die Verschiedenheit selbst gemessen.
+    // Gemessen wird die MELDUNG, nicht die ganze Liste. Die trägt in ihrer
+    // Kopfzeile den Ortsnamen — „…im Umkreis von Berlin" gegen „…von Köln"
+    // —, und damit wären zwei wortgleiche Meldungen verschieden. Genau
+    // daran hat eine Mutation dieses Tests überlebt: der Zweig „nicht
+    // erfasst" war entfernt, beide Fälle sagten dasselbe, und der Test war
+    // grün, weil die Überschrift sich unterschied.
+    const meldung = async (liste) =>
+      (await liste.locator('.akt-leer').innerText()).replace(/\s+/g, ' ').trim();
+
     const texte = [];
     for (const fall of [bestand([], null), bestand([]), null]) {
       const liste = await jetztOeffnen(page, fall);
-      texte.push((await liste.innerText()).replace(/\s+/g, ' ').trim());
+      texte.push(await meldung(liste));
       await page.unrouteAll();
     }
-    expect(texte.filter(Boolean)).toHaveLength(3);
-    expect(new Set(texte).size, 'zwei leere Zustände sagen dasselbe').toBe(3);
+    // Der vierte: erfasst ist Köln, gestanden wird in Berlin.
+    const vierte = await jetztOeffnen(page, bestandMitGebieten([ORT_NAH], [GEBIET_KOELN]));
+    await ortWaehlen(page, 'Berlin');
+    texte.push(await meldung(vierte));
+
+    expect(texte.filter(Boolean)).toHaveLength(4);
+    expect(new Set(texte).size, 'zwei leere Zustände sagen dasselbe').toBe(4);
+  });
+
+  test('auch eine Datei ohne Gebietsliste kennt ihre Grenzen', async ({ page }) => {
+    // Der Rückfall auf `mitte`/`umkreisKm` für Dateien von vor der
+    // Umstellung.
+    //
+    // GEMESSEN WIRD DIE FERNE, NICHT DIE NÄHE. Die erste Fassung dieses
+    // Tests prüfte, dass eine alte Datei in Köln weiter funktioniert — und
+    // überlebte das Entfernen des Rückfalls, weil bei gefüllter Liste die
+    // Leermeldung nie gerufen wird und der Standardort ohnehin Köln ist.
+    // Der Rückfall zeigt sich nur dort, wo er etwas ändert: ausserhalb.
+    const alt = bestand([]);
+    expect(alt.gebiete, 'die alte Form trägt schon eine Gebietsliste').toBeUndefined();
+    const liste = await jetztOeffnen(page, alt);
+    await ortWaehlen(page, 'Berlin');
+    await expect(liste, 'ohne Rückfall gilt die alte Datei als Aussage über die ganze Welt')
+      .toContainText('noch nicht erfasst');
+
+    // Und die Gegenprobe in der Nähe: dort ist die alte Datei weiter eine
+    // gültige Auskunft, keine Wissenslücke.
+    await page.unrouteAll();
+    const nah = await jetztOeffnen(page, bestand([ORT_NAH]));
+    await expect(nah).toContainText('Cinedom');
+    await expect(nah).not.toContainText('noch nicht erfasst');
   });
 });
 
@@ -174,6 +285,39 @@ test.describe('Jetzt-Ansicht: was sie zeigt', () => {
     await page.unrouteAll();
     const zwei = await jetztOeffnen(page, bestand([ORT_NAH]));
     await expect(zwei).not.toContainText('ab Stadtmitte');
+  });
+
+  test('eine Gebietsmitte bleibt Schätzung, auch als Koordinate', async ({ page }) => {
+    // Seit der Mehrstadt-Umstellung trägt ein Spiel die Mitte SEINES
+    // Gebiets als Koordinate — vorher stand dort `null` und die Ansicht
+    // fiel auf die Mitte der ganzen Datei zurück, bei sechs Gebieten also
+    // in die falsche Stadt. Die Näherung ist damit richtiger geworden und
+    // muss trotzdem als Näherung erkennbar bleiben: `ungefaehr` ist die
+    // Kennzeichnung, und ohne sie sähe eine Stadtmitte aus wie eine Messung.
+    const spiel = Object.assign({}, SPIEL_KUENFTIG, {
+      gebiet: 'Köln',
+      ort: {
+        name: 'RheinEnergieSTADION', stadt: 'Köln',
+        lat: 50.9413, lon: 6.9583, ungefaehr: true,
+      },
+    });
+    const liste = await jetztOeffnen(page, bestandMitGebieten([spiel], [GEBIET_KOELN]));
+    await expect(liste).toContainText('ab Stadtmitte');
+  });
+
+  test('der Weg zum eigenen Vorhaben steht auch unter einer vollen Liste', async ({ page }) => {
+    // „Der Nutzer weiss nicht, WAS er machen will, sondern DASS er etwas
+    // machen will." Ein Ausweg, den es nur im Scheitern gibt, ist ein
+    // Trostpflaster — deshalb steht er immer da.
+    const liste = await jetztOeffnen(page, bestandMitGebieten([ORT_NAH], [GEBIET_KOELN]));
+    await expect(liste).toContainText('Cinedom');
+    await expect(liste.locator('.akt-start')).toHaveCount(1);
+    await expect(liste).toContainText('Vorhaben planen');
+
+    // Und im leeren Fall ebenfalls — dort ist er am nötigsten.
+    await page.unrouteAll();
+    const leer = await jetztOeffnen(page, bestandMitGebieten([], [GEBIET_KOELN]));
+    await expect(leer.locator('.akt-start')).toHaveCount(1);
   });
 
   test('jeder Eintrag nennt seine Quelle, und die Lizenz steht immer da', async ({ page }) => {

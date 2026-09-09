@@ -35,6 +35,16 @@ const JETZT = new Date('2026-09-09T12:00:00Z');
 const modul = () => import(pathToFileURL(path.join(ROOT, 'scripts', 'aktivitaeten.mjs')).href);
 const bestand = async (jetzt = JETZT) => (await modul()).bestandBauen(ROH, jetzt);
 
+/**
+ * Die Overpass-Antworten sind seit der Mehrstadt-Umstellung nach Gebiet
+ * geschlüsselt. Die Prüfungen unten fragen meist „steht dieser Fall
+ * überhaupt im Prüfstück?" — dafür braucht es alle Elemente, egal aus
+ * welcher Antwort.
+ */
+const ELEMENTE = (stadt) => (ROH.overpass[stadt]?.elements || []);
+const ALLE_ELEMENTE = Object.values(ROH.overpass)
+  .flatMap((a) => (Array.isArray(a?.elements) ? a.elements : []));
+
 test.describe('Aktivitäten-Bestand: die Umwandlung', () => {
   test('nur künftige Heimspiele — auswärts, vergangen und fremd fallen weg', async () => {
     const d = await bestand();
@@ -50,11 +60,46 @@ test.describe('Aktivitäten-Bestand: die Umwandlung', () => {
     expect(ROH.openligadb.some((s) => new Date(s.matchDateTimeUTC) < JETZT),
       'kein vergangenes Spiel im Prüfstück').toBe(true);
 
-    expect(sport).toHaveLength(2);
+    // Zwei Kölner Heimspiele plus eines in Berlin — beide Gebiete sind
+    // erfasst. Die Heimspiele in München und Stuttgart fallen weg, weil
+    // für diese Städte keine Antwort vorlag (siehe eigener Test unten).
+    expect(sport).toHaveLength(3);
     for (const e of sport) {
-      expect(e.titel, 'ein Spiel ohne Köln vorne ist kein Heimspiel').toMatch(/^1\. FC Köln –/);
       expect(new Date(e.beginn).getTime()).toBeGreaterThan(JETZT.getTime());
+      expect(e.gebiet, 'jedes Spiel gehört zu einem Gebiet').toBeTruthy();
+      expect(d.gebiete.map((g) => g.stadt)).toContain(e.gebiet);
     }
+    expect(sport.filter((e) => /^1\. FC Köln –/.test(e.titel))).toHaveLength(2);
+  });
+
+  test('ein Heimspiel ohne erfasstes Gebiet fällt weg', async () => {
+    // Der Fall, der die Zuordnung trägt: OpenLigaDB liefert die ganze
+    // Liga. Ohne `verein` je Gebiet stünde ein Spiel in Bremen als
+    // Vorschlag da — irgendwo, für irgendwen.
+    const d = await bestand();
+    const bremen = ROH.openligadb.find((s) => /Werder Bremen/.test(s.team1?.teamName || ''));
+    expect(bremen, 'kein Spiel ohne Gebiet im Prüfstück').toBeTruthy();
+    expect(new Date(bremen.matchDateTimeUTC).getTime(),
+      'das Spiel ist vergangen — dann bewiese sein Fehlen nichts').toBeGreaterThan(JETZT.getTime());
+    expect(d.eintraege.map((e) => e.id)).not.toContain('openligadb:' + bremen.matchID);
+  });
+
+  test('ein geplantes Gebiet ohne Antwort ist NICHT erfasst', async () => {
+    // Der Unterschied zwischen „wir wollen München erfassen" und „wir
+    // haben München erfasst". Eine Absichtserklärung in `gebiete` wäre
+    // wieder eine Entwarnung ohne Deckung.
+    const { STAEDTE } = await modul();
+    const d = await bestand();
+    expect(STAEDTE.map((s) => s.stadt), 'München steht nicht mehr in der Städteliste')
+      .toContain('München');
+    expect(ROH.overpass['München'], 'das Prüfstück hätte sonst kein Subjekt').toBeUndefined();
+    expect(d.gebiete.map((g) => g.stadt)).not.toContain('München');
+
+    // Und die Gegenprobe am Spiel: das Heimspiel in München steht im
+    // Prüfstück, ist künftig — und fällt trotzdem weg.
+    const muc = ROH.openligadb.find((s) => /Bayern München/.test(s.team1?.teamName || ''));
+    expect(muc && new Date(muc.matchDateTimeUTC) > JETZT).toBe(true);
+    expect(d.eintraege.map((e) => e.id)).not.toContain('openligadb:' + muc.matchID);
   });
 
   test('ein Ort bekommt keine erfundene Uhrzeit', async () => {
@@ -73,24 +118,67 @@ test.describe('Aktivitäten-Bestand: die Umwandlung', () => {
 
     // Overpass antwortet auf `around:` grosszügig, und eine kaputte Abfrage
     // liefert die halbe Republik. Der weite Eintrag muss wegfallen.
-    const fern = ROH.overpass.elements.find((e) => e.tags?.name === 'Städel Museum');
+    const fern = ELEMENTE('Köln').find((e) => e.tags?.name === 'Städel Museum');
     expect(fern, 'kein ferner Ort im Prüfstück — der Test hätte kein Subjekt').toBeTruthy();
     expect(entfernungKm(MITTE.lat, MITTE.lon, fern.lat, fern.lon)).toBeGreaterThan(UMKREIS_KM);
-    expect(namen).not.toContain('Städel Museum');
+
+    // Er ist im Bestand — aber über die FRANKFURTER Antwort, wo er 0 km
+    // entfernt ist. Aus Kölns Antwort ist er gefallen, und genau das misst
+    // die Gebietszuordnung: derselbe Ort, zwei Entfernungen, eine richtig.
+    const staedel = d.eintraege.find((e) => e.titel === 'Städel Museum');
+    expect(staedel, 'der Ort ist ganz verschwunden').toBeTruthy();
+    expect(staedel.gebiet, 'aus Kölns Antwort hätte er wegfallen müssen').toBe('Frankfurt');
+    expect(staedel.entfernungKm).toBeLessThan(1);
 
     // Und die Gegenprobe: der Ort knapp innerhalb bleibt drin, sonst wäre
     // „alles wegwerfen" der bequemste Weg zu einem grünen Test.
     expect(namen).toContain('Kunstpalast');
     const nah = d.eintraege.find((e) => e.titel === 'Kunstpalast');
-    expect(nah.entfernungKm).toBeGreaterThan(20);
     expect(nah.entfernungKm).toBeLessThan(UMKREIS_KM);
+  });
+
+  test('derselbe Ort in zwei Antworten kommt einmal vor — beim näheren Gebiet', async () => {
+    // Die Kreise überlappen: Köln und Düsseldorf liegen 35 km auseinander.
+    // Ohne Entdoppelung bräche `bestandBauen` mit „doppelte Kennung" ab;
+    // ohne die Wahl des NÄHEREN Gebiets entschiede die Reihenfolge der
+    // Städteliste, welcher Stadt ein Ort zugeschlagen wird.
+    const d = await bestand();
+    const inKoeln = ELEMENTE('Köln').find((e) => e.tags?.name === 'Kunstpalast');
+    const inDus = ELEMENTE('Düsseldorf').find((e) => e.tags?.name === 'Kunstpalast');
+    expect(inKoeln && inDus, 'der Ort steht nicht in zwei Antworten — kein Subjekt').toBeTruthy();
+    expect(inKoeln.id).toBe(inDus.id);
+
+    const treffer = d.eintraege.filter((e) => e.titel === 'Kunstpalast');
+    expect(treffer, 'der Ort steht doppelt im Bestand').toHaveLength(1);
+    expect(treffer[0].gebiet, 'das fernere Gebiet hat gewonnen').toBe('Düsseldorf');
+  });
+
+  test('der Umkreis gilt je Gebiet, nicht für die ganze Datei', async () => {
+    // Ein Kölner Kino in der BERLINER Antwort. Wer den Umkreis nur einmal
+    // gegen die Mitte der Datei rechnet, lässt es durch — es liegt ja im
+    // Kölner Kreis. Gemessen werden muss gegen das Gebiet der Antwort.
+    const d = await bestand();
+    const falsch = ELEMENTE('Berlin').find((e) => e.tags?.name === 'Falsch zugeordnet');
+    expect(falsch, 'kein falsch einsortierter Ort im Prüfstück').toBeTruthy();
+    expect(d.eintraege.map((e) => e.id)).not.toContain(`osm:node/${falsch.id}`);
+  });
+
+  test('Berlin ist erfasst und liefert eigene Einträge', async () => {
+    // Der namengebende Fall: „wenn ich in Berlin bin, will ich in meinem
+    // Umkreis sehen, was abgeht". Vor der Umstellung war hier nichts.
+    const d = await bestand();
+    expect(d.gebiete.map((g) => g.stadt)).toContain('Berlin');
+    const berlin = d.eintraege.filter((e) => e.gebiet === 'Berlin');
+    expect(berlin.length, 'Berlin ist erfasst, hat aber keine Einträge').toBeGreaterThan(2);
+    expect(berlin.some((e) => e.art === 'sport'), 'kein Termin in Berlin').toBe(true);
+    expect(berlin.some((e) => e.art === 'ort'), 'kein Ort in Berlin').toBe(true);
   });
 
   test('ein Weg trägt seine Koordinate in center, nicht oben', async () => {
     // OSM-Kinos und -Kletterhallen sind oft Gebäude (`way`), keine Punkte.
     // Wer nur `e.lat` liest, verliert sie stillschweigend — die Liste sieht
     // dann bloss kürzer aus, nicht falsch.
-    const w = ROH.overpass.elements.find((e) => e.type === 'way');
+    const w = ALLE_ELEMENTE.find((e) => e.type === 'way');
     expect(w?.center, 'kein Weg mit center im Prüfstück').toBeTruthy();
     expect(w.lat, 'der Weg hätte auch oben eine Koordinate — Test wertlos').toBeUndefined();
     expect((await bestand()).eintraege.map((e) => e.titel)).toContain(w.tags.name);
@@ -98,8 +186,8 @@ test.describe('Aktivitäten-Bestand: die Umwandlung', () => {
 
   test('ohne Namen kein Vorschlag, und eine Apotheke ist kein Erlebnis', async () => {
     const d = await bestand();
-    const ohneName = ROH.overpass.elements.find((e) => e.tags && !e.tags.name);
-    const falscheArt = ROH.overpass.elements.find((e) => e.tags?.amenity === 'pharmacy');
+    const ohneName = ALLE_ELEMENTE.find((e) => e.tags && !e.tags.name);
+    const falscheArt = ALLE_ELEMENTE.find((e) => e.tags?.amenity === 'pharmacy');
     expect(ohneName && falscheArt, 'beide Fälle fehlen im Prüfstück').toBeTruthy();
 
     expect(d.eintraege.map((e) => e.id)).not.toContain(`osm:node/${ohneName.id}`);
@@ -120,7 +208,7 @@ test.describe('Aktivitäten-Bestand: fremder Text ist Daten, nie Markup', () => 
     // die, vor der `lib/html-kommentare.js` schon einmal entstanden ist.
     // Ein Zeichen-Enthält braucht keinen Ausdruck und misst zudem das, worum
     // es wirklich geht: die Klammer, nicht das Wort dahinter.
-    const roh = ROH.overpass.elements.find((e) => (e.tags?.name || '').includes('<'));
+    const roh = ALLE_ELEMENTE.find((e) => (e.tags?.name || '').includes('<'));
     expect(roh, 'kein Markup im Prüfstück — der Test hätte kein Subjekt').toBeTruthy();
 
     const d = await bestand();
@@ -275,6 +363,89 @@ test.describe('Aktivitäten-Bestand: der leere Abruf überschreibt nichts', () =
     expect(schreibVerweigert(leererBestand(), null)).toBeNull();
     expect(schreibVerweigert(leererBestand(), leererBestand())).toBeNull();
     expect(schreibVerweigert(await bestand(), leererBestand())).toBeNull();
+  });
+
+  test('ein ausgefallenes Gebiet darf die Abdeckung nicht schrumpfen', async () => {
+    // Overpass antwortet nicht immer. Fällt der Abruf für Berlin aus, wäre
+    // die neue Datei für alle anderen Gebiete richtig — und für Berlin
+    // hiesse sie ab sofort „noch nicht erfasst". Ein Besucher dort bekäme
+    // die Auskunft, wir hätten nie hingesehen, weil ein fremder Server
+    // eine Minute lang überlastet war.
+    const { schreibVerweigert } = await modul();
+    const voll = await bestand();
+    expect(voll.gebiete.map((g) => g.stadt),
+      'ohne Berlin im Bestand hätte der Test kein Subjekt').toContain('Berlin');
+
+    const ohneBerlin = {
+      ...voll,
+      gebiete: voll.gebiete.filter((g) => g.stadt !== 'Berlin'),
+      eintraege: voll.eintraege.filter((e) => e.gebiet !== 'Berlin'),
+    };
+    ohneBerlin.anzahl = { ...voll.anzahl, gesamt: ohneBerlin.eintraege.length };
+    expect(ohneBerlin.anzahl.gesamt,
+      'die Datei wäre leer — dann griffe schon die andere Regel').toBeGreaterThan(0);
+
+    const grund = schreibVerweigert(ohneBerlin, voll);
+    expect(grund, 'die geschrumpfte Abdeckung ging durch').toBeTruthy();
+    expect(grund).toMatch(/Berlin/);
+  });
+
+  test('eine WACHSENDE Abdeckung darf schreiben', async () => {
+    // Die Gegenprobe: ohne sie wäre „nie schreiben" der bequemste Weg zu
+    // einem grünen Test, und der Bestand käme nie über sein erstes Gebiet
+    // hinaus.
+    const { schreibVerweigert } = await modul();
+    const voll = await bestand();
+    const nurKoeln = {
+      ...voll,
+      gebiete: voll.gebiete.filter((g) => g.stadt === 'Köln'),
+      eintraege: voll.eintraege.filter((e) => e.gebiet === 'Köln'),
+    };
+    nurKoeln.anzahl = { ...voll.anzahl, gesamt: nurKoeln.eintraege.length };
+    expect(schreibVerweigert(voll, nurKoeln)).toBeNull();
+  });
+});
+
+test.describe('Aktivitäten-Bestand: die Abdeckung wird mitgeprüft', () => {
+  test('Einträge ohne Gebietsliste werden beanstandet', async () => {
+    // `gebiete` trägt den Satz „diese Gegend ist noch nicht erfasst".
+    // Fehlt die Liste, kann die Ansicht erfasst und unerfasst nicht mehr
+    // unterscheiden — und fällt auf genau die Auskunft zurück, die dieser
+    // Umbau beseitigt hat.
+    const { beanstanden } = await modul();
+    const d = await bestand();
+    const ohne = { ...d };
+    delete ohne.gebiete;
+    expect(beanstanden(ohne, JETZT).beanstandungen.join(' ')).toMatch(/gebiete fehlt/);
+  });
+
+  test('ein Eintrag in einem unerfassten Gebiet wird beanstandet', async () => {
+    const { beanstanden } = await modul();
+    const d = await bestand();
+    const kaputt = {
+      ...d,
+      gebiete: d.gebiete.filter((g) => g.stadt !== 'Berlin'),
+    };
+    expect(beanstanden(kaputt, JETZT).beanstandungen.join(' '))
+      .toMatch(/Gebiet „Berlin", das nicht erfasst ist/);
+  });
+
+  test('ein Gebiet ohne brauchbare Mitte wird beanstandet', async () => {
+    const { beanstanden } = await modul();
+    const d = await bestand();
+    const kaputt = {
+      ...d,
+      gebiete: d.gebiete.map((g) => (g.stadt === 'Köln' ? { ...g, lat: null } : g)),
+    };
+    expect(beanstanden(kaputt, JETZT).beanstandungen.join(' '))
+      .toMatch(/ohne brauchbare Mitte/);
+  });
+
+  test('der heile Bestand geht durch', async () => {
+    // Die Gegenprobe zu den drei Mutationen darüber: ohne sie bestünde
+    // die Prüfung auch, wenn sie alles beanstandete.
+    const { beanstanden } = await modul();
+    expect(beanstanden(await bestand(), JETZT).beanstandungen).toEqual([]);
   });
 });
 

@@ -1192,10 +1192,57 @@ node scripts/aktivitaeten.mjs --check        # CI-Tor (pr-check.yml + Tagesrouti
 
 Schritt 3 der Vision (`vault/10-Produkt/Vision-Plattform.md`): die
 Entdeckungs-Ebene an echten Daten beweisen, ohne Vertrag und ohne Kosten.
-Zwei Quellen für den Umkreis von 50 km um Köln, beide frei und ohne
-Schlüssel: **OpenLigaDB** (Heimspiele des 1. FC Köln) und
+Zwei Quellen für den Umkreis von 50 km um **acht Städte** (Köln,
+Düsseldorf, Dortmund, Berlin, Hamburg, München, Frankfurt, Stuttgart),
+beide frei und ohne Schlüssel: **OpenLigaDB** (Heimspiele der ersten und
+zweiten Liga, je Stadt über ihren Verein zugeordnet) und
 **OpenStreetMap/Overpass** (Kino, Escape-Room, Kletterhalle, Erlebnisbad,
 Museum, Zoo, Theater). Ergebnis: `assets/eb-aktivitaeten.json`.
+
+### Die Datei sagt, worüber sie etwas sagt
+
+Bis zum 09.09.2026 kannte der Bestand **einen** Punkt: Köln. Die Ansicht
+meldete jedem Besucher ausserhalb dieses Kreises *„im Umkreis von 50 km ist
+gerade nichts eingetragen"* — eine **Aussage über die Gegend**, abgegeben
+über eine Gegend, in die wir nie gesehen hatten. Wer in Berlin stand, bekam
+die Auskunft, in Berlin sei nichts los.
+
+**Dieselbe Fehlerklasse wie der tote Gitleaks-Scan**, nur an der Oberfläche:
+eine Entwarnung, die der Prüfer nicht decken kann. Hier ist sie sogar teurer,
+weil sie beim Besucher landet und nicht im Log.
+
+`gebiete` in der Datei führt deshalb die Städte, für die **wirklich eine
+Antwort vorlag** — nicht die, die wir abfragen wollten. Eine
+Absichtserklärung an dieser Stelle wäre wieder eine Entwarnung ohne Deckung.
+Ein geplantes Gebiet ohne Overpass-Antwort ist **nicht erfasst**, und seine
+Heimspiele fallen mit heraus.
+
+**Eine ausgefallene Stadt schrumpft die Abdeckung nicht.** Overpass antwortet
+nicht immer. Fällt der Abruf für Berlin aus, wäre die neue Datei für alle
+anderen Gebiete richtig — und für Berlin hiesse sie ab sofort „noch nicht
+erfasst". Ein Besucher dort bekäme die Auskunft, wir hätten nie hingesehen,
+weil ein fremder Server eine Minute überlastet war. `schreibVerweigert()`
+lehnt das ab, genau wie den leeren Abruf: ein Quellenausfall darf keine
+Aussage über die Welt werden.
+
+**Ein Ort kann in zwei Antworten stehen.** Köln und Düsseldorf liegen 35 km
+auseinander, ihre 50-km-Kreise überlappen. Ohne Entdoppelung bräche
+`bestandBauen` mit „doppelte Kennung" ab; ohne die Wahl des **näheren**
+Gebiets entschiede die Reihenfolge der Städteliste, welcher Stadt ein Ort
+zugeschlagen wird.
+
+**Ein Spiel trägt jetzt die Mitte SEINES Gebiets**, nicht `null`. Vorher fiel
+die Ansicht auf die Mitte der ganzen Datei zurück — bei einem Gebiet richtig,
+bei acht falsch: ein Heimspiel in München landete im Kölner Umkreis. Die
+Koordinate ist mit `ungefaehr: true` gekennzeichnet, sonst sähe eine
+Stadtmitte aus wie eine Messung.
+
+**Je Gebiet eine Abfrage, mit Pause.** Acht Städte × sieben Ortsarten in
+einem Aufruf wären eine Abfrage, die Overpass zu Recht abweist — und ein
+einziger `out`-Deckel über allem schnitte willkürlich ab: die Städte am Ende
+der Liste kämen nie vor. Gedeckelt wird stattdessen je Gebiet
+(`MAX_JE_GEBIET`, 100, nach Entfernung), denn die Datei geht als Ganzes an
+den Browser.
 
 **Facebook und Google Maps stehen bewusst nicht dabei.** Meta hat die
 öffentliche Events-API 2018 abgeschaltet — es gibt keinen legalen Weg
@@ -1252,7 +1299,7 @@ Lizenz mit; das ist Lizenzbedingung, keine Höflichkeit — und zugleich der
 Schutz davor, dass ein Eintrag ohne Herkunft erfunden aussieht.
 
 ```bash
-npx playwright test tests/e2e/aktivitaeten.spec.js   # 21 Tests, an Prüfstücken
+npx playwright test tests/e2e/aktivitaeten.spec.js   # 32 Tests, an Prüfstücken
 ```
 
 #### Die Ansicht: Reiter „⚡ Jetzt"
@@ -1263,7 +1310,7 @@ npx playwright test tests/e2e/aktivitaeten.spec.js   # 21 Tests, an Prüfstücke
 Radar (`13-event-radar.js`); sie dort ein zweites Mal nachzubauen hiesse,
 zwei Fassungen derselben Sache zu pflegen.
 
-**Drei leere Zustände, drei Aussagen.** Das ist der ganze Punkt der
+**Vier leere Zustände, vier Aussagen.** Das ist der ganze Punkt der
 Ansicht — die Sorgfalt des Bestands ist wertlos, wenn hier alles als
 leere Liste erscheint:
 
@@ -1271,11 +1318,27 @@ leere Liste erscheint:
 |---|---|
 | Abruf fehlgeschlagen | „Die Liste konnte nicht geladen werden" — **Störung**, mit Knopf zum Erneutversuchen |
 | `stand: null` | „Noch nichts abgerufen" — kein Fehler, aber auch keine Aussage über die Gegend |
-| abgerufen, nichts im Umkreis | „Im Umkreis von N km ist gerade nichts eingetragen" — **das** ist die Aussage über die Gegend, plus Angebot, den Umkreis zu weiten |
+| ausserhalb aller `gebiete` | „Diese Gegend ist noch nicht erfasst" — **Wissenslücke**, mit der Liste der erfassten Städte und einem Knopf in die nächstgelegene |
+| erfasst, aber nichts im Umkreis | „Im Umkreis von N km ist gerade nichts eingetragen" — **das** ist die Aussage über die Gegend, plus Angebot, den Umkreis zu weiten |
 
-Ein Test misst die **Verschiedenheit** der drei Texte, nicht nur ihr
+Der dritte kam am 09.09.2026 dazu und ist der teuerste: vorher stand dort
+der vierte, also eine Auskunft über eine Gegend ohne einen einzigen Abruf.
+
+Ein Test misst die **Verschiedenheit** der vier Texte, nicht nur ihr
 Vorhandensein: wer sie zusammenlegt, besteht sonst die Einzeltests
-weiter, sobald einer den anderen enthält.
+weiter, sobald einer den anderen enthält. Gemessen wird dabei die
+**Meldung**, nicht die ganze Liste — deren Kopfzeile trägt den Ortsnamen
+(„…im Umkreis von Berlin" gegen „…von Köln"), und daran hat die Mutation
+„Zweig entfernt" prompt überlebt: beide Fälle sagten dasselbe, der Test
+war grün, weil die Überschrift sich unterschied.
+
+**Der Rückfall auf `mitte` zeigt sich nur in der Ferne.** Eine Datei ohne
+`gebiete` (vor der Umstellung) bekommt ihre Abdeckung aus `mitte` und
+`umkreisKm`. Der erste Test dafür prüfte, dass eine alte Datei **in Köln**
+weiter funktioniert — und überlebte das Entfernen des Rückfalls, weil bei
+gefüllter Liste die Leermeldung nie gerufen wird und der Standardort
+ohnehin Köln ist. Gemessen wird jetzt ausserhalb, wo der Rückfall etwas
+ändert.
 
 **Vergangenes filtert die Ansicht, nicht das Tor.** Das Tor lässt einen
 alten Abruf durch (er entsteht durch eine ausgefallene Tagesroutine,
@@ -1283,9 +1346,22 @@ nicht durch einen Commit). Ein Spiel von gestern als „was ist jetzt los"
 anzubieten wäre trotzdem schlimmer als eine kurze Liste.
 
 **Ein Spiel hat keine Koordinaten** — OpenLigaDB liefert Stadion und
-Stadt, nicht Lat/Lon. Gerechnet wird ab Stadtmitte, und genau das steht
-dann dran (`ab Stadtmitte`), wie im Radar. Weglassen wäre falsch, als
-Messung ausgeben auch.
+Stadt, nicht Lat/Lon. Gerechnet wird ab der Mitte **seines Gebiets**, und
+genau das steht dann dran (`ab Stadtmitte`), wie im Radar. Weglassen wäre
+falsch, als Messung ausgeben auch.
+
+**Der Weg zum eigenen Vorhaben steht IMMER da**, nicht nur im leeren Fall.
+Der Wunsch hinter dieser Ansicht endet nicht bei einer Liste: *„der Nutzer
+weiss nicht, WAS er machen will, sondern DASS er etwas machen will."* Eine
+Ansicht, die nur im Scheitern einen Ausweg anbietet, hat ihn als
+Trostpflaster gebaut.
+
+**Der Stadt-Knopf spricht über den INDEX, nicht über den Namen.** Der Name
+kommt aus einer geladenen Datei und stünde sonst in einem
+`onclick`-Attribut — dieselbe Begründung, aus der eine Quell-Adresse nur
+bei `https://` verlinkt wird. Und `radarPositionSetzen()` ist der
+unterstützte Weg hinein: `_radarPos` selbst zu beschreiben vergisst
+`_radarMerken`, und dann ist die Wahl nach dem Neuladen weg.
 
 **Fremder Text wird zweimal entschärft.** Der Generator maskiert, die
 Ansicht maskiert erneut — eine ausgelieferte Datei kann veraltet oder
@@ -1299,7 +1375,7 @@ stehen die Inserate von „Für dich": grüner Test, falsche Seite. Das ist
 der Fehler vom 31.08.2026 eine Ebene höher.
 
 ```bash
-npx playwright test tests/e2e/jetzt-ansicht.spec.js   # 14 Tests, echter Browser
+npx playwright test tests/e2e/jetzt-ansicht.spec.js   # 20 Tests, echter Browser
 ```
 
 ### Eine Adresse, die mit der Route wanderte
@@ -1718,7 +1794,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-872 Tests in 57 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+889 Tests in 57 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2050,7 +2126,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
 | `js/modules/` | Quelle des Frontends: 25 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~17 100 Zeilen CSS, mobile-first |
+| `styles.css` | ~17 400 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |

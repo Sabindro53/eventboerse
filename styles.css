@@ -17335,6 +17335,28 @@ a.akt-quelle:hover { text-decoration: underline; opacity: 1; }
 /* Eine Stoerung sieht anders aus als eine stille Gegend. */
 .akt-leer-fehler { border-color: var(--danger, #d33); }
 .akt-leer-fehler .material-icons-round { color: var(--danger, #d33); opacity: .85; }
+/* „Noch nicht erfasst" ist weder Stoerung noch Leere, sondern eine
+   Wissensluecke — und sieht deshalb auch nach keinem von beidem aus. */
+.akt-leer-unerfasst { border-style: solid; border-color: var(--primary); background: var(--primary-ultralight, rgba(255,56,92,.05)); }
+.akt-leer-unerfasst .material-icons-round { color: var(--primary); opacity: .9; }
+.akt-leer-unerfasst .btn-outline .material-icons-round { font-size: 15px; vertical-align: -3px; margin-right: .25rem; }
+
+/* Der Weg zum eigenen Vorhaben steht IMMER da, nicht nur im leeren Fall:
+   wer nichts Passendes findet, will trotzdem etwas unternehmen. */
+.akt-start {
+  margin-top: 1.25rem; padding: 1rem 1.1rem;
+  border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+}
+.akt-start h4 {
+  display: flex; align-items: center; gap: .4rem;
+  margin: 0 0 .3rem; font-size: .92rem; color: var(--text);
+}
+.akt-start h4 .material-icons-round { font-size: 18px; color: var(--primary); }
+.akt-start p { margin: 0 0 .75rem; font-size: .8rem; color: var(--text-light); line-height: 1.5; }
+.akt-start-knoepfe { display: flex; flex-wrap: wrap; gap: .5rem; }
+.akt-start-knoepfe button { font-size: .8rem; display: inline-flex; align-items: center; gap: .3rem; }
+.akt-start-knoepfe .material-icons-round { font-size: 16px; }
 
 /* Die Quellenangabe ist bei ODbL Lizenzbedingung, nicht Fussnote —
    sie steht deshalb immer da, auch wenn die Liste leer ist. */
