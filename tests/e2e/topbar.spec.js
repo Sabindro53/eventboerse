@@ -18,6 +18,7 @@
 // oberen Rand steht, die Navigationsleiste muss darüber liegen, und der
 // Inhalt darf weder überdeckt werden noch eine Lücke lassen.
 const { test, expect } = require('@playwright/test');
+const { warteAufAppBereit } = require('./helpers');
 
 const BREITEN = [
   { name: 'Mobil', w: 393, h: 852 },
@@ -56,6 +57,10 @@ for (const { name, w, h } of BREITEN) {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');
       await page.waitForSelector('#navbar');
+      // ERST WENN DER LADESCHLEIER WEG IST. Er liegt auf z-index 99999 über
+      // allem; wer vorher misst, misst ihn — einen Zwischenzustand, den kein
+      // Nutzer anfasst. Begründung bei `warteAufAppBereit()`.
+      await warteAufAppBereit(page);
       const l = await lage(page);
 
       expect(l.nav, '#navbar fehlt').toBeTruthy();
@@ -71,6 +76,7 @@ for (const { name, w, h } of BREITEN) {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');
       await page.waitForSelector('#navbar');
+      await warteAufAppBereit(page);
       const l = await lage(page);
       // Kein Ueberspringen: der Banner steht in app-shell.html und ist beim
       // ersten Aufruf immer da. Fehlt er, ist das ein Befund, kein Grund,
@@ -90,10 +96,44 @@ for (const { name, w, h } of BREITEN) {
         .toBeLessThanOrEqual(1);
     });
 
+    test('der Ladeschleier verschwindet wirklich', async ({ page }) => {
+      // ── DIE LÜCKE, DIE DER AUSFALL SICHTBAR GEMACHT HAT ───────────────
+      //
+      // Am 09.09.2026 fiel `topbar.spec.js` in CI durch, weil der
+      // Ladeschleier beim Messen noch oben lag. Beim Nachsehen zeigte
+      // sich: dass er auf der ECHTEN Seite überhaupt je verschwindet,
+      // prüfte niemand. `bild-laden.spec.js` misst seine Logik an einer
+      // nachgebauten Seite — richtig für die Logik, blind für den Start.
+      //
+      // Bleibt er stehen, sieht der Besucher dauerhaft „Eventbörse wird
+      // geladen…". Kein Statuscode, kein Page-Error, keine leere Liste —
+      // 953 Tests hätten es nicht bemerkt. Genau die Schadensart, die hier
+      // schon dreimal teuer war: die Seite sieht heil aus und tut nichts.
+      await page.setViewportSize({ width: w, height: h });
+      const fehler = [];
+      page.on('pageerror', (e) => fehler.push(String(e)));
+      await page.goto('/');
+
+      // Gegenprobe: der Schleier ist beim ersten Aufruf überhaupt da.
+      // Ohne sie bestünde der Test auch, wenn es ihn gar nicht mehr gäbe.
+      expect(await page.locator('#appLoadingOverlay').count(),
+        'der Ladeschleier steht beim ersten Aufruf nicht in der Seite').toBe(1);
+
+      await warteAufAppBereit(page);
+      expect(fehler, `beim Start geworfen: ${fehler.join(' | ')}`).toEqual([]);
+
+      // Und er ist wirklich weg, nicht nur durchsichtig: was am oberen
+      // Rand liegt, muss die Leiste sein.
+      const l = await lage(page);
+      expect(l.obenGehoert,
+        `nach dem Laden liegt „${l.obenGehoert}" oben`).toBe('navbar');
+    });
+
     test('nach dem Schliessen rutscht der Inhalt nicht unter die Leiste', async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');
       await page.waitForSelector('#navbar');
+      await warteAufAppBereit(page);
       const vorher = await lage(page);
       expect(vorher.banner, 'der Banner ist beim ersten Aufruf nicht sichtbar').toBeTruthy();
 

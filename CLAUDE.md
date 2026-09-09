@@ -985,6 +985,39 @@ mutiert, baut vorher.
 muss die Leiste treffen. Eine Prüfung auf `position: fixed` hätte diesen
 Fehler nicht gefunden: die Angabe stimmte ja.
 
+### Ein Test, der ein Rennen fuhr — und die Lücke dahinter
+
+PR #250 fiel in CI durch: `topbar.spec.js` meldete *„am oberen Rand liegt
+`appLoadingOverlay` statt der Navigationsleiste"*. Lokal waren dieselben
+955 Tests grün.
+
+**Der Test war seit jeher ein Rennen.** `page.goto()` wartet auf `load`;
+`#appLoadingOverlay` liegt auf `z-index: 99999` und verschwindet erst, wenn
+Daten und sichtbare Bilder da sind — plus 450 ms Mindestdauer. Lokal war er
+zum Messzeitpunkt schon `is-hidden` (gemessen: 2009 ms bis `load`), auf dem
+langsameren Runner nicht. Gewonnen hat der Test das Rennen immer, bis ein
+weiteres Modul `app.js` etwas länger machte.
+
+**Ein Prüfer, der einen Zwischenzustand misst, prüft die Seite nicht** —
+dieselbe Lehre wie bei `leerlauf.spec.js`, nur beim Start statt im Leerlauf.
+`warteAufAppBereit()` in `tests/e2e/helpers.js` ist der gemeinsame Griff;
+wer misst, was der Nutzer *anfasst*, ruft ihn vorher.
+
+**Die eigentliche Lücke lag daneben.** Beim Nachsehen fiel auf: dass der
+Ladeschleier auf der **echten** Seite je verschwindet, prüfte niemand.
+`bild-laden.spec.js` misst seine Logik an einer **nachgebauten** Seite —
+richtig für die Logik, blind für den Start.
+
+Bleibt er stehen, sieht der Besucher dauerhaft „Eventbörse wird geladen…":
+kein Statuscode, kein Page-Error, keine leere Liste. **955 Tests hätten es
+nicht bemerkt.** Genau die Schadensart, die hier schon dreimal teuer war —
+die Seite sieht heil aus und tut nichts.
+
+Der neue Test misst deshalb am echten Start, mit Gegenprobe (*der Schleier
+ist überhaupt da*) und ohne sich mit `opacity` abspeisen zu lassen: was am
+oberen Rand liegt, muss danach die Leiste sein. Mutation `__hideAppLoader`
+auf „tut nichts" → **8 von 10 Tests rot**.
+
 ### Der Deploy hing an einem Fragezeichen
 
 Am 03.09.2026 blieb der Deploy zweimal hintereinander stehen, auf zwei
@@ -1996,7 +2029,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-953 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+955 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

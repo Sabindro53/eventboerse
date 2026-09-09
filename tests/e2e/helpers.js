@@ -65,4 +65,34 @@ function expectNoPageErrors(errors, kontext) {
   expect(errors, `Page-Errors bei ${kontext}: ${errors.join(' | ')}`).toEqual([]);
 }
 
-module.exports = { openApp, spaNavigate, activePageId, runSearch, expectNoPageErrors };
+/**
+ * Warten, bis der Ladeschleier weg ist.
+ *
+ * ── WARUM DAS NICHT „NOCH EIN WAIT" IST ─────────────────────────────────
+ *
+ * `#appLoadingOverlay` liegt auf `z-index: 99999` über allem und wird erst
+ * entfernt, wenn Daten und sichtbare Bilder da sind (plus 450 ms
+ * Mindestdauer). Wer VORHER misst, was am oberen Rand liegt, misst den
+ * Ladeschleier — und bekommt ein Ergebnis über einen Zwischenzustand, den
+ * kein Nutzer anfasst.
+ *
+ * Genau daran ist `topbar.spec.js` am 09.09.2026 in CI gescheitert:
+ * `page.goto()` wartet auf `load`, und dort war der Schleier lokal schon
+ * `is-hidden`, auf dem langsameren Runner aber noch sichtbar. Der Test war
+ * also seit jeher ein Rennen — er hat es nur immer gewonnen, bis ein
+ * weiteres Modul `app.js` etwas länger machte.
+ *
+ * Ein Prüfer, der einen Zwischenzustand misst, prüft die Seite nicht.
+ * Dieselbe Lehre wie bei `leerlauf.spec.js`, nur beim Start statt im
+ * Leerlauf.
+ */
+async function warteAufAppBereit(page, timeout = 20000) {
+  await page.waitForFunction(() => {
+    const el = document.getElementById('appLoadingOverlay');
+    return !el || el.classList.contains('is-hidden');
+  }, null, { timeout });
+}
+
+module.exports = {
+  openApp, spaNavigate, activePageId, runSearch, expectNoPageErrors, warteAufAppBereit,
+};
