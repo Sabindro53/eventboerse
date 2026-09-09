@@ -111,7 +111,16 @@ test.describe('Aktivitäten-Bestand: fremder Text ist Daten, nie Markup', () => 
   test('spitze Klammern überleben die Umwandlung nicht', async () => {
     // Namen und Titel kommen von Fremden und landen in unserer Oberfläche.
     // Das ist der Weg, über den ein OSM-Eintrag zu einem XSS würde.
-    const roh = ROH.overpass.elements.find((e) => /<script>/.test(e.tags?.name || ''));
+    //
+    // GESUCHT WIRD DIE SPITZE KLAMMER, NICHT `<script>`. Hier stand zuerst
+    // `/<script>/.test(…)`, und CodeQL hat es zu Recht angestrichen: ein
+    // Ausdruck, der genau ein kleingeschriebenes Tag trifft, sieht aus wie
+    // ein Filter und wäre als Filter kaputt (`<SCRIPT>` ginge durch). Er war
+    // hier nur ein Nachschlag im Prüfstück — aber die Verwechslung ist genau
+    // die, vor der `lib/html-kommentare.js` schon einmal entstanden ist.
+    // Ein Zeichen-Enthält braucht keinen Ausdruck und misst zudem das, worum
+    // es wirklich geht: die Klammer, nicht das Wort dahinter.
+    const roh = ROH.overpass.elements.find((e) => (e.tags?.name || '').includes('<'));
     expect(roh, 'kein Markup im Prüfstück — der Test hätte kein Subjekt').toBeTruthy();
 
     const d = await bestand();
