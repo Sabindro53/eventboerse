@@ -94,10 +94,25 @@ deutsche Beschreibung steht in der Spalte **Was**, wo sie hingehört.
 | Contact Info › Physical Address | `NSPrivacyCollectedDataTypePhysicalAddress` | Rechnungs-/Leistungsort | Profilfeld `address`, `vat_id` | ja | Funktion |
 | **Location › Precise Location** | `NSPrivacyCollectedDataTypePreciseLocation` | Umkreissuche | `search/13-event-radar.js`, `getCurrentPosition`; Schlüssel `eb_radar_ort` | ja | Funktion |
 | User Content › Photos or Videos | `NSPrivacyCollectedDataTypePhotosorVideos` | Inseratsbilder | `POST /upload` → `wp_handle_upload` | ja | Funktion |
-| User Content › Other User Content | `NSPrivacyCollectedDataTypeOtherUserContent` | Nachrichten, Beiträge, Kommentare, Bewertungen | Messaging-/Reviews-Routen | ja | Funktion |
+| User Content › Other User Content | `NSPrivacyCollectedDataTypeOtherUserContent` | Nachrichten, Beiträge, Kommentare, Bewertungen, **Gruppennamen und Mitgliedschaften** | Messaging-/Reviews-Routen, `includes/social/` (`eb_groups`, `eb_group_members`) | ja | Funktion |
 | Purchases › Purchase History | `NSPrivacyCollectedDataTypePurchaseHistory` | gebuchte Leistungen | `eb_payment_ledger` | ja | Funktion |
-| Identifiers › User ID | `NSPrivacyCollectedDataTypeUserID` | Kontobezug | WordPress-Nutzer-ID | ja | Funktion |
+| Identifiers › User ID | `NSPrivacyCollectedDataTypeUserID` | Kontobezug, **selbstgewählter Suchname** | WordPress-Nutzer-ID, `eb_handle` (user_meta) | ja | Funktion |
 | **Usage Data › Product Interaction** | `NSPrivacyCollectedDataTypeProductInteraction` | abgeleitetes Präferenzprofil | Schlüssel `eb_taste_v1`, in `Cookie-Liste.md` als *profilbildend* geführt | ja | **Personalisierung** + Funktion |
+
+**Freunde und Gruppen bringen KEINE elfte Datenart** — und das ist eine
+Feststellung, keine Bequemlichkeit. Der soziale Graph fällt vollständig unter
+zwei bestehende Zeilen: der selbstgewählte Suchname ist ein *User ID* nach
+Apples eigener Definition (*„Screen name, handle, account ID …"*), Gruppen und
+Mitgliedschaften sind *Other User Content*. Beide Zeilen nennen die neue
+Quelle jetzt ausdrücklich; ein Beleg, der nur die halbe Herkunft nennt,
+driftet beim nächsten Nachlesen.
+
+**„Contacts" bleibt ausdrücklich NEIN.** Apples Datenart *Contacts* meint das
+**Adressbuch des Geräts**. Wir lesen es nicht, und wir bieten auch keinen
+Abgleich damit an — genau deshalb geht die Freundessuche nur über den
+selbstgesetzten Suchnamen und nicht über E-Mail oder Telefonnummer. Wer hier
+später einen Kontaktabgleich einbaut, macht aus dieser Antwort ein **ja** und
+braucht dann einen eigenen Einwilligungsdialog.
 
 **Die Spalte „Verknüpft" beantwortet Apples Frage, nicht unsere.** Sie steht
 für *„Is this data linked to the user's identity?"* — bei uns überall **ja**,

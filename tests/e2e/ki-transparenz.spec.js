@@ -38,7 +38,23 @@ test.describe('Deklaration ist ausdruecklich und dauerhaft', () => {
   });
 
   test('bestaetigter Live-Bestand und Demo-Inserate sind korrekt nachdeklariert', () => {
-    expect(FUNCTIONS).toMatch(/define\( 'EB_DB_VERSION', '2\.7' \)/);
+    // ── WARUM HIER KEINE FESTE VERSION MEHR STEHT ──────────────────────
+    //
+    // Bis zum 09.09.2026 stand hier `'2\.7'` fest. Geprüft werden soll aber,
+    // dass die Nachdeklaration von 2.7 im Schema ANGEKOMMEN ist — nicht,
+    // dass seither nichts mehr passiert ist. Der nächste Schema-Sprung
+    // (2.8: Freunde und Gruppen) machte diesen Test rot, ohne dass an der
+    // KI-Transparenz irgendetwas fehlte.
+    //
+    // Ein Prüfer, der aus dem falschen Grund rot meldet, kostet mehr als
+    // keiner: man sucht dann am falschen Ende. Die Zeilen darunter prüfen
+    // ohnehin den Inhalt der Migration — die Version ist nur die Schranke,
+    // unter die sie nicht zurückfallen darf.
+    const version = (FUNCTIONS.match(/define\( 'EB_DB_VERSION', '([\d.]+)' \)/) || [])[1];
+    expect(version, 'EB_DB_VERSION ist nicht auffindbar').toBeTruthy();
+    expect(parseFloat(version),
+      'das Schema ist hinter die Nachdeklaration von 2.7 zurückgefallen')
+      .toBeGreaterThanOrEqual(2.7);
     expect(FUNCTIONS).toMatch(/ai_text_disclosure varchar\(20\) NOT NULL DEFAULT 'undeclared'/);
     expect(FUNCTIONS).toMatch(/ai_media_disclosure varchar\(20\) NOT NULL DEFAULT 'undeclared'/);
     expect(FUNCTIONS).toMatch(/ai_text_disclosure = 'none', ai_media_disclosure = 'none' WHERE id IN \(5, 7, 8\)/);

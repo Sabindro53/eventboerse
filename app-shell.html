@@ -191,6 +191,7 @@
         <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
         <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Planungs-Board</button>
+        <button onclick="navigateTo('freunde')"><span class="material-icons-round">diversity_3</span> Freunde &amp; Gruppen</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
@@ -2579,6 +2580,18 @@
       </div>
     </section>
 
+    <!-- Freunde & Gruppen — gemeinsame Vorhaben.
+         Der Inhalt kommt vollständig aus renderFreundePage(): er haengt am
+         angemeldeten Konto, und Markup fuer Daten, die es ohne Anmeldung
+         nicht gibt, waere eine leere Huelle mit Platzhaltern. -->
+    <section id="page-freunde" class="page">
+      <div class="container container-sm">
+        <h1 class="soz-titel"><span class="material-icons-round">diversity_3</span> Freunde &amp; Gruppen</h1>
+        <p class="soz-untertitel">Plane gemeinsam — ein Fest, ein Festival, ein Betriebsausflug.</p>
+        <div id="freundeInhalt"></div>
+      </div>
+    </section>
+
     <!-- Admin Panel -->
     <section id="page-admin" class="page">
       <div class="container container-sm">
@@ -3361,6 +3374,12 @@ Datum: ___________________________________________________
 
         <h2>10. Messaging, Bewertungen und Profile</h2>
         <p>Internes Messaging mit Dienstleistern; nach Buchung Bewertung möglich. Bewertungen werden öffentlich auf dem Profil des bewerteten Dienstleisters angezeigt; nur nach tatsächlich erfolgter und durchgeführter Buchung (Authentizität nach § 5b UWG). Inhalte des internen Messagings werden nicht öffentlich angezeigt.</p>
+
+        <h2>10a. Freunde und Gruppen</h2>
+        <p>Sie können sich mit anderen Nutzerinnen und Nutzern verbinden und Gruppen für ein gemeinsames Vorhaben bilden. Verarbeitet werden dabei: ein von Ihnen selbst gewählter <strong>Suchname</strong>, die Verbindungen zwischen Konten (angefragt, bestätigt, gesperrt) sowie Name, Anlass, Datum, Einladungscode und Mitgliederliste einer Gruppe.</p>
+        <p><strong>Auffindbarkeit ist freiwillig und widerruflich.</strong> Ohne selbst gesetzten Suchnamen sind Sie über die Freundessuche nicht auffindbar. Eine Suche nach Namen, E-Mail-Adresse oder Telefonnummer findet nicht statt und ist technisch nicht vorgesehen. Sie können den Suchnamen jederzeit löschen; danach sind Sie wieder unauffindbar.</p>
+        <p><strong>Eine Verbindung entsteht nur beidseitig.</strong> Eine Freundschaft kommt erst durch die Bestätigung der angefragten Person zustande, eine Gruppenmitgliedschaft erst durch deren Annahme oder durch Eingabe eines Einladungscodes. Eingeladene sehen Name, Anlass und Personenzahl einer Gruppe, jedoch nicht deren Mitgliederliste, solange sie nicht zugestimmt haben. Wer eine andere Person sperrt, ist für diese in der Suche nicht mehr auffindbar; die gesperrte Person wird darüber nicht benachrichtigt.</p>
+        <p>Zweck ist die gemeinsame Planung von Veranstaltungen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) für die von Ihnen angeforderte Funktion. Verbindungen und Mitgliedschaften werden gelöscht, sobald Sie sie aufheben, die Gruppe verlassen oder Ihr Konto löschen; verlässt die letzte Person eine Gruppe, wird sie mitsamt ihrer Mitgliederliste gelöscht. Es findet keine Übermittlung an Dritte statt.</p>
 
         <h2>11. Inhaltsmeldungen und Moderation</h2>
         <p>Bei einer Inhaltsmeldung verarbeiten wir die betroffene Inserat-ID und URL, Meldegrund, Begründung, Erklärung nach bestem Wissen sowie grundsätzlich Name und E-Mail-Adresse der meldenden Person. Bei Meldungen zur mutmaßlichen sexuellen Ausbeutung Minderjähriger sind Name und E-Mail nicht erforderlich. Zur Missbrauchsabwehr wird aus der IP-Adresse ein nicht rückrechenbarer Rate-Limit-Schlüssel gebildet, der nach spätestens einer Stunde verfällt; die IP-Adresse wird nicht im Meldedatensatz gespeichert. Zweck ist die Entgegennahme, Prüfung, Dokumentation und Beantwortung von Meldungen nach Art. 16 DSA sowie die Abwehr von Rechtsverstößen. Rechtsgrundlagen sind Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit dem DSA und Art. 6 Abs. 1 lit. f DSGVO. Berechtigtes Interesse ist der sichere, rechtskonforme Plattformbetrieb. Beschwerde- und Moderationsvorgänge werden grundsätzlich drei Jahre gespeichert; zwingende Aufbewahrungs- oder Rechtsverteidigungsinteressen können eine längere Speicherung erfordern.</p>

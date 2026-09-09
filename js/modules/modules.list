@@ -25,3 +25,4 @@ payments/44-kv-buchung.js
 ai/50-planungs-assistent.js
 ui/51-inserat-maske-kalender.js
 ui/52-release-vision.js
+social/60-freunde-gruppen.js

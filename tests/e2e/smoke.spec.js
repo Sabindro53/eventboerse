@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   ['explore',           'page-explore'],
   ['aktuelles',         'page-aktuelles'],
   ['board',             'page-board'],
+  ['freunde',           'page-freunde'],
   ['favorites',         'page-favorites'],
   ['agb',               'page-agb'],
   ['agb-b2b',           'page-agb-b2b'],

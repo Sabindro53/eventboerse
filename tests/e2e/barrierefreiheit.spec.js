@@ -12,6 +12,7 @@ const SEITEN = [
   ['detail', 1],
   ['board', null],
   ['aktuelles', null],
+  ['freunde', null],
 ];
 
 for (const mode of ['dark', 'light']) {

@@ -44,6 +44,7 @@ function _setPageMeta(page, data) {
       }
       break;
     case 'board':    title = 'Eventboard – ' + base; break;
+    case 'freunde':  title = 'Freunde & Gruppen – ' + base; break;
     case 'chat':     title = 'Nachrichten – ' + base; break;
     case 'messages': title = 'Nachrichten – ' + base; break;
     case 'profile':  title = 'Profil – ' + base; break;
@@ -513,6 +514,13 @@ function navigateTo(page, data, skipHistory) {
         return;
       }
       loadAdminUsers();
+      break;
+    case 'freunde':
+      // BEWUSST NICHT in `loginRequired`: die Seite erklärt selbst, warum
+      // sie eine Anmeldung braucht. Ein Anmeldedialog, der ohne Erklärung
+      // aufgeht, sieht aus wie eine Absage.
+      renderFreundePage();
+      sozialLaden();
       break;
     case 'board':
       if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }

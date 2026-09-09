@@ -22,6 +22,13 @@ require_once get_template_directory() . '/webauthn.php';
 // (siehe eventboerse_check_rate_limit-Aufrufe in den Auth-Handlern).
 require_once get_template_directory() . '/includes/security/rate-limit.php';
 
+// Freunde und Gruppen — gemeinsame Vorhaben. Eigene Tabellen, nicht das
+// Board: `eb_board_projects` ist ein JSON-Blob je Nutzer, den der Besitzer
+// als Ganzes zurueckschreibt. Zwei Personen am selben Projekt ueberschreiben
+// sich gegenseitig, ohne Meldung. Begruendung in freunde-gruppen.php.
+require_once get_template_directory() . '/includes/social/freunde-gruppen.php';
+require_once get_template_directory() . '/includes/social/routen.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *
@@ -3702,9 +3709,12 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * revisionsfaehiger Inhalt-Meldeeingang.
  * 2.7: vom Betreiber bestaetigte Nachdeklaration der sieben aktuellen
  * Bestandsinserate; DJ Julian und Sandros Inserate sind menschlich erstellt.
+ * 2.8: Freunde und Gruppen — eb_friendships, eb_groups, eb_group_members.
+ * Eigene Tabellen statt eines geteilten Board-Blobs; die Begruendung steht
+ * in includes/social/freunde-gruppen.php.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '2.7' );
+    define( 'EB_DB_VERSION', '2.8' );
 }
 
 function eb_create_tables() {
@@ -3857,6 +3867,14 @@ function eb_create_tables() {
     dbDelta( $sql_favorites );
     dbDelta( $sql_registrations );
     dbDelta( $sql_content_reports );
+
+    // Freunde und Gruppen. Das SQL steht bei der Logik, nicht hier — eine
+    // Tabellendefinition, die von ihrem Code getrennt gepflegt wird,
+    // driftet, und diese driftet unbemerkt: fehlt eine Spalte, faellt es
+    // erst beim ersten Schreibversuch im Betrieb auf.
+    foreach ( eb_social_tabellen_sql() as $sql_social ) {
+        dbDelta( $sql_social );
+    }
 }
 add_action( 'after_switch_theme', 'eb_create_tables' );
 // Also run on init once (version check)
