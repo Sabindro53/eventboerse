@@ -33,6 +33,15 @@ const WURZEL = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const ALLE_NAMEN = path.join(WURZEL, 'scripts', 'lib', 'material-icons-namen.txt');
 /** Die Auswahl, mit der die ausgelieferte Schrift zugeschnitten wurde. */
 export const BENUTZTE_NAMEN = path.join(WURZEL, 'scripts', 'lib', 'material-icons-benutzt.txt');
+/**
+ * Was nach dem Zuschnitt WIRKLICH in der Schrift steht.
+ *
+ * `icons-subset.py` liest die fertige Datei zurueck und schreibt diese
+ * Liste. Sie entsteht also nur, wenn eine Schrift gebaut wurde, und kann
+ * ihr nicht vorauseilen — anders als die Auswahlliste, die `icons.mjs`
+ * selbst schreibt.
+ */
+export const IN_SCHRIFT = path.join(WURZEL, 'scripts', 'lib', 'material-icons-in-schrift.txt');
 
 /**
  * Dateien, in denen Iconnamen stehen können.
@@ -87,14 +96,34 @@ function schreiben() {
   console.log(`─────────────────────────────────────────────────`);
 }
 
+/**
+ * GEMESSEN WIRD DIE SCHRIFT, NICHT DIE WUNSCHLISTE.
+ *
+ * Bis zum 09.09.2026 verglich dieses Tor die benutzten Icons gegen
+ * `material-icons-benutzt.txt` — eine Datei, die `icons.mjs` selbst
+ * schreibt. Wer die Liste erneuerte und `icons-subset.py` vergass, bekam
+ * damit ein gruenes Tor bei veralteter Schrift: im Betrieb waeren die
+ * neuen Symbole leere Kaesten gewesen, und geprueft hatte sich die Liste
+ * mit sich selbst.
+ *
+ * `material-icons-in-schrift.txt` entsteht dagegen NUR beim Zuschneiden
+ * und wird aus der fertigen Datei zurueckgelesen. Sie kann der Schrift
+ * also nicht vorauseilen.
+ *
+ * Fehlt sie, ist das ein Fehler und kein Durchwinken — nicht messen ist
+ * kein Bestehen.
+ */
 function pruefen() {
-  if (!fs.existsSync(BENUTZTE_NAMEN)) {
-    console.error('✗ Die Auswahlliste fehlt. `node scripts/icons.mjs` ausführen.');
+  if (!fs.existsSync(IN_SCHRIFT)) {
+    console.error('✗ Es ist nicht feststellbar, was in der ausgelieferten Schrift steht.');
+    console.error('  `scripts/lib/material-icons-in-schrift.txt` fehlt — sie entsteht beim');
+    console.error('  Zuschneiden: python3 scripts/icons-subset.py');
     process.exit(1);
   }
-  const inListe = new Set(
-    fs.readFileSync(BENUTZTE_NAMEN, 'utf8').split('\n').map((s) => s.trim()).filter(Boolean));
-  const fehlt = benutzteIcons().filter((n) => !inListe.has(n));
+  const inSchrift = new Set(
+    fs.readFileSync(IN_SCHRIFT, 'utf8').split('\n').map((s) => s.trim()).filter(Boolean));
+  const benutzt = benutzteIcons();
+  const fehlt = benutzt.filter((n) => !inSchrift.has(n));
   if (fehlt.length) {
     console.error('✗ Der Code benutzt Icons, die nicht in der ausgelieferten Schrift stehen:');
     for (const n of fehlt) console.error(`   • ${n}`);
@@ -103,7 +132,8 @@ function pruefen() {
     console.error('    node scripts/icons.mjs && python3 scripts/icons-subset.py');
     process.exit(1);
   }
-  console.log(`✓ Alle ${inListe.size} benutzten Icons stehen in der ausgelieferten Schrift.`);
+  console.log(`✓ Alle ${benutzt.length} benutzten Icons stehen wirklich in der `
+    + `ausgelieferten Schrift (${inSchrift.size} Symbole).`);
 }
 
 if (process.argv.includes('--check')) pruefen();

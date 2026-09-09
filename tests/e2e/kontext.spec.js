@@ -44,8 +44,18 @@ test.describe('Kontext: CLAUDE.md gegen den Code', () => {
   });
 
   test('eine falsche Zahl fällt auf', () => {
-    const r = mitGeaenderterNotiz('Quelle des Frontends: 24 Module',
-      'Quelle des Frontends: 99 Module', tor);
+    // DIE ZAHL WIRD GELESEN, NICHT VERDRAHTET. Hier stand „24 Module" fest —
+    // beim 25. Modul fiel der Test aus, und zwar an der Zahl statt an der
+    // Eigenschaft, die er prüft. Ein Test, der bei jeder normalen Änderung
+    // rot wird, wird irgendwann nur noch nachgezogen statt gelesen; der
+    // Nachbartest daneben macht es längst richtig.
+    const md = fs.readFileSync(CLAUDE_MD, 'utf8');
+    const jetzt = (md.match(/Quelle des Frontends: (\d+) Module/) || []);
+    expect(jetzt[0], 'die Modulzahl steht nicht mehr in CLAUDE.md').toBeTruthy();
+    // Um eins daneben ist per Konstruktion falsch — eine feste Zahl könnte
+    // eines Tages zufällig die richtige sein, und dann prüfte der Test nichts.
+    const falsch = 'Quelle des Frontends: ' + (Number(jetzt[1]) + 1) + ' Module';
+    const r = mitGeaenderterNotiz(jetzt[0], falsch, tor);
     expect(r.ok, 'eine erfundene Modulzahl kommt durch').toBe(false);
     expect(r.aus).toMatch(/Frontend-Module/);
   });

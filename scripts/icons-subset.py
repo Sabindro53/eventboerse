@@ -38,6 +38,8 @@ QUELLE = WURZEL / 'scripts' / 'lib' / 'material-icons-quelle.woff2'
 AUSWAHL = WURZEL / 'scripts' / 'lib' / 'material-icons-benutzt.txt'
 ZIEL = WURZEL / 'assets' / 'fonts' / 'material-icons-round.woff2'
 NAMEN = WURZEL / 'scripts' / 'lib' / 'material-icons-namen.txt'
+# Was nach dem Zuschnitt wirklich in der ausgelieferten Schrift steht.
+IN_SCHRIFT = WURZEL / 'scripts' / 'lib' / 'material-icons-in-schrift.txt'
 
 
 def ligaturen(font):
@@ -95,6 +97,17 @@ def main():
     fehlt = sorted(set(gewuenscht) - geblieben)
     if fehlt:
         sys.exit('Ligaturen im Ergebnis verloren: ' + ', '.join(fehlt[:10]))
+
+    # WAS WIRKLICH IN DER SCHRIFT STEHT — aus der fertigen Datei gelesen,
+    # nicht aus der Wunschliste abgeschrieben.
+    #
+    # Ohne diese Zeile kann das Tor eine VERALTETE SCHRIFT nicht erkennen:
+    # `icons.mjs --check` verglich die benutzten Icons gegen die
+    # Auswahlliste, und die schreibt `icons.mjs` selbst. Wer die Liste
+    # erneuert und den Zuschnitt vergisst, bekam ein gruenes Tor und leere
+    # Kaesten im Betrieb. Diese Datei entsteht nur, wenn wirklich eine
+    # Schrift gebaut wurde — sie kann der Schrift also nicht vorauseilen.
+    IN_SCHRIFT.write_text('\n'.join(sorted(geblieben)) + '\n')
 
     vorher = os.path.getsize(QUELLE) / 1024
     nachher = os.path.getsize(ZIEL) / 1024

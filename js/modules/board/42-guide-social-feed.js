@@ -1280,6 +1280,14 @@ function renderFeed(tab) {
     return;
   }
 
+  // „Was kann ich jetzt machen?" — der Aktivitäten-Bestand aus
+  // OpenLigaDB und OpenStreetMap. Eigener Kanal, weil er weder
+  // Inserate noch Beiträge zeigt, sondern die Gegend.
+  if (tab === 'jetzt') {
+    renderFeedJetzt(list);
+    return;
+  }
+
   // Bot-/Demo-Beiträge automatisch ausblenden, wenn EB_HIDE_DEMO aktiv ist.
   var visiblePosts = _visibleSocialPosts();
   var nearby = _feedNearby && !!_feedUserCoords;

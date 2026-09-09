@@ -742,6 +742,7 @@
         </div>
         <div class="feed-tabs explore-tabs">
           <button class="feed-tab feed-tab-discover active"><span class="material-icons-round">explore</span>Entdecken<span class="feed-tab-badge">NEU</span></button>
+          <button class="feed-tab feed-tab-jetzt" onclick="navigateTo('aktuelles','jetzt')"><span class="material-icons-round">bolt</span>Jetzt</button>
           <button class="feed-tab" onclick="navigateTo('aktuelles')">Für dich</button>
           <button class="feed-tab" onclick="navigateTo('aktuelles','gesuche')">Gesuche</button>
           <button class="feed-tab" onclick="navigateTo('aktuelles','events')">Events</button>
@@ -778,6 +779,7 @@
             </div>
             <div class="feed-tabs">
               <button class="feed-tab feed-tab-discover" onclick="navigateTo('explore')"><span class="material-icons-round">explore</span>Entdecken<span class="feed-tab-badge">NEU</span></button>
+              <button class="feed-tab feed-tab-jetzt" data-feed="jetzt" onclick="switchFeedTab(this)"><span class="material-icons-round">bolt</span>Jetzt</button>
               <button class="feed-tab active" data-feed="foryou" onclick="switchFeedTab(this)">Für dich</button>
               <button class="feed-tab" data-feed="gesuche" onclick="switchFeedTab(this)">Gesuche</button>
               <button class="feed-tab" data-feed="events" onclick="switchFeedTab(this)">Events</button>
