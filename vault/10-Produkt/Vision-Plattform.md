@@ -259,12 +259,39 @@ Gebaut wird nach **Risiko**, nicht nach Reiz. Jede Stufe ist für sich nützlich
 |---|---|---|
 | **1** | **Rechtsberatung Treuhand** (ZAG/Stripe-Modell) | Alles unter 4. hängt daran. Eine Woche Klarheit spart ein Jahr Rückbau. |
 | **2** | **Gebührenanzeige ehrlich machen** | Kleiner Eingriff, betrifft jeden Dienstleister, und der Fehler wächst mit dem Umsatz. |
-| **3** | **Aktivitäten-Bestand, eine Quelle** — OpenLigaDB + OSM für Köln | Beweist die Entdeckung an echten Daten, ohne Vertrag und ohne Kosten. |
+| **3** | ~~**Aktivitäten-Bestand, eine Quelle** — OpenLigaDB + OSM für Köln~~ **gebaut 09.09.2026** | Beweist die Entdeckung an echten Daten, ohne Vertrag und ohne Kosten. |
 | **4** | **Angebot als Vertrag** (Umfang, Zeit, Preis, Storno) | Vorbedingung für Absicherung *und* für Bündel. |
 | **5** | **Bedingte Auszahlung + Streitfall** | Der eigentliche Burggraben. |
 | **6** | **Verkettetes Protokoll** | Macht die Aufzeichnung überprüfbar statt behauptet. |
 | **7** | **Bündel-Buchung** | Das Merkmal, das fünf Programme ersetzt. |
 | **8** | **Weitere Quellen, Partner-Aufnahme, Premium** | Skalierung — erst wenn 1–7 tragen. |
+
+### 6.1 Schritt 3, gebaut am 09.09.2026
+
+`scripts/aktivitaeten.mjs` → `assets/eb-aktivitaeten.json`, zwei Quellen für
+50 km um Köln: **OpenLigaDB** (Heimspiele 1. FC Köln) und
+**OpenStreetMap/Overpass** (Kino, Escape-Room, Kletterhalle, Erlebnisbad,
+Museum, Zoo, Theater). Beide frei, beide ohne Vertrag, beide ohne Schlüssel.
+21 Tests, zehn Mutationen rot. Die Datei ist öffentlich ausgeliefert.
+
+**Was der Schritt ausdrücklich noch nicht ist:** eine Ansicht. Der Bestand
+liegt als Datei vor und ist abrufbar; die Oberfläche „was ist gerade in
+meiner Nähe los" baut darauf auf und ist der nächste Schritt. Diese Trennung
+ist Absicht — eine Ansicht über einem Bestand, der sich noch ändert, wird
+zweimal gebaut.
+
+**Der erste echte Abruf steht noch aus.** Die ausgelieferte Datei trägt
+`stand: null` — *nie abgerufen*, nicht *nichts gefunden*. Gefüllt wird sie
+vom nächsten Lauf der Tagesroutine (03:17 UTC), weil nur dort Netzzugang zu
+den beiden APIs besteht. Bis dahin ist der Bestand leer, und das steht auch
+so darin.
+
+**Zwei Eigenschaften der Quellen, die den Ausbau bestimmen:** OpenLigaDB
+liefert **17 Heimspiele pro Saison** — verlässlich, aber dünn. Der Bestand
+lebt von den OSM-Orten, und die haben *keinen Termin*. Für „was ist **jetzt**
+los" fehlt damit weiter eine Quelle mit Veranstaltungsterminen; die
+Kandidaten stehen in Abschnitt 2 (städtische Open-Data-Portale, iCal/RSS der
+Veranstalter, Ticketmaster). Das ist Schritt 8, nicht Schritt 3.
 
 ---
 

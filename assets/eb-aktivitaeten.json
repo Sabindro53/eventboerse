@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
+  "stand": null,
+  "mitte": {
+    "stadt": "Köln",
+    "lat": 50.9413,
+    "lon": 6.9583
+  },
+  "umkreisKm": 50,
+  "quellen": [
+    {
+      "name": "OpenLigaDB",
+      "lizenz": "frei (openligadb.de)",
+      "url": "https://www.openligadb.de/"
+    },
+    {
+      "name": "OpenStreetMap",
+      "lizenz": "ODbL — © OpenStreetMap-Mitwirkende",
+      "url": "https://www.openstreetmap.org/copyright"
+    }
+  ],
+  "anzahl": {
+    "gesamt": 0,
+    "sport": 0,
+    "orte": 0
+  },
+  "eintraege": []
+}

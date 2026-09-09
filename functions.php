@@ -391,6 +391,15 @@ function eb_serve_theme_root_file() {
         //   eb-knowledge.json   öffentlich — der Website-Bot befragt sie, sie
         //                       enthält ausschließlich share:public
         //   eb-demo-feed.json   öffentlich — Demo-Inhalte für jeden Besucher
+        //   eb-aktivitaeten.json öffentlich — der Aktivitäten-Bestand IST die
+        //                       Entdeckungs-Ebene: was ist gerade in meiner
+        //                       Nähe los. Er entsteht aus zwei öffentlichen
+        //                       Quellen (OpenLigaDB, OpenStreetMap) und
+        //                       enthält nichts, was nicht ohnehin frei
+        //                       abrufbar wäre — Spielansetzungen, Namen und
+        //                       Koordinaten von Kinos und Museen. Kein
+        //                       Nutzerbezug, kein Betriebswissen. Ihn zu
+        //                       sperren hiesse, die Funktion zu sperren.
         //
         // Alles andere beschreibt den Betrieb: der Connector-Katalog nennt
         // Berechtigungen, interne Endpunkte und wo Schlüssel liegen; der
@@ -402,7 +411,7 @@ function eb_serve_theme_root_file() {
         // Datei bleibt einem Administrator zugaenglich, der den zweiten
         // Faktor noch gar nicht vorgelegt hat. Genau diese Luecke stand hier
         // vorher, weil die Bedingung von Hand nachgebaut war statt geteilt.
-        $oeffentlich = array( 'eb-knowledge.json', 'eb-demo-feed.json' );
+        $oeffentlich = array( 'eb-knowledge.json', 'eb-demo-feed.json', 'eb-aktivitaeten.json' );
         if ( ! in_array( $m[2], $oeffentlich, true ) && ! eb_hq_zugang_offen() ) {
             status_header( 404 );
             nocache_headers();
