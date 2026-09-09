@@ -1,0 +1,136 @@
+{
+  "_hinweis": [
+    "Nachgebildete Rohantworten von OpenLigaDB und Overpass, im Aufbau der",
+    "echten APIs. Sie ersetzen den Netzabruf, den die Agent-Umgebung nicht hat",
+    "(403 auf CONNECT), damit die ganze Umwandlung prüfbar bleibt.",
+    "",
+    "Jeder Eintrag ist ein Grenzfall, keine Füllung. Der Bezugszeitpunkt ist",
+    "2026-09-09T12:00:00Z; die Tests geben ihn ausdrücklich mit, damit das",
+    "Prüfstück nicht mit der Zeit verdirbt."
+  ],
+
+  "openligadb": [
+    {
+      "matchID": 71001,
+      "matchDateTime": "2026-09-19T15:30:00",
+      "matchDateTimeUTC": "2026-09-19T13:30:00Z",
+      "team1": { "teamId": 65, "teamName": "1. FC Köln" },
+      "team2": { "teamId": 40, "teamName": "FC Bayern München" },
+      "location": { "locationCity": "Köln", "locationStadium": "RheinEnergieSTADION" },
+      "matchIsFinished": false,
+      "_erwartung": "HEIMSPIEL, künftig — kommt in den Bestand"
+    },
+    {
+      "matchID": 71002,
+      "matchDateTime": "2026-09-26T15:30:00",
+      "matchDateTimeUTC": "2026-09-26T13:30:00Z",
+      "team1": { "teamId": 40, "teamName": "FC Bayern München" },
+      "team2": { "teamId": 65, "teamName": "1. FC Köln" },
+      "location": { "locationCity": "München", "locationStadium": "Allianz Arena" },
+      "matchIsFinished": false,
+      "_erwartung": "AUSWÄRTS — München liegt nicht im Umkreis von Köln"
+    },
+    {
+      "matchID": 71003,
+      "matchDateTime": "2026-08-29T15:30:00",
+      "matchDateTimeUTC": "2026-08-29T13:30:00Z",
+      "team1": { "teamId": 65, "teamName": "1. FC Köln" },
+      "team2": { "teamId": 7, "teamName": "Borussia Dortmund" },
+      "location": { "locationCity": "Köln", "locationStadium": "RheinEnergieSTADION" },
+      "matchIsFinished": true,
+      "_erwartung": "VERGANGEN — ein Spiel von gestern ist kein Vorschlag"
+    },
+    {
+      "matchID": 71004,
+      "matchDateTime": "2026-09-20T17:30:00",
+      "matchDateTimeUTC": "2026-09-20T15:30:00Z",
+      "team1": { "teamId": 16, "teamName": "VfB Stuttgart" },
+      "team2": { "teamId": 87, "teamName": "Borussia Mönchengladbach" },
+      "location": { "locationCity": "Stuttgart", "locationStadium": "MHPArena" },
+      "matchIsFinished": false,
+      "_erwartung": "OHNE KÖLN — die Liga hat 306 Spiele, uns gehen 17 an"
+    },
+    {
+      "matchID": 71005,
+      "matchDateTime": "2026-10-03T15:30:00",
+      "matchDateTimeUTC": "2026-10-03T13:30:00Z",
+      "team1": { "teamId": 65, "teamName": "1. FC Köln" },
+      "team2": { "teamId": 91, "teamName": "SC Freiburg" },
+      "location": null,
+      "_erwartung": "OHNE ORTSANGABE — Heimspiel bleibt Heimspiel, Ort fällt zurück"
+    }
+  ],
+
+  "overpass": {
+    "version": 0.6,
+    "generator": "Overpass API 0.7.62",
+    "elements": [
+      {
+        "type": "node",
+        "id": 240100001,
+        "lat": 50.9489,
+        "lon": 6.9331,
+        "tags": { "amenity": "cinema", "name": "Cinedom", "addr:city": "Köln" },
+        "_erwartung": "Kino in Köln — kommt in den Bestand"
+      },
+      {
+        "type": "way",
+        "id": 240100002,
+        "center": { "lat": 50.9375, "lon": 6.9603 },
+        "tags": { "leisure": "escape_game", "name": "Exit Game Köln" },
+        "_erwartung": "WEG statt Knoten — Koordinate steht in center, nicht oben"
+      },
+      {
+        "type": "node",
+        "id": 240100003,
+        "lat": 51.2277,
+        "lon": 6.7735,
+        "tags": { "tourism": "museum", "name": "Kunstpalast", "addr:city": "Düsseldorf" },
+        "_erwartung": "~35 km — noch im Umkreis von 50 km"
+      },
+      {
+        "type": "node",
+        "id": 240100004,
+        "lat": 50.1109,
+        "lon": 8.6821,
+        "tags": { "tourism": "museum", "name": "Städel Museum", "addr:city": "Frankfurt" },
+        "_erwartung": "~152 km — Overpass kann grosszügig antworten, wir nicht"
+      },
+      {
+        "type": "node",
+        "id": 240100005,
+        "lat": 50.9412,
+        "lon": 6.9600,
+        "tags": { "amenity": "cinema" },
+        "_erwartung": "OHNE NAMEN — ein Vorschlag ohne Namen ist keiner"
+      },
+      {
+        "type": "node",
+        "id": 240100006,
+        "lat": 50.9400,
+        "lon": 6.9500,
+        "tags": { "amenity": "pharmacy", "name": "Dom-Apotheke" },
+        "_erwartung": "FALSCHE ART — eine Apotheke ist kein Erlebnis"
+      },
+      {
+        "type": "node",
+        "id": 240100007,
+        "lat": 50.9450,
+        "lon": 6.9700,
+        "tags": {
+          "leisure": "climbing",
+          "name": "Kletterhalle <script>alert(1)</script> Nord"
+        },
+        "_erwartung": "MARKUP IM NAMEN — fremder Text ist Daten, nie Markup"
+      },
+      {
+        "type": "node",
+        "id": 240100008,
+        "lat": 50.9583,
+        "lon": 6.9700,
+        "tags": { "tourism": "zoo", "name": "Kölner Zoo", "addr:city": "Köln" },
+        "_erwartung": "Zoo — zweite Art, damit die Zuordnung nicht nur einen Fall kennt"
+      }
+    ]
+  }
+}

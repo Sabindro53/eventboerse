@@ -238,8 +238,19 @@ test.describe('Datendateien erreichbar', () => {
     const liste = block.match(/\$oeffentlich\s*=\s*array\(([^)]*)\)/)[1];
     expect(liste).toContain('eb-knowledge.json');   // der Website-Bot braucht sie
     expect(liste).toContain('eb-demo-feed.json');   // Demo-Inhalte für jeden
+    expect(liste).toContain('eb-aktivitaeten.json'); // die Entdeckungs-Ebene
     expect(liste, 'der Connector-Katalog darf nicht öffentlich sein').not.toContain('eb-connectors.json');
     expect(liste, 'der Selbstcheck darf nicht öffentlich sein').not.toContain('latest.json');
+
+    // DIE LISTE IST VOLLSTÄNDIG AUFGEZÄHLT, nicht bloss stichprobenartig
+    // geprüft. Eine Freigabeliste, die still wachsen kann, ist der Anfang vom
+    // Ende der Regel: die einzelnen `not.toContain` oben fangen nur die drei
+    // Dateien, an die jemand gedacht hat. Wer eine vierte Datei öffentlich
+    // macht, soll hier scheitern und die Freigabe begründen müssen — das ist
+    // eine Sicherheitsentscheidung des Inhabers, kein Nebenschauplatz.
+    const eintraege = [...liste.matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+    expect(eintraege).toEqual(
+      ['eb-aktivitaeten.json', 'eb-demo-feed.json', 'eb-knowledge.json']);
     // Alles außerhalb der Liste verlangt einen geprüften HQ-Zugang.
     //
     // Geprüft wird die Eigenschaft, nicht die Formulierung: hier stand früher

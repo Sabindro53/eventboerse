@@ -143,6 +143,47 @@ test.describe('Phantom-Workflows: aktiv gemeldet, Datei nirgends', () => {
       .toMatch(/Allow auto-merge/);
   });
 
+  test('ein Tor, das in tee pipet, kann den PR auch wirklich rot machen', () => {
+    // DIE ZWEITE SORTE SCHEIN-SCHUTZ. Der Phantom-Workflow oben lief nie;
+    // dieser hier läuft, schreibt seinen Befund in die Zusammenfassung — und
+    // konnte den PR trotzdem nicht aufhalten.
+    //
+    // Ohne `shell:` startet GitHub `bash -e {0}`, OHNE `pipefail`. Der Status
+    // einer Pipe ist dann der des letzten Glieds, und `tee` gelingt immer.
+    // `node scripts/recht.mjs --check | tee` meldete damit Erfolg, auch wenn
+    // recht.mjs mit 1 ausstieg. Betroffen waren fünf blockierende Tore:
+    // Recht, Geheimnisse, Icons, Kontext, Aktivitäten-Bestand.
+    // GEMESSEN WIRD JE JOB, NICHT JE DATEI. Die erste Fassung dieses Tests
+    // suchte `defaults: run: shell: bash` irgendwo in pr-check.yml — und war
+    // grün, während der Block im Job `check` stand und alle sechs Tore im
+    // Job `tests` liegen. Die richtige Zeichenfolge an der falschen Stelle:
+    // dieselbe Klasse Fehler, die der Test verhindern soll.
+    const wf = fs.readFileSync(path.join(WF_DIR, 'pr-check.yml'), 'utf8');
+    const jobs = {};
+    const kopf = [...wf.matchAll(/^ {2}([A-Za-z0-9_-]+):$/gm)];
+    expect(kopf.length, 'keine Jobs gefunden — die Zerlegung greift nicht')
+      .toBeGreaterThan(1);
+    kopf.forEach((m, i) => {
+      const bis = i + 1 < kopf.length ? kopf[i + 1].index : wf.length;
+      jobs[m[1]] = wf.slice(m.index, bis);
+    });
+
+    const mitTor = Object.entries(jobs).filter(([, t]) => /--check\s*\|\s*tee/.test(t));
+
+    // Gegenprobe: gibt es die gefährliche Bauform überhaupt noch? Ohne sie
+    // prüfte dieser Test nichts und sähe dabei grün aus.
+    expect(mitTor.length, 'kein Job pipet ein Tor mehr in tee — kein Subjekt')
+      .toBeGreaterThan(0);
+    const anzahl = [...wf.matchAll(/--check\s*\|\s*tee/g)].length;
+    expect(anzahl, 'zu wenige Tore, um die Regel zu belegen').toBeGreaterThan(2);
+
+    for (const [name, text] of mitTor) {
+      expect(text, `Job "${name}" pipet Tore in tee, hat aber kein pipefail — `
+        + 'sie melden dann immer Erfolg, egal wie das Skript aussteigt')
+        .toMatch(/^ {4}defaults:\n {6}run:\n {8}shell: bash$/m);
+    }
+  });
+
   test('jeder Workflow im Repo hat eine gültige YAML-Struktur und Berechtigungen', () => {
     // Ein Workflow ohne `permissions` bekommt die Repo-Vorgabe — bei einem
     // oeffentlichen Repo mit Deploy-Rechten ist das zu viel.

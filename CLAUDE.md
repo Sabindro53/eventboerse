@@ -174,6 +174,46 @@ kann der Schritt trotzdem.
 ist nichts geprüft, und das muss anders aussehen als „in Ordnung". Genau diese
 Verwechslung ließ den toten Scan vier Monate wie Schutz aussehen.
 
+### Sechs Tore, die nicht blockieren konnten
+
+Beim Einhängen des Aktivitäten-Tors aufgefallen, am 09.09.2026. Die Tore in
+`pr-check.yml` schreiben ihren Befund mit `| tee -a "$GITHUB_STEP_SUMMARY"`
+in die Zusammenfassung — damit man ihn sieht, ohne ins Log zu steigen.
+
+**Genau diese Pipe hat sie entwaffnet.** Ohne `shell:` startet GitHub
+`bash -e {0}`, **ohne `pipefail`**. Der Rückgabewert einer Pipe ist dann der
+des **letzten** Glieds — und `tee` gelingt immer. `node scripts/recht.mjs
+--check | tee` meldete also Erfolg, auch wenn `recht.mjs` mit 1 ausstieg.
+
+Nachgemessen, nicht vermutet:
+
+| | `false \| tee` | Skript |
+|---|---|---|
+| `bash -e` (GitHubs Vorgabe ohne `shell:`) | Status **0** | läuft weiter |
+| `bash -eo pipefail` (was `shell: bash` setzt) | Status **1** | bricht ab |
+
+Betroffen waren **sechs** Schritte: Recht, Geheimnisse, Icons, Kontext, der
+Code-Prüfer (der ohnehin nie blockieren soll) und das neue Aktivitäten-Tor.
+Jedes lief, jedes schrieb seinen Befund sichtbar hin — und keines konnte den
+PR rot machen. **Dieselbe Klasse wie der tote Gitleaks-Scan**, nur eine Ebene
+tiefer: der Prüfer sucht wirklich, er findet auch, und sein Fund hat keine
+Folge.
+
+Behoben mit `defaults: run: shell: bash` **am Job**, nicht je Schritt: eine
+Regel, die man an jedem neuen Schritt wiederholen muss, wird beim nächsten
+vergessen — und dann ist genau dieses Tor still wirkungslos.
+
+**Der erste Versuch stand im falschen Job und der Test war trotzdem grün.**
+`pr-check.yml` hat zwei Jobs; die Tore liegen alle in `tests`, der Block
+landete in `check`. Der Test suchte die Zeichenfolge in der **Datei** — die
+richtige Zeile an der falschen Stelle. Er zerlegt jetzt nach Jobs und
+verlangt `defaults` in **jedem** Job, der ein Tor in `tee` pipet.
+
+**Die Tagesroutine bleibt bewusst ungeschützt gelassen** — dort sind die
+gepipten Schritte als Berichte gebaut („die Routine soll den Zustand
+festhalten, nicht nachts rot werden"). Nur die zwei Aktivitäten-Schritte
+tragen dort `shell: bash`, weil sie blockieren sollen.
+
 ### Der Ausstieg aus `unsafe-inline`
 
 Die CSP trug `script-src 'unsafe-inline'` — damit ist sie als XSS-Schutz
@@ -1142,6 +1182,79 @@ nicht auflösen kann, meldet er, statt es als sauber zu verbuchen.
 **Ein Modell schreibt bei Eventbörse keine Rechtstexte.** `vault/40-Governance/`
 liegt außerhalb des Autopilot-Rahmens — gewollt, nicht technisch bedingt.
 
+### Was ist in meiner Nähe los — der Aktivitäten-Bestand
+
+```bash
+node scripts/aktivitaeten.mjs --holen        # abrufen (braucht Netz, läuft in der Tagesroutine)
+node scripts/aktivitaeten.mjs --aus roh.json # aus gespeicherten Rohdaten erzeugen
+node scripts/aktivitaeten.mjs --check        # CI-Tor (pr-check.yml + Tagesroutine)
+```
+
+Schritt 3 der Vision (`vault/10-Produkt/Vision-Plattform.md`): die
+Entdeckungs-Ebene an echten Daten beweisen, ohne Vertrag und ohne Kosten.
+Zwei Quellen für den Umkreis von 50 km um Köln, beide frei und ohne
+Schlüssel: **OpenLigaDB** (Heimspiele des 1. FC Köln) und
+**OpenStreetMap/Overpass** (Kino, Escape-Room, Kletterhalle, Erlebnisbad,
+Museum, Zoo, Theater). Ergebnis: `assets/eb-aktivitaeten.json`.
+
+**Facebook und Google Maps stehen bewusst nicht dabei.** Meta hat die
+öffentliche Events-API 2018 abgeschaltet — es gibt keinen legalen Weg
+dorthin. Google Places liefert Orte *ohne Termine* und verbietet in der
+Lizenz ausdrücklich, daraus eine eigene Datenbank zu bauen. Beide standen in
+der ursprünglichen Idee; beide tragen nicht.
+
+**Das Skript ist zweigeteilt, und das ist die Lehre aus einer Leiche.**
+`scripts/localize-demo-images.mjs` ist fertig, richtig — und **nie gelaufen**,
+weil es Netzzugang braucht, den die Agent-Umgebung nicht hat. Hier braucht
+nur das **Holen** Netz und läuft in der Tagesroutine; **Umwandeln und
+Prüfen** läuft überall, und `--aus` erzeugt aus einer gespeicherten
+Rohantwort dieselbe Ausgabe wie der echte Abruf. Die ganze Logik ist damit an
+`tests/fixtures/aktivitaeten-roh.json` prüfbar, ohne einen einzigen
+Netzaufruf. **Ein Test hält fest, dass die Tagesroutine den Abruf wirklich
+ruft** — ohne ihn wäre dies wieder ein Skript, das niemand startet.
+
+**`stand: null` heißt NIE ABGERUFEN**, nicht „nichts gefunden". Der Bericht
+sagt es in Worten, und die Erfolgsmeldung nennt die Zahl der geprüften
+Einträge: „alles in Ordnung" bei null Einträgen ist keine Entwarnung, sondern
+eine leere Liste.
+
+**Ein abgelaufener Termin blockiert nicht.** Er entsteht dadurch, dass die
+Tagesroutine eine Weile nicht lief — nicht durch den Diff, in dem der Check
+rot würde. Als Beanstandung geführt, machte er den PR eines Unbeteiligten rot
+mit einer Meldung, die niemand in seinem Diff wiederfindet; nach dem dritten
+Mal wäre das Tor abgeschaltet, und mit ihm die Prüfung auf fehlende Herkunft.
+Blockierend ist nur, was derselbe Commit beheben kann — dieselbe Regel wie in
+`recht.mjs`. Gemeldet wird er trotzdem.
+
+**Ein leerer Abruf überschreibt keinen gefüllten Bestand.** Eine Antwort mit
+200 und ohne Inhalt ist ein Quellenausfall; geschrieben sähe sie auf der
+Seite aus wie „heute ist nichts los" — ein leerer Bildschirm, den niemand als
+Fehler erkennt. Der Lauf endet dann rot, der alte Stand bleibt.
+
+**Fremder Text ist Daten, nie Markup.** Titel und Ortsnamen kommen von
+Fremden und landen in unserer Oberfläche; spitze Klammern und Steuerzeichen
+werden entschärft (nicht der Eintrag verworfen), die Länge bei 120 Zeichen
+gekappt. Und der Bestand erreicht **die Wissensbasis nie**: `eb-knowledge.json`
+speist den KI-Bot, ein OSM-Name darin wäre eine Einladung zur
+Prompt-Injektion. `build-knowledge.mjs` liest ausschließlich aus `vault/`,
+und ein Test hält beide Richtungen fest.
+
+**Die Datei ist öffentlich** — als dritte neben `eb-knowledge.json` und
+`eb-demo-feed.json`. Sie *ist* die Entdeckungs-Ebene; sie zu sperren hieße,
+die Funktion zu sperren. Inhalt sind Spielansetzungen und Namen von Kinos aus
+zwei öffentlichen Quellen, kein Nutzerbezug, kein Betriebswissen. Die
+Freigabeliste wird jetzt **vollständig aufgezählt** geprüft, nicht
+stichprobenartig: wer eine vierte Datei öffentlich macht, scheitert an einem
+Test und muss die Freigabe begründen.
+
+**Die ODbL verlangt Namensnennung.** Jeder Eintrag führt Quelle, Adresse und
+Lizenz mit; das ist Lizenzbedingung, keine Höflichkeit — und zugleich der
+Schutz davor, dass ein Eintrag ohne Herkunft erfunden aussieht.
+
+```bash
+npx playwright test tests/e2e/aktivitaeten.spec.js   # 21 Tests, an Prüfstücken
+```
+
 ### Demo-Inhalte & Wissenslücken
 
 ```bash
@@ -1503,7 +1616,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-832 Tests in 54 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+854 Tests in 55 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

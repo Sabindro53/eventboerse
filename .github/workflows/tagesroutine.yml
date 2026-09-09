@@ -81,6 +81,37 @@ jobs:
       - name: Ehrlichkeit + Reproduzierbarkeit pruefen
         run: node scripts/demo-feed.mjs --check
 
+      # Aktivitaeten im Umkreis von Koeln: OpenLigaDB (Heimspiele 1. FC Koeln)
+      # und OpenStreetMap/Overpass (Kino, Escape-Room, Kletterhalle, Museum,
+      # Zoo, Theater). HIER laeuft der Abruf, weil hier Netz ist -- die
+      # Agent-Umgebung hat keins, und genau daran ist localize-demo-images.mjs
+      # gestorben: fertig geschrieben, nie ausgefuehrt.
+      #
+      # NICHT TOEDLICH. Faellt eine der beiden fremden APIs aus, ist das kein
+      # Grund, die ganze Routine abzubrechen -- Selbstcheck, Rechtslage und
+      # Geheimnis-Scan sind wichtiger als ein Veranstaltungsverzeichnis. Das
+      # Skript selbst weigert sich, einen gefuellten Bestand mit 0 Eintraegen
+      # zu ueberschreiben; ein Ausfall laesst also den alten Stand stehen,
+      # statt die Seite leerzuraeumen. Sichtbar vermerkt, nicht still.
+      - name: Aktivitaeten-Bestand holen
+        continue-on-error: true
+        # Ohne `shell: bash` laeuft `bash -e` OHNE pipefail: der Status der
+        # Pipe waere der von `tee`, und das `||` unten wuerde nie greifen.
+        shell: bash
+        run: |
+          node scripts/aktivitaeten.mjs --holen | tee -a "$GITHUB_STEP_SUMMARY" || {
+            echo "⚠ Aktivitaeten-Abruf fehlgeschlagen — der bisherige Bestand bleibt stehen." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+
+      # Das Tor laeuft AUCH bei fehlgeschlagenem Abruf (if: always()), sonst
+      # bliebe ein beschaedigter Bestand ungeprueft liegen.
+      - name: Aktivitaeten-Bestand pruefen
+        if: always()
+        shell: bash    # sonst blockiert das Tor nicht, siehe oben
+        run: node scripts/aktivitaeten.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Selbstcheck erneuern
         run: node scripts/self-audit.mjs
 
@@ -168,7 +199,7 @@ jobs:
           # Eine Liste, zwei Verwendungen. Standen sie doppelt da, erzeugte
           # jede neue Datei eine stille Luecke: gemessen, geschrieben, nie
           # committet — die Routine haette gearbeitet und nichts hinterlassen.
-          ERGEBNISSE="assets/eb-demo-feed.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md assets/eb-rechtsquellen.json assets/eb-rechtsunterlagen.json assets/eb-rechtsunterlagen-data.php"
+          ERGEBNISSE="assets/eb-demo-feed.json assets/eb-aktivitaeten.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md assets/eb-rechtsquellen.json assets/eb-rechtsunterlagen.json assets/eb-rechtsunterlagen-data.php"
 
           if git diff --quiet -- $ERGEBNISSE; then
             echo "Keine Aenderung — Feed, Selbstcheck, Journal, Rechtslage und amtliche Quellen sind aktuell." >> "$GITHUB_STEP_SUMMARY"

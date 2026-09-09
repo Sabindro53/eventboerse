@@ -12,6 +12,7 @@ jobs:
   check:
     name: PR-Validierung
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,6 +81,31 @@ jobs:
   tests:
     name: E2E-Testsuite (Playwright)
     runs-on: ubuntu-latest
+    # EIN TOR, DAS IN `tee` PIPET, BLOCKIERT OHNE DIESE ZEILE NICHT.
+    #
+    # Ohne `shell:` startet GitHub `bash -e {0}` -- OHNE `pipefail`. Der
+    # Rueckgabewert einer Pipe ist dann der des LETZTEN Glieds, also der von
+    # `tee`, und `tee` gelingt immer. `node scripts/recht.mjs --check | tee`
+    # meldet damit Erfolg, auch wenn recht.mjs mit 1 aussteigt.
+    #
+    # Betroffen waren fuenf blockierende Tore: Recht, Geheimnisse, Icons,
+    # Kontext und der Aktivitaeten-Bestand. Jedes davon lief, jedes schrieb
+    # seinen Befund in die Zusammenfassung -- und keines konnte den PR rot
+    # machen. Dieselbe Klasse wie der tote Gitleaks-Scan: ein Schutz, der
+    # aussieht wie Schutz.
+    #
+    # Nachgemessen, nicht vermutet:
+    #   bash -e            -> `false | tee` ergibt Status 0, das Skript laeuft weiter
+    #   bash -eo pipefail  -> Status 1, das Skript bricht ab
+    #
+    # `shell: bash` setzt `bash --noprofile --norc -eo pipefail {0}`. Hier als
+    # `defaults` fuer den ganzen Job, nicht je Schritt: eine Regel, die man an
+    # jedem neuen Schritt wiederholen muss, wird beim naechsten vergessen --
+    # und dann ist genau dieses Tor still wirkungslos.
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -155,6 +181,14 @@ jobs:
         run: |
           node scripts/rechtsquellen.mjs --check
           node scripts/rechtsunterlagen.mjs --check
+
+      # Aktivitaeten-Bestand: jeder Eintrag muss seine Herkunft nennen (bei
+      # ODbL ist die Namensnennung Lizenzbedingung, keine Hoeflichkeit), und
+      # kein Titel darf Markup tragen -- der Text kommt von Fremden und landet
+      # in unserer Oberflaeche. Ein abgelaufener Termin blockiert NICHT: er
+      # entsteht durch eine ausgefallene Tagesroutine, nicht durch diesen Diff.
+      - name: Aktivitäten-Bestand prüfen
+        run: node scripts/aktivitaeten.mjs --check | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Die Icon-Schrift ist auf die benutzten Symbole zugeschnitten. Ein neu
       # eingebautes Icon, das nicht mitgeschnitten wurde, erscheint im Betrieb
