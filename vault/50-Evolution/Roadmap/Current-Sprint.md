@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1005 Tests in 62 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1007 Tests in 62 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Freunde und Gruppen gibt es jetzt** (09.09.2026). Vorher gab es davon
   *nichts* — `'musikgruppe'` ist eine Kategorie, `_feedRadarGruppen` ist
@@ -28,6 +28,12 @@ einen alten Abschnitt gelesen und nicht diesen.
   das Orakel „gibt es hier ein Konto zu dieser Adresse". Der Prüfstand führt
   PHP wirklich aus und hat dabei drei eigene blinde Stellen gefunden.
   43 + 14 Tests, 15 Mutationen
+- **Ein Barrierefreiheits-Tor, das nach WCAG 2.2 nie gefragt hat**
+  (10.09.2026). Die Kennungsliste endete bei `wcag21aa` — SC 2.5.8
+  „Target Size" lag ausserhalb ihres Blickfelds. Gemessen: 25 Galerie-Punkte
+  mit 7×7 px Trefferfläche, Schweregrad `serious`, der einzige 2.2-Verstoß
+  der Anwendung. Behoben ohne optische Änderung; das Tor fragt jetzt auch
+  nach 2.2. Relevant seit dem BFSG (28.06.2025) über EN 301 549
 - **Der gemeinsame Plan steht** (10.09.2026). Gruppen können jetzt wirklich
   gemeinsam an einem Vorhaben arbeiten: Posten anlegen, übernehmen, Budget
   führen. Zeilen statt JSON-Feld, damit zwei Personen sich nicht

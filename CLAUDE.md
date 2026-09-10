@@ -2118,6 +2118,53 @@ WordPress trotz Admin-Cookie die Identität und die Route antwortet 401/403.
 nur `eb-knowledge.json` und `eb-demo-feed.json`.
 Details: `vault/30-Betrieb/Verbindungen.md`.
 
+### Ein Tor, das nach 2.2 nie gefragt hat
+
+Am 10.09.2026 beim Durchgehen der Nutzerpfade am Telefon gemessen. Der erste
+Blick war zu grob und musste korrigiert werden — das gehört zur Lehre:
+
+**Falscher Maßstab, falscher Befund.** Gezählt wurden zuerst „16 zu kleine
+Bedienelemente" auf dem Board, gemessen an Apples 44 pt. Am **bindenden**
+Maßstab (WCAG 2.2 SC 2.5.8: 24×24 px) ist das Board sauber; das kleinste
+Element dort misst 31 px und verfehlt nur eine Richtlinie, keine Norm. Ein
+Prüfer, der sich im Maßstab irrt, ist gefährlicher als keiner.
+
+**Die echte Fundstelle lag auf der Landeseite:** 25 Galerie-Punkte auf den
+Inseratskarten mit **7×7 px** Trefferfläche. axe meldet sie als `target-size`,
+Schweregrad `serious` — und es war der **einzige** WCAG-2.2-Verstoß der
+gesamten Anwendung.
+
+**Die Abstands-Ausnahme greift ausgerechnet hier nicht.** SC 2.5.8 erlaubt
+kleinere Flächen, wenn 24-px-Kreise um die Mitten sich nicht schneiden. Bei
+12 px Mittenabstand tun sie das. Beide Wege der Norm laufen also auf denselben
+Mindestabstand hinaus.
+
+Behoben, ohne das Aussehen zu ändern: der Knopf trägt die Fläche, `::before`
+den Punkt. Nachgemessen — Trefferfläche 24×24, sichtbarer Punkt weiter 7×7,
+Position 14 px statt 13,5 px vom Kartenrand, Reihe 120 px in einer 363 px
+breiten Karte, kein Querscroll.
+
+**Der teurere Befund war das Tor selbst.** `barrierefreiheit.spec.js` fragte
+`wcag2a`, `wcag2aa`, `wcag21aa` — die Kriterien der Fassung **2.2** konnte es
+damit gar nicht sehen. Nicht falsch gemessen, sondern nie gefragt. Die
+Mutationsprobe zeigt es: mit der alten 7-px-Fläche **und** der alten
+Kennungsliste laufen alle Tests grün durch, über einen `serious`-Verstoß
+hinweg. Genau der Zustand vor der Messung.
+
+Das ist nicht nur Höflichkeit: das **Barrierefreiheitsstärkungsgesetz** gilt
+seit dem 28.06.2025 für den elektronischen Geschäftsverkehr und verweist über
+EN 301 549 auf den jeweils geltenden WCAG-Stand.
+
+**Neue Kennungsliste → auch der Test dazu.** Ein eigener Test hält fest, dass
+`wcag22aa` in `withTags` steht; ohne ihn fiele die Fassung 2.2 beim nächsten
+Umbau still heraus, und nichts würde rot. Dazu die Gegenprobe, dass der
+sichtbare Punkt **nicht** mitwächst — sonst wäre die Regel dadurch erfüllt,
+dass jemand die Punkte aufbläst und die Karten aussehen wie eine Perlenkette.
+
+```bash
+npx playwright test tests/e2e/barrierefreiheit.spec.js   # 14 Tests, axe + Zielgrößen
+```
+
 ### Der Kontext wird nachgemessen
 
 ```bash
@@ -2230,7 +2277,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1005 Tests in 62 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1007 Tests in 62 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2308,8 +2355,10 @@ auf), TOTP (RFC-6238-Vektoren, Wiederverwendung, Zeitangriff), **Board-Sync**
 je Position, Anlegen/Bearbeiten/Ablauf), **Pflichtchecks** (Selbstbuchungs-
 schutz, Demo-Toggle, Board-Picker, Listings), Radar (Umkreis, lokale Position,
 Migrations-Verhalten), Vision-Release, Kern
-(Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), Barrierefreiheit (axe,
-beide Farbmodi), Design-System, CSS-Minify. `pr-check.yml` blockiert PRs bei
+(Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), **Barrierefreiheit**
+(axe über beide Farbmodi — seit dem 10.09.2026 auch WCAG **2.2**; die
+Galerie-Punkte sind 24 px breit und sehen weiter aus wie 7 px), Design-System,
+CSS-Minify. `pr-check.yml` blockiert PRs bei
 Fehlern. Die Rechtsablage-Suite prüft zusätzlich private Speicherung,
 Versionshistorie, Aufgabenstatus und den amtlichen Quellenmonitor.
 
