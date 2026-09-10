@@ -55,6 +55,86 @@ function ebAssetUrl(datei) {
 }
 
 /* ============================================================================
+ * BEWEGUNGSREDUKTION — eine Stelle, live gefragt
+ *
+ * Vier Module fragten `prefers-reduced-motion` je mit einer eigenen Kopie der
+ * Medienabfrage ab — und der Hero-Marquee als einziges bewegtes Element gar
+ * nicht. Am 10.09.2026 im echten Chromium gemessen, drei Runden verschachtelt,
+ * Landeseite im Leerlauf:
+ *
+ *   normal            542 / 590 / 501 ms Hauptthread je drei Sekunden
+ *   reduce           1132 / 1085 / 1169 ms   ← das DOPPELTE
+ *
+ * Wer Bewegungsreduktion einschaltet, zahlte also mehr und sah nichts davon.
+ * Der Posten dahinter war `Layerize: 914 ms`, und der Treiber war der Marquee:
+ * derselbe Zustand ohne seine rAF-Schleife ergab 158 / 400 ms.
+ *
+ * Der Mechanismus: laufende Deko-Animationen befördern ihre Elemente auf
+ * eigene Compositor-Ebenen. Im Ruhe-Modus sind die Animationen aus, die
+ * Beförderung fällt weg — und jeder Marquee-Frame erzwingt danach einen
+ * Ebenenbaum, der ungleich mehr Inhalt umfasst. Die Maßnahme gegen Bewegung
+ * machte die verbliebene Bewegung teuer.
+ *
+ * LIVE GEFRAGT, NICHT EINMAL GEMERKT. Die Einstellung ist im Betriebssystem
+ * umschaltbar, während die Seite offen ist. Ein beim Start eingefrorener Wert
+ * hieße: wer sie einschaltet, muss neu laden — und genau das kann jemand mit
+ * Bewegungsempfindlichkeit im Zweifel nicht abwarten.
+ * ========================================================================= */
+
+var _ebBewegungMql = null;
+
+function _ebBewegungQuelle() {
+  if (_ebBewegungMql !== null) return _ebBewegungMql;
+  try {
+    _ebBewegungMql = (typeof window !== 'undefined' && window.matchMedia)
+      ? window.matchMedia('(prefers-reduced-motion: reduce)') : false;
+  } catch (e) { _ebBewegungMql = false; }
+  return _ebBewegungMql;
+}
+
+/** true, wenn der Nutzer weniger Bewegung wünscht. */
+function ebBewegungReduziert() {
+  var q = _ebBewegungQuelle();
+  return !!(q && q.matches);
+}
+
+var _ebBewegungHorcher = [];
+
+/**
+ * Auf Änderungen der Einstellung horchen. `fn(reduziert)` läuft bei jedem
+ * Umschalten — ein Fehler in einem Horcher darf die übrigen nie mitreißen.
+ */
+function ebBewegungBeobachten(fn) {
+  if (typeof fn !== 'function') return;
+  var q = _ebBewegungQuelle();
+  if (!q) return;
+  _ebBewegungHorcher.push(fn);
+  if (_ebBewegungHorcher.length > 1) return;   // ein Abonnement genügt für alle
+  var melden = function () {
+    var jetzt = ebBewegungReduziert();
+    for (var i = 0; i < _ebBewegungHorcher.length; i++) {
+      try { _ebBewegungHorcher[i](jetzt); } catch (e) { /* Kür, nie Pflicht */ }
+    }
+  };
+  if (typeof q.addEventListener === 'function') q.addEventListener('change', melden);
+  else if (typeof q.addListener === 'function') q.addListener(melden);   // Safari < 14
+}
+
+/**
+ * Horcher wieder abmelden.
+ *
+ * PFLICHT FÜR JEDEN, DER SEIN ZIEL VERWIRFT. Der Hero-Marquee baut sich bei
+ * jedem Rendern der Startseite neu auf und räumt seine Zuhörer dabei ab.
+ * Ohne diese Zeile bliebe je Aufbau ein Horcher auf einem toten Element
+ * zurück — eine Liste, die nur wächst, und jeder Eintrag darin schreibt beim
+ * nächsten Umschalten in ein Element, das längst niemand mehr sieht.
+ */
+function ebBewegungVergessen(fn) {
+  var i = _ebBewegungHorcher.indexOf(fn);
+  if (i >= 0) _ebBewegungHorcher.splice(i, 1);
+}
+
+/* ============================================================================
  * AVATAR-GENERATOR (Self-Hosted, deterministisch, kein externer Roundtrip)
  *
  * Erzeugt deterministisch eine Initial-Avatar-SVG-Data-URI aus einem Seed.

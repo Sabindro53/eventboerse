@@ -1072,7 +1072,7 @@ function _initHeroShots() {
   var slides = host.querySelectorAll('.ai-hero-shot');
   if (!slides.length) return;
 
-  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reduce = ebBewegungReduziert();
   if (_ebHeroTimer) { clearInterval(_ebHeroTimer); _ebHeroTimer = null; }
   if (reduce) {
     slides.forEach(function(s, i) { s.classList.toggle('active', i === 0); });
