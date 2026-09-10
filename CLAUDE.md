@@ -2060,9 +2060,29 @@ dieser Zahl läge bei jedem Lauf um 54 daneben — und ein Prüfer, der sich irr
 ist gefährlicher als keiner.
 
 **Ist die Suite nicht befragbar, ist das Exit 1.** Nicht messen ist kein
-Bestehen; sonst gälten wieder stillschweigend die Handzahlen. Mutationsgeprüft
-sind alle drei Eigenschaften — der Rückfall auf den Dokumentenabgleich, die
-ungeprüften Suitenzahlen und das stille Überspringen bei fehlender Messung.
+Bestehen; sonst gälten wieder stillschweigend die Handzahlen. Hergestellt wird
+der Fall an einem **gespiegelten Baum ohne `node_modules`** — Verzeichnisse
+echt, Dateien verlinkt, denn ein Verzeichnis-Symlink meldet
+`isDirectory() === false` und der PHP-Durchlauf fiele mit „16 Routen zu wenig"
+durch: rot aus dem falschen Grund. `node_modules/@playwright` kurz umzubenennen
+wäre der bequemere Weg und träfe die parallel startenden Playwright-Arbeiter.
+
+**Kein `npx` — die Lehre vom 03.09.2026 gilt auch hier.** Der erste Entwurf
+rief `npx playwright …`; damals blieb der Deploy zweimal über sechs Minuten
+stehen, weil `npx` zur Laufzeit **nachfragt**. Aufgerufen wird deshalb die
+installierte Datei über den eigenen Node-Prozess.
+
+Das braucht einen **eigenen** Test, und der Grund ist gemessen: der Fehlermodus
+von `npx` ist das *Hängen*, nicht das Fehlschlagen — mit `npx` an dieser Stelle
+bleiben alle anderen Tests der Datei grün. Gesucht wird die **Aufrufstelle**,
+nicht das Wort: der Kommentar daneben schreibt „npx" mehrfach aus, und ein
+Muster, das den erklärenden Text trifft statt der Zeile, ist hier schon
+mehrfach teuer gewesen. Dazu die Gegenprobe, dass überhaupt noch gemessen wird
+— sonst erfüllte man die Regel, indem man die Messung entfernt.
+
+Mutationsgeprüft sind alle fünf Eigenschaften: der Rückfall auf den
+Dokumentenabgleich, die ungeprüften Suitenzahlen, das stille Überspringen bei
+fehlender Messung, die Rückkehr von `npx` und der Wegfall der Messung selbst.
 
 ### Impuls-Strom messen
 
@@ -2102,7 +2122,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-961 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+962 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

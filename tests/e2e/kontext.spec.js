@@ -8,6 +8,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -44,6 +45,39 @@ function mitGeaendertenDateien(aenderungen, fn) {
     fs.writeFileSync(datei, inhalt.replace(alt, neu));
   }
   try { return fn(); } finally { vorher.forEach(([d, i]) => fs.writeFileSync(d, i)); }
+}
+
+/**
+ * Den Projektbaum in ein temporäres Verzeichnis spiegeln — ohne node_modules.
+ *
+ * Verzeichnisse werden ECHT angelegt, Dateien nur verlinkt: `kontext.mjs`
+ * läuft die PHP-Dateien mit `readdirSync(withFileTypes)` ab, und ein Symlink
+ * auf ein Verzeichnis meldet dort `isDirectory() === false`. Ein Baum aus
+ * lauter Verzeichnis-Symlinks fiele deshalb mit „16 Routen zu wenig" durch —
+ * rot aus dem falschen Grund, und die Zusicherung wäre unbelegt.
+ *
+ * `kontext.mjs` selbst wird KOPIERT, nicht verlinkt: Node löst den Pfad eines
+ * Moduls über den echten Ort auf, und dann zeigte `import.meta.url` wieder in
+ * das echte Projekt — samt seiner node_modules.
+ */
+function baumSpiegeln() {
+  const ziel = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-ohne-playwright-'));
+  const uebergehen = new Set(['node_modules', '.git', 'test-results', 'playwright-report']);
+  (function spiegeln(rel) {
+    for (const e of fs.readdirSync(path.join(ROOT, rel), { withFileTypes: true })) {
+      if (uebergehen.has(e.name)) continue;
+      const r = rel ? path.join(rel, e.name) : e.name;
+      if (e.isDirectory()) {
+        fs.mkdirSync(path.join(ziel, r), { recursive: true });
+        spiegeln(r);
+      } else {
+        fs.symlinkSync(path.join(ROOT, r), path.join(ziel, r));
+      }
+    }
+  }(''));
+  fs.rmSync(path.join(ziel, 'scripts', 'kontext.mjs'));
+  fs.copyFileSync(SKRIPT, path.join(ziel, 'scripts', 'kontext.mjs'));
+  return ziel;
 }
 
 // Diese Tests schreiben CLAUDE.md kurzzeitig um. Sie MÜSSEN nacheinander
@@ -153,24 +187,56 @@ test.describe('Kontext: CLAUDE.md gegen den Code', () => {
     // toten Gitleaks-Scan vier Monate wie Schutz aussehen: er suchte nie und
     // meldete nichts, und beides sah gleich aus.
     //
-    // Hergestellt, indem `npx` unauffindbar wird — dann kann das Tor die
-    // Suite nicht befragen und MUSS rot melden, statt die Handzahlen
-    // stillschweigend gelten zu lassen.
+    // ── WIE DER FALL HERGESTELLT WIRD ───────────────────────────────────
     //
-    // Node wird dabei über `process.execPath` gestartet, nicht über den
-    // PATH. Der erste Entwurf leerte den PATH ganz — dann fand die Shell
-    // auch `node` nicht, das Tor lief nie an, und der Test belegte statt
-    // seiner Zusicherung nur, dass ein Aufruf ins Leere fehlschlägt.
-    const leer = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'kein-npx-'));
+    // Der Prüfer ruft die installierte Playwright-Datei über ihren Pfad
+    // (kein `npx` — siehe die Begründung in kontext.mjs). Also wird ein
+    // Baum gespiegelt, in dem alles steht AUSSER `node_modules`: dort ist
+    // Playwright wirklich nicht installiert, und der Prüfer muss rot melden.
+    //
+    // Zwei Wege, die NICHT gehen und beide ausprobiert wurden:
+    // · den PATH leeren — wirkungslos, seit `npx` draussen ist;
+    // · `node_modules/@playwright` kurz umbenennen — das trifft die anderen
+    //   Playwright-Arbeiter, die parallel starten. Ein Test, der die Suite
+    //   um sich herum sabotiert, erzeugt Fehlschläge ohne Ursache.
+    const spiegel = baumSpiegeln();
     let r;
     try {
-      r = { ok: true, aus: execFileSync(process.execPath, [SKRIPT, '--check'],
-        { cwd: ROOT, encoding: 'utf8', env: { ...process.env, PATH: leer } }) };
+      r = { ok: true, aus: execFileSync(process.execPath,
+        [path.join(spiegel, 'scripts', 'kontext.mjs'), '--check'],
+        { cwd: spiegel, encoding: 'utf8' }) };
     } catch (e) {
       r = { ok: false, aus: String(e.stdout || '') + String(e.stderr || '') };
     }
     expect(r.ok, 'ohne messbare Suite meldet das Tor trotzdem Erfolg').toBe(false);
     expect(r.aus).toMatch(/Testzahl nicht messbar/);
+  });
+
+  test('die Suite wird nicht über `npx` befragt', () => {
+    // ── DIE LEHRE VOM 03.09.2026 ─────────────────────────────────────────
+    //
+    // Der Deploy blieb zweimal über sechs Minuten stehen, weil `npx` bei
+    // einer Namens-Nichtübereinstimmung zur Laufzeit NACHFRAGT — und auf
+    // einem Runner beantwortet das niemand. `npx` flog daraufhin ganz aus
+    // dem Deploy; der Prüfer hier hat es beinahe wieder eingeschleppt.
+    //
+    // Warum ein eigener Test: der Fehlermodus von `npx` ist das HÄNGEN,
+    // nicht das Fehlschlagen. Der Test daneben („ohne Messung wird nicht
+    // durchgewunken") überlebt die Rückkehr von `npx` deshalb unbeschadet —
+    // nachgemessen, nicht vermutet: mit `npx` an dieser Stelle bleiben alle
+    // Tests dieser Datei grün. Nur diese Prüfung fängt es.
+    //
+    // Gesucht wird die AUFRUFSTELLE, nicht das Wort: der Kommentar in
+    // kontext.mjs schreibt „npx" mehrfach aus, und ein Muster, das den
+    // erklärenden Text trifft statt der Zeile, ist hier schon mehrfach
+    // teuer gewesen.
+    const quelle = fs.readFileSync(SKRIPT, 'utf8');
+    const aufruf = quelle.match(/(?:execFileSync|execSync|spawnSync|spawn|exec)\(\s*['"`]npx['"`]/);
+    expect(aufruf, `kontext.mjs ruft npx auf: ${aufruf && aufruf[0]}`).toBeNull();
+    // Gegenprobe: der Prüfer befragt die Suite überhaupt — sonst wäre diese
+    // Regel dadurch erfüllt, dass gar nicht mehr gemessen wird.
+    expect(quelle, 'der Prüfer ruft die installierte Playwright-Datei nicht mehr auf')
+      .toMatch(/@playwright['"],\s*['"]test['"],\s*['"]cli\.js['"]/);
   });
 
   test('die überholte Polling-Angabe kommt nicht zurück', () => {

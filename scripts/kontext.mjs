@@ -152,16 +152,33 @@ export const AUSSAGEN = [
  * `--list` kostet 1,4 s und läuft im PR-Check unmittelbar vor
  * `npx playwright test`; die Installation ist dort also ohnehin da.
  *
+ * ── KEIN `npx` ──────────────────────────────────────────────────────────
+ *
+ * Der erste Entwurf rief `npx playwright …`. Das widerspricht einer teuer
+ * gelernten Regel des Projekts: am 03.09.2026 blieb der Deploy zweimal über
+ * sechs Minuten stehen, weil `npx` bei einer Namens-Nichtübereinstimmung zur
+ * Laufzeit **nachfragt** — und auf einem Runner beantwortet das niemand.
+ * `npx` ist damals bewusst ganz aus dem Deploy geflogen; es hier wieder
+ * einzuführen wäre derselbe Fehler in einem anderen Schritt.
+ *
+ * Aufgerufen wird deshalb die installierte Datei über den eigenen
+ * Node-Prozess: keine PATH-Suche, keine Auflösung, keine Rückfrage.
+ *
  * Schlägt der Aufruf fehl oder ist die Ausgabe unverständlich, ist das ein
  * FEHLER — nicht messen ist kein Bestehen. Genau diese Verwechslung liess
  * den toten Gitleaks-Scan vier Monate wie Schutz aussehen.
  */
+const PLAYWRIGHT_CLI = path.join(WURZEL, 'node_modules', '@playwright', 'test', 'cli.js');
+
 let _testzahlen = null;
 function testzahlen() {
   if (_testzahlen) return _testzahlen;
+  if (!fs.existsSync(PLAYWRIGHT_CLI)) {
+    return (_testzahlen = { fehler: 'Playwright ist nicht installiert (node_modules/@playwright/test/cli.js fehlt)' });
+  }
   let ausgabe;
   try {
-    ausgabe = execFileSync('npx', ['playwright', 'test', '--list', '--reporter=null'], {
+    ausgabe = execFileSync(process.execPath, [PLAYWRIGHT_CLI, 'test', '--list', '--reporter=null'], {
       cwd: WURZEL, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000,
     });
   } catch (e) {
