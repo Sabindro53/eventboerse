@@ -44,6 +44,13 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+// Der gemeinsame Plan bringt eine vierte Tabelle mit, und
+// `eb_social_tabellen_sql()` unten sammelt sie ein. Geladen wird sie
+// deshalb HIER und nicht erst in functions.php: wer diese Datei allein
+// einbindet — der Migrations-Prüfstand tut genau das —, bekäme sonst eine
+// Tabelle zu wenig, ohne dass es irgendwo auffiele.
+require_once __DIR__ . '/plan.php';
+
 /** Höchstzahl Gruppen je Nutzer — ein Deckel, kein Geschäftsmodell. */
 if ( ! defined( 'EB_MAX_GRUPPEN' ) ) {
     define( 'EB_MAX_GRUPPEN', 50 );
@@ -364,5 +371,22 @@ function eb_social_tabellen_sql() {
         KEY idx_user (user_id)
     ) $charset;";
 
-    return array( $friendships, $groups, $members );
+    // ── DIE LISTE WIRD EINGESAMMELT, NICHT AUFGEZÄHLT ──────────────────
+    //
+    // Diese Funktion ist die eine Stelle, aus der `eb_create_tables()` und
+    // die Erfolgsprüfung der Migration ihre Tabellen ableiten. Wer eine
+    // Social-Tabelle woanders definiert und hier nicht anhängt, bekäme sie
+    // weder angelegt noch nachgewiesen — und `eb_db_version` spränge
+    // trotzdem hoch. Genau der Fehler, der am 10.09.2026 behoben wurde,
+    // nur eine Ebene höher.
+    //
+    // `social.spec.js` hält deshalb fest, dass JEDES `CREATE TABLE` unter
+    // `includes/social/` hier ankommt.
+    //
+    // Kein `function_exists`-Vorbehalt: der wäre wieder eine still
+    // verschwindende Tabelle — wer diese Datei allein einbindet (der
+    // Migrations-Prüfstand tut genau das), bekäme drei statt vier und
+    // merkte es nirgends. Die Datei lädt ihre Ergänzung deshalb selbst,
+    // ganz oben.
+    return array_merge( array( $friendships, $groups, $members ), eb_plan_tabellen_sql() );
 }

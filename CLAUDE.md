@@ -1420,7 +1420,7 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 43 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/social.spec.js           # 44 Tests, PHP wirklich ausgefuehrt
 npx playwright test tests/e2e/freunde-ansicht.spec.js  # 14 Tests, echter Browser
 ```
 
@@ -1599,11 +1599,79 @@ irgendwann jemandem, dem der Server ihn bewusst vorenthalten hat.
 dem Umschalten sieht, wird übersehen — und dann wartet jemand vergeblich auf
 eine Antwort.
 
-**Noch nicht gebaut: der geteilte Plan.** Der Knopf „Vorhaben planen" führt ins
-Board und behauptet nicht, dass dort schon gemeinsam geplant würde. Das
-ehrlich zu benennen ist billiger, als es später zurückzunehmen. Der Weg dahin
-ist optimistisches Sperren (Revision mitschicken, bei Abweichung ablehnen und
-den aktuellen Stand zurückgeben) — nicht der Board-Blob.
+### Der gemeinsame Plan — das Vorhaben selbst
+
+Am 10.09.2026 gebaut. Bis dahin gab es Gruppen, aber nichts, woran sie
+gemeinsam arbeiten konnten; der Knopf „Vorhaben planen" führte ins Board und
+sagte ehrlich, dass darin bis auf Weiteres **eine** Person plant.
+
+```bash
+npx playwright test tests/e2e/plan.spec.js          # 25 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/plan-ansicht.spec.js  # 13 Tests, echter Browser
+```
+
+**Zeilen, kein JSON-Feld.** Ein `plan`-Feld an der Gruppe wäre dieselbe Falle
+wie `eb_board_projects`: Lesen, Ändern, Zurückschreiben — zwei Personen
+überschreiben sich, der letzte gewinnt, und niemand bekommt eine Meldung.
+Mit Zeilen (`eb_group_plan_items`, `EB_DB_VERSION` 3.0) arbitriert die
+Datenbank statt des zuletzt Angekommenen.
+
+**Drei Arten von Konflikt, drei Antworten** — und nur eine davon braucht
+optimistisches Sperren:
+
+| Fall | Antwort | Warum |
+|---|---|---|
+| **Hinzufügen** | gar keine | Zwei INSERTs sind zwei Posten. Wer hier sperrt, löst ein Problem, das es nicht gibt |
+| **Übernehmen** | bedingtes `UPDATE … WHERE zustaendig_id = 0` | Ein Wettlauf um EINEN Platz. Die Bedingung steht in der Abfrage, nicht in einem vorherigen `if` — optimistisches Sperren wäre hier **schwächer**, weil es genau das Lesen voraussetzt, in dem das Rennen entsteht |
+| **Bearbeiten** | Revision in der `WHERE`-Bedingung | Echtes Lesen-Ändern-Schreiben. Die einzige Stelle, an der die Revision trägt |
+
+**Die Absage trägt den aktuellen Stand.** Bei 409 schickt der Server den
+Posten mit, wie er jetzt ist, und die Ansicht setzt ihn sofort ein. Eine
+Ablehnung ohne ihn zwingt zu einem zweiten Abruf, und bis dahin sieht der
+Nutzer auf falsche Daten und klickt weiter darauf. „Bitte neu laden" wäre hier
+die schlechteste Auskunft — er hat nichts falsch gemacht, und nach dem
+Neuladen ist seine Eingabe weg.
+
+**Ein Eingeladener bekommt den Plan nicht.** Er ist der Inhalt der Gruppe;
+bekäme ihn schon, wer nur eingeladen ist, wäre eine Einladung ein Weg, ihn
+abzuholen und danach abzulehnen. Dieselbe Grenze wie bei der Mitgliederliste,
+aus demselben Grund — und `eb_plan_darf()` fragt deshalb ausdrücklich
+`eb_gruppe_ist_mitglied()`, nicht `eb_gruppe_darf_sehen()`.
+
+**Schreiben darf jedes Mitglied, löschen nur der Urheber** (oder die
+Verwaltung). Ein gemeinsames Vorhaben, an dem nur der Eigentümer arbeiten
+darf, ist keins; eine Liste, aus der jeder alles entfernen kann, auch nicht.
+
+**Ein Inserat wird geprüft, nicht geglaubt.** `listing_id` wird gegen
+`eb_listings` nachgesehen — ohne die Probe zeigte der Plan eine Karte, hinter
+der nichts steht, und der Fehler fiele erst dem auf, der darauf klickt. Der
+Test misst **beide** Richtungen: ein Prüfer, der nur das Ablehnen zeigt, ließe
+„lehnt immer ab" als Erklärung zu.
+
+**Löst sich die Gruppe auf, geht der Plan mit.** Das Auflösen löschte Gruppe
+und Mitgliederzeilen — die Posten nicht. Zurück blieben Bezeichnungen, freie
+Notizen und die Angabe, wer sich um was kümmern wollte: persönliche Daten,
+deren Zusammenhang weg ist und die niemand mehr erreichen kann. **Aufgefallen
+ist das beim Schreiben von Abschnitt 10a der Datenschutzerklärung** — der Satz
+über die Löschung wäre unwahr gewesen. Der Code folgt dem Text nicht; hier hat
+der Text den Code geprüft.
+
+**Elf Mutationen am Backend, sechs an der Ansicht**, jede macht die Suite rot.
+Zwei davon haben Fehler in den Tests selbst gefunden: der Prüfstand meldete
+`zustaendig_id` als fehlend (die Spalte hing am Datenbank-Standard —
+ausgerechnet die, auf der das bedingte UPDATE steht), und „der Plan lädt erst,
+wenn ihn jemand sehen will" war ein Rennen gegen `fetch`. Gemessen wird jetzt
+die **Reihenfolge** statt des Zeitpunkts: eine Marke in der Anfrageliste, und
+davor darf keine Plan-Anfrage stehen.
+
+**Die Ansicht entscheidet nichts** — dieselbe Regel wie im Nachbarmodul. Sie
+blendet aus, was der Server ohnehin ablehnt; ob er es wirklich ablehnt, prüft
+`plan.spec.js`.
+
+**`_sozialStand` trägt jetzt die eigene Personenkarte** (`ich`). Ohne sie
+konnte niemand seine **eigene** Zusage zurücknehmen: der Knopf „Doch nicht"
+prüft `zustaendig.id === meine`, und `meine` war immer 0. Ein fehlender Knopf
+fällt in keinem Test auf, der ihn nicht sucht.
 
 **Datenschutz: keine neue Apple-Datenart, aber ein neuer Abschnitt.** Der
 soziale Graph fällt unter *Identifiers › User ID* (der Handle) und *User
@@ -2122,7 +2190,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-962 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1001 Tests in 62 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2463,12 +2531,12 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 26 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `js/modules/` | Quelle des Frontends: 27 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
 | `styles.css` | ~17 500 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (124 Routen), Asset-Registrierung — 16 davon in `includes/social/routen.php` |
+| `functions.php` | WordPress-Theme: REST API (130 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan) |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -2489,7 +2557,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-124 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), Utilities.
+130 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), Utilities.
 
 **Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 

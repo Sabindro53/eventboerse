@@ -360,7 +360,7 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
     }
   });
 
-  test('die drei Tabellen werden auch wirklich angelegt', async () => {
+  test('die Tabellen werden auch wirklich angelegt', async () => {
     // Eine Tabellendefinition, die niemand ruft, ist eine Datei. Genau so
     // ist `localize-demo-images.mjs` gestorben: fertig, richtig, nie
     // gelaufen.
@@ -374,15 +374,45 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
 
     // Und der Versionssprung: ohne ihn läuft `dbDelta` nie, und die
     // Tabellen entstehen im Betrieb nicht.
-    const quelle = fs.readFileSync(path.join(ROOT, 'includes', 'social', 'freunde-gruppen.php'), 'utf8');
-    for (const t of ['eb_friendships', 'eb_groups', 'eb_group_members']) {
-      expect(quelle, `${t} fehlt im Schema`).toContain(`CREATE TABLE {$wpdb->prefix}${t}`);
-    }
     const m = fn.match(/define\(\s*'EB_DB_VERSION',\s*'([\d.]+)'\s*\)/);
     expect(m, 'EB_DB_VERSION ist nicht auffindbar').toBeTruthy();
     expect(parseFloat(m[1]),
       'die Schema-Version wurde nicht erhöht — dann läuft dbDelta nie')
       .toBeGreaterThanOrEqual(2.8);
+  });
+
+  test('jede Social-Tabelle kommt in eb_social_tabellen_sql() an', async () => {
+    // ── DIE FORTSETZUNG DES BEFUNDS VOM 10.09.2026 ────────────────────
+    //
+    // Die Migration leitet ihre Nachweisliste aus `eb_social_tabellen_sql()`
+    // ab — das ist behoben. Damit hängt jetzt alles daran, dass diese
+    // Funktion VOLLSTÄNDIG ist. Wer eine Tabelle in einer anderen Datei
+    // unter `includes/social/` definiert und hier nicht anhängt, bekäme sie
+    // weder angelegt noch nachgewiesen, und `eb_db_version` spränge
+    // trotzdem hoch: derselbe Fehler, nur eine Ebene höher.
+    //
+    // Gemessen wird gegen die AUSGEFÜHRTE Funktion, nicht gegen ihren
+    // Quelltext: dass ein Name in der Datei steht, sagt nicht, dass er auch
+    // zurückkommt.
+    const d = stand();
+    const geliefert = d.tabellen_sql;
+    expect(Array.isArray(geliefert) && geliefert.length,
+      'eb_social_tabellen_sql() liefert nichts — der Prüfer hat sein Subjekt verloren')
+      .toBeTruthy();
+
+    const ordner = path.join(ROOT, 'includes', 'social');
+    const gefunden = new Set();
+    for (const datei of fs.readdirSync(ordner).filter((f) => f.endsWith('.php'))) {
+      const quelle = fs.readFileSync(path.join(ordner, datei), 'utf8');
+      for (const t of quelle.matchAll(/CREATE TABLE\s+\{\$wpdb->prefix\}(\w+)/g)) {
+        gefunden.add(t[1]);
+      }
+    }
+    expect(gefunden.size, 'kein CREATE TABLE unter includes/social/ gefunden')
+      .toBeGreaterThanOrEqual(4);
+    expect([...geliefert].sort(),
+      'eine Tabelle ist definiert, kommt aber nicht in eb_social_tabellen_sql() an')
+      .toEqual([...gefunden].sort());
   });
 
   test('die Migration prüft ihre eigenen Tabellen nach', async () => {
@@ -412,13 +442,20 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
     expect(block, 'die Prüfung trägt die Tabellen wieder als Handliste')
       .toMatch(/SHOW TABLES LIKE '\{\$tab_social\}'/);
 
-    // Und die Gegenprobe am echten SQL: der Ausdruck, mit dem die Prüfung
-    // die Namen zieht, findet auch wirklich alle drei. Ein Muster, das
+    // Und die Gegenprobe am AUSGEFÜHRTEN SQL: der Ausdruck, mit dem die
+    // Prüfung die Namen zieht, findet auch wirklich jede. Ein Muster, das
     // nichts trifft, prüfte still gar nichts.
-    const quelle = fs.readFileSync(path.join(ROOT, 'includes', 'social', 'freunde-gruppen.php'), 'utf8');
-    const namen = [...quelle.matchAll(/CREATE TABLE\s+(\S+)\s*\(/g)].map((m) => m[1]);
-    expect(namen, 'der Ausdruck der Migrationsprüfung findet die Tabellen nicht')
-      .toHaveLength(3);
+    //
+    // Gezählt wird gegen die Rückgabe der echten Funktion, nicht gegen eine
+    // Zahl — die stünde beim nächsten Schema wieder falsch da, und dann
+    // zöge jemand sie nach, statt hinzusehen.
+    const d = stand();
+    expect(d.tabellen_sql.length,
+      'der Ausdruck der Migrationsprüfung findet die Tabellen nicht')
+      .toBeGreaterThanOrEqual(4);
+    for (const t of d.tabellen_sql) {
+      expect(t, `aus dem SQL kam kein brauchbarer Tabellenname: ${t}`).toMatch(/^eb_\w+$/);
+    }
   });
 
   test('das Paar steht nur einmal in der Tabelle', async () => {

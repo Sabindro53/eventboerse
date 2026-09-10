@@ -687,6 +687,19 @@ function eb_social_gruppe_verlassen( WP_REST_Request $request ) {
     ), ARRAY_A );
 
     if ( ! $rest ) {
+        // ── AUCH DER PLAN GEHT MIT ─────────────────────────────────────
+        //
+        // Ohne diese Zeile blieben die Posten als verwaiste Reihen stehen:
+        // Bezeichnungen, freie Notizen und die Angabe, wer sich um was
+        // kümmern wollte — persoenliche Daten, deren Zusammenhang geloescht
+        // ist und die niemand mehr erreichen kann. Sie fielen nie auf,
+        // weil ohne Gruppe niemand mehr danach fragt, und die
+        // Datenschutzerklaerung sagte etwas anderes zu.
+        //
+        // Zuerst der Plan, dann die Mitglieder, dann die Gruppe: bricht
+        // etwas dazwischen ab, bleibt die Gruppe bestehen und mit ihr der
+        // Weg zu dem, was noch da ist.
+        $wpdb->delete( $wpdb->prefix . 'eb_group_plan_items', array( 'group_id' => $gid ), array( '%d' ) );
         $wpdb->delete( $tab_m, array( 'group_id' => $gid ), array( '%d' ) );
         $wpdb->delete( $wpdb->prefix . 'eb_groups', array( 'id' => $gid ), array( '%d' ) );
         return new WP_REST_Response( array( 'success' => true, 'deleted' => true ), 200 );

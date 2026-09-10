@@ -28,6 +28,7 @@ require_once get_template_directory() . '/includes/security/rate-limit.php';
 // sich gegenseitig, ohne Meldung. Begruendung in freunde-gruppen.php.
 require_once get_template_directory() . '/includes/social/freunde-gruppen.php';
 require_once get_template_directory() . '/includes/social/routen.php';
+require_once get_template_directory() . '/includes/social/plan-routen.php';
 
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
@@ -3728,9 +3729,12 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * die UPDATEs sind idempotent, und der 2.7-Backfill haengt an
  * `eb_ai_disclosure_backfill_27` — ein zweiter Lauf ueberschreibt also keine
  * spaetere Korrektur des Betreibers.
+ * 3.0: der gemeinsame Plan einer Gruppe — eb_group_plan_items. Zeilen statt
+ * eines JSON-Felds, damit zwei Personen sich nicht gegenseitig
+ * ueberschreiben; die Begruendung steht in includes/social/plan.php.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '2.9' );
+    define( 'EB_DB_VERSION', '3.0' );
 }
 
 function eb_create_tables() {

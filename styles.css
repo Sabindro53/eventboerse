@@ -17520,5 +17520,81 @@ body.dark-mode .akt-karte { background: var(--bg-alt); }
 .soz-gruppe-fuss button { font-size: .8rem; display: inline-flex; align-items: center; gap: .3rem; }
 .soz-gruppe-fuss .material-icons-round { font-size: 16px; }
 
+/* ── Der gemeinsame Plan ───────────────────────────────────────────── */
+
+.soz-plan {
+  margin-top: .7rem; padding-top: .7rem;
+  border-top: 1px solid var(--border-light);
+}
+.soz-plan-kopf {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem;
+  margin-bottom: .6rem;
+}
+.soz-plan-kopf strong { font-size: .92rem; }
+.soz-plan-kopf small { font-size: .76rem; color: var(--text-light); }
+.soz-plan-liste { display: flex; flex-direction: column; gap: .45rem; }
+
+.soz-plan-posten {
+  padding: .55rem .7rem;
+  border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: var(--bg);
+  /* Der Zustand steht LINKS als Kante, nicht nur im Text: eine Liste, in
+     der man den Fortschritt lesen muss statt ihn zu sehen, wird nicht
+     überflogen. */
+  border-left: 3px solid var(--border);
+}
+.soz-plan-offen     { border-left-color: var(--primary); }
+.soz-plan-vergeben  { border-left-color: #f0a020; }
+.soz-plan-gebucht   { border-left-color: #2f9e6b; }
+.soz-plan-erledigt  { border-left-color: var(--border); opacity: .72; }
+
+.soz-plan-titel { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; }
+.soz-plan-titel strong { font-size: .9rem; }
+.soz-plan-kat {
+  font-size: .7rem; padding: .1rem .4rem;
+  border-radius: 999px; background: var(--bg-alt); color: var(--text-light);
+}
+.soz-plan-status { font-size: .74rem; color: var(--text-light); margin-left: auto; }
+.soz-plan-notiz { margin: .3rem 0 0; font-size: .8rem; color: var(--text-light); }
+
+.soz-plan-zeile {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+  margin-top: .45rem;
+}
+.soz-plan-wer {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: .78rem; color: var(--text);
+}
+.soz-plan-wer .material-icons-round { font-size: 15px; color: var(--text-light); }
+.soz-plan-frei { color: var(--text-light); font-style: italic; }
+.soz-plan-zeile button { font-size: .76rem; margin-left: auto; }
+.soz-plan-zeile button + button,
+.soz-plan-zeile .soz-plan-wahl + button { margin-left: 0; }
+.soz-plan-wahl {
+  padding: .25rem .4rem; font-size: .76rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--text);
+}
+.soz-plan-weg { padding: .25rem .4rem; }
+.soz-plan-weg .material-icons-round { font-size: 16px; }
+
+.soz-plan-neu {
+  display: flex; flex-wrap: wrap; gap: .4rem;
+  margin-top: .7rem; padding-top: .6rem;
+  border-top: 1px dashed var(--border-light);
+}
+.soz-plan-neu input {
+  flex: 1 1 8rem; min-width: 0;
+  padding: .45rem .55rem; font-size: .82rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--text);
+}
+.soz-plan-neu input[type="number"] { flex: 0 1 7rem; }
+.soz-plan-neu button { font-size: .8rem; display: inline-flex; align-items: center; gap: .3rem; }
+.soz-plan-neu .material-icons-round { font-size: 16px; }
+.soz-stoerung { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.soz-stoerung .material-icons-round { font-size: 17px; color: var(--danger, #d33); }
+
 body.dark-mode .soz-karte { background: var(--bg-alt); }
 body.dark-mode .soz-gruppe { background: var(--bg); }
+body.dark-mode .soz-plan-posten { background: var(--bg-alt); }

@@ -21,7 +21,7 @@
    eine Antwort kann veraltet oder verfälscht sein.
    ══════════════════════════════════════════════════════════════════ */
 
-var _sozialStand = null;          // { handle, friends, incoming, outgoing, blocked }
+var _sozialStand = null;          // { handle, ich, friends, incoming, outgoing, blocked }
 var _sozialGruppen = null;        // { groups, invitations }
 var _sozialReiter = 'freunde';    // 'freunde' | 'gruppen'
 var _sozialTreffer = [];
@@ -37,6 +37,11 @@ function sozialRuf(pfad, methode, rumpf) {
         var e = new Error(d && d.message ? d.message : 'Das hat nicht geklappt.');
         e.code = d && d.error;
         e.status = r.status;
+        // Der Rumpf bleibt am Fehler hängen. Eine Absage kann Nutzlast
+        // tragen — beim gemeinsamen Plan schickt der Server bei 409 den
+        // AKTUELLEN Stand mit, und ohne ihn müsste die Ansicht nachfragen
+        // und bis dahin den veralteten weiterzeigen.
+        e.daten = d;
         throw e;
       }
       return d;
@@ -277,9 +282,11 @@ function sozialGruppenKarte(gr) {
 
   html += '<div class="soz-gruppe-fuss">'
     + '<button type="button" class="btn-primary" onclick="sozialGruppePlanen(' + gr.id + ')">'
-    + '<span class="material-icons-round">dashboard</span> Vorhaben planen</button>'
+    + '<span class="material-icons-round">checklist</span> Gemeinsamer Plan</button>'
     + '<button type="button" class="btn-outline" onclick="sozialGruppeVerlassen(' + gr.id + ')">Verlassen</button>'
-    + '</div></div>';
+    + '</div>'
+    + sozialPlanAnsicht(gr)
+    + '</div>';
   return html;
 }
 
@@ -348,7 +355,12 @@ function sozialLaden(neu) {
     sozialRuf('social/gruppen'),
     sozialRuf('social/ich'),
   ]).then(function (a) {
-    _sozialStand = { handle: a[2].handle || '', friends: a[0].friends || [],
+    // `ich` ist die EIGENE Personenkarte vom Server, nicht `currentUser`.
+    // Sie wird gebraucht, um „meins" von „fremd" zu unterscheiden — beim
+    // gemeinsamen Plan hängt daran, ob jemand seine eigene Zusage wieder
+    // abgeben kann. Ohne sie fehlte genau dieser Knopf, und zwar still.
+    _sozialStand = { handle: a[2].handle || '', ich: a[2].person || null,
+      friends: a[0].friends || [],
       incoming: a[0].incoming || [], outgoing: a[0].outgoing || [], blocked: a[0].blocked || [] };
     _sozialGruppen = { groups: a[1].groups || [], invitations: a[1].invitations || [] };
   }).catch(function () {
@@ -510,24 +522,12 @@ function sozialCodeNeu(gid) {
     .catch(sozialFehler);
 }
 
-/**
- * Vom gemeinsamen Vorhaben ins Board.
+/*
+ * `sozialGruppePlanen()` steht jetzt in `social/61-gruppen-plan.js`.
  *
- * Der geteilte Plan selbst ist noch nicht gebaut — und dieser Knopf
- * behauptet auch nicht, dass er es wäre. Er legt ein Board-Projekt mit
- * Name und Datum der Gruppe an; geplant wird darin bis auf Weiteres von
- * einer Person. Das ehrlich zu benennen ist billiger, als es später
- * zurückzunehmen.
+ * Hier stand bis zum 10.09.2026 ein ehrlicher Platzhalter: der Knopf legte
+ * ein Board-Projekt an und sagte dazu, dass darin bis auf Weiteres EINE
+ * Person plant. Das war richtig, solange es den gemeinsamen Plan nicht gab
+ * — und es zurückzunehmen war der ganze Sinn der Sache.
  */
-function sozialGruppePlanen(gid) {
-  var gr = ((_sozialGruppen && _sozialGruppen.groups) || []).filter(function (g) { return g.id === gid; })[0];
-  if (!gr) return;
-  try {
-    if (typeof ebBoardProjektAusGruppe === 'function') {
-      ebBoardProjektAusGruppe(gr);
-      return;
-    }
-  } catch (e) { /* faellt unten durch */ }
-  showToast('Der gemeinsame Plan kommt als Nächstes. Bis dahin planst du im Board.', 'info');
-  navigateTo('board');
-}
+
