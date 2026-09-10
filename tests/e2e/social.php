@@ -123,8 +123,22 @@ function get_users( $args ) {
 class EB_Fake_WPDB {
     public $prefix = 'wp_';
     public $insert_id = 0;
-    public $tabellen = array( 'eb_friendships' => array(), 'eb_groups' => array(), 'eb_group_members' => array() );
-    private $auto = array( 'eb_friendships' => 0, 'eb_groups' => 0, 'eb_group_members' => 0 );
+    public $tabellen = array(
+        'eb_friendships'      => array(),
+        'eb_groups'           => array(),
+        'eb_group_members'    => array(),
+        'eb_group_plan_items' => array(),
+        // Kein Social-Tisch, aber der Plan fragt ihn: ein verknüpftes
+        // Inserat wird auf Existenz geprüft, statt geglaubt zu werden.
+        'eb_listings'         => array(),
+    );
+    private $auto = array(
+        'eb_friendships'      => 0,
+        'eb_groups'           => 0,
+        'eb_group_members'    => 0,
+        'eb_group_plan_items' => 0,
+        'eb_listings'         => 0,
+    );
 
     public function prepare( $sql, ...$args ) {
         if ( count( $args ) === 1 && is_array( $args[0] ) ) { $args = $args[0]; }
@@ -223,6 +237,34 @@ class EB_Fake_WPDB {
                 return in_array( (int) $r['id'], $gids, true );
             } ) );
         }
+        /* ── Der gemeinsame Plan ────────────────────────────────────── */
+        if ( $f === 'SELECT * FROM eb_group_plan_items WHERE id = ?' ) {
+            return array_values( array_filter( $this->tabellen['eb_group_plan_items'],
+                function ( $r ) use ( $w ) { return (int) $r['id'] === (int) $w[0]; } ) );
+        }
+        if ( $f === 'SELECT COUNT(*) FROM eb_group_plan_items WHERE group_id = ?' ) {
+            return array( array( 'c' => count( array_filter( $this->tabellen['eb_group_plan_items'],
+                function ( $r ) use ( $w ) { return (int) $r['group_id'] === (int) $w[0]; } ) ) ) );
+        }
+        // Die Sortierung wird NACHGEBILDET, nicht übergangen: „offen zuerst"
+        // ist eine Zusicherung der Ansicht, und ein Prüfstand, der jede
+        // Reihenfolge durchgehen lässt, kann sie nicht belegen.
+        if ( $f === "SELECT * FROM eb_group_plan_items WHERE group_id = ? ORDER BY FIELD(status, 'offen', 'vergeben', 'gebucht', 'erledigt'), id ASC" ) {
+            $rang = array_flip( array( 'offen', 'vergeben', 'gebucht', 'erledigt' ) );
+            $r    = array_values( array_filter( $this->tabellen['eb_group_plan_items'],
+                function ( $z ) use ( $w ) { return (int) $z['group_id'] === (int) $w[0]; } ) );
+            usort( $r, function ( $a, $b ) use ( $rang ) {
+                $ra = $rang[ $a['status'] ] ?? 99;
+                $rb = $rang[ $b['status'] ] ?? 99;
+                return $ra === $rb ? (int) $a['id'] - (int) $b['id'] : $ra - $rb;
+            } );
+            return $r;
+        }
+        if ( $f === 'SELECT id FROM eb_listings WHERE id = ?' ) {
+            return array_values( array_filter( $this->tabellen['eb_listings'],
+                function ( $r ) use ( $w ) { return (int) $r['id'] === (int) $w[0]; } ) );
+        }
+
         $this->unbekannt( $sql );
     }
 
@@ -318,6 +360,7 @@ $GLOBALS['wpdb'] = new EB_Fake_WPDB();
 
 require_once $wurzel . '/includes/social/freunde-gruppen.php';
 require_once $wurzel . '/includes/social/routen.php';
+require_once $wurzel . '/includes/social/plan-routen.php';
 
 /* ── Werkzeug ────────────────────────────────────────────────────────── */
 
@@ -574,6 +617,213 @@ $ergebnis['letzter_geht']  = ruf( 'eb_social_gruppe_verlassen', array(), array( 
 $ergebnis['gruppe_weg']    = eb_gruppe_laden( $gid ) === null;
 $ergebnis['zeilen_weg']    = count( array_filter( $GLOBALS['wpdb']->tabellen['eb_group_members'],
     function ( $r ) use ( $gid ) { return (int) $r['group_id'] === $gid; } ) );
+
+/* ══════════════════════════════════════════════════════════════════════
+   5 · DER GEMEINSAME PLAN
+
+   Eine eigene Buehne: die Gruppe oben ist am Ende aufgeloest.
+
+   Die Mitgliederzeilen werden hier DIREKT gesetzt. Wie man in eine Gruppe
+   kommt, ist oben durchgespielt — hier geht es um die Regeln des Plans, und
+   ein zweites Mal Freundschaft-Einladung-Zusage davorzusetzen machte den
+   Abschnitt nur laenger, nicht schaerfer.
+   ══════════════════════════════════════════════════════════════════════ */
+
+nutzer_anlegen( 10, 'Ida',  'ida.p' );
+nutzer_anlegen( 11, 'Jan',  'jan.p' );
+nutzer_anlegen( 12, 'Kira', 'kira.p' );   // nur eingeladen
+nutzer_anlegen( 13, 'Lars', 'lars.p' );   // gar nicht dabei
+
+als( 10 );
+$ergebnis['plan_gruppe'] = ruf( 'eb_social_gruppe_anlegen', array(
+    'name' => 'Hochzeit Ida & Jan', 'eventType' => 'Hochzeit', 'eventDate' => '2027-06-12',
+) );
+$pg = (int) ( $ergebnis['plan_gruppe']['body']['group']['id'] ?? 0 );
+
+$GLOBALS['wpdb']->insert( 'wp_eb_group_members',
+    array( 'group_id' => $pg, 'user_id' => 11, 'role' => 'member',  'joined_at' => '2026-09-10 00:00:00' ) );
+$GLOBALS['wpdb']->insert( 'wp_eb_group_members',
+    array( 'group_id' => $pg, 'user_id' => 12, 'role' => 'invited', 'joined_at' => '2026-09-10 00:00:01' ) );
+
+// Ein echtes Inserat, damit die Verknuepfung nicht nur am erfundenen Fall
+// geprueft wird: ein Test, der nur das Ablehnen zeigt, liesse „lehnt IMMER
+// ab" als Erklaerung zu.
+$GLOBALS['wpdb']->insert( 'wp_eb_listings', array( 'title' => 'DJ Julian' ) );
+$echtes_inserat = (int) $GLOBALS['wpdb']->insert_id;
+
+/* ── Wer den Plan ueberhaupt sieht ───────────────────────────────────── */
+
+als( 13 );
+$ergebnis['plan_fremder'] = ruf( 'eb_plan_lesen', array(), array( 'id' => $pg ) );
+
+// DIE HEIKLE STUFE: Kira ist eingeladen, hat aber nicht zugesagt. Der Plan
+// ist der Inhalt der Gruppe — bekaeme sie ihn, waere eine Einladung ein Weg,
+// ihn abzuholen und dann abzulehnen.
+als( 12 );
+$ergebnis['plan_eingeladener']       = ruf( 'eb_plan_lesen', array(), array( 'id' => $pg ) );
+$ergebnis['plan_eingeladener_schreibt'] = ruf( 'eb_plan_anlegen',
+    array( 'titel' => 'Torte' ), array( 'id' => $pg ) );
+
+/* ── Anlegen ─────────────────────────────────────────────────────────── */
+
+als( 10 );
+$ergebnis['plan_anlegen'] = ruf( 'eb_plan_anlegen', array(
+    'titel' => 'DJ für die Feier', 'kategorie' => 'Musik', 'betragCent' => 90000,
+    'notiz' => 'ab 20 Uhr', 'listingId' => $echtes_inserat,
+), array( 'id' => $pg ) );
+$p1 = (int) ( $ergebnis['plan_anlegen']['body']['item']['id'] ?? 0 );
+
+$ergebnis['plan_ohne_titel'] = ruf( 'eb_plan_anlegen',
+    array( 'titel' => '   ' ), array( 'id' => $pg ) );
+
+// Fremder Text wird nie zu Markup — und der Posten wird nicht verworfen,
+// sondern entschaerft: ein Nutzer, dessen Eintrag kommentarlos verschwindet,
+// haelt die Seite fuer kaputt.
+$ergebnis['plan_markup'] = ruf( 'eb_plan_anlegen', array(
+    'titel' => '<img src=x onerror=alert(1)>Catering',
+), array( 'id' => $pg ) );
+
+// Ein Inserat, das es nicht gibt, wird nicht geglaubt.
+$ergebnis['plan_geistinserat'] = ruf( 'eb_plan_anlegen', array(
+    'titel' => 'Fotograf', 'listingId' => 999999,
+), array( 'id' => $pg ) );
+
+// Ein negativer Betrag wird auf 0 gezogen, nicht abgewiesen.
+$ergebnis['plan_negativ'] = ruf( 'eb_plan_anlegen', array(
+    'titel' => 'Deko', 'betragCent' => -5000,
+), array( 'id' => $pg ) );
+
+/* ── Bearbeiten: die einzige Stelle mit Revision ─────────────────────── */
+
+$rev1 = (int) ( $ergebnis['plan_anlegen']['body']['item']['rev'] ?? 0 );
+als( 11 );
+$ergebnis['plan_aendern'] = ruf( 'eb_plan_aendern',
+    array( 'rev' => $rev1, 'notiz' => 'ab 19 Uhr', 'betragCent' => 85000 ),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+// Jan war schneller — Idas Formular kennt noch die alte Revision.
+$ergebnis['plan_veraltet'] = ruf( 'eb_plan_aendern',
+    array( 'rev' => $rev1, 'notiz' => 'ab 21 Uhr' ),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+$ergebnis['plan_ohne_rev'] = ruf( 'eb_plan_aendern',
+    array( 'notiz' => 'egal' ), array( 'id' => $pg, 'item' => $p1 ) );
+
+$rev2 = (int) ( $ergebnis['plan_aendern']['body']['item']['rev'] ?? 0 );
+$ergebnis['plan_status_muell'] = ruf( 'eb_plan_aendern',
+    array( 'rev' => $rev2, 'status' => 'irgendwas' ),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+/* ── Uebernehmen: ein Wettlauf um einen Platz ────────────────────────── */
+
+$ergebnis['plan_uebernehmen'] = ruf( 'eb_plan_uebernehmen', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+als( 10 );
+$ergebnis['plan_zweite_uebernahme'] = ruf( 'eb_plan_uebernehmen', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+// Ida ist Eigentuemerin und darf deshalb freigeben, obwohl Jan zugesagt hat.
+// Ein Mitglied ohne beides darf es nicht — sonst waere die Zusage nur eine
+// Absichtserklaerung.
+$ergebnis['plan_freigeben_leitung'] = ruf( 'eb_plan_freigeben', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+als( 11 );
+$ergebnis['plan_uebernehmen_2'] = ruf( 'eb_plan_uebernehmen', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+$ergebnis['plan_freigeben_selbst'] = ruf( 'eb_plan_freigeben', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+// Jan uebernimmt erneut, Ida gibt NICHT frei — sondern ein Mitglied ohne
+// Verwaltung und ohne Zusage. Dafuer braucht es einen dritten im Bunde.
+$GLOBALS['wpdb']->insert( 'wp_eb_group_members',
+    array( 'group_id' => $pg, 'user_id' => 13, 'role' => 'member', 'joined_at' => '2026-09-10 00:00:02' ) );
+$ergebnis['plan_uebernehmen_3'] = ruf( 'eb_plan_uebernehmen', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+als( 13 );
+$ergebnis['plan_freigeben_fremd'] = ruf( 'eb_plan_freigeben', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+/* ── Loeschen ────────────────────────────────────────────────────────── */
+
+// Lars hat den Posten nicht angelegt und verwaltet nicht.
+$ergebnis['plan_loeschen_fremd'] = ruf( 'eb_plan_loeschen', array(),
+    array( 'id' => $pg, 'item' => $p1 ) );
+
+// Der Ersteller darf.
+als( 13 );
+$ergebnis['plan_eigener'] = ruf( 'eb_plan_anlegen',
+    array( 'titel' => 'Shuttle' ), array( 'id' => $pg ) );
+$p_lars = (int) ( $ergebnis['plan_eigener']['body']['item']['id'] ?? 0 );
+$ergebnis['plan_loeschen_eigener'] = ruf( 'eb_plan_loeschen', array(),
+    array( 'id' => $pg, 'item' => $p_lars ) );
+
+// Die Verwaltung darf auch fremde Posten entfernen.
+als( 13 );
+$ergebnis['plan_eigener_2'] = ruf( 'eb_plan_anlegen',
+    array( 'titel' => 'Bus' ), array( 'id' => $pg ) );
+$p_lars2 = (int) ( $ergebnis['plan_eigener_2']['body']['item']['id'] ?? 0 );
+als( 10 );
+$ergebnis['plan_loeschen_leitung'] = ruf( 'eb_plan_loeschen', array(),
+    array( 'id' => $pg, 'item' => $p_lars2 ) );
+
+/* ── Ein Posten gehoert zu SEINER Gruppe ─────────────────────────────── */
+
+// Ohne diese Pruefung waere jede Gruppen-ID, in der man Mitglied ist, ein
+// Schluessel zu jedem Posten der ganzen Tabelle.
+$ergebnis['plan_zweitgruppe'] = ruf( 'eb_social_gruppe_anlegen',
+    array( 'name' => 'Andere Sache' ) );
+$pg2 = (int) ( $ergebnis['plan_zweitgruppe']['body']['group']['id'] ?? 0 );
+$ergebnis['plan_fremder_posten'] = ruf( 'eb_plan_aendern',
+    array( 'rev' => 1, 'notiz' => 'geklaut' ), array( 'id' => $pg2, 'item' => $p1 ) );
+
+/* ── Lesen: Reihenfolge und Bilanz ───────────────────────────────────── */
+
+$ergebnis['plan_lesen'] = ruf( 'eb_plan_lesen', array(), array( 'id' => $pg ) );
+
+/* ── Der Deckel ──────────────────────────────────────────────────────── */
+
+for ( $i = 0; $i < EB_MAX_PLAN_POSTEN + 2; $i++ ) {
+    $antwort = ruf( 'eb_plan_anlegen', array( 'titel' => 'Posten ' . $i ), array( 'id' => $pg ) );
+    if ( $antwort['status'] !== 201 ) {
+        $ergebnis['plan_deckel'] = $antwort;
+        break;
+    }
+}
+$ergebnis['plan_deckel_zahl'] = count( array_filter( $GLOBALS['wpdb']->tabellen['eb_group_plan_items'],
+    function ( $r ) use ( $pg ) { return (int) $r['group_id'] === $pg; } ) );
+
+/* ── Loest sich die Gruppe auf, geht der Plan mit ────────────────────── */
+
+// Sonst blieben die Posten als verwaiste Reihen stehen: Bezeichnungen,
+// Notizen und wer sich um was kuemmern wollte — persoenliche Daten ohne
+// Zusammenhang, die niemand mehr erreichen kann. Gemessen an den ZEILEN,
+// nicht an der Antwort: „success: true" sagt nichts darueber, was liegen
+// geblieben ist.
+$ergebnis['plan_vor_aufloesung'] = count( array_filter( $GLOBALS['wpdb']->tabellen['eb_group_plan_items'],
+    function ( $r ) use ( $pg ) { return (int) $r['group_id'] === $pg; } ) );
+
+foreach ( array( 11, 13, 10 ) as $wer ) {
+    als( $wer );
+    $ergebnis['plan_gruppe_aufloesen'] = ruf( 'eb_social_gruppe_verlassen', array(), array( 'id' => $pg ) );
+}
+$ergebnis['plan_nach_aufloesung'] = count( array_filter( $GLOBALS['wpdb']->tabellen['eb_group_plan_items'],
+    function ( $r ) use ( $pg ) { return (int) $r['group_id'] === $pg; } ) );
+$ergebnis['plan_gruppe_weg'] = eb_gruppe_laden( $pg ) === null;
+
+/* ── Belegt: die Tabellenliste wird EINGESAMMELT, nicht aufgezaehlt ──── */
+
+// Die echte Funktion wird gerufen, nicht ihr Quelltext gelesen. Ein Test,
+// der die Namen im Text sucht, kann nicht sehen, ob sie auch wirklich
+// zurueckkommen — und genau das entscheidet, ob `eb_create_tables()` sie
+// anlegt und die Migration sie nachweist.
+$ergebnis['tabellen_sql'] = array();
+foreach ( eb_social_tabellen_sql() as $sql_t ) {
+    if ( preg_match( '/CREATE TABLE\s+(\S+)\s*\(/', $sql_t, $mt ) ) {
+        $ergebnis['tabellen_sql'][] = substr( $mt[1], strlen( $GLOBALS['wpdb']->prefix ) );
+    }
+}
 
 /* ── Belegt: die Deckel haengen am Konto, nicht an der Leitung ───────── */
 

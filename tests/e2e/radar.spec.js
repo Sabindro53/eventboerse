@@ -702,9 +702,20 @@ ${MIGRATION}
 
 for ( $i = 0; $i < ${laeufe}; $i++ ) { eb_maybe_create_tables(); }
 
+// Die Tabellenliste kommt aus der AUSGEFUEHRTEN Funktion. Sie hier zu
+// parsen hiesse, eine zweite Fassung derselben Liste zu pflegen — genau
+// das, wogegen die Ableitung gebaut ist.
+$tabellen = array();
+foreach ( eb_social_tabellen_sql() as $sql_t ) {
+    if ( preg_match('/CREATE TABLE\\s+(\\S+)\\s*\\(/', $sql_t, $mt) ) {
+        $tabellen[] = substr($mt[1], strlen($wpdb->prefix));
+    }
+}
+
 echo json_encode(array(
     'version'   => get_option('eb_db_version'),
     'soll'      => EB_DB_VERSION,
+    'tabellen'  => $tabellen,
     'fehlt'     => get_option('eb_db_migration_fehlt', array()),
     'versuch'   => (bool) get_option('eb_db_migration_versuch', 0),
     'spalten'   => $wpdb->spalten,
@@ -819,6 +830,19 @@ echo json_encode(array(
       .toEqual(expect.arrayContaining(['stadtteil', 'lat', 'lng']));
   });
 
+  /**
+   * Die Social-Tabellen in der Reihenfolge, in der die Migration sie prüft.
+   *
+   * Aus der ausgeführten `eb_social_tabellen_sql()`, nicht aus geparsten
+   * Dateien: welche Tabelle die erste und welche die letzte ist, soll der
+   * Test ermitteln und nicht behaupten.
+   */
+  let _tabellen = null;
+  function socialTabellen() {
+    if (!_tabellen) { _tabellen = migrieren().tabellen; }
+    return _tabellen;
+  }
+
   test('eine fehlende Social-Tabelle hält die Version ebenso auf', () => {
     // ── DER BEFUND VOM 10.09.2026 ────────────────────────────────────────
     //
@@ -832,19 +856,28 @@ echo json_encode(array(
     // Gemessen wird das VERHALTEN, nicht die Schreibweise. Ein Test auf
     // „steht da ein foreach über eb_social_tabellen_sql()" wäre wieder nur
     // eine zweite Liste, diesmal in Regex-Form.
-    const r = migrieren({ fehlendeTabellen: ['wp_eb_friendships'] });
+    const erste = socialTabellen()[0];
+    const r = migrieren({ fehlendeTabellen: [`wp_${erste}`] });
     expect(r.version, 'Version trotz fehlender Tabelle hochgesetzt').not.toBe(r.soll);
-    expect(r.fehlt, 'die fehlende Tabelle wird nicht benannt').toContain('eb_friendships');
+    expect(r.fehlt, `die fehlende Tabelle (${erste}) wird nicht benannt`).toContain(erste);
   });
 
-  test('jede Social-Tabelle wird einzeln nachgewiesen', () => {
+  test('auch die LETZTE Social-Tabelle wird nachgewiesen', () => {
     // Die Ableitung darf nicht bei der ersten stehenbleiben. Fehlt die
     // letzte, muss sie genauso auffallen wie die erste — sonst prüfte der
     // Nachweis nur den Kopf der Liste.
-    const r = migrieren({ fehlendeTabellen: ['wp_eb_group_members'] });
+    //
+    // WELCHE die letzte ist, wird ermittelt und nicht hingeschrieben. Hier
+    // stand `wp_eb_group_members` fest; mit der vierten Tabelle (dem
+    // gemeinsamen Plan) war das plötzlich die dritte von vier, und der Test
+    // prüfte etwas anderes, als sein Name sagt — dieselbe Drift, gegen die
+    // dieser ganze Abschnitt gebaut ist.
+    const namen = socialTabellen();
+    expect(namen.length, 'keine Social-Tabellen gefunden').toBeGreaterThanOrEqual(3);
+    const letzte = namen[namen.length - 1];
+    const r = migrieren({ fehlendeTabellen: [`wp_${letzte}`] });
     expect(r.version, 'Version trotz fehlender Tabelle hochgesetzt').not.toBe(r.soll);
-    expect(r.fehlt, 'die letzte Tabelle der Liste wird nicht geprüft')
-      .toContain('eb_group_members');
+    expect(r.fehlt, `die letzte Tabelle (${letzte}) wird nicht geprüft`).toContain(letzte);
   });
 
   test('nach einem Fehlschlag wird es später erneut versucht', () => {

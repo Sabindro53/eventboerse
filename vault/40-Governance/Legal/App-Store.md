@@ -94,7 +94,7 @@ deutsche Beschreibung steht in der Spalte **Was**, wo sie hingehört.
 | Contact Info › Physical Address | `NSPrivacyCollectedDataTypePhysicalAddress` | Rechnungs-/Leistungsort | Profilfeld `address`, `vat_id` | ja | Funktion |
 | **Location › Precise Location** | `NSPrivacyCollectedDataTypePreciseLocation` | Umkreissuche | `search/13-event-radar.js`, `getCurrentPosition`; Schlüssel `eb_radar_ort` | ja | Funktion |
 | User Content › Photos or Videos | `NSPrivacyCollectedDataTypePhotosorVideos` | Inseratsbilder | `POST /upload` → `wp_handle_upload` | ja | Funktion |
-| User Content › Other User Content | `NSPrivacyCollectedDataTypeOtherUserContent` | Nachrichten, Beiträge, Kommentare, Bewertungen, **Gruppennamen und Mitgliedschaften** | Messaging-/Reviews-Routen, `includes/social/` (`eb_groups`, `eb_group_members`) | ja | Funktion |
+| User Content › Other User Content | `NSPrivacyCollectedDataTypeOtherUserContent` | Nachrichten, Beiträge, Kommentare, Bewertungen, **Gruppennamen, Mitgliedschaften und die Einträge des gemeinsamen Plans** | Messaging-/Reviews-Routen, `includes/social/` (`eb_groups`, `eb_group_members`, `eb_group_plan_items`) | ja | Funktion |
 | Purchases › Purchase History | `NSPrivacyCollectedDataTypePurchaseHistory` | gebuchte Leistungen | `eb_payment_ledger` | ja | Funktion |
 | Identifiers › User ID | `NSPrivacyCollectedDataTypeUserID` | Kontobezug, **selbstgewählter Suchname** | WordPress-Nutzer-ID, `eb_handle` (user_meta) | ja | Funktion |
 | **Usage Data › Product Interaction** | `NSPrivacyCollectedDataTypeProductInteraction` | abgeleitetes Präferenzprofil | Schlüssel `eb_taste_v1`, in `Cookie-Liste.md` als *profilbildend* geführt | ja | **Personalisierung** + Funktion |
