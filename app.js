@@ -1661,10 +1661,35 @@ function getHeroListings() {
  * Konto? Registrieren") — aber ein Weg, den man erst suchen muss, ist an
  * einem Einstieg genau der Weg zu viel.
  *
- * Angemeldet bleibt alles wie bisher: direkt zum Inserat.
+ * ── WER SCHON ANBIETET, SUCHT NICHT „ANBIETEN" ─────────────────────────
+ *
+ * Am 10.09.2026 im echten Browser gemessen, angemeldet als Dienstleister
+ * auf der Landeseite:
+ *
+ *   my-listings   2 im Markup, 0 SICHTBAR
+ *   auftraege     1 im Markup, 0 SICHTBAR
+ *   business      1 im Markup, 0 SICHTBAR
+ *   create-listing               3 sichtbar
+ *
+ * Alle drei lagen hinter dem Ausklappmenü. Der einzige sichtbare Weg für
+ * die halbe Marktseite führte also zu „noch ein Inserat anlegen" — dem
+ * Einzigen, was ein Anbieter schon getan hat. Seine Tagesfrage ist eine
+ * andere: hat mich jemand angefragt, was muss ich liefern.
+ *
+ * Deshalb führt dieser Weg für angemeldete Dienstleister in ihren eigenen
+ * Bereich. Das Inserat bleibt von dort aus einen Klick entfernt — die
+ * Seite trägt den Knopf und im leeren Fall auch die Aufforderung —, und
+ * für alle anderen ändert sich nichts.
+ *
+ * Umbeschriftet wird der Knopf in `_applyRoleNav()`: ein Weg, der woandershin
+ * führt, als er verspricht, ist schlimmer als einer, den es nicht gibt.
  */
 function ebAnbieterEinstieg() {
-  if (isLoggedIn) { navigateTo('create-listing'); return; }
+  if (isLoggedIn) {
+    navigateTo(typeof isDienstleister === 'function' && isDienstleister()
+      ? 'my-listings' : 'create-listing');
+    return;
+  }
   openModal('registerModal');
   showToast('Lege ein Konto an — danach stellst du dein erstes Inserat ein.', 'info');
 }
@@ -14445,6 +14470,27 @@ function _applyRoleNav() {
     if (label) label.textContent = 'Board';
   }
 
+  // ── DER DRITTE WEG AUF DER LANDESEITE ────────────────────────────────
+  //
+  // Wer schon anbietet, sucht nicht „anbieten", sondern seine Aufträge.
+  // Am 10.09.2026 gemessen: ein angemeldeter Dienstleister hatte von der
+  // Landeseite aus NULL sichtbare Wege zu `my-listings`, `auftraege` und
+  // `business` — alle drei lagen hinter dem Ausklappmenü, während
+  // „Inserat erstellen" dreimal sichtbar war.
+  //
+  // Beschriftung UND Ziel wandern zusammen (`ebAnbieterEinstieg()` prüft
+  // dieselbe Rolle). Ein Weg, der woandershin führt, als er verspricht,
+  // ist schlimmer als einer, den es nicht gibt.
+  var wegAnbieter = document.getElementById('wegAnbieter');
+  if (wegAnbieter) {
+    var wIcon  = wegAnbieter.querySelector('.material-icons-round');
+    var wStark = wegAnbieter.querySelector('.ai-weg-text strong');
+    var wKlein = wegAnbieter.querySelector('.ai-weg-text small');
+    if (wIcon)  wIcon.textContent  = provider ? 'storefront' : 'add_circle';
+    if (wStark) wStark.textContent = provider ? 'Mein Geschäft' : 'Ich biete etwas an';
+    if (wKlein) wKlein.textContent = provider ? 'Inserate und Anfragen' : 'Inserat erstellen';
+  }
+
   // "Zum Planungs-Board hinzufügen" auf Inserat-Detail: für alle sichtbar –
   // auch Dienstleister planen eigene Events.
   var addToBoardBtn = document.getElementById('btnAddToBoard');
@@ -14482,19 +14528,12 @@ function applyLogin(context) {
     if (menuCreateBtn) menuCreateBtn.innerHTML = '<span class="material-icons-round">add_circle</span> Inserat erstellen';
     if (menuMyListBtn) menuMyListBtn.innerHTML = '<span class="material-icons-round">storefront</span> Meine Inserate';
   }
-  // Update mobile nav labels for role
-  var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
-  if (mobileCreateBtn) {
-    var mobileLabel = mobileCreateBtn.querySelector('span:last-child');
-    var mobileIcon = mobileCreateBtn.querySelector('.material-icons-round');
-    if (isEventPlaner()) {
-      if (mobileIcon) mobileIcon.textContent = 'event';
-      if (mobileLabel) mobileLabel.textContent = 'Event';
-    } else {
-      if (mobileIcon) mobileIcon.textContent = 'add_circle';
-      if (mobileLabel) mobileLabel.textContent = 'Inserieren';
-    }
-  }
+  // ENTFERNT am 10.09.2026: hier stand eine rollenabhängige Beschriftung für
+  // `#mobileNav button[data-page="create-listing"]`. Diesen Knopf gibt es in
+  // `app-shell.html` NICHT — die Mobilleiste trägt Feed, Suche, Board, Chat,
+  // Profil. Der Block hat also nie etwas getan und sah aus, als täte er es.
+  // Dieselbe Klasse wie ein Prüfer ohne Subjekt, nur an der Oberfläche.
+  // `landeseite.spec.js` hält fest, dass so etwas nicht zurückkommt.
   // Restore favorites from localStorage first (instant), then merge API data
   _loadFavoritesFromStorage();
   loadFavorites().catch(function(){});
@@ -14552,14 +14591,8 @@ function applyLogout() {
   if (adminMenuBtn) adminMenuBtn.style.display = 'none';
   // Rollen-Nav zurücksetzen (Gast → Planungs-Board-Teaser, kein Auftragsboard)
   _applyRoleNav();
-  // Reset mobile nav labels
-  var mobileCreateBtn = document.querySelector('#mobileNav button[data-page="create-listing"]');
-  if (mobileCreateBtn) {
-    var mobileIcon = mobileCreateBtn.querySelector('.material-icons-round');
-    var mobileLabel = mobileCreateBtn.querySelector('span:last-child');
-    if (mobileIcon) mobileIcon.textContent = 'add_circle';
-    if (mobileLabel) mobileLabel.textContent = 'Inserieren';
-  }
+  // ENTFERNT am 10.09.2026 — siehe applyLogin(): der beschriftete Knopf
+  // existiert in der Mobilleiste nicht.
 }
 
 // -- Hilfsfunktionen für Formular-Feedback --

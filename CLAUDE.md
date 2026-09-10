@@ -1717,8 +1717,48 @@ erst suchen muss, ist an einem Einstieg genau der Weg zu viel.
 Landeseite **keinen** eigenen Jetzt-Reiter trägt — verschwindet er, ist die
 einzige Stelle weg, an der steht, warum die Reihe existiert.
 
+#### Und die halbe Marktseite hatte gar keinen
+
+Am 10.09.2026 nachgemessen, diesmal für den **Dienstleister**. Angemeldet,
+auf der Landeseite stehend, im echten Browser:
+
+| Ziel | im Markup | **sichtbar** |
+|---|---:|---:|
+| `my-listings` | 2 | **0** |
+| `auftraege` | 1 | **0** |
+| `business` | 1 | **0** |
+| `create-listing` | 7 | 3 |
+
+Alle drei lagen hinter dem Ausklappmenü. Der einzige sichtbare Weg für die
+halbe Marktseite führte also zu *„noch ein Inserat anlegen"* — dem Einzigen,
+was ein Anbieter schon getan hat. Seine Tagesfrage ist eine andere: **hat mich
+jemand angefragt, was muss ich liefern.**
+
+**Der dritte Weg schaltet jetzt um.** Für angemeldete Dienstleister heißt er
+„Mein Geschäft" und führt nach `my-listings`; für alle anderen bleibt alles
+wie bisher. **Beschriftung und Ziel wandern zusammen** (`_applyRoleNav()` und
+`ebAnbieterEinstieg()` fragen dieselbe Rolle) — ein Weg, der woandershin
+führt, als er verspricht, ist schlimmer als einer, den es nicht gibt. Das
+Inserat bleibt von dort einen Klick entfernt; `renderMyListings()` trägt den
+Knopf und im leeren Fall auch die Aufforderung.
+
+**Die Mobilleiste ist bewusst NICHT angefasst.** Ihr Board-Slot führt laut
+Kommentar seit jeher zum Planungs-Board, *„das Auftragsboard erreichen
+Dienstleister über das Menü"* — eine dokumentierte Entscheidung, keine
+Nachlässigkeit. Fünf Plätze sind das Maximum einer solchen Leiste; sie
+umzuwidmen ist eine Produktentscheidung des Inhabers, keine Aufräumarbeit.
+
+**Zwei tote Blöcke sind dabei herausgefallen.** `applyLogin()` und
+`applyLogout()` setzten Symbol und Text auf
+`#mobileNav button[data-page="create-listing"]` — diesen Knopf gibt es in der
+Mobilleiste **nicht** (sie trägt Feed, Suche, Board, Chat, Profil). Zwanzig
+Zeilen, die nie etwas getan haben und im Diff aussahen wie rollenabhängige
+Navigation. Dieselbe Klasse wie ein Prüfer ohne Subjekt, nur an der
+Oberfläche. Geprüft wird jetzt die **Bedingung**: jeder Mobilleisten-Selektor
+in `30-auth.js` muss auch etwas treffen.
+
 ```bash
-npx playwright test tests/e2e/einstiege.spec.js   # 5 Tests, echte Klicks
+npx playwright test tests/e2e/einstiege.spec.js   # 9 Tests, echte Klicks
 ```
 
 ### Eine Adresse, die mit der Route wanderte
@@ -2190,7 +2230,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1001 Tests in 62 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1005 Tests in 62 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

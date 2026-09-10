@@ -27,6 +27,8 @@
 // dieselbe Regel wie beim Deep-Link-Test der Jetzt-Ansicht.
 const { test, expect } = require('@playwright/test');
 const { openApp, activePageId } = require('./helpers');
+const fs = require('node:fs');
+const path = require('node:path');
 
 /**
  * Was hinter den Wegen liegen muss.
@@ -159,5 +161,113 @@ test.describe('Einstiege: die Landeseite bedient mehr als eine Absicht', () => {
     // Und der Gegenbeweis, dass es den Reiter überhaupt gibt:
     expect(await page.locator('.feed-tab[data-feed="jetzt"]').count(),
       'es gibt gar keinen Jetzt-Reiter mehr').toBeGreaterThan(0);
+  });
+
+  test('der Dienstleister hatte von hier aus KEINEN Weg zu seinem Geschäft', async ({ page }) => {
+    // ── DER BEFUND VOM 10.09.2026, IM BROWSER GEMESSEN ─────────────────
+    //
+    // Angemeldet als Dienstleister, auf der Landeseite stehend:
+    //
+    //   my-listings   2 im Markup, 0 SICHTBAR
+    //   auftraege     1 im Markup, 0 SICHTBAR
+    //   business      1 im Markup, 0 SICHTBAR
+    //   create-listing               3 sichtbar
+    //
+    // Alle drei lagen hinter dem Ausklappmenü. Der einzige sichtbare Weg
+    // für die halbe Marktseite führte zu „noch ein Inserat anlegen" — dem
+    // Einzigen, was ein Anbieter schon getan hat.
+    //
+    // Dieser Test hält den BEFUND fest: er misst, dass die drei Ziele
+    // weiterhin keinen eigenen sichtbaren Knopf auf der Landeseite haben.
+    // Verschwindet er, verschwindet die Stelle, an der steht, warum der
+    // dritte Weg für Anbieter umschaltet.
+    await openApp(page);
+    await page.evaluate(() => {
+      currentUser = { id: 5, name: 'DJ Julian', role: 'Dienstleister' };
+      isLoggedIn = true;
+      if (typeof _applyRoleNav === 'function') _applyRoleNav();
+    });
+    const eigene = await page.evaluate(() => {
+      const sichtbar = (el) => {
+        const r = el.getBoundingClientRect();
+        const s = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && s.visibility !== 'hidden'
+          && s.display !== 'none' && s.opacity !== '0';
+      };
+      const raus = {};
+      for (const z of ['my-listings', 'auftraege', 'business']) {
+        raus[z] = [...document.querySelectorAll(`[onclick*="navigateTo('${z}'"]`)]
+          .filter(sichtbar).length;
+      }
+      return raus;
+    });
+    for (const [ziel, n] of Object.entries(eigene)) {
+      expect(n, `„${ziel}" hat jetzt einen eigenen sichtbaren Einstieg — dann ist `
+        + 'der Befund überholt und dieser Test anzupassen').toBe(0);
+    }
+  });
+
+  test('für einen Anbieter führt der dritte Weg in sein Geschäft', async ({ page }) => {
+    // Beschriftung UND Ziel wandern zusammen. Ein Weg, der woandershin
+    // führt, als er verspricht, ist schlimmer als einer, den es nicht gibt
+    // — deshalb wird BEIDES gemessen.
+    const fehler = await openApp(page);
+    await page.evaluate(() => {
+      currentUser = { id: 5, name: 'DJ Julian', role: 'Dienstleister' };
+      isLoggedIn = true;
+      if (typeof _applyRoleNav === 'function') _applyRoleNav();
+    });
+    const knopf = page.locator('#wegAnbieter');
+    await expect(knopf, 'der dritte Weg trägt für Anbieter die alte Beschriftung')
+      .toContainText('Mein Geschäft');
+    await knopf.click();
+    await page.waitForTimeout(600);
+    expect(await activePageId(page), 'der Anbieter landet nicht in seinem Bereich')
+      .toBe('page-my-listings');
+    expect(fehler, `Fehler auf dem Weg: ${fehler.join(' | ')}`).toEqual([]);
+  });
+
+  test('für alle anderen bleibt der dritte Weg, was er war', async ({ page }) => {
+    // Die Gegenprobe. Ohne sie wäre die Regel dadurch erfüllt, dass der
+    // Weg für JEDEN ins Geschäft führt — und ein Event-Planer stünde vor
+    // „Meine Inserate", ohne je eins gehabt zu haben.
+    await openApp(page);
+    await page.evaluate(() => {
+      currentUser = { id: 9, name: 'Anna', role: 'Event-Planer' };
+      isLoggedIn = true;
+      if (typeof _applyRoleNav === 'function') _applyRoleNav();
+    });
+    const knopf = page.locator('#wegAnbieter');
+    await expect(knopf, 'ein Event-Planer bekommt den Anbieter-Bereich angeboten')
+      .toContainText('Ich biete etwas an');
+    await knopf.click();
+    await page.waitForTimeout(600);
+    expect(await activePageId(page)).toBe('page-create-listing');
+  });
+
+  test('kein Knopf wird beschriftet, den es nicht gibt', async ({ page }) => {
+    // ── EIN TOTER BLOCK, DER AUSSAH, ALS TÄTE ER ETWAS ────────────────
+    //
+    // `applyLogin()` und `applyLogout()` setzten Symbol und Text auf
+    // `#mobileNav button[data-page="create-listing"]`. Diesen Knopf gibt es
+    // in der Mobilleiste NICHT — sie trägt Feed, Suche, Board, Chat, Profil.
+    // Zwei Blöcke, die nie etwas getan haben und im Diff aussahen wie
+    // rollenabhängige Navigation. Dieselbe Klasse wie ein Prüfer ohne
+    // Subjekt, nur an der Oberfläche.
+    //
+    // Gemessen wird die BEDINGUNG, nicht die Fundstelle: jeder Selektor auf
+    // die Mobilleiste in `30-auth.js` muss auch etwas treffen.
+    await openApp(page);
+    const quelle = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'js', 'modules', 'core', '30-auth.js'), 'utf8');
+    const selektoren = [...quelle.matchAll(/querySelector\(\s*'(#mobileNav[^']*)'/g)]
+      .map((m) => m[1]);
+    expect(selektoren.length, 'kein Mobilleisten-Selektor gefunden — der Test hat kein Subjekt')
+      .toBeGreaterThan(0);
+    for (const sel of selektoren) {
+      const n = await page.locator(sel).count();
+      expect(n, `„${sel}" trifft nichts — der Code dahinter tut nichts und sieht aus, als täte er es`)
+        .toBeGreaterThan(0);
+    }
   });
 });

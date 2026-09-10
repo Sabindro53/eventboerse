@@ -1007,7 +1007,14 @@
                 <small>Leistungen zusammenstellen</small>
               </span>
             </button>
-            <button type="button" class="ai-weg" onclick="ebAnbieterEinstieg()">
+            <!-- Der dritte Weg wird für angemeldete Dienstleister umbeschriftet
+                 (`_applyRoleNav()`): wer schon anbietet, sucht nicht „anbieten",
+                 sondern seine Aufträge. Gemessen am 10.09.2026: von der
+                 Landeseite aus hatte ein angemeldeter Dienstleister NULL
+                 sichtbare Wege zu `my-listings`, `auftraege` und `business` —
+                 alle drei lagen hinter dem Ausklappmenü, während
+                 „Inserat erstellen" dreimal sichtbar war. -->
+            <button type="button" class="ai-weg" id="wegAnbieter" onclick="ebAnbieterEinstieg()">
               <span class="material-icons-round">add_circle</span>
               <span class="ai-weg-text">
                 <strong>Ich biete etwas an</strong>

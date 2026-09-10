@@ -297,10 +297,35 @@ function getHeroListings() {
  * Konto? Registrieren") — aber ein Weg, den man erst suchen muss, ist an
  * einem Einstieg genau der Weg zu viel.
  *
- * Angemeldet bleibt alles wie bisher: direkt zum Inserat.
+ * ── WER SCHON ANBIETET, SUCHT NICHT „ANBIETEN" ─────────────────────────
+ *
+ * Am 10.09.2026 im echten Browser gemessen, angemeldet als Dienstleister
+ * auf der Landeseite:
+ *
+ *   my-listings   2 im Markup, 0 SICHTBAR
+ *   auftraege     1 im Markup, 0 SICHTBAR
+ *   business      1 im Markup, 0 SICHTBAR
+ *   create-listing               3 sichtbar
+ *
+ * Alle drei lagen hinter dem Ausklappmenü. Der einzige sichtbare Weg für
+ * die halbe Marktseite führte also zu „noch ein Inserat anlegen" — dem
+ * Einzigen, was ein Anbieter schon getan hat. Seine Tagesfrage ist eine
+ * andere: hat mich jemand angefragt, was muss ich liefern.
+ *
+ * Deshalb führt dieser Weg für angemeldete Dienstleister in ihren eigenen
+ * Bereich. Das Inserat bleibt von dort aus einen Klick entfernt — die
+ * Seite trägt den Knopf und im leeren Fall auch die Aufforderung —, und
+ * für alle anderen ändert sich nichts.
+ *
+ * Umbeschriftet wird der Knopf in `_applyRoleNav()`: ein Weg, der woandershin
+ * führt, als er verspricht, ist schlimmer als einer, den es nicht gibt.
  */
 function ebAnbieterEinstieg() {
-  if (isLoggedIn) { navigateTo('create-listing'); return; }
+  if (isLoggedIn) {
+    navigateTo(typeof isDienstleister === 'function' && isDienstleister()
+      ? 'my-listings' : 'create-listing');
+    return;
+  }
   openModal('registerModal');
   showToast('Lege ein Konto an — danach stellst du dein erstes Inserat ein.', 'info');
 }
