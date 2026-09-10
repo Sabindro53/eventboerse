@@ -454,11 +454,18 @@ Ebenen-Beförderung für die zwei verbliebenen, sichtbaren Animationen ergab
 97 ms statt 73 ms. Sie ist nicht eingebaut — eine Optimierung auf Verdacht
 wäre hier eine Verschlechterung gewesen.
 
-**`prefers-reduced-motion` senkt diese Kosten nicht.** Am kaputten Zustand
+**`prefers-reduced-motion` senkte diese Kosten nicht.** Am kaputten Zustand
 gemessen: 240 Neuberechnungen mit `reduce`, 241 ohne. Der globale Block setzt
 nur die **Dauer** auf ~0; die Animation läuft weiter und rechnet weiter jeden
-Frame neu. Wer Bewegungsreduktion einschaltet, zahlt denselben Preis und
-sieht die Bewegung bloss nicht.
+Frame neu. Wer Bewegungsreduktion einschaltete, zahlte denselben Preis und
+sah die Bewegung bloss nicht.
+
+**Das gilt seit dem 10.09.2026 nicht mehr — und war zwischendurch schlimmer,
+als hier stand.** Die gezielten Regeln in `styles.css` halten inzwischen
+wirklich an: im Ruhe-Modus laufen **null** Endlos-Animationen statt 105. Der
+Hauptthread arbeitete danach aber **doppelt so viel**, nicht weniger. Der
+ganze Vorgang steht unten unter „Die Maßnahme gegen Bewegung machte die Seite
+teurer".
 
 **Warum 827 grüne Tests das durchgelassen haben:** keiner hat je den Leerlauf
 gemessen. Jeder prüfte, was nach einer Handlung passiert — und die Kosten
@@ -505,14 +512,115 @@ Ohne diese Prüfung überlebte die Mutation `paused → none`.
 die teuersten liefen weiter. Fiel erst auf, weil die Probe-Animation trotz
 gesetzter Klasse `running` blieb.
 
-**Was NICHT behoben ist:** eine Grundlast von rund 400 ms je drei Sekunden,
-die auch mit allen Animationen abgeschaltet bleibt. Sie kommt nicht von der
-Deko. Kandidaten: `_initHeroShots()` (200-ms-Zeitgeber), die rund 26
-`requestAnimationFrame`-Aufrufe pro Sekunde, Bilddekodierung. **Offen, und
-hier benannt, damit niemand den Posten für erledigt hält.**
+**Hier stand ein offener Posten, und er war falsch herum.** Wörtlich: *„eine
+Grundlast von rund 400 ms je drei Sekunden, die auch mit allen Animationen
+abgeschaltet bleibt. Sie kommt nicht von der Deko."* Am 10.09.2026
+nachgemessen, Landeseite im Leerlauf, Hauptthread je drei Sekunden:
+
+| Zustand | `TaskDuration` | Stil-Neuberechnungen |
+|---|---:|---:|
+| alles wie heute | 495 / 540 ms | 90 / 88 |
+| Intervalle gelöscht (Schreibmaschine) | 543 / 523 ms | 95 / 88 |
+| zusätzlich Marquee-rAF still | 423 / 379 ms | 88 / 93 |
+| zusätzlich Animationen **angehalten** | **0 / 0 ms** | **0 / 0** |
+
+**Es gibt keine unerklärte Grundlast.** Bei angehaltenen Animationen, totem
+rAF und gelöschten Intervallen macht der Hauptthread exakt nichts. Rund drei
+Viertel der Last sind die Deko — also genau das, was der Posten ausschloss.
+
+**Der Irrtum steckte im Instrument.** Die frühere Messung schaltete die
+Animationen mit `animation: none` ab. Das macht die Last **schlechter**, nicht
+kleiner: heute gemessen stieg `Layerize` dabei von 306 auf **1487 ms**, weil
+das Entfernen der Eigenschaft die Ebenen-Beförderung aufhebt und den
+Ebenenbaum neu erzwingt. Nur `animation-play-state: paused` misst, was
+Anhalten kostet. Ein Prüfer, der sein Subjekt verändert, misst sich selbst —
+dieselbe Klasse wie ein Muster, das den erklärenden Kommentar trifft.
+
+**Zwei Verdächtige der alten Liste sind ausdrücklich erledigt:** die
+Schreibmaschine hört nach ihrer einen Runde wirklich auf (das Löschen aller
+Intervalle brachte **keinen** messbaren Gewinn), und die rund 30
+`requestAnimationFrame`-Aufrufe je Sekunde haben genau **eine** Quelle
+(`scheduleFrame < tick`, der Hero-Marquee) und kosten im Normalbetrieb rund
+64 ms — nicht 400.
+
+**Was bleibt, ist eine Gestaltungsfrage, kein Fehler:** 105 endlos laufende
+Deko-Animationen auf der Landeseite, alle im oder am Bild. Sie anzuhalten
+spart gemessen **257 ms** (Median aus drei verschachtelten Runden: 646 → 389
+ms). Das ist der Preis des heutigen Aussehens und eine Entscheidung des
+Inhabers, keine Aufräumarbeit.
+
+### Die Maßnahme gegen Bewegung machte die Seite teurer
+
+Beim Nachmessen des Postens oben aufgefallen. Landeseite im Leerlauf, drei
+Runden verschachtelt, Hauptthread je drei Sekunden:
+
+| | Lauf 1 | Lauf 2 | Lauf 3 |
+|---|---:|---:|---:|
+| normal | 542 | 590 | 501 ms |
+| **`prefers-reduced-motion: reduce`** | **1132** | **1085** | **1169 ms** |
+
+**Wer Bewegungsreduktion einschaltete, zahlte das Doppelte** — und sah nichts
+davon. Das trifft ausgerechnet die Gruppe, die sie am ehesten braucht, und es
+ist über EN 301 549 auch ein BFSG-Thema.
+
+Der Posten war `Layerize: 914 ms`, der Treiber der **Hero-Marquee**: derselbe
+Zustand ohne seine rAF-Schleife ergab 158 / 400 ms. Er war zugleich das
+einzige bewegte Element, das die Einstellung **gar nicht beachtet** hat — ein
+dauerhaft laufendes Karussell ist genau die Bewegung, um die es dabei geht.
+
+**Der Mechanismus ist der Grund, warum die Maßnahme sich umkehrte.** Laufende
+Deko-Animationen halten ihre Elemente auf eigenen Compositor-Ebenen. Im
+Ruhe-Modus sind sie aus, die Beförderung fällt weg — und jeder Marquee-Frame
+erzwingt danach einen ungleich größeren Ebenenbaum. Dieselbe Mechanik wie beim
+`animation: none` oben, nur ausgelöst durch eine Einstellung des Nutzers.
+
+Behoben: `ebBewegungReduziert()` in `core/00-basis.js` ist der gemeinsame
+Griff, und `startMarquee()` fragt ihn. Nachher: **331 / 289 / 51 ms**, der
+Normalfall unverändert (600 / 559 / 505). Die Karten bleiben stehen, nicht
+weg — der Inhalt ist die Sache, das Laufen nur die Darbietung.
+
+**Live gefragt, nicht einmal gemerkt.** Die Einstellung ist im Betriebssystem
+umschaltbar, während die Seite offen ist. `ebBewegungBeobachten()` hält den
+Marquee nach; wer sie zurücknimmt, muss nicht neu laden. Und wer sein Ziel
+verwirft, meldet den Horcher mit `ebBewegungVergessen()` wieder ab — der
+Marquee baut sich bei jedem Rendern der Startseite neu auf, sonst wüchse die
+Liste bei jedem Aufbau.
+
+**`will-change: transform` steht nur, solange etwas läuft.** Eine Spur, die
+stillsteht, hält sonst eine eigene Ebene für eine Bewegung, die es nicht gibt.
+
+**Vier Module fragten die Medienabfrage je selbst ab**, der Marquee als
+einziges bewegtes Element gar nicht. Sie laufen jetzt alle über den einen
+Griff; ein Test hält die Regel und misst dabei die **Aufrufstelle**, nicht das
+Wort — die Kommentare daneben nennen `prefers-reduced-motion` mehrfach.
+
+#### Und die Testvorgabe kam nie an
+
+Beim Bauen der Tests dazu gemessen: `playwright.config.js` trug
+`reducedMotion: 'reduce'` mit der Begründung *„Animationen beruhigen → stabile
+Tests"*, und `leerlauf.spec.js` überschrieb sie mit `'no-preference'`.
+**Beides war wirkungslos.** In einem Test ohne jedes `test.use` meldete
+`matchMedia('(prefers-reduced-motion: reduce)').matches` **false** —
+unmittelbar danach, im selben Browser auf derselben Seite, ergab
+`page.emulateMedia({ reducedMotion: 'reduce' })` **true**.
+
+Die Suite lief also immer mit vollen Animationen, und zwei Zeilen lasen sich,
+als wäre das geregelt. Dieselbe Klasse wie der tote Gitleaks-Scan, diesmal in
+der eigenen Testkonfiguration. Beide Zeilen sind weg, der Befund steht an
+ihrer Stelle, und `pruefhygiene.spec.js` hält die Regel samt Gegenprobe: dass
+`page.emulateMedia()` überhaupt noch wirkt — sonst prüfte niemand mehr etwas
+und alles wäre grün.
+
+**Der erste eigene Test dazu war selbst falsch.** Er schaltete die Einstellung
+**um** und mass danach. Beim Umschalten ruft der Horcher aber ohnehin
+`stopFrame()` — die Mutation „beide Wachen entfernt" überlebte deshalb alle
+vier Tests. Ein Besucher schaltet nicht um: er hat die Einstellung stehen und
+**lädt** die Seite damit, und dann tragen nur der Anfangswert und die Wachen.
+Ein Prüfer, der einen Übergang misst, prüft den Zustand nicht — dieselbe Lehre
+wie bei `topbar.spec.js` und beim Hero.
 
 ```bash
-npx playwright test tests/e2e/leerlauf.spec.js   # 5 Tests, echter Browser
+npx playwright test tests/e2e/leerlauf.spec.js   # 11 Tests, echter Browser
 ```
 
 ### Bilder: das Format, nicht die Größe
@@ -803,7 +911,10 @@ Griff von Hand nachbaut. Er steht deshalb **einmal** in
 schneiden — wer nur misst, hat das Problem nicht und behält die Positionen für
 eine brauchbare Fehlermeldung.
 
-`pruefhygiene.spec.js` hält zwei Regeln über alle Suiten:
+`pruefhygiene.spec.js` hält **vier** Regeln über alle Suiten (hier stand
+„zwei", während schon drei aufgezählt waren — eine Zahl, die ihre eigene Liste
+nicht mehr trifft, ist der Anfang derselben Drift, die diese Datei sonst
+bekämpft):
 
 - **keine schneidet HTML-Kommentare selbst heraus** (der gemeinsame Griff ist da),
 - **keine überspringt sich** (`test.skip`/`test.fixme`) — ein übersprungener
@@ -812,6 +923,11 @@ eine brauchbare Fehlermeldung.
   den Hostnamen. `https://boese.example/?ref=js.stripe.com` enthält die
   Zeichenfolge und geht nicht an Stripe; `https://js.stripe.com.boese.example/`
   erst recht nicht.
+- **keine verlässt sich auf Playwrights `reducedMotion`-Option** — sie erreicht
+  die Seite nicht (gemessen, siehe oben). Der Weg, der trägt, ist
+  `page.emulateMedia()` vor dem `goto`, und eine Gegenprobe hält fest, dass er
+  weiter wirkt: sonst prüfte niemand mehr Bewegungsreduktion, und alles wäre
+  grün.
 
 Geprüft wird **nach Abzug der JS-Kommentare**, zeichenweise statt per
 Ausdruck: ein regulärer Ausdruck über Kommentargrenzen wäre genau der Griff,
@@ -2277,7 +2393,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1007 Tests in 62 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1015 Tests in 62 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2304,7 +2420,10 @@ gemessen an der gerenderten Startseite, nicht am Zustand nach dem Laden; das
 geöffnete Overlay animiert wieder — gedrosselt, nicht gelöscht; die
 Schreibmaschine hört nach einer Runde auf; Deko ausserhalb des Bildes hält
 an und läuft danach **weiter**, statt von vorn zu beginnen; der Hauptthread
-kommt zur Ruhe, wenn niemand etwas tut),
+kommt zur Ruhe, wenn niemand etwas tut; **Bewegungsreduktion kostet nie mehr
+als der Normalfall** — der Marquee steht dann still, hält keine eigene Ebene
+mehr und läuft nach der Rücknahme ohne Neuladen wieder an, und wer die Seite
+mit der Einstellung LÄDT, bekommt keine Dauerschleife),
 **Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
@@ -2318,7 +2437,8 @@ der EU-Listung bleibt vermerkt, und der Cowork-Auftrag hält bei persönlichen
 Daten an; `viewport-fit` und die safe-area-Abstände sind gekoppelt; die
 Kontolöschung nach 5.1.1(v) ist noch da),
 **Prüfhygiene** (keine Suite schneidet HTML-Kommentare selbst heraus, keine
-überspringt sich),
+überspringt sich, keine verlässt sich auf Playwrights `reducedMotion`-Option —
+sie erreicht die Seite nicht, und `page.emulateMedia()` tut es),
 **Apple-Zuordnung** (ohne gültige Team-ID wird nichts ausgeliefert; das HQ ist
 vor dem Auffangmuster ausgeschlossen; die Bundle-ID stimmt mit Capacitor),
 **Zahlung laden** (beim blossen Besuch geht nichts an Stripe — im echten

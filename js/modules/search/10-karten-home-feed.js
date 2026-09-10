@@ -97,7 +97,8 @@ function renderHeroMarquees() {
     track.innerHTML = tripleHtml;
     track.style.animation = 'none';
     track.style.transform = 'translateX(0)';
-    track.style.willChange = 'transform';
+    // `will-change` setzt startMarquee() — ohne Bewegung ist die Beförderung
+    // reine Kosten, und ob bewegt wird, entscheidet sich erst dort.
     track.querySelectorAll('.hero-marquee-card img').forEach(detectWideBannerImg);
   });
 
@@ -114,6 +115,25 @@ function renderHeroMarquees() {
     var parent = track.parentElement;
     var measureTimer = 0;
 
+    // ── Bewegungsreduktion ──────────────────────────────────────────────
+    // Ein dauerhaft laufendes Karussell ist genau die Bewegung, um die es bei
+    // `prefers-reduced-motion` geht — und es war das einzige Element, das die
+    // Einstellung nicht beachtet hat. Die Karten bleiben stehen, nicht weg:
+    // der Inhalt ist die Sache, das Laufen nur die Darbietung.
+    //
+    // Es ist zugleich der teuerste Posten dieses Zustands. Gemessen am
+    // 10.09.2026 im Ruhe-Modus, Landeseite, Hauptthread je drei Sekunden:
+    // mit Marquee 1213 / 1026 ms, ohne 158 / 400 ms. Begründung in
+    // `ebBewegungReduziert()` (core/00-basis.js).
+    var ruht = ebBewegungReduziert();
+
+    function befoerderungSetzen() {
+      // `will-change: transform` hält eine eigene Compositor-Ebene. Für ein
+      // Element, das sich nicht bewegt, ist das nur Preis ohne Gegenwert.
+      track.style.willChange = ruht ? 'auto' : 'transform';
+    }
+    befoerderungSetzen();
+
     function stopFrame() {
       if (rafId) cancelAnimationFrame(rafId);
       rafId = 0;
@@ -121,9 +141,17 @@ function renderHeroMarquees() {
     }
 
     function scheduleFrame() {
-      if (rafId || stopped || paused || !inView || document.hidden || half < 10 || !document.body.contains(track)) return;
+      if (rafId || ruht || stopped || paused || !inView || document.hidden || half < 10 || !document.body.contains(track)) return;
       rafId = requestAnimationFrame(tick);
     }
+
+    // Die Einstellung ist umschaltbar, während die Seite offen ist.
+    function aufBewegung(jetztRuht) {
+      ruht = jetztRuht;
+      befoerderungSetzen();
+      if (ruht) stopFrame(); else scheduleFrame();
+    }
+    ebBewegungBeobachten(aufBewegung);
 
     function measureHalf() {
       // half = width of one set of cards (total / 3)
@@ -152,7 +180,7 @@ function renderHeroMarquees() {
     function tick(now) {
       rafId = 0;
       if (stopped || !document.body.contains(track)) return;
-      if (paused || !inView || document.hidden || half < 10) { lastTime = 0; return; }
+      if (ruht || paused || !inView || document.hidden || half < 10) { lastTime = 0; return; }
       if (!lastTime) { lastTime = now; scheduleFrame(); return; }
       var dt = Math.min(now - lastTime, 50); // cap to avoid big jumps
       lastTime = now;
@@ -272,6 +300,7 @@ function renderHeroMarquees() {
     _marqueeRAFs.push(function(){
       stopped = true;
       stopFrame();
+      ebBewegungVergessen(aufBewegung);
       clearTimeout(measureTimer);
       if (observer) observer.disconnect();
       if (parent) {

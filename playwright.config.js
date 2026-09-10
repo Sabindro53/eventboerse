@@ -61,8 +61,20 @@ module.exports = defineConfig({
   reporter: process.env.CI ? [['list'], ['github']] : [['list']],
   use: {
     baseURL: 'http://127.0.0.1:8000',
-    // Animationen (Feuerwerk, Marquee, Hero-Montage) beruhigen → stabile Tests
-    reducedMotion: 'reduce',
+    // HIER STAND `reducedMotion: 'reduce'` MIT DER BEGRÜNDUNG „Animationen
+    // beruhigen → stabile Tests". Am 10.09.2026 nachgemessen: die Option
+    // erreicht die Seite nicht. In einem Test ohne jedes `test.use` meldete
+    // `matchMedia('(prefers-reduced-motion: reduce)').matches` **false**,
+    // unmittelbar danach `page.emulateMedia({reducedMotion:'reduce'})`
+    // **true** — derselbe Browser, dieselbe Seite.
+    //
+    // Die Suite lief also immer mit vollen Animationen, und die Zeile las
+    // sich, als wäre das beruhigt. Dieselbe Klasse wie der tote
+    // Gitleaks-Scan: eine Zusicherung ohne Wirkung, mit grünem Haken daneben.
+    //
+    // Wer Bewegungsreduktion in einem Test braucht, nimmt
+    // `page.emulateMedia({ reducedMotion: 'reduce' })` VOR dem `goto` —
+    // das ist gemessen. `pruefhygiene.spec.js` hält die Regel.
     viewport: { width: 1280, height: 900 },
     locale: 'de-DE',
     timezoneId: 'Europe/Berlin',

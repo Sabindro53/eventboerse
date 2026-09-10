@@ -176,4 +176,54 @@ test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
     }
     expect(treffer, `überspringt Prüfungen: ${treffer.join(', ')}`).toHaveLength(0);
   });
+
+  test('keine Prüfung verlässt sich auf Playwrights reducedMotion-Option', () => {
+    // AM 10.09.2026 NACHGEMESSEN: die Option erreicht die Seite in diesem
+    // Aufbau nicht. In einem Test ohne jedes `test.use` meldete
+    // `matchMedia('(prefers-reduced-motion: reduce)').matches` **false** —
+    // unmittelbar danach, im selben Browser auf derselben Seite, ergab
+    // `page.emulateMedia({ reducedMotion: 'reduce' })` **true**.
+    //
+    // `playwright.config.js` trug sie seit jeher mit der Begründung
+    // „Animationen beruhigen → stabile Tests", und `leerlauf.spec.js`
+    // überschrieb sie. Beides war wirkungslos, und beides las sich, als täte
+    // es etwas. Dieselbe Klasse wie der tote Gitleaks-Scan.
+    //
+    // Wer Bewegungsreduktion braucht, ruft `page.emulateMedia(...)` VOR dem
+    // `goto` — `stimme.spec.js` macht es so, und es ist gemessen.
+    //
+    // Gesucht wird die DEKLARATION, nicht das Wort: die Kommentare in
+    // `playwright.config.js` und `leerlauf.spec.js` nennen `reducedMotion:`
+    // mehrfach, und ein Muster, das den erklärenden Text trifft statt der
+    // Zeile, ist in diesem Projekt schon mehrfach teuer gewesen.
+    const muster = /(?:test\.use\s*\(\s*\{[^}]*|use\s*:\s*\{[^}]*)\breducedMotion\s*:/;
+    const treffer = [];
+    for (const datei of pruefdateien().concat([path.join(E2E, '..', '..', 'playwright.config.js')])) {
+      if (path.basename(datei) === SELBST) continue;
+      if (!fs.existsSync(datei)) continue;
+      const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
+      if (muster.test(code)) treffer.push(path.basename(datei));
+    }
+    expect(treffer, `deklariert Playwrights wirkungslose reducedMotion-Option: `
+      + `${treffer.join(', ')}. Sie erreicht die Seite nicht — gemessen, nicht `
+      + `vermutet. Der Weg, der trägt, ist page.emulateMedia() vor dem goto`)
+      .toHaveLength(0);
+  });
+
+  test('und der Weg, der trägt, wird auch benutzt', async ({ page }) => {
+    // DIE GEGENPROBE ZUR REGEL DARÜBER. Ohne sie wäre „gar keine
+    // Bewegungsreduktion mehr prüfen" der bequemste Weg zu einem grünen
+    // Lauf — und die Zusicherung, dass ein Besucher mit dieser Einstellung
+    // keine Dauerschleife bekommt, hätte kein Subjekt mehr.
+    await page.goto('/index.html');
+    expect(await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches),
+      'ohne Zutun meldet die Seite bereits Bewegungsreduktion — dann ist der '
+      + 'Befund von oben überholt, und die Regel darüber gehört neu bewertet')
+      .toBe(false);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches),
+      'page.emulateMedia() wirkt nicht mehr — dann gibt es keinen Weg mehr, '
+      + 'Bewegungsreduktion zu prüfen, und leerlauf.spec.js misst still den '
+      + 'Normalfall').toBe(true);
+  });
 });

@@ -613,7 +613,7 @@ function _feedRadarGruppen(hits) {
 function _feedRadarScanStart(pos, radiusKm, trefferzahl) {
   if (!_feedRadarMap || typeof L === 'undefined') return;
   var status = document.getElementById('feedRadarScanStatus');
-  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reduced = ebBewegungReduziert();
   var maxRadius = radiusKm * 1000;
 
   _feedRadarPulse = L.circle([pos.lat, pos.lng], {

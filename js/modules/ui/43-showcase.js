@@ -10,8 +10,7 @@ function _initEbShowcase() {
   if (!section || section._ebscInit) return;
   section._ebscInit = true;
 
-  var reduceMotion = false;
-  try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  var reduceMotion = ebBewegungReduziert();
 
   /* --- A) How-to-Demo: Szenen-Rotation --- */
   var demo = document.getElementById('ebscDemo');

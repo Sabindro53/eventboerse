@@ -21,11 +21,14 @@
 // weiter jeden Frame neu. Wer Bewegungsreduktion einschaltet, zahlt
 // denselben Preis und sieht die Bewegung bloss nicht.
 //
-// `no-preference` steht hier trotzdem: gemessen werden soll, was ein
-// normaler Besucher bekommt, nicht was die Testvoreinstellung ergibt.
+// NACHTRAG 10.09.2026: hier stand `test.use({ reducedMotion: 'no-preference' })`,
+// um die Vorgabe der Konfiguration zu überschreiben. Beides war wirkungslos —
+// die Playwright-Option erreicht die Seite in diesem Aufbau gar nicht
+// (gemessen: `matchMedia(...).matches` bleibt `false`, während
+// `page.emulateMedia()` unmittelbar danach `true` ergibt). Die Zeile ist
+// deshalb weg statt still danebenzustehen; der Zustand, den sie herstellen
+// sollte, ist ohnehin der Normalfall.
 const { test, expect } = require('@playwright/test');
-
-test.use({ reducedMotion: 'no-preference' });
 
 /**
  * Endlos laufende Animationen mit Sichtbarkeitsbefund.
@@ -240,5 +243,232 @@ test.describe('Leerlauf: was die Seite kostet, wenn niemand etwas tut', () => {
       + 'als würde jemand scrollen. Meist eine Animation auf etwas '
       + 'Unsichtbarem oder ein schneller Zeitgeber — die Tests darüber '
       + 'nennen beides').toBeLessThan(150);
+  });
+});
+
+/* ============================================================================
+ * BEWEGUNGSREDUKTION — die Maßnahme gegen Bewegung machte die Seite teurer
+ *
+ * Am 10.09.2026 gemessen, Landeseite im Leerlauf, drei Runden verschachtelt,
+ * Hauptthread je drei Sekunden:
+ *
+ *   normal    542 / 590 / 501 ms
+ *   reduce   1132 / 1085 / 1169 ms      ← das DOPPELTE
+ *
+ * Wer Bewegungsreduktion einschaltet, zahlte also MEHR und sah nichts davon —
+ * und das trifft ausgerechnet die Gruppe, die sie am ehesten braucht.
+ *
+ * Der Posten war `Layerize: 914 ms`, der Treiber der Hero-Marquee: derselbe
+ * Zustand ohne seine rAF-Schleife ergab 158 / 400 ms. Die laufende Deko hält
+ * ihre Elemente auf eigenen Compositor-Ebenen; im Ruhe-Modus fällt diese
+ * Beförderung weg, und jeder Marquee-Frame erzwingt danach einen ungleich
+ * größeren Ebenenbaum.
+ *
+ * Er war zugleich das einzige bewegte Element, das die Einstellung gar nicht
+ * beachtet hat — ein dauerhaft laufendes Karussell ist genau das, worum es
+ * bei `prefers-reduced-motion` geht.
+ *
+ * GEZÄHLT WIRD, NICHT GESTOPPT. rAF-Anforderungen und Stil-Neuberechnungen
+ * sind vom Tempo des Rechners fast unabhängig, Millisekunden nicht.
+ * ========================================================================= */
+
+/** rAF-Anforderungen in einem Zeitfenster — der Marquee ist die einzige Quelle. */
+async function frameAnforderungen(page, ms) {
+  await page.evaluate(() => {
+    if (!window.__ebRafZaehler) {
+      const echt = window.requestAnimationFrame.bind(window);
+      window.__ebRafZaehler = 0;
+      window.requestAnimationFrame = function (cb) { window.__ebRafZaehler++; return echt(cb); };
+    }
+    window.__ebRafZaehler = 0;
+  });
+  await page.waitForTimeout(ms);
+  return page.evaluate(() => window.__ebRafZaehler);
+}
+
+test.describe('Bewegungsreduktion: wer sie einschaltet, zahlt weniger', () => {
+  test('der Hero-Marquee beachtet die Einstellung — und läuft ohne sie', async ({ page }) => {
+    // BEIDE HÄLFTEN IN EINEM TEST. Ohne die Gegenprobe wäre „den Marquee
+    // ausbauen" der bequemste Weg zu einem grünen Test, und die Startseite
+    // stünde still.
+    await startseite(page);
+
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.waitForTimeout(1200);
+    const normal = await frameAnforderungen(page, 2000);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(1200);
+    const ruhe = await frameAnforderungen(page, 2000);
+
+    expect(normal, 'ohne Bewegungsreduktion fordert die Seite gar keine Frames '
+      + 'an — dann gibt es den Marquee nicht mehr, und dieser Test prüft nichts')
+      .toBeGreaterThan(20);
+    expect(ruhe, `im Ruhe-Modus wurden ${ruhe} Frames angefordert (ohne ihn `
+      + `${normal}). Der Marquee läuft trotz \`prefers-reduced-motion: reduce\` `
+      + 'weiter — er ist damit die einzige verbliebene Bewegung UND der '
+      + 'teuerste Posten dieses Zustands').toBe(0);
+  });
+
+  test('die Rücknahme lässt ihn wieder anlaufen — ohne Neuladen', async ({ page }) => {
+    // Die Einstellung ist im Betriebssystem umschaltbar, während die Seite
+    // offen ist. Ein beim Start eingefrorener Wert hiesse: neu laden. Ein
+    // Schalter, der nur in eine Richtung wirkt, ist ein halber Schalter.
+    await startseite(page);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(1200);
+    expect(await frameAnforderungen(page, 1500),
+      'im Ruhe-Modus läuft der Marquee weiter').toBe(0);
+
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.waitForTimeout(1200);
+    expect(await frameAnforderungen(page, 2000),
+      'nach der Rücknahme bleibt der Marquee stehen — der Wert wurde einmal '
+      + 'beim Start gelesen statt live gefragt, und wer die Einstellung '
+      + 'zurücknimmt, muss die Seite neu laden').toBeGreaterThan(20);
+  });
+
+  test('was stillsteht, hält keine eigene Ebene', async ({ page }) => {
+    // `will-change: transform` befördert das Element auf eine eigene
+    // Compositor-Ebene. Für eine Spur, die sich nicht bewegt, ist das Preis
+    // ohne Gegenwert — und im Ruhe-Modus stehen ALLE Spuren still.
+    await startseite(page);
+    const spuren = () => page.evaluate(() => Array.from(
+      document.querySelectorAll('.hero-marquee-track'), (t) => t.style.willChange || 'auto'));
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(1500);
+    const ruhe = await spuren();
+
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.waitForTimeout(1500);
+    const normal = await spuren();
+
+    expect(ruhe.length, 'es gibt keine Marquee-Spur — dann prüft dieser Test nichts')
+      .toBeGreaterThan(0);
+    expect(ruhe.filter((w) => w === 'transform'), `${ruhe.filter((w) => w === 'transform').length} `
+      + 'von ' + ruhe.length + ' Spuren tragen im Ruhe-Modus weiter '
+      + '`will-change: transform` und halten damit eine Ebene für eine '
+      + 'Bewegung, die nicht stattfindet').toEqual([]);
+    expect(normal, 'ohne Bewegungsreduktion trägt keine Spur mehr '
+      + '`will-change: transform` — dann wurde die Beförderung ganz entfernt '
+      + 'statt nur im Ruhe-Modus').toContain('transform');
+  });
+
+  test('der Ruhe-Modus kostet nicht mehr als der Normalfall', async ({ page }) => {
+    // DIE KLASSE, NICHT DIE ZAHL. Gemessen wird verschachtelt im selben Lauf,
+    // damit Schwankungen des Rechners beide Seiten gleich treffen. Vor der
+    // Behebung: 113-124 Neuberechnungen im Ruhe-Modus gegen 85-95 ohne ihn.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Performance.enable');
+    const zaehler = async () => {
+      const { metrics } = await cdp.send('Performance.getMetrics');
+      return Object.fromEntries(metrics.map((x) => [x.name, x.value])).RecalcStyleCount;
+    };
+    const messen = async () => { const a = await zaehler(); await page.waitForTimeout(3000); return (await zaehler()) - a; };
+
+    await startseite(page);
+    const normal = [], ruhe = [];
+    for (let i = 0; i < 2; i++) {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.waitForTimeout(1000);
+      normal.push(await messen());
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.waitForTimeout(1000);
+      ruhe.push(await messen());
+    }
+    const min = (xs) => Math.min.apply(null, xs);
+
+    expect(min(normal), 'im Normalfall rechnet die Seite gar nichts neu — dann '
+      + 'misst dieser Vergleich nichts').toBeGreaterThan(20);
+    expect(min(ruhe), `im Ruhe-Modus rechnet die Seite ${ruhe.join('/')} Stile neu, `
+      + `im Normalfall ${normal.join('/')}. Bewegungsreduktion darf nie teurer `
+      + 'sein als der Normalfall — sonst zahlt genau die Gruppe drauf, die sie '
+      + 'braucht').toBeLessThanOrEqual(min(normal));
+  });
+
+  test('kein Modul fragt die Medienabfrage selbst ab', async ({ page }) => {
+    // Vier Module trugen je eine eigene Kopie von
+    // `matchMedia('(prefers-reduced-motion: reduce)')` — und der Marquee als
+    // einziges bewegtes Element gar keine. Vier gepflegte Fassungen derselben
+    // Frage driften, und diese driftet unbemerkt: sie schaltet ja nur etwas
+    // ab, was auffallen könnte.
+    //
+    // Gesucht wird der AUFRUF, nicht das Wort: die Kommentare daneben nennen
+    // `prefers-reduced-motion` mehrfach, und ein Muster, das den erklärenden
+    // Text trifft statt der Zeile, ist hier schon mehrfach teuer gewesen.
+    const fs = require('fs');
+    const path = require('path');
+    const wurzel = path.join(__dirname, '..', '..', 'js', 'modules');
+    const dateien = [];
+    (function lauf(d) {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) lauf(p);
+        else if (e.name.endsWith('.js')) dateien.push(p);
+      }
+    })(wurzel);
+
+    const muster = /matchMedia\s*\(\s*['"`]\(prefers-reduced-motion/;
+    const heim = path.join(wurzel, 'core', '00-basis.js');
+    const fremd = dateien.filter((f) => f !== heim && muster.test(fs.readFileSync(f, 'utf8')))
+      .map((f) => path.relative(wurzel, f));
+
+    expect(muster.test(fs.readFileSync(heim, 'utf8')),
+      'core/00-basis.js fragt die Medienabfrage nicht mehr ab — dann gibt es '
+      + 'den gemeinsamen Griff nicht, und diese Regel hat kein Subjekt').toBe(true);
+    expect(fremd, 'diese Module bauen die Medienabfrage selbst nach. Der '
+      + 'gemeinsame Griff ist `ebBewegungReduziert()`; er fragt live statt '
+      + 'einmal beim Start und ist die einzige Stelle, die das tut').toEqual([]);
+  });
+});
+
+/* ----------------------------------------------------------------------------
+ * DER FALL, DER WIRKLICH ZÄHLT: die Seite wird MIT Bewegungsreduktion geladen.
+ *
+ * Die vier Tests darüber schalten die Einstellung um — und beim Umschalten
+ * ruft der Horcher `stopFrame()`. Die Schleife steht dann auch ohne jede
+ * Wache in `scheduleFrame()`/`tick()`: die Mutation „beide Wachen entfernt"
+ * hat alle vier überlebt.
+ *
+ * Ein Besucher schaltet aber nicht um. Er hat die Einstellung im
+ * Betriebssystem stehen und lädt die Seite damit — dann feuert nie ein
+ * Änderungsereignis, und es tragen ausschliesslich der Anfangswert und die
+ * Wachen. Ein Prüfer, der einen Übergang misst, prüft den Zustand nicht.
+ * -------------------------------------------------------------------------- */
+test.describe('Bewegungsreduktion von Anfang an', () => {
+  test('wer die Seite mit Bewegungsreduktion lädt, bekommt keine Schleife', async ({ page }) => {
+    // `emulateMedia` VOR dem Laden, nicht `test.use`: die Playwright-Option
+    // erreicht die Seite in diesem Aufbau nicht (siehe playwright.config.js).
+    // Die erste Fassung dieses Tests benutzte sie — und mass damit denselben
+    // Zustand wie ohne sie.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await startseite(page);
+
+    const spuren = await page.evaluate(() => Array.from(
+      document.querySelectorAll('.hero-marquee-track'),
+      (t) => ({ karten: t.querySelectorAll('.hero-marquee-card').length,
+                willChange: t.style.willChange || 'auto' })));
+
+    // Gegenprobe zuerst: den Marquee muss es geben und er muss gefüllt sein.
+    // Ohne sie wäre eine leere Startseite das beste Ergebnis dieses Tests.
+    expect(spuren.length, 'es gibt keine Marquee-Spur — dann prüft dieser Test nichts')
+      .toBeGreaterThan(0);
+    expect(spuren.filter((s) => s.karten > 0).length,
+      'keine Spur trägt Karten. Bewegungsreduktion darf die Inhalte nicht '
+      + 'entfernen, nur ihre Bewegung — der Inhalt ist die Sache, das Laufen '
+      + 'nur die Darbietung').toBeGreaterThan(0);
+
+    expect(await frameAnforderungen(page, 2500),
+      'die Seite fordert dauerhaft Frames an, obwohl sie MIT '
+      + '`prefers-reduced-motion: reduce` geladen wurde. Der Anfangswert in '
+      + '`startMarquee()` oder die Wachen in `scheduleFrame()`/`tick()` fehlen '
+      + '— beim blossen Umschalten fällt das nicht auf, weil der Horcher dabei '
+      + 'ohnehin `stopFrame()` ruft').toBe(0);
+
+    expect(spuren.filter((s) => s.willChange === 'transform'),
+      'eine Spur hält beim Laden mit Bewegungsreduktion eine eigene '
+      + 'Compositor-Ebene für eine Bewegung, die nicht stattfindet').toEqual([]);
   });
 });
