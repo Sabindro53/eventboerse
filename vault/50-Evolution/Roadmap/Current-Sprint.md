@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1001 Tests in 62 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1005 Tests in 62 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Freunde und Gruppen gibt es jetzt** (09.09.2026). Vorher gab es davon
   *nichts* — `'musikgruppe'` ist eine Kategorie, `_feedRadarGruppen` ist
@@ -28,6 +28,19 @@ einen alten Abschnitt gelesen und nicht diesen.
   das Orakel „gibt es hier ein Konto zu dieser Adresse". Der Prüfstand führt
   PHP wirklich aus und hat dabei drei eigene blinde Stellen gefunden.
   43 + 14 Tests, 15 Mutationen
+- **Der gemeinsame Plan steht** (10.09.2026). Gruppen können jetzt wirklich
+  gemeinsam an einem Vorhaben arbeiten: Posten anlegen, übernehmen, Budget
+  führen. Zeilen statt JSON-Feld, damit zwei Personen sich nicht
+  überschreiben; nur das Bearbeiten braucht optimistisches Sperren, das
+  Übernehmen löst die Datenbank per bedingtem UPDATE. Beim Schreiben des
+  Datenschutz-Abschnitts fiel auf, dass sich auflösende Gruppen ihre Posten
+  zurückließen — der Text hat den Code geprüft
+- **Der Dienstleister hatte von der Landeseite aus keinen Weg zu seinem
+  Geschäft** (10.09.2026). Im Browser gemessen: `my-listings`, `auftraege`
+  und `business` **null Mal sichtbar**, „Inserat erstellen" dreimal. Der
+  dritte Weg schaltet für Anbieter jetzt auf „Mein Geschäft" um. Die
+  Mobilleiste bleibt bewusst unangetastet — ihr Board-Slot ist eine
+  dokumentierte Entscheidung, kein Versehen
 - **Zwei Prüfungen zählten von Hand statt abzuleiten** (10.09.2026). Die
   Migration wies ihre eigenen Tabellen nicht nach — `$fehlt` kam aus einer
   Handliste, in der die drei Social-Tabellen fehlten; `dbDelta` meldet keinen
