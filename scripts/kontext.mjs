@@ -22,6 +22,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const WURZEL = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -138,11 +139,84 @@ export const AUSSAGEN = [
   },
 ];
 
-/** Zwei Dokumente, die dieselbe Zahl nennen, müssen dieselbe Zahl nennen. */
-function testzahlEinig() {
-  const a = behauptet(CLAUDE, /(\d+) Tests in \d+ Suiten/);
-  const b = behauptet(SPRINT, /Playwright-Suite: (\d+) Tests/);
-  return { a, b };
+/**
+ * Wie viele Tests es WIRKLICH gibt — je Datei und insgesamt.
+ *
+ * ── WARUM NICHT GEZÄHLT, SONDERN GEFRAGT ────────────────────────────────
+ *
+ * Ein Ausdruck über `^\s*test\(` ergibt 902, Playwright meldet 956. Die
+ * Differenz sind Tests, die in einer Schleife entstehen — `topbar.spec.js`
+ * fährt denselben Fall über zwei Bildschirmbreiten. Ein Prüfer mit dieser
+ * Zahl läge bei jedem Lauf um 54 daneben und wäre gefährlicher als keiner.
+ *
+ * `--list` kostet 1,4 s und läuft im PR-Check unmittelbar vor
+ * `npx playwright test`; die Installation ist dort also ohnehin da.
+ *
+ * ── KEIN `npx` ──────────────────────────────────────────────────────────
+ *
+ * Der erste Entwurf rief `npx playwright …`. Das widerspricht einer teuer
+ * gelernten Regel des Projekts: am 03.09.2026 blieb der Deploy zweimal über
+ * sechs Minuten stehen, weil `npx` bei einer Namens-Nichtübereinstimmung zur
+ * Laufzeit **nachfragt** — und auf einem Runner beantwortet das niemand.
+ * `npx` ist damals bewusst ganz aus dem Deploy geflogen; es hier wieder
+ * einzuführen wäre derselbe Fehler in einem anderen Schritt.
+ *
+ * Aufgerufen wird deshalb die installierte Datei über den eigenen
+ * Node-Prozess: keine PATH-Suche, keine Auflösung, keine Rückfrage.
+ *
+ * Schlägt der Aufruf fehl oder ist die Ausgabe unverständlich, ist das ein
+ * FEHLER — nicht messen ist kein Bestehen. Genau diese Verwechslung liess
+ * den toten Gitleaks-Scan vier Monate wie Schutz aussehen.
+ */
+const PLAYWRIGHT_CLI = path.join(WURZEL, 'node_modules', '@playwright', 'test', 'cli.js');
+
+let _testzahlen = null;
+function testzahlen() {
+  if (_testzahlen) return _testzahlen;
+  if (!fs.existsSync(PLAYWRIGHT_CLI)) {
+    return (_testzahlen = { fehler: 'Playwright ist nicht installiert (node_modules/@playwright/test/cli.js fehlt)' });
+  }
+  let ausgabe;
+  try {
+    ausgabe = execFileSync(process.execPath, [PLAYWRIGHT_CLI, 'test', '--list', '--reporter=null'], {
+      cwd: WURZEL, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000,
+    });
+  } catch (e) {
+    return (_testzahlen = { fehler: `Playwright liess sich nicht befragen: ${e.message.split('\n')[0]}` });
+  }
+  const gesamt = ausgabe.match(/Total:\s+(\d+)\s+tests?\s+in\s+(\d+)\s+files?/);
+  if (!gesamt) {
+    return (_testzahlen = { fehler: 'Playwright-Ausgabe ohne "Total: N tests in M files"' });
+  }
+  const jeDatei = new Map();
+  for (const m of ausgabe.matchAll(/›\s+([\w.-]+\.spec\.js):\d+:\d+\s+›/g)) {
+    jeDatei.set(m[1], (jeDatei.get(m[1]) || 0) + 1);
+  }
+  if (!jeDatei.size) {
+    return (_testzahlen = { fehler: 'Playwright-Ausgabe ohne einzelne Testzeilen' });
+  }
+  return (_testzahlen = { gesamt: Number(gesamt[1]), dateien: Number(gesamt[2]), jeDatei });
+}
+
+/**
+ * Die Suitenzahlen neben den `npx playwright test …`-Zeilen in CLAUDE.md.
+ *
+ * ── WARUM DAS HIER STEHT ────────────────────────────────────────────────
+ *
+ * Bis zum 10.09.2026 verglich dieser Prüfer die Gesamtzahl in CLAUDE.md mit
+ * der in Current-Sprint.md — also ZWEI HANDZAHLEN MITEINANDER. Beide durften
+ * 800 sagen, das Tor blieb grün; gemessen hat niemand.
+ *
+ * Der Beleg lag schon vor: `# 44 Tests` neben `social.spec.js` (echt 43) und
+ * `# 14 Tests` neben `aasa.spec.js` (echt 18). Zwei falsche Angaben in der
+ * Datei, die jede Sitzung zuerst liest, mit einem grünen Haken daneben.
+ *
+ * Findet das Muster keine einzige solche Zeile, ist das ein Fehler: ein
+ * Prüfer ohne Subjekt gibt eine Entwarnung, die er nicht decken kann.
+ */
+function suitenzahlen() {
+  return [...CLAUDE.matchAll(/tests\/e2e\/([\w.-]+\.spec\.js)[^\n#]*#\s*(\d+)\s+Tests/g)]
+    .map((m) => ({ datei: m[1], behauptet: Number(m[2]) }));
 }
 
 function pruefen(streng) {
@@ -170,15 +244,45 @@ function pruefen(streng) {
     if (!ok) fehler++;
   }
 
-  const t = testzahlEinig();
-  if (t.a === null || t.b === null) {
-    zeilenAus.push('✗ Testzahl: in CLAUDE.md oder im Sprint nicht gefunden');
-    fehler++;
-  } else if (t.a !== t.b) {
-    zeilenAus.push(`✗ Testzahl uneinig: CLAUDE.md ${t.a}, Current-Sprint ${t.b}`);
+  // ── Die Testzahl wird gemessen, nicht abgeglichen ─────────────────────
+  //
+  // Zwei Dokumente, die einander bestätigen, belegen nichts. Beide werden
+  // deshalb gegen Playwright geprüft — und wer sie umformuliert, muss das
+  // Muster mitziehen, statt still durchgewunken zu werden.
+  const t = testzahlen();
+  if (t.fehler) {
+    zeilenAus.push(`✗ Testzahl nicht messbar: ${t.fehler}`);
     fehler++;
   } else {
-    zeilenAus.push(`✓ Testzahl einig${''.padEnd(19)} beide ${String(t.a).padStart(6)}`);
+    for (const [wo, zahl] of [
+      ['CLAUDE.md', behauptet(CLAUDE, /(\d+) Tests in \d+ Suiten/)],
+      ['Current-Sprint', behauptet(SPRINT, /Playwright-Suite: (\d+) Tests/)],
+    ]) {
+      if (zahl === null) {
+        zeilenAus.push(`✗ Testzahl in ${wo} nicht gefunden — Muster anpassen`);
+        fehler++;
+        continue;
+      }
+      const ok = zahl === t.gesamt;
+      zeilenAus.push(`${ok ? '✓' : '✗'} ${`Tests (${wo})`.padEnd(34)} behauptet ${String(zahl).padStart(6)}  gemessen ${String(t.gesamt).padStart(6)}`);
+      if (!ok) fehler++;
+    }
+
+    const suiten = suitenzahlen();
+    if (!suiten.length) {
+      zeilenAus.push('✗ Keine `npx playwright test …  # N Tests`-Zeile in CLAUDE.md gefunden');
+      fehler++;
+    } else {
+      const schief = suiten.filter((s) => t.jeDatei.get(s.datei) !== s.behauptet);
+      for (const s of schief) {
+        const ist = t.jeDatei.get(s.datei);
+        zeilenAus.push(`✗ ${s.datei.padEnd(34)} behauptet ${String(s.behauptet).padStart(6)}  gemessen ${String(ist === undefined ? '—' : ist).padStart(6)}`);
+      }
+      fehler += schief.length;
+      if (!schief.length) {
+        zeilenAus.push(`✓ ${'Suitenzahlen in CLAUDE.md'.padEnd(34)} ${String(suiten.length).padStart(6)} geprüft, alle richtig`);
+      }
+    }
   }
 
   console.log('── Kontext gegen Code ───────────────────────────');

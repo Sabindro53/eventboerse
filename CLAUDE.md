@@ -685,7 +685,7 @@ ungültig, und beide Dateien sehen für sich weiterhin korrekt aus.
 `aasa.spec.js` vergleicht sie.
 
 ```bash
-npx playwright test tests/e2e/aasa.spec.js   # 14 Tests, jeder Fall ein eigener Prozess
+npx playwright test tests/e2e/aasa.spec.js   # 18 Tests, jeder Fall ein eigener Prozess
 ```
 
 **Die Team-ID kommt über den Deploy**, nicht von Hand. `ionos-deploy.yml` hat
@@ -1420,7 +1420,7 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 44 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/social.spec.js           # 43 Tests, PHP wirklich ausgefuehrt
 npx playwright test tests/e2e/freunde-ansicht.spec.js  # 14 Tests, echter Browser
 ```
 
@@ -1431,7 +1431,7 @@ Schreibvorgang gewinnt, die Arbeit des anderen ist weg, und niemand bekommt
 eine Meldung. Ein „geteiltes" Projekt in diesem Speicher wäre keine
 Zusammenarbeit, sondern ein Datenverlust mit Einladung.
 
-Drei Tabellen (`EB_DB_VERSION` 2.8): `eb_friendships`, `eb_groups`,
+Drei Tabellen (mit `EB_DB_VERSION` 2.8 eingeführt): `eb_friendships`, `eb_groups`,
 `eb_group_members`. Das SQL steht **bei der Logik** in
 `includes/social/freunde-gruppen.php`, nicht im Installer — eine
 Tabellendefinition, die getrennt von ihrem Code gepflegt wird, driftet, und
@@ -1441,6 +1441,46 @@ diese driftet unbemerkt bis zum ersten Schreibversuch im Betrieb.
 symmetrisch; mit zwei Spalten in beliebiger Reihenfolge stünde dasselbe Paar
 zweimal da, mit womöglich widersprüchlichem Status. Wer angefragt hat, steht
 in `requester_id`.
+
+**Die Migration prüft ihre eigenen Tabellen nach — abgeleitet, nicht
+aufgezählt.** `eb_maybe_create_tables()` setzt `eb_db_version` erst, wenn alles
+wirklich angelegt ist; die Erfolgsprüfung baute ihre Liste `$fehlt` aber aus
+einer **von Hand aufgezählten** Aufstellung von Spalten und Tabellen, und die
+drei neuen standen nicht darin. `dbDelta` gibt keinen Fehler zurück — die
+Version wäre also auf 2.8 gesprungen, während die Tabellen fehlen, und die
+Migration liefe **nie wieder an**. Der Kommentar zwanzig Zeilen darüber warnt
+wörtlich davor: *„Die Datenbank waere kaputt und die Anzeige gruen."*
+
+Die Prüfung liest die Tabellennamen jetzt aus demselben SQL, das sie erzeugt
+(`eb_social_tabellen_sql()`) — wer eine vierte Tabelle hinzufügt, ändert damit
+nicht die Nachweispflicht.
+
+**Der Fix allein hätte die Live-Datenbank nie erreicht.** 2.8 war zum Zeitpunkt
+des Befunds bereits ausgeliefert — und der Block wird bei erreichter Version
+**gar nicht mehr betreten**. Stünde `eb_db_version` live auf 2.8 bei fehlender
+Tabelle, könnte die verbesserte Prüfung das nie nachholen: ein Fehler, der
+sich selbst den Weg zur Reparatur zumauert. Ob es wirklich schiefging, ist von
+hier aus nicht feststellbar; **genau das ist der Punkt**. Deshalb **2.9 ohne
+jede Schema-Änderung** — die Hochzählung lässt den Block ein einziges Mal
+erneut laufen, damit der Nachweis am echten Bestand geführt wird. Sie ist
+billig: jedes `ALTER` ist durch ein vorheriges `SHOW COLUMNS` gedeckt, die
+`UPDATE`s sind idempotent, und der 2.7-Backfill hängt an
+`eb_ai_disclosure_backfill_27` — ein zweiter Lauf überschreibt also keine
+spätere Korrektur des Betreibers.
+
+**Belegt wird das Verhalten, nicht die Schreibweise.** Der Migrations-Prüfstand
+in `radar.spec.js` führt `eb_maybe_create_tables()` gegen eine erfundene
+Datenbank wirklich aus und bindet dafür `freunde-gruppen.php` **im Original**
+ein; er lässt eine Social-Tabelle fehlen und misst, dass `eb_db_version`
+stehenbleibt. Zwei Fälle, weil einer zu wenig ist: die **erste** Tabelle
+fehlt, und die **letzte** — eine Ableitung, die nach dem ersten Eintrag
+aufhört, besteht sonst weiter. Ein Test auf „steht da ein `foreach`" wäre
+wieder nur eine zweite Liste, diesmal in Regex-Form.
+
+**Auch der Prüfstand zählte eine Tabelle von Hand auf.** Sein `SHOW TABLES`
+kannte genau einen Namen und lag beim Hinzufügen der drei prompt daneben. Er
+antwortet jetzt für jede Tabelle; **ob** eine fehlen darf, entscheidet der
+Testfall, nicht eine Aufzählung in der Attrappe.
 
 #### Vier Entscheidungen, an denen die Sicherheit hängt
 
@@ -1991,6 +2031,59 @@ bestandener Test.** Ein Tor, das bei umformuliertem Text stillschweigend
 durchwinkt, prüft nichts mehr und sieht dabei grün aus. Wer eine geprüfte
 Angabe umformuliert, passt das Muster in `scripts/kontext.mjs` mit an.
 
+#### Die Testzahl verglich zwei Notizen miteinander
+
+Am 10.09.2026 aufgefallen, im Prüfer selbst. Sechs Angaben maß er gegen den
+Code — die siebte, die **Testzahl**, verglich er zwischen CLAUDE.md und
+`Current-Sprint.md` und meldete dann `✓ Testzahl einig`. Zwei Zahlen, beide
+von Hand gepflegt, die einander bestätigen. **Nennen beide dieselbe falsche
+Zahl, war das Tor grün** — eine Entwarnung über eine Suite, in die es nie
+gesehen hat. Dieselbe Klasse wie der tote Gitleaks-Scan, nur im Prüfer, dessen
+Aufgabe das Nachmessen ist.
+
+Der Beleg lag schon in der Datei: die Zeilen mit den Suitengrößen sind
+**gar nicht** geprüft worden, und zwei davon waren falsch — `social.spec.js`
+war mit `44` ausgewiesen bei echten 43, `aasa.spec.js` mit `14` bei echten 18.
+Monatelang, mit grünem Haken daneben.
+
+**Gefragt wird jetzt Playwright, nicht die Nachbarnotiz.** `--list` liefert die
+Gesamtzahl und die je Datei; beide Dokumente werden dagegen gemessen, und
+**jede** `# N Tests`-Zeile in CLAUDE.md ebenso. Der Aufruf kostet 1,4 s und
+steht im PR-Check unmittelbar vor `npx playwright test` — die Installation ist
+dort ohnehin da.
+
+**Nicht gezählt, sondern gefragt.** Am selben Tag gemessen: ein Ausdruck über
+`test(` ergibt 902, Playwright meldet 956. Die Differenz sind Fälle, die in
+einer Schleife entstehen
+(`topbar.spec.js` fährt denselben über zwei Bildschirmbreiten). Ein Prüfer mit
+dieser Zahl läge bei jedem Lauf um 54 daneben — und ein Prüfer, der sich irrt,
+ist gefährlicher als keiner.
+
+**Ist die Suite nicht befragbar, ist das Exit 1.** Nicht messen ist kein
+Bestehen; sonst gälten wieder stillschweigend die Handzahlen. Hergestellt wird
+der Fall an einem **gespiegelten Baum ohne `node_modules`** — Verzeichnisse
+echt, Dateien verlinkt, denn ein Verzeichnis-Symlink meldet
+`isDirectory() === false` und der PHP-Durchlauf fiele mit „16 Routen zu wenig"
+durch: rot aus dem falschen Grund. `node_modules/@playwright` kurz umzubenennen
+wäre der bequemere Weg und träfe die parallel startenden Playwright-Arbeiter.
+
+**Kein `npx` — die Lehre vom 03.09.2026 gilt auch hier.** Der erste Entwurf
+rief `npx playwright …`; damals blieb der Deploy zweimal über sechs Minuten
+stehen, weil `npx` zur Laufzeit **nachfragt**. Aufgerufen wird deshalb die
+installierte Datei über den eigenen Node-Prozess.
+
+Das braucht einen **eigenen** Test, und der Grund ist gemessen: der Fehlermodus
+von `npx` ist das *Hängen*, nicht das Fehlschlagen — mit `npx` an dieser Stelle
+bleiben alle anderen Tests der Datei grün. Gesucht wird die **Aufrufstelle**,
+nicht das Wort: der Kommentar daneben schreibt „npx" mehrfach aus, und ein
+Muster, das den erklärenden Text trifft statt der Zeile, ist hier schon
+mehrfach teuer gewesen. Dazu die Gegenprobe, dass überhaupt noch gemessen wird
+— sonst erfüllte man die Regel, indem man die Messung entfernt.
+
+Mutationsgeprüft sind alle fünf Eigenschaften: der Rückfall auf den
+Dokumentenabgleich, die ungeprüften Suitenzahlen, das stille Überspringen bei
+fehlender Messung, die Rückkehr von `npx` und der Wegfall der Messung selbst.
+
 ### Impuls-Strom messen
 
 ```bash
@@ -2029,7 +2122,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-955 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+962 Tests in 60 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

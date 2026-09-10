@@ -3712,9 +3712,25 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * 2.8: Freunde und Gruppen — eb_friendships, eb_groups, eb_group_members.
  * Eigene Tabellen statt eines geteilten Board-Blobs; die Begruendung steht
  * in includes/social/freunde-gruppen.php.
+ * 2.9: KEINE Schema-Aenderung — 2.8 ist ohne Nachweis durchgelaufen.
+ *
+ * Der Erfolgstest baute `$fehlt` aus einer von Hand aufgezaehlten Liste, in
+ * der die drei Tabellen aus 2.8 fehlten. `dbDelta` meldet keinen Fehlschlag:
+ * haette eine der Tabellen nicht angelegt werden koennen, stuende
+ * `eb_db_version` trotzdem auf 2.8 — und weil der Block bei erreichter
+ * Version gar nicht mehr betreten wird, koennte die verbesserte Pruefung das
+ * NIE nachholen. Ein Fehler, der sich selbst den Weg zur Reparatur zumauert.
+ *
+ * Ob es wirklich schiefging, laesst sich von hier nicht feststellen; genau
+ * das ist der Punkt. Die Hochzaehlung laesst den Block ein einziges Mal
+ * erneut laufen, damit der Nachweis am echten Bestand gefuehrt wird. Sie ist
+ * billig: jedes ALTER darin ist durch ein vorheriges SHOW COLUMNS gedeckt,
+ * die UPDATEs sind idempotent, und der 2.7-Backfill haengt an
+ * `eb_ai_disclosure_backfill_27` — ein zweiter Lauf ueberschreibt also keine
+ * spaetere Korrektur des Betreibers.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '2.8' );
+    define( 'EB_DB_VERSION', '2.9' );
 }
 
 function eb_create_tables() {
@@ -3986,6 +4002,29 @@ function eb_maybe_create_tables() {
         // Installations-/Recovery-Umgebung lauffaehig.
         if ( $wpdb->get_var( "SHOW TABLES LIKE '{$reports_table}'" ) !== $reports_table ) {
             $fehlt[] = 'eb_content_reports';
+        }
+
+        // ── DIE SOCIAL-TABELLEN PRUEFEN SICH AUS IHREM EIGENEN SQL ─────────
+        //
+        // Die Liste darueber ist von Hand gepflegt — und genau daran waere
+        // dieser Block beinahe gescheitert: mit 2.8 kamen drei Tabellen dazu,
+        // und keine stand hier. Waere eine davon nicht entstanden, haette
+        // `$fehlt` trotzdem leer ausgesehen, `eb_db_version` waere auf 2.8
+        // gesprungen, und die Migration waere NIE WIEDER angelaufen. Die
+        // Datenbank kaputt, die Anzeige gruen — genau die Kombination, vor
+        // der der Kommentar zwanzig Zeilen weiter oben warnt.
+        //
+        // Deshalb wird hier nicht aufgezaehlt, sondern abgeleitet: aus
+        // demselben SQL, das `eb_create_tables()` ausfuehrt. Wer eine vierte
+        // Social-Tabelle anlegt, bekommt ihre Pruefung geschenkt.
+        foreach ( eb_social_tabellen_sql() as $sql_social ) {
+            if ( ! preg_match( '/CREATE TABLE\s+(\S+)\s*\(/', $sql_social, $m ) ) {
+                continue;
+            }
+            $tab_social = $m[1];
+            if ( $wpdb->get_var( "SHOW TABLES LIKE '{$tab_social}'" ) !== $tab_social ) {
+                $fehlt[] = substr( $tab_social, strlen( $wpdb->prefix ) );
+            }
         }
 
         if ( empty( $fehlt ) ) {
