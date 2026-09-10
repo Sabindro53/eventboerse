@@ -21,12 +21,22 @@ einen alten Abschnitt gelesen und nicht diesen.
 - **Freunde und Gruppen gibt es jetzt** (09.09.2026). Vorher gab es davon
   *nichts* — `'musikgruppe'` ist eine Kategorie, `_feedRadarGruppen` ist
   Karten-Clustering, `/collaborations` eine Referenzliste
-  Dienstleister→Dienstleister. Drei eigene Tabellen (`EB_DB_VERSION` 2.8),
-  **nicht** der Board-Blob: zwei Personen am selben `eb_board_projects`
-  überschreiben sich gegenseitig, ohne Meldung. Gefunden wird nur über einen
-  **selbstgesetzten Handle** — eine Suche nach E-Mail wäre das Orakel „gibt es
-  hier ein Konto zu dieser Adresse". Der Prüfstand führt PHP wirklich aus und
-  hat dabei drei eigene blinde Stellen gefunden. 44 + 14 Tests, 15 Mutationen
+  Dienstleister→Dienstleister. Drei eigene Tabellen (mit `EB_DB_VERSION` 2.8
+  eingeführt), **nicht** der Board-Blob: zwei Personen am selben
+  `eb_board_projects` überschreiben sich gegenseitig, ohne Meldung. Gefunden
+  wird nur über einen **selbstgesetzten Handle** — eine Suche nach E-Mail wäre
+  das Orakel „gibt es hier ein Konto zu dieser Adresse". Der Prüfstand führt
+  PHP wirklich aus und hat dabei drei eigene blinde Stellen gefunden.
+  43 + 14 Tests, 15 Mutationen
+- **Zwei Prüfungen zählten von Hand statt abzuleiten** (10.09.2026). Die
+  Migration wies ihre eigenen Tabellen nicht nach — `$fehlt` kam aus einer
+  Handliste, in der die drei Social-Tabellen fehlten; `dbDelta` meldet keinen
+  Fehlschlag, `eb_db_version` wäre auf 2.8 gesprungen und die Migration nie
+  wieder angelaufen. Und `kontext.mjs` verglich die Testzahl zwischen
+  CLAUDE.md und dieser Datei — zwei Handzahlen, die einander bestätigen.
+  Beide messen jetzt gegen ihr Subjekt (SQL bzw. Playwright `--list`).
+  **`EB_DB_VERSION` 2.9 ohne Schema-Änderung**, weil 2.8 schon ausgeliefert
+  war und der reparierte Nachweis den Block sonst nie wieder betreten hätte
 - **Der Berlin-Fall ist behoben** (09.09.2026). Der Aktivitäten-Bestand kannte
   einen Punkt — Köln — und die Ansicht meldete jedem ausserhalb „im Umkreis von
   50 km ist gerade nichts eingetragen": eine Aussage über eine Gegend, in die
