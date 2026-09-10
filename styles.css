@@ -37,27 +37,58 @@
   display: block;
   pointer-events: none;
 }
+/* ── DIE PUNKTE SIND 7 px GROSS UND 24 px BREIT ─────────────────────────
+ *
+ * Gemessen am 10.09.2026 auf 393×852: 25 dieser Knöpfe mit einer
+ * Trefferfläche von 7×7 px. axe meldet sie als `target-size`, Schweregrad
+ * `serious` — und es war der EINZIGE WCAG-2.2-Verstoß der ganzen Anwendung.
+ *
+ * SC 2.5.8 verlangt 24×24 px. Die Ausnahme für eng beieinanderliegende
+ * Ziele greift ausgerechnet hier nicht: sie erlaubt kleinere Flächen nur,
+ * wenn 24-px-Kreise um die Mitten sich NICHT schneiden — bei 12 px
+ * Mittenabstand tun sie das. Beide Wege der Norm laufen also auf denselben
+ * Mindestabstand hinaus.
+ *
+ * Deshalb trägt der Knopf die Fläche und `::before` das Aussehen: der
+ * sichtbare Punkt bleibt 7 px, die Lücke dazwischen wächst von 5 auf 17 px.
+ * Fünf Punkte brauchen damit 120 px in einer 363 px breiten Karte — nachge-
+ * messen, nicht geschätzt.
+ *
+ * Der Abstand nach unten wandert von 10 px auf 2 px, damit der sichtbare
+ * Punkt dort bleibt, wo er war: die Reihe ist jetzt 24 statt 7 px hoch, und
+ * ohne die Korrektur rutschte der Punkt um 8 px nach oben.
+ */
 .grid-gallery-dots {
   position: absolute;
-  bottom: 10px;
+  bottom: 2px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 5px;
+  align-items: center;
+  gap: 0;
   z-index: 10;
   pointer-events: auto;
 }
 .grid-gallery-dot {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.grid-gallery-dot::before {
+  content: '';
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: rgba(255,255,255,0.5);
-  border: none;
-  padding: 0;
-  cursor: pointer;
   transition: background 0.2s, transform 0.2s;
 }
-.grid-gallery-dot.active {
+.grid-gallery-dot.active::before {
   background: #fff;
   transform: scale(1.2);
 }
