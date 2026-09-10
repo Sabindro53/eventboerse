@@ -1431,7 +1431,7 @@ Schreibvorgang gewinnt, die Arbeit des anderen ist weg, und niemand bekommt
 eine Meldung. Ein „geteiltes" Projekt in diesem Speicher wäre keine
 Zusammenarbeit, sondern ein Datenverlust mit Einladung.
 
-Drei Tabellen (`EB_DB_VERSION` 2.8): `eb_friendships`, `eb_groups`,
+Drei Tabellen (mit `EB_DB_VERSION` 2.8 eingeführt): `eb_friendships`, `eb_groups`,
 `eb_group_members`. Das SQL steht **bei der Logik** in
 `includes/social/freunde-gruppen.php`, nicht im Installer — eine
 Tabellendefinition, die getrennt von ihrem Code gepflegt wird, driftet, und
@@ -1454,6 +1454,19 @@ wörtlich davor: *„Die Datenbank waere kaputt und die Anzeige gruen."*
 Die Prüfung liest die Tabellennamen jetzt aus demselben SQL, das sie erzeugt
 (`eb_social_tabellen_sql()`) — wer eine vierte Tabelle hinzufügt, ändert damit
 nicht die Nachweispflicht.
+
+**Der Fix allein hätte die Live-Datenbank nie erreicht.** 2.8 war zum Zeitpunkt
+des Befunds bereits ausgeliefert — und der Block wird bei erreichter Version
+**gar nicht mehr betreten**. Stünde `eb_db_version` live auf 2.8 bei fehlender
+Tabelle, könnte die verbesserte Prüfung das nie nachholen: ein Fehler, der
+sich selbst den Weg zur Reparatur zumauert. Ob es wirklich schiefging, ist von
+hier aus nicht feststellbar; **genau das ist der Punkt**. Deshalb **2.9 ohne
+jede Schema-Änderung** — die Hochzählung lässt den Block ein einziges Mal
+erneut laufen, damit der Nachweis am echten Bestand geführt wird. Sie ist
+billig: jedes `ALTER` ist durch ein vorheriges `SHOW COLUMNS` gedeckt, die
+`UPDATE`s sind idempotent, und der 2.7-Backfill hängt an
+`eb_ai_disclosure_backfill_27` — ein zweiter Lauf überschreibt also keine
+spätere Korrektur des Betreibers.
 
 **Belegt wird das Verhalten, nicht die Schreibweise.** Der Migrations-Prüfstand
 in `radar.spec.js` führt `eb_maybe_create_tables()` gegen eine erfundene

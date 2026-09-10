@@ -3712,9 +3712,25 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * 2.8: Freunde und Gruppen — eb_friendships, eb_groups, eb_group_members.
  * Eigene Tabellen statt eines geteilten Board-Blobs; die Begruendung steht
  * in includes/social/freunde-gruppen.php.
+ * 2.9: KEINE Schema-Aenderung — 2.8 ist ohne Nachweis durchgelaufen.
+ *
+ * Der Erfolgstest baute `$fehlt` aus einer von Hand aufgezaehlten Liste, in
+ * der die drei Tabellen aus 2.8 fehlten. `dbDelta` meldet keinen Fehlschlag:
+ * haette eine der Tabellen nicht angelegt werden koennen, stuende
+ * `eb_db_version` trotzdem auf 2.8 — und weil der Block bei erreichter
+ * Version gar nicht mehr betreten wird, koennte die verbesserte Pruefung das
+ * NIE nachholen. Ein Fehler, der sich selbst den Weg zur Reparatur zumauert.
+ *
+ * Ob es wirklich schiefging, laesst sich von hier nicht feststellen; genau
+ * das ist der Punkt. Die Hochzaehlung laesst den Block ein einziges Mal
+ * erneut laufen, damit der Nachweis am echten Bestand gefuehrt wird. Sie ist
+ * billig: jedes ALTER darin ist durch ein vorheriges SHOW COLUMNS gedeckt,
+ * die UPDATEs sind idempotent, und der 2.7-Backfill haengt an
+ * `eb_ai_disclosure_backfill_27` — ein zweiter Lauf ueberschreibt also keine
+ * spaetere Korrektur des Betreibers.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '2.8' );
+    define( 'EB_DB_VERSION', '2.9' );
 }
 
 function eb_create_tables() {
