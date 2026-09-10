@@ -3988,6 +3988,29 @@ function eb_maybe_create_tables() {
             $fehlt[] = 'eb_content_reports';
         }
 
+        // ── DIE SOCIAL-TABELLEN PRUEFEN SICH AUS IHREM EIGENEN SQL ─────────
+        //
+        // Die Liste darueber ist von Hand gepflegt — und genau daran waere
+        // dieser Block beinahe gescheitert: mit 2.8 kamen drei Tabellen dazu,
+        // und keine stand hier. Waere eine davon nicht entstanden, haette
+        // `$fehlt` trotzdem leer ausgesehen, `eb_db_version` waere auf 2.8
+        // gesprungen, und die Migration waere NIE WIEDER angelaufen. Die
+        // Datenbank kaputt, die Anzeige gruen — genau die Kombination, vor
+        // der der Kommentar zwanzig Zeilen weiter oben warnt.
+        //
+        // Deshalb wird hier nicht aufgezaehlt, sondern abgeleitet: aus
+        // demselben SQL, das `eb_create_tables()` ausfuehrt. Wer eine vierte
+        // Social-Tabelle anlegt, bekommt ihre Pruefung geschenkt.
+        foreach ( eb_social_tabellen_sql() as $sql_social ) {
+            if ( ! preg_match( '/CREATE TABLE\s+(\S+)\s*\(/', $sql_social, $m ) ) {
+                continue;
+            }
+            $tab_social = $m[1];
+            if ( $wpdb->get_var( "SHOW TABLES LIKE '{$tab_social}'" ) !== $tab_social ) {
+                $fehlt[] = substr( $tab_social, strlen( $wpdb->prefix ) );
+            }
+        }
+
         if ( empty( $fehlt ) ) {
             update_option( 'eb_db_version', EB_DB_VERSION );
             delete_option( 'eb_db_migration_fehlt' );

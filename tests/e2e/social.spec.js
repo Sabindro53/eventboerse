@@ -385,6 +385,42 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
       .toBeGreaterThanOrEqual(2.8);
   });
 
+  test('die Migration prüft ihre eigenen Tabellen nach', async () => {
+    // ── DER FEHLER, DEN DIESER TEST FESTHÄLT ───────────────────────────
+    //
+    // `eb_maybe_create_tables()` setzt `eb_db_version` erst hoch, wenn
+    // `$fehlt` leer ist — und `$fehlt` wurde von Hand aufgezählt. Mit 2.8
+    // kamen drei Tabellen dazu, und keine stand in der Aufzählung.
+    //
+    // Wäre eine davon nicht entstanden, hätte `$fehlt` trotzdem leer
+    // ausgesehen: Version auf 2.8, Migration NIE WIEDER angelaufen,
+    // Datenbank kaputt, Anzeige grün. Genau die Kombination, vor der der
+    // Kommentar zwanzig Zeilen darüber warnt — und die ich beim Anlegen
+    // der Tabellen prompt neu erzeugt hatte.
+    //
+    // Geprüft wird deshalb die ABLEITUNG, nicht die Namen: wer eine
+    // vierte Social-Tabelle anlegt, bekommt ihre Prüfung geschenkt, und
+    // wer die Schleife durch eine Aufzählung ersetzt, fällt hier durch.
+    const fn = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+    const block = fn.slice(fn.indexOf('function eb_maybe_create_tables'),
+      fn.indexOf('update_option( \'eb_db_version\', EB_DB_VERSION )'));
+    expect(block, 'die Migrationsprüfung ist nicht auffindbar').toBeTruthy();
+    expect(block,
+      'die Social-Tabellen werden bei der Migration nicht nachgeprüft — '
+      + 'dann gilt sie als erledigt, auch wenn eine Tabelle fehlt')
+      .toMatch(/foreach\s*\(\s*eb_social_tabellen_sql\(\)\s*as/);
+    expect(block, 'die Prüfung trägt die Tabellen wieder als Handliste')
+      .toMatch(/SHOW TABLES LIKE '\{\$tab_social\}'/);
+
+    // Und die Gegenprobe am echten SQL: der Ausdruck, mit dem die Prüfung
+    // die Namen zieht, findet auch wirklich alle drei. Ein Muster, das
+    // nichts trifft, prüfte still gar nichts.
+    const quelle = fs.readFileSync(path.join(ROOT, 'includes', 'social', 'freunde-gruppen.php'), 'utf8');
+    const namen = [...quelle.matchAll(/CREATE TABLE\s+(\S+)\s*\(/g)].map((m) => m[1]);
+    expect(namen, 'der Ausdruck der Migrationsprüfung findet die Tabellen nicht')
+      .toHaveLength(3);
+  });
+
   test('das Paar steht nur einmal in der Tabelle', async () => {
     // `user_low`/`user_high` statt `requester`/`addressee`: eine
     // Freundschaft ist symmetrisch, und mit zwei Spalten in beliebiger

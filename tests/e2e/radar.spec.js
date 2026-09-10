@@ -611,7 +611,7 @@ test.describe('Koordinaten in der Datenbank', () => {
    *          spalten?: string[]}} lage
    */
   function migrieren(lage = {}) {
-    const { alterWirkt = true, laeufe = 1, vorbelegung = {},
+    const { alterWirkt = true, laeufe = 1, vorbelegung = {}, fehlendeTabellen = [],
       spalten = ['id', 'title', 'region', 'category_label', 'available_weekdays'] } = lage;
     const defVon = FUNCTIONS.indexOf("if ( ! defined( 'EB_DB_VERSION' ) )");
     const defBis = FUNCTIONS.indexOf('function eb_create_tables', defVon);
@@ -619,6 +619,14 @@ test.describe('Koordinaten in der Datenbank', () => {
 
     const skript = path.join(os.tmpdir(), `mig-${Date.now()}-${Math.random()}.php`);
     fs.writeFileSync(skript, `<?php
+// freunde-gruppen.php traegt den ueblichen Riegel gegen den Direktaufruf:
+// ohne definierte ABSPATH steigt sie sofort aus. Fehlt die Konstante hier,
+// bricht das Skript wortlos ab, und der Prueflauf liefert leere Ausgabe
+// statt eines Ergebnisses.
+define('ABSPATH', __DIR__ . '/');
+// WordPress-Zeitkonstante, die freunde-gruppen.php beim Einbinden fuer die
+// Gueltigkeit des Einladungscodes braucht.
+define('DAY_IN_SECONDS', 86400);
 $OPT = ${phpWert(vorbelegung)};
 $CREATE = 0;
 function get_option($k, $d = false) { global $OPT; return array_key_exists($k, $OPT) ? $OPT[$k] : $d; }
@@ -632,6 +640,9 @@ class FakeWpdb {
     public $nachrichten = array('id', 'created_at');
     public $indizes = array();
     public $wirkt = ${alterWirkt ? 'true' : 'false'};
+    // Tabellen, die dbDelta NICHT angelegt bekommen hat. MySQL meldet das
+    // nicht — deshalb muss die Migration selbst nachsehen.
+    public $fehlend = array(${fehlendeTabellen.map((t) => JSON.stringify(t)).join(', ')});
 
     function query($sql) {
         if ( ! $this->wirkt ) { return false; }
@@ -659,16 +670,32 @@ class FakeWpdb {
         // eb_create_tables() ist in diesem isolierten Migrationstest ein
         // Stub. Sein dbDelta-Ergebnis wird deshalb hier als vorhanden
         // modelliert; die Tests dieser Suite variieren nur Spalten/Index.
-        if ( strpos($sql, "SHOW TABLES LIKE 'wp_eb_content_reports'") !== false ) {
-            return 'wp_eb_content_reports';
+        //
+        // JEDE Tabelle, nicht eine aufgezaehlte. Hier stand bis zum
+        // 10.09.2026 nur 'wp_eb_content_reports' beim Namen — eine Handliste
+        // im Pruefstand, die beim Hinzufuegen der drei Social-Tabellen
+        // prompt danebenlag. Ob eine Tabelle FEHLEN darf, prueft
+        // social.spec.js an der echten Ableitung; hier waere die Aufzaehlung
+        // nur eine zweite Liste, die driftet.
+        if ( preg_match("/SHOW TABLES LIKE '([a-z_]+)'/", $sql, $m) ) {
+            return in_array($m[1], $this->fehlend, true) ? null : $m[1];
         }
         return null;
     }
     function get_col($sql) {
         return strpos($sql, 'wp_eb_messages') !== false ? $this->nachrichten : $this->spalten;
     }
+    // Von eb_social_tabellen_sql() gebraucht. Der Wert ist beliebig: die
+    // Nachweisliste liest nur die Tabellennamen aus dem CREATE TABLE.
+    function get_charset_collate() { return 'DEFAULT CHARSET=utf8mb4'; }
 }
 $wpdb = new FakeWpdb();
+
+// Die echte Quelle, nicht ein Nachbau: eb_maybe_create_tables() leitet seine
+// Nachweisliste aus eb_social_tabellen_sql() ab. Wer die Funktion hier
+// stubbte, pruefte eine Migration, die es so nicht gibt — die Datei enthaelt
+// ausschliesslich Funktionsdefinitionen und laesst sich deshalb einbinden.
+require_once ${JSON.stringify(path.join(__dirname, '..', '..', 'includes', 'social', 'freunde-gruppen.php'))};
 
 ${FUNCTIONS.slice(defVon, defBis)}
 ${MIGRATION}
@@ -790,6 +817,34 @@ echo json_encode(array(
     expect(r.version, 'Version trotz fehlender Spalten hochgesetzt').not.toBe(r.soll);
     expect(r.fehlt, 'der Fehlschlag wird nicht benannt')
       .toEqual(expect.arrayContaining(['stadtteil', 'lat', 'lng']));
+  });
+
+  test('eine fehlende Social-Tabelle hält die Version ebenso auf', () => {
+    // ── DER BEFUND VOM 10.09.2026 ────────────────────────────────────────
+    //
+    // Die Selbstprüfung baute `$fehlt` aus einer VON HAND aufgezählten
+    // Liste. Als `eb_friendships`, `eb_groups` und `eb_group_members`
+    // dazukamen, standen sie nicht darin: `eb_db_version` wäre auf den
+    // Sollstand gesprungen, während die Tabellen fehlen, und die Migration
+    // liefe nie wieder an. Genau der Zustand, vor dem der Kommentar im
+    // Nachbartest warnt — Datenbank kaputt, Anzeige grün.
+    //
+    // Gemessen wird das VERHALTEN, nicht die Schreibweise. Ein Test auf
+    // „steht da ein foreach über eb_social_tabellen_sql()" wäre wieder nur
+    // eine zweite Liste, diesmal in Regex-Form.
+    const r = migrieren({ fehlendeTabellen: ['wp_eb_friendships'] });
+    expect(r.version, 'Version trotz fehlender Tabelle hochgesetzt').not.toBe(r.soll);
+    expect(r.fehlt, 'die fehlende Tabelle wird nicht benannt').toContain('eb_friendships');
+  });
+
+  test('jede Social-Tabelle wird einzeln nachgewiesen', () => {
+    // Die Ableitung darf nicht bei der ersten stehenbleiben. Fehlt die
+    // letzte, muss sie genauso auffallen wie die erste — sonst prüfte der
+    // Nachweis nur den Kopf der Liste.
+    const r = migrieren({ fehlendeTabellen: ['wp_eb_group_members'] });
+    expect(r.version, 'Version trotz fehlender Tabelle hochgesetzt').not.toBe(r.soll);
+    expect(r.fehlt, 'die letzte Tabelle der Liste wird nicht geprüft')
+      .toContain('eb_group_members');
   });
 
   test('nach einem Fehlschlag wird es später erneut versucht', () => {

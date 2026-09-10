@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 955 Tests in 60 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 961 Tests in 60 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Freunde und Gruppen gibt es jetzt** (09.09.2026). Vorher gab es davon
   *nichts* — `'musikgruppe'` ist eine Kategorie, `_feedRadarGruppen` ist

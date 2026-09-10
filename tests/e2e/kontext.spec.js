@@ -13,6 +13,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..', '..');
 const SKRIPT = path.join(ROOT, 'scripts', 'kontext.mjs');
 const CLAUDE_MD = path.join(ROOT, 'CLAUDE.md');
+const SPRINT_MD = path.join(ROOT, 'vault', '50-Evolution', 'Roadmap', 'Current-Sprint.md');
 
 /** Führt das Tor aus; gibt Erfolg und Ausgabe zurück, ohne zu werfen. */
 function tor() {
@@ -25,10 +26,24 @@ function tor() {
 
 /** Ändert CLAUDE.md vorübergehend und stellt den Stand danach wieder her. */
 function mitGeaenderterNotiz(alt, neu, fn) {
-  const vorher = fs.readFileSync(CLAUDE_MD, 'utf8');
-  expect(vorher.includes(alt), `Muster nicht in CLAUDE.md: ${alt}`).toBe(true);
-  fs.writeFileSync(CLAUDE_MD, vorher.replace(alt, neu));
-  try { return fn(); } finally { fs.writeFileSync(CLAUDE_MD, vorher); }
+  return mitGeaendertenDateien([[CLAUDE_MD, alt, neu]], fn);
+}
+
+/**
+ * Dasselbe für mehrere Dateien gleichzeitig.
+ *
+ * Nötig für die Gegenprobe zur Handzahl: der teure Fall ist der, in dem
+ * BEIDE Dokumente dieselbe falsche Zahl nennen. Wer nur eines ändern kann,
+ * kann ihn nicht herstellen — und genau er blieb bis zum 10.09.2026 grün.
+ */
+function mitGeaendertenDateien(aenderungen, fn) {
+  const vorher = aenderungen.map(([datei]) => [datei, fs.readFileSync(datei, 'utf8')]);
+  for (const [datei, alt, neu] of aenderungen) {
+    const inhalt = fs.readFileSync(datei, 'utf8');
+    expect(inhalt.includes(alt), `Muster nicht in ${path.basename(datei)}: ${alt}`).toBe(true);
+    fs.writeFileSync(datei, inhalt.replace(alt, neu));
+  }
+  try { return fn(); } finally { vorher.forEach(([d, i]) => fs.writeFileSync(d, i)); }
 }
 
 // Diese Tests schreiben CLAUDE.md kurzzeitig um. Sie MÜSSEN nacheinander
@@ -83,16 +98,79 @@ test.describe('Kontext: CLAUDE.md gegen den Code', () => {
     expect(r.aus).toMatch(/mehrdeutig/);
   });
 
-  test('zwei Dokumente dürfen nicht verschiedene Testzahlen nennen', () => {
-    // Beide Zahlen pflege ich von Hand; genau dort läuft es auseinander.
+  test('eine erfundene Testzahl fällt auf', () => {
     // Die aktuelle Zahl aus der Datei lesen statt sie hier zu verdrahten —
     // sonst bricht dieser Test bei jedem neuen Test in der Suite.
     const md = fs.readFileSync(CLAUDE_MD, 'utf8');
     const jetzt = (md.match(/(\d+ Tests in \d+ Suiten)/) || [])[1];
     expect(jetzt, 'die Testzahl steht nicht mehr in CLAUDE.md').toBeTruthy();
     const r = mitGeaenderterNotiz(jetzt, jetzt.replace(/^\d+/, '999'), tor);
-    expect(r.ok).toBe(false);
-    expect(r.aus).toMatch(/Testzahl uneinig/);
+    expect(r.ok, 'eine erfundene Testzahl kommt durch').toBe(false);
+    expect(r.aus).toMatch(/Tests \(CLAUDE\.md\)/);
+  });
+
+  test('zwei einige Dokumente sind kein Beleg — gemessen wird gegen Playwright', () => {
+    // ── DER BEFUND VOM 10.09.2026 ────────────────────────────────────────
+    //
+    // Bis dahin verglich das Tor die Testzahl in CLAUDE.md mit der in
+    // Current-Sprint.md: ZWEI HANDZAHLEN MITEINANDER. Nennen beide dieselbe
+    // falsche Zahl, meldete es „Testzahl einig" und war grün — eine
+    // Entwarnung über eine Suite, in die es nie gesehen hat.
+    //
+    // Dieser Test stellt genau den Zustand her. Mit dem alten Abgleich ist
+    // er grün, mit der Messung rot; ohne ihn kann die Prüfung jederzeit
+    // wieder zum Abgleich zweier Notizen werden.
+    const md = fs.readFileSync(CLAUDE_MD, 'utf8');
+    const jetzt = (md.match(/(\d+) Tests in \d+ Suiten/) || [])[1];
+    expect(jetzt, 'die Testzahl steht nicht mehr in CLAUDE.md').toBeTruthy();
+    const falsch = String(Number(jetzt) + 7);
+    const r = mitGeaendertenDateien([
+      [CLAUDE_MD, `${jetzt} Tests in`, `${falsch} Tests in`],
+      [SPRINT_MD, `Playwright-Suite: ${jetzt} Tests`, `Playwright-Suite: ${falsch} Tests`],
+    ], tor);
+    expect(r.ok, 'zwei Dokumente mit derselben falschen Zahl kommen durch').toBe(false);
+    // Beide müssen auffallen, nicht nur eines — sonst bliebe die eine Hälfte
+    // weiterhin ungemessen und nur zufällig richtig.
+    expect(r.aus, 'CLAUDE.md wird nicht gemessen').toMatch(/✗ Tests \(CLAUDE\.md\)/);
+    expect(r.aus, 'Current-Sprint wird nicht gemessen').toMatch(/✗ Tests \(Current-Sprint\)/);
+  });
+
+  test('eine gedriftete Suitenzahl fällt auf', () => {
+    // Der Beleg für den Befund: `# 44 Tests` neben social.spec.js (echt 43)
+    // und `# 14 Tests` neben aasa.spec.js (echt 18) standen monatelang in
+    // CLAUDE.md, mit grünem Haken daneben — diese Zeilen wurden gar nicht
+    // geprüft. Gemessen wird jetzt jede von ihnen.
+    const md = fs.readFileSync(CLAUDE_MD, 'utf8');
+    const treffer = (md.match(/tests\/e2e\/[\w.-]+\.spec\.js[^\n#]*#\s*\d+\s+Tests/) || [])[0];
+    expect(treffer, 'keine Suitenzahl mehr in CLAUDE.md').toBeTruthy();
+    const r = mitGeaenderterNotiz(treffer, treffer.replace(/#\s*\d+/, '# 999'), tor);
+    expect(r.ok, 'eine erfundene Suitenzahl kommt durch').toBe(false);
+    expect(r.aus).toMatch(/\.spec\.js\s+behauptet\s+999/);
+  });
+
+  test('ohne Messung wird nicht durchgewunken', () => {
+    // Nicht messen ist kein Bestehen. Genau diese Verwechslung liess den
+    // toten Gitleaks-Scan vier Monate wie Schutz aussehen: er suchte nie und
+    // meldete nichts, und beides sah gleich aus.
+    //
+    // Hergestellt, indem `npx` unauffindbar wird — dann kann das Tor die
+    // Suite nicht befragen und MUSS rot melden, statt die Handzahlen
+    // stillschweigend gelten zu lassen.
+    //
+    // Node wird dabei über `process.execPath` gestartet, nicht über den
+    // PATH. Der erste Entwurf leerte den PATH ganz — dann fand die Shell
+    // auch `node` nicht, das Tor lief nie an, und der Test belegte statt
+    // seiner Zusicherung nur, dass ein Aufruf ins Leere fehlschlägt.
+    const leer = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'kein-npx-'));
+    let r;
+    try {
+      r = { ok: true, aus: execFileSync(process.execPath, [SKRIPT, '--check'],
+        { cwd: ROOT, encoding: 'utf8', env: { ...process.env, PATH: leer } }) };
+    } catch (e) {
+      r = { ok: false, aus: String(e.stdout || '') + String(e.stderr || '') };
+    }
+    expect(r.ok, 'ohne messbare Suite meldet das Tor trotzdem Erfolg').toBe(false);
+    expect(r.aus).toMatch(/Testzahl nicht messbar/);
   });
 
   test('die überholte Polling-Angabe kommt nicht zurück', () => {
