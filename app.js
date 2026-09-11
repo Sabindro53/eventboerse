@@ -6757,6 +6757,7 @@ function radarLeisteAufbauen() {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'radar-chip' + (km === _radarRadius ? ' aktiv' : '');
+      b.setAttribute('aria-label', 'Radius auf ' + km + ' km setzen');
       b.textContent = km + ' km';
       b.setAttribute('aria-pressed', km === _radarRadius ? 'true' : 'false');
       b.onclick = function () { radarRadiusKlick(km); };
