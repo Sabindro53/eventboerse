@@ -214,6 +214,83 @@ gepipten Schritte als Berichte gebaut („die Routine soll den Zustand
 festhalten, nicht nachts rot werden"). Nur die zwei Aktivitäten-Schritte
 tragen dort `shell: bash`, weil sie blockieren sollen.
 
+#### „Alle vier Tore grün" — bei sechzehn Toren
+
+Am 13.09.2026 fiel PR #270 in CI durch, unmittelbar nachdem hier die
+damaligen 1076 Tests gemeldet worden waren, mit dem Zusatz *„alle vier
+Tore grün."* Die Zahl stimmte, der Zusatz war trotzdem falsch — **lokal
+liefen vier Tore, `pr-check.yml` fährt sechzehn.**
+
+(Die alte Angabe steht hier bewusst nicht in ihrer geprüften Schreibweise:
+`kontext.mjs` misst genau diese Form gegen die Suite, und ein Zitat im
+Fließtext wäre eine zweite Fundstelle mit einer veralteten Zahl. Das Tor
+hat das beim ersten Versuch prompt gemeldet — *„Aussage mehrdeutig"* —
+und damit seinen eigenen Abschnitt belegt.)
+
+Rot war `rechtsunterlagen.mjs --check`. Der Grund ist banal und genau
+deshalb lehrreich: `assets/eb-rechtsunterlagen.json` wird **erzeugt** und
+trägt die Zahl der Frontend-Module mit. Das neue Storno-Modul machte aus
+27 achtundzwanzig, und die committete Fassung sagte weiter 27. `recht.mjs`
+war grün — es misst den Code, nicht die daraus erzeugte Datei.
+
+**Der eigentliche Fund lag daneben.** `package.json` führte ein
+`npm run gate`: eine von Hand aneinandergehängte Kette von **acht**
+Skripten. Sie war nicht falsch, sie war unvollständig — und sie sah
+vollständig aus. Es fehlten `recht`, `rechtsquellen`, `rechtsunterlagen`,
+`aktivitaeten`, `geheimnisse`, `icons`, `kontext`, `auftragsstrom` und das
+geschützte HQ-Template. **Zwei gepflegte Fassungen derselben Sache driften
+immer**, und diese driftete in die Richtung, in der man es erst im CI
+merkt.
+
+Dieselbe Klasse wie die Icon-Liste, die sich mit sich selbst verglich, und
+wie die Testzahl, die zwei Notizen gegeneinander maß: ein Prüfer, dessen
+Subjekt nur ein Ausschnitt ist, gibt eine Entwarnung, die er nicht decken
+kann.
+
+**`scripts/tore.mjs` leitet die Tore aus dem Workflow ab.** Ein neues Tor
+in `pr-check.yml` läuft lokal ohne eine Zeile Arbeit mit.
+
+```bash
+npm run gate           # alle Tore, in der Reihenfolge des Workflows
+npm run gate:liste     # nur zeigen, nichts ausführen
+```
+
+**Der Vorgabewert ist LAUFEN, nicht Überspringen.** Wäre die Liste
+andersherum gebaut — „diese hier ausführen" —, fiele jedes neue Tor
+stillschweigend heraus, und der Fehler wäre nach einem Monat wieder da.
+Übersprungen werden genau drei Befehle (`npm ci`, `playwright install`,
+`playwright test`) plus alles, was einen **Actions-Ausdruck** `${{ … }}`
+trägt — das trifft heute nur den Code-Prüfer, der ausdrücklich nie
+blockiert. Beide Regeln greifen am **Befehl**, nicht am Schrittnamen: ein
+Name lässt sich umformulieren, ohne dass jemand an diese Datei denkt.
+**Was übersprungen wird, steht bei jedem Lauf im Bericht** — ein stiller
+Übersprung ist dasselbe wie ein fehlendes Tor, nur mit gutem Gewissen.
+
+**Gefahren wird mit `bash -eo pipefail`**, wie der Job es über
+`defaults: run: shell: bash` setzt. Ohne `pipefail` wäre der Rückgabewert
+der sechs gepipten Tore der von `tee` — und `tee` gelingt immer. Genau
+daran waren sie einen Abschnitt weiter oben schon einmal entwaffnet.
+
+**Der erste Parser zerschnitt sein eigenes Subjekt.** Er zerlegte
+`run: |`-Blöcke zeilenweise; aus dem Code-Prüfer-Schritt wurden **45
+„Tore"**, darunter Kommentarzeilen und ein `fi` ohne sein `if`. Ein Block
+ist EIN Befehl — und ausgerechnet `rechtsunterlagen.mjs --check`, an dem
+der ganze Befund hängt, steht in einem.
+
+Der Test liest die Workflow-Datei **ein zweites Mal und anders** (ein
+Ausdruck über `node scripts/*.mjs --check`), statt denselben Parser zu
+befragen: ein Prüfer, der sein Subjekt mit dem geprüften Werkzeug liest,
+bestätigt nur sich selbst.
+
+Sechs Mutationen, jede macht die Suite rot: Block wieder zeilenweise ·
+ein echtes Tor in die Ausnahmeliste · `npm run gate` zurück auf die
+Handliste · falscher Job gelesen · Actions-Regel entfernt · `istTor`
+immer wahr.
+
+```bash
+npx playwright test tests/e2e/tore.spec.js   # 7 Tests, 6 Mutationen
+```
+
 ### Der Ausstieg aus `unsafe-inline`
 
 Die CSP trug `script-src 'unsafe-inline'` — damit ist sie als XSS-Schutz
@@ -3032,7 +3109,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1076 Tests in 69 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1083 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
