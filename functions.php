@@ -30,6 +30,17 @@ require_once get_template_directory() . '/includes/social/freunde-gruppen.php';
 require_once get_template_directory() . '/includes/social/routen.php';
 require_once get_template_directory() . '/includes/social/plan-routen.php';
 
+// Wer eine Zahlung erstatten darf. In eigener Datei, weil eine
+// Rechtepruefung auf einem Geldweg AUSGEFUEHRT geprueft gehoert, nicht
+// gelesen — der Pruefstand bindet sie ein, ohne WordPress zu stellen.
+require_once get_template_directory() . '/includes/payments/erstattung-rechte.php';
+
+// Kontaktschutz im Chat: verhandeln ja, an der Plattform vorbei nein.
+// Wird von eb_messages_send() gerufen; ohne diese Zeile ist die Funktion
+// dort undefiniert und PHP bricht bei JEDER Nachricht ab — deshalb prueft
+// `kontaktschutz.spec.js` die Einbindung ausdruecklich mit.
+require_once get_template_directory() . '/includes/chat/kontaktschutz.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *
@@ -6703,24 +6714,19 @@ function eb_messages_list( WP_REST_Request $request ) {
     return $resp;
 }
 
-function eb_message_contains_off_platform_contact( $text ) {
-    $text = html_entity_decode( wp_strip_all_tags( (string) $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-    if ( $text === '' ) return false;
-    $patterns = array(
-        '/\b[A-Z0-9._%+\-]+\s*(?:@|\(at\)|\[at\]| at )\s*[A-Z0-9.\-]+\s*(?:\.| punkt | dot )\s*[A-Z]{2,}\b/iu',
-        '/\b(?:https?:\/\/|www\.)\S+/iu',
-        '/\b(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/iu',
-        '/\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}(?:straße|strasse|str\.|weg|allee|platz|gasse)\s+\d+[a-z]?\b/u',
-        '/\b\d{5}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}\b/u',
-    );
-    foreach ( $patterns as $pattern ) if ( preg_match( $pattern, $text ) ) return true;
-    if ( preg_match_all( '/(?<!\d)(?:\+|00)?\d[\d\s().\/-]{7,}\d(?!\d)/u', $text, $phone_candidates ) ) {
-        foreach ( $phone_candidates[0] as $candidate ) {
-            if ( strlen( preg_replace( '/\D+/', '', $candidate ) ) >= 9 ) return true;
-        }
-    }
-    return false;
-}
+/*
+ * Der Kontaktschutz im Chat steht in `includes/chat/kontaktschutz.php`.
+ *
+ * Ausgelagert am 13.09.2026, als der Filter zum ersten Mal GEMESSEN wurde:
+ * er fing 15 von 23 Umgehungen und blockierte dabei sechs harmlose Saetze
+ * (Rechnungs-, Angebots-, Bestell-, Kunden- und Seriennummer sowie ein
+ * IBAN-Fragment). Beides steht jetzt als Korpus in
+ * `tests/e2e/kontaktschutz.spec.js`.
+ *
+ * In einer eigenen Datei, weil der Pruefstand sie dann einbinden kann,
+ * ohne halb WordPress zu stellen — je mehr ein Pruefstand stellt, desto
+ * weniger prueft er.
+ */
 
 function eb_messages_send( WP_REST_Request $request ) {
     global $wpdb;
@@ -9817,18 +9823,32 @@ function eb_stripe_refund( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Nur erfolgreiche Zahlungen können erstattet werden.' ), 400 );
     }
 
-    $is_admin    = function_exists( 'eb_is_admin_user' ) ? eb_is_admin_user( $user->ID ) : false;
-    $owner_uid   = isset( $pi_data['metadata']['user_id'] ) ? intval( $pi_data['metadata']['user_id'] ) : 0;
-    $destination = '';
-    if ( ! empty( $pi_data['transfer_data']['destination'] ) ) $destination = $pi_data['transfer_data']['destination'];
-    if ( ! $destination && ! empty( $pi_data['on_behalf_of'] ) ) $destination = $pi_data['on_behalf_of'];
-
+    // Die Regel steht in includes/payments/erstattung-rechte.php und wird
+    // dort im echten PHP ausgefuehrt geprueft (tests/e2e/erstattung.spec.js).
+    //
+    // HIER STAND EIN DRITTER ZWEIG, und er war ein Loch:
+    //
+    //     $owner_uid   = intval( $pi_data['metadata']['user_id'] );
+    //     $owner_match = ( $owner_uid && $owner_uid === (int) $user->ID );
+    //
+    // Der Kommentar daneben erklaerte ihn mit "falls die App den Owner dort
+    // hinterlegt hat" — gemeint war der Anbieter. Geschrieben wird dort aber
+    // der ZAHLER: eb_stripe_create_payment_intent() setzt
+    // 'metadata[user_id]' => $user->ID, und das ist der buchende Kunde.
+    //
+    // Damit konnte jeder angemeldete Kunde seine eigene Zahlung einseitig
+    // und in voller Hoehe erstatten, auch nach erbrachter Leistung — und weil
+    // unten reverse_transfer=true gesetzt wird, aus dem Connect-Konto des
+    // Dienstleisters heraus. Aufgehalten hat das nur, dass kein Client die
+    // Route aufruft; Schutz durch einen fehlenden Knopf ist keiner.
+    //
+    // Der Docblock dieser Funktion nennt seit jeher genau zwei Berechtigte:
+    // den Anbieter und Plattform-Admins. Genau die gelten jetzt wieder.
+    $is_admin       = function_exists( 'eb_is_admin_user' ) ? eb_is_admin_user( $user->ID ) : false;
     $caller_connect = (string) get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
+    $destination    = eb_erstattung_ziel( $pi_data );
 
-    $owner_match = ( $owner_uid && $owner_uid === (int) $user->ID );
-    $connect_match = ( $caller_connect && $destination && $caller_connect === $destination );
-
-    if ( ! $is_admin && ! $owner_match && ! $connect_match ) {
+    if ( ! eb_erstattung_darf( $is_admin, $caller_connect, $pi_data ) ) {
         return new WP_REST_Response( array( 'message' => 'Keine Berechtigung für diese Erstattung.' ), 403 );
     }
 

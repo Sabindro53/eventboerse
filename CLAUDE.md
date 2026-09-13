@@ -2151,6 +2151,184 @@ Auffangmuster.
 npx playwright test tests/e2e/seitenrouten.spec.js   # 7 Tests, 6 Mutationen
 ```
 
+### Der Filter im Chat sah aus wie Schutz — gemessen war er halb einer
+
+Gefordert war: *„Leute sollen über Chat auch verhandeln können, dürfen aber
+keine Adressen und Mails, Nummern rausgeben, weil sonst außerhalb der
+Plattform kommuniziert werden kann."* Daran hängt die Vermittlerpauschale.
+
+**Es gab den Filter schon** — `eb_message_contains_off_platform_contact()`,
+gerufen von `eb_messages_send()`, Abweisung mit 422 und erklärendem Text. Nur
+gemessen hatte ihn nie jemand. Am 13.09.2026 zum ersten Mal an Sätzen
+gefahren, 22 mit Kontaktdaten und 32 ohne:
+
+| | blockiert (soll) | sauber durch (darf) |
+|---|---:|---:|
+| vorher | 15/22 | 26/32 — **sechs Fehlalarme** |
+| jetzt | **22/22** | **32/32** |
+
+**Die Fehlalarme waren die gefährlichere Hälfte.** Blockiert wurden: die
+Rechnungsnummer, die Angebotsnummer, die Bestellnummer, die Kundennummer, die
+Seriennummer und ein IBAN-Fragment — allesamt neunstellige Zahlen ohne jeden
+Telefonbezug, allesamt Dinge, die in einer Buchungsverhandlung ständig
+vorkommen. Ein Filter, der die Rechnungsnummer abweist, wird abgeschaltet, und
+danach schützt er gar nichts mehr.
+
+**Die Ursache war eine Regel ohne Form:** „neun Ziffern genügen". Eine
+Rufnummer hat aber eine Gestalt — sie beginnt mit `0` oder `+`, oder der Satz
+sagt selbst, dass es eine ist (`handy`, `festnetz`, `ruf mich`, `erreichbar
+unter`). **`nummer` steht bewusst NICHT in dieser Liste:** Bestell- und
+Kundennummer tragen es auch, und genau daran wäre die Behebung wieder
+gescheitert.
+
+Vier Löcher auf der anderen Seite, jedes gemessen:
+
+- **Eine Vollbreiten-Ziffer umging den ganzen Telefon-Zweig.**
+  `０１７１２３４５６７８` kam ungehindert durch. Normiert wird jetzt über
+  `strtr`, nicht über `mb_ord` — mbstring ist keine Voraussetzung, die
+  WordPress garantiert, und eine Sicherheitsfunktion, die auf einer fehlenden
+  Erweiterung still nichts tut, ist hier die teuerste Sorte Fehler.
+  Vier Ziffernschriften: Vollbreite, Arabisch-Indisch, Ostarabisch, Devanagari.
+- **`max.mueller.gmail.com`** trägt kein `@` und traf kein Muster. Die
+  bekannten Freemail-Anbieter werden jetzt in jeder Schreibweise erkannt.
+- **Ausgeschriebene Ziffern** („null eins sieben eins zwo drei …"). Die
+  Schwelle von **sieben** aufeinanderfolgenden Zahlwörtern ist der ganze
+  Fehlalarm-Schutz: „vier Kellner, zwei Barkeeper und drei Tische" sind drei.
+- **Buchstaben statt Ziffern** (`O171 234S678`). Zurückgedreht wird nur in
+  Tokens, die ohnehin **mehrheitlich** aus Ziffern bestehen — sonst würde aus
+  „Solisten" eine Nummer.
+
+**Was der Filter nicht kann, steht im Korpus, nicht im Fließtext.** *„Meine
+Handynummer schicke ich dir gleich als Bild"* steht unter den **32
+Durchlässen**, nicht unter den 22 Treffern: der Satz enthält keine
+Kontaktdaten, und ein Filter, der ihn fängt, käme nur über Fehlalarme dorthin.
+Kein Textfilter verhindert den Kontakt außerhalb der Plattform — er verteuert
+den bequemen Weg. Wer diesen Fall verschiebt, verlangt etwas, das nur durch
+die sechs Fehlalarme von vorher zu haben ist.
+
+**Ausgelagert nach `includes/chat/kontaktschutz.php`**, damit der Prüfstand
+sie einbinden kann, ohne halb WordPress zu stellen — je mehr ein Prüfstand
+stellt, desto weniger prüft er. Er braucht genau einen Griff
+(`wp_strip_all_tags`).
+
+**Und meine eigene Prüfung hatte dieselbe Krankheit.** Der Test, der festhält,
+dass der Filter im Nachrichtenweg **gerufen** wird, suchte den Pfad
+`includes/chat/kontaktschutz.php` in `functions.php` — und fand ihn im
+erklärenden Kommentar, den das Auslagern dort hinterlassen hat. Die Mutation
+„`require_once` entfernt" überlebte: die Anwendung wäre bei **jeder**
+Nachricht mit einem PHP-Fehler abgebrochen, und sieben Tests wären grün
+geblieben. Gesucht wird jetzt die **Einbindung**, nicht der Pfad. Genau der
+Griff, an dem in diesem Projekt schon vier Prüfungen gescheitert sind.
+
+Sieben Mutationen, jede macht die Suite rot: Ziffern-Normierung entfernt (2) ·
+ausgeschriebene Ziffern nicht geprüft · Homoglyphen nicht zurückgedreht ·
+Form-Regel weg, jede neunstellige Zahl blockt wieder (2) · Freemail-Muster
+weg · Handle-Mindestlänge 5 → 3 (holt den `@home`-Fehlalarm zurück) ·
+`require_once` entfernt.
+
+**Offen und ausdrücklich nicht gebaut:** ein Zähler für wiederholte Versuche.
+Das wäre eine Verarbeitung von Nachrichteninhalten und damit eine
+Entscheidung des Inhabers, keine Aufräumarbeit.
+
+```bash
+npx playwright test tests/e2e/kontaktschutz.spec.js   # 7 Tests, 7 Mutationen
+```
+
+### Der Zahler durfte sich sein Geld selbst zurückholen
+
+Beim Messen des Zahlungswegs am 13.09.2026 gefunden. Der Auftrag lautete,
+dem Planer *Zahlungssicherheit* zu geben — gefunden wurde das Gegenteil: er
+hatte zu viel Macht, und der Dienstleister gar keine.
+
+Die Kette, Schritt für Schritt am Code:
+
+| | |
+|---|---|
+| `js/modules/board/41-flow-zahlung.js:1254` | der Planer bezahlt über `/stripe/create-payment-intent` |
+| `functions.php` (`eb_stripe_create_payment_intent`) | dieser Handler setzt `metadata[user_id]` = **der angemeldete Zahler** |
+| `functions.php` (Routen-Block) | `/stripe/refund` steht auf `permission_callback => 'is_user_logged_in'` |
+| `eb_stripe_refund()` | `$owner_match = ( $owner_uid === $user->ID )` → **genau dieser Zahler war berechtigt** |
+| dieselbe Funktion | die Erstattung setzt `reverse_transfer=true` |
+
+**Ein angemeldeter Kunde konnte damit jederzeit und einseitig seine eigene
+Zahlung in voller Höhe erstatten — auch nach erbrachter Leistung.** Das Geld
+wird dabei aus dem **Connect-Konto des Dienstleisters** zurückgeholt; der hat
+dann gearbeitet und bekommt nichts. Die `pi_…`-Kennung steht im
+`client_secret`, das der Browser ohnehin erhält: es braucht ein Konto, eine
+Buchung und die Entwicklerkonsole, sonst nichts.
+
+**Aufgehalten hat das nur, dass es keinen Knopf dafür gibt.** Gemessen: null
+Aufrufe von `/stripe/refund` in `js/modules/**`, null in `hq.html`, null
+irgendwo im ausgelieferten Code. Eine REST-Route ist damit nicht
+unerreichbar — sie ist nur unbeworben. **Schutz durch einen fehlenden Knopf
+ist keiner**, und das ist in diesem Projekt die teuerste wiederkehrende
+Fehlerklasse.
+
+**Es war keine Absicht, sondern eine Drift.** Der Docblock derselben Funktion
+nennt seit jeher genau zwei Berechtigte: *„der Anbieter, dem das Geld
+zugeflossen ist"* und *„Plattform-Admins"*. Der Kommentar am `$owner_match`-
+Zweig erklärte ihn mit *„falls die App den Owner dort hinterlegt hat"* —
+gemeint war der **Anbieter**, geschrieben wird der **Zahler**. Zwei Stellen,
+eine Annahme, auseinandergelaufen; diesmal auf einem Geldweg.
+
+**Die Behebung ist ausschliesslich enger.** `eb_erstattung_darf()` in
+`includes/payments/erstattung-rechte.php` stellt die Regel des Docblocks
+wieder her: Admin oder Connect-Kontoinhaber, sonst nein. Es kommt kein Recht
+hinzu. Und weil **kein Client die Route ruft**, kann dabei kein Nutzerweg
+brechen — das ist gemessen, nicht angenommen.
+
+**In eigener Datei, weil eine Rechteprüfung auf einem Geldweg AUSGEFÜHRT
+gehört, nicht gelesen.** Der Prüfstand bindet sie ein, ohne WordPress zu
+stellen; je mehr ein Prüfstand stellt, desto weniger prüft er.
+
+**`hash_equals`, und zwei Wachen davor.** Ohne die frühen Rückgaben wäre
+`'' === ''` ein Treffer: jeder Angemeldete ohne Connect-Konto dürfte jede
+Zahlung ohne Ziel erstatten. Beim Lesen sieht das wie eine gewöhnliche
+Gleichheitsprüfung aus.
+
+**Stripe nennt das Konto an zwei Feldern und in zwei Formen** —
+`transfer_data.destination` oder `on_behalf_of`, als Zeichenkette oder als
+eingebettetes Objekt. Wer nur einen Fall liest, sperrt den Anbieter in den
+übrigen aus: ein Nein aus dem falschen Grund, und der Weg, den der Auftrag
+ausdrücklich verlangt (*„wenn er das nicht erfüllen kann, muss er Bescheid
+geben und Geld zurückzahlen"*), wäre zu.
+
+**Acht Mutationen, sechs rot.** Der Zahler darf wieder (3 rot) · `on_behalf_of`
+wird nicht gelesen · das eingebettete Objekt nicht aufgelöst · der Handler
+ruft die Regel nicht · die Einbindung entfernt · **beide** Leer-Wachen
+entfernt.
+
+**Zwei überleben legitim, und das gehört hierher:** jede Leer-Wache **allein**
+zu entfernen ändert nichts, weil die andere den Fall bereits schliesst
+(`hash_equals` mit einer gefüllten Seite ist immer falsch). Erst das Entfernen
+beider öffnet das Loch. Die Zusicherung gilt also dem **Paar**, nicht der
+einzelnen Zeile — dieselbe Lage wie bei der doppelten Wache im Marquee.
+
+**Und meine eigene Prüfung fiel zuerst auf den Kommentar herein.** Der Test,
+der festhält, dass `$owner_match` weg ist, fand den Namen im erklärenden
+Kommentar wieder, den das Entfernen dort hinterlassen hat — so verlangt es
+dieses Projekt ja. Gemessen wird jetzt **nach Abzug der Kommentare**, über
+PHPs eigenen Tokenizer (`tests/e2e/lib/php-code.js`): ein regulärer Ausdruck
+über `//` trifft auch das in `'https://api.stripe.com/…'` und wirft den Rest
+der Zeile weg — samt Code, der dort stehen könnte.
+
+**Was hier NICHT entschieden wird:** ob ein Eventplaner selbst stornieren
+können soll. Wenn ja, dann als eigener Vorgang mit **Frist, Begründung und
+Benachrichtigung des Dienstleisters** — nicht als stiller Vollzugriff auf
+`POST /stripe/refund`. Ein Test hält deshalb fest, dass es weiterhin **keinen**
+Weg aus der App in diese Route gibt: bekommt sie einen, fällt er durch und
+zwingt zur Entscheidung, statt sie zu überspringen.
+
+**Offen bleibt damit der Auftrag selbst.** Heute hat der Planer im Produkt
+**gar keine** Zahlungssicherheit: keinen Weg zu einer Erstattung ausser über
+den Dienstleister oder den Betreiber. Das „ähnlich wie bei Lieferando"
+braucht einen Vorgang, den es noch nicht gibt — eine Produktentscheidung des
+Inhabers.
+
+```bash
+npx playwright test tests/e2e/erstattung.spec.js   # 9 Tests, 8 Mutationen
+```
+
 ### Eine Adresse, die mit der Route wanderte
 
 Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
@@ -2667,7 +2845,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1040 Tests in 64 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1056 Tests in 66 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2736,6 +2914,16 @@ niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Einstiege** (die Landeseite bedient mehr als eine Absicht — jeder Weg
 wird geklickt, nicht im Markup gesucht; der Anbieter-Einstieg endet in der
 Registrierung, nicht in der Anmeldung),
+**Erstattung** (die Rechteprüfung auf dem Geldweg wird im echten PHP
+ausgeführt, nicht gelesen: der zahlende Kunde kann seine eigene Zahlung NICHT
+einseitig zurückholen, der Anbieter und Admins schon; ein leeres Konto trifft
+nie auf ein leeres Ziel; und der Handler ruft die Regel wirklich — gemessen
+nach Abzug der Kommentare),
+**Kontaktschutz** (der Filter im Chat wird an einem Korpus gemessen, nicht
+gelesen: 22 Nachrichten mit Kontaktdaten werden alle geblockt, 32 ehrliche
+Verhandlungssätze kommen alle durch — Rechnungs-, Bestell- und Kundennummer
+eingeschlossen; fremde Ziffernschriften werden vorher auf ASCII gebracht; und
+der Filter wird im Nachrichtenweg wirklich gerufen),
 **Seitenrouten** (jede Seite mit `id="page-…"` wird von einer Rewrite-Regel
 wirklich getroffen, nicht nur in einer Liste geführt — sonst endet ihr
 geteilter Link auf `404.php`; das Untersegment trägt den Einladungslink; die
