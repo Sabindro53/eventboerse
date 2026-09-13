@@ -2010,6 +2010,47 @@ führt, als er verspricht, ist schlimmer als einer, den es nicht gibt. Das
 Inserat bleibt von dort einen Klick entfernt; `renderMyListings()` trägt den
 Knopf und im leeren Fall auch die Aufforderung.
 
+#### Und die gemeinsame Planung war vom Board aus unerreichbar
+
+Gemeldet am 13.09.2026: *„event mit freunden planen ist fehlerhaft und man
+wird dann zum board gebracht, aber dann beim KI-Talk, statt ein Planungsboard
+zu erhalten wo man seine Freunde hinzufügen kann."*
+
+Im echten Browser nachgemessen, und der Befund war schärfer als die Meldung.
+Über **jedes** `onclick` der Board-Seite gezählt, ergaben Freunde, Gruppen und
+Einladungen zusammen:
+
+```
+boardFreundeWege: []
+```
+
+**Null.** Freunde, Gruppen (09.09.) und der gemeinsame Plan (10.09.) sind
+gebaut und geprüft — und von genau der Stelle, an die „Vorhaben planen"
+schickt, gab es **keinen einzigen** Weg dorthin. Dieselbe Klasse wie der
+Dienstleister-Einstieg einen Abschnitt weiter oben: das Ziel existiert, es hat
+nur keinen Weg von dort, wo der Besucher steht.
+
+`ebGemeinsamPlanen()` ist die Brücke. **Der Reiter wird VOR dem Wechsel
+gesetzt**, nicht danach — `renderFreundePage()` liest `_sozialReiter`, und wer
+erst navigiert und dann umschaltet, zeichnet die Seite sichtbar zweimal. Ziel
+ist der **Gruppen**-Reiter: ein gemeinsames Vorhaben gehört einer Gruppe, nicht
+einer Freundschaft.
+
+**Abgemeldet bleibt alles wie bisher.** `/freunde` erklärt selbst, warum es ein
+Konto braucht; ein Anmeldedialog, der ohne Erklärung aufgeht, liest sich als
+Absage. Ein eigener Test hält das fest — sonst wäre „öffne den Anmeldedialog"
+der bequemste Weg zu einem grünen Test.
+
+**Der Untertitel des Boards hat mitgewandert.** Er lautete *„Plane dein Event
+im Chat mit deinem Assistenten"* und beschrieb damit ein Board, das Projekte,
+Kategorien **und** einen Assistenten trägt. Wer „Vorhaben planen" geklickt
+hatte, las das als falsches Ziel. Der Chat ist ein Teil des Boards, nicht das
+Board — dieselbe Regel wie beim Anbieter-Einstieg: Beschriftung und Ziel
+wandern zusammen.
+
+Vier Mutationen, jede macht die Suite rot: Knopf entfernt · Reiter nicht
+gesetzt · Untertitel zurück auf reinen Chat · Anmeldedialog statt Erklärung.
+
 **Die Mobilleiste ist bewusst NICHT angefasst.** Ihr Board-Slot führt laut
 Kommentar seit jeher zum Planungs-Board, *„das Auftragsboard erreichen
 Dienstleister über das Menü"* — eine dokumentierte Entscheidung, keine
@@ -2026,7 +2067,7 @@ Oberfläche. Geprüft wird jetzt die **Bedingung**: jeder Mobilleisten-Selektor
 in `30-auth.js` muss auch etwas treffen.
 
 ```bash
-npx playwright test tests/e2e/einstiege.spec.js   # 9 Tests, echte Klicks
+npx playwright test tests/e2e/einstiege.spec.js   # 13 Tests, echte Klicks
 ```
 
 ### Eine Adresse, die mit der Route wanderte
@@ -2545,7 +2586,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1029 Tests in 63 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1033 Tests in 63 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

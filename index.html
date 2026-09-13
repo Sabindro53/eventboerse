@@ -3162,6 +3162,14 @@ Datum: ___________________________________________________
             <button class="btn-outline wedding-express-btn" onclick="openWeddingExpress()">
               <span class="material-icons-round">favorite</span> Hochzeit Express
             </button>
+            <!-- Die Bruecke zur gemeinsamen Planung. Am 13.09.2026 im echten
+                 Browser gemessen: das Board trug NULL Verweise auf Freunde,
+                 Gruppen oder Einladungen — gezaehlt ueber jedes `onclick` der
+                 Seite. Die gemeinsame Planung war gebaut und von genau der
+                 Stelle aus, an die „Vorhaben planen" schickt, unerreichbar. -->
+            <button class="btn-outline" onclick="ebGemeinsamPlanen()" id="btnGemeinsamPlanen">
+              <span class="material-icons-round">diversity_3</span> Gemeinsam planen
+            </button>
             <button class="btn-outline" onclick="showBoardProjects()" id="btnAllBoards" style="display:none">
               <span class="material-icons-round">arrow_back</span> Alle Projekte
             </button>
