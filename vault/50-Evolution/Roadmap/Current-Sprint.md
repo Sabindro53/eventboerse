@@ -16,8 +16,23 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1033 Tests in 63 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1040 Tests in 64 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+- **Ein geteilter Link auf `/freunde` endete auf der Fehlerseite**
+  (13.09.2026). Gemeldet aus einer Live-Prüfung, nachgemessen — und größer als
+  die Meldung: `app-shell.html` trägt **34** Seiten, `$spa_pages` kannte
+  **31** Slugs. Ohne Rewrite-Regel waren `/freunde`, `/auftraege`,
+  `/business`, `/my-listings`, `/notifications` und `/home`. Innerhalb der App
+  merkt das niemand — `navigateTo()` schiebt die Adresse per `pushState` in
+  die Leiste, ohne je eine Anfrage zu stellen. Wer sie **teilt**, fragt den
+  Server, und der lieferte `404.php`. Das traf ausgerechnet den
+  Einladungslink in eine Gruppe, also den einzigen Grund, aus dem es diesen
+  Link gibt. `smoke.spec.js` führt `freunde` und war grün: `spaNavigate()`
+  navigiert im Browser und fragt den Server nie. **Die Liste zu ergänzen hätte
+  nicht gereicht** — geflusht wurde nur bei `after_switch_theme`, und ein
+  SFTP-Deploy schaltet kein Theme um; die Fassung ist jetzt aus der Slug-Liste
+  abgeleitet. `seitenrouten.spec.js`, 7 Tests, 6 Mutationen
+
 - **Zwei Modelle, ein Rahmen** (13.09.2026). `AGENTS.md` regelt die
   Zusammenarbeit von Claude Code und Codex/Astra — und wiederholt CLAUDE.md
   bewusst *nicht*, weil zwei Fassungen derselben Regel immer driften. Die
@@ -227,6 +242,7 @@ Ein Eintrag ohne Messung ist erfundene Arbeit und gehört nicht hierher.
 | Befund (gemessen) | Nächster Schritt | Wer |
 |---|---|---|
 | ~~München und Stuttgart fehlen~~ — **die Aufgabenstellung war falsch.** An vier Tagesständen gemessen: 10.09. 6/8 (ohne Dortmund, Stuttgart), 11.09. 5/8 (ohne Dortmund, Berlin, Stuttgart), 12.09. 7/8 (ohne Berlin), 13.09. 6/8 (ohne München, Stuttgart). An keinem Tag alle acht; welche fehlen, wechselt täglich | **Behoben** (13.09.): `overpassHolen()` hat drei Anläufe mit wachsender Pause, ein Zeitlimit am Client und ein Budget, das nur Wiederholungen kürzt. 7 Tests, 6 Mutationen. **Offen bleibt der Nachweis:** ob wirklich 8/8 ankommen, zeigt erst der nächste Tagesstand — Overpass ist von der Agent-Umgebung aus nicht erreichbar | claude (Nachweis) |
+| Das Profil eines Anbieters behauptet **„Verfügbar"** und **„Antwortet innerhalb von 1 Std."** — beide sind unbedingte Zeichenketten in `js/modules/search/12-detail-provider.js:598-599`, direkt unter drei Zeilen, die aus echten Daten kommen (`location`, `categoryLabel`, `priceLabel`). Nichts misst eine Antwortzeit, nichts prüft Verfügbarkeit. Aus einer Live-Prüfung gemeldet, im Quelltext bestätigt | Entweder aus echten Daten belegen (Antwortzeit aus `eb_messages`, Verfügbarkeit aus dem Kalender in `51-inserat-maske-kalender.js`) **oder beide Zeilen entfernen**. Eine Aussage über die Leistung eines Dritten, die nichts deckt, ist nach § 5 UWG eine irreführende geschäftliche Handlung — und sie steht neben Angaben, die stimmen, was sie glaubwürdig macht. **Vorher messen:** liegen Antwortzeiten überhaupt vor? | offen |
 | `⚡ HQ-Puls` scheitert wiederholt (Läufe 1675 und 1676 am 13.09., je `conclusion: failure`) | Log des letzten Laufs lesen und die Ursache benennen, bevor etwas geändert wird. Ein Workflow, der täglich rot läuft, wird nach der dritten Woche nicht mehr gelesen | offen |
 | Die Landeseite trägt 105 endlos laufende Deko-Animationen, zusammen 257 ms Hauptthread je 3 s (Median aus drei verschachtelten Runden: 646 → 389 ms) | Gestaltungsentscheidung des Inhabers, **keine** Aufräumarbeit — siehe `AGENTS.md` §6 | Inhaber |
 | Der Board-Slot der Mobilleiste führt für Dienstleister ins Planungs-Board, nicht zu den Aufträgen. Dokumentierte Entscheidung, kein Versehen | Produktentscheidung des Inhabers | Inhaber |
