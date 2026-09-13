@@ -1305,7 +1305,23 @@ body.dark-mode .eb-qa-action {
                               so they appear to be 'drawn' out of the cone mouth
      • .ai-popper-bit × 6   — confetti rects + circles, each flying in its own
                               direction with rotation and gravity drop
-   Wrapper does the launch motion (anticipation → shoot → settle → fade). */
+   Wrapper does the launch motion (anticipation → shoot → settle → fade).
+
+   ── WARUM ZWEI RUNDEN UND NICHT ENDLOS (13.09.2026) ────────────────────
+   Ein Popper ist ein GRUSS, kein Dauerzustand. Endlos lief er in einer
+   11-Sekunden-Schleife, und von 72 % bis 100 % jedes Zyklus stand er auf
+   `opacity: 0` — seine 28 Unteranimationen liefen darin weiter, fuer etwas,
+   das niemand sieht. Dieselbe Klasse wie der Farbverlauf im geschlossenen
+   Dropdown.
+   Gemessen auf der Landeseite, Hauptthread je 3 s (Median aus 3
+   verschachtelten Runden): alles laeuft 530 ms, Konfetti angehalten
+   423 ms, ALLE Animationen angehalten 389 ms. Das Konfetti allein traegt
+   also 107 der 141 ms, die ueberhaupt auf Animationen entfallen — Funkeln
+   (34 ms) und Luftschlangen (18 ms) sind daneben Rauschen und bleiben.
+   Nach zwei Runden (22 s) ist gesagt, was der Effekt sagt; danach ist die
+   Seite still. Derselbe Weg wie bei der Schreibmaschine in der Leiste.
+   `--pp-runden` haelt die Zahl an EINER Stelle fuer alle vier Animationen —
+   vier Zahlen, die zusammen stimmen muessen, driften. */
 .ai-hero-poppers {
   position: absolute;
   inset: 0;
@@ -1323,7 +1339,7 @@ body.dark-mode .eb-qa-action {
           drop-shadow(0 2px 4px rgba(168, 85, 247, 0.14));
   opacity: 0;
   will-change: transform, opacity;
-  animation: aiPopperShoot 11s infinite cubic-bezier(.22, .8, .3, 1.05);
+  animation: aiPopperShoot 11s var(--pp-runden, 2) cubic-bezier(.22, .8, .3, 1.05);
   animation-delay: var(--pp-delay, 0s);
 }
 .ai-popper-svg {
@@ -1336,7 +1352,7 @@ body.dark-mode .eb-qa-action {
   transform-box: fill-box;
   transform-origin: 15% 85%;
   will-change: transform, opacity;
-  animation: aiPopperCone 11s infinite cubic-bezier(.22, .8, .3, 1.2);
+  animation: aiPopperCone 11s var(--pp-runden, 2) cubic-bezier(.22, .8, .3, 1.2);
   animation-delay: var(--pp-delay, 0s);
 }
 .ai-popper-stream {
@@ -1345,7 +1361,7 @@ body.dark-mode .eb-qa-action {
   stroke-dashoffset: 100;
   opacity: 0;
   will-change: stroke-dashoffset, opacity;
-  animation: aiPopperStream 11s infinite cubic-bezier(.18, .82, .3, 1);
+  animation: aiPopperStream 11s var(--pp-runden, 2) cubic-bezier(.18, .82, .3, 1);
   animation-delay: var(--pp-delay, 0s);
 }
 .ai-popper-bit {
@@ -1353,7 +1369,7 @@ body.dark-mode .eb-qa-action {
   transform-origin: center;
   opacity: 0;
   will-change: transform, opacity;
-  animation: aiPopperBit 11s infinite cubic-bezier(.22, .82, .3, 1);
+  animation: aiPopperBit 11s var(--pp-runden, 2) cubic-bezier(.22, .82, .3, 1);
   animation-delay: var(--pp-delay, 0s);
 }
 /* Each confetti bit flies in its own direction (relative to cone-mouth area) */
@@ -1385,38 +1401,6 @@ body.dark-mode .eb-qa-action {
   --pp-shoot-y: -8px;
   --pp-spin: 14deg;
   --pp-delay: 2.2s;
-}
-.ai-popper.pop-3 {
-  /* mid-right edge, smaller */
-  top: 54%; right: 4%;
-  --pp-size: 32px;
-  --pp-rot: 95deg;
-  --pp-flip: -1;
-  --pp-shoot-x: 10px;
-  --pp-shoot-y: 3px;
-  --pp-spin: 8deg;
-  --pp-delay: 4.4s;
-}
-.ai-popper.pop-4 {
-  /* lower-left, medium */
-  bottom: 12%; left: 18%;
-  --pp-size: 40px;
-  --pp-rot: -140deg;
-  --pp-shoot-x: -10px;
-  --pp-shoot-y: 10px;
-  --pp-spin: -12deg;
-  --pp-delay: 6.6s;
-}
-.ai-popper.pop-5 {
-  /* bottom-right, off-corner */
-  bottom: 22%; right: 9%;
-  --pp-size: 34px;
-  --pp-rot: 160deg;
-  --pp-flip: -1;
-  --pp-shoot-x: 8px;
-  --pp-shoot-y: 11px;
-  --pp-spin: 10deg;
-  --pp-delay: 8.8s;
 }
 
 /* Wrapper: hidden between pops, brief anticipation, then shoots outward */
@@ -17056,7 +17040,12 @@ body.dark-mode .ai-nightsky {
    Logo-Popper liefern weiterhin Konfetti-Bursts. */
 .hero-confetti { display: none; }
 
-/* Popper-Layout: genau ZWEI — groß oben links, unten rechts (wie gewünscht) */
+/* Popper-Layout: genau ZWEI — groß oben links, unten rechts (wie gewünscht).
+   pop-3/4/5 waren bis zum 13.09.2026 nur per `display: none` stillgelegt und
+   wurden trotzdem an jeden Besucher ausgeliefert: 78 Zeilen SVG, an fuenf
+   Breiten (390/720/900/1280/1600 px) gemessen NIE gerendert. Markup und
+   Layout-Regeln sind jetzt weg — wer einen dritten Popper will, legt ihn an,
+   statt einen versteckten zu entsperren. */
 .ai-popper.pop-1 {
   top: 12%; left: 5%;
   --pp-size: 56px;
@@ -17066,7 +17055,6 @@ body.dark-mode .ai-nightsky {
   --pp-size: 48px;
   --pp-delay: 3.4s;
 }
-.ai-popper.pop-3, .ai-popper.pop-4, .ai-popper.pop-5 { display: none; }
 
 @media (max-width: 640px) {
   .ai-popper.pop-1 { --pp-size: 40px; top: 9%; left: 4%; }
