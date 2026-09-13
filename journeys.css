@@ -1,0 +1,40 @@
+/* Connections between discovery, personal planning and the shared workspace. */
+.journey-next { display:grid; gap:12px; }
+.journey-next > .material-icons-round { color:var(--primary,#e6385a); font-size:30px; }
+.journey-next h4,.journey-next p { margin:0; }
+.journey-next p { color:var(--text-light,#667085); line-height:1.6; }
+.journey-next button { width:100%; justify-content:center; min-height:44px; }
+.journey-invite-picker { padding:16px 0; display:flex; flex-wrap:wrap; gap:10px; }
+.journey-invite-picker > strong,.journey-invite-picker > p,.journey-invite-picker > small { flex-basis:100%; margin:0; }
+.journey-invite-picker p,.journey-invite-picker small { color:var(--text-light,#667085); font-size:13px; line-height:1.6; }
+.journey-invite-picker label { display:flex; align-items:center; gap:10px; min-height:44px; padding:8px 14px; border:1px solid var(--border,#d0d5dd); border-radius:12px; cursor:pointer; }
+.journey-invite-picker input { width:18px; height:18px; accent-color:var(--primary,#e6385a); }
+.journey-profile-hub { margin-top:24px; width:100%; text-align:left; }
+.journey-profile-hub h2 { font-size:18px; margin-bottom:12px; }
+.journey-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+.journey-actions button { display:flex; align-items:center; gap:12px; background:var(--white,#fff); border:1px solid var(--border,#d0d5dd); border-radius:14px; padding:16px; text-align:left; color:var(--text,#222); cursor:pointer; font:inherit; }
+.journey-actions button > span:nth-child(2) { flex:1; }
+.journey-actions button strong,.journey-actions button small { display:block; }
+.journey-actions button small { font-size:12px; color:var(--text-light,#667085); margin-top:5px; }
+.journey-actions button > .material-icons-round:first-child { color:var(--primary,#e6385a); }
+.journey-actions button:hover { border-color:var(--primary,#e6385a); }
+.journey-actions button:focus-visible,.journey-invite-picker label:focus-within { outline:3px solid var(--primary,#e6385a); outline-offset:3px; }
+.soz-person-aktion { flex-wrap:wrap; }
+.soz-code { flex-wrap:wrap; }
+.soz-plan { scroll-margin-top:110px; }
+@media(max-width:640px) {
+  .journey-actions { grid-template-columns:1fr; }
+  .journey-feed-friends { font-size:12px; min-height:40px; }
+  .feed-header { flex-wrap:wrap; gap:12px; }
+  .feed-header-actions { flex-wrap:wrap; }
+  .journey-friends-nav { min-width:36px; }
+  .soz-person { flex-wrap:wrap; }
+  .soz-person-aktion { width:100%; padding-left:0; }
+  .soz-person-aktion button { min-height:44px; }
+}
+.booking-payment-dialog { width:min(560px,calc(100vw - 32px)); max-height:85vh; border:1px solid var(--border,#d0d5dd); border-radius:20px; padding:24px; background:var(--bg,#fff); color:var(--text,#222); box-shadow:0 24px 80px #0003; }
+.booking-payment-dialog::backdrop { background:#0008; }
+.booking-payment-dialog h2 { margin:20px 0 12px; font-size:22px; }
+.booking-payment-dialog p { line-height:1.6; margin:12px 0; }
+.booking-payment-dialog textarea { box-sizing:border-box; width:100%; font:inherit; margin:10px 0; padding:12px; border:1px solid var(--border,#d0d5dd); border-radius:10px; }
+.booking-payment-dialog button { margin:8px 0; min-height:44px; }

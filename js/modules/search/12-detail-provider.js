@@ -538,7 +538,6 @@ function loadProvider(providerId) {
   }
   if (!isDemoAccountProfile) {
     badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${_escHtml(mainListing.providerSince)}</span>`;
-    badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
   }
   // Board-Verknüpfung: höchste Phase über alle Inserate dieses Anbieters
   (function() {
@@ -586,18 +585,18 @@ function loadProvider(providerId) {
   // Portfolio (admin-bewusst: auf fremden Profilen Lösch-Overlay für Admins)
   _renderProviderPortfolio();
 
-  // Sidebar Facts
-  document.getElementById('providerFacts').innerHTML = isDemoAccountProfile ? `
-    <li><span class="material-icons-round">location_on</span> <span>${_escHtml(mainListing.location)}, Deutschland</span></li>
-    <li><span class="material-icons-round">category</span> <span>${_escHtml(mainListing.categoryLabel)}</span></li>
-    <li><span class="material-icons-round">info</span> <span>Beispielaccount für Demo-Beiträge</span></li>
-  ` : `
-    <li><span class="material-icons-round">location_on</span> <span>${_escHtml(mainListing.location)}, Deutschland</span></li>
-    <li><span class="material-icons-round">category</span> <span>${_escHtml(mainListing.categoryLabel)}</span></li>
-    <li><span class="material-icons-round">euro</span> <span>${_escHtml(mainListing.priceLabel)}</span></li>
-    <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
-    <li><span class="material-icons-round">speed</span> <span>Antwortet innerhalb von 1 Std.</span></li>
-  `;
+  // Show supplied facts; availability and response time require actual evidence.
+  var facts = [];
+  if (mainListing.location) facts.push(['location_on', mainListing.location]);
+  if (mainListing.categoryLabel) facts.push(['category', mainListing.categoryLabel]);
+  if (isDemoAccountProfile) facts.push(['info', 'Beispielaccount für Demo-Beiträge']);
+  else if (actualProviderListings.length) {
+    if (mainListing.priceLabel) facts.push(['euro', mainListing.priceLabel]);
+    facts.push(['event_available', 'Termin und Verfügbarkeit im Chat klären']);
+  }
+  document.getElementById('providerFacts').innerHTML = facts.map(function(f) {
+    return '<li><span class="material-icons-round">' + f[0] + '</span><span>' + _escHtml(String(f[1])) + '</span></li>';
+  }).join('');
 
   // Spec Tags
   document.getElementById('providerSpecTags').innerHTML = (mainListing.tags || []).map(t =>
@@ -722,6 +721,7 @@ function loadProvider(providerId) {
   // Reset to first tab
   switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
   loadProviderCollaborations(pid, isOwnProviderProfile);
+  renderOwnProfileHub(pid);
 }
 
 function switchProviderTab(btn, tab) {

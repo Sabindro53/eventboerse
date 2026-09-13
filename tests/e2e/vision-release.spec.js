@@ -25,7 +25,7 @@ test.describe('Vision Release', () => {
     await expect(page.getByRole('heading', { name: 'Event-Radar' })).toBeVisible();
     await expect(page.locator('#feedRadarCity')).toHaveValue('Köln');
     await page.getByRole('button', { name: '100 km' }).click();
-    await expect(page.locator('.radar-chip.aktiv')).toHaveText('100 km');
+    await expect(page.locator('.feed-radar-controls .radar-chip.aktiv')).toHaveText('100 km');
     await expect(page.locator('.feed-radar-result').first()).toBeVisible();
   });
 

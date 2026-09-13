@@ -385,6 +385,9 @@ function toggleMapOverlay() {
 }
 
 function closeMapOverlay() {
+  _radarSuche = '';
+  var search = document.getElementById('mapSearchInput');
+  if (search) search.value = '';
   document.getElementById('mapOverlay').classList.remove('show');
   document.getElementById('mapBackdrop').classList.remove('show');
   document.body.style.overflow = '';
@@ -405,7 +408,7 @@ function initLeafletMap() {
   }
   leafletMap = L.map('mapContainer', {
     zoomControl: false,
-    attributionControl: false
+    attributionControl: true
   }).setView([51.1657, 10.4515], 6);
 
   L.control.zoom({ position: 'topright' }).addTo(leafletMap);
@@ -508,8 +511,9 @@ function focusMapMarker(listingId) {
   const listing = LISTINGS.find(l => l.id === listingId);
   if (!listing) return;
 
-  const coords = CITY_COORDS[listing.location];
-  if (!coords) return;
+  const position = radarPosition(listing);
+  const coords = position ? [position.lat, position.lng] : null;
+  if (!coords || !leafletMap) { navigateTo('detail', listingId); return; }
 
   leafletMap.flyTo(coords, 12, { duration: 0.8 });
 
@@ -535,28 +539,17 @@ function focusMapMarker(listingId) {
 }
 
 function filterMapMarkers() {
-  // Ohne geladenes Leaflet gibt es keine Karte — die Liste bleibt
-  // trotzdem bedienbar. Siehe initLeafletMap().
-  if (!leafletMap) return;
-
-  const inp = document.getElementById('mapSearchInput');
-  const query = inp ? inp.value.toLowerCase().trim() : '';
-
-  const filtered = LISTINGS.filter(l => {
-    const haystack = `${l.title} ${l.location} ${l.region} ${l.categoryLabel} ${l.tags.join(' ')}`.toLowerCase();
-    return !query || haystack.includes(query);
-  });
-
-  // Update map markers
-  if (leafletMap) {
-    addListingMarkers(filtered);
-    if (filtered.length > 0 && query) {
-      const bounds = L.latLngBounds(filtered.map(l => CITY_COORDS[l.location]).filter(Boolean));
-      if (bounds.isValid()) leafletMap.flyToBounds(bounds, { padding: [40, 40], maxZoom: 11, duration: 0.6 });
-    }
+  var inp = document.getElementById('mapSearchInput');
+  _radarSuche = inp ? inp.value.toLowerCase().trim() : '';
+  if (!_radarPos) radarWiederherstellen();
+  if (_radarPos) {
+    radarAnzeigen();
+    return _radarOverlayHits;
   }
-
-  // Update sidebar list
+  var filtered = getHeroListings().filter(function(l) {
+    return [l.title, l.location, l.region, l.categoryLabel, (l.tags || []).join(' ')].join(' ').toLowerCase().indexOf(_radarSuche) !== -1;
+  });
+  addListingMarkers(filtered);
   renderLocationsList(filtered);
   return filtered;
 }
@@ -585,48 +578,17 @@ function _setNavWoLabel(text) {
 // either matching results or the "Keine Ergebnisse / Alternativen in der
 // Nähe von …" state.
 function submitMapSearch() {
-  var inp = document.getElementById('mapSearchInput');
-  var raw = inp ? inp.value.trim() : '';
-  if (!raw) { _setNavWoLabel(''); filterMapMarkers(); return; }
-
-  var filtered = filterMapMarkers();
-  // Prefer canonical city name if the input matches a known city
-  var canonical = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(raw) : '';
-  var labelCity = canonical || _ebTitleCase(raw);
-  _setNavWoLabel(labelCity);
-
-  // Sync browseLocation so listing filter uses this city
-  var loc = document.getElementById('browseLocation');
-  if (loc) loc.value = labelCity;
-
-  // Close map overlay – focus shifts to the listings page
-  if (typeof closeMapOverlay === 'function') {
-    try { closeMapOverlay(); } catch(e) {}
+  var input = document.getElementById('mapSearchInput');
+  var raw = input ? input.value.trim() : '';
+  var city = Object.keys(RADAR_ORTE).find(function(name) { return name.toLowerCase() === raw.toLowerCase(); });
+  if (city) {
+    radarStadtWaehlen(city);
+    _radarSuche = '';
+    if (input) input.value = '';
+    var citySelect = document.getElementById('radarStadt');
+    if (citySelect) citySelect.value = city;
+    radarAnzeigen();
+    return;
   }
-
-  // Navigate to browse and run the filter so the user gets immediate
-  // feedback ("Keine Ergebnisse in Bonn" + Alternativen-Section).
-  if (typeof navigateTo === 'function') {
-    navigateTo('browse');
-    setTimeout(function() {
-      if (typeof filterListings === 'function') filterListings();
-      if (typeof _ebScrollToBrowseResults === 'function') _ebScrollToBrowseResults();
-    }, 200);
-  } else if (typeof filterListings === 'function') {
-    filterListings();
-  }
-
-  if (filtered.length > 0) return; // already zoomed via flyToBounds
-
-  // Fallback: Geocode unknown city via Nominatim (e.g. "Bonn") so the
-  // map is positioned correctly the next time it's opened.
-  if (!leafletMap || !window.fetch) return;
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=' + encodeURIComponent(raw))
-    .then(function(r){ return r.ok ? r.json() : []; })
-    .then(function(arr){
-      if (arr && arr[0] && leafletMap) {
-        leafletMap.flyTo([parseFloat(arr[0].lat), parseFloat(arr[0].lon)], 11, { duration: 0.7 });
-      }
-    }).catch(function(){});
+  filterMapMarkers();
 }
-

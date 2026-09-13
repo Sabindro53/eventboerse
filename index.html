@@ -42,6 +42,9 @@
   <!-- Critical CSS first (render-blocking, but small) -->
   <link rel="preload" href="styles.css?v=164" as="style" fetchpriority="high" />
   <link rel="stylesheet" href="styles.css?v=164" />
+  <link rel="stylesheet" href="discovery.css" />
+  <link rel="stylesheet" href="planning.css" />
+  <link rel="stylesheet" href="journeys.css" />
   <link rel="stylesheet" href="release-vision.css?v=1" />
 
   <!-- Schriften: liegen im Theme, also kein async-Kniff noetig. -->
@@ -209,6 +212,7 @@
       </div>
       <div class="nav-actions">
         <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
+        <button type="button" class="nav-icon-btn journey-friends-nav" onclick="navigateTo('freunde')" title="Freunde & Gruppen" aria-label="Freunde & Gruppen"><span class="material-icons-round">diversity_3</span></button>
         <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten" aria-label="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
           <span class="badge" id="msgBadge" style="display:none"></span>
@@ -768,6 +772,7 @@
             <div class="feed-header">
               <h2 class="feed-title">Aktuelles</h2>
               <div class="feed-header-actions">
+                <button type="button" class="btn-outline journey-feed-friends" onclick="startGroupPlanning()"><span class="material-icons-round">group_add</span> Mit Freunden planen</button>
                 <button type="button" class="feed-location-badge" id="feedLocationBadge" onclick="toggleFeedNearby()" aria-pressed="false" title="Feed nach deinem Standort sortieren">
                   <span class="material-icons-round">location_on</span>
                   <span id="feedLocationText">In deiner Nähe</span>
@@ -798,6 +803,12 @@
             </div>
             <!-- Sidebar -->
             <aside class="feed-sidebar">
+              <div class="feed-sidebar-card journey-next">
+                <span class="material-icons-round">celebration</span><h4>Aus einer Idee wird ein Event</h4>
+                <p>Ideen sammeln, Freunde einladen und gemeinsam planen.</p>
+                <button type="button" class="btn-primary" onclick="startGroupPlanning()">Gemeinsamen Plan starten</button>
+                <button type="button" class="btn-outline" onclick="navigateTo('freunde')">Freunde finden</button>
+              </div>
               <div class="feed-sidebar-card">
                 <h4>Trending Kategorien</h4>
                 <div class="sidebar-trending" id="sidebarTrending">

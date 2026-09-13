@@ -20,6 +20,7 @@ ui/32-consent-init-map.js
 board/40-board-kanban.js
 board/41-flow-zahlung.js
 board/42-guide-social-feed.js
+board/43-planungs-zentrale.js
 ui/43-showcase.js
 payments/44-kv-buchung.js
 ai/50-planungs-assistent.js
@@ -27,3 +28,4 @@ ui/51-inserat-maske-kalender.js
 ui/52-release-vision.js
 social/60-freunde-gruppen.js
 social/61-gruppen-plan.js
+social/62-planungs-wege.js

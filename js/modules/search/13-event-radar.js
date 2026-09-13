@@ -55,6 +55,9 @@ var _radarRadius = RADAR_STANDARD;
 var _radarQuelle = null;   // 'geo' | 'stadt' | null
 
 var RADAR_SPEICHER = 'eb_radar_ort';
+var _radarArt = 'alle';
+var _radarSuche = '';
+var _radarOverlayHits = [];
 
 /**
  * Position grob speichern.
@@ -77,7 +80,7 @@ function radarGemerkterOrt() {
   try {
     var roh = JSON.parse(localStorage.getItem(RADAR_SPEICHER) || 'null');
     if (!roh || typeof roh.lat !== 'number' || typeof roh.lng !== 'number') return null;
-    return roh;
+    return isFinite(roh.lat) && isFinite(roh.lng) && Math.abs(roh.lat) <= 90 && Math.abs(roh.lng) <= 180 ? roh : null;
   } catch (e) { return null; }
 }
 
@@ -103,8 +106,9 @@ function radarOrtsname(lat, lng) {
  * Verbindungszustand vortäuscht.
  */
 function radarPosition(eintrag) {
+  if (eintrag && eintrag._aktivitaet && typeof ebAktivitaetPosition === 'function') return eintrag._position || ebAktivitaetPosition(eintrag._aktivitaet, null);
   var k = eintrag && eintrag.koordinaten;
-  if (Array.isArray(k) && k.length === 2 && isFinite(k[0]) && isFinite(k[1])) {
+  if (Array.isArray(k) && k.length === 2 && typeof k[0] === 'number' && typeof k[1] === 'number' && isFinite(k[0]) && isFinite(k[1]) && Math.abs(k[0]) <= 90 && Math.abs(k[1]) <= 180) {
     return { lat: k[0], lng: k[1], genau: true };
   }
   var c = RADAR_ORTE[eintrag && eintrag.location];
@@ -135,8 +139,27 @@ function radarUmkreis(pos, radiusKm) {
     });
   }
 
-  sammeln(typeof LISTINGS !== 'undefined' ? LISTINGS : [], 'dienstleister');
-  sammeln(typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : [], 'event');
+  var listings = typeof getHeroListings === 'function' ? getHeroListings() : [];
+  sammeln(listings.filter(function (l) {
+    return !(typeof _isRequestListing === 'function' && _isRequestListing(l));
+  }), 'dienstleister');
+  if (!window.EB_HIDE_DEMO) sammeln(typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : [], 'event');
+  if (typeof _aktBestand !== 'undefined' && _aktBestand && typeof ebAktivitaetenGefiltert === 'function') {
+    var aktiv = ebAktivitaetenGefiltert(_aktBestand, pos, radiusKm, new Date());
+    aktiv.termine.concat(aktiv.orte).forEach(function(t) {
+      var e = t.daten;
+      var gebiet = (_aktBestand.gebiete || []).find(function(g) { return g.stadt === e.gebiet || (e.ort && g.stadt === e.ort.stadt); });
+      treffer.push({ art: 'aktivitaet', km: t.km, ort: e.ort && e.ort.stadt || '', genau: t.genau,
+        daten: { id: e.id, title: e.titel, location: e.ort && e.ort.stadt || '',
+          _aktivitaet: e, _position: ebAktivitaetPosition(e, gebiet || _aktBestand.mitte) } });
+    });
+  }
+  if (_radarArt === 'aktivitaeten') treffer = treffer.filter(function(t) { return t.art === 'aktivitaet' || t.art === 'event'; });
+  if (_radarArt === 'dienstleister') treffer = treffer.filter(function(t) { return t.art === 'dienstleister'; });
+  if (_radarSuche) treffer = treffer.filter(function(t) {
+    var d = t.daten || {};
+    return [d.title, d.name, d.location, d.categoryLabel, d._aktivitaet && d._aktivitaet.kategorie].join(' ').toLowerCase().indexOf(_radarSuche) !== -1;
+  });
 
   return treffer.sort(function (a, b) { return a.km - b.km; });
 }
@@ -160,6 +183,7 @@ function radarStandortErfragen(fertig) {
     _radarPos = { lat: p.coords.latitude, lng: p.coords.longitude };
     _radarQuelle = 'geo';
     _radarMerken(_radarPos, 'geo');
+    _radarOrtSynchronisieren();
     if (fertig) fertig(_radarPos);
   }, function (err) {
     var abgelehnt = err && err.code === 1;
@@ -180,11 +204,23 @@ function radarStandortErfragen(fertig) {
  */
 function radarPositionSetzen(lat, lng, quelle) {
   if (typeof lat !== 'number' || typeof lng !== 'number') return null;
-  if (!isFinite(lat) || !isFinite(lng)) return null;
+  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   _radarPos = { lat: lat, lng: lng };
   _radarQuelle = quelle === 'geo' ? 'geo' : 'stadt';
   _radarMerken(_radarPos, _radarQuelle);
+  _radarOrtSynchronisieren();
   return _radarPos;
+}
+
+/** Shared place labels prevent Feed, Suche and Map from disagreeing. */
+function _radarOrtSynchronisieren() {
+  if (!_radarPos) return;
+  var name = radarOrtsname(_radarPos.lat, _radarPos.lng) || '';
+  var input = document.getElementById('browseLocation');
+  if (input && name) input.value = name;
+  if (typeof _setNavWoLabel === 'function') _setNavWoLabel(name || 'Mein Standort');
+  var label = document.getElementById('feedLocationText');
+  if (label) label.textContent = name ? 'Nähe ' + name : 'Mein Standort';
 }
 
 /** Ohne Standortfreigabe: Stadt wählen. Gleichwertig, nicht zweite Wahl. */
@@ -216,6 +252,9 @@ function radarWiederherstellen() {
 function radarVergessen() {
   _radarPos = null;
   _radarQuelle = null;
+  var input = document.getElementById('browseLocation');
+  if (input) input.value = '';
+  if (typeof _setNavWoLabel === 'function') _setNavWoLabel('');
   try { localStorage.removeItem(RADAR_SPEICHER); } catch (e) { /* egal */ }
 }
 
@@ -246,6 +285,20 @@ function radarLeisteAufbauen() {
       radien.appendChild(b);
     });
   }
+  var overlay = _radarEl('mapOverlay');
+  if (overlay && !_radarEl('radarAktivFilter')) {
+    var controls = document.createElement('div');
+    controls.id = 'radarAktivFilter'; controls.className = 'akt-overlay-filter';
+    controls.innerHTML = '<label>Anzeigen<select id="radarArt" onchange="_radarArt=this.value;radarAnzeigen()"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten & Events</option><option value="dienstleister">Dienstleister</option></select></label>'
+      + '<label>Aktivität<select id="radarKategorie" onchange="_aktKategorie=this.value;radarAnzeigen()"><option value="">Alle Aktivitäten</option>'
+      + ['Sport','Kino','Museum','Theater','Zoo','Escape-Room','Kletterhalle','Erlebnisbad'].map(function(c) { return '<option>' + c + '</option>'; }).join('') + '</select></label>'
+      + '<label>Termine<select id="radarZeit" onchange="_aktZeit=this.value;radarAnzeigen()"><option value="alle">Alle Termine</option><option value="jetzt">Nächste 4 Stunden</option><option value="heute">Heute</option><option value="wochenende">Wochenende</option></select></label>';
+    var anchor = _radarEl('mapContainer');
+    if (anchor) anchor.parentNode.insertBefore(controls, anchor);
+  }
+  if (_radarEl('radarArt')) _radarEl('radarArt').value = _radarArt;
+  if (_radarEl('radarKategorie')) _radarEl('radarKategorie').value = _aktKategorie;
+  if (_radarEl('radarZeit')) _radarEl('radarZeit').value = _aktZeit;
   var sel = _radarEl('radarStadt');
   if (sel && sel.options.length <= 1) {
     Object.keys(RADAR_ORTE).sort(function (a, b) { return a.localeCompare(b, 'de'); })
@@ -320,6 +373,7 @@ function _radarKarteZeichnen(pos, radiusKm) {
 function _radarListe(treffer, radiusKm) {
   var liste = _radarEl('mapLocationsList');
   if (!liste) return;
+  _radarOverlayHits = treffer;
 
   if (!treffer.length) {
     var groesser = RADAR_RADIEN.filter(function (r) { return r > radiusKm; })[0];
@@ -329,15 +383,15 @@ function _radarListe(treffer, radiusKm) {
     return;
   }
 
-  liste.innerHTML = treffer.slice(0, 40).map(function (t) {
+  _radarOverlayHits = treffer;
+  liste.innerHTML = treffer.slice(0, 80).map(function (t, index) {
     var d = t.daten;
     var titel = d.title || d.name || 'Ohne Titel';
-    var symbol = t.art === 'event' ? 'celebration' : 'storefront';
+    var symbol = t.art === 'dienstleister' ? 'storefront' : 'celebration';
     // Die ID geht durch JSON UND durch die HTML-Maskierung: das Attribut ist
     // mit " begrenzt, und ein " in der ID bräche sonst aus dem onclick aus.
     // Beides zusammen, nicht nur eines — der XSS-Scanner sucht genau danach.
-    var ruf = t.art === 'event' ? ''
-      : 'navigateTo(&quot;detail&quot;,' + _escHtml(JSON.stringify(String(d.id))) + ')';
+    var ruf = 'radarTrefferOeffnen(' + index + ')';
     return '<button type="button" class="radar-treffer" onclick="' + ruf + '">'
       + '<span class="material-icons-round radar-treffer-icon">' + symbol + '</span>'
       + '<span class="radar-treffer-text">'
@@ -347,6 +401,7 @@ function _radarListe(treffer, radiusKm) {
       // und soll nicht wie eine Messung aussehen.
       + '<span class="radar-treffer-ort">'
       + _escHtml(t.stadtteil ? t.ort + ' · ' + t.stadtteil : t.ort)
+      + (t.art === 'aktivitaet' ? ' · Externe Quelle' : t.art === 'event' ? ' · Demo-Event' : ' · Auf Eventbörse')
       + (t.genau ? '' : ' <span class="radar-ungenau">ab Stadtmitte</span>')
       + '</span></span>'
       + '<span class="radar-treffer-km">' + radarEntfernung(t.km) + '</span></button>';
@@ -371,6 +426,8 @@ function radarAnzeigen() {
 
   var name = radarOrtsname(stand.pos.lat, stand.pos.lng);
   if (text) text.textContent = name ? ('Nähe ' + name) : 'Standort gesetzt';
+  var citySelect = _radarEl('radarStadt');
+  if (citySelect) citySelect.value = name || '';
   if (vergessen) vergessen.hidden = false;
 
   var treffer = radarUmkreis(stand.pos, stand.radius);
@@ -380,12 +437,50 @@ function radarAnzeigen() {
   }
   _radarKarteZeichnen(stand.pos, stand.radius);
   _radarListe(treffer, stand.radius);
+  _radarOverlayMarker(treffer);
 }
 
 /** Beim Öffnen der Karte: gemerkten Ort übernehmen, nichts neu erfragen. */
 function radarBeimOeffnen() {
   if (!radarStand().pos) radarWiederherstellen();
   radarAnzeigen();
+  if (typeof ebAktivitaetenLaden === 'function') ebAktivitaetenLaden(function() {
+    if (document.getElementById('mapOverlay')?.classList.contains('show')) radarAnzeigen();
+  });
+}
+
+function radarTrefferOeffnen(index) { _radarTrefferOeffnen(_radarOverlayHits[index]); }
+function _radarTrefferOeffnen(hit) {
+  if (!hit) return;
+  if (hit.art === 'dienstleister') { closeMapOverlay(); navigateTo('detail', hit.daten.id); return; }
+  var e = hit.daten && hit.daten._aktivitaet;
+  var url = e && e.quelle && e.quelle.url;
+  if (typeof url === 'string' && /^https:\/\//.test(url)) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  closeMapOverlay();
+  navigateTo('aktuelles', 'events');
+}
+
+function _radarOverlayMarker(hits) {
+  if (typeof leafletMap === 'undefined' || !leafletMap || typeof L === 'undefined') return;
+  mapMarkers.forEach(function(m) { leafletMap.removeLayer(m); });
+  mapMarkers = [];
+  _feedRadarGruppen(hits).forEach(function(group) {
+    var popup = group.items.map(function(item) {
+      var t = item.hit;
+      return '<button type="button" class="feed-radar-popup-row" onclick="radarTrefferOeffnen(' + item.index + ')"><span><strong>'
+        + _escHtml(t.daten.title || t.daten.name || 'Event') + '</strong><small>'
+        + _escHtml(t.ort || '') + ' · ' + (t.art === 'aktivitaet' ? 'Externe Quelle' : t.art === 'event' ? 'Demo-Event' : 'Auf Eventbörse')
+        + (t.genau ? '' : ' · Stadtmitte') + '</small></span></button>';
+    }).join('');
+    var marker = L.marker([group.pos.lat, group.pos.lng], { icon: L.divIcon({
+      className: 'map-marker-wrapper', html: '<span class="map-marker-custom">' + group.items.length + ' Treffer</span>',
+      iconSize: [90, 30], iconAnchor: [45, 15],
+    }) }).addTo(leafletMap).bindPopup(popup, { maxWidth: 300 });
+    mapMarkers.push(marker);
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -583,9 +678,9 @@ function _feedRadarPopupHtml(gruppe) {
     var d = hit.daten || {};
     var title = d.title || d.name || 'Event';
     return '<button type="button" class="feed-radar-popup-row" onclick="feedRadarOpen(' + item.index + ')">'
-      + '<span class="material-icons-round">' + (hit.art === 'event' ? 'celebration' : 'storefront') + '</span>'
+      + '<span class="material-icons-round">' + (hit.art === 'dienstleister' ? 'storefront' : 'celebration') + '</span>'
       + '<span><strong>' + _escHtml(title) + '</strong><small>'
-      + _escHtml(hit.ort || '') + ' · ' + _escHtml(radarEntfernung(hit.km))
+      + _escHtml(hit.ort || '') + ' · ' + (hit.art === 'aktivitaet' ? 'Externe Quelle · ' : '') + _escHtml(radarEntfernung(hit.km))
       + (hit.genau ? '' : ' · ca.') + '</small>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-popup') + '</span>'
       + '<span class="material-icons-round">arrow_forward</span></button>';
   }).join('');
@@ -699,7 +794,7 @@ function _initFeedRadarMap(hits) {
 
   _feedRadarGruppen(hits).forEach(function(gruppe) {
     var anzahl = gruppe.items.length;
-    var nurEvents = gruppe.items.every(function(item) { return item.hit.art === 'event'; });
+    var nurEvents = gruppe.items.every(function(item) { return item.hit.art !== 'dienstleister'; });
     var icon = L.divIcon({
       className: 'feed-radar-marker-wrap',
       html: '<span class="feed-radar-marker ' + (anzahl > 1 ? 'cluster' : (nurEvents ? 'event' : 'listing')) + '">'
@@ -729,6 +824,9 @@ function _initFeedRadarMap(hits) {
 
 function renderFeedRadar(container) {
   if (!container) return;
+  if (_aktZustand === 'kalt' || _aktZustand === 'laedt') ebAktivitaetenLaden(function() {
+    if (document.getElementById('feedRadarResults')) _drawFeedRadar();
+  });
   _destroyFeedRadarMap();
   if (!_radarPos) radarWiederherstellen();
   if (!_radarPos) radarStadtWaehlen('Köln');
@@ -741,15 +839,21 @@ function renderFeedRadar(container) {
   }).join('');
   container.innerHTML = '<section class="feed-radar-card">' +
     '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
-    '<p>Alle Inserate und Events im echten Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
+    '<p>Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
     '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
     '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
     '<div class="release-privacy"><span class="material-icons-round">shield</span><span>Dein genauer Standort bleibt im Browser. Gespeichert wird nur eine grobe Position; du kannst sie jederzeit <button type="button" onclick="feedRadarForget()">vergessen</button>.</span></div>' +
-    '<div id="feedRadarResults"></div></section>';
+    '<label class="akt-radar-type">Anzeigen<select id="feedRadarType" onchange="feedRadarArt(this.value)"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten und Events</option><option value="dienstleister">Dienstleister</option></select></label>' +
+    ebAktivitaetenFilterHtml(true) + '<div id="feedRadarResults"></div></section>';
+  document.getElementById('feedRadarType').value = _radarArt;
   _drawFeedRadar();
 }
 
+function feedRadarArt(value) {
+  if (['alle', 'aktivitaeten', 'dienstleister'].indexOf(value) < 0) return;
+  _radarArt = value; _drawFeedRadar();
+}
 function feedRadarCity(name) {
   if (radarStadtWaehlen(name)) renderFeedRadar(document.getElementById('feedList'));
 }
@@ -762,7 +866,8 @@ function feedRadarGeo() {
 }
 function feedRadarForget() {
   radarVergessen();
-  radarStadtWaehlen('Köln');
+  _radarPos = { lat: RADAR_ORTE.Köln[0], lng: RADAR_ORTE.Köln[1] };
+  _radarQuelle = 'vorschau';
   renderFeedRadar(document.getElementById('feedList'));
   showToast('Standortdaten wurden vergessen.', 'delete_outline');
 }
@@ -770,6 +875,7 @@ function feedRadarForget() {
 function _drawFeedRadar() {
   var root = document.getElementById('feedRadarResults');
   if (!root || !_radarPos) return;
+  _destroyFeedRadarMap();
   var hits = radarUmkreis(_radarPos, _radarRadius);
   _feedRadarHits = hits;
   var dienstleister = hits.filter(function(hit){ return hit.art === 'dienstleister'; }).length;
@@ -785,7 +891,7 @@ function _drawFeedRadar() {
   if (!hits.length) {
     var next = RADAR_RADIEN.filter(function(r){ return r > _radarRadius; })[0];
     root.innerHTML = mapHtml + '<div class="release-empty feed-radar-empty"><span class="material-icons-round">travel_explore</span><h3>Noch keine Treffer in ' + _radarRadius + ' km</h3><p>Der Scan ist leer. Wähle eine andere Stadt oder erweitere den Radius.</p>' +
-      (next ? '<button class="btn-primary" onclick="feedRadarRadius(' + next + ')">Auf ' + next + ' km erweitern</button>' : '') + '</div>';
+      (next ? '<button class="btn-primary" onclick="feedRadarRadius(' + next + ')">Auf ' + next + ' km erweitern</button>' : '') + '</div>' + (_aktZustand === 'laedt' ? '<p role="status">Aktivitäten werden geladen …</p>' : ebAktivitaetenLeermeldung(_radarRadius, _radarPos)) + ebAktivitaetenExternHtml(_radarPos);
     _initFeedRadarMap(hits);
     return;
   }
@@ -796,10 +902,10 @@ function _drawFeedRadar() {
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
       return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
-        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '></span><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
+        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '></span><span><span class="radar-result-meta"><span>' + (hit.art === 'aktivitaet' ? 'EXTERNE AKTIVITÄT' : hit.art === 'event' ? 'DEMO-EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
         '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-result') + '<small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
         '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' + '<p class="akt-fuss">Externe Aktivitäten: OpenLigaDB und © OpenStreetMap-Mitwirkende (ODbL). Öffnungszeiten und Buchungen bei der Quelle prüfen.</p>' + ebAktivitaetenStarthilfe();
   _initFeedRadarMap(hits);
 }
 
@@ -824,5 +930,5 @@ function feedRadarOpen(index) {
     navigateTo('detail', hit.daten.id);
     return;
   }
-  showToast('Event-Details werden im Feed geöffnet', 'event');
+  _radarTrefferOeffnen(hit);
 }

@@ -29,6 +29,7 @@ require_once get_template_directory() . '/includes/security/rate-limit.php';
 require_once get_template_directory() . '/includes/social/freunde-gruppen.php';
 require_once get_template_directory() . '/includes/social/routen.php';
 require_once get_template_directory() . '/includes/social/plan-routen.php';
+require_once get_template_directory() . '/includes/booking.php';
 
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
@@ -755,6 +756,11 @@ function eventboerse_enqueue_assets() {
         $styles_ver
     );
 
+    foreach ( array( 'discovery', 'planning', 'journeys' ) as $feature_style ) {
+        wp_enqueue_style( 'eb-' . $feature_style, get_template_directory_uri() . '/' . $feature_style . '.css',
+            array( 'eventboerse-styles-full' ), filemtime( $theme_dir . '/' . $feature_style . '.css' ) );
+    }
+
     /* Stripe.js steht hier BEWUSST NICHT MEHR.
      *
      * Bis zum 02.09.2026 wurde js.stripe.com/v3 unbedingt eingebunden — auf
@@ -870,9 +876,8 @@ add_action( 'wp_enqueue_scripts', 'eb_fremde_stile_abbestellen', 100 );
  * SPA-Routing: Alle Front-End-Pfade auf index.php weiterleiten,
  * damit die Single-Page-App die Navigation übernimmt.
  */
-add_action( 'init', function() {
-    // Definierte SPA-Seiten
-    $spa_pages = array(
+function eb_spa_pages() {
+    return array(
         'browse', 'detail', 'provider', 'messages', 'profile',
         'create-listing', 'edit-profile', 'settings', 'admin',
         'event-erstellen', 'service-erstellen', 'aktuelles',
@@ -880,11 +885,22 @@ add_action( 'init', function() {
         'agb', 'agb-b2b', 'agb-dienstleister', 'marktplatz',
         'cookies', 'widerruf', 'community', 'bewertungen', 'upload',
         'dsa', 'p2b', 'barrierefreiheit', 'vsbg',
-        'favorites',
+        'favorites', 'freunde', 'business', 'my-listings', 'auftraege',
     );
-    foreach ( $spa_pages as $slug ) {
+}
+add_action( 'init', function() {
+    foreach ( eb_spa_pages() as $slug ) {
         add_rewrite_rule( '^' . $slug . '/?$', 'index.php?eb_spa=1', 'top' );
         add_rewrite_rule( '^' . $slug . '/([^/]+)/?$', 'index.php?eb_spa=1', 'top' );
+    }
+} );
+
+/* New app routes work immediately after a theme update, even before WordPress
+ * refreshes its stored rewrite rules. Do not turn arbitrary 404s into app pages. */
+add_action( 'parse_request', function( $wp ) {
+    $parts = explode( '/', trim( (string) $wp->request, '/' ) );
+    if ( count( $parts ) <= 2 && in_array( $parts[0], eb_spa_pages(), true ) ) {
+        $wp->query_vars = array( 'eb_spa' => '1' );
     }
 } );
 
@@ -6427,7 +6443,7 @@ function eb_conversations_list() {
     update_user_meta( $uid, 'eb_last_activity', current_time( 'mysql' ) );
 
     $rows = $wpdb->get_results( $wpdb->prepare(
-        "SELECT c.*,
+        "SELECT c.*, (SELECT user_id FROM {$wpdb->prefix}eb_listings l WHERE l.id = c.listing_id) AS listing_provider_uid,
             (SELECT COUNT(*) FROM {$wpdb->prefix}eb_messages m WHERE m.conversation_id = c.id AND m.sender_id != %d AND m.is_read = 0) as unread_count,
             (SELECT m2.body FROM {$wpdb->prefix}eb_messages m2 WHERE m2.conversation_id = c.id ORDER BY m2.created_at DESC LIMIT 1) as last_msg,
             (SELECT m3.created_at FROM {$wpdb->prefix}eb_messages m3 WHERE m3.conversation_id = c.id ORDER BY m3.created_at DESC LIMIT 1) as last_msg_time
@@ -6471,6 +6487,7 @@ function eb_conversations_list() {
             'unread_count' => (int) $c->unread_count,
             'updated_at'   => $c->last_msg_time ?: $c->updated_at,
             'listingId'    => $c->listing_id ? (int) $c->listing_id : null,
+            'providerId'   => (int) ( $c->listing_provider_uid ?? 0 ),
             'online'       => $other_online,
         );
     }
@@ -6496,11 +6513,19 @@ function eb_conversations_create( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Benutzer nicht gefunden.' ), 404 );
     }
 
-    // Check if conversation already exists
+    if ( $listing_id ) {
+        $listing = eb_booking_listing( $listing_id );
+        if ( ! $listing || (int) $listing->user_id !== $other_id ) {
+            return new WP_REST_Response( array( 'message' => 'Inserat und Anbieter passen nicht zusammen.' ), 400 );
+        }
+        $listing_id = (int) $listing->id;
+    }
+
+    // A separate listing has separate terms and a separate conversation.
     $existing = $wpdb->get_var( $wpdb->prepare(
         "SELECT id FROM {$wpdb->prefix}eb_conversations
-         WHERE (user_a = %d AND user_b = %d) OR (user_a = %d AND user_b = %d)",
-        $uid, $other_id, $other_id, $uid
+         WHERE ((user_a = %d AND user_b = %d) OR (user_a = %d AND user_b = %d)) AND COALESCE(listing_id, 0) = %d",
+        $uid, $other_id, $other_id, $uid, $listing_id
     ) );
 
     if ( $existing ) {
@@ -6648,11 +6673,12 @@ function eb_message_contains_off_platform_contact( $text ) {
     $patterns = array(
         '/\b[A-Z0-9._%+\-]+\s*(?:@|\(at\)|\[at\]| at )\s*[A-Z0-9.\-]+\s*(?:\.| punkt | dot )\s*[A-Z]{2,}\b/iu',
         '/\b(?:https?:\/\/|www\.)\S+/iu',
-        '/\b(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/iu',
+        '/\b(?:schreib|kontaktier|erreich|ruf|folge).{0,35}(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/iu',
         '/\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}(?:straße|strasse|str\.|weg|allee|platz|gasse)\s+\d+[a-z]?\b/u',
         '/\b\d{5}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}\b/u',
     );
     foreach ( $patterns as $pattern ) if ( preg_match( $pattern, $text ) ) return true;
+    $text = preg_replace( '/\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4})\b/u', '', $text );
     if ( preg_match_all( '/(?<!\d)(?:\+|00)?\d[\d\s().\/-]{7,}\d(?!\d)/u', $text, $phone_candidates ) ) {
         foreach ( $phone_candidates[0] as $candidate ) {
             if ( strlen( preg_replace( '/\D+/', '', $candidate ) ) >= 9 ) return true;
@@ -6678,6 +6704,8 @@ function eb_messages_send( WP_REST_Request $request ) {
 
     $body     = sanitize_textarea_field( $params['content'] ?? ( $params['text'] ?? '' ) );
     $msg_type = sanitize_text_field( $params['type'] ?? 'text' );
+    $valid_message = eb_booking_validate_message( $conv, $uid, $body, $msg_type );
+    if ( is_wp_error( $valid_message ) ) return eb_booking_error_response( $valid_message, 422 );
 
     $contact_scan_body = $body;
     if ( $body && $body[0] === '{' ) {
@@ -6685,9 +6713,12 @@ function eb_messages_send( WP_REST_Request $request ) {
         if ( is_array( $structured ) && ( $structured['kind'] ?? '' ) === 'inquiry' ) {
             // Systemfelder wie Inseratbild/URL gehoeren zur Plattform. Nur die
             // frei eingegebene Nachricht wird auf Umgehungskontakte geprueft.
-            $contact_scan_body = (string) ( $structured['message'] ?? '' );
+            $contact_scan_body = implode( ' ', array_map( 'strval', array_intersect_key( $structured, array_flip( array( 'message', 'listing', 'projectName', 'date', 'eventType', 'price' ) ) ) ) );
         }
     }
+    // The public service venue is required to plan a real event; it is not a private contact channel.
+    $contact_listing = eb_booking_listing( $conv->listing_id );
+    if ( $contact_listing && ! empty( $contact_listing->location ) ) $contact_scan_body = str_ireplace( $contact_listing->location, '', $contact_scan_body );
     if ( in_array( $msg_type, array( 'text', 'message', 'offer' ), true ) && eb_message_contains_off_platform_contact( $contact_scan_body ) ) {
         return new WP_REST_Response( array(
             'code'    => 'off_platform_contact',
@@ -6719,16 +6750,19 @@ function eb_messages_send( WP_REST_Request $request ) {
             $neg = $wpdb->get_var( $wpdb->prepare(
                 "SELECT negotiable FROM {$wpdb->prefix}eb_listings WHERE id = %d", (int) $conv->listing_id
             ) );
-            if ( $neg !== null && (int) $neg === 0 ) {
+            if ( $neg !== null && (int) $neg === 0 && ( ! $contact_listing || (int) $contact_listing->user_id !== $uid ) ) {
                 return new WP_REST_Response( array( 'message' => 'Dieses Inserat ist ein Festpreis — Gegenangebote sind nicht möglich.' ), 400 );
             }
         }
-        $insert['offer_amount'] = round( abs( floatval( $params['amount'] ?? 0 ) ), 2 );
+        $offer_cents = eb_booking_money_cents( $params['amount'] ?? null );
+        if ( ! $offer_cents ) return new WP_REST_Response( array( 'message' => 'Bitte einen gültigen Gesamtpreis ab 0,50 € mit höchstens zwei Nachkommastellen angeben.' ), 400 );
+        if ( ! $contact_listing ) return new WP_REST_Response( array( 'message' => 'Ein Angebot braucht ein zugeordnetes Inserat.' ), 400 );
+        $insert['offer_amount'] = $offer_cents / 100;
         $insert['offer_status'] = 'pending';
         // Strukturierte Kostenvoranschläge (Leistung/Beschreibung/Datum im
         // body) NICHT überschreiben — sonst geht der KV-Inhalt verloren.
         // Alle anderen Offers bekommen wie bisher den Standard-Text.
-        if ( strpos( $body, '📋 Kostenvoranschlag' ) !== 0 ) {
+        if ( trim( $body ) === '' || preg_match( '/^[0-9.,€\s]+$/u', $body ) ) {
             $insert['body'] = 'Preisangebot: ' . rtrim(rtrim(number_format($insert['offer_amount'], 2, ',', ''), '0'), ',') . '€';
         }
 
@@ -6743,7 +6777,8 @@ function eb_messages_send( WP_REST_Request $request ) {
     $insert['created_at'] = current_time( 'mysql' );
 
 
-    $wpdb->insert( $wpdb->prefix . 'eb_messages', $insert );
+    if ( false === $wpdb->insert( $wpdb->prefix . 'eb_messages', $insert ) ) return new WP_REST_Response( array( 'message' => 'Nachricht konnte nicht gespeichert werden. Bitte erneut versuchen.' ), 503 );
+    $sent_message_id = (int) $wpdb->insert_id;
 
     // Update conversation timestamp
     $wpdb->update( $wpdb->prefix . 'eb_conversations',
@@ -6888,7 +6923,7 @@ function eb_messages_send( WP_REST_Request $request ) {
     }
 
     return new WP_REST_Response( array(
-        'id'         => (int) $wpdb->insert_id,
+        'id'         => $sent_message_id,
         'sent'       => true,
         'content'    => $body,
         'created_at' => current_time( 'mysql' ),
@@ -6938,11 +6973,18 @@ function eb_offer_status_update( WP_REST_Request $request ) {
         return new WP_REST_Response( array( 'message' => 'Eigenes Angebot kann nur zurückgezogen werden.' ), 400 );
     }
 
-    $wpdb->update(
+    $booking_lock = eb_booking_lock( $msg->conversation_id );
+    if ( is_wp_error( $booking_lock ) ) return eb_booking_error_response( $booking_lock, 409 );
+    if ( $status === 'declined' ) {
+        $release = eb_booking_release_offer( $msg_id );
+        if ( is_wp_error( $release ) ) return eb_booking_error_response( $release, 409 );
+    }
+    $changed = $wpdb->update(
         $wpdb->prefix . 'eb_messages',
         array( 'offer_status' => $status ),
-        array( 'id' => $msg_id )
+        array( 'id' => $msg_id, 'offer_status' => $msg->offer_status )
     );
+    if ( ! $changed ) return new WP_REST_Response( array( 'message' => 'Das Angebot wurde inzwischen geändert. Bitte den Chat aktualisieren.' ), 409 );
 
     // When accepting: auto-decline all OTHER pending offers in the same conversation
     if ( $status === 'accepted' ) {
@@ -6998,7 +7040,7 @@ function eb_message_delete( WP_REST_Request $request ) {
     if ( (int) $msg->sender_id !== $uid ) {
         return new WP_REST_Response( array( 'message' => 'Nicht autorisiert.' ), 403 );
     }
-    if ( $msg->msg_type === 'system' || $msg->msg_type === 'deleted' ) {
+    if ( $msg->msg_type === 'offer' || strpos( (string) $msg->body, '"kind":"inquiry' ) !== false || $msg->msg_type === 'system' || $msg->msg_type === 'deleted' ) {
         return new WP_REST_Response( array( 'message' => 'Nachricht kann nicht gelöscht werden.' ), 400 );
     }
 
@@ -8320,7 +8362,8 @@ function eb_stripe_settlement_endpoint( WP_REST_Request $request ) {
 
     // Berechtigung: Admin, Käufer (user_id in Metadaten) oder Ziel-Connect-Konto.
     $is_admin = current_user_can( 'manage_options' );
-    $buyer_ok = false;
+    $booking_record = get_option( 'eb_booking_payment_' . sanitize_key( $pi ), array() );
+    $buyer_ok = ! empty( $booking_record['buyer_id'] ) && (int) $booking_record['buyer_id'] === (int) $user->ID;
     $paid = get_user_meta( $user->ID, 'eb_stripe_paid', true );
     if ( is_array( $paid ) && isset( $paid[ $pi ] ) ) $buyer_ok = true;
     $provider_ok = false;
@@ -8341,6 +8384,9 @@ function eb_stripe_settlement_endpoint( WP_REST_Request $request ) {
     return new WP_REST_Response( array(
         'ok'          => true,
         'payment'     => $pi,
+        'canRefund'   => $provider_ok || $is_admin,
+        'refunds'     => array_values( get_option( 'eb_booking_refund_' . sanitize_key( $pi ), array() ) ),
+        'cancellation' => get_option( 'eb_booking_refund_request_' . sanitize_key( $pi ), null ),
         'reconciled'  => ! empty( $ledger['reconciled'] ),
         'pending'     => $ledger['pending'] ?? '',
         'currency'    => $ledger['currency'] ?? 'eur',
@@ -8612,78 +8658,7 @@ function eb_stripe_response_has_error( $response, $needle ) {
 }
 
 function eb_stripe_create_checkout( WP_REST_Request $request ) {
-    $sk = eb_load_env_value( 'private_stripe_api_key' );
-    if ( ! $sk ) {
-        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
-    }
-    $p = $request->get_json_params();
-    $amount      = isset( $p['amount'] ) ? floatval( $p['amount'] ) : 0;
-    $currency    = isset( $p['currency'] ) ? strtolower( sanitize_text_field( $p['currency'] ) ) : 'eur';
-    $title       = isset( $p['title'] ) ? sanitize_text_field( $p['title'] ) : 'Buchung';
-    $card_id     = isset( $p['card_id'] ) ? sanitize_text_field( $p['card_id'] ) : '';
-    $project_id  = isset( $p['project_id'] ) ? sanitize_text_field( $p['project_id'] ) : '';
-    $listing_id  = isset( $p['listing_id'] ) ? absint( $p['listing_id'] ) : 0;
-
-    if ( $amount <= 0 ) {
-        return new WP_REST_Response( array( 'message' => 'Ung\u00fcltiger Betrag.' ), 400 );
-    }
-    if ( strlen( $title ) > 250 ) $title = substr( $title, 0, 250 );
-
-    $amount_cents = (int) round( $amount * 100 );
-    $site        = home_url( '/' );
-    $success_url = add_query_arg( array(
-        'stripe'     => 'success',
-        'session_id' => '{CHECKOUT_SESSION_ID}',
-        'card_id'    => rawurlencode( $card_id ),
-        'project_id' => rawurlencode( $project_id ),
-    ), $site );
-    $cancel_url  = add_query_arg( array( 'stripe' => 'cancel' ), $site );
-
-    $user = wp_get_current_user();
-
-    $fields = array(
-        'mode'                                    => 'payment',
-        'payment_method_types[]'                  => 'card',
-        'line_items[0][price_data][currency]'     => $currency,
-        'line_items[0][price_data][unit_amount]'  => $amount_cents,
-        'line_items[0][price_data][product_data][name]' => $title,
-        'line_items[0][quantity]'                 => 1,
-        'success_url'                             => $success_url,
-        'cancel_url'                              => $cancel_url,
-        'customer_email'                          => $user ? $user->user_email : '',
-        'metadata[card_id]'                       => $card_id,
-        'metadata[project_id]'                    => $project_id,
-        'metadata[listing_id]'                    => (string) $listing_id,
-        'metadata[user_id]'                       => (string) ( $user ? $user->ID : 0 ),
-    );
-
-    $ch = curl_init( 'https://api.stripe.com/v1/checkout/sessions' );
-    curl_setopt_array( $ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => http_build_query( $fields ),
-        CURLOPT_USERPWD        => $sk . ':',
-        CURLOPT_TIMEOUT        => 20,
-        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
-    ) );
-    $response = curl_exec( $ch );
-    $http     = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    $err      = curl_error( $ch );
-    curl_close( $ch );
-
-    if ( $err ) {
-        return new WP_REST_Response( array( 'message' => 'Netzwerkfehler: ' . $err ), 502 );
-    }
-    $data = json_decode( $response, true );
-    if ( $http >= 400 || ! is_array( $data ) || empty( $data['url'] ) ) {
-        return new WP_REST_Response( eb_stripe_public_error_payload( $response, 'Stripe-Checkout konnte nicht gestartet werden.' ), $http ?: 500 );
-    }
-
-    return new WP_REST_Response( array(
-        'ok'         => true,
-        'url'        => $data['url'],
-        'session_id' => $data['id'] ?? '',
-    ), 200 );
+    return new WP_REST_Response( array( 'code' => 'use_verified_checkout', 'message' => 'Bitte die integrierte Zahlung über das angenommene Angebot im Chat öffnen.' ), 410 );
 }
 
 
@@ -8707,50 +8682,8 @@ function eb_stripe_create_checkout( WP_REST_Request $request ) {
  * Returns the validated amount in cents (int) or WP_Error.
  */
 function eb_stripe_validate_booking_amount( $buyer_id, $listing_id, $amount_cents ) {
-    global $wpdb;
-
-    // Resolve listing (frontend may send the +10000 display offset).
-    $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, user_id, price FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id
-    ) );
-    if ( ! $row && $listing_id > 10000 ) {
-        $row = $wpdb->get_row( $wpdb->prepare(
-            "SELECT id, user_id, price FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_id - 10000
-        ) );
-    }
-    if ( ! $row ) {
-        // Provider-Resolution schlägt später ohnehin fehl; hier kein Urteil.
-        return (int) $amount_cents;
-    }
-
-    $provider_id = (int) $row->user_id;
-    $base_cents  = (int) $row->price * 100;
-
-    // a) Accepted platform offer between buyer and provider?
-    $offer_amounts = $wpdb->get_col( $wpdb->prepare(
-        "SELECT m.offer_amount
-           FROM {$wpdb->prefix}eb_messages m
-           JOIN {$wpdb->prefix}eb_conversations c ON c.id = m.conversation_id
-          WHERE m.msg_type = 'offer' AND m.offer_status = 'accepted'
-            AND ( (c.user_a = %d AND c.user_b = %d) OR (c.user_a = %d AND c.user_b = %d) )
-          ORDER BY m.created_at DESC LIMIT 25",
-        $buyer_id, $provider_id, $provider_id, $buyer_id
-    ) );
-    foreach ( (array) $offer_amounts as $oa ) {
-        if ( (int) round( ( (float) $oa ) * 100 ) === (int) $amount_cents ) {
-            return (int) $amount_cents;
-        }
-    }
-
-    // b) / c) Listing base price as floor.
-    if ( $base_cents <= 0 || $amount_cents >= $base_cents ) {
-        return (int) $amount_cents;
-    }
-
-    return new WP_Error( 'amount_below_listing_price', sprintf(
-        'Der Betrag liegt unter dem Inseratspreis (ab %s €). Bitte lass dir vom Dienstleister ein offizielles Angebot im Chat senden — akzeptierte Angebote können in beliebiger Höhe bezahlt werden.',
-        number_format( $base_cents / 100, 2, ',', '.' )
-    ) );
+    $terms = eb_booking_payment_terms( $buyer_id, array( 'listing_id' => $listing_id, 'amount' => $amount_cents / 100, 'currency' => 'eur' ) );
+    return is_wp_error( $terms ) ? $terms : $terms['amount'];
 }
 
 function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
@@ -8774,16 +8707,26 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
     $amount_cents = (int) round( $amount * 100 );
     $user = wp_get_current_user();
 
-    // Security-Audit 2026-06-09: Betrag server-seitig plausibilisieren.
-    if ( $listing_id ) {
-        $validated = eb_stripe_validate_booking_amount( (int) $user->ID, $listing_id, $amount_cents );
-        if ( is_wp_error( $validated ) ) {
-            return new WP_REST_Response( array(
-                'message' => $validated->get_error_message(),
-                'code'    => $validated->get_error_code(),
-            ), 400 );
+    $terms = eb_booking_payment_terms( (int) $user->ID, $p );
+    if ( is_wp_error( $terms ) ) return eb_booking_error_response( $terms, 409 );
+    $booking_lock = eb_booking_lock( $terms['conversation_id'] );
+    if ( is_wp_error( $booking_lock ) ) return eb_booking_error_response( $booking_lock, 409 );
+    $terms = eb_booking_payment_terms( (int) $user->ID, $p );
+    if ( is_wp_error( $terms ) ) return eb_booking_error_response( $terms, 409 );
+    $listing_id = (int) $terms['listing']->id;
+    $amount_cents = (int) $terms['amount'];
+    $title = sanitize_text_field( $terms['listing']->title );
+    $existing_pi = get_option( 'eb_booking_offer_pi_' . $terms['offer_id'] );
+    if ( $existing_pi ) {
+        $previous = eb_stripe_api( 'GET', 'payment_intents/' . rawurlencode( $existing_pi ) );
+        if ( empty( $previous['ok'] ) ) return new WP_REST_Response( array( 'message' => 'Der bisherige Zahlungsversuch wird geprüft. Bitte später erneut öffnen.' ), 503 );
+        $previous_status = $previous['data']['status'] ?? '';
+        if ( $previous_status === 'succeeded' ) {
+            eb_stripe_record_payment( $previous['data'] );
+            return new WP_REST_Response( array( 'code' => 'booking_already_paid', 'message' => 'Dieses Angebot wurde bereits bezahlt. Die Buchung wird im Board abgeglichen.' ), 409 );
         }
-        $amount_cents = $validated;
+        if ( $previous_status === 'canceled' || $previous_status === 'processing' ) return new WP_REST_Response( array( 'message' => 'Diese Zahlung ist storniert oder noch in Bearbeitung. Bitte den Status im Chat klären.' ), 409 );
+        return new WP_REST_Response( array( 'ok' => true, 'client_secret' => $previous['data']['client_secret'], 'payment_intent' => $existing_pi, 'publishable_key' => eb_load_env_value( 'public_stripe_api_key' ), 'amount' => $amount_cents, 'currency' => 'eur', 'mode' => eb_stripe_config_mode() ), 200 );
     }
 
     $fee_quote = eb_stripe_calculate_fee_quote( $amount_cents, $currency );
@@ -8804,6 +8747,9 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         'metadata[listing_id]'                 => (string) $listing_id,
         'metadata[user_id]'                    => (string) ( $user ? $user->ID : 0 ),
         'metadata[title]'                      => $title,
+        'metadata[offer_id]'                   => (string) $terms['offer_id'],
+        'metadata[provider_id]'                => (string) $terms['listing']->user_id,
+        'metadata[conversation_id]'            => (string) $terms['conversation_id'],
         'metadata[gross_amount_cents]'         => (string) $fee_quote['gross_amount_cents'],
         'metadata[platform_fee_cents]'         => (string) $fee_quote['platform_fee_cents'],
         'metadata[stripe_fee_est_cents]'       => (string) $fee_quote['stripe_fee_cents'],
@@ -8821,21 +8767,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
 
     // Stripe Connect: Zahlung automatisch an Dienstleister weiterleiten (3% Provision)
     if ( $listing_id ) {
-        $listing_lookup_id = $listing_id;
-        $listing = get_post( $listing_lookup_id );
-        $provider_uid = $listing ? (int) get_post_field( 'post_author', $listing_lookup_id ) : 0;
-        if ( ! $provider_uid ) {
-            global $wpdb;
-            $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
-            ) );
-            if ( ! $provider_uid && $listing_id > 10000 ) {
-                $listing_lookup_id = $listing_id - 10000;
-                $provider_uid = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT user_id FROM {$wpdb->prefix}eb_listings WHERE id = %d LIMIT 1", $listing_lookup_id
-                ) );
-            }
-        }
+        $provider_uid = (int) $terms['listing']->user_id;
         if ( ! $provider_uid ) {
             return new WP_REST_Response( array(
                 'message' => 'Dieses Inserat konnte keinem Dienstleister zugeordnet werden. Die Zahlung wurde nicht gestartet.',
@@ -8882,6 +8814,8 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         }
     }
 
+    add_option( 'eb_booking_offer_fields_' . $terms['offer_id'], $fields, '', false );
+    $fields = get_option( 'eb_booking_offer_fields_' . $terms['offer_id'] );
     $ch = curl_init( 'https://api.stripe.com/v1/payment_intents' );
     curl_setopt_array( $ch, array(
         CURLOPT_RETURNTRANSFER => true,
@@ -8889,7 +8823,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         CURLOPT_POSTFIELDS     => http_build_query( $fields ),
         CURLOPT_USERPWD        => $sk . ':',
         CURLOPT_TIMEOUT        => 20,
-        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded' ),
+        CURLOPT_HTTPHEADER     => array( 'Content-Type: application/x-www-form-urlencoded', 'Idempotency-Key: booking_offer_' . $terms['offer_id'] ),
     ) );
     $response = curl_exec( $ch );
     $http     = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
@@ -8904,6 +8838,7 @@ function eb_stripe_create_payment_intent( WP_REST_Request $request ) {
         return new WP_REST_Response( eb_stripe_public_error_payload( $response, 'Stripe konnte die Zahlung nicht vorbereiten.' ), $http ?: 500 );
     }
 
+    update_option( 'eb_booking_offer_pi_' . $terms['offer_id'], $data['id'], false );
     $pk = eb_load_env_value( 'public_stripe_api_key' );
     return new WP_REST_Response( array(
         'ok'              => true,
@@ -9658,7 +9593,7 @@ function eb_stripe_verify_payment( WP_REST_Request $request ) {
     // Sicherstellen, dass der aufrufende User auch der ist, der den Intent erzeugt hat.
     $uid   = wp_get_current_user() ? wp_get_current_user()->ID : 0;
     $owner = isset( $meta['user_id'] ) ? intval( $meta['user_id'] ) : 0;
-    if ( $owner && $uid && $owner !== $uid ) {
+    if ( ! $owner || ! $uid || $owner !== (int) $uid ) {
         return new WP_REST_Response( array( 'message' => 'Payment-Intent gehört nicht zu diesem Nutzer.' ), 403 );
     }
 
@@ -9712,116 +9647,36 @@ function eb_stripe_webhook_secret() {
  *    hinterlegt hat.
  */
 function eb_stripe_refund( WP_REST_Request $request ) {
-    $sk = eb_load_env_value( 'private_stripe_api_key' );
-    if ( ! $sk ) {
-        return new WP_REST_Response( array( 'message' => 'Stripe nicht konfiguriert.' ), 500 );
+    $uid = (int) get_current_user_id();
+    $p = $request->get_json_params();
+    $pi = sanitize_text_field( $p['payment_intent'] ?? '' );
+    if ( ! $uid || ! preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi ) ) return new WP_REST_Response( array( 'message' => 'Ungültige Buchung.' ), 400 );
+    $res = eb_stripe_api( 'GET', 'payment_intents/' . rawurlencode( $pi ) );
+    if ( empty( $res['ok'] ) ) return new WP_REST_Response( array( 'message' => 'Die Zahlung kann gerade nicht geprüft werden.' ), 503 );
+    $payment = $res['data'];
+    $admin = function_exists( 'eb_is_admin_user' ) && eb_is_admin_user( $uid );
+    if ( ! eb_booking_refund_authorized( $payment, $uid, $admin, get_user_meta( $uid, 'eb_stripe_connect_id', true ) ) ) {
+        return new WP_REST_Response( array( 'message' => 'Eine Erstattung wird vom Anbieter oder Support ausgelöst. Bitte kläre deine Stornierung im Buchungs-Chat.' ), 403 );
     }
-
-    $user = wp_get_current_user();
-    if ( ! $user || ! $user->ID ) {
-        return new WP_REST_Response( array( 'message' => 'Nicht eingeloggt.' ), 401 );
-    }
-
-    $params = $request->get_json_params();
-    $pi     = isset( $params['payment_intent'] ) ? sanitize_text_field( $params['payment_intent'] ) : '';
-    if ( ! $pi || ! preg_match( '/^pi_[A-Za-z0-9_]+$/', $pi ) ) {
-        return new WP_REST_Response( array( 'message' => 'Ungültige Payment-Intent-ID.' ), 400 );
-    }
-
-    $amount_cents = isset( $params['amount'] ) ? max( 0, intval( $params['amount'] ) ) : 0;
-    $allowed_reasons = array( 'requested_by_customer', 'duplicate', 'fraudulent' );
-    $reason = isset( $params['reason'] ) && in_array( $params['reason'], $allowed_reasons, true )
-        ? $params['reason']
-        : 'requested_by_customer';
-
-    // Schritt 1: PaymentIntent abfragen, um Berechtigung zu prüfen.
-    $ch = curl_init( 'https://api.stripe.com/v1/payment_intents/' . rawurlencode( $pi ) );
-    curl_setopt_array( $ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_USERPWD        => $sk . ':',
-        CURLOPT_TIMEOUT        => 15,
-    ) );
-    $pi_resp = curl_exec( $ch );
-    $pi_http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    curl_close( $ch );
-
-    if ( ! $pi_resp || $pi_http >= 400 ) {
-        return new WP_REST_Response( array( 'message' => 'Payment-Intent nicht abrufbar.' ), 502 );
-    }
-    $pi_data = json_decode( $pi_resp, true );
-    if ( ! is_array( $pi_data ) || empty( $pi_data['id'] ) ) {
-        return new WP_REST_Response( array( 'message' => 'Payment-Intent ungültig.' ), 502 );
-    }
-    if ( ( $pi_data['status'] ?? '' ) !== 'succeeded' ) {
-        return new WP_REST_Response( array( 'message' => 'Nur erfolgreiche Zahlungen können erstattet werden.' ), 400 );
-    }
-
-    $is_admin    = function_exists( 'eb_is_admin_user' ) ? eb_is_admin_user( $user->ID ) : false;
-    $owner_uid   = isset( $pi_data['metadata']['user_id'] ) ? intval( $pi_data['metadata']['user_id'] ) : 0;
-    $destination = '';
-    if ( ! empty( $pi_data['transfer_data']['destination'] ) ) $destination = $pi_data['transfer_data']['destination'];
-    if ( ! $destination && ! empty( $pi_data['on_behalf_of'] ) ) $destination = $pi_data['on_behalf_of'];
-
-    $caller_connect = (string) get_user_meta( $user->ID, 'eb_stripe_connect_id', true );
-
-    $owner_match = ( $owner_uid && $owner_uid === (int) $user->ID );
-    $connect_match = ( $caller_connect && $destination && $caller_connect === $destination );
-
-    if ( ! $is_admin && ! $owner_match && ! $connect_match ) {
-        return new WP_REST_Response( array( 'message' => 'Keine Berechtigung für diese Erstattung.' ), 403 );
-    }
-
-    // Schritt 2: Refund anlegen.
-    $refund_amount = $amount_cents > 0 ? $amount_cents : intval( $pi_data['amount_received'] ?? $pi_data['amount'] ?? 0 );
-    if ( $refund_amount <= 0 ) {
-        return new WP_REST_Response( array( 'message' => 'Ungültiger Erstattungsbetrag.' ), 400 );
-    }
-
-    $body = array(
-        'payment_intent' => $pi,
-        'amount'         => $refund_amount,
-        'reason'         => $reason,
-        'metadata[refunded_by_user_id]' => (string) $user->ID,
-        'metadata[refunded_at]'         => gmdate( 'c' ),
-    );
-    // Reverse Transfer auch bei Connect, damit Geld zurückfließt.
-    if ( $destination ) {
+    if ( ( $payment['status'] ?? '' ) !== 'succeeded' ) return new WP_REST_Response( array( 'message' => 'Die Zahlung wurde noch nicht abgeschlossen.' ), 409 );
+    $amount = (int) ( $payment['amount_received'] ?? 0 );
+    if ( isset( $p['amount'] ) && ( ! is_numeric( $p['amount'] ) || (float) $p['amount'] !== (float) $amount ) ) return new WP_REST_Response( array( 'message' => 'Bei Anbieter-Stornierungen wird der vollständige Buchungsbetrag erstattet.' ), 400 );
+    $note = sanitize_textarea_field( $p['cancellation_reason'] ?? '' );
+    if ( strlen( trim( $note ) ) < 10 || strlen( $note ) > 1000 ) return new WP_REST_Response( array( 'message' => 'Bitte einen nachvollziehbaren Stornierungsgrund mit 10 bis 1.000 Zeichen angeben.' ), 400 );
+    $audit_key = 'eb_booking_refund_request_' . sanitize_key( $pi );
+    // Stable request data + key across timeouts; never manufacture a second refund.
+    add_option( $audit_key, array( 'reason' => $note, 'actor' => $uid, 'requested_at' => time() ), '', false );
+    $audit = get_option( $audit_key );
+    $body = array( 'payment_intent' => $pi, 'amount' => $amount, 'reason' => 'requested_by_customer', 'metadata' => array( 'cancellation_reason' => $audit['reason'], 'refunded_by_user_id' => (string) $audit['actor'] ) );
+    if ( ! empty( $payment['transfer_data']['destination'] ) ) {
         $body['reverse_transfer'] = 'true';
+        if ( ! empty( $payment['application_fee_amount'] ) ) $body['refund_application_fee'] = 'true';
     }
-
-    $ch = curl_init( 'https://api.stripe.com/v1/refunds' );
-    curl_setopt_array( $ch, array(
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_USERPWD        => $sk . ':',
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => http_build_query( $body ),
-        CURLOPT_HTTPHEADER     => array(
-            'Idempotency-Key: refund_' . $pi . '_' . $refund_amount,
-        ),
-        CURLOPT_TIMEOUT        => 20,
-    ) );
-    $r_resp = curl_exec( $ch );
-    $r_http = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    $r_err  = curl_error( $ch );
-    curl_close( $ch );
-
-    if ( $r_err || $r_http >= 400 ) {
-        $err_msg = 'Erstattung fehlgeschlagen.';
-        $err_data = json_decode( $r_resp, true );
-        if ( is_array( $err_data ) && ! empty( $err_data['error']['message'] ) ) {
-            $err_msg .= ' ' . $err_data['error']['message'];
-        }
-        return new WP_REST_Response( array( 'message' => $err_msg ), 502 );
-    }
-
-    $refund = json_decode( $r_resp, true );
-    return new WP_REST_Response( array(
-        'ok'             => true,
-        'refund_id'      => is_array( $refund ) ? ( $refund['id'] ?? '' ) : '',
-        'amount'         => $refund_amount,
-        'status'         => is_array( $refund ) ? ( $refund['status'] ?? '' ) : '',
-        'payment_intent' => $pi,
-    ), 200 );
+    $result = eb_stripe_api( 'POST', 'refunds', $body, 'booking_full_refund_' . $pi );
+    if ( empty( $result['ok'] ) || empty( $result['data']['id'] ) ) return new WP_REST_Response( array( 'message' => 'Die Erstattung ist noch nicht bestätigt. Die Anfrage wurde gespeichert; bitte erneut prüfen oder den Support einschalten.' ), 503 );
+    $refund = $result['data'];
+    eb_booking_record_refund( $refund );
+    return new WP_REST_Response( array( 'ok' => true, 'refund_id' => $refund['id'], 'amount' => (int) $refund['amount'], 'status' => $refund['status'] ?? 'pending', 'payment_intent' => $pi, 'message' => ( $refund['status'] ?? '' ) === 'succeeded' ? 'Stripe hat die Erstattung bestätigt. Die Gutschrift erfolgt über die ursprüngliche Zahlungsart.' : 'Erstattung eingereicht. Sie ist noch nicht abgeschlossen; der endgültige Status wird von Stripe bestätigt.' ), 200 );
 }
 
 /**
@@ -9839,7 +9694,7 @@ function eb_stripe_verify_signature( $payload, $sig_header, $secret, $tolerance 
         if ( $kv[0] === 'v1' )  $signatures[] = $kv[1];
     }
     if ( ! $timestamp || empty( $signatures ) ) return false;
-    if ( $tolerance > 0 && ( time() - $timestamp ) > $tolerance ) return false;
+    if ( $tolerance > 0 && abs( time() - $timestamp ) > $tolerance ) return false;
 
     $signed_payload = $timestamp . '.' . $payload;
     $expected = hash_hmac( 'sha256', $signed_payload, $secret );
@@ -9850,7 +9705,8 @@ function eb_stripe_verify_signature( $payload, $sig_header, $secret, $tolerance 
 }
 
 function eb_stripe_record_payment( $pi ) {
-    if ( ! is_array( $pi ) || empty( $pi['id'] ) ) return;
+    if ( ! is_array( $pi ) || empty( $pi['id'] ) || ( $pi['status'] ?? '' ) !== 'succeeded' ) return;
+    eb_booking_record_payment( $pi );
     $meta = isset( $pi['metadata'] ) && is_array( $pi['metadata'] ) ? $pi['metadata'] : array();
     $uid  = isset( $meta['user_id'] ) ? intval( $meta['user_id'] ) : 0;
     if ( ! $uid ) return;
@@ -9956,6 +9812,12 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
                     ) );
                 }
             }
+            break;
+
+        case 'refund.created':
+        case 'refund.updated':
+        case 'refund.failed':
+            eb_booking_record_refund( $obj );
             break;
 
         case 'payment_intent.payment_failed':

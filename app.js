@@ -1985,11 +1985,16 @@ function navigateTo(page, data, skipHistory) {
       loadAdminUsers();
       break;
     case 'freunde':
+      if (data === 'gruppen' || data === 'einladung' || Number(data) > 0) _sozialReiter = 'gruppen';
+      else if (data === 'freunde') _sozialReiter = 'freunde';
+      if (Number(data) > 0) _sozialPlanOffen = Number(data);
       // BEWUSST NICHT in `loginRequired`: die Seite erklärt selbst, warum
       // sie eine Anmeldung braucht. Ein Anmeldedialog, der ohne Erklärung
       // aufgeht, sieht aus wie eine Absage.
       renderFreundePage();
-      sozialLaden();
+      pageReady = sozialLaden().then(function () {
+        if (Number(data) > 0) return sozialPlanLaden(Number(data)).then(renderFreundePage);
+      });
       break;
     case 'board':
       if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }
@@ -4514,6 +4519,12 @@ function filterListings() {
     }
   } catch (e) {}
 
+  // Keep an explicitly selected search city when opening either radar.
+  if (location && typeof RADAR_ORTE !== 'undefined') {
+    var radarCity = Object.keys(RADAR_ORTE).find(function(name) { return name.toLowerCase() === location; });
+    if (radarCity && radarOrtsname((_radarPos || {}).lat, (_radarPos || {}).lng) !== radarCity) radarStadtWaehlen(radarCity);
+  }
+
   // Lernsignal: was sucht dieser Nutzer? (bleibt lokal, siehe _ebTaste)
   if (search || category || location || eventType) {
     _ebTasteSignal('search', { query: search, category: category, location: location, eventType: eventType });
@@ -5425,7 +5436,6 @@ function loadProvider(providerId) {
   }
   if (!isDemoAccountProfile) {
     badgesHtml += `<span class="ppc-badge"><span class="material-icons-round">schedule</span> Mitglied seit ${_escHtml(mainListing.providerSince)}</span>`;
-    badgesHtml += '<span class="ppc-badge"><span class="material-icons-round">bolt</span> Antwortet schnell</span>';
   }
   // Board-Verknüpfung: höchste Phase über alle Inserate dieses Anbieters
   (function() {
@@ -5473,18 +5483,18 @@ function loadProvider(providerId) {
   // Portfolio (admin-bewusst: auf fremden Profilen Lösch-Overlay für Admins)
   _renderProviderPortfolio();
 
-  // Sidebar Facts
-  document.getElementById('providerFacts').innerHTML = isDemoAccountProfile ? `
-    <li><span class="material-icons-round">location_on</span> <span>${_escHtml(mainListing.location)}, Deutschland</span></li>
-    <li><span class="material-icons-round">category</span> <span>${_escHtml(mainListing.categoryLabel)}</span></li>
-    <li><span class="material-icons-round">info</span> <span>Beispielaccount für Demo-Beiträge</span></li>
-  ` : `
-    <li><span class="material-icons-round">location_on</span> <span>${_escHtml(mainListing.location)}, Deutschland</span></li>
-    <li><span class="material-icons-round">category</span> <span>${_escHtml(mainListing.categoryLabel)}</span></li>
-    <li><span class="material-icons-round">euro</span> <span>${_escHtml(mainListing.priceLabel)}</span></li>
-    <li><span class="material-icons-round">event_available</span> <span>Verfügbar</span></li>
-    <li><span class="material-icons-round">speed</span> <span>Antwortet innerhalb von 1 Std.</span></li>
-  `;
+  // Show supplied facts; availability and response time require actual evidence.
+  var facts = [];
+  if (mainListing.location) facts.push(['location_on', mainListing.location]);
+  if (mainListing.categoryLabel) facts.push(['category', mainListing.categoryLabel]);
+  if (isDemoAccountProfile) facts.push(['info', 'Beispielaccount für Demo-Beiträge']);
+  else if (actualProviderListings.length) {
+    if (mainListing.priceLabel) facts.push(['euro', mainListing.priceLabel]);
+    facts.push(['event_available', 'Termin und Verfügbarkeit im Chat klären']);
+  }
+  document.getElementById('providerFacts').innerHTML = facts.map(function(f) {
+    return '<li><span class="material-icons-round">' + f[0] + '</span><span>' + _escHtml(String(f[1])) + '</span></li>';
+  }).join('');
 
   // Spec Tags
   document.getElementById('providerSpecTags').innerHTML = (mainListing.tags || []).map(t =>
@@ -5609,6 +5619,7 @@ function loadProvider(providerId) {
   // Reset to first tab
   switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
   loadProviderCollaborations(pid, isOwnProviderProfile);
+  renderOwnProfileHub(pid);
 }
 
 function switchProviderTab(btn, tab) {
@@ -6572,6 +6583,9 @@ var _radarRadius = RADAR_STANDARD;
 var _radarQuelle = null;   // 'geo' | 'stadt' | null
 
 var RADAR_SPEICHER = 'eb_radar_ort';
+var _radarArt = 'alle';
+var _radarSuche = '';
+var _radarOverlayHits = [];
 
 /**
  * Position grob speichern.
@@ -6594,7 +6608,7 @@ function radarGemerkterOrt() {
   try {
     var roh = JSON.parse(localStorage.getItem(RADAR_SPEICHER) || 'null');
     if (!roh || typeof roh.lat !== 'number' || typeof roh.lng !== 'number') return null;
-    return roh;
+    return isFinite(roh.lat) && isFinite(roh.lng) && Math.abs(roh.lat) <= 90 && Math.abs(roh.lng) <= 180 ? roh : null;
   } catch (e) { return null; }
 }
 
@@ -6620,8 +6634,9 @@ function radarOrtsname(lat, lng) {
  * Verbindungszustand vortäuscht.
  */
 function radarPosition(eintrag) {
+  if (eintrag && eintrag._aktivitaet && typeof ebAktivitaetPosition === 'function') return eintrag._position || ebAktivitaetPosition(eintrag._aktivitaet, null);
   var k = eintrag && eintrag.koordinaten;
-  if (Array.isArray(k) && k.length === 2 && isFinite(k[0]) && isFinite(k[1])) {
+  if (Array.isArray(k) && k.length === 2 && typeof k[0] === 'number' && typeof k[1] === 'number' && isFinite(k[0]) && isFinite(k[1]) && Math.abs(k[0]) <= 90 && Math.abs(k[1]) <= 180) {
     return { lat: k[0], lng: k[1], genau: true };
   }
   var c = RADAR_ORTE[eintrag && eintrag.location];
@@ -6652,8 +6667,27 @@ function radarUmkreis(pos, radiusKm) {
     });
   }
 
-  sammeln(typeof LISTINGS !== 'undefined' ? LISTINGS : [], 'dienstleister');
-  sammeln(typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : [], 'event');
+  var listings = typeof getHeroListings === 'function' ? getHeroListings() : [];
+  sammeln(listings.filter(function (l) {
+    return !(typeof _isRequestListing === 'function' && _isRequestListing(l));
+  }), 'dienstleister');
+  if (!window.EB_HIDE_DEMO) sammeln(typeof DEMO_EVENTS !== 'undefined' ? DEMO_EVENTS : [], 'event');
+  if (typeof _aktBestand !== 'undefined' && _aktBestand && typeof ebAktivitaetenGefiltert === 'function') {
+    var aktiv = ebAktivitaetenGefiltert(_aktBestand, pos, radiusKm, new Date());
+    aktiv.termine.concat(aktiv.orte).forEach(function(t) {
+      var e = t.daten;
+      var gebiet = (_aktBestand.gebiete || []).find(function(g) { return g.stadt === e.gebiet || (e.ort && g.stadt === e.ort.stadt); });
+      treffer.push({ art: 'aktivitaet', km: t.km, ort: e.ort && e.ort.stadt || '', genau: t.genau,
+        daten: { id: e.id, title: e.titel, location: e.ort && e.ort.stadt || '',
+          _aktivitaet: e, _position: ebAktivitaetPosition(e, gebiet || _aktBestand.mitte) } });
+    });
+  }
+  if (_radarArt === 'aktivitaeten') treffer = treffer.filter(function(t) { return t.art === 'aktivitaet' || t.art === 'event'; });
+  if (_radarArt === 'dienstleister') treffer = treffer.filter(function(t) { return t.art === 'dienstleister'; });
+  if (_radarSuche) treffer = treffer.filter(function(t) {
+    var d = t.daten || {};
+    return [d.title, d.name, d.location, d.categoryLabel, d._aktivitaet && d._aktivitaet.kategorie].join(' ').toLowerCase().indexOf(_radarSuche) !== -1;
+  });
 
   return treffer.sort(function (a, b) { return a.km - b.km; });
 }
@@ -6677,6 +6711,7 @@ function radarStandortErfragen(fertig) {
     _radarPos = { lat: p.coords.latitude, lng: p.coords.longitude };
     _radarQuelle = 'geo';
     _radarMerken(_radarPos, 'geo');
+    _radarOrtSynchronisieren();
     if (fertig) fertig(_radarPos);
   }, function (err) {
     var abgelehnt = err && err.code === 1;
@@ -6697,11 +6732,23 @@ function radarStandortErfragen(fertig) {
  */
 function radarPositionSetzen(lat, lng, quelle) {
   if (typeof lat !== 'number' || typeof lng !== 'number') return null;
-  if (!isFinite(lat) || !isFinite(lng)) return null;
+  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   _radarPos = { lat: lat, lng: lng };
   _radarQuelle = quelle === 'geo' ? 'geo' : 'stadt';
   _radarMerken(_radarPos, _radarQuelle);
+  _radarOrtSynchronisieren();
   return _radarPos;
+}
+
+/** Shared place labels prevent Feed, Suche and Map from disagreeing. */
+function _radarOrtSynchronisieren() {
+  if (!_radarPos) return;
+  var name = radarOrtsname(_radarPos.lat, _radarPos.lng) || '';
+  var input = document.getElementById('browseLocation');
+  if (input && name) input.value = name;
+  if (typeof _setNavWoLabel === 'function') _setNavWoLabel(name || 'Mein Standort');
+  var label = document.getElementById('feedLocationText');
+  if (label) label.textContent = name ? 'Nähe ' + name : 'Mein Standort';
 }
 
 /** Ohne Standortfreigabe: Stadt wählen. Gleichwertig, nicht zweite Wahl. */
@@ -6733,6 +6780,9 @@ function radarWiederherstellen() {
 function radarVergessen() {
   _radarPos = null;
   _radarQuelle = null;
+  var input = document.getElementById('browseLocation');
+  if (input) input.value = '';
+  if (typeof _setNavWoLabel === 'function') _setNavWoLabel('');
   try { localStorage.removeItem(RADAR_SPEICHER); } catch (e) { /* egal */ }
 }
 
@@ -6763,6 +6813,20 @@ function radarLeisteAufbauen() {
       radien.appendChild(b);
     });
   }
+  var overlay = _radarEl('mapOverlay');
+  if (overlay && !_radarEl('radarAktivFilter')) {
+    var controls = document.createElement('div');
+    controls.id = 'radarAktivFilter'; controls.className = 'akt-overlay-filter';
+    controls.innerHTML = '<label>Anzeigen<select id="radarArt" onchange="_radarArt=this.value;radarAnzeigen()"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten & Events</option><option value="dienstleister">Dienstleister</option></select></label>'
+      + '<label>Aktivität<select id="radarKategorie" onchange="_aktKategorie=this.value;radarAnzeigen()"><option value="">Alle Aktivitäten</option>'
+      + ['Sport','Kino','Museum','Theater','Zoo','Escape-Room','Kletterhalle','Erlebnisbad'].map(function(c) { return '<option>' + c + '</option>'; }).join('') + '</select></label>'
+      + '<label>Termine<select id="radarZeit" onchange="_aktZeit=this.value;radarAnzeigen()"><option value="alle">Alle Termine</option><option value="jetzt">Nächste 4 Stunden</option><option value="heute">Heute</option><option value="wochenende">Wochenende</option></select></label>';
+    var anchor = _radarEl('mapContainer');
+    if (anchor) anchor.parentNode.insertBefore(controls, anchor);
+  }
+  if (_radarEl('radarArt')) _radarEl('radarArt').value = _radarArt;
+  if (_radarEl('radarKategorie')) _radarEl('radarKategorie').value = _aktKategorie;
+  if (_radarEl('radarZeit')) _radarEl('radarZeit').value = _aktZeit;
   var sel = _radarEl('radarStadt');
   if (sel && sel.options.length <= 1) {
     Object.keys(RADAR_ORTE).sort(function (a, b) { return a.localeCompare(b, 'de'); })
@@ -6837,6 +6901,7 @@ function _radarKarteZeichnen(pos, radiusKm) {
 function _radarListe(treffer, radiusKm) {
   var liste = _radarEl('mapLocationsList');
   if (!liste) return;
+  _radarOverlayHits = treffer;
 
   if (!treffer.length) {
     var groesser = RADAR_RADIEN.filter(function (r) { return r > radiusKm; })[0];
@@ -6846,15 +6911,15 @@ function _radarListe(treffer, radiusKm) {
     return;
   }
 
-  liste.innerHTML = treffer.slice(0, 40).map(function (t) {
+  _radarOverlayHits = treffer;
+  liste.innerHTML = treffer.slice(0, 80).map(function (t, index) {
     var d = t.daten;
     var titel = d.title || d.name || 'Ohne Titel';
-    var symbol = t.art === 'event' ? 'celebration' : 'storefront';
+    var symbol = t.art === 'dienstleister' ? 'storefront' : 'celebration';
     // Die ID geht durch JSON UND durch die HTML-Maskierung: das Attribut ist
     // mit " begrenzt, und ein " in der ID bräche sonst aus dem onclick aus.
     // Beides zusammen, nicht nur eines — der XSS-Scanner sucht genau danach.
-    var ruf = t.art === 'event' ? ''
-      : 'navigateTo(&quot;detail&quot;,' + _escHtml(JSON.stringify(String(d.id))) + ')';
+    var ruf = 'radarTrefferOeffnen(' + index + ')';
     return '<button type="button" class="radar-treffer" onclick="' + ruf + '">'
       + '<span class="material-icons-round radar-treffer-icon">' + symbol + '</span>'
       + '<span class="radar-treffer-text">'
@@ -6864,6 +6929,7 @@ function _radarListe(treffer, radiusKm) {
       // und soll nicht wie eine Messung aussehen.
       + '<span class="radar-treffer-ort">'
       + _escHtml(t.stadtteil ? t.ort + ' · ' + t.stadtteil : t.ort)
+      + (t.art === 'aktivitaet' ? ' · Externe Quelle' : t.art === 'event' ? ' · Demo-Event' : ' · Auf Eventbörse')
       + (t.genau ? '' : ' <span class="radar-ungenau">ab Stadtmitte</span>')
       + '</span></span>'
       + '<span class="radar-treffer-km">' + radarEntfernung(t.km) + '</span></button>';
@@ -6888,6 +6954,8 @@ function radarAnzeigen() {
 
   var name = radarOrtsname(stand.pos.lat, stand.pos.lng);
   if (text) text.textContent = name ? ('Nähe ' + name) : 'Standort gesetzt';
+  var citySelect = _radarEl('radarStadt');
+  if (citySelect) citySelect.value = name || '';
   if (vergessen) vergessen.hidden = false;
 
   var treffer = radarUmkreis(stand.pos, stand.radius);
@@ -6897,12 +6965,50 @@ function radarAnzeigen() {
   }
   _radarKarteZeichnen(stand.pos, stand.radius);
   _radarListe(treffer, stand.radius);
+  _radarOverlayMarker(treffer);
 }
 
 /** Beim Öffnen der Karte: gemerkten Ort übernehmen, nichts neu erfragen. */
 function radarBeimOeffnen() {
   if (!radarStand().pos) radarWiederherstellen();
   radarAnzeigen();
+  if (typeof ebAktivitaetenLaden === 'function') ebAktivitaetenLaden(function() {
+    if (document.getElementById('mapOverlay')?.classList.contains('show')) radarAnzeigen();
+  });
+}
+
+function radarTrefferOeffnen(index) { _radarTrefferOeffnen(_radarOverlayHits[index]); }
+function _radarTrefferOeffnen(hit) {
+  if (!hit) return;
+  if (hit.art === 'dienstleister') { closeMapOverlay(); navigateTo('detail', hit.daten.id); return; }
+  var e = hit.daten && hit.daten._aktivitaet;
+  var url = e && e.quelle && e.quelle.url;
+  if (typeof url === 'string' && /^https:\/\//.test(url)) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  closeMapOverlay();
+  navigateTo('aktuelles', 'events');
+}
+
+function _radarOverlayMarker(hits) {
+  if (typeof leafletMap === 'undefined' || !leafletMap || typeof L === 'undefined') return;
+  mapMarkers.forEach(function(m) { leafletMap.removeLayer(m); });
+  mapMarkers = [];
+  _feedRadarGruppen(hits).forEach(function(group) {
+    var popup = group.items.map(function(item) {
+      var t = item.hit;
+      return '<button type="button" class="feed-radar-popup-row" onclick="radarTrefferOeffnen(' + item.index + ')"><span><strong>'
+        + _escHtml(t.daten.title || t.daten.name || 'Event') + '</strong><small>'
+        + _escHtml(t.ort || '') + ' · ' + (t.art === 'aktivitaet' ? 'Externe Quelle' : t.art === 'event' ? 'Demo-Event' : 'Auf Eventbörse')
+        + (t.genau ? '' : ' · Stadtmitte') + '</small></span></button>';
+    }).join('');
+    var marker = L.marker([group.pos.lat, group.pos.lng], { icon: L.divIcon({
+      className: 'map-marker-wrapper', html: '<span class="map-marker-custom">' + group.items.length + ' Treffer</span>',
+      iconSize: [90, 30], iconAnchor: [45, 15],
+    }) }).addTo(leafletMap).bindPopup(popup, { maxWidth: 300 });
+    mapMarkers.push(marker);
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -7100,9 +7206,9 @@ function _feedRadarPopupHtml(gruppe) {
     var d = hit.daten || {};
     var title = d.title || d.name || 'Event';
     return '<button type="button" class="feed-radar-popup-row" onclick="feedRadarOpen(' + item.index + ')">'
-      + '<span class="material-icons-round">' + (hit.art === 'event' ? 'celebration' : 'storefront') + '</span>'
+      + '<span class="material-icons-round">' + (hit.art === 'dienstleister' ? 'storefront' : 'celebration') + '</span>'
       + '<span><strong>' + _escHtml(title) + '</strong><small>'
-      + _escHtml(hit.ort || '') + ' · ' + _escHtml(radarEntfernung(hit.km))
+      + _escHtml(hit.ort || '') + ' · ' + (hit.art === 'aktivitaet' ? 'Externe Quelle · ' : '') + _escHtml(radarEntfernung(hit.km))
       + (hit.genau ? '' : ' · ca.') + '</small>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-popup') + '</span>'
       + '<span class="material-icons-round">arrow_forward</span></button>';
   }).join('');
@@ -7216,7 +7322,7 @@ function _initFeedRadarMap(hits) {
 
   _feedRadarGruppen(hits).forEach(function(gruppe) {
     var anzahl = gruppe.items.length;
-    var nurEvents = gruppe.items.every(function(item) { return item.hit.art === 'event'; });
+    var nurEvents = gruppe.items.every(function(item) { return item.hit.art !== 'dienstleister'; });
     var icon = L.divIcon({
       className: 'feed-radar-marker-wrap',
       html: '<span class="feed-radar-marker ' + (anzahl > 1 ? 'cluster' : (nurEvents ? 'event' : 'listing')) + '">'
@@ -7246,6 +7352,9 @@ function _initFeedRadarMap(hits) {
 
 function renderFeedRadar(container) {
   if (!container) return;
+  if (_aktZustand === 'kalt' || _aktZustand === 'laedt') ebAktivitaetenLaden(function() {
+    if (document.getElementById('feedRadarResults')) _drawFeedRadar();
+  });
   _destroyFeedRadarMap();
   if (!_radarPos) radarWiederherstellen();
   if (!_radarPos) radarStadtWaehlen('Köln');
@@ -7258,15 +7367,21 @@ function renderFeedRadar(container) {
   }).join('');
   container.innerHTML = '<section class="feed-radar-card">' +
     '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
-    '<p>Alle Inserate und Events im echten Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
+    '<p>Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
     '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
     '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
     '<div class="release-privacy"><span class="material-icons-round">shield</span><span>Dein genauer Standort bleibt im Browser. Gespeichert wird nur eine grobe Position; du kannst sie jederzeit <button type="button" onclick="feedRadarForget()">vergessen</button>.</span></div>' +
-    '<div id="feedRadarResults"></div></section>';
+    '<label class="akt-radar-type">Anzeigen<select id="feedRadarType" onchange="feedRadarArt(this.value)"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten und Events</option><option value="dienstleister">Dienstleister</option></select></label>' +
+    ebAktivitaetenFilterHtml(true) + '<div id="feedRadarResults"></div></section>';
+  document.getElementById('feedRadarType').value = _radarArt;
   _drawFeedRadar();
 }
 
+function feedRadarArt(value) {
+  if (['alle', 'aktivitaeten', 'dienstleister'].indexOf(value) < 0) return;
+  _radarArt = value; _drawFeedRadar();
+}
 function feedRadarCity(name) {
   if (radarStadtWaehlen(name)) renderFeedRadar(document.getElementById('feedList'));
 }
@@ -7279,7 +7394,8 @@ function feedRadarGeo() {
 }
 function feedRadarForget() {
   radarVergessen();
-  radarStadtWaehlen('Köln');
+  _radarPos = { lat: RADAR_ORTE.Köln[0], lng: RADAR_ORTE.Köln[1] };
+  _radarQuelle = 'vorschau';
   renderFeedRadar(document.getElementById('feedList'));
   showToast('Standortdaten wurden vergessen.', 'delete_outline');
 }
@@ -7287,6 +7403,7 @@ function feedRadarForget() {
 function _drawFeedRadar() {
   var root = document.getElementById('feedRadarResults');
   if (!root || !_radarPos) return;
+  _destroyFeedRadarMap();
   var hits = radarUmkreis(_radarPos, _radarRadius);
   _feedRadarHits = hits;
   var dienstleister = hits.filter(function(hit){ return hit.art === 'dienstleister'; }).length;
@@ -7302,7 +7419,7 @@ function _drawFeedRadar() {
   if (!hits.length) {
     var next = RADAR_RADIEN.filter(function(r){ return r > _radarRadius; })[0];
     root.innerHTML = mapHtml + '<div class="release-empty feed-radar-empty"><span class="material-icons-round">travel_explore</span><h3>Noch keine Treffer in ' + _radarRadius + ' km</h3><p>Der Scan ist leer. Wähle eine andere Stadt oder erweitere den Radius.</p>' +
-      (next ? '<button class="btn-primary" onclick="feedRadarRadius(' + next + ')">Auf ' + next + ' km erweitern</button>' : '') + '</div>';
+      (next ? '<button class="btn-primary" onclick="feedRadarRadius(' + next + ')">Auf ' + next + ' km erweitern</button>' : '') + '</div>' + (_aktZustand === 'laedt' ? '<p role="status">Aktivitäten werden geladen …</p>' : ebAktivitaetenLeermeldung(_radarRadius, _radarPos)) + ebAktivitaetenExternHtml(_radarPos);
     _initFeedRadarMap(hits);
     return;
   }
@@ -7313,10 +7430,10 @@ function _drawFeedRadar() {
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
       return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
-        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '></span><span><span class="radar-result-meta"><span>' + (hit.art === 'event' ? 'EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
+        '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '></span><span><span class="radar-result-meta"><span>' + (hit.art === 'aktivitaet' ? 'EXTERNE AKTIVITÄT' : hit.art === 'event' ? 'DEMO-EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
         '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-result') + '<small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
         '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' + '<p class="akt-fuss">Externe Aktivitäten: OpenLigaDB und © OpenStreetMap-Mitwirkende (ODbL). Öffnungszeiten und Buchungen bei der Quelle prüfen.</p>' + ebAktivitaetenStarthilfe();
   _initFeedRadarMap(hits);
 }
 
@@ -7341,7 +7458,7 @@ function feedRadarOpen(index) {
     navigateTo('detail', hit.daten.id);
     return;
   }
-  showToast('Event-Details werden im Feed geöffnet', 'event');
+  _radarTrefferOeffnen(hit);
 }
 /* ══════════════════════════════════════════════════════════════════
    WAS IST JETZT IN MEINER NÄHE LOS — die Ansicht zum Aktivitäten-Bestand
@@ -7417,19 +7534,32 @@ function ebAktivitaetenUrl() {
  * bei einem Netzfehler einfach nichts tut, sieht aus wie eine Ansicht,
  * die noch lädt, und zwar für immer.
  */
+var _aktLadeVorgang = null;
 function ebAktivitaetenLaden(fertig) {
-  if (_aktZustand === 'da' || _aktZustand === 'fehler') { if (fertig) fertig(); return; }
-  if (_aktZustand === 'laedt') return;
-  _aktZustand = 'laedt';
-  fetch(ebAktivitaetenUrl(), { credentials: 'same-origin' })
-    .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
-    .then(function (d) {
-      if (!d || typeof d !== 'object' || !Array.isArray(d.eintraege)) throw new Error('form');
-      _aktBestand = d;
-      _aktZustand = 'da';
-    })
-    .catch(function () { _aktBestand = null; _aktZustand = 'fehler'; })
-    .then(function () { if (fertig) fertig(); });
+  if (_aktZustand === 'da' || _aktZustand === 'fehler') {
+    if (fertig) fertig();
+    return Promise.resolve(_aktBestand);
+  }
+  if (!_aktLadeVorgang) {
+    _aktZustand = 'laedt';
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, 10000) : null;
+    _aktLadeVorgang = fetch(ebAktivitaetenUrl(), {
+      credentials: 'same-origin', signal: controller ? controller.signal : undefined,
+    }).then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+      .then(function (d) {
+        if (!d || typeof d !== 'object' || !Array.isArray(d.eintraege)) throw new Error('form');
+        _aktBestand = d;
+        _aktZustand = 'da';
+      }).catch(function () { _aktBestand = null; _aktZustand = 'fehler'; })
+      .then(function () {
+        if (timer) clearTimeout(timer);
+        _aktLadeVorgang = null;
+        return _aktBestand;
+      });
+  }
+  // Every caller is notified, including callers arriving during the request.
+  return _aktLadeVorgang.then(function (bestand) { if (fertig) fertig(); return bestand; });
 }
 
 /**
@@ -7443,7 +7573,8 @@ function ebAktivitaetenLaden(fertig) {
  */
 function ebAktivitaetPosition(eintrag, mitte) {
   var o = eintrag && eintrag.ort;
-  if (o && typeof o.lat === 'number' && typeof o.lon === 'number') {
+  if (o && typeof o.lat === 'number' && typeof o.lon === 'number'
+      && isFinite(o.lat) && isFinite(o.lon) && Math.abs(o.lat) <= 90 && Math.abs(o.lon) <= 180) {
     // `ungefaehr` ist die Kennzeichnung des Generators für eine Koordinate,
     // die die Mitte eines Gebiets ist und nicht die des Ortes — bei den
     // Fußballspielen der Fall. Ohne sie sähe eine Stadtmitte aus wie eine
@@ -7542,7 +7673,9 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
   var orte = [];
 
   (bestand.eintraege || []).forEach(function (e) {
-    var p = ebAktivitaetPosition(e, bestand.mitte);
+    if (!e || e.abgesagt || /cancelled|canceled|postponed/.test(e.status || '')) return;
+    var gebiet = (bestand.gebiete || []).find(function (g) { return g.stadt === e.gebiet || (e.ort && g.stadt === e.ort.stadt); });
+    var p = ebAktivitaetPosition(e, gebiet || bestand.mitte);
     if (!p) return;
     var km = haversineKm(pos.lat, pos.lng, p.lat, p.lng);
     if (km > radiusKm) return;
@@ -7551,7 +7684,8 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
 
     if (e.beginn) {
       var d = new Date(e.beginn);
-      if (isNaN(d.getTime()) || d <= now) return;   // vorbei oder unlesbar
+      var ende = e.ende ? new Date(e.ende) : null;
+      if (isNaN(d.getTime()) || (d <= now && (!ende || isNaN(ende.getTime()) || ende <= now))) return;
       satz.wann = d;
       termine.push(satz);
     } else {
@@ -7562,6 +7696,86 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
   termine.sort(function (a, b) { return a.wann - b.wann; });
   orte.sort(function (a, b) { return a.km - b.km; });
   return { termine: termine, orte: orte };
+}
+
+/** Shared activity filters for Jetzt and both radar views. Unknown opening hours
+ * stay unknown; a place is an idea, never a promise that it is open. */
+var _aktZeit = 'alle';
+var _aktKategorie = '';
+function ebAktivitaetPasst(e, jetzt) {
+  if (!e) return false;
+  if (_aktKategorie && (e.art === 'sport' ? 'Sport' : e.kategorie) !== _aktKategorie) return false;
+  if (!e.beginn || _aktZeit === 'alle') return true;
+  var now = jetzt || new Date();
+  var start = new Date(e.beginn);
+  var end = e.ende ? new Date(e.ende) : start;
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+  var from = now, to;
+  if (_aktZeit === 'jetzt') to = new Date(now.getTime() + 4 * 3600000);
+  if (_aktZeit === 'heute') to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (_aktZeit === 'wochenende') {
+    var friday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    friday.setDate(friday.getDate() + (now.getDay() === 0 ? -2 : 5 - now.getDay()));
+    var monday = new Date(friday); monday.setDate(monday.getDate() + 3);
+    from = friday > now ? friday : now; to = monday;
+  }
+  return !!to && end >= from && start < to;
+}
+
+function ebAktivitaetenGefiltert(bestand, pos, radius, now) {
+  var alle = ebAktivitaetenImUmkreis(bestand, pos, radius, now);
+  return {
+    termine: alle.termine.filter(function (t) { return ebAktivitaetPasst(t.daten, now); }),
+    orte: alle.orte.filter(function (t) { return ebAktivitaetPasst(t.daten, now); }),
+  };
+}
+
+function ebAktivitaetenFilterHtml(ohneOrt) {
+  var stadt = radarStand().pos ? radarOrtsname(radarStand().pos.lat, radarStand().pos.lng) : '';
+  var cities = Object.keys(RADAR_ORTE).sort(function(a,b) { return a.localeCompare(b, 'de'); });
+  var kategorien = ['Sport', 'Kino', 'Museum', 'Theater', 'Zoo', 'Escape-Room', 'Kletterhalle', 'Erlebnisbad'];
+  var zeiten = [['jetzt', 'Nächste 4 Stunden'], ['heute', 'Heute'], ['wochenende', 'Wochenende'], ['alle', 'Alle Termine']];
+  return '<div class="akt-filter"><label' + (ohneOrt ? ' hidden' : '') + '>Ort<select id="feedJetztCity" onchange="feedJetztStadt(this.value)">'
+    + '<option value="">Standort wählen</option>'
+    + cities.map(function(c) { return '<option value="' + _escHtml(c) + '"' + (c === stadt ? ' selected' : '') + '>' + _escHtml(c) + '</option>'; }).join('')
+    + '</select></label><label>Aktivität<select id="feedJetztCategory" onchange="feedJetztKategorie(this.value)"><option value="">Alles entdecken</option>'
+    + kategorien.map(function(c) { return '<option' + (c === _aktKategorie ? ' selected' : '') + '>' + _escHtml(c) + '</option>'; }).join('')
+    + '</select></label><div class="akt-filter-time"><span class="radar-control-label">Termine</span><div class="radar-chip-row">'
+    + zeiten.map(function(z) { return '<button type="button" class="radar-chip' + (z[0] === _aktZeit ? ' aktiv' : '') + '" aria-pressed="' + (z[0] === _aktZeit) + '" onclick="feedJetztZeit(\'' + z[0] + '\')">' + z[1] + '</button>'; }).join('')
+    + '</div></div></div>';
+}
+
+function feedJetztAktualisieren() {
+  if (document.getElementById('feedRadarResults')) renderFeedRadar(document.getElementById('feedList'));
+  else renderFeedJetzt(document.getElementById('feedList'));
+}
+function feedJetztStadt(name) { if (radarStadtWaehlen(name)) feedJetztAktualisieren(); }
+function feedJetztKategorie(value) { _aktKategorie = String(value || ''); feedJetztAktualisieren(); }
+function feedJetztZeit(value) {
+  if (['alle', 'jetzt', 'heute', 'wochenende'].indexOf(value) < 0) return;
+  _aktZeit = value; feedJetztAktualisieren();
+}
+function feedJetztFilterLoeschen() { _aktKategorie = ''; _aktZeit = 'alle'; feedJetztAktualisieren(); }
+
+function ebAktivitaetPlanen(id) {
+  var e = (_aktBestand && _aktBestand.eintraege || []).find(function(x) { return String(x.id) === String(id); });
+  if (!e) return;
+  var options = {
+    intent: 'friends', title: String(e.titel || 'Gemeinsamer Ausflug'),
+    location: e.ort && e.ort.stadt || '', date: e.beginn ? String(e.beginn).slice(0, 10) : '',
+    activity: { id: e.id, title: e.titel, sourceName: e.quelle && e.quelle.name || '',
+      sourceUrl: e.quelle && /^https:\/\//.test(e.quelle.url || '') ? e.quelle.url : '' },
+  };
+  if (typeof startPlanningBoard === 'function') startPlanningBoard(options);
+  else navigateTo('freunde');
+}
+
+function ebAktivitaetenExternHtml(pos) {
+  var ort = pos ? radarOrtsname(pos.lat, pos.lng) || '' : '';
+  var q = encodeURIComponent('Events ' + ort);
+  return '<div class="akt-extern"><h3>Mehr in deiner Umgebung entdecken</h3><p>Externe Suche: Termine, Verfügbarkeit und Buchungen prüfst du beim jeweiligen Anbieter. Für diese Angebote gilt kein Buchungsschutz von Eventbörse.</p>'
+    + '<div class="akt-start-knoepfe"><a class="btn-outline" href="https://www.facebook.com/search/events/?q=' + q + '" target="_blank" rel="noopener noreferrer">Facebook Events ↗</a>'
+    + '<a class="btn-outline" href="https://www.ticketmaster.de/search?q=' + encodeURIComponent(ort) + '" target="_blank" rel="noopener noreferrer">Ticketmaster ↗</a></div></div>';
 }
 
 /** „heute 20:30" · „morgen 15:30" · „Sa, 19.09. um 15:30" */
@@ -7619,7 +7833,9 @@ function ebAktivitaetKarte(t, mitZeit, jetzt) {
     + (e.ort && e.ort.name && e.ort.name !== e.titel ? _escHtml(String(e.ort.name)) + ' · ' : '')
     + _escHtml(ortText)
     + '</p>'
-    + '<p class="akt-herkunft">' + ebAktivitaetQuelle(e.quelle) + '</p>'
+    + '<p class="akt-herkunft">' + ebAktivitaetQuelle(e.quelle) + ' · Extern</p>'
+    + (!mitZeit ? '<small class="akt-opening">Öffnungszeiten und Verfügbarkeit bitte bei der Quelle prüfen.</small>' : '')
+    + '<button type="button" class="akt-plan-btn" onclick="ebAktivitaetPlanen(' + _escHtml(JSON.stringify(String(e.id))) + ')">Mit Freunden planen</button>'
     + '</div>'
     + '<span class="akt-km">' + _escHtml(radarEntfernung(t.km))
     + (t.genau ? '' : '<small>ab Stadtmitte</small>') + '</span>'
@@ -7679,7 +7895,7 @@ function ebAktivitaetenLeermeldung(radiusKm, pos) {
   return '<div class="akt-leer">'
     + '<span class="material-icons-round">explore_off</span>'
     + '<h4>Im Umkreis von ' + radiusKm + ' km ist gerade nichts eingetragen.</h4>'
-    + '<p>Das ist eine Aussage über die Gegend, kein Fehler.</p>'
+    + '<p>In unseren erfassten Quellen gibt es dafür keine Treffer. Das ist kein Fehler und keine vollständige Übersicht aller Angebote vor Ort.</p>'
     + (groesser ? '<button type="button" class="btn-outline" onclick="feedJetztRadius('
       + groesser + ')">Auf ' + groesser + ' km erweitern</button>' : '')
     + '</div>';
@@ -7699,9 +7915,9 @@ function ebAktivitaetenStarthilfe() {
     + '<h4><span class="material-icons-round">rocket_launch</span> Selbst etwas starten</h4>'
     + '<p>Nichts dabei? Dann plane dein eigenes Vorhaben — allein oder mit anderen.</p>'
     + '<div class="akt-start-knoepfe">'
-    + '<button type="button" class="btn-primary" onclick="navigateTo(\'board\')">'
+    + '<button type="button" class="btn-primary" onclick="startPlanningBoard({intent: \'custom\'})">'
     + '<span class="material-icons-round">dashboard</span> Vorhaben planen</button>'
-    + '<button type="button" class="btn-outline" onclick="navigateTo(\'freunde\')">'
+    + '<button type="button" class="btn-outline" onclick="startPlanningBoard({intent: \'friends\'})">'
     + '<span class="material-icons-round">diversity_3</span> Mit Freunden</button>'
     + '<button type="button" class="btn-outline" onclick="navigateTo(\'browse\')">'
     + '<span class="material-icons-round">search</span> Dienstleister finden</button>'
@@ -7746,7 +7962,8 @@ function renderFeedJetzt(container) {
   }
   var ortName = radarOrtsname(stand.pos.lat, stand.pos.lng) || 'deinem Ort';
 
-  var gefunden = ebAktivitaetenImUmkreis(_aktBestand, stand.pos, stand.radius, new Date());
+  var ungefiltert = ebAktivitaetenImUmkreis(_aktBestand, stand.pos, stand.radius, new Date());
+  var gefunden = ebAktivitaetenGefiltert(_aktBestand, stand.pos, stand.radius, new Date());
   var jetzt = new Date();
 
   var chips = RADAR_RADIEN.map(function (km) {
@@ -7762,11 +7979,13 @@ function renderFeedJetzt(container) {
     + '<button class="btn-primary" type="button" onclick="feedJetztGeo()">'
     + '<span class="material-icons-round">my_location</span> Mein Standort</button></div>'
     + '<div class="feed-radar-controls"><div><span class="radar-control-label">Umkreis</span>'
-    + '<div class="radar-chip-row">' + chips + '</div></div></div>';
+    + '<div class="radar-chip-row">' + chips + '</div></div></div>' + ebAktivitaetenFilterHtml();
 
   var koerper;
   if (!gefunden.termine.length && !gefunden.orte.length) {
-    koerper = ebAktivitaetenLeermeldung(stand.radius, stand.pos);
+    koerper = ungefiltert.termine.length || ungefiltert.orte.length
+      ? '<div class="akt-leer"><h4>Für diese Auswahl ist nichts eingetragen.</h4><p>Andere Zeiten oder Aktivitäten können passen.</p><button type="button" class="btn-outline" onclick="feedJetztFilterLoeschen()">Alle Aktivitäten zeigen</button></div>'
+      : ebAktivitaetenLeermeldung(stand.radius, stand.pos);
   } else {
     koerper = '';
     if (gefunden.termine.length) {
@@ -7789,7 +8008,8 @@ function renderFeedJetzt(container) {
   var quellen = (_aktBestand && Array.isArray(_aktBestand.quellen) ? _aktBestand.quellen : [])
     .map(function (q) { return _escHtml(String(q.name)) + ' (' + _escHtml(String(q.lizenz)) + ')'; })
     .join(' · ');
-  var fuss = '<p class="akt-fuss"><span class="material-icons-round">info</span> '
+  var stale = _aktBestand && _aktBestand.stand && Date.now() - new Date(_aktBestand.stand).getTime() > 2 * 86400000;
+  var fuss = (stale ? '<p class="akt-stale" role="status">Der Datenstand ist älter als zwei Tage. Prüfe aktuelle Termine und Öffnungszeiten direkt bei der Quelle.</p>' : '') + '<p class="akt-fuss"><span class="material-icons-round">info</span> '
     + (quellen ? 'Quellen: ' + quellen : 'Quellen werden mit der Liste geladen.')
     + (_aktBestand && _aktBestand.stand
       ? ' · Stand: ' + _escHtml(new Date(_aktBestand.stand).toLocaleDateString('de-DE',
@@ -7799,7 +8019,7 @@ function renderFeedJetzt(container) {
 
   container.innerHTML = '<section class="feed-radar-card akt-karte-huelle">'
     + kopf + '<div class="akt-liste">' + koerper + '</div>'
-    + ebAktivitaetenStarthilfe() + fuss + '</section>';
+    + ebAktivitaetenExternHtml(stand.pos) + ebAktivitaetenStarthilfe() + fuss + '</section>';
 }
 
 function feedJetztRadius(km) {
@@ -8145,7 +8365,7 @@ function _renderBookingCard(msg) {
     var clr = isAccepted ? '#66bb6a' : '#FF5252';
     var icon = isAccepted ? 'check_circle' : 'cancel';
     var label = isAccepted
-      ? (side === 'sent' ? 'Du hast die Anfrage angenommen' : 'Anbieter hat angenommen – Jetzt buchen!')
+      ? (side === 'sent' ? 'Du hast zugesagt – Gesamtpreis als Angebot senden' : 'Anbieter hat zugesagt – Angebot im Chat vereinbaren')
       : (side === 'sent' ? 'Du hast die Anfrage abgelehnt' : 'Anbieter hat die Anfrage leider abgelehnt');
     var sysLabel = isAccepted ? 'Anfrage angenommen' : 'Anfrage abgelehnt';
     return '<div class="cbc cbc-' + side + ' cbc-status-msg">' +
@@ -8164,7 +8384,7 @@ function _renderBookingCard(msg) {
       ? 'Du hast das Projekt geschlossen'
       : 'Projekt wurde vom Kunden geschlossen';
     var html2 = '<div class="cbc cbc-' + side + ' cbc-cancelled">' +
-      '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Projekt storniert</div>' +
+      '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Planungsprojekt geschlossen</div>' +
       '<div class="cbc-content">' +
         '<div class="cbc-label"><span class="material-icons-round">event_busy</span> ' + _escHtml(introCancel) + '</div>' +
         (data.projectName ? '<div class="cbc-listing">' + _escHtml(data.projectName) + '</div>' : '') +
@@ -8216,7 +8436,7 @@ function _renderBookingCard(msg) {
   // System-generated banner
   if (isInquiry) {
     if (isCancelled) {
-      html += '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Projekt storniert</div>';
+      html += '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Planungsprojekt geschlossen</div>';
     } else {
       html += '<div class="cbc-sysbar"><span class="material-icons-round">verified</span> Systemgenerierte Projekt-Anfrage</div>';
     }
@@ -8340,28 +8560,9 @@ function _appendChatSentMessage(serverMsg, text) {
 }
 
 function acceptBookingFromChat(msgId, btn) {
-  // 1) Angenommen-Status merken (überlebt Poll/Reload, verhindert Doppel-Annahme)
-  _markBookingAccepted(msgId);
-  // 2) Karte sofort auf „angenommen" umstellen
-  var card = btn && btn.closest ? btn.closest('.cbc') : null;
-  if (card) {
-    var actions = card.querySelector('.cbc-actions');
-    if (actions) actions.outerHTML = '<div class="cbc-status" style="color:#2E7D32"><span class="material-icons-round">check_circle</span> Anfrage angenommen</div>';
-  }
-  showToast('Anfrage angenommen! Der Kunde wird benachrichtigt.', 'check_circle');
-  // 3) Antwort (Resonanz) in den Chat schreiben — persistiert & benachrichtigt den Kunden
-  var replyText = 'Ich nehme deine Anfrage gerne an – ich freue mich riesig auf dein Event! 🎉 Lass uns die Details klären.';
-  if (currentChat && currentChat.id) {
-    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-      body: JSON.stringify({ content: replyText, type: 'message' })
-    })
-      .then(function(r) { if (!r.ok) throw new Error('send'); return r.json(); })
-      .then(function(serverMsg) { _appendChatSentMessage(serverMsg, replyText); })
-      .catch(function() { _appendChatSentMessage(null, replyText); });
-  } else {
-    _appendChatSentMessage(null, replyText);
-  }
+  if (!currentChat) return;
+  // A plain message cannot create a confirmed booking. Offer terms explicitly.
+  if (typeof openKvModal === 'function') openKvModal();
 }
 
 function acceptInquiryFromChat(cardId, projectId) {
@@ -8374,7 +8575,8 @@ function acceptInquiryFromChat(cardId, projectId) {
   })
     .then(function(r){ if(!r.ok) throw new Error('send'); return r.json(); })
     .then(function(){
-      showToast('Zusage gesendet – Kunde wird benachrichtigt.', 'check_circle');
+      showToast('Zusage gespeichert. Sende jetzt den Gesamtpreis als Angebot.', 'check_circle');
+      if (typeof openKvModal === 'function') openKvModal();
       if (typeof openChat === 'function' && currentChat && currentChat.id) openChat(currentChat.id);
     })
     .catch(function(){ showToast('Senden fehlgeschlagen.', 'error'); });
@@ -8382,8 +8584,9 @@ function acceptInquiryFromChat(cardId, projectId) {
 
 function rejectInquiryFromChat(cardId, projectId) {
   if (!currentChat) return;
-  if (!confirm('Anfrage wirklich ablehnen?')) return;
-  var payload = JSON.stringify({ kind: 'inquiry_rejected', cardId: cardId || '', projectId: projectId || '' });
+  var reason = window.prompt('Warum kannst du die Anfrage nicht übernehmen?');
+  if (!reason || reason.trim().length < 10) { showToast('Bitte einen nachvollziehbaren Absagegrund angeben.', 'info'); return; }
+  var payload = JSON.stringify({ kind: 'inquiry_rejected', cardId: cardId || '', projectId: projectId || '', reason: reason.trim() });
   fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
     body: JSON.stringify({ content: payload, type: 'message' })
@@ -9248,6 +9451,12 @@ function startChatWithProvider() {
     });
 }
 
+// Shared checked request: a saved message is the only success signal.
+function _bookingApiPost(path, payload) {
+  return fetch(_apiUrl(path), { method: 'POST', credentials: 'same-origin', headers: _apiHeaders(), body: JSON.stringify(payload) })
+    .then(function(r) { if (typeof _refreshNonce === 'function') _refreshNonce(r); return r.json().then(function(data) { if (!r.ok) throw new Error(data.message || 'Die Aktion konnte nicht gespeichert werden.'); return data; }); });
+}
+
 // ========== BOOKING ==========
 function bookListing() {
   if (!isLoggedIn) {
@@ -9272,35 +9481,16 @@ function bookListing() {
   var guests = document.getElementById('bookingGuests').value;
   var message = _sanitizeOutgoingMessage(document.getElementById('bookingMessage').value, date, { enforceFormalSignature: true });
 
-  // Create conversation and send booking request
-  fetch(_apiUrl('conversations'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
-  })
-    .then(function(r) { return r.json(); })
+  var listing = currentListing;
+  _bookingApiPost('conversations', { other_user_id: listing.providerId, listing_id: listing._dbId || listing.id })
     .then(function(convo) {
-      var bookingText = JSON.stringify({
-        kind: 'inquiry',
-        source: 'listing',
-        listing: currentListing.title || '',
-        date: date,
-        eventType: eventType,
-        guests: guests || '',
-        price: currentListing.priceLabel || '',
-        message: message || '',
-        image: currentListing.image || ''
-      });
-      fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
-        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: bookingText, type: 'message' })
-      }).catch(function(){});
-      showToast('Anfrage gesendet!', 'event_available');
+      var bookingText = JSON.stringify({ kind: 'inquiry', source: 'listing', listing: listing.title || '', date: date, eventType: eventType, guests: guests || '', price: listing.priceLabel || '', message: message || '', image: listing.image || '' });
+      return _bookingApiPost('conversations/' + convo.id + '/messages', { content: bookingText, type: 'message' }).then(function() { return convo; });
+    }).then(function(convo) {
+      showToast('Anfrage gespeichert. Der Anbieter bestätigt Termin und Gesamtpreis im Chat.', 'event_available');
       navigateTo('messages');
       setTimeout(function() { openChat(convo.id); }, 200);
-    })
-    .catch(function() {
-      showToast('Anfrage konnte nicht gesendet werden', 'error');
-    });
+    }).catch(function(error) { showToast(error.message || 'Anfrage konnte nicht gesendet werden', 'error'); });
 }
 
 // ========== NEGOTIATION ==========
@@ -9345,32 +9535,12 @@ function submitNegotiation(e) {
   var negDateValue = document.getElementById('negDate').value;
   const message = _sanitizeOutgoingMessage(document.getElementById('negMessage').value, negDateValue, { enforceFormalSignature: true });
 
-  closeModal('negotiationModal');
-  showToast(`Angebot über ${price}€ wurde gesendet!`, 'gavel');
-
   if (!isLoggedIn || !currentListing || !currentListing.providerId) return;
-
-  // Create conversation and send offer
-  fetch(_apiUrl('conversations'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(convo) {
-      // Send offer message
-      fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
-        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: price + '€', type: 'offer', amount: parseFloat(price) || 0 })
-      }).catch(function(){});
-      // Send text message if any
-      if (message) {
-        fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
-          method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-          body: JSON.stringify({ content: message, type: 'message' })
-        }).catch(function(){});
-      }
-    })
-    .catch(function(){});
+  var listing = currentListing;
+  _bookingApiPost('conversations', { other_user_id: listing.providerId, listing_id: listing._dbId || listing.id })
+    .then(function(convo) { return _bookingApiPost('conversations/' + convo.id + '/messages', { content: message ? ('Preisvorschlag: ' + message) : price + '€', type: 'offer', amount: price }).then(function() { return convo; }); })
+    .then(function(convo) { closeModal('negotiationModal'); showToast('Preisvorschlag gespeichert.', 'gavel'); navigateTo('messages'); setTimeout(function() { openChat(convo.id); }, 200); })
+    .catch(function(error) { showToast(error.message, 'error'); });
 }
 
 function openNegotiationInChat() {
@@ -9409,19 +9579,12 @@ function openCounterOffer() {
 
 function respondToOffer(msgId, status) {
   if (!currentChat) return;
-  fetch(_apiUrl('messages/' + msgId + '/offer-status'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ status: status })
-  }).then(function(r) {
-    if (!r.ok) throw new Error('fail');
-    return r.json();
-  }).then(function() {
-    document.getElementById('negotiationBanner').style.display = 'none';
-    showToast(status === 'accepted' ? 'Angebot angenommen!' : 'Angebot abgelehnt.', status === 'accepted' ? 'check_circle' : 'cancel');
-    openChat(currentChat.id);
-  }).catch(function() {
-    showToast('Fehler beim Aktualisieren des Angebots', 'error');
-  });
+  var chatId = currentChat.id;
+  _bookingApiPost('messages/' + msgId + '/offer-status', { status: status }).then(function() {
+    var banner = document.getElementById('negotiationBanner'); if (banner) banner.style.display = 'none';
+    showToast(status === 'accepted' ? 'Preis vereinbart. Der Kunde kann jetzt bezahlen.' : 'Angebot abgelehnt.', status === 'accepted' ? 'check_circle' : 'cancel');
+    openChat(chatId);
+  }).catch(function(error) { showToast(error.message, 'error'); });
 }
 
 function acceptOffer() {
@@ -9457,28 +9620,11 @@ function submitCounterOffer(e) {
   if (amount <= 0) { showToast('Bitte gültigen Betrag eingeben', 'error'); return; }
   const msg = _sanitizeOutgoingMessage(document.getElementById('counterOfferMsg').value, document.getElementById('negDate') ? document.getElementById('negDate').value : '', { enforceFormalSignature: true });
 
-  closeModal('counterOfferModal');
-
-  if (currentChat) {
-    // Backend auto-declines all other pending offers when sending a new offer
-    document.getElementById('negotiationBanner').style.display = 'none';
-
-    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-      body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseFloat(amount) || 0 })
-    }).then(function() {
-      if (msg) {
-        return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-          method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-          body: JSON.stringify({ content: msg, type: 'message' })
-        });
-      }
-    }).then(function() {
-      openChat(currentChat.id);
-    }).catch(function(){});
-  }
-
-  showToast(`Gegenangebot über ${amount}€ gesendet!`, 'gavel');
+  if (!currentChat) return;
+  var chatId = currentChat.id;
+  _bookingApiPost('conversations/' + chatId + '/messages', { content: msg || amount + '€', type: 'offer', amount: amount })
+    .then(function() { closeModal('counterOfferModal'); showToast('Gegenangebot gespeichert.', 'gavel'); openChat(chatId); })
+    .catch(function(error) { showToast(error.message, 'error'); });
 }
 
 // ========== PROFILAUFTRITT ==========
@@ -14668,6 +14814,7 @@ function applyLogin(context) {
     _loadBoardProjects();
     renderBoardPage();
   }
+  if (typeof sozialAuthFortsetzen === 'function') sozialAuthFortsetzen();
   if (context === 'login' || context === 'registration') {
     maybePromptStripeOnboarding(context);
   }
@@ -14676,6 +14823,8 @@ function applyLogin(context) {
 function applyLogout() {
   isLoggedIn = false;
   currentUser = null;
+  if (typeof sozialZuruecksetzen === 'function') sozialZuruecksetzen();
+  if (typeof _groupPlanningDraft !== 'undefined') _groupPlanningDraft = null;
   _stopHeartbeat();
   _stopInactivityWatch();
   _dbListingsLoaded = false;
@@ -16504,6 +16653,9 @@ function toggleMapOverlay() {
 }
 
 function closeMapOverlay() {
+  _radarSuche = '';
+  var search = document.getElementById('mapSearchInput');
+  if (search) search.value = '';
   document.getElementById('mapOverlay').classList.remove('show');
   document.getElementById('mapBackdrop').classList.remove('show');
   document.body.style.overflow = '';
@@ -16524,7 +16676,7 @@ function initLeafletMap() {
   }
   leafletMap = L.map('mapContainer', {
     zoomControl: false,
-    attributionControl: false
+    attributionControl: true
   }).setView([51.1657, 10.4515], 6);
 
   L.control.zoom({ position: 'topright' }).addTo(leafletMap);
@@ -16627,8 +16779,9 @@ function focusMapMarker(listingId) {
   const listing = LISTINGS.find(l => l.id === listingId);
   if (!listing) return;
 
-  const coords = CITY_COORDS[listing.location];
-  if (!coords) return;
+  const position = radarPosition(listing);
+  const coords = position ? [position.lat, position.lng] : null;
+  if (!coords || !leafletMap) { navigateTo('detail', listingId); return; }
 
   leafletMap.flyTo(coords, 12, { duration: 0.8 });
 
@@ -16654,28 +16807,17 @@ function focusMapMarker(listingId) {
 }
 
 function filterMapMarkers() {
-  // Ohne geladenes Leaflet gibt es keine Karte — die Liste bleibt
-  // trotzdem bedienbar. Siehe initLeafletMap().
-  if (!leafletMap) return;
-
-  const inp = document.getElementById('mapSearchInput');
-  const query = inp ? inp.value.toLowerCase().trim() : '';
-
-  const filtered = LISTINGS.filter(l => {
-    const haystack = `${l.title} ${l.location} ${l.region} ${l.categoryLabel} ${l.tags.join(' ')}`.toLowerCase();
-    return !query || haystack.includes(query);
-  });
-
-  // Update map markers
-  if (leafletMap) {
-    addListingMarkers(filtered);
-    if (filtered.length > 0 && query) {
-      const bounds = L.latLngBounds(filtered.map(l => CITY_COORDS[l.location]).filter(Boolean));
-      if (bounds.isValid()) leafletMap.flyToBounds(bounds, { padding: [40, 40], maxZoom: 11, duration: 0.6 });
-    }
+  var inp = document.getElementById('mapSearchInput');
+  _radarSuche = inp ? inp.value.toLowerCase().trim() : '';
+  if (!_radarPos) radarWiederherstellen();
+  if (_radarPos) {
+    radarAnzeigen();
+    return _radarOverlayHits;
   }
-
-  // Update sidebar list
+  var filtered = getHeroListings().filter(function(l) {
+    return [l.title, l.location, l.region, l.categoryLabel, (l.tags || []).join(' ')].join(' ').toLowerCase().indexOf(_radarSuche) !== -1;
+  });
+  addListingMarkers(filtered);
   renderLocationsList(filtered);
   return filtered;
 }
@@ -16704,51 +16846,20 @@ function _setNavWoLabel(text) {
 // either matching results or the "Keine Ergebnisse / Alternativen in der
 // Nähe von …" state.
 function submitMapSearch() {
-  var inp = document.getElementById('mapSearchInput');
-  var raw = inp ? inp.value.trim() : '';
-  if (!raw) { _setNavWoLabel(''); filterMapMarkers(); return; }
-
-  var filtered = filterMapMarkers();
-  // Prefer canonical city name if the input matches a known city
-  var canonical = (typeof _ebDetectCityInText === 'function') ? _ebDetectCityInText(raw) : '';
-  var labelCity = canonical || _ebTitleCase(raw);
-  _setNavWoLabel(labelCity);
-
-  // Sync browseLocation so listing filter uses this city
-  var loc = document.getElementById('browseLocation');
-  if (loc) loc.value = labelCity;
-
-  // Close map overlay – focus shifts to the listings page
-  if (typeof closeMapOverlay === 'function') {
-    try { closeMapOverlay(); } catch(e) {}
+  var input = document.getElementById('mapSearchInput');
+  var raw = input ? input.value.trim() : '';
+  var city = Object.keys(RADAR_ORTE).find(function(name) { return name.toLowerCase() === raw.toLowerCase(); });
+  if (city) {
+    radarStadtWaehlen(city);
+    _radarSuche = '';
+    if (input) input.value = '';
+    var citySelect = document.getElementById('radarStadt');
+    if (citySelect) citySelect.value = city;
+    radarAnzeigen();
+    return;
   }
-
-  // Navigate to browse and run the filter so the user gets immediate
-  // feedback ("Keine Ergebnisse in Bonn" + Alternativen-Section).
-  if (typeof navigateTo === 'function') {
-    navigateTo('browse');
-    setTimeout(function() {
-      if (typeof filterListings === 'function') filterListings();
-      if (typeof _ebScrollToBrowseResults === 'function') _ebScrollToBrowseResults();
-    }, 200);
-  } else if (typeof filterListings === 'function') {
-    filterListings();
-  }
-
-  if (filtered.length > 0) return; // already zoomed via flyToBounds
-
-  // Fallback: Geocode unknown city via Nominatim (e.g. "Bonn") so the
-  // map is positioned correctly the next time it's opened.
-  if (!leafletMap || !window.fetch) return;
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=' + encodeURIComponent(raw))
-    .then(function(r){ return r.ok ? r.json() : []; })
-    .then(function(arr){
-      if (arr && arr[0] && leafletMap) {
-        leafletMap.flyTo([parseFloat(arr[0].lat), parseFloat(arr[0].lon)], 11, { duration: 0.7 });
-      }
-    }).catch(function(){});
+  filterMapMarkers();
 }
-
 // =========================================================
 // ===================== EVENT-PLANER BOARD ================
 // =========================================================
@@ -17101,8 +17212,8 @@ function _syncBoardFromServer(opts) {
           var p = _boardProjects.find(function(x){ return x.id === _activeBoardId; });
           if (p) {
             _updateBoardStats(p);
-            var currentView = document.querySelector('.board-view-btn.active');
-            if (currentView && currentView.dataset.view) switchBoardView(currentView.dataset.view);
+            // Preserve the current tab; the old selector did not match the actual buttons.
+            if (!document.querySelector('#boardPlanningOverview :focus')) switchBoardView(_planningBoardView || 'overview');
           } else {
             if (activeWasDeletedRemotely) {
               showToast('Dieses Projekt wurde auf einem anderen Gerät gelöscht.', 'info');
@@ -17484,7 +17595,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
       '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen 3% Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
       '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.<br>' +
-      '4. Anschlie&szlig;end bezahlt der Kunde sicher &uuml;ber Stripe &ndash; danach steht der Auftrag auf <em>&bdquo;Bezahlt&ldquo;</em>.' +
+      '4. Der Kunde kann das angenommene Angebot vor dem Event bezahlen. Bei einer Absage durch dich öffnest du <strong>Zahlung &amp; Stornierung verwalten</strong> und veranlasst die vollständige Erstattung.' +
     '</div>' +
   '</details>';
 
@@ -17512,7 +17623,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   var stageLabels = { angebot:'Gebucht', bestaetigt:'Erf\u00fcllt', abgeschlossen:'Bezahlt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
   var stageColors = { angebot:'#AB47BC', bestaetigt:'#FF385C', abgeschlossen:'#00A699', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
 
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px">';
   jobs.forEach(function(j){
     var c = j.card, p = j.project, l = j.listing;
     var stage = c.stage || 'geplant';
@@ -17548,6 +17659,10 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
       actionHtml = '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + waitingText + '</div>';
     }
 
+    var paymentId = c.paymentIntentId || c.paymentReference || '';
+    if (/^pi_[A-Za-z0-9_]+$/.test(paymentId)) {
+      actionHtml += '<button type="button" class="btn-outline" style="width:100%;margin-top:10px" data-booking-payment="' + esc(paymentId) + '">Zahlung & Stornierung verwalten</button>';
+    }
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
       '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
         '<strong style="font-size:13px;letter-spacing:0.5px;text-transform:uppercase">' + esc(stageLabels[stage] || stage) + '</strong>' +
@@ -17719,8 +17834,13 @@ function renderBoardPage() {
   if (_bpk) _bpk.textContent = (currentUser && isProvider) ? 'DIENSTLEISTER' : 'EVENT-PLANER';
   var _bps = document.getElementById('boardPageSubtitle');
   if (_bps) _bps.textContent = (currentUser && isProvider)
-    ? 'Organisiere deine Buchungen, Kunden & Termine im Chat mit deinem Planungs-Assistenten'
-    : 'Plane dein Event im Chat mit deinem Assistenten — Projekte, Dienstleister, Budget & Termine';
+    ? 'Deine Aufträge, Termine und eigenen Event-Projekte an einem Ort'
+    : 'Ideen sammeln, Freunde einladen und dein Event Schritt für Schritt zusammenstellen';
+
+  if (_planningWorkspaceMode !== 'assistant') {
+    renderPlanningHome(projectsEl, isProvider);
+    return;
+  }
 
   // ChatGPT-Look: Sidebar (Projekte + Kategorien) links, lokaler
   // Planungs-Assistent rechts. Funktioniert auch ohne Login (Aktionen,
@@ -17745,7 +17865,7 @@ function renderBoardPage() {
   var prevFocus = prevInp && document.activeElement === prevInp;
 
   projectsEl.dataset.aiRenderKey = renderKey;
-  projectsEl.innerHTML = _aiBoardLayoutHtml(isProvider);
+  projectsEl.innerHTML = '<div class="planning-assistant-back"><button type="button" class="btn-outline" data-planning-action="projects">Zur Projektübersicht</button></div>' + _aiBoardLayoutHtml(isProvider);
   _aiRenderSidebarProjects();
   _aiRenderChat();
 
@@ -18172,6 +18292,10 @@ function deleteBoardProjectById(projectId) {
   }
 
   var cards = project.cards || [];
+  if (cards.some(function(card) { return _cardHasConfirmedPayment(card) || card.providerAcceptedAt || card.stage === 'angebot' || card.stage === 'bestaetigt' || card.stage === 'abgeschlossen'; })) {
+    showToast('Dieses Projekt enthält Buchungen. Kläre eine Absage oder Rückzahlung zuerst in der Buchung; die Dokumentation bleibt erhalten.', 'info');
+    return;
+  }
   var activeStages = ['kontaktiert', 'angebot', 'bestaetigt'];
   var contactedCards = cards.filter(function(c) {
     return activeStages.indexOf(c.stage) !== -1 && c.listingId;
@@ -18252,6 +18376,7 @@ function deleteBoardProjectById(projectId) {
 }
 
 function showBoardProjects() {
+  _planningWorkspaceMode = 'projects';
   _activeBoardId = null;
   var boardViewEl = document.getElementById('boardView');
   var projectsEl = document.getElementById('boardProjects');
@@ -18333,9 +18458,10 @@ function openBoardProject(projectId) {
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');
   if (nameEl) nameEl.textContent = project.name;
-  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';
+  if (dateEl) dateEl.textContent = planningDateLabel(project.date);
 
-  switchBoardView('flow');
+  mountPlanningOverview();
+  switchBoardView('overview');
   _updateBoardStats(project);
 }
 
@@ -18526,6 +18652,11 @@ function _initCardDrag(colEl) {
 
 // View Toggle
 function switchBoardView(view) {
+  _planningBoardView = view;
+  var overview = document.getElementById('boardPlanningOverview');
+  var overviewBtn = document.getElementById('btnPlanningOverview');
+  if (overview) overview.hidden = view !== 'overview';
+  if (overviewBtn) overviewBtn.classList.toggle('active', view === 'overview');
   var kanban    = document.getElementById('boardKanban');
   var timeline  = document.getElementById('boardTimelineView');
   var flow      = document.getElementById('boardFlowView');
@@ -18545,7 +18676,11 @@ function switchBoardView(view) {
   btnF  && btnF.classList.remove('active');
   btnCh && btnCh.classList.remove('active');
 
-  if (view === 'kanban') {
+  if (view === 'overview') {
+    renderPlanningOverview();
+  } else if (view === 'kanban') {
+    var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+    if (project) renderKanban(project);
     kanban && (kanban.style.display = '');
     btnK && btnK.classList.add('active');
   } else if (view === 'timeline') {
@@ -18779,12 +18914,9 @@ function _renderBoardFlowImpl() {
   html += '<span class="fpr-label">' + progressPct + '%</span>';
   html += '</div>';
   html += '<div class="flow-tb-divider"></div>';
-  html += '<button class="flow-visibility-pill' + (isPublic ? ' is-public' : '') + '" onclick="toggleFlowVisibility()" title="Sichtbarkeit umschalten">';
-  html += '<span class="material-icons-round">' + (isPublic ? 'public' : 'lock') + '</span>' + (isPublic ? 'Öffentlich' : 'Privat');
-  html += '</button>';
-  if (isPublic) {
-    html += '<button class="flow-tbtn" onclick="openFlowShareModal()" title="Teilen" aria-label="Teilen"><span class="material-icons-round">ios_share</span></button>';
-  }
+  html += '<button class="flow-visibility-pill" onclick="openFlowShareModal()" title="Freunde zum gemeinsamen Plan einladen">';
+  html += '<span class="material-icons-round">group_add</span> Gemeinsam planen</button>';
+
   html += '<button class="flow-tbtn" onclick="openAddProviderModalFlow(\'geplant\')" title="Dienstleister hinzufügen" aria-label="Dienstleister hinzufügen" style="background:rgba(255,56,92,0.18);border-color:rgba(255,56,92,0.4);color:#fff"><span class="material-icons-round">add</span></button>';
   html += '</div>';
 
@@ -19138,13 +19270,8 @@ function _saveFlowProject(event) {
 }
 function _deleteFlowProject() {
   if (!_activeBoardId) return;
-  if (!confirm('Projekt wirklich löschen?')) return;
-  var deletedId = _activeBoardId;
-  _boardProjects = _boardProjects.filter(function(p) { return p.id !== deletedId; });
-  _addBoardTombstone(deletedId);
-  _saveBoardProjects({ immediate: true });
+  deleteBoardProjectById(_activeBoardId);
   document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
-  showBoardProjects();
 }
 
 function openFlowBudgetModal() {
@@ -19643,10 +19770,8 @@ function openFlowCardModal(cardId) {
           (_paidAtHuman ? '<div><span>Bezahlt am</span><strong>' + _escHtml(_paidAtHuman) + '</strong></div>' : '') +
           (_piId ? '<div class="fc-paid-pi"><span>Zahlungs-ID</span><code>' + _escHtml(_piId) + '</code></div>' : '') +
         '</div>' +
-        (_piId && /^pi_/.test(_piId)
-          ? '<a class="fc-paid-stripe-link" href="https://dashboard.stripe.com/payments/' + _escHtml(_piId) + '" target="_blank" rel="noopener">' +
-              '<span class="material-icons-round">open_in_new</span> Beleg in Stripe ansehen' +
-            '</a>'
+        (_piId && /^pi_[A-Za-z0-9_]+$/.test(_piId)
+          ? '<button type="button" class="btn-outline" data-booking-payment="' + _escHtml(_piId) + '">Zahlung & Erstattungsstatus</button>'
           : '') +
       '</div>'
     : '';
@@ -20858,7 +20983,7 @@ function _openStripePaymentModal(opts) {
           '<span class="material-icons-round">verified_user</span> Verschl\u00fcsselte Zahlung via <strong>Stripe</strong> \u00b7 Kartendaten ber\u00fchren unsere Server nie.' +
         '</div>' +
         '<div class="stripe-trust stripe-fee-note">' +
-          '<span class="material-icons-round">receipt_long</span> Du zahlst nur den angezeigten Buchungsbetrag. Die Dienstleister-Auszahlung erfolgt \u00fcber Stripe Connect; Eventb\u00f6rse beh\u00e4lt 3% Application Fee ein.' +
+          '<span class="material-icons-round">receipt_long</span> Du zahlst den vereinbarten Gesamtpreis. Der Anbieter erhält den Betrag abzüglich Plattform- und Zahlungsgebühren über Stripe Connect. Dies ist kein Treuhandkonto. Bei einer Anbieter-Absage wird die Erstattung auf der Plattform dokumentiert; sie ist erst nach Stripe-Bestätigung abgeschlossen.' +
         '</div>' +
       '</div>' +
       '<div class="stripe-modal-footer">' +
@@ -21079,7 +21204,8 @@ function _openStripePaymentModal(opts) {
       title:      opts.title || 'Buchung',
       card_id:    opts.cardId || '',
       project_id: opts.projectId || '',
-      listing_id: opts.listingId || 0
+      listing_id: opts.listingId || 0,
+      offer_id:   opts.offerId || 0
     })
   }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
     .then(function(res) {
@@ -22858,30 +22984,12 @@ function _initFlowZoomPan() {
 
 /* ─── Public / Private Toggle ─────────────────────────── */
 function toggleFlowVisibility() {
-  if (!_activeBoardId) return;
-  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
-  if (!project) return;
-  project.isPublic = !project.isPublic;
-  _saveBoardProjects();
-  renderBoardFlow();
-  showToast(project.isPublic ? 'Projekt ist jetzt öffentlich teilbar' : 'Projekt ist jetzt privat', project.isPublic ? 'public' : 'lock');
+  // Legacy entry: an account-bound board URL never granted shared access.
+  openFlowShareModal();
 }
 
 function openFlowShareModal() {
-  if (!_activeBoardId) return;
-  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
-  if (!project || !project.isPublic) return;
-  var url = window.location.origin + window.location.pathname + '?board=' + encodeURIComponent(project.id);
-  var html = '<div class="modal-overlay show" id="flowShareModal" onclick="closeModalOnOverlay(event)" style="z-index:2200">' +
-    '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
-    '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'flowShareModal\').remove()"><span class="material-icons-round">close</span></button>' +
-    '<div class="modal-header"><span class="material-icons-round modal-icon">ios_share</span><h2>Projekt teilen</h2><p>Teile diesen Link mit Freunden, Familie oder Dienstleistern</p></div>' +
-    '<div class="modal-form">' +
-    '<div class="flow-share-row"><input type="text" readonly id="flowShareUrl" value="' + _escHtml(url) + '" onclick="this.select()" />' +
-    '<button type="button" class="btn-primary" aria-label="Link kopieren" onclick="_copyFlowShareUrl()"><span class="material-icons-round">content_copy</span></button></div>' +
-    '<p style="font-size:12px;color:var(--text-light);margin-top:10px">Dienstleister können über diesen Link ihre Zustimmung bestätigen.</p>' +
-    '</div></div></div>';
-  document.body.insertAdjacentHTML('beforeend', html);
+  planningInviteProject();
 }
 function _copyFlowShareUrl() {
   var inp = document.getElementById('flowShareUrl');
@@ -22905,7 +23013,14 @@ function toggleFlowCardConfirm(cardId) {
 }
 
 // Modals for Board
-function openCreateBoardModal() {
+function openCreateBoardModal(options) {
+  if (!currentUser) { openModal('loginModal'); return; }
+  options = options || {};
+  _planningCreateOptions = options;
+  if (!options.listing && window._pendingAddListing) options.listing = window._pendingAddListing;
+  window._pendingAddListing = null;
+  var oldModal = document.getElementById('createBoardModal');
+  if (oldModal) oldModal.remove();
   var templates = [
     { id: 'wedding',   emoji: '💍', label: 'Hochzeit',    suggested: ['DJ','Fotograf','Catering','Location','Floristik','Torte'] },
     { id: 'birthday',  emoji: '🎂', label: 'Geburtstag',  suggested: ['DJ','Catering','Dekoration','Fotograf'] },
@@ -22938,19 +23053,19 @@ function openCreateBoardModal() {
           <input type="hidden" id="newBoardTmpl" value="wedding" />
         </div>
         <div class="form-group">
-          <label>Event-Name</label>
+          <label for="newBoardName">Event-Name</label>
           <input type="text" id="newBoardName" placeholder="z.B. Hochzeit Julia & Mark" required autofocus />
         </div>
         <div class="form-group">
-          <label>Event-Datum</label>
+          <label for="newBoardDate">Event-Datum</label>
           <input type="text" id="newBoardDate" placeholder="TT.MM.JJJJ" autocomplete="off" />
         </div>
         <div class="form-group">
-          <label>Budget (€, optional)</label>
+          <label for="newBoardBudget">Budget (€, optional)</label>
           <input type="number" id="newBoardBudget" placeholder="z.B. 5000" min="0" step="100" />
         </div>
         <div class="form-group">
-          <label>Gästeanzahl (optional)</label>
+          <label for="newBoardGuests">Gästeanzahl (optional)</label>
           <input type="number" id="newBoardGuests" placeholder="z.B. 80" min="1" step="1" />
         </div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">add</span> Projekt erstellen</button>
@@ -22961,6 +23076,13 @@ function openCreateBoardModal() {
   // Deutsches Datumsformat (TT.MM.JJJJ) mit Kalender – einheitlich zu den
   // anderen Datum-Feldern in der App.
   _attachGermanDatePicker('#newBoardDate');
+  document.getElementById('newBoardName').value = options.name || options.title || '';
+  document.getElementById('newBoardDate').value = options.date ? _formatDateDe(options.date) : '';
+  document.getElementById('newBoardBudget').value = options.budget || '';
+  document.getElementById('newBoardGuests').value = options.guests || '';
+  var requestedTemplate = options.template || (options.intent === 'wedding' ? 'wedding' : options.intent === 'custom' ? 'custom' : 'wedding');
+  var selected = document.querySelector('#createBoardModal [data-tmpl="' + (templates.some(function(t) { return t.id === requestedTemplate; }) ? requestedTemplate : 'custom') + '"]');
+  if (selected) _selectBoardTmpl(selected);
 }
 
 function _selectBoardTmpl(el) {
@@ -22985,24 +23107,16 @@ function _createBoardProject(event) {
   var tmplId = (document.getElementById('newBoardTmpl') || {}).value || 'custom';
   if (!name) return;
 
-  // Keine Beispielinserate / Platzhalter-Karten – das Board startet leer.
-  // Dienstleister werden vom Nutzer ueber „+ Hinzufuegen" und die echte
-  // Inserats-Suche selbst eingetragen.
-  var cards = [];
-
-  var project = {
-    id: 'bp_' + Date.now(),
-    name: name,
-    date: date || '',
-    budget: parseFloat(budget) || 0,
-    guests: parseInt(guests) || 0,
-    template: tmplId,
-    cards: cards,
-    checklist: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: Date.now()
-  };
+  var normalizedDate = planningNormalizeDate(date);
+  if (date && !normalizedDate) { showToast('Bitte ein gültiges Datum eingeben.', 'error'); return; }
+  var project = planningCreateProject({
+    name: name, date: normalizedDate, budget: budget, guests: guests, template: tmplId,
+    location: _planningCreateOptions.location || '', activity: _planningCreateOptions.activity || null
+  });
   _boardProjects.unshift(project);
+  _activeBoardId = project.id;
+  if (_planningCreateOptions.listing) _addListingToBoardProject(_planningCreateOptions.listing, project.id);
+  _planningCreateOptions = {};
   _saveBoardProjects({ immediate: true });
   document.getElementById('createBoardModal') && document.getElementById('createBoardModal').remove();
   openBoardProject(project.id);
@@ -23046,8 +23160,11 @@ function _saveEditBoardProject(event, projectId) {
   event.preventDefault();
   var project = _boardProjects.find(function(p){ return p.id === projectId; });
   if (!project) return;
+  var rawDate = document.getElementById('editProjDate').value.trim();
+  var normalizedDate = planningNormalizeDate(rawDate);
+  if (rawDate && !normalizedDate) { showToast('Bitte ein gültiges Datum eingeben.', 'error'); return; }
   project.name     = document.getElementById('editProjName').value.trim() || project.name;
-  project.date     = document.getElementById('editProjDate').value.trim();
+  project.date     = normalizedDate;
   project.budget   = parseFloat(document.getElementById('editProjBudget').value) || 0;
   project.guests   = parseInt(document.getElementById('editProjGuests').value) || 0;
   project.template = document.getElementById('editProjTemplate').value || project.template;
@@ -23057,9 +23174,12 @@ function _saveEditBoardProject(event, projectId) {
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');
   if (nameEl) nameEl.textContent = project.name;
-  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';
+  if (dateEl) dateEl.textContent = planningDateLabel(project.date);
   _updateBoardStats(project);
-  renderBoardPage(); // refresh project card list too
+  project.updatedAt = Date.now();
+  _saveBoardProjects();
+  if (_activeBoardId === projectId) openBoardProject(projectId);
+  else renderBoardPage();
   showToast('Projekt aktualisiert', 'check_circle');
 }
 window.openEditBoardProjectModal = openEditBoardProjectModal;
@@ -23393,8 +23513,8 @@ function _renderInstantBookSection(listing) {
       '<div class="ib-head">' +
         '<span class="material-icons-round ib-bolt">bolt</span>' +
         '<div>' +
-          '<strong>Sofortbuchung</strong>' +
-          '<small>Freien Termin w\u00e4hlen \u00b7 direkt bezahlen \u00b7 Buchung best\u00e4tigt</small>' +
+          '<strong>Wunschtermin anfragen</strong>' +
+          '<small>Termin wählen · Anbieter bestätigt Verfügbarkeit und Gesamtpreis</small>' +
         '</div>' +
       '</div>' +
       '<div class="ib-slots">' + pills + '</div>' +
@@ -23406,7 +23526,7 @@ function _renderInstantBookSection(listing) {
       '<button type="button" class="btn-primary btn-block ib-pay-btn" id="ibPayBtn" disabled>' +
         '<span class="material-icons-round">lock</span> Termin w\u00e4hlen' +
       '</button>' +
-      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Sichere Zahlung via Stripe \u00b7 sofortige Best\u00e4tigung</p>' +
+      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Zahlung nach angenommenem Angebot · Termine noch nicht reserviert</p>' +
     '</div>';
 
   bookingForm.insertAdjacentHTML('beforebegin', html);
@@ -23423,7 +23543,7 @@ function _renderInstantBookSection(listing) {
       payBtn.disabled = false;
       var dt = new Date(selectedIso);
       var human = dayNames[dt.getDay()] + ', ' + dt.getDate() + '. ' + monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
-      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' buchen';
+      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' anfragen';
     });
   });
 
@@ -23435,53 +23555,15 @@ function _renderInstantBookSection(listing) {
 }
 
 function _startInstantBooking(listing, dateIso, amount) {
-  if (!amount || amount <= 0) {
-    showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
-    return;
-  }
-  var dateHuman = (function(){
-    try { var d = new Date(dateIso); return d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
-    catch(e) { return dateIso; }
-  })();
-  var listingId = listing._dbId || listing.id;
-
-  // Buchungsdaten, die onSuccess UND die Redirect-Rückkehr brauchen.
-  var info = {
-    listingId: listingId,
-    title: listing.title || 'Direktbuchung',
-    category: listing.categoryLabel || listing.category || '',
-    image: listing.image || (listing.images && listing.images[0]) || '',
-    providerImg: listing.providerImg || listing.image || '',
-    provider: listing.providerName || '',
-    providerId: listing.providerId || 0,
-    amount: amount,
-    dateIso: dateIso,
-    dateHuman: dateHuman
-  };
-  // Redirect-fest machen: vor dem Bezahlen persistieren.
-  _setPendingPayment({ type: 'instant', info: info });
-
-  _openStripePaymentModal({
-    amount: amount,
-    title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
-    listingId: listingId,
-    image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
-    provider: listing.providerName || '',
-    category: listing.categoryLabel || listing.category || '',
-    duration: listing.duration || '',
-    dateLabel: dateHuman,
-    instant: true,
-    onSuccess: function(res) {
-      var r = _applyInstantBookingSuccess(info, res);
-      _clearPendingPayment();
-      _showBookingSuccess({ projectId: r && r.project && r.project.id, amount: info.amount, title: info.title, dateHuman: info.dateHuman, providerName: info.provider });
-    },
-    onCancel: function() {
-      _clearPendingPayment();
-      showToast('Zahlung abgebrochen.', 'info');
-    }
-  });
+  if (!currentUser) { openModal('loginModal'); return; }
+  currentListing = listing;
+  var input = document.getElementById('bookingDate');
+  if (!input) { showToast('Bitte den Termin im Anfrageformular wählen.', 'info'); return; }
+  input.value = dateIso;
+  if (input._flatpickr) input._flatpickr.setDate(dateIso, false, 'Y-m-d');
+  bookListing();
 }
+
 window._startInstantBooking = _startInstantBooking;
 
 function openSelectBoardProjectModal(listing) {
@@ -23503,7 +23585,7 @@ function openSelectBoardProjectModal(listing) {
       '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'selectBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
       '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Wohin damit?</h2>' +
         '<p>' + _escHtml(title) + ' zu deinem Planungs-Board hinzuf\u00fcgen.</p></div>' +
-      '<button class="bsp-row bsp-row-new" type="button" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
+      '<button class="bsp-row bsp-row-new" type="button" onclick="openCreateBoardModal({listing:window._pendingBoardListing});window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove()">' +
         '<span class="material-icons-round" style="color:var(--primary);font-size:22px">add_circle</span>' +
         '<span class="bsp-info"><strong>Neues Projekt erstellen</strong><small>Frisches Board f\u00fcr dieses Event</small></span>' +
         '<span class="material-icons-round bsp-arrow">chevron_right</span>' +
@@ -23517,6 +23599,10 @@ function openSelectBoardProjectModal(listing) {
 function _addListingToBoardProject(listing, projectId) {
   var project = _boardProjects.find(function(p){ return p.id === projectId; });
   if (!project) return;
+  if (!listing || !listing.id) return;
+  if ((project.cards || []).some(function(c) { return String(c.listingId) === String(listing.id); })) {
+    showToast('Dieses Inserat ist bereits in diesem Projekt.', 'info'); return;
+  }
   var now = Date.now();
   var card = {
     id: 'bc_' + now,
@@ -23525,12 +23611,16 @@ function _addListingToBoardProject(listing, projectId) {
     stage: 'geplant',
     price: (listing && listing.price) || 0,
     listingId: listing && listing.id,
+    listingTitle: listing && listing.title || '',
+    listingImage: listing && listing.image || '',
+    providerId: listing && listing.providerId || null,
     avatar: (listing && (listing.providerImg || listing.image)) || '',
     note: '',
     createdAt: new Date().toISOString()
   };
   project.cards = project.cards || [];
   project.cards.push(card);
+  project.updatedAt = Date.now();
   _saveBoardProjects();
   var name = card.name;
   var projName = project.name;
@@ -26688,6 +26778,280 @@ function ebDekoRuhenLassen() {
 
   for (var k = 0; k < ziele.length; k++) beobachter.observe(ziele[k]);
 }
+/* The planning workspace connects discovery, personal projects and group plans.
+ * Group collaboration stays in its row-based API; personal booking data is never
+ * shared by copying the account's board blob to another account. */
+var _planningWorkspaceMode = 'projects';
+var _planningBoardView = 'overview';
+var _planningCreateOptions = {};
+
+var EB_PLANNING_FRAGMENTS = {
+  wedding: [
+    ['venue', 'Location & Feier', 'Location'], ['ceremony', 'Trauung & Anmeldung', 'Trauredner'],
+    ['food', 'Essen & Getränke', 'Catering'], ['music', 'DJ & Live-Musik', 'DJ'],
+    ['photo', 'Fotos & Video', 'Fotograf'], ['flowers', 'Blumen & Floristik', 'Floristik'],
+    ['decoration', 'Dekoration & Mobiliar', 'Dekoration'], ['cake', 'Hochzeitstorte', 'Torte'],
+    ['outfits', 'Outfits & Styling', 'Styling'], ['rings', 'Ringe & Accessoires', 'Ringe'],
+    ['guests', 'Einladungen & Sitzordnung', 'Papeterie'], ['stay', 'Unterkunft & Anreise', 'Hotel'],
+    ['transport', 'Transport & Shuttle', 'Transport'], ['children', 'Kinderbetreuung', 'Kinderbetreuung'],
+    ['technology', 'Licht & Technik', 'Technik'], ['coordination', 'Tagesablauf & Koordination', 'Eventplanung'],
+    ['access', 'Barrierefreiheit & Bedürfnisse', ''], ['backup', 'Wetterplan & Reserve', '']
+  ],
+  birthday: [['venue', 'Ort & Gäste', 'Location'], ['food', 'Essen & Getränke', 'Catering'], ['music', 'Musik & Programm', 'DJ'], ['decoration', 'Deko & Kuchen', 'Dekoration']],
+  corporate: [['venue', 'Location', 'Location'], ['food', 'Catering', 'Catering'], ['technology', 'Technik & Präsentation', 'Technik'], ['program', 'Programm & Team', 'Moderation']],
+  custom: [['activity', 'Idee & Aktivität', ''], ['venue', 'Treffpunkt & Location', 'Location'], ['guests', 'Teilnehmende & Einladungen', ''], ['food', 'Essen & Getränke', 'Catering']]
+};
+
+function planningNormalizeDate(value) {
+  var raw = String(value || '').trim();
+  if (!raw) return '';
+  var iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  var de = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!iso && !de) return '';
+  var y = Number(iso ? iso[1] : de[3]);
+  var m = Number(iso ? iso[2] : de[2]);
+  var d = Number(iso ? iso[3] : de[1]);
+  var date = new Date(y, m - 1, d);
+  if (y < 1900 || y > 2200 || date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return '';
+  return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+
+function planningDateLabel(value) {
+  var date = planningNormalizeDate(value);
+  return date ? new Date(date + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Datum noch offen';
+}
+
+function planningSafeUrl(value) {
+  try {
+    var url = new URL(String(value || ''));
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+  } catch (e) { return ''; }
+}
+
+function planningFragments(project) {
+  if (Array.isArray(project.fragments)) return project.fragments;
+  return (EB_PLANNING_FRAGMENTS[project.template] || EB_PLANNING_FRAGMENTS.custom).map(function(f) {
+    return { id: f[0], title: f[1], category: f[2], enabled: true, budget: 0, note: '', cardId: '' };
+  });
+}
+
+function planningCreateProject(options) {
+  options = options || {};
+  var now = Date.now();
+  var template = String(options.template || 'custom');
+  var activity = options.activity;
+  var project = {
+    id: 'bp_' + now + '_' + Math.random().toString(36).slice(2, 8),
+    name: String(options.name || options.title || 'Mein Event').slice(0, 120),
+    date: planningNormalizeDate(options.date),
+    budget: Math.max(0, Math.min(1000000, Number(options.budget) || 0)),
+    guests: Math.max(0, Math.min(100000, Math.round(Number(options.guests) || 0))),
+    location: String(options.location || '').slice(0, 160), template: template, cards: [], checklist: [],
+    createdAt: new Date(now).toISOString(), updatedAt: now
+  };
+  project.fragments = planningFragments(project);
+  if (template === 'wedding') {
+    project.checklist = (_CHECKLIST_TEMPLATES.wedding || []).map(function(text, i) {
+      return { id: 'cli_wedding_' + i, text: text, done: false, isTemplate: true };
+    });
+  }
+  if (activity && activity.title) {
+    project.activity = { id: String(activity.id || '').slice(0, 120), title: String(activity.title).slice(0, 180),
+      sourceUrl: planningSafeUrl(activity.sourceUrl), sourceName: String(activity.sourceName || '').slice(0, 100) };
+  }
+  return project;
+}
+
+/** Public entry for feed, radar, search and profile. */
+function startPlanningBoard(options) {
+  options = options || {};
+  if (options.withFriends || options.intent === 'friends') {
+    return window.startGroupPlanning(options);
+  }
+  _planningWorkspaceMode = 'projects';
+  if (options.boardId && (_boardProjects || []).some(function(p) { return p.id === options.boardId; })) {
+    navigateTo('board', options.boardId);
+    return;
+  }
+  if (!currentUser) { openModal('loginModal'); return; }
+  navigateTo('board');
+  openCreateBoardModal(options);
+}
+window.startPlanningBoard = startPlanningBoard;
+
+function renderPlanningHome(container, isProvider) {
+  container.classList.remove('board-projects--ai');
+  container.classList.add('board-projects--sectioned');
+  delete container.dataset.aiRenderKey;
+  var cards = (_boardProjects || []).map(function(p) {
+    var tasks = (p.checklist || []).filter(function(t) { return t && t.text; });
+    var completed = tasks.filter(function(t) { return t.done; }).length;
+    return '<article class="planning-project">' +
+      '<div class="planning-kicker">' + (p.template === 'wedding' ? 'HOCHZEIT' : 'MEIN EVENT') + '</div>' +
+      '<h3><button type="button" data-planning-action="open" data-project="' + _escHtml(p.id) + '">' + _escHtml(p.name) + '</button></h3>' +
+      '<p>' + _escHtml(planningDateLabel(p.date)) + (p.guests ? ' · ' + Number(p.guests) + ' Gäste' : '') + '</p>' +
+      '<div class="planning-project-meta"><span>' + (p.cards || []).length + ' Leistungen</span><span>' + completed + '/' + tasks.length + ' Aufgaben</span>' +
+      '<span>' + _escHtml(_formatEuro(Number(p.budget) || 0)) + ' Budget</span></div>' +
+      '<button type="button" class="btn-outline" data-planning-action="open" data-project="' + _escHtml(p.id) + '">Plan öffnen <span class="material-icons-round">arrow_forward</span></button></article>';
+  }).join('');
+  container.innerHTML = '<div class="planning-home">' +
+    '<section class="planning-starts" aria-label="Planung starten">' +
+      '<button class="planning-start" type="button" data-planning-action="friends"><span class="material-icons-round">group_add</span><strong>Mit Freunden planen</strong><small>Gemeinsamer Plan, Aufgaben und Einladungen</small></button>' +
+      '<button class="planning-start" type="button" data-planning-action="wedding"><span class="material-icons-round">favorite</span><strong>Hochzeit zusammenstellen</strong><small>Alle Bausteine, Gäste und Budget im Blick</small></button>' +
+      '<button class="planning-start" type="button" data-planning-action="custom"><span class="material-icons-round">celebration</span><strong>Eigenes Event planen</strong><small>Von der ersten Idee bis zur letzten Buchung</small></button>' +
+    '</section><div class="planning-section-title"><h2>Deine Projekte</h2><button type="button" class="btn-outline" data-planning-action="assistant"><span class="material-icons-round">auto_awesome</span> Assistent</button></div>' +
+    (cards ? '<div class="planning-project-grid">' + cards + '</div>' : '<div class="planning-empty"><h3>Hier beginnt dein nächstes Event</h3><p>' +
+      (currentUser ? 'Starte oben mit einer Idee. Leistungen, Aufgaben und Kosten bleiben in deinem Projekt zusammen.' : 'Melde dich an, um deine Planung zu speichern und gemeinsam weiterzuplanen.') + '</p></div>') +
+    '<div class="planning-connections"><button type="button" class="btn-outline" data-planning-action="groups">Freunde & gemeinsame Pläne</button>' +
+    '<button type="button" class="btn-outline" data-planning-action="discover">Inspiration in der Nähe</button></div></div>' +
+    (isProvider ? _renderAuftragsboardSectionHtml({ state: 'loading', jobs: [] }) : '');
+  if (isProvider) _loadBoardAuftragsboard();
+}
+
+function mountPlanningOverview() {
+  var board = document.getElementById('boardView');
+  if (!board) return;
+  if (!document.getElementById('boardPlanningOverview')) {
+    var section = document.createElement('section');
+    section.id = 'boardPlanningOverview';
+    section.className = 'planning-overview';
+    section.setAttribute('aria-label', 'Event-Planung');
+    var meta = board.querySelector('.board-meta-bar');
+    if (meta) meta.insertAdjacentElement('afterend', section);
+    else board.prepend(section);
+  }
+  var toggle = board.querySelector('.board-view-toggle');
+  if (toggle && !document.getElementById('btnPlanningOverview')) {
+    var button = document.createElement('button');
+    button.id = 'btnPlanningOverview';
+    button.className = 'board-vtoggle';
+    button.type = 'button';
+    button.textContent = 'Übersicht';
+    button.addEventListener('click', function() { switchBoardView('overview'); });
+    toggle.prepend(button);
+  }
+}
+
+function renderPlanningOverview() {
+  var project = (_boardProjects || []).find(function(p) { return p.id === _activeBoardId; });
+  var container = document.getElementById('boardPlanningOverview');
+  if (!project || !container) return;
+  var fragments = planningFragments(project);
+  var cards = project.cards || [];
+  var tasks = (project.checklist || []).filter(function(t) { return t && t.text; });
+  var completed = tasks.filter(function(t) { return t.done; }).length;
+  // Linked estimates are counted once; this is planning, not a payment ledger.
+  var cost = cards.reduce(function(sum, c) { return sum + Math.max(0, Number(c.price) || 0); }, 0) +
+    fragments.reduce(function(sum, f) { return sum + (f.enabled !== false && !cards.some(function(c) { return c.id === f.cardId; }) ? Math.max(0, Number(f.budget) || 0) : 0); }, 0);
+  var rest = (Number(project.budget) || 0) - cost;
+  var source = project.activity && planningSafeUrl(project.activity.sourceUrl);
+  container.innerHTML = '<div class="planning-topline"><div><div class="planning-kicker">' + (project.template === 'wedding' ? 'EURE HOCHZEIT' : 'DEIN EVENT') + '</div>' +
+    '<h2>Alles für euren Tag</h2><p>Stelle die Bausteine zusammen, die zu euch passen.</p></div>' +
+    '<button type="button" class="btn-primary" data-planning-action="collaborate"><span class="material-icons-round">group_add</span> Gemeinsam planen</button></div>' +
+    (project.activity ? '<div class="planning-source"><span class="material-icons-round">explore</span><div><strong>' + _escHtml(project.activity.title) + '</strong><p>Als Inspiration aus dem Radar übernommen.' +
+      (source ? ' <a href="' + _escHtml(source) + '" target="_blank" rel="noopener noreferrer">Beim Veranstalter ansehen</a>' : '') + '</p></div></div>' : '') +
+    '<div class="planning-summary"><div><small>Gesamtbudget</small><strong>' + _escHtml(_formatEuro(Number(project.budget) || 0)) + '</strong></div>' +
+    '<div><small>Eingeplant · geschätzt</small><strong>' + _escHtml(_formatEuro(cost)) + '</strong></div><div class="' + (rest < 0 ? 'planning-over-budget' : '') + '"><small>' + (rest < 0 ? 'Über Budget' : 'Noch verfügbar') + '</small><strong>' + _escHtml(_formatEuro(Math.abs(rest))) + '</strong></div>' +
+    '<div><small>Gäste</small><strong>' + (Number(project.guests) || 'Noch offen') + '</strong></div></div>' +
+    '<div class="planning-toolbar"><button type="button" class="btn-outline" data-planning-action="edit">Datum, Budget & Gäste bearbeiten</button>' +
+    '<button type="button" class="btn-outline" data-planning-action="suppliers">Leistung hinzufügen</button>' +
+    '<button type="button" class="btn-outline" data-planning-action="checklist">Aufgaben · ' + completed + '/' + tasks.length + '</button>' +
+    '<button type="button" class="btn-outline" data-planning-action="messages">Nachrichten & Angebote</button></div>' +
+    '<div class="planning-section-title"><h3>Deine Bausteine</h3><span>' + fragments.filter(function(f) { return f.enabled !== false; }).length + ' ausgewählt</span></div>' +
+    '<p class="planning-hint">Bausteine sind eure Planung. Eine Leistung wird erst durch den Buchungsablauf verbindlich.</p>' +
+    '<div class="planning-fragments">' + fragments.map(function(f) {
+      var fid = _escHtml(f.id);
+      var linked = cards.find(function(c) { return c.id === f.cardId; });
+      return '<article class="planning-fragment' + (f.enabled === false ? ' is-disabled' : '') + '" data-fragment="' + fid + '">' +
+        '<label class="planning-fragment-title"><input type="checkbox" data-planning-field="enabled"' + (f.enabled !== false ? ' checked' : '') + '><strong>' + _escHtml(f.title) + '</strong></label>' +
+        '<div class="planning-fragment-fields"' + (f.enabled === false ? ' hidden' : '') + '>' +
+        '<label>Teilbudget (€)<input type="number" min="0" max="1000000" step="0.01" data-planning-field="budget" value="' + (Number(f.budget) || '') + '" placeholder="Noch offen"></label>' +
+        '<label>Leistung im Board<select data-planning-field="cardId"><option value="">Noch nicht ausgewählt</option>' + cards.map(function(c) {
+          return '<option value="' + _escHtml(c.id) + '"' + (f.cardId === c.id ? ' selected' : '') + '>' + _escHtml(c.listingTitle || c.name) + '</option>';
+        }).join('') + '</select></label>' +
+        '<label>Wünsche & Notizen<textarea rows="2" maxlength="500" data-planning-field="note" placeholder="Was ist euch wichtig?">' + _escHtml(f.note || '') + '</textarea></label>' +
+        (linked && linked.listingId ? '<button type="button" class="btn-outline" data-planning-action="listing" data-listing="' + _escHtml(String(linked.listingId)) + '">Leistung ansehen</button>' :
+          f.category ? '<button type="button" class="btn-outline" data-planning-action="find-fragment">' + _escHtml(f.category) + ' finden</button>' : '') +
+        '</div></article>';
+    }).join('') + '</div>' +
+    '<form class="planning-add-fragment" id="planningAddFragment"><label for="planningFragmentName">Eigener Baustein</label><div><input id="planningFragmentName" type="text" required maxlength="100" placeholder="z. B. Hundebetreuung"><button class="btn-primary" type="submit">Hinzufügen</button></div></form>';
+}
+
+function planningSaveFragment(target) {
+  var project = (_boardProjects || []).find(function(p) { return p.id === _activeBoardId; });
+  var node = target.closest('[data-fragment]');
+  if (!project || !node) return;
+  if (!Array.isArray(project.fragments)) project.fragments = planningFragments(project);
+  var fragment = project.fragments.find(function(f) { return f.id === node.dataset.fragment; });
+  if (!fragment) return;
+  var field = target.dataset.planningField;
+  if (field === 'enabled') fragment.enabled = target.checked;
+  else if (field === 'budget') fragment.budget = Math.max(0, Math.min(1000000, Number(target.value) || 0));
+  else if (field === 'note') fragment.note = target.value.slice(0, 500);
+  else if (field === 'cardId') fragment.cardId = (project.cards || []).some(function(c) { return c.id === target.value; }) ? target.value : '';
+  else return;
+  project.updatedAt = Date.now();
+  _saveBoardProjects();
+  // Text entry stays focused; structural changes update the overview immediately.
+  if (field !== 'note') renderPlanningOverview();
+}
+
+function planningHandleAction(button) {
+  var action = button.dataset.planningAction;
+  var project = (_boardProjects || []).find(function(p) { return p.id === _activeBoardId; });
+  if (action === 'open') { navigateTo('board', button.dataset.project); return; }
+  if (action === 'friends') { startPlanningBoard({ intent: 'friends' }); return; }
+  if (action === 'wedding' || action === 'custom') { startPlanningBoard({ intent: action, template: action }); return; }
+  if (action === 'projects' || action === 'assistant') {
+    _planningWorkspaceMode = action === 'assistant' ? 'assistant' : 'projects'; renderBoardPage(); return;
+  }
+  if (action === 'groups') { navigateTo('freunde', 'gruppen'); return; }
+  if (action === 'discover') { navigateTo('aktuelles', 'jetzt'); return; }
+  if (!project) return;
+  if (action === 'edit') openEditBoardProjectModal(project.id);
+  if (action === 'checklist') switchBoardView('checklist');
+  if (action === 'messages') navigateTo('messages');
+  if (action === 'listing') navigateTo('detail', Number(button.dataset.listing) || button.dataset.listing);
+  if (action === 'suppliers') openAddProviderModal('geplant');
+  if (action === 'collaborate') planningInviteProject();
+  if (action === 'find-fragment') {
+    var parent = button.closest('[data-fragment]');
+    var fragment = planningFragments(project).find(function(f) { return f.id === parent.dataset.fragment; });
+    openAddProviderModal('geplant');
+    var search = document.getElementById('lpickSearch');
+    if (search && fragment) { search.value = fragment.category; _filterListingPicker(fragment.category); }
+  }
+}
+
+document.addEventListener('click', function(event) {
+  var button = event.target.closest && event.target.closest('[data-planning-action]');
+  if (button) planningHandleAction(button);
+});
+document.addEventListener('change', function(event) {
+  if (event.target.matches('[data-planning-field]')) planningSaveFragment(event.target);
+});
+document.addEventListener('submit', function(event) {
+  if (event.target.id !== 'planningAddFragment') return;
+  event.preventDefault();
+  var project = (_boardProjects || []).find(function(p) { return p.id === _activeBoardId; });
+  var input = document.getElementById('planningFragmentName');
+  var title = input && input.value.trim();
+  if (!project || !title) return;
+  if (!Array.isArray(project.fragments)) project.fragments = planningFragments(project);
+  if (project.fragments.length >= 60) { showToast('Bis zu 60 Bausteine pro Projekt.', 'info'); return; }
+  project.fragments.push({ id: 'custom_' + Date.now(), title: title.slice(0, 100), category: '', enabled: true, budget: 0, note: '', cardId: '' });
+  _saveBoardProjects();
+  renderPlanningOverview();
+});
+
+function planningInviteProject() {
+  var project = (_boardProjects || []).find(function(p) { return p.id === _activeBoardId; });
+  if (!project) return;
+  if (project.groupId) return navigateTo('freunde', Number(project.groupId));
+  return window.startGroupPlanning({ name: project.name, title: project.name, date: project.date, template: project.template,
+    location: project.location || '', budget: project.budget, guests: project.guests, boardId: project.id,
+    activity: project.activity || null, cards: project.cards || [], checklist: project.checklist || [], fragments: planningFragments(project) });
+}
 // ========== SHOWCASE (Startseite): How-to-Demo + 3D-Geräte ==========
 // Apple-Style-Sektion unten auf der Startseite: auto-abspielende
 // How-to-Szenen ("Video"), ein iPhone das sich beim Scrollen von der
@@ -26881,6 +27245,11 @@ function _renderOfferMsg(msg) {
   var amountNum = _offerAmountNum(msg);
   var kv = _kvParse(msg.content || msg.text || '');
   var status = msg.status || 'pending';
+  var convo = (window._conversations || []).find(function(c) { return currentChat && String(c.id) === String(currentChat.id); });
+  var providerId = convo && convo.providerId;
+  var isProvider = providerId && currentUser && String(providerId) === String(currentUser.id);
+  var canPay = providerId && !isProvider;
+  var alreadyPaid = (_boardProjects || []).some(function(p) { return (p.cards || []).some(function(c) { return String(c.offerId || '') === String(msg.id) && _cardHasConfirmedPayment(c); }); });
 
   var body = '';
   if (kv) {
@@ -26899,14 +27268,16 @@ function _renderOfferMsg(msg) {
     if (mine && status === 'pending') {
       actions = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="withdrawOwnOffer(' + msg.id + ')">' +
         '<span class="material-icons-round">undo</span> Zurückziehen</button>';
-    } else if (!mine && status === 'pending' && amountNum > 0) {
+    } else if (!mine && status === 'pending' && amountNum > 0 && !canPay) {
+      actions = '<button class="btn-sm btn-accept" onclick="respondToOffer(' + msg.id + ', \'accepted\')">Preisvorschlag annehmen</button>';
+    } else if (!mine && status === 'pending' && amountNum > 0 && canPay) {
       actions = '<div class="offer-actions">' +
         '<button class="btn-sm btn-accept-pay" onclick="acceptAndPayOffer(' + msg.id + ', ' + amountNum + ')">' +
           '<span class="material-icons-round">verified</span> Zustimmen &amp; verbindlich bezahlen</button>' +
         '<button class="btn-sm btn-decline" onclick="respondToOffer(' + msg.id + ', \'declined\')">' +
           '<span class="material-icons-round">close</span> Ablehnen</button>' +
       '</div>';
-    } else if (!mine && status === 'accepted' && amountNum > 0) {
+    } else if (status === 'accepted' && amountNum > 0 && canPay && !alreadyPaid) {
       actions = '<div class="offer-actions">' +
         '<button class="btn-sm btn-accept-pay" onclick="payAcceptedOffer(' + msg.id + ', ' + amountNum + ')">' +
           '<span class="material-icons-round">lock</span> Jetzt verbindlich bezahlen</button>' +
@@ -26915,6 +27286,7 @@ function _renderOfferMsg(msg) {
       '</div>';
     }
   }
+  if (alreadyPaid) actions = '<div class="offer-status accepted">Zahlung bestätigt · Buchung im Board</div>';
   return '<div class="msg ' + offerClass + (kv ? ' msg-kv' : '') + '">' + body + actions + '</div>';
 }
 
@@ -27033,19 +27405,14 @@ function _offerTitleFor(msgId) {
 // Board-Karte an und nutzt den erprobten Board-Zahlungspfad
 // (_openStripePaymentModal + _applyCardPaymentSuccess + Reconcile).
 function _startOfferPayment(msgId, amount) {
-  var convo = (window._conversations || []).find(function(c) { return c.id === currentChat.id; });
+  if (!currentChat) return;
+  var chatId = currentChat.id;
+  var convo = (window._conversations || []).find(function(c) { return c.id === chatId; });
   var listingRef = convo && convo.listingId;
   var listing = null;
   if (listingRef != null) {
     listing = (LISTINGS || []).find(function(l) {
       return l && (l.id === listingRef || l._dbId === listingRef || l.id === listingRef + 10000);
-    }) || null;
-  }
-  if (!listing) {
-    // Fallback: irgendein Listing des Chat-Partners (Server validiert den
-    // Betrag ohnehin gegen das akzeptierte Angebot).
-    listing = (LISTINGS || []).find(function(l) {
-      return l && _sameUserId(_listingOwnerId(l), currentChat.otherId);
     }) || null;
   }
   if (!listing) {
@@ -27056,6 +27423,7 @@ function _startOfferPayment(msgId, amount) {
   var rec = _recordBookingToBoard({
     listing: listing,
     amount: amount,
+    offerId: msgId,
     stage: 'angebot',
     note: 'Verhandelt im Chat (Kostenvoranschlag angenommen)'
   });
@@ -27077,6 +27445,7 @@ function _startOfferPayment(msgId, amount) {
     cardId: rec.card.id,
     projectId: rec.projectId,
     listingId: listing._dbId || listing.id,
+    offerId: msgId,
     image: img,
     provider: listing.providerName || currentChat.name,
     category: listing.categoryLabel || listing.category || '',
@@ -27087,7 +27456,7 @@ function _startOfferPayment(msgId, amount) {
       try { rr = _applyCardPaymentSuccess(rec.card.id, rec.projectId, amount, res); } catch (e) {}
       try { _clearPendingPayment(); } catch (e) {}
       // Beleg in den Chat — für beide Seiten nachvollziehbar
-      fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+      fetch(_apiUrl('conversations/' + chatId + '/messages'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
         body: JSON.stringify({ content: '✅ Verbindlich gebucht & bezahlt: ' + _formatEuro(amount) + ' — die Buchung ist im Planungsboard unter „Bezahlt“ erfasst.', type: 'message' })
       }).catch(function() {});
@@ -27116,9 +27485,10 @@ function _recordBookingToBoard(opts) {
   // 1) Existierende Karte für dieses Listing? → wiederverwenden.
   for (var i = 0; i < (_boardProjects || []).length; i++) {
     var p = _boardProjects[i];
-    var c = (p.cards || []).find(function(x) { return x && x.listingId && String(x.listingId) === String(lid); });
+    var c = (p.cards || []).find(function(x) { return x && x.listingId && String(x.listingId) === String(lid) && (!opts.offerId || String(x.offerId || '') === String(opts.offerId) || (!x.offerId && !_cardHasConfirmedPayment(x) && p.id === _activeBoardId)); });
     if (c) {
-      if (opts.amount > 0) c.price = opts.amount;
+      if (opts.offerId) c.offerId = opts.offerId;
+      if (opts.amount > 0 && !_cardHasConfirmedPayment(c)) c.price = opts.amount;
       if (EB_BOARD_STAGE_ORDER.indexOf(c.stage) < EB_BOARD_STAGE_ORDER.indexOf(opts.stage || 'angebot')) {
         c.stage = opts.stage || 'angebot';
       }
@@ -27149,6 +27519,7 @@ function _recordBookingToBoard(opts) {
     startTime: '', endTime: '',
     stage: opts.stage || 'angebot',
     listingId: lid,
+    offerId: opts.offerId || null,
     providerId: listing.providerId || null,
     avatar: listing.providerImg || '',
     listingImage: listing.image || (listing.images && listing.images[0]) || '',
@@ -27160,6 +27531,66 @@ function _recordBookingToBoard(opts) {
   _saveBoardProjects({ immediate: true });
   return { projectId: project.id, card: card };
 }
+
+/* Server-verified payment and cancellation view shared by both parties. */
+var _bookingRefundBusy = false;
+function bookingPaymentDetails(pi) {
+  if (!/^pi_[A-Za-z0-9_]+$/.test(pi) || !currentUser) return;
+  var old = document.getElementById('bookingPaymentDialog');
+  if (old) old.remove();
+  var dialog = document.createElement('dialog');
+  dialog.id = 'bookingPaymentDialog';
+  dialog.className = 'booking-payment-dialog';
+  dialog.innerHTML = '<button type="button" class="btn-outline" data-booking-close aria-label="Zahlungsdetails schließen">Schließen</button><h2>Zahlung & Stornierung</h2><div id="bookingPaymentContent" aria-live="polite">Zahlung wird geprüft …</div>';
+  document.body.appendChild(dialog);
+  dialog.showModal();
+  return sozialRuf('stripe/settlement/' + encodeURIComponent(pi)).then(function (data) {
+    if (!dialog.isConnected) return;
+    var refunds = data.refunds || [];
+    var successful = refunds.filter(function (r) { return r.status === 'succeeded'; }).reduce(function (sum,r) { return sum + Number(r.amount || 0); }, 0);
+    var pending = refunds.some(function (r) { return r.status === 'pending' || r.status === 'requires_action'; });
+    var failed = refunds.some(function (r) { return r.status === 'failed' || r.status === 'canceled'; });
+    var gross = Number(data.exact && data.exact.gross_cents) || 0;
+    var state = successful >= gross && gross > 0 ? 'Erstattung bestätigt' : pending ? 'Erstattung in Bearbeitung' : failed ? 'Erstattung fehlgeschlagen — bitte Support kontaktieren' : data.cancellation ? 'Stornierung angefragt — Erstattung noch nicht bestätigt' : 'Zahlung bestätigt';
+    var html = '<p class="booking-payment-status"><strong>' + _escHtml(state) + '</strong></p><p>Gesamtbetrag: <strong>' + _escHtml(_formatEuro(gross / 100)) + '</strong></p>';
+    if (data.cancellation) html += '<p>Stornierungsgrund: ' + _escHtml(data.cancellation.reason || '') + '</p>';
+    if (successful) html += '<p>Von Stripe bestätigte Erstattung: ' + _escHtml(_formatEuro(successful / 100)) + '. Die Gutschrift erfolgt über die ursprüngliche Zahlungsart.</p>';
+    html += '<p>Der Anbieter erhält Zahlungen über Stripe Connect. Dies ist kein Treuhandkonto und keine zusätzliche Leistungsgarantie.</p>';
+    if (data.canRefund && !pending && !failed && successful === 0) {
+      html += '<form id="bookingRefundForm" data-payment="' + _escHtml(pi) + '"><label for="bookingRefundReason">Warum kannst du den Auftrag nicht erfüllen?</label><textarea id="bookingRefundReason" required minlength="10" maxlength="1000" rows="3" placeholder="Begründe die Absage für deinen Kunden."></textarea><p>Du stornierst die Buchung und veranlasst die vollständige Erstattung einschließlich der Plattformgebühr. Der endgültige Status wird durch Stripe bestätigt.</p><button type="submit" class="btn-primary">Stornieren & Erstattung veranlassen</button></form>';
+    } else if (!successful || failed) html += '<button type="button" class="btn-outline" data-booking-support>Support kontaktieren</button>';
+    html += '<button type="button" class="btn-outline" data-booking-payment="' + _escHtml(pi) + '">Status aktualisieren</button>';
+    dialog.querySelector('#bookingPaymentContent').innerHTML = html;
+  }).catch(function (e) {
+    if (dialog.isConnected) dialog.querySelector('#bookingPaymentContent').textContent = 'Zahlung konnte nicht geprüft werden. ' + (e.message || 'Bitte erneut versuchen.');
+  });
+}
+
+document.addEventListener('click', function (e) {
+  var open = e.target.closest('[data-booking-payment]');
+  if (open) bookingPaymentDetails(open.dataset.bookingPayment);
+  var dialog = document.getElementById('bookingPaymentDialog');
+  if (e.target.closest('[data-booking-close]') && dialog) dialog.close();
+  if (e.target.closest('[data-booking-support]')) { if (dialog) dialog.close(); navigateTo('contact'); }
+});
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'bookingRefundForm') return;
+  e.preventDefault();
+  if (_bookingRefundBusy || !e.target.reportValidity()) return;
+  var form = e.target;
+  var pi = form.dataset.payment;
+  var reason = form.querySelector('textarea').value.trim();
+  if (reason.length < 10) return;
+  _bookingRefundBusy = true;
+  var button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  button.textContent = 'Erstattung wird angefragt …';
+  sozialRuf('stripe/refund', 'POST', { payment_intent: pi, cancellation_reason: reason }).then(function (d) {
+    showToast(d.message || 'Erstattung angefragt.', 'info');
+    return bookingPaymentDetails(pi);
+  }).catch(function (err) { showToast(err.message || 'Erstattung nicht bestätigt. Bitte Status prüfen.', 'error'); })
+    .finally(function () { _bookingRefundBusy = false; if (button.isConnected) { button.disabled = false; button.textContent = 'Stornieren & Erstattung veranlassen'; } });
+});
 /* ==================== PLANUNGS-ASSISTENT (lokale "KI", ChatGPT-Look) ==================== */
 // Regelbasierter Assistent für das Planungs-Board — läuft KOMPLETT im
 // Browser: keine externen KI-Calls, keine Tokens, keine Kosten. Versteht
@@ -28427,13 +28858,22 @@ var _sozialGruppen = null;        // { groups, invitations }
 var _sozialReiter = 'freunde';    // 'freunde' | 'gruppen'
 var _sozialTreffer = [];
 var _sozialLaeuft = false;
+var _sozialAccount = null;
+var _sozialLadefolge = 0;
+var _sozialSuchfolge = 0;
+var _sozialLadePromise = null;
 
 /** Eine Antwort holen — Fehler enden IMMER sichtbar, nie in der Konsole. */
 function sozialRuf(pfad, methode, rumpf) {
+  var account = currentUser ? String(currentUser.id) : null;
   var opt = { method: methode || 'GET', headers: _apiHeaders(), credentials: 'same-origin' };
   if (rumpf) opt.body = JSON.stringify(rumpf);
   return fetch(_apiUrl(pfad), opt).then(function (r) {
     return r.json().catch(function () { return {}; }).then(function (d) {
+      if ((currentUser ? String(currentUser.id) : null) !== account) {
+        var changed = new Error('Dein Konto hat sich geändert. Bitte öffne die Ansicht erneut.');
+        changed.code = 'account_changed'; throw changed;
+      }
       if (!r.ok) {
         var e = new Error(d && d.message ? d.message : 'Das hat nicht geklappt.');
         e.code = d && d.error;
@@ -28545,7 +28985,9 @@ function sozialFreundeAnsicht() {
   } else {
     html += '<div class="soz-liste">' + s.friends.map(function (p) {
       return sozialPersonZeile(p,
-        '<button type="button" class="btn-outline" onclick="sozialEntfernen(' + p.id + ')">Entfernen</button>'
+        '<button type="button" class="btn-primary" onclick="startGroupPlanning({friendId:' + p.id + '})">Zusammen planen</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialChatStarten(' + p.id + ')">Chat</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialEntfernen(' + p.id + ')">Entfernen</button>'
         + '<button type="button" class="btn-outline soz-sperr" onclick="sozialSperren(' + p.id + ')">Sperren</button>');
     }).join('') + '</div>';
   }
@@ -28570,15 +29012,15 @@ function sozialGruppenAnsicht() {
   var html = '';
 
   html += '<section class="soz-karte">'
-    + '<h3><span class="material-icons-round">group_work</span> Neue Gruppe</h3>'
+    + '<h3><span class="material-icons-round">group_work</span> Gemeinsam ein Event planen</h3>'
     + '<p>Eine Gruppe ist ein gemeinsames Vorhaben — eine Hochzeit, ein Festival, '
     + 'ein Betriebsausflug. Wer dabei ist, plant mit.</p>'
     + '<div class="soz-formular">'
     + '<input type="text" id="sozGruppeName" maxlength="120" placeholder="Name, z. B. „Hochzeit Anna & Ben“" aria-label="Name der Gruppe">'
     + '<input type="text" id="sozGruppeTyp" maxlength="60" placeholder="Anlass (optional)" aria-label="Anlass">'
     + '<input type="date" id="sozGruppeDatum" aria-label="Datum (optional)">'
-    + '<button type="button" class="btn-primary" onclick="sozialGruppeAnlegen()">'
-    + '<span class="material-icons-round">add</span> Anlegen</button>'
+    + '<button type="button" class="btn-primary" onclick="sozialGruppeAnlegen()" aria-label="Plan erstellen">'
+    + '<span class="material-icons-round">add</span> Plan erstellen</button>'
     + '</div>'
     + '<div class="soz-beitritt">'
     + '<input type="text" id="sozCode" maxlength="18" placeholder="Einladungscode" autocomplete="off" '
@@ -28669,13 +29111,15 @@ function sozialGruppenKarte(gr) {
         + '</label>';
     } else {
       html += '<p class="soz-hinweis">Einladen kannst du nur Freunde. '
-        + 'Alle deine Freunde sind schon dabei — oder du hast noch keine.</p>';
+        + 'Alle deine Freunde sind schon dabei — oder du hast noch keine.</p>'
+        + '<button type="button" class="btn-outline" onclick="sozialReiter(\'freunde\')">Freunde finden</button>';
     }
     if (gr.inviteCode) {
       html += '<div class="soz-code">'
         + '<span class="soz-hinweis">Einladungscode</span>'
         + '<code>' + _escHtml(String(gr.inviteCode)) + '</code>'
-        + '<button type="button" class="btn-outline" onclick="sozialCodeNeu(' + gr.id + ')">Neu ziehen</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialEinladungKopieren(' + gr.id + ')">Einladungslink kopieren</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialCodeNeu(' + gr.id + ')">Code erneuern</button>'
         + '</div>';
     }
     html += '</div>';
@@ -28737,6 +29181,7 @@ function renderFreundePage() {
     + (_sozialReiter === 'freunde' ? sozialFreundeAnsicht() : sozialGruppenAnsicht());
 
   if (_sozialReiter === 'freunde') sozialTrefferZeichnen();
+  if (typeof sozialPlanungsEntwurfZeigen === 'function') sozialPlanungsEntwurfZeigen();
 }
 
 function sozialReiter(name) {
@@ -28746,34 +29191,52 @@ function sozialReiter(name) {
 
 /* ── Laden und Handlungen ─────────────────────────────────────────── */
 
+function sozialZuruecksetzen() {
+  _sozialLadefolge++;
+  _sozialSuchfolge++;
+  _sozialAccount = currentUser ? String(currentUser.id) : null;
+  _sozialStand = null;
+  _sozialGruppen = null;
+  _sozialTreffer = [];
+  _sozialLaeuft = false;
+  _sozialLadePromise = null;
+  _sozialPlan = {};
+  _sozialPlanFehler = {};
+  _sozialPlanOffen = null;
+  _sozialPlanLaeuft = false;
+}
+
 function sozialLaden(neu) {
-  if (!currentUser) { renderFreundePage(); return Promise.resolve(); }
+  var uid = currentUser ? String(currentUser.id) : null;
+  if (uid !== _sozialAccount) sozialZuruecksetzen();
+  if (!uid) { renderFreundePage(); return Promise.resolve(); }
+  if (_sozialLadePromise && !neu) return _sozialLadePromise;
   if (_sozialStand && !neu) { renderFreundePage(); return Promise.resolve(); }
+  var folge = ++_sozialLadefolge;
   _sozialLaeuft = true;
   renderFreundePage();
-  return Promise.all([
-    sozialRuf('social/freunde'),
-    sozialRuf('social/gruppen'),
-    sozialRuf('social/ich'),
+  _sozialLadePromise = Promise.all([
+    sozialRuf('social/freunde'), sozialRuf('social/gruppen'), sozialRuf('social/ich'),
   ]).then(function (a) {
-    // `ich` ist die EIGENE Personenkarte vom Server, nicht `currentUser`.
-    // Sie wird gebraucht, um „meins" von „fremd" zu unterscheiden — beim
-    // gemeinsamen Plan hängt daran, ob jemand seine eigene Zusage wieder
-    // abgeben kann. Ohne sie fehlte genau dieser Knopf, und zwar still.
-    _sozialStand = { handle: a[2].handle || '', ich: a[2].person || null,
-      friends: a[0].friends || [],
-      incoming: a[0].incoming || [], outgoing: a[0].outgoing || [], blocked: a[0].blocked || [] };
-    _sozialGruppen = { groups: a[1].groups || [], invitations: a[1].invitations || [] };
+    if (folge !== _sozialLadefolge || !currentUser || String(currentUser.id) !== uid) return;
+    if (!Array.isArray(a[0].friends) || !Array.isArray(a[1].groups) || !a[2].person) {
+      throw new Error('Unvollständige Antwort');
+    }
+    _sozialStand = { handle: a[2].handle || '', ich: a[2].person,
+      friends: a[0].friends, incoming: a[0].incoming || [],
+      outgoing: a[0].outgoing || [], blocked: a[0].blocked || [] };
+    _sozialGruppen = { groups: a[1].groups, invitations: a[1].invitations || [] };
   }).catch(function () {
-    // Ein Fehler löscht den Stand, damit die Ansicht ihn als Störung
-    // zeigt — nicht als leere Liste. Eine leere Liste sähe aus wie
-    // „du hast keine Freunde", und das wäre eine Falschaussage.
+    if (folge !== _sozialLadefolge) return;
     _sozialStand = null;
     _sozialGruppen = null;
   }).then(function () {
+    if (folge !== _sozialLadefolge) return;
     _sozialLaeuft = false;
+    _sozialLadePromise = null;
     renderFreundePage();
   });
+  return _sozialLadePromise;
 }
 
 function sozialHandleSpeichern() {
@@ -28803,12 +29266,18 @@ function sozialSuchen() {
   var el = document.getElementById('sozSuche');
   var q = el ? String(el.value || '').trim().toLowerCase().replace(/^@/, '') : '';
   if (q.length < 3) {
+    _sozialSuchfolge++;
     _sozialTreffer = [];
     sozialTrefferZeichnen('Mindestens drei Zeichen.');
     return;
   }
+  _sozialTreffer = [];
+  var folge = ++_sozialSuchfolge;
+  var uid = currentUser && currentUser.id;
+  sozialTrefferZeichnen('Suche läuft …');
   sozialRuf('social/suche?q=' + encodeURIComponent(q))
     .then(function (d) {
+      if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
       _sozialTreffer = d.results || [];
       sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden.');
     })
@@ -28866,16 +29335,7 @@ function sozialEntsperren(id) {
 }
 
 function sozialGruppeAnlegen() {
-  var n = document.getElementById('sozGruppeName');
-  var t = document.getElementById('sozGruppeTyp');
-  var d = document.getElementById('sozGruppeDatum');
-  sozialRuf('social/gruppen', 'POST', {
-    name: n ? n.value : '',
-    eventType: t ? t.value : '',
-    eventDate: d ? d.value : '',
-  })
-    .then(function () { showToast('Gruppe angelegt.', 'check_circle'); return sozialLaden(true); })
-    .catch(sozialFehler);
+  return sozialPlanGruppeErstellen();
 }
 
 function sozialBeitreten() {
@@ -29009,6 +29469,7 @@ function sozialPlanLaden(gid) {
     // Fehlerantwort „Das hat nicht geklappt" — ein Satz, der nicht sagt,
     // was nicht geklappt hat, und der neben „noch nichts geplant" nicht
     // als etwas anderes zu erkennen ist. Drei Zustände, drei Sätze.
+    if (e && e.code === 'account_changed') return;
     _sozialPlanFehler[gid] = 'Der Plan konnte nicht geladen werden.';
     delete _sozialPlan[gid];
   });
@@ -29136,7 +29597,7 @@ function sozialPlanFormular(gid) {
     + 'placeholder="Was wird gebraucht? z. B. DJ" aria-label="Posten">'
     + '<input type="text" id="sozPlanKat' + gid + '" maxlength="60" '
     + 'placeholder="Kategorie" aria-label="Kategorie">'
-    + '<input type="number" id="sozPlanEuro' + gid + '" min="0" step="1" '
+    + '<input type="number" id="sozPlanEuro' + gid + '" min="0" step="0.01" '
     + 'placeholder="Budget €" aria-label="Budget in Euro">'
     + '<button type="button" class="btn-primary" onclick="sozialPlanAnlegen(' + gid + ')">'
     + '<span class="material-icons-round">add</span> Hinzufügen</button>'
@@ -29203,11 +29664,11 @@ function sozialPlanAnlegen(gid) {
   }
   // Euro im Formular, Cent auf der Leitung: ein Betragsfeld, das Cent
   // verlangt, tippt jeder einmal falsch.
-  var euro = e ? Math.max(0, Math.round(Number(e.value) || 0)) : 0;
+  var cents = e ? Math.max(0, Math.round((Number(e.value) || 0) * 100)) : 0;
   sozialPlanTun(gid, sozialRuf('social/gruppen/' + gid + '/plan', 'POST', {
     titel: titel,
     kategorie: k ? String(k.value || '').trim() : '',
-    betragCent: euro * 100,
+    betragCent: cents,
   }));
 }
 
@@ -29236,4 +29697,202 @@ function sozialPlanStatus(gid, id, rev, wert) {
 
 function sozialPlanLoeschen(gid, id) {
   sozialPlanTun(gid, sozialRuf('social/gruppen/' + gid + '/plan/' + id + '/loeschen', 'POST', {}));
+}
+/* Shared entry points keep discovery, friends, the plan and chat connected.
+   Group plans stay in the permission-checked social API, never in a copied
+   personal board JSON blob. Drafts contain no payment or permission state. */
+var _groupPlanningDraft = null;
+var _groupPlanningSaving = false;
+
+function startGroupPlanning(options) {
+  _groupPlanningDraft = Object.assign({}, options || {});
+  _groupPlanningDraft.accountId = currentUser ? String(currentUser.id) : null;
+  _sozialReiter = 'gruppen';
+  return Promise.resolve(navigateTo('freunde', 'gruppen')).then(function () {
+    sozialPlanungsEntwurfZeigen();
+    var input = document.getElementById('sozGruppeName');
+    if (input) { input.focus(); input.scrollIntoView({ block: 'center' }); }
+  });
+}
+
+function sozialAuthFortsetzen() {
+  var page = document.getElementById('page-freunde');
+  if (!page || !page.classList.contains('active')) return;
+  if (_groupPlanningDraft && !_groupPlanningDraft.accountId && currentUser) {
+    _groupPlanningDraft.accountId = String(currentUser.id);
+  }
+  sozialLaden(true);
+}
+
+function sozialPlanungsEntwurfZeigen() {
+  if (_sozialReiter !== 'gruppen') return;
+  var n = document.getElementById('sozGruppeName');
+  var draft = _groupPlanningDraft;
+  if (draft && draft.accountId && currentUser && draft.accountId !== String(currentUser.id)) {
+    _groupPlanningDraft = null;
+    draft = null;
+  }
+  if (n && draft) {
+    if (!n.value) n.value = String(draft.name || draft.title || (['hochzeit','wedding'].includes(draft.template) ? 'Unsere Hochzeit' : 'Unser gemeinsames Event')).slice(0,120);
+    var typ = document.getElementById('sozGruppeTyp');
+    var datum = document.getElementById('sozGruppeDatum');
+    if (typ && !typ.value) typ.value = String(draft.eventType || draft.template || '').slice(0,60);
+    if (datum && !datum.value && /^\d{4}-\d{2}-\d{2}$/.test(draft.date || draft.eventDate || '')) datum.value = draft.date || draft.eventDate;
+  }
+  var code = document.getElementById('sozCode');
+  var invite = new URLSearchParams(location.search).get('einladung');
+  if (code && invite && /^[a-f0-9]{18}$/.test(invite)) code.value = invite;
+  if (n && !document.getElementById('sozPlanFreunde')) {
+    var friends = (_sozialStand && _sozialStand.friends) || [];
+    var box = document.createElement('div');
+    box.id = 'sozPlanFreunde';
+    box.className = 'journey-invite-picker';
+    box.innerHTML = '<strong>Wer plant mit?</strong><p>Ausgewählte Freunde erhalten eine Einladung und entscheiden selbst, ob sie mitmachen.</p>'
+      + (friends.length ? friends.map(function (f) {
+        return '<label><input type="checkbox" name="planFriend" value="' + Number(f.id) + '"'
+          + (draft && Number(draft.friendId) === Number(f.id) ? ' checked' : '') + '>'
+          + _escHtml(String(f.name || f.handle)) + '</label>';
+      }).join('') : '<button type="button" class="btn-outline" onclick="sozialReiter(\'freunde\')">Freunde finden</button><small>Du kannst deinen Plan auch zuerst erstellen und danach per Einladungslink teilen.</small>');
+    n.closest('.soz-formular').insertAdjacentElement('afterend', box);
+  }
+}
+
+function sozialPlanListingId(id) {
+  var listing = typeof findListing === 'function' ? findListing(Number(id)) : null;
+  return Number(listing ? (listing._dbId || listing.id) : id) || 0;
+}
+
+function sozialPlanStartposten(draft) {
+  if (!draft) return [];
+  var result = [];
+  if (draft.listingId) {
+    var listing = typeof findListing === 'function' ? findListing(Number(draft.listingId)) : null;
+    result.push({ titel: String(draft.title || (listing && listing.title) || 'Event-Idee').slice(0,120),
+      listingId: sozialPlanListingId(draft.listingId), kategorie: (listing && listing.category) || '',
+      notiz: 'Aus dem Entdecken-Bereich übernommen. Verfügbarkeit und Preis im Chat anfragen.' });
+  } else if (draft.title) {
+    result.push({ titel: String(draft.title).slice(0,120),
+      notiz: String((draft.sourceUrl || (draft.activity && draft.activity.sourceUrl)) ? 'Externe Aktivität: ' + (draft.sourceUrl || draft.activity.sourceUrl) + ' · Informationen beim Veranstalter prüfen.' : 'Gemeinsame Event-Idee').slice(0,500) });
+  }
+  // Copy editable planning estimates, never payment state or private card data.
+  var linkedCards = new Set();
+  (draft.fragments || []).filter(function(f) { return f.enabled !== false; }).slice(0,60).forEach(function(f) {
+    var card = (draft.cards || []).find(function(c) { return c.id === f.cardId; });
+    if (card) linkedCards.add(card.id);
+    result.push({ titel: String(f.title || 'Baustein').slice(0,120), kategorie: String(f.category || '').slice(0,60),
+      betragCent: Math.round(Math.max(0, Number(card ? card.price : f.budget) || 0) * 100),
+      listingId: sozialPlanListingId(card && (card._dbId || card.listingId)),
+      notiz: String(f.note || 'Planungsstand übernommen. Buchungen bleiben im persönlichen Board.').slice(0,500) });
+  });
+  (draft.cards || []).filter(function(c) { return !linkedCards.has(c.id); }).slice(0,60).forEach(function(c) {
+    result.push({ titel: String(c.title || c.name || 'Geplante Leistung').slice(0,120),
+      kategorie: String(c.category || '').slice(0,60), betragCent: Math.round(Math.max(0, Number(c.price) || 0) * 100),
+      listingId: sozialPlanListingId(c._dbId || c.listingId),
+      notiz: 'Planungsstand übernommen. Buchungen bleiben im persönlichen Board.' });
+  });
+  (draft.checklist || []).slice(0,25).forEach(function (c) {
+    var title = typeof c === 'string' ? c : (c.text || c.title || c.label || '');
+    if (title) result.push({ titel: String(title).slice(0,120), notiz: 'Aus der persönlichen Planung übernommen.' });
+  });
+  return result;
+}
+
+async function sozialPlanGruppeErstellen() {
+  if (_groupPlanningSaving || !currentUser) return;
+  var n = document.getElementById('sozGruppeName');
+  var typ = document.getElementById('sozGruppeTyp');
+  var date = document.getElementById('sozGruppeDatum');
+  var name = n ? n.value.trim() : '';
+  if (!name) { showToast('Gib deinem gemeinsamen Event einen Namen.', 'info'); if (n) n.focus(); return; }
+  var uid = String(currentUser.id);
+  var draft = _groupPlanningDraft;
+  var friends = Array.from(document.querySelectorAll('#sozPlanFreunde input:checked')).map(function (el) { return Number(el.value); });
+  var button = n.closest('.soz-formular').querySelector('button');
+  _groupPlanningSaving = true;
+  if (button) { button.disabled = true; button.textContent = 'Plan wird erstellt …'; }
+  var group = null;
+  try {
+    var data = await sozialRuf('social/gruppen', 'POST', { name: name, eventType: typ ? typ.value : '', eventDate: date ? date.value : '' });
+    if (!currentUser || String(currentUser.id) !== uid) return;
+    group = data.group;
+    if (!group || !Number.isInteger(Number(group.id)) || Number(group.id) < 1) throw new Error('Die Gruppe wurde nicht bestätigt. Bitte lade deine Gruppen neu, bevor du es erneut versuchst.');
+    _groupPlanningDraft = null;
+    if (draft && draft.boardId) {
+      var project = (_boardProjects || []).find(function(p) { return p.id === draft.boardId; });
+      if (project) { project.groupId = Number(group.id); _saveBoardProjects(); }
+    }
+    _sozialPlanOffen = Number(group.id);
+    _sozialReiter = 'gruppen';
+    var warnings = [];
+    for (var id of friends) {
+      if (!currentUser || String(currentUser.id) !== uid) return;
+      try { await sozialRuf('social/gruppen/' + group.id + '/einladen', 'POST', { userId: id }); }
+      catch (e) { warnings.push('Eine Einladung konnte nicht gesendet werden. Lade die Person im Plan erneut ein.'); }
+    }
+    for (var item of sozialPlanStartposten(draft)) {
+      if (!currentUser || String(currentUser.id) !== uid) return;
+      try { await sozialRuf('social/gruppen/' + group.id + '/plan', 'POST', item); }
+      catch (e) { warnings.push('Eine Idee konnte nicht übernommen werden. Du kannst sie im Plan ergänzen.'); }
+    }
+    await sozialLaden(true);
+    await sozialPlanLaden(Number(group.id));
+    if (!currentUser || String(currentUser.id) !== uid) return;
+    renderFreundePage();
+    history.replaceState({page:'freunde',data:Number(group.id)}, '', _spaPath('freunde',group.id));
+    var plan = document.getElementById('sozPlan' + group.id);
+    if (plan) plan.scrollIntoView({block:'start'});
+    showToast(warnings.length ? 'Plan erstellt. ' + warnings[0] : 'Dein gemeinsamer Plan ist bereit.', warnings.length ? 'info' : 'check_circle');
+  } catch (e) { sozialFehler(e); }
+  finally {
+    _groupPlanningSaving = false;
+    if (button && button.isConnected) { button.disabled = false; button.textContent = 'Plan erstellen'; }
+  }
+}
+
+function sozialEinladungKopieren(gid) {
+  var group = ((_sozialGruppen && _sozialGruppen.groups) || []).find(function (g) { return Number(g.id) === Number(gid); });
+  if (!group || !group.inviteCode || !['owner','admin'].includes(group.role)) return;
+  var url = new URL(_spaPath('freunde', 'einladung'), location.origin);
+  url.searchParams.set('einladung', group.inviteCode);
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    showToast('Kopiere den angezeigten Einladungscode und teile ihn mit deinen Freunden.', 'info'); return;
+  }
+  navigator.clipboard.writeText(url.href).then(function () {
+    showToast('Einladungslink kopiert. Teile ihn nur mit Personen, die mitplanen dürfen.', 'check_circle');
+  }).catch(function () { showToast('Kopieren nicht möglich. Du kannst den Einladungscode markieren und kopieren.', 'info'); });
+}
+
+function sozialChatStarten(uid) {
+  if (!currentUser) { openModal('loginModal'); return; }
+  return sozialRuf('conversations', 'POST', { other_user_id: Number(uid) }).then(function (data) {
+    if (!Number(data.id)) throw new Error('Der Chat konnte nicht geöffnet werden.');
+    return Promise.resolve(navigateTo('messages')).then(function () { openChat(Number(data.id)); });
+  }).catch(sozialFehler);
+}
+
+function renderOwnProfileHub(pid) {
+  var old = document.getElementById('ownProfileHub');
+  if (old) old.remove();
+  if (!currentUser || String(currentUser.id) !== String(pid)) return;
+  var bar = document.querySelector('.provider-action-bar');
+  if (!bar) return;
+  var provider = typeof isDienstleister === 'function' && isDienstleister();
+  var actions = provider ? [
+    ['assignment','Aufträge','Anfragen und Termine','auftraege'],
+    ['insights','Einnahmen','Umsätze und Zahlungen','business'],
+    ['storefront','Meine Angebote','Leistungen verwalten','my-listings'],
+  ] : [
+    ['dashboard','Meine Planung','Ideen, Budget und Aufgaben','board'],
+    ['favorite_border','Merkliste','Gespeicherte Leistungen','favorites'],
+  ];
+  actions.push(['diversity_3','Freunde & Gruppen','Zusammen etwas erleben','freunde'],['chat_bubble_outline','Nachrichten','Absprechen und Angebote klären','messages']);
+  var hub = document.createElement('section');
+  hub.id = 'ownProfileHub';
+  hub.className = 'journey-profile-hub';
+  hub.setAttribute('aria-label', 'Mein Bereich');
+  hub.innerHTML = '<h2>Mein Bereich</h2><div class="journey-actions">' + actions.map(function (a) {
+    return '<button type="button" onclick="navigateTo(\'' + a[3] + '\')"><span class="material-icons-round">' + a[0]
+      + '</span><span><strong>' + a[1] + '</strong><small>' + a[2] + '</small></span><span class="material-icons-round">chevron_right</span></button>';
+  }).join('') + '</div>';
+  bar.insertAdjacentElement('afterend',hub);
 }

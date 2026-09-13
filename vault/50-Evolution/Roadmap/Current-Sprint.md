@@ -9,6 +9,21 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
+## UX-Abschlussstand (2026-09-13)
+
+Feed, Radar, persönliche Planung, Gruppen und Chat haben gemeinsame Einstiege.
+„Mit Freunden planen“ erstellt einen echten Gruppenplan mit Einladungen; das
+Board öffnet Projekte, der Assistent ist eine eigene Option. Hochzeiten haben
+18 auswählbare Bausteine mit Budget und Notizen. Beim Wechsel in eine Gruppe
+werden Planungsansätze kopiert; persönliche Buchungsdaten bleiben privat.
+Spätere Änderungen werden nicht zwischen persönlichem und Gruppenplan gespiegelt.
+
+Der Aktivitätenbestand enthält 577 echte Datensätze aus fünf erfassten Regionen.
+Das ist keine deutschlandweite Vollabdeckung. Buchungen brauchen ein zum Inserat
+gehörendes angenommenes Angebot. Anbieter-Stornierungen dokumentieren Grund und
+Stripe-Erstattungsstatus. Es wurde keine Live-Zahlung ausgelöst und nicht deployt.
+Details, Abnahme und offene Betriebsfragen: [[UX-Abschluss-2026-09-13]].
+
 ## Stand heute (2026-08-26)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
@@ -16,7 +31,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1015 Tests in 62 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1037 Tests in 66 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Freunde und Gruppen gibt es jetzt** (09.09.2026). Vorher gab es davon
   *nichts* — `'musikgruppe'` ist eine Kategorie, `_feedRadarGruppen` ist

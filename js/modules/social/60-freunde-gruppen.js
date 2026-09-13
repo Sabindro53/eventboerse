@@ -26,13 +26,22 @@ var _sozialGruppen = null;        // { groups, invitations }
 var _sozialReiter = 'freunde';    // 'freunde' | 'gruppen'
 var _sozialTreffer = [];
 var _sozialLaeuft = false;
+var _sozialAccount = null;
+var _sozialLadefolge = 0;
+var _sozialSuchfolge = 0;
+var _sozialLadePromise = null;
 
 /** Eine Antwort holen — Fehler enden IMMER sichtbar, nie in der Konsole. */
 function sozialRuf(pfad, methode, rumpf) {
+  var account = currentUser ? String(currentUser.id) : null;
   var opt = { method: methode || 'GET', headers: _apiHeaders(), credentials: 'same-origin' };
   if (rumpf) opt.body = JSON.stringify(rumpf);
   return fetch(_apiUrl(pfad), opt).then(function (r) {
     return r.json().catch(function () { return {}; }).then(function (d) {
+      if ((currentUser ? String(currentUser.id) : null) !== account) {
+        var changed = new Error('Dein Konto hat sich geändert. Bitte öffne die Ansicht erneut.');
+        changed.code = 'account_changed'; throw changed;
+      }
       if (!r.ok) {
         var e = new Error(d && d.message ? d.message : 'Das hat nicht geklappt.');
         e.code = d && d.error;
@@ -144,7 +153,9 @@ function sozialFreundeAnsicht() {
   } else {
     html += '<div class="soz-liste">' + s.friends.map(function (p) {
       return sozialPersonZeile(p,
-        '<button type="button" class="btn-outline" onclick="sozialEntfernen(' + p.id + ')">Entfernen</button>'
+        '<button type="button" class="btn-primary" onclick="startGroupPlanning({friendId:' + p.id + '})">Zusammen planen</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialChatStarten(' + p.id + ')">Chat</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialEntfernen(' + p.id + ')">Entfernen</button>'
         + '<button type="button" class="btn-outline soz-sperr" onclick="sozialSperren(' + p.id + ')">Sperren</button>');
     }).join('') + '</div>';
   }
@@ -169,15 +180,15 @@ function sozialGruppenAnsicht() {
   var html = '';
 
   html += '<section class="soz-karte">'
-    + '<h3><span class="material-icons-round">group_work</span> Neue Gruppe</h3>'
+    + '<h3><span class="material-icons-round">group_work</span> Gemeinsam ein Event planen</h3>'
     + '<p>Eine Gruppe ist ein gemeinsames Vorhaben — eine Hochzeit, ein Festival, '
     + 'ein Betriebsausflug. Wer dabei ist, plant mit.</p>'
     + '<div class="soz-formular">'
     + '<input type="text" id="sozGruppeName" maxlength="120" placeholder="Name, z. B. „Hochzeit Anna & Ben“" aria-label="Name der Gruppe">'
     + '<input type="text" id="sozGruppeTyp" maxlength="60" placeholder="Anlass (optional)" aria-label="Anlass">'
     + '<input type="date" id="sozGruppeDatum" aria-label="Datum (optional)">'
-    + '<button type="button" class="btn-primary" onclick="sozialGruppeAnlegen()">'
-    + '<span class="material-icons-round">add</span> Anlegen</button>'
+    + '<button type="button" class="btn-primary" onclick="sozialGruppeAnlegen()" aria-label="Plan erstellen">'
+    + '<span class="material-icons-round">add</span> Plan erstellen</button>'
     + '</div>'
     + '<div class="soz-beitritt">'
     + '<input type="text" id="sozCode" maxlength="18" placeholder="Einladungscode" autocomplete="off" '
@@ -268,13 +279,15 @@ function sozialGruppenKarte(gr) {
         + '</label>';
     } else {
       html += '<p class="soz-hinweis">Einladen kannst du nur Freunde. '
-        + 'Alle deine Freunde sind schon dabei — oder du hast noch keine.</p>';
+        + 'Alle deine Freunde sind schon dabei — oder du hast noch keine.</p>'
+        + '<button type="button" class="btn-outline" onclick="sozialReiter(\'freunde\')">Freunde finden</button>';
     }
     if (gr.inviteCode) {
       html += '<div class="soz-code">'
         + '<span class="soz-hinweis">Einladungscode</span>'
         + '<code>' + _escHtml(String(gr.inviteCode)) + '</code>'
-        + '<button type="button" class="btn-outline" onclick="sozialCodeNeu(' + gr.id + ')">Neu ziehen</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialEinladungKopieren(' + gr.id + ')">Einladungslink kopieren</button>'
+        + '<button type="button" class="btn-outline" onclick="sozialCodeNeu(' + gr.id + ')">Code erneuern</button>'
         + '</div>';
     }
     html += '</div>';
@@ -336,6 +349,7 @@ function renderFreundePage() {
     + (_sozialReiter === 'freunde' ? sozialFreundeAnsicht() : sozialGruppenAnsicht());
 
   if (_sozialReiter === 'freunde') sozialTrefferZeichnen();
+  if (typeof sozialPlanungsEntwurfZeigen === 'function') sozialPlanungsEntwurfZeigen();
 }
 
 function sozialReiter(name) {
@@ -345,34 +359,52 @@ function sozialReiter(name) {
 
 /* ── Laden und Handlungen ─────────────────────────────────────────── */
 
+function sozialZuruecksetzen() {
+  _sozialLadefolge++;
+  _sozialSuchfolge++;
+  _sozialAccount = currentUser ? String(currentUser.id) : null;
+  _sozialStand = null;
+  _sozialGruppen = null;
+  _sozialTreffer = [];
+  _sozialLaeuft = false;
+  _sozialLadePromise = null;
+  _sozialPlan = {};
+  _sozialPlanFehler = {};
+  _sozialPlanOffen = null;
+  _sozialPlanLaeuft = false;
+}
+
 function sozialLaden(neu) {
-  if (!currentUser) { renderFreundePage(); return Promise.resolve(); }
+  var uid = currentUser ? String(currentUser.id) : null;
+  if (uid !== _sozialAccount) sozialZuruecksetzen();
+  if (!uid) { renderFreundePage(); return Promise.resolve(); }
+  if (_sozialLadePromise && !neu) return _sozialLadePromise;
   if (_sozialStand && !neu) { renderFreundePage(); return Promise.resolve(); }
+  var folge = ++_sozialLadefolge;
   _sozialLaeuft = true;
   renderFreundePage();
-  return Promise.all([
-    sozialRuf('social/freunde'),
-    sozialRuf('social/gruppen'),
-    sozialRuf('social/ich'),
+  _sozialLadePromise = Promise.all([
+    sozialRuf('social/freunde'), sozialRuf('social/gruppen'), sozialRuf('social/ich'),
   ]).then(function (a) {
-    // `ich` ist die EIGENE Personenkarte vom Server, nicht `currentUser`.
-    // Sie wird gebraucht, um „meins" von „fremd" zu unterscheiden — beim
-    // gemeinsamen Plan hängt daran, ob jemand seine eigene Zusage wieder
-    // abgeben kann. Ohne sie fehlte genau dieser Knopf, und zwar still.
-    _sozialStand = { handle: a[2].handle || '', ich: a[2].person || null,
-      friends: a[0].friends || [],
-      incoming: a[0].incoming || [], outgoing: a[0].outgoing || [], blocked: a[0].blocked || [] };
-    _sozialGruppen = { groups: a[1].groups || [], invitations: a[1].invitations || [] };
+    if (folge !== _sozialLadefolge || !currentUser || String(currentUser.id) !== uid) return;
+    if (!Array.isArray(a[0].friends) || !Array.isArray(a[1].groups) || !a[2].person) {
+      throw new Error('Unvollständige Antwort');
+    }
+    _sozialStand = { handle: a[2].handle || '', ich: a[2].person,
+      friends: a[0].friends, incoming: a[0].incoming || [],
+      outgoing: a[0].outgoing || [], blocked: a[0].blocked || [] };
+    _sozialGruppen = { groups: a[1].groups, invitations: a[1].invitations || [] };
   }).catch(function () {
-    // Ein Fehler löscht den Stand, damit die Ansicht ihn als Störung
-    // zeigt — nicht als leere Liste. Eine leere Liste sähe aus wie
-    // „du hast keine Freunde", und das wäre eine Falschaussage.
+    if (folge !== _sozialLadefolge) return;
     _sozialStand = null;
     _sozialGruppen = null;
   }).then(function () {
+    if (folge !== _sozialLadefolge) return;
     _sozialLaeuft = false;
+    _sozialLadePromise = null;
     renderFreundePage();
   });
+  return _sozialLadePromise;
 }
 
 function sozialHandleSpeichern() {
@@ -402,12 +434,18 @@ function sozialSuchen() {
   var el = document.getElementById('sozSuche');
   var q = el ? String(el.value || '').trim().toLowerCase().replace(/^@/, '') : '';
   if (q.length < 3) {
+    _sozialSuchfolge++;
     _sozialTreffer = [];
     sozialTrefferZeichnen('Mindestens drei Zeichen.');
     return;
   }
+  _sozialTreffer = [];
+  var folge = ++_sozialSuchfolge;
+  var uid = currentUser && currentUser.id;
+  sozialTrefferZeichnen('Suche läuft …');
   sozialRuf('social/suche?q=' + encodeURIComponent(q))
     .then(function (d) {
+      if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
       _sozialTreffer = d.results || [];
       sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden.');
     })
@@ -465,16 +503,7 @@ function sozialEntsperren(id) {
 }
 
 function sozialGruppeAnlegen() {
-  var n = document.getElementById('sozGruppeName');
-  var t = document.getElementById('sozGruppeTyp');
-  var d = document.getElementById('sozGruppeDatum');
-  sozialRuf('social/gruppen', 'POST', {
-    name: n ? n.value : '',
-    eventType: t ? t.value : '',
-    eventDate: d ? d.value : '',
-  })
-    .then(function () { showToast('Gruppe angelegt.', 'check_circle'); return sozialLaden(true); })
-    .catch(sozialFehler);
+  return sozialPlanGruppeErstellen();
 }
 
 function sozialBeitreten() {

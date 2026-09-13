@@ -1636,6 +1636,12 @@ function filterListings() {
     }
   } catch (e) {}
 
+  // Keep an explicitly selected search city when opening either radar.
+  if (location && typeof RADAR_ORTE !== 'undefined') {
+    var radarCity = Object.keys(RADAR_ORTE).find(function(name) { return name.toLowerCase() === location; });
+    if (radarCity && radarOrtsname((_radarPos || {}).lat, (_radarPos || {}).lng) !== radarCity) radarStadtWaehlen(radarCity);
+  }
+
   // Lernsignal: was sucht dieser Nutzer? (bleibt lokal, siehe _ebTaste)
   if (search || category || location || eventType) {
     _ebTasteSignal('search', { query: search, category: category, location: location, eventType: eventType });

@@ -310,7 +310,7 @@ function _renderBookingCard(msg) {
     var clr = isAccepted ? '#66bb6a' : '#FF5252';
     var icon = isAccepted ? 'check_circle' : 'cancel';
     var label = isAccepted
-      ? (side === 'sent' ? 'Du hast die Anfrage angenommen' : 'Anbieter hat angenommen – Jetzt buchen!')
+      ? (side === 'sent' ? 'Du hast zugesagt – Gesamtpreis als Angebot senden' : 'Anbieter hat zugesagt – Angebot im Chat vereinbaren')
       : (side === 'sent' ? 'Du hast die Anfrage abgelehnt' : 'Anbieter hat die Anfrage leider abgelehnt');
     var sysLabel = isAccepted ? 'Anfrage angenommen' : 'Anfrage abgelehnt';
     return '<div class="cbc cbc-' + side + ' cbc-status-msg">' +
@@ -329,7 +329,7 @@ function _renderBookingCard(msg) {
       ? 'Du hast das Projekt geschlossen'
       : 'Projekt wurde vom Kunden geschlossen';
     var html2 = '<div class="cbc cbc-' + side + ' cbc-cancelled">' +
-      '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Projekt storniert</div>' +
+      '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Planungsprojekt geschlossen</div>' +
       '<div class="cbc-content">' +
         '<div class="cbc-label"><span class="material-icons-round">event_busy</span> ' + _escHtml(introCancel) + '</div>' +
         (data.projectName ? '<div class="cbc-listing">' + _escHtml(data.projectName) + '</div>' : '') +
@@ -381,7 +381,7 @@ function _renderBookingCard(msg) {
   // System-generated banner
   if (isInquiry) {
     if (isCancelled) {
-      html += '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Projekt storniert</div>';
+      html += '<div class="cbc-sysbar" style="background:#9E9E9E;"><span class="material-icons-round">cancel</span> Planungsprojekt geschlossen</div>';
     } else {
       html += '<div class="cbc-sysbar"><span class="material-icons-round">verified</span> Systemgenerierte Projekt-Anfrage</div>';
     }
@@ -505,28 +505,9 @@ function _appendChatSentMessage(serverMsg, text) {
 }
 
 function acceptBookingFromChat(msgId, btn) {
-  // 1) Angenommen-Status merken (überlebt Poll/Reload, verhindert Doppel-Annahme)
-  _markBookingAccepted(msgId);
-  // 2) Karte sofort auf „angenommen" umstellen
-  var card = btn && btn.closest ? btn.closest('.cbc') : null;
-  if (card) {
-    var actions = card.querySelector('.cbc-actions');
-    if (actions) actions.outerHTML = '<div class="cbc-status" style="color:#2E7D32"><span class="material-icons-round">check_circle</span> Anfrage angenommen</div>';
-  }
-  showToast('Anfrage angenommen! Der Kunde wird benachrichtigt.', 'check_circle');
-  // 3) Antwort (Resonanz) in den Chat schreiben — persistiert & benachrichtigt den Kunden
-  var replyText = 'Ich nehme deine Anfrage gerne an – ich freue mich riesig auf dein Event! 🎉 Lass uns die Details klären.';
-  if (currentChat && currentChat.id) {
-    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-      body: JSON.stringify({ content: replyText, type: 'message' })
-    })
-      .then(function(r) { if (!r.ok) throw new Error('send'); return r.json(); })
-      .then(function(serverMsg) { _appendChatSentMessage(serverMsg, replyText); })
-      .catch(function() { _appendChatSentMessage(null, replyText); });
-  } else {
-    _appendChatSentMessage(null, replyText);
-  }
+  if (!currentChat) return;
+  // A plain message cannot create a confirmed booking. Offer terms explicitly.
+  if (typeof openKvModal === 'function') openKvModal();
 }
 
 function acceptInquiryFromChat(cardId, projectId) {
@@ -539,7 +520,8 @@ function acceptInquiryFromChat(cardId, projectId) {
   })
     .then(function(r){ if(!r.ok) throw new Error('send'); return r.json(); })
     .then(function(){
-      showToast('Zusage gesendet – Kunde wird benachrichtigt.', 'check_circle');
+      showToast('Zusage gespeichert. Sende jetzt den Gesamtpreis als Angebot.', 'check_circle');
+      if (typeof openKvModal === 'function') openKvModal();
       if (typeof openChat === 'function' && currentChat && currentChat.id) openChat(currentChat.id);
     })
     .catch(function(){ showToast('Senden fehlgeschlagen.', 'error'); });
@@ -547,8 +529,9 @@ function acceptInquiryFromChat(cardId, projectId) {
 
 function rejectInquiryFromChat(cardId, projectId) {
   if (!currentChat) return;
-  if (!confirm('Anfrage wirklich ablehnen?')) return;
-  var payload = JSON.stringify({ kind: 'inquiry_rejected', cardId: cardId || '', projectId: projectId || '' });
+  var reason = window.prompt('Warum kannst du die Anfrage nicht übernehmen?');
+  if (!reason || reason.trim().length < 10) { showToast('Bitte einen nachvollziehbaren Absagegrund angeben.', 'info'); return; }
+  var payload = JSON.stringify({ kind: 'inquiry_rejected', cardId: cardId || '', projectId: projectId || '', reason: reason.trim() });
   fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
     method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
     body: JSON.stringify({ content: payload, type: 'message' })
