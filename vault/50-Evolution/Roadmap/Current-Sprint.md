@@ -18,6 +18,42 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 - **Playwright-Suite: 1083 Tests in 70 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+- **Der Storno-Vorgang steht** (13.09.2026, PR #270). Beauftragt als *„kann er
+  nicht erfüllen, muss er Bescheid geben und zurückzahlen — das muss immer
+  sauber ablaufen."* Vorher gab es dafür **nichts**: der Planer hatte keinen
+  Weg zu einer Erstattung ausser über den Dienstleister persönlich. **Ein
+  Antrag bewegt kein Geld** — er setzt eine Frist (72 h) und macht den
+  Dienstleister zuständig; erst dessen Annahme erstattet, über die
+  bestehende Route. Auch die **Frist erstattet nicht automatisch**: nach
+  Ablauf steht der Antrag auf `abgelaufen` und ist damit für den Betreiber
+  sichtbar. Eine Zahlung ohne einen Menschen darin gibt es nicht. Eigene
+  Tabelle (`EB_DB_VERSION` 3.1), nicht der Board-Blob — ein Storno ist
+  zweiseitig, und im Blob gewänne der letzte Schreibvorgang.
+  `storno.spec.js` (8) + `storno-ansicht.spec.js` (7)
+- **Der Zahler durfte sich sein Geld selbst zurückholen** (13.09.2026, in
+  #267 gemergt). `POST /stripe/refund` prüfte die Berechtigung nicht gegen
+  das Zielkonto des PaymentIntent. Nur die Abwesenheit eines Knopfes hat das
+  verhindert — die Route war offen und wurde von keinem Client je gerufen.
+  `eb_erstattung_darf()` ist jetzt die **eine** Regel, die auch der
+  Storno-Weg fragt
+- **„Alle vier Tore grün" — bei sechzehn Toren** (13.09.2026). #270 fiel in
+  CI durch, während lokal alles grün lief. Rot war nicht Playwright, sondern
+  ein Tor davor: `rechtsunterlagen.mjs --check` vergleicht zwei **erzeugte**
+  Dateien, die die Zahl der Frontend-Module mittragen. Der eigentliche Fund
+  lag daneben — `npm run gate` war eine Handliste von **acht** Skripten bei
+  **sechzehn** Toren im Workflow. Nicht falsch, nur unvollständig, und
+  vollständig aussehend. `scripts/tore.mjs` leitet sie jetzt aus
+  `pr-check.yml` ab; der Vorgabewert ist **Laufen**, übersprungen wird nur
+  Vorbereitung und was einen Actions-Ausdruck trägt — mit Grund im Bericht.
+  `tore.spec.js`, 7 Tests, 6 Mutationen
+- **Drei Popper, die nie jemand gesehen hat** (13.09.2026, #269). `pop-3/4/5`
+  standen mit Layout-Regeln in `styles.css` und 78 Zeilen in
+  `app-shell.html` — und auf `display: none`. Entfernt, Konfetti halbiert,
+  vier Animationen von `infinite` auf zwei Runden. **Gemessen, nicht
+  behauptet:** Anhalten spart 107 ms, *Auslaufenlassen* nur rund 10 ms — eine
+  fertige Animation gibt ihre Compositor-Ebene frei, und der Ebenenbaum holt
+  sich den Gewinn zurück. Beide Zahlen stehen so im Bericht, weil die zweite
+  die bequemere Erzählung widerlegt
 - **Ein geteilter Link auf `/freunde` endete auf der Fehlerseite**
   (13.09.2026). Gemeldet aus einer Live-Prüfung, nachgemessen — und größer als
   die Meldung: `app-shell.html` trägt **34** Seiten, `$spa_pages` kannte
@@ -242,7 +278,8 @@ Ein Eintrag ohne Messung ist erfundene Arbeit und gehört nicht hierher.
 | Befund (gemessen) | Nächster Schritt | Wer |
 |---|---|---|
 | ~~München und Stuttgart fehlen~~ — **die Aufgabenstellung war falsch.** An vier Tagesständen gemessen: 10.09. 6/8 (ohne Dortmund, Stuttgart), 11.09. 5/8 (ohne Dortmund, Berlin, Stuttgart), 12.09. 7/8 (ohne Berlin), 13.09. 6/8 (ohne München, Stuttgart). An keinem Tag alle acht; welche fehlen, wechselt täglich | **Behoben** (13.09.): `overpassHolen()` hat drei Anläufe mit wachsender Pause, ein Zeitlimit am Client und ein Budget, das nur Wiederholungen kürzt. 7 Tests, 6 Mutationen. **Offen bleibt der Nachweis:** ob wirklich 8/8 ankommen, zeigt erst der nächste Tagesstand — Overpass ist von der Agent-Umgebung aus nicht erreichbar | claude (Nachweis) |
-| Das Profil eines Anbieters behauptet **„Verfügbar"** und **„Antwortet innerhalb von 1 Std."** — beide sind unbedingte Zeichenketten in `js/modules/search/12-detail-provider.js:598-599`, direkt unter drei Zeilen, die aus echten Daten kommen (`location`, `categoryLabel`, `priceLabel`). Nichts misst eine Antwortzeit, nichts prüft Verfügbarkeit. Aus einer Live-Prüfung gemeldet, im Quelltext bestätigt | Entweder aus echten Daten belegen (Antwortzeit aus `eb_messages`, Verfügbarkeit aus dem Kalender in `51-inserat-maske-kalender.js`) **oder beide Zeilen entfernen**. Eine Aussage über die Leistung eines Dritten, die nichts deckt, ist nach § 5 UWG eine irreführende geschäftliche Handlung — und sie steht neben Angaben, die stimmen, was sie glaubwürdig macht. **Vorher messen:** liegen Antwortzeiten überhaupt vor? | offen |
+| Das Profil eines Anbieters behauptet **„Verfügbar"** und **„Antwortet innerhalb von 1 Std."** — beide sind unbedingte Zeichenketten in `js/modules/search/12-detail-provider.js:598-599`, direkt unter drei Zeilen, die aus echten Daten kommen (`location`, `categoryLabel`, `priceLabel`). Nichts misst eine Antwortzeit, nichts prüft Verfügbarkeit. Aus einer Live-Prüfung gemeldet, im Quelltext bestätigt | **Die Vorabmessung ist erledigt (13.09.), beide Quellen gibt es:** Verfügbarkeit aus `eb_listings.blocked_dates` plus der Route `/listings/{id}/availability`; Antwortzeit berechenbar aus `eb_conversations` (`user_a`, `user_b`, `listing_id`) × `eb_messages` (`sender_id`, `created_at`) — der Median der Spanne zwischen Fremdnachricht und erster eigener Antwort. Damit ist „entfernen" nicht mehr die einzige ehrliche Option. **Die Schwelle ist der ganze Punkt:** unter N gemessenen Antworten wird **nichts** angezeigt, statt aus zwei Datenpunkten einen Median zu behaupten — sonst ersetzt eine unbelegte Zahl eine unbelegte Zeichenkette. § 5 UWG: eine Aussage über die Leistung eines Dritten, die nichts deckt, steht hier neben Angaben, die stimmen, und wird dadurch glaubwürdig | **astra** (Umsetzung liegt vor) |
+| **PR #268 (Codex/Astra) ist nicht mergefähig:** `mergeable: false / dirty`, zweimal am 13.09. geprüft. Basis ist `a927b4e`, `main` steht auf `6d69337` — dazwischen liegen #266, #267 und #269. 50 Dateien, +8838/−2069; eine Zusammenführung von dieser Größe über zwei fremde Merges hinweg löst sich nicht von selbst auf | **Rebase auf `main`, durch den Urheber.** Fremden Code zu rebasen hiesse, seine Absicht zu raten — und das Ergebnis liefe danach als seins. `AGENTS.md`: ein PR wird am selben Tag gemergt oder geschlossen; bei zwei Modellen ist nicht das Schreiben der Engpass, sondern das Landen | **astra** |
 | `⚡ HQ-Puls` scheitert wiederholt (Läufe 1675 und 1676 am 13.09., je `conclusion: failure`) | Log des letzten Laufs lesen und die Ursache benennen, bevor etwas geändert wird. Ein Workflow, der täglich rot läuft, wird nach der dritten Woche nicht mehr gelesen | offen |
 | Die Landeseite trägt 105 endlos laufende Deko-Animationen, zusammen 257 ms Hauptthread je 3 s (Median aus drei verschachtelten Runden: 646 → 389 ms) | Gestaltungsentscheidung des Inhabers, **keine** Aufräumarbeit — siehe `AGENTS.md` §6 | Inhaber |
 | Der Board-Slot der Mobilleiste führt für Dienstleister ins Planungs-Board, nicht zu den Aufträgen. Dokumentierte Entscheidung, kein Versehen | Produktentscheidung des Inhabers | Inhaber |
