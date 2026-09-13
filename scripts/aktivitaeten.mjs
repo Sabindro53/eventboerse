@@ -520,26 +520,118 @@ export function overpassAbfrage(gebiet = STAEDTE[0]) {
   return `[out:json][timeout:90];\n(\n${teile}\n);\nout center 400;`;
 }
 
+const schlafen = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ============================================================================
+ * EIN VERSUCH JE STADT WAR EINER ZU WENIG
+ *
+ * Am 13.09.2026 an vier aufeinanderfolgenden Tagesständen gemessen:
+ *
+ *   10.09.  6/8 erfasst  — ohne Dortmund, Stuttgart
+ *   11.09.  5/8 erfasst  — ohne Dortmund, Berlin, Stuttgart
+ *   12.09.  7/8 erfasst  — ohne Berlin
+ *   13.09.  6/8 erfasst  — ohne München, Stuttgart
+ *
+ * AN KEINEM EINZIGEN TAG WAREN ALLE ACHT DA, und welche fehlten, wechselte
+ * täglich. Der Ausfall ist also vorübergehend und nicht stadtspezifisch —
+ * Overpass ist ein gespendeter Dienst und weist unter Last ab (429), oder
+ * seine eigene Abfragezeit läuft aus (504).
+ *
+ * Die Wirkung war schlimmer als ein Loch: „Diese Gegend ist noch nicht
+ * erfasst" wanderte von Tag zu Tag durch Deutschland. Wer am 12. in Berlin
+ * stand, sah nichts; am 13. plötzlich alles. Eine Aussage über die Welt, die
+ * sich täglich ändert, ohne dass sich an der Welt etwas geändert hat.
+ *
+ * DIE REGEL WEICHT NICHT AUF. Ein Gebiet, das nach allen Anläufen keine
+ * Antwort liefert, bleibt „nicht erfasst" — Wiederholen erhöht die Chance,
+ * es ersetzt keine Antwort. Genau das trennt diese Behebung von einer, die
+ * den leeren Fall stillschweigend füllt.
+ * ========================================================================= */
+
+/** Anläufe je Gebiet: ein erster plus zwei Wiederholungen. */
+export const ABRUF_VERSUCHE = 3;
+
+/**
+ * Zeitlimit am CLIENT, nicht nur in der Abfrage.
+ *
+ * `overpassAbfrage()` sagt Overpass `[out:json][timeout:90]` — das bindet den
+ * Server, nicht uns. Ohne ein Limit hier hält ein hängender Aufruf die ganze
+ * Tagesroutine fest, und zwar ohne Fehlermeldung. Genau diese Fehlerart hat
+ * am 03.09.2026 den Deploy zweimal über sechs Minuten stehen lassen.
+ */
+export const ABRUF_ZEITLIMIT_MS = 120_000;
+
+/**
+ * Die Pause wächst.
+ *
+ * Nach einem 429 sofort wieder anzuklopfen ist genau das, was den 429
+ * ausgelöst hat. Overpass gehört niemandem und wird gespendet.
+ */
+export const ABRUF_PAUSEN_MS = [5_000, 15_000];
+
+/**
+ * Gesamtbudget für die Wiederholungen.
+ *
+ * Drei Anläufe × 120 s × acht Städte wären im schlimmsten Fall fast eine
+ * Stunde — eine Behebung, die eine zweite Störung einbaut. Das Budget nimmt
+ * aber NIEMALS den ersten Anlauf: jede Stadt wird auf jeden Fall einmal
+ * gefragt, gekürzt werden nur die Wiederholungen.
+ */
+export const ABRUF_BUDGET_MS = 8 * 60 * 1000;
+
+/**
+ * Wiederholt wird nur, was an der Gegenseite liegt.
+ *
+ * 429 heisst „zu viele Anfragen", 5xx heisst „bei uns klemmt etwas" — beides
+ * kann beim nächsten Mal gutgehen. **400 nicht:** das ist unsere Abfrage.
+ * Sie dreimal zu schicken wäre dreimal derselbe Fehler und dreimal dieselbe
+ * Last für einen Dienst, der sie uns schenkt.
+ */
+export function istVoruebergehend(status) {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
 /**
  * Ein Gebiet nach dem anderen — nicht alle in einer Abfrage.
  *
- * Sechs Städte × sieben Ortsarten in einem Aufruf wären eine Abfrage, die
+ * Acht Städte × sieben Ortsarten in einem Aufruf wären eine Abfrage, die
  * Overpass zu Recht abweist. Und ein einziger `out`-Deckel über allem
  * schnitte willkürlich ab: die Städte am Ende der Liste kämen nie vor.
- * Also je Gebiet eine Abfrage, mit Pause dazwischen — Overpass ist ein
- * gespendeter Dienst, kein Selbstbedienungsladen.
+ *
+ * `holer` und `warten` sind Nähte für den Prüfstand: ohne sie müsste ein
+ * Test wirklich zwanzig Sekunden schlafen und das echte Overpass befragen.
+ * Im Betrieb sind es `fetch` und `schlafen`.
  */
-async function overpassHolen(gebiet) {
-  const antwort = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { ...KOPF, 'Content-Type': 'text/plain' },
-    body: overpassAbfrage(gebiet),
-  });
-  if (!antwort.ok) throw new Error(`Overpass HTTP ${antwort.status} für ${gebiet.stadt}`);
-  return antwort.json();
-}
+export async function overpassHolen(gebiet, opt = {}) {
+  const holer = opt.holer || fetch;
+  const warten = opt.warten || schlafen;
+  const frist = opt.frist ?? Infinity;
+  let letzter = new Error(`Overpass ohne Anlauf für ${gebiet.stadt}`);
 
-const schlafen = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let v = 0; v < ABRUF_VERSUCHE; v++) {
+    if (v > 0) {
+      // Budget aufgebraucht → keine weitere Wiederholung. Der erste Anlauf
+      // ist zu diesem Zeitpunkt längst gelaufen; niemand verliert ihn.
+      if (Date.now() >= frist) break;
+      await warten(ABRUF_PAUSEN_MS[Math.min(v - 1, ABRUF_PAUSEN_MS.length - 1)]);
+    }
+    try {
+      const antwort = await holer('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { ...KOPF, 'Content-Type': 'text/plain' },
+        body: overpassAbfrage(gebiet),
+        signal: AbortSignal.timeout(ABRUF_ZEITLIMIT_MS),
+      });
+      if (antwort.ok) return await antwort.json();
+      letzter = new Error(`Overpass HTTP ${antwort.status} für ${gebiet.stadt}`);
+      if (!istVoruebergehend(antwort.status)) break;
+    } catch (e) {
+      const art = e && e.name === 'TimeoutError' ? 'Zeitlimit' : 'Netzfehler';
+      letzter = new Error(`Overpass ${art} für ${gebiet.stadt}: ${e && e.message}`);
+    }
+  }
+  throw letzter;
+}
 
 async function holen(saison) {
   const jahr = saison || (new Date().getMonth() >= 6
@@ -562,15 +654,24 @@ async function holen(saison) {
   // werden darf, entscheidet `schreibVerweigert()` — dort und nur dort.
   const overpass = {};
   const ausfaelle = [];
+  const frist = Date.now() + ABRUF_BUDGET_MS;
   for (const g of STAEDTE) {
     try {
-      overpass[g.stadt] = await overpassHolen(g);
+      overpass[g.stadt] = await overpassHolen(g, { frist });
     } catch (e) {
       ausfaelle.push(`${g.stadt}: ${e.message}`);
     }
     await schlafen(2000);
   }
+  // Der Grund gehört ins Log, nicht in die Datei: `eb-aktivitaeten.json` geht
+  // an jeden Besucher, und eine Fehlermeldung eines fremden Dienstes hat dort
+  // nichts zu suchen. Die Datei sagt weiterhin nur „nicht erfasst" — wahr für
+  // jeden dieser Fälle.
   for (const a of ausfaelle) console.error('⚠ Gebiet nicht abgerufen — ' + a);
+  if (ausfaelle.length) {
+    console.error(`⚠ ${ausfaelle.length} von ${STAEDTE.length} Gebieten ohne Antwort `
+      + `(je ${ABRUF_VERSUCHE} Anläufe). Sie gelten als NICHT ERFASST.`);
+  }
   if (!Object.keys(overpass).length) throw new Error('Kein einziges Gebiet abgerufen');
 
   return { openligadb: spiele, overpass };

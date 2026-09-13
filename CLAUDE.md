@@ -1532,8 +1532,75 @@ Test und muss die Freigabe begründen.
 Lizenz mit; das ist Lizenzbedingung, keine Höflichkeit — und zugleich der
 Schutz davor, dass ein Eintrag ohne Herkunft erfunden aussieht.
 
+#### Ein Versuch je Stadt war einer zu wenig
+
+Der offene Posten hiess *„München und Stuttgart fehlen"*. Am 13.09.2026
+nachgemessen, an vier aufeinanderfolgenden Tagesständen — und die Messung hat
+die Aufgabenstellung widerlegt:
+
+| Tagesstand | erfasst | fehlt |
+|---|---:|---|
+| 10.09. | 6/8 | Dortmund, Stuttgart |
+| 11.09. | 5/8 | Dortmund, **Berlin**, Stuttgart |
+| 12.09. | 7/8 | **Berlin** |
+| 13.09. | 6/8 | München, Stuttgart |
+
+**An keinem einzigen Tag waren alle acht da**, und welche fehlten, wechselte
+täglich. Der Ausfall ist also **vorübergehend, nicht stadtspezifisch** —
+Overpass ist ein gespendeter Dienst und weist unter Last ab (429) oder läuft
+in seine eigene Abfragezeit (504).
+
+**Die Wirkung war schlimmer als ein Loch.** *„Diese Gegend ist noch nicht
+erfasst"* wanderte von Tag zu Tag durch Deutschland: wer am 12. in Berlin
+stand, sah nichts, am 13. plötzlich alles. Eine Aussage über die Welt, die
+sich täglich ändert, ohne dass sich an der Welt etwas geändert hat.
+
+Drei Ursachen im Abruf, alle behoben:
+
+- **Genau ein Anlauf je Stadt.** Jetzt `ABRUF_VERSUCHE` (3), mit **wachsender**
+  Pause (`ABRUF_PAUSEN_MS`, 5 s → 15 s). Nach einem 429 sofort wieder
+  anzuklopfen ist genau das, was den 429 ausgelöst hat.
+- **Kein Zeitlimit am Client.** Die Abfrage sagt Overpass
+  `[out:json][timeout:90]` — das bindet den Server, nicht uns. Ohne
+  `AbortSignal.timeout()` hält ein hängender Aufruf die ganze Tagesroutine
+  fest, ohne Fehlermeldung. Dieselbe Fehlerart wie beim Deploy am 03.09.2026.
+- **Kein Deckel über den Wiederholungen.** Drei Anläufe × 120 s × acht Städte
+  wären fast eine Stunde — eine Behebung, die eine zweite Störung einbaut.
+  `ABRUF_BUDGET_MS` (8 min) kürzt deshalb **nur die Wiederholungen**; den
+  **ersten** Anlauf verliert keine Stadt.
+
+**Ein 400 wird NICHT wiederholt.** Das ist unsere Abfrage, nicht deren Last.
+Sie dreimal zu schicken wäre dreimal derselbe Fehler und dreimal dieselbe
+Last für einen Dienst, der sie uns schenkt.
+
+**Die Regel weicht nicht auf.** Ein Gebiet, das nach allen Anläufen keine
+Antwort liefert, bleibt „nicht erfasst" — Wiederholen erhöht die Chance, es
+ersetzt keine Antwort. Genau das trennt diese Behebung von einer, die den
+leeren Fall stillschweigend füllt; die Mutation „leere Liste statt Scheitern"
+fällt deshalb durch.
+
+**Der Grund bleibt im Log, nicht in der Datei.** `eb-aktivitaeten.json` geht
+an jeden Besucher; eine Fehlermeldung eines fremden Dienstes hat dort nichts
+zu suchen. Die Datei sagt weiterhin nur „nicht erfasst" — wahr für jeden
+dieser Fälle.
+
+**Geprüft wird das Verhalten, nicht die Konstante.** Ein Test auf
+`ABRUF_VERSUCHE === 3` wäre grün, während die Schleife den Wert gar nicht
+benutzt. Jeder der sieben Tests zählt echte Aufrufe an einem gestellten
+`holer`; `holer` und `warten` sind die einzigen Nähte, und ohne sie müsste
+der Prüfstand zwanzig Sekunden schlafen und das echte Overpass befragen.
+
+Sechs Mutationen, jede macht die Suite rot: zurück auf einen Anlauf · auch
+ein 400 wird wiederholt · Zeitlimit entfernt · leere Liste statt Scheitern ·
+Pause wächst nicht mehr · gar keine Pause.
+
+**Ob es reicht, zeigt der nächste Tagesstand.** Overpass von hier aus
+anzufragen ist nicht möglich (der Proxy dieser Umgebung lässt den Host nicht
+durch), und drei Anläufe sind eine bessere Chance, keine Garantie. Die Zahl
+der erfassten Gebiete steht in jedem Lauf im Bericht.
+
 ```bash
-npx playwright test tests/e2e/aktivitaeten.spec.js   # 32 Tests, an Prüfstücken
+npx playwright test tests/e2e/aktivitaeten.spec.js   # 39 Tests, an Prüfstücken
 ```
 
 #### Die Ansicht: Reiter „⚡ Jetzt"
@@ -2478,7 +2545,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1022 Tests in 63 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1029 Tests in 63 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
