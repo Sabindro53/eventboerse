@@ -39,8 +39,9 @@ eb_booking_record_refund(['id'=>'re_test','payment_intent'=>'pi_test','status'=>
 eb_booking_record_refund(['id'=>'re_test','payment_intent'=>'pi_test','status'=>'pending','amount'=>10000]);
 $out['refund_final']=get_option('eb_booking_refund_pi_test');
 echo json_encode($out);`;
-  const tmp=path.join(os.tmpdir(),'eb-booking-'+process.pid+'.php');fs.writeFileSync(tmp,script);
-  try{return JSON.parse(execFileSync('php',[tmp],{encoding:'utf8'}));}finally{fs.unlinkSync(tmp);}
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'eb-booking-'));
+  const tmp=path.join(dir,'booking.php');
+  try{fs.writeFileSync(tmp,script,{flag:'wx',mode:0o600});return JSON.parse(execFileSync('php',[tmp],{encoding:'utf8'}));}finally{fs.rmSync(dir,{recursive:true,force:true});}
 }
 let result;test.beforeAll(()=>{result=run();});
 test('Money rejects negatives, fractions of cents and invalid amounts',()=>{expect(result.money).toEqual([0,0,0,0,50,4995,0,99999999,0]);});
