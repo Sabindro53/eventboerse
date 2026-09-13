@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1029 Tests in 63 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1033 Tests in 63 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Zwei Modelle, ein Rahmen** (13.09.2026). `AGENTS.md` regelt die
   Zusammenarbeit von Claude Code und Codex/Astra — und wiederholt CLAUDE.md

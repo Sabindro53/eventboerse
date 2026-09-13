@@ -967,9 +967,13 @@ function renderBoardPage() {
   var _bpk = document.getElementById('boardPageKicker');
   if (_bpk) _bpk.textContent = (currentUser && isProvider) ? 'DIENSTLEISTER' : 'EVENT-PLANER';
   var _bps = document.getElementById('boardPageSubtitle');
+  // Der Untertitel nennt, was die Seite WIRKLICH kann. Bis zum 13.09.2026
+  // versprach er nur einen Chat („im Chat mit deinem Assistenten"), und wer
+  // „Vorhaben planen" geklickt hatte, las das als falsches Ziel. Der Chat ist
+  // ein Teil des Boards, nicht das Board.
   if (_bps) _bps.textContent = (currentUser && isProvider)
-    ? 'Organisiere deine Buchungen, Kunden & Termine im Chat mit deinem Planungs-Assistenten'
-    : 'Plane dein Event im Chat mit deinem Assistenten — Projekte, Dienstleister, Budget & Termine';
+    ? 'Organisiere deine Buchungen, Kunden & Termine — mit Planungs-Assistent'
+    : 'Plane dein Event — allein oder gemeinsam mit Freunden. Projekte, Dienstleister, Budget & Termine';
 
   // ChatGPT-Look: Sidebar (Projekte + Kategorien) links, lokaler
   // Planungs-Assistent rechts. Funktioniert auch ohne Login (Aktionen,

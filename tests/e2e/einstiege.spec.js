@@ -271,3 +271,93 @@ test.describe('Einstiege: die Landeseite bedient mehr als eine Absicht', () => {
     }
   });
 });
+
+/* ============================================================================
+ * VOM BOARD IN DIE GEMEINSAME PLANUNG — die Brücke fehlte ganz
+ *
+ * Gemeldet vom Inhaber: „event mit freunden planen ist fehlerhaft und man wird
+ * dann zum board gebracht, aber dann beim KI-Talk, statt ein Planungsboard zu
+ * erhalten wo man seine Freunde hinzufügen kann."
+ *
+ * Am 13.09.2026 im echten Browser nachgemessen, und der Befund war schärfer
+ * als die Meldung: über JEDES `onclick` der Board-Seite gezählt, ergaben
+ * Freunde, Gruppen und Einladungen zusammen **null** Treffer. Die gemeinsame
+ * Planung ist seit dem 09./10.09. gebaut (`social.spec.js`, `plan.spec.js`) —
+ * und von genau der Stelle, an die „Vorhaben planen" schickt, war sie nicht
+ * erreichbar.
+ *
+ * Dieselbe Klasse wie der Dienstleister-Einstieg vom 10.09.: das Ziel gab es,
+ * es hatte nur keinen Weg von dort, wo der Besucher steht.
+ * ========================================================================= */
+test.describe('Gemeinsam planen: der Weg vom Board', () => {
+  test('vom Board führt ein Weg in die gemeinsame Planung — geklickt', async ({ page }) => {
+    // GEMESSEN WIRD DER KLICK, nicht das Markup. Ein Knopf, der auf eine
+    // Seite führt, die nicht aktiv wird, sieht im Markup vollständig richtig
+    // aus — dieselbe Lehre wie bei den drei Wegen der Landeseite.
+    await openApp(page);
+    await page.evaluate(() => { navigateTo('board'); });
+    await page.waitForTimeout(800);
+
+    const knopf = page.locator('#btnGemeinsamPlanen');
+    await expect(knopf, 'im Board gibt es keinen sichtbaren Weg in die '
+      + 'gemeinsame Planung. Freunde, Gruppen und der gemeinsame Plan sind '
+      + 'gebaut — ohne diesen Weg sind sie von dort unerreichbar').toBeVisible();
+
+    await knopf.click();
+    await page.waitForTimeout(900);
+    expect(await activePageId(page), 'der Klick führt nicht auf die '
+      + 'Freunde-Seite').toBe('page-freunde');
+  });
+
+  test('und er landet bei den GRUPPEN, nicht bei den Freunden', async ({ page }) => {
+    // Ein gemeinsames Vorhaben gehört einer Gruppe, nicht einer Freundschaft.
+    // Wer auf dem Freunde-Reiter landet, muss erst umschalten, um zu dem zu
+    // kommen, wofür er geklickt hat — und der Reiter wird VOR dem Wechsel
+    // gesetzt, sonst zeichnet die Seite sichtbar zweimal.
+    await openApp(page);
+    await page.evaluate(() => { navigateTo('board'); });
+    await page.waitForTimeout(800);
+    await page.locator('#btnGemeinsamPlanen').click();
+    await page.waitForTimeout(900);
+
+    expect(await page.evaluate(() => _sozialReiter),
+      'der Reiter steht nicht auf „gruppen" — der Klick landet dann bei den '
+      + 'Freunden statt beim gemeinsamen Vorhaben').toBe('gruppen');
+  });
+
+  test('abgemeldet erklärt die Seite, statt einen Dialog aufzumachen', async ({ page }) => {
+    // DIE GEGENPROBE. Ohne sie wäre „öffne den Anmeldedialog" der bequemste
+    // Weg zu einem grünen Test — und ein Dialog, der ohne Erklärung aufgeht,
+    // liest sich als Absage. Genau dieselbe Begründung steht im Router.
+    await openApp(page);
+    await page.evaluate(() => { navigateTo('board'); });
+    await page.waitForTimeout(800);
+    await page.locator('#btnGemeinsamPlanen').click();
+    await page.waitForTimeout(900);
+
+    const txt = await page.locator('#page-freunde').innerText();
+    expect(txt, 'die Seite erklärt nicht, warum sie ein Konto braucht')
+      .toMatch(/Konto/i);
+    await expect(page.locator('#loginModal.show'),
+      'es geht ein Anmeldedialog auf, ohne dass jemand erklärt hat, warum')
+      .toHaveCount(0);
+  });
+
+  test('der Untertitel verspricht keinen reinen Chat mehr', async ({ page }) => {
+    // Beschriftung und Ziel wandern zusammen. „Plane dein Event im Chat mit
+    // deinem Assistenten" beschrieb ein Board, das Projekte, Kategorien UND
+    // einen Assistenten trägt — wer „Vorhaben planen" geklickt hatte, las das
+    // als falsches Ziel. Ein Weg, der etwas anderes verspricht, als er hält,
+    // ist schlimmer als einer, den es nicht gibt.
+    await openApp(page);
+    await page.evaluate(() => { navigateTo('board'); });
+    await page.waitForTimeout(800);
+
+    const unter = await page.locator('#boardPageSubtitle').innerText();
+    expect(unter, 'der Untertitel ist leer — dann prüft dieser Test nichts')
+      .not.toBe('');
+    expect(unter, `der Untertitel lautet „${unter}" und stellt das Board als `
+      + 'Chat dar. Der Chat ist ein Teil des Boards, nicht das Board')
+      .not.toMatch(/im Chat mit deinem/i);
+  });
+});
