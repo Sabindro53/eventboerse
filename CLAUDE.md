@@ -1075,12 +1075,18 @@ Griff von Hand nachbaut. Er steht deshalb **einmal** in
 schneiden — wer nur misst, hat das Problem nicht und behält die Positionen für
 eine brauchbare Fehlermeldung.
 
-`pruefhygiene.spec.js` hält **vier** Regeln über alle Suiten (hier stand
+`pruefhygiene.spec.js` hält **fünf** Regeln über alle Suiten (hier stand
 „zwei", während schon drei aufgezählt waren — eine Zahl, die ihre eigene Liste
 nicht mehr trifft, ist der Anfang derselben Drift, die diese Datei sonst
 bekämpft):
 
 - **keine schneidet HTML-Kommentare selbst heraus** (der gemeinsame Griff ist da),
+- **keine baut den JS-Kommentar-Entferner selbst nach** — `lib/js-code.js`.
+  Diese Regel fehlte bis zum 13.09.2026, und zwar weil der Entferner als
+  lokale Kopie **in dieser Datei selbst** stand: die Regel gegen Kopien hatte
+  eine Kopie. Sie fand beim ersten Lauf sofort eine zweite — in
+  `verbindungen.spec.js` einen Ausdruck, der alles ab einem Doppelslash bis
+  zum Zeilenende wegschnitt, also auch mitten aus `'https://api.stripe.com/…'`.
 - **keine überspringt sich** (`test.skip`/`test.fixme`) — ein übersprungener
   Test zählt in keiner Bilanz als Fehler,
 - **keine fragt einen Host per Teilstring ab** — `lib/url-host.js` vergleicht
@@ -2571,6 +2577,41 @@ wurde von **keinem** Client je gerufen. `storno-ansicht.spec.js` hält deshalb
 die Kette fest — Platz in `app-shell.html`, Eintrag in `modules.list`,
 Funktionen im **echten Browser** erreichbar.
 
+**Und genau das ist trotzdem passiert, in diesem PR.** Die erste Fassung
+war vollständig gebaut, PHP-seitig mutationsgeprüft, sieben Tests grün — und
+nachgezählt:
+
+| | Aufrufer |
+|---|---:|
+| `ebStornoBeantragen()` | **0** |
+| `ebStornoLaden()` / `ebStornoAnsichtZeichnen()` | **0** |
+
+Es gab **keinen Knopf**, und `#stornoListe` stand leer da, mit einem
+Kommentar daneben, der versprach, `ebStornoAnsichtZeichnen()` fülle sie.
+Der Vorgang war fertig und für niemanden erreichbar.
+
+**Die Tests waren grün, weil sie die falsche Frage stellten:** *steht der
+Platz da*, *sind die Funktionen definiert*. Beides ja. Ein Test, der einen
+Baustein prüft, sagt nichts über seine Erreichbarkeit — dieselbe Lücke wie
+beim Stripe-Lader, der geprüft war, während der Weg hinein zugesperrt war.
+
+Gemessen wird jetzt die **Wirkung**: nach `navigateTo('board')` muss
+`#stornoListe` wirklich `.storno-leer` oder `.storno-liste` tragen. Und ein
+zweiter Test ruft `renderBoardPage()` **ein zweites Mal** — diese Funktion
+steigt bei unverändertem Nutzer früh mit `return` aus, und ein Aufruf
+dahinter liefe nur beim ersten Aufbau. Ein Weg, den es nur manchmal gibt,
+ist schwerer zu finden als einer, den es nie gibt.
+
+**Der Knopf steht im Bezahlt-Block der Karte**, also dort, wo der Planer
+seine Buchung ansieht — und nur bei einer vollständig gültigen `pi_…`-Form,
+nicht bei blossem Präfix: der Wert landet in einem `onclick`-Attribut und
+stammt aus dem Board-Blob des Nutzers.
+
+**Die Mutationsprobe dazu überlebte im ersten Anlauf** — zum vierten Mal an
+derselben Ursache: das Muster zählte `ebStornoBeantragen(` im **erklärenden
+Kommentar** neben dem Knopf mit. Gezählt wird jetzt nach Abzug der
+Kommentare, über den gemeinsamen Griff `tests/e2e/lib/js-code.js`.
+
 **Und der erste eigene Test war dabei aus dem falschen Grund grün.** Er
 setzte `window.isLoggedIn = true` — aber `isLoggedIn` ist in `app.js` per
 `let` deklariert und damit **keine** `window`-Eigenschaft. Die Zuweisung
@@ -2578,11 +2619,13 @@ wirkte nie, die Funktion nahm den Abmelde-Zweig, und „die Anfrage ging nicht
 an den Server" stimmte aus einem ganz anderen Grund als behauptet. Gesetzt
 wird jetzt frei (`isLoggedIn = true`), wie in den übrigen Suiten.
 
-Zehn Mutationen, jede macht die Suite rot: jeder darf beantragen (2 rot) ·
-unbezahlte Buchung stornierbar · die Frist läuft nie ab · ein entschiedener
-Antrag erneut entscheidbar · Begründung nicht mehr Pflicht · spitze Klammern
-kommen durch · der Zahler darf entscheiden · Modul nicht ausgeliefert
-(4 rot) · kein Platz in der Shell · fremder Text unmaskiert.
+Dreizehn Mutationen, jede macht die Suite rot: jeder darf beantragen
+(2 rot) · unbezahlte Buchung stornierbar · die Frist läuft nie ab · ein
+entschiedener Antrag erneut entscheidbar · Begründung nicht mehr Pflicht ·
+spitze Klammern kommen durch · der Zahler darf entscheiden · Modul nicht
+ausgeliefert (4 rot) · kein Platz in der Shell · fremder Text unmaskiert ·
+**der Knopf entfernt** · **der Ladeaufruf hinter den frühen `return`
+verschoben** · **der Ladeaufruf ganz entfernt** (2 rot).
 
 **Nicht entschieden wird hier die Höhe.** Ein Storno ist immer der volle
 Betrag; eine Teil-Erstattung (Anzahlung behalten, Rest zurück) ist eine
@@ -2590,7 +2633,7 @@ Geschäftsentscheidung mit AGB-Folgen und gehört dem Inhaber.
 
 ```bash
 npx playwright test tests/e2e/storno.spec.js          # 8 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/storno-ansicht.spec.js  # 7 Tests, echter Browser
+npx playwright test tests/e2e/storno-ansicht.spec.js  # 10 Tests, echter Browser
 ```
 
 ### Eine Adresse, die mit der Route wanderte
@@ -3109,7 +3152,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1083 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1088 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3486,7 +3529,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
 | `js/modules/` | Quelle des Frontends: 28 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~17 500 Zeilen CSS, mobile-first |
+| `styles.css` | ~17 700 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |

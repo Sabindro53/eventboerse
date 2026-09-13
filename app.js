@@ -17710,6 +17710,27 @@ function renderBoardPage() {
 
   if (!currentUser) { _boardProjects = []; }
 
+  // Die Storno-Liste holen und zeichnen.
+  //
+  // HIER, nicht weiter unten: der Soft-Refresh-Pfad steigt unten mit
+  // `return` aus. Eine Zeile dahinter liefe nur beim Voll-Rebuild — also
+  // beim ersten Aufbau und nie wieder, und niemandem fiele auf, dass die
+  // Liste veraltet. Ein Weg, den es nur manchmal gibt, ist schwerer zu
+  // finden als einer, den es nie gibt.
+  //
+  // `#stornoListe` stand seit dem ersten Anlauf leer da: das Modul war
+  // gebaut, geprüft — und wurde von nichts gerufen. Dieselbe Klasse wie
+  // die Erstattungsroute ohne Client und wie Freunde und Gruppen, die vom
+  // Board aus null Wege hatten.
+  if (typeof ebStornoLaden === 'function') {
+    // Zeichnen vor dem Abruf: sonst bleibt die Fläche während des Netzwegs
+    // leer, und leer sieht aus wie "nichts da" statt wie "lädt".
+    try { ebStornoAnsichtZeichnen(); } catch (e) {}
+    ebStornoLaden()
+      .catch(function () { _stornoStand = null; })
+      .then(function () { try { ebStornoAnsichtZeichnen(); } catch (e) {} });
+  }
+
   var isProvider = isDienstleister();
   _ebKbLoad(); // Wissensbasis für den Planungs-Assistenten bereitstellen
 
@@ -19651,6 +19672,27 @@ function openFlowCardModal(cardId) {
           ? '<a class="fc-paid-stripe-link" href="https://dashboard.stripe.com/payments/' + _escHtml(_piId) + '" target="_blank" rel="noopener">' +
               '<span class="material-icons-round">open_in_new</span> Beleg in Stripe ansehen' +
             '</a>'
+          : '') +
+        // Der Weg zum Storno. Er steht GENAU HIER, weil hier der Planer
+        // seine bezahlte Buchung ansieht — und weil es sonst keinen gäbe:
+        // `ebStornoBeantragen()` hatte beim ersten Anlauf null Aufrufer,
+        // also einen Vorgang ohne Eingang. Dieselbe Klasse wie Freunde und
+        // Gruppen, die vom Board aus mit null Wegen erreichbar waren.
+        //
+        // Nur bei echtem `pi_…`: eine Karte mit `paymentReference` ohne
+        // Stripe-Zahlung kann nicht storniert werden, und ein Knopf, der
+        // sicher scheitert, ist schlechter als keiner.
+        //
+        // Geprüft wird die GANZE Form, nicht nur das Präfix — der Wert
+        // landet in einem `onclick`-Attribut, und die Karte stammt aus dem
+        // Board-Blob des Nutzers. `/^pi_/` liesse alles dahinter durch.
+        (_piId && /^pi_[A-Za-z0-9_]+$/.test(_piId) && typeof ebStornoBeantragen === 'function'
+          ? '<button type="button" class="fc-paid-storno" ' +
+              'onclick="ebStornoBeantragen(\'' + _escHtml(_piId) + '\')">' +
+              '<span class="material-icons-round">undo</span> Storno beantragen' +
+            '</button>' +
+            '<small class="fc-paid-storno-hint">Der Dienstleister hat ' +
+              'Zeit zu antworten. Erstattet wird erst, wenn er zustimmt.</small>'
           : '') +
       '</div>'
     : '';

@@ -14,6 +14,7 @@ const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { openApp } = require('./helpers');
+const { ohneJsKommentare } = require('./lib/js-code');
 
 const WURZEL = path.join(__dirname, '..', '..');
 const MODUL = path.join(WURZEL, 'js', 'modules', 'payments', '45-storno.js');
@@ -113,6 +114,67 @@ test.describe('Storno-Ansicht: der Weg hinein', () => {
     expect(zeile, 'die Grund-Zeile ist nicht auffindbar').toBeTruthy();
     expect(zeile, 'der Grund des Gegenübers landet unmaskiert im Markup')
       .toContain('escHtml(');
+  });
+
+  test('der Antrag hat einen Aufrufer — es gibt einen Knopf', () => {
+    // ── DER BEFUND, DER DIESEN TEST ERZWUNGEN HAT ──────────────────────
+    //
+    // Beim ersten Anlauf hatte `ebStornoBeantragen()` NULL Aufrufer. Das
+    // Backend war richtig, das Modul war richtig, sieben Tests waren grün
+    // — und kein Mensch konnte je einen Storno beantragen. Genau die
+    // Klasse, vor der die Kopfzeile dieser Datei warnt, im eigenen PR.
+    //
+    // Gemessen wird in der AUSGELIEFERTEN `app.js`: ein Aufruf in einem
+    // Modul, das nicht in `modules.list` steht, erreicht niemanden.
+    //
+    // NACH ABZUG DER KOMMENTARE — der erste Versuch zählte den Namen im
+    // erklärenden Kommentar neben dem Knopf mit, und die Mutation „Knopf
+    // entfernt" überlebte. Genau die Klasse, an der in diesem Projekt
+    // schon vier Prüfungen gescheitert sind; deshalb gibt es den
+    // gemeinsamen Griff.
+    const app = ohneJsKommentare(fs.readFileSync(path.join(WURZEL, 'app.js'), 'utf8'));
+    const stellen = (app.match(/ebStornoBeantragen\s*\(/g) || []).length;
+    const deklaration = (app.match(/function\s+ebStornoBeantragen\s*\(/g) || []).length;
+    expect(stellen - deklaration, 'ebStornoBeantragen() wird nirgends gerufen — '
+      + 'der Vorgang ist gebaut und hat keinen Eingang').toBeGreaterThanOrEqual(1);
+  });
+
+  test('die Liste wird wirklich gefüllt — im echten Browser gemessen', async ({ page }) => {
+    // Nicht "steht ein Aufruf im Quelltext", sondern: ist die Fläche
+    // danach gefüllt. Ein Aufruf hinter einem `return`, in einem toten
+    // Zweig oder mit vertauschter Reihenfolge sieht im Diff vollständig
+    // richtig aus — genau daran ist der Soft-Refresh-Pfad des Boards fast
+    // gescheitert, der unten mit `return` aussteigt.
+    // Gemessen wird das ERWARTETE Ergebnis, nicht „irgendetwas steht da":
+    // `ebStornoAnsichtZeichnen()` schreibt in jedem seiner vier Zustände
+    // entweder `.storno-leer` oder `.storno-liste`. Auf die Länge des
+    // Markups zu prüfen hiesse, den Platzhalter-Kommentar abziehen zu
+    // müssen — und genau diesen Griff verbietet `pruefhygiene.spec.js`.
+    await openApp(page);
+    await page.evaluate(() => window.navigateTo('board'));
+    await expect(page.locator('#stornoListe'), 'die Board-Seite trägt kein '
+      + '#stornoListe').toHaveCount(1);
+    await expect(page.locator('#stornoListe .storno-leer, #stornoListe .storno-liste'),
+      '#stornoListe bleibt ungezeichnet — das Modul wird von nichts gerufen')
+      .toHaveCount(1, { timeout: 7000 });
+  });
+
+  test('auch der Soft-Refresh des Boards zeichnet die Liste', async ({ page }) => {
+    // `renderBoardPage()` steigt bei unverändertem Nutzer und unveränderter
+    // Rolle früh mit `return` aus. Ein Aufruf DAHINTER liefe nur beim
+    // ersten Aufbau — die Liste wäre danach für immer der Stand von vorhin,
+    // und niemandem fiele auf, dass sie nicht mehr nachlädt.
+    await openApp(page);
+    await page.evaluate(() => window.navigateTo('board'));
+    await expect(page.locator('#stornoListe')).toHaveCount(1);
+    await page.evaluate(() => {
+      document.getElementById('stornoListe').innerHTML = '';   // Fläche leeren
+      window.renderBoardPage();                                // = Soft-Refresh
+    });
+    await expect(page.locator('#stornoListe .storno-leer, #stornoListe .storno-liste'),
+      'beim zweiten Rendern bleibt #stornoListe ungezeichnet — der Aufruf steht '
+      + 'hinter dem frühen `return` des Soft-Refresh-Pfads')
+      .toHaveCount(1, { timeout: 7000 });
   });
 
   test('die Ansicht entscheidet nichts — sie ruft nur', () => {
