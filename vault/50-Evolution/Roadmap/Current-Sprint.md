@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1061 Tests in 67 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1076 Tests in 69 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Ein geteilter Link auf `/freunde` endete auf der Fehlerseite**
   (13.09.2026). Gemeldet aus einer Live-Prüfung, nachgemessen — und größer als

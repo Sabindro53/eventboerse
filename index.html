@@ -3093,6 +3093,14 @@ Datum: ___________________________________________________
           </div>
         </div>
 
+        <!-- Storno-Anträge. Der Planer sieht seine eigenen, der
+             Dienstleister die an ihn gerichteten. Beide Rollen erreichen das
+             Board, deshalb steht die Liste hier und nicht zweimal. -->
+        <section class="storno-block" id="stornoBlock">
+          <h3 class="storno-titel">Stornos</h3>
+          <div id="stornoListe"><!-- von ebStornoAnsichtZeichnen() gefüllt --></div>
+        </section>
+
         <!-- Projects Overview -->
         <div class="board-projects" id="boardProjects">
           <!-- Populated by JS -->

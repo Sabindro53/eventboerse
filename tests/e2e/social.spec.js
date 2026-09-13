@@ -32,6 +32,20 @@ function stand() {
   return _stand;
 }
 
+/**
+ * Aus welcher Funktion zieht `eb_create_tables()` seine Tabellen?
+ *
+ * Gesucht wird die QUELLE, nicht ein fester Name: sie darf umbenannt oder
+ * erweitert werden, solange Anlegen und Nachpruefen dieselbe benutzen.
+ */
+function tabellenQuelle(fn) {
+  const von = fn.indexOf('function eb_create_tables');
+  if (von < 0) return null;
+  const rumpf = fn.slice(von, fn.indexOf('\nadd_action', von));
+  const m = rumpf.match(/foreach\s*\(\s*(\w+)\(\)\s*as/);
+  return m ? m[1] : null;
+}
+
 test.describe('Handle: das Setzen ist die Einwilligung', () => {
   test('ein gültiger Handle wird gesetzt, ein ungültiger nicht', async () => {
     const d = stand();
@@ -365,8 +379,18 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
     // ist `localize-demo-images.mjs` gestorben: fertig, richtig, nie
     // gelaufen.
     const fn = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
-    expect(fn, 'eb_create_tables() legt die Social-Tabellen nicht an')
-      .toMatch(/foreach\s*\(\s*eb_social_tabellen_sql\(\)\s*as/);
+    // Gemessen wird die BEDINGUNG, nicht der Name. Seit dem 13.09.2026
+    // speisen sich Anlegen und Nachpruefen aus `eb_zusatz_tabellen_sql()`,
+    // damit eine fuenfte Tabelle (Storno) nicht angelegt, aber nicht
+    // nachgewiesen wird. Welche Funktion die Quelle ist, darf sich aendern;
+    // dass die Social-Tabellen darin ankommen, nicht.
+    const quelle = tabellenQuelle(fn);
+    expect(quelle, 'eb_create_tables() legt keine abgeleiteten Tabellen an — '
+      + 'dann steht die Liste wieder von Hand da').toBeTruthy();
+    const rumpf = fn.slice(fn.indexOf(`function ${quelle}(`));
+    expect(rumpf.slice(0, rumpf.indexOf('\n}')),
+      `${quelle}() fuehrt die Social-Tabellen nicht — dann werden sie nicht `
+      + 'angelegt').toContain('eb_social_tabellen_sql()');
     expect(fn, 'die Includes fehlen')
       .toMatch(/includes\/social\/freunde-gruppen\.php/);
     expect(fn, 'die Routen werden nirgends eingebunden')
@@ -435,10 +459,15 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
     const block = fn.slice(fn.indexOf('function eb_maybe_create_tables'),
       fn.indexOf('update_option( \'eb_db_version\', EB_DB_VERSION )'));
     expect(block, 'die Migrationsprüfung ist nicht auffindbar').toBeTruthy();
+    // DIESELBE Quelle wie beim Anlegen — das ist die eigentliche Regel.
+    // Pruefte die Migration eine andere Liste als die, die angelegt wird,
+    // spraenge `eb_db_version` bei fehlender Tabelle, und die Migration
+    // liefe nie wieder an. Genau der Fehler von 2.8, nur eine Ebene hoeher.
+    const quelle2 = tabellenQuelle(fn);
     expect(block,
-      'die Social-Tabellen werden bei der Migration nicht nachgeprüft — '
+      'die Migration prüft eine ANDERE Liste als die, die angelegt wird — '
       + 'dann gilt sie als erledigt, auch wenn eine Tabelle fehlt')
-      .toMatch(/foreach\s*\(\s*eb_social_tabellen_sql\(\)\s*as/);
+      .toMatch(new RegExp(`foreach\\s*\\(\\s*${quelle2}\\(\\)\\s*as`));
     expect(block, 'die Prüfung trägt die Tabellen wieder als Handliste')
       .toMatch(/SHOW TABLES LIKE '\{\$tab_social\}'/);
 
