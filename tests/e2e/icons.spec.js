@@ -79,6 +79,11 @@ test.describe('Icon-Schrift: der Zuschnitt zeigt alles', () => {
     const raus = execFileSync('node', [path.join(ROOT, 'scripts', 'icons.mjs'), '--check'],
       { cwd: ROOT, encoding: 'utf8' });
     expect(raus).toMatch(/✓/);
+    const hash = require('node:crypto').createHash('sha256').update(fs.readFileSync(SCHRIFT)).digest('hex').slice(0,12);
+    for (const file of ['assets/fonts/fonts.css','index.php']) {
+      expect(fs.readFileSync(path.join(ROOT,file),'utf8')).toContain('material-icons-round.woff2?v='+hash);
+    }
+
   });
 
   test('die ausgelieferte Schrift bleibt klein', () => {

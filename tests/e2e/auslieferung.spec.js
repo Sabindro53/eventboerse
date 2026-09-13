@@ -101,7 +101,7 @@ test.describe('Auslieferung: Schriften vorziehen', () => {
     // benutzt — und die richtige zusätzlich.
     const css = fs.readFileSync(path.join(ROOT, 'assets', 'fonts', 'fonts.css'), 'utf8');
     const ausCss = new Set(
-      [...css.matchAll(/url\('\.\/([\w.-]+\.woff2)'\)/g)].map((m) => m[1]));
+      [...css.matchAll(/url\('\.\/([\w.-]+\.woff2)(?:\?v=[a-f0-9]+)?'\)/g)].map((m) => m[1]));
     const ausPreload = new Set(
       vorgezogen().map((l) => l.match(/assets\/fonts\/([\w.-]+\.woff2)/)[1]));
     expect(ausCss.size, 'fonts.css lädt gar keine woff2').toBeGreaterThan(0);

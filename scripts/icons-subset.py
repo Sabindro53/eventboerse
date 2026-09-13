@@ -24,6 +24,8 @@ ZWEI DINGE, DIE DABEI SCHIEFGEHEN KOENNEN, BEIDE STILL:
 Beides prueft `tests/e2e/icons.spec.js` am gerenderten Ergebnis nach.
 """
 import os
+import hashlib
+import re
 import pathlib
 import sys
 
@@ -108,6 +110,14 @@ def main():
     # Kaesten im Betrieb. Diese Datei entsteht nur, wenn wirklich eine
     # Schrift gebaut wurde — sie kann der Schrift also nicht vorauseilen.
     IN_SCHRIFT.write_text('\n'.join(sorted(geblieben)) + '\n')
+
+    # Immutable browser caches need a new URL when the subset changes.
+    version = hashlib.sha256(ZIEL.read_bytes()).hexdigest()[:12]
+    for target in [WURZEL / 'assets/fonts/fonts.css', WURZEL / 'index.php']:
+        target.write_text(re.sub(r'material-icons-round\.woff2(?:\?v=[a-f0-9]+)?',
+                                'material-icons-round.woff2?v=' + version,
+                                target.read_text()))
+
 
     vorher = os.path.getsize(QUELLE) / 1024
     nachher = os.path.getsize(ZIEL) / 1024

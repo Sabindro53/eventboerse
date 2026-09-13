@@ -112,12 +112,13 @@ for (const { name, w, h } of BREITEN) {
       await page.setViewportSize({ width: w, height: h });
       const fehler = [];
       page.on('pageerror', (e) => fehler.push(String(e)));
-      await page.goto('/');
+      const response = await page.goto('/');
 
-      // Gegenprobe: der Schleier ist beim ersten Aufruf überhaupt da.
-      // Ohne sie bestünde der Test auch, wenn es ihn gar nicht mehr gäbe.
-      expect(await page.locator('#appLoadingOverlay').count(),
-        'der Ladeschleier steht beim ersten Aufruf nicht in der Seite').toBe(1);
+      // Gegenprobe am ausgelieferten HTML: nach load kann der korrekt
+      // entfernte Schleier bereits fehlen. Die DOM-Zählung war ein Rennen.
+      expect(await response.text(),
+        'der Ladeschleier steht beim ersten Aufruf nicht in der Seite')
+        .toMatch(/<div\s+id="appLoadingOverlay"/);
 
       await warteAufAppBereit(page);
       expect(fehler, `beim Start geworfen: ${fehler.join(' | ')}`).toEqual([]);

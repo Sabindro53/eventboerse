@@ -456,7 +456,7 @@ function ebAktivitaetenStarthilfe() {
     + '<button type="button" class="btn-primary" onclick="startPlanningBoard({intent: \'custom\'})">'
     + '<span class="material-icons-round">dashboard</span> Vorhaben planen</button>'
     + '<button type="button" class="btn-outline" onclick="startPlanningBoard({intent: \'friends\'})">'
-    + '<span class="material-icons-round">diversity_3</span> Mit Freunden</button>'
+    + '<span class="material-icons-round">groups</span> Mit Freunden</button>'
     + '<button type="button" class="btn-outline" onclick="navigateTo(\'browse\')">'
     + '<span class="material-icons-round">search</span> Dienstleister finden</button>'
     + '</div></div>';

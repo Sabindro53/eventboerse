@@ -185,7 +185,7 @@ function renderOwnProfileHub(pid) {
     ['dashboard','Meine Planung','Ideen, Budget und Aufgaben','board'],
     ['favorite_border','Merkliste','Gespeicherte Leistungen','favorites'],
   ];
-  actions.push(['diversity_3','Freunde & Gruppen','Zusammen etwas erleben','freunde'],['chat_bubble_outline','Nachrichten','Absprechen und Angebote klären','messages']);
+  actions.push(['groups','Freunde & Gruppen','Zusammen etwas erleben','freunde'],['chat_bubble_outline','Nachrichten','Absprechen und Angebote klären','messages']);
   var hub = document.createElement('section');
   hub.id = 'ownProfileHub';
   hub.className = 'journey-profile-hub';

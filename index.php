@@ -226,7 +226,7 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="<?php echo get_template_directory_uri(); ?>/assets/fonts/inter-latin-wght-normal.woff2">
     <link rel="preload" as="font" type="font/woff2" crossorigin
-          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/material-icons-round.woff2">
+          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/material-icons-round.woff2?v=8f726a72fc59">
 
     <!-- ── fonts.css und styles.css stehen NICHT hier ──
          Sie werden in eventboerse_enqueue_assets() eingebunden und landen ueber

@@ -42,13 +42,13 @@
   <!-- Critical CSS first (render-blocking, but small) -->
   <link rel="preload" href="styles.css?v=164" as="style" fetchpriority="high" />
   <link rel="stylesheet" href="styles.css?v=164" />
-  <link rel="stylesheet" href="discovery.css" />
-  <link rel="stylesheet" href="planning.css" />
-  <link rel="stylesheet" href="journeys.css" />
+  <link rel="stylesheet" href="discovery.css?v=20260913-ux" />
+  <link rel="stylesheet" href="planning.css?v=20260913-ux" />
+  <link rel="stylesheet" href="journeys.css?v=20260913-ux" />
   <link rel="stylesheet" href="release-vision.css?v=1" />
 
   <!-- Schriften: liegen im Theme, also kein async-Kniff noetig. -->
-  <link rel="stylesheet" href="assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=20260913-ux" />
 
   <!-- Leaflet & Flatpickr: nur CSS im Head, JS am Ende deferred -->
   <link rel="stylesheet" href="assets/lib/leaflet/leaflet.css" />
@@ -212,7 +212,7 @@
       </div>
       <div class="nav-actions">
         <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
-        <button type="button" class="nav-icon-btn journey-friends-nav" onclick="navigateTo('freunde')" title="Freunde & Gruppen" aria-label="Freunde & Gruppen"><span class="material-icons-round">diversity_3</span></button>
+        <button type="button" class="nav-icon-btn journey-friends-nav" onclick="navigateTo('freunde')" title="Freunde & Gruppen" aria-label="Freunde & Gruppen"><span class="material-icons-round">groups</span></button>
         <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten" aria-label="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
           <span class="badge" id="msgBadge" style="display:none"></span>
@@ -249,7 +249,7 @@
         <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
         <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Planungs-Board</button>
-        <button onclick="navigateTo('freunde')"><span class="material-icons-round">diversity_3</span> Freunde &amp; Gruppen</button>
+        <button onclick="navigateTo('freunde')"><span class="material-icons-round">groups</span> Freunde &amp; Gruppen</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
@@ -2658,7 +2658,7 @@
          nicht gibt, waere eine leere Huelle mit Platzhaltern. -->
     <section id="page-freunde" class="page">
       <div class="container container-sm">
-        <h1 class="soz-titel"><span class="material-icons-round">diversity_3</span> Freunde &amp; Gruppen</h1>
+        <h1 class="soz-titel"><span class="material-icons-round">groups</span> Freunde &amp; Gruppen</h1>
         <p class="soz-untertitel">Plane gemeinsam — ein Fest, ein Festival, ein Betriebsausflug.</p>
         <div id="freundeInhalt"></div>
       </div>
@@ -3179,7 +3179,7 @@ Datum: ___________________________________________________
                  Seite. Die gemeinsame Planung war gebaut und von genau der
                  Stelle aus, an die „Vorhaben planen" schickt, unerreichbar. -->
             <button class="btn-outline" onclick="ebGemeinsamPlanen()" id="btnGemeinsamPlanen">
-              <span class="material-icons-round">diversity_3</span> Gemeinsam planen
+              <span class="material-icons-round">groups</span> Gemeinsam planen
             </button>
             <button class="btn-outline" onclick="showBoardProjects()" id="btnAllBoards" style="display:none">
               <span class="material-icons-round">arrow_back</span> Alle Projekte

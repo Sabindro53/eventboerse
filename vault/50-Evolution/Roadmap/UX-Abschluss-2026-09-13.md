@@ -8,7 +8,7 @@ tags: [layer/L5, domain/evolution, share/internal, ux, booking]
 # Eventbörse: zusammenhängende Nutzerwege
 
 Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
-`8bf3d8e`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
+`8bf3d8e`, zusammengeführt mit Hauptzweig `2237783`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
 
 ## Umgesetzt
 
@@ -17,10 +17,10 @@ Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
   Zeitlich abgelaufene Termine erscheinen nicht als aktuelle Vorschläge.
   Nicht erfasste Regionen, Ladefehler und tatsächlich leere Ergebnisse haben
   unterschiedliche Meldungen und nächste Schritte.
-- Der vorhandene Sammler hat 577 echte Einträge geliefert: 77 Sporttermine und
-  500 Orte in Köln, Düsseldorf, Berlin, München und Stuttgart samt Umgebung.
-  Quellen und externe Weiterleitung sind sichtbar. Dortmund, Hamburg und
-  Frankfurt lieferten beim Abruf HTTP 429 und werden nicht als erfasst ausgegeben.
+- Der aktualisierte Sammler hat 954 echte Einträge geliefert: 154 Sporttermine und
+  800 Orte in Köln, Düsseldorf, Dortmund, Berlin, Hamburg, München, Frankfurt
+  und Stuttgart samt Umgebung. Alle 954 Datensätze bestehen die Quellenprüfung.
+  Quellen und externe Weiterleitung sind sichtbar.
 - „Mit Freunden planen“ führt zur Gruppe mit Namens-/Datumsvorgabe, Freundesauswahl
   und echtem gespeichertem Plan. Aktivitätsquelle und Termin werden übernommen.
   Freunde sind per Handle auffindbar; Einladungen lassen sich annehmen oder über
@@ -48,7 +48,7 @@ Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
 
 ## Prüfung
 
-Der Prüfstand umfasst 1037 Tests in 66 Suiten. Neue Fälle prüfen Radar-Konsistenz,
+Der zusammengeführte Prüfstand umfasst 1055 Tests in 67 Suiten. Neue Fälle prüfen Radar-Konsistenz,
 Planung/Speicherung, Freunde/Einladungen, Kontowechsel, Centbeträge sowie die
 serverseitigen Grenzen von Angeboten und Erstattungen. PHP wird in diesen
 Grenztests ausgeführt; WordPress/Stripe werden dafür kontrolliert ersetzt.
@@ -57,7 +57,15 @@ Alle zunächst fehlgeschlagenen Bereiche wurden anschließend gezielt erneut gep
 20/20 (Buchungsgrenzen, CSS, Gruppenwege, Planung), 5/5 im Release-Bereich,
 6/6 Gruppen-/Routingfälle, 26/26 Smoke-Fälle und 46/46 für Sprache/WebP.
 Der zusätzliche WordPress-Routingfall erhöht den Bestand auf 1037 Tests.
-Es wurde kein neuer vollständiger 1037er-Lauf nach den letzten Korrekturen gestartet.
+Der vollständige zusammengeführte Lauf ergab 1053/1055 bestandene Fälle (9,4 Minuten).
+Die zwei Befunde waren die Sprint-Dokumentationsreihenfolge und eine zeitabhängige
+Loader-Gegenprobe. Beide wurden korrigiert; 116/116 Fälle der betroffenen Suiten
+bestanden in der Nachprüfung. Die Loader-Gegenprobe prüft nun das ausgelieferte
+HTML, weil der Loader nach dem Browser-Ladeereignis bereits korrekt entfernt sein
+kann. Das anschließende Verschwinden bleibt am laufenden DOM geprüft.
+Ein isolierter Mutationstest schaltete die Erstattungsberechtigung absichtlich aus:
+der zugehörige Test schlug wie erwartet fehl (HTTP 200 statt 403). Der Produktcode
+blieb dabei unverändert.
 
 Die Nachprüfungen behoben auch vorhandene Prüfstandsfehler: Ein Negationszeichen
 fehlte bei der großen Bildspeicherprobe; das Speicherlimit wird nun explizit
@@ -83,7 +91,7 @@ verwenden temporäre Wrapper auf die bereits installierte npm-Distribution.
   Betriebsprozesse; dafür wird im Interface keine neue Garantie erfunden.
 - Die vorhandene Vorgründungs-/Testmodus-Sperre bleibt aktiv. Nationale
   Quellenabdeckung, Meta/Facebook-Zugang und zusätzliche Veranstaltungspartner
-  sind nicht durch diese fünf Regionen ersetzt. Ein regelmäßiger erfolgreicher
+  sind nicht durch diese acht Regionen ersetzt. Ein regelmäßiger erfolgreicher
   Datenabruf muss im Betrieb überwacht werden.
 - Kontaktfilter sind keine lückenlose Umgehungserkennung (z. B. Bilder oder
   absichtlich verschleierte Angaben). Durchsetzung braucht zusätzliche Moderation.
@@ -113,3 +121,12 @@ Bestätigte Unterschiede zum neuen Stand:
 
 Die Live-Prüfung validiert den Ausgangszustand. Sie ersetzt keine Abnahme der
 noch nicht veröffentlichten Änderungen am produktiven WordPress-System.
+
+## Auslieferung und Rückfallplan
+
+Verantwortlich: Codex in diesem Auftrag. Nächster Schritt: PR-Prüfungen und
+regulärer Merge mit anschließendem IONOS-Deploy. Die bestehenden Testmodus- und
+Vorgründungssperren bleiben aktiv. Diese Änderung erhöht keine Datenbankversion.
+Bei PHP-Fehlern, defektem Login oder nicht erreichbaren Kernseiten nach dem Deploy
+wird der Auslieferungscommit regulär zurückgenommen und erneut deployt; keine
+Datenbanklöschung und kein Umschreiben der Historie. Erstellte Pläne bleiben erhalten.

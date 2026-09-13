@@ -41,7 +41,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('./material-icons-round.woff2') format('woff2');
+  src: url('./material-icons-round.woff2?v=8f726a72fc59') format('woff2');
 }
 
 .material-icons-round {

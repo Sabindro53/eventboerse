@@ -9,21 +9,6 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## UX-Abschlussstand (2026-09-13)
-
-Feed, Radar, persönliche Planung, Gruppen und Chat haben gemeinsame Einstiege.
-„Mit Freunden planen“ erstellt einen echten Gruppenplan mit Einladungen; das
-Board öffnet Projekte, der Assistent ist eine eigene Option. Hochzeiten haben
-18 auswählbare Bausteine mit Budget und Notizen. Beim Wechsel in eine Gruppe
-werden Planungsansätze kopiert; persönliche Buchungsdaten bleiben privat.
-Spätere Änderungen werden nicht zwischen persönlichem und Gruppenplan gespiegelt.
-
-Der Aktivitätenbestand enthält 577 echte Datensätze aus fünf erfassten Regionen.
-Das ist keine deutschlandweite Vollabdeckung. Buchungen brauchen ein zum Inserat
-gehörendes angenommenes Angebot. Anbieter-Stornierungen dokumentieren Grund und
-Stripe-Erstattungsstatus. Es wurde keine Live-Zahlung ausgelöst und nicht deployt.
-Details, Abnahme und offene Betriebsfragen: [[UX-Abschluss-2026-09-13]].
-
 ## Stand heute (2026-08-26)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
@@ -33,6 +18,22 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 - **Playwright-Suite: 1055 Tests in 67 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## UX-Abschlussstand (2026-09-13)
+
+Feed, Radar, persönliche Planung, Gruppen und Chat haben gemeinsame Einstiege.
+„Mit Freunden planen“ erstellt einen echten Gruppenplan mit Einladungen; das
+Board öffnet Projekte, der Assistent ist eine eigene Option. Hochzeiten haben
+18 auswählbare Bausteine mit Budget und Notizen. Beim Wechsel in eine Gruppe
+werden Planungsansätze kopiert; persönliche Buchungsdaten bleiben privat.
+Spätere Änderungen werden nicht zwischen persönlichem und Gruppenplan gespiegelt.
+
+Der Aktivitätenbestand enthält 954 echte Datensätze aus acht erfassten Regionen.
+Das ist keine deutschlandweite Vollabdeckung. Buchungen brauchen ein zum Inserat
+gehörendes angenommenes Angebot. Anbieter-Stornierungen dokumentieren Grund und
+Stripe-Erstattungsstatus. Es wurde keine Live-Zahlung ausgelöst und nicht deployt.
+Details, Abnahme und offene Betriebsfragen: [[UX-Abschluss-2026-09-13]].
+
 - **Zwei Modelle, ein Rahmen** (13.09.2026). `AGENTS.md` regelt die
   Zusammenarbeit von Claude Code und Codex/Astra — und wiederholt CLAUDE.md
   bewusst *nicht*, weil zwei Fassungen derselben Regel immer driften. Die

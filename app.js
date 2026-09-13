@@ -7918,7 +7918,7 @@ function ebAktivitaetenStarthilfe() {
     + '<button type="button" class="btn-primary" onclick="startPlanningBoard({intent: \'custom\'})">'
     + '<span class="material-icons-round">dashboard</span> Vorhaben planen</button>'
     + '<button type="button" class="btn-outline" onclick="startPlanningBoard({intent: \'friends\'})">'
-    + '<span class="material-icons-round">diversity_3</span> Mit Freunden</button>'
+    + '<span class="material-icons-round">groups</span> Mit Freunden</button>'
     + '<button type="button" class="btn-outline" onclick="navigateTo(\'browse\')">'
     + '<span class="material-icons-round">search</span> Dienstleister finden</button>'
     + '</div></div>';
@@ -29917,7 +29917,7 @@ function renderOwnProfileHub(pid) {
     ['dashboard','Meine Planung','Ideen, Budget und Aufgaben','board'],
     ['favorite_border','Merkliste','Gespeicherte Leistungen','favorites'],
   ];
-  actions.push(['diversity_3','Freunde & Gruppen','Zusammen etwas erleben','freunde'],['chat_bubble_outline','Nachrichten','Absprechen und Angebote klären','messages']);
+  actions.push(['groups','Freunde & Gruppen','Zusammen etwas erleben','freunde'],['chat_bubble_outline','Nachrichten','Absprechen und Angebote klären','messages']);
   var hub = document.createElement('section');
   hub.id = 'ownProfileHub';
   hub.className = 'journey-profile-hub';
