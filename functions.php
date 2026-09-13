@@ -877,7 +877,7 @@ add_action( 'wp_enqueue_scripts', 'eb_fremde_stile_abbestellen', 100 );
  * damit die Single-Page-App die Navigation übernimmt.
  */
 function eb_spa_pages() {
-    return array(
+    $spa_pages = array(
         'browse', 'detail', 'provider', 'messages', 'profile',
         'create-listing', 'edit-profile', 'settings', 'admin',
         'event-erstellen', 'service-erstellen', 'aktuelles',
@@ -887,6 +887,7 @@ function eb_spa_pages() {
         'dsa', 'p2b', 'barrierefreiheit', 'vsbg',
         'favorites', 'freunde', 'business', 'my-listings', 'auftraege',
     );
+    return $spa_pages;
 }
 add_action( 'init', function() {
     foreach ( eb_spa_pages() as $slug ) {

@@ -357,6 +357,34 @@ function sozialReiter(name) {
   renderFreundePage();
 }
 
+/**
+ * Vom Board in die gemeinsame Planung.
+ *
+ * DIE BRÜCKE FEHLTE GANZ. Am 13.09.2026 im echten Browser gemessen: „Vorhaben
+ * planen" auf der Landeseite führt nach `board`, und dort gab es **keinen
+ * einzigen** Verweis auf Freunde, Gruppen oder Einladungen — gezählt über
+ * jedes `onclick` der Seite, Ergebnis 0. Freunde, Gruppen und der gemeinsame
+ * Plan sind seit dem 09./10.09. gebaut und waren von der Stelle aus, an die
+ * der Nutzer geschickt wird, **nicht erreichbar**.
+ *
+ * Gemeldet hat es der Inhaber so: „event mit freunden planen ist fehlerhaft
+ * und man wird dann zum board gebracht, aber dann beim KI-Talk, statt ein
+ * Planungsboard zu erhalten wo man seine Freunde hinzufügen kann."
+ *
+ * Der Reiter wird VOR dem Wechsel gesetzt, nicht danach: `renderFreundePage()`
+ * liest `_sozialReiter`, und wer erst navigiert und dann umschaltet, zeichnet
+ * die Seite zweimal — beim ersten Mal mit dem falschen Reiter, sichtbar.
+ *
+ * Abgemeldet bleibt alles wie bisher: `/freunde` erklärt selbst, warum es ein
+ * Konto braucht. Ein Anmeldedialog, der ohne Erklärung aufgeht, sieht aus wie
+ * eine Absage — dieselbe Begründung wie im Router.
+ */
+function ebGemeinsamPlanen() {
+  _sozialReiter = 'gruppen';
+  if (_activeBoardId) return planningInviteProject();
+  return startGroupPlanning();
+}
+
 /* ── Laden und Handlungen ─────────────────────────────────────────── */
 
 function sozialZuruecksetzen() {

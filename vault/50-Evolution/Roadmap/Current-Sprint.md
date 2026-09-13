@@ -31,8 +31,22 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1037 Tests in 66 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1055 Tests in 67 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+- **Zwei Modelle, ein Rahmen** (13.09.2026). `AGENTS.md` regelt die
+  Zusammenarbeit von Claude Code und Codex/Astra — und wiederholt CLAUDE.md
+  bewusst *nicht*, weil zwei Fassungen derselben Regel immer driften. Die
+  Aufteilung folgt einer harten Randbedingung: Astras Kontingent ist knapp,
+  also bekommt sie scharf umrissene Umsetzung mit vorliegender Messung, Claude
+  die langen Messreihen. `zusammenarbeit.spec.js` hält den Rahmen (7 Tests,
+  6 Mutationen)
+- **Der Berlin-Fall war live kaputt, und niemand hat es gesehen**
+  (13.09.2026). Die Tagesroutine legte seit dem 31.08. **jeden Tag einen PR
+  an — 14 lagen offen, keiner gemergt.** `assets/eb-aktivitaeten.json` stand
+  live auf `stand: null`, während täglich 722 Einträge für sechs Städte neu
+  erzeugt wurden. Ursache: nicht eine rote Prüfung (beide liefen und
+  kommentierten), sondern der Branch-Schutz — ein Bot-Token bekommt keine
+  Freigabe, und `gh pr merge --auto` wartet darauf endlos
 - **Freunde und Gruppen gibt es jetzt** (09.09.2026). Vorher gab es davon
   *nichts* — `'musikgruppe'` ist eine Kategorie, `_feedRadarGruppen` ist
   Karten-Clustering, `/collaborations` eine Referenzliste
@@ -216,6 +230,21 @@ mitbestimmen. Sie stehen hier, damit der Ensemble-Kontext sie kennt:
 
 Berührung mit meinen Änderungen: **keine.** Die vier PRs haben weder `vault/`
 noch `assets/eb-knowledge.json` angefasst.
+
+## Übergabe zwischen den Modellen
+
+Der einzige Ort dafür. Regeln: `AGENTS.md` §7. Jeder Eintrag nennt **Befund**
+(gemessen, mit Zahl), **nächsten Schritt** (Datei, Fundstelle, erwartetes
+Verhalten) und **wer** ihn nimmt — sonst fassen zwei Modelle dieselbe Stelle an.
+
+Ein Eintrag ohne Messung ist erfundene Arbeit und gehört nicht hierher.
+
+| Befund (gemessen) | Nächster Schritt | Wer |
+|---|---|---|
+| ~~München und Stuttgart fehlen~~ — **die Aufgabenstellung war falsch.** An vier Tagesständen gemessen: 10.09. 6/8 (ohne Dortmund, Stuttgart), 11.09. 5/8 (ohne Dortmund, Berlin, Stuttgart), 12.09. 7/8 (ohne Berlin), 13.09. 6/8 (ohne München, Stuttgart). An keinem Tag alle acht; welche fehlen, wechselt täglich | **Behoben** (13.09.): `overpassHolen()` hat drei Anläufe mit wachsender Pause, ein Zeitlimit am Client und ein Budget, das nur Wiederholungen kürzt. 7 Tests, 6 Mutationen. **Offen bleibt der Nachweis:** ob wirklich 8/8 ankommen, zeigt erst der nächste Tagesstand — Overpass ist von der Agent-Umgebung aus nicht erreichbar | claude (Nachweis) |
+| `⚡ HQ-Puls` scheitert wiederholt (Läufe 1675 und 1676 am 13.09., je `conclusion: failure`) | Log des letzten Laufs lesen und die Ursache benennen, bevor etwas geändert wird. Ein Workflow, der täglich rot läuft, wird nach der dritten Woche nicht mehr gelesen | offen |
+| Die Landeseite trägt 105 endlos laufende Deko-Animationen, zusammen 257 ms Hauptthread je 3 s (Median aus drei verschachtelten Runden: 646 → 389 ms) | Gestaltungsentscheidung des Inhabers, **keine** Aufräumarbeit — siehe `AGENTS.md` §6 | Inhaber |
+| Der Board-Slot der Mobilleiste führt für Dienstleister ins Planungs-Board, nicht zu den Aufträgen. Dokumentierte Entscheidung, kein Versehen | Produktentscheidung des Inhabers | Inhaber |
 
 ## Zuletzt ausgeliefert (August 2026)
 

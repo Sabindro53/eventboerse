@@ -971,6 +971,10 @@ function renderBoardPage() {
   var _bpk = document.getElementById('boardPageKicker');
   if (_bpk) _bpk.textContent = (currentUser && isProvider) ? 'DIENSTLEISTER' : 'EVENT-PLANER';
   var _bps = document.getElementById('boardPageSubtitle');
+  // Der Untertitel nennt, was die Seite WIRKLICH kann. Bis zum 13.09.2026
+  // versprach er nur einen Chat („im Chat mit deinem Assistenten"), und wer
+  // „Vorhaben planen" geklickt hatte, las das als falsches Ziel. Der Chat ist
+  // ein Teil des Boards, nicht das Board.
   if (_bps) _bps.textContent = (currentUser && isProvider)
     ? 'Deine Aufträge, Termine und eigenen Event-Projekte an einem Ort'
     : 'Ideen sammeln, Freunde einladen und dein Event Schritt für Schritt zusammenstellen';
