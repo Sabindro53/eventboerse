@@ -2234,6 +2234,101 @@ Entscheidung des Inhabers, keine Aufräumarbeit.
 npx playwright test tests/e2e/kontaktschutz.spec.js   # 7 Tests, 7 Mutationen
 ```
 
+### Der Zahler durfte sich sein Geld selbst zurückholen
+
+Beim Messen des Zahlungswegs am 13.09.2026 gefunden. Der Auftrag lautete,
+dem Planer *Zahlungssicherheit* zu geben — gefunden wurde das Gegenteil: er
+hatte zu viel Macht, und der Dienstleister gar keine.
+
+Die Kette, Schritt für Schritt am Code:
+
+| | |
+|---|---|
+| `js/modules/board/41-flow-zahlung.js:1254` | der Planer bezahlt über `/stripe/create-payment-intent` |
+| `functions.php` (`eb_stripe_create_payment_intent`) | dieser Handler setzt `metadata[user_id]` = **der angemeldete Zahler** |
+| `functions.php` (Routen-Block) | `/stripe/refund` steht auf `permission_callback => 'is_user_logged_in'` |
+| `eb_stripe_refund()` | `$owner_match = ( $owner_uid === $user->ID )` → **genau dieser Zahler war berechtigt** |
+| dieselbe Funktion | die Erstattung setzt `reverse_transfer=true` |
+
+**Ein angemeldeter Kunde konnte damit jederzeit und einseitig seine eigene
+Zahlung in voller Höhe erstatten — auch nach erbrachter Leistung.** Das Geld
+wird dabei aus dem **Connect-Konto des Dienstleisters** zurückgeholt; der hat
+dann gearbeitet und bekommt nichts. Die `pi_…`-Kennung steht im
+`client_secret`, das der Browser ohnehin erhält: es braucht ein Konto, eine
+Buchung und die Entwicklerkonsole, sonst nichts.
+
+**Aufgehalten hat das nur, dass es keinen Knopf dafür gibt.** Gemessen: null
+Aufrufe von `/stripe/refund` in `js/modules/**`, null in `hq.html`, null
+irgendwo im ausgelieferten Code. Eine REST-Route ist damit nicht
+unerreichbar — sie ist nur unbeworben. **Schutz durch einen fehlenden Knopf
+ist keiner**, und das ist in diesem Projekt die teuerste wiederkehrende
+Fehlerklasse.
+
+**Es war keine Absicht, sondern eine Drift.** Der Docblock derselben Funktion
+nennt seit jeher genau zwei Berechtigte: *„der Anbieter, dem das Geld
+zugeflossen ist"* und *„Plattform-Admins"*. Der Kommentar am `$owner_match`-
+Zweig erklärte ihn mit *„falls die App den Owner dort hinterlegt hat"* —
+gemeint war der **Anbieter**, geschrieben wird der **Zahler**. Zwei Stellen,
+eine Annahme, auseinandergelaufen; diesmal auf einem Geldweg.
+
+**Die Behebung ist ausschliesslich enger.** `eb_erstattung_darf()` in
+`includes/payments/erstattung-rechte.php` stellt die Regel des Docblocks
+wieder her: Admin oder Connect-Kontoinhaber, sonst nein. Es kommt kein Recht
+hinzu. Und weil **kein Client die Route ruft**, kann dabei kein Nutzerweg
+brechen — das ist gemessen, nicht angenommen.
+
+**In eigener Datei, weil eine Rechteprüfung auf einem Geldweg AUSGEFÜHRT
+gehört, nicht gelesen.** Der Prüfstand bindet sie ein, ohne WordPress zu
+stellen; je mehr ein Prüfstand stellt, desto weniger prüft er.
+
+**`hash_equals`, und zwei Wachen davor.** Ohne die frühen Rückgaben wäre
+`'' === ''` ein Treffer: jeder Angemeldete ohne Connect-Konto dürfte jede
+Zahlung ohne Ziel erstatten. Beim Lesen sieht das wie eine gewöhnliche
+Gleichheitsprüfung aus.
+
+**Stripe nennt das Konto an zwei Feldern und in zwei Formen** —
+`transfer_data.destination` oder `on_behalf_of`, als Zeichenkette oder als
+eingebettetes Objekt. Wer nur einen Fall liest, sperrt den Anbieter in den
+übrigen aus: ein Nein aus dem falschen Grund, und der Weg, den der Auftrag
+ausdrücklich verlangt (*„wenn er das nicht erfüllen kann, muss er Bescheid
+geben und Geld zurückzahlen"*), wäre zu.
+
+**Acht Mutationen, sechs rot.** Der Zahler darf wieder (3 rot) · `on_behalf_of`
+wird nicht gelesen · das eingebettete Objekt nicht aufgelöst · der Handler
+ruft die Regel nicht · die Einbindung entfernt · **beide** Leer-Wachen
+entfernt.
+
+**Zwei überleben legitim, und das gehört hierher:** jede Leer-Wache **allein**
+zu entfernen ändert nichts, weil die andere den Fall bereits schliesst
+(`hash_equals` mit einer gefüllten Seite ist immer falsch). Erst das Entfernen
+beider öffnet das Loch. Die Zusicherung gilt also dem **Paar**, nicht der
+einzelnen Zeile — dieselbe Lage wie bei der doppelten Wache im Marquee.
+
+**Und meine eigene Prüfung fiel zuerst auf den Kommentar herein.** Der Test,
+der festhält, dass `$owner_match` weg ist, fand den Namen im erklärenden
+Kommentar wieder, den das Entfernen dort hinterlassen hat — so verlangt es
+dieses Projekt ja. Gemessen wird jetzt **nach Abzug der Kommentare**, über
+PHPs eigenen Tokenizer (`tests/e2e/lib/php-code.js`): ein regulärer Ausdruck
+über `//` trifft auch das in `'https://api.stripe.com/…'` und wirft den Rest
+der Zeile weg — samt Code, der dort stehen könnte.
+
+**Was hier NICHT entschieden wird:** ob ein Eventplaner selbst stornieren
+können soll. Wenn ja, dann als eigener Vorgang mit **Frist, Begründung und
+Benachrichtigung des Dienstleisters** — nicht als stiller Vollzugriff auf
+`POST /stripe/refund`. Ein Test hält deshalb fest, dass es weiterhin **keinen**
+Weg aus der App in diese Route gibt: bekommt sie einen, fällt er durch und
+zwingt zur Entscheidung, statt sie zu überspringen.
+
+**Offen bleibt damit der Auftrag selbst.** Heute hat der Planer im Produkt
+**gar keine** Zahlungssicherheit: keinen Weg zu einer Erstattung ausser über
+den Dienstleister oder den Betreiber. Das „ähnlich wie bei Lieferando"
+braucht einen Vorgang, den es noch nicht gibt — eine Produktentscheidung des
+Inhabers.
+
+```bash
+npx playwright test tests/e2e/erstattung.spec.js   # 9 Tests, 8 Mutationen
+```
+
 ### Eine Adresse, die mit der Route wanderte
 
 Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
@@ -2750,7 +2845,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1047 Tests in 65 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1056 Tests in 66 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2819,6 +2914,11 @@ niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Einstiege** (die Landeseite bedient mehr als eine Absicht — jeder Weg
 wird geklickt, nicht im Markup gesucht; der Anbieter-Einstieg endet in der
 Registrierung, nicht in der Anmeldung),
+**Erstattung** (die Rechteprüfung auf dem Geldweg wird im echten PHP
+ausgeführt, nicht gelesen: der zahlende Kunde kann seine eigene Zahlung NICHT
+einseitig zurückholen, der Anbieter und Admins schon; ein leeres Konto trifft
+nie auf ein leeres Ziel; und der Handler ruft die Regel wirklich — gemessen
+nach Abzug der Kommentare),
 **Kontaktschutz** (der Filter im Chat wird an einem Korpus gemessen, nicht
 gelesen: 22 Nachrichten mit Kontaktdaten werden alle geblockt, 32 ehrliche
 Verhandlungssätze kommen alle durch — Rechnungs-, Bestell- und Kundennummer
