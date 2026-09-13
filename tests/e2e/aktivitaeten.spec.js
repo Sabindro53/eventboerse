@@ -474,3 +474,138 @@ test.describe('Aktivitäten-Bestand: das Skript wird auch gestartet', () => {
     expect(beanstanden(d, JETZT).beanstandungen).toEqual([]);
   });
 });
+
+/* ============================================================================
+ * DER ABRUF: EIN VERSUCH JE STADT WAR EINER ZU WENIG
+ *
+ * Am 13.09.2026 an vier aufeinanderfolgenden Tagesständen gemessen — und die
+ * Messung hat die Aufgabenstellung widerlegt, die als „München und Stuttgart
+ * fehlen" in der Übergabe stand:
+ *
+ *   10.09.  6/8 — ohne Dortmund, Stuttgart
+ *   11.09.  5/8 — ohne Dortmund, Berlin, Stuttgart
+ *   12.09.  7/8 — ohne Berlin
+ *   13.09.  6/8 — ohne München, Stuttgart
+ *
+ * An keinem Tag waren alle acht da, und welche fehlten, wechselte täglich.
+ * Der Ausfall ist vorübergehend, nicht stadtspezifisch. Die Wirkung war
+ * schlimmer als ein Loch: „Diese Gegend ist noch nicht erfasst" wanderte von
+ * Tag zu Tag durch Deutschland.
+ *
+ * GEPRÜFT WIRD DAS VERHALTEN, NICHT DIE KONSTANTE. Ein Test auf
+ * `ABRUF_VERSUCHE === 3` wäre grün, während die Schleife den Wert gar nicht
+ * benutzt — dieselbe Klasse wie ein Prüfer ohne Subjekt. Deshalb zählt jeder
+ * Test hier echte Aufrufe an einem gestellten `holer`.
+ * ========================================================================= */
+test.describe('Abruf: ein ausgefallenes Gebiet bekommt einen zweiten Anlauf', () => {
+  const GEBIET = { stadt: 'Stuttgart', lat: 48.7758, lon: 9.1829, umkreisKm: 50 };
+
+  /** Ein gestellter `fetch`, der eine vorgegebene Folge von Antworten liefert. */
+  function holerMit(folge) {
+    const rufe = [];
+    const holer = async (url, opt) => {
+      rufe.push({ url, opt });
+      const a = folge[Math.min(rufe.length - 1, folge.length - 1)];
+      if (a instanceof Error) throw a;
+      return {
+        ok: a.status >= 200 && a.status < 300,
+        status: a.status,
+        json: async () => a.body ?? { elements: [] },
+      };
+    };
+    return { holer, rufe };
+  }
+
+  test('ein 429 wird wiederholt — und der zweite Anlauf zählt', async () => {
+    // Der häufigste Fall: Overpass ist gerade voll. Beim ersten Mal abgewiesen,
+    // beim zweiten Mal durch — genau dieser Unterschied entscheidet, ob eine
+    // ganze Stadt einen Tag lang „nicht erfasst" heisst.
+    const { overpassHolen } = await modul();
+    const { holer, rufe } = holerMit([{ status: 429 }, { status: 200, body: { elements: [{ id: 1 }] } }]);
+    const gewartet = [];
+    const antwort = await overpassHolen(GEBIET, { holer, warten: async (ms) => gewartet.push(ms) });
+
+    expect(antwort, 'die Antwort des zweiten Anlaufs kommt nicht durch')
+      .toEqual({ elements: [{ id: 1 }] });
+    expect(rufe.length, `nach einem 429 wurde ${rufe.length}-mal gefragt. Ein `
+      + 'einziger Anlauf macht aus einer vorübergehenden Überlastung eine '
+      + 'Aussage über die Gegend, die einen ganzen Tag gilt').toBe(2);
+    expect(gewartet.length, 'vor dem zweiten Anlauf wurde nicht gewartet — '
+      + 'sofort wieder anzuklopfen ist genau das, was den 429 ausgelöst hat')
+      .toBe(1);
+  });
+
+  test('ein 400 wird NICHT wiederholt', async () => {
+    // Das ist unsere Abfrage, nicht deren Last. Sie dreimal zu schicken wäre
+    // dreimal derselbe Fehler — und dreimal dieselbe Last für einen Dienst,
+    // der uns seine Rechenzeit schenkt.
+    const { overpassHolen } = await modul();
+    const { holer, rufe } = holerMit([{ status: 400 }]);
+    await expect(overpassHolen(GEBIET, { holer, warten: async () => {} }))
+      .rejects.toThrow(/400/);
+    expect(rufe.length, `eine fehlerhafte Abfrage wurde ${rufe.length}-mal `
+      + 'geschickt. Overpass ist gespendet, nicht gekauft').toBe(1);
+  });
+
+  test('bleibt es bei Ausfällen, bleibt das Gebiet ohne Antwort', async () => {
+    // DIE REGEL DARF NICHT AUFWEICHEN. Wiederholen erhöht die Chance, es
+    // ersetzt keine Antwort. Wer hier eine leere Liste zurückgibt statt zu
+    // scheitern, macht aus „wir haben nicht hingesehen" ein „da ist nichts" —
+    // und genau diese Verwechslung war der teuerste Fehler dieser Datei.
+    const { overpassHolen } = await modul();
+    const { holer, rufe } = holerMit([{ status: 504 }]);
+    await expect(overpassHolen(GEBIET, { holer, warten: async () => {} }))
+      .rejects.toThrow(/Stuttgart/);
+    expect(rufe.length, 'die Anläufe wurden nicht ausgeschöpft').toBe(3);
+  });
+
+  test('ein Netzfehler zählt wie ein vorübergehender Ausfall', async () => {
+    // Ein abgebrochener Aufruf ist kein Nein der Gegenseite, sondern gar keine
+    // Antwort. Hier nicht zu wiederholen wäre strenger als bei einem 429 —
+    // und der Fall ist dieselbe Sorte Zufall.
+    const { overpassHolen } = await modul();
+    const { holer, rufe } = holerMit([new Error('fetch failed'), { status: 200 }]);
+    await overpassHolen(GEBIET, { holer, warten: async () => {} });
+    expect(rufe.length, 'ein Netzfehler wurde nicht wiederholt').toBe(2);
+  });
+
+  test('jeder Aufruf trägt ein Zeitlimit', async () => {
+    // Die Abfrage sagt Overpass `[out:json][timeout:90]` — das bindet den
+    // Server, nicht uns. Ohne Limit HIER hält ein hängender Aufruf die ganze
+    // Tagesroutine fest, ohne Fehlermeldung. Dieselbe Fehlerart hat am
+    // 03.09.2026 den Deploy zweimal über sechs Minuten stehen lassen.
+    const { overpassHolen } = await modul();
+    const { holer, rufe } = holerMit([{ status: 200 }]);
+    await overpassHolen(GEBIET, { holer, warten: async () => {} });
+    expect(rufe[0].opt.signal, 'der Aufruf hat kein Abbruchsignal — ein Hänger '
+      + 'läuft dann bis zum Job-Limit von GitHub').toBeTruthy();
+  });
+
+  test('das Budget nimmt keinem Gebiet den ERSTEN Anlauf', async () => {
+    // Drei Anläufe × 120 s × acht Städte wären im schlimmsten Fall fast eine
+    // Stunde — eine Behebung, die eine zweite Störung einbaut. Gekürzt werden
+    // deshalb nur die Wiederholungen. Eine Stadt, die gar nicht mehr gefragt
+    // wird, wäre wieder ein Loch, nur mit anderer Ursache.
+    const { overpassHolen } = await modul();
+    const { holer, rufe } = holerMit([{ status: 503 }]);
+    await expect(overpassHolen(GEBIET, { holer, warten: async () => {}, frist: Date.now() - 1 }))
+      .rejects.toThrow(/Stuttgart/);
+    expect(rufe.length, 'bei aufgebrauchtem Budget wurde gar nicht mehr gefragt')
+      .toBe(1);
+  });
+
+  test('die Pause wächst, sie bleibt nicht gleich', async () => {
+    // Nach dem zweiten Fehlschlag länger zu warten ist der Unterschied
+    // zwischen Nachfragen und Klopfen. Gemessen an den echten Wartezeiten,
+    // nicht an der Konstante: eine Liste, die niemand benutzt, wäre grün.
+    const { overpassHolen } = await modul();
+    const { holer } = holerMit([{ status: 429 }]);
+    const gewartet = [];
+    await expect(overpassHolen(GEBIET, { holer, warten: async (ms) => gewartet.push(ms) }))
+      .rejects.toThrow();
+    expect(gewartet.length, 'es wurde nicht zwischen den Anläufen gewartet')
+      .toBe(2);
+    expect(gewartet[1], `gewartet wurde ${gewartet.join(' und ')} ms — die zweite `
+      + 'Pause ist nicht länger als die erste').toBeGreaterThan(gewartet[0]);
+  });
+});
