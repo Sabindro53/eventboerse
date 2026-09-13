@@ -27343,12 +27343,12 @@ function ebStornoEntscheiden(id, entscheidung) {
 
 /** Eine Zeile für die Liste. Fremder Text wird maskiert, immer. */
 function ebStornoZeile(s, alsAnbieter) {
-  var kopf = '<div class="storno-kopf"><strong>' + escHtml(ebStornoBetrag(s.betrag_cents, s.waehrung))
-    + '</strong><span class="storno-zustand storno-' + escHtml(s.zustand) + '">'
-    + escHtml(ebStornoZustandText(s.zustand)) + '</span></div>';
-  var grund = '<p class="storno-grund">' + escHtml(s.grund || '') + '</p>';
+  var kopf = '<div class="storno-kopf"><strong>' + _escHtml(ebStornoBetrag(s.betrag_cents, s.waehrung))
+    + '</strong><span class="storno-zustand storno-' + _escHtml(s.zustand) + '">'
+    + _escHtml(ebStornoZustandText(s.zustand)) + '</span></div>';
+  var grund = '<p class="storno-grund">' + _escHtml(s.grund || '') + '</p>';
   var antwort = s.antwort
-    ? '<p class="storno-antwort"><em>Antwort:</em> ' + escHtml(s.antwort) + '</p>' : '';
+    ? '<p class="storno-antwort"><em>Antwort:</em> ' + _escHtml(s.antwort) + '</p>' : '';
   var knoepfe = '';
   if (alsAnbieter && (s.zustand === 'offen' || s.zustand === 'abgelaufen')) {
     knoepfe = '<div class="storno-knoepfe">'
@@ -27370,22 +27370,38 @@ function ebStornoZeile(s, alsAnbieter) {
 function ebStornoAnsichtZeichnen() {
   var ziel = document.getElementById('stornoListe');
   if (!ziel) return false;
+  // Der ganze Block, nicht nur die Liste: eine Überschrift „Stornos" über
+  // einem leeren Kasten ist schlechter als kein Kasten. `hidden` statt
+  // `style.display`, damit die CSS-Regel greift und niemand die Anzeige
+  // versehentlich auf einen anderen Wert zurückstellt.
+  var block = document.getElementById('stornoBlock');
+  var zeigen = function (ja) { if (block) block.hidden = !ja; };
+
   if (!isLoggedIn) {
+    // Abgemeldet gibt es niemanden, dem Anträge gehören könnten. Der Satz
+    // bleibt im DOM (der Platz ist dann erklärt, falls ihn jemand sucht),
+    // der Block verschwindet.
     ziel.innerHTML = '<p class="storno-leer">Melde dich an, um deine Storno-Anträge zu sehen.</p>';
+    zeigen(false);
     return true;
   }
   if (!_stornoStand) {
+    // STÖRUNG bleibt sichtbar. Sie ist etwas anderes als „nichts da", und
+    // wer sie wegblendet, meldet eine leere Liste für einen Netzfehler.
     ziel.innerHTML = '<p class="storno-leer">Die Anträge konnten nicht geladen werden. '
       + '<button class="btn-link" onclick="ebStornoLaden().then(ebStornoAnsichtZeichnen)">'
       + 'Erneut versuchen</button></p>';
+    zeigen(true);
     return true;
   }
   var meine = _stornoStand.meine || [];
   var anMich = _stornoStand.an_mich || [];
   if (!meine.length && !anMich.length) {
     ziel.innerHTML = '<p class="storno-leer">Kein Storno-Antrag offen.</p>';
+    zeigen(false);
     return true;
   }
+  zeigen(true);
   var html = '';
   if (anMich.length) {
     html += '<h4>An dich gerichtet</h4><ul class="storno-liste">'

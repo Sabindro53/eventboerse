@@ -15056,6 +15056,19 @@ body.dark-mode .fc-paid-storno { border-color: rgba(255,255,255,.22); }
   font-size: 11.5px; line-height: 1.4; color: var(--text-light, #717171);
 }
 
+/* Der Block verschwindet, wenn es NICHTS zu zeigen gibt — eine dauerhafte
+   Ueberschrift „Stornos / Kein Antrag offen" auf jedem Board waere Laerm,
+   und der Weg zum Storno ist ohnehin der Knopf auf der Karte, nicht diese
+   Liste. Eine STOERUNG bleibt sichtbar: sie ist etwas anderes als leer.
+   `display: block` hier macht die naechste Zeile zur Pflicht — ohne sie
+   staende der Block trotz `hidden` da (in diesem Projekt schon einmal
+   passiert, mit dem leeren Zeit-Warnkasten). */
+.storno-block { display: block; margin: 18px 0 4px; }
+.storno-block[hidden] { display: none; }
+.storno-titel {
+  margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--text);
+}
+
 .storno-liste { list-style: none; margin: 6px 0 14px; padding: 0; }
 .storno-eintrag {
   padding: 12px 14px; margin-bottom: 8px;

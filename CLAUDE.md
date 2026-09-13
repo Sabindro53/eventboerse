@@ -2612,6 +2612,34 @@ derselben Ursache: das Muster zählte `ebStornoBeantragen(` im **erklärenden
 Kommentar** neben dem Knopf mit. Gezählt wird jetzt nach Abzug der
 Kommentare, über den gemeinsamen Griff `tests/e2e/lib/js-code.js`.
 
+#### `escHtml` gibt es nicht — und elf Tests haben es nicht gemerkt
+
+Beim Bauen des Sichtbarkeits-Tests fiel es auf, weil er zum ersten Mal eine
+Zeile **mit Daten** zeichnete: `ebStornoZeile()` rief `escHtml()`. Den
+Helfer gibt es in diesem Projekt nicht — er heisst `_escHtml`, und das
+Storno-Modul war die einzige Fundstelle ohne Unterstrich.
+
+**Jede Zeile mit einem echten Antrag warf damit `ReferenceError`**, die
+Liste blieb leer, und zwar ausgerechnet für die Nutzer, die einen Antrag
+haben. Kein Fehler auf der Seite, keine Meldung — die vertraute
+Schadensart: es sieht heil aus und tut nichts.
+
+**Die Prüfung, die das decken sollte, war die Ursache.** Sie las den
+Quelltext und suchte in der Zeile mit `storno-grund` nach `escHtml(`. Der
+Aufruf stand dort. Ein Muster, das einen Aufruf findet, beweist nicht, dass
+das Gerufene **existiert** — dieselbe Klasse wie der Kommentar-Treffer eine
+Ebene höher, nur andersherum: dort war der Fund Prosa, hier war er ein
+Aufruf ins Leere.
+
+Alle elf Tests kamen nur bis zu den **leeren** Zuständen (abgemeldet,
+Störung, nichts offen). Gemessen wird jetzt das gerenderte DOM mit echtem
+fremdem Text: eine Zeile muss entstehen, `<img src=x onerror=…>` muss als
+**Text** ankommen und nicht als Element, und der Gegenprobe-Test hält fest,
+dass der eigene Antrag **keine** Entscheidungsknöpfe trägt — sonst wäre
+„zeichne immer zwei Knöpfe" eine Erklärung, die beide besteht.
+
+Die Mutation `_escHtml` → `escHtml` macht jetzt **drei** Tests rot.
+
 **Und der erste eigene Test war dabei aus dem falschen Grund grün.** Er
 setzte `window.isLoggedIn = true` — aber `isLoggedIn` ist in `app.js` per
 `let` deklariert und damit **keine** `window`-Eigenschaft. Die Zuweisung
@@ -2633,7 +2661,7 @@ Geschäftsentscheidung mit AGB-Folgen und gehört dem Inhaber.
 
 ```bash
 npx playwright test tests/e2e/storno.spec.js          # 8 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/storno-ansicht.spec.js  # 10 Tests, echter Browser
+npx playwright test tests/e2e/storno-ansicht.spec.js  # 13 Tests, echter Browser
 ```
 
 ### Eine Adresse, die mit der Route wanderte
@@ -3152,7 +3180,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1088 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1091 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

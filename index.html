@@ -3096,7 +3096,11 @@ Datum: ___________________________________________________
         <!-- Storno-Anträge. Der Planer sieht seine eigenen, der
              Dienstleister die an ihn gerichteten. Beide Rollen erreichen das
              Board, deshalb steht die Liste hier und nicht zweimal. -->
-        <section class="storno-block" id="stornoBlock">
+        <!-- Startet verborgen: bis `ebStornoAnsichtZeichnen()` weiss, ob es
+             etwas zu zeigen gibt, stuende hier sonst eine Ueberschrift ueber
+             einem leeren Kasten. Sichtbar wird der Block nur bei echten
+             Antraegen — oder bei einer STOERUNG, die man sehen muss. -->
+        <section class="storno-block" id="stornoBlock" hidden>
           <h3 class="storno-titel">Stornos</h3>
           <div id="stornoListe"><!-- von ebStornoAnsichtZeichnen() gefüllt --></div>
         </section>

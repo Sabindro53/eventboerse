@@ -105,15 +105,72 @@ test.describe('Storno-Ansicht: der Weg hinein', () => {
     expect(r.toast, 'der Nutzer erfährt nicht, warum nichts passiert').toBeTruthy();
   });
 
-  test('fremder Text wird maskiert, auch wenn der Server ihn schon geprüft hat', () => {
-    // Der Grund kommt vom Gegenüber. Der Server entschärft ihn, die Ansicht
-    // maskiert erneut — eine ausgelieferte Antwort kann veraltet oder
-    // verfälscht sein. Dieselbe Regel wie beim Aktivitäten-Bestand.
-    const js = fs.readFileSync(MODUL, 'utf8');
-    const zeile = js.split('\n').find((l) => l.includes('storno-grund'));
-    expect(zeile, 'die Grund-Zeile ist nicht auffindbar').toBeTruthy();
-    expect(zeile, 'der Grund des Gegenübers landet unmaskiert im Markup')
-      .toContain('escHtml(');
+  test('eine echte Zeile wird gezeichnet — und maskiert fremden Text', async ({ page }) => {
+    // ── WARUM DIESER TEST IM BROWSER LÄUFT ─────────────────────────────
+    //
+    // Die erste Fassung las den QUELLTEXT und prüfte, ob in der Zeile mit
+    // `storno-grund` ein `escHtml(` steht. Es stand dort — und `escHtml`
+    // GIBT ES IN DIESEM PROJEKT NICHT. Der Helfer heisst `_escHtml`.
+    //
+    // Jede Zeile mit einem echten Antrag warf damit `ReferenceError`, die
+    // Liste blieb leer, und zwar ausgerechnet für die Nutzer, die einen
+    // Antrag haben. Elf Tests waren grün, weil keiner je eine Zeile MIT
+    // DATEN gezeichnet hat — sie kamen alle nur bis zu den leeren
+    // Zuständen. Ein Muster, das den Aufruf findet, beweist nicht, dass
+    // das Gerufene existiert.
+    //
+    // Gemessen wird deshalb das gerenderte DOM, mit echtem fremdem Text.
+    await openApp(page);
+    await page.evaluate(() => window.navigateTo('board'));
+
+    const r = await page.evaluate(() => {
+      isLoggedIn = true;                         // freie Zuweisung, siehe oben
+      _stornoStand = {
+        meine: [],
+        an_mich: [{
+          id: 7, zustand: 'offen', betrag_cents: 12500, waehrung: 'EUR',
+          grund: '<img src=x onerror=alert(1)>Termin fällt aus',
+          antwort: '<script>alert(2)</script>',
+        }],
+      };
+      window.ebStornoAnsichtZeichnen();
+      const ziel = document.getElementById('stornoListe');
+      return {
+        eintraege: ziel.querySelectorAll('.storno-eintrag').length,
+        injiziert: ziel.querySelectorAll('img, script').length,
+        grundText: (ziel.querySelector('.storno-grund') || {}).textContent || '',
+        betrag: (ziel.querySelector('.storno-kopf strong') || {}).textContent || '',
+        knoepfe: ziel.querySelectorAll('.storno-knoepfe button').length,
+      };
+    });
+
+    expect(r.eintraege, 'die Zeile wurde gar nicht gezeichnet — vermutlich wirft '
+      + 'ebStornoZeile(), und die Liste bleibt für genau die Nutzer leer, die '
+      + 'einen Antrag haben').toBe(1);
+    expect(r.injiziert, 'fremder Text wurde als Markup ausgeführt').toBe(0);
+    expect(r.grundText, 'der Grund fehlt in der Zeile').toContain('Termin fällt aus');
+    expect(r.grundText, 'das Markup wurde nicht maskiert, sondern entfernt — '
+      + 'dann fehlt Text, den der Gegenüber geschrieben hat').toContain('<img');
+    expect(r.betrag, 'der Betrag fehlt').toContain('125');
+    expect(r.knoepfe, 'der Anbieter bekommt keine Entscheidungsknöpfe').toBe(2);
+  });
+
+  test('die eigene Zeile trägt keine Entscheidungsknöpfe', async ({ page }) => {
+    // Gegenprobe zum Test darüber: ohne sie wäre „zeichne immer zwei
+    // Knöpfe" eine Erklärung, die beide besteht — und der Planer könnte
+    // seinen eigenen Antrag annehmen. Der Server lehnt das ab; ein Knopf,
+    // der sicher scheitert, ist trotzdem ein kaputter Knopf.
+    await openApp(page);
+    await page.evaluate(() => window.navigateTo('board'));
+    const knoepfe = await page.evaluate(() => {
+      isLoggedIn = true;
+      _stornoStand = { an_mich: [], meine: [{ id: 8, zustand: 'offen',
+        betrag_cents: 5000, waehrung: 'EUR', grund: 'Termin fällt aus' }] };
+      window.ebStornoAnsichtZeichnen();
+      return document.querySelectorAll('#stornoListe .storno-knoepfe button').length;
+    });
+    expect(knoepfe, 'der Antragsteller bekommt Knöpfe auf den eigenen Antrag')
+      .toBe(0);
   });
 
   test('der Antrag hat einen Aufrufer — es gibt einen Knopf', () => {
@@ -175,6 +232,60 @@ test.describe('Storno-Ansicht: der Weg hinein', () => {
       'beim zweiten Rendern bleibt #stornoListe ungezeichnet — der Aufruf steht '
       + 'hinter dem frühen `return` des Soft-Refresh-Pfads')
       .toHaveCount(1, { timeout: 7000 });
+  });
+
+  test('eine Störung bleibt sichtbar, eine leere Liste verschwindet', async ({ page }) => {
+    // Die gefährliche Hälfte dieser Optimierung: wer den Block pauschal
+    // ausblendet, wenn nichts dasteht, blendet auch den Netzfehler aus —
+    // und meldet damit „nichts offen" für eine Liste, die nie ankam.
+    // Dieselbe Regel wie bei der Jetzt-Ansicht und bei Freunden: Störung,
+    // leer und „nicht angemeldet" sind drei verschiedene Aussagen.
+    await openApp(page);
+    await page.evaluate(() => window.navigateTo('board'));
+
+    const zustand = await page.evaluate(() => {
+      isLoggedIn = true;                       // freie Zuweisung, siehe oben
+      const block = document.getElementById('stornoBlock');
+      const aus = {};
+
+      _stornoStand = null;                     // Störung
+      window.ebStornoAnsichtZeichnen();
+      aus.stoerungSichtbar = !block.hidden;
+
+      _stornoStand = { meine: [], an_mich: [] };   // geladen, wirklich leer
+      window.ebStornoAnsichtZeichnen();
+      aus.leerVerborgen = block.hidden;
+
+      _stornoStand = { meine: [{ id: 1, zustand: 'offen', betrag_cents: 5000,
+        waehrung: 'EUR', grund: 'Termin fällt aus' }], an_mich: [] };
+      window.ebStornoAnsichtZeichnen();
+      aus.vollSichtbar = !block.hidden;
+      return aus;
+    });
+
+    expect(zustand.stoerungSichtbar, 'ein Netzfehler wird weggeblendet — der '
+      + 'Nutzer sieht dann gar nichts, wo eine Störung stehen müsste').toBe(true);
+    expect(zustand.leerVerborgen, 'der leere Block steht dauerhaft auf jedem '
+      + 'Board — eine Überschrift „Stornos" über einem leeren Kasten').toBe(true);
+    expect(zustand.vollSichtbar, 'ein echter Antrag bleibt verborgen — der '
+      + 'Dienstleister erfährt nie davon').toBe(true);
+  });
+
+  test('das Verbergen wirkt wirklich — `hidden` hat seine CSS-Regel', async ({ page }) => {
+    // `hidden` allein genügt nicht, sobald das Element eine eigene
+    // `display`-Angabe trägt: die schlägt das eingebaute `[hidden]` des
+    // Browsers. Genau das ist in diesem Projekt schon einmal passiert (der
+    // leere Zeit-Warnkasten stand sichtbar da). Gemessen wird deshalb die
+    // errechnete Anzeige, nicht das Attribut.
+    await openApp(page);
+    await page.evaluate(() => window.navigateTo('board'));
+    const anzeige = await page.evaluate(() => {
+      const b = document.getElementById('stornoBlock');
+      b.hidden = true;
+      return getComputedStyle(b).display;
+    });
+    expect(anzeige, '`hidden` bleibt wirkungslos — es fehlt '
+      + '`.storno-block[hidden] { display: none }`').toBe('none');
   });
 
   test('die Ansicht entscheidet nichts — sie ruft nur', () => {
