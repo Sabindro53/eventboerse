@@ -2151,6 +2151,89 @@ Auffangmuster.
 npx playwright test tests/e2e/seitenrouten.spec.js   # 7 Tests, 6 Mutationen
 ```
 
+### Der Filter im Chat sah aus wie Schutz — gemessen war er halb einer
+
+Gefordert war: *„Leute sollen über Chat auch verhandeln können, dürfen aber
+keine Adressen und Mails, Nummern rausgeben, weil sonst außerhalb der
+Plattform kommuniziert werden kann."* Daran hängt die Vermittlerpauschale.
+
+**Es gab den Filter schon** — `eb_message_contains_off_platform_contact()`,
+gerufen von `eb_messages_send()`, Abweisung mit 422 und erklärendem Text. Nur
+gemessen hatte ihn nie jemand. Am 13.09.2026 zum ersten Mal an Sätzen
+gefahren, 22 mit Kontaktdaten und 32 ohne:
+
+| | blockiert (soll) | sauber durch (darf) |
+|---|---:|---:|
+| vorher | 15/22 | 26/32 — **sechs Fehlalarme** |
+| jetzt | **22/22** | **32/32** |
+
+**Die Fehlalarme waren die gefährlichere Hälfte.** Blockiert wurden: die
+Rechnungsnummer, die Angebotsnummer, die Bestellnummer, die Kundennummer, die
+Seriennummer und ein IBAN-Fragment — allesamt neunstellige Zahlen ohne jeden
+Telefonbezug, allesamt Dinge, die in einer Buchungsverhandlung ständig
+vorkommen. Ein Filter, der die Rechnungsnummer abweist, wird abgeschaltet, und
+danach schützt er gar nichts mehr.
+
+**Die Ursache war eine Regel ohne Form:** „neun Ziffern genügen". Eine
+Rufnummer hat aber eine Gestalt — sie beginnt mit `0` oder `+`, oder der Satz
+sagt selbst, dass es eine ist (`handy`, `festnetz`, `ruf mich`, `erreichbar
+unter`). **`nummer` steht bewusst NICHT in dieser Liste:** Bestell- und
+Kundennummer tragen es auch, und genau daran wäre die Behebung wieder
+gescheitert.
+
+Vier Löcher auf der anderen Seite, jedes gemessen:
+
+- **Eine Vollbreiten-Ziffer umging den ganzen Telefon-Zweig.**
+  `０１７１２３４５６７８` kam ungehindert durch. Normiert wird jetzt über
+  `strtr`, nicht über `mb_ord` — mbstring ist keine Voraussetzung, die
+  WordPress garantiert, und eine Sicherheitsfunktion, die auf einer fehlenden
+  Erweiterung still nichts tut, ist hier die teuerste Sorte Fehler.
+  Vier Ziffernschriften: Vollbreite, Arabisch-Indisch, Ostarabisch, Devanagari.
+- **`max.mueller.gmail.com`** trägt kein `@` und traf kein Muster. Die
+  bekannten Freemail-Anbieter werden jetzt in jeder Schreibweise erkannt.
+- **Ausgeschriebene Ziffern** („null eins sieben eins zwo drei …"). Die
+  Schwelle von **sieben** aufeinanderfolgenden Zahlwörtern ist der ganze
+  Fehlalarm-Schutz: „vier Kellner, zwei Barkeeper und drei Tische" sind drei.
+- **Buchstaben statt Ziffern** (`O171 234S678`). Zurückgedreht wird nur in
+  Tokens, die ohnehin **mehrheitlich** aus Ziffern bestehen — sonst würde aus
+  „Solisten" eine Nummer.
+
+**Was der Filter nicht kann, steht im Korpus, nicht im Fließtext.** *„Meine
+Handynummer schicke ich dir gleich als Bild"* steht unter den **32
+Durchlässen**, nicht unter den 22 Treffern: der Satz enthält keine
+Kontaktdaten, und ein Filter, der ihn fängt, käme nur über Fehlalarme dorthin.
+Kein Textfilter verhindert den Kontakt außerhalb der Plattform — er verteuert
+den bequemen Weg. Wer diesen Fall verschiebt, verlangt etwas, das nur durch
+die sechs Fehlalarme von vorher zu haben ist.
+
+**Ausgelagert nach `includes/chat/kontaktschutz.php`**, damit der Prüfstand
+sie einbinden kann, ohne halb WordPress zu stellen — je mehr ein Prüfstand
+stellt, desto weniger prüft er. Er braucht genau einen Griff
+(`wp_strip_all_tags`).
+
+**Und meine eigene Prüfung hatte dieselbe Krankheit.** Der Test, der festhält,
+dass der Filter im Nachrichtenweg **gerufen** wird, suchte den Pfad
+`includes/chat/kontaktschutz.php` in `functions.php` — und fand ihn im
+erklärenden Kommentar, den das Auslagern dort hinterlassen hat. Die Mutation
+„`require_once` entfernt" überlebte: die Anwendung wäre bei **jeder**
+Nachricht mit einem PHP-Fehler abgebrochen, und sieben Tests wären grün
+geblieben. Gesucht wird jetzt die **Einbindung**, nicht der Pfad. Genau der
+Griff, an dem in diesem Projekt schon vier Prüfungen gescheitert sind.
+
+Sieben Mutationen, jede macht die Suite rot: Ziffern-Normierung entfernt (2) ·
+ausgeschriebene Ziffern nicht geprüft · Homoglyphen nicht zurückgedreht ·
+Form-Regel weg, jede neunstellige Zahl blockt wieder (2) · Freemail-Muster
+weg · Handle-Mindestlänge 5 → 3 (holt den `@home`-Fehlalarm zurück) ·
+`require_once` entfernt.
+
+**Offen und ausdrücklich nicht gebaut:** ein Zähler für wiederholte Versuche.
+Das wäre eine Verarbeitung von Nachrichteninhalten und damit eine
+Entscheidung des Inhabers, keine Aufräumarbeit.
+
+```bash
+npx playwright test tests/e2e/kontaktschutz.spec.js   # 7 Tests, 7 Mutationen
+```
+
 ### Eine Adresse, die mit der Route wanderte
 
 Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
@@ -2667,7 +2750,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1040 Tests in 64 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1047 Tests in 65 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2736,6 +2819,11 @@ niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Einstiege** (die Landeseite bedient mehr als eine Absicht — jeder Weg
 wird geklickt, nicht im Markup gesucht; der Anbieter-Einstieg endet in der
 Registrierung, nicht in der Anmeldung),
+**Kontaktschutz** (der Filter im Chat wird an einem Korpus gemessen, nicht
+gelesen: 22 Nachrichten mit Kontaktdaten werden alle geblockt, 32 ehrliche
+Verhandlungssätze kommen alle durch — Rechnungs-, Bestell- und Kundennummer
+eingeschlossen; fremde Ziffernschriften werden vorher auf ASCII gebracht; und
+der Filter wird im Nachrichtenweg wirklich gerufen),
 **Seitenrouten** (jede Seite mit `id="page-…"` wird von einer Rewrite-Regel
 wirklich getroffen, nicht nur in einer Liste geführt — sonst endet ihr
 geteilter Link auf `404.php`; das Untersegment trägt den Einladungslink; die
