@@ -623,6 +623,93 @@ wie bei `topbar.spec.js` und beim Hero.
 npx playwright test tests/e2e/leerlauf.spec.js   # 11 Tests, echter Browser
 ```
 
+### Drei Popper, die nie jemand gesehen hat — und was Anhalten nicht bringt
+
+Am 13.09.2026 auf Wunsch des Inhabers angefasst: *„die animationen
+reduzieren"*. Die Messung hat dabei zwei Dinge ergeben, und das zweite ist
+das wichtigere.
+
+**`app-shell.html` trug FÜNF Konfetti-Popper. Gerendert wurden immer zwei.**
+Eine Regel `.ai-popper.pop-3, .pop-4, .pop-5 { display: none }` legte die
+anderen still, mit dem Kommentar *„genau ZWEI — wie gewünscht"*. An fünf
+Breiten gemessen (390 / 720 / 900 / 1280 / 1600 px) erschien keiner von ihnen
+je. **78 Zeilen SVG gingen an jeden Besucher und zeigten nichts** — dazu drei
+Layout-Regelblöcke, die ebenfalls nie griffen.
+
+Dieselbe Klasse wie ein Prüfer ohne Subjekt, nur an der Oberfläche: etwas ist
+da, sieht aus, als täte es etwas, und tut nichts. Stillgelegt wurde per CSS
+statt entfernt — und eine CSS-Regel überlebt jeden Umbau, eine Markup-Leiche
+auch. Markup und Regeln sind jetzt weg; wer einen dritten Popper will, legt
+ihn an, statt einen versteckten zu entsperren.
+
+#### Und die erwarteten 107 ms gibt es nicht
+
+Gemessen auf der Landeseite, Hauptthread je 3 s, verschachtelt mit Medianen:
+
+| Zustand | |
+|---|---:|
+| alles läuft | 530 ms |
+| alle Animationen **angehalten** | 389 ms |
+| nur das Konfetti **angehalten** | 423 ms — **−107 ms** |
+| Konfetti natürlich **ausgelaufen** | 472 ms — **−10 ms, also nichts** |
+
+**Eine angehaltene Animation behält ihre Compositor-Ebene, eine beendete gibt
+sie ab** — und der Ebenenbaum kostet zurück, was die Animation gespart hätte.
+Dieselbe Mechanik wie `animation: none` gegen `animation-play-state: paused`,
+diesmal nicht im Messgerät, sondern in der Änderung selbst. **Wer die 107 ms
+erwartet, weil das Anhalten sie zeigt, bekommt sie nicht.**
+
+`will-change` zu entfernen macht es ebenfalls schlechter, nicht besser:
+466 ms mit, 493 ms ohne. Auch das ist eine Optimierung auf Verdacht, die hier
+schon einmal danebenlag.
+
+#### Was bleibt, und was davon belegt ist
+
+Zwei Änderungen, beide ehrlich beschriftet:
+
+- **Weniger Teile:** drei Streifen-Punkt-Paare je Popper statt sechs. Der
+  gemessene Gewinn ist **klein und verrauscht** — zwei Läufe ergaben −41 ms
+  und −14 ms bei überlappenden Streuungen. Deshalb steht als Zusicherung
+  keine Zahl im Test, sondern die Bedingung.
+- **Endliche Laufzeit:** zwei Runden statt endlos. Auf dem Hauptthread
+  **kein messbarer Gewinn** (siehe oben); begründet ist es anders — ein
+  Popper ist ein Gruss, kein Dauerzustand, und endlos stand er von 72 % bis
+  100 % jedes 11-Sekunden-Zyklus auf `opacity: 0`, während seine
+  Unteranimationen weiterliefen. Nach 27 s laufen **null** Konfetti-
+  Animationen statt 28. Derselbe Weg wie bei der Schreibmaschine in der
+  Leiste.
+
+**Die Rundenzahl steht an einer Stelle** (`--pp-runden`). Hülle, Kegel,
+Streifen und Punkte müssen zusammen aufhören; vier Zahlen, die zusammen
+stimmen müssen, driften — und dann kreisen die Punkte weiter, während die
+Hülle stillsteht.
+
+**Die Teile sind Paare.** Jeder Streifen endet in einem Punkt. Einen ohne den
+anderen zu entfernen lässt einen Punkt im Nichts stehen: im Markup
+unauffällig, im Bild ein Fehler. Ein Test zählt beide.
+
+#### Der grössere Posten liegt woanders
+
+Bei derselben Gelegenheit gemessen, Landeseite im Leerlauf (Runden 2–3, die
+erste Runde jeder Bedingung ist durch das Nachlaufen des Seitenaufbaus
+verfälscht):
+
+| | Hauptthread je 3 s |
+|---|---:|
+| alles an | ~320 ms |
+| nur Animationen aus | ~175 ms |
+| nur Marquee-rAF aus | ~241 ms |
+| **beides aus** | **~31 ms** |
+
+Mit beidem aus macht der Hauptthread fast nichts — die Leerlauflast ist
+vollständig erklärt. Die Deko trägt rund 145 ms, der **Marquee-rAF rund
+80 ms**. Wer nach der nächsten Reduktion sucht, findet sie dort, nicht bei
+noch weniger Konfetti.
+
+```bash
+npx playwright test tests/e2e/deko.spec.js   # 5 Tests, 5 Mutationen
+```
+
 ### Bilder: das Format, nicht die Größe
 
 **`srcset` bringt hier nichts, und das ist gemessen.**
@@ -2845,7 +2932,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1056 Tests in 66 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1061 Tests in 67 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2914,6 +3001,10 @@ niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Einstiege** (die Landeseite bedient mehr als eine Absicht — jeder Weg
 wird geklickt, nicht im Markup gesucht; der Anbieter-Einstieg endet in der
 Registrierung, nicht in der Anmeldung),
+**Deko** (was ausgeliefert wird, erscheint auch — kein Popper steckt mehr
+hinter einem `display: none`, an fünf Breiten gemessen; das Konfetti läuft aus
+statt endlos zu kreisen, läuft aber überhaupt erst einmal; die Rundenzahl
+steht an einer Stelle, und jeder Konfetti-Punkt hat seinen Streifen),
 **Erstattung** (die Rechteprüfung auf dem Geldweg wird im echten PHP
 ausgeführt, nicht gelesen: der zahlende Kunde kann seine eigene Zahlung NICHT
 einseitig zurückholen, der Anbieter und Admins schon; ein leeres Konto trifft
