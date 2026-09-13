@@ -160,40 +160,54 @@ function ebStornoZeile(s, alsAnbieter) {
  * hat, und ein Test haelt fest, dass der Platz existiert.
  */
 function ebStornoAnsichtZeichnen() {
-  var ziel = document.getElementById('stornoListe');
-  if (!ziel) return false;
+  // ── ZWEI PLÄTZE, EIN ZEICHNER ──────────────────────────────────────
+  //
+  // Der Planer arbeitet auf `/board`, der Dienstleister auf
+  // `/auftraege` — das ist seine Tagesseite („hat mich jemand angefragt,
+  // was muss ich liefern"). Eine Liste nur auf dem Board hiesse: der
+  // Dienstleister sieht den Antrag, wenn er zufällig vorbeikommt, und
+  // die 72-Stunden-Frist läuft derweil. Eine Frist auf einer Seite, die
+  // der Zuständige nie öffnet, ist keine Frist.
+  //
+  // Gezeichnet wird deshalb in JEDEN Platz mit `[data-storno-liste]`.
+  // Eine zweite Fassung der Funktion wäre die Alternative gewesen — und
+  // zwei gepflegte Fassungen derselben Sache driften immer.
+  var ziele = document.querySelectorAll('[data-storno-liste]');
+  if (!ziele.length) return false;
+
   // Der ganze Block, nicht nur die Liste: eine Überschrift „Stornos" über
   // einem leeren Kasten ist schlechter als kein Kasten. `hidden` statt
   // `style.display`, damit die CSS-Regel greift und niemand die Anzeige
   // versehentlich auf einen anderen Wert zurückstellt.
-  var block = document.getElementById('stornoBlock');
-  var zeigen = function (ja) { if (block) block.hidden = !ja; };
+  var schreiben = function (html, sichtbar) {
+    for (var i = 0; i < ziele.length; i++) {
+      ziele[i].innerHTML = html;
+      var block = ziele[i].closest('[data-storno-block]');
+      if (block) block.hidden = !sichtbar;
+    }
+  };
 
   if (!isLoggedIn) {
     // Abgemeldet gibt es niemanden, dem Anträge gehören könnten. Der Satz
     // bleibt im DOM (der Platz ist dann erklärt, falls ihn jemand sucht),
     // der Block verschwindet.
-    ziel.innerHTML = '<p class="storno-leer">Melde dich an, um deine Storno-Anträge zu sehen.</p>';
-    zeigen(false);
+    schreiben('<p class="storno-leer">Melde dich an, um deine Storno-Anträge zu sehen.</p>', false);
     return true;
   }
   if (!_stornoStand) {
     // STÖRUNG bleibt sichtbar. Sie ist etwas anderes als „nichts da", und
     // wer sie wegblendet, meldet eine leere Liste für einen Netzfehler.
-    ziel.innerHTML = '<p class="storno-leer">Die Anträge konnten nicht geladen werden. '
+    schreiben('<p class="storno-leer">Die Anträge konnten nicht geladen werden. '
       + '<button class="btn-link" onclick="ebStornoLaden().then(ebStornoAnsichtZeichnen)">'
-      + 'Erneut versuchen</button></p>';
-    zeigen(true);
+      + 'Erneut versuchen</button></p>', true);
     return true;
   }
   var meine = _stornoStand.meine || [];
   var anMich = _stornoStand.an_mich || [];
   if (!meine.length && !anMich.length) {
-    ziel.innerHTML = '<p class="storno-leer">Kein Storno-Antrag offen.</p>';
-    zeigen(false);
+    schreiben('<p class="storno-leer">Kein Storno-Antrag offen.</p>', false);
     return true;
   }
-  zeigen(true);
   var html = '';
   if (anMich.length) {
     html += '<h4>An dich gerichtet</h4><ul class="storno-liste">'
@@ -203,6 +217,6 @@ function ebStornoAnsichtZeichnen() {
     html += '<h4>Deine Anträge</h4><ul class="storno-liste">'
       + meine.map(function (s) { return ebStornoZeile(s, false); }).join('') + '</ul>';
   }
-  ziel.innerHTML = html;
+  schreiben(html, true);
   return true;
 }

@@ -2640,6 +2640,32 @@ dass der eigene Antrag **keine** Entscheidungsknöpfe trägt — sonst wäre
 
 Die Mutation `_escHtml` → `escHtml` macht jetzt **drei** Tests rot.
 
+#### Die Frist lief auf einer Seite, die der Zuständige nicht öffnet
+
+Der Planer arbeitet auf `/board`, der Dienstleister auf `/auftraege` —
+seine Tagesseite, gebaut für „hat mich jemand angefragt, was muss ich
+liefern". **Entscheiden** über einen Storno tut aber der Dienstleister, mit
+**72 Stunden** Frist. Die Liste stand nur auf dem Board.
+
+Das ist kein Schönheitsfehler: eine Frist läuft weiter, während der
+Zuständige auf einer Seite arbeitet, die sie nicht zeigt. Nach Ablauf steht
+der Antrag auf `abgelaufen` und wird zur Sache des Betreibers — für einen
+Dienstleister, der nie erfahren hat, dass etwas offen war.
+
+Gezeichnet wird jetzt in **jeden** Platz mit `[data-storno-liste]`; auf der
+Aufträge-Seite steht er **vor** dem Auftragsboard, weil eine laufende Frist
+dringender ist als die Liste offener Buchungen. Ein Zeichner, zwei Plätze —
+eine zweite Fassung der Funktion würde driften.
+
+**Und der erste Test dazu maß wieder den Zeichner statt des Weges.** Er
+rief `ebStornoAnsichtZeichnen()` selbst auf; die Mutation
+„`renderAuftraegePage()` ruft nicht mehr" überlebte ihn, alle vierzehn
+Tests grün. Derselbe Fehler wie beim Board, eine Seite weiter und eine
+Stunde später. Der zweite Test **navigiert nur** — und stellt dafür einen
+angemeldeten Dienstleister, denn `/auftraege` schickt Abgemeldete auf
+`home` und Event-Planer aufs Board; ohne das wäre er aus dem falschen Grund
+rot gewesen. Eine Gegenprobe hält fest, dass die Seite wirklich offen ist.
+
 **Und der erste eigene Test war dabei aus dem falschen Grund grün.** Er
 setzte `window.isLoggedIn = true` — aber `isLoggedIn` ist in `app.js` per
 `let` deklariert und damit **keine** `window`-Eigenschaft. Die Zuweisung
@@ -2661,7 +2687,7 @@ Geschäftsentscheidung mit AGB-Folgen und gehört dem Inhaber.
 
 ```bash
 npx playwright test tests/e2e/storno.spec.js          # 8 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/storno-ansicht.spec.js  # 13 Tests, echter Browser
+npx playwright test tests/e2e/storno-ansicht.spec.js  # 15 Tests, echter Browser
 ```
 
 ### Eine Adresse, die mit der Route wanderte
@@ -3180,7 +3206,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1091 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1093 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

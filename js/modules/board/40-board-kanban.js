@@ -670,6 +670,20 @@ function renderAuftraegePage() {
   if (!container) return;
   var isProvider = isDienstleister();
 
+  // Storno-Anträge auch hier. Das ist die Tagesseite des Dienstleisters,
+  // und er ist es, der über einen Antrag entscheidet — mit 72 Stunden
+  // Frist. Stünde die Liste nur auf `/board`, liefe die Frist, während
+  // der Zuständige auf einer Seite arbeitet, die sie nicht zeigt.
+  //
+  // Derselbe Zeichner wie auf dem Board (er füllt jeden Platz mit
+  // `[data-storno-liste]`); eine zweite Fassung würde driften.
+  if (typeof ebStornoLaden === 'function') {
+    try { ebStornoAnsichtZeichnen(); } catch (e) {}
+    ebStornoLaden()
+      .catch(function () { _stornoStand = null; })
+      .then(function () { try { ebStornoAnsichtZeichnen(); } catch (e) {} });
+  }
+
   // Aggregation: eigene Board-Karten (lokaler Scope) + server-seitige
   // Buchungen von anderen Nutzern, die ein Angebot des aktuellen
   // Dienstleisters bezahlt haben.

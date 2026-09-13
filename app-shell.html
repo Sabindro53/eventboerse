@@ -2475,6 +2475,16 @@
           </div>
           <span style="background:rgba(255,56,92,0.12);color:var(--primary);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">BETA</span>
         </div>
+        <!-- Storno-Antraege, zweiter Platz. Der Dienstleister arbeitet hier,
+             nicht auf dem Board — und er hat 72 Stunden Frist. Eine Frist auf
+             einer Seite, die der Zustaendige nie oeffnet, ist keine Frist.
+             Gefuellt wird von derselben Funktion wie auf dem Board; eine
+             zweite Fassung wuerde driften. Steht VOR dem Auftragsboard: eine
+             laufende Frist ist dringender als die Liste offener Buchungen. -->
+        <section class="storno-block" data-storno-block hidden>
+          <h3 class="storno-titel">Stornos</h3>
+          <div data-storno-liste><!-- von ebStornoAnsichtZeichnen() gefüllt --></div>
+        </section>
         <div id="auftraegeContent"></div>
       </div>
     </section>
@@ -3046,9 +3056,9 @@ Datum: ___________________________________________________
              etwas zu zeigen gibt, stuende hier sonst eine Ueberschrift ueber
              einem leeren Kasten. Sichtbar wird der Block nur bei echten
              Antraegen — oder bei einer STOERUNG, die man sehen muss. -->
-        <section class="storno-block" id="stornoBlock" hidden>
+        <section class="storno-block" id="stornoBlock" data-storno-block hidden>
           <h3 class="storno-titel">Stornos</h3>
-          <div id="stornoListe"><!-- von ebStornoAnsichtZeichnen() gefüllt --></div>
+          <div id="stornoListe" data-storno-liste><!-- von ebStornoAnsichtZeichnen() gefüllt --></div>
         </section>
 
         <!-- Projects Overview -->

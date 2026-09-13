@@ -288,6 +288,70 @@ test.describe('Storno-Ansicht: der Weg hinein', () => {
       + '`.storno-block[hidden] { display: none }`').toBe('none');
   });
 
+  test('der Dienstleister sieht den Antrag auf SEINER Tagesseite', async ({ page }) => {
+    // ── WARUM DAS NICHT KOSMETIK IST ───────────────────────────────────
+    //
+    // Der Planer arbeitet auf `/board`, der Dienstleister auf
+    // `/auftraege` — und ENTSCHEIDEN tut der Dienstleister, mit 72
+    // Stunden Frist. Stünde die Liste nur auf dem Board, liefe die Frist,
+    // während der Zuständige auf einer Seite arbeitet, die sie nicht
+    // zeigt. Eine Frist auf einer Seite, die niemand öffnet, ist keine
+    // Frist — derselbe Befund wie bei den Wegen, die es nicht gab.
+    await openApp(page);
+    await page.evaluate(() => window.navigateTo('auftraege'));
+    const r = await page.evaluate(() => {
+      isLoggedIn = true;                        // freie Zuweisung, siehe oben
+      _stornoStand = { meine: [], an_mich: [{ id: 9, zustand: 'offen',
+        betrag_cents: 9900, waehrung: 'EUR', grund: 'Location abgesagt' }] };
+      window.ebStornoAnsichtZeichnen();
+      const auf = document.querySelector('#page-auftraege [data-storno-liste]');
+      const block = auf && auf.closest('[data-storno-block]');
+      return {
+        platz: !!auf,
+        eintraege: auf ? auf.querySelectorAll('.storno-eintrag').length : -1,
+        sichtbar: block ? !block.hidden : false,
+        // Gegenprobe: derselbe Zeichner füllt BEIDE Plätze, nicht nur den
+        // zuletzt gefundenen.
+        aufBoard: document.querySelectorAll('#stornoListe .storno-eintrag').length,
+      };
+    });
+    expect(r.platz, 'die Aufträge-Seite hat keinen Platz für Storno-Anträge').toBe(true);
+    expect(r.eintraege, 'der Antrag steht nicht auf der Aufträge-Seite').toBe(1);
+    expect(r.sichtbar, 'der Block bleibt verborgen, obwohl ein Antrag offen ist').toBe(true);
+    expect(r.aufBoard, 'nur EIN Platz wurde gefüllt — der Zeichner schreibt nicht '
+      + 'in jeden `[data-storno-liste]`').toBe(1);
+  });
+
+  test('die Aufträge-Seite zeichnet von selbst — ohne fremde Hilfe', async ({ page }) => {
+    // Der Test darüber ruft `ebStornoAnsichtZeichnen()` SELBST auf. Er
+    // misst damit den Zeichner, nicht die Erreichbarkeit — und die
+    // Mutation „renderAuftraegePage() ruft nicht mehr" überlebte ihn
+    // prompt, alle vierzehn Tests grün. Dieselbe Lücke wie beim Board,
+    // eine Seite weiter.
+    //
+    // Hier wird deshalb NUR navigiert, und danach muss die Fläche
+    // gezeichnet sein.
+    await openApp(page);
+    await page.evaluate(() => {
+      // `/auftraege` schickt Abgemeldete auf `home` und Event-Planer aufs
+      // Board — `renderAuftraegePage()` liefe sonst gar nicht, und der
+      // Test wäre aus dem falschen Grund rot. Gestellt wird deshalb, was
+      // die Seite verlangt: ein angemeldeter Dienstleister.
+      isLoggedIn = true;                        // freie Zuweisung, siehe oben
+      currentUser = { id: 42, role: 'Dienstleister', name: 'Test' };
+      window.navigateTo('auftraege');
+    });
+    await expect(page.locator('#page-auftraege.active'),
+      'die Aufträge-Seite wurde gar nicht geöffnet — die Rollen-Weiche hat '
+      + 'umgeleitet, und dieser Test misst dann nichts').toHaveCount(1);
+    await expect(
+      page.locator('#page-auftraege [data-storno-liste] .storno-leer, '
+        + '#page-auftraege [data-storno-liste] .storno-liste'),
+      'die Aufträge-Seite zeichnet die Storno-Fläche nicht — '
+      + '`renderAuftraegePage()` ruft den Zeichner nicht')
+      .toHaveCount(1, { timeout: 7000 });
+  });
+
   test('die Ansicht entscheidet nichts — sie ruft nur', () => {
     // Dieselbe Regel wie in den Nachbarmodulen: die Oberfläche blendet aus,
     // was der Server ohnehin ablehnt. Sie darf keine eigene Rechteregel
