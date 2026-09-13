@@ -8,7 +8,7 @@ tags: [layer/L5, domain/evolution, share/internal, ux, booking]
 # Eventbörse: zusammenhängende Nutzerwege
 
 Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
-`8bf3d8e`, zusammengeführt mit Hauptzweig `2237783`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
+`8bf3d8e`, zusammengeführt mit Hauptzweig `a927b4e`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
 
 ## Umgesetzt
 
@@ -48,7 +48,7 @@ Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
 
 ## Prüfung
 
-Der zusammengeführte Prüfstand umfasst 1055 Tests in 67 Suiten. Neue Fälle prüfen Radar-Konsistenz,
+Der zusammengeführte Prüfstand umfasst 1061 Tests in 68 Suiten. Neue Fälle prüfen Radar-Konsistenz,
 Planung/Speicherung, Freunde/Einladungen, Kontowechsel, Centbeträge sowie die
 serverseitigen Grenzen von Angeboten und Erstattungen. PHP wird in diesen
 Grenztests ausgeführt; WordPress/Stripe werden dafür kontrolliert ersetzt.
@@ -111,9 +111,10 @@ Bestätigte Unterschiede zum neuen Stand:
 - Gruppen existieren, der Aktivitätseinstieg bereitet jedoch keinen Gruppenplan vor.
 - Ein direkt geladener `/freunde`-Link liefert live eine Fehlerseite. Im Code fehlte
   diese Route im WordPress-Routing; `freunde`, `business`, `my-listings` und
-  `auftraege` wurden ergänzt. Ein enger Fallback macht neue Routen auch ohne
-  vorherige Erneuerung gespeicherter Rewrite-Regeln erreichbar. Unbekannte Pfade
-  sowie WordPress-Verwaltung und API werden davon nicht übernommen.
+  `auftraege` wurden ergänzt. Die parallel auf main ergänzte Routenfassung erneuert die
+  gespeicherten Rewrite-Regeln bei Änderungen einmalig und ersetzt unseren
+  vorläufigen Fallback. Sie deckt außerdem notifications und home ab.
+  Die sieben zugehörigen Tests ersetzen unseren einzelnen Fallback-Test.
 - Profile behaupten auch ohne Inserat Verfügbarkeit und Antwortgeschwindigkeit.
   Die pauschalen Behauptungen wurden entfernt; tatsächliche Profilangaben bleiben.
 - Der Live-Radar bezeichnet auch Gesuche als Dienstleister. Der überarbeitete

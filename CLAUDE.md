@@ -2070,6 +2070,87 @@ in `30-auth.js` muss auch etwas treffen.
 npx playwright test tests/e2e/einstiege.spec.js   # 13 Tests, echte Klicks
 ```
 
+#### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
+
+Gemeldet am 13.09.2026 aus einer Live-Prüfung: *„Freunde funktionieren über
+die interne Navigation, aber ein direkt geöffneter Link auf `/freunde` endet
+auf einer Fehlerseite."* Nachgemessen — und der Befund war **größer** als die
+Meldung. `app-shell.html` trägt 34 Seiten, `$spa_pages` in `functions.php`
+kannte 31 Slugs:
+
+| ohne Rewrite-Regel | erreichbar über |
+|---|---|
+| `/freunde` | Einladungslink in eine Gruppe, „Gemeinsam planen" |
+| `/auftraege` | Dienstleister-Menü |
+| `/business` | Business-Cockpit |
+| `/my-listings` | „Mein Geschäft" auf der Landeseite |
+| `/notifications` | Glocke in der Leiste |
+| `/home` | alte Links (die App schreibt ihn selbst nie) |
+
+**Innerhalb der App merkt das niemand.** `navigateTo()` ruft `_spaPath()` und
+schiebt die Adresse per `pushState` in die Leiste — es wird nie eine Anfrage
+gestellt. Der Pfad sieht richtig aus, er ist teilbar, und **geteilt ist er
+kaputt**: WordPress fand keine Regel, keine Seite mit diesem Slug, und
+lieferte `404.php` — *„Diese Adresse gibt es nicht — vielleicht ist der Link
+veraltet."*
+
+Das traf ausgerechnet `/freunde`. Weitergeben ist der **einzige** Grund, aus
+dem es einen Einladungslink gibt, und genau das Weitergeben fiel aus. Die
+Freunde, Gruppen (09.09.) und der gemeinsame Plan (10.09.) waren gebaut und
+geprüft; die SPA war bereit (`_readSpaRoute()` liest den Pfad,
+`navigateTo(initPage, initData, true)` stellt die Seite her). Es fehlte allein
+die Regel, die die Anfrage bis dorthin bringt.
+
+**Warum 1033 grüne Tests das durchgelassen haben.** `smoke.spec.js` führt
+`freunde` in seiner Routenliste und war grün. Der Grund steht in `helpers.js`:
+
+```js
+await page.evaluate(([r, d]) => window.navigateTo(r, d || null), …)
+```
+
+Das ist eine Navigation **im Browser**. Für den Zweck des Smoke-Tests ist das
+richtig — er prüft, dass die Seite ohne Page-Errors rendert. Als Nachweis der
+**Erreichbarkeit** ist es untauglich: der Test fragt den Server nie. Ein
+Prüfer, dessen Subjekt ein anderes ist als das vermutete, gibt eine
+Entwarnung, die er nicht decken kann — dieselbe Klasse wie der tote
+Gitleaks-Scan, hier an der Routenliste.
+
+**Die Dev-Shell kann es auch nicht finden.** Sie läuft unter
+`python3 -m http.server`; dort löst `/freunde` ebenso wenig auf. Es gibt in
+dieser Umgebung keinen Weg, den echten Rewrite zu fahren — deshalb misst
+`seitenrouten.spec.js` die **Regeln** statt der Navigation, und liest ihre
+Muster aus `functions.php`, statt sie abzuschreiben.
+
+**Die Liste zu ergänzen hätte nicht gereicht.** `add_rewrite_rule()` trägt nur
+in den Speicher ein; zur Laufzeit gefragt wird die Option `rewrite_rules`.
+Geflusht wurde ausschließlich bei `after_switch_theme` — und ein SFTP-Deploy
+schaltet kein Theme um. Die neuen Slugs stünden im Code, die Seite bliebe bei
+404, und der Diff sähe vollständig richtig aus. **Dieselbe Klasse wie die
+vierzehn Routine-PRs**, eine Ebene tiefer: die Arbeit ist getan und erreicht
+die Seite nicht.
+
+**Die Fassung ist deshalb aus der Liste abgeleitet**
+(`md5( implode( ',', $spa_pages ) )`), nicht von Hand gepflegt. Eine Handzahl,
+die man beim Ergänzen hochzählen muss, wird beim nächsten Mal vergessen — und
+dann ist genau dieser Fehler still wieder da. Geflusht wird **weich**
+(`false`): diese Regeln wertet PHP aus, es muss keine Apache-Direktive
+geschrieben werden; ein harter Flush fasste die `.htaccess` der Installation
+an, im laufenden Betrieb, für nichts.
+
+**Die Gegenprobe gehört dazu.** Wäre die Regel ein Auffangmuster, träfe sie
+jeden Pfad, der Nachweis oben wäre wertlos — und WordPress lieferte für jede
+Adresse die SPA statt einer ehrlichen 404. Ein Test hält deshalb fest, dass
+`/gibt-es-nicht`, `/wp-login.php` und `/hq` **nicht** getroffen werden.
+
+Sechs Mutationen, jede macht die Suite rot: `freunde` aus der Liste · das
+Untersegment `/freunde/gruppen` entfernt · gar kein Flush · Fassung
+festgeschrieben statt abgeleitet · harter statt weicher Flush · die Regel als
+Auffangmuster.
+
+```bash
+npx playwright test tests/e2e/seitenrouten.spec.js   # 7 Tests, 6 Mutationen
+```
+
 ### Eine Adresse, die mit der Route wanderte
 
 Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
@@ -2586,7 +2667,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1055 Tests in 67 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1061 Tests in 68 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -2655,6 +2736,11 @@ niemanden — IP-Eimer werden geweitet, kontogebundene nie),
 **Einstiege** (die Landeseite bedient mehr als eine Absicht — jeder Weg
 wird geklickt, nicht im Markup gesucht; der Anbieter-Einstieg endet in der
 Registrierung, nicht in der Anmeldung),
+**Seitenrouten** (jede Seite mit `id="page-…"` wird von einer Rewrite-Regel
+wirklich getroffen, nicht nur in einer Liste geführt — sonst endet ihr
+geteilter Link auf `404.php`; das Untersegment trägt den Einladungslink; die
+Regeln sind kein Auffangmuster; und die Regel-Fassung ist aus der Slug-Liste
+abgeleitet, damit ein neuer Slug den Flush selbst auslöst),
 **Freunde & Gruppen** (die Rechteprüfungen werden im echten PHP ausgeführt,
 nicht gelesen: ein Fremder erfährt nicht einmal, dass es die Gruppe gibt; ein
 Eingeladener bekommt die Mitgliederliste nicht; der Gesperrte erfährt nichts

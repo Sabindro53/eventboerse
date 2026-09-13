@@ -78,13 +78,3 @@ test('Refund view respects server permission and pending state',async({page})=>{
   canRefund=true;await page.getByRole('button',{name:'Status aktualisieren',exact:true}).click();
   await expect(page.locator('#bookingRefundForm')).toHaveCount(0);
 });
-
-test('Shared invitation and provider routes resolve on WordPress without stale rewrite rules',()=>{
-  const fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process');
-  const source=fs.readFileSync(path.join(__dirname,'../../functions.php'),'utf8');
-  const section=source.slice(source.indexOf('function eb_spa_pages()'),source.indexOf('/* eb_spa Query-Var registrieren */'));
-  const harness=`$actions=[];function add_action($name,$callback){global $actions;$actions[$name]=$callback;}function add_rewrite_rule($a,$b,$c){}\n${section}\n$out=[];foreach(['freunde','freunde/einladung','freunde/123','business','my-listings','auftraege','wp-admin','wp-json/eventboerse/v1','unknown','freunde/a/b'] as $path){$wp=(object)['request'=>$path,'query_vars'=>['error'=>'404']];$actions['parse_request']($wp);$out[$path]=$wp->query_vars;}echo json_encode($out);`;
-  const result=JSON.parse(execFileSync('php',['-r',harness],{encoding:'utf8'}));
-  for(const route of ['freunde','freunde/einladung','freunde/123','business','my-listings','auftraege'])expect(result[route]).toEqual({eb_spa:'1'});
-  for(const route of ['wp-admin','wp-json/eventboerse/v1','unknown','freunde/a/b'])expect(result[route]).toEqual({error:'404'});
-});

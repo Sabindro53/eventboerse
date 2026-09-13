@@ -875,8 +875,57 @@ add_action( 'wp_enqueue_scripts', 'eb_fremde_stile_abbestellen', 100 );
 /**
  * SPA-Routing: Alle Front-End-Pfade auf index.php weiterleiten,
  * damit die Single-Page-App die Navigation übernimmt.
+ *
+ * ── WAS HIER FEHLTE, WAR NICHT SICHTBAR ────────────────────────────────
+ *
+ * Bis zum 13.09.2026 kannte diese Liste 31 Slugs, das Markup aber 34
+ * Seiten. Sechs davon hatten KEINE Regel: `freunde`, `auftraege`,
+ * `business`, `my-listings`, `notifications` und `home`.
+ *
+ * Der Router schreibt für jede dieser Seiten eine Adresse — `navigateTo()`
+ * ruft `_spaPath(page, data)` und schiebt `/<seite>` in die Historie. Wer
+ * innerhalb der App dorthin klickt, merkt nichts: die Adresse steht in der
+ * Leiste, aber es wurde nie eine Anfrage gestellt. Erst wer sie TEILT oder
+ * neu lädt, fragt den Server — und der fand keine Regel, keine Seite mit
+ * diesem Slug, und lieferte `404.php`:
+ *
+ *   „Diese Adresse gibt es nicht — vielleicht ist der Link veraltet."
+ *
+ * Das traf ausgerechnet `/freunde`, also den Weg, über den ein
+ * Einladungslink in eine Gruppe führt. Die Einladung war der einzige
+ * Grund, den Link weiterzugeben, und genau das Weitergeben war kaputt.
+ *
+ * Die SPA war die ganze Zeit bereit: `_readSpaRoute()` liest den Pfad und
+ * `navigateTo(initPage, initData, true)` stellt die Seite her. Es fehlte
+ * allein der Weg bis dorthin.
+ *
+ * ── UND DIE LISTE ZU ERGÄNZEN HÄTTE NICHT GEREICHT ─────────────────────
+ *
+ * `add_rewrite_rule()` trägt nur in den Speicher ein; gefragt wird zur
+ * Laufzeit die Option `rewrite_rules`. Geflusht wurde bis heute
+ * ausschliesslich bei `after_switch_theme` — bei einem SFTP-Deploy wird
+ * das Theme aber nie umgeschaltet. Die neuen Slugs stünden also im Code,
+ * die Seite bliebe bei 404, und der Diff sähe vollständig richtig aus.
+ * Dieselbe Klasse wie die vierzehn Routine-PRs: die Arbeit ist getan und
+ * erreicht die Seite nicht.
+ *
+ * Die Fassung ist deshalb aus der Liste ABGELEITET, nicht von Hand
+ * gepflegt. Eine Handnummer, die man beim Ergänzen hochzählen muss, wird
+ * beim nächsten Mal vergessen — und dann ist genau dieser Fehler still
+ * wieder da. Wer einen Slug hinzufügt oder entfernt, ändert damit die
+ * Fassung und löst den Flush aus, ohne etwas davon zu wissen.
+ *
+ * Weich geflusht (`false`): diese Regeln werden in PHP ausgewertet, es
+ * muss keine einzige Apache-Direktive geschrieben werden. Ein harter Flush
+ * versuchte, die `.htaccess` der Installation anzufassen — ein Schreibzugriff
+ * auf eine fremde Datei im laufenden Betrieb, für nichts.
  */
-function eb_spa_pages() {
+add_action( 'init', function() {
+    // Definierte SPA-Seiten.
+    //
+    // PFLICHT: Jede Seite mit `id="page-…"` in `app-shell.html` gehoert
+    // hierher, sonst endet ihr geteilter Link auf der Fehlerseite.
+    // `tests/e2e/seitenrouten.spec.js` haelt genau diese Bedingung.
     $spa_pages = array(
         'browse', 'detail', 'provider', 'messages', 'profile',
         'create-listing', 'edit-profile', 'settings', 'admin',
@@ -885,23 +934,24 @@ function eb_spa_pages() {
         'agb', 'agb-b2b', 'agb-dienstleister', 'marktplatz',
         'cookies', 'widerruf', 'community', 'bewertungen', 'upload',
         'dsa', 'p2b', 'barrierefreiheit', 'vsbg',
-        'favorites', 'freunde', 'business', 'my-listings', 'auftraege',
+        'favorites',
+        // Seit 13.09.2026: hatten kein Gegenstueck und endeten auf 404.php.
+        // `home` schreibt die App selbst nie (der Router leitet es auf
+        // `browse` um) — aber alte und von Hand getippte Links gibt es,
+        // und fuer die ist eine Regel billiger als eine Fehlerseite.
+        'freunde', 'auftraege', 'business', 'my-listings',
+        'notifications', 'home',
     );
-    return $spa_pages;
-}
-add_action( 'init', function() {
-    foreach ( eb_spa_pages() as $slug ) {
+    foreach ( $spa_pages as $slug ) {
         add_rewrite_rule( '^' . $slug . '/?$', 'index.php?eb_spa=1', 'top' );
         add_rewrite_rule( '^' . $slug . '/([^/]+)/?$', 'index.php?eb_spa=1', 'top' );
     }
-} );
 
-/* New app routes work immediately after a theme update, even before WordPress
- * refreshes its stored rewrite rules. Do not turn arbitrary 404s into app pages. */
-add_action( 'parse_request', function( $wp ) {
-    $parts = explode( '/', trim( (string) $wp->request, '/' ) );
-    if ( count( $parts ) <= 2 && in_array( $parts[0], eb_spa_pages(), true ) ) {
-        $wp->query_vars = array( 'eb_spa' => '1' );
+    // Aus der Liste abgeleitet: aendert sie sich, aendert sich die Fassung.
+    $eb_regel_fassung = md5( implode( ',', $spa_pages ) );
+    if ( get_option( 'eb_spa_regel_fassung' ) !== $eb_regel_fassung ) {
+        flush_rewrite_rules( false );
+        update_option( 'eb_spa_regel_fassung', $eb_regel_fassung );
     }
 } );
 
