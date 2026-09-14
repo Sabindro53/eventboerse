@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-13T03:34:13.505Z",
+  "stand": "2026-09-14T03:39:24.591Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -34,9 +34,21 @@
       "umkreisKm": 50
     },
     {
+      "stadt": "München",
+      "lat": 48.1372,
+      "lon": 11.5755,
+      "umkreisKm": 50
+    },
+    {
       "stadt": "Frankfurt",
       "lat": 50.1109,
       "lon": 8.6821,
+      "umkreisKm": 50
+    },
+    {
+      "stadt": "Stuttgart",
+      "lat": 48.7758,
+      "lon": 9.1829,
       "umkreisKm": 50
     }
   ],
@@ -59,11 +71,31 @@
     }
   ],
   "anzahl": {
-    "gesamt": 722,
-    "sport": 122,
-    "orte": 600
+    "gesamt": 954,
+    "sport": 154,
+    "orte": 800
   },
   "eintraege": [
+    {
+      "id": "openligadb:83183",
+      "art": "sport",
+      "titel": "FC Bayern München – 1. FC Union Berlin",
+      "beginn": "2026-09-18T18:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
     {
       "id": "openligadb:83186",
       "art": "sport",
@@ -95,6 +127,26 @@
         "stadt": "Hamburg",
         "lat": 53.5511,
         "lon": 9.9937,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83184",
+      "art": "sport",
+      "titel": "VfB Stuttgart – Borussia Dortmund",
+      "beginn": "2026-09-19T16:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
         "ungefaehr": true
       },
       "quelle": {
@@ -265,6 +317,46 @@
       "partner": false
     },
     {
+      "id": "openligadb:83201",
+      "art": "sport",
+      "titel": "FC Bayern München – RB Leipzig",
+      "beginn": "2026-10-17T16:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83212",
+      "art": "sport",
+      "titel": "VfB Stuttgart – Borussia Mönchengladbach",
+      "beginn": "2026-10-23T18:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83217",
       "art": "sport",
       "titel": "1. FC Köln – FC Schalke 04",
@@ -315,6 +407,26 @@
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83219",
+      "art": "sport",
+      "titel": "FC Bayern München – Borussia Dortmund",
+      "beginn": "2026-10-31T17:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -405,6 +517,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83230",
+      "art": "sport",
+      "titel": "VfB Stuttgart – SV Werder Bremen",
+      "beginn": "2026-11-07T17:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83235",
       "art": "sport",
       "titel": "1. FC Köln – Bayer 04 Leverkusen",
@@ -415,6 +547,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83237",
+      "art": "sport",
+      "titel": "FC Bayern München – 1. FC Köln",
+      "beginn": "2026-11-20T19:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -525,6 +677,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83247",
+      "art": "sport",
+      "titel": "VfB Stuttgart – Eintracht Frankfurt",
+      "beginn": "2026-11-28T17:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83246",
       "art": "sport",
       "titel": "Borussia Dortmund – Bayer 04 Leverkusen",
@@ -535,6 +707,26 @@
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83255",
+      "art": "sport",
+      "titel": "FC Bayern München – SC Paderborn 07",
+      "beginn": "2026-12-05T14:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -625,6 +817,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83265",
+      "art": "sport",
+      "titel": "VfB Stuttgart – 1. FC Union Berlin",
+      "beginn": "2026-12-12T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83269",
       "art": "sport",
       "titel": "Hamburger SV – FC Schalke 04",
@@ -655,6 +867,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83273",
+      "art": "sport",
+      "titel": "FC Bayern München – SV Werder Bremen",
+      "beginn": "2026-12-19T14:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -725,6 +957,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83283",
+      "art": "sport",
+      "titel": "VfB Stuttgart – FC Augsburg",
+      "beginn": "2027-01-09T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83285",
       "art": "sport",
       "titel": "Eintracht Frankfurt – FC Schalke 04",
@@ -775,6 +1027,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83291",
+      "art": "sport",
+      "titel": "FC Bayern München – Bayer 04 Leverkusen",
+      "beginn": "2027-01-12T19:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -865,6 +1137,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83301",
+      "art": "sport",
+      "titel": "VfB Stuttgart – 1. FSV Mainz 05",
+      "beginn": "2027-01-16T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83304",
       "art": "sport",
       "titel": "Eintracht Frankfurt – FC Bayern München",
@@ -895,6 +1187,26 @@
         "stadt": "Hamburg",
         "lat": 53.5511,
         "lon": 9.9937,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83309",
+      "art": "sport",
+      "titel": "VfB Stuttgart – FC Bayern München",
+      "beginn": "2027-01-23T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
         "ungefaehr": true
       },
       "quelle": {
@@ -965,6 +1277,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83318",
+      "art": "sport",
+      "titel": "FC Bayern München – FC Schalke 04",
+      "beginn": "2027-01-30T14:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83319",
       "art": "sport",
       "titel": "Borussia Dortmund – TSG Hoffenheim",
@@ -1015,6 +1347,46 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83327",
+      "art": "sport",
+      "titel": "FC Bayern München – SV 07 Elversberg",
+      "beginn": "2027-02-06T14:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83328",
+      "art": "sport",
+      "titel": "VfB Stuttgart – TSG Hoffenheim",
+      "beginn": "2027-02-06T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
         "ungefaehr": true
       },
       "quelle": {
@@ -1145,6 +1517,46 @@
       "partner": false
     },
     {
+      "id": "openligadb:83345",
+      "art": "sport",
+      "titel": "FC Bayern München – FC Augsburg",
+      "beginn": "2027-02-20T14:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83346",
+      "art": "sport",
+      "titel": "VfB Stuttgart – SC Paderborn 07",
+      "beginn": "2027-02-20T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83348",
       "art": "sport",
       "titel": "Eintracht Frankfurt – RB Leipzig",
@@ -1225,6 +1637,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83356",
+      "art": "sport",
+      "titel": "VfB Stuttgart – Hamburger SV",
+      "beginn": "2027-02-27T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83361",
       "art": "sport",
       "titel": "1. FC Köln – Eintracht Frankfurt",
@@ -1235,6 +1667,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83363",
+      "art": "sport",
+      "titel": "FC Bayern München – SC Freiburg",
+      "beginn": "2027-03-02T19:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -1345,6 +1797,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83374",
+      "art": "sport",
+      "titel": "VfB Stuttgart – Bayer 04 Leverkusen",
+      "beginn": "2027-03-06T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83378",
       "art": "sport",
       "titel": "Hamburger SV – Eintracht Frankfurt",
@@ -1375,6 +1847,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83381",
+      "art": "sport",
+      "titel": "FC Bayern München – 1. FSV Mainz 05",
+      "beginn": "2027-03-13T14:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -1465,6 +1957,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83392",
+      "art": "sport",
+      "titel": "VfB Stuttgart – FC Schalke 04",
+      "beginn": "2027-03-20T14:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83396",
       "art": "sport",
       "titel": "Hamburger SV – SV Werder Bremen",
@@ -1495,6 +2007,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83399",
+      "art": "sport",
+      "titel": "FC Bayern München – Hamburger SV",
+      "beginn": "2027-04-03T13:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -1585,6 +2117,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83409",
+      "art": "sport",
+      "titel": "VfB Stuttgart – SV 07 Elversberg",
+      "beginn": "2027-04-10T13:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83413",
       "art": "sport",
       "titel": "Hamburger SV – 1. FC Union Berlin",
@@ -1615,6 +2167,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83417",
+      "art": "sport",
+      "titel": "FC Bayern München – TSG Hoffenheim",
+      "beginn": "2027-04-17T13:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -1705,6 +2277,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83427",
+      "art": "sport",
+      "titel": "VfB Stuttgart – SC Freiburg",
+      "beginn": "2027-04-24T13:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83429",
       "art": "sport",
       "titel": "Eintracht Frankfurt – Bayer 04 Leverkusen",
@@ -1755,6 +2347,26 @@
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83435",
+      "art": "sport",
+      "titel": "FC Bayern München – Borussia Mönchengladbach",
+      "beginn": "2027-05-08T13:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -1825,6 +2437,26 @@
       "partner": false
     },
     {
+      "id": "openligadb:83445",
+      "art": "sport",
+      "titel": "VfB Stuttgart – RB Leipzig",
+      "beginn": "2027-05-15T13:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83448",
       "art": "sport",
       "titel": "Eintracht Frankfurt – SV 07 Elversberg",
@@ -1855,6 +2487,26 @@
         "stadt": "Hamburg",
         "lat": 53.5511,
         "lon": 9.9937,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83453",
+      "art": "sport",
+      "titel": "FC Bayern München – Eintracht Frankfurt",
+      "beginn": "2027-05-22T13:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
         "ungefaehr": true
       },
       "quelle": {
@@ -13005,6 +13657,2106 @@
       "partner": false
     },
     {
+      "id": "osm:node/60013074",
+      "art": "ort",
+      "titel": "Spielzeugmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Spielzeugmuseum",
+        "stadt": "München",
+        "lat": 48.13669,
+        "lon": 11.57688
+      },
+      "entfernungKm": 0.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/60013074",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1132414558",
+      "art": "ort",
+      "titel": "Rathausgalerie | Kunsthalle",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Rathausgalerie | Kunsthalle",
+        "stadt": "München",
+        "lat": 48.13816,
+        "lon": 11.57589
+      },
+      "entfernungKm": 0.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1132414558",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1132403384",
+      "art": "ort",
+      "titel": "Kunstarkaden",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Kunstarkaden",
+        "stadt": "München",
+        "lat": 48.13704,
+        "lon": 11.57758
+      },
+      "entfernungKm": 0.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1132403384",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4217510193",
+      "art": "ort",
+      "titel": "Ausstellung Münchner Kaiserburg",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Ausstellung Münchner Kaiserburg",
+        "stadt": "München",
+        "lat": 48.13798,
+        "lon": 11.57815
+      },
+      "entfernungKm": 0.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4217510193",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/307738674",
+      "art": "ort",
+      "titel": "Deutsches Jagd- und Fischereimuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Deutsches Jagd- und Fischereimuseum",
+        "stadt": "München",
+        "lat": 48.13834,
+        "lon": 11.57159
+      },
+      "entfernungKm": 0.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/307738674",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/342930150",
+      "art": "ort",
+      "titel": "Filmmuseum München",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Filmmuseum München",
+        "stadt": "München",
+        "lat": 48.13487,
+        "lon": 11.57276
+      },
+      "entfernungKm": 0.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/342930150",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11933309402",
+      "art": "ort",
+      "titel": "Münchner Stadtmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Stadtmuseum",
+        "stadt": "München",
+        "lat": 48.13511,
+        "lon": 11.57303
+      },
+      "entfernungKm": 0.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11933309402",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/261030708",
+      "art": "ort",
+      "titel": "Residenzmuseum und Schatzkammer",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Residenzmuseum und Schatzkammer",
+        "stadt": "München",
+        "lat": 48.14063,
+        "lon": 11.57862
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/261030708",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/277309657",
+      "art": "ort",
+      "titel": "Theatiner Filmkunst",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Theatiner Filmkunst",
+        "stadt": "München",
+        "lat": 48.14093,
+        "lon": 11.57702
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/277309657",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/314035226",
+      "art": "ort",
+      "titel": "WOW Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "WOW Museum",
+        "stadt": "München",
+        "lat": 48.13579,
+        "lon": 11.58054
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/314035226",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/527842465",
+      "art": "ort",
+      "titel": "Teamtheater Tankstelle",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Teamtheater Tankstelle",
+        "stadt": "",
+        "lat": 48.13363,
+        "lon": 11.57449
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/527842465",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/569097146",
+      "art": "ort",
+      "titel": "Komödie im Bayerischen Hof",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Komödie im Bayerischen Hof",
+        "stadt": "München",
+        "lat": 48.1405,
+        "lon": 11.57276
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/569097146",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/617136804",
+      "art": "ort",
+      "titel": "Residenztheater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Residenztheater",
+        "stadt": "München",
+        "lat": 48.14011,
+        "lon": 11.57943
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/617136804",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/656253064",
+      "art": "ort",
+      "titel": "Bier- und Oktoberfestmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Bier- und Oktoberfestmuseum",
+        "stadt": "München",
+        "lat": 48.13525,
+        "lon": 11.58025
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/656253064",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1134205319",
+      "art": "ort",
+      "titel": "Teamtheater Tankstelle",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Teamtheater Tankstelle",
+        "stadt": "München",
+        "lat": 48.13345,
+        "lon": 11.5747
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1134205319",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2169663919",
+      "art": "ort",
+      "titel": "astor@Cinema Lounge",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "astor@Cinema Lounge",
+        "stadt": "München",
+        "lat": 48.14056,
+        "lon": 11.5727
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2169663919",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5951675866",
+      "art": "ort",
+      "titel": "MUCA",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "MUCA",
+        "stadt": "München",
+        "lat": 48.1367,
+        "lon": 11.57005
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5951675866",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11091091243",
+      "art": "ort",
+      "titel": "Hofspielhaus",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Hofspielhaus",
+        "stadt": "München",
+        "lat": 48.13866,
+        "lon": 11.57983
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11091091243",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/12163409668",
+      "art": "ort",
+      "titel": "Unlock Escape",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Unlock Escape",
+        "stadt": "München",
+        "lat": 48.13517,
+        "lon": 11.57998
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/12163409668",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/23458583",
+      "art": "ort",
+      "titel": "Bayerisches Nationaltheater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Bayerisches Nationaltheater",
+        "stadt": "München",
+        "lat": 48.13956,
+        "lon": 11.57951
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/23458583",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/24164434",
+      "art": "ort",
+      "titel": "Jüdisches Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Jüdisches Museum",
+        "stadt": "München",
+        "lat": 48.13433,
+        "lon": 11.5723
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/24164434",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/79817170",
+      "art": "ort",
+      "titel": "Münchner Kammerspiele | Therese-Giehse-Halle",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Kammerspiele | Therese-Giehse-Halle",
+        "stadt": "München",
+        "lat": 48.13784,
+        "lon": 11.58137
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/79817170",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/299513611",
+      "art": "ort",
+      "titel": "Münchner Kammerspiele",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Kammerspiele",
+        "stadt": "München",
+        "lat": 48.1384,
+        "lon": 11.58247
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/299513611",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/307729968",
+      "art": "ort",
+      "titel": "Staatliche Münzsammlung",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Staatliche Münzsammlung",
+        "stadt": "",
+        "lat": 48.14124,
+        "lon": 11.57831
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/307729968",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/344494568",
+      "art": "ort",
+      "titel": "Valentin-Karlstadt-Musäum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Valentin-Karlstadt-Musäum",
+        "stadt": "München",
+        "lat": 48.13495,
+        "lon": 11.58165
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/344494568",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/642040534",
+      "art": "ort",
+      "titel": "Cuvilliés-Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Cuvilliés-Theater",
+        "stadt": "München",
+        "lat": 48.14089,
+        "lon": 11.58006
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/642040534",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3887317862",
+      "art": "ort",
+      "titel": "Max-Joseph-Saal",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Max-Joseph-Saal",
+        "stadt": "München",
+        "lat": 48.1412,
+        "lon": 11.57848
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3887317862",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4534759889",
+      "art": "ort",
+      "titel": "Rennert-Saal / Bayerische Staatsoper",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Rennert-Saal / Bayerische Staatsoper",
+        "stadt": "",
+        "lat": 48.1395,
+        "lon": 11.58065
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4534759889",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4668959525",
+      "art": "ort",
+      "titel": "Iberl Bühne",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Iberl Bühne",
+        "stadt": "",
+        "lat": 48.1377,
+        "lon": 11.56866
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4668959525",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/85990411",
+      "art": "ort",
+      "titel": "Münchner Kammerspiele | Werkraum",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Kammerspiele | Werkraum",
+        "stadt": "München",
+        "lat": 48.13767,
+        "lon": 11.58188
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/85990411",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/251873298",
+      "art": "ort",
+      "titel": "CinemaxX",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "CinemaxX",
+        "stadt": "München",
+        "lat": 48.13416,
+        "lon": 11.58218
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/251873298",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/443435665",
+      "art": "ort",
+      "titel": "Feuerwehrmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Feuerwehrmuseum",
+        "stadt": "München",
+        "lat": 48.1328,
+        "lon": 11.57061
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/443435665",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/944696737",
+      "art": "ort",
+      "titel": "Oberangertheater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Oberangertheater",
+        "stadt": "München",
+        "lat": 48.13411,
+        "lon": 11.5694
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/944696737",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/7016954281",
+      "art": "ort",
+      "titel": "Museum der Marianischen Männerkongregation",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Museum der Marianischen Männerkongregation",
+        "stadt": "",
+        "lat": 48.13916,
+        "lon": 11.56828
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/7016954281",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/9649184270",
+      "art": "ort",
+      "titel": "Münchner Kammerspiele | Habibi Kiosk",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Kammerspiele | Habibi Kiosk",
+        "stadt": "München",
+        "lat": 48.13845,
+        "lon": 11.58272
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9649184270",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/10699359003",
+      "art": "ort",
+      "titel": "Alexander Krist Table Magic Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Alexander Krist Table Magic Theater",
+        "stadt": "München",
+        "lat": 48.13309,
+        "lon": 11.57126
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/10699359003",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/25505389",
+      "art": "ort",
+      "titel": "Bayerisches Staatsschauspiel - Marstall",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Bayerisches Staatsschauspiel - Marstall",
+        "stadt": "München",
+        "lat": 48.1402,
+        "lon": 11.58165
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/25505389",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/46617421",
+      "art": "ort",
+      "titel": "Herkulessaal",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Herkulessaal",
+        "stadt": "",
+        "lat": 48.14174,
+        "lon": 11.57957
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/46617421",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/125087548",
+      "art": "ort",
+      "titel": "Gloria Palast",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Gloria Palast",
+        "stadt": "München",
+        "lat": 48.13966,
+        "lon": 11.56649
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/125087548",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/274372610",
+      "art": "ort",
+      "titel": "Werkstattkino",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Werkstattkino",
+        "stadt": "München",
+        "lat": 48.13089,
+        "lon": 11.57286
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/274372610",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/605007384",
+      "art": "ort",
+      "titel": "Theater im Fraunhofer",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Theater im Fraunhofer",
+        "stadt": "München",
+        "lat": 48.13095,
+        "lon": 11.57278
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/605007384",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1577199973",
+      "art": "ort",
+      "titel": "Staatstheater am Gärtnerplatz",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Staatstheater am Gärtnerplatz",
+        "stadt": "München",
+        "lat": 48.13125,
+        "lon": 11.5757
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1577199973",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/25695553",
+      "art": "ort",
+      "titel": "Museum Fünf Kontinente",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Museum Fünf Kontinente",
+        "stadt": "München",
+        "lat": 48.13752,
+        "lon": 11.58556
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/25695553",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/37681986",
+      "art": "ort",
+      "titel": "Münchner Marionettentheater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Marionettentheater",
+        "stadt": "München",
+        "lat": 48.13203,
+        "lon": 11.57019
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/37681986",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/307729970",
+      "art": "ort",
+      "titel": "Deutsches Theatermuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Deutsches Theatermuseum",
+        "stadt": "München",
+        "lat": 48.14367,
+        "lon": 11.58054
+      },
+      "entfernungKm": 0.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/307729970",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/291364396",
+      "art": "ort",
+      "titel": "GOP Theater und Varieté",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "GOP Theater und Varieté",
+        "stadt": "München",
+        "lat": 48.13798,
+        "lon": 11.58797
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/291364396",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/388387288",
+      "art": "ort",
+      "titel": "City Kino",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "City Kino",
+        "stadt": "München",
+        "lat": 48.13691,
+        "lon": 11.56333
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/388387288",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/388387658",
+      "art": "ort",
+      "titel": "Atelier",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Atelier",
+        "stadt": "München",
+        "lat": 48.1369,
+        "lon": 11.5637
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/388387658",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/605008113",
+      "art": "ort",
+      "titel": "Neues Arena",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Neues Arena",
+        "stadt": "München",
+        "lat": 48.12993,
+        "lon": 11.57016
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/605008113",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1644953756",
+      "art": "ort",
+      "titel": "Mathäser Filmpalast",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Mathäser Filmpalast",
+        "stadt": "München",
+        "lat": 48.13889,
+        "lon": 11.56375
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1644953756",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2503219196",
+      "art": "ort",
+      "titel": "Kunstraum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Kunstraum",
+        "stadt": "",
+        "lat": 48.13049,
+        "lon": 11.56804
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2503219196",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/18956760",
+      "art": "ort",
+      "titel": "Alpines Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Alpines Museum",
+        "stadt": "München",
+        "lat": 48.13526,
+        "lon": 11.58906
+      },
+      "entfernungKm": 1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/18956760",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/116642230",
+      "art": "ort",
+      "titel": "Deutsches Theater München",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Deutsches Theater München",
+        "stadt": "München",
+        "lat": 48.13688,
+        "lon": 11.56203
+      },
+      "entfernungKm": 1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/116642230",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/332793905",
+      "art": "ort",
+      "titel": "Escape Game München",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Escape Game München",
+        "stadt": "München",
+        "lat": 48.13086,
+        "lon": 11.58744
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/332793905",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1558029908",
+      "art": "ort",
+      "titel": "Museum Lichtspiele",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Museum Lichtspiele",
+        "stadt": "München",
+        "lat": 48.13096,
+        "lon": 11.58749
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1558029908",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1697626987",
+      "art": "ort",
+      "titel": "Cabaret Club Tiffany",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Cabaret Club Tiffany",
+        "stadt": "München",
+        "lat": 48.13698,
+        "lon": 11.56083
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1697626987",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2497837304",
+      "art": "ort",
+      "titel": "Museum für Abgüsse klassischer Bildwerke",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Museum für Abgüsse klassischer Bildwerke",
+        "stadt": "München",
+        "lat": 48.14469,
+        "lon": 11.56673
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2497837304",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2866790927",
+      "art": "ort",
+      "titel": "Staatliche Graphische Sammlung",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Staatliche Graphische Sammlung",
+        "stadt": "",
+        "lat": 48.14454,
+        "lon": 11.56638
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2866790927",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/10053440",
+      "art": "ort",
+      "titel": "Pinakothek der Moderne",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Pinakothek der Moderne",
+        "stadt": "München",
+        "lat": 48.14716,
+        "lon": 11.57223
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/10053440",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/249814994",
+      "art": "ort",
+      "titel": "Museum Mineralogia München",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Museum Mineralogia München",
+        "stadt": "München",
+        "lat": 48.14811,
+        "lon": 11.57236
+      },
+      "entfernungKm": 1.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/249814994",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4027839155",
+      "art": "ort",
+      "titel": "Sammlung Bollert",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Sammlung Bollert",
+        "stadt": "",
+        "lat": 48.14316,
+        "lon": 11.58922
+      },
+      "entfernungKm": 1.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4027839155",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5223300524",
+      "art": "ort",
+      "titel": "Staatliches Museum Ägyptischer Kunst",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Staatliches Museum Ägyptischer Kunst",
+        "stadt": "München",
+        "lat": 48.14699,
+        "lon": 11.56828
+      },
+      "entfernungKm": 1.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5223300524",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11099726845",
+      "art": "ort",
+      "titel": "Museum Brandhorst",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Museum Brandhorst",
+        "stadt": "München",
+        "lat": 48.14812,
+        "lon": 11.57409
+      },
+      "entfernungKm": 1.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11099726845",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11935589855",
+      "art": "ort",
+      "titel": "Die neue Sammlung",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Die neue Sammlung",
+        "stadt": "",
+        "lat": 48.14755,
+        "lon": 11.57182
+      },
+      "entfernungKm": 1.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11935589855",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/305581866",
+      "art": "ort",
+      "titel": "Bayerisches Nationalmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Bayerisches Nationalmuseum",
+        "stadt": "München",
+        "lat": 48.14339,
+        "lon": 11.59115
+      },
+      "entfernungKm": 1.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/305581866",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/639108906",
+      "art": "ort",
+      "titel": "der tu film",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "der tu film",
+        "stadt": "München",
+        "lat": 48.14815,
+        "lon": 11.56788
+      },
+      "entfernungKm": 1.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/639108906",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/654580309",
+      "art": "ort",
+      "titel": "Kunstbau",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Kunstbau",
+        "stadt": "",
+        "lat": 48.14577,
+        "lon": 11.56344
+      },
+      "entfernungKm": 1.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/654580309",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/4647135",
+      "art": "ort",
+      "titel": "Alte Pinakothek",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Alte Pinakothek",
+        "stadt": "München",
+        "lat": 48.14829,
+        "lon": 11.56996
+      },
+      "entfernungKm": 1.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/4647135",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/120079050",
+      "art": "ort",
+      "titel": "Sudetendeutsches Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Sudetendeutsches Museum",
+        "stadt": "München",
+        "lat": 48.13022,
+        "lon": 11.58882
+      },
+      "entfernungKm": 1.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/120079050",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/307734040",
+      "art": "ort",
+      "titel": "Geologisches Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Geologisches Museum",
+        "stadt": "München",
+        "lat": 48.14761,
+        "lon": 11.5641
+      },
+      "entfernungKm": 1.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/307734040",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/390909981",
+      "art": "ort",
+      "titel": "A Museum of contemporary art",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "A Museum of contemporary art",
+        "stadt": "München",
+        "lat": 48.14929,
+        "lon": 11.57904
+      },
+      "entfernungKm": 1.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/390909981",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/12249232101",
+      "art": "ort",
+      "titel": "Lucky Punch Comedy Club",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Lucky Punch Comedy Club",
+        "stadt": "",
+        "lat": 48.13103,
+        "lon": 11.59131
+      },
+      "entfernungKm": 1.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/12249232101",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/13354515331",
+      "art": "ort",
+      "titel": "Münchner Lach- & Schießgesellschaft",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Lach- & Schießgesellschaft",
+        "stadt": "München",
+        "lat": 48.13112,
+        "lon": 11.59167
+      },
+      "entfernungKm": 1.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/13354515331",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/78402190",
+      "art": "ort",
+      "titel": "Royal Filmpalast",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Royal Filmpalast",
+        "stadt": "München",
+        "lat": 48.13014,
+        "lon": 11.55795
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/78402190",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11401594532",
+      "art": "ort",
+      "titel": "Reaktorhalle",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Reaktorhalle",
+        "stadt": "München",
+        "lat": 48.14831,
+        "lon": 11.56454
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11401594532",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/27959434",
+      "art": "ort",
+      "titel": "Sammlung Schack",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Sammlung Schack",
+        "stadt": "München",
+        "lat": 48.14247,
+        "lon": 11.5934
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/27959434",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/28026044",
+      "art": "ort",
+      "titel": "Paläontologisches Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Paläontologisches Museum",
+        "stadt": "München",
+        "lat": 48.14761,
+        "lon": 11.56362
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/28026044",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/259759735",
+      "art": "ort",
+      "titel": "Rio Filmpalast",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Rio Filmpalast",
+        "stadt": "München",
+        "lat": 48.12864,
+        "lon": 11.59303
+      },
+      "entfernungKm": 1.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/259759735",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/704397712",
+      "art": "ort",
+      "titel": "DenkStätte Weiße Rose",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "DenkStätte Weiße Rose",
+        "stadt": "München",
+        "lat": 48.15094,
+        "lon": 11.57984
+      },
+      "entfernungKm": 1.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/704397712",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1813652702",
+      "art": "ort",
+      "titel": "Münchner Theater für Kinder",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Münchner Theater für Kinder",
+        "stadt": "München",
+        "lat": 48.14614,
+        "lon": 11.55945
+      },
+      "entfernungKm": 1.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1813652702",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3252640795",
+      "art": "ort",
+      "titel": "Galli Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Galli Theater",
+        "stadt": "",
+        "lat": 48.15171,
+        "lon": 11.57758
+      },
+      "entfernungKm": 1.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3252640795",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/211874136",
+      "art": "ort",
+      "titel": "Neues Rottmann",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Neues Rottmann",
+        "stadt": "München",
+        "lat": 48.14854,
+        "lon": 11.56022
+      },
+      "entfernungKm": 1.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/211874136",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/123421250",
+      "art": "ort",
+      "titel": "HochX Theater und Live Art",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "HochX Theater und Live Art",
+        "stadt": "München",
+        "lat": 48.12236,
+        "lon": 11.5777
+      },
+      "entfernungKm": 1.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/123421250",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2560210491",
+      "art": "ort",
+      "titel": "Astor Film Lounge im ARRI",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Astor Film Lounge im ARRI",
+        "stadt": "München",
+        "lat": 48.15327,
+        "lon": 11.57775
+      },
+      "entfernungKm": 1.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2560210491",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11117146896",
+      "art": "ort",
+      "titel": "Escape Game",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Escape Game",
+        "stadt": "München",
+        "lat": 48.15299,
+        "lon": 11.57401
+      },
+      "entfernungKm": 1.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11117146896",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/85213217",
+      "art": "ort",
+      "titel": "Villa Stuck",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Villa Stuck",
+        "stadt": "München",
+        "lat": 48.14048,
+        "lon": 11.59952
+      },
+      "entfernungKm": 1.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/85213217",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3929291577",
+      "art": "ort",
+      "titel": "KiM",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "KiM",
+        "stadt": "München",
+        "lat": 48.13542,
+        "lon": 11.60072
+      },
+      "entfernungKm": 1.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3929291577",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1444741518",
+      "art": "ort",
+      "titel": "Marionettentheater KLEINES SPIEL",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Marionettentheater KLEINES SPIEL",
+        "stadt": "München",
+        "lat": 48.15485,
+        "lon": 11.57283
+      },
+      "entfernungKm": 2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1444741518",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/7961037785",
+      "art": "ort",
+      "titel": "Exittheroom GmbH",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Exittheroom GmbH",
+        "stadt": "München",
+        "lat": 48.15493,
+        "lon": 11.57871
+      },
+      "entfernungKm": 2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/7961037785",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:way/118673950",
+      "art": "ort",
+      "titel": "Haidhausen Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Haidhausen Museum",
+        "stadt": "",
+        "lat": 48.13373,
+        "lon": 11.60141
+      },
+      "entfernungKm": 2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/way/118673950",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/246919524",
+      "art": "ort",
+      "titel": "CINEMA Filmtheater",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "CINEMA Filmtheater",
+        "stadt": "München",
+        "lat": 48.14827,
+        "lon": 11.55316
+      },
+      "entfernungKm": 2.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/246919524",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/369666364",
+      "art": "ort",
+      "titel": "Isabella",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Isabella",
+        "stadt": "München",
+        "lat": 48.15534,
+        "lon": 11.57018
+      },
+      "entfernungKm": 2.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/369666364",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/583960805",
+      "art": "ort",
+      "titel": "Drehleier",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Drehleier",
+        "stadt": "",
+        "lat": 48.12605,
+        "lon": 11.59846
+      },
+      "entfernungKm": 2.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/583960805",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1108137015",
+      "art": "ort",
+      "titel": "Mystery Rooms",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Mystery Rooms",
+        "stadt": "München",
+        "lat": 48.13692,
+        "lon": 11.5468
+      },
+      "entfernungKm": 2.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1108137015",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/7961016384",
+      "art": "ort",
+      "titel": "Exittheroom GmbH",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Exittheroom GmbH",
+        "stadt": "München",
+        "lat": 48.15283,
+        "lon": 11.56082
+      },
+      "entfernungKm": 2.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/7961016384",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/162748517",
+      "art": "ort",
+      "titel": "Schauburg",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Schauburg",
+        "stadt": "München",
+        "lat": 48.15748,
+        "lon": 11.5753
+      },
+      "entfernungKm": 2.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/162748517",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1401127033",
+      "art": "ort",
+      "titel": "Theater Leo17",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Theater Leo17",
+        "stadt": "München",
+        "lat": 48.15675,
+        "lon": 11.5836
+      },
+      "entfernungKm": 2.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1401127033",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/10814090470",
+      "art": "ort",
+      "titel": "Escape Game",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Escape Game",
+        "stadt": "München",
+        "lat": 48.15744,
+        "lon": 11.56902
+      },
+      "entfernungKm": 2.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/10814090470",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/953031130",
+      "art": "ort",
+      "titel": "Pfanni Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Pfanni Museum",
+        "stadt": "",
+        "lat": 48.12561,
+        "lon": 11.60584
+      },
+      "entfernungKm": 2.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/953031130",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/370745201",
+      "art": "ort",
+      "titel": "Leopold Kinos 1+2+3",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Leopold Kinos 1+2+3",
+        "stadt": "München",
+        "lat": 48.1607,
+        "lon": 11.58668
+      },
+      "entfernungKm": 2.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/370745201",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/5308338523",
       "art": "ort",
       "titel": "Fotografie Forum Frankfurt",
@@ -15100,6 +17852,2106 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2708724903",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/6370779093",
+      "art": "ort",
+      "titel": "Erinnerungsort Hotel Silber",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Erinnerungsort Hotel Silber",
+        "stadt": "Stuttgart",
+        "lat": 48.77558,
+        "lon": 9.18184
+      },
+      "entfernungKm": 0.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/6370779093",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/353723491",
+      "art": "ort",
+      "titel": "Stauffenberg Erinnerungsstätte",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stauffenberg Erinnerungsstätte",
+        "stadt": "",
+        "lat": 48.77686,
+        "lon": 9.17996
+      },
+      "entfernungKm": 0.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/353723491",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/281904515",
+      "art": "ort",
+      "titel": "Landesmuseum Württemberg",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Landesmuseum Württemberg",
+        "stadt": "Stuttgart",
+        "lat": 48.77697,
+        "lon": 9.17962
+      },
+      "entfernungKm": 0.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/281904515",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2849084801",
+      "art": "ort",
+      "titel": "Kindermuseum Junges Schloss",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kindermuseum Junges Schloss",
+        "stadt": "Stuttgart",
+        "lat": 48.77717,
+        "lon": 9.17924
+      },
+      "entfernungKm": 0.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2849084801",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/274544264",
+      "art": "ort",
+      "titel": "Haus der Musik",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Haus der Musik",
+        "stadt": "Stuttgart",
+        "lat": 48.77699,
+        "lon": 9.17798
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/274544264",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3797297180",
+      "art": "ort",
+      "titel": "Theater am Olgaeck",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater am Olgaeck",
+        "stadt": "Stuttgart",
+        "lat": 48.77315,
+        "lon": 9.18671
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3797297180",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5492933131",
+      "art": "ort",
+      "titel": "Nellys Puppen Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Nellys Puppen Theater",
+        "stadt": "",
+        "lat": 48.77314,
+        "lon": 9.18674
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5492933131",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/8318832471",
+      "art": "ort",
+      "titel": "Ausstellung Stuttgart Rosenstein",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Ausstellung Stuttgart Rosenstein",
+        "stadt": "Stuttgart",
+        "lat": 48.77429,
+        "lon": 9.17765
+      },
+      "entfernungKm": 0.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/8318832471",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/264893982",
+      "art": "ort",
+      "titel": "Innenstadt-Kinos",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Innenstadt-Kinos",
+        "stadt": "",
+        "lat": 48.77975,
+        "lon": 9.17893
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/264893982",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4238297189",
+      "art": "ort",
+      "titel": "Wortkino, die Bühne von Dein Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Wortkino, die Bühne von Dein Theater",
+        "stadt": "",
+        "lat": 48.77778,
+        "lon": 9.18867
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4238297189",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/6263439774",
+      "art": "ort",
+      "titel": "Museum Hegel-Haus",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Museum Hegel-Haus",
+        "stadt": "Stuttgart",
+        "lat": 48.77298,
+        "lon": 9.17695
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/6263439774",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/10887803219",
+      "art": "ort",
+      "titel": "pause & play Escape Rooms",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "pause & play Escape Rooms",
+        "stadt": "Stuttgart",
+        "lat": 48.77421,
+        "lon": 9.17632
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/10887803219",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11460012203",
+      "art": "ort",
+      "titel": "Komödie im Marquardt",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Komödie im Marquardt",
+        "stadt": "Stuttgart",
+        "lat": 48.77978,
+        "lon": 9.17901
+      },
+      "entfernungKm": 0.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11460012203",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/102975510",
+      "art": "ort",
+      "titel": "Gloria",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Gloria",
+        "stadt": "Stuttgart",
+        "lat": 48.7802,
+        "lon": 9.17918
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/102975510",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1779626555",
+      "art": "ort",
+      "titel": "FITZ Zentrum für Figurentheater Stuttgart",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "FITZ Zentrum für Figurentheater Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.77265,
+        "lon": 9.17628
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1779626555",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1779626590",
+      "art": "ort",
+      "titel": "Theater tri-bühne",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater tri-bühne",
+        "stadt": "Stuttgart",
+        "lat": 48.77259,
+        "lon": 9.17623
+      },
+      "entfernungKm": 0.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1779626590",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/332405423",
+      "art": "ort",
+      "titel": "Delphi Arthaus Kino",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Delphi Arthaus Kino",
+        "stadt": "Stuttgart",
+        "lat": 48.77299,
+        "lon": 9.17451
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/332405423",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3452298775",
+      "art": "ort",
+      "titel": "Studio Theater Stuttgart",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Studio Theater Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.77013,
+        "lon": 9.18622
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3452298775",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3474595431",
+      "art": "ort",
+      "titel": "Kindertheater Kruschteltunnel",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kindertheater Kruschteltunnel",
+        "stadt": "Stuttgart",
+        "lat": 48.77019,
+        "lon": 9.18614
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3474595431",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/6695024970",
+      "art": "ort",
+      "titel": "ExitGames Stuttgart (Aussenstelle Schluesselmacher)",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "ExitGames Stuttgart (Aussenstelle Schluesselmacher)",
+        "stadt": "",
+        "lat": 48.77723,
+        "lon": 9.17362
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/6695024970",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/10126615696",
+      "art": "ort",
+      "titel": "Forum Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Forum Theater",
+        "stadt": "Stuttgart",
+        "lat": 48.77649,
+        "lon": 9.17363
+      },
+      "entfernungKm": 0.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/10126615696",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/7470709606",
+      "art": "ort",
+      "titel": "MiniaturWelten Stuttgart",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "MiniaturWelten Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.78281,
+        "lon": 9.18109
+      },
+      "entfernungKm": 0.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/7470709606",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/10314654453",
+      "art": "ort",
+      "titel": "TeamEscape",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "TeamEscape",
+        "stadt": "Stuttgart",
+        "lat": 48.77596,
+        "lon": 9.17211
+      },
+      "entfernungKm": 0.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/10314654453",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1668976090",
+      "art": "ort",
+      "titel": "ABV-Zimmertheater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "ABV-Zimmertheater",
+        "stadt": "",
+        "lat": 48.76896,
+        "lon": 9.17753
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1668976090",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5561268619",
+      "art": "ort",
+      "titel": "Bibliorama",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Bibliorama",
+        "stadt": "Stuttgart",
+        "lat": 48.77816,
+        "lon": 9.17159
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5561268619",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/6624563078",
+      "art": "ort",
+      "titel": "Wechselraum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Wechselraum",
+        "stadt": "",
+        "lat": 48.78349,
+        "lon": 9.17864
+      },
+      "entfernungKm": 0.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/6624563078",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/264893984",
+      "art": "ort",
+      "titel": "Atelier am Bollwerk",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Atelier am Bollwerk",
+        "stadt": "Stuttgart",
+        "lat": 48.77667,
+        "lon": 9.16828
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/264893984",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/581972522",
+      "art": "ort",
+      "titel": "Gablenberger Muse-O",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Gablenberger Muse-O",
+        "stadt": "Stuttgart",
+        "lat": 48.77471,
+        "lon": 9.20328
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/581972522",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4498605891",
+      "art": "ort",
+      "titel": "Kunstraum34",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kunstraum34",
+        "stadt": "Stuttgart",
+        "lat": 48.76424,
+        "lon": 9.17144
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4498605891",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/8183993103",
+      "art": "ort",
+      "titel": "Theater La Lune",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater La Lune",
+        "stadt": "Stuttgart",
+        "lat": 48.77472,
+        "lon": 9.2032
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/8183993103",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/276536508",
+      "art": "ort",
+      "titel": "Theater Rampe",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater Rampe",
+        "stadt": "Stuttgart",
+        "lat": 48.76381,
+        "lon": 9.17074
+      },
+      "entfernungKm": 1.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/276536508",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5281346792",
+      "art": "ort",
+      "titel": "Museum der Illusionen Stuttgart",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Museum der Illusionen Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.78989,
+        "lon": 9.18353
+      },
+      "entfernungKm": 1.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5281346792",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/7198387542",
+      "art": "ort",
+      "titel": "Dreigroschentheater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Dreigroschentheater",
+        "stadt": "",
+        "lat": 48.76516,
+        "lon": 9.16923
+      },
+      "entfernungKm": 1.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/7198387542",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5478238418",
+      "art": "ort",
+      "titel": "Kulturbühne Rosenau",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kulturbühne Rosenau",
+        "stadt": "Stuttgart",
+        "lat": 48.77102,
+        "lon": 9.16104
+      },
+      "entfernungKm": 1.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5478238418",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/7217163650",
+      "art": "ort",
+      "titel": "Theater Tredeschin",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater Tredeschin",
+        "stadt": "",
+        "lat": 48.78526,
+        "lon": 9.20165
+      },
+      "entfernungKm": 1.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/7217163650",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/6076485442",
+      "art": "ort",
+      "titel": "Heimatmuseum der Deutschen aus Bessarabien und der Dobrudscha",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Heimatmuseum der Deutschen aus Bessarabien und der Dobrudscha",
+        "stadt": "",
+        "lat": 48.78445,
+        "lon": 9.20665
+      },
+      "entfernungKm": 2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/6076485442",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2321222159",
+      "art": "ort",
+      "titel": "Theater Atelier",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater Atelier",
+        "stadt": "Stuttgart",
+        "lat": 48.79231,
+        "lon": 9.20254
+      },
+      "entfernungKm": 2.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2321222159",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4540144949",
+      "art": "ort",
+      "titel": "ExitGames Stuttgart",
+      "kategorie": "Escape-Room",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "ExitGames Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.75983,
+        "lon": 9.16219
+      },
+      "entfernungKm": 2.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4540144949",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4307258907",
+      "art": "ort",
+      "titel": "Weißenhofmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Weißenhofmuseum",
+        "stadt": "Stuttgart",
+        "lat": 48.79981,
+        "lon": 9.17768
+      },
+      "entfernungKm": 2.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4307258907",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/279141714",
+      "art": "ort",
+      "titel": "Staatliches Museum für Naturkunde Stuttgart",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Staatliches Museum für Naturkunde Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.8005,
+        "lon": 9.20574
+      },
+      "entfernungKm": 3.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/279141714",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/9781510756",
+      "art": "ort",
+      "titel": "Theater in der Badewanne",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater in der Badewanne",
+        "stadt": "Stuttgart",
+        "lat": 48.80541,
+        "lon": 9.17406
+      },
+      "entfernungKm": 3.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9781510756",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3372362182",
+      "art": "ort",
+      "titel": "Polizeimuseum Stuttgart",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Polizeimuseum Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.81013,
+        "lon": 9.18763
+      },
+      "entfernungKm": 3.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3372362182",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3665261552",
+      "art": "ort",
+      "titel": "Schutzbauten Stuttgart: Hochbunker Pragsattel",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Schutzbauten Stuttgart: Hochbunker Pragsattel",
+        "stadt": "",
+        "lat": 48.80979,
+        "lon": 9.18232
+      },
+      "entfernungKm": 3.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3665261552",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/6263524718",
+      "art": "ort",
+      "titel": "Theaterhaus Stuttgart",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theaterhaus Stuttgart",
+        "stadt": "Stuttgart",
+        "lat": 48.81031,
+        "lon": 9.17904
+      },
+      "entfernungKm": 3.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/6263524718",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3294412292",
+      "art": "ort",
+      "titel": "Friedrichsbau Varieté",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Friedrichsbau Varieté",
+        "stadt": "Stuttgart",
+        "lat": 48.81028,
+        "lon": 9.17809
+      },
+      "entfernungKm": 3.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3294412292",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4462460090",
+      "art": "ort",
+      "titel": "Stadtteilkino Botnang",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadtteilkino Botnang",
+        "stadt": "",
+        "lat": 48.77852,
+        "lon": 9.12635
+      },
+      "entfernungKm": 4.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4462460090",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3665261550",
+      "art": "ort",
+      "titel": "Schutzbauten Stuttgart",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Schutzbauten Stuttgart",
+        "stadt": "",
+        "lat": 48.81335,
+        "lon": 9.16838
+      },
+      "entfernungKm": 4.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3665261550",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3665261555",
+      "art": "ort",
+      "titel": "Tiefbunker Feuerbach",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Tiefbunker Feuerbach",
+        "stadt": "",
+        "lat": 48.81344,
+        "lon": 9.1683
+      },
+      "entfernungKm": 4.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3665261555",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/268102555",
+      "art": "ort",
+      "titel": "Spitzbunker Feuerbach",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Spitzbunker Feuerbach",
+        "stadt": "",
+        "lat": 48.81422,
+        "lon": 9.16804
+      },
+      "entfernungKm": 4.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/268102555",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3665261551",
+      "art": "ort",
+      "titel": "Tiefbunker Feuerbach",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Tiefbunker Feuerbach",
+        "stadt": "",
+        "lat": 48.81426,
+        "lon": 9.16735
+      },
+      "entfernungKm": 4.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3665261551",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/767116789",
+      "art": "ort",
+      "titel": "Feuerwehrmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Feuerwehrmuseum",
+        "stadt": "Stuttgart",
+        "lat": 48.8193,
+        "lon": 9.21989
+      },
+      "entfernungKm": 5.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/767116789",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3714461002",
+      "art": "ort",
+      "titel": "s'Boulevärle Schwäbisches Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "s'Boulevärle Schwäbisches Theater",
+        "stadt": "Stuttgart",
+        "lat": 48.81722,
+        "lon": 9.22275
+      },
+      "entfernungKm": 5.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3714461002",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1575384578",
+      "art": "ort",
+      "titel": "Heimatstube im Alten Haus",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Heimatstube im Alten Haus",
+        "stadt": "Stuttgart",
+        "lat": 48.75848,
+        "lon": 9.25495
+      },
+      "entfernungKm": 5.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1575384578",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5985007286",
+      "art": "ort",
+      "titel": "SI-Centrum",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "SI-Centrum",
+        "stadt": "",
+        "lat": 48.72323,
+        "lon": 9.16242
+      },
+      "entfernungKm": 6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5985007286",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/85553751",
+      "art": "ort",
+      "titel": "Stage Apollo Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stage Apollo Theater",
+        "stadt": "Stuttgart",
+        "lat": 48.72191,
+        "lon": 9.16266
+      },
+      "entfernungKm": 6.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/85553751",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/843095626",
+      "art": "ort",
+      "titel": "Heimatgeschichtliche Ausstellung - Ortsmuseum Untertürkheim/Rotenberg",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Heimatgeschichtliche Ausstellung - Ortsmuseum Untertürkheim/Rotenberg",
+        "stadt": "",
+        "lat": 48.78325,
+        "lon": 9.27062
+      },
+      "entfernungKm": 6.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/843095626",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3165605440",
+      "art": "ort",
+      "titel": "Gottlob-Auwärter-Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Gottlob-Auwärter-Museum",
+        "stadt": "",
+        "lat": 48.72735,
+        "lon": 9.1345
+      },
+      "entfernungKm": 6.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3165605440",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3599233310",
+      "art": "ort",
+      "titel": "Computermuseum der Informatik",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Computermuseum der Informatik",
+        "stadt": "Stuttgart",
+        "lat": 48.74485,
+        "lon": 9.1069
+      },
+      "entfernungKm": 6.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3599233310",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/919496264",
+      "art": "ort",
+      "titel": "Kinothek",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kinothek",
+        "stadt": "Stuttgart",
+        "lat": 48.76318,
+        "lon": 9.27025
+      },
+      "entfernungKm": 6.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/919496264",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3924688883",
+      "art": "ort",
+      "titel": "Turmuhrenarchiv und Turmuhrenmagazin",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Turmuhrenarchiv und Turmuhrenmagazin",
+        "stadt": "",
+        "lat": 48.82794,
+        "lon": 9.23039
+      },
+      "entfernungKm": 6.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3924688883",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2981792800",
+      "art": "ort",
+      "titel": "Graevenitz-Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Graevenitz-Museum",
+        "stadt": "",
+        "lat": 48.78594,
+        "lon": 9.08698
+      },
+      "entfernungKm": 7.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2981792800",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5792367532",
+      "art": "ort",
+      "titel": "Corso",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Corso",
+        "stadt": "",
+        "lat": 48.73004,
+        "lon": 9.11203
+      },
+      "entfernungKm": 7.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5792367532",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3737335167",
+      "art": "ort",
+      "titel": "Kunstvereinskeller",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kunstvereinskeller",
+        "stadt": "Fellbach",
+        "lat": 48.80726,
+        "lon": 9.27713
+      },
+      "entfernungKm": 7.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3737335167",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3665261553",
+      "art": "ort",
+      "titel": "Schutzbauten Stuttgart: Pionierstollen Mühlhausen",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Schutzbauten Stuttgart: Pionierstollen Mühlhausen",
+        "stadt": "",
+        "lat": 48.84328,
+        "lon": 9.22927
+      },
+      "entfernungKm": 8.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3665261553",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/597707636",
+      "art": "ort",
+      "titel": "Schulmuseum Sulzgries",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Schulmuseum Sulzgries",
+        "stadt": "Esslingen",
+        "lat": 48.75949,
+        "lon": 9.29344
+      },
+      "entfernungKm": 8.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/597707636",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4114819163",
+      "art": "ort",
+      "titel": "Heimatmuseum Plieningen",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Heimatmuseum Plieningen",
+        "stadt": "",
+        "lat": 48.70099,
+        "lon": 9.21604
+      },
+      "entfernungKm": 8.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4114819163",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1705174978",
+      "art": "ort",
+      "titel": "Rebmann-Haus",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Rebmann-Haus",
+        "stadt": "Gerlingen",
+        "lat": 48.7992,
+        "lon": 9.06405
+      },
+      "entfernungKm": 9.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1705174978",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/326128687",
+      "art": "ort",
+      "titel": "Kleine Tieranlage der Aquarien und Vogelfreunde Fellbach",
+      "kategorie": "Zoo",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kleine Tieranlage der Aquarien und Vogelfreunde Fellbach",
+        "stadt": "",
+        "lat": 48.7926,
+        "lon": 9.3061
+      },
+      "entfernungKm": 9.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/326128687",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/330358538",
+      "art": "ort",
+      "titel": "Traumpalast",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Traumpalast",
+        "stadt": "Esslingen am Neckar",
+        "lat": 48.74086,
+        "lon": 9.29872
+      },
+      "entfernungKm": 9.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/330358538",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2882241101",
+      "art": "ort",
+      "titel": "Streichelzoo Sonnenhof",
+      "kategorie": "Zoo",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Streichelzoo Sonnenhof",
+        "stadt": "",
+        "lat": 48.85454,
+        "lon": 9.23492
+      },
+      "entfernungKm": 9.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2882241101",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/344376499",
+      "art": "ort",
+      "titel": "Stadtmuseum Leinfelden-Echterdingen",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadtmuseum Leinfelden-Echterdingen",
+        "stadt": "Leinfelden-Echterdingen",
+        "lat": 48.68887,
+        "lon": 9.1667
+      },
+      "entfernungKm": 9.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/344376499",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/559198407",
+      "art": "ort",
+      "titel": "J. F. Schreiber-Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "J. F. Schreiber-Museum",
+        "stadt": "Esslingen am Neckar",
+        "lat": 48.74358,
+        "lon": 9.30592
+      },
+      "entfernungKm": 9.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/559198407",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1332255754",
+      "art": "ort",
+      "titel": "Leinfelder Haus",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Leinfelder Haus",
+        "stadt": "",
+        "lat": 48.69181,
+        "lon": 9.14486
+      },
+      "entfernungKm": 9.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1332255754",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2216272981",
+      "art": "ort",
+      "titel": "J. F. Schreiber-Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "J. F. Schreiber-Museum",
+        "stadt": "",
+        "lat": 48.74247,
+        "lon": 9.30556
+      },
+      "entfernungKm": 9.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2216272981",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/247267744",
+      "art": "ort",
+      "titel": "Capitol",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Capitol",
+        "stadt": "",
+        "lat": 48.86356,
+        "lon": 9.18138
+      },
+      "entfernungKm": 9.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/247267744",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/418802473",
+      "art": "ort",
+      "titel": "Kabarett der Galgenstricke",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kabarett der Galgenstricke",
+        "stadt": "Esslingen am Neckar",
+        "lat": 48.74282,
+        "lon": 9.30942
+      },
+      "entfernungKm": 10,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/418802473",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/453234693",
+      "art": "ort",
+      "titel": "Stadtmuseum im Gelben Haus",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadtmuseum im Gelben Haus",
+        "stadt": "Esslingen am Neckar",
+        "lat": 48.74207,
+        "lon": 9.30896
+      },
+      "entfernungKm": 10,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/453234693",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/273125440",
+      "art": "ort",
+      "titel": "LIMA-Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "LIMA-Theater",
+        "stadt": "Esslingen am Neckar",
+        "lat": 48.74162,
+        "lon": 9.31043
+      },
+      "entfernungKm": 10.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/273125440",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/519326322",
+      "art": "ort",
+      "titel": "Deutsches Spielkartenmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Deutsches Spielkartenmuseum",
+        "stadt": "Leinfelden-Echterdingen",
+        "lat": 48.69017,
+        "lon": 9.13849
+      },
+      "entfernungKm": 10.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/519326322",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/595655464",
+      "art": "ort",
+      "titel": "Kommunales Kino e.V.",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kommunales Kino e.V.",
+        "stadt": "Esslingen am Neckar",
+        "lat": 48.73856,
+        "lon": 9.30931
+      },
+      "entfernungKm": 10.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/595655464",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2611240290",
+      "art": "ort",
+      "titel": "Philipp-Matthäus-Hahn-Museum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Philipp-Matthäus-Hahn-Museum",
+        "stadt": "",
+        "lat": 48.86686,
+        "lon": 9.19064
+      },
+      "entfernungKm": 10.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2611240290",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2611240327",
+      "art": "ort",
+      "titel": "Schulmuseum Nordwürttemberg",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Schulmuseum Nordwürttemberg",
+        "stadt": "Kornwestheim",
+        "lat": 48.86715,
+        "lon": 9.18833
+      },
+      "entfernungKm": 10.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2611240327",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/3506762963",
+      "art": "ort",
+      "titel": "Stadtmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadtmuseum",
+        "stadt": "",
+        "lat": 48.82668,
+        "lon": 9.06704
+      },
+      "entfernungKm": 10.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/3506762963",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1332091178",
+      "art": "ort",
+      "titel": "Stadtarchiv",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadtarchiv",
+        "stadt": "Leinfelden-Echterdingen",
+        "lat": 48.69276,
+        "lon": 9.11674
+      },
+      "entfernungKm": 10.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1332091178",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/458904246",
+      "art": "ort",
+      "titel": "Gestein",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Gestein",
+        "stadt": "",
+        "lat": 48.68658,
+        "lon": 9.1247
+      },
+      "entfernungKm": 10.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/458904246",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/385095277",
+      "art": "ort",
+      "titel": "Heimatmuseum Münchingen",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Heimatmuseum Münchingen",
+        "stadt": "Korntal-Münchingen",
+        "lat": 48.85333,
+        "lon": 9.08994
+      },
+      "entfernungKm": 11,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/385095277",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/457424548",
+      "art": "ort",
+      "titel": "Mühlenmuseum",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Mühlenmuseum",
+        "stadt": "",
+        "lat": 48.68352,
+        "lon": 9.12842
+      },
+      "entfernungKm": 11,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/457424548",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/696502288",
+      "art": "ort",
+      "titel": "Gartenhallenbad Bernhausen",
+      "kategorie": "Erlebnisbad",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Gartenhallenbad Bernhausen",
+        "stadt": "",
+        "lat": 48.67327,
+        "lon": 9.20981
+      },
+      "entfernungKm": 11.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/696502288",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1414463899",
+      "art": "ort",
+      "titel": "Theater unterm Regenbogen",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theater unterm Regenbogen",
+        "stadt": "",
+        "lat": 48.83268,
+        "lon": 9.31586
+      },
+      "entfernungKm": 11.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1414463899",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4235903593",
+      "art": "ort",
+      "titel": "Traumpalast",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Traumpalast",
+        "stadt": "",
+        "lat": 48.7824,
+        "lon": 9.01614
+      },
+      "entfernungKm": 12.2,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4235903593",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/9926969859",
+      "art": "ort",
+      "titel": "Tierpark Nymphaea",
+      "kategorie": "Zoo",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Tierpark Nymphaea",
+        "stadt": "Esslingen",
+        "lat": 48.72411,
+        "lon": 9.33362
+      },
+      "entfernungKm": 12.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9926969859",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/11281620344",
+      "art": "ort",
+      "titel": "STIHL Markenwelt",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "STIHL Markenwelt",
+        "stadt": "Waiblingen",
+        "lat": 48.84626,
+        "lon": 9.31506
+      },
+      "entfernungKm": 12.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11281620344",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/4150507114",
+      "art": "ort",
+      "titel": "Kuhländler Archiv",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Kuhländler Archiv",
+        "stadt": "",
+        "lat": 48.88888,
+        "lon": 9.19391
+      },
+      "entfernungKm": 12.6,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/4150507114",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1208614653",
+      "art": "ort",
+      "titel": "Stadtmuseum Leonberg",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadtmuseum Leonberg",
+        "stadt": "",
+        "lat": 48.80179,
+        "lon": 9.01362
+      },
+      "entfernungKm": 12.7,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1208614653",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/299812473",
+      "art": "ort",
+      "titel": "Forum am Schlosspark",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Forum am Schlosspark",
+        "stadt": "",
+        "lat": 48.89248,
+        "lon": 9.19525
+      },
+      "entfernungKm": 13,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/299812473",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/299812492",
+      "art": "ort",
+      "titel": "Union",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Union",
+        "stadt": "Ludwigsburg",
+        "lat": 48.89368,
+        "lon": 9.18827
+      },
+      "entfernungKm": 13.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/299812492",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/2156864479",
+      "art": "ort",
+      "titel": "Theaterturm",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Theaterturm",
+        "stadt": "",
+        "lat": 48.89371,
+        "lon": 9.19332
+      },
+      "entfernungKm": 13.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/2156864479",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/5343560626",
+      "art": "ort",
+      "titel": "Historische Schmiede Neckargröningen",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Historische Schmiede Neckargröningen",
+        "stadt": "",
+        "lat": 48.87676,
+        "lon": 9.2752
+      },
+      "entfernungKm": 13.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/5343560626",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/299812491",
+      "art": "ort",
+      "titel": "Central + Union Filmtheater",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Central + Union Filmtheater",
+        "stadt": "Ludwigsburg",
+        "lat": 48.8957,
+        "lon": 9.18813
+      },
+      "entfernungKm": 13.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/299812491",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1609075419",
+      "art": "ort",
+      "titel": "Scala Kultur",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Scala Kultur",
+        "stadt": "Ludwigsburg",
+        "lat": 48.89547,
+        "lon": 9.19372
+      },
+      "entfernungKm": 13.3,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1609075419",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
