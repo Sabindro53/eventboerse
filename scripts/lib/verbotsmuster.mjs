@@ -37,8 +37,25 @@ export const GEHEIMNISSE = [
   { re: /\bwp-config\b/i,                       why: 'WordPress-Konfiguration' },
   { re: /\b\d{1,3}(\.\d{1,3}){3}\b/,            why: 'IP-Adresse' },
   { re: /\bsftp:\/\/|\bssh:\/\/|\bmysql:\/\//i, why: 'Infrastruktur-Zugang' },
-  // E-Mail-Adressen, ausgenommen die offizielle Support-Adresse
-  { re: /(?!kontakt@)[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/, why: 'E-Mail-Adresse' },
+  // E-Mail-Adressen, ausgenommen die offizielle Support-Adresse.
+  //
+  // ── WARUM DIE AUSNAHME NICHT IM MUSTER STEHT ─────────────────────────
+  //
+  // Hier stand bis zum 14.09.2026:
+  //   /(?!kontakt@)[A-Za-z0-9._%+-]+@…/
+  // Ein negativer Lookahead am Anfang eines UNVERANKERTEN Musters bindet
+  // nichts. Scheitert er an Position 0, rückt die Maschine eine Stelle
+  // weiter — und `ontakt@…` erfüllt ihn. Gemessen: die offizielle Adresse
+  // trifft ab Index 1, im Satz ab Index 13, im `mailto:`-Link ab Index 18.
+  // Die Ausnahme hat also nie gegriffen, und sie sah vollständig richtig
+  // aus. Dieselbe Klasse wie ein Prüfer ohne Subjekt.
+  //
+  // Ausgenommen wird deshalb am TREFFER, nicht im Muster: erst alles
+  // finden, was wie eine Adresse aussieht, dann die eine erlaubte
+  // abziehen. Das ist überprüfbar, weil beide Hälften für sich messbar
+  // sind — ein Muster, das beides in einem Ausdruck versucht, ist es nicht.
+  { re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/,
+    frei: /^kontakt@/i, why: 'E-Mail-Adresse' },
 ];
 
 /**
@@ -124,16 +141,54 @@ export const INJEKTIONS_SIGNATUREN = [
   { re: /\bignore\s+(all\s+)?(previous|prior|above)\s+instructions?/i,  why: '„ignore previous instructions"' },
 ];
 
+/**
+ * Der erste beanstandete Fund eines Musters — oder null.
+ *
+ * Trägt ein Muster ein `frei`, zählt ein Vorkommen NUR, wenn der gefundene
+ * Text die Ausnahme nicht erfüllt. Ein Muster ohne `frei` verhält sich
+ * exakt wie vorher; die Erweiterung kann also keine bestehende Regel
+ * lockern.
+ *
+ * Gibt den gefundenen TEXT zurück, damit ein Bericht sagen kann, WAS er
+ * beanstandet. Ohne ihn steht dort nur „Verbotsmuster gefunden", und in
+ * einem Journal mit 400 Einträgen ist das keine Auskunft, sondern ein
+ * Rätsel — genau daran lief der HQ-Puls 55 Läufe rot.
+ */
+export function fundText(text, m) {
+  const s = String(text || '');
+  if (!m.frei) {
+    const t = s.match(m.re);
+    return t ? t[0] : null;
+  }
+  const g = new RegExp(m.re.source, m.re.flags.includes('g') ? m.re.flags : m.re.flags + 'g');
+  for (const t of s.matchAll(g)) {
+    if (!m.frei.test(t[0])) return t[0];
+  }
+  return null;
+}
+
 /** Erster Treffer oder null. */
 export function ersterTreffer(text, muster) {
   const s = String(text || '');
-  return muster.find((m) => m.re.test(s)) || null;
+  return muster.find((m) => fundText(s, m) !== null) || null;
 }
 
 /** Alle Treffer (für Berichte, in denen mehr als der erste zählt). */
 export function alleTreffer(text, muster) {
   const s = String(text || '');
-  return muster.filter((m) => m.re.test(s));
+  return muster.filter((m) => fundText(s, m) !== null);
+}
+
+/**
+ * Ein Fund wird NIE im Klartext berichtet — sechs Zeichen und die Länge.
+ *
+ * Dieselbe Regel wie im Geheimnis-Scanner: ein Bericht, der den Fund
+ * ausschreibt, trägt ihn in das nächste Log, und Logs sind bei einem
+ * öffentlichen Repository öffentlich.
+ */
+export function maskieren(fund) {
+  const s = String(fund || '');
+  return s.slice(0, 6) + '…(' + s.length + ' Zeichen)';
 }
 
 /**

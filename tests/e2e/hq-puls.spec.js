@@ -303,3 +303,150 @@ test.describe('HQ-Puls: ein Ausfall steht im Journal', () => {
     expect(Number.isInteger(neu.aufgabeIndex)).toBe(true);
   });
 });
+
+test.describe('HQ-Puls: ein Verbotsmuster macht ihn nicht dauerhaft rot', () => {
+  // ── DER BEFUND ───────────────────────────────────────────────────────
+  //
+  // Vom 13.09.2026 02:06 bis zum 14.09. lief der Puls **55 Läufe in Folge
+  // rot** — bei 11 von 11 arbeitenden Rollen. Rot war `agent.mjs --check`
+  // mit genau einer Zeile:
+  //
+  //     ✗ Verbotsmuster im Journal: E-Mail-Adresse
+  //
+  // Bei 400 Einträgen ist das keine Auskunft, sondern ein Rätsel; die
+  // Stelle war nur über das Rohlog der Modellantworten zu finden.
+  //
+  // Und der Fund hatte keine Folge: Schritt 10 meldete, Schritt 12 lud
+  // mit `if: always()` genau dieses Journal auf den Server, und der
+  // nächste Lauf holte es von dort wieder vor. Die Automatik erzeugte
+  // ihre eigene Vorbedingung und scheiterte daran — dieselbe Klasse wie
+  // oben in dieser Datei, nur eine Ebene tiefer.
+  //
+  // Ein eigener Prüfstand, weil hier ein VERSEUCHTES Journal der
+  // Ausgangspunkt ist.
+  function journalMit(texte) {
+    const kopie = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-filter-'));
+    for (const rel of ['scripts', 'assets']) {
+      fs.cpSync(path.join(ROOT, rel), path.join(kopie, rel), { recursive: true });
+    }
+    fs.writeFileSync(path.join(kopie, 'kontext.txt'), 'Testkontext');
+    const eintraege = texte.map((text, i) => ({
+      zeit: new Date(Date.now() - (i + 1) * 60000).toISOString(),
+      rolle: 'ministral-community', person: 'Lina Okafor',
+      rollenname: 'Support-Redakteurin', modell: 'Ministral 3 8B',
+      modellId: 'mistralai/ministral-8b', bereich: 'support',
+      anlass: 'Tagesroutine', aufgabe: 'Nutzerfrage bündeln',
+      dateien: ['vault/10-Produkt/Wissen/Konto-und-Anmeldung.md'],
+      aufgabeIndex: 0, kontingentProzent: 8, ergebnis: 'fertig',
+      tokens: 100, kostenUsd: 0.0001, injektionsfunde: 0, text,
+    }));
+    fs.writeFileSync(path.join(kopie, 'assets', 'eb-arbeit.json'),
+      JSON.stringify({ version: 1, hinweis: 'Prüfstand', eintraege }));
+    return kopie;
+  }
+
+  function lauf(kopie, args) {
+    const umgebung = { ...process.env };
+    delete umgebung.OPENROUTER_API_KEY;
+    delete umgebung.EB_OPENROUTER_API_KEY;
+    try {
+      return { code: 0, aus: execFileSync('node',
+        [path.join(kopie, 'scripts', 'agent.mjs'), ...args],
+        { cwd: kopie, env: umgebung, encoding: 'utf8' }) };
+    } catch (e) {
+      return { code: e.status ?? 1, aus: String(e.stdout || '') + String(e.stderr || '') };
+    }
+  }
+
+  const journalVon = (kopie) => JSON.parse(
+    fs.readFileSync(path.join(kopie, 'assets', 'eb-arbeit.json'), 'utf8'));
+
+  test('die offizielle Support-Adresse ist wirklich ausgenommen', () => {
+    // Die Ausnahme stand als negativer Lookahead am Anfang eines
+    // UNVERANKERTEN Musters: `/(?!kontakt@)[A-Za-z0-9._%+-]+@…/`. Scheitert
+    // er an Position 0, rückt die Maschine eine Stelle weiter — und
+    // `ontakt@…` erfüllt ihn. Gemessen: die Adresse traf ab Index 1, im
+    // Satz ab Index 13, im `mailto:`-Link ab Index 18. Die Ausnahme hat
+    // NIE gegriffen und sah vollständig richtig aus.
+    const kopie = journalMit([
+      'Bei Fragen erreichst du uns unter kontakt@eventboerse.de.',
+      'Schreib an [Support](mailto:kontakt@eventboerse.de).',
+      'kontakt@eventboerse.de',
+    ]);
+    const r = lauf(kopie, ['--check']);
+    fs.rmSync(kopie, { recursive: true, force: true });
+    expect(r.code, `die offizielle Adresse wird beanstandet:\n${r.aus}`).toBe(0);
+  });
+
+  test('eine fremde Adresse wird weiterhin beanstandet', () => {
+    // Gegenprobe. Ohne sie wäre „nimm alle E-Mails aus dem Muster" eine
+    // Erklärung, die den Test darüber besteht — und der Schutz wäre weg.
+    const kopie = journalMit(['Nutze eine andere Adresse, z. B. beispiel@eb.de.']);
+    const r = lauf(kopie, ['--check']);
+    fs.rmSync(kopie, { recursive: true, force: true });
+    expect(r.code, 'eine fremde Adresse kommt durch').toBe(1);
+    expect(r.aus).toMatch(/E-Mail-Adresse/);
+  });
+
+  test('der Befund nennt den Eintrag — und zitiert den Fund nie', () => {
+    // Ein Befund ohne Fundstelle ist der Grund, warum 55 Läufe rot
+    // blieben. Und ein Befund, der den Fund ausschreibt, trägt ihn ins
+    // nächste Log — bei einem öffentlichen Repository ist das öffentlich.
+    const kopie = journalMit(['Schreib an max.mustermann@example.com.']);
+    const r = lauf(kopie, ['--check']);
+    fs.rmSync(kopie, { recursive: true, force: true });
+    expect(r.aus, 'der Befund nennt die Rolle nicht').toMatch(/Lina Okafor/);
+    expect(r.aus, 'der Befund nennt die Zeit des Eintrags nicht').toMatch(/\d{4}-\d{2}-\d{2}T/);
+    expect(r.aus, 'der Fund steht im Klartext im Log')
+      .not.toContain('max.mustermann@example.com');
+    expect(r.aus, 'der Fund ist nicht als gekürzt erkennbar').toMatch(/Zeichen\)/);
+  });
+
+  test('ein Schreibvorgang heilt die vorgeladene Spur', () => {
+    // Das ist der Kern: ohne diese Eigenschaft bliebe der Puls auch nach
+    // der Behebung rot, weil die verseuchte Spur bei jedem Lauf neu vom
+    // Server kommt. Gefahren wird der ECHTE Schreibpfad — eine Schicht
+    // ohne Schlüssel, also genau das, was der Puls tut.
+    const kopie = journalMit(['Nutze z. B. beispiel@eb.de.']);
+    expect(lauf(kopie, ['--check']).code, 'der Prüfstand ist gar nicht verseucht').toBe(1);
+
+    const schicht = lauf(kopie, ['--rolle', 'llama-arch', '--anlass', 'Test']);
+    expect(schicht.code, `die Schicht stürzt ab:\n${schicht.aus}`).toBe(0);
+
+    const danach = lauf(kopie, ['--check']);
+    const j = journalVon(kopie);
+    fs.rmSync(kopie, { recursive: true, force: true });
+    expect(danach.code, `das Journal ist nach dem Schreiben noch verseucht:\n${danach.aus}`).toBe(0);
+    // Der Eintrag ist NICHT verschwunden — er steht als `gefiltert` da.
+    // Ein still gelöschter Eintrag wäre eine Lücke, die niemand sieht.
+    const gefiltert = j.eintraege.filter((e) => e.ergebnis === 'gefiltert');
+    expect(gefiltert.length, 'der beanstandete Eintrag wurde spurlos gelöscht').toBe(1);
+    expect(gefiltert[0].gefiltert, 'der Eintrag nennt nicht, WARUM er gefiltert wurde')
+      .toMatch(/E-Mail/);
+    expect(gefiltert[0].person, 'der Eintrag verliert seine Herkunft').toBe('Lina Okafor');
+    expect(gefiltert[0].text, 'der beanstandete Inhalt steht weiter im Journal').toBeFalsy();
+  });
+
+  test('das Entschärfen ist sichtbar, nicht still', () => {
+    // Still filtern wäre dasselbe wie nicht filtern: niemand erführe, dass
+    // eine Schicht ihren Inhalt verloren hat. Der Fund selbst steht nie da.
+    const kopie = journalMit(['Nutze z. B. beispiel@eb.de.']);
+    const r = lauf(kopie, ['--rolle', 'llama-arch', '--anlass', 'Test']);
+    fs.rmSync(kopie, { recursive: true, force: true });
+    expect(r.aus, 'das Entschärfen wird nicht gemeldet').toMatch(/entschärft/i);
+    expect(r.aus, 'die Meldung nennt die Rolle nicht').toMatch(/Lina Okafor/);
+    expect(r.aus, 'der Fund steht im Klartext in der Meldung').not.toContain('beispiel@eb.de');
+  });
+
+  test('ein gefilterter Eintrag gilt nicht als erledigte Arbeit', () => {
+    // Als `fertig` gebucht zöge der Auftragsstrom einen Auftrag aus einem
+    // Befund, der gar nicht mehr da ist — und die Bilanz meldete eine
+    // Schicht, die nichts Verwertbares geliefert hat, als Erfolg.
+    const kopie = journalMit(['Nutze z. B. beispiel@eb.de.']);
+    lauf(kopie, ['--rolle', 'llama-arch', '--anlass', 'Test']);
+    const j = journalVon(kopie);
+    fs.rmSync(kopie, { recursive: true, force: true });
+    const e = j.eintraege.find((x) => x.gefiltert);
+    expect(e.ergebnis, 'ein entschärfter Eintrag wird als erledigt geführt').not.toBe('fertig');
+  });
+});
