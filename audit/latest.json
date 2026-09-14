@@ -1,7 +1,7 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-09-13T03:34:13Z",
-  "commit": "8bf3d8e",
+  "generatedAt": "2026-09-14T03:39:24Z",
+  "commit": "6d69337",
   "counts": {
     "total": 5,
     "error": 0,
@@ -22,40 +22,40 @@
     },
     {
       "id": "size-app.js-watch",
-      "title": "app.js wächst (29240 Zeilen)",
+      "title": "app.js wächst (29271 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 29240,
+        "lines": 29271,
         "threshold": 20000
       }
     },
     {
       "id": "size-functions.php",
-      "title": "functions.php ist mit 11916 Zeilen sehr gross",
+      "title": "functions.php ist mit 11997 Zeilen sehr gross",
       "area": "maintainability",
       "severity": "warn",
       "status": "open",
       "detail": "Monolith — Splitting in Module würde Lesbarkeit und Hot-Reload deutlich verbessern.",
       "suggestion": "Inkrementell Module rausziehen (z. B. router, api, board, chat). Nicht in einem Schritt.",
       "evidence": {
-        "lines": 11916,
+        "lines": 11997,
         "threshold": 10000
       }
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (17632 Zeilen)",
+      "title": "styles.css wächst (17620 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 17632,
+        "lines": 17620,
         "threshold": 12000
       }
     },
