@@ -240,9 +240,30 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
  * stay unknown; a place is an idea, never a promise that it is open. */
 var _aktZeit = 'alle';
 var _aktKategorie = '';
+/**
+ * Die Kategorie eines Eintrags als ANZEIGBARES Wort.
+ *
+ * Der Bestand kennt in `art` genau zwei Werte — am 14.09.2026 gezählt:
+ * `sport` (154) und `ort` (800). „Ort" ist kein Anlass; das brauchbare
+ * Wort steht bei den Orten in `kategorie` und ist dort schon deutsch
+ * („Museum", „Kino", „Theater", „Escape-Room", „Zoo", „Erlebnisbad").
+ *
+ * Eine zweite Tabelle, die „Museum" auf „Museum" abbildet, wäre eine
+ * zweite Wahrheit ohne Nutzen — sie könnte nur driften. Deshalb steht
+ * hier der Ausdruck und nicht eine Zuordnung.
+ *
+ * Er stand bis dahin an EINER Stelle (dem Filter) und wurde beim
+ * Weiterleiten an die gemeinsame Planung gebraucht. Zwei Kopien
+ * desselben Ausdrucks laufen auseinander; also einmal, hier.
+ */
+function ebAktivitaetKategorie(e) {
+  if (!e) return '';
+  return e.art === 'sport' ? 'Sport' : String(e.kategorie || '');
+}
+
 function ebAktivitaetPasst(e, jetzt) {
   if (!e) return false;
-  if (_aktKategorie && (e.art === 'sport' ? 'Sport' : e.kategorie) !== _aktKategorie) return false;
+  if (_aktKategorie && ebAktivitaetKategorie(e) !== _aktKategorie) return false;
   if (!e.beginn || _aktZeit === 'alle') return true;
   var now = jetzt || new Date();
   var start = new Date(e.beginn);
@@ -298,10 +319,16 @@ function feedJetztFilterLoeschen() { _aktKategorie = ''; _aktZeit = 'alle'; feed
 function ebAktivitaetPlanen(id) {
   var e = (_aktBestand && _aktBestand.eintraege || []).find(function(x) { return String(x.id) === String(id); });
   if (!e) return;
+  // `eventType` füllt das Anlass-Feld des Gruppenformulars. Ohne ihn blieb
+  // es leer, obwohl der Bestand die Kategorie führt — der Planer tippte
+  // „Museum" ab, was zwei Zeilen höher schon dastand.
+  var kategorie = ebAktivitaetKategorie(e);
   var options = {
     intent: 'friends', title: String(e.titel || 'Gemeinsamer Ausflug'),
     location: e.ort && e.ort.stadt || '', date: e.beginn ? String(e.beginn).slice(0, 10) : '',
-    activity: { id: e.id, title: e.titel, sourceName: e.quelle && e.quelle.name || '',
+    eventType: kategorie,
+    activity: { id: e.id, title: e.titel, kategorie: kategorie,
+      sourceName: e.quelle && e.quelle.name || '',
       sourceUrl: e.quelle && /^https:\/\//.test(e.quelle.url || '') ? e.quelle.url : '' },
   };
   if (typeof startPlanningBoard === 'function') startPlanningBoard(options);

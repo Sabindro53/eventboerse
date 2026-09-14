@@ -7763,9 +7763,30 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
  * stay unknown; a place is an idea, never a promise that it is open. */
 var _aktZeit = 'alle';
 var _aktKategorie = '';
+/**
+ * Die Kategorie eines Eintrags als ANZEIGBARES Wort.
+ *
+ * Der Bestand kennt in `art` genau zwei Werte — am 14.09.2026 gezählt:
+ * `sport` (154) und `ort` (800). „Ort" ist kein Anlass; das brauchbare
+ * Wort steht bei den Orten in `kategorie` und ist dort schon deutsch
+ * („Museum", „Kino", „Theater", „Escape-Room", „Zoo", „Erlebnisbad").
+ *
+ * Eine zweite Tabelle, die „Museum" auf „Museum" abbildet, wäre eine
+ * zweite Wahrheit ohne Nutzen — sie könnte nur driften. Deshalb steht
+ * hier der Ausdruck und nicht eine Zuordnung.
+ *
+ * Er stand bis dahin an EINER Stelle (dem Filter) und wurde beim
+ * Weiterleiten an die gemeinsame Planung gebraucht. Zwei Kopien
+ * desselben Ausdrucks laufen auseinander; also einmal, hier.
+ */
+function ebAktivitaetKategorie(e) {
+  if (!e) return '';
+  return e.art === 'sport' ? 'Sport' : String(e.kategorie || '');
+}
+
 function ebAktivitaetPasst(e, jetzt) {
   if (!e) return false;
-  if (_aktKategorie && (e.art === 'sport' ? 'Sport' : e.kategorie) !== _aktKategorie) return false;
+  if (_aktKategorie && ebAktivitaetKategorie(e) !== _aktKategorie) return false;
   if (!e.beginn || _aktZeit === 'alle') return true;
   var now = jetzt || new Date();
   var start = new Date(e.beginn);
@@ -7821,10 +7842,16 @@ function feedJetztFilterLoeschen() { _aktKategorie = ''; _aktZeit = 'alle'; feed
 function ebAktivitaetPlanen(id) {
   var e = (_aktBestand && _aktBestand.eintraege || []).find(function(x) { return String(x.id) === String(id); });
   if (!e) return;
+  // `eventType` füllt das Anlass-Feld des Gruppenformulars. Ohne ihn blieb
+  // es leer, obwohl der Bestand die Kategorie führt — der Planer tippte
+  // „Museum" ab, was zwei Zeilen höher schon dastand.
+  var kategorie = ebAktivitaetKategorie(e);
   var options = {
     intent: 'friends', title: String(e.titel || 'Gemeinsamer Ausflug'),
     location: e.ort && e.ort.stadt || '', date: e.beginn ? String(e.beginn).slice(0, 10) : '',
-    activity: { id: e.id, title: e.titel, sourceName: e.quelle && e.quelle.name || '',
+    eventType: kategorie,
+    activity: { id: e.id, title: e.titel, kategorie: kategorie,
+      sourceName: e.quelle && e.quelle.name || '',
       sourceUrl: e.quelle && /^https:\/\//.test(e.quelle.url || '') ? e.quelle.url : '' },
   };
   if (typeof startPlanningBoard === 'function') startPlanningBoard(options);
@@ -30541,8 +30568,32 @@ function sozialPlanStartposten(draft) {
       listingId: sozialPlanListingId(draft.listingId), kategorie: (listing && listing.category) || '',
       notiz: 'Aus dem Entdecken-Bereich übernommen. Verfügbarkeit und Preis im Chat anfragen.' });
   } else if (draft.title) {
-    result.push({ titel: String(draft.title).slice(0,120),
-      notiz: String((draft.sourceUrl || (draft.activity && draft.activity.sourceUrl)) ? 'Externe Aktivität: ' + (draft.sourceUrl || draft.activity.sourceUrl) + ' · Informationen beim Veranstalter prüfen.' : 'Gemeinsame Event-Idee').slice(0,500) });
+    // ── DER ORT DARF NICHT VERFALLEN ──────────────────────────────────
+    //
+    // Der Entwurf trägt `location` (die Stadt der Aktivität), und das
+    // Gruppenformular hat kein Ortsfeld — `eb_groups` auch keine Spalte
+    // dafür. Die Angabe ging damit still verloren: der Planer hatte
+    // gerade etwas in Köln angeklickt und fand im Plan nur den Titel.
+    //
+    // Sie kommt deshalb in den Posten, wo sie ohnehin hingehört und wo
+    // es ein Feld dafür gibt. Eine Spalte an `eb_groups` wäre eine
+    // Schema-Änderung mit Versionssprung — für eine Angabe, die am
+    // einzelnen Vorhaben mehr sagt als an der Gruppe, und eine
+    // Migration ist hier schon einmal beinahe teuer geworden.
+    var quelle = draft.sourceUrl || (draft.activity && draft.activity.sourceUrl) || '';
+    var ort = String(draft.location || '').trim();
+    var teile = [];
+    if (ort) teile.push('Ort: ' + ort);
+    teile.push(quelle
+      ? 'Externe Aktivität: ' + quelle + ' · Informationen beim Veranstalter prüfen.'
+      : 'Gemeinsame Event-Idee');
+    result.push({
+      titel: String(draft.title).slice(0,120),
+      // Die Kategorie ist im Bestand bereits ein deutsches Wort; die
+      // Plan-Route nimmt `kategorie` mit 60 Zeichen.
+      kategorie: String((draft.activity && draft.activity.kategorie) || draft.eventType || '').slice(0,60),
+      notiz: teile.join(' · ').slice(0,500),
+    });
   }
   // Copy editable planning estimates, never payment state or private card data.
   var linkedCards = new Set();

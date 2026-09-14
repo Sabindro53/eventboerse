@@ -2381,6 +2381,76 @@ einem Geldweg wäre eine zweite Wahrheit.
 npx playwright test tests/e2e/hochzeit-bausteine.spec.js   # 7 Tests, 5 Mutationen
 ```
 
+#### Zwei Angaben verfielen auf dem Weg ins gemeinsame Vorhaben
+
+Beim Nachmessen der Weiterleitung am 14.09.2026 gefunden — und der
+erste Anlauf hat dabei **den falschen Befund gemeldet**, was hierher
+gehört.
+
+`ebAktivitaetPlanen()` baut aus einem Eintrag des Bestands einen
+Entwurf und übergibt ihn an die gemeinsame Planung. Gemessen kamen
+Titel, Datum und Quell-Adresse an — **Anlass und Ort nicht**:
+
+| | |
+|---|---|
+| `sozGruppeTyp` | **leer**, obwohl der Bestand die Kategorie führt |
+| Ort | im Entwurf vorhanden, **nirgends abgelegt** |
+
+Der Planer hatte gerade „Museum" in Köln angeklickt und tippte im
+nächsten Bild beides noch einmal ab.
+
+**Die Kategorie braucht keine Tabelle.** Am echten Bestand gezählt
+kennt `art` genau **zwei** Werte: `sport` (154) und `ort` (800). „Ort"
+ist kein Anlass — das brauchbare Wort steht bei den Orten in
+`kategorie` und ist dort schon deutsch (Museum, Kino, Theater,
+Escape-Room, Zoo, Erlebnisbad). Eine Zuordnung, die „Museum" auf
+„Museum" abbildet, wäre eine zweite Wahrheit ohne Nutzen; sie könnte
+nur driften. Der Ausdruck stand bereits **einmal** da (im Filter) und
+steht jetzt in `ebAktivitaetKategorie()` — von beiden Stellen gerufen,
+statt abgeschrieben.
+
+**Der Ort kommt in den Startposten, nicht an die Gruppe.**
+`eb_groups` hat keine Ortsspalte und das Formular kein Ortsfeld. Eine
+Spalte wäre eine Schema-Änderung mit Versionssprung — für eine Angabe,
+die am einzelnen Vorhaben mehr sagt als an der Gruppe, und eine
+Migration ist hier schon einmal beinahe teuer geworden (siehe 2.8).
+Der Posten hat ein Notiz- **und** ein Kategorie-Feld; beide werden
+jetzt gefüllt.
+
+**Kein „Ort: " ohne Ort.** Eine leere Beschriftung ist schlimmer als
+keine — sie sieht aus wie ein Datenverlust. Und der Ort verdrängt die
+Quelle nicht: die Quellennennung ist Lizenzbedingung der ODbL, nicht
+Zierrat.
+
+##### Der erste Anlauf maß den Prüfstand statt des Produkts
+
+Gemeldet wurde zunächst, die Aktivität komme **gar nicht** an. Das war
+falsch. Ohne Antwort auf `social/freunde|gruppen|ich` steht `/freunde`
+zu Recht auf *„Das konnte nicht geladen werden"* — dann existiert
+`#sozGruppeName` gar nicht, und eine Vorbefüllung kann nicht
+ausbleiben, weil sie kein Feld hat.
+
+Ein Prüfer, der aus dem falschen Grund rot meldet, kostet mehr als
+keiner: er hätte hier einen Umbau an einer Stelle ausgelöst, die
+funktioniert. Die Suite stellt deshalb die drei Antworten und wartet
+**sichtbar** auf `#sozGruppeName`, bevor sie etwas behauptet.
+
+Neun Mutationen, jede macht die Suite rot: `eventType` nicht
+mitgegeben · Kategorie fällt auf die Art zurück („Ort" statt
+„Museum", **4 rot**) · Sport nicht mehr übersetzt · der Ort kommt
+nicht in die Notiz · der Ort verdrängt die Quelle · leerer Ort wird
+trotzdem beschriftet · der Posten trägt keine Kategorie · die
+`https`-Wache fällt weg · der Filter baut den Ausdruck wieder selbst.
+
+**Eine dritte Aktivitätsart bricht den Test.** Der Helfer stützt sich
+darauf, dass `art` nur `sport` und `ort` führt; kommt eine dazu, muss
+jemand entscheiden, wie sie heißt — statt sie still als leeren Anlass
+durchzureichen.
+
+```bash
+npx playwright test tests/e2e/aktivitaet-weiterleiten.spec.js   # 10 Tests, 9 Mutationen
+```
+
 ### Der Dienstleister sah, WAS er liefern muss — nicht, WANN
 
 Am 14.09.2026 im echten Browser gemessen. `/auftraege` ist die Tagesseite
@@ -3760,7 +3830,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1159 Tests in 78 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1169 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3850,6 +3920,12 @@ die Zeit kommt aus `card.times` statt aus dem Spiegel — zwei Einsätze sind
 zwei Einsätze, ein offenes Ende bleibt offen; kein Auftrag fällt dabei heraus,
 auch keiner ohne Datum, Vergangenes steht getrennt und zuletzt und trägt
 weiter seine Knöpfe, und „heute" ist der lokale Tag, nicht der UTC-Tag),
+**Aktivität weiterleiten** (aus einem gefundenen Eintrag wird ein gemeinsames
+Vorhaben, ohne dass unterwegs etwas verfällt: der Anlass kommt aus der
+Kategorie des Bestands statt aus einer zweiten Tabelle, der Ort landet im
+Startposten, weil die Gruppe keine Ortsspalte hat, und die Quell-Adresse wird
+davon nicht verdrängt — gemessen mit gestellter Sozial-API, ohne die es das
+Formular gar nicht gäbe),
 **Storno** (der Planer beantragt mit Frist und Begründung, der Dienstleister
 entscheidet — im echten PHP ausgeführt: nur der Zahler beantragt und nur bei
 bezahlter Buchung, entschieden wird nach DERSELBEN Regel wie erstattet, ein

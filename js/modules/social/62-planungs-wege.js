@@ -71,8 +71,32 @@ function sozialPlanStartposten(draft) {
       listingId: sozialPlanListingId(draft.listingId), kategorie: (listing && listing.category) || '',
       notiz: 'Aus dem Entdecken-Bereich übernommen. Verfügbarkeit und Preis im Chat anfragen.' });
   } else if (draft.title) {
-    result.push({ titel: String(draft.title).slice(0,120),
-      notiz: String((draft.sourceUrl || (draft.activity && draft.activity.sourceUrl)) ? 'Externe Aktivität: ' + (draft.sourceUrl || draft.activity.sourceUrl) + ' · Informationen beim Veranstalter prüfen.' : 'Gemeinsame Event-Idee').slice(0,500) });
+    // ── DER ORT DARF NICHT VERFALLEN ──────────────────────────────────
+    //
+    // Der Entwurf trägt `location` (die Stadt der Aktivität), und das
+    // Gruppenformular hat kein Ortsfeld — `eb_groups` auch keine Spalte
+    // dafür. Die Angabe ging damit still verloren: der Planer hatte
+    // gerade etwas in Köln angeklickt und fand im Plan nur den Titel.
+    //
+    // Sie kommt deshalb in den Posten, wo sie ohnehin hingehört und wo
+    // es ein Feld dafür gibt. Eine Spalte an `eb_groups` wäre eine
+    // Schema-Änderung mit Versionssprung — für eine Angabe, die am
+    // einzelnen Vorhaben mehr sagt als an der Gruppe, und eine
+    // Migration ist hier schon einmal beinahe teuer geworden.
+    var quelle = draft.sourceUrl || (draft.activity && draft.activity.sourceUrl) || '';
+    var ort = String(draft.location || '').trim();
+    var teile = [];
+    if (ort) teile.push('Ort: ' + ort);
+    teile.push(quelle
+      ? 'Externe Aktivität: ' + quelle + ' · Informationen beim Veranstalter prüfen.'
+      : 'Gemeinsame Event-Idee');
+    result.push({
+      titel: String(draft.title).slice(0,120),
+      // Die Kategorie ist im Bestand bereits ein deutsches Wort; die
+      // Plan-Route nimmt `kategorie` mit 60 Zeichen.
+      kategorie: String((draft.activity && draft.activity.kategorie) || draft.eventType || '').slice(0,60),
+      notiz: teile.join(' · ').slice(0,500),
+    });
   }
   // Copy editable planning estimates, never payment state or private card data.
   var linkedCards = new Set();
