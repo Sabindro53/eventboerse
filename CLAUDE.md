@@ -1951,6 +1951,76 @@ der Fehler vom 31.08.2026 eine Ebene höher.
 npx playwright test tests/e2e/jetzt-ansicht.spec.js   # 20 Tests, echter Browser
 ```
 
+#### „Demnächst" nannte drei Termine, die es nie gab
+
+Am 14.09.2026 in der Feed-Seitenleiste gefunden. `renderSidebarUpcoming()`
+lieferte eine **fest verdrahtete** Liste unter der Überschrift
+*„Demnächst"*:
+
+```
+🎸 Rock Festival Berlin  · 12. Sep 2026
+💒 Hochzeitsmesse Köln   · 20. Sep 2026
+🎉 Oktoberfest Opening   · 19. Okt 2026
+```
+
+Gemessen: die Funktion wird bei **jedem** Feed-Rendern gerufen,
+`#sidebarUpcoming` steht in der Shell — und **der erste Eintrag lag an
+diesem Tag bereits in der Vergangenheit.**
+
+Das ist die Fehlerklasse mit einer Zutat mehr: **eine Liste, die mit der
+Zeit unwahr wird, ohne dass jemand etwas ändert.** Ein toter Prüfer
+bleibt immerhin gleich falsch; dieser Block verschlechtert sich von
+selbst, und niemand bekommt eine Meldung.
+
+**Der Bestand lag die ganze Zeit daneben.** `assets/eb-aktivitaeten.json`
+führt 954 Einträge aus acht Gebieten, täglich erneuert, mit Datum, Ort und
+Quelle — gebaut, geprüft, ausgeliefert. Es fehlte allein die Verbindung.
+
+**Die Funktion steht jetzt in `search/14-aktivitaeten.js`**, nicht mehr in
+`board/42-guide-social-feed.js`: dort liegt der Bestand. Ein zweiter Lader
+wäre eine zweite Wahrheit, und `ebAktivitaetenImUmkreis()` wirft
+Vergangenes und Abgesagtes ohnehin heraus. Die alte Stelle trägt jetzt den
+Befund statt der Liste — **und eine Warnung**: wer sie dort neu anlegt,
+gewinnt in der Verkettung, und die erfundene Liste wäre zurück.
+
+**Die Karte ist schmal, die Meldungen sind kurz — aber verschieden.**
+„noch nicht abgerufen", „Gegend nicht erfasst" und „nichts im Umkreis"
+sind drei Aussagen, nicht eine. Sie zusammenzuziehen macht die Sorgfalt
+des Bestands wieder unsichtbar: *„nichts eingetragen"* behauptet, wir
+hätten nachgesehen.
+
+**Diese Karte LIEST den Radar, sie steuert ihn nicht.** Der erste
+Entwurf rief `radarPositionSetzen()`, wenn noch keine Position bekannt
+war — abgeschrieben aus `renderFeedJetzt()`, wo genau das richtig ist.
+Hier ist es falsch: `renderFeed()` ruft die Seitenleiste **vor** der
+Radar-Ansicht, und der Radar ist geteilter Zustand.
+
+**Gemeldet hat es ein fremder Test.** *„Marker-Popups bleiben im Dark
+Mode deutlich lesbar"* in `radar.spec.js` fiel in **zwei von drei**
+Läufen aus, weil `feedRadarFocus(0)` danach auf einen anderen Marker
+zielte. Nachgemessen auf `main`: derselbe Test dreimal grün. Eine
+Nebenwirkung, die als Flackern eines fremden Tests auftritt, ist die
+unauffälligste Sorte Schaden — und die naheliegende Erklärung („Flake")
+wäre hier falsch gewesen.
+
+Ohne bekannte Position rechnet die Karte deshalb **lokal** ab dem ersten
+erfassten Gebiet und schreibt nichts zurück.
+
+Sechs Mutationen, jede macht die Suite rot: die erfundene Liste kehrt als
+zweite Definition zurück (**alle sieben rot**) · der Vergangenheitsfilter
+fällt weg · kein Deckel bei drei · fremder Titel unmaskiert · alle leeren
+Fälle sagen dasselbe · die Seitenleiste setzt den Radar wieder.
+
+**Und die sechste Kommentar-Falle des Tages war vorhergesehen.** Der Test
+„die drei erfundenen Termine sind aus dem Code verschwunden" sucht genau
+die Namen, die der Befund oben im Kommentar nennt. Gemessen wird deshalb
+von vornherein nach Abzug der Kommentare — an diesem Tag war das der
+sechste Fall, und der erste, bei dem der Griff vor dem Schaden kam.
+
+```bash
+npx playwright test tests/e2e/seitenleiste-termine.spec.js   # 8 Tests, 6 Mutationen
+```
+
 ### Freunde und Gruppen — gemeinsame Vorhaben
 
 Gebaut am 09.09.2026, nachdem das Durchgehen der Nutzerpfade ergab: **es gab
@@ -3597,7 +3667,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1138 Tests in 76 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1146 Tests in 77 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3670,6 +3740,9 @@ Registrierung, nicht in der Anmeldung),
 hinter einem `display: none`, an fünf Breiten gemessen; das Konfetti läuft aus
 statt endlos zu kreisen, läuft aber überhaupt erst einmal; die Rundenzahl
 steht an einer Stelle, und jeder Konfetti-Punkt hat seinen Streifen),
+**Demnächst** (die Seitenleiste zeigt echte Termine aus dem Aktivitäten-Bestand
+oder gar keine — ein vergangener Termin steht nie unter „Demnächst", die drei
+leeren Fälle sagen Verschiedenes, und fremde Titel kommen als Text an),
 **Gebührensatz** (der Provisionssatz kommt vom Server, nicht aus dem Code — bei
 einem geänderten Satz stimmen Rechnung UND Text, ein unsinniger Wert wird
 abgewiesen, und keine zweite Definition überschreibt ihn),
