@@ -236,11 +236,60 @@ function planningHandleAction(button) {
   if (action === 'collaborate') planningInviteProject();
   if (action === 'find-fragment') {
     var parent = button.closest('[data-fragment]');
+    if (!parent) return;
     var fragment = planningFragments(project).find(function(f) { return f.id === parent.dataset.fragment; });
+    if (!fragment) return;
     openAddProviderModal('geplant');
+    // Die Herkunft wird AM DIALOG vermerkt, nicht in einer Modulvariablen.
+    // Sie stirbt damit mit ihm: wer die Auswahl abbricht, hinterlässt keine
+    // Notiz, an die eine spätere, ganz andere Karte gehängt würde.
+    var dialog = document.getElementById('addProviderModal');
+    if (dialog) {
+      dialog.dataset.planningFragment = fragment.id;
+      dialog.dataset.planningProject = String(project.id);
+    }
     var search = document.getElementById('lpickSearch');
-    if (search && fragment) { search.value = fragment.category; _filterListingPicker(fragment.category); }
+    if (search) { search.value = fragment.category; _filterListingPicker(fragment.category); }
   }
+}
+
+/**
+ * Hängt die eben angelegte Karte an den Baustein, aus dem die Auswahl
+ * geöffnet wurde — der letzte Schritt, der aus Bausteinen eine Hochzeit
+ * macht.
+ *
+ * ── WARUM ES DIESE FUNKTION BRAUCHT ────────────────────────────────
+ *
+ * Bis zum 14.09.2026 wurde `fragment.cardId` im ganzen Frontend an genau
+ * EINER Stelle geschrieben: von Hand über das Dropdown „Leistung im
+ * Board". Der Knopf „DJ finden" öffnete die Auswahl vorgefiltert und
+ * merkte sich nicht, wofür. Wer darüber suchte und buchte, hatte danach
+ * eine Karte auf dem Board — und einen Baustein, der weiter „noch offen"
+ * zeigte und sein Budget in der Restsumme mitrechnete.
+ *
+ * Der Weg war da, er sah vollständig aus, und das letzte Glied fehlte.
+ * Aufgefallen ist es nicht, weil die Karte ja erscheint.
+ *
+ * Rückgabewert ist das Ergebnis, nicht die Höflichkeit: false heisst,
+ * dass nichts verknüpft wurde — der Normalfall bei jeder Auswahl, die
+ * nicht aus einem Baustein kam.
+ */
+function planningFragmentVerknuepfen(project, card, dialog) {
+  if (!project || !card || !dialog || !dialog.dataset) return false;
+  var fragmentId = dialog.dataset.planningFragment;
+  // Das Projekt muss dasselbe sein. Zwischen Öffnen und Anlegen kann
+  // gewechselt worden sein, und eine Karte an den Baustein eines FREMDEN
+  // Vorhabens zu hängen wäre schlimmer als gar keine Verknüpfung.
+  if (!fragmentId || dialog.dataset.planningProject !== String(project.id)) return false;
+  // `planningFragments()` liefert eine frische Liste, solange das Projekt
+  // noch keine gespeicherte hat. Ohne diese Zeile schriebe die
+  // Verknüpfung in eine Kopie, die niemand je wiedersieht.
+  if (!Array.isArray(project.fragments)) project.fragments = planningFragments(project);
+  var fragment = project.fragments.find(function(f) { return f.id === fragmentId; });
+  if (!fragment) return false;
+  fragment.cardId = card.id;
+  project.updatedAt = Date.now();
+  return true;
 }
 
 document.addEventListener('click', function(event) {

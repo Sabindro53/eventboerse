@@ -605,8 +605,18 @@ function _addProviderCard(event, stage) {
 
   if (!project.cards) project.cards = [];
   project.cards.push(card);
+  // Kam die Auswahl aus einem Planungs-Baustein („DJ finden"), gehört die
+  // Karte dorthin. Gelesen wird die Herkunft vom NOCH OFFENEN Dialog —
+  // deshalb steht dies vor seinem Entfernen, nicht danach.
+  var ausBaustein = typeof planningFragmentVerknuepfen === 'function'
+    && planningFragmentVerknuepfen(project, card, document.getElementById('addProviderModal'));
   _saveBoardProjects();
   document.getElementById('addProviderModal') && document.getElementById('addProviderModal').remove();
+  // Die Übersicht zeigt den Baustein als erledigt und rechnet sein Budget
+  // aus der Restsumme heraus; sie muss das auch sehen. Die Funktion prüft
+  // ihren Container selbst, ein Aufruf aus einer anderen Ansicht schadet
+  // also nicht.
+  if (ausBaustein && typeof renderPlanningOverview === 'function') renderPlanningOverview();
   renderKanban(project);
   _updateBoardStats(project);
   if (document.getElementById('boardFlowView') && document.getElementById('boardFlowView').style.display !== 'none') {
