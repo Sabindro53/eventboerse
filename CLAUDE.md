@@ -214,6 +214,83 @@ gepipten Schritte als Berichte gebaut („die Routine soll den Zustand
 festhalten, nicht nachts rot werden"). Nur die zwei Aktivitäten-Schritte
 tragen dort `shell: bash`, weil sie blockieren sollen.
 
+#### „Alle vier Tore grün" — bei sechzehn Toren
+
+Am 13.09.2026 fiel PR #270 in CI durch, unmittelbar nachdem hier die
+damaligen 1076 Tests gemeldet worden waren, mit dem Zusatz *„alle vier
+Tore grün."* Die Zahl stimmte, der Zusatz war trotzdem falsch — **lokal
+liefen vier Tore, `pr-check.yml` fährt sechzehn.**
+
+(Die alte Angabe steht hier bewusst nicht in ihrer geprüften Schreibweise:
+`kontext.mjs` misst genau diese Form gegen die Suite, und ein Zitat im
+Fließtext wäre eine zweite Fundstelle mit einer veralteten Zahl. Das Tor
+hat das beim ersten Versuch prompt gemeldet — *„Aussage mehrdeutig"* —
+und damit seinen eigenen Abschnitt belegt.)
+
+Rot war `rechtsunterlagen.mjs --check`. Der Grund ist banal und genau
+deshalb lehrreich: `assets/eb-rechtsunterlagen.json` wird **erzeugt** und
+trägt die Zahl der Frontend-Module mit. Das neue Storno-Modul machte aus
+27 achtundzwanzig, und die committete Fassung sagte weiter 27. `recht.mjs`
+war grün — es misst den Code, nicht die daraus erzeugte Datei.
+
+**Der eigentliche Fund lag daneben.** `package.json` führte ein
+`npm run gate`: eine von Hand aneinandergehängte Kette von **acht**
+Skripten. Sie war nicht falsch, sie war unvollständig — und sie sah
+vollständig aus. Es fehlten `recht`, `rechtsquellen`, `rechtsunterlagen`,
+`aktivitaeten`, `geheimnisse`, `icons`, `kontext`, `auftragsstrom` und das
+geschützte HQ-Template. **Zwei gepflegte Fassungen derselben Sache driften
+immer**, und diese driftete in die Richtung, in der man es erst im CI
+merkt.
+
+Dieselbe Klasse wie die Icon-Liste, die sich mit sich selbst verglich, und
+wie die Testzahl, die zwei Notizen gegeneinander maß: ein Prüfer, dessen
+Subjekt nur ein Ausschnitt ist, gibt eine Entwarnung, die er nicht decken
+kann.
+
+**`scripts/tore.mjs` leitet die Tore aus dem Workflow ab.** Ein neues Tor
+in `pr-check.yml` läuft lokal ohne eine Zeile Arbeit mit.
+
+```bash
+npm run gate           # alle Tore, in der Reihenfolge des Workflows
+npm run gate:liste     # nur zeigen, nichts ausführen
+```
+
+**Der Vorgabewert ist LAUFEN, nicht Überspringen.** Wäre die Liste
+andersherum gebaut — „diese hier ausführen" —, fiele jedes neue Tor
+stillschweigend heraus, und der Fehler wäre nach einem Monat wieder da.
+Übersprungen werden genau drei Befehle (`npm ci`, `playwright install`,
+`playwright test`) plus alles, was einen **Actions-Ausdruck** `${{ … }}`
+trägt — das trifft heute nur den Code-Prüfer, der ausdrücklich nie
+blockiert. Beide Regeln greifen am **Befehl**, nicht am Schrittnamen: ein
+Name lässt sich umformulieren, ohne dass jemand an diese Datei denkt.
+**Was übersprungen wird, steht bei jedem Lauf im Bericht** — ein stiller
+Übersprung ist dasselbe wie ein fehlendes Tor, nur mit gutem Gewissen.
+
+**Gefahren wird mit `bash -eo pipefail`**, wie der Job es über
+`defaults: run: shell: bash` setzt. Ohne `pipefail` wäre der Rückgabewert
+der sechs gepipten Tore der von `tee` — und `tee` gelingt immer. Genau
+daran waren sie einen Abschnitt weiter oben schon einmal entwaffnet.
+
+**Der erste Parser zerschnitt sein eigenes Subjekt.** Er zerlegte
+`run: |`-Blöcke zeilenweise; aus dem Code-Prüfer-Schritt wurden **45
+„Tore"**, darunter Kommentarzeilen und ein `fi` ohne sein `if`. Ein Block
+ist EIN Befehl — und ausgerechnet `rechtsunterlagen.mjs --check`, an dem
+der ganze Befund hängt, steht in einem.
+
+Der Test liest die Workflow-Datei **ein zweites Mal und anders** (ein
+Ausdruck über `node scripts/*.mjs --check`), statt denselben Parser zu
+befragen: ein Prüfer, der sein Subjekt mit dem geprüften Werkzeug liest,
+bestätigt nur sich selbst.
+
+Sechs Mutationen, jede macht die Suite rot: Block wieder zeilenweise ·
+ein echtes Tor in die Ausnahmeliste · `npm run gate` zurück auf die
+Handliste · falscher Job gelesen · Actions-Regel entfernt · `istTor`
+immer wahr.
+
+```bash
+npx playwright test tests/e2e/tore.spec.js   # 7 Tests, 6 Mutationen
+```
+
 ### Der Ausstieg aus `unsafe-inline`
 
 Die CSP trug `script-src 'unsafe-inline'` — damit ist sie als XSS-Schutz
@@ -998,12 +1075,18 @@ Griff von Hand nachbaut. Er steht deshalb **einmal** in
 schneiden — wer nur misst, hat das Problem nicht und behält die Positionen für
 eine brauchbare Fehlermeldung.
 
-`pruefhygiene.spec.js` hält **vier** Regeln über alle Suiten (hier stand
+`pruefhygiene.spec.js` hält **fünf** Regeln über alle Suiten (hier stand
 „zwei", während schon drei aufgezählt waren — eine Zahl, die ihre eigene Liste
 nicht mehr trifft, ist der Anfang derselben Drift, die diese Datei sonst
 bekämpft):
 
 - **keine schneidet HTML-Kommentare selbst heraus** (der gemeinsame Griff ist da),
+- **keine baut den JS-Kommentar-Entferner selbst nach** — `lib/js-code.js`.
+  Diese Regel fehlte bis zum 13.09.2026, und zwar weil der Entferner als
+  lokale Kopie **in dieser Datei selbst** stand: die Regel gegen Kopien hatte
+  eine Kopie. Sie fand beim ersten Lauf sofort eine zweite — in
+  `verbindungen.spec.js` einen Ausdruck, der alles ab einem Doppelslash bis
+  zum Zeilenende wegschnitt, also auch mitten aus `'https://api.stripe.com/…'`.
 - **keine überspringt sich** (`test.skip`/`test.fixme`) — ein übersprungener
   Test zählt in keiner Bilanz als Fehler,
 - **keine fragt einen Host per Teilstring ab** — `lib/url-host.js` vergleicht
@@ -2416,6 +2499,197 @@ Inhabers.
 npx playwright test tests/e2e/erstattung.spec.js   # 9 Tests, 8 Mutationen
 ```
 
+### Der Storno-Vorgang — ein Weg, kein Knopf auf fremdes Geld
+
+Beauftragt am 13.09.2026: *„wenn er das nicht erfüllen kann, muss er Bescheid
+geben und Geld zurückzahlen, ähnlich wie ein Pizzalieferant, der zu spät bei
+Lieferando eine bestellung bekommt … das muss immer sauber ablaufen."*
+
+**Vorher gab es dafür nichts.** Am selben Tag gemessen: der Planer hatte
+keinen Weg zu einer Erstattung ausser über den Dienstleister persönlich oder
+den Betreiber — und die eine Route, die es gab, war ein Loch (siehe „Der
+Zahler durfte sich sein Geld selbst zurückholen").
+
+#### Es gibt keine Buchungstabelle
+
+Beim Bauen gefunden: Buchungen liegen in `eb_board_projects` — **einem
+JSON-Blob je Nutzer**, den sein Besitzer als Ganzes zurückschreibt. Ein
+Storno ist aber **zweiseitig**: der Planer beantragt, der Dienstleister
+entscheidet. Beide müssten in denselben Blob schreiben, der letzte
+Schreibvorgang gewänne, und die Entscheidung des einen wäre weg — ohne
+Meldung. Dieselbe Begründung, aus der Freunde, Gruppen und der gemeinsame
+Plan eigene Tabellen bekommen haben. `eb_storno` ist die vierte.
+
+#### Die Entscheidung, an der alles hängt
+
+**Ein Antrag erstattet nichts.** Er ist eine Bitte mit Frist
+(`EB_STORNO_FRIST_STUNDEN`, 72). Erst die **Annahme durch den
+Dienstleister** löst die Erstattung aus, und die läuft über die
+**unveränderte** Route `eb_stripe_refund()` — es gibt genau eine Stelle, die
+Geld bewegt. Hier wird kein zweiter Weg zu Stripe gebaut: zwei Wege auf
+dasselbe Konto sind die Angriffsfläche, die man sich nicht ohne Not schafft,
+und die Rechteregel wäre doppelt zu pflegen.
+
+Der Planer bekommt damit einen **Vorgang**, keinen Knopf auf fremdes Geld.
+Genau daran war die alte Fassung gescheitert: sie gab ihm den Knopf.
+
+**Die Frist erstattet auch nicht automatisch.** Ein Antrag, der nach 72
+Stunden von selbst Geld bewegt, wäre eine Geldentscheidung ohne einen
+Menschen darin. Nach Ablauf steht er auf `abgelaufen` und ist damit für den
+Betreiber sichtbar — der entscheidet. **Die Frist erzeugt eine Zuständigkeit,
+keine Zahlung.** Ein Test hält fest, dass das Modul weder Stripe ruft noch
+einen Zeitgeber startet.
+
+**Der Zustand ist abgeleitet, nicht gespeichert.** Stünde `abgelaufen` in der
+Datenbank, bräuchte es einen Zeitgeber, der Zeilen umschreibt — und derselbe
+Antrag wäre je nach dessen Laufzeit mal offen und mal abgelaufen.
+
+**Entschieden wird nach DERSELBEN Regel wie erstattet.**
+`eb_storno_darf_entscheiden()` gibt die Frage an `eb_erstattung_darf()`
+weiter. Zwei Fassungen derselben Rechteregel driften, und diese driftete
+schon einmal auf einem Geldweg.
+
+**Scheitert die Erstattung, bleibt der Antrag offen.** Ihn auf „angenommen"
+zu setzen, während kein Geld geflossen ist, wäre die schlimmste Sorte
+Falschaussage auf einem Geldweg.
+
+**Ablehnen braucht eine Begründung.** Eine Absage ohne Grund ist für den
+Planer dasselbe wie keine Antwort, nur endgültig.
+
+#### Anlegen und Nachprüfen kommen jetzt aus einer Liste
+
+`eb_maybe_create_tables()` setzt `eb_db_version` erst, wenn jede Tabelle
+wirklich da ist — und prüfte dafür eine Liste, die aus `eb_social_tabellen_
+sql()` abgeleitet war. Eine neue Tabelle daneben zu legen hätte genau den
+Fehler wiederholt, der bei 2.8 beinahe passiert wäre: die Version springt,
+die Tabelle fehlt, **und die Migration läuft nie wieder an**.
+
+`eb_zusatz_tabellen_sql()` ist deshalb die **eine** Quelle für beide Stellen.
+Wer eine fünfte Tabelle anlegt, bekommt ihre Nachprüfung geschenkt.
+`EB_DB_VERSION` steht auf **3.1**.
+
+#### Der Weg hinein wird geprüft, nicht angenommen
+
+Der teuerste wiederkehrende Fehler dieses Projekts ist nicht das fehlende
+Ziel, sondern der fehlende Weg: Freunde und Gruppen waren gebaut und vom
+Board aus mit **null** Wegen erreichbar; die Erstattungsroute existierte und
+wurde von **keinem** Client je gerufen. `storno-ansicht.spec.js` hält deshalb
+die Kette fest — Platz in `app-shell.html`, Eintrag in `modules.list`,
+Funktionen im **echten Browser** erreichbar.
+
+**Und genau das ist trotzdem passiert, in diesem PR.** Die erste Fassung
+war vollständig gebaut, PHP-seitig mutationsgeprüft, sieben Tests grün — und
+nachgezählt:
+
+| | Aufrufer |
+|---|---:|
+| `ebStornoBeantragen()` | **0** |
+| `ebStornoLaden()` / `ebStornoAnsichtZeichnen()` | **0** |
+
+Es gab **keinen Knopf**, und `#stornoListe` stand leer da, mit einem
+Kommentar daneben, der versprach, `ebStornoAnsichtZeichnen()` fülle sie.
+Der Vorgang war fertig und für niemanden erreichbar.
+
+**Die Tests waren grün, weil sie die falsche Frage stellten:** *steht der
+Platz da*, *sind die Funktionen definiert*. Beides ja. Ein Test, der einen
+Baustein prüft, sagt nichts über seine Erreichbarkeit — dieselbe Lücke wie
+beim Stripe-Lader, der geprüft war, während der Weg hinein zugesperrt war.
+
+Gemessen wird jetzt die **Wirkung**: nach `navigateTo('board')` muss
+`#stornoListe` wirklich `.storno-leer` oder `.storno-liste` tragen. Und ein
+zweiter Test ruft `renderBoardPage()` **ein zweites Mal** — diese Funktion
+steigt bei unverändertem Nutzer früh mit `return` aus, und ein Aufruf
+dahinter liefe nur beim ersten Aufbau. Ein Weg, den es nur manchmal gibt,
+ist schwerer zu finden als einer, den es nie gibt.
+
+**Der Knopf steht im Bezahlt-Block der Karte**, also dort, wo der Planer
+seine Buchung ansieht — und nur bei einer vollständig gültigen `pi_…`-Form,
+nicht bei blossem Präfix: der Wert landet in einem `onclick`-Attribut und
+stammt aus dem Board-Blob des Nutzers.
+
+**Die Mutationsprobe dazu überlebte im ersten Anlauf** — zum vierten Mal an
+derselben Ursache: das Muster zählte `ebStornoBeantragen(` im **erklärenden
+Kommentar** neben dem Knopf mit. Gezählt wird jetzt nach Abzug der
+Kommentare, über den gemeinsamen Griff `tests/e2e/lib/js-code.js`.
+
+#### `escHtml` gibt es nicht — und elf Tests haben es nicht gemerkt
+
+Beim Bauen des Sichtbarkeits-Tests fiel es auf, weil er zum ersten Mal eine
+Zeile **mit Daten** zeichnete: `ebStornoZeile()` rief `escHtml()`. Den
+Helfer gibt es in diesem Projekt nicht — er heisst `_escHtml`, und das
+Storno-Modul war die einzige Fundstelle ohne Unterstrich.
+
+**Jede Zeile mit einem echten Antrag warf damit `ReferenceError`**, die
+Liste blieb leer, und zwar ausgerechnet für die Nutzer, die einen Antrag
+haben. Kein Fehler auf der Seite, keine Meldung — die vertraute
+Schadensart: es sieht heil aus und tut nichts.
+
+**Die Prüfung, die das decken sollte, war die Ursache.** Sie las den
+Quelltext und suchte in der Zeile mit `storno-grund` nach `escHtml(`. Der
+Aufruf stand dort. Ein Muster, das einen Aufruf findet, beweist nicht, dass
+das Gerufene **existiert** — dieselbe Klasse wie der Kommentar-Treffer eine
+Ebene höher, nur andersherum: dort war der Fund Prosa, hier war er ein
+Aufruf ins Leere.
+
+Alle elf Tests kamen nur bis zu den **leeren** Zuständen (abgemeldet,
+Störung, nichts offen). Gemessen wird jetzt das gerenderte DOM mit echtem
+fremdem Text: eine Zeile muss entstehen, `<img src=x onerror=…>` muss als
+**Text** ankommen und nicht als Element, und der Gegenprobe-Test hält fest,
+dass der eigene Antrag **keine** Entscheidungsknöpfe trägt — sonst wäre
+„zeichne immer zwei Knöpfe" eine Erklärung, die beide besteht.
+
+Die Mutation `_escHtml` → `escHtml` macht jetzt **drei** Tests rot.
+
+#### Die Frist lief auf einer Seite, die der Zuständige nicht öffnet
+
+Der Planer arbeitet auf `/board`, der Dienstleister auf `/auftraege` —
+seine Tagesseite, gebaut für „hat mich jemand angefragt, was muss ich
+liefern". **Entscheiden** über einen Storno tut aber der Dienstleister, mit
+**72 Stunden** Frist. Die Liste stand nur auf dem Board.
+
+Das ist kein Schönheitsfehler: eine Frist läuft weiter, während der
+Zuständige auf einer Seite arbeitet, die sie nicht zeigt. Nach Ablauf steht
+der Antrag auf `abgelaufen` und wird zur Sache des Betreibers — für einen
+Dienstleister, der nie erfahren hat, dass etwas offen war.
+
+Gezeichnet wird jetzt in **jeden** Platz mit `[data-storno-liste]`; auf der
+Aufträge-Seite steht er **vor** dem Auftragsboard, weil eine laufende Frist
+dringender ist als die Liste offener Buchungen. Ein Zeichner, zwei Plätze —
+eine zweite Fassung der Funktion würde driften.
+
+**Und der erste Test dazu maß wieder den Zeichner statt des Weges.** Er
+rief `ebStornoAnsichtZeichnen()` selbst auf; die Mutation
+„`renderAuftraegePage()` ruft nicht mehr" überlebte ihn, alle vierzehn
+Tests grün. Derselbe Fehler wie beim Board, eine Seite weiter und eine
+Stunde später. Der zweite Test **navigiert nur** — und stellt dafür einen
+angemeldeten Dienstleister, denn `/auftraege` schickt Abgemeldete auf
+`home` und Event-Planer aufs Board; ohne das wäre er aus dem falschen Grund
+rot gewesen. Eine Gegenprobe hält fest, dass die Seite wirklich offen ist.
+
+**Und der erste eigene Test war dabei aus dem falschen Grund grün.** Er
+setzte `window.isLoggedIn = true` — aber `isLoggedIn` ist in `app.js` per
+`let` deklariert und damit **keine** `window`-Eigenschaft. Die Zuweisung
+wirkte nie, die Funktion nahm den Abmelde-Zweig, und „die Anfrage ging nicht
+an den Server" stimmte aus einem ganz anderen Grund als behauptet. Gesetzt
+wird jetzt frei (`isLoggedIn = true`), wie in den übrigen Suiten.
+
+Dreizehn Mutationen, jede macht die Suite rot: jeder darf beantragen
+(2 rot) · unbezahlte Buchung stornierbar · die Frist läuft nie ab · ein
+entschiedener Antrag erneut entscheidbar · Begründung nicht mehr Pflicht ·
+spitze Klammern kommen durch · der Zahler darf entscheiden · Modul nicht
+ausgeliefert (4 rot) · kein Platz in der Shell · fremder Text unmaskiert ·
+**der Knopf entfernt** · **der Ladeaufruf hinter den frühen `return`
+verschoben** · **der Ladeaufruf ganz entfernt** (2 rot).
+
+**Nicht entschieden wird hier die Höhe.** Ein Storno ist immer der volle
+Betrag; eine Teil-Erstattung (Anzahlung behalten, Rest zurück) ist eine
+Geschäftsentscheidung mit AGB-Folgen und gehört dem Inhaber.
+
+```bash
+npx playwright test tests/e2e/storno.spec.js          # 8 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/storno-ansicht.spec.js  # 15 Tests, echter Browser
+```
+
 ### Eine Adresse, die mit der Route wanderte
 
 Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
@@ -2932,7 +3206,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1082 Tests in 71 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1115 Tests in 74 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3005,6 +3279,13 @@ Registrierung, nicht in der Anmeldung),
 hinter einem `display: none`, an fünf Breiten gemessen; das Konfetti läuft aus
 statt endlos zu kreisen, läuft aber überhaupt erst einmal; die Rundenzahl
 steht an einer Stelle, und jeder Konfetti-Punkt hat seinen Streifen),
+**Storno** (der Planer beantragt mit Frist und Begründung, der Dienstleister
+entscheidet — im echten PHP ausgeführt: nur der Zahler beantragt und nur bei
+bezahlter Buchung, entschieden wird nach DERSELBEN Regel wie erstattet, ein
+entschiedener Antrag wird nicht noch einmal entschieden, und die Frist bewegt
+kein Geld), **Storno-Ansicht** (der Weg hinein existiert wirklich: Platz in
+der Shell, Modul in der Verkettung, Funktionen im echten Browser erreichbar;
+die Ansicht entscheidet nichts und maskiert fremden Text erneut),
 **Erstattung** (die Rechteprüfung auf dem Geldweg wird im echten PHP
 ausgeführt, nicht gelesen: der zahlende Kunde kann seine eigene Zahlung NICHT
 einseitig zurückholen, der Anbieter und Admins schon; ein leeres Konto trifft
@@ -3301,12 +3582,12 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 29 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~17 500 Zeilen CSS, mobile-first |
+| `js/modules/` | Quelle des Frontends: 30 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `styles.css` | ~17 700 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (130 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan) |
+| `functions.php` | WordPress-Theme: REST API (132 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan) |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -3327,7 +3608,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-130 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), Utilities.
+132 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), Utilities.
 
 **Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 

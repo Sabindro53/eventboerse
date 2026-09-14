@@ -9,20 +9,23 @@ function phpFunction(name){
 }
 function run(){
   const script=`<?php
-define('ABSPATH','test');
+define('ABSPATH','test');define('ARRAY_A','ARRAY_A');
+function add_action($name,$callback){}function wp_json_encode($value){return json_encode($value);}
 class WP_Error {public $code;public $message;function __construct($c,$m){$this->code=$c;$this->message=$m;}function get_error_code(){return $this->code;}function get_error_message(){return $this->message;}}
-class WP_REST_Response {public $data;public $status;function __construct($d,$s=200){$this->data=$d;$this->status=$s;}}
-class WP_REST_Request {public $data;function __construct($d){$this->data=$d;}function get_json_params(){return $this->data;}}
+class WP_REST_Response {public $data;public $status;function __construct($d,$s=200){$this->data=$d;$this->status=$s;}function get_status(){return $this->status;}function get_data(){return $this->data;}}
+class WP_REST_Request {public $data;function __construct($d){$this->data=$d;}function get_json_params(){return $this->data;}function get_param($k){return $this->data[$k]??null;}function add_header($k,$v){}function set_body($b){$this->data=json_decode($b,true);}}
 function wp_strip_all_tags($s){return strip_tags($s);}
 function absint($x){return abs((int)$x);}function sanitize_key($x){return $x;}function sanitize_text_field($x){return trim(strip_tags((string)$x));}function sanitize_textarea_field($x){return sanitize_text_field($x);}function is_wp_error($x){return $x instanceof WP_Error;}
 $opts=[];function get_option($k,$d=false){global $opts;return $opts[$k]??$d;}function add_option($k,$v,$u='',$a=false){global $opts;if(isset($opts[$k]))return false;$opts[$k]=$v;return true;}function update_option($k,$v,$a=false){global $opts;$opts[$k]=$v;return true;}
-class DB {public $prefix='wp_';public $listing;public $offer;public $query='';function prepare($s,...$v){foreach($v as $x)$s=preg_replace('/%[ds]/',is_numeric($x)?$x:"'".$x."'",$s,1);return $s;}function get_row($q){return $this->listing;}function get_results($q){$this->query=$q;return $this->offer?[$this->offer]:[];}}
+class DB {public $prefix='wp_';public $listing;public $offer;public $query='';function prepare($s,...$v){foreach($v as $x)$s=preg_replace('/%[ds]/',is_numeric($x)?$x:"'".$x."'",$s,1);return $s;}function get_row($q,$format=null){return $this->listing;}function update($t,$data,$where){$this->listing=array_merge($this->listing,$data);return 1;}function get_results($q){$this->query=$q;return $this->offer?[$this->offer]:[];}}
 $wpdb=new DB();$wpdb->listing=(object)['id'=>42,'user_id'=>2,'status'=>'active','title'=>'DJ'];$wpdb->offer=(object)['id'=>17,'offer_amount'=>100,'conversation_id'=>9];
 require ${JSON.stringify(path.join(root,'includes/booking.php'))};
 require ${JSON.stringify(path.join(root,'includes/chat/kontaktschutz.php'))};
 require ${JSON.stringify(path.join(root,'includes/payments/erstattung-rechte.php'))};
+require ${JSON.stringify(path.join(root,'includes/payments/storno.php'))};
+require ${JSON.stringify(path.join(root,'includes/payments/storno-routen.php'))};
 ${phpFunction('eb_stripe_refund')}
-$uid=1;$dest='';$calls=[];$payment=['status'=>'succeeded','amount_received'=>10000,'transfer_data'=>['destination'=>'acct_provider'],'application_fee_amount'=>300];
+$uid=1;$dest='';$calls=[];$payment=['id'=>'pi_test','status'=>'succeeded','amount_received'=>10000,'transfer_data'=>['destination'=>'acct_provider'],'application_fee_amount'=>300];
 function get_current_user_id(){global $uid;return $uid;}function eb_is_admin_user($u){return $u===99;}function get_user_meta($u,$k,$s=true){global $dest;return $dest;}
 function eb_stripe_api($method,$p,$body=[],$key=''){global $payment,$calls;if($method==='GET')return ['ok'=>true,'data'=>$payment];$calls[]=['body'=>$body,'key'=>$key];return ['ok'=>true,'data'=>['id'=>'re_test','payment_intent'=>'pi_test','status'=>'pending','amount'=>10000]];}
 $out=[];$out['money']=array_map('eb_booking_money_cents',[-100,0,'no',0.49,0.50,49.95,1.005,999999.99,1000000]);
@@ -39,6 +42,9 @@ $out['provider_refund']=eb_stripe_refund($req);$out['refund_call']=$calls[0];$ou
 eb_booking_record_refund(['id'=>'re_test','payment_intent'=>'pi_test','status'=>'succeeded','amount'=>10000]);
 eb_booking_record_refund(['id'=>'re_test','payment_intent'=>'pi_test','status'=>'pending','amount'=>10000]);
 $out['refund_final']=get_option('eb_booking_refund_pi_test');
+$wpdb->listing=['id'=>1,'payment_intent'=>'pi_test','status'=>'offen','grund'=>'Der Termin wurde leider abgesagt.','betrag_cents'=>10000,'waehrung'=>'EUR','frist'=>gmdate('Y-m-d H:i:s',time()+86400)];
+$uid=2;$dest='acct_provider';$out['storno_pi']=eb_storno_pi_holen('pi_test');
+$out['storno_decision']=eb_storno_entscheiden(new WP_REST_Request(['id'=>1,'entscheidung'=>'annehmen']));
 echo json_encode($out);`;
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'eb-booking-'));
   const tmp=path.join(dir,'booking.php');
@@ -50,3 +56,5 @@ test('Only exact listing-specific agreed price may be paid',()=>{expect(result.v
 test('System spoofing and contact bypass are rejected without blocking normal dates',()=>{expect(result.unknown_type).toBe('message_type_invalid');expect(result.contact).toEqual([true,true,true,false,false]);});
 test('Refund requires actual provider or admin and documented reason',()=>{expect(result.buyer_refund).toBe(403);expect(result.other_provider_refund).toBe(403);expect(result.missing_reason).toBe(400);expect(result.provider_refund.status).toBe(200);});
 test('Refund reverses transfer and platform fee and stays pending until confirmed',()=>{expect(result.refund_call.body).toMatchObject({amount:10000,reverse_transfer:'true',refund_application_fee:'true'});expect(result.refund_call.key).toBe('booking_full_refund_pi_test');expect(result.refund_state.re_test.status).toBe('pending');expect(result.provider_refund.data.status).toBe('pending');expect(result.refund_final.re_test.status).toBe('succeeded');});
+
+test('Cancellation decision reaches the actual refund route with its required reason',()=>{expect(result.storno_pi.id).toBe('pi_test');expect(result.storno_decision.status).toBe(200);expect(result.storno_decision.data.storno.zustand).toBe('angenommen');});

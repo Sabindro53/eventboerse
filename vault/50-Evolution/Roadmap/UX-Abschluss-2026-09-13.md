@@ -8,7 +8,7 @@ tags: [layer/L5, domain/evolution, share/internal, ux, booking]
 # Eventbörse: zusammenhängende Nutzerwege
 
 Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
-`8bf3d8e`, zusammengeführt mit Hauptzweig `6d69337`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
+`8bf3d8e`, zusammengeführt mit Hauptzweig `5b54f69`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
 
 ## Umgesetzt
 
@@ -48,7 +48,7 @@ Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
 
 ## Prüfung
 
-Der zusammengeführte Prüfstand umfasst 1082 Tests in 71 Suiten. Neue Fälle prüfen Radar-Konsistenz,
+Der zusammengeführte Prüfstand umfasst 1115 Tests in 74 Suiten. Neue Fälle prüfen Radar-Konsistenz,
 Planung/Speicherung, Freunde/Einladungen, Kontowechsel, Centbeträge sowie die
 serverseitigen Grenzen von Angeboten und Erstattungen. PHP wird in diesen
 Grenztests ausgeführt; WordPress/Stripe werden dafür kontrolliert ersetzt.
@@ -142,3 +142,12 @@ der dokumentierte Anbieter-Storno bleibt als ausdrücklich beauftragter UI-Weg e
 Die Aussage, die Route habe keinen UI-Aufrufer, wurde im zugehörigen Test ersetzt.
 Messenger-Kontaktaufforderungen werden erkannt, eine bloße Facebook-Erwähnung
 als Inspirationsquelle bleibt erlaubt.
+
+Der danach veröffentlichte Storno-Vorgang aus #270 ist ebenfalls integriert.
+Ein neuer ausführender Verbindungstest findet zwei Anschlussfehler: Die Stripe-
+Hilfsfunktion liefert `{ok, data}` statt eines nackten PaymentIntent; außerdem
+muss der Antragsgrund an die Erstattungsroute weitergegeben werden. Beide sind
+korrigiert. Eine Annahme behauptet keine bereits abgeschlossene Erstattung.
+33/33 bestehende Storno-/Gruppen-/Buchungsfälle und 6/6 erweiterte Buchungsfälle
+bestehen lokal. Der Hauptzweig bringt die additive Storno-Tabelle (Version 3.1)
+mit; diese Änderung erhöht die Datenbankversion gegenüber main nicht weiter.

@@ -11,6 +11,7 @@ const { test, expect } = require('@playwright/test');
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const { phpOhneKommentare } = require('./lib/php-code');
 
 const ROOT = path.join(__dirname, '..', '..');
 const KATALOG = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'eb-connectors.json'), 'utf8'));
@@ -19,16 +20,25 @@ const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 const HTACCESS = fs.readFileSync(path.join(ROOT, '.htaccess'), 'utf8');
 
 /**
- * PHP-Kommentare entfernen.
+ * PHP-Kommentare entfernen — über den gemeinsamen Griff.
  *
  * Eine Zusicherung gegen den Rohtext prüft auch die Kommentare — und ein
  * Kommentar, der den behobenen Fehler beschreibt („vorher stand hier
  * readfile('404.html')"), lässt den Test dann über die eigene Erklärung
  * stolpern. Geprüft wird, was ausgeführt wird.
+ *
+ * Hier stand bis zum 13.09.2026 ein eigener Ausdruck, der alles ab einem
+ * Doppelslash bis zum Zeilenende wegschnitt. Der trifft auch das `//` in
+ * `'https://api.stripe.com/…'` und wirft den Rest der Zeile weg — samt
+ * echtem Code, der dort stehen könnte. Eine Prüfung, die ihr Subjekt
+ * beschädigt, misst sich selbst. `lib/php-code.js` fragt stattdessen PHP
+ * selbst (`token_get_all()`), das den Unterschied kennt.
+ *
+ * Abgezogen wird die GANZE Datei, danach wird geschnitten: erst schneiden
+ * und dann Kommentare abziehen hiesse, den Schnitt an einer Grenze zu
+ * setzen, die im Original eine andere ist.
  */
-function ohneKommentare(php) {
-  return php.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-}
+const FUNCTIONS_REIN = phpOhneKommentare(path.join(ROOT, 'functions.php'));
 
 /**
  * Rumpf einer PHP-Funktion — bis zur nächsten Funktion oder add_action.
@@ -153,7 +163,7 @@ test.describe('HQ-Zugang', () => {
     // Der Fehler, der das ausgelöst hat: die Abweisung lieferte 404.html —
     // eine eingefrorene SPA-Kopie mit relativen Pfaden. Unter /hq zeigten
     // styles.css und app.js ins Leere, die Seite kam nackt an.
-    const fn = ohneKommentare(rumpfVon(FUNCTIONS, 'eb_serve_hq'));
+    const fn = rumpfVon(FUNCTIONS_REIN, 'eb_serve_hq');
     const abweisung = fn.slice(0, fn.indexOf('$file'));
     expect(abweisung, 'kein eigener Body — die reguläre 404-Seite des Themes')
       .toMatch(/require\s+get_template_directory\(\)\s*\.\s*'\/404\.php'/);
