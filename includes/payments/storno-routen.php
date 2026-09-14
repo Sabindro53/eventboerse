@@ -176,6 +176,12 @@ function eb_storno_entscheiden( WP_REST_Request $request ) {
         return eb_storno_fehler( 'not_found', 404, 'Antrag nicht gefunden.' );
     }
 
+    // Annahme und Ablehnung teilen die Buchungssperre. Nach dem Warten
+    // erneut lesen: eine zuvor offene Anfrage kann inzwischen erledigt sein.
+    $lock = eb_booking_lock( (int) ( $pi_data['metadata']['conversation_id'] ?? 0 ) );
+    if ( is_wp_error( $lock ) ) return eb_booking_error_response( $lock, 409 );
+    $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$tab} WHERE id = %d", $id ), ARRAY_A );
+    if ( ! $row ) return eb_storno_fehler( 'not_found', 404, 'Antrag nicht gefunden.' );
     $jetzt   = time();
     $zustand = eb_storno_zustand( $row, $jetzt );
     if ( ! eb_storno_entscheidbar( $zustand ) ) {
