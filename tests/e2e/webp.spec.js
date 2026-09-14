@@ -24,7 +24,7 @@ const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
 let zwischenspeicher = null;
 function pruefstand() {
   if (!zwischenspeicher) {
-    zwischenspeicher = JSON.parse(execFileSync('php', [path.join(__dirname, 'webp.php')],
+    zwischenspeicher = JSON.parse(execFileSync('php', ['-d', 'memory_limit=128M', '-d', 'display_errors=stderr', path.join(__dirname, 'webp.php')],
       { cwd: ROOT, encoding: 'utf8' }));
   }
   return zwischenspeicher;

@@ -155,6 +155,7 @@
       </div>
       <div class="nav-actions">
         <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
+        <button type="button" class="nav-icon-btn journey-friends-nav" onclick="navigateTo('freunde')" title="Freunde & Gruppen" aria-label="Freunde & Gruppen"><span class="material-icons-round">groups</span></button>
         <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten" aria-label="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
           <span class="badge" id="msgBadge" style="display:none"></span>
@@ -191,7 +192,7 @@
         <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
         <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
         <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Planungs-Board</button>
-        <button onclick="navigateTo('freunde')"><span class="material-icons-round">diversity_3</span> Freunde &amp; Gruppen</button>
+        <button onclick="navigateTo('freunde')"><span class="material-icons-round">groups</span> Freunde &amp; Gruppen</button>
         <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
         <hr />
         <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
@@ -714,6 +715,7 @@
             <div class="feed-header">
               <h2 class="feed-title">Aktuelles</h2>
               <div class="feed-header-actions">
+                <button type="button" class="btn-outline journey-feed-friends" onclick="startGroupPlanning()"><span class="material-icons-round">group_add</span> Mit Freunden planen</button>
                 <button type="button" class="feed-location-badge" id="feedLocationBadge" onclick="toggleFeedNearby()" aria-pressed="false" title="Feed nach deinem Standort sortieren">
                   <span class="material-icons-round">location_on</span>
                   <span id="feedLocationText">In deiner Nähe</span>
@@ -744,6 +746,12 @@
             </div>
             <!-- Sidebar -->
             <aside class="feed-sidebar">
+              <div class="feed-sidebar-card journey-next">
+                <span class="material-icons-round">celebration</span><h4>Aus einer Idee wird ein Event</h4>
+                <p>Ideen sammeln, Freunde einladen und gemeinsam planen.</p>
+                <button type="button" class="btn-primary" onclick="startGroupPlanning()">Gemeinsamen Plan starten</button>
+                <button type="button" class="btn-outline" onclick="navigateTo('freunde')">Freunde finden</button>
+              </div>
               <div class="feed-sidebar-card">
                 <h4>Trending Kategorien</h4>
                 <div class="sidebar-trending" id="sidebarTrending">
@@ -2513,7 +2521,7 @@
          nicht gibt, waere eine leere Huelle mit Platzhaltern. -->
     <section id="page-freunde" class="page">
       <div class="container container-sm">
-        <h1 class="soz-titel"><span class="material-icons-round">diversity_3</span> Freunde &amp; Gruppen</h1>
+        <h1 class="soz-titel"><span class="material-icons-round">groups</span> Freunde &amp; Gruppen</h1>
         <p class="soz-untertitel">Plane gemeinsam — ein Fest, ein Festival, ein Betriebsausflug.</p>
         <div id="freundeInhalt"></div>
       </div>
@@ -3034,7 +3042,7 @@ Datum: ___________________________________________________
                  Seite. Die gemeinsame Planung war gebaut und von genau der
                  Stelle aus, an die „Vorhaben planen" schickt, unerreichbar. -->
             <button class="btn-outline" onclick="ebGemeinsamPlanen()" id="btnGemeinsamPlanen">
-              <span class="material-icons-round">diversity_3</span> Gemeinsam planen
+              <span class="material-icons-round">groups</span> Gemeinsam planen
             </button>
             <button class="btn-outline" onclick="showBoardProjects()" id="btnAllBoards" style="display:none">
               <span class="material-icons-round">arrow_back</span> Alle Projekte

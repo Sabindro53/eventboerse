@@ -16,8 +16,23 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1094 Tests in 70 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1116 Tests in 74 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## UX-Abschlussstand (2026-09-13)
+
+Feed, Radar, persönliche Planung, Gruppen und Chat haben gemeinsame Einstiege.
+„Mit Freunden planen“ erstellt einen echten Gruppenplan mit Einladungen; das
+Board öffnet Projekte, der Assistent ist eine eigene Option. Hochzeiten haben
+18 auswählbare Bausteine mit Budget und Notizen. Beim Wechsel in eine Gruppe
+werden Planungsansätze kopiert; persönliche Buchungsdaten bleiben privat.
+Spätere Änderungen werden nicht zwischen persönlichem und Gruppenplan gespiegelt.
+
+Der Aktivitätenbestand enthält 954 echte Datensätze aus acht erfassten Regionen.
+Das ist keine deutschlandweite Vollabdeckung. Buchungen brauchen ein zum Inserat
+gehörendes angenommenes Angebot. Anbieter-Stornierungen dokumentieren Grund und
+Stripe-Erstattungsstatus. Es wurde keine Live-Zahlung ausgelöst und nicht deployt.
+Details, Abnahme und offene Betriebsfragen: [[UX-Abschluss-2026-09-13]].
 - **Der Storno-Vorgang steht** (13.09.2026, PR #270). Beauftragt als *„kann er
   nicht erfüllen, muss er Bescheid geben und zurückzahlen — das muss immer
   sauber ablaufen."* Vorher gab es dafür **nichts**: der Planer hatte keinen
@@ -279,7 +294,7 @@ Ein Eintrag ohne Messung ist erfundene Arbeit und gehört nicht hierher.
 |---|---|---|
 | ~~München und Stuttgart fehlen~~ — **die Aufgabenstellung war falsch.** An vier Tagesständen gemessen: 10.09. 6/8 (ohne Dortmund, Stuttgart), 11.09. 5/8 (ohne Dortmund, Berlin, Stuttgart), 12.09. 7/8 (ohne Berlin), 13.09. 6/8 (ohne München, Stuttgart). An keinem Tag alle acht; welche fehlen, wechselt täglich | **Behoben** (13.09.): `overpassHolen()` hat drei Anläufe mit wachsender Pause, ein Zeitlimit am Client und ein Budget, das nur Wiederholungen kürzt. 7 Tests, 6 Mutationen. **Offen bleibt der Nachweis:** ob wirklich 8/8 ankommen, zeigt erst der nächste Tagesstand — Overpass ist von der Agent-Umgebung aus nicht erreichbar | claude (Nachweis) |
 | Das Profil eines Anbieters behauptet **„Verfügbar"** und **„Antwortet innerhalb von 1 Std."** — beide sind unbedingte Zeichenketten in `js/modules/search/12-detail-provider.js:598-599`, direkt unter drei Zeilen, die aus echten Daten kommen (`location`, `categoryLabel`, `priceLabel`). Nichts misst eine Antwortzeit, nichts prüft Verfügbarkeit. Aus einer Live-Prüfung gemeldet, im Quelltext bestätigt | **Die Vorabmessung ist erledigt (13.09.), beide Quellen gibt es:** Verfügbarkeit aus `eb_listings.blocked_dates` plus der Route `/listings/{id}/availability`; Antwortzeit berechenbar aus `eb_conversations` (`user_a`, `user_b`, `listing_id`) × `eb_messages` (`sender_id`, `created_at`) — der Median der Spanne zwischen Fremdnachricht und erster eigener Antwort. Damit ist „entfernen" nicht mehr die einzige ehrliche Option. **Die Schwelle ist der ganze Punkt:** unter N gemessenen Antworten wird **nichts** angezeigt, statt aus zwei Datenpunkten einen Median zu behaupten — sonst ersetzt eine unbelegte Zahl eine unbelegte Zeichenkette. § 5 UWG: eine Aussage über die Leistung eines Dritten, die nichts deckt, steht hier neben Angaben, die stimmen, und wird dadurch glaubwürdig | **astra** (Umsetzung liegt vor) |
-| **PR #268 (Codex/Astra) ist nicht mergefähig:** `mergeable: false / dirty`, zweimal am 13.09. geprüft. Basis ist `a927b4e`, `main` steht auf `6d69337` — dazwischen liegen #266, #267 und #269. 50 Dateien, +8838/−2069; eine Zusammenführung von dieser Größe über zwei fremde Merges hinweg löst sich nicht von selbst auf | **Rebase auf `main`, durch den Urheber.** Fremden Code zu rebasen hiesse, seine Absicht zu raten — und das Ergebnis liefe danach als seins. `AGENTS.md`: ein PR wird am selben Tag gemergt oder geschlossen; bei zwei Modellen ist nicht das Schreiben der Engpass, sondern das Landen | **astra** |
+| ~~**PR #268 (Codex/Astra) ist nicht mergefähig**~~ — **erledigt am 14.09.2026.** Der Urheber hat rebased; der PR liegt als `7cc1ea2` auf `main` („Feed, Radar, gemeinsame Planung und Buchungen verbinden“). Die Regel hat getragen: fremden Code nicht selbst zu rebasen hiess hier nicht, ihn liegenzulassen, sondern ihn dem zurückzugeben, der seine Absicht kennt | Nichts offen. Der Stand ist zusammengeführt, 1116 Tests grün | — |
 | `⚡ HQ-Puls` scheitert wiederholt (Läufe 1675 und 1676 am 13.09., je `conclusion: failure`) | Log des letzten Laufs lesen und die Ursache benennen, bevor etwas geändert wird. Ein Workflow, der täglich rot läuft, wird nach der dritten Woche nicht mehr gelesen | offen |
 | Die Landeseite trägt 105 endlos laufende Deko-Animationen, zusammen 257 ms Hauptthread je 3 s (Median aus drei verschachtelten Runden: 646 → 389 ms) | Gestaltungsentscheidung des Inhabers, **keine** Aufräumarbeit — siehe `AGENTS.md` §6 | Inhaber |
 | Der Board-Slot der Mobilleiste führt für Dienstleister ins Planungs-Board, nicht zu den Aufträgen. Dokumentierte Entscheidung, kein Versehen | Produktentscheidung des Inhabers | Inhaber |

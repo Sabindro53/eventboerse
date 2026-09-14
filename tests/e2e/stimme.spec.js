@@ -15,7 +15,7 @@ const path = require('node:path');
 
 /* Ein Browser mit simuliertem Mikrofon. Ohne das nimmt der Kreis Stille auf,
    und die Whisper-Strecke waere nur scheinbar geprueft. */
-const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
+const CHROMIUM = process.env.PW_CHROMIUM_PATH || process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
 async function mitMikrofon() {
   const browser = await chromium.launch({
     executablePath: fs.existsSync(CHROMIUM) ? CHROMIUM : undefined,
@@ -293,6 +293,8 @@ test.describe('Spracheingabe', () => {
    */
   async function sprechenUndStoppen(page, ms) {
     await page.evaluate(() => window.ebCircleAPI.sprechen());
+    // The permission/device promise may resolve after the button click.
+    await expect(page.locator('#ebc-mic')).toHaveClass(/on/, { timeout: 10000 });
     await page.waitForTimeout(ms || 1500);
     await page.evaluate(() => window.ebCircleAPI.sprechen());   // zweiter Druck beendet
   }

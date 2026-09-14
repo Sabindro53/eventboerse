@@ -36,10 +36,10 @@ function eb_storno_pi_holen( $pi_id ) {
         return null;
     }
     $res = eb_stripe_api( 'GET', 'payment_intents/' . rawurlencode( $pi_id ), array() );
-    if ( ! is_array( $res ) || empty( $res['id'] ) ) {
+    if ( ! is_array( $res ) || empty( $res['ok'] ) || empty( $res['data']['id'] ) ) {
         return null;
     }
-    return $res;
+    return $res['data'];
 }
 
 /** Eine Zeile für die Ausgabe — nie mehr, als der Betrachter angeht. */
@@ -176,6 +176,12 @@ function eb_storno_entscheiden( WP_REST_Request $request ) {
         return eb_storno_fehler( 'not_found', 404, 'Antrag nicht gefunden.' );
     }
 
+    // Annahme und Ablehnung teilen die Buchungssperre. Nach dem Warten
+    // erneut lesen: eine zuvor offene Anfrage kann inzwischen erledigt sein.
+    $lock = eb_booking_lock( (int) ( $pi_data['metadata']['conversation_id'] ?? 0 ) );
+    if ( is_wp_error( $lock ) ) return eb_booking_error_response( $lock, 409 );
+    $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$tab} WHERE id = %d", $id ), ARRAY_A );
+    if ( ! $row ) return eb_storno_fehler( 'not_found', 404, 'Antrag nicht gefunden.' );
     $jetzt   = time();
     $zustand = eb_storno_zustand( $row, $jetzt );
     if ( ! eb_storno_entscheidbar( $zustand ) ) {
@@ -215,11 +221,13 @@ function eb_storno_entscheiden( WP_REST_Request $request ) {
     $req->set_body( wp_json_encode( array(
         'payment_intent' => (string) $row['payment_intent'],
         'reason'         => 'requested_by_customer',
+        'cancellation_reason' => (string) $row['grund'],
     ) ) );
     $antwort = eb_stripe_refund( $req );
     $status  = is_object( $antwort ) && method_exists( $antwort, 'get_status' )
         ? (int) $antwort->get_status() : 500;
-    if ( $status >= 300 ) {
+    $refund_data = is_object( $antwort ) && method_exists( $antwort, 'get_data' ) ? $antwort->get_data() : array();
+    if ( $status >= 300 || in_array( $refund_data['status'] ?? '', array( 'failed', 'canceled' ), true ) ) {
         // Der Antrag bleibt OFFEN. Ihn auf "angenommen" zu setzen, waehrend
         // kein Geld geflossen ist, waere die schlimmste Sorte Falschaussage
         // auf einem Geldweg.

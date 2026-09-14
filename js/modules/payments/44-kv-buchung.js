@@ -46,6 +46,11 @@ function _renderOfferMsg(msg) {
   var amountNum = _offerAmountNum(msg);
   var kv = _kvParse(msg.content || msg.text || '');
   var status = msg.status || 'pending';
+  var convo = (window._conversations || []).find(function(c) { return currentChat && String(c.id) === String(currentChat.id); });
+  var providerId = convo && convo.providerId;
+  var isProvider = providerId && currentUser && String(providerId) === String(currentUser.id);
+  var canPay = providerId && !isProvider;
+  var alreadyPaid = (_boardProjects || []).some(function(p) { return (p.cards || []).some(function(c) { return String(c.offerId || '') === String(msg.id) && _cardHasConfirmedPayment(c); }); });
 
   var body = '';
   if (kv) {
@@ -64,14 +69,16 @@ function _renderOfferMsg(msg) {
     if (mine && status === 'pending') {
       actions = '<button class="btn-sm btn-decline offer-revoke-btn" onclick="withdrawOwnOffer(' + msg.id + ')">' +
         '<span class="material-icons-round">undo</span> Zurückziehen</button>';
-    } else if (!mine && status === 'pending' && amountNum > 0) {
+    } else if (!mine && status === 'pending' && amountNum > 0 && !canPay) {
+      actions = '<button class="btn-sm btn-accept" onclick="respondToOffer(' + msg.id + ', \'accepted\')">Preisvorschlag annehmen</button>';
+    } else if (!mine && status === 'pending' && amountNum > 0 && canPay) {
       actions = '<div class="offer-actions">' +
         '<button class="btn-sm btn-accept-pay" onclick="acceptAndPayOffer(' + msg.id + ', ' + amountNum + ')">' +
           '<span class="material-icons-round">verified</span> Zustimmen &amp; verbindlich bezahlen</button>' +
         '<button class="btn-sm btn-decline" onclick="respondToOffer(' + msg.id + ', \'declined\')">' +
           '<span class="material-icons-round">close</span> Ablehnen</button>' +
       '</div>';
-    } else if (!mine && status === 'accepted' && amountNum > 0) {
+    } else if (status === 'accepted' && amountNum > 0 && canPay && !alreadyPaid) {
       actions = '<div class="offer-actions">' +
         '<button class="btn-sm btn-accept-pay" onclick="payAcceptedOffer(' + msg.id + ', ' + amountNum + ')">' +
           '<span class="material-icons-round">lock</span> Jetzt verbindlich bezahlen</button>' +
@@ -80,6 +87,7 @@ function _renderOfferMsg(msg) {
       '</div>';
     }
   }
+  if (alreadyPaid) actions = '<div class="offer-status accepted">Zahlung bestätigt · Buchung im Board</div>';
   return '<div class="msg ' + offerClass + (kv ? ' msg-kv' : '') + '">' + body + actions + '</div>';
 }
 
@@ -198,19 +206,14 @@ function _offerTitleFor(msgId) {
 // Board-Karte an und nutzt den erprobten Board-Zahlungspfad
 // (_openStripePaymentModal + _applyCardPaymentSuccess + Reconcile).
 function _startOfferPayment(msgId, amount) {
-  var convo = (window._conversations || []).find(function(c) { return c.id === currentChat.id; });
+  if (!currentChat) return;
+  var chatId = currentChat.id;
+  var convo = (window._conversations || []).find(function(c) { return c.id === chatId; });
   var listingRef = convo && convo.listingId;
   var listing = null;
   if (listingRef != null) {
     listing = (LISTINGS || []).find(function(l) {
       return l && (l.id === listingRef || l._dbId === listingRef || l.id === listingRef + 10000);
-    }) || null;
-  }
-  if (!listing) {
-    // Fallback: irgendein Listing des Chat-Partners (Server validiert den
-    // Betrag ohnehin gegen das akzeptierte Angebot).
-    listing = (LISTINGS || []).find(function(l) {
-      return l && _sameUserId(_listingOwnerId(l), currentChat.otherId);
     }) || null;
   }
   if (!listing) {
@@ -221,6 +224,7 @@ function _startOfferPayment(msgId, amount) {
   var rec = _recordBookingToBoard({
     listing: listing,
     amount: amount,
+    offerId: msgId,
     stage: 'angebot',
     note: 'Verhandelt im Chat (Kostenvoranschlag angenommen)'
   });
@@ -242,6 +246,7 @@ function _startOfferPayment(msgId, amount) {
     cardId: rec.card.id,
     projectId: rec.projectId,
     listingId: listing._dbId || listing.id,
+    offerId: msgId,
     image: img,
     provider: listing.providerName || currentChat.name,
     category: listing.categoryLabel || listing.category || '',
@@ -252,7 +257,7 @@ function _startOfferPayment(msgId, amount) {
       try { rr = _applyCardPaymentSuccess(rec.card.id, rec.projectId, amount, res); } catch (e) {}
       try { _clearPendingPayment(); } catch (e) {}
       // Beleg in den Chat — für beide Seiten nachvollziehbar
-      fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
+      fetch(_apiUrl('conversations/' + chatId + '/messages'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
         body: JSON.stringify({ content: '✅ Verbindlich gebucht & bezahlt: ' + _formatEuro(amount) + ' — die Buchung ist im Planungsboard unter „Bezahlt“ erfasst.', type: 'message' })
       }).catch(function() {});
@@ -281,9 +286,10 @@ function _recordBookingToBoard(opts) {
   // 1) Existierende Karte für dieses Listing? → wiederverwenden.
   for (var i = 0; i < (_boardProjects || []).length; i++) {
     var p = _boardProjects[i];
-    var c = (p.cards || []).find(function(x) { return x && x.listingId && String(x.listingId) === String(lid); });
+    var c = (p.cards || []).find(function(x) { return x && x.listingId && String(x.listingId) === String(lid) && (!opts.offerId || String(x.offerId || '') === String(opts.offerId) || (!x.offerId && !_cardHasConfirmedPayment(x) && p.id === _activeBoardId)); });
     if (c) {
-      if (opts.amount > 0) c.price = opts.amount;
+      if (opts.offerId) c.offerId = opts.offerId;
+      if (opts.amount > 0 && !_cardHasConfirmedPayment(c)) c.price = opts.amount;
       if (EB_BOARD_STAGE_ORDER.indexOf(c.stage) < EB_BOARD_STAGE_ORDER.indexOf(opts.stage || 'angebot')) {
         c.stage = opts.stage || 'angebot';
       }
@@ -314,6 +320,7 @@ function _recordBookingToBoard(opts) {
     startTime: '', endTime: '',
     stage: opts.stage || 'angebot',
     listingId: lid,
+    offerId: opts.offerId || null,
     providerId: listing.providerId || null,
     avatar: listing.providerImg || '',
     listingImage: listing.image || (listing.images && listing.images[0]) || '',
@@ -325,3 +332,63 @@ function _recordBookingToBoard(opts) {
   _saveBoardProjects({ immediate: true });
   return { projectId: project.id, card: card };
 }
+
+/* Server-verified payment and cancellation view shared by both parties. */
+var _bookingRefundBusy = false;
+function bookingPaymentDetails(pi) {
+  if (!/^pi_[A-Za-z0-9_]+$/.test(pi) || !currentUser) return;
+  var old = document.getElementById('bookingPaymentDialog');
+  if (old) old.remove();
+  var dialog = document.createElement('dialog');
+  dialog.id = 'bookingPaymentDialog';
+  dialog.className = 'booking-payment-dialog';
+  dialog.innerHTML = '<button type="button" class="btn-outline" data-booking-close aria-label="Zahlungsdetails schließen">Schließen</button><h2>Zahlung & Stornierung</h2><div id="bookingPaymentContent" aria-live="polite">Zahlung wird geprüft …</div>';
+  document.body.appendChild(dialog);
+  dialog.showModal();
+  return sozialRuf('stripe/settlement/' + encodeURIComponent(pi)).then(function (data) {
+    if (!dialog.isConnected) return;
+    var refunds = data.refunds || [];
+    var successful = refunds.filter(function (r) { return r.status === 'succeeded'; }).reduce(function (sum,r) { return sum + Number(r.amount || 0); }, 0);
+    var pending = refunds.some(function (r) { return r.status === 'pending' || r.status === 'requires_action'; });
+    var failed = refunds.some(function (r) { return r.status === 'failed' || r.status === 'canceled'; });
+    var gross = Number(data.exact && data.exact.gross_cents) || 0;
+    var state = successful >= gross && gross > 0 ? 'Erstattung bestätigt' : pending ? 'Erstattung in Bearbeitung' : failed ? 'Erstattung fehlgeschlagen — bitte Support kontaktieren' : data.cancellation ? 'Stornierung angefragt — Erstattung noch nicht bestätigt' : 'Zahlung bestätigt';
+    var html = '<p class="booking-payment-status"><strong>' + _escHtml(state) + '</strong></p><p>Gesamtbetrag: <strong>' + _escHtml(_formatEuro(gross / 100)) + '</strong></p>';
+    if (data.cancellation) html += '<p>Stornierungsgrund: ' + _escHtml(data.cancellation.reason || '') + '</p>';
+    if (successful) html += '<p>Von Stripe bestätigte Erstattung: ' + _escHtml(_formatEuro(successful / 100)) + '. Die Gutschrift erfolgt über die ursprüngliche Zahlungsart.</p>';
+    html += '<p>Der Anbieter erhält Zahlungen über Stripe Connect. Dies ist kein Treuhandkonto und keine zusätzliche Leistungsgarantie.</p>';
+    if (data.canRefund && !pending && !failed && successful === 0) {
+      html += '<form id="bookingRefundForm" data-payment="' + _escHtml(pi) + '"><label for="bookingRefundReason">Warum kannst du den Auftrag nicht erfüllen?</label><textarea id="bookingRefundReason" required minlength="10" maxlength="1000" rows="3" placeholder="Begründe die Absage für deinen Kunden."></textarea><p>Du stornierst die Buchung und veranlasst die vollständige Erstattung einschließlich der Plattformgebühr. Der endgültige Status wird durch Stripe bestätigt.</p><button type="submit" class="btn-primary">Stornieren & Erstattung veranlassen</button></form>';
+    } else if (!successful || failed) html += '<button type="button" class="btn-outline" data-booking-support>Support kontaktieren</button>';
+    html += '<button type="button" class="btn-outline" data-booking-payment="' + _escHtml(pi) + '">Status aktualisieren</button>';
+    dialog.querySelector('#bookingPaymentContent').innerHTML = html;
+  }).catch(function (e) {
+    if (dialog.isConnected) dialog.querySelector('#bookingPaymentContent').textContent = 'Zahlung konnte nicht geprüft werden. ' + (e.message || 'Bitte erneut versuchen.');
+  });
+}
+
+document.addEventListener('click', function (e) {
+  var open = e.target.closest('[data-booking-payment]');
+  if (open) bookingPaymentDetails(open.dataset.bookingPayment);
+  var dialog = document.getElementById('bookingPaymentDialog');
+  if (e.target.closest('[data-booking-close]') && dialog) dialog.close();
+  if (e.target.closest('[data-booking-support]')) { if (dialog) dialog.close(); navigateTo('contact'); }
+});
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'bookingRefundForm') return;
+  e.preventDefault();
+  if (_bookingRefundBusy || !e.target.reportValidity()) return;
+  var form = e.target;
+  var pi = form.dataset.payment;
+  var reason = form.querySelector('textarea').value.trim();
+  if (reason.length < 10) return;
+  _bookingRefundBusy = true;
+  var button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  button.textContent = 'Erstattung wird angefragt …';
+  sozialRuf('stripe/refund', 'POST', { payment_intent: pi, cancellation_reason: reason }).then(function (d) {
+    showToast(d.message || 'Erstattung angefragt.', 'info');
+    return bookingPaymentDetails(pi);
+  }).catch(function (err) { showToast(err.message || 'Erstattung nicht bestätigt. Bitte Status prüfen.', 'error'); })
+    .finally(function () { _bookingRefundBusy = false; if (button.isConnected) { button.disabled = false; button.textContent = 'Stornieren & Erstattung veranlassen'; } });
+});

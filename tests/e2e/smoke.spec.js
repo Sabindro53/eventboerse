@@ -93,6 +93,9 @@ test.describe('Smoke: SPA-Routen', () => {
 
     await expect(page.locator('#providerName')).toHaveText('Maria Heilig');
     await expect(page.locator('#providerListingCount')).toHaveText('0');
+    await expect(page.locator('#providerFacts')).not.toContainText('Verfügbar');
+    await expect(page.locator('#providerFacts')).not.toContainText('innerhalb von 1 Std.');
+    await expect(page.locator('#providerBadges')).not.toContainText('Antwortet schnell');
     await expect(page.locator('#providerListings')).toContainText('Noch keine Inserate');
     await expect(page.locator('#providerListings .listing-card')).toHaveCount(0);
 

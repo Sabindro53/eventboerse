@@ -75,6 +75,7 @@ function sozialPlanLaden(gid) {
     // Fehlerantwort „Das hat nicht geklappt" — ein Satz, der nicht sagt,
     // was nicht geklappt hat, und der neben „noch nichts geplant" nicht
     // als etwas anderes zu erkennen ist. Drei Zustände, drei Sätze.
+    if (e && e.code === 'account_changed') return;
     _sozialPlanFehler[gid] = 'Der Plan konnte nicht geladen werden.';
     delete _sozialPlan[gid];
   });
@@ -202,7 +203,7 @@ function sozialPlanFormular(gid) {
     + 'placeholder="Was wird gebraucht? z. B. DJ" aria-label="Posten">'
     + '<input type="text" id="sozPlanKat' + gid + '" maxlength="60" '
     + 'placeholder="Kategorie" aria-label="Kategorie">'
-    + '<input type="number" id="sozPlanEuro' + gid + '" min="0" step="1" '
+    + '<input type="number" id="sozPlanEuro' + gid + '" min="0" step="0.01" '
     + 'placeholder="Budget €" aria-label="Budget in Euro">'
     + '<button type="button" class="btn-primary" onclick="sozialPlanAnlegen(' + gid + ')">'
     + '<span class="material-icons-round">add</span> Hinzufügen</button>'
@@ -269,11 +270,11 @@ function sozialPlanAnlegen(gid) {
   }
   // Euro im Formular, Cent auf der Leitung: ein Betragsfeld, das Cent
   // verlangt, tippt jeder einmal falsch.
-  var euro = e ? Math.max(0, Math.round(Number(e.value) || 0)) : 0;
+  var cents = e ? Math.max(0, Math.round((Number(e.value) || 0) * 100)) : 0;
   sozialPlanTun(gid, sozialRuf('social/gruppen/' + gid + '/plan', 'POST', {
     titel: titel,
     kategorie: k ? String(k.value || '').trim() : '',
-    betragCent: euro * 100,
+    betragCent: cents,
   }));
 }
 
