@@ -151,3 +151,11 @@ korrigiert. Eine Annahme behauptet keine bereits abgeschlossene Erstattung.
 33/33 bestehende Storno-/Gruppen-/Buchungsfälle und 6/6 erweiterte Buchungsfälle
 bestehen lokal. Der Hauptzweig bringt die additive Storno-Tabelle (Version 3.1)
 mit; diese Änderung erhöht die Datenbankversion gegenüber main nicht weiter.
+
+Abschlussprüfung des Stands 0c0b50e: 1115/1115 Fälle bestanden in GitHub CI
+(10 Minuten), außerdem CodeQL, Musterprüfung und PHP-Validierung. Der reguläre
+Merge wurde wegen einer nicht gelieferten Prüfungskennung abgelehnt: Die
+Schutzregel verlangt `PR Check / PR-Validierung (pull_request)`, der tatsächliche
+Job hieß nur `PR-Validierung`. Der Job trägt jetzt den erwarteten Namen und führt
+unverändert die echte PHP-Validierung aus. Die Schutzregel wird nicht umgangen
+oder abgeschwächt. Anschließend wird der vollständige CI-Lauf erneut abgewartet.
