@@ -19,6 +19,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { ohneJsKommentare } = require('./lib/js-code');
 
 const WURZEL = path.join(__dirname, '..', '..');
@@ -178,5 +179,129 @@ test.describe('Tor-Läufer: was CI fährt, fährt auch lokal', () => {
     expect(eigene, `\`npm run gate\` nennt zusätzlich eigene Skripte `
       + `(${eigene.join(', ')}) — jede davon ist eine Zeile, die driften kann`)
       .toEqual([]);
+  });
+});
+
+/**
+ * Zerlegt `pr-check.yml` in seine Jobs.
+ *
+ * Geschnitten wird ab `jobs:`, nicht über die ganze Datei: `on:` trägt
+ * einen Schlüssel `pull_request`, und der sieht auf zwei Ebenen Einrückung
+ * aus wie ein Job. Genau daran hat ein erster Entwurf einen Job erfunden,
+ * der keiner ist.
+ */
+function jobBloecke() {
+  const text = workflowText();
+  const ab = text.indexOf('\njobs:');
+  if (ab < 0) return [];
+  const rumpf = text.slice(ab);
+  const kopf = [...rumpf.matchAll(/^ {2}([A-Za-z0-9_-]+):[ \t]*$/gm)];
+  return kopf.map((m, i) => ({
+    id: m[1],
+    block: rumpf.slice(m.index + m[0].length,
+      i + 1 < kopf.length ? kopf[i + 1].index : rumpf.length),
+  }));
+}
+
+/** Die `run: |`-Blöcke eines Jobs, Einrückung abgezogen. */
+function laufBloecke(block) {
+  const aus = [];
+  for (const m of block.matchAll(/^([ \t]+)run:[ \t]*\|[ \t]*\n/gm)) {
+    const tiefer = new RegExp(`^(?:${m[1]}[ \\t]|[ \\t]*$)`);
+    const zeilen = [];
+    for (const z of block.slice(m.index + m[0].length).split('\n')) {
+      if (!tiefer.test(z)) break;
+      zeilen.push(z.slice(m[1].length));
+    }
+    aus.push(zeilen.join('\n'));
+  }
+  return aus;
+}
+
+test.describe('Der erzwungene Check trägt das Urteil der Suite', () => {
+  // ── WARUM ES DIESEN BLOCK GIBT ─────────────────────────────────────
+  //
+  // Am 14.09.2026 nachgemessen: das Ruleset auf `main` verlangt genau
+  // EINEN Kontext, `PR Check / PR-Validierung (pull_request)`. Das ist
+  // der Job `check` — PHP-Syntax und zwei Kommentare, neun Sekunden.
+  // Die sechzehn Tore und die 1122 Tests liegen im Job `tests`, und der
+  // ist NICHT erzwungen.
+  //
+  // Ein PR mit roter Suite und roten Toren war damit mergefähig, sobald
+  // PHP parst. Dieselbe Klasse wie der tote Gitleaks-Scan, nur eine
+  // Ebene höher: der Prüfer läuft wirklich, er findet auch — und sein
+  // Fund hat keine Folge, weil ihn niemand abfragt.
+  //
+  // Die Regel wird am BEFEHL festgemacht, nicht am Jobnamen: welcher Job
+  // die Suite fährt, entscheidet `npx playwright test`. Ein Name lässt
+  // sich umbenennen, ohne dass jemand an diese Datei denkt — und genau
+  // eine Umbenennung hat den Fehler überhaupt erst wirksam gemacht.
+
+  function suiteJob() {
+    return jobBloecke().find((j) => /npx playwright test/.test(j.block));
+  }
+
+  test('genau ein Job fährt die Suite — und die anderen hängen an ihm', () => {
+    const jobs = jobBloecke();
+    expect(jobs.length, 'in pr-check.yml wurde kein Job gefunden — der '
+      + 'Parser hat sein Subjekt verloren').toBeGreaterThanOrEqual(2);
+    const suite = suiteJob();
+    expect(suite, 'kein Job fährt `npx playwright test` — dann prüft dieser '
+      + 'Workflow die Anwendung gar nicht mehr').toBeTruthy();
+
+    for (const j of jobs) {
+      if (j.id === suite.id) continue;
+      expect(j.block, `der Job \`${j.id}\` hängt nicht von \`${suite.id}\` ab. `
+        + `Er kann damit grün werden, während die Suite rot ist — und wenn `
+        + `das Ruleset IHN verlangt, ist der Merge-Schutz wirkungslos`)
+        .toMatch(new RegExp(`needs:\\s*(\\[\\s*)?['"]?${suite.id}\\b`));
+      // Ohne `always()` wird der Job bei rotem `tests` ÜBERSPRUNGEN — und
+      // ein übersprungener Pflicht-Check gilt bei GitHub als bestanden.
+      // Die Abhängigkeit allein macht das Loch also nicht zu, sie
+      // verschiebt es nur.
+      expect(j.block, `der Job \`${j.id}\` trägt kein \`if: always()\`. Bei `
+        + `roter Suite wird er übersprungen, und ein übersprungener `
+        + `Pflicht-Check zählt bei GitHub als bestanden`)
+        .toMatch(/if:\s*always\(\)/);
+    }
+  });
+
+  test('der Torschritt wird wirklich rot — ausgeführt, nicht gelesen', () => {
+    // Gemessen wird das VERHALTEN. Ein Test auf „irgendwo steht exit 1"
+    // überlebt jede Mutation, die den Vergleich umdreht: das Wort stünde
+    // weiter da. Deshalb wird der Schritt aus dem Workflow geschnitten,
+    // der Actions-Ausdruck ersetzt und mit bash gefahren — dieselbe
+    // Anordnung wie beim csso-Schritt des Deploys.
+    const suite = suiteJob();
+    const jobs = jobBloecke().filter((j) => j.id !== suite.id);
+    expect(jobs.length, 'es gibt keinen zweiten Job mehr').toBeGreaterThan(0);
+
+    for (const j of jobs) {
+      const skripte = laufBloecke(j.block)
+        .filter((s) => new RegExp(`needs\\.${suite.id}\\.result`).test(s));
+      expect(skripte.length, `der Job \`${j.id}\` liest das Ergebnis von `
+        + `\`${suite.id}\` nirgends. Er hängt davon ab und zieht daraus `
+        + `keine Folge — ein Prüfer ohne Konsequenz`).toBeGreaterThan(0);
+
+      const fahren = (ergebnis) => {
+        const skript = skripte.join('\n')
+          .replace(/\$\{\{\s*needs\.\w+\.result\s*\}\}/g, ergebnis)
+          .replace(/\$\{\{[^}]*\}\}/g, '');
+        return spawnSync('bash', ['-eo', 'pipefail', '-c', skript],
+          { encoding: 'utf8', cwd: WURZEL });
+      };
+
+      expect(fahren('success').status, `bei grüner Suite bricht \`${j.id}\` `
+        + `trotzdem ab — ein Tor, das immer rot ist, wird abgeschaltet`).toBe(0);
+
+      // Die drei Ausgänge, die NICHT Erfolg sind. `skipped` ist der
+      // gefährlichste: ohne `always()` ist er der Normalfall bei roter
+      // Suite, und er sieht aus wie „nichts zu tun".
+      for (const schlecht of ['failure', 'skipped', 'cancelled']) {
+        expect(fahren(schlecht).status, `\`${j.id}\` wird bei `
+          + `\`${suite.id}: ${schlecht}\` NICHT rot. Ist dies der erzwungene `
+          + `Check, ist ein PR mit roter Suite mergefähig`).not.toBe(0);
+      }
+    }
   });
 });
