@@ -2870,6 +2870,101 @@ schlicht falsch.
 **Ein Exit-Code 0 heißt hier „sauber ausgestiegen", nicht „hat etwas
 geliefert".** Wer das verwechselt, baut einen Bericht, der nur Erfolge führt.
 
+#### 55 Läufe rot — der Fund wurde gemeldet und trotzdem veröffentlicht
+
+Vom 13.09.2026 02:06 bis zum 14.09. war **jeder** Lauf rot. Nicht weil
+etwas ausfiel: **11 von 11 Rollen haben gearbeitet.** Rot war
+`agent.mjs --check`, mit genau einer Zeile:
+
+```
+⛔ 1 Verstoß(e):
+   ✗ Verbotsmuster im Journal: E-Mail-Adresse
+```
+
+**Drei Fehler, und sie greifen ineinander.**
+
+**1 · Der Befund war nicht auffindbar.** Bei **400** Einträgen sagt „im
+Journal" nichts. Die Stelle liess sich nur über das Rohlog der
+Modellantworten finden — deshalb 55 Läufe ohne Behebung. Der Befund nennt
+jetzt Rolle und Zeit des Eintrags und einen **maskierten** Ausschnitt
+(sechs Zeichen und die Länge). Ausgeschrieben stünde der Fund im nächsten
+Log, und Logs sind bei einem öffentlichen Repository öffentlich.
+
+**2 · Die Ausnahme für die eigene Support-Adresse hat nie gegriffen.**
+Sie stand als negativer Lookahead am Anfang eines **unverankerten**
+Musters:
+
+```js
+/(?!kontakt@)[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/
+```
+
+Scheitert der Lookahead an Position 0, rückt die Maschine eine Stelle
+weiter — und `ontakt@…` erfüllt ihn. Gemessen: die Adresse trifft **ab
+Index 1**, im Satz ab 13, im `mailto:`-Link ab 18. Ausgenommen wird jetzt
+am **Treffer**, nicht im Muster (`frei: /^kontakt@/i`): erst alles finden,
+was wie eine Adresse aussieht, dann die eine erlaubte abziehen. Beide
+Hälften sind für sich messbar; ein Ausdruck, der beides versucht, ist es
+nicht.
+
+**3 · Der Fund hatte keine Folge — und kam zurück.** Das ist der teure
+Teil:
+
+| Schritt | |
+|---|---|
+| 10 · Journal validieren | **rot** wegen der Adresse |
+| 12 · Laufzeitspur veröffentlichen | `if: always()` → lädt **genau dieses Journal** auf den Server |
+| nächster Lauf, Schritt 6 | lädt es von dort wieder vor |
+
+Der Prüfer suchte wirklich, fand auch — und das Beanstandete wurde
+trotzdem veröffentlicht und kam zurück. Dieselbe Klasse wie der tote
+Gitleaks-Scan, hier in ihrer **selbsterhaltenden** Form: die Automatik
+erzeugt ihre eigene Vorbedingung und scheitert daran, also steht sie für
+immer. Genau das stand schon einmal in dieser Datei, für denselben Puls,
+im August.
+
+**Gefiltert wird jetzt im Schreibpfad**, und dort für das **ganze**
+Journal — nur so heilt auch die bereits verseuchte Spur vom Server. Ein
+beanstandeter Eintrag behält seine Buchhaltung (wer, wann, welches Modell,
+was es kostete) und verliert seinen Inhalt; er steht als `gefiltert` da,
+nicht als `fertig`. Als erledigte Arbeit gebucht zöge der Auftragsstrom
+einen Auftrag aus einem Befund, den es nicht mehr gibt.
+
+**Behalten wird über eine WEISSE Liste.** Eine schwarze müsste jedes
+künftige Textfeld nachtragen, und das vergisst man genau einmal — dann
+steht der Fund in einem Feld, an das niemand gedacht hat.
+
+**Still filtern wäre dasselbe wie nicht filtern.** Jedes Entschärfen
+steht im Log, mit Rolle und Grund, nie mit dem Fund.
+
+**`--check` wird dadurch NICHT schwächer.** Es prüft weiter das rohe
+Journal und bleibt der Rückhalt: **Verhindern ist grün, Verseuchung ist
+rot.** Ein Tor, das rot wird, obwohl es den Austritt erfolgreich
+verhindert hat, wird abgeschaltet — und dann schützt es gar nichts mehr.
+
+**Der Auslöser war keine echte Adresse.** Gemessen: weder der Vault noch
+die Wissensbasis enthalten eine Adresse, die das Muster trifft (die
+Umlautform `eventbörse.de` trifft es ohnehin nicht). Es war eine vom
+Modell **erfundene Beispieladresse** in einer Support-Antwort. Der Filter
+hatte recht, dass dort ein `@` steht — und keine Möglichkeit, Prosa von
+einem Austritt zu unterscheiden. Deshalb ist Verhindern die richtige
+Antwort und Rotwerden die falsche.
+
+**Ein früherer PR nannte die falsche Ursache.** #263 (13.09.) zitierte
+einen Satz mit `@eb.de` als den Treffer. Nachgemessen: dieser Satz trifft
+das Muster **gar nicht** — ohne Local-Part vor dem `@` greift es nicht.
+Eine Diagnose, die plausibel aussieht und nicht nachgemessen wurde, kostet
+hier mehr als keine; man sucht dann am falschen Ende.
+
+Neun Mutationen, jede macht die Suite rot: Ausnahme entfernt · zurück auf
+den kaputten Lookahead · `frei` wird ignoriert · Entschärfen tut nichts ·
+nur der neue Eintrag statt des ganzen Journals · still filtern · der
+Befund nennt den Eintrag nicht · der Fund im Klartext · `gefiltert` als
+`fertig` gebucht.
+
+```bash
+npx playwright test tests/e2e/hq-puls.spec.js   # 17 Tests, 9 Mutationen
+```
+
 **Der Auftrag darf nicht mehr verlangen, als das Budget hergibt.** Vier von elf
 Rollen lieferten in jedem Lauf nichts: der Systemauftrag endet für **alle** mit
 „in höchstens 90 Wörtern“, die Budgets lagen aber bei 180–300 Token — in zwei
@@ -3230,7 +3325,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1116 Tests in 74 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1122 Tests in 74 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

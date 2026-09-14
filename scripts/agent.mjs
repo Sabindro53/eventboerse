@@ -24,7 +24,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
+import { GEHEIMNISSE, INJEKTIONS_SIGNATUREN, ersterTreffer, alleTreffer, fundText, maskieren, darfNichtRaus, AUFGABEN_AUSSCHNITT } from './lib/verbotsmuster.mjs';
 import { MIN_ANTWORT_TOKENS, WORTGRENZE_SATZ } from './lib/antwortgrenze.mjs';
 import { kontextKuerzen } from './lib/kontextgrenze.mjs';
 
@@ -110,8 +110,78 @@ async function journalLesen() {
   }
 }
 
+/**
+ * Felder, die ein Eintrag behalten darf, wenn sein Inhalt beanstandet wird.
+ *
+ * Eine WEISSE Liste, keine schwarze: was hier nicht steht, fällt weg. Eine
+ * schwarze Liste müsste jedes künftige Textfeld nachtragen, und das
+ * vergisst man genau einmal — dann steht der Fund in einem Feld, an das
+ * niemand gedacht hat. Behalten wird, was Buchhaltung ist (wer, wann,
+ * welches Modell, was es gekostet hat); der Inhalt geht.
+ */
+const EINTRAG_UNVERFAENGLICH = new Set([
+  'zeit', 'rolle', 'person', 'rollenname', 'modell', 'modellId', 'bereich',
+  'anlass', 'aufgabeIndex', 'kontingentProzent', 'cacheTokens', 'dauerMs',
+  'tokens', 'promptTokens', 'completionTokens', 'kostenUsd', 'versuche',
+  'injektionsfunde', 'ergebnis', 'gefiltert',
+]);
+
+/**
+ * Ein Eintrag mit Verbotsmuster kommt NICHT ins Journal.
+ *
+ * ── WARUM DAS VOR DEM SCHREIBEN PASSIERT ───────────────────────────────
+ *
+ * Bis zum 14.09.2026 prüfte nur `--check`, also NACH dem Schreiben. Der
+ * Ablauf im Puls war damit:
+ *
+ *   Schritt 10  Journal validieren      → rot wegen einer Adresse
+ *   Schritt 12  Laufzeitspur hochladen  → `if: always()`, lädt genau
+ *               dieses Journal auf den Server
+ *   nächster Lauf, Schritt 6            → lädt es von dort wieder vor
+ *
+ * Der Prüfer fand, meldete — und das Beanstandete wurde trotzdem
+ * veröffentlicht und kam zurück. **55 Läufe in Folge rot**, vom 13.09.
+ * 02:06 bis zum 14.09. Das ist die teuerste Klasse dieses Projekts (ein
+ * Fund ohne Folge) in ihrer selbsterhaltenden Form: die Automatik erzeugt
+ * ihre eigene Vorbedingung und scheitert daran, also steht sie für immer.
+ *
+ * Gefiltert wird deshalb im Schreibpfad — und dort für das GANZE Journal,
+ * nicht nur für den neuen Eintrag: nur so heilt auch die bereits
+ * verseuchte Spur, die der Lauf vom Server vorlädt. Ohne das bliebe der
+ * Puls nach der Behebung weiter rot, und die Behebung sähe aus wie keine.
+ *
+ * **`--check` wird dadurch NICHT schwächer.** Es prüft weiter das rohe
+ * Journal und bleibt der Rückhalt: greift die Filterung nicht, ist der
+ * Lauf rot. Verhindern ist grün, Verseuchung ist rot.
+ */
+function entschaerfen(eintrag) {
+  const g = ersterTreffer(JSON.stringify(eintrag), GEHEIMNISSE);
+  if (!g) return { eintrag, gefiltert: null };
+  const rein = {};
+  for (const [k, v] of Object.entries(eintrag)) {
+    if (EINTRAG_UNVERFAENGLICH.has(k)) rein[k] = v;
+  }
+  // Nicht „fertig": der Inhalt ist weg, also ist es keine verwertbare
+  // Arbeit. Ihn trotzdem als erledigt zu führen wäre eine Falschaussage —
+  // und der Auftragsstrom zöge einen Auftrag ohne Befund daraus.
+  rein.ergebnis = 'gefiltert';
+  rein.gefiltert = g.why;
+  return { eintrag: rein, gefiltert: g.why };
+}
+
 async function journalSchreiben(journal) {
   journal.eintraege = journal.eintraege.slice(0, MAX_EINTRAEGE);
+  // Jeder Schreibvorgang entschärft das ganze Journal, nicht nur den
+  // neuen Eintrag — sonst überlebt die vorgeladene Spur ewig.
+  const berichte = [];
+  journal.eintraege = journal.eintraege.map((e) => {
+    const { eintrag, gefiltert } = entschaerfen(e);
+    if (gefiltert) berichte.push(`${e.person || e.rolle} (${e.zeit}): ${gefiltert}`);
+    return eintrag;
+  });
+  // Still filtern wäre dasselbe wie nicht filtern: niemand erführe, dass
+  // eine Schicht ihren Inhalt verloren hat. Der Fund selbst steht NIE da.
+  for (const b of berichte) console.log(`⚠ Eintrag entschärft — Verbotsmuster: ${b}`);
   journal.aktualisiert = heute();
   await mkdir(dirname(JOURNAL), { recursive: true });
   await writeFile(JOURNAL, JSON.stringify(journal), 'utf8');
@@ -589,7 +659,11 @@ async function pruefen() {
   const j = await journalLesen();
   const katalog = JSON.parse(await readFile(MODELLE, 'utf8'));
   const bekannt = new Set(katalog.modelle.map((m) => m.id));
-  const erlaubt = new Set(['fertig', 'uebersprungen', 'fehler', 'abgebrochen']);
+  // `gefiltert` ist ein EIGENES Ergebnis, kein Unterfall von „fehler".
+  // Die Rolle hat geliefert; der Inhalt war nur nicht veröffentlichbar.
+  // Als „fehler" gebucht sähe es aus, als habe der Anbieter versagt —
+  // und man suchte beim Anbieter statt beim Auftrag der Rolle.
+  const erlaubt = new Set(['fertig', 'uebersprungen', 'fehler', 'abgebrochen', 'gefiltert']);
   const fehler = [];
 
   for (const e of j.eintraege) {
@@ -601,8 +675,21 @@ async function pruefen() {
     if (e.ergebnis === 'fertig' && !(e.text || '').trim()) {
       fehler.push(`„fertig" ohne Ergebnis (${e.rolle})`);
     }
+    // Der Befund nennt den EINTRAG und einen maskierten Ausschnitt.
+    //
+    // Vorher stand hier nur „Verbotsmuster im Journal: E-Mail-Adresse" —
+    // bei 400 Einträgen keine Auskunft, sondern ein Rätsel. Genau deshalb
+    // lief der Puls 55 Läufe rot, ohne dass jemand die Stelle finden
+    // konnte; die Diagnose ging nur über das Rohlog der Modellantworten.
+    // Der Fund selbst wird NIE ausgeschrieben (sechs Zeichen und die
+    // Länge) — ein Bericht, der ihn zitiert, trägt ihn ins nächste Log,
+    // und Logs sind bei einem öffentlichen Repository öffentlich.
     const g = ersterTreffer(JSON.stringify(e), GEHEIMNISSE);
-    if (g) fehler.push(`Verbotsmuster im Journal: ${g.why}`);
+    if (g) {
+      const fund = fundText(JSON.stringify(e), g);
+      fehler.push(`Verbotsmuster im Journal: ${g.why} — Eintrag „${e.person || e.rolle}" `
+        + `vom ${e.zeit}, Fund ${maskieren(fund)}`);
+    }
   }
   if (j.eintraege.length > MAX_EINTRAEGE) fehler.push(`Journal zu lang (${j.eintraege.length})`);
 
