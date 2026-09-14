@@ -7986,6 +7986,124 @@ function ebAktivitaetenStarthilfe() {
 }
 
 /** Die ganze Ansicht zeichnen. */
+/* ============================================================================
+ * „DEMNÄCHST" IN DER SEITENLEISTE — echte Termine oder gar keine
+ *
+ * Bis zum 14.09.2026 stand hier eine fest verdrahtete Liste, in
+ * `board/42-guide-social-feed.js`:
+ *
+ *   Rock Festival Berlin  · 12. Sep 2026
+ *   Hochzeitsmesse Köln   · 20. Sep 2026
+ *   Oktoberfest Opening   · 19. Okt 2026
+ *
+ * Drei erfundene Termine unter der Überschrift „Demnächst" — und am
+ * 14.09.2026 lag der erste davon bereits in der VERGANGENHEIT. Eine
+ * Liste, die mit der Zeit unwahr wird, ohne dass jemand etwas ändert:
+ * dieselbe Klasse wie ein Prüfer, der nicht mehr prüft, nur an der
+ * Oberfläche und mit Datum.
+ *
+ * Sie steht jetzt HIER statt dort, weil hier der Bestand liegt. Ein
+ * zweiter Lader wäre eine zweite Wahrheit; `ebAktivitaetenImUmkreis()`
+ * wirft Vergangenes und Abgesagtes ohnehin schon heraus, und der Radar
+ * weiss, wo der Besucher steht.
+ *
+ * Die Karte ist schmal, die Meldungen sind kurz — aber sie bleiben
+ * VERSCHIEDEN. „noch nicht abgerufen", „Gegend nicht erfasst" und „nichts
+ * im Umkreis" sind drei verschiedene Aussagen; sie zusammenzuziehen macht
+ * die Sorgfalt des Bestands wieder unsichtbar, und genau dafür gibt es
+ * die vier Zustände der Jetzt-Ansicht.
+ * ========================================================================= */
+
+var EB_SEITENLEISTE_TERMINE = 3;
+
+function _seitenleisteHinweis(text) {
+  return '<p class="sidebar-upcoming-hinweis">' + _escHtml(String(text)) + '</p>';
+}
+
+function _seitenleisteMehr(text) {
+  return '<button type="button" class="sidebar-upcoming-mehr" '
+    + 'onclick="navigateTo(\'aktuelles\', \'jetzt\')">' + _escHtml(String(text)) + '</button>';
+}
+
+/** Füllt „Demnächst" in der Feed-Seitenleiste. Gibt die Zahl der Termine zurück. */
+function renderSidebarUpcoming() {
+  var el = document.getElementById('sidebarUpcoming');
+  if (!el) return 0;
+
+  if (_aktZustand === 'kalt' || _aktZustand === 'laedt') {
+    el.innerHTML = _seitenleisteHinweis('Termine werden geladen …');
+    ebAktivitaetenLaden(function () { renderSidebarUpcoming(); });
+    return 0;
+  }
+  if (_aktZustand === 'fehler') {
+    el.innerHTML = _seitenleisteHinweis('Die Terminliste ist gerade nicht abrufbar.');
+    return 0;
+  }
+  if (!_aktBestand || _aktBestand.stand === null) {
+    el.innerHTML = _seitenleisteHinweis('Noch nichts abgerufen — das heisst nicht, '
+      + 'dass nichts los ist.');
+    return 0;
+  }
+
+  // ── DIESE KARTE LIEST DEN RADAR, SIE STEUERT IHN NICHT ───────────────
+  //
+  // Der erste Entwurf rief hier `radarPositionSetzen()`, wenn noch keine
+  // Position bekannt war — abgeschrieben von `renderFeedJetzt()`, wo es
+  // richtig ist. Hier ist es falsch: `renderFeed()` ruft diese Karte VOR
+  // der Radar-Ansicht, und der Radar ist geteilter Zustand. Die
+  // Seitenleiste verschob damit die Karte einer anderen Ansicht.
+  //
+  // `radar.spec.js` hat es prompt gemeldet — „Marker-Popups bleiben im
+  // Dark Mode deutlich lesbar" fiel in zwei von drei Läufen aus, weil
+  // `feedRadarFocus(0)` danach auf einen anderen Marker zielte. Auf
+  // `main` lief derselbe Test dreimal grün. Eine Nebenwirkung, die als
+  // Flackern eines fremden Tests auftritt, ist die unauffälligste Sorte.
+  //
+  // Ohne bekannte Position rechnet die Karte deshalb LOKAL ab dem ersten
+  // erfassten Gebiet und schreibt nichts zurück.
+  if (!radarStand().pos) radarWiederherstellen();
+  var stand = radarStand();
+  var pos = stand.pos;
+  var radius = stand.radius;
+  if (!pos) {
+    var erstes = ebAktivitaetenGebiete(_aktBestand)[0];
+    if (!erstes) {
+      el.innerHTML = _seitenleisteHinweis('Kein Ort bekannt.');
+      return 0;
+    }
+    pos = { lat: erstes.lat, lng: erstes.lon };
+    radius = erstes.umkreisKm || radius;
+  }
+
+  var gebiete = ebAktivitaetenGebiete(_aktBestand);
+  if (gebiete.length && !ebAktivitaetGebietVon(gebiete, pos)) {
+    el.innerHTML = _seitenleisteHinweis('Deine Gegend ist noch nicht erfasst.')
+      + _seitenleisteMehr('Erfasste Städte ansehen');
+    return 0;
+  }
+
+  var jetzt = new Date();
+  var termine = ebAktivitaetenImUmkreis(_aktBestand, pos, radius, jetzt).termine;
+  if (!termine.length) {
+    el.innerHTML = _seitenleisteHinweis('Im Umkreis von ' + radius
+      + ' km ist gerade nichts eingetragen.');
+    return 0;
+  }
+
+  var zeige = termine.slice(0, EB_SEITENLEISTE_TERMINE);
+  // Fremder Text, zweimal entschärft — der Generator maskiert, die Ansicht
+  // maskiert erneut. Eine ausgelieferte Datei kann veraltet oder
+  // verfälscht sein.
+  el.innerHTML = zeige.map(function (t) {
+    return '<div class="sidebar-event-item">'
+      + '<div class="sidebar-event-dot"><span class="material-icons-round">event</span></div>'
+      + '<div><strong>' + _escHtml(String(t.daten.titel || 'Termin')) + '</strong>'
+      + '<span>' + _escHtml(ebAktivitaetZeit(t.wann, jetzt)) + '</span></div>'
+      + '</div>';
+  }).join('') + _seitenleisteMehr('Alle Termine ansehen');
+  return zeige.length;
+}
+
 function renderFeedJetzt(container) {
   if (!container) return;
 
@@ -25521,21 +25639,11 @@ function switchFeedTab(btn) {
   if (btn) feedTabAktivieren(btn.dataset.feed);
 }
 
-function renderSidebarUpcoming() {
-  var el = document.getElementById('sidebarUpcoming');
-  if (!el) return;
-  var upcoming = [
-    { emoji: '🎸', name: 'Rock Festival Berlin', date: '12. Sep 2026' },
-    { emoji: '💒', name: 'Hochzeitsmesse Köln', date: '20. Sep 2026' },
-    { emoji: '🎉', name: 'Oktoberfest Opening', date: '19. Okt 2026' },
-  ];
-  el.innerHTML = upcoming.map(function(u) {
-    return '<div class="sidebar-event-item">' +
-      '<div class="sidebar-event-dot">' + u.emoji + '</div>' +
-      '<div><strong>' + _escHtml(u.name) + '</strong><span>' + _escHtml(u.date) + '</span></div>' +
-    '</div>';
-  }).join('');
-}
+/* `renderSidebarUpcoming()` stand bis zum 14.09.2026 hier und lieferte drei
+   erfundene Termine — der erste lag an diesem Tag schon in der Vergangenheit.
+   Sie lebt jetzt in `search/14-aktivitaeten.js`, wo der Bestand liegt. Hier
+   nicht neu anlegen: in der Verkettung gewinnt die spätere Definition, und
+   das wäre wieder die erfundene. */
 
 function openCreatePostModal() {
   if (!isLoggedIn) { openModal('loginModal'); return; }

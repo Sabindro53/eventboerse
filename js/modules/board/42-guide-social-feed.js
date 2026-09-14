@@ -1704,21 +1704,11 @@ function switchFeedTab(btn) {
   if (btn) feedTabAktivieren(btn.dataset.feed);
 }
 
-function renderSidebarUpcoming() {
-  var el = document.getElementById('sidebarUpcoming');
-  if (!el) return;
-  var upcoming = [
-    { emoji: '🎸', name: 'Rock Festival Berlin', date: '12. Sep 2026' },
-    { emoji: '💒', name: 'Hochzeitsmesse Köln', date: '20. Sep 2026' },
-    { emoji: '🎉', name: 'Oktoberfest Opening', date: '19. Okt 2026' },
-  ];
-  el.innerHTML = upcoming.map(function(u) {
-    return '<div class="sidebar-event-item">' +
-      '<div class="sidebar-event-dot">' + u.emoji + '</div>' +
-      '<div><strong>' + _escHtml(u.name) + '</strong><span>' + _escHtml(u.date) + '</span></div>' +
-    '</div>';
-  }).join('');
-}
+/* `renderSidebarUpcoming()` stand bis zum 14.09.2026 hier und lieferte drei
+   erfundene Termine — der erste lag an diesem Tag schon in der Vergangenheit.
+   Sie lebt jetzt in `search/14-aktivitaeten.js`, wo der Bestand liegt. Hier
+   nicht neu anlegen: in der Verkettung gewinnt die spätere Definition, und
+   das wäre wieder die erfundene. */
 
 function openCreatePostModal() {
   if (!isLoggedIn) { openModal('loginModal'); return; }
