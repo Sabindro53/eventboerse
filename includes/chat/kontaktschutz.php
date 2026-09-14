@@ -125,7 +125,7 @@ function eb_message_contains_off_platform_contact( $text ) {
         // E-Mail, auch umschrieben: (at), [at], „punkt", „dot".
         '/\b[A-Z0-9._%+\-]+\s*(?:@|\(at\)|\[at\]| at )\s*[A-Z0-9.\-]+\s*(?:\.| punkt | dot )\s*[A-Z]{2,}\b/iu',
         '/\b(?:https?:\/\/|www\.)\S+/iu',
-        '/\b(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/iu',
+        '/\b(?:schreib|kontaktier|erreich|ruf|folge|find|meld).{0,35}(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/iu',
         '/\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}(?:straße|strasse|str\.|weg|allee|platz|gasse)\s+\d+[a-z]?\b/u',
         '/\b\d{5}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}\b/u',
         // Freemail-Anbieter in JEDER Schreibweise. „max.mueller.gmail.com"

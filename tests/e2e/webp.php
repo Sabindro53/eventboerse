@@ -199,7 +199,7 @@ $ergebnis['keinBild'] = array(
 /* 7) Speicherschranke: ein absurd grosses Bild darf nicht geladen werden. */
 $ergebnis['speicher'] = array(
     'winzigPasst'  => eb_webp_passt_in_speicher( 100, 100 ),
-    'riesigNicht'  => eb_webp_passt_in_speicher( 60000, 60000 ),
+    'riesigNicht'  => ! eb_webp_passt_in_speicher( 60000, 60000 ),
 );
 
 /* 8) Namensschema: die Begleitdatei hängt an, sie ersetzt nicht. */

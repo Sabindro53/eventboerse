@@ -162,12 +162,10 @@ test.describe('Erstattung: wer darf das Geld zurückholen', () => {
       .not.toMatch(/\$owner_match/);
   });
 
-  test('es gibt weiterhin keinen Weg aus der App in diese Route', () => {
-    // Der Befund selbst, festgehalten. Bekommt die Route eines Tages einen
-    // Knopf, ist das eine Produktentscheidung mit Frist, Begründung und
-    // Benachrichtigung des Dienstleisters — nicht ein Aufruf, der sich
-    // still dazustellt. Dann fällt dieser Test durch und zwingt zur
-    // Entscheidung, statt sie zu überspringen.
+  test('die autorisierte Anbieter-Stornierung ist der einzige App-Weg in diese Route', () => {
+    // Vom Inhaber autorisierter Anbieter-Storno: der Dialog verlangt Grund
+    // und Serverberechtigung. journey-integration prüft die UI-Grenze,
+    // booking-boundaries führt den echten Endpunkt gegen Käufer/Fremde aus.
     const treffer = [];
     for (const verz of ['js/modules', 'hq.html']) {
       const p = path.join(WURZEL, verz);
@@ -186,6 +184,6 @@ test.describe('Erstattung: wer darf das Geld zurückholen', () => {
     expect(treffer, `diese Dateien rufen jetzt /stripe/refund: `
       + `${treffer.join(', ')}. Ein Weg dorthin ist eine Produktentscheidung `
       + `(Frist, Begründung, Benachrichtigung) — nicht ein stiller Aufruf`)
-      .toEqual([]);
+      .toEqual(['js/modules/payments/44-kv-buchung.js']);
   });
 });

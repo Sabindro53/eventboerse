@@ -30,6 +30,7 @@ assistant
 attach_file
 attribution
 auto_awesome
+backup
 badge
 bed
 block
@@ -38,6 +39,7 @@ book
 build
 business
 cached
+cake
 calculate
 calendar_today
 call
@@ -143,6 +145,7 @@ gradient
 grid_on
 grid_view
 group
+group_add
 group_work
 groups
 handshake
@@ -167,7 +170,6 @@ inbox
 info
 input
 insights
-ios_share
 iso
 javascript
 key
@@ -303,7 +305,6 @@ remove
 remove_moderator
 reorder
 repeat
-reply
 report
 request_quote
 restart_alt

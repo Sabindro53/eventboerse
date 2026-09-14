@@ -1,3 +1,9 @@
+// Shared checked request: a saved message is the only success signal.
+function _bookingApiPost(path, payload) {
+  return fetch(_apiUrl(path), { method: 'POST', credentials: 'same-origin', headers: _apiHeaders(), body: JSON.stringify(payload) })
+    .then(function(r) { if (typeof _refreshNonce === 'function') _refreshNonce(r); return r.json().then(function(data) { if (!r.ok) throw new Error(data.message || 'Die Aktion konnte nicht gespeichert werden.'); return data; }); });
+}
+
 // ========== BOOKING ==========
 function bookListing() {
   if (!isLoggedIn) {
@@ -22,35 +28,16 @@ function bookListing() {
   var guests = document.getElementById('bookingGuests').value;
   var message = _sanitizeOutgoingMessage(document.getElementById('bookingMessage').value, date, { enforceFormalSignature: true });
 
-  // Create conversation and send booking request
-  fetch(_apiUrl('conversations'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
-  })
-    .then(function(r) { return r.json(); })
+  var listing = currentListing;
+  _bookingApiPost('conversations', { other_user_id: listing.providerId, listing_id: listing._dbId || listing.id })
     .then(function(convo) {
-      var bookingText = JSON.stringify({
-        kind: 'inquiry',
-        source: 'listing',
-        listing: currentListing.title || '',
-        date: date,
-        eventType: eventType,
-        guests: guests || '',
-        price: currentListing.priceLabel || '',
-        message: message || '',
-        image: currentListing.image || ''
-      });
-      fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
-        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: bookingText, type: 'message' })
-      }).catch(function(){});
-      showToast('Anfrage gesendet!', 'event_available');
+      var bookingText = JSON.stringify({ kind: 'inquiry', source: 'listing', listing: listing.title || '', date: date, eventType: eventType, guests: guests || '', price: listing.priceLabel || '', message: message || '', image: listing.image || '' });
+      return _bookingApiPost('conversations/' + convo.id + '/messages', { content: bookingText, type: 'message' }).then(function() { return convo; });
+    }).then(function(convo) {
+      showToast('Anfrage gespeichert. Der Anbieter bestätigt Termin und Gesamtpreis im Chat.', 'event_available');
       navigateTo('messages');
       setTimeout(function() { openChat(convo.id); }, 200);
-    })
-    .catch(function() {
-      showToast('Anfrage konnte nicht gesendet werden', 'error');
-    });
+    }).catch(function(error) { showToast(error.message || 'Anfrage konnte nicht gesendet werden', 'error'); });
 }
 
 // ========== NEGOTIATION ==========
@@ -95,32 +82,12 @@ function submitNegotiation(e) {
   var negDateValue = document.getElementById('negDate').value;
   const message = _sanitizeOutgoingMessage(document.getElementById('negMessage').value, negDateValue, { enforceFormalSignature: true });
 
-  closeModal('negotiationModal');
-  showToast(`Angebot über ${price}€ wurde gesendet!`, 'gavel');
-
   if (!isLoggedIn || !currentListing || !currentListing.providerId) return;
-
-  // Create conversation and send offer
-  fetch(_apiUrl('conversations'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ other_user_id: currentListing.providerId, listing_id: currentListing._dbId || currentListing.id })
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(convo) {
-      // Send offer message
-      fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
-        method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ content: price + '€', type: 'offer', amount: parseFloat(price) || 0 })
-      }).catch(function(){});
-      // Send text message if any
-      if (message) {
-        fetch(_apiUrl('conversations/' + convo.id + '/messages'), {
-          method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-          body: JSON.stringify({ content: message, type: 'message' })
-        }).catch(function(){});
-      }
-    })
-    .catch(function(){});
+  var listing = currentListing;
+  _bookingApiPost('conversations', { other_user_id: listing.providerId, listing_id: listing._dbId || listing.id })
+    .then(function(convo) { return _bookingApiPost('conversations/' + convo.id + '/messages', { content: message ? ('Preisvorschlag: ' + message) : price + '€', type: 'offer', amount: price }).then(function() { return convo; }); })
+    .then(function(convo) { closeModal('negotiationModal'); showToast('Preisvorschlag gespeichert.', 'gavel'); navigateTo('messages'); setTimeout(function() { openChat(convo.id); }, 200); })
+    .catch(function(error) { showToast(error.message, 'error'); });
 }
 
 function openNegotiationInChat() {
@@ -159,19 +126,12 @@ function openCounterOffer() {
 
 function respondToOffer(msgId, status) {
   if (!currentChat) return;
-  fetch(_apiUrl('messages/' + msgId + '/offer-status'), {
-    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-    body: JSON.stringify({ status: status })
-  }).then(function(r) {
-    if (!r.ok) throw new Error('fail');
-    return r.json();
-  }).then(function() {
-    document.getElementById('negotiationBanner').style.display = 'none';
-    showToast(status === 'accepted' ? 'Angebot angenommen!' : 'Angebot abgelehnt.', status === 'accepted' ? 'check_circle' : 'cancel');
-    openChat(currentChat.id);
-  }).catch(function() {
-    showToast('Fehler beim Aktualisieren des Angebots', 'error');
-  });
+  var chatId = currentChat.id;
+  _bookingApiPost('messages/' + msgId + '/offer-status', { status: status }).then(function() {
+    var banner = document.getElementById('negotiationBanner'); if (banner) banner.style.display = 'none';
+    showToast(status === 'accepted' ? 'Preis vereinbart. Der Kunde kann jetzt bezahlen.' : 'Angebot abgelehnt.', status === 'accepted' ? 'check_circle' : 'cancel');
+    openChat(chatId);
+  }).catch(function(error) { showToast(error.message, 'error'); });
 }
 
 function acceptOffer() {
@@ -207,28 +167,11 @@ function submitCounterOffer(e) {
   if (amount <= 0) { showToast('Bitte gültigen Betrag eingeben', 'error'); return; }
   const msg = _sanitizeOutgoingMessage(document.getElementById('counterOfferMsg').value, document.getElementById('negDate') ? document.getElementById('negDate').value : '', { enforceFormalSignature: true });
 
-  closeModal('counterOfferModal');
-
-  if (currentChat) {
-    // Backend auto-declines all other pending offers when sending a new offer
-    document.getElementById('negotiationBanner').style.display = 'none';
-
-    fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-      method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-      body: JSON.stringify({ content: amount + '€', type: 'offer', amount: parseFloat(amount) || 0 })
-    }).then(function() {
-      if (msg) {
-        return fetch(_apiUrl('conversations/' + currentChat.id + '/messages'), {
-          method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-          body: JSON.stringify({ content: msg, type: 'message' })
-        });
-      }
-    }).then(function() {
-      openChat(currentChat.id);
-    }).catch(function(){});
-  }
-
-  showToast(`Gegenangebot über ${amount}€ gesendet!`, 'gavel');
+  if (!currentChat) return;
+  var chatId = currentChat.id;
+  _bookingApiPost('conversations/' + chatId + '/messages', { content: msg || amount + '€', type: 'offer', amount: amount })
+    .then(function() { closeModal('counterOfferModal'); showToast('Gegenangebot gespeichert.', 'gavel'); openChat(chatId); })
+    .catch(function(error) { showToast(error.message, 'error'); });
 }
 
 // ========== PROFILAUFTRITT ==========

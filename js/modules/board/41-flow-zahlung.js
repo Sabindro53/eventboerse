@@ -1040,7 +1040,7 @@ function _openStripePaymentModal(opts) {
           '<span class="material-icons-round">verified_user</span> Verschl\u00fcsselte Zahlung via <strong>Stripe</strong> \u00b7 Kartendaten ber\u00fchren unsere Server nie.' +
         '</div>' +
         '<div class="stripe-trust stripe-fee-note">' +
-          '<span class="material-icons-round">receipt_long</span> Du zahlst nur den angezeigten Buchungsbetrag. Die Dienstleister-Auszahlung erfolgt \u00fcber Stripe Connect; Eventb\u00f6rse beh\u00e4lt 3% Application Fee ein.' +
+          '<span class="material-icons-round">receipt_long</span> Du zahlst den vereinbarten Gesamtpreis. Der Anbieter erhält den Betrag abzüglich Plattform- und Zahlungsgebühren über Stripe Connect. Dies ist kein Treuhandkonto. Bei einer Anbieter-Absage wird die Erstattung auf der Plattform dokumentiert; sie ist erst nach Stripe-Bestätigung abgeschlossen.' +
         '</div>' +
       '</div>' +
       '<div class="stripe-modal-footer">' +
@@ -1261,7 +1261,8 @@ function _openStripePaymentModal(opts) {
       title:      opts.title || 'Buchung',
       card_id:    opts.cardId || '',
       project_id: opts.projectId || '',
-      listing_id: opts.listingId || 0
+      listing_id: opts.listingId || 0,
+      offer_id:   opts.offerId || 0
     })
   }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, data: j }; }); })
     .then(function(res) {
@@ -3040,30 +3041,12 @@ function _initFlowZoomPan() {
 
 /* ─── Public / Private Toggle ─────────────────────────── */
 function toggleFlowVisibility() {
-  if (!_activeBoardId) return;
-  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
-  if (!project) return;
-  project.isPublic = !project.isPublic;
-  _saveBoardProjects();
-  renderBoardFlow();
-  showToast(project.isPublic ? 'Projekt ist jetzt öffentlich teilbar' : 'Projekt ist jetzt privat', project.isPublic ? 'public' : 'lock');
+  // Legacy entry: an account-bound board URL never granted shared access.
+  openFlowShareModal();
 }
 
 function openFlowShareModal() {
-  if (!_activeBoardId) return;
-  var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
-  if (!project || !project.isPublic) return;
-  var url = window.location.origin + window.location.pathname + '?board=' + encodeURIComponent(project.id);
-  var html = '<div class="modal-overlay show" id="flowShareModal" onclick="closeModalOnOverlay(event)" style="z-index:2200">' +
-    '<div class="modal modal-sm" onclick="event.stopPropagation()">' +
-    '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'flowShareModal\').remove()"><span class="material-icons-round">close</span></button>' +
-    '<div class="modal-header"><span class="material-icons-round modal-icon">ios_share</span><h2>Projekt teilen</h2><p>Teile diesen Link mit Freunden, Familie oder Dienstleistern</p></div>' +
-    '<div class="modal-form">' +
-    '<div class="flow-share-row"><input type="text" readonly id="flowShareUrl" value="' + _escHtml(url) + '" onclick="this.select()" />' +
-    '<button type="button" class="btn-primary" aria-label="Link kopieren" onclick="_copyFlowShareUrl()"><span class="material-icons-round">content_copy</span></button></div>' +
-    '<p style="font-size:12px;color:var(--text-light);margin-top:10px">Dienstleister können über diesen Link ihre Zustimmung bestätigen.</p>' +
-    '</div></div></div>';
-  document.body.insertAdjacentHTML('beforeend', html);
+  planningInviteProject();
 }
 function _copyFlowShareUrl() {
   var inp = document.getElementById('flowShareUrl');
@@ -3087,7 +3070,14 @@ function toggleFlowCardConfirm(cardId) {
 }
 
 // Modals for Board
-function openCreateBoardModal() {
+function openCreateBoardModal(options) {
+  if (!currentUser) { openModal('loginModal'); return; }
+  options = options || {};
+  _planningCreateOptions = options;
+  if (!options.listing && window._pendingAddListing) options.listing = window._pendingAddListing;
+  window._pendingAddListing = null;
+  var oldModal = document.getElementById('createBoardModal');
+  if (oldModal) oldModal.remove();
   var templates = [
     { id: 'wedding',   emoji: '💍', label: 'Hochzeit',    suggested: ['DJ','Fotograf','Catering','Location','Floristik','Torte'] },
     { id: 'birthday',  emoji: '🎂', label: 'Geburtstag',  suggested: ['DJ','Catering','Dekoration','Fotograf'] },
@@ -3120,19 +3110,19 @@ function openCreateBoardModal() {
           <input type="hidden" id="newBoardTmpl" value="wedding" />
         </div>
         <div class="form-group">
-          <label>Event-Name</label>
+          <label for="newBoardName">Event-Name</label>
           <input type="text" id="newBoardName" placeholder="z.B. Hochzeit Julia & Mark" required autofocus />
         </div>
         <div class="form-group">
-          <label>Event-Datum</label>
+          <label for="newBoardDate">Event-Datum</label>
           <input type="text" id="newBoardDate" placeholder="TT.MM.JJJJ" autocomplete="off" />
         </div>
         <div class="form-group">
-          <label>Budget (€, optional)</label>
+          <label for="newBoardBudget">Budget (€, optional)</label>
           <input type="number" id="newBoardBudget" placeholder="z.B. 5000" min="0" step="100" />
         </div>
         <div class="form-group">
-          <label>Gästeanzahl (optional)</label>
+          <label for="newBoardGuests">Gästeanzahl (optional)</label>
           <input type="number" id="newBoardGuests" placeholder="z.B. 80" min="1" step="1" />
         </div>
         <button type="submit" class="btn-primary btn-block"><span class="material-icons-round">add</span> Projekt erstellen</button>
@@ -3143,6 +3133,13 @@ function openCreateBoardModal() {
   // Deutsches Datumsformat (TT.MM.JJJJ) mit Kalender – einheitlich zu den
   // anderen Datum-Feldern in der App.
   _attachGermanDatePicker('#newBoardDate');
+  document.getElementById('newBoardName').value = options.name || options.title || '';
+  document.getElementById('newBoardDate').value = options.date ? _formatDateDe(options.date) : '';
+  document.getElementById('newBoardBudget').value = options.budget || '';
+  document.getElementById('newBoardGuests').value = options.guests || '';
+  var requestedTemplate = options.template || (options.intent === 'wedding' ? 'wedding' : options.intent === 'custom' ? 'custom' : 'wedding');
+  var selected = document.querySelector('#createBoardModal [data-tmpl="' + (templates.some(function(t) { return t.id === requestedTemplate; }) ? requestedTemplate : 'custom') + '"]');
+  if (selected) _selectBoardTmpl(selected);
 }
 
 function _selectBoardTmpl(el) {
@@ -3167,24 +3164,16 @@ function _createBoardProject(event) {
   var tmplId = (document.getElementById('newBoardTmpl') || {}).value || 'custom';
   if (!name) return;
 
-  // Keine Beispielinserate / Platzhalter-Karten – das Board startet leer.
-  // Dienstleister werden vom Nutzer ueber „+ Hinzufuegen" und die echte
-  // Inserats-Suche selbst eingetragen.
-  var cards = [];
-
-  var project = {
-    id: 'bp_' + Date.now(),
-    name: name,
-    date: date || '',
-    budget: parseFloat(budget) || 0,
-    guests: parseInt(guests) || 0,
-    template: tmplId,
-    cards: cards,
-    checklist: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: Date.now()
-  };
+  var normalizedDate = planningNormalizeDate(date);
+  if (date && !normalizedDate) { showToast('Bitte ein gültiges Datum eingeben.', 'error'); return; }
+  var project = planningCreateProject({
+    name: name, date: normalizedDate, budget: budget, guests: guests, template: tmplId,
+    location: _planningCreateOptions.location || '', activity: _planningCreateOptions.activity || null
+  });
   _boardProjects.unshift(project);
+  _activeBoardId = project.id;
+  if (_planningCreateOptions.listing) _addListingToBoardProject(_planningCreateOptions.listing, project.id);
+  _planningCreateOptions = {};
   _saveBoardProjects({ immediate: true });
   document.getElementById('createBoardModal') && document.getElementById('createBoardModal').remove();
   openBoardProject(project.id);
@@ -3228,8 +3217,11 @@ function _saveEditBoardProject(event, projectId) {
   event.preventDefault();
   var project = _boardProjects.find(function(p){ return p.id === projectId; });
   if (!project) return;
+  var rawDate = document.getElementById('editProjDate').value.trim();
+  var normalizedDate = planningNormalizeDate(rawDate);
+  if (rawDate && !normalizedDate) { showToast('Bitte ein gültiges Datum eingeben.', 'error'); return; }
   project.name     = document.getElementById('editProjName').value.trim() || project.name;
-  project.date     = document.getElementById('editProjDate').value.trim();
+  project.date     = normalizedDate;
   project.budget   = parseFloat(document.getElementById('editProjBudget').value) || 0;
   project.guests   = parseInt(document.getElementById('editProjGuests').value) || 0;
   project.template = document.getElementById('editProjTemplate').value || project.template;
@@ -3239,9 +3231,12 @@ function _saveEditBoardProject(event, projectId) {
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');
   if (nameEl) nameEl.textContent = project.name;
-  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';
+  if (dateEl) dateEl.textContent = planningDateLabel(project.date);
   _updateBoardStats(project);
-  renderBoardPage(); // refresh project card list too
+  project.updatedAt = Date.now();
+  _saveBoardProjects();
+  if (_activeBoardId === projectId) openBoardProject(projectId);
+  else renderBoardPage();
   showToast('Projekt aktualisiert', 'check_circle');
 }
 window.openEditBoardProjectModal = openEditBoardProjectModal;
@@ -3575,8 +3570,8 @@ function _renderInstantBookSection(listing) {
       '<div class="ib-head">' +
         '<span class="material-icons-round ib-bolt">bolt</span>' +
         '<div>' +
-          '<strong>Sofortbuchung</strong>' +
-          '<small>Freien Termin w\u00e4hlen \u00b7 direkt bezahlen \u00b7 Buchung best\u00e4tigt</small>' +
+          '<strong>Wunschtermin anfragen</strong>' +
+          '<small>Termin wählen · Anbieter bestätigt Verfügbarkeit und Gesamtpreis</small>' +
         '</div>' +
       '</div>' +
       '<div class="ib-slots">' + pills + '</div>' +
@@ -3588,7 +3583,7 @@ function _renderInstantBookSection(listing) {
       '<button type="button" class="btn-primary btn-block ib-pay-btn" id="ibPayBtn" disabled>' +
         '<span class="material-icons-round">lock</span> Termin w\u00e4hlen' +
       '</button>' +
-      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Sichere Zahlung via Stripe \u00b7 sofortige Best\u00e4tigung</p>' +
+      '<p class="ib-note"><span class="material-icons-round">verified_user</span> Zahlung nach angenommenem Angebot · Termine noch nicht reserviert</p>' +
     '</div>';
 
   bookingForm.insertAdjacentHTML('beforebegin', html);
@@ -3605,7 +3600,7 @@ function _renderInstantBookSection(listing) {
       payBtn.disabled = false;
       var dt = new Date(selectedIso);
       var human = dayNames[dt.getDay()] + ', ' + dt.getDate() + '. ' + monthNames[dt.getMonth()] + ' ' + dt.getFullYear();
-      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' buchen';
+      payBtn.innerHTML = '<span class="material-icons-round">lock</span> ' + human + ' \u00b7 ' + _formatEuro(price) + ' anfragen';
     });
   });
 
@@ -3617,53 +3612,15 @@ function _renderInstantBookSection(listing) {
 }
 
 function _startInstantBooking(listing, dateIso, amount) {
-  if (!amount || amount <= 0) {
-    showToast('F\u00fcr dieses Inserat ist kein g\u00fcltiger Preis hinterlegt.', 'warning');
-    return;
-  }
-  var dateHuman = (function(){
-    try { var d = new Date(dateIso); return d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' }); }
-    catch(e) { return dateIso; }
-  })();
-  var listingId = listing._dbId || listing.id;
-
-  // Buchungsdaten, die onSuccess UND die Redirect-Rückkehr brauchen.
-  var info = {
-    listingId: listingId,
-    title: listing.title || 'Direktbuchung',
-    category: listing.categoryLabel || listing.category || '',
-    image: listing.image || (listing.images && listing.images[0]) || '',
-    providerImg: listing.providerImg || listing.image || '',
-    provider: listing.providerName || '',
-    providerId: listing.providerId || 0,
-    amount: amount,
-    dateIso: dateIso,
-    dateHuman: dateHuman
-  };
-  // Redirect-fest machen: vor dem Bezahlen persistieren.
-  _setPendingPayment({ type: 'instant', info: info });
-
-  _openStripePaymentModal({
-    amount: amount,
-    title: (listing.title || 'Direktbuchung') + ' \u00b7 ' + dateHuman,
-    listingId: listingId,
-    image: listing.image || (listing.images && listing.images[0]) || listing.providerImg || '',
-    provider: listing.providerName || '',
-    category: listing.categoryLabel || listing.category || '',
-    duration: listing.duration || '',
-    dateLabel: dateHuman,
-    instant: true,
-    onSuccess: function(res) {
-      var r = _applyInstantBookingSuccess(info, res);
-      _clearPendingPayment();
-      _showBookingSuccess({ projectId: r && r.project && r.project.id, amount: info.amount, title: info.title, dateHuman: info.dateHuman, providerName: info.provider });
-    },
-    onCancel: function() {
-      _clearPendingPayment();
-      showToast('Zahlung abgebrochen.', 'info');
-    }
-  });
+  if (!currentUser) { openModal('loginModal'); return; }
+  currentListing = listing;
+  var input = document.getElementById('bookingDate');
+  if (!input) { showToast('Bitte den Termin im Anfrageformular wählen.', 'info'); return; }
+  input.value = dateIso;
+  if (input._flatpickr) input._flatpickr.setDate(dateIso, false, 'Y-m-d');
+  bookListing();
 }
+
 window._startInstantBooking = _startInstantBooking;
 
 function openSelectBoardProjectModal(listing) {
@@ -3685,7 +3642,7 @@ function openSelectBoardProjectModal(listing) {
       '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'selectBoardProjectModal\').remove()"><span class="material-icons-round">close</span></button>' +
       '<div class="modal-header"><span class="material-icons-round modal-icon">view_kanban</span><h2>Wohin damit?</h2>' +
         '<p>' + _escHtml(title) + ' zu deinem Planungs-Board hinzuf\u00fcgen.</p></div>' +
-      '<button class="bsp-row bsp-row-new" type="button" onclick="window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove();openCreateBoardModal()">' +
+      '<button class="bsp-row bsp-row-new" type="button" onclick="openCreateBoardModal({listing:window._pendingBoardListing});window._pendingBoardListing=null;document.getElementById(\'selectBoardProjectModal\').remove()">' +
         '<span class="material-icons-round" style="color:var(--primary);font-size:22px">add_circle</span>' +
         '<span class="bsp-info"><strong>Neues Projekt erstellen</strong><small>Frisches Board f\u00fcr dieses Event</small></span>' +
         '<span class="material-icons-round bsp-arrow">chevron_right</span>' +
@@ -3699,6 +3656,10 @@ function openSelectBoardProjectModal(listing) {
 function _addListingToBoardProject(listing, projectId) {
   var project = _boardProjects.find(function(p){ return p.id === projectId; });
   if (!project) return;
+  if (!listing || !listing.id) return;
+  if ((project.cards || []).some(function(c) { return String(c.listingId) === String(listing.id); })) {
+    showToast('Dieses Inserat ist bereits in diesem Projekt.', 'info'); return;
+  }
   var now = Date.now();
   var card = {
     id: 'bc_' + now,
@@ -3707,12 +3668,16 @@ function _addListingToBoardProject(listing, projectId) {
     stage: 'geplant',
     price: (listing && listing.price) || 0,
     listingId: listing && listing.id,
+    listingTitle: listing && listing.title || '',
+    listingImage: listing && listing.image || '',
+    providerId: listing && listing.providerId || null,
     avatar: (listing && (listing.providerImg || listing.image)) || '',
     note: '',
     createdAt: new Date().toISOString()
   };
   project.cards = project.cards || [];
   project.cards.push(card);
+  project.updatedAt = Date.now();
   _saveBoardProjects();
   var name = card.name;
   var projName = project.name;

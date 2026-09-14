@@ -3206,7 +3206,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1093 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1115 Tests in 74 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3455,7 +3455,7 @@ WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
 bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
 
 **Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
-und 170 KB; benutzt werden 398. Die ausgelieferte Datei ist **33 KB**, die
+und 170 KB; benutzt werden 399. Die ausgelieferte Datei ist **33 KB**, die
 Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
 Deploy ausgeschlossen).
 
@@ -3582,7 +3582,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 28 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `js/modules/` | Quelle des Frontends: 30 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
 | `styles.css` | ~17 700 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |

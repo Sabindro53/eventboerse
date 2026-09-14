@@ -16,8 +16,23 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1093 Tests in 70 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1115 Tests in 74 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## UX-Abschlussstand (2026-09-13)
+
+Feed, Radar, persönliche Planung, Gruppen und Chat haben gemeinsame Einstiege.
+„Mit Freunden planen“ erstellt einen echten Gruppenplan mit Einladungen; das
+Board öffnet Projekte, der Assistent ist eine eigene Option. Hochzeiten haben
+18 auswählbare Bausteine mit Budget und Notizen. Beim Wechsel in eine Gruppe
+werden Planungsansätze kopiert; persönliche Buchungsdaten bleiben privat.
+Spätere Änderungen werden nicht zwischen persönlichem und Gruppenplan gespiegelt.
+
+Der Aktivitätenbestand enthält 954 echte Datensätze aus acht erfassten Regionen.
+Das ist keine deutschlandweite Vollabdeckung. Buchungen brauchen ein zum Inserat
+gehörendes angenommenes Angebot. Anbieter-Stornierungen dokumentieren Grund und
+Stripe-Erstattungsstatus. Es wurde keine Live-Zahlung ausgelöst und nicht deployt.
+Details, Abnahme und offene Betriebsfragen: [[UX-Abschluss-2026-09-13]].
 - **Der Storno-Vorgang steht** (13.09.2026, PR #270). Beauftragt als *„kann er
   nicht erfüllen, muss er Bescheid geben und zurückzahlen — das muss immer
   sauber ablaufen."* Vorher gab es dafür **nichts**: der Planer hatte keinen

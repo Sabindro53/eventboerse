@@ -21,7 +21,7 @@ function ebStornoZustandText(z) {
   switch (z) {
     case 'offen':      return 'Wartet auf Antwort';
     case 'abgelaufen': return 'Frist abgelaufen — Eventbörse prüft';
-    case 'angenommen': return 'Angenommen, Geld erstattet';
+    case 'angenommen': return 'Angenommen – Zahlungsstatus in der Buchung prüfen';
     case 'abgelehnt':  return 'Abgelehnt';
     default:           return 'Unbekannt';
   }
@@ -125,7 +125,7 @@ function ebStornoEntscheiden(id, entscheidung) {
         return;
       }
       showToast(entscheidung === 'annehmen'
-        ? 'Storno angenommen, Betrag erstattet.'
+        ? 'Storno angenommen. Den Erstattungsstatus findest du in der Buchung.'
         : 'Storno abgelehnt.', 'success');
       return ebStornoLaden().then(ebStornoAnsichtZeichnen);
     })

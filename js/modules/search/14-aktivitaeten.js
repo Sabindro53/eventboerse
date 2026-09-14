@@ -72,19 +72,32 @@ function ebAktivitaetenUrl() {
  * bei einem Netzfehler einfach nichts tut, sieht aus wie eine Ansicht,
  * die noch lädt, und zwar für immer.
  */
+var _aktLadeVorgang = null;
 function ebAktivitaetenLaden(fertig) {
-  if (_aktZustand === 'da' || _aktZustand === 'fehler') { if (fertig) fertig(); return; }
-  if (_aktZustand === 'laedt') return;
-  _aktZustand = 'laedt';
-  fetch(ebAktivitaetenUrl(), { credentials: 'same-origin' })
-    .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
-    .then(function (d) {
-      if (!d || typeof d !== 'object' || !Array.isArray(d.eintraege)) throw new Error('form');
-      _aktBestand = d;
-      _aktZustand = 'da';
-    })
-    .catch(function () { _aktBestand = null; _aktZustand = 'fehler'; })
-    .then(function () { if (fertig) fertig(); });
+  if (_aktZustand === 'da' || _aktZustand === 'fehler') {
+    if (fertig) fertig();
+    return Promise.resolve(_aktBestand);
+  }
+  if (!_aktLadeVorgang) {
+    _aktZustand = 'laedt';
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, 10000) : null;
+    _aktLadeVorgang = fetch(ebAktivitaetenUrl(), {
+      credentials: 'same-origin', signal: controller ? controller.signal : undefined,
+    }).then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+      .then(function (d) {
+        if (!d || typeof d !== 'object' || !Array.isArray(d.eintraege)) throw new Error('form');
+        _aktBestand = d;
+        _aktZustand = 'da';
+      }).catch(function () { _aktBestand = null; _aktZustand = 'fehler'; })
+      .then(function () {
+        if (timer) clearTimeout(timer);
+        _aktLadeVorgang = null;
+        return _aktBestand;
+      });
+  }
+  // Every caller is notified, including callers arriving during the request.
+  return _aktLadeVorgang.then(function (bestand) { if (fertig) fertig(); return bestand; });
 }
 
 /**
@@ -98,7 +111,8 @@ function ebAktivitaetenLaden(fertig) {
  */
 function ebAktivitaetPosition(eintrag, mitte) {
   var o = eintrag && eintrag.ort;
-  if (o && typeof o.lat === 'number' && typeof o.lon === 'number') {
+  if (o && typeof o.lat === 'number' && typeof o.lon === 'number'
+      && isFinite(o.lat) && isFinite(o.lon) && Math.abs(o.lat) <= 90 && Math.abs(o.lon) <= 180) {
     // `ungefaehr` ist die Kennzeichnung des Generators für eine Koordinate,
     // die die Mitte eines Gebiets ist und nicht die des Ortes — bei den
     // Fußballspielen der Fall. Ohne sie sähe eine Stadtmitte aus wie eine
@@ -197,7 +211,9 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
   var orte = [];
 
   (bestand.eintraege || []).forEach(function (e) {
-    var p = ebAktivitaetPosition(e, bestand.mitte);
+    if (!e || e.abgesagt || /cancelled|canceled|postponed/.test(e.status || '')) return;
+    var gebiet = (bestand.gebiete || []).find(function (g) { return g.stadt === e.gebiet || (e.ort && g.stadt === e.ort.stadt); });
+    var p = ebAktivitaetPosition(e, gebiet || bestand.mitte);
     if (!p) return;
     var km = haversineKm(pos.lat, pos.lng, p.lat, p.lng);
     if (km > radiusKm) return;
@@ -206,7 +222,8 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
 
     if (e.beginn) {
       var d = new Date(e.beginn);
-      if (isNaN(d.getTime()) || d <= now) return;   // vorbei oder unlesbar
+      var ende = e.ende ? new Date(e.ende) : null;
+      if (isNaN(d.getTime()) || (d <= now && (!ende || isNaN(ende.getTime()) || ende <= now))) return;
       satz.wann = d;
       termine.push(satz);
     } else {
@@ -217,6 +234,86 @@ function ebAktivitaetenImUmkreis(bestand, pos, radiusKm, jetzt) {
   termine.sort(function (a, b) { return a.wann - b.wann; });
   orte.sort(function (a, b) { return a.km - b.km; });
   return { termine: termine, orte: orte };
+}
+
+/** Shared activity filters for Jetzt and both radar views. Unknown opening hours
+ * stay unknown; a place is an idea, never a promise that it is open. */
+var _aktZeit = 'alle';
+var _aktKategorie = '';
+function ebAktivitaetPasst(e, jetzt) {
+  if (!e) return false;
+  if (_aktKategorie && (e.art === 'sport' ? 'Sport' : e.kategorie) !== _aktKategorie) return false;
+  if (!e.beginn || _aktZeit === 'alle') return true;
+  var now = jetzt || new Date();
+  var start = new Date(e.beginn);
+  var end = e.ende ? new Date(e.ende) : start;
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return false;
+  var from = now, to;
+  if (_aktZeit === 'jetzt') to = new Date(now.getTime() + 4 * 3600000);
+  if (_aktZeit === 'heute') to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (_aktZeit === 'wochenende') {
+    var friday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    friday.setDate(friday.getDate() + (now.getDay() === 0 ? -2 : 5 - now.getDay()));
+    var monday = new Date(friday); monday.setDate(monday.getDate() + 3);
+    from = friday > now ? friday : now; to = monday;
+  }
+  return !!to && end >= from && start < to;
+}
+
+function ebAktivitaetenGefiltert(bestand, pos, radius, now) {
+  var alle = ebAktivitaetenImUmkreis(bestand, pos, radius, now);
+  return {
+    termine: alle.termine.filter(function (t) { return ebAktivitaetPasst(t.daten, now); }),
+    orte: alle.orte.filter(function (t) { return ebAktivitaetPasst(t.daten, now); }),
+  };
+}
+
+function ebAktivitaetenFilterHtml(ohneOrt) {
+  var stadt = radarStand().pos ? radarOrtsname(radarStand().pos.lat, radarStand().pos.lng) : '';
+  var cities = Object.keys(RADAR_ORTE).sort(function(a,b) { return a.localeCompare(b, 'de'); });
+  var kategorien = ['Sport', 'Kino', 'Museum', 'Theater', 'Zoo', 'Escape-Room', 'Kletterhalle', 'Erlebnisbad'];
+  var zeiten = [['jetzt', 'Nächste 4 Stunden'], ['heute', 'Heute'], ['wochenende', 'Wochenende'], ['alle', 'Alle Termine']];
+  return '<div class="akt-filter"><label' + (ohneOrt ? ' hidden' : '') + '>Ort<select id="feedJetztCity" onchange="feedJetztStadt(this.value)">'
+    + '<option value="">Standort wählen</option>'
+    + cities.map(function(c) { return '<option value="' + _escHtml(c) + '"' + (c === stadt ? ' selected' : '') + '>' + _escHtml(c) + '</option>'; }).join('')
+    + '</select></label><label>Aktivität<select id="feedJetztCategory" onchange="feedJetztKategorie(this.value)"><option value="">Alles entdecken</option>'
+    + kategorien.map(function(c) { return '<option' + (c === _aktKategorie ? ' selected' : '') + '>' + _escHtml(c) + '</option>'; }).join('')
+    + '</select></label><div class="akt-filter-time"><span class="radar-control-label">Termine</span><div class="radar-chip-row">'
+    + zeiten.map(function(z) { return '<button type="button" class="radar-chip' + (z[0] === _aktZeit ? ' aktiv' : '') + '" aria-pressed="' + (z[0] === _aktZeit) + '" onclick="feedJetztZeit(\'' + z[0] + '\')">' + z[1] + '</button>'; }).join('')
+    + '</div></div></div>';
+}
+
+function feedJetztAktualisieren() {
+  if (document.getElementById('feedRadarResults')) renderFeedRadar(document.getElementById('feedList'));
+  else renderFeedJetzt(document.getElementById('feedList'));
+}
+function feedJetztStadt(name) { if (radarStadtWaehlen(name)) feedJetztAktualisieren(); }
+function feedJetztKategorie(value) { _aktKategorie = String(value || ''); feedJetztAktualisieren(); }
+function feedJetztZeit(value) {
+  if (['alle', 'jetzt', 'heute', 'wochenende'].indexOf(value) < 0) return;
+  _aktZeit = value; feedJetztAktualisieren();
+}
+function feedJetztFilterLoeschen() { _aktKategorie = ''; _aktZeit = 'alle'; feedJetztAktualisieren(); }
+
+function ebAktivitaetPlanen(id) {
+  var e = (_aktBestand && _aktBestand.eintraege || []).find(function(x) { return String(x.id) === String(id); });
+  if (!e) return;
+  var options = {
+    intent: 'friends', title: String(e.titel || 'Gemeinsamer Ausflug'),
+    location: e.ort && e.ort.stadt || '', date: e.beginn ? String(e.beginn).slice(0, 10) : '',
+    activity: { id: e.id, title: e.titel, sourceName: e.quelle && e.quelle.name || '',
+      sourceUrl: e.quelle && /^https:\/\//.test(e.quelle.url || '') ? e.quelle.url : '' },
+  };
+  if (typeof startPlanningBoard === 'function') startPlanningBoard(options);
+  else navigateTo('freunde');
+}
+
+function ebAktivitaetenExternHtml(pos) {
+  var ort = pos ? radarOrtsname(pos.lat, pos.lng) || '' : '';
+  var q = encodeURIComponent('Events ' + ort);
+  return '<div class="akt-extern"><h3>Mehr in deiner Umgebung entdecken</h3><p>Externe Suche: Termine, Verfügbarkeit und Buchungen prüfst du beim jeweiligen Anbieter. Für diese Angebote gilt kein Buchungsschutz von Eventbörse.</p>'
+    + '<div class="akt-start-knoepfe"><a class="btn-outline" href="https://www.facebook.com/search/events/?q=' + q + '" target="_blank" rel="noopener noreferrer">Facebook Events ↗</a>'
+    + '<a class="btn-outline" href="https://www.ticketmaster.de/search?q=' + encodeURIComponent(ort) + '" target="_blank" rel="noopener noreferrer">Ticketmaster ↗</a></div></div>';
 }
 
 /** „heute 20:30" · „morgen 15:30" · „Sa, 19.09. um 15:30" */
@@ -274,7 +371,9 @@ function ebAktivitaetKarte(t, mitZeit, jetzt) {
     + (e.ort && e.ort.name && e.ort.name !== e.titel ? _escHtml(String(e.ort.name)) + ' · ' : '')
     + _escHtml(ortText)
     + '</p>'
-    + '<p class="akt-herkunft">' + ebAktivitaetQuelle(e.quelle) + '</p>'
+    + '<p class="akt-herkunft">' + ebAktivitaetQuelle(e.quelle) + ' · Extern</p>'
+    + (!mitZeit ? '<small class="akt-opening">Öffnungszeiten und Verfügbarkeit bitte bei der Quelle prüfen.</small>' : '')
+    + '<button type="button" class="akt-plan-btn" onclick="ebAktivitaetPlanen(' + _escHtml(JSON.stringify(String(e.id))) + ')">Mit Freunden planen</button>'
     + '</div>'
     + '<span class="akt-km">' + _escHtml(radarEntfernung(t.km))
     + (t.genau ? '' : '<small>ab Stadtmitte</small>') + '</span>'
@@ -334,7 +433,7 @@ function ebAktivitaetenLeermeldung(radiusKm, pos) {
   return '<div class="akt-leer">'
     + '<span class="material-icons-round">explore_off</span>'
     + '<h4>Im Umkreis von ' + radiusKm + ' km ist gerade nichts eingetragen.</h4>'
-    + '<p>Das ist eine Aussage über die Gegend, kein Fehler.</p>'
+    + '<p>In unseren erfassten Quellen gibt es dafür keine Treffer. Das ist kein Fehler und keine vollständige Übersicht aller Angebote vor Ort.</p>'
     + (groesser ? '<button type="button" class="btn-outline" onclick="feedJetztRadius('
       + groesser + ')">Auf ' + groesser + ' km erweitern</button>' : '')
     + '</div>';
@@ -354,10 +453,10 @@ function ebAktivitaetenStarthilfe() {
     + '<h4><span class="material-icons-round">rocket_launch</span> Selbst etwas starten</h4>'
     + '<p>Nichts dabei? Dann plane dein eigenes Vorhaben — allein oder mit anderen.</p>'
     + '<div class="akt-start-knoepfe">'
-    + '<button type="button" class="btn-primary" onclick="navigateTo(\'board\')">'
+    + '<button type="button" class="btn-primary" onclick="startPlanningBoard({intent: \'custom\'})">'
     + '<span class="material-icons-round">dashboard</span> Vorhaben planen</button>'
-    + '<button type="button" class="btn-outline" onclick="navigateTo(\'freunde\')">'
-    + '<span class="material-icons-round">diversity_3</span> Mit Freunden</button>'
+    + '<button type="button" class="btn-outline" onclick="startPlanningBoard({intent: \'friends\'})">'
+    + '<span class="material-icons-round">groups</span> Mit Freunden</button>'
     + '<button type="button" class="btn-outline" onclick="navigateTo(\'browse\')">'
     + '<span class="material-icons-round">search</span> Dienstleister finden</button>'
     + '</div></div>';
@@ -401,7 +500,8 @@ function renderFeedJetzt(container) {
   }
   var ortName = radarOrtsname(stand.pos.lat, stand.pos.lng) || 'deinem Ort';
 
-  var gefunden = ebAktivitaetenImUmkreis(_aktBestand, stand.pos, stand.radius, new Date());
+  var ungefiltert = ebAktivitaetenImUmkreis(_aktBestand, stand.pos, stand.radius, new Date());
+  var gefunden = ebAktivitaetenGefiltert(_aktBestand, stand.pos, stand.radius, new Date());
   var jetzt = new Date();
 
   var chips = RADAR_RADIEN.map(function (km) {
@@ -417,11 +517,13 @@ function renderFeedJetzt(container) {
     + '<button class="btn-primary" type="button" onclick="feedJetztGeo()">'
     + '<span class="material-icons-round">my_location</span> Mein Standort</button></div>'
     + '<div class="feed-radar-controls"><div><span class="radar-control-label">Umkreis</span>'
-    + '<div class="radar-chip-row">' + chips + '</div></div></div>';
+    + '<div class="radar-chip-row">' + chips + '</div></div></div>' + ebAktivitaetenFilterHtml();
 
   var koerper;
   if (!gefunden.termine.length && !gefunden.orte.length) {
-    koerper = ebAktivitaetenLeermeldung(stand.radius, stand.pos);
+    koerper = ungefiltert.termine.length || ungefiltert.orte.length
+      ? '<div class="akt-leer"><h4>Für diese Auswahl ist nichts eingetragen.</h4><p>Andere Zeiten oder Aktivitäten können passen.</p><button type="button" class="btn-outline" onclick="feedJetztFilterLoeschen()">Alle Aktivitäten zeigen</button></div>'
+      : ebAktivitaetenLeermeldung(stand.radius, stand.pos);
   } else {
     koerper = '';
     if (gefunden.termine.length) {
@@ -444,7 +546,8 @@ function renderFeedJetzt(container) {
   var quellen = (_aktBestand && Array.isArray(_aktBestand.quellen) ? _aktBestand.quellen : [])
     .map(function (q) { return _escHtml(String(q.name)) + ' (' + _escHtml(String(q.lizenz)) + ')'; })
     .join(' · ');
-  var fuss = '<p class="akt-fuss"><span class="material-icons-round">info</span> '
+  var stale = _aktBestand && _aktBestand.stand && Date.now() - new Date(_aktBestand.stand).getTime() > 2 * 86400000;
+  var fuss = (stale ? '<p class="akt-stale" role="status">Der Datenstand ist älter als zwei Tage. Prüfe aktuelle Termine und Öffnungszeiten direkt bei der Quelle.</p>' : '') + '<p class="akt-fuss"><span class="material-icons-round">info</span> '
     + (quellen ? 'Quellen: ' + quellen : 'Quellen werden mit der Liste geladen.')
     + (_aktBestand && _aktBestand.stand
       ? ' · Stand: ' + _escHtml(new Date(_aktBestand.stand).toLocaleDateString('de-DE',
@@ -454,7 +557,7 @@ function renderFeedJetzt(container) {
 
   container.innerHTML = '<section class="feed-radar-card akt-karte-huelle">'
     + kopf + '<div class="akt-liste">' + koerper + '</div>'
-    + ebAktivitaetenStarthilfe() + fuss + '</section>';
+    + ebAktivitaetenExternHtml(stand.pos) + ebAktivitaetenStarthilfe() + fuss + '</section>';
 }
 
 function feedJetztRadius(km) {

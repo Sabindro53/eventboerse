@@ -350,8 +350,8 @@ function _syncBoardFromServer(opts) {
           var p = _boardProjects.find(function(x){ return x.id === _activeBoardId; });
           if (p) {
             _updateBoardStats(p);
-            var currentView = document.querySelector('.board-view-btn.active');
-            if (currentView && currentView.dataset.view) switchBoardView(currentView.dataset.view);
+            // Preserve the current tab; the old selector did not match the actual buttons.
+            if (!document.querySelector('#boardPlanningOverview :focus')) switchBoardView(_planningBoardView || 'overview');
           } else {
             if (activeWasDeletedRemotely) {
               showToast('Dieses Projekt wurde auf einem anderen Gerät gelöscht.', 'info');
@@ -747,7 +747,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
       '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen 3% Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
       '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.<br>' +
-      '4. Anschlie&szlig;end bezahlt der Kunde sicher &uuml;ber Stripe &ndash; danach steht der Auftrag auf <em>&bdquo;Bezahlt&ldquo;</em>.' +
+      '4. Der Kunde kann das angenommene Angebot vor dem Event bezahlen. Bei einer Absage durch dich öffnest du <strong>Zahlung &amp; Stornierung verwalten</strong> und veranlasst die vollständige Erstattung.' +
     '</div>' +
   '</details>';
 
@@ -775,7 +775,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   var stageLabels = { angebot:'Gebucht', bestaetigt:'Erf\u00fcllt', abgeschlossen:'Bezahlt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
   var stageColors = { angebot:'#AB47BC', bestaetigt:'#FF385C', abgeschlossen:'#00A699', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
 
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px">';
   jobs.forEach(function(j){
     var c = j.card, p = j.project, l = j.listing;
     var stage = c.stage || 'geplant';
@@ -811,6 +811,10 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
       actionHtml = '<div style="padding:10px;background:var(--bg-alt);border-radius:8px;color:var(--text-light);font-size:13px;text-align:center">' + waitingText + '</div>';
     }
 
+    var paymentId = c.paymentIntentId || c.paymentReference || '';
+    if (/^pi_[A-Za-z0-9_]+$/.test(paymentId)) {
+      actionHtml += '<button type="button" class="btn-outline" style="width:100%;margin-top:10px" data-booking-payment="' + esc(paymentId) + '">Zahlung & Stornierung verwalten</button>';
+    }
     html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)">' +
       '<div style="padding:14px 16px;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:space-between">' +
         '<strong style="font-size:13px;letter-spacing:0.5px;text-transform:uppercase">' + esc(stageLabels[stage] || stage) + '</strong>' +
@@ -1007,8 +1011,13 @@ function renderBoardPage() {
   // „Vorhaben planen" geklickt hatte, las das als falsches Ziel. Der Chat ist
   // ein Teil des Boards, nicht das Board.
   if (_bps) _bps.textContent = (currentUser && isProvider)
-    ? 'Organisiere deine Buchungen, Kunden & Termine — mit Planungs-Assistent'
-    : 'Plane dein Event — allein oder gemeinsam mit Freunden. Projekte, Dienstleister, Budget & Termine';
+    ? 'Deine Aufträge, Termine und eigenen Event-Projekte an einem Ort'
+    : 'Ideen sammeln, Freunde einladen und dein Event Schritt für Schritt zusammenstellen';
+
+  if (_planningWorkspaceMode !== 'assistant') {
+    renderPlanningHome(projectsEl, isProvider);
+    return;
+  }
 
   // ChatGPT-Look: Sidebar (Projekte + Kategorien) links, lokaler
   // Planungs-Assistent rechts. Funktioniert auch ohne Login (Aktionen,
@@ -1033,7 +1042,7 @@ function renderBoardPage() {
   var prevFocus = prevInp && document.activeElement === prevInp;
 
   projectsEl.dataset.aiRenderKey = renderKey;
-  projectsEl.innerHTML = _aiBoardLayoutHtml(isProvider);
+  projectsEl.innerHTML = '<div class="planning-assistant-back"><button type="button" class="btn-outline" data-planning-action="projects">Zur Projektübersicht</button></div>' + _aiBoardLayoutHtml(isProvider);
   _aiRenderSidebarProjects();
   _aiRenderChat();
 
@@ -1460,6 +1469,10 @@ function deleteBoardProjectById(projectId) {
   }
 
   var cards = project.cards || [];
+  if (cards.some(function(card) { return _cardHasConfirmedPayment(card) || card.providerAcceptedAt || card.stage === 'angebot' || card.stage === 'bestaetigt' || card.stage === 'abgeschlossen'; })) {
+    showToast('Dieses Projekt enthält Buchungen. Kläre eine Absage oder Rückzahlung zuerst in der Buchung; die Dokumentation bleibt erhalten.', 'info');
+    return;
+  }
   var activeStages = ['kontaktiert', 'angebot', 'bestaetigt'];
   var contactedCards = cards.filter(function(c) {
     return activeStages.indexOf(c.stage) !== -1 && c.listingId;
@@ -1540,6 +1553,7 @@ function deleteBoardProjectById(projectId) {
 }
 
 function showBoardProjects() {
+  _planningWorkspaceMode = 'projects';
   _activeBoardId = null;
   var boardViewEl = document.getElementById('boardView');
   var projectsEl = document.getElementById('boardProjects');
@@ -1621,9 +1635,10 @@ function openBoardProject(projectId) {
   var nameEl = document.getElementById('boardEventName');
   var dateEl = document.getElementById('boardEventDate');
   if (nameEl) nameEl.textContent = project.name;
-  if (dateEl) dateEl.textContent = project.date ? new Date(project.date + 'T00:00:00').toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'}) : 'Datum noch offen';
+  if (dateEl) dateEl.textContent = planningDateLabel(project.date);
 
-  switchBoardView('flow');
+  mountPlanningOverview();
+  switchBoardView('overview');
   _updateBoardStats(project);
 }
 
@@ -1814,6 +1829,11 @@ function _initCardDrag(colEl) {
 
 // View Toggle
 function switchBoardView(view) {
+  _planningBoardView = view;
+  var overview = document.getElementById('boardPlanningOverview');
+  var overviewBtn = document.getElementById('btnPlanningOverview');
+  if (overview) overview.hidden = view !== 'overview';
+  if (overviewBtn) overviewBtn.classList.toggle('active', view === 'overview');
   var kanban    = document.getElementById('boardKanban');
   var timeline  = document.getElementById('boardTimelineView');
   var flow      = document.getElementById('boardFlowView');
@@ -1833,7 +1853,11 @@ function switchBoardView(view) {
   btnF  && btnF.classList.remove('active');
   btnCh && btnCh.classList.remove('active');
 
-  if (view === 'kanban') {
+  if (view === 'overview') {
+    renderPlanningOverview();
+  } else if (view === 'kanban') {
+    var project = _boardProjects.find(function(p) { return p.id === _activeBoardId; });
+    if (project) renderKanban(project);
     kanban && (kanban.style.display = '');
     btnK && btnK.classList.add('active');
   } else if (view === 'timeline') {
@@ -2067,12 +2091,9 @@ function _renderBoardFlowImpl() {
   html += '<span class="fpr-label">' + progressPct + '%</span>';
   html += '</div>';
   html += '<div class="flow-tb-divider"></div>';
-  html += '<button class="flow-visibility-pill' + (isPublic ? ' is-public' : '') + '" onclick="toggleFlowVisibility()" title="Sichtbarkeit umschalten">';
-  html += '<span class="material-icons-round">' + (isPublic ? 'public' : 'lock') + '</span>' + (isPublic ? 'Öffentlich' : 'Privat');
-  html += '</button>';
-  if (isPublic) {
-    html += '<button class="flow-tbtn" onclick="openFlowShareModal()" title="Teilen" aria-label="Teilen"><span class="material-icons-round">ios_share</span></button>';
-  }
+  html += '<button class="flow-visibility-pill" onclick="openFlowShareModal()" title="Freunde zum gemeinsamen Plan einladen">';
+  html += '<span class="material-icons-round">group_add</span> Gemeinsam planen</button>';
+
   html += '<button class="flow-tbtn" onclick="openAddProviderModalFlow(\'geplant\')" title="Dienstleister hinzufügen" aria-label="Dienstleister hinzufügen" style="background:rgba(255,56,92,0.18);border-color:rgba(255,56,92,0.4);color:#fff"><span class="material-icons-round">add</span></button>';
   html += '</div>';
 
@@ -2426,13 +2447,8 @@ function _saveFlowProject(event) {
 }
 function _deleteFlowProject() {
   if (!_activeBoardId) return;
-  if (!confirm('Projekt wirklich löschen?')) return;
-  var deletedId = _activeBoardId;
-  _boardProjects = _boardProjects.filter(function(p) { return p.id !== deletedId; });
-  _addBoardTombstone(deletedId);
-  _saveBoardProjects({ immediate: true });
+  deleteBoardProjectById(_activeBoardId);
   document.getElementById('flowProjectModal') && document.getElementById('flowProjectModal').remove();
-  showBoardProjects();
 }
 
 function openFlowBudgetModal() {
@@ -2931,10 +2947,8 @@ function openFlowCardModal(cardId) {
           (_paidAtHuman ? '<div><span>Bezahlt am</span><strong>' + _escHtml(_paidAtHuman) + '</strong></div>' : '') +
           (_piId ? '<div class="fc-paid-pi"><span>Zahlungs-ID</span><code>' + _escHtml(_piId) + '</code></div>' : '') +
         '</div>' +
-        (_piId && /^pi_/.test(_piId)
-          ? '<a class="fc-paid-stripe-link" href="https://dashboard.stripe.com/payments/' + _escHtml(_piId) + '" target="_blank" rel="noopener">' +
-              '<span class="material-icons-round">open_in_new</span> Beleg in Stripe ansehen' +
-            '</a>'
+        (_piId && /^pi_[A-Za-z0-9_]+$/.test(_piId)
+          ? '<button type="button" class="btn-outline" data-booking-payment="' + _escHtml(_piId) + '">Zahlung & Erstattungsstatus</button>'
           : '') +
         // Der Weg zum Storno. Er steht GENAU HIER, weil hier der Planer
         // seine bezahlte Buchung ansieht — und weil es sonst keinen gäbe:

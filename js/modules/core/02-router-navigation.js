@@ -541,11 +541,16 @@ function navigateTo(page, data, skipHistory) {
       loadAdminUsers();
       break;
     case 'freunde':
+      if (data === 'gruppen' || data === 'einladung' || Number(data) > 0) _sozialReiter = 'gruppen';
+      else if (data === 'freunde') _sozialReiter = 'freunde';
+      if (Number(data) > 0) _sozialPlanOffen = Number(data);
       // BEWUSST NICHT in `loginRequired`: die Seite erklärt selbst, warum
       // sie eine Anmeldung braucht. Ein Anmeldedialog, der ohne Erklärung
       // aufgeht, sieht aus wie eine Absage.
       renderFreundePage();
-      sozialLaden();
+      pageReady = sozialLaden().then(function () {
+        if (Number(data) > 0) return sozialPlanLaden(Number(data)).then(renderFreundePage);
+      });
       break;
     case 'board':
       if (currentUser) { _migrateBoardProjects(); _loadBoardProjects(); } else { _boardProjects = []; }

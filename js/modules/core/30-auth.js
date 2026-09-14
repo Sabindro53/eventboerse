@@ -1246,6 +1246,7 @@ function applyLogin(context) {
     _loadBoardProjects();
     renderBoardPage();
   }
+  if (typeof sozialAuthFortsetzen === 'function') sozialAuthFortsetzen();
   if (context === 'login' || context === 'registration') {
     maybePromptStripeOnboarding(context);
   }
@@ -1254,6 +1255,8 @@ function applyLogin(context) {
 function applyLogout() {
   isLoggedIn = false;
   currentUser = null;
+  if (typeof sozialZuruecksetzen === 'function') sozialZuruecksetzen();
+  if (typeof _groupPlanningDraft !== 'undefined') _groupPlanningDraft = null;
   _stopHeartbeat();
   _stopInactivityWatch();
   _dbListingsLoaded = false;
