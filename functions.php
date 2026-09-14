@@ -31,6 +31,17 @@ require_once get_template_directory() . '/includes/social/routen.php';
 require_once get_template_directory() . '/includes/social/plan-routen.php';
 require_once get_template_directory() . '/includes/booking.php';
 
+// Wer eine Zahlung erstatten darf. In eigener Datei, weil eine
+// Rechtepruefung auf einem Geldweg AUSGEFUEHRT geprueft gehoert, nicht
+// gelesen — der Pruefstand bindet sie ein, ohne WordPress zu stellen.
+require_once get_template_directory() . '/includes/payments/erstattung-rechte.php';
+
+// Kontaktschutz im Chat: verhandeln ja, an der Plattform vorbei nein.
+// Wird von eb_messages_send() gerufen; ohne diese Zeile ist die Funktion
+// dort undefiniert und PHP bricht bei JEDER Nachricht ab — deshalb prueft
+// `kontaktschutz.spec.js` die Einbindung ausdruecklich mit.
+require_once get_template_directory() . '/includes/chat/kontaktschutz.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *
@@ -6718,25 +6729,19 @@ function eb_messages_list( WP_REST_Request $request ) {
     return $resp;
 }
 
-function eb_message_contains_off_platform_contact( $text ) {
-    $text = html_entity_decode( wp_strip_all_tags( (string) $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-    if ( $text === '' ) return false;
-    $patterns = array(
-        '/\b[A-Z0-9._%+\-]+\s*(?:@|\(at\)|\[at\]| at )\s*[A-Z0-9.\-]+\s*(?:\.| punkt | dot )\s*[A-Z]{2,}\b/iu',
-        '/\b(?:https?:\/\/|www\.)\S+/iu',
-        '/\b(?:schreib|kontaktier|erreich|ruf|folge).{0,35}(?:whats?app|telegram|signal|facetime|skype|instagram|facebook|tiktok|snapchat|discord)\b/iu',
-        '/\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}(?:straße|strasse|str\.|weg|allee|platz|gasse)\s+\d+[a-z]?\b/u',
-        '/\b\d{5}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]{2,}\b/u',
-    );
-    foreach ( $patterns as $pattern ) if ( preg_match( $pattern, $text ) ) return true;
-    $text = preg_replace( '/\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4})\b/u', '', $text );
-    if ( preg_match_all( '/(?<!\d)(?:\+|00)?\d[\d\s().\/-]{7,}\d(?!\d)/u', $text, $phone_candidates ) ) {
-        foreach ( $phone_candidates[0] as $candidate ) {
-            if ( strlen( preg_replace( '/\D+/', '', $candidate ) ) >= 9 ) return true;
-        }
-    }
-    return false;
-}
+/*
+ * Der Kontaktschutz im Chat steht in `includes/chat/kontaktschutz.php`.
+ *
+ * Ausgelagert am 13.09.2026, als der Filter zum ersten Mal GEMESSEN wurde:
+ * er fing 15 von 23 Umgehungen und blockierte dabei sechs harmlose Saetze
+ * (Rechnungs-, Angebots-, Bestell-, Kunden- und Seriennummer sowie ein
+ * IBAN-Fragment). Beides steht jetzt als Korpus in
+ * `tests/e2e/kontaktschutz.spec.js`.
+ *
+ * In einer eigenen Datei, weil der Pruefstand sie dann einbinden kann,
+ * ohne halb WordPress zu stellen — je mehr ein Pruefstand stellt, desto
+ * weniger prueft er.
+ */
 
 function eb_messages_send( WP_REST_Request $request ) {
     global $wpdb;
@@ -9706,7 +9711,7 @@ function eb_stripe_refund( WP_REST_Request $request ) {
     if ( empty( $res['ok'] ) ) return new WP_REST_Response( array( 'message' => 'Die Zahlung kann gerade nicht geprüft werden.' ), 503 );
     $payment = $res['data'];
     $admin = function_exists( 'eb_is_admin_user' ) && eb_is_admin_user( $uid );
-    if ( ! eb_booking_refund_authorized( $payment, $uid, $admin, get_user_meta( $uid, 'eb_stripe_connect_id', true ) ) ) {
+    if ( ! eb_erstattung_darf( $admin, get_user_meta( $uid, 'eb_stripe_connect_id', true ), $payment ) ) {
         return new WP_REST_Response( array( 'message' => 'Eine Erstattung wird vom Anbieter oder Support ausgelöst. Bitte kläre deine Stornierung im Buchungs-Chat.' ), 403 );
     }
     if ( ( $payment['status'] ?? '' ) !== 'succeeded' ) return new WP_REST_Response( array( 'message' => 'Die Zahlung wurde noch nicht abgeschlossen.' ), 409 );

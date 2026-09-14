@@ -8,7 +8,7 @@ tags: [layer/L5, domain/evolution, share/internal, ux, booking]
 # Eventbörse: zusammenhängende Nutzerwege
 
 Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
-`8bf3d8e`, zusammengeführt mit Hauptzweig `a927b4e`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
+`8bf3d8e`, zusammengeführt mit Hauptzweig `6d69337`. Die ältere Arbeitskopie bleibt mit ihren vorhandenen Änderungen erhalten.
 
 ## Umgesetzt
 
@@ -48,7 +48,7 @@ Stand: 13. September 2026. Arbeitszweig `codex/event-platform-ux`, aufgebaut auf
 
 ## Prüfung
 
-Der zusammengeführte Prüfstand umfasst 1061 Tests in 68 Suiten. Neue Fälle prüfen Radar-Konsistenz,
+Der zusammengeführte Prüfstand umfasst 1082 Tests in 71 Suiten. Neue Fälle prüfen Radar-Konsistenz,
 Planung/Speicherung, Freunde/Einladungen, Kontowechsel, Centbeträge sowie die
 serverseitigen Grenzen von Angeboten und Erstattungen. PHP wird in diesen
 Grenztests ausgeführt; WordPress/Stripe werden dafür kontrolliert ersetzt.
@@ -131,3 +131,14 @@ Vorgründungssperren bleiben aktiv. Diese Änderung erhöht keine Datenbankversi
 Bei PHP-Fehlern, defektem Login oder nicht erreichbaren Kernseiten nach dem Deploy
 wird der Auslieferungscommit regulär zurückgenommen und erneut deployt; keine
 Datenbanklöschung und kein Umschreiben der Historie. Erstellte Pläne bleiben erhalten.
+
+## Zusammenführung vom 14. September
+
+Der vorherige Stand bestand sämtliche CI-Prüfungen einschließlich vollständiger
+1061er-Suite und CodeQL. Hauptzweig 6d69337 ergänzt inzwischen Kontaktfilter,
+Erstattungsberechtigung und die Entfernung unsichtbarer Dekoration. Diese Änderungen
+sind übernommen. Die Erstattungsroute nutzt jetzt die gemeinsame Berechtigungsregel;
+der dokumentierte Anbieter-Storno bleibt als ausdrücklich beauftragter UI-Weg erhalten.
+Die Aussage, die Route habe keinen UI-Aufrufer, wurde im zugehörigen Test ersetzt.
+Messenger-Kontaktaufforderungen werden erkannt, eine bloße Facebook-Erwähnung
+als Inspirationsquelle bleibt erlaubt.

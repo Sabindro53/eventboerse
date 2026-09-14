@@ -19,7 +19,8 @@ $opts=[];function get_option($k,$d=false){global $opts;return $opts[$k]??$d;}fun
 class DB {public $prefix='wp_';public $listing;public $offer;public $query='';function prepare($s,...$v){foreach($v as $x)$s=preg_replace('/%[ds]/',is_numeric($x)?$x:"'".$x."'",$s,1);return $s;}function get_row($q){return $this->listing;}function get_results($q){$this->query=$q;return $this->offer?[$this->offer]:[];}}
 $wpdb=new DB();$wpdb->listing=(object)['id'=>42,'user_id'=>2,'status'=>'active','title'=>'DJ'];$wpdb->offer=(object)['id'=>17,'offer_amount'=>100,'conversation_id'=>9];
 require ${JSON.stringify(path.join(root,'includes/booking.php'))};
-${phpFunction('eb_message_contains_off_platform_contact')}
+require ${JSON.stringify(path.join(root,'includes/chat/kontaktschutz.php'))};
+require ${JSON.stringify(path.join(root,'includes/payments/erstattung-rechte.php'))};
 ${phpFunction('eb_stripe_refund')}
 $uid=1;$dest='';$calls=[];$payment=['status'=>'succeeded','amount_received'=>10000,'transfer_data'=>['destination'=>'acct_provider'],'application_fee_amount'=>300];
 function get_current_user_id(){global $uid;return $uid;}function eb_is_admin_user($u){return $u===99;}function get_user_meta($u,$k,$s=true){global $dest;return $dest;}

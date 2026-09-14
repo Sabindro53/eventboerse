@@ -112,12 +112,6 @@ function eb_booking_record_refund( $refund ) {
     update_option( $key, $existing, false );
 }
 
-function eb_booking_refund_authorized( $pi, $uid, $admin, $connect_id ) {
-    // Paying for a service does not authorize reclaiming money unilaterally.
-    $destination = $pi['transfer_data']['destination'] ?? '';
-    return $admin || ( $connect_id && $destination && hash_equals( (string) $destination, (string) $connect_id ) );
-}
-
 /** Serialize agreement changes and checkout creation on the same DB connection. */
 function eb_booking_lock( $conversation_id ) {
     global $wpdb;
