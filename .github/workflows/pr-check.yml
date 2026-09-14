@@ -14,7 +14,35 @@ jobs:
     name: PR Check / PR-Validierung (pull_request)
     runs-on: ubuntu-latest
 
+    # ── WARUM DIESER JOB AUF `tests` WARTET ────────────────────────────
+    #
+    # Dies ist der EINZIGE Kontext, den das Ruleset auf `main` verlangt.
+    # Seine eigenen Schritte sind ein PHP-Syntaxcheck und zwei Kommentare
+    # — die sechzehn Tore und die 1122 Tests liegen alle im Job `tests`,
+    # der NICHT erzwungen wird. Ohne diese Abhängigkeit könnte ein PR mit
+    # roter Suite und roten Toren gemergt werden, sobald PHP parst.
+    needs: tests
+
+    # `always()` ist hier kein Schönheitsfehler, sondern der Kern:
+    # ohne ihn wird dieser Job bei rotem `tests` ÜBERSPRUNGEN — und ein
+    # übersprungener Pflicht-Check gilt bei GitHub als bestanden. Das
+    # wäre wieder ein Tor, das aussieht, als sperre es, und nichts tut.
+    if: always()
+
     steps:
+      # Zuerst, nicht zuletzt: ist die Suite rot, soll hier auch kein
+      # „✅ PHP-Syntax OK"-Kommentar unter dem PR stehen. Eine beruhigende
+      # Meldung an einem roten PR ist schlimmer als gar keine.
+      - name: Tore und Testsuite müssen grün sein
+        run: |
+          ergebnis="${{ needs.tests.result }}"
+          echo "E2E-Testsuite (Playwright): $ergebnis"
+          if [ "$ergebnis" != "success" ]; then
+            echo "::error::Die Testsuite und die Tore sind nicht grün ($ergebnis) — dieser Pflicht-Check bleibt deshalb rot."
+            exit 1
+          fi
+          echo "✅ Tore und Suite grün."
+
       - name: Checkout
         uses: actions/checkout@v4
 

@@ -311,8 +311,86 @@ Baum lesen, nie verändern. Der erste Versuch verbot Zeichenfolgen wie
 und überlebte. Das Wort gefunden, die Sache verfehlt — dieselbe Klasse
 wie ein Muster, das den Kommentar trifft.
 
+#### Der erzwungene Check war der Neun-Sekunden-Job
+
+Am 14.09.2026 beim Bewerten von Codex/Astras PR #268 gefunden. Eine
+einzige Zeile darin:
+
+```diff
+-    name: PR-Validierung
++    # Exact context required by the active main-protection ruleset.
++    name: PR Check / PR-Validierung (pull_request)
+```
+
+Die Änderung war **richtig und nötig**: das Ruleset auf `main` verlangt
+den Kontext `PR Check / PR-Validierung (pull_request)`, der echte
+Kontext eines Actions-Jobs ist aber sein **Jobname**. Beides passte nicht
+zusammen, der Pflicht-Check blieb ewig „expected", und PRs standen auf
+`blocked` — das ist die Sperre, an der die vierzehn Routine-PRs hingen.
+Astra hat den Code an das Ruleset angeglichen, weil sie die
+Repository-Einstellungen nicht ändern kann. Bis dahin alles korrekt.
+
+**Nur zeigt das Ruleset auf den falschen Job.** Am selben Tag über die
+API nachgemessen — genau ein erzwungener Kontext:
+
+| Job | Name | Was er tut | erzwungen |
+|---|---|---|:--:|
+| `check` | `PR Check / PR-Validierung (pull_request)` | PHP-Syntax + zwei Kommentare, **9 s** | **ja** |
+| `tests` | `E2E-Testsuite (Playwright)` | **16 Tore + 1122 Tests**, 9,5 min | nein |
+
+**Ein PR mit roter Suite und roten Toren war damit mergefähig, sobald
+PHP parst.** Vorher war das Loch durch den Nichttreffer verdeckt: was nie
+grün wird, lässt auch nichts durch. Die Reparatur des Namens hat aus
+einem fail-closed-Zustand einen fail-open gemacht — dieselbe Zeile, die
+das Merge-Problem löste, machte die Lücke erst wirksam.
+
+Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene höher: der Prüfer
+läuft wirklich, er findet auch, und sein Fund hat keine Folge — **weil
+ihn niemand abfragt.** Genau der Satz steht seit dem 09.09. über den
+sechs gepipten Toren; hier gilt er für den Branch-Schutz selbst.
+
+**Behoben im Code, nicht in den Einstellungen.** Der erzwungene Job
+hängt jetzt an `tests` und trägt dessen Urteil:
+
+```yaml
+needs: tests
+if: always()
+```
+
+**`always()` ist dabei kein Schönheitsfehler, sondern der Kern.** Ohne
+ihn wird `check` bei rotem `tests` **übersprungen** — und ein
+übersprungener Pflicht-Check gilt bei GitHub als **bestanden**. Die
+Abhängigkeit allein macht das Loch also nicht zu, sie verschiebt es nur
+von „grün" nach „grau".
+
+**Der Torschritt steht vorn, nicht hinten.** Ist die Suite rot, soll
+unter dem PR auch kein Kommentar „🚀 Deploy-Vorschau … ✅ PHP-Syntax OK"
+stehen. Eine beruhigende Meldung an einem roten PR ist schlimmer als gar
+keine.
+
+**Die saubere Lösung liegt beim Inhaber und ist eine Einstellung:** das
+Ruleset zusätzlich (oder stattdessen) auf `E2E-Testsuite (Playwright)`
+zu verlangen. Der Code-Weg hier ersetzt sie nicht, er macht die
+Anwendung sicher, solange sie aussteht — und schadet auch danach nicht.
+
+**Gemessen wird das Verhalten, nicht die Schreibweise.** Der Torschritt
+wird aus dem Workflow geschnitten, sein Actions-Ausdruck durch echte
+Ergebnisse ersetzt und mit `bash -eo pipefail` gefahren — dieselbe
+Anordnung wie beim csso-Schritt des Deploys. Ein Test auf „irgendwo
+steht `exit 1`" überlebte jede Mutation, die den Vergleich umdreht: das
+Wort stünde weiter da.
+
+Welcher Job die Suite fährt, entscheidet `npx playwright test` — **nicht
+der Jobname.** Ein Name lässt sich umbenennen, ohne dass jemand an diese
+Datei denkt, und genau eine Umbenennung hat den Fehler wirksam gemacht.
+Die Gegenprobe gehört dazu: der Job umbenannt, alle Tests weiter grün.
+
+Fünf Mutationen, jede macht die Suite rot: `needs` entfernt ·
+`if: always()` entfernt · der Vergleich umgedreht · `exit 1` entfernt ·
+der ganze Torschritt entfernt.
+
 ```bash
-npx playwright test tests/e2e/tore.spec.js   # 8 Tests, 9 Mutationen
+npx playwright test tests/e2e/tore.spec.js   # 10 Tests, 14 Mutationen
 ```
 
 ### Der Ausstieg aus `unsafe-inline`
@@ -3351,7 +3429,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1122 Tests in 74 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1124 Tests in 74 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
