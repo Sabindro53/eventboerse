@@ -15690,6 +15690,70 @@ button:disabled {
 /* ===== /EB-POLISH 2026-05-B ========================================== */
 
 /* Auftragsboard: einklappbare "So funktioniert's"-Box (mehr Platz für Buchungskarten) */
+/* ── Tagesansicht des Auftragsboards ─────────────────────────────────
+   Die Überschrift trennt die Tage. Sie klebt beim Scrollen oben an, weil
+   ein Datum, das man beim Weiterscrollen aus den Augen verliert, die
+   Gruppierung wieder wertlos macht — man weiß dann nicht, zu welchem Tag
+   die Karte gehört, die man gerade liest. */
+.auftraege-tag {
+  position: sticky;
+  top: calc(var(--nav-height) + 8px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 26px 0 12px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dark);
+}
+.auftraege-tag:first-of-type { margin-top: 4px; }
+.auftraege-tag .material-icons-round { font-size: 19px; color: var(--text-light); }
+.auftraege-tag-zahl {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+/* Heute ist der Tag, an dem jemand gleich losfahren muss. */
+.auftraege-tag.ist-heute {
+  background: rgba(255, 56, 92, 0.10);
+  border-color: rgba(255, 56, 92, 0.35);
+  color: var(--primary);
+}
+.auftraege-tag.ist-heute .material-icons-round { color: var(--primary); }
+.auftraege-tag.ist-heute .auftraege-tag-zahl { background: var(--primary); color: #fff; }
+/* Vergangenes bleibt lesbar und tritt zurück — es trägt weiter Knöpfe. */
+.auftraege-tag.ist-vergangen { opacity: 0.75; }
+.auftrag-zeiten {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark);
+}
+.auftrag-zeiten .material-icons-round { font-size: 16px; color: var(--primary); }
+.auftrag-zeiten em {
+  font-style: normal;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-light);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--bg-alt);
+}
 .auftraege-howto summary::-webkit-details-marker { display: none; }
 .auftraege-howto summary { outline: none; }
 .auftraege-howto[open] summary { margin-bottom: 2px; }

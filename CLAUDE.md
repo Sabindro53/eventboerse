@@ -2381,6 +2381,99 @@ einem Geldweg wäre eine zweite Wahrheit.
 npx playwright test tests/e2e/hochzeit-bausteine.spec.js   # 7 Tests, 5 Mutationen
 ```
 
+### Der Dienstleister sah, WAS er liefern muss — nicht, WANN
+
+Am 14.09.2026 im echten Browser gemessen. `/auftraege` ist die Tagesseite
+des Dienstleisters; drei Aufträge gestellt (24.12., 20.09., 05.10.) und
+nachgesehen, was dort wirklich steht:
+
+| | |
+|---|---|
+| Reihenfolge der Karten | **24.12. → 20.09. → 05.10.** |
+| Uhrzeit auf der Seite | **nirgends** |
+| Wege zu einer Tagesansicht in der **ganzen** Anwendung | **0** |
+
+Die Reihenfolge war die, in der die Projekte zufällig im Board-Blob
+liegen — **der nächste Termin stand in der Mitte, Heiligabend oben.** Bei
+drei Aufträgen sortiert man im Kopf; bei fünfzehn nicht mehr, und dann
+übersieht jemand den von übermorgen. Das ist kein Schönheitsfehler: die
+Tagesfrage des Anbieters lautet *„hat mich jemand angefragt, was muss ich
+liefern"* — und die Hälfte davon, **wann**, war nicht beantwortbar.
+
+**Die Zeit lag die ganze Zeit vor.** `card.times` trägt sie seit den
+Mehrfachzeiten — Fotograf zur Trauung **und** zur Party. Das Board zeigt
+sie, der Ablauf zeigt sie, und ausgerechnet der Mensch, der hinfahren
+muss, sah nur ein Datum. Dieselbe Klasse wie der Aktivitäten-Bestand, der
+neben einer erfundenen Terminliste lag: gebaut, geprüft, ausgeliefert —
+es fehlte allein die Verbindung.
+
+**Keine eigene Seite `/termine`.** Sie wäre eine zweite Liste derselben
+Aufträge und damit eine zweite Wahrheit; zwei gepflegte Fassungen
+derselben Sache driften immer. Dieselbe Begründung, aus der die
+Seitenleiste den Bestand liest, statt einen zweiten Lader zu bauen. Die
+Tagesansicht **ist** das Auftragsboard, richtig geordnet — und spart
+nebenbei Route, Rewrite-Regel und Navigationsplatz.
+
+Drei Regeln tragen die Richtigkeit, jede mutationsgeprüft:
+
+- **Kein Auftrag fällt heraus** — auch keiner ohne Datum. Ein Auftrag,
+  den eine Gruppierung verschluckt, ist schlimmer als eine schlechte
+  Reihenfolge: er ist weg, es gibt keine Meldung, und der Dienstleister
+  erfährt vom Termin gar nicht mehr. „Ohne Datum" hat deshalb eine
+  eigene Gruppe.
+- **Vergangenes wird getrennt, nicht geworfen.** Ein Auftrag von gestern
+  trägt weiter Knöpfe — Erbringung bestätigen, Zahlung, Storno.
+  Wegzufiltern nähme dem Dienstleister genau die Arbeit, die jetzt
+  ansteht; er gehört nur nicht unter „als Nächstes". Ein Test misst
+  deshalb auch, dass die letzte Karte noch einen Knopf hat.
+- **„Heute" wird lokal gerechnet.** `toISOString()` wäre der kürzere Weg
+  und der falsche: in Deutschland liegt der Umschlag ein bis zwei Stunden
+  vor Mitternacht, wer um 01:30 nachsieht, bekäme den Vortag als „heute".
+  Der Test fährt unter `Europe/Berlin` und prüft **zuerst die
+  Gegenprobe**, dass sich Ortszeit und UTC im Prüfstand überhaupt
+  unterscheiden — in einem UTC-Browser wäre er sonst grün, ohne etwas zu
+  belegen.
+
+**Gelesen wird über `ebKartenZeiten()`, nie über `card.startTime`.** Der
+Spiegel trägt nur die erste Zeit; wer ihn liest, zeigt dem Fotografen die
+Trauung und verschweigt ihm die Party. Ein offenes Ende bleibt offen
+(*„ab 20:00"*) — `20:00 – 20:00` wäre erfunden, und danach plant jemand.
+
+#### Die Mutation, die überlebte, hat eine tote Wache gefunden
+
+`ebAuftragSchluessel()` gibt Aufträgen ohne Datum absichtlich einen
+Schlüssel, der hinten einsortiert. Die Mutation „ohne Datum sortiert nach
+vorn" **überlebte** den Test an der gerenderten Seite — und das war
+richtig so: `ebAuftraegeGruppieren()` legt Datumslose ohnehin in eine
+eigene Gruppe ganz hinten, der Sortierschlüssel entscheidet dort nichts
+mehr.
+
+Die Wache war an der Oberfläche also **nicht beobachtbar**. Eine Wache
+ohne Subjekt ist eine Behauptung — genau die Klasse, an der dieses
+Projekt sonst hängenbleibt. Sie hat jetzt ihr Subjekt: der Helfer ist
+global und sortiert auch für jeden künftigen Aufrufer, der nicht
+gruppiert; gemessen wird seine **Ausgabe**, nicht seine Schreibweise.
+
+Einen Test zu erfinden, der die Wache an der Seite sichtbar macht, wäre
+der bequemere Weg gewesen und hätte eine Wirkung behauptet, die es dort
+nicht gibt.
+
+Elf Mutationen, jede macht die Suite rot: Gruppierung entfernt (**6
+rot**) · Sortierung entfernt (3) · Auftrag ohne Datum fällt heraus (2) ·
+Vergangenes weggefiltert (2) · Zeit aus dem Spiegel statt aus der Liste ·
+offenes Ende wird zur Spanne · Tag nach UTC statt Ortszeit · ohne Datum
+sortiert nach vorn · Vergangenes nicht zuletzt · keine Tagesüberschrift
+(3) · Uhrzeit nicht auf der Karte (3).
+
+**Die Tagesüberschrift klebt beim Scrollen oben an.** Ein Datum, das man
+beim Weiterscrollen aus den Augen verliert, macht die Gruppierung wieder
+wertlos — man weiß dann nicht, zu welchem Tag die Karte gehört, die man
+gerade liest.
+
+```bash
+npx playwright test tests/e2e/dienstleister-termine.spec.js   # 13 Tests, 11 Mutationen
+```
+
 ### Die Landeseite bediente eine Absicht von dreien
 
 Beim Durchgehen der Nutzerpfade am 09.09.2026 gemessen: die Landeseite ist
@@ -3667,7 +3760,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1146 Tests in 77 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1159 Tests in 78 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3751,6 +3844,12 @@ vorgefiltert, und die angelegte Karte landet wirklich AM Baustein — im echten
 Browser geklickt, im Projekt nachgesehen; der gewöhnliche Weg verknüpft nichts,
 eine abgebrochene Auswahl hinterlässt keine Notiz, und die Herkunft gilt nur
 für ihr eigenes Vorhaben),
+**Dienstleister-Termine** (das Auftragsboard beantwortet auch das WANN: der
+nächste Auftrag steht oben, bei gleichem Tag die frühere Uhrzeit zuerst, und
+die Zeit kommt aus `card.times` statt aus dem Spiegel — zwei Einsätze sind
+zwei Einsätze, ein offenes Ende bleibt offen; kein Auftrag fällt dabei heraus,
+auch keiner ohne Datum, Vergangenes steht getrennt und zuletzt und trägt
+weiter seine Knöpfe, und „heute" ist der lokale Tag, nicht der UTC-Tag),
 **Storno** (der Planer beantragt mit Frist und Begründung, der Dienstleister
 entscheidet — im echten PHP ausgeführt: nur der Zahler beantragt und nur bei
 bezahlter Buchung, entschieden wird nach DERSELBEN Regel wie erstattet, ein
@@ -4054,7 +4153,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 30 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `js/modules/` | Quelle des Frontends: 31 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
 | `styles.css` | ~17 700 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |

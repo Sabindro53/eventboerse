@@ -780,13 +780,36 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   var stageLabels = { angebot:'Gebucht', bestaetigt:'Erf\u00fcllt', abgeschlossen:'Bezahlt', geplant:'Geplant', kontaktiert:'Kontaktiert' };
   var stageColors = { angebot:'#AB47BC', bestaetigt:'#FF385C', abgeschlossen:'#00A699', geplant:'#9E9E9E', kontaktiert:'#FF9800' };
 
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px">';
-  jobs.forEach(function(j){
+  // ── Tagesansicht statt Haufen ───────────────────────────────────────
+  // Bis zum 14.09.2026 stand hier `jobs.forEach` über ein einziges
+  // Raster — in der Reihenfolge, in der die Projekte zufällig im
+  // Board-Blob liegen. Gemessen kam dabei 24.12. vor 20.09.: der
+  // nächste Termin in der Mitte. Gruppiert wird jetzt nach Tag, und
+  // `ebAuftraegeGruppieren()` hält die Regel, dass dabei kein Auftrag
+  // herausfällt — auch keiner ohne Datum.
+  var gruppen = typeof ebAuftraegeGruppieren === 'function'
+    ? ebAuftraegeGruppieren(jobs)
+    : [{ schluessel: 'alle', titel: '', jobs: jobs }];
+
+  gruppen.forEach(function(gruppe){
+  if (gruppe.titel) {
+    html += '<h3 class="auftraege-tag' + (gruppe.heute ? ' ist-heute' : '')
+      + (gruppe.vergangen ? ' ist-vergangen' : '') + '" data-termin-gruppe="'
+      + esc(gruppe.schluessel) + '">'
+      + '<span class="material-icons-round">' + (gruppe.vergangen ? 'history' : 'event') + '</span>'
+      + esc(gruppe.titel)
+      + '<span class="auftraege-tag-zahl">' + gruppe.jobs.length + '</span>'
+      + '</h3>';
+  }
+  html += '<div class="auftraege-raster" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px">';
+  gruppe.jobs.forEach(function(j){
     var c = j.card, p = j.project, l = j.listing;
     var stage = c.stage || 'geplant';
     var color = stageColors[stage] || '#9E9E9E';
     var priceStr = c.price ? (parseFloat(c.price).toFixed(2).replace(/\.00$/, '') + ' €') : '—';
     var dateStr = p.date ? _formatDateDe(p.date) : '—';
+    var zeitText = typeof ebAuftragZeitText === 'function' ? ebAuftragZeitText(j) : '';
+    var zeitZahl = typeof ebAuftragZeiten === 'function' ? ebAuftragZeiten(j).length : 0;
     var canConfirm = stage === 'angebot' && !!c.providerAcceptedAt && !c.providerConfirmedAt;
     var alreadyConfirmed = !!c.providerConfirmedAt && stage === 'angebot';
     var canAccept = stage === 'angebot' && !c.providerAcceptedAt;
@@ -829,6 +852,16 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
         customerBadge +
         '<div style="font-weight:700;font-size:16px;margin-bottom:4px">' + esc((l && l.title) || c.name || 'Auftrag') + '</div>' +
         '<div style="color:var(--text-light);font-size:13px;margin-bottom:12px">Projekt: ' + esc(p.name || '—') + '</div>' +
+        // Die Uhrzeit stand in `card.times`, seit es Mehrfachzeiten gibt —
+        // und erreichte ausgerechnet den, der hinfahren muss, nie. Gelesen
+        // über `ebAuftragZeiten()`, nicht über den Spiegel `startTime`:
+        // sonst zeigt eine Position mit zwei Einsätzen nur den ersten.
+        (zeitText
+          ? '<div class="auftrag-zeiten"><span class="material-icons-round">schedule</span>'
+            + esc(zeitText)
+            + (zeitZahl > 1 ? '<em>' + zeitZahl + ' Einsätze</em>' : '')
+            + '</div>'
+          : '') +
         '<div style="display:flex;gap:12px;font-size:13px;margin-bottom:12px">' +
           '<div><span style="color:var(--text-light)">Preis:</span> <strong>' + esc(priceStr) + '</strong></div>' +
           (c.paymentMethod ? '<div><span style="color:var(--text-light)">Zahlung:</span> <strong>' + esc(c.paymentMethod) + '</strong></div>' : '') +
@@ -838,6 +871,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     '</div>';
   });
   html += '</div>';
+  });
 
   container.innerHTML = html;
 }
