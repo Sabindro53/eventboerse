@@ -282,13 +282,37 @@ Ausdruck über `node scripts/*.mjs --check`), statt denselben Parser zu
 befragen: ein Prüfer, der sein Subjekt mit dem geprüften Werkzeug liest,
 bestätigt nur sich selbst.
 
-Sechs Mutationen, jede macht die Suite rot: Block wieder zeilenweise ·
+Neun Mutationen, jede macht die Suite rot: Block wieder zeilenweise ·
 ein echtes Tor in die Ausnahmeliste · `npm run gate` zurück auf die
 Handliste · falscher Job gelesen · Actions-Regel entfernt · `istTor`
-immer wahr.
+immer wahr · der Arbeitsbaum wird nicht angesehen · nur einmal statt
+vorher/nachher gemessen · der Läufer räumt selbst auf (in **beiden**
+Schreibweisen).
+
+**Nicht jedes Tor ist nur ein Prüfer.** Der Auftragsstrom-Schritt lautet
+`node scripts/auftragsstrom.mjs && … --check` — er **erzeugt** erst und
+prüft dann. In CI ist der Baum wegwerfbar; lokal bleibt danach eine
+geänderte Datei stehen, und vor `npm run gate` hat diesen Schritt lokal
+niemand gefahren.
+
+Beim ersten Lauf war diese Datei **kein Abfall**: `eb-auftragsstrom.json`
+auf `main` stand auf `journalStand: 2026-08-30`, während
+`assets/eb-arbeit.json` **in derselben Ablieferung** bei `2026-09-13`
+stand — ein erzeugtes Artefakt, das seiner eigenen Quelle widerspricht,
+und der Unterschied trug einen echten Befund (Nils Falk, ausserhalb des
+Rahmens). Wer so etwas reflexhaft zurücksetzt, löscht den nächsten echten
+Stand.
+
+Deshalb **nennt** der Läufer, was er geschrieben hat, und setzt nichts
+zurück. Die Regel im Test ist die **Bedingung**, nicht die Schreibweise:
+jeder `spawnSync('git', …)` des Läufers muss `status` rufen — er darf den
+Baum lesen, nie verändern. Der erste Versuch verbot Zeichenfolgen wie
+`checkout --`; die Mutation schrieb `['checkout', '--', '.']` als Array
+und überlebte. Das Wort gefunden, die Sache verfehlt — dieselbe Klasse
+wie ein Muster, das den Kommentar trifft.
 
 ```bash
-npx playwright test tests/e2e/tore.spec.js   # 7 Tests, 6 Mutationen
+npx playwright test tests/e2e/tore.spec.js   # 8 Tests, 9 Mutationen
 ```
 
 ### Der Ausstieg aus `unsafe-inline`
@@ -3206,7 +3230,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1093 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1094 Tests in 70 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1093 Tests in 70 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1094 Tests in 70 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Der Storno-Vorgang steht** (13.09.2026, PR #270). Beauftragt als *„kann er
   nicht erfüllen, muss er Bescheid geben und zurückzahlen — das muss immer
