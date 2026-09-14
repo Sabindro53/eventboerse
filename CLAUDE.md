@@ -2955,6 +2955,32 @@ das Muster **gar nicht** — ohne Local-Part vor dem `@` greift es nicht.
 Eine Diagnose, die plausibel aussieht und nicht nachgemessen wurde, kostet
 hier mehr als keine; man sucht dann am falschen Ende.
 
+**Am echten System nachgewiesen, nicht nur am Prüfstand.** Lauf **#1719**
+(14.09., 08:06) ist der erste grüne seit dem 13.09. — und sein Log belegt
+die Heilung, statt sie bloss nicht zu widerlegen:
+
+```
+⚠ Eintrag entschärft — Verbotsmuster: Lina Okafor (2026-09-13T20:05:00.439Z): E-Mail-Adresse
+Einträge : 400 · fertig : 377 · uebersprungen : 22 · gefiltert : 1
+```
+
+**Die naheliegende Gegenerklärung war, dass der verseuchte Eintrag
+einfach aus dem 400er-Deckel gefallen ist.** Sie ist ausgeschlossen, und
+zwar zweifach: der Eintrag war noch da — er wird namentlich entschärft —
+und zwischen dem letzten roten Lauf (#1718, 07:47) und dem ersten grünen
+liegen **19 Minuten**, in denen das Journal um elf Einträge wächst. Bis
+ein Eintrag vom Vorabend herausfällt, vergeht rund ein Tag.
+
+Der Unterschied ist nicht akademisch: hielte man einen Eintrag, der von
+selbst verschwindet, für eine Behebung, stünde beim nächsten erfundenen
+`@` derselbe Dauerausfall wieder da — diesmal mit einem grünen Haken in
+der Historie als Beleg, dass es „schon einmal behoben" war.
+
+**Geheilt bleibt geheilt.** Der entschärfte Eintrag trägt seinen Text
+nicht mehr; der nächste Lauf findet an ihm nichts zu entschärfen, und
+`gefiltert : 1` bleibt als Buchung stehen. Der Test führt genau das aus:
+nach **einem** Schreibvorgang ist `--check` grün.
+
 Neun Mutationen, jede macht die Suite rot: Ausnahme entfernt · zurück auf
 den kaputten Lookahead · `frei` wird ignoriert · Entschärfen tut nichts ·
 nur der neue Eintrag statt des ganzen Journals · still filtern · der
