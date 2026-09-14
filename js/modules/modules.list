@@ -22,6 +22,7 @@ board/41-flow-zahlung.js
 board/42-guide-social-feed.js
 ui/43-showcase.js
 payments/44-kv-buchung.js
+payments/45-storno.js
 ai/50-planungs-assistent.js
 ui/51-inserat-maske-kalender.js
 ui/52-release-vision.js

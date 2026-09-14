@@ -35,6 +35,13 @@ require_once get_template_directory() . '/includes/social/plan-routen.php';
 // gelesen — der Pruefstand bindet sie ein, ohne WordPress zu stellen.
 require_once get_template_directory() . '/includes/payments/erstattung-rechte.php';
 
+// Storno-Vorgang: der Planer beantragt mit Frist und Begruendung, der
+// Dienstleister entscheidet. Der Antrag bewegt kein Geld — erst die Annahme
+// erstattet, und zwar ueber die BESTEHENDE Route. Eigene Tabelle, weil ein
+// Storno zweiseitig ist und `eb_board_projects` ein Blob je Nutzer.
+require_once get_template_directory() . '/includes/payments/storno.php';
+require_once get_template_directory() . '/includes/payments/storno-routen.php';
+
 // Kontaktschutz im Chat: verhandeln ja, an der Plattform vorbei nein.
 // Wird von eb_messages_send() gerufen; ohne diese Zeile ist die Funktion
 // dort undefiniert und PHP bricht bei JEDER Nachricht ab — deshalb prueft
@@ -3806,7 +3813,24 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * ueberschreiben; die Begruendung steht in includes/social/plan.php.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '3.0' );
+    define( 'EB_DB_VERSION', '3.1' );
+}
+
+/**
+ * Alle Zusatz-Tabellen als SQL — EINE Liste fuer Anlegen UND Nachpruefen.
+ *
+ * Beide Stellen aus derselben Quelle zu speisen ist hier kein Stil, sondern
+ * der Schutz: `eb_maybe_create_tables()` setzt `eb_db_version` erst, wenn
+ * jede Tabelle wirklich da ist. Pruefte es eine andere Liste als die, die
+ * angelegt wird, spraenge die Version bei fehlender Tabelle — und die
+ * Migration liefe NIE WIEDER an. Genau das waere bei 2.8 beinahe passiert.
+ */
+function eb_zusatz_tabellen_sql() {
+    $sql = eb_social_tabellen_sql();
+    if ( function_exists( 'eb_storno_tabelle_sql' ) ) {
+        $sql[] = eb_storno_tabelle_sql();
+    }
+    return $sql;
 }
 
 function eb_create_tables() {
@@ -3964,7 +3988,7 @@ function eb_create_tables() {
     // Tabellendefinition, die von ihrem Code getrennt gepflegt wird,
     // driftet, und diese driftet unbemerkt: fehlt eine Spalte, faellt es
     // erst beim ersten Schreibversuch im Betrieb auf.
-    foreach ( eb_social_tabellen_sql() as $sql_social ) {
+    foreach ( eb_zusatz_tabellen_sql() as $sql_social ) {
         dbDelta( $sql_social );
     }
 }
@@ -4093,7 +4117,7 @@ function eb_maybe_create_tables() {
         // Deshalb wird hier nicht aufgezaehlt, sondern abgeleitet: aus
         // demselben SQL, das `eb_create_tables()` ausfuehrt. Wer eine vierte
         // Social-Tabelle anlegt, bekommt ihre Pruefung geschenkt.
-        foreach ( eb_social_tabellen_sql() as $sql_social ) {
+        foreach ( eb_zusatz_tabellen_sql() as $sql_social ) {
             if ( ! preg_match( '/CREATE TABLE\s+(\S+)\s*\(/', $sql_social, $m ) ) {
                 continue;
             }

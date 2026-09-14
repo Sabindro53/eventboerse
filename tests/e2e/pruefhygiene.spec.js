@@ -48,46 +48,12 @@ function pruefdateien() {
   return aus;
 }
 
-/**
- * Entfernt JS-Kommentare, damit die Prüfung Code trifft und nicht Prosa.
- *
- * Zeichenweise statt per Ersetzung: ein regulärer Ausdruck über
- * Kommentargrenzen ist genau der Griff, den diese Datei verbietet. Der Zustand
- * unterscheidet Zeichenkette, Zeilenkommentar, Blockkommentar und regulären
- * Ausdruck — ohne Letzteres würde `/<!--/` als Divisionszeichen gelesen.
- */
-function ohneJsKommentare(quelle) {
-  let aus = '';
-  let i = 0;
-  let zustand = 'code';
-  let anfuehrung = '';
-  while (i < quelle.length) {
-    const z = quelle[i];
-    const zz = quelle.slice(i, i + 2);
-    if (zustand === 'code') {
-      if (zz === '//') { zustand = 'zeile'; i += 2; continue; }
-      if (zz === '/*') { zustand = 'block'; i += 2; continue; }
-      if (z === '"' || z === "'" || z === '`') {
-        zustand = 'text'; anfuehrung = z; aus += z; i++; continue;
-      }
-      aus += z; i++; continue;
-    }
-    if (zustand === 'zeile') {
-      if (z === '\n') { zustand = 'code'; aus += z; }
-      i++; continue;
-    }
-    if (zustand === 'block') {
-      if (zz === '*/') { zustand = 'code'; i += 2; continue; }
-      if (z === '\n') aus += z;            // Zeilennummern bleiben brauchbar
-      i++; continue;
-    }
-    // Zeichenkette
-    if (z === '\\') { aus += quelle.slice(i, i + 2); i += 2; continue; }
-    if (z === anfuehrung) { zustand = 'code'; }
-    aus += z; i++;
-  }
-  return aus;
-}
+// Der Entferner lag bis zum 13.09.2026 HIER, als lokale Kopie — also genau
+// als der Griff, den diese Datei verbietet, nur eine Ebene höher. Aufgefallen
+// ist es, als eine Prüfung im Storno-PR den Funktionsnamen im erklärenden
+// Kommentar mitzählte und die Mutation „Knopf entfernt" überlebte. Er liegt
+// jetzt neben den anderen beiden gemeinsamen Griffen.
+const { ohneJsKommentare } = require('./lib/js-code');
 
 test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
   test('die Erhebung findet überhaupt Prüfdateien', () => {
@@ -128,6 +94,50 @@ test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
     }
     expect(treffer, `schneidet HTML-Kommentare selbst heraus statt `
       + `lib/html-kommentare.js zu benutzen: ${treffer.join(', ')}`).toHaveLength(0);
+  });
+
+  test('keine Prüfung baut den JS-Kommentar-Entferner selbst nach', () => {
+    // Dieselbe Regel wie eine Zeile darüber, nur für JavaScript — und sie
+    // fehlte, weil der Entferner bis zum 13.09.2026 als lokale Kopie in
+    // GENAU DIESER DATEI stand. Die Regel gegen Kopien hatte eine Kopie.
+    //
+    // Der Schaden ist nicht theoretisch: eine Suite ohne den Entferner
+    // misst Prosa statt Code, und in diesem Projekt sind daran schon der
+    // `require_once`-Pfad des Kontaktschutzes, `$owner_match` in der
+    // Erstattungsprüfung, das Wort „npx" neben dem Aufruf und die Frage
+    // nach dem Storno-Knopf gescheitert.
+    const GRIFF = path.join('lib', 'js-code.js');
+    const treffer = [];
+    for (const datei of pruefdateien()) {
+      if (datei.includes(GRIFF)) continue;            // dort steht er
+      const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
+      if (/function\s+ohne\w*Kommentare\s*\(/.test(code)) treffer.push(path.basename(datei));
+    }
+    expect(treffer, `baut den JS-Kommentar-Entferner selbst nach statt `
+      + `lib/js-code.js zu benutzen: ${treffer.join(', ')}`).toHaveLength(0);
+    // Gegenprobe: der gemeinsame Griff ist wirklich da. Ohne sie wäre die
+    // Regel dadurch erfüllt, dass niemand mehr Kommentare abzieht.
+    expect(pruefdateien().some((d) => d.includes(GRIFF)),
+      'der gemeinsame Griff für JS-Kommentare fehlt').toBe(true);
+  });
+
+  test('der Entferner überlebt reguläre Ausdrücke und Adressen', () => {
+    // Die zwei Fälle, an denen ein naiver Entferner scheitert — und beide
+    // kommen in diesem Projekt wirklich vor: `/<!--…-->/` in
+    // auslieferung.spec.js und `'https://api.stripe.com/…'` in
+    // functions.php-Prüfungen. Wer `//` stumpf bis zum Zeilenende
+    // wegschneidet, frisst die halbe Adresse.
+    const probe = [
+      'const re = /<!--[\\s\\S]*?-->/g;',
+      "const u = 'https://api.stripe.com/v1/refunds';",
+      'const d = summe / anzahl / 2;',
+      '// echter Kommentar',
+    ].join('\n');
+    const rein = ohneJsKommentare(probe);
+    expect(rein, 'der reguläre Ausdruck wurde angeschnitten').toContain('/<!--[\\s\\S]*?-->/g');
+    expect(rein, 'die Adresse wurde ab `//` verschluckt').toContain('api.stripe.com/v1/refunds');
+    expect(rein, 'eine Division wurde als Ausdruck gelesen').toContain('summe / anzahl / 2');
+    expect(rein, 'der echte Kommentar überlebt').not.toContain('echter Kommentar');
   });
 
   test('keine Prüfung fragt einen Host per Teilstring ab', () => {
