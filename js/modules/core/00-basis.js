@@ -55,6 +55,67 @@ function ebAssetUrl(datei) {
 }
 
 /* ============================================================================
+ * GEBÜHRENMODELL — der Satz kommt vom Server, nicht aus dem Code
+ *
+ * `eb_stripe_platform_fee_rate()` und ihre zwei Nachbarn in `functions.php`
+ * lesen Konstanten aus `wp-config.php`. Der Satz ist damit ein
+ * Betriebsparameter, kein Naturgesetz — und genau dieser Satz geht als
+ * `application_fee_amount` an Stripe.
+ *
+ * Bis zum 14.09.2026 trug das Frontend ihn als DREI feste Zahlen nach und
+ * schrieb „3 %" an ACHT Stellen aus. Darunter: der Abrechnungsbeleg, den
+ * `downloadBusinessInvoice()` erzeugt, zwei Nachrichten an den
+ * Dienstleister und der Satz in der Buchungserklärung. Hätte der Inhaber
+ * die Konstante gesetzt — wozu sie da ist —, wären alle acht falsch
+ * geworden, ohne dass jemand eine Zeile anfasst.
+ *
+ * Der Kommentar über der alten Definition nannte sich selbst einen
+ * „Spiegel von eb_stripe_calculate_fee_quote" und beschrieb damit die
+ * Drift, gegen die er nichts unternahm.
+ *
+ * Der Wert wird GEPRÜFT, nicht geglaubt: eine kaputte oder verfälschte
+ * Antwort darf keine Provision von 500 % erfinden. Die Grenzen sind
+ * dieselben, die PHP setzt.
+ * ========================================================================= */
+
+function ebGebuehrenWert(feld, standard, hoechstens) {
+  var g = (typeof window !== 'undefined' && window.eventboerseApi
+    && window.eventboerseApi.gebuehren) || null;
+  var wert = g ? Number(g[feld]) : NaN;
+  if (!isFinite(wert) || wert < 0 || wert > hoechstens) return standard;
+  return wert;
+}
+
+var EB_PLATFORM_FEE_RATE = ebGebuehrenWert('plattformSatz', 0.03, 0.30);
+var EB_STRIPE_FEE_RATE = ebGebuehrenWert('stripeSatz', 0.015, 0.10);
+// PHP rechnet in Cent, das Frontend in Euro.
+var EB_STRIPE_FEE_FIXED = ebGebuehrenWert('stripeFixCent', 25, 500) / 100;
+
+/**
+ * Der Satz als Text — „3 %", „4,5 %".
+ *
+ * Wer ihn ausschreibt, statt ihn zu rechnen, baut die neunte Fundstelle.
+ */
+function ebProvisionText() {
+  var prozent = Math.round(EB_PLATFORM_FEE_RATE * 1000) / 10;
+  return String(prozent).replace('.', ',') + ' %';
+}
+
+/**
+ * Füllt jede feste Textstelle in der Shell mit dem geltenden Satz.
+ *
+ * Markup kann nicht rechnen. Der Vorgabewert steht deshalb im HTML — wer
+ * die Seite ohne JavaScript liest, sieht den Regelfall — und hier wird er
+ * einmal beim Start gegen die Wahrheit getauscht.
+ */
+function ebProvisionTexteFuellen() {
+  if (typeof document === 'undefined') return 0;
+  var stellen = document.querySelectorAll('[data-eb-provision]');
+  for (var i = 0; i < stellen.length; i++) stellen[i].textContent = ebProvisionText();
+  return stellen.length;
+}
+
+/* ============================================================================
  * BEWEGUNGSREDUKTION — eine Stelle, live gefragt
  *
  * Vier Module fragten `prefers-reduced-motion` je mit einer eigenen Kopie der

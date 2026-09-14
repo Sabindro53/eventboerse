@@ -55,6 +55,67 @@ function ebAssetUrl(datei) {
 }
 
 /* ============================================================================
+ * GEBÜHRENMODELL — der Satz kommt vom Server, nicht aus dem Code
+ *
+ * `eb_stripe_platform_fee_rate()` und ihre zwei Nachbarn in `functions.php`
+ * lesen Konstanten aus `wp-config.php`. Der Satz ist damit ein
+ * Betriebsparameter, kein Naturgesetz — und genau dieser Satz geht als
+ * `application_fee_amount` an Stripe.
+ *
+ * Bis zum 14.09.2026 trug das Frontend ihn als DREI feste Zahlen nach und
+ * schrieb „3 %" an ACHT Stellen aus. Darunter: der Abrechnungsbeleg, den
+ * `downloadBusinessInvoice()` erzeugt, zwei Nachrichten an den
+ * Dienstleister und der Satz in der Buchungserklärung. Hätte der Inhaber
+ * die Konstante gesetzt — wozu sie da ist —, wären alle acht falsch
+ * geworden, ohne dass jemand eine Zeile anfasst.
+ *
+ * Der Kommentar über der alten Definition nannte sich selbst einen
+ * „Spiegel von eb_stripe_calculate_fee_quote" und beschrieb damit die
+ * Drift, gegen die er nichts unternahm.
+ *
+ * Der Wert wird GEPRÜFT, nicht geglaubt: eine kaputte oder verfälschte
+ * Antwort darf keine Provision von 500 % erfinden. Die Grenzen sind
+ * dieselben, die PHP setzt.
+ * ========================================================================= */
+
+function ebGebuehrenWert(feld, standard, hoechstens) {
+  var g = (typeof window !== 'undefined' && window.eventboerseApi
+    && window.eventboerseApi.gebuehren) || null;
+  var wert = g ? Number(g[feld]) : NaN;
+  if (!isFinite(wert) || wert < 0 || wert > hoechstens) return standard;
+  return wert;
+}
+
+var EB_PLATFORM_FEE_RATE = ebGebuehrenWert('plattformSatz', 0.03, 0.30);
+var EB_STRIPE_FEE_RATE = ebGebuehrenWert('stripeSatz', 0.015, 0.10);
+// PHP rechnet in Cent, das Frontend in Euro.
+var EB_STRIPE_FEE_FIXED = ebGebuehrenWert('stripeFixCent', 25, 500) / 100;
+
+/**
+ * Der Satz als Text — „3 %", „4,5 %".
+ *
+ * Wer ihn ausschreibt, statt ihn zu rechnen, baut die neunte Fundstelle.
+ */
+function ebProvisionText() {
+  var prozent = Math.round(EB_PLATFORM_FEE_RATE * 1000) / 10;
+  return String(prozent).replace('.', ',') + ' %';
+}
+
+/**
+ * Füllt jede feste Textstelle in der Shell mit dem geltenden Satz.
+ *
+ * Markup kann nicht rechnen. Der Vorgabewert steht deshalb im HTML — wer
+ * die Seite ohne JavaScript liest, sieht den Regelfall — und hier wird er
+ * einmal beim Start gegen die Wahrheit getauscht.
+ */
+function ebProvisionTexteFuellen() {
+  if (typeof document === 'undefined') return 0;
+  var stellen = document.querySelectorAll('[data-eb-provision]');
+  for (var i = 0; i < stellen.length; i++) stellen[i].textContent = ebProvisionText();
+  return stellen.length;
+}
+
+/* ============================================================================
  * BEWEGUNGSREDUKTION — eine Stelle, live gefragt
  *
  * Vier Module fragten `prefers-reduced-motion` je mit einer eigenen Kopie der
@@ -17447,13 +17508,18 @@ window.addEventListener('pagehide', function() {
   } catch(e) {}
 });
 
-// Gebührenmodell (Spiegel von eb_stripe_calculate_fee_quote in functions.php):
-// Vom Buchungsbetrag gehen Plattformprovision UND Stripe-Zahlungsgebühr ab —
-// beide trägt der Dienstleister. Die Stripe-Gebühr ist ein Schätzwert
-// (EWR-Karten), der endgültige Betrag hängt von Zahlungsmethode/Kartenland ab.
-var EB_PLATFORM_FEE_RATE = 0.03;
-var EB_STRIPE_FEE_RATE = 0.015;
-var EB_STRIPE_FEE_FIXED = 0.25;
+// Gebührenmodell: Vom Buchungsbetrag gehen Plattformprovision UND
+// Stripe-Zahlungsgebühr ab — beide trägt der Dienstleister. Die
+// Stripe-Gebühr ist ein Schätzwert (EWR-Karten), der endgültige Betrag
+// hängt von Zahlungsmethode und Kartenland ab.
+//
+// EB_PLATFORM_FEE_RATE, EB_STRIPE_FEE_RATE und EB_STRIPE_FEE_FIXED standen
+// hier bis zum 14.09.2026 als feste Zahlen — als „Spiegel" der PHP-Funktion
+// bezeichnet, obwohl PHP sie aus `wp-config.php` liest und dieser Spiegel
+// einer Änderung nicht folgen konnte. Sie kommen jetzt aus
+// `core/00-basis.js` und damit vom Server. Hier nichts neu definieren: bei
+// zwei `var` gleichen Namens gewinnt in der Verkettung das spätere, und das
+// wäre wieder die feste Zahl.
 
 function calculatePayout(priceGross) {
   var gross = Math.round((parseFloat(priceGross) || 0) * 100) / 100;
@@ -17519,7 +17585,7 @@ function _payoutBreakdownHtml(priceNum) {
   var q = calculatePayout(priceNum);
   return '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
     '<div style="display:flex;justify-content:space-between"><span>Brutto (Kunde zahlt)</span><span>' + _escHtml(_formatEuro(q.grossAmount)) + '</span></div>' +
-    '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>&minus;' + _escHtml(_formatEuro(q.platformFeeAmount)) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (' + _escHtml(ebProvisionText()) + ')</span><span>&minus;' + _escHtml(_formatEuro(q.platformFeeAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between"><span>Stripe-Zahlungsgeb&uuml;hr (Vorschau)</span><span>&minus;' + _escHtml(_formatEuro(q.stripeFeeAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Voraussichtliche Auszahlung</span><strong style="color:#66bb6a">' + _escHtml(_formatEuro(q.netPayoutAmount)) + '</strong></div>' +
     '<div style="margin-top:6px;font-size:11px;color:var(--text-light)">' + _escHtml(q.note) + '</div>' +
@@ -17607,7 +17673,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     '</summary>' +
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
-      '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen 3% Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
+      '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen ' + _escHtml(ebProvisionText()) + ' Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
       '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.<br>' +
       '4. Der Kunde kann das angenommene Angebot vor dem Event bezahlen. Bei einer Absage durch dich öffnest du <strong>Zahlung &amp; Stornierung verwalten</strong> und veranlasst die vollständige Erstattung.' +
     '</div>' +
@@ -17747,7 +17813,7 @@ function acceptAuftragRemote(customerId, projectId, cardId) {
   var payout = calculatePayout(priceNum);
   var msg = 'Auftrag verbindlich annehmen?\n\n' +
     (priceNum > 0 ? 'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
-    '\u2013 Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    '\u2013 Eventb\u00f6rse-Provision (' + ebProvisionText() + '): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
     '\u2013 Stripe-Zahlungsgeb\u00fchr (ca.): ' + _formatEuro(payout.stripeFeeAmount) + '\n' +
     'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' : '') +
     'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
@@ -17789,7 +17855,7 @@ function acceptAuftragProvider(projectId, cardId) {
 
   var msg = 'Auftrag verbindlich annehmen?\n\n' +
     'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
-    '– Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    '– Eventb\u00f6rse-Provision (' + ebProvisionText() + '): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
     '– Stripe-Zahlungsgeb\u00fchr (ca.): ' + _formatEuro(payout.stripeFeeAmount) + '\n' +
     'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' +
     'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
@@ -28924,7 +28990,7 @@ function _renderBusinessCockpitData(jobs, offline) {
     return sum + (_cardHasConfirmedPayment(j && j.card) ? _rvPrice(j) : 0);
   }, 0);
   var open = _businessJobs.filter(function(j){ return _rvStatus(j) !== 'abgeschlossen'; }).length;
-  var fee = paid * 0.03;
+  var fee = paid * EB_PLATFORM_FEE_RATE;
   var paidOut = Math.max(0, paid - fee);
 
   var header = '<div class="release-hero"><div><span class="release-kicker">DIENSTLEISTER-ZENTRALE</span><h1>Dein Business auf einen Blick</h1><p>Aufträge, Einnahmen, Steuern, Rechnungen und Profilmedien – an einem Ort.</p></div>' +
@@ -28934,7 +29000,7 @@ function _renderBusinessCockpitData(jobs, offline) {
     _businessKpi('payments', _rvMoney(booked), 'Auftragsvolumen', _businessJobs.length + ' Aufträge') +
     _businessKpi('account_balance_wallet', _rvMoney(paidOut), 'Auszahlung nach Provision', 'vor individuellen Steuern') +
     _businessKpi('pending_actions', String(open), 'Offene Aufträge', 'noch nicht abgeschlossen') +
-    _businessKpi('receipt_long', _rvMoney(fee), 'Plattformprovision', '3 % auf bezahlte Aufträge') + '</div>';
+    _businessKpi('receipt_long', _rvMoney(fee), 'Plattformprovision', ebProvisionText() + ' auf bezahlte Aufträge') + '</div>';
   root.innerHTML = header + sync + kpis + '<div class="business-grid"><section class="release-panel business-chart-panel"><div class="release-panel-head"><div><span class="release-kicker">UMSATZVERLAUF</span><h2>Einnahmen &amp; Pipeline</h2></div><button class="btn-outline btn-sm" onclick="navigateTo(\'auftraege\')">Alle Aufträge</button></div>' + _businessChart(_businessJobs) + '</section>' +
     '<section class="release-panel"><div class="release-panel-head"><div><span class="release-kicker">STEUERPROFIL</span><h2>Rechnungsangaben</h2></div></div>' + _businessTaxForm() + '</section></div>' +
     '<section class="release-panel business-invoices"><div class="release-panel-head"><div><span class="release-kicker">DOKUMENTE</span><h2>Rechnungen &amp; Aufträge</h2></div><span class="release-note">PDF-Belege sind eine Abrechnungsübersicht, keine Steuerberatung.</span></div>' + _businessInvoiceTable(_businessJobs) + '</section>' +
@@ -29029,7 +29095,7 @@ function _simplePdf(lines) {
 }
 function downloadBusinessInvoice(index) {
   var j = _businessJobs[index]; if (!j) return;
-  var gross = _rvPrice(j), platform = gross*0.03;
+  var gross = _rvPrice(j), platform = gross * EB_PLATFORM_FEE_RATE;
   var t = currentUser && currentUser.taxProfile || {};
   var vat = t.smallBusiness === false ? gross * Number(t.vatRate||19) / (100+Number(t.vatRate||19)) : 0;
   var no = _businessInvoiceNo(j,index);
@@ -29042,7 +29108,7 @@ function downloadBusinessInvoice(index) {
     'Datum: ' + _rvDate(j).toLocaleDateString('de-DE'),
     'Status: ' + _rvStageLabel(_rvStatus(j)),
     'Bruttobetrag: ' + _rvMoney(gross),
-    'Eventboerse Provision (3%): -' + _rvMoney(platform),
+    'Eventboerse Provision (' + ebProvisionText() + '): -' + _rvMoney(platform),
     (t.smallBusiness === false ? 'Enthaltene Umsatzsteuer: ' + _rvMoney(vat) : 'Hinweis: Kleinunternehmer nach Paragraph 19 UStG'),
     'Voraussichtliche Auszahlung vor Zahlungsgebuehr: ' + _rvMoney(gross-platform),
     'Zahlungs- und Steueruebersicht - keine Steuerberatung.'
@@ -29170,6 +29236,14 @@ document.addEventListener('DOMContentLoaded',function(){
     if (typeof EVENTS !== 'undefined') n += window.ebDemoBilderUmschreiben(EVENTS);
     void n;
   } catch (e) { /* Ein fehlgeschlagenes Umbiegen darf die Seite nicht aufhalten. */ }
+})();
+
+/* Der Provisionssatz in der festen Shell-Erklärung. `app.js` läuft mit
+   `defer`, das Markup steht also. Einmal beim Start, nicht bei jedem
+   Rendern: der Satz ändert sich zwischen zwei Seitenaufrufen nicht. */
+(function () {
+  if (typeof ebProvisionTexteFuellen !== 'function') return;
+  try { ebProvisionTexteFuellen(); } catch (e) { /* Text bleibt beim Vorgabewert. */ }
 })();
 /* ══════════════════════════════════════════════════════════════════
    FREUNDE UND GRUPPEN — gemeinsame Vorhaben

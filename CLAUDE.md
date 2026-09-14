@@ -2881,6 +2881,85 @@ npx playwright test tests/e2e/storno.spec.js          # 8 Tests, PHP wirklich au
 npx playwright test tests/e2e/storno-ansicht.spec.js  # 15 Tests, echter Browser
 ```
 
+### Der Provisionssatz stand elfmal im Code — und einmal in wp-config.php
+
+Am 14.09.2026 beim Durchgehen des Dienstleister-Bereichs gemessen.
+`eb_stripe_platform_fee_rate()` liest die Konstante `EB_PLATFORM_FEE_RATE`
+aus `wp-config.php`, klemmt sie auf 0–30 % und schickt das Ergebnis als
+`application_fee_amount` an Stripe. **Der Satz ist ein Betriebsparameter,
+kein Naturgesetz** — die Konstante existiert genau dafür.
+
+Das Frontend trug ihn nach:
+
+| | |
+|---|---|
+| **drei** feste Zahlen | `EB_PLATFORM_FEE_RATE` 0.03, `EB_STRIPE_FEE_RATE` 0.015, `EB_STRIPE_FEE_FIXED` 0.25 |
+| **acht** Textstellen | „3%" ausgeschrieben |
+
+Und die acht sind nicht Zierrat:
+
+- `downloadBusinessInvoice()` schreibt *„Eventboerse Provision (3%)"* in
+  einen **Abrechnungsbeleg** — ein Dokument für die Buchhaltung des
+  Dienstleisters;
+- zwei Stellen schreiben denselben Satz in **Nachrichten an den
+  Dienstleister**;
+- `app-shell.html` erklärt vor der Buchung: *„Eventbörse behält 3%
+  Plattformprovision als Stripe Application Fee ein"*;
+- das Business-Cockpit rechnet `paid * 0.03` und beschriftet die Kachel
+  mit *„3 % auf bezahlte Aufträge"*.
+
+**Hätte der Inhaber die Konstante gesetzt, wären alle acht in derselben
+Sekunde falsch geworden** — ohne dass jemand eine Zeile anfasst, ohne
+Fehlermeldung, und abgebucht würde trotzdem der neue Satz. Die Auszahlung
+im Cockpit, die Rechnung, die Zusage im Chat: drei Geldaussagen, die sich
+selbst überholen.
+
+**Der Kommentar über der alten Definition beschrieb die Drift und tat
+nichts dagegen.** Er lautete *„Gebührenmodell (Spiegel von
+`eb_stripe_calculate_fee_quote` in functions.php)"*. Ein Spiegel, der
+seinem Original nicht folgen kann, ist kein Spiegel, sondern ein Foto.
+
+**Der Satz kommt jetzt über `eventboerseApi.gebuehren`**, denselben Weg
+wie `themeUrl` und `demoBilder` — einmal beim Laden, alle drei Werte, aus
+denselben PHP-Funktionen, die auch abrechnen.
+
+**Geprüft, nicht geglaubt.** `ebGebuehrenWert()` nimmt einen Wert nur an,
+wenn er endlich, nicht negativ und unterhalb derselben Grenze liegt, die
+PHP setzt. Eine kaputte oder verfälschte Antwort darf keine Provision von
+500 % erfinden; im Zweifel gilt der Regelsatz.
+
+**Der Text wird gerechnet, nicht geschrieben.** `ebProvisionText()` bildet
+„3 %", „4,5 %" — deutsches Dezimalkomma. Eine richtige Zahl neben einem
+falschen Satz ist nicht halb richtig: genau so stand drei Monate lang ein
+Empfänger in der Rechnungsmail, der längst nicht mehr mitlas.
+
+**Markup kann nicht rechnen**, deshalb trägt die Shell-Erklärung
+`data-eb-provision` mit dem Regelsatz als Inhalt — wer ohne JavaScript
+liest, sieht den Normalfall — und `ebProvisionTexteFuellen()` tauscht ihn
+einmal beim Start gegen die Wahrheit.
+
+**Eine zweite Definition wäre die ganze Arbeit rückgängig.** `app.js` ist
+eine Verkettung; bei zwei `var` gleichen Namens gewinnt die spätere
+Zuweisung. Genau daran waren hier schon `renderFeed()` und
+`_fetchWithTimeout()` tot. Ein Test zählt deshalb die Definitionen.
+
+Sieben Mutationen, jede macht die Suite rot: Satz wieder fest verdrahtet ·
+keine Prüfung, roher Wert · Obergrenze entfernt · Text wieder als feste
+Zahl · PHP liefert die Sätze nicht mehr · zweite Definition im Board ·
+der Shell-Text wird nicht gefüllt.
+
+**Und die fünfte Kommentar-Falle des Tages steckte im eigenen Test.**
+Die Mutation „PHP liefert die Sätze nicht mehr" überlebte zunächst: der
+Test suchte `eb_stripe_platform_fee_rate()` im Localize-Block — und fand
+den Namen im **erklärenden Kommentar**, den ich eine Zeile darüber selbst
+geschrieben hatte. Gemessen wird jetzt über `lib/php-code.js`, den Griff,
+der genau dafür seit dem 13.09. existiert und nach dem niemand gegriffen
+hat.
+
+```bash
+npx playwright test tests/e2e/gebuehrensatz.spec.js   # 7 Tests, 7 Mutationen
+```
+
 ### Eine Adresse, die mit der Route wanderte
 
 Aufgefallen am 09.09.2026 beim Durchgehen der Nutzerpfade: die Jetzt-Ansicht
@@ -3518,7 +3597,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1131 Tests in 75 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1138 Tests in 76 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3591,6 +3670,9 @@ Registrierung, nicht in der Anmeldung),
 hinter einem `display: none`, an fünf Breiten gemessen; das Konfetti läuft aus
 statt endlos zu kreisen, läuft aber überhaupt erst einmal; die Rundenzahl
 steht an einer Stelle, und jeder Konfetti-Punkt hat seinen Streifen),
+**Gebührensatz** (der Provisionssatz kommt vom Server, nicht aus dem Code — bei
+einem geänderten Satz stimmen Rechnung UND Text, ein unsinniger Wert wird
+abgewiesen, und keine zweite Definition überschreibt ihn),
 **Hochzeit aus Bausteinen** (der Baustein-Knopf öffnet die Anbieter-Auswahl
 vorgefiltert, und die angelegte Karte landet wirklich AM Baustein — im echten
 Browser geklickt, im Projekt nachgesehen; der gewöhnliche Weg verknüpft nichts,

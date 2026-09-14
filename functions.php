@@ -849,6 +849,18 @@ function eventboerse_enqueue_assets() {
         // — und was hier fehlt, geht unveraendert weiter an seinen Ursprung.
         // Leer heisst: der Import lief noch nicht, nicht "es gibt keine".
         'demoBilder' => (object) ( (array) get_option( EB_DEMO_BILDER_OPTION, array() ) ),
+        // Gebuehrenmodell — DIE Saetze, mit denen wirklich abgerechnet wird.
+        // eb_stripe_platform_fee_rate() und ihre zwei Nachbarn lesen
+        // Konstanten aus wp-config.php; das Frontend trug sie bis zum
+        // 14.09.2026 als drei feste Zahlen nach und schrieb "3 %" an acht
+        // Stellen aus — darunter ein Abrechnungsbeleg. Wer den Satz
+        // umstellt, aendert damit nicht die Anzeige, sondern nur die
+        // Abbuchung; genau diese Luecke schliesst diese Zeile.
+        'gebuehren'  => array(
+            'plattformSatz' => eb_stripe_platform_fee_rate(),
+            'stripeSatz'    => eb_stripe_processing_fee_rate(),
+            'stripeFixCent' => eb_stripe_processing_fee_fixed_cents(),
+        ),
     ) );
 }
 add_action( 'wp_enqueue_scripts', 'eventboerse_enqueue_assets' );

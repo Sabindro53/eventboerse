@@ -585,13 +585,18 @@ window.addEventListener('pagehide', function() {
   } catch(e) {}
 });
 
-// Gebührenmodell (Spiegel von eb_stripe_calculate_fee_quote in functions.php):
-// Vom Buchungsbetrag gehen Plattformprovision UND Stripe-Zahlungsgebühr ab —
-// beide trägt der Dienstleister. Die Stripe-Gebühr ist ein Schätzwert
-// (EWR-Karten), der endgültige Betrag hängt von Zahlungsmethode/Kartenland ab.
-var EB_PLATFORM_FEE_RATE = 0.03;
-var EB_STRIPE_FEE_RATE = 0.015;
-var EB_STRIPE_FEE_FIXED = 0.25;
+// Gebührenmodell: Vom Buchungsbetrag gehen Plattformprovision UND
+// Stripe-Zahlungsgebühr ab — beide trägt der Dienstleister. Die
+// Stripe-Gebühr ist ein Schätzwert (EWR-Karten), der endgültige Betrag
+// hängt von Zahlungsmethode und Kartenland ab.
+//
+// EB_PLATFORM_FEE_RATE, EB_STRIPE_FEE_RATE und EB_STRIPE_FEE_FIXED standen
+// hier bis zum 14.09.2026 als feste Zahlen — als „Spiegel" der PHP-Funktion
+// bezeichnet, obwohl PHP sie aus `wp-config.php` liest und dieser Spiegel
+// einer Änderung nicht folgen konnte. Sie kommen jetzt aus
+// `core/00-basis.js` und damit vom Server. Hier nichts neu definieren: bei
+// zwei `var` gleichen Namens gewinnt in der Verkettung das spätere, und das
+// wäre wieder die feste Zahl.
 
 function calculatePayout(priceGross) {
   var gross = Math.round((parseFloat(priceGross) || 0) * 100) / 100;
@@ -657,7 +662,7 @@ function _payoutBreakdownHtml(priceNum) {
   var q = calculatePayout(priceNum);
   return '<div style="padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:10px">' +
     '<div style="display:flex;justify-content:space-between"><span>Brutto (Kunde zahlt)</span><span>' + _escHtml(_formatEuro(q.grossAmount)) + '</span></div>' +
-    '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (3%)</span><span>&minus;' + _escHtml(_formatEuro(q.platformFeeAmount)) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Eventb&ouml;rse-Provision (' + _escHtml(ebProvisionText()) + ')</span><span>&minus;' + _escHtml(_formatEuro(q.platformFeeAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between"><span>Stripe-Zahlungsgeb&uuml;hr (Vorschau)</span><span>&minus;' + _escHtml(_formatEuro(q.stripeFeeAmount)) + '</span></div>' +
     '<div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--text)"><span>Voraussichtliche Auszahlung</span><strong style="color:#66bb6a">' + _escHtml(_formatEuro(q.netPayoutAmount)) + '</strong></div>' +
     '<div style="margin-top:6px;font-size:11px;color:var(--text-light)">' + _escHtml(q.note) + '</div>' +
@@ -745,7 +750,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
     '</summary>' +
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
-      '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen 3% Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
+      '2. Du pr&uuml;fst die Details und klickst auf <strong>&bdquo;Auftrag annehmen&ldquo;</strong> &ndash; damit ist der Deal fix. Vom Buchungsbetrag gehen ' + _escHtml(ebProvisionText()) + ' Eventb&ouml;rse-Provision und die Stripe-Zahlungsgeb&uuml;hr ab &ndash; den Rest bekommst du ausgezahlt.<br>' +
       '3. Am Event-Tag best&auml;tigt <strong>der Kunde</strong> die Erbringung, <strong>du</strong> best&auml;tigst hier die Abnahme. Erst dann ist der Auftrag <em>erf&uuml;llt</em>.<br>' +
       '4. Der Kunde kann das angenommene Angebot vor dem Event bezahlen. Bei einer Absage durch dich öffnest du <strong>Zahlung &amp; Stornierung verwalten</strong> und veranlasst die vollständige Erstattung.' +
     '</div>' +
@@ -885,7 +890,7 @@ function acceptAuftragRemote(customerId, projectId, cardId) {
   var payout = calculatePayout(priceNum);
   var msg = 'Auftrag verbindlich annehmen?\n\n' +
     (priceNum > 0 ? 'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
-    '\u2013 Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    '\u2013 Eventb\u00f6rse-Provision (' + ebProvisionText() + '): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
     '\u2013 Stripe-Zahlungsgeb\u00fchr (ca.): ' + _formatEuro(payout.stripeFeeAmount) + '\n' +
     'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' : '') +
     'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
@@ -927,7 +932,7 @@ function acceptAuftragProvider(projectId, cardId) {
 
   var msg = 'Auftrag verbindlich annehmen?\n\n' +
     'Brutto: ' + _formatEuro(payout.grossAmount) + '\n' +
-    '– Eventb\u00f6rse-Provision (3%): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
+    '– Eventb\u00f6rse-Provision (' + ebProvisionText() + '): ' + _formatEuro(payout.platformFeeAmount) + '\n' +
     '– Stripe-Zahlungsgeb\u00fchr (ca.): ' + _formatEuro(payout.stripeFeeAmount) + '\n' +
     'Voraussichtliche Auszahlung: ' + _formatEuro(payout.netPayoutAmount) + '\n\n' +
     'Stripe-Zahlungsgeb\u00fchren werden im Stripe-Dashboard final ausgewiesen.';
