@@ -2222,6 +2222,95 @@ deshalb geht die Suche nur über den Handle. Die Datenschutzerklärung hat
 Abschnitt **10a**. Kein neuer Speicherschlüssel, also keine Änderung an
 `Cookie-Liste.md`.
 
+### Die Hochzeit aus Bausteinen — und das letzte Glied, das fehlte
+
+Codex/Astra hat die Bausteine mit #268 gebaut: `EB_PLANNING_FRAGMENTS` in
+`js/modules/board/43-planungs-zentrale.js` führt **achtzehn** Fragmente
+für eine Hochzeit — Location, Trauung, Catering, DJ, Fotos, Floristik,
+Torte, Ringe, Shuttle, Kinderbetreuung, Wetterplan — jedes mit einer
+Dienstleister-Kategorie und einem Knopf „*Kategorie* finden". Das ist
+genau der Auftrag: **ein Vorhaben aus Teilen zusammensetzen, statt
+vierzehn Einzelsuchen zu führen.**
+
+Die Arbeit ist gut und vollständig verdrahtet — am 14.09.2026
+nachgezählt: zwölf Funktionen, **keine ohne Aufrufer**, Modul in
+`modules.list`. Genau die Fehlerklasse, an der dieses Projekt sonst
+hängenbleibt, ist hier vermieden.
+
+**Ein Glied fehlte trotzdem, und es war das letzte.** `fragment.cardId`
+wurde im ganzen Frontend an **genau einer** Stelle geschrieben: von Hand,
+über das Dropdown „Leistung im Board". Der Knopf „DJ finden" öffnete die
+Anbieter-Auswahl vorgefiltert — und merkte sich **nicht**, für welchen
+Baustein.
+
+Die Folge für den Planer:
+
+| | |
+|---|---|
+| Karte auf dem Board | **ist da** |
+| Baustein | zeigt weiter „noch offen" |
+| Restbudget | rechnet den gebuchten Posten **weiter mit** |
+
+Das ist die vertraute Schadensart: es sieht heil aus und tut nur das
+halbe. Aufgefallen wäre es nie über einen Fehler, sondern erst über eine
+Budgetzahl, der niemand glaubt.
+
+**Die Herkunft steht am Dialog, nicht in einer Modulvariablen.** Der
+Knopf schreibt `data-planning-fragment` und `data-planning-project` an
+das offene `#addProviderModal`; `_addProviderCard()` liest sie, bevor es
+den Dialog entfernt. Eine Modulvariable wäre der bequemere Weg und der
+gefährlichere: wer „DJ finden" öffnet, es sich anders überlegt und später
+etwas ganz anderes einträgt, bekäme eine **falsche** Verknüpfung —
+lautlos, im Markup unauffällig. Am Dialog stirbt die Notiz mit ihm.
+
+**Die Projekt-Kennung wird mitgeprüft.** Beide Hochzeiten tragen dieselben
+Baustein-Kennungen (`music`, `venue`, …); ohne die Wache landete eine
+Karte am gleichnamigen Baustein eines **fremden** Vorhabens. Über die
+Oberfläche ist das heute nicht erreichbar — ein Wächter ohne Test ist
+aber eine Behauptung, und der Fall steht deshalb als eigener Test da.
+
+**Die Liste wird festgeschrieben, bevor hineingeschrieben wird.**
+`planningFragments()` **leitet** sie ab, solange das Projekt keine eigene
+hat — bei jedem Aufruf neu. Eine Verknüpfung ohne das vorherige
+`project.fragments = planningFragments(project)` landete in einer Kopie:
+für einen Augenblick sichtbar, beim nächsten Lesen weg. Alt-Projekte von
+vor #268 sind genau dieser Fall.
+
+**Gemessen wird die Wirkung, nicht das Markup.** Geklickt wird der echte
+Knopf, abgeschickt das echte Formular, nachgesehen wird im Projekt — und
+zusätzlich im Bild: das `<select>` des Bausteins muss die Karte tragen,
+sonst überlebt die Mutation „verknüpfen, aber nicht neu zeichnen".
+
+**Der Prüfstand stellte sich zuerst selbst das Bein.** Die erste Fassung
+setzte `_boardProjects` und `_activeBoardId` von Hand und navigierte
+danach — das Board lädt seine Projekte beim Rendern aber selbst nach und
+überschreibt beides. Alle sechs Tests scheiterten daran, dass die
+Vorbereitung ihre eigene Voraussetzung wegräumte. Gestellt wird jetzt
+über den **Speicher** (`eb_board_projects_<id>`), geöffnet über den
+echten Knopf „Plan öffnen".
+
+**Und eine Mutation traf die falsche Funktion.** „Die Liste wird nicht
+festgeschrieben" überlebte im ersten Anlauf — die gesuchte Zeichenfolge
+steht auch in `planningSaveFragment()`, und `replace(…, 1)` nimmt die
+erste. Mutiert wurde also eine Funktion, um die es gar nicht ging. Wer
+mutiert, verankert im Rumpf der gemeinten Funktion; sonst misst die Probe
+etwas anderes und meldet Entwarnung. Dieselbe Klasse wie ein Muster, das
+den erklärenden Kommentar trifft.
+
+Fünf Mutationen, jede macht die Suite rot: der Verknüpfungs-Aufruf
+entfernt (3 rot) · der Dialog merkt sich die Herkunft nicht (3 rot) · die
+Projekt-Wache entfernt · die Liste nicht festgeschrieben · verknüpft,
+aber die Übersicht nicht neu gezeichnet.
+
+**Noch nicht verknüpft wird über die Zahlung.** Wer eine Karte im Board
+bezahlt, ändert am Baustein nichts — er hängt an der Karte, und die
+bleibt dieselbe. Das ist richtig so; eine zweite Verknüpfungsstelle auf
+einem Geldweg wäre eine zweite Wahrheit.
+
+```bash
+npx playwright test tests/e2e/hochzeit-bausteine.spec.js   # 7 Tests, 5 Mutationen
+```
+
 ### Die Landeseite bediente eine Absicht von dreien
 
 Beim Durchgehen der Nutzerpfade am 09.09.2026 gemessen: die Landeseite ist
@@ -3429,7 +3518,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1124 Tests in 74 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1131 Tests in 75 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3502,6 +3591,11 @@ Registrierung, nicht in der Anmeldung),
 hinter einem `display: none`, an fünf Breiten gemessen; das Konfetti läuft aus
 statt endlos zu kreisen, läuft aber überhaupt erst einmal; die Rundenzahl
 steht an einer Stelle, und jeder Konfetti-Punkt hat seinen Streifen),
+**Hochzeit aus Bausteinen** (der Baustein-Knopf öffnet die Anbieter-Auswahl
+vorgefiltert, und die angelegte Karte landet wirklich AM Baustein — im echten
+Browser geklickt, im Projekt nachgesehen; der gewöhnliche Weg verknüpft nichts,
+eine abgebrochene Auswahl hinterlässt keine Notiz, und die Herkunft gilt nur
+für ihr eigenes Vorhaben),
 **Storno** (der Planer beantragt mit Frist und Begründung, der Dienstleister
 entscheidet — im echten PHP ausgeführt: nur der Zahler beantragt und nur bei
 bezahlter Buchung, entschieden wird nach DERSELBEN Regel wie erstattet, ein
