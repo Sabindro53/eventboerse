@@ -1,11 +1,27 @@
 {
   "version": 1,
-  "erzeugt": "2026-09-09T22:52:46.011Z",
+  "erzeugt": "2026-09-14T04:49:12.473Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-08-30T16:33:37.836Z",
+  "journalStand": "2026-09-13T03:35:12.791Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
-  "ausserhalb": [],
+  "ausserhalb": [
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-09-13T03:35:12.791Z",
+        "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
+      },
+      "dateien": [
+        "audit/latest.json",
+        ".github/workflows/site-monitor.yml"
+      ],
+      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
+    }
+  ],
   "verworfen": [
     {
       "herkunft": {

@@ -201,6 +201,24 @@ function main() {
   const summary = join(mkdtempSync(join(tmpdir(), 'eb-tore-')), 'summary.md');
   const umgebung = { ...process.env, GITHUB_STEP_SUMMARY: summary };
 
+  // ── NICHT JEDES TOR IST NUR EIN PRÜFER ─────────────────────────────
+  //
+  // Der Auftragsstrom-Schritt lautet `node scripts/auftragsstrom.mjs &&
+  // … --check`: er ERZEUGT erst und prüft dann. In CI ist der Baum
+  // wegwerfbar, lokal bleibt danach eine geänderte Datei stehen.
+  //
+  // Vor `npm run gate` hat diesen Schritt lokal niemand gefahren. Jetzt
+  // fährt ihn jeder — und eine Datei, die sich beim Prüfen von selbst
+  // ändert, sieht aus wie eine vergessene Änderung. Deshalb wird sie
+  // benannt, statt sie zu verschweigen oder zurückzusetzen: was ein Tor
+  // erzeugt, kann ein echter neuer Stand sein (genau das war es hier —
+  // das committete Artefakt widersprach seiner eigenen Quelle).
+  const baumStand = () => {
+    const r = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' });
+    return r.status === 0 ? r.stdout : null;
+  };
+  const vorher = baumStand();
+
   const rot = [];
   for (const [i, s] of p.tore.entries()) {
     console.log(`\n▶ ${i + 1}/${p.tore.length}  ${s.name || s.befehl}`);
@@ -212,6 +230,21 @@ function main() {
   }
 
   console.log(`\n─────────────────────────────────────────────────`);
+
+  // Was der Lauf selbst geschrieben hat — vor dem Ergebnis, denn bei rot
+  // sucht man sonst am falschen Ende.
+  const nachher = baumStand();
+  if (vorher !== null && nachher !== null && vorher !== nachher) {
+    const alt = new Set(vorher.split('\n').filter(Boolean));
+    const neu = nachher.split('\n').filter(Boolean).filter((z) => !alt.has(z));
+    if (neu.length) {
+      console.log(`ℹ Der Lauf hat den Arbeitsbaum verändert — ein Tor erzeugt,`);
+      console.log(`  bevor es prüft. Ansehen, nicht blind zurücksetzen:`);
+      for (const z of neu) console.log(`    ${z.trim()}`);
+      console.log(`─────────────────────────────────────────────────`);
+    }
+  }
+
   if (rot.length) {
     console.error(`⛔ ${rot.length} von ${p.tore.length} Toren rot:`);
     for (const s of rot) console.error(`   - ${s.name || s.befehl}  (Exit ${s.status})`);

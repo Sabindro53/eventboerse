@@ -19,6 +19,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { ohneJsKommentare } = require('./lib/js-code');
 
 const WURZEL = path.join(__dirname, '..', '..');
 const WORKFLOW = path.join(WURZEL, '.github', 'workflows', 'pr-check.yml');
@@ -117,6 +118,50 @@ test.describe('Tor-Läufer: was CI fährt, fährt auch lokal', () => {
     expect(tore.istTor('npm ci')).toBe(false);
     expect(tore.istTor('npx playwright test')).toBe(false);
     expect(tore.istTor('git fetch origin ${{ github.base_ref }}')).toBe(false);
+  });
+
+  test('der Läufer verschweigt nicht, was er selbst schreibt', () => {
+    // ── WARUM DIESE REGEL ENTSTAND ─────────────────────────────────────
+    //
+    // Der Auftragsstrom-Schritt lautet `node scripts/auftragsstrom.mjs &&
+    // … --check`: er ERZEUGT erst und prüft dann. In CI ist der Baum
+    // wegwerfbar; lokal bleibt danach eine geänderte Datei stehen.
+    //
+    // Vor `npm run gate` hat diesen Schritt lokal niemand gefahren — jetzt
+    // fährt ihn jeder, und eine Datei, die sich beim Prüfen von selbst
+    // ändert, sieht aus wie eine vergessene Änderung. Beim ersten Mal war
+    // sie das NICHT: das committete Artefakt widersprach seiner eigenen
+    // Quelle, und der Unterschied trug einen echten Befund.
+    //
+    // Ein Läufer, der das verschweigt, erzieht dazu, solche Änderungen
+    // blind zurückzusetzen — und dann verschwindet der nächste echte
+    // Stand still. Geprüft wird die Existenz des Griffs im Code, nicht
+    // sein Wortlaut.
+    const quelle = ohneJsKommentare(
+      fs.readFileSync(path.join(WURZEL, 'scripts', 'tore.mjs'), 'utf8'));
+    expect(quelle, 'der Läufer sieht den Arbeitsbaum gar nicht an — was ein Tor '
+      + 'erzeugt, bleibt unerwähnt').toMatch(/git['"],\s*\[['"]status['"]/);
+    expect(quelle, 'der Baum wird nur EINMAL gemessen — ohne Vorher/Nachher '
+      + 'ist jede vorher schon geänderte Datei ein Fehlalarm')
+      .toMatch(/baumStand\s*\(\s*\)[\s\S]*baumStand\s*\(\s*\)/);
+    // Und die Gegenprobe: er setzt NICHTS zurück. Ein Läufer, der
+    // aufräumt, löscht irgendwann einen echten neuen Stand.
+    //
+    // Gemessen wird die BEDINGUNG, nicht die Schreibweise: der erste
+    // Versuch verbot die Zeichenfolgen `checkout --`, `git clean` und so
+    // fort — und die Mutation `['checkout', '--', '.']` schrieb dieselbe
+    // Anweisung als Array und überlebte. Dieselbe Klasse wie ein Muster,
+    // das den Kommentar trifft: das Wort gefunden, die Sache verfehlt.
+    //
+    // Die Regel lautet: der Läufer darf git FRAGEN, nie ihm etwas sagen.
+    const gitRufe = [...quelle.matchAll(/spawnSync\s*\(\s*['"]git['"]\s*,\s*\[([^\]]*)\]/g)]
+      .map((m) => (m[1].match(/['"]([^'"]+)['"]/) || [])[1]);
+    expect(gitRufe.length, 'der Läufer ruft git gar nicht mehr').toBeGreaterThan(0);
+    for (const unterbefehl of gitRufe) {
+      expect(unterbefehl, `der Läufer ruft \`git ${unterbefehl}\` — er darf den `
+        + `Arbeitsbaum LESEN, nie verändern; sonst verschwindet irgendwann ein `
+        + `echter neuer Stand`).toBe('status');
+    }
   });
 
   test('`npm run gate` ist keine zweite Liste mehr', () => {
