@@ -56,7 +56,7 @@ function _renderBusinessCockpitData(jobs, offline) {
     return sum + (_cardHasConfirmedPayment(j && j.card) ? _rvPrice(j) : 0);
   }, 0);
   var open = _businessJobs.filter(function(j){ return _rvStatus(j) !== 'abgeschlossen'; }).length;
-  var fee = paid * 0.03;
+  var fee = paid * EB_PLATFORM_FEE_RATE;
   var paidOut = Math.max(0, paid - fee);
 
   var header = '<div class="release-hero"><div><span class="release-kicker">DIENSTLEISTER-ZENTRALE</span><h1>Dein Business auf einen Blick</h1><p>Aufträge, Einnahmen, Steuern, Rechnungen und Profilmedien – an einem Ort.</p></div>' +
@@ -66,7 +66,7 @@ function _renderBusinessCockpitData(jobs, offline) {
     _businessKpi('payments', _rvMoney(booked), 'Auftragsvolumen', _businessJobs.length + ' Aufträge') +
     _businessKpi('account_balance_wallet', _rvMoney(paidOut), 'Auszahlung nach Provision', 'vor individuellen Steuern') +
     _businessKpi('pending_actions', String(open), 'Offene Aufträge', 'noch nicht abgeschlossen') +
-    _businessKpi('receipt_long', _rvMoney(fee), 'Plattformprovision', '3 % auf bezahlte Aufträge') + '</div>';
+    _businessKpi('receipt_long', _rvMoney(fee), 'Plattformprovision', ebProvisionText() + ' auf bezahlte Aufträge') + '</div>';
   root.innerHTML = header + sync + kpis + '<div class="business-grid"><section class="release-panel business-chart-panel"><div class="release-panel-head"><div><span class="release-kicker">UMSATZVERLAUF</span><h2>Einnahmen &amp; Pipeline</h2></div><button class="btn-outline btn-sm" onclick="navigateTo(\'auftraege\')">Alle Aufträge</button></div>' + _businessChart(_businessJobs) + '</section>' +
     '<section class="release-panel"><div class="release-panel-head"><div><span class="release-kicker">STEUERPROFIL</span><h2>Rechnungsangaben</h2></div></div>' + _businessTaxForm() + '</section></div>' +
     '<section class="release-panel business-invoices"><div class="release-panel-head"><div><span class="release-kicker">DOKUMENTE</span><h2>Rechnungen &amp; Aufträge</h2></div><span class="release-note">PDF-Belege sind eine Abrechnungsübersicht, keine Steuerberatung.</span></div>' + _businessInvoiceTable(_businessJobs) + '</section>' +
@@ -161,7 +161,7 @@ function _simplePdf(lines) {
 }
 function downloadBusinessInvoice(index) {
   var j = _businessJobs[index]; if (!j) return;
-  var gross = _rvPrice(j), platform = gross*0.03;
+  var gross = _rvPrice(j), platform = gross * EB_PLATFORM_FEE_RATE;
   var t = currentUser && currentUser.taxProfile || {};
   var vat = t.smallBusiness === false ? gross * Number(t.vatRate||19) / (100+Number(t.vatRate||19)) : 0;
   var no = _businessInvoiceNo(j,index);
@@ -174,7 +174,7 @@ function downloadBusinessInvoice(index) {
     'Datum: ' + _rvDate(j).toLocaleDateString('de-DE'),
     'Status: ' + _rvStageLabel(_rvStatus(j)),
     'Bruttobetrag: ' + _rvMoney(gross),
-    'Eventboerse Provision (3%): -' + _rvMoney(platform),
+    'Eventboerse Provision (' + ebProvisionText() + '): -' + _rvMoney(platform),
     (t.smallBusiness === false ? 'Enthaltene Umsatzsteuer: ' + _rvMoney(vat) : 'Hinweis: Kleinunternehmer nach Paragraph 19 UStG'),
     'Voraussichtliche Auszahlung vor Zahlungsgebuehr: ' + _rvMoney(gross-platform),
     'Zahlungs- und Steueruebersicht - keine Steuerberatung.'
@@ -302,4 +302,12 @@ document.addEventListener('DOMContentLoaded',function(){
     if (typeof EVENTS !== 'undefined') n += window.ebDemoBilderUmschreiben(EVENTS);
     void n;
   } catch (e) { /* Ein fehlgeschlagenes Umbiegen darf die Seite nicht aufhalten. */ }
+})();
+
+/* Der Provisionssatz in der festen Shell-Erklärung. `app.js` läuft mit
+   `defer`, das Markup steht also. Einmal beim Start, nicht bei jedem
+   Rendern: der Satz ändert sich zwischen zwei Seitenaufrufen nicht. */
+(function () {
+  if (typeof ebProvisionTexteFuellen !== 'function') return;
+  try { ebProvisionTexteFuellen(); } catch (e) { /* Text bleibt beim Vorgabewert. */ }
 })();
