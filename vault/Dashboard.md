@@ -31,7 +31,7 @@ Freigabestufe — daraus entstehen die Farben im Graphen und die Grenze zur Webs
 
 ```mermaid
 graph LR
-  B["🗄️ Brain<br/>90 Notizen · 6 Layer"] -->|"share: public"| K["📦 Knowledge Base<br/>115 Abschnitte"]
+  B["🗄️ Brain<br/>108 Notizen · 6 Layer"] -->|"share: public"| K["📦 Knowledge Base<br/>89 Abschnitte"]
   K --> W["🌐 Website-KI<br/>QA-Bot + Board-Assistent"]
   W -.->|"Wissenslücke"| B
   C["🧠 Claude"] -->|"Code"| W
@@ -98,6 +98,7 @@ node scripts/build-knowledge.mjs --report   # Wissensbasis bauen + Freigabe-Bila
 
 **Frontend:** [[20-System/Frontend/app-js-module|app.js Module]] ·
 [[20-System/Frontend/UI-Patterns|UI-Patterns]] ·
+[[20-System/Frontend/Design-System-Drift|Design-System-Drift]] ·
 [[20-System/Frontend/State-Management|State]] ·
 [[20-System/Frontend/Avatar-System|Avatare]] ·
 [[20-System/Frontend/Loading-Overlay|Loading]]
@@ -125,6 +126,7 @@ node scripts/build-knowledge.mjs --report   # Wissensbasis bauen + Freigabe-Bila
 
 [[30-Betrieb/CI-CD/Deployment|Deployment]] ·
 [[30-Betrieb/Testing|Testing & QA]] ·
+[[30-Betrieb/Barrierefreiheit-Abdeckung|Barrierefreiheit: Abdeckung]] ·
 [[30-Betrieb/Operations/Monitoring|Monitoring]] ·
 [[30-Betrieb/Operations/Runbooks|Runbooks]] ·
 [[30-Betrieb/Operations/Incident-Response|Incident-Response]] ·

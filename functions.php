@@ -3831,7 +3831,7 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * ueberschreiben; die Begruendung steht in includes/social/plan.php.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '3.1' );
+    define( 'EB_DB_VERSION', '3.2' );
 }
 
 /**
@@ -4144,6 +4144,9 @@ function eb_maybe_create_tables() {
                 $fehlt[] = substr( $tab_social, strlen( $wpdb->prefix ) );
             }
         }
+
+        // 3.2 — jeder Bestandsnutzer bekommt einen Nickname.
+        eb_handles_nachtragen();
 
         if ( empty( $fehlt ) ) {
             update_option( 'eb_db_version', EB_DB_VERSION );

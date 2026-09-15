@@ -1,17 +1,21 @@
 /* Shared discovery controls: feed, activity ideas and radar. */
+/* --white gab es nirgends, und hier stand es OHNE Fallback: die
+   background-Deklaration war damit invalid at computed-value time und
+   fiel auf transparent zurueck — die Flaeche fehlte also ganz, statt
+   nur die falsche Farbe zu haben. --bg folgt dem Farbmodus. */
 .akt-filter{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0 24px}
 .akt-filter label,.akt-radar-type{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:650;color:var(--text)}
 .akt-filter label[hidden]{display:none}
-.akt-filter select,.akt-radar-type select{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--white);color:var(--text);font:inherit}
+.akt-filter select,.akt-radar-type select{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text);font:inherit}
 .akt-filter-time{grid-column:1/-1}.akt-filter-time .radar-chip-row{flex-wrap:wrap}
 .akt-radar-type{margin:18px 0;max-width:330px}
-.akt-plan-btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--white);color:var(--text);font-size:12px;font-weight:650;cursor:pointer;margin-top:10px}
+.akt-plan-btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:12px;font-weight:650;cursor:pointer;margin-top:10px}
 .akt-plan-btn:hover{border-color:var(--primary);color:var(--primary-text,var(--text))}
 .akt-opening{display:block;max-width:440px;font-size:12px;line-height:1.5;color:var(--text-light)}
-.akt-extern{margin:24px 0;padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--white)}
+.akt-extern{margin:24px 0;padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--bg)}
 .akt-extern h3{font-size:16px;margin:0 0 8px}.akt-extern p{font-size:13px;line-height:1.6;color:var(--text-light);margin:0 0 14px}.akt-extern a{text-decoration:none}
 .akt-karte .akt-text{min-width:0}.akt-karte h4{overflow-wrap:anywhere}.akt-karte .akt-km{flex-shrink:0}
 .akt-filter button:focus-visible,.akt-plan-btn:focus-visible,.akt-filter select:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 @media(max-width:600px){.akt-filter{grid-template-columns:1fr;gap:12px}.akt-radar-type{max-width:none}.akt-karte{gap:10px}.akt-karte .akt-km{font-size:11px}.akt-filter-time .radar-chip-row{gap:6px}.akt-filter-time .radar-chip{padding:9px 11px;min-height:40px}.akt-start-knoepfe{flex-wrap:wrap}}
-.akt-overlay-filter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}.akt-overlay-filter label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:650}.akt-overlay-filter select{min-height:42px;padding:7px;border-radius:9px;border:1px solid var(--border);background:var(--white);color:var(--text);font:inherit;max-width:100%}.akt-stale{padding:12px 16px;border:1px solid var(--border);border-radius:12px;font-size:13px;line-height:1.5}
+.akt-overlay-filter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}.akt-overlay-filter label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:650}.akt-overlay-filter select{min-height:42px;padding:7px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;max-width:100%}.akt-stale{padding:12px 16px;border:1px solid var(--border);border-radius:12px;font-size:13px;line-height:1.5}
 @media(max-width:480px){.akt-overlay-filter{grid-template-columns:1fr 1fr}.akt-overlay-filter label:first-child{grid-column:1/-1}}

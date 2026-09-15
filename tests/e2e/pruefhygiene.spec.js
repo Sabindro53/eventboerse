@@ -106,19 +106,46 @@ test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
     // `require_once`-Pfad des Kontaktschutzes, `$owner_match` in der
     // Erstattungsprüfung, das Wort „npx" neben dem Aufruf und die Frage
     // nach dem Storno-Knopf gescheitert.
-    const GRIFF = path.join('lib', 'js-code.js');
+    // ── DIE GRENZE IST `lib/`, KEINE AUSNAHMELISTE (15.09.2026) ────────
+    //
+    // Hier stand `lib/js-code.js` als einzelner Pfad. Als am 15.09.2026
+    // `lib/css-code.js` dazukam — der gemeinsame Griff für CSS-Kommentare,
+    // gebraucht, weil ein Token-Wächter seinen eigenen Erklärkommentar als
+    // Fund meldete — schlug diese Regel an: sie hielt den neuen GRIFF für
+    // eine KOPIE.
+    //
+    // Die Regel meint „keine Prüfung baut ihn selbst nach". `lib/` ist
+    // nicht Prüfung, sondern der Ort, an dem die Griffe wohnen. Die Grenze
+    // ist deshalb dieses Verzeichnis und nicht eine Liste, die mit jedem
+    // neuen Griff wächst — genau davor warnt CLAUDE.md.
+    const IN_LIB = path.sep + 'lib' + path.sep;
     const treffer = [];
     for (const datei of pruefdateien()) {
-      if (datei.includes(GRIFF)) continue;            // dort steht er
+      if (datei.includes(IN_LIB)) continue;           // dort gehören sie hin
       const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
       if (/function\s+ohne\w*Kommentare\s*\(/.test(code)) treffer.push(path.basename(datei));
     }
-    expect(treffer, `baut den JS-Kommentar-Entferner selbst nach statt `
-      + `lib/js-code.js zu benutzen: ${treffer.join(', ')}`).toHaveLength(0);
-    // Gegenprobe: der gemeinsame Griff ist wirklich da. Ohne sie wäre die
-    // Regel dadurch erfüllt, dass niemand mehr Kommentare abzieht.
-    expect(pruefdateien().some((d) => d.includes(GRIFF)),
+    expect(treffer, `baut einen Kommentar-Entferner selbst nach statt den Griff `
+      + `aus tests/e2e/lib/ zu benutzen: ${treffer.join(', ')}`).toHaveLength(0);
+
+    // Gegenprobe 1: der gemeinsame Griff für JS ist wirklich da. Ohne sie
+    // wäre die Regel dadurch erfüllt, dass niemand mehr Kommentare abzieht.
+    expect(pruefdateien().some((d) => d.includes(path.join('lib', 'js-code.js'))),
       'der gemeinsame Griff für JS-Kommentare fehlt').toBe(true);
+
+    // Gegenprobe 2: `lib/` darf kein Versteck werden. JEDER dort definierte
+    // Entferner muss von mindestens einer Datei ausserhalb benutzt werden —
+    // sonst wäre die aufgeweichte Grenze der bequeme Weg, eine ungenutzte
+    // Kopie abzulegen. Dieselbe Klasse wie ein Prüfer ohne Subjekt.
+    const nutzer = pruefdateien().filter((d) => !d.includes(IN_LIB))
+      .map((d) => fs.readFileSync(d, 'utf8')).join('\n');
+    for (const datei of pruefdateien().filter((d) => d.includes(IN_LIB))) {
+      const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
+      for (const m of code.matchAll(/function\s+(ohne\w*Kommentare)\s*\(/g)) {
+        expect(nutzer.includes(m[1]),
+          `${path.basename(datei)} definiert ${m[1]}(), aber keine Prüfung benutzt es`).toBe(true);
+      }
+    }
   });
 
   test('der Entferner überlebt reguläre Ausdrücke und Adressen', () => {
