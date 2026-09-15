@@ -9,10 +9,17 @@
 .journey-invite-picker p,.journey-invite-picker small { color:var(--text-light,#667085); font-size:13px; line-height:1.6; }
 .journey-invite-picker label { display:flex; align-items:center; gap:10px; min-height:44px; padding:8px 14px; border:1px solid var(--border,#d0d5dd); border-radius:12px; cursor:pointer; }
 .journey-invite-picker input { width:18px; height:18px; accent-color:var(--primary,#e6385a); }
-.journey-profile-hub { margin-top:24px; width:100%; text-align:left; }
+/* margin-bottom war 0: die Kacheln stiessen ohne Abstand an „Ueber mich".
+   Gemessen an 390/768/1280 px — oben 24, unten 0. */
+.journey-profile-hub { margin-top:24px; margin-bottom:24px; width:100%; text-align:left; }
 .journey-profile-hub h2 { font-size:18px; margin-bottom:12px; }
 .journey-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
-.journey-actions button { display:flex; align-items:center; gap:12px; background:var(--white,#fff); border:1px solid var(--border,#d0d5dd); border-radius:14px; padding:16px; text-align:left; color:var(--text,#222); cursor:pointer; font:inherit; }
+/* --white gab es NIRGENDS im Projekt. Der Fallback #fff galt damit in BEIDEN
+   Farbmodi: weisse Kachel auf #121212, Titel #CCCCCC darauf = 1,61:1.
+   --bg ist der Wert, den die Nachbarkarten derselben Seite ohnehin tragen
+   (provider-profile-card, provider-fact-card). Radius an --radius-lg (16px)
+   angeglichen, weil dieselben Nachbarn 16px haben und 14px nur auffiel. */
+.journey-actions button { display:flex; align-items:center; gap:12px; background:var(--bg,#fff); border:1px solid var(--border,#d0d5dd); border-radius:var(--radius-lg,16px); padding:16px; text-align:left; color:var(--text,#222); cursor:pointer; font:inherit; }
 .journey-actions button > span:nth-child(2) { flex:1; }
 .journey-actions button strong,.journey-actions button small { display:block; }
 .journey-actions button small { font-size:12px; color:var(--text-light,#667085); margin-top:5px; }

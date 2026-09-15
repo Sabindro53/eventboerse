@@ -168,6 +168,23 @@ html.dark-early body {
   --mobile-nav-height: 64px;
   --transition: 0.2s ease;
   --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ── Token, die benutzt wurden, ohne zu existieren (15.09.2026) ─────────
+     `var(--x, literal)` sieht aus wie Design-System und ist keins: ist --x
+     nirgends definiert, gewinnt IMMER das Literal — in beiden Farbmodi.
+     Genau daran standen die Profil-Kacheln weiss auf dunklem Grund.
+     Ohne Fallback ist es schlimmer: die Deklaration faellt ganz aus
+     (invalid at computed-value time) und die Flaeche wird transparent.
+     Die Werte hier sind exakt die bisher wirksamen Literale — diese
+     Definitionen aendern also nichts am Bild, sie geben den Namen nur
+     endlich einen Wert, den der Dunkelmodus ueberschreiben KANN. */
+  --danger: #d33;
+  --primary-ultralight: rgba(255,56,92,.05);
+  --bg-soft: rgba(0,0,0,.04);
+  /* Konfetti-Runden. Der Kommentar bei .ai-popper sagte seit dem 13.09.2026,
+     die Zahl stehe „an EINER Stelle" — sie stand viermal als Fallback da,
+     weil dieses Token fehlte. Jetzt stimmt die Aussage. */
+  --pp-runden: 2;
 }
 
 /* ---- Reset ---- */
@@ -677,7 +694,15 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   bottom: 0;
   left: 0;
   right: 0;
-  height: var(--mobile-nav-height);
+  /* ── WARUM calc() UND NICHT NUR padding-bottom (15.09.2026) ──────────
+     Mit `box-sizing: border-box` (Zeile 191, global) zaehlt padding in die
+     height hinein: `height:64px` + `padding-bottom:env(...)` ergab auf einem
+     Geraet mit Home-Indicator weiterhin 64px — die Leiste WUCHS NICHT, die
+     34px frassen sich in ihre Inhaltsbox, und die 52px hohen Knoepfe liefen
+     daraus heraus. Im echten Browser nachgemessen: 64px vorher, 64px nachher.
+     Auf dem Web ist env(safe-area-inset-bottom) = 0, calc() also wirkungslos —
+     die Aenderung greift nur dort, wo es den Einzug wirklich gibt. */
+  height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
   background: rgba(255,255,255,0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -2370,7 +2395,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   line-height: 1.5;
 }
 
-.page { display: none; padding-top: var(--nav-height) !important; padding-bottom: var(--mobile-nav-height); min-height: 100vh; }
+/* Die Reserve unten muss dieselbe Rechnung machen wie die Leiste selbst —
+   sonst liegt der Seitenfuss auf einem Geraet mit Home-Indicator darunter. */
+.page { display: none; padding-top: var(--nav-height) !important; padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px)); min-height: 100vh; }
 .page.active { display: block; }
 
 /* Profile editor entrance animations */
@@ -9003,7 +9030,7 @@ html { scrollbar-color: var(--primary) transparent; }
   text-align: left;
   vertical-align: top;
 }
-.legal-page .legal-table th { background: var(--bg-light, #f7f8fa); font-weight: 600; }
+.legal-page .legal-table th { background: var(--bg-alt); font-weight: 600; }
 .legal-page .legal-pre {
   background: var(--bg-alt, #f4f4f4);
   border: 1px solid var(--border, #e1e4e8);
@@ -9772,6 +9799,10 @@ body.dark-mode {
   --border-light: #2A2A2A;
   --primary-light: #3D1520;
   --accent-light: #0F2D2A;
+  /* Schwarz auf dunklem Grund ist keine Rueckmeldung — der Hover von
+     .ac-nav-btn war im Dunkelmodus unsichtbar, weil er als Literal
+     rgba(0,0,0,.04) festhing. */
+  --bg-soft: rgba(255,255,255,.06);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 14px rgba(0,0,0,0.35);
   --shadow-lg: 0 8px 30px rgba(0,0,0,0.4);
@@ -12780,7 +12811,10 @@ body.dark-mode .eb-tp-time::-webkit-calendar-picker-indicator { filter: invert(1
 }
 .sa-overlay.sa-visible { opacity: 1; }
 .sa-modal {
-  background: var(--card-bg, #1e1e2e);
+  /* BEWUSST dunkel in BEIDEN Farbmodi: jedes Kind dieses Dialogs setzt
+     color:#fff fest. Ein modusfolgendes Token ergaebe hier weisse Schrift
+     auf weissem Grund. Literal statt Token, damit der Vorsatz sichtbar ist. */
+  background: #1e1e2e;
   border-radius: 16px;
   width: 380px;
   max-width: 92vw;
@@ -15099,7 +15133,7 @@ body.dark-mode .fc-paid-storno { border-color: rgba(255,255,255,.22); }
 .storno-eintrag {
   padding: 12px 14px; margin-bottom: 8px;
   border: 1px solid rgba(0,0,0,.1); border-radius: 10px;
-  background: var(--card-bg, #fff);
+  background: var(--bg);
 }
 body.dark-mode .storno-eintrag { border-color: rgba(255,255,255,.12); }
 .storno-kopf {
@@ -15813,7 +15847,7 @@ button:disabled {
   color: var(--text);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
-.ac-nav-btn:hover:not(:disabled) { background: var(--bg-soft, rgba(0,0,0,0.04)); }
+.ac-nav-btn:hover:not(:disabled) { background: var(--bg-soft); }
 .ac-nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .ac-nav-btn .material-icons-round { font-size: 20px; }
 .ac-months {
@@ -17516,7 +17550,7 @@ body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text);
   display: flex; align-items: center; gap: .75rem;
   padding: .65rem .8rem;
   border: 1px solid var(--border-light); border-radius: var(--radius-sm);
-  background: var(--bg-card, #fff);
+  background: var(--bg);
 }
 .akt-icon { font-size: 21px; color: var(--primary); flex-shrink: 0; }
 .akt-text { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: .1rem; }

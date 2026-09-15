@@ -3799,6 +3799,112 @@ daran war die erste Fassung dieser Messung mit **46** statt 40 Knoten falsch.
 Vollständig mit allen Kontrastwerten: [[30-Betrieb/Barrierefreiheit-Abdeckung]]
 und [[20-System/Frontend/Design-System-Drift]].
 
+### Ein Token, das es nie gab — und der Wächter, der genau danach sucht
+
+Gemeldet am 15.09.2026 vom Inhaber: *„unter profil ist das hier in white,
+sollte aber dark sein."* Die vier Kacheln unter `/profile` (Meine Planung,
+Merkliste, Freunde & Gruppen, Nachrichten) standen weiß auf `#121212`.
+
+```css
+.journey-actions button { background: var(--white, #fff); … }
+```
+
+**`--white` ist im ganzen Projekt nirgends definiert.** Damit gilt immer der
+Rückfallwert `#fff` — in **beiden** Farbmodi. Gemessen im echten Browser:
+
+| | vorher | nachher |
+|---|---:|---:|
+| Kachel dunkel | `rgb(255,255,255)` | `rgb(18,18,18)` |
+| Titel `#CCCCCC` darauf | **1,61 : 1** | **11,67 : 1** |
+| Unterzeile `#999999` | **2,85 : 1** | **6,58 : 1** |
+| Kachel hell | `rgb(255,255,255)` | unverändert |
+
+`var(--bg)` ist der Wert, den die Nachbarkarten derselben Seite
+(`provider-profile-card`, `provider-fact-card`) ohnehin tragen. Der Hellmodus
+ändert sich dadurch um **kein Pixel** — nachgemessen, nicht angenommen.
+
+**Ohne Rückfallwert ist es schlimmer, nicht besser.** In `discovery.css` stand
+`var(--white)` viermal **ohne** Fallback. Dann ist die Deklaration *invalid at
+computed-value time*: sie fällt ganz aus, und die Fläche wird `transparent` —
+sie fehlt also, statt nur falsch zu sein.
+
+#### Der Wächter existierte und konnte die Datei nicht sehen
+
+`design-system.spec.js` trägt seit dem 01.08.2026 den Test *„kein Stylesheet
+benutzt eine Variable, die keines definiert"* — gebaut für genau diese Klasse,
+nachdem `ui-enhancements.css` dreizehn erfundene Namen benutzte. Er war grün.
+Zwei Löcher:
+
+1. **Die Dateiliste stand von Hand da** — `styles.css`, `ui-enhancements.css`,
+   `eb-hq-evolution.css`. `journeys.css` und `discovery.css` waren **nie
+   Subjekt**. Sie kommt jetzt aus den Stellen, die Stylesheets wirklich
+   ausliefern (`index.php`, Dev-Shell, `hq.html`, `functions.php`); wer eine
+   neue CSS-Datei einbindet, bekommt ihre Prüfung geschenkt.
+2. **Ein Rückfallwert entschuldigte.** Im Test stand: *„Ein Rückfallwert ist
+   eine bewusste Entscheidung und deshalb erlaubt."* Für eine **Länge** stimmt
+   das. Für eine **Fläche** ist der Rückfall der Fehler — das Literal gilt dann
+   in beiden Farbmodi, und genau so sah der gemeldete Zustand aus. Deshalb
+   waren auch `--bg-card`, `--card-bg`, `--bg-light`, `--bg-soft`,
+   `--primary-ultralight`, `--danger` und `--pp-runden` in `styles.css`
+   undefiniert, obwohl diese Datei **gelesen wurde**.
+
+**`--pp-runden` ist der schärfste davon.** Der Kommentar bei `.ai-popper` sagt
+seit dem 13.09.2026, die Rundenzahl stehe *„an EINER Stelle für alle vier
+Animationen"* — sie stand **viermal** als Rückfallwert da, weil das Token
+fehlte. Die Aussage stimmt erst jetzt.
+
+#### Was NICHT umgestellt wurde, und warum
+
+`.sa-modal` benutzte `var(--card-bg, #1e1e2e)` — ein **dunkles** Literal.
+Jedes Kind dieses Dialogs setzt `color: #fff` fest; ein modusfolgendes Token
+hätte dort weiße Schrift auf weißem Grund ergeben. Die Fläche trägt jetzt das
+Literal mit Begründung. **Vor dem Umstellen die Textfarben ansehen**, sonst
+repariert man eine Fläche kaputt.
+
+Ebenso blieben `.akt-karte` und `.legal-table th` optisch unverändert: beide
+hatten längst eine eigene `body.dark-mode`-Regel, dort war nie etwas kaputt.
+Das gehört hierher, weil ich es zuerst als Fund gezählt hatte und die Messung
+es widerlegt hat.
+
+**Wirklich behoben sind drei Flächen:** die gemeldeten Profil-Kacheln,
+`.storno-eintrag` (deren Rand im Dunkelmodus behandelt war, die Fläche nicht —
+eigene Arbeit) und der Hover von `.ac-nav-btn`, der im Dunkelmodus *dunkler*
+statt heller wurde.
+
+#### Abstände
+
+Am selben Ort gemessen (390 / 768 / 1280 px): `margin-top: 24px`,
+**`margin-bottom: 0`** — die Kacheln stießen ohne Abstand an „Über mich".
+Dazu Radius `14px`, während dieselben Nachbarkarten `16px` tragen
+(`--radius-lg`). Beides angeglichen. Der Seitenrand am Telefon (12 px gegen
+16 px ab Tablet) gehört dem Seitencontainer, nicht dieser Komponente — gemeldet,
+nicht angefasst.
+
+#### Und die siebte Kommentar-Falle
+
+Der reparierte Wächter meldete beim ersten Lauf `styles.css: --x` — das war
+der **erklärende Kommentar** über den neuen Token, der `var(--x, literal)` als
+Beispiel nennt, geschrieben in derselben Stunde. Für JS, PHP und HTML gibt es
+den gemeinsamen Griff längst; für CSS fehlte er. `tests/e2e/lib/css-code.js`
+schließt das und arbeitet **zeichenweise**: ein Ausdruck über Kommentargrenzen
+schnitte in `content: "/*"` mitten in eine Zeichenkette.
+
+Sechs Mutationen: `--white` zurück · `--danger`-Definition entfernt · zurück
+auf die Handliste · Kommentare nicht mehr abgezogen · Grund der verwaisten
+Datei geleert — jede macht die Suite rot. Die sechste, *„Rückfallwert
+entschuldigt wieder"*, überlebt **allein** und ist deshalb als **Paar**
+belegt: mit zurückgeholtem `--white` rot, mit beidem grün.
+
+**`mobile-overrides.css` wird nirgends ausgeliefert** (10 KB, fremdes Lila
+`#7c3aed`) — und steht trotzdem im Autopilot-Rahmen. Ein zweiter Test verlangt
+für jedes nicht ausgelieferte Stylesheet einen **Grund**, wie bei den
+Phantom-Workflows: stilllegen heißt eintragen, nicht verschweigen. Das Löschen
+ist eine Entscheidung des Inhabers.
+
+```bash
+npx playwright test tests/e2e/design-system.spec.js   # 5 Tests, 6 Mutationen
+```
+
 ### Der Kontext wird nachgemessen
 
 ```bash
@@ -3911,7 +4017,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1169 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1170 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

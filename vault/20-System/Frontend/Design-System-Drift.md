@@ -11,6 +11,60 @@ tags: [layer/L2, domain/system, share/internal, design-system]
 > Was in der Datei steht, sagt nichts darüber, was gleichzeitig auf einem
 > Bildschirm erscheint.
 
+## Der Token, den es nie gab (15.09.2026)
+
+Vom Inhaber gemeldet: die vier Kacheln unter `/profile` standen **weiß** auf
+`#121212`.
+
+```css
+.journey-actions button { background: var(--white, #fff); }
+```
+
+**`--white` war im ganzen Projekt nirgends definiert.** Der Rückfallwert `#fff`
+galt damit in **beiden** Farbmodi — Titel `#CCCCCC` darauf ergab **1,61 : 1**.
+
+**Die Regel, die daraus folgt:**
+
+| Schreibweise | Wirkung, wenn das Token fehlt |
+|---|---|
+| `var(--x, #fff)` | Literal gilt **in beiden Farbmodi** — die Fläche kann dem Modus nie folgen |
+| `var(--x)` | Deklaration *invalid at computed-value time* → Fläche wird **transparent**, fehlt also ganz |
+
+Beides sieht im Diff aus wie Design-System und ist keins. Ein Rückfallwert ist
+bei einer **Länge** eine bewusste Vorgabe und bei einer **Farbe** der Fehler.
+
+**Betroffen waren sieben Namen**, fünf davon in `styles.css`:
+`--white` (journeys, discovery), `--bg-card`, `--card-bg`, `--bg-light`,
+`--bg-soft`, `--primary-ultralight`, `--danger`, `--pp-runden`.
+
+`--pp-runden` ist der lehrreichste: der Kommentar bei `.ai-popper` sagt, die
+Rundenzahl stehe „an EINER Stelle für alle vier Animationen" — sie stand
+**viermal** als Rückfallwert da. Die Aussage stimmt erst, seit das Token
+existiert.
+
+### Der Wächter existierte und konnte die Datei nicht sehen
+
+`design-system.spec.js` prüft seit dem 01.08.2026 genau das. Er war grün, aus
+zwei Gründen — **beide sind die Klasse, die dieser Vault sonst bekämpft**:
+
+1. Seine Dateiliste war **von Hand aufgezählt** (`styles.css`,
+   `ui-enhancements.css`, `eb-hq-evolution.css`). `journeys.css` und
+   `discovery.css` waren nie Subjekt. Sie wird jetzt aus den Auslieferwegen
+   **abgeleitet**.
+2. Ein Rückfallwert **entschuldigte**. Deshalb kamen auch die fünf Fälle in
+   `styles.css` durch, obwohl diese Datei gelesen wurde.
+
+### Vor dem Umstellen die Textfarben ansehen
+
+`.sa-modal` trug `var(--card-bg, #1e1e2e)` — ein **dunkles** Literal, und jedes
+Kind setzt `color:#fff` fest. Ein modusfolgendes Token hätte dort weiße Schrift
+auf weißen Grund gesetzt. Eine eingefrorene Farbe ist nicht automatisch ein
+Fehler; sie ist einer, wenn der Text ihr nicht folgt.
+
+Ebenso: `.akt-karte` und `.legal-table th` hatten längst eigene
+`body.dark-mode`-Regeln. Ich hatte sie zuerst als Fund gezählt — die Messung
+hat das widerlegt.
+
 ## Das System trägt — und wird daneben umgangen
 
 | | |
