@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-13T20:35:52.123Z",
+  "stand": "2026-09-15T03:36:38.115Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -16479,7 +16479,7 @@
       "gebiet": "Frankfurt",
       "ort": {
         "name": "Tower MMK",
-        "stadt": "",
+        "stadt": "Frankfurt am Main",
         "lat": 50.11037,
         "lon": 8.67298
       },
@@ -17166,12 +17166,12 @@
     {
       "id": "osm:node/5420844046",
       "art": "ort",
-      "titel": "Historic Railway",
+      "titel": "Historische Eisenbahn Frankfurt",
       "kategorie": "Museum",
       "beginn": null,
       "gebiet": "Frankfurt",
       "ort": {
-        "name": "Historic Railway",
+        "name": "Historische Eisenbahn Frankfurt",
         "stadt": "",
         "lat": 50.11546,
         "lon": 8.72989
@@ -17802,7 +17802,7 @@
       "gebiet": "Frankfurt",
       "ort": {
         "name": "Brunnen- und Bädermuseum",
-        "stadt": "",
+        "stadt": "Bad Vilbel",
         "lat": 50.18367,
         "lon": 8.74453
       },

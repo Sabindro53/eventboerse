@@ -1,12 +1,12 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-09-13T03:34:13Z",
-  "commit": "8bf3d8e",
+  "generatedAt": "2026-09-15T03:36:38Z",
+  "commit": "512e208",
   "counts": {
     "total": 5,
     "error": 0,
-    "warn": 1,
-    "info": 3,
+    "warn": 2,
+    "info": 2,
     "ok": 1
   },
   "findings": [
@@ -21,41 +21,41 @@
       "evidence": null
     },
     {
-      "id": "size-app.js-watch",
-      "title": "app.js wächst (29240 Zeilen)",
-      "area": "maintainability",
-      "severity": "info",
-      "status": "open",
-      "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
-      "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
-      "evidence": {
-        "lines": 29240,
-        "threshold": 20000
-      }
-    },
-    {
-      "id": "size-functions.php",
-      "title": "functions.php ist mit 11916 Zeilen sehr gross",
+      "id": "size-app.js",
+      "title": "app.js ist mit 30720 Zeilen sehr gross",
       "area": "maintainability",
       "severity": "warn",
       "status": "open",
       "detail": "Monolith — Splitting in Module würde Lesbarkeit und Hot-Reload deutlich verbessern.",
       "suggestion": "Inkrementell Module rausziehen (z. B. router, api, board, chat). Nicht in einem Schritt.",
       "evidence": {
-        "lines": 11916,
+        "lines": 30720,
+        "threshold": 30000
+      }
+    },
+    {
+      "id": "size-functions.php",
+      "title": "functions.php ist mit 11870 Zeilen sehr gross",
+      "area": "maintainability",
+      "severity": "warn",
+      "status": "open",
+      "detail": "Monolith — Splitting in Module würde Lesbarkeit und Hot-Reload deutlich verbessern.",
+      "suggestion": "Inkrementell Module rausziehen (z. B. router, api, board, chat). Nicht in einem Schritt.",
+      "evidence": {
+        "lines": 11870,
         "threshold": 10000
       }
     },
     {
       "id": "size-styles.css-watch",
-      "title": "styles.css wächst (17632 Zeilen)",
+      "title": "styles.css wächst (17788 Zeilen)",
       "area": "maintainability",
       "severity": "info",
       "status": "open",
       "detail": "Wachsendes Monolith-Risiko, noch nicht kritisch.",
       "suggestion": "Beim nächsten Feature prüfen, ob ein Teil als Modul ausgelagert werden kann.",
       "evidence": {
-        "lines": 17632,
+        "lines": 17788,
         "threshold": 12000
       }
     },
