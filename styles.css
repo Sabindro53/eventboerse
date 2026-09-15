@@ -147,6 +147,13 @@ html.dark-early body {
      Gold #FFB400 erreicht auf Weiß nur 1,8:1. --star-text: 5,3:1 auf Weiß /
      4,9:1 auf --bg-alt. Flächen (Sterne-Balken, Grafiken) dürfen Gold bleiben. */
   --star-text: #8F6400;
+  /* A11y 15.09.2026: Status-Literale standen verstreut im Stylesheet und
+     hatten deshalb keinen Dunkelwert. #B45309 misst auf Weiss 5,0:1 und auf
+     #1e1e1e nur 3,31:1; #E53935 misst 4,22:1 hell und 3,94:1 dunkel — beide
+     unter 4,5. Dieselbe Trennung wie bei --primary / --primary-text:
+     --danger ist die FLAECHE und der Rand, --danger-text ist die Schrift. */
+  --warn-text: #B45309;
+  --danger-text: #C62828;
   --dark: #222222;
   --text: #484848;
   --text-light: #717171;
@@ -5206,7 +5213,7 @@ body.dark-mode .leaflet-control-zoom a:hover { background: #2A2A2C !important; }
 .bio-toggle {
   display: inline-flex; align-items: center; gap: 4px;
   margin-top: 8px;
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
   font-size: 0.88rem;
   cursor: pointer;
@@ -6779,17 +6786,20 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
 .stripe-connect-setup-link {
   background: #111827;
 }
-.settings-status-active { color: var(--accent) !important; }
-.settings-status-passkey-on { color: var(--accent) !important; }
-.settings-status-passkey-off { color: #B45309 !important; }
+.settings-status-active { color: var(--accent-text) !important; }
+.settings-status-passkey-on { color: var(--accent-text) !important; }
+.settings-status-passkey-off { color: var(--warn-text) !important; }
 .settings-divider { border: none; border-top: 1px solid var(--border-light); margin: 20px 0; }
 .settings-danger-btn {
-  color: #E53935 !important; border-color: #E53935 !important;
+  color: var(--danger-text) !important; border-color: var(--danger-text) !important;
   display: flex; align-items: center; gap: 6px;
   padding: 10px 20px; font-size: 0.9rem; border-radius: var(--radius-sm);
   cursor: pointer; transition: all var(--transition);
 }
 .settings-danger-btn:hover { background: #FFEBEE !important; }
+/* Ohne diese Zeile faerbt der Hover im Dunkelmodus eine HELLE Flaeche unter
+   hellroten Text — dieselbe Falle wie die feste Flaeche bei create-payout. */
+body.dark-mode .settings-danger-btn:hover { background: rgba(255,107,107,.12) !important; }
 .settings-passkey-copy {
   margin: 18px 0 10px;
   color: var(--text);
@@ -6802,7 +6812,7 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
   color: var(--text-light);
 }
 .settings-passkey-note.is-warning {
-  color: #B45309;
+  color: var(--warn-text);
 }
 .settings-passkey-add-btn {
   display: inline-flex;
@@ -6840,8 +6850,8 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
   line-height: 1.5;
 }
 .settings-passkey-remove {
-  color: #E53935 !important;
-  border-color: #E53935 !important;
+  color: var(--danger-text) !important;
+  border-color: var(--danger-text) !important;
   white-space: nowrap;
 }
 .settings-passkey-empty {
@@ -6962,8 +6972,28 @@ body.dark-mode .cbc.cbc-cancelled { border-color: #555 !important; background: #
 }
 .create-payout-notice.is-warning .material-icons-round {
   background: rgba(245, 158, 11, 0.16);
-  color: #B45309;
+  color: var(--warn-text);
 }
+/* ── DIE FLÄCHE STAND FEST, DER TEXT FOLGTE DEM MODUS (15.09.2026) ───────
+   Die drei Fassungen oben schreiben ihren Grund als Literal (#F7F6FF /
+   #F0FBF9 / #FFF8E8), der Text darauf nimmt `var(--dark)` bzw.
+   `var(--text)`. Im Dunkelmodus kippen die Token, das Literal nicht —
+   gemessen ergab das auf `create-listing` 1,15 : 1 für den Titel und
+   1,51 : 1 für den Fließtext. Also unsichtbar, und zwar genau auf der
+   Seite, auf der ein Dienstleister sein Inserat anlegt.
+
+   Dieselbe Klasse wie `var(--white, #fff)`: ein Rückfall oder ein Literal
+   für eine FLÄCHE gilt in beiden Modi, während der Text wechselt.
+
+   DIE ERSTE ZEILE TRÄGT DIE REPARATUR ALLEIN. `body.dark-mode
+   .create-payout-notice` (0,2,1) schlägt `.create-payout-notice.is-warning`
+   (0,2,0) — die beiden Zeilen darunter sind Farbton, keine Deckung. In der
+   Mutationsprobe überlebte deshalb JEDE der drei einzeln, und erst das
+   Entfernen aller drei macht die Suite rot. Wer die erste löscht, weil die
+   beiden anderen ja dastehen, holt den Befund zurück. */
+body.dark-mode .create-payout-notice { background: var(--bg-alt); }
+body.dark-mode .create-payout-notice.is-active { background: #10231F; }
+body.dark-mode .create-payout-notice.is-warning { background: #2A1F10; }
 .create-payout-title {
   font-weight: 800;
   font-size: 0.95rem;
@@ -7859,7 +7889,7 @@ body.dark-mode .stripe-onboarding-steps > div {
 .field-error {
   display: block;
   font-size: 0.78rem;
-  color: #E53935;
+  color: var(--danger-text);
   margin-top: 4px;
   line-height: 1.3;
 }
@@ -8965,13 +8995,15 @@ html { scrollbar-color: var(--primary) transparent; }
   flex-shrink: 0;
 }
 .btn-danger-outline {
-  color: #E53E3E !important;
+  color: var(--danger-text) !important;
   border-color: #FED7D7 !important;
 }
 .btn-danger-outline:hover {
   background: #FFF5F5 !important;
-  border-color: #E53E3E !important;
+  border-color: var(--danger-text) !important;
 }
+body.dark-mode .btn-danger-outline { border-color: rgba(255,107,107,.38) !important; }
+body.dark-mode .btn-danger-outline:hover { background: rgba(255,107,107,.12) !important; }
 
 .my-listings-empty,
 .favorites-empty {
@@ -9597,12 +9629,13 @@ body.dark-mode .admin-tag-suggestion:hover {
   border-top: 1px solid var(--border-light);
 }
 .admin-delete-btn {
-  color: #e53935 !important;
-  border-color: #e53935 !important;
+  color: var(--danger-text) !important;
+  border-color: var(--danger-text) !important;
 }
 .admin-delete-btn:hover {
   background: #fbe9e7 !important;
 }
+body.dark-mode .admin-delete-btn:hover { background: rgba(255,107,107,.12) !important; }
 .admin-delete-btn .material-icons-round {
   font-size: 16px;
   vertical-align: middle;
@@ -9726,7 +9759,7 @@ body.dark-mode .admin-tag-suggestion:hover {
 .admin-error {
   text-align: center;
   padding: 40px;
-  color: #e53935;
+  color: var(--danger-text);
 }
 .admin-menu-btn {
   color: var(--primary) !important;
@@ -9793,6 +9826,13 @@ body.dark-mode {
   --text-light: #999999;
   --primary-text: #FF7A93;
   --accent-text: #2DD4BF;
+  /* Gemessen auf --bg-alt (#1E1E1E): Warnung 8,3:1, Fehler 6,0:1.
+     --danger traegt hier auch Icons (Material-Ligaturen sind Text, siehe
+     --star-text) und wandert deshalb mit; der bisherige Wert #d33 mass
+     4,10:1 und war der offene Posten aus PR #283. */
+  --warn-text: #F0A93B;
+  --danger-text: #FF6B6B;
+  --danger: #FF6B6B;
   /* Auf #121212 trägt das originale Gold 10,5:1 — im Dunkelmodus bleibt es. */
   --star-text: #FFB400;
   --border: #333333;
@@ -10423,7 +10463,7 @@ body.dark-mode .legal-page .legal-pre { background: #1A1A1A; border-color: var(-
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.5px;
-  color: var(--primary);
+  color: var(--primary-text);
   background: rgba(255,56,92,0.09);
   border-radius: 20px;
   padding: 4px 12px;
@@ -13679,11 +13719,15 @@ body.dark-mode .service-badge { color: #a5b4fc; }
 .feed-contact-btn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 12px; border-radius: 10px; border: none;
-  background: var(--primary); color: #fff;
+  /* A11y 15.09.2026: Weiss auf --primary sind 3,51 : 1 — zu wenig fuer
+     12-px-Text. Hier traegt die FLAECHE den Kontrast, nicht der Text;
+     --primary-text waere hier falsch herum. --primary-dark traegt Weiss
+     mit 4,57 : 1, der Hover-Wert mit 5,89 : 1. */
+  background: var(--primary-dark); color: #fff;
   font-size: 12px; font-weight: 600; cursor: pointer;
   transition: background 0.15s; margin-left: auto;
 }
-.feed-contact-btn:hover { background: var(--primary-dark); }
+.feed-contact-btn:hover { background: var(--primary-text); }
 .feed-contact-btn .material-icons-round { font-size: 16px; }
 
 /* ===== Post Type Tile Grid (Modal) ===== */
@@ -13965,7 +14009,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.5px;
-  color: var(--primary);
+  color: var(--primary-text);
   background: rgba(255,56,92,0.09);
   border-radius: 20px;
   padding: 4px 12px;
@@ -14035,7 +14079,7 @@ body.dark-mode .search-badge-offer { background: rgba(0,166,153,0.12); }
 }
 .contact-info-icon .material-icons-round { font-size: 20px; color: var(--primary); }
 .contact-info-card h3 { font-size: 14px; font-weight: 700; color: var(--dark); margin: 0 0 4px; }
-.contact-info-card a { color: var(--primary); font-size: 14px; font-weight: 600; text-decoration: none; display: block; margin-bottom: 4px; }
+.contact-info-card a { color: var(--primary-text); font-size: 14px; font-weight: 600; text-decoration: none; display: block; margin-bottom: 4px; }
 .contact-info-card a:hover { text-decoration: underline; }
 .contact-info-card p { font-size: 12px; color: var(--text-light); margin: 0; }
 .contact-info-card strong { font-size: 14px; color: var(--dark); display: block; margin-bottom: 2px; }
@@ -15168,6 +15212,30 @@ body.dark-mode .storno-zustand { background: rgba(255,255,255,.08); }
 .storno-leer {
   margin: 6px 0 14px; font-size: 13px; color: var(--text-light, #717171);
 }
+
+/* ── EINE KLASSE, DIE ES NUR IM MARKUP GAB (15.09.2026) ──────────────────
+   `payments/45-storno.js` schreibt `class="btn-link"` an den Knopf „Erneut
+   versuchen" — den Ausweg aus einer Störung. Eine Regel dazu gab es in
+   KEINER Stylesheet-Datei. Der Browser nahm also seine Vorgabe für
+   `<button>`: `color: buttontext`, das ist #000.
+
+   Gemessen im Dunkelmodus: #000000 auf #121212 = **1,12 : 1**. Der Knopf
+   ist da, er ist bedienbar, und er ist unsichtbar — für genau die Nutzer,
+   deren Abruf gerade fehlgeschlagen ist. Er erscheint ja nur dann.
+
+   Ein Klassenname ist keine Gestaltung. Dieselbe Klasse wie ein Aufruf ins
+   Leere (`escHtml`) oder ein Prüfer ohne Subjekt: im Diff sieht alles
+   vollständig aus, und es tut nichts. */
+.btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--primary-text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-link:hover { text-decoration: none; }
 
 .fc-locked-hint {
   display: inline-flex; align-items: center; gap: 3px;
@@ -17487,7 +17555,7 @@ body.dark-mode .geo-treffer-btn { background: var(--bg-alt); color: var(--text);
 }
 
 /* Zweite Zeile im Upload-Hinweis: leiser als die harte Limit-Angabe */
-.upload-hint-soft { opacity: .75; font-size: .92em; }
+.upload-hint-soft { color: var(--text-light); font-size: .92em; }
 
 /* ── Dekoration ausserhalb des Sichtfelds haelt an ─────────────────────
  *

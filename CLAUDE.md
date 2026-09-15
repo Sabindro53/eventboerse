@@ -3723,7 +3723,7 @@ sichtbare Punkt **nicht** mitwächst — sonst wäre die Regel dadurch erfüllt,
 dass jemand die Punkte aufbläst und die Karten aussehen wie eine Perlenkette.
 
 ```bash
-npx playwright test tests/e2e/barrierefreiheit.spec.js   # 14 Tests, axe + Zielgrößen
+npx playwright test tests/e2e/barrierefreiheit.spec.js   # 10 Tests, axe über 32 Seiten
 ```
 
 ### Ein Tor, das fünf von vierunddreißig Seiten misst
@@ -3795,6 +3795,81 @@ aufzählen. Zwei Dinge gehören dazu, beide teuer gelernt — **angemeldet messe
 zurück) und **nachsehen, welche Seite wirklich aktiv wurde**. Ohne die
 Gegenprobe zählt man dieselbe Seite mehrfach und hält das für Abdeckung; genau
 daran war die erste Fassung dieser Messung mit **46** statt 40 Knoten falsch.
+
+#### Ausgeführt — und die Zahl wurde beim Weiten größer, nicht kleiner
+
+Am selben Tag umgesetzt. Das Tor misst jetzt **32 der 34 Seiten** in beiden
+Farbmodi; die zwei übrigen sind nachgewiesene Weiterleitungen (`home` →
+`browse`, `profile` → `provider`), deren Ziel selbst gemessen wird. **`admin`
+ist dabei** — die Annahme darüber, es brauche „echte Rechte", war falsch:
+`isAdmin: true` am Messkonto genügt, nachgemessen.
+
+Und genau das hat die Zahl bewegt. Gemessen wurden **58** Knoten statt 40:
+
+| | |
+|---|---|
+| 20 `critical` | zehn Bedienelemente ohne Namen (in beiden Modi gezählt) |
+| 16 | Weiß auf `#FF385C` am Feed-Kontaktknopf, 3,51 : 1 bei 12 px |
+| 3 | im Dunkelmodus unlesbar (1,12 · 1,15 · **1,51**) |
+| 9 | Markenfarbe als Text auf hell |
+| 10 | Statusfarben ohne Dunkelwert |
+
+Der Unterschied ist **kein Widerspruch, sondern der Subjektwechsel**: vorher
+in der Rolle der jeweiligen Seite, jetzt auf JEDER Seite angemeldet — und mit
+`isAdmin`. Erst dadurch rendern der Feed-Kontaktknopf und drei
+Admin-Bedienelemente, die alle drei kaputt waren. **Eine Abdeckung, die man
+weitet, findet mehr; eine Zahl, die dabei sinkt, wäre das verdächtige
+Ergebnis.**
+
+Drei Befunde daneben, jeder für sich die bekannte Klasse:
+
+- **`.btn-link` war in KEINER Stylesheet-Datei definiert.** Der Knopf „Erneut
+  versuchen" bekam also die Browservorgabe `color: buttontext` = #000. Ein
+  Klassenname ist keine Gestaltung — dieselbe Klasse wie `escHtml`, den es
+  nicht gab.
+- **`release-vision.css` trug einen Dunkelmodus für `[data-theme="dark"]`.**
+  Dieses Projekt schaltet über `body.dark-mode`; `data-theme` wird **nirgends**
+  gesetzt. Zwei Zeilen mit fertigen, richtigen Dunkelfarben, die nie ein
+  einziges Mal gegriffen haben. Zwei Zeilen darüber führen beide Selektoren —
+  es war ein Vergessen, kein Entwurf.
+- **37 statt 10 Beschriftungen.** axe meldete zehn, weil es bei `<input>` einen
+  `placeholder` als Notnamen durchgehen lässt und bei `<select>` nicht. Ein
+  Platzhalter verschwindet beim Tippen — genau dann braucht ihn jemand.
+  Gemessen wird jetzt die **Bedingung** (jede Formularbeschriftung nennt ihr
+  Feld), nicht die zehn Fälle, die axe zufällig sieht.
+
+**Und vier Icon-Ligaturen wären durch die Reparatur erst gefährlich
+geworden.** `<label><span class="material-icons-round">auto_awesome</span>
+Suche</label>` hat als Textinhalt „auto_awesome Suche". Solange kein `for=`
+dastand, kam der Name vom Platzhalter; mit `for=` liest ein Screenreader die
+Ligatur vor. `aria-hidden="true"` an genau diesen vier Spans — eine Reparatur,
+die man zu Ende messen muss, statt sie zu beschließen.
+
+**Elf Mutationen, neun rot.** `.btn-link` weg · Dunkel-Statusfarben weg ·
+zurück auf den toten `[data-theme]` · abgemeldet gemessen · Handliste statt
+Ableitung · Ableitung gekürzt · erfundene Weiterleitung · ein `for=` weg ·
+`aria-labelledby` am 2FA-Schalter weg.
+
+Zwei überleben, **beide legitim und beide belegt**:
+
+1. **Die drei Dunkelflächen von `create-payout` sind ein Satz.**
+   `body.dark-mode .create-payout-notice` (0,2,1) schlägt
+   `.create-payout-notice.is-warning` (0,2,0) — jede Zeile einzeln zu
+   entfernen ändert nichts, alle drei zusammen machen die Suite rot. Wer die
+   erste löscht, weil die anderen dastehen, holt den Befund zurück.
+2. **Die Gegenprobe auf die aktive Seite kann sich nicht selbst prüfen.**
+   Entfernt man sie *und* misst abgemeldet, ist die Suite grün — über 32
+   Seiten, die alle dieselbe Landeseite sind. Mit Gegenprobe ist derselbe
+   Zustand rot. Das Paar ist der Beleg, nicht die einzelne Mutation.
+
+**Und die Mutationsprobe selbst hat einmal Schaden angerichtet.** Der erste
+Läufer setzte mit `git checkout --` zurück — bei noch nicht committeter Arbeit
+löscht das die Arbeit. Die neun Proben danach liefen gegen den alten Stand und
+meldeten Unsinn (unter anderem „rot", weil der `-g`-Filter ins Leere lief und
+Playwright deshalb mit 1 endet). Gesichert wird jetzt per **Kopie**, der
+Läufer prüft am Ende, dass der Baum byte-identisch zurück ist, und ein
+Lauf ohne getroffenen Test gilt als **ungültig**, nicht als Treffer.
+Dieselbe Lehre wie beim Messgerät, das sein Subjekt verändert.
 
 Vollständig mit allen Kontrastwerten: [[30-Betrieb/Barrierefreiheit-Abdeckung]]
 und [[20-System/Frontend/Design-System-Drift]].
@@ -4017,7 +4092,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1188 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1184 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -4152,8 +4227,13 @@ je Position, Anlegen/Bearbeiten/Ablauf), **Pflichtchecks** (Selbstbuchungs-
 schutz, Demo-Toggle, Board-Picker, Listings), Radar (Umkreis, lokale Position,
 Migrations-Verhalten), Vision-Release, Kern
 (Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), **Barrierefreiheit**
-(axe über beide Farbmodi — seit dem 10.09.2026 auch WCAG **2.2**; die
-Galerie-Punkte sind 24 px breit und sehen weiter aus wie 7 px), Design-System,
+(axe über beide Farbmodi und seit dem 15.09.2026 über **32 der 34 Seiten**,
+angemeldet und mit `isAdmin` — die zwei übrigen sind nachgewiesene
+Weiterleitungen, deren Ziel selbst gemessen wird; die Seitenliste kommt aus
+der Shell, und auf jeder Seite wird nachgesehen, welche wirklich aktiv wurde;
+seit dem 10.09.2026 auch WCAG **2.2**; jede Formularbeschriftung nennt ihr
+Feld, statt nur daneben zu stehen; die Galerie-Punkte sind 24 px breit und
+sehen weiter aus wie 7 px), Design-System,
 CSS-Minify. `pr-check.yml` blockiert PRs bei
 Fehlern. Die Rechtsablage-Suite prüft zusätzlich private Speicherung,
 Versionshistorie, Aufgabenstatus und den amtlichen Quellenmonitor.
