@@ -289,7 +289,7 @@ function radarLeisteAufbauen() {
   if (overlay && !_radarEl('radarAktivFilter')) {
     var controls = document.createElement('div');
     controls.id = 'radarAktivFilter'; controls.className = 'akt-overlay-filter';
-    controls.innerHTML = '<label>Anzeigen<select id="radarArt" onchange="_radarArt=this.value;radarAnzeigen()"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten & Events</option><option value="dienstleister">Dienstleister</option></select></label>'
+    controls.innerHTML = '<label>Anzeigen<select id="radarArt" onchange="_radarArt=this.value;radarAnzeigen()"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten</option><option value="dienstleister">Dienstleister</option></select></label>'
       + '<label>Aktivität<select id="radarKategorie" onchange="_aktKategorie=this.value;radarAnzeigen()"><option value="">Alle Aktivitäten</option>'
       + ['Sport','Kino','Museum','Theater','Zoo','Escape-Room','Kletterhalle','Erlebnisbad'].map(function(c) { return '<option>' + c + '</option>'; }).join('') + '</select></label>'
       + '<label>Termine<select id="radarZeit" onchange="_aktZeit=this.value;radarAnzeigen()"><option value="alle">Alle Termine</option><option value="jetzt">Nächste 4 Stunden</option><option value="heute">Heute</option><option value="wochenende">Wochenende</option></select></label>';
@@ -454,7 +454,17 @@ function _radarTrefferOeffnen(hit) {
   if (!hit) return;
   if (hit.art === 'dienstleister') { closeMapOverlay(); navigateTo('detail', hit.daten.id); return; }
   var e = hit.daten && hit.daten._aktivitaet;
-  var url = e && e.quelle && e.quelle.url;
+  // ── BETREIBERSEITE VOR KARTENSEITE (15.09.2026) ──────────────────────
+  //
+  // Hier stand nur `e.quelle.url` — und das ist bei 800 von 954 Eintraegen
+  // die OpenStreetMap-Objektseite. Gemeldet: „das radar oeffnet
+  // openstreetmap statt die website des externen betreibers". Wer ein Kino
+  // antippt, will die Spielzeiten.
+  //
+  // `quelle.url` bleibt als ODbL-Attribution erhalten und wird weiter
+  // angezeigt — nur ist sie nicht mehr das Ziel des Klicks, solange es
+  // eine echte Betreiberseite gibt.
+  var url = (e && e.webseite) || (e && e.quelle && e.quelle.url);
   if (typeof url === 'string' && /^https:\/\//.test(url)) {
     window.open(url, '_blank', 'noopener,noreferrer');
     return;
@@ -471,7 +481,7 @@ function _radarOverlayMarker(hits) {
     var popup = group.items.map(function(item) {
       var t = item.hit;
       return '<button type="button" class="feed-radar-popup-row" onclick="radarTrefferOeffnen(' + item.index + ')"><span><strong>'
-        + _escHtml(t.daten.title || t.daten.name || 'Event') + '</strong><small>'
+        + _escHtml(t.daten.title || t.daten.name || 'Aktivität') + '</strong><small>'
         + _escHtml(t.ort || '') + ' · ' + (t.art === 'aktivitaet' ? 'Externe Quelle' : t.art === 'event' ? 'Demo-Event' : 'Auf Eventbörse')
         + (t.genau ? '' : ' · Stadtmitte') + '</small></span></button>';
     }).join('');
@@ -676,7 +686,7 @@ function _feedRadarPopupHtml(gruppe) {
   var eintraege = gruppe.map(function(item) {
     var hit = item.hit;
     var d = hit.daten || {};
-    var title = d.title || d.name || 'Event';
+    var title = d.title || d.name || 'Aktivität';
     return '<button type="button" class="feed-radar-popup-row" onclick="feedRadarOpen(' + item.index + ')">'
       + '<span class="material-icons-round">' + (hit.art === 'dienstleister' ? 'storefront' : 'celebration') + '</span>'
       + '<span><strong>' + _escHtml(title) + '</strong><small>'
@@ -844,7 +854,7 @@ function renderFeedRadar(container) {
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
     '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
     '<div class="release-privacy"><span class="material-icons-round">shield</span><span>Dein genauer Standort bleibt im Browser. Gespeichert wird nur eine grobe Position; du kannst sie jederzeit <button type="button" onclick="feedRadarForget()">vergessen</button>.</span></div>' +
-    '<label class="akt-radar-type">Anzeigen<select id="feedRadarType" onchange="feedRadarArt(this.value)"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten und Events</option><option value="dienstleister">Dienstleister</option></select></label>' +
+    '<label class="akt-radar-type">Anzeigen<select id="feedRadarType" onchange="feedRadarArt(this.value)"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten</option><option value="dienstleister">Dienstleister</option></select></label>' +
     ebAktivitaetenFilterHtml(true) + '<div id="feedRadarResults"></div></section>';
   document.getElementById('feedRadarType').value = _radarArt;
   _drawFeedRadar();
@@ -879,14 +889,18 @@ function _drawFeedRadar() {
   var hits = radarUmkreis(_radarPos, _radarRadius);
   _feedRadarHits = hits;
   var dienstleister = hits.filter(function(hit){ return hit.art === 'dienstleister'; }).length;
-  var events = hits.length - dienstleister;
+  // Gemessen am 15.09.2026 in Köln: 212 Aktivitäten, 1 Demo-Event, 5 Dienstleister
+  // — und die Legende nannte 213 davon „Events", während jede Karte darunter
+  // „EXTERNE AKTIVITÄT" sagte. Der Bestand besteht aus Aktivitäten; Demo-Events
+  // sind der Rest, der verschwindet. Die Zahl heisst deshalb, was sie zählt.
+  var aktivitaeten = hits.length - dienstleister;
   var mapHtml = '<div class="feed-radar-map-shell">'
     + '<div id="feedRadarMap" class="feed-radar-map" role="region" aria-label="Radar-Karte mit Treffern im Umkreis von '
     + _radarRadius + ' Kilometern"></div>'
     + '<div class="feed-radar-map-top"><span id="feedRadarScanStatus"><span class="feed-radar-live-dot scannt"></span>Radar startet …</span>'
     + '<span class="feed-radar-map-radius"><span class="material-icons-round">radio_button_checked</span>' + _radarRadius + ' km</span></div>'
     + '<div class="feed-radar-legend"><span><i class="listing"></i>' + dienstleister + ' Dienstleister</span>'
-    + '<span><i class="event"></i>' + events + ' Events</span><span><i class="approx"></i>ca. = Stadtmitte</span></div></div>';
+    + '<span><i class="event"></i>' + aktivitaeten + ' Aktivitäten</span><span><i class="approx"></i>ca. = Stadtmitte</span></div></div>';
 
   if (!hits.length) {
     var next = RADAR_RADIEN.filter(function(r){ return r > _radarRadius; })[0];
@@ -898,7 +912,7 @@ function _drawFeedRadar() {
   root.innerHTML = mapHtml + '<div class="feed-radar-summary"><strong>' + hits.length + ' Möglichkeiten im Radar</strong><span>Tippe einen Marker oder Treffer an · nach Entfernung sortiert</span></div>' +
     '<div class="feed-radar-results">' + hits.map(function(hit, index){
       var d = hit.daten || {};
-      var title = d.title || d.name || 'Event';
+      var title = d.title || d.name || 'Aktivität';
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
       return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +

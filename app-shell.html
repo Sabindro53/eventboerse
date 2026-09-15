@@ -3666,8 +3666,18 @@ Datum: ___________________________________________________
               <input type="text" id="regLastName" placeholder="Mustermann" required />
             </div>
           </div>
+          <!-- Nickname: ohne ihn findet die Personensuche niemanden. Die Regel
+               ist dieselbe wie serverseitig (eb_handle_gueltig): 3–24 Zeichen,
+               Kleinbuchstaben, Ziffern, Punkt, Unterstrich. -->
           <div class="form-group">
-            <label>E-Mail</label>
+            <label for="regHandle">Nickname <small>(so finden dich Freunde)</small></label>
+            <input type="text" id="regHandle" placeholder="max.mustermann" required
+                   minlength="3" maxlength="24" pattern="[a-z0-9._]{3,24}"
+                   autocomplete="username" inputmode="latin" />
+            <small class="form-hint">3–24 Zeichen · Kleinbuchstaben, Ziffern, Punkt, Unterstrich</small>
+          </div>
+          <div class="form-group">
+            <label for="regEmail">E-Mail</label>
             <input type="email" id="regEmail" placeholder="deine@email.de" required />
           </div>
           <div class="form-group">

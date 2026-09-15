@@ -97,6 +97,130 @@ function eb_handle_von( $user_id ) {
     return is_string( $h ) ? $h : '';
 }
 
+/**
+ * Einen Nickname aus einem Namen bauen.
+ *
+ * Kleinbuchstaben, Ziffern, Punkt, Unterstrich — dieselbe Regel wie
+ * `eb_handle_gueltig()`, nur von der anderen Seite. Umlaute werden
+ * ausgeschrieben, sonst faellt aus „Müller" ein „mller".
+ */
+function eb_handle_vorschlag( $name ) {
+    $roh = strtolower( trim( (string) $name ) );
+    $roh = strtr( $roh, array(
+        'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss',
+        'á' => 'a', 'à' => 'a', 'â' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e',
+        'í' => 'i', 'ì' => 'i', 'ó' => 'o', 'ò' => 'o', 'ô' => 'o',
+        'ú' => 'u', 'ù' => 'u', 'ç' => 'c', 'ñ' => 'n',
+    ) );
+    $roh = preg_replace( '/[^a-z0-9._]+/', '.', $roh );
+    $roh = trim( (string) $roh, '._' );
+    $roh = preg_replace( '/\.{2,}/', '.', (string) $roh );
+    if ( strlen( $roh ) > 24 ) {
+        $roh = rtrim( substr( $roh, 0, 24 ), '._' );
+    }
+    return (string) $roh;
+}
+
+/**
+ * Einen freien Nickname finden — nie einen fremden ueberschreiben.
+ *
+ * Kollisionen bekommen eine Zahl. Der Zaehler ist gedeckelt: eine Schleife
+ * ohne Ausstieg waere auf einem geteilten PHP-Pool genau die Sorte Last,
+ * die am 22.08.2026 die Website haengen liess.
+ */
+function eb_handle_freier( $wunsch, $user_id = 0 ) {
+    $basis = eb_handle_vorschlag( $wunsch );
+    if ( strlen( $basis ) < 3 ) {
+        $basis = 'eb.' . absint( $user_id );
+        $basis = eb_handle_vorschlag( $basis );
+    }
+    if ( strlen( $basis ) < 3 ) {
+        return '';
+    }
+    for ( $i = 0; $i <= 50; $i++ ) {
+        $kandidat = $i === 0 ? $basis : rtrim( substr( $basis, 0, 21 ), '._' ) . $i;
+        if ( ! eb_handle_gueltig( $kandidat ) ) {
+            continue;
+        }
+        if ( in_array( $kandidat, eb_handle_gesperrt(), true ) ) {
+            continue;
+        }
+        $besitzer = eb_handle_besitzer( $kandidat );
+        if ( ! $besitzer || (int) $besitzer === (int) $user_id ) {
+            return $kandidat;
+        }
+    }
+    return '';
+}
+
+/**
+ * Bestandsnutzer bekommen einen Nickname (DB 3.2).
+ *
+ * ── WARUM DAS EINE ENTSCHEIDUNG IST, KEINE AUFRAEUMARBEIT ───────────────
+ *
+ * Bis hierher galt: „Das Setzen IST die Einwilligung" — wer keinen Handle
+ * hatte, war in der Personensuche nicht auffindbar, und das war Absicht.
+ * Ein Nachtrag macht Bestandsnutzer auffindbar, OHNE dass sie dem
+ * zugestimmt haetten. Der Inhaber hat das am 15.09.2026 ausdruecklich so
+ * beauftragt („die die wir schon haben kriegen jetzt einfach ein
+ * passenden"), weil die Personensuche sonst leer bleibt.
+ *
+ * Drei Grenzen halten den Eingriff klein:
+ *
+ *  1. NUR wo nichts steht. Ein vorhandener Handle wird nie ueberschrieben —
+ *     auch kein bewusst geleerter, denn `get_user_meta` liefert dann '' und
+ *     der Eintrag existiert; geprueft wird deshalb auf die Existenz des
+ *     Meta-Schluessels, nicht auf seinen Wert. Wer sich unauffindbar
+ *     gemacht hat, bleibt es.
+ *  2. Gedeckelt je Lauf. Ein Durchlauf ueber ALLE Nutzer in einem
+ *     `init`-Hook ist genau die Sorte Eingriff, die hier schon einmal
+ *     teuer war. Der Rest kommt beim naechsten Lauf.
+ *  3. Nur zusaetzlich. Es wird ausschliesslich ein Meta-Schluessel
+ *     geschrieben, nie einer geloescht oder geaendert.
+ */
+function eb_handles_nachtragen( $deckel = 200 ) {
+    // ── EIGENE MARKE, NICHT DIE DB-VERSION ──────────────────────────────
+    //
+    // `eb_maybe_create_tables()` laeuft bei JEDER Anfrage weiter, solange
+    // eine Tabelle fehlt — dann stuende hier ein `get_users()` ueber 200
+    // Konten in jedem Seitenaufruf. Auf dem kleinen PHP-Pool von IONOS ist
+    // das genau die Last, die am 22.08.2026 die Website haengen liess.
+    //
+    // Die Marke ist deshalb eigenstaendig, wie beim 2.7-Backfill. Ein voller
+    // Stapel bedeutet „da kann noch mehr sein" und laesst sie offen; ein
+    // unvoller heisst fertig. Das konvergiert und hoert von selbst auf.
+    if ( get_option( 'eb_handles_nachtrag_32' ) === 'fertig' ) {
+        return 0;
+    }
+    if ( ! function_exists( 'get_users' ) ) {
+        return 0;
+    }
+    $nutzer = get_users( array(
+        'number'     => absint( $deckel ),
+        'fields'     => array( 'ID', 'display_name', 'user_login' ),
+        'meta_query' => array(
+            array( 'key' => 'eb_handle', 'compare' => 'NOT EXISTS' ),
+        ),
+    ) );
+    $gesetzt = 0;
+    foreach ( $nutzer as $u ) {
+        $name = trim( (string) $u->display_name );
+        if ( $name === '' ) {
+            $name = (string) $u->user_login;
+        }
+        $handle = eb_handle_freier( $name, $u->ID );
+        if ( $handle === '' ) {
+            continue;
+        }
+        update_user_meta( $u->ID, 'eb_handle', $handle );
+        $gesetzt++;
+    }
+    if ( count( $nutzer ) < absint( $deckel ) ) {
+        update_option( 'eb_handles_nachtrag_32', 'fertig' );
+    }
+    return $gesetzt;
+}
+
 /** Wem gehört dieser Handle? 0 = niemandem. */
 function eb_handle_besitzer( $handle ) {
     $handle = strtolower( trim( (string) $handle ) );

@@ -1872,7 +1872,7 @@ durch), und drei Anläufe sind eine bessere Chance, keine Garantie. Die Zahl
 der erfassten Gebiete steht in jedem Lauf im Bericht.
 
 ```bash
-npx playwright test tests/e2e/aktivitaeten.spec.js   # 39 Tests, an Prüfstücken
+npx playwright test tests/e2e/aktivitaeten.spec.js   # 41 Tests, an Prüfstücken
 ```
 
 #### Die Ansicht: Reiter „⚡ Jetzt"
@@ -2031,7 +2031,7 @@ Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
 npx playwright test tests/e2e/social.spec.js           # 44 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/freunde-ansicht.spec.js  # 14 Tests, echter Browser
+npx playwright test tests/e2e/freunde-ansicht.spec.js  # 18 Tests, echter Browser
 ```
 
 **Eigene Tabellen, nicht das Board.** `eb_board_projects` ist EIN JSON-Blob je
@@ -4017,7 +4017,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1170 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1188 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

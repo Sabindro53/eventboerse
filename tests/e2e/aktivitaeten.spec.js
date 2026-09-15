@@ -609,3 +609,60 @@ test.describe('Abruf: ein ausgefallenes Gebiet bekommt einen zweiten Anlauf', ()
       + 'Pause ist nicht länger als die erste').toBeGreaterThan(gewartet[0]);
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIE ADRESSE DES BETREIBERS, NICHT DIE DER KARTE
+   ══════════════════════════════════════════════════════════════════════
+
+   Gemeldet am 15.09.2026: „das radar öffnet openstreetmap statt die
+   website des externen betreibers". Gemessen: 800 von 954 Einträgen tragen
+   als `quelle.url` die OSM-Objektseite — das ist der ODbL-Attributionslink
+   und muss es bleiben. Als Ziel eines Klicks ist eine Kartenseite aber die
+   falsche Auskunft: wer ein Kino antippt, will die Spielzeiten.
+
+   OSM führt die Betreiberseite als `website` bzw. `contact:website`. Der
+   Wert kommt von Fremden und landet in einem Link — deshalb nur https.
+*/
+test.describe('Aktivitäten: die Betreiberseite', () => {
+  test('osmWebseite nimmt nur brauchbare https-Adressen', async () => {
+    const m = await import('../../scripts/aktivitaeten.mjs');
+    const faelle = [
+      [{ website: 'https://kino.de' }, 'https://kino.de'],
+      [{ 'contact:website': 'https://theater.de' }, 'https://theater.de'],
+      [{ website: 'http://kino.de' }, ''],            // kein Klartext-HTTP
+      [{ website: 'javascript:alert(1)' }, ''],       // hier wird aus Daten Code
+      [{ website: '  ' }, ''],
+      [{}, ''],
+      [{ website: 'https://x' }, ''],                 // zu kurz, um echt zu sein
+    ];
+    for (const [tags, erwartet] of faelle) {
+      expect(m.osmWebseite(tags), `${JSON.stringify(tags)}`).toBe(erwartet);
+    }
+  });
+
+  test('der Bestand trägt die Betreiberseite — und die Quelle bleibt OSM', async () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const m = await import('../../scripts/aktivitaeten.mjs');
+    const roh = JSON.parse(fs.readFileSync(
+      path.join(__dirname, '..', 'fixtures', 'aktivitaeten-roh.json'), 'utf8'));
+    const antworten = roh.overpass;
+    const erst = Array.isArray(antworten) ? antworten[0]
+      : (antworten && antworten.elements ? antworten : Object.values(antworten)[0]);
+    const eintraege = m.ausOverpass(erst);
+
+    const mit = eintraege.filter((x) => x.webseite);
+    expect(mit.length, 'kein Eintrag trägt eine Betreiberseite — der Test misst nichts')
+      .toBeGreaterThan(0);
+    for (const e of mit) expect(e.webseite).toMatch(/^https:\/\//);
+
+    // Die Attribution bleibt: sie ist Lizenzbedingung, nicht Zierrat.
+    for (const e of eintraege) expect(e.quelle.url).toMatch(/openstreetmap\.org/);
+
+    // Fehlt das Tag, fehlt das FELD — kein leerer String, der wie eine
+    // Adresse aussieht und keine ist.
+    const ohne = eintraege.filter((x) => !x.webseite);
+    expect(ohne.every((x) => !('webseite' in x)),
+      'ein Eintrag ohne Betreiberseite trägt ein leeres Feld').toBe(true);
+  });
+});

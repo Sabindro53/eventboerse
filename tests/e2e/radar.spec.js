@@ -1018,3 +1018,86 @@ test.describe('Standort und Einwilligung', () => {
     expectNoPageErrors(errors, 'Standort ohne Einwilligung');
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIE LEGENDE NANNTE AKTIVITÄTEN „EVENTS"
+   ══════════════════════════════════════════════════════════════════════
+
+   Gemeldet am 15.09.2026. Gemessen in Köln: 212 Aktivitäten, 1 Demo-Event,
+   5 Dienstleister — und die Legende sagte „213 Events", während jede Karte
+   darunter „EXTERNE AKTIVITÄT" trug. `var events = hits.length -
+   dienstleister` zählte alles, was kein Dienstleister ist, als Event.
+
+   Der Produktname „Event-Radar" bleibt bewusst stehen: gemeint war der
+   EINTRAG, nicht die Ansicht. Ein Umbenennen der Überschrift zöge
+   Wissensbasis und vision-release.spec.js mit und ist eine Entscheidung
+   des Inhabers.
+*/
+test.describe('Radar: Aktivitäten heißen Aktivitäten', () => {
+  test('die Legende zählt Aktivitäten, nicht Events', async ({ page }) => {
+    await openApp(page);
+    await page.evaluate(() => navigateTo('aktuelles', 'radar'));
+    await page.waitForTimeout(3000);
+    const m = await page.evaluate(() => {
+      const arten = {};
+      (_feedRadarHits || []).forEach((h) => { arten[h.art] = (arten[h.art] || 0) + 1; });
+      const leg = document.querySelector('.feed-radar-legend');
+      return { arten, text: leg ? leg.innerText.replace(/\s+/g, ' ') : '' };
+    });
+    // Gegenprobe zuerst: es liegen wirklich überwiegend Aktivitäten vor.
+    // Ohne sie belegt „steht Aktivitäten dran" nichts.
+    expect(m.arten.aktivitaet, 'keine Aktivitäten im Radar — der Test misst nichts')
+      .toBeGreaterThan(m.arten.event || 0);
+    expect(m.text, `Legende: „${m.text}"`).toMatch(/Aktivitäten/);
+    expect(m.text, 'die Legende nennt Aktivitäten weiter „Events"').not.toMatch(/\bEvents\b/);
+  });
+
+  test('der Filter bietet „Aktivitäten" an, nicht „Aktivitäten und Events"', async ({ page }) => {
+    await openApp(page);
+    await page.evaluate(() => navigateTo('aktuelles', 'radar'));
+    await page.waitForTimeout(2500);
+    const opt = await page.evaluate(() => {
+      const s = document.querySelector('#feedRadarType');
+      return s ? [...s.options].map((o) => o.text) : [];
+    });
+    expect(opt.length, 'Filter nicht gefunden').toBeGreaterThan(1);
+    expect(opt.join(' '), `Filter: ${JSON.stringify(opt)}`).not.toMatch(/Events/);
+  });
+
+  test('ein Treffer öffnet die Betreiberseite, nicht die Kartenseite', async ({ page }) => {
+    // 800 von 954 Einträgen tragen als `quelle.url` die OpenStreetMap-Seite —
+    // das ist der ODbL-Attributionslink und bleibt es. Als Ziel eines Klicks
+    // ist eine Kartenseite aber die falsche Auskunft.
+    await openApp(page);
+    const ziel = await page.evaluate(() => {
+      let geoeffnet = null;
+      const echt = window.open;
+      window.open = function (u) { geoeffnet = u; return null; };
+      const hit = { art: 'aktivitaet', daten: { _aktivitaet: {
+        webseite: 'https://www.beispiel-kino.de/',
+        quelle: { url: 'https://www.openstreetmap.org/node/1', name: 'OpenStreetMap' },
+      } } };
+      _radarTrefferOeffnen(hit);
+      window.open = echt;
+      return geoeffnet;
+    });
+    expect(ziel, 'der Klick landet weiter bei OpenStreetMap').toBe('https://www.beispiel-kino.de/');
+  });
+
+  test('ohne Betreiberseite bleibt die Quelle das Ziel', async ({ page }) => {
+    // Gegenprobe: „nimm immer webseite" wäre sonst eine Erklärung, die den
+    // Test oben besteht und Einträge ohne Webseite ins Leere laufen lässt.
+    await openApp(page);
+    const ziel = await page.evaluate(() => {
+      let geoeffnet = null;
+      const echt = window.open;
+      window.open = function (u) { geoeffnet = u; return null; };
+      _radarTrefferOeffnen({ art: 'aktivitaet', daten: { _aktivitaet: {
+        quelle: { url: 'https://www.openstreetmap.org/node/1', name: 'OpenStreetMap' },
+      } } });
+      window.open = echt;
+      return geoeffnet;
+    });
+    expect(ziel).toBe('https://www.openstreetmap.org/node/1');
+  });
+});
