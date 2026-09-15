@@ -126,18 +126,19 @@ test.describe('Design-System', () => {
     // dasselbe Muster wie STILLGELEGT bei den Phantom-Workflows: stilllegen
     // heisst eintragen, nicht verschweigen. Ein leerer Grund faellt durch.
     //
-    // Gefunden am 15.09.2026: `mobile-overrides.css`, 10 KB, wird von keiner
-    // Stelle eingebunden — und steht trotzdem im Autopilot-Rahmen
-    // (`scripts/lib/sichere-dateien.mjs`). Ein Modell koennte also eine Datei
-    // verbessern, die nie jemand laedt. Sie benutzt ausserdem `--color-primary,
-    // #7c3aed` — ein Lila, das die Marke (#FF385C) nicht kennt.
+    // Gefunden am 15.09.2026: `mobile-overrides.css`, 10 KB, wurde von keiner
+    // Stelle eingebunden — und stand trotzdem im Autopilot-Rahmen
+    // (`scripts/lib/sichere-dateien.mjs`). Ein Modell haette also eine Datei
+    // verbessern koennen, die nie jemand laedt. Sie benutzte ausserdem
+    // `--color-primary, #7c3aed` — ein Lila, das die Marke (#FF385C) nicht
+    // kennt. Am selben Tag auf Weisung des Inhabers geloescht, samt Eintrag
+    // im Rahmen; die Historie hat sie, falls sie je gebraucht wird.
+    //
+    // Die Liste ist deshalb LEER und bleibt es hoffentlich. Sie ist kein
+    // Abstellgleis: wer hier eintraegt, haelt eine Datei am Leben, die
+    // niemand laedt — der Eintrag ist die Ausnahme, nicht der Normalfall.
     const fs = require('node:fs');
-    const OHNE_AUSLIEFERUNG = {
-      'mobile-overrides.css':
-        'Nirgends eingebunden (weder index.php, Dev-Shell, hq.html noch functions.php). '
-        + 'Fremde Markenfarbe #7c3aed. Loeschen ist eine Entscheidung des Inhabers, '
-        + 'deshalb hier eingetragen statt still entfernt.',
-    };
+    const OHNE_AUSLIEFERUNG = {};
     const LIEFERWEGE = ['index.php', 'index.local-head.html', 'hq.html', 'functions.php'];
     const ausgeliefert = new Set();
     for (const q of LIEFERWEGE) {

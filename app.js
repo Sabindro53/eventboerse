@@ -7437,7 +7437,7 @@ function renderFeedRadar(container) {
     return '<button type="button" class="radar-chip' + (km === _radarRadius ? ' aktiv' : '') + '" onclick="feedRadarRadius(' + km + ')">' + km + ' km</button>';
   }).join('');
   container.innerHTML = '<section class="feed-radar-card">' +
-    '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
+    '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Aktivitäten-Radar</h2>' +
     '<p>Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
     '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +

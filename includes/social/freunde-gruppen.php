@@ -105,13 +105,38 @@ function eb_handle_von( $user_id ) {
  * ausgeschrieben, sonst faellt aus „Müller" ein „mller".
  */
 function eb_handle_vorschlag( $name ) {
-    $roh = strtolower( trim( (string) $name ) );
-    $roh = strtr( $roh, array(
+    // ── UMSCHRIFT VOR DEM KLEINSCHREIBEN ────────────────────────────────
+    //
+    // Hier stand `strtolower( trim( $name ) )` ZUERST und die Tabelle
+    // danach — mit ausschliesslich kleinen Umlauten. `strtolower()`
+    // arbeitet aber BYTEWEISE: „Ä" sind zwei UTF-8-Bytes, und keines davon
+    // ist ein ASCII-Grossbuchstabe. Der Umlaut kam also unveraendert bei
+    // einer Tabelle an, die nur „ä" kennt, und fiel eine Zeile spaeter dem
+    // `[^a-z0-9._]`-Filter zum Opfer.
+    //
+    // Am Pruefstand gemessen, nicht vermutet:
+    //
+    //     „Änne Großmann"  ->  nne.grossmann      (das Ä fehlt ganz)
+    //     „Bo Ötzi"        ->  bo.tzi
+    //
+    // Das traf JEDEN Namen, der mit einem Umlaut beginnt — und der Handle
+    // ist das, wonach andere diese Person suchen. Aufgefallen ist es erst,
+    // als der Nachtrag wirklich AUSGEFUEHRT wurde statt gelesen.
+    //
+    // `mb_strtolower` waere der kuerzere Weg und der unsicherere: mbstring
+    // ist keine Voraussetzung, die WordPress garantiert — dieselbe
+    // Begruendung wie beim Kontaktschutz.
+    $roh = strtr( trim( (string) $name ), array(
+        'Ä' => 'ae', 'Ö' => 'oe', 'Ü' => 'ue', 'ẞ' => 'ss',
+        'Á' => 'a', 'À' => 'a', 'Â' => 'a', 'É' => 'e', 'È' => 'e', 'Ê' => 'e',
+        'Í' => 'i', 'Ì' => 'i', 'Ó' => 'o', 'Ò' => 'o', 'Ô' => 'o',
+        'Ú' => 'u', 'Ù' => 'u', 'Ç' => 'c', 'Ñ' => 'n',
         'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss',
         'á' => 'a', 'à' => 'a', 'â' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e',
         'í' => 'i', 'ì' => 'i', 'ó' => 'o', 'ò' => 'o', 'ô' => 'o',
         'ú' => 'u', 'ù' => 'u', 'ç' => 'c', 'ñ' => 'n',
     ) );
+    $roh = strtolower( $roh );
     $roh = preg_replace( '/[^a-z0-9._]+/', '.', $roh );
     $roh = trim( (string) $roh, '._' );
     $roh = preg_replace( '/\.{2,}/', '.', (string) $roh );
@@ -179,6 +204,28 @@ function eb_handle_freier( $wunsch, $user_id = 0 ) {
  *     geschrieben, nie einer geloescht oder geaendert.
  */
 function eb_handles_nachtragen( $deckel = 200 ) {
+    // ── OPT-IN, WEIL DIES EINE DATENSCHUTZ-AUSSAGE AENDERT ──────────────
+    //
+    // Die Doktrin zur Personensuche lautet seit dem 09.09.2026: „Das Setzen
+    // IST die Einwilligung." Genau die hebt ein Nachtrag auf — bestehende
+    // Konten werden auffindbar, ohne dass irgendjemand etwas gesetzt hat.
+    // Das ist keine Aufraeumarbeit, sondern eine Aussage in der
+    // Datenschutzerklaerung, und sie gehoert dorthin, BEVOR sie zutrifft.
+    //
+    // Deshalb derselbe Opt-in-Weg wie bei EB_APPLE_TEAM_ID: ohne die
+    // Konstante bleibt alles, wie es ist, und „nicht eingerichtet" sieht
+    // anders aus als „eingerichtet". Der Schalter wird in dem Augenblick
+    // gesetzt, in dem die Datenschutzerklaerung den Nachtrag nennt —
+    // dieselbe Hand, derselbe Moment.
+    //
+    // Der Code ist damit fertig und wartet; er ist nicht abgeschaltet.
+    // Eine Zeile in wp-config.php startet ihn:
+    //
+    //     define( 'EB_HANDLE_NACHTRAG', true );
+    if ( ! defined( 'EB_HANDLE_NACHTRAG' ) || ! EB_HANDLE_NACHTRAG ) {
+        return 0;
+    }
+
     // ── EIGENE MARKE, NICHT DIE DB-VERSION ──────────────────────────────
     //
     // `eb_maybe_create_tables()` laeuft bei JEDER Anfrage weiter, solange

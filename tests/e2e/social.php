@@ -91,6 +91,7 @@ function eventboerse_check_rate_limit( $action, $limit = 5, $window = 900, $iden
 $GLOBALS['ich']      = 0;
 $GLOBALS['nutzer']   = array();   // id => ['display_name' => …]
 $GLOBALS['usermeta'] = array();   // id => [key => value]
+$GLOBALS['optionen'] = array();   // Optionsname => Wert
 
 function get_current_user_id() { return (int) $GLOBALS['ich']; }
 function get_userdata( $id ) {
@@ -103,7 +104,35 @@ function get_user_meta( $id, $key, $single = false ) {
 }
 function update_user_meta( $id, $key, $val ) { $GLOBALS['usermeta'][ (int) $id ][ $key ] = $val; }
 function delete_user_meta( $id, $key ) { unset( $GLOBALS['usermeta'][ (int) $id ][ $key ] ); }
+function get_option( $name, $vorgabe = false ) {
+    return $GLOBALS['optionen'][ $name ] ?? $vorgabe;
+}
+function update_option( $name, $wert ) { $GLOBALS['optionen'][ $name ] = $wert; return true; }
+
 function get_users( $args ) {
+    // Der Nachtrag fragt anders als die Suche: nicht „wer hat diesen Wert",
+    // sondern „wer hat den Schluessel GAR NICHT". Eine gestellte Datenbank,
+    // die das stillschweigend als „niemand" beantwortet, gaebe Entwarnung
+    // fuer Code, den sie nie ausgefuehrt hat.
+    if ( isset( $args['meta_query'] ) ) {
+        $mq = $args['meta_query'][0];
+        if ( ( $mq['compare'] ?? '' ) !== 'NOT EXISTS' ) {
+            fwrite( STDERR, "Prüfstand kennt meta_query nur mit NOT EXISTS\n" );
+            exit( 1 );
+        }
+        $raus = array();
+        foreach ( $GLOBALS['nutzer'] as $uid => $d ) {
+            $hat = (string) ( $GLOBALS['usermeta'][ $uid ][ $mq['key'] ] ?? '' );
+            if ( $hat !== '' ) { continue; }
+            $raus[] = (object) array(
+                'ID'           => (int) $uid,
+                'display_name' => $d['display_name'],
+                'user_login'   => 'u' . $uid,
+            );
+            if ( count( $raus ) >= (int) ( $args['number'] ?? 100 ) ) { break; }
+        }
+        return $raus;
+    }
     $key     = $args['meta_key'] ?? '';
     $wert    = (string) ( $args['meta_value'] ?? '' );
     $vergl   = $args['meta_compare'] ?? '=';
@@ -848,5 +877,37 @@ foreach ( $GLOBALS['routen'] as $r ) {
         );
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   6 · DER NACHTRAG IST OPT-IN — und das wird AUSGEFÜHRT, nicht gelesen
+   ══════════════════════════════════════════════════════════════════════
+
+   Der Nachtrag hebt die Doktrin „Das Setzen IST die Einwilligung" auf:
+   bestehende Konten werden auffindbar, ohne dass jemand etwas gesetzt hat.
+   Ein Schalter, den nur ein Muster im Quelltext belegt, ist eine
+   Behauptung — hier läuft die Funktion wirklich, einmal ohne und einmal
+   mit der Konstante.
+   ══════════════════════════════════════════════════════════════════════ */
+
+nutzer_anlegen( 900, 'Änne Großmann' );
+nutzer_anlegen( 901, 'Bo Ötzi' );
+
+$ergebnis['nachtrag_ohne_schalter'] = eb_handles_nachtragen( 50 );
+$ergebnis['handles_ohne_schalter']  = array(
+    get_user_meta( 900, 'eb_handle', true ),
+    get_user_meta( 901, 'eb_handle', true ),
+);
+
+define( 'EB_HANDLE_NACHTRAG', true );
+
+$ergebnis['nachtrag_mit_schalter'] = eb_handles_nachtragen( 50 );
+$ergebnis['handles_mit_schalter']  = array(
+    get_user_meta( 900, 'eb_handle', true ),
+    get_user_meta( 901, 'eb_handle', true ),
+);
+$ergebnis['nachtrag_marke']        = get_option( 'eb_handles_nachtrag_32' );
+// Zweiter Lauf: die Marke steht, also passiert nichts mehr. Ohne diese
+// Zusicherung liefe ein `get_users` ueber alle Konten bei jedem Aufruf.
+$ergebnis['nachtrag_zweiter_lauf'] = eb_handles_nachtragen( 50 );
 
 echo json_encode( $ergebnis, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ), "\n";

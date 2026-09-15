@@ -1028,10 +1028,16 @@ test.describe('Standort und Einwilligung', () => {
    darunter „EXTERNE AKTIVITÄT" trug. `var events = hits.length -
    dienstleister` zählte alles, was kein Dienstleister ist, als Event.
 
-   Der Produktname „Event-Radar" bleibt bewusst stehen: gemeint war der
-   EINTRAG, nicht die Ansicht. Ein Umbenennen der Überschrift zöge
-   Wissensbasis und vision-release.spec.js mit und ist eine Entscheidung
-   des Inhabers.
+   Hier stand, der Produktname „Event-Radar" bleibe stehen — gemeint war ja
+   der EINTRAG, nicht die Ansicht — und ein Umbenennen „zöge Wissensbasis und
+   vision-release.spec.js mit". Der Inhaber hat am 15.09.2026 entschieden,
+   ihn mitzunehmen; die Überschrift heißt jetzt „Aktivitäten-Radar".
+
+   Die Hälfte der Begründung war dabei falsch, und das gehört hierher:
+   `assets/eb-knowledge.json` enthält „Event-Radar" **null Mal**. Die
+   Wissensbasis wurde nie berührt, nur `vision-release.spec.js`. Eine
+   Kostenschätzung, die niemand nachgemessen hat, hat die Entscheidung
+   teurer aussehen lassen, als sie war.
 */
 test.describe('Radar: Aktivitäten heißen Aktivitäten', () => {
   test('die Legende zählt Aktivitäten, nicht Events', async ({ page }) => {

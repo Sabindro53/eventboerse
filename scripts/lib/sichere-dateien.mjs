@@ -32,6 +32,5 @@ export const SICHERE_DATEIEN = Object.freeze({
   'js/modules/ai/50-planungs-assistent.js': 'lokaler, tokenfreier Planungsassistent',
   'js/modules/ui/51-inserat-maske-kalender.js': 'Kalenderdarstellung der Inseratmaske',
   'ui-enhancements.css': 'kleine additive UI-Verbesserungen',
-  'mobile-overrides.css': 'mobile, additive Darstellungsregeln',
   'eb-hq-evolution.css': 'additive, vom Zugang und den Datenpfaden getrennte HQ-Darstellung',
 });

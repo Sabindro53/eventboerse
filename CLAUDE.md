@@ -84,7 +84,7 @@ aus wie ein Haus ohne Grenzen.
 **Stand:** 6 von 11 Schicht-Rollen arbeiten an Dateien innerhalb des
 Rahmens. Die übrigen Befunde sind für Menschen, nicht für den Autopiloten.
 
-Der Rahmen umfasst **15 Dateien** (`scripts/lib/sichere-dateien.mjs`). Die
+Der Rahmen umfasst **14 Dateien** (`scripts/lib/sichere-dateien.mjs`). Die
 Aufnahmekriterien stehen als Test, nicht als Absatz: höchstens 1200 Zeilen,
 8 Auth-, 20 Geld- und 12 Upload-Vorkommen — **im Code gemessen, nicht im
 Fließtext**. Eine Erweiterung ist eine Sicherheitsentscheidung des Inhabers.
@@ -2030,7 +2030,7 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 44 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/social.spec.js           # 48 Tests, PHP wirklich ausgefuehrt
 npx playwright test tests/e2e/freunde-ansicht.spec.js  # 18 Tests, echter Browser
 ```
 
@@ -2121,6 +2121,62 @@ Hinter einem Proxy meint `REMOTE_ADDR` alle Besucher gemeinsam — ein
 IP-gebundener Deckel wäre dort entweder wirkungslos oder er sperrte
 Unbeteiligte. Alle vier Eimer (`social_suche`, `social_anfrage`,
 `social_gruppe`, `social_beitritt`) hängen an `'u' . $user_id`.
+
+#### Der Nachtrag hebt Entscheidung 1 auf — deshalb ist er opt-in
+
+Seit dem 15.09.2026 ist der Nickname bei der Registrierung Pflicht, und
+bestehende Konten sollen auf Wunsch des Inhabers „einfach einen passenden"
+bekommen. `eb_handles_nachtragen()` tut das — und **hebt damit genau die
+Einwilligung auf, auf der Entscheidung 1 steht.** Ein Bestandskonto wird
+auffindbar, ohne dass irgendjemand etwas gesetzt hat.
+
+Das ist keine Aufräumarbeit, sondern eine **Aussage in der
+Datenschutzerklärung**, und sie gehört dorthin, bevor sie zutrifft. Der
+Nachtrag läuft deshalb nur mit einer Konstante in `wp-config.php`:
+
+```php
+define( 'EB_HANDLE_NACHTRAG', true );
+```
+
+Derselbe Opt-in-Weg wie bei `EB_APPLE_TEAM_ID`: **ohne sie bleibt alles, wie
+es ist**, und „nicht eingerichtet" sieht anders aus als „eingerichtet". Der
+Code ist fertig und wartet; er ist nicht abgeschaltet. Der Schalter wird in
+demselben Augenblick gesetzt, in dem die Datenschutzerklärung den Nachtrag
+nennt — dieselbe Hand, derselbe Moment.
+
+**Ein Modell schreibt hier keinen Rechtstext.** Der Entwurf für den Absatz
+liegt beim Inhaber; `vault/40-Governance/` bleibt außerhalb dessen, was ein
+Modell anfasst.
+
+##### `strtolower()` hat jeden führenden Umlaut gefressen
+
+Beim Ausführen des Nachtrags am Prüfstand gefunden — nicht beim Lesen:
+
+```
+„Änne Großmann"  ->  nne.grossmann      (das Ä fehlt ganz)
+„Bo Ötzi"        ->  bo.tzi
+```
+
+`eb_handle_vorschlag()` schrieb **zuerst klein** und übersetzte danach.
+`strtolower()` arbeitet aber **byteweise**: „Ä" sind zwei UTF-8-Bytes, keines
+davon ein ASCII-Großbuchstabe. Der Umlaut erreichte also unverändert eine
+Tabelle, die nur „ä" kannte, und fiel eine Zeile später dem
+`[^a-z0-9._]`-Filter zum Opfer.
+
+Das traf **jeden** Namen, der mit einem Umlaut beginnt — und der Handle ist
+genau das, wonach andere diese Person suchen. Umgeschrieben wird jetzt vor dem
+Kleinschreiben, mit beiden Schreibweisen in der Tabelle.
+
+**`mb_strtolower` wäre der kürzere Weg und der unsicherere:** mbstring ist
+keine Voraussetzung, die WordPress garantiert — dieselbe Begründung wie beim
+Kontaktschutz, wo dieselbe Falle schon einmal stand.
+
+**Gefunden hat es der Prüfstand, nicht der Diff.** Vier Tests in
+`social.spec.js` führen den Nachtrag wirklich aus: einmal ohne die Konstante
+(0 Handles), einmal mit (die zwei Konten bekommen ihren), und ein zweiter Lauf
+tut nichts mehr. Vier Mutationen, jede macht die Suite rot: Riegel entfernt ·
+Umschrift wieder nach dem Kleinschreiben · Abschluss-Marke nie gesetzt · der
+Nachtrag setzt nie einen Handle.
 
 #### Die Rollen und was sie sehen
 
@@ -4092,7 +4148,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1184 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1188 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -4497,7 +4553,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
 | `js/modules/` | Quelle des Frontends: 31 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~17 700 Zeilen CSS, mobile-first |
+| `styles.css` | ~17 900 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
