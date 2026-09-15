@@ -3684,8 +3684,16 @@ Prüfer, der sich im Maßstab irrt, ist gefährlicher als keiner.
 
 **Die echte Fundstelle lag auf der Landeseite:** 25 Galerie-Punkte auf den
 Inseratskarten mit **7×7 px** Trefferfläche. axe meldet sie als `target-size`,
-Schweregrad `serious` — und es war der **einzige** WCAG-2.2-Verstoß der
-gesamten Anwendung.
+Schweregrad `serious` — und es war der einzige WCAG-2.2-Verstoß **auf den fünf
+Seiten, die dieses Tor misst**.
+
+**Hier stand „der einzige Verstoß der gesamten Anwendung", und das war
+falsch.** Der Satz deckte 34 Seiten, die Messung deckte fünf. Am 15.09.2026
+über die übrigen gemessen: **40 verstoßende Knoten, 20 davon `critical`** —
+siehe den Abschnitt „Ein Tor, das fünf von vierunddreißig Seiten misst" weiter
+unten. Der alte Satz bleibt hier als Protokoll stehen, weil eine
+stillschweigend korrigierte Entwarnung aussieht, als hätte sie nie anders
+gelautet.
 
 **Die Abstands-Ausnahme greift ausgerechnet hier nicht.** SC 2.5.8 erlaubt
 kleinere Flächen, wenn 24-px-Kreise um die Mitten sich nicht schneiden. Bei
@@ -3717,6 +3725,79 @@ dass jemand die Punkte aufbläst und die Karten aussehen wie eine Perlenkette.
 ```bash
 npx playwright test tests/e2e/barrierefreiheit.spec.js   # 14 Tests, axe + Zielgrößen
 ```
+
+### Ein Tor, das fünf von vierunddreißig Seiten misst
+
+Am 15.09.2026 bei einer Prüfung von Nutzerfreundlichkeit und Gestaltung
+gefunden. `barrierefreiheit.spec.js` führt seine Seiten als Handliste — fünf
+Routen, und zwar **abgemeldet**, also `board` und `freunde` in ihrem
+Ausgeloggt-Zustand. `app-shell.html` trägt **34** Seiten.
+
+**Die Abdeckung stand an vier Stellen und war viermal verschieden:**
+
+| Stelle | behauptet |
+|---|---|
+| Kopfkommentar der Suite | „× 6 Kernseiten" |
+| `Claude-Kontext.md` | „× 6 Kernseiten" |
+| `Testing.md` | „× 4 Seiten" |
+| CLAUDE.md (oben) | „der gesamten Anwendung" |
+| **gemessen** | **5** |
+
+Keine davon richtig, und die vierte war die teuerste — sie hat aus einer
+Messung über ein Sechstel der Anwendung eine Aussage über das Ganze gemacht.
+**Dieselbe Klasse wie der tote Gitleaks-Scan:** ein Prüfer, dessen Subjekt nur
+ein Ausschnitt ist, gibt eine Entwarnung, die er nicht decken kann. Über
+EN 301 549 ist das zugleich ein BFSG-Thema.
+
+Gemessen mit `wcag2a, wcag2aa, wcag21aa, wcag22aa`, beiden Farbmodi,
+angemeldet in der Rolle der jeweiligen Seite — 26 der 29 offenen Seiten
+(`admin` braucht echte Rechte, `home` und `profile` sind Weiterleitungen):
+
+| | |
+|---|---|
+| verstoßende Knoten | **40** |
+| davon `critical` | **20** |
+| betroffene Seiten | 6 — `settings`, `create-listing`, `auftraege`, `business`, `notifications`, `contact` |
+| je Regel | `select-name` 14 · `label` 6 · `color-contrast` 20 |
+
+**Alle zwanzig kritischen haben EINE Ursache:** `<label>` steht neben seinem
+Feld statt mit ihm verbunden. Am Bildschirm ist alles beschriftet; ein
+Screenreader sagt auf `create-listing` sechsmal „Kombinationsfeld" ohne Namen —
+auf der Seite, auf der ein Dienstleister sein Inserat anlegt. Einer der sechs
+ist `#settings2faToggle`, der Schalter für die Zwei-Faktor-Anmeldung.
+
+**Zwei Texte sind im Dunkelmodus unsichtbar**, beide aus derselben Ursache:
+eine Fläche mit fest geschriebener Farbe, die den Farbmodus nicht mitmacht,
+und ein Text darauf, der sein Token nimmt.
+
+```
+auftraege       #000000 auf #121212  = 1,12 : 1   .btn-link „Erneut versuchen"
+create-listing  #e8e8e8 auf #fff8e8  = 1,15 : 1   .create-payout-title
+```
+
+Der erste ist der **Ausweg aus einer Störung** — er erscheint nur, wenn das
+Laden der Storno-Anträge fehlschlug. Wer ihn braucht, sieht ihn nicht.
+
+**Die Markenfarbe als Text ist der größte Einzelposten:** `#FF385C` auf Weiß
+ergibt 3,51 : 1 an sieben Knoten. Die Gegenregel steht seit dem 01.08.2026 in
+dieser Datei und wird 23× befolgt — `--primary-text` / `--accent-text` für
+Text, `#FF385C` für Flächen und Icons. Es fehlt kein Token, nur seine Anwendung.
+
+**Was axe strukturell nicht sieht:** über einem Verlauf oder Bild meldet es
+`incomplete`, nicht `violation`. Genau dort liegen die drei Einstiege der
+Landeseite (`rgba(255,255,255,.14)` + `blur(8px)`, also kein eigener Grund) —
+bis die Marquee-Bilder da sind, steht Weiß auf Hell. Kein Tor wird das je
+melden; es steht deshalb im Vault und nicht in einer Testdatei.
+
+**Der Handgriff am Tor:** `SEITEN` aus den `id="page-…"` ableiten statt
+aufzählen. Zwei Dinge gehören dazu, beide teuer gelernt — **angemeldet messen**
+(abgemeldet fallen `auftraege`, `business` und `my-listings` auf die Landeseite
+zurück) und **nachsehen, welche Seite wirklich aktiv wurde**. Ohne die
+Gegenprobe zählt man dieselbe Seite mehrfach und hält das für Abdeckung; genau
+daran war die erste Fassung dieser Messung mit **46** statt 40 Knoten falsch.
+
+Vollständig mit allen Kontrastwerten: [[30-Betrieb/Barrierefreiheit-Abdeckung]]
+und [[20-System/Frontend/Design-System-Drift]].
 
 ### Der Kontext wird nachgemessen
 

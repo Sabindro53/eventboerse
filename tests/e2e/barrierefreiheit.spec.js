@@ -4,6 +4,29 @@
 // (vorher: 97 Verstoß-Nodes allein auf Browse). Dieses Gate hält den Stand:
 // Jede neue Komponente ohne Label / mit zu schwachem Kontrast macht CI rot.
 //
+// ── WAS DIESES TOR NICHT MISST (15.09.2026) ─────────────────────────────
+//
+// Der Satz darüber sagt „6 Kernseiten". `SEITEN` führt FÜNF, und
+// `app-shell.html` trägt 34. Die Zahl stand an vier Stellen im Projekt
+// und war viermal verschieden (6 / 6 / 4 / „die gesamte Anwendung") —
+// gemessen: 5. Der alte Satz bleibt als Protokoll stehen.
+//
+// Gemessen über die übrigen Seiten, angemeldet und in beiden Farbmodi:
+// 40 verstoßende Knoten, 20 davon `critical` — alle zwanzig aus EINER
+// Ursache (`<label>` ohne `for=`). Dazu zwei im Dunkelmodus unsichtbare
+// Texte (1,12 : 1 und 1,15 : 1).
+//
+// Dieses Tor ist also nicht falsch, es ist SCHMAL. Gefährlich wurde erst
+// die Entwarnung, die anderswo daraus gemacht wurde — dieselbe Klasse wie
+// der tote Gitleaks-Scan: ein Prüfer, dessen Subjekt nur ein Ausschnitt
+// ist, deckt die Aussage nicht, die man ihm anhängt.
+//
+// Der Handgriff steht in `vault/30-Betrieb/Barrierefreiheit-Abdeckung.md`:
+// `SEITEN` aus den `id="page-…"` ableiten, angemeldet in der Rolle der
+// Seite messen, und nachsehen, welche Seite WIRKLICH aktiv wurde —
+// abgemeldet fallen `auftraege`, `business` und `my-listings` auf die
+// Landeseite zurück.
+//
 // ── WARUM SEIT DEM 10.09.2026 AUCH 2.2 ──────────────────────────────────
 //
 // Die Kennungsliste endete bei `wcag21aa`. Damit konnte dieses Tor die

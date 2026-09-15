@@ -19,6 +19,66 @@ einen alten Abschnitt gelesen und nicht diesen.
 - **Playwright-Suite: 1169 Tests in 79 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
+## Offen aus der Oberflächenprüfung (2026-09-15)
+
+Gemessen, berichtet, **nicht beauftragt** — der Inhaber entscheidet über die
+Reihenfolge. Vollständig in [[30-Betrieb/Barrierefreiheit-Abdeckung]] und
+[[20-System/Frontend/Design-System-Drift]].
+
+Die ersten vier sind Handgriffe ohne Gestaltungsrisiko und in einem Zug zu
+machen:
+
+- [ ] **Vierzehn `for`-Attribute in `app-shell.html`.** Schließt **alle 20
+      kritischen** WCAG-Verstöße auf einmal. Acht davon auf `create-listing` —
+      der Seite, auf der Angebot entsteht; einer am Schalter für die
+      Zwei-Faktor-Anmeldung
+- [ ] **Der schwarze Knopf auf schwarzem Grund** (`auftraege`, dunkel,
+      `#000000` auf `#121212` = 1,12 : 1). Er ist der Ausweg aus einer
+      Störung und erscheint nur, wenn das Laden fehlschlug — wer ihn braucht,
+      sieht ihn nicht. Aus eigener Arbeit am Storno-Vorgang
+- [ ] **Der zweite unsichtbare Text** (`create-listing`, dunkel,
+      `.create-payout-title` 1,15 : 1). Feste Flächenfarbe `#fff8e8`, die den
+      Farbmodus nicht mitmacht, heller Text darauf
+- [ ] **`SEITEN` in `barrierefreiheit.spec.js` aus den `id="page-…"`
+      ableiten** — angemeldet, in der Rolle der Seite, mit Gegenprobe auf die
+      wirklich aktive Seite. Danach bringt jede neue Seite ihre Prüfung mit
+
+Gestaltungsentscheidungen, die dem Inhaber gehören:
+
+- [ ] **Markenfarbe als Text** — `#FF385C` auf Weiß = 3,51 : 1 an sieben
+      Stellen (`business`-Kicker, Kontaktseite, Links auf AGB und
+      Datenschutz). Die Token `--primary-text` / `--accent-text` gibt es seit
+      dem 01.08.2026 und sie werden 23× benutzt; hier eben nicht
+- [ ] **Die drei Einstiege der Landeseite auf eigenen Grund stellen.** Sie
+      haben keinen Hintergrund, nur `rgba(255,255,255,.14)` + `blur(8px)`;
+      bis die Marquee-Bilder da sind (~3,5 s), steht Weiß auf Hell. **Kein Tor
+      kann das melden** — axe meldet über Verläufen `incomplete`
+- [ ] **Landeseite auf die Skala zurückführen, die `auftraege` schon benutzt**
+      (41 vs. 10 sichtbare Schriftgrößen, 21 vs. 0 Schatten)
+- [ ] **Die Kennzeichnung „KI-generierter Inhalt" ist der kleinste Text der
+      Anwendung** (9–10 px). `recht.mjs` prüft, *dass* sie dasteht; wie groß
+      sie ist, prüft niemand — und ihr Zweck ist das Gelesenwerden
+- [ ] **Mobilleisten-Beschriftung bei 8,32 px** („Profil", „Suche") — die
+      Hauptnavigation am Telefon
+
+## Alte PRs — gesichtet, nicht entschieden (2026-09-15)
+
+Neun offene PRs, **alle** `mergeable_state: dirty`. Auf Wunsch des Inhabers
+gesichtet und berichtet; nichts geschlossen, nichts gemergt.
+
+| PR | Lage |
+|---|---|
+| #228 | inhaltlich bereits auf `main` |
+| #199 | durch #228 überholt |
+| #217, #218, #219, #222 | Routine-PRs vom 27.–30.08. mit **älteren** erzeugten Ständen als `main` |
+| #271 | Tagesstand von heute (8/8 Gebiete, einen Tag frischer als `main`) |
+| #221 | echter Einzeiler (`aria-label`), **nicht** auf `main` |
+| #46 | 3 Monate alt, +5334/−421 über 14 Dateien; liefert AASA als **statische Datei**, während `main` sie über eine Route mit geprüfter `EB_APPLE_TEAM_ID` ausliefert |
+
+**Vorschlag, unentschieden:** den Inhalt von #221 frisch nehmen und mit einem
+neu erzeugten Tagesstand in **einem** PR landen, die übrigen sieben mit Grund
+schließen.
+
 ## UX-Abschlussstand (2026-09-13)
 
 Feed, Radar, persönliche Planung, Gruppen und Chat haben gemeinsame Einstiege.
