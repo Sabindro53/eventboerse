@@ -21,6 +21,7 @@ const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { istHost } = require('./lib/url-host');
 
 const ROOT = path.join(__dirname, '..', '..');
 const ROH = JSON.parse(
@@ -657,7 +658,17 @@ test.describe('Aktivitäten: die Betreiberseite', () => {
     for (const e of mit) expect(e.webseite).toMatch(/^https:\/\//);
 
     // Die Attribution bleibt: sie ist Lizenzbedingung, nicht Zierrat.
-    for (const e of eintraege) expect(e.quelle.url).toMatch(/openstreetmap\.org/);
+    //
+    // Am HOSTNAMEN, nicht am Teilstring — `lib/url-host.js` gibt es genau
+    // dafuer, und `pruefhygiene.spec.js` schreibt ihn vor. Hier stand zuerst
+    // `/openstreetmap\.org/` ohne Anker; CodeQL hat das am 15.09.2026 als
+    // „Missing regular expression anchor" gemeldet und hatte recht:
+    // `https://boese.example/?ref=openstreetmap.org` haette den Test
+    // bestanden. Ich hatte den vorhandenen Griff schlicht nicht benutzt.
+    for (const e of eintraege) {
+      expect(istHost(e.quelle.url, 'www.openstreetmap.org'),
+        `Attribution zeigt nicht auf OpenStreetMap: ${e.quelle.url}`).toBe(true);
+    }
 
     // Fehlt das Tag, fehlt das FELD — kein leerer String, der wie eine
     // Adresse aussieht und keine ist.
