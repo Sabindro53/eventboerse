@@ -1,7 +1,7 @@
 {
   "schema": "eb-self-audit/v1",
-  "generatedAt": "2026-09-15T03:36:38Z",
-  "commit": "512e208",
+  "generatedAt": "2026-09-16T03:34:17Z",
+  "commit": "61273d0",
   "counts": {
     "total": 5,
     "error": 0,
@@ -22,14 +22,14 @@
     },
     {
       "id": "size-app.js",
-      "title": "app.js ist mit 30720 Zeilen sehr gross",
+      "title": "app.js ist mit 30725 Zeilen sehr gross",
       "area": "maintainability",
       "severity": "warn",
       "status": "open",
       "detail": "Monolith — Splitting in Module würde Lesbarkeit und Hot-Reload deutlich verbessern.",
       "suggestion": "Inkrementell Module rausziehen (z. B. router, api, board, chat). Nicht in einem Schritt.",
       "evidence": {
-        "lines": 30720,
+        "lines": 30725,
         "threshold": 30000
       }
     },
