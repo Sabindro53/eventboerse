@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-18T03:35:03.710Z",
+  "stand": "2026-09-19T03:33:48.608Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,31 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 954,
-    "sport": 154,
+    "gesamt": 953,
+    "sport": 153,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83183",
-      "art": "sport",
-      "titel": "FC Bayern München – 1. FC Union Berlin",
-      "beginn": "2026-09-18T18:30:00.000Z",
-      "gebiet": "München",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "München",
-        "lat": 48.1372,
-        "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83186",
       "art": "sport",
