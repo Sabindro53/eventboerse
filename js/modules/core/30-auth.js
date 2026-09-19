@@ -1115,6 +1115,25 @@ function isEventPlaner() {
   return currentUser && currentUser.role === 'Event-Planer';
 }
 
+/**
+ * Den bei der Registrierung gewaehlten Nickname setzen.
+ *
+ * Bewusst ohne `await` im Anmeldepfad und ohne Fehlermeldung an den Nutzer:
+ * das Konto steht bereits, und ein roter Kasten ueber einem geglueckten
+ * Vorgang verwirrt mehr, als er hilft. Misslingt es (Name inzwischen
+ * vergeben), traegt der Nutzer ihn unter Freunde nach.
+ */
+function _regHandleSetzen(handle) {
+  try {
+    fetch(_apiUrl('social/handle'), {
+      method: 'POST',
+      headers: _apiHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ handle: handle }),
+    }).catch(function () { /* Konto steht, Nickname ist nachtragbar. */ });
+  } catch (e) { /* dito */ }
+}
+
 function isDienstleister() {
   return !!(currentUser && (
     currentUser.role === 'Dienstleister' ||
@@ -1505,6 +1524,8 @@ async function handleRegister(e) {
 
   var firstName = document.getElementById('regFirstName').value.trim();
   var lastName = document.getElementById('regLastName').value.trim();
+  var handleFeld = document.getElementById('regHandle');
+  var handle = handleFeld ? handleFeld.value.trim().toLowerCase() : '';
   var email = document.getElementById('regEmail').value.trim();
   var password = document.getElementById('regPassword').value.trim();
   var activeRole = document.querySelector('.role-toggle:not(.role-toggle-sub) > .role-btn.active');
@@ -1533,6 +1554,14 @@ async function handleRegister(e) {
   if (!email) { _setFieldError('regEmail', 'E-Mail ist erforderlich'); hasError = true; }
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { _setFieldError('regEmail', 'Ungültige E-Mail-Adresse'); hasError = true; }
   if (!password || password.length < 8) { _setFieldError('regPassword', 'Min. 8 Zeichen erforderlich'); hasError = true; }
+  // Der Nickname ist Pflicht: ohne ihn ist niemand in der Personensuche
+  // auffindbar, und genau dafuer gibt es sie. Geprueft wird hier DIESELBE
+  // Regel wie in `eb_handle_gueltig()` — zwei Fassungen einer Regel
+  // driften, und diese driftete in ein 400 nach abgeschickter Anmeldung.
+  if (handleFeld && !/^[a-z0-9._]{3,24}$/.test(handle)) {
+    _setFieldError('regHandle', '3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich');
+    hasError = true;
+  }
   if (termsBox && !termsBox.checked) {
     var termsLabel = form.querySelector('.terms');
     if (termsLabel) { termsLabel.classList.add('has-error'); }
@@ -1608,6 +1637,11 @@ async function handleRegister(e) {
       var strengthBar = document.getElementById('passwordStrength');
       if (strengthBar) strengthBar.style.display = 'none';
       applyLogin('registration');
+      // Der Nickname wird NACH der Anmeldung gesetzt: die Route braucht eine
+      // Sitzung. Schlaegt sie fehl, ist das Konto trotzdem da — der Nutzer
+      // kann ihn unter Freunde nachtragen. Eine geglueckte Registrierung
+      // wegen eines Nicknames zurueckzurollen waere die schlechtere Antwort.
+      if (handle) { _regHandleSetzen(handle); }
       showToast('Willkommen bei Eventbörse, ' + firstName + '!', 'celebration');
     } else {
       _setBtnLoading(submitBtn, false);

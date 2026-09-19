@@ -22,7 +22,7 @@ test.describe('Vision Release', () => {
   test('Radar ist ein eigener Feed-Kanal mit Stadt und Radius', async ({ page }) => {
     await page.getByRole('link', { name: 'Social Feed' }).click();
     await page.getByRole('button', { name: /Radar/ }).click();
-    await expect(page.getByRole('heading', { name: 'Event-Radar' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Aktivitäten-Radar' })).toBeVisible();
     await expect(page.locator('#feedRadarCity')).toHaveValue('Köln');
     await page.getByRole('button', { name: '100 km' }).click();
     await expect(page.locator('.feed-radar-controls .radar-chip.aktiv')).toHaveText('100 km');

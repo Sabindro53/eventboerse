@@ -212,6 +212,19 @@ export function ausOpenLigaDB(spiele, jetzt = new Date(), gebiete = STAEDTE) {
  * sondern eine Aussage: „jederzeit". Wer hier eine Uhrzeit erfindet, damit
  * die Ansicht einheitlich aussieht, hat Daten erfunden.
  */
+/**
+ * Die Betreiberseite aus den OSM-Tags — oder nichts.
+ *
+ * `website` ist das gebraeuchliche Tag, `contact:website` die zweite
+ * Schreibweise. Beides kann Unsinn enthalten (OSM ist offen), deshalb:
+ * nur https, nur bis 300 Zeichen, keine spitzen Klammern.
+ */
+export function osmWebseite(tags) {
+  const roh = String(tags?.website || tags?.['contact:website'] || '').trim();
+  if (!/^https:\/\/[^\s<>"']{4,300}$/.test(roh)) return '';
+  return roh;
+}
+
 export function ausOverpass(antwort, gebiet = STAEDTE[0]) {
   const mitte = gebiet;
   const umkreisKm = gebiet.umkreisKm ?? UMKREIS_KM;
@@ -247,6 +260,20 @@ export function ausOverpass(antwort, gebiet = STAEDTE[0]) {
         lon: Math.round(lon * 1e5) / 1e5,
       },
       entfernungKm: Math.round(km * 10) / 10,
+      // ── DIE ADRESSE DES BETREIBERS, NICHT DIE DER KARTE (15.09.2026) ──
+      //
+      // Gemeldet: „das radar oeffnet openstreetmap statt die website des
+      // externen betreibers". Zu Recht — `quelle.url` ist der
+      // ODbL-ATTRIBUTIONSLINK und muss es bleiben, aber als Ziel eines
+      // Klicks ist eine Kartenseite die falsche Auskunft: wer ein Kino
+      // antippt, will die Spielzeiten, nicht den OSM-Datensatz.
+      //
+      // OSM fuehrt die Betreiberseite als `website` bzw. `contact:website`.
+      // Nur `https://` wird uebernommen — der Wert kommt von Fremden und
+      // landet in einem Link; `javascript:` waere genau die Stelle, an der
+      // aus Daten Code wird. Fehlt das Tag, fehlt das Feld: eine erfundene
+      // Adresse waere schlimmer als keine.
+      ...(osmWebseite(t) ? { webseite: osmWebseite(t) } : {}),
       quelle: {
         name: QUELLEN.osm.name,
         url: `https://www.openstreetmap.org/${e.type || 'node'}/${e.id}`,
@@ -443,6 +470,11 @@ export function beanstanden(datei, jetzt = new Date()) {
 
     if (!x?.quelle?.name || !x?.quelle?.url || !x?.quelle?.lizenz) {
       f.push(`${wo}: Quelle unvollständig — ohne Herkunft ist ein Eintrag erfunden`);
+    }
+    // Die Betreiberseite ist freiwillig — aber wenn sie dasteht, muss sie
+    // taugen. Ein `javascript:` im Bestand waere ein Codepfad ueber Daten.
+    if (x?.webseite !== undefined && !/^https:\/\/[^\s<>"']{4,300}$/.test(String(x.webseite))) {
+      f.push(`${wo}: webseite ist keine brauchbare https-Adresse`);
     }
     if (typeof x?.titel !== 'string' || !x.titel.trim()) {
       f.push(`${wo}: kein Titel`);

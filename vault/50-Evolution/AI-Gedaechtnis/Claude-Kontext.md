@@ -9,6 +9,106 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-09-15 — die Entwarnung, die der Vault selbst weitergetragen hat
+
+Beauftragt war eine Prüfung „auf Herz und Nieren" zu Nutzerfreundlichkeit und
+Gestaltung. Der schwerste Fund liegt eine Ebene darunter, und er betrifft
+**diese Datei**.
+
+- **Ein Tor prüft 5 von 34 Seiten, und drei Notizen machten daraus „0 Verstöße
+  in der gesamten Anwendung".** Gemessen über die übrigen Seiten: **40
+  verstoßende Knoten, 20 `critical`**, alle zwanzig aus **einer** Ursache
+  (`<label>` ohne `for=`). Vollständig, mit Kontrastwerten und Handgriffen:
+  [[30-Betrieb/Barrierefreiheit-Abdeckung]].
+- **Die Zahl der geprüften Seiten stand an vier Stellen und war viermal
+  verschieden** (6 / 6 / 4 / „die gesamte Anwendung") — gemessen: 5. Das ist
+  nicht die Fehlerklasse „Notiz veraltet", sondern „**der Prüfer hat sein
+  Subjekt nie genannt**, und jeder Leser hat sich das größere gedacht".
+- **Gestaltung:** das Token-System trägt (2331 `var(--)`), daneben stehen 294
+  Hex-Literale und 265 ins Markup geschriebene Stile — und genau daraus
+  entstehen zwei **unsichtbare Texte** im Dunkelmodus.
+  [[20-System/Frontend/Design-System-Drift]].
+- **Die Markenfarbe als Text ist der größte Kontrast-Einzelposten**
+  (`#FF385C` auf Weiß = 3,51 : 1, sieben Knoten). Die Regel dagegen steht seit
+  dem 01.08.2026 im Vault und wird an 23 Stellen befolgt — es fehlt nichts
+  außer ihrer Anwendung an sieben weiteren.
+
+Bericht für den Inhaber: <https://claude.ai/artifact/GHTqNwUFftAaBbWLTJhWC1>
+
+### Die Lektion des Tages: der erste Messwert ist ein Entwurf
+
+**Zwei Zahlen dieses Berichts waren beim ersten Messen falsch** und sind vor
+dem Eintrag hier nachgemessen worden:
+
+| berichtet | nachgemessen | Ursache |
+|---|---|---|
+| 32 Seiten in der Shell | **34** | Muster ohne Ziffern, dazu falsch gezählt |
+| 46 verstoßende Knoten | **40** | Seiten mitgezählt, die auf eine andere zurückgefallen waren |
+
+Die zweite ist die lehrreiche: abgemeldet fallen `auftraege`, `business` und
+`my-listings` auf die Landeseite zurück, `home` wird `browse`, `profile` wird
+`provider`. Wer nicht nachsieht, **welche Seite wirklich aktiv wurde**, misst
+dieselbe Seite mehrfach und hält das für Abdeckung.
+
+Die Nachmessung hat dabei einen **zweiten** unsichtbaren Text gefunden, den die
+erste übersehen hatte (`.create-payout-title`, 1,15 : 1). Nachmessen ist also
+nicht Pflichterfüllung, es findet etwas.
+
+**Regel daraus:** was in den Vault geht, wird vorher noch einmal gemessen —
+nicht aus dem Gesprächsverlauf abgeschrieben. Eine Zahl in einer Notiz liest
+jede künftige Sitzung als Messwert.
+
+### Drei Fehlschlüsse in Folge am selben Element
+
+Die drei Einstiege der Landeseite (`.ai-hero-wege`) habe ich dreimal falsch
+gelesen, bevor die Messung trug: „ausgegraut" (Deckkraft gemessen = 1), „langsam
+eingeblendet" (ab 375 ms bei 1), „Kontrastfehler" (mein Helfer lief an den
+durchsichtigen Vorfahren vorbei bis zum `body` und meldete einen Hintergrund,
+den die Seite nicht zeigt).
+
+Was wirklich trägt: `page.screenshot({ clip })` auf die echte Seite plus
+`getComputedStyle`. **Element-Screenshots setzen `backdrop-filter` anders
+zusammen als Seiten-Screenshots** — wer ein Element einzeln aufnimmt, sieht
+einen Zustand, den es im Bild nicht gibt.
+
+Und der Befund dahinter ist einer, den **kein Tor je melden wird**: über einem
+Verlauf meldet axe `incomplete`, nicht `violation`.
+
+### Weitere Betriebserkenntnisse dieser Sitzung
+
+- **Die Dev-Shell hat keine REST-API.** `/freunde` zeigt dort zu Recht seinen
+  Störungszustand — dann existiert `#sozGruppeName` gar nicht. Wer ohne
+  gestellte `social/*`-Antworten misst, prüft seinen eigenen Prüfstand. Genau
+  daran hätte ich beinahe einen Fehler gemeldet, den es nicht gibt.
+- **Eine Mutation kann legitim überleben.** `ebAuftragSchluessel()` sortiert
+  Datumslose nach hinten — durch die Gruppierung ist das an der Seite **nicht
+  beobachtbar**. Die Wache hat ihr Subjekt auf Helferebene bekommen, statt
+  einen Seitentest zu erfinden, der eine Wirkung behauptet, die es dort nicht
+  gibt.
+- **Der Agent-Proxy nimmt nur HTTPS-CONNECT-Tunnel.** GitHub-API-Aufrufe gehen
+  an `https://api.github.com/…`, nie an `$HTTPS_PROXY/…`.
+- **`--reporter=line`: immer nach `failed|passed` greifen.** `tail -1` verbirgt
+  Fehlschläge.
+- **`mergeable_state` wird faul berechnet** — die erste Abfrage liefert
+  `unknown`. Und `updated_at` eines Workflow-Laufs kann in der API veraltet
+  sein; daraus „hängt" zu schließen, war einmal falsch.
+- **Benachrichtigungen zu veröffentlichten Berichten kommen hier nicht an**
+  (`mint_failed`, zweimal versucht). Rückmeldung zu einem Artifact muss im Chat
+  kommen, sonst sieht sie niemand.
+
+### Offen, bewusst beim Inhaber (Stand 15.09.2026)
+
+- **Die vier Handgriffe** aus dem Bericht: 14 `for`-Attribute · der schwarze
+  Knopf im Storno-Block · das Tor aus `app-shell.html` ableiten · Statusfarben
+  für den Dunkelmodus. Angeboten, **nicht beauftragt**.
+- **Neun alte PRs** (#46, #199, #217, #218, #219, #221, #222, #228, #271), alle
+  `mergeable_state: dirty`. Gesichtet, nichts geschlossen oder gemergt — der
+  Inhaber entscheidet. → [[50-Evolution/Roadmap/Current-Sprint]]
+- Ruleset auf `E2E-Testsuite (Playwright)` · Storno-Höhe (voll vs. anteilig) ·
+  Benachrichtigung des Dienstleisters (Push/E-Mail) · Ausnahme im Branch-Schutz
+  für die Routine-App · Board-Platz in der Mobilleiste · APNs-Schlüssel,
+  `Info.plist`-Zwecktexte, Händlerstatus.
+
 ## Stand 2026-08-13 — Befund → Arbeit ist geschlossen
 
 - **Die Kette steht und ist Glied für Glied belegt:** elf Rollen finden (Puls,
@@ -121,6 +221,12 @@ eine Sicherheitsentscheidung. Nie empfohlen: `board/`, `core/30-auth.js`,
 5. **A11y:** 97 axe-Verstoß-Nodes → **0** über beide Farbmodi × 6 Kernseiten
    (Galerie-Dots/Tracks mit Labels + Tastatur, Selects beschriftet, Kontraste).
    axe ist Teil der Suite — neue Verstöße machen CI rot.
+   > ⚠️ **Am 15.09.2026 widerlegt, Satz bleibt als Protokoll stehen.** Das Tor
+   > misst **5** Routen, nicht 6 Kernseiten, und die Anwendung hat **34**
+   > Seiten. Die „0" galt also für ein Sechstel der Anwendung und wurde hier
+   > wie eine Aussage über das Ganze notiert. Gemessen über die übrigen
+   > Seiten: **40 Knoten, 20 `critical`.** →
+   > [[30-Betrieb/Barrierefreiheit-Abdeckung]]
 
 ## Projekt-Essenz
 
@@ -137,11 +243,17 @@ eine Sicherheitsentscheidung. Nie empfohlen: `board/`, `core/30-auth.js`,
 
 ## Technische Realität
 
-| Was | Details |
+> **Zahlen hier sind Größenordnungen, keine Messwerte.** Die geprüften Angaben
+> stehen in `CLAUDE.md` und werden von `scripts/kontext.mjs` gegen den Code
+> gemessen. Diese Tabelle stand bis zum 15.09.2026 auf Werten von Juni und war
+> um bis zu 60 % daneben — wer sie für aktuell hält, plant falsch.
+
+| Was | Details (Stand 15.09.2026) |
 |-----|---------|
-| Frontend | `app.js` ~23.100 Zeilen, Vanilla JS SPA |
-| Backend | `functions.php` ~7.700 Zeilen, WordPress REST API (84 Route-Registrierungen) |
-| Styling | `styles.css` ~16.300 Zeilen, mobile-first |
+| Frontend | `app.js` ~30.700 Zeilen, Vanilla JS SPA (generiert aus `js/modules/**`) |
+| Backend | `functions.php` ~11.900 Zeilen + `includes/`, WordPress REST API |
+| Styling | `styles.css` ~17.800 Zeilen, mobile-first |
+| Oberfläche | `app-shell.html`, **34 Seiten** (`id="page-…"`) |
 | Hosting | IONOS/Shared WordPress Hosting, automatisches Deployment via GitHub Actions + SFTP |
 | Auth | Login/Register + 2FA (OTP per E-Mail) + WebAuthn/Passkeys |
 | Zahlungen | Stripe Payment Element + Connect Express + Webhook + Reconcile (integriert, E2E weiter zu härten) |
@@ -239,7 +351,7 @@ künftige Sessions:
 - [ ] **Stripe Connect E2E absichern** — Dienstleister-Onboarding, Payment Intent, Webhook, Reconcile, Refund-Pfad im Testmodus durchtesten.
 
 ### P1 — Wichtig
-- [ ] **Echtzeit-Messaging** — aktuell Polling alle 3s, WebSockets/SSE wäre besser
+- [ ] **Echtzeit-Messaging** — Polling mit abfallendem Takt (5 s → 20 s, Pause bei verstecktem Tab), **nicht mehr „alle 3s"**. SSE ist auf dem IONOS-Pool die schlechtere Wahl → [[50-Evolution/AI-Gedaechtnis/Entscheidungen]]
 - [ ] **Volltextsuche** — echte MySQL FULLTEXT statt client-seitiger Filterung
 - [ ] **Review-System** — Bewertungen nach Buchungsabschluss konsistent in allen Ansichten ausrollen
 - [ ] **Stripe-Härtung** — Reconcile/Return-Flow weiter absichern, E2E-Prüfpfade automatisieren
@@ -311,17 +423,10 @@ navigateTo('admin')         // Admin-Panel
 - **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
 - **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
 
-## Stand 2026-06-26 — Admin-Bildmoderation & Security-Härtung (live auf main)
-
-- **Admin-Bildmoderation (umgesetzt):** Admins können einzelne Bilder löschen
-  - Detailseite: roter „Löschen"-Button pro Galerie-Bild (`adminDeleteListingImage`).
-  - Provider-Portfolio: Lösch-Overlay (`adminDeleteProfileImage`) + Lightbox-Button, dauerhaft sichtbar.
-  - Backend: `POST /admin/moderate-image` (nur Admin) entfernt Bild aus `eb_gallery` + allen Listings des Nutzers.
-  - **Persistente Blocklist** (`eb_demo_image_blocklist`, normalisierte Pfade) → wirkt auch für hardcodierte Demo-Listings (z. B. Blumenträume München, Pyroshock), reload-fest. Client: `window.EB_IMG_BLOCKLIST` via `eventboerseApi.imageBlocklist`, gefiltert in Demo-LISTINGS, `loadDbListings`, `loadProvider`.
-  - Damit ist der alte Sprint-P0 „Admin-Moderation gegen Code abgleichen" erledigt.
-- **Security (live):** XSS-Härtung (`_escHtml` encodet jetzt auch Quotes; Map-/Card-Render escapt); Brute-Force-Rate-Limiting verdrahtet (`includes/security/rate-limit.php` war vorher nie eingebunden) auf Login/OTP/Reset/Register mit Reset-on-Success; CSP `'unsafe-eval'` entfernt (Frontend nutzt kein eval, kein jQuery); WP-User-Enumeration gesperrt (`/wp/v2/users` + `?author=N`).
-- **CI/Deploy:** Neuer Workflow `.github/workflows/security.yml` (php -l alle + node --check + Pattern-Scan, läuft bei Push/PR). Minifier-Versionen gepinnt (`terser@5.48.0`, `csso-cli@5.0.5`) — Ursache eines früheren Ausfalls (unpinned `npx` zog kaputtes terser-Release). `SECURITY.md` mit Responsible-Disclosure-Policy.
-- **Offen (User-Seite):** Postfach `security@eventbörse.de` einrichten; optional CDN-SRI/Self-Hosting (von CI-Umgebung nicht möglich, Outbound geblockt); strikte CSP ohne `'unsafe-inline'` würde Inline-Handler-Refactor erfordern (groß, bewusst zurückgestellt).
+<!-- Dieser Abschnitt stand hier zweimal wörtlich hintereinander; die Kopie ist
+     am 15.09.2026 entfernt. Eine doppelte Fassung in der Datei, die jede
+     Sitzung zuerst liest, kostet Kontext und lässt zwei Stände entstehen,
+     sobald jemand nur eine der beiden pflegt. -->
 
 ---
-*Zuletzt aktualisiert: 2026-06-26*
+*Zuletzt aktualisiert: 2026-09-15*

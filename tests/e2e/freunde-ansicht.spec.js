@@ -288,3 +288,72 @@ test.describe('Freunde-Ansicht: der Weg dorthin', () => {
       () => (document.querySelector('section.page.active') || {}).id)).toBe('page-freunde');
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════
+   OHNE NICKNAME FINDET DIE PERSONENSUCHE NIEMANDEN
+   ══════════════════════════════════════════════════════════════════════
+
+   Beauftragt am 15.09.2026: „Jeder soll ein Nickname angeben bei der
+   anmeldung, damit man bei den personensuche was findet."
+
+   Die Suche geht ausschliesslich über den Handle — wer keinen hat, ist
+   nicht auffindbar. Das war als Einwilligung gedacht („das Setzen IST die
+   Einwilligung"); in der Praxis blieb die Suche dadurch leer.
+
+   Die Regel steht jetzt an zwei Stellen: im Formular und in
+   `eb_handle_gueltig()`. Zwei Fassungen einer Regel driften — und diese
+   driftete in ein 400 NACH abgeschickter Anmeldung. Dieser Test hält sie
+   zusammen, indem er beide aus ihrer Datei liest statt sie abzuschreiben.
+*/
+const fsNick = require('node:fs');
+const pathNick = require('node:path');
+const WURZEL_NICK = pathNick.join(__dirname, '..', '..');
+
+test.describe('Nickname bei der Anmeldung', () => {
+  test('das Feld steht im Formular und ist Pflicht', () => {
+    const shell = fsNick.readFileSync(pathNick.join(WURZEL_NICK, 'app-shell.html'), 'utf8');
+    const m = shell.match(/<input[^>]*id="regHandle"[^>]*>/);
+    expect(m, 'kein Nickname-Feld in der Registrierung').not.toBeNull();
+    expect(m[0], 'der Nickname ist nicht als Pflichtfeld ausgewiesen').toMatch(/\brequired\b/);
+    expect(m[0], 'ohne pattern prüft der Browser nichts').toMatch(/pattern=/);
+  });
+
+  test('Formular und Server verlangen DASSELBE', () => {
+    const shell = fsNick.readFileSync(pathNick.join(WURZEL_NICK, 'app-shell.html'), 'utf8');
+    const auth = fsNick.readFileSync(pathNick.join(WURZEL_NICK, 'js', 'modules', 'core', '30-auth.js'), 'utf8');
+    const php = fsNick.readFileSync(pathNick.join(WURZEL_NICK, 'includes', 'social', 'freunde-gruppen.php'), 'utf8');
+
+    const ausShell = (shell.match(/id="regHandle"[^>]*pattern="([^"]+)"/) || [])[1];
+    const ausJs = (auth.match(/\/\^\[a-z0-9\._\]\{3,24\}\$\//) || [])[0];
+    const ausPhp = (php.match(/preg_match\(\s*'\/\^\[a-z0-9\._\]\{3,24\}\$\/'/) || [])[0];
+
+    expect(ausShell, 'kein pattern im Formular').toBe('[a-z0-9._]{3,24}');
+    expect(ausJs, 'die JS-Prüfung benutzt eine andere Regel als der Server').toBeTruthy();
+    expect(ausPhp, 'die Server-Regel hat sich geändert — Formular und JS nachziehen').toBeTruthy();
+  });
+
+  test('der gewählte Nickname wird nach der Anmeldung wirklich gesetzt', () => {
+    // Ein Feld, das niemand ausliest, ist eine Attrappe. Geprüft wird nach
+    // Abzug der Kommentare — der Befund daneben nennt die Route im Klartext.
+    const { ohneJsKommentare } = require('./lib/js-code');
+    const auth = ohneJsKommentare(
+      fsNick.readFileSync(pathNick.join(WURZEL_NICK, 'js', 'modules', 'core', '30-auth.js'), 'utf8'));
+    expect(auth, 'regHandle wird nirgends gelesen').toMatch(/getElementById\('regHandle'\)/);
+    expect(auth, 'der Nickname erreicht die Route social/handle nicht').toMatch(/social\/handle/);
+    expect(auth, '_regHandleSetzen wird nie gerufen').toMatch(/_regHandleSetzen\(/);
+  });
+
+  test('Bestandsnutzer bekommen einen Nickname — aber keiner wird überschrieben', () => {
+    const php = fsNick.readFileSync(pathNick.join(WURZEL_NICK, 'includes', 'social', 'freunde-gruppen.php'), 'utf8');
+    expect(php, 'kein Nachtrag für Bestandsnutzer').toMatch(/function eb_handles_nachtragen/);
+    // NOT EXISTS statt leerem Wert: wer sich bewusst unauffindbar gemacht
+    // hat, hat einen leeren Handle — der Schlüssel existiert dann, und er
+    // muss unangetastet bleiben.
+    expect(php, 'der Nachtrag greift auch auf bewusst geleerte Handles zu')
+      .toMatch(/'compare'\s*=>\s*'NOT EXISTS'/);
+    // Eigene Marke: sonst liefe der Durchlauf bei stockender Migration in
+    // JEDEM Seitenaufruf über alle Konten.
+    expect(php, 'der Nachtrag hat keine eigene Abschluss-Marke')
+      .toMatch(/eb_handles_nachtrag_32/);
+  });
+});

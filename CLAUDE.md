@@ -84,7 +84,7 @@ aus wie ein Haus ohne Grenzen.
 **Stand:** 6 von 11 Schicht-Rollen arbeiten an Dateien innerhalb des
 Rahmens. Die übrigen Befunde sind für Menschen, nicht für den Autopiloten.
 
-Der Rahmen umfasst **15 Dateien** (`scripts/lib/sichere-dateien.mjs`). Die
+Der Rahmen umfasst **14 Dateien** (`scripts/lib/sichere-dateien.mjs`). Die
 Aufnahmekriterien stehen als Test, nicht als Absatz: höchstens 1200 Zeilen,
 8 Auth-, 20 Geld- und 12 Upload-Vorkommen — **im Code gemessen, nicht im
 Fließtext**. Eine Erweiterung ist eine Sicherheitsentscheidung des Inhabers.
@@ -1872,7 +1872,7 @@ durch), und drei Anläufe sind eine bessere Chance, keine Garantie. Die Zahl
 der erfassten Gebiete steht in jedem Lauf im Bericht.
 
 ```bash
-npx playwright test tests/e2e/aktivitaeten.spec.js   # 39 Tests, an Prüfstücken
+npx playwright test tests/e2e/aktivitaeten.spec.js   # 41 Tests, an Prüfstücken
 ```
 
 #### Die Ansicht: Reiter „⚡ Jetzt"
@@ -2030,8 +2030,8 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 44 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/freunde-ansicht.spec.js  # 14 Tests, echter Browser
+npx playwright test tests/e2e/social.spec.js           # 48 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/freunde-ansicht.spec.js  # 18 Tests, echter Browser
 ```
 
 **Eigene Tabellen, nicht das Board.** `eb_board_projects` ist EIN JSON-Blob je
@@ -2121,6 +2121,62 @@ Hinter einem Proxy meint `REMOTE_ADDR` alle Besucher gemeinsam — ein
 IP-gebundener Deckel wäre dort entweder wirkungslos oder er sperrte
 Unbeteiligte. Alle vier Eimer (`social_suche`, `social_anfrage`,
 `social_gruppe`, `social_beitritt`) hängen an `'u' . $user_id`.
+
+#### Der Nachtrag hebt Entscheidung 1 auf — deshalb ist er opt-in
+
+Seit dem 15.09.2026 ist der Nickname bei der Registrierung Pflicht, und
+bestehende Konten sollen auf Wunsch des Inhabers „einfach einen passenden"
+bekommen. `eb_handles_nachtragen()` tut das — und **hebt damit genau die
+Einwilligung auf, auf der Entscheidung 1 steht.** Ein Bestandskonto wird
+auffindbar, ohne dass irgendjemand etwas gesetzt hat.
+
+Das ist keine Aufräumarbeit, sondern eine **Aussage in der
+Datenschutzerklärung**, und sie gehört dorthin, bevor sie zutrifft. Der
+Nachtrag läuft deshalb nur mit einer Konstante in `wp-config.php`:
+
+```php
+define( 'EB_HANDLE_NACHTRAG', true );
+```
+
+Derselbe Opt-in-Weg wie bei `EB_APPLE_TEAM_ID`: **ohne sie bleibt alles, wie
+es ist**, und „nicht eingerichtet" sieht anders aus als „eingerichtet". Der
+Code ist fertig und wartet; er ist nicht abgeschaltet. Der Schalter wird in
+demselben Augenblick gesetzt, in dem die Datenschutzerklärung den Nachtrag
+nennt — dieselbe Hand, derselbe Moment.
+
+**Ein Modell schreibt hier keinen Rechtstext.** Der Entwurf für den Absatz
+liegt beim Inhaber; `vault/40-Governance/` bleibt außerhalb dessen, was ein
+Modell anfasst.
+
+##### `strtolower()` hat jeden führenden Umlaut gefressen
+
+Beim Ausführen des Nachtrags am Prüfstand gefunden — nicht beim Lesen:
+
+```
+„Änne Großmann"  ->  nne.grossmann      (das Ä fehlt ganz)
+„Bo Ötzi"        ->  bo.tzi
+```
+
+`eb_handle_vorschlag()` schrieb **zuerst klein** und übersetzte danach.
+`strtolower()` arbeitet aber **byteweise**: „Ä" sind zwei UTF-8-Bytes, keines
+davon ein ASCII-Großbuchstabe. Der Umlaut erreichte also unverändert eine
+Tabelle, die nur „ä" kannte, und fiel eine Zeile später dem
+`[^a-z0-9._]`-Filter zum Opfer.
+
+Das traf **jeden** Namen, der mit einem Umlaut beginnt — und der Handle ist
+genau das, wonach andere diese Person suchen. Umgeschrieben wird jetzt vor dem
+Kleinschreiben, mit beiden Schreibweisen in der Tabelle.
+
+**`mb_strtolower` wäre der kürzere Weg und der unsicherere:** mbstring ist
+keine Voraussetzung, die WordPress garantiert — dieselbe Begründung wie beim
+Kontaktschutz, wo dieselbe Falle schon einmal stand.
+
+**Gefunden hat es der Prüfstand, nicht der Diff.** Vier Tests in
+`social.spec.js` führen den Nachtrag wirklich aus: einmal ohne die Konstante
+(0 Handles), einmal mit (die zwei Konten bekommen ihren), und ein zweiter Lauf
+tut nichts mehr. Vier Mutationen, jede macht die Suite rot: Riegel entfernt ·
+Umschrift wieder nach dem Kleinschreiben · Abschluss-Marke nie gesetzt · der
+Nachtrag setzt nie einen Handle.
 
 #### Die Rollen und was sie sehen
 
@@ -3684,8 +3740,16 @@ Prüfer, der sich im Maßstab irrt, ist gefährlicher als keiner.
 
 **Die echte Fundstelle lag auf der Landeseite:** 25 Galerie-Punkte auf den
 Inseratskarten mit **7×7 px** Trefferfläche. axe meldet sie als `target-size`,
-Schweregrad `serious` — und es war der **einzige** WCAG-2.2-Verstoß der
-gesamten Anwendung.
+Schweregrad `serious` — und es war der einzige WCAG-2.2-Verstoß **auf den fünf
+Seiten, die dieses Tor misst**.
+
+**Hier stand „der einzige Verstoß der gesamten Anwendung", und das war
+falsch.** Der Satz deckte 34 Seiten, die Messung deckte fünf. Am 15.09.2026
+über die übrigen gemessen: **40 verstoßende Knoten, 20 davon `critical`** —
+siehe den Abschnitt „Ein Tor, das fünf von vierunddreißig Seiten misst" weiter
+unten. Der alte Satz bleibt hier als Protokoll stehen, weil eine
+stillschweigend korrigierte Entwarnung aussieht, als hätte sie nie anders
+gelautet.
 
 **Die Abstands-Ausnahme greift ausgerechnet hier nicht.** SC 2.5.8 erlaubt
 kleinere Flächen, wenn 24-px-Kreise um die Mitten sich nicht schneiden. Bei
@@ -3715,7 +3779,261 @@ sichtbare Punkt **nicht** mitwächst — sonst wäre die Regel dadurch erfüllt,
 dass jemand die Punkte aufbläst und die Karten aussehen wie eine Perlenkette.
 
 ```bash
-npx playwright test tests/e2e/barrierefreiheit.spec.js   # 14 Tests, axe + Zielgrößen
+npx playwright test tests/e2e/barrierefreiheit.spec.js   # 10 Tests, axe über 32 Seiten
+```
+
+### Ein Tor, das fünf von vierunddreißig Seiten misst
+
+Am 15.09.2026 bei einer Prüfung von Nutzerfreundlichkeit und Gestaltung
+gefunden. `barrierefreiheit.spec.js` führt seine Seiten als Handliste — fünf
+Routen, und zwar **abgemeldet**, also `board` und `freunde` in ihrem
+Ausgeloggt-Zustand. `app-shell.html` trägt **34** Seiten.
+
+**Die Abdeckung stand an vier Stellen und war viermal verschieden:**
+
+| Stelle | behauptet |
+|---|---|
+| Kopfkommentar der Suite | „× 6 Kernseiten" |
+| `Claude-Kontext.md` | „× 6 Kernseiten" |
+| `Testing.md` | „× 4 Seiten" |
+| CLAUDE.md (oben) | „der gesamten Anwendung" |
+| **gemessen** | **5** |
+
+Keine davon richtig, und die vierte war die teuerste — sie hat aus einer
+Messung über ein Sechstel der Anwendung eine Aussage über das Ganze gemacht.
+**Dieselbe Klasse wie der tote Gitleaks-Scan:** ein Prüfer, dessen Subjekt nur
+ein Ausschnitt ist, gibt eine Entwarnung, die er nicht decken kann. Über
+EN 301 549 ist das zugleich ein BFSG-Thema.
+
+Gemessen mit `wcag2a, wcag2aa, wcag21aa, wcag22aa`, beiden Farbmodi,
+angemeldet in der Rolle der jeweiligen Seite — 26 der 29 offenen Seiten
+(`admin` braucht echte Rechte, `home` und `profile` sind Weiterleitungen):
+
+| | |
+|---|---|
+| verstoßende Knoten | **40** |
+| davon `critical` | **20** |
+| betroffene Seiten | 6 — `settings`, `create-listing`, `auftraege`, `business`, `notifications`, `contact` |
+| je Regel | `select-name` 14 · `label` 6 · `color-contrast` 20 |
+
+**Alle zwanzig kritischen haben EINE Ursache:** `<label>` steht neben seinem
+Feld statt mit ihm verbunden. Am Bildschirm ist alles beschriftet; ein
+Screenreader sagt auf `create-listing` sechsmal „Kombinationsfeld" ohne Namen —
+auf der Seite, auf der ein Dienstleister sein Inserat anlegt. Einer der sechs
+ist `#settings2faToggle`, der Schalter für die Zwei-Faktor-Anmeldung.
+
+**Zwei Texte sind im Dunkelmodus unsichtbar**, beide aus derselben Ursache:
+eine Fläche mit fest geschriebener Farbe, die den Farbmodus nicht mitmacht,
+und ein Text darauf, der sein Token nimmt.
+
+```
+auftraege       #000000 auf #121212  = 1,12 : 1   .btn-link „Erneut versuchen"
+create-listing  #e8e8e8 auf #fff8e8  = 1,15 : 1   .create-payout-title
+```
+
+Der erste ist der **Ausweg aus einer Störung** — er erscheint nur, wenn das
+Laden der Storno-Anträge fehlschlug. Wer ihn braucht, sieht ihn nicht.
+
+**Die Markenfarbe als Text ist der größte Einzelposten:** `#FF385C` auf Weiß
+ergibt 3,51 : 1 an sieben Knoten. Die Gegenregel steht seit dem 01.08.2026 in
+dieser Datei und wird 23× befolgt — `--primary-text` / `--accent-text` für
+Text, `#FF385C` für Flächen und Icons. Es fehlt kein Token, nur seine Anwendung.
+
+**Was axe strukturell nicht sieht:** über einem Verlauf oder Bild meldet es
+`incomplete`, nicht `violation`. Genau dort liegen die drei Einstiege der
+Landeseite (`rgba(255,255,255,.14)` + `blur(8px)`, also kein eigener Grund) —
+bis die Marquee-Bilder da sind, steht Weiß auf Hell. Kein Tor wird das je
+melden; es steht deshalb im Vault und nicht in einer Testdatei.
+
+**Der Handgriff am Tor:** `SEITEN` aus den `id="page-…"` ableiten statt
+aufzählen. Zwei Dinge gehören dazu, beide teuer gelernt — **angemeldet messen**
+(abgemeldet fallen `auftraege`, `business` und `my-listings` auf die Landeseite
+zurück) und **nachsehen, welche Seite wirklich aktiv wurde**. Ohne die
+Gegenprobe zählt man dieselbe Seite mehrfach und hält das für Abdeckung; genau
+daran war die erste Fassung dieser Messung mit **46** statt 40 Knoten falsch.
+
+#### Ausgeführt — und die Zahl wurde beim Weiten größer, nicht kleiner
+
+Am selben Tag umgesetzt. Das Tor misst jetzt **32 der 34 Seiten** in beiden
+Farbmodi; die zwei übrigen sind nachgewiesene Weiterleitungen (`home` →
+`browse`, `profile` → `provider`), deren Ziel selbst gemessen wird. **`admin`
+ist dabei** — die Annahme darüber, es brauche „echte Rechte", war falsch:
+`isAdmin: true` am Messkonto genügt, nachgemessen.
+
+Und genau das hat die Zahl bewegt. Gemessen wurden **58** Knoten statt 40:
+
+| | |
+|---|---|
+| 20 `critical` | zehn Bedienelemente ohne Namen (in beiden Modi gezählt) |
+| 16 | Weiß auf `#FF385C` am Feed-Kontaktknopf, 3,51 : 1 bei 12 px |
+| 3 | im Dunkelmodus unlesbar (1,12 · 1,15 · **1,51**) |
+| 9 | Markenfarbe als Text auf hell |
+| 10 | Statusfarben ohne Dunkelwert |
+
+Der Unterschied ist **kein Widerspruch, sondern der Subjektwechsel**: vorher
+in der Rolle der jeweiligen Seite, jetzt auf JEDER Seite angemeldet — und mit
+`isAdmin`. Erst dadurch rendern der Feed-Kontaktknopf und drei
+Admin-Bedienelemente, die alle drei kaputt waren. **Eine Abdeckung, die man
+weitet, findet mehr; eine Zahl, die dabei sinkt, wäre das verdächtige
+Ergebnis.**
+
+Drei Befunde daneben, jeder für sich die bekannte Klasse:
+
+- **`.btn-link` war in KEINER Stylesheet-Datei definiert.** Der Knopf „Erneut
+  versuchen" bekam also die Browservorgabe `color: buttontext` = #000. Ein
+  Klassenname ist keine Gestaltung — dieselbe Klasse wie `escHtml`, den es
+  nicht gab.
+- **`release-vision.css` trug einen Dunkelmodus für `[data-theme="dark"]`.**
+  Dieses Projekt schaltet über `body.dark-mode`; `data-theme` wird **nirgends**
+  gesetzt. Zwei Zeilen mit fertigen, richtigen Dunkelfarben, die nie ein
+  einziges Mal gegriffen haben. Zwei Zeilen darüber führen beide Selektoren —
+  es war ein Vergessen, kein Entwurf.
+- **37 statt 10 Beschriftungen.** axe meldete zehn, weil es bei `<input>` einen
+  `placeholder` als Notnamen durchgehen lässt und bei `<select>` nicht. Ein
+  Platzhalter verschwindet beim Tippen — genau dann braucht ihn jemand.
+  Gemessen wird jetzt die **Bedingung** (jede Formularbeschriftung nennt ihr
+  Feld), nicht die zehn Fälle, die axe zufällig sieht.
+
+**Und vier Icon-Ligaturen wären durch die Reparatur erst gefährlich
+geworden.** `<label><span class="material-icons-round">auto_awesome</span>
+Suche</label>` hat als Textinhalt „auto_awesome Suche". Solange kein `for=`
+dastand, kam der Name vom Platzhalter; mit `for=` liest ein Screenreader die
+Ligatur vor. `aria-hidden="true"` an genau diesen vier Spans — eine Reparatur,
+die man zu Ende messen muss, statt sie zu beschließen.
+
+**Elf Mutationen, neun rot.** `.btn-link` weg · Dunkel-Statusfarben weg ·
+zurück auf den toten `[data-theme]` · abgemeldet gemessen · Handliste statt
+Ableitung · Ableitung gekürzt · erfundene Weiterleitung · ein `for=` weg ·
+`aria-labelledby` am 2FA-Schalter weg.
+
+Zwei überleben, **beide legitim und beide belegt**:
+
+1. **Die drei Dunkelflächen von `create-payout` sind ein Satz.**
+   `body.dark-mode .create-payout-notice` (0,2,1) schlägt
+   `.create-payout-notice.is-warning` (0,2,0) — jede Zeile einzeln zu
+   entfernen ändert nichts, alle drei zusammen machen die Suite rot. Wer die
+   erste löscht, weil die anderen dastehen, holt den Befund zurück.
+2. **Die Gegenprobe auf die aktive Seite kann sich nicht selbst prüfen.**
+   Entfernt man sie *und* misst abgemeldet, ist die Suite grün — über 32
+   Seiten, die alle dieselbe Landeseite sind. Mit Gegenprobe ist derselbe
+   Zustand rot. Das Paar ist der Beleg, nicht die einzelne Mutation.
+
+**Und die Mutationsprobe selbst hat einmal Schaden angerichtet.** Der erste
+Läufer setzte mit `git checkout --` zurück — bei noch nicht committeter Arbeit
+löscht das die Arbeit. Die neun Proben danach liefen gegen den alten Stand und
+meldeten Unsinn (unter anderem „rot", weil der `-g`-Filter ins Leere lief und
+Playwright deshalb mit 1 endet). Gesichert wird jetzt per **Kopie**, der
+Läufer prüft am Ende, dass der Baum byte-identisch zurück ist, und ein
+Lauf ohne getroffenen Test gilt als **ungültig**, nicht als Treffer.
+Dieselbe Lehre wie beim Messgerät, das sein Subjekt verändert.
+
+Vollständig mit allen Kontrastwerten: [[30-Betrieb/Barrierefreiheit-Abdeckung]]
+und [[20-System/Frontend/Design-System-Drift]].
+
+### Ein Token, das es nie gab — und der Wächter, der genau danach sucht
+
+Gemeldet am 15.09.2026 vom Inhaber: *„unter profil ist das hier in white,
+sollte aber dark sein."* Die vier Kacheln unter `/profile` (Meine Planung,
+Merkliste, Freunde & Gruppen, Nachrichten) standen weiß auf `#121212`.
+
+```css
+.journey-actions button { background: var(--white, #fff); … }
+```
+
+**`--white` ist im ganzen Projekt nirgends definiert.** Damit gilt immer der
+Rückfallwert `#fff` — in **beiden** Farbmodi. Gemessen im echten Browser:
+
+| | vorher | nachher |
+|---|---:|---:|
+| Kachel dunkel | `rgb(255,255,255)` | `rgb(18,18,18)` |
+| Titel `#CCCCCC` darauf | **1,61 : 1** | **11,67 : 1** |
+| Unterzeile `#999999` | **2,85 : 1** | **6,58 : 1** |
+| Kachel hell | `rgb(255,255,255)` | unverändert |
+
+`var(--bg)` ist der Wert, den die Nachbarkarten derselben Seite
+(`provider-profile-card`, `provider-fact-card`) ohnehin tragen. Der Hellmodus
+ändert sich dadurch um **kein Pixel** — nachgemessen, nicht angenommen.
+
+**Ohne Rückfallwert ist es schlimmer, nicht besser.** In `discovery.css` stand
+`var(--white)` viermal **ohne** Fallback. Dann ist die Deklaration *invalid at
+computed-value time*: sie fällt ganz aus, und die Fläche wird `transparent` —
+sie fehlt also, statt nur falsch zu sein.
+
+#### Der Wächter existierte und konnte die Datei nicht sehen
+
+`design-system.spec.js` trägt seit dem 01.08.2026 den Test *„kein Stylesheet
+benutzt eine Variable, die keines definiert"* — gebaut für genau diese Klasse,
+nachdem `ui-enhancements.css` dreizehn erfundene Namen benutzte. Er war grün.
+Zwei Löcher:
+
+1. **Die Dateiliste stand von Hand da** — `styles.css`, `ui-enhancements.css`,
+   `eb-hq-evolution.css`. `journeys.css` und `discovery.css` waren **nie
+   Subjekt**. Sie kommt jetzt aus den Stellen, die Stylesheets wirklich
+   ausliefern (`index.php`, Dev-Shell, `hq.html`, `functions.php`); wer eine
+   neue CSS-Datei einbindet, bekommt ihre Prüfung geschenkt.
+2. **Ein Rückfallwert entschuldigte.** Im Test stand: *„Ein Rückfallwert ist
+   eine bewusste Entscheidung und deshalb erlaubt."* Für eine **Länge** stimmt
+   das. Für eine **Fläche** ist der Rückfall der Fehler — das Literal gilt dann
+   in beiden Farbmodi, und genau so sah der gemeldete Zustand aus. Deshalb
+   waren auch `--bg-card`, `--card-bg`, `--bg-light`, `--bg-soft`,
+   `--primary-ultralight`, `--danger` und `--pp-runden` in `styles.css`
+   undefiniert, obwohl diese Datei **gelesen wurde**.
+
+**`--pp-runden` ist der schärfste davon.** Der Kommentar bei `.ai-popper` sagt
+seit dem 13.09.2026, die Rundenzahl stehe *„an EINER Stelle für alle vier
+Animationen"* — sie stand **viermal** als Rückfallwert da, weil das Token
+fehlte. Die Aussage stimmt erst jetzt.
+
+#### Was NICHT umgestellt wurde, und warum
+
+`.sa-modal` benutzte `var(--card-bg, #1e1e2e)` — ein **dunkles** Literal.
+Jedes Kind dieses Dialogs setzt `color: #fff` fest; ein modusfolgendes Token
+hätte dort weiße Schrift auf weißem Grund ergeben. Die Fläche trägt jetzt das
+Literal mit Begründung. **Vor dem Umstellen die Textfarben ansehen**, sonst
+repariert man eine Fläche kaputt.
+
+Ebenso blieben `.akt-karte` und `.legal-table th` optisch unverändert: beide
+hatten längst eine eigene `body.dark-mode`-Regel, dort war nie etwas kaputt.
+Das gehört hierher, weil ich es zuerst als Fund gezählt hatte und die Messung
+es widerlegt hat.
+
+**Wirklich behoben sind drei Flächen:** die gemeldeten Profil-Kacheln,
+`.storno-eintrag` (deren Rand im Dunkelmodus behandelt war, die Fläche nicht —
+eigene Arbeit) und der Hover von `.ac-nav-btn`, der im Dunkelmodus *dunkler*
+statt heller wurde.
+
+#### Abstände
+
+Am selben Ort gemessen (390 / 768 / 1280 px): `margin-top: 24px`,
+**`margin-bottom: 0`** — die Kacheln stießen ohne Abstand an „Über mich".
+Dazu Radius `14px`, während dieselben Nachbarkarten `16px` tragen
+(`--radius-lg`). Beides angeglichen. Der Seitenrand am Telefon (12 px gegen
+16 px ab Tablet) gehört dem Seitencontainer, nicht dieser Komponente — gemeldet,
+nicht angefasst.
+
+#### Und die siebte Kommentar-Falle
+
+Der reparierte Wächter meldete beim ersten Lauf `styles.css: --x` — das war
+der **erklärende Kommentar** über den neuen Token, der `var(--x, literal)` als
+Beispiel nennt, geschrieben in derselben Stunde. Für JS, PHP und HTML gibt es
+den gemeinsamen Griff längst; für CSS fehlte er. `tests/e2e/lib/css-code.js`
+schließt das und arbeitet **zeichenweise**: ein Ausdruck über Kommentargrenzen
+schnitte in `content: "/*"` mitten in eine Zeichenkette.
+
+Sechs Mutationen: `--white` zurück · `--danger`-Definition entfernt · zurück
+auf die Handliste · Kommentare nicht mehr abgezogen · Grund der verwaisten
+Datei geleert — jede macht die Suite rot. Die sechste, *„Rückfallwert
+entschuldigt wieder"*, überlebt **allein** und ist deshalb als **Paar**
+belegt: mit zurückgeholtem `--white` rot, mit beidem grün.
+
+**`mobile-overrides.css` wird nirgends ausgeliefert** (10 KB, fremdes Lila
+`#7c3aed`) — und steht trotzdem im Autopilot-Rahmen. Ein zweiter Test verlangt
+für jedes nicht ausgelieferte Stylesheet einen **Grund**, wie bei den
+Phantom-Workflows: stilllegen heißt eintragen, nicht verschweigen. Das Löschen
+ist eine Entscheidung des Inhabers.
+
+```bash
+npx playwright test tests/e2e/design-system.spec.js   # 5 Tests, 6 Mutationen
 ```
 
 ### Der Kontext wird nachgemessen
@@ -3830,7 +4148,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1169 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1188 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3965,8 +4283,13 @@ je Position, Anlegen/Bearbeiten/Ablauf), **Pflichtchecks** (Selbstbuchungs-
 schutz, Demo-Toggle, Board-Picker, Listings), Radar (Umkreis, lokale Position,
 Migrations-Verhalten), Vision-Release, Kern
 (Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), **Barrierefreiheit**
-(axe über beide Farbmodi — seit dem 10.09.2026 auch WCAG **2.2**; die
-Galerie-Punkte sind 24 px breit und sehen weiter aus wie 7 px), Design-System,
+(axe über beide Farbmodi und seit dem 15.09.2026 über **32 der 34 Seiten**,
+angemeldet und mit `isAdmin` — die zwei übrigen sind nachgewiesene
+Weiterleitungen, deren Ziel selbst gemessen wird; die Seitenliste kommt aus
+der Shell, und auf jeder Seite wird nachgesehen, welche wirklich aktiv wurde;
+seit dem 10.09.2026 auch WCAG **2.2**; jede Formularbeschriftung nennt ihr
+Feld, statt nur daneben zu stehen; die Galerie-Punkte sind 24 px breit und
+sehen weiter aus wie 7 px), Design-System,
 CSS-Minify. `pr-check.yml` blockiert PRs bei
 Fehlern. Die Rechtsablage-Suite prüft zusätzlich private Speicherung,
 Versionshistorie, Aufgabenstatus und den amtlichen Quellenmonitor.
@@ -4230,7 +4553,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
 | `js/modules/` | Quelle des Frontends: 31 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~17 700 Zeilen CSS, mobile-first |
+| `styles.css` | ~17 900 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |

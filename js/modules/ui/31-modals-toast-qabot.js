@@ -178,7 +178,7 @@ var QA_TOPICS = [
       'Für eine Reise in eine andere Stadt: Öffne Aktuelles, wähle Radar, stelle die Zielstadt ein und passe den Radius an. Der genaue Standort bleibt im Browser.'
     ],
     actions: [
-      { label: 'Radar öffnen', icon: 'radar', kind: 'page', target: 'aktuelles' },
+      { label: 'Radar öffnen', icon: 'radar', kind: 'page', target: 'aktuelles', data: 'radar' },
       { label: 'Suche öffnen', icon: 'search', kind: 'page', target: 'browse' }
     ]
   },
@@ -476,7 +476,14 @@ function _qaRenderActions(actions) {
   return '<div class="eb-qa-actions">' + actions.map(function(action) {
     var kind = String(action.kind || '').replace(/[^a-z_-]/gi, '');
     var target = String(action.target || '').replace(/[^a-z0-9_-]/gi, '');
-    return '<button type="button" class="eb-qa-action" data-kind="' + kind + '" data-target="' + target + '" onclick="runQaAction(this.dataset.kind,this.dataset.target)">' +
+    // Ein Unterkanal (z. B. `aktuelles/radar`) war bisher unerreichbar: die
+    // Aktion reichte nur `target` weiter, und `navigateTo('aktuelles')`
+    // landet auf „Für dich". Der Knopf „Radar öffnen" hat deshalb NIE zum
+    // Radar geführt — gemeldet am 15.09.2026.
+    var daten = String(action.data || '').replace(/[^a-z0-9_-]/gi, '');
+    return '<button type="button" class="eb-qa-action" data-kind="' + kind + '" data-target="' + target + '"'
+      + (daten ? ' data-data="' + daten + '"' : '')
+      + ' onclick="runQaAction(this.dataset.kind,this.dataset.target,this.dataset.data)">' +
       '<span class="material-icons-round">' + _escHtml(action.icon || 'arrow_forward') + '</span>' +
       _escHtml(action.label || 'Öffnen') +
     '</button>';
@@ -544,9 +551,94 @@ function askQaPreset(text) {
   if (input) input.value = '';
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   WAS NICHT GEHT, MUSS DER BOT AUCH SAGEN KÖNNEN
+   ══════════════════════════════════════════════════════════════════════
+
+   Gemeldet am 15.09.2026: der Assistent „verweist nicht richtig" und soll
+   auch Nicht-Möglichkeiten beantworten — ein Eventplaner, der eine
+   Dienstleistung anbieten will, bekam bis dahin den Knopf „Inserat
+   erstellen" und lief in eine Sackgasse.
+
+   Die Rollenzusage war dabei LEER. `_qaAnswer` hängte an jede Antwort
+   „Ich berücksichtige, dass du gerade als X unterwegs bist." — und gab
+   danach für jede Rolle exakt dieselbe Antwort mit denselben Aktionen.
+   Ein Satz, der eine Leistung behauptet und keine erbringt, ist schlimmer
+   als gar keiner: er nimmt dem Nutzer den Verdacht, selbst nachsehen zu
+   müssen. Dieselbe Klasse wie ein Prüfer ohne Subjekt, nur im Gespräch.
+
+   Eine Nicht-Möglichkeit gewinnt VOR der Wissensbasis und vor dem Thema:
+   sie ist die spezifischere Auskunft. Wer „ich will eine Dienstleistung
+   anbieten" fragt, ist mit einem Wissensbasis-Absatz über Inserate nicht
+   bedient, wenn er sie gar nicht anlegen kann.
+
+   Die Auskunft ist am Code belegt, nicht erfunden: `30-auth.js` verlangt
+   für eine Dienstleister-Registrierung einen Firmennamen UND die
+   bestätigte Gewerbeanmeldung (`regGewerbe`), sonst bricht das Formular
+   ab. Der Bot darf das also zusagen.
+*/
+var QA_NICHT_MOEGLICH = [
+  {
+    id: 'planer-will-anbieten',
+    /* Nur für angemeldete Nicht-Dienstleister. Ein Gast bekommt weiter die
+       normale Auskunft — er kann sich ja noch als Dienstleister anmelden,
+       ihm etwas zu verbieten wäre falsch. */
+    gilt: function () {
+      return !!currentUser && !(typeof isDienstleister === 'function' && isDienstleister());
+    },
+    /* Wortgruppen, nicht Einzelwörter: „anbieter" allein trifft auch
+       „welche anbieter gibt es" — eine Suchfrage, keine Absicht zu
+       inserieren. Genau daran wäre die Regel gescheitert. */
+    triggers: [
+      'anbieten', 'inserieren', 'inserat erstellen', 'inserat anlegen',
+      'angebot einstellen', 'angebot erstellen', 'anzeige aufgeben',
+      'verkaufen', 'vermieten',
+      'meine leistung', 'meine dienstleistung', 'selbst dj', 'als dj',
+      /* „Dienstleister werden" und „werde ich Dienstleister" sind derselbe
+         Wunsch in zwei Wortstellungen. Eine Teilzeichenkette trifft nur eine
+         davon — gemessen am Korpus, „Wie werde ich Dienstleister?" fiel
+         durch. Deshalb hier ein Ausdruck statt zweier Wortlisten. */
+      /\b(dienstleister|anbieter)\s+werden\b/,
+      /\bwerde\s+ich\s+(ein\s+)?(dienstleister|anbieter)\b/,
+    ],
+    antwort: 'Das geht mit diesem Konto nicht: du bist als Eventplaner angemeldet, '
+      + 'und Inserate können nur Dienstleister-Konten anlegen. Dafür brauchst du ein '
+      + 'eigenes Dienstleister-Konto — die Registrierung verlangt dort einen Firmennamen '
+      + 'und die Bestätigung, dass eine Gewerbeanmeldung vorliegt. Dein Planer-Konto '
+      + 'bleibt davon unberührt; beide Konten brauchen je eine eigene E-Mail-Adresse.',
+    actions: [
+      { label: 'Dienstleister-Konto anlegen', icon: 'person_add', kind: 'modal', target: 'registerModal' },
+      { label: 'Was Dienstleister brauchen', icon: 'help', kind: 'page', target: 'contact' },
+    ],
+  },
+];
+
+/** Trifft eine Nicht-Möglichkeit? Gibt den Eintrag zurück oder null. */
+function _qaNichtMoeglich(text) {
+  var t = String(text || '').toLowerCase();
+  for (var i = 0; i < QA_NICHT_MOEGLICH.length; i++) {
+    var n = QA_NICHT_MOEGLICH[i];
+    if (!n.gilt()) continue;
+    for (var k = 0; k < n.triggers.length; k++) {
+      var au = n.triggers[k];
+      // Wortgruppen als Zeichenkette, Wortstellungen als Ausdruck.
+      if (au instanceof RegExp ? au.test(t) : t.indexOf(au) !== -1) return n;
+    }
+  }
+  return null;
+}
+
 function _qaAnswer(text) {
   var topic = _qaFindTopic(text);
   _qaAddMessage('user', text);
+
+  // Eine Nicht-Möglichkeit zuerst: sie ist die genauere Auskunft, und ein
+  // Weiterleiten in eine Sackgasse wäre die schlechtere.
+  var nein = _qaNichtMoeglich(text);
+  if (nein) {
+    setTimeout(function () { _qaAddMessage('bot', nein.antwort, nein.actions); }, 180);
+    return;
+  }
 
   // Wissensbasis zuerst befragen: liefert sie einen klaren Treffer, antworten
   // wir inhaltlich statt nur weiterzuleiten (Impuls 5).
@@ -572,8 +664,14 @@ function _qaAnswer(text) {
   }
 
   var answer = _qaPick(topic.replies, topic.id + ':' + text);
-  if (topic.id !== 'fallback' && currentUser) {
-    answer += ' Ich berücksichtige, dass du gerade als ' + (currentUser.role || 'Nutzer') + ' unterwegs bist.';
+  /* Hier stand: „Ich berücksichtige, dass du gerade als X unterwegs bist."
+     Der Satz behauptete eine Rücksicht, die es nicht gab — dieselbe Antwort,
+     dieselben Aktionen, für jede Rolle. Er ist ersatzlos weg; die Rolle wirkt
+     jetzt dort, wo sie etwas ändert: in QA_NICHT_MOEGLICH oben und beim Ziel
+     des Auftrags-Knopfes für Dienstleister. */
+  if (topic.id === 'listing' && currentUser
+      && typeof isDienstleister === 'function' && isDienstleister()) {
+    answer += ' Deine laufenden Anfragen und Termine findest du unter Aufträge.';
   }
   if (topic.id === 'fallback') {
     _ebKbNoteMiss(text);
@@ -598,14 +696,18 @@ function handleQaAsk(e) {
   _qaAnswer(value);
 }
 
-function runQaAction(kind, target) {
+function runQaAction(kind, target, daten) {
   closeQaBot();
   if (kind === 'modal' && target) {
     openModal(target);
     return;
   }
   if (kind === 'page' && target) {
-    navigateTo(target);
+    // `daten` ist der Unterkanal. Ohne ihn landete „Radar öffnen" auf dem
+    // Feed „Für dich" — der Knopf versprach ein Ziel und lieferte ein
+    // anderes. Genau die Klasse, die dieses Projekt „Beschriftung und Ziel
+    // wandern zusammen" nennt.
+    navigateTo(target, daten || null);
     return;
   }
   if (kind === 'toast') {

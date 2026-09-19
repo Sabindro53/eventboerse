@@ -15,7 +15,7 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 **Warum:** Einfaches Deployment via SFTP ohne Build-Pipeline. Keine `node_modules`, kein Webpack, kein Vite. Jede Änderung sofort live ohne Build-Schritt.
 
-**Konsequenz:** `app.js` ist ein ~21.000-Zeilen-Monolith. Das ist bewusst akzeptiert.
+**Konsequenz:** `app.js` ist eine ~30.700-Zeilen-Datei. **Kein Monolith mehr** — sie wird seit 2026-08 aus **31 Modulen** unter `js/modules/**` verkettet (`./build-app-js.sh`, Reihenfolge in `modules.list`). Reines `cat`, kein Bundler: die Leitplanke „kein Build-Schritt" bleibt gewahrt, die Quelle ist trotzdem geteilt. Wer `app.js` von Hand editiert, verliert die Änderung beim nächsten Bau — CI bricht bei Drift ab.
 
 ## WordPress als API-Backend
 
@@ -35,11 +35,11 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 ## Polling statt WebSockets
 
-**Entscheidung:** Messaging nutzt Polling (alle 3 Sekunden) statt WebSockets.
+**Entscheidung:** Messaging nutzt Polling statt WebSockets.
 
-**Warum:** Shared Hosting erlaubt keine persistenten Verbindungen (WebSockets erfordern eigenen Server-Prozess).
+**Warum:** Shared Hosting erlaubt keine persistenten Verbindungen (WebSockets erfordern eigenen Server-Prozess). Auf dem kleinen PHP-Pool von IONOS wäre echtes SSE sogar die **schlechtere** Wahl — eine offene Verbindung belegt einen Worker dauerhaft, und genau daran hing die Website am 22.08.2026.
 
-**Konsequenz:** 3s Latenz bei Nachrichten, höhere Server-Last. WebSockets/SSE ist eine bekannte P1-Aufgabe.
+**Konsequenz:** Latenz statt Echtzeit. **Nicht „alle 3 Sekunden"** — hier stand das bis zum 15.09.2026 und war seit Monaten falsch: der Takt beginnt bei 5 s, fällt ohne neue Nachricht um Faktor 1,6 bis auf 20 s zurück und pausiert bei verstecktem Tab ganz. Eine Notiz, die eine behobene Schwäche konserviert, kostet mehr als keine — wer sie liest, sucht ein Problem, das es nicht mehr gibt.
 
 ## WebAuthn ohne Composer
 

@@ -6878,7 +6878,7 @@ function radarLeisteAufbauen() {
   if (overlay && !_radarEl('radarAktivFilter')) {
     var controls = document.createElement('div');
     controls.id = 'radarAktivFilter'; controls.className = 'akt-overlay-filter';
-    controls.innerHTML = '<label>Anzeigen<select id="radarArt" onchange="_radarArt=this.value;radarAnzeigen()"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten & Events</option><option value="dienstleister">Dienstleister</option></select></label>'
+    controls.innerHTML = '<label>Anzeigen<select id="radarArt" onchange="_radarArt=this.value;radarAnzeigen()"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten</option><option value="dienstleister">Dienstleister</option></select></label>'
       + '<label>Aktivität<select id="radarKategorie" onchange="_aktKategorie=this.value;radarAnzeigen()"><option value="">Alle Aktivitäten</option>'
       + ['Sport','Kino','Museum','Theater','Zoo','Escape-Room','Kletterhalle','Erlebnisbad'].map(function(c) { return '<option>' + c + '</option>'; }).join('') + '</select></label>'
       + '<label>Termine<select id="radarZeit" onchange="_aktZeit=this.value;radarAnzeigen()"><option value="alle">Alle Termine</option><option value="jetzt">Nächste 4 Stunden</option><option value="heute">Heute</option><option value="wochenende">Wochenende</option></select></label>';
@@ -7043,7 +7043,17 @@ function _radarTrefferOeffnen(hit) {
   if (!hit) return;
   if (hit.art === 'dienstleister') { closeMapOverlay(); navigateTo('detail', hit.daten.id); return; }
   var e = hit.daten && hit.daten._aktivitaet;
-  var url = e && e.quelle && e.quelle.url;
+  // ── BETREIBERSEITE VOR KARTENSEITE (15.09.2026) ──────────────────────
+  //
+  // Hier stand nur `e.quelle.url` — und das ist bei 800 von 954 Eintraegen
+  // die OpenStreetMap-Objektseite. Gemeldet: „das radar oeffnet
+  // openstreetmap statt die website des externen betreibers". Wer ein Kino
+  // antippt, will die Spielzeiten.
+  //
+  // `quelle.url` bleibt als ODbL-Attribution erhalten und wird weiter
+  // angezeigt — nur ist sie nicht mehr das Ziel des Klicks, solange es
+  // eine echte Betreiberseite gibt.
+  var url = (e && e.webseite) || (e && e.quelle && e.quelle.url);
   if (typeof url === 'string' && /^https:\/\//.test(url)) {
     window.open(url, '_blank', 'noopener,noreferrer');
     return;
@@ -7060,7 +7070,7 @@ function _radarOverlayMarker(hits) {
     var popup = group.items.map(function(item) {
       var t = item.hit;
       return '<button type="button" class="feed-radar-popup-row" onclick="radarTrefferOeffnen(' + item.index + ')"><span><strong>'
-        + _escHtml(t.daten.title || t.daten.name || 'Event') + '</strong><small>'
+        + _escHtml(t.daten.title || t.daten.name || 'Aktivität') + '</strong><small>'
         + _escHtml(t.ort || '') + ' · ' + (t.art === 'aktivitaet' ? 'Externe Quelle' : t.art === 'event' ? 'Demo-Event' : 'Auf Eventbörse')
         + (t.genau ? '' : ' · Stadtmitte') + '</small></span></button>';
     }).join('');
@@ -7265,7 +7275,7 @@ function _feedRadarPopupHtml(gruppe) {
   var eintraege = gruppe.map(function(item) {
     var hit = item.hit;
     var d = hit.daten || {};
-    var title = d.title || d.name || 'Event';
+    var title = d.title || d.name || 'Aktivität';
     return '<button type="button" class="feed-radar-popup-row" onclick="feedRadarOpen(' + item.index + ')">'
       + '<span class="material-icons-round">' + (hit.art === 'dienstleister' ? 'storefront' : 'celebration') + '</span>'
       + '<span><strong>' + _escHtml(title) + '</strong><small>'
@@ -7427,13 +7437,13 @@ function renderFeedRadar(container) {
     return '<button type="button" class="radar-chip' + (km === _radarRadius ? ' aktiv' : '') + '" onclick="feedRadarRadius(' + km + ')">' + km + ' km</button>';
   }).join('');
   container.innerHTML = '<section class="feed-radar-card">' +
-    '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
+    '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Aktivitäten-Radar</h2>' +
     '<p>Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
     '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
     '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
     '<div class="release-privacy"><span class="material-icons-round">shield</span><span>Dein genauer Standort bleibt im Browser. Gespeichert wird nur eine grobe Position; du kannst sie jederzeit <button type="button" onclick="feedRadarForget()">vergessen</button>.</span></div>' +
-    '<label class="akt-radar-type">Anzeigen<select id="feedRadarType" onchange="feedRadarArt(this.value)"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten und Events</option><option value="dienstleister">Dienstleister</option></select></label>' +
+    '<label class="akt-radar-type">Anzeigen<select id="feedRadarType" onchange="feedRadarArt(this.value)"><option value="alle">Alles</option><option value="aktivitaeten">Aktivitäten</option><option value="dienstleister">Dienstleister</option></select></label>' +
     ebAktivitaetenFilterHtml(true) + '<div id="feedRadarResults"></div></section>';
   document.getElementById('feedRadarType').value = _radarArt;
   _drawFeedRadar();
@@ -7468,14 +7478,18 @@ function _drawFeedRadar() {
   var hits = radarUmkreis(_radarPos, _radarRadius);
   _feedRadarHits = hits;
   var dienstleister = hits.filter(function(hit){ return hit.art === 'dienstleister'; }).length;
-  var events = hits.length - dienstleister;
+  // Gemessen am 15.09.2026 in Köln: 212 Aktivitäten, 1 Demo-Event, 5 Dienstleister
+  // — und die Legende nannte 213 davon „Events", während jede Karte darunter
+  // „EXTERNE AKTIVITÄT" sagte. Der Bestand besteht aus Aktivitäten; Demo-Events
+  // sind der Rest, der verschwindet. Die Zahl heisst deshalb, was sie zählt.
+  var aktivitaeten = hits.length - dienstleister;
   var mapHtml = '<div class="feed-radar-map-shell">'
     + '<div id="feedRadarMap" class="feed-radar-map" role="region" aria-label="Radar-Karte mit Treffern im Umkreis von '
     + _radarRadius + ' Kilometern"></div>'
     + '<div class="feed-radar-map-top"><span id="feedRadarScanStatus"><span class="feed-radar-live-dot scannt"></span>Radar startet …</span>'
     + '<span class="feed-radar-map-radius"><span class="material-icons-round">radio_button_checked</span>' + _radarRadius + ' km</span></div>'
     + '<div class="feed-radar-legend"><span><i class="listing"></i>' + dienstleister + ' Dienstleister</span>'
-    + '<span><i class="event"></i>' + events + ' Events</span><span><i class="approx"></i>ca. = Stadtmitte</span></div></div>';
+    + '<span><i class="event"></i>' + aktivitaeten + ' Aktivitäten</span><span><i class="approx"></i>ca. = Stadtmitte</span></div></div>';
 
   if (!hits.length) {
     var next = RADAR_RADIEN.filter(function(r){ return r > _radarRadius; })[0];
@@ -7487,7 +7501,7 @@ function _drawFeedRadar() {
   root.innerHTML = mapHtml + '<div class="feed-radar-summary"><strong>' + hits.length + ' Möglichkeiten im Radar</strong><span>Tippe einen Marker oder Treffer an · nach Entfernung sortiert</span></div>' +
     '<div class="feed-radar-results">' + hits.map(function(hit, index){
       var d = hit.daten || {};
-      var title = d.title || d.name || 'Event';
+      var title = d.title || d.name || 'Aktivität';
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
       return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
@@ -14889,6 +14903,25 @@ function isEventPlaner() {
   return currentUser && currentUser.role === 'Event-Planer';
 }
 
+/**
+ * Den bei der Registrierung gewaehlten Nickname setzen.
+ *
+ * Bewusst ohne `await` im Anmeldepfad und ohne Fehlermeldung an den Nutzer:
+ * das Konto steht bereits, und ein roter Kasten ueber einem geglueckten
+ * Vorgang verwirrt mehr, als er hilft. Misslingt es (Name inzwischen
+ * vergeben), traegt der Nutzer ihn unter Freunde nach.
+ */
+function _regHandleSetzen(handle) {
+  try {
+    fetch(_apiUrl('social/handle'), {
+      method: 'POST',
+      headers: _apiHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ handle: handle }),
+    }).catch(function () { /* Konto steht, Nickname ist nachtragbar. */ });
+  } catch (e) { /* dito */ }
+}
+
 function isDienstleister() {
   return !!(currentUser && (
     currentUser.role === 'Dienstleister' ||
@@ -15279,6 +15312,8 @@ async function handleRegister(e) {
 
   var firstName = document.getElementById('regFirstName').value.trim();
   var lastName = document.getElementById('regLastName').value.trim();
+  var handleFeld = document.getElementById('regHandle');
+  var handle = handleFeld ? handleFeld.value.trim().toLowerCase() : '';
   var email = document.getElementById('regEmail').value.trim();
   var password = document.getElementById('regPassword').value.trim();
   var activeRole = document.querySelector('.role-toggle:not(.role-toggle-sub) > .role-btn.active');
@@ -15307,6 +15342,14 @@ async function handleRegister(e) {
   if (!email) { _setFieldError('regEmail', 'E-Mail ist erforderlich'); hasError = true; }
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { _setFieldError('regEmail', 'Ungültige E-Mail-Adresse'); hasError = true; }
   if (!password || password.length < 8) { _setFieldError('regPassword', 'Min. 8 Zeichen erforderlich'); hasError = true; }
+  // Der Nickname ist Pflicht: ohne ihn ist niemand in der Personensuche
+  // auffindbar, und genau dafuer gibt es sie. Geprueft wird hier DIESELBE
+  // Regel wie in `eb_handle_gueltig()` — zwei Fassungen einer Regel
+  // driften, und diese driftete in ein 400 nach abgeschickter Anmeldung.
+  if (handleFeld && !/^[a-z0-9._]{3,24}$/.test(handle)) {
+    _setFieldError('regHandle', '3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich');
+    hasError = true;
+  }
   if (termsBox && !termsBox.checked) {
     var termsLabel = form.querySelector('.terms');
     if (termsLabel) { termsLabel.classList.add('has-error'); }
@@ -15382,6 +15425,11 @@ async function handleRegister(e) {
       var strengthBar = document.getElementById('passwordStrength');
       if (strengthBar) strengthBar.style.display = 'none';
       applyLogin('registration');
+      // Der Nickname wird NACH der Anmeldung gesetzt: die Route braucht eine
+      // Sitzung. Schlaegt sie fehl, ist das Konto trotzdem da — der Nutzer
+      // kann ihn unter Freunde nachtragen. Eine geglueckte Registrierung
+      // wegen eines Nicknames zurueckzurollen waere die schlechtere Antwort.
+      if (handle) { _regHandleSetzen(handle); }
       showToast('Willkommen bei Eventbörse, ' + firstName + '!', 'celebration');
     } else {
       _setBtnLoading(submitBtn, false);
@@ -16039,7 +16087,7 @@ var QA_TOPICS = [
       'Für eine Reise in eine andere Stadt: Öffne Aktuelles, wähle Radar, stelle die Zielstadt ein und passe den Radius an. Der genaue Standort bleibt im Browser.'
     ],
     actions: [
-      { label: 'Radar öffnen', icon: 'radar', kind: 'page', target: 'aktuelles' },
+      { label: 'Radar öffnen', icon: 'radar', kind: 'page', target: 'aktuelles', data: 'radar' },
       { label: 'Suche öffnen', icon: 'search', kind: 'page', target: 'browse' }
     ]
   },
@@ -16337,7 +16385,14 @@ function _qaRenderActions(actions) {
   return '<div class="eb-qa-actions">' + actions.map(function(action) {
     var kind = String(action.kind || '').replace(/[^a-z_-]/gi, '');
     var target = String(action.target || '').replace(/[^a-z0-9_-]/gi, '');
-    return '<button type="button" class="eb-qa-action" data-kind="' + kind + '" data-target="' + target + '" onclick="runQaAction(this.dataset.kind,this.dataset.target)">' +
+    // Ein Unterkanal (z. B. `aktuelles/radar`) war bisher unerreichbar: die
+    // Aktion reichte nur `target` weiter, und `navigateTo('aktuelles')`
+    // landet auf „Für dich". Der Knopf „Radar öffnen" hat deshalb NIE zum
+    // Radar geführt — gemeldet am 15.09.2026.
+    var daten = String(action.data || '').replace(/[^a-z0-9_-]/gi, '');
+    return '<button type="button" class="eb-qa-action" data-kind="' + kind + '" data-target="' + target + '"'
+      + (daten ? ' data-data="' + daten + '"' : '')
+      + ' onclick="runQaAction(this.dataset.kind,this.dataset.target,this.dataset.data)">' +
       '<span class="material-icons-round">' + _escHtml(action.icon || 'arrow_forward') + '</span>' +
       _escHtml(action.label || 'Öffnen') +
     '</button>';
@@ -16405,9 +16460,94 @@ function askQaPreset(text) {
   if (input) input.value = '';
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   WAS NICHT GEHT, MUSS DER BOT AUCH SAGEN KÖNNEN
+   ══════════════════════════════════════════════════════════════════════
+
+   Gemeldet am 15.09.2026: der Assistent „verweist nicht richtig" und soll
+   auch Nicht-Möglichkeiten beantworten — ein Eventplaner, der eine
+   Dienstleistung anbieten will, bekam bis dahin den Knopf „Inserat
+   erstellen" und lief in eine Sackgasse.
+
+   Die Rollenzusage war dabei LEER. `_qaAnswer` hängte an jede Antwort
+   „Ich berücksichtige, dass du gerade als X unterwegs bist." — und gab
+   danach für jede Rolle exakt dieselbe Antwort mit denselben Aktionen.
+   Ein Satz, der eine Leistung behauptet und keine erbringt, ist schlimmer
+   als gar keiner: er nimmt dem Nutzer den Verdacht, selbst nachsehen zu
+   müssen. Dieselbe Klasse wie ein Prüfer ohne Subjekt, nur im Gespräch.
+
+   Eine Nicht-Möglichkeit gewinnt VOR der Wissensbasis und vor dem Thema:
+   sie ist die spezifischere Auskunft. Wer „ich will eine Dienstleistung
+   anbieten" fragt, ist mit einem Wissensbasis-Absatz über Inserate nicht
+   bedient, wenn er sie gar nicht anlegen kann.
+
+   Die Auskunft ist am Code belegt, nicht erfunden: `30-auth.js` verlangt
+   für eine Dienstleister-Registrierung einen Firmennamen UND die
+   bestätigte Gewerbeanmeldung (`regGewerbe`), sonst bricht das Formular
+   ab. Der Bot darf das also zusagen.
+*/
+var QA_NICHT_MOEGLICH = [
+  {
+    id: 'planer-will-anbieten',
+    /* Nur für angemeldete Nicht-Dienstleister. Ein Gast bekommt weiter die
+       normale Auskunft — er kann sich ja noch als Dienstleister anmelden,
+       ihm etwas zu verbieten wäre falsch. */
+    gilt: function () {
+      return !!currentUser && !(typeof isDienstleister === 'function' && isDienstleister());
+    },
+    /* Wortgruppen, nicht Einzelwörter: „anbieter" allein trifft auch
+       „welche anbieter gibt es" — eine Suchfrage, keine Absicht zu
+       inserieren. Genau daran wäre die Regel gescheitert. */
+    triggers: [
+      'anbieten', 'inserieren', 'inserat erstellen', 'inserat anlegen',
+      'angebot einstellen', 'angebot erstellen', 'anzeige aufgeben',
+      'verkaufen', 'vermieten',
+      'meine leistung', 'meine dienstleistung', 'selbst dj', 'als dj',
+      /* „Dienstleister werden" und „werde ich Dienstleister" sind derselbe
+         Wunsch in zwei Wortstellungen. Eine Teilzeichenkette trifft nur eine
+         davon — gemessen am Korpus, „Wie werde ich Dienstleister?" fiel
+         durch. Deshalb hier ein Ausdruck statt zweier Wortlisten. */
+      /\b(dienstleister|anbieter)\s+werden\b/,
+      /\bwerde\s+ich\s+(ein\s+)?(dienstleister|anbieter)\b/,
+    ],
+    antwort: 'Das geht mit diesem Konto nicht: du bist als Eventplaner angemeldet, '
+      + 'und Inserate können nur Dienstleister-Konten anlegen. Dafür brauchst du ein '
+      + 'eigenes Dienstleister-Konto — die Registrierung verlangt dort einen Firmennamen '
+      + 'und die Bestätigung, dass eine Gewerbeanmeldung vorliegt. Dein Planer-Konto '
+      + 'bleibt davon unberührt; beide Konten brauchen je eine eigene E-Mail-Adresse.',
+    actions: [
+      { label: 'Dienstleister-Konto anlegen', icon: 'person_add', kind: 'modal', target: 'registerModal' },
+      { label: 'Was Dienstleister brauchen', icon: 'help', kind: 'page', target: 'contact' },
+    ],
+  },
+];
+
+/** Trifft eine Nicht-Möglichkeit? Gibt den Eintrag zurück oder null. */
+function _qaNichtMoeglich(text) {
+  var t = String(text || '').toLowerCase();
+  for (var i = 0; i < QA_NICHT_MOEGLICH.length; i++) {
+    var n = QA_NICHT_MOEGLICH[i];
+    if (!n.gilt()) continue;
+    for (var k = 0; k < n.triggers.length; k++) {
+      var au = n.triggers[k];
+      // Wortgruppen als Zeichenkette, Wortstellungen als Ausdruck.
+      if (au instanceof RegExp ? au.test(t) : t.indexOf(au) !== -1) return n;
+    }
+  }
+  return null;
+}
+
 function _qaAnswer(text) {
   var topic = _qaFindTopic(text);
   _qaAddMessage('user', text);
+
+  // Eine Nicht-Möglichkeit zuerst: sie ist die genauere Auskunft, und ein
+  // Weiterleiten in eine Sackgasse wäre die schlechtere.
+  var nein = _qaNichtMoeglich(text);
+  if (nein) {
+    setTimeout(function () { _qaAddMessage('bot', nein.antwort, nein.actions); }, 180);
+    return;
+  }
 
   // Wissensbasis zuerst befragen: liefert sie einen klaren Treffer, antworten
   // wir inhaltlich statt nur weiterzuleiten (Impuls 5).
@@ -16433,8 +16573,14 @@ function _qaAnswer(text) {
   }
 
   var answer = _qaPick(topic.replies, topic.id + ':' + text);
-  if (topic.id !== 'fallback' && currentUser) {
-    answer += ' Ich berücksichtige, dass du gerade als ' + (currentUser.role || 'Nutzer') + ' unterwegs bist.';
+  /* Hier stand: „Ich berücksichtige, dass du gerade als X unterwegs bist."
+     Der Satz behauptete eine Rücksicht, die es nicht gab — dieselbe Antwort,
+     dieselben Aktionen, für jede Rolle. Er ist ersatzlos weg; die Rolle wirkt
+     jetzt dort, wo sie etwas ändert: in QA_NICHT_MOEGLICH oben und beim Ziel
+     des Auftrags-Knopfes für Dienstleister. */
+  if (topic.id === 'listing' && currentUser
+      && typeof isDienstleister === 'function' && isDienstleister()) {
+    answer += ' Deine laufenden Anfragen und Termine findest du unter Aufträge.';
   }
   if (topic.id === 'fallback') {
     _ebKbNoteMiss(text);
@@ -16459,14 +16605,18 @@ function handleQaAsk(e) {
   _qaAnswer(value);
 }
 
-function runQaAction(kind, target) {
+function runQaAction(kind, target, daten) {
   closeQaBot();
   if (kind === 'modal' && target) {
     openModal(target);
     return;
   }
   if (kind === 'page' && target) {
-    navigateTo(target);
+    // `daten` ist der Unterkanal. Ohne ihn landete „Radar öffnen" auf dem
+    // Feed „Für dich" — der Knopf versprach ein Ziel und lieferte ein
+    // anderes. Genau die Klasse, die dieses Projekt „Beschriftung und Ziel
+    // wandern zusammen" nennt.
+    navigateTo(target, daten || null);
     return;
   }
   if (kind === 'toast') {
