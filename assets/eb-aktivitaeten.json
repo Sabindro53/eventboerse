@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-19T03:33:48.608Z",
+  "stand": "2026-09-20T03:35:33.653Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,71 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 953,
-    "sport": 153,
+    "gesamt": 950,
+    "sport": 150,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83186",
-      "art": "sport",
-      "titel": "Eintracht Frankfurt – SC Freiburg",
-      "beginn": "2026-09-19T13:30:00.000Z",
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83188",
-      "art": "sport",
-      "titel": "Hamburger SV – 1. FC Köln",
-      "beginn": "2026-09-19T13:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83184",
-      "art": "sport",
-      "titel": "VfB Stuttgart – Borussia Dortmund",
-      "beginn": "2026-09-19T16:30:00.000Z",
-      "gebiet": "Stuttgart",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Stuttgart",
-        "lat": 48.7758,
-        "lon": 9.1829,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83190",
       "art": "sport",
