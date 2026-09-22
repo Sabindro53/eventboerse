@@ -49,6 +49,14 @@ require_once get_template_directory() . '/includes/payments/storno-routen.php';
 // `kontaktschutz.spec.js` die Einbindung ausdruecklich mit.
 require_once get_template_directory() . '/includes/chat/kontaktschutz.php';
 
+// PStTG (DAC7): die Angaben, die wir bis zum 31. Januar ans BZSt melden
+// muessen. Fuer vermittelte persoenliche Dienstleistungen gibt es KEINE
+// Bagatellgrenze — die Ausnahme des § 4 Abs. 5 Nr. 4 gilt nur fuer den
+// Verkauf von Waren. Erhoben wird beim Auszahlungsweg, nicht bei der
+// Registrierung; die Begruendung steht im Kopf des Moduls.
+require_once get_template_directory() . '/includes/steuer/psttg.php';
+require_once get_template_directory() . '/includes/steuer/psttg-routen.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *
