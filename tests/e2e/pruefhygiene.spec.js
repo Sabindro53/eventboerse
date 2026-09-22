@@ -1,8 +1,12 @@
 // Was die Prüfungen selbst einhalten müssen.
 //
-// Diese Suite prüft keinen Produktivcode. Sie bewacht zwei Muster, die in
-// diesem Projekt nachweislich wiederkehren und beide dieselbe Wirkung haben:
-// ein Test, der grün aussieht und nichts geprüft hat.
+// Diese Suite prüft keinen Produktivcode. Sie bewacht Muster, die in diesem
+// Projekt nachweislich wiederkehren und alle dieselbe Wirkung haben: ein Test,
+// der grün aussieht und nichts geprüft hat.
+//
+// (Hier stand „zwei Muster", während darunter schon fünf aufgezählt waren —
+// eine Zahl, die ihre eigene Liste nicht mehr trifft, ist der Anfang genau der
+// Drift, die diese Datei bekämpft. Deshalb zählt der Kopf nicht mehr mit.)
 //
 // 1. HTML-KOMMENTARE WEGSCHNEIDEN. CodeQL meldete `.replace(/<!--…-->/g, '')`
 //    am 01.09.2026 in auslieferung.spec.js — und am 02.09. erneut in
@@ -10,12 +14,20 @@
 //    sollte. Eine Fundstelle zu beheben verhindert die nächste nicht, solange
 //    jede Suite den Griff von Hand nachbaut.
 //
+// 1a. HTML-TAGS WEGSCHNEIDEN. Dieselbe Klasse, dasselbe Werkzeug, vierzehn
+//    Tage später: CodeQL meldete am 15.09.2026 `.replace(/<[^>]*>/g, '')` in
+//    barrierefreiheit.spec.js — in einer Prüfung, die ich selbst zur Behebung
+//    eines anderen Befunds geschrieben hatte. Ein Tag ist ein mehrzeichiges
+//    Konstrukt; ein einmaliger Schnitt daran lässt bei Verschachtelung einen
+//    Rest stehen. Der Griff heisst textAusHtml() und SAMMELT, statt zu
+//    schneiden.
+//
 // 2. test.skip. Ein übersprungener Test zählt in keiner Bilanz als Fehler.
 //    Am 31.08.2026 standen drei davon in such-icons.spec.js, alle selbst
 //    eingebaut, einer davon aus einem Grund, der längst behoben war.
 //
-// Beide Regeln gelten für die Prüfungen, nicht für die Prosa: geprüft wird
-// nach Abzug der Kommentare. Diese Datei erklärt beide Muster im Klartext und
+// Alle Regeln gelten für die Prüfungen, nicht für die Prosa: geprüft wird
+// nach Abzug der Kommentare. Diese Datei erklärt jedes Muster im Klartext und
 // dürfte sich sonst selbst melden — genau die Verwechslung, um die es geht.
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
@@ -96,6 +108,39 @@ test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
       + `lib/html-kommentare.js zu benutzen: ${treffer.join(', ')}`).toHaveLength(0);
   });
 
+  test('keine Prüfung schneidet HTML-Tags per replace heraus', () => {
+    // Dieselbe Klasse wie eine Regel weiter oben, an einem anderen
+    // mehrzeichigen Konstrukt: `<<b>script>x` behält nach einem Durchlauf
+    // sein `<script>`, und `<img alt="a > b">` wird am falschen `>`
+    // zerschnitten. lib/html-text.js sammelt den Text, statt zu schneiden.
+    //
+    // Das `lib/`-Verzeichnis ist ausgenommen: dort steht der Griff selbst.
+    const treffer = [];
+    for (const datei of pruefdateien()) {
+      if (path.basename(datei) === SELBST) continue;
+      if (path.basename(path.dirname(datei)) === 'lib') continue;
+      const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
+      if (/\.replace\(\s*\/<\[\^>\]\*>/.test(code)) treffer.push(path.basename(datei));
+    }
+    expect(treffer, `schneidet HTML-Tags selbst heraus statt `
+      + `lib/html-text.js zu benutzen: ${treffer.join(', ')}`).toHaveLength(0);
+  });
+
+  test('der Text-Griff sammelt, statt zu schneiden', () => {
+    // Die Gegenprobe zur Regel darüber. Ohne sie wäre „benutze den Griff"
+    // erfüllbar, indem der Griff dasselbe falsch tut wie die Kopien.
+    const { textAusHtml } = require('./lib/html-text');
+    expect(textAusHtml('<b>Hallo</b> Welt')).toBe('Hallo Welt');
+    // Verschachtelt: ein einmaliger Schnitt liesse hier `<script>x` stehen.
+    expect(textAusHtml('<<b>script>x')).toBe('script>x');
+    // Ein `>` im Attributwert beendet das Tag nicht.
+    expect(textAusHtml('<img alt="a > b">Text')).toBe('Text');
+    // Ein Tag trennt Wörter, sonst würde daraus „ab".
+    expect(textAusHtml('<p>a</p><p>b</p>')).toBe('a b');
+    // Ein unfertiges Tag am Ende verschluckt den Rest, statt ihn auszugeben.
+    expect(textAusHtml('<div')).toBe('');
+  });
+
   test('keine Prüfung baut den JS-Kommentar-Entferner selbst nach', () => {
     // Dieselbe Regel wie eine Zeile darüber, nur für JavaScript — und sie
     // fehlte, weil der Entferner bis zum 13.09.2026 als lokale Kopie in
@@ -133,19 +178,42 @@ test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
     expect(pruefdateien().some((d) => d.includes(path.join('lib', 'js-code.js'))),
       'der gemeinsame Griff für JS-Kommentare fehlt').toBe(true);
 
-    // Gegenprobe 2: `lib/` darf kein Versteck werden. JEDER dort definierte
-    // Entferner muss von mindestens einer Datei ausserhalb benutzt werden —
-    // sonst wäre die aufgeweichte Grenze der bequeme Weg, eine ungenutzte
-    // Kopie abzulegen. Dieselbe Klasse wie ein Prüfer ohne Subjekt.
+    // Gegenprobe 2: `lib/` darf kein Versteck werden. JEDER dort exportierte
+    // Griff muss von mindestens einer Datei ausserhalb benutzt werden — sonst
+    // wäre die aufgeweichte Grenze der bequeme Weg, eine ungenutzte Kopie
+    // abzulegen. Dieselbe Klasse wie ein Prüfer ohne Subjekt.
+    //
+    // Gemessen wird der EXPORT, nicht `function ohne…Kommentare`. Die alte
+    // Fassung kannte nur die Entferner und liess jeden anderen Griff
+    // ungeprüft — ein Wächter, dessen Subjekt nur ein Ausschnitt ist, gibt
+    // eine Entwarnung, die er nicht decken kann. Beim Verallgemeinern fiel
+    // sofort einer auf: js-code.js exportierte `istRegexAnfang`, das
+    // ausserhalb von lib/ niemand benutzt.
+    // Gemessen wird der Nutzerkreis NACH ABZUG DER KOMMENTARE. Der erste
+    // Anlauf las den Rohtext — und die Mutation „ungenutzter Export kehrt
+    // zurück" überlebte prompt, weil der erklärende Kommentar sechs Zeilen
+    // weiter oben `istRegexAnfang` beim Namen nennt. Ein Prüfer, der die
+    // Prosa über seinen Gegenstand für dessen Benutzung hält, winkt genau
+    // den Fall durch, den er finden soll. Neunte Fundstelle dieser Klasse
+    // in diesem Projekt, und die erste in der Datei, die sie bewacht.
     const nutzer = pruefdateien().filter((d) => !d.includes(IN_LIB))
-      .map((d) => fs.readFileSync(d, 'utf8')).join('\n');
+      .map((d) => ohneJsKommentare(fs.readFileSync(d, 'utf8'))).join('\n');
+    let exporte = 0;
     for (const datei of pruefdateien().filter((d) => d.includes(IN_LIB))) {
       const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
-      for (const m of code.matchAll(/function\s+(ohne\w*Kommentare)\s*\(/g)) {
-        expect(nutzer.includes(m[1]),
-          `${path.basename(datei)} definiert ${m[1]}(), aber keine Prüfung benutzt es`).toBe(true);
+      const block = code.match(/module\.exports\s*=\s*\{([^}]*)\}/);
+      expect(block, `${path.basename(datei)} exportiert nichts`).toBeTruthy();
+      for (const roh of block[1].split(',')) {
+        const name = roh.split(':')[0].trim();
+        if (!name) continue;
+        exporte += 1;
+        expect(nutzer.includes(name),
+          `${path.basename(datei)} exportiert ${name}(), aber keine Prüfung benutzt es`).toBe(true);
       }
     }
+    // Gegenprobe zur Gegenprobe: ohne sie wäre die Regel dadurch erfüllt,
+    // dass der Ausdruck nichts mehr findet.
+    expect(exporte, 'es wurde kein einziger Griff geprüft').toBeGreaterThan(4);
   });
 
   test('der Entferner überlebt reguläre Ausdrücke und Adressen', () => {

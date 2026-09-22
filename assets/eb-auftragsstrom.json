@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "erzeugt": "2026-09-14T04:49:12.473Z",
+  "erzeugt": "2026-09-22T09:17:02.790Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
   "journalStand": "2026-09-13T03:35:12.791Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
-  "ausserhalb": [
+  "ausserhalb": [],
+  "verworfen": [
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -15,14 +16,8 @@
         "zeit": "2026-09-13T03:35:12.791Z",
         "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
       },
-      "dateien": [
-        "audit/latest.json",
-        ".github/workflows/site-monitor.yml"
-      ],
-      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
-  "verworfen": [
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "deepseek-code",

@@ -60,6 +60,7 @@
 const { test, expect } = require('@playwright/test');
 const { AxeBuilder } = require('@axe-core/playwright');
 const { openApp, warteAufAppBereit } = require('./helpers');
+const { textAusHtml } = require('./lib/html-text');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -307,8 +308,7 @@ test.describe('Beschriftungen: der Name, den ein Screenreader vorliest', () => {
     const ohne = [];
     for (const m of roh.matchAll(/<label(?:\s+id="[A-Za-z0-9_-]+")?>/g)) {
       const ab = m.index + m[0].length;
-      const text = roh.slice(ab, roh.indexOf('</label>', ab))
-        .replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      const text = textAusHtml(roh.slice(ab, roh.indexOf('</label>', ab)));
       const fenster = roh.slice(ab, ab + 900);
       const naechste = fenster.search(/<label[\s>]/);
       const bereich = naechste > -1 ? fenster.slice(0, naechste) : fenster;
